@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: feedback-postgres
+    environment:
+      POSTGRES_DB: feedback
+      POSTGRES_USER: feedback_user
+      POSTGRES_PASSWORD: feedback_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build: .
+    container_name: feedback-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ADDR: ":8080"
+      ADMIN_BEARER_TOKEN: "replace-with-long-random"
+      DB_DSN: "host=postgres user=feedback_user password=feedback_password dbname=feedback port=5432 sslmode=disable TimeZone=UTC"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
