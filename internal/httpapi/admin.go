@@ -31,7 +31,7 @@ type createSiteRequest struct {
 	AllowedOrigin string `json:"allowed_origin"`
 }
 
-func (h *AdminHandlers) CreateSite(context *gin.Context) {
+func (adminHandlers *AdminHandlers) CreateSite(context *gin.Context) {
 	var payload createSiteRequest
 	if bindErr := context.BindJSON(&payload); bindErr != nil {
 		context.JSON(http.StatusBadRequest, gin.H{"error": "invalid_json"})
@@ -48,7 +48,7 @@ func (h *AdminHandlers) CreateSite(context *gin.Context) {
 		Name:          payload.Name,
 		AllowedOrigin: payload.AllowedOrigin,
 	}
-	if err := h.database.Create(&site).Error; err != nil {
+	if err := adminHandlers.database.Create(&site).Error; err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"error": "save_failed"})
 		return
 	}
@@ -60,14 +60,14 @@ func (h *AdminHandlers) CreateSite(context *gin.Context) {
 	})
 }
 
-func (h *AdminHandlers) ListMessagesBySite(context *gin.Context) {
+func (adminHandlers *AdminHandlers) ListMessagesBySite(context *gin.Context) {
 	siteID := strings.TrimSpace(context.Param("id"))
 	if siteID == "" {
 		context.JSON(http.StatusBadRequest, gin.H{"error": "missing_site"})
 		return
 	}
 	var site model.Site
-	if err := h.database.First(&site, "id = ?", siteID).Error; err != nil {
+	if err := adminHandlers.database.First(&site, "id = ?", siteID).Error; err != nil {
 		context.JSON(http.StatusNotFound, gin.H{"error": "unknown_site"})
 		return
 	}
@@ -80,9 +80,9 @@ func (h *AdminHandlers) ListMessagesBySite(context *gin.Context) {
 		CreatedAt int64  `json:"created_at"`
 	}
 	var out []row
-	if err := h.database.
+	if err := adminHandlers.database.
 		Table("feedbacks").
-		Select("id, contact, message, ip, user_agent, EXTRACT(EPOCH FROM created_at) AS created_at").
+		Select("id, contact, message, ip, user_agent, (EXTRACT(EPOCH FROM created_at)::bigint) AS created_at").
 		Where("site_id = ?", site.ID).
 		Order("created_at desc").
 		Scan(&out).Error; err != nil {
