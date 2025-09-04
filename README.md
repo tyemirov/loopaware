@@ -1,4 +1,4 @@
-# Feedback Service
+# Loopaware
 
 A tiny HTTP service to collect user feedback from your site via a lightweight embeddable widget.
 Built with Go + Gin, GORM, and Postgres.
@@ -193,6 +193,6 @@ GitHub Actions builds, vets, and runs tests:
 
 ## License
 
-Feedback Service is a proprietary software, see [LICENSE](LICENSE) for details.
+Loopaware is a proprietary software, see [LICENSE](LICENSE) for details.
 
 ---
