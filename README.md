@@ -55,6 +55,43 @@ Response:
 
 Paste the `widget` tag into your site HTML (any page on the allowed origin).
 
+## Integrating with your website
+
+Successful integrations start with the admin workflow. Create a site via the admin API and set `allowed_origin` to the exact scheme, host, and optional port where the widget will load. That origin becomes the only third-party domain whose browsers may submit feedback for that site. Each site you configure can target a different partner or product environment by giving it a distinct `allowed_origin` and distributing the generated `<script>` tag to that team.
+
+### Example production setup
+
+Assume your customer-facing app is served from `https://app.example.com` and Loopaware is hosted at `https://feedback.yourcompany.com`.
+
+1. Create a production site:
+
+   ```bash
+   curl -X POST https://feedback.yourcompany.com/api/admin/sites \
+     -H "Authorization: Bearer <your-admin-token>" \
+     -H "Content-Type: application/json" \
+     -d '{"name":"Example App Prod","allowed_origin":"https://app.example.com"}'
+   ```
+
+2. Add the returned widget `<script>` tag to the pages on `https://app.example.com` where you want the feedback button to appear. The admin API currently renders the `<script>` tag with a `src` rooted at your `allowed_origin` (e.g., `https://app.example.com/widget.js?...`), so ensure that file is served from your site and proxies requests back to Loopaware (`https://feedback.yourcompany.com/widget.js?...`) or copies the script into your own static assets.
+
+3. Double-check the proxied `<script src>` ultimately loads from your production Loopaware domain so the widget posts back to the correct API origin.
+
+4. Verify submissions by triggering the widget on `https://app.example.com`, then list recent messages:
+
+   ```bash
+   curl "https://feedback.yourcompany.com/api/admin/sites/<SITE_ID>/messages" \
+     -H "Authorization: Bearer <your-admin-token>"
+   ```
+
+When working with multiple partners, repeat the process per domain. For example, a partner at `https://partners.example.net` should receive a dedicated site whose `allowed_origin` matches that domain and whose widget script includes that site’s identifier.
+
+### Troubleshooting tips
+
+* Ensure browsers send an `Origin` header that matches the configured `allowed_origin`. Static file hosts and reverse proxies sometimes strip or rewrite headers, which will cause the API to reject requests with `403` errors.
+* Confirm the widget is loading from the same Loopaware domain that served the `widget.js` file; mixed environments (e.g., staging widget pointing at production API) will break CORS validation.
+* Rotate the admin bearer token regularly and redistribute the updated value to teams calling admin APIs. A stale or revoked token will return `401 Unauthorized` errors when creating sites or listing messages.
+* If a page embeds multiple third-party scripts, load Loopaware last to avoid other scripts mutating the DOM container the widget depends on.
+
 ### Submit feedback (Public)
 
 ```bash
