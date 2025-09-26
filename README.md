@@ -72,9 +72,9 @@ Assume your customer-facing app is served from `https://app.example.com` and Loo
      -d '{"name":"Example App Prod","allowed_origin":"https://app.example.com"}'
    ```
 
-2. Add the returned widget `<script>` tag to the pages on `https://app.example.com` where you want the feedback button to appear. Host the widget by serving that HTML page from your domain; the script itself continues to load from the Loopaware server (`https://feedback.yourcompany.com/widget.js?...`).
+2. Add the returned widget `<script>` tag to the pages on `https://app.example.com` where you want the feedback button to appear. The admin API currently renders the `<script>` tag with a `src` rooted at your `allowed_origin` (e.g., `https://app.example.com/widget.js?...`), so ensure that file is served from your site and proxies requests back to Loopaware (`https://feedback.yourcompany.com/widget.js?...`) or copies the script into your own static assets.
 
-3. Double-check the `<script src>` uses your production Loopaware domain so the widget posts back to the correct API origin.
+3. Double-check the proxied `<script src>` ultimately loads from your production Loopaware domain so the widget posts back to the correct API origin.
 
 4. Verify submissions by triggering the widget on `https://app.example.com`, then list recent messages:
 
