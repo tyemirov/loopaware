@@ -56,9 +56,11 @@ func main() {
 
 	public := httpapi.NewPublicHandlers(database, logger)
 	admin := httpapi.NewAdminHandlers(database, logger, adminBearerToken)
+	adminWeb := httpapi.NewAdminWebHandlers(logger)
 
 	router.POST("/api/feedback", public.CreateFeedback)
 	router.GET("/widget.js", public.WidgetJS)
+	router.GET("/admin", httpapi.AdminAuthMiddleware(adminBearerToken), adminWeb.RenderAdminInterface)
 
 	adminGroup := router.Group("/api/admin")
 	adminGroup.Use(httpapi.AdminAuthMiddleware(adminBearerToken))
