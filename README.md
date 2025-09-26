@@ -193,6 +193,6 @@ GitHub Actions builds, vets, and runs tests:
 
 ## License
 
-Loopaware is a proprietary software, see [LICENSE](LICENSE) for details.
+Loopaware is proprietary software, see [LICENSE](LICENSE) for details.
 
 ---
