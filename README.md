@@ -27,11 +27,53 @@ The API will be available at `http://localhost:8080`.
 Default env (see `docker-compose.yml`):
 
 * `APP_ADDR=:8080`
-*
-
-`DB_DSN=host=postgres user=feedback_user password=feedback_password dbname=feedback port=5432 sslmode=disable TimeZone=UTC`
-
+* `DB_DSN=host=postgres user=feedback_user password=feedback_password dbname=feedback port=5432 sslmode=disable TimeZone=UTC`
 * `ADMIN_BEARER_TOKEN=replace-with-long-random` (change this!)
+
+### Using the prebuilt Docker image
+
+Authenticate to the GitHub Container Registry (GHCR) first, then pull and run the latest published image. GHCR requires a Personal Access Token with the `read:packages` scope when logging in via Docker.
+
+```bash
+echo "<github-personal-access-token>" | docker login ghcr.io --username <github-username> --password-stdin
+docker pull ghcr.io/<owner>/loopaware:latest
+docker run --rm -p 8080:8080 \
+  -e APP_ADDR=":8080" \
+  -e ADMIN_BEARER_TOKEN="replace-with-long-random" \
+  -e DB_DSN="host=postgres user=feedback_user password=feedback_password dbname=feedback port=5432 sslmode=disable TimeZone=UTC" \
+  ghcr.io/<owner>/loopaware:latest
+```
+
+When running the container standalone, point `DB_DSN` to an accessible Postgres instance (hosted locally or managed elsewhere).
+
+### Docker Compose override to use the registry image
+
+If you prefer Docker Compose, create an override file so the `api` service pulls the published image rather than building from source:
+
+```bash
+cat <<'YAML' > docker-compose.override.yml
+services:
+  api:
+    image: ghcr.io/<owner>/loopaware:latest
+    build: null
+    pull_policy: always
+    environment:
+      APP_ADDR: ":8080"
+      ADMIN_BEARER_TOKEN: "${ADMIN_BEARER_TOKEN:-replace-with-long-random}"
+      DB_DSN: "host=postgres user=feedback_user password=feedback_password dbname=feedback port=5432 sslmode=disable TimeZone=UTC"
+    ports:
+      - "8080:8080"
+YAML
+
+# ensure the latest image is available locally
+docker compose pull api
+# start the stack using the override
+docker compose up
+```
+
+Ensure you are logged into GHCR (see the previous section) before running `docker compose pull api`.
+
+The override removes the original `build` definition, reuses the existing Postgres service, and keeps the same environment variables and port mappings as the default Compose file.
 
 ### Create a site (Admin)
 
