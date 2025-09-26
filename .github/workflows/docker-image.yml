@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - '.github/workflows/docker-image.yml'
+      - 'Dockerfile'
       - 'cmd/**/*.go'
       - 'internal/**/*.go'
       - 'go.mod'
