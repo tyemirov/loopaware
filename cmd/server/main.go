@@ -147,11 +147,11 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 		return environmentErr
 	}
 
-	if markErr := cobra.MarkFlagRequired(commandFlags, flagNameDatabaseDataSourceName); markErr != nil {
+	if markErr := command.MarkFlagRequired(flagNameDatabaseDataSourceName); markErr != nil {
 		return markErr
 	}
 
-	if markErr := cobra.MarkFlagRequired(commandFlags, flagNameAdminBearerToken); markErr != nil {
+	if markErr := command.MarkFlagRequired(flagNameAdminBearerToken); markErr != nil {
 		return markErr
 	}
 
