@@ -179,7 +179,7 @@ func NewAdminWebHandlers(logger *zap.Logger) *AdminWebHandlers {
 	}
 }
 
-// RenderAdminInterface responds with the admin HTML page for authenticated administrators.
+// RenderAdminInterface responds with the admin HTML page that drives API interactions requiring authentication.
 func (adminWebHandlers *AdminWebHandlers) RenderAdminInterface(context *gin.Context) {
 	data := adminTemplateData{
 		PageTitle:              adminPageTitle,

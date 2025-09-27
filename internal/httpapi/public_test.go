@@ -49,7 +49,7 @@ func buildAPIHarness(testingT *testing.T) apiHarness {
 
 	router.POST("/api/feedback", publicHandlers.CreateFeedback)
 	router.GET("/widget.js", publicHandlers.WidgetJS)
-	router.GET("/admin", httpapi.AdminAuthMiddleware(adminBearerToken), adminWebHandlers.RenderAdminInterface)
+	router.GET("/admin", adminWebHandlers.RenderAdminInterface)
 
 	admin := router.Group("/api/admin")
 	admin.Use(httpapi.AdminAuthMiddleware(adminBearerToken))
