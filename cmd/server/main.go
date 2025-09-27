@@ -42,7 +42,7 @@ const (
 	adminRouteSites                  = "/sites"
 	adminRouteMessagesBySite         = "/sites/:id/messages"
 	publicRouteFeedback              = "/api/feedback"
-  adminRoute                       = "/admin"
+	adminRoute                       = "/admin"
 	publicRouteWidget                = "/widget.js"
 	corsOriginWildcard               = "*"
 	corsHeaderAuthorization          = "Authorization"
@@ -232,10 +232,11 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 
 	publicHandlers := httpapi.NewPublicHandlers(database, logger)
 	adminHandlers := httpapi.NewAdminHandlers(database, logger, serverConfig.AdminBearerToken)
+	adminWebHandlers := httpapi.NewAdminWebHandlers(logger)
 
 	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
-  router.GET(adminRoute, adminWeb.RenderAdminInterface)
+	router.GET(adminRoute, adminWebHandlers.RenderAdminInterface)
 
 	adminGroup := router.Group(adminRoutePrefix)
 	adminGroup.Use(httpapi.AdminAuthMiddleware(serverConfig.AdminBearerToken))
