@@ -8,6 +8,13 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	// AuthorizationHeaderName is the HTTP header used for bearer authentication.
+	AuthorizationHeaderName = "Authorization"
+	// BearerTokenPrefix prefixes bearer credentials in the Authorization header.
+	BearerTokenPrefix = "Bearer "
+)
+
 func RequestLogger(logger *zap.Logger) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		start := time.Now()
@@ -29,12 +36,12 @@ func AdminAuthMiddleware(adminBearerToken string) gin.HandlerFunc {
 			context.AbortWithStatusJSON(503, gin.H{"error": "admin disabled"})
 			return
 		}
-		authorizationHeader := strings.TrimSpace(context.GetHeader("Authorization"))
-		if !strings.HasPrefix(authorizationHeader, "Bearer ") {
+		authorizationHeader := strings.TrimSpace(context.GetHeader(AuthorizationHeaderName))
+		if !strings.HasPrefix(authorizationHeader, BearerTokenPrefix) {
 			context.AbortWithStatusJSON(401, gin.H{"error": "missing bearer"})
 			return
 		}
-		provided := strings.TrimPrefix(authorizationHeader, "Bearer ")
+		provided := strings.TrimPrefix(authorizationHeader, BearerTokenPrefix)
 		if provided != adminBearerToken {
 			context.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
 			return

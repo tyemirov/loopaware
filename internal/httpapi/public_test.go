@@ -45,9 +45,11 @@ func buildAPIHarness(testingT *testing.T) apiHarness {
 	publicHandlers := httpapi.NewPublicHandlers(db, logger)
 	adminBearerToken := "test-admin-token"
 	adminHandlers := httpapi.NewAdminHandlers(db, logger, adminBearerToken)
+	adminWebHandlers := httpapi.NewAdminWebHandlers(logger)
 
 	router.POST("/api/feedback", publicHandlers.CreateFeedback)
 	router.GET("/widget.js", publicHandlers.WidgetJS)
+	router.GET("/admin", adminWebHandlers.RenderAdminInterface)
 
 	admin := router.Group("/api/admin")
 	admin.Use(httpapi.AdminAuthMiddleware(adminBearerToken))
