@@ -4,7 +4,13 @@ on:
   push:
     branches:
       - master
+    paths:
+      - '**/*.go'
   pull_request:
+    branches:
+      - master
+    paths:
+      - '**/*.go'
 
 concurrency:
   group: ci-${{ github.ref }}
