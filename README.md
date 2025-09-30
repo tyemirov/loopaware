@@ -17,7 +17,7 @@ Built with Go + Gin, GORM, and Postgres.
 
 ## Quick Start (Docker)
 
-```bash
+```shell
 # from repo root
 docker compose up --build
 ```
@@ -34,7 +34,7 @@ Default env (see `docker-compose.yml`):
 
 Authenticate to the GitHub Container Registry (GHCR) first, then pull and run the latest published image. GHCR requires a Personal Access Token with the `read:packages` scope when logging in via Docker.
 
-```bash
+```shell
 echo "<github-personal-access-token>" | docker login ghcr.io --username <github-username> --password-stdin
 docker pull ghcr.io/<owner>/loopaware:latest
 docker run --rm -p 8080:8080 \
@@ -50,7 +50,7 @@ When running the container standalone, point `DB_DSN` to an accessible Postgres 
 
 If you prefer Docker Compose, create an override file so the `api` service pulls the published image rather than building from source:
 
-```bash
+```shell
 cat <<'YAML' > docker-compose.override.yml
 services:
   api:
@@ -77,7 +77,7 @@ The override removes the original `build` definition, reuses the existing Postgr
 
 ### Create a site (Admin)
 
-```bash
+```shell
 curl -X POST http://localhost:8080/api/admin/sites \
   -H "Authorization: Bearer replace-with-long-random" \
   -H "Content-Type: application/json" \
@@ -113,12 +113,17 @@ Assume your customer-facing app is served from `https://app.example.com` and Loo
 
 1. Create a production site:
 
-   ```bash
-   curl -X POST https://feedback.yourcompany.com/api/admin/sites \
-     -H "Authorization: Bearer <your-admin-token>" \
+Optional: generate a random `ADMIN_BEARER_TOKEN` for your admin API.
+    ```shell
+    openssl rand -hex 16
+    ```
+
+    ```shell
+    curl -X POST https://feedback.mprlab.com/api/admin/sites \
+     -H "Authorization: Bearer df608d17c4c965a5159ecc9d2b581b4d" \
      -H "Content-Type: application/json" \
-     -d '{"name":"Example App Prod","allowed_origin":"https://app.example.com"}'
-   ```
+     -d '{"name":"SeeFood","allowed_origin":"https://seefood.mprlab.com"}'
+    ```
 
 2. Add the returned widget `<script>` tag to the pages on `https://app.example.com` where you want the feedback button
    to appear. The admin API currently renders the `<script>` tag with a `src` rooted at your `allowed_origin` (e.g.,
@@ -130,7 +135,7 @@ Assume your customer-facing app is served from `https://app.example.com` and Loo
 
 4. Verify submissions by triggering the widget on `https://app.example.com`, then list recent messages:
 
-   ```bash
+   ```shell
    curl "https://feedback.yourcompany.com/api/admin/sites/<SITE_ID>/messages" \
      -H "Authorization: Bearer <your-admin-token>"
    ```
@@ -152,7 +157,7 @@ widget script includes that site’s identifier.
 
 ### Submit feedback (Public)
 
-```bash
+```shell
 curl -X POST http://localhost:8080/api/feedback \
   -H "Origin: http://localhost:8080" \
   -H "Content-Type: application/json" \
@@ -161,7 +166,7 @@ curl -X POST http://localhost:8080/api/feedback \
 
 ### List messages (Admin)
 
-```bash
+```shell
 curl "http://localhost:8080/api/admin/sites/<SITE_ID>/messages" \
   -H "Authorization: Bearer replace-with-long-random"
 ```
@@ -172,7 +177,7 @@ curl "http://localhost:8080/api/admin/sites/<SITE_ID>/messages" \
 
 You need a Postgres DSN. Examples:
 
-```bash
+```shell
 export DB_DSN="host=127.0.0.1 port=5432 user=postgres password=postgres dbname=feedback sslmode=disable TimeZone=UTC"
 export ADMIN_BEARER_TOKEN="change-me"
 
@@ -187,7 +192,7 @@ go run ./cmd/server
 Tests spin up an **embedded Postgres** instance in-process (via `github.com/fergusstrange/embedded-postgres`) — no
 Docker needed.
 
-```bash
+```shell
 go test ./... -v
 ```
 
