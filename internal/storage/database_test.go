@@ -1,0 +1,100 @@
+package storage_test
+
+import (
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
+	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
+	"github.com/MarkoPoloResearchLab/feedback_svc/internal/testutil"
+)
+
+const (
+	testSiteNameValue                = "Test Site"
+	testSiteAllowedOriginValue       = "http://localhost"
+	testFeedbackContactValue         = "user@example.com"
+	testFeedbackMessageValue         = "Hello"
+	testFeedbackIPAddressValue       = "127.0.0.1"
+	testFeedbackUserAgentValue       = "test-agent"
+	testUnsupportedDriverName        = "unsupported-driver"
+	testUnsupportedDriverDescription = "unsupported driver"
+	testMissingDriverDescription     = "missing driver"
+	testMissingDataSourceDescription = "missing data source"
+)
+
+func TestOpenDatabaseWithSQLiteConfiguration(t *testing.T) {
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
+
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(t, openErr)
+	require.NotNil(t, database)
+
+	require.NoError(t, storage.AutoMigrate(database))
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          testSiteNameValue,
+		AllowedOrigin: testSiteAllowedOriginValue,
+	}
+	require.NoError(t, database.Create(&site).Error)
+
+	feedback := model.Feedback{
+		ID:        storage.NewID(),
+		SiteID:    site.ID,
+		Contact:   testFeedbackContactValue,
+		Message:   testFeedbackMessageValue,
+		IP:        testFeedbackIPAddressValue,
+		UserAgent: testFeedbackUserAgentValue,
+	}
+	require.NoError(t, database.Create(&feedback).Error)
+
+	var fetchedSite model.Site
+	require.NoError(t, database.First(&fetchedSite, "id = ?", site.ID).Error)
+	require.Equal(t, testSiteNameValue, fetchedSite.Name)
+}
+
+func TestOpenDatabaseValidation(t *testing.T) {
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
+
+	testCases := []struct {
+		name              string
+		configuration     storage.Config
+		expectedRootError error
+	}{
+		{
+			name: testMissingDriverDescription,
+			configuration: storage.Config{
+				DriverName:     "",
+				DataSourceName: sqliteDatabase.DataSourceName(),
+			},
+			expectedRootError: storage.ErrMissingDatabaseDriverName,
+		},
+		{
+			name: testUnsupportedDriverDescription,
+			configuration: storage.Config{
+				DriverName:     testUnsupportedDriverName,
+				DataSourceName: sqliteDatabase.DataSourceName(),
+			},
+			expectedRootError: storage.ErrUnsupportedDatabaseDriver,
+		},
+		{
+			name: testMissingDataSourceDescription,
+			configuration: storage.Config{
+				DriverName:     storage.DriverNameSQLite,
+				DataSourceName: "",
+			},
+			expectedRootError: storage.ErrMissingDataSourceName,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(testingT *testing.T) {
+			_, openErr := storage.OpenDatabase(testCase.configuration)
+			require.Error(testingT, openErr)
+			require.True(testingT, errors.Is(openErr, testCase.expectedRootError))
+		})
+	}
+}

@@ -1,31 +1,18 @@
 package httpapi_test
 
 import (
-	"fmt"
 	"net/http"
-	"os"
 	testingpkg "testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/testutil"
 )
 
 const (
 	adminDashboardTitleText = "LoopAware Admin Dashboard"
 	authorizationHeaderName = "Authorization"
 	bearerTokenPrefix       = "Bearer "
+	invalidBearerTokenValue = "invalid"
 )
-
-func TestMain(m *testingpkg.M) {
-	if err := testutil.StartEmbeddedPostgresOnce(); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to start embedded Postgres: %v\n", err)
-		os.Exit(1)
-	}
-	code := m.Run()
-	testutil.StopEmbeddedPostgresOnce()
-	os.Exit(code)
-}
 
 func TestAdminPageAccessibility(t *testingpkg.T) {
 	apiHarness := buildAPIHarness(t)
@@ -49,7 +36,7 @@ func TestAdminPageAccessibility(t *testingpkg.T) {
 		{
 			name: "invalid bearer token",
 			headers: map[string]string{
-				authorizationHeaderName: bearerTokenPrefix + "invalid",
+				authorizationHeaderName: bearerTokenPrefix + invalidBearerTokenValue,
 			},
 			expectedStatus: http.StatusOK,
 		},

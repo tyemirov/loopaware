@@ -71,6 +71,15 @@ func (adminHandlers *AdminHandlers) ListMessagesBySite(context *gin.Context) {
 		context.JSON(http.StatusNotFound, gin.H{"error": "unknown_site"})
 		return
 	}
+	var feedbacks []model.Feedback
+	if err := adminHandlers.database.
+		Where("site_id = ?", site.ID).
+		Order("created_at desc").
+		Find(&feedbacks).Error; err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"error": "query_failed"})
+		return
+	}
+
 	type row struct {
 		ID        string `json:"id"`
 		Contact   string `json:"contact"`
@@ -79,15 +88,18 @@ func (adminHandlers *AdminHandlers) ListMessagesBySite(context *gin.Context) {
 		UserAgent string `json:"user_agent"`
 		CreatedAt int64  `json:"created_at"`
 	}
-	var out []row
-	if err := adminHandlers.database.
-		Table("feedbacks").
-		Select("id, contact, message, ip, user_agent, (EXTRACT(EPOCH FROM created_at)::bigint) AS created_at").
-		Where("site_id = ?", site.ID).
-		Order("created_at desc").
-		Scan(&out).Error; err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{"error": "query_failed"})
-		return
+
+	messages := make([]row, 0, len(feedbacks))
+	for _, feedback := range feedbacks {
+		messages = append(messages, row{
+			ID:        feedback.ID,
+			Contact:   feedback.Contact,
+			Message:   feedback.Message,
+			IP:        feedback.IP,
+			UserAgent: feedback.UserAgent,
+			CreatedAt: feedback.CreatedAt.Unix(),
+		})
 	}
-	context.JSON(http.StatusOK, gin.H{"site_id": site.ID, "messages": out})
+
+	context.JSON(http.StatusOK, gin.H{"site_id": site.ID, "messages": messages})
 }
