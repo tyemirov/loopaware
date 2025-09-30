@@ -29,15 +29,20 @@ const (
 	logEventListening                = "listening"
 	logFieldAddress                  = "addr"
 	flagNameApplicationAddress       = "app-addr"
+	flagNameDatabaseDriver           = "db-driver"
 	flagNameDatabaseDataSourceName   = "db-dsn"
 	flagNameAdminBearerToken         = "admin-bearer-token"
 	flagUsageApplicationAddress      = "address for the HTTP server to listen on"
-	flagUsageDatabaseDataSourceName  = "PostgreSQL connection string"
+	flagUsageDatabaseDriver          = "database driver (e.g. sqlite)"
+	flagUsageDatabaseDataSourceName  = "database connection string"
 	flagUsageAdminBearerToken        = "bearer token required for admin API access"
 	environmentKeyApplicationAddress = "APP_ADDR"
+	environmentKeyDatabaseDriverName = "DB_DRIVER"
 	environmentKeyDatabaseDataSource = "DB_DSN"
 	environmentKeyAdminBearerToken   = "ADMIN_BEARER_TOKEN"
 	defaultApplicationAddress        = ":8080"
+	sqliteFileDataSourceNamePattern  = "file:%s?_foreign_keys=on"
+	defaultSQLiteDatabaseFileName    = "loopaware.sqlite"
 	adminRoutePrefix                 = "/api/admin"
 	adminRouteSites                  = "/sites"
 	adminRouteMessagesBySite         = "/sites/:id/messages"
@@ -61,21 +66,24 @@ const (
 )
 
 var (
-	corsAllowedMethods = []string{httpMethodPost, httpMethodGet, httpMethodOptions}
-	corsAllowedHeaders = []string{corsHeaderAuthorization, corsHeaderContentType}
-	corsExposedHeaders = []string{corsHeaderContentType}
-	corsAllowOrigins   = []string{corsOriginWildcard}
+	corsAllowedMethods          = []string{httpMethodPost, httpMethodGet, httpMethodOptions}
+	corsAllowedHeaders          = []string{corsHeaderAuthorization, corsHeaderContentType}
+	corsExposedHeaders          = []string{corsHeaderContentType}
+	corsAllowOrigins            = []string{corsOriginWildcard}
+	defaultDatabaseDriverName   = storage.DriverNameSQLite
+	defaultSQLiteDataSourceName = fmt.Sprintf(sqliteFileDataSourceNamePattern, defaultSQLiteDatabaseFileName)
 )
 
 // ServerConfig captures configuration needed to run the server.
 type ServerConfig struct {
 	ApplicationAddress     string
+	DatabaseDriverName     string
 	DatabaseDataSourceName string
 	AdminBearerToken       string
 }
 
-// DatabaseOpener opens a database connection using the provided data source name.
-type DatabaseOpener func(string) (*gorm.DB, error)
+// DatabaseOpener opens a database connection using the provided configuration.
+type DatabaseOpener func(storage.Config) (*gorm.DB, error)
 
 // ServerApplication constructs and executes the server command.
 type ServerApplication struct {
@@ -87,7 +95,7 @@ type ServerApplication struct {
 func NewServerApplication() *ServerApplication {
 	return &ServerApplication{
 		configurationLoader: viper.New(),
-		databaseOpener:      storage.OpenPostgres,
+		databaseOpener:      storage.OpenDatabase,
 	}
 }
 
@@ -115,16 +123,22 @@ func (application *ServerApplication) Command() (*cobra.Command, error) {
 
 func (application *ServerApplication) configureCommand(command *cobra.Command) error {
 	application.configurationLoader.SetDefault(environmentKeyApplicationAddress, defaultApplicationAddress)
-	application.configurationLoader.SetDefault(environmentKeyDatabaseDataSource, "")
+	application.configurationLoader.SetDefault(environmentKeyDatabaseDriverName, defaultDatabaseDriverName)
+	application.configurationLoader.SetDefault(environmentKeyDatabaseDataSource, defaultSQLiteDataSourceName)
 	application.configurationLoader.SetDefault(environmentKeyAdminBearerToken, "")
 	application.configurationLoader.AutomaticEnv()
 
 	commandFlags := command.Flags()
 	commandFlags.String(flagNameApplicationAddress, defaultApplicationAddress, flagUsageApplicationAddress)
-	commandFlags.String(flagNameDatabaseDataSourceName, "", flagUsageDatabaseDataSourceName)
+	commandFlags.String(flagNameDatabaseDriver, defaultDatabaseDriverName, flagUsageDatabaseDriver)
+	commandFlags.String(flagNameDatabaseDataSourceName, defaultSQLiteDataSourceName, flagUsageDatabaseDataSourceName)
 	commandFlags.String(flagNameAdminBearerToken, "", flagUsageAdminBearerToken)
 
 	if bindErr := application.bindFlag(commandFlags, environmentKeyApplicationAddress, flagNameApplicationAddress); bindErr != nil {
+		return bindErr
+	}
+
+	if bindErr := application.bindFlag(commandFlags, environmentKeyDatabaseDriverName, flagNameDatabaseDriver); bindErr != nil {
 		return bindErr
 	}
 
@@ -140,16 +154,16 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 		return environmentErr
 	}
 
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyDatabaseDriverName, flagNameDatabaseDriver); environmentErr != nil {
+		return environmentErr
+	}
+
 	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyDatabaseDataSource, flagNameDatabaseDataSourceName); environmentErr != nil {
 		return environmentErr
 	}
 
 	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyAdminBearerToken, flagNameAdminBearerToken); environmentErr != nil {
 		return environmentErr
-	}
-
-	if markErr := command.MarkFlagRequired(flagNameDatabaseDataSourceName); markErr != nil {
-		return markErr
 	}
 
 	if markErr := command.MarkFlagRequired(flagNameAdminBearerToken); markErr != nil {
@@ -192,8 +206,13 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 
 	serverConfig := ServerConfig{
 		ApplicationAddress:     application.configurationLoader.GetString(environmentKeyApplicationAddress),
+		DatabaseDriverName:     strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDriverName)),
 		DatabaseDataSourceName: strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDataSource)),
 		AdminBearerToken:       strings.TrimSpace(application.configurationLoader.GetString(environmentKeyAdminBearerToken)),
+	}
+
+	if serverConfig.DatabaseDriverName == storage.DriverNameSQLite && serverConfig.DatabaseDataSourceName == "" {
+		serverConfig.DatabaseDataSourceName = defaultSQLiteDataSourceName
 	}
 
 	if validationErr := application.ensureRequiredConfiguration(serverConfig); validationErr != nil {
@@ -208,7 +227,10 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		_ = logger.Sync()
 	}()
 
-	database, databaseErr := application.databaseOpener(serverConfig.DatabaseDataSourceName)
+	database, databaseErr := application.databaseOpener(storage.Config{
+		DriverName:     serverConfig.DatabaseDriverName,
+		DataSourceName: serverConfig.DatabaseDataSourceName,
+	})
 	if databaseErr != nil {
 		logger.Fatal(loggerContextOpenDatabase, zap.Error(databaseErr))
 	}
@@ -260,7 +282,11 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 func (application *ServerApplication) ensureRequiredConfiguration(configuration ServerConfig) error {
 	var missingParameters []string
 
-	if configuration.DatabaseDataSourceName == "" {
+	if configuration.DatabaseDriverName == "" {
+		missingParameters = append(missingParameters, flagNameDatabaseDriver)
+	}
+
+	if configuration.DatabaseDriverName != storage.DriverNameSQLite && configuration.DatabaseDataSourceName == "" {
 		missingParameters = append(missingParameters, flagNameDatabaseDataSourceName)
 	}
 
