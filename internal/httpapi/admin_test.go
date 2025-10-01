@@ -1,133 +1,177 @@
 package httpapi_test
 
 import (
+	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	testingpkg "testing"
+	"net/http/httptest"
+	"testing"
+	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+
+	"github.com/MarkoPoloResearchLab/feedback_svc/internal/httpapi"
+	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
+	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
+	"github.com/MarkoPoloResearchLab/feedback_svc/internal/testutil"
 )
 
 const (
-	listMessagesSiteName          = "List Messages Site"
-	listMessagesAllowedOrigin     = "http://listmessages.example"
-	adminCreateSitePath           = "/api/admin/sites"
-	adminListMessagesPathTemplate = "/api/admin/sites/%s/messages"
-	publicFeedbackPath            = "/api/feedback"
-	originHeaderName              = "Origin"
-	jsonFieldSiteIdentifier       = "site_id"
-	jsonFieldName                 = "name"
-	jsonFieldAllowedOrigin        = "allowed_origin"
-	jsonFieldContact              = "contact"
-	jsonFieldMessage              = "message"
+	testAdminEmailAddress = "admin@example.com"
+	testUserEmailAddress  = "user@example.com"
+	testSessionContextKey = "httpapi_current_user"
 )
 
-type feedbackSubmission struct {
-	contact string
-	message string
+type siteTestHarness struct {
+	handlers *httpapi.SiteHandlers
+	database *gorm.DB
 }
 
-func TestAdminListMessagesBySiteReturnsOrderedUnixTimestamps(testingT *testingpkg.T) {
-	testCases := []struct {
-		name                 string
-		feedbackSubmissions  []feedbackSubmission
-		expectedMessageCount int
-	}{
-		{
-			name: "single feedback message",
-			feedbackSubmissions: []feedbackSubmission{
-				{contact: "single@example.com", message: "Only message"},
-			},
-			expectedMessageCount: 1,
-		},
-		{
-			name: "multiple feedback messages",
-			feedbackSubmissions: []feedbackSubmission{
-				{contact: "first@example.com", message: "First feedback"},
-				{contact: "second@example.com", message: "Second feedback"},
-			},
-			expectedMessageCount: 2,
-		},
+func newSiteTestHarness(testingT *testing.T) siteTestHarness {
+	testingT.Helper()
+
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, openErr)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	handlers := httpapi.NewSiteHandlers(database, zap.NewNop())
+
+	return siteTestHarness{handlers: handlers, database: database}
+}
+
+func TestListMessagesBySiteReturnsOrderedUnixTimestamps(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "List Messages Site",
+		AllowedOrigin: "http://list.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	firstFeedback := model.Feedback{
+		ID:        storage.NewID(),
+		SiteID:    site.ID,
+		Contact:   "first@example.com",
+		Message:   "First",
+		CreatedAt: time.Now().Add(-time.Minute),
+	}
+	secondFeedback := model.Feedback{
+		ID:        storage.NewID(),
+		SiteID:    site.ID,
+		Contact:   "second@example.com",
+		Message:   "Second",
+		CreatedAt: time.Now(),
+	}
+	require.NoError(testingT, harness.database.Create(&firstFeedback).Error)
+	require.NoError(testingT, harness.database.Create(&secondFeedback).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/messages", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+
+	harness.handlers.ListMessagesBySite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody struct {
+		SiteID   string `json:"site_id"`
+		Messages []struct {
+			Identifier string `json:"id"`
+			CreatedAt  int64  `json:"created_at"`
+		} `json:"messages"`
+	}
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, site.ID, responseBody.SiteID)
+	require.Len(testingT, responseBody.Messages, 2)
+	require.GreaterOrEqual(testingT, responseBody.Messages[0].CreatedAt, responseBody.Messages[1].CreatedAt)
+}
+
+func TestNonAdminCannotAccessForeignSite(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Foreign Site",
+		AllowedOrigin: "http://foreign.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/messages", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
+
+	harness.handlers.ListMessagesBySite(context)
+	require.Equal(testingT, http.StatusForbidden, recorder.Code)
+}
+
+func TestCreateSiteRequiresAdmin(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	payload := map[string]string{
+		"name":           "Owned Site",
+		"allowed_origin": "http://owned.example",
+		"owner_email":    testUserEmailAddress,
 	}
 
-	for _, testCase := range testCases {
-		testCase := testCase
-		testingT.Run(testCase.name, func(t *testingpkg.T) {
-			apiHarness := buildAPIHarness(t)
+	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
 
-			adminHeaders := map[string]string{
-				authorizationHeaderName: bearerTokenPrefix + apiHarness.adminBearerToken,
-			}
+	harness.handlers.CreateSite(context)
+	require.Equal(testingT, http.StatusForbidden, recorder.Code)
+}
 
-			createSiteRecorder := performJSONRequest(t, apiHarness.router, http.MethodPost, adminCreateSitePath, map[string]string{
-				jsonFieldName:          listMessagesSiteName,
-				jsonFieldAllowedOrigin: listMessagesAllowedOrigin,
-			}, adminHeaders)
-			require.Equal(t, http.StatusOK, createSiteRecorder.Code)
+func TestUpdateSiteAllowsOwnerToChangeDetails(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
 
-			var createSiteResponse struct {
-				Identifier string `json:"id"`
-			}
-			require.NoError(t, json.Unmarshal(createSiteRecorder.Body.Bytes(), &createSiteResponse))
-			require.NotEmpty(t, createSiteResponse.Identifier)
-
-			for _, submission := range testCase.feedbackSubmissions {
-				feedbackPayload := map[string]any{
-					jsonFieldSiteIdentifier: createSiteResponse.Identifier,
-					jsonFieldContact:        submission.contact,
-					jsonFieldMessage:        submission.message,
-				}
-				feedbackHeaders := map[string]string{
-					originHeaderName: listMessagesAllowedOrigin,
-				}
-				feedbackRecorder := performJSONRequest(t, apiHarness.router, http.MethodPost, publicFeedbackPath, feedbackPayload, feedbackHeaders)
-				require.Equal(t, http.StatusOK, feedbackRecorder.Code)
-			}
-
-			listMessagesPath := fmt.Sprintf(adminListMessagesPathTemplate, createSiteResponse.Identifier)
-			listRecorder := performJSONRequest(t, apiHarness.router, http.MethodGet, listMessagesPath, nil, adminHeaders)
-			require.Equal(t, http.StatusOK, listRecorder.Code)
-
-			var listResponse struct {
-				SiteID   string `json:"site_id"`
-				Messages []struct {
-					Identifier string `json:"id"`
-					Contact    string `json:"contact"`
-					Message    string `json:"message"`
-					IP         string `json:"ip"`
-					UserAgent  string `json:"user_agent"`
-					CreatedAt  int64  `json:"created_at"`
-				} `json:"messages"`
-			}
-			require.NoError(t, json.Unmarshal(listRecorder.Body.Bytes(), &listResponse))
-
-			require.Equal(t, createSiteResponse.Identifier, listResponse.SiteID)
-			require.Len(t, listResponse.Messages, testCase.expectedMessageCount)
-
-			expectedSubmissions := make(map[feedbackSubmission]int)
-			for _, submission := range testCase.feedbackSubmissions {
-				expectedSubmissions[submission]++
-			}
-
-			for messageIndex := range listResponse.Messages {
-				message := listResponse.Messages[messageIndex]
-				require.NotEmpty(t, message.Identifier)
-				require.Greater(t, message.CreatedAt, int64(0))
-				if messageIndex > 0 {
-					previousMessage := listResponse.Messages[messageIndex-1]
-					require.GreaterOrEqual(t, previousMessage.CreatedAt, message.CreatedAt)
-				}
-				submissionKey := feedbackSubmission{contact: message.Contact, message: message.Message}
-				remainingCount, exists := expectedSubmissions[submissionKey]
-				require.True(t, exists)
-				require.Greater(t, remainingCount, 0)
-				expectedSubmissions[submissionKey] = remainingCount - 1
-			}
-
-			for submissionKey, remainingCount := range expectedSubmissions {
-				require.Equal(t, 0, remainingCount, "missing submission %#v", submissionKey)
-			}
-		})
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Owner Site",
+		AllowedOrigin: "http://owner.example",
+		OwnerEmail:    testUserEmailAddress,
 	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	payload := map[string]string{
+		"name":           "Updated Name",
+		"allowed_origin": "http://updated.example",
+	}
+
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID, payload)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
+
+	harness.handlers.UpdateSite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody map[string]any
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, "Updated Name", responseBody["name"])
+	require.Equal(testingT, "http://updated.example", responseBody["allowed_origin"])
+}
+
+func newJSONContext(method string, path string, body any) (*httptest.ResponseRecorder, *gin.Context) {
+	recorder := httptest.NewRecorder()
+	var requestBody *bytes.Reader
+	if body != nil {
+		encoded, _ := json.Marshal(body)
+		requestBody = bytes.NewReader(encoded)
+	} else {
+		requestBody = bytes.NewReader(nil)
+	}
+
+	request := httptest.NewRequest(method, path, requestBody)
+	if body != nil {
+		request.Header.Set("Content-Type", "application/json")
+	}
+
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = request
+	return recorder, context
 }

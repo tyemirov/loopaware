@@ -13,6 +13,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/temirov/GAuss/pkg/constants"
+	"github.com/temirov/GAuss/pkg/gauss"
+	"github.com/temirov/GAuss/pkg/session"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
@@ -28,45 +31,65 @@ const (
 	loggerCreationErrorMessage       = "logger"
 	logEventListening                = "listening"
 	logFieldAddress                  = "addr"
+	flagNameConfigFile               = "config"
 	flagNameApplicationAddress       = "app-addr"
 	flagNameDatabaseDriver           = "db-driver"
 	flagNameDatabaseDataSourceName   = "db-dsn"
-	flagNameAdminBearerToken         = "admin-bearer-token"
+	flagNameGoogleClientID           = "google-client-id"
+	flagNameGoogleClientSecret       = "google-client-secret"
+	flagNameSessionSecret            = "session-secret"
+	flagNamePublicBaseURL            = "public-base-url"
+	flagUsageConfigFile              = "path to configuration file"
 	flagUsageApplicationAddress      = "address for the HTTP server to listen on"
 	flagUsageDatabaseDriver          = "database driver (e.g. sqlite)"
 	flagUsageDatabaseDataSourceName  = "database connection string"
-	flagUsageAdminBearerToken        = "bearer token required for admin API access"
+	flagUsageGoogleClientID          = "Google OAuth client ID"
+	flagUsageGoogleClientSecret      = "Google OAuth client secret"
+	flagUsageSessionSecret           = "session secret for browser sessions"
+	flagUsagePublicBaseURL           = "public base URL for OAuth callbacks"
 	environmentKeyApplicationAddress = "APP_ADDR"
 	environmentKeyDatabaseDriverName = "DB_DRIVER"
 	environmentKeyDatabaseDataSource = "DB_DSN"
-	environmentKeyAdminBearerToken   = "ADMIN_BEARER_TOKEN"
+	environmentKeyGoogleClientID     = "GOOGLE_CLIENT_ID"
+	environmentKeyGoogleClientSecret = "GOOGLE_CLIENT_SECRET"
+	environmentKeySessionSecret      = "SESSION_SECRET"
+	environmentKeyPublicBaseURL      = "PUBLIC_BASE_URL"
+	configurationKeyAdmins           = "admins"
 	defaultApplicationAddress        = ":8080"
 	sqliteFileDataSourceNamePattern  = "file:%s?_foreign_keys=on"
 	defaultSQLiteDatabaseFileName    = "loopaware.sqlite"
-	adminRoutePrefix                 = "/api/admin"
-	adminRouteSites                  = "/sites"
-	adminRouteMessagesBySite         = "/sites/:id/messages"
+	defaultConfigFileName            = "config.yaml"
+	defaultPublicBaseURL             = "http://localhost:8080"
 	publicRouteFeedback              = "/api/feedback"
-	adminRoute                       = "/admin"
 	publicRouteWidget                = "/widget.js"
+	dashboardRoute                   = "/app"
+	apiRoutePrefix                   = "/api"
+	apiRouteMe                       = "/me"
+	apiRouteSites                    = "/sites"
+	apiRouteSiteUpdate               = "/sites/:id"
+	apiRouteSiteMessages             = "/sites/:id/messages"
 	corsOriginWildcard               = "*"
 	corsHeaderAuthorization          = "Authorization"
 	corsHeaderContentType            = "Content-Type"
 	httpMethodGet                    = "GET"
 	httpMethodOptions                = "OPTIONS"
 	httpMethodPost                   = "POST"
+	httpMethodPatch                  = "PATCH"
 	loggerContextOpenDatabase        = "open_db"
 	loggerContextAutoMigrate         = "migrate"
 	loggerContextServer              = "server"
+	loggerContextAuthService         = "auth_service"
+	loggerContextTemplate            = "template"
 	readHeaderTimeoutSeconds         = 5
 	unexpectedArgumentsMessage       = "unexpected command arguments"
 	commandInitializationFailure     = "failed to configure command"
 	flagNotDefinedMessage            = "flag %s not defined"
 	environmentConfigurationError    = "failed to apply environment configuration"
+	configurationFileLoadError       = "failed to load configuration file"
 )
 
 var (
-	corsAllowedMethods          = []string{httpMethodPost, httpMethodGet, httpMethodOptions}
+	corsAllowedMethods          = []string{httpMethodPost, httpMethodGet, httpMethodOptions, httpMethodPatch}
 	corsAllowedHeaders          = []string{corsHeaderAuthorization, corsHeaderContentType}
 	corsExposedHeaders          = []string{corsHeaderContentType}
 	corsAllowOrigins            = []string{corsOriginWildcard}
@@ -79,7 +102,12 @@ type ServerConfig struct {
 	ApplicationAddress     string
 	DatabaseDriverName     string
 	DatabaseDataSourceName string
-	AdminBearerToken       string
+	AdminEmailAddresses    []string
+	GoogleClientID         string
+	GoogleClientSecret     string
+	SessionSecret          string
+	PublicBaseURL          string
+	ConfigFilePath         string
 }
 
 // DatabaseOpener opens a database connection using the provided configuration.
@@ -125,14 +153,21 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	application.configurationLoader.SetDefault(environmentKeyApplicationAddress, defaultApplicationAddress)
 	application.configurationLoader.SetDefault(environmentKeyDatabaseDriverName, defaultDatabaseDriverName)
 	application.configurationLoader.SetDefault(environmentKeyDatabaseDataSource, defaultSQLiteDataSourceName)
-	application.configurationLoader.SetDefault(environmentKeyAdminBearerToken, "")
+	application.configurationLoader.SetDefault(environmentKeyPublicBaseURL, defaultPublicBaseURL)
+	application.configurationLoader.SetDefault(environmentKeyGoogleClientID, "")
+	application.configurationLoader.SetDefault(environmentKeyGoogleClientSecret, "")
+	application.configurationLoader.SetDefault(environmentKeySessionSecret, "")
 	application.configurationLoader.AutomaticEnv()
 
 	commandFlags := command.Flags()
+	commandFlags.String(flagNameConfigFile, defaultConfigFileName, flagUsageConfigFile)
 	commandFlags.String(flagNameApplicationAddress, defaultApplicationAddress, flagUsageApplicationAddress)
 	commandFlags.String(flagNameDatabaseDriver, defaultDatabaseDriverName, flagUsageDatabaseDriver)
 	commandFlags.String(flagNameDatabaseDataSourceName, defaultSQLiteDataSourceName, flagUsageDatabaseDataSourceName)
-	commandFlags.String(flagNameAdminBearerToken, "", flagUsageAdminBearerToken)
+	commandFlags.String(flagNameGoogleClientID, "", flagUsageGoogleClientID)
+	commandFlags.String(flagNameGoogleClientSecret, "", flagUsageGoogleClientSecret)
+	commandFlags.String(flagNameSessionSecret, "", flagUsageSessionSecret)
+	commandFlags.String(flagNamePublicBaseURL, defaultPublicBaseURL, flagUsagePublicBaseURL)
 
 	if bindErr := application.bindFlag(commandFlags, environmentKeyApplicationAddress, flagNameApplicationAddress); bindErr != nil {
 		return bindErr
@@ -146,7 +181,19 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 		return bindErr
 	}
 
-	if bindErr := application.bindFlag(commandFlags, environmentKeyAdminBearerToken, flagNameAdminBearerToken); bindErr != nil {
+	if bindErr := application.bindFlag(commandFlags, environmentKeyGoogleClientID, flagNameGoogleClientID); bindErr != nil {
+		return bindErr
+	}
+
+	if bindErr := application.bindFlag(commandFlags, environmentKeyGoogleClientSecret, flagNameGoogleClientSecret); bindErr != nil {
+		return bindErr
+	}
+
+	if bindErr := application.bindFlag(commandFlags, environmentKeySessionSecret, flagNameSessionSecret); bindErr != nil {
+		return bindErr
+	}
+
+	if bindErr := application.bindFlag(commandFlags, environmentKeyPublicBaseURL, flagNamePublicBaseURL); bindErr != nil {
 		return bindErr
 	}
 
@@ -162,11 +209,31 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 		return environmentErr
 	}
 
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyAdminBearerToken, flagNameAdminBearerToken); environmentErr != nil {
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyGoogleClientID, flagNameGoogleClientID); environmentErr != nil {
 		return environmentErr
 	}
 
-	if markErr := command.MarkFlagRequired(flagNameAdminBearerToken); markErr != nil {
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyGoogleClientSecret, flagNameGoogleClientSecret); environmentErr != nil {
+		return environmentErr
+	}
+
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeySessionSecret, flagNameSessionSecret); environmentErr != nil {
+		return environmentErr
+	}
+
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyPublicBaseURL, flagNamePublicBaseURL); environmentErr != nil {
+		return environmentErr
+	}
+
+	if markErr := command.MarkFlagRequired(flagNameGoogleClientID); markErr != nil {
+		return markErr
+	}
+
+	if markErr := command.MarkFlagRequired(flagNameGoogleClientSecret); markErr != nil {
+		return markErr
+	}
+
+	if markErr := command.MarkFlagRequired(flagNameSessionSecret); markErr != nil {
 		return markErr
 	}
 
@@ -204,11 +271,31 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		return fmt.Errorf("%s: %s", unexpectedArgumentsMessage, strings.Join(arguments, " "))
 	}
 
+	configFilePath := strings.TrimSpace(command.Flag(flagNameConfigFile).Value.String())
+	if configFilePath == "" {
+		configFilePath = defaultConfigFileName
+	}
+
+	application.configurationLoader.SetConfigFile(configFilePath)
+	if readErr := application.configurationLoader.ReadInConfig(); readErr != nil {
+		return fmt.Errorf("%s: %w", configurationFileLoadError, readErr)
+	}
+
+	adminEmails := application.configurationLoader.GetStringSlice(configurationKeyAdmins)
+	for index := range adminEmails {
+		adminEmails[index] = strings.TrimSpace(adminEmails[index])
+	}
+
 	serverConfig := ServerConfig{
 		ApplicationAddress:     application.configurationLoader.GetString(environmentKeyApplicationAddress),
 		DatabaseDriverName:     strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDriverName)),
 		DatabaseDataSourceName: strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDataSource)),
-		AdminBearerToken:       strings.TrimSpace(application.configurationLoader.GetString(environmentKeyAdminBearerToken)),
+		AdminEmailAddresses:    adminEmails,
+		GoogleClientID:         strings.TrimSpace(application.configurationLoader.GetString(environmentKeyGoogleClientID)),
+		GoogleClientSecret:     strings.TrimSpace(application.configurationLoader.GetString(environmentKeyGoogleClientSecret)),
+		SessionSecret:          strings.TrimSpace(application.configurationLoader.GetString(environmentKeySessionSecret)),
+		PublicBaseURL:          strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPublicBaseURL)),
+		ConfigFilePath:         configFilePath,
 	}
 
 	if serverConfig.DatabaseDriverName == storage.DriverNameSQLite && serverConfig.DatabaseDataSourceName == "" {
@@ -227,6 +314,8 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		_ = logger.Sync()
 	}()
 
+	session.NewSession([]byte(serverConfig.SessionSecret))
+
 	database, databaseErr := application.databaseOpener(storage.Config{
 		DriverName:     serverConfig.DatabaseDriverName,
 		DataSourceName: serverConfig.DatabaseDataSourceName,
@@ -238,6 +327,26 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	if migrateErr := storage.AutoMigrate(database); migrateErr != nil {
 		logger.Fatal(loggerContextAutoMigrate, zap.Error(migrateErr))
 	}
+
+	authService, authErr := gauss.NewService(
+		serverConfig.GoogleClientID,
+		serverConfig.GoogleClientSecret,
+		serverConfig.PublicBaseURL,
+		dashboardRoute,
+		gauss.ScopeStrings(gauss.DefaultScopes),
+		"",
+	)
+	if authErr != nil {
+		logger.Fatal(loggerContextAuthService, zap.Error(authErr))
+	}
+
+	authHandlers, handlersErr := gauss.NewHandlers(authService)
+	if handlersErr != nil {
+		logger.Fatal(loggerContextTemplate, zap.Error(handlersErr))
+	}
+
+	authMux := http.NewServeMux()
+	authHandlers.RegisterRoutes(authMux)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -253,17 +362,29 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	}))
 
 	publicHandlers := httpapi.NewPublicHandlers(database, logger)
-	adminHandlers := httpapi.NewAdminHandlers(database, logger, serverConfig.AdminBearerToken)
-	adminWebHandlers := httpapi.NewAdminWebHandlers(logger)
+	siteHandlers := httpapi.NewSiteHandlers(database, logger)
+	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger)
+	authManager := httpapi.NewAuthManager(logger, serverConfig.AdminEmailAddresses)
 
 	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
-	router.GET(adminRoute, adminWebHandlers.RenderAdminInterface)
+	router.GET(dashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
 
-	adminGroup := router.Group(adminRoutePrefix)
-	adminGroup.Use(httpapi.AdminAuthMiddleware(serverConfig.AdminBearerToken))
-	adminGroup.POST(adminRouteSites, adminHandlers.CreateSite)
-	adminGroup.GET(adminRouteMessagesBySite, adminHandlers.ListMessagesBySite)
+	router.Any(constants.LoginPath, gin.WrapH(authMux))
+	router.Any(constants.GoogleAuthPath, gin.WrapH(authMux))
+	router.Any(constants.CallbackPath, gin.WrapH(authMux))
+	router.Any(constants.LogoutPath, gin.WrapH(authMux))
+
+	apiGroup := router.Group(apiRoutePrefix)
+	apiGroup.Use(authManager.RequireAuthenticatedJSON())
+	apiGroup.GET(apiRouteMe, siteHandlers.CurrentUser)
+	apiGroup.GET(apiRouteSites, siteHandlers.ListSites)
+	apiGroup.PATCH(apiRouteSiteUpdate, siteHandlers.UpdateSite)
+	apiGroup.GET(apiRouteSiteMessages, siteHandlers.ListMessagesBySite)
+
+	adminSitesGroup := apiGroup.Group(apiRouteSites)
+	adminSitesGroup.Use(authManager.RequireAdminJSON())
+	adminSitesGroup.POST("", siteHandlers.CreateSite)
 
 	httpServer := &http.Server{
 		Addr:              serverConfig.ApplicationAddress,
@@ -290,8 +411,24 @@ func (application *ServerApplication) ensureRequiredConfiguration(configuration 
 		missingParameters = append(missingParameters, flagNameDatabaseDataSourceName)
 	}
 
-	if configuration.AdminBearerToken == "" {
-		missingParameters = append(missingParameters, flagNameAdminBearerToken)
+	if len(configuration.AdminEmailAddresses) == 0 {
+		missingParameters = append(missingParameters, configurationKeyAdmins)
+	}
+
+	if configuration.GoogleClientID == "" {
+		missingParameters = append(missingParameters, flagNameGoogleClientID)
+	}
+
+	if configuration.GoogleClientSecret == "" {
+		missingParameters = append(missingParameters, flagNameGoogleClientSecret)
+	}
+
+	if configuration.SessionSecret == "" {
+		missingParameters = append(missingParameters, flagNameSessionSecret)
+	}
+
+	if configuration.PublicBaseURL == "" {
+		missingParameters = append(missingParameters, flagNamePublicBaseURL)
 	}
 
 	if len(missingParameters) == 0 {
@@ -305,7 +442,7 @@ func main() {
 	application := NewServerApplication()
 	rootCommand, commandErr := application.Command()
 	if commandErr != nil {
-		fmt.Fprintf(os.Stderr, "%s: %v\n", commandInitializationFailure, commandErr)
+		_, _ = fmt.Fprintf(os.Stderr, "%s: %v\n", commandInitializationFailure, commandErr)
 		os.Exit(1)
 	}
 

@@ -2,53 +2,33 @@ package httpapi_test
 
 import (
 	"net/http"
-	testingpkg "testing"
+	"net/http/httptest"
+	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+
+	"github.com/MarkoPoloResearchLab/feedback_svc/internal/httpapi"
 )
 
 const (
-	adminDashboardTitleText = "LoopAware Admin Dashboard"
-	authorizationHeaderName = "Authorization"
-	bearerTokenPrefix       = "Bearer "
-	invalidBearerTokenValue = "invalid"
+	dashboardTitleText              = "LoopAware Dashboard"
+	dashboardSessionContextKey      = "httpapi_current_user"
+	testDashboardAuthenticatedEmail = "viewer@example.com"
 )
 
-func TestAdminPageAccessibility(t *testingpkg.T) {
-	apiHarness := buildAPIHarness(t)
-	testCases := []struct {
-		name           string
-		headers        map[string]string
-		expectedStatus int
-	}{
-		{
-			name: "with bearer token",
-			headers: map[string]string{
-				authorizationHeaderName: bearerTokenPrefix + apiHarness.adminBearerToken,
-			},
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name:           "missing bearer token",
-			headers:        nil,
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name: "invalid bearer token",
-			headers: map[string]string{
-				authorizationHeaderName: bearerTokenPrefix + invalidBearerTokenValue,
-			},
-			expectedStatus: http.StatusOK,
-		},
-	}
+func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	for _, testCase := range testCases {
-		testCase := testCase
-		t.Run(testCase.name, func(testingT *testingpkg.T) {
-			recorder := performJSONRequest(testingT, apiHarness.router, http.MethodGet, "/admin", nil, testCase.headers)
-			require.Equal(testingT, testCase.expectedStatus, recorder.Code)
-			require.Contains(testingT, recorder.Header().Get("Content-Type"), "text/html")
-			require.Contains(testingT, recorder.Body.String(), adminDashboardTitleText)
-		})
-	}
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Header().Get("Content-Type"), "text/html")
+	require.Contains(t, recorder.Body.String(), dashboardTitleText)
 }

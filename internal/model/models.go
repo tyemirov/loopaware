@@ -6,6 +6,7 @@ type Site struct {
 	ID            string    `gorm:"primaryKey;size:36"`
 	Name          string    `gorm:"not null;size:200"`
 	AllowedOrigin string    `gorm:"not null;size:500"`
+	OwnerEmail    string    `gorm:"size:320"`
 	CreatedAt     time.Time `gorm:"autoCreateTime"`
 	UpdatedAt     time.Time `gorm:"autoUpdateTime"`
 }
