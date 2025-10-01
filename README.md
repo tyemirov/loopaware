@@ -11,6 +11,7 @@ Built with Go + Gin, GORM, and SQLite.
 * 🚦 Simple per-IP rate limiting on public submissions
 * 🧩 Copy-paste `<script>` widget
 * 🧪 Fast tests with temporary SQLite databases (no Docker required)
+* 🗄️ SQLite-first storage with config-driven driver selection (`--db-driver` / `DB_DRIVER`)
 * 🐳 Optional Docker & Docker Compose for local runs
 
 ---
@@ -24,6 +25,9 @@ docker compose up --build
 
 The API will be available at `http://localhost:8080`.
 
+The container stores the SQLite database file at `/data/loopaware.sqlite` by default. Mount the named volume if you want the data
+persisted across restarts.
+
 Default env (see `docker-compose.yml`):
 
 * `APP_ADDR=:8080`
@@ -31,9 +35,21 @@ Default env (see `docker-compose.yml`):
 * `DB_DSN=file:/data/loopaware.sqlite?_foreign_keys=on`
 * `ADMIN_BEARER_TOKEN=replace-with-long-random` (change this!)
 
+### Switching database drivers
+
+Loopaware reads the database driver and data source from `DB_DRIVER` and `DB_DSN` (or the `--db-driver` / `--db-dsn` flags). The
+published image only ships with the SQLite driver enabled. If you extend the binary to register additional drivers, point the
+config to that driver name. For example, a Postgres-capable build would set:
+
+```shell
+DB_DRIVER=postgres
+DB_DSN=postgres://user:pass@hostname:5432/database?sslmode=disable
+```
+
 ### Using the prebuilt Docker image
 
-Authenticate to the GitHub Container Registry (GHCR) first, then pull and run the latest published image. GHCR requires a Personal Access Token with the `read:packages` scope when logging in via Docker.
+Authenticate to the GitHub Container Registry (GHCR) first, then pull and run the latest published image. GHCR requires a
+Personal Access Token with the `read:packages` scope when logging in via Docker.
 
 ```shell
 echo "<github-personal-access-token>" | docker login ghcr.io --username <github-username> --password-stdin
@@ -47,11 +63,13 @@ docker run --rm -p 8080:8080 \
   ghcr.io/<owner>/loopaware:latest
 ```
 
-When running the container standalone, mount a volume (like `loopaware-data`) so the SQLite file persists across restarts.
+When running the container standalone, mount a volume (like `loopaware-data`) so the SQLite file persists across restarts. Adjust
+`DB_DRIVER` and `DB_DSN` if you built a variant with another driver.
 
 ### Docker Compose override to use the registry image
 
-If you prefer Docker Compose, create an override file so the `loopaware` service pulls the published image rather than building from source:
+If you prefer Docker Compose, create an override file so the `loopaware` service pulls the published image rather than building
+from source:
 
 ```shell
 cat <<'YAML' > docker-compose.override.yml
@@ -79,7 +97,8 @@ docker compose up
 
 Ensure you are logged into GHCR (see the previous section) before running `docker compose pull loopaware`.
 
-The override removes the original `build` definition, reuses the same environment variables, and mounts the persistent volume for the SQLite database file.
+The override removes the original `build` definition, reuses the same environment variables, and mounts the persistent volume for
+the SQLite database file.
 
 ### Create a site (Admin)
 
@@ -107,11 +126,15 @@ Paste the `widget` tag into your site HTML (any page on the allowed origin).
 
 ## Integrating with your website
 
-Successful integrations start with the admin workflow. Create a site via the admin API and set `allowed_origin` to the exact scheme, host, and optional port where the widget will load. That origin becomes the only third-party domain whose browsers may submit feedback for that site. Each site you configure can target a different partner or product environment by giving it a distinct `allowed_origin` and distributing the generated `<script>` tag to that team.
+Successful integrations start with the admin workflow. Create a site via the admin API and set `allowed_origin` to the exact
+scheme, host, and optional port where the widget will load. That origin becomes the only third-party domain whose browsers may
+submit feedback for that site. Each site you configure can target a different partner or product environment by giving it a
+distinct `allowed_origin` and distributing the generated `<script>` tag to that team.
 
 ### Example production setup
 
-Assume your customer-facing app is served from `https://app.example.com` and Loopaware is hosted at `https://feedback.yourcompany.com`.
+Assume your customer-facing app is served from `https://app.example.com` and Loopaware is hosted at
+`https://feedback.yourcompany.com`.
 
 1. Create a production site:
 
@@ -127,9 +150,13 @@ Optional: generate a random `ADMIN_BEARER_TOKEN` for your admin API.
      -d '{"name":"SeeFood","allowed_origin":"https://seefood.mprlab.com"}'
     ```
 
-2. Add the returned widget `<script>` tag to the pages on `https://app.example.com` where you want the feedback button to appear. The admin API currently renders the `<script>` tag with a `src` rooted at your `allowed_origin` (e.g., `https://app.example.com/widget.js?...`), so ensure that file is served from your site and proxies requests back to Loopaware (`https://feedback.yourcompany.com/widget.js?...`) or copies the script into your own static assets.
+2. Add the returned widget `<script>` tag to the pages on `https://app.example.com` where you want the feedback button to appear.
+The admin API currently renders the `<script>` tag with a `src` rooted at your `allowed_origin` (e.g.,
+`https://app.example.com/widget.js?...`), so ensure that file is served from your site and proxies requests back to Loopaware
+(`https://feedback.yourcompany.com/widget.js?...`) or copies the script into your own static assets.
 
-3. Double-check the proxied `<script src>` ultimately loads from your production Loopaware domain so the widget posts back to the correct API origin.
+3. Double-check the proxied `<script src>` ultimately loads from your production Loopaware domain so the widget posts back to the
+correct API origin.
 
 4. Verify submissions by triggering the widget on `https://app.example.com`, then list recent messages:
 
@@ -138,14 +165,20 @@ Optional: generate a random `ADMIN_BEARER_TOKEN` for your admin API.
      -H "Authorization: Bearer <your-admin-token>"
    ```
 
-When working with multiple partners, repeat the process per domain. For example, a partner at `https://partners.example.net` should receive a dedicated site whose `allowed_origin` matches that domain and whose widget script includes that site’s identifier.
+When working with multiple partners, repeat the process per domain. For example, a partner at
+`https://partners.example.net` should receive a dedicated site whose `allowed_origin` matches that domain and whose widget script
+includes that site’s identifier.
 
 ### Troubleshooting tips
 
-* Ensure browsers send an `Origin` header that matches the configured `allowed_origin`. Static file hosts and reverse proxies sometimes strip or rewrite headers, which will cause the API to reject requests with `403` errors.
-* Confirm the widget is loading from the same Loopaware domain that served the `widget.js` file; mixed environments (e.g., staging widget pointing at production API) will break CORS validation.
-* Rotate the admin bearer token regularly and redistribute the updated value to teams calling admin APIs. A stale or revoked token will return `401 Unauthorized` errors when creating sites or listing messages.
-* If a page embeds multiple third-party scripts, load Loopaware last to avoid other scripts mutating the DOM container the widget depends on.
+* Ensure browsers send an `Origin` header that matches the configured `allowed_origin`. Static file hosts and reverse proxies
+sometimes strip or rewrite headers, which will cause the API to reject requests with `403` errors.
+* Confirm the widget is loading from the same Loopaware domain that served the `widget.js` file; mixed environments (e.g., staging
+widget pointing at production API) will break CORS validation.
+* Rotate the admin bearer token regularly and redistribute the updated value to teams calling admin APIs. A stale or revoked token
+will return `401 Unauthorized` errors when creating sites or listing messages.
+* If a page embeds multiple third-party scripts, load Loopaware last to avoid other scripts mutating the DOM container the widget
+depends on.
 
 ### Submit feedback (Public)
 
@@ -176,18 +209,25 @@ go run ./cmd/server
 # -> listening on :8080
 ```
 
-Override the database location if desired:
+The server drops a `loopaware.sqlite` file in your working directory unless you override it. Provide alternate settings with
+environment variables or flags:
 
 ```shell
 export DB_DRIVER=sqlite
 export DB_DSN="file:$HOME/loopaware.sqlite?_foreign_keys=on"
+
+go run ./cmd/server --db-driver "$DB_DRIVER" --db-dsn "$DB_DSN"
 ```
+
+When you compile a build with additional drivers (for example, Postgres), switch by exporting a new driver name and DSN before
+starting the server.
 
 ---
 
 ## Testing
 
-Tests open unique temporary SQLite databases per package—no Docker needed.
+Tests open unique temporary SQLite databases per package—no Docker needed. Override `DB_DRIVER` / `DB_DSN` in test shells only if
+you are exercising a custom build that includes other drivers.
 
 ```shell
 go test ./... -v
@@ -202,14 +242,14 @@ Notes:
 
 ## Configuration
 
-Environment variables:
+Environment variables (also exposed as `--app-addr`, `--db-driver`, `--db-dsn`, and `--admin-bearer-token` flags):
 
-| Name                 | Default                                   | Description                               |
-|----------------------|-------------------------------------------|-------------------------------------------|
-| `APP_ADDR`           | `:8080`                                   | HTTP listen address                       |
-| `DB_DRIVER`          | `sqlite`                                  | Database driver                           |
-| `DB_DSN`             | `file:loopaware.sqlite?_foreign_keys=on`  | Database connection string                |
-| `ADMIN_BEARER_TOKEN` | *(none)*                                  | Required for all `/api/admin/*` endpoints |
+| Name                 | Default                                   | Description                                                                 |
+|----------------------|-------------------------------------------|-----------------------------------------------------------------------------|
+| `APP_ADDR`           | `:8080`                                   | HTTP listen address                                                         |
+| `DB_DRIVER`          | `sqlite`                                  | Database driver key registered in the binary (SQLite is bundled by default) |
+| `DB_DSN`             | `file:loopaware.sqlite?_foreign_keys=on`  | Database connection string (path for SQLite, DSN for other drivers)        |
+| `ADMIN_BEARER_TOKEN` | *(none)*                                  | Required for all `/api/admin/*` endpoints                                  |
 
 If `ADMIN_BEARER_TOKEN` is empty, admin routes return `503` (disabled).
 
