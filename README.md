@@ -40,6 +40,13 @@ LoopAware loads the file specified by `--config` (default `config.yaml`) before 
 
 Secrets must come from the environment; only non-sensitive settings belong in `config.yaml`.
 
+Copy the provided template and edit the values before running the service or Docker Compose stack:
+
+```bash
+cp .env.sample .env
+$EDITOR .env
+```
+
 ### 3. Flags
 
 All configuration options are also exposed as Cobra flags:
@@ -126,3 +133,12 @@ The test suite runs entirely in memory using temporary SQLite databases; no exte
 The previous Docker and Compose files remain compatible. Ensure the container receives the OAuth environment variables
 and mounts a `config.yaml` containing the admin roster.
 
+```bash
+cp .env.sample .env
+$EDITOR .env             # fill in real secrets
+docker compose up --build --remove-orphans
+```
+
+The compose file binds `config.yaml` into the container at `/app/config.yaml` and loads environment variables from `.env`.
+The container now runs as root so the SQLite data volume remains writable; if you need to switch back to an unprivileged
+user, update the Docker image to chown the mounted directory before starting the binary.

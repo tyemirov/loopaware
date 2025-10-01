@@ -370,10 +370,12 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
 	router.GET(dashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
 
-	router.Any(constants.LoginPath, gin.WrapH(authMux))
-	router.Any(constants.GoogleAuthPath, gin.WrapH(authMux))
-	router.Any(constants.CallbackPath, gin.WrapH(authMux))
-	router.Any(constants.LogoutPath, gin.WrapH(authMux))
+	authHandler := gin.WrapH(authMux)
+	router.GET(constants.LoginPath, authHandler)
+	router.GET(constants.GoogleAuthPath, authHandler)
+	router.GET(constants.CallbackPath, authHandler)
+	router.GET(constants.LogoutPath, authHandler)
+	router.POST(constants.LogoutPath, authHandler)
 
 	apiGroup := router.Group(apiRoutePrefix)
 	apiGroup.Use(authManager.RequireAuthenticatedJSON())

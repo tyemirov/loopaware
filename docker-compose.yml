@@ -3,9 +3,10 @@ services:
     build: .
     container_name: loopaware
     env_file:
-      - .env.sample
+      - .env
     volumes:
       - loopaware-data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
     ports:
       - "8080:8080"
     restart: unless-stopped
