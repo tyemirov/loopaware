@@ -2,62 +2,89 @@ package main_test
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	servercmd "github.com/MarkoPoloResearchLab/feedback_svc/cmd/server"
+	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
 	"gorm.io/gorm"
 )
 
 const (
-	testEnvironmentKeyDatabaseDataSourceName = "DB_DSN"
+	testEnvironmentKeyDatabaseDriverName     = "DB_DRIVER"
+	testEnvironmentKeyDatabaseDataSource     = "DB_DSN"
 	testEnvironmentKeyAdminBearerToken       = "ADMIN_BEARER_TOKEN"
-	testPlaceholderDatabaseDSN               = "postgres://example.com/database"
+	testAlternateDatabaseDriverName          = "alternate-driver"
+	testAlternateDatabaseDataSource          = "db://example.com/database"
 	testPlaceholderAdminBearerToken          = "very-secret-token"
 	testMissingConfigurationMessage          = "missing required configuration"
+	testFlagNameDatabaseDriver               = "db-driver"
 	testFlagNameDatabaseDataSource           = "db-dsn"
 	testFlagNameAdminBearerToken             = "admin-bearer-token"
 	testFlagIndicator                        = "--"
 	testUsagePrefix                          = "Usage:"
+	testSQLiteDefaultFileName                = "loopaware.sqlite"
+	testSQLiteDataSourceNamePattern          = "file:%s?_foreign_keys=on"
+	testMissingDatabaseDriverDescription     = "missing database driver"
+	testMissingDatabaseDataSourceDescription = "missing database data source"
+	testMissingAdminBearerDescription        = "missing admin bearer token"
 )
 
 func TestServerCommandMissingConfigurationShowsHelp(t *testing.T) {
+	sqliteDefaultDataSource := fmt.Sprintf(testSQLiteDataSourceNamePattern, testSQLiteDefaultFileName)
+
 	testCases := []struct {
-		name                   string
-		databaseDataSourceName string
-		adminBearerToken       string
-		expectedMissingFlag    string
+		name                string
+		environment         map[string]string
+		expectedMissingFlag string
 	}{
 		{
-			name:                   "missing database dsn",
-			databaseDataSourceName: "",
-			adminBearerToken:       testPlaceholderAdminBearerToken,
-			expectedMissingFlag:    testFlagNameDatabaseDataSource,
+			name: testMissingDatabaseDriverDescription,
+			environment: map[string]string{
+				testEnvironmentKeyDatabaseDriverName: "",
+				testEnvironmentKeyDatabaseDataSource: testAlternateDatabaseDataSource,
+				testEnvironmentKeyAdminBearerToken:   testPlaceholderAdminBearerToken,
+			},
+			expectedMissingFlag: testFlagNameDatabaseDriver,
 		},
 		{
-			name:                   "missing admin bearer token",
-			databaseDataSourceName: testPlaceholderDatabaseDSN,
-			adminBearerToken:       "",
-			expectedMissingFlag:    testFlagNameAdminBearerToken,
+			name: testMissingDatabaseDataSourceDescription,
+			environment: map[string]string{
+				testEnvironmentKeyDatabaseDriverName: testAlternateDatabaseDriverName,
+				testEnvironmentKeyDatabaseDataSource: "",
+				testEnvironmentKeyAdminBearerToken:   testPlaceholderAdminBearerToken,
+			},
+			expectedMissingFlag: testFlagNameDatabaseDataSource,
+		},
+		{
+			name: testMissingAdminBearerDescription,
+			environment: map[string]string{
+				testEnvironmentKeyDatabaseDriverName: storage.DriverNameSQLite,
+				testEnvironmentKeyDatabaseDataSource: sqliteDefaultDataSource,
+				testEnvironmentKeyAdminBearerToken:   "",
+			},
+			expectedMissingFlag: testFlagNameAdminBearerToken,
 		},
 	}
 
 	for _, testCase := range testCases {
 		testCase := testCase
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Setenv(testEnvironmentKeyDatabaseDataSourceName, testCase.databaseDataSourceName)
-			t.Setenv(testEnvironmentKeyAdminBearerToken, testCase.adminBearerToken)
+		t.Run(testCase.name, func(testingT *testing.T) {
+			for key, value := range testCase.environment {
+				testingT.Setenv(key, value)
+			}
 
-			databaseOpenerStub := func(databaseDataSourceName string) (*gorm.DB, error) {
-				t.Fatalf("database opener invoked with %s", databaseDataSourceName)
+			databaseOpenerStub := func(configuration storage.Config) (*gorm.DB, error) {
+				testingT.Fatalf("database opener invoked with %+v", configuration)
 				return nil, nil
 			}
 
 			application := servercmd.NewServerApplication().WithDatabaseOpener(databaseOpenerStub)
 			command, commandErr := application.Command()
-			if commandErr != nil {
-				t.Fatalf("unexpected command construction error: %v", commandErr)
-			}
+			require.NoError(testingT, commandErr)
 
 			commandOutput := &bytes.Buffer{}
 			command.SetOut(commandOutput)
@@ -65,22 +92,38 @@ func TestServerCommandMissingConfigurationShowsHelp(t *testing.T) {
 
 			executionErr := command.Execute()
 			if executionErr == nil {
-				t.Fatalf("expected error for missing configuration")
+				testingT.Fatalf("expected error for missing configuration")
 			}
 
 			combinedOutput := commandOutput.String()
 			if !strings.Contains(combinedOutput, testMissingConfigurationMessage) {
-				t.Fatalf("expected combined output to mention missing configuration: %s", combinedOutput)
+				testingT.Fatalf("expected combined output to mention missing configuration: %s", combinedOutput)
 			}
 
 			if !strings.Contains(combinedOutput, testUsagePrefix) {
-				t.Fatalf("expected combined output to include usage instructions: %s", combinedOutput)
+				testingT.Fatalf("expected combined output to include usage instructions: %s", combinedOutput)
 			}
 
 			expectedFlagIndicator := testFlagIndicator + testCase.expectedMissingFlag
 			if !strings.Contains(combinedOutput, expectedFlagIndicator) {
-				t.Fatalf("expected help output to include flag %s, actual output: %s", expectedFlagIndicator, combinedOutput)
+				testingT.Fatalf("expected help output to include flag %s, actual output: %s", expectedFlagIndicator, combinedOutput)
 			}
 		})
 	}
+}
+
+func TestServerCommandFlagDefaults(t *testing.T) {
+	expectedSQLiteDataSource := fmt.Sprintf(testSQLiteDataSourceNamePattern, testSQLiteDefaultFileName)
+
+	application := servercmd.NewServerApplication()
+	command, commandErr := application.Command()
+	require.NoError(t, commandErr)
+
+	driverFlag := command.Flag(testFlagNameDatabaseDriver)
+	require.NotNil(t, driverFlag)
+	require.Equal(t, storage.DriverNameSQLite, driverFlag.DefValue)
+
+	dataSourceFlag := command.Flag(testFlagNameDatabaseDataSource)
+	require.NotNil(t, dataSourceFlag)
+	require.Equal(t, expectedSQLiteDataSource, dataSourceFlag.DefValue)
 }

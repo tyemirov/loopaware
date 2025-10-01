@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -10,6 +11,23 @@ import (
 
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
+)
+
+const (
+	jsonKeyError         = "error"
+	jsonKeyIdentifier    = "id"
+	jsonKeyName          = "name"
+	jsonKeyAllowedOrigin = "allowed_origin"
+	jsonKeyWidget        = "widget"
+
+	errorValueInvalidJSON   = "invalid_json"
+	errorValueMissingFields = "missing_fields"
+	errorValueSaveFailed    = "save_failed"
+	errorValueMissingSite   = "missing_site"
+	errorValueUnknownSite   = "unknown_site"
+	errorValueQueryFailed   = "query_failed"
+
+	widgetScriptTemplate = "<script src=\"%s/widget.js?site_id=%s\"></script>"
 )
 
 type AdminHandlers struct {
@@ -31,16 +49,30 @@ type createSiteRequest struct {
 	AllowedOrigin string `json:"allowed_origin"`
 }
 
+type siteMessagesResponse struct {
+	SiteID   string                    `json:"site_id"`
+	Messages []feedbackMessageResponse `json:"messages"`
+}
+
+type feedbackMessageResponse struct {
+	ID        string `json:"id"`
+	Contact   string `json:"contact"`
+	Message   string `json:"message"`
+	IP        string `json:"ip"`
+	UserAgent string `json:"user_agent"`
+	CreatedAt int64  `json:"created_at"`
+}
+
 func (adminHandlers *AdminHandlers) CreateSite(context *gin.Context) {
 	var payload createSiteRequest
 	if bindErr := context.BindJSON(&payload); bindErr != nil {
-		context.JSON(http.StatusBadRequest, gin.H{"error": "invalid_json"})
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidJSON})
 		return
 	}
 	payload.Name = strings.TrimSpace(payload.Name)
 	payload.AllowedOrigin = strings.TrimSpace(payload.AllowedOrigin)
 	if payload.Name == "" || payload.AllowedOrigin == "" {
-		context.JSON(http.StatusBadRequest, gin.H{"error": "missing_fields"})
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingFields})
 		return
 	}
 	site := model.Site{
@@ -49,45 +81,48 @@ func (adminHandlers *AdminHandlers) CreateSite(context *gin.Context) {
 		AllowedOrigin: payload.AllowedOrigin,
 	}
 	if err := adminHandlers.database.Create(&site).Error; err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{"error": "save_failed"})
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
 		return
 	}
 	context.JSON(http.StatusOK, gin.H{
-		"id":             site.ID,
-		"name":           site.Name,
-		"allowed_origin": site.AllowedOrigin,
-		"widget":         "<script src=\"" + site.AllowedOrigin + "/widget.js?site_id=" + site.ID + "\"></script>",
+		jsonKeyIdentifier:    site.ID,
+		jsonKeyName:          site.Name,
+		jsonKeyAllowedOrigin: site.AllowedOrigin,
+		jsonKeyWidget:        fmt.Sprintf(widgetScriptTemplate, site.AllowedOrigin, site.ID),
 	})
 }
 
 func (adminHandlers *AdminHandlers) ListMessagesBySite(context *gin.Context) {
 	siteID := strings.TrimSpace(context.Param("id"))
 	if siteID == "" {
-		context.JSON(http.StatusBadRequest, gin.H{"error": "missing_site"})
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingSite})
 		return
 	}
 	var site model.Site
 	if err := adminHandlers.database.First(&site, "id = ?", siteID).Error; err != nil {
-		context.JSON(http.StatusNotFound, gin.H{"error": "unknown_site"})
+		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownSite})
 		return
 	}
-	type row struct {
-		ID        string `json:"id"`
-		Contact   string `json:"contact"`
-		Message   string `json:"message"`
-		IP        string `json:"ip"`
-		UserAgent string `json:"user_agent"`
-		CreatedAt int64  `json:"created_at"`
-	}
-	var out []row
+	var feedbacks []model.Feedback
 	if err := adminHandlers.database.
-		Table("feedbacks").
-		Select("id, contact, message, ip, user_agent, (EXTRACT(EPOCH FROM created_at)::bigint) AS created_at").
 		Where("site_id = ?", site.ID).
 		Order("created_at desc").
-		Scan(&out).Error; err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{"error": "query_failed"})
+		Find(&feedbacks).Error; err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
 		return
 	}
-	context.JSON(http.StatusOK, gin.H{"site_id": site.ID, "messages": out})
+
+	messageResponses := make([]feedbackMessageResponse, 0, len(feedbacks))
+	for _, feedback := range feedbacks {
+		messageResponses = append(messageResponses, feedbackMessageResponse{
+			ID:        feedback.ID,
+			Contact:   feedback.Contact,
+			Message:   feedback.Message,
+			IP:        feedback.IP,
+			UserAgent: feedback.UserAgent,
+			CreatedAt: feedback.CreatedAt.Unix(),
+		})
+	}
+
+	context.JSON(http.StatusOK, siteMessagesResponse{SiteID: site.ID, Messages: messageResponses})
 }

@@ -26,14 +26,13 @@ type apiHarness struct {
 func buildAPIHarness(testingT *testing.T) apiHarness {
 	testingT.Helper()
 
-	dsn := testutil.DSN()
-	require.NotEmpty(testingT, dsn)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
 
 	gin.SetMode(gin.TestMode)
 	logger, loggerErr := zap.NewDevelopment()
 	require.NoError(testingT, loggerErr)
 
-	db, openErr := storage.OpenPostgres(dsn)
+	db, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(testingT, openErr)
 	require.NoError(testingT, storage.AutoMigrate(db))
 
