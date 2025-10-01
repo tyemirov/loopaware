@@ -17,8 +17,8 @@ const (
 	testEnvironmentKeyDatabaseDriverName     = "DB_DRIVER"
 	testEnvironmentKeyDatabaseDataSource     = "DB_DSN"
 	testEnvironmentKeyAdminBearerToken       = "ADMIN_BEARER_TOKEN"
-	testPlaceholderDatabaseDriver            = "postgres"
-	testPlaceholderDatabaseDataSource        = "postgres://example.com/database"
+	testAlternateDatabaseDriverName          = "alternate-driver"
+	testAlternateDatabaseDataSource          = "db://example.com/database"
 	testPlaceholderAdminBearerToken          = "very-secret-token"
 	testMissingConfigurationMessage          = "missing required configuration"
 	testFlagNameDatabaseDriver               = "db-driver"
@@ -45,7 +45,7 @@ func TestServerCommandMissingConfigurationShowsHelp(t *testing.T) {
 			name: testMissingDatabaseDriverDescription,
 			environment: map[string]string{
 				testEnvironmentKeyDatabaseDriverName: "",
-				testEnvironmentKeyDatabaseDataSource: testPlaceholderDatabaseDataSource,
+				testEnvironmentKeyDatabaseDataSource: testAlternateDatabaseDataSource,
 				testEnvironmentKeyAdminBearerToken:   testPlaceholderAdminBearerToken,
 			},
 			expectedMissingFlag: testFlagNameDatabaseDriver,
@@ -53,7 +53,7 @@ func TestServerCommandMissingConfigurationShowsHelp(t *testing.T) {
 		{
 			name: testMissingDatabaseDataSourceDescription,
 			environment: map[string]string{
-				testEnvironmentKeyDatabaseDriverName: testPlaceholderDatabaseDriver,
+				testEnvironmentKeyDatabaseDriverName: testAlternateDatabaseDriverName,
 				testEnvironmentKeyDatabaseDataSource: "",
 				testEnvironmentKeyAdminBearerToken:   testPlaceholderAdminBearerToken,
 			},
