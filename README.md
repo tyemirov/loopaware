@@ -1,6 +1,7 @@
 # LoopAware
 
-LoopAware collects customer feedback through a lightweight widget, authenticates operators with Google, and offers a role-aware dashboard for managing sites and messages.
+LoopAware collects customer feedback through a lightweight widget, authenticates operators with Google, and offers a
+role-aware dashboard for managing sites and messages.
 
 ## Highlights
 
@@ -27,15 +28,15 @@ LoopAware loads the file specified by `--config` (default `config.yaml`) before 
 
 ### 2. Environment variables
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| `GOOGLE_CLIENT_ID` | ✅ | OAuth client ID from Google Cloud Console |
-| `GOOGLE_CLIENT_SECRET` | ✅ | OAuth client secret |
-| `SESSION_SECRET` | ✅ | 32+ byte secret for cookie signing |
-| `PUBLIC_BASE_URL` | ⚙️ | Public URL of the service (default `http://localhost:8080`) |
-| `APP_ADDR` | ⚙️ | Listen address (default `:8080`) |
-| `DB_DRIVER` | ⚙️ | Storage driver (`sqlite`, etc.) |
-| `DB_DSN` | ⚙️ | Driver-specific DSN |
+| Variable               | Required | Description                                                 |
+|------------------------|----------|-------------------------------------------------------------|
+| `GOOGLE_CLIENT_ID`     | ✅        | OAuth client ID from Google Cloud Console                   |
+| `GOOGLE_CLIENT_SECRET` | ✅        | OAuth client secret                                         |
+| `SESSION_SECRET`       | ✅        | 32+ byte secret for cookie signing                          |
+| `PUBLIC_BASE_URL`      | ⚙️       | Public URL of the service (default `http://localhost:8080`) |
+| `APP_ADDR`             | ⚙️       | Listen address (default `:8080`)                            |
+| `DB_DRIVER`            | ⚙️       | Storage driver (`sqlite`, etc.)                             |
+| `DB_DSN`               | ⚙️       | Driver-specific DSN                                         |
 
 Secrets must come from the environment; only non-sensitive settings belong in `config.yaml`.
 
@@ -65,28 +66,31 @@ SESSION_SECRET=$(openssl rand -hex 32) \
 go run ./cmd/server --config=config.yaml
 ```
 
-Open `http://localhost:8080/app` to trigger Google Sign-In. Administrators listed in `config.yaml` can manage every site; other users see only the sites assigned to their Google account.
+Open `http://localhost:8080/app` to trigger Google Sign-In. Administrators listed in `config.yaml` can manage every
+site; other users see only the sites assigned to their Google account.
 
 ## Authentication flow
 
 1. Users visit `/login` (automatic redirect from protected routes).
 2. GAuss handles OAuth and stores the session in an encrypted cookie.
-3. `httpapi.AuthManager` reads the session, injects user details into the request context, and enforces admin / owner access.
+3. `httpapi.AuthManager` reads the session, injects user details into the request context, and enforces admin / owner
+   access.
 4. The dashboard and JSON APIs consume the authenticated context.
 
 ## REST API
 
-All authenticated endpoints live under `/api` and require the GAuss session cookie. JSON responses include Unix timestamps in seconds.
+All authenticated endpoints live under `/api` and require the GAuss session cookie. JSON responses include Unix
+timestamps in seconds.
 
-| Method | Path | Role | Description |
-| --- | --- | --- | --- |
-| `GET` | `/api/me` | any | Current account metadata (email, name, `is_admin`) |
-| `GET` | `/api/sites` | any | Sites visible to the caller (admin = all, user = owned) |
-| `POST` | `/api/sites` | admin | Create a site (requires `name`, `allowed_origin`, `owner_email`) |
-| `PATCH` | `/api/sites/:id` | owner/admin | Update name/origin; admins may reassign ownership |
-| `GET` | `/api/sites/:id/messages` | owner/admin | List feedback messages (newest first) |
-| `POST` | `/api/feedback` | public | Submit feedback (requires JSON body with `site_id`, `contact`, `message`) |
-| `GET` | `/widget.js` | public | Serve embeddable JavaScript widget |
+| Method  | Path                      | Role        | Description                                                               |
+|---------|---------------------------|-------------|---------------------------------------------------------------------------|
+| `GET`   | `/api/me`                 | any         | Current account metadata (email, name, `is_admin`)                        |
+| `GET`   | `/api/sites`              | any         | Sites visible to the caller (admin = all, user = owned)                   |
+| `POST`  | `/api/sites`              | admin       | Create a site (requires `name`, `allowed_origin`, `owner_email`)          |
+| `PATCH` | `/api/sites/:id`          | owner/admin | Update name/origin; admins may reassign ownership                         |
+| `GET`   | `/api/sites/:id/messages` | owner/admin | List feedback messages (newest first)                                     |
+| `POST`  | `/api/feedback`           | public      | Submit feedback (requires JSON body with `site_id`, `contact`, `message`) |
+| `GET`   | `/widget.js`              | public      | Serve embeddable JavaScript widget                                        |
 
 ## Dashboard (`/app`)
 
@@ -104,7 +108,8 @@ The dashboard automatically redirects unauthenticated visitors to `/login`.
 
 1. Create a site (admin) and copy the generated `<script>` tag from the API response.
 2. Embed the script on any page served from the configured `allowed_origin`.
-3. Visitors can open the floating bubble, submit feedback, and the messages appear under `/api/sites/:id/messages` and in the dashboard.
+3. Visitors can open the floating bubble, submit feedback, and the messages appear under `/api/sites/:id/messages` and
+   in the dashboard.
 
 ## Development workflow
 
@@ -118,5 +123,6 @@ The test suite runs entirely in memory using temporary SQLite databases; no exte
 
 ## Docker
 
-The previous Docker and Compose files remain compatible. Ensure the container receives the OAuth environment variables and mounts a `config.yaml` containing the admin roster.
+The previous Docker and Compose files remain compatible. Ensure the container receives the OAuth environment variables
+and mounts a `config.yaml` containing the admin roster.
 

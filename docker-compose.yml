@@ -2,11 +2,8 @@ services:
   loopaware:
     build: .
     container_name: loopaware
-    environment:
-      APP_ADDR: ":8080"
-      ADMIN_BEARER_TOKEN: "replace-with-long-random"
-      DB_DRIVER: "sqlite"
-      DB_DSN: "file:/app/data/loopaware.sqlite?_foreign_keys=on"
+    env_file:
+      - .env.sample
     volumes:
       - loopaware-data:/app/data
     ports:
