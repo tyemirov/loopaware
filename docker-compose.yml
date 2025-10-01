@@ -6,9 +6,9 @@ services:
       APP_ADDR: ":8080"
       ADMIN_BEARER_TOKEN: "replace-with-long-random"
       DB_DRIVER: "sqlite"
-      DB_DSN: "file:/data/loopaware.sqlite?_foreign_keys=on"
+      DB_DSN: "file:/app/data/loopaware.sqlite?_foreign_keys=on"
     volumes:
-      - loopaware-data:/data
+      - loopaware-data:/app/data
     ports:
       - "8080:8080"
     restart: unless-stopped

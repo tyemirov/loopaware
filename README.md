@@ -25,14 +25,14 @@ docker compose up --build
 
 The API will be available at `http://localhost:8080`.
 
-The container stores the SQLite database file at `/data/loopaware.sqlite` by default. Mount the named volume if you want the data
+The container stores the SQLite database file at `/app/data/loopaware.sqlite` by default. Mount the named volume if you want the data
 persisted across restarts.
 
 Default env (see `docker-compose.yml`):
 
 * `APP_ADDR=:8080`
 * `DB_DRIVER=sqlite`
-* `DB_DSN=file:/data/loopaware.sqlite?_foreign_keys=on`
+* `DB_DSN=file:/app/data/loopaware.sqlite?_foreign_keys=on`
 * `ADMIN_BEARER_TOKEN=replace-with-long-random` (change this!)
 
 ### Switching database drivers
@@ -58,8 +58,8 @@ docker run --rm -p 8080:8080 \
   -e APP_ADDR=":8080" \
   -e ADMIN_BEARER_TOKEN="replace-with-long-random" \
   -e DB_DRIVER="sqlite" \
-  -e DB_DSN="file:/data/loopaware.sqlite?_foreign_keys=on" \
-  -v loopaware-data:/data \
+  -e DB_DSN="file:/app/data/loopaware.sqlite?_foreign_keys=on" \
+  -v loopaware-data:/app/data \
   ghcr.io/<owner>/loopaware:latest
 ```
 
@@ -82,9 +82,9 @@ services:
       APP_ADDR: ":8080"
       ADMIN_BEARER_TOKEN: "${ADMIN_BEARER_TOKEN:-replace-with-long-random}"
       DB_DRIVER: "sqlite"
-      DB_DSN: "file:/data/loopaware.sqlite?_foreign_keys=on"
+      DB_DSN: "file:/app/data/loopaware.sqlite?_foreign_keys=on"
     volumes:
-      - loopaware-data:/data
+      - loopaware-data:/app/data
     ports:
       - "8080:8080"
 YAML
