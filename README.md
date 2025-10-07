@@ -118,6 +118,12 @@ The dashboard automatically redirects unauthenticated visitors to `/login`.
 3. Visitors can open the floating bubble, submit feedback, and the messages appear under `/api/sites/:id/messages` and
    in the dashboard.
 
+Example snippet (replace the base URL with your LoopAware deployment and the site identifier with the value returned by the API):
+
+```html
+<script src="https://loopaware.mprlab.com/widget.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"></script>
+```
+
 ## Development workflow
 
 ```bash
