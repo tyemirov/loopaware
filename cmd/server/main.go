@@ -278,7 +278,10 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 
 	application.configurationLoader.SetConfigFile(configFilePath)
 	if readErr := application.configurationLoader.ReadInConfig(); readErr != nil {
-		return fmt.Errorf("%s: %w", configurationFileLoadError, readErr)
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if !errors.As(readErr, &configFileNotFoundError) {
+			return fmt.Errorf("%s: %w", configurationFileLoadError, readErr)
+		}
 	}
 
 	adminEmails := application.configurationLoader.GetStringSlice(configurationKeyAdmins)
