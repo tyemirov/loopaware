@@ -46,7 +46,6 @@ const (
 	userEmailElementID               = "user-email"
 	userRoleBadgeElementID           = "user-role"
 	userAvatarElementID              = "user-avatar"
-	statusBannerElementID            = "status-banner"
 	siteSelectorElementID            = "site-selector"
 	emptySitesMessageElementID       = "empty-sites-message"
 	siteFormElementID                = "site-form"
@@ -66,8 +65,10 @@ const (
 	settingsAvatarImageElementID     = "settings-avatar-image"
 	settingsAvatarFallbackElementID  = "settings-avatar-fallback"
 	themeStorageKey                  = "loopaware_theme"
+	formStatusElementID              = "site-status"
+	widgetStatusElementID            = "widget-status"
+	messagesStatusElementID          = "messages-status"
 )
-
 
 type dashboardTemplateData struct {
 	PageTitle                   string
@@ -93,7 +94,6 @@ type dashboardTemplateData struct {
 	EmptySitesMessage           string
 	FeedbackPlaceholder         string
 	CurrentYear                 int
-	StatusBannerID              string
 	UserNameID                  string
 	UserEmailID                 string
 	UserRoleBadgeID             string
@@ -106,7 +106,17 @@ type dashboardTemplateData struct {
 	EditSiteOwnerContainerID    string
 	EditSiteOwnerInputID        string
 	SaveSiteButtonID            string
+	SaveButtonSaving            string
+	SaveButtonSaved             string
+	SaveButtonCreated           string
+	SaveButtonFailed            string
+	SaveButtonDefaultClass      string
 	RefreshMessagesButtonID     string
+	RefreshButtonLoading        string
+	RefreshButtonSuccess        string
+	RefreshButtonFailed         string
+	RefreshButtonDefaultLabel   string
+	RefreshButtonDefaultClass   string
 	FeedbackTableBodyID         string
 	LogoutButtonID              string
 	NewSiteOptionValue          string
@@ -122,6 +132,10 @@ type dashboardTemplateData struct {
 	StatusWidgetCopyFailed      string
 	WidgetSnippetTextareaID     string
 	CopyWidgetSnippetButtonID   string
+	CopyButtonCopied            string
+	CopyButtonFailed            string
+	CopyButtonDefaultLabel      string
+	CopyButtonDefaultClass      string
 	SettingsButtonID            string
 	SettingsButtonLabel         string
 	LogoutLabel                 string
@@ -131,6 +145,9 @@ type dashboardTemplateData struct {
 	ThemeStorageKey             string
 	SettingsAvatarImageID       string
 	SettingsAvatarFallbackID    string
+	FormStatusID                string
+	WidgetStatusID              string
+	MessagesStatusID            string
 }
 
 // DashboardWebHandlers serves the authenticated dashboard UI.
@@ -172,7 +189,6 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		EmptySitesMessage:           dashboardStatusNoSites,
 		FeedbackPlaceholder:         dashboardFeedbackPlaceholder,
 		CurrentYear:                 time.Now().Year(),
-		StatusBannerID:              statusBannerElementID,
 		UserNameID:                  userNameElementID,
 		UserEmailID:                 userEmailElementID,
 		UserRoleBadgeID:             userRoleBadgeElementID,
@@ -185,7 +201,17 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		EditSiteOwnerContainerID:    editSiteOwnerContainerElementID,
 		EditSiteOwnerInputID:        editSiteOwnerInputElementID,
 		SaveSiteButtonID:            saveSiteButtonElementID,
+		SaveButtonSaving:            "Saving site...",
+		SaveButtonSaved:             "Site updated.",
+		SaveButtonCreated:           "Site created.",
+		SaveButtonFailed:            "Failed to save site.",
+		SaveButtonDefaultClass:      "btn btn-outline-success",
 		RefreshMessagesButtonID:     refreshMessagesButtonElementID,
+		RefreshButtonLoading:        "Refreshing...",
+		RefreshButtonSuccess:        "Feedback refreshed.",
+		RefreshButtonFailed:         "Refresh failed.",
+		RefreshButtonDefaultLabel:   "Refresh feedback",
+		RefreshButtonDefaultClass:   "btn btn-outline-secondary btn-sm",
 		FeedbackTableBodyID:         feedbackTableBodyElementID,
 		LogoutButtonID:              logoutButtonElementID,
 		NewSiteOptionValue:          newSiteOptionValue,
@@ -201,6 +227,10 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		StatusWidgetCopyFailed:      dashboardStatusWidgetCopyFailed,
 		WidgetSnippetTextareaID:     widgetSnippetTextareaElementID,
 		CopyWidgetSnippetButtonID:   copyWidgetSnippetButtonElementID,
+		CopyButtonCopied:            "Snippet copied.",
+		CopyButtonFailed:            "Copy failed.",
+		CopyButtonDefaultLabel:      "Copy snippet",
+		CopyButtonDefaultClass:      "btn btn-outline-primary btn-sm",
 		SettingsButtonID:            settingsButtonElementID,
 		SettingsButtonLabel:         navbarSettingsButtonLabel,
 		LogoutLabel:                 navbarLogoutLabel,
@@ -210,6 +240,9 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		ThemeStorageKey:             themeStorageKey,
 		SettingsAvatarImageID:       settingsAvatarImageElementID,
 		SettingsAvatarFallbackID:    settingsAvatarFallbackElementID,
+		FormStatusID:                formStatusElementID,
+		WidgetStatusID:              widgetStatusElementID,
+		MessagesStatusID:            messagesStatusElementID,
 	}
 
 	var buffer bytes.Buffer

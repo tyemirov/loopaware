@@ -31,7 +31,7 @@
     </header>
     <main class="flex-grow-1 pt-5 mt-4">
       <div class="container py-4">
-        <div id="{{.StatusBannerID}}" class="alert alert-info d-none" role="alert"></div>
+        
         <div class="row g-4">
           <div class="col-lg-4">
             <div class="card shadow-sm">
@@ -59,7 +59,13 @@
           <div class="col-lg-8">
             <div class="card shadow-sm mb-4">
               <div class="card-header">
-                <h5 class="mb-0">Site details</h5>
+                <div class="d-flex align-items-center justify-content-between">
+                  <h5 class="mb-0">Site details</h5>
+                  <div class="d-flex align-items-center gap-2">
+                    <div id="{{.FormStatusID}}" class="d-none py-1 px-2 small"></div>
+                    <button id="{{.SaveSiteButtonID}}" type="button" class="{{.SaveButtonDefaultClass}}"></button>
+                  </div>
+                </div>
               </div>
               <div class="card-body">
                 <form id="{{.SiteFormID}}">
@@ -76,17 +82,19 @@
                       <label class="form-label" for="{{.EditSiteOwnerInputID}}">Owner email</label>
                       <input id="{{.EditSiteOwnerInputID}}" type="email" class="form-control" autocomplete="off" />
                     </div>
-                    <div class="col-md-6 d-flex justify-content-end">
-                      <button id="{{.SaveSiteButtonID}}" type="submit" class="btn btn-success">Save changes</button>
-                    </div>
-                  </div>
+                                      </div>
                 </form>
               </div>
             </div>
             <div class="card shadow-sm mb-4">
-              <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">{{.WidgetCardTitle}}</h5>
-                <button id="{{.CopyWidgetSnippetButtonID}}" type="button" class="btn btn-outline-primary btn-sm">Copy snippet</button>
+              <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0">{{.WidgetCardTitle}}</h5>
+                  <div class="d-flex align-items-center gap-2">
+                    <div id="{{.WidgetStatusID}}" class="d-none py-1 px-2 small"></div>
+                    <button id="{{.CopyWidgetSnippetButtonID}}" type="button" class="{{.CopyButtonDefaultClass}}">{{.CopyButtonDefaultLabel}}</button>
+                  </div>
+                </div>
               </div>
               <div class="card-body">
                 <p class="text-muted small mb-3">{{.WidgetInstructions}}</p>
@@ -94,9 +102,14 @@
               </div>
             </div>
             <div class="card shadow-sm">
-              <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Feedback messages</h5>
-                <button id="{{.RefreshMessagesButtonID}}" class="btn btn-outline-secondary btn-sm">Refresh feedback</button>
+              <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0">Feedback messages</h5>
+                  <div class="d-flex align-items-center gap-2">
+                    <div id="{{.MessagesStatusID}}" class="d-none py-1 px-2 small"></div>
+                    <button id="{{.RefreshMessagesButtonID}}" class="{{.RefreshButtonDefaultClass}}">{{.RefreshButtonDefaultLabel}}</button>
+                  </div>
+                </div>
               </div>
               <div class="card-body">
                 <div class="table-responsive">
@@ -166,7 +179,6 @@
         };
         var widgetUnavailableMessage = '{{.WidgetUnavailableMessage}}';
 
-        var banner = document.getElementById('{{.StatusBannerID}}');
         var userName = document.getElementById('{{.UserNameID}}');
         var userEmail = document.getElementById('{{.UserEmailID}}');
         var userAvatar = document.getElementById('{{.UserAvatarID}}');
@@ -193,6 +205,9 @@
         var widgetBaseURL = window.location.origin.replace(/\/$/, '');
         widgetSnippetTextarea.value = widgetUnavailableMessage;
         copyWidgetSnippetButton.disabled = true;
+        setButtonDefault(copyWidgetSnippetButton, '{{.CopyButtonDefaultLabel}}', '{{.CopyButtonDefaultClass}}');
+        setButtonDefault(refreshMessagesButton, '{{.RefreshButtonDefaultLabel}}', '{{.RefreshButtonDefaultClass}}');
+        setButtonDefault(saveSiteButton, '{{.UpdateButtonLabel}}', '{{.SaveButtonDefaultClass}}');
 
         function applyThemePreference(mode) {
           var normalized = mode === 'dark' ? 'dark' : 'light';
@@ -232,7 +247,7 @@
               return Promise.reject(new Error('unauthorized'));
             }
             if (response.status === 403) {
-              showStatus(statusMessages.loadFailed, 'danger');
+              updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonFailed}}', 'btn btn-outline-danger btn-sm');
               return Promise.reject(new Error('forbidden'));
             }
             if (!response.ok) {
@@ -247,16 +262,22 @@
           });
         }
 
-        function showStatus(message, variant) {
-          banner.textContent = message;
-          banner.className = 'alert alert-' + variant;
-          banner.classList.remove('d-none');
+        function showStatus(message, variant, targetId) {
+          var container = document.getElementById(targetId);
+          if (!container) {
+            return;
+          }
+          container.textContent = message;
+          container.className = 'badge rounded-pill bg-' + variant + ' py-2 px-3';
+          container.classList.remove('d-none');
+          clearTimeout(container._timer);
+          container._timer = setTimeout(function() {
+            container.classList.add('d-none');
+            container.textContent = '';
+          }, 3000);
         }
 
-        function hideStatus() {
-          banner.classList.add('d-none');
-          banner.textContent = '';
-        }
+        function hideStatus() {}
 
         function updateUserCard() {
           var displayName = state.user.name || state.user.email;
@@ -294,7 +315,34 @@
           return '<script src="' + widgetBaseURL + '/widget.js?site_id=' + siteId + '"></script>';
         }
 
-        function updateWidgetSnippet() {
+                function updateButtonStatus(button, text, extraClass) {
+          if (!button) { return; }
+          button._originalText = button._originalText || button.textContent;
+          button._originalClass = button._originalClass || button.className;
+          button.textContent = text;
+          if (extraClass) {
+            button.className = extraClass;
+          } else {
+            button.className = button._originalClass;
+          }
+          clearTimeout(button._statusTimer);
+          button._statusTimer = setTimeout(function() {
+            if (button) {
+              button.textContent = button._originalText;
+              button.className = button._originalClass;
+            }
+          }, 2000);
+        }
+
+        function setButtonDefault(button, label, className) {
+          if (!button) { return; }
+          button.textContent = label;
+          button.className = className;
+          button._originalText = label;
+          button._originalClass = className;
+        }
+
+function updateWidgetSnippet() {
           if (!state.selectedSiteId || isNewSiteSelected()) {
             widgetSnippetTextarea.value = widgetUnavailableMessage;
             copyWidgetSnippetButton.disabled = true;
@@ -316,12 +364,12 @@
           }
           var snippet = widgetSnippetTextarea.value;
           if (!snippet || snippet === widgetUnavailableMessage) {
-            showStatus(statusMessages.widgetCopyFailed, 'danger');
+            updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonFailed}}', 'btn btn-outline-danger btn-sm');
             return;
           }
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(snippet).then(function() {
-              showStatus(statusMessages.widgetCopied, 'success');
+              updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonCopied}}', 'btn btn-outline-success btn-sm');
             }).catch(function() {
               fallbackCopyWidgetSnippet(snippet);
             });
@@ -345,9 +393,9 @@
           widgetSnippetTextarea.selectionEnd = previousSelectionEnd;
           widgetSnippetTextarea.blur();
           if (copySucceeded) {
-            showStatus(statusMessages.widgetCopied, 'success');
+            updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonCopied}}', 'btn btn-outline-success btn-sm');
           } else {
-            showStatus(statusMessages.widgetCopyFailed, 'danger');
+            updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonFailed}}', 'btn btn-outline-danger btn-sm');
           }
         }
 
@@ -442,11 +490,9 @@
           }
           var isAdmin = state.user.is_admin;
           if (isNewSiteSelected()) {
-            saveSiteButton.textContent = createButtonLabel;
-            saveSiteButton.className = createButtonClass;
+            setButtonDefault(saveSiteButton, createButtonLabel, '{{.SaveButtonDefaultClass}}');
           } else {
-            saveSiteButton.textContent = updateButtonLabel;
-            saveSiteButton.className = updateButtonClass;
+            setButtonDefault(saveSiteButton, updateButtonLabel, '{{.SaveButtonDefaultClass}}');
           }
           if (isAdmin) {
             editSiteOwnerInput.disabled = false;
@@ -496,25 +542,29 @@
         }
 
         function loadUser() {
-          showStatus(statusMessages.loadingUser, 'info');
+          showStatus(statusMessages.loadingUser, 'info', '{{.FormStatusID}}');
           return fetchJSON(apiMeEndpoint).then(function(payload) {
             state.user = payload;
             updateUserCard();
             hideStatus();
           }).catch(function(error) {
-            showStatus(error.message || statusMessages.loadFailed, 'danger');
+            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', 'btn btn-outline-danger');
+            saveSiteButton.disabled = false;
+            saveSiteButton.disabled = false;
             throw error;
           });
         }
 
         function loadSites() {
-          showStatus(statusMessages.loadingSites, 'info');
+          updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonLoading}}', '{{.RefreshButtonDefaultClass}}');
           return fetchJSON(apiSitesEndpoint).then(function(payload) {
             state.sites = payload.sites || [];
             renderSites();
             hideStatus();
           }).catch(function(error) {
-            showStatus(error.message || statusMessages.loadFailed, 'danger');
+            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', 'btn btn-outline-danger');
+            saveSiteButton.disabled = false;
+            saveSiteButton.disabled = false;
           });
         }
 
@@ -526,16 +576,17 @@
           var endpoint = apiSiteMessagesPrefix + state.selectedSiteId + apiSiteMessagesSuffix;
           renderFeedbackPlaceholder('Loading...');
           fetchJSON(endpoint).then(function(payload) {
-            renderMessages(payload.messages || []);
+            renderMessages(payload.messages || []); updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonSuccess}}', 'btn btn-outline-success btn-sm');
           }).catch(function() {
-            renderFeedbackPlaceholder(statusMessages.loadFailed);
+            renderFeedbackPlaceholder(statusMessages.loadFailed); updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonFailed}}', 'btn btn-outline-danger btn-sm');
           });
         }
 
         function submitSite(event) {
-          event.preventDefault();
+          if (event) { event.preventDefault(); }
+          if (saveSiteButton.disabled) { return; }
           if (!state.selectedSiteId) {
-            showStatus(statusMessages.selectSite, 'warning');
+            showStatus(statusMessages.selectSite, 'warning', '{{.FormStatusID}}');
             return;
           }
           if (isNewSiteSelected()) {
@@ -546,7 +597,8 @@
         }
 
         function updateSite() {
-          showStatus(statusMessages.savingSite, 'info');
+          saveSiteButton.disabled = true;
+          updateButtonStatus(saveSiteButton, '{{.SaveButtonSaving}}', '{{.SaveButtonDefaultClass}}');
           var body = {
             name: editSiteNameInput.value,
             allowed_origin: editSiteOriginInput.value
@@ -562,19 +614,23 @@
             },
             body: JSON.stringify(body)
           }).then(function(payload) {
-            showStatus(statusMessages.siteSaved, 'success');
+            updateButtonStatus(saveSiteButton, '{{.SaveButtonSaved}}', '{{.SaveButtonDefaultClass}}');
+            saveSiteButton.disabled = false;
             var index = state.sites.findIndex(function(item) { return item.id === payload.id; });
             if (index >= 0) {
               state.sites[index] = payload;
             }
             renderSites();
           }).catch(function(error) {
-            showStatus(error.message || statusMessages.loadFailed, 'danger');
+            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', 'btn btn-outline-danger');
+            saveSiteButton.disabled = false;
+            saveSiteButton.disabled = false;
           });
         }
 
         function createSite() {
-          showStatus(statusMessages.creatingSite, 'info');
+          saveSiteButton.disabled = true;
+          updateButtonStatus(saveSiteButton, '{{.SaveButtonSaving}}', '{{.SaveButtonDefaultClass}}');
           var body = {
             name: editSiteNameInput.value,
             allowed_origin: editSiteOriginInput.value,
@@ -587,12 +643,15 @@
             },
             body: JSON.stringify(body)
           }).then(function(payload) {
-            showStatus(statusMessages.siteCreated, 'success');
+            updateButtonStatus(saveSiteButton, '{{.SaveButtonCreated}}', '{{.SaveButtonDefaultClass}}');
+            saveSiteButton.disabled = false;
             state.sites.unshift(payload);
             state.selectedSiteId = payload.id;
             renderSites();
           }).catch(function(error) {
-            showStatus(error.message || statusMessages.loadFailed, 'danger');
+            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', 'btn btn-outline-danger');
+            saveSiteButton.disabled = false;
+            saveSiteButton.disabled = false;
           });
         }
 
@@ -603,6 +662,7 @@
         });
 
         siteForm.addEventListener('submit', submitSite);
+        document.getElementById('{{.SaveSiteButtonID}}').addEventListener('click', submitSite);
         themeToggle.addEventListener('change', function(event) {
           var mode = event.target.checked ? 'dark' : 'light';
           applyThemePreference(mode);
