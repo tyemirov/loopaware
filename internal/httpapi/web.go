@@ -33,6 +33,9 @@ const (
 	dashboardWidgetUnavailable       = "Save the site to generate a widget snippet."
 	dashboardStatusWidgetCopied      = "Widget snippet copied."
 	dashboardStatusWidgetCopyFailed  = "Unable to copy widget snippet."
+	navbarSettingsButtonLabel        = "Account settings"
+	navbarLogoutLabel                = "Logout"
+	navbarThemeToggleLabel           = "Dark mode"
 	newSiteOptionValue               = "__new__"
 	newSiteOptionLabel               = "New site"
 	siteFormCreateButtonLabel        = "Create site"
@@ -57,6 +60,12 @@ const (
 	logoutButtonElementID            = "logout-button"
 	widgetSnippetTextareaElementID   = "widget-snippet"
 	copyWidgetSnippetButtonElementID = "copy-widget-snippet"
+	settingsButtonElementID          = "settings-button"
+	settingsMenuElementID            = "settings-menu"
+	settingsThemeToggleElementID     = "settings-theme-toggle"
+	settingsAvatarImageElementID     = "settings-avatar-image"
+	settingsAvatarFallbackElementID  = "settings-avatar-fallback"
+	themeStorageKey                  = "loopaware_theme"
 )
 
 const dashboardTemplate = `<!DOCTYPE html>
@@ -66,12 +75,28 @@ const dashboardTemplate = `<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{.PageTitle}}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" integrity="sha384-b0OvQu3P5AnbcW2CYwiVdc+GqOR/mdrIW6DCeU44yWiNys8lm2SleqU9jwOpcPfq" crossorigin="anonymous" />
   </head>
   <body class="d-flex flex-column min-vh-100 bg-light">
     <header class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top shadow-sm">
       <div class="container-fluid">
         <span class="navbar-brand fw-semibold">{{.PageTitle}}</span>
-        <button id="{{.LogoutButtonID}}" class="btn btn-outline-light">Logout</button>
+        <div class="dropdown ms-auto">
+          <button id="{{.SettingsButtonID}}" class="btn btn-outline-light border-0 rounded-circle p-1 d-flex align-items-center justify-content-center" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="visually-hidden">{{.SettingsButtonLabel}}</span>
+            <img id="{{.SettingsAvatarImageID}}" src="" alt="Avatar" class="rounded-circle d-none" width="36" height="36" />
+            <i id="{{.SettingsAvatarFallbackID}}" class="bi bi-person-circle fs-3"></i>
+          </button>
+          <div id="{{.SettingsMenuID}}" class="dropdown-menu dropdown-menu-end">
+            <button id="{{.LogoutButtonID}}" class="dropdown-item" type="button">{{.LogoutLabel}}</button>
+            <div class="dropdown-item d-flex align-items-center justify-content-between">
+              <span>{{.ThemeToggleLabel}}</span>
+              <div class="form-check form-switch m-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="{{.SettingsThemeToggleID}}" />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
     <main class="flex-grow-1 pt-5 mt-4">
@@ -179,6 +204,12 @@ const dashboardTemplate = `<!DOCTYPE html>
         var apiSiteMessagesSuffix = '{{.APIMessagesEndpointSuffix}}';
         var logoutPath = '{{.LogoutPath}}';
         var loginPath = '{{.LoginPath}}';
+        var themePreferenceStorageKey = '{{.ThemeStorageKey}}';
+        var settingsButton = document.getElementById('{{.SettingsButtonID}}');
+        var settingsMenu = document.getElementById('{{.SettingsMenuID}}');
+        var themeToggle = document.getElementById('{{.SettingsThemeToggleID}}');
+        var settingsAvatarImage = document.getElementById('{{.SettingsAvatarImageID}}');
+        var settingsAvatarFallback = document.getElementById('{{.SettingsAvatarFallbackID}}');
         var newSiteOptionValue = '{{.NewSiteOptionValue}}';
         var newSiteOptionLabel = '{{.NewSiteOptionLabel}}';
         var createButtonLabel = '{{.CreateButtonLabel}}';
@@ -233,6 +264,33 @@ const dashboardTemplate = `<!DOCTYPE html>
         widgetSnippetTextarea.value = widgetUnavailableMessage;
         copyWidgetSnippetButton.disabled = true;
 
+        function applyThemePreference(mode) {
+          var normalized = mode === 'dark' ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-bs-theme', normalized);
+          if (normalized === 'dark') {
+            document.body.classList.remove('bg-light');
+            document.body.classList.add('bg-dark', 'text-light');
+          } else {
+            document.body.classList.remove('bg-dark', 'text-light');
+            if (!document.body.classList.contains('bg-light')) {
+              document.body.classList.add('bg-light');
+            }
+          }
+        }
+
+        function loadThemePreference() {
+          var stored = localStorage.getItem(themePreferenceStorageKey);
+          if (stored !== 'dark' && stored !== 'light') {
+            stored = 'light';
+          }
+          themeToggle.checked = stored === 'dark';
+          applyThemePreference(stored);
+        }
+
+        function persistThemePreference(mode) {
+          localStorage.setItem(themePreferenceStorageKey, mode);
+        }
+
         function fetchJSON(url, options) {
           var requestOptions = options || {};
           if (!requestOptions.credentials) {
@@ -285,6 +343,16 @@ const dashboardTemplate = `<!DOCTYPE html>
             editSiteOwnerContainer.classList.remove('d-none');
           } else {
             editSiteOwnerContainer.classList.add('d-none');
+          }
+
+          if (state.user.picture_url) {
+            settingsAvatarImage.src = state.user.picture_url;
+            settingsAvatarImage.classList.remove('d-none');
+            settingsAvatarFallback.classList.add('d-none');
+          } else {
+            settingsAvatarImage.src = '';
+            settingsAvatarImage.classList.add('d-none');
+            settingsAvatarFallback.classList.remove('d-none');
           }
         }
 
@@ -605,6 +673,11 @@ const dashboardTemplate = `<!DOCTYPE html>
         });
 
         siteForm.addEventListener('submit', submitSite);
+        themeToggle.addEventListener('change', function(event) {
+          var mode = event.target.checked ? 'dark' : 'light';
+          applyThemePreference(mode);
+          persistThemePreference(mode);
+        });
         copyWidgetSnippetButton.addEventListener('click', function(event) {
           event.preventDefault();
           copyWidgetSnippet();
@@ -618,6 +691,7 @@ const dashboardTemplate = `<!DOCTYPE html>
           window.location.href = logoutPath;
         });
 
+        loadThemePreference();
         loadUser().then(loadSites);
       })();
     </script>
@@ -678,6 +752,15 @@ type dashboardTemplateData struct {
 	StatusWidgetCopyFailed      string
 	WidgetSnippetTextareaID     string
 	CopyWidgetSnippetButtonID   string
+	SettingsButtonID            string
+	SettingsButtonLabel         string
+	LogoutLabel                 string
+	ThemeToggleLabel            string
+	SettingsMenuID              string
+	SettingsThemeToggleID       string
+	ThemeStorageKey             string
+	SettingsAvatarImageID       string
+	SettingsAvatarFallbackID    string
 }
 
 // DashboardWebHandlers serves the authenticated dashboard UI.
@@ -748,6 +831,15 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		StatusWidgetCopyFailed:      dashboardStatusWidgetCopyFailed,
 		WidgetSnippetTextareaID:     widgetSnippetTextareaElementID,
 		CopyWidgetSnippetButtonID:   copyWidgetSnippetButtonElementID,
+		SettingsButtonID:            settingsButtonElementID,
+		SettingsButtonLabel:         navbarSettingsButtonLabel,
+		LogoutLabel:                 navbarLogoutLabel,
+		ThemeToggleLabel:            navbarThemeToggleLabel,
+		SettingsMenuID:              settingsMenuElementID,
+		SettingsThemeToggleID:       settingsThemeToggleElementID,
+		ThemeStorageKey:             themeStorageKey,
+		SettingsAvatarImageID:       settingsAvatarImageElementID,
+		SettingsAvatarFallbackID:    settingsAvatarFallbackElementID,
 	}
 
 	var buffer bytes.Buffer
