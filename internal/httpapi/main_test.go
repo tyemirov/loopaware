@@ -24,6 +24,8 @@ const (
 	dashboardFooterBrandName        = "Marco Polo Research Lab"
 	dashboardButtonStatusToken      = "buttonStatusDisplayDuration"
 	dashboardRestoreButtonToken     = "restoreButtonDefault"
+	dashboardCreateButtonPattern    = "setButtonDefault(saveSiteButton, createButtonLabel, createButtonClass);"
+	dashboardUpdateButtonPattern    = "setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);"
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -155,6 +157,16 @@ func TestDashboardTemplateConfiguresButtonStatusManager(t *testing.T) {
 		{
 			testName:      "restore helper token",
 			substring:     dashboardRestoreButtonToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "create mode styling",
+			substring:     dashboardCreateButtonPattern,
+			expectPresent: true,
+		},
+		{
+			testName:      "update mode styling",
+			substring:     dashboardUpdateButtonPattern,
 			expectPresent: true,
 		},
 	}

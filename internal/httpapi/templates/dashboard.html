@@ -216,7 +216,7 @@
         copyWidgetSnippetButton.disabled = true;
         setButtonDefault(copyWidgetSnippetButton, '{{.CopyButtonDefaultLabel}}', '{{.CopyButtonDefaultClass}}');
         setButtonDefault(refreshMessagesButton, '{{.RefreshButtonDefaultLabel}}', '{{.RefreshButtonDefaultClass}}');
-        setButtonDefault(saveSiteButton, '{{.UpdateButtonLabel}}', '{{.SaveButtonDefaultClass}}');
+        setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
 
         function applyThemePreference(mode) {
           var normalized = mode === 'dark' ? 'dark' : 'light';
@@ -556,9 +556,9 @@ function updateWidgetSnippet() {
           }
           var isAdmin = state.user.is_admin;
           if (isNewSiteSelected()) {
-            setButtonDefault(saveSiteButton, createButtonLabel, '{{.SaveButtonDefaultClass}}');
+            setButtonDefault(saveSiteButton, createButtonLabel, createButtonClass);
           } else {
-            setButtonDefault(saveSiteButton, updateButtonLabel, '{{.SaveButtonDefaultClass}}');
+            setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
           }
           if (isAdmin) {
             editSiteOwnerInput.disabled = false;
