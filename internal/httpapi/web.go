@@ -103,9 +103,8 @@ const dashboardTemplate = `<!DOCTYPE html>
           </div>
           <div class="col-lg-8">
             <div class="card shadow-sm mb-4">
-              <div class="card-header d-flex justify-content-between align-items-center">
+              <div class="card-header">
                 <h5 class="mb-0">Site details</h5>
-                <button id="{{.RefreshMessagesButtonID}}" class="btn btn-outline-secondary btn-sm">Refresh feedback</button>
               </div>
               <div class="card-body">
                 <form id="{{.SiteFormID}}">
@@ -140,7 +139,10 @@ const dashboardTemplate = `<!DOCTYPE html>
               </div>
             </div>
             <div class="card shadow-sm">
-              <div class="card-header">Feedback messages</div>
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Feedback messages</h5>
+                <button id="{{.RefreshMessagesButtonID}}" class="btn btn-outline-secondary btn-sm">Refresh feedback</button>
+              </div>
               <div class="card-body">
                 <div class="table-responsive">
                   <table class="table table-striped table-hover align-middle">
