@@ -22,6 +22,8 @@ const (
 	dashboardFooterBrandPrefix      = "Built by"
 	dashboardFooterBrandURL         = "https://mprlab.com"
 	dashboardFooterBrandName        = "Marco Polo Research Lab"
+	dashboardButtonStatusToken      = "buttonStatusDisplayDuration"
+	dashboardRestoreButtonToken     = "restoreButtonDefault"
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -113,6 +115,46 @@ func TestDashboardFooterIncludesBranding(t *testing.T) {
 		{
 			testName:      "footer link target",
 			substring:     dashboardFooterBrandURL,
+			expectPresent: true,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.testName, func(t *testing.T) {
+			if testCase.expectPresent {
+				require.Contains(t, body, testCase.substring)
+				return
+			}
+			require.NotContains(t, body, testCase.substring)
+		})
+	}
+}
+
+func TestDashboardTemplateConfiguresButtonStatusManager(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	testCases := []struct {
+		testName      string
+		substring     string
+		expectPresent bool
+	}{
+		{
+			testName:      "status duration token",
+			substring:     dashboardButtonStatusToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "restore helper token",
+			substring:     dashboardRestoreButtonToken,
 			expectPresent: true,
 		},
 	}

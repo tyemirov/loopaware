@@ -210,6 +210,7 @@
           sites: [],
           selectedSiteId: ''
         };
+        var buttonStatusDisplayDuration = 3000;
         var widgetBaseURL = window.location.origin.replace(/\/$/, '');
         widgetSnippetTextarea.value = widgetUnavailableMessage;
         copyWidgetSnippetButton.disabled = true;
@@ -323,31 +324,48 @@
           return '<script src="' + widgetBaseURL + '/widget.js?site_id=' + siteId + '"></script>';
         }
 
-                function updateButtonStatus(button, text, extraClass) {
-          if (!button) { return; }
-          button._originalText = button._originalText || button.textContent;
-          button._originalClass = button._originalClass || button.className;
-          button.textContent = text;
-          if (extraClass) {
-            button.className = extraClass;
-          } else {
-            button.className = button._originalClass;
+        function updateButtonStatus(button, text, extraClass) {
+          if (!button) {
+            return;
           }
+          if (!button._defaultText) {
+            button._defaultText = button.textContent;
+          }
+          if (!button._defaultClass) {
+            button._defaultClass = button.className;
+          }
+          button.textContent = text;
+          button.className = extraClass || button._defaultClass;
+          button._statusActive = true;
           clearTimeout(button._statusTimer);
-          button._statusTimer = setTimeout(function() {
-            if (button) {
-              button.textContent = button._originalText;
-              button.className = button._originalClass;
-            }
-          }, 2000);
+          button._statusTimer = window.setTimeout(function() {
+            button._statusActive = false;
+            restoreButtonDefault(button);
+          }, buttonStatusDisplayDuration);
         }
 
         function setButtonDefault(button, label, className) {
-          if (!button) { return; }
-          button.textContent = label;
-          button.className = className;
-          button._originalText = label;
-          button._originalClass = className;
+          if (!button) {
+            return;
+          }
+          button._defaultText = label;
+          button._defaultClass = className;
+          if (button._statusActive) {
+            return;
+          }
+          restoreButtonDefault(button);
+        }
+
+        function restoreButtonDefault(button) {
+          if (!button) {
+            return;
+          }
+          if (typeof button._defaultText === 'string') {
+            button.textContent = button._defaultText;
+          }
+          if (typeof button._defaultClass === 'string') {
+            button.className = button._defaultClass;
+          }
         }
 
         function updateNewSiteButtonState() {

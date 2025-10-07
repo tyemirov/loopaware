@@ -16,7 +16,6 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ## BugFixes
 
-- [ ] [LA-13] Update a site shows a post-action message for 1 nanosecond, when other buttons shows a message for the reasonable amount of time. Ensure we have a reusable component that acts the same everywhere in the app
 - [ ] [LA-14] The Create a site doesnt become blue, as it supposed to be. Make sure that the same button in the upper right corner of the Site Details changes styling depending on the intended action.
 
 ## Maintenance
