@@ -239,6 +239,61 @@ func TestUpdateSiteAllowsOwnerToChangeDetails(testingT *testing.T) {
 	require.Equal(testingT, "http://updated.example", responseBody["allowed_origin"])
 }
 
+func TestDeleteSiteRemovesSiteAndFeedback(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Deletable Site",
+		AllowedOrigin: "http://delete.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	feedback := model.Feedback{
+		ID:      storage.NewID(),
+		SiteID:  site.ID,
+		Contact: "contact@example.com",
+		Message: "Message",
+	}
+	require.NoError(testingT, harness.database.Create(&feedback).Error)
+
+	recorder, context := newJSONContext(http.MethodDelete, "/api/sites/"+site.ID, nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+
+	harness.handlers.DeleteSite(context)
+	require.Equal(testingT, http.StatusNoContent, recorder.Code)
+
+	var remainingSite model.Site
+	require.ErrorIs(testingT, harness.database.First(&remainingSite, "id = ?", site.ID).Error, gorm.ErrRecordNotFound)
+
+	var remainingFeedback model.Feedback
+	require.ErrorIs(testingT, harness.database.First(&remainingFeedback, "id = ?", feedback.ID).Error, gorm.ErrRecordNotFound)
+}
+
+func TestDeleteSitePreventsUnauthorizedUser(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Protected Site",
+		AllowedOrigin: "http://protected.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodDelete, "/api/sites/"+site.ID, nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
+
+	harness.handlers.DeleteSite(context)
+	require.Equal(testingT, http.StatusForbidden, recorder.Code)
+
+	var persistedSite model.Site
+	require.NoError(testingT, harness.database.First(&persistedSite, "id = ?", site.ID).Error)
+}
+
 func TestUserAvatarReturnsStoredImage(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 

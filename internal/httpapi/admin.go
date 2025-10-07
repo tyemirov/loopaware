@@ -31,6 +31,7 @@ const (
 	errorValueInvalidOwner     = "invalid_owner"
 	errorValueNothingToUpdate  = "nothing_to_update"
 	errorValueInvalidOperation = "invalid_operation"
+	errorValueDeleteFailed     = "delete_failed"
 
 	widgetScriptTemplate = "<script src=\"%s/widget.js?site_id=%s\"></script>"
 )
@@ -292,6 +293,49 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 	}
 
 	context.JSON(http.StatusOK, handlers.toSiteResponse(site))
+}
+
+func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
+	siteIdentifier := strings.TrimSpace(context.Param("id"))
+	if siteIdentifier == "" {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingSite})
+		return
+	}
+
+	currentUser, ok := CurrentUserFromContext(context)
+	if !ok {
+		context.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
+		return
+	}
+
+	var site model.Site
+	if err := handlers.database.First(&site, "id = ?", siteIdentifier).Error; err != nil {
+		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownSite})
+		return
+	}
+
+	if !canManageSite(currentUser, site) {
+		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
+		return
+	}
+
+	deleteErr := handlers.database.Transaction(func(transaction *gorm.DB) error {
+		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.Feedback{}).Error; err != nil {
+			return err
+		}
+		if err := transaction.Delete(&model.Site{ID: site.ID}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	if deleteErr != nil {
+		handlers.logger.Warn("delete_site", zap.Error(deleteErr))
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueDeleteFailed})
+		return
+	}
+
+	context.Status(http.StatusNoContent)
+	context.Writer.WriteHeaderNow()
 }
 
 func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {

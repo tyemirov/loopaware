@@ -48,9 +48,16 @@
               </div>
             </div>
             <div class="card shadow-sm mt-4">
-              <div class="card-header d-flex align-items-center justify-content-between">
-                <span>Sites</span>
-                <button id="{{.NewSiteButtonID}}" type="button" class="{{.NewSiteButtonClass}}">{{.NewSiteButtonLabel}}</button>
+              <div class="card-header">
+                <div class="d-flex align-items-center justify-content-between">
+                  <span>Sites</span>
+                  <div class="d-flex align-items-center gap-2">
+                    <button id="{{.DeleteSiteButtonID}}" type="button" class="{{.DeleteSiteButtonDisabledClass}}" aria-label="{{.DeleteSiteButtonLabel}}" disabled>
+                      <i class="bi bi-trash"></i>
+                    </button>
+                    <button id="{{.NewSiteButtonID}}" type="button" class="{{.NewSiteButtonClass}}">{{.NewSiteButtonLabel}}</button>
+                  </div>
+                </div>
               </div>
               <div class="card-body p-0">
                 <div id="{{.SitesListID}}" class="list-group list-group-flush overflow-auto" style="max-height: 20rem;"></div>
@@ -64,7 +71,7 @@
                 <div class="d-flex align-items-center justify-content-between">
                   <h5 class="mb-0">Site details</h5>
                   <div class="d-flex align-items-center gap-2">
-                    <div id="{{.FormStatusID}}" class="d-none py-1 px-2 small"></div>
+                    <div id="{{.FormStatusID}}" class="{{.FormStatusBaseClass}}"></div>
                     <button id="{{.SaveSiteButtonID}}" type="button" class="{{.SaveButtonDefaultClass}}"></button>
                   </div>
                 </div>
@@ -134,6 +141,28 @@
         </div>
       </div>
     </main>
+    <div class="modal fade" id="{{.DeleteSiteModalID}}" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">{{.DeleteSiteModalTitle}}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{.DeleteSiteModalCancelButtonLabel}}"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-3">{{.DeleteSiteModalDescription}}</p>
+            <div class="mb-3">
+              <label class="form-label" for="{{.DeleteSiteModalInputID}}">{{.DeleteSiteModalInputLabel}}</label>
+              <input id="{{.DeleteSiteModalInputID}}" type="text" class="form-control" placeholder="{{.DeleteSiteModalInputPlaceholder}}" autocomplete="off" />
+              <div class="form-text">{{.DeleteSiteModalHintPrefix}}<strong id="{{.DeleteSiteTargetNameID}}"></strong>{{.DeleteSiteModalHintSuffix}}</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="{{.DeleteSiteModalCancelButtonClass}}" data-bs-dismiss="modal">{{.DeleteSiteModalCancelButtonLabel}}</button>
+            <button id="{{.DeleteSiteModalConfirmButtonID}}" type="button" class="{{.DeleteSiteModalConfirmButtonClass}}" disabled>{{.DeleteSiteModalConfirmButtonLabel}}</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <footer class="bg-white mt-auto py-3 fixed-bottom border-top">
       <div class="container d-flex flex-column flex-md-row align-items-center justify-content-between text-center text-md-start text-muted small gap-2">
         <span>LoopAware © {{.CurrentYear}}</span>
@@ -182,6 +211,9 @@
           siteSaved: '{{.StatusSiteSaved}}',
           creatingSite: '{{.StatusCreatingSite}}',
           siteCreated: '{{.StatusSiteCreated}}',
+          deletingSite: '{{.StatusDeletingSite}}',
+          siteDeleted: '{{.StatusSiteDeleted}}',
+          deleteSiteFailed: '{{.StatusDeleteSiteFailed}}',
           selectSite: '{{.StatusSelectSite}}',
           noMessages: '{{.StatusNoMessages}}',
           noSites: '{{.StatusNoSites}}',
@@ -210,11 +242,24 @@
         var logoutButton = document.getElementById('{{.LogoutButtonID}}');
         var widgetSnippetTextarea = document.getElementById('{{.WidgetSnippetTextareaID}}');
         var copyWidgetSnippetButton = document.getElementById('{{.CopyWidgetSnippetButtonID}}');
+        var deleteSiteButton = document.getElementById('{{.DeleteSiteButtonID}}');
+        var deleteSiteButtonDefaultClass = '{{.DeleteSiteButtonClass}}';
+        var deleteSiteButtonDisabledClass = '{{.DeleteSiteButtonDisabledClass}}';
+        var deleteSiteModalElement = document.getElementById('{{.DeleteSiteModalID}}');
+        var deleteSiteModal = deleteSiteModalElement && window.bootstrap && window.bootstrap.Modal ? new window.bootstrap.Modal(deleteSiteModalElement) : null;
+        var deleteSiteConfirmButton = document.getElementById('{{.DeleteSiteModalConfirmButtonID}}');
+        var deleteSiteConfirmInput = document.getElementById('{{.DeleteSiteModalInputID}}');
+        var deleteSiteTargetName = document.getElementById('{{.DeleteSiteTargetNameID}}');
+        var formStatus = document.getElementById('{{.FormStatusID}}');
+        var formStatusBaseClass = '{{.FormStatusBaseClass}}';
+        var formStatusSuccessClass = '{{.FormStatusSuccessClass}}';
+        var formStatusDangerClass = '{{.FormStatusDangerClass}}';
 
         var state = {
           user: null,
           sites: [],
-          selectedSiteId: ''
+          selectedSiteId: '',
+          pendingDeletionSiteId: ''
         };
         var buttonStatusDisplayDuration = 3000;
         var widgetBaseURL = window.location.origin.replace(/\/$/, '');
@@ -223,6 +268,7 @@
         setButtonDefault(copyWidgetSnippetButton, '{{.CopyButtonDefaultLabel}}', '{{.CopyButtonDefaultClass}}');
         setButtonDefault(refreshMessagesButton, '{{.RefreshButtonDefaultLabel}}', '{{.RefreshButtonDefaultClass}}');
         setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
+        clearFormStatus();
 
         function applyThemePreference(mode) {
           var normalized = mode === 'dark' ? 'dark' : 'light';
@@ -368,6 +414,127 @@
           }
         }
 
+        function updateDeleteButtonState() {
+          if (!deleteSiteButton) {
+            return;
+          }
+          var shouldDisable = state.sites.length === 0 || !state.selectedSiteId || isNewSiteSelected();
+          deleteSiteButton.disabled = shouldDisable;
+          deleteSiteButton.className = shouldDisable ? deleteSiteButtonDisabledClass : deleteSiteButtonDefaultClass;
+        }
+
+        function setFormStatus(message, className) {
+          if (!formStatus) {
+            return;
+          }
+          formStatus.textContent = message;
+          formStatus.className = className;
+        }
+
+        function clearFormStatus() {
+          if (!formStatus) {
+            return;
+          }
+          formStatus.textContent = '';
+          formStatus.className = formStatusBaseClass;
+        }
+
+        function clearDeleteConfirmationInput() {
+          if (deleteSiteConfirmInput) {
+            deleteSiteConfirmInput.value = '';
+            deleteSiteConfirmInput.dataset.expectedName = '';
+          }
+          if (deleteSiteConfirmButton) {
+            deleteSiteConfirmButton.disabled = true;
+          }
+        }
+
+        function updateDeleteConfirmationState() {
+          if (!deleteSiteConfirmInput || !deleteSiteConfirmButton) {
+            return;
+          }
+          var expectedName = (deleteSiteConfirmInput.dataset.expectedName || '').trim();
+          var typedName = deleteSiteConfirmInput.value.trim();
+          deleteSiteConfirmButton.disabled = expectedName === '' || typedName !== expectedName;
+        }
+
+        function openDeleteSiteModal() {
+          if (!deleteSiteModal || !deleteSiteButton || deleteSiteButton.disabled) {
+            return;
+          }
+          var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
+          if (!site) {
+            return;
+          }
+          state.pendingDeletionSiteId = site.id;
+          if (deleteSiteTargetName) {
+            deleteSiteTargetName.textContent = site.name || '';
+          }
+          if (deleteSiteConfirmInput) {
+            deleteSiteConfirmInput.dataset.expectedName = site.name || '';
+            deleteSiteConfirmInput.value = '';
+          }
+          if (deleteSiteConfirmButton) {
+            deleteSiteConfirmButton.disabled = true;
+          }
+          deleteSiteModal.show();
+          window.setTimeout(function() {
+            if (deleteSiteConfirmInput) {
+              deleteSiteConfirmInput.focus();
+            }
+          }, 150);
+        }
+
+        function deleteSelectedSite() {
+          if (!state.pendingDeletionSiteId) {
+            return;
+          }
+          var site = state.sites.find(function(item) { return item.id === state.pendingDeletionSiteId; });
+          if (!site) {
+            return;
+          }
+          if (deleteSiteConfirmButton) {
+            deleteSiteConfirmButton.disabled = true;
+          }
+          setFormStatus(statusMessages.deletingSite, formStatusDangerClass);
+          window.fetch(apiSiteUpdatePrefix + site.id, {
+            method: 'DELETE',
+            credentials: 'same-origin'
+          }).then(function(response) {
+            if (response.status === 401) {
+              window.location.href = loginPath;
+              throw new Error('unauthorized');
+            }
+            if (!response.ok) {
+              return response.json().catch(function() {
+                return {};
+              }).then(function(body) {
+                var message = body.error || body.message || statusMessages.deleteSiteFailed;
+                throw new Error(message);
+              });
+            }
+            return response;
+          }).then(function() {
+            state.sites = state.sites.filter(function(item) { return item.id !== site.id; });
+            state.selectedSiteId = state.sites.length > 0 ? state.sites[0].id : newSiteOptionValue;
+            state.pendingDeletionSiteId = '';
+            if (deleteSiteModal) {
+              deleteSiteModal.hide();
+            }
+            clearDeleteConfirmationInput();
+            renderSites();
+            setFormStatus(statusMessages.siteDeleted, formStatusSuccessClass);
+          }).catch(function(error) {
+            if (error && error.message === 'unauthorized') {
+              return;
+            }
+            setFormStatus((error && error.message) || statusMessages.deleteSiteFailed, formStatusDangerClass);
+            if (deleteSiteConfirmInput) {
+              updateDeleteConfirmationState();
+            }
+          });
+        }
+
         function updateWidgetSnippet() {
           if (!state.selectedSiteId || isNewSiteSelected()) {
             widgetSnippetTextarea.value = widgetUnavailableMessage;
@@ -474,6 +641,7 @@
           }
 
           updateNewSiteButtonState();
+          updateDeleteButtonState();
           populateSiteForm();
           updateWidgetSnippet();
           if (isNewSiteSelected()) {
@@ -495,6 +663,7 @@
           if (!siteIdentifier || siteIdentifier === state.selectedSiteId) {
             return;
           }
+          clearFormStatus();
           state.selectedSiteId = siteIdentifier;
           renderSites();
         }
@@ -725,8 +894,32 @@
             if (state.selectedSiteId === newSiteOptionValue) {
               return;
             }
+            clearFormStatus();
             state.selectedSiteId = newSiteOptionValue;
             renderSites();
+          });
+        }
+        if (deleteSiteButton) {
+          deleteSiteButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            openDeleteSiteModal();
+          });
+        }
+        if (deleteSiteConfirmInput) {
+          deleteSiteConfirmInput.addEventListener('input', function() {
+            updateDeleteConfirmationState();
+          });
+        }
+        if (deleteSiteConfirmButton) {
+          deleteSiteConfirmButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            deleteSelectedSite();
+          });
+        }
+        if (deleteSiteModalElement) {
+          deleteSiteModalElement.addEventListener('hidden.bs.modal', function() {
+            state.pendingDeletionSiteId = '';
+            clearDeleteConfirmationInput();
           });
         }
 

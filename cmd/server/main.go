@@ -76,6 +76,7 @@ const (
 	httpMethodOptions                = "OPTIONS"
 	httpMethodPost                   = "POST"
 	httpMethodPatch                  = "PATCH"
+	httpMethodDelete                 = "DELETE"
 	loggerContextOpenDatabase        = "open_db"
 	loggerContextAutoMigrate         = "migrate"
 	loggerContextServer              = "server"
@@ -90,7 +91,7 @@ const (
 )
 
 var (
-	corsAllowedMethods          = []string{httpMethodPost, httpMethodGet, httpMethodOptions, httpMethodPatch}
+	corsAllowedMethods          = []string{httpMethodPost, httpMethodGet, httpMethodOptions, httpMethodPatch, httpMethodDelete}
 	corsAllowedHeaders          = []string{corsHeaderAuthorization, corsHeaderContentType}
 	corsExposedHeaders          = []string{corsHeaderContentType}
 	corsAllowOrigins            = []string{corsOriginWildcard}
@@ -389,6 +390,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	apiGroup.GET(apiRouteSites, siteHandlers.ListSites)
 	apiGroup.POST(apiRouteSites, siteHandlers.CreateSite)
 	apiGroup.PATCH(apiRouteSiteUpdate, siteHandlers.UpdateSite)
+	apiGroup.DELETE(apiRouteSiteUpdate, siteHandlers.DeleteSite)
 	apiGroup.GET(apiRouteSiteMessages, siteHandlers.ListMessagesBySite)
 
 	httpServer := &http.Server{
