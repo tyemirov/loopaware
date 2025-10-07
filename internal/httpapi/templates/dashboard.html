@@ -169,89 +169,83 @@
       </div>
     </footer>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script type="application/json" id="{{.ClientConfigElementID}}">{{.ClientConfigJSON}}</script>
     <script>
       (function() {
-        var apiMeEndpoint = '{{.APIMeEndpoint}}';
-        var apiSitesEndpoint = '{{.APISitesEndpoint}}';
-        var apiSiteUpdatePrefix = '{{.APISiteUpdateEndpointPrefix}}';
-        var apiSiteMessagesPrefix = '{{.APIMessagesEndpointPrefix}}';
-        var apiSiteMessagesSuffix = '{{.APIMessagesEndpointSuffix}}';
-        var logoutPath = '{{.LogoutPath}}';
-        var loginPath = '{{.LoginPath}}';
-        var themePreferenceStorageKey = '{{.ThemeStorageKey}}';
-        var settingsButton = document.getElementById('{{.SettingsButtonID}}');
-        var settingsMenu = document.getElementById('{{.SettingsMenuID}}');
-        var themeToggle = document.getElementById('{{.SettingsThemeToggleID}}');
-        var settingsAvatarImage = document.getElementById('{{.SettingsAvatarImageID}}');
-        var settingsAvatarFallback = document.getElementById('{{.SettingsAvatarFallbackID}}');
-        var newSiteOptionValue = '{{.NewSiteOptionValue}}';
-        var createButtonLabel = '{{.CreateButtonLabel}}';
-        var updateButtonLabel = '{{.UpdateButtonLabel}}';
-        var createButtonClass = '{{.CreateButtonClass}}';
-        var updateButtonClass = '{{.UpdateButtonClass}}';
-        var newSiteButton = document.getElementById('{{.NewSiteButtonID}}');
-        var newSiteButtonDefaultClass = '{{.NewSiteButtonClass}}';
-        var newSiteButtonActiveClass = '{{.NewSiteButtonActiveClass}}';
-        var buttonStyles = {
-          primary: '{{.ActionButtonPrimaryClass}}',
-          success: '{{.ActionButtonSuccessClass}}',
-          secondary: '{{.ActionButtonSecondaryClass}}',
-          danger: '{{.ActionButtonDangerClass}}'
-        };
-        var sitesList = document.getElementById('{{.SitesListID}}');
-        var siteListItemClass = '{{.SiteListItemClass}}';
-        var siteListItemActiveClass = '{{.SiteListItemActiveClass}}';
-        var statusMessages = {
-          loadingUser: '{{.StatusLoadingUser}}',
-          loadingSites: '{{.StatusLoadingSites}}',
-          loadFailed: '{{.StatusLoadFailed}}',
-          savingSite: '{{.StatusSavingSite}}',
-          siteSaved: '{{.StatusSiteSaved}}',
-          creatingSite: '{{.StatusCreatingSite}}',
-          siteCreated: '{{.StatusSiteCreated}}',
-          deletingSite: '{{.StatusDeletingSite}}',
-          siteDeleted: '{{.StatusSiteDeleted}}',
-          deleteSiteFailed: '{{.StatusDeleteSiteFailed}}',
-          selectSite: '{{.StatusSelectSite}}',
-          noMessages: '{{.StatusNoMessages}}',
-          noSites: '{{.StatusNoSites}}',
-          widgetCopied: '{{.StatusWidgetCopied}}',
-          widgetCopyFailed: '{{.StatusWidgetCopyFailed}}'
-        };
-        var roleLabels = {
-          admin: '{{.RoleAdmin}}',
-          user: '{{.RoleUser}}'
-        };
-        var widgetUnavailableMessage = '{{.WidgetUnavailableMessage}}';
-
-        var userName = document.getElementById('{{.UserNameID}}');
-        var userEmail = document.getElementById('{{.UserEmailID}}');
-        var userAvatar = document.getElementById('{{.UserAvatarID}}');
-        var userRole = document.getElementById('{{.UserRoleBadgeID}}');
-        var emptySitesMessage = document.getElementById('{{.EmptySitesMessageID}}');
-        var siteForm = document.getElementById('{{.SiteFormID}}');
-        var editSiteNameInput = document.getElementById('{{.EditSiteNameInputID}}');
-        var editSiteOriginInput = document.getElementById('{{.EditSiteOriginInputID}}');
-        var editSiteOwnerContainer = document.getElementById('{{.EditSiteOwnerContainerID}}');
-        var editSiteOwnerInput = document.getElementById('{{.EditSiteOwnerInputID}}');
-        var saveSiteButton = document.getElementById('{{.SaveSiteButtonID}}');
-        var refreshMessagesButton = document.getElementById('{{.RefreshMessagesButtonID}}');
-        var feedbackTableBody = document.getElementById('{{.FeedbackTableBodyID}}');
-        var logoutButton = document.getElementById('{{.LogoutButtonID}}');
-        var widgetSnippetTextarea = document.getElementById('{{.WidgetSnippetTextareaID}}');
-        var copyWidgetSnippetButton = document.getElementById('{{.CopyWidgetSnippetButtonID}}');
-        var deleteSiteButton = document.getElementById('{{.DeleteSiteButtonID}}');
-        var deleteSiteButtonDefaultClass = '{{.DeleteSiteButtonClass}}';
-        var deleteSiteButtonDisabledClass = '{{.DeleteSiteButtonDisabledClass}}';
-        var deleteSiteModalElement = document.getElementById('{{.DeleteSiteModalID}}');
+        var configElement = document.getElementById('{{.ClientConfigElementID}}');
+        var parsedConfig = {};
+        if (configElement) {
+          try {
+            parsedConfig = JSON.parse(configElement.textContent || '{}') || {};
+          } catch (error) {
+            parsedConfig = {};
+          }
+        }
+        var apiPaths = parsedConfig.api_paths || {};
+        var sharedPaths = parsedConfig.paths || {};
+        var elementIds = parsedConfig.element_ids || {};
+        var buttonClasses = parsedConfig.button_classes || {};
+        var buttonLabels = parsedConfig.button_labels || {};
+        var statusMessages = parsedConfig.status_messages || {};
+        var roleLabels = parsedConfig.role_labels || {};
+        var buttonStyles = parsedConfig.button_styles || {};
+        var componentClasses = parsedConfig.component_classes || {};
+        var widgetTexts = parsedConfig.widget_texts || {};
+        var optionValues = parsedConfig.option_values || {};
+        var formStatusClasses = parsedConfig.form_status_classes || {};
+        var themePreferenceStorageKey = parsedConfig.theme_storage_key || '';
+        var settingsButton = document.getElementById(elementIds.settings_button);
+        var settingsMenu = document.getElementById(elementIds.settings_menu);
+        var themeToggle = document.getElementById(elementIds.settings_theme_toggle);
+        var settingsAvatarImage = document.getElementById(elementIds.settings_avatar_image);
+        var settingsAvatarFallback = document.getElementById(elementIds.settings_avatar_fallback);
+        var newSiteOptionValue = optionValues.new_site || '';
+        var createButtonLabel = buttonLabels.create || '';
+        var updateButtonLabel = buttonLabels.update || '';
+        var createButtonClass = buttonClasses.create || '';
+        var updateButtonClass = buttonClasses.update || '';
+        var newSiteButton = document.getElementById(elementIds.new_site_button);
+        var newSiteButtonDefaultClass = buttonClasses.new_site_default || '';
+        var newSiteButtonActiveClass = buttonClasses.new_site_active || '';
+        var sitesList = document.getElementById(elementIds.sites_list);
+        var siteListItemClass = componentClasses.site_list_item || '';
+        var siteListItemActiveClass = componentClasses.site_list_item_active || '';
+        var userName = document.getElementById(elementIds.user_name);
+        var userEmail = document.getElementById(elementIds.user_email);
+        var userAvatar = document.getElementById(elementIds.user_avatar);
+        var userRole = document.getElementById(elementIds.user_role);
+        var emptySitesMessage = document.getElementById(elementIds.empty_sites_message);
+        var siteForm = document.getElementById(elementIds.site_form);
+        var editSiteNameInput = document.getElementById(elementIds.edit_site_name);
+        var editSiteOriginInput = document.getElementById(elementIds.edit_site_origin);
+        var editSiteOwnerContainer = document.getElementById(elementIds.edit_site_owner_container);
+        var editSiteOwnerInput = document.getElementById(elementIds.edit_site_owner);
+        var saveSiteButton = document.getElementById(elementIds.save_site_button);
+        var refreshMessagesButton = document.getElementById(elementIds.refresh_messages_button);
+        var feedbackTableBody = document.getElementById(elementIds.feedback_table_body);
+        var logoutButton = document.getElementById(elementIds.logout_button);
+        var widgetSnippetTextarea = document.getElementById(elementIds.widget_snippet_textarea);
+        var copyWidgetSnippetButton = document.getElementById(elementIds.copy_widget_snippet_button);
+        var deleteSiteButton = document.getElementById(elementIds.delete_site_button);
+        var deleteSiteButtonDefaultClass = buttonClasses.delete_site_default || '';
+        var deleteSiteButtonDisabledClass = buttonClasses.delete_site_disabled || '';
+        var deleteSiteModalElement = document.getElementById(elementIds.delete_site_modal);
         var deleteSiteModal = deleteSiteModalElement && window.bootstrap && window.bootstrap.Modal ? new window.bootstrap.Modal(deleteSiteModalElement) : null;
-        var deleteSiteConfirmButton = document.getElementById('{{.DeleteSiteModalConfirmButtonID}}');
-        var deleteSiteConfirmInput = document.getElementById('{{.DeleteSiteModalInputID}}');
-        var deleteSiteTargetName = document.getElementById('{{.DeleteSiteTargetNameID}}');
-        var formStatus = document.getElementById('{{.FormStatusID}}');
-        var formStatusBaseClass = '{{.FormStatusBaseClass}}';
-        var formStatusSuccessClass = '{{.FormStatusSuccessClass}}';
-        var formStatusDangerClass = '{{.FormStatusDangerClass}}';
+        var deleteSiteConfirmButton = document.getElementById(elementIds.delete_site_confirm_button);
+        var deleteSiteConfirmInput = document.getElementById(elementIds.delete_site_confirm_input);
+        var deleteSiteTargetName = document.getElementById(elementIds.delete_site_target_name);
+        var formStatus = document.getElementById(elementIds.form_status);
+        var formStatusBaseClass = formStatusClasses.base || '';
+        var formStatusSuccessClass = formStatusClasses.success || '';
+        var formStatusDangerClass = formStatusClasses.danger || '';
+        var logoutPath = sharedPaths.logout || '';
+        var loginPath = sharedPaths.login || '';
+        var widgetUnavailableMessage = widgetTexts.unavailable || '';
+        var apiMeEndpoint = apiPaths.me || '';
+        var apiSitesEndpoint = apiPaths.sites || '';
+        var apiSiteUpdatePrefix = apiPaths.site_update_prefix || '';
+        var apiSiteMessagesPrefix = apiPaths.site_messages_prefix || '';
+        var apiSiteMessagesSuffix = apiPaths.site_messages_suffix || '';
 
         var state = {
           user: null,
@@ -261,10 +255,14 @@
         };
         var buttonStatusDisplayDuration = 3000;
         var widgetBaseURL = window.location.origin.replace(/\/$/, '');
-        widgetSnippetTextarea.value = widgetUnavailableMessage;
-        copyWidgetSnippetButton.disabled = true;
-        setButtonDefault(copyWidgetSnippetButton, '{{.CopyButtonDefaultLabel}}', '{{.CopyButtonDefaultClass}}');
-        setButtonDefault(refreshMessagesButton, '{{.RefreshButtonDefaultLabel}}', '{{.RefreshButtonDefaultClass}}');
+        if (widgetSnippetTextarea) {
+          widgetSnippetTextarea.value = widgetUnavailableMessage;
+        }
+        if (copyWidgetSnippetButton) {
+          copyWidgetSnippetButton.disabled = true;
+        }
+        setButtonDefault(copyWidgetSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
+        setButtonDefault(refreshMessagesButton, buttonLabels.refresh_default || '', buttonClasses.refresh_default || '');
         setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
         clearFormStatus();
 
@@ -306,14 +304,14 @@
               return Promise.reject(new Error('unauthorized'));
             }
             if (response.status === 403) {
-              updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonFailed}}', buttonStyles.danger);
+              updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');
               return Promise.reject(new Error('forbidden'));
             }
             if (!response.ok) {
               return response.json().catch(function() {
                 return {};
               }).then(function(body) {
-                var message = body.error || body.message || statusMessages.loadFailed;
+                var message = body.error || body.message || statusMessages.load_failed || '';
                 throw new Error(message);
               });
             }
@@ -494,7 +492,7 @@
           if (deleteSiteConfirmButton) {
             deleteSiteConfirmButton.disabled = true;
           }
-          setFormStatus(statusMessages.deletingSite, formStatusDangerClass);
+          setFormStatus(statusMessages.deleting_site || '', formStatusDangerClass);
           window.fetch(apiSiteUpdatePrefix + site.id, {
             method: 'DELETE',
             credentials: 'same-origin'
@@ -507,7 +505,7 @@
               return response.json().catch(function() {
                 return {};
               }).then(function(body) {
-                var message = body.error || body.message || statusMessages.deleteSiteFailed;
+                var message = body.error || body.message || statusMessages.delete_site_failed || '';
                 throw new Error(message);
               });
             }
@@ -521,12 +519,12 @@
             }
             clearDeleteConfirmationInput();
             renderSites();
-            setFormStatus(statusMessages.siteDeleted, formStatusSuccessClass);
+            setFormStatus(statusMessages.site_deleted || '', formStatusSuccessClass);
           }).catch(function(error) {
             if (error && error.message === 'unauthorized') {
               return;
             }
-            setFormStatus((error && error.message) || statusMessages.deleteSiteFailed, formStatusDangerClass);
+            setFormStatus((error && error.message) || statusMessages.delete_site_failed || '', formStatusDangerClass);
             if (deleteSiteConfirmInput) {
               updateDeleteConfirmationState();
             }
@@ -555,12 +553,12 @@
           }
           var snippet = widgetSnippetTextarea.value;
           if (!snippet || snippet === widgetUnavailableMessage) {
-            updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonFailed}}', buttonStyles.danger);
+            updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
             return;
           }
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(snippet).then(function() {
-              updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonCopied}}', buttonStyles.primary);
+              updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_copied || '', buttonStyles.primary || '');
             }).catch(function() {
               fallbackCopyWidgetSnippet(snippet);
             });
@@ -584,9 +582,9 @@
           widgetSnippetTextarea.selectionEnd = previousSelectionEnd;
           widgetSnippetTextarea.blur();
           if (copySucceeded) {
-            updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonCopied}}', buttonStyles.primary);
+            updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_copied || '', buttonStyles.primary || '');
           } else {
-            updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonFailed}}', buttonStyles.danger);
+            updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
           }
         }
 
@@ -634,7 +632,7 @@
           if (hasSites) {
             emptySitesMessage.classList.add('d-none');
           } else {
-            emptySitesMessage.textContent = statusMessages.noSites;
+            emptySitesMessage.textContent = statusMessages.no_sites || '';
             emptySitesMessage.classList.remove('d-none');
           }
 
@@ -643,7 +641,7 @@
           populateSiteForm();
           updateWidgetSnippet();
           if (isNewSiteSelected()) {
-            renderFeedbackPlaceholder(statusMessages.selectSite);
+            renderFeedbackPlaceholder(statusMessages.select_site || '');
           } else {
             loadMessages(false);
           }
@@ -736,7 +734,7 @@
 
         function renderMessages(messages) {
           if (!messages.length) {
-            renderFeedbackPlaceholder(statusMessages.noMessages);
+            renderFeedbackPlaceholder(statusMessages.no_messages || '');
             return;
           }
           feedbackTableBody.innerHTML = '';
@@ -768,19 +766,19 @@
             state.user = payload;
             updateUserCard();
           }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', buttonStyles.danger);
+            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
             saveSiteButton.disabled = false;
             throw error;
           });
         }
 
         function loadSites() {
-          updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonLoading}}', buttonStyles.secondary);
+          updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_loading || '', buttonStyles.secondary || '');
           return fetchJSON(apiSitesEndpoint).then(function(payload) {
             state.sites = payload.sites || [];
             renderSites();
           }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', buttonStyles.danger);
+            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
             saveSiteButton.disabled = false;
           });
         }
@@ -788,26 +786,26 @@
         function loadMessages(shouldUpdateButtonStatus) {
           var manualRefresh = shouldUpdateButtonStatus === true;
           if (!state.selectedSiteId || isNewSiteSelected()) {
-            renderFeedbackPlaceholder(statusMessages.selectSite);
+            renderFeedbackPlaceholder(statusMessages.select_site || '');
             if (manualRefresh) {
-              setButtonDefault(refreshMessagesButton, '{{.RefreshButtonDefaultLabel}}', '{{.RefreshButtonDefaultClass}}');
+              setButtonDefault(refreshMessagesButton, buttonLabels.refresh_default || '', buttonClasses.refresh_default || '');
             }
             return;
           }
           var endpoint = apiSiteMessagesPrefix + state.selectedSiteId + apiSiteMessagesSuffix;
-          renderFeedbackPlaceholder('Loading...');
+          renderFeedbackPlaceholder(statusMessages.loading_sites || 'Loading...');
           if (manualRefresh) {
-            updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonLoading}}', buttonStyles.secondary);
+            updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_loading || '', buttonStyles.secondary || '');
           }
           fetchJSON(endpoint).then(function(payload) {
             renderMessages(payload.messages || []);
             if (manualRefresh) {
-              updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonSuccess}}', buttonStyles.secondary);
+              updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_success || '', buttonStyles.secondary || '');
             }
           }).catch(function() {
-            renderFeedbackPlaceholder(statusMessages.loadFailed);
+            renderFeedbackPlaceholder(statusMessages.load_failed || '');
             if (manualRefresh) {
-              updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonFailed}}', buttonStyles.danger);
+              updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');
             }
           });
         }
@@ -816,7 +814,7 @@
           if (event) { event.preventDefault(); }
           if (saveSiteButton.disabled) { return; }
           if (!state.selectedSiteId) {
-            updateButtonStatus(saveSiteButton, statusMessages.selectSite, buttonStyles.secondary);
+            updateButtonStatus(saveSiteButton, statusMessages.select_site || '', buttonStyles.secondary || '');
             return;
           }
           if (isNewSiteSelected()) {
@@ -828,7 +826,7 @@
 
         function updateSite() {
           saveSiteButton.disabled = true;
-          updateButtonStatus(saveSiteButton, '{{.SaveButtonSaving}}');
+          updateButtonStatus(saveSiteButton, buttonLabels.save_saving || '');
           var body = {
             name: editSiteNameInput.value,
             allowed_origin: editSiteOriginInput.value
@@ -844,7 +842,7 @@
             },
             body: JSON.stringify(body)
           }).then(function(payload) {
-            updateButtonStatus(saveSiteButton, '{{.SaveButtonSaved}}');
+            updateButtonStatus(saveSiteButton, buttonLabels.save_saved || '');
             saveSiteButton.disabled = false;
             var index = state.sites.findIndex(function(item) { return item.id === payload.id; });
             if (index >= 0) {
@@ -852,14 +850,14 @@
             }
             renderSites();
           }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', buttonStyles.danger);
+            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
             saveSiteButton.disabled = false;
           });
         }
 
         function createSite() {
           saveSiteButton.disabled = true;
-          updateButtonStatus(saveSiteButton, '{{.SaveButtonSaving}}');
+          updateButtonStatus(saveSiteButton, buttonLabels.save_saving || '');
           var body = {
             name: editSiteNameInput.value,
             allowed_origin: editSiteOriginInput.value,
@@ -872,13 +870,13 @@
             },
             body: JSON.stringify(body)
           }).then(function(payload) {
-            updateButtonStatus(saveSiteButton, '{{.SaveButtonCreated}}');
+            updateButtonStatus(saveSiteButton, buttonLabels.save_created || '');
             saveSiteButton.disabled = false;
             state.sites.unshift(payload);
             state.selectedSiteId = payload.id;
             renderSites();
           }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', buttonStyles.danger);
+            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
             saveSiteButton.disabled = false;
           });
         }
@@ -921,25 +919,37 @@
           });
         }
 
-        siteForm.addEventListener('submit', submitSite);
-        document.getElementById('{{.SaveSiteButtonID}}').addEventListener('click', submitSite);
-        themeToggle.addEventListener('change', function(event) {
-          var mode = event.target.checked ? 'dark' : 'light';
-          applyThemePreference(mode);
-          persistThemePreference(mode);
-        });
-        copyWidgetSnippetButton.addEventListener('click', function(event) {
-          event.preventDefault();
-          copyWidgetSnippet();
-        });
-        refreshMessagesButton.addEventListener('click', function(event) {
-          event.preventDefault();
-          loadMessages(true);
-        });
-        logoutButton.addEventListener('click', function(event) {
-          event.preventDefault();
-          window.location.href = logoutPath;
-        });
+        if (siteForm) {
+          siteForm.addEventListener('submit', submitSite);
+        }
+        if (saveSiteButton) {
+          saveSiteButton.addEventListener('click', submitSite);
+        }
+        if (themeToggle) {
+          themeToggle.addEventListener('change', function(event) {
+            var mode = event.target.checked ? 'dark' : 'light';
+            applyThemePreference(mode);
+            persistThemePreference(mode);
+          });
+        }
+        if (copyWidgetSnippetButton) {
+          copyWidgetSnippetButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            copyWidgetSnippet();
+          });
+        }
+        if (refreshMessagesButton) {
+          refreshMessagesButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            loadMessages(true);
+          });
+        }
+        if (logoutButton) {
+          logoutButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            window.location.href = logoutPath;
+          });
+        }
 
         loadThemePreference();
         loadUser().then(loadSites);

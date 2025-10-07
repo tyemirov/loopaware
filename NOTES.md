@@ -14,7 +14,6 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ## Improvements
 
-- [ ] [LA-20] Use Go for variables insertion and leverage go html templates but dont use Go for holding business logic on the web page. Leverage JS for the logic of the web page. Employ reusable components, and lean into as alpine.js, if needed.
 
 ## BugFixes
 

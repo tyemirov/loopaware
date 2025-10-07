@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"encoding/json"
 	"html/template"
 	"net/http"
 
@@ -79,6 +80,7 @@ const (
 	newSiteButtonActiveClass            = "btn btn-primary btn-sm"
 	siteListItemClass                   = "list-group-item list-group-item-action"
 	siteListItemActiveClass             = "active"
+	clientConfigElementID               = "dashboard-config"
 	dashboardStatusDeletingSite         = "Deleting site..."
 	dashboardStatusSiteDeleted          = "Site deleted."
 	dashboardStatusDeleteFailed         = "Failed to delete site."
@@ -217,6 +219,24 @@ type dashboardTemplateData struct {
 	DeleteSiteTargetNameID            string
 	DeleteSiteModalHintPrefix         string
 	DeleteSiteModalHintSuffix         string
+	ClientConfigElementID             string
+	ClientConfigJSON                  template.JS
+}
+
+type dashboardClientConfig struct {
+	APIPaths          map[string]string `json:"api_paths"`
+	Paths             map[string]string `json:"paths"`
+	ElementIDs        map[string]string `json:"element_ids"`
+	ButtonClasses     map[string]string `json:"button_classes"`
+	ButtonLabels      map[string]string `json:"button_labels"`
+	StatusMessages    map[string]string `json:"status_messages"`
+	RoleLabels        map[string]string `json:"role_labels"`
+	ButtonStyles      map[string]string `json:"button_styles"`
+	ComponentClasses  map[string]string `json:"component_classes"`
+	WidgetTexts       map[string]string `json:"widget_texts"`
+	ThemeStorageKey   string            `json:"theme_storage_key"`
+	OptionValues      map[string]string `json:"option_values"`
+	FormStatusClasses map[string]string `json:"form_status_classes"`
 }
 
 // DashboardWebHandlers serves the authenticated dashboard UI.
@@ -348,6 +368,130 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		DeleteSiteModalHintPrefix:         deleteSiteModalHintPrefix,
 		DeleteSiteModalHintSuffix:         deleteSiteModalHintSuffix,
 	}
+
+	data.ClientConfigElementID = clientConfigElementID
+
+	clientConfig := dashboardClientConfig{
+		APIPaths: map[string]string{
+			"me":                   "/api/me",
+			"sites":                "/api/sites",
+			"site_update_prefix":   "/api/sites/",
+			"site_messages_prefix": "/api/sites/",
+			"site_messages_suffix": "/messages",
+		},
+		Paths: map[string]string{
+			"logout": constants.LogoutPath,
+			"login":  constants.LoginPath,
+		},
+		ElementIDs: map[string]string{
+			"user_name":                  userNameElementID,
+			"user_email":                 userEmailElementID,
+			"user_avatar":                userAvatarElementID,
+			"user_role":                  userRoleBadgeElementID,
+			"sites_list":                 sitesListElementID,
+			"empty_sites_message":        emptySitesMessageElementID,
+			"site_form":                  siteFormElementID,
+			"edit_site_name":             editSiteNameInputElementID,
+			"edit_site_origin":           editSiteOriginInputElementID,
+			"edit_site_owner_container":  editSiteOwnerContainerElementID,
+			"edit_site_owner":            editSiteOwnerInputElementID,
+			"save_site_button":           saveSiteButtonElementID,
+			"refresh_messages_button":    refreshMessagesButtonElementID,
+			"feedback_table_body":        feedbackTableBodyElementID,
+			"logout_button":              logoutButtonElementID,
+			"widget_snippet_textarea":    widgetSnippetTextareaElementID,
+			"copy_widget_snippet_button": copyWidgetSnippetButtonElementID,
+			"settings_button":            settingsButtonElementID,
+			"settings_menu":              settingsMenuElementID,
+			"settings_theme_toggle":      settingsThemeToggleElementID,
+			"settings_avatar_image":      settingsAvatarImageElementID,
+			"settings_avatar_fallback":   settingsAvatarFallbackElementID,
+			"form_status":                formStatusElementID,
+			"new_site_button":            newSiteButtonElementID,
+			"delete_site_button":         deleteSiteButtonElementID,
+			"delete_site_modal":          deleteSiteModalElementID,
+			"delete_site_confirm_button": deleteSiteModalConfirmButtonID,
+			"delete_site_confirm_input":  deleteSiteModalInputElementID,
+			"delete_site_target_name":    deleteSiteTargetNameElementID,
+		},
+		ButtonClasses: map[string]string{
+			"new_site_default":     newSiteButtonClass,
+			"new_site_active":      newSiteButtonActiveClass,
+			"create":               siteFormCreateButtonClass,
+			"update":               siteFormUpdateButtonClass,
+			"save_default":         dashboardActionButtonSuccessClass,
+			"copy_default":         dashboardActionButtonPrimaryClass,
+			"refresh_default":      dashboardActionButtonSecondaryClass,
+			"delete_site_default":  deleteSiteButtonClass,
+			"delete_site_disabled": deleteSiteButtonDisabledClass,
+		},
+		ButtonLabels: map[string]string{
+			"create":          siteFormCreateButtonLabel,
+			"update":          siteFormUpdateButtonLabel,
+			"new_site":        newSiteOptionLabel,
+			"copy_default":    "Copy snippet",
+			"copy_copied":     "Snippet copied.",
+			"copy_failed":     "Copy failed.",
+			"refresh_default": "Refresh feedback",
+			"refresh_loading": "Refreshing...",
+			"refresh_success": "Feedback refreshed.",
+			"refresh_failed":  "Refresh failed.",
+			"save_saving":     "Saving site...",
+			"save_saved":      "Site updated.",
+			"save_created":    "Site created.",
+			"save_failed":     "Failed to save site.",
+		},
+		StatusMessages: map[string]string{
+			"loading_user":       dashboardStatusLoadingUser,
+			"loading_sites":      dashboardStatusLoadingSites,
+			"load_failed":        dashboardStatusLoadFailed,
+			"saving_site":        dashboardStatusSavingSite,
+			"site_saved":         dashboardStatusSiteSaved,
+			"creating_site":      dashboardStatusCreatingSite,
+			"site_created":       dashboardStatusSiteCreated,
+			"deleting_site":      dashboardStatusDeletingSite,
+			"site_deleted":       dashboardStatusSiteDeleted,
+			"delete_site_failed": dashboardStatusDeleteFailed,
+			"select_site":        dashboardStatusSelectSite,
+			"no_messages":        dashboardStatusNoMessages,
+			"no_sites":           dashboardStatusNoSites,
+			"widget_copied":      dashboardStatusWidgetCopied,
+			"widget_copy_failed": dashboardStatusWidgetCopyFailed,
+		},
+		RoleLabels: map[string]string{
+			"admin": dashboardRoleAdminLabel,
+			"user":  dashboardRoleUserLabel,
+		},
+		ButtonStyles: map[string]string{
+			"primary":   dashboardActionButtonPrimaryClass,
+			"success":   dashboardActionButtonSuccessClass,
+			"secondary": dashboardActionButtonSecondaryClass,
+			"danger":    dashboardActionButtonDangerClass,
+		},
+		ComponentClasses: map[string]string{
+			"site_list_item":        siteListItemClass,
+			"site_list_item_active": siteListItemActiveClass,
+		},
+		WidgetTexts: map[string]string{
+			"unavailable": dashboardWidgetUnavailable,
+		},
+		ThemeStorageKey: themeStorageKey,
+		OptionValues: map[string]string{
+			"new_site": newSiteOptionValue,
+		},
+		FormStatusClasses: map[string]string{
+			"base":    formStatusBaseClass,
+			"success": formStatusSuccessClass,
+			"danger":  formStatusDangerClass,
+		},
+	}
+
+	configPayload, marshalErr := json.Marshal(clientConfig)
+	if marshalErr != nil {
+		handlers.logger.Warn("render_dashboard_config", zap.Error(marshalErr))
+		configPayload = []byte("{}")
+	}
+	data.ClientConfigJSON = template.JS(configPayload)
 
 	var buffer bytes.Buffer
 	if executeErr := handlers.template.Execute(&buffer, data); executeErr != nil {
