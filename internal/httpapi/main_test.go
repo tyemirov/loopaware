@@ -13,19 +13,44 @@ import (
 )
 
 const (
-	dashboardTitleText              = "LoopAware Dashboard"
-	dashboardSessionContextKey      = "httpapi_current_user"
-	testDashboardAuthenticatedEmail = "viewer@example.com"
-	dashboardSitesListElementID     = "sites-list"
-	dashboardNewSiteButtonElementID = "new-site-button"
-	dashboardLegacySelectorID       = "site-selector"
-	dashboardFooterBrandPrefix      = "Built by"
-	dashboardFooterBrandURL         = "https://mprlab.com"
-	dashboardFooterBrandName        = "Marco Polo Research Lab"
-	dashboardButtonStatusToken      = "buttonStatusDisplayDuration"
-	dashboardRestoreButtonToken     = "restoreButtonDefault"
-	dashboardCreateButtonPattern    = "setButtonDefault(saveSiteButton, createButtonLabel, createButtonClass);"
-	dashboardUpdateButtonPattern    = "setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);"
+	dashboardTitleText                     = "LoopAware Dashboard"
+	dashboardSessionContextKey             = "httpapi_current_user"
+	testDashboardAuthenticatedEmail        = "viewer@example.com"
+	dashboardSitesListElementID            = "sites-list"
+	dashboardNewSiteButtonElementID        = "new-site-button"
+	dashboardLegacySelectorID              = "site-selector"
+	dashboardFooterBrandPrefix             = "Built by"
+	dashboardFooterBrandURL                = "https://mprlab.com"
+	dashboardFooterBrandName               = "Marco Polo Research Lab"
+	dashboardButtonStatusToken             = "buttonStatusDisplayDuration"
+	dashboardRestoreButtonToken            = "restoreButtonDefault"
+	dashboardCreateButtonPattern           = "setButtonDefault(saveSiteButton, createButtonLabel, createButtonClass);"
+	dashboardUpdateButtonPattern           = "setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);"
+	dashboardButtonStylesToken             = "var buttonStyles = {"
+	dashboardButtonStylesPrimary           = "primary: 'btn btn-outline-primary btn-sm'"
+	dashboardButtonStylesSuccess           = "success: 'btn btn-outline-success btn-sm'"
+	dashboardButtonStylesSecondary         = "secondary: 'btn btn-outline-secondary btn-sm'"
+	dashboardButtonStylesDanger            = "danger: 'btn btn-outline-danger btn-sm'"
+	dashboardLegacyShowStatusFunction      = "function showStatus("
+	dashboardNotificationTargetsToken      = "var notificationTargets ="
+	dashboardLegacySiteSavedNotification   = "showStatus(statusMessages.siteSaved"
+	dashboardLegacySiteCreatedNotification = "showStatus(statusMessages.siteCreated"
+	dashboardLegacyWidgetCopySuccess       = "showStatus(statusMessages.widgetCopied"
+	dashboardLegacyWidgetCopyFailure       = "showStatus(statusMessages.widgetCopyFailed"
+	dashboardLegacyRefreshLoading          = "showStatus('Refreshing...'"
+	dashboardLegacyRefreshSuccess          = "showStatus('Feedback refreshed.'"
+	dashboardLegacyRefreshFailure          = "showStatus('Refresh failed.'"
+	dashboardLegacySelectSitePrompt        = "showStatus(statusMessages.selectSite"
+	dashboardLoadMessagesSignature         = "function loadMessages(shouldUpdateButtonStatus)"
+	dashboardManualLoadMessagesCall        = "loadMessages(true);"
+	dashboardAutomaticLoadMessagesCall     = "loadMessages(false);"
+	dashboardRefreshSuccessUpdateCall      = "updateButtonStatus(refreshMessagesButton, 'Feedback refreshed.', buttonStyles.secondary);"
+	dashboardRefreshFailureUpdateCall      = "updateButtonStatus(refreshMessagesButton, 'Refresh failed.', buttonStyles.danger);"
+	dashboardRefreshLoadingUpdateCall      = "updateButtonStatus(refreshMessagesButton, 'Refreshing...', buttonStyles.secondary);"
+	dashboardSubmitGuardUpdateCall         = "updateButtonStatus(saveSiteButton, statusMessages.selectSite, buttonStyles.secondary);"
+	dashboardSaveButtonClassMarkup         = "class=\"btn btn-outline-success btn-sm\""
+	dashboardNewSiteButtonClass            = "class=\"btn btn-outline-primary btn-sm\""
+	dashboardLegacySaveButtonClass         = "btn btn-success\""
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -168,6 +193,161 @@ func TestDashboardTemplateConfiguresButtonStatusManager(t *testing.T) {
 			testName:      "update mode styling",
 			substring:     dashboardUpdateButtonPattern,
 			expectPresent: true,
+		},
+		{
+			testName:      "button styles map declared",
+			substring:     dashboardButtonStylesToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "primary outline class",
+			substring:     dashboardButtonStylesPrimary,
+			expectPresent: true,
+		},
+		{
+			testName:      "success outline class",
+			substring:     dashboardButtonStylesSuccess,
+			expectPresent: true,
+		},
+		{
+			testName:      "secondary outline class",
+			substring:     dashboardButtonStylesSecondary,
+			expectPresent: true,
+		},
+		{
+			testName:      "danger outline class",
+			substring:     dashboardButtonStylesDanger,
+			expectPresent: true,
+		},
+		{
+			testName:      "load messages signature",
+			substring:     dashboardLoadMessagesSignature,
+			expectPresent: true,
+		},
+		{
+			testName:      "manual refresh call",
+			substring:     dashboardManualLoadMessagesCall,
+			expectPresent: true,
+		},
+		{
+			testName:      "automatic refresh call",
+			substring:     dashboardAutomaticLoadMessagesCall,
+			expectPresent: true,
+		},
+		{
+			testName:      "refresh loading update",
+			substring:     dashboardRefreshLoadingUpdateCall,
+			expectPresent: true,
+		},
+		{
+			testName:      "refresh success update",
+			substring:     dashboardRefreshSuccessUpdateCall,
+			expectPresent: true,
+		},
+		{
+			testName:      "refresh failure update",
+			substring:     dashboardRefreshFailureUpdateCall,
+			expectPresent: true,
+		},
+		{
+			testName:      "submit guard uses button update",
+			substring:     dashboardSubmitGuardUpdateCall,
+			expectPresent: true,
+		},
+		{
+			testName:      "legacy showStatus helper removed",
+			substring:     dashboardLegacyShowStatusFunction,
+			expectPresent: false,
+		},
+		{
+			testName:      "notification targets removed",
+			substring:     dashboardNotificationTargetsToken,
+			expectPresent: false,
+		},
+		{
+			testName:      "legacy site saved badge removed",
+			substring:     dashboardLegacySiteSavedNotification,
+			expectPresent: false,
+		},
+		{
+			testName:      "legacy site created badge removed",
+			substring:     dashboardLegacySiteCreatedNotification,
+			expectPresent: false,
+		},
+		{
+			testName:      "legacy widget copy success badge removed",
+			substring:     dashboardLegacyWidgetCopySuccess,
+			expectPresent: false,
+		},
+		{
+			testName:      "legacy widget copy failure badge removed",
+			substring:     dashboardLegacyWidgetCopyFailure,
+			expectPresent: false,
+		},
+		{
+			testName:      "legacy refresh loading badge removed",
+			substring:     dashboardLegacyRefreshLoading,
+			expectPresent: false,
+		},
+		{
+			testName:      "legacy refresh success badge removed",
+			substring:     dashboardLegacyRefreshSuccess,
+			expectPresent: false,
+		},
+		{
+			testName:      "legacy refresh failure badge removed",
+			substring:     dashboardLegacyRefreshFailure,
+			expectPresent: false,
+		},
+		{
+			testName:      "legacy select site badge removed",
+			substring:     dashboardLegacySelectSitePrompt,
+			expectPresent: false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.testName, func(t *testing.T) {
+			if testCase.expectPresent {
+				require.Contains(t, body, testCase.substring)
+				return
+			}
+			require.NotContains(t, body, testCase.substring)
+		})
+	}
+}
+
+func TestDashboardTemplateUsesUniformActionButtonStyles(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	testCases := []struct {
+		testName      string
+		substring     string
+		expectPresent bool
+	}{
+		{
+			testName:      "save button uses outline class",
+			substring:     dashboardSaveButtonClassMarkup,
+			expectPresent: true,
+		},
+		{
+			testName:      "new site button uses shared outline class",
+			substring:     dashboardNewSiteButtonClass,
+			expectPresent: true,
+		},
+		{
+			testName:      "legacy solid success class removed",
+			substring:     dashboardLegacySaveButtonClass,
+			expectPresent: false,
 		},
 	}
 

@@ -12,70 +12,74 @@ import (
 )
 
 const (
-	dashboardTemplateName            = "dashboard"
-	dashboardHTMLContentType         = "text/html; charset=utf-8"
-	dashboardPageTitle               = "LoopAware Dashboard"
-	dashboardStatusLoadingUser       = "Loading account information..."
-	dashboardStatusLoadingSites      = "Loading sites..."
-	dashboardStatusLoadFailed        = "Failed to load data."
-	dashboardStatusSavingSite        = "Saving site..."
-	dashboardStatusSiteSaved         = "Site updated."
-	dashboardStatusCreatingSite      = "Creating site..."
-	dashboardStatusSiteCreated       = "Site created."
-	dashboardStatusSelectSite        = "Select a site to see details."
-	dashboardStatusNoMessages        = "No feedback yet."
-	dashboardStatusNoSites           = "No sites available yet."
-	dashboardRoleAdminLabel          = "Administrator"
-	dashboardRoleUserLabel           = "User"
-	dashboardFeedbackPlaceholder     = "Select a site to load feedback."
-	dashboardWidgetCardTitle         = "Site widget"
-	dashboardWidgetInstructions      = "Embed this <script> tag on pages served from the allowed origin."
-	dashboardWidgetUnavailable       = "Save the site to generate a widget snippet."
-	dashboardStatusWidgetCopied      = "Widget snippet copied."
-	dashboardStatusWidgetCopyFailed  = "Unable to copy widget snippet."
-	dashboardFooterBrandPrefix       = "Built by"
-	dashboardFooterBrandName         = "Marco Polo Research Lab"
-	dashboardFooterBrandURL          = "https://mprlab.com"
-	navbarSettingsButtonLabel        = "Account settings"
-	navbarLogoutLabel                = "Logout"
-	navbarThemeToggleLabel           = "Dark mode"
-	newSiteOptionValue               = "__new__"
-	newSiteOptionLabel               = "New site"
-	siteFormCreateButtonLabel        = "Create site"
-	siteFormUpdateButtonLabel        = "Update site"
-	siteFormCreateButtonClass        = "btn btn-primary"
-	siteFormUpdateButtonClass        = "btn btn-success"
-	userNameElementID                = "user-name"
-	userEmailElementID               = "user-email"
-	userRoleBadgeElementID           = "user-role"
-	userAvatarElementID              = "user-avatar"
-	sitesListElementID               = "sites-list"
-	emptySitesMessageElementID       = "empty-sites-message"
-	siteFormElementID                = "site-form"
-	editSiteNameInputElementID       = "edit-site-name"
-	editSiteOriginInputElementID     = "edit-site-origin"
-	editSiteOwnerContainerElementID  = "edit-site-owner-container"
-	editSiteOwnerInputElementID      = "edit-site-owner"
-	saveSiteButtonElementID          = "save-site-button"
-	refreshMessagesButtonElementID   = "refresh-messages-button"
-	feedbackTableBodyElementID       = "feedback-table-body"
-	logoutButtonElementID            = "logout-button"
-	widgetSnippetTextareaElementID   = "widget-snippet"
-	copyWidgetSnippetButtonElementID = "copy-widget-snippet"
-	settingsButtonElementID          = "settings-button"
-	settingsMenuElementID            = "settings-menu"
-	settingsThemeToggleElementID     = "settings-theme-toggle"
-	settingsAvatarImageElementID     = "settings-avatar-image"
-	settingsAvatarFallbackElementID  = "settings-avatar-fallback"
-	themeStorageKey                  = "loopaware_theme"
-	formStatusElementID              = "site-status"
-	widgetStatusElementID            = "widget-status"
-	messagesStatusElementID          = "messages-status"
-	newSiteButtonElementID           = "new-site-button"
-	newSiteButtonClass               = "btn btn-outline-primary btn-sm"
-	newSiteButtonActiveClass         = "btn btn-primary btn-sm"
-	siteListItemClass                = "list-group-item list-group-item-action"
-	siteListItemActiveClass          = "active"
+	dashboardTemplateName               = "dashboard"
+	dashboardHTMLContentType            = "text/html; charset=utf-8"
+	dashboardPageTitle                  = "LoopAware Dashboard"
+	dashboardStatusLoadingUser          = "Loading account information..."
+	dashboardStatusLoadingSites         = "Loading sites..."
+	dashboardStatusLoadFailed           = "Failed to load data."
+	dashboardStatusSavingSite           = "Saving site..."
+	dashboardStatusSiteSaved            = "Site updated."
+	dashboardStatusCreatingSite         = "Creating site..."
+	dashboardStatusSiteCreated          = "Site created."
+	dashboardStatusSelectSite           = "Select a site to see details."
+	dashboardStatusNoMessages           = "No feedback yet."
+	dashboardStatusNoSites              = "No sites available yet."
+	dashboardRoleAdminLabel             = "Administrator"
+	dashboardRoleUserLabel              = "User"
+	dashboardFeedbackPlaceholder        = "Select a site to load feedback."
+	dashboardWidgetCardTitle            = "Site widget"
+	dashboardWidgetInstructions         = "Embed this <script> tag on pages served from the allowed origin."
+	dashboardWidgetUnavailable          = "Save the site to generate a widget snippet."
+	dashboardStatusWidgetCopied         = "Widget snippet copied."
+	dashboardStatusWidgetCopyFailed     = "Unable to copy widget snippet."
+	dashboardFooterBrandPrefix          = "Built by"
+	dashboardFooterBrandName            = "Marco Polo Research Lab"
+	dashboardFooterBrandURL             = "https://mprlab.com"
+	navbarSettingsButtonLabel           = "Account settings"
+	navbarLogoutLabel                   = "Logout"
+	navbarThemeToggleLabel              = "Dark mode"
+	newSiteOptionValue                  = "__new__"
+	newSiteOptionLabel                  = "New site"
+	siteFormCreateButtonLabel           = "Create site"
+	siteFormUpdateButtonLabel           = "Update site"
+	dashboardActionButtonPrimaryClass   = "btn btn-outline-primary btn-sm"
+	dashboardActionButtonSuccessClass   = "btn btn-outline-success btn-sm"
+	dashboardActionButtonSecondaryClass = "btn btn-outline-secondary btn-sm"
+	dashboardActionButtonDangerClass    = "btn btn-outline-danger btn-sm"
+	siteFormCreateButtonClass           = dashboardActionButtonPrimaryClass
+	siteFormUpdateButtonClass           = dashboardActionButtonSuccessClass
+	userNameElementID                   = "user-name"
+	userEmailElementID                  = "user-email"
+	userRoleBadgeElementID              = "user-role"
+	userAvatarElementID                 = "user-avatar"
+	sitesListElementID                  = "sites-list"
+	emptySitesMessageElementID          = "empty-sites-message"
+	siteFormElementID                   = "site-form"
+	editSiteNameInputElementID          = "edit-site-name"
+	editSiteOriginInputElementID        = "edit-site-origin"
+	editSiteOwnerContainerElementID     = "edit-site-owner-container"
+	editSiteOwnerInputElementID         = "edit-site-owner"
+	saveSiteButtonElementID             = "save-site-button"
+	refreshMessagesButtonElementID      = "refresh-messages-button"
+	feedbackTableBodyElementID          = "feedback-table-body"
+	logoutButtonElementID               = "logout-button"
+	widgetSnippetTextareaElementID      = "widget-snippet"
+	copyWidgetSnippetButtonElementID    = "copy-widget-snippet"
+	settingsButtonElementID             = "settings-button"
+	settingsMenuElementID               = "settings-menu"
+	settingsThemeToggleElementID        = "settings-theme-toggle"
+	settingsAvatarImageElementID        = "settings-avatar-image"
+	settingsAvatarFallbackElementID     = "settings-avatar-fallback"
+	themeStorageKey                     = "loopaware_theme"
+	formStatusElementID                 = "site-status"
+	widgetStatusElementID               = "widget-status"
+	messagesStatusElementID             = "messages-status"
+	newSiteButtonElementID              = "new-site-button"
+	newSiteButtonClass                  = dashboardActionButtonPrimaryClass
+	newSiteButtonActiveClass            = "btn btn-primary btn-sm"
+	siteListItemClass                   = "list-group-item list-group-item-action"
+	siteListItemActiveClass             = "active"
 )
 
 type dashboardTemplateData struct {
@@ -128,6 +132,10 @@ type dashboardTemplateData struct {
 	RefreshButtonFailed         string
 	RefreshButtonDefaultLabel   string
 	RefreshButtonDefaultClass   string
+	ActionButtonPrimaryClass    string
+	ActionButtonSuccessClass    string
+	ActionButtonSecondaryClass  string
+	ActionButtonDangerClass     string
 	FeedbackTableBodyID         string
 	LogoutButtonID              string
 	NewSiteOptionValue          string
@@ -224,13 +232,17 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		SaveButtonSaved:             "Site updated.",
 		SaveButtonCreated:           "Site created.",
 		SaveButtonFailed:            "Failed to save site.",
-		SaveButtonDefaultClass:      "btn btn-outline-success",
+		SaveButtonDefaultClass:      dashboardActionButtonSuccessClass,
 		RefreshMessagesButtonID:     refreshMessagesButtonElementID,
 		RefreshButtonLoading:        "Refreshing...",
 		RefreshButtonSuccess:        "Feedback refreshed.",
 		RefreshButtonFailed:         "Refresh failed.",
 		RefreshButtonDefaultLabel:   "Refresh feedback",
-		RefreshButtonDefaultClass:   "btn btn-outline-secondary btn-sm",
+		RefreshButtonDefaultClass:   dashboardActionButtonSecondaryClass,
+		ActionButtonPrimaryClass:    dashboardActionButtonPrimaryClass,
+		ActionButtonSuccessClass:    dashboardActionButtonSuccessClass,
+		ActionButtonSecondaryClass:  dashboardActionButtonSecondaryClass,
+		ActionButtonDangerClass:     dashboardActionButtonDangerClass,
 		FeedbackTableBodyID:         feedbackTableBodyElementID,
 		LogoutButtonID:              logoutButtonElementID,
 		NewSiteOptionValue:          newSiteOptionValue,
@@ -254,7 +266,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		CopyButtonCopied:            "Snippet copied.",
 		CopyButtonFailed:            "Copy failed.",
 		CopyButtonDefaultLabel:      "Copy snippet",
-		CopyButtonDefaultClass:      "btn btn-outline-primary btn-sm",
+		CopyButtonDefaultClass:      dashboardActionButtonPrimaryClass,
 		SettingsButtonID:            settingsButtonElementID,
 		SettingsButtonLabel:         navbarSettingsButtonLabel,
 		LogoutLabel:                 navbarLogoutLabel,

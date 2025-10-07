@@ -165,6 +165,12 @@
         var newSiteButton = document.getElementById('{{.NewSiteButtonID}}');
         var newSiteButtonDefaultClass = '{{.NewSiteButtonClass}}';
         var newSiteButtonActiveClass = '{{.NewSiteButtonActiveClass}}';
+        var buttonStyles = {
+          primary: '{{.ActionButtonPrimaryClass}}',
+          success: '{{.ActionButtonSuccessClass}}',
+          secondary: '{{.ActionButtonSecondaryClass}}',
+          danger: '{{.ActionButtonDangerClass}}'
+        };
         var sitesList = document.getElementById('{{.SitesListID}}');
         var siteListItemClass = '{{.SiteListItemClass}}';
         var siteListItemActiveClass = '{{.SiteListItemActiveClass}}';
@@ -256,7 +262,7 @@
               return Promise.reject(new Error('unauthorized'));
             }
             if (response.status === 403) {
-              updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonFailed}}', 'btn btn-outline-danger btn-sm');
+              updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonFailed}}', buttonStyles.danger);
               return Promise.reject(new Error('forbidden'));
             }
             if (!response.ok) {
@@ -270,23 +276,6 @@
             return response.json();
           });
         }
-
-        function showStatus(message, variant, targetId) {
-          var container = document.getElementById(targetId);
-          if (!container) {
-            return;
-          }
-          container.textContent = message;
-          container.className = 'badge rounded-pill bg-' + variant + ' py-2 px-3';
-          container.classList.remove('d-none');
-          clearTimeout(container._timer);
-          container._timer = setTimeout(function() {
-            container.classList.add('d-none');
-            container.textContent = '';
-          }, 3000);
-        }
-
-        function hideStatus() {}
 
         function updateUserCard() {
           var displayName = state.user.name || state.user.email;
@@ -379,7 +368,7 @@
           }
         }
 
-function updateWidgetSnippet() {
+        function updateWidgetSnippet() {
           if (!state.selectedSiteId || isNewSiteSelected()) {
             widgetSnippetTextarea.value = widgetUnavailableMessage;
             copyWidgetSnippetButton.disabled = true;
@@ -401,12 +390,12 @@ function updateWidgetSnippet() {
           }
           var snippet = widgetSnippetTextarea.value;
           if (!snippet || snippet === widgetUnavailableMessage) {
-            updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonFailed}}', 'btn btn-outline-danger btn-sm');
+            updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonFailed}}', buttonStyles.danger);
             return;
           }
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(snippet).then(function() {
-              updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonCopied}}', 'btn btn-outline-success btn-sm');
+              updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonCopied}}', buttonStyles.primary);
             }).catch(function() {
               fallbackCopyWidgetSnippet(snippet);
             });
@@ -430,9 +419,9 @@ function updateWidgetSnippet() {
           widgetSnippetTextarea.selectionEnd = previousSelectionEnd;
           widgetSnippetTextarea.blur();
           if (copySucceeded) {
-            updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonCopied}}', 'btn btn-outline-success btn-sm');
+            updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonCopied}}', buttonStyles.primary);
           } else {
-            updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonFailed}}', 'btn btn-outline-danger btn-sm');
+            updateButtonStatus(copyWidgetSnippetButton, '{{.CopyButtonFailed}}', buttonStyles.danger);
           }
         }
 
@@ -490,7 +479,7 @@ function updateWidgetSnippet() {
           if (isNewSiteSelected()) {
             renderFeedbackPlaceholder(statusMessages.selectSite);
           } else {
-            loadMessages();
+            loadMessages(false);
           }
         }
 
@@ -608,43 +597,51 @@ function updateWidgetSnippet() {
         }
 
         function loadUser() {
-          showStatus(statusMessages.loadingUser, 'info', '{{.FormStatusID}}');
           return fetchJSON(apiMeEndpoint).then(function(payload) {
             state.user = payload;
             updateUserCard();
-            hideStatus();
           }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', 'btn btn-outline-danger');
-            saveSiteButton.disabled = false;
+            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', buttonStyles.danger);
             saveSiteButton.disabled = false;
             throw error;
           });
         }
 
         function loadSites() {
-          updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonLoading}}', '{{.RefreshButtonDefaultClass}}');
+          updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonLoading}}', buttonStyles.secondary);
           return fetchJSON(apiSitesEndpoint).then(function(payload) {
             state.sites = payload.sites || [];
             renderSites();
-            hideStatus();
           }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', 'btn btn-outline-danger');
-            saveSiteButton.disabled = false;
+            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', buttonStyles.danger);
             saveSiteButton.disabled = false;
           });
         }
 
-        function loadMessages() {
+        function loadMessages(shouldUpdateButtonStatus) {
+          var manualRefresh = shouldUpdateButtonStatus === true;
           if (!state.selectedSiteId || isNewSiteSelected()) {
             renderFeedbackPlaceholder(statusMessages.selectSite);
+            if (manualRefresh) {
+              setButtonDefault(refreshMessagesButton, '{{.RefreshButtonDefaultLabel}}', '{{.RefreshButtonDefaultClass}}');
+            }
             return;
           }
           var endpoint = apiSiteMessagesPrefix + state.selectedSiteId + apiSiteMessagesSuffix;
           renderFeedbackPlaceholder('Loading...');
+          if (manualRefresh) {
+            updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonLoading}}', buttonStyles.secondary);
+          }
           fetchJSON(endpoint).then(function(payload) {
-            renderMessages(payload.messages || []); updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonSuccess}}', 'btn btn-outline-success btn-sm');
+            renderMessages(payload.messages || []);
+            if (manualRefresh) {
+              updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonSuccess}}', buttonStyles.secondary);
+            }
           }).catch(function() {
-            renderFeedbackPlaceholder(statusMessages.loadFailed); updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonFailed}}', 'btn btn-outline-danger btn-sm');
+            renderFeedbackPlaceholder(statusMessages.loadFailed);
+            if (manualRefresh) {
+              updateButtonStatus(refreshMessagesButton, '{{.RefreshButtonFailed}}', buttonStyles.danger);
+            }
           });
         }
 
@@ -652,7 +649,7 @@ function updateWidgetSnippet() {
           if (event) { event.preventDefault(); }
           if (saveSiteButton.disabled) { return; }
           if (!state.selectedSiteId) {
-            showStatus(statusMessages.selectSite, 'warning', '{{.FormStatusID}}');
+            updateButtonStatus(saveSiteButton, statusMessages.selectSite, buttonStyles.secondary);
             return;
           }
           if (isNewSiteSelected()) {
@@ -664,7 +661,7 @@ function updateWidgetSnippet() {
 
         function updateSite() {
           saveSiteButton.disabled = true;
-          updateButtonStatus(saveSiteButton, '{{.SaveButtonSaving}}', '{{.SaveButtonDefaultClass}}');
+          updateButtonStatus(saveSiteButton, '{{.SaveButtonSaving}}');
           var body = {
             name: editSiteNameInput.value,
             allowed_origin: editSiteOriginInput.value
@@ -680,7 +677,7 @@ function updateWidgetSnippet() {
             },
             body: JSON.stringify(body)
           }).then(function(payload) {
-            updateButtonStatus(saveSiteButton, '{{.SaveButtonSaved}}', '{{.SaveButtonDefaultClass}}');
+            updateButtonStatus(saveSiteButton, '{{.SaveButtonSaved}}');
             saveSiteButton.disabled = false;
             var index = state.sites.findIndex(function(item) { return item.id === payload.id; });
             if (index >= 0) {
@@ -688,15 +685,14 @@ function updateWidgetSnippet() {
             }
             renderSites();
           }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', 'btn btn-outline-danger');
-            saveSiteButton.disabled = false;
+            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', buttonStyles.danger);
             saveSiteButton.disabled = false;
           });
         }
 
         function createSite() {
           saveSiteButton.disabled = true;
-          updateButtonStatus(saveSiteButton, '{{.SaveButtonSaving}}', '{{.SaveButtonDefaultClass}}');
+          updateButtonStatus(saveSiteButton, '{{.SaveButtonSaving}}');
           var body = {
             name: editSiteNameInput.value,
             allowed_origin: editSiteOriginInput.value,
@@ -709,14 +705,13 @@ function updateWidgetSnippet() {
             },
             body: JSON.stringify(body)
           }).then(function(payload) {
-            updateButtonStatus(saveSiteButton, '{{.SaveButtonCreated}}', '{{.SaveButtonDefaultClass}}');
+            updateButtonStatus(saveSiteButton, '{{.SaveButtonCreated}}');
             saveSiteButton.disabled = false;
             state.sites.unshift(payload);
             state.selectedSiteId = payload.id;
             renderSites();
           }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', 'btn btn-outline-danger');
-            saveSiteButton.disabled = false;
+            updateButtonStatus(saveSiteButton, error.message || '{{.SaveButtonFailed}}', buttonStyles.danger);
             saveSiteButton.disabled = false;
           });
         }
@@ -748,7 +743,7 @@ function updateWidgetSnippet() {
         });
         refreshMessagesButton.addEventListener('click', function(event) {
           event.preventDefault();
-          loadMessages();
+          loadMessages(true);
         });
         logoutButton.addEventListener('click', function(event) {
           event.preventDefault();
