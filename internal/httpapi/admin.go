@@ -36,14 +36,16 @@ const (
 )
 
 type SiteHandlers struct {
-	database *gorm.DB
-	logger   *zap.Logger
+	database      *gorm.DB
+	logger        *zap.Logger
+	widgetBaseURL string
 }
 
-func NewSiteHandlers(database *gorm.DB, logger *zap.Logger) *SiteHandlers {
+func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string) *SiteHandlers {
 	return &SiteHandlers{
-		database: database,
-		logger:   logger,
+		database:      database,
+		logger:        logger,
+		widgetBaseURL: normalizeWidgetBaseURL(widgetBaseURL),
 	}
 }
 
@@ -341,14 +343,24 @@ func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
 }
 
 func (handlers *SiteHandlers) toSiteResponse(site model.Site) siteResponse {
+	widgetBase := handlers.widgetBaseURL
+	if widgetBase == "" {
+		widgetBase = normalizeWidgetBaseURL(site.AllowedOrigin)
+	}
+
 	return siteResponse{
 		ID:            site.ID,
 		Name:          site.Name,
 		AllowedOrigin: site.AllowedOrigin,
 		OwnerEmail:    site.OwnerEmail,
-		Widget:        fmt.Sprintf(widgetScriptTemplate, site.AllowedOrigin, site.ID),
+		Widget:        fmt.Sprintf(widgetScriptTemplate, widgetBase, site.ID),
 		CreatedAt:     site.CreatedAt.UTC().Unix(),
 	}
+}
+
+func normalizeWidgetBaseURL(value string) string {
+	trimmed := strings.TrimSpace(value)
+	return strings.TrimRight(trimmed, "/")
 }
 
 func canManageSite(currentUser *CurrentUser, site model.Site) bool {

@@ -3,6 +3,7 @@ package httpapi_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -24,6 +25,7 @@ const (
 	testAdminEmailAddress = "admin@example.com"
 	testUserEmailAddress  = "user@example.com"
 	testSessionContextKey = "httpapi_current_user"
+	testWidgetBaseURL     = "https://loopaware.mprlab.com/"
 )
 
 type siteTestHarness struct {
@@ -40,7 +42,7 @@ func newSiteTestHarness(testingT *testing.T) siteTestHarness {
 	require.NoError(testingT, openErr)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
-	handlers := httpapi.NewSiteHandlers(database, zap.NewNop())
+	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL)
 
 	return siteTestHarness{handlers: handlers, database: database}
 }
@@ -91,6 +93,37 @@ func TestListMessagesBySiteReturnsOrderedUnixTimestamps(testingT *testing.T) {
 	require.Equal(testingT, site.ID, responseBody.SiteID)
 	require.Len(testingT, responseBody.Messages, 2)
 	require.GreaterOrEqual(testingT, responseBody.Messages[0].CreatedAt, responseBody.Messages[1].CreatedAt)
+}
+
+func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Widget Site",
+		AllowedOrigin: "https://client.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites", nil)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+
+	harness.handlers.ListSites(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody struct {
+		Sites []struct {
+			Identifier string `json:"id"`
+			Widget     string `json:"widget"`
+		} `json:"sites"`
+	}
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Len(testingT, responseBody.Sites, 1)
+
+	expectedBaseURL := strings.TrimRight(testWidgetBaseURL, "/")
+	expectedWidget := fmt.Sprintf("<script src=\"%s/widget.js?site_id=%s\"></script>", expectedBaseURL, site.ID)
+	require.Equal(testingT, expectedWidget, responseBody.Sites[0].Widget)
 }
 
 func TestNonAdminCannotAccessForeignSite(testingT *testing.T) {

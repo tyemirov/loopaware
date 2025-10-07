@@ -366,7 +366,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	}))
 
 	publicHandlers := httpapi.NewPublicHandlers(database, logger)
-	siteHandlers := httpapi.NewSiteHandlers(database, logger)
+	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger)
 	avatarHTTPClient := &http.Client{Timeout: 5 * time.Second}
 	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, avatarHTTPClient)
