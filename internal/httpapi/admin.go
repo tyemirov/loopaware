@@ -102,8 +102,8 @@ func (handlers *SiteHandlers) CurrentUser(context *gin.Context) {
 
 func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 	currentUser, ok := CurrentUserFromContext(context)
-	if !ok || !currentUser.IsAdmin {
-		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: authErrorForbidden})
+	if !ok {
+		context.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
 		return
 	}
 
@@ -115,10 +115,24 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 
 	payload.Name = strings.TrimSpace(payload.Name)
 	payload.AllowedOrigin = strings.TrimSpace(payload.AllowedOrigin)
-	payload.OwnerEmail = strings.ToLower(strings.TrimSpace(payload.OwnerEmail))
+	desiredOwnerEmail := strings.ToLower(strings.TrimSpace(payload.OwnerEmail))
+	currentUserEmail := strings.ToLower(strings.TrimSpace(currentUser.Email))
 
-	if payload.Name == "" || payload.AllowedOrigin == "" || payload.OwnerEmail == "" {
+	if !currentUser.IsAdmin {
+		if desiredOwnerEmail != "" && !strings.EqualFold(desiredOwnerEmail, currentUserEmail) {
+			context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueInvalidOperation})
+			return
+		}
+		desiredOwnerEmail = currentUserEmail
+	}
+
+	if payload.Name == "" || payload.AllowedOrigin == "" {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingFields})
+		return
+	}
+
+	if desiredOwnerEmail == "" {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidOwner})
 		return
 	}
 
@@ -126,7 +140,7 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		ID:            storage.NewID(),
 		Name:          payload.Name,
 		AllowedOrigin: payload.AllowedOrigin,
-		OwnerEmail:    payload.OwnerEmail,
+		OwnerEmail:    desiredOwnerEmail,
 	}
 
 	if err := handlers.database.Create(&site).Error; err != nil {

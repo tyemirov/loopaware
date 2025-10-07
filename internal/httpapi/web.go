@@ -28,6 +28,12 @@ const (
 	dashboardRoleAdminLabel         = "Administrator"
 	dashboardRoleUserLabel          = "User"
 	dashboardFeedbackPlaceholder    = "Select a site to load feedback."
+	newSiteOptionValue              = "__new__"
+	newSiteOptionLabel              = "New site"
+	siteFormCreateButtonLabel       = "Create site"
+	siteFormUpdateButtonLabel       = "Update site"
+	siteFormCreateButtonClass       = "btn btn-primary"
+	siteFormUpdateButtonClass       = "btn btn-success"
 	userNameElementID               = "user-name"
 	userEmailElementID              = "user-email"
 	userRoleBadgeElementID          = "user-role"
@@ -35,11 +41,6 @@ const (
 	statusBannerElementID           = "status-banner"
 	siteSelectorElementID           = "site-selector"
 	emptySitesMessageElementID      = "empty-sites-message"
-	createSiteCardElementID         = "create-site-card"
-	createSiteNameInputElementID    = "create-site-name"
-	createSiteOriginInputElementID  = "create-site-origin"
-	createSiteOwnerInputElementID   = "create-site-owner"
-	createSiteButtonElementID       = "create-site-button"
 	siteFormElementID               = "site-form"
 	editSiteNameInputElementID      = "edit-site-name"
 	editSiteOriginInputElementID    = "edit-site-origin"
@@ -90,22 +91,6 @@ const dashboardTemplate = `<!DOCTYPE html>
                 <label class="form-label" for="{{.SiteSelectorID}}">Select site</label>
                 <select id="{{.SiteSelectorID}}" class="form-select"></select>
                 <p class="text-muted small mt-3" id="{{.EmptySitesMessageID}}">{{.EmptySitesMessage}}</p>
-                <div id="{{.CreateSiteCardID}}" class="mt-4 d-none">
-                  <h6>Create site</h6>
-                  <div class="mb-3">
-                    <label class="form-label" for="{{.CreateSiteNameInputID}}">Name</label>
-                    <input id="{{.CreateSiteNameInputID}}" type="text" class="form-control" autocomplete="off" placeholder="Acme Marketing" />
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label" for="{{.CreateSiteOriginInputID}}">Allowed origin</label>
-                    <input id="{{.CreateSiteOriginInputID}}" type="text" class="form-control" autocomplete="off" placeholder="https://example.com" />
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label" for="{{.CreateSiteOwnerInputID}}">Owner email</label>
-                    <input id="{{.CreateSiteOwnerInputID}}" type="email" class="form-control" autocomplete="off" placeholder="owner@example.com" />
-                  </div>
-                  <button id="{{.CreateSiteButtonID}}" class="btn btn-primary w-100">Create site</button>
-                </div>
               </div>
             </div>
           </div>
@@ -175,6 +160,12 @@ const dashboardTemplate = `<!DOCTYPE html>
         var apiSiteMessagesSuffix = '{{.APIMessagesEndpointSuffix}}';
         var logoutPath = '{{.LogoutPath}}';
         var loginPath = '{{.LoginPath}}';
+        var newSiteOptionValue = '{{.NewSiteOptionValue}}';
+        var newSiteOptionLabel = '{{.NewSiteOptionLabel}}';
+        var createButtonLabel = '{{.CreateButtonLabel}}';
+        var updateButtonLabel = '{{.UpdateButtonLabel}}';
+        var createButtonClass = '{{.CreateButtonClass}}';
+        var updateButtonClass = '{{.UpdateButtonClass}}';
         var statusMessages = {
           loadingUser: '{{.StatusLoadingUser}}',
           loadingSites: '{{.StatusLoadingSites}}',
@@ -199,11 +190,6 @@ const dashboardTemplate = `<!DOCTYPE html>
         var userRole = document.getElementById('{{.UserRoleBadgeID}}');
         var siteSelector = document.getElementById('{{.SiteSelectorID}}');
         var emptySitesMessage = document.getElementById('{{.EmptySitesMessageID}}');
-        var createSiteCard = document.getElementById('{{.CreateSiteCardID}}');
-        var createSiteNameInput = document.getElementById('{{.CreateSiteNameInputID}}');
-        var createSiteOriginInput = document.getElementById('{{.CreateSiteOriginInputID}}');
-        var createSiteOwnerInput = document.getElementById('{{.CreateSiteOwnerInputID}}');
-        var createSiteButton = document.getElementById('{{.CreateSiteButtonID}}');
         var siteForm = document.getElementById('{{.SiteFormID}}');
         var editSiteNameInput = document.getElementById('{{.EditSiteNameInputID}}');
         var editSiteOriginInput = document.getElementById('{{.EditSiteOriginInputID}}');
@@ -269,58 +255,113 @@ const dashboardTemplate = `<!DOCTYPE html>
           userRole.textContent = roleLabel;
           userRole.className = state.user.is_admin ? 'badge bg-warning text-dark mt-2' : 'badge bg-secondary mt-2';
           if (state.user.is_admin) {
-            createSiteCard.classList.remove('d-none');
             editSiteOwnerContainer.classList.remove('d-none');
           } else {
-            createSiteCard.classList.add('d-none');
             editSiteOwnerContainer.classList.add('d-none');
           }
         }
 
+        function isNewSiteSelected() {
+          return state.selectedSiteId === newSiteOptionValue;
+        }
+
         function renderSites() {
           siteSelector.innerHTML = '';
-          if (!state.sites.length) {
-            emptySitesMessage.textContent = statusMessages.noSites;
-            siteSelector.disabled = true;
-            clearSiteForm();
-            renderFeedbackPlaceholder(statusMessages.selectSite);
-            return;
-          }
-          siteSelector.disabled = false;
-          emptySitesMessage.textContent = '';
+          var hasSites = state.sites.length > 0;
+
+          var newOption = document.createElement('option');
+          newOption.value = newSiteOptionValue;
+          newOption.textContent = newSiteOptionLabel;
+          siteSelector.appendChild(newOption);
+
           state.sites.forEach(function(site) {
             var option = document.createElement('option');
             option.value = site.id;
             option.textContent = site.name + ' (' + site.allowed_origin + ')';
             siteSelector.appendChild(option);
           });
-          if (state.selectedSiteId) {
-            siteSelector.value = state.selectedSiteId;
-          } else {
-            state.selectedSiteId = state.sites[0].id;
-            siteSelector.value = state.selectedSiteId;
+
+          emptySitesMessage.textContent = hasSites ? '' : statusMessages.noSites;
+          siteSelector.disabled = false;
+
+          if (!state.selectedSiteId) {
+            state.selectedSiteId = hasSites ? state.sites[0].id : newSiteOptionValue;
           }
+
+          var optionExists = false;
+          for (var optionIndex = 0; optionIndex < siteSelector.options.length; optionIndex++) {
+            if (siteSelector.options[optionIndex].value === state.selectedSiteId) {
+              optionExists = true;
+              break;
+            }
+          }
+          if (!optionExists) {
+            state.selectedSiteId = hasSites ? state.sites[0].id : newSiteOptionValue;
+          }
+
+          siteSelector.value = state.selectedSiteId;
+
           populateSiteForm();
-          loadMessages();
+          if (isNewSiteSelected()) {
+            renderFeedbackPlaceholder(statusMessages.selectSite);
+          } else {
+            loadMessages();
+          }
         }
 
         function clearSiteForm() {
           editSiteNameInput.value = '';
           editSiteOriginInput.value = '';
           editSiteOwnerInput.value = '';
-          saveSiteButton.disabled = true;
         }
 
         function populateSiteForm() {
+          if (!state.selectedSiteId) {
+            clearSiteForm();
+            saveSiteButton.disabled = true;
+            updateFormMode();
+            return;
+          }
+
+          if (isNewSiteSelected()) {
+            clearSiteForm();
+            saveSiteButton.disabled = false;
+            updateFormMode();
+            return;
+          }
+
           var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
           if (!site) {
             clearSiteForm();
+            saveSiteButton.disabled = true;
+            updateFormMode();
             return;
           }
+
           editSiteNameInput.value = site.name || '';
           editSiteOriginInput.value = site.allowed_origin || '';
           editSiteOwnerInput.value = site.owner_email || '';
           saveSiteButton.disabled = false;
+          updateFormMode();
+        }
+
+        function updateFormMode() {
+          if (!state.user) {
+            return;
+          }
+          var isAdmin = state.user.is_admin;
+          if (isNewSiteSelected()) {
+            saveSiteButton.textContent = createButtonLabel;
+            saveSiteButton.className = createButtonClass;
+          } else {
+            saveSiteButton.textContent = updateButtonLabel;
+            saveSiteButton.className = updateButtonClass;
+          }
+          if (isAdmin) {
+            editSiteOwnerInput.disabled = false;
+          } else {
+            editSiteOwnerInput.disabled = true;
+          }
         }
 
         function renderFeedbackPlaceholder(message) {
@@ -387,7 +428,7 @@ const dashboardTemplate = `<!DOCTYPE html>
         }
 
         function loadMessages() {
-          if (!state.selectedSiteId) {
+          if (!state.selectedSiteId || isNewSiteSelected()) {
             renderFeedbackPlaceholder(statusMessages.selectSite);
             return;
           }
@@ -400,12 +441,20 @@ const dashboardTemplate = `<!DOCTYPE html>
           });
         }
 
-        function saveSite(event) {
+        function submitSite(event) {
           event.preventDefault();
           if (!state.selectedSiteId) {
             showStatus(statusMessages.selectSite, 'warning');
             return;
           }
+          if (isNewSiteSelected()) {
+            createSite();
+          } else {
+            updateSite();
+          }
+        }
+
+        function updateSite() {
           showStatus(statusMessages.savingSite, 'info');
           var body = {
             name: editSiteNameInput.value,
@@ -436,9 +485,9 @@ const dashboardTemplate = `<!DOCTYPE html>
         function createSite() {
           showStatus(statusMessages.creatingSite, 'info');
           var body = {
-            name: createSiteNameInput.value,
-            allowed_origin: createSiteOriginInput.value,
-            owner_email: createSiteOwnerInput.value
+            name: editSiteNameInput.value,
+            allowed_origin: editSiteOriginInput.value,
+            owner_email: editSiteOwnerInput.value
           };
           fetchJSON(apiSitesEndpoint, {
             method: 'POST',
@@ -448,9 +497,6 @@ const dashboardTemplate = `<!DOCTYPE html>
             body: JSON.stringify(body)
           }).then(function(payload) {
             showStatus(statusMessages.siteCreated, 'success');
-            createSiteNameInput.value = '';
-            createSiteOriginInput.value = '';
-            createSiteOwnerInput.value = '';
             state.sites.unshift(payload);
             state.selectedSiteId = payload.id;
             renderSites();
@@ -465,11 +511,7 @@ const dashboardTemplate = `<!DOCTYPE html>
           loadMessages();
         });
 
-        siteForm.addEventListener('submit', saveSite);
-        createSiteButton.addEventListener('click', function(event) {
-          event.preventDefault();
-          createSite();
-        });
+        siteForm.addEventListener('submit', submitSite);
         refreshMessagesButton.addEventListener('click', function(event) {
           event.preventDefault();
           loadMessages();
@@ -517,11 +559,6 @@ type dashboardTemplateData struct {
 	UserAvatarID                string
 	SiteSelectorID              string
 	EmptySitesMessageID         string
-	CreateSiteCardID            string
-	CreateSiteNameInputID       string
-	CreateSiteOriginInputID     string
-	CreateSiteOwnerInputID      string
-	CreateSiteButtonID          string
 	SiteFormID                  string
 	EditSiteNameInputID         string
 	EditSiteOriginInputID       string
@@ -531,6 +568,12 @@ type dashboardTemplateData struct {
 	RefreshMessagesButtonID     string
 	FeedbackTableBodyID         string
 	LogoutButtonID              string
+	NewSiteOptionValue          string
+	NewSiteOptionLabel          string
+	CreateButtonLabel           string
+	UpdateButtonLabel           string
+	CreateButtonClass           string
+	UpdateButtonClass           string
 }
 
 // DashboardWebHandlers serves the authenticated dashboard UI.
@@ -579,11 +622,6 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		UserAvatarID:                userAvatarElementID,
 		SiteSelectorID:              siteSelectorElementID,
 		EmptySitesMessageID:         emptySitesMessageElementID,
-		CreateSiteCardID:            createSiteCardElementID,
-		CreateSiteNameInputID:       createSiteNameInputElementID,
-		CreateSiteOriginInputID:     createSiteOriginInputElementID,
-		CreateSiteOwnerInputID:      createSiteOwnerInputElementID,
-		CreateSiteButtonID:          createSiteButtonElementID,
 		SiteFormID:                  siteFormElementID,
 		EditSiteNameInputID:         editSiteNameInputElementID,
 		EditSiteOriginInputID:       editSiteOriginInputElementID,
@@ -593,6 +631,12 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		RefreshMessagesButtonID:     refreshMessagesButtonElementID,
 		FeedbackTableBodyID:         feedbackTableBodyElementID,
 		LogoutButtonID:              logoutButtonElementID,
+		NewSiteOptionValue:          newSiteOptionValue,
+		NewSiteOptionLabel:          newSiteOptionLabel,
+		CreateButtonLabel:           siteFormCreateButtonLabel,
+		UpdateButtonLabel:           siteFormUpdateButtonLabel,
+		CreateButtonClass:           siteFormCreateButtonClass,
+		UpdateButtonClass:           siteFormUpdateButtonClass,
 	}
 
 	var buffer bytes.Buffer

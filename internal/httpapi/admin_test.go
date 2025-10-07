@@ -111,13 +111,62 @@ func TestNonAdminCannotAccessForeignSite(testingT *testing.T) {
 	require.Equal(testingT, http.StatusForbidden, recorder.Code)
 }
 
-func TestCreateSiteRequiresAdmin(testingT *testing.T) {
+func TestCreateSiteAllowsAdminToSpecifyOwner(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
 	payload := map[string]string{
-		"name":           "Owned Site",
+		"name":           "Admin Created",
 		"allowed_origin": "http://owned.example",
 		"owner_email":    testUserEmailAddress,
+	}
+
+	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+
+	harness.handlers.CreateSite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody map[string]any
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, "Admin Created", responseBody["name"])
+	require.Equal(testingT, "http://owned.example", responseBody["allowed_origin"])
+	require.Equal(testingT, testUserEmailAddress, responseBody["owner_email"])
+
+	var createdSite model.Site
+	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Admin Created").Error)
+	require.Equal(testingT, testUserEmailAddress, createdSite.OwnerEmail)
+}
+
+func TestCreateSiteAssignsCurrentUserAsOwner(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	payload := map[string]string{
+		"name":           "Self Owned",
+		"allowed_origin": "http://self.example",
+	}
+
+	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
+
+	harness.handlers.CreateSite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody map[string]any
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, testUserEmailAddress, responseBody["owner_email"])
+
+	var createdSite model.Site
+	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Self Owned").Error)
+	require.Equal(testingT, testUserEmailAddress, createdSite.OwnerEmail)
+}
+
+func TestCreateSiteRejectsForeignOwnerForRegularUser(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	payload := map[string]string{
+		"name":           "Invalid Owner",
+		"allowed_origin": "http://invalid.example",
+		"owner_email":    "other@example.com",
 	}
 
 	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)

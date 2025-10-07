@@ -381,12 +381,9 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	apiGroup.Use(authManager.RequireAuthenticatedJSON())
 	apiGroup.GET(apiRouteMe, siteHandlers.CurrentUser)
 	apiGroup.GET(apiRouteSites, siteHandlers.ListSites)
+	apiGroup.POST(apiRouteSites, siteHandlers.CreateSite)
 	apiGroup.PATCH(apiRouteSiteUpdate, siteHandlers.UpdateSite)
 	apiGroup.GET(apiRouteSiteMessages, siteHandlers.ListMessagesBySite)
-
-	adminSitesGroup := apiGroup.Group(apiRouteSites)
-	adminSitesGroup.Use(authManager.RequireAdminJSON())
-	adminSitesGroup.POST("", siteHandlers.CreateSite)
 
 	httpServer := &http.Server{
 		Addr:              serverConfig.ApplicationAddress,
