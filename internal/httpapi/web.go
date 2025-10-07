@@ -12,44 +12,51 @@ import (
 )
 
 const (
-	dashboardTemplateName           = "dashboard"
-	dashboardHTMLContentType        = "text/html; charset=utf-8"
-	dashboardPageTitle              = "LoopAware Dashboard"
-	dashboardStatusLoadingUser      = "Loading account information..."
-	dashboardStatusLoadingSites     = "Loading sites..."
-	dashboardStatusLoadFailed       = "Failed to load data."
-	dashboardStatusSavingSite       = "Saving site..."
-	dashboardStatusSiteSaved        = "Site updated."
-	dashboardStatusCreatingSite     = "Creating site..."
-	dashboardStatusSiteCreated      = "Site created."
-	dashboardStatusSelectSite       = "Select a site to see details."
-	dashboardStatusNoMessages       = "No feedback yet."
-	dashboardStatusNoSites          = "No sites available yet."
-	dashboardRoleAdminLabel         = "Administrator"
-	dashboardRoleUserLabel          = "User"
-	dashboardFeedbackPlaceholder    = "Select a site to load feedback."
-	newSiteOptionValue              = "__new__"
-	newSiteOptionLabel              = "New site"
-	siteFormCreateButtonLabel       = "Create site"
-	siteFormUpdateButtonLabel       = "Update site"
-	siteFormCreateButtonClass       = "btn btn-primary"
-	siteFormUpdateButtonClass       = "btn btn-success"
-	userNameElementID               = "user-name"
-	userEmailElementID              = "user-email"
-	userRoleBadgeElementID          = "user-role"
-	userAvatarElementID             = "user-avatar"
-	statusBannerElementID           = "status-banner"
-	siteSelectorElementID           = "site-selector"
-	emptySitesMessageElementID      = "empty-sites-message"
-	siteFormElementID               = "site-form"
-	editSiteNameInputElementID      = "edit-site-name"
-	editSiteOriginInputElementID    = "edit-site-origin"
-	editSiteOwnerContainerElementID = "edit-site-owner-container"
-	editSiteOwnerInputElementID     = "edit-site-owner"
-	saveSiteButtonElementID         = "save-site-button"
-	refreshMessagesButtonElementID  = "refresh-messages-button"
-	feedbackTableBodyElementID      = "feedback-table-body"
-	logoutButtonElementID           = "logout-button"
+	dashboardTemplateName            = "dashboard"
+	dashboardHTMLContentType         = "text/html; charset=utf-8"
+	dashboardPageTitle               = "LoopAware Dashboard"
+	dashboardStatusLoadingUser       = "Loading account information..."
+	dashboardStatusLoadingSites      = "Loading sites..."
+	dashboardStatusLoadFailed        = "Failed to load data."
+	dashboardStatusSavingSite        = "Saving site..."
+	dashboardStatusSiteSaved         = "Site updated."
+	dashboardStatusCreatingSite      = "Creating site..."
+	dashboardStatusSiteCreated       = "Site created."
+	dashboardStatusSelectSite        = "Select a site to see details."
+	dashboardStatusNoMessages        = "No feedback yet."
+	dashboardStatusNoSites           = "No sites available yet."
+	dashboardRoleAdminLabel          = "Administrator"
+	dashboardRoleUserLabel           = "User"
+	dashboardFeedbackPlaceholder     = "Select a site to load feedback."
+	dashboardWidgetCardTitle         = "Site widget"
+	dashboardWidgetInstructions      = "Embed this <script> tag on pages served from the allowed origin."
+	dashboardWidgetUnavailable       = "Save the site to generate a widget snippet."
+	dashboardStatusWidgetCopied      = "Widget snippet copied."
+	dashboardStatusWidgetCopyFailed  = "Unable to copy widget snippet."
+	newSiteOptionValue               = "__new__"
+	newSiteOptionLabel               = "New site"
+	siteFormCreateButtonLabel        = "Create site"
+	siteFormUpdateButtonLabel        = "Update site"
+	siteFormCreateButtonClass        = "btn btn-primary"
+	siteFormUpdateButtonClass        = "btn btn-success"
+	userNameElementID                = "user-name"
+	userEmailElementID               = "user-email"
+	userRoleBadgeElementID           = "user-role"
+	userAvatarElementID              = "user-avatar"
+	statusBannerElementID            = "status-banner"
+	siteSelectorElementID            = "site-selector"
+	emptySitesMessageElementID       = "empty-sites-message"
+	siteFormElementID                = "site-form"
+	editSiteNameInputElementID       = "edit-site-name"
+	editSiteOriginInputElementID     = "edit-site-origin"
+	editSiteOwnerContainerElementID  = "edit-site-owner-container"
+	editSiteOwnerInputElementID      = "edit-site-owner"
+	saveSiteButtonElementID          = "save-site-button"
+	refreshMessagesButtonElementID   = "refresh-messages-button"
+	feedbackTableBodyElementID       = "feedback-table-body"
+	logoutButtonElementID            = "logout-button"
+	widgetSnippetTextareaElementID   = "widget-snippet"
+	copyWidgetSnippetButtonElementID = "copy-widget-snippet"
 )
 
 const dashboardTemplate = `<!DOCTYPE html>
@@ -102,7 +109,7 @@ const dashboardTemplate = `<!DOCTYPE html>
               </div>
               <div class="card-body">
                 <form id="{{.SiteFormID}}">
-                  <div class="row g-3">
+                  <div class="row g-3 align-items-end">
                     <div class="col-md-6">
                       <label class="form-label" for="{{.EditSiteNameInputID}}">Name</label>
                       <input id="{{.EditSiteNameInputID}}" type="text" class="form-control" autocomplete="off" />
@@ -115,11 +122,21 @@ const dashboardTemplate = `<!DOCTYPE html>
                       <label class="form-label" for="{{.EditSiteOwnerInputID}}">Owner email</label>
                       <input id="{{.EditSiteOwnerInputID}}" type="email" class="form-control" autocomplete="off" />
                     </div>
-                  </div>
-                  <div class="d-flex justify-content-end mt-3">
-                    <button id="{{.SaveSiteButtonID}}" type="submit" class="btn btn-success">Save changes</button>
+                    <div class="col-md-6 d-flex justify-content-end">
+                      <button id="{{.SaveSiteButtonID}}" type="submit" class="btn btn-success">Save changes</button>
+                    </div>
                   </div>
                 </form>
+              </div>
+            </div>
+            <div class="card shadow-sm mb-4">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{.WidgetCardTitle}}</h5>
+                <button id="{{.CopyWidgetSnippetButtonID}}" type="button" class="btn btn-outline-primary btn-sm">Copy snippet</button>
+              </div>
+              <div class="card-body">
+                <p class="text-muted small mb-3">{{.WidgetInstructions}}</p>
+                <textarea id="{{.WidgetSnippetTextareaID}}" class="form-control font-monospace" rows="3" readonly></textarea>
               </div>
             </div>
             <div class="card shadow-sm">
@@ -176,12 +193,15 @@ const dashboardTemplate = `<!DOCTYPE html>
           siteCreated: '{{.StatusSiteCreated}}',
           selectSite: '{{.StatusSelectSite}}',
           noMessages: '{{.StatusNoMessages}}',
-          noSites: '{{.StatusNoSites}}'
+          noSites: '{{.StatusNoSites}}',
+          widgetCopied: '{{.StatusWidgetCopied}}',
+          widgetCopyFailed: '{{.StatusWidgetCopyFailed}}'
         };
         var roleLabels = {
           admin: '{{.RoleAdmin}}',
           user: '{{.RoleUser}}'
         };
+        var widgetUnavailableMessage = '{{.WidgetUnavailableMessage}}';
 
         var banner = document.getElementById('{{.StatusBannerID}}');
         var userName = document.getElementById('{{.UserNameID}}');
@@ -199,12 +219,17 @@ const dashboardTemplate = `<!DOCTYPE html>
         var refreshMessagesButton = document.getElementById('{{.RefreshMessagesButtonID}}');
         var feedbackTableBody = document.getElementById('{{.FeedbackTableBodyID}}');
         var logoutButton = document.getElementById('{{.LogoutButtonID}}');
+        var widgetSnippetTextarea = document.getElementById('{{.WidgetSnippetTextareaID}}');
+        var copyWidgetSnippetButton = document.getElementById('{{.CopyWidgetSnippetButtonID}}');
 
         var state = {
           user: null,
           sites: [],
           selectedSiteId: ''
         };
+        var widgetBaseURL = window.location.origin.replace(/\/$/, '');
+        widgetSnippetTextarea.value = widgetUnavailableMessage;
+        copyWidgetSnippetButton.disabled = true;
 
         function fetchJSON(url, options) {
           var requestOptions = options || {};
@@ -265,6 +290,67 @@ const dashboardTemplate = `<!DOCTYPE html>
           return state.selectedSiteId === newSiteOptionValue;
         }
 
+        function buildWidgetSnippet(siteId) {
+          return '<script src="' + widgetBaseURL + '/widget.js?site_id=' + siteId + '"></script>';
+        }
+
+        function updateWidgetSnippet() {
+          if (!state.selectedSiteId || isNewSiteSelected()) {
+            widgetSnippetTextarea.value = widgetUnavailableMessage;
+            copyWidgetSnippetButton.disabled = true;
+            return;
+          }
+          var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
+          if (!site) {
+            widgetSnippetTextarea.value = widgetUnavailableMessage;
+            copyWidgetSnippetButton.disabled = true;
+            return;
+          }
+          widgetSnippetTextarea.value = buildWidgetSnippet(site.id);
+          copyWidgetSnippetButton.disabled = false;
+        }
+
+        function copyWidgetSnippet() {
+          if (copyWidgetSnippetButton.disabled) {
+            return;
+          }
+          var snippet = widgetSnippetTextarea.value;
+          if (!snippet || snippet === widgetUnavailableMessage) {
+            showStatus(statusMessages.widgetCopyFailed, 'danger');
+            return;
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(snippet).then(function() {
+              showStatus(statusMessages.widgetCopied, 'success');
+            }).catch(function() {
+              fallbackCopyWidgetSnippet(snippet);
+            });
+          } else {
+            fallbackCopyWidgetSnippet(snippet);
+          }
+        }
+
+        function fallbackCopyWidgetSnippet(snippet) {
+          var previousSelectionStart = widgetSnippetTextarea.selectionStart;
+          var previousSelectionEnd = widgetSnippetTextarea.selectionEnd;
+          widgetSnippetTextarea.focus();
+          widgetSnippetTextarea.select();
+          var copySucceeded = false;
+          try {
+            copySucceeded = document.execCommand('copy');
+          } catch (error) {
+            copySucceeded = false;
+          }
+          widgetSnippetTextarea.selectionStart = previousSelectionStart;
+          widgetSnippetTextarea.selectionEnd = previousSelectionEnd;
+          widgetSnippetTextarea.blur();
+          if (copySucceeded) {
+            showStatus(statusMessages.widgetCopied, 'success');
+          } else {
+            showStatus(statusMessages.widgetCopyFailed, 'danger');
+          }
+        }
+
         function renderSites() {
           siteSelector.innerHTML = '';
           var hasSites = state.sites.length > 0;
@@ -302,6 +388,7 @@ const dashboardTemplate = `<!DOCTYPE html>
           siteSelector.value = state.selectedSiteId;
 
           populateSiteForm();
+          updateWidgetSnippet();
           if (isNewSiteSelected()) {
             renderFeedbackPlaceholder(statusMessages.selectSite);
           } else {
@@ -320,6 +407,7 @@ const dashboardTemplate = `<!DOCTYPE html>
             clearSiteForm();
             saveSiteButton.disabled = true;
             updateFormMode();
+            updateWidgetSnippet();
             return;
           }
 
@@ -327,6 +415,7 @@ const dashboardTemplate = `<!DOCTYPE html>
             clearSiteForm();
             saveSiteButton.disabled = false;
             updateFormMode();
+            updateWidgetSnippet();
             return;
           }
 
@@ -335,6 +424,7 @@ const dashboardTemplate = `<!DOCTYPE html>
             clearSiteForm();
             saveSiteButton.disabled = true;
             updateFormMode();
+            updateWidgetSnippet();
             return;
           }
 
@@ -343,6 +433,7 @@ const dashboardTemplate = `<!DOCTYPE html>
           editSiteOwnerInput.value = site.owner_email || '';
           saveSiteButton.disabled = false;
           updateFormMode();
+          updateWidgetSnippet();
         }
 
         function updateFormMode() {
@@ -512,6 +603,10 @@ const dashboardTemplate = `<!DOCTYPE html>
         });
 
         siteForm.addEventListener('submit', submitSite);
+        copyWidgetSnippetButton.addEventListener('click', function(event) {
+          event.preventDefault();
+          copyWidgetSnippet();
+        });
         refreshMessagesButton.addEventListener('click', function(event) {
           event.preventDefault();
           loadMessages();
@@ -574,6 +669,13 @@ type dashboardTemplateData struct {
 	UpdateButtonLabel           string
 	CreateButtonClass           string
 	UpdateButtonClass           string
+	WidgetCardTitle             string
+	WidgetInstructions          string
+	WidgetUnavailableMessage    string
+	StatusWidgetCopied          string
+	StatusWidgetCopyFailed      string
+	WidgetSnippetTextareaID     string
+	CopyWidgetSnippetButtonID   string
 }
 
 // DashboardWebHandlers serves the authenticated dashboard UI.
@@ -637,6 +739,13 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		UpdateButtonLabel:           siteFormUpdateButtonLabel,
 		CreateButtonClass:           siteFormCreateButtonClass,
 		UpdateButtonClass:           siteFormUpdateButtonClass,
+		WidgetCardTitle:             dashboardWidgetCardTitle,
+		WidgetInstructions:          dashboardWidgetInstructions,
+		WidgetUnavailableMessage:    dashboardWidgetUnavailable,
+		StatusWidgetCopied:          dashboardStatusWidgetCopied,
+		StatusWidgetCopyFailed:      dashboardStatusWidgetCopyFailed,
+		WidgetSnippetTextareaID:     widgetSnippetTextareaElementID,
+		CopyWidgetSnippetButtonID:   copyWidgetSnippetButtonElementID,
 	}
 
 	var buffer bytes.Buffer
