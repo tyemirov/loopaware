@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -177,6 +178,43 @@ func (handlers *SiteHandlers) ListSites(context *gin.Context) {
 	}
 
 	context.JSON(http.StatusOK, listSitesResponse{Sites: responses})
+}
+
+func (handlers *SiteHandlers) UserAvatar(context *gin.Context) {
+	currentUser, ok := CurrentUserFromContext(context)
+	if !ok {
+		context.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
+		return
+	}
+
+	trimmedEmail := strings.ToLower(strings.TrimSpace(currentUser.Email))
+	if trimmedEmail == "" {
+		context.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	var user model.User
+	if err := handlers.database.First(&user, "email = ?", trimmedEmail).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			context.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+		handlers.logger.Warn("load_user_avatar", zap.Error(err))
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+
+	if len(user.AvatarData) == 0 {
+		context.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	contentType := user.AvatarContentType
+	if contentType == "" {
+		contentType = defaultAvatarMimeType
+	}
+	context.Header("Cache-Control", "no-cache")
+	context.Data(http.StatusOK, contentType, user.AvatarData)
 }
 
 func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -203,6 +204,36 @@ func TestUpdateSiteAllowsOwnerToChangeDetails(testingT *testing.T) {
 	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
 	require.Equal(testingT, "Updated Name", responseBody["name"])
 	require.Equal(testingT, "http://updated.example", responseBody["allowed_origin"])
+}
+
+func TestUserAvatarReturnsStoredImage(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	user := model.User{
+		Email:             strings.ToLower(testUserEmailAddress),
+		Name:              "Test User",
+		AvatarContentType: "image/png",
+		AvatarData:        []byte{0x01, 0x02, 0x03},
+	}
+	require.NoError(testingT, harness.database.Save(&user).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/me/avatar", nil)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress})
+
+	harness.handlers.UserAvatar(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+	require.Equal(testingT, "image/png", recorder.Header().Get("Content-Type"))
+	require.Equal(testingT, []byte{0x01, 0x02, 0x03}, recorder.Body.Bytes())
+}
+
+func TestUserAvatarReturnsNotFoundWhenMissing(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/me/avatar", nil)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress})
+
+	harness.handlers.UserAvatar(context)
+	require.Equal(testingT, http.StatusNotFound, recorder.Code)
 }
 
 func newJSONContext(method string, path string, body any) (*httptest.ResponseRecorder, *gin.Context) {

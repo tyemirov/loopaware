@@ -65,6 +65,7 @@ const (
 	dashboardRoute                   = "/app"
 	apiRoutePrefix                   = "/api"
 	apiRouteMe                       = "/me"
+	apiRouteMeAvatar                 = "/me/avatar"
 	apiRouteSites                    = "/sites"
 	apiRouteSiteUpdate               = "/sites/:id"
 	apiRouteSiteMessages             = "/sites/:id/messages"
@@ -367,7 +368,8 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	publicHandlers := httpapi.NewPublicHandlers(database, logger)
 	siteHandlers := httpapi.NewSiteHandlers(database, logger)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger)
-	authManager := httpapi.NewAuthManager(logger, serverConfig.AdminEmailAddresses)
+	avatarHTTPClient := &http.Client{Timeout: 5 * time.Second}
+	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, avatarHTTPClient)
 
 	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
@@ -383,6 +385,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	apiGroup := router.Group(apiRoutePrefix)
 	apiGroup.Use(authManager.RequireAuthenticatedJSON())
 	apiGroup.GET(apiRouteMe, siteHandlers.CurrentUser)
+	apiGroup.GET(apiRouteMeAvatar, siteHandlers.UserAvatar)
 	apiGroup.GET(apiRouteSites, siteHandlers.ListSites)
 	apiGroup.POST(apiRouteSites, siteHandlers.CreateSite)
 	apiGroup.PATCH(apiRouteSiteUpdate, siteHandlers.UpdateSite)

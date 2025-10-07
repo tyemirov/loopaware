@@ -20,3 +20,13 @@ type Feedback struct {
 	UserAgent string    `gorm:"size:400"`
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 }
+
+type User struct {
+	Email             string    `gorm:"primaryKey;size:320"`
+	Name              string    `gorm:"not null;size:320"`
+	PictureSourceURL  string    `gorm:"size:500"`
+	AvatarContentType string    `gorm:"size:100"`
+	AvatarData        []byte    `gorm:"type:blob"`
+	CreatedAt         time.Time `gorm:"autoCreateTime"`
+	UpdatedAt         time.Time `gorm:"autoUpdateTime"`
+}
