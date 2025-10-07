@@ -33,6 +33,9 @@ const (
 	dashboardWidgetUnavailable       = "Save the site to generate a widget snippet."
 	dashboardStatusWidgetCopied      = "Widget snippet copied."
 	dashboardStatusWidgetCopyFailed  = "Unable to copy widget snippet."
+	dashboardFooterBrandPrefix       = "Built by"
+	dashboardFooterBrandName         = "Marco Polo Research Lab"
+	dashboardFooterBrandURL          = "https://mprlab.com"
 	navbarSettingsButtonLabel        = "Account settings"
 	navbarLogoutLabel                = "Logout"
 	navbarThemeToggleLabel           = "Dark mode"
@@ -99,6 +102,9 @@ type dashboardTemplateData struct {
 	EmptySitesMessage           string
 	FeedbackPlaceholder         string
 	CurrentYear                 int
+	FooterBrandPrefix           string
+	FooterBrandName             string
+	FooterBrandURL              string
 	UserNameID                  string
 	UserEmailID                 string
 	UserRoleBadgeID             string
@@ -199,6 +205,9 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		EmptySitesMessage:           dashboardStatusNoSites,
 		FeedbackPlaceholder:         dashboardFeedbackPlaceholder,
 		CurrentYear:                 time.Now().Year(),
+		FooterBrandPrefix:           dashboardFooterBrandPrefix,
+		FooterBrandName:             dashboardFooterBrandName,
+		FooterBrandURL:              dashboardFooterBrandURL,
 		UserNameID:                  userNameElementID,
 		UserEmailID:                 userEmailElementID,
 		UserRoleBadgeID:             userRoleBadgeElementID,

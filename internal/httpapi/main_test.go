@@ -19,6 +19,9 @@ const (
 	dashboardSitesListElementID     = "sites-list"
 	dashboardNewSiteButtonElementID = "new-site-button"
 	dashboardLegacySelectorID       = "site-selector"
+	dashboardFooterBrandPrefix      = "Built by"
+	dashboardFooterBrandURL         = "https://mprlab.com"
+	dashboardFooterBrandName        = "Marco Polo Research Lab"
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -66,6 +69,51 @@ func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {
 			testName:      "legacy site selector removed",
 			substring:     "id=\"" + dashboardLegacySelectorID + "\"",
 			expectPresent: false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.testName, func(t *testing.T) {
+			if testCase.expectPresent {
+				require.Contains(t, body, testCase.substring)
+				return
+			}
+			require.NotContains(t, body, testCase.substring)
+		})
+	}
+}
+
+func TestDashboardFooterIncludesBranding(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	testCases := []struct {
+		testName      string
+		substring     string
+		expectPresent bool
+	}{
+		{
+			testName:      "footer prefix",
+			substring:     dashboardFooterBrandPrefix,
+			expectPresent: true,
+		},
+		{
+			testName:      "footer link text",
+			substring:     dashboardFooterBrandName,
+			expectPresent: true,
+		},
+		{
+			testName:      "footer link target",
+			substring:     dashboardFooterBrandURL,
+			expectPresent: true,
 		},
 	}
 

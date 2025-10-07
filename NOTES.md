@@ -14,8 +14,6 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ## Improvements
 
-- [ ] [LA-12] Add a footer with Marco Polo Research Lab branding and point to https://mprlab.com. Built by [Marco Polo Research Lab](https://mprlab.com)
-
 ## BugFixes
 
 - [ ] [LA-13] Update a site shows a post-action message for 1 nanosecond, when other buttons shows a message for the reasonable amount of time. Ensure we have a reusable component that acts the same everywhere in the app
