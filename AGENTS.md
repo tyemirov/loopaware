@@ -20,7 +20,6 @@
 
 ## Deliverables
 
-* Only full, copy-pasteable files.
 * Only changed files.
 * No diffs, snippets, or examples.
 * Must compile cleanly.
@@ -120,7 +119,6 @@
 * Implement minimal, cohesive types.
 * Inject dependencies.
 * Prove with table-driven tests.
-* Deliver full updated files only.
 
 ---
 
@@ -136,5 +134,3 @@
 * [ ] Config via Viper; validated in `PreRunE`.
 * [ ] Table-driven tests; no filesystem pollution.
 * [ ] `go fmt`, `go vet`, `go test ./...` pass.
-* [ ] Delivered only full changed files.
-
