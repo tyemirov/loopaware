@@ -46,7 +46,7 @@ const (
 	userEmailElementID               = "user-email"
 	userRoleBadgeElementID           = "user-role"
 	userAvatarElementID              = "user-avatar"
-	siteSelectorElementID            = "site-selector"
+	sitesListElementID               = "sites-list"
 	emptySitesMessageElementID       = "empty-sites-message"
 	siteFormElementID                = "site-form"
 	editSiteNameInputElementID       = "edit-site-name"
@@ -68,6 +68,11 @@ const (
 	formStatusElementID              = "site-status"
 	widgetStatusElementID            = "widget-status"
 	messagesStatusElementID          = "messages-status"
+	newSiteButtonElementID           = "new-site-button"
+	newSiteButtonClass               = "btn btn-outline-primary btn-sm"
+	newSiteButtonActiveClass         = "btn btn-primary btn-sm"
+	siteListItemClass                = "list-group-item list-group-item-action"
+	siteListItemActiveClass          = "active"
 )
 
 type dashboardTemplateData struct {
@@ -98,7 +103,7 @@ type dashboardTemplateData struct {
 	UserEmailID                 string
 	UserRoleBadgeID             string
 	UserAvatarID                string
-	SiteSelectorID              string
+	SitesListID                 string
 	EmptySitesMessageID         string
 	SiteFormID                  string
 	EditSiteNameInputID         string
@@ -120,11 +125,16 @@ type dashboardTemplateData struct {
 	FeedbackTableBodyID         string
 	LogoutButtonID              string
 	NewSiteOptionValue          string
-	NewSiteOptionLabel          string
 	CreateButtonLabel           string
 	UpdateButtonLabel           string
 	CreateButtonClass           string
 	UpdateButtonClass           string
+	NewSiteButtonID             string
+	NewSiteButtonLabel          string
+	NewSiteButtonClass          string
+	NewSiteButtonActiveClass    string
+	SiteListItemClass           string
+	SiteListItemActiveClass     string
 	WidgetCardTitle             string
 	WidgetInstructions          string
 	WidgetUnavailableMessage    string
@@ -193,7 +203,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		UserEmailID:                 userEmailElementID,
 		UserRoleBadgeID:             userRoleBadgeElementID,
 		UserAvatarID:                userAvatarElementID,
-		SiteSelectorID:              siteSelectorElementID,
+		SitesListID:                 sitesListElementID,
 		EmptySitesMessageID:         emptySitesMessageElementID,
 		SiteFormID:                  siteFormElementID,
 		EditSiteNameInputID:         editSiteNameInputElementID,
@@ -215,11 +225,16 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		FeedbackTableBodyID:         feedbackTableBodyElementID,
 		LogoutButtonID:              logoutButtonElementID,
 		NewSiteOptionValue:          newSiteOptionValue,
-		NewSiteOptionLabel:          newSiteOptionLabel,
 		CreateButtonLabel:           siteFormCreateButtonLabel,
 		UpdateButtonLabel:           siteFormUpdateButtonLabel,
 		CreateButtonClass:           siteFormCreateButtonClass,
 		UpdateButtonClass:           siteFormUpdateButtonClass,
+		NewSiteButtonID:             newSiteButtonElementID,
+		NewSiteButtonLabel:          newSiteOptionLabel,
+		NewSiteButtonClass:          newSiteButtonClass,
+		NewSiteButtonActiveClass:    newSiteButtonActiveClass,
+		SiteListItemClass:           siteListItemClass,
+		SiteListItemActiveClass:     siteListItemActiveClass,
 		WidgetCardTitle:             dashboardWidgetCardTitle,
 		WidgetInstructions:          dashboardWidgetInstructions,
 		WidgetUnavailableMessage:    dashboardWidgetUnavailable,

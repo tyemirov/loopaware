@@ -48,11 +48,13 @@
               </div>
             </div>
             <div class="card shadow-sm mt-4">
-              <div class="card-header">Sites</div>
-              <div class="card-body">
-                <label class="form-label" for="{{.SiteSelectorID}}">Select site</label>
-                <select id="{{.SiteSelectorID}}" class="form-select"></select>
-                <p class="text-muted small mt-3" id="{{.EmptySitesMessageID}}">{{.EmptySitesMessage}}</p>
+              <div class="card-header d-flex align-items-center justify-content-between">
+                <span>Sites</span>
+                <button id="{{.NewSiteButtonID}}" type="button" class="{{.NewSiteButtonClass}}">{{.NewSiteButtonLabel}}</button>
+              </div>
+              <div class="card-body p-0">
+                <div id="{{.SitesListID}}" class="list-group list-group-flush overflow-auto" style="max-height: 20rem;"></div>
+                <p class="text-muted small m-3" id="{{.EmptySitesMessageID}}">{{.EmptySitesMessage}}</p>
               </div>
             </div>
           </div>
@@ -154,11 +156,16 @@
         var settingsAvatarImage = document.getElementById('{{.SettingsAvatarImageID}}');
         var settingsAvatarFallback = document.getElementById('{{.SettingsAvatarFallbackID}}');
         var newSiteOptionValue = '{{.NewSiteOptionValue}}';
-        var newSiteOptionLabel = '{{.NewSiteOptionLabel}}';
         var createButtonLabel = '{{.CreateButtonLabel}}';
         var updateButtonLabel = '{{.UpdateButtonLabel}}';
         var createButtonClass = '{{.CreateButtonClass}}';
         var updateButtonClass = '{{.UpdateButtonClass}}';
+        var newSiteButton = document.getElementById('{{.NewSiteButtonID}}');
+        var newSiteButtonDefaultClass = '{{.NewSiteButtonClass}}';
+        var newSiteButtonActiveClass = '{{.NewSiteButtonActiveClass}}';
+        var sitesList = document.getElementById('{{.SitesListID}}');
+        var siteListItemClass = '{{.SiteListItemClass}}';
+        var siteListItemActiveClass = '{{.SiteListItemActiveClass}}';
         var statusMessages = {
           loadingUser: '{{.StatusLoadingUser}}',
           loadingSites: '{{.StatusLoadingSites}}',
@@ -183,7 +190,6 @@
         var userEmail = document.getElementById('{{.UserEmailID}}');
         var userAvatar = document.getElementById('{{.UserAvatarID}}');
         var userRole = document.getElementById('{{.UserRoleBadgeID}}');
-        var siteSelector = document.getElementById('{{.SiteSelectorID}}');
         var emptySitesMessage = document.getElementById('{{.EmptySitesMessageID}}');
         var siteForm = document.getElementById('{{.SiteFormID}}');
         var editSiteNameInput = document.getElementById('{{.EditSiteNameInputID}}');
@@ -342,6 +348,17 @@
           button._originalClass = className;
         }
 
+        function updateNewSiteButtonState() {
+          if (!newSiteButton) {
+            return;
+          }
+          if (isNewSiteSelected()) {
+            newSiteButton.className = newSiteButtonActiveClass;
+          } else {
+            newSiteButton.className = newSiteButtonDefaultClass;
+          }
+        }
+
 function updateWidgetSnippet() {
           if (!state.selectedSiteId || isNewSiteSelected()) {
             widgetSnippetTextarea.value = widgetUnavailableMessage;
@@ -400,41 +417,54 @@ function updateWidgetSnippet() {
         }
 
         function renderSites() {
-          siteSelector.innerHTML = '';
+          if (!sitesList) {
+            return;
+          }
+          while (sitesList.firstChild) {
+            sitesList.removeChild(sitesList.firstChild);
+          }
           var hasSites = state.sites.length > 0;
-
-          var newOption = document.createElement('option');
-          newOption.value = newSiteOptionValue;
-          newOption.textContent = newSiteOptionLabel;
-          siteSelector.appendChild(newOption);
-
-          state.sites.forEach(function(site) {
-            var option = document.createElement('option');
-            option.value = site.id;
-            option.textContent = site.name + ' (' + site.allowed_origin + ')';
-            siteSelector.appendChild(option);
-          });
-
-          emptySitesMessage.textContent = hasSites ? '' : statusMessages.noSites;
-          siteSelector.disabled = false;
 
           if (!state.selectedSiteId) {
             state.selectedSiteId = hasSites ? state.sites[0].id : newSiteOptionValue;
           }
 
-          var optionExists = false;
-          for (var optionIndex = 0; optionIndex < siteSelector.options.length; optionIndex++) {
-            if (siteSelector.options[optionIndex].value === state.selectedSiteId) {
-              optionExists = true;
-              break;
+          if (!isNewSiteSelected()) {
+            var selectedExists = state.sites.some(function(item) {
+              return item.id === state.selectedSiteId;
+            });
+            if (!selectedExists) {
+              state.selectedSiteId = hasSites ? state.sites[0].id : newSiteOptionValue;
             }
           }
-          if (!optionExists) {
-            state.selectedSiteId = hasSites ? state.sites[0].id : newSiteOptionValue;
+
+          state.sites.forEach(function(site) {
+            var listItem = document.createElement('button');
+            listItem.type = 'button';
+            listItem.className = siteListItemClass + (site.id === state.selectedSiteId ? ' ' + siteListItemActiveClass : '');
+            listItem.dataset.siteId = site.id;
+
+            var nameElement = document.createElement('div');
+            nameElement.className = 'fw-semibold';
+            nameElement.textContent = site.name || '';
+            listItem.appendChild(nameElement);
+
+            var originElement = document.createElement('div');
+            originElement.className = 'small text-muted text-truncate';
+            originElement.textContent = site.allowed_origin || '';
+            listItem.appendChild(originElement);
+
+            sitesList.appendChild(listItem);
+          });
+
+          if (hasSites) {
+            emptySitesMessage.classList.add('d-none');
+          } else {
+            emptySitesMessage.textContent = statusMessages.noSites;
+            emptySitesMessage.classList.remove('d-none');
           }
 
-          siteSelector.value = state.selectedSiteId;
-
+          updateNewSiteButtonState();
           populateSiteForm();
           updateWidgetSnippet();
           if (isNewSiteSelected()) {
@@ -442,6 +472,22 @@ function updateWidgetSnippet() {
           } else {
             loadMessages();
           }
+        }
+
+        function handleSitesListClick(event) {
+          var target = event.target;
+          while (target && target !== sitesList && !target.dataset.siteId) {
+            target = target.parentElement;
+          }
+          if (!target || target === sitesList) {
+            return;
+          }
+          var siteIdentifier = target.dataset.siteId;
+          if (!siteIdentifier || siteIdentifier === state.selectedSiteId) {
+            return;
+          }
+          state.selectedSiteId = siteIdentifier;
+          renderSites();
         }
 
         function clearSiteForm() {
@@ -655,11 +701,19 @@ function updateWidgetSnippet() {
           });
         }
 
-        siteSelector.addEventListener('change', function(event) {
-          state.selectedSiteId = event.target.value;
-          populateSiteForm();
-          loadMessages();
-        });
+        if (sitesList) {
+          sitesList.addEventListener('click', handleSitesListClick);
+        }
+        if (newSiteButton) {
+          newSiteButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            if (state.selectedSiteId === newSiteOptionValue) {
+              return;
+            }
+            state.selectedSiteId = newSiteOptionValue;
+            renderSites();
+          });
+        }
 
         siteForm.addEventListener('submit', submitSite);
         document.getElementById('{{.SaveSiteButtonID}}').addEventListener('click', submitSite);

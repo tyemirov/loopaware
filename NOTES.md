@@ -14,9 +14,15 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ## Improvements
 
+- [ ] [LA-12] Add a footer with Marco Polo Research Lab branding and point to https://mprlab.com. Built by [Marco Polo Research Lab](https://mprlab.com)
+
 ## BugFixes
+
+- [ ] [LA-13] Update a site shows a post-action message for 1 nanosecond, when other buttons shows a message for the reasonable amount of time. Ensure we have a reusable component that acts the same everywhere in the app
+- [ ] [LA-14] The Create a site doesnt become blue, as it supposed to be. Make sure that the same button in the upper right corner of the Site Details changes styling depending on the intended action.
 
 ## Maintenance
 
-### JS snippet
+### Script widget
 
+- [ ] [LA-10] The loopaware site will be hosted at loopaware.mprlab.com. I wonder if the widget will then show <script src="https://loopaware.mprlab.com/widget.js?site_id=9eb9a2aa-2f32-4c0e-bb2b-f2eb0413c356"></script> ?
