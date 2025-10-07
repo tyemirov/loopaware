@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"html/template"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/temirov/GAuss/pkg/constants"
@@ -131,7 +130,6 @@ type dashboardTemplateData struct {
 	RoleUser                          string
 	EmptySitesMessage                 string
 	FeedbackPlaceholder               string
-	CurrentYear                       int
 	FooterBrandPrefix                 string
 	FooterBrandName                   string
 	FooterBrandURL                    string
@@ -262,7 +260,6 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		RoleUser:                          dashboardRoleUserLabel,
 		EmptySitesMessage:                 dashboardStatusNoSites,
 		FeedbackPlaceholder:               dashboardFeedbackPlaceholder,
-		CurrentYear:                       time.Now().Year(),
 		FooterBrandPrefix:                 dashboardFooterBrandPrefix,
 		FooterBrandName:                   dashboardFooterBrandName,
 		FooterBrandURL:                    dashboardFooterBrandURL,
