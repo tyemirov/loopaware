@@ -163,8 +163,8 @@
         </div>
       </div>
     </div>
-    <footer class="bg-white mt-auto py-3 fixed-bottom border-top">
-      <div class="container d-flex justify-content-end text-end text-muted small">
+    <footer id="{{.FooterElementID}}" class="{{.FooterBaseClass}}">
+      <div id="{{.FooterInnerElementID}}" class="container d-flex justify-content-end text-end small">
         <span>{{.FooterBrandPrefix}} <a class="text-decoration-none" href="{{.FooterBrandURL}}" target="_blank" rel="noopener noreferrer">{{.FooterBrandName}}</a></span>
       </div>
     </footer>
@@ -238,6 +238,8 @@
         var formStatusBaseClass = formStatusClasses.base || '';
         var formStatusSuccessClass = formStatusClasses.success || '';
         var formStatusDangerClass = formStatusClasses.danger || '';
+        var footerElement = document.getElementById(elementIds.footer);
+        var footerThemeClasses = parsedConfig.footer_theme_classes || {};
         var logoutPath = sharedPaths.logout || '';
         var loginPath = sharedPaths.login || '';
         var widgetUnavailableMessage = widgetTexts.unavailable || '';
@@ -272,11 +274,13 @@
           if (normalized === 'dark') {
             document.body.classList.remove('bg-light');
             document.body.classList.add('bg-dark', 'text-light');
+            applyElementThemeClasses(footerElement, footerThemeClasses.dark || '', footerThemeClasses.light || '');
           } else {
             document.body.classList.remove('bg-dark', 'text-light');
             if (!document.body.classList.contains('bg-light')) {
               document.body.classList.add('bg-light');
             }
+            applyElementThemeClasses(footerElement, footerThemeClasses.light || '', footerThemeClasses.dark || '');
           }
         }
 
@@ -397,6 +401,27 @@
           if (typeof button._defaultClass === 'string') {
             button.className = button._defaultClass;
           }
+        }
+
+        function normalizeClassList(value) {
+          if (typeof value !== 'string') {
+            return [];
+          }
+          return value.split(/\s+/).filter(function(item) {
+            return item.length > 0;
+          });
+        }
+
+        function applyElementThemeClasses(element, classesToAdd, classesToRemove) {
+          if (!element) {
+            return;
+          }
+          normalizeClassList(classesToRemove).forEach(function(className) {
+            element.classList.remove(className);
+          });
+          normalizeClassList(classesToAdd).forEach(function(className) {
+            element.classList.add(className);
+          });
         }
 
         function updateNewSiteButtonState() {

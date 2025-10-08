@@ -88,6 +88,11 @@ const (
 	deleteSiteButtonClass               = "btn btn-link text-danger p-0"
 	deleteSiteButtonDisabledClass       = "btn btn-link text-danger p-0 disabled"
 	deleteSiteIconClass                 = "bi bi-trash3-fill"
+	footerElementID                     = "dashboard-footer"
+	footerInnerElementID                = "dashboard-footer-inner"
+	footerBaseClass                     = "mt-auto py-3 fixed-bottom border-top"
+	footerThemeLightClass               = "bg-body text-body-secondary"
+	footerThemeDarkClass                = "bg-dark text-light border-light"
 	deleteSiteModalElementID            = "delete-site-modal"
 	deleteSiteModalTitle                = "Delete site"
 	deleteSiteModalDescription          = "This action permanently removes the site and its feedback."
@@ -136,6 +141,9 @@ type dashboardTemplateData struct {
 	FooterBrandPrefix                 string
 	FooterBrandName                   string
 	FooterBrandURL                    string
+	FooterElementID                   string
+	FooterInnerElementID              string
+	FooterBaseClass                   string
 	UserNameID                        string
 	UserEmailID                       string
 	UserRoleBadgeID                   string
@@ -226,19 +234,20 @@ type dashboardTemplateData struct {
 }
 
 type dashboardClientConfig struct {
-	APIPaths          map[string]string `json:"api_paths"`
-	Paths             map[string]string `json:"paths"`
-	ElementIDs        map[string]string `json:"element_ids"`
-	ButtonClasses     map[string]string `json:"button_classes"`
-	ButtonLabels      map[string]string `json:"button_labels"`
-	StatusMessages    map[string]string `json:"status_messages"`
-	RoleLabels        map[string]string `json:"role_labels"`
-	ButtonStyles      map[string]string `json:"button_styles"`
-	ComponentClasses  map[string]string `json:"component_classes"`
-	WidgetTexts       map[string]string `json:"widget_texts"`
-	ThemeStorageKey   string            `json:"theme_storage_key"`
-	OptionValues      map[string]string `json:"option_values"`
-	FormStatusClasses map[string]string `json:"form_status_classes"`
+	APIPaths           map[string]string `json:"api_paths"`
+	Paths              map[string]string `json:"paths"`
+	ElementIDs         map[string]string `json:"element_ids"`
+	ButtonClasses      map[string]string `json:"button_classes"`
+	ButtonLabels       map[string]string `json:"button_labels"`
+	StatusMessages     map[string]string `json:"status_messages"`
+	RoleLabels         map[string]string `json:"role_labels"`
+	ButtonStyles       map[string]string `json:"button_styles"`
+	ComponentClasses   map[string]string `json:"component_classes"`
+	WidgetTexts        map[string]string `json:"widget_texts"`
+	ThemeStorageKey    string            `json:"theme_storage_key"`
+	OptionValues       map[string]string `json:"option_values"`
+	FormStatusClasses  map[string]string `json:"form_status_classes"`
+	FooterThemeClasses map[string]string `json:"footer_theme_classes"`
 }
 
 // DashboardWebHandlers serves the authenticated dashboard UI.
@@ -285,6 +294,9 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		FooterBrandPrefix:                 dashboardFooterBrandPrefix,
 		FooterBrandName:                   dashboardFooterBrandName,
 		FooterBrandURL:                    dashboardFooterBrandURL,
+		FooterElementID:                   footerElementID,
+		FooterInnerElementID:              footerInnerElementID,
+		FooterBaseClass:                   footerBaseClass,
 		UserNameID:                        userNameElementID,
 		UserEmailID:                       userEmailElementID,
 		UserRoleBadgeID:                   userRoleBadgeElementID,
@@ -416,6 +428,8 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"delete_site_confirm_button": deleteSiteModalConfirmButtonID,
 			"delete_site_confirm_input":  deleteSiteModalInputElementID,
 			"delete_site_target_name":    deleteSiteTargetNameElementID,
+			"footer":                     footerElementID,
+			"footer_inner":               footerInnerElementID,
 		},
 		ButtonClasses: map[string]string{
 			"new_site_default":     newSiteButtonClass,
@@ -486,6 +500,10 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"base":    formStatusBaseClass,
 			"success": formStatusSuccessClass,
 			"danger":  formStatusDangerClass,
+		},
+		FooterThemeClasses: map[string]string{
+			"light": footerThemeLightClass,
+			"dark":  footerThemeDarkClass,
 		},
 	}
 

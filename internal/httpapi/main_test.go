@@ -53,6 +53,8 @@ const (
 	dashboardLegacySaveButtonClass         = "btn btn-success\""
 	dashboardDeleteButtonClassMarkup       = "class=\"btn btn-link text-danger p-0 disabled\""
 	dashboardDeleteIconMarkup              = "class=\"bi bi-trash3-fill\""
+	dashboardFooterElementID               = "id=\"dashboard-footer\""
+	dashboardFooterThemeConfigToken        = "\"footer_theme_classes\":{"
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -104,6 +106,11 @@ func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {
 		{
 			testName:      "delete site icon class",
 			substring:     dashboardDeleteIconMarkup,
+			expectPresent: true,
+		},
+		{
+			testName:      "footer element id",
+			substring:     dashboardFooterElementID,
 			expectPresent: true,
 		},
 		{
@@ -249,6 +256,11 @@ func TestDashboardTemplateConfiguresButtonStatusManager(t *testing.T) {
 		{
 			testName:      "refresh loading update",
 			substring:     dashboardRefreshLoadingUpdateCall,
+			expectPresent: true,
+		},
+		{
+			testName:      "footer theme config present",
+			substring:     dashboardFooterThemeConfigToken,
 			expectPresent: true,
 		},
 		{
