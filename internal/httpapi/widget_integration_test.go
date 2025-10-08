@@ -32,6 +32,7 @@ const (
 	integrationTestTimeout                 = 20 * time.Second
 	integrationStatusWaitTimeout           = 5 * time.Second
 	integrationStatusPollInterval          = 100 * time.Millisecond
+	browserStartupTimeout                  = 5 * time.Second
 	headlessBrowserSkipReason              = "chromedp headless browser not available"
 	headlessBrowserLocateErrorMessage      = "locate headless browser executable"
 	headlessBrowserEnvironmentChromedp     = "CHROMEDP_BROWSER"
@@ -216,6 +217,17 @@ func buildHeadlessBrowserContext(testingT *testing.T) context.Context {
 
 	browserContext, browserCancel := chromedp.NewContext(allocatorContext)
 	testingT.Cleanup(browserCancel)
+
+	startupContext, startupCancel := context.WithTimeout(browserContext, browserStartupTimeout)
+	defer startupCancel()
+
+	startupErr := chromedp.Run(startupContext,
+		chromedp.Navigate("about:blank"),
+		chromedp.WaitReady("body", chromedp.ByQuery),
+	)
+	if startupErr != nil {
+		testingT.Skipf("%s: %v", headlessBrowserSkipReason, startupErr)
+	}
 
 	contextWithTimeout, timeoutCancel := context.WithTimeout(browserContext, integrationTestTimeout)
 	testingT.Cleanup(timeoutCancel)
