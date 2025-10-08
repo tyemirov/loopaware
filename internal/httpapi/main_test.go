@@ -51,8 +51,8 @@ const (
 	dashboardSaveButtonClassMarkup         = "class=\"btn btn-outline-success btn-sm\""
 	dashboardNewSiteButtonClass            = "class=\"btn btn-outline-primary btn-sm\""
 	dashboardLegacySaveButtonClass         = "btn btn-success\""
-	dashboardDeleteButtonClassMarkup       = "class=\"btn btn-link text-danger p-0 disabled\""
-	dashboardDeleteIconMarkup              = "class=\"bi bi-trash3-fill\""
+	dashboardDeleteButtonClassMarkup       = "class=\"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled\""
+	dashboardDeleteIconMarkup              = "class=\"bi bi-trash3-fill text-danger\""
 	dashboardFooterElementID               = "id=\"dashboard-footer\""
 	dashboardFooterThemeConfigToken        = "\"footer_theme_classes\":{"
 )
