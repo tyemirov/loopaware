@@ -6,6 +6,7 @@ type Site struct {
 	ID            string    `gorm:"primaryKey;size:36"`
 	Name          string    `gorm:"not null;size:200"`
 	AllowedOrigin string    `gorm:"not null;size:500"`
+	OwnerEmail    string    `gorm:"size:320"`
 	CreatedAt     time.Time `gorm:"autoCreateTime"`
 	UpdatedAt     time.Time `gorm:"autoUpdateTime"`
 }
@@ -18,4 +19,14 @@ type Feedback struct {
 	IP        string    `gorm:"size:64"`
 	UserAgent string    `gorm:"size:400"`
 	CreatedAt time.Time `gorm:"autoCreateTime"`
+}
+
+type User struct {
+	Email             string    `gorm:"primaryKey;size:320"`
+	Name              string    `gorm:"not null;size:320"`
+	PictureSourceURL  string    `gorm:"size:500"`
+	AvatarContentType string    `gorm:"size:100"`
+	AvatarData        []byte    `gorm:"type:blob"`
+	CreatedAt         time.Time `gorm:"autoCreateTime"`
+	UpdatedAt         time.Time `gorm:"autoUpdateTime"`
 }

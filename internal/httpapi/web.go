@@ -2,209 +2,530 @@ package httpapi
 
 import (
 	"bytes"
+	"encoding/json"
 	"html/template"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/temirov/GAuss/pkg/constants"
 	"go.uber.org/zap"
 )
 
 const (
-	adminTemplateName                  = "admin_page"
-	adminHTMLContentType               = "text/html; charset=utf-8"
-	adminPageTitle                     = "LoopAware Admin Dashboard"
-	adminBearerTokenInputIdentifier    = "admin-bearer-token"
-	adminSiteIdentifierInputIdentifier = "admin-site-identifier"
-	adminMessagesContainerIdentifier   = "admin-messages"
-	adminStatusContainerIdentifier     = "admin-status"
-	adminSaveTokenButtonIdentifier     = "save-token-button"
-	adminLoadMessagesButtonIdentifier  = "load-messages-button"
-	adminMessagesEndpointPrefix        = "/api/admin/sites/"
-	adminMessagesEndpointSuffix        = "/messages"
-	adminBearerTokenStorageKey         = "loopaware_admin_bearer"
-	adminStatusSuccessMessage          = "Messages loaded."
-	adminStatusFailureMessage          = "Failed to load messages."
-	adminTokenSavedMessage             = "Bearer token saved in browser storage."
-	adminMissingTokenMessage           = "Admin bearer token is required."
-	adminMissingSiteMessage            = "Site identifier is required."
+	dashboardTemplateName                = "dashboard"
+	dashboardHTMLContentType             = "text/html; charset=utf-8"
+	dashboardPageTitle                   = "LoopAware Dashboard"
+	dashboardStatusLoadingUser           = "Loading account information..."
+	dashboardStatusLoadingSites          = "Loading sites..."
+	dashboardStatusLoadFailed            = "Failed to load data."
+	dashboardStatusSavingSite            = "Saving site..."
+	dashboardStatusSiteSaved             = "Site updated."
+	dashboardStatusCreatingSite          = "Creating site..."
+	dashboardStatusSiteCreated           = "Site created."
+	dashboardStatusSelectSite            = "Select a site to see details."
+	dashboardStatusNoMessages            = "No feedback yet."
+	dashboardStatusNoSites               = "No sites available yet."
+	dashboardRoleAdminLabel              = "Administrator"
+	dashboardRoleUserLabel               = "User"
+	dashboardFeedbackPlaceholder         = "Select a site to load feedback."
+	dashboardWidgetCardTitle             = "Site widget"
+	dashboardWidgetInstructions          = "Embed this <script> tag on pages served from the allowed origin."
+	dashboardWidgetUnavailable           = "Save the site to generate a widget snippet."
+	dashboardStatusWidgetCopied          = "Widget snippet copied."
+	dashboardStatusWidgetCopyFailed      = "Unable to copy widget snippet."
+	dashboardFooterBrandPrefix           = "Built by"
+	dashboardFooterBrandName             = "Marco Polo Research Lab"
+	dashboardFooterBrandURL              = "https://mprlab.com"
+	navbarSettingsButtonLabel            = "Account settings"
+	navbarLogoutLabel                    = "Logout"
+	navbarThemeToggleLabel               = "Dark mode"
+	newSiteOptionValue                   = "__new__"
+	newSiteOptionLabel                   = "New site"
+	siteFormCreateButtonLabel            = "Create site"
+	siteFormUpdateButtonLabel            = "Update site"
+	dashboardActionButtonPrimaryClass    = "btn btn-outline-primary btn-sm"
+	dashboardActionButtonSuccessClass    = "btn btn-outline-success btn-sm"
+	dashboardActionButtonSecondaryClass  = "btn btn-outline-secondary btn-sm"
+	dashboardActionButtonDangerClass     = "btn btn-outline-danger btn-sm"
+	siteFormCreateButtonClass            = dashboardActionButtonPrimaryClass
+	siteFormUpdateButtonClass            = dashboardActionButtonSuccessClass
+	userNameElementID                    = "user-name"
+	userEmailElementID                   = "user-email"
+	userRoleBadgeElementID               = "user-role"
+	userAvatarElementID                  = "user-avatar"
+	sitesListElementID                   = "sites-list"
+	emptySitesMessageElementID           = "empty-sites-message"
+	siteFormElementID                    = "site-form"
+	editSiteNameInputElementID           = "edit-site-name"
+	editSiteOriginInputElementID         = "edit-site-origin"
+	editSiteOwnerContainerElementID      = "edit-site-owner-container"
+	editSiteOwnerInputElementID          = "edit-site-owner"
+	saveSiteButtonElementID              = "save-site-button"
+	refreshMessagesButtonElementID       = "refresh-messages-button"
+	feedbackTableBodyElementID           = "feedback-table-body"
+	logoutButtonElementID                = "logout-button"
+	widgetSnippetTextareaElementID       = "widget-snippet"
+	copyWidgetSnippetButtonElementID     = "copy-widget-snippet"
+	settingsButtonElementID              = "settings-button"
+	settingsMenuElementID                = "settings-menu"
+	settingsThemeToggleElementID         = "settings-theme-toggle"
+	settingsAvatarImageElementID         = "settings-avatar-image"
+	settingsAvatarFallbackElementID      = "settings-avatar-fallback"
+	themeStorageKey                      = "loopaware_theme"
+	formStatusElementID                  = "site-status"
+	widgetStatusElementID                = "widget-status"
+	messagesStatusElementID              = "messages-status"
+	newSiteButtonElementID               = "new-site-button"
+	newSiteButtonClass                   = dashboardActionButtonPrimaryClass
+	newSiteButtonActiveClass             = "btn btn-primary btn-sm"
+	siteListItemClass                    = "list-group-item list-group-item-action"
+	siteListItemActiveClass              = "active"
+	clientConfigElementID                = "dashboard-config"
+	dashboardStatusDeletingSite          = "Deleting site..."
+	dashboardStatusSiteDeleted           = "Site deleted."
+	dashboardStatusDeleteFailed          = "Failed to delete site."
+	dashboardBootstrapIconsIntegrityAttr = "integrity=\"sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+\""
+	dashboardFaviconDataURI              = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230d6efd'/%3E%3Cpath d='M21 20h22v8H21zm4 12h14v16H21v-4h4z' fill='%23fff'/%3E%3C/svg%3E"
+	deleteSiteButtonElementID            = "delete-site-button"
+	deleteSiteButtonClass                = "btn btn-sm border-0 bg-transparent text-danger opacity-100"
+	deleteSiteButtonDisabledClass        = "btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled"
+	deleteSiteIconClass                  = "bi bi-trash3-fill text-danger"
+	footerElementID                      = "dashboard-footer"
+	footerInnerElementID                 = "dashboard-footer-inner"
+	footerBaseClass                      = "mt-auto py-3 fixed-bottom border-top"
+	footerThemeLightClass                = "bg-body text-body-secondary"
+	footerThemeDarkClass                 = "bg-dark text-light border-light"
+	deleteSiteModalElementID             = "delete-site-modal"
+	deleteSiteModalTitle                 = "Delete site"
+	deleteSiteModalDescription           = "This action permanently removes the site and its feedback."
+	deleteSiteModalInputElementID        = "delete-site-confirm-name"
+	deleteSiteModalInputLabel            = "Type the site name to confirm"
+	deleteSiteModalInputPlaceholder      = "Enter the site name"
+	deleteSiteModalConfirmButtonID       = "delete-site-confirm-button"
+	deleteSiteModalConfirmButtonLabel    = "Delete site"
+	deleteSiteModalConfirmButtonClass    = "btn btn-danger"
+	deleteSiteModalCancelButtonLabel     = "Cancel"
+	deleteSiteModalCancelButtonClass     = "btn btn-secondary"
+	deleteSiteTargetNameElementID        = "delete-site-target-name"
+	deleteSiteModalHintPrefix            = "Type "
+	deleteSiteModalHintSuffix            = " exactly to confirm."
+	formStatusBaseClass                  = "d-none py-1 px-2 small rounded"
+	formStatusSuccessClass               = "py-1 px-2 small rounded bg-white border border-success text-success"
+	formStatusDangerClass                = "py-1 px-2 small rounded bg-white border border-danger text-danger"
 )
 
-const adminPageTemplate = `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>{{.PageTitle}}</title>
-    <style>
-      body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 24px; }
-      h1 { font-size: 24px; }
-      label { display: block; margin-top: 16px; font-weight: 600; }
-      input { width: 360px; max-width: 100%; padding: 8px; margin-top: 4px; }
-      button { margin-top: 8px; padding: 8px 16px; }
-      pre { background: #0f172a; color: #e2e8f0; padding: 16px; border-radius: 8px; overflow: auto; }
-      #{{.StatusContainerID}} { margin-top: 16px; font-weight: 600; }
-    </style>
-  </head>
-  <body>
-    <h1>{{.PageTitle}}</h1>
-    <section>
-      <label for="{{.BearerTokenInputID}}">Admin Bearer Token</label>
-      <input id="{{.BearerTokenInputID}}" type="password" autocomplete="off" placeholder="Enter bearer token" />
-      <div>
-        <button id="{{.SaveTokenButtonID}}" type="button">Save Token</button>
-      </div>
-    </section>
-    <section>
-      <label for="{{.SiteIdentifierInputID}}">Site Identifier</label>
-      <input id="{{.SiteIdentifierInputID}}" type="text" autocomplete="off" placeholder="example-site-id" />
-      <div>
-        <button id="{{.LoadMessagesButtonID}}" type="button">Load Messages</button>
-      </div>
-    </section>
-    <p id="{{.StatusContainerID}}"></p>
-    <pre id="{{.MessagesContainerID}}">Messages will appear here.</pre>
-    <script>
-      (function() {
-        var storageKey = '{{.BearerTokenStorageKey}}';
-        var messagesEndpointPrefix = '{{.MessagesEndpointPrefix}}';
-        var messagesEndpointSuffix = '{{.MessagesEndpointSuffix}}';
-        var statusElement = document.getElementById('{{.StatusContainerID}}');
-        var messagesElement = document.getElementById('{{.MessagesContainerID}}');
-        var tokenInput = document.getElementById('{{.BearerTokenInputID}}');
-        var siteInput = document.getElementById('{{.SiteIdentifierInputID}}');
-        var saveTokenButton = document.getElementById('{{.SaveTokenButtonID}}');
-        var loadMessagesButton = document.getElementById('{{.LoadMessagesButtonID}}');
-
-        function updateStatus(message, isError) {
-          statusElement.textContent = message;
-          statusElement.style.color = isError ? '#b91c1c' : '#047857';
-        }
-
-        function getBearerToken() {
-          var token = tokenInput.value.trim();
-          if (!token) {
-            token = window.localStorage.getItem(storageKey) || '';
-            if (token) {
-              tokenInput.value = token;
-            }
-          }
-          if (!token) {
-            updateStatus('{{.MissingTokenMessage}}', true);
-          }
-          return token;
-        }
-
-        saveTokenButton.addEventListener('click', function() {
-          var token = tokenInput.value.trim();
-          if (!token) {
-            updateStatus('{{.MissingTokenMessage}}', true);
-            return;
-          }
-          window.localStorage.setItem(storageKey, token);
-          updateStatus('{{.TokenSavedMessage}}', false);
-        });
-
-        loadMessagesButton.addEventListener('click', function() {
-          var token = getBearerToken();
-          if (!token) {
-            return;
-          }
-          var siteIdentifier = siteInput.value.trim();
-          if (!siteIdentifier) {
-            updateStatus('{{.MissingSiteMessage}}', true);
-            return;
-          }
-
-          var endpoint = messagesEndpointPrefix + encodeURIComponent(siteIdentifier) + messagesEndpointSuffix;
-          window.fetch(endpoint, {
-            method: 'GET',
-            headers: {
-              'Authorization': 'Bearer ' + token,
-              'Accept': 'application/json'
-            }
-          }).then(function(response) {
-            if (!response.ok) {
-              throw new Error('Request failed: ' + response.status);
-            }
-            return response.json();
-          }).then(function(payload) {
-            messagesElement.textContent = JSON.stringify(payload, null, 2);
-            updateStatus('{{.StatusSuccessMessage}}', false);
-            window.localStorage.setItem(storageKey, token);
-          }).catch(function(error) {
-            console.error(error);
-            updateStatus('{{.StatusFailureMessage}}', true);
-          });
-        });
-
-        var storedToken = window.localStorage.getItem(storageKey);
-        if (storedToken) {
-          tokenInput.value = storedToken;
-        }
-      })();
-    </script>
-  </body>
-</html>
-`
-
-type adminTemplateData struct {
-	PageTitle              string
-	BearerTokenInputID     string
-	SiteIdentifierInputID  string
-	MessagesContainerID    string
-	StatusContainerID      string
-	SaveTokenButtonID      string
-	LoadMessagesButtonID   string
-	BearerTokenStorageKey  string
-	MessagesEndpointPrefix string
-	MessagesEndpointSuffix string
-	MissingTokenMessage    string
-	MissingSiteMessage     string
-	TokenSavedMessage      string
-	StatusSuccessMessage   string
-	StatusFailureMessage   string
+type dashboardTemplateData struct {
+	PageTitle                         string
+	APIMeEndpoint                     string
+	APISitesEndpoint                  string
+	APISiteUpdateEndpointPrefix       string
+	APIMessagesEndpointPrefix         string
+	APIMessagesEndpointSuffix         string
+	LogoutPath                        string
+	LoginPath                         string
+	BootstrapIconsIntegrityAttr       template.HTMLAttr
+	FaviconDataURI                    template.URL
+	StatusLoadingUser                 string
+	StatusLoadingSites                string
+	StatusLoadFailed                  string
+	StatusSavingSite                  string
+	StatusSiteSaved                   string
+	StatusCreatingSite                string
+	StatusSiteCreated                 string
+	StatusDeletingSite                string
+	StatusSiteDeleted                 string
+	StatusDeleteSiteFailed            string
+	StatusSelectSite                  string
+	StatusNoMessages                  string
+	StatusNoSites                     string
+	RoleAdmin                         string
+	RoleUser                          string
+	EmptySitesMessage                 string
+	FeedbackPlaceholder               string
+	FooterBrandPrefix                 string
+	FooterBrandName                   string
+	FooterBrandURL                    string
+	FooterElementID                   string
+	FooterInnerElementID              string
+	FooterBaseClass                   string
+	UserNameID                        string
+	UserEmailID                       string
+	UserRoleBadgeID                   string
+	UserAvatarID                      string
+	SitesListID                       string
+	EmptySitesMessageID               string
+	SiteFormID                        string
+	EditSiteNameInputID               string
+	EditSiteOriginInputID             string
+	EditSiteOwnerContainerID          string
+	EditSiteOwnerInputID              string
+	SaveSiteButtonID                  string
+	SaveButtonSaving                  string
+	SaveButtonSaved                   string
+	SaveButtonCreated                 string
+	SaveButtonFailed                  string
+	SaveButtonDefaultClass            string
+	RefreshMessagesButtonID           string
+	RefreshButtonLoading              string
+	RefreshButtonSuccess              string
+	RefreshButtonFailed               string
+	RefreshButtonDefaultLabel         string
+	RefreshButtonDefaultClass         string
+	ActionButtonPrimaryClass          string
+	ActionButtonSuccessClass          string
+	ActionButtonSecondaryClass        string
+	ActionButtonDangerClass           string
+	FeedbackTableBodyID               string
+	LogoutButtonID                    string
+	NewSiteOptionValue                string
+	CreateButtonLabel                 string
+	UpdateButtonLabel                 string
+	CreateButtonClass                 string
+	UpdateButtonClass                 string
+	NewSiteButtonID                   string
+	NewSiteButtonLabel                string
+	NewSiteButtonClass                string
+	NewSiteButtonActiveClass          string
+	DeleteSiteButtonID                string
+	DeleteSiteButtonLabel             string
+	DeleteSiteButtonClass             string
+	DeleteSiteButtonDisabledClass     string
+	DeleteSiteIconClass               string
+	SiteListItemClass                 string
+	SiteListItemActiveClass           string
+	WidgetCardTitle                   string
+	WidgetInstructions                string
+	WidgetUnavailableMessage          string
+	StatusWidgetCopied                string
+	StatusWidgetCopyFailed            string
+	WidgetSnippetTextareaID           string
+	CopyWidgetSnippetButtonID         string
+	CopyButtonCopied                  string
+	CopyButtonFailed                  string
+	CopyButtonDefaultLabel            string
+	CopyButtonDefaultClass            string
+	SettingsButtonID                  string
+	SettingsButtonLabel               string
+	LogoutLabel                       string
+	ThemeToggleLabel                  string
+	SettingsMenuID                    string
+	SettingsThemeToggleID             string
+	ThemeStorageKey                   string
+	SettingsAvatarImageID             string
+	SettingsAvatarFallbackID          string
+	FormStatusID                      string
+	FormStatusBaseClass               string
+	FormStatusSuccessClass            string
+	FormStatusDangerClass             string
+	WidgetStatusID                    string
+	MessagesStatusID                  string
+	DeleteSiteModalID                 string
+	DeleteSiteModalTitle              string
+	DeleteSiteModalDescription        string
+	DeleteSiteModalInputID            string
+	DeleteSiteModalInputLabel         string
+	DeleteSiteModalInputPlaceholder   string
+	DeleteSiteModalConfirmButtonID    string
+	DeleteSiteModalConfirmButtonLabel string
+	DeleteSiteModalConfirmButtonClass string
+	DeleteSiteModalCancelButtonLabel  string
+	DeleteSiteModalCancelButtonClass  string
+	DeleteSiteTargetNameID            string
+	DeleteSiteModalHintPrefix         string
+	DeleteSiteModalHintSuffix         string
+	ClientConfigElementID             string
+	ClientConfigJSON                  template.JS
 }
 
-// AdminWebHandlers serves the HTML admin interface that drives the API.
-type AdminWebHandlers struct {
+type dashboardClientConfig struct {
+	APIPaths           map[string]string `json:"api_paths"`
+	Paths              map[string]string `json:"paths"`
+	ElementIDs         map[string]string `json:"element_ids"`
+	ButtonClasses      map[string]string `json:"button_classes"`
+	ButtonLabels       map[string]string `json:"button_labels"`
+	StatusMessages     map[string]string `json:"status_messages"`
+	RoleLabels         map[string]string `json:"role_labels"`
+	ButtonStyles       map[string]string `json:"button_styles"`
+	ComponentClasses   map[string]string `json:"component_classes"`
+	WidgetTexts        map[string]string `json:"widget_texts"`
+	ThemeStorageKey    string            `json:"theme_storage_key"`
+	OptionValues       map[string]string `json:"option_values"`
+	FormStatusClasses  map[string]string `json:"form_status_classes"`
+	FooterThemeClasses map[string]string `json:"footer_theme_classes"`
+}
+
+// DashboardWebHandlers serves the authenticated dashboard UI.
+type DashboardWebHandlers struct {
 	logger   *zap.Logger
 	template *template.Template
 }
 
-// NewAdminWebHandlers builds an AdminWebHandlers instance with the compiled template.
-func NewAdminWebHandlers(logger *zap.Logger) *AdminWebHandlers {
-	compiledTemplate := template.Must(template.New(adminTemplateName).Parse(adminPageTemplate))
-	return &AdminWebHandlers{
+func NewDashboardWebHandlers(logger *zap.Logger) *DashboardWebHandlers {
+	compiledTemplate := template.Must(template.New(dashboardTemplateName).Parse(dashboardTemplateHTML))
+	return &DashboardWebHandlers{
 		logger:   logger,
 		template: compiledTemplate,
 	}
 }
 
-// RenderAdminInterface responds with the admin HTML page that drives API interactions requiring authentication.
-func (adminWebHandlers *AdminWebHandlers) RenderAdminInterface(context *gin.Context) {
-	data := adminTemplateData{
-		PageTitle:              adminPageTitle,
-		BearerTokenInputID:     adminBearerTokenInputIdentifier,
-		SiteIdentifierInputID:  adminSiteIdentifierInputIdentifier,
-		MessagesContainerID:    adminMessagesContainerIdentifier,
-		StatusContainerID:      adminStatusContainerIdentifier,
-		SaveTokenButtonID:      adminSaveTokenButtonIdentifier,
-		LoadMessagesButtonID:   adminLoadMessagesButtonIdentifier,
-		BearerTokenStorageKey:  adminBearerTokenStorageKey,
-		MessagesEndpointPrefix: adminMessagesEndpointPrefix,
-		MessagesEndpointSuffix: adminMessagesEndpointSuffix,
-		MissingTokenMessage:    adminMissingTokenMessage,
-		MissingSiteMessage:     adminMissingSiteMessage,
-		TokenSavedMessage:      adminTokenSavedMessage,
-		StatusSuccessMessage:   adminStatusSuccessMessage,
-		StatusFailureMessage:   adminStatusFailureMessage,
+func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
+	data := dashboardTemplateData{
+		PageTitle:                         dashboardPageTitle,
+		APIMeEndpoint:                     "/api/me",
+		APISitesEndpoint:                  "/api/sites",
+		APISiteUpdateEndpointPrefix:       "/api/sites/",
+		APIMessagesEndpointPrefix:         "/api/sites/",
+		APIMessagesEndpointSuffix:         "/messages",
+		LogoutPath:                        constants.LogoutPath,
+		LoginPath:                         constants.LoginPath,
+		BootstrapIconsIntegrityAttr:       template.HTMLAttr(dashboardBootstrapIconsIntegrityAttr),
+		FaviconDataURI:                    template.URL(dashboardFaviconDataURI),
+		StatusLoadingUser:                 dashboardStatusLoadingUser,
+		StatusLoadingSites:                dashboardStatusLoadingSites,
+		StatusLoadFailed:                  dashboardStatusLoadFailed,
+		StatusSavingSite:                  dashboardStatusSavingSite,
+		StatusSiteSaved:                   dashboardStatusSiteSaved,
+		StatusCreatingSite:                dashboardStatusCreatingSite,
+		StatusSiteCreated:                 dashboardStatusSiteCreated,
+		StatusDeletingSite:                dashboardStatusDeletingSite,
+		StatusSiteDeleted:                 dashboardStatusSiteDeleted,
+		StatusDeleteSiteFailed:            dashboardStatusDeleteFailed,
+		StatusSelectSite:                  dashboardStatusSelectSite,
+		StatusNoMessages:                  dashboardStatusNoMessages,
+		StatusNoSites:                     dashboardStatusNoSites,
+		RoleAdmin:                         dashboardRoleAdminLabel,
+		RoleUser:                          dashboardRoleUserLabel,
+		EmptySitesMessage:                 dashboardStatusNoSites,
+		FeedbackPlaceholder:               dashboardFeedbackPlaceholder,
+		FooterBrandPrefix:                 dashboardFooterBrandPrefix,
+		FooterBrandName:                   dashboardFooterBrandName,
+		FooterBrandURL:                    dashboardFooterBrandURL,
+		FooterElementID:                   footerElementID,
+		FooterInnerElementID:              footerInnerElementID,
+		FooterBaseClass:                   footerBaseClass,
+		UserNameID:                        userNameElementID,
+		UserEmailID:                       userEmailElementID,
+		UserRoleBadgeID:                   userRoleBadgeElementID,
+		UserAvatarID:                      userAvatarElementID,
+		SitesListID:                       sitesListElementID,
+		EmptySitesMessageID:               emptySitesMessageElementID,
+		SiteFormID:                        siteFormElementID,
+		EditSiteNameInputID:               editSiteNameInputElementID,
+		EditSiteOriginInputID:             editSiteOriginInputElementID,
+		EditSiteOwnerContainerID:          editSiteOwnerContainerElementID,
+		EditSiteOwnerInputID:              editSiteOwnerInputElementID,
+		SaveSiteButtonID:                  saveSiteButtonElementID,
+		SaveButtonSaving:                  "Saving site...",
+		SaveButtonSaved:                   "Site updated.",
+		SaveButtonCreated:                 "Site created.",
+		SaveButtonFailed:                  "Failed to save site.",
+		SaveButtonDefaultClass:            dashboardActionButtonSuccessClass,
+		RefreshMessagesButtonID:           refreshMessagesButtonElementID,
+		RefreshButtonLoading:              "Refreshing...",
+		RefreshButtonSuccess:              "Feedback refreshed.",
+		RefreshButtonFailed:               "Refresh failed.",
+		RefreshButtonDefaultLabel:         "Refresh feedback",
+		RefreshButtonDefaultClass:         dashboardActionButtonSecondaryClass,
+		ActionButtonPrimaryClass:          dashboardActionButtonPrimaryClass,
+		ActionButtonSuccessClass:          dashboardActionButtonSuccessClass,
+		ActionButtonSecondaryClass:        dashboardActionButtonSecondaryClass,
+		ActionButtonDangerClass:           dashboardActionButtonDangerClass,
+		FeedbackTableBodyID:               feedbackTableBodyElementID,
+		LogoutButtonID:                    logoutButtonElementID,
+		NewSiteOptionValue:                newSiteOptionValue,
+		CreateButtonLabel:                 siteFormCreateButtonLabel,
+		UpdateButtonLabel:                 siteFormUpdateButtonLabel,
+		CreateButtonClass:                 siteFormCreateButtonClass,
+		UpdateButtonClass:                 siteFormUpdateButtonClass,
+		NewSiteButtonID:                   newSiteButtonElementID,
+		NewSiteButtonLabel:                newSiteOptionLabel,
+		NewSiteButtonClass:                newSiteButtonClass,
+		NewSiteButtonActiveClass:          newSiteButtonActiveClass,
+		DeleteSiteButtonID:                deleteSiteButtonElementID,
+		DeleteSiteButtonLabel:             deleteSiteModalConfirmButtonLabel,
+		DeleteSiteButtonClass:             deleteSiteButtonClass,
+		DeleteSiteButtonDisabledClass:     deleteSiteButtonDisabledClass,
+		DeleteSiteIconClass:               deleteSiteIconClass,
+		SiteListItemClass:                 siteListItemClass,
+		SiteListItemActiveClass:           siteListItemActiveClass,
+		WidgetCardTitle:                   dashboardWidgetCardTitle,
+		WidgetInstructions:                dashboardWidgetInstructions,
+		WidgetUnavailableMessage:          dashboardWidgetUnavailable,
+		StatusWidgetCopied:                dashboardStatusWidgetCopied,
+		StatusWidgetCopyFailed:            dashboardStatusWidgetCopyFailed,
+		WidgetSnippetTextareaID:           widgetSnippetTextareaElementID,
+		CopyWidgetSnippetButtonID:         copyWidgetSnippetButtonElementID,
+		CopyButtonCopied:                  "Snippet copied.",
+		CopyButtonFailed:                  "Copy failed.",
+		CopyButtonDefaultLabel:            "Copy snippet",
+		CopyButtonDefaultClass:            dashboardActionButtonPrimaryClass,
+		SettingsButtonID:                  settingsButtonElementID,
+		SettingsButtonLabel:               navbarSettingsButtonLabel,
+		LogoutLabel:                       navbarLogoutLabel,
+		ThemeToggleLabel:                  navbarThemeToggleLabel,
+		SettingsMenuID:                    settingsMenuElementID,
+		SettingsThemeToggleID:             settingsThemeToggleElementID,
+		ThemeStorageKey:                   themeStorageKey,
+		SettingsAvatarImageID:             settingsAvatarImageElementID,
+		SettingsAvatarFallbackID:          settingsAvatarFallbackElementID,
+		FormStatusID:                      formStatusElementID,
+		FormStatusBaseClass:               formStatusBaseClass,
+		FormStatusSuccessClass:            formStatusSuccessClass,
+		FormStatusDangerClass:             formStatusDangerClass,
+		WidgetStatusID:                    widgetStatusElementID,
+		MessagesStatusID:                  messagesStatusElementID,
+		DeleteSiteModalID:                 deleteSiteModalElementID,
+		DeleteSiteModalTitle:              deleteSiteModalTitle,
+		DeleteSiteModalDescription:        deleteSiteModalDescription,
+		DeleteSiteModalInputID:            deleteSiteModalInputElementID,
+		DeleteSiteModalInputLabel:         deleteSiteModalInputLabel,
+		DeleteSiteModalInputPlaceholder:   deleteSiteModalInputPlaceholder,
+		DeleteSiteModalConfirmButtonID:    deleteSiteModalConfirmButtonID,
+		DeleteSiteModalConfirmButtonLabel: deleteSiteModalConfirmButtonLabel,
+		DeleteSiteModalConfirmButtonClass: deleteSiteModalConfirmButtonClass,
+		DeleteSiteModalCancelButtonLabel:  deleteSiteModalCancelButtonLabel,
+		DeleteSiteModalCancelButtonClass:  deleteSiteModalCancelButtonClass,
+		DeleteSiteTargetNameID:            deleteSiteTargetNameElementID,
+		DeleteSiteModalHintPrefix:         deleteSiteModalHintPrefix,
+		DeleteSiteModalHintSuffix:         deleteSiteModalHintSuffix,
 	}
 
+	data.ClientConfigElementID = clientConfigElementID
+
+	clientConfig := dashboardClientConfig{
+		APIPaths: map[string]string{
+			"me":                   "/api/me",
+			"sites":                "/api/sites",
+			"site_update_prefix":   "/api/sites/",
+			"site_messages_prefix": "/api/sites/",
+			"site_messages_suffix": "/messages",
+		},
+		Paths: map[string]string{
+			"logout": constants.LogoutPath,
+			"login":  constants.LoginPath,
+		},
+		ElementIDs: map[string]string{
+			"user_name":                  userNameElementID,
+			"user_email":                 userEmailElementID,
+			"user_avatar":                userAvatarElementID,
+			"user_role":                  userRoleBadgeElementID,
+			"sites_list":                 sitesListElementID,
+			"empty_sites_message":        emptySitesMessageElementID,
+			"site_form":                  siteFormElementID,
+			"edit_site_name":             editSiteNameInputElementID,
+			"edit_site_origin":           editSiteOriginInputElementID,
+			"edit_site_owner_container":  editSiteOwnerContainerElementID,
+			"edit_site_owner":            editSiteOwnerInputElementID,
+			"save_site_button":           saveSiteButtonElementID,
+			"refresh_messages_button":    refreshMessagesButtonElementID,
+			"feedback_table_body":        feedbackTableBodyElementID,
+			"logout_button":              logoutButtonElementID,
+			"widget_snippet_textarea":    widgetSnippetTextareaElementID,
+			"copy_widget_snippet_button": copyWidgetSnippetButtonElementID,
+			"settings_button":            settingsButtonElementID,
+			"settings_menu":              settingsMenuElementID,
+			"settings_theme_toggle":      settingsThemeToggleElementID,
+			"settings_avatar_image":      settingsAvatarImageElementID,
+			"settings_avatar_fallback":   settingsAvatarFallbackElementID,
+			"form_status":                formStatusElementID,
+			"new_site_button":            newSiteButtonElementID,
+			"delete_site_button":         deleteSiteButtonElementID,
+			"delete_site_modal":          deleteSiteModalElementID,
+			"delete_site_confirm_button": deleteSiteModalConfirmButtonID,
+			"delete_site_confirm_input":  deleteSiteModalInputElementID,
+			"delete_site_target_name":    deleteSiteTargetNameElementID,
+			"footer":                     footerElementID,
+			"footer_inner":               footerInnerElementID,
+		},
+		ButtonClasses: map[string]string{
+			"new_site_default":     newSiteButtonClass,
+			"new_site_active":      newSiteButtonActiveClass,
+			"create":               siteFormCreateButtonClass,
+			"update":               siteFormUpdateButtonClass,
+			"save_default":         dashboardActionButtonSuccessClass,
+			"copy_default":         dashboardActionButtonPrimaryClass,
+			"refresh_default":      dashboardActionButtonSecondaryClass,
+			"delete_site_default":  deleteSiteButtonClass,
+			"delete_site_disabled": deleteSiteButtonDisabledClass,
+		},
+		ButtonLabels: map[string]string{
+			"create":          siteFormCreateButtonLabel,
+			"update":          siteFormUpdateButtonLabel,
+			"new_site":        newSiteOptionLabel,
+			"copy_default":    "Copy snippet",
+			"copy_copied":     "Snippet copied.",
+			"copy_failed":     "Copy failed.",
+			"refresh_default": "Refresh feedback",
+			"refresh_loading": "Refreshing...",
+			"refresh_success": "Feedback refreshed.",
+			"refresh_failed":  "Refresh failed.",
+			"save_saving":     "Saving site...",
+			"save_saved":      "Site updated.",
+			"save_created":    "Site created.",
+			"save_failed":     "Failed to save site.",
+		},
+		StatusMessages: map[string]string{
+			"loading_user":       dashboardStatusLoadingUser,
+			"loading_sites":      dashboardStatusLoadingSites,
+			"load_failed":        dashboardStatusLoadFailed,
+			"saving_site":        dashboardStatusSavingSite,
+			"site_saved":         dashboardStatusSiteSaved,
+			"creating_site":      dashboardStatusCreatingSite,
+			"site_created":       dashboardStatusSiteCreated,
+			"deleting_site":      dashboardStatusDeletingSite,
+			"site_deleted":       dashboardStatusSiteDeleted,
+			"delete_site_failed": dashboardStatusDeleteFailed,
+			"select_site":        dashboardStatusSelectSite,
+			"no_messages":        dashboardStatusNoMessages,
+			"no_sites":           dashboardStatusNoSites,
+			"widget_copied":      dashboardStatusWidgetCopied,
+			"widget_copy_failed": dashboardStatusWidgetCopyFailed,
+		},
+		RoleLabels: map[string]string{
+			"admin": dashboardRoleAdminLabel,
+			"user":  dashboardRoleUserLabel,
+		},
+		ButtonStyles: map[string]string{
+			"primary":   dashboardActionButtonPrimaryClass,
+			"success":   dashboardActionButtonSuccessClass,
+			"secondary": dashboardActionButtonSecondaryClass,
+			"danger":    dashboardActionButtonDangerClass,
+		},
+		ComponentClasses: map[string]string{
+			"site_list_item":        siteListItemClass,
+			"site_list_item_active": siteListItemActiveClass,
+		},
+		WidgetTexts: map[string]string{
+			"unavailable": dashboardWidgetUnavailable,
+		},
+		ThemeStorageKey: themeStorageKey,
+		OptionValues: map[string]string{
+			"new_site": newSiteOptionValue,
+		},
+		FormStatusClasses: map[string]string{
+			"base":    formStatusBaseClass,
+			"success": formStatusSuccessClass,
+			"danger":  formStatusDangerClass,
+		},
+		FooterThemeClasses: map[string]string{
+			"light": footerThemeLightClass,
+			"dark":  footerThemeDarkClass,
+		},
+	}
+
+	configPayload, marshalErr := json.Marshal(clientConfig)
+	if marshalErr != nil {
+		handlers.logger.Warn("render_dashboard_config", zap.Error(marshalErr))
+		configPayload = []byte("{}")
+	}
+	data.ClientConfigJSON = template.JS(configPayload)
+
 	var buffer bytes.Buffer
-	if executeErr := adminWebHandlers.template.Execute(&buffer, data); executeErr != nil {
-		adminWebHandlers.logger.Error("render_admin_page", zap.Error(executeErr))
-		context.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "render_failed"})
+	if executeErr := handlers.template.Execute(&buffer, data); executeErr != nil {
+		handlers.logger.Error("render_dashboard", zap.Error(executeErr))
+		context.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{jsonKeyError: "render_failed"})
 		return
 	}
 
-	context.Data(http.StatusOK, adminHTMLContentType, buffer.Bytes())
+	context.Data(http.StatusOK, dashboardHTMLContentType, buffer.Bytes())
 }

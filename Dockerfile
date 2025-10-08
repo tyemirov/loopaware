@@ -11,5 +11,4 @@ FROM gcr.io/distroless/base-debian12
 WORKDIR /app
 COPY --from=build /out/feedbacksvc /app/feedbacksvc
 EXPOSE 8080
-USER 65532:65532
 ENTRYPOINT ["/app/feedbacksvc"]

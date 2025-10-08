@@ -1,336 +1,150 @@
-# Loopaware
+# LoopAware
 
-A tiny HTTP service to collect user feedback from your site via a lightweight embeddable widget.
-Built with Go + Gin, GORM, and SQLite.
+LoopAware collects customer feedback through a lightweight widget, authenticates operators with Google, and offers a
+role-aware dashboard for managing sites and messages.
 
-## Features
+## Highlights
 
-* 💬 Public API to submit feedback
-* 🧰 Admin API to create sites and list messages
-* 🔒 Admin bearer token auth
-* 🚦 Simple per-IP rate limiting on public submissions
-* 🧩 Copy-paste `<script>` widget
-* 🧪 Fast tests with temporary SQLite databases (no Docker required)
-* 🗄️ SQLite-first storage with config-driven driver selection (`--db-driver` / `DB_DRIVER`)
-* 🐳 Optional Docker & Docker Compose for local runs
-
----
-
-## Quick Start (Docker)
-
-```shell
-# from repo root
-docker compose up --build
-```
-
-The API will be available at `http://localhost:8080`.
-
-The container stores the SQLite database file at `/app/data/loopaware.sqlite` by default. Mount the named volume if you want the data
-persisted across restarts.
-
-Default env (see `docker-compose.yml`):
-
-* `APP_ADDR=:8080`
-* `DB_DRIVER=sqlite`
-* `DB_DSN=file:/app/data/loopaware.sqlite?_foreign_keys=on`
-* `ADMIN_BEARER_TOKEN=replace-with-long-random` (change this!)
-
-### Switching database drivers
-
-Loopaware reads the database driver and data source from `DB_DRIVER` and `DB_DSN` (or the `--db-driver` / `--db-dsn` flags). The
-published image only ships with the SQLite driver enabled. If you extend the binary to register additional drivers, point the
-config to that driver name. For example, a Postgres-capable build would set:
-
-```shell
-DB_DRIVER=postgres
-DB_DSN=postgres://user:pass@hostname:5432/database?sslmode=disable
-```
-
-### Using the prebuilt Docker image
-
-Authenticate to the GitHub Container Registry (GHCR) first, then pull and run the latest published image. GHCR requires a
-Personal Access Token with the `read:packages` scope when logging in via Docker.
-
-```shell
-echo "<github-personal-access-token>" | docker login ghcr.io --username <github-username> --password-stdin
-docker pull ghcr.io/<owner>/loopaware:latest
-docker run --rm -p 8080:8080 \
-  -e APP_ADDR=":8080" \
-  -e ADMIN_BEARER_TOKEN="replace-with-long-random" \
-  -e DB_DRIVER="sqlite" \
-  -e DB_DSN="file:/app/data/loopaware.sqlite?_foreign_keys=on" \
-  -v loopaware-data:/app/data \
-  ghcr.io/<owner>/loopaware:latest
-```
-
-When running the container standalone, mount a volume (like `loopaware-data`) so the SQLite file persists across restarts. Adjust
-`DB_DRIVER` and `DB_DSN` if you built a variant with another driver.
-
-### Docker Compose override to use the registry image
-
-If you prefer Docker Compose, create an override file so the `loopaware` service pulls the published image rather than building
-from source:
-
-```shell
-cat <<'YAML' > docker-compose.override.yml
-services:
-  loopaware:
-    image: ghcr.io/<owner>/loopaware:latest
-    build: null
-    pull_policy: always
-    environment:
-      APP_ADDR: ":8080"
-      ADMIN_BEARER_TOKEN: "${ADMIN_BEARER_TOKEN:-replace-with-long-random}"
-      DB_DRIVER: "sqlite"
-      DB_DSN: "file:/app/data/loopaware.sqlite?_foreign_keys=on"
-    volumes:
-      - loopaware-data:/app/data
-    ports:
-      - "8080:8080"
-YAML
-
-# ensure the latest image is available locally
-docker compose pull loopaware
-# start the stack using the override
-docker compose up
-```
-
-Ensure you are logged into GHCR (see the previous section) before running `docker compose pull loopaware`.
-
-The override removes the original `build` definition, reuses the same environment variables, and mounts the persistent volume for
-the SQLite database file.
-
-### Create a site (Admin)
-
-```shell
-curl -X POST http://localhost:8080/api/admin/sites \
-  -H "Authorization: Bearer replace-with-long-random" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"My Site","allowed_origin":"http://localhost:8080"}'
-```
-
-Response:
-
-```json
-{
-  "id": "…",
-  "name": "My Site",
-  "allowed_origin": "http://localhost:8080",
-  "widget": "<script src=\"http://localhost:8080/widget.js?site_id=…\"></script>"
-}
-```
-
-### Embed the widget
-
-Paste the `widget` tag into your site HTML (any page on the allowed origin).
-
-## Integrating with your website
-
-Successful integrations start with the admin workflow. Create a site via the admin API and set `allowed_origin` to the exact
-scheme, host, and optional port where the widget will load. That origin becomes the only third-party domain whose browsers may
-submit feedback for that site. Each site you configure can target a different partner or product environment by giving it a
-distinct `allowed_origin` and distributing the generated `<script>` tag to that team.
-
-### Example production setup
-
-Assume your customer-facing app is served from `https://app.example.com` and Loopaware is hosted at
-`https://feedback.yourcompany.com`.
-
-1. Create a production site:
-
-Optional: generate a random `ADMIN_BEARER_TOKEN` for your admin API.
-    ```shell
-    openssl rand -hex 16
-    ```
-
-    ```shell
-    curl -X POST https://feedback.mprlab.com/api/admin/sites \
-     -H "Authorization: Bearer df608d17c4c965a5159ecc9d2b581b4d" \
-     -H "Content-Type: application/json" \
-     -d '{"name":"SeeFood","allowed_origin":"https://seefood.mprlab.com"}'
-    ```
-
-2. Add the returned widget `<script>` tag to the pages on `https://app.example.com` where you want the feedback button to appear.
-The admin API currently renders the `<script>` tag with a `src` rooted at your `allowed_origin` (e.g.,
-`https://app.example.com/widget.js?...`), so ensure that file is served from your site and proxies requests back to Loopaware
-(`https://feedback.yourcompany.com/widget.js?...`) or copies the script into your own static assets.
-
-3. Double-check the proxied `<script src>` ultimately loads from your production Loopaware domain so the widget posts back to the
-correct API origin.
-
-4. Verify submissions by triggering the widget on `https://app.example.com`, then list recent messages:
-
-   ```shell
-   curl "https://feedback.yourcompany.com/api/admin/sites/<SITE_ID>/messages" \
-     -H "Authorization: Bearer <your-admin-token>"
-   ```
-
-When working with multiple partners, repeat the process per domain. For example, a partner at
-`https://partners.example.net` should receive a dedicated site whose `allowed_origin` matches that domain and whose widget script
-includes that site’s identifier.
-
-### Troubleshooting tips
-
-* Ensure browsers send an `Origin` header that matches the configured `allowed_origin`. Static file hosts and reverse proxies
-sometimes strip or rewrite headers, which will cause the API to reject requests with `403` errors.
-* Confirm the widget is loading from the same Loopaware domain that served the `widget.js` file; mixed environments (e.g., staging
-widget pointing at production API) will break CORS validation.
-* Rotate the admin bearer token regularly and redistribute the updated value to teams calling admin APIs. A stale or revoked token
-will return `401 Unauthorized` errors when creating sites or listing messages.
-* If a page embeds multiple third-party scripts, load Loopaware last to avoid other scripts mutating the DOM container the widget
-depends on.
-
-### Submit feedback (Public)
-
-```shell
-curl -X POST http://localhost:8080/api/feedback \
-  -H "Origin: http://localhost:8080" \
-  -H "Content-Type: application/json" \
-  -d '{"site_id":"<SITE_ID>","contact":"user@example.com","message":"Hello!"}'
-```
-
-### List messages (Admin)
-
-```shell
-curl "http://localhost:8080/api/admin/sites/<SITE_ID>/messages" \
-  -H "Authorization: Bearer replace-with-long-random"
-```
-
----
-
-## Local Development (no Docker)
-
-SQLite is the default. Set an admin token and run the server:
-
-```shell
-export ADMIN_BEARER_TOKEN="change-me"
-
-go run ./cmd/server
-# -> listening on :8080
-```
-
-The server drops a `loopaware.sqlite` file in your working directory unless you override it. Provide alternate settings with
-environment variables or flags:
-
-```shell
-export DB_DRIVER=sqlite
-export DB_DSN="file:$HOME/loopaware.sqlite?_foreign_keys=on"
-
-go run ./cmd/server --db-driver "$DB_DRIVER" --db-dsn "$DB_DSN"
-```
-
-When you compile a build with additional drivers (for example, Postgres), switch by exporting a new driver name and DSN before
-starting the server.
-
----
-
-## Testing
-
-Tests open unique temporary SQLite databases per package—no Docker needed. Override `DB_DRIVER` / `DB_DSN` in test shells only if
-you are exercising a custom build that includes other drivers.
-
-```shell
-go test ./... -v
-```
-
-Notes:
-
-* Each test **process** gets its own ephemeral data/runtime directories via `t.TempDir()`.
-* To serialize packages (optional): `go test -p 1 ./...`
-
----
+- Google OAuth 2.0 authentication via [GAuss](https://github.com/temirov/GAuss)
+- Role-aware dashboard (`/app`) with admin and owner scopes
+- YAML configuration for privileged accounts (`config.yaml`)
+- REST API to create, update, and inspect sites and feedback
+- Embeddable JavaScript widget with strict origin validation
+- SQLite-first storage with pluggable drivers
+- Table-driven tests and fast in-memory SQLite fixtures
 
 ## Configuration
 
-Environment variables (also exposed as `--app-addr`, `--db-driver`, `--db-dsn`, and `--admin-bearer-token` flags):
+### 1. Admin roster (`config.yaml`)
 
-| Name                 | Default                                   | Description                                                                 |
-|----------------------|-------------------------------------------|-----------------------------------------------------------------------------|
-| `APP_ADDR`           | `:8080`                                   | HTTP listen address                                                         |
-| `DB_DRIVER`          | `sqlite`                                  | Database driver key registered in the binary (SQLite is bundled by default) |
-| `DB_DSN`             | `file:loopaware.sqlite?_foreign_keys=on`  | Database connection string (path for SQLite, DSN for other drivers)        |
-| `ADMIN_BEARER_TOKEN` | *(none)*                                  | Required for all `/api/admin/*` endpoints                                  |
+Create a YAML file next to the binary with the email addresses that should receive administrator privileges:
 
-If `ADMIN_BEARER_TOKEN` is empty, admin routes return `503` (disabled).
-
----
-
-## API
-
-### Public
-
-* `POST /api/feedback`
-  Body:
-
-  ```json
-  { "site_id": "…", "contact": "email or phone", "message": "text" }
-  ```
-
-  Returns `200` on success, with `{ "status": "ok" }`.
-  Validates:
-
-    * `site_id`, `contact`, `message` are required
-    * `Origin`/`Referer` must match the site’s `allowed_origin` (if set)
-    * Basic per-IP rate limiting
-
-* `GET /widget.js?site_id=<SITE_ID>`
-  Returns the embeddable widget script.
-
-### Admin (Bearer auth)
-
-* `POST /api/admin/sites`
-  Body:
-
-  ```json
-  { "name": "My Site", "allowed_origin": "https://example.com" }
-  ```
-
-  Returns site info and a ready-made `<script>` tag.
-
-* `GET /api/admin/sites/:id/messages`
-  Returns recent messages for a site.
-
----
-
-## Project Layout
-
-```
-.
-├── cmd/server/               # App entrypoint
-├── internal/
-│   ├── httpapi/              # HTTP handlers, middleware, tests
-│   ├── model/                # GORM models
-│   ├── storage/              # DB open/migrate helpers + tests
-│   └── testutil/             # SQLite helpers for tests
-├── docker-compose.yml
-├── Dockerfile
-├── go.mod / go.sum
-└── .github/workflows/ci.yml  # Go build/vet/test on PRs
+```yaml
+admins:
+  - temirov@gmail.com
 ```
 
----
+LoopAware loads the file specified by `--config` (default `config.yaml`) before starting the HTTP server.
 
-## Development Tips
+### 2. Environment variables
 
-* Prefer a **long, random** `ADMIN_BEARER_TOKEN` in any environment.
-* `allowed_origin` must match exactly (scheme + host + optional port).
-  Example: `http://localhost:3000` is different from `http://localhost:8080`.
-* The widget auto-detects its host from the `<script src="...">` and posts to the same origin.
+| Variable               | Required | Description                                                 |
+|------------------------|----------|-------------------------------------------------------------|
+| `GOOGLE_CLIENT_ID`     | ✅        | OAuth client ID from Google Cloud Console                   |
+| `GOOGLE_CLIENT_SECRET` | ✅        | OAuth client secret                                         |
+| `SESSION_SECRET`       | ✅        | 32+ byte secret for cookie signing                          |
+| `PUBLIC_BASE_URL`      | ⚙️       | Public URL of the service (default `http://localhost:8080`) |
+| `APP_ADDR`             | ⚙️       | Listen address (default `:8080`)                            |
+| `DB_DRIVER`            | ⚙️       | Storage driver (`sqlite`, etc.)                             |
+| `DB_DSN`               | ⚙️       | Driver-specific DSN                                         |
 
----
+Secrets must come from the environment; only non-sensitive settings belong in `config.yaml`.
 
-## CI
+Copy the provided template and edit the values before running the service or Docker Compose stack:
 
-GitHub Actions builds, vets, and runs tests:
+```bash
+cp .env.sample .env
+$EDITOR .env
+```
 
-* `go build ./...`
-* `go vet ./...`
-* `go test ./... -v -race -count=1`
+### 3. Flags
 
----
+All configuration options are also exposed as Cobra flags:
 
-## License
+```
+loopaware --config=config.yaml \
+  --app-addr=:8080 \
+  --db-driver=sqlite \
+  --db-dsn="file:loopaware.sqlite?_foreign_keys=on" \
+  --google-client-id=$GOOGLE_CLIENT_ID \
+  --google-client-secret=$GOOGLE_CLIENT_SECRET \
+  --session-secret=$SESSION_SECRET \
+  --public-base-url=https://feedback.example.com
+```
 
-Loopaware is proprietary software, see [LICENSE](LICENSE) for details.
+Flags are optional when the equivalent environment variables are set.
 
----
+## Running locally
+
+```bash
+GOOGLE_CLIENT_ID=... \
+GOOGLE_CLIENT_SECRET=... \
+SESSION_SECRET=$(openssl rand -hex 32) \
+go run ./cmd/server --config=config.yaml
+```
+
+Open `http://localhost:8080/app` to trigger Google Sign-In. Administrators listed in `config.yaml` can manage every
+site; other users see only the sites assigned to their Google account.
+
+## Authentication flow
+
+1. Users visit `/login` (automatic redirect from protected routes).
+2. GAuss handles OAuth and stores the session in an encrypted cookie.
+3. `httpapi.AuthManager` reads the session, injects user details into the request context, and enforces admin / owner
+   access.
+4. The dashboard and JSON APIs consume the authenticated context.
+
+## REST API
+
+All authenticated endpoints live under `/api` and require the GAuss session cookie. JSON responses include Unix
+timestamps in seconds.
+
+| Method  | Path                      | Role        | Description                                                               |
+|---------|---------------------------|-------------|---------------------------------------------------------------------------|
+| `GET`   | `/api/me`                 | any         | Current account metadata (email, name, `is_admin`)                        |
+| `GET`   | `/api/sites`              | any         | Sites visible to the caller (admin = all, user = owned)                   |
+| `POST`  | `/api/sites`              | admin       | Create a site (requires `name`, `allowed_origin`, `owner_email`)          |
+| `PATCH` | `/api/sites/:id`          | owner/admin | Update name/origin; admins may reassign ownership                         |
+| `GET`   | `/api/sites/:id/messages` | owner/admin | List feedback messages (newest first)                                     |
+| `POST`  | `/api/feedback`           | public      | Submit feedback (requires JSON body with `site_id`, `contact`, `message`) |
+| `GET`   | `/widget.js`              | public      | Serve embeddable JavaScript widget                                        |
+
+## Dashboard (`/app`)
+
+The Bootstrap front end consumes the APIs above. Features include:
+
+- Account card with avatar, email, and role badge
+- Admin-only controls to create sites and reassign ownership
+- Owner/admin editor for site metadata
+- Feedback table with human-readable timestamps
+- Logout button (links to `/logout`)
+
+The dashboard automatically redirects unauthenticated visitors to `/login`.
+
+## Embedding the widget
+
+1. Create a site (admin) and copy the generated `<script>` tag from the API response.
+2. Embed the script on any page served from the configured `allowed_origin`.
+3. Visitors can open the floating bubble, submit feedback, and the messages appear under `/api/sites/:id/messages` and
+   in the dashboard.
+
+Example snippet (replace the base URL with your LoopAware deployment and the site identifier with the value returned by the API):
+
+```html
+<script src="https://loopaware.mprlab.com/widget.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"></script>
+```
+
+## Development workflow
+
+```bash
+go fmt ./...
+go vet ./...
+go test ./...
+```
+
+The test suite runs entirely in memory using temporary SQLite databases; no external services are required.
+
+## Docker
+
+The previous Docker and Compose files remain compatible. Ensure the container receives the OAuth environment variables
+and mounts a `config.yaml` containing the admin roster.
+
+```bash
+cp .env.sample .env
+$EDITOR .env             # fill in real secrets
+docker compose up --build --remove-orphans
+```
+
+The compose file binds `config.yaml` into the container at `/app/config.yaml` and loads environment variables from `.env`.
+The container now runs as root so the SQLite data volume remains writable; if you need to switch back to an unprivileged
+user, update the Docker image to chown the mounted directory before starting the binary.
