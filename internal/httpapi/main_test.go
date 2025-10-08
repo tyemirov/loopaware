@@ -51,6 +51,8 @@ const (
 	dashboardSaveButtonClassMarkup         = "class=\"btn btn-outline-success btn-sm\""
 	dashboardNewSiteButtonClass            = "class=\"btn btn-outline-primary btn-sm\""
 	dashboardLegacySaveButtonClass         = "btn btn-success\""
+	dashboardDeleteButtonClassMarkup       = "class=\"btn btn-link text-danger p-0 disabled\""
+	dashboardDeleteIconMarkup              = "class=\"bi bi-trash3-fill\""
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -92,6 +94,16 @@ func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {
 		{
 			testName:      "new site button",
 			substring:     "id=\"" + dashboardNewSiteButtonElementID + "\"",
+			expectPresent: true,
+		},
+		{
+			testName:      "delete site button class",
+			substring:     dashboardDeleteButtonClassMarkup,
+			expectPresent: true,
+		},
+		{
+			testName:      "delete site icon class",
+			substring:     dashboardDeleteIconMarkup,
 			expectPresent: true,
 		},
 		{

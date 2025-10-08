@@ -85,8 +85,9 @@ const (
 	dashboardStatusSiteDeleted          = "Site deleted."
 	dashboardStatusDeleteFailed         = "Failed to delete site."
 	deleteSiteButtonElementID           = "delete-site-button"
-	deleteSiteButtonClass               = "btn btn-danger btn-sm"
-	deleteSiteButtonDisabledClass       = "btn btn-danger btn-sm disabled"
+	deleteSiteButtonClass               = "btn btn-link text-danger p-0"
+	deleteSiteButtonDisabledClass       = "btn btn-link text-danger p-0 disabled"
+	deleteSiteIconClass                 = "bi bi-trash3-fill"
 	deleteSiteModalElementID            = "delete-site-modal"
 	deleteSiteModalTitle                = "Delete site"
 	deleteSiteModalDescription          = "This action permanently removes the site and its feedback."
@@ -177,6 +178,7 @@ type dashboardTemplateData struct {
 	DeleteSiteButtonLabel             string
 	DeleteSiteButtonClass             string
 	DeleteSiteButtonDisabledClass     string
+	DeleteSiteIconClass               string
 	SiteListItemClass                 string
 	SiteListItemActiveClass           string
 	WidgetCardTitle                   string
@@ -325,6 +327,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		DeleteSiteButtonLabel:             deleteSiteModalConfirmButtonLabel,
 		DeleteSiteButtonClass:             deleteSiteButtonClass,
 		DeleteSiteButtonDisabledClass:     deleteSiteButtonDisabledClass,
+		DeleteSiteIconClass:               deleteSiteIconClass,
 		SiteListItemClass:                 siteListItemClass,
 		SiteListItemActiveClass:           siteListItemActiveClass,
 		WidgetCardTitle:                   dashboardWidgetCardTitle,
