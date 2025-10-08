@@ -85,33 +85,44 @@ const (
 	dashboardStatusSiteDeleted           = "Site deleted."
 	dashboardStatusDeleteFailed          = "Failed to delete site."
 	dashboardBootstrapIconsIntegrityAttr = "integrity=\"sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+\""
-	dashboardFaviconDataURI              = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230d6efd'/%3E%3Cpath d='M21 20h22v8H21zm4 12h14v16H21v-4h4z' fill='%23fff'/%3E%3C/svg%3E"
-	deleteSiteButtonElementID            = "delete-site-button"
-	deleteSiteButtonClass                = "btn btn-sm border-0 bg-transparent text-danger opacity-100"
-	deleteSiteButtonDisabledClass        = "btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled"
-	deleteSiteIconClass                  = "bi bi-trash3-fill text-danger"
-	footerElementID                      = "dashboard-footer"
-	footerInnerElementID                 = "dashboard-footer-inner"
-	footerBaseClass                      = "mt-auto py-3 fixed-bottom border-top"
-	footerThemeLightClass                = "bg-body text-body-secondary"
-	footerThemeDarkClass                 = "bg-dark text-light border-light"
-	deleteSiteModalElementID             = "delete-site-modal"
-	deleteSiteModalTitle                 = "Delete site"
-	deleteSiteModalDescription           = "This action permanently removes the site and its feedback."
-	deleteSiteModalInputElementID        = "delete-site-confirm-name"
-	deleteSiteModalInputLabel            = "Type the site name to confirm"
-	deleteSiteModalInputPlaceholder      = "Enter the site name"
-	deleteSiteModalConfirmButtonID       = "delete-site-confirm-button"
-	deleteSiteModalConfirmButtonLabel    = "Delete site"
-	deleteSiteModalConfirmButtonClass    = "btn btn-danger"
-	deleteSiteModalCancelButtonLabel     = "Cancel"
-	deleteSiteModalCancelButtonClass     = "btn btn-secondary"
-	deleteSiteTargetNameElementID        = "delete-site-target-name"
-	deleteSiteModalHintPrefix            = "Type "
-	deleteSiteModalHintSuffix            = " exactly to confirm."
-	formStatusBaseClass                  = "d-none py-1 px-2 small rounded"
-	formStatusSuccessClass               = "py-1 px-2 small rounded bg-white border border-success text-success"
-	formStatusDangerClass                = "py-1 px-2 small rounded bg-white border border-danger text-danger"
+	dashboardFaviconDataURI              = `data:image/svg+xml;utf8,
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+    <rect fill="%230A2540" x="0" y="0" width="256" height="256" rx="28" ry="28"/>
+    <path stroke="%23D4AF37" fill="none" stroke-width="10" stroke-linejoin="round"
+      d="M 32 128 C 72 56, 184 56, 224 128 C 184 200, 72 200, 32 128 Z"/>
+    <circle cx="128" cy="128" r="48" stroke="%23D4AF37" fill="none" stroke-width="8"/>
+    <path stroke="%23D4AF37" fill="none" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"
+      d="M 96 128 C 96 108, 128 108, 128 128
+         C 128 148, 160 148, 160 128
+         C 160 108, 128 108, 128 128
+         C 128 148, 96 148, 96 128"/>
+  </svg>`
+	deleteSiteButtonElementID         = "delete-site-button"
+	deleteSiteButtonClass             = "btn btn-sm border-0 bg-transparent text-danger opacity-100"
+	deleteSiteButtonDisabledClass     = "btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled"
+	deleteSiteIconClass               = "bi bi-trash3-fill text-danger"
+	footerElementID                   = "dashboard-footer"
+	footerInnerElementID              = "dashboard-footer-inner"
+	footerBaseClass                   = "mt-auto py-3 fixed-bottom border-top"
+	footerThemeLightClass             = "bg-body text-body-secondary"
+	footerThemeDarkClass              = "bg-dark text-light border-light"
+	deleteSiteModalElementID          = "delete-site-modal"
+	deleteSiteModalTitle              = "Delete site"
+	deleteSiteModalDescription        = "This action permanently removes the site and its feedback."
+	deleteSiteModalInputElementID     = "delete-site-confirm-name"
+	deleteSiteModalInputLabel         = "Type the site name to confirm"
+	deleteSiteModalInputPlaceholder   = "Enter the site name"
+	deleteSiteModalConfirmButtonID    = "delete-site-confirm-button"
+	deleteSiteModalConfirmButtonLabel = "Delete site"
+	deleteSiteModalConfirmButtonClass = "btn btn-danger"
+	deleteSiteModalCancelButtonLabel  = "Cancel"
+	deleteSiteModalCancelButtonClass  = "btn btn-secondary"
+	deleteSiteTargetNameElementID     = "delete-site-target-name"
+	deleteSiteModalHintPrefix         = "Type "
+	deleteSiteModalHintSuffix         = " exactly to confirm."
+	formStatusBaseClass               = "d-none py-1 px-2 small rounded"
+	formStatusSuccessClass            = "py-1 px-2 small rounded bg-white border border-success text-success"
+	formStatusDangerClass             = "py-1 px-2 small rounded bg-white border border-danger text-danger"
 )
 
 type dashboardTemplateData struct {

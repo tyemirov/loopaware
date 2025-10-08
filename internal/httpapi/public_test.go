@@ -89,6 +89,12 @@ func TestFeedbackFlow(t *testing.T) {
 	widgetResp := performJSONRequest(t, api.router, http.MethodGet, "/widget.js?site_id="+site.ID, nil, nil)
 	require.Equal(t, http.StatusOK, widgetResp.Code)
 	require.Contains(t, widgetResp.Header().Get("Content-Type"), "application/javascript")
+	widgetBody := widgetResp.Body.String()
+	require.Contains(t, widgetBody, `panel.style.width = "320px"`)
+	require.Contains(t, widgetBody, `site_id: "`+site.ID+`"`)
+	require.Contains(t, widgetBody, `document.readyState === "loading"`)
+	require.Contains(t, widgetBody, "scheduleWhenBodyReady")
+	require.NotContains(t, widgetBody, "%!(")
 
 	okFeedback := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
 		"site_id": site.ID,
