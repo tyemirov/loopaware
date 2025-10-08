@@ -92,6 +92,8 @@ func TestFeedbackFlow(t *testing.T) {
 	widgetBody := widgetResp.Body.String()
 	require.Contains(t, widgetBody, `panel.style.width = "320px"`)
 	require.Contains(t, widgetBody, `site_id: "`+site.ID+`"`)
+	require.Contains(t, widgetBody, `document.readyState === "loading"`)
+	require.Contains(t, widgetBody, "scheduleWhenBodyReady")
 	require.NotContains(t, widgetBody, "%!(")
 
 	okFeedback := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
