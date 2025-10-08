@@ -17,11 +17,6 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ## BugFixes
 
-- [ ] [LA-23] Fix the JS console errors
- None of the “sha384” hashes in the integrity attribute match the content of the subresource at “https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css”. The computed hash is “XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+”. app
-GET
-http://localhost:8080/favicon.ico
-[HTTP/1.1 404 Not Found 0ms]
-
+ 
 
 ## Maintenance

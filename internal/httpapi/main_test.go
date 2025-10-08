@@ -55,6 +55,8 @@ const (
 	dashboardDeleteIconMarkup              = "class=\"bi bi-trash3-fill text-danger\""
 	dashboardFooterElementID               = "id=\"dashboard-footer\""
 	dashboardFooterThemeConfigToken        = "\"footer_theme_classes\":{"
+	dashboardBootstrapIconsIntegrityToken  = "integrity=\"sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+\""
+	dashboardFaviconLinkToken              = "rel=\"icon\""
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -106,6 +108,16 @@ func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {
 		{
 			testName:      "delete site icon class",
 			substring:     dashboardDeleteIconMarkup,
+			expectPresent: true,
+		},
+		{
+			testName:      "bootstrap icons integrity",
+			substring:     dashboardBootstrapIconsIntegrityToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "favicon link present",
+			substring:     dashboardFaviconLinkToken,
 			expectPresent: true,
 		},
 		{
