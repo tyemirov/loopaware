@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
+	"github.com/MarkoPoloResearchLab/feedback_svc/internal/auth"
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/httpapi"
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
 )
@@ -82,7 +83,6 @@ const (
 	loggerContextAutoMigrate         = "migrate"
 	loggerContextServer              = "server"
 	loggerContextAuthService         = "auth_service"
-	loggerContextTemplate            = "template"
 	readHeaderTimeoutSeconds         = 5
 	unexpectedArgumentsMessage       = "unexpected command arguments"
 	commandInitializationFailure     = "failed to configure command"
@@ -310,25 +310,20 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		logger.Fatal(loggerContextAutoMigrate, zap.Error(migrateErr))
 	}
 
-	authService, authErr := gauss.NewService(
-		serverConfig.GoogleClientID,
-		serverConfig.GoogleClientSecret,
-		serverConfig.PublicBaseURL,
-		dashboardRoute,
-		gauss.ScopeStrings(gauss.DefaultScopes),
-		"",
-	)
-	if authErr != nil {
-		logger.Fatal(loggerContextAuthService, zap.Error(authErr))
-	}
-
-	authHandlers, handlersErr := gauss.NewHandlers(authService)
+	oauthHandlers, handlersErr := auth.NewHandlers(auth.Config{
+		GoogleClientID:     serverConfig.GoogleClientID,
+		GoogleClientSecret: serverConfig.GoogleClientSecret,
+		PublicBaseURL:      serverConfig.PublicBaseURL,
+		LocalRedirectPath:  dashboardRoute,
+		Scopes:             gauss.ScopeStrings(gauss.DefaultScopes),
+		Logger:             logger,
+	})
 	if handlersErr != nil {
-		logger.Fatal(loggerContextTemplate, zap.Error(handlersErr))
+		logger.Fatal(loggerContextAuthService, zap.Error(handlersErr))
 	}
 
 	authMux := http.NewServeMux()
-	authHandlers.RegisterRoutes(authMux)
+	oauthHandlers.RegisterRoutes(authMux)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
