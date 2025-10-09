@@ -13,7 +13,7 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
-	github.com/temirov/GAuss v0.0.10
+	github.com/temirov/GAuss v0.0.11
 	go.uber.org/zap v1.27.0
 	gorm.io/gorm v1.31.0
 )
@@ -84,5 +84,3 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sqlite v1.39.0 // indirect
 )
-
-replace github.com/temirov/GAuss => ./GAuss
