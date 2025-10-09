@@ -82,7 +82,6 @@ const (
 	loggerContextAutoMigrate         = "migrate"
 	loggerContextServer              = "server"
 	loggerContextAuthService         = "auth_service"
-	loggerContextTemplate            = "template"
 	readHeaderTimeoutSeconds         = 5
 	unexpectedArgumentsMessage       = "unexpected command arguments"
 	commandInitializationFailure     = "failed to configure command"
@@ -324,7 +323,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 
 	authHandlers, handlersErr := gauss.NewHandlers(authService)
 	if handlersErr != nil {
-		logger.Fatal(loggerContextTemplate, zap.Error(handlersErr))
+		logger.Fatal(loggerContextAuthService, zap.Error(handlersErr))
 	}
 
 	authMux := http.NewServeMux()

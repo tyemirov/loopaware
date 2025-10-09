@@ -25,6 +25,9 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ## Improvements
 
+- [ ] [LA-11] Remove all routes that are unused by the front-end/widget.js. It looks like we have two ways of communicating with the server, one through the API and one through the front end UI. There must be only front UI left (and whatever is requried to serve the widget)
+- [ ] [LA-12] The avatar route is probably unnessary, we can just replace the image if we have it in the template file rather than having a special rout to serve it
+
 ## BugFixes
 
 ## Maintenance
