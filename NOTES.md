@@ -23,6 +23,12 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ## Features
 
+- [ ] [LA-13] Add help explaining what is 
+1. Allowed Origin (protocol, URN, port etc). Add a UX-based validation in case it's incorrect and display a helpful message (red, in the panel title). 
+2. owner email. Add a UX-based validation in case it's incorrect and display a helpful message (red, in the panel title). 
+3. site name. 
+Have a small question mark in a circle icon, as typical, and display a popup/tooltip when pressed
+
 ## Improvements
 
 - [ ] [LA-11] Remove all routes that are unused by the front-end/widget.js. It looks like we have two ways of communicating with the server, one through the API and one through the front end UI. There must be only front UI left (and whatever is requried to serve the widget)
