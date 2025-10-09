@@ -90,6 +90,7 @@ const (
 	environmentConfigurationError    = "failed to apply environment configuration"
 	configurationFileLoadError       = "failed to load configuration file"
 	administratorEmailSeparator      = ","
+	logMessageMissingAdministrators  = "running without administrators"
 )
 
 var (
@@ -293,6 +294,8 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		_ = logger.Sync()
 	}()
 
+	application.logAdministratorWarning(logger, serverConfig)
+
 	session.NewSession([]byte(serverConfig.SessionSecret))
 
 	database, databaseErr := application.databaseOpener(storage.Config{
@@ -390,7 +393,7 @@ func (application *ServerApplication) loadServerConfig(configFilePath string) (S
 	application.configurationLoader.SetConfigFile(trimmedConfigPath)
 	if readErr := application.configurationLoader.ReadInConfig(); readErr != nil {
 		var configFileNotFoundError viper.ConfigFileNotFoundError
-		if !errors.As(readErr, &configFileNotFoundError) {
+		if !errors.As(readErr, &configFileNotFoundError) && !errors.Is(readErr, os.ErrNotExist) {
 			return ServerConfig{}, fmt.Errorf("%s: %w", configurationFileLoadError, readErr)
 		}
 	}
@@ -437,6 +440,14 @@ func normalizeEmailAddresses(rawEmailAddresses []string) []string {
 	return normalizedEmailAddresses
 }
 
+func (application *ServerApplication) logAdministratorWarning(logger *zap.Logger, configuration ServerConfig) {
+	if len(configuration.AdminEmailAddresses) > 0 {
+		return
+	}
+
+	logger.Warn(logMessageMissingAdministrators)
+}
+
 func (application *ServerApplication) ensureRequiredConfiguration(configuration ServerConfig) error {
 	var missingParameters []string
 
@@ -446,10 +457,6 @@ func (application *ServerApplication) ensureRequiredConfiguration(configuration 
 
 	if configuration.DatabaseDriverName != storage.DriverNameSQLite && configuration.DatabaseDataSourceName == "" {
 		missingParameters = append(missingParameters, flagNameDatabaseDataSourceName)
-	}
-
-	if len(configuration.AdminEmailAddresses) == 0 {
-		missingParameters = append(missingParameters, configurationKeyAdmins)
 	}
 
 	if configuration.GoogleClientID == "" {
