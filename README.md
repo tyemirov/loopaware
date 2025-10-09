@@ -25,7 +25,7 @@ admins:
 ```
 
 LoopAware loads the file specified by `--config` (default `config.yaml`) before starting the HTTP server.
-Set the `ADMINS` environment variable with a comma-separated list (for example `ADMINS=alice@example.com,bob@example.com`) to override the YAML roster without editing the file.
+Set the `ADMINS` environment variable with a comma-separated list (for example `ADMINS=alice@example.com,bob@example.com`) to override the YAML roster without editing the file. When neither source is present the server starts without administrators and records a warning in the logs.
 
 ### 2. Environment variables
 

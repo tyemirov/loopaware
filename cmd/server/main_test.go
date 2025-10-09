@@ -7,6 +7,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
 )
@@ -71,8 +74,7 @@ func TestEnsureRequiredConfigurationDetectsMissingFields(t *testing.T) {
 			mutate: func(config *ServerConfig) {
 				config.AdminEmailAddresses = nil
 			},
-			expectsError:  true,
-			expectedToken: configurationKeyAdmins,
+			expectsError: false,
 		},
 		{
 			name: "missing google client id",
@@ -193,4 +195,41 @@ func TestLoadServerConfigReadsAdminEmailsFromEnvironment(t *testing.T) {
 			require.Equal(testingT, testCase.expectedAdministratorEmailAddresses, serverConfig.AdminEmailAddresses)
 		})
 	}
+}
+
+func TestLoadServerConfigAllowsMissingConfigFile(t *testing.T) {
+	tempDirectory := t.TempDir()
+	missingConfigFilePath := filepath.Join(tempDirectory, testConfigFileName)
+
+	t.Setenv(testAdministratorsEnvironmentKey, fmt.Sprintf("%s,%s", testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail))
+	t.Setenv(environmentKeyGoogleClientID, testGoogleClientID)
+	t.Setenv(environmentKeyGoogleClientSecret, testGoogleClientSecret)
+	t.Setenv(environmentKeySessionSecret, testSessionSecret)
+	t.Setenv(environmentKeyPublicBaseURL, testDefaultPublicBaseURL)
+
+	application := NewServerApplication()
+	application.configurationLoader.AutomaticEnv()
+
+	serverConfig, loadErr := application.loadServerConfig(missingConfigFilePath)
+	require.NoError(t, loadErr)
+	require.Equal(t, []string{testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail}, serverConfig.AdminEmailAddresses)
+	require.Equal(t, missingConfigFilePath, serverConfig.ConfigFilePath)
+}
+
+func TestLogAdministratorWarning(t *testing.T) {
+	logObserver, logObserverEntries := observer.New(zapcore.WarnLevel)
+	logger := zap.New(logObserver)
+
+	application := NewServerApplication()
+
+	application.logAdministratorWarning(logger, ServerConfig{AdminEmailAddresses: nil})
+	require.Equal(t, 1, logObserverEntries.Len())
+	warningEntry := logObserverEntries.All()[0]
+	require.Equal(t, zapcore.WarnLevel, warningEntry.Level)
+	require.Equal(t, logMessageMissingAdministrators, warningEntry.Message)
+
+	logObserverEntries.TakeAll()
+
+	application.logAdministratorWarning(logger, ServerConfig{AdminEmailAddresses: []string{testAdminEmail}})
+	require.Equal(t, 0, logObserverEntries.Len())
 }
