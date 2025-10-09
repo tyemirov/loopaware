@@ -7,6 +7,9 @@ on:
     paths:
       - 'Dockerfile'
       - '**/*.go'
+      - '**/*.js'
+      - '**/*.css'
+      - '**/*.html'
       - 'go.mod'
       - 'go.sum'
   workflow_dispatch:
