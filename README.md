@@ -17,7 +17,7 @@ role-aware dashboard for managing sites and messages.
 
 ### 1. Admin roster (`config.yaml`)
 
-Create a YAML file next to the binary with the email addresses that should receive administrator privileges:
+Create a YAML file next to the binary with the email addresses that should receive administrator privileges (the file is optional if you prefer environment-only configuration):
 
 ```yaml
 admins:
