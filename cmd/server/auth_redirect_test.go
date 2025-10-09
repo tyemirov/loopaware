@@ -8,25 +8,25 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/auth"
 	"github.com/temirov/GAuss/pkg/constants"
 	"github.com/temirov/GAuss/pkg/gauss"
 	"github.com/temirov/GAuss/pkg/session"
 )
 
 func TestGoogleAuthRedirectHonorsForwardedProtocol(t *testing.T) {
-	handlersConfiguration := auth.Config{
-		GoogleClientID:     testGoogleClientID,
-		GoogleClientSecret: testGoogleClientSecret,
-		PublicBaseURL:      "http://loopaware.mprlab.com",
-		LocalRedirectPath:  dashboardRoute,
-		Scopes:             gauss.ScopeStrings(gauss.DefaultScopes),
-		LoginTemplate:      "",
-	}
-
 	session.NewSession([]byte(testSessionSecret))
 
-	oauthHandlers, handlersErr := auth.NewHandlers(handlersConfiguration)
+	service, serviceErr := gauss.NewService(
+		testGoogleClientID,
+		testGoogleClientSecret,
+		"http://loopaware.mprlab.com",
+		dashboardRoute,
+		gauss.ScopeStrings(gauss.DefaultScopes),
+		"",
+	)
+	require.NoError(t, serviceErr)
+
+	oauthHandlers, handlersErr := gauss.NewHandlers(service)
 	require.NoError(t, handlersErr)
 
 	serveMux := http.NewServeMux()
