@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,16 +12,22 @@ import (
 )
 
 const (
-	testFlagNameDatabaseDriver     = "db-driver"
-	testFlagNameDatabaseDataSource = "db-dsn"
-	testFlagNamePublicBaseURL      = "public-base-url"
-	testSQLiteDefaultFileName      = "loopaware.sqlite"
-	testSQLiteDataSourcePattern    = "file:%s?_foreign_keys=on"
-	testDefaultPublicBaseURL       = "http://localhost:8080"
-	testAdminEmail                 = "admin@example.com"
-	testGoogleClientID             = "client-id"
-	testGoogleClientSecret         = "client-secret"
-	testSessionSecret              = "session-secret"
+	testFlagNameDatabaseDriver       = "db-driver"
+	testFlagNameDatabaseDataSource   = "db-dsn"
+	testFlagNamePublicBaseURL        = "public-base-url"
+	testSQLiteDefaultFileName        = "loopaware.sqlite"
+	testSQLiteDataSourcePattern      = "file:%s?_foreign_keys=on"
+	testDefaultPublicBaseURL         = "http://localhost:8080"
+	testAdminEmail                   = "admin@example.com"
+	testGoogleClientID               = "client-id"
+	testGoogleClientSecret           = "client-secret"
+	testSessionSecret                = "session-secret"
+	testAdministratorsEnvironmentKey = "ADMINS"
+	testConfigAdminFirstEmail        = "config-admin-one@example.com"
+	testConfigAdminSecondEmail       = "config-admin-two@example.com"
+	testEnvironmentAdminFirstEmail   = "environment-admin-one@example.com"
+	testEnvironmentAdminSecondEmail  = "environment-admin-two@example.com"
+	testConfigFileName               = "config.yaml"
 )
 
 func TestEnsureRequiredConfigurationDetectsMissingFields(t *testing.T) {
@@ -141,4 +149,48 @@ func TestServerCommandFlagDefaults(t *testing.T) {
 	publicBaseFlag := command.Flag(testFlagNamePublicBaseURL)
 	require.NotNil(t, publicBaseFlag)
 	require.Equal(t, testDefaultPublicBaseURL, publicBaseFlag.DefValue)
+}
+
+func TestLoadServerConfigReadsAdminEmailsFromEnvironment(t *testing.T) {
+	tempDirectory := t.TempDir()
+	configFilePath := filepath.Join(tempDirectory, testConfigFileName)
+	configFileContents := fmt.Sprintf("admins:\n  - %s\n  - %s\n", testConfigAdminFirstEmail, testConfigAdminSecondEmail)
+	writeErr := os.WriteFile(configFilePath, []byte(configFileContents), 0600)
+	require.NoError(t, writeErr)
+
+	testCases := []struct {
+		name                                string
+		environmentAdministratorsValue      string
+		expectedAdministratorEmailAddresses []string
+	}{
+		{
+			name:                                "config administrators used when environment empty",
+			environmentAdministratorsValue:      "",
+			expectedAdministratorEmailAddresses: []string{testConfigAdminFirstEmail, testConfigAdminSecondEmail},
+		},
+		{
+			name:                                "environment administrators override config",
+			environmentAdministratorsValue:      fmt.Sprintf("%s,%s", testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail),
+			expectedAdministratorEmailAddresses: []string{testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail},
+		},
+		{
+			name:                                "environment administrators trimmed whitespace",
+			environmentAdministratorsValue:      fmt.Sprintf("%s, %s", testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail),
+			expectedAdministratorEmailAddresses: []string{testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(testingT *testing.T) {
+			testingT.Setenv(testAdministratorsEnvironmentKey, testCase.environmentAdministratorsValue)
+
+			application := NewServerApplication()
+			application.configurationLoader.AutomaticEnv()
+
+			serverConfig, loadErr := application.loadServerConfig(configFilePath)
+			require.NoError(testingT, loadErr)
+			require.Equal(testingT, testCase.expectedAdministratorEmailAddresses, serverConfig.AdminEmailAddresses)
+		})
+	}
 }
