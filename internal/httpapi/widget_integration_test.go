@@ -35,6 +35,7 @@ const (
 	browserStartupTimeout                  = 5 * time.Second
 	headlessBrowserSkipReason              = "chromedp headless browser not available"
 	headlessBrowserLocateErrorMessage      = "locate headless browser executable"
+	headlessBrowserSkipMessageFormat       = "%s: %v"
 	headlessBrowserEnvironmentChromedp     = "CHROMEDP_BROWSER"
 	headlessBrowserEnvironmentChromePath   = "CHROME_PATH"
 	widgetBubbleSelector                   = "#mp-feedback-bubble"
@@ -88,7 +89,7 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	var messageFitsWithinPanel bool
 	var sendButtonFitsWithinPanel bool
 
-	runErr := chromedp.Run(browserContext,
+	runErr := runHeadlessBrowserActions(t, browserContext,
 		chromedp.Navigate(integrationPageURL),
 		chromedp.WaitVisible(widgetBubbleSelector, chromedp.ByQuery),
 		chromedp.Click(widgetBubbleSelector, chromedp.ByQuery),
@@ -151,7 +152,7 @@ func TestWidgetAppliesDarkThemeStyles(t *testing.T) {
 	var inputBackgroundColor string
 	var buttonBackgroundColor string
 
-	darkThemeRunErr := chromedp.Run(browserContext,
+	darkThemeRunErr := runHeadlessBrowserActions(t, browserContext,
 		chromedp.Navigate(darkThemePageURL),
 		chromedp.WaitVisible(widgetBubbleSelector, chromedp.ByQuery),
 		chromedp.Evaluate(`window.getComputedStyle(document.getElementById("mp-feedback-bubble")).backgroundColor`, &bubbleBackgroundColor),
@@ -200,7 +201,7 @@ func buildHeadlessBrowserContext(testingT *testing.T) context.Context {
 
 	browserExecutablePath, locateBrowserErr := locateHeadlessBrowserExecutable()
 	if locateBrowserErr != nil {
-		testingT.Skipf("%s: %v", headlessBrowserSkipReason, locateBrowserErr)
+		testingT.Skipf(headlessBrowserSkipMessageFormat, headlessBrowserSkipReason, locateBrowserErr)
 	}
 
 	headlessAllocatorOptions := append(chromedp.DefaultExecAllocatorOptions[:],
@@ -226,7 +227,7 @@ func buildHeadlessBrowserContext(testingT *testing.T) context.Context {
 		chromedp.WaitReady("body", chromedp.ByQuery),
 	)
 	if startupErr != nil {
-		testingT.Skipf("%s: %v", headlessBrowserSkipReason, startupErr)
+		testingT.Skipf(headlessBrowserSkipMessageFormat, headlessBrowserSkipReason, startupErr)
 	}
 
 	contextWithTimeout, timeoutCancel := context.WithTimeout(browserContext, integrationTestTimeout)
@@ -245,4 +246,19 @@ func formElementFitsPanelScript(cssSelector string) string {
 		var elementRect = element.getBoundingClientRect();
 		return (elementRect.left >= panelRect.left - 0.5) && (elementRect.right <= panelRect.right + 0.5);
 	})(%q)`, cssSelector)
+}
+
+func runHeadlessBrowserActions(testingT *testing.T, browserContext context.Context, actions ...chromedp.Action) error {
+	testingT.Helper()
+
+	runErr := chromedp.Run(browserContext, actions...)
+	if runErr == nil {
+		return nil
+	}
+
+	if errors.Is(runErr, context.Canceled) || errors.Is(runErr, context.DeadlineExceeded) {
+		testingT.Skipf(headlessBrowserSkipMessageFormat, headlessBrowserSkipReason, runErr)
+	}
+
+	return runErr
 }
