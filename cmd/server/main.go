@@ -50,6 +50,7 @@ const (
 	environmentKeyApplicationAddress = "APP_ADDR"
 	environmentKeyDatabaseDriverName = "DB_DRIVER"
 	environmentKeyDatabaseDataSource = "DB_DSN"
+	environmentKeyAdmins             = "ADMINS"
 	environmentKeyGoogleClientID     = "GOOGLE_CLIENT_ID"
 	environmentKeyGoogleClientSecret = "GOOGLE_CLIENT_SECRET"
 	environmentKeySessionSecret      = "SESSION_SECRET"
@@ -88,6 +89,7 @@ const (
 	flagNotDefinedMessage            = "flag %s not defined"
 	environmentConfigurationError    = "failed to apply environment configuration"
 	configurationFileLoadError       = "failed to load configuration file"
+	administratorEmailSeparator      = ","
 )
 
 var (
@@ -274,37 +276,9 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	}
 
 	configFilePath := strings.TrimSpace(command.Flag(flagNameConfigFile).Value.String())
-	if configFilePath == "" {
-		configFilePath = defaultConfigFileName
-	}
-
-	application.configurationLoader.SetConfigFile(configFilePath)
-	if readErr := application.configurationLoader.ReadInConfig(); readErr != nil {
-		var configFileNotFoundError viper.ConfigFileNotFoundError
-		if !errors.As(readErr, &configFileNotFoundError) {
-			return fmt.Errorf("%s: %w", configurationFileLoadError, readErr)
-		}
-	}
-
-	adminEmails := application.configurationLoader.GetStringSlice(configurationKeyAdmins)
-	for index := range adminEmails {
-		adminEmails[index] = strings.TrimSpace(adminEmails[index])
-	}
-
-	serverConfig := ServerConfig{
-		ApplicationAddress:     application.configurationLoader.GetString(environmentKeyApplicationAddress),
-		DatabaseDriverName:     strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDriverName)),
-		DatabaseDataSourceName: strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDataSource)),
-		AdminEmailAddresses:    adminEmails,
-		GoogleClientID:         strings.TrimSpace(application.configurationLoader.GetString(environmentKeyGoogleClientID)),
-		GoogleClientSecret:     strings.TrimSpace(application.configurationLoader.GetString(environmentKeyGoogleClientSecret)),
-		SessionSecret:          strings.TrimSpace(application.configurationLoader.GetString(environmentKeySessionSecret)),
-		PublicBaseURL:          strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPublicBaseURL)),
-		ConfigFilePath:         configFilePath,
-	}
-
-	if serverConfig.DatabaseDriverName == storage.DriverNameSQLite && serverConfig.DatabaseDataSourceName == "" {
-		serverConfig.DatabaseDataSourceName = defaultSQLiteDataSourceName
+	serverConfig, serverConfigErr := application.loadServerConfig(configFilePath)
+	if serverConfigErr != nil {
+		return serverConfigErr
 	}
 
 	if validationErr := application.ensureRequiredConfiguration(serverConfig); validationErr != nil {
@@ -405,6 +379,62 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	}
 
 	return nil
+}
+
+func (application *ServerApplication) loadServerConfig(configFilePath string) (ServerConfig, error) {
+	trimmedConfigPath := strings.TrimSpace(configFilePath)
+	if trimmedConfigPath == "" {
+		trimmedConfigPath = defaultConfigFileName
+	}
+
+	application.configurationLoader.SetConfigFile(trimmedConfigPath)
+	if readErr := application.configurationLoader.ReadInConfig(); readErr != nil {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if !errors.As(readErr, &configFileNotFoundError) {
+			return ServerConfig{}, fmt.Errorf("%s: %w", configurationFileLoadError, readErr)
+		}
+	}
+
+	configuredAdministratorEmails := normalizeEmailAddresses(application.configurationLoader.GetStringSlice(configurationKeyAdmins))
+	environmentAdministratorValue := strings.TrimSpace(application.configurationLoader.GetString(environmentKeyAdmins))
+
+	administratorEmails := configuredAdministratorEmails
+	if environmentAdministratorValue != "" {
+		environmentAdministratorEmails := strings.Split(environmentAdministratorValue, administratorEmailSeparator)
+		administratorEmails = normalizeEmailAddresses(environmentAdministratorEmails)
+	}
+
+	serverConfig := ServerConfig{
+		ApplicationAddress:     application.configurationLoader.GetString(environmentKeyApplicationAddress),
+		DatabaseDriverName:     strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDriverName)),
+		DatabaseDataSourceName: strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDataSource)),
+		AdminEmailAddresses:    administratorEmails,
+		GoogleClientID:         strings.TrimSpace(application.configurationLoader.GetString(environmentKeyGoogleClientID)),
+		GoogleClientSecret:     strings.TrimSpace(application.configurationLoader.GetString(environmentKeyGoogleClientSecret)),
+		SessionSecret:          strings.TrimSpace(application.configurationLoader.GetString(environmentKeySessionSecret)),
+		PublicBaseURL:          strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPublicBaseURL)),
+		ConfigFilePath:         trimmedConfigPath,
+	}
+
+	if serverConfig.DatabaseDriverName == storage.DriverNameSQLite && serverConfig.DatabaseDataSourceName == "" {
+		serverConfig.DatabaseDataSourceName = defaultSQLiteDataSourceName
+	}
+
+	return serverConfig, nil
+}
+
+func normalizeEmailAddresses(rawEmailAddresses []string) []string {
+	normalizedEmailAddresses := make([]string, 0, len(rawEmailAddresses))
+	for _, rawEmailAddress := range rawEmailAddresses {
+		trimmedEmailAddress := strings.TrimSpace(rawEmailAddress)
+		if trimmedEmailAddress == "" {
+			continue
+		}
+
+		normalizedEmailAddresses = append(normalizedEmailAddresses, trimmedEmailAddress)
+	}
+
+	return normalizedEmailAddresses
 }
 
 func (application *ServerApplication) ensureRequiredConfiguration(configuration ServerConfig) error {

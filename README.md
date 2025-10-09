@@ -25,6 +25,7 @@ admins:
 ```
 
 LoopAware loads the file specified by `--config` (default `config.yaml`) before starting the HTTP server.
+Set the `ADMINS` environment variable with a comma-separated list (for example `ADMINS=alice@example.com,bob@example.com`) to override the YAML roster without editing the file.
 
 ### 2. Environment variables
 
@@ -33,6 +34,7 @@ LoopAware loads the file specified by `--config` (default `config.yaml`) before 
 | `GOOGLE_CLIENT_ID`     | ✅        | OAuth client ID from Google Cloud Console                   |
 | `GOOGLE_CLIENT_SECRET` | ✅        | OAuth client secret                                         |
 | `SESSION_SECRET`       | ✅        | 32+ byte secret for cookie signing                          |
+| `ADMINS`               | ⚙️       | Comma-separated admin emails; overrides the YAML roster     |
 | `PUBLIC_BASE_URL`      | ⚙️       | Public URL of the service (default `http://localhost:8080`) |
 | `APP_ADDR`             | ⚙️       | Listen address (default `:8080`)                            |
 | `DB_DRIVER`            | ⚙️       | Storage driver (`sqlite`, etc.)                             |
