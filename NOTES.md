@@ -28,10 +28,12 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ## Improvements
 
-- [ ] [LA-16] Add mailto: prefix to the email displayed in the feedback panel
-
 - [ ] [LA-17] Retrieve and demonstrate a favicon of the site next to the sie name in the sites panel
 
 ## BugFixes
+
+- [ ] swap the order of the dark mode and logout
+- display the time of the site creation in the right bottom corner
+- [ ] Remove tooltips, such as "Receives notifications when visitors submit feedback." from being visible under the field
 
 ## Maintenance

@@ -65,6 +65,10 @@ const (
 	dashboardAllowedOriginHelpButtonID     = "allowed-origin-help-button"
 	dashboardOwnerEmailHelpButtonID        = "owner-email-help-button"
 	dashboardFieldHelpPopoverToken         = "data-bs-toggle=\"popover\""
+	dashboardMailtoPrefixToken             = "var mailtoSchemePrefix = 'mailto:';"
+	dashboardRenderContactFunctionToken    = "function renderContactValue(cell, value)"
+	dashboardContactLinkHrefToken          = "link.href = mailtoSchemePrefix + normalized;"
+	dashboardContactAppendLinkToken        = "cell.appendChild(link);"
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -462,6 +466,56 @@ func TestDashboardTemplateUsesUniformActionButtonStyles(t *testing.T) {
 			testName:      "legacy solid success class removed",
 			substring:     dashboardLegacySaveButtonClass,
 			expectPresent: false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.testName, func(t *testing.T) {
+			if testCase.expectPresent {
+				require.Contains(t, body, testCase.substring)
+				return
+			}
+			require.NotContains(t, body, testCase.substring)
+		})
+	}
+}
+
+func TestDashboardTemplateSupportsMailtoLinksForFeedback(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	testCases := []struct {
+		testName      string
+		substring     string
+		expectPresent bool
+	}{
+		{
+			testName:      "defines mailto prefix constant",
+			substring:     dashboardMailtoPrefixToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "defines render contact helper",
+			substring:     dashboardRenderContactFunctionToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "assigns mailto href",
+			substring:     dashboardContactLinkHrefToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "appends anchor to cell",
+			substring:     dashboardContactAppendLinkToken,
+			expectPresent: true,
 		},
 	}
 

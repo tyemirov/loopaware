@@ -286,6 +286,9 @@
         var validationMessageKeyOwnerInvalid = 'owner_invalid';
         var invalidFieldClassName = 'is-invalid';
         var validationEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        var mailtoSchemePrefix = 'mailto:';
+        var contactLinkClassName = 'text-decoration-none';
+        var emptyString = '';
         function shouldAlwaysValidate() {
           return true;
         }
@@ -395,6 +398,26 @@
               clearFormStatus();
             });
           });
+        }
+        function renderContactValue(cell, value) {
+          if (!cell) {
+            return;
+          }
+          var normalized = (value || emptyString).trim();
+          if (normalized.length === 0) {
+            cell.textContent = emptyString;
+            return;
+          }
+          if (validationEmailPattern.test(normalized)) {
+            var link = document.createElement('a');
+            link.href = mailtoSchemePrefix + normalized;
+            link.textContent = normalized;
+            link.className = contactLinkClassName;
+            cell.textContent = emptyString;
+            cell.appendChild(link);
+            return;
+          }
+          cell.textContent = normalized;
         }
         function initializeFieldHelpPopovers() {
           if (!window.bootstrap || !window.bootstrap.Popover) {
@@ -924,7 +947,7 @@
             var createdCell = document.createElement('td');
             createdCell.textContent = formatTimestamp(message.created_at);
             var contactCell = document.createElement('td');
-            contactCell.textContent = message.contact;
+            renderContactValue(contactCell, message.contact);
             var bodyCell = document.createElement('td');
             bodyCell.textContent = message.message;
             row.appendChild(createdCell);
