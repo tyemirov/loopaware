@@ -63,6 +63,7 @@ const (
 	defaultPublicBaseURL             = "http://localhost:8080"
 	publicRouteFeedback              = "/api/feedback"
 	publicRouteWidget                = "/widget.js"
+	landingRouteRoot                 = "/"
 	dashboardRoute                   = "/app"
 	apiRoutePrefix                   = "/api"
 	apiRouteMe                       = "/me"
@@ -83,6 +84,7 @@ const (
 	loggerContextAutoMigrate         = "migrate"
 	loggerContextServer              = "server"
 	loggerContextAuthService         = "auth_service"
+	loggerContextLandingTemplate     = "landing_template"
 	readHeaderTimeoutSeconds         = 5
 	unexpectedArgumentsMessage       = "unexpected command arguments"
 	commandInitializationFailure     = "failed to configure command"
@@ -310,13 +312,18 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		logger.Fatal(loggerContextAutoMigrate, zap.Error(migrateErr))
 	}
 
+	landingTemplatePath, landingTemplateErr := httpapi.WriteLandingTemplateFile("")
+	if landingTemplateErr != nil {
+		logger.Fatal(loggerContextLandingTemplate, zap.Error(landingTemplateErr))
+	}
+
 	authService, authErr := gauss.NewService(
 		serverConfig.GoogleClientID,
 		serverConfig.GoogleClientSecret,
 		serverConfig.PublicBaseURL,
 		dashboardRoute,
 		gauss.ScopeStrings(gauss.DefaultScopes),
-		"",
+		landingTemplatePath,
 	)
 	if authErr != nil {
 		logger.Fatal(loggerContextAuthService, zap.Error(authErr))
@@ -350,8 +357,10 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(database)
 	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger)
+	landingHandlers := httpapi.NewLandingPageHandlers(logger)
 	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient)
 
+	router.GET(landingRouteRoot, landingHandlers.RenderLandingPage)
 	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
 	router.GET(dashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)

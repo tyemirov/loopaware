@@ -22,6 +22,25 @@ const (
 	dashboardFooterBrandPrefix              = "Built by"
 	dashboardFooterBrandURL                 = "https://mprlab.com"
 	dashboardFooterBrandName                = "Marco Polo Research Lab"
+	dashboardFooterDropupClass              = "dropup"
+	dashboardFooterDropdownToggleClass      = "dropdown-toggle"
+	dashboardFooterDropdownMenuToken        = "dropdown-menu"
+	dashboardFooterDropdownMenuEndClass     = "dropdown-menu-end"
+	dashboardFooterDropdownItemClass        = "dropdown-item"
+	dashboardFooterDropupDataAttribute      = "data-bs-toggle=\"dropdown\""
+	dashboardFooterDropdownLabelToken       = "Built by <button"
+	dashboardFooterDropupToggleRoleToken    = "role=\"button\""
+	dashboardFooterDropupToggleControlToken = "aria-expanded=\"false\""
+	dashboardFooterPrimaryLinkURL           = "https://mprlab.com"
+	dashboardFooterLinkGravityNotesURL      = "https://gravity.mprlab.com"
+	dashboardFooterLinkLoopAwareURL         = "https://loopaware.mprlab.com"
+	dashboardFooterLinkAllergyWheelURL      = "https://allergy.mprlab.com"
+	dashboardFooterLinkSocialThreaderURL    = "https://threader.mprlab.com"
+	dashboardFooterLinkRSVPURL              = "https://rsvp.mprlab.com"
+	dashboardFooterLinkCountdownURL         = "https://countdown.mprlab.com"
+	dashboardFooterLinkLLMCrosswordURL      = "https://llm-crossword.mprlab.com"
+	dashboardFooterLinkPromptBubblesURL     = "https://prompts.mprlab.com"
+	dashboardFooterLinkWallpapersURL        = "https://wallpapers.mprlab.com"
 	dashboardButtonStatusToken              = "buttonStatusDisplayDuration"
 	dashboardRestoreButtonToken             = "restoreButtonDefault"
 	dashboardCreateButtonPattern            = "setButtonDefault(saveSiteButton, createButtonLabel, createButtonClass);"
@@ -218,6 +237,51 @@ func TestDashboardFooterIncludesBranding(t *testing.T) {
 			substring:     dashboardFooterBrandURL,
 			expectPresent: true,
 		},
+		{
+			testName:      "footer uses dropup container",
+			substring:     dashboardFooterDropupClass,
+			expectPresent: true,
+		},
+		{
+			testName:      "footer uses dropdown toggle class",
+			substring:     dashboardFooterDropdownToggleClass,
+			expectPresent: true,
+		},
+		{
+			testName:      "footer renders bootstrap dropdown attribute",
+			substring:     dashboardFooterDropupDataAttribute,
+			expectPresent: true,
+		},
+		{
+			testName:      "footer renders dropdown menu container",
+			substring:     dashboardFooterDropdownMenuToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "footer renders dropdown menu alignment",
+			substring:     dashboardFooterDropdownMenuEndClass,
+			expectPresent: true,
+		},
+		{
+			testName:      "footer renders dropdown item class",
+			substring:     dashboardFooterDropdownItemClass,
+			expectPresent: true,
+		},
+		{
+			testName:      "footer uses accessible toggle role",
+			substring:     dashboardFooterDropupToggleRoleToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "footer uses default collapsed state",
+			substring:     dashboardFooterDropupToggleControlToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "footer wraps label in button",
+			substring:     dashboardFooterDropdownLabelToken,
+			expectPresent: true,
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -228,6 +292,71 @@ func TestDashboardFooterIncludesBranding(t *testing.T) {
 				return
 			}
 			require.NotContains(t, body, testCase.substring)
+		})
+	}
+}
+
+func TestDashboardFooterContainsProductLinks(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	testCases := []struct {
+		testName string
+		urlToken string
+	}{
+		{
+			testName: "primary lab site link",
+			urlToken: dashboardFooterPrimaryLinkURL,
+		},
+		{
+			testName: "gravity notes link",
+			urlToken: dashboardFooterLinkGravityNotesURL,
+		},
+		{
+			testName: "loopaware link",
+			urlToken: dashboardFooterLinkLoopAwareURL,
+		},
+		{
+			testName: "allergy wheel link",
+			urlToken: dashboardFooterLinkAllergyWheelURL,
+		},
+		{
+			testName: "social threader link",
+			urlToken: dashboardFooterLinkSocialThreaderURL,
+		},
+		{
+			testName: "rsvp link",
+			urlToken: dashboardFooterLinkRSVPURL,
+		},
+		{
+			testName: "countdown calendar link",
+			urlToken: dashboardFooterLinkCountdownURL,
+		},
+		{
+			testName: "llm crossword link",
+			urlToken: dashboardFooterLinkLLMCrosswordURL,
+		},
+		{
+			testName: "prompt bubbles link",
+			urlToken: dashboardFooterLinkPromptBubblesURL,
+		},
+		{
+			testName: "wallpapers link",
+			urlToken: dashboardFooterLinkWallpapersURL,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.testName, func(testingT *testing.T) {
+			require.Contains(testingT, body, testCase.urlToken)
 		})
 	}
 }

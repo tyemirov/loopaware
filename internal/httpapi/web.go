@@ -193,12 +193,10 @@ type dashboardTemplateData struct {
 	RoleUser                          string
 	EmptySitesMessage                 string
 	FeedbackPlaceholder               string
-	FooterBrandPrefix                 string
-	FooterBrandName                   string
-	FooterBrandURL                    string
 	FooterElementID                   string
 	FooterInnerElementID              string
 	FooterBaseClass                   string
+	FooterHTML                        template.HTML
 	UserNameID                        string
 	UserEmailID                       string
 	UserRoleBadgeID                   string
@@ -351,6 +349,13 @@ func NewDashboardWebHandlers(logger *zap.Logger) *DashboardWebHandlers {
 }
 
 func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
+	footerConfig := defaultFooterConfig(footerElementID, footerInnerElementID, footerBaseClass)
+	renderedFooterHTML, footerErr := RenderFooterHTML(footerConfig)
+	if footerErr != nil {
+		handlers.logger.Warn("render_dashboard_footer", zap.Error(footerErr))
+		renderedFooterHTML = ""
+	}
+
 	data := dashboardTemplateData{
 		PageTitle:                         dashboardPageTitle,
 		APIMeEndpoint:                     "/api/me",
@@ -379,12 +384,10 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		RoleUser:                          dashboardRoleUserLabel,
 		EmptySitesMessage:                 dashboardStatusNoSites,
 		FeedbackPlaceholder:               dashboardFeedbackPlaceholder,
-		FooterBrandPrefix:                 dashboardFooterBrandPrefix,
-		FooterBrandName:                   dashboardFooterBrandName,
-		FooterBrandURL:                    dashboardFooterBrandURL,
 		FooterElementID:                   footerElementID,
 		FooterInnerElementID:              footerInnerElementID,
 		FooterBaseClass:                   footerBaseClass,
+		FooterHTML:                        template.HTML(renderedFooterHTML),
 		UserNameID:                        userNameElementID,
 		UserEmailID:                       userEmailElementID,
 		UserRoleBadgeID:                   userRoleBadgeElementID,
