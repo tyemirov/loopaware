@@ -47,7 +47,7 @@ func TestLandingPageIncludesDetailedCopy(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	context, _ := gin.CreateTestContext(recorder)
-	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
 	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
 	handlers.RenderLandingPage(context)
@@ -62,7 +62,7 @@ func TestLandingPageExposesFaviconLink(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	context, _ := gin.CreateTestContext(recorder)
-	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
 	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
 	handlers.RenderLandingPage(context)
@@ -75,7 +75,7 @@ func TestLandingPageProvidesThemeSwitch(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	context, _ := gin.CreateTestContext(recorder)
-	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
 	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
 	handlers.RenderLandingPage(context)
@@ -92,7 +92,7 @@ func TestLandingPageDisplaysHeaderLogo(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	context, _ := gin.CreateTestContext(recorder)
-	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
 	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
 	handlers.RenderLandingPage(context)
@@ -107,7 +107,7 @@ func TestLandingFooterDisplaysProductMenu(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	context, _ := gin.CreateTestContext(recorder)
-	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
 	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
 	handlers.RenderLandingPage(context)
@@ -132,7 +132,7 @@ func TestLandingCardsProvideInteractiveStates(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	context, _ := gin.CreateTestContext(recorder)
-	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
 	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
 	handlers.RenderLandingPage(context)
@@ -147,7 +147,7 @@ func TestLandingHeroOffersSingleLoginCallToAction(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	context, _ := gin.CreateTestContext(recorder)
-	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
 	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
 	handlers.RenderLandingPage(context)

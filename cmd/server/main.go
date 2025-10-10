@@ -63,7 +63,7 @@ const (
 	defaultPublicBaseURL             = "http://localhost:8080"
 	publicRouteFeedback              = "/api/feedback"
 	publicRouteWidget                = "/widget.js"
-	landingRouteRoot                 = "/"
+	landingRouteRoot                 = constants.LoginPath
 	dashboardRoute                   = "/app"
 	apiRoutePrefix                   = "/api"
 	apiRouteMe                       = "/me"
@@ -318,6 +318,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		dashboardRoute,
 		gauss.ScopeStrings(gauss.DefaultScopes),
 		"",
+		gauss.WithLogoutRedirectURL(constants.LoginPath),
 	)
 	if authErr != nil {
 		logger.Fatal(loggerContextAuthService, zap.Error(authErr))
@@ -354,13 +355,15 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	landingHandlers := httpapi.NewLandingPageHandlers(logger)
 	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, landingRouteRoot)
 
+	router.GET("/", func(context *gin.Context) {
+		context.Redirect(http.StatusFound, constants.LoginPath)
+	})
 	router.GET(landingRouteRoot, landingHandlers.RenderLandingPage)
 	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
 	router.GET(dashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
 
 	authHandler := gin.WrapH(authMux)
-	router.GET(constants.LoginPath, authHandler)
 	router.GET(constants.GoogleAuthPath, authHandler)
 	router.GET(constants.CallbackPath, authHandler)
 	router.GET(constants.LogoutPath, authHandler)
