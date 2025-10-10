@@ -78,6 +78,9 @@ const (
 	dashboardFeedbackCountElementID         = "feedback-count"
 	dashboardSiteCreatedAtVarToken          = "var siteCreatedAtElement = document.getElementById(elementIds.site_created_at);"
 	dashboardFeedbackCountVarToken          = "var feedbackCountElement = document.getElementById(elementIds.feedback_count);"
+	dashboardFeedbackCountHiddenClassToken  = "class=\"badge bg-secondary d-none\""
+	dashboardFeedbackCountHideCallToken     = "feedbackCountElement.classList.add('d-none');"
+	dashboardFeedbackCountShowCallToken     = "feedbackCountElement.classList.remove('d-none');"
 	dashboardSetFeedbackCountToken          = "function setFeedbackCount(total, visible)"
 	dashboardUpdateSelectedSiteSummaryToken = "function updateSelectedSiteSummary(site)"
 	dashboardRegisteredPrefixToken          = "Registered at:"
@@ -180,6 +183,21 @@ func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {
 		{
 			testName:      "feedback count element",
 			substring:     "id=\"" + dashboardFeedbackCountElementID + "\"",
+			expectPresent: true,
+		},
+		{
+			testName:      "feedback count hidden by default",
+			substring:     dashboardFeedbackCountHiddenClassToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "feedback count hide call",
+			substring:     dashboardFeedbackCountHideCallToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "feedback count show call",
+			substring:     dashboardFeedbackCountShowCallToken,
 			expectPresent: true,
 		},
 		{

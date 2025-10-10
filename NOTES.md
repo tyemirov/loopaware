@@ -50,7 +50,7 @@ Make the footer independent so that I could reuse it as a component in other pro
 - [x] [LA-37] Add deatils to the copy text. It is barebone now. analyze the functionality, check readme and PRD and consider usefullness for the end user
 - [x] [LA-38] There is no theme switch on the landing page, and the components seem to belong to different themes.
 - [x] [LA-39] Add logo of the Loopaware to the header
-- [ ] [LA-41] Do not display 0 for Feedback messages. Only display the total number if it's larger than 0
+- [x] [LA-41] Do not display 0 for Feedback messages. Only display the total number if it's larger than 0
 
 
 
