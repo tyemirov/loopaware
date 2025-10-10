@@ -20,7 +20,9 @@ const (
 	landingThemeScriptKeyToken       = "var landingThemeStorageKey = 'landing_theme'"
 	landingThemeApplyFunctionToken   = "function applyLandingTheme(theme)"
 	landingThemeDataAttributeToken   = "data-bs-theme"
-	landingHeaderLogoToken           = "aria-label=\"LoopAware logo\""
+	landingLogoImageClassToken       = "class=\"landing-logo-image\""
+	landingLogoAltToken              = "alt=\"LoopAware logo\""
+	landingLogoDataToken             = "src=\"data:image/png;base64,"
 	landingFooterDropdownToggleToken = "data-bs-toggle=\"dropdown\""
 	landingFooterDropdownMenuToken   = "dropdown-menu"
 	landingFooterLinkGravityToken    = "https://gravity.mprlab.com"
@@ -94,7 +96,9 @@ func TestLandingPageDisplaysHeaderLogo(t *testing.T) {
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
-	require.Contains(t, body, landingHeaderLogoToken)
+	require.Contains(t, body, landingLogoImageClassToken)
+	require.Contains(t, body, landingLogoAltToken)
+	require.Contains(t, body, landingLogoDataToken)
 }
 
 func TestLandingFooterDisplaysProductMenu(t *testing.T) {

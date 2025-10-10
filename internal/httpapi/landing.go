@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"encoding/base64"
 	"html/template"
 	"net/http"
 
@@ -20,6 +21,7 @@ const (
 type landingTemplateData struct {
 	FooterHTML     template.HTML
 	FaviconDataURI template.URL
+	LogoDataURI    template.URL
 }
 
 // LandingPageHandlers renders the public landing page.
@@ -64,6 +66,7 @@ func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
 	data := landingTemplateData{
 		FooterHTML:     footerHTML,
 		FaviconDataURI: template.URL(dashboardFaviconDataURI),
+		LogoDataURI:    landingLogoDataURI,
 	}
 
 	var buffer bytes.Buffer
@@ -75,3 +78,5 @@ func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
 	}
 	context.Data(http.StatusOK, landingHTMLContentType, buffer.Bytes())
 }
+
+var landingLogoDataURI = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(landingLogoImage))

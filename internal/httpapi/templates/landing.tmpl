@@ -26,7 +26,7 @@
         border-radius: 1rem;
         transition: background-color 0.3s ease, color 0.3s ease;
       }
-      .landing-logo svg {
+      .landing-logo-image {
         width: 26px;
         height: 26px;
       }
@@ -105,12 +105,8 @@
       <nav class="navbar landing-navbar shadow-sm px-3">
         <div class="container d-flex align-items-center justify-content-between">
           <a class="navbar-brand d-flex align-items-center gap-3 landing-brand" href="/app">
-            <span class="landing-logo" role="img" aria-label="LoopAware logo">
-              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <rect x="4" y="4" width="56" height="56" rx="16" stroke="currentColor" stroke-width="4" opacity="0.85" />
-                <path d="M20 32C20 26.477 24.477 22 30 22C35.523 22 40 26.477 40 32C40 37.523 35.523 42 30 42" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" />
-                <circle cx="34" cy="30" r="5" fill="currentColor" />
-              </svg>
+            <span class="landing-logo">
+              <img src="{{.LogoDataURI}}" alt="LoopAware logo" class="landing-logo-image" />
             </span>
             <span>LoopAware</span>
           </a>
