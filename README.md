@@ -8,7 +8,7 @@ role-aware dashboard for managing sites and messages.
 - Google OAuth 2.0 authentication via [GAuss](https://github.com/temirov/GAuss)
 - Role-aware dashboard (`/app`) with admin and owner scopes
 - YAML configuration for privileged accounts (`config.yaml`)
-- REST API to create, update, and inspect sites and feedback
+- GAuss-protected dashboard forms for creating, updating, and deleting sites
 - Embeddable JavaScript widget with strict origin validation
 - SQLite-first storage with pluggable drivers
 - Table-driven tests and fast in-memory SQLite fixtures
@@ -86,39 +86,49 @@ site; other users see only the sites assigned to their Google account.
    access.
 4. The dashboard and JSON APIs consume the authenticated context.
 
-## REST API
+## Dashboard Workflow
 
-All authenticated endpoints live under `/api` and require the GAuss session cookie. JSON responses include Unix
-timestamps in seconds.
+The dashboard now performs every privileged operation through GAuss-protected HTML forms:
 
-| Method  | Path                      | Role        | Description                                                               |
-|---------|---------------------------|-------------|---------------------------------------------------------------------------|
-| `GET`   | `/api/me`                 | any         | Current account metadata (email, name, `is_admin`)                        |
-| `GET`   | `/api/sites`              | any         | Sites visible to the caller (admin = all, user = owned)                   |
-| `POST`  | `/api/sites`              | admin       | Create a site (requires `name`, `allowed_origin`, `owner_email`)          |
-| `PATCH` | `/api/sites/:id`          | owner/admin | Update name/origin; admins may reassign ownership                         |
-| `GET`   | `/api/sites/:id/messages` | owner/admin | List feedback messages (newest first)                                     |
-| `POST`  | `/api/feedback`           | public      | Submit feedback (requires JSON body with `site_id`, `contact`, `message`) |
-| `GET`   | `/widget.js`              | public      | Serve embeddable JavaScript widget                                        |
+1. Visit `/app` to list all sites visible to the signed-in account.
+2. Select an existing site to edit its name or allowed origin. Administrators can also reassign the owner.
+3. Use the delete button to remove a site and its associated feedback.
+4. Scroll to “Create new site” to add another deployment. Administrators may choose any owner email; other users are
+   automatically assigned as the owner.
+
+Each action submits to one of the following routes, all requiring an authenticated GAuss session:
+
+| Method | Path                        | Description                                      |
+|--------|-----------------------------|--------------------------------------------------|
+| `GET`  | `/app`                      | Render the dashboard and site feedback           |
+| `POST` | `/app/sites`                | Create a site                                    |
+| `POST` | `/app/sites/:id`            | Update site metadata                             |
+| `POST` | `/app/sites/:id/delete`     | Delete a site and its feedback                   |
+| `GET`  | `/app/avatar`               | Serve the stored avatar for the current account  |
+| `POST` | `/api/feedback`             | Submit public widget feedback (unchanged)        |
+| `GET`  | `/widget.js`                | Serve the public widget script (unchanged)       |
 
 ## Dashboard (`/app`)
 
-The Bootstrap front end consumes the APIs above. Features include:
+The dashboard renders server-side HTML so operators can manage sites without custom JavaScript. Features include:
 
 - Account card with avatar, email, and role badge
 - Admin-only controls to create sites and reassign ownership
 - Owner/admin editor for site metadata
 - Feedback table with human-readable timestamps
 - Logout button (links to `/logout`)
+- Sticky header with avatar dropdown that exposes the theme toggle and logout action
+- Four-panel layout: scrollable site list, create/update form with color-coded actions, widget panel with copy button, and feedback panel with refresh control
+- Inline updates for create/update/delete operations without full page reloads
+- Sticky footer with Marco Polo Research Lab branding
 
 The dashboard automatically redirects unauthenticated visitors to `/login`.
 
 ## Embedding the widget
 
-1. Create a site (admin) and copy the generated `<script>` tag from the API response.
+1. Create a site (admin) and copy the generated `<script>` tag from the dashboard.
 2. Embed the script on any page served from the configured `allowed_origin`.
-3. Visitors can open the floating bubble, submit feedback, and the messages appear under `/api/sites/:id/messages` and
-   in the dashboard.
+3. Visitors can open the floating bubble, submit feedback, and messages appear in the dashboard’s feedback table.
 
 Example snippet (replace the base URL with your LoopAware deployment and the site identifier with the value returned by the API):
 

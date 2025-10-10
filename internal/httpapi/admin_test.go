@@ -1,11 +1,10 @@
-package httpapi_test
+package httpapi
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
+	"html"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -15,7 +14,6 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/httpapi"
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/testutil"
@@ -24,322 +22,254 @@ import (
 const (
 	testAdminEmailAddress = "admin@example.com"
 	testUserEmailAddress  = "user@example.com"
-	testSessionContextKey = "httpapi_current_user"
-	testWidgetBaseURL     = "https://loopaware.mprlab.com/"
+	testWidgetBaseURL     = "https://loopaware.example"
 )
 
-type siteTestHarness struct {
-	handlers *httpapi.SiteHandlers
+type siteServiceHarness struct {
+	service  *SiteService
 	database *gorm.DB
 }
 
-func newSiteTestHarness(testingT *testing.T) siteTestHarness {
-	testingT.Helper()
+func newSiteServiceHarness(t *testing.T) siteServiceHarness {
+	t.Helper()
 
 	gin.SetMode(gin.TestMode)
-	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
 	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
-	require.NoError(testingT, openErr)
-	require.NoError(testingT, storage.AutoMigrate(database))
+	require.NoError(t, openErr)
+	require.NoError(t, storage.AutoMigrate(database))
 
-	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL)
-
-	return siteTestHarness{handlers: handlers, database: database}
+	service := NewSiteService(database, zap.NewNop(), testWidgetBaseURL)
+	return siteServiceHarness{service: service, database: database}
 }
 
-func TestListMessagesBySiteReturnsOrderedUnixTimestamps(testingT *testing.T) {
-	harness := newSiteTestHarness(testingT)
+func TestSiteServiceCreateSiteEnforcesOwnership(t *testing.T) {
+	harness := newSiteServiceHarness(t)
 
-	site := model.Site{
-		ID:            storage.NewID(),
-		Name:          "List Messages Site",
-		AllowedOrigin: "http://list.example",
-		OwnerEmail:    testAdminEmailAddress,
+	testCases := []struct {
+		name        string
+		currentUser *CurrentUser
+		request     createSiteRequest
+		expectOwner string
+		expectError string
+	}{
+		{
+			name: "admin can assign owner",
+			currentUser: &CurrentUser{
+				Email:   testAdminEmailAddress,
+				IsAdmin: true,
+			},
+			request: createSiteRequest{
+				Name:          "Admin Site",
+				AllowedOrigin: "https://admin.example",
+				OwnerEmail:    testUserEmailAddress,
+			},
+			expectOwner: strings.ToLower(testUserEmailAddress),
+		},
+		{
+			name: "user assigned to self",
+			currentUser: &CurrentUser{
+				Email: testUserEmailAddress,
+			},
+			request: createSiteRequest{
+				Name:          "User Site",
+				AllowedOrigin: "https://user.example",
+			},
+			expectOwner: strings.ToLower(testUserEmailAddress),
+		},
+		{
+			name: "user cannot assign foreign owner",
+			currentUser: &CurrentUser{
+				Email: testUserEmailAddress,
+			},
+			request: createSiteRequest{
+				Name:          "Rejected Site",
+				AllowedOrigin: "https://reject.example",
+				OwnerEmail:    testAdminEmailAddress,
+			},
+			expectError: errorValueInvalidOperation,
+		},
 	}
-	require.NoError(testingT, harness.database.Create(&site).Error)
 
-	firstFeedback := model.Feedback{
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			response, err := harness.service.CreateSite(testCase.currentUser, testCase.request)
+			if testCase.expectError != "" {
+				require.Error(t, err)
+				var siteErr *siteError
+				require.ErrorAs(t, err, &siteErr)
+				require.Equal(t, testCase.expectError, siteErr.Code())
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, testCase.request.Name, response.Name)
+			require.Equal(t, testCase.expectOwner, response.OwnerEmail)
+
+			var persisted model.Site
+			require.NoError(t, harness.database.First(&persisted, "id = ?", response.ID).Error)
+			require.Equal(t, testCase.expectOwner, persisted.OwnerEmail)
+		})
+	}
+}
+
+func TestSiteServiceUpdateAndDeleteLifecycle(t *testing.T) {
+	harness := newSiteServiceHarness(t)
+
+	currentUser := &CurrentUser{Email: testAdminEmailAddress, IsAdmin: true}
+	created, err := harness.service.CreateSite(currentUser, createSiteRequest{
+		Name:          "Lifecycle",
+		AllowedOrigin: "https://lifecycle.example",
+		OwnerEmail:    testAdminEmailAddress,
+	})
+	require.NoError(t, err)
+
+	newName := "Lifecycle Updated"
+	newOrigin := "https://updated.example"
+	updated, updateErr := harness.service.UpdateSite(currentUser, created.ID, updateSiteRequest{
+		Name:          &newName,
+		AllowedOrigin: &newOrigin,
+	})
+	require.NoError(t, updateErr)
+	require.Equal(t, newName, updated.Name)
+	require.Equal(t, newOrigin, updated.AllowedOrigin)
+
+	feedback := model.Feedback{
+		ID:      storage.NewID(),
+		SiteID:  created.ID,
+		Contact: "contact@example.com",
+		Message: "Hello",
+	}
+	require.NoError(t, harness.database.Create(&feedback).Error)
+
+	require.NoError(t, harness.service.DeleteSite(currentUser, created.ID))
+
+	var persisted model.Site
+	require.Error(t, harness.database.First(&persisted, "id = ?", created.ID).Error)
+
+	var remainingFeedback model.Feedback
+	require.Error(t, harness.database.First(&remainingFeedback, "id = ?", feedback.ID).Error)
+}
+
+func TestSiteServiceListMessagesReturnsNewestFirst(t *testing.T) {
+	harness := newSiteServiceHarness(t)
+
+	currentUser := &CurrentUser{Email: testAdminEmailAddress, IsAdmin: true}
+	created, err := harness.service.CreateSite(currentUser, createSiteRequest{
+		Name:          "Messages",
+		AllowedOrigin: "https://messages.example",
+		OwnerEmail:    testAdminEmailAddress,
+	})
+	require.NoError(t, err)
+
+	first := model.Feedback{
 		ID:        storage.NewID(),
-		SiteID:    site.ID,
+		SiteID:    created.ID,
 		Contact:   "first@example.com",
 		Message:   "First",
 		CreatedAt: time.Now().Add(-time.Minute),
 	}
-	secondFeedback := model.Feedback{
+	second := model.Feedback{
 		ID:        storage.NewID(),
-		SiteID:    site.ID,
+		SiteID:    created.ID,
 		Contact:   "second@example.com",
 		Message:   "Second",
 		CreatedAt: time.Now(),
 	}
-	require.NoError(testingT, harness.database.Create(&firstFeedback).Error)
-	require.NoError(testingT, harness.database.Create(&secondFeedback).Error)
+	require.NoError(t, harness.database.Create(&first).Error)
+	require.NoError(t, harness.database.Create(&second).Error)
 
-	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/messages", nil)
-	context.Params = gin.Params{{Key: "id", Value: site.ID}}
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
-
-	harness.handlers.ListMessagesBySite(context)
-	require.Equal(testingT, http.StatusOK, recorder.Code)
-
-	var responseBody struct {
-		SiteID   string `json:"site_id"`
-		Messages []struct {
-			Identifier string `json:"id"`
-			CreatedAt  int64  `json:"created_at"`
-		} `json:"messages"`
-	}
-	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
-	require.Equal(testingT, site.ID, responseBody.SiteID)
-	require.Len(testingT, responseBody.Messages, 2)
-	require.GreaterOrEqual(testingT, responseBody.Messages[0].CreatedAt, responseBody.Messages[1].CreatedAt)
+	messages, listErr := harness.service.ListMessagesForSite(created.ID, currentUser)
+	require.NoError(t, listErr)
+	require.Len(t, messages, 2)
+	require.GreaterOrEqual(t, messages[0].CreatedAt, messages[1].CreatedAt)
 }
 
-func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
-	harness := newSiteTestHarness(testingT)
+func TestDashboardRenderDisplaysSitesAndWidget(t *testing.T) {
+	harness := newSiteServiceHarness(t)
+	currentUser := &CurrentUser{
+		Email:   testAdminEmailAddress,
+		Name:    "Admin",
+		IsAdmin: true,
+	}
 
-	site := model.Site{
-		ID:            storage.NewID(),
-		Name:          "Widget Site",
-		AllowedOrigin: "https://client.example",
+	created, err := harness.service.CreateSite(currentUser, createSiteRequest{
+		Name:          "Renderable",
+		AllowedOrigin: "https://render.example",
 		OwnerEmail:    testAdminEmailAddress,
-	}
-	require.NoError(testingT, harness.database.Create(&site).Error)
+	})
+	require.NoError(t, err)
 
-	recorder, context := newJSONContext(http.MethodGet, "/api/sites", nil)
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+	dashboardHandlers := NewDashboardWebHandlers(zap.NewNop(), harness.service)
 
-	harness.handlers.ListSites(context)
-	require.Equal(testingT, http.StatusOK, recorder.Code)
-
-	var responseBody struct {
-		Sites []struct {
-			Identifier string `json:"id"`
-			Widget     string `json:"widget"`
-		} `json:"sites"`
-	}
-	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
-	require.Len(testingT, responseBody.Sites, 1)
-
-	expectedBaseURL := strings.TrimRight(testWidgetBaseURL, "/")
-	expectedWidget := fmt.Sprintf("<script src=\"%s/widget.js?site_id=%s\"></script>", expectedBaseURL, site.ID)
-	require.Equal(testingT, expectedWidget, responseBody.Sites[0].Widget)
-}
-
-func TestNonAdminCannotAccessForeignSite(testingT *testing.T) {
-	harness := newSiteTestHarness(testingT)
-
-	site := model.Site{
-		ID:            storage.NewID(),
-		Name:          "Foreign Site",
-		AllowedOrigin: "http://foreign.example",
-		OwnerEmail:    testAdminEmailAddress,
-	}
-	require.NoError(testingT, harness.database.Create(&site).Error)
-
-	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/messages", nil)
-	context.Params = gin.Params{{Key: "id", Value: site.ID}}
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
-
-	harness.handlers.ListMessagesBySite(context)
-	require.Equal(testingT, http.StatusForbidden, recorder.Code)
-}
-
-func TestCreateSiteAllowsAdminToSpecifyOwner(testingT *testing.T) {
-	harness := newSiteTestHarness(testingT)
-
-	payload := map[string]string{
-		"name":           "Admin Created",
-		"allowed_origin": "http://owned.example",
-		"owner_email":    testUserEmailAddress,
-	}
-
-	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
-
-	harness.handlers.CreateSite(context)
-	require.Equal(testingT, http.StatusOK, recorder.Code)
-
-	var responseBody map[string]any
-	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
-	require.Equal(testingT, "Admin Created", responseBody["name"])
-	require.Equal(testingT, "http://owned.example", responseBody["allowed_origin"])
-	require.Equal(testingT, testUserEmailAddress, responseBody["owner_email"])
-
-	var createdSite model.Site
-	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Admin Created").Error)
-	require.Equal(testingT, testUserEmailAddress, createdSite.OwnerEmail)
-}
-
-func TestCreateSiteAssignsCurrentUserAsOwner(testingT *testing.T) {
-	harness := newSiteTestHarness(testingT)
-
-	payload := map[string]string{
-		"name":           "Self Owned",
-		"allowed_origin": "http://self.example",
-	}
-
-	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
-
-	harness.handlers.CreateSite(context)
-	require.Equal(testingT, http.StatusOK, recorder.Code)
-
-	var responseBody map[string]any
-	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
-	require.Equal(testingT, testUserEmailAddress, responseBody["owner_email"])
-
-	var createdSite model.Site
-	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Self Owned").Error)
-	require.Equal(testingT, testUserEmailAddress, createdSite.OwnerEmail)
-}
-
-func TestCreateSiteRejectsForeignOwnerForRegularUser(testingT *testing.T) {
-	harness := newSiteTestHarness(testingT)
-
-	payload := map[string]string{
-		"name":           "Invalid Owner",
-		"allowed_origin": "http://invalid.example",
-		"owner_email":    "other@example.com",
-	}
-
-	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
-
-	harness.handlers.CreateSite(context)
-	require.Equal(testingT, http.StatusForbidden, recorder.Code)
-}
-
-func TestUpdateSiteAllowsOwnerToChangeDetails(testingT *testing.T) {
-	harness := newSiteTestHarness(testingT)
-
-	site := model.Site{
-		ID:            storage.NewID(),
-		Name:          "Owner Site",
-		AllowedOrigin: "http://owner.example",
-		OwnerEmail:    testUserEmailAddress,
-	}
-	require.NoError(testingT, harness.database.Create(&site).Error)
-
-	payload := map[string]string{
-		"name":           "Updated Name",
-		"allowed_origin": "http://updated.example",
-	}
-
-	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID, payload)
-	context.Params = gin.Params{{Key: "id", Value: site.ID}}
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
-
-	harness.handlers.UpdateSite(context)
-	require.Equal(testingT, http.StatusOK, recorder.Code)
-
-	var responseBody map[string]any
-	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
-	require.Equal(testingT, "Updated Name", responseBody["name"])
-	require.Equal(testingT, "http://updated.example", responseBody["allowed_origin"])
-}
-
-func TestDeleteSiteRemovesSiteAndFeedback(testingT *testing.T) {
-	harness := newSiteTestHarness(testingT)
-
-	site := model.Site{
-		ID:            storage.NewID(),
-		Name:          "Deletable Site",
-		AllowedOrigin: "http://delete.example",
-		OwnerEmail:    testAdminEmailAddress,
-	}
-	require.NoError(testingT, harness.database.Create(&site).Error)
-
-	feedback := model.Feedback{
-		ID:      storage.NewID(),
-		SiteID:  site.ID,
-		Contact: "contact@example.com",
-		Message: "Message",
-	}
-	require.NoError(testingT, harness.database.Create(&feedback).Error)
-
-	recorder, context := newJSONContext(http.MethodDelete, "/api/sites/"+site.ID, nil)
-	context.Params = gin.Params{{Key: "id", Value: site.ID}}
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
-
-	harness.handlers.DeleteSite(context)
-	require.Equal(testingT, http.StatusNoContent, recorder.Code)
-
-	var remainingSite model.Site
-	require.ErrorIs(testingT, harness.database.First(&remainingSite, "id = ?", site.ID).Error, gorm.ErrRecordNotFound)
-
-	var remainingFeedback model.Feedback
-	require.ErrorIs(testingT, harness.database.First(&remainingFeedback, "id = ?", feedback.ID).Error, gorm.ErrRecordNotFound)
-}
-
-func TestDeleteSitePreventsUnauthorizedUser(testingT *testing.T) {
-	harness := newSiteTestHarness(testingT)
-
-	site := model.Site{
-		ID:            storage.NewID(),
-		Name:          "Protected Site",
-		AllowedOrigin: "http://protected.example",
-		OwnerEmail:    testAdminEmailAddress,
-	}
-	require.NoError(testingT, harness.database.Create(&site).Error)
-
-	recorder, context := newJSONContext(http.MethodDelete, "/api/sites/"+site.ID, nil)
-	context.Params = gin.Params{{Key: "id", Value: site.ID}}
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
-
-	harness.handlers.DeleteSite(context)
-	require.Equal(testingT, http.StatusForbidden, recorder.Code)
-
-	var persistedSite model.Site
-	require.NoError(testingT, harness.database.First(&persistedSite, "id = ?", site.ID).Error)
-}
-
-func TestUserAvatarReturnsStoredImage(testingT *testing.T) {
-	harness := newSiteTestHarness(testingT)
-
-	user := model.User{
-		Email:             strings.ToLower(testUserEmailAddress),
-		Name:              "Test User",
-		AvatarContentType: "image/png",
-		AvatarData:        []byte{0x01, 0x02, 0x03},
-	}
-	require.NoError(testingT, harness.database.Save(&user).Error)
-
-	recorder, context := newJSONContext(http.MethodGet, "/api/me/avatar", nil)
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress})
-
-	harness.handlers.UserAvatar(context)
-	require.Equal(testingT, http.StatusOK, recorder.Code)
-	require.Equal(testingT, "image/png", recorder.Header().Get("Content-Type"))
-	require.Equal(testingT, []byte{0x01, 0x02, 0x03}, recorder.Body.Bytes())
-}
-
-func TestUserAvatarReturnsNotFoundWhenMissing(testingT *testing.T) {
-	harness := newSiteTestHarness(testingT)
-
-	recorder, context := newJSONContext(http.MethodGet, "/api/me/avatar", nil)
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress})
-
-	harness.handlers.UserAvatar(context)
-	require.Equal(testingT, http.StatusNotFound, recorder.Code)
-}
-
-func newJSONContext(method string, path string, body any) (*httptest.ResponseRecorder, *gin.Context) {
 	recorder := httptest.NewRecorder()
-	var requestBody *bytes.Reader
-	if body != nil {
-		encoded, _ := json.Marshal(body)
-		requestBody = bytes.NewReader(encoded)
-	} else {
-		requestBody = bytes.NewReader(nil)
-	}
-
-	request := httptest.NewRequest(method, path, requestBody)
-	if body != nil {
-		request.Header.Set("Content-Type", "application/json")
-	}
-
 	context, _ := gin.CreateTestContext(recorder)
+	request := httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Request = request
-	return recorder, context
+	context.Set(contextKeyCurrentUser, currentUser)
+
+	dashboardHandlers.RenderDashboard(context)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	body := recorder.Body.String()
+	require.Contains(t, body, created.Name)
+	require.Contains(t, body, html.EscapeString(created.Widget))
+	require.Contains(t, body, "Copy widget")
+}
+
+func TestDashboardCreateSiteRedirects(t *testing.T) {
+	harness := newSiteServiceHarness(t)
+	currentUser := &CurrentUser{
+		Email:   testAdminEmailAddress,
+		IsAdmin: true,
+	}
+	dashboardHandlers := NewDashboardWebHandlers(zap.NewNop(), harness.service)
+
+	form := url.Values{}
+	form.Set("name", "Dashboard Created")
+	form.Set("allowed_origin", "https://dashboard.example")
+	form.Set("owner_email", testUserEmailAddress)
+
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	request := httptest.NewRequest(http.MethodPost, "/app/sites", strings.NewReader(form.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	require.NoError(t, request.ParseForm())
+	context.Request = request
+	context.Set(contextKeyCurrentUser, currentUser)
+
+	dashboardHandlers.CreateSite(context)
+	require.Equal(t, http.StatusSeeOther, recorder.Code)
+	location := recorder.Header().Get("Location")
+	require.Contains(t, location, "/app?site_id=")
+	require.Contains(t, location, "notice=site_created")
+
+	var persisted model.Site
+	require.NoError(t, harness.database.First(&persisted, "name = ?", "Dashboard Created").Error)
+}
+
+func TestDashboardUserAvatarServesStoredImage(t *testing.T) {
+	harness := newSiteServiceHarness(t)
+	currentUser := &CurrentUser{
+		Email: testUserEmailAddress,
+	}
+	require.NoError(t, harness.database.Save(&model.User{
+		Email:             strings.ToLower(testUserEmailAddress),
+		Name:              "Avatar",
+		AvatarContentType: "image/png",
+		AvatarData:        []byte{0x01, 0x02},
+	}).Error)
+
+	dashboardHandlers := NewDashboardWebHandlers(zap.NewNop(), harness.service)
+
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	request := httptest.NewRequest(http.MethodGet, "/app/avatar", nil)
+	context.Request = request
+	context.Set(contextKeyCurrentUser, currentUser)
+
+	dashboardHandlers.UserAvatar(context)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, "image/png", recorder.Header().Get("Content-Type"))
+	require.Equal(t, []byte{0x01, 0x02}, recorder.Body.Bytes())
 }

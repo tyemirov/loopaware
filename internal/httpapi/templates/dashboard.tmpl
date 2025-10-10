@@ -1,984 +1,624 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" data-bs-theme="light">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{.PageTitle}}</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" {{.BootstrapIconsIntegrityAttr}} crossorigin="anonymous" />
-    <link rel="icon" type="image/svg+xml" href="{{.FaviconDataURI}}" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ .PageTitle }}</title>
+    <link rel="icon" href="{{ .FaviconDataURL }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <style>
+      body {
+        padding-top: 4.5rem;
+        padding-bottom: 3.5rem;
+      }
+      .dashboard-main {
+        min-height: calc(100vh - 8rem);
+      }
+      .dashboard-sites-scroll {
+        max-height: calc(100vh - 9rem);
+        overflow-y: auto;
+      }
+      .surface-nav,
+      .surface-footer,
+      .surface-card-header {
+        background-color: var(--bs-secondary-bg);
+        color: var(--bs-body-color);
+        border-color: var(--bs-border-color);
+      }
+      .surface-nav {
+        border-bottom: 1px solid var(--bs-border-color);
+      }
+      .surface-footer {
+        border-top: 1px solid var(--bs-border-color);
+      }
+      .surface-card-header {
+        border-bottom: 1px solid var(--bs-border-color);
+      }
+      .surface-card-header .fw-semibold {
+        font-size: 1.05rem;
+      }
+      .account-toggle {
+        border-radius: 999px;
+        width: 40px;
+        height: 40px;
+        border: 2px solid transparent;
+        background: transparent;
+        color: var(--bs-body-color);
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .account-toggle:hover,
+      .account-toggle:focus {
+        border-color: var(--bs-body-color);
+        background: transparent;
+        color: var(--bs-body-color);
+        box-shadow: none;
+      }
+      .account-toggle img {
+        border-radius: 999px;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .account-toggle .avatar-initial {
+        border-radius: 999px;
+        width: 100%;
+        height: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        background: var(--bs-primary);
+        color: #fff;
+      }
+      .status-placeholder {
+        min-width: 0;
+      }
+      .status-placeholder:empty {
+        display: none;
+      }
+      .btn-icon {
+        background: transparent;
+        border: 0;
+        color: var(--bs-danger);
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .btn-icon:disabled {
+        color: var(--bs-secondary);
+      }
+      .list-group-item-action.active {
+        background-color: var(--bs-primary);
+        border-color: var(--bs-primary);
+      }
+    </style>
   </head>
-  <body class="d-flex flex-column min-vh-100 bg-light">
-    <header class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top shadow-sm">
+  <body>
+    <header class="navbar surface-nav shadow-sm fixed-top navbar-light">
       <div class="container-fluid">
-        <span class="navbar-brand fw-semibold">{{.PageTitle}}</span>
-        <div class="dropdown ms-auto">
-          <button id="{{.SettingsButtonID}}" class="btn btn-outline-light border-0 rounded-circle p-1 d-flex align-items-center justify-content-center" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-            <span class="visually-hidden">{{.SettingsButtonLabel}}</span>
-            <img id="{{.SettingsAvatarImageID}}" src="" alt="Avatar" class="rounded-circle d-none" width="36" height="36" />
-            <i id="{{.SettingsAvatarFallbackID}}" class="bi bi-person-circle fs-3"></i>
+        <span class="navbar-brand fw-semibold">LoopAware</span>
+        <div class="dropdown">
+          <button class="account-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            {{ if .CurrentUser.PictureURL }}
+              <img src="{{ .CurrentUser.PictureURL }}" alt="avatar">
+            {{ else }}
+              <span class="avatar-initial">{{ .CurrentUser.AvatarInitial }}</span>
+            {{ end }}
           </button>
-          <div id="{{.SettingsMenuID}}" class="dropdown-menu dropdown-menu-end">
-            <button id="{{.LogoutButtonID}}" class="dropdown-item" type="button">{{.LogoutLabel}}</button>
-            <div class="dropdown-item d-flex align-items-center justify-content-between">
-              <span>{{.ThemeToggleLabel}}</span>
-              <div class="form-check form-switch m-0">
-                <input class="form-check-input" type="checkbox" role="switch" id="{{.SettingsThemeToggleID}}" />
+          <div class="dropdown-menu dropdown-menu-end shadow">
+            <div class="px-3 py-2 border-bottom">
+              <div class="fw-semibold">{{ if .CurrentUser.Name }}{{ .CurrentUser.Name }}{{ else }}Account{{ end }}</div>
+              <div class="text-muted small">{{ .CurrentUser.Email }}</div>
+              {{ if .CurrentUser.IsAdmin }}
+                <span class="badge text-bg-warning mt-2">Administrator</span>
+              {{ end }}
+            </div>
+            <div class="px-3 py-3">
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="{{ .CurrentUser.ThemeToggleID }}">
+                <label class="form-check-label" for="{{ .CurrentUser.ThemeToggleID }}">Dark mode</label>
               </div>
             </div>
+            <div class="dropdown-divider"></div>
+            <a class="dropdown-item text-danger py-2" href="{{ .LogoutPath }}">Log out</a>
           </div>
         </div>
       </div>
     </header>
-    <main class="flex-grow-1 pt-5 mt-4">
-      <div class="container py-4">
-        
-        <div class="row g-4">
-          <div class="col-lg-4">
-            <div class="card shadow-sm">
-              <div class="card-header">Account</div>
-              <div class="card-body">
-                <div class="d-flex align-items-center">
-                  <img id="{{.UserAvatarID}}" src="" alt="Avatar" class="rounded-circle me-3 d-none" width="64" height="64" />
-                  <div>
-                    <div id="{{.UserNameID}}" class="fw-semibold"></div>
-                    <div id="{{.UserEmailID}}" class="text-muted small"></div>
-                    <span id="{{.UserRoleBadgeID}}" class="badge bg-secondary mt-2"></span>
-                  </div>
-                </div>
+
+    <main class="container-xxl px-4 px-lg-5 dashboard-main py-3">
+      <div class="row g-4">
+        <aside id="sites-panel" class="col-lg-4">
+          <div class="card shadow-sm h-100">
+            <div class="card-header surface-card-header d-flex justify-content-between align-items-center">
+              <span class="fw-semibold">Sites</span>
+              <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn-icon" title="Delete site" data-bs-toggle="modal" data-bs-target="#deleteSiteModal" data-site-name="{{ if .SelectedSite }}{{ .SelectedSite.Name }}{{ end }}" data-delete-url="{{ if .DeleteAllowed }}{{ .DeleteActionURL }}{{ end }}" {{ if not .DeleteAllowed }}disabled{{ end }}>
+                  <i class="bi bi-trash-fill"></i>
+                </button>
+                <a class="btn btn-sm btn-outline-primary" href="{{ printf "%s?%s=%s" "/app" "site_id" "new" }}" data-site-link data-role="site-new">New</a>
               </div>
             </div>
-            <div class="card shadow-sm mt-4">
-              <div class="card-header">
-                <div class="d-flex align-items-center justify-content-between">
-                  <span>Sites</span>
-                  <div class="d-flex align-items-center gap-2">
-                    <button id="{{.DeleteSiteButtonID}}" type="button" class="{{.DeleteSiteButtonDisabledClass}}" aria-label="{{.DeleteSiteButtonLabel}}" disabled>
-                      <i class="{{.DeleteSiteIconClass}}" aria-hidden="true"></i>
-                    </button>
-                    <button id="{{.NewSiteButtonID}}" type="button" class="{{.NewSiteButtonClass}}">{{.NewSiteButtonLabel}}</button>
-                  </div>
-                </div>
-              </div>
-              <div class="card-body p-0">
-                <div id="{{.SitesListID}}" class="list-group list-group-flush overflow-auto" style="max-height: 20rem;"></div>
-                <p class="text-muted small m-3" id="{{.EmptySitesMessageID}}">{{.EmptySitesMessage}}</p>
-              </div>
+            <div class="list-group list-group-flush dashboard-sites-scroll">
+              {{ if eq (len .Sites) 0 }}
+                <div class="list-group-item text-muted">No sites registered yet.</div>
+              {{ else }}
+                {{ range .Sites }}
+                  <a href="{{ printf "%s?%s=%s" "/app" "site_id" .ID }}" class="list-group-item list-group-item-action {{ if .IsActive }}active text-white{{ end }}" data-site-link data-role="site-select">
+                    <div class="fw-semibold">{{ .Name }}</div>
+                    <div class="small text-muted">{{ .AllowedOrigin }}</div>
+                  </a>
+                {{ end }}
+              {{ end }}
             </div>
           </div>
-          <div class="col-lg-8">
-            <div class="card shadow-sm mb-4">
-              <div class="card-header">
-                <div class="d-flex align-items-center justify-content-between">
-                  <h5 class="mb-0">Site details</h5>
-                  <div class="d-flex align-items-center gap-2">
-                    <div id="{{.FormStatusID}}" class="{{.FormStatusBaseClass}}"></div>
-                    <button id="{{.SaveSiteButtonID}}" type="button" class="{{.SaveButtonDefaultClass}}"></button>
-                  </div>
-                </div>
+        </aside>
+
+        <section class="col-lg-8">
+          <form id="site-form-panel" method="post" action="{{ .SiteForm.ActionURL }}" class="card shadow-sm mb-4" data-ajax="true" data-role="site-form">
+            <div class="card-header surface-card-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+              <div>
+                <span class="fw-semibold fs-5">{{ if .IsCreateMode }}Create site{{ else }}Site details{{ end }}</span>
+                {{ if and .SelectedSite (not .IsCreateMode) }}
+                  <div class="text-muted small">Created {{ .SelectedSite.CreatedAt }}</div>
+                {{ end }}
               </div>
-              <div class="card-body">
-                <form id="{{.SiteFormID}}">
-                  <div class="row g-3 align-items-end">
-                    <div class="col-md-6">
-                      <label class="form-label" for="{{.EditSiteNameInputID}}">Name</label>
-                      <input id="{{.EditSiteNameInputID}}" type="text" class="form-control" autocomplete="off" />
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label" for="{{.EditSiteOriginInputID}}">Allowed origin</label>
-                      <input id="{{.EditSiteOriginInputID}}" type="text" class="form-control" autocomplete="off" />
-                    </div>
-                    <div class="col-md-6 d-none" id="{{.EditSiteOwnerContainerID}}">
-                      <label class="form-label" for="{{.EditSiteOwnerInputID}}">Owner email</label>
-                      <input id="{{.EditSiteOwnerInputID}}" type="email" class="form-control" autocomplete="off" />
-                    </div>
-                                      </div>
-                </form>
+              <div class="d-flex align-items-center gap-3">
+                <span class="small status-placeholder {{ .SiteStatus.Class }}" data-status-role="site" data-default-message="{{ .SiteStatusDefault }}" data-default-class="{{ .SiteStatusDefaultClass }}" {{ if .SiteStatus.Ephemeral }}data-ephemeral="1"{{ end }}>{{ .SiteStatus.Message }}</span>
+                <button type="submit" class="{{ .SiteForm.SubmitClass }}" data-loading-label="{{ if .IsCreateMode }}Saving site...{{ else }}Updating site...{{ end }}" data-loading-status="{{ if .IsCreateMode }}Saving site...{{ else }}Updating site...{{ end }}" data-default-label="{{ .SiteForm.SubmitLabel }}">{{ .SiteForm.SubmitLabel }}</button>
               </div>
             </div>
-            <div class="card shadow-sm mb-4">
-              <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                  <h5 class="mb-0">{{.WidgetCardTitle}}</h5>
-                  <div class="d-flex align-items-center gap-2">
-                    <div id="{{.WidgetStatusID}}" class="d-none py-1 px-2 small"></div>
-                    <button id="{{.CopyWidgetSnippetButtonID}}" type="button" class="{{.CopyButtonDefaultClass}}">{{.CopyButtonDefaultLabel}}</button>
-                  </div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label" for="site-name">Name</label>
+                  <input id="site-name" name="name" type="text" class="form-control" value="{{ .SiteForm.Name }}" required>
                 </div>
-              </div>
-              <div class="card-body">
-                <p class="text-muted small mb-3">{{.WidgetInstructions}}</p>
-                <textarea id="{{.WidgetSnippetTextareaID}}" class="form-control font-monospace" rows="3" readonly></textarea>
+                <div class="col-md-6">
+                  <label class="form-label" for="site-origin">Allowed origin</label>
+                  <input id="site-origin" name="allowed_origin" type="text" class="form-control" value="{{ .SiteForm.AllowedOrigin }}" required>
+                </div>
+                {{ if .CurrentUser.IsAdmin }}
+                  <div class="col-md-6">
+                    <label class="form-label" for="site-owner">Owner email</label>
+                    <input id="site-owner" name="owner_email" type="email" class="form-control" value="{{ .SiteForm.OwnerEmail }}" required>
+                  </div>
+                {{ else }}
+                  <input type="hidden" name="owner_email" value="{{ .SiteForm.OwnerEmail }}">
+                {{ end }}
               </div>
             </div>
-            <div class="card shadow-sm">
-              <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                  <h5 class="mb-0">Feedback messages</h5>
-                  <div class="d-flex align-items-center gap-2">
-                    <div id="{{.MessagesStatusID}}" class="d-none py-1 px-2 small"></div>
-                    <button id="{{.RefreshMessagesButtonID}}" class="{{.RefreshButtonDefaultClass}}">{{.RefreshButtonDefaultLabel}}</button>
-                  </div>
-                </div>
+          </form>
+
+          <div id="widget-panel" class="card shadow-sm mb-4">
+            <div class="card-header surface-card-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+              <span class="fw-semibold fs-5">Widget</span>
+              <div class="d-flex align-items-center gap-3">
+                <span class="small status-placeholder {{ .WidgetStatus.Class }}" data-status-role="widget" data-default-message="{{ .WidgetStatusDefault }}" data-default-class="{{ .WidgetStatusDefaultClass }}" {{ if .WidgetStatus.Ephemeral }}data-ephemeral="1"{{ end }}>{{ .WidgetStatus.Message }}</span>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="widget-copy-button" {{ if not .WidgetCopyEnabled }}disabled{{ end }}>Copy widget</button>
               </div>
-              <div class="card-body">
+            </div>
+            <div class="card-body">
+              <textarea class="form-control" id="widget-snippet" rows="3" readonly {{ if not .WidgetCopyEnabled }}disabled{{ end }}>{{ .WidgetSnippet }}</textarea>
+            </div>
+          </div>
+
+          <div id="feedback-panel" class="card shadow-sm mb-5">
+            <div class="card-header surface-card-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+              <span class="fw-semibold fs-5">Feedback</span>
+              <div class="d-flex align-items-center gap-3">
+                <span class="small status-placeholder {{ .FeedbackStatus.Class }}" data-status-role="feedback" data-default-message="{{ .FeedbackStatusDefault }}" data-default-class="{{ .FeedbackStatusDefaultClass }}" {{ if .FeedbackStatus.Ephemeral }}data-ephemeral="1"{{ end }}>{{ .FeedbackStatus.Message }}</span>
+                <a class="btn btn-sm btn-outline-secondary {{ if not .SelectedSite }}disabled{{ end }}" href="{{ if .SelectedSite }}{{ .FeedbackRefresh }}{{ else }}#{{ end }}" data-site-link data-role="feedback-refresh" data-loading-label="Refreshing..." data-loading-status="Refreshing feedback...">Refresh</a>
+              </div>
+            </div>
+            <div class="card-body">
+              {{ if not .SelectedSite }}
+                <p class="text-muted mb-0">Select a site to review incoming messages.</p>
+              {{ else if eq (len .FeedbackMessages) 0 }}
+                <p class="text-muted mb-0">No feedback received yet.</p>
+              {{ else }}
                 <div class="table-responsive">
-                  <table class="table table-striped table-hover align-middle">
-                    <thead class="table-light">
+                  <table class="table table-sm align-middle mb-0">
+                    <thead>
                       <tr>
-                        <th scope="col">When</th>
+                        <th scope="col">Received</th>
                         <th scope="col">Contact</th>
                         <th scope="col">Message</th>
                       </tr>
                     </thead>
-                    <tbody id="{{.FeedbackTableBodyID}}">
-                      <tr><td colspan="3" class="text-center text-muted">{{.FeedbackPlaceholder}}</td></tr>
+                    <tbody>
+                      {{ range .FeedbackMessages }}
+                        <tr>
+                          <td class="text-nowrap">{{ .CreatedAt }}</td>
+                          <td>{{ .Contact }}</td>
+                          <td>{{ .Message }}</td>
+                        </tr>
+                      {{ end }}
                     </tbody>
                   </table>
                 </div>
-              </div>
+              {{ end }}
             </div>
           </div>
-        </div>
+        </section>
       </div>
     </main>
-    <div class="modal fade" id="{{.DeleteSiteModalID}}" tabindex="-1" aria-hidden="true">
+
+    <footer class="surface-footer text-end py-2 fixed-bottom">
+      <div class="container small">
+        Built by <a class="text-decoration-none text-warning" href="{{ .BrandURL }}" target="_blank" rel="noreferrer">{{ .BrandName }}</a>
+      </div>
+    </footer>
+
+    <div class="modal fade" id="deleteSiteModal" tabindex="-1" aria-hidden="true" aria-labelledby="delete-site-modal-label">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">{{.DeleteSiteModalTitle}}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{.DeleteSiteModalCancelButtonLabel}}"></button>
-          </div>
-          <div class="modal-body">
-            <p class="mb-3">{{.DeleteSiteModalDescription}}</p>
-            <div class="mb-3">
-              <label class="form-label" for="{{.DeleteSiteModalInputID}}">{{.DeleteSiteModalInputLabel}}</label>
-              <input id="{{.DeleteSiteModalInputID}}" type="text" class="form-control" placeholder="{{.DeleteSiteModalInputPlaceholder}}" autocomplete="off" />
-              <div class="form-text">{{.DeleteSiteModalHintPrefix}}<strong id="{{.DeleteSiteTargetNameID}}"></strong>{{.DeleteSiteModalHintSuffix}}</div>
+          <form id="delete-site-form" method="post" data-ajax="true" data-role="delete-site">
+            <div class="modal-header">
+              <h5 class="modal-title" id="delete-site-modal-label">Delete site</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="{{.DeleteSiteModalCancelButtonClass}}" data-bs-dismiss="modal">{{.DeleteSiteModalCancelButtonLabel}}</button>
-            <button id="{{.DeleteSiteModalConfirmButtonID}}" type="button" class="{{.DeleteSiteModalConfirmButtonClass}}" disabled>{{.DeleteSiteModalConfirmButtonLabel}}</button>
-          </div>
+            <div class="modal-body">
+              <p class="mb-3">Type <strong id="delete-site-name-label"></strong> to confirm. This action cannot be undone.</p>
+              <input type="text" class="form-control" id="delete-site-confirm-input" autocomplete="off" required>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-danger" id="delete-site-confirm-button" disabled>Delete site</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
-    <footer id="{{.FooterElementID}}" class="{{.FooterBaseClass}}">
-      <div id="{{.FooterInnerElementID}}" class="container d-flex justify-content-end text-end small">
-        <span>{{.FooterBrandPrefix}} <a class="text-decoration-none" href="{{.FooterBrandURL}}" target="_blank" rel="noopener noreferrer">{{.FooterBrandName}}</a></span>
-      </div>
-    </footer>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-    <script type="application/json" id="{{.ClientConfigElementID}}">{{.ClientConfigJSON}}</script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
       (function() {
-        var configElement = document.getElementById('{{.ClientConfigElementID}}');
-        var parsedConfig = {};
-        if (configElement) {
-          try {
-            parsedConfig = JSON.parse(configElement.textContent || '{}') || {};
-          } catch (error) {
-            parsedConfig = {};
-          }
-        }
-        var apiPaths = parsedConfig.api_paths || {};
-        var sharedPaths = parsedConfig.paths || {};
-        var elementIds = parsedConfig.element_ids || {};
-        var buttonClasses = parsedConfig.button_classes || {};
-        var buttonLabels = parsedConfig.button_labels || {};
-        var statusMessages = parsedConfig.status_messages || {};
-        var roleLabels = parsedConfig.role_labels || {};
-        var buttonStyles = parsedConfig.button_styles || {};
-        var componentClasses = parsedConfig.component_classes || {};
-        var widgetTexts = parsedConfig.widget_texts || {};
-        var optionValues = parsedConfig.option_values || {};
-        var formStatusClasses = parsedConfig.form_status_classes || {};
-        var themePreferenceStorageKey = parsedConfig.theme_storage_key || '';
-        var settingsButton = document.getElementById(elementIds.settings_button);
-        var settingsMenu = document.getElementById(elementIds.settings_menu);
-        var themeToggle = document.getElementById(elementIds.settings_theme_toggle);
-        var settingsAvatarImage = document.getElementById(elementIds.settings_avatar_image);
-        var settingsAvatarFallback = document.getElementById(elementIds.settings_avatar_fallback);
-        var newSiteOptionValue = optionValues.new_site || '';
-        var createButtonLabel = buttonLabels.create || '';
-        var updateButtonLabel = buttonLabels.update || '';
-        var createButtonClass = buttonClasses.create || '';
-        var updateButtonClass = buttonClasses.update || '';
-        var newSiteButton = document.getElementById(elementIds.new_site_button);
-        var newSiteButtonDefaultClass = buttonClasses.new_site_default || '';
-        var newSiteButtonActiveClass = buttonClasses.new_site_active || '';
-        var sitesList = document.getElementById(elementIds.sites_list);
-        var siteListItemClass = componentClasses.site_list_item || '';
-        var siteListItemActiveClass = componentClasses.site_list_item_active || '';
-        var userName = document.getElementById(elementIds.user_name);
-        var userEmail = document.getElementById(elementIds.user_email);
-        var userAvatar = document.getElementById(elementIds.user_avatar);
-        var userRole = document.getElementById(elementIds.user_role);
-        var emptySitesMessage = document.getElementById(elementIds.empty_sites_message);
-        var siteForm = document.getElementById(elementIds.site_form);
-        var editSiteNameInput = document.getElementById(elementIds.edit_site_name);
-        var editSiteOriginInput = document.getElementById(elementIds.edit_site_origin);
-        var editSiteOwnerContainer = document.getElementById(elementIds.edit_site_owner_container);
-        var editSiteOwnerInput = document.getElementById(elementIds.edit_site_owner);
-        var saveSiteButton = document.getElementById(elementIds.save_site_button);
-        var refreshMessagesButton = document.getElementById(elementIds.refresh_messages_button);
-        var feedbackTableBody = document.getElementById(elementIds.feedback_table_body);
-        var logoutButton = document.getElementById(elementIds.logout_button);
-        var widgetSnippetTextarea = document.getElementById(elementIds.widget_snippet_textarea);
-        var copyWidgetSnippetButton = document.getElementById(elementIds.copy_widget_snippet_button);
-        var deleteSiteButton = document.getElementById(elementIds.delete_site_button);
-        var deleteSiteButtonDefaultClass = buttonClasses.delete_site_default || '';
-        var deleteSiteButtonDisabledClass = buttonClasses.delete_site_disabled || '';
-        var deleteSiteModalElement = document.getElementById(elementIds.delete_site_modal);
-        var deleteSiteModal = deleteSiteModalElement && window.bootstrap && window.bootstrap.Modal ? new window.bootstrap.Modal(deleteSiteModalElement) : null;
-        var deleteSiteConfirmButton = document.getElementById(elementIds.delete_site_confirm_button);
-        var deleteSiteConfirmInput = document.getElementById(elementIds.delete_site_confirm_input);
-        var deleteSiteTargetName = document.getElementById(elementIds.delete_site_target_name);
-        var formStatus = document.getElementById(elementIds.form_status);
-        var formStatusBaseClass = formStatusClasses.base || '';
-        var formStatusSuccessClass = formStatusClasses.success || '';
-        var formStatusDangerClass = formStatusClasses.danger || '';
-        var footerElement = document.getElementById(elementIds.footer);
-        var footerThemeClasses = parsedConfig.footer_theme_classes || {};
-        var logoutPath = sharedPaths.logout || '';
-        var loginPath = sharedPaths.login || '';
-        var widgetUnavailableMessage = widgetTexts.unavailable || '';
-        var apiMeEndpoint = apiPaths.me || '';
-        var apiSitesEndpoint = apiPaths.sites || '';
-        var apiSiteUpdatePrefix = apiPaths.site_update_prefix || '';
-        var apiSiteMessagesPrefix = apiPaths.site_messages_prefix || '';
-        var apiSiteMessagesSuffix = apiPaths.site_messages_suffix || '';
+        var themeToggleId = "{{ .CurrentUser.ThemeToggleID }}";
+        var themeStorageKey = "{{ .CurrentUser.ThemeStorageID }}";
+        var themeToggle = document.getElementById(themeToggleId);
 
-        var state = {
-          user: null,
-          sites: [],
-          selectedSiteId: '',
-          pendingDeletionSiteId: ''
-        };
-        var buttonStatusDisplayDuration = 3000;
-        var widgetBaseURL = window.location.origin.replace(/\/$/, '');
-        if (widgetSnippetTextarea) {
-          widgetSnippetTextarea.value = widgetUnavailableMessage;
-        }
-        if (copyWidgetSnippetButton) {
-          copyWidgetSnippetButton.disabled = true;
-        }
-        setButtonDefault(copyWidgetSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
-        setButtonDefault(refreshMessagesButton, buttonLabels.refresh_default || '', buttonClasses.refresh_default || '');
-        setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
-        clearFormStatus();
-
-        function applyThemePreference(mode) {
-          var normalized = mode === 'dark' ? 'dark' : 'light';
-          document.documentElement.setAttribute('data-bs-theme', normalized);
-          if (normalized === 'dark') {
-            document.body.classList.remove('bg-light');
-            document.body.classList.add('bg-dark', 'text-light');
-            applyElementThemeClasses(footerElement, footerThemeClasses.dark || '', footerThemeClasses.light || '');
-          } else {
-            document.body.classList.remove('bg-dark', 'text-light');
-            if (!document.body.classList.contains('bg-light')) {
-              document.body.classList.add('bg-light');
-            }
-            applyElementThemeClasses(footerElement, footerThemeClasses.light || '', footerThemeClasses.dark || '');
+        function applyTheme(theme) {
+          document.documentElement.setAttribute("data-bs-theme", theme);
+          var navbar = document.querySelector(".surface-nav");
+          if (navbar) {
+            navbar.classList.toggle("navbar-dark", theme === "dark");
+            navbar.classList.toggle("navbar-light", theme !== "dark");
           }
         }
 
-        function loadThemePreference() {
-          var stored = localStorage.getItem(themePreferenceStorageKey);
-          if (stored !== 'dark' && stored !== 'light') {
-            stored = 'light';
-          }
-          themeToggle.checked = stored === 'dark';
-          applyThemePreference(stored);
+        function currentTheme() {
+          return document.documentElement.getAttribute("data-bs-theme") || "light";
         }
 
-        function persistThemePreference(mode) {
-          localStorage.setItem(themePreferenceStorageKey, mode);
-        }
-
-        function fetchJSON(url, options) {
-          var requestOptions = options || {};
-          if (!requestOptions.credentials) {
-            requestOptions.credentials = 'same-origin';
-          }
-          return window.fetch(url, requestOptions).then(function(response) {
-            if (response.status === 401) {
-              window.location.href = loginPath;
-              return Promise.reject(new Error('unauthorized'));
-            }
-            if (response.status === 403) {
-              updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');
-              return Promise.reject(new Error('forbidden'));
-            }
-            if (!response.ok) {
-              return response.json().catch(function() {
-                return {};
-              }).then(function(body) {
-                var message = body.error || body.message || statusMessages.load_failed || '';
-                throw new Error(message);
-              });
-            }
-            return response.json();
+        var storedTheme = localStorage.getItem(themeStorageKey);
+        var initialTheme = storedTheme === "dark" ? "dark" : "light";
+        applyTheme(initialTheme);
+        if (themeToggle) {
+          themeToggle.checked = initialTheme === "dark";
+          themeToggle.addEventListener("change", function() {
+            var nextTheme = themeToggle.checked ? "dark" : "light";
+            applyTheme(nextTheme);
+            localStorage.setItem(themeStorageKey, nextTheme);
           });
         }
 
-        function updateUserCard() {
-          var displayName = state.user.name || state.user.email;
-          userName.textContent = displayName || '';
-          userEmail.textContent = state.user.email || '';
-          if (state.user.picture_url) {
-            userAvatar.src = state.user.picture_url;
-            userAvatar.classList.remove('d-none');
-          }
-          var roleLabel = state.user.is_admin ? roleLabels.admin : roleLabels.user;
-          userRole.textContent = roleLabel;
-          userRole.className = state.user.is_admin ? 'badge bg-warning text-dark mt-2' : 'badge bg-secondary mt-2';
-          if (state.user.is_admin) {
-            editSiteOwnerContainer.classList.remove('d-none');
-          } else {
-            editSiteOwnerContainer.classList.add('d-none');
-          }
+        function markBound(element, key) {
+          element.dataset[key] = "1";
+        }
 
-          if (state.user.picture_url) {
-            settingsAvatarImage.src = state.user.picture_url;
-            settingsAvatarImage.classList.remove('d-none');
-            settingsAvatarFallback.classList.add('d-none');
-          } else {
-            settingsAvatarImage.src = '';
-            settingsAvatarImage.classList.add('d-none');
-            settingsAvatarFallback.classList.remove('d-none');
+        function isBound(element, key) {
+          return element.dataset[key] === "1";
+        }
+
+        function replaceSection(id, doc) {
+          var next = doc.getElementById(id);
+          var current = document.getElementById(id);
+          if (current && next) {
+            current.replaceWith(next);
           }
         }
 
-        function isNewSiteSelected() {
-          return state.selectedSiteId === newSiteOptionValue;
-        }
-
-        function buildWidgetSnippet(siteId) {
-          return '<script src="' + widgetBaseURL + '/widget.js?site_id=' + siteId + '"></script>';
-        }
-
-        function updateButtonStatus(button, text, extraClass) {
-          if (!button) {
-            return;
-          }
-          if (!button._defaultText) {
-            button._defaultText = button.textContent;
-          }
-          if (!button._defaultClass) {
-            button._defaultClass = button.className;
-          }
-          button.textContent = text;
-          button.className = extraClass || button._defaultClass;
-          button._statusActive = true;
-          clearTimeout(button._statusTimer);
-          button._statusTimer = window.setTimeout(function() {
-            button._statusActive = false;
-            restoreButtonDefault(button);
-          }, buttonStatusDisplayDuration);
-        }
-
-        function setButtonDefault(button, label, className) {
-          if (!button) {
-            return;
-          }
-          button._defaultText = label;
-          button._defaultClass = className;
-          if (button._statusActive) {
-            return;
-          }
-          restoreButtonDefault(button);
-        }
-
-        function restoreButtonDefault(button) {
-          if (!button) {
-            return;
-          }
-          if (typeof button._defaultText === 'string') {
-            button.textContent = button._defaultText;
-          }
-          if (typeof button._defaultClass === 'string') {
-            button.className = button._defaultClass;
-          }
-        }
-
-        function normalizeClassList(value) {
-          if (typeof value !== 'string') {
-            return [];
-          }
-          return value.split(/\s+/).filter(function(item) {
-            return item.length > 0;
+        function replacePanelsFromHTML(html) {
+          var parser = new DOMParser();
+          var doc = parser.parseFromString(html, "text/html");
+          ["sites-panel","site-form-panel","widget-panel","feedback-panel","deleteSiteModal"].forEach(function(id) {
+            replaceSection(id, doc);
           });
+          rebind(document);
         }
 
-        function applyElementThemeClasses(element, classesToAdd, classesToRemove) {
+        function setStatusElement(element, message, className, ephemeral) {
           if (!element) {
             return;
           }
-          normalizeClassList(classesToRemove).forEach(function(className) {
-            element.classList.remove(className);
-          });
-          normalizeClassList(classesToAdd).forEach(function(className) {
-            element.classList.add(className);
-          });
-        }
-
-        function updateNewSiteButtonState() {
-          if (!newSiteButton) {
-            return;
+          if (!element.dataset.baseClass) {
+            element.dataset.baseClass = element.className.trim();
           }
-          if (isNewSiteSelected()) {
-            newSiteButton.className = newSiteButtonActiveClass;
+          if (!element.dataset.defaultMessage) {
+            element.dataset.defaultMessage = element.getAttribute("data-default-message") || "";
+          }
+          if (!element.dataset.defaultClass) {
+            element.dataset.defaultClass = element.getAttribute("data-default-class") || "";
+          }
+          element.className = element.dataset.baseClass;
+          if (className) {
+            element.className += " " + className;
+          }
+          element.textContent = message || "";
+          if (ephemeral) {
+            element.dataset.ephemeral = "1";
+            scheduleStatusReset([element]);
           } else {
-            newSiteButton.className = newSiteButtonDefaultClass;
+            delete element.dataset.ephemeral;
+            element.dataset.defaultMessage = message || "";
+            element.dataset.defaultClass = className || "";
           }
         }
 
-        function updateDeleteButtonState() {
-          if (!deleteSiteButton) {
+        function setStatus(role, message, className, ephemeral) {
+          var element = document.querySelector("[data-status-role='" + role + "']");
+          if (!element) {
             return;
           }
-          var shouldDisable = state.sites.length === 0 || !state.selectedSiteId || isNewSiteSelected();
-          deleteSiteButton.disabled = shouldDisable;
-          deleteSiteButton.className = shouldDisable ? deleteSiteButtonDisabledClass : deleteSiteButtonDefaultClass;
+          setStatusElement(element, message, className, ephemeral);
         }
 
-        function setFormStatus(message, className) {
-          if (!formStatus) {
-            return;
-          }
-          formStatus.textContent = message;
-          formStatus.className = className;
-        }
-
-        function clearFormStatus() {
-          if (!formStatus) {
-            return;
-          }
-          formStatus.textContent = '';
-          formStatus.className = formStatusBaseClass;
-        }
-
-        function clearDeleteConfirmationInput() {
-          if (deleteSiteConfirmInput) {
-            deleteSiteConfirmInput.value = '';
-            deleteSiteConfirmInput.dataset.expectedName = '';
-          }
-          if (deleteSiteConfirmButton) {
-            deleteSiteConfirmButton.disabled = true;
-          }
-        }
-
-        function updateDeleteConfirmationState() {
-          if (!deleteSiteConfirmInput || !deleteSiteConfirmButton) {
-            return;
-          }
-          var expectedName = (deleteSiteConfirmInput.dataset.expectedName || '').trim();
-          var typedName = deleteSiteConfirmInput.value.trim();
-          deleteSiteConfirmButton.disabled = expectedName === '' || typedName !== expectedName;
-        }
-
-        function openDeleteSiteModal() {
-          if (!deleteSiteModal || !deleteSiteButton || deleteSiteButton.disabled) {
-            return;
-          }
-          var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
-          if (!site) {
-            return;
-          }
-          state.pendingDeletionSiteId = site.id;
-          if (deleteSiteTargetName) {
-            deleteSiteTargetName.textContent = site.name || '';
-          }
-          if (deleteSiteConfirmInput) {
-            deleteSiteConfirmInput.dataset.expectedName = site.name || '';
-            deleteSiteConfirmInput.value = '';
-          }
-          if (deleteSiteConfirmButton) {
-            deleteSiteConfirmButton.disabled = true;
-          }
-          deleteSiteModal.show();
-          window.setTimeout(function() {
-            if (deleteSiteConfirmInput) {
-              deleteSiteConfirmInput.focus();
+        function scheduleStatusReset(scope) {
+          var nodes = Array.isArray(scope) ? scope : scope.querySelectorAll(".status-placeholder[data-ephemeral='1']");
+          Array.prototype.forEach.call(nodes, function(element) {
+            if (element.dataset.resetAttached === "1") {
+              return;
             }
-          }, 150);
+            element.dataset.resetAttached = "1";
+            window.setTimeout(function() {
+              setStatusElement(
+                element,
+                element.dataset.defaultMessage || "",
+                element.dataset.defaultClass || "",
+                false
+              );
+              delete element.dataset.resetAttached;
+            }, 3000);
+          });
         }
 
-        function deleteSelectedSite() {
-          if (!state.pendingDeletionSiteId) {
-            return;
-          }
-          var site = state.sites.find(function(item) { return item.id === state.pendingDeletionSiteId; });
-          if (!site) {
-            return;
-          }
-          if (deleteSiteConfirmButton) {
-            deleteSiteConfirmButton.disabled = true;
-          }
-          setFormStatus(statusMessages.deleting_site || '', formStatusDangerClass);
-          window.fetch(apiSiteUpdatePrefix + site.id, {
-            method: 'DELETE',
-            credentials: 'same-origin'
-          }).then(function(response) {
-            if (response.status === 401) {
-              window.location.href = loginPath;
-              throw new Error('unauthorized');
+        function bindSiteLinks(root) {
+          root.querySelectorAll("[data-site-link]").forEach(function(link) {
+            if (isBound(link, "siteBound")) {
+              return;
             }
-            if (!response.ok) {
-              return response.json().catch(function() {
-                return {};
-              }).then(function(body) {
-                var message = body.error || body.message || statusMessages.delete_site_failed || '';
-                throw new Error(message);
+            link.addEventListener("click", function(event) {
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+                return;
+              }
+              event.preventDefault();
+              var role = link.dataset.role || "";
+              var callbacks = [];
+              if (role === "feedback-refresh") {
+                setStatus("feedback", "Refreshing...", "text-info", true);
+                callbacks.push(function() {
+                  setStatus("feedback", "Feedback refreshed.", "text-success", true);
+                });
+              } else if (role === "site-new") {
+                setStatus("site", "Preparing new site...", "text-info", true);
+                callbacks.push(function() {
+                  focusSiteName();
+                  setStatus("site", "", "", false);
+                });
+              } else if (role === "site-select") {
+                setStatus("site", "Loading site...", "text-info", true);
+                callbacks.push(function() {
+                  setStatus("site", "", "", false);
+                });
+              }
+              link.classList.add("disabled");
+              loadDashboard(link.href, true, {
+                after: function() {
+                  callbacks.forEach(function(fn) { fn(); });
+                }
               });
-            }
-            return response;
-          }).then(function() {
-            state.sites = state.sites.filter(function(item) { return item.id !== site.id; });
-            state.selectedSiteId = state.sites.length > 0 ? state.sites[0].id : newSiteOptionValue;
-            state.pendingDeletionSiteId = '';
-            if (deleteSiteModal) {
-              deleteSiteModal.hide();
-            }
-            clearDeleteConfirmationInput();
-            renderSites();
-            setFormStatus(statusMessages.site_deleted || '', formStatusSuccessClass);
-          }).catch(function(error) {
-            if (error && error.message === 'unauthorized') {
+            });
+            markBound(link, "siteBound");
+          });
+        }
+
+        function bindCopyButton(root) {
+          var copyButton = root.querySelector("#widget-copy-button");
+          var widgetSnippet = root.querySelector("#widget-snippet");
+          if (!copyButton || !widgetSnippet || isBound(copyButton, "copyBound")) {
+            return;
+          }
+          copyButton.addEventListener("click", function() {
+            if (copyButton.disabled) {
               return;
             }
-            setFormStatus((error && error.message) || statusMessages.delete_site_failed || '', formStatusDangerClass);
-            if (deleteSiteConfirmInput) {
-              updateDeleteConfirmationState();
+            var text = widgetSnippet.value || "";
+            var handleSuccess = function() {
+              setStatus("widget", "", "", false);
+              copyButton.classList.remove("btn-outline-primary");
+              copyButton.classList.add("btn-outline-success");
+              copyButton.textContent = "Copied";
+              window.setTimeout(function() {
+                copyButton.classList.remove("btn-outline-success");
+                copyButton.classList.add("btn-outline-primary");
+                copyButton.textContent = "Copy widget";
+              }, 2000);
+            };
+            var handleError = function() {
+              setStatus("widget", "Unable to copy widget.", "text-danger", true);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text).then(handleSuccess).catch(handleError);
+              return;
+            }
+            widgetSnippet.focus();
+            widgetSnippet.select();
+            try {
+              if (document.execCommand("copy")) {
+                handleSuccess();
+              } else {
+                handleError();
+              }
+            } catch (copyError) {
+              handleError();
             }
           });
+          markBound(copyButton, "copyBound");
         }
 
-        function updateWidgetSnippet() {
-          if (!state.selectedSiteId || isNewSiteSelected()) {
-            widgetSnippetTextarea.value = widgetUnavailableMessage;
-            copyWidgetSnippetButton.disabled = true;
-            return;
-          }
-          var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
-          if (!site) {
-            widgetSnippetTextarea.value = widgetUnavailableMessage;
-            copyWidgetSnippetButton.disabled = true;
-            return;
-          }
-          widgetSnippetTextarea.value = buildWidgetSnippet(site.id);
-          copyWidgetSnippetButton.disabled = false;
-        }
-
-        function copyWidgetSnippet() {
-          if (copyWidgetSnippetButton.disabled) {
-            return;
-          }
-          var snippet = widgetSnippetTextarea.value;
-          if (!snippet || snippet === widgetUnavailableMessage) {
-            updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
-            return;
-          }
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(snippet).then(function() {
-              updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_copied || '', buttonStyles.primary || '');
-            }).catch(function() {
-              fallbackCopyWidgetSnippet(snippet);
+        function bindAjaxForms(root) {
+          root.querySelectorAll("form[data-ajax='true']").forEach(function(form) {
+            if (isBound(form, "ajaxBound")) {
+              return;
+            }
+            form.addEventListener("submit", function(event) {
+              event.preventDefault();
+              handleFormSubmit(form);
             });
-          } else {
-            fallbackCopyWidgetSnippet(snippet);
-          }
+            markBound(form, "ajaxBound");
+          });
         }
 
-        function fallbackCopyWidgetSnippet(snippet) {
-          var previousSelectionStart = widgetSnippetTextarea.selectionStart;
-          var previousSelectionEnd = widgetSnippetTextarea.selectionEnd;
-          widgetSnippetTextarea.focus();
-          widgetSnippetTextarea.select();
-          var copySucceeded = false;
-          try {
-            copySucceeded = document.execCommand('copy');
-          } catch (error) {
-            copySucceeded = false;
+        function handleFormSubmit(form) {
+          var formData = new FormData(form);
+          var submitButton = form.querySelector("[data-loading-label]");
+          var loadingLabel = submitButton ? submitButton.dataset.loadingLabel || submitButton.textContent : "";
+          var loadingStatus = submitButton ? submitButton.dataset.loadingStatus || "" : "";
+          var defaultLabel = submitButton ? submitButton.dataset.defaultLabel || submitButton.textContent : "";
+          if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = loadingLabel;
           }
-          widgetSnippetTextarea.selectionStart = previousSelectionStart;
-          widgetSnippetTextarea.selectionEnd = previousSelectionEnd;
-          widgetSnippetTextarea.blur();
-          if (copySucceeded) {
-            updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_copied || '', buttonStyles.primary || '');
-          } else {
-            updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
+          if (form.dataset.role === "site-form" && loadingStatus) {
+            setStatus("site", loadingStatus, "text-info", false);
           }
-        }
-
-        function renderSites() {
-          if (!sitesList) {
-            return;
+          if (form.dataset.role === "delete-site") {
+            setStatus("site", "Deleting site...", "text-warning", false);
           }
-          while (sitesList.firstChild) {
-            sitesList.removeChild(sitesList.firstChild);
+          var requestURL = form.action;
+          if (form.dataset.role === "delete-site") {
+            hideDeleteModal();
           }
-          var hasSites = state.sites.length > 0;
-
-          if (!state.selectedSiteId) {
-            state.selectedSiteId = hasSites ? state.sites[0].id : newSiteOptionValue;
-          }
-
-          if (!isNewSiteSelected()) {
-            var selectedExists = state.sites.some(function(item) {
-              return item.id === state.selectedSiteId;
+          fetch(form.action, {
+            method: form.method || "POST",
+            body: formData,
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+            credentials: "same-origin"
+          }).then(function(response) {
+            requestURL = response.url || requestURL;
+            return response.text().then(function(html) {
+              replacePanelsFromHTML(html);
+              if (response.ok) {
+                window.history.pushState({}, "", requestURL);
+              }
             });
-            if (!selectedExists) {
-              state.selectedSiteId = hasSites ? state.sites[0].id : newSiteOptionValue;
-            }
-          }
-
-          state.sites.forEach(function(site) {
-            var listItem = document.createElement('button');
-            listItem.type = 'button';
-            listItem.className = siteListItemClass + (site.id === state.selectedSiteId ? ' ' + siteListItemActiveClass : '');
-            listItem.dataset.siteId = site.id;
-
-            var nameElement = document.createElement('div');
-            nameElement.className = 'fw-semibold';
-            nameElement.textContent = site.name || '';
-            listItem.appendChild(nameElement);
-
-            var originElement = document.createElement('div');
-            originElement.className = 'small text-muted text-truncate';
-            originElement.textContent = site.allowed_origin || '';
-            listItem.appendChild(originElement);
-
-            sitesList.appendChild(listItem);
-          });
-
-          if (hasSites) {
-            emptySitesMessage.classList.add('d-none');
-          } else {
-            emptySitesMessage.textContent = statusMessages.no_sites || '';
-            emptySitesMessage.classList.remove('d-none');
-          }
-
-          updateNewSiteButtonState();
-          updateDeleteButtonState();
-          populateSiteForm();
-          updateWidgetSnippet();
-          if (isNewSiteSelected()) {
-            renderFeedbackPlaceholder(statusMessages.select_site || '');
-          } else {
-            loadMessages(false);
-          }
-        }
-
-        function handleSitesListClick(event) {
-          var target = event.target;
-          while (target && target !== sitesList && !target.dataset.siteId) {
-            target = target.parentElement;
-          }
-          if (!target || target === sitesList) {
-            return;
-          }
-          var siteIdentifier = target.dataset.siteId;
-          if (!siteIdentifier || siteIdentifier === state.selectedSiteId) {
-            return;
-          }
-          clearFormStatus();
-          state.selectedSiteId = siteIdentifier;
-          renderSites();
-        }
-
-        function clearSiteForm() {
-          editSiteNameInput.value = '';
-          editSiteOriginInput.value = '';
-          editSiteOwnerInput.value = '';
-        }
-
-        function populateSiteForm() {
-          if (!state.selectedSiteId) {
-            clearSiteForm();
-            saveSiteButton.disabled = true;
-            updateFormMode();
-            updateWidgetSnippet();
-            return;
-          }
-
-          if (isNewSiteSelected()) {
-            clearSiteForm();
-            saveSiteButton.disabled = false;
-            updateFormMode();
-            updateWidgetSnippet();
-            return;
-          }
-
-          var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
-          if (!site) {
-            clearSiteForm();
-            saveSiteButton.disabled = true;
-            updateFormMode();
-            updateWidgetSnippet();
-            return;
-          }
-
-          editSiteNameInput.value = site.name || '';
-          editSiteOriginInput.value = site.allowed_origin || '';
-          editSiteOwnerInput.value = site.owner_email || '';
-          saveSiteButton.disabled = false;
-          updateFormMode();
-          updateWidgetSnippet();
-        }
-
-        function updateFormMode() {
-          if (!state.user) {
-            return;
-          }
-          var isAdmin = state.user.is_admin;
-          if (isNewSiteSelected()) {
-            setButtonDefault(saveSiteButton, createButtonLabel, createButtonClass);
-          } else {
-            setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
-          }
-          if (isAdmin) {
-            editSiteOwnerInput.disabled = false;
-          } else {
-            editSiteOwnerInput.disabled = true;
-          }
-        }
-
-        function renderFeedbackPlaceholder(message) {
-          feedbackTableBody.innerHTML = '';
-          var row = document.createElement('tr');
-          var cell = document.createElement('td');
-          cell.colSpan = 3;
-          cell.className = 'text-center text-muted';
-          cell.textContent = message;
-          row.appendChild(cell);
-          feedbackTableBody.appendChild(row);
-        }
-
-        function renderMessages(messages) {
-          if (!messages.length) {
-            renderFeedbackPlaceholder(statusMessages.no_messages || '');
-            return;
-          }
-          feedbackTableBody.innerHTML = '';
-          messages.forEach(function(message) {
-            var row = document.createElement('tr');
-            var createdCell = document.createElement('td');
-            createdCell.textContent = formatTimestamp(message.created_at);
-            var contactCell = document.createElement('td');
-            contactCell.textContent = message.contact;
-            var bodyCell = document.createElement('td');
-            bodyCell.textContent = message.message;
-            row.appendChild(createdCell);
-            row.appendChild(contactCell);
-            row.appendChild(bodyCell);
-            feedbackTableBody.appendChild(row);
-          });
-        }
-
-        function formatTimestamp(unixSeconds) {
-          if (!unixSeconds) {
-            return '';
-          }
-          var date = new Date(unixSeconds * 1000);
-          return date.toLocaleString();
-        }
-
-        function loadUser() {
-          return fetchJSON(apiMeEndpoint).then(function(payload) {
-            state.user = payload;
-            updateUserCard();
-          }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
-            saveSiteButton.disabled = false;
-            throw error;
-          });
-        }
-
-        function loadSites() {
-          updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_loading || '', buttonStyles.secondary || '');
-          return fetchJSON(apiSitesEndpoint).then(function(payload) {
-            state.sites = payload.sites || [];
-            renderSites();
-          }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
-            saveSiteButton.disabled = false;
-          });
-        }
-
-        function loadMessages(shouldUpdateButtonStatus) {
-          var manualRefresh = shouldUpdateButtonStatus === true;
-          if (!state.selectedSiteId || isNewSiteSelected()) {
-            renderFeedbackPlaceholder(statusMessages.select_site || '');
-            if (manualRefresh) {
-              setButtonDefault(refreshMessagesButton, buttonLabels.refresh_default || '', buttonClasses.refresh_default || '');
-            }
-            return;
-          }
-          var endpoint = apiSiteMessagesPrefix + state.selectedSiteId + apiSiteMessagesSuffix;
-          renderFeedbackPlaceholder(statusMessages.loading_sites || 'Loading...');
-          if (manualRefresh) {
-            updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_loading || '', buttonStyles.secondary || '');
-          }
-          fetchJSON(endpoint).then(function(payload) {
-            renderMessages(payload.messages || []);
-            if (manualRefresh) {
-              updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_success || '', buttonStyles.secondary || '');
-            }
           }).catch(function() {
-            renderFeedbackPlaceholder(statusMessages.load_failed || '');
-            if (manualRefresh) {
-              updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');
+            window.location.href = form.action;
+          }).finally(function() {
+            if (submitButton && document.body.contains(submitButton)) {
+              submitButton.disabled = false;
+              submitButton.textContent = defaultLabel;
             }
           });
         }
 
-        function submitSite(event) {
-          if (event) { event.preventDefault(); }
-          if (saveSiteButton.disabled) { return; }
-          if (!state.selectedSiteId) {
-            updateButtonStatus(saveSiteButton, statusMessages.select_site || '', buttonStyles.secondary || '');
+        function loadDashboard(url, pushHistory, options) {
+          fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+            .then(function(response) {
+              if (!response.ok) {
+                throw new Error("fetch_failed");
+              }
+              var nextURL = response.url || url;
+              return response.text().then(function(html) {
+                replacePanelsFromHTML(html);
+                if (options && typeof options.after === "function") {
+                  options.after();
+                }
+                if (pushHistory !== false) {
+                  window.history.pushState({}, "", nextURL);
+                }
+              });
+            })
+            .catch(function() {
+              window.location.href = url;
+            });
+        }
+
+        function bindDeleteModal() {
+          var modalElement = document.getElementById("deleteSiteModal");
+          if (!modalElement || modalElement.dataset.bound === "1") {
             return;
           }
-          if (isNewSiteSelected()) {
-            createSite();
-          } else {
-            updateSite();
+          var deleteForm = document.getElementById("delete-site-form");
+          var deleteInput = document.getElementById("delete-site-confirm-input");
+          var deleteButton = document.getElementById("delete-site-confirm-button");
+          var deleteNameLabel = document.getElementById("delete-site-name-label");
+          if (!deleteForm || !deleteInput || !deleteButton || !deleteNameLabel) {
+            return;
+          }
+          var currentName = "";
+          modalElement.addEventListener("show.bs.modal", function(event) {
+            var trigger = event.relatedTarget;
+            currentName = trigger ? (trigger.getAttribute("data-site-name") || "") : "";
+            var deleteURL = trigger ? (trigger.getAttribute("data-delete-url") || "") : "";
+            deleteForm.action = deleteURL || "#";
+            deleteNameLabel.textContent = currentName;
+            deleteInput.value = "";
+            deleteButton.disabled = true;
+          });
+          modalElement.addEventListener("shown.bs.modal", function() {
+            deleteInput.focus();
+          });
+          deleteInput.addEventListener("input", function() {
+            deleteButton.disabled = deleteInput.value.trim() !== currentName || deleteForm.action === "#";
+          });
+          deleteForm.addEventListener("submit", function(event) {
+            if (deleteForm.action === "#") {
+              event.preventDefault();
+            }
+          });
+          modalElement.dataset.bound = "1";
+        }
+
+        function hideDeleteModal() {
+          var modalElement = document.getElementById("deleteSiteModal");
+          if (!modalElement) {
+            return;
+          }
+          var instance = bootstrap.Modal.getInstance(modalElement);
+          if (!instance) {
+            instance = new bootstrap.Modal(modalElement);
+          }
+          instance.hide();
+        }
+
+        function focusSiteName() {
+          var input = document.getElementById("site-name");
+          if (input) {
+            input.focus();
           }
         }
 
-        function updateSite() {
-          saveSiteButton.disabled = true;
-          updateButtonStatus(saveSiteButton, buttonLabels.save_saving || '');
-          var body = {
-            name: editSiteNameInput.value,
-            allowed_origin: editSiteOriginInput.value
-          };
-          if (state.user.is_admin) {
-            body.owner_email = editSiteOwnerInput.value;
-          }
-          var endpoint = apiSiteUpdatePrefix + state.selectedSiteId;
-          fetchJSON(endpoint, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-          }).then(function(payload) {
-            updateButtonStatus(saveSiteButton, buttonLabels.save_saved || '');
-            saveSiteButton.disabled = false;
-            var index = state.sites.findIndex(function(item) { return item.id === payload.id; });
-            if (index >= 0) {
-              state.sites[index] = payload;
-            }
-            renderSites();
-          }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
-            saveSiteButton.disabled = false;
-          });
+        function rebind(root) {
+          bindSiteLinks(root);
+          bindCopyButton(root);
+          bindAjaxForms(root);
+          bindDeleteModal();
+          scheduleStatusReset(root);
+          applyTheme(currentTheme());
         }
 
-        function createSite() {
-          saveSiteButton.disabled = true;
-          updateButtonStatus(saveSiteButton, buttonLabels.save_saving || '');
-          var body = {
-            name: editSiteNameInput.value,
-            allowed_origin: editSiteOriginInput.value,
-            owner_email: editSiteOwnerInput.value
-          };
-          fetchJSON(apiSitesEndpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-          }).then(function(payload) {
-            updateButtonStatus(saveSiteButton, buttonLabels.save_created || '');
-            saveSiteButton.disabled = false;
-            state.sites.unshift(payload);
-            state.selectedSiteId = payload.id;
-            renderSites();
-          }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
-            saveSiteButton.disabled = false;
-          });
-        }
+        rebind(document);
 
-        if (sitesList) {
-          sitesList.addEventListener('click', handleSitesListClick);
-        }
-        if (newSiteButton) {
-          newSiteButton.addEventListener('click', function(event) {
-            event.preventDefault();
-            if (state.selectedSiteId === newSiteOptionValue) {
-              return;
-            }
-            clearFormStatus();
-            state.selectedSiteId = newSiteOptionValue;
-            renderSites();
-          });
-        }
-        if (deleteSiteButton) {
-          deleteSiteButton.addEventListener('click', function(event) {
-            event.preventDefault();
-            openDeleteSiteModal();
-          });
-        }
-        if (deleteSiteConfirmInput) {
-          deleteSiteConfirmInput.addEventListener('input', function() {
-            updateDeleteConfirmationState();
-          });
-        }
-        if (deleteSiteConfirmButton) {
-          deleteSiteConfirmButton.addEventListener('click', function(event) {
-            event.preventDefault();
-            deleteSelectedSite();
-          });
-        }
-        if (deleteSiteModalElement) {
-          deleteSiteModalElement.addEventListener('hidden.bs.modal', function() {
-            state.pendingDeletionSiteId = '';
-            clearDeleteConfirmationInput();
-          });
-        }
-
-        if (siteForm) {
-          siteForm.addEventListener('submit', submitSite);
-        }
-        if (saveSiteButton) {
-          saveSiteButton.addEventListener('click', submitSite);
-        }
-        if (themeToggle) {
-          themeToggle.addEventListener('change', function(event) {
-            var mode = event.target.checked ? 'dark' : 'light';
-            applyThemePreference(mode);
-            persistThemePreference(mode);
-          });
-        }
-        if (copyWidgetSnippetButton) {
-          copyWidgetSnippetButton.addEventListener('click', function(event) {
-            event.preventDefault();
-            copyWidgetSnippet();
-          });
-        }
-        if (refreshMessagesButton) {
-          refreshMessagesButton.addEventListener('click', function(event) {
-            event.preventDefault();
-            loadMessages(true);
-          });
-        }
-        if (logoutButton) {
-          logoutButton.addEventListener('click', function(event) {
-            event.preventDefault();
-            window.location.href = logoutPath;
-          });
-        }
-
-        loadThemePreference();
-        loadUser().then(loadSites);
+        window.addEventListener("popstate", function() {
+          loadDashboard(window.location.href, false);
+        });
       })();
     </script>
   </body>

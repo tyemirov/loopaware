@@ -3,10 +3,8 @@ package httpapi
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
@@ -15,16 +13,7 @@ import (
 )
 
 const (
-	jsonKeyError      = "error"
-	jsonKeyEmail      = "email"
-	jsonKeyName       = "name"
-	jsonKeyIsAdmin    = "is_admin"
-	jsonKeyPictureURL = "picture_url"
-
-	errorValueInvalidJSON      = "invalid_json"
 	errorValueMissingFields    = "missing_fields"
-	errorValueSaveFailed       = "save_failed"
-	errorValueMissingSite      = "missing_site"
 	errorValueUnknownSite      = "unknown_site"
 	errorValueQueryFailed      = "query_failed"
 	errorValueNotAuthorized    = "not_authorized"
@@ -32,348 +21,129 @@ const (
 	errorValueNothingToUpdate  = "nothing_to_update"
 	errorValueInvalidOperation = "invalid_operation"
 	errorValueDeleteFailed     = "delete_failed"
+	errorValueSaveFailed       = "save_failed"
 
 	widgetScriptTemplate = "<script src=\"%s/widget.js?site_id=%s\"></script>"
+
+	dashboardNoticeCreated = "site_created"
+	dashboardNoticeUpdated = "site_updated"
+	dashboardNoticeDeleted = "site_deleted"
 )
 
-type SiteHandlers struct {
+var (
+	errSiteUnknown     = &siteError{code: errorValueUnknownSite}
+	errSiteNotAllowed  = &siteError{code: errorValueNotAuthorized}
+	errSiteInvalidForm = &siteError{code: errorValueMissingFields}
+)
+
+type siteError struct {
+	code string
+}
+
+func (err *siteError) Error() string {
+	return err.code
+}
+
+func (err *siteError) Code() string {
+	return err.code
+}
+
+type createSiteRequest struct {
+	Name          string
+	AllowedOrigin string
+	OwnerEmail    string
+}
+
+type updateSiteRequest struct {
+	Name          *string
+	AllowedOrigin *string
+	OwnerEmail    *string
+}
+
+type siteResponse struct {
+	ID            string
+	Name          string
+	AllowedOrigin string
+	OwnerEmail    string
+	Widget        string
+	CreatedAt     int64
+}
+
+type feedbackMessageResponse struct {
+	ID        string
+	Contact   string
+	Message   string
+	IP        string
+	UserAgent string
+	CreatedAt int64
+}
+
+// SiteService coordinates data access and validation for site management.
+type SiteService struct {
 	database      *gorm.DB
 	logger        *zap.Logger
 	widgetBaseURL string
 }
 
-func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string) *SiteHandlers {
-	return &SiteHandlers{
+// NewSiteService constructs SiteService with dependencies.
+func NewSiteService(database *gorm.DB, logger *zap.Logger, widgetBaseURL string) *SiteService {
+	return &SiteService{
 		database:      database,
 		logger:        logger,
 		widgetBaseURL: normalizeWidgetBaseURL(widgetBaseURL),
 	}
 }
 
-type createSiteRequest struct {
-	Name          string `json:"name"`
-	AllowedOrigin string `json:"allowed_origin"`
-	OwnerEmail    string `json:"owner_email"`
-}
-
-type updateSiteRequest struct {
-	Name          *string `json:"name"`
-	AllowedOrigin *string `json:"allowed_origin"`
-	OwnerEmail    *string `json:"owner_email"`
-}
-
-type siteResponse struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	AllowedOrigin string `json:"allowed_origin"`
-	OwnerEmail    string `json:"owner_email"`
-	Widget        string `json:"widget"`
-	CreatedAt     int64  `json:"created_at"`
-}
-
-type listSitesResponse struct {
-	Sites []siteResponse `json:"sites"`
-}
-
-type siteMessagesResponse struct {
-	SiteID   string                    `json:"site_id"`
-	Messages []feedbackMessageResponse `json:"messages"`
-}
-
-type feedbackMessageResponse struct {
-	ID        string `json:"id"`
-	Contact   string `json:"contact"`
-	Message   string `json:"message"`
-	IP        string `json:"ip"`
-	UserAgent string `json:"user_agent"`
-	CreatedAt int64  `json:"created_at"`
-}
-
-func (handlers *SiteHandlers) CurrentUser(context *gin.Context) {
-	currentUser, ok := CurrentUserFromContext(context)
-	if !ok {
-		context.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
-		return
-	}
-
-	context.JSON(http.StatusOK, gin.H{
-		jsonKeyEmail:      currentUser.Email,
-		jsonKeyName:       currentUser.Name,
-		jsonKeyIsAdmin:    currentUser.IsAdmin,
-		jsonKeyPictureURL: currentUser.PictureURL,
-	})
-}
-
-func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
-	currentUser, ok := CurrentUserFromContext(context)
-	if !ok {
-		context.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
-		return
-	}
-
-	var payload createSiteRequest
-	if bindErr := context.BindJSON(&payload); bindErr != nil {
-		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidJSON})
-		return
-	}
-
-	payload.Name = strings.TrimSpace(payload.Name)
-	payload.AllowedOrigin = strings.TrimSpace(payload.AllowedOrigin)
-	desiredOwnerEmail := strings.ToLower(strings.TrimSpace(payload.OwnerEmail))
-	currentUserEmail := strings.ToLower(strings.TrimSpace(currentUser.Email))
-
-	if !currentUser.IsAdmin {
-		if desiredOwnerEmail != "" && !strings.EqualFold(desiredOwnerEmail, currentUserEmail) {
-			context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueInvalidOperation})
-			return
-		}
-		desiredOwnerEmail = currentUserEmail
-	}
-
-	if payload.Name == "" || payload.AllowedOrigin == "" {
-		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingFields})
-		return
-	}
-
-	if desiredOwnerEmail == "" {
-		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidOwner})
-		return
-	}
-
-	site := model.Site{
-		ID:            storage.NewID(),
-		Name:          payload.Name,
-		AllowedOrigin: payload.AllowedOrigin,
-		OwnerEmail:    desiredOwnerEmail,
-	}
-
-	if err := handlers.database.Create(&site).Error; err != nil {
-		handlers.logger.Warn("create_site", zap.Error(err))
-		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
-		return
-	}
-
-	context.JSON(http.StatusOK, handlers.toSiteResponse(site))
-}
-
-func (handlers *SiteHandlers) ListSites(context *gin.Context) {
-	currentUser, ok := CurrentUserFromContext(context)
-	if !ok {
-		context.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
-		return
-	}
-
+func (service *SiteService) ListSitesForUser(currentUser *CurrentUser) ([]siteResponse, error) {
 	var sites []model.Site
 
-	query := handlers.database.Model(&model.Site{})
+	query := service.database.Model(&model.Site{})
 	if !currentUser.IsAdmin {
 		query = query.Where("owner_email = ?", strings.ToLower(strings.TrimSpace(currentUser.Email)))
 	}
 
 	if err := query.Order("created_at desc").Find(&sites).Error; err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
-		return
+		return nil, fmt.Errorf("%s: %w", errorValueQueryFailed, err)
 	}
 
 	responses := make([]siteResponse, 0, len(sites))
 	for _, site := range sites {
-		responses = append(responses, handlers.toSiteResponse(site))
+		responses = append(responses, service.toSiteResponse(site))
 	}
-
-	context.JSON(http.StatusOK, listSitesResponse{Sites: responses})
+	return responses, nil
 }
 
-func (handlers *SiteHandlers) UserAvatar(context *gin.Context) {
-	currentUser, ok := CurrentUserFromContext(context)
-	if !ok {
-		context.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
-		return
+func (service *SiteService) LoadSiteForUser(siteID string, currentUser *CurrentUser) (siteResponse, error) {
+	site, err := service.loadSite(siteID)
+	if err != nil {
+		return siteResponse{}, err
 	}
-
-	trimmedEmail := strings.ToLower(strings.TrimSpace(currentUser.Email))
-	if trimmedEmail == "" {
-		context.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-
-	var user model.User
-	if err := handlers.database.First(&user, "email = ?", trimmedEmail).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			context.AbortWithStatus(http.StatusNotFound)
-			return
-		}
-		handlers.logger.Warn("load_user_avatar", zap.Error(err))
-		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
-		return
-	}
-
-	if len(user.AvatarData) == 0 {
-		context.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-
-	contentType := user.AvatarContentType
-	if contentType == "" {
-		contentType = defaultAvatarMimeType
-	}
-	context.Header("Cache-Control", "no-cache")
-	context.Data(http.StatusOK, contentType, user.AvatarData)
-}
-
-func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
-	siteIdentifier := strings.TrimSpace(context.Param("id"))
-	if siteIdentifier == "" {
-		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingSite})
-		return
-	}
-
-	currentUser, ok := CurrentUserFromContext(context)
-	if !ok {
-		context.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
-		return
-	}
-
-	var payload updateSiteRequest
-	if bindErr := context.BindJSON(&payload); bindErr != nil {
-		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidJSON})
-		return
-	}
-
-	if payload.Name == nil && payload.AllowedOrigin == nil && payload.OwnerEmail == nil {
-		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueNothingToUpdate})
-		return
-	}
-
-	var site model.Site
-	if err := handlers.database.First(&site, "id = ?", siteIdentifier).Error; err != nil {
-		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownSite})
-		return
-	}
-
 	if !canManageSite(currentUser, site) {
-		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
-		return
+		return siteResponse{}, errSiteNotAllowed
 	}
-
-	if payload.Name != nil {
-		trimmed := strings.TrimSpace(*payload.Name)
-		if trimmed == "" {
-			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingFields})
-			return
-		}
-		site.Name = trimmed
-	}
-
-	if payload.AllowedOrigin != nil {
-		trimmed := strings.TrimSpace(*payload.AllowedOrigin)
-		if trimmed == "" {
-			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingFields})
-			return
-		}
-		site.AllowedOrigin = trimmed
-	}
-
-	if payload.OwnerEmail != nil {
-		if !currentUser.IsAdmin {
-			context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueInvalidOperation})
-			return
-		}
-		trimmed := strings.ToLower(strings.TrimSpace(*payload.OwnerEmail))
-		if trimmed == "" {
-			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidOwner})
-			return
-		}
-		site.OwnerEmail = trimmed
-	}
-
-	if err := handlers.database.Save(&site).Error; err != nil {
-		handlers.logger.Warn("update_site", zap.Error(err))
-		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
-		return
-	}
-
-	context.JSON(http.StatusOK, handlers.toSiteResponse(site))
+	return service.toSiteResponse(site), nil
 }
 
-func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
-	siteIdentifier := strings.TrimSpace(context.Param("id"))
-	if siteIdentifier == "" {
-		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingSite})
-		return
+func (service *SiteService) ListMessagesForSite(siteID string, currentUser *CurrentUser) ([]feedbackMessageResponse, error) {
+	site, err := service.loadSite(siteID)
+	if err != nil {
+		return nil, err
 	}
-
-	currentUser, ok := CurrentUserFromContext(context)
-	if !ok {
-		context.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
-		return
-	}
-
-	var site model.Site
-	if err := handlers.database.First(&site, "id = ?", siteIdentifier).Error; err != nil {
-		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownSite})
-		return
-	}
-
 	if !canManageSite(currentUser, site) {
-		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
-		return
-	}
-
-	deleteErr := handlers.database.Transaction(func(transaction *gorm.DB) error {
-		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.Feedback{}).Error; err != nil {
-			return err
-		}
-		if err := transaction.Delete(&model.Site{ID: site.ID}).Error; err != nil {
-			return err
-		}
-		return nil
-	})
-	if deleteErr != nil {
-		handlers.logger.Warn("delete_site", zap.Error(deleteErr))
-		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueDeleteFailed})
-		return
-	}
-
-	context.Status(http.StatusNoContent)
-	context.Writer.WriteHeaderNow()
-}
-
-func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
-	siteIdentifier := strings.TrimSpace(context.Param("id"))
-	if siteIdentifier == "" {
-		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingSite})
-		return
-	}
-
-	currentUser, ok := CurrentUserFromContext(context)
-	if !ok {
-		context.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
-		return
-	}
-
-	var site model.Site
-	if err := handlers.database.First(&site, "id = ?", siteIdentifier).Error; err != nil {
-		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownSite})
-		return
-	}
-
-	if !canManageSite(currentUser, site) {
-		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
-		return
+		return nil, errSiteNotAllowed
 	}
 
 	var feedbacks []model.Feedback
-	if err := handlers.database.
+	if err := service.database.
 		Where("site_id = ?", site.ID).
 		Order("created_at desc").
 		Find(&feedbacks).Error; err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
-		return
+		return nil, fmt.Errorf("%s: %w", errorValueQueryFailed, err)
 	}
 
-	messageResponses := make([]feedbackMessageResponse, 0, len(feedbacks))
+	responses := make([]feedbackMessageResponse, 0, len(feedbacks))
 	for _, feedback := range feedbacks {
-		messageResponses = append(messageResponses, feedbackMessageResponse{
+		responses = append(responses, feedbackMessageResponse{
 			ID:        feedback.ID,
 			Contact:   feedback.Contact,
 			Message:   feedback.Message,
@@ -383,11 +153,137 @@ func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
 		})
 	}
 
-	context.JSON(http.StatusOK, siteMessagesResponse{SiteID: site.ID, Messages: messageResponses})
+	return responses, nil
 }
 
-func (handlers *SiteHandlers) toSiteResponse(site model.Site) siteResponse {
-	widgetBase := handlers.widgetBaseURL
+func (service *SiteService) CreateSite(currentUser *CurrentUser, payload createSiteRequest) (siteResponse, error) {
+	name := strings.TrimSpace(payload.Name)
+	allowedOrigin := strings.TrimSpace(payload.AllowedOrigin)
+	desiredOwner := strings.ToLower(strings.TrimSpace(payload.OwnerEmail))
+	currentEmail := strings.ToLower(strings.TrimSpace(currentUser.Email))
+
+	if !currentUser.IsAdmin {
+		if desiredOwner != "" && !strings.EqualFold(desiredOwner, currentEmail) {
+			return siteResponse{}, &siteError{code: errorValueInvalidOperation}
+		}
+		desiredOwner = currentEmail
+	}
+
+	if name == "" || allowedOrigin == "" {
+		return siteResponse{}, errSiteInvalidForm
+	}
+	if desiredOwner == "" {
+		return siteResponse{}, &siteError{code: errorValueInvalidOwner}
+	}
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          name,
+		AllowedOrigin: allowedOrigin,
+		OwnerEmail:    desiredOwner,
+	}
+
+	if err := service.database.Create(&site).Error; err != nil {
+		service.logger.Warn("create_site", zap.Error(err))
+		return siteResponse{}, fmt.Errorf("%s: %w", errorValueSaveFailed, err)
+	}
+
+	return service.toSiteResponse(site), nil
+}
+
+func (service *SiteService) UpdateSite(currentUser *CurrentUser, siteID string, payload updateSiteRequest) (siteResponse, error) {
+	if payload.Name == nil && payload.AllowedOrigin == nil && payload.OwnerEmail == nil {
+		return siteResponse{}, &siteError{code: errorValueNothingToUpdate}
+	}
+
+	site, err := service.loadSite(siteID)
+	if err != nil {
+		return siteResponse{}, err
+	}
+	if !canManageSite(currentUser, site) {
+		return siteResponse{}, errSiteNotAllowed
+	}
+
+	if payload.Name != nil {
+		trimmed := strings.TrimSpace(*payload.Name)
+		if trimmed == "" {
+			return siteResponse{}, errSiteInvalidForm
+		}
+		site.Name = trimmed
+	}
+
+	if payload.AllowedOrigin != nil {
+		trimmed := strings.TrimSpace(*payload.AllowedOrigin)
+		if trimmed == "" {
+			return siteResponse{}, errSiteInvalidForm
+		}
+		site.AllowedOrigin = trimmed
+	}
+
+	if payload.OwnerEmail != nil {
+		if !currentUser.IsAdmin {
+			return siteResponse{}, &siteError{code: errorValueInvalidOperation}
+		}
+		trimmed := strings.ToLower(strings.TrimSpace(*payload.OwnerEmail))
+		if trimmed == "" {
+			return siteResponse{}, &siteError{code: errorValueInvalidOwner}
+		}
+		site.OwnerEmail = trimmed
+	}
+
+	if err := service.database.Save(&site).Error; err != nil {
+		service.logger.Warn("update_site", zap.Error(err))
+		return siteResponse{}, fmt.Errorf("%s: %w", errorValueSaveFailed, err)
+	}
+
+	return service.toSiteResponse(site), nil
+}
+
+func (service *SiteService) DeleteSite(currentUser *CurrentUser, siteID string) error {
+	site, err := service.loadSite(siteID)
+	if err != nil {
+		return err
+	}
+	if !canManageSite(currentUser, site) {
+		return errSiteNotAllowed
+	}
+
+	deleteErr := service.database.Transaction(func(transaction *gorm.DB) error {
+		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.Feedback{}).Error; err != nil {
+			return err
+		}
+		if err := transaction.Delete(&model.Site{ID: site.ID}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	if deleteErr != nil {
+		service.logger.Warn("delete_site", zap.Error(deleteErr))
+		return fmt.Errorf("%s: %w", errorValueDeleteFailed, deleteErr)
+	}
+
+	return nil
+}
+
+func (service *SiteService) loadSite(siteID string) (model.Site, error) {
+	trimmed := strings.TrimSpace(siteID)
+	if trimmed == "" {
+		return model.Site{}, errSiteUnknown
+	}
+
+	var site model.Site
+	if err := service.database.First(&site, "id = ?", trimmed).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.Site{}, errSiteUnknown
+		}
+		return model.Site{}, fmt.Errorf("%s: %w", errorValueQueryFailed, err)
+	}
+
+	return site, nil
+}
+
+func (service *SiteService) toSiteResponse(site model.Site) siteResponse {
+	widgetBase := service.widgetBaseURL
 	if widgetBase == "" {
 		widgetBase = normalizeWidgetBaseURL(site.AllowedOrigin)
 	}

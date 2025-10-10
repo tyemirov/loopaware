@@ -63,21 +63,17 @@ const (
 	defaultPublicBaseURL             = "http://localhost:8080"
 	publicRouteFeedback              = "/api/feedback"
 	publicRouteWidget                = "/widget.js"
-	dashboardRoute                   = "/app"
-	apiRoutePrefix                   = "/api"
-	apiRouteMe                       = "/me"
-	apiRouteMeAvatar                 = "/me/avatar"
-	apiRouteSites                    = "/sites"
-	apiRouteSiteUpdate               = "/sites/:id"
-	apiRouteSiteMessages             = "/sites/:id/messages"
+	dashboardRoute                   = httpapi.DashboardRoute
+	dashboardRouteSites              = "/app/sites"
+	dashboardRouteSiteUpdate         = "/app/sites/:id"
+	dashboardRouteSiteDelete         = "/app/sites/:id/delete"
+	dashboardRouteAvatar             = "/app/avatar"
 	corsOriginWildcard               = "*"
 	corsHeaderAuthorization          = "Authorization"
 	corsHeaderContentType            = "Content-Type"
 	httpMethodGet                    = "GET"
 	httpMethodOptions                = "OPTIONS"
 	httpMethodPost                   = "POST"
-	httpMethodPatch                  = "PATCH"
-	httpMethodDelete                 = "DELETE"
 	loggerContextOpenDatabase        = "open_db"
 	loggerContextAutoMigrate         = "migrate"
 	loggerContextServer              = "server"
@@ -93,7 +89,7 @@ const (
 )
 
 var (
-	corsAllowedMethods          = []string{httpMethodPost, httpMethodGet, httpMethodOptions, httpMethodPatch, httpMethodDelete}
+	corsAllowedMethods          = []string{httpMethodPost, httpMethodGet, httpMethodOptions}
 	corsAllowedHeaders          = []string{corsHeaderAuthorization, corsHeaderContentType}
 	corsExposedHeaders          = []string{corsHeaderContentType}
 	corsAllowOrigins            = []string{corsOriginWildcard}
@@ -343,14 +339,18 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	}))
 
 	publicHandlers := httpapi.NewPublicHandlers(database, logger)
-	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL)
-	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger)
+	siteService := httpapi.NewSiteService(database, logger, serverConfig.PublicBaseURL)
+	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, siteService)
 	avatarHTTPClient := &http.Client{Timeout: 5 * time.Second}
 	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, avatarHTTPClient)
 
 	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
 	router.GET(dashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
+	router.POST(dashboardRouteSites, authManager.RequireAuthenticatedWeb(), dashboardHandlers.CreateSite)
+	router.POST(dashboardRouteSiteUpdate, authManager.RequireAuthenticatedWeb(), dashboardHandlers.UpdateSite)
+	router.POST(dashboardRouteSiteDelete, authManager.RequireAuthenticatedWeb(), dashboardHandlers.DeleteSite)
+	router.GET(dashboardRouteAvatar, authManager.RequireAuthenticatedWeb(), dashboardHandlers.UserAvatar)
 
 	authHandler := gin.WrapH(authMux)
 	router.GET(constants.LoginPath, authHandler)
@@ -358,16 +358,6 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	router.GET(constants.CallbackPath, authHandler)
 	router.GET(constants.LogoutPath, authHandler)
 	router.POST(constants.LogoutPath, authHandler)
-
-	apiGroup := router.Group(apiRoutePrefix)
-	apiGroup.Use(authManager.RequireAuthenticatedJSON())
-	apiGroup.GET(apiRouteMe, siteHandlers.CurrentUser)
-	apiGroup.GET(apiRouteMeAvatar, siteHandlers.UserAvatar)
-	apiGroup.GET(apiRouteSites, siteHandlers.ListSites)
-	apiGroup.POST(apiRouteSites, siteHandlers.CreateSite)
-	apiGroup.PATCH(apiRouteSiteUpdate, siteHandlers.UpdateSite)
-	apiGroup.DELETE(apiRouteSiteUpdate, siteHandlers.DeleteSite)
-	apiGroup.GET(apiRouteSiteMessages, siteHandlers.ListMessagesBySite)
 
 	httpServer := &http.Server{
 		Addr:              serverConfig.ApplicationAddress,

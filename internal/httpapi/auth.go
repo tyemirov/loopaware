@@ -26,9 +26,10 @@ const (
 	logEventLoadSession   = "load_session"
 	logEventPersistUser   = "persist_user"
 	logEventFetchAvatar   = "fetch_avatar"
-	avatarEndpointPath    = "/api/me/avatar"
+	avatarEndpointPath    = "/app/avatar"
 	defaultAvatarMimeType = "application/octet-stream"
 	maxAvatarBytes        = 1 << 20
+	jsonKeyError          = "error"
 )
 
 var defaultAvatarFetchTimeout = 5 * time.Second
