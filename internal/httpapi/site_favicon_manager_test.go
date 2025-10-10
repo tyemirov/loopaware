@@ -119,23 +119,23 @@ func TestSiteFaviconManagerAvoidsDuplicateFetches(testingT *testing.T) {
 	require.Equal(testingT, initialCalls, resolver.callCount())
 }
 
-func TestLoopawareInlineFaviconIntegration(testingT *testing.T) {
+func TestGravityNotesInlineFaviconIntegration(testingT *testing.T) {
 	testingT.Helper()
 
 	if testing.Short() {
-		testingT.Skip("skipping LoopAware favicon integration test in short mode")
+		testingT.Skip("skipping Gravity Notes favicon integration test in short mode")
 	}
 
 	resolver := httpapi.NewHTTPFaviconResolver(nil, zap.NewNop())
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	preflightAsset, preflightErr := resolver.ResolveAsset(ctx, "https://loopaware.mprlab.com/app")
+	preflightAsset, preflightErr := resolver.ResolveAsset(ctx, "https://gravity.mprlab.com")
 	if preflightErr != nil {
-		testingT.Skipf("LoopAware favicon lookup failed: %v", preflightErr)
+		testingT.Skipf("Gravity Notes favicon lookup failed: %v", preflightErr)
 	}
 	if preflightAsset == nil {
-		testingT.Skip("LoopAware did not expose an inline favicon during test execution")
+		testingT.Skip("Gravity Notes did not expose an inline favicon during test execution")
 	}
 
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
@@ -148,8 +148,8 @@ func TestLoopawareInlineFaviconIntegration(testingT *testing.T) {
 
 	site := model.Site{
 		ID:            storage.NewID(),
-		Name:          "LoopAware",
-		AllowedOrigin: "https://loopaware.mprlab.com",
+		Name:          "Gravity Notes",
+		AllowedOrigin: "https://gravity.mprlab.com",
 		OwnerEmail:    testAdminEmailAddress,
 	}
 	require.NoError(testingT, database.Create(&site).Error)

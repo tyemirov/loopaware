@@ -25,7 +25,7 @@ const (
 	testAdminEmailAddress = "admin@example.com"
 	testUserEmailAddress  = "user@example.com"
 	testSessionContextKey = "httpapi_current_user"
-	testWidgetBaseURL     = "https://loopaware.mprlab.com/"
+	testWidgetBaseURL     = "https://gravity.mprlab.com/"
 )
 
 type siteTestHarness struct {
