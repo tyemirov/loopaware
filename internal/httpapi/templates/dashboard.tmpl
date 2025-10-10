@@ -123,6 +123,7 @@
                     </div>
                   </div>
                 </form>
+                <div class="text-muted small text-end mt-3" id="{{.SiteCreatedAtElementID}}">{{.SiteCreatedAtPlaceholder}}</div>
               </div>
             </div>
             <div class="card shadow-sm mb-4">
@@ -152,6 +153,7 @@
                   <div class="d-flex align-items-center gap-2">
                     <div id="{{.MessagesStatusID}}" class="d-none py-1 px-2 small"></div>
                     <button id="{{.RefreshMessagesButtonID}}" class="{{.RefreshButtonDefaultClass}}">{{.RefreshButtonDefaultLabel}}</button>
+                    <span id="{{.FeedbackCountElementID}}" class="badge bg-secondary">0</span>
                   </div>
                   <div id="{{.MessagesSearchContainerID}}" class="w-100 d-none">
                     <input id="{{.MessagesSearchInputID}}" type="search" class="{{.SearchInputClass}}" placeholder="{{.MessagesSearchPlaceholder}}" autocomplete="off" />
@@ -260,6 +262,10 @@
         var messagesSearchToggleButton = document.getElementById(elementIds.messages_search_toggle_button);
         var messagesSearchContainer = document.getElementById(elementIds.messages_search_container);
         var messagesSearchInput = document.getElementById(elementIds.messages_search_input);
+        var siteCreatedAtElement = document.getElementById(elementIds.site_created_at);
+        var siteCreatedAtDefaultLabel = siteCreatedAtElement ? siteCreatedAtElement.textContent : '';
+        var feedbackCountElement = document.getElementById(elementIds.feedback_count);
+        var feedbackCountDefaultLabel = feedbackCountElement ? feedbackCountElement.textContent : '0';
         var userName = document.getElementById(elementIds.user_name);
         var userEmail = document.getElementById(elementIds.user_email);
         var userAvatar = document.getElementById(elementIds.user_avatar);
@@ -447,6 +453,38 @@
             return;
           }
           cell.textContent = normalized;
+        }
+        function setSiteCreatedAt(unixSeconds) {
+          if (!siteCreatedAtElement) {
+            return;
+          }
+          if (!unixSeconds) {
+            siteCreatedAtElement.textContent = siteCreatedAtDefaultLabel;
+            return;
+          }
+          siteCreatedAtElement.textContent = formatTimestamp(unixSeconds);
+        }
+        function setFeedbackCount(total, visible) {
+          if (!feedbackCountElement) {
+            return;
+          }
+          var normalizedTotal = typeof total === 'number' && total >= 0 ? total : 0;
+          var normalizedVisible = typeof visible === 'number' && visible >= 0 ? visible : normalizedTotal;
+          if (normalizedVisible !== normalizedTotal) {
+            feedbackCountElement.textContent = normalizedVisible + ' / ' + normalizedTotal;
+          } else {
+            feedbackCountElement.textContent = normalizedTotal.toString();
+          }
+        }
+        function updateSelectedSiteSummary(site) {
+          if (!site) {
+            setSiteCreatedAt(null);
+            setFeedbackCount(0, 0);
+            return;
+          }
+          setSiteCreatedAt(site.created_at);
+          var totalCount = typeof site.feedback_count === 'number' ? site.feedback_count : 0;
+          setFeedbackCount(totalCount, messagesSearchQuery ? Math.min(totalCount, totalCount) : totalCount);
         }
         function normalizeSearchQuery(value) {
           if (typeof value !== 'string') {
@@ -968,11 +1006,16 @@
             }
           }
 
+          var selectedSite = null;
           filteredSites.forEach(function(site) {
             var listItem = document.createElement('button');
             listItem.type = 'button';
             listItem.className = siteListItemClass + (site.id === state.selectedSiteId ? ' ' + siteListItemActiveClass : '');
             listItem.dataset.siteId = site.id;
+
+            if (site.id === state.selectedSiteId) {
+              selectedSite = site;
+            }
 
             var headerElement = document.createElement('div');
             headerElement.className = siteListItemHeaderClass;
@@ -1020,6 +1063,7 @@
 
           updateNewSiteButtonState();
           updateDeleteButtonState();
+          updateSelectedSiteSummary(selectedSite);
           populateSiteForm();
           updateWidgetSnippet();
           if (!state.selectedSiteId) {
@@ -1059,11 +1103,14 @@
           editSiteOriginInput.value = '';
           editSiteOwnerInput.value = '';
           clearValidationFeedback();
+          setSiteCreatedAt(null);
+          setFeedbackCount(0, 0);
         }
 
         function populateSiteForm() {
           clearValidationFeedback();
           if (!state.selectedSiteId) {
+            updateSelectedSiteSummary(null);
             clearSiteForm();
             saveSiteButton.disabled = true;
             updateFormMode();
@@ -1072,6 +1119,7 @@
           }
 
           if (isNewSiteSelected()) {
+            updateSelectedSiteSummary(null);
             clearSiteForm();
             saveSiteButton.disabled = false;
             updateFormMode();
@@ -1081,6 +1129,7 @@
 
           var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
           if (!site) {
+            updateSelectedSiteSummary(null);
             clearSiteForm();
             saveSiteButton.disabled = true;
             updateFormMode();
@@ -1088,6 +1137,7 @@
             return;
           }
 
+          updateSelectedSiteSummary(site);
           editSiteNameInput.value = site.name || '';
           editSiteOriginInput.value = site.allowed_origin || '';
           editSiteOwnerInput.value = site.owner_email || '';
@@ -1122,6 +1172,7 @@
           cell.textContent = message;
           row.appendChild(cell);
           feedbackTableBody.appendChild(row);
+          setFeedbackCount(0, 0);
         }
 
         function renderMessages(messages) {
@@ -1130,9 +1181,11 @@
           if (!filteredMessages.length) {
             if (baseMessages.length === 0 && messagesSearchQuery === '') {
               renderFeedbackPlaceholder(statusMessages.no_messages || '');
+              setFeedbackCount(0, 0);
               return;
             }
             renderFeedbackPlaceholder(messagesSearchQuery ? statusNoMessageMatches : statusMessages.no_messages || '');
+            setFeedbackCount(baseMessages.length, 0);
             return;
           }
           feedbackTableBody.innerHTML = '';
@@ -1149,6 +1202,7 @@
             row.appendChild(bodyCell);
             feedbackTableBody.appendChild(row);
           });
+          setFeedbackCount(baseMessages.length, filteredMessages.length);
         }
 
         function filterMessages(messages) {
@@ -1186,6 +1240,7 @@
           updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_loading || '', buttonStyles.secondary || '');
           return fetchJSON(apiSitesEndpoint).then(function(payload) {
             state.sites = payload.sites || [];
+            state.siteMessages = {};
             renderSites();
           }).catch(function(error) {
             updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
@@ -1209,13 +1264,24 @@
           }
           fetchJSON(endpoint).then(function(payload) {
             var messages = payload.messages || [];
+            var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
             state.siteMessages[state.selectedSiteId] = messages;
+            if (site) {
+              site.feedback_count = messages.length;
+              updateSelectedSiteSummary(site);
+            }
             renderMessages(messages);
             if (manualRefresh) {
               updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_success || '', buttonStyles.secondary || '');
             }
           }).catch(function() {
             renderFeedbackPlaceholder(statusMessages.load_failed || '');
+            var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
+            if (site) {
+              setFeedbackCount(site.feedback_count || 0, site.feedback_count || 0);
+            } else {
+              setFeedbackCount(0, 0);
+            }
             if (manualRefresh) {
               updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');
             }
@@ -1288,6 +1354,10 @@
             updateButtonStatus(saveSiteButton, buttonLabels.save_created || '');
             saveSiteButton.disabled = false;
             state.sites.unshift(payload);
+            if (!state.siteMessages) {
+              state.siteMessages = {};
+            }
+            state.siteMessages[payload.id] = [];
             state.selectedSiteId = payload.id;
             renderSites();
           }).catch(function(error) {

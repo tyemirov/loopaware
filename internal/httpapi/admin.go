@@ -42,14 +42,19 @@ type SiteHandlers struct {
 	logger          *zap.Logger
 	widgetBaseURL   string
 	faviconResolver FaviconResolver
+	statsProvider   SiteStatisticsProvider
 }
 
-func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, faviconResolver FaviconResolver) *SiteHandlers {
+func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, faviconResolver FaviconResolver, statsProvider SiteStatisticsProvider) *SiteHandlers {
+	if statsProvider == nil {
+		statsProvider = NewDatabaseSiteStatisticsProvider(database)
+	}
 	return &SiteHandlers{
 		database:        database,
 		logger:          logger,
 		widgetBaseURL:   normalizeWidgetBaseURL(widgetBaseURL),
 		faviconResolver: faviconResolver,
+		statsProvider:   statsProvider,
 	}
 }
 
@@ -73,6 +78,7 @@ type siteResponse struct {
 	FaviconURL    string `json:"favicon_url"`
 	Widget        string `json:"widget"`
 	CreatedAt     int64  `json:"created_at"`
+	FeedbackCount int64  `json:"feedback_count"`
 }
 
 type listSitesResponse struct {
@@ -157,7 +163,7 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		return
 	}
 
-	context.JSON(http.StatusOK, handlers.toSiteResponse(handlers.ginRequestContext(context), site))
+	context.JSON(http.StatusOK, handlers.toSiteResponse(handlers.ginRequestContext(context), site, 0))
 }
 
 func (handlers *SiteHandlers) ListSites(context *gin.Context) {
@@ -182,7 +188,8 @@ func (handlers *SiteHandlers) ListSites(context *gin.Context) {
 	responses := make([]siteResponse, 0, len(sites))
 	requestContext := handlers.ginRequestContext(context)
 	for _, site := range sites {
-		responses = append(responses, handlers.toSiteResponse(requestContext, site))
+		feedbackCount := handlers.feedbackCount(requestContext, site.ID)
+		responses = append(responses, handlers.toSiteResponse(requestContext, site, feedbackCount))
 	}
 
 	context.JSON(http.StatusOK, listSitesResponse{Sites: responses})
@@ -297,7 +304,9 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		return
 	}
 
-	context.JSON(http.StatusOK, handlers.toSiteResponse(handlers.ginRequestContext(context), site))
+	ctx := handlers.ginRequestContext(context)
+	feedbackCount := handlers.feedbackCount(ctx, site.ID)
+	context.JSON(http.StatusOK, handlers.toSiteResponse(ctx, site, feedbackCount))
 }
 
 func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
@@ -391,7 +400,7 @@ func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
 	context.JSON(http.StatusOK, siteMessagesResponse{SiteID: site.ID, Messages: messageResponses})
 }
 
-func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Site) siteResponse {
+func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Site, feedbackCount int64) siteResponse {
 	widgetBase := handlers.widgetBaseURL
 	if widgetBase == "" {
 		widgetBase = normalizeWidgetBaseURL(site.AllowedOrigin)
@@ -407,7 +416,20 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 		FaviconURL:    faviconURL,
 		Widget:        fmt.Sprintf(widgetScriptTemplate, widgetBase, site.ID),
 		CreatedAt:     site.CreatedAt.UTC().Unix(),
+		FeedbackCount: feedbackCount,
 	}
+}
+
+func (handlers *SiteHandlers) feedbackCount(ctx context.Context, siteID string) int64 {
+	if handlers.statsProvider == nil {
+		return 0
+	}
+	count, err := handlers.statsProvider.FeedbackCount(ctx, siteID)
+	if err != nil && handlers.logger != nil {
+		handlers.logger.Debug("feedback_count_failed", zap.String("site_id", siteID), zap.Error(err))
+		return 0
+	}
+	return count
 }
 
 func normalizeWidgetBaseURL(value string) string {

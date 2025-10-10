@@ -128,6 +128,9 @@ const (
 	fieldHelpTextClass                  = "form-text text-muted"
 	siteListItemHeaderClass             = "d-flex align-items-center gap-2"
 	siteListItemFaviconClass            = "flex-shrink-0 rounded border bg-white"
+	siteCreatedAtElementID              = "site-created-at"
+	siteCreatedAtPlaceholder            = "Not saved yet."
+	feedbackCountElementID              = "feedback-count"
 	siteNameHelpButtonElementID         = "site-name-help-button"
 	siteNameHelpTitle                   = "Site name"
 	siteNameHelpContent                 = "Displayed in the sites list for your team."
@@ -204,6 +207,8 @@ type dashboardTemplateData struct {
 	EditSiteOriginInputID             string
 	EditSiteOwnerContainerID          string
 	EditSiteOwnerInputID              string
+	SiteCreatedAtElementID            string
+	SiteCreatedAtPlaceholder          string
 	SiteSearchToggleButtonID          string
 	SiteSearchToggleLabel             string
 	SiteSearchContainerID             string
@@ -286,6 +291,7 @@ type dashboardTemplateData struct {
 	MessagesSearchContainerID         string
 	MessagesSearchInputID             string
 	MessagesSearchPlaceholder         string
+	FeedbackCountElementID            string
 	WidgetStatusID                    string
 	MessagesStatusID                  string
 	DeleteSiteModalID                 string
@@ -384,6 +390,8 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		EditSiteOriginInputID:             editSiteOriginInputElementID,
 		EditSiteOwnerContainerID:          editSiteOwnerContainerElementID,
 		EditSiteOwnerInputID:              editSiteOwnerInputElementID,
+		SiteCreatedAtElementID:            siteCreatedAtElementID,
+		SiteCreatedAtPlaceholder:          siteCreatedAtPlaceholder,
 		SiteSearchToggleButtonID:          siteSearchToggleButtonElementID,
 		SiteSearchToggleLabel:             siteSearchToggleLabel,
 		SiteSearchContainerID:             siteSearchContainerElementID,
@@ -466,6 +474,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		MessagesSearchContainerID:         messagesSearchContainerElementID,
 		MessagesSearchInputID:             messagesSearchInputElementID,
 		MessagesSearchPlaceholder:         messagesSearchPlaceholder,
+		FeedbackCountElementID:            feedbackCountElementID,
 		WidgetStatusID:                    widgetStatusElementID,
 		MessagesStatusID:                  messagesStatusElementID,
 		DeleteSiteModalID:                 deleteSiteModalElementID,
@@ -510,6 +519,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"edit_site_origin":              editSiteOriginInputElementID,
 			"edit_site_owner_container":     editSiteOwnerContainerElementID,
 			"edit_site_owner":               editSiteOwnerInputElementID,
+			"site_created_at":               siteCreatedAtElementID,
 			"save_site_button":              saveSiteButtonElementID,
 			"refresh_messages_button":       refreshMessagesButtonElementID,
 			"feedback_table_body":           feedbackTableBodyElementID,
@@ -539,6 +549,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"messages_search_toggle_button": messagesSearchToggleButtonElementID,
 			"messages_search_container":     messagesSearchContainerElementID,
 			"messages_search_input":         messagesSearchInputElementID,
+			"feedback_count":                feedbackCountElementID,
 		},
 		ButtonClasses: map[string]string{
 			"new_site_default":     newSiteButtonClass,

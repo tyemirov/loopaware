@@ -74,6 +74,12 @@ const (
 	dashboardFaviconURLToken               = "var faviconURL = (site.favicon_url || '').trim();"
 	dashboardFaviconSrcAssignmentToken     = "faviconElement.src = faviconURL;"
 	dashboardFaviconErrorHandlerToken      = "faviconElement.classList.add('d-none');"
+	dashboardSiteCreatedAtElementID        = "site-created-at"
+	dashboardFeedbackCountElementID        = "feedback-count"
+	dashboardSiteCreatedAtVarToken         = "var siteCreatedAtElement = document.getElementById(elementIds.site_created_at);"
+	dashboardFeedbackCountVarToken         = "var feedbackCountElement = document.getElementById(elementIds.feedback_count);"
+	dashboardSetFeedbackCountToken         = "function setFeedbackCount(total, visible)"
+	dashboardUpdateSelectedSiteSummaryToken = "function updateSelectedSiteSummary(site)"
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -142,11 +148,21 @@ func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {
 			substring:     dashboardBootstrapIconsIntegrityToken,
 			expectPresent: true,
 		},
-		{
-			testName:      "favicon link present",
-			substring:     dashboardFaviconLinkToken,
-			expectPresent: true,
-		},
+	{
+		 testName:      "favicon link present",
+		 substring:     dashboardFaviconLinkToken,
+		 expectPresent: true,
+	},
+	{
+		 testName:      "site created at element",
+		 substring:     "id=\"" + dashboardSiteCreatedAtElementID + "\"",
+		 expectPresent: true,
+	},
+	{
+		 testName:      "feedback count element",
+		 substring:     "id=\"" + dashboardFeedbackCountElementID + "\"",
+		 expectPresent: true,
+	},
 		{
 			testName:      "footer element id",
 			substring:     dashboardFooterElementID,
@@ -575,6 +591,56 @@ func TestDashboardTemplateSupportsSiteFavicons(t *testing.T) {
 		{
 			testName:      "favicon error handler",
 			substring:     dashboardFaviconErrorHandlerToken,
+			expectPresent: true,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.testName, func(t *testing.T) {
+			if testCase.expectPresent {
+				require.Contains(t, body, testCase.substring)
+				return
+			}
+			require.NotContains(t, body, testCase.substring)
+		})
+	}
+}
+
+func TestDashboardTemplateExposesSiteMetadataHelpers(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	testCases := []struct {
+		testName      string
+		substring     string
+		expectPresent bool
+	}{
+		{
+			testName:      "site created at accessor",
+			substring:     dashboardSiteCreatedAtVarToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "feedback count accessor",
+			substring:     dashboardFeedbackCountVarToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "feedback count helper",
+			substring:     dashboardSetFeedbackCountToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "site summary helper",
+			substring:     dashboardUpdateSelectedSiteSummaryToken,
 			expectPresent: true,
 		},
 	}

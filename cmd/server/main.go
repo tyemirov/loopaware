@@ -345,7 +345,8 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	publicHandlers := httpapi.NewPublicHandlers(database, logger)
 	sharedHTTPClient := &http.Client{Timeout: 5 * time.Second}
 	faviconResolver := httpapi.NewHTTPFaviconResolver(sharedHTTPClient, logger)
-	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconResolver)
+	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(database)
+	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconResolver, statsProvider)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger)
 	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient)
 
