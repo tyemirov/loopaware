@@ -2,6 +2,7 @@ package httpapi_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -33,7 +34,23 @@ type siteTestHarness struct {
 	database *gorm.DB
 }
 
+type stubFaviconResolver struct {
+	values map[string]string
+}
+
+func (resolver stubFaviconResolver) Resolve(_ context.Context, allowedOrigin string) (string, error) {
+	if resolver.values == nil {
+		return "", nil
+	}
+	trimmed := strings.TrimSpace(allowedOrigin)
+	return resolver.values[trimmed], nil
+}
+
 func newSiteTestHarness(testingT *testing.T) siteTestHarness {
+	return newSiteTestHarnessWithFavicons(testingT, nil)
+}
+
+func newSiteTestHarnessWithFavicons(testingT *testing.T, faviconMappings map[string]string) siteTestHarness {
 	testingT.Helper()
 
 	gin.SetMode(gin.TestMode)
@@ -42,7 +59,8 @@ func newSiteTestHarness(testingT *testing.T) siteTestHarness {
 	require.NoError(testingT, openErr)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
-	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL)
+	resolver := stubFaviconResolver{values: faviconMappings}
+	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, resolver)
 
 	return siteTestHarness{handlers: handlers, database: database}
 }
@@ -96,7 +114,9 @@ func TestListMessagesBySiteReturnsOrderedUnixTimestamps(testingT *testing.T) {
 }
 
 func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
-	harness := newSiteTestHarness(testingT)
+	harness := newSiteTestHarnessWithFavicons(testingT, map[string]string{
+		"https://client.example": "https://client.example/assets/favicon-32x32.png",
+	})
 
 	site := model.Site{
 		ID:            storage.NewID(),
@@ -125,7 +145,7 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	expectedBaseURL := strings.TrimRight(testWidgetBaseURL, "/")
 	expectedWidget := fmt.Sprintf("<script src=\"%s/widget.js?site_id=%s\"></script>", expectedBaseURL, site.ID)
 	require.Equal(testingT, expectedWidget, responseBody.Sites[0].Widget)
-	require.Equal(testingT, "https://client.example/favicon.ico", responseBody.Sites[0].FaviconURL)
+	require.Equal(testingT, "https://client.example/assets/favicon-32x32.png", responseBody.Sites[0].FaviconURL)
 }
 
 func TestNonAdminCannotAccessForeignSite(testingT *testing.T) {

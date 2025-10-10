@@ -69,6 +69,11 @@ const (
 	dashboardRenderContactFunctionToken    = "function renderContactValue(cell, value)"
 	dashboardContactLinkHrefToken          = "link.href = mailtoSchemePrefix + normalized;"
 	dashboardContactAppendLinkToken        = "cell.appendChild(link);"
+	dashboardSiteListHeaderClassToken      = "\"site_list_item_header\":\"d-flex align-items-center gap-2\""
+	dashboardSiteListFaviconClassToken     = "\"site_list_item_favicon\":\"flex-shrink-0 rounded border bg-white\""
+	dashboardFaviconURLToken               = "var faviconURL = (site.favicon_url || '').trim();"
+	dashboardFaviconSrcAssignmentToken     = "faviconElement.src = faviconURL;"
+	dashboardFaviconErrorHandlerToken      = "faviconElement.classList.add('d-none');"
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -120,6 +125,16 @@ func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {
 		{
 			testName:      "delete site icon class",
 			substring:     dashboardDeleteIconMarkup,
+			expectPresent: true,
+		},
+		{
+			testName:      "site list header class exported",
+			substring:     dashboardSiteListHeaderClassToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "site list favicon class exported",
+			substring:     dashboardSiteListFaviconClassToken,
 			expectPresent: true,
 		},
 		{
@@ -515,6 +530,51 @@ func TestDashboardTemplateSupportsMailtoLinksForFeedback(t *testing.T) {
 		{
 			testName:      "appends anchor to cell",
 			substring:     dashboardContactAppendLinkToken,
+			expectPresent: true,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.testName, func(t *testing.T) {
+			if testCase.expectPresent {
+				require.Contains(t, body, testCase.substring)
+				return
+			}
+			require.NotContains(t, body, testCase.substring)
+		})
+	}
+}
+
+func TestDashboardTemplateSupportsSiteFavicons(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	testCases := []struct {
+		testName      string
+		substring     string
+		expectPresent bool
+	}{
+		{
+			testName:      "favicon url extraction",
+			substring:     dashboardFaviconURLToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "favicon source assignment",
+			substring:     dashboardFaviconSrcAssignmentToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "favicon error handler",
+			substring:     dashboardFaviconErrorHandlerToken,
 			expectPresent: true,
 		},
 	}

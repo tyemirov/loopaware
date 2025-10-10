@@ -1,10 +1,10 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -38,16 +38,18 @@ const (
 )
 
 type SiteHandlers struct {
-	database      *gorm.DB
-	logger        *zap.Logger
-	widgetBaseURL string
+	database        *gorm.DB
+	logger          *zap.Logger
+	widgetBaseURL   string
+	faviconResolver FaviconResolver
 }
 
-func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string) *SiteHandlers {
+func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, faviconResolver FaviconResolver) *SiteHandlers {
 	return &SiteHandlers{
-		database:      database,
-		logger:        logger,
-		widgetBaseURL: normalizeWidgetBaseURL(widgetBaseURL),
+		database:        database,
+		logger:          logger,
+		widgetBaseURL:   normalizeWidgetBaseURL(widgetBaseURL),
+		faviconResolver: faviconResolver,
 	}
 }
 
@@ -155,7 +157,7 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		return
 	}
 
-	context.JSON(http.StatusOK, handlers.toSiteResponse(site))
+	context.JSON(http.StatusOK, handlers.toSiteResponse(handlers.ginRequestContext(context), site))
 }
 
 func (handlers *SiteHandlers) ListSites(context *gin.Context) {
@@ -178,8 +180,9 @@ func (handlers *SiteHandlers) ListSites(context *gin.Context) {
 	}
 
 	responses := make([]siteResponse, 0, len(sites))
+	requestContext := handlers.ginRequestContext(context)
 	for _, site := range sites {
-		responses = append(responses, handlers.toSiteResponse(site))
+		responses = append(responses, handlers.toSiteResponse(requestContext, site))
 	}
 
 	context.JSON(http.StatusOK, listSitesResponse{Sites: responses})
@@ -294,7 +297,7 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		return
 	}
 
-	context.JSON(http.StatusOK, handlers.toSiteResponse(site))
+	context.JSON(http.StatusOK, handlers.toSiteResponse(handlers.ginRequestContext(context), site))
 }
 
 func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
@@ -388,18 +391,20 @@ func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
 	context.JSON(http.StatusOK, siteMessagesResponse{SiteID: site.ID, Messages: messageResponses})
 }
 
-func (handlers *SiteHandlers) toSiteResponse(site model.Site) siteResponse {
+func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Site) siteResponse {
 	widgetBase := handlers.widgetBaseURL
 	if widgetBase == "" {
 		widgetBase = normalizeWidgetBaseURL(site.AllowedOrigin)
 	}
+
+	faviconURL := handlers.resolveFaviconURL(ctx, site.AllowedOrigin)
 
 	return siteResponse{
 		ID:            site.ID,
 		Name:          site.Name,
 		AllowedOrigin: site.AllowedOrigin,
 		OwnerEmail:    site.OwnerEmail,
-		FaviconURL:    deriveFaviconURL(site.AllowedOrigin),
+		FaviconURL:    faviconURL,
 		Widget:        fmt.Sprintf(widgetScriptTemplate, widgetBase, site.ID),
 		CreatedAt:     site.CreatedAt.UTC().Unix(),
 	}
@@ -410,28 +415,28 @@ func normalizeWidgetBaseURL(value string) string {
 	return strings.TrimRight(trimmed, "/")
 }
 
-func deriveFaviconURL(allowedOrigin string) string {
-	trimmed := strings.TrimSpace(allowedOrigin)
-	if trimmed == "" {
-		return ""
-	}
-	parsed, parseErr := url.Parse(trimmed)
-	if parseErr != nil || parsed == nil {
-		return ""
-	}
-	if parsed.Scheme == "" || parsed.Host == "" {
-		return ""
-	}
-	parsed.Path = "/favicon.ico"
-	parsed.RawPath = ""
-	parsed.RawQuery = ""
-	parsed.Fragment = ""
-	return parsed.String()
-}
-
 func canManageSite(currentUser *CurrentUser, site model.Site) bool {
 	if currentUser.IsAdmin {
 		return true
 	}
 	return strings.EqualFold(site.OwnerEmail, strings.TrimSpace(currentUser.Email))
+}
+
+func (handlers *SiteHandlers) ginRequestContext(ginContext *gin.Context) context.Context {
+	if ginContext != nil && ginContext.Request != nil {
+		return ginContext.Request.Context()
+	}
+	return context.Background()
+}
+
+func (handlers *SiteHandlers) resolveFaviconURL(ctx context.Context, allowedOrigin string) string {
+	if handlers.faviconResolver == nil {
+		return ""
+	}
+	iconURL, err := handlers.faviconResolver.Resolve(ctx, allowedOrigin)
+	if err != nil && handlers.logger != nil {
+		handlers.logger.Debug("resolve_favicon_failed", zap.String("allowed_origin", allowedOrigin), zap.Error(err))
+		return ""
+	}
+	return iconURL
 }
