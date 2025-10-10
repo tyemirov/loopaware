@@ -70,6 +70,6 @@ Make the footer independent so that I could reuse it as a component in other pro
 - [x] [LA-42] Logout shall be redirecting the user to the landing page. not back to Login screen
 - [x] [LA-43] The landing page misses favicon. Use     `<link rel="icon" type="image/svg+xml" href="{{.FaviconDataURI}}" />`
 - [x] [LA-44] The LoopAware logo on the landing page is incorrect. Either use the SVG from the code or ![alt text](internal/httpapi/templates/logo.png)
-- [ ] [LA-45] The footer on the landing page should stick to the top of the page.
+- [x] [LA-45] The header on the landing page should stick to the top of the page.
 
 ## Maintenance

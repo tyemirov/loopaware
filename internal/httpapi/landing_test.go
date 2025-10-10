@@ -23,6 +23,7 @@ const (
 	landingLogoImageClassToken       = "class=\"landing-logo-image\""
 	landingLogoAltToken              = "alt=\"LoopAware logo\""
 	landingLogoDataToken             = "src=\"data:image/png;base64,"
+	landingHeaderStickyToken         = "class=\"py-4 sticky-top\""
 	landingFooterDropdownToggleToken = "data-bs-toggle=\"dropdown\""
 	landingFooterDropdownMenuToken   = "dropdown-menu"
 	landingFooterLinkGravityToken    = "https://gravity.mprlab.com"
@@ -84,6 +85,7 @@ func TestLandingPageProvidesThemeSwitch(t *testing.T) {
 	require.Contains(t, body, landingThemeScriptKeyToken)
 	require.Contains(t, body, landingThemeApplyFunctionToken)
 	require.Contains(t, body, landingThemeDataAttributeToken)
+	require.Contains(t, body, landingHeaderStickyToken)
 }
 
 func TestLandingPageDisplaysHeaderLogo(t *testing.T) {
