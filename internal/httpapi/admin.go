@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -67,6 +68,7 @@ type siteResponse struct {
 	Name          string `json:"name"`
 	AllowedOrigin string `json:"allowed_origin"`
 	OwnerEmail    string `json:"owner_email"`
+	FaviconURL    string `json:"favicon_url"`
 	Widget        string `json:"widget"`
 	CreatedAt     int64  `json:"created_at"`
 }
@@ -397,6 +399,7 @@ func (handlers *SiteHandlers) toSiteResponse(site model.Site) siteResponse {
 		Name:          site.Name,
 		AllowedOrigin: site.AllowedOrigin,
 		OwnerEmail:    site.OwnerEmail,
+		FaviconURL:    deriveFaviconURL(site.AllowedOrigin),
 		Widget:        fmt.Sprintf(widgetScriptTemplate, widgetBase, site.ID),
 		CreatedAt:     site.CreatedAt.UTC().Unix(),
 	}
@@ -405,6 +408,25 @@ func (handlers *SiteHandlers) toSiteResponse(site model.Site) siteResponse {
 func normalizeWidgetBaseURL(value string) string {
 	trimmed := strings.TrimSpace(value)
 	return strings.TrimRight(trimmed, "/")
+}
+
+func deriveFaviconURL(allowedOrigin string) string {
+	trimmed := strings.TrimSpace(allowedOrigin)
+	if trimmed == "" {
+		return ""
+	}
+	parsed, parseErr := url.Parse(trimmed)
+	if parseErr != nil || parsed == nil {
+		return ""
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return ""
+	}
+	parsed.Path = "/favicon.ico"
+	parsed.RawPath = ""
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String()
 }
 
 func canManageSite(currentUser *CurrentUser, site model.Site) bool {

@@ -236,6 +236,8 @@
         var sitesList = document.getElementById(elementIds.sites_list);
         var siteListItemClass = componentClasses.site_list_item || '';
         var siteListItemActiveClass = componentClasses.site_list_item_active || '';
+        var siteListItemHeaderClass = componentClasses.site_list_item_header || '';
+        var siteListItemFaviconClass = componentClasses.site_list_item_favicon || '';
         var userName = document.getElementById(elementIds.user_name);
         var userEmail = document.getElementById(elementIds.user_email);
         var userAvatar = document.getElementById(elementIds.user_avatar);
@@ -818,10 +820,34 @@
             listItem.className = siteListItemClass + (site.id === state.selectedSiteId ? ' ' + siteListItemActiveClass : '');
             listItem.dataset.siteId = site.id;
 
-            var nameElement = document.createElement('div');
-            nameElement.className = 'fw-semibold';
+            var headerElement = document.createElement('div');
+            headerElement.className = siteListItemHeaderClass;
+
+            var faviconElement = document.createElement('img');
+            faviconElement.className = siteListItemFaviconClass;
+            faviconElement.width = 24;
+            faviconElement.height = 24;
+            faviconElement.alt = '';
+            faviconElement.decoding = 'async';
+            faviconElement.loading = 'lazy';
+            faviconElement.referrerPolicy = 'no-referrer';
+            var faviconURL = (site.favicon_url || '').trim();
+            if (faviconURL.length > 0) {
+              faviconElement.src = faviconURL;
+              faviconElement.addEventListener('error', function() {
+                faviconElement.classList.add('d-none');
+              });
+            } else {
+              faviconElement.classList.add('d-none');
+            }
+            headerElement.appendChild(faviconElement);
+
+            var nameElement = document.createElement('span');
+            nameElement.className = 'fw-semibold text-truncate flex-grow-1';
             nameElement.textContent = site.name || '';
-            listItem.appendChild(nameElement);
+            headerElement.appendChild(nameElement);
+
+            listItem.appendChild(headerElement);
 
             var originElement = document.createElement('div');
             originElement.className = 'small text-muted text-truncate';

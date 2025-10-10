@@ -126,6 +126,8 @@ const (
 	fieldHelpButtonClass              = "btn btn-link p-0 text-secondary"
 	fieldHelpIconClass                = "bi bi-question-circle-fill"
 	fieldHelpTextClass                = "form-text text-muted"
+	siteListItemHeaderClass           = "d-flex align-items-center gap-2"
+	siteListItemFaviconClass          = "flex-shrink-0 rounded border bg-white"
 	siteNameHelpButtonElementID       = "site-name-help-button"
 	siteNameHelpTitle                 = "Site name"
 	siteNameHelpContent               = "Displayed in the sites list for your team."
@@ -549,8 +551,10 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"danger":    dashboardActionButtonDangerClass,
 		},
 		ComponentClasses: map[string]string{
-			"site_list_item":        siteListItemClass,
-			"site_list_item_active": siteListItemActiveClass,
+			"site_list_item":         siteListItemClass,
+			"site_list_item_active":  siteListItemActiveClass,
+			"site_list_item_header":  siteListItemHeaderClass,
+			"site_list_item_favicon": siteListItemFaviconClass,
 		},
 		WidgetTexts: map[string]string{
 			"unavailable": dashboardWidgetUnavailable,

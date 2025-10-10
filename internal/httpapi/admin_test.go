@@ -116,6 +116,7 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 		Sites []struct {
 			Identifier string `json:"id"`
 			Widget     string `json:"widget"`
+			FaviconURL string `json:"favicon_url"`
 		} `json:"sites"`
 	}
 	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
@@ -124,6 +125,7 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	expectedBaseURL := strings.TrimRight(testWidgetBaseURL, "/")
 	expectedWidget := fmt.Sprintf("<script src=\"%s/widget.js?site_id=%s\"></script>", expectedBaseURL, site.ID)
 	require.Equal(testingT, expectedWidget, responseBody.Sites[0].Widget)
+	require.Equal(testingT, "https://client.example/favicon.ico", responseBody.Sites[0].FaviconURL)
 }
 
 func TestNonAdminCannotAccessForeignSite(testingT *testing.T) {
