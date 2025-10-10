@@ -123,6 +123,15 @@ const (
 	formStatusBaseClass               = "d-none py-1 px-2 small rounded"
 	formStatusSuccessClass            = "py-1 px-2 small rounded bg-white border border-success text-success"
 	formStatusDangerClass             = "py-1 px-2 small rounded bg-white border border-danger text-danger"
+	siteDetailsHelpButtonElementID    = "site-details-help-button"
+	dashboardSiteDetailsHelpTitle     = "Site registration requirements"
+	dashboardSiteDetailsHelpContent   = "Provide a site name, allowed origin including protocol and hostname, and a valid owner email before saving."
+	validationMessageNameRequiredKey  = "name_required"
+	validationMessageOriginKey        = "origin_invalid"
+	validationMessageOwnerKey         = "owner_invalid"
+	dashboardValidationNameMessage    = "Site name is required."
+	dashboardValidationOriginMessage  = "Allowed origin must include protocol and hostname, for example https://example.com."
+	dashboardValidationOwnerMessage   = "Provide a valid owner email address."
 )
 
 type dashboardTemplateData struct {
@@ -228,6 +237,9 @@ type dashboardTemplateData struct {
 	FormStatusBaseClass               string
 	FormStatusSuccessClass            string
 	FormStatusDangerClass             string
+	SiteDetailsHelpButtonID           string
+	SiteDetailsHelpTitle              string
+	SiteDetailsHelpContent            string
 	WidgetStatusID                    string
 	MessagesStatusID                  string
 	DeleteSiteModalID                 string
@@ -263,6 +275,7 @@ type dashboardClientConfig struct {
 	OptionValues       map[string]string `json:"option_values"`
 	FormStatusClasses  map[string]string `json:"form_status_classes"`
 	FooterThemeClasses map[string]string `json:"footer_theme_classes"`
+	ValidationMessages map[string]string `json:"validation_messages"`
 }
 
 // DashboardWebHandlers serves the authenticated dashboard UI.
@@ -383,6 +396,9 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		FormStatusBaseClass:               formStatusBaseClass,
 		FormStatusSuccessClass:            formStatusSuccessClass,
 		FormStatusDangerClass:             formStatusDangerClass,
+		SiteDetailsHelpButtonID:           siteDetailsHelpButtonElementID,
+		SiteDetailsHelpTitle:              dashboardSiteDetailsHelpTitle,
+		SiteDetailsHelpContent:            dashboardSiteDetailsHelpContent,
 		WidgetStatusID:                    widgetStatusElementID,
 		MessagesStatusID:                  messagesStatusElementID,
 		DeleteSiteModalID:                 deleteSiteModalElementID,
@@ -447,6 +463,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"delete_site_target_name":    deleteSiteTargetNameElementID,
 			"footer":                     footerElementID,
 			"footer_inner":               footerInnerElementID,
+			"site_details_help_button":   siteDetailsHelpButtonElementID,
 		},
 		ButtonClasses: map[string]string{
 			"new_site_default":     newSiteButtonClass,
@@ -521,6 +538,11 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		FooterThemeClasses: map[string]string{
 			"light": footerThemeLightClass,
 			"dark":  footerThemeDarkClass,
+		},
+		ValidationMessages: map[string]string{
+			validationMessageNameRequiredKey: dashboardValidationNameMessage,
+			validationMessageOriginKey:       dashboardValidationOriginMessage,
+			validationMessageOwnerKey:        dashboardValidationOwnerMessage,
 		},
 	}
 

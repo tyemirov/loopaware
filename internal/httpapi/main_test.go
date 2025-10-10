@@ -57,6 +57,12 @@ const (
 	dashboardFooterThemeConfigToken        = "\"footer_theme_classes\":{"
 	dashboardBootstrapIconsIntegrityToken  = "integrity=\"sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+\""
 	dashboardFaviconLinkToken              = "rel=\"icon\""
+	dashboardValidationMessagesToken       = "\"validation_messages\":{"
+	dashboardValidationScriptToken         = "var validationMessages = parsedConfig.validation_messages || {};"
+	dashboardValidationGuardToken          = "if (!validateSiteForm()) {"
+	dashboardValidationResetToken          = "function clearValidationFeedback() {"
+	dashboardSiteDetailsHelpButtonID       = "site-details-help-button"
+	dashboardSiteDetailsHelpPopoverToken   = "data-bs-toggle=\"popover\""
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -339,6 +345,66 @@ func TestDashboardTemplateConfiguresButtonStatusManager(t *testing.T) {
 			testName:      "legacy select site badge removed",
 			substring:     dashboardLegacySelectSitePrompt,
 			expectPresent: false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.testName, func(t *testing.T) {
+			if testCase.expectPresent {
+				require.Contains(t, body, testCase.substring)
+				return
+			}
+			require.NotContains(t, body, testCase.substring)
+		})
+	}
+}
+
+func TestDashboardTemplateIncludesSiteValidationSupport(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	testCases := []struct {
+		testName      string
+		substring     string
+		expectPresent bool
+	}{
+		{
+			testName:      "validation messages config present",
+			substring:     dashboardValidationMessagesToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "validation script bootstrap",
+			substring:     dashboardValidationScriptToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "validation guard in submit handler",
+			substring:     dashboardValidationGuardToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "validation reset helper present",
+			substring:     dashboardValidationResetToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "site details help button present",
+			substring:     "id=\"" + dashboardSiteDetailsHelpButtonID + "\"",
+			expectPresent: true,
+		},
+		{
+			testName:      "site details help uses popover",
+			substring:     dashboardSiteDetailsHelpPopoverToken,
+			expectPresent: true,
 		},
 	}
 

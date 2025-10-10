@@ -26,19 +26,9 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ## Features
 
-- [ ] [LA-13] Add UI validation help explaining what are the fields required to register the web site 
-1. Allowed Origin (protocol, URN, port etc). Add a UX-based validation in case it's incorrect and display a helpful message (red, in the panel title). 
-2. Owner email. Add a UX-based validation in case it's incorrect and display a helpful message (red, in the panel title). 
-3. site name. 
-Have a small question mark in a circle icon, as typical, and display a popup/tooltip when pressed
-
-- [ ] [LA-14] Remove the need of uuid to identify the site. The site will be served based on the remote origin and matched with the registered site. Then the widget becomes simplified and is identical for any site.
-
-- [ ] [LA-15] Minimize the submit dialog after submission. Display the message and then disappear it after a few seconds.
+- [ ] [LA-15] Minimize the submit dialog after submission in widget.js. Display the message and then disappear (minimize) it after a few seconds.
 
 ## Improvements
-
-- [ ] [LA-12] The avatar route is probably unnessary, we can just replace the image if we have it in the template file rather than having a special rout to serve it
 
 - [ ] [LA-16] Add mailto: prefix to the email displayed in the feedback panel
 

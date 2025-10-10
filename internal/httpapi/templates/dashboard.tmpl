@@ -70,7 +70,13 @@
             <div class="card shadow-sm mb-4">
               <div class="card-header">
                 <div class="d-flex align-items-center justify-content-between">
-                  <h5 class="mb-0">Site details</h5>
+                  <div class="d-flex align-items-center gap-2">
+                    <h5 class="mb-0">Site details</h5>
+                    <button id="{{.SiteDetailsHelpButtonID}}" type="button" class="btn btn-link p-0 text-secondary" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.SiteDetailsHelpTitle}}" data-bs-content="{{.SiteDetailsHelpContent}}">
+                      <span class="visually-hidden">{{.SiteDetailsHelpTitle}}</span>
+                      <i class="bi bi-question-circle-fill"></i>
+                    </button>
+                  </div>
                   <div class="d-flex align-items-center gap-2">
                     <div id="{{.FormStatusID}}" class="{{.FormStatusBaseClass}}"></div>
                     <button id="{{.SaveSiteButtonID}}" type="button" class="{{.SaveButtonDefaultClass}}"></button>
@@ -194,12 +200,14 @@
         var widgetTexts = parsedConfig.widget_texts || {};
         var optionValues = parsedConfig.option_values || {};
         var formStatusClasses = parsedConfig.form_status_classes || {};
+        var validationMessages = parsedConfig.validation_messages || {};
         var themePreferenceStorageKey = parsedConfig.theme_storage_key || '';
         var settingsButton = document.getElementById(elementIds.settings_button);
         var settingsMenu = document.getElementById(elementIds.settings_menu);
         var themeToggle = document.getElementById(elementIds.settings_theme_toggle);
         var settingsAvatarImage = document.getElementById(elementIds.settings_avatar_image);
         var settingsAvatarFallback = document.getElementById(elementIds.settings_avatar_fallback);
+        var siteDetailsHelpButton = document.getElementById(elementIds.site_details_help_button);
         var newSiteOptionValue = optionValues.new_site || '';
         var createButtonLabel = buttonLabels.create || '';
         var updateButtonLabel = buttonLabels.update || '';
@@ -256,6 +264,121 @@
           selectedSiteId: '',
           pendingDeletionSiteId: ''
         };
+        var validationMessageKeyNameRequired = 'name_required';
+        var validationMessageKeyOriginInvalid = 'origin_invalid';
+        var validationMessageKeyOwnerInvalid = 'owner_invalid';
+        var invalidFieldClassName = 'is-invalid';
+        var validationEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        function shouldAlwaysValidate() {
+          return true;
+        }
+        function shouldValidateOwnerEmail() {
+          return state.user && state.user.is_admin;
+        }
+        function getTrimmedValue(element) {
+          if (!element || typeof element.value !== 'string') {
+            return '';
+          }
+          return element.value.trim();
+        }
+        function isSiteNameValid(value) {
+          return value.length > 0;
+        }
+        function isAllowedOriginValid(value) {
+          if (!value) {
+            return false;
+          }
+          try {
+            var parsed = new URL(value);
+            if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+              return false;
+            }
+            if (!parsed.hostname) {
+              return false;
+            }
+            if (parsed.username || parsed.password) {
+              return false;
+            }
+            if ((parsed.pathname && parsed.pathname !== '/') || parsed.search || parsed.hash) {
+              return false;
+            }
+            return true;
+          } catch (error) {
+            return false;
+          }
+        }
+        function isOwnerEmailValid(value) {
+          if (!value) {
+            return false;
+          }
+          return validationEmailPattern.test(value);
+        }
+        var siteFormValidationDescriptors = [
+          {
+            fieldElement: editSiteNameInput,
+            messageKey: validationMessageKeyNameRequired,
+            shouldValidate: shouldAlwaysValidate,
+            validateValue: isSiteNameValid
+          },
+          {
+            fieldElement: editSiteOriginInput,
+            messageKey: validationMessageKeyOriginInvalid,
+            shouldValidate: shouldAlwaysValidate,
+            validateValue: isAllowedOriginValid
+          },
+          {
+            fieldElement: editSiteOwnerInput,
+            messageKey: validationMessageKeyOwnerInvalid,
+            shouldValidate: shouldValidateOwnerEmail,
+            validateValue: isOwnerEmailValid
+          }
+        ];
+        function clearValidationFeedback() {
+          siteFormValidationDescriptors.forEach(function(descriptor) {
+            if (descriptor.fieldElement) {
+              descriptor.fieldElement.classList.remove(invalidFieldClassName);
+            }
+          });
+          clearFormStatus();
+        }
+        function markFieldInvalid(fieldElement, messageKey) {
+          if (!fieldElement) {
+            return;
+          }
+          fieldElement.classList.add(invalidFieldClassName);
+          fieldElement.focus();
+          var message = validationMessages[messageKey] || '';
+          setFormStatus(message, formStatusDangerClass);
+        }
+        function validateSiteForm() {
+          clearValidationFeedback();
+          for (var index = 0; index < siteFormValidationDescriptors.length; index += 1) {
+            var descriptor = siteFormValidationDescriptors[index];
+            if (!descriptor.fieldElement) {
+              continue;
+            }
+            if (typeof descriptor.shouldValidate === 'function' && !descriptor.shouldValidate()) {
+              continue;
+            }
+            var value = getTrimmedValue(descriptor.fieldElement);
+            if (typeof descriptor.validateValue === 'function' && !descriptor.validateValue(value)) {
+              markFieldInvalid(descriptor.fieldElement, descriptor.messageKey);
+              return false;
+            }
+          }
+          return true;
+        }
+        function registerValidationHandlers() {
+          siteFormValidationDescriptors.forEach(function(descriptor) {
+            if (!descriptor.fieldElement) {
+              return;
+            }
+            descriptor.fieldElement.addEventListener('input', function() {
+              descriptor.fieldElement.classList.remove(invalidFieldClassName);
+              clearFormStatus();
+            });
+          });
+        }
         var buttonStatusDisplayDuration = 3000;
         var widgetBaseURL = window.location.origin.replace(/\/$/, '');
         if (widgetSnippetTextarea) {
@@ -267,7 +390,8 @@
         setButtonDefault(copyWidgetSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
         setButtonDefault(refreshMessagesButton, buttonLabels.refresh_default || '', buttonClasses.refresh_default || '');
         setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
-        clearFormStatus();
+        registerValidationHandlers();
+        clearValidationFeedback();
 
         function applyThemePreference(mode) {
           var normalized = mode === 'dark' ? 'dark' : 'light';
@@ -350,6 +474,7 @@
             settingsAvatarImage.classList.add('d-none');
             settingsAvatarFallback.classList.remove('d-none');
           }
+          clearValidationFeedback();
         }
 
         function isNewSiteSelected() {
@@ -685,7 +810,7 @@
           if (!siteIdentifier || siteIdentifier === state.selectedSiteId) {
             return;
           }
-          clearFormStatus();
+          clearValidationFeedback();
           state.selectedSiteId = siteIdentifier;
           renderSites();
         }
@@ -694,9 +819,11 @@
           editSiteNameInput.value = '';
           editSiteOriginInput.value = '';
           editSiteOwnerInput.value = '';
+          clearValidationFeedback();
         }
 
         function populateSiteForm() {
+          clearValidationFeedback();
           if (!state.selectedSiteId) {
             clearSiteForm();
             saveSiteButton.disabled = true;
@@ -843,6 +970,9 @@
             updateButtonStatus(saveSiteButton, statusMessages.select_site || '', buttonStyles.secondary || '');
             return;
           }
+          if (!validateSiteForm()) {
+            return;
+          }
           if (isNewSiteSelected()) {
             createSite();
           } else {
@@ -854,11 +984,11 @@
           saveSiteButton.disabled = true;
           updateButtonStatus(saveSiteButton, buttonLabels.save_saving || '');
           var body = {
-            name: editSiteNameInput.value,
-            allowed_origin: editSiteOriginInput.value
+            name: getTrimmedValue(editSiteNameInput),
+            allowed_origin: getTrimmedValue(editSiteOriginInput)
           };
-          if (state.user.is_admin) {
-            body.owner_email = editSiteOwnerInput.value;
+          if (state.user && state.user.is_admin) {
+            body.owner_email = getTrimmedValue(editSiteOwnerInput);
           }
           var endpoint = apiSiteUpdatePrefix + state.selectedSiteId;
           fetchJSON(endpoint, {
@@ -885,9 +1015,9 @@
           saveSiteButton.disabled = true;
           updateButtonStatus(saveSiteButton, buttonLabels.save_saving || '');
           var body = {
-            name: editSiteNameInput.value,
-            allowed_origin: editSiteOriginInput.value,
-            owner_email: editSiteOwnerInput.value
+            name: getTrimmedValue(editSiteNameInput),
+            allowed_origin: getTrimmedValue(editSiteOriginInput),
+            owner_email: getTrimmedValue(editSiteOwnerInput)
           };
           fetchJSON(apiSitesEndpoint, {
             method: 'POST',
@@ -907,6 +1037,10 @@
           });
         }
 
+        if (siteDetailsHelpButton && window.bootstrap && window.bootstrap.Popover) {
+          new window.bootstrap.Popover(siteDetailsHelpButton);
+        }
+
         if (sitesList) {
           sitesList.addEventListener('click', handleSitesListClick);
         }
@@ -916,7 +1050,7 @@
             if (state.selectedSiteId === newSiteOptionValue) {
               return;
             }
-            clearFormStatus();
+            clearValidationFeedback();
             state.selectedSiteId = newSiteOptionValue;
             renderSites();
           });
