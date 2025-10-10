@@ -80,6 +80,9 @@ const (
 	dashboardFeedbackCountVarToken          = "var feedbackCountElement = document.getElementById(elementIds.feedback_count);"
 	dashboardSetFeedbackCountToken          = "function setFeedbackCount(total, visible)"
 	dashboardUpdateSelectedSiteSummaryToken = "function updateSelectedSiteSummary(site)"
+	dashboardRegisteredPrefixToken          = "Registered at:"
+	dashboardDateFormatterToken             = "date.toLocaleDateString()"
+	dashboardLegacyDateFormatterToken       = "date.toLocaleString()"
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -230,6 +233,36 @@ func TestDashboardFooterIncludesBranding(t *testing.T) {
 			require.NotContains(t, body, testCase.substring)
 		})
 	}
+}
+
+func TestDashboardTemplateDisplaysRegistrationInline(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, dashboardRegisteredPrefixToken)
+	require.NotContains(t, body, "text-muted small text-end mt-3")
+}
+
+func TestDashboardTimestampFormattedAsDateOnly(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, dashboardDateFormatterToken)
+	require.NotContains(t, body, dashboardLegacyDateFormatterToken)
 }
 
 func TestDashboardTemplateConfiguresButtonStatusManager(t *testing.T) {

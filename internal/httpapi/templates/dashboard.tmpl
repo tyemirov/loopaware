@@ -117,10 +117,13 @@
                       </button>
                     </div>
                     <input id="{{.EditSiteOwnerInputID}}" type="email" class="form-control" autocomplete="off" />
+                    <div class="d-flex align-items-center justify-content-between gap-2 text-muted small mt-2">
+                      <span class="fw-semibold">Registered at:</span>
+                      <span id="{{.SiteCreatedAtElementID}}">{{.SiteCreatedAtPlaceholder}}</span>
+                    </div>
                   </div>
                   </div>
                 </form>
-                <div class="text-muted small text-end mt-3" id="{{.SiteCreatedAtElementID}}">{{.SiteCreatedAtPlaceholder}}</div>
               </div>
             </div>
             <div class="card shadow-sm mb-4">
@@ -1223,7 +1226,7 @@
             return '';
           }
           var date = new Date(unixSeconds * 1000);
-          return date.toLocaleString();
+          return date.toLocaleDateString();
         }
 
         function loadUser() {
