@@ -70,6 +70,7 @@ const (
 	apiRouteSites                    = "/sites"
 	apiRouteSiteUpdate               = "/sites/:id"
 	apiRouteSiteMessages             = "/sites/:id/messages"
+	apiRouteSiteFavicon              = "/sites/:id/favicon"
 	corsOriginWildcard               = "*"
 	corsHeaderAuthorization          = "Authorization"
 	corsHeaderContentType            = "Content-Type"
@@ -343,10 +344,13 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	}))
 
 	publicHandlers := httpapi.NewPublicHandlers(database, logger)
-	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL)
+	sharedHTTPClient := &http.Client{Timeout: 5 * time.Second}
+	faviconResolver := httpapi.NewHTTPFaviconResolver(sharedHTTPClient, logger)
+	faviconManager := httpapi.NewSiteFaviconManager(database, faviconResolver, logger)
+	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(database)
+	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger)
-	avatarHTTPClient := &http.Client{Timeout: 5 * time.Second}
-	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, avatarHTTPClient)
+	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient)
 
 	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
@@ -368,6 +372,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	apiGroup.PATCH(apiRouteSiteUpdate, siteHandlers.UpdateSite)
 	apiGroup.DELETE(apiRouteSiteUpdate, siteHandlers.DeleteSite)
 	apiGroup.GET(apiRouteSiteMessages, siteHandlers.ListMessagesBySite)
+	apiGroup.GET(apiRouteSiteFavicon, siteHandlers.SiteFavicon)
 
 	httpServer := &http.Server{
 		Addr:              serverConfig.ApplicationAddress,

@@ -32,6 +32,7 @@ const (
 	integrationTestTimeout                 = 20 * time.Second
 	integrationStatusWaitTimeout           = 5 * time.Second
 	integrationStatusPollInterval          = 100 * time.Millisecond
+	integrationPanelAutoHideTimeout        = 8 * time.Second
 	browserStartupTimeout                  = 5 * time.Second
 	headlessBrowserSkipReason              = "chromedp headless browser not available"
 	headlessBrowserLocateErrorMessage      = "locate headless browser executable"
@@ -45,6 +46,8 @@ const (
 	widgetSendButtonSelector               = "#mp-feedback-panel button"
 	widgetStatusSelector                   = "#mp-feedback-panel div:last-child"
 	widgetSuccessStatusMessage             = "Thanks! Sent."
+	widgetPanelHiddenDisplayValue          = "none"
+	widgetPanelDisplayScript               = "document.getElementById(\"mp-feedback-panel\").style.display"
 	panelInputRelativeSelector             = "input"
 	panelMessageRelativeSelector           = "textarea"
 	panelButtonRelativeSelector            = "button"
@@ -115,6 +118,16 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 		return widgetStatusText == widgetSuccessStatusMessage
 	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
 	require.Equal(t, widgetSuccessStatusMessage, widgetStatusText)
+
+	var panelDisplayState string
+	require.Eventually(t, func() bool {
+		displayErr := chromedp.Run(browserContext, chromedp.Evaluate(widgetPanelDisplayScript, &panelDisplayState))
+		if displayErr != nil {
+			return false
+		}
+		return panelDisplayState == widgetPanelHiddenDisplayValue
+	}, integrationPanelAutoHideTimeout, integrationStatusPollInterval)
+	require.Equal(t, widgetPanelHiddenDisplayValue, panelDisplayState)
 
 	var storedFeedbackRecords []model.Feedback
 	queryErr := apiHarness.database.Find(&storedFeedbackRecords).Error

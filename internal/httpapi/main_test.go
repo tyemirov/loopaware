@@ -13,50 +13,73 @@ import (
 )
 
 const (
-	dashboardTitleText                     = "LoopAware Dashboard"
-	dashboardSessionContextKey             = "httpapi_current_user"
-	testDashboardAuthenticatedEmail        = "viewer@example.com"
-	dashboardSitesListElementID            = "sites-list"
-	dashboardNewSiteButtonElementID        = "new-site-button"
-	dashboardLegacySelectorID              = "site-selector"
-	dashboardFooterBrandPrefix             = "Built by"
-	dashboardFooterBrandURL                = "https://mprlab.com"
-	dashboardFooterBrandName               = "Marco Polo Research Lab"
-	dashboardButtonStatusToken             = "buttonStatusDisplayDuration"
-	dashboardRestoreButtonToken            = "restoreButtonDefault"
-	dashboardCreateButtonPattern           = "setButtonDefault(saveSiteButton, createButtonLabel, createButtonClass);"
-	dashboardUpdateButtonPattern           = "setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);"
-	dashboardButtonStylesToken             = "var buttonStyles = parsedConfig.button_styles || {};"
-	dashboardButtonStylesPrimary           = "\"primary\":\"btn btn-outline-primary btn-sm\""
-	dashboardButtonStylesSuccess           = "\"success\":\"btn btn-outline-success btn-sm\""
-	dashboardButtonStylesSecondary         = "\"secondary\":\"btn btn-outline-secondary btn-sm\""
-	dashboardButtonStylesDanger            = "\"danger\":\"btn btn-outline-danger btn-sm\""
-	dashboardLegacyShowStatusFunction      = "function showStatus("
-	dashboardNotificationTargetsToken      = "var notificationTargets ="
-	dashboardLegacySiteSavedNotification   = "showStatus(statusMessages.siteSaved"
-	dashboardLegacySiteCreatedNotification = "showStatus(statusMessages.siteCreated"
-	dashboardLegacyWidgetCopySuccess       = "showStatus(statusMessages.widgetCopied"
-	dashboardLegacyWidgetCopyFailure       = "showStatus(statusMessages.widgetCopyFailed"
-	dashboardLegacyRefreshLoading          = "showStatus('Refreshing...'"
-	dashboardLegacyRefreshSuccess          = "showStatus('Feedback refreshed.'"
-	dashboardLegacyRefreshFailure          = "showStatus('Refresh failed.'"
-	dashboardLegacySelectSitePrompt        = "showStatus(statusMessages.selectSite"
-	dashboardLoadMessagesSignature         = "function loadMessages(shouldUpdateButtonStatus)"
-	dashboardManualLoadMessagesCall        = "loadMessages(true);"
-	dashboardAutomaticLoadMessagesCall     = "loadMessages(false);"
-	dashboardRefreshSuccessUpdateCall      = "updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_success || '', buttonStyles.secondary || '');"
-	dashboardRefreshFailureUpdateCall      = "updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');"
-	dashboardRefreshLoadingUpdateCall      = "updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_loading || '', buttonStyles.secondary || '');"
-	dashboardSubmitGuardUpdateCall         = "updateButtonStatus(saveSiteButton, statusMessages.select_site || '', buttonStyles.secondary || '');"
-	dashboardSaveButtonClassMarkup         = "class=\"btn btn-outline-success btn-sm\""
-	dashboardNewSiteButtonClass            = "class=\"btn btn-outline-primary btn-sm\""
-	dashboardLegacySaveButtonClass         = "btn btn-success\""
-	dashboardDeleteButtonClassMarkup       = "class=\"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled\""
-	dashboardDeleteIconMarkup              = "class=\"bi bi-trash3-fill text-danger\""
-	dashboardFooterElementID               = "id=\"dashboard-footer\""
-	dashboardFooterThemeConfigToken        = "\"footer_theme_classes\":{"
-	dashboardBootstrapIconsIntegrityToken  = "integrity=\"sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+\""
-	dashboardFaviconLinkToken              = "rel=\"icon\""
+	dashboardTitleText                      = "LoopAware Dashboard"
+	dashboardSessionContextKey              = "httpapi_current_user"
+	testDashboardAuthenticatedEmail         = "viewer@example.com"
+	dashboardSitesListElementID             = "sites-list"
+	dashboardNewSiteButtonElementID         = "new-site-button"
+	dashboardLegacySelectorID               = "site-selector"
+	dashboardFooterBrandPrefix              = "Built by"
+	dashboardFooterBrandURL                 = "https://mprlab.com"
+	dashboardFooterBrandName                = "Marco Polo Research Lab"
+	dashboardButtonStatusToken              = "buttonStatusDisplayDuration"
+	dashboardRestoreButtonToken             = "restoreButtonDefault"
+	dashboardCreateButtonPattern            = "setButtonDefault(saveSiteButton, createButtonLabel, createButtonClass);"
+	dashboardUpdateButtonPattern            = "setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);"
+	dashboardButtonStylesToken              = "var buttonStyles = parsedConfig.button_styles || {};"
+	dashboardButtonStylesPrimary            = "\"primary\":\"btn btn-outline-primary btn-sm\""
+	dashboardButtonStylesSuccess            = "\"success\":\"btn btn-outline-success btn-sm\""
+	dashboardButtonStylesSecondary          = "\"secondary\":\"btn btn-outline-secondary btn-sm\""
+	dashboardButtonStylesDanger             = "\"danger\":\"btn btn-outline-danger btn-sm\""
+	dashboardLegacyShowStatusFunction       = "function showStatus("
+	dashboardNotificationTargetsToken       = "var notificationTargets ="
+	dashboardLegacySiteSavedNotification    = "showStatus(statusMessages.siteSaved"
+	dashboardLegacySiteCreatedNotification  = "showStatus(statusMessages.siteCreated"
+	dashboardLegacyWidgetCopySuccess        = "showStatus(statusMessages.widgetCopied"
+	dashboardLegacyWidgetCopyFailure        = "showStatus(statusMessages.widgetCopyFailed"
+	dashboardLegacyRefreshLoading           = "showStatus('Refreshing...'"
+	dashboardLegacyRefreshSuccess           = "showStatus('Feedback refreshed.'"
+	dashboardLegacyRefreshFailure           = "showStatus('Refresh failed.'"
+	dashboardLegacySelectSitePrompt         = "showStatus(statusMessages.selectSite"
+	dashboardLoadMessagesSignature          = "function loadMessages(shouldUpdateButtonStatus)"
+	dashboardManualLoadMessagesCall         = "loadMessages(true);"
+	dashboardAutomaticLoadMessagesCall      = "loadMessages(false);"
+	dashboardRefreshSuccessUpdateCall       = "updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_success || '', buttonStyles.secondary || '');"
+	dashboardRefreshFailureUpdateCall       = "updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');"
+	dashboardRefreshLoadingUpdateCall       = "updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_loading || '', buttonStyles.secondary || '');"
+	dashboardSubmitGuardUpdateCall          = "updateButtonStatus(saveSiteButton, statusMessages.select_site || '', buttonStyles.secondary || '');"
+	dashboardSaveButtonClassMarkup          = "class=\"btn btn-outline-success btn-sm\""
+	dashboardNewSiteButtonClass             = "class=\"btn btn-outline-primary btn-sm\""
+	dashboardLegacySaveButtonClass          = "btn btn-success\""
+	dashboardDeleteButtonClassMarkup        = "class=\"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled\""
+	dashboardDeleteIconMarkup               = "class=\"bi bi-trash3-fill text-danger\""
+	dashboardFooterElementID                = "id=\"dashboard-footer\""
+	dashboardFooterThemeConfigToken         = "\"footer_theme_classes\":{"
+	dashboardBootstrapIconsIntegrityToken   = "integrity=\"sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+\""
+	dashboardFaviconLinkToken               = "rel=\"icon\""
+	dashboardValidationMessagesToken        = "\"validation_messages\":{"
+	dashboardValidationScriptToken          = "var validationMessages = parsedConfig.validation_messages || {};"
+	dashboardValidationGuardToken           = "if (!validateSiteForm()) {"
+	dashboardValidationResetToken           = "function clearValidationFeedback() {"
+	dashboardSiteNameHelpButtonID           = "site-name-help-button"
+	dashboardAllowedOriginHelpButtonID      = "allowed-origin-help-button"
+	dashboardOwnerEmailHelpButtonID         = "owner-email-help-button"
+	dashboardFieldHelpPopoverToken          = "data-bs-toggle=\"popover\""
+	dashboardMailtoPrefixToken              = "var mailtoSchemePrefix = 'mailto:';"
+	dashboardRenderContactFunctionToken     = "function renderContactValue(cell, value)"
+	dashboardContactLinkHrefToken           = "link.href = mailtoSchemePrefix + normalized;"
+	dashboardContactAppendLinkToken         = "cell.appendChild(link);"
+	dashboardSiteListHeaderClassToken       = "\"site_list_item_header\":\"d-flex align-items-center gap-2\""
+	dashboardSiteListFaviconClassToken      = "\"site_list_item_favicon\":\"flex-shrink-0 rounded border bg-white\""
+	dashboardFaviconURLToken                = "var faviconURL = (site.favicon_url || '').trim();"
+	dashboardFaviconSrcAssignmentToken      = "faviconElement.src = faviconURL;"
+	dashboardFaviconErrorHandlerToken       = "faviconElement.classList.add('d-none');"
+	dashboardSiteCreatedAtElementID         = "site-created-at"
+	dashboardFeedbackCountElementID         = "feedback-count"
+	dashboardSiteCreatedAtVarToken          = "var siteCreatedAtElement = document.getElementById(elementIds.site_created_at);"
+	dashboardFeedbackCountVarToken          = "var feedbackCountElement = document.getElementById(elementIds.feedback_count);"
+	dashboardSetFeedbackCountToken          = "function setFeedbackCount(total, visible)"
+	dashboardUpdateSelectedSiteSummaryToken = "function updateSelectedSiteSummary(site)"
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -111,6 +134,16 @@ func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {
 			expectPresent: true,
 		},
 		{
+			testName:      "site list header class exported",
+			substring:     dashboardSiteListHeaderClassToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "site list favicon class exported",
+			substring:     dashboardSiteListFaviconClassToken,
+			expectPresent: true,
+		},
+		{
 			testName:      "bootstrap icons integrity",
 			substring:     dashboardBootstrapIconsIntegrityToken,
 			expectPresent: true,
@@ -118,6 +151,16 @@ func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {
 		{
 			testName:      "favicon link present",
 			substring:     dashboardFaviconLinkToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "site created at element",
+			substring:     "id=\"" + dashboardSiteCreatedAtElementID + "\"",
+			expectPresent: true,
+		},
+		{
+			testName:      "feedback count element",
+			substring:     "id=\"" + dashboardFeedbackCountElementID + "\"",
 			expectPresent: true,
 		},
 		{
@@ -354,6 +397,76 @@ func TestDashboardTemplateConfiguresButtonStatusManager(t *testing.T) {
 	}
 }
 
+func TestDashboardTemplateIncludesSiteValidationSupport(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	testCases := []struct {
+		testName      string
+		substring     string
+		expectPresent bool
+	}{
+		{
+			testName:      "validation messages config present",
+			substring:     dashboardValidationMessagesToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "validation script bootstrap",
+			substring:     dashboardValidationScriptToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "validation guard in submit handler",
+			substring:     dashboardValidationGuardToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "validation reset helper present",
+			substring:     dashboardValidationResetToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "site name help button present",
+			substring:     "id=\"" + dashboardSiteNameHelpButtonID + "\"",
+			expectPresent: true,
+		},
+		{
+			testName:      "allowed origin help button present",
+			substring:     "id=\"" + dashboardAllowedOriginHelpButtonID + "\"",
+			expectPresent: true,
+		},
+		{
+			testName:      "owner email help button present",
+			substring:     "id=\"" + dashboardOwnerEmailHelpButtonID + "\"",
+			expectPresent: true,
+		},
+		{
+			testName:      "field help uses popover",
+			substring:     dashboardFieldHelpPopoverToken,
+			expectPresent: true,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.testName, func(t *testing.T) {
+			if testCase.expectPresent {
+				require.Contains(t, body, testCase.substring)
+				return
+			}
+			require.NotContains(t, body, testCase.substring)
+		})
+	}
+}
+
 func TestDashboardTemplateUsesUniformActionButtonStyles(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
@@ -384,6 +497,151 @@ func TestDashboardTemplateUsesUniformActionButtonStyles(t *testing.T) {
 			testName:      "legacy solid success class removed",
 			substring:     dashboardLegacySaveButtonClass,
 			expectPresent: false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.testName, func(t *testing.T) {
+			if testCase.expectPresent {
+				require.Contains(t, body, testCase.substring)
+				return
+			}
+			require.NotContains(t, body, testCase.substring)
+		})
+	}
+}
+
+func TestDashboardTemplateSupportsMailtoLinksForFeedback(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	testCases := []struct {
+		testName      string
+		substring     string
+		expectPresent bool
+	}{
+		{
+			testName:      "defines mailto prefix constant",
+			substring:     dashboardMailtoPrefixToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "defines render contact helper",
+			substring:     dashboardRenderContactFunctionToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "assigns mailto href",
+			substring:     dashboardContactLinkHrefToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "appends anchor to cell",
+			substring:     dashboardContactAppendLinkToken,
+			expectPresent: true,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.testName, func(t *testing.T) {
+			if testCase.expectPresent {
+				require.Contains(t, body, testCase.substring)
+				return
+			}
+			require.NotContains(t, body, testCase.substring)
+		})
+	}
+}
+
+func TestDashboardTemplateSupportsSiteFavicons(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	testCases := []struct {
+		testName      string
+		substring     string
+		expectPresent bool
+	}{
+		{
+			testName:      "favicon url extraction",
+			substring:     dashboardFaviconURLToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "favicon source assignment",
+			substring:     dashboardFaviconSrcAssignmentToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "favicon error handler",
+			substring:     dashboardFaviconErrorHandlerToken,
+			expectPresent: true,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.testName, func(t *testing.T) {
+			if testCase.expectPresent {
+				require.Contains(t, body, testCase.substring)
+				return
+			}
+			require.NotContains(t, body, testCase.substring)
+		})
+	}
+}
+
+func TestDashboardTemplateExposesSiteMetadataHelpers(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	testCases := []struct {
+		testName      string
+		substring     string
+		expectPresent bool
+	}{
+		{
+			testName:      "site created at accessor",
+			substring:     dashboardSiteCreatedAtVarToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "feedback count accessor",
+			substring:     dashboardFeedbackCountVarToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "feedback count helper",
+			substring:     dashboardSetFeedbackCountToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "site summary helper",
+			substring:     dashboardUpdateSelectedSiteSummaryToken,
+			expectPresent: true,
 		},
 	}
 

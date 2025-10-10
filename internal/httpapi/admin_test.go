@@ -42,7 +42,7 @@ func newSiteTestHarness(testingT *testing.T) siteTestHarness {
 	require.NoError(testingT, openErr)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
-	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL)
+	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil)
 
 	return siteTestHarness{handlers: handlers, database: database}
 }
@@ -99,13 +99,25 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
 	site := model.Site{
-		ID:            storage.NewID(),
-		Name:          "Widget Site",
-		AllowedOrigin: "https://client.example",
-		OwnerEmail:    testAdminEmailAddress,
+		ID:                 storage.NewID(),
+		Name:               "Widget Site",
+		AllowedOrigin:      "https://client.example",
+		OwnerEmail:         testAdminEmailAddress,
+		FaviconData:        []byte{0x01, 0x02, 0x03},
+		FaviconContentType: "image/png",
+		FaviconOrigin:      "https://client.example",
+		FaviconFetchedAt:   time.Now(),
 	}
 	require.NoError(testingT, harness.database.Create(&site).Error)
-
+	for index := 0; index < 5; index++ {
+		feedback := model.Feedback{
+			ID:      storage.NewID(),
+			SiteID:  site.ID,
+			Contact: fmt.Sprintf("contact-%d@example.com", index),
+			Message: fmt.Sprintf("Message %d", index),
+		}
+		require.NoError(testingT, harness.database.Create(&feedback).Error)
+	}
 	recorder, context := newJSONContext(http.MethodGet, "/api/sites", nil)
 	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
 
@@ -114,8 +126,10 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 
 	var responseBody struct {
 		Sites []struct {
-			Identifier string `json:"id"`
-			Widget     string `json:"widget"`
+			Identifier    string `json:"id"`
+			Widget        string `json:"widget"`
+			FaviconURL    string `json:"favicon_url"`
+			FeedbackCount int64  `json:"feedback_count"`
 		} `json:"sites"`
 	}
 	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
@@ -124,6 +138,34 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	expectedBaseURL := strings.TrimRight(testWidgetBaseURL, "/")
 	expectedWidget := fmt.Sprintf("<script src=\"%s/widget.js?site_id=%s\"></script>", expectedBaseURL, site.ID)
 	require.Equal(testingT, expectedWidget, responseBody.Sites[0].Widget)
+	expectedFavicon := fmt.Sprintf("/api/sites/%s/favicon", site.ID)
+	require.Equal(testingT, expectedFavicon, responseBody.Sites[0].FaviconURL)
+	require.Equal(testingT, int64(5), responseBody.Sites[0].FeedbackCount)
+}
+
+func TestSiteFaviconReturnsStoredIcon(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:                 storage.NewID(),
+		Name:               "Icon Site",
+		AllowedOrigin:      "https://icon.example",
+		OwnerEmail:         testAdminEmailAddress,
+		FaviconData:        []byte{0x10, 0x20, 0x30},
+		FaviconContentType: "image/png",
+		FaviconOrigin:      "https://icon.example",
+		FaviconFetchedAt:   time.Now(),
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/favicon", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+
+	harness.handlers.SiteFavicon(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+	require.Equal(testingT, "image/png", recorder.Header().Get("Content-Type"))
+	require.Equal(testingT, []byte{0x10, 0x20, 0x30}, recorder.Body.Bytes())
 }
 
 func TestNonAdminCannotAccessForeignSite(testingT *testing.T) {
@@ -165,6 +207,7 @@ func TestCreateSiteAllowsAdminToSpecifyOwner(testingT *testing.T) {
 	require.Equal(testingT, "Admin Created", responseBody["name"])
 	require.Equal(testingT, "http://owned.example", responseBody["allowed_origin"])
 	require.Equal(testingT, testUserEmailAddress, responseBody["owner_email"])
+	require.Equal(testingT, float64(0), responseBody["feedback_count"])
 
 	var createdSite model.Site
 	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Admin Created").Error)
@@ -188,6 +231,7 @@ func TestCreateSiteAssignsCurrentUserAsOwner(testingT *testing.T) {
 	var responseBody map[string]any
 	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
 	require.Equal(testingT, testUserEmailAddress, responseBody["owner_email"])
+	require.Equal(testingT, float64(0), responseBody["feedback_count"])
 
 	var createdSite model.Site
 	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Self Owned").Error)

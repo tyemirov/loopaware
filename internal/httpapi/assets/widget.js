@@ -12,6 +12,9 @@
   var statusStateError = "error";
   var statusStatePending = "pending";
   var boxSizingBorderBoxValue = "border-box";
+  var panelDisplayBlockValue = "block";
+  var panelDisplayNoneValue = "none";
+  var panelAutoHideDelayMilliseconds = 5000;
   var widgetThemePalettes = {
     light: {
       bubbleBackground: "#0d6efd",
@@ -70,6 +73,7 @@
       if (existingBubble) {
         return;
       }
+      var panelAutoHideTimer = null;
 
       var bodyElement = document.body;
       var themePalette = selectThemePalette(bodyElement);
@@ -109,7 +113,7 @@
       panel.style.borderRadius = "12px";
       panel.style.padding = "12px";
       panel.style.fontFamily = "system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif";
-      panel.style.display = "none";
+      panel.style.display = panelDisplayNoneValue;
       panel.style.zIndex = "2147483647";
       panel.style.color = themePalette.panelTextColor;
 
@@ -169,8 +173,24 @@
 
       bodyElement.appendChild(panel);
 
+      function cancelPanelAutoHide() {
+        if (panelAutoHideTimer) {
+          window.clearTimeout(panelAutoHideTimer);
+          panelAutoHideTimer = null;
+        }
+      }
+
+      function schedulePanelAutoHide() {
+        cancelPanelAutoHide();
+        panelAutoHideTimer = window.setTimeout(function(){
+          panel.style.display = panelDisplayNoneValue;
+          cancelPanelAutoHide();
+        }, panelAutoHideDelayMilliseconds);
+      }
+
       bubble.addEventListener("click", function(){
-        panel.style.display = (panel.style.display === "none" ? "block" : "none");
+        cancelPanelAutoHide();
+        panel.style.display = (panel.style.display === panelDisplayNoneValue ? panelDisplayBlockValue : panelDisplayNoneValue);
       });
 
       function show(messageText, statusState) {
@@ -193,6 +213,7 @@
       }
 
       send.addEventListener("click", function(){
+        cancelPanelAutoHide();
         var valid = validate();
         if (!valid) { return; }
         send.disabled = true;
@@ -230,6 +251,7 @@
           contact.value = "";
           message.value = "";
           send.disabled = false;
+          schedulePanelAutoHide();
         }).catch(function(err){
           show("Failed to send. Please try again.", statusStateError);
           send.disabled = false;
