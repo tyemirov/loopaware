@@ -63,6 +63,7 @@ const (
 	defaultPublicBaseURL             = "http://localhost:8080"
 	publicRouteFeedback              = "/api/feedback"
 	publicRouteWidget                = "/widget.js"
+	landingRouteRoot                 = "/"
 	dashboardRoute                   = "/app"
 	apiRoutePrefix                   = "/api"
 	apiRouteMe                       = "/me"
@@ -350,8 +351,10 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(database)
 	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger)
-	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient)
+	landingHandlers := httpapi.NewLandingPageHandlers(logger)
+	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, landingRouteRoot)
 
+	router.GET(landingRouteRoot, landingHandlers.RenderLandingPage)
 	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
 	router.GET(dashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)

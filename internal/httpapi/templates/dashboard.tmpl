@@ -117,10 +117,13 @@
                       </button>
                     </div>
                     <input id="{{.EditSiteOwnerInputID}}" type="email" class="form-control" autocomplete="off" />
+                    <div class="d-flex align-items-center justify-content-between gap-2 text-muted small mt-2">
+                      <span class="fw-semibold">Registered at:</span>
+                      <span id="{{.SiteCreatedAtElementID}}">{{.SiteCreatedAtPlaceholder}}</span>
+                    </div>
                   </div>
                   </div>
                 </form>
-                <div class="text-muted small text-end mt-3" id="{{.SiteCreatedAtElementID}}">{{.SiteCreatedAtPlaceholder}}</div>
               </div>
             </div>
             <div class="card shadow-sm mb-4">
@@ -200,11 +203,7 @@
         </div>
       </div>
     </div>
-    <footer id="{{.FooterElementID}}" class="{{.FooterBaseClass}}">
-      <div id="{{.FooterInnerElementID}}" class="container d-flex justify-content-end text-end small">
-        <span>{{.FooterBrandPrefix}} <a class="text-decoration-none" href="{{.FooterBrandURL}}" target="_blank" rel="noopener noreferrer">{{.FooterBrandName}}</a></span>
-      </div>
-    </footer>
+    {{.FooterHTML}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script type="application/json" id="{{.ClientConfigElementID}}">{{.ClientConfigJSON}}</script>
     <script>
@@ -292,6 +291,8 @@
         var formStatusBaseClass = formStatusClasses.base || '';
         var formStatusSuccessClass = formStatusClasses.success || '';
         var formStatusDangerClass = formStatusClasses.danger || '';
+        var formStatusDisplayDuration = 4000;
+        var formStatusResetTimerId = null;
         var footerElement = document.getElementById(elementIds.footer);
         var footerThemeClasses = parsedConfig.footer_theme_classes || {};
         var tableThemeClasses = parsedConfig.table_theme_classes || {};
@@ -809,13 +810,29 @@
           if (!formStatus) {
             return;
           }
+          if (formStatusResetTimerId) {
+            clearTimeout(formStatusResetTimerId);
+            formStatusResetTimerId = null;
+          }
           formStatus.textContent = message;
           formStatus.className = className;
+          var trimmed = (message || '').trim();
+          if (trimmed === '') {
+            clearFormStatus();
+            return;
+          }
+          formStatusResetTimerId = window.setTimeout(function() {
+            clearFormStatus();
+          }, formStatusDisplayDuration);
         }
 
         function clearFormStatus() {
           if (!formStatus) {
             return;
+          }
+          if (formStatusResetTimerId) {
+            clearTimeout(formStatusResetTimerId);
+            formStatusResetTimerId = null;
           }
           formStatus.textContent = '';
           formStatus.className = formStatusBaseClass;
@@ -1223,7 +1240,7 @@
             return '';
           }
           var date = new Date(unixSeconds * 1000);
-          return date.toLocaleString();
+          return date.toLocaleDateString();
         }
 
         function loadUser() {

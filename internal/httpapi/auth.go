@@ -45,14 +45,15 @@ type CurrentUser struct {
 }
 
 type AuthManager struct {
-	database     *gorm.DB
-	logger       *zap.Logger
-	sessionStore *sessions.CookieStore
-	adminEmails  map[string]struct{}
-	httpClient   HTTPClient
+	database                    *gorm.DB
+	logger                      *zap.Logger
+	sessionStore                *sessions.CookieStore
+	adminEmails                 map[string]struct{}
+	httpClient                  HTTPClient
+	unauthenticatedRedirectPath string
 }
 
-func NewAuthManager(database *gorm.DB, logger *zap.Logger, adminEmails []string, httpClient HTTPClient) *AuthManager {
+func NewAuthManager(database *gorm.DB, logger *zap.Logger, adminEmails []string, httpClient HTTPClient, loginRedirectPath string) *AuthManager {
 	store := session.Store()
 	adminMap := make(map[string]struct{}, len(adminEmails))
 	for _, email := range adminEmails {
@@ -68,12 +69,18 @@ func NewAuthManager(database *gorm.DB, logger *zap.Logger, adminEmails []string,
 		client = &http.Client{Timeout: defaultAvatarFetchTimeout}
 	}
 
+	redirectPath := strings.TrimSpace(loginRedirectPath)
+	if redirectPath == "" {
+		redirectPath = constants.LoginPath
+	}
+
 	return &AuthManager{
-		database:     database,
-		logger:       logger,
-		sessionStore: store,
-		adminEmails:  adminMap,
-		httpClient:   client,
+		database:                    database,
+		logger:                      logger,
+		sessionStore:                store,
+		adminEmails:                 adminMap,
+		httpClient:                  client,
+		unauthenticatedRedirectPath: redirectPath,
 	}
 }
 
@@ -90,7 +97,7 @@ func (authManager *AuthManager) RequireAuthenticatedJSON() gin.HandlerFunc {
 func (authManager *AuthManager) RequireAuthenticatedWeb() gin.HandlerFunc {
 	return func(context *gin.Context) {
 		if _, ok := authManager.ensureUser(context); !ok {
-			context.Redirect(http.StatusFound, constants.LoginPath)
+			context.Redirect(http.StatusFound, authManager.unauthenticatedRedirectPath)
 			context.Abort()
 			return
 		}
