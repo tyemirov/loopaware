@@ -2,7 +2,6 @@ package httpapi_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -34,23 +33,7 @@ type siteTestHarness struct {
 	database *gorm.DB
 }
 
-type stubFaviconResolver struct {
-	values map[string]string
-}
-
-func (resolver stubFaviconResolver) Resolve(_ context.Context, allowedOrigin string) (string, error) {
-	if resolver.values == nil {
-		return "", nil
-	}
-	trimmed := strings.TrimSpace(allowedOrigin)
-	return resolver.values[trimmed], nil
-}
-
 func newSiteTestHarness(testingT *testing.T) siteTestHarness {
-	return newSiteTestHarnessWithFavicons(testingT, nil)
-}
-
-func newSiteTestHarnessWithFavicons(testingT *testing.T, faviconMappings map[string]string) siteTestHarness {
 	testingT.Helper()
 
 	gin.SetMode(gin.TestMode)
@@ -59,8 +42,7 @@ func newSiteTestHarnessWithFavicons(testingT *testing.T, faviconMappings map[str
 	require.NoError(testingT, openErr)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
-	resolver := stubFaviconResolver{values: faviconMappings}
-	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, resolver, nil)
+	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil)
 
 	return siteTestHarness{handlers: handlers, database: database}
 }
@@ -114,15 +96,17 @@ func TestListMessagesBySiteReturnsOrderedUnixTimestamps(testingT *testing.T) {
 }
 
 func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
-	harness := newSiteTestHarnessWithFavicons(testingT, map[string]string{
-		"https://client.example": "https://client.example/assets/favicon-32x32.png",
-	})
+	harness := newSiteTestHarness(testingT)
 
 	site := model.Site{
-		ID:            storage.NewID(),
-		Name:          "Widget Site",
-		AllowedOrigin: "https://client.example",
-		OwnerEmail:    testAdminEmailAddress,
+		ID:                 storage.NewID(),
+		Name:               "Widget Site",
+		AllowedOrigin:      "https://client.example",
+		OwnerEmail:         testAdminEmailAddress,
+		FaviconData:        []byte{0x01, 0x02, 0x03},
+		FaviconContentType: "image/png",
+		FaviconOrigin:      "https://client.example",
+		FaviconFetchedAt:   time.Now(),
 	}
 	require.NoError(testingT, harness.database.Create(&site).Error)
 	for index := 0; index < 5; index++ {
@@ -154,8 +138,34 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	expectedBaseURL := strings.TrimRight(testWidgetBaseURL, "/")
 	expectedWidget := fmt.Sprintf("<script src=\"%s/widget.js?site_id=%s\"></script>", expectedBaseURL, site.ID)
 	require.Equal(testingT, expectedWidget, responseBody.Sites[0].Widget)
-	require.Equal(testingT, "https://client.example/assets/favicon-32x32.png", responseBody.Sites[0].FaviconURL)
+	expectedFavicon := fmt.Sprintf("/api/sites/%s/favicon", site.ID)
+	require.Equal(testingT, expectedFavicon, responseBody.Sites[0].FaviconURL)
 	require.Equal(testingT, int64(5), responseBody.Sites[0].FeedbackCount)
+}
+
+func TestSiteFaviconReturnsStoredIcon(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:                 storage.NewID(),
+		Name:               "Icon Site",
+		AllowedOrigin:      "https://icon.example",
+		OwnerEmail:         testAdminEmailAddress,
+		FaviconData:        []byte{0x10, 0x20, 0x30},
+		FaviconContentType: "image/png",
+		FaviconOrigin:      "https://icon.example",
+		FaviconFetchedAt:   time.Now(),
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/favicon", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+
+	harness.handlers.SiteFavicon(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+	require.Equal(testingT, "image/png", recorder.Header().Get("Content-Type"))
+	require.Equal(testingT, []byte{0x10, 0x20, 0x30}, recorder.Body.Bytes())
 }
 
 func TestNonAdminCannotAccessForeignSite(testingT *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -34,27 +35,28 @@ const (
 	errorValueInvalidOperation = "invalid_operation"
 	errorValueDeleteFailed     = "delete_failed"
 
-	widgetScriptTemplate = "<script src=\"%s/widget.js?site_id=%s\"></script>"
+	widgetScriptTemplate   = "<script src=\"%s/widget.js?site_id=%s\"></script>"
+	siteFaviconURLTemplate = "/api/sites/%s/favicon"
 )
 
 type SiteHandlers struct {
-	database        *gorm.DB
-	logger          *zap.Logger
-	widgetBaseURL   string
-	faviconResolver FaviconResolver
-	statsProvider   SiteStatisticsProvider
+	database       *gorm.DB
+	logger         *zap.Logger
+	widgetBaseURL  string
+	faviconManager *SiteFaviconManager
+	statsProvider  SiteStatisticsProvider
 }
 
-func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, faviconResolver FaviconResolver, statsProvider SiteStatisticsProvider) *SiteHandlers {
+func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, faviconManager *SiteFaviconManager, statsProvider SiteStatisticsProvider) *SiteHandlers {
 	if statsProvider == nil {
 		statsProvider = NewDatabaseSiteStatisticsProvider(database)
 	}
 	return &SiteHandlers{
-		database:        database,
-		logger:          logger,
-		widgetBaseURL:   normalizeWidgetBaseURL(widgetBaseURL),
-		faviconResolver: faviconResolver,
-		statsProvider:   statsProvider,
+		database:       database,
+		logger:         logger,
+		widgetBaseURL:  normalizeWidgetBaseURL(widgetBaseURL),
+		faviconManager: faviconManager,
+		statsProvider:  statsProvider,
 	}
 }
 
@@ -155,6 +157,7 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		Name:          payload.Name,
 		AllowedOrigin: payload.AllowedOrigin,
 		OwnerEmail:    desiredOwnerEmail,
+		FaviconOrigin: payload.AllowedOrigin,
 	}
 
 	if err := handlers.database.Create(&site).Error; err != nil {
@@ -162,6 +165,8 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
 		return
 	}
+
+	handlers.scheduleFaviconFetch(site)
 
 	context.JSON(http.StatusOK, handlers.toSiteResponse(handlers.ginRequestContext(context), site, 0))
 }
@@ -189,6 +194,7 @@ func (handlers *SiteHandlers) ListSites(context *gin.Context) {
 	requestContext := handlers.ginRequestContext(context)
 	for _, site := range sites {
 		feedbackCount := handlers.feedbackCount(requestContext, site.ID)
+		handlers.scheduleFaviconFetch(site)
 		responses = append(responses, handlers.toSiteResponse(requestContext, site, feedbackCount))
 	}
 
@@ -230,6 +236,43 @@ func (handlers *SiteHandlers) UserAvatar(context *gin.Context) {
 	}
 	context.Header("Cache-Control", "no-cache")
 	context.Data(http.StatusOK, contentType, user.AvatarData)
+}
+
+func (handlers *SiteHandlers) SiteFavicon(context *gin.Context) {
+	siteIdentifier := strings.TrimSpace(context.Param("id"))
+	if siteIdentifier == "" {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingSite})
+		return
+	}
+
+	currentUser, ok := CurrentUserFromContext(context)
+	if !ok {
+		context.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
+		return
+	}
+
+	var site model.Site
+	if err := handlers.database.First(&site, "id = ?", siteIdentifier).Error; err != nil {
+		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownSite})
+		return
+	}
+
+	if !canManageSite(currentUser, site) {
+		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
+		return
+	}
+
+	if len(site.FaviconData) == 0 {
+		context.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	contentType := strings.TrimSpace(site.FaviconContentType)
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	context.Header("Cache-Control", "public, max-age=300")
+	context.Data(http.StatusOK, contentType, site.FaviconData)
 }
 
 func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
@@ -276,11 +319,15 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		site.Name = trimmed
 	}
 
+	originChanged := false
 	if payload.AllowedOrigin != nil {
 		trimmed := strings.TrimSpace(*payload.AllowedOrigin)
 		if trimmed == "" {
 			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingFields})
 			return
+		}
+		if !strings.EqualFold(strings.TrimSpace(site.AllowedOrigin), trimmed) {
+			originChanged = true
 		}
 		site.AllowedOrigin = trimmed
 	}
@@ -298,6 +345,16 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		site.OwnerEmail = trimmed
 	}
 
+	if originChanged {
+		site.FaviconData = nil
+		site.FaviconContentType = ""
+		site.FaviconFetchedAt = time.Time{}
+		site.FaviconLastAttemptAt = time.Time{}
+		site.FaviconOrigin = strings.TrimSpace(site.AllowedOrigin)
+	} else if strings.TrimSpace(site.FaviconOrigin) == "" {
+		site.FaviconOrigin = strings.TrimSpace(site.AllowedOrigin)
+	}
+
 	if err := handlers.database.Save(&site).Error; err != nil {
 		handlers.logger.Warn("update_site", zap.Error(err))
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
@@ -306,6 +363,7 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 
 	ctx := handlers.ginRequestContext(context)
 	feedbackCount := handlers.feedbackCount(ctx, site.ID)
+	handlers.scheduleFaviconFetch(site)
 	context.JSON(http.StatusOK, handlers.toSiteResponse(ctx, site, feedbackCount))
 }
 
@@ -406,7 +464,10 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 		widgetBase = normalizeWidgetBaseURL(site.AllowedOrigin)
 	}
 
-	faviconURL := handlers.resolveFaviconURL(ctx, site.AllowedOrigin)
+	faviconURL := ""
+	if len(site.FaviconData) > 0 {
+		faviconURL = fmt.Sprintf(siteFaviconURLTemplate, site.ID)
+	}
 
 	return siteResponse{
 		ID:            site.ID,
@@ -432,6 +493,13 @@ func (handlers *SiteHandlers) feedbackCount(ctx context.Context, siteID string) 
 	return count
 }
 
+func (handlers *SiteHandlers) scheduleFaviconFetch(site model.Site) {
+	if handlers.faviconManager == nil {
+		return
+	}
+	handlers.faviconManager.ScheduleFetch(site)
+}
+
 func normalizeWidgetBaseURL(value string) string {
 	trimmed := strings.TrimSpace(value)
 	return strings.TrimRight(trimmed, "/")
@@ -449,16 +517,4 @@ func (handlers *SiteHandlers) ginRequestContext(ginContext *gin.Context) context
 		return ginContext.Request.Context()
 	}
 	return context.Background()
-}
-
-func (handlers *SiteHandlers) resolveFaviconURL(ctx context.Context, allowedOrigin string) string {
-	if handlers.faviconResolver == nil {
-		return ""
-	}
-	iconURL, err := handlers.faviconResolver.Resolve(ctx, allowedOrigin)
-	if err != nil && handlers.logger != nil {
-		handlers.logger.Debug("resolve_favicon_failed", zap.String("allowed_origin", allowedOrigin), zap.Error(err))
-		return ""
-	}
-	return iconURL
 }
