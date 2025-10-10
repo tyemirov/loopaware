@@ -85,6 +85,9 @@ const (
 	dashboardLegacyDateFormatterToken       = "date.toLocaleString()"
 	dashboardFormStatusSuccessThemeToken    = "bg-success-subtle"
 	dashboardFormStatusDangerThemeToken     = "bg-danger-subtle"
+	dashboardFormStatusDurationToken        = "var formStatusDisplayDuration ="
+	dashboardFormStatusTimeoutToken         = "formStatusResetTimerId = window.setTimeout"
+	dashboardFormStatusClearTimeoutToken    = "clearTimeout(formStatusResetTimerId)"
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -280,6 +283,22 @@ func TestDashboardFormStatusUsesThemeAwareBackgrounds(t *testing.T) {
 	body := recorder.Body.String()
 	require.Contains(t, body, dashboardFormStatusSuccessThemeToken)
 	require.Contains(t, body, dashboardFormStatusDangerThemeToken)
+}
+
+func TestDashboardFormStatusClearsAfterTimeout(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, dashboardFormStatusDurationToken)
+	require.Contains(t, body, dashboardFormStatusTimeoutToken)
+	require.Contains(t, body, dashboardFormStatusClearTimeoutToken)
 }
 
 func TestDashboardTemplateConfiguresButtonStatusManager(t *testing.T) {

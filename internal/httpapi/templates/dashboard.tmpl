@@ -295,6 +295,8 @@
         var formStatusBaseClass = formStatusClasses.base || '';
         var formStatusSuccessClass = formStatusClasses.success || '';
         var formStatusDangerClass = formStatusClasses.danger || '';
+        var formStatusDisplayDuration = 4000;
+        var formStatusResetTimerId = null;
         var footerElement = document.getElementById(elementIds.footer);
         var footerThemeClasses = parsedConfig.footer_theme_classes || {};
         var tableThemeClasses = parsedConfig.table_theme_classes || {};
@@ -812,13 +814,29 @@
           if (!formStatus) {
             return;
           }
+          if (formStatusResetTimerId) {
+            clearTimeout(formStatusResetTimerId);
+            formStatusResetTimerId = null;
+          }
           formStatus.textContent = message;
           formStatus.className = className;
+          var trimmed = (message || '').trim();
+          if (trimmed === '') {
+            clearFormStatus();
+            return;
+          }
+          formStatusResetTimerId = window.setTimeout(function() {
+            clearFormStatus();
+          }, formStatusDisplayDuration);
         }
 
         function clearFormStatus() {
           if (!formStatus) {
             return;
+          }
+          if (formStatusResetTimerId) {
+            clearTimeout(formStatusResetTimerId);
+            formStatusResetTimerId = null;
           }
           formStatus.textContent = '';
           formStatus.className = formStatusBaseClass;

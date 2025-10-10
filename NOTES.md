@@ -59,7 +59,7 @@ Make the footer independent so that I could reuse it as a component in other pro
 - [x] [LA-26] The inline icons are not fetched/displayed. https://loopaware.mprlab.com defines an inline favicon but there is no favicon in Loopaware Sites panel after defining https://loopaware.mprlab.com site. Prepare integration tests that run against https://loopaware.mprlab.com and ensure that the icon is extracted and displayed
 - [x] [LA-28] Instead of loopaware.mprlab.com use gravity.mprlab.com in the integration tests for inline favicon
 - [x] [LA-30] "Site deleted" message in "Site details" panel had white background not respecting the theme. Ensure that all messaging respect the selected theme (light or dark)
-- [ ] [LA-31] "Site deleted" messaged in "Site details" panel never went away breaking the expected behavior of all messages to disappear after a timeout. Ensure messages disappear after a timeout.
+- [x] [LA-31] "Site deleted" messaged in "Site details" panel never went away breaking the expected behavior of all messages to disappear after a timeout. Ensure messages disappear after a timeout.
 - [ ] [LA-32] The footer doesnt display the drop down with stacked links
 - [ ] [LA-33] The footer on the landing page is misalighed and Built by Marco Polo Resaerrch Lab is aligned to the left instead of the right
 - [ ] [LA-34] The footer on the landing page is giant, and shall have the same vertical height as in the dashboard
