@@ -28,7 +28,6 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ## Improvements
 
-- [ ] [LA-22] Add search functionality for sites and feedback messages panel. display a magnifying glass icon after the title, have a search prompt inside the title when the magnifying glass icon is pressed.
 - [ ] [LA-18] swap the order of the dark mode and logout in the settings dropdown. Logout shall be last
 - [ ] [LA-19] display the time of the site creation in the bottom right corner of Site details panel. Use small font.
 - [ ] [LA-20] display the total number of received feedback in the header of the Feedback Messages panel

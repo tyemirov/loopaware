@@ -342,12 +342,12 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		MaxAge:           12 * time.Hour,
 	}))
 
-    publicHandlers := httpapi.NewPublicHandlers(database, logger)
-    sharedHTTPClient := &http.Client{Timeout: 5 * time.Second}
-    faviconResolver := httpapi.NewHTTPFaviconResolver(sharedHTTPClient, logger)
-    siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconResolver)
-    dashboardHandlers := httpapi.NewDashboardWebHandlers(logger)
-    authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger)
+	sharedHTTPClient := &http.Client{Timeout: 5 * time.Second}
+	faviconResolver := httpapi.NewHTTPFaviconResolver(sharedHTTPClient, logger)
+	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconResolver)
+	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger)
+	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient)
 
 	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)

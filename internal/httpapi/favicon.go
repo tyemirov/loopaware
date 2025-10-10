@@ -31,21 +31,21 @@ type faviconCacheEntry struct {
 
 // HTTPFaviconResolver discovers favicons by issuing HTTP requests.
 type HTTPFaviconResolver struct {
-	httpClient       *http.Client
-	logger           *zap.Logger
-	cacheTTL         time.Duration
-	maxIconBytes     int64
-	maxHTMLBytes     int64
-	cache            sync.Map
+	httpClient   *http.Client
+	logger       *zap.Logger
+	cacheTTL     time.Duration
+	maxIconBytes int64
+	maxHTMLBytes int64
+	cache        sync.Map
 }
 
 // NewHTTPFaviconResolver builds a resolver that caches successful (and empty) lookups.
 func NewHTTPFaviconResolver(httpClient *http.Client, logger *zap.Logger) *HTTPFaviconResolver {
 	resolver := &HTTPFaviconResolver{
-		logger:           logger,
-		cacheTTL:         defaultFaviconCacheTTL,
-		maxIconBytes:     defaultFaviconMaxIconBytes,
-		maxHTMLBytes:     defaultFaviconMaxHTMLBytes,
+		logger:       logger,
+		cacheTTL:     defaultFaviconCacheTTL,
+		maxIconBytes: defaultFaviconMaxIconBytes,
+		maxHTMLBytes: defaultFaviconMaxHTMLBytes,
 	}
 	if httpClient != nil {
 		resolver.httpClient = httpClient

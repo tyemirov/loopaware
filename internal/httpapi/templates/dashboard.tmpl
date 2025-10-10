@@ -50,13 +50,21 @@
             </div>
             <div class="card shadow-sm mt-4">
               <div class="card-header">
-                <div class="d-flex align-items-center justify-content-between">
-                  <span>Sites</span>
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <span>Sites</span>
+                    <button id="{{.SiteSearchToggleButtonID}}" type="button" class="{{.SearchToggleButtonClass}}" aria-label="{{.SiteSearchToggleLabel}}" aria-expanded="false">
+                      <i class="bi bi-search"></i>
+                    </button>
+                  </div>
                   <div class="d-flex align-items-center gap-2">
                     <button id="{{.DeleteSiteButtonID}}" type="button" class="{{.DeleteSiteButtonDisabledClass}}" aria-label="{{.DeleteSiteButtonLabel}}" disabled>
                       <i class="{{.DeleteSiteIconClass}}" aria-hidden="true"></i>
                     </button>
                     <button id="{{.NewSiteButtonID}}" type="button" class="{{.NewSiteButtonClass}}">{{.NewSiteButtonLabel}}</button>
+                  </div>
+                  <div id="{{.SiteSearchContainerID}}" class="w-100 d-none">
+                    <input id="{{.SiteSearchInputID}}" type="search" class="{{.SearchInputClass}}" placeholder="{{.SiteSearchPlaceholder}}" autocomplete="off" />
                   </div>
                 </div>
               </div>
@@ -134,11 +142,19 @@
             </div>
             <div class="card shadow-sm">
               <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                  <h5 class="mb-0">Feedback messages</h5>
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <h5 class="mb-0">Feedback messages</h5>
+                    <button id="{{.MessagesSearchToggleButtonID}}" type="button" class="{{.SearchToggleButtonClass}}" aria-label="{{.MessagesSearchToggleLabel}}" aria-expanded="false">
+                      <i class="bi bi-search"></i>
+                    </button>
+                  </div>
                   <div class="d-flex align-items-center gap-2">
                     <div id="{{.MessagesStatusID}}" class="d-none py-1 px-2 small"></div>
                     <button id="{{.RefreshMessagesButtonID}}" class="{{.RefreshButtonDefaultClass}}">{{.RefreshButtonDefaultLabel}}</button>
+                  </div>
+                  <div id="{{.MessagesSearchContainerID}}" class="w-100 d-none">
+                    <input id="{{.MessagesSearchInputID}}" type="search" class="{{.SearchInputClass}}" placeholder="{{.MessagesSearchPlaceholder}}" autocomplete="off" />
                   </div>
                 </div>
               </div>
@@ -238,6 +254,12 @@
         var siteListItemActiveClass = componentClasses.site_list_item_active || '';
         var siteListItemHeaderClass = componentClasses.site_list_item_header || '';
         var siteListItemFaviconClass = componentClasses.site_list_item_favicon || '';
+        var siteSearchToggleButton = document.getElementById(elementIds.site_search_toggle_button);
+        var siteSearchContainer = document.getElementById(elementIds.site_search_container);
+        var siteSearchInput = document.getElementById(elementIds.site_search_input);
+        var messagesSearchToggleButton = document.getElementById(elementIds.messages_search_toggle_button);
+        var messagesSearchContainer = document.getElementById(elementIds.messages_search_container);
+        var messagesSearchInput = document.getElementById(elementIds.messages_search_input);
         var userName = document.getElementById(elementIds.user_name);
         var userEmail = document.getElementById(elementIds.user_email);
         var userAvatar = document.getElementById(elementIds.user_avatar);
@@ -281,8 +303,11 @@
           user: null,
           sites: [],
           selectedSiteId: '',
-          pendingDeletionSiteId: ''
+          pendingDeletionSiteId: '',
+          siteMessages: {}
         };
+        var siteSearchQuery = '';
+        var messagesSearchQuery = '';
         var validationMessageKeyNameRequired = 'name_required';
         var validationMessageKeyOriginInvalid = 'origin_invalid';
         var validationMessageKeyOwnerInvalid = 'owner_invalid';
@@ -291,6 +316,8 @@
         var mailtoSchemePrefix = 'mailto:';
         var contactLinkClassName = 'text-decoration-none';
         var emptyString = '';
+        var statusNoSiteMatches = statusMessages.no_site_matches || '';
+        var statusNoMessageMatches = statusMessages.no_message_matches || '';
         function shouldAlwaysValidate() {
           return true;
         }
@@ -420,6 +447,122 @@
             return;
           }
           cell.textContent = normalized;
+        }
+        function normalizeSearchQuery(value) {
+          if (typeof value !== 'string') {
+            return '';
+          }
+          return value.trim().toLowerCase();
+        }
+        function applySiteSearchQuery(value) {
+          var normalized = normalizeSearchQuery(value);
+          if (siteSearchQuery === normalized) {
+            return;
+          }
+          siteSearchQuery = normalized;
+          renderSites();
+        }
+        function applyMessagesSearchQuery(value) {
+          var normalized = normalizeSearchQuery(value);
+          if (messagesSearchQuery === normalized) {
+            return;
+          }
+          messagesSearchQuery = normalized;
+          renderMessages(getMessagesForSelectedSite());
+        }
+        function getFilteredSites() {
+          if (!siteSearchQuery) {
+            return state.sites.slice();
+          }
+          var query = siteSearchQuery;
+          return state.sites.filter(function(site) {
+            var name = (site.name || emptyString).toLowerCase();
+            var origin = (site.allowed_origin || emptyString).toLowerCase();
+            var owner = (site.owner_email || emptyString).toLowerCase();
+            return name.indexOf(query) !== -1 || origin.indexOf(query) !== -1 || owner.indexOf(query) !== -1;
+          });
+        }
+        function getMessagesForSelectedSite() {
+          if (!state.selectedSiteId || !state.siteMessages) {
+            return [];
+          }
+          return state.siteMessages[state.selectedSiteId] || [];
+        }
+        function showSiteSearch() {
+          if (!siteSearchContainer) {
+            return;
+          }
+          siteSearchContainer.classList.remove('d-none');
+          if (siteSearchToggleButton) {
+            siteSearchToggleButton.setAttribute('aria-expanded', 'true');
+          }
+          if (siteSearchInput) {
+            siteSearchInput.focus();
+          }
+        }
+        function hideSiteSearch() {
+          if (!siteSearchContainer) {
+            return;
+          }
+          siteSearchContainer.classList.add('d-none');
+          if (siteSearchToggleButton) {
+            siteSearchToggleButton.setAttribute('aria-expanded', 'false');
+          }
+          if (siteSearchInput) {
+            siteSearchInput.value = '';
+          }
+          if (siteSearchQuery !== '') {
+            siteSearchQuery = '';
+            renderSites();
+          }
+        }
+        function toggleSiteSearchVisibility() {
+          if (!siteSearchContainer) {
+            return;
+          }
+          if (siteSearchContainer.classList.contains('d-none')) {
+            showSiteSearch();
+          } else {
+            hideSiteSearch();
+          }
+        }
+        function showMessagesSearch() {
+          if (!messagesSearchContainer) {
+            return;
+          }
+          messagesSearchContainer.classList.remove('d-none');
+          if (messagesSearchToggleButton) {
+            messagesSearchToggleButton.setAttribute('aria-expanded', 'true');
+          }
+          if (messagesSearchInput) {
+            messagesSearchInput.focus();
+          }
+        }
+        function hideMessagesSearch() {
+          if (!messagesSearchContainer) {
+            return;
+          }
+          messagesSearchContainer.classList.add('d-none');
+          if (messagesSearchToggleButton) {
+            messagesSearchToggleButton.setAttribute('aria-expanded', 'false');
+          }
+          if (messagesSearchInput) {
+            messagesSearchInput.value = '';
+          }
+          if (messagesSearchQuery !== '') {
+            messagesSearchQuery = '';
+            renderMessages(getMessagesForSelectedSite());
+          }
+        }
+        function toggleMessagesSearchVisibility() {
+          if (!messagesSearchContainer) {
+            return;
+          }
+          if (messagesSearchContainer.classList.contains('d-none')) {
+            showMessagesSearch();
+          } else {
+            hideMessagesSearch();
+          }
         }
         function initializeFieldHelpPopovers() {
           if (!window.bootstrap || !window.bootstrap.Popover) {
@@ -716,6 +859,9 @@
             return response;
           }).then(function() {
             state.sites = state.sites.filter(function(item) { return item.id !== site.id; });
+            if (state.siteMessages) {
+              delete state.siteMessages[site.id];
+            }
             state.selectedSiteId = state.sites.length > 0 ? state.sites[0].id : newSiteOptionValue;
             state.pendingDeletionSiteId = '';
             if (deleteSiteModal) {
@@ -799,22 +945,30 @@
           while (sitesList.firstChild) {
             sitesList.removeChild(sitesList.firstChild);
           }
-          var hasSites = state.sites.length > 0;
+          var filteredSites = getFilteredSites();
+          var hasSites = filteredSites.length > 0;
+          var previousSelectedSiteId = state.selectedSiteId;
 
-          if (!state.selectedSiteId) {
-            state.selectedSiteId = hasSites ? state.sites[0].id : newSiteOptionValue;
+          if (!state.selectedSiteId && hasSites) {
+            state.selectedSiteId = filteredSites[0].id;
           }
 
           if (!isNewSiteSelected()) {
-            var selectedExists = state.sites.some(function(item) {
+            var selectedExists = filteredSites.some(function(item) {
               return item.id === state.selectedSiteId;
             });
             if (!selectedExists) {
-              state.selectedSiteId = hasSites ? state.sites[0].id : newSiteOptionValue;
+              if (hasSites) {
+                state.selectedSiteId = filteredSites[0].id;
+              } else if (siteSearchQuery === '') {
+                state.selectedSiteId = state.sites.length > 0 ? state.sites[0].id : newSiteOptionValue;
+              } else {
+                state.selectedSiteId = '';
+              }
             }
           }
 
-          state.sites.forEach(function(site) {
+          filteredSites.forEach(function(site) {
             var listItem = document.createElement('button');
             listItem.type = 'button';
             listItem.className = siteListItemClass + (site.id === state.selectedSiteId ? ' ' + siteListItemActiveClass : '');
@@ -860,7 +1014,7 @@
           if (hasSites) {
             emptySitesMessage.classList.add('d-none');
           } else {
-            emptySitesMessage.textContent = statusMessages.no_sites || '';
+            emptySitesMessage.textContent = siteSearchQuery ? statusNoSiteMatches : statusMessages.no_sites || '';
             emptySitesMessage.classList.remove('d-none');
           }
 
@@ -868,11 +1022,19 @@
           updateDeleteButtonState();
           populateSiteForm();
           updateWidgetSnippet();
+          if (!state.selectedSiteId) {
+            renderFeedbackPlaceholder(siteSearchQuery ? statusNoSiteMatches : statusMessages.select_site || '');
+            return;
+          }
           if (isNewSiteSelected()) {
             renderFeedbackPlaceholder(statusMessages.select_site || '');
-          } else {
-            loadMessages(false);
+            return;
           }
+          if (previousSelectedSiteId !== state.selectedSiteId || !state.siteMessages[state.selectedSiteId]) {
+            loadMessages(false);
+            return;
+          }
+          renderMessages(state.siteMessages[state.selectedSiteId]);
         }
 
         function handleSitesListClick(event) {
@@ -963,12 +1125,18 @@
         }
 
         function renderMessages(messages) {
-          if (!messages.length) {
-            renderFeedbackPlaceholder(statusMessages.no_messages || '');
+          var baseMessages = Array.isArray(messages) ? messages : [];
+          var filteredMessages = filterMessages(baseMessages);
+          if (!filteredMessages.length) {
+            if (baseMessages.length === 0 && messagesSearchQuery === '') {
+              renderFeedbackPlaceholder(statusMessages.no_messages || '');
+              return;
+            }
+            renderFeedbackPlaceholder(messagesSearchQuery ? statusNoMessageMatches : statusMessages.no_messages || '');
             return;
           }
           feedbackTableBody.innerHTML = '';
-          messages.forEach(function(message) {
+          filteredMessages.forEach(function(message) {
             var row = document.createElement('tr');
             var createdCell = document.createElement('td');
             createdCell.textContent = formatTimestamp(message.created_at);
@@ -980,6 +1148,18 @@
             row.appendChild(contactCell);
             row.appendChild(bodyCell);
             feedbackTableBody.appendChild(row);
+          });
+        }
+
+        function filterMessages(messages) {
+          if (!messagesSearchQuery) {
+            return messages.slice();
+          }
+          var query = messagesSearchQuery;
+          return messages.filter(function(message) {
+            var contactValue = (message.contact || emptyString).toLowerCase();
+            var bodyValue = (message.message || emptyString).toLowerCase();
+            return contactValue.indexOf(query) !== -1 || bodyValue.indexOf(query) !== -1;
           });
         }
 
@@ -1028,7 +1208,9 @@
             updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_loading || '', buttonStyles.secondary || '');
           }
           fetchJSON(endpoint).then(function(payload) {
-            renderMessages(payload.messages || []);
+            var messages = payload.messages || [];
+            state.siteMessages[state.selectedSiteId] = messages;
+            renderMessages(messages);
             if (manualRefresh) {
               updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_success || '', buttonStyles.secondary || '');
             }
@@ -1117,6 +1299,22 @@
         if (sitesList) {
           sitesList.addEventListener('click', handleSitesListClick);
         }
+        if (siteSearchToggleButton) {
+          siteSearchToggleButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            toggleSiteSearchVisibility();
+          });
+        }
+        if (siteSearchInput) {
+          siteSearchInput.addEventListener('input', function() {
+            applySiteSearchQuery(siteSearchInput.value);
+          });
+          siteSearchInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+              hideSiteSearch();
+            }
+          });
+        }
         if (newSiteButton) {
           newSiteButton.addEventListener('click', function(event) {
             event.preventDefault();
@@ -1132,6 +1330,22 @@
           deleteSiteButton.addEventListener('click', function(event) {
             event.preventDefault();
             openDeleteSiteModal();
+          });
+        }
+        if (messagesSearchToggleButton) {
+          messagesSearchToggleButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            toggleMessagesSearchVisibility();
+          });
+        }
+        if (messagesSearchInput) {
+          messagesSearchInput.addEventListener('input', function() {
+            applyMessagesSearchQuery(messagesSearchInput.value);
+          });
+          messagesSearchInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+              hideMessagesSearch();
+            }
           });
         }
         if (deleteSiteConfirmInput) {
