@@ -364,10 +364,10 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		MenuClass:         "dropdown-menu dropdown-menu-end shadow",
 		MenuItemClass:     "dropdown-item",
 	})
-    if footerErr != nil {
-        handlers.logger.Warn("render_dashboard_footer", zap.Error(footerErr))
-        footerHTML = template.HTML("")
-    }
+	if footerErr != nil {
+		handlers.logger.Warn("render_dashboard_footer", zap.Error(footerErr))
+		footerHTML = template.HTML("")
+	}
 
 	data := dashboardTemplateData{
 		PageTitle:                         dashboardPageTitle,
