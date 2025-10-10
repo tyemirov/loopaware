@@ -33,6 +33,7 @@ const (
 	landingFooterLinkPromptsToken    = "https://prompts.mprlab.com"
 	landingFooterLinkWallpapersToken = "https://wallpapers.mprlab.com"
 	landingFooterAlignmentToken      = "justify-content-md-end"
+	landingFooterPaddingToken        = "landing-footer border-top mt-auto py-3"
 )
 
 func TestLandingPageIncludesDetailedCopy(t *testing.T) {
@@ -101,4 +102,5 @@ func TestLandingFooterDisplaysProductMenu(t *testing.T) {
 	require.Contains(t, body, landingFooterLinkPromptsToken)
 	require.Contains(t, body, landingFooterLinkWallpapersToken)
 	require.Contains(t, body, landingFooterAlignmentToken)
+	require.Contains(t, body, landingFooterPaddingToken)
 }

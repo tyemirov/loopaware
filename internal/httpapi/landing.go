@@ -44,7 +44,7 @@ func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
 	footerHTML, footerErr := RenderFooterHTML(FooterConfig{
 		ElementID:         landingFooterElementID,
 		InnerElementID:    landingFooterInnerID,
-		BaseClass:         "landing-footer border-top mt-auto py-4",
+		BaseClass:         "landing-footer border-top mt-auto py-3",
 		InnerClass:        "container d-flex flex-column flex-md-row align-items-center justify-content-center justify-content-md-end gap-3 text-center text-md-end",
 		WrapperClass:      "dropup d-inline-flex align-items-center gap-2 text-body-secondary small",
 		PrefixClass:       "text-body-secondary",
