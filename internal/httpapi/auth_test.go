@@ -18,6 +18,8 @@ import (
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/testutil"
 )
 
+const testLoginRedirectPath = "/landing"
+
 type stubHTTPClient struct {
 	statusCode  int
 	contentType string
@@ -48,7 +50,7 @@ func TestPersistUserStoresAvatar(t *testing.T) {
 	require.NoError(t, storage.AutoMigrate(database))
 
 	client := &stubHTTPClient{statusCode: http.StatusOK, contentType: "image/png", body: []byte{0x01, 0x02}}
-	manager := NewAuthManager(database, zap.NewNop(), nil, client)
+	manager := NewAuthManager(database, zap.NewNop(), nil, client, testLoginRedirectPath)
 
 	path, err := manager.persistUser(context.Background(), "user@example.com", "User Example", "https://example.com/avatar.png")
 	require.NoError(t, err)
@@ -70,7 +72,7 @@ func TestPersistUserHandlesFetchErrorsGracefully(t *testing.T) {
 	require.NoError(t, storage.AutoMigrate(database))
 
 	client := &stubHTTPClient{err: errors.New("network failure")}
-	manager := NewAuthManager(database, zap.NewNop(), nil, client)
+	manager := NewAuthManager(database, zap.NewNop(), nil, client, testLoginRedirectPath)
 
 	path, err := manager.persistUser(context.Background(), "user2@example.com", "User Example", "https://example.com/avatar.png")
 	require.NoError(t, err)
@@ -89,7 +91,7 @@ func TestPersistUserDoesNotRefetchWhenSourceUnchanged(t *testing.T) {
 	require.NoError(t, storage.AutoMigrate(database))
 
 	firstClient := &stubHTTPClient{statusCode: http.StatusOK, contentType: "image/png", body: []byte{0x01}}
-	manager := NewAuthManager(database, zap.NewNop(), nil, firstClient)
+	manager := NewAuthManager(database, zap.NewNop(), nil, firstClient, testLoginRedirectPath)
 
 	_, err = manager.persistUser(context.Background(), "user3@example.com", "User Example", "https://example.com/avatar.png")
 	require.NoError(t, err)

@@ -352,7 +352,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger)
 	landingHandlers := httpapi.NewLandingPageHandlers(logger)
-	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient)
+	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, landingRouteRoot)
 
 	router.GET(landingRouteRoot, landingHandlers.RenderLandingPage)
 	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
