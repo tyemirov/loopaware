@@ -88,6 +88,17 @@ const (
 	dashboardFormStatusDurationToken        = "var formStatusDisplayDuration ="
 	dashboardFormStatusTimeoutToken         = "formStatusResetTimerId = window.setTimeout"
 	dashboardFormStatusClearTimeoutToken    = "clearTimeout(formStatusResetTimerId)"
+	dashboardFooterDropdownToggleToken      = "data-bs-toggle=\"dropdown\""
+	dashboardFooterDropdownMenuToken        = "dropdown-menu"
+	dashboardFooterLinkGravityToken         = "https://gravity.mprlab.com"
+	dashboardFooterLinkLoopAwareToken       = "https://loopaware.mprlab.com"
+	dashboardFooterLinkAllergyToken         = "https://allergy.mprlab.com"
+	dashboardFooterLinkThreaderToken        = "https://threader.mprlab.com"
+	dashboardFooterLinkRSVPToken            = "https://rsvp.mprlab.com"
+	dashboardFooterLinkCountdownToken       = "https://countdown.mprlab.com"
+	dashboardFooterLinkCrosswordToken       = "https://llm-crossword.mprlab.com"
+	dashboardFooterLinkPromptsToken         = "https://prompts.mprlab.com"
+	dashboardFooterLinkWallpapersToken      = "https://wallpapers.mprlab.com"
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -238,6 +249,30 @@ func TestDashboardFooterIncludesBranding(t *testing.T) {
 			require.NotContains(t, body, testCase.substring)
 		})
 	}
+}
+
+func TestDashboardFooterDisplaysProductMenu(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop())
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, dashboardFooterDropdownToggleToken)
+	require.Contains(t, body, dashboardFooterDropdownMenuToken)
+	require.Contains(t, body, dashboardFooterLinkGravityToken)
+	require.Contains(t, body, dashboardFooterLinkLoopAwareToken)
+	require.Contains(t, body, dashboardFooterLinkAllergyToken)
+	require.Contains(t, body, dashboardFooterLinkThreaderToken)
+	require.Contains(t, body, dashboardFooterLinkRSVPToken)
+	require.Contains(t, body, dashboardFooterLinkCountdownToken)
+	require.Contains(t, body, dashboardFooterLinkCrosswordToken)
+	require.Contains(t, body, dashboardFooterLinkPromptsToken)
+	require.Contains(t, body, dashboardFooterLinkWallpapersToken)
 }
 
 func TestDashboardTemplateDisplaysRegistrationInline(t *testing.T) {

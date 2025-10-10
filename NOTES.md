@@ -60,7 +60,7 @@ Make the footer independent so that I could reuse it as a component in other pro
 - [x] [LA-28] Instead of loopaware.mprlab.com use gravity.mprlab.com in the integration tests for inline favicon
 - [x] [LA-30] "Site deleted" message in "Site details" panel had white background not respecting the theme. Ensure that all messaging respect the selected theme (light or dark)
 - [x] [LA-31] "Site deleted" messaged in "Site details" panel never went away breaking the expected behavior of all messages to disappear after a timeout. Ensure messages disappear after a timeout.
-- [ ] [LA-32] The footer doesnt display the drop down with stacked links
+- [x] [LA-32] The footer doesnt display the drop down with stacked links
 - [ ] [LA-33] The footer on the landing page is misalighed and Built by Marco Polo Resaerrch Lab is aligned to the left instead of the right
 - [ ] [LA-34] The footer on the landing page is giant, and shall have the same vertical height as in the dashboard
 - [ ] [LA-35] The cards on the landing page do not react on hover. the focus shall get to the card that the cursor is being hovered upon, and the card shall get highlighted

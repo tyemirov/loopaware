@@ -12,7 +12,14 @@ import (
 const (
 	landingTemplateName    = "landing"
 	landingHTMLContentType = "text/html; charset=utf-8"
+	landingFooterElementID = "landing-footer"
+	landingFooterInnerID   = "landing-footer-inner"
+	landingFooterToggleID  = "landing-footer-toggle"
 )
+
+type landingTemplateData struct {
+	FooterHTML template.HTML
+}
 
 // LandingPageHandlers renders the public landing page.
 type LandingPageHandlers struct {
@@ -34,8 +41,27 @@ func NewLandingPageHandlers(logger *zap.Logger) *LandingPageHandlers {
 
 // RenderLandingPage writes the landing page response.
 func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
+	footerHTML, footerErr := RenderFooterHTML(FooterConfig{
+		ElementID:         landingFooterElementID,
+		InnerElementID:    landingFooterInnerID,
+		BaseClass:         "landing-footer border-top mt-auto py-4",
+		InnerClass:        "container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3 text-center text-md-end",
+		WrapperClass:      "dropup d-inline-flex align-items-center gap-2 text-body-secondary small",
+		PrefixClass:       "text-body-secondary",
+		PrefixText:        dashboardFooterBrandPrefix,
+		ToggleButtonID:    landingFooterToggleID,
+		ToggleButtonClass: "btn btn-link dropdown-toggle text-decoration-none px-0 fw-semibold",
+		ToggleLabel:       dashboardFooterBrandName,
+		MenuClass:         "dropdown-menu dropdown-menu-end shadow",
+		MenuItemClass:     "dropdown-item",
+	})
+	if footerErr != nil {
+		handlers.logger.Error("render_landing_footer", zap.Error(footerErr))
+		footerHTML = template.HTML("")
+	}
+
 	var buffer bytes.Buffer
-	executeErr := handlers.template.Execute(&buffer, nil)
+	executeErr := handlers.template.Execute(&buffer, landingTemplateData{FooterHTML: footerHTML})
 	if executeErr != nil {
 		handlers.logger.Error("render_landing_page", zap.Error(executeErr))
 		context.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "landing_render_failed"})

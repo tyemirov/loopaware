@@ -21,6 +21,17 @@ const (
 	landingThemeApplyFunctionToken   = "function applyLandingTheme(theme)"
 	landingThemeDataAttributeToken   = "data-bs-theme"
 	landingHeaderLogoToken           = "aria-label=\"LoopAware logo\""
+	landingFooterDropdownToggleToken = "data-bs-toggle=\"dropdown\""
+	landingFooterDropdownMenuToken   = "dropdown-menu"
+	landingFooterLinkGravityToken    = "https://gravity.mprlab.com"
+	landingFooterLinkLoopAwareToken  = "https://loopaware.mprlab.com"
+	landingFooterLinkAllergyToken    = "https://allergy.mprlab.com"
+	landingFooterLinkThreaderToken   = "https://threader.mprlab.com"
+	landingFooterLinkRSVPToken       = "https://rsvp.mprlab.com"
+	landingFooterLinkCountdownToken  = "https://countdown.mprlab.com"
+	landingFooterLinkCrosswordToken  = "https://llm-crossword.mprlab.com"
+	landingFooterLinkPromptsToken    = "https://prompts.mprlab.com"
+	landingFooterLinkWallpapersToken = "https://wallpapers.mprlab.com"
 )
 
 func TestLandingPageIncludesDetailedCopy(t *testing.T) {
@@ -65,4 +76,27 @@ func TestLandingPageDisplaysHeaderLogo(t *testing.T) {
 
 	body := recorder.Body.String()
 	require.Contains(t, body, landingHeaderLogoToken)
+}
+
+func TestLandingFooterDisplaysProductMenu(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
+	handlers.RenderLandingPage(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, landingFooterDropdownToggleToken)
+	require.Contains(t, body, landingFooterDropdownMenuToken)
+	require.Contains(t, body, landingFooterLinkGravityToken)
+	require.Contains(t, body, landingFooterLinkLoopAwareToken)
+	require.Contains(t, body, landingFooterLinkAllergyToken)
+	require.Contains(t, body, landingFooterLinkThreaderToken)
+	require.Contains(t, body, landingFooterLinkRSVPToken)
+	require.Contains(t, body, landingFooterLinkCountdownToken)
+	require.Contains(t, body, landingFooterLinkCrosswordToken)
+	require.Contains(t, body, landingFooterLinkPromptsToken)
+	require.Contains(t, body, landingFooterLinkWallpapersToken)
 }

@@ -36,6 +36,7 @@ const (
 	dashboardFooterBrandPrefix           = "Built by"
 	dashboardFooterBrandName             = "Marco Polo Research Lab"
 	dashboardFooterBrandURL              = "https://mprlab.com"
+	dashboardFooterToggleButtonID        = "dashboard-footer-toggle"
 	navbarSettingsButtonLabel            = "Account settings"
 	navbarLogoutLabel                    = "Logout"
 	navbarThemeToggleLabel               = "Dark mode"
@@ -193,9 +194,7 @@ type dashboardTemplateData struct {
 	RoleUser                          string
 	EmptySitesMessage                 string
 	FeedbackPlaceholder               string
-	FooterBrandPrefix                 string
-	FooterBrandName                   string
-	FooterBrandURL                    string
+	FooterHTML                        template.HTML
 	FooterElementID                   string
 	FooterInnerElementID              string
 	FooterBaseClass                   string
@@ -351,6 +350,25 @@ func NewDashboardWebHandlers(logger *zap.Logger) *DashboardWebHandlers {
 }
 
 func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
+	footerHTML, footerErr := RenderFooterHTML(FooterConfig{
+		ElementID:         footerElementID,
+		InnerElementID:    footerInnerElementID,
+		BaseClass:         footerBaseClass,
+		InnerClass:        "container d-flex justify-content-end text-end small",
+		WrapperClass:      "dropup d-inline-flex align-items-center gap-2 text-body-secondary",
+		PrefixClass:       "text-body-secondary",
+		PrefixText:        dashboardFooterBrandPrefix,
+		ToggleButtonID:    dashboardFooterToggleButtonID,
+		ToggleButtonClass: "btn btn-link dropdown-toggle text-decoration-none px-0 fw-semibold",
+		ToggleLabel:       dashboardFooterBrandName,
+		MenuClass:         "dropdown-menu dropdown-menu-end shadow",
+		MenuItemClass:     "dropdown-item",
+	})
+    if footerErr != nil {
+        handlers.logger.Warn("render_dashboard_footer", zap.Error(footerErr))
+        footerHTML = template.HTML("")
+    }
+
 	data := dashboardTemplateData{
 		PageTitle:                         dashboardPageTitle,
 		APIMeEndpoint:                     "/api/me",
@@ -379,9 +397,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		RoleUser:                          dashboardRoleUserLabel,
 		EmptySitesMessage:                 dashboardStatusNoSites,
 		FeedbackPlaceholder:               dashboardFeedbackPlaceholder,
-		FooterBrandPrefix:                 dashboardFooterBrandPrefix,
-		FooterBrandName:                   dashboardFooterBrandName,
-		FooterBrandURL:                    dashboardFooterBrandURL,
+		FooterHTML:                        footerHTML,
 		FooterElementID:                   footerElementID,
 		FooterInnerElementID:              footerInnerElementID,
 		FooterBaseClass:                   footerBaseClass,
