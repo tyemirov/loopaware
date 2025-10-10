@@ -299,6 +299,7 @@
         var footerElement = document.getElementById(elementIds.footer);
         var footerThemeClasses = parsedConfig.footer_theme_classes || {};
         var tableThemeClasses = parsedConfig.table_theme_classes || {};
+        var landingPath = sharedPaths.landing || '/';
         var logoutPath = sharedPaths.logout || '';
         var loginPath = sharedPaths.login || '';
         var widgetUnavailableMessage = widgetTexts.unavailable || '';
@@ -1500,7 +1501,17 @@
         if (logoutButton) {
           logoutButton.addEventListener('click', function(event) {
             event.preventDefault();
-            window.location.href = logoutPath;
+            if (!logoutPath) {
+              window.location.href = landingPath;
+              return;
+            }
+            var redirectToLanding = function() {
+              window.location.href = landingPath;
+            };
+            window.fetch(logoutPath, {
+              method: 'POST',
+              credentials: 'same-origin'
+            }).then(redirectToLanding).catch(redirectToLanding);
           });
         }
 

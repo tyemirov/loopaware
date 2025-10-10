@@ -350,7 +350,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	faviconManager := httpapi.NewSiteFaviconManager(database, faviconResolver, logger)
 	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(database)
 	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider)
-	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger)
+	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot)
 	landingHandlers := httpapi.NewLandingPageHandlers(logger)
 	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, landingRouteRoot)
 

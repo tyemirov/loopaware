@@ -339,15 +339,21 @@ type dashboardClientConfig struct {
 
 // DashboardWebHandlers serves the authenticated dashboard UI.
 type DashboardWebHandlers struct {
-	logger   *zap.Logger
-	template *template.Template
+	logger      *zap.Logger
+	template    *template.Template
+	landingPath string
 }
 
-func NewDashboardWebHandlers(logger *zap.Logger) *DashboardWebHandlers {
+func NewDashboardWebHandlers(logger *zap.Logger, landingPath string) *DashboardWebHandlers {
 	compiledTemplate := template.Must(template.New(dashboardTemplateName).Parse(dashboardTemplateHTML))
+	normalizedLandingPath := landingPath
+	if normalizedLandingPath == "" {
+		normalizedLandingPath = "/"
+	}
 	return &DashboardWebHandlers{
-		logger:   logger,
-		template: compiledTemplate,
+		logger:      logger,
+		template:    compiledTemplate,
+		landingPath: normalizedLandingPath,
 	}
 }
 
@@ -531,8 +537,9 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"site_messages_suffix": "/messages",
 		},
 		Paths: map[string]string{
-			"logout": constants.LogoutPath,
-			"login":  constants.LoginPath,
+			"logout":  constants.LogoutPath,
+			"login":   constants.LoginPath,
+			"landing": handlers.landingPath,
 		},
 		ElementIDs: map[string]string{
 			"user_name":                     userNameElementID,
