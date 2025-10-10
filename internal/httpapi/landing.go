@@ -18,7 +18,8 @@ const (
 )
 
 type landingTemplateData struct {
-	FooterHTML template.HTML
+	FooterHTML     template.HTML
+	FaviconDataURI template.URL
 }
 
 // LandingPageHandlers renders the public landing page.
@@ -60,8 +61,13 @@ func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
 		footerHTML = template.HTML("")
 	}
 
+	data := landingTemplateData{
+		FooterHTML:     footerHTML,
+		FaviconDataURI: template.URL(dashboardFaviconDataURI),
+	}
+
 	var buffer bytes.Buffer
-	executeErr := handlers.template.Execute(&buffer, landingTemplateData{FooterHTML: footerHTML})
+	executeErr := handlers.template.Execute(&buffer, data)
 	if executeErr != nil {
 		handlers.logger.Error("render_landing_page", zap.Error(executeErr))
 		context.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "landing_render_failed"})

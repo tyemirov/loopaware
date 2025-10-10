@@ -37,6 +37,7 @@ const (
 	landingCardHoverToken            = ".landing-card:hover"
 	landingCardFocusToken            = ".landing-card:focus-visible"
 	landingHeroLoginButtonToken      = "btn btn-primary btn-lg\" href=\"/auth/google\">Login"
+	landingFaviconLinkToken          = "<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg&#43;xml"
 )
 
 func TestLandingPageIncludesDetailedCopy(t *testing.T) {
@@ -52,6 +53,19 @@ func TestLandingPageIncludesDetailedCopy(t *testing.T) {
 	require.Contains(t, body, landingDetailedAuthCopyToken)
 	require.Contains(t, body, landingDetailedWidgetCopyToken)
 	require.Contains(t, body, landingDetailedWorkflowCopyToken)
+}
+
+func TestLandingPageExposesFaviconLink(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
+	handlers.RenderLandingPage(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, landingFaviconLinkToken)
 }
 
 func TestLandingPageProvidesThemeSwitch(t *testing.T) {
