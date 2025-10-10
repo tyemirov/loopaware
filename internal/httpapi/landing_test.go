@@ -36,6 +36,7 @@ const (
 	landingFooterPaddingToken        = "landing-footer border-top mt-auto py-3"
 	landingCardHoverToken            = ".landing-card:hover"
 	landingCardFocusToken            = ".landing-card:focus-visible"
+	landingHeroLoginButtonToken      = "btn btn-primary btn-lg\" href=\"/auth/google\">Login"
 )
 
 func TestLandingPageIncludesDetailedCopy(t *testing.T) {
@@ -120,4 +121,18 @@ func TestLandingCardsProvideInteractiveStates(t *testing.T) {
 	require.Contains(t, body, landingCardHoverToken)
 	require.Contains(t, body, landingCardFocusToken)
 	require.Contains(t, body, "tabindex=\"0\"")
+}
+
+func TestLandingHeroOffersSingleLoginCallToAction(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
+	handlers.RenderLandingPage(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, landingHeroLoginButtonToken)
+	require.NotContains(t, body, "View dashboard")
 }
