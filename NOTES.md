@@ -17,8 +17,8 @@ Fix issues one by one.
 
 Do not work on all issues at once. Work at one issue at a time sequntially. 
 
-1. Remove an issue from the NOTES.md after the issue is fixed: New and existing tests are passing without regressions
-2. Commit the changes and push to the remote.
+10. Mark an issue as done ([X])in the NOTES.md after the issue is fixed: New and existing tests are passing without regressions
+11. Commit the changes and push to the remote.
 
 Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixes are implemented but don't delete the sections themselves.
 
@@ -26,13 +26,32 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ## Features
 
+- [ ] [LA-27] Design, write a copy and add a landing page at / root, with links pointing to /app. Introduce favicon, and leverage an ability of GAuss to take a login page from the app. The landing page shall be the one we feed into GAuss as a login page and that will initiate the login flow.
+
+- [ ] [LA-28] In the footer, clicking on the Marco Polo Recearch Lab in "Built by Marco Polo Recearch Lab" should display a stacked dropdown (drop up as it will always point up):
+- [Marco Polo Recearch Lab](https://mprlab.com)
+- [Gravity Notes](https://gravity.mprlab.com)
+- [LoopAware](https://loopaware.mprlab.com)
+- [Allergy Wheel](https://allergy.mprlab.com)
+- [Social Threader](https://threader.mprlab.com)
+- [RSVP](https://rsvp.mprlab.com)
+- [Countdown Calendar](https://countdown.mprlab.com)
+- [LLM Crossword](https://llm-crossword.mprlab.com)
+- [Prompt Bubbles](https://prompts.mprlab.com)
+- [Wallpapers](https://wallpapers.mprlab.com)
+
+Make the footer independent so that I could reuse it as a component in other projects
+
 ## Improvements
 
-- [ ] [LA-24] favicon retrieval shall be expressed as task that works asynchronously. once favicon is retrieved, it is cahced (saved in the db) and served from the DB.
-- [ ] [LA-25] favicon can be retrieved from inline embeddings in the sites looking for  `<link rel="icon"` and respecting the type (e.g. https://loopaware.mprlab.com has type="image/svg+xml" )
+- [x] [LA-24] favicon retrieval shall be expressed as task that works asynchronously. once favicon is retrieved, it is cahced (saved in the db) and served from the DB.
+- [x] [LA-25] favicon can be retrieved from inline embeddings in the sites looking for  `<link rel="icon"` and respecting the type (e.g. https://loopaware.mprlab.com has type="image/svg+xml" )
+- [x] [LA-26] The inline icons are not fetched/displayed. https://loopaware.mprlab.com defines an inline favicon but there is no favicon in Loopaware Sites panel after defining https://loopaware.mprlab.com site. Prepare integration tests that run against https://loopaware.mprlab.com and ensure that the icon is extracted and displayed
 
 ## BugFixes
 
 - [x] [LA-23] the header of the table in Feedback messages panel doesnt respect the theme swithc and stays in light theme. it shall respect the theme switch
+- [x] [LA-26] The inline icons are not fetched/displayed. https://loopaware.mprlab.com defines an inline favicon but there is no favicon in Loopaware Sites panel after defining https://loopaware.mprlab.com site. Prepare integration tests that run against https://loopaware.mprlab.com and ensure that the icon is extracted and displayed
+- [ ] [LA-28] Instead of loopaware.mprlab.com use gravity.mprlab.com in the integration tests for inline favicon
 
 ## Maintenance
