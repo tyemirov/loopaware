@@ -31,10 +31,15 @@
       }
       .landing-card {
         transition: transform 0.2s ease, box-shadow 0.2s ease;
+        cursor: default;
       }
-      .landing-card:hover {
+      .landing-card:hover,
+      .landing-card:focus-visible {
         transform: translateY(-4px);
         box-shadow: 0 1.25rem 1.5rem -1rem rgba(15, 23, 42, 0.35);
+      }
+      .landing-card:focus-visible {
+        outline: 0;
       }
       body[data-bs-theme="dark"] .landing-navbar {
         background-color: #0f172a;
@@ -146,7 +151,7 @@
             <div class="col-lg-6">
               <div class="row g-4">
                 <div class="col-md-6">
-                  <div class="card landing-card shadow border-0 h-100">
+                  <div class="card landing-card shadow border-0 h-100" tabindex="0">
                     <div class="card-body">
                       <h2 class="h5 fw-semibold">Centralize every site</h2>
                       <p class="mb-0">Create site-specific widgets in seconds and control which origins may embed them.</p>
@@ -154,7 +159,7 @@
                   </div>
                 </div>
                 <div class="col-md-6">
-                  <div class="card landing-card shadow border-0 h-100">
+                  <div class="card landing-card shadow border-0 h-100" tabindex="0">
                     <div class="card-body">
                       <h2 class="h5 fw-semibold">See what matters</h2>
                       <p class="mb-0">Search, filter, and triage feedback with role-aware dashboards.</p>
@@ -162,7 +167,7 @@
                   </div>
                 </div>
                 <div class="col-md-6">
-                  <div class="card landing-card shadow border-0 h-100">
+                  <div class="card landing-card shadow border-0 h-100" tabindex="0">
                     <div class="card-body">
                       <h2 class="h5 fw-semibold">Automate the handoff</h2>
                       <p class="mb-0">Deliver notifications to the right teammates and keep loops closed.</p>
@@ -170,7 +175,7 @@
                   </div>
                 </div>
                 <div class="col-md-6">
-                  <div class="card landing-card shadow border-0 h-100">
+                  <div class="card landing-card shadow border-0 h-100" tabindex="0">
                     <div class="card-body">
                       <h2 class="h5 fw-semibold">Own the data</h2>
                       <p class="mb-0">Use the REST APIs to sync feedback with the rest of your stack.</p>

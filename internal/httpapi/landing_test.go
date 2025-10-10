@@ -34,6 +34,8 @@ const (
 	landingFooterLinkWallpapersToken = "https://wallpapers.mprlab.com"
 	landingFooterAlignmentToken      = "justify-content-md-end"
 	landingFooterPaddingToken        = "landing-footer border-top mt-auto py-3"
+	landingCardHoverToken            = ".landing-card:hover"
+	landingCardFocusToken            = ".landing-card:focus-visible"
 )
 
 func TestLandingPageIncludesDetailedCopy(t *testing.T) {
@@ -103,4 +105,19 @@ func TestLandingFooterDisplaysProductMenu(t *testing.T) {
 	require.Contains(t, body, landingFooterLinkWallpapersToken)
 	require.Contains(t, body, landingFooterAlignmentToken)
 	require.Contains(t, body, landingFooterPaddingToken)
+}
+
+func TestLandingCardsProvideInteractiveStates(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
+	handlers.RenderLandingPage(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, landingCardHoverToken)
+	require.Contains(t, body, landingCardFocusToken)
+	require.Contains(t, body, "tabindex=\"0\"")
 }
