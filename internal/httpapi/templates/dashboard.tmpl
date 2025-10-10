@@ -117,7 +117,9 @@
                       </button>
                     </div>
                     <input id="{{.EditSiteOwnerInputID}}" type="email" class="form-control" autocomplete="off" />
-                    <div class="d-flex align-items-center justify-content-between gap-2 text-muted small mt-2">
+                  </div>
+                  <div class="col-md-6 d-none" id="{{.SiteCreatedAtContainerID}}">
+                    <div class="d-flex flex-column align-items-md-end gap-1 text-muted small">
                       <span class="fw-semibold">Registered at:</span>
                       <span id="{{.SiteCreatedAtElementID}}">{{.SiteCreatedAtPlaceholder}}</span>
                     </div>
@@ -259,6 +261,7 @@
         var messagesSearchContainer = document.getElementById(elementIds.messages_search_container);
         var messagesSearchInput = document.getElementById(elementIds.messages_search_input);
         var siteCreatedAtElement = document.getElementById(elementIds.site_created_at);
+        var siteCreatedAtContainer = document.getElementById(elementIds.site_created_at_container);
         var siteCreatedAtDefaultLabel = siteCreatedAtElement ? siteCreatedAtElement.textContent : '';
         var feedbackCountElement = document.getElementById(elementIds.feedback_count);
         var feedbackCountDefaultLabel = feedbackCountElement ? feedbackCountElement.textContent : '';
@@ -458,11 +461,20 @@
           if (!siteCreatedAtElement) {
             return;
           }
-          if (!unixSeconds) {
+          var hasTimestamp = typeof unixSeconds === 'number' && unixSeconds > 0;
+          if (!hasTimestamp) {
             siteCreatedAtElement.textContent = siteCreatedAtDefaultLabel;
+          } else {
+            siteCreatedAtElement.textContent = formatTimestamp(unixSeconds);
+          }
+          if (!siteCreatedAtContainer) {
             return;
           }
-          siteCreatedAtElement.textContent = formatTimestamp(unixSeconds);
+          if (!hasTimestamp || !state.user || !state.user.is_admin) {
+            siteCreatedAtContainer.classList.add('d-none');
+            return;
+          }
+          siteCreatedAtContainer.classList.remove('d-none');
         }
         function setFeedbackCount(total, visible) {
           if (!feedbackCountElement) {

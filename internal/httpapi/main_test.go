@@ -81,6 +81,10 @@ const (
 	dashboardFeedbackCountHiddenClassToken  = "class=\"badge bg-secondary d-none\""
 	dashboardFeedbackCountHideCallToken     = "feedbackCountElement.classList.add('d-none');"
 	dashboardFeedbackCountShowCallToken     = "feedbackCountElement.classList.remove('d-none');"
+	dashboardSiteCreatedAtContainerID       = "site-created-at-container"
+	dashboardSiteCreatedAtContainerVarToken = "var siteCreatedAtContainer = document.getElementById(elementIds.site_created_at_container);"
+	dashboardSiteCreatedAtHideCallToken     = "siteCreatedAtContainer.classList.add('d-none');"
+	dashboardSiteCreatedAtShowCallToken     = "siteCreatedAtContainer.classList.remove('d-none');"
 	dashboardSetFeedbackCountToken          = "function setFeedbackCount(total, visible)"
 	dashboardUpdateSelectedSiteSummaryToken = "function updateSelectedSiteSummary(site)"
 	dashboardRegisteredPrefixToken          = "Registered at:"
@@ -198,6 +202,26 @@ func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {
 		{
 			testName:      "feedback count show call",
 			substring:     dashboardFeedbackCountShowCallToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "site created at container markup",
+			substring:     "id=\"" + dashboardSiteCreatedAtContainerID + "\"",
+			expectPresent: true,
+		},
+		{
+			testName:      "site created at container variable",
+			substring:     dashboardSiteCreatedAtContainerVarToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "site created at container hide call",
+			substring:     dashboardSiteCreatedAtHideCallToken,
+			expectPresent: true,
+		},
+		{
+			testName:      "site created at container show call",
+			substring:     dashboardSiteCreatedAtShowCallToken,
 			expectPresent: true,
 		},
 		{
