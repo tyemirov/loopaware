@@ -89,38 +89,35 @@
                 <form id="{{.SiteFormID}}">
                   <div class="row g-3 align-items-end">
                     <div class="col-md-6">
-                      <div class="d-flex align-items-center justify-content-between">
-                        <label class="form-label mb-0" for="{{.EditSiteNameInputID}}">Name</label>
-                        <button id="{{.SiteNameHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.SiteNameHelpTitle}}" data-bs-content="{{.SiteNameHelpContent}}">
-                          <span class="visually-hidden">{{.SiteNameHelpTitle}}</span>
-                          <i class="{{.FieldHelpIconClass}}"></i>
-                        </button>
-                      </div>
-                      <input id="{{.EditSiteNameInputID}}" type="text" class="form-control" autocomplete="off" />
-                      <div class="{{.FieldHelpTextClass}}">{{.SiteNameHelpContent}}</div>
+                    <div class="d-flex align-items-center justify-content-between">
+                      <label class="form-label mb-0" for="{{.EditSiteNameInputID}}">Name</label>
+                      <button id="{{.SiteNameHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.SiteNameHelpTitle}}" data-bs-content="{{.SiteNameHelpContent}}">
+                        <span class="visually-hidden">{{.SiteNameHelpTitle}}</span>
+                        <i class="{{.FieldHelpIconClass}}"></i>
+                      </button>
                     </div>
-                    <div class="col-md-6">
-                      <div class="d-flex align-items-center justify-content-between">
-                        <label class="form-label mb-0" for="{{.EditSiteOriginInputID}}">Allowed origin</label>
-                        <button id="{{.AllowedOriginHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.AllowedOriginHelpTitle}}" data-bs-content="{{.AllowedOriginHelpContent}}">
-                          <span class="visually-hidden">{{.AllowedOriginHelpTitle}}</span>
-                          <i class="{{.FieldHelpIconClass}}"></i>
-                        </button>
-                      </div>
-                      <input id="{{.EditSiteOriginInputID}}" type="text" class="form-control" autocomplete="off" />
-                      <div class="{{.FieldHelpTextClass}}">{{.AllowedOriginHelpContent}}</div>
+                    <input id="{{.EditSiteNameInputID}}" type="text" class="form-control" autocomplete="off" />
+                  </div>
+                  <div class="col-md-6">
+                    <div class="d-flex align-items-center justify-content-between">
+                      <label class="form-label mb-0" for="{{.EditSiteOriginInputID}}">Allowed origin</label>
+                      <button id="{{.AllowedOriginHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.AllowedOriginHelpTitle}}" data-bs-content="{{.AllowedOriginHelpContent}}">
+                        <span class="visually-hidden">{{.AllowedOriginHelpTitle}}</span>
+                        <i class="{{.FieldHelpIconClass}}"></i>
+                      </button>
                     </div>
-                    <div class="col-md-6 d-none" id="{{.EditSiteOwnerContainerID}}">
-                      <div class="d-flex align-items-center justify-content-between">
-                        <label class="form-label mb-0" for="{{.EditSiteOwnerInputID}}">Owner email</label>
-                        <button id="{{.OwnerEmailHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.OwnerEmailHelpTitle}}" data-bs-content="{{.OwnerEmailHelpContent}}">
-                          <span class="visually-hidden">{{.OwnerEmailHelpTitle}}</span>
-                          <i class="{{.FieldHelpIconClass}}"></i>
-                        </button>
-                      </div>
-                      <input id="{{.EditSiteOwnerInputID}}" type="email" class="form-control" autocomplete="off" />
-                      <div class="{{.FieldHelpTextClass}}">{{.OwnerEmailHelpContent}}</div>
+                    <input id="{{.EditSiteOriginInputID}}" type="text" class="form-control" autocomplete="off" />
+                  </div>
+                  <div class="col-md-6 d-none" id="{{.EditSiteOwnerContainerID}}">
+                    <div class="d-flex align-items-center justify-content-between">
+                      <label class="form-label mb-0" for="{{.EditSiteOwnerInputID}}">Owner email</label>
+                      <button id="{{.OwnerEmailHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.OwnerEmailHelpTitle}}" data-bs-content="{{.OwnerEmailHelpContent}}">
+                        <span class="visually-hidden">{{.OwnerEmailHelpTitle}}</span>
+                        <i class="{{.FieldHelpIconClass}}"></i>
+                      </button>
                     </div>
+                    <input id="{{.EditSiteOwnerInputID}}" type="email" class="form-control" autocomplete="off" />
+                  </div>
                   </div>
                 </form>
                 <div class="text-muted small text-end mt-3" id="{{.SiteCreatedAtElementID}}">{{.SiteCreatedAtPlaceholder}}</div>

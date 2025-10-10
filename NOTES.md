@@ -33,7 +33,6 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ## BugFixes
 
-- [ ] [LA-21] Remove tooltips, such as "Receives notifications when visitors submit feedback." from being visible under the fields
 - [ ] [LA-23] the header of the table in Feedback messages panel doesnt respect the theme swithc and stays in light theme. it shall respect the theme switch
 
 ## Maintenance
