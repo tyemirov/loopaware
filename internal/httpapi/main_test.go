@@ -61,8 +61,10 @@ const (
 	dashboardValidationScriptToken         = "var validationMessages = parsedConfig.validation_messages || {};"
 	dashboardValidationGuardToken          = "if (!validateSiteForm()) {"
 	dashboardValidationResetToken          = "function clearValidationFeedback() {"
-	dashboardSiteDetailsHelpButtonID       = "site-details-help-button"
-	dashboardSiteDetailsHelpPopoverToken   = "data-bs-toggle=\"popover\""
+	dashboardSiteNameHelpButtonID          = "site-name-help-button"
+	dashboardAllowedOriginHelpButtonID     = "allowed-origin-help-button"
+	dashboardOwnerEmailHelpButtonID        = "owner-email-help-button"
+	dashboardFieldHelpPopoverToken         = "data-bs-toggle=\"popover\""
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -397,13 +399,23 @@ func TestDashboardTemplateIncludesSiteValidationSupport(t *testing.T) {
 			expectPresent: true,
 		},
 		{
-			testName:      "site details help button present",
-			substring:     "id=\"" + dashboardSiteDetailsHelpButtonID + "\"",
+			testName:      "site name help button present",
+			substring:     "id=\"" + dashboardSiteNameHelpButtonID + "\"",
 			expectPresent: true,
 		},
 		{
-			testName:      "site details help uses popover",
-			substring:     dashboardSiteDetailsHelpPopoverToken,
+			testName:      "allowed origin help button present",
+			substring:     "id=\"" + dashboardAllowedOriginHelpButtonID + "\"",
+			expectPresent: true,
+		},
+		{
+			testName:      "owner email help button present",
+			substring:     "id=\"" + dashboardOwnerEmailHelpButtonID + "\"",
+			expectPresent: true,
+		},
+		{
+			testName:      "field help uses popover",
+			substring:     dashboardFieldHelpPopoverToken,
 			expectPresent: true,
 		},
 	}

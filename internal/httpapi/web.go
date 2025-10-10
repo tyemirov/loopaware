@@ -123,9 +123,18 @@ const (
 	formStatusBaseClass               = "d-none py-1 px-2 small rounded"
 	formStatusSuccessClass            = "py-1 px-2 small rounded bg-white border border-success text-success"
 	formStatusDangerClass             = "py-1 px-2 small rounded bg-white border border-danger text-danger"
-	siteDetailsHelpButtonElementID    = "site-details-help-button"
-	dashboardSiteDetailsHelpTitle     = "Site registration requirements"
-	dashboardSiteDetailsHelpContent   = "Provide a site name, allowed origin including protocol and hostname, and a valid owner email before saving."
+	fieldHelpButtonClass              = "btn btn-link p-0 text-secondary"
+	fieldHelpIconClass                = "bi bi-question-circle-fill"
+	fieldHelpTextClass                = "form-text text-muted"
+	siteNameHelpButtonElementID       = "site-name-help-button"
+	siteNameHelpTitle                 = "Site name"
+	siteNameHelpContent               = "Displayed in the sites list for your team."
+	allowedOriginHelpButtonElementID  = "allowed-origin-help-button"
+	allowedOriginHelpTitle            = "Allowed origin"
+	allowedOriginHelpContent          = "Must match the full protocol, host, and optional port where the widget will run."
+	ownerEmailHelpButtonElementID     = "owner-email-help-button"
+	ownerEmailHelpTitle               = "Owner email"
+	ownerEmailHelpContent             = "Receives notifications when visitors submit feedback."
 	validationMessageNameRequiredKey  = "name_required"
 	validationMessageOriginKey        = "origin_invalid"
 	validationMessageOwnerKey         = "owner_invalid"
@@ -237,9 +246,18 @@ type dashboardTemplateData struct {
 	FormStatusBaseClass               string
 	FormStatusSuccessClass            string
 	FormStatusDangerClass             string
-	SiteDetailsHelpButtonID           string
-	SiteDetailsHelpTitle              string
-	SiteDetailsHelpContent            string
+	FieldHelpButtonClass              string
+	FieldHelpIconClass                string
+	FieldHelpTextClass                string
+	SiteNameHelpButtonID              string
+	SiteNameHelpTitle                 string
+	SiteNameHelpContent               string
+	AllowedOriginHelpButtonID         string
+	AllowedOriginHelpTitle            string
+	AllowedOriginHelpContent          string
+	OwnerEmailHelpButtonID            string
+	OwnerEmailHelpTitle               string
+	OwnerEmailHelpContent             string
 	WidgetStatusID                    string
 	MessagesStatusID                  string
 	DeleteSiteModalID                 string
@@ -396,9 +414,18 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		FormStatusBaseClass:               formStatusBaseClass,
 		FormStatusSuccessClass:            formStatusSuccessClass,
 		FormStatusDangerClass:             formStatusDangerClass,
-		SiteDetailsHelpButtonID:           siteDetailsHelpButtonElementID,
-		SiteDetailsHelpTitle:              dashboardSiteDetailsHelpTitle,
-		SiteDetailsHelpContent:            dashboardSiteDetailsHelpContent,
+		FieldHelpButtonClass:              fieldHelpButtonClass,
+		FieldHelpIconClass:                fieldHelpIconClass,
+		FieldHelpTextClass:                fieldHelpTextClass,
+		SiteNameHelpButtonID:              siteNameHelpButtonElementID,
+		SiteNameHelpTitle:                 siteNameHelpTitle,
+		SiteNameHelpContent:               siteNameHelpContent,
+		AllowedOriginHelpButtonID:         allowedOriginHelpButtonElementID,
+		AllowedOriginHelpTitle:            allowedOriginHelpTitle,
+		AllowedOriginHelpContent:          allowedOriginHelpContent,
+		OwnerEmailHelpButtonID:            ownerEmailHelpButtonElementID,
+		OwnerEmailHelpTitle:               ownerEmailHelpTitle,
+		OwnerEmailHelpContent:             ownerEmailHelpContent,
 		WidgetStatusID:                    widgetStatusElementID,
 		MessagesStatusID:                  messagesStatusElementID,
 		DeleteSiteModalID:                 deleteSiteModalElementID,
@@ -463,7 +490,9 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"delete_site_target_name":    deleteSiteTargetNameElementID,
 			"footer":                     footerElementID,
 			"footer_inner":               footerInnerElementID,
-			"site_details_help_button":   siteDetailsHelpButtonElementID,
+			"site_name_help_button":      siteNameHelpButtonElementID,
+			"allowed_origin_help_button": allowedOriginHelpButtonElementID,
+			"owner_email_help_button":    ownerEmailHelpButtonElementID,
 		},
 		ButtonClasses: map[string]string{
 			"new_site_default":     newSiteButtonClass,
