@@ -28,9 +28,10 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ## Improvements
 
-- [ ] [LA-18] swap the order of the dark mode and logout in the settings dropdown. Logout shall be last
 - [ ] [LA-19] display the time of the site creation in the bottom right corner of Site details panel. Use small font.
 - [ ] [LA-20] display the total number of received feedback in the header of the Feedback Messages panel
+- [ ] [LA-24] favicon retrieval shall be expressed as task that works asynchronously. once favicon is retrieved, it is cahced (saved in the db) and served from the DB.
+- [ ] [LA-25] favicon can be retrieved from inline embeddings in the sites looking for  `<link rel="icon"` and respecting the type (e.g. https://loopaware.mprlab.com has type="image/svg+xml" )
 
 ## BugFixes
 
