@@ -13,6 +13,22 @@
       .landing-navbar {
         border-radius: 0.75rem;
       }
+      .landing-brand {
+        font-size: 1.25rem;
+      }
+      .landing-logo {
+        width: 44px;
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 1rem;
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+      .landing-logo svg {
+        width: 26px;
+        height: 26px;
+      }
       .landing-card {
         transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
@@ -34,6 +50,10 @@
       body[data-bs-theme="dark"] .landing-navbar .form-check-input {
         background-color: #334155;
         border-color: #475569;
+      }
+      body[data-bs-theme="dark"] .landing-logo {
+        background-color: rgba(59, 130, 246, 0.18);
+        color: #60a5fa;
       }
       body[data-bs-theme="dark"] .landing-card {
         background-color: rgba(15, 23, 42, 0.8);
@@ -57,6 +77,10 @@
         border-color: #2563eb;
         color: #ffffff;
       }
+      body[data-bs-theme="light"] .landing-logo {
+        background-color: rgba(37, 99, 235, 0.12);
+        color: #1d4ed8;
+      }
       body[data-bs-theme="light"] .landing-card {
         background-color: #f8fafc;
         color: #0f172a;
@@ -74,7 +98,16 @@
     <header class="py-4">
       <nav class="navbar landing-navbar shadow-sm px-3">
         <div class="container d-flex align-items-center justify-content-between">
-          <a class="navbar-brand fw-semibold" href="/app">LoopAware</a>
+          <a class="navbar-brand d-flex align-items-center gap-3 landing-brand" href="/app">
+            <span class="landing-logo" role="img" aria-label="LoopAware logo">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect x="4" y="4" width="56" height="56" rx="16" stroke="currentColor" stroke-width="4" opacity="0.85" />
+                <path d="M20 32C20 26.477 24.477 22 30 22C35.523 22 40 26.477 40 32C40 37.523 35.523 42 30 42" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" />
+                <circle cx="34" cy="30" r="5" fill="currentColor" />
+              </svg>
+            </span>
+            <span>LoopAware</span>
+          </a>
           <div class="d-flex align-items-center gap-3">
             <div class="form-check form-switch m-0" data-bs-theme="light">
               <input class="form-check-input" type="checkbox" id="landing-theme-toggle" aria-label="Toggle theme" />

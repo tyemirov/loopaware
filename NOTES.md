@@ -49,7 +49,7 @@ Make the footer independent so that I could reuse it as a component in other pro
 - [x] [LA-29] Move the site registration date to the same row as Owner email (it is currently in a row below it). Add `Registered at:` prefix for the date. Remove the time.
 - [x] [LA-37] Add deatils to the copy text. It is barebone now. analyze the functionality, check readme and PRD and consider usefullness for the end user
 - [x] [LA-38] There is no theme switch on the landing page, and the components seem to belong to different themes.
-- [ ] [LA-39] Add logo of the Loopaware to the header
+- [x] [LA-39] Add logo of the Loopaware to the header
 
 
 

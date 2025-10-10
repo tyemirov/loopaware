@@ -20,6 +20,7 @@ const (
 	landingThemeScriptKeyToken       = "var landingThemeStorageKey = 'landing_theme'"
 	landingThemeApplyFunctionToken   = "function applyLandingTheme(theme)"
 	landingThemeDataAttributeToken   = "data-bs-theme"
+	landingHeaderLogoToken           = "aria-label=\"LoopAware logo\""
 )
 
 func TestLandingPageIncludesDetailedCopy(t *testing.T) {
@@ -51,4 +52,17 @@ func TestLandingPageProvidesThemeSwitch(t *testing.T) {
 	require.Contains(t, body, landingThemeScriptKeyToken)
 	require.Contains(t, body, landingThemeApplyFunctionToken)
 	require.Contains(t, body, landingThemeDataAttributeToken)
+}
+
+func TestLandingPageDisplaysHeaderLogo(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
+	handlers.RenderLandingPage(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, landingHeaderLogoToken)
 }
