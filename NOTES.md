@@ -26,8 +26,6 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ## Features
 
-- [ ] [LA-15] Minimize the submit dialog after submission in widget.js. Display the message and then disappear (minimize) it after a few seconds.
-
 ## Improvements
 
 - [ ] [LA-16] Add mailto: prefix to the email displayed in the feedback panel
