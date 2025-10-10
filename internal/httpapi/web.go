@@ -62,6 +62,9 @@ const (
 	editSiteOwnerInputElementID          = "edit-site-owner"
 	saveSiteButtonElementID              = "save-site-button"
 	refreshMessagesButtonElementID       = "refresh-messages-button"
+	feedbackTableHeaderElementID         = "feedback-table-header"
+	feedbackTableHeaderLightClass        = "table-light"
+	feedbackTableHeaderDarkClass         = "table-dark"
 	feedbackTableBodyElementID           = "feedback-table-body"
 	logoutButtonElementID                = "logout-button"
 	widgetSnippetTextareaElementID       = "widget-snippet"
@@ -230,6 +233,8 @@ type dashboardTemplateData struct {
 	ActionButtonSuccessClass          string
 	ActionButtonSecondaryClass        string
 	ActionButtonDangerClass           string
+	FeedbackTableHeaderID             string
+	FeedbackTableHeaderLightClass     string
 	FeedbackTableBodyID               string
 	LogoutButtonID                    string
 	NewSiteOptionValue                string
@@ -327,6 +332,7 @@ type dashboardClientConfig struct {
 	OptionValues       map[string]string `json:"option_values"`
 	FormStatusClasses  map[string]string `json:"form_status_classes"`
 	FooterThemeClasses map[string]string `json:"footer_theme_classes"`
+	TableThemeClasses  map[string]string `json:"table_theme_classes"`
 	ValidationMessages map[string]string `json:"validation_messages"`
 }
 
@@ -413,6 +419,8 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		ActionButtonSuccessClass:          dashboardActionButtonSuccessClass,
 		ActionButtonSecondaryClass:        dashboardActionButtonSecondaryClass,
 		ActionButtonDangerClass:           dashboardActionButtonDangerClass,
+		FeedbackTableHeaderID:             feedbackTableHeaderElementID,
+		FeedbackTableHeaderLightClass:     feedbackTableHeaderLightClass,
 		FeedbackTableBodyID:               feedbackTableBodyElementID,
 		LogoutButtonID:                    logoutButtonElementID,
 		NewSiteOptionValue:                newSiteOptionValue,
@@ -522,6 +530,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"site_created_at":               siteCreatedAtElementID,
 			"save_site_button":              saveSiteButtonElementID,
 			"refresh_messages_button":       refreshMessagesButtonElementID,
+			"feedback_table_header":         feedbackTableHeaderElementID,
 			"feedback_table_body":           feedbackTableBodyElementID,
 			"logout_button":                 logoutButtonElementID,
 			"widget_snippet_textarea":       widgetSnippetTextareaElementID,
@@ -628,6 +637,10 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		FooterThemeClasses: map[string]string{
 			"light": footerThemeLightClass,
 			"dark":  footerThemeDarkClass,
+		},
+		TableThemeClasses: map[string]string{
+			"light": feedbackTableHeaderLightClass,
+			"dark":  feedbackTableHeaderDarkClass,
 		},
 		ValidationMessages: map[string]string{
 			validationMessageNameRequiredKey: dashboardValidationNameMessage,

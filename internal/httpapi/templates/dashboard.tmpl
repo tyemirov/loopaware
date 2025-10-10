@@ -160,7 +160,7 @@
               <div class="card-body">
                 <div class="table-responsive">
                   <table class="table table-striped table-hover align-middle">
-                    <thead class="table-light">
+                    <thead id="{{.FeedbackTableHeaderID}}" class="{{.FeedbackTableHeaderLightClass}}">
                       <tr>
                         <th scope="col">When</th>
                         <th scope="col">Contact</th>
@@ -275,6 +275,7 @@
         var editSiteOwnerInput = document.getElementById(elementIds.edit_site_owner);
         var saveSiteButton = document.getElementById(elementIds.save_site_button);
         var refreshMessagesButton = document.getElementById(elementIds.refresh_messages_button);
+        var feedbackTableHeader = document.getElementById(elementIds.feedback_table_header);
         var feedbackTableBody = document.getElementById(elementIds.feedback_table_body);
         var logoutButton = document.getElementById(elementIds.logout_button);
         var widgetSnippetTextarea = document.getElementById(elementIds.widget_snippet_textarea);
@@ -293,6 +294,7 @@
         var formStatusDangerClass = formStatusClasses.danger || '';
         var footerElement = document.getElementById(elementIds.footer);
         var footerThemeClasses = parsedConfig.footer_theme_classes || {};
+        var tableThemeClasses = parsedConfig.table_theme_classes || {};
         var logoutPath = sharedPaths.logout || '';
         var loginPath = sharedPaths.login || '';
         var widgetUnavailableMessage = widgetTexts.unavailable || '';
@@ -631,12 +633,14 @@
             document.body.classList.remove('bg-light');
             document.body.classList.add('bg-dark', 'text-light');
             applyElementThemeClasses(footerElement, footerThemeClasses.dark || '', footerThemeClasses.light || '');
+            applyElementThemeClasses(feedbackTableHeader, tableThemeClasses.dark || '', tableThemeClasses.light || '');
           } else {
             document.body.classList.remove('bg-dark', 'text-light');
             if (!document.body.classList.contains('bg-light')) {
               document.body.classList.add('bg-light');
             }
             applyElementThemeClasses(footerElement, footerThemeClasses.light || '', footerThemeClasses.dark || '');
+            applyElementThemeClasses(feedbackTableHeader, tableThemeClasses.light || '', tableThemeClasses.dark || '');
           }
         }
 
