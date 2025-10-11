@@ -131,5 +131,6 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-50] Add logo to the LoopAware Dashboard header (on the left of the word "LoopAware" )
 - [x] [LA-51] The choice of the theme on the landing page and the dashboard should be independent
 - [x] [LA-52] When logged in as a user the field to enter the site email is missing. This field must be present. The difference between a User adn and Admin is that Admin can see ALL of the sites regardless of what user has created them. User can only see and edit their own sites.
+- [x] [LA-55] The sites created by the same user are not displayed when a user changes roles. All sites created by the same user regardless of its role must be displayed when the user logs in. User and admin designation must have an abstraction called role. The role has an impact on the scope. Admin role grants an ability to view all sites regardless of the user who has created them plus everything that a user can do. User role grants the permissions to add, edit, and delete the sites that the user has created.
 
 ### Maintenance

@@ -143,6 +143,34 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	require.Equal(testingT, int64(5), responseBody.Sites[0].FeedbackCount)
 }
 
+func TestListSitesReturnsOwnerSitesForNonAdminRegardlessOfEmailCase(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	ownerEmail := "Owner.MixedCase@Example.com"
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Owner Filter Site",
+		AllowedOrigin: "https://filters.example",
+		OwnerEmail:    ownerEmail,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites", nil)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: strings.ToLower(ownerEmail), IsAdmin: false})
+
+	harness.handlers.ListSites(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody struct {
+		Sites []struct {
+			Identifier string `json:"id"`
+		} `json:"sites"`
+	}
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Len(testingT, responseBody.Sites, 1)
+	require.Equal(testingT, site.ID, responseBody.Sites[0].Identifier)
+}
+
 func TestSiteFaviconReturnsStoredIcon(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
@@ -281,6 +309,40 @@ func TestUpdateSiteAllowsOwnerToChangeDetails(testingT *testing.T) {
 	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
 	require.Equal(testingT, "Updated Name", responseBody["name"])
 	require.Equal(testingT, "http://updated.example", responseBody["allowed_origin"])
+}
+
+func TestUpdateSiteAllowsOwnerToReassignOwnership(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Reassignable Site",
+		AllowedOrigin: "http://reassign.example",
+		OwnerEmail:    testUserEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	newOwnerEmail := "new-owner@example.com"
+	payload := map[string]string{
+		"name":           "Reassignable Site",
+		"allowed_origin": "http://reassign.example",
+		"owner_email":    newOwnerEmail,
+	}
+
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID, payload)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
+
+	harness.handlers.UpdateSite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody map[string]any
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, newOwnerEmail, responseBody["owner_email"])
+
+	var updatedSite model.Site
+	require.NoError(testingT, harness.database.First(&updatedSite, "id = ?", site.ID).Error)
+	require.Equal(testingT, newOwnerEmail, updatedSite.OwnerEmail)
 }
 
 func TestDeleteSiteRemovesSiteAndFeedback(testingT *testing.T) {

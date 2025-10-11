@@ -182,7 +182,8 @@ func (handlers *SiteHandlers) ListSites(context *gin.Context) {
 
 	query := handlers.database.Model(&model.Site{})
 	if !currentUser.IsAdmin {
-		query = query.Where("owner_email = ?", strings.ToLower(strings.TrimSpace(currentUser.Email)))
+		normalizedEmail := strings.ToLower(strings.TrimSpace(currentUser.Email))
+		query = query.Where("LOWER(owner_email) = ?", normalizedEmail)
 	}
 
 	if err := query.Order("created_at desc").Find(&sites).Error; err != nil {
@@ -333,10 +334,6 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 	}
 
 	if payload.OwnerEmail != nil {
-		if !currentUser.IsAdmin {
-			context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueInvalidOperation})
-			return
-		}
 		trimmed := strings.ToLower(strings.TrimSpace(*payload.OwnerEmail))
 		if trimmed == "" {
 			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidOwner})
