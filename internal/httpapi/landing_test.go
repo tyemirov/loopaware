@@ -46,6 +46,8 @@ const (
 	landingHeroLoginButtonToken      = "btn btn-primary btn-lg\" href=\"/auth/google\">Login"
 	landingHeaderLoginButtonToken    = "btn btn-primary btn-sm\" href=\"/auth/google\">Login"
 	landingHeaderStickyStyleToken    = ".landing-header {\n        position: sticky;\n        top: 0;\n        z-index: 1030;"
+	landingHeaderBrandAnchorToken    = "<a class=\"navbar-brand"
+	landingHeaderBrandSpanToken      = "<span class=\"navbar-brand"
 	landingFaviconLinkToken          = "<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg&#43;xml"
 )
 
@@ -107,6 +109,7 @@ func TestLandingHeaderProvidesStickyStyles(t *testing.T) {
 	require.Contains(t, body, landingHeaderStickyStyleToken)
 }
 
+
 func TestLandingPageDisplaysHeaderLogo(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
@@ -136,6 +139,20 @@ func TestLandingPageLogoUsesProminentDimensions(t *testing.T) {
 	require.Contains(t, body, landingLogoContainerHeightToken)
 	require.Contains(t, body, landingLogoImageWidthToken)
 	require.Contains(t, body, landingLogoImageHeightToken)
+}
+
+func TestLandingLogoDoesNotTriggerNavigation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
+
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
+	handlers.RenderLandingPage(context)
+
+	body := recorder.Body.String()
+	require.NotContains(t, body, landingHeaderBrandAnchorToken)
+	require.Contains(t, body, landingHeaderBrandSpanToken)
 }
 
 func TestLandingFooterDisplaysProductMenu(t *testing.T) {
