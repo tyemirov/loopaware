@@ -25,10 +25,11 @@ const (
 	landingLogoImageClassToken       = "class=\"landing-logo-image\""
 	landingLogoAltToken              = "alt=\"LoopAware logo\""
 	landingLogoDataToken             = "src=\"data:image/png;base64,"
-	landingLogoContainerWidthToken   = "width: 56px;"
-	landingLogoContainerHeightToken  = "height: 56px;"
-	landingLogoImageWidthToken       = "width: 36px;"
-	landingLogoImageHeightToken      = "height: 36px;"
+	landingLogoImageWidthToken       = "width: 48px;"
+	landingLogoImageHeightToken      = "height: 48px;"
+	landingLogoLegacyWidthToken      = "width: 36px;"
+	landingLogoLegacyDarkBackground  = "background-color: rgba(59, 130, 246, 0.18);"
+	landingLogoLegacyLightBackground = "background-color: rgba(37, 99, 235, 0.12);"
 	landingHeaderStickyToken         = "<header class=\"landing-header\">"
 	landingFooterDropdownToggleToken = "data-bs-toggle=\"dropdown\""
 	landingFooterDropdownMenuToken   = "dropdown-menu"
@@ -138,10 +139,11 @@ func TestLandingPageLogoUsesProminentDimensions(t *testing.T) {
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
-	require.Contains(t, body, landingLogoContainerWidthToken)
-	require.Contains(t, body, landingLogoContainerHeightToken)
 	require.Contains(t, body, landingLogoImageWidthToken)
 	require.Contains(t, body, landingLogoImageHeightToken)
+	require.NotContains(t, body, landingLogoLegacyWidthToken)
+	require.NotContains(t, body, landingLogoLegacyDarkBackground)
+	require.NotContains(t, body, landingLogoLegacyLightBackground)
 }
 
 func TestLandingLogoDoesNotTriggerNavigation(t *testing.T) {
