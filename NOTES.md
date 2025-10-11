@@ -92,7 +92,6 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
     Make the footer independent so that I could reuse it as a component in other projects
 
-- [ ] [LA-54] Add branding to the widget, saying Bulit by Marco Polo Research Lab with a link to https://mprlab.com. Have it in small letters under the widget.
 
 ### Improvements
 
@@ -108,6 +107,7 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-49] Remove the login button from the hero page. Only leave login button in the header
 - [x] [LA-52] Remove the square around the logo for both the landing page and the dashboard. The logo shall be transparent. Increase the size of the logo.
 - [x] [LA-53] Slim down the header and the footer
+- [x] [LA-54] Add branding to the widget, saying "Bulit by Marco Polo Research Lab" with a link to https://mprlab.com. Have it in small letters under the widget.
 
 ### BugFixes
 
@@ -130,5 +130,6 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-47] Clicking on the logo shall not do anything (it refreshes the page now).
 - [x] [LA-50] Add logo to the LoopAware Dashboard header (on the left of the word "LoopAware" )
 - [x] [LA-51] The choice of the theme on the landing page and the dashboard should be independent
+- [ ] [LA-52] When logged in as a user the field to enter the site email is missing. This field must be present. The difference between a User adn and Admin is that Admin can see ALL of the sites regardless of what user has created them. User can only see and edit their own sites.
 
 ### Maintenance
