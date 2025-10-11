@@ -747,7 +747,7 @@
         }
 
         function buildWidgetSnippet(siteId) {
-          return '<script src="' + widgetBaseURL + '/widget.js?site_id=' + siteId + '"></script>';
+          return '<script defer src="' + widgetBaseURL + '/widget.js?site_id=' + siteId + '"></script>';
         }
 
         function updateButtonStatus(button, text, extraClass) {

@@ -136,7 +136,7 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	require.Len(testingT, responseBody.Sites, 1)
 
 	expectedBaseURL := strings.TrimRight(testWidgetBaseURL, "/")
-	expectedWidget := fmt.Sprintf("<script src=\"%s/widget.js?site_id=%s\"></script>", expectedBaseURL, site.ID)
+	expectedWidget := fmt.Sprintf("<script defer src=\"%s/widget.js?site_id=%s\"></script>", expectedBaseURL, site.ID)
 	require.Equal(testingT, expectedWidget, responseBody.Sites[0].Widget)
 	expectedFavicon := fmt.Sprintf("/api/sites/%s/favicon", site.ID)
 	require.Equal(testingT, expectedFavicon, responseBody.Sites[0].FaviconURL)
