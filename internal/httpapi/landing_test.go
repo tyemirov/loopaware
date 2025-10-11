@@ -47,7 +47,7 @@ const (
 	landingCardFocusToken            = ".landing-card:focus-visible"
 	landingHeroLoginButtonToken      = "btn btn-primary btn-lg\" href=\"/auth/google\">Login"
 	landingHeaderLoginButtonToken    = "btn btn-primary btn-sm\" href=\"/auth/google\">Login"
-	landingHeaderStickyStyleToken    = ".landing-header {\n        position: sticky;\n        top: 0;\n        z-index: 1030;"
+	landingHeaderStickyStyleToken    = ".landing-header {\n        position: sticky;\n        top: 0;\n        z-index: 1030;\n        padding: 0;"
 	landingHeaderBrandAnchorToken    = "<a class=\"navbar-brand"
 	landingHeaderBrandSpanToken      = "<span class=\"navbar-brand"
 	landingFaviconLinkToken          = "<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg&#43;xml"
