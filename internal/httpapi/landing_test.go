@@ -23,7 +23,7 @@ const (
 	landingLogoImageClassToken       = "class=\"landing-logo-image\""
 	landingLogoAltToken              = "alt=\"LoopAware logo\""
 	landingLogoDataToken             = "src=\"data:image/png;base64,"
-	landingHeaderStickyToken         = "class=\"py-4 sticky-top\""
+	landingHeaderStickyToken         = "<header class=\"landing-header\">"
 	landingFooterDropdownToggleToken = "data-bs-toggle=\"dropdown\""
 	landingFooterDropdownMenuToken   = "dropdown-menu"
 	landingFooterLinkGravityToken    = "https://gravity.mprlab.com"
@@ -40,6 +40,7 @@ const (
 	landingCardHoverToken            = ".landing-card:hover"
 	landingCardFocusToken            = ".landing-card:focus-visible"
 	landingHeroLoginButtonToken      = "btn btn-primary btn-lg\" href=\"/auth/google\">Login"
+	landingHeaderStickyStyleToken    = ".landing-header {\n        position: sticky;\n        top: 0;\n        z-index: 1030;"
 	landingFaviconLinkToken          = "<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg&#43;xml"
 )
 
@@ -86,6 +87,19 @@ func TestLandingPageProvidesThemeSwitch(t *testing.T) {
 	require.Contains(t, body, landingThemeApplyFunctionToken)
 	require.Contains(t, body, landingThemeDataAttributeToken)
 	require.Contains(t, body, landingHeaderStickyToken)
+}
+
+func TestLandingHeaderProvidesStickyStyles(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
+
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
+	handlers.RenderLandingPage(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, landingHeaderStickyStyleToken)
 }
 
 func TestLandingPageDisplaysHeaderLogo(t *testing.T) {
