@@ -35,7 +35,7 @@ const (
 	errorValueInvalidOperation = "invalid_operation"
 	errorValueDeleteFailed     = "delete_failed"
 
-	widgetScriptTemplate   = "<script src=\"%s/widget.js?site_id=%s\"></script>"
+	widgetScriptTemplate   = "<script defer src=\"%s/widget.js?site_id=%s\"></script>"
 	siteFaviconURLTemplate = "/api/sites/%s/favicon"
 )
 
