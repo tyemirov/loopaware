@@ -93,7 +93,7 @@ timestamps in seconds.
 
 | Method  | Path                      | Role        | Description                                                               |
 |---------|---------------------------|-------------|---------------------------------------------------------------------------|
-| `GET`   | `/api/me`                 | any         | Current account metadata (email, name, `role`)                            |
+| `GET`   | `/api/me`                 | any         | Current account metadata (email, name, `role`, `avatar.url`)              |
 | `GET`   | `/api/sites`              | any         | Sites visible to the caller (admin = all, user = owned)                   |
 | `POST`  | `/api/sites`              | admin       | Create a site (requires `name`, `allowed_origin`, `owner_email`)          |
 | `PATCH` | `/api/sites/:id`          | owner/admin | Update name/origin; admins may reassign ownership                         |
@@ -101,7 +101,13 @@ timestamps in seconds.
 | `POST`  | `/api/feedback`           | public      | Submit feedback (requires JSON body with `site_id`, `contact`, `message`) |
 | `GET`   | `/widget.js`              | public      | Serve embeddable JavaScript widget                                        |
 
-The `/api/me` response includes a `role` value of `admin` or `user`; the dashboard uses it to determine site scope.
+The `/api/me` response includes a `role` value of `admin` or `user` and an `avatar.url` pointing to the caller's cached
+profile image (served from `/api/me/avatar`). The dashboard uses this payload to render the account card and determine
+site scope.
+
+Deployments upgraded from versions prior to LA-57 should allow the server startup migration to run once; it backfills any
+sites missing a `creator_email` with `temirov@gmail.com` to preserve creator-based visibility rules. New site creations
+store the authenticated creator separately from the configured owner mailbox.
 
 ## Dashboard (`/app`)
 
