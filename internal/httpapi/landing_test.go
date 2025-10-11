@@ -43,7 +43,7 @@ const (
 	landingFooterLinkPromptsToken    = "https://prompts.mprlab.com"
 	landingFooterLinkWallpapersToken = "https://wallpapers.mprlab.com"
 	landingFooterAlignmentToken      = "justify-content-md-end"
-	landingFooterPaddingToken        = "landing-footer border-top mt-auto py-3"
+	landingFooterPaddingToken        = "landing-footer border-top mt-auto py-2"
 	landingCardHoverToken            = ".landing-card:hover"
 	landingCardFocusToken            = ".landing-card:focus-visible"
 	landingHeroLoginButtonToken      = "btn btn-primary btn-lg\" href=\"/auth/google\">Login"
