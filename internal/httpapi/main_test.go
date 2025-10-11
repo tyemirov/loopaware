@@ -113,6 +113,12 @@ const (
 	dashboardFooterLinkCrosswordToken       = "https://llm-crossword.mprlab.com"
 	dashboardFooterLinkPromptsToken         = "https://prompts.mprlab.com"
 	dashboardFooterLinkWallpapersToken      = "https://wallpapers.mprlab.com"
+	dashboardHeaderLogoImageIDToken         = "id=\"dashboard-header-logo\""
+	dashboardHeaderLogoAltToken             = "alt=\"LoopAware logo\""
+	dashboardHeaderLogoDataToken            = "src=\"data:image/png;base64,"
+	dashboardThemeStorageKeyToken           = "\"theme_storage_key\":\"loopaware_dashboard_theme\""
+	dashboardThemeLegacyKeyToken            = "var themePreferenceLegacyStorageKey = 'loopaware_theme'"
+	dashboardThemeMigrationToken            = "localStorage.getItem(themePreferenceLegacyStorageKey)"
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -127,7 +133,27 @@ func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Contains(t, recorder.Header().Get("Content-Type"), "text/html")
-	require.Contains(t, recorder.Body.String(), dashboardTitleText)
+	body := recorder.Body.String()
+	require.Contains(t, body, dashboardTitleText)
+	require.Contains(t, body, dashboardThemeStorageKeyToken)
+	require.Contains(t, body, dashboardThemeLegacyKeyToken)
+	require.Contains(t, body, dashboardThemeMigrationToken)
+}
+
+func TestDashboardHeaderDisplaysLogo(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, dashboardHeaderLogoImageIDToken)
+	require.Contains(t, body, dashboardHeaderLogoAltToken)
+	require.Contains(t, body, dashboardHeaderLogoDataToken)
 }
 
 func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {

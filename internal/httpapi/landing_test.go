@@ -17,13 +17,19 @@ const (
 	landingDetailedWidgetCopyToken   = "Origin-locked widgets and APIs capture feedback where customers already are."
 	landingDetailedWorkflowCopyToken = "Role-aware workflows assign owners, surface trends, and track resolution."
 	landingThemeToggleIDToken        = "id=\"landing-theme-toggle\""
-	landingThemeScriptKeyToken       = "var landingThemeStorageKey = 'landing_theme'"
+	landingThemeScriptKeyToken       = "var landingThemeStorageKey = 'loopaware_landing_theme'"
+	landingThemeLegacyKeyToken       = "var landingLegacyThemeStorageKey = 'landing_theme'"
+	landingThemeMigrationToken       = "var legacyStoredTheme = localStorage.getItem(landingLegacyThemeStorageKey);"
 	landingThemeApplyFunctionToken   = "function applyLandingTheme(theme)"
 	landingThemeDataAttributeToken   = "data-bs-theme"
 	landingLogoImageClassToken       = "class=\"landing-logo-image\""
 	landingLogoAltToken              = "alt=\"LoopAware logo\""
 	landingLogoDataToken             = "src=\"data:image/png;base64,"
-	landingHeaderStickyToken         = "class=\"py-4 sticky-top\""
+	landingLogoContainerWidthToken   = "width: 56px;"
+	landingLogoContainerHeightToken  = "height: 56px;"
+	landingLogoImageWidthToken       = "width: 36px;"
+	landingLogoImageHeightToken      = "height: 36px;"
+	landingHeaderStickyToken         = "<header class=\"landing-header\">"
 	landingFooterDropdownToggleToken = "data-bs-toggle=\"dropdown\""
 	landingFooterDropdownMenuToken   = "dropdown-menu"
 	landingFooterLinkGravityToken    = "https://gravity.mprlab.com"
@@ -40,6 +46,10 @@ const (
 	landingCardHoverToken            = ".landing-card:hover"
 	landingCardFocusToken            = ".landing-card:focus-visible"
 	landingHeroLoginButtonToken      = "btn btn-primary btn-lg\" href=\"/auth/google\">Login"
+	landingHeaderLoginButtonToken    = "btn btn-primary btn-sm\" href=\"/auth/google\">Login"
+	landingHeaderStickyStyleToken    = ".landing-header {\n        position: sticky;\n        top: 0;\n        z-index: 1030;"
+	landingHeaderBrandAnchorToken    = "<a class=\"navbar-brand"
+	landingHeaderBrandSpanToken      = "<span class=\"navbar-brand"
 	landingFaviconLinkToken          = "<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg&#43;xml"
 )
 
@@ -83,9 +93,24 @@ func TestLandingPageProvidesThemeSwitch(t *testing.T) {
 	body := recorder.Body.String()
 	require.Contains(t, body, landingThemeToggleIDToken)
 	require.Contains(t, body, landingThemeScriptKeyToken)
+	require.Contains(t, body, landingThemeLegacyKeyToken)
+	require.Contains(t, body, landingThemeMigrationToken)
 	require.Contains(t, body, landingThemeApplyFunctionToken)
 	require.Contains(t, body, landingThemeDataAttributeToken)
 	require.Contains(t, body, landingHeaderStickyToken)
+}
+
+func TestLandingHeaderProvidesStickyStyles(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
+
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
+	handlers.RenderLandingPage(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, landingHeaderStickyStyleToken)
 }
 
 func TestLandingPageDisplaysHeaderLogo(t *testing.T) {
@@ -101,6 +126,36 @@ func TestLandingPageDisplaysHeaderLogo(t *testing.T) {
 	require.Contains(t, body, landingLogoImageClassToken)
 	require.Contains(t, body, landingLogoAltToken)
 	require.Contains(t, body, landingLogoDataToken)
+}
+
+func TestLandingPageLogoUsesProminentDimensions(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
+
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
+	handlers.RenderLandingPage(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, landingLogoContainerWidthToken)
+	require.Contains(t, body, landingLogoContainerHeightToken)
+	require.Contains(t, body, landingLogoImageWidthToken)
+	require.Contains(t, body, landingLogoImageHeightToken)
+}
+
+func TestLandingLogoDoesNotTriggerNavigation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
+
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
+	handlers.RenderLandingPage(context)
+
+	body := recorder.Body.String()
+	require.NotContains(t, body, landingHeaderBrandAnchorToken)
+	require.Contains(t, body, landingHeaderBrandSpanToken)
 }
 
 func TestLandingFooterDisplaysProductMenu(t *testing.T) {
@@ -143,7 +198,7 @@ func TestLandingCardsProvideInteractiveStates(t *testing.T) {
 	require.Contains(t, body, "tabindex=\"0\"")
 }
 
-func TestLandingHeroOffersSingleLoginCallToAction(t *testing.T) {
+func TestLandingPageProvidesHeaderLoginOnly(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	context, _ := gin.CreateTestContext(recorder)
@@ -153,6 +208,7 @@ func TestLandingHeroOffersSingleLoginCallToAction(t *testing.T) {
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
-	require.Contains(t, body, landingHeroLoginButtonToken)
+	require.Contains(t, body, landingHeaderLoginButtonToken)
 	require.NotContains(t, body, "View dashboard")
+	require.NotContains(t, body, landingHeroLoginButtonToken)
 }

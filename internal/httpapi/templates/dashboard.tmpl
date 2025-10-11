@@ -11,8 +11,13 @@
   <body class="d-flex flex-column min-vh-100 bg-light">
     <header class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top shadow-sm">
       <div class="container-fluid">
-        <span class="navbar-brand fw-semibold">{{.PageTitle}}</span>
-          <div class="dropdown ms-auto">
+        <span class="navbar-brand d-flex align-items-center gap-3">
+          <span class="d-inline-flex align-items-center justify-content-center rounded-3 bg-white bg-opacity-25 p-2">
+            <img id="{{.HeaderLogoImageID}}" src="{{.HeaderLogoDataURI}}" alt="LoopAware logo" width="28" height="28" />
+          </span>
+          <span class="fw-semibold">{{.PageTitle}}</span>
+        </span>
+        <div class="dropdown ms-auto">
           <button id="{{.SettingsButtonID}}" class="btn btn-outline-light border-0 rounded-circle p-1 d-flex align-items-center justify-content-center" type="button" data-bs-toggle="dropdown" aria-expanded="false">
             <span class="visually-hidden">{{.SettingsButtonLabel}}</span>
             <img id="{{.SettingsAvatarImageID}}" src="" alt="Avatar" class="rounded-circle d-none" width="36" height="36" />
@@ -233,6 +238,7 @@
         var formStatusClasses = parsedConfig.form_status_classes || {};
         var validationMessages = parsedConfig.validation_messages || {};
         var themePreferenceStorageKey = parsedConfig.theme_storage_key || '';
+        var themePreferenceLegacyStorageKey = 'loopaware_theme';
         var settingsButton = document.getElementById(elementIds.settings_button);
         var settingsMenu = document.getElementById(elementIds.settings_menu);
         var themeToggle = document.getElementById(elementIds.settings_theme_toggle);
@@ -667,7 +673,13 @@
         function loadThemePreference() {
           var stored = localStorage.getItem(themePreferenceStorageKey);
           if (stored !== 'dark' && stored !== 'light') {
-            stored = 'light';
+            var legacyStored = localStorage.getItem(themePreferenceLegacyStorageKey);
+            if (legacyStored === 'dark' || legacyStored === 'light') {
+              stored = legacyStored;
+              localStorage.setItem(themePreferenceStorageKey, stored);
+            } else {
+              stored = 'light';
+            }
           }
           themeToggle.checked = stored === 'dark';
           applyThemePreference(stored);
