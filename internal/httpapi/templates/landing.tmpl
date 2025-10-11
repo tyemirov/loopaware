@@ -11,6 +11,13 @@
       .landing-body {
         transition: background-color 0.3s ease, color 0.3s ease;
       }
+      .landing-header {
+        position: sticky;
+        top: 0;
+        z-index: 1030;
+        padding: 1.5rem 0;
+        transition: background-color 0.3s ease;
+      }
       .landing-navbar {
         border-radius: 0.75rem;
       }
@@ -42,6 +49,9 @@
       .landing-card:focus-visible {
         outline: 0;
       }
+      body[data-bs-theme="dark"] .landing-header {
+        background-color: #0f172a;
+      }
       body[data-bs-theme="dark"] .landing-navbar {
         background-color: #0f172a;
       }
@@ -72,6 +82,9 @@
         background-color: #0f172a;
         color: #94a3b8;
       }
+      body[data-bs-theme="light"] .landing-header {
+        background-color: #ffffff;
+      }
       body[data-bs-theme="light"] .landing-navbar {
         background-color: #ffffff;
       }
@@ -101,7 +114,7 @@
     </style>
   </head>
   <body class="landing-body d-flex flex-column min-vh-100 bg-body text-body" data-bs-theme="dark">
-    <header class="py-4 sticky-top">
+    <header class="landing-header">
       <nav class="navbar landing-navbar shadow-sm px-3">
         <div class="container d-flex align-items-center justify-content-between">
           <a class="navbar-brand d-flex align-items-center gap-3 landing-brand" href="/app">

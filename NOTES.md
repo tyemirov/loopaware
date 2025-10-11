@@ -76,7 +76,7 @@ Make the footer independent so that I could reuse it as a component in other pro
 - [x] [LA-43] The landing page misses favicon. Use     `<link rel="icon" type="image/svg+xml" href="{{.FaviconDataURI}}" />`
 - [x] [LA-44] The LoopAware logo on the landing page is incorrect. Either use the SVG from the code or ![alt text](internal/httpapi/templates/logo.png)
 - [x] [LA-45] The header on the landing page should stick to the top of the page.
-- [ ] [LA-46] The header on the landing page should stick to the top of the page.
+- [x] [LA-46] The header on the landing page should stick to the top of the page.
 - [ ] [LA-47] Clicking on the logo shall not do anything (it refreshes the page now).
 - [ ] [LA-50] Add logo to the LoopAware Dashboard header (on the left of the word "LoopAware" )
 - [ ] [LA-51] The choice of the theme on the landing page and the dashboard should be independent
