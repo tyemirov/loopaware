@@ -22,6 +22,8 @@ services:
         - action: rebuild
           path: ./internal/httpapi/templates/dashboard.tmpl
         - action: rebuild
+          path: ./internal/httpapi/templates/landing.tmpl
+        - action: rebuild
           path: ./go.sum
     
 
