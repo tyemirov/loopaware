@@ -40,6 +40,8 @@ const (
 	landingCardHoverToken            = ".landing-card:hover"
 	landingCardFocusToken            = ".landing-card:focus-visible"
 	landingHeroLoginButtonToken      = "btn btn-primary btn-lg\" href=\"/auth/google\">Login"
+	landingHeaderBrandAnchorToken    = "<a class=\"navbar-brand"
+	landingHeaderBrandSpanToken      = "<span class=\"navbar-brand"
 	landingFaviconLinkToken          = "<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg&#43;xml"
 )
 
@@ -101,6 +103,20 @@ func TestLandingPageDisplaysHeaderLogo(t *testing.T) {
 	require.Contains(t, body, landingLogoImageClassToken)
 	require.Contains(t, body, landingLogoAltToken)
 	require.Contains(t, body, landingLogoDataToken)
+}
+
+func TestLandingLogoDoesNotTriggerNavigation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
+
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
+	handlers.RenderLandingPage(context)
+
+	body := recorder.Body.String()
+	require.NotContains(t, body, landingHeaderBrandAnchorToken)
+	require.Contains(t, body, landingHeaderBrandSpanToken)
 }
 
 func TestLandingFooterDisplaysProductMenu(t *testing.T) {
