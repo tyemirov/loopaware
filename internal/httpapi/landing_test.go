@@ -44,6 +44,7 @@ const (
 	landingCardHoverToken            = ".landing-card:hover"
 	landingCardFocusToken            = ".landing-card:focus-visible"
 	landingHeroLoginButtonToken      = "btn btn-primary btn-lg\" href=\"/auth/google\">Login"
+	landingHeaderLoginButtonToken    = "btn btn-primary btn-sm\" href=\"/auth/google\">Login"
 	landingFaviconLinkToken          = "<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg&#43;xml"
 )
 
@@ -163,7 +164,7 @@ func TestLandingCardsProvideInteractiveStates(t *testing.T) {
 	require.Contains(t, body, "tabindex=\"0\"")
 }
 
-func TestLandingHeroOffersSingleLoginCallToAction(t *testing.T) {
+func TestLandingPageProvidesHeaderLoginOnly(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	context, _ := gin.CreateTestContext(recorder)
@@ -173,6 +174,7 @@ func TestLandingHeroOffersSingleLoginCallToAction(t *testing.T) {
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
-	require.Contains(t, body, landingHeroLoginButtonToken)
+	require.Contains(t, body, landingHeaderLoginButtonToken)
 	require.NotContains(t, body, "View dashboard")
+	require.NotContains(t, body, landingHeroLoginButtonToken)
 }
