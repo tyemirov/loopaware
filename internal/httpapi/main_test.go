@@ -116,6 +116,7 @@ const (
 	dashboardHeaderLogoImageIDToken         = "id=\"dashboard-header-logo\""
 	dashboardHeaderLogoAltToken             = "alt=\"LoopAware logo\""
 	dashboardHeaderLogoDataToken            = "src=\"data:image/png;base64,"
+	dashboardHeaderLogoLargeWidthToken      = "width=\"44\""
 	dashboardThemeStorageKeyToken           = "\"theme_storage_key\":\"loopaware_dashboard_theme\""
 	dashboardThemeLegacyKeyToken            = "var themePreferenceLegacyStorageKey = 'loopaware_theme'"
 	dashboardThemeMigrationToken            = "localStorage.getItem(themePreferenceLegacyStorageKey)"
@@ -154,6 +155,7 @@ func TestDashboardHeaderDisplaysLogo(t *testing.T) {
 	require.Contains(t, body, dashboardHeaderLogoImageIDToken)
 	require.Contains(t, body, dashboardHeaderLogoAltToken)
 	require.Contains(t, body, dashboardHeaderLogoDataToken)
+	require.Contains(t, body, dashboardHeaderLogoLargeWidthToken)
 }
 
 func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {
