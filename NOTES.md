@@ -55,7 +55,7 @@ Make the footer independent so that I could reuse it as a component in other pro
 - [x] [LA-49] Remove the login button from the hero page. Only leave login button in the header
 - [x] [LA-52] Remove the square around the logo for both the landing page and the dashboard. The logo shall be transparent. Increase the size of the logo.
 - [x] [LA-53] Slim down the header and the footer
- 
+
 ## BugFixes
 
 - [x] [LA-23] the header of the table in Feedback messages panel doesnt respect the theme swithc and stays in light theme. it shall respect the theme switch
