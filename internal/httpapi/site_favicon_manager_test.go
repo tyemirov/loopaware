@@ -173,7 +173,7 @@ func TestGravityNotesInlineFaviconIntegration(testingT *testing.T) {
 	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, manager, nil)
 
 	listRecorder, listContext := newJSONContext(http.MethodGet, "/api/sites", nil)
-	listContext.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+	listContext.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
 
 	handlers.ListSites(listContext)
 	require.Equal(testingT, http.StatusOK, listRecorder.Code)
@@ -190,7 +190,7 @@ func TestGravityNotesInlineFaviconIntegration(testingT *testing.T) {
 
 	faviconRecorder, faviconContext := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/favicon", nil)
 	faviconContext.Params = gin.Params{{Key: "id", Value: site.ID}}
-	faviconContext.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+	faviconContext.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
 
 	handlers.SiteFavicon(faviconContext)
 	require.Equal(testingT, http.StatusOK, faviconRecorder.Code)

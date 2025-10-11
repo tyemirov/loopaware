@@ -229,6 +229,9 @@
         var buttonLabels = parsedConfig.button_labels || {};
         var statusMessages = parsedConfig.status_messages || {};
         var roleLabels = parsedConfig.role_labels || {};
+        var roleValues = parsedConfig.role_values || {};
+        var adminRoleValue = roleValues.admin || 'admin';
+        var userRoleValue = roleValues.user || 'user';
         var buttonStyles = parsedConfig.button_styles || {};
         var componentClasses = parsedConfig.component_classes || {};
         var widgetTexts = parsedConfig.widget_texts || {};
@@ -479,7 +482,7 @@
           if (!siteCreatedAtContainer) {
             return;
           }
-          if (!hasTimestamp || !state.user || !state.user.is_admin) {
+          if (!hasTimestamp || !state.user || state.user.role !== adminRoleValue) {
             siteCreatedAtContainer.classList.add('d-none');
             return;
           }
@@ -725,8 +728,8 @@
             userAvatar.src = state.user.picture_url;
             userAvatar.classList.remove('d-none');
           }
-          var isAdminUser = state.user.is_admin === true;
-          var roleLabel = isAdminUser ? roleLabels.admin : roleLabels.user;
+          var isAdminUser = state.user.role === adminRoleValue;
+          var roleLabel = isAdminUser ? roleLabels[adminRoleValue] : roleLabels[userRoleValue];
           userRole.textContent = roleLabel;
           userRole.className = isAdminUser ? 'badge bg-warning text-dark mt-2' : 'badge bg-secondary mt-2';
           if (editSiteOwnerContainer) {
@@ -1360,7 +1363,7 @@
             name: getTrimmedValue(editSiteNameInput),
             allowed_origin: getTrimmedValue(editSiteOriginInput)
           };
-          if (state.user && state.user.is_admin) {
+          if (state.user && state.user.role === adminRoleValue) {
             body.owner_email = getTrimmedValue(editSiteOwnerInput);
           }
           var endpoint = apiSiteUpdatePrefix + state.selectedSiteId;

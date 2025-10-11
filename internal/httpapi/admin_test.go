@@ -24,6 +24,7 @@ import (
 const (
 	testAdminEmailAddress = "admin@example.com"
 	testUserEmailAddress  = "user@example.com"
+	testCreatorEmail      = "creator@example.com"
 	testSessionContextKey = "httpapi_current_user"
 	testWidgetBaseURL     = "https://gravity.mprlab.com/"
 )
@@ -77,7 +78,7 @@ func TestListMessagesBySiteReturnsOrderedUnixTimestamps(testingT *testing.T) {
 
 	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/messages", nil)
 	context.Params = gin.Params{{Key: "id", Value: site.ID}}
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
 
 	harness.handlers.ListMessagesBySite(context)
 	require.Equal(testingT, http.StatusOK, recorder.Code)
@@ -119,7 +120,7 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 		require.NoError(testingT, harness.database.Create(&feedback).Error)
 	}
 	recorder, context := newJSONContext(http.MethodGet, "/api/sites", nil)
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
 
 	harness.handlers.ListSites(context)
 	require.Equal(testingT, http.StatusOK, recorder.Code)
@@ -156,7 +157,35 @@ func TestListSitesReturnsOwnerSitesForNonAdminRegardlessOfEmailCase(testingT *te
 	require.NoError(testingT, harness.database.Create(&site).Error)
 
 	recorder, context := newJSONContext(http.MethodGet, "/api/sites", nil)
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: strings.ToLower(ownerEmail), IsAdmin: false})
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: strings.ToLower(ownerEmail), Role: httpapi.RoleUser})
+
+	harness.handlers.ListSites(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody struct {
+		Sites []struct {
+			Identifier string `json:"id"`
+		} `json:"sites"`
+	}
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Len(testingT, responseBody.Sites, 1)
+	require.Equal(testingT, site.ID, responseBody.Sites[0].Identifier)
+}
+
+func TestListSitesReturnsCreatorSitesForNonAdmin(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Creator Visibility Site",
+		AllowedOrigin: "https://creator-visibility.example",
+		OwnerEmail:    testAdminEmailAddress,
+		CreatorEmail:  testCreatorEmail,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites", nil)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testCreatorEmail, Role: httpapi.RoleUser})
 
 	harness.handlers.ListSites(context)
 	require.Equal(testingT, http.StatusOK, recorder.Code)
@@ -188,7 +217,7 @@ func TestSiteFaviconReturnsStoredIcon(testingT *testing.T) {
 
 	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/favicon", nil)
 	context.Params = gin.Params{{Key: "id", Value: site.ID}}
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
 
 	harness.handlers.SiteFavicon(context)
 	require.Equal(testingT, http.StatusOK, recorder.Code)
@@ -209,7 +238,7 @@ func TestNonAdminCannotAccessForeignSite(testingT *testing.T) {
 
 	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/messages", nil)
 	context.Params = gin.Params{{Key: "id", Value: site.ID}}
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
 
 	harness.handlers.ListMessagesBySite(context)
 	require.Equal(testingT, http.StatusForbidden, recorder.Code)
@@ -225,7 +254,7 @@ func TestCreateSiteAllowsAdminToSpecifyOwner(testingT *testing.T) {
 	}
 
 	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
 
 	harness.handlers.CreateSite(context)
 	require.Equal(testingT, http.StatusOK, recorder.Code)
@@ -240,6 +269,7 @@ func TestCreateSiteAllowsAdminToSpecifyOwner(testingT *testing.T) {
 	var createdSite model.Site
 	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Admin Created").Error)
 	require.Equal(testingT, testUserEmailAddress, createdSite.OwnerEmail)
+	require.Equal(testingT, testAdminEmailAddress, createdSite.CreatorEmail)
 }
 
 func TestCreateSiteAssignsCurrentUserAsOwner(testingT *testing.T) {
@@ -251,7 +281,7 @@ func TestCreateSiteAssignsCurrentUserAsOwner(testingT *testing.T) {
 	}
 
 	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
 
 	harness.handlers.CreateSite(context)
 	require.Equal(testingT, http.StatusOK, recorder.Code)
@@ -264,6 +294,7 @@ func TestCreateSiteAssignsCurrentUserAsOwner(testingT *testing.T) {
 	var createdSite model.Site
 	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Self Owned").Error)
 	require.Equal(testingT, testUserEmailAddress, createdSite.OwnerEmail)
+	require.Equal(testingT, testUserEmailAddress, createdSite.CreatorEmail)
 }
 
 func TestCreateSiteRejectsForeignOwnerForRegularUser(testingT *testing.T) {
@@ -276,7 +307,7 @@ func TestCreateSiteRejectsForeignOwnerForRegularUser(testingT *testing.T) {
 	}
 
 	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
 
 	harness.handlers.CreateSite(context)
 	require.Equal(testingT, http.StatusForbidden, recorder.Code)
@@ -300,7 +331,7 @@ func TestUpdateSiteAllowsOwnerToChangeDetails(testingT *testing.T) {
 
 	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID, payload)
 	context.Params = gin.Params{{Key: "id", Value: site.ID}}
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
 
 	harness.handlers.UpdateSite(context)
 	require.Equal(testingT, http.StatusOK, recorder.Code)
@@ -331,7 +362,7 @@ func TestUpdateSiteAllowsOwnerToReassignOwnership(testingT *testing.T) {
 
 	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID, payload)
 	context.Params = gin.Params{{Key: "id", Value: site.ID}}
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
 
 	harness.handlers.UpdateSite(context)
 	require.Equal(testingT, http.StatusOK, recorder.Code)
@@ -366,7 +397,7 @@ func TestDeleteSiteRemovesSiteAndFeedback(testingT *testing.T) {
 
 	recorder, context := newJSONContext(http.MethodDelete, "/api/sites/"+site.ID, nil)
 	context.Params = gin.Params{{Key: "id", Value: site.ID}}
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
 
 	harness.handlers.DeleteSite(context)
 	require.Equal(testingT, http.StatusNoContent, recorder.Code)
@@ -391,7 +422,7 @@ func TestDeleteSitePreventsUnauthorizedUser(testingT *testing.T) {
 
 	recorder, context := newJSONContext(http.MethodDelete, "/api/sites/"+site.ID, nil)
 	context.Params = gin.Params{{Key: "id", Value: site.ID}}
-	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, IsAdmin: false})
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
 
 	harness.handlers.DeleteSite(context)
 	require.Equal(testingT, http.StatusForbidden, recorder.Code)

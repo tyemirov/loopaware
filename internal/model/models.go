@@ -7,6 +7,7 @@ type Site struct {
 	Name                 string `gorm:"not null;size:200"`
 	AllowedOrigin        string `gorm:"not null;size:500"`
 	OwnerEmail           string `gorm:"size:320"`
+	CreatorEmail         string `gorm:"size:320"`
 	FaviconData          []byte `gorm:"type:blob"`
 	FaviconContentType   string `gorm:"size:100"`
 	FaviconFetchedAt     time.Time

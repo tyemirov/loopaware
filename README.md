@@ -6,7 +6,7 @@ role-aware dashboard for managing sites and messages.
 ## Highlights
 
 - Google OAuth 2.0 authentication via [GAuss](https://github.com/temirov/GAuss)
-- Role-aware dashboard (`/app`) with admin and owner scopes
+- Role-aware dashboard (`/app`) with admin and creator/owner scopes
 - YAML configuration for privileged accounts (`config.yaml`)
 - REST API to create, update, and inspect sites and feedback
 - Embeddable JavaScript widget with strict origin validation
@@ -76,7 +76,7 @@ go run ./cmd/server --config=config.yaml
 ```
 
 Open `http://localhost:8080/app` to trigger Google Sign-In. Administrators listed in `config.yaml` can manage every
-site; other users see only the sites assigned to their Google account.
+site; other users see only the sites they own or originally created with their Google account.
 
 ## Authentication flow
 
@@ -93,13 +93,15 @@ timestamps in seconds.
 
 | Method  | Path                      | Role        | Description                                                               |
 |---------|---------------------------|-------------|---------------------------------------------------------------------------|
-| `GET`   | `/api/me`                 | any         | Current account metadata (email, name, `is_admin`)                        |
+| `GET`   | `/api/me`                 | any         | Current account metadata (email, name, `role`)                            |
 | `GET`   | `/api/sites`              | any         | Sites visible to the caller (admin = all, user = owned)                   |
 | `POST`  | `/api/sites`              | admin       | Create a site (requires `name`, `allowed_origin`, `owner_email`)          |
 | `PATCH` | `/api/sites/:id`          | owner/admin | Update name/origin; admins may reassign ownership                         |
 | `GET`   | `/api/sites/:id/messages` | owner/admin | List feedback messages (newest first)                                     |
 | `POST`  | `/api/feedback`           | public      | Submit feedback (requires JSON body with `site_id`, `contact`, `message`) |
 | `GET`   | `/widget.js`              | public      | Serve embeddable JavaScript widget                                        |
+
+The `/api/me` response includes a `role` value of `admin` or `user`; the dashboard uses it to determine site scope.
 
 ## Dashboard (`/app`)
 

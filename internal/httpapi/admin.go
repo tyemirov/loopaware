@@ -20,7 +20,7 @@ const (
 	jsonKeyError      = "error"
 	jsonKeyEmail      = "email"
 	jsonKeyName       = "name"
-	jsonKeyIsAdmin    = "is_admin"
+	jsonKeyRole       = "role"
 	jsonKeyPictureURL = "picture_url"
 
 	errorValueInvalidJSON      = "invalid_json"
@@ -111,7 +111,7 @@ func (handlers *SiteHandlers) CurrentUser(context *gin.Context) {
 	context.JSON(http.StatusOK, gin.H{
 		jsonKeyEmail:      currentUser.Email,
 		jsonKeyName:       currentUser.Name,
-		jsonKeyIsAdmin:    currentUser.IsAdmin,
+		jsonKeyRole:       currentUser.Role,
 		jsonKeyPictureURL: currentUser.PictureURL,
 	})
 }
@@ -132,14 +132,14 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 	payload.Name = strings.TrimSpace(payload.Name)
 	payload.AllowedOrigin = strings.TrimSpace(payload.AllowedOrigin)
 	desiredOwnerEmail := strings.ToLower(strings.TrimSpace(payload.OwnerEmail))
-	currentUserEmail := strings.ToLower(strings.TrimSpace(currentUser.Email))
+	creatorEmail := currentUser.normalizedEmail()
 
-	if !currentUser.IsAdmin {
-		if desiredOwnerEmail != "" && !strings.EqualFold(desiredOwnerEmail, currentUserEmail) {
+	if !currentUser.hasRole(RoleAdmin) {
+		if desiredOwnerEmail != "" && !strings.EqualFold(desiredOwnerEmail, creatorEmail) {
 			context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueInvalidOperation})
 			return
 		}
-		desiredOwnerEmail = currentUserEmail
+		desiredOwnerEmail = creatorEmail
 	}
 
 	if payload.Name == "" || payload.AllowedOrigin == "" {
@@ -157,6 +157,7 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		Name:          payload.Name,
 		AllowedOrigin: payload.AllowedOrigin,
 		OwnerEmail:    desiredOwnerEmail,
+		CreatorEmail:  creatorEmail,
 		FaviconOrigin: payload.AllowedOrigin,
 	}
 
@@ -181,9 +182,9 @@ func (handlers *SiteHandlers) ListSites(context *gin.Context) {
 	var sites []model.Site
 
 	query := handlers.database.Model(&model.Site{})
-	if !currentUser.IsAdmin {
-		normalizedEmail := strings.ToLower(strings.TrimSpace(currentUser.Email))
-		query = query.Where("LOWER(owner_email) = ?", normalizedEmail)
+	if !currentUser.hasRole(RoleAdmin) {
+		normalizedEmail := currentUser.normalizedEmail()
+		query = query.Where("(LOWER(owner_email) = ? OR LOWER(creator_email) = ?)", normalizedEmail, normalizedEmail)
 	}
 
 	if err := query.Order("created_at desc").Find(&sites).Error; err != nil {
@@ -258,7 +259,7 @@ func (handlers *SiteHandlers) SiteFavicon(context *gin.Context) {
 		return
 	}
 
-	if !canManageSite(currentUser, site) {
+	if !currentUser.canManageSite(site) {
 		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
 		return
 	}
@@ -306,7 +307,7 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		return
 	}
 
-	if !canManageSite(currentUser, site) {
+	if !currentUser.canManageSite(site) {
 		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
 		return
 	}
@@ -383,7 +384,7 @@ func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
 		return
 	}
 
-	if !canManageSite(currentUser, site) {
+	if !currentUser.canManageSite(site) {
 		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
 		return
 	}
@@ -426,7 +427,7 @@ func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
 		return
 	}
 
-	if !canManageSite(currentUser, site) {
+	if !currentUser.canManageSite(site) {
 		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
 		return
 	}
@@ -500,13 +501,6 @@ func (handlers *SiteHandlers) scheduleFaviconFetch(site model.Site) {
 func normalizeWidgetBaseURL(value string) string {
 	trimmed := strings.TrimSpace(value)
 	return strings.TrimRight(trimmed, "/")
-}
-
-func canManageSite(currentUser *CurrentUser, site model.Site) bool {
-	if currentUser.IsAdmin {
-		return true
-	}
-	return strings.EqualFold(site.OwnerEmail, strings.TrimSpace(currentUser.Email))
 }
 
 func (handlers *SiteHandlers) ginRequestContext(ginContext *gin.Context) context.Context {

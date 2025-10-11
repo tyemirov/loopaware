@@ -27,6 +27,8 @@ const (
 	dashboardStatusNoSites               = "No sites available yet."
 	dashboardRoleAdminLabel              = "Administrator"
 	dashboardRoleUserLabel               = "User"
+	dashboardRoleAdminValue              = "admin"
+	dashboardRoleUserValue               = "user"
 	dashboardFeedbackPlaceholder         = "Select a site to load feedback."
 	dashboardWidgetCardTitle             = "Site widget"
 	dashboardWidgetInstructions          = "Embed this <script> tag on pages served from the allowed origin."
@@ -329,6 +331,7 @@ type dashboardClientConfig struct {
 	ButtonLabels       map[string]string `json:"button_labels"`
 	StatusMessages     map[string]string `json:"status_messages"`
 	RoleLabels         map[string]string `json:"role_labels"`
+	RoleValues         map[string]string `json:"role_values"`
 	ButtonStyles       map[string]string `json:"button_styles"`
 	ComponentClasses   map[string]string `json:"component_classes"`
 	WidgetTexts        map[string]string `json:"widget_texts"`
@@ -639,8 +642,12 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"no_message_matches": dashboardStatusNoMessageMatches,
 		},
 		RoleLabels: map[string]string{
-			"admin": dashboardRoleAdminLabel,
-			"user":  dashboardRoleUserLabel,
+			dashboardRoleAdminValue: dashboardRoleAdminLabel,
+			dashboardRoleUserValue:  dashboardRoleUserLabel,
+		},
+		RoleValues: map[string]string{
+			"admin": dashboardRoleAdminValue,
+			"user":  dashboardRoleUserValue,
 		},
 		ButtonStyles: map[string]string{
 			"primary":   dashboardActionButtonPrimaryClass,
