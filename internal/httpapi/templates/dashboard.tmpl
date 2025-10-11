@@ -238,6 +238,7 @@
         var formStatusClasses = parsedConfig.form_status_classes || {};
         var validationMessages = parsedConfig.validation_messages || {};
         var themePreferenceStorageKey = parsedConfig.theme_storage_key || '';
+        var themePreferenceLegacyStorageKey = 'loopaware_theme';
         var settingsButton = document.getElementById(elementIds.settings_button);
         var settingsMenu = document.getElementById(elementIds.settings_menu);
         var themeToggle = document.getElementById(elementIds.settings_theme_toggle);
@@ -672,7 +673,13 @@
         function loadThemePreference() {
           var stored = localStorage.getItem(themePreferenceStorageKey);
           if (stored !== 'dark' && stored !== 'light') {
-            stored = 'light';
+            var legacyStored = localStorage.getItem(themePreferenceLegacyStorageKey);
+            if (legacyStored === 'dark' || legacyStored === 'light') {
+              stored = legacyStored;
+              localStorage.setItem(themePreferenceStorageKey, stored);
+            } else {
+              stored = 'light';
+            }
           }
           themeToggle.checked = stored === 'dark';
           applyThemePreference(stored);

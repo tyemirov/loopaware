@@ -76,7 +76,7 @@ const (
 	settingsThemeToggleElementID         = "settings-theme-toggle"
 	settingsAvatarImageElementID         = "settings-avatar-image"
 	settingsAvatarFallbackElementID      = "settings-avatar-fallback"
-	themeStorageKey                      = "loopaware_theme"
+	themeStorageKey                      = "loopaware_dashboard_theme"
 	formStatusElementID                  = "site-status"
 	widgetStatusElementID                = "widget-status"
 	messagesStatusElementID              = "messages-status"
