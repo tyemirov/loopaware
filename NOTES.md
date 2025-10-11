@@ -53,6 +53,7 @@ Make the footer independent so that I could reuse it as a component in other pro
 - [x] [LA-41] Do not display 0 for Feedback messages. Only display the total number if it's larger than 0
 - [x] [LA-48] The logo in the header shall be larger and better visible
 - [x] [LA-49] Remove the login button from the hero page. Only leave login button in the header
+- [x] [LA-53] Slim down the header and the footer
 
 ## BugFixes
 

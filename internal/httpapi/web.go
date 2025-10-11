@@ -108,7 +108,7 @@ const (
 	deleteSiteIconClass                 = "bi bi-trash3-fill text-danger"
 	footerElementID                     = "dashboard-footer"
 	footerInnerElementID                = "dashboard-footer-inner"
-	footerBaseClass                     = "mt-auto py-3 fixed-bottom border-top"
+	footerBaseClass                     = "mt-auto py-2 fixed-bottom border-top"
 	footerThemeLightClass               = "bg-body text-body-secondary"
 	footerThemeDarkClass                = "bg-dark text-light border-light"
 	deleteSiteModalElementID            = "delete-site-modal"
