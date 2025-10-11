@@ -37,6 +37,7 @@ const (
 	dashboardFooterBrandName             = "Marco Polo Research Lab"
 	dashboardFooterBrandURL              = "https://mprlab.com"
 	dashboardFooterToggleButtonID        = "dashboard-footer-toggle"
+	dashboardHeaderLogoElementID         = "dashboard-header-logo"
 	navbarSettingsButtonLabel            = "Account settings"
 	navbarLogoutLabel                    = "Logout"
 	navbarThemeToggleLabel               = "Dark mode"
@@ -178,6 +179,8 @@ type dashboardTemplateData struct {
 	LoginPath                         string
 	BootstrapIconsIntegrityAttr       template.HTMLAttr
 	FaviconDataURI                    template.URL
+	HeaderLogoDataURI                 template.URL
+	HeaderLogoImageID                 string
 	StatusLoadingUser                 string
 	StatusLoadingSites                string
 	StatusLoadFailed                  string
@@ -388,6 +391,8 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		LoginPath:                         constants.LoginPath,
 		BootstrapIconsIntegrityAttr:       template.HTMLAttr(dashboardBootstrapIconsIntegrityAttr),
 		FaviconDataURI:                    template.URL(dashboardFaviconDataURI),
+		HeaderLogoDataURI:                 landingLogoDataURI,
+		HeaderLogoImageID:                 dashboardHeaderLogoElementID,
 		StatusLoadingUser:                 dashboardStatusLoadingUser,
 		StatusLoadingSites:                dashboardStatusLoadingSites,
 		StatusLoadFailed:                  dashboardStatusLoadFailed,
