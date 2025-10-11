@@ -48,6 +48,36 @@ func newSiteTestHarness(testingT *testing.T) siteTestHarness {
 	return siteTestHarness{handlers: handlers, database: database}
 }
 
+func TestCurrentUserReturnsAvatarPayload(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/me", nil)
+	expectedAvatarURL := "/api/me/avatar?v=123"
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{
+		Email:      testUserEmailAddress,
+		Name:       "Display Name",
+		Role:       httpapi.RoleUser,
+		PictureURL: expectedAvatarURL,
+	})
+
+	harness.handlers.CurrentUser(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var payload struct {
+		Email  string `json:"email"`
+		Name   string `json:"name"`
+		Role   string `json:"role"`
+		Avatar struct {
+			URL string `json:"url"`
+		} `json:"avatar"`
+	}
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &payload))
+	require.Equal(testingT, testUserEmailAddress, payload.Email)
+	require.Equal(testingT, "Display Name", payload.Name)
+	require.Equal(testingT, string(httpapi.RoleUser), payload.Role)
+	require.Equal(testingT, expectedAvatarURL, payload.Avatar.URL)
+}
+
 func TestListMessagesBySiteReturnsOrderedUnixTimestamps(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 

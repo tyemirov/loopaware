@@ -2,7 +2,7 @@
 
 ## Role
 
-You are a staff level full stack engineer. Your task is to **re-evaluate and refactor the Prompt Bubbles repository** according to the coding standards already written in **AGENTS.md**.
+You are a staff level full stack engineer. Your task is to **re-evaluate and refactor the LoopAware repository** according to the coding standards already written in **AGENTS.md**.
 
 ## Context
 
@@ -46,7 +46,7 @@ You are a staff level full stack engineer. Your task is to **re-evaluate and ref
 Review the NOTES.md. Make a plan for autonomously fixing every item under Features, BugFixes, Improvements, Maintenance. Ensure no regressions. Ensure adding tests. Lean into integration tests. Fix every issue. Document the changes.
 
 Fix issues one by one, working sequentially. 
-1. Create a new git commit with descriptive name
+1. Create a new git bracnh with descriptive name, for example `feature/LA-56-widget-defer` or `bugfix/LA-11-alpine-rehydration`. Use the taxonomy of issues as prefixes: improvement/, feature/, bugfix/, maintenace/, issue ID and a short descriptive. Respect the name limits.
 2. Describe an issue through tests. 
 2a. Ensure that the tests are comprehensive and failing to begin with. 
 2b. Ensure AGENTS.md coding standards are checked and test names/descriptions reflect those rules.
@@ -66,7 +66,7 @@ Fix issues one by one, working sequentially.
 9. Optional: update the code examples in case the changes warrant updated code examples
 10. Mark an issue as done ([X])in the NOTES.md after the issue is fixed: New and existing tests are passing without regressions
 11. Commit and push the changes to the remote branch.
-12. Repeat till all issues are fixed, and commits are stacked up (one starts from another).
+12. Repeat till all issues are fixed, and commits abd branches are stacked up (one starts from another).
 
 Do not work on all issues at once. Work at one issue at a time sequntially.
 
@@ -108,6 +108,8 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-52] Remove the square around the logo for both the landing page and the dashboard. The logo shall be transparent. Increase the size of the logo.
 - [x] [LA-53] Slim down the header and the footer
 - [x] [LA-54] Add branding to the widget, saying "Bulit by Marco Polo Research Lab" with a link to https://mprlab.com. Have it in small letters under the widget.
+- [x] [LA-56] The endpoint `api/me` shall return a JSON payload including user email, name and avatar. The rest of the system should be using this information when displaying user details. The login shall ba saving/updating this information. It must be a protected endpoint so that only the logged in user could get the information.
+
 
 ### BugFixes
 
@@ -131,6 +133,8 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-50] Add logo to the LoopAware Dashboard header (on the left of the word "LoopAware" )
 - [x] [LA-51] The choice of the theme on the landing page and the dashboard should be independent
 - [x] [LA-52] When logged in as a user the field to enter the site email is missing. This field must be present. The difference between a User adn and Admin is that Admin can see ALL of the sites regardless of what user has created them. User can only see and edit their own sites.
-- [x] [LA-55] The sites created by the same user are not displayed when a user changes roles. All sites created by the same user regardless of its role must be displayed when the user logs in. User and admin designation must have an abstraction called role. The role has an impact on the scope. Admin role grants an ability to view all sites regardless of the user who has created them plus everything that a user can do. User role grants the permissions to add, edit, and delete the sites that the user has created.
+- [X] [LA-55] The sites created by the same user are not displayed when a user changes roles. All sites created by the same user regardless of its role must be displayed when the user logs in. User and admin designation must have an abstraction called role. The role has an impact on the scope. Admin role grants an ability to view all sites regardless of the user who has created them plus everything that a user can do. User role grants the permissions to add, edit, and delete the sites that the user has created.
+- [ ] [LA-57] In case we have records with no information about what user has created them, we shall make a one-time data migration and update such records for the creator to be temirov@gmail.com. After that we shall be sure to separate the user who has created the records, using user's email from login, and the field called owner email, which is just an information we store for now
+- [ ] [LA-58] When pressing tab in the Site details, the focus shall be moving between the three input fields cyclically and not to the tooltips.
 
 ### Maintenance

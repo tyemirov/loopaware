@@ -17,11 +17,12 @@ import (
 )
 
 const (
-	jsonKeyError      = "error"
-	jsonKeyEmail      = "email"
-	jsonKeyName       = "name"
-	jsonKeyRole       = "role"
-	jsonKeyPictureURL = "picture_url"
+	jsonKeyError     = "error"
+	jsonKeyEmail     = "email"
+	jsonKeyName      = "name"
+	jsonKeyRole      = "role"
+	jsonKeyAvatar    = "avatar"
+	jsonKeyAvatarURL = "url"
 
 	errorValueInvalidJSON      = "invalid_json"
 	errorValueMissingFields    = "missing_fields"
@@ -108,12 +109,15 @@ func (handlers *SiteHandlers) CurrentUser(context *gin.Context) {
 		return
 	}
 
-	context.JSON(http.StatusOK, gin.H{
-		jsonKeyEmail:      currentUser.Email,
-		jsonKeyName:       currentUser.Name,
-		jsonKeyRole:       currentUser.Role,
-		jsonKeyPictureURL: currentUser.PictureURL,
-	})
+	responsePayload := gin.H{
+		jsonKeyEmail: currentUser.Email,
+		jsonKeyName:  currentUser.Name,
+		jsonKeyRole:  currentUser.Role,
+	}
+
+	responsePayload[jsonKeyAvatar] = gin.H{jsonKeyAvatarURL: currentUser.PictureURL}
+
+	context.JSON(http.StatusOK, responsePayload)
 }
 
 func (handlers *SiteHandlers) CreateSite(context *gin.Context) {

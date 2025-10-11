@@ -720,13 +720,32 @@
           });
         }
 
+        function extractAvatarURL(user) {
+          if (!user || typeof user !== 'object') {
+            return '';
+          }
+          var avatar = user.avatar;
+          if (!avatar || typeof avatar !== 'object') {
+            return '';
+          }
+          var avatarURL = avatar.url;
+          if (typeof avatarURL !== 'string') {
+            return '';
+          }
+          return avatarURL.trim();
+        }
+
         function updateUserCard() {
           var displayName = state.user.name || state.user.email;
           userName.textContent = displayName || '';
           userEmail.textContent = state.user.email || '';
-          if (state.user.picture_url) {
-            userAvatar.src = state.user.picture_url;
+          var avatarURL = extractAvatarURL(state.user);
+          if (avatarURL) {
+            userAvatar.src = avatarURL;
             userAvatar.classList.remove('d-none');
+          } else {
+            userAvatar.src = '';
+            userAvatar.classList.add('d-none');
           }
           var isAdminUser = state.user.role === adminRoleValue;
           var roleLabel = isAdminUser ? roleLabels[adminRoleValue] : roleLabels[userRoleValue];
@@ -736,12 +755,12 @@
             editSiteOwnerContainer.classList.remove('d-none');
           }
 
-          if (state.user.picture_url) {
-            settingsAvatarImage.src = state.user.picture_url;
+          var shouldShowAvatar = avatarURL !== '';
+          settingsAvatarImage.src = shouldShowAvatar ? avatarURL : '';
+          if (shouldShowAvatar) {
             settingsAvatarImage.classList.remove('d-none');
             settingsAvatarFallback.classList.add('d-none');
           } else {
-            settingsAvatarImage.src = '';
             settingsAvatarImage.classList.add('d-none');
             settingsAvatarFallback.classList.remove('d-none');
           }
