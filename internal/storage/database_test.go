@@ -22,6 +22,8 @@ const (
 	testUnsupportedDriverDescription = "unsupported driver"
 	testMissingDriverDescription     = "missing driver"
 	testMissingDataSourceDescription = "missing data source"
+	testOwnerEmailValue              = "owner@example.com"
+	testExistingCreatorEmail         = "existing@example.com"
 )
 
 func TestOpenDatabaseWithSQLiteConfiguration(t *testing.T) {
@@ -53,6 +55,56 @@ func TestOpenDatabaseWithSQLiteConfiguration(t *testing.T) {
 	var fetchedSite model.Site
 	require.NoError(t, database.First(&fetchedSite, "id = ?", site.ID).Error)
 	require.Equal(t, testSiteNameValue, fetchedSite.Name)
+}
+
+func TestAutoMigrateBackfillsMissingCreatorEmails(t *testing.T) {
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
+
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(t, openErr)
+
+	require.NoError(t, storage.AutoMigrate(database))
+
+	missingCreatorSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Missing Creator",
+		AllowedOrigin: testSiteAllowedOriginValue,
+		OwnerEmail:    testOwnerEmailValue,
+	}
+	require.NoError(t, database.Create(&missingCreatorSite).Error)
+
+	nullCreatorSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Null Creator",
+		AllowedOrigin: testSiteAllowedOriginValue,
+		OwnerEmail:    testOwnerEmailValue,
+		CreatorEmail:  testExistingCreatorEmail,
+	}
+	require.NoError(t, database.Create(&nullCreatorSite).Error)
+	require.NoError(t, database.Model(&model.Site{}).Where("id = ?", nullCreatorSite.ID).Update("creator_email", nil).Error)
+
+	existingCreatorSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Existing Creator",
+		AllowedOrigin: testSiteAllowedOriginValue,
+		OwnerEmail:    testOwnerEmailValue,
+		CreatorEmail:  testExistingCreatorEmail,
+	}
+	require.NoError(t, database.Create(&existingCreatorSite).Error)
+
+	require.NoError(t, storage.AutoMigrate(database))
+
+	var refreshedMissing model.Site
+	require.NoError(t, database.First(&refreshedMissing, "id = ?", missingCreatorSite.ID).Error)
+	require.Equal(t, storage.DefaultSiteCreatorEmail, refreshedMissing.CreatorEmail)
+
+	var refreshedNull model.Site
+	require.NoError(t, database.First(&refreshedNull, "id = ?", nullCreatorSite.ID).Error)
+	require.Equal(t, storage.DefaultSiteCreatorEmail, refreshedNull.CreatorEmail)
+
+	var refreshedExisting model.Site
+	require.NoError(t, database.First(&refreshedExisting, "id = ?", existingCreatorSite.ID).Error)
+	require.Equal(t, testExistingCreatorEmail, refreshedExisting.CreatorEmail)
 }
 
 func TestOpenDatabaseValidation(t *testing.T) {

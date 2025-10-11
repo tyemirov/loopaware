@@ -82,7 +82,10 @@ func openSQLiteDatabase(configuration Config) (*gorm.DB, error) {
 
 // AutoMigrate runs database migrations for the storage layer models.
 func AutoMigrate(database *gorm.DB) error {
-	return database.AutoMigrate(&model.Site{}, &model.Feedback{}, &model.User{})
+	if err := database.AutoMigrate(&model.Site{}, &model.Feedback{}, &model.User{}); err != nil {
+		return err
+	}
+	return backfillSiteCreatorEmails(database)
 }
 
 // NewID generates a new globally unique identifier.
