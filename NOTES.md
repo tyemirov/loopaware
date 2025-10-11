@@ -130,6 +130,6 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-47] Clicking on the logo shall not do anything (it refreshes the page now).
 - [x] [LA-50] Add logo to the LoopAware Dashboard header (on the left of the word "LoopAware" )
 - [x] [LA-51] The choice of the theme on the landing page and the dashboard should be independent
-- [ ] [LA-52] When logged in as a user the field to enter the site email is missing. This field must be present. The difference between a User adn and Admin is that Admin can see ALL of the sites regardless of what user has created them. User can only see and edit their own sites.
+- [x] [LA-52] When logged in as a user the field to enter the site email is missing. This field must be present. The difference between a User adn and Admin is that Admin can see ALL of the sites regardless of what user has created them. User can only see and edit their own sites.
 
 ### Maintenance

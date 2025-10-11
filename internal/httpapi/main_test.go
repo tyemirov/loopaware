@@ -678,6 +678,21 @@ func TestDashboardTemplateIncludesSiteValidationSupport(t *testing.T) {
 	}
 }
 
+func TestDashboardJavaScriptDoesNotHideOwnerFieldForNonAdmins(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	require.NotContains(t, body, "editSiteOwnerContainer.classList.add('d-none');")
+	require.NotContains(t, body, "editSiteOwnerInput.disabled = true;")
+}
+
 func TestDashboardTemplateUsesUniformActionButtonStyles(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()

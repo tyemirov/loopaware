@@ -336,7 +336,7 @@
           return true;
         }
         function shouldValidateOwnerEmail() {
-          return state.user && state.user.is_admin;
+          return Boolean(state.user);
         }
         function getTrimmedValue(element) {
           if (!element || typeof element.value !== 'string') {
@@ -371,10 +371,14 @@
           }
         }
         function isOwnerEmailValid(value) {
-          if (!value) {
+          if (typeof value !== 'string') {
             return false;
           }
-          return validationEmailPattern.test(value);
+          var normalizedOwnerEmail = value.trim();
+          if (normalizedOwnerEmail === '') {
+            return false;
+          }
+          return validationEmailPattern.test(normalizedOwnerEmail);
         }
         var siteFormValidationDescriptors = [
           {
@@ -721,13 +725,12 @@
             userAvatar.src = state.user.picture_url;
             userAvatar.classList.remove('d-none');
           }
-          var roleLabel = state.user.is_admin ? roleLabels.admin : roleLabels.user;
+          var isAdminUser = state.user.is_admin === true;
+          var roleLabel = isAdminUser ? roleLabels.admin : roleLabels.user;
           userRole.textContent = roleLabel;
-          userRole.className = state.user.is_admin ? 'badge bg-warning text-dark mt-2' : 'badge bg-secondary mt-2';
-          if (state.user.is_admin) {
+          userRole.className = isAdminUser ? 'badge bg-warning text-dark mt-2' : 'badge bg-secondary mt-2';
+          if (editSiteOwnerContainer) {
             editSiteOwnerContainer.classList.remove('d-none');
-          } else {
-            editSiteOwnerContainer.classList.add('d-none');
           }
 
           if (state.user.picture_url) {
@@ -1197,17 +1200,15 @@
           if (!state.user) {
             return;
           }
-          var isAdmin = state.user.is_admin;
           if (isNewSiteSelected()) {
             setButtonDefault(saveSiteButton, createButtonLabel, createButtonClass);
           } else {
             setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
           }
-          if (isAdmin) {
-            editSiteOwnerInput.disabled = false;
-          } else {
-            editSiteOwnerInput.disabled = true;
+          if (!editSiteOwnerInput) {
+            return;
           }
+          editSiteOwnerInput.disabled = false;
         }
 
         function renderFeedbackPlaceholder(message) {
