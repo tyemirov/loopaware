@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"encoding/base64"
 	"html/template"
 	"net/http"
 
@@ -18,7 +19,9 @@ const (
 )
 
 type landingTemplateData struct {
-	FooterHTML template.HTML
+	FooterHTML     template.HTML
+	FaviconDataURI template.URL
+	LogoDataURI    template.URL
 }
 
 // LandingPageHandlers renders the public landing page.
@@ -60,8 +63,14 @@ func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
 		footerHTML = template.HTML("")
 	}
 
+	data := landingTemplateData{
+		FooterHTML:     footerHTML,
+		FaviconDataURI: template.URL(dashboardFaviconDataURI),
+		LogoDataURI:    landingLogoDataURI,
+	}
+
 	var buffer bytes.Buffer
-	executeErr := handlers.template.Execute(&buffer, landingTemplateData{FooterHTML: footerHTML})
+	executeErr := handlers.template.Execute(&buffer, data)
 	if executeErr != nil {
 		handlers.logger.Error("render_landing_page", zap.Error(executeErr))
 		context.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "landing_render_failed"})
@@ -69,3 +78,5 @@ func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
 	}
 	context.Data(http.StatusOK, landingHTMLContentType, buffer.Bytes())
 }
+
+var landingLogoDataURI = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(landingLogoImage))

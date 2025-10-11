@@ -117,7 +117,9 @@
                       </button>
                     </div>
                     <input id="{{.EditSiteOwnerInputID}}" type="email" class="form-control" autocomplete="off" />
-                    <div class="d-flex align-items-center justify-content-between gap-2 text-muted small mt-2">
+                  </div>
+                  <div class="col-md-6 d-none" id="{{.SiteCreatedAtContainerID}}">
+                    <div class="d-flex flex-column align-items-md-end gap-1 text-muted small">
                       <span class="fw-semibold">Registered at:</span>
                       <span id="{{.SiteCreatedAtElementID}}">{{.SiteCreatedAtPlaceholder}}</span>
                     </div>
@@ -153,7 +155,7 @@
                   <div class="d-flex align-items-center gap-2">
                     <div id="{{.MessagesStatusID}}" class="d-none py-1 px-2 small"></div>
                     <button id="{{.RefreshMessagesButtonID}}" class="{{.RefreshButtonDefaultClass}}">{{.RefreshButtonDefaultLabel}}</button>
-                    <span id="{{.FeedbackCountElementID}}" class="badge bg-secondary">0</span>
+                    <span id="{{.FeedbackCountElementID}}" class="badge bg-secondary d-none"></span>
                   </div>
                   <div id="{{.MessagesSearchContainerID}}" class="w-100 d-none">
                     <input id="{{.MessagesSearchInputID}}" type="search" class="{{.SearchInputClass}}" placeholder="{{.MessagesSearchPlaceholder}}" autocomplete="off" />
@@ -259,9 +261,10 @@
         var messagesSearchContainer = document.getElementById(elementIds.messages_search_container);
         var messagesSearchInput = document.getElementById(elementIds.messages_search_input);
         var siteCreatedAtElement = document.getElementById(elementIds.site_created_at);
+        var siteCreatedAtContainer = document.getElementById(elementIds.site_created_at_container);
         var siteCreatedAtDefaultLabel = siteCreatedAtElement ? siteCreatedAtElement.textContent : '';
         var feedbackCountElement = document.getElementById(elementIds.feedback_count);
-        var feedbackCountDefaultLabel = feedbackCountElement ? feedbackCountElement.textContent : '0';
+        var feedbackCountDefaultLabel = feedbackCountElement ? feedbackCountElement.textContent : '';
         var userName = document.getElementById(elementIds.user_name);
         var userEmail = document.getElementById(elementIds.user_email);
         var userAvatar = document.getElementById(elementIds.user_avatar);
@@ -296,6 +299,7 @@
         var footerElement = document.getElementById(elementIds.footer);
         var footerThemeClasses = parsedConfig.footer_theme_classes || {};
         var tableThemeClasses = parsedConfig.table_theme_classes || {};
+        var landingPath = sharedPaths.landing || '/';
         var logoutPath = sharedPaths.logout || '';
         var loginPath = sharedPaths.login || '';
         var widgetUnavailableMessage = widgetTexts.unavailable || '';
@@ -458,11 +462,20 @@
           if (!siteCreatedAtElement) {
             return;
           }
-          if (!unixSeconds) {
+          var hasTimestamp = typeof unixSeconds === 'number' && unixSeconds > 0;
+          if (!hasTimestamp) {
             siteCreatedAtElement.textContent = siteCreatedAtDefaultLabel;
+          } else {
+            siteCreatedAtElement.textContent = formatTimestamp(unixSeconds);
+          }
+          if (!siteCreatedAtContainer) {
             return;
           }
-          siteCreatedAtElement.textContent = formatTimestamp(unixSeconds);
+          if (!hasTimestamp || !state.user || !state.user.is_admin) {
+            siteCreatedAtContainer.classList.add('d-none');
+            return;
+          }
+          siteCreatedAtContainer.classList.remove('d-none');
         }
         function setFeedbackCount(total, visible) {
           if (!feedbackCountElement) {
@@ -470,6 +483,12 @@
           }
           var normalizedTotal = typeof total === 'number' && total >= 0 ? total : 0;
           var normalizedVisible = typeof visible === 'number' && visible >= 0 ? visible : normalizedTotal;
+          if (normalizedTotal === 0) {
+            feedbackCountElement.textContent = feedbackCountDefaultLabel;
+            feedbackCountElement.classList.add('d-none');
+            return;
+          }
+          feedbackCountElement.classList.remove('d-none');
           if (normalizedVisible !== normalizedTotal) {
             feedbackCountElement.textContent = normalizedVisible + ' / ' + normalizedTotal;
           } else {
@@ -1482,7 +1501,17 @@
         if (logoutButton) {
           logoutButton.addEventListener('click', function(event) {
             event.preventDefault();
-            window.location.href = logoutPath;
+            if (!logoutPath) {
+              window.location.href = landingPath;
+              return;
+            }
+            var redirectToLanding = function() {
+              window.location.href = landingPath;
+            };
+            window.fetch(logoutPath, {
+              method: 'POST',
+              credentials: 'same-origin'
+            }).then(redirectToLanding).catch(redirectToLanding);
           });
         }
 

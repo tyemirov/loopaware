@@ -23,6 +23,7 @@ func TestGoogleAuthRedirectHonorsForwardedProtocol(t *testing.T) {
 		dashboardRoute,
 		gauss.ScopeStrings(gauss.DefaultScopes),
 		"",
+		gauss.WithLogoutRedirectURL(constants.LoginPath),
 	)
 	require.NoError(t, serviceErr)
 

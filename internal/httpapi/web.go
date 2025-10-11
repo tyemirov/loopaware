@@ -133,6 +133,7 @@ const (
 	siteListItemHeaderClass             = "d-flex align-items-center gap-2"
 	siteListItemFaviconClass            = "flex-shrink-0 rounded border bg-white"
 	siteCreatedAtElementID              = "site-created-at"
+	siteCreatedAtContainerElementID     = "site-created-at-container"
 	siteCreatedAtPlaceholder            = "Not saved yet."
 	feedbackCountElementID              = "feedback-count"
 	siteNameHelpButtonElementID         = "site-name-help-button"
@@ -210,6 +211,7 @@ type dashboardTemplateData struct {
 	EditSiteOwnerContainerID          string
 	EditSiteOwnerInputID              string
 	SiteCreatedAtElementID            string
+	SiteCreatedAtContainerID          string
 	SiteCreatedAtPlaceholder          string
 	SiteSearchToggleButtonID          string
 	SiteSearchToggleLabel             string
@@ -337,15 +339,21 @@ type dashboardClientConfig struct {
 
 // DashboardWebHandlers serves the authenticated dashboard UI.
 type DashboardWebHandlers struct {
-	logger   *zap.Logger
-	template *template.Template
+	logger      *zap.Logger
+	template    *template.Template
+	landingPath string
 }
 
-func NewDashboardWebHandlers(logger *zap.Logger) *DashboardWebHandlers {
+func NewDashboardWebHandlers(logger *zap.Logger, landingPath string) *DashboardWebHandlers {
 	compiledTemplate := template.Must(template.New(dashboardTemplateName).Parse(dashboardTemplateHTML))
+	normalizedLandingPath := landingPath
+	if normalizedLandingPath == "" {
+		normalizedLandingPath = "/"
+	}
 	return &DashboardWebHandlers{
-		logger:   logger,
-		template: compiledTemplate,
+		logger:      logger,
+		template:    compiledTemplate,
+		landingPath: normalizedLandingPath,
 	}
 }
 
@@ -413,6 +421,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		EditSiteOwnerContainerID:          editSiteOwnerContainerElementID,
 		EditSiteOwnerInputID:              editSiteOwnerInputElementID,
 		SiteCreatedAtElementID:            siteCreatedAtElementID,
+		SiteCreatedAtContainerID:          siteCreatedAtContainerElementID,
 		SiteCreatedAtPlaceholder:          siteCreatedAtPlaceholder,
 		SiteSearchToggleButtonID:          siteSearchToggleButtonElementID,
 		SiteSearchToggleLabel:             siteSearchToggleLabel,
@@ -528,8 +537,9 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"site_messages_suffix": "/messages",
 		},
 		Paths: map[string]string{
-			"logout": constants.LogoutPath,
-			"login":  constants.LoginPath,
+			"logout":  constants.LogoutPath,
+			"login":   constants.LoginPath,
+			"landing": handlers.landingPath,
 		},
 		ElementIDs: map[string]string{
 			"user_name":                     userNameElementID,
@@ -544,6 +554,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"edit_site_owner_container":     editSiteOwnerContainerElementID,
 			"edit_site_owner":               editSiteOwnerInputElementID,
 			"site_created_at":               siteCreatedAtElementID,
+			"site_created_at_container":     siteCreatedAtContainerElementID,
 			"save_site_button":              saveSiteButtonElementID,
 			"refresh_messages_button":       refreshMessagesButtonElementID,
 			"feedback_table_header":         feedbackTableHeaderElementID,
