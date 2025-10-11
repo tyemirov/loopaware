@@ -113,6 +113,9 @@ const (
 	dashboardFooterLinkCrosswordToken       = "https://llm-crossword.mprlab.com"
 	dashboardFooterLinkPromptsToken         = "https://prompts.mprlab.com"
 	dashboardFooterLinkWallpapersToken      = "https://wallpapers.mprlab.com"
+	dashboardThemeStorageKeyToken           = "\"theme_storage_key\":\"loopaware_dashboard_theme\""
+	dashboardThemeLegacyKeyToken            = "var themePreferenceLegacyStorageKey = 'loopaware_theme'"
+	dashboardThemeMigrationToken            = "localStorage.getItem(themePreferenceLegacyStorageKey)"
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -127,7 +130,11 @@ func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Contains(t, recorder.Header().Get("Content-Type"), "text/html")
-	require.Contains(t, recorder.Body.String(), dashboardTitleText)
+	body := recorder.Body.String()
+	require.Contains(t, body, dashboardTitleText)
+	require.Contains(t, body, dashboardThemeStorageKeyToken)
+	require.Contains(t, body, dashboardThemeLegacyKeyToken)
+	require.Contains(t, body, dashboardThemeMigrationToken)
 }
 
 func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {

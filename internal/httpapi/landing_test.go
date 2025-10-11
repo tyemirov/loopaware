@@ -17,7 +17,9 @@ const (
 	landingDetailedWidgetCopyToken   = "Origin-locked widgets and APIs capture feedback where customers already are."
 	landingDetailedWorkflowCopyToken = "Role-aware workflows assign owners, surface trends, and track resolution."
 	landingThemeToggleIDToken        = "id=\"landing-theme-toggle\""
-	landingThemeScriptKeyToken       = "var landingThemeStorageKey = 'landing_theme'"
+	landingThemeScriptKeyToken       = "var landingThemeStorageKey = 'loopaware_landing_theme'"
+	landingThemeLegacyKeyToken       = "var landingLegacyThemeStorageKey = 'landing_theme'"
+	landingThemeMigrationToken       = "var legacyStoredTheme = localStorage.getItem(landingLegacyThemeStorageKey);"
 	landingThemeApplyFunctionToken   = "function applyLandingTheme(theme)"
 	landingThemeDataAttributeToken   = "data-bs-theme"
 	landingLogoImageClassToken       = "class=\"landing-logo-image\""
@@ -83,6 +85,8 @@ func TestLandingPageProvidesThemeSwitch(t *testing.T) {
 	body := recorder.Body.String()
 	require.Contains(t, body, landingThemeToggleIDToken)
 	require.Contains(t, body, landingThemeScriptKeyToken)
+	require.Contains(t, body, landingThemeLegacyKeyToken)
+	require.Contains(t, body, landingThemeMigrationToken)
 	require.Contains(t, body, landingThemeApplyFunctionToken)
 	require.Contains(t, body, landingThemeDataAttributeToken)
 	require.Contains(t, body, landingHeaderStickyToken)
