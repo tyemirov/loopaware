@@ -131,6 +131,7 @@ const (
 	formStatusSuccessClass              = "py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"
 	formStatusDangerClass               = "py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle"
 	fieldHelpButtonClass                = "btn btn-link p-0 text-secondary"
+	fieldHelpButtonTabIndexValue        = "-1"
 	fieldHelpIconClass                  = "bi bi-question-circle-fill"
 	fieldHelpTextClass                  = "form-text text-muted"
 	siteListItemHeaderClass             = "d-flex align-items-center gap-2"
@@ -286,6 +287,7 @@ type dashboardTemplateData struct {
 	SearchToggleButtonClass           string
 	SearchInputClass                  string
 	FieldHelpButtonClass              string
+	FieldHelpButtonTabIndex           string
 	FieldHelpIconClass                string
 	FieldHelpTextClass                string
 	SiteNameHelpButtonID              string
@@ -499,6 +501,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		SearchToggleButtonClass:           searchToggleButtonClass,
 		SearchInputClass:                  searchInputClass,
 		FieldHelpButtonClass:              fieldHelpButtonClass,
+		FieldHelpButtonTabIndex:           fieldHelpButtonTabIndexValue,
 		FieldHelpIconClass:                fieldHelpIconClass,
 		FieldHelpTextClass:                fieldHelpTextClass,
 		SiteNameHelpButtonID:              siteNameHelpButtonElementID,

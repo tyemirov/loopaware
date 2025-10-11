@@ -66,6 +66,7 @@ const (
 	dashboardAllowedOriginHelpButtonID      = "allowed-origin-help-button"
 	dashboardOwnerEmailHelpButtonID         = "owner-email-help-button"
 	dashboardFieldHelpPopoverToken          = "data-bs-toggle=\"popover\""
+	dashboardHelpButtonTabIndexToken        = "tabindex=\"-1\""
 	dashboardMailtoPrefixToken              = "var mailtoSchemePrefix = 'mailto:';"
 	dashboardRenderContactFunctionToken     = "function renderContactValue(cell, value)"
 	dashboardContactLinkHrefToken           = "link.href = mailtoSchemePrefix + normalized;"
@@ -87,6 +88,8 @@ const (
 	dashboardSiteCreatedAtHideCallToken     = "siteCreatedAtContainer.classList.add('d-none');"
 	dashboardSiteCreatedAtShowCallToken     = "siteCreatedAtContainer.classList.remove('d-none');"
 	dashboardSetFeedbackCountToken          = "function setFeedbackCount(total, visible)"
+	dashboardTabCycleFunctionToken          = "function registerSiteFormTabCycle()"
+	dashboardTabCycleRegistrationToken      = "registerSiteFormTabCycle();"
 	dashboardLandingPathVarToken            = "var landingPath = sharedPaths.landing || '/'"
 	dashboardLogoutFetchCallToken           = "window.fetch(logoutPath, {"
 	dashboardLogoutFetchMethodPostToken     = "method: 'POST'"
@@ -606,6 +609,22 @@ func TestDashboardTemplateConfiguresButtonStatusManager(t *testing.T) {
 			require.NotContains(t, body, testCase.substring)
 		})
 	}
+}
+
+func TestDashboardTemplateAddsSiteFormTabCycle(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, dashboardHelpButtonTabIndexToken)
+	require.Contains(t, body, dashboardTabCycleFunctionToken)
+	require.Contains(t, body, dashboardTabCycleRegistrationToken)
 }
 
 func TestDashboardTemplateIncludesSiteValidationSupport(t *testing.T) {

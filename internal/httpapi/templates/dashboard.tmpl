@@ -94,7 +94,7 @@
                     <div class="col-md-6">
                     <div class="d-flex align-items-center justify-content-between">
                       <label class="form-label mb-0" for="{{.EditSiteNameInputID}}">Name</label>
-                      <button id="{{.SiteNameHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.SiteNameHelpTitle}}" data-bs-content="{{.SiteNameHelpContent}}">
+                      <button id="{{.SiteNameHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" tabindex="{{.FieldHelpButtonTabIndex}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.SiteNameHelpTitle}}" data-bs-content="{{.SiteNameHelpContent}}">
                         <span class="visually-hidden">{{.SiteNameHelpTitle}}</span>
                         <i class="{{.FieldHelpIconClass}}"></i>
                       </button>
@@ -104,7 +104,7 @@
                   <div class="col-md-6">
                     <div class="d-flex align-items-center justify-content-between">
                       <label class="form-label mb-0" for="{{.EditSiteOriginInputID}}">Allowed origin</label>
-                      <button id="{{.AllowedOriginHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.AllowedOriginHelpTitle}}" data-bs-content="{{.AllowedOriginHelpContent}}">
+                      <button id="{{.AllowedOriginHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" tabindex="{{.FieldHelpButtonTabIndex}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.AllowedOriginHelpTitle}}" data-bs-content="{{.AllowedOriginHelpContent}}">
                         <span class="visually-hidden">{{.AllowedOriginHelpTitle}}</span>
                         <i class="{{.FieldHelpIconClass}}"></i>
                       </button>
@@ -114,7 +114,7 @@
                   <div class="col-md-6 d-none" id="{{.EditSiteOwnerContainerID}}">
                     <div class="d-flex align-items-center justify-content-between">
                       <label class="form-label mb-0" for="{{.EditSiteOwnerInputID}}">Owner email</label>
-                      <button id="{{.OwnerEmailHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.OwnerEmailHelpTitle}}" data-bs-content="{{.OwnerEmailHelpContent}}">
+                      <button id="{{.OwnerEmailHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" tabindex="{{.FieldHelpButtonTabIndex}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.OwnerEmailHelpTitle}}" data-bs-content="{{.OwnerEmailHelpContent}}">
                         <span class="visually-hidden">{{.OwnerEmailHelpTitle}}</span>
                         <i class="{{.FieldHelpIconClass}}"></i>
                       </button>
@@ -449,6 +449,25 @@
             });
           });
         }
+        function registerSiteFormTabCycle() {
+          var tabOrderedFields = [editSiteNameInput, editSiteOriginInput, editSiteOwnerInput].filter(function(element) {
+            return element;
+          });
+          if (tabOrderedFields.length === 0) {
+            return;
+          }
+          tabOrderedFields.forEach(function(field, index) {
+            field.addEventListener('keydown', function(event) {
+              if (event.key !== 'Tab') {
+                return;
+              }
+              event.preventDefault();
+              var direction = event.shiftKey ? -1 : 1;
+              var nextIndex = (index + direction + tabOrderedFields.length) % tabOrderedFields.length;
+              tabOrderedFields[nextIndex].focus();
+            });
+          });
+        }
         function renderContactValue(cell, value) {
           if (!cell) {
             return;
@@ -654,6 +673,7 @@
         setButtonDefault(refreshMessagesButton, buttonLabels.refresh_default || '', buttonClasses.refresh_default || '');
         setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
         registerValidationHandlers();
+        registerSiteFormTabCycle();
         initializeFieldHelpPopovers();
         clearValidationFeedback();
 
