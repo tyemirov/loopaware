@@ -23,6 +23,10 @@ const (
 	landingLogoImageClassToken       = "class=\"landing-logo-image\""
 	landingLogoAltToken              = "alt=\"LoopAware logo\""
 	landingLogoDataToken             = "src=\"data:image/png;base64,"
+	landingLogoContainerWidthToken   = "width: 56px;"
+	landingLogoContainerHeightToken  = "height: 56px;"
+	landingLogoImageWidthToken       = "width: 36px;"
+	landingLogoImageHeightToken      = "height: 36px;"
 	landingHeaderStickyToken         = "class=\"py-4 sticky-top\""
 	landingFooterDropdownToggleToken = "data-bs-toggle=\"dropdown\""
 	landingFooterDropdownMenuToken   = "dropdown-menu"
@@ -101,6 +105,22 @@ func TestLandingPageDisplaysHeaderLogo(t *testing.T) {
 	require.Contains(t, body, landingLogoImageClassToken)
 	require.Contains(t, body, landingLogoAltToken)
 	require.Contains(t, body, landingLogoDataToken)
+}
+
+func TestLandingPageLogoUsesProminentDimensions(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
+
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
+	handlers.RenderLandingPage(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, landingLogoContainerWidthToken)
+	require.Contains(t, body, landingLogoContainerHeightToken)
+	require.Contains(t, body, landingLogoImageWidthToken)
+	require.Contains(t, body, landingLogoImageHeightToken)
 }
 
 func TestLandingFooterDisplaysProductMenu(t *testing.T) {
