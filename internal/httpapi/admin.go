@@ -35,6 +35,7 @@ const (
 	errorValueNothingToUpdate  = "nothing_to_update"
 	errorValueInvalidOperation = "invalid_operation"
 	errorValueDeleteFailed     = "delete_failed"
+	errorValueSiteExists       = "site_exists"
 
 	widgetScriptTemplate   = "<script defer src=\"%s/widget.js?site_id=%s\"></script>"
 	siteFaviconURLTemplate = "/api/sites/%s/favicon"
@@ -153,6 +154,17 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 
 	if desiredOwnerEmail == "" {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidOwner})
+		return
+	}
+
+	conflictExists, conflictCheckErr := handlers.allowedOriginConflictExists(payload.AllowedOrigin, "")
+	if conflictCheckErr != nil {
+		handlers.logger.Warn("check_allowed_origin_conflict", zap.Error(conflictCheckErr))
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+	if conflictExists {
+		context.JSON(http.StatusConflict, gin.H{jsonKeyError: errorValueSiteExists})
 		return
 	}
 
@@ -333,6 +345,16 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 			return
 		}
 		if !strings.EqualFold(strings.TrimSpace(site.AllowedOrigin), trimmed) {
+			conflictExists, conflictCheckErr := handlers.allowedOriginConflictExists(trimmed, site.ID)
+			if conflictCheckErr != nil {
+				handlers.logger.Warn("check_allowed_origin_conflict", zap.Error(conflictCheckErr))
+				context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+				return
+			}
+			if conflictExists {
+				context.JSON(http.StatusConflict, gin.H{jsonKeyError: errorValueSiteExists})
+				return
+			}
 			originChanged = true
 		}
 		site.AllowedOrigin = trimmed
@@ -500,6 +522,26 @@ func (handlers *SiteHandlers) scheduleFaviconFetch(site model.Site) {
 		return
 	}
 	handlers.faviconManager.ScheduleFetch(site)
+}
+
+func (handlers *SiteHandlers) allowedOriginConflictExists(allowedOrigin string, excludeSiteID string) (bool, error) {
+	if handlers.database == nil {
+		return false, nil
+	}
+	normalizedOrigin := strings.ToLower(strings.TrimSpace(allowedOrigin))
+	if normalizedOrigin == "" {
+		return false, nil
+	}
+	query := handlers.database.Model(&model.Site{}).Where("LOWER(allowed_origin) = ?", normalizedOrigin)
+	excludedIdentifier := strings.TrimSpace(excludeSiteID)
+	if excludedIdentifier != "" {
+		query = query.Where("id <> ?", excludedIdentifier)
+	}
+	var existingCount int64
+	if err := query.Count(&existingCount).Error; err != nil {
+		return false, err
+	}
+	return existingCount > 0, nil
 }
 
 func normalizeWidgetBaseURL(value string) string {

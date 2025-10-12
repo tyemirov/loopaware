@@ -228,6 +228,7 @@
         var buttonClasses = parsedConfig.button_classes || {};
         var buttonLabels = parsedConfig.button_labels || {};
         var statusMessages = parsedConfig.status_messages || {};
+        var errorMessages = parsedConfig.error_messages || {};
         var roleLabels = parsedConfig.role_labels || {};
         var roleValues = parsedConfig.role_values || {};
         var adminRoleValue = roleValues.admin || 'admin';
@@ -724,16 +725,22 @@
               window.location.href = loginPath;
               return Promise.reject(new Error('unauthorized'));
             }
-            if (response.status === 403) {
-              updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');
-              return Promise.reject(new Error('forbidden'));
-            }
+            var forbiddenResponse = response.status === 403;
             if (!response.ok) {
+              if (forbiddenResponse && refreshMessagesButton) {
+                updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');
+              }
               return response.json().catch(function() {
                 return {};
               }).then(function(body) {
-                var message = body.error || body.message || statusMessages.load_failed || '';
-                throw new Error(message);
+                var backendErrorCode = '';
+                if (body && typeof body.error === 'string') {
+                  backendErrorCode = body.error;
+                } else if (body && typeof body.message === 'string') {
+                  backendErrorCode = body.message;
+                }
+                var resolvedMessage = resolveErrorMessage(backendErrorCode, statusMessages.load_failed || '');
+                throw new Error(resolvedMessage);
               });
             }
             return response.json();
@@ -846,6 +853,31 @@
           return value.split(/\s+/).filter(function(item) {
             return item.length > 0;
           });
+        }
+
+        function normalizeMessage(value) {
+          if (typeof value !== 'string') {
+            return '';
+          }
+          return value.trim();
+        }
+
+        function resolveErrorMessage(errorCode, fallbackMessage) {
+          var normalizedCode = normalizeMessage(errorCode);
+          if (normalizedCode !== '') {
+            var mappedMessage = normalizeMessage(errorMessages[normalizedCode]);
+            if (mappedMessage !== '') {
+              return mappedMessage;
+            }
+          }
+          var normalizedFallback = normalizeMessage(fallbackMessage);
+          if (normalizedFallback !== '') {
+            return normalizedFallback;
+          }
+          if (normalizedCode !== '') {
+            return normalizedCode;
+          }
+          return '';
         }
 
         function applyElementThemeClasses(element, classesToAdd, classesToRemove) {

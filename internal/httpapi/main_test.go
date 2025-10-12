@@ -123,6 +123,9 @@ const (
 	dashboardThemeStorageKeyToken           = "\"theme_storage_key\":\"loopaware_dashboard_theme\""
 	dashboardThemeLegacyKeyToken            = "var themePreferenceLegacyStorageKey = 'loopaware_theme'"
 	dashboardThemeMigrationToken            = "localStorage.getItem(themePreferenceLegacyStorageKey)"
+	dashboardErrorMessagesConfigToken       = "\"error_messages\":{"
+	dashboardErrorMessagesScriptToken       = "var errorMessages = parsedConfig.error_messages || {};"
+	dashboardSiteExistsMessageToken         = "\"site_exists\":\"A site for this allowed origin already exists.\""
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -142,6 +145,9 @@ func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
 	require.Contains(t, body, dashboardThemeStorageKeyToken)
 	require.Contains(t, body, dashboardThemeLegacyKeyToken)
 	require.Contains(t, body, dashboardThemeMigrationToken)
+	require.Contains(t, body, dashboardErrorMessagesConfigToken)
+	require.Contains(t, body, dashboardErrorMessagesScriptToken)
+	require.Contains(t, body, dashboardSiteExistsMessageToken)
 }
 
 func TestDashboardHeaderDisplaysLogo(t *testing.T) {

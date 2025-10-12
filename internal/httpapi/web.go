@@ -104,71 +104,78 @@ const (
          C 160 108, 128 108, 128 128
          C 128 148, 96 148, 96 128"/>
   </svg>`
-	deleteSiteButtonElementID           = "delete-site-button"
-	deleteSiteButtonClass               = "btn btn-sm border-0 bg-transparent text-danger opacity-100"
-	deleteSiteButtonDisabledClass       = "btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled"
-	deleteSiteIconClass                 = "bi bi-trash3-fill text-danger"
-	footerElementID                     = "dashboard-footer"
-	footerInnerElementID                = "dashboard-footer-inner"
-	footerBaseClass                     = "mt-auto py-2 fixed-bottom border-top"
-	footerThemeLightClass               = "bg-body text-body-secondary"
-	footerThemeDarkClass                = "bg-dark text-light border-light"
-	deleteSiteModalElementID            = "delete-site-modal"
-	deleteSiteModalTitle                = "Delete site"
-	deleteSiteModalDescription          = "This action permanently removes the site and its feedback."
-	deleteSiteModalInputElementID       = "delete-site-confirm-name"
-	deleteSiteModalInputLabel           = "Type the site name to confirm"
-	deleteSiteModalInputPlaceholder     = "Enter the site name"
-	deleteSiteModalConfirmButtonID      = "delete-site-confirm-button"
-	deleteSiteModalConfirmButtonLabel   = "Delete site"
-	deleteSiteModalConfirmButtonClass   = "btn btn-danger"
-	deleteSiteModalCancelButtonLabel    = "Cancel"
-	deleteSiteModalCancelButtonClass    = "btn btn-secondary"
-	deleteSiteTargetNameElementID       = "delete-site-target-name"
-	deleteSiteModalHintPrefix           = "Type "
-	deleteSiteModalHintSuffix           = " exactly to confirm."
-	formStatusBaseClass                 = "d-none py-1 px-2 small rounded"
-	formStatusSuccessClass              = "py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"
-	formStatusDangerClass               = "py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle"
-	fieldHelpButtonClass                = "btn btn-link p-0 text-secondary"
-	fieldHelpButtonTabIndexValue        = "-1"
-	fieldHelpIconClass                  = "bi bi-question-circle-fill"
-	fieldHelpTextClass                  = "form-text text-muted"
-	siteListItemHeaderClass             = "d-flex align-items-center gap-2"
-	siteListItemFaviconClass            = "flex-shrink-0 rounded border bg-white"
-	siteCreatedAtElementID              = "site-created-at"
-	siteCreatedAtContainerElementID     = "site-created-at-container"
-	siteCreatedAtPlaceholder            = "Not saved yet."
-	feedbackCountElementID              = "feedback-count"
-	siteNameHelpButtonElementID         = "site-name-help-button"
-	siteNameHelpTitle                   = "Site name"
-	siteNameHelpContent                 = "Displayed in the sites list for your team."
-	allowedOriginHelpButtonElementID    = "allowed-origin-help-button"
-	allowedOriginHelpTitle              = "Allowed origin"
-	allowedOriginHelpContent            = "Must match the full protocol, host, and optional port where the widget will run."
-	ownerEmailHelpButtonElementID       = "owner-email-help-button"
-	ownerEmailHelpTitle                 = "Owner email"
-	ownerEmailHelpContent               = "Receives notifications when visitors submit feedback."
-	siteSearchToggleButtonElementID     = "site-search-toggle-button"
-	siteSearchContainerElementID        = "site-search-container"
-	siteSearchInputElementID            = "site-search-input"
-	siteSearchToggleLabel               = "Toggle site search"
-	siteSearchPlaceholder               = "Search sites"
-	messagesSearchToggleButtonElementID = "messages-search-toggle-button"
-	messagesSearchContainerElementID    = "messages-search-container"
-	messagesSearchInputElementID        = "messages-search-input"
-	messagesSearchToggleLabel           = "Toggle feedback search"
-	messagesSearchPlaceholder           = "Search feedback"
-	searchToggleButtonClass             = "btn btn-link p-0 text-secondary"
-	searchInputClass                    = "form-control form-control-sm"
-	dashboardStatusNoSiteMatches        = "No sites match your search."
-	dashboardStatusNoMessageMatches     = "No feedback matches your search."
-	validationMessageNameRequiredKey    = "name_required"
-	validationMessageOriginKey          = "origin_invalid"
-	validationMessageOwnerKey           = "owner_invalid"
-	dashboardValidationNameMessage      = "Site name is required."
-	dashboardValidationOriginMessage    = "Allowed origin must include protocol and hostname, for example https://example.com."
-	dashboardValidationOwnerMessage     = "Provide a valid owner email address."
+	deleteSiteButtonElementID             = "delete-site-button"
+	deleteSiteButtonClass                 = "btn btn-sm border-0 bg-transparent text-danger opacity-100"
+	deleteSiteButtonDisabledClass         = "btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled"
+	deleteSiteIconClass                   = "bi bi-trash3-fill text-danger"
+	footerElementID                       = "dashboard-footer"
+	footerInnerElementID                  = "dashboard-footer-inner"
+	footerBaseClass                       = "mt-auto py-2 fixed-bottom border-top"
+	footerThemeLightClass                 = "bg-body text-body-secondary"
+	footerThemeDarkClass                  = "bg-dark text-light border-light"
+	deleteSiteModalElementID              = "delete-site-modal"
+	deleteSiteModalTitle                  = "Delete site"
+	deleteSiteModalDescription            = "This action permanently removes the site and its feedback."
+	deleteSiteModalInputElementID         = "delete-site-confirm-name"
+	deleteSiteModalInputLabel             = "Type the site name to confirm"
+	deleteSiteModalInputPlaceholder       = "Enter the site name"
+	deleteSiteModalConfirmButtonID        = "delete-site-confirm-button"
+	deleteSiteModalConfirmButtonLabel     = "Delete site"
+	deleteSiteModalConfirmButtonClass     = "btn btn-danger"
+	deleteSiteModalCancelButtonLabel      = "Cancel"
+	deleteSiteModalCancelButtonClass      = "btn btn-secondary"
+	deleteSiteTargetNameElementID         = "delete-site-target-name"
+	deleteSiteModalHintPrefix             = "Type "
+	deleteSiteModalHintSuffix             = " exactly to confirm."
+	formStatusBaseClass                   = "d-none py-1 px-2 small rounded"
+	formStatusSuccessClass                = "py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"
+	formStatusDangerClass                 = "py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle"
+	fieldHelpButtonClass                  = "btn btn-link p-0 text-secondary"
+	fieldHelpButtonTabIndexValue          = "-1"
+	fieldHelpIconClass                    = "bi bi-question-circle-fill"
+	fieldHelpTextClass                    = "form-text text-muted"
+	siteListItemHeaderClass               = "d-flex align-items-center gap-2"
+	siteListItemFaviconClass              = "flex-shrink-0 rounded border bg-white"
+	siteCreatedAtElementID                = "site-created-at"
+	siteCreatedAtContainerElementID       = "site-created-at-container"
+	siteCreatedAtPlaceholder              = "Not saved yet."
+	feedbackCountElementID                = "feedback-count"
+	siteNameHelpButtonElementID           = "site-name-help-button"
+	siteNameHelpTitle                     = "Site name"
+	siteNameHelpContent                   = "Displayed in the sites list for your team."
+	allowedOriginHelpButtonElementID      = "allowed-origin-help-button"
+	allowedOriginHelpTitle                = "Allowed origin"
+	allowedOriginHelpContent              = "Must match the full protocol, host, and optional port where the widget will run."
+	ownerEmailHelpButtonElementID         = "owner-email-help-button"
+	ownerEmailHelpTitle                   = "Owner email"
+	ownerEmailHelpContent                 = "Receives notifications when visitors submit feedback."
+	siteSearchToggleButtonElementID       = "site-search-toggle-button"
+	siteSearchContainerElementID          = "site-search-container"
+	siteSearchInputElementID              = "site-search-input"
+	siteSearchToggleLabel                 = "Toggle site search"
+	siteSearchPlaceholder                 = "Search sites"
+	messagesSearchToggleButtonElementID   = "messages-search-toggle-button"
+	messagesSearchContainerElementID      = "messages-search-container"
+	messagesSearchInputElementID          = "messages-search-input"
+	messagesSearchToggleLabel             = "Toggle feedback search"
+	messagesSearchPlaceholder             = "Search feedback"
+	searchToggleButtonClass               = "btn btn-link p-0 text-secondary"
+	searchInputClass                      = "form-control form-control-sm"
+	dashboardStatusNoSiteMatches          = "No sites match your search."
+	dashboardStatusNoMessageMatches       = "No feedback matches your search."
+	validationMessageNameRequiredKey      = "name_required"
+	validationMessageOriginKey            = "origin_invalid"
+	validationMessageOwnerKey             = "owner_invalid"
+	dashboardValidationNameMessage        = "Site name is required."
+	dashboardValidationOriginMessage      = "Allowed origin must include protocol and hostname, for example https://example.com."
+	dashboardValidationOwnerMessage       = "Provide a valid owner email address."
+	dashboardErrorMessageSiteExists       = "A site for this allowed origin already exists."
+	dashboardErrorMessageInvalidJSON      = "Submitted data could not be parsed."
+	dashboardErrorMessageMissingFields    = "Provide site name and allowed origin."
+	dashboardErrorMessageInvalidOwner     = dashboardValidationOwnerMessage
+	dashboardErrorMessageInvalidOperation = "Only administrators can assign different site owners."
+	dashboardErrorMessageNotAuthorized    = "You are not allowed to manage that site."
+	dashboardErrorMessageSaveFailed       = "Failed to save site."
 )
 
 type dashboardTemplateData struct {
@@ -343,6 +350,7 @@ type dashboardClientConfig struct {
 	FooterThemeClasses map[string]string `json:"footer_theme_classes"`
 	TableThemeClasses  map[string]string `json:"table_theme_classes"`
 	ValidationMessages map[string]string `json:"validation_messages"`
+	ErrorMessages      map[string]string `json:"error_messages"`
 }
 
 // DashboardWebHandlers serves the authenticated dashboard UI.
@@ -623,7 +631,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"save_saving":     "Saving site...",
 			"save_saved":      "Site updated.",
 			"save_created":    "Site created.",
-			"save_failed":     "Failed to save site.",
+			"save_failed":     dashboardErrorMessageSaveFailed,
 		},
 		StatusMessages: map[string]string{
 			"loading_user":       dashboardStatusLoadingUser,
@@ -688,6 +696,16 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			validationMessageNameRequiredKey: dashboardValidationNameMessage,
 			validationMessageOriginKey:       dashboardValidationOriginMessage,
 			validationMessageOwnerKey:        dashboardValidationOwnerMessage,
+		},
+		ErrorMessages: map[string]string{
+			errorValueSiteExists:       dashboardErrorMessageSiteExists,
+			errorValueInvalidOperation: dashboardErrorMessageInvalidOperation,
+			errorValueInvalidOwner:     dashboardErrorMessageInvalidOwner,
+			errorValueMissingFields:    dashboardErrorMessageMissingFields,
+			errorValueInvalidJSON:      dashboardErrorMessageInvalidJSON,
+			errorValueSaveFailed:       dashboardErrorMessageSaveFailed,
+			errorValueNotAuthorized:    dashboardErrorMessageNotAuthorized,
+			authErrorForbidden:         dashboardErrorMessageNotAuthorized,
 		},
 	}
 

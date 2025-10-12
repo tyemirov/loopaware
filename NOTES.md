@@ -110,7 +110,7 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-53] Slim down the header and the footer
 - [x] [LA-54] Add branding to the widget, saying "Bulit by Marco Polo Research Lab" with a link to https://mprlab.com. Have it in small letters under the widget.
 - [x] [LA-56] The endpoint `api/me` shall return a JSON payload including user email, name and avatar. The rest of the system should be using this information when displaying user details. The login shall ba saving/updating this information. It must be a protected endpoint so that only the logged in user could get the information.
-- [ ] [LA-59] Define and surface descriptive error messages for the end users: when site already exists the message should say so instead of a generic "forbidden" etc
+- [x] [LA-59] Define and surface descriptive error messages for the end users: when site already exists the message should say so instead of a generic "forbidden" etc
 
 ### BugFixes
 
