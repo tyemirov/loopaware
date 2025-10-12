@@ -15,6 +15,19 @@
   var panelDisplayBlockValue = "block";
   var panelDisplayNoneValue = "none";
   var panelAutoHideDelayMilliseconds = 5000;
+  var widgetBrandingElementID = "mp-feedback-branding";
+  var widgetBrandingLinkURL = "https://mprlab.com";
+  var widgetBrandingLinkText = "Marco Polo Research Lab";
+  var widgetBrandingFontSizeValue = "10px";
+  var widgetBrandingMarginTopValue = "6px";
+  var widgetBrandingTextAlignValue = "center";
+  var widgetBrandingOpacityValue = "0.7";
+  var widgetBrandingLinkTargetValue = "_blank";
+  var widgetBrandingLinkRelValue = "noopener noreferrer";
+  var widgetBrandingTextDecorationValue = "none";
+  var widgetBrandingLineHeightValue = "1.2";
+  var widgetBrandingLinkColorValue = "#b8860b";
+  var widgetBrandingStaticText = "Built by ";
   var widgetThemePalettes = {
     light: {
       bubbleBackground: "#0d6efd",
@@ -170,6 +183,28 @@
       status.style.minHeight = "16px";
       status.style.color = themePalette.statusPendingColor;
       panel.appendChild(status);
+
+      var brandingContainer = document.createElement("div");
+      brandingContainer.id = widgetBrandingElementID;
+      brandingContainer.style.marginTop = widgetBrandingMarginTopValue;
+      brandingContainer.style.fontSize = widgetBrandingFontSizeValue;
+      brandingContainer.style.textAlign = widgetBrandingTextAlignValue;
+      brandingContainer.style.opacity = widgetBrandingOpacityValue;
+      brandingContainer.style.lineHeight = widgetBrandingLineHeightValue;
+
+      var brandingStaticTextNode = document.createElement("span");
+      brandingStaticTextNode.innerText = widgetBrandingStaticText;
+      var brandingLink = document.createElement("a");
+      brandingLink.href = widgetBrandingLinkURL;
+      brandingLink.innerText = widgetBrandingLinkText;
+      brandingLink.target = widgetBrandingLinkTargetValue;
+      brandingLink.rel = widgetBrandingLinkRelValue;
+      brandingLink.style.color = widgetBrandingLinkColorValue;
+      brandingLink.style.textDecoration = widgetBrandingTextDecorationValue;
+
+      brandingContainer.appendChild(brandingStaticTextNode);
+      brandingContainer.appendChild(brandingLink);
+      panel.appendChild(brandingContainer);
 
       bodyElement.appendChild(panel);
 

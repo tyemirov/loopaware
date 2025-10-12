@@ -45,6 +45,8 @@ const (
 	widgetMessageSelector                  = "#mp-feedback-panel textarea"
 	widgetSendButtonSelector               = "#mp-feedback-panel button"
 	widgetStatusSelector                   = "#mp-feedback-panel div:last-child"
+	widgetBrandingSelector                 = "#mp-feedback-branding"
+	widgetBrandingLinkSelector             = "#mp-feedback-branding a"
 	widgetSuccessStatusMessage             = "Thanks! Sent."
 	widgetPanelHiddenDisplayValue          = "none"
 	widgetPanelDisplayScript               = "document.getElementById(\"mp-feedback-panel\").style.display"
@@ -56,6 +58,9 @@ const (
 	darkThemeExpectedPanelBackgroundColor  = "rgb(31, 41, 55)"
 	darkThemeExpectedInputBackgroundColor  = "rgb(17, 24, 39)"
 	darkThemeExpectedButtonBackgroundColor = "rgb(37, 99, 235)"
+	widgetBrandingLinkExpectedText         = "Marco Polo Research Lab"
+	widgetBrandingContainerExpectedText    = "Built by Marco Polo Research Lab"
+	widgetBrandingLinkExpectedHref         = "https://mprlab.com"
 )
 
 var headlessBrowserExecutableNames = []string{
@@ -128,6 +133,22 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 		return panelDisplayState == widgetPanelHiddenDisplayValue
 	}, integrationPanelAutoHideTimeout, integrationStatusPollInterval)
 	require.Equal(t, widgetPanelHiddenDisplayValue, panelDisplayState)
+
+	var widgetBrandingContainerText string
+	var widgetBrandingDisplayedText string
+	var widgetBrandingDisplayedHref string
+	var widgetBrandingHrefFound bool
+	brandingCheckErr := chromedp.Run(browserContext,
+		chromedp.WaitVisible(widgetBrandingSelector, chromedp.ByQuery),
+		chromedp.Text(widgetBrandingSelector, &widgetBrandingContainerText, chromedp.ByQuery),
+		chromedp.Text(widgetBrandingLinkSelector, &widgetBrandingDisplayedText, chromedp.ByQuery),
+		chromedp.AttributeValue(widgetBrandingLinkSelector, "href", &widgetBrandingDisplayedHref, &widgetBrandingHrefFound, chromedp.ByQuery),
+	)
+	require.NoError(t, brandingCheckErr)
+	require.True(t, widgetBrandingHrefFound)
+	require.Equal(t, widgetBrandingContainerExpectedText, strings.TrimSpace(widgetBrandingContainerText))
+	require.Equal(t, widgetBrandingLinkExpectedText, strings.TrimSpace(widgetBrandingDisplayedText))
+	require.Equal(t, widgetBrandingLinkExpectedHref, strings.TrimSpace(widgetBrandingDisplayedHref))
 
 	var storedFeedbackRecords []model.Feedback
 	queryErr := apiHarness.database.Find(&storedFeedbackRecords).Error
