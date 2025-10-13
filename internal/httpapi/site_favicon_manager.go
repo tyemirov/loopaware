@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"strings"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/task"
+	"github.com/MarkoPoloResearchLab/feedback_svc/pkg/favicon"
 )
 
 const (
@@ -33,7 +33,7 @@ type SiteFaviconManagerOption func(*SiteFaviconManager)
 
 type SiteFaviconManager struct {
 	database        *gorm.DB
-	resolver        FaviconResolver
+	service         *favicon.Service
 	logger          *zap.Logger
 	retryInterval   time.Duration
 	refreshInterval time.Duration
@@ -72,10 +72,10 @@ type SiteFaviconSubscription struct {
 	closeOnce  sync.Once
 }
 
-func NewSiteFaviconManager(database *gorm.DB, resolver FaviconResolver, logger *zap.Logger, options ...SiteFaviconManagerOption) *SiteFaviconManager {
+func NewSiteFaviconManager(database *gorm.DB, service *favicon.Service, logger *zap.Logger, options ...SiteFaviconManagerOption) *SiteFaviconManager {
 	manager := &SiteFaviconManager{
 		database:        database,
-		resolver:        resolver,
+		service:         service,
 		logger:          logger,
 		retryInterval:   defaultFaviconRetryInterval,
 		refreshInterval: defaultFaviconRefreshInterval,
@@ -156,7 +156,7 @@ func (manager *SiteFaviconManager) Stop() {
 }
 
 func (manager *SiteFaviconManager) ScheduleFetch(site model.Site) {
-	if manager == nil || manager.resolver == nil || manager.database == nil {
+	if manager == nil || manager.service == nil || manager.database == nil {
 		return
 	}
 
@@ -293,7 +293,7 @@ func (manager *SiteFaviconManager) runWorker(ctx context.Context) {
 func (manager *SiteFaviconManager) processFetch(ctx context.Context, task fetchTask) {
 	defer manager.inFlight.Delete(task.siteID)
 
-	if manager.database == nil || manager.resolver == nil {
+	if manager.database == nil || manager.service == nil {
 		return
 	}
 
@@ -314,51 +314,42 @@ func (manager *SiteFaviconManager) processFetch(ctx context.Context, task fetchT
 		return
 	}
 
-	asset, resolveErr := manager.resolver.ResolveAsset(ctx, normalizedOrigin)
-	now := manager.now()
-
-	updates := map[string]any{
-		"favicon_origin":          normalizedOrigin,
-		"favicon_last_attempt_at": now,
+	currentTime := manager.now()
+	siteSnapshot := favicon.Site{
+		FaviconData:        site.FaviconData,
+		FaviconContentType: site.FaviconContentType,
+		FaviconFetchedAt:   site.FaviconFetchedAt,
+	}
+	result, resolveErr := manager.service.Collect(ctx, siteSnapshot, normalizedOrigin, task.notify, currentTime)
+	if resolveErr != nil && manager.logger != nil {
+		manager.logger.Debug(
+			"fetch_site_favicon_failed",
+			zap.String("site_id", task.siteID),
+			zap.String("allowed_origin", normalizedOrigin),
+			zap.Error(resolveErr),
+		)
 	}
 
-	shouldNotify := false
-	if resolveErr != nil {
-		if manager.logger != nil {
-			manager.logger.Debug(
-				"fetch_site_favicon_failed",
-				zap.String("site_id", task.siteID),
-				zap.String("allowed_origin", normalizedOrigin),
-				zap.Error(resolveErr),
-			)
-		}
-	} else if asset != nil && len(asset.Data) > 0 {
-		if !bytes.Equal(site.FaviconData, asset.Data) || !strings.EqualFold(strings.TrimSpace(site.FaviconContentType), strings.TrimSpace(asset.ContentType)) || site.FaviconFetchedAt.IsZero() {
-			updates["favicon_data"] = asset.Data
-			updates["favicon_content_type"] = asset.ContentType
-			updates["favicon_fetched_at"] = now
-			shouldNotify = true
-		} else {
-			updates["favicon_fetched_at"] = now
-		}
+	if len(result.Updates) == 0 {
+		return
 	}
 
-	if task.notify && asset != nil && len(asset.Data) > 0 {
-		shouldNotify = true
-	}
-
-	if updateErr := manager.database.Model(&model.Site{ID: task.siteID}).Updates(updates).Error; updateErr != nil {
+	if updateErr := manager.database.Model(&model.Site{ID: task.siteID}).Updates(result.Updates).Error; updateErr != nil {
 		if manager.logger != nil {
 			manager.logger.Warn("persist_site_favicon_failed", zap.String("site_id", task.siteID), zap.Error(updateErr))
 		}
 		return
 	}
 
-	if shouldNotify {
+	if result.ShouldNotify {
+		eventTimestamp := result.EventTimestamp
+		if eventTimestamp.IsZero() {
+			eventTimestamp = currentTime
+		}
 		event := SiteFaviconEvent{
 			SiteID:     task.siteID,
-			FaviconURL: versionedSiteFaviconURL(task.siteID, now),
-			UpdatedAt:  now,
+			FaviconURL: versionedSiteFaviconURL(task.siteID, eventTimestamp),
+			UpdatedAt:  eventTimestamp,
 		}
 		manager.broadcast(event)
 	}

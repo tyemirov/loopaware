@@ -22,6 +22,7 @@ import (
 
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/httpapi"
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
+	"github.com/MarkoPoloResearchLab/feedback_svc/pkg/favicon"
 )
 
 const (
@@ -349,8 +350,9 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 
 	publicHandlers := httpapi.NewPublicHandlers(database, logger)
 	sharedHTTPClient := &http.Client{Timeout: 5 * time.Second}
-	faviconResolver := httpapi.NewHTTPFaviconResolver(sharedHTTPClient, logger)
-	faviconManager := httpapi.NewSiteFaviconManager(database, faviconResolver, logger)
+	faviconResolver := favicon.NewHTTPResolver(sharedHTTPClient, logger)
+	faviconService := favicon.NewService(faviconResolver)
+	faviconManager := httpapi.NewSiteFaviconManager(database, faviconService, logger)
 	faviconManagerContext, faviconManagerCancel := context.WithCancel(context.Background())
 	defer faviconManager.Stop()
 	defer faviconManagerCancel()

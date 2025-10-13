@@ -1,4 +1,4 @@
-package httpapi_test
+package favicon_test
 
 import (
 	"context"
@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/httpapi"
+	"github.com/MarkoPoloResearchLab/feedback_svc/pkg/favicon"
 )
 
-func TestHTTPFaviconResolverPrefersDefaultIcon(t *testing.T) {
+func TestHTTPResolverPrefersDefaultIcon(testingT *testing.T) {
 	iconServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
 		case "/favicon.ico":
@@ -23,16 +23,16 @@ func TestHTTPFaviconResolverPrefersDefaultIcon(t *testing.T) {
 			writer.WriteHeader(http.StatusNotFound)
 		}
 	}))
-	t.Cleanup(iconServer.Close)
+	testingT.Cleanup(iconServer.Close)
 
-	resolver := httpapi.NewHTTPFaviconResolver(iconServer.Client(), zap.NewNop())
+	resolver := favicon.NewHTTPResolver(iconServer.Client(), zap.NewNop())
 
-	faviconURL, err := resolver.Resolve(context.Background(), iconServer.URL)
-	require.NoError(t, err)
-	require.Equal(t, iconServer.URL+"/favicon.ico", faviconURL)
+	faviconURL, resolveErr := resolver.Resolve(context.Background(), iconServer.URL)
+	require.NoError(testingT, resolveErr)
+	require.Equal(testingT, iconServer.URL+"/favicon.ico", faviconURL)
 }
 
-func TestHTTPFaviconResolverParsesHTMLLinks(t *testing.T) {
+func TestHTTPResolverParsesHTMLLinks(testingT *testing.T) {
 	iconPath := "/assets/icon.png"
 	htmlResponse := "<!doctype html><html><head><link rel=\"icon\" href=\"" + iconPath + "\"></head><body></body></html>"
 	iconServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -49,16 +49,16 @@ func TestHTTPFaviconResolverParsesHTMLLinks(t *testing.T) {
 			_, _ = writer.Write([]byte(htmlResponse))
 		}
 	}))
-	t.Cleanup(iconServer.Close)
+	testingT.Cleanup(iconServer.Close)
 
-	resolver := httpapi.NewHTTPFaviconResolver(iconServer.Client(), zap.NewNop())
+	resolver := favicon.NewHTTPResolver(iconServer.Client(), zap.NewNop())
 
-	faviconURL, err := resolver.Resolve(context.Background(), iconServer.URL)
-	require.NoError(t, err)
-	require.Equal(t, iconServer.URL+iconPath, faviconURL)
+	faviconURL, resolveErr := resolver.Resolve(context.Background(), iconServer.URL)
+	require.NoError(testingT, resolveErr)
+	require.Equal(testingT, iconServer.URL+iconPath, faviconURL)
 }
 
-func TestHTTPFaviconResolverSupportsInlineData(t *testing.T) {
+func TestHTTPResolverSupportsInlineData(testingT *testing.T) {
 	inlineData := "data:image/png;base64,iVBORw0KGgo="
 	htmlResponse := "<!doctype html><html><head><link rel=\"icon\" href=\"" + inlineData + "\"></head></html>"
 	iconServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -70,16 +70,16 @@ func TestHTTPFaviconResolverSupportsInlineData(t *testing.T) {
 		}
 		writer.WriteHeader(http.StatusNotFound)
 	}))
-	t.Cleanup(iconServer.Close)
+	testingT.Cleanup(iconServer.Close)
 
-	resolver := httpapi.NewHTTPFaviconResolver(iconServer.Client(), zap.NewNop())
+	resolver := favicon.NewHTTPResolver(iconServer.Client(), zap.NewNop())
 
-	faviconURL, err := resolver.Resolve(context.Background(), iconServer.URL)
-	require.NoError(t, err)
-	require.Equal(t, inlineData, faviconURL)
+	faviconURL, resolveErr := resolver.Resolve(context.Background(), iconServer.URL)
+	require.NoError(testingT, resolveErr)
+	require.Equal(testingT, inlineData, faviconURL)
 }
 
-func TestHTTPFaviconResolverResolveAssetReturnsBinaryData(t *testing.T) {
+func TestHTTPResolverResolveAssetReturnsBinaryData(testingT *testing.T) {
 	iconBytes := []byte{0x00, 0x11, 0x22}
 	iconServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/favicon.ico" {
@@ -90,18 +90,18 @@ func TestHTTPFaviconResolverResolveAssetReturnsBinaryData(t *testing.T) {
 		}
 		writer.WriteHeader(http.StatusNotFound)
 	}))
-	t.Cleanup(iconServer.Close)
+	testingT.Cleanup(iconServer.Close)
 
-	resolver := httpapi.NewHTTPFaviconResolver(iconServer.Client(), zap.NewNop())
+	resolver := favicon.NewHTTPResolver(iconServer.Client(), zap.NewNop())
 
-	asset, err := resolver.ResolveAsset(context.Background(), iconServer.URL)
-	require.NoError(t, err)
-	require.NotNil(t, asset)
-	require.Equal(t, "image/x-icon", asset.ContentType)
-	require.Equal(t, iconBytes, asset.Data)
+	asset, resolveErr := resolver.ResolveAsset(context.Background(), iconServer.URL)
+	require.NoError(testingT, resolveErr)
+	require.NotNil(testingT, asset)
+	require.Equal(testingT, "image/x-icon", asset.ContentType)
+	require.Equal(testingT, iconBytes, asset.Data)
 }
 
-func TestHTTPFaviconResolverResolveAssetParsesInlineData(t *testing.T) {
+func TestHTTPResolverResolveAssetParsesInlineData(testingT *testing.T) {
 	inlineData := "data:image/svg+xml;base64,PHN2Zy8+"
 	htmlResponse := "<!doctype html><html><head><link rel=\"icon\" href=\"" + inlineData + "\"></head></html>"
 	iconServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -113,18 +113,18 @@ func TestHTTPFaviconResolverResolveAssetParsesInlineData(t *testing.T) {
 		}
 		writer.WriteHeader(http.StatusNotFound)
 	}))
-	t.Cleanup(iconServer.Close)
+	testingT.Cleanup(iconServer.Close)
 
-	resolver := httpapi.NewHTTPFaviconResolver(iconServer.Client(), zap.NewNop())
+	resolver := favicon.NewHTTPResolver(iconServer.Client(), zap.NewNop())
 
-	asset, err := resolver.ResolveAsset(context.Background(), iconServer.URL)
-	require.NoError(t, err)
-	require.NotNil(t, asset)
-	require.Equal(t, "image/svg+xml", asset.ContentType)
-	require.Equal(t, []byte("<svg/>"), asset.Data)
+	asset, resolveErr := resolver.ResolveAsset(context.Background(), iconServer.URL)
+	require.NoError(testingT, resolveErr)
+	require.NotNil(testingT, asset)
+	require.Equal(testingT, "image/svg+xml", asset.ContentType)
+	require.Equal(testingT, []byte("<svg/>"), asset.Data)
 }
 
-func TestHTTPFaviconResolverResolveAssetReturnsNilForUnsupportedContentType(t *testing.T) {
+func TestHTTPResolverResolveAssetReturnsNilForUnsupportedContentType(testingT *testing.T) {
 	htmlResponse := "<!doctype html><html><head><link rel=\"icon\" href=\"/icon\"></head></html>"
 	iconServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
@@ -140,16 +140,16 @@ func TestHTTPFaviconResolverResolveAssetReturnsNilForUnsupportedContentType(t *t
 			writer.WriteHeader(http.StatusNotFound)
 		}
 	}))
-	t.Cleanup(iconServer.Close)
+	testingT.Cleanup(iconServer.Close)
 
-	resolver := httpapi.NewHTTPFaviconResolver(iconServer.Client(), zap.NewNop())
+	resolver := favicon.NewHTTPResolver(iconServer.Client(), zap.NewNop())
 
-	asset, err := resolver.ResolveAsset(context.Background(), iconServer.URL)
-	require.NoError(t, err)
-	require.Nil(t, asset)
+	asset, resolveErr := resolver.ResolveAsset(context.Background(), iconServer.URL)
+	require.NoError(testingT, resolveErr)
+	require.Nil(testingT, asset)
 }
 
-func TestHTTPFaviconResolverFallsBackToAppPath(t *testing.T) {
+func TestHTTPResolverFallsBackToAppPath(testingT *testing.T) {
 	inlineData := "data:image/svg+xml;utf8,<svg/>"
 	iconServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
@@ -165,13 +165,13 @@ func TestHTTPFaviconResolverFallsBackToAppPath(t *testing.T) {
 			writer.WriteHeader(http.StatusNotFound)
 		}
 	}))
-	t.Cleanup(iconServer.Close)
+	testingT.Cleanup(iconServer.Close)
 
-	resolver := httpapi.NewHTTPFaviconResolver(iconServer.Client(), zap.NewNop())
+	resolver := favicon.NewHTTPResolver(iconServer.Client(), zap.NewNop())
 
-	asset, err := resolver.ResolveAsset(context.Background(), iconServer.URL+"/app")
-	require.NoError(t, err)
-	require.NotNil(t, asset)
-	require.Equal(t, "image/svg+xml", asset.ContentType)
-	require.Equal(t, []byte("<svg/>"), asset.Data)
+	asset, resolveErr := resolver.ResolveAsset(context.Background(), iconServer.URL+"/app")
+	require.NoError(testingT, resolveErr)
+	require.NotNil(testingT, asset)
+	require.Equal(testingT, "image/svg+xml", asset.ContentType)
+	require.Equal(testingT, []byte("<svg/>"), asset.Data)
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/testutil"
+	"github.com/MarkoPoloResearchLab/feedback_svc/pkg/favicon"
 )
 
 const (
@@ -345,7 +346,7 @@ func TestSiteFaviconReturnsStoredIcon(testingT *testing.T) {
 }
 
 type streamStubFaviconResolver struct {
-	asset *httpapi.FaviconAsset
+	asset *favicon.Asset
 	mu    sync.Mutex
 	calls int
 }
@@ -354,7 +355,7 @@ func (resolver *streamStubFaviconResolver) Resolve(_ context.Context, _ string) 
 	return "", nil
 }
 
-func (resolver *streamStubFaviconResolver) ResolveAsset(_ context.Context, _ string) (*httpapi.FaviconAsset, error) {
+func (resolver *streamStubFaviconResolver) ResolveAsset(_ context.Context, _ string) (*favicon.Asset, error) {
 	resolver.mu.Lock()
 	resolver.calls++
 	resolver.mu.Unlock()
@@ -385,10 +386,11 @@ func TestStreamFaviconUpdatesEmitsEvents(testingT *testing.T) {
 	}
 	require.NoError(testingT, database.Create(&site).Error)
 
-	resolver := &streamStubFaviconResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x05}}}
+	resolver := &streamStubFaviconResolver{asset: &favicon.Asset{ContentType: "image/png", Data: []byte{0x05}}}
+	service := favicon.NewService(resolver)
 	faviconManager := httpapi.NewSiteFaviconManager(
 		database,
-		resolver,
+		service,
 		zap.NewNop(),
 		httpapi.WithFaviconIntervals(5*time.Millisecond, 5*time.Millisecond),
 	)

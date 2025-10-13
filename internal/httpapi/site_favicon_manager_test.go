@@ -17,10 +17,11 @@ import (
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/testutil"
+	"github.com/MarkoPoloResearchLab/feedback_svc/pkg/favicon"
 )
 
 type stubAssetResolver struct {
-	asset *httpapi.FaviconAsset
+	asset *favicon.Asset
 	err   error
 	mu    sync.Mutex
 	calls int
@@ -30,7 +31,7 @@ func (resolver *stubAssetResolver) Resolve(_ context.Context, _ string) (string,
 	return "", nil
 }
 
-func (resolver *stubAssetResolver) ResolveAsset(_ context.Context, _ string) (*httpapi.FaviconAsset, error) {
+func (resolver *stubAssetResolver) ResolveAsset(_ context.Context, _ string) (*favicon.Asset, error) {
 	resolver.mu.Lock()
 	defer resolver.mu.Unlock()
 	resolver.calls++
@@ -47,14 +48,14 @@ func (resolver *stubAssetResolver) callCount() int {
 }
 
 type blockingAssetResolver struct {
-	asset       *httpapi.FaviconAsset
+	asset       *favicon.Asset
 	started     chan struct{}
 	released    chan struct{}
 	startOnce   sync.Once
 	releaseOnce sync.Once
 }
 
-func newBlockingAssetResolver(asset *httpapi.FaviconAsset) *blockingAssetResolver {
+func newBlockingAssetResolver(asset *favicon.Asset) *blockingAssetResolver {
 	return &blockingAssetResolver{
 		asset:    asset,
 		started:  make(chan struct{}),
@@ -66,7 +67,7 @@ func (resolver *blockingAssetResolver) Resolve(_ context.Context, _ string) (str
 	return "", nil
 }
 
-func (resolver *blockingAssetResolver) ResolveAsset(_ context.Context, _ string) (*httpapi.FaviconAsset, error) {
+func (resolver *blockingAssetResolver) ResolveAsset(_ context.Context, _ string) (*favicon.Asset, error) {
 	resolver.startOnce.Do(func() {
 		close(resolver.started)
 	})
@@ -106,8 +107,9 @@ func TestSiteFaviconManagerStoresResolvedAsset(testingT *testing.T) {
 	}
 	require.NoError(testingT, database.Create(&site).Error)
 
-	resolver := &stubAssetResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x01, 0x02}}}
-	manager := httpapi.NewSiteFaviconManager(database, resolver, zap.NewNop())
+	resolver := &stubAssetResolver{asset: &favicon.Asset{ContentType: "image/png", Data: []byte{0x01, 0x02}}}
+	service := favicon.NewService(resolver)
+	manager := httpapi.NewSiteFaviconManager(database, service, zap.NewNop())
 	manager.Start(context.Background())
 	testingT.Cleanup(manager.Stop)
 
@@ -143,8 +145,9 @@ func TestSiteFaviconManagerAvoidsDuplicateFetches(testingT *testing.T) {
 	}
 	require.NoError(testingT, database.Create(&site).Error)
 
-	resolver := &stubAssetResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x0A}}}
-	manager := httpapi.NewSiteFaviconManager(database, resolver, zap.NewNop())
+	resolver := &stubAssetResolver{asset: &favicon.Asset{ContentType: "image/png", Data: []byte{0x0A}}}
+	service := favicon.NewService(resolver)
+	manager := httpapi.NewSiteFaviconManager(database, service, zap.NewNop())
 	manager.Start(context.Background())
 	testingT.Cleanup(manager.Stop)
 
@@ -189,10 +192,11 @@ func TestSiteFaviconManagerScheduledRefreshQueuesStaleSites(testingT *testing.T)
 	}
 	require.NoError(testingT, database.Create(&site).Error)
 
-	resolver := &stubAssetResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x02}}}
+	resolver := &stubAssetResolver{asset: &favicon.Asset{ContentType: "image/png", Data: []byte{0x02}}}
+	service := favicon.NewService(resolver)
 	manager := httpapi.NewSiteFaviconManager(
 		database,
-		resolver,
+		service,
 		zap.NewNop(),
 		httpapi.WithFaviconIntervals(5*time.Millisecond, 5*time.Millisecond),
 		httpapi.WithFaviconScanInterval(5*time.Millisecond),
@@ -225,10 +229,11 @@ func TestSiteFaviconManagerNotifiesSubscribers(testingT *testing.T) {
 	}
 	require.NoError(testingT, database.Create(&site).Error)
 
-	resolver := &stubAssetResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x03}}}
+	resolver := &stubAssetResolver{asset: &favicon.Asset{ContentType: "image/png", Data: []byte{0x03}}}
+	service := favicon.NewService(resolver)
 	manager := httpapi.NewSiteFaviconManager(
 		database,
-		resolver,
+		service,
 		zap.NewNop(),
 		httpapi.WithFaviconIntervals(5*time.Millisecond, 5*time.Millisecond),
 	)
@@ -276,8 +281,9 @@ func TestSiteFaviconManagerStopWaitsForInFlightFetch(testingT *testing.T) {
 	}
 	require.NoError(testingT, database.Create(&site).Error)
 
-	resolver := newBlockingAssetResolver(&httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x07}})
-	manager := httpapi.NewSiteFaviconManager(database, resolver, zap.NewNop())
+	resolver := newBlockingAssetResolver(&favicon.Asset{ContentType: "image/png", Data: []byte{0x07}})
+	service := favicon.NewService(resolver)
+	manager := httpapi.NewSiteFaviconManager(database, service, zap.NewNop())
 	manager.Start(context.Background())
 	testingT.Cleanup(manager.Stop)
 
@@ -312,7 +318,7 @@ func TestGravityNotesInlineFaviconIntegration(testingT *testing.T) {
 		testingT.Skip("skipping Gravity Notes favicon integration test in short mode")
 	}
 
-	resolver := httpapi.NewHTTPFaviconResolver(nil, zap.NewNop())
+	resolver := favicon.NewHTTPResolver(nil, zap.NewNop())
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	testingT.Cleanup(cancel)
 
@@ -330,7 +336,8 @@ func TestGravityNotesInlineFaviconIntegration(testingT *testing.T) {
 	database = testutil.ConfigureDatabaseLogger(testingT, database)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
-	manager := httpapi.NewSiteFaviconManager(database, resolver, zap.NewNop())
+	service := favicon.NewService(resolver)
+	manager := httpapi.NewSiteFaviconManager(database, service, zap.NewNop())
 	manager.Start(context.Background())
 	testingT.Cleanup(manager.Stop)
 	require.NotNil(testingT, manager)
