@@ -42,7 +42,9 @@ const (
 	landingFooterLinkCrosswordToken  = "https://llm-crossword.mprlab.com"
 	landingFooterLinkPromptsToken    = "https://prompts.mprlab.com"
 	landingFooterLinkWallpapersToken = "https://wallpapers.mprlab.com"
-	landingFooterAlignmentToken      = "justify-content-md-end"
+	landingFooterLayoutToken         = "footer-layout"
+	landingFooterBrandWrapperToken   = "footer-brand d-inline-flex align-items-center"
+	landingFooterPrivacyClassToken   = "footer-privacy-link text-body-secondary text-decoration-none small"
 	landingFooterPaddingToken        = "landing-footer border-top mt-auto py-2"
 	landingCardHoverToken            = ".landing-card:hover"
 	landingCardFocusToken            = ".landing-card:focus-visible"
@@ -182,7 +184,8 @@ func TestLandingFooterDisplaysProductMenu(t *testing.T) {
 	require.Contains(t, body, landingFooterLinkCrosswordToken)
 	require.Contains(t, body, landingFooterLinkPromptsToken)
 	require.Contains(t, body, landingFooterLinkWallpapersToken)
-	require.Contains(t, body, landingFooterAlignmentToken)
+	require.Contains(t, body, landingFooterLayoutToken)
+	require.Contains(t, body, landingFooterBrandWrapperToken)
 	require.Contains(t, body, landingFooterPaddingToken)
 }
 
@@ -197,6 +200,7 @@ func TestLandingPageDisplaysPrivacyLink(t *testing.T) {
 
 	body := recorder.Body.String()
 	require.Contains(t, body, landingPrivacyLinkToken)
+	require.Contains(t, body, landingFooterPrivacyClassToken)
 }
 func TestLandingCardsProvideInteractiveStates(t *testing.T) {
 	gin.SetMode(gin.TestMode)

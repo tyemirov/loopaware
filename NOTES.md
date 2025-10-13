@@ -114,9 +114,9 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [X] [LA-61] Implement task based subsystem that performs non-immediate tasks such as retrieving sites favicons. The task shall be triggered using an internal schedule: check and update favicons every 24 hours.
 - [X] [LA-62] Schedule an immediate task execution for favicon retrieval on site creation or update from the user. Implement a mechanism (SSE?) to inform the site that the favicon must be retrieved from the backend in case we got a new or updated favicon. dont do anything if the favicon hasnt changed
 - [x] [LA-70] Extract favicon collection into a service. have it in pkg folder and build it suitable for any go program to invoke it. Refactor current tasks to invoke FavIconService when gathering FavIcon data
-- [ ] [LA-71] Refactor the footer so it's the same footer on both landing, privacy, and privacy pages
-- [ ] [LA-72] Move "Privacy • Terms" link to the same footer that says "Built by marco Polo Research lab"
-- [ ] [LA-73] Align "Privacy • Terms" to the left of the footer and horizontally with "Built by marco Polo Research lab". Make "Privacy • Terms" font 3 (really tiny.)
+- [x] [LA-71] Refactor the footer so it's the same footer on both landing, privacy, and privacy pages
+- [x] [LA-72] Move "Privacy • Terms" link to the same footer that says "Built by marco Polo Research lab"
+- [x] [LA-73] Align "Privacy • Terms" to the left of the footer and horizontally with "Built by marco Polo Research lab". Make "Privacy • Terms" font 3 (really tiny.)
 
 ### BugFixes
 

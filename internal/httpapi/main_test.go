@@ -55,6 +55,9 @@ const (
 	dashboardDeleteButtonClassMarkup        = "class=\"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled\""
 	dashboardDeleteIconMarkup               = "class=\"bi bi-trash3-fill text-danger\""
 	dashboardFooterElementID                = "id=\"dashboard-footer\""
+	dashboardFooterLayoutToken              = "footer-layout"
+	dashboardFooterBrandWrapperToken        = "footer-brand d-inline-flex align-items-center"
+	dashboardFooterPrivacyClassToken        = "footer-privacy-link text-body-secondary text-decoration-none small"
 	dashboardFooterThemeConfigToken         = "\"footer_theme_classes\":{"
 	dashboardBootstrapIconsIntegrityToken   = "integrity=\"sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+\""
 	dashboardFaviconLinkToken               = "rel=\"icon\""
@@ -379,6 +382,8 @@ func TestDashboardFooterDisplaysProductMenu(t *testing.T) {
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
+	require.Contains(t, body, dashboardFooterLayoutToken)
+	require.Contains(t, body, dashboardFooterBrandWrapperToken)
 	require.Contains(t, body, dashboardFooterDropdownToggleToken)
 	require.Contains(t, body, dashboardFooterDropdownMenuToken)
 	require.Contains(t, body, dashboardFooterLinkGravityToken)
@@ -404,6 +409,7 @@ func TestDashboardFooterDisplaysPrivacyLink(t *testing.T) {
 
 	body := recorder.Body.String()
 	require.Contains(t, body, dashboardPrivacyLinkToken)
+	require.Contains(t, body, dashboardFooterPrivacyClassToken)
 }
 
 func TestDashboardTemplateDisplaysRegistrationInline(t *testing.T) {

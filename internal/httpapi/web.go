@@ -39,9 +39,6 @@ const (
 	dashboardFooterBrandName             = "Marco Polo Research Lab"
 	dashboardFooterBrandURL              = "https://mprlab.com"
 	dashboardFooterToggleButtonID        = "dashboard-footer-toggle"
-	dashboardSmallPrintWrapperClass      = "container text-end small py-3"
-	dashboardSmallPrintLinkClass         = "text-body-secondary text-decoration-none"
-	dashboardSmallPrintLogContext        = "render_dashboard_small_print"
 	dashboardHeaderLogoElementID         = "dashboard-header-logo"
 	navbarSettingsButtonLabel            = "Account settings"
 	navbarLogoutLabel                    = "Logout"
@@ -211,7 +208,6 @@ type dashboardTemplateData struct {
 	EmptySitesMessage                 string
 	FeedbackPlaceholder               string
 	FooterHTML                        template.HTML
-	SmallPrintHTML                    template.HTML
 	FooterElementID                   string
 	FooterInnerElementID              string
 	FooterBaseClass                   string
@@ -381,28 +377,22 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		ElementID:         footerElementID,
 		InnerElementID:    footerInnerElementID,
 		BaseClass:         footerBaseClass,
-		InnerClass:        "container d-flex justify-content-end text-end small",
-		WrapperClass:      "dropup d-inline-flex align-items-center gap-2 text-body-secondary",
-		PrefixClass:       "text-body-secondary",
+		InnerClass:        landingFooterInnerClass,
+		WrapperClass:      footerLayoutClass,
+		BrandWrapperClass: footerBrandWrapperClass,
+		MenuWrapperClass:  footerMenuWrapperClass,
+		PrefixClass:       footerPrefixClass,
 		PrefixText:        dashboardFooterBrandPrefix,
 		ToggleButtonID:    dashboardFooterToggleButtonID,
-		ToggleButtonClass: "btn btn-link dropdown-toggle text-decoration-none px-0 fw-semibold",
+		ToggleButtonClass: footerToggleButtonClass,
 		ToggleLabel:       dashboardFooterBrandName,
-		MenuClass:         "dropdown-menu dropdown-menu-end shadow",
-		MenuItemClass:     "dropdown-item",
+		MenuClass:         footerMenuClass,
+		MenuItemClass:     footerMenuItemClass,
+		PrivacyLinkClass:  footerPrivacyLinkClass,
 	})
 	if footerErr != nil {
 		handlers.logger.Warn("render_dashboard_footer", zap.Error(footerErr))
 		footerHTML = template.HTML("")
-	}
-
-	smallPrintHTML, smallPrintErr := RenderFooterSmallPrintHTML(FooterSmallPrintConfig{
-		WrapperClass: dashboardSmallPrintWrapperClass,
-		LinkClass:    dashboardSmallPrintLinkClass,
-	})
-	if smallPrintErr != nil {
-		handlers.logger.Warn(dashboardSmallPrintLogContext, zap.Error(smallPrintErr))
-		smallPrintHTML = template.HTML("")
 	}
 
 	data := dashboardTemplateData{
@@ -436,7 +426,6 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		EmptySitesMessage:                 dashboardStatusNoSites,
 		FeedbackPlaceholder:               dashboardFeedbackPlaceholder,
 		FooterHTML:                        footerHTML,
-		SmallPrintHTML:                    smallPrintHTML,
 		FooterElementID:                   footerElementID,
 		FooterInnerElementID:              footerInnerElementID,
 		FooterBaseClass:                   footerBaseClass,

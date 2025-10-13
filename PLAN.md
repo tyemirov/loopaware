@@ -1,5 +1,5 @@
-- [x] pkg/favicon/resolver.go, pkg/favicon/service.go — extract reusable favicon collection service and relocate resolver implementation from internal/httpapi (LA-70).
-- [x] internal/httpapi/site_favicon_manager.go — rely on FavIconService for asset gathering and persistence decisions instead of inline resolver logic (LA-70).
-- [x] cmd/server/main.go — construct FavIconService and inject into SiteFaviconManager wiring (LA-70).
-- [x] internal/httpapi/site_favicon_manager_test.go, internal/httpapi/admin_test.go, pkg/favicon/resolver_test.go — update tests to use the shared service types and ensure coverage of refactored flow (LA-70).
-- [x] NOTES.md — mark LA-70 complete once service integration and tests succeed (LA-70).
+- [x] internal/httpapi/footer.go — extend footer template/config so privacy link renders within shared dropup footer layout (LA-71, LA-72, LA-73).
+- [x] internal/httpapi/landing.go, internal/httpapi/web.go, internal/httpapi/privacy.go — supply unified footer payloads, remove redundant small-print rendering, and reuse new config (LA-71, LA-72).
+- [x] internal/httpapi/templates/landing.tmpl, internal/httpapi/templates/privacy.tmpl, internal/httpapi/templates/dashboard.tmpl — embed shared footer markup and ensure layout aligns privacy link with “Built by” branding (LA-71, LA-73).
+- [x] internal/httpapi/landing_test.go, internal/httpapi/privacy_test.go, internal/httpapi/main_test.go — assert unified footer structure and privacy link placement/styling across views (LA-71, LA-72, LA-73).
+- [x] NOTES.md — mark LA-71, LA-72, LA-73 complete once refactor and tests succeed.
