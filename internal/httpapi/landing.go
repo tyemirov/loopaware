@@ -11,21 +11,21 @@ import (
 )
 
 const (
-	landingTemplateName           = "landing"
-	landingHTMLContentType        = "text/html; charset=utf-8"
-	landingFooterElementID        = "landing-footer"
-	landingFooterInnerID          = "landing-footer-inner"
-	landingFooterToggleID         = "landing-footer-toggle"
-	landingSmallPrintWrapperClass = "text-center small py-3"
-	landingSmallPrintLinkClass    = "text-body-secondary text-decoration-none"
-	landingSmallPrintLogContext   = "render_landing_small_print"
+	landingTemplateName     = "landing"
+	landingHTMLContentType  = "text/html; charset=utf-8"
+	landingFooterElementID  = "landing-footer"
+	landingFooterInnerID    = "landing-footer-inner"
+	landingFooterToggleID   = "landing-footer-toggle"
+	landingFooterBaseClass  = "landing-footer border-top mt-auto py-2"
+	landingFooterInnerClass = "container py-2"
 )
 
 type landingTemplateData struct {
+	SharedStyles   template.CSS
 	FooterHTML     template.HTML
-	SmallPrintHTML template.HTML
+	HeaderHTML     template.HTML
+	ThemeScript    template.JS
 	FaviconDataURI template.URL
-	LogoDataURI    template.URL
 }
 
 // LandingPageHandlers renders the public landing page.
@@ -48,39 +48,30 @@ func NewLandingPageHandlers(logger *zap.Logger) *LandingPageHandlers {
 
 // RenderLandingPage writes the landing page response.
 func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
-	footerHTML, footerErr := RenderFooterHTML(FooterConfig{
-		ElementID:         landingFooterElementID,
-		InnerElementID:    landingFooterInnerID,
-		BaseClass:         "landing-footer border-top mt-auto py-2",
-		InnerClass:        "container d-flex flex-column flex-md-row align-items-center justify-content-center justify-content-md-end gap-3 text-center text-md-end",
-		WrapperClass:      "dropup d-inline-flex align-items-center gap-2 text-body-secondary small",
-		PrefixClass:       "text-body-secondary",
-		PrefixText:        dashboardFooterBrandPrefix,
-		ToggleButtonID:    landingFooterToggleID,
-		ToggleButtonClass: "btn btn-link dropdown-toggle text-decoration-none px-0 fw-semibold",
-		ToggleLabel:       dashboardFooterBrandName,
-		MenuClass:         "dropdown-menu dropdown-menu-end shadow",
-		MenuItemClass:     "dropdown-item",
-	})
+	footerHTML, footerErr := renderFooterHTMLForVariant(footerVariantLanding)
 	if footerErr != nil {
 		handlers.logger.Error("render_landing_footer", zap.Error(footerErr))
 		footerHTML = template.HTML("")
 	}
 
-	smallPrintHTML, smallPrintErr := RenderFooterSmallPrintHTML(FooterSmallPrintConfig{
-		WrapperClass: landingSmallPrintWrapperClass,
-		LinkClass:    landingSmallPrintLinkClass,
-	})
-	if smallPrintErr != nil {
-		handlers.logger.Error(landingSmallPrintLogContext, zap.Error(smallPrintErr))
-		smallPrintHTML = template.HTML("")
+	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI)
+	if headerErr != nil {
+		handlers.logger.Error("render_landing_header", zap.Error(headerErr))
+		headerHTML = template.HTML("")
+	}
+
+	themeScript, themeErr := renderPublicThemeScript()
+	if themeErr != nil {
+		handlers.logger.Error("render_public_theme_script", zap.Error(themeErr))
+		themeScript = template.JS("")
 	}
 
 	data := landingTemplateData{
+		SharedStyles:   sharedPublicStyles(),
 		FooterHTML:     footerHTML,
-		SmallPrintHTML: smallPrintHTML,
+		HeaderHTML:     headerHTML,
+		ThemeScript:    themeScript,
 		FaviconDataURI: template.URL(dashboardFaviconDataURI),
-		LogoDataURI:    landingLogoDataURI,
 	}
 
 	var buffer bytes.Buffer

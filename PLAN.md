@@ -1,5 +1,7 @@
-- [ ] internal/httpapi/site_favicon_manager.go, internal/task/scheduler.go — introduce coordinated cancellation/Stop bookkeeping with explicit wait groups to eliminate favicon worker races (LA-65).
-- [ ] internal/httpapi/site_favicon_manager_test.go, internal/httpapi/admin_test.go — switch background manager lifecycle handling to `testing.T.Cleanup`, extend coverage for orderly shutdown (LA-65, LA-66).
-- [ ] internal/httpapi/widget_integration_test.go — harden chromedp harness with deterministic skip logic and CI-stable headless flags (LA-67).
-- [ ] internal/testutil/sqlite.go, internal/storage/database.go, internal/httpapi/*_test.go — provide test logger configuration that ignores “record not found” chatter while keeping explicit assertions (LA-68).
-- [ ] repo-wide — verify `go test ./...`, `go vet ./...`, `go test ./... -v -race -count=1` gated by timeout wrapper; update NOTES.md checkboxes when complete (LA-69).
+- [x] internal/httpapi/public_assets.go — extract shared header, theme script, and style assets for public pages to keep theme selection consistent.
+- [x] internal/httpapi/landing.go, internal/httpapi/privacy.go — supply shared public layout payloads so landing and privacy reuse header/footer config and theme storage.
+- [x] internal/httpapi/templates/landing.tmpl, internal/httpapi/templates/privacy.tmpl — embed shared header markup, data attributes, and scripts so both pages respect stored theme.
+- [x] internal/httpapi/landing_test.go, internal/httpapi/privacy_test.go — extend coverage for header reuse and theme persistence across landing and privacy.
+- [x] internal/httpapi/footer.go — define footer variants and reuse a single partial renderer to remove duplicated configs.
+- [x] internal/httpapi/landing.go, internal/httpapi/privacy.go, internal/httpapi/web.go — replace inline footer configuration with the shared variant renderer.
+- [x] NOTES.md — mark LA-75 complete after refactor validation.

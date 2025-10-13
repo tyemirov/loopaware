@@ -1,4 +1,4 @@
-package httpapi
+package favicon
 
 import (
 	"context"
@@ -17,13 +17,13 @@ import (
 )
 
 const (
-	defaultFaviconCacheTTL     = 6 * time.Hour
-	defaultFaviconMaxIconBytes = 128 * 1024
-	defaultFaviconMaxHTMLBytes = 512 * 1024
+	defaultCacheTTL     = 6 * time.Hour
+	defaultMaxIconBytes = 128 * 1024
+	defaultMaxHTMLBytes = 512 * 1024
 )
 
 var (
-	defaultFaviconHTMLProbePaths = []string{
+	defaultHTMLProbePaths = []string{
 		"/",
 		"/index.html",
 		"/app",
@@ -31,31 +31,31 @@ var (
 	}
 )
 
-// FaviconResolver discovers favicons for a given allowed origin.
-type FaviconResolver interface {
+// Resolver discovers favicons for a given allowed origin.
+type Resolver interface {
 	Resolve(ctx context.Context, allowedOrigin string) (string, error)
-	ResolveAsset(ctx context.Context, allowedOrigin string) (*FaviconAsset, error)
+	ResolveAsset(ctx context.Context, allowedOrigin string) (*Asset, error)
 }
 
-// FaviconAsset represents favicon binary contents and metadata.
-type FaviconAsset struct {
+// Asset represents favicon binary contents and metadata.
+type Asset struct {
 	ContentType string
 	Data        []byte
 }
 
-type faviconCacheEntry struct {
+type cacheEntry struct {
 	value   string
 	expires time.Time
 }
 
-type faviconCandidate struct {
+type candidate struct {
 	remoteURL string
 	dataURL   string
-	asset     *FaviconAsset
+	asset     *Asset
 }
 
-// HTTPFaviconResolver discovers favicons by issuing HTTP requests.
-type HTTPFaviconResolver struct {
+// HTTPResolver discovers favicons by issuing HTTP requests.
+type HTTPResolver struct {
 	httpClient   *http.Client
 	logger       *zap.Logger
 	cacheTTL     time.Duration
@@ -64,13 +64,13 @@ type HTTPFaviconResolver struct {
 	cache        sync.Map
 }
 
-// NewHTTPFaviconResolver builds a resolver that caches successful (and empty) lookups.
-func NewHTTPFaviconResolver(httpClient *http.Client, logger *zap.Logger) *HTTPFaviconResolver {
-	resolver := &HTTPFaviconResolver{
+// NewHTTPResolver builds a resolver that caches successful (and empty) lookups.
+func NewHTTPResolver(httpClient *http.Client, logger *zap.Logger) *HTTPResolver {
+	resolver := &HTTPResolver{
 		logger:       logger,
-		cacheTTL:     defaultFaviconCacheTTL,
-		maxIconBytes: defaultFaviconMaxIconBytes,
-		maxHTMLBytes: defaultFaviconMaxHTMLBytes,
+		cacheTTL:     defaultCacheTTL,
+		maxIconBytes: defaultMaxIconBytes,
+		maxHTMLBytes: defaultMaxHTMLBytes,
 	}
 	if httpClient != nil {
 		resolver.httpClient = httpClient
@@ -81,7 +81,7 @@ func NewHTTPFaviconResolver(httpClient *http.Client, logger *zap.Logger) *HTTPFa
 }
 
 // Resolve returns a stable favicon URL or an empty string when discovery fails.
-func (resolver *HTTPFaviconResolver) Resolve(ctx context.Context, allowedOrigin string) (string, error) {
+func (resolver *HTTPResolver) Resolve(ctx context.Context, allowedOrigin string) (string, error) {
 	normalized := strings.TrimSpace(allowedOrigin)
 	if normalized == "" {
 		return "", nil
@@ -96,7 +96,7 @@ func (resolver *HTTPFaviconResolver) Resolve(ctx context.Context, allowedOrigin 
 
 	cacheKey := strings.ToLower(baseURL.String())
 	if entryValue, ok := resolver.cache.Load(cacheKey); ok {
-		entry := entryValue.(faviconCacheEntry)
+		entry := entryValue.(cacheEntry)
 		if time.Now().Before(entry.expires) {
 			return entry.value, nil
 		}
@@ -120,7 +120,7 @@ func (resolver *HTTPFaviconResolver) Resolve(ctx context.Context, allowedOrigin 
 		}
 	}
 
-	resolver.cache.Store(cacheKey, faviconCacheEntry{
+	resolver.cache.Store(cacheKey, cacheEntry{
 		value:   resolved,
 		expires: time.Now().Add(resolver.cacheTTL),
 	})
@@ -129,7 +129,7 @@ func (resolver *HTTPFaviconResolver) Resolve(ctx context.Context, allowedOrigin 
 }
 
 // ResolveAsset returns the favicon contents for the given allowed origin.
-func (resolver *HTTPFaviconResolver) ResolveAsset(ctx context.Context, allowedOrigin string) (*FaviconAsset, error) {
+func (resolver *HTTPResolver) ResolveAsset(ctx context.Context, allowedOrigin string) (*Asset, error) {
 	normalized := strings.TrimSpace(allowedOrigin)
 	if normalized == "" {
 		return nil, nil
@@ -162,7 +162,7 @@ func (resolver *HTTPFaviconResolver) ResolveAsset(ctx context.Context, allowedOr
 	return candidate.asset, nil
 }
 
-func (resolver *HTTPFaviconResolver) lookupFavicon(ctx context.Context, baseURL *url.URL) (*faviconCandidate, error) {
+func (resolver *HTTPResolver) lookupFavicon(ctx context.Context, baseURL *url.URL) (*candidate, error) {
 	root := &url.URL{
 		Scheme: baseURL.Scheme,
 		Host:   baseURL.Host,
@@ -175,22 +175,22 @@ func (resolver *HTTPFaviconResolver) lookupFavicon(ctx context.Context, baseURL 
 	return resolver.fetchHTMLDeclaredFavicon(ctx, root, resolver.htmlProbePaths(baseURL))
 }
 
-func (resolver *HTTPFaviconResolver) fetchDefaultFavicon(ctx context.Context, root *url.URL) (*faviconCandidate, error) {
-	candidate := root.ResolveReference(&url.URL{Path: "/favicon.ico"})
-	asset, err := resolver.fetchRemoteIconAsset(ctx, candidate.String())
+func (resolver *HTTPResolver) fetchDefaultFavicon(ctx context.Context, root *url.URL) (*candidate, error) {
+	target := root.ResolveReference(&url.URL{Path: "/favicon.ico"})
+	asset, err := resolver.fetchRemoteIconAsset(ctx, target.String())
 	if err != nil {
 		return nil, err
 	}
 	if asset == nil {
 		return nil, nil
 	}
-	return &faviconCandidate{
-		remoteURL: candidate.String(),
+	return &candidate{
+		remoteURL: target.String(),
 		asset:     asset,
 	}, nil
 }
 
-func (resolver *HTTPFaviconResolver) fetchHTMLDeclaredFavicon(ctx context.Context, root *url.URL, probePaths []string) (*faviconCandidate, error) {
+func (resolver *HTTPResolver) fetchHTMLDeclaredFavicon(ctx context.Context, root *url.URL, probePaths []string) (*candidate, error) {
 	var lastErr error
 	for _, path := range probePaths {
 		pageURL := root.ResolveReference(&url.URL{Path: path})
@@ -211,23 +211,23 @@ func (resolver *HTTPFaviconResolver) fetchHTMLDeclaredFavicon(ctx context.Contex
 		}
 
 		candidates := findFaviconCandidates(document)
-		for _, candidate := range candidates {
-			candidate = strings.TrimSpace(candidate)
-			if candidate == "" {
+		for _, value := range candidates {
+			value = strings.TrimSpace(value)
+			if value == "" {
 				continue
 			}
-			if strings.HasPrefix(strings.ToLower(candidate), "data:") {
-				asset, parseErr := resolver.parseDataURL(candidate)
+			if strings.HasPrefix(strings.ToLower(value), "data:") {
+				asset, parseErr := resolver.parseDataURL(value)
 				if parseErr != nil {
 					lastErr = parseErr
 					continue
 				}
-				return &faviconCandidate{
-					dataURL: candidate,
+				return &candidate{
+					dataURL: value,
 					asset:   asset,
 				}, nil
 			}
-			absoluteURL, resolveErr := resolver.absoluteURL(root, candidate)
+			absoluteURL, resolveErr := resolver.absoluteURL(root, value)
 			if resolveErr != nil {
 				lastErr = resolveErr
 				continue
@@ -245,7 +245,7 @@ func (resolver *HTTPFaviconResolver) fetchHTMLDeclaredFavicon(ctx context.Contex
 				continue
 			}
 			if asset != nil {
-				return &faviconCandidate{
+				return &candidate{
 					remoteURL: absoluteURL,
 					asset:     asset,
 				}, nil
@@ -256,7 +256,7 @@ func (resolver *HTTPFaviconResolver) fetchHTMLDeclaredFavicon(ctx context.Contex
 	return nil, lastErr
 }
 
-func (resolver *HTTPFaviconResolver) fetchRemoteIconAsset(ctx context.Context, iconURL string) (*FaviconAsset, error) {
+func (resolver *HTTPResolver) fetchRemoteIconAsset(ctx context.Context, iconURL string) (*Asset, error) {
 	response, err := resolver.doRequest(ctx, http.MethodGet, iconURL)
 	if err != nil {
 		return nil, err
@@ -286,16 +286,16 @@ func (resolver *HTTPFaviconResolver) fetchRemoteIconAsset(ctx context.Context, i
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	if !isSupportedFaviconContentType(contentType) {
+	if !isSupportedContentType(contentType) {
 		return nil, nil
 	}
-	return &FaviconAsset{
+	return &Asset{
 		ContentType: contentType,
 		Data:        data,
 	}, nil
 }
 
-func (resolver *HTTPFaviconResolver) parseDataURL(value string) (*FaviconAsset, error) {
+func (resolver *HTTPResolver) parseDataURL(value string) (*Asset, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return nil, errors.New("empty data url")
@@ -332,7 +332,7 @@ func (resolver *HTTPFaviconResolver) parseDataURL(value string) (*FaviconAsset, 
 	var data []byte
 	var decodeErr error
 	if isBase64 {
-		data, decodeErr = decodeBase64Data(payloadSection)
+		data, decodeErr = decodeBase64(payloadSection)
 	} else {
 		decoded, unescapeErr := url.PathUnescape(payloadSection)
 		if unescapeErr != nil {
@@ -351,17 +351,17 @@ func (resolver *HTTPFaviconResolver) parseDataURL(value string) (*FaviconAsset, 
 		return nil, fmt.Errorf("favicon exceeds %d bytes", resolver.maxIconBytes)
 	}
 
-	if !isSupportedFaviconContentType(mediaType) {
+	if !isSupportedContentType(mediaType) {
 		return nil, errors.New("unsupported data url content type")
 	}
 
-	return &FaviconAsset{
+	return &Asset{
 		ContentType: mediaType,
 		Data:        data,
 	}, nil
 }
 
-func decodeBase64Data(value string) ([]byte, error) {
+func decodeBase64(value string) ([]byte, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return nil, errors.New("empty base64 payload")
@@ -375,7 +375,7 @@ func decodeBase64Data(value string) ([]byte, error) {
 	return base64.RawStdEncoding.DecodeString(trimmed)
 }
 
-func isSupportedFaviconContentType(contentType string) bool {
+func isSupportedContentType(contentType string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(contentType))
 	if normalized == "" {
 		return true
@@ -395,8 +395,8 @@ func isSupportedFaviconContentType(contentType string) bool {
 	return false
 }
 
-func (resolver *HTTPFaviconResolver) htmlProbePaths(baseURL *url.URL) []string {
-	ordered := make([]string, 0, len(defaultFaviconHTMLProbePaths)+4)
+func (resolver *HTTPResolver) htmlProbePaths(baseURL *url.URL) []string {
+	ordered := make([]string, 0, len(defaultHTMLProbePaths)+4)
 	seen := make(map[string]struct{})
 
 	addPath := func(candidate string) {
@@ -428,14 +428,14 @@ func (resolver *HTTPFaviconResolver) htmlProbePaths(baseURL *url.URL) []string {
 		}
 	}
 
-	for _, fallback := range defaultFaviconHTMLProbePaths {
+	for _, fallback := range defaultHTMLProbePaths {
 		addPath(fallback)
 	}
 
 	return ordered
 }
 
-func (resolver *HTTPFaviconResolver) get(ctx context.Context, target string, limit int64) (io.ReadCloser, error) {
+func (resolver *HTTPResolver) get(ctx context.Context, target string, limit int64) (io.ReadCloser, error) {
 	response, err := resolver.doRequest(ctx, http.MethodGet, target)
 	if err != nil {
 		return nil, err
@@ -450,7 +450,7 @@ func (resolver *HTTPFaviconResolver) get(ctx context.Context, target string, lim
 	return newLimitedReadCloser(response.Body, limit), nil
 }
 
-func (resolver *HTTPFaviconResolver) doRequest(ctx context.Context, method string, target string) (*http.Response, error) {
+func (resolver *HTTPResolver) doRequest(ctx context.Context, method string, target string) (*http.Response, error) {
 	request, err := http.NewRequestWithContext(resolver.requestContext(ctx), method, target, nil)
 	if err != nil {
 		return nil, err
@@ -458,14 +458,14 @@ func (resolver *HTTPFaviconResolver) doRequest(ctx context.Context, method strin
 	return resolver.httpClient.Do(request)
 }
 
-func (resolver *HTTPFaviconResolver) requestContext(ctx context.Context) context.Context {
+func (resolver *HTTPResolver) requestContext(ctx context.Context) context.Context {
 	if ctx != nil {
 		return ctx
 	}
 	return context.Background()
 }
 
-func (resolver *HTTPFaviconResolver) absoluteURL(root *url.URL, href string) (string, error) {
+func (resolver *HTTPResolver) absoluteURL(root *url.URL, href string) (string, error) {
 	parsed, err := url.Parse(href)
 	if err != nil {
 		return "", err

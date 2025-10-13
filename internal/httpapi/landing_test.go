@@ -16,11 +16,13 @@ const (
 	landingDetailedAuthCopyToken     = "Google Sign-In powered by GAuss keeps every login secure."
 	landingDetailedWidgetCopyToken   = "Origin-locked widgets and APIs capture feedback where customers already are."
 	landingDetailedWorkflowCopyToken = "Role-aware workflows assign owners, surface trends, and track resolution."
-	landingThemeToggleIDToken        = "id=\"landing-theme-toggle\""
-	landingThemeScriptKeyToken       = "var landingThemeStorageKey = 'loopaware_landing_theme'"
-	landingThemeLegacyKeyToken       = "var landingLegacyThemeStorageKey = 'landing_theme'"
-	landingThemeMigrationToken       = "var legacyStoredTheme = localStorage.getItem(landingLegacyThemeStorageKey);"
-	landingThemeApplyFunctionToken   = "function applyLandingTheme(theme)"
+	landingThemeToggleIDToken        = "id=\"public-theme-toggle\""
+	landingThemeScriptKeyToken       = "var publicThemeStorageKey = 'loopaware_public_theme'"
+	landingThemeFallbackKeyToken     = "var landingThemeStorageKey = 'loopaware_landing_theme'"
+	landingThemeFallbackLoadToken    = "var landingStoredTheme = localStorage.getItem(landingThemeStorageKey);"
+	landingThemeLegacyKeyToken       = "var legacyThemeStorageKey = 'landing_theme'"
+	landingThemeMigrationToken       = "var legacyStoredTheme = localStorage.getItem(legacyThemeStorageKey);"
+	landingThemeApplyFunctionToken   = "function applyPublicTheme(theme)"
 	landingThemeDataAttributeToken   = "data-bs-theme"
 	landingLogoImageClassToken       = "class=\"landing-logo-image\""
 	landingLogoAltToken              = "alt=\"LoopAware logo\""
@@ -42,7 +44,9 @@ const (
 	landingFooterLinkCrosswordToken  = "https://llm-crossword.mprlab.com"
 	landingFooterLinkPromptsToken    = "https://prompts.mprlab.com"
 	landingFooterLinkWallpapersToken = "https://wallpapers.mprlab.com"
-	landingFooterAlignmentToken      = "justify-content-md-end"
+	landingFooterLayoutToken         = "footer-layout"
+	landingFooterBrandWrapperToken   = "footer-brand d-inline-flex align-items-center"
+	landingFooterPrivacyClassToken   = "footer-privacy-link text-body-secondary text-decoration-none small"
 	landingFooterPaddingToken        = "landing-footer border-top mt-auto py-2"
 	landingCardHoverToken            = ".landing-card:hover"
 	landingCardFocusToken            = ".landing-card:focus-visible"
@@ -95,6 +99,8 @@ func TestLandingPageProvidesThemeSwitch(t *testing.T) {
 	body := recorder.Body.String()
 	require.Contains(t, body, landingThemeToggleIDToken)
 	require.Contains(t, body, landingThemeScriptKeyToken)
+	require.Contains(t, body, landingThemeFallbackKeyToken)
+	require.Contains(t, body, landingThemeFallbackLoadToken)
 	require.Contains(t, body, landingThemeLegacyKeyToken)
 	require.Contains(t, body, landingThemeMigrationToken)
 	require.Contains(t, body, landingThemeApplyFunctionToken)
@@ -182,7 +188,8 @@ func TestLandingFooterDisplaysProductMenu(t *testing.T) {
 	require.Contains(t, body, landingFooterLinkCrosswordToken)
 	require.Contains(t, body, landingFooterLinkPromptsToken)
 	require.Contains(t, body, landingFooterLinkWallpapersToken)
-	require.Contains(t, body, landingFooterAlignmentToken)
+	require.Contains(t, body, landingFooterLayoutToken)
+	require.Contains(t, body, landingFooterBrandWrapperToken)
 	require.Contains(t, body, landingFooterPaddingToken)
 }
 
@@ -197,6 +204,7 @@ func TestLandingPageDisplaysPrivacyLink(t *testing.T) {
 
 	body := recorder.Body.String()
 	require.Contains(t, body, landingPrivacyLinkToken)
+	require.Contains(t, body, landingFooterPrivacyClassToken)
 }
 func TestLandingCardsProvideInteractiveStates(t *testing.T) {
 	gin.SetMode(gin.TestMode)

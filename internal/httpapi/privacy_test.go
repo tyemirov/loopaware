@@ -13,12 +13,15 @@ import (
 
 const (
 	privacyTitleToken          = "<title>Privacy Policy — LoopAware</title>"
-	privacyHeadingToken        = "<h1>Privacy Policy — LoopAware</h1>"
+	privacyHeadingToken        = "<h1 class=\"privacy-heading\">Privacy Policy — LoopAware</h1>"
 	privacyEffectiveDateToken  = "<strong>Effective Date:</strong> 2025-10-11"
 	privacyMetaRobotsToken     = "<meta name=\"robots\" content=\"noindex,nofollow\" />"
 	privacySupportEmailToken   = "mailto:support@mprlab.com"
 	privacyBodyFontStyleToken  = "body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif"
 	privacyGeneratorCommentTag = "<!doctype html>"
+	privacyFooterLayoutToken   = "footer-layout"
+	privacyFooterBrandToken    = "footer-brand d-inline-flex align-items-center"
+	privacyFooterPrivacyToken  = "footer-privacy-link text-body-secondary text-decoration-none small"
 )
 
 func TestPrivacyPageRendersPolicyMarkup(t *testing.T) {
@@ -40,4 +43,17 @@ func TestPrivacyPageRendersPolicyMarkup(t *testing.T) {
 	require.Contains(t, body, privacyMetaRobotsToken)
 	require.Contains(t, body, privacySupportEmailToken)
 	require.Contains(t, body, privacyBodyFontStyleToken)
+	require.Contains(t, body, landingHeaderStickyToken)
+	require.Contains(t, body, landingThemeToggleIDToken)
+	require.Contains(t, body, landingThemeScriptKeyToken)
+	require.Contains(t, body, landingThemeFallbackKeyToken)
+	require.Contains(t, body, landingThemeFallbackLoadToken)
+	require.Contains(t, body, landingThemeLegacyKeyToken)
+	require.Contains(t, body, landingThemeApplyFunctionToken)
+	require.Contains(t, body, landingThemeDataAttributeToken)
+	require.Contains(t, body, privacyFooterLayoutToken)
+	require.Contains(t, body, privacyFooterBrandToken)
+	require.Contains(t, body, privacyFooterPrivacyToken)
+	require.Contains(t, body, dashboardFooterBrandPrefix)
+	require.Contains(t, body, dashboardFooterBrandName)
 }
