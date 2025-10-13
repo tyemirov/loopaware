@@ -111,8 +111,8 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-54] Add branding to the widget, saying "Bulit by Marco Polo Research Lab" with a link to https://mprlab.com. Have it in small letters under the widget.
 - [x] [LA-56] The endpoint `api/me` shall return a JSON payload including user email, name and avatar. The rest of the system should be using this information when displaying user details. The login shall ba saving/updating this information. It must be a protected endpoint so that only the logged in user could get the information.
 - [x] [LA-59] Define and surface descriptive error messages for the end users: when site already exists the message should say so instead of a generic "forbidden" etc
-- [ ] [LA-61] Implement task based subsystem that performs non-immediate tasks such as retrieving sites favicons. The task shall be triggered using an internal schedule: check and update favicons every 24 hours.
-- [ ] [LA-62] Schedule an immediate task execution for favicon retrieval on site creation or update from the user. Implement a mechanism (SSE?) to inform the site that the favicon must be retrieved from the backend in case we got a new or updated favicon. dont do anything if the favicon hasnt changed
+- [X] [LA-61] Implement task based subsystem that performs non-immediate tasks such as retrieving sites favicons. The task shall be triggered using an internal schedule: check and update favicons every 24 hours.
+- [X] [LA-62] Schedule an immediate task execution for favicon retrieval on site creation or update from the user. Implement a mechanism (SSE?) to inform the site that the favicon must be retrieved from the backend in case we got a new or updated favicon. dont do anything if the favicon hasnt changed
 
 ### BugFixes
 
@@ -142,3 +142,30 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-60] When trying to create a site I am getting an error "Only administrator can assign different site owners". I dont understand this error. AS  user I am able to create any sites, and assign any emails to the owners of the site, same as administrator. The only difference between a User and Administrator is the number of sites that the administrator can see. Write integration tests that verify that a user can perform ALL and every action an administratort cvan perform. ensure we have a test that verifies that administrator can see sites not created by them, and the user can not see sites not created by them, ensure that we have an association between a logged user, who is a creator, and sites being created
 
 ### Maintenance
+
+- [ ] [LA-63] add a small “Privacy • Terms” link. and I mean small. it must serve a page under /privacy
+    ```html
+    <!doctype html>
+    <html lang="en">
+    <head>
+    <meta charset="utf-8">
+    <title>Privacy Policy — LoopAware</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <style>
+        body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:40px;max-width:800px}
+        h1{font-size:1.6rem;margin-bottom:.2rem}
+    </style>
+    </head>
+    <body>
+    <h1>Privacy Policy — Prompts Bubbles</h1>
+    <p><strong>Effective Date:</strong> 2025-10-11</p>
+    <p>RSVP uses Google Identity Services to authenticate users. We receive your Google profile
+        information (name, email, profile image) only to sign you in. We do not sell or share your data,
+        and we only store your notes so the service functions.</p>
+    <p>To request deletion of your data, contact
+        <a href="mailto:support@mprlab.com">support@mprlab.com</a>.</p>
+    </body>
+    </html>
+    ```
+- [ ] [LA-64] add privacy to the sitemap
