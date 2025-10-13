@@ -355,6 +355,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	defer faviconManager.Stop()
 	defer faviconManagerCancel()
 	faviconManager.Start(faviconManagerContext)
+	faviconManager.TriggerScheduledRefresh()
 	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(database)
 	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot)
