@@ -22,13 +22,14 @@ import (
 )
 
 const (
-	testAdminEmailAddress = "admin@example.com"
-	testUserEmailAddress  = "user@example.com"
-	testCreatorEmail      = "creator@example.com"
-	testSessionContextKey = "httpapi_current_user"
-	testWidgetBaseURL     = "https://gravity.mprlab.com/"
-	jsonErrorKey          = "error"
-	errorCodeSiteExists   = "site_exists"
+	testAdminEmailAddress          = "admin@example.com"
+	testUserEmailAddress           = "user@example.com"
+	testCreatorEmail               = "creator@example.com"
+	testAlternateOwnerEmailAddress = "owner@example.com"
+	testSessionContextKey          = "httpapi_current_user"
+	testWidgetBaseURL              = "https://gravity.mprlab.com/"
+	jsonErrorKey                   = "error"
+	errorCodeSiteExists            = "site_exists"
 )
 
 type siteTestHarness struct {
@@ -232,6 +233,88 @@ func TestListSitesReturnsCreatorSitesForNonAdmin(testingT *testing.T) {
 	require.Equal(testingT, site.ID, responseBody.Sites[0].Identifier)
 }
 
+func TestListSitesIncludesAllSitesForAdmin(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	adminSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Admin Visibility Anchor",
+		AllowedOrigin: "https://admin-visibility.example",
+		OwnerEmail:    testAdminEmailAddress,
+		CreatorEmail:  testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&adminSite).Error)
+
+	userManagedSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Admin Should See",
+		AllowedOrigin: "https://admin-sees-user.example",
+		OwnerEmail:    testAlternateOwnerEmailAddress,
+		CreatorEmail:  testUserEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&userManagedSite).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites", nil)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.ListSites(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody struct {
+		Sites []struct {
+			Identifier string `json:"id"`
+		} `json:"sites"`
+	}
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+
+	returnedSites := make(map[string]struct{}, len(responseBody.Sites))
+	for _, site := range responseBody.Sites {
+		returnedSites[site.Identifier] = struct{}{}
+	}
+	_, adminSiteFound := returnedSites[adminSite.ID]
+	_, userManagedSiteFound := returnedSites[userManagedSite.ID]
+	require.True(testingT, adminSiteFound)
+	require.True(testingT, userManagedSiteFound)
+}
+
+func TestListSitesExcludesForeignSitesForNonAdmin(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	managedSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "User Managed Site",
+		AllowedOrigin: "https://user-managed.example",
+		OwnerEmail:    testAlternateOwnerEmailAddress,
+		CreatorEmail:  testUserEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&managedSite).Error)
+
+	foreignSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Foreign Visibility Site",
+		AllowedOrigin: "https://foreign-visibility.example",
+		OwnerEmail:    testAdminEmailAddress,
+		CreatorEmail:  testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&foreignSite).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites", nil)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
+
+	harness.handlers.ListSites(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody struct {
+		Sites []struct {
+			Identifier string `json:"id"`
+		} `json:"sites"`
+	}
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+
+	require.Len(testingT, responseBody.Sites, 1)
+	require.Equal(testingT, managedSite.ID, responseBody.Sites[0].Identifier)
+}
+
 func TestSiteFaviconReturnsStoredIcon(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
@@ -329,20 +412,29 @@ func TestCreateSiteAssignsCurrentUserAsOwner(testingT *testing.T) {
 	require.Equal(testingT, testUserEmailAddress, createdSite.CreatorEmail)
 }
 
-func TestCreateSiteRejectsForeignOwnerForRegularUser(testingT *testing.T) {
+func TestCreateSiteAllowsNonAdminToAssignAlternateOwner(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
 	payload := map[string]string{
-		"name":           "Invalid Owner",
-		"allowed_origin": "http://invalid.example",
-		"owner_email":    "other@example.com",
+		"name":           "Delegated Ownership",
+		"allowed_origin": "http://delegated.example",
+		"owner_email":    testAlternateOwnerEmailAddress,
 	}
 
 	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
 	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
 
 	harness.handlers.CreateSite(context)
-	require.Equal(testingT, http.StatusForbidden, recorder.Code)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody map[string]any
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, testAlternateOwnerEmailAddress, responseBody["owner_email"])
+
+	var createdSite model.Site
+	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Delegated Ownership").Error)
+	require.Equal(testingT, testAlternateOwnerEmailAddress, createdSite.OwnerEmail)
+	require.Equal(testingT, testUserEmailAddress, createdSite.CreatorEmail)
 }
 
 func TestCreateSiteRejectsDuplicateAllowedOrigin(testingT *testing.T) {
@@ -472,6 +564,29 @@ func TestUpdateSiteAllowsOwnerToReassignOwnership(testingT *testing.T) {
 	var updatedSite model.Site
 	require.NoError(testingT, harness.database.First(&updatedSite, "id = ?", site.ID).Error)
 	require.Equal(testingT, newOwnerEmail, updatedSite.OwnerEmail)
+}
+
+func TestDeleteSiteAllowsCreatorWithAlternateOwner(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Creator Managed Site",
+		AllowedOrigin: "http://creator-managed.example",
+		OwnerEmail:    testAlternateOwnerEmailAddress,
+		CreatorEmail:  testUserEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodDelete, "/api/sites/"+site.ID, nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
+
+	harness.handlers.DeleteSite(context)
+	require.Equal(testingT, http.StatusNoContent, recorder.Code)
+
+	var remainingSite model.Site
+	require.ErrorIs(testingT, harness.database.First(&remainingSite, "id = ?", site.ID).Error, gorm.ErrRecordNotFound)
 }
 
 func TestDeleteSiteRemovesSiteAndFeedback(testingT *testing.T) {

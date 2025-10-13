@@ -105,6 +105,9 @@ The `/api/me` response includes a `role` value of `admin` or `user` and an `avat
 profile image (served from `/api/me/avatar`). The dashboard uses this payload to render the account card and determine
 site scope.
 
+Both roles can create, update, and delete sites. Administrators additionally view every site in the system, while users
+see only the sites they own or originally created.
+
 Deployments upgraded from versions prior to LA-57 should allow the server startup migration to run once; it backfills any
 sites missing a `creator_email` with `temirov@gmail.com` to preserve creator-based visibility rules. New site creations
 store the authenticated creator separately from the configured owner mailbox.
@@ -114,7 +117,7 @@ store the authenticated creator separately from the configured owner mailbox.
 The Bootstrap front end consumes the APIs above. Features include:
 
 - Account card with avatar, email, and role badge
-- Admin-only controls to create sites and reassign ownership
+- Site creation and owner reassignment available to every authenticated user; administrators additionally see all sites
 - Owner/admin editor for site metadata
 - Feedback table with human-readable timestamps
 - Logout button (links to `/logout`)

@@ -24,18 +24,17 @@ const (
 	jsonKeyAvatar    = "avatar"
 	jsonKeyAvatarURL = "url"
 
-	errorValueInvalidJSON      = "invalid_json"
-	errorValueMissingFields    = "missing_fields"
-	errorValueSaveFailed       = "save_failed"
-	errorValueMissingSite      = "missing_site"
-	errorValueUnknownSite      = "unknown_site"
-	errorValueQueryFailed      = "query_failed"
-	errorValueNotAuthorized    = "not_authorized"
-	errorValueInvalidOwner     = "invalid_owner"
-	errorValueNothingToUpdate  = "nothing_to_update"
-	errorValueInvalidOperation = "invalid_operation"
-	errorValueDeleteFailed     = "delete_failed"
-	errorValueSiteExists       = "site_exists"
+	errorValueInvalidJSON     = "invalid_json"
+	errorValueMissingFields   = "missing_fields"
+	errorValueSaveFailed      = "save_failed"
+	errorValueMissingSite     = "missing_site"
+	errorValueUnknownSite     = "unknown_site"
+	errorValueQueryFailed     = "query_failed"
+	errorValueNotAuthorized   = "not_authorized"
+	errorValueInvalidOwner    = "invalid_owner"
+	errorValueNothingToUpdate = "nothing_to_update"
+	errorValueDeleteFailed    = "delete_failed"
+	errorValueSiteExists      = "site_exists"
 
 	widgetScriptTemplate   = "<script defer src=\"%s/widget.js?site_id=%s\"></script>"
 	siteFaviconURLTemplate = "/api/sites/%s/favicon"
@@ -136,14 +135,9 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 
 	payload.Name = strings.TrimSpace(payload.Name)
 	payload.AllowedOrigin = strings.TrimSpace(payload.AllowedOrigin)
-	desiredOwnerEmail := strings.ToLower(strings.TrimSpace(payload.OwnerEmail))
 	creatorEmail := currentUser.normalizedEmail()
-
-	if !currentUser.hasRole(RoleAdmin) {
-		if desiredOwnerEmail != "" && !strings.EqualFold(desiredOwnerEmail, creatorEmail) {
-			context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueInvalidOperation})
-			return
-		}
+	desiredOwnerEmail := strings.ToLower(strings.TrimSpace(payload.OwnerEmail))
+	if desiredOwnerEmail == "" {
 		desiredOwnerEmail = creatorEmail
 	}
 
