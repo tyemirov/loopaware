@@ -39,6 +39,9 @@ const (
 	dashboardFooterBrandName             = "Marco Polo Research Lab"
 	dashboardFooterBrandURL              = "https://mprlab.com"
 	dashboardFooterToggleButtonID        = "dashboard-footer-toggle"
+	dashboardSmallPrintWrapperClass      = "container text-end small py-3"
+	dashboardSmallPrintLinkClass         = "text-body-secondary text-decoration-none"
+	dashboardSmallPrintLogContext        = "render_dashboard_small_print"
 	dashboardHeaderLogoElementID         = "dashboard-header-logo"
 	navbarSettingsButtonLabel            = "Account settings"
 	navbarLogoutLabel                    = "Logout"
@@ -208,6 +211,7 @@ type dashboardTemplateData struct {
 	EmptySitesMessage                 string
 	FeedbackPlaceholder               string
 	FooterHTML                        template.HTML
+	SmallPrintHTML                    template.HTML
 	FooterElementID                   string
 	FooterInnerElementID              string
 	FooterBaseClass                   string
@@ -392,6 +396,15 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		footerHTML = template.HTML("")
 	}
 
+	smallPrintHTML, smallPrintErr := RenderFooterSmallPrintHTML(FooterSmallPrintConfig{
+		WrapperClass: dashboardSmallPrintWrapperClass,
+		LinkClass:    dashboardSmallPrintLinkClass,
+	})
+	if smallPrintErr != nil {
+		handlers.logger.Warn(dashboardSmallPrintLogContext, zap.Error(smallPrintErr))
+		smallPrintHTML = template.HTML("")
+	}
+
 	data := dashboardTemplateData{
 		PageTitle:                         dashboardPageTitle,
 		APIMeEndpoint:                     "/api/me",
@@ -423,6 +436,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		EmptySitesMessage:                 dashboardStatusNoSites,
 		FeedbackPlaceholder:               dashboardFeedbackPlaceholder,
 		FooterHTML:                        footerHTML,
+		SmallPrintHTML:                    smallPrintHTML,
 		FooterElementID:                   footerElementID,
 		FooterInnerElementID:              footerInnerElementID,
 		FooterBaseClass:                   footerBaseClass,

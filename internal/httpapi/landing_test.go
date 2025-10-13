@@ -52,6 +52,7 @@ const (
 	landingHeaderBrandAnchorToken    = "<a class=\"navbar-brand"
 	landingHeaderBrandSpanToken      = "<span class=\"navbar-brand"
 	landingFaviconLinkToken          = "<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg&#43;xml"
+	landingPrivacyLinkToken          = "href=\"/privacy\">Privacy • Terms"
 )
 
 func TestLandingPageIncludesDetailedCopy(t *testing.T) {
@@ -185,6 +186,18 @@ func TestLandingFooterDisplaysProductMenu(t *testing.T) {
 	require.Contains(t, body, landingFooterPaddingToken)
 }
 
+func TestLandingPageDisplaysPrivacyLink(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
+
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop())
+	handlers.RenderLandingPage(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, landingPrivacyLinkToken)
+}
 func TestLandingCardsProvideInteractiveStates(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()

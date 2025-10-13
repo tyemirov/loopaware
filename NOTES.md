@@ -140,10 +140,15 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-57] In case we have records with no information about what user has created them, we shall make a one-time data migration and update such records for the creator to be temirov@gmail.com. After that we shall be sure to separate the user who has created the records, using user's email from login, and the field called owner email, which is just an information we store for now
 - [x] [LA-58] When pressing tab in the Site details, the focus shall be moving between the three input fields cyclically and not to the tooltips.
 - [x] [LA-60] When trying to create a site I am getting an error "Only administrator can assign different site owners". I dont understand this error. AS  user I am able to create any sites, and assign any emails to the owners of the site, same as administrator. The only difference between a User and Administrator is the number of sites that the administrator can see. Write integration tests that verify that a user can perform ALL and every action an administratort cvan perform. ensure we have a test that verifies that administrator can see sites not created by them, and the user can not see sites not created by them, ensure that we have an association between a logged user, who is a creator, and sites being created
+- [ ] [LA-65] Remove race condition in SiteFaviconManager + Scheduler.Start by adding context cancellation, Stop(), and proper sync (mutex/WaitGroup).
+- [ ] [LA-66] Ensure all tests clean up background goroutines with t.Cleanup.
+- [ ] [LA-67] Make chromedp tests deterministic: skip fast if Chrome not installed or fails to start; run with CI-safe flags otherwise.
+- [ ] [LA-68] Silence GORM “record not found” logs in tests via test logger config, but still assert on errors.
+- [ ] [LA-69] Verify go test ./... -v -race -count=1 passes in CI without race, leaks, or long hangs.
 
 ### Maintenance
 
-- [ ] [LA-63] add a small “Privacy • Terms” link. and I mean small. it must serve a page under /privacy
+- [x] [LA-63] add a small “Privacy • Terms” link. and I mean small. it must serve a page under /privacy
     ```html
     <!doctype html>
     <html lang="en">
@@ -158,7 +163,7 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
     </style>
     </head>
     <body>
-    <h1>Privacy Policy — Prompts Bubbles</h1>
+    <h1>Privacy Policy — LoopAware</h1>
     <p><strong>Effective Date:</strong> 2025-10-11</p>
     <p>RSVP uses Google Identity Services to authenticate users. We receive your Google profile
         information (name, email, profile image) only to sign you in. We do not sell or share your data,
@@ -168,4 +173,4 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
     </body>
     </html>
     ```
-- [ ] [LA-64] add privacy to the sitemap
+- [x] [LA-64] add privacy to the sitemap
