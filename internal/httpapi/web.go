@@ -27,6 +27,8 @@ const (
 	dashboardStatusNoSites               = "No sites available yet."
 	dashboardRoleAdminLabel              = "Administrator"
 	dashboardRoleUserLabel               = "User"
+	dashboardRoleAdminValue              = "admin"
+	dashboardRoleUserValue               = "user"
 	dashboardFeedbackPlaceholder         = "Select a site to load feedback."
 	dashboardWidgetCardTitle             = "Site widget"
 	dashboardWidgetInstructions          = "Embed this <script> tag on pages served from the allowed origin."
@@ -37,6 +39,9 @@ const (
 	dashboardFooterBrandName             = "Marco Polo Research Lab"
 	dashboardFooterBrandURL              = "https://mprlab.com"
 	dashboardFooterToggleButtonID        = "dashboard-footer-toggle"
+	dashboardSmallPrintWrapperClass      = "container text-end small py-3"
+	dashboardSmallPrintLinkClass         = "text-body-secondary text-decoration-none"
+	dashboardSmallPrintLogContext        = "render_dashboard_small_print"
 	dashboardHeaderLogoElementID         = "dashboard-header-logo"
 	navbarSettingsButtonLabel            = "Account settings"
 	navbarLogoutLabel                    = "Logout"
@@ -129,6 +134,7 @@ const (
 	formStatusSuccessClass              = "py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"
 	formStatusDangerClass               = "py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle"
 	fieldHelpButtonClass                = "btn btn-link p-0 text-secondary"
+	fieldHelpButtonTabIndexValue        = "-1"
 	fieldHelpIconClass                  = "bi bi-question-circle-fill"
 	fieldHelpTextClass                  = "form-text text-muted"
 	siteListItemHeaderClass             = "d-flex align-items-center gap-2"
@@ -166,6 +172,12 @@ const (
 	dashboardValidationNameMessage      = "Site name is required."
 	dashboardValidationOriginMessage    = "Allowed origin must include protocol and hostname, for example https://example.com."
 	dashboardValidationOwnerMessage     = "Provide a valid owner email address."
+	dashboardErrorMessageSiteExists     = "A site for this allowed origin already exists."
+	dashboardErrorMessageInvalidJSON    = "Submitted data could not be parsed."
+	dashboardErrorMessageMissingFields  = "Provide site name and allowed origin."
+	dashboardErrorMessageInvalidOwner   = dashboardValidationOwnerMessage
+	dashboardErrorMessageNotAuthorized  = "You are not allowed to manage that site."
+	dashboardErrorMessageSaveFailed     = "Failed to save site."
 )
 
 type dashboardTemplateData struct {
@@ -199,6 +211,7 @@ type dashboardTemplateData struct {
 	EmptySitesMessage                 string
 	FeedbackPlaceholder               string
 	FooterHTML                        template.HTML
+	SmallPrintHTML                    template.HTML
 	FooterElementID                   string
 	FooterInnerElementID              string
 	FooterBaseClass                   string
@@ -284,6 +297,7 @@ type dashboardTemplateData struct {
 	SearchToggleButtonClass           string
 	SearchInputClass                  string
 	FieldHelpButtonClass              string
+	FieldHelpButtonTabIndex           string
 	FieldHelpIconClass                string
 	FieldHelpTextClass                string
 	SiteNameHelpButtonID              string
@@ -329,6 +343,7 @@ type dashboardClientConfig struct {
 	ButtonLabels       map[string]string `json:"button_labels"`
 	StatusMessages     map[string]string `json:"status_messages"`
 	RoleLabels         map[string]string `json:"role_labels"`
+	RoleValues         map[string]string `json:"role_values"`
 	ButtonStyles       map[string]string `json:"button_styles"`
 	ComponentClasses   map[string]string `json:"component_classes"`
 	WidgetTexts        map[string]string `json:"widget_texts"`
@@ -338,6 +353,7 @@ type dashboardClientConfig struct {
 	FooterThemeClasses map[string]string `json:"footer_theme_classes"`
 	TableThemeClasses  map[string]string `json:"table_theme_classes"`
 	ValidationMessages map[string]string `json:"validation_messages"`
+	ErrorMessages      map[string]string `json:"error_messages"`
 }
 
 // DashboardWebHandlers serves the authenticated dashboard UI.
@@ -380,6 +396,15 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		footerHTML = template.HTML("")
 	}
 
+	smallPrintHTML, smallPrintErr := RenderFooterSmallPrintHTML(FooterSmallPrintConfig{
+		WrapperClass: dashboardSmallPrintWrapperClass,
+		LinkClass:    dashboardSmallPrintLinkClass,
+	})
+	if smallPrintErr != nil {
+		handlers.logger.Warn(dashboardSmallPrintLogContext, zap.Error(smallPrintErr))
+		smallPrintHTML = template.HTML("")
+	}
+
 	data := dashboardTemplateData{
 		PageTitle:                         dashboardPageTitle,
 		APIMeEndpoint:                     "/api/me",
@@ -411,6 +436,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		EmptySitesMessage:                 dashboardStatusNoSites,
 		FeedbackPlaceholder:               dashboardFeedbackPlaceholder,
 		FooterHTML:                        footerHTML,
+		SmallPrintHTML:                    smallPrintHTML,
 		FooterElementID:                   footerElementID,
 		FooterInnerElementID:              footerInnerElementID,
 		FooterBaseClass:                   footerBaseClass,
@@ -496,6 +522,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		SearchToggleButtonClass:           searchToggleButtonClass,
 		SearchInputClass:                  searchInputClass,
 		FieldHelpButtonClass:              fieldHelpButtonClass,
+		FieldHelpButtonTabIndex:           fieldHelpButtonTabIndexValue,
 		FieldHelpIconClass:                fieldHelpIconClass,
 		FieldHelpTextClass:                fieldHelpTextClass,
 		SiteNameHelpButtonID:              siteNameHelpButtonElementID,
@@ -540,6 +567,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"site_update_prefix":   "/api/sites/",
 			"site_messages_prefix": "/api/sites/",
 			"site_messages_suffix": "/messages",
+			"site_favicon_events":  "/api/sites/favicons/events",
 		},
 		Paths: map[string]string{
 			"logout":  constants.LogoutPath,
@@ -617,7 +645,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"save_saving":     "Saving site...",
 			"save_saved":      "Site updated.",
 			"save_created":    "Site created.",
-			"save_failed":     "Failed to save site.",
+			"save_failed":     dashboardErrorMessageSaveFailed,
 		},
 		StatusMessages: map[string]string{
 			"loading_user":       dashboardStatusLoadingUser,
@@ -639,8 +667,12 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"no_message_matches": dashboardStatusNoMessageMatches,
 		},
 		RoleLabels: map[string]string{
-			"admin": dashboardRoleAdminLabel,
-			"user":  dashboardRoleUserLabel,
+			dashboardRoleAdminValue: dashboardRoleAdminLabel,
+			dashboardRoleUserValue:  dashboardRoleUserLabel,
+		},
+		RoleValues: map[string]string{
+			"admin": dashboardRoleAdminValue,
+			"user":  dashboardRoleUserValue,
 		},
 		ButtonStyles: map[string]string{
 			"primary":   dashboardActionButtonPrimaryClass,
@@ -678,6 +710,15 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			validationMessageNameRequiredKey: dashboardValidationNameMessage,
 			validationMessageOriginKey:       dashboardValidationOriginMessage,
 			validationMessageOwnerKey:        dashboardValidationOwnerMessage,
+		},
+		ErrorMessages: map[string]string{
+			errorValueSiteExists:    dashboardErrorMessageSiteExists,
+			errorValueInvalidOwner:  dashboardErrorMessageInvalidOwner,
+			errorValueMissingFields: dashboardErrorMessageMissingFields,
+			errorValueInvalidJSON:   dashboardErrorMessageInvalidJSON,
+			errorValueSaveFailed:    dashboardErrorMessageSaveFailed,
+			errorValueNotAuthorized: dashboardErrorMessageNotAuthorized,
+			authErrorForbidden:      dashboardErrorMessageNotAuthorized,
 		},
 	}
 

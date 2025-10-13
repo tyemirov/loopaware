@@ -2,7 +2,7 @@
 
 ## Role
 
-You are a staff level full stack engineer. Your task is to **re-evaluate and refactor the Prompt Bubbles repository** according to the coding standards already written in **AGENTS.md**.
+You are a staff level full stack engineer. Your task is to **re-evaluate and refactor the LoopAware repository** according to the coding standards already written in **AGENTS.md**.
 
 ## Context
 
@@ -30,6 +30,7 @@ You are a staff level full stack engineer. Your task is to **re-evaluate and ref
     * Design and use shared components
 5. **Tests** → Add/adjust Puppeteer tests for key flows (button → event → notification; cross-panel isolation). Prioritize end-2-end and integration tests.
 6. **Docs** → Update README and MIGRATION.md with new event contracts, removed globals, and developer instructions.
+7. **Timeouts**  Set a timer before running any CLI command, tests, build, git etc. If an operation takes unreasonably long without producing an output, abort it and consider a diffeernt approach. Prepend all CLI invocations with `timeout <N>s` command.
 
 ## Output requirements
 
@@ -46,7 +47,7 @@ You are a staff level full stack engineer. Your task is to **re-evaluate and ref
 Review the NOTES.md. Make a plan for autonomously fixing every item under Features, BugFixes, Improvements, Maintenance. Ensure no regressions. Ensure adding tests. Lean into integration tests. Fix every issue. Document the changes.
 
 Fix issues one by one, working sequentially. 
-1. Create a new git commit with descriptive name
+1. Create a new git bracnh with descriptive name, for example `feature/LA-56-widget-defer` or `bugfix/LA-11-alpine-rehydration`. Use the taxonomy of issues as prefixes: improvement/, feature/, bugfix/, maintenace/, issue ID and a short descriptive. Respect the name limits.
 2. Describe an issue through tests. 
 2a. Ensure that the tests are comprehensive and failing to begin with. 
 2b. Ensure AGENTS.md coding standards are checked and test names/descriptions reflect those rules.
@@ -66,7 +67,7 @@ Fix issues one by one, working sequentially.
 9. Optional: update the code examples in case the changes warrant updated code examples
 10. Mark an issue as done ([X])in the NOTES.md after the issue is fixed: New and existing tests are passing without regressions
 11. Commit and push the changes to the remote branch.
-12. Repeat till all issues are fixed, and commits are stacked up (one starts from another).
+12. Repeat till all issues are fixed, and commits abd branches are stacked up (one starts from another).
 
 Do not work on all issues at once. Work at one issue at a time sequntially.
 
@@ -108,6 +109,11 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-52] Remove the square around the logo for both the landing page and the dashboard. The logo shall be transparent. Increase the size of the logo.
 - [x] [LA-53] Slim down the header and the footer
 - [x] [LA-54] Add branding to the widget, saying "Bulit by Marco Polo Research Lab" with a link to https://mprlab.com. Have it in small letters under the widget.
+- [x] [LA-56] The endpoint `api/me` shall return a JSON payload including user email, name and avatar. The rest of the system should be using this information when displaying user details. The login shall ba saving/updating this information. It must be a protected endpoint so that only the logged in user could get the information.
+- [x] [LA-59] Define and surface descriptive error messages for the end users: when site already exists the message should say so instead of a generic "forbidden" etc
+- [X] [LA-61] Implement task based subsystem that performs non-immediate tasks such as retrieving sites favicons. The task shall be triggered using an internal schedule: check and update favicons every 24 hours.
+- [X] [LA-62] Schedule an immediate task execution for favicon retrieval on site creation or update from the user. Implement a mechanism (SSE?) to inform the site that the favicon must be retrieved from the backend in case we got a new or updated favicon. dont do anything if the favicon hasnt changed
+- [ ] [LA-70] Extract favicon collection into a service. have it in pkg folder and build it suitable for any go program to invoke it. Refactor current tasks to invoke FavIconService when gathering FavIcon data
 
 ### BugFixes
 
@@ -130,6 +136,42 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-47] Clicking on the logo shall not do anything (it refreshes the page now).
 - [x] [LA-50] Add logo to the LoopAware Dashboard header (on the left of the word "LoopAware" )
 - [x] [LA-51] The choice of the theme on the landing page and the dashboard should be independent
-- [ ] [LA-52] When logged in as a user the field to enter the site email is missing. This field must be present. The difference between a User adn and Admin is that Admin can see ALL of the sites regardless of what user has created them. User can only see and edit their own sites.
+- [x] [LA-52] When logged in as a user the field to enter the site email is missing. This field must be present. The difference between a User adn and Admin is that Admin can see ALL of the sites regardless of what user has created them. User can only see and edit their own sites.
+- [X] [LA-55] The sites created by the same user are not displayed when a user changes roles. All sites created by the same user regardless of its role must be displayed when the user logs in. User and admin designation must have an abstraction called role. The role has an impact on the scope. Admin role grants an ability to view all sites regardless of the user who has created them plus everything that a user can do. User role grants the permissions to add, edit, and delete the sites that the user has created.
+- [x] [LA-57] In case we have records with no information about what user has created them, we shall make a one-time data migration and update such records for the creator to be temirov@gmail.com. After that we shall be sure to separate the user who has created the records, using user's email from login, and the field called owner email, which is just an information we store for now
+- [x] [LA-58] When pressing tab in the Site details, the focus shall be moving between the three input fields cyclically and not to the tooltips.
+- [x] [LA-60] When trying to create a site I am getting an error "Only administrator can assign different site owners". I dont understand this error. AS  user I am able to create any sites, and assign any emails to the owners of the site, same as administrator. The only difference between a User and Administrator is the number of sites that the administrator can see. Write integration tests that verify that a user can perform ALL and every action an administratort cvan perform. ensure we have a test that verifies that administrator can see sites not created by them, and the user can not see sites not created by them, ensure that we have an association between a logged user, who is a creator, and sites being created
+- [x] [LA-65] Remove race condition in SiteFaviconManager + Scheduler.Start by adding context cancellation, Stop(), and proper sync (mutex/WaitGroup).
+- [x] [LA-66] Ensure all tests clean up background goroutines with t.Cleanup.
+- [x] [LA-67] Make chromedp tests deterministic: skip fast if Chrome not installed or fails to start; run with CI-safe flags otherwise.
+- [x] [LA-68] Silence GORM “record not found” logs in tests via test logger config, but still assert on errors.
+- [x] [LA-69] Verify go test ./... -v -race -count=1 passes in CI without race, leaks, or long hangs.
 
 ### Maintenance
+
+- [x] [LA-63] add a small “Privacy • Terms” link. and I mean small. it must serve a page under /privacy
+    ```html
+    <!doctype html>
+    <html lang="en">
+    <head>
+    <meta charset="utf-8">
+    <title>Privacy Policy — LoopAware</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <style>
+        body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:40px;max-width:800px}
+        h1{font-size:1.6rem;margin-bottom:.2rem}
+    </style>
+    </head>
+    <body>
+    <h1>Privacy Policy — LoopAware</h1>
+    <p><strong>Effective Date:</strong> 2025-10-11</p>
+    <p>RSVP uses Google Identity Services to authenticate users. We receive your Google profile
+        information (name, email, profile image) only to sign you in. We do not sell or share your data,
+        and we only store your notes so the service functions.</p>
+    <p>To request deletion of your data, contact
+        <a href="mailto:support@mprlab.com">support@mprlab.com</a>.</p>
+    </body>
+    </html>
+    ```
+- [x] [LA-64] add privacy to the sitemap

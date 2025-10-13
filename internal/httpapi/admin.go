@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,23 +19,25 @@ import (
 )
 
 const (
-	jsonKeyError      = "error"
-	jsonKeyEmail      = "email"
-	jsonKeyName       = "name"
-	jsonKeyIsAdmin    = "is_admin"
-	jsonKeyPictureURL = "picture_url"
+	jsonKeyError     = "error"
+	jsonKeyEmail     = "email"
+	jsonKeyName      = "name"
+	jsonKeyRole      = "role"
+	jsonKeyAvatar    = "avatar"
+	jsonKeyAvatarURL = "url"
 
-	errorValueInvalidJSON      = "invalid_json"
-	errorValueMissingFields    = "missing_fields"
-	errorValueSaveFailed       = "save_failed"
-	errorValueMissingSite      = "missing_site"
-	errorValueUnknownSite      = "unknown_site"
-	errorValueQueryFailed      = "query_failed"
-	errorValueNotAuthorized    = "not_authorized"
-	errorValueInvalidOwner     = "invalid_owner"
-	errorValueNothingToUpdate  = "nothing_to_update"
-	errorValueInvalidOperation = "invalid_operation"
-	errorValueDeleteFailed     = "delete_failed"
+	errorValueInvalidJSON       = "invalid_json"
+	errorValueMissingFields     = "missing_fields"
+	errorValueSaveFailed        = "save_failed"
+	errorValueMissingSite       = "missing_site"
+	errorValueUnknownSite       = "unknown_site"
+	errorValueQueryFailed       = "query_failed"
+	errorValueNotAuthorized     = "not_authorized"
+	errorValueInvalidOwner      = "invalid_owner"
+	errorValueNothingToUpdate   = "nothing_to_update"
+	errorValueDeleteFailed      = "delete_failed"
+	errorValueSiteExists        = "site_exists"
+	errorValueStreamUnavailable = "stream_unavailable"
 
 	widgetScriptTemplate   = "<script defer src=\"%s/widget.js?site_id=%s\"></script>"
 	siteFaviconURLTemplate = "/api/sites/%s/favicon"
@@ -108,12 +112,15 @@ func (handlers *SiteHandlers) CurrentUser(context *gin.Context) {
 		return
 	}
 
-	context.JSON(http.StatusOK, gin.H{
-		jsonKeyEmail:      currentUser.Email,
-		jsonKeyName:       currentUser.Name,
-		jsonKeyIsAdmin:    currentUser.IsAdmin,
-		jsonKeyPictureURL: currentUser.PictureURL,
-	})
+	responsePayload := gin.H{
+		jsonKeyEmail: currentUser.Email,
+		jsonKeyName:  currentUser.Name,
+		jsonKeyRole:  currentUser.Role,
+	}
+
+	responsePayload[jsonKeyAvatar] = gin.H{jsonKeyAvatarURL: currentUser.PictureURL}
+
+	context.JSON(http.StatusOK, responsePayload)
 }
 
 func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
@@ -131,15 +138,10 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 
 	payload.Name = strings.TrimSpace(payload.Name)
 	payload.AllowedOrigin = strings.TrimSpace(payload.AllowedOrigin)
+	creatorEmail := currentUser.normalizedEmail()
 	desiredOwnerEmail := strings.ToLower(strings.TrimSpace(payload.OwnerEmail))
-	currentUserEmail := strings.ToLower(strings.TrimSpace(currentUser.Email))
-
-	if !currentUser.IsAdmin {
-		if desiredOwnerEmail != "" && !strings.EqualFold(desiredOwnerEmail, currentUserEmail) {
-			context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueInvalidOperation})
-			return
-		}
-		desiredOwnerEmail = currentUserEmail
+	if desiredOwnerEmail == "" {
+		desiredOwnerEmail = creatorEmail
 	}
 
 	if payload.Name == "" || payload.AllowedOrigin == "" {
@@ -152,11 +154,23 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		return
 	}
 
+	conflictExists, conflictCheckErr := handlers.allowedOriginConflictExists(payload.AllowedOrigin, "")
+	if conflictCheckErr != nil {
+		handlers.logger.Warn("check_allowed_origin_conflict", zap.Error(conflictCheckErr))
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+	if conflictExists {
+		context.JSON(http.StatusConflict, gin.H{jsonKeyError: errorValueSiteExists})
+		return
+	}
+
 	site := model.Site{
 		ID:            storage.NewID(),
 		Name:          payload.Name,
 		AllowedOrigin: payload.AllowedOrigin,
 		OwnerEmail:    desiredOwnerEmail,
+		CreatorEmail:  creatorEmail,
 		FaviconOrigin: payload.AllowedOrigin,
 	}
 
@@ -181,8 +195,9 @@ func (handlers *SiteHandlers) ListSites(context *gin.Context) {
 	var sites []model.Site
 
 	query := handlers.database.Model(&model.Site{})
-	if !currentUser.IsAdmin {
-		query = query.Where("owner_email = ?", strings.ToLower(strings.TrimSpace(currentUser.Email)))
+	if !currentUser.hasRole(RoleAdmin) {
+		normalizedEmail := currentUser.normalizedEmail()
+		query = query.Where("(LOWER(owner_email) = ? OR LOWER(creator_email) = ?)", normalizedEmail, normalizedEmail)
 	}
 
 	if err := query.Order("created_at desc").Find(&sites).Error; err != nil {
@@ -257,7 +272,7 @@ func (handlers *SiteHandlers) SiteFavicon(context *gin.Context) {
 		return
 	}
 
-	if !canManageSite(currentUser, site) {
+	if !currentUser.canManageSite(site) {
 		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
 		return
 	}
@@ -273,6 +288,85 @@ func (handlers *SiteHandlers) SiteFavicon(context *gin.Context) {
 	}
 	context.Header("Cache-Control", "public, max-age=300")
 	context.Data(http.StatusOK, contentType, site.FaviconData)
+}
+
+func (handlers *SiteHandlers) StreamFaviconUpdates(ginContext *gin.Context) {
+	currentUser, ok := CurrentUserFromContext(ginContext)
+	if !ok {
+		ginContext.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
+		return
+	}
+	if handlers.faviconManager == nil {
+		ginContext.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: errorValueStreamUnavailable})
+		return
+	}
+	subscription := handlers.faviconManager.Subscribe()
+	if subscription == nil {
+		ginContext.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: errorValueStreamUnavailable})
+		return
+	}
+	defer subscription.Close()
+
+	ginContext.Header("Content-Type", "text/event-stream")
+	ginContext.Header("Cache-Control", "no-cache")
+	ginContext.Header("Connection", "keep-alive")
+
+	flusher, flushable := ginContext.Writer.(http.Flusher)
+	if !flushable {
+		ginContext.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: errorValueStreamUnavailable})
+		return
+	}
+
+	ginContext.Writer.WriteHeaderNow()
+	flusher.Flush()
+
+	requestContext := ginContext.Request.Context()
+
+	for {
+		select {
+		case <-requestContext.Done():
+			return
+		case event, ok := <-subscription.Events():
+			if !ok {
+				return
+			}
+			if !handlers.userCanAccessSite(context.Background(), currentUser, event.SiteID) {
+				continue
+			}
+			payload := struct {
+				SiteID     string `json:"site_id"`
+				FaviconURL string `json:"favicon_url"`
+				UpdatedAt  int64  `json:"updated_at"`
+			}{
+				SiteID:     event.SiteID,
+				FaviconURL: event.FaviconURL,
+				UpdatedAt:  event.UpdatedAt.UTC().Unix(),
+			}
+			serializedPayload, marshalErr := json.Marshal(payload)
+			if marshalErr != nil {
+				if handlers.logger != nil {
+					handlers.logger.Debug("marshal_favicon_event_failed", zap.Error(marshalErr))
+				}
+				continue
+			}
+			var buffer bytes.Buffer
+			buffer.WriteString("event: favicon_updated\n")
+			buffer.WriteString("data: ")
+			buffer.Write(serializedPayload)
+			buffer.WriteString("\n\n")
+			if _, writeErr := ginContext.Writer.Write(buffer.Bytes()); writeErr != nil {
+				return
+			}
+			flusher.Flush()
+			if handlers.logger != nil {
+				handlers.logger.Debug(
+					"stream_favicon_event",
+					zap.String("site_id", event.SiteID),
+					zap.String("favicon_url", event.FaviconURL),
+				)
+			}
+		}
+	}
 }
 
 func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
@@ -305,7 +399,7 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		return
 	}
 
-	if !canManageSite(currentUser, site) {
+	if !currentUser.canManageSite(site) {
 		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
 		return
 	}
@@ -327,16 +421,22 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 			return
 		}
 		if !strings.EqualFold(strings.TrimSpace(site.AllowedOrigin), trimmed) {
+			conflictExists, conflictCheckErr := handlers.allowedOriginConflictExists(trimmed, site.ID)
+			if conflictCheckErr != nil {
+				handlers.logger.Warn("check_allowed_origin_conflict", zap.Error(conflictCheckErr))
+				context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+				return
+			}
+			if conflictExists {
+				context.JSON(http.StatusConflict, gin.H{jsonKeyError: errorValueSiteExists})
+				return
+			}
 			originChanged = true
 		}
 		site.AllowedOrigin = trimmed
 	}
 
 	if payload.OwnerEmail != nil {
-		if !currentUser.IsAdmin {
-			context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueInvalidOperation})
-			return
-		}
 		trimmed := strings.ToLower(strings.TrimSpace(*payload.OwnerEmail))
 		if trimmed == "" {
 			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidOwner})
@@ -386,7 +486,7 @@ func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
 		return
 	}
 
-	if !canManageSite(currentUser, site) {
+	if !currentUser.canManageSite(site) {
 		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
 		return
 	}
@@ -429,7 +529,7 @@ func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
 		return
 	}
 
-	if !canManageSite(currentUser, site) {
+	if !currentUser.canManageSite(site) {
 		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
 		return
 	}
@@ -466,7 +566,7 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 
 	faviconURL := ""
 	if len(site.FaviconData) > 0 {
-		faviconURL = fmt.Sprintf(siteFaviconURLTemplate, site.ID)
+		faviconURL = versionedSiteFaviconURL(site.ID, site.FaviconFetchedAt)
 	}
 
 	return siteResponse{
@@ -500,16 +600,40 @@ func (handlers *SiteHandlers) scheduleFaviconFetch(site model.Site) {
 	handlers.faviconManager.ScheduleFetch(site)
 }
 
+func (handlers *SiteHandlers) userCanAccessSite(ctx context.Context, currentUser *CurrentUser, siteID string) bool {
+	if handlers.database == nil || currentUser == nil {
+		return false
+	}
+	var site model.Site
+	if err := handlers.database.WithContext(ctx).Select("id", "owner_email", "creator_email").First(&site, "id = ?", siteID).Error; err != nil {
+		return false
+	}
+	return currentUser.canManageSite(site)
+}
+
+func (handlers *SiteHandlers) allowedOriginConflictExists(allowedOrigin string, excludeSiteID string) (bool, error) {
+	if handlers.database == nil {
+		return false, nil
+	}
+	normalizedOrigin := strings.ToLower(strings.TrimSpace(allowedOrigin))
+	if normalizedOrigin == "" {
+		return false, nil
+	}
+	query := handlers.database.Model(&model.Site{}).Where("LOWER(allowed_origin) = ?", normalizedOrigin)
+	excludedIdentifier := strings.TrimSpace(excludeSiteID)
+	if excludedIdentifier != "" {
+		query = query.Where("id <> ?", excludedIdentifier)
+	}
+	var existingCount int64
+	if err := query.Count(&existingCount).Error; err != nil {
+		return false, err
+	}
+	return existingCount > 0, nil
+}
+
 func normalizeWidgetBaseURL(value string) string {
 	trimmed := strings.TrimSpace(value)
 	return strings.TrimRight(trimmed, "/")
-}
-
-func canManageSite(currentUser *CurrentUser, site model.Site) bool {
-	if currentUser.IsAdmin {
-		return true
-	}
-	return strings.EqualFold(site.OwnerEmail, strings.TrimSpace(currentUser.Email))
 }
 
 func (handlers *SiteHandlers) ginRequestContext(ginContext *gin.Context) context.Context {

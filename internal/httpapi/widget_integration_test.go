@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -39,6 +40,8 @@ const (
 	headlessBrowserSkipMessageFormat       = "%s: %v"
 	headlessBrowserEnvironmentChromedp     = "CHROMEDP_BROWSER"
 	headlessBrowserEnvironmentChromePath   = "CHROME_PATH"
+	headlessBrowserDisabledFeatures        = "TranslateUI,BlinkGenPropertyTrees,AutomationControlled"
+	headlessBrowserPasswordStore           = "basic"
 	widgetBubbleSelector                   = "#mp-feedback-bubble"
 	widgetPanelSelector                    = "#mp-feedback-panel"
 	widgetContactSelector                  = "#mp-feedback-panel input"
@@ -71,6 +74,49 @@ var headlessBrowserExecutableNames = []string{
 	"chrome",
 	"headless-shell",
 }
+
+var headlessBrowserDeterministicAllocatorFlags = []chromedp.ExecAllocatorOption{
+	chromedp.Flag("headless", true),
+	chromedp.Flag("disable-gpu", true),
+	chromedp.Flag("no-sandbox", true),
+	chromedp.Flag("disable-dev-shm-usage", true),
+	chromedp.Flag("ignore-certificate-errors", true),
+	chromedp.Flag("disable-background-networking", true),
+	chromedp.Flag("disable-backgrounding-occluded-windows", true),
+	chromedp.Flag("disable-breakpad", true),
+	chromedp.Flag("disable-component-update", true),
+	chromedp.Flag("disable-default-apps", true),
+	chromedp.Flag("disable-extensions", true),
+	chromedp.Flag("disable-features", headlessBrowserDisabledFeatures),
+	chromedp.Flag("disable-hang-monitor", true),
+	chromedp.Flag("disable-ipc-flooding-protection", true),
+	chromedp.Flag("disable-renderer-backgrounding", true),
+	chromedp.Flag("disable-sync", true),
+	chromedp.Flag("enable-automation", true),
+	chromedp.Flag("metrics-recording-only", true),
+	chromedp.Flag("mute-audio", true),
+	chromedp.Flag("no-first-run", true),
+	chromedp.Flag("password-store", headlessBrowserPasswordStore),
+	chromedp.Flag("remote-debugging-port", 0),
+	chromedp.Flag("safebrowsing-disable-auto-update", true),
+	chromedp.Flag("use-mock-keychain", true),
+}
+
+var headlessBrowserLookupCache struct {
+	once sync.Once
+	path string
+	err  error
+}
+
+var headlessBrowserStartupCache struct {
+	once sync.Once
+	err  error
+}
+
+var (
+	headlessBrowserRuntimeFailureMutex sync.RWMutex
+	headlessBrowserRuntimeFailure      error
+)
 
 var errHeadlessBrowserNotFound = errors.New("headless browser executable not found")
 
@@ -207,6 +253,16 @@ func TestWidgetAppliesDarkThemeStyles(t *testing.T) {
 }
 
 func locateHeadlessBrowserExecutable() (string, error) {
+	headlessBrowserLookupCache.once.Do(func() {
+		headlessBrowserLookupCache.path, headlessBrowserLookupCache.err = discoverHeadlessBrowserExecutable()
+	})
+	if headlessBrowserLookupCache.err != nil {
+		return "", headlessBrowserLookupCache.err
+	}
+	return headlessBrowserLookupCache.path, nil
+}
+
+func discoverHeadlessBrowserExecutable() (string, error) {
 	environmentVariableNames := []string{
 		headlessBrowserEnvironmentChromedp,
 		headlessBrowserEnvironmentChromePath,
@@ -230,24 +286,73 @@ func locateHeadlessBrowserExecutable() (string, error) {
 	return "", fmt.Errorf("%s: %w", headlessBrowserLocateErrorMessage, errHeadlessBrowserNotFound)
 }
 
+func loadHeadlessBrowserRuntimeFailure() error {
+	headlessBrowserRuntimeFailureMutex.RLock()
+	defer headlessBrowserRuntimeFailureMutex.RUnlock()
+	return headlessBrowserRuntimeFailure
+}
+
+func storeHeadlessBrowserRuntimeFailure(failure error) {
+	if failure == nil {
+		return
+	}
+	headlessBrowserRuntimeFailureMutex.Lock()
+	if headlessBrowserRuntimeFailure == nil {
+		headlessBrowserRuntimeFailure = failure
+	}
+	headlessBrowserRuntimeFailureMutex.Unlock()
+}
+
+func buildHeadlessAllocatorOptions(browserExecutablePath string) []chromedp.ExecAllocatorOption {
+	options := append([]chromedp.ExecAllocatorOption{}, chromedp.DefaultExecAllocatorOptions[:]...)
+	options = append(options, chromedp.ExecPath(browserExecutablePath))
+	options = append(options, headlessBrowserDeterministicAllocatorFlags...)
+	return options
+}
+
+func ensureHeadlessBrowserReady(browserExecutablePath string) error {
+	headlessBrowserStartupCache.once.Do(func() {
+		allocatorOptions := buildHeadlessAllocatorOptions(browserExecutablePath)
+		allocatorContext, allocatorCancel := chromedp.NewExecAllocator(context.Background(), allocatorOptions...)
+		defer allocatorCancel()
+
+		browserContext, browserCancel := chromedp.NewContext(allocatorContext)
+		defer browserCancel()
+
+		startupContext, startupCancel := context.WithTimeout(browserContext, browserStartupTimeout)
+		defer startupCancel()
+
+		headlessBrowserStartupCache.err = chromedp.Run(startupContext,
+			chromedp.Navigate("about:blank"),
+			chromedp.WaitReady("body", chromedp.ByQuery),
+		)
+	})
+	if headlessBrowserStartupCache.err != nil {
+		storeHeadlessBrowserRuntimeFailure(headlessBrowserStartupCache.err)
+	}
+	return headlessBrowserStartupCache.err
+}
+
 func buildHeadlessBrowserContext(testingT *testing.T) context.Context {
 	testingT.Helper()
 
+	if failure := loadHeadlessBrowserRuntimeFailure(); failure != nil {
+		testingT.Skipf(headlessBrowserSkipMessageFormat, headlessBrowserSkipReason, failure)
+	}
+
 	browserExecutablePath, locateBrowserErr := locateHeadlessBrowserExecutable()
 	if locateBrowserErr != nil {
+		storeHeadlessBrowserRuntimeFailure(locateBrowserErr)
 		testingT.Skipf(headlessBrowserSkipMessageFormat, headlessBrowserSkipReason, locateBrowserErr)
 	}
 
-	headlessAllocatorOptions := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.ExecPath(browserExecutablePath),
-		chromedp.Flag("headless", true),
-		chromedp.Flag("disable-gpu", true),
-		chromedp.Flag("no-sandbox", true),
-		chromedp.Flag("disable-dev-shm-usage", true),
-		chromedp.Flag("ignore-certificate-errors", true),
-	)
+	if readinessErr := ensureHeadlessBrowserReady(browserExecutablePath); readinessErr != nil {
+		testingT.Skipf(headlessBrowserSkipMessageFormat, headlessBrowserSkipReason, readinessErr)
+	}
 
-	allocatorContext, allocatorCancel := chromedp.NewExecAllocator(context.Background(), headlessAllocatorOptions...)
+	allocatorOptions := buildHeadlessAllocatorOptions(browserExecutablePath)
+
+	allocatorContext, allocatorCancel := chromedp.NewExecAllocator(context.Background(), allocatorOptions...)
 	testingT.Cleanup(allocatorCancel)
 
 	browserContext, browserCancel := chromedp.NewContext(allocatorContext)
@@ -261,6 +366,7 @@ func buildHeadlessBrowserContext(testingT *testing.T) context.Context {
 		chromedp.WaitReady("body", chromedp.ByQuery),
 	)
 	if startupErr != nil {
+		storeHeadlessBrowserRuntimeFailure(startupErr)
 		testingT.Skipf(headlessBrowserSkipMessageFormat, headlessBrowserSkipReason, startupErr)
 	}
 

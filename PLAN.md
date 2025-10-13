@@ -1,0 +1,5 @@
+- [ ] internal/httpapi/site_favicon_manager.go, internal/task/scheduler.go — introduce coordinated cancellation/Stop bookkeeping with explicit wait groups to eliminate favicon worker races (LA-65).
+- [ ] internal/httpapi/site_favicon_manager_test.go, internal/httpapi/admin_test.go — switch background manager lifecycle handling to `testing.T.Cleanup`, extend coverage for orderly shutdown (LA-65, LA-66).
+- [ ] internal/httpapi/widget_integration_test.go — harden chromedp harness with deterministic skip logic and CI-stable headless flags (LA-67).
+- [ ] internal/testutil/sqlite.go, internal/storage/database.go, internal/httpapi/*_test.go — provide test logger configuration that ignores “record not found” chatter while keeping explicit assertions (LA-68).
+- [ ] repo-wide — verify `go test ./...`, `go vet ./...`, `go test ./... -v -race -count=1` gated by timeout wrapper; update NOTES.md checkboxes when complete (LA-69).

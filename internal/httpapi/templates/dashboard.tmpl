@@ -94,7 +94,7 @@
                     <div class="col-md-6">
                     <div class="d-flex align-items-center justify-content-between">
                       <label class="form-label mb-0" for="{{.EditSiteNameInputID}}">Name</label>
-                      <button id="{{.SiteNameHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.SiteNameHelpTitle}}" data-bs-content="{{.SiteNameHelpContent}}">
+                      <button id="{{.SiteNameHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" tabindex="{{.FieldHelpButtonTabIndex}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.SiteNameHelpTitle}}" data-bs-content="{{.SiteNameHelpContent}}">
                         <span class="visually-hidden">{{.SiteNameHelpTitle}}</span>
                         <i class="{{.FieldHelpIconClass}}"></i>
                       </button>
@@ -104,7 +104,7 @@
                   <div class="col-md-6">
                     <div class="d-flex align-items-center justify-content-between">
                       <label class="form-label mb-0" for="{{.EditSiteOriginInputID}}">Allowed origin</label>
-                      <button id="{{.AllowedOriginHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.AllowedOriginHelpTitle}}" data-bs-content="{{.AllowedOriginHelpContent}}">
+                      <button id="{{.AllowedOriginHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" tabindex="{{.FieldHelpButtonTabIndex}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.AllowedOriginHelpTitle}}" data-bs-content="{{.AllowedOriginHelpContent}}">
                         <span class="visually-hidden">{{.AllowedOriginHelpTitle}}</span>
                         <i class="{{.FieldHelpIconClass}}"></i>
                       </button>
@@ -114,7 +114,7 @@
                   <div class="col-md-6 d-none" id="{{.EditSiteOwnerContainerID}}">
                     <div class="d-flex align-items-center justify-content-between">
                       <label class="form-label mb-0" for="{{.EditSiteOwnerInputID}}">Owner email</label>
-                      <button id="{{.OwnerEmailHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.OwnerEmailHelpTitle}}" data-bs-content="{{.OwnerEmailHelpContent}}">
+                      <button id="{{.OwnerEmailHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" tabindex="{{.FieldHelpButtonTabIndex}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.OwnerEmailHelpTitle}}" data-bs-content="{{.OwnerEmailHelpContent}}">
                         <span class="visually-hidden">{{.OwnerEmailHelpTitle}}</span>
                         <i class="{{.FieldHelpIconClass}}"></i>
                       </button>
@@ -209,6 +209,7 @@
       </div>
     </div>
     {{.FooterHTML}}
+    {{.SmallPrintHTML}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script type="application/json" id="{{.ClientConfigElementID}}">{{.ClientConfigJSON}}</script>
     <script>
@@ -223,12 +224,17 @@
           }
         }
         var apiPaths = parsedConfig.api_paths || {};
+        var siteFaviconEventsEndpoint = apiPaths.site_favicon_events || '';
         var sharedPaths = parsedConfig.paths || {};
         var elementIds = parsedConfig.element_ids || {};
         var buttonClasses = parsedConfig.button_classes || {};
         var buttonLabels = parsedConfig.button_labels || {};
         var statusMessages = parsedConfig.status_messages || {};
+        var errorMessages = parsedConfig.error_messages || {};
         var roleLabels = parsedConfig.role_labels || {};
+        var roleValues = parsedConfig.role_values || {};
+        var adminRoleValue = roleValues.admin || 'admin';
+        var userRoleValue = roleValues.user || 'user';
         var buttonStyles = parsedConfig.button_styles || {};
         var componentClasses = parsedConfig.component_classes || {};
         var widgetTexts = parsedConfig.widget_texts || {};
@@ -237,6 +243,9 @@
         var validationMessages = parsedConfig.validation_messages || {};
         var themePreferenceStorageKey = parsedConfig.theme_storage_key || '';
         var themePreferenceLegacyStorageKey = 'loopaware_theme';
+        var faviconUpdatedEventName = 'favicon_updated';
+        var faviconEventSource = null;
+        var faviconReconnectDelayMilliseconds = 5000;
         var settingsButton = document.getElementById(elementIds.settings_button);
         var settingsMenu = document.getElementById(elementIds.settings_menu);
         var themeToggle = document.getElementById(elementIds.settings_theme_toggle);
@@ -336,7 +345,7 @@
           return true;
         }
         function shouldValidateOwnerEmail() {
-          return state.user && state.user.is_admin;
+          return Boolean(state.user);
         }
         function getTrimmedValue(element) {
           if (!element || typeof element.value !== 'string') {
@@ -371,10 +380,14 @@
           }
         }
         function isOwnerEmailValid(value) {
-          if (!value) {
+          if (typeof value !== 'string') {
             return false;
           }
-          return validationEmailPattern.test(value);
+          var normalizedOwnerEmail = value.trim();
+          if (normalizedOwnerEmail === '') {
+            return false;
+          }
+          return validationEmailPattern.test(normalizedOwnerEmail);
         }
         var siteFormValidationDescriptors = [
           {
@@ -442,6 +455,25 @@
             });
           });
         }
+        function registerSiteFormTabCycle() {
+          var tabOrderedFields = [editSiteNameInput, editSiteOriginInput, editSiteOwnerInput].filter(function(element) {
+            return element;
+          });
+          if (tabOrderedFields.length === 0) {
+            return;
+          }
+          tabOrderedFields.forEach(function(field, index) {
+            field.addEventListener('keydown', function(event) {
+              if (event.key !== 'Tab') {
+                return;
+              }
+              event.preventDefault();
+              var direction = event.shiftKey ? -1 : 1;
+              var nextIndex = (index + direction + tabOrderedFields.length) % tabOrderedFields.length;
+              tabOrderedFields[nextIndex].focus();
+            });
+          });
+        }
         function renderContactValue(cell, value) {
           if (!cell) {
             return;
@@ -475,7 +507,7 @@
           if (!siteCreatedAtContainer) {
             return;
           }
-          if (!hasTimestamp || !state.user || !state.user.is_admin) {
+          if (!hasTimestamp || !state.user || state.user.role !== adminRoleValue) {
             siteCreatedAtContainer.classList.add('d-none');
             return;
           }
@@ -647,6 +679,7 @@
         setButtonDefault(refreshMessagesButton, buttonLabels.refresh_default || '', buttonClasses.refresh_default || '');
         setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
         registerValidationHandlers();
+        registerSiteFormTabCycle();
         initializeFieldHelpPopovers();
         clearValidationFeedback();
 
@@ -697,45 +730,69 @@
               window.location.href = loginPath;
               return Promise.reject(new Error('unauthorized'));
             }
-            if (response.status === 403) {
-              updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');
-              return Promise.reject(new Error('forbidden'));
-            }
+            var forbiddenResponse = response.status === 403;
             if (!response.ok) {
+              if (forbiddenResponse && refreshMessagesButton) {
+                updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');
+              }
               return response.json().catch(function() {
                 return {};
               }).then(function(body) {
-                var message = body.error || body.message || statusMessages.load_failed || '';
-                throw new Error(message);
+                var backendErrorCode = '';
+                if (body && typeof body.error === 'string') {
+                  backendErrorCode = body.error;
+                } else if (body && typeof body.message === 'string') {
+                  backendErrorCode = body.message;
+                }
+                var resolvedMessage = resolveErrorMessage(backendErrorCode, statusMessages.load_failed || '');
+                throw new Error(resolvedMessage);
               });
             }
             return response.json();
           });
         }
 
+        function extractAvatarURL(user) {
+          if (!user || typeof user !== 'object') {
+            return '';
+          }
+          var avatar = user.avatar;
+          if (!avatar || typeof avatar !== 'object') {
+            return '';
+          }
+          var avatarURL = avatar.url;
+          if (typeof avatarURL !== 'string') {
+            return '';
+          }
+          return avatarURL.trim();
+        }
+
         function updateUserCard() {
           var displayName = state.user.name || state.user.email;
           userName.textContent = displayName || '';
           userEmail.textContent = state.user.email || '';
-          if (state.user.picture_url) {
-            userAvatar.src = state.user.picture_url;
+          var avatarURL = extractAvatarURL(state.user);
+          if (avatarURL) {
+            userAvatar.src = avatarURL;
             userAvatar.classList.remove('d-none');
-          }
-          var roleLabel = state.user.is_admin ? roleLabels.admin : roleLabels.user;
-          userRole.textContent = roleLabel;
-          userRole.className = state.user.is_admin ? 'badge bg-warning text-dark mt-2' : 'badge bg-secondary mt-2';
-          if (state.user.is_admin) {
-            editSiteOwnerContainer.classList.remove('d-none');
           } else {
-            editSiteOwnerContainer.classList.add('d-none');
+            userAvatar.src = '';
+            userAvatar.classList.add('d-none');
+          }
+          var isAdminUser = state.user.role === adminRoleValue;
+          var roleLabel = isAdminUser ? roleLabels[adminRoleValue] : roleLabels[userRoleValue];
+          userRole.textContent = roleLabel;
+          userRole.className = isAdminUser ? 'badge bg-warning text-dark mt-2' : 'badge bg-secondary mt-2';
+          if (editSiteOwnerContainer) {
+            editSiteOwnerContainer.classList.remove('d-none');
           }
 
-          if (state.user.picture_url) {
-            settingsAvatarImage.src = state.user.picture_url;
+          var shouldShowAvatar = avatarURL !== '';
+          settingsAvatarImage.src = shouldShowAvatar ? avatarURL : '';
+          if (shouldShowAvatar) {
             settingsAvatarImage.classList.remove('d-none');
             settingsAvatarFallback.classList.add('d-none');
           } else {
-            settingsAvatarImage.src = '';
             settingsAvatarImage.classList.add('d-none');
             settingsAvatarFallback.classList.remove('d-none');
           }
@@ -801,6 +858,31 @@
           return value.split(/\s+/).filter(function(item) {
             return item.length > 0;
           });
+        }
+
+        function normalizeMessage(value) {
+          if (typeof value !== 'string') {
+            return '';
+          }
+          return value.trim();
+        }
+
+        function resolveErrorMessage(errorCode, fallbackMessage) {
+          var normalizedCode = normalizeMessage(errorCode);
+          if (normalizedCode !== '') {
+            var mappedMessage = normalizeMessage(errorMessages[normalizedCode]);
+            if (mappedMessage !== '') {
+              return mappedMessage;
+            }
+          }
+          var normalizedFallback = normalizeMessage(fallbackMessage);
+          if (normalizedFallback !== '') {
+            return normalizedFallback;
+          }
+          if (normalizedCode !== '') {
+            return normalizedCode;
+          }
+          return '';
         }
 
         function applyElementThemeClasses(element, classesToAdd, classesToRemove) {
@@ -1197,17 +1279,15 @@
           if (!state.user) {
             return;
           }
-          var isAdmin = state.user.is_admin;
           if (isNewSiteSelected()) {
             setButtonDefault(saveSiteButton, createButtonLabel, createButtonClass);
           } else {
             setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
           }
-          if (isAdmin) {
-            editSiteOwnerInput.disabled = false;
-          } else {
-            editSiteOwnerInput.disabled = true;
+          if (!editSiteOwnerInput) {
+            return;
           }
+          editSiteOwnerInput.disabled = false;
         }
 
         function renderFeedbackPlaceholder(message) {
@@ -1321,24 +1401,71 @@
             if (manualRefresh) {
               updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_success || '', buttonStyles.secondary || '');
             }
-          }).catch(function() {
-            renderFeedbackPlaceholder(statusMessages.load_failed || '');
-            var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
-            if (site) {
-              setFeedbackCount(site.feedback_count || 0, site.feedback_count || 0);
-            } else {
-              setFeedbackCount(0, 0);
-            }
-            if (manualRefresh) {
-              updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');
-            }
-          });
-        }
+        }).catch(function() {
+          renderFeedbackPlaceholder(statusMessages.load_failed || '');
+          var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
+          if (site) {
+            setFeedbackCount(site.feedback_count || 0, site.feedback_count || 0);
+          } else {
+            setFeedbackCount(0, 0);
+          }
+          if (manualRefresh) {
+            updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');
+          }
+        });
+      }
 
-        function submitSite(event) {
-          if (event) { event.preventDefault(); }
-          if (saveSiteButton.disabled) { return; }
-          if (!state.selectedSiteId) {
+      function closeFaviconEventStream() {
+        if (!faviconEventSource) {
+          return;
+        }
+        faviconEventSource.close();
+        faviconEventSource = null;
+      }
+
+      function openFaviconEventStream() {
+        if (!window.EventSource || !siteFaviconEventsEndpoint) {
+          return;
+        }
+        closeFaviconEventStream();
+        faviconEventSource = new EventSource(siteFaviconEventsEndpoint);
+        faviconEventSource.addEventListener(faviconUpdatedEventName, handleFaviconUpdateEvent);
+        faviconEventSource.onerror = function() {
+          closeFaviconEventStream();
+          window.setTimeout(openFaviconEventStream, faviconReconnectDelayMilliseconds);
+        };
+      }
+
+      function handleFaviconUpdateEvent(event) {
+        if (!event || !event.data) {
+          return;
+        }
+        var payload;
+        try {
+          payload = JSON.parse(event.data);
+        } catch (error) {
+          return;
+        }
+        var siteIdentifier = (payload.site_id || '').trim();
+        var faviconURL = (payload.favicon_url || '').trim();
+        if (!siteIdentifier || !faviconURL) {
+          return;
+        }
+        var site = state.sites.find(function(item) { return item.id === siteIdentifier; });
+        if (!site) {
+          return;
+        }
+        if (site.favicon_url === faviconURL) {
+          return;
+        }
+        site.favicon_url = faviconURL;
+        renderSites();
+      }
+
+      function submitSite(event) {
+        if (event) { event.preventDefault(); }
+        if (saveSiteButton.disabled) { return; }
+        if (!state.selectedSiteId) {
             updateButtonStatus(saveSiteButton, statusMessages.select_site || '', buttonStyles.secondary || '');
             return;
           }
@@ -1355,12 +1482,13 @@
         function updateSite() {
           saveSiteButton.disabled = true;
           updateButtonStatus(saveSiteButton, buttonLabels.save_saving || '');
+          var ownerEmailValue = getTrimmedValue(editSiteOwnerInput);
           var body = {
             name: getTrimmedValue(editSiteNameInput),
             allowed_origin: getTrimmedValue(editSiteOriginInput)
           };
-          if (state.user && state.user.is_admin) {
-            body.owner_email = getTrimmedValue(editSiteOwnerInput);
+          if (ownerEmailValue) {
+            body.owner_email = ownerEmailValue;
           }
           var endpoint = apiSiteUpdatePrefix + state.selectedSiteId;
           fetchJSON(endpoint, {
@@ -1525,8 +1653,15 @@
           });
         }
 
+        window.addEventListener('beforeunload', function() {
+          closeFaviconEventStream();
+        });
+
         loadThemePreference();
-        loadUser().then(loadSites);
+        loadUser().then(function() {
+          openFaviconEventStream();
+          return loadSites();
+        });
       })();
     </script>
   </body>

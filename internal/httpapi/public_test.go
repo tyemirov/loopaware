@@ -35,6 +35,7 @@ func buildAPIHarness(testingT *testing.T) apiHarness {
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
 	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(testingT, openErr)
+	database = testutil.ConfigureDatabaseLogger(testingT, database)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
 	router := gin.New()

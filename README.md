@@ -6,11 +6,13 @@ role-aware dashboard for managing sites and messages.
 ## Highlights
 
 - Google OAuth 2.0 authentication via [GAuss](https://github.com/temirov/GAuss)
-- Role-aware dashboard (`/app`) with admin and owner scopes
+- Role-aware dashboard (`/app`) with admin and creator/owner scopes
 - YAML configuration for privileged accounts (`config.yaml`)
 - REST API to create, update, and inspect sites and feedback
+- Background favicon refresh scheduler with live dashboard notifications
 - Embeddable JavaScript widget with strict origin validation
 - SQLite-first storage with pluggable drivers
+- Public privacy policy and sitemap endpoints for compliance visibility
 - Table-driven tests and fast in-memory SQLite fixtures
 
 ## Configuration
@@ -76,7 +78,7 @@ go run ./cmd/server --config=config.yaml
 ```
 
 Open `http://localhost:8080/app` to trigger Google Sign-In. Administrators listed in `config.yaml` can manage every
-site; other users see only the sites assigned to their Google account.
+site; other users see only the sites they own or originally created with their Google account.
 
 ## Authentication flow
 
@@ -86,6 +88,16 @@ site; other users see only the sites assigned to their Google account.
    access.
 4. The dashboard and JSON APIs consume the authenticated context.
 
+## Public pages
+
+LoopAware serves a minimal public surface derived from `PUBLIC_BASE_URL`:
+
+- `/login` — marketing-focused landing page with GAuss login.
+- `/privacy` — static privacy policy linked from the landing and dashboard footers.
+- `/sitemap.xml` — XML sitemap enumerating the login and privacy URLs for search engines.
+
+Set `PUBLIC_BASE_URL` to the externally reachable origin so the sitemap emits fully qualified links for crawlers.
+
 ## REST API
 
 All authenticated endpoints live under `/api` and require the GAuss session cookie. JSON responses include Unix
@@ -93,22 +105,35 @@ timestamps in seconds.
 
 | Method  | Path                      | Role        | Description                                                               |
 |---------|---------------------------|-------------|---------------------------------------------------------------------------|
-| `GET`   | `/api/me`                 | any         | Current account metadata (email, name, `is_admin`)                        |
+| `GET`   | `/api/me`                 | any         | Current account metadata (email, name, `role`, `avatar.url`)              |
 | `GET`   | `/api/sites`              | any         | Sites visible to the caller (admin = all, user = owned)                   |
 | `POST`  | `/api/sites`              | admin       | Create a site (requires `name`, `allowed_origin`, `owner_email`)          |
 | `PATCH` | `/api/sites/:id`          | owner/admin | Update name/origin; admins may reassign ownership                         |
 | `GET`   | `/api/sites/:id/messages` | owner/admin | List feedback messages (newest first)                                     |
+| `GET`   | `/api/sites/favicons/events` | any      | Server-sent events stream announcing refreshed site favicons             |
 | `POST`  | `/api/feedback`           | public      | Submit feedback (requires JSON body with `site_id`, `contact`, `message`) |
 | `GET`   | `/widget.js`              | public      | Serve embeddable JavaScript widget                                        |
+
+The `/api/me` response includes a `role` value of `admin` or `user` and an `avatar.url` pointing to the caller's cached
+profile image (served from `/api/me/avatar`). The dashboard uses this payload to render the account card and determine
+site scope.
+
+Both roles can create, update, and delete sites. Administrators additionally view every site in the system, while users
+see only the sites they own or originally created.
+
+Deployments upgraded from versions prior to LA-57 should allow the server startup migration to run once; it backfills any
+sites missing a `creator_email` with `temirov@gmail.com` to preserve creator-based visibility rules. New site creations
+store the authenticated creator separately from the configured owner mailbox.
 
 ## Dashboard (`/app`)
 
 The Bootstrap front end consumes the APIs above. Features include:
 
 - Account card with avatar, email, and role badge
-- Admin-only controls to create sites and reassign ownership
+- Site creation and owner reassignment available to every authenticated user; administrators additionally see all sites
 - Owner/admin editor for site metadata
 - Feedback table with human-readable timestamps
+- Real-time favicon refresh notifications delivered through the SSE stream
 - Logout button (links to `/logout`)
 
 The dashboard automatically redirects unauthenticated visitors to `/login`.

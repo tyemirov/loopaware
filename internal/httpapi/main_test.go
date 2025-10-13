@@ -66,6 +66,7 @@ const (
 	dashboardAllowedOriginHelpButtonID      = "allowed-origin-help-button"
 	dashboardOwnerEmailHelpButtonID         = "owner-email-help-button"
 	dashboardFieldHelpPopoverToken          = "data-bs-toggle=\"popover\""
+	dashboardHelpButtonTabIndexToken        = "tabindex=\"-1\""
 	dashboardMailtoPrefixToken              = "var mailtoSchemePrefix = 'mailto:';"
 	dashboardRenderContactFunctionToken     = "function renderContactValue(cell, value)"
 	dashboardContactLinkHrefToken           = "link.href = mailtoSchemePrefix + normalized;"
@@ -87,6 +88,8 @@ const (
 	dashboardSiteCreatedAtHideCallToken     = "siteCreatedAtContainer.classList.add('d-none');"
 	dashboardSiteCreatedAtShowCallToken     = "siteCreatedAtContainer.classList.remove('d-none');"
 	dashboardSetFeedbackCountToken          = "function setFeedbackCount(total, visible)"
+	dashboardTabCycleFunctionToken          = "function registerSiteFormTabCycle()"
+	dashboardTabCycleRegistrationToken      = "registerSiteFormTabCycle();"
 	dashboardLandingPathVarToken            = "var landingPath = sharedPaths.landing || '/'"
 	dashboardLogoutFetchCallToken           = "window.fetch(logoutPath, {"
 	dashboardLogoutFetchMethodPostToken     = "method: 'POST'"
@@ -113,6 +116,7 @@ const (
 	dashboardFooterLinkCrosswordToken       = "https://llm-crossword.mprlab.com"
 	dashboardFooterLinkPromptsToken         = "https://prompts.mprlab.com"
 	dashboardFooterLinkWallpapersToken      = "https://wallpapers.mprlab.com"
+	dashboardPrivacyLinkToken               = "href=\"/privacy\">Privacy • Terms"
 	dashboardHeaderLogoImageIDToken         = "id=\"dashboard-header-logo\""
 	dashboardHeaderLogoAltToken             = "alt=\"LoopAware logo\""
 	dashboardHeaderLogoDataToken            = "src=\"data:image/png;base64,"
@@ -120,6 +124,9 @@ const (
 	dashboardThemeStorageKeyToken           = "\"theme_storage_key\":\"loopaware_dashboard_theme\""
 	dashboardThemeLegacyKeyToken            = "var themePreferenceLegacyStorageKey = 'loopaware_theme'"
 	dashboardThemeMigrationToken            = "localStorage.getItem(themePreferenceLegacyStorageKey)"
+	dashboardErrorMessagesConfigToken       = "\"error_messages\":{"
+	dashboardErrorMessagesScriptToken       = "var errorMessages = parsedConfig.error_messages || {};"
+	dashboardSiteExistsMessageToken         = "\"site_exists\":\"A site for this allowed origin already exists.\""
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -139,6 +146,9 @@ func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
 	require.Contains(t, body, dashboardThemeStorageKeyToken)
 	require.Contains(t, body, dashboardThemeLegacyKeyToken)
 	require.Contains(t, body, dashboardThemeMigrationToken)
+	require.Contains(t, body, dashboardErrorMessagesConfigToken)
+	require.Contains(t, body, dashboardErrorMessagesScriptToken)
+	require.Contains(t, body, dashboardSiteExistsMessageToken)
 }
 
 func TestDashboardHeaderDisplaysLogo(t *testing.T) {
@@ -382,6 +392,20 @@ func TestDashboardFooterDisplaysProductMenu(t *testing.T) {
 	require.Contains(t, body, dashboardFooterLinkWallpapersToken)
 }
 
+func TestDashboardFooterDisplaysPrivacyLink(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, dashboardPrivacyLinkToken)
+}
+
 func TestDashboardTemplateDisplaysRegistrationInline(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
@@ -608,6 +632,22 @@ func TestDashboardTemplateConfiguresButtonStatusManager(t *testing.T) {
 	}
 }
 
+func TestDashboardTemplateAddsSiteFormTabCycle(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, dashboardHelpButtonTabIndexToken)
+	require.Contains(t, body, dashboardTabCycleFunctionToken)
+	require.Contains(t, body, dashboardTabCycleRegistrationToken)
+}
+
 func TestDashboardTemplateIncludesSiteValidationSupport(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
@@ -676,6 +716,21 @@ func TestDashboardTemplateIncludesSiteValidationSupport(t *testing.T) {
 			require.NotContains(t, body, testCase.substring)
 		})
 	}
+}
+
+func TestDashboardJavaScriptDoesNotHideOwnerFieldForNonAdmins(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	require.NotContains(t, body, "editSiteOwnerContainer.classList.add('d-none');")
+	require.NotContains(t, body, "editSiteOwnerInput.disabled = true;")
 }
 
 func TestDashboardTemplateUsesUniformActionButtonStyles(t *testing.T) {

@@ -11,15 +11,19 @@ import (
 )
 
 const (
-	landingTemplateName    = "landing"
-	landingHTMLContentType = "text/html; charset=utf-8"
-	landingFooterElementID = "landing-footer"
-	landingFooterInnerID   = "landing-footer-inner"
-	landingFooterToggleID  = "landing-footer-toggle"
+	landingTemplateName           = "landing"
+	landingHTMLContentType        = "text/html; charset=utf-8"
+	landingFooterElementID        = "landing-footer"
+	landingFooterInnerID          = "landing-footer-inner"
+	landingFooterToggleID         = "landing-footer-toggle"
+	landingSmallPrintWrapperClass = "text-center small py-3"
+	landingSmallPrintLinkClass    = "text-body-secondary text-decoration-none"
+	landingSmallPrintLogContext   = "render_landing_small_print"
 )
 
 type landingTemplateData struct {
 	FooterHTML     template.HTML
+	SmallPrintHTML template.HTML
 	FaviconDataURI template.URL
 	LogoDataURI    template.URL
 }
@@ -63,8 +67,18 @@ func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
 		footerHTML = template.HTML("")
 	}
 
+	smallPrintHTML, smallPrintErr := RenderFooterSmallPrintHTML(FooterSmallPrintConfig{
+		WrapperClass: landingSmallPrintWrapperClass,
+		LinkClass:    landingSmallPrintLinkClass,
+	})
+	if smallPrintErr != nil {
+		handlers.logger.Error(landingSmallPrintLogContext, zap.Error(smallPrintErr))
+		smallPrintHTML = template.HTML("")
+	}
+
 	data := landingTemplateData{
 		FooterHTML:     footerHTML,
+		SmallPrintHTML: smallPrintHTML,
 		FaviconDataURI: template.URL(dashboardFaviconDataURI),
 		LogoDataURI:    landingLogoDataURI,
 	}

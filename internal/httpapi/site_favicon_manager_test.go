@@ -46,12 +46,56 @@ func (resolver *stubAssetResolver) callCount() int {
 	return resolver.calls
 }
 
+type blockingAssetResolver struct {
+	asset       *httpapi.FaviconAsset
+	started     chan struct{}
+	released    chan struct{}
+	startOnce   sync.Once
+	releaseOnce sync.Once
+}
+
+func newBlockingAssetResolver(asset *httpapi.FaviconAsset) *blockingAssetResolver {
+	return &blockingAssetResolver{
+		asset:    asset,
+		started:  make(chan struct{}),
+		released: make(chan struct{}),
+	}
+}
+
+func (resolver *blockingAssetResolver) Resolve(_ context.Context, _ string) (string, error) {
+	return "", nil
+}
+
+func (resolver *blockingAssetResolver) ResolveAsset(_ context.Context, _ string) (*httpapi.FaviconAsset, error) {
+	resolver.startOnce.Do(func() {
+		close(resolver.started)
+	})
+	<-resolver.released
+	return resolver.asset, nil
+}
+
+func (resolver *blockingAssetResolver) waitForStart(testingT *testing.T) {
+	testingT.Helper()
+	select {
+	case <-resolver.started:
+	case <-time.After(time.Second):
+		testingT.Fatalf("resolver did not start")
+	}
+}
+
+func (resolver *blockingAssetResolver) release() {
+	resolver.releaseOnce.Do(func() {
+		close(resolver.released)
+	})
+}
+
 func TestSiteFaviconManagerStoresResolvedAsset(testingT *testing.T) {
 	testingT.Helper()
 
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
 	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(testingT, openErr)
+	database = testutil.ConfigureDatabaseLogger(testingT, database)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
 	site := model.Site{
@@ -64,6 +108,8 @@ func TestSiteFaviconManagerStoresResolvedAsset(testingT *testing.T) {
 
 	resolver := &stubAssetResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x01, 0x02}}}
 	manager := httpapi.NewSiteFaviconManager(database, resolver, zap.NewNop())
+	manager.Start(context.Background())
+	testingT.Cleanup(manager.Stop)
 
 	manager.ScheduleFetch(site)
 
@@ -86,6 +132,7 @@ func TestSiteFaviconManagerAvoidsDuplicateFetches(testingT *testing.T) {
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
 	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(testingT, openErr)
+	database = testutil.ConfigureDatabaseLogger(testingT, database)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
 	site := model.Site{
@@ -98,6 +145,8 @@ func TestSiteFaviconManagerAvoidsDuplicateFetches(testingT *testing.T) {
 
 	resolver := &stubAssetResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x0A}}}
 	manager := httpapi.NewSiteFaviconManager(database, resolver, zap.NewNop())
+	manager.Start(context.Background())
+	testingT.Cleanup(manager.Stop)
 
 	manager.ScheduleFetch(site)
 
@@ -119,6 +168,143 @@ func TestSiteFaviconManagerAvoidsDuplicateFetches(testingT *testing.T) {
 	require.Equal(testingT, initialCalls, resolver.callCount())
 }
 
+func TestSiteFaviconManagerScheduledRefreshQueuesStaleSites(testingT *testing.T) {
+	testingT.Helper()
+
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, openErr)
+	database = testutil.ConfigureDatabaseLogger(testingT, database)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	staleReferenceTime := time.Now()
+	site := model.Site{
+		ID:               storage.NewID(),
+		Name:             "Stale Site",
+		AllowedOrigin:    "https://stale.example",
+		OwnerEmail:       "owner@example.com",
+		FaviconData:      []byte{0x01},
+		FaviconOrigin:    "https://stale.example",
+		FaviconFetchedAt: staleReferenceTime.Add(-48 * time.Hour),
+	}
+	require.NoError(testingT, database.Create(&site).Error)
+
+	resolver := &stubAssetResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x02}}}
+	manager := httpapi.NewSiteFaviconManager(
+		database,
+		resolver,
+		zap.NewNop(),
+		httpapi.WithFaviconIntervals(5*time.Millisecond, 5*time.Millisecond),
+		httpapi.WithFaviconScanInterval(5*time.Millisecond),
+		httpapi.WithFaviconClock(func() time.Time { return staleReferenceTime }),
+	)
+	manager.Start(context.Background())
+	testingT.Cleanup(manager.Stop)
+
+	manager.TriggerScheduledRefresh()
+
+	require.Eventually(testingT, func() bool {
+		return resolver.callCount() > 0
+	}, time.Second, 10*time.Millisecond)
+}
+
+func TestSiteFaviconManagerNotifiesSubscribers(testingT *testing.T) {
+	testingT.Helper()
+
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, openErr)
+	database = testutil.ConfigureDatabaseLogger(testingT, database)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Observable Site",
+		AllowedOrigin: "https://observable.example",
+		OwnerEmail:    "owner@example.com",
+	}
+	require.NoError(testingT, database.Create(&site).Error)
+
+	resolver := &stubAssetResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x03}}}
+	manager := httpapi.NewSiteFaviconManager(
+		database,
+		resolver,
+		zap.NewNop(),
+		httpapi.WithFaviconIntervals(5*time.Millisecond, 5*time.Millisecond),
+	)
+	manager.Start(context.Background())
+	testingT.Cleanup(manager.Stop)
+
+	subscription := manager.Subscribe()
+	require.NotNil(testingT, subscription)
+	defer subscription.Close()
+
+	manager.ScheduleFetch(site)
+
+	var receivedEvent httpapi.SiteFaviconEvent
+	require.Eventually(testingT, func() bool {
+		select {
+		case event, ok := <-subscription.Events():
+			if !ok {
+				return false
+			}
+			receivedEvent = event
+			return true
+		default:
+			return false
+		}
+	}, time.Second, 10*time.Millisecond)
+
+	require.Equal(testingT, site.ID, receivedEvent.SiteID)
+	require.NotEmpty(testingT, strings.TrimSpace(receivedEvent.FaviconURL))
+}
+
+func TestSiteFaviconManagerStopWaitsForInFlightFetch(testingT *testing.T) {
+	testingT.Helper()
+
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, openErr)
+	database = testutil.ConfigureDatabaseLogger(testingT, database)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Blocking Site",
+		AllowedOrigin: "https://blocking.example",
+		OwnerEmail:    "owner@example.com",
+	}
+	require.NoError(testingT, database.Create(&site).Error)
+
+	resolver := newBlockingAssetResolver(&httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x07}})
+	manager := httpapi.NewSiteFaviconManager(database, resolver, zap.NewNop())
+	manager.Start(context.Background())
+	testingT.Cleanup(manager.Stop)
+
+	manager.ScheduleFetch(site)
+	resolver.waitForStart(testingT)
+
+	stopCompleted := make(chan struct{})
+	go func() {
+		manager.Stop()
+		close(stopCompleted)
+	}()
+
+	select {
+	case <-stopCompleted:
+		testingT.Fatalf("Stop returned before fetch completion")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	resolver.release()
+
+	select {
+	case <-stopCompleted:
+	case <-time.After(time.Second):
+		testingT.Fatalf("Stop did not finish after fetch completion")
+	}
+}
+
 func TestGravityNotesInlineFaviconIntegration(testingT *testing.T) {
 	testingT.Helper()
 
@@ -128,7 +314,7 @@ func TestGravityNotesInlineFaviconIntegration(testingT *testing.T) {
 
 	resolver := httpapi.NewHTTPFaviconResolver(nil, zap.NewNop())
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	testingT.Cleanup(cancel)
 
 	preflightAsset, preflightErr := resolver.ResolveAsset(ctx, "https://gravity.mprlab.com")
 	if preflightErr != nil {
@@ -141,9 +327,12 @@ func TestGravityNotesInlineFaviconIntegration(testingT *testing.T) {
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
 	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(testingT, openErr)
+	database = testutil.ConfigureDatabaseLogger(testingT, database)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
 	manager := httpapi.NewSiteFaviconManager(database, resolver, zap.NewNop())
+	manager.Start(context.Background())
+	testingT.Cleanup(manager.Stop)
 	require.NotNil(testingT, manager)
 
 	site := model.Site{
@@ -173,7 +362,7 @@ func TestGravityNotesInlineFaviconIntegration(testingT *testing.T) {
 	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, manager, nil)
 
 	listRecorder, listContext := newJSONContext(http.MethodGet, "/api/sites", nil)
-	listContext.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+	listContext.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
 
 	handlers.ListSites(listContext)
 	require.Equal(testingT, http.StatusOK, listRecorder.Code)
@@ -190,7 +379,7 @@ func TestGravityNotesInlineFaviconIntegration(testingT *testing.T) {
 
 	faviconRecorder, faviconContext := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/favicon", nil)
 	faviconContext.Params = gin.Params{{Key: "id", Value: site.ID}}
-	faviconContext.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, IsAdmin: true})
+	faviconContext.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
 
 	handlers.SiteFavicon(faviconContext)
 	require.Equal(testingT, http.StatusOK, faviconRecorder.Code)

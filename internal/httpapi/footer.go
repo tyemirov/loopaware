@@ -5,6 +5,11 @@ import (
 	"html/template"
 )
 
+const (
+	footerPrivacyLinkLabel = "Privacy • Terms"
+	footerPrivacyLinkHref  = PrivacyPagePath
+)
+
 type FooterLink struct {
 	Label string
 	URL   string
@@ -53,6 +58,10 @@ var (
 	}
 )
 
+var footerSmallPrintTemplate = template.Must(template.New("footer_small_print").Parse(`<div class="{{.WrapperClass}}">
+  <a class="{{.LinkClass}}" href="{{.LinkHref}}">{{.LinkLabel}}</a>
+</div>`))
+
 type footerTemplatePayload struct {
 	ElementID         string
 	InnerElementID    string
@@ -67,6 +76,18 @@ type footerTemplatePayload struct {
 	MenuClass         string
 	MenuItemClass     string
 	Links             []FooterLink
+}
+
+type FooterSmallPrintConfig struct {
+	WrapperClass string
+	LinkClass    string
+}
+
+type footerSmallPrintPayload struct {
+	WrapperClass string
+	LinkClass    string
+	LinkHref     string
+	LinkLabel    string
 }
 
 func RenderFooterHTML(config FooterConfig) (template.HTML, error) {
@@ -87,6 +108,20 @@ func RenderFooterHTML(config FooterConfig) (template.HTML, error) {
 	}
 	var buffer bytes.Buffer
 	if err := footerTemplate.Execute(&buffer, payload); err != nil {
+		return "", err
+	}
+	return template.HTML(buffer.String()), nil
+}
+
+func RenderFooterSmallPrintHTML(config FooterSmallPrintConfig) (template.HTML, error) {
+	payload := footerSmallPrintPayload{
+		WrapperClass: config.WrapperClass,
+		LinkClass:    config.LinkClass,
+		LinkHref:     footerPrivacyLinkHref,
+		LinkLabel:    footerPrivacyLinkLabel,
+	}
+	var buffer bytes.Buffer
+	if err := footerSmallPrintTemplate.Execute(&buffer, payload); err != nil {
 		return "", err
 	}
 	return template.HTML(buffer.String()), nil

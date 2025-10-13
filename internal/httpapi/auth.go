@@ -33,15 +33,57 @@ const (
 
 var defaultAvatarFetchTimeout = 5 * time.Second
 
+// UserRole enumerates the supported access levels for authenticated dashboard users.
+type UserRole string
+
+const (
+	// RoleAdmin grants full access to every site in the system.
+	RoleAdmin UserRole = "admin"
+	// RoleUser restricts access to sites created or owned by the caller.
+	RoleUser UserRole = "user"
+)
+
 type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
+// CurrentUser captures authenticated account metadata made available to handlers.
 type CurrentUser struct {
 	Email      string
 	Name       string
 	PictureURL string
-	IsAdmin    bool
+	Role       UserRole
+}
+
+func (currentUser *CurrentUser) hasRole(role UserRole) bool {
+	if currentUser == nil {
+		return false
+	}
+	return currentUser.Role == role
+}
+
+func (currentUser *CurrentUser) normalizedEmail() string {
+	if currentUser == nil {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(currentUser.Email))
+}
+
+func (currentUser *CurrentUser) canManageSite(site model.Site) bool {
+	if currentUser == nil {
+		return false
+	}
+	if currentUser.hasRole(RoleAdmin) {
+		return true
+	}
+	normalized := currentUser.normalizedEmail()
+	if normalized == "" {
+		return false
+	}
+	if strings.EqualFold(site.OwnerEmail, normalized) {
+		return true
+	}
+	return strings.EqualFold(site.CreatorEmail, normalized)
 }
 
 type AuthManager struct {
@@ -112,7 +154,7 @@ func (authManager *AuthManager) RequireAdminJSON() gin.HandlerFunc {
 			context.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
 			return
 		}
-		if !currentUser.IsAdmin {
+		if !currentUser.hasRole(RoleAdmin) {
 			context.AbortWithStatusJSON(http.StatusForbidden, gin.H{jsonKeyError: authErrorForbidden})
 			return
 		}
@@ -148,7 +190,10 @@ func (authManager *AuthManager) ensureUser(context *gin.Context) (*CurrentUser, 
 	name := extractString(sessionInstance.Values[constants.SessionKeyUserName])
 	pictureURL := extractString(sessionInstance.Values[constants.SessionKeyUserPicture])
 	lowercaseEmail := strings.ToLower(email)
-	_, isAdmin := authManager.adminEmails[lowercaseEmail]
+	userRole := RoleUser
+	if _, isPrivileged := authManager.adminEmails[lowercaseEmail]; isPrivileged {
+		userRole = RoleAdmin
+	}
 
 	localAvatarPath := ""
 	if authManager.database != nil {
@@ -161,9 +206,9 @@ func (authManager *AuthManager) ensureUser(context *gin.Context) (*CurrentUser, 
 	}
 
 	currentUser := &CurrentUser{
-		Email:   email,
-		Name:    name,
-		IsAdmin: isAdmin,
+		Email: email,
+		Name:  name,
+		Role:  userRole,
 	}
 	if localAvatarPath != "" {
 		currentUser.PictureURL = localAvatarPath
