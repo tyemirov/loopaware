@@ -1430,12 +1430,13 @@
         function updateSite() {
           saveSiteButton.disabled = true;
           updateButtonStatus(saveSiteButton, buttonLabels.save_saving || '');
+          var ownerEmailValue = getTrimmedValue(editSiteOwnerInput);
           var body = {
             name: getTrimmedValue(editSiteNameInput),
             allowed_origin: getTrimmedValue(editSiteOriginInput)
           };
-          if (state.user && state.user.role === adminRoleValue) {
-            body.owner_email = getTrimmedValue(editSiteOwnerInput);
+          if (ownerEmailValue) {
+            body.owner_email = ownerEmailValue;
           }
           var endpoint = apiSiteUpdatePrefix + state.selectedSiteId;
           fetchJSON(endpoint, {
