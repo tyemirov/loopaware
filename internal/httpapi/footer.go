@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 )
 
@@ -18,6 +19,78 @@ const (
 	footerMenuClass         = "dropdown-menu dropdown-menu-end shadow"
 	footerMenuItemClass     = "dropdown-item"
 )
+
+type footerVariant string
+
+const (
+	footerVariantLanding   footerVariant = "landing"
+	footerVariantPrivacy   footerVariant = "privacy"
+	footerVariantDashboard footerVariant = "dashboard"
+)
+
+type footerVariantOverrides struct {
+	ElementID      string
+	InnerElementID string
+	BaseClass      string
+	ToggleButtonID string
+}
+
+var (
+	footerBaseConfig = FooterConfig{
+		InnerClass:        landingFooterInnerClass,
+		WrapperClass:      footerLayoutClass,
+		BrandWrapperClass: footerBrandWrapperClass,
+		MenuWrapperClass:  footerMenuWrapperClass,
+		PrefixClass:       footerPrefixClass,
+		PrefixText:        dashboardFooterBrandPrefix,
+		ToggleButtonClass: footerToggleButtonClass,
+		ToggleLabel:       dashboardFooterBrandName,
+		MenuClass:         footerMenuClass,
+		MenuItemClass:     footerMenuItemClass,
+		PrivacyLinkClass:  footerPrivacyLinkClass,
+	}
+	footerVariantOverridesByKey = map[footerVariant]footerVariantOverrides{
+		footerVariantLanding: {
+			ElementID:      landingFooterElementID,
+			InnerElementID: landingFooterInnerID,
+			BaseClass:      landingFooterBaseClass,
+			ToggleButtonID: landingFooterToggleID,
+		},
+		footerVariantPrivacy: {
+			ElementID:      privacyFooterElementID,
+			InnerElementID: privacyFooterInnerID,
+			BaseClass:      landingFooterBaseClass,
+			ToggleButtonID: dashboardFooterToggleButtonID,
+		},
+		footerVariantDashboard: {
+			ElementID:      footerElementID,
+			InnerElementID: footerInnerElementID,
+			BaseClass:      footerBaseClass,
+			ToggleButtonID: dashboardFooterToggleButtonID,
+		},
+	}
+)
+
+func footerConfigForVariant(variant footerVariant) (FooterConfig, error) {
+	overrides, ok := footerVariantOverridesByKey[variant]
+	if !ok {
+		return FooterConfig{}, fmt.Errorf("unknown footer variant: %s", variant)
+	}
+	config := footerBaseConfig
+	config.ElementID = overrides.ElementID
+	config.InnerElementID = overrides.InnerElementID
+	config.BaseClass = overrides.BaseClass
+	config.ToggleButtonID = overrides.ToggleButtonID
+	return config, nil
+}
+
+func renderFooterHTMLForVariant(variant footerVariant) (template.HTML, error) {
+	config, configErr := footerConfigForVariant(variant)
+	if configErr != nil {
+		return "", configErr
+	}
+	return RenderFooterHTML(config)
+}
 
 type FooterLink struct {
 	Label string

@@ -16,11 +16,13 @@ const (
 	landingDetailedAuthCopyToken     = "Google Sign-In powered by GAuss keeps every login secure."
 	landingDetailedWidgetCopyToken   = "Origin-locked widgets and APIs capture feedback where customers already are."
 	landingDetailedWorkflowCopyToken = "Role-aware workflows assign owners, surface trends, and track resolution."
-	landingThemeToggleIDToken        = "id=\"landing-theme-toggle\""
-	landingThemeScriptKeyToken       = "var landingThemeStorageKey = 'loopaware_landing_theme'"
-	landingThemeLegacyKeyToken       = "var landingLegacyThemeStorageKey = 'landing_theme'"
-	landingThemeMigrationToken       = "var legacyStoredTheme = localStorage.getItem(landingLegacyThemeStorageKey);"
-	landingThemeApplyFunctionToken   = "function applyLandingTheme(theme)"
+	landingThemeToggleIDToken        = "id=\"public-theme-toggle\""
+	landingThemeScriptKeyToken       = "var publicThemeStorageKey = 'loopaware_public_theme'"
+	landingThemeFallbackKeyToken     = "var landingThemeStorageKey = 'loopaware_landing_theme'"
+	landingThemeFallbackLoadToken    = "var landingStoredTheme = localStorage.getItem(landingThemeStorageKey);"
+	landingThemeLegacyKeyToken       = "var legacyThemeStorageKey = 'landing_theme'"
+	landingThemeMigrationToken       = "var legacyStoredTheme = localStorage.getItem(legacyThemeStorageKey);"
+	landingThemeApplyFunctionToken   = "function applyPublicTheme(theme)"
 	landingThemeDataAttributeToken   = "data-bs-theme"
 	landingLogoImageClassToken       = "class=\"landing-logo-image\""
 	landingLogoAltToken              = "alt=\"LoopAware logo\""
@@ -97,6 +99,8 @@ func TestLandingPageProvidesThemeSwitch(t *testing.T) {
 	body := recorder.Body.String()
 	require.Contains(t, body, landingThemeToggleIDToken)
 	require.Contains(t, body, landingThemeScriptKeyToken)
+	require.Contains(t, body, landingThemeFallbackKeyToken)
+	require.Contains(t, body, landingThemeFallbackLoadToken)
 	require.Contains(t, body, landingThemeLegacyKeyToken)
 	require.Contains(t, body, landingThemeMigrationToken)
 	require.Contains(t, body, landingThemeApplyFunctionToken)

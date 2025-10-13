@@ -7,12 +7,12 @@
     <meta name="robots" content="noindex,nofollow" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
     <style>
-      body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0}
-      .privacy-container{max-width:800px;margin:40px auto}
-      .privacy-heading{font-size:1.6rem;margin-bottom:.2rem}
+{{.SharedStyles}}
+{{.PrivacyStyles}}
     </style>
   </head>
-  <body class="d-flex flex-column min-vh-100 bg-body text-body">
+  <body class="landing-body d-flex flex-column min-vh-100 bg-body text-body" data-bs-theme="dark">
+    {{.HeaderHTML}}
     <main class="flex-grow-1">
       <div class="privacy-container">
         <h1 class="privacy-heading">Privacy Policy — LoopAware</h1>
@@ -23,5 +23,8 @@
     </main>
     {{.FooterHTML}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script>
+{{.ThemeScript}}
+    </script>
   </body>
 </html>

@@ -1,5 +1,7 @@
-- [x] internal/httpapi/footer.go — extend footer template/config so privacy link renders within shared dropup footer layout (LA-71, LA-72, LA-73).
-- [x] internal/httpapi/landing.go, internal/httpapi/web.go, internal/httpapi/privacy.go — supply unified footer payloads, remove redundant small-print rendering, and reuse new config (LA-71, LA-72).
-- [x] internal/httpapi/templates/landing.tmpl, internal/httpapi/templates/privacy.tmpl, internal/httpapi/templates/dashboard.tmpl — embed shared footer markup and ensure layout aligns privacy link with “Built by” branding (LA-71, LA-73).
-- [x] internal/httpapi/landing_test.go, internal/httpapi/privacy_test.go, internal/httpapi/main_test.go — assert unified footer structure and privacy link placement/styling across views (LA-71, LA-72, LA-73).
-- [x] NOTES.md — mark LA-71, LA-72, LA-73 complete once refactor and tests succeed.
+- [x] internal/httpapi/public_assets.go — extract shared header, theme script, and style assets for public pages to keep theme selection consistent.
+- [x] internal/httpapi/landing.go, internal/httpapi/privacy.go — supply shared public layout payloads so landing and privacy reuse header/footer config and theme storage.
+- [x] internal/httpapi/templates/landing.tmpl, internal/httpapi/templates/privacy.tmpl — embed shared header markup, data attributes, and scripts so both pages respect stored theme.
+- [x] internal/httpapi/landing_test.go, internal/httpapi/privacy_test.go — extend coverage for header reuse and theme persistence across landing and privacy.
+- [x] internal/httpapi/footer.go — define footer variants and reuse a single partial renderer to remove duplicated configs.
+- [x] internal/httpapi/landing.go, internal/httpapi/privacy.go, internal/httpapi/web.go — replace inline footer configuration with the shared variant renderer.
+- [x] NOTES.md — mark LA-75 complete after refactor validation.
