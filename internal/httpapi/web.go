@@ -553,6 +553,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"site_update_prefix":   "/api/sites/",
 			"site_messages_prefix": "/api/sites/",
 			"site_messages_suffix": "/messages",
+			"site_favicon_events":  "/api/sites/favicons/events",
 		},
 		Paths: map[string]string{
 			"logout":  constants.LogoutPath,

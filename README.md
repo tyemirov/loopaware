@@ -9,6 +9,7 @@ role-aware dashboard for managing sites and messages.
 - Role-aware dashboard (`/app`) with admin and creator/owner scopes
 - YAML configuration for privileged accounts (`config.yaml`)
 - REST API to create, update, and inspect sites and feedback
+- Background favicon refresh scheduler with live dashboard notifications
 - Embeddable JavaScript widget with strict origin validation
 - SQLite-first storage with pluggable drivers
 - Table-driven tests and fast in-memory SQLite fixtures
@@ -98,6 +99,7 @@ timestamps in seconds.
 | `POST`  | `/api/sites`              | admin       | Create a site (requires `name`, `allowed_origin`, `owner_email`)          |
 | `PATCH` | `/api/sites/:id`          | owner/admin | Update name/origin; admins may reassign ownership                         |
 | `GET`   | `/api/sites/:id/messages` | owner/admin | List feedback messages (newest first)                                     |
+| `GET`   | `/api/sites/favicons/events` | any      | Server-sent events stream announcing refreshed site favicons             |
 | `POST`  | `/api/feedback`           | public      | Submit feedback (requires JSON body with `site_id`, `contact`, `message`) |
 | `GET`   | `/widget.js`              | public      | Serve embeddable JavaScript widget                                        |
 
@@ -120,6 +122,7 @@ The Bootstrap front end consumes the APIs above. Features include:
 - Site creation and owner reassignment available to every authenticated user; administrators additionally see all sites
 - Owner/admin editor for site metadata
 - Feedback table with human-readable timestamps
+- Real-time favicon refresh notifications delivered through the SSE stream
 - Logout button (links to `/logout`)
 
 The dashboard automatically redirects unauthenticated visitors to `/login`.

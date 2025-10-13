@@ -223,6 +223,7 @@
           }
         }
         var apiPaths = parsedConfig.api_paths || {};
+        var siteFaviconEventsEndpoint = apiPaths.site_favicon_events || '';
         var sharedPaths = parsedConfig.paths || {};
         var elementIds = parsedConfig.element_ids || {};
         var buttonClasses = parsedConfig.button_classes || {};
@@ -241,6 +242,9 @@
         var validationMessages = parsedConfig.validation_messages || {};
         var themePreferenceStorageKey = parsedConfig.theme_storage_key || '';
         var themePreferenceLegacyStorageKey = 'loopaware_theme';
+        var faviconUpdatedEventName = 'favicon_updated';
+        var faviconEventSource = null;
+        var faviconReconnectDelayMilliseconds = 5000;
         var settingsButton = document.getElementById(elementIds.settings_button);
         var settingsMenu = document.getElementById(elementIds.settings_menu);
         var themeToggle = document.getElementById(elementIds.settings_theme_toggle);
@@ -1396,24 +1400,71 @@
             if (manualRefresh) {
               updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_success || '', buttonStyles.secondary || '');
             }
-          }).catch(function() {
-            renderFeedbackPlaceholder(statusMessages.load_failed || '');
-            var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
-            if (site) {
-              setFeedbackCount(site.feedback_count || 0, site.feedback_count || 0);
-            } else {
-              setFeedbackCount(0, 0);
-            }
-            if (manualRefresh) {
-              updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');
-            }
-          });
-        }
+        }).catch(function() {
+          renderFeedbackPlaceholder(statusMessages.load_failed || '');
+          var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
+          if (site) {
+            setFeedbackCount(site.feedback_count || 0, site.feedback_count || 0);
+          } else {
+            setFeedbackCount(0, 0);
+          }
+          if (manualRefresh) {
+            updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');
+          }
+        });
+      }
 
-        function submitSite(event) {
-          if (event) { event.preventDefault(); }
-          if (saveSiteButton.disabled) { return; }
-          if (!state.selectedSiteId) {
+      function closeFaviconEventStream() {
+        if (!faviconEventSource) {
+          return;
+        }
+        faviconEventSource.close();
+        faviconEventSource = null;
+      }
+
+      function openFaviconEventStream() {
+        if (!window.EventSource || !siteFaviconEventsEndpoint) {
+          return;
+        }
+        closeFaviconEventStream();
+        faviconEventSource = new EventSource(siteFaviconEventsEndpoint);
+        faviconEventSource.addEventListener(faviconUpdatedEventName, handleFaviconUpdateEvent);
+        faviconEventSource.onerror = function() {
+          closeFaviconEventStream();
+          window.setTimeout(openFaviconEventStream, faviconReconnectDelayMilliseconds);
+        };
+      }
+
+      function handleFaviconUpdateEvent(event) {
+        if (!event || !event.data) {
+          return;
+        }
+        var payload;
+        try {
+          payload = JSON.parse(event.data);
+        } catch (error) {
+          return;
+        }
+        var siteIdentifier = (payload.site_id || '').trim();
+        var faviconURL = (payload.favicon_url || '').trim();
+        if (!siteIdentifier || !faviconURL) {
+          return;
+        }
+        var site = state.sites.find(function(item) { return item.id === siteIdentifier; });
+        if (!site) {
+          return;
+        }
+        if (site.favicon_url === faviconURL) {
+          return;
+        }
+        site.favicon_url = faviconURL;
+        renderSites();
+      }
+
+      function submitSite(event) {
+        if (event) { event.preventDefault(); }
+        if (saveSiteButton.disabled) { return; }
+        if (!state.selectedSiteId) {
             updateButtonStatus(saveSiteButton, statusMessages.select_site || '', buttonStyles.secondary || '');
             return;
           }
@@ -1600,8 +1651,15 @@
           });
         }
 
+        window.addEventListener('beforeunload', function() {
+          closeFaviconEventStream();
+        });
+
         loadThemePreference();
-        loadUser().then(loadSites);
+        loadUser().then(function() {
+          openFaviconEventStream();
+          return loadSites();
+        });
       })();
     </script>
   </body>

@@ -1,12 +1,15 @@
 package httpapi_test
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -172,7 +175,7 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	expectedBaseURL := strings.TrimRight(testWidgetBaseURL, "/")
 	expectedWidget := fmt.Sprintf("<script defer src=\"%s/widget.js?site_id=%s\"></script>", expectedBaseURL, site.ID)
 	require.Equal(testingT, expectedWidget, responseBody.Sites[0].Widget)
-	expectedFavicon := fmt.Sprintf("/api/sites/%s/favicon", site.ID)
+	expectedFavicon := fmt.Sprintf("/api/sites/%s/favicon?ts=%d", site.ID, site.FaviconFetchedAt.UTC().Unix())
 	require.Equal(testingT, expectedFavicon, responseBody.Sites[0].FaviconURL)
 	require.Equal(testingT, int64(5), responseBody.Sites[0].FeedbackCount)
 }
@@ -338,6 +341,125 @@ func TestSiteFaviconReturnsStoredIcon(testingT *testing.T) {
 	require.Equal(testingT, http.StatusOK, recorder.Code)
 	require.Equal(testingT, "image/png", recorder.Header().Get("Content-Type"))
 	require.Equal(testingT, []byte{0x10, 0x20, 0x30}, recorder.Body.Bytes())
+}
+
+type streamStubFaviconResolver struct {
+	asset *httpapi.FaviconAsset
+	mu    sync.Mutex
+	calls int
+}
+
+func (resolver *streamStubFaviconResolver) Resolve(_ context.Context, _ string) (string, error) {
+	return "", nil
+}
+
+func (resolver *streamStubFaviconResolver) ResolveAsset(_ context.Context, _ string) (*httpapi.FaviconAsset, error) {
+	resolver.mu.Lock()
+	resolver.calls++
+	resolver.mu.Unlock()
+	return resolver.asset, nil
+}
+
+func (resolver *streamStubFaviconResolver) callCount() int {
+	resolver.mu.Lock()
+	defer resolver.mu.Unlock()
+	return resolver.calls
+}
+
+func TestStreamFaviconUpdatesEmitsEvents(testingT *testing.T) {
+	testingT.Helper()
+
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, openErr)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Streamed Site",
+		AllowedOrigin: "https://stream.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, database.Create(&site).Error)
+
+	resolver := &streamStubFaviconResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x05}}}
+	faviconManager := httpapi.NewSiteFaviconManager(
+		database,
+		resolver,
+		zap.NewNop(),
+		httpapi.WithFaviconIntervals(5*time.Millisecond, 5*time.Millisecond),
+	)
+	faviconManager.Start(context.Background())
+	defer faviconManager.Stop()
+
+	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, faviconManager, nil)
+
+	engine := gin.New()
+	engine.GET("/stream", func(context *gin.Context) {
+		context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+		handlers.StreamFaviconUpdates(context)
+	})
+
+	server := httptest.NewServer(engine)
+	defer server.Close()
+
+	client := server.Client()
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/stream", nil)
+	require.NoError(testingT, err)
+	response, err := client.Do(request)
+	require.NoError(testingT, err)
+	defer response.Body.Close()
+	require.Equal(testingT, "text/event-stream", response.Header.Get("Content-Type"))
+
+	events := make(chan struct {
+		name string
+		data string
+	}, 1)
+	go func() {
+		reader := bufio.NewReader(response.Body)
+		var eventName string
+		var dataPayload string
+		for {
+			line, readErr := reader.ReadString('\n')
+			if readErr != nil {
+				close(events)
+				return
+			}
+			line = strings.TrimRight(line, "\r\n")
+			if strings.HasPrefix(line, "event: ") {
+				eventName = strings.TrimPrefix(line, "event: ")
+				continue
+			}
+			if strings.HasPrefix(line, "data: ") {
+				dataPayload = strings.TrimPrefix(line, "data: ")
+				continue
+			}
+			if line == "" && eventName != "" && dataPayload != "" {
+				events <- struct {
+					name string
+					data string
+				}{name: eventName, data: dataPayload}
+				return
+			}
+		}
+	}()
+
+	faviconManager.ScheduleFetch(site)
+
+	require.Eventually(testingT, func() bool {
+		return resolver.callCount() > 0
+	}, 2*time.Second, 10*time.Millisecond)
+
+	select {
+	case payload, ok := <-events:
+		require.True(testingT, ok)
+		require.Equal(testingT, "favicon_updated", payload.name)
+		require.Contains(testingT, payload.data, site.ID)
+		require.Contains(testingT, payload.data, "favicon_url")
+	case <-time.After(5 * time.Second):
+		testingT.Fatal("timed out waiting for SSE event")
+	}
 }
 
 func TestNonAdminCannotAccessForeignSite(testingT *testing.T) {

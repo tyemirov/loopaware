@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -72,6 +73,7 @@ const (
 	apiRouteSiteUpdate               = "/sites/:id"
 	apiRouteSiteMessages             = "/sites/:id/messages"
 	apiRouteSiteFavicon              = "/sites/:id/favicon"
+	apiRouteSiteFaviconEvents        = "/sites/favicons/events"
 	corsOriginWildcard               = "*"
 	corsHeaderAuthorization          = "Authorization"
 	corsHeaderContentType            = "Content-Type"
@@ -349,6 +351,10 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	sharedHTTPClient := &http.Client{Timeout: 5 * time.Second}
 	faviconResolver := httpapi.NewHTTPFaviconResolver(sharedHTTPClient, logger)
 	faviconManager := httpapi.NewSiteFaviconManager(database, faviconResolver, logger)
+	faviconManagerContext, faviconManagerCancel := context.WithCancel(context.Background())
+	defer faviconManager.Stop()
+	defer faviconManagerCancel()
+	faviconManager.Start(faviconManagerContext)
 	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(database)
 	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot)
@@ -379,6 +385,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	apiGroup.DELETE(apiRouteSiteUpdate, siteHandlers.DeleteSite)
 	apiGroup.GET(apiRouteSiteMessages, siteHandlers.ListMessagesBySite)
 	apiGroup.GET(apiRouteSiteFavicon, siteHandlers.SiteFavicon)
+	apiGroup.GET(apiRouteSiteFaviconEvents, siteHandlers.StreamFaviconUpdates)
 
 	httpServer := &http.Server{
 		Addr:              serverConfig.ApplicationAddress,
