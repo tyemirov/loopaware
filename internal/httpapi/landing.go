@@ -48,23 +48,7 @@ func NewLandingPageHandlers(logger *zap.Logger) *LandingPageHandlers {
 
 // RenderLandingPage writes the landing page response.
 func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
-	footerHTML, footerErr := RenderFooterHTML(FooterConfig{
-		ElementID:         landingFooterElementID,
-		InnerElementID:    landingFooterInnerID,
-		BaseClass:         landingFooterBaseClass,
-		InnerClass:        landingFooterInnerClass,
-		WrapperClass:      footerLayoutClass,
-		BrandWrapperClass: footerBrandWrapperClass,
-		MenuWrapperClass:  footerMenuWrapperClass,
-		PrefixClass:       footerPrefixClass,
-		PrefixText:        dashboardFooterBrandPrefix,
-		ToggleButtonID:    landingFooterToggleID,
-		ToggleButtonClass: footerToggleButtonClass,
-		ToggleLabel:       dashboardFooterBrandName,
-		MenuClass:         footerMenuClass,
-		MenuItemClass:     footerMenuItemClass,
-		PrivacyLinkClass:  footerPrivacyLinkClass,
-	})
+	footerHTML, footerErr := renderFooterHTMLForVariant(footerVariantLanding)
 	if footerErr != nil {
 		handlers.logger.Error("render_landing_footer", zap.Error(footerErr))
 		footerHTML = template.HTML("")

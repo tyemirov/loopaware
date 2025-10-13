@@ -37,23 +37,7 @@ func NewPrivacyPageHandlers() *PrivacyPageHandlers {
 }
 
 func (handlers *PrivacyPageHandlers) RenderPrivacyPage(context *gin.Context) {
-	footerHTML, footerErr := RenderFooterHTML(FooterConfig{
-		ElementID:         privacyFooterElementID,
-		InnerElementID:    privacyFooterInnerID,
-		BaseClass:         landingFooterBaseClass,
-		InnerClass:        landingFooterInnerClass,
-		WrapperClass:      footerLayoutClass,
-		BrandWrapperClass: footerBrandWrapperClass,
-		MenuWrapperClass:  footerMenuWrapperClass,
-		PrefixClass:       footerPrefixClass,
-		PrefixText:        dashboardFooterBrandPrefix,
-		ToggleButtonID:    dashboardFooterToggleButtonID,
-		ToggleButtonClass: footerToggleButtonClass,
-		ToggleLabel:       dashboardFooterBrandName,
-		MenuClass:         footerMenuClass,
-		MenuItemClass:     footerMenuItemClass,
-		PrivacyLinkClass:  footerPrivacyLinkClass,
-	})
+	footerHTML, footerErr := renderFooterHTMLForVariant(footerVariantPrivacy)
 	if footerErr != nil {
 		footerHTML = template.HTML("")
 	}

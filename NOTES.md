@@ -150,7 +150,7 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-68] Silence GORM “record not found” logs in tests via test logger config, but still assert on errors.
 - [x] [LA-69] Verify go test ./... -v -race -count=1 passes in CI without race, leaks, or long hangs.
 - [x] [LA-74] Neither footer nor the privacy page repsect the chosen theme. Have the rpivacy page have the same header as the landing page.
-- [ ] [LA-75] Replace duplicative implementation of the footer and render a single partial instead.
+- [x] [LA-75] Replace duplicative implementation of the footer and render a single partial instead.
 
 
 ### Maintenance

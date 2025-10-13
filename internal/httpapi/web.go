@@ -373,23 +373,7 @@ func NewDashboardWebHandlers(logger *zap.Logger, landingPath string) *DashboardW
 }
 
 func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
-	footerHTML, footerErr := RenderFooterHTML(FooterConfig{
-		ElementID:         footerElementID,
-		InnerElementID:    footerInnerElementID,
-		BaseClass:         footerBaseClass,
-		InnerClass:        landingFooterInnerClass,
-		WrapperClass:      footerLayoutClass,
-		BrandWrapperClass: footerBrandWrapperClass,
-		MenuWrapperClass:  footerMenuWrapperClass,
-		PrefixClass:       footerPrefixClass,
-		PrefixText:        dashboardFooterBrandPrefix,
-		ToggleButtonID:    dashboardFooterToggleButtonID,
-		ToggleButtonClass: footerToggleButtonClass,
-		ToggleLabel:       dashboardFooterBrandName,
-		MenuClass:         footerMenuClass,
-		MenuItemClass:     footerMenuItemClass,
-		PrivacyLinkClass:  footerPrivacyLinkClass,
-	})
+	footerHTML, footerErr := renderFooterHTMLForVariant(footerVariantDashboard)
 	if footerErr != nil {
 		handlers.logger.Warn("render_dashboard_footer", zap.Error(footerErr))
 		footerHTML = template.HTML("")
