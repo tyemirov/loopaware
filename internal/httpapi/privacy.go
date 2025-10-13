@@ -22,7 +22,11 @@ type PrivacyPageHandlers struct {
 }
 
 type privacyTemplateData struct {
-	FooterHTML template.HTML
+	SharedStyles  template.CSS
+	PrivacyStyles template.CSS
+	FooterHTML    template.HTML
+	HeaderHTML    template.HTML
+	ThemeScript   template.JS
 }
 
 func NewPrivacyPageHandlers() *PrivacyPageHandlers {
@@ -54,8 +58,22 @@ func (handlers *PrivacyPageHandlers) RenderPrivacyPage(context *gin.Context) {
 		footerHTML = template.HTML("")
 	}
 
+	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI)
+	if headerErr != nil {
+		headerHTML = template.HTML("")
+	}
+
+	themeScript, themeErr := renderPublicThemeScript()
+	if themeErr != nil {
+		themeScript = template.JS("")
+	}
+
 	payload := privacyTemplateData{
-		FooterHTML: footerHTML,
+		SharedStyles:  sharedPublicStyles(),
+		PrivacyStyles: privacyPageStyles(),
+		FooterHTML:    footerHTML,
+		HeaderHTML:    headerHTML,
+		ThemeScript:   themeScript,
 	}
 
 	var buffer bytes.Buffer

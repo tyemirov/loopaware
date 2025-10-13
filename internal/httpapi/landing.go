@@ -21,9 +21,11 @@ const (
 )
 
 type landingTemplateData struct {
+	SharedStyles   template.CSS
 	FooterHTML     template.HTML
+	HeaderHTML     template.HTML
+	ThemeScript    template.JS
 	FaviconDataURI template.URL
-	LogoDataURI    template.URL
 }
 
 // LandingPageHandlers renders the public landing page.
@@ -68,10 +70,24 @@ func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
 		footerHTML = template.HTML("")
 	}
 
+	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI)
+	if headerErr != nil {
+		handlers.logger.Error("render_landing_header", zap.Error(headerErr))
+		headerHTML = template.HTML("")
+	}
+
+	themeScript, themeErr := renderPublicThemeScript()
+	if themeErr != nil {
+		handlers.logger.Error("render_public_theme_script", zap.Error(themeErr))
+		themeScript = template.JS("")
+	}
+
 	data := landingTemplateData{
+		SharedStyles:   sharedPublicStyles(),
 		FooterHTML:     footerHTML,
+		HeaderHTML:     headerHTML,
+		ThemeScript:    themeScript,
 		FaviconDataURI: template.URL(dashboardFaviconDataURI),
-		LogoDataURI:    landingLogoDataURI,
 	}
 
 	var buffer bytes.Buffer
