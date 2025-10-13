@@ -1,10 +1,11 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -289,47 +290,83 @@ func (handlers *SiteHandlers) SiteFavicon(context *gin.Context) {
 	context.Data(http.StatusOK, contentType, site.FaviconData)
 }
 
-func (handlers *SiteHandlers) StreamFaviconUpdates(context *gin.Context) {
-	currentUser, ok := CurrentUserFromContext(context)
+func (handlers *SiteHandlers) StreamFaviconUpdates(ginContext *gin.Context) {
+	currentUser, ok := CurrentUserFromContext(ginContext)
 	if !ok {
-		context.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
+		ginContext.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
 		return
 	}
 	if handlers.faviconManager == nil {
-		context.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: errorValueStreamUnavailable})
+		ginContext.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: errorValueStreamUnavailable})
 		return
 	}
 	subscription := handlers.faviconManager.Subscribe()
 	if subscription == nil {
-		context.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: errorValueStreamUnavailable})
+		ginContext.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: errorValueStreamUnavailable})
 		return
 	}
 	defer subscription.Close()
 
-	context.Header("Content-Type", "text/event-stream")
-	context.Header("Cache-Control", "no-cache")
-	context.Header("Connection", "keep-alive")
+	ginContext.Header("Content-Type", "text/event-stream")
+	ginContext.Header("Cache-Control", "no-cache")
+	ginContext.Header("Connection", "keep-alive")
 
-	context.Stream(func(writer io.Writer) bool {
+	flusher, flushable := ginContext.Writer.(http.Flusher)
+	if !flushable {
+		ginContext.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: errorValueStreamUnavailable})
+		return
+	}
+
+	ginContext.Writer.WriteHeaderNow()
+	flusher.Flush()
+
+	requestContext := ginContext.Request.Context()
+
+	for {
 		select {
-		case <-context.Request.Context().Done():
-			return false
+		case <-requestContext.Done():
+			return
 		case event, ok := <-subscription.Events():
 			if !ok {
-				return false
+				return
 			}
-			if !handlers.userCanAccessSite(context.Request.Context(), currentUser, event.SiteID) {
-				return true
+			if !handlers.userCanAccessSite(context.Background(), currentUser, event.SiteID) {
+				continue
 			}
-			payload := gin.H{
-				"site_id":     event.SiteID,
-				"favicon_url": event.FaviconURL,
-				"updated_at":  event.UpdatedAt.UTC().Unix(),
+			payload := struct {
+				SiteID     string `json:"site_id"`
+				FaviconURL string `json:"favicon_url"`
+				UpdatedAt  int64  `json:"updated_at"`
+			}{
+				SiteID:     event.SiteID,
+				FaviconURL: event.FaviconURL,
+				UpdatedAt:  event.UpdatedAt.UTC().Unix(),
 			}
-			context.SSEvent("favicon_updated", payload)
-			return true
+			serializedPayload, marshalErr := json.Marshal(payload)
+			if marshalErr != nil {
+				if handlers.logger != nil {
+					handlers.logger.Debug("marshal_favicon_event_failed", zap.Error(marshalErr))
+				}
+				continue
+			}
+			var buffer bytes.Buffer
+			buffer.WriteString("event: favicon_updated\n")
+			buffer.WriteString("data: ")
+			buffer.Write(serializedPayload)
+			buffer.WriteString("\n\n")
+			if _, writeErr := ginContext.Writer.Write(buffer.Bytes()); writeErr != nil {
+				return
+			}
+			flusher.Flush()
+			if handlers.logger != nil {
+				handlers.logger.Debug(
+					"stream_favicon_event",
+					zap.String("site_id", event.SiteID),
+					zap.String("favicon_url", event.FaviconURL),
+				)
+			}
 		}
-	})
+	}
 }
 
 func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {

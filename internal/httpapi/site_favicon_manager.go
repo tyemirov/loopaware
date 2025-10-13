@@ -55,6 +55,8 @@ type SiteFaviconManager struct {
 
 type fetchTask struct {
 	siteID string
+	force  bool
+	notify bool
 }
 
 type faviconSubscriber struct {
@@ -127,7 +129,6 @@ func (manager *SiteFaviconManager) Start(ctx context.Context) {
 		go manager.runWorker(workerCtx)
 		if manager.scheduler != nil {
 			manager.scheduler.Start(workerCtx)
-			manager.scheduler.Trigger()
 		}
 	})
 }
@@ -153,11 +154,20 @@ func (manager *SiteFaviconManager) ScheduleFetch(site model.Site) {
 	}
 
 	normalizedOrigin := strings.TrimSpace(site.AllowedOrigin)
+	manager.scheduleFetch(
+		site,
+		normalizedOrigin,
+		manager.shouldForceFetch(site, normalizedOrigin),
+		manager.shouldNotifySubscribers(site, normalizedOrigin),
+	)
+}
+
+func (manager *SiteFaviconManager) scheduleFetch(site model.Site, normalizedOrigin string, force bool, notify bool) {
 	if normalizedOrigin == "" {
 		return
 	}
 
-	if !manager.shouldFetch(site, normalizedOrigin) {
+	if !force && !manager.shouldFetch(site, normalizedOrigin) {
 		return
 	}
 
@@ -165,12 +175,46 @@ func (manager *SiteFaviconManager) ScheduleFetch(site model.Site) {
 		return
 	}
 
-	task := fetchTask{siteID: site.ID}
+	task := fetchTask{siteID: site.ID, force: force, notify: notify}
 	select {
 	case manager.workQueue <- task:
 	default:
 		go manager.enqueueTask(task)
 	}
+}
+
+func (manager *SiteFaviconManager) shouldForceFetch(site model.Site, normalizedOrigin string) bool {
+	if len(site.FaviconData) == 0 {
+		return true
+	}
+	if site.FaviconFetchedAt.IsZero() {
+		return true
+	}
+	storedOrigin := strings.TrimSpace(site.FaviconOrigin)
+	if storedOrigin == "" {
+		return true
+	}
+	if !strings.EqualFold(storedOrigin, normalizedOrigin) {
+		return true
+	}
+	return false
+}
+
+func (manager *SiteFaviconManager) shouldNotifySubscribers(site model.Site, normalizedOrigin string) bool {
+	if len(site.FaviconData) == 0 {
+		return true
+	}
+	if site.FaviconFetchedAt.IsZero() {
+		return true
+	}
+	storedOrigin := strings.TrimSpace(site.FaviconOrigin)
+	if storedOrigin == "" {
+		return true
+	}
+	if !strings.EqualFold(storedOrigin, normalizedOrigin) {
+		return true
+	}
+	return false
 }
 
 func (manager *SiteFaviconManager) TriggerScheduledRefresh() {
@@ -234,22 +278,22 @@ func (manager *SiteFaviconManager) runWorker(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case task := <-manager.workQueue:
-			manager.processFetch(ctx, task.siteID)
+			manager.processFetch(ctx, task)
 		}
 	}
 }
 
-func (manager *SiteFaviconManager) processFetch(ctx context.Context, siteID string) {
-	defer manager.inFlight.Delete(siteID)
+func (manager *SiteFaviconManager) processFetch(ctx context.Context, task fetchTask) {
+	defer manager.inFlight.Delete(task.siteID)
 
 	if manager.database == nil || manager.resolver == nil {
 		return
 	}
 
 	var site model.Site
-	if err := manager.database.First(&site, "id = ?", siteID).Error; err != nil {
+	if err := manager.database.First(&site, "id = ?", task.siteID).Error; err != nil {
 		if manager.logger != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			manager.logger.Warn("load_site_for_favicon", zap.String("site_id", siteID), zap.Error(err))
+			manager.logger.Warn("load_site_for_favicon", zap.String("site_id", task.siteID), zap.Error(err))
 		}
 		return
 	}
@@ -259,7 +303,7 @@ func (manager *SiteFaviconManager) processFetch(ctx context.Context, siteID stri
 		return
 	}
 
-	if !manager.shouldFetch(site, normalizedOrigin) {
+	if !task.force && !manager.shouldFetch(site, normalizedOrigin) {
 		return
 	}
 
@@ -276,7 +320,7 @@ func (manager *SiteFaviconManager) processFetch(ctx context.Context, siteID stri
 		if manager.logger != nil {
 			manager.logger.Debug(
 				"fetch_site_favicon_failed",
-				zap.String("site_id", siteID),
+				zap.String("site_id", task.siteID),
 				zap.String("allowed_origin", normalizedOrigin),
 				zap.Error(resolveErr),
 			)
@@ -292,17 +336,21 @@ func (manager *SiteFaviconManager) processFetch(ctx context.Context, siteID stri
 		}
 	}
 
-	if updateErr := manager.database.Model(&model.Site{ID: siteID}).Updates(updates).Error; updateErr != nil {
+	if task.notify && asset != nil && len(asset.Data) > 0 {
+		shouldNotify = true
+	}
+
+	if updateErr := manager.database.Model(&model.Site{ID: task.siteID}).Updates(updates).Error; updateErr != nil {
 		if manager.logger != nil {
-			manager.logger.Warn("persist_site_favicon_failed", zap.String("site_id", siteID), zap.Error(updateErr))
+			manager.logger.Warn("persist_site_favicon_failed", zap.String("site_id", task.siteID), zap.Error(updateErr))
 		}
 		return
 	}
 
 	if shouldNotify {
 		event := SiteFaviconEvent{
-			SiteID:     siteID,
-			FaviconURL: versionedSiteFaviconURL(siteID, now),
+			SiteID:     task.siteID,
+			FaviconURL: versionedSiteFaviconURL(task.siteID, now),
 			UpdatedAt:  now,
 		}
 		manager.broadcast(event)
@@ -329,7 +377,13 @@ func (manager *SiteFaviconManager) performScheduledRefresh(ctx context.Context) 
 		case <-ctx.Done():
 			return
 		default:
-			manager.ScheduleFetch(site)
+			normalizedOrigin := strings.TrimSpace(site.AllowedOrigin)
+			manager.scheduleFetch(
+				site,
+				normalizedOrigin,
+				false,
+				manager.shouldNotifySubscribers(site, normalizedOrigin),
+			)
 		}
 	}
 }
