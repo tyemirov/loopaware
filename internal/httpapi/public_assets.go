@@ -2,7 +2,10 @@ package httpapi
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
+
+	"github.com/temirov/GAuss/pkg/constants"
 )
 
 const (
@@ -12,6 +15,13 @@ const (
 	publicThemeStorageKey        = "loopaware_public_theme"
 	publicLandingThemeStorageKey = "loopaware_landing_theme"
 	publicLegacyThemeStorageKey  = "landing_theme"
+	publicLandingPath            = constants.LoginPath
+	publicDashboardPath          = "/app"
+	publicHeroScrollTarget       = "#top"
+	publicHeroAttributeName      = "data-public-hero"
+	publicHeroAttributeValue     = "true"
+	publicHeroScrollAttribute    = "data-scroll-to-top"
+	publicHeroScrollValue        = "true"
 	publicSharedStylesCSS        = `.landing-body {
         transition: background-color 0.3s ease, color 0.3s ease;
       }
@@ -113,12 +123,12 @@ var (
 	publicHeaderTemplate = template.Must(template.New("public_header").Parse(`<header class="landing-header">
   <nav class="navbar landing-navbar shadow-sm px-3">
     <div class="container d-flex align-items-center justify-content-between">
-      <span class="navbar-brand d-flex align-items-center gap-3 landing-brand">
+      <a class="navbar-brand d-flex align-items-center gap-3 landing-brand" href="{{.HeroTarget}}" {{.HeroDataAttribute}}{{if .HeroScrollAttribute}} {{.HeroScrollAttribute}}{{end}}>
         <span class="landing-logo">
           <img src="{{.LogoDataURI}}" alt="LoopAware logo" class="landing-logo-image" />
         </span>
         <span>{{.BrandName}}</span>
-      </span>
+      </a>
       <div class="d-flex align-items-center gap-3">
         <div class="form-check form-switch m-0" data-bs-theme="light">
           <input class="form-check-input" type="checkbox" id="{{.ThemeToggleID}}" aria-label="Toggle theme" />
@@ -177,29 +187,63 @@ var (
     });
   }
   initializePublicTheme();
+  var heroElement = document.querySelector('[{{.HeroAttributeName}}]');
+  if (heroElement) {
+    var shouldScrollToTop = heroElement.getAttribute('{{.HeroScrollAttributeName}}') === '{{.HeroScrollAttributeValue}}';
+    if (shouldScrollToTop) {
+      heroElement.addEventListener('click', function(event) {
+        event.preventDefault();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
+  }
 })();`))
 )
 
 type publicHeaderTemplateData struct {
-	LogoDataURI   template.URL
-	BrandName     string
-	ThemeToggleID string
-	LoginPath     string
+	LogoDataURI         template.URL
+	BrandName           string
+	ThemeToggleID       string
+	LoginPath           string
+	HeroTarget          string
+	HeroDataAttribute   template.HTMLAttr
+	HeroScrollAttribute template.HTMLAttr
 }
 
 type publicThemeScriptTemplateData struct {
-	ThemeToggleID          string
-	PublicThemeStorageKey  string
-	LandingThemeStorageKey string
-	LegacyThemeStorageKey  string
+	ThemeToggleID            string
+	PublicThemeStorageKey    string
+	LandingThemeStorageKey   string
+	LegacyThemeStorageKey    string
+	HeroAttributeName        string
+	HeroScrollAttributeName  string
+	HeroScrollAttributeValue string
 }
 
-func renderPublicHeader(logoDataURI template.URL) (template.HTML, error) {
+type publicPageType string
+
+const (
+	publicPageLanding publicPageType = "landing"
+	publicPagePrivacy publicPageType = "privacy"
+)
+
+type publicHeroBehavior struct {
+	Target       string
+	ShouldScroll bool
+}
+
+func renderPublicHeader(logoDataURI template.URL, isAuthenticated bool, pageType publicPageType) (template.HTML, error) {
+	heroBehavior := resolvePublicHeroBehavior(isAuthenticated, pageType)
 	data := publicHeaderTemplateData{
-		LogoDataURI:   logoDataURI,
-		BrandName:     publicBrandName,
-		ThemeToggleID: publicThemeToggleID,
-		LoginPath:     publicLoginPath,
+		LogoDataURI:       logoDataURI,
+		BrandName:         publicBrandName,
+		ThemeToggleID:     publicThemeToggleID,
+		LoginPath:         publicLoginPath,
+		HeroTarget:        heroBehavior.Target,
+		HeroDataAttribute: template.HTMLAttr(fmt.Sprintf(`%s="%s"`, publicHeroAttributeName, publicHeroAttributeValue)),
+	}
+	if heroBehavior.ShouldScroll {
+		data.HeroScrollAttribute = template.HTMLAttr(fmt.Sprintf(`%s="%s"`, publicHeroScrollAttribute, publicHeroScrollValue))
 	}
 	var buffer bytes.Buffer
 	if err := publicHeaderTemplate.Execute(&buffer, data); err != nil {
@@ -210,16 +254,29 @@ func renderPublicHeader(logoDataURI template.URL) (template.HTML, error) {
 
 func renderPublicThemeScript() (template.JS, error) {
 	data := publicThemeScriptTemplateData{
-		ThemeToggleID:          publicThemeToggleID,
-		PublicThemeStorageKey:  publicThemeStorageKey,
-		LandingThemeStorageKey: publicLandingThemeStorageKey,
-		LegacyThemeStorageKey:  publicLegacyThemeStorageKey,
+		ThemeToggleID:            publicThemeToggleID,
+		PublicThemeStorageKey:    publicThemeStorageKey,
+		LandingThemeStorageKey:   publicLandingThemeStorageKey,
+		LegacyThemeStorageKey:    publicLegacyThemeStorageKey,
+		HeroAttributeName:        publicHeroAttributeName,
+		HeroScrollAttributeName:  publicHeroScrollAttribute,
+		HeroScrollAttributeValue: publicHeroScrollValue,
 	}
 	var buffer bytes.Buffer
 	if err := publicThemeScriptTemplate.Execute(&buffer, data); err != nil {
 		return "", err
 	}
 	return template.JS(buffer.String()), nil
+}
+
+func resolvePublicHeroBehavior(isAuthenticated bool, pageType publicPageType) publicHeroBehavior {
+	if isAuthenticated {
+		return publicHeroBehavior{Target: publicDashboardPath}
+	}
+	if pageType == publicPageLanding {
+		return publicHeroBehavior{Target: publicHeroScrollTarget, ShouldScroll: true}
+	}
+	return publicHeroBehavior{Target: publicLandingPath}
 }
 
 func sharedPublicStyles() template.CSS {

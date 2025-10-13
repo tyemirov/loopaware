@@ -348,8 +348,9 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		MaxAge:           12 * time.Hour,
 	}))
 
-	publicHandlers := httpapi.NewPublicHandlers(database, logger)
 	sharedHTTPClient := &http.Client{Timeout: 5 * time.Second}
+	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, landingRouteRoot)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger)
 	faviconResolver := favicon.NewHTTPResolver(sharedHTTPClient, logger)
 	faviconService := favicon.NewService(faviconResolver)
 	faviconManager := httpapi.NewSiteFaviconManager(database, faviconService, logger)
@@ -361,10 +362,9 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(database)
 	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot)
-	landingHandlers := httpapi.NewLandingPageHandlers(logger)
-	privacyHandlers := httpapi.NewPrivacyPageHandlers()
+	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager)
+	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
 	sitemapHandlers := httpapi.NewSitemapHandlers(serverConfig.PublicBaseURL)
-	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, landingRouteRoot)
 
 	router.GET("/", func(context *gin.Context) {
 		context.Redirect(http.StatusFound, constants.LoginPath)

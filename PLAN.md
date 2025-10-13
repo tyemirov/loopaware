@@ -1,7 +1,7 @@
-- [x] internal/httpapi/public_assets.go — extract shared header, theme script, and style assets for public pages to keep theme selection consistent.
-- [x] internal/httpapi/landing.go, internal/httpapi/privacy.go — supply shared public layout payloads so landing and privacy reuse header/footer config and theme storage.
-- [x] internal/httpapi/templates/landing.tmpl, internal/httpapi/templates/privacy.tmpl — embed shared header markup, data attributes, and scripts so both pages respect stored theme.
-- [x] internal/httpapi/landing_test.go, internal/httpapi/privacy_test.go — extend coverage for header reuse and theme persistence across landing and privacy.
-- [x] internal/httpapi/footer.go — define footer variants and reuse a single partial renderer to remove duplicated configs.
-- [x] internal/httpapi/landing.go, internal/httpapi/privacy.go, internal/httpapi/web.go — replace inline footer configuration with the shared variant renderer.
-- [x] NOTES.md — mark LA-75 complete after refactor validation.
+- [ ] internal/httpapi/public_assets.go — adapt the public header to expose a hero link whose destination depends on authentication state and page context.
+- [ ] internal/httpapi/landing.go — inject an authenticated-user provider so the landing page can render the correct hero target and scroll behavior when unauthenticated.
+- [ ] internal/httpapi/privacy.go — reuse the authenticated-user provider to configure the hero navigation for the privacy page.
+- [ ] cmd/server/main.go — wire the authentication manager into the public handlers so they can determine the current user.
+- [ ] internal/httpapi/landing_test.go — cover hero link behavior for authenticated and unauthenticated visitors on the landing page.
+- [ ] internal/httpapi/privacy_test.go — verify the privacy page hero link matches the required navigation rules.
+- [ ] NOTES.md — mark [LA-76] as completed after validation.

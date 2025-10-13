@@ -147,6 +147,11 @@ func (authManager *AuthManager) RequireAuthenticatedWeb() gin.HandlerFunc {
 	}
 }
 
+// CurrentUser returns the authenticated account associated with the request if available.
+func (authManager *AuthManager) CurrentUser(context *gin.Context) (*CurrentUser, bool) {
+	return authManager.ensureUser(context)
+}
+
 func (authManager *AuthManager) RequireAdminJSON() gin.HandlerFunc {
 	return func(context *gin.Context) {
 		currentUser, ok := authManager.ensureUser(context)

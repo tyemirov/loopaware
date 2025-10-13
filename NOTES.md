@@ -117,6 +117,7 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-71] Refactor the footer so it's the same footer on both landing, privacy, and privacy pages
 - [x] [LA-72] Move "Privacy • Terms" link to the same footer that says "Built by marco Polo Research lab"
 - [x] [LA-73] Align "Privacy • Terms" to the left of the footer and horizontally with "Built by marco Polo Research lab". Make "Privacy • Terms" font 3 (really tiny.)
+- [x] [LA-76] Clicking on LoopAware hero in the header shall either a) load the landing page if the user is not logged in AND is not on the landing page already b) load the dashboard page if the user is logged in c) scroll to the top if the user is not logged in AND is on the landing page already
 
 ### BugFixes
 
@@ -151,7 +152,6 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-69] Verify go test ./... -v -race -count=1 passes in CI without race, leaks, or long hangs.
 - [x] [LA-74] Neither footer nor the privacy page repsect the chosen theme. Have the rpivacy page have the same header as the landing page.
 - [x] [LA-75] Replace duplicative implementation of the footer and render a single partial instead.
-
 
 ### Maintenance
 

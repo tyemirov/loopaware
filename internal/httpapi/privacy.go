@@ -18,7 +18,8 @@ const (
 )
 
 type PrivacyPageHandlers struct {
-	template *template.Template
+	template            *template.Template
+	currentUserProvider PublicPageCurrentUserProvider
 }
 
 type privacyTemplateData struct {
@@ -29,10 +30,11 @@ type privacyTemplateData struct {
 	ThemeScript   template.JS
 }
 
-func NewPrivacyPageHandlers() *PrivacyPageHandlers {
+func NewPrivacyPageHandlers(currentUserProvider PublicPageCurrentUserProvider) *PrivacyPageHandlers {
 	compiledTemplate := template.Must(template.New(privacyTemplateName).Parse(privacyTemplateHTML))
 	return &PrivacyPageHandlers{
-		template: compiledTemplate,
+		template:            compiledTemplate,
+		currentUserProvider: currentUserProvider,
 	}
 }
 
@@ -42,7 +44,12 @@ func (handlers *PrivacyPageHandlers) RenderPrivacyPage(context *gin.Context) {
 		footerHTML = template.HTML("")
 	}
 
-	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI)
+	isAuthenticated := false
+	if handlers.currentUserProvider != nil {
+		_, isAuthenticated = handlers.currentUserProvider.CurrentUser(context)
+	}
+
+	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, isAuthenticated, publicPagePrivacy)
 	if headerErr != nil {
 		headerHTML = template.HTML("")
 	}
