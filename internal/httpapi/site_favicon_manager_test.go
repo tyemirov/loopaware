@@ -64,6 +64,8 @@ func TestSiteFaviconManagerStoresResolvedAsset(testingT *testing.T) {
 
 	resolver := &stubAssetResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x01, 0x02}}}
 	manager := httpapi.NewSiteFaviconManager(database, resolver, zap.NewNop())
+	manager.Start(context.Background())
+	defer manager.Stop()
 
 	manager.ScheduleFetch(site)
 
@@ -98,6 +100,8 @@ func TestSiteFaviconManagerAvoidsDuplicateFetches(testingT *testing.T) {
 
 	resolver := &stubAssetResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x0A}}}
 	manager := httpapi.NewSiteFaviconManager(database, resolver, zap.NewNop())
+	manager.Start(context.Background())
+	defer manager.Stop()
 
 	manager.ScheduleFetch(site)
 
@@ -117,6 +121,95 @@ func TestSiteFaviconManagerAvoidsDuplicateFetches(testingT *testing.T) {
 
 	time.Sleep(50 * time.Millisecond)
 	require.Equal(testingT, initialCalls, resolver.callCount())
+}
+
+func TestSiteFaviconManagerScheduledRefreshQueuesStaleSites(testingT *testing.T) {
+	testingT.Helper()
+
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, openErr)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	staleReferenceTime := time.Now()
+	site := model.Site{
+		ID:               storage.NewID(),
+		Name:             "Stale Site",
+		AllowedOrigin:    "https://stale.example",
+		OwnerEmail:       "owner@example.com",
+		FaviconData:      []byte{0x01},
+		FaviconOrigin:    "https://stale.example",
+		FaviconFetchedAt: staleReferenceTime.Add(-48 * time.Hour),
+	}
+	require.NoError(testingT, database.Create(&site).Error)
+
+	resolver := &stubAssetResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x02}}}
+	manager := httpapi.NewSiteFaviconManager(
+		database,
+		resolver,
+		zap.NewNop(),
+		httpapi.WithFaviconIntervals(5*time.Millisecond, 5*time.Millisecond),
+		httpapi.WithFaviconScanInterval(5*time.Millisecond),
+		httpapi.WithFaviconClock(func() time.Time { return staleReferenceTime }),
+	)
+	manager.Start(context.Background())
+	defer manager.Stop()
+
+	manager.TriggerScheduledRefresh()
+
+	require.Eventually(testingT, func() bool {
+		return resolver.callCount() > 0
+	}, time.Second, 10*time.Millisecond)
+}
+
+func TestSiteFaviconManagerNotifiesSubscribers(testingT *testing.T) {
+	testingT.Helper()
+
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, openErr)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Observable Site",
+		AllowedOrigin: "https://observable.example",
+		OwnerEmail:    "owner@example.com",
+	}
+	require.NoError(testingT, database.Create(&site).Error)
+
+	resolver := &stubAssetResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x03}}}
+	manager := httpapi.NewSiteFaviconManager(
+		database,
+		resolver,
+		zap.NewNop(),
+		httpapi.WithFaviconIntervals(5*time.Millisecond, 5*time.Millisecond),
+	)
+	manager.Start(context.Background())
+	defer manager.Stop()
+
+	subscription := manager.Subscribe()
+	require.NotNil(testingT, subscription)
+	defer subscription.Close()
+
+	manager.ScheduleFetch(site)
+
+	var receivedEvent httpapi.SiteFaviconEvent
+	require.Eventually(testingT, func() bool {
+		select {
+		case event, ok := <-subscription.Events():
+			if !ok {
+				return false
+			}
+			receivedEvent = event
+			return true
+		default:
+			return false
+		}
+	}, time.Second, 10*time.Millisecond)
+
+	require.Equal(testingT, site.ID, receivedEvent.SiteID)
+	require.NotEmpty(testingT, strings.TrimSpace(receivedEvent.FaviconURL))
 }
 
 func TestGravityNotesInlineFaviconIntegration(testingT *testing.T) {
@@ -144,6 +237,8 @@ func TestGravityNotesInlineFaviconIntegration(testingT *testing.T) {
 	require.NoError(testingT, storage.AutoMigrate(database))
 
 	manager := httpapi.NewSiteFaviconManager(database, resolver, zap.NewNop())
+	manager.Start(context.Background())
+	defer manager.Stop()
 	require.NotNil(testingT, manager)
 
 	site := model.Site{

@@ -1,12 +1,15 @@
 package httpapi_test
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -22,13 +25,14 @@ import (
 )
 
 const (
-	testAdminEmailAddress = "admin@example.com"
-	testUserEmailAddress  = "user@example.com"
-	testCreatorEmail      = "creator@example.com"
-	testSessionContextKey = "httpapi_current_user"
-	testWidgetBaseURL     = "https://gravity.mprlab.com/"
-	jsonErrorKey          = "error"
-	errorCodeSiteExists   = "site_exists"
+	testAdminEmailAddress          = "admin@example.com"
+	testUserEmailAddress           = "user@example.com"
+	testCreatorEmail               = "creator@example.com"
+	testAlternateOwnerEmailAddress = "owner@example.com"
+	testSessionContextKey          = "httpapi_current_user"
+	testWidgetBaseURL              = "https://gravity.mprlab.com/"
+	jsonErrorKey                   = "error"
+	errorCodeSiteExists            = "site_exists"
 )
 
 type siteTestHarness struct {
@@ -171,7 +175,7 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	expectedBaseURL := strings.TrimRight(testWidgetBaseURL, "/")
 	expectedWidget := fmt.Sprintf("<script defer src=\"%s/widget.js?site_id=%s\"></script>", expectedBaseURL, site.ID)
 	require.Equal(testingT, expectedWidget, responseBody.Sites[0].Widget)
-	expectedFavicon := fmt.Sprintf("/api/sites/%s/favicon", site.ID)
+	expectedFavicon := fmt.Sprintf("/api/sites/%s/favicon?ts=%d", site.ID, site.FaviconFetchedAt.UTC().Unix())
 	require.Equal(testingT, expectedFavicon, responseBody.Sites[0].FaviconURL)
 	require.Equal(testingT, int64(5), responseBody.Sites[0].FeedbackCount)
 }
@@ -232,6 +236,88 @@ func TestListSitesReturnsCreatorSitesForNonAdmin(testingT *testing.T) {
 	require.Equal(testingT, site.ID, responseBody.Sites[0].Identifier)
 }
 
+func TestListSitesIncludesAllSitesForAdmin(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	adminSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Admin Visibility Anchor",
+		AllowedOrigin: "https://admin-visibility.example",
+		OwnerEmail:    testAdminEmailAddress,
+		CreatorEmail:  testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&adminSite).Error)
+
+	userManagedSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Admin Should See",
+		AllowedOrigin: "https://admin-sees-user.example",
+		OwnerEmail:    testAlternateOwnerEmailAddress,
+		CreatorEmail:  testUserEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&userManagedSite).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites", nil)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.ListSites(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody struct {
+		Sites []struct {
+			Identifier string `json:"id"`
+		} `json:"sites"`
+	}
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+
+	returnedSites := make(map[string]struct{}, len(responseBody.Sites))
+	for _, site := range responseBody.Sites {
+		returnedSites[site.Identifier] = struct{}{}
+	}
+	_, adminSiteFound := returnedSites[adminSite.ID]
+	_, userManagedSiteFound := returnedSites[userManagedSite.ID]
+	require.True(testingT, adminSiteFound)
+	require.True(testingT, userManagedSiteFound)
+}
+
+func TestListSitesExcludesForeignSitesForNonAdmin(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	managedSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "User Managed Site",
+		AllowedOrigin: "https://user-managed.example",
+		OwnerEmail:    testAlternateOwnerEmailAddress,
+		CreatorEmail:  testUserEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&managedSite).Error)
+
+	foreignSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Foreign Visibility Site",
+		AllowedOrigin: "https://foreign-visibility.example",
+		OwnerEmail:    testAdminEmailAddress,
+		CreatorEmail:  testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&foreignSite).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites", nil)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
+
+	harness.handlers.ListSites(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody struct {
+		Sites []struct {
+			Identifier string `json:"id"`
+		} `json:"sites"`
+	}
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+
+	require.Len(testingT, responseBody.Sites, 1)
+	require.Equal(testingT, managedSite.ID, responseBody.Sites[0].Identifier)
+}
+
 func TestSiteFaviconReturnsStoredIcon(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
@@ -255,6 +341,125 @@ func TestSiteFaviconReturnsStoredIcon(testingT *testing.T) {
 	require.Equal(testingT, http.StatusOK, recorder.Code)
 	require.Equal(testingT, "image/png", recorder.Header().Get("Content-Type"))
 	require.Equal(testingT, []byte{0x10, 0x20, 0x30}, recorder.Body.Bytes())
+}
+
+type streamStubFaviconResolver struct {
+	asset *httpapi.FaviconAsset
+	mu    sync.Mutex
+	calls int
+}
+
+func (resolver *streamStubFaviconResolver) Resolve(_ context.Context, _ string) (string, error) {
+	return "", nil
+}
+
+func (resolver *streamStubFaviconResolver) ResolveAsset(_ context.Context, _ string) (*httpapi.FaviconAsset, error) {
+	resolver.mu.Lock()
+	resolver.calls++
+	resolver.mu.Unlock()
+	return resolver.asset, nil
+}
+
+func (resolver *streamStubFaviconResolver) callCount() int {
+	resolver.mu.Lock()
+	defer resolver.mu.Unlock()
+	return resolver.calls
+}
+
+func TestStreamFaviconUpdatesEmitsEvents(testingT *testing.T) {
+	testingT.Helper()
+
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, openErr)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Streamed Site",
+		AllowedOrigin: "https://stream.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, database.Create(&site).Error)
+
+	resolver := &streamStubFaviconResolver{asset: &httpapi.FaviconAsset{ContentType: "image/png", Data: []byte{0x05}}}
+	faviconManager := httpapi.NewSiteFaviconManager(
+		database,
+		resolver,
+		zap.NewNop(),
+		httpapi.WithFaviconIntervals(5*time.Millisecond, 5*time.Millisecond),
+	)
+	faviconManager.Start(context.Background())
+	defer faviconManager.Stop()
+
+	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, faviconManager, nil)
+
+	engine := gin.New()
+	engine.GET("/stream", func(context *gin.Context) {
+		context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+		handlers.StreamFaviconUpdates(context)
+	})
+
+	server := httptest.NewServer(engine)
+	defer server.Close()
+
+	client := server.Client()
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/stream", nil)
+	require.NoError(testingT, err)
+	response, err := client.Do(request)
+	require.NoError(testingT, err)
+	defer response.Body.Close()
+	require.Equal(testingT, "text/event-stream", response.Header.Get("Content-Type"))
+
+	events := make(chan struct {
+		name string
+		data string
+	}, 1)
+	go func() {
+		reader := bufio.NewReader(response.Body)
+		var eventName string
+		var dataPayload string
+		for {
+			line, readErr := reader.ReadString('\n')
+			if readErr != nil {
+				close(events)
+				return
+			}
+			line = strings.TrimRight(line, "\r\n")
+			if strings.HasPrefix(line, "event: ") {
+				eventName = strings.TrimPrefix(line, "event: ")
+				continue
+			}
+			if strings.HasPrefix(line, "data: ") {
+				dataPayload = strings.TrimPrefix(line, "data: ")
+				continue
+			}
+			if line == "" && eventName != "" && dataPayload != "" {
+				events <- struct {
+					name string
+					data string
+				}{name: eventName, data: dataPayload}
+				return
+			}
+		}
+	}()
+
+	faviconManager.ScheduleFetch(site)
+
+	require.Eventually(testingT, func() bool {
+		return resolver.callCount() > 0
+	}, 2*time.Second, 10*time.Millisecond)
+
+	select {
+	case payload, ok := <-events:
+		require.True(testingT, ok)
+		require.Equal(testingT, "favicon_updated", payload.name)
+		require.Contains(testingT, payload.data, site.ID)
+		require.Contains(testingT, payload.data, "favicon_url")
+	case <-time.After(5 * time.Second):
+		testingT.Fatal("timed out waiting for SSE event")
+	}
 }
 
 func TestNonAdminCannotAccessForeignSite(testingT *testing.T) {
@@ -329,20 +534,29 @@ func TestCreateSiteAssignsCurrentUserAsOwner(testingT *testing.T) {
 	require.Equal(testingT, testUserEmailAddress, createdSite.CreatorEmail)
 }
 
-func TestCreateSiteRejectsForeignOwnerForRegularUser(testingT *testing.T) {
+func TestCreateSiteAllowsNonAdminToAssignAlternateOwner(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
 	payload := map[string]string{
-		"name":           "Invalid Owner",
-		"allowed_origin": "http://invalid.example",
-		"owner_email":    "other@example.com",
+		"name":           "Delegated Ownership",
+		"allowed_origin": "http://delegated.example",
+		"owner_email":    testAlternateOwnerEmailAddress,
 	}
 
 	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
 	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
 
 	harness.handlers.CreateSite(context)
-	require.Equal(testingT, http.StatusForbidden, recorder.Code)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody map[string]any
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, testAlternateOwnerEmailAddress, responseBody["owner_email"])
+
+	var createdSite model.Site
+	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Delegated Ownership").Error)
+	require.Equal(testingT, testAlternateOwnerEmailAddress, createdSite.OwnerEmail)
+	require.Equal(testingT, testUserEmailAddress, createdSite.CreatorEmail)
 }
 
 func TestCreateSiteRejectsDuplicateAllowedOrigin(testingT *testing.T) {
@@ -472,6 +686,29 @@ func TestUpdateSiteAllowsOwnerToReassignOwnership(testingT *testing.T) {
 	var updatedSite model.Site
 	require.NoError(testingT, harness.database.First(&updatedSite, "id = ?", site.ID).Error)
 	require.Equal(testingT, newOwnerEmail, updatedSite.OwnerEmail)
+}
+
+func TestDeleteSiteAllowsCreatorWithAlternateOwner(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Creator Managed Site",
+		AllowedOrigin: "http://creator-managed.example",
+		OwnerEmail:    testAlternateOwnerEmailAddress,
+		CreatorEmail:  testUserEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodDelete, "/api/sites/"+site.ID, nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
+
+	harness.handlers.DeleteSite(context)
+	require.Equal(testingT, http.StatusNoContent, recorder.Code)
+
+	var remainingSite model.Site
+	require.ErrorIs(testingT, harness.database.First(&remainingSite, "id = ?", site.ID).Error, gorm.ErrRecordNotFound)
 }
 
 func TestDeleteSiteRemovesSiteAndFeedback(testingT *testing.T) {

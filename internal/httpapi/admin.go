@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -24,18 +25,18 @@ const (
 	jsonKeyAvatar    = "avatar"
 	jsonKeyAvatarURL = "url"
 
-	errorValueInvalidJSON      = "invalid_json"
-	errorValueMissingFields    = "missing_fields"
-	errorValueSaveFailed       = "save_failed"
-	errorValueMissingSite      = "missing_site"
-	errorValueUnknownSite      = "unknown_site"
-	errorValueQueryFailed      = "query_failed"
-	errorValueNotAuthorized    = "not_authorized"
-	errorValueInvalidOwner     = "invalid_owner"
-	errorValueNothingToUpdate  = "nothing_to_update"
-	errorValueInvalidOperation = "invalid_operation"
-	errorValueDeleteFailed     = "delete_failed"
-	errorValueSiteExists       = "site_exists"
+	errorValueInvalidJSON       = "invalid_json"
+	errorValueMissingFields     = "missing_fields"
+	errorValueSaveFailed        = "save_failed"
+	errorValueMissingSite       = "missing_site"
+	errorValueUnknownSite       = "unknown_site"
+	errorValueQueryFailed       = "query_failed"
+	errorValueNotAuthorized     = "not_authorized"
+	errorValueInvalidOwner      = "invalid_owner"
+	errorValueNothingToUpdate   = "nothing_to_update"
+	errorValueDeleteFailed      = "delete_failed"
+	errorValueSiteExists        = "site_exists"
+	errorValueStreamUnavailable = "stream_unavailable"
 
 	widgetScriptTemplate   = "<script defer src=\"%s/widget.js?site_id=%s\"></script>"
 	siteFaviconURLTemplate = "/api/sites/%s/favicon"
@@ -136,14 +137,9 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 
 	payload.Name = strings.TrimSpace(payload.Name)
 	payload.AllowedOrigin = strings.TrimSpace(payload.AllowedOrigin)
-	desiredOwnerEmail := strings.ToLower(strings.TrimSpace(payload.OwnerEmail))
 	creatorEmail := currentUser.normalizedEmail()
-
-	if !currentUser.hasRole(RoleAdmin) {
-		if desiredOwnerEmail != "" && !strings.EqualFold(desiredOwnerEmail, creatorEmail) {
-			context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueInvalidOperation})
-			return
-		}
+	desiredOwnerEmail := strings.ToLower(strings.TrimSpace(payload.OwnerEmail))
+	if desiredOwnerEmail == "" {
 		desiredOwnerEmail = creatorEmail
 	}
 
@@ -291,6 +287,49 @@ func (handlers *SiteHandlers) SiteFavicon(context *gin.Context) {
 	}
 	context.Header("Cache-Control", "public, max-age=300")
 	context.Data(http.StatusOK, contentType, site.FaviconData)
+}
+
+func (handlers *SiteHandlers) StreamFaviconUpdates(context *gin.Context) {
+	currentUser, ok := CurrentUserFromContext(context)
+	if !ok {
+		context.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
+		return
+	}
+	if handlers.faviconManager == nil {
+		context.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: errorValueStreamUnavailable})
+		return
+	}
+	subscription := handlers.faviconManager.Subscribe()
+	if subscription == nil {
+		context.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: errorValueStreamUnavailable})
+		return
+	}
+	defer subscription.Close()
+
+	context.Header("Content-Type", "text/event-stream")
+	context.Header("Cache-Control", "no-cache")
+	context.Header("Connection", "keep-alive")
+
+	context.Stream(func(writer io.Writer) bool {
+		select {
+		case <-context.Request.Context().Done():
+			return false
+		case event, ok := <-subscription.Events():
+			if !ok {
+				return false
+			}
+			if !handlers.userCanAccessSite(context.Request.Context(), currentUser, event.SiteID) {
+				return true
+			}
+			payload := gin.H{
+				"site_id":     event.SiteID,
+				"favicon_url": event.FaviconURL,
+				"updated_at":  event.UpdatedAt.UTC().Unix(),
+			}
+			context.SSEvent("favicon_updated", payload)
+			return true
+		}
+	})
 }
 
 func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
@@ -490,7 +529,7 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 
 	faviconURL := ""
 	if len(site.FaviconData) > 0 {
-		faviconURL = fmt.Sprintf(siteFaviconURLTemplate, site.ID)
+		faviconURL = versionedSiteFaviconURL(site.ID, site.FaviconFetchedAt)
 	}
 
 	return siteResponse{
@@ -522,6 +561,17 @@ func (handlers *SiteHandlers) scheduleFaviconFetch(site model.Site) {
 		return
 	}
 	handlers.faviconManager.ScheduleFetch(site)
+}
+
+func (handlers *SiteHandlers) userCanAccessSite(ctx context.Context, currentUser *CurrentUser, siteID string) bool {
+	if handlers.database == nil || currentUser == nil {
+		return false
+	}
+	var site model.Site
+	if err := handlers.database.WithContext(ctx).Select("id", "owner_email", "creator_email").First(&site, "id = ?", siteID).Error; err != nil {
+		return false
+	}
+	return currentUser.canManageSite(site)
 }
 
 func (handlers *SiteHandlers) allowedOriginConflictExists(allowedOrigin string, excludeSiteID string) (bool, error) {

@@ -111,6 +111,8 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-54] Add branding to the widget, saying "Bulit by Marco Polo Research Lab" with a link to https://mprlab.com. Have it in small letters under the widget.
 - [x] [LA-56] The endpoint `api/me` shall return a JSON payload including user email, name and avatar. The rest of the system should be using this information when displaying user details. The login shall ba saving/updating this information. It must be a protected endpoint so that only the logged in user could get the information.
 - [x] [LA-59] Define and surface descriptive error messages for the end users: when site already exists the message should say so instead of a generic "forbidden" etc
+- [ ] [LA-61] Implement task based subsystem that performs non-immediate tasks such as retrieving sites favicons. The task shall be triggered using an internal schedule: check and update favicons every 24 hours.
+- [ ] [LA-62] Schedule an immediate task execution for favicon retrieval on site creation or update from the user. Implement a mechanism (SSE?) to inform the site that the favicon must be retrieved from the backend in case we got a new or updated favicon. dont do anything if the favicon hasnt changed
 
 ### BugFixes
 
@@ -137,5 +139,6 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [X] [LA-55] The sites created by the same user are not displayed when a user changes roles. All sites created by the same user regardless of its role must be displayed when the user logs in. User and admin designation must have an abstraction called role. The role has an impact on the scope. Admin role grants an ability to view all sites regardless of the user who has created them plus everything that a user can do. User role grants the permissions to add, edit, and delete the sites that the user has created.
 - [x] [LA-57] In case we have records with no information about what user has created them, we shall make a one-time data migration and update such records for the creator to be temirov@gmail.com. After that we shall be sure to separate the user who has created the records, using user's email from login, and the field called owner email, which is just an information we store for now
 - [x] [LA-58] When pressing tab in the Site details, the focus shall be moving between the three input fields cyclically and not to the tooltips.
+- [x] [LA-60] When trying to create a site I am getting an error "Only administrator can assign different site owners". I dont understand this error. AS  user I am able to create any sites, and assign any emails to the owners of the site, same as administrator. The only difference between a User and Administrator is the number of sites that the administrator can see. Write integration tests that verify that a user can perform ALL and every action an administratort cvan perform. ensure we have a test that verifies that administrator can see sites not created by them, and the user can not see sites not created by them, ensure that we have an association between a logged user, who is a creator, and sites being created
 
 ### Maintenance
