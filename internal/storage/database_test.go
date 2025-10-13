@@ -31,6 +31,7 @@ func TestOpenDatabaseWithSQLiteConfiguration(t *testing.T) {
 
 	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(t, openErr)
+	database = testutil.ConfigureDatabaseLogger(t, database)
 	require.NotNil(t, database)
 
 	require.NoError(t, storage.AutoMigrate(database))
@@ -62,6 +63,7 @@ func TestAutoMigrateBackfillsMissingCreatorEmails(t *testing.T) {
 
 	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(t, openErr)
+	database = testutil.ConfigureDatabaseLogger(t, database)
 
 	require.NoError(t, storage.AutoMigrate(database))
 

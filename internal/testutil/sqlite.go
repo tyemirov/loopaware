@@ -2,7 +2,12 @@ package testutil
 
 import (
 	"fmt"
+	"log"
+	"strings"
 	"testing"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
 )
@@ -15,6 +20,18 @@ const (
 // SQLiteTestDatabase provides helpers for configuring temporary SQLite databases in tests.
 type SQLiteTestDatabase struct {
 	configuration storage.Config
+}
+
+type testingLogWriter struct {
+	testingT *testing.T
+}
+
+func (writer testingLogWriter) Write(data []byte) (int, error) {
+	trimmed := strings.TrimSpace(string(data))
+	if trimmed != "" {
+		writer.testingT.Log(trimmed)
+	}
+	return len(data), nil
 }
 
 // NewSQLiteTestDatabase creates a SQLiteTestDatabase with a unique in-memory database configuration.
@@ -39,4 +56,20 @@ func (database SQLiteTestDatabase) Configuration() storage.Config {
 // DataSourceName returns the SQLite data source name for the temporary database.
 func (database SQLiteTestDatabase) DataSourceName() string {
 	return database.configuration.DataSourceName
+}
+
+// ConfigureDatabaseLogger returns a database session that suppresses record-not-found logs during tests.
+func ConfigureDatabaseLogger(testingT *testing.T, database *gorm.DB) *gorm.DB {
+	testingT.Helper()
+	if database == nil {
+		testingT.Fatalf("configure database logger: nil database")
+	}
+	gormLogger := logger.New(
+		log.New(testingLogWriter{testingT: testingT}, "", 0),
+		logger.Config{
+			IgnoreRecordNotFoundError: true,
+			LogLevel:                  logger.Error,
+		},
+	)
+	return database.Session(&gorm.Session{Logger: gormLogger})
 }

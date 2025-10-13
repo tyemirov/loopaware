@@ -113,6 +113,7 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-59] Define and surface descriptive error messages for the end users: when site already exists the message should say so instead of a generic "forbidden" etc
 - [X] [LA-61] Implement task based subsystem that performs non-immediate tasks such as retrieving sites favicons. The task shall be triggered using an internal schedule: check and update favicons every 24 hours.
 - [X] [LA-62] Schedule an immediate task execution for favicon retrieval on site creation or update from the user. Implement a mechanism (SSE?) to inform the site that the favicon must be retrieved from the backend in case we got a new or updated favicon. dont do anything if the favicon hasnt changed
+- [ ] [LA-70] Extract favicon collection into a service. have it in pkg folder and build it suitable for any go program to invoke it. Refactor current tasks to invoke FavIconService when gathering FavIcon data
 
 ### BugFixes
 
@@ -140,11 +141,11 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-57] In case we have records with no information about what user has created them, we shall make a one-time data migration and update such records for the creator to be temirov@gmail.com. After that we shall be sure to separate the user who has created the records, using user's email from login, and the field called owner email, which is just an information we store for now
 - [x] [LA-58] When pressing tab in the Site details, the focus shall be moving between the three input fields cyclically and not to the tooltips.
 - [x] [LA-60] When trying to create a site I am getting an error "Only administrator can assign different site owners". I dont understand this error. AS  user I am able to create any sites, and assign any emails to the owners of the site, same as administrator. The only difference between a User and Administrator is the number of sites that the administrator can see. Write integration tests that verify that a user can perform ALL and every action an administratort cvan perform. ensure we have a test that verifies that administrator can see sites not created by them, and the user can not see sites not created by them, ensure that we have an association between a logged user, who is a creator, and sites being created
-- [ ] [LA-65] Remove race condition in SiteFaviconManager + Scheduler.Start by adding context cancellation, Stop(), and proper sync (mutex/WaitGroup).
-- [ ] [LA-66] Ensure all tests clean up background goroutines with t.Cleanup.
-- [ ] [LA-67] Make chromedp tests deterministic: skip fast if Chrome not installed or fails to start; run with CI-safe flags otherwise.
-- [ ] [LA-68] Silence GORM “record not found” logs in tests via test logger config, but still assert on errors.
-- [ ] [LA-69] Verify go test ./... -v -race -count=1 passes in CI without race, leaks, or long hangs.
+- [x] [LA-65] Remove race condition in SiteFaviconManager + Scheduler.Start by adding context cancellation, Stop(), and proper sync (mutex/WaitGroup).
+- [x] [LA-66] Ensure all tests clean up background goroutines with t.Cleanup.
+- [x] [LA-67] Make chromedp tests deterministic: skip fast if Chrome not installed or fails to start; run with CI-safe flags otherwise.
+- [x] [LA-68] Silence GORM “record not found” logs in tests via test logger config, but still assert on errors.
+- [x] [LA-69] Verify go test ./... -v -race -count=1 passes in CI without race, leaks, or long hangs.
 
 ### Maintenance
 

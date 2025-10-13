@@ -39,10 +39,11 @@ func (scheduler *Scheduler) Start(ctx context.Context) {
 	}
 	runtimeCtx, cancel := context.WithCancel(ctx)
 	scheduler.cancel = cancel
-	scheduler.done = make(chan struct{})
+	done := make(chan struct{})
+	scheduler.done = done
 	scheduler.controlMutex.Unlock()
 
-	go scheduler.loop(runtimeCtx)
+	go scheduler.loop(runtimeCtx, done)
 }
 
 func (scheduler *Scheduler) Trigger() {
@@ -73,9 +74,8 @@ func (scheduler *Scheduler) Stop() {
 	}
 }
 
-func (scheduler *Scheduler) loop(ctx context.Context) {
+func (scheduler *Scheduler) loop(ctx context.Context, done chan struct{}) {
 	timer := time.NewTimer(scheduler.interval)
-	done := scheduler.done
 	defer func() {
 		if !timer.Stop() {
 			select {
@@ -85,11 +85,9 @@ func (scheduler *Scheduler) loop(ctx context.Context) {
 		}
 	}()
 	defer func() {
-		scheduler.controlMutex.Lock()
 		if done != nil {
 			close(done)
 		}
-		scheduler.controlMutex.Unlock()
 	}()
 	for {
 		select {
