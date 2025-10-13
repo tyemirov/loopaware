@@ -47,6 +47,7 @@ func newSiteTestHarness(testingT *testing.T) siteTestHarness {
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
 	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(testingT, openErr)
+	database = testutil.ConfigureDatabaseLogger(testingT, database)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
 	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil)
@@ -373,6 +374,7 @@ func TestStreamFaviconUpdatesEmitsEvents(testingT *testing.T) {
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
 	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(testingT, openErr)
+	database = testutil.ConfigureDatabaseLogger(testingT, database)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
 	site := model.Site{
@@ -391,7 +393,7 @@ func TestStreamFaviconUpdatesEmitsEvents(testingT *testing.T) {
 		httpapi.WithFaviconIntervals(5*time.Millisecond, 5*time.Millisecond),
 	)
 	faviconManager.Start(context.Background())
-	defer faviconManager.Stop()
+	testingT.Cleanup(faviconManager.Stop)
 
 	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, faviconManager, nil)
 
@@ -402,14 +404,16 @@ func TestStreamFaviconUpdatesEmitsEvents(testingT *testing.T) {
 	})
 
 	server := httptest.NewServer(engine)
-	defer server.Close()
+	testingT.Cleanup(server.Close)
 
 	client := server.Client()
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/stream", nil)
 	require.NoError(testingT, err)
 	response, err := client.Do(request)
 	require.NoError(testingT, err)
-	defer response.Body.Close()
+	testingT.Cleanup(func() {
+		_ = response.Body.Close()
+	})
 	require.Equal(testingT, "text/event-stream", response.Header.Get("Content-Type"))
 
 	events := make(chan struct {

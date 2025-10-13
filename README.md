@@ -12,6 +12,7 @@ role-aware dashboard for managing sites and messages.
 - Background favicon refresh scheduler with live dashboard notifications
 - Embeddable JavaScript widget with strict origin validation
 - SQLite-first storage with pluggable drivers
+- Public privacy policy and sitemap endpoints for compliance visibility
 - Table-driven tests and fast in-memory SQLite fixtures
 
 ## Configuration
@@ -86,6 +87,16 @@ site; other users see only the sites they own or originally created with their G
 3. `httpapi.AuthManager` reads the session, injects user details into the request context, and enforces admin / owner
    access.
 4. The dashboard and JSON APIs consume the authenticated context.
+
+## Public pages
+
+LoopAware serves a minimal public surface derived from `PUBLIC_BASE_URL`:
+
+- `/login` — marketing-focused landing page with GAuss login.
+- `/privacy` — static privacy policy linked from the landing and dashboard footers.
+- `/sitemap.xml` — XML sitemap enumerating the login and privacy URLs for search engines.
+
+Set `PUBLIC_BASE_URL` to the externally reachable origin so the sitemap emits fully qualified links for crawlers.
 
 ## REST API
 

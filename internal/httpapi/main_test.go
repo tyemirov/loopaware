@@ -116,6 +116,7 @@ const (
 	dashboardFooterLinkCrosswordToken       = "https://llm-crossword.mprlab.com"
 	dashboardFooterLinkPromptsToken         = "https://prompts.mprlab.com"
 	dashboardFooterLinkWallpapersToken      = "https://wallpapers.mprlab.com"
+	dashboardPrivacyLinkToken               = "href=\"/privacy\">Privacy • Terms"
 	dashboardHeaderLogoImageIDToken         = "id=\"dashboard-header-logo\""
 	dashboardHeaderLogoAltToken             = "alt=\"LoopAware logo\""
 	dashboardHeaderLogoDataToken            = "src=\"data:image/png;base64,"
@@ -389,6 +390,20 @@ func TestDashboardFooterDisplaysProductMenu(t *testing.T) {
 	require.Contains(t, body, dashboardFooterLinkCrosswordToken)
 	require.Contains(t, body, dashboardFooterLinkPromptsToken)
 	require.Contains(t, body, dashboardFooterLinkWallpapersToken)
+}
+
+func TestDashboardFooterDisplaysPrivacyLink(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, dashboardPrivacyLinkToken)
 }
 
 func TestDashboardTemplateDisplaysRegistrationInline(t *testing.T) {

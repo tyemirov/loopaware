@@ -47,6 +47,7 @@ func TestPersistUserStoresAvatar(t *testing.T) {
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
 	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(t, err)
+	database = testutil.ConfigureDatabaseLogger(t, database)
 	require.NoError(t, storage.AutoMigrate(database))
 
 	client := &stubHTTPClient{statusCode: http.StatusOK, contentType: "image/png", body: []byte{0x01, 0x02}}
@@ -69,6 +70,7 @@ func TestPersistUserHandlesFetchErrorsGracefully(t *testing.T) {
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
 	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(t, err)
+	database = testutil.ConfigureDatabaseLogger(t, database)
 	require.NoError(t, storage.AutoMigrate(database))
 
 	client := &stubHTTPClient{err: errors.New("network failure")}
@@ -88,6 +90,7 @@ func TestPersistUserDoesNotRefetchWhenSourceUnchanged(t *testing.T) {
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
 	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(t, err)
+	database = testutil.ConfigureDatabaseLogger(t, database)
 	require.NoError(t, storage.AutoMigrate(database))
 
 	firstClient := &stubHTTPClient{statusCode: http.StatusOK, contentType: "image/png", body: []byte{0x01}}

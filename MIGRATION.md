@@ -14,3 +14,10 @@
   scheduler can execute.
 - Reverse proxies terminating `/api/sites/favicons/events` must permit streaming responses; do not buffer the SSE
   connection or it will delay dashboard updates.
+
+## LA-63 & LA-64: Privacy Policy and Sitemap
+
+- The server now serves a static privacy policy at `/privacy`. Update any CDN caches so the new route is immediately
+  available to end users and compliance tooling.
+- `/sitemap.xml` returns an XML sitemap listing `/login` and `/privacy`. Configure `PUBLIC_BASE_URL` so the generated
+  URLs point at the canonical origin before submitting the sitemap to search engines.

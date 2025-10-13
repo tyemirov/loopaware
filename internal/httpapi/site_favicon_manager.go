@@ -45,6 +45,7 @@ type SiteFaviconManager struct {
 
 	scheduler    *task.Scheduler
 	workerCancel context.CancelFunc
+	workerGroup  sync.WaitGroup
 	startOnce    sync.Once
 	stopOnce     sync.Once
 
@@ -126,7 +127,11 @@ func (manager *SiteFaviconManager) Start(ctx context.Context) {
 	manager.startOnce.Do(func() {
 		workerCtx, cancel := context.WithCancel(ctx)
 		manager.workerCancel = cancel
-		go manager.runWorker(workerCtx)
+		manager.workerGroup.Add(1)
+		go func() {
+			defer manager.workerGroup.Done()
+			manager.runWorker(workerCtx)
+		}()
 		if manager.scheduler != nil {
 			manager.scheduler.Start(workerCtx)
 		}
@@ -144,6 +149,8 @@ func (manager *SiteFaviconManager) Stop() {
 		if manager.workerCancel != nil {
 			manager.workerCancel()
 		}
+		manager.workerGroup.Wait()
+		manager.workerCancel = nil
 		manager.closeSubscribers()
 	})
 }
