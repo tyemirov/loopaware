@@ -30,7 +30,7 @@ func TestPrivacyPageRendersPolicyMarkup(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/privacy", nil)
 
-	handlers := httpapi.NewPrivacyPageHandlers()
+	handlers := httpapi.NewPrivacyPageHandlers(&stubCurrentUserProvider{})
 	handlers.RenderPrivacyPage(context)
 
 	require.Equal(t, http.StatusOK, recorder.Code)
@@ -56,4 +56,38 @@ func TestPrivacyPageRendersPolicyMarkup(t *testing.T) {
 	require.Contains(t, body, privacyFooterPrivacyToken)
 	require.Contains(t, body, dashboardFooterBrandPrefix)
 	require.Contains(t, body, dashboardFooterBrandName)
+}
+
+func TestPrivacyHeroNavigatesToLandingWhenUnauthenticated(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/privacy", nil)
+
+	handlers := httpapi.NewPrivacyPageHandlers(&stubCurrentUserProvider{})
+	handlers.RenderPrivacyPage(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, landingHeaderHeroDataToken)
+	require.Contains(t, body, landingHeaderHeroLandingHrefToken)
+	require.NotContains(t, body, landingHeaderHeroScrollToken)
+	require.NotContains(t, body, landingHeaderHeroScrollHrefToken)
+	require.NotContains(t, body, landingHeaderHeroDashboardHrefToken)
+}
+
+func TestPrivacyHeroNavigatesToDashboardWhenAuthenticated(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/privacy", nil)
+
+	handlers := httpapi.NewPrivacyPageHandlers(&stubCurrentUserProvider{authenticated: true})
+	handlers.RenderPrivacyPage(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, landingHeaderHeroDataToken)
+	require.Contains(t, body, landingHeaderHeroDashboardHrefToken)
+	require.NotContains(t, body, landingHeaderHeroScrollToken)
+	require.NotContains(t, body, landingHeaderHeroScrollHrefToken)
+	require.NotContains(t, body, landingHeaderHeroLandingHrefToken)
 }

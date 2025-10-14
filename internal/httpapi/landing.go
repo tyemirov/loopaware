@@ -28,21 +28,28 @@ type landingTemplateData struct {
 	FaviconDataURI template.URL
 }
 
+// PublicPageCurrentUserProvider exposes the authenticated user when available.
+type PublicPageCurrentUserProvider interface {
+	CurrentUser(*gin.Context) (*CurrentUser, bool)
+}
+
 // LandingPageHandlers renders the public landing page.
 type LandingPageHandlers struct {
-	logger   *zap.Logger
-	template *template.Template
+	logger              *zap.Logger
+	template            *template.Template
+	currentUserProvider PublicPageCurrentUserProvider
 }
 
 // NewLandingPageHandlers constructs handlers that render the landing template.
-func NewLandingPageHandlers(logger *zap.Logger) *LandingPageHandlers {
+func NewLandingPageHandlers(logger *zap.Logger, currentUserProvider PublicPageCurrentUserProvider) *LandingPageHandlers {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 	compiledTemplate := template.Must(template.New(landingTemplateName).Parse(landingTemplateHTML))
 	return &LandingPageHandlers{
-		logger:   logger,
-		template: compiledTemplate,
+		logger:              logger,
+		template:            compiledTemplate,
+		currentUserProvider: currentUserProvider,
 	}
 }
 
@@ -54,7 +61,12 @@ func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
 		footerHTML = template.HTML("")
 	}
 
-	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI)
+	isAuthenticated := false
+	if handlers.currentUserProvider != nil {
+		_, isAuthenticated = handlers.currentUserProvider.CurrentUser(context)
+	}
+
+	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, isAuthenticated, publicPageLanding)
 	if headerErr != nil {
 		handlers.logger.Error("render_landing_header", zap.Error(headerErr))
 		headerHTML = template.HTML("")
