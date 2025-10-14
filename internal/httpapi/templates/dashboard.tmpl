@@ -186,13 +186,6 @@
         </div>
       </div>
     </main>
-    <div id="inactivity-warning-bar" class="d-none alert alert-warning border-0 rounded-0 mb-0 position-fixed start-0 end-0 text-center py-2" style="bottom: 2.5rem; z-index: 1040;">
-      <div class="container-fluid d-flex align-items-center justify-content-center gap-2 flex-wrap">
-        <span id="inactivity-warning-message" class="fw-semibold"></span>
-        <button id="inactivity-warning-yes" type="button" class="btn btn-sm btn-danger">Yes</button>
-        <button id="inactivity-warning-no" type="button" class="btn btn-sm btn-secondary">No</button>
-      </div>
-    </div>
     <div class="modal fade" id="{{.DeleteSiteModalID}}" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -213,6 +206,13 @@
             <button id="{{.DeleteSiteModalConfirmButtonID}}" type="button" class="{{.DeleteSiteModalConfirmButtonClass}}" disabled>{{.DeleteSiteModalConfirmButtonLabel}}</button>
           </div>
         </div>
+      </div>
+    </div>
+    <div id="inactivity-warning-bar" class="d-none alert alert-warning border-0 rounded-0 mb-0 text-center py-2">
+      <div class="container-fluid d-flex align-items-center justify-content-center gap-2 flex-wrap">
+        <span id="inactivity-warning-message" class="fw-semibold"></span>
+        <button id="inactivity-warning-yes" type="button" class="btn btn-sm btn-danger">Yes</button>
+        <button id="inactivity-warning-no" type="button" class="btn btn-sm btn-secondary">No</button>
       </div>
     </div>
     {{.FooterHTML}}
