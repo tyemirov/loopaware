@@ -186,11 +186,11 @@
         </div>
       </div>
     </main>
-    <div id="inactivity-warning-bar" class="d-none position-fixed bottom-0 start-0 end-0 bg-warning-subtle border-top border-warning text-center py-2" style="z-index: 1050; margin-bottom: 2rem;">
-      <div class="container-fluid">
+    <div id="inactivity-warning-bar" class="d-none alert alert-warning border-0 rounded-0 mb-0 position-fixed start-0 end-0 text-center py-2" style="bottom: 2.5rem; z-index: 1040;">
+      <div class="container-fluid d-flex align-items-center justify-content-center gap-2 flex-wrap">
         <span id="inactivity-warning-message" class="fw-semibold"></span>
-        <button id="inactivity-warning-yes" type="button" class="btn btn-sm btn-danger ms-3">Yes</button>
-        <button id="inactivity-warning-no" type="button" class="btn btn-sm btn-secondary ms-2">No</button>
+        <button id="inactivity-warning-yes" type="button" class="btn btn-sm btn-danger">Yes</button>
+        <button id="inactivity-warning-no" type="button" class="btn btn-sm btn-secondary">No</button>
       </div>
     </div>
     <div class="modal fade" id="{{.DeleteSiteModalID}}" tabindex="-1" aria-hidden="true">
