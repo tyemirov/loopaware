@@ -186,6 +186,13 @@
         </div>
       </div>
     </main>
+    <div id="inactivity-warning-bar" class="d-none position-fixed bottom-0 start-0 end-0 bg-warning-subtle border-top border-warning text-center py-2" style="z-index: 1050; margin-bottom: 2rem;">
+      <div class="container-fluid">
+        <span id="inactivity-warning-message" class="fw-semibold"></span>
+        <button id="inactivity-warning-yes" type="button" class="btn btn-sm btn-danger ms-3">Yes</button>
+        <button id="inactivity-warning-no" type="button" class="btn btn-sm btn-secondary ms-2">No</button>
+      </div>
+    </div>
     <div class="modal fade" id="{{.DeleteSiteModalID}}" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -1655,6 +1662,93 @@
         window.addEventListener('beforeunload', function() {
           closeFaviconEventStream();
         });
+
+        var inactivityWarningDurationMilliseconds = 60000;
+        var autoLogoutDurationMilliseconds = 120000;
+        var inactivityCheckIntervalMilliseconds = 1000;
+        var lastActivityTimestamp = Date.now();
+        var inactivityWarningDisplayed = false;
+        var autoLogoutTimerId = null;
+        var inactivityWarningBar = document.getElementById('inactivity-warning-bar');
+        var inactivityWarningMessage = document.getElementById('inactivity-warning-message');
+        var inactivityWarningYesButton = document.getElementById('inactivity-warning-yes');
+        var inactivityWarningNoButton = document.getElementById('inactivity-warning-no');
+
+        function resetInactivityTimer() {
+          lastActivityTimestamp = Date.now();
+          if (inactivityWarningDisplayed) {
+            hideInactivityWarning();
+          }
+        }
+
+        function showInactivityWarning() {
+          if (inactivityWarningDisplayed) {
+            return;
+          }
+          inactivityWarningDisplayed = true;
+          var warningDurationMinutes = Math.floor(inactivityWarningDurationMilliseconds / 60000);
+          var countdownDurationSeconds = Math.ceil((autoLogoutDurationMilliseconds - inactivityWarningDurationMilliseconds) / 1000);
+          inactivityWarningMessage.textContent = 'you have been inactive for ' + warningDurationMinutes + ' minute. Log off?';
+          if (inactivityWarningBar) {
+            inactivityWarningBar.classList.remove('d-none');
+          }
+          autoLogoutTimerId = window.setTimeout(function() {
+            performLogout();
+          }, autoLogoutDurationMilliseconds - inactivityWarningDurationMilliseconds);
+        }
+
+        function hideInactivityWarning() {
+          inactivityWarningDisplayed = false;
+          if (inactivityWarningBar) {
+            inactivityWarningBar.classList.add('d-none');
+          }
+          if (autoLogoutTimerId) {
+            window.clearTimeout(autoLogoutTimerId);
+            autoLogoutTimerId = null;
+          }
+        }
+
+        function performLogout() {
+          if (!logoutPath) {
+            window.location.href = landingPath;
+            return;
+          }
+          var redirectAfterLogout = function() {
+            window.location.href = landingPath;
+          };
+          window.fetch(logoutPath, {
+            method: 'POST',
+            credentials: 'same-origin'
+          }).then(redirectAfterLogout).catch(redirectAfterLogout);
+        }
+
+        function checkUserInactivity() {
+          var currentTimestamp = Date.now();
+          var inactiveDurationMilliseconds = currentTimestamp - lastActivityTimestamp;
+
+          if (inactiveDurationMilliseconds >= inactivityWarningDurationMilliseconds && !inactivityWarningDisplayed) {
+            showInactivityWarning();
+          }
+        }
+
+        if (inactivityWarningYesButton) {
+          inactivityWarningYesButton.addEventListener('click', function() {
+            performLogout();
+          });
+        }
+
+        if (inactivityWarningNoButton) {
+          inactivityWarningNoButton.addEventListener('click', function() {
+            resetInactivityTimer();
+          });
+        }
+
+        var activityEventNames = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+        activityEventNames.forEach(function(eventName) {
+          document.addEventListener(eventName, resetInactivityTimer, { passive: true });
+        });
+
+        window.setInterval(checkUserInactivity, inactivityCheckIntervalMilliseconds);
 
         loadThemePreference();
         loadUser().then(function() {
