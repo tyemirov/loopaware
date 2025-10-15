@@ -118,6 +118,7 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 - [x] [LA-72] Move "Privacy • Terms" link to the same footer that says "Built by marco Polo Research lab"
 - [x] [LA-73] Align "Privacy • Terms" to the left of the footer and horizontally with "Built by marco Polo Research lab". Make "Privacy • Terms" font 3 (really tiny.)
 - [x] [LA-76] Clicking on LoopAware hero in the header shall either a) load the landing page if the user is not logged in AND is not on the landing page already b) load the dashboard page if the user is logged in c) scroll to the top if the user is not logged in AND is on the landing page already
+- [ ] [LA-77] Log off the user after 120 seconds of inactivity. Display a notification after 60 seconds: Log Out? Yes No. Log out if no answer in 60 seconds (120s total). The notofication is displayed at the biottom of the screen, in a row adjacent to the footer, Yes and No are buttons. The notification system respects the theme switch and is styled according to the chosen theme. Ensure that code coverage. Build this as a JS componenbt and make it easily portable to other projects. Have full test coverage.
 
 ### BugFixes
 
