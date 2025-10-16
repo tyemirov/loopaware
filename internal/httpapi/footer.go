@@ -1,9 +1,10 @@
 package httpapi
 
 import (
-	"bytes"
 	"fmt"
 	"html/template"
+
+	"github.com/MarkoPoloResearchLab/feedback_svc/pkg/footer"
 )
 
 const (
@@ -36,7 +37,7 @@ type footerVariantOverrides struct {
 }
 
 var (
-	footerBaseConfig = FooterConfig{
+	footerBaseConfig = footer.Config{
 		InnerClass:        landingFooterInnerClass,
 		WrapperClass:      footerLayoutClass,
 		BrandWrapperClass: footerBrandWrapperClass,
@@ -48,6 +49,9 @@ var (
 		MenuClass:         footerMenuClass,
 		MenuItemClass:     footerMenuItemClass,
 		PrivacyLinkClass:  footerPrivacyLinkClass,
+		PrivacyLinkHref:   footerPrivacyLinkHref,
+		PrivacyLinkLabel:  footerPrivacyLinkLabel,
+		Links:             footerLinks,
 	}
 	footerVariantOverridesByKey = map[footerVariant]footerVariantOverrides{
 		footerVariantLanding: {
@@ -71,10 +75,10 @@ var (
 	}
 )
 
-func footerConfigForVariant(variant footerVariant) (FooterConfig, error) {
+func footerConfigForVariant(variant footerVariant) (footer.Config, error) {
 	overrides, ok := footerVariantOverridesByKey[variant]
 	if !ok {
-		return FooterConfig{}, fmt.Errorf("unknown footer variant: %s", variant)
+		return footer.Config{}, fmt.Errorf("unknown footer variant: %s", variant)
 	}
 	config := footerBaseConfig
 	config.ElementID = overrides.ElementID
@@ -89,110 +93,18 @@ func renderFooterHTMLForVariant(variant footerVariant) (template.HTML, error) {
 	if configErr != nil {
 		return "", configErr
 	}
-	return RenderFooterHTML(config)
+	return footer.Render(config)
 }
 
-type FooterLink struct {
-	Label string
-	URL   string
-}
-
-type FooterConfig struct {
-	ElementID         string
-	InnerElementID    string
-	BaseClass         string
-	InnerClass        string
-	WrapperClass      string
-	BrandWrapperClass string
-	MenuWrapperClass  string
-	PrefixClass       string
-	PrefixText        string
-	ToggleButtonID    string
-	ToggleButtonClass string
-	ToggleLabel       string
-	MenuClass         string
-	MenuItemClass     string
-	PrivacyLinkClass  string
-}
-
-var (
-	footerTemplate = template.Must(template.New("footer").Parse(`<footer id="{{.ElementID}}" class="{{.BaseClass}}">
-  <div id="{{.InnerElementID}}" class="{{.InnerClass}}">
-    <div class="{{.WrapperClass}}">
-      <a class="{{.PrivacyLinkClass}}" href="{{.PrivacyLinkHref}}">{{.PrivacyLinkLabel}}</a>
-      <div class="{{.BrandWrapperClass}}">
-        <span class="{{.PrefixClass}}">{{.PrefixText}}</span>
-        <div class="{{.MenuWrapperClass}}">
-          <button id="{{.ToggleButtonID}}" class="{{.ToggleButtonClass}}" type="button" data-bs-toggle="dropdown" aria-expanded="false">{{.ToggleLabel}}</button>
-          <ul class="{{.MenuClass}}" aria-labelledby="{{.ToggleButtonID}}">
-            {{range .Links}}
-            <li><a class="{{$.MenuItemClass}}" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{.Label}}</a></li>
-            {{end}}
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
-</footer>`))
-	footerLinks = []FooterLink{
-		{Label: "Marco Polo Research Lab", URL: "https://mprlab.com"},
-		{Label: "Gravity Notes", URL: "https://gravity.mprlab.com"},
-		{Label: "LoopAware", URL: "https://loopaware.mprlab.com"},
-		{Label: "Allergy Wheel", URL: "https://allergy.mprlab.com"},
-		{Label: "Social Threader", URL: "https://threader.mprlab.com"},
-		{Label: "RSVP", URL: "https://rsvp.mprlab.com"},
-		{Label: "Countdown Calendar", URL: "https://countdown.mprlab.com"},
-		{Label: "LLM Crossword", URL: "https://llm-crossword.mprlab.com"},
-		{Label: "Prompt Bubbles", URL: "https://prompts.mprlab.com"},
-		{Label: "Wallpapers", URL: "https://wallpapers.mprlab.com"},
-	}
-)
-
-type footerTemplatePayload struct {
-	ElementID         string
-	InnerElementID    string
-	BaseClass         string
-	InnerClass        string
-	WrapperClass      string
-	BrandWrapperClass string
-	MenuWrapperClass  string
-	PrefixClass       string
-	PrefixText        string
-	ToggleButtonID    string
-	ToggleButtonClass string
-	ToggleLabel       string
-	MenuClass         string
-	MenuItemClass     string
-	PrivacyLinkClass  string
-	PrivacyLinkHref   string
-	PrivacyLinkLabel  string
-	Links             []FooterLink
-}
-
-func RenderFooterHTML(config FooterConfig) (template.HTML, error) {
-	payload := footerTemplatePayload{
-		ElementID:         config.ElementID,
-		InnerElementID:    config.InnerElementID,
-		BaseClass:         config.BaseClass,
-		InnerClass:        config.InnerClass,
-		WrapperClass:      config.WrapperClass,
-		BrandWrapperClass: config.BrandWrapperClass,
-		MenuWrapperClass:  config.MenuWrapperClass,
-		PrefixClass:       config.PrefixClass,
-		PrefixText:        config.PrefixText,
-		ToggleButtonID:    config.ToggleButtonID,
-		ToggleButtonClass: config.ToggleButtonClass,
-		ToggleLabel:       config.ToggleLabel,
-		MenuClass:         config.MenuClass,
-		MenuItemClass:     config.MenuItemClass,
-		PrivacyLinkClass:  config.PrivacyLinkClass,
-		PrivacyLinkHref:   footerPrivacyLinkHref,
-		PrivacyLinkLabel:  footerPrivacyLinkLabel,
-		Links:             footerLinks,
-	}
-	var buffer bytes.Buffer
-	if err := footerTemplate.Execute(&buffer, payload); err != nil {
-		return "", err
-	}
-	return template.HTML(buffer.String()), nil
+var footerLinks = []footer.Link{
+	{Label: "Marco Polo Research Lab", URL: "https://mprlab.com"},
+	{Label: "Gravity Notes", URL: "https://gravity.mprlab.com"},
+	{Label: "LoopAware", URL: "https://loopaware.mprlab.com"},
+	{Label: "Allergy Wheel", URL: "https://allergy.mprlab.com"},
+	{Label: "Social Threader", URL: "https://threader.mprlab.com"},
+	{Label: "RSVP", URL: "https://rsvp.mprlab.com"},
+	{Label: "Countdown Calendar", URL: "https://countdown.mprlab.com"},
+	{Label: "LLM Crossword", URL: "https://llm-crossword.mprlab.com"},
+	{Label: "Prompt Bubbles", URL: "https://prompts.mprlab.com"},
+	{Label: "Wallpapers", URL: "https://wallpapers.mprlab.com"},
 }
