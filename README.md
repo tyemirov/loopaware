@@ -135,6 +135,7 @@ The Bootstrap front end consumes the APIs above. Features include:
 - Feedback table with human-readable timestamps
 - Real-time favicon refresh notifications delivered through the SSE stream
 - Logout button (links to `/logout`)
+- Inactivity prompt appears after 60 seconds without input and logs out automatically after 120 seconds if unanswered
 
 The dashboard automatically redirects unauthenticated visitors to `/login`.
 
@@ -161,6 +162,7 @@ go test ./...
 ```
 
 The test suite runs entirely in memory using temporary SQLite databases; no external services are required.
+Browser-driven integration specs rely on go-rod; if Chromium is not present locally the launcher downloads a sandboxed binary automatically. Screenshots captured during each run are stored under `tests/<date>/<testname>/` for manual inspection.
 
 ## Docker
 

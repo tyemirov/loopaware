@@ -208,6 +208,15 @@
         </div>
       </div>
     </div>
+    <div id="{{.SessionTimeoutContainerID}}" class="{{.SessionTimeoutContainerClass}}" aria-live="polite" aria-hidden="true">
+      <div class="{{.SessionTimeoutInnerClass}}">
+        <p id="{{.SessionTimeoutMessageID}}" class="{{.SessionTimeoutMessageClass}}">{{.SessionTimeoutPromptText}}</p>
+        <div class="{{.SessionTimeoutActionsClass}}">
+          <button id="{{.SessionTimeoutConfirmButtonID}}" type="button" class="{{.SessionTimeoutConfirmButtonClass}}">{{.SessionTimeoutConfirmLabel}}</button>
+          <button id="{{.SessionTimeoutDismissButtonID}}" type="button" class="{{.SessionTimeoutDismissButtonClass}}">{{.SessionTimeoutDismissLabel}}</button>
+        </div>
+      </div>
+    </div>
     {{.FooterHTML}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script type="application/json" id="{{.ClientConfigElementID}}">{{.ClientConfigJSON}}</script>
@@ -236,6 +245,18 @@
         var userRoleValue = roleValues.user || 'user';
         var buttonStyles = parsedConfig.button_styles || {};
         var componentClasses = parsedConfig.component_classes || {};
+        var sessionTimeoutConfig = parsedConfig.session_timeout || {};
+        var sessionTimeoutComponentClasses = sessionTimeoutConfig.component_classes || {};
+        var sessionTimeoutThemeClasses = sessionTimeoutConfig.theme_classes || {};
+        var sessionTimeoutTexts = sessionTimeoutConfig.texts || {};
+        var sessionTimeoutPromptDelay = Number(sessionTimeoutConfig.prompt_delay_ms) || 60000;
+        var sessionTimeoutAutoLogout = Number(sessionTimeoutConfig.auto_logout_ms) || 120000;
+        var idleState = {
+          lastActivityTimestamp: Date.now(),
+          promptVisible: false,
+          idleCheckIntervalId: null
+        };
+        var idleCheckIntervalMilliseconds = Math.max(500, Math.min(Math.floor(sessionTimeoutPromptDelay / 2), 1000));
         var widgetTexts = parsedConfig.widget_texts || {};
         var optionValues = parsedConfig.option_values || {};
         var formStatusClasses = parsedConfig.form_status_classes || {};
@@ -292,6 +313,10 @@
         var feedbackTableHeader = document.getElementById(elementIds.feedback_table_header);
         var feedbackTableBody = document.getElementById(elementIds.feedback_table_body);
         var logoutButton = document.getElementById(elementIds.logout_button);
+        var sessionTimeoutContainer = document.getElementById(elementIds.session_timeout_container);
+        var sessionTimeoutMessage = document.getElementById(elementIds.session_timeout_message);
+        var sessionTimeoutConfirmButton = document.getElementById(elementIds.session_timeout_confirm_button);
+        var sessionTimeoutDismissButton = document.getElementById(elementIds.session_timeout_dismiss_button);
         var widgetSnippetTextarea = document.getElementById(elementIds.widget_snippet_textarea);
         var copyWidgetSnippetButton = document.getElementById(elementIds.copy_widget_snippet_button);
         var deleteSiteButton = document.getElementById(elementIds.delete_site_button);
@@ -328,6 +353,7 @@
           pendingDeletionSiteId: '',
           siteMessages: {}
         };
+        var sessionTimeoutManager = null;
         var siteSearchQuery = '';
         var messagesSearchQuery = '';
         var validationMessageKeyNameRequired = 'name_required';
@@ -343,6 +369,242 @@
         function shouldAlwaysValidate() {
           return true;
         }
+
+        function createSessionTimeoutManager(configuration) {
+          if (!configuration) {
+            return null;
+          }
+          var containerElement = configuration.containerElement;
+          var messageElement = configuration.messageElement;
+          var confirmButtonElement = configuration.confirmButtonElement;
+          var dismissButtonElement = configuration.dismissButtonElement;
+          var footerElement = configuration.footerElement;
+          if (!containerElement || !confirmButtonElement || !dismissButtonElement) {
+            return null;
+          }
+          var hiddenClassName = configuration.hiddenClass || '';
+          var visibleClassName = configuration.visibleClass || '';
+          var themeClasses = configuration.themeClasses || {};
+          var promptDelayMilliseconds = typeof configuration.promptDelayMilliseconds === 'number' ? configuration.promptDelayMilliseconds : 60000;
+          if (promptDelayMilliseconds < 0) {
+            promptDelayMilliseconds = 0;
+          }
+          var autoLogoutMilliseconds = typeof configuration.autoLogoutMilliseconds === 'number' ? configuration.autoLogoutMilliseconds : promptDelayMilliseconds;
+          if (autoLogoutMilliseconds < 0) {
+            autoLogoutMilliseconds = 0;
+          }
+          var promptTextContent = typeof configuration.promptText === 'string' ? configuration.promptText : '';
+          var confirmButtonLabel = typeof configuration.confirmButtonLabel === 'string' ? configuration.confirmButtonLabel : '';
+          var dismissButtonLabel = typeof configuration.dismissButtonLabel === 'string' ? configuration.dismissButtonLabel : '';
+          var logoutHandler = typeof configuration.onLogout === 'function' ? configuration.onLogout : function() {};
+          if (messageElement && promptTextContent !== '') {
+            messageElement.textContent = promptTextContent;
+          }
+          if (confirmButtonElement && confirmButtonLabel !== '') {
+            confirmButtonElement.textContent = confirmButtonLabel;
+          }
+          if (dismissButtonElement && dismissButtonLabel !== '') {
+            dismissButtonElement.textContent = dismissButtonLabel;
+          }
+          var listenersBound = false;
+          var activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+          var activityHandler = function() {
+            recordSessionActivity();
+          };
+          var visibilityHandler = function() {
+            if (document.visibilityState === 'visible') {
+              recordSessionActivity();
+              return;
+            }
+            recordSessionActivity();
+          };
+          var confirmHandler = function(event) {
+            event.preventDefault();
+            logoutHandler();
+          };
+          var dismissHandler = function(event) {
+            event.preventDefault();
+            recordSessionActivity();
+          };
+
+          function recordSessionActivity() {
+            idleState.lastActivityTimestamp = Date.now();
+            if (idleState.promptVisible) {
+              hidePrompt();
+            }
+          }
+
+          function checkSessionIdleState() {
+            var now = Date.now();
+            var elapsed = now - idleState.lastActivityTimestamp;
+            if (idleState.promptVisible) {
+              if (elapsed >= autoLogoutMilliseconds) {
+                logoutHandler();
+              }
+              return;
+            }
+            if (elapsed >= promptDelayMilliseconds) {
+              showPrompt();
+            }
+          }
+
+          function startIdleChecks() {
+            if (idleState.idleCheckIntervalId !== null) {
+              return;
+            }
+            idleState.idleCheckIntervalId = window.setInterval(checkSessionIdleState, idleCheckIntervalMilliseconds);
+          }
+
+          function stopIdleChecks() {
+            if (idleState.idleCheckIntervalId === null) {
+              return;
+            }
+            window.clearInterval(idleState.idleCheckIntervalId);
+            idleState.idleCheckIntervalId = null;
+          }
+
+          function setHiddenState(isHidden) {
+            containerElement.setAttribute('aria-hidden', isHidden ? 'true' : 'false');
+          }
+
+          function resetFooterOffset() {
+            containerElement.style.bottom = '0px';
+          }
+
+          function applyFooterOffset() {
+            var footerHeight = 0;
+            if (footerElement) {
+              footerHeight = footerElement.getBoundingClientRect().height;
+            }
+            if (footerHeight > 0) {
+              containerElement.style.bottom = footerHeight + 'px';
+            } else {
+              resetFooterOffset();
+            }
+          }
+
+          function hidePrompt() {
+            normalizeClassList(visibleClassName).forEach(function(className) {
+              containerElement.classList.remove(className);
+            });
+            normalizeClassList(hiddenClassName).forEach(function(className) {
+              if (!containerElement.classList.contains(className)) {
+                containerElement.classList.add(className);
+              }
+            });
+            setHiddenState(true);
+            resetFooterOffset();
+            idleState.promptVisible = false;
+          }
+
+          function showPrompt() {
+            normalizeClassList(hiddenClassName).forEach(function(className) {
+              containerElement.classList.remove(className);
+            });
+            normalizeClassList(visibleClassName).forEach(function(className) {
+              if (!containerElement.classList.contains(className)) {
+                containerElement.classList.add(className);
+              }
+            });
+            setHiddenState(false);
+            idleState.promptVisible = true;
+            applyFooterOffset();
+            window.requestAnimationFrame(applyFooterOffset);
+          }
+
+          function bindListeners() {
+            if (listenersBound) {
+              return;
+            }
+            activityEvents.forEach(function(eventName) {
+              document.addEventListener(eventName, activityHandler, true);
+            });
+            document.addEventListener('visibilitychange', visibilityHandler, true);
+            confirmButtonElement.addEventListener('click', confirmHandler);
+            dismissButtonElement.addEventListener('click', dismissHandler);
+            listenersBound = true;
+          }
+
+          function unbindListeners() {
+            if (!listenersBound) {
+              return;
+            }
+            activityEvents.forEach(function(eventName) {
+              document.removeEventListener(eventName, activityHandler, true);
+            });
+            document.removeEventListener('visibilitychange', visibilityHandler, true);
+            confirmButtonElement.removeEventListener('click', confirmHandler);
+            dismissButtonElement.removeEventListener('click', dismissHandler);
+            listenersBound = false;
+          }
+
+          function applyTheme(mode) {
+            var normalized = mode === 'dark' ? 'dark' : 'light';
+            var lightClasses = themeClasses.light || '';
+            var darkClasses = themeClasses.dark || '';
+            if (normalized === 'dark') {
+              applyElementThemeClasses(containerElement, darkClasses, lightClasses);
+            } else {
+              applyElementThemeClasses(containerElement, lightClasses, darkClasses);
+            }
+          }
+
+          function startManager() {
+            recordSessionActivity();
+            bindListeners();
+            startIdleChecks();
+          }
+
+          function stopManager() {
+            unbindListeners();
+            stopIdleChecks();
+            hidePrompt();
+            resetFooterOffset();
+          }
+
+          if (typeof window === 'object' && window) {
+            window.__loopawareDashboardIdleTestHooks = {
+              forcePrompt: function() {
+                idleState.lastActivityTimestamp = Date.now() - (promptDelayMilliseconds + 1000);
+                checkSessionIdleState();
+              },
+              forceLogout: function() {
+                idleState.lastActivityTimestamp = Date.now() - (autoLogoutMilliseconds + 1000);
+                showPrompt();
+                checkSessionIdleState();
+              }
+            };
+          }
+
+          resetFooterOffset();
+
+          return {
+            start: function() {
+              if (!containerElement) {
+                return;
+              }
+              startManager();
+            },
+            stop: stopManager,
+            applyTheme: applyTheme
+          };
+        }
+        sessionTimeoutManager = createSessionTimeoutManager({
+          containerElement: sessionTimeoutContainer,
+          messageElement: sessionTimeoutMessage,
+          confirmButtonElement: sessionTimeoutConfirmButton,
+          dismissButtonElement: sessionTimeoutDismissButton,
+          footerElement: footerElement,
+          hiddenClass: sessionTimeoutComponentClasses.container_hidden || 'd-none',
+          visibleClass: sessionTimeoutComponentClasses.container_visible || 'd-block',
+          themeClasses: sessionTimeoutThemeClasses || {},
+          promptDelayMilliseconds: sessionTimeoutPromptDelay,
+          autoLogoutMilliseconds: sessionTimeoutAutoLogout,
+          promptText: sessionTimeoutTexts.prompt || '',
+          confirmButtonLabel: sessionTimeoutTexts.confirm || '',
+          dismissButtonLabel: sessionTimeoutTexts.dismiss || '',
+          onLogout: performLogout
+        });
         function shouldValidateOwnerEmail() {
           return Boolean(state.user);
         }
@@ -698,6 +960,9 @@
             applyElementThemeClasses(footerElement, footerThemeClasses.light || '', footerThemeClasses.dark || '');
             applyElementThemeClasses(feedbackTableHeader, tableThemeClasses.light || '', tableThemeClasses.dark || '');
           }
+          if (sessionTimeoutManager && typeof sessionTimeoutManager.applyTheme === 'function') {
+            sessionTimeoutManager.applyTheme(normalized);
+          }
         }
 
         function loadThemePreference() {
@@ -717,6 +982,23 @@
 
         function persistThemePreference(mode) {
           localStorage.setItem(themePreferenceStorageKey, mode);
+        }
+
+        function performLogout() {
+          if (sessionTimeoutManager && typeof sessionTimeoutManager.stop === 'function') {
+            sessionTimeoutManager.stop();
+          }
+          if (!logoutPath) {
+            window.location.href = landingPath;
+            return;
+          }
+          var redirectToLanding = function() {
+            window.location.href = landingPath;
+          };
+          window.fetch(logoutPath, {
+            method: 'POST',
+            credentials: 'same-origin'
+          }).then(redirectToLanding).catch(redirectToLanding);
         }
 
         function fetchJSON(url, options) {
@@ -1638,17 +1920,7 @@
         if (logoutButton) {
           logoutButton.addEventListener('click', function(event) {
             event.preventDefault();
-            if (!logoutPath) {
-              window.location.href = landingPath;
-              return;
-            }
-            var redirectToLanding = function() {
-              window.location.href = landingPath;
-            };
-            window.fetch(logoutPath, {
-              method: 'POST',
-              credentials: 'same-origin'
-            }).then(redirectToLanding).catch(redirectToLanding);
+            performLogout();
           });
         }
 
@@ -1657,6 +1929,9 @@
         });
 
         loadThemePreference();
+        if (sessionTimeoutManager && typeof sessionTimeoutManager.start === 'function') {
+          sessionTimeoutManager.start();
+        }
         loadUser().then(function() {
           openFaviconEventStream();
           return loadSites();
