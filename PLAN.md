@@ -1,7 +1,4 @@
-- [ ] internal/httpapi/public_assets.go — adapt the public header to expose a hero link whose destination depends on authentication state and page context.
-- [ ] internal/httpapi/landing.go — inject an authenticated-user provider so the landing page can render the correct hero target and scroll behavior when unauthenticated.
-- [ ] internal/httpapi/privacy.go — reuse the authenticated-user provider to configure the hero navigation for the privacy page.
-- [ ] cmd/server/main.go — wire the authentication manager into the public handlers so they can determine the current user.
-- [ ] internal/httpapi/landing_test.go — cover hero link behavior for authenticated and unauthenticated visitors on the landing page.
-- [ ] internal/httpapi/privacy_test.go — verify the privacy page hero link matches the required navigation rules.
-- [ ] NOTES.md — mark [LA-76] as completed after validation.
+- [x] internal/httpapi/headless_browser_test_helpers.go — replace the chromedp-only launcher with a reusable go-rod harness that downloads Chromium when needed, manages lifecycles, and exposes screenshot capture plus viewport utilities.
+- [x] internal/httpapi/widget_integration_test.go — migrate actions to the shared rod harness so widget flows execute reliably, keep screenshot variance analysis, and assert artifact paths under `tests/<date>/<testname>/`.
+- [x] internal/httpapi/dashboard_integration_test.go — reuse the rod harness for session-timeout scenarios, capture light/dark prompt screenshots, and ensure navigation assertions run instead of skipping.
+- [x] README.md, MIGRATION.md — document the rod-based integration test prerequisites and explain where screenshot artifacts are stored.

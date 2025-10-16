@@ -130,6 +130,14 @@ const (
 	dashboardErrorMessagesConfigToken       = "\"error_messages\":{"
 	dashboardErrorMessagesScriptToken       = "var errorMessages = parsedConfig.error_messages || {};"
 	dashboardSiteExistsMessageToken         = "\"site_exists\":\"A site for this allowed origin already exists.\""
+	dashboardSessionTimeoutContainerToken   = "id=\"session-timeout-notification\""
+	dashboardSessionTimeoutMessageToken     = "id=\"session-timeout-message\""
+	dashboardSessionTimeoutConfirmToken     = "id=\"session-timeout-confirm-button\""
+	dashboardSessionTimeoutDismissToken     = "id=\"session-timeout-dismiss-button\""
+	dashboardSessionTimeoutPromptTextToken  = "Log out due to inactivity?"
+	dashboardSessionTimeoutConfigToken      = "\"session_timeout\":{"
+	dashboardSessionTimeoutPromptDelayToken = "\"prompt_delay_ms\":60000"
+	dashboardSessionTimeoutLogoutDelayToken = "\"auto_logout_ms\":120000"
 )
 
 func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
@@ -324,6 +332,40 @@ func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {
 			require.NotContains(t, body, testCase.substring)
 		})
 	}
+}
+
+func TestDashboardTemplateIncludesSessionTimeoutNotification(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, dashboardSessionTimeoutContainerToken)
+	require.Contains(t, body, dashboardSessionTimeoutMessageToken)
+	require.Contains(t, body, dashboardSessionTimeoutConfirmToken)
+	require.Contains(t, body, dashboardSessionTimeoutDismissToken)
+	require.Contains(t, body, dashboardSessionTimeoutPromptTextToken)
+}
+
+func TestDashboardConfigIncludesSessionTimeoutSettings(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
+	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
+
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers.RenderDashboard(context)
+
+	body := recorder.Body.String()
+	require.Contains(t, body, dashboardSessionTimeoutConfigToken)
+	require.Contains(t, body, dashboardSessionTimeoutPromptDelayToken)
+	require.Contains(t, body, dashboardSessionTimeoutLogoutDelayToken)
 }
 
 func TestDashboardFooterIncludesBranding(t *testing.T) {
