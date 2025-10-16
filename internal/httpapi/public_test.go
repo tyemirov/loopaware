@@ -14,10 +14,10 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/httpapi"
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/testutil"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/httpapi"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/testutil"
 )
 
 type apiHarness struct {

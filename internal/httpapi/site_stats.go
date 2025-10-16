@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 	"gorm.io/gorm"
 )
 

@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 )
 
 const (

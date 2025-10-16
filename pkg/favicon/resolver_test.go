@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/pkg/favicon"
+	"github.com/MarkoPoloResearchLab/loopaware/pkg/favicon"
 )
 
 func TestHTTPResolverPrefersDefaultIcon(testingT *testing.T) {

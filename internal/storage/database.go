@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 )
 
 const (

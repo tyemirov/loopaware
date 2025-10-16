@@ -6,9 +6,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/testutil"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/testutil"
 )
 
 const (

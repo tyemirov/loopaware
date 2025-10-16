@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 )
 
 const (

@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/pkg/favicon"
+	"github.com/MarkoPoloResearchLab/loopaware/pkg/favicon"
 )
 
 type stubResolver struct {

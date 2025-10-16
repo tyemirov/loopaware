@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
 )
 
 const (

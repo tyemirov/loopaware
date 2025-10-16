@@ -11,9 +11,9 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/task"
-	"github.com/MarkoPoloResearchLab/feedback_svc/pkg/favicon"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/task"
+	"github.com/MarkoPoloResearchLab/loopaware/pkg/favicon"
 )
 
 const (

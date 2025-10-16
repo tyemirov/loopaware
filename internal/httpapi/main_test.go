@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/httpapi"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/httpapi"
 )
 
 const (

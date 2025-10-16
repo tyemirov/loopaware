@@ -1,4 +1,4 @@
-module github.com/MarkoPoloResearchLab/feedback_svc
+module github.com/MarkoPoloResearchLab/loopaware
 
 go 1.25
 

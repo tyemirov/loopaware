@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/httpapi"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/httpapi"
 )
 
 const (

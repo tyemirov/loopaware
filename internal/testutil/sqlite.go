@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
 )
 
 const (

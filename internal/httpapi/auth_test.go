@@ -13,9 +13,9 @@ import (
 
 	"github.com/temirov/GAuss/pkg/session"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/storage"
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/testutil"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/testutil"
 )
 
 const testLoginRedirectPath = "/landing"

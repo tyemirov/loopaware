@@ -6,7 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/model"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 )
 
 // DefaultSiteCreatorEmail identifies the owner to assign when historical sites lack creator attribution.

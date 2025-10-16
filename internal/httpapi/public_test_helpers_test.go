@@ -3,7 +3,7 @@ package httpapi_test
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/internal/httpapi"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/httpapi"
 )
 
 type stubCurrentUserProvider struct {

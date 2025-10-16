@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"html/template"
 
-	"github.com/MarkoPoloResearchLab/feedback_svc/pkg/footer"
+	"github.com/MarkoPoloResearchLab/loopaware/pkg/footer"
 )
 
 const (
