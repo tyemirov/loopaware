@@ -19,7 +19,7 @@
   var widgetBrandingLinkURL = "https://mprlab.com";
   var widgetBrandingLinkText = "Marco Polo Research Lab";
   var widgetBrandingFontSizeValue = "10px";
-  var widgetBrandingMarginTopValue = "6px";
+  var widgetBrandingMarginTopValue = "2px";
   var widgetBrandingTextAlignValue = "center";
   var widgetBrandingOpacityValue = "0.7";
   var widgetBrandingLinkTargetValue = "_blank";
