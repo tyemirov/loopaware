@@ -28,6 +28,21 @@
   var widgetBrandingLineHeightValue = "1.2";
   var widgetBrandingLinkColorValue = "#b8860b";
   var widgetBrandingStaticText = "Built by ";
+  var widgetCloseButtonText = "×";
+  var widgetCloseButtonFontSizeValue = "24px";
+  var widgetCloseButtonLineHeightValue = "1";
+  var widgetCloseButtonCursorValue = "pointer";
+  var widgetCloseButtonPaddingValue = "0";
+  var widgetCloseButtonBorderValue = "none";
+  var widgetCloseButtonBackgroundValue = "transparent";
+  var widgetCloseButtonPositionValue = "absolute";
+  var widgetCloseButtonTopValue = "8px";
+  var widgetCloseButtonRightValue = "8px";
+  var widgetCloseButtonWidthValue = "28px";
+  var widgetCloseButtonHeightValue = "28px";
+  var widgetCloseButtonOpacityValue = "0.6";
+  var widgetCloseButtonHoverOpacityValue = "1";
+  var widgetCloseButtonAriaLabel = "Close feedback panel";
   var widgetThemePalettes = {
     light: {
       bubbleBackground: "#0d6efd",
@@ -44,7 +59,8 @@
       buttonTextColor: "#ffffff",
       statusPositiveColor: "#157347",
       statusNegativeColor: "#dc3545",
-      statusPendingColor: "#0d6efd"
+      statusPendingColor: "#0d6efd",
+      closeButtonColor: "#6c757d"
     },
     dark: {
       bubbleBackground: "#4dabf7",
@@ -61,7 +77,8 @@
       buttonTextColor: "#f8fafc",
       statusPositiveColor: "#34d399",
       statusNegativeColor: "#f87171",
-      statusPendingColor: "#60a5fa"
+      statusPendingColor: "#60a5fa",
+      closeButtonColor: "#94a3b8"
     }
   };
 
@@ -130,11 +147,35 @@
       panel.style.zIndex = "2147483647";
       panel.style.color = themePalette.panelTextColor;
 
+      var panelContainer = document.createElement("div");
+      panelContainer.style.position = "relative";
+      panel.appendChild(panelContainer);
+
+      var closeButton = document.createElement("button");
+      closeButton.type = "button";
+      closeButton.innerText = widgetCloseButtonText;
+      closeButton.style.position = widgetCloseButtonPositionValue;
+      closeButton.style.top = widgetCloseButtonTopValue;
+      closeButton.style.right = widgetCloseButtonRightValue;
+      closeButton.style.width = widgetCloseButtonWidthValue;
+      closeButton.style.height = widgetCloseButtonHeightValue;
+      closeButton.style.padding = widgetCloseButtonPaddingValue;
+      closeButton.style.border = widgetCloseButtonBorderValue;
+      closeButton.style.background = widgetCloseButtonBackgroundValue;
+      closeButton.style.color = themePalette.closeButtonColor;
+      closeButton.style.fontSize = widgetCloseButtonFontSizeValue;
+      closeButton.style.lineHeight = widgetCloseButtonLineHeightValue;
+      closeButton.style.cursor = widgetCloseButtonCursorValue;
+      closeButton.style.opacity = widgetCloseButtonOpacityValue;
+      closeButton.style.boxSizing = boxSizingBorderBoxValue;
+      closeButton.setAttribute("aria-label", widgetCloseButtonAriaLabel);
+      panelContainer.appendChild(closeButton);
+
       var headline = document.createElement("div");
       headline.style.fontWeight = "600";
       headline.style.marginBottom = "8px";
       headline.innerText = "Send feedback";
-      panel.appendChild(headline);
+      panelContainer.appendChild(headline);
 
       var contact = document.createElement("input");
       contact.type = "text";
@@ -148,7 +189,7 @@
       contact.style.background = themePalette.inputBackground;
       contact.style.color = themePalette.inputTextColor;
       contact.style.boxSizing = boxSizingBorderBoxValue;
-      panel.appendChild(contact);
+      panelContainer.appendChild(contact);
 
       var message = document.createElement("textarea");
       message.placeholder = "Your message";
@@ -161,7 +202,7 @@
       message.style.background = themePalette.inputBackground;
       message.style.color = themePalette.inputTextColor;
       message.style.boxSizing = boxSizingBorderBoxValue;
-      panel.appendChild(message);
+      panelContainer.appendChild(message);
 
       var send = document.createElement("button");
       send.type = "button";
@@ -175,14 +216,14 @@
       send.style.fontWeight = "600";
       send.style.cursor = "pointer";
       send.style.boxSizing = boxSizingBorderBoxValue;
-      panel.appendChild(send);
+      panelContainer.appendChild(send);
 
       var status = document.createElement("div");
       status.style.marginTop = "6px";
       status.style.fontSize = "12px";
       status.style.minHeight = "16px";
       status.style.color = themePalette.statusPendingColor;
-      panel.appendChild(status);
+      panelContainer.appendChild(status);
 
       var brandingContainer = document.createElement("div");
       brandingContainer.id = widgetBrandingElementID;
@@ -204,7 +245,7 @@
 
       brandingContainer.appendChild(brandingStaticTextNode);
       brandingContainer.appendChild(brandingLink);
-      panel.appendChild(brandingContainer);
+      panelContainer.appendChild(brandingContainer);
 
       bodyElement.appendChild(panel);
 
@@ -222,6 +263,19 @@
           cancelPanelAutoHide();
         }, panelAutoHideDelayMilliseconds);
       }
+
+      closeButton.addEventListener("mouseenter", function(){
+        closeButton.style.opacity = widgetCloseButtonHoverOpacityValue;
+      });
+
+      closeButton.addEventListener("mouseleave", function(){
+        closeButton.style.opacity = widgetCloseButtonOpacityValue;
+      });
+
+      closeButton.addEventListener("click", function(){
+        cancelPanelAutoHide();
+        panel.style.display = panelDisplayNoneValue;
+      });
 
       bubble.addEventListener("click", function(){
         cancelPanelAutoHide();
