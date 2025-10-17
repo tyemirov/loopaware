@@ -32,7 +32,7 @@ const (
 	widgetPanelSelector             = "#mp-feedback-panel"
 	widgetContactSelector           = "#mp-feedback-panel input"
 	widgetMessageSelector           = "#mp-feedback-panel textarea"
-	widgetSendButtonSelector        = "#mp-feedback-panel button"
+	widgetSendButtonSelector        = "#mp-feedback-panel button[type='button']:not([aria-label='Close feedback panel'])"
 	widgetBrandingSelector          = "#mp-feedback-branding"
 	widgetBrandingLinkSelector      = "#mp-feedback-branding a"
 	widgetSuccessStatusMessage      = "Thanks! Sent."
@@ -50,6 +50,7 @@ const (
 		return "";
 	})()`
 	widgetPanelHiddenDisplayValue          = "none"
+	panelDisplayBlockValue                 = "block"
 	widgetPanelDisplayScript               = "document.getElementById(\"mp-feedback-panel\").style.display"
 	panelInputRelativeSelector             = "input"
 	panelMessageRelativeSelector           = "textarea"
@@ -62,6 +63,8 @@ const (
 	widgetBrandingLinkExpectedText         = "Marco Polo Research Lab"
 	widgetBrandingContainerExpectedText    = "Built by Marco Polo Research Lab"
 	widgetBrandingLinkExpectedHref         = "https://mprlab.com"
+	widgetCloseButtonSelector              = "#mp-feedback-panel button[aria-label='Close feedback panel']"
+	widgetCloseButtonExpectedText          = "×"
 )
 
 func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
@@ -251,11 +254,70 @@ func TestWidgetAppliesDarkThemeStyles(t *testing.T) {
 
 	panelBackgroundColor := evaluateScriptString(t, page, `window.getComputedStyle(document.getElementById("mp-feedback-panel")).backgroundColor`)
 	inputBackgroundColor := evaluateScriptString(t, page, `window.getComputedStyle(document.querySelector("#mp-feedback-panel input")).backgroundColor`)
-	buttonBackgroundColor := evaluateScriptString(t, page, `window.getComputedStyle(document.querySelector("#mp-feedback-panel button")).backgroundColor`)
+	buttonBackgroundColor := evaluateScriptString(t, page, `window.getComputedStyle(document.querySelector("#mp-feedback-panel button[type='button']:not([aria-label='Close feedback panel'])")).backgroundColor`)
 
 	require.Equal(t, darkThemeExpectedBubbleBackgroundColor, bubbleBackgroundColor)
 	require.Equal(t, darkThemeExpectedBubbleTextColor, bubbleTextColor)
 	require.Equal(t, darkThemeExpectedPanelBackgroundColor, panelBackgroundColor)
 	require.Equal(t, darkThemeExpectedInputBackgroundColor, inputBackgroundColor)
 	require.Equal(t, darkThemeExpectedButtonBackgroundColor, buttonBackgroundColor)
+}
+
+func TestWidgetCloseButtonDismissesPanel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	page := buildHeadlessPage(t)
+	screenshotsDirectory := createScreenshotsDirectory(t)
+
+	apiHarness := buildAPIHarness(t)
+
+	server := httptest.NewServer(apiHarness.router)
+	t.Cleanup(server.Close)
+
+	site := insertSite(t, apiHarness.database, integrationSiteName, server.URL, integrationSiteOwnerEmail)
+
+	integrationPageHTML := fmt.Sprintf(integrationPageHTMLTemplate, site.ID)
+	apiHarness.router.GET(integrationPageRoutePath, func(ginContext *gin.Context) {
+		ginContext.Data(http.StatusOK, integrationPageContentType, []byte(integrationPageHTML))
+	})
+
+	integrationPageURL := server.URL + integrationPageRoutePath
+
+	navigateToPage(t, page, integrationPageURL)
+	waitForVisibleElement(t, page, widgetBubbleSelector)
+
+	clickSelector(t, page, widgetBubbleSelector)
+	waitForVisibleElement(t, page, widgetPanelSelector)
+
+	panelDisplayBeforeClose := evaluateScriptString(t, page, widgetPanelDisplayScript)
+	require.Equal(t, panelDisplayBlockValue, panelDisplayBeforeClose)
+
+	closeButtonElement := waitForVisibleElement(t, page, widgetCloseButtonSelector)
+	closeButtonText, closeButtonTextErr := closeButtonElement.Text()
+	require.NoError(t, closeButtonTextErr)
+	require.Equal(t, widgetCloseButtonExpectedText, strings.TrimSpace(closeButtonText))
+
+	closeButtonAriaLabel, closeButtonAriaLabelErr := closeButtonElement.Attribute("aria-label")
+	require.NoError(t, closeButtonAriaLabelErr)
+	require.NotNil(t, closeButtonAriaLabel)
+	require.Equal(t, "Close feedback panel", *closeButtonAriaLabel)
+
+	captureAndStoreScreenshot(t, page, screenshotsDirectory, "widget-panel-with-close-button")
+	require.FileExists(t, filepath.Join(screenshotsDirectory, "widget-panel-with-close-button.png"))
+
+	clickSelector(t, page, widgetCloseButtonSelector)
+
+	var panelDisplayAfterClose string
+	require.Eventually(t, func() bool {
+		panelDisplayAfterClose = evaluateScriptString(t, page, widgetPanelDisplayScript)
+		t.Logf("panel display after close: %q", panelDisplayAfterClose)
+		return panelDisplayAfterClose == widgetPanelHiddenDisplayValue
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+	require.Equal(t, widgetPanelHiddenDisplayValue, panelDisplayAfterClose)
+
+	clickSelector(t, page, widgetBubbleSelector)
+	waitForVisibleElement(t, page, widgetPanelSelector)
+
+	panelDisplayAfterReopening := evaluateScriptString(t, page, widgetPanelDisplayScript)
+	require.Equal(t, panelDisplayBlockValue, panelDisplayAfterReopening)
 }
