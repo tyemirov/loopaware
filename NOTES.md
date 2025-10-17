@@ -77,110 +77,113 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
 
 ### Features
 
-- [x] [LA-27] Design, write a copy and add a landing page at / root, with links pointing to /app. Introduce favicon, and leverage an ability of GAuss to take a login page from the app. The landing page shall be the one we feed into GAuss as a login page and that will initiate the login flow.
+    - [x] [LA-27] Design, write a copy and add a landing page at / root, with links pointing to /app. Introduce favicon, and leverage an ability of GAuss to take a login page from the app. The landing page shall be the one we feed into GAuss as a login page and that will initiate the login flow.
 
-- [x] [LA-28] In the footer, clicking on the Marco Polo Recearch Lab in "Built by Marco Polo Recearch Lab" should display a stacked dropdown (drop up as it will always point up):
-    - [Marco Polo Recearch Lab](https://mprlab.com)
-    - [Gravity Notes](https://gravity.mprlab.com)
-    - [LoopAware](https://loopaware.mprlab.com)
-    - [Allergy Wheel](https://allergy.mprlab.com)
-    - [Social Threader](https://threader.mprlab.com)
-    - [RSVP](https://rsvp.mprlab.com)
-    - [Countdown Calendar](https://countdown.mprlab.com)
-    - [LLM Crossword](https://llm-crossword.mprlab.com)
-    - [Prompt Bubbles](https://prompts.mprlab.com)
-    - [Wallpapers](https://wallpapers.mprlab.com)
+    - [x] [LA-28] In the footer, clicking on the Marco Polo Recearch Lab in "Built by Marco Polo Recearch Lab" should display a stacked dropdown (drop up as it will always point up):
+        - [Marco Polo Recearch Lab](https://mprlab.com)
+        - [Gravity Notes](https://gravity.mprlab.com)
+        - [LoopAware](https://loopaware.mprlab.com)
+        - [Allergy Wheel](https://allergy.mprlab.com)
+        - [Social Threader](https://threader.mprlab.com)
+        - [RSVP](https://rsvp.mprlab.com)
+        - [Countdown Calendar](https://countdown.mprlab.com)
+        - [LLM Crossword](https://llm-crossword.mprlab.com)
+        - [Prompt Bubbles](https://prompts.mprlab.com)
+        - [Wallpapers](https://wallpapers.mprlab.com)
 
-    Make the footer independent so that I could reuse it as a component in other projects
+        Make the footer independent so that I could reuse it as a component in other projects
 
 
 ### Improvements
 
-- [x] [LA-24] favicon retrieval shall be expressed as task that works asynchronously. once favicon is retrieved, it is cahced (saved in the db) and served from the DB.
-- [x] [LA-25] favicon can be retrieved from inline embeddings in the sites looking for  `<link rel="icon"` and respecting the type (e.g. https://loopaware.mprlab.com has type="image/svg+xml" )
-- [x] [LA-26] The inline icons are not fetched/displayed. https://loopaware.mprlab.com defines an inline favicon but there is no favicon in Loopaware Sites panel after defining https://loopaware.mprlab.com site. Prepare integration tests that run against https://loopaware.mprlab.com and ensure that the icon is extracted and displayed
-- [x] [LA-29] Move the site registration date to the same row as Owner email (it is currently in a row below it). Add `Registered at:` prefix for the date. Remove the time.
-- [x] [LA-37] Add deatils to the copy text. It is barebone now. analyze the functionality, check readme and PRD and consider usefullness for the end user
-- [x] [LA-38] There is no theme switch on the landing page, and the components seem to belong to different themes.
-- [x] [LA-39] Add logo of the Loopaware to the header
-- [x] [LA-41] Do not display 0 for Feedback messages. Only display the total number if it's larger than 0
-- [x] [LA-48] The logo in the header shall be larger and better visible
-- [x] [LA-49] Remove the login button from the hero page. Only leave login button in the header
-- [x] [LA-52] Remove the square around the logo for both the landing page and the dashboard. The logo shall be transparent. Increase the size of the logo.
-- [x] [LA-53] Slim down the header and the footer
-- [x] [LA-54] Add branding to the widget, saying "Bulit by Marco Polo Research Lab" with a link to https://mprlab.com. Have it in small letters under the widget.
-- [x] [LA-56] The endpoint `api/me` shall return a JSON payload including user email, name and avatar. The rest of the system should be using this information when displaying user details. The login shall ba saving/updating this information. It must be a protected endpoint so that only the logged in user could get the information.
-- [x] [LA-59] Define and surface descriptive error messages for the end users: when site already exists the message should say so instead of a generic "forbidden" etc
-- [X] [LA-61] Implement task based subsystem that performs non-immediate tasks such as retrieving sites favicons. The task shall be triggered using an internal schedule: check and update favicons every 24 hours.
-- [X] [LA-62] Schedule an immediate task execution for favicon retrieval on site creation or update from the user. Implement a mechanism (SSE?) to inform the site that the favicon must be retrieved from the backend in case we got a new or updated favicon. dont do anything if the favicon hasnt changed
-- [x] [LA-70] Extract favicon collection into a service. have it in pkg folder and build it suitable for any go program to invoke it. Refactor current tasks to invoke FavIconService when gathering FavIcon data
-- [x] [LA-71] Refactor the footer so it's the same footer on both landing, privacy, and privacy pages
-- [x] [LA-72] Move "Privacy • Terms" link to the same footer that says "Built by marco Polo Research lab"
-- [x] [LA-73] Align "Privacy • Terms" to the left of the footer and horizontally with "Built by marco Polo Research lab". Make "Privacy • Terms" font 3 (really tiny.)
-- [x] [LA-76] Clicking on LoopAware hero in the header shall either a) load the landing page if the user is not logged in AND is not on the landing page already b) load the dashboard page if the user is logged in c) scroll to the top if the user is not logged in AND is on the landing page already
-- [X] [LA-77] Log off the user after 120 seconds of inactivity. Display a notification after 60 seconds: Log Out? Yes No. Log out if no answer in 60 seconds (120s total). The notofication is displayed at the biottom of the screen, in a row adjacent to the footer, Yes and No are buttons. The notification system respects the theme switch and is styled according to the chosen theme. Ensure that code coverage. Build this as a JS componenbt and make it easily portable to other projects. Have full test coverage.
+    - [x] [LA-24] favicon retrieval shall be expressed as task that works asynchronously. once favicon is retrieved, it is cahced (saved in the db) and served from the DB.
+    - [x] [LA-25] favicon can be retrieved from inline embeddings in the sites looking for  `<link rel="icon"` and respecting the type (e.g. https://loopaware.mprlab.com has type="image/svg+xml" )
+    - [x] [LA-26] The inline icons are not fetched/displayed. https://loopaware.mprlab.com defines an inline favicon but there is no favicon in Loopaware Sites panel after defining https://loopaware.mprlab.com site. Prepare integration tests that run against https://loopaware.mprlab.com and ensure that the icon is extracted and displayed
+    - [x] [LA-29] Move the site registration date to the same row as Owner email (it is currently in a row below it). Add `Registered at:` prefix for the date. Remove the time.
+    - [x] [LA-37] Add deatils to the copy text. It is barebone now. analyze the functionality, check readme and PRD and consider usefullness for the end user
+    - [x] [LA-38] There is no theme switch on the landing page, and the components seem to belong to different themes.
+    - [x] [LA-39] Add logo of the Loopaware to the header
+    - [x] [LA-41] Do not display 0 for Feedback messages. Only display the total number if it's larger than 0
+    - [x] [LA-48] The logo in the header shall be larger and better visible
+    - [x] [LA-49] Remove the login button from the hero page. Only leave login button in the header
+    - [x] [LA-52] Remove the square around the logo for both the landing page and the dashboard. The logo shall be transparent. Increase the size of the logo.
+    - [x] [LA-53] Slim down the header and the footer
+    - [x] [LA-54] Add branding to the widget, saying "Bulit by Marco Polo Research Lab" with a link to https://mprlab.com. Have it in small letters under the widget.
+    - [x] [LA-56] The endpoint `api/me` shall return a JSON payload including user email, name and avatar. The rest of the system should be using this information when displaying user details. The login shall ba saving/updating this information. It must be a protected endpoint so that only the logged in user could get the information.
+    - [x] [LA-59] Define and surface descriptive error messages for the end users: when site already exists the message should say so instead of a generic "forbidden" etc
+    - [X] [LA-61] Implement task based subsystem that performs non-immediate tasks such as retrieving sites favicons. The task shall be triggered using an internal schedule: check and update favicons every 24 hours.
+    - [X] [LA-62] Schedule an immediate task execution for favicon retrieval on site creation or update from the user. Implement a mechanism (SSE?) to inform the site that the favicon must be retrieved from the backend in case we got a new or updated favicon. dont do anything if the favicon hasnt changed
+    - [x] [LA-70] Extract favicon collection into a service. have it in pkg folder and build it suitable for any go program to invoke it. Refactor current tasks to invoke FavIconService when gathering FavIcon data
+    - [x] [LA-71] Refactor the footer so it's the same footer on both landing, privacy, and privacy pages
+    - [x] [LA-72] Move "Privacy • Terms" link to the same footer that says "Built by marco Polo Research lab"
+    - [x] [LA-73] Align "Privacy • Terms" to the left of the footer and horizontally with "Built by marco Polo Research lab". Make "Privacy • Terms" font 3 (really tiny.)
+    - [x] [LA-76] Clicking on LoopAware hero in the header shall either a) load the landing page if the user is not logged in AND is not on the landing page already b) load the dashboard page if the user is logged in c) scroll to the top if the user is not logged in AND is on the landing page already
+    - [X] [LA-77] Log off the user after 120 seconds of inactivity. Display a notification after 60 seconds: Log Out? Yes No. Log out if no answer in 60 seconds (120s total). The notofication is displayed at the biottom of the screen, in a row adjacent to the footer, Yes and No are buttons. The notification system respects the theme switch and is styled according to the chosen theme. Ensure that code coverage. Build this as a JS componenbt and make it easily portable to other projects. Have full test coverage.
+    - [ ] [LA-78] Add a close card / dismiss mark in the top right corner of the widget dialog
+    - [ ] [LA-79] Shorten the gap between built by Marco Polo Research Lab and the input field of the widget dialog
+
 
 ### BugFixes
 
-- [x] [LA-78] Headless integration harness still depends on chromedp which exits immediately when using the auto-downloaded Chromium build. Replace the browser driver plumbing with go-rod so widget and dashboard flows run reliably and produce screenshots under `tests/<date>/<testname>/`.
-- [x] [LA-79] Dashboard session timeout integration tests skip before asserting logout because the shared headless launcher cannot start; align them with the new rod harness and extend assertions to verify screenshots exist for both light and dark prompts.
-- [x] [LA-23] the header of the table in Feedback messages panel doesnt respect the theme swithc and stays in light theme. it shall respect the theme switch
-- [x] [LA-26] The inline icons are not fetched/displayed. https://loopaware.mprlab.com defines an inline favicon but there is no favicon in Loopaware Sites panel after defining https://loopaware.mprlab.com site. Prepare integration tests that run against https://loopaware.mprlab.com and ensure that the icon is extracted and displayed
-- [x] [LA-28] Instead of loopaware.mprlab.com use gravity.mprlab.com in the integration tests for inline favicon
-- [x] [LA-30] "Site deleted" message in "Site details" panel had white background not respecting the theme. Ensure that all messaging respect the selected theme (light or dark)
-- [x] [LA-31] "Site deleted" messaged in "Site details" panel never went away breaking the expected behavior of all messages to disappear after a timeout. Ensure messages disappear after a timeout.
-- [x] [LA-32] The footer doesnt display the drop down with stacked links
-- [x] [LA-33] The footer on the landing page is misalighed and Built by Marco Polo Resaerrch Lab is aligned to the left instead of the right
-- [x] [LA-34] The footer on the landing page is giant, and shall have the same vertical height as in the dashboard
-- [x] [LA-35] The cards on the landing page do not react on hover. the focus shall get to the card that the cursor is being hovered upon, and the card shall get highlighted
-- [x] [LA-36] Remove Open LoopAware button, There shall be one button Login, which, in case a user is not logged in, would redirect it to goolge flow, and in case the user is logged in, would send the user to the dashboard, I think such flow is implcit (e.g. I doubt we need to have any special checks).
-- [x] [LA-40] Move the registration time of the site in the site details panel to the right, making it appear on the same ro as the "Owner email" field and under "Allowed origin" field
-- [x] [LA-42] Logout shall be redirecting the user to the landing page. not back to Login screen
-- [x] [LA-43] The landing page misses favicon. Use     `<link rel="icon" type="image/svg+xml" href="{{.FaviconDataURI}}" />`
-- [x] [LA-44] The LoopAware logo on the landing page is incorrect. Either use the SVG from the code or ![alt text](internal/httpapi/templates/logo.png)
-- [x] [LA-45] The header on the landing page should stick to the top of the page.
-- [x] [LA-46] The header on the landing page should stick to the top of the page.
-- [x] [LA-47] Clicking on the logo shall not do anything (it refreshes the page now).
-- [x] [LA-50] Add logo to the LoopAware Dashboard header (on the left of the word "LoopAware" )
-- [x] [LA-51] The choice of the theme on the landing page and the dashboard should be independent
-- [x] [LA-52] When logged in as a user the field to enter the site email is missing. This field must be present. The difference between a User adn and Admin is that Admin can see ALL of the sites regardless of what user has created them. User can only see and edit their own sites.
-- [X] [LA-55] The sites created by the same user are not displayed when a user changes roles. All sites created by the same user regardless of its role must be displayed when the user logs in. User and admin designation must have an abstraction called role. The role has an impact on the scope. Admin role grants an ability to view all sites regardless of the user who has created them plus everything that a user can do. User role grants the permissions to add, edit, and delete the sites that the user has created.
-- [x] [LA-57] In case we have records with no information about what user has created them, we shall make a one-time data migration and update such records for the creator to be temirov@gmail.com. After that we shall be sure to separate the user who has created the records, using user's email from login, and the field called owner email, which is just an information we store for now
-- [x] [LA-58] When pressing tab in the Site details, the focus shall be moving between the three input fields cyclically and not to the tooltips.
-- [x] [LA-60] When trying to create a site I am getting an error "Only administrator can assign different site owners". I dont understand this error. AS  user I am able to create any sites, and assign any emails to the owners of the site, same as administrator. The only difference between a User and Administrator is the number of sites that the administrator can see. Write integration tests that verify that a user can perform ALL and every action an administratort cvan perform. ensure we have a test that verifies that administrator can see sites not created by them, and the user can not see sites not created by them, ensure that we have an association between a logged user, who is a creator, and sites being created
-- [x] [LA-65] Remove race condition in SiteFaviconManager + Scheduler.Start by adding context cancellation, Stop(), and proper sync (mutex/WaitGroup).
-- [x] [LA-66] Ensure all tests clean up background goroutines with t.Cleanup.
-- [x] [LA-67] Make chromedp tests deterministic: skip fast if Chrome not installed or fails to start; run with CI-safe flags otherwise.
-- [x] [LA-68] Silence GORM “record not found” logs in tests via test logger config, but still assert on errors.
-- [x] [LA-69] Verify go test ./... -v -race -count=1 passes in CI without race, leaks, or long hangs.
-- [x] [LA-74] Neither footer nor the privacy page repsect the chosen theme. Have the rpivacy page have the same header as the landing page.
-- [x] [LA-75] Replace duplicative implementation of the footer and render a single partial instead.
+    - [x] [LA-78] Headless integration harness still depends on chromedp which exits immediately when using the auto-downloaded Chromium build. Replace the browser driver plumbing with go-rod so widget and dashboard flows run reliably and produce screenshots under `tests/<date>/<testname>/`.
+    - [x] [LA-79] Dashboard session timeout integration tests skip before asserting logout because the shared headless launcher cannot start; align them with the new rod harness and extend assertions to verify screenshots exist for both light and dark prompts.
+    - [x] [LA-23] the header of the table in Feedback messages panel doesnt respect the theme swithc and stays in light theme. it shall respect the theme switch
+    - [x] [LA-26] The inline icons are not fetched/displayed. https://loopaware.mprlab.com defines an inline favicon but there is no favicon in Loopaware Sites panel after defining https://loopaware.mprlab.com site. Prepare integration tests that run against https://loopaware.mprlab.com and ensure that the icon is extracted and displayed
+    - [x] [LA-28] Instead of loopaware.mprlab.com use gravity.mprlab.com in the integration tests for inline favicon
+    - [x] [LA-30] "Site deleted" message in "Site details" panel had white background not respecting the theme. Ensure that all messaging respect the selected theme (light or dark)
+    - [x] [LA-31] "Site deleted" messaged in "Site details" panel never went away breaking the expected behavior of all messages to disappear after a timeout. Ensure messages disappear after a timeout.
+    - [x] [LA-32] The footer doesnt display the drop down with stacked links
+    - [x] [LA-33] The footer on the landing page is misalighed and Built by Marco Polo Resaerrch Lab is aligned to the left instead of the right
+    - [x] [LA-34] The footer on the landing page is giant, and shall have the same vertical height as in the dashboard
+    - [x] [LA-35] The cards on the landing page do not react on hover. the focus shall get to the card that the cursor is being hovered upon, and the card shall get highlighted
+    - [x] [LA-36] Remove Open LoopAware button, There shall be one button Login, which, in case a user is not logged in, would redirect it to goolge flow, and in case the user is logged in, would send the user to the dashboard, I think such flow is implcit (e.g. I doubt we need to have any special checks).
+    - [x] [LA-40] Move the registration time of the site in the site details panel to the right, making it appear on the same ro as the "Owner email" field and under "Allowed origin" field
+    - [x] [LA-42] Logout shall be redirecting the user to the landing page. not back to Login screen
+    - [x] [LA-43] The landing page misses favicon. Use     `<link rel="icon" type="image/svg+xml" href="{{.FaviconDataURI}}" />`
+    - [x] [LA-44] The LoopAware logo on the landing page is incorrect. Either use the SVG from the code or ![alt text](internal/httpapi/templates/logo.png)
+    - [x] [LA-45] The header on the landing page should stick to the top of the page.
+    - [x] [LA-46] The header on the landing page should stick to the top of the page.
+    - [x] [LA-47] Clicking on the logo shall not do anything (it refreshes the page now).
+    - [x] [LA-50] Add logo to the LoopAware Dashboard header (on the left of the word "LoopAware" )
+    - [x] [LA-51] The choice of the theme on the landing page and the dashboard should be independent
+    - [x] [LA-52] When logged in as a user the field to enter the site email is missing. This field must be present. The difference between a User adn and Admin is that Admin can see ALL of the sites regardless of what user has created them. User can only see and edit their own sites.
+    - [X] [LA-55] The sites created by the same user are not displayed when a user changes roles. All sites created by the same user regardless of its role must be displayed when the user logs in. User and admin designation must have an abstraction called role. The role has an impact on the scope. Admin role grants an ability to view all sites regardless of the user who has created them plus everything that a user can do. User role grants the permissions to add, edit, and delete the sites that the user has created.
+    - [x] [LA-57] In case we have records with no information about what user has created them, we shall make a one-time data migration and update such records for the creator to be temirov@gmail.com. After that we shall be sure to separate the user who has created the records, using user's email from login, and the field called owner email, which is just an information we store for now
+    - [x] [LA-58] When pressing tab in the Site details, the focus shall be moving between the three input fields cyclically and not to the tooltips.
+    - [x] [LA-60] When trying to create a site I am getting an error "Only administrator can assign different site owners". I dont understand this error. AS  user I am able to create any sites, and assign any emails to the owners of the site, same as administrator. The only difference between a User and Administrator is the number of sites that the administrator can see. Write integration tests that verify that a user can perform ALL and every action an administratort cvan perform. ensure we have a test that verifies that administrator can see sites not created by them, and the user can not see sites not created by them, ensure that we have an association between a logged user, who is a creator, and sites being created
+    - [x] [LA-65] Remove race condition in SiteFaviconManager + Scheduler.Start by adding context cancellation, Stop(), and proper sync (mutex/WaitGroup).
+    - [x] [LA-66] Ensure all tests clean up background goroutines with t.Cleanup.
+    - [x] [LA-67] Make chromedp tests deterministic: skip fast if Chrome not installed or fails to start; run with CI-safe flags otherwise.
+    - [x] [LA-68] Silence GORM “record not found” logs in tests via test logger config, but still assert on errors.
+    - [x] [LA-69] Verify go test ./... -v -race -count=1 passes in CI without race, leaks, or long hangs.
+    - [x] [LA-74] Neither footer nor the privacy page repsect the chosen theme. Have the rpivacy page have the same header as the landing page.
+    - [x] [LA-75] Replace duplicative implementation of the footer and render a single partial instead.
 
 ### Maintenance
 
-- [x] [LA-63] add a small “Privacy • Terms” link. and I mean small. it must serve a page under /privacy
-    ```html
-    <!doctype html>
-    <html lang="en">
-    <head>
-    <meta charset="utf-8">
-    <title>Privacy Policy — LoopAware</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex,nofollow">
-    <style>
-        body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:40px;max-width:800px}
-        h1{font-size:1.6rem;margin-bottom:.2rem}
-    </style>
-    </head>
-    <body>
-    <h1>Privacy Policy — LoopAware</h1>
-    <p><strong>Effective Date:</strong> 2025-10-11</p>
-    <p>RSVP uses Google Identity Services to authenticate users. We receive your Google profile
-        information (name, email, profile image) only to sign you in. We do not sell or share your data,
-        and we only store your notes so the service functions.</p>
-    <p>To request deletion of your data, contact
-        <a href="mailto:support@mprlab.com">support@mprlab.com</a>.</p>
-    </body>
-    </html>
-    ```
-- [x] [LA-64] add privacy to the sitemap
+    - [x] [LA-63] add a small “Privacy • Terms” link. and I mean small. it must serve a page under /privacy
+        ```html
+        <!doctype html>
+        <html lang="en">
+        <head>
+        <meta charset="utf-8">
+        <title>Privacy Policy — LoopAware</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noindex,nofollow">
+        <style>
+            body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:40px;max-width:800px}
+            h1{font-size:1.6rem;margin-bottom:.2rem}
+        </style>
+        </head>
+        <body>
+        <h1>Privacy Policy — LoopAware</h1>
+        <p><strong>Effective Date:</strong> 2025-10-11</p>
+        <p>RSVP uses Google Identity Services to authenticate users. We receive your Google profile
+            information (name, email, profile image) only to sign you in. We do not sell or share your data,
+            and we only store your notes so the service functions.</p>
+        <p>To request deletion of your data, contact
+            <a href="mailto:support@mprlab.com">support@mprlab.com</a>.</p>
+        </body>
+        </html>
+        ```
+    - [x] [LA-64] add privacy to the sitemap
