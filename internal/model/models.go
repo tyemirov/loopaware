@@ -3,18 +3,20 @@ package model
 import "time"
 
 type Site struct {
-	ID                   string `gorm:"primaryKey;size:36"`
-	Name                 string `gorm:"not null;size:200"`
-	AllowedOrigin        string `gorm:"not null;size:500"`
-	OwnerEmail           string `gorm:"size:320"`
-	CreatorEmail         string `gorm:"size:320"`
-	FaviconData          []byte `gorm:"type:blob"`
-	FaviconContentType   string `gorm:"size:100"`
-	FaviconFetchedAt     time.Time
-	FaviconLastAttemptAt time.Time
-	FaviconOrigin        string    `gorm:"size:500"`
-	CreatedAt            time.Time `gorm:"autoCreateTime"`
-	UpdatedAt            time.Time `gorm:"autoUpdateTime"`
+	ID                         string `gorm:"primaryKey;size:36"`
+	Name                       string `gorm:"not null;size:200"`
+	AllowedOrigin              string `gorm:"not null;size:500"`
+	OwnerEmail                 string `gorm:"size:320"`
+	CreatorEmail               string `gorm:"size:320"`
+	WidgetBubbleSide           string `gorm:"not null;size:16;default:right"`
+	WidgetBubbleBottomOffsetPx int    `gorm:"not null;default:16"`
+	FaviconData                []byte `gorm:"type:blob"`
+	FaviconContentType         string `gorm:"size:100"`
+	FaviconFetchedAt           time.Time
+	FaviconLastAttemptAt       time.Time
+	FaviconOrigin              string    `gorm:"size:500"`
+	CreatedAt                  time.Time `gorm:"autoCreateTime"`
+	UpdatedAt                  time.Time `gorm:"autoUpdateTime"`
 }
 
 type Feedback struct {

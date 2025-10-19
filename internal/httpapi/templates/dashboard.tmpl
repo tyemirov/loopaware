@@ -143,6 +143,25 @@
               </div>
               <div class="card-body">
                 <p class="text-muted small mb-3">{{.WidgetInstructions}}</p>
+                <h6 class="fw-semibold mb-2">{{.WidgetPlacementTitle}}</h6>
+                <div class="row g-3 align-items-end mb-3">
+                  <div class="col-md-6">
+                    <span class="form-label d-block">{{.WidgetPlacementSideLabel}}</span>
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="radio" name="{{.WidgetPlacementSideInputName}}" id="{{.WidgetPlacementSideRightID}}" value="right" checked />
+                      <label class="form-check-label" for="{{.WidgetPlacementSideRightID}}">{{.WidgetPlacementRightLabel}}</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="radio" name="{{.WidgetPlacementSideInputName}}" id="{{.WidgetPlacementSideLeftID}}" value="left" />
+                      <label class="form-check-label" for="{{.WidgetPlacementSideLeftID}}">{{.WidgetPlacementLeftLabel}}</label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="{{.WidgetBottomOffsetInputID}}">{{.WidgetPlacementBottomOffsetLabel}}</label>
+                    <input type="number" class="form-control" id="{{.WidgetBottomOffsetInputID}}" min="{{.WidgetBottomOffsetMin}}" max="{{.WidgetBottomOffsetMax}}" step="1" aria-describedby="{{.WidgetBottomOffsetHelpID}}" />
+                    <div class="form-text" id="{{.WidgetBottomOffsetHelpID}}">{{.WidgetPlacementBottomOffsetHelp}}</div>
+                  </div>
+                </div>
                 <textarea id="{{.WidgetSnippetTextareaID}}" class="form-control font-monospace" rows="3" readonly></textarea>
               </div>
             </div>
@@ -259,6 +278,23 @@
         var idleCheckIntervalMilliseconds = Math.max(500, Math.min(Math.floor(sessionTimeoutPromptDelay / 2), 1000));
         var widgetTexts = parsedConfig.widget_texts || {};
         var optionValues = parsedConfig.option_values || {};
+        var widgetPlacementConfig = parsedConfig.widget_placement || {};
+        var widgetPlacementInputName = widgetPlacementConfig.input_name || 'widget-bubble-side';
+        var widgetDefaultSide = widgetPlacementConfig.default_side || 'right';
+        var widgetDefaultBottomOffset = Number(widgetPlacementConfig.default_bottom_offset);
+        if (!Number.isFinite(widgetDefaultBottomOffset)) {
+          widgetDefaultBottomOffset = 16;
+        }
+        var widgetPlacementSides = widgetPlacementConfig.sides || {};
+        var widgetBottomOffsetConfig = widgetPlacementConfig.bottom_offset || {};
+        var widgetBottomOffsetMinimum = Number(widgetBottomOffsetConfig.min);
+        if (!Number.isFinite(widgetBottomOffsetMinimum)) {
+          widgetBottomOffsetMinimum = 0;
+        }
+        var widgetBottomOffsetMaximum = Number(widgetBottomOffsetConfig.max);
+        if (!Number.isFinite(widgetBottomOffsetMaximum)) {
+          widgetBottomOffsetMaximum = 240;
+        }
         var formStatusClasses = parsedConfig.form_status_classes || {};
         var validationMessages = parsedConfig.validation_messages || {};
         var themePreferenceStorageKey = parsedConfig.theme_storage_key || '';
@@ -319,6 +355,13 @@
         var sessionTimeoutDismissButton = document.getElementById(elementIds.session_timeout_dismiss_button);
         var widgetSnippetTextarea = document.getElementById(elementIds.widget_snippet_textarea);
         var copyWidgetSnippetButton = document.getElementById(elementIds.copy_widget_snippet_button);
+        var widgetSideLeftOption = document.getElementById(elementIds.widget_side_left);
+        var widgetSideRightOption = document.getElementById(elementIds.widget_side_right);
+        var widgetBottomOffsetInput = document.getElementById(elementIds.widget_bottom_offset);
+        if (widgetBottomOffsetInput) {
+          widgetBottomOffsetInput.min = String(widgetBottomOffsetMinimum);
+          widgetBottomOffsetInput.max = String(widgetBottomOffsetMaximum);
+        }
         var deleteSiteButton = document.getElementById(elementIds.delete_site_button);
         var deleteSiteButtonDefaultClass = buttonClasses.delete_site_default || '';
         var deleteSiteButtonDisabledClass = buttonClasses.delete_site_disabled || '';
@@ -359,6 +402,7 @@
         var validationMessageKeyNameRequired = 'name_required';
         var validationMessageKeyOriginInvalid = 'origin_invalid';
         var validationMessageKeyOwnerInvalid = 'owner_invalid';
+        var validationMessageKeyWidgetOffsetInvalid = 'widget_offset_invalid';
         var invalidFieldClassName = 'is-invalid';
         var validationEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         var mailtoSchemePrefix = 'mailto:';
@@ -367,6 +411,75 @@
         var statusNoSiteMatches = statusMessages.no_site_matches || '';
         var statusNoMessageMatches = statusMessages.no_message_matches || '';
         function shouldAlwaysValidate() {
+          return true;
+        }
+
+        function normalizeWidgetSideValue(value) {
+          var normalized = (value || '').toLowerCase();
+          if (normalized !== 'left' && normalized !== 'right') {
+            normalized = widgetDefaultSide;
+          }
+          return normalized;
+        }
+
+        function normalizeWidgetBottomOffsetValue(value) {
+          var numericValue = Number(value);
+          if (!Number.isFinite(numericValue)) {
+            numericValue = widgetDefaultBottomOffset;
+          }
+          numericValue = Math.round(numericValue);
+          if (numericValue < widgetBottomOffsetMinimum) {
+            numericValue = widgetBottomOffsetMinimum;
+          }
+          if (numericValue > widgetBottomOffsetMaximum) {
+            numericValue = widgetBottomOffsetMaximum;
+          }
+          return numericValue;
+        }
+
+        function resolveWidgetSideSelection() {
+          var selected = document.querySelector('input[name="' + widgetPlacementInputName + '"]:checked');
+          if (selected && typeof selected.value === 'string') {
+            return normalizeWidgetSideValue(selected.value);
+          }
+          return normalizeWidgetSideValue(widgetDefaultSide);
+        }
+
+        function setWidgetPlacementControls(sideValue, bottomOffsetValue) {
+          var normalizedSide = normalizeWidgetSideValue(sideValue);
+          var normalizedOffset = normalizeWidgetBottomOffsetValue(bottomOffsetValue);
+          if (widgetSideLeftOption && widgetSideRightOption) {
+            widgetSideLeftOption.checked = normalizedSide === 'left';
+            widgetSideRightOption.checked = normalizedSide !== 'left';
+          }
+          if (widgetBottomOffsetInput) {
+            widgetBottomOffsetInput.value = normalizedOffset.toString();
+          }
+        }
+
+        function determineWidgetPlacementPayload() {
+          var sideValue = resolveWidgetSideSelection();
+          var offsetValue = widgetBottomOffsetInput ? normalizeWidgetBottomOffsetValue(widgetBottomOffsetInput.value) : widgetDefaultBottomOffset;
+          return {
+            widget_bubble_side: sideValue,
+            widget_bubble_bottom_offset: offsetValue
+          };
+        }
+
+        function isWidgetBottomOffsetValid(value) {
+          if (value === '') {
+            return false;
+          }
+          var numericValue = Number(value);
+          if (!Number.isFinite(numericValue)) {
+            return false;
+          }
+          if (Math.round(numericValue) !== numericValue) {
+            return false;
+          }
+          if (numericValue < widgetBottomOffsetMinimum || numericValue > widgetBottomOffsetMaximum) {
+            return false;
+          }
           return true;
         }
 
@@ -668,6 +781,12 @@
             messageKey: validationMessageKeyOwnerInvalid,
             shouldValidate: shouldValidateOwnerEmail,
             validateValue: isOwnerEmailValid
+          },
+          {
+            fieldElement: widgetBottomOffsetInput,
+            messageKey: validationMessageKeyWidgetOffsetInvalid,
+            shouldValidate: shouldAlwaysValidate,
+            validateValue: isWidgetBottomOffsetValid
           }
         ];
         function clearValidationFeedback() {
@@ -717,7 +836,7 @@
           });
         }
         function registerSiteFormTabCycle() {
-          var tabOrderedFields = [editSiteNameInput, editSiteOriginInput, editSiteOwnerInput].filter(function(element) {
+          var tabOrderedFields = [editSiteNameInput, editSiteOriginInput, editSiteOwnerInput, widgetBottomOffsetInput].filter(function(element) {
             return element;
           });
           if (tabOrderedFields.length === 0) {
@@ -1512,6 +1631,7 @@
           editSiteNameInput.value = '';
           editSiteOriginInput.value = '';
           editSiteOwnerInput.value = '';
+          setWidgetPlacementControls(widgetDefaultSide, widgetDefaultBottomOffset);
           clearValidationFeedback();
           setSiteCreatedAt(null);
           setFeedbackCount(0, 0);
@@ -1551,6 +1671,7 @@
           editSiteNameInput.value = site.name || '';
           editSiteOriginInput.value = site.allowed_origin || '';
           editSiteOwnerInput.value = site.owner_email || '';
+          setWidgetPlacementControls(site.widget_bubble_side, site.widget_bubble_bottom_offset);
           saveSiteButton.disabled = false;
           updateFormMode();
           updateWidgetSnippet();
@@ -1771,6 +1892,9 @@
           if (ownerEmailValue) {
             body.owner_email = ownerEmailValue;
           }
+          var placementPayload = determineWidgetPlacementPayload();
+          body.widget_bubble_side = placementPayload.widget_bubble_side;
+          body.widget_bubble_bottom_offset = placementPayload.widget_bubble_bottom_offset;
           var endpoint = apiSiteUpdatePrefix + state.selectedSiteId;
           fetchJSON(endpoint, {
             method: 'PATCH',
@@ -1800,6 +1924,9 @@
             allowed_origin: getTrimmedValue(editSiteOriginInput),
             owner_email: getTrimmedValue(editSiteOwnerInput)
           };
+          var placementPayload = determineWidgetPlacementPayload();
+          body.widget_bubble_side = placementPayload.widget_bubble_side;
+          body.widget_bubble_bottom_offset = placementPayload.widget_bubble_bottom_offset;
           fetchJSON(apiSitesEndpoint, {
             method: 'POST',
             headers: {

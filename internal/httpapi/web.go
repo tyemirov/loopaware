@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/temirov/GAuss/pkg/constants"
@@ -12,106 +13,117 @@ import (
 )
 
 const (
-	dashboardTemplateName                 = "dashboard"
-	dashboardHTMLContentType              = "text/html; charset=utf-8"
-	dashboardPageTitle                    = "LoopAware Dashboard"
-	dashboardStatusLoadingUser            = "Loading account information..."
-	dashboardStatusLoadingSites           = "Loading sites..."
-	dashboardStatusLoadFailed             = "Failed to load data."
-	dashboardStatusSavingSite             = "Saving site..."
-	dashboardStatusSiteSaved              = "Site updated."
-	dashboardStatusCreatingSite           = "Creating site..."
-	dashboardStatusSiteCreated            = "Site created."
-	dashboardStatusSelectSite             = "Select a site to see details."
-	dashboardStatusNoMessages             = "No feedback yet."
-	dashboardStatusNoSites                = "No sites available yet."
-	dashboardRoleAdminLabel               = "Administrator"
-	dashboardRoleUserLabel                = "User"
-	dashboardRoleAdminValue               = "admin"
-	dashboardRoleUserValue                = "user"
-	dashboardFeedbackPlaceholder          = "Select a site to load feedback."
-	dashboardWidgetCardTitle              = "Site widget"
-	dashboardWidgetInstructions           = "Embed this <script> tag on pages served from the allowed origin."
-	dashboardWidgetUnavailable            = "Save the site to generate a widget snippet."
-	dashboardStatusWidgetCopied           = "Widget snippet copied."
-	dashboardStatusWidgetCopyFailed       = "Unable to copy widget snippet."
-	dashboardFooterBrandPrefix            = "Built by"
-	dashboardFooterBrandName              = "Marco Polo Research Lab"
-	dashboardFooterBrandURL               = "https://mprlab.com"
-	dashboardFooterToggleButtonID         = "dashboard-footer-toggle"
-	dashboardHeaderLogoElementID          = "dashboard-header-logo"
-	navbarSettingsButtonLabel             = "Account settings"
-	navbarLogoutLabel                     = "Logout"
-	navbarThemeToggleLabel                = "Dark mode"
-	newSiteOptionValue                    = "__new__"
-	newSiteOptionLabel                    = "New site"
-	siteFormCreateButtonLabel             = "Create site"
-	siteFormUpdateButtonLabel             = "Update site"
-	dashboardActionButtonPrimaryClass     = "btn btn-outline-primary btn-sm"
-	dashboardActionButtonSuccessClass     = "btn btn-outline-success btn-sm"
-	dashboardActionButtonSecondaryClass   = "btn btn-outline-secondary btn-sm"
-	dashboardActionButtonDangerClass      = "btn btn-outline-danger btn-sm"
-	siteFormCreateButtonClass             = dashboardActionButtonPrimaryClass
-	siteFormUpdateButtonClass             = dashboardActionButtonSuccessClass
-	userNameElementID                     = "user-name"
-	userEmailElementID                    = "user-email"
-	userRoleBadgeElementID                = "user-role"
-	userAvatarElementID                   = "user-avatar"
-	sitesListElementID                    = "sites-list"
-	emptySitesMessageElementID            = "empty-sites-message"
-	siteFormElementID                     = "site-form"
-	editSiteNameInputElementID            = "edit-site-name"
-	editSiteOriginInputElementID          = "edit-site-origin"
-	editSiteOwnerContainerElementID       = "edit-site-owner-container"
-	editSiteOwnerInputElementID           = "edit-site-owner"
-	saveSiteButtonElementID               = "save-site-button"
-	refreshMessagesButtonElementID        = "refresh-messages-button"
-	feedbackTableHeaderElementID          = "feedback-table-header"
-	feedbackTableHeaderLightClass         = "table-light"
-	feedbackTableHeaderDarkClass          = "table-dark"
-	feedbackTableBodyElementID            = "feedback-table-body"
-	logoutButtonElementID                 = "logout-button"
-	sessionTimeoutContainerElementID      = "session-timeout-notification"
-	sessionTimeoutInnerClass              = "container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3"
-	sessionTimeoutMessageElementID        = "session-timeout-message"
-	sessionTimeoutActionsClass            = "session-timeout-actions d-flex flex-shrink-0 gap-2"
-	sessionTimeoutMessageClass            = "session-timeout-message fw-semibold mb-0"
-	sessionTimeoutConfirmButtonElementID  = "session-timeout-confirm-button"
-	sessionTimeoutDismissButtonElementID  = "session-timeout-dismiss-button"
-	sessionTimeoutContainerBaseClass      = "session-timeout-banner position-fixed start-0 end-0 border-top py-3 w-100 d-none z-3"
-	sessionTimeoutContainerVisibleClass   = "d-block"
-	sessionTimeoutContainerHiddenClass    = "d-none"
-	sessionTimeoutLightThemeClass         = "bg-body-secondary text-dark border-light-subtle"
-	sessionTimeoutDarkThemeClass          = "bg-dark-subtle text-light border-secondary-subtle"
-	sessionTimeoutPromptText              = "Log out due to inactivity?"
-	sessionTimeoutConfirmButtonLabel      = "Yes"
-	sessionTimeoutDismissButtonLabel      = "No"
-	sessionTimeoutConfirmButtonClass      = "btn btn-outline-danger btn-sm"
-	sessionTimeoutDismissButtonClass      = "btn btn-outline-secondary btn-sm"
-	sessionTimeoutPromptDelayMilliseconds = 60000
-	sessionTimeoutAutoLogoutMilliseconds  = 120000
-	widgetSnippetTextareaElementID        = "widget-snippet"
-	copyWidgetSnippetButtonElementID      = "copy-widget-snippet"
-	settingsButtonElementID               = "settings-button"
-	settingsMenuElementID                 = "settings-menu"
-	settingsThemeToggleElementID          = "settings-theme-toggle"
-	settingsAvatarImageElementID          = "settings-avatar-image"
-	settingsAvatarFallbackElementID       = "settings-avatar-fallback"
-	themeStorageKey                       = "loopaware_dashboard_theme"
-	formStatusElementID                   = "site-status"
-	widgetStatusElementID                 = "widget-status"
-	messagesStatusElementID               = "messages-status"
-	newSiteButtonElementID                = "new-site-button"
-	newSiteButtonClass                    = dashboardActionButtonPrimaryClass
-	newSiteButtonActiveClass              = "btn btn-primary btn-sm"
-	siteListItemClass                     = "list-group-item list-group-item-action"
-	siteListItemActiveClass               = "active"
-	clientConfigElementID                 = "dashboard-config"
-	dashboardStatusDeletingSite           = "Deleting site..."
-	dashboardStatusSiteDeleted            = "Site deleted."
-	dashboardStatusDeleteFailed           = "Failed to delete site."
-	dashboardBootstrapIconsIntegrityAttr  = "integrity=\"sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+\""
-	dashboardFaviconDataURI               = `data:image/svg+xml;utf8,
+	dashboardTemplateName                     = "dashboard"
+	dashboardHTMLContentType                  = "text/html; charset=utf-8"
+	dashboardPageTitle                        = "LoopAware Dashboard"
+	dashboardStatusLoadingUser                = "Loading account information..."
+	dashboardStatusLoadingSites               = "Loading sites..."
+	dashboardStatusLoadFailed                 = "Failed to load data."
+	dashboardStatusSavingSite                 = "Saving site..."
+	dashboardStatusSiteSaved                  = "Site updated."
+	dashboardStatusCreatingSite               = "Creating site..."
+	dashboardStatusSiteCreated                = "Site created."
+	dashboardStatusSelectSite                 = "Select a site to see details."
+	dashboardStatusNoMessages                 = "No feedback yet."
+	dashboardStatusNoSites                    = "No sites available yet."
+	dashboardRoleAdminLabel                   = "Administrator"
+	dashboardRoleUserLabel                    = "User"
+	dashboardRoleAdminValue                   = "admin"
+	dashboardRoleUserValue                    = "user"
+	dashboardFeedbackPlaceholder              = "Select a site to load feedback."
+	dashboardWidgetCardTitle                  = "Site widget"
+	dashboardWidgetInstructions               = "Embed this <script> tag on pages served from the allowed origin."
+	dashboardWidgetUnavailable                = "Save the site to generate a widget snippet."
+	dashboardWidgetPlacementTitle             = "Widget placement"
+	dashboardWidgetPlacementSideLabel         = "Bubble position"
+	dashboardWidgetPlacementLeftLabel         = "Left"
+	dashboardWidgetPlacementRightLabel        = "Right"
+	dashboardWidgetPlacementBottomOffsetLabel = "Bottom offset (px)"
+	dashboardWidgetPlacementBottomOffsetHelp  = "Keeps the bubble above sticky footers."
+	dashboardStatusWidgetCopied               = "Widget snippet copied."
+	dashboardStatusWidgetCopyFailed           = "Unable to copy widget snippet."
+	dashboardFooterBrandPrefix                = "Built by"
+	dashboardFooterBrandName                  = "Marco Polo Research Lab"
+	dashboardFooterBrandURL                   = "https://mprlab.com"
+	dashboardFooterToggleButtonID             = "dashboard-footer-toggle"
+	dashboardHeaderLogoElementID              = "dashboard-header-logo"
+	navbarSettingsButtonLabel                 = "Account settings"
+	navbarLogoutLabel                         = "Logout"
+	navbarThemeToggleLabel                    = "Dark mode"
+	newSiteOptionValue                        = "__new__"
+	newSiteOptionLabel                        = "New site"
+	siteFormCreateButtonLabel                 = "Create site"
+	siteFormUpdateButtonLabel                 = "Update site"
+	dashboardActionButtonPrimaryClass         = "btn btn-outline-primary btn-sm"
+	dashboardActionButtonSuccessClass         = "btn btn-outline-success btn-sm"
+	dashboardActionButtonSecondaryClass       = "btn btn-outline-secondary btn-sm"
+	dashboardActionButtonDangerClass          = "btn btn-outline-danger btn-sm"
+	siteFormCreateButtonClass                 = dashboardActionButtonPrimaryClass
+	siteFormUpdateButtonClass                 = dashboardActionButtonSuccessClass
+	userNameElementID                         = "user-name"
+	userEmailElementID                        = "user-email"
+	userRoleBadgeElementID                    = "user-role"
+	userAvatarElementID                       = "user-avatar"
+	sitesListElementID                        = "sites-list"
+	emptySitesMessageElementID                = "empty-sites-message"
+	siteFormElementID                         = "site-form"
+	editSiteNameInputElementID                = "edit-site-name"
+	editSiteOriginInputElementID              = "edit-site-origin"
+	editSiteOwnerContainerElementID           = "edit-site-owner-container"
+	editSiteOwnerInputElementID               = "edit-site-owner"
+	saveSiteButtonElementID                   = "save-site-button"
+	refreshMessagesButtonElementID            = "refresh-messages-button"
+	feedbackTableHeaderElementID              = "feedback-table-header"
+	feedbackTableHeaderLightClass             = "table-light"
+	feedbackTableHeaderDarkClass              = "table-dark"
+	feedbackTableBodyElementID                = "feedback-table-body"
+	logoutButtonElementID                     = "logout-button"
+	sessionTimeoutContainerElementID          = "session-timeout-notification"
+	sessionTimeoutInnerClass                  = "container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3"
+	sessionTimeoutMessageElementID            = "session-timeout-message"
+	sessionTimeoutActionsClass                = "session-timeout-actions d-flex flex-shrink-0 gap-2"
+	sessionTimeoutMessageClass                = "session-timeout-message fw-semibold mb-0"
+	sessionTimeoutConfirmButtonElementID      = "session-timeout-confirm-button"
+	sessionTimeoutDismissButtonElementID      = "session-timeout-dismiss-button"
+	sessionTimeoutContainerBaseClass          = "session-timeout-banner position-fixed start-0 end-0 border-top py-3 w-100 d-none z-3"
+	sessionTimeoutContainerVisibleClass       = "d-block"
+	sessionTimeoutContainerHiddenClass        = "d-none"
+	sessionTimeoutLightThemeClass             = "bg-body-secondary text-dark border-light-subtle"
+	sessionTimeoutDarkThemeClass              = "bg-dark-subtle text-light border-secondary-subtle"
+	sessionTimeoutPromptText                  = "Log out due to inactivity?"
+	sessionTimeoutConfirmButtonLabel          = "Yes"
+	sessionTimeoutDismissButtonLabel          = "No"
+	sessionTimeoutConfirmButtonClass          = "btn btn-outline-danger btn-sm"
+	sessionTimeoutDismissButtonClass          = "btn btn-outline-secondary btn-sm"
+	sessionTimeoutPromptDelayMilliseconds     = 60000
+	sessionTimeoutAutoLogoutMilliseconds      = 120000
+	widgetSnippetTextareaElementID            = "widget-snippet"
+	copyWidgetSnippetButtonElementID          = "copy-widget-snippet"
+	widgetPlacementSideInputName              = "widget-bubble-side"
+	widgetPlacementSideLeftInputElementID     = "widget-placement-side-left"
+	widgetPlacementSideRightInputElementID    = "widget-placement-side-right"
+	widgetPlacementBottomOffsetInputElementID = "widget-placement-bottom-offset"
+	widgetPlacementBottomOffsetHelpElementID  = "widget-placement-bottom-offset-help"
+	settingsButtonElementID                   = "settings-button"
+	settingsMenuElementID                     = "settings-menu"
+	settingsThemeToggleElementID              = "settings-theme-toggle"
+	settingsAvatarImageElementID              = "settings-avatar-image"
+	settingsAvatarFallbackElementID           = "settings-avatar-fallback"
+	themeStorageKey                           = "loopaware_dashboard_theme"
+	formStatusElementID                       = "site-status"
+	widgetStatusElementID                     = "widget-status"
+	messagesStatusElementID                   = "messages-status"
+	newSiteButtonElementID                    = "new-site-button"
+	newSiteButtonClass                        = dashboardActionButtonPrimaryClass
+	newSiteButtonActiveClass                  = "btn btn-primary btn-sm"
+	siteListItemClass                         = "list-group-item list-group-item-action"
+	siteListItemActiveClass                   = "active"
+	clientConfigElementID                     = "dashboard-config"
+	dashboardStatusDeletingSite               = "Deleting site..."
+	dashboardStatusSiteDeleted                = "Site deleted."
+	dashboardStatusDeleteFailed               = "Failed to delete site."
+	dashboardBootstrapIconsIntegrityAttr      = "integrity=\"sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+\""
+	dashboardFaviconDataURI                   = `data:image/svg+xml;utf8,
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
     <rect fill="%230A2540" x="0" y="0" width="256" height="256" rx="28" ry="28"/>
     <path stroke="%23D4AF37" fill="none" stroke-width="10" stroke-linejoin="round"
@@ -123,77 +135,80 @@ const (
          C 160 108, 128 108, 128 128
          C 128 148, 96 148, 96 128"/>
   </svg>`
-	deleteSiteButtonElementID           = "delete-site-button"
-	deleteSiteButtonClass               = "btn btn-sm border-0 bg-transparent text-danger opacity-100"
-	deleteSiteButtonDisabledClass       = "btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled"
-	deleteSiteIconClass                 = "bi bi-trash3-fill text-danger"
-	footerElementID                     = "dashboard-footer"
-	footerInnerElementID                = "dashboard-footer-inner"
-	footerBaseClass                     = "mt-auto py-2 fixed-bottom border-top"
-	footerThemeLightClass               = "bg-body text-body-secondary"
-	footerThemeDarkClass                = "bg-dark text-light border-light"
-	deleteSiteModalElementID            = "delete-site-modal"
-	deleteSiteModalTitle                = "Delete site"
-	deleteSiteModalDescription          = "This action permanently removes the site and its feedback."
-	deleteSiteModalInputElementID       = "delete-site-confirm-name"
-	deleteSiteModalInputLabel           = "Type the site name to confirm"
-	deleteSiteModalInputPlaceholder     = "Enter the site name"
-	deleteSiteModalConfirmButtonID      = "delete-site-confirm-button"
-	deleteSiteModalConfirmButtonLabel   = "Delete site"
-	deleteSiteModalConfirmButtonClass   = "btn btn-danger"
-	deleteSiteModalCancelButtonLabel    = "Cancel"
-	deleteSiteModalCancelButtonClass    = "btn btn-secondary"
-	deleteSiteTargetNameElementID       = "delete-site-target-name"
-	deleteSiteModalHintPrefix           = "Type "
-	deleteSiteModalHintSuffix           = " exactly to confirm."
-	formStatusBaseClass                 = "d-none py-1 px-2 small rounded"
-	formStatusSuccessClass              = "py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"
-	formStatusDangerClass               = "py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle"
-	fieldHelpButtonClass                = "btn btn-link p-0 text-secondary"
-	fieldHelpButtonTabIndexValue        = "-1"
-	fieldHelpIconClass                  = "bi bi-question-circle-fill"
-	fieldHelpTextClass                  = "form-text text-muted"
-	siteListItemHeaderClass             = "d-flex align-items-center gap-2"
-	siteListItemFaviconClass            = "flex-shrink-0 rounded border bg-white"
-	siteCreatedAtElementID              = "site-created-at"
-	siteCreatedAtContainerElementID     = "site-created-at-container"
-	siteCreatedAtPlaceholder            = "Not saved yet."
-	feedbackCountElementID              = "feedback-count"
-	siteNameHelpButtonElementID         = "site-name-help-button"
-	siteNameHelpTitle                   = "Site name"
-	siteNameHelpContent                 = "Displayed in the sites list for your team."
-	allowedOriginHelpButtonElementID    = "allowed-origin-help-button"
-	allowedOriginHelpTitle              = "Allowed origin"
-	allowedOriginHelpContent            = "Must match the full protocol, host, and optional port where the widget will run."
-	ownerEmailHelpButtonElementID       = "owner-email-help-button"
-	ownerEmailHelpTitle                 = "Owner email"
-	ownerEmailHelpContent               = "Receives notifications when visitors submit feedback."
-	siteSearchToggleButtonElementID     = "site-search-toggle-button"
-	siteSearchContainerElementID        = "site-search-container"
-	siteSearchInputElementID            = "site-search-input"
-	siteSearchToggleLabel               = "Toggle site search"
-	siteSearchPlaceholder               = "Search sites"
-	messagesSearchToggleButtonElementID = "messages-search-toggle-button"
-	messagesSearchContainerElementID    = "messages-search-container"
-	messagesSearchInputElementID        = "messages-search-input"
-	messagesSearchToggleLabel           = "Toggle feedback search"
-	messagesSearchPlaceholder           = "Search feedback"
-	searchToggleButtonClass             = "btn btn-link p-0 text-secondary"
-	searchInputClass                    = "form-control form-control-sm"
-	dashboardStatusNoSiteMatches        = "No sites match your search."
-	dashboardStatusNoMessageMatches     = "No feedback matches your search."
-	validationMessageNameRequiredKey    = "name_required"
-	validationMessageOriginKey          = "origin_invalid"
-	validationMessageOwnerKey           = "owner_invalid"
-	dashboardValidationNameMessage      = "Site name is required."
-	dashboardValidationOriginMessage    = "Allowed origin must include protocol and hostname, for example https://example.com."
-	dashboardValidationOwnerMessage     = "Provide a valid owner email address."
-	dashboardErrorMessageSiteExists     = "A site for this allowed origin already exists."
-	dashboardErrorMessageInvalidJSON    = "Submitted data could not be parsed."
-	dashboardErrorMessageMissingFields  = "Provide site name and allowed origin."
-	dashboardErrorMessageInvalidOwner   = dashboardValidationOwnerMessage
-	dashboardErrorMessageNotAuthorized  = "You are not allowed to manage that site."
-	dashboardErrorMessageSaveFailed     = "Failed to save site."
+	deleteSiteButtonElementID              = "delete-site-button"
+	deleteSiteButtonClass                  = "btn btn-sm border-0 bg-transparent text-danger opacity-100"
+	deleteSiteButtonDisabledClass          = "btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled"
+	deleteSiteIconClass                    = "bi bi-trash3-fill text-danger"
+	footerElementID                        = "dashboard-footer"
+	footerInnerElementID                   = "dashboard-footer-inner"
+	footerBaseClass                        = "mt-auto py-2 fixed-bottom border-top"
+	footerThemeLightClass                  = "bg-body text-body-secondary"
+	footerThemeDarkClass                   = "bg-dark text-light border-light"
+	deleteSiteModalElementID               = "delete-site-modal"
+	deleteSiteModalTitle                   = "Delete site"
+	deleteSiteModalDescription             = "This action permanently removes the site and its feedback."
+	deleteSiteModalInputElementID          = "delete-site-confirm-name"
+	deleteSiteModalInputLabel              = "Type the site name to confirm"
+	deleteSiteModalInputPlaceholder        = "Enter the site name"
+	deleteSiteModalConfirmButtonID         = "delete-site-confirm-button"
+	deleteSiteModalConfirmButtonLabel      = "Delete site"
+	deleteSiteModalConfirmButtonClass      = "btn btn-danger"
+	deleteSiteModalCancelButtonLabel       = "Cancel"
+	deleteSiteModalCancelButtonClass       = "btn btn-secondary"
+	deleteSiteTargetNameElementID          = "delete-site-target-name"
+	deleteSiteModalHintPrefix              = "Type "
+	deleteSiteModalHintSuffix              = " exactly to confirm."
+	formStatusBaseClass                    = "d-none py-1 px-2 small rounded"
+	formStatusSuccessClass                 = "py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"
+	formStatusDangerClass                  = "py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle"
+	fieldHelpButtonClass                   = "btn btn-link p-0 text-secondary"
+	fieldHelpButtonTabIndexValue           = "-1"
+	fieldHelpIconClass                     = "bi bi-question-circle-fill"
+	fieldHelpTextClass                     = "form-text text-muted"
+	siteListItemHeaderClass                = "d-flex align-items-center gap-2"
+	siteListItemFaviconClass               = "flex-shrink-0 rounded border bg-white"
+	siteCreatedAtElementID                 = "site-created-at"
+	siteCreatedAtContainerElementID        = "site-created-at-container"
+	siteCreatedAtPlaceholder               = "Not saved yet."
+	feedbackCountElementID                 = "feedback-count"
+	siteNameHelpButtonElementID            = "site-name-help-button"
+	siteNameHelpTitle                      = "Site name"
+	siteNameHelpContent                    = "Displayed in the sites list for your team."
+	allowedOriginHelpButtonElementID       = "allowed-origin-help-button"
+	allowedOriginHelpTitle                 = "Allowed origin"
+	allowedOriginHelpContent               = "Must match the full protocol, host, and optional port where the widget will run."
+	ownerEmailHelpButtonElementID          = "owner-email-help-button"
+	ownerEmailHelpTitle                    = "Owner email"
+	ownerEmailHelpContent                  = "Receives notifications when visitors submit feedback."
+	siteSearchToggleButtonElementID        = "site-search-toggle-button"
+	siteSearchContainerElementID           = "site-search-container"
+	siteSearchInputElementID               = "site-search-input"
+	siteSearchToggleLabel                  = "Toggle site search"
+	siteSearchPlaceholder                  = "Search sites"
+	messagesSearchToggleButtonElementID    = "messages-search-toggle-button"
+	messagesSearchContainerElementID       = "messages-search-container"
+	messagesSearchInputElementID           = "messages-search-input"
+	messagesSearchToggleLabel              = "Toggle feedback search"
+	messagesSearchPlaceholder              = "Search feedback"
+	searchToggleButtonClass                = "btn btn-link p-0 text-secondary"
+	searchInputClass                       = "form-control form-control-sm"
+	dashboardStatusNoSiteMatches           = "No sites match your search."
+	dashboardStatusNoMessageMatches        = "No feedback matches your search."
+	validationMessageNameRequiredKey       = "name_required"
+	validationMessageOriginKey             = "origin_invalid"
+	validationMessageOwnerKey              = "owner_invalid"
+	validationMessageWidgetOffsetKey       = "widget_offset_invalid"
+	dashboardValidationNameMessage         = "Site name is required."
+	dashboardValidationOriginMessage       = "Allowed origin must include protocol and hostname, for example https://example.com."
+	dashboardValidationOwnerMessage        = "Provide a valid owner email address."
+	dashboardValidationWidgetOffsetMessage = "Provide a whole number between 0 and 240."
+	dashboardValidationWidgetSideMessage   = "Choose left or right for the widget bubble."
+	dashboardErrorMessageSiteExists        = "A site for this allowed origin already exists."
+	dashboardErrorMessageInvalidJSON       = "Submitted data could not be parsed."
+	dashboardErrorMessageMissingFields     = "Provide site name and allowed origin."
+	dashboardErrorMessageInvalidOwner      = dashboardValidationOwnerMessage
+	dashboardErrorMessageNotAuthorized     = "You are not allowed to manage that site."
+	dashboardErrorMessageSaveFailed        = "Failed to save site."
 )
 
 type dashboardTemplateData struct {
@@ -296,6 +311,12 @@ type dashboardTemplateData struct {
 	CopyButtonFailed                  string
 	CopyButtonDefaultLabel            string
 	CopyButtonDefaultClass            string
+	WidgetPlacementTitle              string
+	WidgetPlacementSideLabel          string
+	WidgetPlacementLeftLabel          string
+	WidgetPlacementRightLabel         string
+	WidgetPlacementBottomOffsetLabel  string
+	WidgetPlacementBottomOffsetHelp   string
 	SettingsButtonID                  string
 	SettingsButtonLabel               string
 	LogoutLabel                       string
@@ -331,6 +352,13 @@ type dashboardTemplateData struct {
 	MessagesSearchPlaceholder         string
 	FeedbackCountElementID            string
 	WidgetStatusID                    string
+	WidgetPlacementSideLeftID         string
+	WidgetPlacementSideRightID        string
+	WidgetPlacementSideInputName      string
+	WidgetBottomOffsetInputID         string
+	WidgetBottomOffsetHelpID          string
+	WidgetBottomOffsetMin             string
+	WidgetBottomOffsetMax             string
 	MessagesStatusID                  string
 	SessionTimeoutContainerID         string
 	SessionTimeoutContainerClass      string
@@ -371,26 +399,40 @@ type sessionTimeoutConfig struct {
 	ThemeClasses            map[string]string `json:"theme_classes"`
 }
 
+type widgetPlacementClientConfig struct {
+	InputName           string            `json:"input_name"`
+	DefaultSide         string            `json:"default_side"`
+	DefaultBottomOffset int               `json:"default_bottom_offset"`
+	Sides               map[string]string `json:"sides"`
+	BottomOffset        rangeConfig       `json:"bottom_offset"`
+}
+
+type rangeConfig struct {
+	Min int `json:"min"`
+	Max int `json:"max"`
+}
+
 type dashboardClientConfig struct {
-	APIPaths           map[string]string    `json:"api_paths"`
-	Paths              map[string]string    `json:"paths"`
-	ElementIDs         map[string]string    `json:"element_ids"`
-	ButtonClasses      map[string]string    `json:"button_classes"`
-	ButtonLabels       map[string]string    `json:"button_labels"`
-	StatusMessages     map[string]string    `json:"status_messages"`
-	RoleLabels         map[string]string    `json:"role_labels"`
-	RoleValues         map[string]string    `json:"role_values"`
-	ButtonStyles       map[string]string    `json:"button_styles"`
-	ComponentClasses   map[string]string    `json:"component_classes"`
-	WidgetTexts        map[string]string    `json:"widget_texts"`
-	ThemeStorageKey    string               `json:"theme_storage_key"`
-	OptionValues       map[string]string    `json:"option_values"`
-	FormStatusClasses  map[string]string    `json:"form_status_classes"`
-	FooterThemeClasses map[string]string    `json:"footer_theme_classes"`
-	TableThemeClasses  map[string]string    `json:"table_theme_classes"`
-	ValidationMessages map[string]string    `json:"validation_messages"`
-	ErrorMessages      map[string]string    `json:"error_messages"`
-	SessionTimeout     sessionTimeoutConfig `json:"session_timeout"`
+	APIPaths           map[string]string           `json:"api_paths"`
+	Paths              map[string]string           `json:"paths"`
+	ElementIDs         map[string]string           `json:"element_ids"`
+	ButtonClasses      map[string]string           `json:"button_classes"`
+	ButtonLabels       map[string]string           `json:"button_labels"`
+	StatusMessages     map[string]string           `json:"status_messages"`
+	RoleLabels         map[string]string           `json:"role_labels"`
+	RoleValues         map[string]string           `json:"role_values"`
+	ButtonStyles       map[string]string           `json:"button_styles"`
+	ComponentClasses   map[string]string           `json:"component_classes"`
+	WidgetTexts        map[string]string           `json:"widget_texts"`
+	ThemeStorageKey    string                      `json:"theme_storage_key"`
+	OptionValues       map[string]string           `json:"option_values"`
+	FormStatusClasses  map[string]string           `json:"form_status_classes"`
+	FooterThemeClasses map[string]string           `json:"footer_theme_classes"`
+	TableThemeClasses  map[string]string           `json:"table_theme_classes"`
+	ValidationMessages map[string]string           `json:"validation_messages"`
+	ErrorMessages      map[string]string           `json:"error_messages"`
+	WidgetPlacement    widgetPlacementClientConfig `json:"widget_placement"`
+	SessionTimeout     sessionTimeoutConfig        `json:"session_timeout"`
 }
 
 // DashboardWebHandlers serves the authenticated dashboard UI.
@@ -520,6 +562,19 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		CopyButtonFailed:                  "Copy failed.",
 		CopyButtonDefaultLabel:            "Copy snippet",
 		CopyButtonDefaultClass:            dashboardActionButtonPrimaryClass,
+		WidgetPlacementTitle:              dashboardWidgetPlacementTitle,
+		WidgetPlacementSideLabel:          dashboardWidgetPlacementSideLabel,
+		WidgetPlacementLeftLabel:          dashboardWidgetPlacementLeftLabel,
+		WidgetPlacementRightLabel:         dashboardWidgetPlacementRightLabel,
+		WidgetPlacementBottomOffsetLabel:  dashboardWidgetPlacementBottomOffsetLabel,
+		WidgetPlacementBottomOffsetHelp:   dashboardWidgetPlacementBottomOffsetHelp,
+		WidgetPlacementSideLeftID:         widgetPlacementSideLeftInputElementID,
+		WidgetPlacementSideRightID:        widgetPlacementSideRightInputElementID,
+		WidgetPlacementSideInputName:      widgetPlacementSideInputName,
+		WidgetBottomOffsetInputID:         widgetPlacementBottomOffsetInputElementID,
+		WidgetBottomOffsetHelpID:          widgetPlacementBottomOffsetHelpElementID,
+		WidgetBottomOffsetMin:             strconv.Itoa(minWidgetBubbleBottomOffset),
+		WidgetBottomOffsetMax:             strconv.Itoa(maxWidgetBubbleBottomOffset),
 		SettingsButtonID:                  settingsButtonElementID,
 		SettingsButtonLabel:               navbarSettingsButtonLabel,
 		LogoutLabel:                       navbarLogoutLabel,
@@ -646,6 +701,9 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"messages_search_container":      messagesSearchContainerElementID,
 			"messages_search_input":          messagesSearchInputElementID,
 			"feedback_count":                 feedbackCountElementID,
+			"widget_side_left":               widgetPlacementSideLeftInputElementID,
+			"widget_side_right":              widgetPlacementSideRightInputElementID,
+			"widget_bottom_offset":           widgetPlacementBottomOffsetInputElementID,
 			"session_timeout_container":      sessionTimeoutContainerElementID,
 			"session_timeout_message":        sessionTimeoutMessageElementID,
 			"session_timeout_confirm_button": sessionTimeoutConfirmButtonElementID,
@@ -739,19 +797,35 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"light": feedbackTableHeaderLightClass,
 			"dark":  feedbackTableHeaderDarkClass,
 		},
+		WidgetPlacement: widgetPlacementClientConfig{
+			InputName:           widgetPlacementSideInputName,
+			DefaultSide:         defaultWidgetBubbleSide,
+			DefaultBottomOffset: defaultWidgetBubbleBottomOffset,
+			Sides: map[string]string{
+				widgetBubbleSideLeft:  dashboardWidgetPlacementLeftLabel,
+				widgetBubbleSideRight: dashboardWidgetPlacementRightLabel,
+			},
+			BottomOffset: rangeConfig{
+				Min: minWidgetBubbleBottomOffset,
+				Max: maxWidgetBubbleBottomOffset,
+			},
+		},
 		ValidationMessages: map[string]string{
 			validationMessageNameRequiredKey: dashboardValidationNameMessage,
 			validationMessageOriginKey:       dashboardValidationOriginMessage,
 			validationMessageOwnerKey:        dashboardValidationOwnerMessage,
+			validationMessageWidgetOffsetKey: dashboardValidationWidgetOffsetMessage,
 		},
 		ErrorMessages: map[string]string{
-			errorValueSiteExists:    dashboardErrorMessageSiteExists,
-			errorValueInvalidOwner:  dashboardErrorMessageInvalidOwner,
-			errorValueMissingFields: dashboardErrorMessageMissingFields,
-			errorValueInvalidJSON:   dashboardErrorMessageInvalidJSON,
-			errorValueSaveFailed:    dashboardErrorMessageSaveFailed,
-			errorValueNotAuthorized: dashboardErrorMessageNotAuthorized,
-			authErrorForbidden:      dashboardErrorMessageNotAuthorized,
+			errorValueSiteExists:          dashboardErrorMessageSiteExists,
+			errorValueInvalidOwner:        dashboardErrorMessageInvalidOwner,
+			errorValueMissingFields:       dashboardErrorMessageMissingFields,
+			errorValueInvalidJSON:         dashboardErrorMessageInvalidJSON,
+			errorValueSaveFailed:          dashboardErrorMessageSaveFailed,
+			errorValueNotAuthorized:       dashboardErrorMessageNotAuthorized,
+			errorValueInvalidWidgetSide:   dashboardValidationWidgetSideMessage,
+			errorValueInvalidWidgetOffset: dashboardValidationWidgetOffsetMessage,
+			authErrorForbidden:            dashboardErrorMessageNotAuthorized,
 		},
 		SessionTimeout: sessionTimeoutConfig{
 			PromptDelayMilliseconds: sessionTimeoutPromptDelayMilliseconds,

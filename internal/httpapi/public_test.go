@@ -74,10 +74,12 @@ func performJSONRequest(testingT *testing.T, router *gin.Engine, method string, 
 
 func insertSite(testingT *testing.T, database *gorm.DB, name string, origin string, owner string) model.Site {
 	site := model.Site{
-		ID:            storage.NewID(),
-		Name:          name,
-		AllowedOrigin: origin,
-		OwnerEmail:    owner,
+		ID:                         storage.NewID(),
+		Name:                       name,
+		AllowedOrigin:              origin,
+		OwnerEmail:                 owner,
+		WidgetBubbleSide:           "right",
+		WidgetBubbleBottomOffsetPx: 16,
 	}
 	require.NoError(testingT, database.Create(&site).Error)
 	return site
@@ -93,6 +95,8 @@ func TestFeedbackFlow(t *testing.T) {
 	widgetBody := widgetResp.Body.String()
 	require.Contains(t, widgetBody, `panel.style.width = "320px"`)
 	require.Contains(t, widgetBody, `site_id: "`+site.ID+`"`)
+	require.Contains(t, widgetBody, `var widgetPlacementSideValue = "right"`)
+	require.Contains(t, widgetBody, `var widgetPlacementBottomOffsetValue = 16`)
 	require.Contains(t, widgetBody, `document.readyState === "loading"`)
 	require.Contains(t, widgetBody, "scheduleWhenBodyReady")
 	require.NotContains(t, widgetBody, "%!(")
@@ -128,6 +132,23 @@ func TestRateLimitingReturnsTooManyRequests(t *testing.T) {
 		}
 	}
 	require.GreaterOrEqual(t, tooMany, 1)
+}
+
+func TestWidgetJSHonorsCustomPlacement(t *testing.T) {
+	api := buildAPIHarness(t)
+	site := insertSite(t, api.database, "Custom Placement", "http://placement.example", "owner@example.com")
+	require.NoError(t, api.database.Model(&model.Site{}).
+		Where("id = ?", site.ID).
+		Updates(map[string]any{
+			"widget_bubble_side":             "left",
+			"widget_bubble_bottom_offset_px": 48,
+		}).Error)
+
+	widgetResp := performJSONRequest(t, api.router, http.MethodGet, "/widget.js?site_id="+site.ID, nil, nil)
+	require.Equal(t, http.StatusOK, widgetResp.Code)
+	widgetBody := widgetResp.Body.String()
+	require.Contains(t, widgetBody, `var widgetPlacementSideValue = "left"`)
+	require.Contains(t, widgetBody, `var widgetPlacementBottomOffsetValue = 48`)
 }
 
 func TestWidgetRequiresValidSiteId(t *testing.T) {

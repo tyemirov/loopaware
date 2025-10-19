@@ -132,6 +132,7 @@ The Bootstrap front end consumes the APIs above. Features include:
 - Account card with avatar, email, and role badge
 - Site creation and owner reassignment available to every authenticated user; administrators additionally see all sites
 - Owner/admin editor for site metadata
+- Widget placement controls that persist the bubble’s side (left/right) and bottom offset without code changes
 - Feedback table with human-readable timestamps
 - Real-time favicon refresh notifications delivered through the SSE stream
 - Logout button (links to `/logout`)

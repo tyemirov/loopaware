@@ -1,4 +1,5 @@
-- [x] internal/httpapi/headless_browser_test_helpers.go — replace the chromedp-only launcher with a reusable go-rod harness that downloads Chromium when needed, manages lifecycles, and exposes screenshot capture plus viewport utilities.
-- [x] internal/httpapi/widget_integration_test.go — migrate actions to the shared rod harness so widget flows execute reliably, keep screenshot variance analysis, and assert artifact paths under `tests/<date>/<testname>/`.
-- [x] internal/httpapi/dashboard_integration_test.go — reuse the rod harness for session-timeout scenarios, capture light/dark prompt screenshots, and ensure navigation assertions run instead of skipping.
-- [x] README.md, MIGRATION.md — document the rod-based integration test prerequisites and explain where screenshot artifacts are stored.
+ - [x] [LA-80] `internal/model/models.go` — add widget placement fields with defaults that keep existing sites on the right at 16px.
+ - [x] [LA-80] `internal/httpapi/admin.go` — accept, validate, and persist placement fields in create/update/list flows.
+ - [x] [LA-80] `internal/httpapi/templates/dashboard.tmpl` — surface placement controls in the widget card and ensure payloads include them.
+ - [x] [LA-80] `internal/httpapi/assets/widget.js` — render the bubble using stored placement values and adjust auto-hide timing for faster tests.
+ - [x] [LA-80] Tests/docs — extend unit/integration coverage for placement behavior and update MIGRATION.md plus README if needed.

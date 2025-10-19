@@ -14,7 +14,12 @@
   var boxSizingBorderBoxValue = "border-box";
   var panelDisplayBlockValue = "block";
   var panelDisplayNoneValue = "none";
-  var panelAutoHideDelayMilliseconds = 5000;
+  var panelAutoHideDelayMilliseconds = 2000;
+  var widgetPlacementSideValue = "{{ .WidgetBubbleSide }}";
+  var widgetPlacementBottomOffsetValue = {{ .WidgetBottomOffset }};
+  var widgetPlacementDefaultBottomOffsetValue = 16;
+  var widgetPlacementHorizontalOffsetValue = "16px";
+  var panelVerticalSpacingPixels = 64;
   var widgetBrandingElementID = "mp-feedback-branding";
   var widgetBrandingLinkURL = "https://mprlab.com";
   var widgetBrandingLinkText = "Marco Polo Research Lab";
@@ -108,11 +113,24 @@
       var bodyElement = document.body;
       var themePalette = selectThemePalette(bodyElement);
 
+      var resolvedBubbleSide = (widgetPlacementSideValue || "").toLowerCase() === "left" ? "left" : "right";
+      var resolvedBottomOffset = Number(widgetPlacementBottomOffsetValue);
+      if (!isFinite(resolvedBottomOffset) || resolvedBottomOffset < 0) {
+        resolvedBottomOffset = widgetPlacementDefaultBottomOffsetValue;
+      }
+      var panelBottomOffset = resolvedBottomOffset + panelVerticalSpacingPixels;
+
       var bubble = document.createElement("div");
       bubble.id = "mp-feedback-bubble";
       bubble.style.position = "fixed";
-      bubble.style.right = "16px";
-      bubble.style.bottom = "16px";
+      bubble.style.left = "";
+      bubble.style.right = "";
+      if (resolvedBubbleSide === "left") {
+        bubble.style.left = widgetPlacementHorizontalOffsetValue;
+      } else {
+        bubble.style.right = widgetPlacementHorizontalOffsetValue;
+      }
+      bubble.style.bottom = resolvedBottomOffset + "px";
       bubble.style.width = "56px";
       bubble.style.height = "56px";
       bubble.style.borderRadius = "28px";
@@ -133,8 +151,14 @@
       var panel = document.createElement("div");
       panel.id = "mp-feedback-panel";
       panel.style.position = "fixed";
-      panel.style.right = "16px";
-      panel.style.bottom = "80px";
+      panel.style.left = "";
+      panel.style.right = "";
+      if (resolvedBubbleSide === "left") {
+        panel.style.left = widgetPlacementHorizontalOffsetValue;
+      } else {
+        panel.style.right = widgetPlacementHorizontalOffsetValue;
+      }
+      panel.style.bottom = panelBottomOffset + "px";
       panel.style.width = "320px";
       panel.style.maxWidth = "92vw";
       panel.style.background = themePalette.panelBackground;

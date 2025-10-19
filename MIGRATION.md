@@ -30,3 +30,12 @@
 - The prompt applies the selected light or dark theme automatically. Ensure session lifetime settings on the server
   exceed the 120-second inactivity window to preserve a predictable experience.
 - Browser automation tests for this feature now rely on go-rod and store screenshots under `tests/<date>/<testname>/`; keep the directory if you need evidence of completed inactivity flows.
+
+## LA-80: Widget Placement Controls
+
+- Sites now persist widget placement metadata (`widget_bubble_side`, `widget_bubble_bottom_offset_px`). Auto-migrate
+  the database so these columns default to the legacy right-aligned, 16px offset configuration.
+- The dashboard exposes placement controls beside the widget snippet. Operators can choose left or right alignment and
+  a bottom offset between 0 and 240 pixels. Existing sites automatically adopt the previous layout until adjusted.
+- The embeddable widget consumes the stored placement values; headless integration tests now assert bubble alignment on
+  the chosen edge and run faster thanks to a 2-second auto-hide timer.
