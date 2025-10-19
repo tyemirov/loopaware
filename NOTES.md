@@ -92,7 +92,7 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
         - [Wallpapers](https://wallpapers.mprlab.com)
 
         Make the footer independent so that I could reuse it as a component in other projects
-
+    - [X] [LA-80] Allow for specific placement of the bubble left or right, distance to the bottom of the viewport. Extend "Site widget" panel with details that allow placement specification
 
 ### Improvements
 
@@ -121,7 +121,6 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
     - [X] [LA-77] Log off the user after 120 seconds of inactivity. Display a notification after 60 seconds: Log Out? Yes No. Log out if no answer in 60 seconds (120s total). The notofication is displayed at the biottom of the screen, in a row adjacent to the footer, Yes and No are buttons. The notification system respects the theme switch and is styled according to the chosen theme. Ensure that code coverage. Build this as a JS componenbt and make it easily portable to other projects. Have full test coverage.
     - [X] [LA-78] Add a close card / dismiss mark in the top right corner of the widget dialog
     - [X] [LA-79] Shorten the gap between built by Marco Polo Research Lab and the input field of the widget dialog
-
 
 ### BugFixes
 

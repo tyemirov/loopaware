@@ -19,28 +19,38 @@ import (
 )
 
 const (
-	jsonKeyError     = "error"
-	jsonKeyEmail     = "email"
-	jsonKeyName      = "name"
-	jsonKeyRole      = "role"
-	jsonKeyAvatar    = "avatar"
-	jsonKeyAvatarURL = "url"
+	jsonKeyError              = "error"
+	jsonKeyEmail              = "email"
+	jsonKeyName               = "name"
+	jsonKeyRole               = "role"
+	jsonKeyAvatar             = "avatar"
+	jsonKeyAvatarURL          = "url"
+	jsonKeyWidgetBubbleSide   = "widget_bubble_side"
+	jsonKeyWidgetBubbleOffset = "widget_bubble_bottom_offset"
 
-	errorValueInvalidJSON       = "invalid_json"
-	errorValueMissingFields     = "missing_fields"
-	errorValueSaveFailed        = "save_failed"
-	errorValueMissingSite       = "missing_site"
-	errorValueUnknownSite       = "unknown_site"
-	errorValueQueryFailed       = "query_failed"
-	errorValueNotAuthorized     = "not_authorized"
-	errorValueInvalidOwner      = "invalid_owner"
-	errorValueNothingToUpdate   = "nothing_to_update"
-	errorValueDeleteFailed      = "delete_failed"
-	errorValueSiteExists        = "site_exists"
-	errorValueStreamUnavailable = "stream_unavailable"
+	errorValueInvalidJSON         = "invalid_json"
+	errorValueMissingFields       = "missing_fields"
+	errorValueSaveFailed          = "save_failed"
+	errorValueMissingSite         = "missing_site"
+	errorValueUnknownSite         = "unknown_site"
+	errorValueQueryFailed         = "query_failed"
+	errorValueNotAuthorized       = "not_authorized"
+	errorValueInvalidOwner        = "invalid_owner"
+	errorValueInvalidWidgetSide   = "invalid_widget_side"
+	errorValueInvalidWidgetOffset = "invalid_widget_offset"
+	errorValueNothingToUpdate     = "nothing_to_update"
+	errorValueDeleteFailed        = "delete_failed"
+	errorValueSiteExists          = "site_exists"
+	errorValueStreamUnavailable   = "stream_unavailable"
 
-	widgetScriptTemplate   = "<script defer src=\"%s/widget.js?site_id=%s\"></script>"
-	siteFaviconURLTemplate = "/api/sites/%s/favicon"
+	widgetScriptTemplate            = "<script defer src=\"%s/widget.js?site_id=%s\"></script>"
+	siteFaviconURLTemplate          = "/api/sites/%s/favicon"
+	widgetBubbleSideRight           = "right"
+	widgetBubbleSideLeft            = "left"
+	defaultWidgetBubbleSide         = widgetBubbleSideRight
+	defaultWidgetBubbleBottomOffset = 16
+	minWidgetBubbleBottomOffset     = 0
+	maxWidgetBubbleBottomOffset     = 240
 )
 
 type SiteHandlers struct {
@@ -65,26 +75,32 @@ func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string
 }
 
 type createSiteRequest struct {
-	Name          string `json:"name"`
-	AllowedOrigin string `json:"allowed_origin"`
-	OwnerEmail    string `json:"owner_email"`
+	Name                     string `json:"name"`
+	AllowedOrigin            string `json:"allowed_origin"`
+	OwnerEmail               string `json:"owner_email"`
+	WidgetBubbleSide         string `json:"widget_bubble_side"`
+	WidgetBubbleBottomOffset *int   `json:"widget_bubble_bottom_offset"`
 }
 
 type updateSiteRequest struct {
-	Name          *string `json:"name"`
-	AllowedOrigin *string `json:"allowed_origin"`
-	OwnerEmail    *string `json:"owner_email"`
+	Name                     *string `json:"name"`
+	AllowedOrigin            *string `json:"allowed_origin"`
+	OwnerEmail               *string `json:"owner_email"`
+	WidgetBubbleSide         *string `json:"widget_bubble_side"`
+	WidgetBubbleBottomOffset *int    `json:"widget_bubble_bottom_offset"`
 }
 
 type siteResponse struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	AllowedOrigin string `json:"allowed_origin"`
-	OwnerEmail    string `json:"owner_email"`
-	FaviconURL    string `json:"favicon_url"`
-	Widget        string `json:"widget"`
-	CreatedAt     int64  `json:"created_at"`
-	FeedbackCount int64  `json:"feedback_count"`
+	ID                       string `json:"id"`
+	Name                     string `json:"name"`
+	AllowedOrigin            string `json:"allowed_origin"`
+	OwnerEmail               string `json:"owner_email"`
+	FaviconURL               string `json:"favicon_url"`
+	Widget                   string `json:"widget"`
+	CreatedAt                int64  `json:"created_at"`
+	FeedbackCount            int64  `json:"feedback_count"`
+	WidgetBubbleSide         string `json:"widget_bubble_side"`
+	WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
 }
 
 type listSitesResponse struct {
@@ -154,6 +170,17 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		return
 	}
 
+	widgetBubbleSide, widgetBubbleSideErr := sanitizeWidgetBubbleSide(payload.WidgetBubbleSide)
+	if widgetBubbleSideErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidWidgetSide})
+		return
+	}
+	widgetBubbleBottomOffset, widgetBubbleBottomOffsetErr := sanitizeWidgetBubbleBottomOffset(payload.WidgetBubbleBottomOffset)
+	if widgetBubbleBottomOffsetErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidWidgetOffset})
+		return
+	}
+
 	conflictExists, conflictCheckErr := handlers.allowedOriginConflictExists(payload.AllowedOrigin, "")
 	if conflictCheckErr != nil {
 		handlers.logger.Warn("check_allowed_origin_conflict", zap.Error(conflictCheckErr))
@@ -166,12 +193,14 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 	}
 
 	site := model.Site{
-		ID:            storage.NewID(),
-		Name:          payload.Name,
-		AllowedOrigin: payload.AllowedOrigin,
-		OwnerEmail:    desiredOwnerEmail,
-		CreatorEmail:  creatorEmail,
-		FaviconOrigin: payload.AllowedOrigin,
+		ID:                         storage.NewID(),
+		Name:                       payload.Name,
+		AllowedOrigin:              payload.AllowedOrigin,
+		OwnerEmail:                 desiredOwnerEmail,
+		CreatorEmail:               creatorEmail,
+		FaviconOrigin:              payload.AllowedOrigin,
+		WidgetBubbleSide:           widgetBubbleSide,
+		WidgetBubbleBottomOffsetPx: widgetBubbleBottomOffset,
 	}
 
 	if err := handlers.database.Create(&site).Error; err != nil {
@@ -388,7 +417,7 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		return
 	}
 
-	if payload.Name == nil && payload.AllowedOrigin == nil && payload.OwnerEmail == nil {
+	if payload.Name == nil && payload.AllowedOrigin == nil && payload.OwnerEmail == nil && payload.WidgetBubbleSide == nil && payload.WidgetBubbleBottomOffset == nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueNothingToUpdate})
 		return
 	}
@@ -443,6 +472,24 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 			return
 		}
 		site.OwnerEmail = trimmed
+	}
+
+	if payload.WidgetBubbleSide != nil {
+		normalizedSide, sideErr := sanitizeWidgetBubbleSide(*payload.WidgetBubbleSide)
+		if sideErr != nil {
+			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidWidgetSide})
+			return
+		}
+		site.WidgetBubbleSide = normalizedSide
+	}
+
+	if payload.WidgetBubbleBottomOffset != nil {
+		offset, offsetErr := sanitizeWidgetBubbleBottomOffset(payload.WidgetBubbleBottomOffset)
+		if offsetErr != nil {
+			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidWidgetOffset})
+			return
+		}
+		site.WidgetBubbleBottomOffsetPx = offset
 	}
 
 	if originChanged {
@@ -563,6 +610,7 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 	if widgetBase == "" {
 		widgetBase = normalizeWidgetBaseURL(site.AllowedOrigin)
 	}
+	ensureWidgetBubblePlacementDefaults(&site)
 
 	faviconURL := ""
 	if len(site.FaviconData) > 0 {
@@ -570,14 +618,16 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 	}
 
 	return siteResponse{
-		ID:            site.ID,
-		Name:          site.Name,
-		AllowedOrigin: site.AllowedOrigin,
-		OwnerEmail:    site.OwnerEmail,
-		FaviconURL:    faviconURL,
-		Widget:        fmt.Sprintf(widgetScriptTemplate, widgetBase, site.ID),
-		CreatedAt:     site.CreatedAt.UTC().Unix(),
-		FeedbackCount: feedbackCount,
+		ID:                       site.ID,
+		Name:                     site.Name,
+		AllowedOrigin:            site.AllowedOrigin,
+		OwnerEmail:               site.OwnerEmail,
+		FaviconURL:               faviconURL,
+		Widget:                   fmt.Sprintf(widgetScriptTemplate, widgetBase, site.ID),
+		CreatedAt:                site.CreatedAt.UTC().Unix(),
+		FeedbackCount:            feedbackCount,
+		WidgetBubbleSide:         site.WidgetBubbleSide,
+		WidgetBubbleBottomOffset: site.WidgetBubbleBottomOffsetPx,
 	}
 }
 
@@ -634,6 +684,42 @@ func (handlers *SiteHandlers) allowedOriginConflictExists(allowedOrigin string, 
 func normalizeWidgetBaseURL(value string) string {
 	trimmed := strings.TrimSpace(value)
 	return strings.TrimRight(trimmed, "/")
+}
+
+func sanitizeWidgetBubbleSide(raw string) (string, error) {
+	normalized := strings.ToLower(strings.TrimSpace(raw))
+	if normalized == "" {
+		return defaultWidgetBubbleSide, nil
+	}
+	if normalized != widgetBubbleSideLeft && normalized != widgetBubbleSideRight {
+		return "", errors.New("invalid widget bubble side")
+	}
+	return normalized, nil
+}
+
+func sanitizeWidgetBubbleBottomOffset(value *int) (int, error) {
+	if value == nil {
+		return defaultWidgetBubbleBottomOffset, nil
+	}
+	offset := *value
+	if offset < minWidgetBubbleBottomOffset || offset > maxWidgetBubbleBottomOffset {
+		return 0, errors.New("invalid widget bubble bottom offset")
+	}
+	return offset, nil
+}
+
+func ensureWidgetBubblePlacementDefaults(site *model.Site) {
+	if site == nil {
+		return
+	}
+	side := strings.ToLower(strings.TrimSpace(site.WidgetBubbleSide))
+	if side != widgetBubbleSideLeft && side != widgetBubbleSideRight {
+		side = defaultWidgetBubbleSide
+	}
+	site.WidgetBubbleSide = side
+	if site.WidgetBubbleBottomOffsetPx < minWidgetBubbleBottomOffset || site.WidgetBubbleBottomOffsetPx > maxWidgetBubbleBottomOffset {
+		site.WidgetBubbleBottomOffsetPx = defaultWidgetBubbleBottomOffset
+	}
 }
 
 func (handlers *SiteHandlers) ginRequestContext(ginContext *gin.Context) context.Context {

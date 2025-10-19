@@ -26,14 +26,20 @@ import (
 )
 
 const (
-	testAdminEmailAddress          = "admin@example.com"
-	testUserEmailAddress           = "user@example.com"
-	testCreatorEmail               = "creator@example.com"
-	testAlternateOwnerEmailAddress = "owner@example.com"
-	testSessionContextKey          = "httpapi_current_user"
-	testWidgetBaseURL              = "https://gravity.mprlab.com/"
-	jsonErrorKey                   = "error"
-	errorCodeSiteExists            = "site_exists"
+	testAdminEmailAddress               = "admin@example.com"
+	testUserEmailAddress                = "user@example.com"
+	testCreatorEmail                    = "creator@example.com"
+	testAlternateOwnerEmailAddress      = "owner@example.com"
+	testSessionContextKey               = "httpapi_current_user"
+	testWidgetBaseURL                   = "https://gravity.mprlab.com/"
+	jsonErrorKey                        = "error"
+	errorCodeSiteExists                 = "site_exists"
+	errorCodeInvalidWidgetSide          = "invalid_widget_side"
+	errorCodeInvalidWidgetOffset        = "invalid_widget_offset"
+	defaultWidgetTestBubbleSide         = "right"
+	defaultWidgetTestBottomOffsetPixels = 16
+	customWidgetTestBubbleSide          = "left"
+	customWidgetTestBottomOffsetPixels  = 48
 )
 
 type siteTestHarness struct {
@@ -138,14 +144,16 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
 	site := model.Site{
-		ID:                 storage.NewID(),
-		Name:               "Widget Site",
-		AllowedOrigin:      "https://client.example",
-		OwnerEmail:         testAdminEmailAddress,
-		FaviconData:        []byte{0x01, 0x02, 0x03},
-		FaviconContentType: "image/png",
-		FaviconOrigin:      "https://client.example",
-		FaviconFetchedAt:   time.Now(),
+		ID:                         storage.NewID(),
+		Name:                       "Widget Site",
+		AllowedOrigin:              "https://client.example",
+		OwnerEmail:                 testAdminEmailAddress,
+		WidgetBubbleSide:           defaultWidgetTestBubbleSide,
+		WidgetBubbleBottomOffsetPx: defaultWidgetTestBottomOffsetPixels,
+		FaviconData:                []byte{0x01, 0x02, 0x03},
+		FaviconContentType:         "image/png",
+		FaviconOrigin:              "https://client.example",
+		FaviconFetchedAt:           time.Now(),
 	}
 	require.NoError(testingT, harness.database.Create(&site).Error)
 	for index := 0; index < 5; index++ {
@@ -165,10 +173,12 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 
 	var responseBody struct {
 		Sites []struct {
-			Identifier    string `json:"id"`
-			Widget        string `json:"widget"`
-			FaviconURL    string `json:"favicon_url"`
-			FeedbackCount int64  `json:"feedback_count"`
+			Identifier               string `json:"id"`
+			Widget                   string `json:"widget"`
+			FaviconURL               string `json:"favicon_url"`
+			FeedbackCount            int64  `json:"feedback_count"`
+			WidgetBubbleSide         string `json:"widget_bubble_side"`
+			WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
 		} `json:"sites"`
 	}
 	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
@@ -180,6 +190,8 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	expectedFavicon := fmt.Sprintf("/api/sites/%s/favicon?ts=%d", site.ID, site.FaviconFetchedAt.UTC().Unix())
 	require.Equal(testingT, expectedFavicon, responseBody.Sites[0].FaviconURL)
 	require.Equal(testingT, int64(5), responseBody.Sites[0].FeedbackCount)
+	require.Equal(testingT, defaultWidgetTestBubbleSide, responseBody.Sites[0].WidgetBubbleSide)
+	require.Equal(testingT, defaultWidgetTestBottomOffsetPixels, responseBody.Sites[0].WidgetBubbleBottomOffset)
 }
 
 func TestListSitesReturnsOwnerSitesForNonAdminRegardlessOfEmailCase(testingT *testing.T) {
@@ -508,11 +520,15 @@ func TestCreateSiteAllowsAdminToSpecifyOwner(testingT *testing.T) {
 	require.Equal(testingT, "http://owned.example", responseBody["allowed_origin"])
 	require.Equal(testingT, testUserEmailAddress, responseBody["owner_email"])
 	require.Equal(testingT, float64(0), responseBody["feedback_count"])
+	require.Equal(testingT, defaultWidgetTestBubbleSide, responseBody["widget_bubble_side"])
+	require.Equal(testingT, float64(defaultWidgetTestBottomOffsetPixels), responseBody["widget_bubble_bottom_offset"])
 
 	var createdSite model.Site
 	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Admin Created").Error)
 	require.Equal(testingT, testUserEmailAddress, createdSite.OwnerEmail)
 	require.Equal(testingT, testAdminEmailAddress, createdSite.CreatorEmail)
+	require.Equal(testingT, defaultWidgetTestBubbleSide, createdSite.WidgetBubbleSide)
+	require.Equal(testingT, defaultWidgetTestBottomOffsetPixels, createdSite.WidgetBubbleBottomOffsetPx)
 }
 
 func TestCreateSiteAssignsCurrentUserAsOwner(testingT *testing.T) {
@@ -533,11 +549,15 @@ func TestCreateSiteAssignsCurrentUserAsOwner(testingT *testing.T) {
 	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
 	require.Equal(testingT, testUserEmailAddress, responseBody["owner_email"])
 	require.Equal(testingT, float64(0), responseBody["feedback_count"])
+	require.Equal(testingT, defaultWidgetTestBubbleSide, responseBody["widget_bubble_side"])
+	require.Equal(testingT, float64(defaultWidgetTestBottomOffsetPixels), responseBody["widget_bubble_bottom_offset"])
 
 	var createdSite model.Site
 	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Self Owned").Error)
 	require.Equal(testingT, testUserEmailAddress, createdSite.OwnerEmail)
 	require.Equal(testingT, testUserEmailAddress, createdSite.CreatorEmail)
+	require.Equal(testingT, defaultWidgetTestBubbleSide, createdSite.WidgetBubbleSide)
+	require.Equal(testingT, defaultWidgetTestBottomOffsetPixels, createdSite.WidgetBubbleBottomOffsetPx)
 }
 
 func TestCreateSiteAllowsNonAdminToAssignAlternateOwner(testingT *testing.T) {
@@ -558,11 +578,15 @@ func TestCreateSiteAllowsNonAdminToAssignAlternateOwner(testingT *testing.T) {
 	var responseBody map[string]any
 	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
 	require.Equal(testingT, testAlternateOwnerEmailAddress, responseBody["owner_email"])
+	require.Equal(testingT, defaultWidgetTestBubbleSide, responseBody["widget_bubble_side"])
+	require.Equal(testingT, float64(defaultWidgetTestBottomOffsetPixels), responseBody["widget_bubble_bottom_offset"])
 
 	var createdSite model.Site
 	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Delegated Ownership").Error)
 	require.Equal(testingT, testAlternateOwnerEmailAddress, createdSite.OwnerEmail)
 	require.Equal(testingT, testUserEmailAddress, createdSite.CreatorEmail)
+	require.Equal(testingT, defaultWidgetTestBubbleSide, createdSite.WidgetBubbleSide)
+	require.Equal(testingT, defaultWidgetTestBottomOffsetPixels, createdSite.WidgetBubbleBottomOffsetPx)
 }
 
 func TestCreateSiteRejectsDuplicateAllowedOrigin(testingT *testing.T) {
@@ -592,6 +616,75 @@ func TestCreateSiteRejectsDuplicateAllowedOrigin(testingT *testing.T) {
 	var responseBody map[string]string
 	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
 	require.Equal(testingT, errorCodeSiteExists, responseBody[jsonErrorKey])
+}
+
+func TestCreateSiteAcceptsWidgetPlacementOverrides(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	payload := map[string]any{
+		"name":                        "Widget Placement",
+		"allowed_origin":              "http://widget-placement.example",
+		"widget_bubble_side":          customWidgetTestBubbleSide,
+		"widget_bubble_bottom_offset": customWidgetTestBottomOffsetPixels,
+	}
+
+	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.CreateSite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody map[string]any
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, customWidgetTestBubbleSide, responseBody["widget_bubble_side"])
+	require.Equal(testingT, float64(customWidgetTestBottomOffsetPixels), responseBody["widget_bubble_bottom_offset"])
+
+	var createdSite model.Site
+	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Widget Placement").Error)
+	require.Equal(testingT, customWidgetTestBubbleSide, createdSite.WidgetBubbleSide)
+	require.Equal(testingT, customWidgetTestBottomOffsetPixels, createdSite.WidgetBubbleBottomOffsetPx)
+}
+
+func TestCreateSiteRejectsInvalidWidgetPlacement(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	payload := map[string]any{
+		"name":                        "Invalid Placement",
+		"allowed_origin":              "http://invalid-placement.example",
+		"widget_bubble_side":          customWidgetTestBubbleSide,
+		"widget_bubble_bottom_offset": -12,
+	}
+
+	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.CreateSite(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+
+	var responseBody map[string]string
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, errorCodeInvalidWidgetOffset, responseBody[jsonErrorKey])
+}
+
+func TestCreateSiteRejectsInvalidWidgetSide(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	payload := map[string]any{
+		"name":                        "Invalid Side",
+		"allowed_origin":              "http://invalid-side.example",
+		"widget_bubble_side":          "center",
+		"widget_bubble_bottom_offset": customWidgetTestBottomOffsetPixels,
+	}
+
+	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.CreateSite(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+
+	var responseBody map[string]string
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, errorCodeInvalidWidgetSide, responseBody[jsonErrorKey])
 }
 
 func TestUpdateSiteRejectsDuplicateAllowedOrigin(testingT *testing.T) {
@@ -664,10 +757,12 @@ func TestUpdateSiteAllowsOwnerToReassignOwnership(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
 	site := model.Site{
-		ID:            storage.NewID(),
-		Name:          "Reassignable Site",
-		AllowedOrigin: "http://reassign.example",
-		OwnerEmail:    testUserEmailAddress,
+		ID:                         storage.NewID(),
+		Name:                       "Reassignable Site",
+		AllowedOrigin:              "http://reassign.example",
+		OwnerEmail:                 testUserEmailAddress,
+		WidgetBubbleSide:           defaultWidgetTestBubbleSide,
+		WidgetBubbleBottomOffsetPx: defaultWidgetTestBottomOffsetPixels,
 	}
 	require.NoError(testingT, harness.database.Create(&site).Error)
 
@@ -692,6 +787,100 @@ func TestUpdateSiteAllowsOwnerToReassignOwnership(testingT *testing.T) {
 	var updatedSite model.Site
 	require.NoError(testingT, harness.database.First(&updatedSite, "id = ?", site.ID).Error)
 	require.Equal(testingT, newOwnerEmail, updatedSite.OwnerEmail)
+}
+
+func TestUpdateSiteAdjustsWidgetPlacement(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Placement Update",
+		AllowedOrigin:              "http://placement-update.example",
+		OwnerEmail:                 testUserEmailAddress,
+		WidgetBubbleSide:           defaultWidgetTestBubbleSide,
+		WidgetBubbleBottomOffsetPx: defaultWidgetTestBottomOffsetPixels,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	payload := map[string]any{
+		"widget_bubble_side":          customWidgetTestBubbleSide,
+		"widget_bubble_bottom_offset": customWidgetTestBottomOffsetPixels,
+	}
+
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID, payload)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
+
+	harness.handlers.UpdateSite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody map[string]any
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, customWidgetTestBubbleSide, responseBody["widget_bubble_side"])
+	require.Equal(testingT, float64(customWidgetTestBottomOffsetPixels), responseBody["widget_bubble_bottom_offset"])
+
+	var updatedSite model.Site
+	require.NoError(testingT, harness.database.First(&updatedSite, "id = ?", site.ID).Error)
+	require.Equal(testingT, customWidgetTestBubbleSide, updatedSite.WidgetBubbleSide)
+	require.Equal(testingT, customWidgetTestBottomOffsetPixels, updatedSite.WidgetBubbleBottomOffsetPx)
+}
+
+func TestUpdateSiteRejectsInvalidWidgetPlacement(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Placement Invalid Update",
+		AllowedOrigin:              "http://placement-invalid.example",
+		OwnerEmail:                 testUserEmailAddress,
+		WidgetBubbleSide:           defaultWidgetTestBubbleSide,
+		WidgetBubbleBottomOffsetPx: defaultWidgetTestBottomOffsetPixels,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	payload := map[string]any{
+		"widget_bubble_side":          customWidgetTestBubbleSide,
+		"widget_bubble_bottom_offset": 1000,
+	}
+
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID, payload)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
+
+	harness.handlers.UpdateSite(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+
+	var responseBody map[string]string
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, errorCodeInvalidWidgetOffset, responseBody[jsonErrorKey])
+}
+
+func TestUpdateSiteRejectsInvalidWidgetSide(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Placement Invalid Side",
+		AllowedOrigin: "http://placement-side-invalid.example",
+		OwnerEmail:    testUserEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	payload := map[string]any{
+		"widget_bubble_side":          "center",
+		"widget_bubble_bottom_offset": customWidgetTestBottomOffsetPixels,
+	}
+
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID, payload)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
+
+	harness.handlers.UpdateSite(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+
+	var responseBody map[string]string
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, errorCodeInvalidWidgetSide, responseBody[jsonErrorKey])
 }
 
 func TestDeleteSiteAllowsCreatorWithAlternateOwner(testingT *testing.T) {

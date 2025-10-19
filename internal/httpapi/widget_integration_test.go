@@ -27,7 +27,7 @@ const (
 	integrationFeedbackMessageValue = "Headless integration feedback"
 	integrationStatusWaitTimeout    = 5 * time.Second
 	integrationStatusPollInterval   = 100 * time.Millisecond
-	integrationPanelAutoHideTimeout = 8 * time.Second
+	integrationPanelAutoHideTimeout = 4 * time.Second
 	widgetBubbleSelector            = "#mp-feedback-bubble"
 	widgetPanelSelector             = "#mp-feedback-panel"
 	widgetContactSelector           = "#mp-feedback-panel input"
@@ -65,6 +65,12 @@ const (
 	widgetBrandingLinkExpectedHref         = "https://mprlab.com"
 	widgetCloseButtonSelector              = "#mp-feedback-panel button[aria-label='Close feedback panel']"
 	widgetCloseButtonExpectedText          = "×"
+	customWidgetBubbleSide                 = "left"
+	customWidgetBottomOffsetPixels         = 32
+	widgetHorizontalOffsetPixels           = 16
+	widgetBubbleDiameterPixels             = 56
+	widgetPanelVerticalSpacingPixels       = 64
+	positionTolerancePixels                = 6.0
 )
 
 func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
@@ -79,6 +85,12 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	site := insertSite(t, apiHarness.database, integrationSiteName, server.URL, integrationSiteOwnerEmail)
+	require.NoError(t, apiHarness.database.Model(&model.Site{}).
+		Where("id = ?", site.ID).
+		Updates(map[string]interface{}{
+			"widget_bubble_side":             customWidgetBubbleSide,
+			"widget_bubble_bottom_offset_px": customWidgetBottomOffsetPixels,
+		}).Error)
 
 	integrationPageHTML := fmt.Sprintf(integrationPageHTMLTemplate, site.ID)
 	apiHarness.router.GET(integrationPageRoutePath, func(ginContext *gin.Context) {
@@ -91,6 +103,10 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	waitForVisibleElement(t, page, widgetBubbleSelector)
 
 	bubbleBounds := resolveViewportBounds(t, page, widgetBubbleSelector)
+	expectedBubbleLeft := float64(widgetHorizontalOffsetPixels)
+	require.InDelta(t, expectedBubbleLeft, bubbleBounds.Left, positionTolerancePixels)
+	expectedBubbleTop := float64(headlessViewportHeight - widgetBubbleDiameterPixels - customWidgetBottomOffsetPixels)
+	require.InDelta(t, expectedBubbleTop, bubbleBounds.Top, positionTolerancePixels)
 	bubbleScreenshot := captureAndStoreScreenshot(t, page, screenshotsDirectory, "widget-light-bubble")
 	require.FileExists(t, filepath.Join(screenshotsDirectory, "widget-light-bubble.png"))
 	analyzeScreenshotRegion(t, bubbleScreenshot, bubbleBounds, screenshotExpectation{
@@ -101,6 +117,7 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	waitForVisibleElement(t, page, widgetPanelSelector)
 
 	panelBounds := resolveViewportBounds(t, page, widgetPanelSelector)
+	require.InDelta(t, expectedBubbleLeft, panelBounds.Left, positionTolerancePixels)
 	panelScreenshot := captureAndStoreScreenshot(t, page, screenshotsDirectory, "widget-light-panel")
 	require.FileExists(t, filepath.Join(screenshotsDirectory, "widget-light-panel.png"))
 	analyzeScreenshotRegion(t, panelScreenshot, panelBounds, screenshotExpectation{

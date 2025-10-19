@@ -128,8 +128,9 @@ func (h *PublicHandlers) WidgetJS(context *gin.Context) {
 		context.String(404, "/* unknown site */")
 		return
 	}
+	ensureWidgetBubblePlacementDefaults(&site)
 
-	script, tplErr := renderWidgetTemplate(site.ID)
+	script, tplErr := renderWidgetTemplate(site)
 	if tplErr != nil {
 		context.String(500, "/* render error */")
 		return
@@ -145,10 +146,12 @@ func truncate(input string, max int) string {
 	return input[:max]
 }
 
-func renderWidgetTemplate(siteID string) (string, error) {
+func renderWidgetTemplate(site model.Site) (string, error) {
 	var buffer bytes.Buffer
-	executeErr := widgetJavaScriptTemplate.Execute(&buffer, map[string]string{
-		"SiteID": siteID,
+	executeErr := widgetJavaScriptTemplate.Execute(&buffer, map[string]any{
+		"SiteID":             site.ID,
+		"WidgetBubbleSide":   site.WidgetBubbleSide,
+		"WidgetBottomOffset": site.WidgetBubbleBottomOffsetPx,
 	})
 	if executeErr != nil {
 		return "", fmt.Errorf("render widget template: %w", executeErr)
