@@ -123,6 +123,7 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
     - [X] [LA-79] Shorten the gap between built by Marco Polo Research Lab and the input field of the widget dialog
     - [x] [LA-83] Each site should allow to launch its widget in an test page. Add a button to the left of the copy snippet button of the site widget panel that says Test. Pressing this button opens an html page with a widget placed exactly where it will be placed on the site (we respect the placement directives). The page itslef has a dark light switch toggle, to wich the widget must react. Entering feedback in this widget delivers it to the site's feedback.
     - [ ] [LA-84] Make tab circle the input fields in the widget. ensure the focus on the first input field when the widget is opened
+    - [ ] [LA-86] Get rid of the example page, it's unnessary. we will only use test pages for the sites
 
 
 ### BugFixes
