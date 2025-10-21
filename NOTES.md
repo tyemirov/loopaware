@@ -157,6 +157,7 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
     - [x] [LA-69] Verify go test ./... -v -race -count=1 passes in CI without race, leaks, or long hangs.
     - [x] [LA-74] Neither footer nor the privacy page repsect the chosen theme. Have the rpivacy page have the same header as the landing page.
     - [x] [LA-75] Replace duplicative implementation of the footer and render a single partial instead.
+    - [x] [LA-81] Horizontally align the x (closing button) in the widet to the "Send feedback" text. It is currently horizontally below.
 
 ### Maintenance
 

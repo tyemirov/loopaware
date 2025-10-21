@@ -3,3 +3,5 @@
  - [x] [LA-80] `internal/httpapi/templates/dashboard.tmpl` — surface placement controls in the widget card and ensure payloads include them.
  - [x] [LA-80] `internal/httpapi/assets/widget.js` — render the bubble using stored placement values and adjust auto-hide timing for faster tests.
  - [x] [LA-80] Tests/docs — extend unit/integration coverage for placement behavior and update MIGRATION.md plus README if needed.
+ - [x] [LA-81] `internal/httpapi/assets/widget.js` — create a shared header container and flex alignment so the close button vertical center stays level with the "Send feedback" text.
+ - [x] [LA-81] `internal/httpapi/widget_integration_test.go` — measure headline versus close button bounds and fail if their vertical centers diverge beyond the visual tolerance.

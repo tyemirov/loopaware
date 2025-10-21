@@ -33,6 +33,14 @@
   var widgetBrandingLineHeightValue = "1.2";
   var widgetBrandingLinkColorValue = "#b8860b";
   var widgetBrandingStaticText = "Built by ";
+  var widgetHeaderContainerDisplayValue = "flex";
+  var widgetHeaderContainerAlignItemsValue = "center";
+  var widgetHeaderContainerJustifyContentValue = "space-between";
+  var widgetHeaderContainerGapValue = "12px";
+  var widgetHeaderContainerMarginBottomValue = "8px";
+  var widgetHeadlineElementID = "mp-feedback-headline";
+  var widgetHeadlineFontWeightValue = "600";
+  var widgetHeadlineFlexGrowValue = "1";
   var widgetCloseButtonText = "×";
   var widgetCloseButtonFontSizeValue = "24px";
   var widgetCloseButtonLineHeightValue = "1";
@@ -40,11 +48,10 @@
   var widgetCloseButtonPaddingValue = "0";
   var widgetCloseButtonBorderValue = "none";
   var widgetCloseButtonBackgroundValue = "transparent";
-  var widgetCloseButtonPositionValue = "absolute";
-  var widgetCloseButtonTopValue = "8px";
-  var widgetCloseButtonRightValue = "8px";
   var widgetCloseButtonWidthValue = "28px";
   var widgetCloseButtonHeightValue = "28px";
+  var widgetCloseButtonMarginLeftValue = "12px";
+  var widgetCloseButtonFlexShrinkValue = "0";
   var widgetCloseButtonOpacityValue = "0.6";
   var widgetCloseButtonHoverOpacityValue = "1";
   var widgetCloseButtonAriaLabel = "Close feedback panel";
@@ -175,12 +182,24 @@
       panelContainer.style.position = "relative";
       panel.appendChild(panelContainer);
 
+      var headerContainer = document.createElement("div");
+      headerContainer.style.display = widgetHeaderContainerDisplayValue;
+      headerContainer.style.alignItems = widgetHeaderContainerAlignItemsValue;
+      headerContainer.style.justifyContent = widgetHeaderContainerJustifyContentValue;
+      headerContainer.style.gap = widgetHeaderContainerGapValue;
+      headerContainer.style.marginBottom = widgetHeaderContainerMarginBottomValue;
+      panelContainer.appendChild(headerContainer);
+
+      var headline = document.createElement("div");
+      headline.id = widgetHeadlineElementID;
+      headline.style.fontWeight = widgetHeadlineFontWeightValue;
+      headline.style.flexGrow = widgetHeadlineFlexGrowValue;
+      headline.innerText = "Send feedback";
+      headerContainer.appendChild(headline);
+
       var closeButton = document.createElement("button");
       closeButton.type = "button";
       closeButton.innerText = widgetCloseButtonText;
-      closeButton.style.position = widgetCloseButtonPositionValue;
-      closeButton.style.top = widgetCloseButtonTopValue;
-      closeButton.style.right = widgetCloseButtonRightValue;
       closeButton.style.width = widgetCloseButtonWidthValue;
       closeButton.style.height = widgetCloseButtonHeightValue;
       closeButton.style.padding = widgetCloseButtonPaddingValue;
@@ -192,14 +211,10 @@
       closeButton.style.cursor = widgetCloseButtonCursorValue;
       closeButton.style.opacity = widgetCloseButtonOpacityValue;
       closeButton.style.boxSizing = boxSizingBorderBoxValue;
+      closeButton.style.marginLeft = widgetCloseButtonMarginLeftValue;
+      closeButton.style.flexShrink = widgetCloseButtonFlexShrinkValue;
       closeButton.setAttribute("aria-label", widgetCloseButtonAriaLabel);
-      panelContainer.appendChild(closeButton);
-
-      var headline = document.createElement("div");
-      headline.style.fontWeight = "600";
-      headline.style.marginBottom = "8px";
-      headline.innerText = "Send feedback";
-      panelContainer.appendChild(headline);
+      headerContainer.appendChild(closeButton);
 
       var contact = document.createElement("input");
       contact.type = "text";
