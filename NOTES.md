@@ -121,6 +121,7 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
     - [X] [LA-77] Log off the user after 120 seconds of inactivity. Display a notification after 60 seconds: Log Out? Yes No. Log out if no answer in 60 seconds (120s total). The notofication is displayed at the biottom of the screen, in a row adjacent to the footer, Yes and No are buttons. The notification system respects the theme switch and is styled according to the chosen theme. Ensure that code coverage. Build this as a JS componenbt and make it easily portable to other projects. Have full test coverage.
     - [X] [LA-78] Add a close card / dismiss mark in the top right corner of the widget dialog
     - [X] [LA-79] Shorten the gap between built by Marco Polo Research Lab and the input field of the widget dialog
+    - [ ] [LA-83] Each site should allow to launch its widget in an test page. Add a button to the left of the copy snippet button of the site widget panel that says Test. Pressing this button opens an html page with a widget placed exactly where it will be placed on the site (we respect the placement directives). The page itslef has a dark light switch toggle, to wich the widget must react. Entering feedback in this widget delivers it to the site's feedback.
 
 ### BugFixes
 
@@ -157,6 +158,7 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
     - [x] [LA-69] Verify go test ./... -v -race -count=1 passes in CI without race, leaks, or long hangs.
     - [x] [LA-74] Neither footer nor the privacy page repsect the chosen theme. Have the rpivacy page have the same header as the landing page.
     - [x] [LA-75] Replace duplicative implementation of the footer and render a single partial instead.
+    - [x] [LA-81] Horizontally align the x (closing button) in the widet to the "Send feedback" text. It is currently horizontally below. See ![alt text](image.png). Write a failing test that demonstrates the absence of the closing sing in top right corner. Then fix the code without touching the code, ensure tha tht test passes after fixing the code.
 
 ### Maintenance
 
@@ -186,3 +188,4 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
         </html>
         ```
     - [x] [LA-64] add privacy to the sitemap
+    - [x] [LA-82] Create a simple example page, which loads the widget.js for the ease of testing. So, when loopaware web service is running, there must be /example which will show a web page with the actual widget on it

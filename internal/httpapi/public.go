@@ -124,9 +124,18 @@ func (h *PublicHandlers) WidgetJS(context *gin.Context) {
 	}
 
 	var site model.Site
-	if err := h.database.First(&site, "id = ?", siteID).Error; err != nil {
-		context.String(404, "/* unknown site */")
-		return
+	if siteID == exampleDemoSiteID {
+		site = model.Site{
+			ID:                         exampleDemoSiteID,
+			Name:                       exampleDemoSiteName,
+			WidgetBubbleSide:           widgetBubbleSideLeft,
+			WidgetBubbleBottomOffsetPx: defaultWidgetBubbleBottomOffset,
+		}
+	} else {
+		if err := h.database.First(&site, "id = ?", siteID).Error; err != nil {
+			context.String(404, "/* unknown site */")
+			return
+		}
 	}
 	ensureWidgetBubblePlacementDefaults(&site)
 

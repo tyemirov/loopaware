@@ -33,6 +33,11 @@
   var widgetBrandingLineHeightValue = "1.2";
   var widgetBrandingLinkColorValue = "#b8860b";
   var widgetBrandingStaticText = "Built by ";
+  var widgetHeaderContainerDisplayValue = "block";
+  var widgetHeaderContainerPositionValue = "relative";
+  var widgetHeaderContainerMarginBottomValue = "12px";
+  var widgetHeaderPaddingRightValue = "48px";
+  var widgetHeaderTitleMarginBottomValue = "8px";
   var widgetCloseButtonText = "×";
   var widgetCloseButtonFontSizeValue = "24px";
   var widgetCloseButtonLineHeightValue = "1";
@@ -41,13 +46,20 @@
   var widgetCloseButtonBorderValue = "none";
   var widgetCloseButtonBackgroundValue = "transparent";
   var widgetCloseButtonPositionValue = "absolute";
-  var widgetCloseButtonTopValue = "8px";
-  var widgetCloseButtonRightValue = "8px";
+  var widgetCloseButtonTopValue = "0px";
+  var widgetCloseButtonRightValue = "0px";
   var widgetCloseButtonWidthValue = "28px";
   var widgetCloseButtonHeightValue = "28px";
   var widgetCloseButtonOpacityValue = "0.6";
   var widgetCloseButtonHoverOpacityValue = "1";
   var widgetCloseButtonAriaLabel = "Close feedback panel";
+  var widgetDemoModeFlagName = "LOOPAWARE_WIDGET_DEMO_MODE";
+  var widgetDemoModeEnabled = false;
+  try {
+    if (typeof window === "object" && window) {
+      widgetDemoModeEnabled = Boolean(window[widgetDemoModeFlagName]);
+    }
+  } catch(demoModeReadError){}
   var widgetThemePalettes = {
     light: {
       bubbleBackground: "#0d6efd",
@@ -175,6 +187,19 @@
       panelContainer.style.position = "relative";
       panel.appendChild(panelContainer);
 
+      var headerContainer = document.createElement("div");
+      headerContainer.style.display = widgetHeaderContainerDisplayValue;
+      headerContainer.style.position = widgetHeaderContainerPositionValue;
+      headerContainer.style.marginBottom = widgetHeaderContainerMarginBottomValue;
+      headerContainer.style.paddingRight = widgetHeaderPaddingRightValue;
+      panelContainer.appendChild(headerContainer);
+
+      var headline = document.createElement("div");
+      headline.style.fontWeight = "600";
+      headline.style.marginBottom = widgetHeaderTitleMarginBottomValue;
+      headline.innerText = widgetDemoModeEnabled ? "Example widget" : "Send feedback";
+      headerContainer.appendChild(headline);
+
       var closeButton = document.createElement("button");
       closeButton.type = "button";
       closeButton.innerText = widgetCloseButtonText;
@@ -193,13 +218,7 @@
       closeButton.style.opacity = widgetCloseButtonOpacityValue;
       closeButton.style.boxSizing = boxSizingBorderBoxValue;
       closeButton.setAttribute("aria-label", widgetCloseButtonAriaLabel);
-      panelContainer.appendChild(closeButton);
-
-      var headline = document.createElement("div");
-      headline.style.fontWeight = "600";
-      headline.style.marginBottom = "8px";
-      headline.innerText = "Send feedback";
-      panelContainer.appendChild(headline);
+      headerContainer.appendChild(closeButton);
 
       var contact = document.createElement("input");
       contact.type = "text";
@@ -331,6 +350,15 @@
         if (!valid) { return; }
         send.disabled = true;
         show("Sending...", statusStatePending);
+
+        if (widgetDemoModeEnabled) {
+          window.setTimeout(function(){
+            show("Demo mode: feedback not sent.", statusStateSuccess);
+            send.disabled = false;
+            schedulePanelAutoHide();
+          }, 200);
+          return;
+        }
 
         var payload = JSON.stringify({
           site_id: "{{ .SiteID }}",

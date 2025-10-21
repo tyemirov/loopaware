@@ -3,3 +3,7 @@
  - [x] [LA-80] `internal/httpapi/templates/dashboard.tmpl` — surface placement controls in the widget card and ensure payloads include them.
  - [x] [LA-80] `internal/httpapi/assets/widget.js` — render the bubble using stored placement values and adjust auto-hide timing for faster tests.
  - [x] [LA-80] Tests/docs — extend unit/integration coverage for placement behavior and update MIGRATION.md plus README if needed.
+ - [x] [LA-82] `internal/httpapi/example.go` — add example page handlers that render a template loading the widget with optional site selection.
+ - [x] [LA-82] `internal/httpapi/templates/example.tmpl` — provide Bootstrap-based demo markup with site ID form and script injection.
+ - [x] [LA-82] `cmd/server/main.go` — register `/example` route using the new handler.
+ - [x] [LA-82] `internal/httpapi/example_test.go` — add table-driven tests covering site ID rendering and empty state, ensuring correct content type.
