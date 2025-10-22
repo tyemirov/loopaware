@@ -99,6 +99,10 @@ const (
 	sessionTimeoutAutoLogoutMilliseconds      = 120000
 	widgetSnippetTextareaElementID            = "widget-snippet"
 	copyWidgetSnippetButtonElementID          = "copy-widget-snippet"
+	widgetTestButtonElementID                 = "widget-test-button"
+	dashboardWidgetTestButtonLabel            = "Test"
+	dashboardWidgetTestPathPrefix             = "/app/sites/"
+	dashboardWidgetTestPathSuffix             = "/widget-test"
 	widgetPlacementSideInputName              = "widget-bubble-side"
 	widgetPlacementSideLeftInputElementID     = "widget-placement-side-left"
 	widgetPlacementSideRightInputElementID    = "widget-placement-side-right"
@@ -307,6 +311,9 @@ type dashboardTemplateData struct {
 	StatusWidgetCopyFailed            string
 	WidgetSnippetTextareaID           string
 	CopyWidgetSnippetButtonID         string
+	WidgetTestButtonID                string
+	WidgetTestButtonLabel             string
+	WidgetTestButtonClass             string
 	CopyButtonCopied                  string
 	CopyButtonFailed                  string
 	CopyButtonDefaultLabel            string
@@ -317,6 +324,8 @@ type dashboardTemplateData struct {
 	WidgetPlacementRightLabel         string
 	WidgetPlacementBottomOffsetLabel  string
 	WidgetPlacementBottomOffsetHelp   string
+	WidgetTestPagePrefix              string
+	WidgetTestPageSuffix              string
 	SettingsButtonID                  string
 	SettingsButtonLabel               string
 	LogoutLabel                       string
@@ -558,6 +567,9 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		StatusWidgetCopyFailed:            dashboardStatusWidgetCopyFailed,
 		WidgetSnippetTextareaID:           widgetSnippetTextareaElementID,
 		CopyWidgetSnippetButtonID:         copyWidgetSnippetButtonElementID,
+		WidgetTestButtonID:                widgetTestButtonElementID,
+		WidgetTestButtonLabel:             dashboardWidgetTestButtonLabel,
+		WidgetTestButtonClass:             dashboardActionButtonSecondaryClass,
 		CopyButtonCopied:                  "Snippet copied.",
 		CopyButtonFailed:                  "Copy failed.",
 		CopyButtonDefaultLabel:            "Copy snippet",
@@ -568,6 +580,8 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		WidgetPlacementRightLabel:         dashboardWidgetPlacementRightLabel,
 		WidgetPlacementBottomOffsetLabel:  dashboardWidgetPlacementBottomOffsetLabel,
 		WidgetPlacementBottomOffsetHelp:   dashboardWidgetPlacementBottomOffsetHelp,
+		WidgetTestPagePrefix:              dashboardWidgetTestPathPrefix,
+		WidgetTestPageSuffix:              dashboardWidgetTestPathSuffix,
 		WidgetPlacementSideLeftID:         widgetPlacementSideLeftInputElementID,
 		WidgetPlacementSideRightID:        widgetPlacementSideRightInputElementID,
 		WidgetPlacementSideInputName:      widgetPlacementSideInputName,
@@ -652,9 +666,11 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"site_favicon_events":  "/api/sites/favicons/events",
 		},
 		Paths: map[string]string{
-			"logout":  constants.LogoutPath,
-			"login":   constants.LoginPath,
-			"landing": handlers.landingPath,
+			"logout":             constants.LogoutPath,
+			"login":              constants.LoginPath,
+			"landing":            handlers.landingPath,
+			"widget_test_prefix": dashboardWidgetTestPathPrefix,
+			"widget_test_suffix": dashboardWidgetTestPathSuffix,
 		},
 		ElementIDs: map[string]string{
 			"user_name":                      userNameElementID,
@@ -677,6 +693,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"logout_button":                  logoutButtonElementID,
 			"widget_snippet_textarea":        widgetSnippetTextareaElementID,
 			"copy_widget_snippet_button":     copyWidgetSnippetButtonElementID,
+			"widget_test_button":             widgetTestButtonElementID,
 			"settings_button":                settingsButtonElementID,
 			"settings_menu":                  settingsMenuElementID,
 			"settings_theme_toggle":          settingsThemeToggleElementID,

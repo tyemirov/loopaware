@@ -54,12 +54,21 @@
   var widgetCloseButtonHoverOpacityValue = "1";
   var widgetCloseButtonAriaLabel = "Close feedback panel";
   var widgetDemoModeFlagName = "LOOPAWARE_WIDGET_DEMO_MODE";
+  var widgetTestModeFlagName = "LOOPAWARE_WIDGET_TEST_MODE";
+  var widgetTestEndpointFlagName = "LOOPAWARE_WIDGET_TEST_ENDPOINT";
   var widgetDemoModeEnabled = false;
+  var widgetTestModeEnabled = false;
+  var widgetTestEndpointOverride = "";
   try {
     if (typeof window === "object" && window) {
       widgetDemoModeEnabled = Boolean(window[widgetDemoModeFlagName]);
+      widgetTestModeEnabled = Boolean(window[widgetTestModeFlagName]);
+      var testEndpointCandidate = window[widgetTestEndpointFlagName];
+      if (typeof testEndpointCandidate === "string" && testEndpointCandidate.trim().length > 0) {
+        widgetTestEndpointOverride = testEndpointCandidate;
+      }
     }
-  } catch(demoModeReadError){}
+  } catch(testModeReadError){}
   var widgetThemePalettes = {
     light: {
       bubbleBackground: "#0d6efd",
@@ -379,7 +388,9 @@
           }
         } catch(fetchError){}
 
-        fetch(endpoint, {
+        var targetEndpoint = widgetTestEndpointOverride || endpoint;
+
+        fetch(targetEndpoint, {
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: payload,

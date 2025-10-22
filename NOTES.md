@@ -193,3 +193,4 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
         ```
     - [x] [LA-64] add privacy to the sitemap
     - [x] [LA-82] Create a simple example page, which loads the widget.js for the ease of testing. So, when loopaware web service is running, there must be /example which will show a web page with the actual widget on it
+    - [ ] [LA-87] Call the binary loopaware, not feedbacksvc. Check eveywhere in the code and docs and ensure we use the term `LoopAware` for the product name or `loopaware` for the compiled version

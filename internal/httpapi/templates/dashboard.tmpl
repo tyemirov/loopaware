@@ -137,6 +137,7 @@
                   <h5 class="mb-0">{{.WidgetCardTitle}}</h5>
                   <div class="d-flex align-items-center gap-2">
                     <div id="{{.WidgetStatusID}}" class="d-none py-1 px-2 small"></div>
+                    <button id="{{.WidgetTestButtonID}}" type="button" class="{{.WidgetTestButtonClass}}">{{.WidgetTestButtonLabel}}</button>
                     <button id="{{.CopyWidgetSnippetButtonID}}" type="button" class="{{.CopyButtonDefaultClass}}">{{.CopyButtonDefaultLabel}}</button>
                   </div>
                 </div>
@@ -355,6 +356,9 @@
         var sessionTimeoutDismissButton = document.getElementById(elementIds.session_timeout_dismiss_button);
         var widgetSnippetTextarea = document.getElementById(elementIds.widget_snippet_textarea);
         var copyWidgetSnippetButton = document.getElementById(elementIds.copy_widget_snippet_button);
+        var widgetTestButton = document.getElementById(elementIds.widget_test_button);
+        var widgetTestPagePrefix = typeof sharedPaths.widget_test_prefix === 'string' ? sharedPaths.widget_test_prefix : '';
+        var widgetTestPageSuffix = typeof sharedPaths.widget_test_suffix === 'string' ? sharedPaths.widget_test_suffix : '';
         var widgetSideLeftOption = document.getElementById(elementIds.widget_side_left);
         var widgetSideRightOption = document.getElementById(elementIds.widget_side_right);
         var widgetBottomOffsetInput = document.getElementById(elementIds.widget_bottom_offset);
@@ -1251,6 +1255,22 @@
           }
         }
 
+        function disableWidgetTestButton() {
+          if (!widgetTestButton) {
+            return;
+          }
+          widgetTestButton.disabled = true;
+          widgetTestButton.dataset.siteId = '';
+        }
+
+        function enableWidgetTestButton(siteId) {
+          if (!widgetTestButton) {
+            return;
+          }
+          widgetTestButton.disabled = false;
+          widgetTestButton.dataset.siteId = siteId || '';
+        }
+
         function normalizeClassList(value) {
           if (typeof value !== 'string') {
             return [];
@@ -1452,16 +1472,19 @@
           if (!state.selectedSiteId || isNewSiteSelected()) {
             widgetSnippetTextarea.value = widgetUnavailableMessage;
             copyWidgetSnippetButton.disabled = true;
+            disableWidgetTestButton();
             return;
           }
           var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
           if (!site) {
             widgetSnippetTextarea.value = widgetUnavailableMessage;
             copyWidgetSnippetButton.disabled = true;
+            disableWidgetTestButton();
             return;
           }
           widgetSnippetTextarea.value = buildWidgetSnippet(site.id);
           copyWidgetSnippetButton.disabled = false;
+          enableWidgetTestButton(site.id);
         }
 
         function copyWidgetSnippet() {
@@ -2036,6 +2059,24 @@
           copyWidgetSnippetButton.addEventListener('click', function(event) {
             event.preventDefault();
             copyWidgetSnippet();
+          });
+        }
+
+        disableWidgetTestButton();
+        if (widgetTestButton) {
+          widgetTestButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            if (widgetTestButton.disabled) {
+              return;
+            }
+            var siteIdForTest = widgetTestButton.dataset.siteId || '';
+            if (!siteIdForTest) {
+              return;
+            }
+            var targetURL = (widgetTestPagePrefix || '') + siteIdForTest + (widgetTestPageSuffix || '');
+            if (targetURL) {
+              window.open(targetURL, '_blank', 'noopener');
+            }
           });
         }
         if (refreshMessagesButton) {
