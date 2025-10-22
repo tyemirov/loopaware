@@ -259,6 +259,25 @@
       message.style.boxSizing = boxSizingBorderBoxValue;
       panelContainer.appendChild(message);
 
+      function handleInputTabNavigation(event) {
+        if (event.key !== "Tab") {
+          return;
+        }
+        var focusedElement = event.target;
+        if (focusedElement !== contact && focusedElement !== message) {
+          return;
+        }
+        event.preventDefault();
+        if (focusedElement === contact) {
+          message.focus();
+        } else {
+          contact.focus();
+        }
+      }
+
+      contact.addEventListener("keydown", handleInputTabNavigation);
+      message.addEventListener("keydown", handleInputTabNavigation);
+
       var send = document.createElement("button");
       send.type = "button";
       send.innerText = "Send";
