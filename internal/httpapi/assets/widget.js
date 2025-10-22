@@ -50,6 +50,8 @@
   var widgetCloseButtonRightValue = "0px";
   var widgetCloseButtonWidthValue = "28px";
   var widgetCloseButtonHeightValue = "28px";
+  var widgetCloseButtonMarginLeftValue = "12px";
+  var widgetCloseButtonFlexShrinkValue = "0";
   var widgetCloseButtonOpacityValue = "0.6";
   var widgetCloseButtonHoverOpacityValue = "1";
   var widgetCloseButtonAriaLabel = "Close feedback panel";
@@ -212,9 +214,6 @@
       var closeButton = document.createElement("button");
       closeButton.type = "button";
       closeButton.innerText = widgetCloseButtonText;
-      closeButton.style.position = widgetCloseButtonPositionValue;
-      closeButton.style.top = widgetCloseButtonTopValue;
-      closeButton.style.right = widgetCloseButtonRightValue;
       closeButton.style.width = widgetCloseButtonWidthValue;
       closeButton.style.height = widgetCloseButtonHeightValue;
       closeButton.style.padding = widgetCloseButtonPaddingValue;
@@ -226,6 +225,8 @@
       closeButton.style.cursor = widgetCloseButtonCursorValue;
       closeButton.style.opacity = widgetCloseButtonOpacityValue;
       closeButton.style.boxSizing = boxSizingBorderBoxValue;
+      closeButton.style.marginLeft = widgetCloseButtonMarginLeftValue;
+      closeButton.style.flexShrink = widgetCloseButtonFlexShrinkValue;
       closeButton.setAttribute("aria-label", widgetCloseButtonAriaLabel);
       headerContainer.appendChild(closeButton);
 

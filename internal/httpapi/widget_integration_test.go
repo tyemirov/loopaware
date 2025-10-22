@@ -65,12 +65,14 @@ const (
 	widgetBrandingLinkExpectedHref         = "https://mprlab.com"
 	widgetCloseButtonSelector              = "#mp-feedback-panel button[aria-label='Close feedback panel']"
 	widgetCloseButtonExpectedText          = "×"
+	widgetHeadlineSelector                 = "#mp-feedback-headline"
 	customWidgetBubbleSide                 = "left"
 	customWidgetBottomOffsetPixels         = 32
 	widgetHorizontalOffsetPixels           = 16
 	widgetBubbleDiameterPixels             = 56
 	widgetPanelVerticalSpacingPixels       = 64
 	positionTolerancePixels                = 6.0
+	closeButtonAlignmentTolerancePixels    = 2.0
 )
 
 func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
@@ -310,6 +312,11 @@ func TestWidgetCloseButtonDismissesPanel(t *testing.T) {
 	require.Equal(t, panelDisplayBlockValue, panelDisplayBeforeClose)
 
 	closeButtonElement := waitForVisibleElement(t, page, widgetCloseButtonSelector)
+	headlineBounds := resolveViewportBounds(t, page, widgetHeadlineSelector)
+	closeButtonBounds := resolveViewportBounds(t, page, widgetCloseButtonSelector)
+	headlineCenter := headlineBounds.Top + (headlineBounds.Height / 2.0)
+	closeButtonCenter := closeButtonBounds.Top + (closeButtonBounds.Height / 2.0)
+	require.InDelta(t, headlineCenter, closeButtonCenter, closeButtonAlignmentTolerancePixels)
 	closeButtonText, closeButtonTextErr := closeButtonElement.Text()
 	require.NoError(t, closeButtonTextErr)
 	require.Equal(t, widgetCloseButtonExpectedText, strings.TrimSpace(closeButtonText))
