@@ -3,6 +3,7 @@
   var themeNameLight = "light";
   var themeNameDark = "dark";
   var themeAttributeName = "data-theme";
+  var bootstrapThemeAttributeName = "data-bs-theme";
   var themeClassNameLight = "light";
   var themeClassNameDark = "dark";
   var themeMediaQueryDark = "(prefers-color-scheme: dark)";
@@ -534,12 +535,26 @@
       if (!rootElement) {
         return null;
       }
-      var attributeValue = (rootElement.getAttribute(themeAttributeName) || "").toLowerCase();
-      if (attributeValue === themeNameDark) {
-        return themeNameDark;
+      var rootAttributeNames = [bootstrapThemeAttributeName, themeAttributeName];
+      for (var attributeIndex = 0; attributeIndex < rootAttributeNames.length; attributeIndex++) {
+        var attributeName = rootAttributeNames[attributeIndex];
+        var attributeValue = (rootElement.getAttribute(attributeName) || "").toLowerCase();
+        if (attributeValue === themeNameDark) {
+          return themeNameDark;
+        }
+        if (attributeValue === themeNameLight) {
+          return themeNameLight;
+        }
       }
-      if (attributeValue === themeNameLight) {
-        return themeNameLight;
+      var documentBodyElement = document.body;
+      if (documentBodyElement) {
+        var bodyThemeValue = (documentBodyElement.getAttribute(bootstrapThemeAttributeName) || "").toLowerCase();
+        if (bodyThemeValue === themeNameDark) {
+          return themeNameDark;
+        }
+        if (bodyThemeValue === themeNameLight) {
+          return themeNameLight;
+        }
       }
       if (rootElement.classList) {
         if (rootElement.classList.contains(themeClassNameDark)) {

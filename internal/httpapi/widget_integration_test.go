@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-rod/rod"
 	"github.com/stretchr/testify/require"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
@@ -82,14 +83,14 @@ const (
 		return document.activeElement === message && tabEvent.defaultPrevented;
 	})()`
 	widgetMessageTabsToContactScript = `(function(){
-		var contact = document.querySelector("#mp-feedback-panel input");
-		var message = document.querySelector("#mp-feedback-panel textarea");
-		if (!contact || !message) { return false; }
-		message.focus();
-		var tabEvent = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
-		message.dispatchEvent(tabEvent);
-		return document.activeElement === contact && tabEvent.defaultPrevented;
-	})()`
+                var contact = document.querySelector("#mp-feedback-panel input");
+                var message = document.querySelector("#mp-feedback-panel textarea");
+                if (!contact || !message) { return false; }
+                message.focus();
+                var tabEvent = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+                message.dispatchEvent(tabEvent);
+                return document.activeElement === contact && tabEvent.defaultPrevented;
+        })()`
 	customWidgetBubbleSide              = "left"
 	customWidgetBottomOffsetPixels      = 32
 	widgetHorizontalOffsetPixels        = 16
@@ -97,7 +98,29 @@ const (
 	widgetPanelVerticalSpacingPixels    = 64
 	positionTolerancePixels             = 6.0
 	closeButtonAlignmentTolerancePixels = 2.0
+	bootstrapThemeAttributeName         = "data-bs-theme"
+	bootstrapThemeLightValue            = "light"
+	bootstrapThemeDarkValue             = "dark"
 )
+
+func setBootstrapThemeAttribute(testingT *testing.T, page *rod.Page, themeValue string) {
+	testingT.Helper()
+
+	themeScript := fmt.Sprintf(`(function(){
+                var desiredThemeValue = %q;
+                var htmlElement = document.documentElement;
+                if (htmlElement) {
+                        htmlElement.removeAttribute("data-theme");
+                        htmlElement.setAttribute("%s", desiredThemeValue);
+                }
+                if (document.body) {
+                        document.body.setAttribute("%s", desiredThemeValue);
+                }
+                return true;
+        })()`, themeValue, bootstrapThemeAttributeName, bootstrapThemeAttributeName)
+
+	require.True(testingT, evaluateScriptBoolean(testingT, page, themeScript))
+}
 
 func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -331,14 +354,14 @@ func TestWidgetRespondsToThemeToggle(t *testing.T) {
 	navigateToPage(t, page, integrationPageURL)
 	waitForVisibleElement(t, page, widgetBubbleSelector)
 
-	require.True(t, evaluateScriptBoolean(t, page, `(function(){ document.documentElement.setAttribute("data-theme","light"); return true; })()`))
+	setBootstrapThemeAttribute(t, page, bootstrapThemeLightValue)
 
 	require.Eventually(t, func() bool {
 		lightBubbleColor := evaluateScriptString(t, page, `window.getComputedStyle(document.getElementById("mp-feedback-bubble")).backgroundColor`)
 		return lightBubbleColor == lightThemeExpectedBubbleBackgroundColor
 	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
 
-	require.True(t, evaluateScriptBoolean(t, page, `(function(){ document.documentElement.setAttribute("data-theme","dark"); return true; })()`))
+	setBootstrapThemeAttribute(t, page, bootstrapThemeDarkValue)
 
 	require.Eventually(t, func() bool {
 		darkBubbleColor := evaluateScriptString(t, page, `window.getComputedStyle(document.getElementById("mp-feedback-bubble")).backgroundColor`)
@@ -363,7 +386,7 @@ func TestWidgetRespondsToThemeToggle(t *testing.T) {
 		return darkButtonColor == darkThemeExpectedButtonBackgroundColor
 	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
 
-	require.True(t, evaluateScriptBoolean(t, page, `(function(){ document.documentElement.setAttribute("data-theme","light"); return true; })()`))
+	setBootstrapThemeAttribute(t, page, bootstrapThemeLightValue)
 
 	require.Eventually(t, func() bool {
 		lightBubbleColor := evaluateScriptString(t, page, `window.getComputedStyle(document.getElementById("mp-feedback-bubble")).backgroundColor`)
