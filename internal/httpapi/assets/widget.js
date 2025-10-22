@@ -33,11 +33,14 @@
   var widgetBrandingLineHeightValue = "1.2";
   var widgetBrandingLinkColorValue = "#b8860b";
   var widgetBrandingStaticText = "Built by ";
-  var widgetHeaderContainerDisplayValue = "block";
-  var widgetHeaderContainerPositionValue = "relative";
-  var widgetHeaderContainerMarginBottomValue = "12px";
-  var widgetHeaderPaddingRightValue = "48px";
-  var widgetHeaderTitleMarginBottomValue = "8px";
+  var widgetHeaderContainerDisplayValue = "flex";
+  var widgetHeaderContainerAlignItemsValue = "center";
+  var widgetHeaderContainerJustifyContentValue = "space-between";
+  var widgetHeaderContainerGapValue = "12px";
+  var widgetHeaderContainerMarginBottomValue = "8px";
+  var widgetHeadlineElementID = "mp-feedback-headline";
+  var widgetHeadlineFontWeightValue = "600";
+  var widgetHeadlineFlexGrowValue = "1";
   var widgetCloseButtonText = "×";
   var widgetCloseButtonFontSizeValue = "24px";
   var widgetCloseButtonLineHeightValue = "1";
@@ -45,9 +48,6 @@
   var widgetCloseButtonPaddingValue = "0";
   var widgetCloseButtonBorderValue = "none";
   var widgetCloseButtonBackgroundValue = "transparent";
-  var widgetCloseButtonPositionValue = "absolute";
-  var widgetCloseButtonTopValue = "0px";
-  var widgetCloseButtonRightValue = "0px";
   var widgetCloseButtonWidthValue = "28px";
   var widgetCloseButtonHeightValue = "28px";
   var widgetCloseButtonMarginLeftValue = "12px";
@@ -200,14 +200,16 @@
 
       var headerContainer = document.createElement("div");
       headerContainer.style.display = widgetHeaderContainerDisplayValue;
-      headerContainer.style.position = widgetHeaderContainerPositionValue;
+      headerContainer.style.alignItems = widgetHeaderContainerAlignItemsValue;
+      headerContainer.style.justifyContent = widgetHeaderContainerJustifyContentValue;
+      headerContainer.style.gap = widgetHeaderContainerGapValue;
       headerContainer.style.marginBottom = widgetHeaderContainerMarginBottomValue;
-      headerContainer.style.paddingRight = widgetHeaderPaddingRightValue;
       panelContainer.appendChild(headerContainer);
 
       var headline = document.createElement("div");
-      headline.style.fontWeight = "600";
-      headline.style.marginBottom = widgetHeaderTitleMarginBottomValue;
+      headline.id = widgetHeadlineElementID;
+      headline.style.fontWeight = widgetHeadlineFontWeightValue;
+      headline.style.flexGrow = widgetHeadlineFlexGrowValue;
       headline.innerText = widgetDemoModeEnabled ? "Example widget" : "Send feedback";
       headerContainer.appendChild(headline);
 
@@ -302,6 +304,12 @@
 
       bodyElement.appendChild(panel);
 
+      function focusContactInput() {
+        try {
+          contact.focus();
+        } catch(focusError){}
+      }
+
       function cancelPanelAutoHide() {
         if (panelAutoHideTimer) {
           window.clearTimeout(panelAutoHideTimer);
@@ -332,7 +340,11 @@
 
       bubble.addEventListener("click", function(){
         cancelPanelAutoHide();
-        panel.style.display = (panel.style.display === panelDisplayNoneValue ? panelDisplayBlockValue : panelDisplayNoneValue);
+        var panelShouldShow = panel.style.display === panelDisplayNoneValue;
+        panel.style.display = (panelShouldShow ? panelDisplayBlockValue : panelDisplayNoneValue);
+        if (panelShouldShow) {
+          focusContactInput();
+        }
       });
 
       function show(messageText, statusState) {
