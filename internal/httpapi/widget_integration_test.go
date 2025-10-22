@@ -67,13 +67,38 @@ const (
 	widgetCloseButtonExpectedText          = "×"
 	widgetHeadlineSelector                 = "#mp-feedback-headline"
 	widgetContactFocusScript               = `document.activeElement === document.querySelector("#mp-feedback-panel input")`
-	customWidgetBubbleSide                 = "left"
-	customWidgetBottomOffsetPixels         = 32
-	widgetHorizontalOffsetPixels           = 16
-	widgetBubbleDiameterPixels             = 56
-	widgetPanelVerticalSpacingPixels       = 64
-	positionTolerancePixels                = 6.0
-	closeButtonAlignmentTolerancePixels    = 2.0
+	widgetContactTabNotPreventedScript     = `(function(){
+                var contact = document.querySelector("#mp-feedback-panel input");
+                if (!contact) { return false; }
+                contact.focus();
+                var tabEvent = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+                contact.dispatchEvent(tabEvent);
+                return !tabEvent.defaultPrevented;
+        })()`
+	widgetMessageTabNotPreventedScript = `(function(){
+                var message = document.querySelector("#mp-feedback-panel textarea");
+                if (!message) { return false; }
+                message.focus();
+                var tabEvent = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+                message.dispatchEvent(tabEvent);
+                return !tabEvent.defaultPrevented;
+        })()`
+	widgetMessageShiftTabReturnsToContactScript = `(function(){
+                var contact = document.querySelector("#mp-feedback-panel input");
+                var message = document.querySelector("#mp-feedback-panel textarea");
+                if (!contact || !message) { return false; }
+                message.focus();
+                var shiftTabEvent = new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true });
+                message.dispatchEvent(shiftTabEvent);
+                return document.activeElement === contact && shiftTabEvent.defaultPrevented;
+        })()`
+	customWidgetBubbleSide              = "left"
+	customWidgetBottomOffsetPixels      = 32
+	widgetHorizontalOffsetPixels        = 16
+	widgetBubbleDiameterPixels          = 56
+	widgetPanelVerticalSpacingPixels    = 64
+	positionTolerancePixels             = 6.0
+	closeButtonAlignmentTolerancePixels = 2.0
 )
 
 func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
@@ -119,6 +144,9 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	clickSelector(t, page, widgetBubbleSelector)
 	waitForVisibleElement(t, page, widgetPanelSelector)
 	require.True(t, evaluateScriptBoolean(t, page, widgetContactFocusScript))
+	require.True(t, evaluateScriptBoolean(t, page, widgetContactTabNotPreventedScript))
+	require.True(t, evaluateScriptBoolean(t, page, widgetMessageTabNotPreventedScript))
+	require.True(t, evaluateScriptBoolean(t, page, widgetMessageShiftTabReturnsToContactScript))
 
 	panelBounds := resolveViewportBounds(t, page, widgetPanelSelector)
 	require.InDelta(t, expectedBubbleLeft, panelBounds.Left, positionTolerancePixels)

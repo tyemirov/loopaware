@@ -259,6 +259,22 @@
       message.style.boxSizing = boxSizingBorderBoxValue;
       panelContainer.appendChild(message);
 
+      function handleMessageShiftTabNavigation(event) {
+        if (event.key !== "Tab") {
+          return;
+        }
+        if (!event.shiftKey) {
+          return;
+        }
+        if (event.target !== message) {
+          return;
+        }
+        event.preventDefault();
+        contact.focus();
+      }
+
+      message.addEventListener("keydown", handleMessageShiftTabNavigation);
+
       var send = document.createElement("button");
       send.type = "button";
       send.innerText = "Send";
