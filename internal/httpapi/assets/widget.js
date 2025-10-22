@@ -135,6 +135,7 @@
 
       var bodyElement = document.body;
       var themePalette = selectThemePalette(bodyElement);
+      var currentStatusState = statusStatePending;
 
       var resolvedBubbleSide = (widgetPlacementSideValue || "").toLowerCase() === "left" ? "left" : "right";
       var resolvedBottomOffset = Number(widgetPlacementBottomOffsetValue);
@@ -157,14 +158,11 @@
       bubble.style.width = "56px";
       bubble.style.height = "56px";
       bubble.style.borderRadius = "28px";
-      bubble.style.boxShadow = themePalette.bubbleShadow;
-      bubble.style.background = themePalette.bubbleBackground;
       bubble.style.cursor = "pointer";
       bubble.style.display = "flex";
       bubble.style.alignItems = "center";
       bubble.style.justifyContent = "center";
       bubble.style.zIndex = "2147483647";
-      bubble.style.color = themePalette.bubbleTextColor;
       bubble.style.fontSize = "28px";
       bubble.style.userSelect = "none";
       bubble.setAttribute("aria-label","Send feedback");
@@ -184,15 +182,11 @@
       panel.style.bottom = panelBottomOffset + "px";
       panel.style.width = "320px";
       panel.style.maxWidth = "92vw";
-      panel.style.background = themePalette.panelBackground;
-      panel.style.border = themePalette.panelBorder;
-      panel.style.boxShadow = themePalette.panelShadow;
       panel.style.borderRadius = "12px";
       panel.style.padding = "12px";
       panel.style.fontFamily = "system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif";
       panel.style.display = panelDisplayNoneValue;
       panel.style.zIndex = "2147483647";
-      panel.style.color = themePalette.panelTextColor;
 
       var panelContainer = document.createElement("div");
       panelContainer.style.position = "relative";
@@ -221,7 +215,6 @@
       closeButton.style.padding = widgetCloseButtonPaddingValue;
       closeButton.style.border = widgetCloseButtonBorderValue;
       closeButton.style.background = widgetCloseButtonBackgroundValue;
-      closeButton.style.color = themePalette.closeButtonColor;
       closeButton.style.fontSize = widgetCloseButtonFontSizeValue;
       closeButton.style.lineHeight = widgetCloseButtonLineHeightValue;
       closeButton.style.cursor = widgetCloseButtonCursorValue;
@@ -239,10 +232,7 @@
       contact.style.width = "100%";
       contact.style.margin = "6px 0";
       contact.style.padding = "10px";
-      contact.style.border = themePalette.inputBorder;
       contact.style.borderRadius = "8px";
-      contact.style.background = themePalette.inputBackground;
-      contact.style.color = themePalette.inputTextColor;
       contact.style.boxSizing = boxSizingBorderBoxValue;
       panelContainer.appendChild(contact);
 
@@ -252,10 +242,7 @@
       message.style.width = "100%";
       message.style.margin = "6px 0 8px";
       message.style.padding = "10px";
-      message.style.border = themePalette.inputBorder;
       message.style.borderRadius = "8px";
-      message.style.background = themePalette.inputBackground;
-      message.style.color = themePalette.inputTextColor;
       message.style.boxSizing = boxSizingBorderBoxValue;
       panelContainer.appendChild(message);
 
@@ -285,8 +272,6 @@
       send.style.padding = "10px 12px";
       send.style.border = "0";
       send.style.borderRadius = "8px";
-      send.style.background = themePalette.buttonBackground;
-      send.style.color = themePalette.buttonTextColor;
       send.style.fontWeight = "600";
       send.style.cursor = "pointer";
       send.style.boxSizing = boxSizingBorderBoxValue;
@@ -296,7 +281,6 @@
       status.style.marginTop = "6px";
       status.style.fontSize = "12px";
       status.style.minHeight = "16px";
-      status.style.color = themePalette.statusPendingColor;
       panelContainer.appendChild(status);
 
       var brandingContainer = document.createElement("div");
@@ -322,6 +306,75 @@
       panelContainer.appendChild(brandingContainer);
 
       bodyElement.appendChild(panel);
+
+      function selectStatusColor(palette, statusState) {
+        if (statusState === statusStateSuccess) {
+          return palette.statusPositiveColor;
+        }
+        if (statusState === statusStatePending) {
+          return palette.statusPendingColor;
+        }
+        return palette.statusNegativeColor;
+      }
+
+      function applyThemePaletteToElements(palette) {
+        bubble.style.boxShadow = palette.bubbleShadow;
+        bubble.style.background = palette.bubbleBackground;
+        bubble.style.color = palette.bubbleTextColor;
+        panel.style.background = palette.panelBackground;
+        panel.style.border = palette.panelBorder;
+        panel.style.boxShadow = palette.panelShadow;
+        panel.style.color = palette.panelTextColor;
+        contact.style.border = palette.inputBorder;
+        contact.style.background = palette.inputBackground;
+        contact.style.color = palette.inputTextColor;
+        message.style.border = palette.inputBorder;
+        message.style.background = palette.inputBackground;
+        message.style.color = palette.inputTextColor;
+        send.style.background = palette.buttonBackground;
+        send.style.color = palette.buttonTextColor;
+        closeButton.style.color = palette.closeButtonColor;
+        status.style.color = selectStatusColor(palette, currentStatusState);
+      }
+
+      function refreshThemePalette() {
+        var updatedPalette = selectThemePalette(bodyElement);
+        if (updatedPalette === themePalette) {
+          return;
+        }
+        themePalette = updatedPalette;
+        applyThemePaletteToElements(themePalette);
+      }
+
+      function monitorThemeChanges() {
+        if (typeof MutationObserver === "function") {
+          try {
+            var themeObserver = new MutationObserver(function(){
+              refreshThemePalette();
+            });
+            themeObserver.observe(document.documentElement, {attributes: true, attributeFilter: ["class", "data-theme", "style"]});
+            if (document.body) {
+              themeObserver.observe(document.body, {attributes: true, attributeFilter: ["class", "style"]});
+            }
+          } catch(themeObserverError){}
+        }
+        if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+          try {
+            var themeMediaQueryList = window.matchMedia(themeMediaQueryDark);
+            var handleThemeMediaChange = function(){
+              refreshThemePalette();
+            };
+            if (typeof themeMediaQueryList.addEventListener === "function") {
+              themeMediaQueryList.addEventListener("change", handleThemeMediaChange);
+            } else if (typeof themeMediaQueryList.addListener === "function") {
+              themeMediaQueryList.addListener(handleThemeMediaChange);
+            }
+          } catch(mediaQueryObserverError){}
+        }
+      }
+
+      applyThemePaletteToElements(themePalette);
+      monitorThemeChanges();
 
       function focusContactInput() {
         try {
@@ -367,14 +420,13 @@
       });
 
       function show(messageText, statusState) {
-        status.innerText = messageText;
-        var statusColor = themePalette.statusNegativeColor;
-        if (statusState === statusStateSuccess) {
-          statusColor = themePalette.statusPositiveColor;
-        } else if (statusState === statusStatePending) {
-          statusColor = themePalette.statusPendingColor;
+        var resolvedStatusState = statusState;
+        if (!resolvedStatusState) {
+          resolvedStatusState = statusStateError;
         }
-        status.style.color = statusColor;
+        currentStatusState = resolvedStatusState;
+        status.innerText = messageText;
+        status.style.color = selectStatusColor(themePalette, currentStatusState);
       }
 
       function validate() {

@@ -49,25 +49,30 @@ const (
 		}
 		return "";
 	})()`
-	widgetPanelHiddenDisplayValue          = "none"
-	panelDisplayBlockValue                 = "block"
-	widgetPanelDisplayScript               = "document.getElementById(\"mp-feedback-panel\").style.display"
-	panelInputRelativeSelector             = "input"
-	panelMessageRelativeSelector           = "textarea"
-	panelButtonRelativeSelector            = "button"
-	darkThemeExpectedBubbleBackgroundColor = "rgb(77, 171, 247)"
-	darkThemeExpectedBubbleTextColor       = "rgb(11, 21, 38)"
-	darkThemeExpectedPanelBackgroundColor  = "rgb(31, 41, 55)"
-	darkThemeExpectedInputBackgroundColor  = "rgb(17, 24, 39)"
-	darkThemeExpectedButtonBackgroundColor = "rgb(37, 99, 235)"
-	widgetBrandingLinkExpectedText         = "Marco Polo Research Lab"
-	widgetBrandingContainerExpectedText    = "Built by Marco Polo Research Lab"
-	widgetBrandingLinkExpectedHref         = "https://mprlab.com"
-	widgetCloseButtonSelector              = "#mp-feedback-panel button[aria-label='Close feedback panel']"
-	widgetCloseButtonExpectedText          = "×"
-	widgetHeadlineSelector                 = "#mp-feedback-headline"
-	widgetContactFocusScript               = `document.activeElement === document.querySelector("#mp-feedback-panel input")`
-	widgetContactTabsToMessageScript       = `(function(){
+	widgetPanelHiddenDisplayValue           = "none"
+	panelDisplayBlockValue                  = "block"
+	widgetPanelDisplayScript                = "document.getElementById(\"mp-feedback-panel\").style.display"
+	panelInputRelativeSelector              = "input"
+	panelMessageRelativeSelector            = "textarea"
+	panelButtonRelativeSelector             = "button"
+	lightThemeExpectedBubbleBackgroundColor = "rgb(13, 110, 253)"
+	lightThemeExpectedBubbleTextColor       = "rgb(255, 255, 255)"
+	lightThemeExpectedPanelBackgroundColor  = "rgb(255, 255, 255)"
+	lightThemeExpectedInputBackgroundColor  = "rgb(255, 255, 255)"
+	lightThemeExpectedButtonBackgroundColor = "rgb(13, 110, 253)"
+	darkThemeExpectedBubbleBackgroundColor  = "rgb(77, 171, 247)"
+	darkThemeExpectedBubbleTextColor        = "rgb(11, 21, 38)"
+	darkThemeExpectedPanelBackgroundColor   = "rgb(31, 41, 55)"
+	darkThemeExpectedInputBackgroundColor   = "rgb(17, 24, 39)"
+	darkThemeExpectedButtonBackgroundColor  = "rgb(37, 99, 235)"
+	widgetBrandingLinkExpectedText          = "Marco Polo Research Lab"
+	widgetBrandingContainerExpectedText     = "Built by Marco Polo Research Lab"
+	widgetBrandingLinkExpectedHref          = "https://mprlab.com"
+	widgetCloseButtonSelector               = "#mp-feedback-panel button[aria-label='Close feedback panel']"
+	widgetCloseButtonExpectedText           = "×"
+	widgetHeadlineSelector                  = "#mp-feedback-headline"
+	widgetContactFocusScript                = `document.activeElement === document.querySelector("#mp-feedback-panel input")`
+	widgetContactTabsToMessageScript        = `(function(){
 		var contact = document.querySelector("#mp-feedback-panel input");
 		var message = document.querySelector("#mp-feedback-panel textarea");
 		if (!contact || !message) { return false; }
@@ -302,6 +307,83 @@ func TestWidgetAppliesDarkThemeStyles(t *testing.T) {
 	require.Equal(t, darkThemeExpectedPanelBackgroundColor, panelBackgroundColor)
 	require.Equal(t, darkThemeExpectedInputBackgroundColor, inputBackgroundColor)
 	require.Equal(t, darkThemeExpectedButtonBackgroundColor, buttonBackgroundColor)
+}
+
+func TestWidgetRespondsToThemeToggle(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	page := buildHeadlessPage(t)
+
+	apiHarness := buildAPIHarness(t)
+
+	server := httptest.NewServer(apiHarness.router)
+	t.Cleanup(server.Close)
+
+	site := insertSite(t, apiHarness.database, integrationSiteName, server.URL, integrationSiteOwnerEmail)
+
+	integrationPageHTML := fmt.Sprintf(integrationPageHTMLTemplate, site.ID)
+	apiHarness.router.GET(integrationPageRoutePath, func(ginContext *gin.Context) {
+		ginContext.Data(http.StatusOK, integrationPageContentType, []byte(integrationPageHTML))
+	})
+
+	integrationPageURL := server.URL + integrationPageRoutePath
+
+	navigateToPage(t, page, integrationPageURL)
+	waitForVisibleElement(t, page, widgetBubbleSelector)
+
+	require.True(t, evaluateScriptBoolean(t, page, `(function(){ document.documentElement.setAttribute("data-theme","light"); return true; })()`))
+
+	require.Eventually(t, func() bool {
+		lightBubbleColor := evaluateScriptString(t, page, `window.getComputedStyle(document.getElementById("mp-feedback-bubble")).backgroundColor`)
+		return lightBubbleColor == lightThemeExpectedBubbleBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	require.True(t, evaluateScriptBoolean(t, page, `(function(){ document.documentElement.setAttribute("data-theme","dark"); return true; })()`))
+
+	require.Eventually(t, func() bool {
+		darkBubbleColor := evaluateScriptString(t, page, `window.getComputedStyle(document.getElementById("mp-feedback-bubble")).backgroundColor`)
+		return darkBubbleColor == darkThemeExpectedBubbleBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	clickSelector(t, page, widgetBubbleSelector)
+	waitForVisibleElement(t, page, widgetPanelSelector)
+
+	require.Eventually(t, func() bool {
+		darkPanelColor := evaluateScriptString(t, page, `window.getComputedStyle(document.getElementById("mp-feedback-panel")).backgroundColor`)
+		return darkPanelColor == darkThemeExpectedPanelBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	require.Eventually(t, func() bool {
+		darkInputColor := evaluateScriptString(t, page, `window.getComputedStyle(document.querySelector("#mp-feedback-panel textarea")).backgroundColor`)
+		return darkInputColor == darkThemeExpectedInputBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	require.Eventually(t, func() bool {
+		darkButtonColor := evaluateScriptString(t, page, `window.getComputedStyle(document.querySelector("#mp-feedback-panel button[type='button']:not([aria-label='Close feedback panel'])")).backgroundColor`)
+		return darkButtonColor == darkThemeExpectedButtonBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	require.True(t, evaluateScriptBoolean(t, page, `(function(){ document.documentElement.setAttribute("data-theme","light"); return true; })()`))
+
+	require.Eventually(t, func() bool {
+		lightBubbleColor := evaluateScriptString(t, page, `window.getComputedStyle(document.getElementById("mp-feedback-bubble")).backgroundColor`)
+		return lightBubbleColor == lightThemeExpectedBubbleBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	require.Eventually(t, func() bool {
+		lightPanelColor := evaluateScriptString(t, page, `window.getComputedStyle(document.getElementById("mp-feedback-panel")).backgroundColor`)
+		return lightPanelColor == lightThemeExpectedPanelBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	require.Eventually(t, func() bool {
+		lightInputColor := evaluateScriptString(t, page, `window.getComputedStyle(document.querySelector("#mp-feedback-panel textarea")).backgroundColor`)
+		return lightInputColor == lightThemeExpectedInputBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	require.Eventually(t, func() bool {
+		lightButtonColor := evaluateScriptString(t, page, `window.getComputedStyle(document.querySelector("#mp-feedback-panel button[type='button']:not([aria-label='Close feedback panel'])")).backgroundColor`)
+		return lightButtonColor == lightThemeExpectedButtonBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
 }
 
 func TestWidgetCloseButtonDismissesPanel(t *testing.T) {
