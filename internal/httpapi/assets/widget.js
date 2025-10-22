@@ -352,9 +352,9 @@
             var themeObserver = new MutationObserver(function(){
               refreshThemePalette();
             });
-            themeObserver.observe(document.documentElement, {attributes: true, attributeFilter: ["class", "data-theme", "style"]});
+            themeObserver.observe(document.documentElement, {attributes: true, attributeFilter: ["class", "data-theme", "data-bs-theme", "style"]});
             if (document.body) {
-              themeObserver.observe(document.body, {attributes: true, attributeFilter: ["class", "style"]});
+              themeObserver.observe(document.body, {attributes: true, attributeFilter: ["class", "data-bs-theme", "style"]});
             }
           } catch(themeObserverError){}
         }
