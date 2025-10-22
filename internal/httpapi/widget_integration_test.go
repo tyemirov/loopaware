@@ -66,6 +66,7 @@ const (
 	widgetCloseButtonSelector              = "#mp-feedback-panel button[aria-label='Close feedback panel']"
 	widgetCloseButtonExpectedText          = "×"
 	widgetHeadlineSelector                 = "#mp-feedback-headline"
+	widgetContactFocusScript               = `document.activeElement === document.querySelector("#mp-feedback-panel input")`
 	customWidgetBubbleSide                 = "left"
 	customWidgetBottomOffsetPixels         = 32
 	widgetHorizontalOffsetPixels           = 16
@@ -117,6 +118,7 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 
 	clickSelector(t, page, widgetBubbleSelector)
 	waitForVisibleElement(t, page, widgetPanelSelector)
+	require.True(t, evaluateScriptBoolean(t, page, widgetContactFocusScript))
 
 	panelBounds := resolveViewportBounds(t, page, widgetPanelSelector)
 	require.InDelta(t, expectedBubbleLeft, panelBounds.Left, positionTolerancePixels)

@@ -55,6 +55,22 @@
   var widgetCloseButtonOpacityValue = "0.6";
   var widgetCloseButtonHoverOpacityValue = "1";
   var widgetCloseButtonAriaLabel = "Close feedback panel";
+  var widgetDemoModeFlagName = "LOOPAWARE_WIDGET_DEMO_MODE";
+  var widgetTestModeFlagName = "LOOPAWARE_WIDGET_TEST_MODE";
+  var widgetTestEndpointFlagName = "LOOPAWARE_WIDGET_TEST_ENDPOINT";
+  var widgetDemoModeEnabled = false;
+  var widgetTestModeEnabled = false;
+  var widgetTestEndpointOverride = "";
+  try {
+    if (typeof window === "object" && window) {
+      widgetDemoModeEnabled = Boolean(window[widgetDemoModeFlagName]);
+      widgetTestModeEnabled = Boolean(window[widgetTestModeFlagName]);
+      var testEndpointCandidate = window[widgetTestEndpointFlagName];
+      if (typeof testEndpointCandidate === "string" && testEndpointCandidate.trim().length > 0) {
+        widgetTestEndpointOverride = testEndpointCandidate;
+      }
+    }
+  } catch(testModeReadError){}
   var widgetThemePalettes = {
     light: {
       bubbleBackground: "#0d6efd",
@@ -194,7 +210,7 @@
       headline.id = widgetHeadlineElementID;
       headline.style.fontWeight = widgetHeadlineFontWeightValue;
       headline.style.flexGrow = widgetHeadlineFlexGrowValue;
-      headline.innerText = "Send feedback";
+      headline.innerText = widgetDemoModeEnabled ? "Example widget" : "Send feedback";
       headerContainer.appendChild(headline);
 
       var closeButton = document.createElement("button");
@@ -288,6 +304,12 @@
 
       bodyElement.appendChild(panel);
 
+      function focusContactInput() {
+        try {
+          contact.focus();
+        } catch(focusError){}
+      }
+
       function cancelPanelAutoHide() {
         if (panelAutoHideTimer) {
           window.clearTimeout(panelAutoHideTimer);
@@ -318,7 +340,11 @@
 
       bubble.addEventListener("click", function(){
         cancelPanelAutoHide();
-        panel.style.display = (panel.style.display === panelDisplayNoneValue ? panelDisplayBlockValue : panelDisplayNoneValue);
+        var panelShouldShow = panel.style.display === panelDisplayNoneValue;
+        panel.style.display = (panelShouldShow ? panelDisplayBlockValue : panelDisplayNoneValue);
+        if (panelShouldShow) {
+          focusContactInput();
+        }
       });
 
       function show(messageText, statusState) {
@@ -347,6 +373,15 @@
         send.disabled = true;
         show("Sending...", statusStatePending);
 
+        if (widgetDemoModeEnabled) {
+          window.setTimeout(function(){
+            show("Demo mode: feedback not sent.", statusStateSuccess);
+            send.disabled = false;
+            schedulePanelAutoHide();
+          }, 200);
+          return;
+        }
+
         var payload = JSON.stringify({
           site_id: "{{ .SiteID }}",
           contact: valid.contact,
@@ -366,7 +401,9 @@
           }
         } catch(fetchError){}
 
-        fetch(endpoint, {
+        var targetEndpoint = widgetTestEndpointOverride || endpoint;
+
+        fetch(targetEndpoint, {
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: payload,

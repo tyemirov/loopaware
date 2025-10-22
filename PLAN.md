@@ -3,5 +3,11 @@
  - [x] [LA-80] `internal/httpapi/templates/dashboard.tmpl` — surface placement controls in the widget card and ensure payloads include them.
  - [x] [LA-80] `internal/httpapi/assets/widget.js` — render the bubble using stored placement values and adjust auto-hide timing for faster tests.
  - [x] [LA-80] Tests/docs — extend unit/integration coverage for placement behavior and update MIGRATION.md plus README if needed.
- - [x] [LA-81] `internal/httpapi/assets/widget.js` — create a shared header container and flex alignment so the close button vertical center stays level with the "Send feedback" text.
- - [x] [LA-81] `internal/httpapi/widget_integration_test.go` — measure headline versus close button bounds and fail if their vertical centers diverge beyond the visual tolerance.
+ - [x] [LA-82] `internal/httpapi/example.go` — add example page handlers that render a template loading the widget with optional site selection.
+ - [x] [LA-82] `internal/httpapi/templates/example.tmpl` — provide Bootstrap-based demo markup with site ID form and script injection.
+ - [x] [LA-82] `cmd/server/main.go` — register `/example` route using the new handler.
+ - [x] [LA-82] `internal/httpapi/example_test.go` — add table-driven tests covering site ID rendering and empty state, ensuring correct content type.
+ - [x] [LA-83] `internal/httpapi/templates/dashboard.tmpl` — add a `Test` control next to the widget snippet actions that opens the widget test page for the selected site.
+ - [x] [LA-83] `internal/httpapi/site_widget_test_handlers.go` — serve `/app/sites/:id/widget-test` with theme toggle, placement-aware widget embedding, and optional feedback proxy for the widget test flow.
+ - [x] [LA-83] `internal/httpapi/assets/widget.js` — honor a test-mode endpoint override and ensure the close control stays anchored in both demo and test modes.
+ - [x] [LA-83] Tests — expand coverage so widget test page loads, theme toggle switches, and feedback submission reaches the target site.
