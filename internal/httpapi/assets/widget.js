@@ -259,24 +259,21 @@
       message.style.boxSizing = boxSizingBorderBoxValue;
       panelContainer.appendChild(message);
 
-      function handleInputTabNavigation(event) {
+      function handleMessageShiftTabNavigation(event) {
         if (event.key !== "Tab") {
           return;
         }
-        var focusedElement = event.target;
-        if (focusedElement !== contact && focusedElement !== message) {
+        if (!event.shiftKey) {
+          return;
+        }
+        if (event.target !== message) {
           return;
         }
         event.preventDefault();
-        if (focusedElement === contact) {
-          message.focus();
-        } else {
-          contact.focus();
-        }
+        contact.focus();
       }
 
-      contact.addEventListener("keydown", handleInputTabNavigation);
-      message.addEventListener("keydown", handleInputTabNavigation);
+      message.addEventListener("keydown", handleMessageShiftTabNavigation);
 
       var send = document.createElement("button");
       send.type = "button";
