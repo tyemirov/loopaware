@@ -252,14 +252,14 @@
           return;
         }
         var focusedElement = event.target;
-        if (focusedElement !== contact && focusedElement !== message) {
+        if (focusedElement === contact) {
+          event.preventDefault();
+          focusInputElement(message);
           return;
         }
-        event.preventDefault();
-        if (focusedElement === contact) {
-          message.focus();
-        } else {
-          contact.focus();
+        if (focusedElement === message) {
+          event.preventDefault();
+          focusInputElement(contact);
         }
       }
 
@@ -307,6 +307,31 @@
       panelContainer.appendChild(brandingContainer);
 
       bodyElement.appendChild(panel);
+
+      function focusInputElement(targetElement) {
+        if (!targetElement || typeof targetElement.focus !== "function") {
+          return;
+        }
+        try {
+          targetElement.focus();
+        } catch(focusImmediateError){}
+        if (typeof window === "undefined") {
+          return;
+        }
+        if (typeof window.requestAnimationFrame === "function") {
+          window.requestAnimationFrame(function(){
+            try {
+              targetElement.focus();
+            } catch(focusAnimationFrameError){}
+          });
+          return;
+        }
+        window.setTimeout(function(){
+          try {
+            targetElement.focus();
+          } catch(focusTimeoutError){}
+        }, 0);
+      }
 
       function selectStatusColor(palette, statusState) {
         if (statusState === statusStateSuccess) {
@@ -378,9 +403,7 @@
       monitorThemeChanges();
 
       function focusContactInput() {
-        try {
-          contact.focus();
-        } catch(focusError){}
+        focusInputElement(contact);
       }
 
       function cancelPanelAutoHide() {
@@ -531,41 +554,52 @@
 
   function detectExplicitTheme() {
     try {
-      var rootElement = document.documentElement;
-      if (!rootElement) {
-        return null;
+      var rootTheme = resolveThemeFromElement(document.documentElement);
+      if (rootTheme) {
+        return rootTheme;
       }
-      var rootAttributeNames = [bootstrapThemeAttributeName, themeAttributeName];
-      for (var attributeIndex = 0; attributeIndex < rootAttributeNames.length; attributeIndex++) {
-        var attributeName = rootAttributeNames[attributeIndex];
-        var attributeValue = (rootElement.getAttribute(attributeName) || "").toLowerCase();
-        if (attributeValue === themeNameDark) {
-          return themeNameDark;
-        }
-        if (attributeValue === themeNameLight) {
-          return themeNameLight;
-        }
-      }
-      var documentBodyElement = document.body;
-      if (documentBodyElement) {
-        var bodyThemeValue = (documentBodyElement.getAttribute(bootstrapThemeAttributeName) || "").toLowerCase();
-        if (bodyThemeValue === themeNameDark) {
-          return themeNameDark;
-        }
-        if (bodyThemeValue === themeNameLight) {
-          return themeNameLight;
-        }
-      }
-      if (rootElement.classList) {
-        if (rootElement.classList.contains(themeClassNameDark)) {
-          return themeNameDark;
-        }
-        if (rootElement.classList.contains(themeClassNameLight)) {
-          return themeNameLight;
-        }
+      var bodyTheme = resolveThemeFromElement(document.body);
+      if (bodyTheme) {
+        return bodyTheme;
       }
     } catch(explicitThemeError){}
     return null;
+  }
+
+  function resolveThemeFromElement(element) {
+    if (!element) {
+      return null;
+    }
+    var attributeValue = readThemeAttribute(element);
+    if (attributeValue === themeNameDark) {
+      return themeNameDark;
+    }
+    if (attributeValue === themeNameLight) {
+      return themeNameLight;
+    }
+    if (element.classList) {
+      if (element.classList.contains(themeClassNameDark)) {
+        return themeNameDark;
+      }
+      if (element.classList.contains(themeClassNameLight)) {
+        return themeNameLight;
+      }
+    }
+    return null;
+  }
+
+  function readThemeAttribute(element) {
+    if (!element) {
+      return "";
+    }
+    var attributeNames = [themeAttributeName, bootstrapThemeAttributeName];
+    for (var index = 0; index < attributeNames.length; index++) {
+      var candidateValue = element.getAttribute(attributeNames[index]);
+      if (candidateValue && candidateValue.length > 0) {
+        return candidateValue.toLowerCase();
+      }
+    }
+    return "";
   }
 
   function detectThemeFromBackground(bodyElement) {

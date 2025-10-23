@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/input"
 	"github.com/stretchr/testify/require"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
@@ -73,34 +74,17 @@ const (
 	widgetCloseButtonExpectedText           = "×"
 	widgetHeadlineSelector                  = "#mp-feedback-headline"
 	widgetContactFocusScript                = `document.activeElement === document.querySelector("#mp-feedback-panel input")`
-	widgetContactTabsToMessageScript        = `(function(){
-		var contact = document.querySelector("#mp-feedback-panel input");
-		var message = document.querySelector("#mp-feedback-panel textarea");
-		if (!contact || !message) { return false; }
-		contact.focus();
-		var tabEvent = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
-		contact.dispatchEvent(tabEvent);
-		return document.activeElement === message && tabEvent.defaultPrevented;
-	})()`
-	widgetMessageTabsToContactScript = `(function(){
-                var contact = document.querySelector("#mp-feedback-panel input");
-                var message = document.querySelector("#mp-feedback-panel textarea");
-                if (!contact || !message) { return false; }
-                message.focus();
-                var tabEvent = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
-                message.dispatchEvent(tabEvent);
-                return document.activeElement === contact && tabEvent.defaultPrevented;
-        })()`
-	customWidgetBubbleSide              = "left"
-	customWidgetBottomOffsetPixels      = 32
-	widgetHorizontalOffsetPixels        = 16
-	widgetBubbleDiameterPixels          = 56
-	widgetPanelVerticalSpacingPixels    = 64
-	positionTolerancePixels             = 6.0
-	closeButtonAlignmentTolerancePixels = 2.0
-	bootstrapThemeAttributeName         = "data-bs-theme"
-	bootstrapThemeLightValue            = "light"
-	bootstrapThemeDarkValue             = "dark"
+	widgetMessageFocusScript                = `document.activeElement === document.querySelector("#mp-feedback-panel textarea")`
+	customWidgetBubbleSide                  = "left"
+	customWidgetBottomOffsetPixels          = 32
+	widgetHorizontalOffsetPixels            = 16
+	widgetBubbleDiameterPixels              = 56
+	widgetPanelVerticalSpacingPixels        = 64
+	positionTolerancePixels                 = 6.0
+	closeButtonAlignmentTolerancePixels     = 2.0
+	bootstrapThemeAttributeName             = "data-bs-theme"
+	bootstrapThemeLightValue                = "light"
+	bootstrapThemeDarkValue                 = "dark"
 )
 
 func setBootstrapThemeAttribute(testingT *testing.T, page *rod.Page, themeValue string) {
@@ -165,8 +149,22 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	clickSelector(t, page, widgetBubbleSelector)
 	waitForVisibleElement(t, page, widgetPanelSelector)
 	require.True(t, evaluateScriptBoolean(t, page, widgetContactFocusScript))
-	require.True(t, evaluateScriptBoolean(t, page, widgetContactTabsToMessageScript))
-	require.True(t, evaluateScriptBoolean(t, page, widgetMessageTabsToContactScript))
+	require.NoError(t, page.Keyboard.Type(input.Tab))
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, widgetMessageFocusScript)
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+	require.NoError(t, page.Keyboard.Type(input.Tab))
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, widgetContactFocusScript)
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+	require.NoError(t, page.Keyboard.Type(input.Tab))
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, widgetMessageFocusScript)
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+	require.NoError(t, page.KeyActions().Press(input.ShiftLeft).Type(input.Tab).Release(input.ShiftLeft).Do())
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, widgetContactFocusScript)
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
 
 	panelBounds := resolveViewportBounds(t, page, widgetPanelSelector)
 	require.InDelta(t, expectedBubbleLeft, panelBounds.Left, positionTolerancePixels)
