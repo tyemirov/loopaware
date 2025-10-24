@@ -75,6 +75,7 @@ const (
 	widgetHeadlineSelector                  = "#mp-feedback-headline"
 	widgetContactFocusScript                = `document.activeElement === document.querySelector("#mp-feedback-panel input")`
 	widgetMessageFocusScript                = `document.activeElement === document.querySelector("#mp-feedback-panel textarea")`
+	widgetSendButtonFocusScript             = `document.activeElement === document.querySelector("#mp-feedback-panel button[type='button']:not([aria-label='Close feedback panel'])")`
 	customWidgetBubbleSide                  = "left"
 	customWidgetBottomOffsetPixels          = 32
 	widgetHorizontalOffsetPixels            = 16
@@ -155,15 +156,19 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
 	require.NoError(t, page.Keyboard.Type(input.Tab))
 	require.Eventually(t, func() bool {
-		return evaluateScriptBoolean(t, page, widgetContactFocusScript)
+		return evaluateScriptBoolean(t, page, widgetSendButtonFocusScript)
 	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
-	require.NoError(t, page.Keyboard.Type(input.Tab))
+	require.NoError(t, page.KeyActions().Press(input.ShiftLeft).Type(input.Tab).Release(input.ShiftLeft).Do())
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, widgetMessageFocusScript)
 	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
 	require.NoError(t, page.KeyActions().Press(input.ShiftLeft).Type(input.Tab).Release(input.ShiftLeft).Do())
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, widgetContactFocusScript)
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+	require.NoError(t, page.KeyActions().Press(input.ShiftLeft).Type(input.Tab).Release(input.ShiftLeft).Do())
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, widgetSendButtonFocusScript)
 	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
 
 	panelBounds := resolveViewportBounds(t, page, widgetPanelSelector)

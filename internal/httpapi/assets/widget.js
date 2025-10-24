@@ -252,12 +252,18 @@
           return;
         }
         var focusedElement = event.target;
-        if (focusedElement === contact) {
+        var isShiftTab = event.shiftKey === true;
+        if (focusedElement === contact && !isShiftTab) {
           event.preventDefault();
           focusInputElement(message);
           return;
         }
-        if (focusedElement === message) {
+        if (focusedElement === contact && isShiftTab) {
+          event.preventDefault();
+          focusInputElement(send);
+          return;
+        }
+        if (focusedElement === message && isShiftTab) {
           event.preventDefault();
           focusInputElement(contact);
         }
