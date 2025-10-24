@@ -60,17 +60,11 @@ func (broadcaster *FeedbackEventBroadcaster) Subscribe() *FeedbackEventSubscript
 // Broadcast delivers the event to all active subscribers.
 func (broadcaster *FeedbackEventBroadcaster) Broadcast(event FeedbackEvent) {
 	broadcaster.mutex.Lock()
+	defer broadcaster.mutex.Unlock()
 	if broadcaster.closed || len(broadcaster.subscribers) == 0 {
-		broadcaster.mutex.Unlock()
 		return
 	}
-	channels := make([]chan FeedbackEvent, 0, len(broadcaster.subscribers))
 	for _, channel := range broadcaster.subscribers {
-		channels = append(channels, channel)
-	}
-	broadcaster.mutex.Unlock()
-
-	for _, channel := range channels {
 		select {
 		case channel <- event:
 		default:
