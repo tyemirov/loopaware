@@ -297,6 +297,16 @@ func TestDashboardFeedbackStreamRefreshesMessages(t *testing.T) {
 	}, 5*time.Second, 100*time.Millisecond)
 }
 
+func TestExampleRouteIsUnavailable(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	response, err := http.Get(harness.baseURL + "/example")
+	require.NoError(t, err)
+	defer response.Body.Close()
+	require.Equal(t, http.StatusNotFound, response.StatusCode)
+}
+
 func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *dashboardIntegrationHarness {
 	testingT.Helper()
 

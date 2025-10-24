@@ -26,6 +26,11 @@ type PublicHandlers struct {
 	feedbackBroadcaster       *FeedbackEventBroadcaster
 }
 
+const (
+	demoWidgetSiteID   = "__loopaware_widget_demo__"
+	demoWidgetSiteName = "LoopAware Widget Demo"
+)
+
 func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaster *FeedbackEventBroadcaster) *PublicHandlers {
 	return &PublicHandlers{
 		database:                  database,
@@ -132,10 +137,10 @@ func (h *PublicHandlers) WidgetJS(context *gin.Context) {
 	}
 
 	var site model.Site
-	if siteID == exampleDemoSiteID {
+	if siteID == demoWidgetSiteID {
 		site = model.Site{
-			ID:                         exampleDemoSiteID,
-			Name:                       exampleDemoSiteName,
+			ID:                         demoWidgetSiteID,
+			Name:                       demoWidgetSiteName,
 			WidgetBubbleSide:           widgetBubbleSideLeft,
 			WidgetBubbleBottomOffsetPx: defaultWidgetBubbleBottomOffset,
 		}

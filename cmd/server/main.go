@@ -65,7 +65,6 @@ const (
 	defaultPublicBaseURL             = "http://localhost:8080"
 	publicRouteFeedback              = "/api/feedback"
 	publicRouteWidget                = "/widget.js"
-	exampleRoutePath                 = "/example"
 	landingRouteRoot                 = constants.LoginPath
 	dashboardRoute                   = "/app"
 	apiRoutePrefix                   = "/api"
@@ -366,7 +365,6 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(database)
 	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot)
-	exampleHandlers := httpapi.NewExamplePageHandlers(logger, database)
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(database, logger, serverConfig.PublicBaseURL, feedbackBroadcaster)
 	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager)
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
@@ -376,7 +374,6 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		context.Redirect(http.StatusFound, constants.LoginPath)
 	})
 	router.GET(landingRouteRoot, landingHandlers.RenderLandingPage)
-	router.GET(exampleRoutePath, exampleHandlers.RenderExamplePage)
 	router.GET("/app/sites/:id/widget-test", authManager.RequireAuthenticatedWeb(), widgetTestHandlers.RenderWidgetTestPage)
 	router.POST("/app/sites/:id/widget-test/feedback", authManager.RequireAuthenticatedJSON(), widgetTestHandlers.SubmitWidgetTestFeedback)
 	router.GET(httpapi.PrivacyPagePath, privacyHandlers.RenderPrivacyPage)
