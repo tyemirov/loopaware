@@ -333,6 +333,8 @@ type dashboardTemplateData struct {
 	SettingsMenuID                    string
 	SettingsThemeToggleID             string
 	ThemeStorageKey                   string
+	PublicThemeStorageKey             string
+	LandingThemeStorageKey            string
 	SettingsAvatarImageID             string
 	SettingsAvatarFallbackID          string
 	FormStatusID                      string
@@ -596,6 +598,8 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		SettingsMenuID:                    settingsMenuElementID,
 		SettingsThemeToggleID:             settingsThemeToggleElementID,
 		ThemeStorageKey:                   themeStorageKey,
+		PublicThemeStorageKey:             publicThemeStorageKey,
+		LandingThemeStorageKey:            publicLandingThemeStorageKey,
 		SettingsAvatarImageID:             settingsAvatarImageElementID,
 		SettingsAvatarFallbackID:          settingsAvatarFallbackElementID,
 		FormStatusID:                      formStatusElementID,

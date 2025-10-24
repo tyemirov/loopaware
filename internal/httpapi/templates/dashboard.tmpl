@@ -300,6 +300,8 @@
         var formStatusClasses = parsedConfig.form_status_classes || {};
         var validationMessages = parsedConfig.validation_messages || {};
         var themePreferenceStorageKey = parsedConfig.theme_storage_key || '';
+        var themePreferencePublicStorageKey = '{{js .PublicThemeStorageKey}}';
+        var themePreferenceLandingStorageKey = '{{js .LandingThemeStorageKey}}';
         var themePreferenceLegacyStorageKey = 'loopaware_theme';
         var faviconUpdatedEventName = 'favicon_updated';
         var faviconEventSource = null;
@@ -1071,6 +1073,52 @@
         initializeFieldHelpPopovers();
         clearValidationFeedback();
 
+        function isRecognizedTheme(value) {
+          return value === 'dark' || value === 'light';
+        }
+
+        function readThemePreference(storageKey) {
+          if (!storageKey) {
+            return '';
+          }
+          var storedValue = localStorage.getItem(storageKey);
+          if (storedValue === null) {
+            return '';
+          }
+          return storedValue;
+        }
+
+        function writeThemePreference(storageKey, mode) {
+          if (!storageKey) {
+            return;
+          }
+          localStorage.setItem(storageKey, mode);
+        }
+
+        function resolveThemePreference() {
+          var storedTheme = readThemePreference(themePreferenceStorageKey);
+          if (isRecognizedTheme(storedTheme)) {
+            return storedTheme;
+          }
+          var publicTheme = readThemePreference(themePreferencePublicStorageKey);
+          if (isRecognizedTheme(publicTheme)) {
+            writeThemePreference(themePreferenceStorageKey, publicTheme);
+            return publicTheme;
+          }
+          var landingTheme = readThemePreference(themePreferenceLandingStorageKey);
+          if (isRecognizedTheme(landingTheme)) {
+            writeThemePreference(themePreferenceStorageKey, landingTheme);
+            return landingTheme;
+          }
+          var legacyTheme = readThemePreference(themePreferenceLegacyStorageKey);
+          if (isRecognizedTheme(legacyTheme)) {
+            writeThemePreference(themePreferenceStorageKey, legacyTheme);
+            return legacyTheme;
+          }
+          writeThemePreference(themePreferenceStorageKey, 'light');
+          return 'light';
+        }
+
         function applyThemePreference(mode) {
           var normalized = mode === 'dark' ? 'dark' : 'light';
           document.documentElement.setAttribute('data-bs-theme', normalized);
@@ -1093,22 +1141,18 @@
         }
 
         function loadThemePreference() {
-          var stored = localStorage.getItem(themePreferenceStorageKey);
-          if (stored !== 'dark' && stored !== 'light') {
-            var legacyStored = localStorage.getItem(themePreferenceLegacyStorageKey);
-            if (legacyStored === 'dark' || legacyStored === 'light') {
-              stored = legacyStored;
-              localStorage.setItem(themePreferenceStorageKey, stored);
-            } else {
-              stored = 'light';
-            }
+          var stored = resolveThemePreference();
+          if (themeToggle) {
+            themeToggle.checked = stored === 'dark';
           }
-          themeToggle.checked = stored === 'dark';
           applyThemePreference(stored);
         }
 
         function persistThemePreference(mode) {
-          localStorage.setItem(themePreferenceStorageKey, mode);
+          writeThemePreference(themePreferenceStorageKey, mode);
+          writeThemePreference(themePreferencePublicStorageKey, mode);
+          writeThemePreference(themePreferenceLandingStorageKey, mode);
+          writeThemePreference(themePreferenceLegacyStorageKey, mode);
         }
 
         function performLogout() {

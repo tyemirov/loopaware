@@ -43,6 +43,7 @@ const (
 	dashboardSettingsButtonSelector       = "#settings-button"
 	dashboardSettingsMenuSelector         = "#settings-menu"
 	dashboardThemeToggleSelector          = "#settings-theme-toggle"
+	dashboardPublicThemeToggleSelector    = "#public-theme-toggle"
 	dashboardUserEmailSelector            = "#user-email"
 	dashboardFooterSelector               = "#dashboard-footer"
 	dashboardLightPromptScreenshotName    = "dashboard-session-timeout-light"
@@ -87,7 +88,11 @@ const (
 		var textContent = (badge.textContent || '').trim();
 		return textContent === '1';
 	}())`
-	widgetTestSummaryOffsetScript = `document.getElementById('widget-test-summary-offset') ? document.getElementById('widget-test-summary-offset').textContent : ''`
+	dashboardDocumentThemeScript        = "document.documentElement.getAttribute('data-bs-theme') || ''"
+	dashboardStoredDashboardThemeScript = "localStorage.getItem('loopaware_dashboard_theme') || ''"
+	dashboardSeedPublicThemeScript      = `localStorage.setItem('loopaware_public_theme','dark');localStorage.removeItem('loopaware_dashboard_theme');localStorage.removeItem('loopaware_theme');`
+	dashboardThemeToggleStateScript     = `(function(){var toggle=document.querySelector("#settings-theme-toggle");return !!(toggle && toggle.checked);}())`
+	widgetTestSummaryOffsetScript       = `document.getElementById('widget-test-summary-offset') ? document.getElementById('widget-test-summary-offset').textContent : ''`
 )
 
 type dashboardIntegrationHarness struct {
@@ -124,6 +129,8 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	currentPath := evaluateScriptString(t, page, dashboardLocationPathScript)
+	require.Equal(t, dashboardTestDashboardRoute, currentPath)
 	waitForVisibleElement(t, page, dashboardUserEmailSelector)
 
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
@@ -243,6 +250,35 @@ func TestDashboardSessionTimeoutAutoLogout(t *testing.T) {
 		}
 		return parsed.Path == dashboardTestLandingPath
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardRestoresThemeFromPublicPreference(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestLandingPath)
+	evaluateScriptInto(t, page, dashboardSeedPublicThemeScript, nil)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	waitForVisibleElement(t, page, dashboardUserEmailSelector)
+
+	documentTheme := evaluateScriptString(t, page, dashboardDocumentThemeScript)
+	require.Equal(t, "dark", documentTheme)
+
+	toggleChecked := evaluateScriptBoolean(t, page, dashboardThemeToggleStateScript)
+	require.True(t, toggleChecked)
+
+	storedTheme := evaluateScriptString(t, page, dashboardStoredDashboardThemeScript)
+	require.Equal(t, "dark", storedTheme)
 }
 
 func TestDashboardFeedbackStreamRefreshesMessages(t *testing.T) {
