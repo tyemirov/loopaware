@@ -1,15 +1,17 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>{{.PageTitle}}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-NZ1ql+vZWX0rZg7B1LjXLp8dkUBaRdOy+nK8BPVKxH/efxWWEXUOYaL6VLfJfXQ0" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" {{.BootstrapIconsIntegrity}} crossorigin="anonymous" />
+  <link rel="icon" type="image/svg+xml" href="{{.FaviconDataURI}}" />
   <style>{{.SharedStyles}}</style>
 </head>
-<body data-bs-theme="light" class="min-vh-100 d-flex flex-column" style="background-color:#808080;" data-site-id="{{.SiteID}}" data-widget-side="{{.PlacementSide}}" data-widget-offset="{{.PlacementOffset}}" data-update-endpoint="{{.WidgetUpdateEndpoint}}">
-  {{.HeaderHTML}}
-  <main class="flex-fill py-5">
+<body data-bs-theme="light" class="d-flex flex-column min-vh-100 bg-light" data-site-id="{{.SiteID}}" data-widget-side="{{.PlacementSide}}" data-widget-offset="{{.PlacementOffset}}" data-update-endpoint="{{.WidgetUpdateEndpoint}}">
+  {{template "dashboard_header" .Header}}
+  <main class="flex-fill pt-5 mt-4">
     <div class="container">
       <div class="row justify-content-center">
         <div class="col-lg-8">
@@ -54,38 +56,162 @@
       </div>
     </div>
   </main>
-  <script>{{.ThemeScript}}</script>
+  {{.FooterHTML}}
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
   <script>
-    (function(){
-      var root = document.documentElement;
-      var body = document.body;
-      var toggle = document.getElementById('public-theme-toggle');
-      function currentTheme() {
-        if (!body) {
-          return 'light';
+    (function() {
+      var themeStorageKey = '{{js .ThemeStorageKey}}';
+      var publicThemeStorageKey = '{{js .PublicThemeStorageKey}}';
+      var landingThemeStorageKey = '{{js .LandingThemeStorageKey}}';
+      var legacyThemeStorageKey = '{{js .LegacyThemeStorageKey}}';
+      var themeToggle = document.getElementById('{{js .Header.SettingsThemeToggleID}}');
+      var footerElement = document.getElementById('{{js .FooterElementID}}');
+      var footerLightClass = '{{js .FooterThemeLightClass}}';
+      var footerDarkClass = '{{js .FooterThemeDarkClass}}';
+      var footerBaseClass = '{{js .FooterBaseClass}}';
+      var logoutButton = document.getElementById('{{js .Header.LogoutButtonID}}');
+      var logoutPath = '{{js .LogoutPath}}';
+      var landingPath = '{{js .LandingPath}}';
+
+      function normalizeClassList(value) {
+        if (typeof value !== 'string') {
+          return [];
         }
-        return body.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light';
+        return value.split(/\s+/).filter(function(item) {
+          return item.length > 0;
+        });
       }
-      function applyTheme(theme) {
-        var normalized = theme === 'dark' ? 'dark' : 'light';
-        if (root) {
-          root.setAttribute('data-theme', normalized);
+
+      function applyElementThemeClasses(element, classesToAdd, classesToRemove) {
+        if (!element) {
+          return;
         }
+        normalizeClassList(classesToRemove).forEach(function(className) {
+          element.classList.remove(className);
+        });
+        normalizeClassList(classesToAdd).forEach(function(className) {
+          element.classList.add(className);
+        });
+      }
+
+      function isRecognizedTheme(value) {
+        return value === 'dark' || value === 'light';
+      }
+
+      function readThemePreference(storageKey) {
+        if (!storageKey) {
+          return '';
+        }
+        var storedValue = localStorage.getItem(storageKey);
+        if (storedValue === null) {
+          return '';
+        }
+        return storedValue;
+      }
+
+      function writeThemePreference(storageKey, mode) {
+        if (!storageKey) {
+          return;
+        }
+        localStorage.setItem(storageKey, mode);
+      }
+
+      function resolveThemePreference() {
+        var storedTheme = readThemePreference(themeStorageKey);
+        if (isRecognizedTheme(storedTheme)) {
+          return storedTheme;
+        }
+        var publicTheme = readThemePreference(publicThemeStorageKey);
+        if (isRecognizedTheme(publicTheme)) {
+          writeThemePreference(themeStorageKey, publicTheme);
+          return publicTheme;
+        }
+        var landingTheme = readThemePreference(landingThemeStorageKey);
+        if (isRecognizedTheme(landingTheme)) {
+          writeThemePreference(themeStorageKey, landingTheme);
+          return landingTheme;
+        }
+        var legacyTheme = readThemePreference(legacyThemeStorageKey);
+        if (isRecognizedTheme(legacyTheme)) {
+          writeThemePreference(themeStorageKey, legacyTheme);
+          return legacyTheme;
+        }
+        writeThemePreference(themeStorageKey, 'light');
+        return 'light';
+      }
+
+      function applyThemePreference(mode) {
+        var normalized = mode === 'dark' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-bs-theme', normalized);
+        var body = document.body;
         if (body) {
           if (normalized === 'dark') {
-            body.classList.add('text-light');
+            body.classList.remove('bg-light', 'text-dark');
+            body.classList.add('bg-dark', 'text-light');
           } else {
-            body.classList.remove('text-light');
+            body.classList.remove('bg-dark', 'text-light');
+            if (!body.classList.contains('bg-light')) {
+              body.classList.add('bg-light');
+            }
+          }
+        }
+        if (footerElement) {
+          normalizeClassList(footerBaseClass).forEach(function(className) {
+            footerElement.classList.add(className);
+          });
+          if (normalized === 'dark') {
+            applyElementThemeClasses(footerElement, footerDarkClass, footerLightClass);
+          } else {
+            applyElementThemeClasses(footerElement, footerLightClass, footerDarkClass);
           }
         }
       }
-      function syncTheme() {
-        applyTheme(currentTheme());
+
+      function persistThemePreference(mode) {
+        writeThemePreference(themeStorageKey, mode);
+        writeThemePreference(publicThemeStorageKey, mode);
+        writeThemePreference(landingThemeStorageKey, mode);
+        writeThemePreference(legacyThemeStorageKey, mode);
       }
-      if (toggle) {
-        toggle.addEventListener('change', syncTheme);
+
+      function loadThemePreference() {
+        var stored = resolveThemePreference();
+        if (themeToggle) {
+          themeToggle.checked = stored === 'dark';
+        }
+        applyThemePreference(stored);
       }
-      syncTheme();
+
+      function performLogout() {
+        var redirectToLanding = function() {
+          window.location.href = landingPath;
+        };
+        if (!logoutPath) {
+          redirectToLanding();
+          return;
+        }
+        window.fetch(logoutPath, {
+          method: 'POST',
+          credentials: 'same-origin'
+        }).then(redirectToLanding).catch(redirectToLanding);
+      }
+
+      if (logoutButton) {
+        logoutButton.addEventListener('click', function(event) {
+          event.preventDefault();
+          performLogout();
+        });
+      }
+
+      if (themeToggle) {
+        themeToggle.addEventListener('change', function(event) {
+          var nextTheme = event.target.checked ? 'dark' : 'light';
+          applyThemePreference(nextTheme);
+          persistThemePreference(nextTheme);
+        });
+      }
+
+      loadThemePreference();
     }());
   </script>
   <script>

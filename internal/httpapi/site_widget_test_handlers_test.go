@@ -55,6 +55,10 @@ func TestRenderWidgetTestPage(t *testing.T) {
 	require.Contains(t, body, "id=\"widget-test-form\"")
 	require.Contains(t, body, "id=\"widget-test-save\"")
 	require.Contains(t, body, "id=\"widget-test-bottom-offset\"")
+	require.Contains(t, body, "id=\"settings-button\"")
+	require.Contains(t, body, "id=\"settings-theme-toggle\"")
+	require.Contains(t, body, "id=\"logout-button\"")
+	require.Contains(t, body, "id=\"dashboard-footer\"")
 }
 
 func TestSubmitWidgetTestFeedback(t *testing.T) {

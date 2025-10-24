@@ -333,6 +333,8 @@ type dashboardTemplateData struct {
 	SettingsMenuID                    string
 	SettingsThemeToggleID             string
 	ThemeStorageKey                   string
+	PublicThemeStorageKey             string
+	LandingThemeStorageKey            string
 	SettingsAvatarImageID             string
 	SettingsAvatarFallbackID          string
 	FormStatusID                      string
@@ -452,7 +454,8 @@ type DashboardWebHandlers struct {
 }
 
 func NewDashboardWebHandlers(logger *zap.Logger, landingPath string) *DashboardWebHandlers {
-	compiledTemplate := template.Must(template.New(dashboardTemplateName).Parse(dashboardTemplateHTML))
+	baseTemplate := template.Must(template.New(dashboardTemplateName).Parse(dashboardHeaderTemplateHTML))
+	compiledTemplate := template.Must(baseTemplate.Parse(dashboardTemplateHTML))
 	normalizedLandingPath := landingPath
 	if normalizedLandingPath == "" {
 		normalizedLandingPath = "/"
@@ -596,6 +599,8 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		SettingsMenuID:                    settingsMenuElementID,
 		SettingsThemeToggleID:             settingsThemeToggleElementID,
 		ThemeStorageKey:                   themeStorageKey,
+		PublicThemeStorageKey:             publicThemeStorageKey,
+		LandingThemeStorageKey:            publicLandingThemeStorageKey,
 		SettingsAvatarImageID:             settingsAvatarImageElementID,
 		SettingsAvatarFallbackID:          settingsAvatarFallbackElementID,
 		FormStatusID:                      formStatusElementID,

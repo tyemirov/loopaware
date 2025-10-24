@@ -2,6 +2,9 @@ package httpapi
 
 import _ "embed"
 
+//go:embed templates/dashboard_header.tmpl
+var dashboardHeaderTemplateHTML string
+
 //go:embed templates/dashboard.tmpl
 var dashboardTemplateHTML string
 

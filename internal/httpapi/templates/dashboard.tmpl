@@ -9,30 +9,7 @@
     <link rel="icon" type="image/svg+xml" href="{{.FaviconDataURI}}" />
   </head>
   <body class="d-flex flex-column min-vh-100 bg-light">
-    <header class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top shadow-sm">
-      <div class="container-fluid">
-        <span class="navbar-brand d-flex align-items-center gap-3">
-          <img id="{{.HeaderLogoImageID}}" src="{{.HeaderLogoDataURI}}" alt="LoopAware logo" width="44" height="44" />
-          <span class="fw-semibold">{{.PageTitle}}</span>
-        </span>
-        <div class="dropdown ms-auto">
-          <button id="{{.SettingsButtonID}}" class="btn btn-outline-light border-0 rounded-circle p-1 d-flex align-items-center justify-content-center" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-            <span class="visually-hidden">{{.SettingsButtonLabel}}</span>
-            <img id="{{.SettingsAvatarImageID}}" src="" alt="Avatar" class="rounded-circle d-none" width="36" height="36" />
-            <i id="{{.SettingsAvatarFallbackID}}" class="bi bi-person-circle fs-3"></i>
-          </button>
-          <div id="{{.SettingsMenuID}}" class="dropdown-menu dropdown-menu-end">
-            <div class="dropdown-item d-flex align-items-center justify-content-between">
-              <span>{{.ThemeToggleLabel}}</span>
-              <div class="form-check form-switch m-0">
-                <input class="form-check-input" type="checkbox" role="switch" id="{{.SettingsThemeToggleID}}" />
-              </div>
-            </div>
-            <button id="{{.LogoutButtonID}}" class="dropdown-item" type="button">{{.LogoutLabel}}</button>
-          </div>
-        </div>
-      </div>
-    </header>
+    {{template "dashboard_header" .}}
     <main class="flex-grow-1 pt-5 mt-4">
       <div class="container py-4">
         
@@ -300,6 +277,8 @@
         var formStatusClasses = parsedConfig.form_status_classes || {};
         var validationMessages = parsedConfig.validation_messages || {};
         var themePreferenceStorageKey = parsedConfig.theme_storage_key || '';
+        var themePreferencePublicStorageKey = '{{js .PublicThemeStorageKey}}';
+        var themePreferenceLandingStorageKey = '{{js .LandingThemeStorageKey}}';
         var themePreferenceLegacyStorageKey = 'loopaware_theme';
         var faviconUpdatedEventName = 'favicon_updated';
         var faviconEventSource = null;
@@ -1071,6 +1050,52 @@
         initializeFieldHelpPopovers();
         clearValidationFeedback();
 
+        function isRecognizedTheme(value) {
+          return value === 'dark' || value === 'light';
+        }
+
+        function readThemePreference(storageKey) {
+          if (!storageKey) {
+            return '';
+          }
+          var storedValue = localStorage.getItem(storageKey);
+          if (storedValue === null) {
+            return '';
+          }
+          return storedValue;
+        }
+
+        function writeThemePreference(storageKey, mode) {
+          if (!storageKey) {
+            return;
+          }
+          localStorage.setItem(storageKey, mode);
+        }
+
+        function resolveThemePreference() {
+          var storedTheme = readThemePreference(themePreferenceStorageKey);
+          if (isRecognizedTheme(storedTheme)) {
+            return storedTheme;
+          }
+          var publicTheme = readThemePreference(themePreferencePublicStorageKey);
+          if (isRecognizedTheme(publicTheme)) {
+            writeThemePreference(themePreferenceStorageKey, publicTheme);
+            return publicTheme;
+          }
+          var landingTheme = readThemePreference(themePreferenceLandingStorageKey);
+          if (isRecognizedTheme(landingTheme)) {
+            writeThemePreference(themePreferenceStorageKey, landingTheme);
+            return landingTheme;
+          }
+          var legacyTheme = readThemePreference(themePreferenceLegacyStorageKey);
+          if (isRecognizedTheme(legacyTheme)) {
+            writeThemePreference(themePreferenceStorageKey, legacyTheme);
+            return legacyTheme;
+          }
+          writeThemePreference(themePreferenceStorageKey, 'light');
+          return 'light';
+        }
+
         function applyThemePreference(mode) {
           var normalized = mode === 'dark' ? 'dark' : 'light';
           document.documentElement.setAttribute('data-bs-theme', normalized);
@@ -1093,22 +1118,18 @@
         }
 
         function loadThemePreference() {
-          var stored = localStorage.getItem(themePreferenceStorageKey);
-          if (stored !== 'dark' && stored !== 'light') {
-            var legacyStored = localStorage.getItem(themePreferenceLegacyStorageKey);
-            if (legacyStored === 'dark' || legacyStored === 'light') {
-              stored = legacyStored;
-              localStorage.setItem(themePreferenceStorageKey, stored);
-            } else {
-              stored = 'light';
-            }
+          var stored = resolveThemePreference();
+          if (themeToggle) {
+            themeToggle.checked = stored === 'dark';
           }
-          themeToggle.checked = stored === 'dark';
           applyThemePreference(stored);
         }
 
         function persistThemePreference(mode) {
-          localStorage.setItem(themePreferenceStorageKey, mode);
+          writeThemePreference(themePreferenceStorageKey, mode);
+          writeThemePreference(themePreferencePublicStorageKey, mode);
+          writeThemePreference(themePreferenceLandingStorageKey, mode);
+          writeThemePreference(themePreferenceLegacyStorageKey, mode);
         }
 
         function performLogout() {
