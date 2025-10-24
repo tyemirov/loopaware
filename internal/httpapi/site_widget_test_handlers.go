@@ -17,22 +17,24 @@ import (
 )
 
 type SiteWidgetTestHandlers struct {
-	database      *gorm.DB
-	logger        *zap.Logger
-	widgetBaseURL string
-	template      *template.Template
+	database            *gorm.DB
+	logger              *zap.Logger
+	widgetBaseURL       string
+	template            *template.Template
+	feedbackBroadcaster *FeedbackEventBroadcaster
 }
 
-func NewSiteWidgetTestHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string) *SiteWidgetTestHandlers {
+func NewSiteWidgetTestHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, feedbackBroadcaster *FeedbackEventBroadcaster) *SiteWidgetTestHandlers {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 	compiledTemplate := template.Must(template.New("widget_test").Parse(widgetTestTemplateHTML))
 	return &SiteWidgetTestHandlers{
-		database:      database,
-		logger:        logger,
-		widgetBaseURL: normalizeWidgetBaseURL(widgetBaseURL),
-		template:      compiledTemplate,
+		database:            database,
+		logger:              logger,
+		widgetBaseURL:       normalizeWidgetBaseURL(widgetBaseURL),
+		template:            compiledTemplate,
+		feedbackBroadcaster: feedbackBroadcaster,
 	}
 }
 
@@ -164,6 +166,8 @@ func (handlers *SiteWidgetTestHandlers) SubmitWidgetTestFeedback(context *gin.Co
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
 		return
 	}
+
+	broadcastFeedbackEvent(handlers.database, handlers.logger, handlers.feedbackBroadcaster, context.Request.Context(), feedback)
 
 	context.JSON(http.StatusOK, gin.H{"status": "ok"})
 }

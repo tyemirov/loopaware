@@ -23,6 +23,7 @@ import (
 type apiHarness struct {
 	router   *gin.Engine
 	database *gorm.DB
+	events   *httpapi.FeedbackEventBroadcaster
 }
 
 func buildAPIHarness(testingT *testing.T) apiHarness {
@@ -43,13 +44,17 @@ func buildAPIHarness(testingT *testing.T) apiHarness {
 	router.Use(cors.Default())
 	router.Use(httpapi.RequestLogger(logger))
 
-	publicHandlers := httpapi.NewPublicHandlers(database, logger)
+	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster)
 	router.POST("/api/feedback", publicHandlers.CreateFeedback)
 	router.GET("/widget.js", publicHandlers.WidgetJS)
+
+	testingT.Cleanup(feedbackBroadcaster.Close)
 
 	return apiHarness{
 		router:   router,
 		database: database,
+		events:   feedbackBroadcaster,
 	}
 }
 

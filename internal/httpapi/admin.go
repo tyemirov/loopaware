@@ -51,26 +51,29 @@ const (
 	defaultWidgetBubbleBottomOffset = 16
 	minWidgetBubbleBottomOffset     = 0
 	maxWidgetBubbleBottomOffset     = 240
+	feedbackCreatedEventName        = "feedback_created"
 )
 
 type SiteHandlers struct {
-	database       *gorm.DB
-	logger         *zap.Logger
-	widgetBaseURL  string
-	faviconManager *SiteFaviconManager
-	statsProvider  SiteStatisticsProvider
+	database            *gorm.DB
+	logger              *zap.Logger
+	widgetBaseURL       string
+	faviconManager      *SiteFaviconManager
+	statsProvider       SiteStatisticsProvider
+	feedbackBroadcaster *FeedbackEventBroadcaster
 }
 
-func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, faviconManager *SiteFaviconManager, statsProvider SiteStatisticsProvider) *SiteHandlers {
+func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, faviconManager *SiteFaviconManager, statsProvider SiteStatisticsProvider, feedbackBroadcaster *FeedbackEventBroadcaster) *SiteHandlers {
 	if statsProvider == nil {
 		statsProvider = NewDatabaseSiteStatisticsProvider(database)
 	}
 	return &SiteHandlers{
-		database:       database,
-		logger:         logger,
-		widgetBaseURL:  normalizeWidgetBaseURL(widgetBaseURL),
-		faviconManager: faviconManager,
-		statsProvider:  statsProvider,
+		database:            database,
+		logger:              logger,
+		widgetBaseURL:       normalizeWidgetBaseURL(widgetBaseURL),
+		faviconManager:      faviconManager,
+		statsProvider:       statsProvider,
+		feedbackBroadcaster: feedbackBroadcaster,
 	}
 }
 
@@ -392,6 +395,96 @@ func (handlers *SiteHandlers) StreamFaviconUpdates(ginContext *gin.Context) {
 					"stream_favicon_event",
 					zap.String("site_id", event.SiteID),
 					zap.String("favicon_url", event.FaviconURL),
+				)
+			}
+		}
+	}
+}
+
+func (handlers *SiteHandlers) StreamFeedbackUpdates(ginContext *gin.Context) {
+	currentUser, ok := CurrentUserFromContext(ginContext)
+	if !ok {
+		ginContext.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
+		return
+	}
+	if handlers.feedbackBroadcaster == nil {
+		ginContext.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: errorValueStreamUnavailable})
+		return
+	}
+	subscription := handlers.feedbackBroadcaster.Subscribe()
+	if subscription == nil {
+		ginContext.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: errorValueStreamUnavailable})
+		return
+	}
+	defer subscription.Close()
+
+	ginContext.Header("Content-Type", "text/event-stream")
+	ginContext.Header("Cache-Control", "no-cache")
+	ginContext.Header("Connection", "keep-alive")
+
+	flusher, flushable := ginContext.Writer.(http.Flusher)
+	if !flushable {
+		ginContext.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: errorValueStreamUnavailable})
+		return
+	}
+
+	ginContext.Writer.WriteHeaderNow()
+	flusher.Flush()
+
+	requestContext := ginContext.Request.Context()
+
+	for {
+		select {
+		case <-requestContext.Done():
+			return
+		case event, ok := <-subscription.Events():
+			if !ok {
+				return
+			}
+			if event.SiteID == "" {
+				continue
+			}
+			if !handlers.userCanAccessSite(context.Background(), currentUser, event.SiteID) {
+				continue
+			}
+			createdAt := event.CreatedAt.UTC().Unix()
+			if createdAt <= 0 {
+				createdAt = time.Now().UTC().Unix()
+			}
+			payload := struct {
+				SiteID        string `json:"site_id"`
+				FeedbackID    string `json:"feedback_id,omitempty"`
+				CreatedAt     int64  `json:"created_at"`
+				FeedbackCount int64  `json:"feedback_count"`
+			}{
+				SiteID:        event.SiteID,
+				FeedbackID:    event.FeedbackID,
+				CreatedAt:     createdAt,
+				FeedbackCount: event.FeedbackCount,
+			}
+			serializedPayload, marshalErr := json.Marshal(payload)
+			if marshalErr != nil {
+				if handlers.logger != nil {
+					handlers.logger.Debug("marshal_feedback_event_failed", zap.Error(marshalErr))
+				}
+				continue
+			}
+			var buffer bytes.Buffer
+			buffer.WriteString("event: ")
+			buffer.WriteString(feedbackCreatedEventName)
+			buffer.WriteString("\n")
+			buffer.WriteString("data: ")
+			buffer.Write(serializedPayload)
+			buffer.WriteString("\n\n")
+			if _, writeErr := ginContext.Writer.Write(buffer.Bytes()); writeErr != nil {
+				return
+			}
+			flusher.Flush()
+			if handlers.logger != nil {
+				handlers.logger.Debug(
+					"stream_feedback_event",
+					zap.String("site_id", event.SiteID),
+					zap.String("feedback_id", event.FeedbackID),
 				)
 			}
 		}

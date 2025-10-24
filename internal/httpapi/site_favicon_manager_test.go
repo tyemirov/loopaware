@@ -366,7 +366,7 @@ func TestGravityNotesInlineFaviconIntegration(testingT *testing.T) {
 		time.Sleep(500 * time.Millisecond)
 	}
 
-	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, manager, nil)
+	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, manager, nil, nil)
 
 	listRecorder, listContext := newJSONContext(http.MethodGet, "/api/sites", nil)
 	listContext.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})

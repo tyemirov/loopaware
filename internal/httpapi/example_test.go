@@ -74,7 +74,7 @@ func TestWidgetJSDemoUsesLeftBubble(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger := zap.NewNop()
-	handler := httpapi.NewPublicHandlers(nil, logger)
+	handler := httpapi.NewPublicHandlers(nil, logger, nil)
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/widget.js?site_id=__loopaware_widget_demo__", nil)
 	context, _ := gin.CreateTestContext(recorder)

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -22,15 +23,17 @@ type PublicHandlers struct {
 	maxRequestsPerIPPerWindow int
 	rateCountersByIP          map[string]int
 	rateCountersMutex         sync.Mutex
+	feedbackBroadcaster       *FeedbackEventBroadcaster
 }
 
-func NewPublicHandlers(database *gorm.DB, logger *zap.Logger) *PublicHandlers {
+func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaster *FeedbackEventBroadcaster) *PublicHandlers {
 	return &PublicHandlers{
 		database:                  database,
 		logger:                    logger,
 		rateWindow:                30 * time.Second,
 		maxRequestsPerIPPerWindow: 6,
 		rateCountersByIP:          make(map[string]int),
+		feedbackBroadcaster:       feedbackBroadcaster,
 	}
 }
 
@@ -96,7 +99,12 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 		return
 	}
 
+	h.broadcastFeedbackCreated(context.Request.Context(), feedback)
 	context.JSON(200, gin.H{"status": "ok"})
+}
+
+func (h *PublicHandlers) broadcastFeedbackCreated(ctx context.Context, feedback model.Feedback) {
+	broadcastFeedbackEvent(h.database, h.logger, h.feedbackBroadcaster, ctx, feedback)
 }
 
 func (h *PublicHandlers) isRateLimited(ip string) bool {

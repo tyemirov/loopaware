@@ -33,7 +33,7 @@ func TestRenderWidgetTestPage(t *testing.T) {
 	}
 	require.NoError(t, database.Create(&site).Error)
 
-	handler := httpapi.NewSiteWidgetTestHandlers(database, zap.NewNop(), "http://localhost:8080")
+	handler := httpapi.NewSiteWidgetTestHandlers(database, zap.NewNop(), "http://localhost:8080", nil)
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/app/sites/"+site.ID+"/widget-test", nil)
@@ -69,7 +69,7 @@ func TestSubmitWidgetTestFeedback(t *testing.T) {
 	}
 	require.NoError(t, database.Create(&site).Error)
 
-	handler := httpapi.NewSiteWidgetTestHandlers(database, zap.NewNop(), "http://localhost:8080")
+	handler := httpapi.NewSiteWidgetTestHandlers(database, zap.NewNop(), "http://localhost:8080", nil)
 
 	payload := map[string]string{
 		"contact": "tester@example.com",

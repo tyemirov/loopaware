@@ -1,6 +1,7 @@
 package httpapi_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -52,6 +53,40 @@ const (
 	dashboardLocationPathScript           = "window.location.pathname"
 	dashboardIdleHooksReadyScript         = "typeof window.__loopawareDashboardIdleTestHooks !== 'undefined'"
 	dashboardPromptColorPresenceRatio     = colorPresenceMinimumRatio / 5.0
+	dashboardSelectFirstSiteScript        = `(function() {
+		var list = document.getElementById('sites-list');
+		if (!list) { return false; }
+		var item = list.querySelector('[data-site-id]');
+		if (!item) { return false; }
+		item.click();
+		return true;
+	}())`
+	dashboardNoMessagesPlaceholderScript = `(function() {
+		var body = document.getElementById('feedback-table-body');
+		if (!body) { return false; }
+		return body.textContent.indexOf('No feedback yet.') !== -1;
+	}())`
+	dashboardFeedbackRenderedScript = `(function() {
+		var body = document.getElementById('feedback-table-body');
+		if (!body) { return false; }
+		var rows = body.querySelectorAll('tr');
+		if (!rows.length) { return false; }
+		for (var index = 0; index < rows.length; index++) {
+			var cells = rows[index].querySelectorAll('td');
+			if (cells.length < 3) { continue; }
+			if (cells[1].textContent.indexOf('auto@example.com') !== -1 && cells[2].textContent.indexOf('Auto refresh message') !== -1) {
+				return true;
+			}
+		}
+		return false;
+	}())`
+	dashboardFeedbackCountScript = `(function() {
+		var badge = document.getElementById('feedback-count');
+		if (!badge) { return false; }
+		if (badge.classList.contains('d-none')) { return false; }
+		var textContent = (badge.textContent || '').trim();
+		return textContent === '1';
+	}())`
 )
 
 type dashboardIntegrationHarness struct {
@@ -209,6 +244,59 @@ func TestDashboardSessionTimeoutAutoLogout(t *testing.T) {
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 
+func TestDashboardFeedbackStreamRefreshesMessages(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Stream Feedback Site",
+		AllowedOrigin:              harness.baseURL,
+		OwnerEmail:                 dashboardTestAdminEmail,
+		CreatorEmail:               dashboardTestAdminEmail,
+		WidgetBubbleSide:           "right",
+		WidgetBubbleBottomOffsetPx: 16,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	waitForVisibleElement(t, page, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, 5*time.Second, 100*time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardNoMessagesPlaceholderScript)
+	}, 5*time.Second, 100*time.Millisecond)
+
+	requestBody := fmt.Sprintf(`{"site_id":"%s","contact":"auto@example.com","message":"Auto refresh message"}`, site.ID)
+	request, err := http.NewRequest(http.MethodPost, harness.baseURL+"/api/feedback", bytes.NewBufferString(requestBody))
+	require.NoError(t, err)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", site.AllowedOrigin)
+	response, err := harness.server.Client().Do(request)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, response.StatusCode)
+	require.NoError(t, response.Body.Close())
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardFeedbackRenderedScript)
+	}, 10*time.Second, 200*time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardFeedbackCountScript)
+	}, 5*time.Second, 100*time.Millisecond)
+}
+
 func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *dashboardIntegrationHarness {
 	testingT.Helper()
 
@@ -234,12 +322,14 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *d
 	managerContext, managerCancel := context.WithCancel(context.Background())
 	faviconManager.Start(managerContext)
 
-	siteHandlers := httpapi.NewSiteHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, faviconManager, nil)
+	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
+
+	siteHandlers := httpapi.NewSiteHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, faviconManager, nil, feedbackBroadcaster)
 	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager)
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath)
-	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger)
+	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -268,12 +358,14 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *d
 	apiGroup.GET("/sites/:id/messages", siteHandlers.ListMessagesBySite)
 	apiGroup.GET("/sites/:id/favicon", siteHandlers.SiteFavicon)
 	apiGroup.GET("/sites/favicons/events", siteHandlers.StreamFaviconUpdates)
+	apiGroup.GET("/sites/feedback/events", siteHandlers.StreamFeedbackUpdates)
 
 	server := httptest.NewServer(router)
 
 	testingT.Cleanup(func() {
 		managerCancel()
 		faviconManager.Stop()
+		feedbackBroadcaster.Close()
 		server.Close()
 		require.NoError(testingT, sqlDatabase.Close())
 	})

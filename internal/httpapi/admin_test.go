@@ -57,7 +57,7 @@ func newSiteTestHarness(testingT *testing.T) siteTestHarness {
 	database = testutil.ConfigureDatabaseLogger(testingT, database)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
-	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil)
+	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, nil)
 
 	return siteTestHarness{handlers: handlers, database: database}
 }
@@ -409,7 +409,7 @@ func TestStreamFaviconUpdatesEmitsEvents(testingT *testing.T) {
 	faviconManager.Start(context.Background())
 	testingT.Cleanup(faviconManager.Stop)
 
-	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, faviconManager, nil)
+	handlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, faviconManager, nil, nil)
 
 	engine := gin.New()
 	engine.GET("/stream", func(context *gin.Context) {
@@ -477,6 +477,110 @@ func TestStreamFaviconUpdatesEmitsEvents(testingT *testing.T) {
 		require.Contains(testingT, payload.data, "favicon_url")
 	case <-time.After(5 * time.Second):
 		testingT.Fatal("timed out waiting for SSE event")
+	}
+}
+
+func TestStreamFeedbackUpdatesReceivesCreateEvents(testingT *testing.T) {
+	testingT.Helper()
+
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, openErr)
+	database = testutil.ConfigureDatabaseLogger(testingT, database)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Feedback Stream Site",
+		AllowedOrigin: "",
+		OwnerEmail:    testAdminEmailAddress,
+		CreatorEmail:  testAdminEmailAddress,
+	}
+	require.NoError(testingT, database.Create(&site).Error)
+
+	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
+	testingT.Cleanup(feedbackBroadcaster.Close)
+	siteHandlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	publicHandlers := httpapi.NewPublicHandlers(database, zap.NewNop(), feedbackBroadcaster)
+
+	engine := gin.New()
+	engine.GET("/stream", func(context *gin.Context) {
+		context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+		siteHandlers.StreamFeedbackUpdates(context)
+	})
+	engine.POST("/api/feedback", func(context *gin.Context) {
+		publicHandlers.CreateFeedback(context)
+	})
+
+	server := httptest.NewServer(engine)
+	testingT.Cleanup(server.Close)
+
+	client := server.Client()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/stream", nil)
+	require.NoError(testingT, err)
+
+	response, err := client.Do(request)
+	require.NoError(testingT, err)
+	testingT.Cleanup(func() {
+		_ = response.Body.Close()
+	})
+	require.Equal(testingT, "text/event-stream", response.Header.Get("Content-Type"))
+
+	type eventPayload struct {
+		name string
+		data string
+	}
+	events := make(chan eventPayload, 1)
+	go func() {
+		reader := bufio.NewReader(response.Body)
+		var eventName string
+		var dataPayload string
+		for {
+			line, readErr := reader.ReadString('\n')
+			if readErr != nil {
+				close(events)
+				return
+			}
+			line = strings.TrimRight(line, "\r\n")
+			if strings.HasPrefix(line, "event: ") {
+				eventName = strings.TrimPrefix(line, "event: ")
+				continue
+			}
+			if strings.HasPrefix(line, "data: ") {
+				dataPayload = strings.TrimPrefix(line, "data: ")
+				continue
+			}
+			if line == "" && eventName != "" && dataPayload != "" {
+				events <- eventPayload{name: eventName, data: dataPayload}
+				return
+			}
+		}
+	}()
+
+	feedbackRequestBody := bytes.NewBufferString(fmt.Sprintf(`{"site_id":"%s","contact":"person@example.com","message":"Hello"}`, site.ID))
+	createRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api/feedback", feedbackRequestBody)
+	require.NoError(testingT, err)
+	createRequest.Header.Set("Content-Type", "application/json")
+	createResponse, err := client.Do(createRequest)
+	require.NoError(testingT, err)
+	require.Equal(testingT, http.StatusOK, createResponse.StatusCode)
+	testingT.Cleanup(func() {
+		_ = createResponse.Body.Close()
+	})
+
+	select {
+	case payload, ok := <-events:
+		require.True(testingT, ok)
+		require.Equal(testingT, "feedback_created", payload.name)
+		var decoded map[string]any
+		require.NoError(testingT, json.Unmarshal([]byte(payload.data), &decoded))
+		require.Equal(testingT, site.ID, decoded["site_id"])
+		require.Greater(testingT, decoded["created_at"], float64(0))
+		require.Equal(testingT, float64(1), decoded["feedback_count"])
+	case <-time.After(5 * time.Second):
+		testingT.Fatal("timed out waiting for feedback SSE event")
 	}
 }
 
