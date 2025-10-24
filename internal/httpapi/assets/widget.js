@@ -3,6 +3,7 @@
   var themeNameLight = "light";
   var themeNameDark = "dark";
   var themeAttributeName = "data-theme";
+  var bootstrapThemeAttributeName = "data-bs-theme";
   var themeClassNameLight = "light";
   var themeClassNameDark = "dark";
   var themeMediaQueryDark = "(prefers-color-scheme: dark)";
@@ -135,6 +136,7 @@
 
       var bodyElement = document.body;
       var themePalette = selectThemePalette(bodyElement);
+      var currentStatusState = statusStatePending;
 
       var resolvedBubbleSide = (widgetPlacementSideValue || "").toLowerCase() === "left" ? "left" : "right";
       var resolvedBottomOffset = Number(widgetPlacementBottomOffsetValue);
@@ -157,14 +159,11 @@
       bubble.style.width = "56px";
       bubble.style.height = "56px";
       bubble.style.borderRadius = "28px";
-      bubble.style.boxShadow = themePalette.bubbleShadow;
-      bubble.style.background = themePalette.bubbleBackground;
       bubble.style.cursor = "pointer";
       bubble.style.display = "flex";
       bubble.style.alignItems = "center";
       bubble.style.justifyContent = "center";
       bubble.style.zIndex = "2147483647";
-      bubble.style.color = themePalette.bubbleTextColor;
       bubble.style.fontSize = "28px";
       bubble.style.userSelect = "none";
       bubble.setAttribute("aria-label","Send feedback");
@@ -184,15 +183,11 @@
       panel.style.bottom = panelBottomOffset + "px";
       panel.style.width = "320px";
       panel.style.maxWidth = "92vw";
-      panel.style.background = themePalette.panelBackground;
-      panel.style.border = themePalette.panelBorder;
-      panel.style.boxShadow = themePalette.panelShadow;
       panel.style.borderRadius = "12px";
       panel.style.padding = "12px";
       panel.style.fontFamily = "system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif";
       panel.style.display = panelDisplayNoneValue;
       panel.style.zIndex = "2147483647";
-      panel.style.color = themePalette.panelTextColor;
 
       var panelContainer = document.createElement("div");
       panelContainer.style.position = "relative";
@@ -221,7 +216,6 @@
       closeButton.style.padding = widgetCloseButtonPaddingValue;
       closeButton.style.border = widgetCloseButtonBorderValue;
       closeButton.style.background = widgetCloseButtonBackgroundValue;
-      closeButton.style.color = themePalette.closeButtonColor;
       closeButton.style.fontSize = widgetCloseButtonFontSizeValue;
       closeButton.style.lineHeight = widgetCloseButtonLineHeightValue;
       closeButton.style.cursor = widgetCloseButtonCursorValue;
@@ -239,10 +233,7 @@
       contact.style.width = "100%";
       contact.style.margin = "6px 0";
       contact.style.padding = "10px";
-      contact.style.border = themePalette.inputBorder;
       contact.style.borderRadius = "8px";
-      contact.style.background = themePalette.inputBackground;
-      contact.style.color = themePalette.inputTextColor;
       contact.style.boxSizing = boxSizingBorderBoxValue;
       panelContainer.appendChild(contact);
 
@@ -252,28 +243,34 @@
       message.style.width = "100%";
       message.style.margin = "6px 0 8px";
       message.style.padding = "10px";
-      message.style.border = themePalette.inputBorder;
       message.style.borderRadius = "8px";
-      message.style.background = themePalette.inputBackground;
-      message.style.color = themePalette.inputTextColor;
       message.style.boxSizing = boxSizingBorderBoxValue;
       panelContainer.appendChild(message);
 
-      function handleMessageShiftTabNavigation(event) {
+      function handleInputTabNavigation(event) {
         if (event.key !== "Tab") {
           return;
         }
-        if (!event.shiftKey) {
+        var focusedElement = event.target;
+        var isShiftTab = event.shiftKey === true;
+        if (focusedElement === contact && !isShiftTab) {
+          event.preventDefault();
+          focusInputElement(message);
           return;
         }
-        if (event.target !== message) {
+        if (focusedElement === contact && isShiftTab) {
+          event.preventDefault();
+          focusInputElement(send);
           return;
         }
-        event.preventDefault();
-        contact.focus();
+        if (focusedElement === message && isShiftTab) {
+          event.preventDefault();
+          focusInputElement(contact);
+        }
       }
 
-      message.addEventListener("keydown", handleMessageShiftTabNavigation);
+      contact.addEventListener("keydown", handleInputTabNavigation);
+      message.addEventListener("keydown", handleInputTabNavigation);
 
       var send = document.createElement("button");
       send.type = "button";
@@ -282,8 +279,6 @@
       send.style.padding = "10px 12px";
       send.style.border = "0";
       send.style.borderRadius = "8px";
-      send.style.background = themePalette.buttonBackground;
-      send.style.color = themePalette.buttonTextColor;
       send.style.fontWeight = "600";
       send.style.cursor = "pointer";
       send.style.boxSizing = boxSizingBorderBoxValue;
@@ -293,7 +288,6 @@
       status.style.marginTop = "6px";
       status.style.fontSize = "12px";
       status.style.minHeight = "16px";
-      status.style.color = themePalette.statusPendingColor;
       panelContainer.appendChild(status);
 
       var brandingContainer = document.createElement("div");
@@ -320,10 +314,102 @@
 
       bodyElement.appendChild(panel);
 
-      function focusContactInput() {
+      function focusInputElement(targetElement) {
+        if (!targetElement || typeof targetElement.focus !== "function") {
+          return;
+        }
         try {
-          contact.focus();
-        } catch(focusError){}
+          targetElement.focus();
+        } catch(focusImmediateError){}
+        if (typeof window === "undefined") {
+          return;
+        }
+        if (typeof window.requestAnimationFrame === "function") {
+          window.requestAnimationFrame(function(){
+            try {
+              targetElement.focus();
+            } catch(focusAnimationFrameError){}
+          });
+          return;
+        }
+        window.setTimeout(function(){
+          try {
+            targetElement.focus();
+          } catch(focusTimeoutError){}
+        }, 0);
+      }
+
+      function selectStatusColor(palette, statusState) {
+        if (statusState === statusStateSuccess) {
+          return palette.statusPositiveColor;
+        }
+        if (statusState === statusStatePending) {
+          return palette.statusPendingColor;
+        }
+        return palette.statusNegativeColor;
+      }
+
+      function applyThemePaletteToElements(palette) {
+        bubble.style.boxShadow = palette.bubbleShadow;
+        bubble.style.background = palette.bubbleBackground;
+        bubble.style.color = palette.bubbleTextColor;
+        panel.style.background = palette.panelBackground;
+        panel.style.border = palette.panelBorder;
+        panel.style.boxShadow = palette.panelShadow;
+        panel.style.color = palette.panelTextColor;
+        contact.style.border = palette.inputBorder;
+        contact.style.background = palette.inputBackground;
+        contact.style.color = palette.inputTextColor;
+        message.style.border = palette.inputBorder;
+        message.style.background = palette.inputBackground;
+        message.style.color = palette.inputTextColor;
+        send.style.background = palette.buttonBackground;
+        send.style.color = palette.buttonTextColor;
+        closeButton.style.color = palette.closeButtonColor;
+        status.style.color = selectStatusColor(palette, currentStatusState);
+      }
+
+      function refreshThemePalette() {
+        var updatedPalette = selectThemePalette(bodyElement);
+        if (updatedPalette === themePalette) {
+          return;
+        }
+        themePalette = updatedPalette;
+        applyThemePaletteToElements(themePalette);
+      }
+
+      function monitorThemeChanges() {
+        if (typeof MutationObserver === "function") {
+          try {
+            var themeObserver = new MutationObserver(function(){
+              refreshThemePalette();
+            });
+            themeObserver.observe(document.documentElement, {attributes: true, attributeFilter: ["class", "data-theme", "data-bs-theme", "style"]});
+            if (document.body) {
+              themeObserver.observe(document.body, {attributes: true, attributeFilter: ["class", "data-bs-theme", "style"]});
+            }
+          } catch(themeObserverError){}
+        }
+        if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+          try {
+            var themeMediaQueryList = window.matchMedia(themeMediaQueryDark);
+            var handleThemeMediaChange = function(){
+              refreshThemePalette();
+            };
+            if (typeof themeMediaQueryList.addEventListener === "function") {
+              themeMediaQueryList.addEventListener("change", handleThemeMediaChange);
+            } else if (typeof themeMediaQueryList.addListener === "function") {
+              themeMediaQueryList.addListener(handleThemeMediaChange);
+            }
+          } catch(mediaQueryObserverError){}
+        }
+      }
+
+      applyThemePaletteToElements(themePalette);
+      monitorThemeChanges();
+
+      function focusContactInput() {
+        focusInputElement(contact);
       }
 
       function cancelPanelAutoHide() {
@@ -364,14 +450,13 @@
       });
 
       function show(messageText, statusState) {
-        status.innerText = messageText;
-        var statusColor = themePalette.statusNegativeColor;
-        if (statusState === statusStateSuccess) {
-          statusColor = themePalette.statusPositiveColor;
-        } else if (statusState === statusStatePending) {
-          statusColor = themePalette.statusPendingColor;
+        var resolvedStatusState = statusState;
+        if (!resolvedStatusState) {
+          resolvedStatusState = statusStateError;
         }
-        status.style.color = statusColor;
+        currentStatusState = resolvedStatusState;
+        status.innerText = messageText;
+        status.style.color = selectStatusColor(themePalette, currentStatusState);
       }
 
       function validate() {
@@ -475,27 +560,52 @@
 
   function detectExplicitTheme() {
     try {
-      var rootElement = document.documentElement;
-      if (!rootElement) {
-        return null;
+      var rootTheme = resolveThemeFromElement(document.documentElement);
+      if (rootTheme) {
+        return rootTheme;
       }
-      var attributeValue = (rootElement.getAttribute(themeAttributeName) || "").toLowerCase();
-      if (attributeValue === themeNameDark) {
-        return themeNameDark;
-      }
-      if (attributeValue === themeNameLight) {
-        return themeNameLight;
-      }
-      if (rootElement.classList) {
-        if (rootElement.classList.contains(themeClassNameDark)) {
-          return themeNameDark;
-        }
-        if (rootElement.classList.contains(themeClassNameLight)) {
-          return themeNameLight;
-        }
+      var bodyTheme = resolveThemeFromElement(document.body);
+      if (bodyTheme) {
+        return bodyTheme;
       }
     } catch(explicitThemeError){}
     return null;
+  }
+
+  function resolveThemeFromElement(element) {
+    if (!element) {
+      return null;
+    }
+    var attributeValue = readThemeAttribute(element);
+    if (attributeValue === themeNameDark) {
+      return themeNameDark;
+    }
+    if (attributeValue === themeNameLight) {
+      return themeNameLight;
+    }
+    if (element.classList) {
+      if (element.classList.contains(themeClassNameDark)) {
+        return themeNameDark;
+      }
+      if (element.classList.contains(themeClassNameLight)) {
+        return themeNameLight;
+      }
+    }
+    return null;
+  }
+
+  function readThemeAttribute(element) {
+    if (!element) {
+      return "";
+    }
+    var attributeNames = [themeAttributeName, bootstrapThemeAttributeName];
+    for (var index = 0; index < attributeNames.length; index++) {
+      var candidateValue = element.getAttribute(attributeNames[index]);
+      if (candidateValue && candidateValue.length > 0) {
+        return candidateValue.toLowerCase();
+      }
+    }
+    return "";
   }
 
   function detectThemeFromBackground(bodyElement) {

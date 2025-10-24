@@ -123,7 +123,8 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
     - [X] [LA-79] Shorten the gap between built by Marco Polo Research Lab and the input field of the widget dialog
     - [x] [LA-83] Each site should allow to launch its widget in an test page. Add a button to the left of the copy snippet button of the site widget panel that says Test. Pressing this button opens an html page with a widget placed exactly where it will be placed on the site (we respect the placement directives). The page itslef has a dark light switch toggle, to wich the widget must react. Entering feedback in this widget delivers it to the site's feedback.
     - [ ] [LA-84] Make tab circle the input fields in the widget. ensure the focus on the first input field when the widget is opened
-    - [ ] [LA-86] Get rid of the example page, it's unnessary. we will only use test pages for the sites
+    - [ ] [LA-88] Get rid of the example page, it's unnessary. we will only use test pages for the sites
+    - [ ] [LA-89] Allow widget editing on the example page (left/right placement, bottom offset with immediate results). The editing shall be saved and become new values for the widget. Have the same panel that we have on the dashboard page.
 
 
 ### BugFixes
@@ -163,6 +164,7 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
     - [x] [LA-75] Replace duplicative implementation of the footer and render a single partial instead.
     - [x] [LA-81] Horizontally align the x (closing button) in the widet to the "Send feedback" text. It is currently horizontally below. See ![alt text](image.png). Write a failing test that demonstrates the absence of the closing sing in top right corner. Then fix the code without touching the code, ensure tha tht test passes after fixing the code.
     - [ ] [LA-85] No feedback was refreshed after the feedback was left. ensure SSE channel that sends a message from the backend when feedback is left so that the feedback is automatically refreshed when we get a new feedback while looking at the page
+    - [ ] [LA-86] Theme switched is revered. It should be light theme when the switch is to the left and dark theme when the switch is to the right. It currently si to the right but the theme is light.
 
 ### Maintenance
 

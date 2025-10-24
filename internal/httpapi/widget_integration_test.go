@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/input"
 	"github.com/stretchr/testify/require"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
@@ -49,57 +51,61 @@ const (
 		}
 		return "";
 	})()`
-	widgetPanelHiddenDisplayValue          = "none"
-	panelDisplayBlockValue                 = "block"
-	widgetPanelDisplayScript               = "document.getElementById(\"mp-feedback-panel\").style.display"
-	panelInputRelativeSelector             = "input"
-	panelMessageRelativeSelector           = "textarea"
-	panelButtonRelativeSelector            = "button"
-	darkThemeExpectedBubbleBackgroundColor = "rgb(77, 171, 247)"
-	darkThemeExpectedBubbleTextColor       = "rgb(11, 21, 38)"
-	darkThemeExpectedPanelBackgroundColor  = "rgb(31, 41, 55)"
-	darkThemeExpectedInputBackgroundColor  = "rgb(17, 24, 39)"
-	darkThemeExpectedButtonBackgroundColor = "rgb(37, 99, 235)"
-	widgetBrandingLinkExpectedText         = "Marco Polo Research Lab"
-	widgetBrandingContainerExpectedText    = "Built by Marco Polo Research Lab"
-	widgetBrandingLinkExpectedHref         = "https://mprlab.com"
-	widgetCloseButtonSelector              = "#mp-feedback-panel button[aria-label='Close feedback panel']"
-	widgetCloseButtonExpectedText          = "×"
-	widgetHeadlineSelector                 = "#mp-feedback-headline"
-	widgetContactFocusScript               = `document.activeElement === document.querySelector("#mp-feedback-panel input")`
-	widgetContactTabNotPreventedScript     = `(function(){
-                var contact = document.querySelector("#mp-feedback-panel input");
-                if (!contact) { return false; }
-                contact.focus();
-                var tabEvent = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
-                contact.dispatchEvent(tabEvent);
-                return !tabEvent.defaultPrevented;
-        })()`
-	widgetMessageTabNotPreventedScript = `(function(){
-                var message = document.querySelector("#mp-feedback-panel textarea");
-                if (!message) { return false; }
-                message.focus();
-                var tabEvent = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
-                message.dispatchEvent(tabEvent);
-                return !tabEvent.defaultPrevented;
-        })()`
-	widgetMessageShiftTabReturnsToContactScript = `(function(){
-                var contact = document.querySelector("#mp-feedback-panel input");
-                var message = document.querySelector("#mp-feedback-panel textarea");
-                if (!contact || !message) { return false; }
-                message.focus();
-                var shiftTabEvent = new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true });
-                message.dispatchEvent(shiftTabEvent);
-                return document.activeElement === contact && shiftTabEvent.defaultPrevented;
-        })()`
-	customWidgetBubbleSide              = "left"
-	customWidgetBottomOffsetPixels      = 32
-	widgetHorizontalOffsetPixels        = 16
-	widgetBubbleDiameterPixels          = 56
-	widgetPanelVerticalSpacingPixels    = 64
-	positionTolerancePixels             = 6.0
-	closeButtonAlignmentTolerancePixels = 2.0
+	widgetPanelHiddenDisplayValue           = "none"
+	panelDisplayBlockValue                  = "block"
+	widgetPanelDisplayScript                = "document.getElementById(\"mp-feedback-panel\").style.display"
+	panelInputRelativeSelector              = "input"
+	panelMessageRelativeSelector            = "textarea"
+	panelButtonRelativeSelector             = "button"
+	lightThemeExpectedBubbleBackgroundColor = "rgb(13, 110, 253)"
+	lightThemeExpectedBubbleTextColor       = "rgb(255, 255, 255)"
+	lightThemeExpectedPanelBackgroundColor  = "rgb(255, 255, 255)"
+	lightThemeExpectedInputBackgroundColor  = "rgb(255, 255, 255)"
+	lightThemeExpectedButtonBackgroundColor = "rgb(13, 110, 253)"
+	darkThemeExpectedBubbleBackgroundColor  = "rgb(77, 171, 247)"
+	darkThemeExpectedBubbleTextColor        = "rgb(11, 21, 38)"
+	darkThemeExpectedPanelBackgroundColor   = "rgb(31, 41, 55)"
+	darkThemeExpectedInputBackgroundColor   = "rgb(17, 24, 39)"
+	darkThemeExpectedButtonBackgroundColor  = "rgb(37, 99, 235)"
+	widgetBrandingLinkExpectedText          = "Marco Polo Research Lab"
+	widgetBrandingContainerExpectedText     = "Built by Marco Polo Research Lab"
+	widgetBrandingLinkExpectedHref          = "https://mprlab.com"
+	widgetCloseButtonSelector               = "#mp-feedback-panel button[aria-label='Close feedback panel']"
+	widgetCloseButtonExpectedText           = "×"
+	widgetHeadlineSelector                  = "#mp-feedback-headline"
+	widgetContactFocusScript                = `document.activeElement === document.querySelector("#mp-feedback-panel input")`
+	widgetMessageFocusScript                = `document.activeElement === document.querySelector("#mp-feedback-panel textarea")`
+	widgetSendButtonFocusScript             = `document.activeElement === document.querySelector("#mp-feedback-panel button[type='button']:not([aria-label='Close feedback panel'])")`
+	customWidgetBubbleSide                  = "left"
+	customWidgetBottomOffsetPixels          = 32
+	widgetHorizontalOffsetPixels            = 16
+	widgetBubbleDiameterPixels              = 56
+	widgetPanelVerticalSpacingPixels        = 64
+	positionTolerancePixels                 = 6.0
+	closeButtonAlignmentTolerancePixels     = 2.0
+	bootstrapThemeAttributeName             = "data-bs-theme"
+	bootstrapThemeLightValue                = "light"
+	bootstrapThemeDarkValue                 = "dark"
 )
+
+func setBootstrapThemeAttribute(testingT *testing.T, page *rod.Page, themeValue string) {
+	testingT.Helper()
+
+	themeScript := fmt.Sprintf(`(function(){
+                var desiredThemeValue = %q;
+                var htmlElement = document.documentElement;
+                if (htmlElement) {
+                        htmlElement.removeAttribute("data-theme");
+                        htmlElement.setAttribute("%s", desiredThemeValue);
+                }
+                if (document.body) {
+                        document.body.setAttribute("%s", desiredThemeValue);
+                }
+                return true;
+        })()`, themeValue, bootstrapThemeAttributeName, bootstrapThemeAttributeName)
+
+	require.True(testingT, evaluateScriptBoolean(testingT, page, themeScript))
+}
 
 func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -144,9 +150,26 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	clickSelector(t, page, widgetBubbleSelector)
 	waitForVisibleElement(t, page, widgetPanelSelector)
 	require.True(t, evaluateScriptBoolean(t, page, widgetContactFocusScript))
-	require.True(t, evaluateScriptBoolean(t, page, widgetContactTabNotPreventedScript))
-	require.True(t, evaluateScriptBoolean(t, page, widgetMessageTabNotPreventedScript))
-	require.True(t, evaluateScriptBoolean(t, page, widgetMessageShiftTabReturnsToContactScript))
+	require.NoError(t, page.Keyboard.Type(input.Tab))
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, widgetMessageFocusScript)
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+	require.NoError(t, page.Keyboard.Type(input.Tab))
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, widgetSendButtonFocusScript)
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+	require.NoError(t, page.KeyActions().Press(input.ShiftLeft).Type(input.Tab).Release(input.ShiftLeft).Do())
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, widgetMessageFocusScript)
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+	require.NoError(t, page.KeyActions().Press(input.ShiftLeft).Type(input.Tab).Release(input.ShiftLeft).Do())
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, widgetContactFocusScript)
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+	require.NoError(t, page.KeyActions().Press(input.ShiftLeft).Type(input.Tab).Release(input.ShiftLeft).Do())
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, widgetSendButtonFocusScript)
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
 
 	panelBounds := resolveViewportBounds(t, page, widgetPanelSelector)
 	require.InDelta(t, expectedBubbleLeft, panelBounds.Left, positionTolerancePixels)
@@ -310,6 +333,83 @@ func TestWidgetAppliesDarkThemeStyles(t *testing.T) {
 	require.Equal(t, darkThemeExpectedPanelBackgroundColor, panelBackgroundColor)
 	require.Equal(t, darkThemeExpectedInputBackgroundColor, inputBackgroundColor)
 	require.Equal(t, darkThemeExpectedButtonBackgroundColor, buttonBackgroundColor)
+}
+
+func TestWidgetRespondsToThemeToggle(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	page := buildHeadlessPage(t)
+
+	apiHarness := buildAPIHarness(t)
+
+	server := httptest.NewServer(apiHarness.router)
+	t.Cleanup(server.Close)
+
+	site := insertSite(t, apiHarness.database, integrationSiteName, server.URL, integrationSiteOwnerEmail)
+
+	integrationPageHTML := fmt.Sprintf(integrationPageHTMLTemplate, site.ID)
+	apiHarness.router.GET(integrationPageRoutePath, func(ginContext *gin.Context) {
+		ginContext.Data(http.StatusOK, integrationPageContentType, []byte(integrationPageHTML))
+	})
+
+	integrationPageURL := server.URL + integrationPageRoutePath
+
+	navigateToPage(t, page, integrationPageURL)
+	waitForVisibleElement(t, page, widgetBubbleSelector)
+
+	setBootstrapThemeAttribute(t, page, bootstrapThemeLightValue)
+
+	require.Eventually(t, func() bool {
+		lightBubbleColor := evaluateScriptString(t, page, `window.getComputedStyle(document.getElementById("mp-feedback-bubble")).backgroundColor`)
+		return lightBubbleColor == lightThemeExpectedBubbleBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	setBootstrapThemeAttribute(t, page, bootstrapThemeDarkValue)
+
+	require.Eventually(t, func() bool {
+		darkBubbleColor := evaluateScriptString(t, page, `window.getComputedStyle(document.getElementById("mp-feedback-bubble")).backgroundColor`)
+		return darkBubbleColor == darkThemeExpectedBubbleBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	clickSelector(t, page, widgetBubbleSelector)
+	waitForVisibleElement(t, page, widgetPanelSelector)
+
+	require.Eventually(t, func() bool {
+		darkPanelColor := evaluateScriptString(t, page, `window.getComputedStyle(document.getElementById("mp-feedback-panel")).backgroundColor`)
+		return darkPanelColor == darkThemeExpectedPanelBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	require.Eventually(t, func() bool {
+		darkInputColor := evaluateScriptString(t, page, `window.getComputedStyle(document.querySelector("#mp-feedback-panel textarea")).backgroundColor`)
+		return darkInputColor == darkThemeExpectedInputBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	require.Eventually(t, func() bool {
+		darkButtonColor := evaluateScriptString(t, page, `window.getComputedStyle(document.querySelector("#mp-feedback-panel button[type='button']:not([aria-label='Close feedback panel'])")).backgroundColor`)
+		return darkButtonColor == darkThemeExpectedButtonBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	setBootstrapThemeAttribute(t, page, bootstrapThemeLightValue)
+
+	require.Eventually(t, func() bool {
+		lightBubbleColor := evaluateScriptString(t, page, `window.getComputedStyle(document.getElementById("mp-feedback-bubble")).backgroundColor`)
+		return lightBubbleColor == lightThemeExpectedBubbleBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	require.Eventually(t, func() bool {
+		lightPanelColor := evaluateScriptString(t, page, `window.getComputedStyle(document.getElementById("mp-feedback-panel")).backgroundColor`)
+		return lightPanelColor == lightThemeExpectedPanelBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	require.Eventually(t, func() bool {
+		lightInputColor := evaluateScriptString(t, page, `window.getComputedStyle(document.querySelector("#mp-feedback-panel textarea")).backgroundColor`)
+		return lightInputColor == lightThemeExpectedInputBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	require.Eventually(t, func() bool {
+		lightButtonColor := evaluateScriptString(t, page, `window.getComputedStyle(document.querySelector("#mp-feedback-panel button[type='button']:not([aria-label='Close feedback panel'])")).backgroundColor`)
+		return lightButtonColor == lightThemeExpectedButtonBackgroundColor
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
 }
 
 func TestWidgetCloseButtonDismissesPanel(t *testing.T) {
