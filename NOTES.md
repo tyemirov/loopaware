@@ -164,7 +164,7 @@ Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixe
     - [x] [LA-75] Replace duplicative implementation of the footer and render a single partial instead.
     - [x] [LA-81] Horizontally align the x (closing button) in the widet to the "Send feedback" text. It is currently horizontally below. See ![alt text](image.png). Write a failing test that demonstrates the absence of the closing sing in top right corner. Then fix the code without touching the code, ensure tha tht test passes after fixing the code.
     - [X] [LA-85] No feedback was refreshed after the feedback was left. ensure SSE channel that sends a message from the backend when feedback is left so that the feedback is automatically refreshed when we get a new feedback while looking at the page
-    - [ ] [LA-86] Theme switched is revered. It should be light theme when the switch is to the left and dark theme when the switch is to the right. It currently si to the right but the theme is light.
+    - [X] [LA-86] Theme switched is revered. It should be light theme when the switch is to the left and dark theme when the switch is to the right. It currently si to the right but the theme is light.
 
 ### Maintenance
 

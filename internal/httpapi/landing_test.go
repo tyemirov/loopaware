@@ -108,6 +108,8 @@ func TestLandingPageProvidesThemeSwitch(t *testing.T) {
 	require.Contains(t, body, landingThemeMigrationToken)
 	require.Contains(t, body, landingThemeApplyFunctionToken)
 	require.Contains(t, body, landingThemeDataAttributeToken)
+	require.Contains(t, body, "themeToggleElement.checked = normalizedTheme === 'dark';")
+	require.Contains(t, body, "var nextTheme = event.target.checked ? 'dark' : 'light';")
 	require.Contains(t, body, landingHeaderStickyToken)
 }
 
