@@ -10,17 +10,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/httpapi"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/testutil"
 )
 
 func TestRenderWidgetTestPage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	database := openExampleTestDatabase(t)
-	defer closeExampleTestDatabase(t, database)
+	database := openWidgetTestDatabase(t)
+	defer closeWidgetTestDatabase(t, database)
 
 	site := model.Site{
 		ID:                         storage.NewID(),
@@ -33,7 +35,7 @@ func TestRenderWidgetTestPage(t *testing.T) {
 	}
 	require.NoError(t, database.Create(&site).Error)
 
-	handler := httpapi.NewSiteWidgetTestHandlers(database, zap.NewNop(), "http://localhost:8080")
+	handler := httpapi.NewSiteWidgetTestHandlers(database, zap.NewNop(), "http://localhost:8080", nil)
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/app/sites/"+site.ID+"/widget-test", nil)
@@ -50,13 +52,16 @@ func TestRenderWidgetTestPage(t *testing.T) {
 	require.Contains(t, body, site.Name)
 	require.Contains(t, body, site.ID)
 	require.Contains(t, body, "LOOPAWARE_WIDGET_TEST_MODE")
+	require.Contains(t, body, "id=\"widget-test-form\"")
+	require.Contains(t, body, "id=\"widget-test-save\"")
+	require.Contains(t, body, "id=\"widget-test-bottom-offset\"")
 }
 
 func TestSubmitWidgetTestFeedback(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	database := openExampleTestDatabase(t)
-	defer closeExampleTestDatabase(t, database)
+	database := openWidgetTestDatabase(t)
+	defer closeWidgetTestDatabase(t, database)
 
 	site := model.Site{
 		ID:                         storage.NewID(),
@@ -69,7 +74,7 @@ func TestSubmitWidgetTestFeedback(t *testing.T) {
 	}
 	require.NoError(t, database.Create(&site).Error)
 
-	handler := httpapi.NewSiteWidgetTestHandlers(database, zap.NewNop(), "http://localhost:8080")
+	handler := httpapi.NewSiteWidgetTestHandlers(database, zap.NewNop(), "http://localhost:8080", nil)
 
 	payload := map[string]string{
 		"contact": "tester@example.com",
@@ -94,4 +99,21 @@ func TestSubmitWidgetTestFeedback(t *testing.T) {
 	require.NoError(t, database.First(&stored, "site_id = ?", site.ID).Error)
 	require.Equal(t, payload["contact"], stored.Contact)
 	require.Equal(t, payload["message"], stored.Message)
+}
+
+func openWidgetTestDatabase(testingT *testing.T) *gorm.DB {
+	testingT.Helper()
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	gormDatabase, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	gormDatabase = testutil.ConfigureDatabaseLogger(testingT, gormDatabase)
+	require.NoError(testingT, storage.AutoMigrate(gormDatabase))
+	return gormDatabase
+}
+
+func closeWidgetTestDatabase(testingT *testing.T, database *gorm.DB) {
+	testingT.Helper()
+	sqlDatabase, err := database.DB()
+	require.NoError(testingT, err)
+	require.NoError(testingT, sqlDatabase.Close())
 }

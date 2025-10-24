@@ -150,7 +150,7 @@ var (
     rootElement.classList.toggle('bg-body', true);
     rootElement.classList.toggle('text-body', true);
     if (themeToggleElement) {
-      themeToggleElement.checked = normalizedTheme === 'light';
+      themeToggleElement.checked = normalizedTheme === 'dark';
     }
   }
   function loadPublicTheme() {
@@ -181,7 +181,7 @@ var (
   }
   if (themeToggleElement) {
     themeToggleElement.addEventListener('change', function(event) {
-      var nextTheme = event.target.checked ? 'light' : 'dark';
+      var nextTheme = event.target.checked ? 'dark' : 'light';
       applyPublicTheme(nextTheme);
       persistPublicTheme(nextTheme);
     });

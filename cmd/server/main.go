@@ -65,7 +65,6 @@ const (
 	defaultPublicBaseURL             = "http://localhost:8080"
 	publicRouteFeedback              = "/api/feedback"
 	publicRouteWidget                = "/widget.js"
-	exampleRoutePath                 = "/example"
 	landingRouteRoot                 = constants.LoginPath
 	dashboardRoute                   = "/app"
 	apiRoutePrefix                   = "/api"
@@ -76,6 +75,7 @@ const (
 	apiRouteSiteMessages             = "/sites/:id/messages"
 	apiRouteSiteFavicon              = "/sites/:id/favicon"
 	apiRouteSiteFaviconEvents        = "/sites/favicons/events"
+	apiRouteSiteFeedbackEvents       = "/sites/feedback/events"
 	corsOriginWildcard               = "*"
 	corsHeaderAuthorization          = "Authorization"
 	corsHeaderContentType            = "Content-Type"
@@ -351,7 +351,9 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 
 	sharedHTTPClient := &http.Client{Timeout: 5 * time.Second}
 	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, landingRouteRoot)
-	publicHandlers := httpapi.NewPublicHandlers(database, logger)
+	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
+	defer feedbackBroadcaster.Close()
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster)
 	faviconResolver := favicon.NewHTTPResolver(sharedHTTPClient, logger)
 	faviconService := favicon.NewService(faviconResolver)
 	faviconManager := httpapi.NewSiteFaviconManager(database, faviconService, logger)
@@ -361,10 +363,9 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	faviconManager.Start(faviconManagerContext)
 	faviconManager.TriggerScheduledRefresh()
 	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(database)
-	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider)
+	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot)
-	exampleHandlers := httpapi.NewExamplePageHandlers(logger, database)
-	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(database, logger, serverConfig.PublicBaseURL)
+	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(database, logger, serverConfig.PublicBaseURL, feedbackBroadcaster)
 	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager)
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
 	sitemapHandlers := httpapi.NewSitemapHandlers(serverConfig.PublicBaseURL)
@@ -373,7 +374,6 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		context.Redirect(http.StatusFound, constants.LoginPath)
 	})
 	router.GET(landingRouteRoot, landingHandlers.RenderLandingPage)
-	router.GET(exampleRoutePath, exampleHandlers.RenderExamplePage)
 	router.GET("/app/sites/:id/widget-test", authManager.RequireAuthenticatedWeb(), widgetTestHandlers.RenderWidgetTestPage)
 	router.POST("/app/sites/:id/widget-test/feedback", authManager.RequireAuthenticatedJSON(), widgetTestHandlers.SubmitWidgetTestFeedback)
 	router.GET(httpapi.PrivacyPagePath, privacyHandlers.RenderPrivacyPage)
@@ -399,6 +399,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	apiGroup.GET(apiRouteSiteMessages, siteHandlers.ListMessagesBySite)
 	apiGroup.GET(apiRouteSiteFavicon, siteHandlers.SiteFavicon)
 	apiGroup.GET(apiRouteSiteFaviconEvents, siteHandlers.StreamFaviconUpdates)
+	apiGroup.GET(apiRouteSiteFeedbackEvents, siteHandlers.StreamFeedbackUpdates)
 
 	httpServer := &http.Server{
 		Addr:              serverConfig.ApplicationAddress,

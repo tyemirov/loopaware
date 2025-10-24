@@ -253,6 +253,7 @@
         }
         var apiPaths = parsedConfig.api_paths || {};
         var siteFaviconEventsEndpoint = apiPaths.site_favicon_events || '';
+        var feedbackEventsEndpoint = apiPaths.feedback_events || '';
         var sharedPaths = parsedConfig.paths || {};
         var elementIds = parsedConfig.element_ids || {};
         var buttonClasses = parsedConfig.button_classes || {};
@@ -303,6 +304,9 @@
         var faviconUpdatedEventName = 'favicon_updated';
         var faviconEventSource = null;
         var faviconReconnectDelayMilliseconds = 5000;
+        var feedbackUpdatedEventName = 'feedback_created';
+        var feedbackEventSource = null;
+        var feedbackReconnectDelayMilliseconds = 5000;
         var settingsButton = document.getElementById(elementIds.settings_button);
         var settingsMenu = document.getElementById(elementIds.settings_menu);
         var themeToggle = document.getElementById(elementIds.settings_theme_toggle);
@@ -1887,6 +1891,60 @@
         renderSites();
       }
 
+      function closeFeedbackEventStream() {
+        if (!feedbackEventSource) {
+          return;
+        }
+        feedbackEventSource.close();
+        feedbackEventSource = null;
+      }
+
+      function openFeedbackEventStream() {
+        if (!window.EventSource || !feedbackEventsEndpoint) {
+          return;
+        }
+        closeFeedbackEventStream();
+        feedbackEventSource = new EventSource(feedbackEventsEndpoint);
+        feedbackEventSource.addEventListener(feedbackUpdatedEventName, handleFeedbackUpdateEvent);
+        feedbackEventSource.onerror = function() {
+          closeFeedbackEventStream();
+          window.setTimeout(openFeedbackEventStream, feedbackReconnectDelayMilliseconds);
+        };
+      }
+
+      function handleFeedbackUpdateEvent(event) {
+        if (!event || !event.data) {
+          return;
+        }
+        var payload;
+        try {
+          payload = JSON.parse(event.data);
+        } catch (error) {
+          return;
+        }
+        var siteIdentifier = (payload.site_id || '').trim();
+        if (!siteIdentifier) {
+          return;
+        }
+        if (!state || !Array.isArray(state.sites)) {
+          return;
+        }
+        var site = state.sites.find(function(item) { return item.id === siteIdentifier; });
+        if (site) {
+          if (typeof payload.feedback_count === 'number' && Number.isFinite(payload.feedback_count)) {
+            site.feedback_count = payload.feedback_count;
+          } else if (typeof site.feedback_count === 'number' && Number.isFinite(site.feedback_count)) {
+            site.feedback_count += 1;
+          } else {
+            site.feedback_count = 1;
+          }
+        }
+        if (state && state.siteMessages) {
+          delete state.siteMessages[siteIdentifier];
+        }
+        renderSites();
+      }
+
       function submitSite(event) {
         if (event) { event.preventDefault(); }
         if (saveSiteButton.disabled) { return; }
@@ -2094,6 +2152,7 @@
 
         window.addEventListener('beforeunload', function() {
           closeFaviconEventStream();
+          closeFeedbackEventStream();
         });
 
         loadThemePreference();
@@ -2102,6 +2161,7 @@
         }
         loadUser().then(function() {
           openFaviconEventStream();
+          openFeedbackEventStream();
           return loadSites();
         });
       })();

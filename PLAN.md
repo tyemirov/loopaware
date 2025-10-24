@@ -1,13 +1,5 @@
- - [x] [LA-80] `internal/model/models.go` — add widget placement fields with defaults that keep existing sites on the right at 16px.
- - [x] [LA-80] `internal/httpapi/admin.go` — accept, validate, and persist placement fields in create/update/list flows.
- - [x] [LA-80] `internal/httpapi/templates/dashboard.tmpl` — surface placement controls in the widget card and ensure payloads include them.
- - [x] [LA-80] `internal/httpapi/assets/widget.js` — render the bubble using stored placement values and adjust auto-hide timing for faster tests.
- - [x] [LA-80] Tests/docs — extend unit/integration coverage for placement behavior and update MIGRATION.md plus README if needed.
- - [x] [LA-82] `internal/httpapi/example.go` — add example page handlers that render a template loading the widget with optional site selection.
- - [x] [LA-82] `internal/httpapi/templates/example.tmpl` — provide Bootstrap-based demo markup with site ID form and script injection.
- - [x] [LA-82] `cmd/server/main.go` — register `/example` route using the new handler.
- - [x] [LA-82] `internal/httpapi/example_test.go` — add table-driven tests covering site ID rendering and empty state, ensuring correct content type.
- - [x] [LA-83] `internal/httpapi/templates/dashboard.tmpl` — add a `Test` control next to the widget snippet actions that opens the widget test page for the selected site.
- - [x] [LA-83] `internal/httpapi/site_widget_test_handlers.go` — serve `/app/sites/:id/widget-test` with theme toggle, placement-aware widget embedding, and optional feedback proxy for the widget test flow.
- - [x] [LA-83] `internal/httpapi/assets/widget.js` — honor a test-mode endpoint override and ensure the close control stays anchored in both demo and test modes.
- - [x] [LA-83] Tests — expand coverage so widget test page loads, theme toggle switches, and feedback submission reaches the target site.
+ - [x] [LA-85] `internal/httpapi/public.go`, `internal/httpapi/admin.go`, `internal/httpapi/web.go`, `internal/httpapi/templates/dashboard.tmpl`, `cmd/server/main.go`, tests — introduce feedback event broadcaster and SSE stream so dashboards auto-refresh messages when new feedback arrives; cover with failing dashboards/tests-first flow.
+ - [x] [LA-86] `internal/httpapi/public_assets.go`, landing/widget templates, integration tests — correct public theme toggle orientation so “checked” means dark mode and persist behaviour; validate via headless landing-page test.
+ - [x] [LA-88] Remove `/example` surface: delete `internal/httpapi/example.go`, template embed, routes, demo flags in widget/public handlers, and update docs/tests to rely solely on per-site widget test pages.
+ - [x] [LA-89] `internal/httpapi/site_widget_test_handlers.go`, `internal/httpapi/templates/widget_test.tmpl`, supporting scripts/tests — add placement editing panel with live preview + persistence using existing site update API.
+ - [x] [LA-87] Rename binary references (`Dockerfile`, docs, tooling) from `feedbacksvc` to `loopaware`; ensure build/tests expect new name.

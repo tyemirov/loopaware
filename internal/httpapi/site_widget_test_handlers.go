@@ -17,22 +17,24 @@ import (
 )
 
 type SiteWidgetTestHandlers struct {
-	database      *gorm.DB
-	logger        *zap.Logger
-	widgetBaseURL string
-	template      *template.Template
+	database            *gorm.DB
+	logger              *zap.Logger
+	widgetBaseURL       string
+	template            *template.Template
+	feedbackBroadcaster *FeedbackEventBroadcaster
 }
 
-func NewSiteWidgetTestHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string) *SiteWidgetTestHandlers {
+func NewSiteWidgetTestHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, feedbackBroadcaster *FeedbackEventBroadcaster) *SiteWidgetTestHandlers {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 	compiledTemplate := template.Must(template.New("widget_test").Parse(widgetTestTemplateHTML))
 	return &SiteWidgetTestHandlers{
-		database:      database,
-		logger:        logger,
-		widgetBaseURL: normalizeWidgetBaseURL(widgetBaseURL),
-		template:      compiledTemplate,
+		database:            database,
+		logger:              logger,
+		widgetBaseURL:       normalizeWidgetBaseURL(widgetBaseURL),
+		template:            compiledTemplate,
+		feedbackBroadcaster: feedbackBroadcaster,
 	}
 }
 
@@ -42,10 +44,12 @@ type widgetTestTemplateData struct {
 	ThemeScript          template.JS
 	SiteName             string
 	SiteID               string
+	PlacementSide        string
 	PlacementSideLabel   string
 	PlacementOffset      int
 	WidgetScriptURL      template.URL
 	TestFeedbackEndpoint template.URL
+	WidgetUpdateEndpoint template.URL
 	SharedStyles         template.CSS
 }
 
@@ -73,7 +77,10 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 	}
 
 	ensureWidgetBubblePlacementDefaults(&site)
-	widgetScriptURL := handlers.widgetBaseURL + "/widget.js?site_id=" + url.QueryEscape(site.ID)
+	widgetScriptURL := "/widget.js?site_id=" + url.QueryEscape(site.ID)
+	if handlers.widgetBaseURL != "" {
+		widgetScriptURL = handlers.widgetBaseURL + "/widget.js?site_id=" + url.QueryEscape(site.ID)
+	}
 	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, true, publicPageLanding)
 	if headerErr != nil && handlers.logger != nil {
 		handlers.logger.Warn("render_widget_test_header", zap.Error(headerErr))
@@ -90,10 +97,12 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 		ThemeScript:          themeScript,
 		SiteName:             site.Name,
 		SiteID:               site.ID,
+		PlacementSide:        strings.ToLower(strings.TrimSpace(site.WidgetBubbleSide)),
 		PlacementSideLabel:   formatWidgetPlacementSide(site.WidgetBubbleSide),
 		PlacementOffset:      site.WidgetBubbleBottomOffsetPx,
 		WidgetScriptURL:      template.URL(widgetScriptURL),
 		TestFeedbackEndpoint: template.URL("/app/sites/" + site.ID + "/widget-test/feedback"),
+		WidgetUpdateEndpoint: template.URL("/api/sites/" + site.ID),
 		SharedStyles:         sharedPublicStyles(),
 	}
 
@@ -164,6 +173,8 @@ func (handlers *SiteWidgetTestHandlers) SubmitWidgetTestFeedback(context *gin.Co
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
 		return
 	}
+
+	broadcastFeedbackEvent(handlers.database, handlers.logger, handlers.feedbackBroadcaster, context.Request.Context(), feedback)
 
 	context.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
