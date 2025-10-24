@@ -44,10 +44,12 @@ type widgetTestTemplateData struct {
 	ThemeScript          template.JS
 	SiteName             string
 	SiteID               string
+	PlacementSide        string
 	PlacementSideLabel   string
 	PlacementOffset      int
 	WidgetScriptURL      template.URL
 	TestFeedbackEndpoint template.URL
+	WidgetUpdateEndpoint template.URL
 	SharedStyles         template.CSS
 }
 
@@ -75,7 +77,10 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 	}
 
 	ensureWidgetBubblePlacementDefaults(&site)
-	widgetScriptURL := handlers.widgetBaseURL + "/widget.js?site_id=" + url.QueryEscape(site.ID)
+	widgetScriptURL := "/widget.js?site_id=" + url.QueryEscape(site.ID)
+	if handlers.widgetBaseURL != "" {
+		widgetScriptURL = handlers.widgetBaseURL + "/widget.js?site_id=" + url.QueryEscape(site.ID)
+	}
 	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, true, publicPageLanding)
 	if headerErr != nil && handlers.logger != nil {
 		handlers.logger.Warn("render_widget_test_header", zap.Error(headerErr))
@@ -92,10 +97,12 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 		ThemeScript:          themeScript,
 		SiteName:             site.Name,
 		SiteID:               site.ID,
+		PlacementSide:        strings.ToLower(strings.TrimSpace(site.WidgetBubbleSide)),
 		PlacementSideLabel:   formatWidgetPlacementSide(site.WidgetBubbleSide),
 		PlacementOffset:      site.WidgetBubbleBottomOffsetPx,
 		WidgetScriptURL:      template.URL(widgetScriptURL),
 		TestFeedbackEndpoint: template.URL("/app/sites/" + site.ID + "/widget-test/feedback"),
+		WidgetUpdateEndpoint: template.URL("/api/sites/" + site.ID),
 		SharedStyles:         sharedPublicStyles(),
 	}
 

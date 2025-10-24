@@ -87,6 +87,7 @@ const (
 		var textContent = (badge.textContent || '').trim();
 		return textContent === '1';
 	}())`
+	widgetTestSummaryOffsetScript = `document.getElementById('widget-test-summary-offset') ? document.getElementById('widget-test-summary-offset').textContent : ''`
 )
 
 type dashboardIntegrationHarness struct {

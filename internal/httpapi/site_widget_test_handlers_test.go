@@ -52,6 +52,9 @@ func TestRenderWidgetTestPage(t *testing.T) {
 	require.Contains(t, body, site.Name)
 	require.Contains(t, body, site.ID)
 	require.Contains(t, body, "LOOPAWARE_WIDGET_TEST_MODE")
+	require.Contains(t, body, "id=\"widget-test-form\"")
+	require.Contains(t, body, "id=\"widget-test-save\"")
+	require.Contains(t, body, "id=\"widget-test-bottom-offset\"")
 }
 
 func TestSubmitWidgetTestFeedback(t *testing.T) {
