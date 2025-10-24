@@ -197,6 +197,15 @@ func TestLoadServerConfigReadsAdminEmailsFromEnvironment(t *testing.T) {
 	}
 }
 
+func TestDockerfileUsesLoopawareBinary(t *testing.T) {
+	contents, err := os.ReadFile(filepath.Join("..", "..", "Dockerfile"))
+	require.NoError(t, err)
+	text := string(contents)
+	require.Contains(t, text, "/out/loopaware")
+	require.Contains(t, text, "/app/loopaware")
+	require.NotContains(t, text, "feedbacksvc")
+}
+
 func TestLoadServerConfigAllowsMissingConfigFile(t *testing.T) {
 	tempDirectory := t.TempDir()
 	missingConfigFilePath := filepath.Join(tempDirectory, testConfigFileName)

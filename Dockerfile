@@ -5,10 +5,10 @@ COPY go.mod go.sum ./
 ENV GOTOOLCHAIN=auto
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/feedbacksvc ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/loopaware ./cmd/server
 
 FROM gcr.io/distroless/base-debian12
 WORKDIR /app
-COPY --from=build /out/feedbacksvc /app/feedbacksvc
+COPY --from=build /out/loopaware /app/loopaware
 EXPOSE 8080
-ENTRYPOINT ["/app/feedbacksvc"]
+ENTRYPOINT ["/app/loopaware"]
