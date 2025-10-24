@@ -126,7 +126,7 @@ const (
 	dashboardHeaderLogoLargeWidthToken      = "width=\"44\""
 	dashboardThemeStorageKeyToken           = "\"theme_storage_key\":\"loopaware_dashboard_theme\""
 	dashboardThemeLegacyKeyToken            = "var themePreferenceLegacyStorageKey = 'loopaware_theme'"
-	dashboardThemeMigrationToken            = "localStorage.getItem(themePreferenceLegacyStorageKey)"
+	dashboardThemeMigrationToken            = "readThemePreference(themePreferenceLegacyStorageKey)"
 	dashboardErrorMessagesConfigToken       = "\"error_messages\":{"
 	dashboardErrorMessagesScriptToken       = "var errorMessages = parsedConfig.error_messages || {};"
 	dashboardSiteExistsMessageToken         = "\"site_exists\":\"A site for this allowed origin already exists.\""

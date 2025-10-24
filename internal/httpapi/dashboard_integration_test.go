@@ -90,6 +90,7 @@ const (
 	}())`
 	dashboardDocumentThemeScript        = "document.documentElement.getAttribute('data-bs-theme') || ''"
 	dashboardStoredDashboardThemeScript = "localStorage.getItem('loopaware_dashboard_theme') || ''"
+	dashboardStoredPublicThemeScript    = "localStorage.getItem('loopaware_public_theme') || ''"
 	dashboardSeedPublicThemeScript      = `localStorage.setItem('loopaware_public_theme','dark');localStorage.removeItem('loopaware_dashboard_theme');localStorage.removeItem('loopaware_theme');`
 	dashboardThemeToggleStateScript     = `(function(){var toggle=document.querySelector("#settings-theme-toggle");return !!(toggle && toggle.checked);}())`
 	widgetTestSummaryOffsetScript       = `document.getElementById('widget-test-summary-offset') ? document.getElementById('widget-test-summary-offset').textContent : ''`
@@ -121,17 +122,29 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
 
 	page := buildHeadlessPage(t)
+	var waitNavigation func()
 	screenshotsDirectory := createScreenshotsDirectory(t)
 
 	setPageCookie(t, page, harness.baseURL, sessionCookie)
 
-	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	require.NoError(t, page.Navigate(harness.baseURL+dashboardTestDashboardRoute))
+	waitNavigation()
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 	currentPath := evaluateScriptString(t, page, dashboardLocationPathScript)
 	require.Equal(t, dashboardTestDashboardRoute, currentPath)
-	waitForVisibleElement(t, page, dashboardUserEmailSelector)
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+        var element = document.querySelector(%q);
+        if (!element) { return false; }
+        var style = window.getComputedStyle(element);
+        if (!style) { return false; }
+        return style.display !== 'none' && style.visibility !== 'hidden';
+    }())`, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
 	waitForVisibleElement(t, page, dashboardNotificationSelector)
@@ -198,7 +211,7 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
 	waitForVisibleElement(t, page, dashboardNotificationSelector)
 
-	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameLoad)
 	confirmClickScript := fmt.Sprintf("document.querySelector(%q).click()", dashboardConfirmButtonSelector)
 	evaluateScriptInto(t, page, confirmClickScript, nil)
 	waitNavigation()
@@ -230,7 +243,16 @@ func TestDashboardSessionTimeoutAutoLogout(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
-	waitForVisibleElement(t, page, dashboardUserEmailSelector)
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		return style.display !== 'none' && style.visibility !== 'hidden';
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
 	waitForVisibleElement(t, page, dashboardNotificationSelector)
@@ -262,14 +284,27 @@ func TestDashboardRestoresThemeFromPublicPreference(t *testing.T) {
 
 	setPageCookie(t, page, harness.baseURL, sessionCookie)
 
-	navigateToPage(t, page, harness.baseURL+dashboardTestLandingPath)
+	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	require.NoError(t, page.Navigate(harness.baseURL+dashboardTestLandingPath))
+	waitNavigation()
 	evaluateScriptInto(t, page, dashboardSeedPublicThemeScript, nil)
 
-	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	require.NoError(t, page.Navigate(harness.baseURL+dashboardTestDashboardRoute))
+	waitNavigation()
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
-	waitForVisibleElement(t, page, dashboardUserEmailSelector)
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		return style.display !== 'none' && style.visibility !== 'hidden';
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	documentTheme := evaluateScriptString(t, page, dashboardDocumentThemeScript)
 	require.Equal(t, "dark", documentTheme)
@@ -279,6 +314,89 @@ func TestDashboardRestoresThemeFromPublicPreference(t *testing.T) {
 
 	storedTheme := evaluateScriptString(t, page, dashboardStoredDashboardThemeScript)
 	require.Equal(t, "dark", storedTheme)
+}
+
+func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Widget Test Chrome",
+		AllowedOrigin: harness.baseURL,
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	require.NoError(t, page.Navigate(harness.baseURL+dashboardTestLandingPath))
+	waitNavigation()
+	evaluateScriptInto(t, page, dashboardSeedPublicThemeScript, nil)
+
+	widgetTestURL := fmt.Sprintf("%s/app/sites/%s/widget-test", harness.baseURL, site.ID)
+	waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	require.NoError(t, page.Navigate(widgetTestURL))
+	waitNavigation()
+
+	currentWidgetTestPath := evaluateScriptString(t, page, dashboardLocationPathScript)
+	require.Equal(t, fmt.Sprintf("/app/sites/%s/widget-test", site.ID), currentWidgetTestPath)
+
+	headerVisibleScript := fmt.Sprintf(`(function(){
+    var element = document.querySelector(%q);
+    if (!element) { return false; }
+    var style = window.getComputedStyle(element);
+    if (!style) { return false; }
+    return style.display !== 'none' && style.visibility !== 'hidden';
+}())`, dashboardSettingsButtonSelector)
+	footerVisibleScript := fmt.Sprintf(`(function(){
+    var element = document.querySelector(%q);
+    if (!element) { return false; }
+    var style = window.getComputedStyle(element);
+    if (!style) { return false; }
+    return style.display !== 'none' && style.visibility !== 'hidden';
+}())`, dashboardFooterSelector)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, headerVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, footerVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	initialTheme := evaluateScriptString(t, page, dashboardDocumentThemeScript)
+	require.Equal(t, "dark", initialTheme)
+
+	initialDashboardStoredTheme := evaluateScriptString(t, page, dashboardStoredDashboardThemeScript)
+	require.Equal(t, "dark", initialDashboardStoredTheme)
+
+	initialPublicStoredTheme := evaluateScriptString(t, page, dashboardStoredPublicThemeScript)
+	require.Equal(t, "dark", initialPublicStoredTheme)
+
+	clickSelector(t, page, dashboardSettingsButtonSelector)
+	waitForVisibleElement(t, page, dashboardSettingsMenuSelector)
+
+	currentToggleChecked := evaluateScriptBoolean(t, page, dashboardThemeToggleStateScript)
+	require.True(t, currentToggleChecked)
+
+	clickSelector(t, page, dashboardThemeToggleSelector)
+	clickSelector(t, page, "body")
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardDocumentThemeScript) == "light"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	finalDashboardStoredTheme := evaluateScriptString(t, page, dashboardStoredDashboardThemeScript)
+	require.Equal(t, "light", finalDashboardStoredTheme)
+
+	finalPublicStoredTheme := evaluateScriptString(t, page, dashboardStoredPublicThemeScript)
+	require.Equal(t, "light", finalPublicStoredTheme)
 }
 
 func TestDashboardFeedbackStreamRefreshesMessages(t *testing.T) {
@@ -377,6 +495,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *d
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath)
 	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster)
+	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -390,6 +509,8 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *d
 	router.GET(httpapi.PrivacyPagePath, privacyHandlers.RenderPrivacyPage)
 	router.GET(httpapi.SitemapRoutePath, sitemapHandlers.RenderSitemap)
 	router.GET(dashboardTestDashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
+	router.GET("/app/sites/:id/widget-test", authManager.RequireAuthenticatedWeb(), widgetTestHandlers.RenderWidgetTestPage)
+	router.POST("/app/sites/:id/widget-test/feedback", authManager.RequireAuthenticatedJSON(), widgetTestHandlers.SubmitWidgetTestFeedback)
 	router.POST(constants.LogoutPath, func(context *gin.Context) {
 		context.Status(http.StatusOK)
 	})

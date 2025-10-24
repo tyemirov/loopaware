@@ -454,7 +454,8 @@ type DashboardWebHandlers struct {
 }
 
 func NewDashboardWebHandlers(logger *zap.Logger, landingPath string) *DashboardWebHandlers {
-	compiledTemplate := template.Must(template.New(dashboardTemplateName).Parse(dashboardTemplateHTML))
+	baseTemplate := template.Must(template.New(dashboardTemplateName).Parse(dashboardHeaderTemplateHTML))
+	compiledTemplate := template.Must(baseTemplate.Parse(dashboardTemplateHTML))
 	normalizedLandingPath := landingPath
 	if normalizedLandingPath == "" {
 		normalizedLandingPath = "/"

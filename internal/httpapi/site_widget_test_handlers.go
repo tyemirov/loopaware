@@ -28,7 +28,8 @@ func NewSiteWidgetTestHandlers(database *gorm.DB, logger *zap.Logger, widgetBase
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	compiledTemplate := template.Must(template.New("widget_test").Parse(widgetTestTemplateHTML))
+	baseTemplate := template.Must(template.New("widget_test").Parse(dashboardHeaderTemplateHTML))
+	compiledTemplate := template.Must(baseTemplate.Parse(widgetTestTemplateHTML))
 	return &SiteWidgetTestHandlers{
 		database:            database,
 		logger:              logger,
@@ -38,19 +39,47 @@ func NewSiteWidgetTestHandlers(database *gorm.DB, logger *zap.Logger, widgetBase
 	}
 }
 
+type dashboardHeaderTemplateData struct {
+	PageTitle                string
+	HeaderLogoDataURI        template.URL
+	HeaderLogoImageID        string
+	SettingsButtonID         string
+	SettingsButtonLabel      string
+	SettingsAvatarImageID    string
+	SettingsAvatarFallbackID string
+	SettingsMenuID           string
+	ThemeToggleLabel         string
+	SettingsThemeToggleID    string
+	LogoutButtonID           string
+	LogoutLabel              string
+}
+
 type widgetTestTemplateData struct {
-	PageTitle            string
-	HeaderHTML           template.HTML
-	ThemeScript          template.JS
-	SiteName             string
-	SiteID               string
-	PlacementSide        string
-	PlacementSideLabel   string
-	PlacementOffset      int
-	WidgetScriptURL      template.URL
-	TestFeedbackEndpoint template.URL
-	WidgetUpdateEndpoint template.URL
-	SharedStyles         template.CSS
+	PageTitle               string
+	Header                  dashboardHeaderTemplateData
+	LogoutPath              string
+	LandingPath             string
+	BootstrapIconsIntegrity template.HTMLAttr
+	FaviconDataURI          template.URL
+	SiteName                string
+	SiteID                  string
+	PlacementSide           string
+	PlacementSideLabel      string
+	PlacementOffset         int
+	WidgetScriptURL         template.URL
+	TestFeedbackEndpoint    template.URL
+	WidgetUpdateEndpoint    template.URL
+	SharedStyles            template.CSS
+	FooterHTML              template.HTML
+	FooterElementID         string
+	FooterInnerElementID    string
+	FooterBaseClass         string
+	FooterThemeLightClass   string
+	FooterThemeDarkClass    string
+	ThemeStorageKey         string
+	PublicThemeStorageKey   string
+	LandingThemeStorageKey  string
+	LegacyThemeStorageKey   string
 }
 
 func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Context) {
@@ -81,29 +110,53 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 	if handlers.widgetBaseURL != "" {
 		widgetScriptURL = handlers.widgetBaseURL + "/widget.js?site_id=" + url.QueryEscape(site.ID)
 	}
-	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, true, publicPageLanding)
-	if headerErr != nil && handlers.logger != nil {
-		handlers.logger.Warn("render_widget_test_header", zap.Error(headerErr))
-		headerHTML = template.HTML("")
+	headerData := dashboardHeaderTemplateData{
+		PageTitle:                dashboardPageTitle,
+		HeaderLogoDataURI:        landingLogoDataURI,
+		HeaderLogoImageID:        dashboardHeaderLogoElementID,
+		SettingsButtonID:         settingsButtonElementID,
+		SettingsButtonLabel:      navbarSettingsButtonLabel,
+		SettingsAvatarImageID:    settingsAvatarImageElementID,
+		SettingsAvatarFallbackID: settingsAvatarFallbackElementID,
+		SettingsMenuID:           settingsMenuElementID,
+		ThemeToggleLabel:         navbarThemeToggleLabel,
+		SettingsThemeToggleID:    settingsThemeToggleElementID,
+		LogoutButtonID:           logoutButtonElementID,
+		LogoutLabel:              navbarLogoutLabel,
 	}
-	themeScript, themeErr := renderPublicThemeScript()
-	if themeErr != nil && handlers.logger != nil {
-		handlers.logger.Warn("render_widget_test_theme_script", zap.Error(themeErr))
-		themeScript = template.JS("")
+	footerHTML, footerErr := renderFooterHTMLForVariant(footerVariantDashboard)
+	if footerErr != nil {
+		if handlers.logger != nil {
+			handlers.logger.Warn("render_widget_test_footer", zap.Error(footerErr))
+		}
+		footerHTML = template.HTML("")
 	}
 	data := widgetTestTemplateData{
-		PageTitle:            "Widget Test — " + site.Name,
-		HeaderHTML:           headerHTML,
-		ThemeScript:          themeScript,
-		SiteName:             site.Name,
-		SiteID:               site.ID,
-		PlacementSide:        strings.ToLower(strings.TrimSpace(site.WidgetBubbleSide)),
-		PlacementSideLabel:   formatWidgetPlacementSide(site.WidgetBubbleSide),
-		PlacementOffset:      site.WidgetBubbleBottomOffsetPx,
-		WidgetScriptURL:      template.URL(widgetScriptURL),
-		TestFeedbackEndpoint: template.URL("/app/sites/" + site.ID + "/widget-test/feedback"),
-		WidgetUpdateEndpoint: template.URL("/api/sites/" + site.ID),
-		SharedStyles:         sharedPublicStyles(),
+		PageTitle:               "Widget Test — " + site.Name,
+		Header:                  headerData,
+		LogoutPath:              constants.LogoutPath,
+		LandingPath:             constants.LoginPath,
+		BootstrapIconsIntegrity: template.HTMLAttr(dashboardBootstrapIconsIntegrityAttr),
+		FaviconDataURI:          template.URL(dashboardFaviconDataURI),
+		SiteName:                site.Name,
+		SiteID:                  site.ID,
+		PlacementSide:           strings.ToLower(strings.TrimSpace(site.WidgetBubbleSide)),
+		PlacementSideLabel:      formatWidgetPlacementSide(site.WidgetBubbleSide),
+		PlacementOffset:         site.WidgetBubbleBottomOffsetPx,
+		WidgetScriptURL:         template.URL(widgetScriptURL),
+		TestFeedbackEndpoint:    template.URL("/app/sites/" + site.ID + "/widget-test/feedback"),
+		WidgetUpdateEndpoint:    template.URL("/api/sites/" + site.ID),
+		SharedStyles:            sharedPublicStyles(),
+		FooterHTML:              footerHTML,
+		FooterElementID:         footerElementID,
+		FooterInnerElementID:    footerInnerElementID,
+		FooterBaseClass:         footerBaseClass,
+		FooterThemeLightClass:   footerThemeLightClass,
+		FooterThemeDarkClass:    footerThemeDarkClass,
+		ThemeStorageKey:         themeStorageKey,
+		PublicThemeStorageKey:   publicThemeStorageKey,
+		LandingThemeStorageKey:  publicLandingThemeStorageKey,
+		LegacyThemeStorageKey:   publicLegacyThemeStorageKey,
 	}
 
 	var buffer bytes.Buffer

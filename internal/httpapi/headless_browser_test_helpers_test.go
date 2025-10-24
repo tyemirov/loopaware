@@ -170,9 +170,10 @@ func waitForVisibleElement(testingT *testing.T, page *rod.Page, selector string)
 
 func navigateToPage(testingT *testing.T, page *rod.Page, targetURL string) {
 	testingT.Helper()
+	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameLoad)
 	navigateErr := page.Navigate(targetURL)
 	require.NoError(testingT, navigateErr)
-	require.NoError(testingT, page.WaitLoad())
+	waitNavigation()
 }
 
 func clickSelector(testingT *testing.T, page *rod.Page, selector string) {
