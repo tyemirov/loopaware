@@ -2,203 +2,102 @@
 
 ## Role
 
-You are a staff level full stack engineer. Your task is to **re-evaluate and refactor the LoopAware repository** according to the coding standards already written in **AGENTS.md**.
+You are a staff level full stack engineer. Your task is to **re-evaluate and refactor the LOOPAWARE repository** according to the coding standards already written in **AGENTS.md**.  
+**Read-only:** Keep operational notes only. Record all issues in `ISSUES.md`. Track changes in the `CHANGELOG.md`
 
 ## Context
 
-* AGENTS.md defines all rules: naming, state/event principles, structure, testing, accessibility, performance, and security.
-* The repo uses Alpine.js, CDN scripts only, no bundlers.
-* Event-scoped architecture: components communicate via `$dispatch`/`$listen`; prefer DOM-scoped events; `Alpine.store` only for true shared domain state.
-* The backend uses Go language ecosystem
+- AGENTS.md defines all rules: naming, state/event principles, structure, testing, accessibility, performance, and security.
+- The repo uses Alpine.js, CDN scripts only, no bundlers.
+- Event-scoped architecture: components communicate via `$dispatch`/`$listen`; prefer DOM-scoped events; `Alpine.store` only for true shared domain state.
+- The backend uses Go language ecosystem
 
 ## Your tasks
 
-1. **Read AGENTS.md first** → treat it as the *authoritative style guide*.
+1. **Read AGENTS.md first** → treat it as the _authoritative style guide_.
 2. **Scan the codebase** → identify violations (inline handlers, globals, duplicated strings, lack of constants, cross-component state leakage, etc.).
-3. **Generate PLAN.md** → bullet list of problems and refactors needed, scoped by file. PLAN.md is a part of PR metadata. It's a transient document outlining the work on a given issue.
+3. **Generate PLAN.md** → bullet list of problems and refactors needed, scoped by file. PLAN.md is a part of PR metadata. It's a transient document outlining the work on a given issue. Do not commit PLAN.md; copy its content into the PR description.
 4. **Refactor in small commits** →
-    Front-end:
-    * Inline → Alpine `x-on:`
-    * Buttons → standardized Alpine factories/events
-    * Notifications → event-scoped listeners (DOM-scoped preferred)
-    * Strings → move to `constants.js`
-    * Utilities → extract into `/js/utils/`
-    * Composition → normalize `/js/app.js` as Alpine composition root
-    Backend:
-    * Use "object-oreinted" stye of functions attached to structs
-    * Prioritize data-driven solutions over imperative approach
-    * Design and use shared components
+   Front-end:
+   - Inline → Alpine `x-on:`
+   - Buttons → standardized Alpine factories/events
+   - Notifications → event-scoped listeners (DOM-scoped preferred)
+   - Strings → move to `constants.js`
+   - Utilities → extract into `/js/utils/`
+   - Composition → normalize `/js/app.js` as Alpine composition root
+     Backend:
+   - Use "object-oreinted" stye of functions attached to structs
+   - Prioritize data-driven solutions over imperative approach
+   - Design and use shared components
 5. **Tests** → Add/adjust Puppeteer tests for key flows (button → event → notification; cross-panel isolation). Prioritize end-2-end and integration tests.
-6. **Docs** → Update README and MIGRATION.md with new event contracts, removed globals, and developer instructions.
-7. **Timeouts**  Set a timer before running any CLI command, tests, build, git etc. If an operation takes unreasonably long without producing an output, abort it and consider a diffeernt approach. Prepend all CLI invocations with `timeout <N>s` command.
+6. **Docs** → Update README and CHANGELOG.md with new event contracts, removed globals, and developer instructions.
+7. **Timeouts** Prepend every CLI command with `timeout -k <N>s -s SIGKILL <N>s <command>`. This is mandatory for all commands (local dev, CI, docs, scripts). Pick `<N>` appropriate to the operation; avoid indefinite waits. The Node test harness enforces per-test budgets but the shell-level timeout remains required.
+   7a. Any individual test or command must be terminated in 30s. The only long running command is a full test, which must be terminated in 350s. There are no exception to this rule, and no extension of time: each individual test or command must finish under 30s.
 
 ## Output requirements
 
-* Always follow AGENTS.md rules (do not restate them, do not invent new ones).
-* Output a **PLAN.md** first, then refactor step-by-step.
-* Only modify necessary files.
-* Descriptive identifiers, no single-letter names.
-* End with a short summary of changed files and new event contracts.
+- Always follow AGENTS.md rules (do not restate them, do not invent new ones).
+- Output a **PLAN.md** first, then refactor step-by-step.
+- Only modify necessary files.
+- Treat `NOTES.md` as read-only; never edit it during an implementation cycle.
+- Only touch the following markdown files while delivering work: `ISSUES.md` (append-only status log), `PLAN.md` (local, untracked scratchpad), and `CHANGELOG.md` (post-completion history).
+- If `PLAN.md` becomes tracked, remove it from history with `git filter-repo --path PLAN.md --invert-paths` before continuing.
+- Descriptive identifiers, no single-letter names.
+- End with a short summary of changed files and new event contracts.
 
 **Begin by reading AGENTS.md and generating PLAN.md now.**
 
 ## Rules of engagement
 
-Review the NOTES.md. Make a plan for autonomously fixing every item under Features, BugFixes, Improvements, Maintenance. Ensure no regressions. Ensure adding tests. Lean into integration tests. Fix every issue. Document the changes.
+Review the backlog in `ISSUES.md`. Make a plan for autonomously fixing every item under Features, BugFixes, Improvements, Maintenance. Ensure no regressions. Ensure adding tests. Lean into integration tests. Fix every issue. Document the changes directly in `ISSUES.md`. Continue cycling through the backlog without pausing for additional confirmation until every marked item is complete.
 
-Fix issues one by one, working sequentially. 
-1. Create a new git bracnh with descriptive name, for example `feature/LA-56-widget-defer` or `bugfix/LA-11-alpine-rehydration`. Use the taxonomy of issues as prefixes: improvement/, feature/, bugfix/, maintenace/, issue ID and a short descriptive. Respect the name limits.
-2. Describe an issue through tests. 
-2a. Ensure that the tests are comprehensive and failing to begin with. 
-2b. Ensure AGENTS.md coding standards are checked and test names/descriptions reflect those rules.
-3. Fix the issue
-4. Rerun the tests
-5. Repeat pp 2-4 untill the issue is fixed: 
-5a. old and new comprehensive tests are passing
-5b. Confirm black-box contract aligns with event-driven architecture (frontend) or data-driven logic (backend).
-5c. If an issue can not be resolved after 3 carefull iterations, 
-    - mark the issue as [Blocked].
-    - document the reason for the bockage.
-    - commit the changes into a separate branch called "blocked/<issue-id>".
-    - work on the next issue from the divergence point of the previous issue.
-6. Write a nice comprehensive commit message AFTER EACH issue is fixed and tested and covered with tests.
-7. Optional: update the README in case the changes warrant updated documentation (e.g. have user-facing consequences)
-8. Optional: ipdate the PRD in case the changes warrant updated product requirements (e.g. change product undestanding)
-9. Optional: update the code examples in case the changes warrant updated code examples
-10. Mark an issue as done ([X])in the NOTES.md after the issue is fixed: New and existing tests are passing without regressions
-11. Commit and push the changes to the remote branch.
-12. Repeat till all issues are fixed, and commits abd branches are stacked up (one starts from another).
+Fix issues one by one, working sequentially.
+
+1. The production git branch is called `master`. The `main` branch does not exist.
+2. Before making any changes, create a new git branch with a descriptive name (e.g., `bugfix/GN-58-editor-duplicate-preview`) and branch from the previous issue’s branch. Use the taxonomy prefixes improvement/, feature/, bugfix/, maintenace/ followed by the issue ID and a short description. Respect branch name limits.
+3. On that branch, describe the issue through tests.
+   3a. Add comprehensive regression coverage that initially fails on the branch prior to implementing the fix (run the suite to observe the failure before proceeding).
+   3b. Ensure AGENTS.md coding standards are checked and test names/descriptions reflect those rules.
+4. Fix the issue
+5. Rerun the tests
+6. Repeat pp 2-4 untill the issue is fixed:
+   6a. old and new comprehensive tests are passing
+   6b. Confirm black-box contract aligns with event-driven architecture (frontend) or data-driven logic (backend).
+   6c. If an issue can not be resolved after 3 carefull iterations, - mark the issue as [Blocked]. - document the reason for the bockage. - commit the changes into a separate branch called "blocked/<issue-id>". - work on the next issue from the divergence point of the previous issue.
+7. Write a nice comprehensive commit message AFTER EACH issue is fixed and tested and covered with tests.
+8. Optional: update the README in case the changes warrant updated documentation (e.g. have user-facing consequences)
+9. Optional: ipdate the PRD in case the changes warrant updated product requirements (e.g. change product undestanding)
+10. Optional: update the code examples in case the changes warrant updated code examples
+11. Mark an issue as done ([X]) in `ISSUES.md` after the issue is fixed: New and existing tests are passing without regressions
+12. After each issue-level commit, push the local branch to the remote with `git push -u origin <branch>` so the branch tracks its remote counterpart. Subsequent pushes should use `git push` only. Never push to arbitrary remotes or untracked branch names.
+13. Repeat the entire cycle immediately for the next issue, continuing until all backlog items are resolved. Do not wait for additional prompts between issues.
 
 Do not work on all issues at once. Work at one issue at a time sequntially.
 
+Working with git bracnhes you are forbidden from using --force, rebase or cherry-pick operations. Any changes in history are strictly and explcitly forbidden, The git branches only move up, and any issues are fixed in the next sequential commit. Only merges and sequential progression of changes.
+
 Leave Features, BugFixes, Improvements, Maintenance sections empty when all fixes are implemented but don't delete the sections themselves.
 
-## Issues
+## Pre-finish Checklist
 
-### Features
+1. Update `PLAN.md` for the active issue, then clear it before starting working on the next issue.
+2. Ensure the issue entry in `ISSUES.md` is marked `[x]` and includes an appended resolution note.
+3. Run tests, whether `go test ./...` or `npm test` or the relevant suite and resolve all failures.
+4. Commit only the intended changes and push the branch to origin. Esnure that the local branch is tracking the remote.
+5. Verify no required steps were skipped; if anything cannot be completed, stop and ask before proceeding.
 
-    - [x] [LA-27] Design, write a copy and add a landing page at / root, with links pointing to /app. Introduce favicon, and leverage an ability of GAuss to take a login page from the app. The landing page shall be the one we feed into GAuss as a login page and that will initiate the login flow.
+## Issue Tracking
 
-    - [x] [LA-28] In the footer, clicking on the Marco Polo Recearch Lab in "Built by Marco Polo Recearch Lab" should display a stacked dropdown (drop up as it will always point up):
-        - [Marco Polo Recearch Lab](https://mprlab.com)
-        - [Gravity Notes](https://gravity.mprlab.com)
-        - [LoopAware](https://loopaware.mprlab.com)
-        - [Allergy Wheel](https://allergy.mprlab.com)
-        - [Social Threader](https://threader.mprlab.com)
-        - [RSVP](https://rsvp.mprlab.com)
-        - [Countdown Calendar](https://countdown.mprlab.com)
-        - [LLM Crossword](https://llm-crossword.mprlab.com)
-        - [Prompt Bubbles](https://prompts.mprlab.com)
-        - [Wallpapers](https://wallpapers.mprlab.com)
+All feature, improvement, bugfix, and maintenance backlog entries now live in `ISSUES.md`. This file remains append-only for process notes.
 
-        Make the footer independent so that I could reuse it as a component in other projects
-    - [X] [LA-80] Allow for specific placement of the bubble left or right, distance to the bottom of the viewport. Extend "Site widget" panel with details that allow placement specification
+_Use `PLAN.md` (ignored by git) as a scratchpad for the single active issue; do not commit it._
 
-### Improvements
+## Action Items
 
-    - [x] [LA-24] favicon retrieval shall be expressed as task that works asynchronously. once favicon is retrieved, it is cahced (saved in the db) and served from the DB.
-    - [x] [LA-25] favicon can be retrieved from inline embeddings in the sites looking for  `<link rel="icon"` and respecting the type (e.g. https://loopaware.mprlab.com has type="image/svg+xml" )
-    - [x] [LA-26] The inline icons are not fetched/displayed. https://loopaware.mprlab.com defines an inline favicon but there is no favicon in Loopaware Sites panel after defining https://loopaware.mprlab.com site. Prepare integration tests that run against https://loopaware.mprlab.com and ensure that the icon is extracted and displayed
-    - [x] [LA-29] Move the site registration date to the same row as Owner email (it is currently in a row below it). Add `Registered at:` prefix for the date. Remove the time.
-    - [x] [LA-37] Add deatils to the copy text. It is barebone now. analyze the functionality, check readme and PRD and consider usefullness for the end user
-    - [x] [LA-38] There is no theme switch on the landing page, and the components seem to belong to different themes.
-    - [x] [LA-39] Add logo of the Loopaware to the header
-    - [x] [LA-41] Do not display 0 for Feedback messages. Only display the total number if it's larger than 0
-    - [x] [LA-48] The logo in the header shall be larger and better visible
-    - [x] [LA-49] Remove the login button from the hero page. Only leave login button in the header
-    - [x] [LA-52] Remove the square around the logo for both the landing page and the dashboard. The logo shall be transparent. Increase the size of the logo.
-    - [x] [LA-53] Slim down the header and the footer
-    - [x] [LA-54] Add branding to the widget, saying "Bulit by Marco Polo Research Lab" with a link to https://mprlab.com. Have it in small letters under the widget.
-    - [x] [LA-56] The endpoint `api/me` shall return a JSON payload including user email, name and avatar. The rest of the system should be using this information when displaying user details. The login shall ba saving/updating this information. It must be a protected endpoint so that only the logged in user could get the information.
-    - [x] [LA-59] Define and surface descriptive error messages for the end users: when site already exists the message should say so instead of a generic "forbidden" etc
-    - [X] [LA-61] Implement task based subsystem that performs non-immediate tasks such as retrieving sites favicons. The task shall be triggered using an internal schedule: check and update favicons every 24 hours.
-    - [X] [LA-62] Schedule an immediate task execution for favicon retrieval on site creation or update from the user. Implement a mechanism (SSE?) to inform the site that the favicon must be retrieved from the backend in case we got a new or updated favicon. dont do anything if the favicon hasnt changed
-    - [x] [LA-70] Extract favicon collection into a service. have it in pkg folder and build it suitable for any go program to invoke it. Refactor current tasks to invoke FavIconService when gathering FavIcon data
-    - [x] [LA-71] Refactor the footer so it's the same footer on both landing, privacy, and privacy pages
-    - [x] [LA-72] Move "Privacy • Terms" link to the same footer that says "Built by marco Polo Research lab"
-    - [x] [LA-73] Align "Privacy • Terms" to the left of the footer and horizontally with "Built by marco Polo Research lab". Make "Privacy • Terms" font 3 (really tiny.)
-    - [x] [LA-76] Clicking on LoopAware hero in the header shall either a) load the landing page if the user is not logged in AND is not on the landing page already b) load the dashboard page if the user is logged in c) scroll to the top if the user is not logged in AND is on the landing page already
-    - [X] [LA-77] Log off the user after 120 seconds of inactivity. Display a notification after 60 seconds: Log Out? Yes No. Log out if no answer in 60 seconds (120s total). The notofication is displayed at the biottom of the screen, in a row adjacent to the footer, Yes and No are buttons. The notification system respects the theme switch and is styled according to the chosen theme. Ensure that code coverage. Build this as a JS componenbt and make it easily portable to other projects. Have full test coverage.
-    - [X] [LA-78] Add a close card / dismiss mark in the top right corner of the widget dialog
-    - [X] [LA-79] Shorten the gap between built by Marco Polo Research Lab and the input field of the widget dialog
-    - [x] [LA-83] Each site should allow to launch its widget in an test page. Add a button to the left of the copy snippet button of the site widget panel that says Test. Pressing this button opens an html page with a widget placed exactly where it will be placed on the site (we respect the placement directives). The page itslef has a dark light switch toggle, to wich the widget must react. Entering feedback in this widget delivers it to the site's feedback.
-    - [x] [LA-84] Make tab circle the input fields in the widget. ensure the focus on the first input field when the widget is opened
-    - [X] [LA-88] Get rid of the example page, it's unnessary. we will only use test pages for the sites
-    - [X] [LA-89] Allow widget editing on the example page (left/right placement, bottom offset with immediate results). The editing shall be saved and become new values for the widget. Have the same panel that we have on the dashboard page.
+The deliverables are code changes. Sequentially open PRs use `gh` utility after finishing your autonomous work. Present a list of opened PRs at the end for reviews
 
-
-### BugFixes
-
-    - [x] [LA-78] Headless integration harness still depends on chromedp which exits immediately when using the auto-downloaded Chromium build. Replace the browser driver plumbing with go-rod so widget and dashboard flows run reliably and produce screenshots under `tests/<date>/<testname>/`.
-    - [x] [LA-79] Dashboard session timeout integration tests skip before asserting logout because the shared headless launcher cannot start; align them with the new rod harness and extend assertions to verify screenshots exist for both light and dark prompts.
-    - [x] [LA-23] the header of the table in Feedback messages panel doesnt respect the theme swithc and stays in light theme. it shall respect the theme switch
-    - [x] [LA-26] The inline icons are not fetched/displayed. https://loopaware.mprlab.com defines an inline favicon but there is no favicon in Loopaware Sites panel after defining https://loopaware.mprlab.com site. Prepare integration tests that run against https://loopaware.mprlab.com and ensure that the icon is extracted and displayed
-    - [x] [LA-28] Instead of loopaware.mprlab.com use gravity.mprlab.com in the integration tests for inline favicon
-    - [x] [LA-30] "Site deleted" message in "Site details" panel had white background not respecting the theme. Ensure that all messaging respect the selected theme (light or dark)
-    - [x] [LA-31] "Site deleted" messaged in "Site details" panel never went away breaking the expected behavior of all messages to disappear after a timeout. Ensure messages disappear after a timeout.
-    - [x] [LA-32] The footer doesnt display the drop down with stacked links
-    - [x] [LA-33] The footer on the landing page is misalighed and Built by Marco Polo Resaerrch Lab is aligned to the left instead of the right
-    - [x] [LA-34] The footer on the landing page is giant, and shall have the same vertical height as in the dashboard
-    - [x] [LA-35] The cards on the landing page do not react on hover. the focus shall get to the card that the cursor is being hovered upon, and the card shall get highlighted
-    - [x] [LA-36] Remove Open LoopAware button, There shall be one button Login, which, in case a user is not logged in, would redirect it to goolge flow, and in case the user is logged in, would send the user to the dashboard, I think such flow is implcit (e.g. I doubt we need to have any special checks).
-    - [x] [LA-40] Move the registration time of the site in the site details panel to the right, making it appear on the same ro as the "Owner email" field and under "Allowed origin" field
-    - [x] [LA-42] Logout shall be redirecting the user to the landing page. not back to Login screen
-    - [x] [LA-43] The landing page misses favicon. Use     `<link rel="icon" type="image/svg+xml" href="{{.FaviconDataURI}}" />`
-    - [x] [LA-44] The LoopAware logo on the landing page is incorrect. Either use the SVG from the code or ![alt text](internal/httpapi/templates/logo.png)
-    - [x] [LA-45] The header on the landing page should stick to the top of the page.
-    - [x] [LA-46] The header on the landing page should stick to the top of the page.
-    - [x] [LA-47] Clicking on the logo shall not do anything (it refreshes the page now).
-    - [x] [LA-50] Add logo to the LoopAware Dashboard header (on the left of the word "LoopAware" )
-    - [x] [LA-51] The choice of the theme on the landing page and the dashboard should be independent
-    - [x] [LA-52] When logged in as a user the field to enter the site email is missing. This field must be present. The difference between a User adn and Admin is that Admin can see ALL of the sites regardless of what user has created them. User can only see and edit their own sites.
-    - [X] [LA-55] The sites created by the same user are not displayed when a user changes roles. All sites created by the same user regardless of its role must be displayed when the user logs in. User and admin designation must have an abstraction called role. The role has an impact on the scope. Admin role grants an ability to view all sites regardless of the user who has created them plus everything that a user can do. User role grants the permissions to add, edit, and delete the sites that the user has created.
-    - [x] [LA-57] In case we have records with no information about what user has created them, we shall make a one-time data migration and update such records for the creator to be temirov@gmail.com. After that we shall be sure to separate the user who has created the records, using user's email from login, and the field called owner email, which is just an information we store for now
-    - [x] [LA-58] When pressing tab in the Site details, the focus shall be moving between the three input fields cyclically and not to the tooltips.
-    - [x] [LA-60] When trying to create a site I am getting an error "Only administrator can assign different site owners". I dont understand this error. AS  user I am able to create any sites, and assign any emails to the owners of the site, same as administrator. The only difference between a User and Administrator is the number of sites that the administrator can see. Write integration tests that verify that a user can perform ALL and every action an administratort cvan perform. ensure we have a test that verifies that administrator can see sites not created by them, and the user can not see sites not created by them, ensure that we have an association between a logged user, who is a creator, and sites being created
-    - [x] [LA-65] Remove race condition in SiteFaviconManager + Scheduler.Start by adding context cancellation, Stop(), and proper sync (mutex/WaitGroup).
-    - [x] [LA-66] Ensure all tests clean up background goroutines with t.Cleanup.
-    - [x] [LA-67] Make chromedp tests deterministic: skip fast if Chrome not installed or fails to start; run with CI-safe flags otherwise.
-    - [x] [LA-68] Silence GORM “record not found” logs in tests via test logger config, but still assert on errors.
-    - [x] [LA-69] Verify go test ./... -v -race -count=1 passes in CI without race, leaks, or long hangs.
-    - [x] [LA-74] Neither footer nor the privacy page repsect the chosen theme. Have the rpivacy page have the same header as the landing page.
-    - [x] [LA-75] Replace duplicative implementation of the footer and render a single partial instead.
-    - [x] [LA-81] Horizontally align the x (closing button) in the widet to the "Send feedback" text. It is currently horizontally below. See ![alt text](image.png). Write a failing test that demonstrates the absence of the closing sing in top right corner. Then fix the code without touching the code, ensure tha tht test passes after fixing the code.
-    - [X] [LA-85] No feedback was refreshed after the feedback was left. ensure SSE channel that sends a message from the backend when feedback is left so that the feedback is automatically refreshed when we get a new feedback while looking at the page
-    - [X] [LA-86] Theme switched is revered. It should be light theme when the switch is to the left and dark theme when the switch is to the right. It currently si to the right but the theme is light.
-    - [X] [LA-89] Restore the them toggle when user logs into dashboard. There is currently no theme toggle and for no reason the theme selected is light. Trace the logic of theme identification and ensure no bugs. Selector to the right means dar theme, selector to the left means light theme
-    - [X] [LA-90] The test page is unstyled (and unusable). Ensure thjat we have the same header and footer in the test page with the theme switch, logoff etc
-    ```
-    Failed to find a valid digest in the 'integrity' attribute for resource 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' with computed SHA-384 integrity 'QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH'. The resource has been blocked.Understand this error
-widget-test:1 Mixed Content: The page at 'https://loopaware.mprlab.com/app/sites/efad9dff-1777-4710-b6b1-3218ee8c5cbb/widget-test' was loaded over HTTPS, but requested an insecure script 'http://loopaware.mprlab.com/widget.js?site_id=efad9dff-1777-4710-b6b1-3218ee8c5cbb'. This request has been blocked; the content must be served over HTTPS.Understand this error
-    ```
-
-### Maintenance
-
-    - [x] [LA-63] add a small “Privacy • Terms” link. and I mean small. it must serve a page under /privacy
-        ```html
-        <!doctype html>
-        <html lang="en">
-        <head>
-        <meta charset="utf-8">
-        <title>Privacy Policy — LoopAware</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="robots" content="noindex,nofollow">
-        <style>
-            body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:40px;max-width:800px}
-            h1{font-size:1.6rem;margin-bottom:.2rem}
-        </style>
-        </head>
-        <body>
-        <h1>Privacy Policy — LoopAware</h1>
-        <p><strong>Effective Date:</strong> 2025-10-11</p>
-        <p>RSVP uses Google Identity Services to authenticate users. We receive your Google profile
-            information (name, email, profile image) only to sign you in. We do not sell or share your data,
-            and we only store your notes so the service functions.</p>
-        <p>To request deletion of your data, contact
-            <a href="mailto:support@mprlab.com">support@mprlab.com</a>.</p>
-        </body>
-        </html>
-        ```
-    - [x] [LA-64] add privacy to the sitemap
-    - [x] [LA-82] Create a simple example page, which loads the widget.js for the ease of testing. So, when loopaware web service is running, there must be /example which will show a web page with the actual widget on it
-    - [X] [LA-87] Call the binary loopaware, not feedbacksvc. Check eveywhere in the code and docs and ensure we use the term `LoopAware` for the product name or `loopaware` for the compiled version
+    1. Read the files that guide the development: README.md , PRD.md  , AGENTS.md , NOTES.md , ARCHITECTURE.md .
+    2. Run the tests
+    3. Plan the required changes to close the open issues. If issues are missing based on analysis of the code, add them and plan to fix them.
+    4. Use PLAN.md for an individual issue to plan the fix
+    5. Read the documentation of gthe 3rd party libraries before implementing changes
