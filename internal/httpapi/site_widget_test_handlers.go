@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/temirov/GAuss/pkg/constants"
+	"github.com/tyemirov/GAuss/pkg/constants"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 

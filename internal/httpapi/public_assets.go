@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"html/template"
 
-	"github.com/temirov/GAuss/pkg/constants"
+	"github.com/tyemirov/GAuss/pkg/constants"
 )
 
 const (
