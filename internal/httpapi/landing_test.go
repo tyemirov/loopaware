@@ -48,6 +48,7 @@ const (
 	landingFooterBrandWrapperToken      = "footer-brand d-inline-flex align-items-center"
 	landingFooterPrivacyClassToken      = "footer-privacy-link text-body-secondary text-decoration-none small"
 	landingFooterPaddingToken           = "landing-footer border-top mt-auto py-2"
+	landingFooterThemeToggleToken       = `footer-brand d-inline-flex align-items-center gap-2 text-body-secondary small"><div class="footer-theme-toggle form-check form-switch m-0" data-bs-theme="light"><input class="form-check-input" type="checkbox" id="public-theme-toggle" aria-label="Toggle theme" /></div>`
 	landingCardHoverToken               = ".landing-card:hover"
 	landingCardFocusToken               = ".landing-card:focus-visible"
 	landingHeroLoginButtonToken         = "btn btn-primary btn-lg\" href=\"/auth/google\">Login"
@@ -111,6 +112,7 @@ func TestLandingPageProvidesThemeSwitch(t *testing.T) {
 	require.Contains(t, body, "themeToggleElement.checked = normalizedTheme === 'dark';")
 	require.Contains(t, body, "var nextTheme = event.target.checked ? 'dark' : 'light';")
 	require.Contains(t, body, landingHeaderStickyToken)
+	require.Contains(t, body, landingFooterThemeToggleToken)
 }
 
 func TestLandingHeaderProvidesStickyStyles(t *testing.T) {

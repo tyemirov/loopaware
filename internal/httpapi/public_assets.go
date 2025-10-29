@@ -74,7 +74,8 @@ const (
         background-color: #2563eb;
         border-color: #2563eb;
       }
-      body[data-bs-theme="dark"] .landing-navbar .form-check-input {
+      body[data-bs-theme="dark"] .landing-navbar .form-check-input,
+      body[data-bs-theme="dark"] .landing-footer .form-check-input {
         background-color: #334155;
         border-color: #475569;
       }
@@ -103,6 +104,9 @@ const (
         border-color: #2563eb;
         color: #ffffff;
       }
+      body[data-bs-theme="light"] .landing-footer .form-check-input {
+        border-color: #94a3b8;
+      }
       body[data-bs-theme="light"] .landing-card {
         background-color: #f8fafc;
         color: #0f172a;
@@ -129,12 +133,7 @@ var (
         </span>
         <span>{{.BrandName}}</span>
       </a>
-      <div class="d-flex align-items-center gap-3">
-        <div class="form-check form-switch m-0" data-bs-theme="light">
-          <input class="form-check-input" type="checkbox" id="{{.ThemeToggleID}}" aria-label="Toggle theme" />
-        </div>
-        <a class="btn btn-primary btn-sm" href="{{.LoginPath}}">Login</a>
-      </div>
+      <a class="btn btn-primary btn-sm" href="{{.LoginPath}}">Login</a>
     </div>
   </nav>
 </header>`))
@@ -203,7 +202,6 @@ var (
 type publicHeaderTemplateData struct {
 	LogoDataURI         template.URL
 	BrandName           string
-	ThemeToggleID       string
 	LoginPath           string
 	HeroTarget          string
 	HeroDataAttribute   template.HTMLAttr
@@ -237,7 +235,6 @@ func renderPublicHeader(logoDataURI template.URL, isAuthenticated bool, pageType
 	data := publicHeaderTemplateData{
 		LogoDataURI:       logoDataURI,
 		BrandName:         publicBrandName,
-		ThemeToggleID:     publicThemeToggleID,
 		LoginPath:         publicLoginPath,
 		HeroTarget:        heroBehavior.Target,
 		HeroDataAttribute: template.HTMLAttr(fmt.Sprintf(`%s="%s"`, publicHeroAttributeName, publicHeroAttributeValue)),
