@@ -13,6 +13,12 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
     - Have a column in the feedback messages table titled Delivery with values either "mailed" or "texted" or "no"
     The tests must confirm the cotract fulfillment at the boundaries (message sent and it matches expected payload, message received).
     In case bugs are discovered in Pinguin, or enhancements are needed in Pinguin, document them as an issue, and stop working before we fix Pinguin.
+- [ ] [LA-202] Implement a footer as an alpine component. Ensure that the component accepts styling parameters from the outside. Place the components in MarcoPoloResearchLab/mpr-ui (the repo is under @tools/mpr-ui). Load the footer from the GitHub CDN. Perform changes in @tools/mpr-ui.
+    The component shall have
+    1. Privacy Terms
+    2. Light/Dark theme toggle
+    3. Build by Marco Polo Research Lab drop up (pointing up)
+    4. Each item in the  Build by Marco Polo Research Lab shall have links opening a new page.
 
 ## BugFixes (300-399)
 
