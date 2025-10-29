@@ -30,6 +30,7 @@ type Config struct {
 	PrivacyLinkClass  string
 	PrivacyLinkHref   string
 	PrivacyLinkLabel  string
+	LeadingHTML       template.HTML
 	Links             []Link
 }
 
@@ -38,7 +39,7 @@ var (
   <div id="{{.InnerElementID}}" class="{{.InnerClass}}">
     <div class="{{.WrapperClass}}">
       <a class="{{.PrivacyLinkClass}}" href="{{.PrivacyLinkHref}}">{{.PrivacyLinkLabel}}</a>
-      <div class="{{.BrandWrapperClass}}">
+      <div class="{{.BrandWrapperClass}}">{{.LeadingHTML}}
         <span class="{{.PrefixClass}}">{{.PrefixText}}</span>
         <div class="{{.MenuWrapperClass}}">
           <button id="{{.ToggleButtonID}}" class="{{.ToggleButtonClass}}" type="button" data-bs-toggle="dropdown" aria-expanded="false">{{.ToggleLabel}}</button>

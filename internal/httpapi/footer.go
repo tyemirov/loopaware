@@ -34,10 +34,12 @@ type footerVariantOverrides struct {
 	InnerElementID string
 	BaseClass      string
 	ToggleButtonID string
+	LeadingHTML    template.HTML
 }
 
 var (
-	footerBaseConfig = footer.Config{
+	footerThemeToggleHTML = template.HTML(fmt.Sprintf(`<div class="footer-theme-toggle form-check form-switch m-0" data-bs-theme="light"><input class="form-check-input" type="checkbox" id="%s" aria-label="Toggle theme" /></div>`, publicThemeToggleID))
+	footerBaseConfig      = footer.Config{
 		InnerClass:        landingFooterInnerClass,
 		WrapperClass:      footerLayoutClass,
 		BrandWrapperClass: footerBrandWrapperClass,
@@ -59,12 +61,14 @@ var (
 			InnerElementID: landingFooterInnerID,
 			BaseClass:      landingFooterBaseClass,
 			ToggleButtonID: landingFooterToggleID,
+			LeadingHTML:    footerThemeToggleHTML,
 		},
 		footerVariantPrivacy: {
 			ElementID:      privacyFooterElementID,
 			InnerElementID: privacyFooterInnerID,
 			BaseClass:      landingFooterBaseClass,
 			ToggleButtonID: dashboardFooterToggleButtonID,
+			LeadingHTML:    footerThemeToggleHTML,
 		},
 		footerVariantDashboard: {
 			ElementID:      footerElementID,
@@ -85,6 +89,7 @@ func footerConfigForVariant(variant footerVariant) (footer.Config, error) {
 	config.InnerElementID = overrides.InnerElementID
 	config.BaseClass = overrides.BaseClass
 	config.ToggleButtonID = overrides.ToggleButtonID
+	config.LeadingHTML = overrides.LeadingHTML
 	return config, nil
 }
 
