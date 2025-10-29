@@ -1073,10 +1073,6 @@
         }
 
         function resolveThemePreference() {
-          var storedTheme = readThemePreference(themePreferenceStorageKey);
-          if (isRecognizedTheme(storedTheme)) {
-            return storedTheme;
-          }
           var publicTheme = readThemePreference(themePreferencePublicStorageKey);
           if (isRecognizedTheme(publicTheme)) {
             writeThemePreference(themePreferenceStorageKey, publicTheme);
@@ -1086,6 +1082,10 @@
           if (isRecognizedTheme(landingTheme)) {
             writeThemePreference(themePreferenceStorageKey, landingTheme);
             return landingTheme;
+          }
+          var storedTheme = readThemePreference(themePreferenceStorageKey);
+          if (isRecognizedTheme(storedTheme)) {
+            return storedTheme;
           }
           var legacyTheme = readThemePreference(themePreferenceLegacyStorageKey);
           if (isRecognizedTheme(legacyTheme)) {

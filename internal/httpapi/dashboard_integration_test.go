@@ -316,6 +316,68 @@ func TestDashboardRestoresThemeFromPublicPreference(t *testing.T) {
 	require.Equal(t, "dark", storedTheme)
 }
 
+func TestDashboardPrefersPublicThemeOverStoredPreference(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	testCases := []struct {
+		name             string
+		storedTheme      string
+		publicTheme      string
+		expectedTheme    string
+		expectedToggleOn bool
+	}{
+		{
+			name:             "public_dark_overrides_stored_light",
+			storedTheme:      "light",
+			publicTheme:      "dark",
+			expectedTheme:    "dark",
+			expectedToggleOn: true,
+		},
+		{
+			name:             "public_light_overrides_stored_dark",
+			storedTheme:      "dark",
+			publicTheme:      "light",
+			expectedTheme:    "light",
+			expectedToggleOn: false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+			require.NoError(t, page.Navigate(harness.baseURL+dashboardTestLandingPath))
+			waitNavigation()
+
+			seedScript := fmt.Sprintf(`localStorage.setItem('loopaware_dashboard_theme','%s');localStorage.setItem('loopaware_public_theme','%s');localStorage.setItem('loopaware_landing_theme','%s');localStorage.removeItem('loopaware_theme');`, testCase.storedTheme, testCase.publicTheme, testCase.publicTheme)
+			evaluateScriptInto(t, page, seedScript, nil)
+
+			waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+			require.NoError(t, page.Navigate(harness.baseURL+dashboardTestDashboardRoute))
+			waitNavigation()
+			require.Eventually(t, func() bool {
+				return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+			}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+			documentTheme := evaluateScriptString(t, page, dashboardDocumentThemeScript)
+			require.Equal(t, testCase.expectedTheme, documentTheme)
+
+			storedDashboardTheme := evaluateScriptString(t, page, dashboardStoredDashboardThemeScript)
+			require.Equal(t, testCase.expectedTheme, storedDashboardTheme)
+
+			toggleChecked := evaluateScriptBoolean(t, page, dashboardThemeToggleStateScript)
+			require.Equal(t, testCase.expectedToggleOn, toggleChecked)
+		})
+	}
+}
+
 func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
