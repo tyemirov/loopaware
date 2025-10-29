@@ -11,6 +11,8 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
     Aceptance criteria are integration tests that verify:
     - When a feedback is received, send a message to the owner (not the registar). 
     - Have a column in the feedback messages table titled Delivery with values either "mailed" or "texted" or "no"
+    - Docker orchestration of both penguin and loopaware services
+    - Updated technical documentation
     The tests must confirm the cotract fulfillment at the boundaries (message sent and it matches expected payload, message received).
     In case bugs are discovered in Pinguin, or enhancements are needed in Pinguin, document them as an issue, and stop working before we fix Pinguin.
 - [ ] [LA-202] Implement a footer as an alpine component. Ensure that the component accepts styling parameters from the outside. Place the components in MarcoPoloResearchLab/mpr-ui (the repo is under @tools/mpr-ui). Load the footer from the GitHub CDN. Perform changes in @tools/mpr-ui.
