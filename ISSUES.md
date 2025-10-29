@@ -23,8 +23,7 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 ## BugFixes (300-399)
 
 - [x] [LA-300] When logged in with the dark theme the dashboard theme is light, when logged in from the light theme, the dashboard theme is dar, find the bug and fix it
-
-
+- [ ] [LA-301] The logout functionality is: message after 60 seconds of inactivity. The message matches the theme of the page. Log out after 120 seconds of inactivity (same as +60 seconds since being displayed)
 ## Maintenance (400-499)
 
 ## Planning (do not work on these, not ready)
