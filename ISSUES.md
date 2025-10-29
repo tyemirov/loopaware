@@ -21,6 +21,9 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
     2. Light/Dark theme toggle
     3. Build by Marco Polo Research Lab drop up (pointing up)
     4. Each item in the  Build by Marco Polo Research Lab shall have links opening a new page.
+- [ ] [LA-203] Remove the theme switch from a user menu under the avatar. 
+    1. Use the same alpine ui footer component as other pages (but style it with current color palette used in dashboard)
+    2. Remove user's specific light/dark theme switch
 
 ## BugFixes (300-399)
 
