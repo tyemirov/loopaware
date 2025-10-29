@@ -1,9 +1,29 @@
 services:
+  pinguin:
+    build:
+      context: ./tools/pinguin
+    container_name: pinguin
+    env_file:
+      - .env
+    environment:
+      - DATABASE_PATH=/var/lib/pinguin/pinguin.db
+      - LOG_LEVEL=INFO
+    volumes:
+      - pinguin-data:/var/lib/pinguin
+    ports:
+      - "50051:50051"
+    restart: unless-stopped
+
   loopaware:
     build: .
     container_name: loopaware
     env_file:
       - .env
+    depends_on:
+      pinguin:
+        condition: service_started
+    environment:
+      - PINGUIN_ADDR=pinguin:50051
     volumes:
       - loopaware-data:/app/data
       - ./config.yaml:/app/config.yaml:ro
@@ -25,7 +45,7 @@ services:
           path: ./internal/httpapi/templates/landing.tmpl
         - action: rebuild
           path: ./go.sum
-    
 
 volumes:
   loopaware-data:
+  pinguin-data:

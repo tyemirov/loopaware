@@ -2,10 +2,13 @@ package httpapi_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/gin-contrib/cors"
@@ -26,7 +29,7 @@ type apiHarness struct {
 	events   *httpapi.FeedbackEventBroadcaster
 }
 
-func buildAPIHarness(testingT *testing.T) apiHarness {
+func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier) apiHarness {
 	testingT.Helper()
 
 	gin.SetMode(gin.TestMode)
@@ -45,7 +48,7 @@ func buildAPIHarness(testingT *testing.T) apiHarness {
 	router.Use(httpapi.RequestLogger(logger))
 
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, notifier)
 	router.POST("/api/feedback", publicHandlers.CreateFeedback)
 	router.GET("/widget.js", publicHandlers.WidgetJS)
 
@@ -91,7 +94,7 @@ func insertSite(testingT *testing.T, database *gorm.DB, name string, origin stri
 }
 
 func TestFeedbackFlow(t *testing.T) {
-	api := buildAPIHarness(t)
+	api := buildAPIHarness(t, nil)
 	site := insertSite(t, api.database, "Moving Maps", "http://example.com", "admin@example.com")
 
 	widgetResp := performJSONRequest(t, api.router, http.MethodGet, "/widget.js?site_id="+site.ID, nil, nil)
@@ -122,7 +125,7 @@ func TestFeedbackFlow(t *testing.T) {
 }
 
 func TestRateLimitingReturnsTooManyRequests(t *testing.T) {
-	api := buildAPIHarness(t)
+	api := buildAPIHarness(t, nil)
 	site := insertSite(t, api.database, "Burst Site", "http://burst.example", "admin@example.com")
 
 	headers := map[string]string{"Origin": "http://burst.example"}
@@ -140,7 +143,7 @@ func TestRateLimitingReturnsTooManyRequests(t *testing.T) {
 }
 
 func TestWidgetJSHonorsCustomPlacement(t *testing.T) {
-	api := buildAPIHarness(t)
+	api := buildAPIHarness(t, nil)
 	site := insertSite(t, api.database, "Custom Placement", "http://placement.example", "owner@example.com")
 	require.NoError(t, api.database.Model(&model.Site{}).
 		Where("id = ?", site.ID).
@@ -157,7 +160,7 @@ func TestWidgetJSHonorsCustomPlacement(t *testing.T) {
 }
 
 func TestWidgetRequiresValidSiteId(t *testing.T) {
-	api := buildAPIHarness(t)
+	api := buildAPIHarness(t, nil)
 
 	resp := performJSONRequest(t, api.router, http.MethodGet, "/widget.js?site_id=", nil, nil)
 	require.Equal(t, http.StatusBadRequest, resp.Code)
@@ -167,7 +170,7 @@ func TestWidgetRequiresValidSiteId(t *testing.T) {
 }
 
 func TestCreateFeedbackValidatesPayload(t *testing.T) {
-	api := buildAPIHarness(t)
+	api := buildAPIHarness(t, nil)
 	site := insertSite(t, api.database, "Validation", "http://valid.example", "owner@example.com")
 
 	respMissing := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
@@ -183,4 +186,95 @@ func TestCreateFeedbackValidatesPayload(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	api.router.ServeHTTP(bad, req)
 	require.Equal(t, http.StatusBadRequest, bad.Code)
+}
+
+type feedbackNotificationCall struct {
+	Site     model.Site
+	Feedback model.Feedback
+	Context  context.Context
+}
+
+type recordingFeedbackNotifier struct {
+	t         *testing.T
+	mu        sync.Mutex
+	calls     []feedbackNotificationCall
+	delivery  string
+	callError error
+}
+
+func (notifier *recordingFeedbackNotifier) NotifyFeedback(ctx context.Context, site model.Site, feedback model.Feedback) (string, error) {
+	notifier.mu.Lock()
+	defer notifier.mu.Unlock()
+	notifier.calls = append(notifier.calls, feedbackNotificationCall{
+		Site:     site,
+		Feedback: feedback,
+		Context:  ctx,
+	})
+	return notifier.delivery, notifier.callError
+}
+
+func (notifier *recordingFeedbackNotifier) CallCount() int {
+	notifier.mu.Lock()
+	defer notifier.mu.Unlock()
+	return len(notifier.calls)
+}
+
+func (notifier *recordingFeedbackNotifier) LastCall() feedbackNotificationCall {
+	notifier.mu.Lock()
+	defer notifier.mu.Unlock()
+	if len(notifier.calls) == 0 {
+		notifier.t.Fatalf("expected at least one notifier call")
+	}
+	return notifier.calls[len(notifier.calls)-1]
+}
+
+func TestCreateFeedbackDispatchesNotificationToOwner(t *testing.T) {
+	notifier := &recordingFeedbackNotifier{
+		t:        t,
+		delivery: model.FeedbackDeliveryMailed,
+	}
+	api := buildAPIHarness(t, notifier)
+	site := insertSite(t, api.database, "Dispatcher", "http://dispatch.example", "owner@example.com")
+	require.NoError(t, api.database.Model(&model.Site{}).
+		Where("id = ?", site.ID).
+		Update("creator_email", "registrar@example.com").Error)
+
+	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+		"site_id": site.ID,
+		"contact": "submitter@example.com",
+		"message": "Dispatch notification",
+	}, map[string]string{"Origin": "http://dispatch.example"})
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, 1, notifier.CallCount())
+
+	var stored model.Feedback
+	require.NoError(t, api.database.First(&stored).Error)
+	require.Equal(t, model.FeedbackDeliveryMailed, stored.Delivery)
+
+	lastCall := notifier.LastCall()
+	require.Equal(t, site.ID, lastCall.Site.ID)
+	require.Equal(t, "owner@example.com", lastCall.Site.OwnerEmail)
+	require.Equal(t, stored.ID, lastCall.Feedback.ID)
+}
+
+func TestCreateFeedbackRecordsNoDeliveryOnNotifierFailure(t *testing.T) {
+	notifier := &recordingFeedbackNotifier{
+		t:         t,
+		delivery:  model.FeedbackDeliveryMailed,
+		callError: errors.New("send failed"),
+	}
+	api := buildAPIHarness(t, notifier)
+	site := insertSite(t, api.database, "Failure Delivery", "http://failure.example", "owner@example.com")
+
+	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+		"site_id": site.ID,
+		"contact": "submitter@example.com",
+		"message": "Expect failure",
+	}, map[string]string{"Origin": "http://failure.example"})
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, 1, notifier.CallCount())
+
+	var stored model.Feedback
+	require.NoError(t, api.database.First(&stored).Error)
+	require.Equal(t, model.FeedbackDeliveryNone, stored.Delivery)
 }

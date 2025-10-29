@@ -2,6 +2,12 @@ package model
 
 import "time"
 
+const (
+	FeedbackDeliveryNone   = "no"
+	FeedbackDeliveryMailed = "mailed"
+	FeedbackDeliveryTexted = "texted"
+)
+
 type Site struct {
 	ID                         string `gorm:"primaryKey;size:36"`
 	Name                       string `gorm:"not null;size:200"`
@@ -26,6 +32,7 @@ type Feedback struct {
 	Message   string    `gorm:"not null;size:4000"`
 	IP        string    `gorm:"size:64"`
 	UserAgent string    `gorm:"size:400"`
+	Delivery  string    `gorm:"not null;size:16;default:no"`
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 }
 

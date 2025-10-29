@@ -74,8 +74,8 @@ const (
 		if (!rows.length) { return false; }
 		for (var index = 0; index < rows.length; index++) {
 			var cells = rows[index].querySelectorAll('td');
-			if (cells.length < 3) { continue; }
-			if (cells[1].textContent.indexOf('auto@example.com') !== -1 && cells[2].textContent.indexOf('Auto refresh message') !== -1) {
+			if (cells.length < 4) { continue; }
+			if (cells[1].textContent.indexOf('auto@example.com') !== -1 && cells[2].textContent.indexOf('Auto refresh message') !== -1 && cells[3].textContent.trim() === 'mailed') {
 				return true;
 			}
 		}
@@ -95,6 +95,12 @@ const (
 	dashboardThemeToggleStateScript     = `(function(){var toggle=document.querySelector("#settings-theme-toggle");return !!(toggle && toggle.checked);}())`
 	widgetTestSummaryOffsetScript       = `document.getElementById('widget-test-summary-offset') ? document.getElementById('widget-test-summary-offset').textContent : ''`
 )
+
+type stubDashboardNotifier struct{}
+
+func (stubDashboardNotifier) NotifyFeedback(ctx context.Context, site model.Site, feedback model.Feedback) (string, error) {
+	return model.FeedbackDeliveryMailed, nil
+}
 
 type dashboardIntegrationHarness struct {
 	router         *gin.Engine
@@ -556,7 +562,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *d
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath)
-	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster)
+	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, stubDashboardNotifier{})
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster)
 
 	router := gin.New()

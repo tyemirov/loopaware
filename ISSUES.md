@@ -7,7 +7,7 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 ## Improvements (200-299)_
 
 - [x] [LA-201] Move theme switch to the footer, on the left of Built by Marco Polo — toggle now renders beside the Built by prefix within the footer (go test ./...)
-- [ ] [LA-200] Integrate with Pinguin service. Find the code under @tools/pinguin. Read documentation and understand the code. 
+- [x] [LA-200] Integrate with Pinguin service. Find the code under @tools/pinguin. Read documentation and understand the code. 
     Aceptance criteria are integration tests that verify:
     - When a feedback is received, send a message to the owner (not the registar). 
     - Have a column in the feedback messages table titled Delivery with values either "mailed" or "texted" or "no"
@@ -38,3 +38,4 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 - [x] [LA-300] Dashboard theme now honors the latest public selection; regression integration test ensures public preference overrides stale dashboard storage (go test ./...).
 ## Improvements (200-299) — Resolution Log
 - [x] [LA-201] Theme switch now lives in the footer beside the Built by Marco Polo branding; public landing/privacy tests enforce placement (go test ./...).
+- [x] [LA-200] Added Pinguin-backed notifications for feedback submissions and surfaced delivery statuses across API and dashboard (go test ./...).

@@ -24,6 +24,7 @@ type PublicHandlers struct {
 	rateCountersByIP          map[string]int
 	rateCountersMutex         sync.Mutex
 	feedbackBroadcaster       *FeedbackEventBroadcaster
+	notifier                  FeedbackNotifier
 }
 
 const (
@@ -31,7 +32,13 @@ const (
 	demoWidgetSiteName = "LoopAware Widget Demo"
 )
 
-func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaster *FeedbackEventBroadcaster) *PublicHandlers {
+func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaster *FeedbackEventBroadcaster, notifier FeedbackNotifier) *PublicHandlers {
+	var resolvedNotifier FeedbackNotifier
+	if notifier == nil {
+		resolvedNotifier = noopFeedbackNotifier{}
+	} else {
+		resolvedNotifier = notifier
+	}
 	return &PublicHandlers{
 		database:                  database,
 		logger:                    logger,
@@ -39,6 +46,7 @@ func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaste
 		maxRequestsPerIPPerWindow: 6,
 		rateCountersByIP:          make(map[string]int),
 		feedbackBroadcaster:       feedbackBroadcaster,
+		notifier:                  resolvedNotifier,
 	}
 }
 
@@ -96,6 +104,7 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 		Message:   truncate(payload.MessageBody, 4000),
 		IP:        clientIP,
 		UserAgent: truncate(context.Request.UserAgent(), 400),
+		Delivery:  model.FeedbackDeliveryNone,
 	}
 
 	if err := h.database.Create(&feedback).Error; err != nil {
@@ -104,8 +113,36 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 		return
 	}
 
+	h.applyFeedbackNotification(context.Request.Context(), site, &feedback)
+
 	h.broadcastFeedbackCreated(context.Request.Context(), feedback)
 	context.JSON(200, gin.H{"status": "ok"})
+}
+
+func (h *PublicHandlers) applyFeedbackNotification(ctx context.Context, site model.Site, feedback *model.Feedback) {
+	if feedback == nil {
+		return
+	}
+	if h.notifier == nil {
+		return
+	}
+	delivery, notifyErr := h.notifier.NotifyFeedback(ctx, site, *feedback)
+	if notifyErr != nil {
+		h.logger.Warn("feedback_notification_failed", zap.Error(notifyErr), zap.String("site_id", site.ID), zap.String("feedback_id", feedback.ID))
+		delivery = model.FeedbackDeliveryNone
+	}
+	if delivery != model.FeedbackDeliveryMailed && delivery != model.FeedbackDeliveryTexted {
+		delivery = model.FeedbackDeliveryNone
+	}
+	if delivery == feedback.Delivery {
+		return
+	}
+	updateErr := h.database.Model(&model.Feedback{}).Where("id = ?", feedback.ID).Update("delivery", delivery).Error
+	if updateErr != nil {
+		h.logger.Warn("update_feedback_delivery_failed", zap.Error(updateErr), zap.String("feedback_id", feedback.ID))
+		return
+	}
+	feedback.Delivery = delivery
 }
 
 func (h *PublicHandlers) broadcastFeedbackCreated(ctx context.Context, feedback model.Feedback) {
