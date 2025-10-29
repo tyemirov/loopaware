@@ -4,19 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
-	"os"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/temirov/pinguin/pkg/client"
-	"github.com/temirov/pinguin/pkg/config"
-	"github.com/temirov/pinguin/pkg/grpcapi"
-	"go.uber.org/zap"
-
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/notifications/pinguinpb"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 // PinguinConfig captures connection settings for the Pinguin notification service.
@@ -29,8 +26,12 @@ type PinguinConfig struct {
 
 // PinguinNotifier dispatches notifications through the Pinguin gRPC service.
 type PinguinNotifier struct {
-	logger *zap.Logger
-	client *client.NotificationClient
+	logger            *zap.Logger
+	conn              *grpc.ClientConn
+	client            pinguinpb.NotificationServiceClient
+	authToken         string
+	operationTimeout  time.Duration
+	connectionTimeout time.Duration
 }
 
 var phoneNumberExpression = regexp.MustCompile(`^\+[1-9][0-9]{7,14}$`)
@@ -50,42 +51,35 @@ func NewPinguinNotifier(logger *zap.Logger, cfg PinguinConfig) (*PinguinNotifier
 		cfg.OperationTimeout = 30 * time.Second
 	}
 
-	previousAddress, hadPreviousAddress := os.LookupEnv("GRPC_SERVER_ADDR")
-	if setErr := os.Setenv("GRPC_SERVER_ADDR", cfg.Address); setErr != nil {
-		return nil, fmt.Errorf("set grpc server address: %w", setErr)
-	}
-	defer func() {
-		if hadPreviousAddress {
-			_ = os.Setenv("GRPC_SERVER_ADDR", previousAddress)
-			return
-		}
-		_ = os.Unsetenv("GRPC_SERVER_ADDR")
-	}()
+	dialCtx, cancel := context.WithTimeout(context.Background(), cfg.ConnectionTimeout)
+	defer cancel()
 
-	pinguinConfig := config.Config{
-		GRPCAuthToken:        cfg.AuthToken,
-		ConnectionTimeoutSec: int(cfg.ConnectionTimeout / time.Second),
-		OperationTimeoutSec:  int(cfg.OperationTimeout / time.Second),
-	}
-
-	slogLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	notifierClient, clientErr := client.NewNotificationClient(slogLogger, pinguinConfig)
-	if clientErr != nil {
-		return nil, fmt.Errorf("create pinguin client: %w", clientErr)
+	conn, dialErr := grpc.DialContext(
+		dialCtx,
+		cfg.Address,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if dialErr != nil {
+		return nil, fmt.Errorf("connect to pinguin: %w", dialErr)
 	}
 
 	return &PinguinNotifier{
-		logger: logger,
-		client: notifierClient,
+		logger:            logger,
+		conn:              conn,
+		client:            pinguinpb.NewNotificationServiceClient(conn),
+		authToken:         cfg.AuthToken,
+		operationTimeout:  cfg.OperationTimeout,
+		connectionTimeout: cfg.ConnectionTimeout,
 	}, nil
 }
 
 // Close releases the underlying gRPC connection.
 func (notifier *PinguinNotifier) Close() error {
-	if notifier == nil || notifier.client == nil {
+	if notifier == nil || notifier.conn == nil {
 		return nil
 	}
-	return notifier.client.Close()
+	return notifier.conn.Close()
 }
 
 // NotifyFeedback sends a notification describing the feedback submission.
@@ -107,20 +101,24 @@ func (notifier *PinguinNotifier) NotifyFeedback(ctx context.Context, site model.
 	}
 	_, _ = fmt.Fprintf(messageBuilder, "Message:\n%s\n", strings.TrimSpace(feedback.Message))
 
-	request := &grpcapi.NotificationRequest{
+	request := &pinguinpb.NotificationRequest{
 		NotificationType: notificationType,
 		Recipient:        recipient,
 		Subject:          subject,
 		Message:          messageBuilder.String(),
 	}
 
-	response, sendErr := notifier.client.SendNotification(ctx, request)
+	callCtx, cancel := context.WithTimeout(ctx, notifier.operationTimeout)
+	defer cancel()
+	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken)
+
+	response, sendErr := notifier.client.SendNotification(callCtx, request)
 	if sendErr != nil {
 		notifier.logger.Warn("pinguin_send_failed", zap.Error(sendErr), zap.String("site_id", site.ID), zap.String("feedback_id", feedback.ID))
 		return model.FeedbackDeliveryNone, sendErr
 	}
 
-	if response.GetStatus() == grpcapi.Status_FAILED {
+	if response.GetStatus() == pinguinpb.Status_FAILED {
 		err := fmt.Errorf("notification failed with status %s", response.GetStatus().String())
 		notifier.logger.Warn("pinguin_send_failed_status", zap.Error(err), zap.String("site_id", site.ID), zap.String("feedback_id", feedback.ID))
 		return model.FeedbackDeliveryNone, err
@@ -129,19 +127,19 @@ func (notifier *PinguinNotifier) NotifyFeedback(ctx context.Context, site model.
 	return delivery, nil
 }
 
-func determineRecipient(contact string) (grpcapi.NotificationType, string, string, error) {
+func determineRecipient(contact string) (pinguinpb.NotificationType, string, string, error) {
 	trimmed := strings.TrimSpace(contact)
 	if trimmed == "" {
-		return grpcapi.NotificationType_EMAIL, "", model.FeedbackDeliveryNone, errors.New("owner contact is empty")
+		return pinguinpb.NotificationType_EMAIL, "", model.FeedbackDeliveryNone, errors.New("owner contact is empty")
 	}
 
 	if strings.Contains(trimmed, "@") {
-		return grpcapi.NotificationType_EMAIL, trimmed, model.FeedbackDeliveryMailed, nil
+		return pinguinpb.NotificationType_EMAIL, trimmed, model.FeedbackDeliveryMailed, nil
 	}
 
 	if phoneNumberExpression.MatchString(trimmed) {
-		return grpcapi.NotificationType_SMS, trimmed, model.FeedbackDeliveryTexted, nil
+		return pinguinpb.NotificationType_SMS, trimmed, model.FeedbackDeliveryTexted, nil
 	}
 
-	return grpcapi.NotificationType_EMAIL, "", model.FeedbackDeliveryNone, fmt.Errorf("unrecognized owner contact: %s", trimmed)
+	return pinguinpb.NotificationType_EMAIL, "", model.FeedbackDeliveryNone, fmt.Errorf("unrecognized owner contact: %s", trimmed)
 }

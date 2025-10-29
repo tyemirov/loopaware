@@ -1,7 +1,6 @@
 services:
   pinguin:
-    build:
-      context: ./tools/pinguin
+    image: ghcr.io/tyemirov/pinguin:latest
     container_name: pinguin
     env_file:
       - .env
