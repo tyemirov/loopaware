@@ -11,14 +11,18 @@ const (
 	footerPrivacyLinkLabel = "Privacy • Terms"
 	footerPrivacyLinkHref  = PrivacyPagePath
 
-	footerLayoutClass       = "footer-layout w-100 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3"
-	footerBrandWrapperClass = "footer-brand d-inline-flex align-items-center gap-2 text-body-secondary small"
-	footerMenuWrapperClass  = "footer-menu dropup"
-	footerPrivacyLinkClass  = "footer-privacy-link text-body-secondary text-decoration-none small"
-	footerPrefixClass       = "text-body-secondary fw-semibold"
-	footerToggleButtonClass = "btn btn-link dropdown-toggle text-decoration-none px-0 fw-semibold text-body-secondary"
-	footerMenuClass         = "dropdown-menu dropdown-menu-end shadow"
-	footerMenuItemClass     = "dropdown-item"
+	footerLayoutClass             = "footer-layout w-100 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3"
+	footerBrandWrapperClass       = "footer-brand d-inline-flex align-items-center gap-2 text-body-secondary small"
+	footerMenuWrapperClass        = "footer-menu dropup"
+	footerPrivacyLinkClass        = "footer-privacy-link text-body-secondary text-decoration-none small"
+	footerPrefixClass             = "text-body-secondary fw-semibold"
+	footerToggleButtonClass       = "btn btn-link dropdown-toggle text-decoration-none px-0 fw-semibold text-body-secondary"
+	footerMenuClass               = "dropdown-menu dropdown-menu-end shadow"
+	footerMenuItemClass           = "dropdown-item"
+	footerThemeToggleWrapperClass = "footer-theme-toggle form-check form-switch m-0"
+	footerThemeToggleInputClass   = "form-check-input"
+	footerThemeToggleDataTheme    = "light"
+	footerThemeToggleAriaLabel    = "Toggle theme"
 )
 
 type footerVariant string
@@ -30,45 +34,50 @@ const (
 )
 
 type footerVariantOverrides struct {
-	ElementID      string
-	InnerElementID string
-	BaseClass      string
-	ToggleButtonID string
-	LeadingHTML    template.HTML
+	ElementID          string
+	InnerElementID     string
+	BaseClass          string
+	ToggleButtonID     string
+	ThemeToggleEnabled bool
 }
 
 var (
-	footerThemeToggleHTML = template.HTML(fmt.Sprintf(`<div class="footer-theme-toggle form-check form-switch m-0" data-bs-theme="light"><input class="form-check-input" type="checkbox" id="%s" aria-label="Toggle theme" /></div>`, publicThemeToggleID))
-	footerBaseConfig      = footer.Config{
-		InnerClass:        landingFooterInnerClass,
-		WrapperClass:      footerLayoutClass,
-		BrandWrapperClass: footerBrandWrapperClass,
-		MenuWrapperClass:  footerMenuWrapperClass,
-		PrefixClass:       footerPrefixClass,
-		PrefixText:        dashboardFooterBrandPrefix,
-		ToggleButtonClass: footerToggleButtonClass,
-		ToggleLabel:       dashboardFooterBrandName,
-		MenuClass:         footerMenuClass,
-		MenuItemClass:     footerMenuItemClass,
-		PrivacyLinkClass:  footerPrivacyLinkClass,
-		PrivacyLinkHref:   footerPrivacyLinkHref,
-		PrivacyLinkLabel:  footerPrivacyLinkLabel,
-		Links:             footerLinks,
+	footerBaseConfig = footer.Config{
+		InnerClass:              landingFooterInnerClass,
+		WrapperClass:            footerLayoutClass,
+		BrandWrapperClass:       footerBrandWrapperClass,
+		MenuWrapperClass:        footerMenuWrapperClass,
+		PrefixClass:             footerPrefixClass,
+		PrefixText:              dashboardFooterBrandPrefix,
+		ToggleButtonClass:       footerToggleButtonClass,
+		ToggleLabel:             dashboardFooterBrandName,
+		MenuClass:               footerMenuClass,
+		MenuItemClass:           footerMenuItemClass,
+		PrivacyLinkClass:        footerPrivacyLinkClass,
+		PrivacyLinkHref:         footerPrivacyLinkHref,
+		PrivacyLinkLabel:        footerPrivacyLinkLabel,
+		Links:                   footerLinks,
+		ThemeToggleEnabled:      false,
+		ThemeToggleWrapperClass: footerThemeToggleWrapperClass,
+		ThemeToggleInputClass:   footerThemeToggleInputClass,
+		ThemeToggleDataTheme:    footerThemeToggleDataTheme,
+		ThemeToggleAriaLabel:    footerThemeToggleAriaLabel,
+		ThemeToggleID:           publicThemeToggleID,
 	}
 	footerVariantOverridesByKey = map[footerVariant]footerVariantOverrides{
 		footerVariantLanding: {
-			ElementID:      landingFooterElementID,
-			InnerElementID: landingFooterInnerID,
-			BaseClass:      landingFooterBaseClass,
-			ToggleButtonID: landingFooterToggleID,
-			LeadingHTML:    footerThemeToggleHTML,
+			ElementID:          landingFooterElementID,
+			InnerElementID:     landingFooterInnerID,
+			BaseClass:          landingFooterBaseClass,
+			ToggleButtonID:     landingFooterToggleID,
+			ThemeToggleEnabled: true,
 		},
 		footerVariantPrivacy: {
-			ElementID:      privacyFooterElementID,
-			InnerElementID: privacyFooterInnerID,
-			BaseClass:      landingFooterBaseClass,
-			ToggleButtonID: dashboardFooterToggleButtonID,
-			LeadingHTML:    footerThemeToggleHTML,
+			ElementID:          privacyFooterElementID,
+			InnerElementID:     privacyFooterInnerID,
+			BaseClass:          landingFooterBaseClass,
+			ToggleButtonID:     dashboardFooterToggleButtonID,
+			ThemeToggleEnabled: true,
 		},
 		footerVariantDashboard: {
 			ElementID:      footerElementID,
@@ -89,7 +98,7 @@ func footerConfigForVariant(variant footerVariant) (footer.Config, error) {
 	config.InnerElementID = overrides.InnerElementID
 	config.BaseClass = overrides.BaseClass
 	config.ToggleButtonID = overrides.ToggleButtonID
-	config.LeadingHTML = overrides.LeadingHTML
+	config.ThemeToggleEnabled = overrides.ThemeToggleEnabled
 	return config, nil
 }
 

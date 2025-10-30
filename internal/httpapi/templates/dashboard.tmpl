@@ -2200,5 +2200,12 @@
         });
       })();
     </script>
+    <script type="module">
+      import Alpine from "https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/module.esm.js";
+      import { mprFooter } from "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@main/footer.js";
+      window.Alpine = Alpine;
+      window.mprFooter = mprFooter;
+      Alpine.start();
+    </script>
   </body>
 </html>
