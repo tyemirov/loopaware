@@ -80,10 +80,11 @@ var (
 			ThemeToggleEnabled: true,
 		},
 		footerVariantDashboard: {
-			ElementID:      footerElementID,
-			InnerElementID: footerInnerElementID,
-			BaseClass:      footerBaseClass,
-			ToggleButtonID: dashboardFooterToggleButtonID,
+			ElementID:          footerElementID,
+			InnerElementID:     footerInnerElementID,
+			BaseClass:          footerBaseClass,
+			ToggleButtonID:     dashboardFooterToggleButtonID,
+			ThemeToggleEnabled: true,
 		},
 	}
 )
