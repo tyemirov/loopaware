@@ -77,7 +77,6 @@ const (
 	defaultConfigFileName            = "config.yaml"
 	defaultPublicBaseURL             = "http://localhost:8080"
 	defaultPinguinAddress            = "localhost:50051"
-	defaultPinguinAuthToken          = "loopaware-dev-token"
 	defaultPinguinConnTimeoutSeconds = 5
 	defaultPinguinOpTimeoutSeconds   = 30
 	publicRouteFeedback              = "/api/feedback"
