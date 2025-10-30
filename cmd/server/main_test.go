@@ -194,7 +194,7 @@ func TestServerCommandFlagDefaults(t *testing.T) {
 
 	pinguinAuthFlag := command.Flag(flagNamePinguinAuthToken)
 	require.NotNil(t, pinguinAuthFlag)
-	require.Equal(t, defaultPinguinAuthToken, pinguinAuthFlag.DefValue)
+	require.Equal(t, "", pinguinAuthFlag.DefValue)
 
 	pinguinConnFlag := command.Flag(flagNamePinguinConnectionTimeout)
 	require.NotNil(t, pinguinConnFlag)
@@ -275,6 +275,26 @@ func TestLoadServerConfigAllowsMissingConfigFile(t *testing.T) {
 	require.NoError(t, loadErr)
 	require.Equal(t, []string{testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail}, serverConfig.AdminEmailAddresses)
 	require.Equal(t, missingConfigFilePath, serverConfig.ConfigFilePath)
+}
+
+func TestLoadServerConfigFallsBackToSharedAuthToken(t *testing.T) {
+	tempDirectory := t.TempDir()
+	configFilePath := filepath.Join(tempDirectory, testConfigFileName)
+	require.NoError(t, os.WriteFile(configFilePath, []byte("admins: []\n"), 0600))
+
+	t.Setenv(environmentKeyGoogleClientID, testGoogleClientID)
+	t.Setenv(environmentKeyGoogleClientSecret, testGoogleClientSecret)
+	t.Setenv(environmentKeySessionSecret, testSessionSecret)
+	t.Setenv(environmentKeyPublicBaseURL, testDefaultPublicBaseURL)
+	t.Setenv(environmentKeyPinguinAuthToken, "")
+	t.Setenv(environmentKeyPinguinSharedAuth, "shared-token")
+
+	application := NewServerApplication()
+	application.configurationLoader.AutomaticEnv()
+
+	serverConfig, loadErr := application.loadServerConfig(configFilePath)
+	require.NoError(t, loadErr)
+	require.Equal(t, "shared-token", serverConfig.PinguinAuthToken)
 }
 
 func TestLogAdministratorWarning(t *testing.T) {

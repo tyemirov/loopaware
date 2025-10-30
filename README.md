@@ -36,6 +36,7 @@ Set the `ADMINS` environment variable with a comma-separated list (for example `
 | `GOOGLE_CLIENT_ID`     | ✅        | OAuth client ID from Google Cloud Console                   |
 | `GOOGLE_CLIENT_SECRET` | ✅        | OAuth client secret                                         |
 | `SESSION_SECRET`       | ✅        | 32+ byte secret for cookie signing                          |
+| `PINGUIN_AUTH_TOKEN`¹  | ✅        | Bearer token passed to the Pinguin gRPC service             |
 | `ADMINS`               | ⚙️       | Comma-separated admin emails; overrides the YAML roster     |
 | `PUBLIC_BASE_URL`      | ⚙️       | Public URL of the service (default `http://localhost:8080`) |
 | `APP_ADDR`             | ⚙️       | Listen address (default `:8080`)                            |
@@ -50,6 +51,15 @@ Copy the provided template and edit the values before running the service or Doc
 cp .env.sample .env
 $EDITOR .env
 ```
+
+¹Pinguin and LoopAware must share the **exact same** bearer secret. Provide identical values for `GRPC_AUTH_TOKEN` and `PINGUIN_AUTH_TOKEN`, for example:
+
+```dotenv
+GRPC_AUTH_TOKEN=loopaware-local-secret
+PINGUIN_AUTH_TOKEN=loopaware-local-secret
+```
+
+LoopAware falls back to `GRPC_AUTH_TOKEN` when `PINGUIN_AUTH_TOKEN` is empty, so exporting the shared value once at runtime also works.
 
 ### 3. Flags
 
