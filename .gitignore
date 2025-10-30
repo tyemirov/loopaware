@@ -1,6 +1,8 @@
 .idea/
 *.iml
 .env
+.env.pinguin
+.emv.loopaware
 .DS_Store
 PLAN.md
 tools/
