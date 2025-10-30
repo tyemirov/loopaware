@@ -2,8 +2,10 @@ services:
   pinguin:
     image: ghcr.io/tyemirov/pinguin:latest
     container_name: pinguin
+    restart: unless-stopped
+    pull_policy: always
     env_file:
-      - .env
+      - .env.pinguin
     environment:
       - DATABASE_PATH=/var/lib/pinguin/pinguin.db
       - LOG_LEVEL=INFO
@@ -11,7 +13,6 @@ services:
       - pinguin-data:/var/lib/pinguin
     ports:
       - "50051:50051"
-    restart: unless-stopped
 
   loopaware:
     build: .
