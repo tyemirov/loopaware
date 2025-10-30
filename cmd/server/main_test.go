@@ -194,7 +194,7 @@ func TestServerCommandFlagDefaults(t *testing.T) {
 
 	pinguinAuthFlag := command.Flag(flagNamePinguinAuthToken)
 	require.NotNil(t, pinguinAuthFlag)
-	require.Equal(t, "", pinguinAuthFlag.DefValue)
+	require.Equal(t, defaultPinguinAuthToken, pinguinAuthFlag.DefValue)
 
 	pinguinConnFlag := command.Flag(flagNamePinguinConnectionTimeout)
 	require.NotNil(t, pinguinConnFlag)

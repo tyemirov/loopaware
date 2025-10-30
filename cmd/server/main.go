@@ -77,6 +77,7 @@ const (
 	defaultConfigFileName            = "config.yaml"
 	defaultPublicBaseURL             = "http://localhost:8080"
 	defaultPinguinAddress            = "localhost:50051"
+	defaultPinguinAuthToken          = "loopaware-dev-token"
 	defaultPinguinConnTimeoutSeconds = 5
 	defaultPinguinOpTimeoutSeconds   = 30
 	publicRouteFeedback              = "/api/feedback"
@@ -188,7 +189,7 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	application.configurationLoader.SetDefault(environmentKeyGoogleClientSecret, "")
 	application.configurationLoader.SetDefault(environmentKeySessionSecret, "")
 	application.configurationLoader.SetDefault(environmentKeyPinguinAddress, defaultPinguinAddress)
-	application.configurationLoader.SetDefault(environmentKeyPinguinAuthToken, "")
+	application.configurationLoader.SetDefault(environmentKeyPinguinAuthToken, defaultPinguinAuthToken)
 	application.configurationLoader.SetDefault(environmentKeyPinguinConnTimeout, defaultPinguinConnTimeoutSeconds)
 	application.configurationLoader.SetDefault(environmentKeyPinguinOpTimeout, defaultPinguinOpTimeoutSeconds)
 	application.configurationLoader.AutomaticEnv()
@@ -203,7 +204,7 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	commandFlags.String(flagNameSessionSecret, "", flagUsageSessionSecret)
 	commandFlags.String(flagNamePublicBaseURL, defaultPublicBaseURL, flagUsagePublicBaseURL)
 	commandFlags.String(flagNamePinguinAddress, defaultPinguinAddress, flagUsagePinguinAddress)
-	commandFlags.String(flagNamePinguinAuthToken, "", flagUsagePinguinAuthToken)
+	commandFlags.String(flagNamePinguinAuthToken, defaultPinguinAuthToken, flagUsagePinguinAuthToken)
 	commandFlags.Int(flagNamePinguinConnectionTimeout, defaultPinguinConnTimeoutSeconds, flagUsagePinguinConnTimeout)
 	commandFlags.Int(flagNamePinguinOperationTimeout, defaultPinguinOpTimeoutSeconds, flagUsagePinguinOpTimeout)
 
