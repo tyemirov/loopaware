@@ -2,7 +2,7 @@
 *.iml
 .env
 .env.pinguin
-.emv.loopaware
+.env.loopaware
 .DS_Store
 PLAN.md
 tools/
