@@ -24,7 +24,7 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 - [x] [LA-203] Remove the theme switch from a user menu under the avatar.
   1. Use the same alpine ui footer component as other pages (but style it with current color palette used in dashboard)
   2. Remove user's specific light/dark theme switch
-- [ ] [LA-204] Make clicking on a favicon of a site open a site itself in a new window.
+- [x] [LA-204] Make clicking on a favicon of a site open a site itself in a new window — favicon interaction now opens the allowed origin in a new tab with keyboard support; integration test captures window.open calls (go test ./...).
 
 ## BugFixes (300-399)
 
@@ -46,3 +46,4 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 - [x] [LA-200] Added Pinguin-backed notifications for feedback submissions and surfaced delivery statuses across API and dashboard (go test ./...).
 - [x] [LA-202] Footer now rendered by shared Alpine component from mpr-ui; templates load CDN module and tests confirm config payload & markup (go test ./...).
 - [x] [LA-203] Dashboard theme switch removed from avatar menu; footer toggle drives persistence and integration tests click the new footer control (go test ./...).
+- [x] [LA-204] Dashboard site list favicons now open the allowed origin in a new tab with keyboard activation; regression test verifies window.open is invoked (go test ./...).
