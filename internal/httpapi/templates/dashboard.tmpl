@@ -622,13 +622,23 @@
           };
           var dismissHandler = function(event) {
             event.preventDefault();
-            recordSessionActivity();
+            recordSessionActivity({ allowPromptDismiss: true });
           };
 
-          function recordSessionActivity() {
-            idleState.lastActivityTimestamp = Date.now();
+          function recordSessionActivity(options) {
+            var allowPromptDismiss = !!(options && options.allowPromptDismiss === true);
+            var shouldUpdateTimestamp = !(options && options.updateTimestamp === false);
             if (idleState.promptVisible) {
-              hidePrompt();
+              if (allowPromptDismiss) {
+                if (shouldUpdateTimestamp) {
+                  idleState.lastActivityTimestamp = Date.now();
+                }
+                hidePrompt();
+              }
+              return;
+            }
+            if (shouldUpdateTimestamp) {
+              idleState.lastActivityTimestamp = Date.now();
             }
           }
 
