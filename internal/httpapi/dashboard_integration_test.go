@@ -92,7 +92,34 @@ const (
 	dashboardStoredPublicThemeScript    = "localStorage.getItem('loopaware_public_theme') || ''"
 	dashboardSeedPublicThemeScript      = `localStorage.setItem('loopaware_public_theme','dark');localStorage.removeItem('loopaware_dashboard_theme');localStorage.removeItem('loopaware_theme');`
 	dashboardThemeToggleStateScript     = `(function(){var toggle=document.querySelector('[data-mpr-footer="theme-toggle-input"]');return !!(toggle && toggle.checked);}())`
-	widgetTestSummaryOffsetScript       = `document.getElementById('widget-test-summary-offset') ? document.getElementById('widget-test-summary-offset').textContent : ''`
+	dashboardSiteFaviconSelector        = "#sites-list [data-site-id] img"
+	dashboardSiteFaviconVisibleScript   = `(function() {
+		var list = document.getElementById('sites-list');
+		if (!list) { return false; }
+		var item = list.querySelector('[data-site-id]');
+		if (!item) { return false; }
+		var icon = item.querySelector('img');
+		if (!icon || icon.classList.contains('d-none')) { return false; }
+		var bounds = icon.getBoundingClientRect();
+		return bounds.width > 0 && bounds.height > 0 && !!icon.src;
+	}())`
+	dashboardCaptureWindowOpenScript = `(function() {
+		window.__loopawareOpenedWindows = [];
+		window.open = function(url, target, features) {
+			window.__loopawareOpenedWindows.push({
+				url: typeof url === 'string' ? url : '',
+				target: typeof target === 'string' ? target : '',
+				features: typeof features === 'string' ? features : ''
+			});
+			return null;
+		};
+		return true;
+	}())`
+	dashboardOpenedWindowCallsScript = `(function() {
+		return window.__loopawareOpenedWindows || [];
+	}())`
+	dashboardDispatchSyntheticMousemoveScript = "document.dispatchEvent(new Event('mousemove'))"
+	widgetTestSummaryOffsetScript             = `document.getElementById('widget-test-summary-offset') ? document.getElementById('widget-test-summary-offset').textContent : ''`
 )
 
 type stubDashboardNotifier struct{}
@@ -277,6 +304,40 @@ func TestDashboardSessionTimeoutAutoLogout(t *testing.T) {
 		}
 		return parsed.Path == dashboardTestLandingPath
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardSessionTimeoutIgnoresSyntheticActivity(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	waitForVisibleElement(t, page, dashboardUserEmailSelector)
+
+	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
+	waitForVisibleElement(t, page, dashboardNotificationSelector)
+
+	evaluateScriptInto(t, page, dashboardDispatchSyntheticMousemoveScript, nil)
+
+	require.Eventually(t, func() bool {
+		notificationElement, elementErr := page.Element(dashboardNotificationSelector)
+		if elementErr != nil {
+			return false
+		}
+		visible, visibleErr := notificationElement.Visible()
+		if visibleErr != nil {
+			return false
+		}
+		return visible
+	}, time.Second, 100*time.Millisecond)
 }
 
 func TestDashboardRestoresThemeFromPublicPreference(t *testing.T) {
@@ -517,6 +578,68 @@ func TestDashboardFeedbackStreamRefreshesMessages(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardFeedbackCountScript)
 	}, 5*time.Second, 100*time.Millisecond)
+}
+
+func TestDashboardSiteFaviconOpensOrigin(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Favicon Origin Site",
+		AllowedOrigin:              "https://open-target.example",
+		OwnerEmail:                 dashboardTestAdminEmail,
+		CreatorEmail:               dashboardTestAdminEmail,
+		WidgetBubbleSide:           "right",
+		WidgetBubbleBottomOffsetPx: 16,
+		FaviconData: []byte{
+			0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+			0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+			0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+			0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+			0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41,
+			0x54, 0x78, 0x9C, 0x63, 0xF8, 0xCF, 0xC0, 0x00,
+			0x00, 0x04, 0xBF, 0x01, 0xFE, 0xA7, 0x65, 0x81,
+			0xF0, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E,
+			0x44, 0xAE, 0x42, 0x60, 0x82,
+		},
+		FaviconContentType: "image/png",
+		FaviconFetchedAt:   time.Now().UTC(),
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	waitForVisibleElement(t, page, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSiteFaviconVisibleScript)
+	}, 5*time.Second, 100*time.Millisecond)
+
+	evaluateScriptInto(t, page, dashboardCaptureWindowOpenScript, nil)
+
+	clickSelector(t, page, dashboardSiteFaviconSelector)
+
+	type windowOpenRecord struct {
+		URL      string `json:"url"`
+		Target   string `json:"target"`
+		Features string `json:"features"`
+	}
+
+	var windowOpenCalls []windowOpenRecord
+	evaluateScriptInto(t, page, dashboardOpenedWindowCallsScript, &windowOpenCalls)
+
+	require.Len(t, windowOpenCalls, 1)
+	require.Equal(t, site.AllowedOrigin, windowOpenCalls[0].URL)
+	require.Equal(t, "_blank", windowOpenCalls[0].Target)
+	require.Equal(t, "noopener,noreferrer", windowOpenCalls[0].Features)
 }
 
 func TestExampleRouteIsUnavailable(t *testing.T) {
