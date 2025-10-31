@@ -29,22 +29,25 @@ import (
 )
 
 const (
-	dashboardTestSessionSecretBytes   = "12345678901234567890123456789012"
-	dashboardTestAdminEmail           = "admin@example.com"
-	dashboardTestAdminDisplayName     = "Admin Example"
-	dashboardTestWidgetBaseURL        = "http://example.test"
-	dashboardTestLandingPath          = "/landing"
-	dashboardTestDashboardRoute       = "/app"
-	dashboardPromptWaitTimeout        = 10 * time.Second
-	dashboardPromptPollInterval       = 200 * time.Millisecond
-	dashboardNotificationSelector     = "#session-timeout-notification"
-	dashboardDismissButtonSelector    = "#session-timeout-dismiss-button"
-	dashboardConfirmButtonSelector    = "#session-timeout-confirm-button"
-	dashboardSettingsButtonSelector   = "#settings-button"
-	dashboardSettingsMenuSelector     = "#settings-menu"
-	dashboardSettingsMenuItemSelector = "#settings-menu-settings"
-	dashboardSettingsModalSelector    = "#settings-modal"
-	dashboardSettingsMenuOpenScript   = `(function() {
+	dashboardTestSessionSecretBytes           = "12345678901234567890123456789012"
+	dashboardTestAdminEmail                   = "admin@example.com"
+	dashboardTestAdminDisplayName             = "Admin Example"
+	dashboardTestWidgetBaseURL                = "http://example.test"
+	dashboardTestLandingPath                  = "/landing"
+	dashboardTestDashboardRoute               = "/app"
+	dashboardPromptWaitTimeout                = 10 * time.Second
+	dashboardPromptPollInterval               = 200 * time.Millisecond
+	dashboardNotificationSelector             = "#session-timeout-notification"
+	dashboardDismissButtonSelector            = "#session-timeout-dismiss-button"
+	dashboardConfirmButtonSelector            = "#session-timeout-confirm-button"
+	dashboardSettingsButtonSelector           = "#settings-button"
+	dashboardSettingsMenuSelector             = "#settings-menu"
+	dashboardSettingsMenuItemSelector         = "#settings-menu-settings"
+	dashboardSettingsModalSelector            = "#settings-modal"
+	dashboardSettingsAutoLogoutToggleSelector = "#settings-auto-logout-enabled"
+	dashboardSettingsAutoLogoutPromptSelector = "#settings-auto-logout-prompt-seconds"
+	dashboardSettingsAutoLogoutLogoutSelector = "#settings-auto-logout-logout-seconds"
+	dashboardSettingsMenuOpenScript           = `(function() {
 		var menu = document.querySelector('#settings-menu');
 		if (!menu) { return false; }
 		return menu.classList.contains('show');
@@ -56,6 +59,28 @@ const (
 	}())`
 	dashboardBodyModalOpenScript = `(function() {
 		return document.body && document.body.classList.contains('modal-open');
+	}())`
+	dashboardSettingsHooksReadyScript    = "typeof window.__loopawareDashboardSettingsTestHooks !== 'undefined'"
+	dashboardSessionTimeoutVisibleScript = `(function() {
+		var container = document.getElementById('session-timeout-notification');
+		if (!container) { return false; }
+		return container.getAttribute('aria-hidden') === 'false';
+	}())`
+	dashboardReadAutoLogoutSettingsScript = `(function() {
+		if (!window.__loopawareDashboardSettingsTestHooks) { return null; }
+		return window.__loopawareDashboardSettingsTestHooks.readAutoLogoutSettings();
+	}())`
+	dashboardReadAutoLogoutMinimumsScript = `(function() {
+		if (!window.__loopawareDashboardSettingsTestHooks) {
+			return { minPromptSeconds: 0, minLogoutSeconds: 0, minimumGapSeconds: 0, maxPromptSeconds: 0, maxLogoutSeconds: 0 };
+		}
+		return {
+			minPromptSeconds: window.__loopawareDashboardSettingsTestHooks.minPromptSeconds || 0,
+			minLogoutSeconds: window.__loopawareDashboardSettingsTestHooks.minLogoutSeconds || 0,
+			minimumGapSeconds: window.__loopawareDashboardSettingsTestHooks.minimumGapSeconds || 0,
+			maxPromptSeconds: window.__loopawareDashboardSettingsTestHooks.maxPromptSeconds || 0,
+			maxLogoutSeconds: window.__loopawareDashboardSettingsTestHooks.maxLogoutSeconds || 0
+		};
 	}())`
 	dashboardPublicThemeToggleSelector    = "#public-theme-toggle"
 	dashboardUserEmailSelector            = "#user-email"
@@ -415,6 +440,146 @@ func TestDashboardSettingsModalOpensAndDismissesViaBackdrop(t *testing.T) {
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 	require.Eventually(t, func() bool {
 		return !evaluateScriptBoolean(t, page, dashboardSettingsMenuOpenScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		return style.display !== 'none' && style.visibility !== 'hidden';
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSettingsHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	clickSelector(t, page, dashboardSettingsButtonSelector)
+	clickSelector(t, page, dashboardSettingsMenuItemSelector)
+
+	toggleElement := waitForVisibleElement(t, page, dashboardSettingsAutoLogoutToggleSelector)
+	toggleCheckedScript := `(function(){var toggle=document.querySelector('#settings-auto-logout-enabled');return !!(toggle&&toggle.checked);}())`
+	if evaluateScriptBoolean(t, page, toggleCheckedScript) {
+		require.NoError(t, toggleElement.Click(proto.InputMouseButtonLeft, 1))
+	}
+	require.Eventually(t, func() bool {
+		return !evaluateScriptBoolean(t, page, toggleCheckedScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		var current struct {
+			Enabled       bool    `json:"enabled"`
+			PromptSeconds float64 `json:"promptSeconds"`
+			LogoutSeconds float64 `json:"logoutSeconds"`
+		}
+		evaluateScriptInto(t, page, dashboardReadAutoLogoutSettingsScript, &current)
+		return !current.Enabled
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	closeButton := waitForVisibleElement(t, page, "#settings-modal .btn-close")
+	require.NoError(t, closeButton.Click(proto.InputMouseButtonLeft, 1))
+	require.Eventually(t, func() bool {
+		return !evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
+	require.Eventually(t, func() bool {
+		return !evaluateScriptBoolean(t, page, dashboardSessionTimeoutVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	clickSelector(t, page, dashboardSettingsButtonSelector)
+	clickSelector(t, page, dashboardSettingsMenuItemSelector)
+
+	toggleElement = waitForVisibleElement(t, page, dashboardSettingsAutoLogoutToggleSelector)
+	if !evaluateScriptBoolean(t, page, toggleCheckedScript) {
+		require.NoError(t, toggleElement.Click(proto.InputMouseButtonLeft, 1))
+	}
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, toggleCheckedScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	var minimums struct {
+		MinPromptSeconds  float64 `json:"minPromptSeconds"`
+		MinLogoutSeconds  float64 `json:"minLogoutSeconds"`
+		MinimumGapSeconds float64 `json:"minimumGapSeconds"`
+		MaxPromptSeconds  float64 `json:"maxPromptSeconds"`
+		MaxLogoutSeconds  float64 `json:"maxLogoutSeconds"`
+	}
+	evaluateScriptInto(t, page, dashboardReadAutoLogoutMinimumsScript, &minimums)
+	minPrompt := int(minimums.MinPromptSeconds)
+	minLogout := int(minimums.MinLogoutSeconds)
+	minGap := int(minimums.MinimumGapSeconds)
+	maxPrompt := int(minimums.MaxPromptSeconds)
+	maxLogout := int(minimums.MaxLogoutSeconds)
+	if minPrompt <= 0 {
+		minPrompt = 10
+	}
+	if minLogout <= 0 {
+		minLogout = 20
+	}
+	if minGap < 1 {
+		minGap = 5
+	}
+	promptSeconds := minPrompt + minGap + 1
+	if maxPrompt > 0 && promptSeconds > maxPrompt {
+		promptSeconds = maxPrompt
+	}
+	if promptSeconds < minPrompt {
+		promptSeconds = minPrompt
+	}
+	logoutSeconds := promptSeconds + minGap + 2
+	if logoutSeconds < minLogout {
+		logoutSeconds = minLogout
+	}
+	if maxLogout > 0 && logoutSeconds > maxLogout {
+		logoutSeconds = maxLogout
+	}
+	if logoutSeconds <= promptSeconds+minGap {
+		logoutSeconds = promptSeconds + minGap + 1
+	}
+
+	setInputValue(t, page, dashboardSettingsAutoLogoutPromptSelector, fmt.Sprintf("%d", promptSeconds))
+	setInputValue(t, page, dashboardSettingsAutoLogoutLogoutSelector, fmt.Sprintf("%d", logoutSeconds))
+
+	require.Eventually(t, func() bool {
+		var current struct {
+			Enabled       bool    `json:"enabled"`
+			PromptSeconds float64 `json:"promptSeconds"`
+			LogoutSeconds float64 `json:"logoutSeconds"`
+		}
+		evaluateScriptInto(t, page, dashboardReadAutoLogoutSettingsScript, &current)
+		if !current.Enabled {
+			return false
+		}
+		return int(current.PromptSeconds) == promptSeconds && int(current.LogoutSeconds) == logoutSeconds
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	closeButton = waitForVisibleElement(t, page, "#settings-modal .btn-close")
+	require.NoError(t, closeButton.Click(proto.InputMouseButtonLeft, 1))
+	require.Eventually(t, func() bool {
+		return !evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
+	waitForVisibleElement(t, page, dashboardNotificationSelector)
+	clickSelector(t, page, dashboardDismissButtonSelector)
+	require.Eventually(t, func() bool {
+		return !evaluateScriptBoolean(t, page, dashboardSessionTimeoutVisibleScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 

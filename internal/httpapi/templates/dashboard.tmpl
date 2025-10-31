@@ -193,7 +193,29 @@
           </div>
           <div class="modal-body">
             <p class="text-muted mb-4">{{.SettingsModalIntro}}</p>
-            <div id="{{.SettingsModalContentID}}" class="d-flex flex-column gap-3"></div>
+            <div id="{{.SettingsModalContentID}}" class="d-flex flex-column gap-4">
+              <section>
+                <h2 class="h5 mb-2">{{.SettingsAutoLogoutSectionTitle}}</h2>
+                <p class="text-muted small mb-3">{{.SettingsAutoLogoutDescription}}</p>
+                <div class="form-check form-switch mb-3">
+                  <input class="form-check-input" type="checkbox" role="switch" id="{{.SettingsAutoLogoutToggleID}}" />
+                  <label class="form-check-label" for="{{.SettingsAutoLogoutToggleID}}">{{.SettingsAutoLogoutEnableLabel}}</label>
+                </div>
+                <div id="{{.SettingsAutoLogoutFieldsID}}" class="row g-3" data-gap-message="{{.SettingsAutoLogoutGapError}}">
+                  <div class="col-md-6">
+                    <label class="form-label" for="{{.SettingsAutoLogoutPromptInputID}}">{{.SettingsAutoLogoutPromptLabel}}</label>
+                    <input class="form-control" type="number" id="{{.SettingsAutoLogoutPromptInputID}}" min="{{.SettingsAutoLogoutPromptMin}}" max="{{.SettingsAutoLogoutPromptMax}}" step="1" inputmode="numeric" />
+                    <div class="invalid-feedback" id="{{.SettingsAutoLogoutPromptErrorID}}">{{.SettingsAutoLogoutPromptError}}</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="{{.SettingsAutoLogoutLogoutInputID}}">{{.SettingsAutoLogoutLogoutLabel}}</label>
+                    <input class="form-control" type="number" id="{{.SettingsAutoLogoutLogoutInputID}}" min="{{.SettingsAutoLogoutLogoutMin}}" max="{{.SettingsAutoLogoutLogoutMax}}" step="1" inputmode="numeric" />
+                    <div class="invalid-feedback" id="{{.SettingsAutoLogoutLogoutErrorID}}">{{.SettingsAutoLogoutLogoutError}}</div>
+                  </div>
+                  <p class="text-muted small mb-0">{{.SettingsAutoLogoutHelpText}}</p>
+                </div>
+              </section>
+            </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{.SettingsModalCloseLabel}}</button>
@@ -267,6 +289,30 @@
         var sessionTimeoutTexts = sessionTimeoutConfig.texts || {};
         var sessionTimeoutPromptDelay = Number(sessionTimeoutConfig.prompt_delay_ms) || 60000;
         var sessionTimeoutAutoLogout = Number(sessionTimeoutConfig.auto_logout_ms) || 120000;
+        var sessionTimeoutHiddenClassName = sessionTimeoutComponentClasses.container_hidden || 'd-none';
+        var sessionTimeoutVisibleClassName = sessionTimeoutComponentClasses.container_visible || 'd-block';
+        var autoLogoutConfig = parsedConfig.auto_logout || {};
+        var autoLogoutStorageKey = autoLogoutConfig.storage_key || '';
+        var autoLogoutPromptMinSeconds = Number(autoLogoutConfig.min_prompt_seconds);
+        if (!Number.isFinite(autoLogoutPromptMinSeconds)) {
+          autoLogoutPromptMinSeconds = {{.SettingsAutoLogoutPromptMin}};
+        }
+        var autoLogoutPromptMaxSeconds = Number(autoLogoutConfig.max_prompt_seconds);
+        if (!Number.isFinite(autoLogoutPromptMaxSeconds)) {
+          autoLogoutPromptMaxSeconds = {{.SettingsAutoLogoutPromptMax}};
+        }
+        var autoLogoutLogoutMinSeconds = Number(autoLogoutConfig.min_logout_seconds);
+        if (!Number.isFinite(autoLogoutLogoutMinSeconds)) {
+          autoLogoutLogoutMinSeconds = {{.SettingsAutoLogoutLogoutMin}};
+        }
+        var autoLogoutLogoutMaxSeconds = Number(autoLogoutConfig.max_logout_seconds);
+        if (!Number.isFinite(autoLogoutLogoutMaxSeconds)) {
+          autoLogoutLogoutMaxSeconds = {{.SettingsAutoLogoutLogoutMax}};
+        }
+        var autoLogoutMinimumGapSeconds = Number(autoLogoutConfig.minimum_gap_seconds);
+        if (!Number.isFinite(autoLogoutMinimumGapSeconds)) {
+          autoLogoutMinimumGapSeconds = {{.SettingsAutoLogoutGapSeconds}};
+        }
         var idleState = {
           lastActivityTimestamp: Date.now(),
           promptVisible: false,
@@ -355,6 +401,13 @@
         var sessionTimeoutMessage = document.getElementById(elementIds.session_timeout_message);
         var sessionTimeoutConfirmButton = document.getElementById(elementIds.session_timeout_confirm_button);
         var sessionTimeoutDismissButton = document.getElementById(elementIds.session_timeout_dismiss_button);
+        var autoLogoutFieldsContainer = document.getElementById(elementIds.settings_auto_logout_fields);
+        var autoLogoutToggle = document.getElementById(elementIds.settings_auto_logout_toggle);
+        var autoLogoutPromptInput = document.getElementById(elementIds.settings_auto_logout_prompt);
+        var autoLogoutLogoutInput = document.getElementById(elementIds.settings_auto_logout_logout);
+        var autoLogoutPromptError = document.getElementById(elementIds.settings_auto_logout_prompt_error);
+        var autoLogoutLogoutError = document.getElementById(elementIds.settings_auto_logout_logout_error);
+        var autoLogoutGapMessage = autoLogoutFieldsContainer ? autoLogoutFieldsContainer.getAttribute('data-gap-message') || '' : '';
         var widgetSnippetTextarea = document.getElementById(elementIds.widget_snippet_textarea);
         var copyWidgetSnippetButton = document.getElementById(elementIds.copy_widget_snippet_button);
         var widgetTestButton = document.getElementById(elementIds.widget_test_button);
@@ -410,6 +463,9 @@
         var validationMessageKeyOwnerInvalid = 'owner_invalid';
         var validationMessageKeyWidgetOffsetInvalid = 'widget_offset_invalid';
         var invalidFieldClassName = 'is-invalid';
+        var currentThemeMode = document.documentElement.getAttribute('data-bs-theme') || 'light';
+        var sessionTimeoutStartRequested = false;
+        var autoLogoutSettingsState = null;
         var validationEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         var mailtoSchemePrefix = 'mailto:';
         var contactLinkClassName = 'text-decoration-none';
@@ -711,22 +767,298 @@
             applyTheme: applyTheme
           };
         }
-        sessionTimeoutManager = createSessionTimeoutManager({
-          containerElement: sessionTimeoutContainer,
-          messageElement: sessionTimeoutMessage,
-          confirmButtonElement: sessionTimeoutConfirmButton,
-          dismissButtonElement: sessionTimeoutDismissButton,
-          footerElement: footerElement,
-          hiddenClass: sessionTimeoutComponentClasses.container_hidden || 'd-none',
-          visibleClass: sessionTimeoutComponentClasses.container_visible || 'd-block',
-          themeClasses: sessionTimeoutThemeClasses || {},
-          promptDelayMilliseconds: sessionTimeoutPromptDelay,
-          autoLogoutMilliseconds: sessionTimeoutAutoLogout,
-          promptText: sessionTimeoutTexts.prompt || '',
-          confirmButtonLabel: sessionTimeoutTexts.confirm || '',
-          dismissButtonLabel: sessionTimeoutTexts.dismiss || '',
-          onLogout: performLogout
+        function resetSessionTimeoutTestHooks() {
+          if (typeof window !== 'object' || !window) {
+            return;
+          }
+          window.__loopawareDashboardIdleTestHooks = {
+            forcePrompt: function() {},
+            forceLogout: function() {}
+          };
+        }
+
+        function hideSessionTimeoutContainer() {
+          if (!sessionTimeoutContainer) {
+            return;
+          }
+          normalizeClassList(sessionTimeoutVisibleClassName).forEach(function(className) {
+            sessionTimeoutContainer.classList.remove(className);
+          });
+          normalizeClassList(sessionTimeoutHiddenClassName).forEach(function(className) {
+            if (!sessionTimeoutContainer.classList.contains(className)) {
+              sessionTimeoutContainer.classList.add(className);
+            }
+          });
+          sessionTimeoutContainer.setAttribute('aria-hidden', 'true');
+        }
+
+        function clampAutoLogoutSeconds(value, minimum, maximum) {
+          if (!Number.isFinite(value)) {
+            return minimum;
+          }
+          var rounded = Math.round(value);
+          if (rounded < minimum) {
+            return minimum;
+          }
+          if (rounded > maximum) {
+            return maximum;
+          }
+          return rounded;
+        }
+
+        function loadStoredAutoLogoutSettings() {
+          if (!autoLogoutStorageKey || typeof window !== 'object' || !window || !window.localStorage) {
+            return null;
+          }
+          try {
+            var rawValue = window.localStorage.getItem(autoLogoutStorageKey);
+            if (!rawValue) {
+              return null;
+            }
+            var parsedValue = JSON.parse(rawValue);
+            if (!parsedValue || typeof parsedValue !== 'object') {
+              return null;
+            }
+            var stored = {};
+            if (typeof parsedValue.enabled === 'boolean') {
+              stored.enabled = parsedValue.enabled;
+            }
+            if (typeof parsedValue.prompt_seconds === 'number') {
+              stored.promptSeconds = parsedValue.prompt_seconds;
+            }
+            if (typeof parsedValue.logout_seconds === 'number') {
+              stored.logoutSeconds = parsedValue.logout_seconds;
+            }
+            return stored;
+          } catch (error) {
+            return null;
+          }
+        }
+
+        function persistAutoLogoutSettings(settings) {
+          if (!autoLogoutStorageKey || typeof window !== 'object' || !window || !window.localStorage) {
+            return;
+          }
+          try {
+            window.localStorage.setItem(autoLogoutStorageKey, JSON.stringify({
+              enabled: !!settings.enabled,
+              prompt_seconds: settings.promptSeconds,
+              logout_seconds: settings.logoutSeconds
+            }));
+          } catch (error) {
+            // Ignore storage errors.
+          }
+        }
+
+        function normalizeAutoLogoutSettings(rawSettings) {
+          var normalized = {
+            enabled: true,
+            promptSeconds: clampAutoLogoutSeconds(autoLogoutDefaultPromptSeconds, autoLogoutPromptMinSeconds, autoLogoutPromptMaxSeconds),
+            logoutSeconds: clampAutoLogoutSeconds(autoLogoutDefaultLogoutSeconds, autoLogoutLogoutMinSeconds, autoLogoutLogoutMaxSeconds)
+          };
+          if (rawSettings && typeof rawSettings.enabled === 'boolean') {
+            normalized.enabled = rawSettings.enabled;
+          }
+          if (rawSettings && Number.isFinite(rawSettings.promptSeconds)) {
+            normalized.promptSeconds = clampAutoLogoutSeconds(rawSettings.promptSeconds, autoLogoutPromptMinSeconds, autoLogoutPromptMaxSeconds);
+          }
+          if (rawSettings && Number.isFinite(rawSettings.logoutSeconds)) {
+            normalized.logoutSeconds = clampAutoLogoutSeconds(rawSettings.logoutSeconds, autoLogoutLogoutMinSeconds, autoLogoutLogoutMaxSeconds);
+          }
+          if (normalized.logoutSeconds <= normalized.promptSeconds + autoLogoutMinimumGapSeconds) {
+            normalized.logoutSeconds = clampAutoLogoutSeconds(normalized.promptSeconds + autoLogoutMinimumGapSeconds, autoLogoutLogoutMinSeconds, autoLogoutLogoutMaxSeconds);
+          }
+          return normalized;
+        }
+
+        function setAutoLogoutInputsDisabled(isDisabled) {
+          if (autoLogoutPromptInput) {
+            autoLogoutPromptInput.disabled = isDisabled;
+          }
+          if (autoLogoutLogoutInput) {
+            autoLogoutLogoutInput.disabled = isDisabled;
+          }
+          if (autoLogoutFieldsContainer) {
+            autoLogoutFieldsContainer.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+          }
+        }
+
+        function updateAutoLogoutInputs(settings) {
+          if (autoLogoutToggle) {
+            autoLogoutToggle.checked = !!settings.enabled;
+          }
+          if (autoLogoutPromptInput) {
+            autoLogoutPromptInput.value = String(settings.promptSeconds);
+          }
+          if (autoLogoutLogoutInput) {
+            autoLogoutLogoutInput.value = String(settings.logoutSeconds);
+          }
+          setAutoLogoutInputsDisabled(!settings.enabled);
+        }
+
+        function clearAutoLogoutValidation() {
+          if (autoLogoutPromptInput) {
+            autoLogoutPromptInput.classList.remove(invalidFieldClassName);
+          }
+          if (autoLogoutLogoutInput) {
+            autoLogoutLogoutInput.classList.remove(invalidFieldClassName);
+          }
+        }
+
+        function applyAutoLogoutValidation(validation) {
+          if (!validation) {
+            return;
+          }
+          if (autoLogoutPromptInput) {
+            if (validation.promptError) {
+              autoLogoutPromptInput.classList.add(invalidFieldClassName);
+              if (autoLogoutPromptError) {
+                autoLogoutPromptError.textContent = validation.promptError;
+              }
+            } else {
+              autoLogoutPromptInput.classList.remove(invalidFieldClassName);
+            }
+          }
+          if (autoLogoutLogoutInput) {
+            if (validation.logoutError) {
+              autoLogoutLogoutInput.classList.add(invalidFieldClassName);
+              if (autoLogoutLogoutError) {
+                autoLogoutLogoutError.textContent = validation.logoutError;
+              }
+            } else {
+              autoLogoutLogoutInput.classList.remove(invalidFieldClassName);
+            }
+          }
+        }
+
+        function validateAutoLogoutSettings(settings) {
+          var result = {
+            isValid: true,
+            promptError: '',
+            logoutError: ''
+          };
+          if (!settings.enabled) {
+            return result;
+          }
+          if (!Number.isFinite(settings.promptSeconds) || Math.round(settings.promptSeconds) !== settings.promptSeconds || settings.promptSeconds < autoLogoutPromptMinSeconds || settings.promptSeconds > autoLogoutPromptMaxSeconds) {
+            result.isValid = false;
+            result.promptError = '{{.SettingsAutoLogoutPromptError}}';
+          }
+          if (!Number.isFinite(settings.logoutSeconds) || Math.round(settings.logoutSeconds) !== settings.logoutSeconds || settings.logoutSeconds < autoLogoutLogoutMinSeconds || settings.logoutSeconds > autoLogoutLogoutMaxSeconds) {
+            result.isValid = false;
+            result.logoutError = '{{.SettingsAutoLogoutLogoutError}}';
+          } else if (result.isValid && settings.logoutSeconds <= settings.promptSeconds + autoLogoutMinimumGapSeconds) {
+            result.isValid = false;
+            result.logoutError = autoLogoutGapMessage || '{{.SettingsAutoLogoutGapError}}';
+          }
+          return result;
+        }
+
+        function readAutoLogoutInputs() {
+          var promptValue = Number(autoLogoutPromptInput ? autoLogoutPromptInput.value : autoLogoutDefaultPromptSeconds);
+          var logoutValue = Number(autoLogoutLogoutInput ? autoLogoutLogoutInput.value : autoLogoutDefaultLogoutSeconds);
+          return {
+            enabled: autoLogoutToggle ? autoLogoutToggle.checked : true,
+            promptSeconds: Number.isFinite(promptValue) ? Math.round(promptValue) : NaN,
+            logoutSeconds: Number.isFinite(logoutValue) ? Math.round(logoutValue) : NaN
+          };
+        }
+
+        function configureSessionTimeoutFromSettings(settings) {
+          if (sessionTimeoutManager && typeof sessionTimeoutManager.stop === 'function') {
+            sessionTimeoutManager.stop();
+          }
+          sessionTimeoutManager = null;
+          if (!settings.enabled) {
+            resetSessionTimeoutTestHooks();
+            hideSessionTimeoutContainer();
+            return;
+          }
+          var promptMilliseconds = settings.promptSeconds * 1000;
+          var logoutMilliseconds = settings.logoutSeconds * 1000;
+          sessionTimeoutManager = createSessionTimeoutManager({
+            containerElement: sessionTimeoutContainer,
+            messageElement: sessionTimeoutMessage,
+            confirmButtonElement: sessionTimeoutConfirmButton,
+            dismissButtonElement: sessionTimeoutDismissButton,
+            footerElement: footerElement,
+            hiddenClass: sessionTimeoutHiddenClassName,
+            visibleClass: sessionTimeoutVisibleClassName,
+            themeClasses: sessionTimeoutThemeClasses || {},
+            promptDelayMilliseconds: promptMilliseconds,
+            autoLogoutMilliseconds: logoutMilliseconds,
+            promptText: sessionTimeoutTexts.prompt || '',
+            confirmButtonLabel: sessionTimeoutTexts.confirm || '',
+            dismissButtonLabel: sessionTimeoutTexts.dismiss || '',
+            onLogout: performLogout
+          });
+          if (sessionTimeoutManager && typeof sessionTimeoutManager.applyTheme === 'function') {
+            sessionTimeoutManager.applyTheme(currentThemeMode);
+          }
+          if (sessionTimeoutManager && sessionTimeoutStartRequested && typeof sessionTimeoutManager.start === 'function') {
+            sessionTimeoutManager.start();
+          }
+        }
+
+        function handleAutoLogoutSettingsChange() {
+          if (!autoLogoutToggle) {
+            return;
+          }
+          var inputs = readAutoLogoutInputs();
+          var validation = validateAutoLogoutSettings(inputs);
+          applyAutoLogoutValidation(validation);
+          if (!inputs.enabled) {
+            clearAutoLogoutValidation();
+          }
+          if (!validation.isValid) {
+            return;
+          }
+          autoLogoutSettingsState = normalizeAutoLogoutSettings(inputs);
+          updateAutoLogoutInputs(autoLogoutSettingsState);
+          persistAutoLogoutSettings(autoLogoutSettingsState);
+          configureSessionTimeoutFromSettings(autoLogoutSettingsState);
+          exposeAutoLogoutTestHooks();
+        }
+
+        function exposeAutoLogoutTestHooks() {
+          if (typeof window !== 'object' || !window) {
+            return;
+          }
+          window.__loopawareDashboardSettingsTestHooks = {
+            readAutoLogoutSettings: function() {
+              if (!autoLogoutSettingsState) {
+                return { enabled: false, promptSeconds: 0, logoutSeconds: 0 };
+              }
+              return {
+                enabled: autoLogoutSettingsState.enabled,
+                promptSeconds: autoLogoutSettingsState.promptSeconds,
+                logoutSeconds: autoLogoutSettingsState.logoutSeconds
+              };
+            },
+            minPromptSeconds: autoLogoutPromptMinSeconds,
+            maxPromptSeconds: autoLogoutPromptMaxSeconds,
+            minLogoutSeconds: autoLogoutLogoutMinSeconds,
+            maxLogoutSeconds: autoLogoutLogoutMaxSeconds,
+            minimumGapSeconds: autoLogoutMinimumGapSeconds
+          };
+        }
+
+        var autoLogoutDefaultPromptSeconds = clampAutoLogoutSeconds(Math.round(sessionTimeoutPromptDelay / 1000) || {{.SettingsAutoLogoutPromptMin}}, autoLogoutPromptMinSeconds, autoLogoutPromptMaxSeconds);
+        var autoLogoutDefaultLogoutSeconds = clampAutoLogoutSeconds(Math.round(sessionTimeoutAutoLogout / 1000) || {{.SettingsAutoLogoutLogoutMin}}, autoLogoutLogoutMinSeconds, autoLogoutLogoutMaxSeconds);
+        if (autoLogoutDefaultLogoutSeconds <= autoLogoutDefaultPromptSeconds + autoLogoutMinimumGapSeconds) {
+          autoLogoutDefaultLogoutSeconds = clampAutoLogoutSeconds(autoLogoutDefaultPromptSeconds + autoLogoutMinimumGapSeconds, autoLogoutLogoutMinSeconds, autoLogoutLogoutMaxSeconds);
+        }
+        resetSessionTimeoutTestHooks();
+        var storedAutoLogoutSettings = loadStoredAutoLogoutSettings();
+        autoLogoutSettingsState = normalizeAutoLogoutSettings({
+          enabled: storedAutoLogoutSettings && typeof storedAutoLogoutSettings.enabled === 'boolean' ? storedAutoLogoutSettings.enabled : true,
+          promptSeconds: storedAutoLogoutSettings && Number.isFinite(storedAutoLogoutSettings.promptSeconds) ? storedAutoLogoutSettings.promptSeconds : autoLogoutDefaultPromptSeconds,
+          logoutSeconds: storedAutoLogoutSettings && Number.isFinite(storedAutoLogoutSettings.logoutSeconds) ? storedAutoLogoutSettings.logoutSeconds : autoLogoutDefaultLogoutSeconds
         });
+        updateAutoLogoutInputs(autoLogoutSettingsState);
+        persistAutoLogoutSettings(autoLogoutSettingsState);
+        configureSessionTimeoutFromSettings(autoLogoutSettingsState);
+        exposeAutoLogoutTestHooks();
         function shouldValidateOwnerEmail() {
           return Boolean(state.user);
         }
@@ -1120,6 +1452,7 @@
 
         function applyThemePreference(mode) {
           var normalized = mode === 'dark' ? 'dark' : 'light';
+          currentThemeMode = normalized;
           document.documentElement.setAttribute('data-bs-theme', normalized);
           if (normalized === 'dark') {
             document.body.classList.remove('bg-light');
@@ -2195,6 +2528,23 @@
               }
             }
           });
+          settingsModalElement.addEventListener('show.bs.modal', function() {
+            updateAutoLogoutInputs(autoLogoutSettingsState);
+            clearAutoLogoutValidation();
+          });
+        }
+        if (autoLogoutToggle) {
+          autoLogoutToggle.addEventListener('change', function() {
+            handleAutoLogoutSettingsChange();
+          });
+        }
+        if (autoLogoutPromptInput) {
+          autoLogoutPromptInput.addEventListener('input', handleAutoLogoutSettingsChange);
+          autoLogoutPromptInput.addEventListener('blur', handleAutoLogoutSettingsChange);
+        }
+        if (autoLogoutLogoutInput) {
+          autoLogoutLogoutInput.addEventListener('input', handleAutoLogoutSettingsChange);
+          autoLogoutLogoutInput.addEventListener('blur', handleAutoLogoutSettingsChange);
         }
         if (deleteSiteModalElement) {
           deleteSiteModalElement.addEventListener('hidden.bs.modal', function() {
@@ -2264,6 +2614,7 @@
         });
 
         loadThemePreference();
+        sessionTimeoutStartRequested = true;
         if (sessionTimeoutManager && typeof sessionTimeoutManager.start === 'function') {
           sessionTimeoutManager.start();
         }
