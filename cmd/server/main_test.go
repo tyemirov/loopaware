@@ -44,6 +44,10 @@ func TestEnsureRequiredConfigurationDetectsMissingFields(t *testing.T) {
 		SessionSecret:          testSessionSecret,
 		PublicBaseURL:          testDefaultPublicBaseURL,
 		ConfigFilePath:         "testdata/config.yaml",
+		PinguinAddress:         defaultPinguinAddress,
+		PinguinAuthToken:       "test-token",
+		PinguinConnTimeoutSec:  defaultPinguinConnTimeoutSeconds,
+		PinguinOpTimeoutSec:    defaultPinguinOpTimeoutSeconds,
 	}
 
 	testCases := []struct {
@@ -109,6 +113,38 @@ func TestEnsureRequiredConfigurationDetectsMissingFields(t *testing.T) {
 			expectedToken: flagNamePublicBaseURL,
 		},
 		{
+			name: "missing pinguin address",
+			mutate: func(config *ServerConfig) {
+				config.PinguinAddress = ""
+			},
+			expectsError:  true,
+			expectedToken: flagNamePinguinAddress,
+		},
+		{
+			name: "missing pinguin auth token",
+			mutate: func(config *ServerConfig) {
+				config.PinguinAuthToken = ""
+			},
+			expectsError:  true,
+			expectedToken: flagNamePinguinAuthToken,
+		},
+		{
+			name: "missing pinguin connection timeout",
+			mutate: func(config *ServerConfig) {
+				config.PinguinConnTimeoutSec = 0
+			},
+			expectsError:  true,
+			expectedToken: flagNamePinguinConnectionTimeout,
+		},
+		{
+			name: "missing pinguin operation timeout",
+			mutate: func(config *ServerConfig) {
+				config.PinguinOpTimeoutSec = 0
+			},
+			expectsError:  true,
+			expectedToken: flagNamePinguinOperationTimeout,
+		},
+		{
 			name:         "valid configuration",
 			mutate:       func(config *ServerConfig) {},
 			expectsError: false,
@@ -151,6 +187,22 @@ func TestServerCommandFlagDefaults(t *testing.T) {
 	publicBaseFlag := command.Flag(testFlagNamePublicBaseURL)
 	require.NotNil(t, publicBaseFlag)
 	require.Equal(t, testDefaultPublicBaseURL, publicBaseFlag.DefValue)
+
+	pinguinAddrFlag := command.Flag(flagNamePinguinAddress)
+	require.NotNil(t, pinguinAddrFlag)
+	require.Equal(t, defaultPinguinAddress, pinguinAddrFlag.DefValue)
+
+	pinguinAuthFlag := command.Flag(flagNamePinguinAuthToken)
+	require.NotNil(t, pinguinAuthFlag)
+	require.Equal(t, "", pinguinAuthFlag.DefValue)
+
+	pinguinConnFlag := command.Flag(flagNamePinguinConnectionTimeout)
+	require.NotNil(t, pinguinConnFlag)
+	require.Equal(t, fmt.Sprintf("%d", defaultPinguinConnTimeoutSeconds), pinguinConnFlag.DefValue)
+
+	pinguinOpFlag := command.Flag(flagNamePinguinOperationTimeout)
+	require.NotNil(t, pinguinOpFlag)
+	require.Equal(t, fmt.Sprintf("%d", defaultPinguinOpTimeoutSeconds), pinguinOpFlag.DefValue)
 }
 
 func TestLoadServerConfigReadsAdminEmailsFromEnvironment(t *testing.T) {
@@ -223,6 +275,26 @@ func TestLoadServerConfigAllowsMissingConfigFile(t *testing.T) {
 	require.NoError(t, loadErr)
 	require.Equal(t, []string{testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail}, serverConfig.AdminEmailAddresses)
 	require.Equal(t, missingConfigFilePath, serverConfig.ConfigFilePath)
+}
+
+func TestLoadServerConfigFallsBackToSharedAuthToken(t *testing.T) {
+	tempDirectory := t.TempDir()
+	configFilePath := filepath.Join(tempDirectory, testConfigFileName)
+	require.NoError(t, os.WriteFile(configFilePath, []byte("admins: []\n"), 0600))
+
+	t.Setenv(environmentKeyGoogleClientID, testGoogleClientID)
+	t.Setenv(environmentKeyGoogleClientSecret, testGoogleClientSecret)
+	t.Setenv(environmentKeySessionSecret, testSessionSecret)
+	t.Setenv(environmentKeyPublicBaseURL, testDefaultPublicBaseURL)
+	t.Setenv(environmentKeyPinguinAuthToken, "")
+	t.Setenv(environmentKeyPinguinSharedAuth, "shared-token")
+
+	application := NewServerApplication()
+	application.configurationLoader.AutomaticEnv()
+
+	serverConfig, loadErr := application.loadServerConfig(configFilePath)
+	require.NoError(t, loadErr)
+	require.Equal(t, "shared-token", serverConfig.PinguinAuthToken)
 }
 
 func TestLogAdministratorWarning(t *testing.T) {

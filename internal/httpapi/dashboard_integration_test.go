@@ -42,7 +42,6 @@ const (
 	dashboardConfirmButtonSelector        = "#session-timeout-confirm-button"
 	dashboardSettingsButtonSelector       = "#settings-button"
 	dashboardSettingsMenuSelector         = "#settings-menu"
-	dashboardThemeToggleSelector          = "#settings-theme-toggle"
 	dashboardPublicThemeToggleSelector    = "#public-theme-toggle"
 	dashboardUserEmailSelector            = "#user-email"
 	dashboardFooterSelector               = "#dashboard-footer"
@@ -74,8 +73,8 @@ const (
 		if (!rows.length) { return false; }
 		for (var index = 0; index < rows.length; index++) {
 			var cells = rows[index].querySelectorAll('td');
-			if (cells.length < 3) { continue; }
-			if (cells[1].textContent.indexOf('auto@example.com') !== -1 && cells[2].textContent.indexOf('Auto refresh message') !== -1) {
+			if (cells.length < 4) { continue; }
+			if (cells[1].textContent.indexOf('auto@example.com') !== -1 && cells[2].textContent.indexOf('Auto refresh message') !== -1 && cells[3].textContent.trim() === 'mailed') {
 				return true;
 			}
 		}
@@ -92,9 +91,15 @@ const (
 	dashboardStoredDashboardThemeScript = "localStorage.getItem('loopaware_dashboard_theme') || ''"
 	dashboardStoredPublicThemeScript    = "localStorage.getItem('loopaware_public_theme') || ''"
 	dashboardSeedPublicThemeScript      = `localStorage.setItem('loopaware_public_theme','dark');localStorage.removeItem('loopaware_dashboard_theme');localStorage.removeItem('loopaware_theme');`
-	dashboardThemeToggleStateScript     = `(function(){var toggle=document.querySelector("#settings-theme-toggle");return !!(toggle && toggle.checked);}())`
+	dashboardThemeToggleStateScript     = `(function(){var toggle=document.querySelector('[data-mpr-footer="theme-toggle-input"]');return !!(toggle && toggle.checked);}())`
 	widgetTestSummaryOffsetScript       = `document.getElementById('widget-test-summary-offset') ? document.getElementById('widget-test-summary-offset').textContent : ''`
 )
+
+type stubDashboardNotifier struct{}
+
+func (stubDashboardNotifier) NotifyFeedback(ctx context.Context, site model.Site, feedback model.Feedback) (string, error) {
+	return model.FeedbackDeliveryMailed, nil
+}
 
 type dashboardIntegrationHarness struct {
 	router         *gin.Engine
@@ -170,7 +175,7 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 
 	clickSelector(t, page, dashboardSettingsButtonSelector)
 	waitForVisibleElement(t, page, dashboardSettingsMenuSelector)
-	clickSelector(t, page, dashboardThemeToggleSelector)
+	clickSelector(t, page, dashboardPublicThemeToggleSelector)
 	clickSelector(t, page, "body")
 
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
@@ -447,7 +452,7 @@ func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
 	currentToggleChecked := evaluateScriptBoolean(t, page, dashboardThemeToggleStateScript)
 	require.True(t, currentToggleChecked)
 
-	clickSelector(t, page, dashboardThemeToggleSelector)
+	clickSelector(t, page, dashboardPublicThemeToggleSelector)
 	clickSelector(t, page, "body")
 
 	require.Eventually(t, func() bool {
@@ -556,7 +561,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *d
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath)
-	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster)
+	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, stubDashboardNotifier{})
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster)
 
 	router := gin.New()

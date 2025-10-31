@@ -55,6 +55,7 @@ func TestPrivacyPageRendersPolicyMarkup(t *testing.T) {
 	require.Contains(t, body, privacyFooterLayoutToken)
 	require.Contains(t, body, privacyFooterBrandToken)
 	require.Contains(t, body, privacyFooterPrivacyToken)
+	require.Contains(t, body, landingFooterConfigAttributeToken)
 	require.Contains(t, body, dashboardFooterBrandPrefix)
 	require.Contains(t, body, dashboardFooterBrandName)
 }

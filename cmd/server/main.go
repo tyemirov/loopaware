@@ -21,6 +21,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/httpapi"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/notifications"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
 	"github.com/MarkoPoloResearchLab/loopaware/pkg/favicon"
 )
@@ -41,6 +42,10 @@ const (
 	flagNameGoogleClientSecret       = "google-client-secret"
 	flagNameSessionSecret            = "session-secret"
 	flagNamePublicBaseURL            = "public-base-url"
+	flagNamePinguinAddress           = "pinguin-addr"
+	flagNamePinguinAuthToken         = "pinguin-auth-token"
+	flagNamePinguinConnectionTimeout = "pinguin-conn-timeout"
+	flagNamePinguinOperationTimeout  = "pinguin-op-timeout"
 	flagUsageConfigFile              = "path to configuration file"
 	flagUsageApplicationAddress      = "address for the HTTP server to listen on"
 	flagUsageDatabaseDriver          = "database driver (e.g. sqlite)"
@@ -49,6 +54,10 @@ const (
 	flagUsageGoogleClientSecret      = "Google OAuth client secret"
 	flagUsageSessionSecret           = "session secret for browser sessions"
 	flagUsagePublicBaseURL           = "public base URL for OAuth callbacks"
+	flagUsagePinguinAddress          = "Pinguin gRPC server address"
+	flagUsagePinguinAuthToken        = "Pinguin bearer auth token"
+	flagUsagePinguinConnTimeout      = "Pinguin connection timeout in seconds"
+	flagUsagePinguinOpTimeout        = "Pinguin operation timeout in seconds"
 	environmentKeyApplicationAddress = "APP_ADDR"
 	environmentKeyDatabaseDriverName = "DB_DRIVER"
 	environmentKeyDatabaseDataSource = "DB_DSN"
@@ -57,12 +66,20 @@ const (
 	environmentKeyGoogleClientSecret = "GOOGLE_CLIENT_SECRET"
 	environmentKeySessionSecret      = "SESSION_SECRET"
 	environmentKeyPublicBaseURL      = "PUBLIC_BASE_URL"
+	environmentKeyPinguinAddress     = "PINGUIN_ADDR"
+	environmentKeyPinguinAuthToken   = "PINGUIN_AUTH_TOKEN"
+	environmentKeyPinguinSharedAuth  = "GRPC_AUTH_TOKEN"
+	environmentKeyPinguinConnTimeout = "PINGUIN_CONNECTION_TIMEOUT_SEC"
+	environmentKeyPinguinOpTimeout   = "PINGUIN_OPERATION_TIMEOUT_SEC"
 	configurationKeyAdmins           = "admins"
 	defaultApplicationAddress        = ":8080"
 	sqliteFileDataSourceNamePattern  = "file:%s?_foreign_keys=on"
 	defaultSQLiteDatabaseFileName    = "loopaware.sqlite"
 	defaultConfigFileName            = "config.yaml"
 	defaultPublicBaseURL             = "http://localhost:8080"
+	defaultPinguinAddress            = "localhost:50051"
+	defaultPinguinConnTimeoutSeconds = 5
+	defaultPinguinOpTimeoutSeconds   = 30
 	publicRouteFeedback              = "/api/feedback"
 	publicRouteWidget                = "/widget.js"
 	landingRouteRoot                 = constants.LoginPath
@@ -118,6 +135,10 @@ type ServerConfig struct {
 	SessionSecret          string
 	PublicBaseURL          string
 	ConfigFilePath         string
+	PinguinAddress         string
+	PinguinAuthToken       string
+	PinguinConnTimeoutSec  int
+	PinguinOpTimeoutSec    int
 }
 
 // DatabaseOpener opens a database connection using the provided configuration.
@@ -167,6 +188,11 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	application.configurationLoader.SetDefault(environmentKeyGoogleClientID, "")
 	application.configurationLoader.SetDefault(environmentKeyGoogleClientSecret, "")
 	application.configurationLoader.SetDefault(environmentKeySessionSecret, "")
+	application.configurationLoader.SetDefault(environmentKeyPinguinAddress, defaultPinguinAddress)
+	application.configurationLoader.SetDefault(environmentKeyPinguinAuthToken, "")
+	application.configurationLoader.SetDefault(environmentKeyPinguinConnTimeout, defaultPinguinConnTimeoutSeconds)
+	application.configurationLoader.SetDefault(environmentKeyPinguinOpTimeout, defaultPinguinOpTimeoutSeconds)
+	application.configurationLoader.SetDefault(environmentKeyPinguinSharedAuth, "")
 	application.configurationLoader.AutomaticEnv()
 
 	commandFlags := command.Flags()
@@ -178,6 +204,10 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	commandFlags.String(flagNameGoogleClientSecret, "", flagUsageGoogleClientSecret)
 	commandFlags.String(flagNameSessionSecret, "", flagUsageSessionSecret)
 	commandFlags.String(flagNamePublicBaseURL, defaultPublicBaseURL, flagUsagePublicBaseURL)
+	commandFlags.String(flagNamePinguinAddress, defaultPinguinAddress, flagUsagePinguinAddress)
+	commandFlags.String(flagNamePinguinAuthToken, "", flagUsagePinguinAuthToken)
+	commandFlags.Int(flagNamePinguinConnectionTimeout, defaultPinguinConnTimeoutSeconds, flagUsagePinguinConnTimeout)
+	commandFlags.Int(flagNamePinguinOperationTimeout, defaultPinguinOpTimeoutSeconds, flagUsagePinguinOpTimeout)
 
 	if bindErr := application.bindFlag(commandFlags, environmentKeyApplicationAddress, flagNameApplicationAddress); bindErr != nil {
 		return bindErr
@@ -204,6 +234,22 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	}
 
 	if bindErr := application.bindFlag(commandFlags, environmentKeyPublicBaseURL, flagNamePublicBaseURL); bindErr != nil {
+		return bindErr
+	}
+
+	if bindErr := application.bindFlag(commandFlags, environmentKeyPinguinAddress, flagNamePinguinAddress); bindErr != nil {
+		return bindErr
+	}
+
+	if bindErr := application.bindFlag(commandFlags, environmentKeyPinguinAuthToken, flagNamePinguinAuthToken); bindErr != nil {
+		return bindErr
+	}
+
+	if bindErr := application.bindFlag(commandFlags, environmentKeyPinguinConnTimeout, flagNamePinguinConnectionTimeout); bindErr != nil {
+		return bindErr
+	}
+
+	if bindErr := application.bindFlag(commandFlags, environmentKeyPinguinOpTimeout, flagNamePinguinOperationTimeout); bindErr != nil {
 		return bindErr
 	}
 
@@ -353,7 +399,17 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, landingRouteRoot)
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	defer feedbackBroadcaster.Close()
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster)
+	pinguinNotifier, notifierErr := notifications.NewPinguinNotifier(logger, notifications.PinguinConfig{
+		Address:           serverConfig.PinguinAddress,
+		AuthToken:         serverConfig.PinguinAuthToken,
+		ConnectionTimeout: time.Duration(serverConfig.PinguinConnTimeoutSec) * time.Second,
+		OperationTimeout:  time.Duration(serverConfig.PinguinOpTimeoutSec) * time.Second,
+	})
+	if notifierErr != nil {
+		logger.Fatal("pinguin_notifier", zap.Error(notifierErr))
+	}
+	defer pinguinNotifier.Close()
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, pinguinNotifier)
 	faviconResolver := favicon.NewHTTPResolver(sharedHTTPClient, logger)
 	faviconService := favicon.NewService(faviconResolver)
 	faviconManager := httpapi.NewSiteFaviconManager(database, faviconService, logger)
@@ -448,6 +504,17 @@ func (application *ServerApplication) loadServerConfig(configFilePath string) (S
 		SessionSecret:          strings.TrimSpace(application.configurationLoader.GetString(environmentKeySessionSecret)),
 		PublicBaseURL:          strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPublicBaseURL)),
 		ConfigFilePath:         trimmedConfigPath,
+		PinguinAddress:         strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinAddress)),
+		PinguinAuthToken:       strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinAuthToken)),
+		PinguinConnTimeoutSec:  application.configurationLoader.GetInt(environmentKeyPinguinConnTimeout),
+		PinguinOpTimeoutSec:    application.configurationLoader.GetInt(environmentKeyPinguinOpTimeout),
+	}
+
+	if serverConfig.PinguinAuthToken == "" {
+		sharedAuthToken := strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinSharedAuth))
+		if sharedAuthToken != "" {
+			serverConfig.PinguinAuthToken = sharedAuthToken
+		}
 	}
 
 	if serverConfig.DatabaseDriverName == storage.DriverNameSQLite && serverConfig.DatabaseDataSourceName == "" {
@@ -504,6 +571,22 @@ func (application *ServerApplication) ensureRequiredConfiguration(configuration 
 
 	if configuration.PublicBaseURL == "" {
 		missingParameters = append(missingParameters, flagNamePublicBaseURL)
+	}
+
+	if configuration.PinguinAddress == "" {
+		missingParameters = append(missingParameters, flagNamePinguinAddress)
+	}
+
+	if configuration.PinguinAuthToken == "" {
+		missingParameters = append(missingParameters, flagNamePinguinAuthToken)
+	}
+
+	if configuration.PinguinConnTimeoutSec <= 0 {
+		missingParameters = append(missingParameters, flagNamePinguinConnectionTimeout)
+	}
+
+	if configuration.PinguinOpTimeoutSec <= 0 {
+		missingParameters = append(missingParameters, flagNamePinguinOperationTimeout)
 	}
 
 	if len(missingParameters) == 0 {

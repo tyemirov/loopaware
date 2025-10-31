@@ -170,10 +170,11 @@
                         <th scope="col">When</th>
                         <th scope="col">Contact</th>
                         <th scope="col">Message</th>
+                        <th scope="col">Delivery</th>
                       </tr>
                     </thead>
                     <tbody id="{{.FeedbackTableBodyID}}">
-                      <tr><td colspan="3" class="text-center text-muted">{{.FeedbackPlaceholder}}</td></tr>
+                      <tr><td colspan="4" class="text-center text-muted">{{.FeedbackPlaceholder}}</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -288,7 +289,6 @@
         var feedbackReconnectDelayMilliseconds = 5000;
         var settingsButton = document.getElementById(elementIds.settings_button);
         var settingsMenu = document.getElementById(elementIds.settings_menu);
-        var themeToggle = document.getElementById(elementIds.settings_theme_toggle);
         var settingsAvatarImage = document.getElementById(elementIds.settings_avatar_image);
         var settingsAvatarFallback = document.getElementById(elementIds.settings_avatar_fallback);
         var siteNameHelpButton = document.getElementById(elementIds.site_name_help_button);
@@ -364,6 +364,7 @@
         var formStatusDisplayDuration = 4000;
         var formStatusResetTimerId = null;
         var footerElement = document.getElementById(elementIds.footer);
+        var footerThemeToggleInput = footerElement ? footerElement.querySelector('[data-mpr-footer="theme-toggle-input"]') : null;
         var footerThemeClasses = parsedConfig.footer_theme_classes || {};
         var tableThemeClasses = parsedConfig.table_theme_classes || {};
         var landingPath = sharedPaths.landing || '/';
@@ -1117,19 +1118,34 @@
           }
         }
 
-        function loadThemePreference() {
-          var stored = resolveThemePreference();
-          if (themeToggle) {
-            themeToggle.checked = stored === 'dark';
-          }
-          applyThemePreference(stored);
-        }
-
         function persistThemePreference(mode) {
           writeThemePreference(themePreferenceStorageKey, mode);
           writeThemePreference(themePreferencePublicStorageKey, mode);
           writeThemePreference(themePreferenceLandingStorageKey, mode);
           writeThemePreference(themePreferenceLegacyStorageKey, mode);
+        }
+
+        function synchronizeFooterToggle(mode) {
+          if (!footerThemeToggleInput) {
+            return;
+          }
+          var shouldCheck = mode === 'dark';
+          if (footerThemeToggleInput.checked !== shouldCheck) {
+            footerThemeToggleInput.checked = shouldCheck;
+          }
+        }
+
+        function handleThemeSelection(mode) {
+          var normalizedMode = mode === 'dark' ? 'dark' : 'light';
+          applyThemePreference(normalizedMode);
+          persistThemePreference(normalizedMode);
+          synchronizeFooterToggle(normalizedMode);
+        }
+
+        function loadThemePreference() {
+          var stored = resolveThemePreference();
+          synchronizeFooterToggle(stored);
+          applyThemePreference(stored);
         }
 
         function performLogout() {
@@ -1744,7 +1760,7 @@
           feedbackTableBody.innerHTML = '';
           var row = document.createElement('tr');
           var cell = document.createElement('td');
-          cell.colSpan = 3;
+          cell.colSpan = 4;
           cell.className = 'text-center text-muted';
           cell.textContent = message;
           row.appendChild(cell);
@@ -1774,9 +1790,12 @@
             renderContactValue(contactCell, message.contact);
             var bodyCell = document.createElement('td');
             bodyCell.textContent = message.message;
+            var deliveryCell = document.createElement('td');
+            deliveryCell.textContent = resolveDeliveryLabel(message.delivery);
             row.appendChild(createdCell);
             row.appendChild(contactCell);
             row.appendChild(bodyCell);
+            row.appendChild(deliveryCell);
             feedbackTableBody.appendChild(row);
           });
           setFeedbackCount(baseMessages.length, filteredMessages.length);
@@ -1790,7 +1809,8 @@
           return messages.filter(function(message) {
             var contactValue = (message.contact || emptyString).toLowerCase();
             var bodyValue = (message.message || emptyString).toLowerCase();
-            return contactValue.indexOf(query) !== -1 || bodyValue.indexOf(query) !== -1;
+            var deliveryValue = (message.delivery || emptyString).toLowerCase();
+            return contactValue.indexOf(query) !== -1 || bodyValue.indexOf(query) !== -1 || deliveryValue.indexOf(query) !== -1;
           });
         }
 
@@ -1800,6 +1820,14 @@
           }
           var date = new Date(unixSeconds * 1000);
           return date.toLocaleDateString();
+        }
+
+        function resolveDeliveryLabel(value) {
+          var normalized = (value || emptyString).toLowerCase();
+          if (normalized === 'mailed' || normalized === 'texted') {
+            return normalized;
+          }
+          return 'no';
         }
 
         function loadUser() {
@@ -2127,11 +2155,16 @@
         if (saveSiteButton) {
           saveSiteButton.addEventListener('click', submitSite);
         }
-        if (themeToggle) {
-          themeToggle.addEventListener('change', function(event) {
+        if (footerThemeToggleInput) {
+          footerThemeToggleInput.addEventListener('change', function(event) {
             var mode = event.target.checked ? 'dark' : 'light';
-            applyThemePreference(mode);
-            persistThemePreference(mode);
+            handleThemeSelection(mode);
+          });
+        }
+        if (footerElement) {
+          footerElement.addEventListener('mpr-footer:theme-change', function(event) {
+            var mode = event && event.detail && event.detail.theme === 'dark' ? 'dark' : 'light';
+            handleThemeSelection(mode);
           });
         }
         if (copyWidgetSnippetButton) {
@@ -2186,6 +2219,13 @@
           return loadSites();
         });
       })();
+    </script>
+    <script type="module">
+      import Alpine from "https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/module.esm.js";
+      import { mprFooter } from "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@main/footer.js";
+      window.Alpine = Alpine;
+      window.mprFooter = mprFooter;
+      Alpine.start();
     </script>
   </body>
 </html>

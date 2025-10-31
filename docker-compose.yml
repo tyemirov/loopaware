@@ -1,9 +1,22 @@
 services:
+  pinguin:
+    image: ghcr.io/tyemirov/pinguin:latest
+    container_name: pinguin
+    restart: unless-stopped
+    pull_policy: always
+    env_file:
+      - .env.pinguin
+    volumes:
+      - pinguin-data:/app/data
+
   loopaware:
     build: .
     container_name: loopaware
     env_file:
-      - .env
+      - .env.loopaware
+    depends_on:
+      pinguin:
+        condition: service_started
     volumes:
       - loopaware-data:/app/data
       - ./config.yaml:/app/config.yaml:ro
@@ -25,7 +38,7 @@ services:
           path: ./internal/httpapi/templates/landing.tmpl
         - action: rebuild
           path: ./go.sum
-    
 
 volumes:
   loopaware-data:
+  pinguin-data:

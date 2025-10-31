@@ -122,6 +122,7 @@ type feedbackMessageResponse struct {
 	IP        string `json:"ip"`
 	UserAgent string `json:"user_agent"`
 	CreatedAt int64  `json:"created_at"`
+	Delivery  string `json:"delivery"`
 }
 
 func (handlers *SiteHandlers) CurrentUser(context *gin.Context) {
@@ -692,6 +693,7 @@ func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
 			IP:        feedback.IP,
 			UserAgent: feedback.UserAgent,
 			CreatedAt: feedback.CreatedAt.Unix(),
+			Delivery:  feedback.Delivery,
 		})
 	}
 

@@ -49,7 +49,6 @@ const (
 	dashboardHeaderLogoElementID              = "dashboard-header-logo"
 	navbarSettingsButtonLabel                 = "Account settings"
 	navbarLogoutLabel                         = "Logout"
-	navbarThemeToggleLabel                    = "Dark mode"
 	newSiteOptionValue                        = "__new__"
 	newSiteOptionLabel                        = "New site"
 	siteFormCreateButtonLabel                 = "Create site"
@@ -110,7 +109,6 @@ const (
 	widgetPlacementBottomOffsetHelpElementID  = "widget-placement-bottom-offset-help"
 	settingsButtonElementID                   = "settings-button"
 	settingsMenuElementID                     = "settings-menu"
-	settingsThemeToggleElementID              = "settings-theme-toggle"
 	settingsAvatarImageElementID              = "settings-avatar-image"
 	settingsAvatarFallbackElementID           = "settings-avatar-fallback"
 	themeStorageKey                           = "loopaware_dashboard_theme"
@@ -329,9 +327,7 @@ type dashboardTemplateData struct {
 	SettingsButtonID                  string
 	SettingsButtonLabel               string
 	LogoutLabel                       string
-	ThemeToggleLabel                  string
 	SettingsMenuID                    string
-	SettingsThemeToggleID             string
 	ThemeStorageKey                   string
 	PublicThemeStorageKey             string
 	LandingThemeStorageKey            string
@@ -595,9 +591,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		SettingsButtonID:                  settingsButtonElementID,
 		SettingsButtonLabel:               navbarSettingsButtonLabel,
 		LogoutLabel:                       navbarLogoutLabel,
-		ThemeToggleLabel:                  navbarThemeToggleLabel,
 		SettingsMenuID:                    settingsMenuElementID,
-		SettingsThemeToggleID:             settingsThemeToggleElementID,
 		ThemeStorageKey:                   themeStorageKey,
 		PublicThemeStorageKey:             publicThemeStorageKey,
 		LandingThemeStorageKey:            publicLandingThemeStorageKey,
@@ -702,7 +696,6 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"widget_test_button":             widgetTestButtonElementID,
 			"settings_button":                settingsButtonElementID,
 			"settings_menu":                  settingsMenuElementID,
-			"settings_theme_toggle":          settingsThemeToggleElementID,
 			"settings_avatar_image":          settingsAvatarImageElementID,
 			"settings_avatar_fallback":       settingsAvatarFallbackElementID,
 			"form_status":                    formStatusElementID,

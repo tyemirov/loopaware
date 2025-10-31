@@ -48,8 +48,6 @@ type dashboardHeaderTemplateData struct {
 	SettingsAvatarImageID    string
 	SettingsAvatarFallbackID string
 	SettingsMenuID           string
-	ThemeToggleLabel         string
-	SettingsThemeToggleID    string
 	LogoutButtonID           string
 	LogoutLabel              string
 }
@@ -119,8 +117,6 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 		SettingsAvatarImageID:    settingsAvatarImageElementID,
 		SettingsAvatarFallbackID: settingsAvatarFallbackElementID,
 		SettingsMenuID:           settingsMenuElementID,
-		ThemeToggleLabel:         navbarThemeToggleLabel,
-		SettingsThemeToggleID:    settingsThemeToggleElementID,
 		LogoutButtonID:           logoutButtonElementID,
 		LogoutLabel:              navbarLogoutLabel,
 	}

@@ -140,6 +140,44 @@ func TestListMessagesBySiteReturnsOrderedUnixTimestamps(testingT *testing.T) {
 	require.GreaterOrEqual(testingT, responseBody.Messages[0].CreatedAt, responseBody.Messages[1].CreatedAt)
 }
 
+func TestListMessagesBySiteIncludesDelivery(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Delivery Site",
+		AllowedOrigin: "http://delivery.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	feedback := model.Feedback{
+		ID:        storage.NewID(),
+		SiteID:    site.ID,
+		Contact:   "submitter@example.com",
+		Message:   "Delivery expectations",
+		Delivery:  model.FeedbackDeliveryTexted,
+		CreatedAt: time.Now(),
+	}
+	require.NoError(testingT, harness.database.Create(&feedback).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/messages", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.ListMessagesBySite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody struct {
+		Messages []struct {
+			Delivery string `json:"delivery"`
+		} `json:"messages"`
+	}
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Len(testingT, responseBody.Messages, 1)
+	require.Equal(testingT, model.FeedbackDeliveryTexted, responseBody.Messages[0].Delivery)
+}
+
 func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
@@ -502,7 +540,7 @@ func TestStreamFeedbackUpdatesReceivesCreateEvents(testingT *testing.T) {
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	testingT.Cleanup(feedbackBroadcaster.Close)
 	siteHandlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
-	publicHandlers := httpapi.NewPublicHandlers(database, zap.NewNop(), feedbackBroadcaster)
+	publicHandlers := httpapi.NewPublicHandlers(database, zap.NewNop(), feedbackBroadcaster, nil)
 
 	engine := gin.New()
 	engine.GET("/stream", func(context *gin.Context) {
