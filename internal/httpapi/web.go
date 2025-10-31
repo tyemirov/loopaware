@@ -111,6 +111,14 @@ const (
 	settingsMenuElementID                     = "settings-menu"
 	settingsAvatarImageElementID              = "settings-avatar-image"
 	settingsAvatarFallbackElementID           = "settings-avatar-fallback"
+	settingsMenuSettingsButtonElementID       = "settings-menu-settings"
+	settingsMenuSettingsLabel                 = "Settings"
+	settingsModalElementID                    = "settings-modal"
+	settingsModalTitleElementID               = "settings-modal-title"
+	settingsModalContentElementID             = "settings-modal-content"
+	settingsModalTitle                        = navbarSettingsButtonLabel
+	settingsModalIntroText                    = "Manage LoopAware account preferences."
+	settingsModalCloseButtonLabel             = "Close"
 	themeStorageKey                           = "loopaware_dashboard_theme"
 	formStatusElementID                       = "site-status"
 	widgetStatusElementID                     = "widget-status"
@@ -328,6 +336,14 @@ type dashboardTemplateData struct {
 	SettingsButtonLabel               string
 	LogoutLabel                       string
 	SettingsMenuID                    string
+	SettingsMenuSettingsButtonID      string
+	SettingsMenuSettingsLabel         string
+	SettingsModalID                   string
+	SettingsModalTitleID              string
+	SettingsModalTitle                string
+	SettingsModalIntro                string
+	SettingsModalCloseLabel           string
+	SettingsModalContentID            string
 	ThemeStorageKey                   string
 	PublicThemeStorageKey             string
 	LandingThemeStorageKey            string
@@ -592,6 +608,14 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		SettingsButtonLabel:               navbarSettingsButtonLabel,
 		LogoutLabel:                       navbarLogoutLabel,
 		SettingsMenuID:                    settingsMenuElementID,
+		SettingsMenuSettingsButtonID:      settingsMenuSettingsButtonElementID,
+		SettingsMenuSettingsLabel:         settingsMenuSettingsLabel,
+		SettingsModalID:                   settingsModalElementID,
+		SettingsModalTitleID:              settingsModalTitleElementID,
+		SettingsModalTitle:                settingsModalTitle,
+		SettingsModalIntro:                settingsModalIntroText,
+		SettingsModalCloseLabel:           settingsModalCloseButtonLabel,
+		SettingsModalContentID:            settingsModalContentElementID,
 		ThemeStorageKey:                   themeStorageKey,
 		PublicThemeStorageKey:             publicThemeStorageKey,
 		LandingThemeStorageKey:            publicLandingThemeStorageKey,
@@ -696,6 +720,10 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"widget_test_button":             widgetTestButtonElementID,
 			"settings_button":                settingsButtonElementID,
 			"settings_menu":                  settingsMenuElementID,
+			"settings_menu_settings":         settingsMenuSettingsButtonElementID,
+			"settings_modal":                 settingsModalElementID,
+			"settings_modal_title":           settingsModalTitleElementID,
+			"settings_modal_content":         settingsModalContentElementID,
 			"settings_avatar_image":          settingsAvatarImageElementID,
 			"settings_avatar_fallback":       settingsAvatarFallbackElementID,
 			"form_status":                    formStatusElementID,

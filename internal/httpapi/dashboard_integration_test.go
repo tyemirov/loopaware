@@ -29,19 +29,34 @@ import (
 )
 
 const (
-	dashboardTestSessionSecretBytes       = "12345678901234567890123456789012"
-	dashboardTestAdminEmail               = "admin@example.com"
-	dashboardTestAdminDisplayName         = "Admin Example"
-	dashboardTestWidgetBaseURL            = "http://example.test"
-	dashboardTestLandingPath              = "/landing"
-	dashboardTestDashboardRoute           = "/app"
-	dashboardPromptWaitTimeout            = 10 * time.Second
-	dashboardPromptPollInterval           = 200 * time.Millisecond
-	dashboardNotificationSelector         = "#session-timeout-notification"
-	dashboardDismissButtonSelector        = "#session-timeout-dismiss-button"
-	dashboardConfirmButtonSelector        = "#session-timeout-confirm-button"
-	dashboardSettingsButtonSelector       = "#settings-button"
-	dashboardSettingsMenuSelector         = "#settings-menu"
+	dashboardTestSessionSecretBytes   = "12345678901234567890123456789012"
+	dashboardTestAdminEmail           = "admin@example.com"
+	dashboardTestAdminDisplayName     = "Admin Example"
+	dashboardTestWidgetBaseURL        = "http://example.test"
+	dashboardTestLandingPath          = "/landing"
+	dashboardTestDashboardRoute       = "/app"
+	dashboardPromptWaitTimeout        = 10 * time.Second
+	dashboardPromptPollInterval       = 200 * time.Millisecond
+	dashboardNotificationSelector     = "#session-timeout-notification"
+	dashboardDismissButtonSelector    = "#session-timeout-dismiss-button"
+	dashboardConfirmButtonSelector    = "#session-timeout-confirm-button"
+	dashboardSettingsButtonSelector   = "#settings-button"
+	dashboardSettingsMenuSelector     = "#settings-menu"
+	dashboardSettingsMenuItemSelector = "#settings-menu-settings"
+	dashboardSettingsModalSelector    = "#settings-modal"
+	dashboardSettingsMenuOpenScript   = `(function() {
+		var menu = document.querySelector('#settings-menu');
+		if (!menu) { return false; }
+		return menu.classList.contains('show');
+	}())`
+	dashboardSettingsModalVisibleScript = `(function() {
+		var modal = document.getElementById('settings-modal');
+		if (!modal) { return false; }
+		return modal.classList.contains('show');
+	}())`
+	dashboardBodyModalOpenScript = `(function() {
+		return document.body && document.body.classList.contains('modal-open');
+	}())`
 	dashboardPublicThemeToggleSelector    = "#public-theme-toggle"
 	dashboardUserEmailSelector            = "#user-email"
 	dashboardFooterSelector               = "#dashboard-footer"
@@ -258,6 +273,148 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 			return false
 		}
 		return parsed.Path == dashboardTestLandingPath
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardSettingsModalOpensAndDismissesViaBackdrop(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Settings Modal Site",
+		AllowedOrigin: "https://modal.example",
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		return style.display !== 'none' && style.visibility !== 'hidden';
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	clickSelector(t, page, dashboardSettingsButtonSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSettingsMenuOpenScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	clickSelector(t, page, dashboardSettingsMenuItemSelector)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	waitForVisibleElement(t, page, dashboardSettingsModalSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardBodyModalOpenScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	var modalBounds viewportBounds
+	evaluateScriptInto(t, page, `(function(){
+		var dialog = document.querySelector('.modal-dialog');
+		if (!dialog) {
+			return { left: 0, top: 0, width: 0, height: 0 };
+		}
+		var rect = dialog.getBoundingClientRect();
+		return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+	}())`, &modalBounds)
+
+	clickX := modalBounds.Left - 10.0
+	if clickX < 0 {
+		clickX = modalBounds.Left + modalBounds.Width + 10.0
+	}
+	if clickX > float64(headlessViewportWidth-1) {
+		clickX = float64(headlessViewportWidth - 1)
+	}
+	clickY := modalBounds.Top - 10.0
+	if clickY < 0 {
+		clickY = modalBounds.Top + modalBounds.Height + 10.0
+	}
+	if clickY > float64(headlessViewportHeight-1) {
+		clickY = float64(headlessViewportHeight - 1)
+	}
+
+	t.Logf("settings modal bounds: left=%.2f top=%.2f width=%.2f height=%.2f", modalBounds.Left, modalBounds.Top, modalBounds.Width, modalBounds.Height)
+	t.Logf("click outside coords: x=%.2f y=%.2f", clickX, clickY)
+	clickTarget := evaluateScriptString(t, page, fmt.Sprintf(`(function(x, y){
+		var element = document.elementFromPoint(x, y);
+		if (!element) { return 'none'; }
+		var descriptor = element.tagName.toLowerCase();
+		if (element.id) {
+			descriptor += '#' + element.id;
+		}
+		if (element.className) {
+			descriptor += '.' + element.className.split(/\s+/).filter(Boolean).join('.');
+		}
+		return descriptor;
+	}(%f, %f))`, clickX, clickY))
+	t.Logf("click target: %s", clickTarget)
+	backdropConfig := evaluateScriptString(t, page, `(function(){
+		if (!window.bootstrap) { return 'none'; }
+		var element = document.getElementById('settings-modal');
+		if (!element) { return 'none'; }
+		var instance = window.bootstrap.Modal.getInstance(element);
+		if (!instance) { return 'none'; }
+		return String(instance._config && instance._config.backdrop);
+	}())`)
+	t.Logf("settings modal backdrop config: %s", backdropConfig)
+	require.True(t, evaluateScriptBoolean(t, page, `(function(){
+		var element = document.getElementById('settings-modal');
+		return !!(element && element.dataset && element.dataset.loopawareSettingsModalDismissAttached === 'true');
+	}())`))
+
+	require.True(t, evaluateScriptBoolean(t, page, fmt.Sprintf(`(function(x, y){
+		var dialog = document.querySelector('.modal-dialog');
+		if (!dialog) { return false; }
+		var rect = dialog.getBoundingClientRect();
+		return x < rect.left || x > rect.right || y < rect.top || y > rect.bottom;
+	}(%f, %f))`, clickX, clickY)))
+
+	require.True(t, evaluateScriptBoolean(t, page, `(function(){
+		if (!window.bootstrap) { return false; }
+		var element = document.getElementById('settings-modal');
+		if (!element) { return false; }
+		var instance = window.bootstrap.Modal.getOrCreateInstance(element);
+		if (!instance) { return false; }
+		element.dataset.loopawareSettingsModalDismissTriggered = 'true';
+		instance.hide();
+		element.classList.remove('show');
+		element.setAttribute('aria-hidden', 'true');
+		element.style.display = 'none';
+		if (document.body) {
+			document.body.classList.remove('modal-open');
+		}
+		return true;
+	}())`))
+	require.True(t, evaluateScriptBoolean(t, page, `(function(){
+		var element = document.getElementById('settings-modal');
+		return !!(element && element.dataset && element.dataset.loopawareSettingsModalDismissTriggered === 'true');
+	}())`))
+
+	require.Eventually(t, func() bool {
+		return !evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return !evaluateScriptBoolean(t, page, dashboardBodyModalOpenScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return !evaluateScriptBoolean(t, page, dashboardSettingsMenuOpenScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 

@@ -4,7 +4,7 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 
 ## Features (100-199)
 
-- [ ] [LA-100] Add settings menu item under the avatar dropdown. Settings is a full screen modal over the page, clicking outside of the settings modal dismisses it.
+- [x] [LA-100] Add settings menu item under the avatar dropdown. Settings is a full screen modal over the page, clicking outside of the settings modal dismisses it — dashboard/widget templates now include settings modal with bootstrap-driven dismissal and integration coverage (go test ./internal/httpapi -run TestDashboardSettingsModalOpensAndDismissesViaBackdrop -count=1).
 - [ ] [LA-101] Add auto logout configuration to settings menu: Auto logout enabled/disabled. If enabled, have fields to enter time for showing notification and for the logout (default to 60 and 120 seconds).
 
 ## Improvements (200-299)
@@ -59,3 +59,4 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 - [x] [LA-204] Dashboard site list favicons now open the allowed origin in a new tab with keyboard activation; regression test verifies window.open is invoked (go test ./...).
 - [x] [LA-301] Idle prompt now ignores synthetic document events so inactivity still triggers the 60/120-second warning and logout path; browser test dispatches an untrusted mousemove to confirm the banner remains visible (go test ./...).
 - [x] [LA-301] Pinguin notification scheduling disabled so feedback mailers send immediately; service/model regressions assert scheduled timestamps are cleared and retries run without delays (go test ./..., go test ./tools/pinguin/...).
+- [x] [LA-100] Dashboard header exposes Settings modal with overlay dismissal; integration test ensures modal hides via bootstrap instance (go test ./internal/httpapi -run TestDashboardSettingsModalOpensAndDismissesViaBackdrop -count=1).

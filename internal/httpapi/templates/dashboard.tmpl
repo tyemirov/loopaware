@@ -181,9 +181,26 @@
               </div>
             </div>
           </div>
+      </div>
+    </div>
+  </main>
+    <div class="modal fade" id="{{.SettingsModalID}}" tabindex="-1" aria-labelledby="{{.SettingsModalTitleID}}" aria-describedby="{{.SettingsModalContentID}}" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="{{.SettingsModalTitleID}}">{{.SettingsModalTitle}}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{.SettingsModalCloseLabel}}"></button>
+          </div>
+          <div class="modal-body">
+            <p class="text-muted mb-4">{{.SettingsModalIntro}}</p>
+            <div id="{{.SettingsModalContentID}}" class="d-flex flex-column gap-3"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{.SettingsModalCloseLabel}}</button>
+          </div>
         </div>
       </div>
-    </main>
+    </div>
     <div class="modal fade" id="{{.DeleteSiteModalID}}" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -289,6 +306,7 @@
         var feedbackReconnectDelayMilliseconds = 5000;
         var settingsButton = document.getElementById(elementIds.settings_button);
         var settingsMenu = document.getElementById(elementIds.settings_menu);
+        var settingsModalElement = document.getElementById(elementIds.settings_modal);
         var settingsAvatarImage = document.getElementById(elementIds.settings_avatar_image);
         var settingsAvatarFallback = document.getElementById(elementIds.settings_avatar_fallback);
         var siteNameHelpButton = document.getElementById(elementIds.site_name_help_button);
@@ -2164,6 +2182,18 @@
           deleteSiteConfirmButton.addEventListener('click', function(event) {
             event.preventDefault();
             deleteSelectedSite();
+          });
+        }
+        if (settingsModalElement) {
+          settingsModalElement.dataset.loopawareSettingsModalDismissAttached = 'true';
+          settingsModalElement.addEventListener('click', function(event) {
+            if (event.target === settingsModalElement && window.bootstrap && window.bootstrap.Modal) {
+              var modalInstance = window.bootstrap.Modal.getOrCreateInstance(settingsModalElement);
+              if (modalInstance) {
+                modalInstance.hide();
+                settingsModalElement.dataset.loopawareSettingsModalDismissTriggered = 'true';
+              }
+            }
           });
         }
         if (deleteSiteModalElement) {

@@ -12,6 +12,8 @@
         <i id="{{.SettingsAvatarFallbackID}}" class="bi bi-person-circle fs-3"></i>
       </button>
       <div id="{{.SettingsMenuID}}" class="dropdown-menu dropdown-menu-end">
+        <button id="{{.SettingsMenuSettingsButtonID}}" class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#{{.SettingsModalID}}">{{.SettingsMenuSettingsLabel}}</button>
+        <div class="dropdown-divider"></div>
         <button id="{{.LogoutButtonID}}" class="dropdown-item" type="button">{{.LogoutLabel}}</button>
       </div>
     </div>

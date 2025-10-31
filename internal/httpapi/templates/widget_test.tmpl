@@ -11,6 +11,23 @@
 </head>
 <body data-bs-theme="light" class="d-flex flex-column min-vh-100 bg-light" data-site-id="{{.SiteID}}" data-widget-side="{{.PlacementSide}}" data-widget-offset="{{.PlacementOffset}}" data-update-endpoint="{{.WidgetUpdateEndpoint}}">
   {{template "dashboard_header" .Header}}
+  <div class="modal fade" id="{{.Header.SettingsModalID}}" tabindex="-1" aria-labelledby="{{.Header.SettingsModalTitleID}}" aria-describedby="{{.Header.SettingsModalContentID}}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="{{.Header.SettingsModalTitleID}}">{{.Header.SettingsModalTitle}}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{.Header.SettingsModalCloseLabel}}"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted mb-4">{{.Header.SettingsModalIntro}}</p>
+          <div id="{{.Header.SettingsModalContentID}}" class="d-flex flex-column gap-3"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{.Header.SettingsModalCloseLabel}}</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <main class="flex-fill pt-5 mt-4">
     <div class="container">
       <div class="row justify-content-center">
@@ -72,6 +89,7 @@
       var logoutButton = document.getElementById('{{js .Header.LogoutButtonID}}');
       var logoutPath = '{{js .LogoutPath}}';
       var landingPath = '{{js .LandingPath}}';
+      var settingsModalElement = document.getElementById('{{js .Header.SettingsModalID}}');
 
       function normalizeClassList(value) {
         if (typeof value !== 'string') {
@@ -201,14 +219,27 @@
         var redirectToLanding = function() {
           window.location.href = landingPath;
         };
-        if (!logoutPath) {
-          redirectToLanding();
-          return;
-        }
-        window.fetch(logoutPath, {
-          method: 'POST',
-          credentials: 'same-origin'
-        }).then(redirectToLanding).catch(redirectToLanding);
+      if (!logoutPath) {
+        redirectToLanding();
+        return;
+      }
+      window.fetch(logoutPath, {
+        method: 'POST',
+        credentials: 'same-origin'
+      }).then(redirectToLanding).catch(redirectToLanding);
+    }
+
+      if (settingsModalElement) {
+        settingsModalElement.dataset.loopawareSettingsModalDismissAttached = 'true';
+        settingsModalElement.addEventListener('click', function(event) {
+          if (event.target === settingsModalElement && window.bootstrap && window.bootstrap.Modal) {
+            var modalInstance = window.bootstrap.Modal.getOrCreateInstance(settingsModalElement);
+            if (modalInstance) {
+              modalInstance.hide();
+              settingsModalElement.dataset.loopawareSettingsModalDismissTriggered = 'true';
+            }
+          }
+        });
       }
 
       if (logoutButton) {

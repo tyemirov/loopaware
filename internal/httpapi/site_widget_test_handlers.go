@@ -40,16 +40,24 @@ func NewSiteWidgetTestHandlers(database *gorm.DB, logger *zap.Logger, widgetBase
 }
 
 type dashboardHeaderTemplateData struct {
-	PageTitle                string
-	HeaderLogoDataURI        template.URL
-	HeaderLogoImageID        string
-	SettingsButtonID         string
-	SettingsButtonLabel      string
-	SettingsAvatarImageID    string
-	SettingsAvatarFallbackID string
-	SettingsMenuID           string
-	LogoutButtonID           string
-	LogoutLabel              string
+	PageTitle                    string
+	HeaderLogoDataURI            template.URL
+	HeaderLogoImageID            string
+	SettingsButtonID             string
+	SettingsButtonLabel          string
+	SettingsAvatarImageID        string
+	SettingsAvatarFallbackID     string
+	SettingsMenuID               string
+	SettingsMenuSettingsButtonID string
+	SettingsMenuSettingsLabel    string
+	SettingsModalID              string
+	SettingsModalTitleID         string
+	SettingsModalTitle           string
+	SettingsModalIntro           string
+	SettingsModalCloseLabel      string
+	SettingsModalContentID       string
+	LogoutButtonID               string
+	LogoutLabel                  string
 }
 
 type widgetTestTemplateData struct {
@@ -109,16 +117,24 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 		widgetScriptURL = handlers.widgetBaseURL + "/widget.js?site_id=" + url.QueryEscape(site.ID)
 	}
 	headerData := dashboardHeaderTemplateData{
-		PageTitle:                dashboardPageTitle,
-		HeaderLogoDataURI:        landingLogoDataURI,
-		HeaderLogoImageID:        dashboardHeaderLogoElementID,
-		SettingsButtonID:         settingsButtonElementID,
-		SettingsButtonLabel:      navbarSettingsButtonLabel,
-		SettingsAvatarImageID:    settingsAvatarImageElementID,
-		SettingsAvatarFallbackID: settingsAvatarFallbackElementID,
-		SettingsMenuID:           settingsMenuElementID,
-		LogoutButtonID:           logoutButtonElementID,
-		LogoutLabel:              navbarLogoutLabel,
+		PageTitle:                    dashboardPageTitle,
+		HeaderLogoDataURI:            landingLogoDataURI,
+		HeaderLogoImageID:            dashboardHeaderLogoElementID,
+		SettingsButtonID:             settingsButtonElementID,
+		SettingsButtonLabel:          navbarSettingsButtonLabel,
+		SettingsAvatarImageID:        settingsAvatarImageElementID,
+		SettingsAvatarFallbackID:     settingsAvatarFallbackElementID,
+		SettingsMenuID:               settingsMenuElementID,
+		SettingsMenuSettingsButtonID: settingsMenuSettingsButtonElementID,
+		SettingsMenuSettingsLabel:    settingsMenuSettingsLabel,
+		SettingsModalID:              settingsModalElementID,
+		SettingsModalTitleID:         settingsModalTitleElementID,
+		SettingsModalTitle:           settingsModalTitle,
+		SettingsModalIntro:           settingsModalIntroText,
+		SettingsModalCloseLabel:      settingsModalCloseButtonLabel,
+		SettingsModalContentID:       settingsModalContentElementID,
+		LogoutButtonID:               logoutButtonElementID,
+		LogoutLabel:                  navbarLogoutLabel,
 	}
 	footerHTML, footerErr := renderFooterHTMLForVariant(footerVariantDashboard)
 	if footerErr != nil {
