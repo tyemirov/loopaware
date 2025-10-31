@@ -68,6 +68,7 @@ const (
 	environmentKeyPublicBaseURL      = "PUBLIC_BASE_URL"
 	environmentKeyPinguinAddress     = "PINGUIN_ADDR"
 	environmentKeyPinguinAuthToken   = "PINGUIN_AUTH_TOKEN"
+	environmentKeyPinguinSharedAuth  = "GRPC_AUTH_TOKEN"
 	environmentKeyPinguinConnTimeout = "PINGUIN_CONNECTION_TIMEOUT_SEC"
 	environmentKeyPinguinOpTimeout   = "PINGUIN_OPERATION_TIMEOUT_SEC"
 	configurationKeyAdmins           = "admins"
@@ -77,7 +78,6 @@ const (
 	defaultConfigFileName            = "config.yaml"
 	defaultPublicBaseURL             = "http://localhost:8080"
 	defaultPinguinAddress            = "localhost:50051"
-	defaultPinguinAuthToken          = "loopaware-dev-token"
 	defaultPinguinConnTimeoutSeconds = 5
 	defaultPinguinOpTimeoutSeconds   = 30
 	publicRouteFeedback              = "/api/feedback"
@@ -189,9 +189,10 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	application.configurationLoader.SetDefault(environmentKeyGoogleClientSecret, "")
 	application.configurationLoader.SetDefault(environmentKeySessionSecret, "")
 	application.configurationLoader.SetDefault(environmentKeyPinguinAddress, defaultPinguinAddress)
-	application.configurationLoader.SetDefault(environmentKeyPinguinAuthToken, defaultPinguinAuthToken)
+	application.configurationLoader.SetDefault(environmentKeyPinguinAuthToken, "")
 	application.configurationLoader.SetDefault(environmentKeyPinguinConnTimeout, defaultPinguinConnTimeoutSeconds)
 	application.configurationLoader.SetDefault(environmentKeyPinguinOpTimeout, defaultPinguinOpTimeoutSeconds)
+	application.configurationLoader.SetDefault(environmentKeyPinguinSharedAuth, "")
 	application.configurationLoader.AutomaticEnv()
 
 	commandFlags := command.Flags()
@@ -204,7 +205,7 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	commandFlags.String(flagNameSessionSecret, "", flagUsageSessionSecret)
 	commandFlags.String(flagNamePublicBaseURL, defaultPublicBaseURL, flagUsagePublicBaseURL)
 	commandFlags.String(flagNamePinguinAddress, defaultPinguinAddress, flagUsagePinguinAddress)
-	commandFlags.String(flagNamePinguinAuthToken, defaultPinguinAuthToken, flagUsagePinguinAuthToken)
+	commandFlags.String(flagNamePinguinAuthToken, "", flagUsagePinguinAuthToken)
 	commandFlags.Int(flagNamePinguinConnectionTimeout, defaultPinguinConnTimeoutSeconds, flagUsagePinguinConnTimeout)
 	commandFlags.Int(flagNamePinguinOperationTimeout, defaultPinguinOpTimeoutSeconds, flagUsagePinguinOpTimeout)
 
@@ -507,6 +508,13 @@ func (application *ServerApplication) loadServerConfig(configFilePath string) (S
 		PinguinAuthToken:       strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinAuthToken)),
 		PinguinConnTimeoutSec:  application.configurationLoader.GetInt(environmentKeyPinguinConnTimeout),
 		PinguinOpTimeoutSec:    application.configurationLoader.GetInt(environmentKeyPinguinOpTimeout),
+	}
+
+	if serverConfig.PinguinAuthToken == "" {
+		sharedAuthToken := strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinSharedAuth))
+		if sharedAuthToken != "" {
+			serverConfig.PinguinAuthToken = sharedAuthToken
+		}
 	}
 
 	if serverConfig.DatabaseDriverName == storage.DriverNameSQLite && serverConfig.DatabaseDataSourceName == "" {

@@ -56,7 +56,8 @@ func TestRenderWidgetTestPage(t *testing.T) {
 	require.Contains(t, body, "id=\"widget-test-save\"")
 	require.Contains(t, body, "id=\"widget-test-bottom-offset\"")
 	require.Contains(t, body, "id=\"settings-button\"")
-	require.Contains(t, body, "id=\"settings-theme-toggle\"")
+	require.NotContains(t, body, "id=\"settings-theme-toggle\"")
+	require.Contains(t, body, "data-mpr-footer=\"theme-toggle-input\"")
 	require.Contains(t, body, "id=\"logout-button\"")
 	require.Contains(t, body, "id=\"dashboard-footer\"")
 }

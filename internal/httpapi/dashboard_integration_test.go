@@ -42,7 +42,6 @@ const (
 	dashboardConfirmButtonSelector        = "#session-timeout-confirm-button"
 	dashboardSettingsButtonSelector       = "#settings-button"
 	dashboardSettingsMenuSelector         = "#settings-menu"
-	dashboardThemeToggleSelector          = "#settings-theme-toggle"
 	dashboardPublicThemeToggleSelector    = "#public-theme-toggle"
 	dashboardUserEmailSelector            = "#user-email"
 	dashboardFooterSelector               = "#dashboard-footer"
@@ -92,7 +91,7 @@ const (
 	dashboardStoredDashboardThemeScript = "localStorage.getItem('loopaware_dashboard_theme') || ''"
 	dashboardStoredPublicThemeScript    = "localStorage.getItem('loopaware_public_theme') || ''"
 	dashboardSeedPublicThemeScript      = `localStorage.setItem('loopaware_public_theme','dark');localStorage.removeItem('loopaware_dashboard_theme');localStorage.removeItem('loopaware_theme');`
-	dashboardThemeToggleStateScript     = `(function(){var toggle=document.querySelector("#settings-theme-toggle");return !!(toggle && toggle.checked);}())`
+	dashboardThemeToggleStateScript     = `(function(){var toggle=document.querySelector('[data-mpr-footer="theme-toggle-input"]');return !!(toggle && toggle.checked);}())`
 	widgetTestSummaryOffsetScript       = `document.getElementById('widget-test-summary-offset') ? document.getElementById('widget-test-summary-offset').textContent : ''`
 )
 
@@ -176,7 +175,7 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 
 	clickSelector(t, page, dashboardSettingsButtonSelector)
 	waitForVisibleElement(t, page, dashboardSettingsMenuSelector)
-	clickSelector(t, page, dashboardThemeToggleSelector)
+	clickSelector(t, page, dashboardPublicThemeToggleSelector)
 	clickSelector(t, page, "body")
 
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
@@ -453,7 +452,7 @@ func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
 	currentToggleChecked := evaluateScriptBoolean(t, page, dashboardThemeToggleStateScript)
 	require.True(t, currentToggleChecked)
 
-	clickSelector(t, page, dashboardThemeToggleSelector)
+	clickSelector(t, page, dashboardPublicThemeToggleSelector)
 	clickSelector(t, page, "body")
 
 	require.Eventually(t, func() bool {
