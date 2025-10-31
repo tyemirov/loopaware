@@ -40,7 +40,7 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 - [ ] [LA-302] Logout dialog is getting dismissed on a mouse move. That is incorrect, once shown, the mouse movement shall not dismiss it.
 - [ ] [LA-303] Site preview shows the Widget test in the light theme despite the rest of the site and theme toggle being in the dark theme. Use the same theme on the widget test as selected.
 - [ ] [LA-304] Investigate the send failure from the test page: loopaware  | {"level":"info","ts":1761935043.4114969,"caller":"httpapi/middleware.go:14","msg":"http","method":"POST","path":"/app/sites/e0021c61-fdfd-4d75-8c0b-3c68f3171643/widget-test/feedback","status":401,"dur":0.00002919,"ip":"172.24.0.1","ua":"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0"}. Notice that it is sufficient not to send the timestamp to pinguin for pinguin to schedule an immediate delivery. @tools/pinguin master is the source of truth on how the pinguin service works
-- [ ] [LA-3-5] Clicking Save widget didnt save the new placement of the widget
+- [ ] [LA-3o5] Clicking Save widget didnt save the new placement of the widget
 
 
 ## Maintenance (400-499)
