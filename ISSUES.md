@@ -4,6 +4,9 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 
 ## Features (100-199)
 
+- [ ] [LA-100] Add settings menu item under the avatar dropdown. Settings is a full screen modal over the page, clicking outside of the settings modal dismisses it.
+- [ ] [LA-101] Add auto logout configuration to settings menu: Auto logout enabled/disabled. If enabled, have fields to enter time for showing notification and for the logout (default to 60 and 120 seconds).
+
 ## Improvements (200-299)
 
 - [x] [LA-201] Move theme switch to the footer, on the left of Built by Marco Polo — toggle now renders beside the Built by prefix within the footer (go test ./...)
@@ -32,6 +35,7 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 - [x] [LA-301] The logout functionality behaviour: display a message after 60 seconds of inactivity. The message should match the theme of the page. Log out after 120 seconds of inactivity (same as +60 seconds since being displayed) — synthetic DOM events no longer reset the idle timer, so the prompt stays visible and the 60/120-second flow holds; regression covers the prompt under synthetic activity (go test ./...).
 - [x] [LA-302] LoopAware server exits at startup complaining about missing `pinguin-auth-token` even when running with default docker compose. Resolved by requiring environment-provided bearer token and mirroring `GRPC_AUTH_TOKEN` fallback (go test ./...).
 - [x] [LA-301] Ensure that feedback is being sent the very moment it has been received without utilizing a scheduling feature. Do not pass any time for the scheduling time in order to mail the feedback immididatley — Pinguin now ignores scheduled timestamps and dispatches notifications immediately; model and service tests enforce immediate mailing (go test ./..., go test ./tools/pinguin/...).
+- [ ] [LA-302] Logout dialog is getting dismissed on a mouse move. That is incorrect, once shown, the mouse movement shall not dismiss it.
 
 ## Maintenance (400-499)
 
