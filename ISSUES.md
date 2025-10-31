@@ -31,7 +31,7 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 - [x] [LA-300] When logged in with the dark theme the dashboard theme is light, when logged in from the light theme, the dashboard theme is dar, find the bug and fix it
 - [x] [LA-301] The logout functionality behaviour: display a message after 60 seconds of inactivity. The message should match the theme of the page. Log out after 120 seconds of inactivity (same as +60 seconds since being displayed) — synthetic DOM events no longer reset the idle timer, so the prompt stays visible and the 60/120-second flow holds; regression covers the prompt under synthetic activity (go test ./...).
 - [x] [LA-302] LoopAware server exits at startup complaining about missing `pinguin-auth-token` even when running with default docker compose. Resolved by requiring environment-provided bearer token and mirroring `GRPC_AUTH_TOKEN` fallback (go test ./...).
-- [ ] [LA-301] Ensure that feedback is being sent the very moment it has been received without utilizing a scheduling feature. Do not pass any time for the scheduling time in order to mail the feedback immididatley.
+- [x] [LA-301] Ensure that feedback is being sent the very moment it has been received without utilizing a scheduling feature. Do not pass any time for the scheduling time in order to mail the feedback immididatley — Pinguin now ignores scheduled timestamps and dispatches notifications immediately; model and service tests enforce immediate mailing (go test ./..., go test ./tools/pinguin/...).
 
 ## Maintenance (400-499)
 
@@ -48,3 +48,4 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 - [x] [LA-203] Dashboard theme switch removed from avatar menu; footer toggle drives persistence and integration tests click the new footer control (go test ./...).
 - [x] [LA-204] Dashboard site list favicons now open the allowed origin in a new tab with keyboard activation; regression test verifies window.open is invoked (go test ./...).
 - [x] [LA-301] Idle prompt now ignores synthetic document events so inactivity still triggers the 60/120-second warning and logout path; browser test dispatches an untrusted mousemove to confirm the banner remains visible (go test ./...).
+- [x] [LA-301] Pinguin notification scheduling disabled so feedback mailers send immediately; service/model regressions assert scheduled timestamps are cleared and retries run without delays (go test ./..., go test ./tools/pinguin/...).
