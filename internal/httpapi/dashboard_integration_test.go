@@ -118,7 +118,8 @@ const (
 	dashboardOpenedWindowCallsScript = `(function() {
 		return window.__loopawareOpenedWindows || [];
 	}())`
-	widgetTestSummaryOffsetScript = `document.getElementById('widget-test-summary-offset') ? document.getElementById('widget-test-summary-offset').textContent : ''`
+	dashboardDispatchSyntheticMousemoveScript = "document.dispatchEvent(new Event('mousemove'))"
+	widgetTestSummaryOffsetScript             = `document.getElementById('widget-test-summary-offset') ? document.getElementById('widget-test-summary-offset').textContent : ''`
 )
 
 type stubDashboardNotifier struct{}
@@ -303,6 +304,40 @@ func TestDashboardSessionTimeoutAutoLogout(t *testing.T) {
 		}
 		return parsed.Path == dashboardTestLandingPath
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardSessionTimeoutIgnoresSyntheticActivity(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	waitForVisibleElement(t, page, dashboardUserEmailSelector)
+
+	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
+	waitForVisibleElement(t, page, dashboardNotificationSelector)
+
+	evaluateScriptInto(t, page, dashboardDispatchSyntheticMousemoveScript, nil)
+
+	require.Eventually(t, func() bool {
+		notificationElement, elementErr := page.Element(dashboardNotificationSelector)
+		if elementErr != nil {
+			return false
+		}
+		visible, visibleErr := notificationElement.Visible()
+		if visibleErr != nil {
+			return false
+		}
+		return visible
+	}, time.Second, 100*time.Millisecond)
 }
 
 func TestDashboardRestoresThemeFromPublicPreference(t *testing.T) {

@@ -509,7 +509,10 @@
           }
           var listenersBound = false;
           var activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
-          var activityHandler = function() {
+          var activityHandler = function(event) {
+            if (event && typeof event.isTrusted === 'boolean' && event.isTrusted === false) {
+              return;
+            }
             recordSessionActivity();
           };
           var visibilityHandler = function() {
