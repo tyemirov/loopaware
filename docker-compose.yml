@@ -6,13 +6,8 @@ services:
     pull_policy: always
     env_file:
       - .env.pinguin
-    environment:
-      - DATABASE_PATH=/var/lib/pinguin/pinguin.db
-      - LOG_LEVEL=INFO
     volumes:
-      - pinguin-data:/var/lib/pinguin
-    ports:
-      - "50051:50051"
+      - pinguin-data:/app/data
 
   loopaware:
     build: .
