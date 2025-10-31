@@ -136,7 +136,11 @@
                   </div>
                   <div class="col-md-6">
                     <label class="form-label" for="{{.WidgetBottomOffsetInputID}}">{{.WidgetPlacementBottomOffsetLabel}}</label>
-                    <input type="number" class="form-control" id="{{.WidgetBottomOffsetInputID}}" min="{{.WidgetBottomOffsetMin}}" max="{{.WidgetBottomOffsetMax}}" step="1" aria-describedby="{{.WidgetBottomOffsetHelpID}}" />
+                    <div class="input-group">
+                      <button id="{{.WidgetBottomOffsetDecreaseButtonID}}" type="button" class="btn btn-outline-secondary" aria-label="{{.WidgetBottomOffsetDecreaseAriaLabel}}">{{.WidgetBottomOffsetDecreaseLabel}}</button>
+                      <input type="number" class="form-control text-end" id="{{.WidgetBottomOffsetInputID}}" min="{{.WidgetBottomOffsetMin}}" max="{{.WidgetBottomOffsetMax}}" step="1" aria-describedby="{{.WidgetBottomOffsetHelpID}}" />
+                      <button id="{{.WidgetBottomOffsetIncreaseButtonID}}" type="button" class="btn btn-outline-secondary" aria-label="{{.WidgetBottomOffsetIncreaseAriaLabel}}">{{.WidgetBottomOffsetIncreaseLabel}}</button>
+                    </div>
                     <div class="form-text" id="{{.WidgetBottomOffsetHelpID}}">{{.WidgetPlacementBottomOffsetHelp}}</div>
                   </div>
                 </div>
@@ -416,6 +420,9 @@
         var widgetSideLeftOption = document.getElementById(elementIds.widget_side_left);
         var widgetSideRightOption = document.getElementById(elementIds.widget_side_right);
         var widgetBottomOffsetInput = document.getElementById(elementIds.widget_bottom_offset);
+        var widgetBottomOffsetDecreaseButton = document.getElementById(elementIds.widget_bottom_offset_decrease);
+        var widgetBottomOffsetIncreaseButton = document.getElementById(elementIds.widget_bottom_offset_increase);
+        var widgetBottomOffsetStep = {{.WidgetBottomOffsetStep}};
         if (widgetBottomOffsetInput) {
           widgetBottomOffsetInput.min = String(widgetBottomOffsetMinimum);
           widgetBottomOffsetInput.max = String(widgetBottomOffsetMaximum);
@@ -497,6 +504,19 @@
             numericValue = widgetBottomOffsetMaximum;
           }
           return numericValue;
+        }
+
+        function adjustWidgetBottomOffset(delta) {
+          if (!widgetBottomOffsetInput) {
+            return;
+          }
+          var currentValue = normalizeWidgetBottomOffsetValue(widgetBottomOffsetInput.value);
+          var nextValue = normalizeWidgetBottomOffsetValue(currentValue + delta);
+          if (nextValue === currentValue) {
+            return;
+          }
+          widgetBottomOffsetInput.value = nextValue.toString();
+          widgetBottomOffsetInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
 
         function resolveWidgetSideSelection() {
@@ -2531,6 +2551,24 @@
           settingsModalElement.addEventListener('show.bs.modal', function() {
             updateAutoLogoutInputs(autoLogoutSettingsState);
             clearAutoLogoutValidation();
+          });
+        }
+        if (widgetBottomOffsetDecreaseButton) {
+          widgetBottomOffsetDecreaseButton.addEventListener('click', function() {
+            adjustWidgetBottomOffset(-widgetBottomOffsetStep);
+          });
+        }
+        if (widgetBottomOffsetIncreaseButton) {
+          widgetBottomOffsetIncreaseButton.addEventListener('click', function() {
+            adjustWidgetBottomOffset(widgetBottomOffsetStep);
+          });
+        }
+        if (widgetBottomOffsetInput) {
+          widgetBottomOffsetInput.addEventListener('keydown', function(event) {
+            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+              event.preventDefault();
+              adjustWidgetBottomOffset(event.key === 'ArrowUp' ? widgetBottomOffsetStep : -widgetBottomOffsetStep);
+            }
           });
         }
         if (autoLogoutToggle) {

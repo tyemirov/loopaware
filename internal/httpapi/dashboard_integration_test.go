@@ -4,15 +4,20 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -29,21 +34,31 @@ import (
 )
 
 const (
-	dashboardTestSessionSecretBytes           = "12345678901234567890123456789012"
-	dashboardTestAdminEmail                   = "admin@example.com"
-	dashboardTestAdminDisplayName             = "Admin Example"
-	dashboardTestWidgetBaseURL                = "http://example.test"
-	dashboardTestLandingPath                  = "/landing"
-	dashboardTestDashboardRoute               = "/app"
-	dashboardPromptWaitTimeout                = 10 * time.Second
-	dashboardPromptPollInterval               = 200 * time.Millisecond
-	dashboardNotificationSelector             = "#session-timeout-notification"
-	dashboardDismissButtonSelector            = "#session-timeout-dismiss-button"
-	dashboardConfirmButtonSelector            = "#session-timeout-confirm-button"
-	dashboardSettingsButtonSelector           = "#settings-button"
-	dashboardSettingsMenuSelector             = "#settings-menu"
-	dashboardSettingsMenuItemSelector         = "#settings-menu-settings"
-	dashboardSettingsModalSelector            = "#settings-modal"
+	dashboardTestSessionSecretBytes             = "12345678901234567890123456789012"
+	dashboardTestAdminEmail                     = "admin@example.com"
+	dashboardTestAdminDisplayName               = "Admin Example"
+	dashboardTestWidgetBaseURL                  = "http://example.test"
+	dashboardTestLandingPath                    = "/landing"
+	dashboardTestDashboardRoute                 = "/app"
+	dashboardPromptWaitTimeout                  = 10 * time.Second
+	dashboardPromptPollInterval                 = 200 * time.Millisecond
+	dashboardNotificationSelector               = "#session-timeout-notification"
+	dashboardDismissButtonSelector              = "#session-timeout-dismiss-button"
+	dashboardConfirmButtonSelector              = "#session-timeout-confirm-button"
+	dashboardSettingsButtonSelector             = "#settings-button"
+	dashboardSettingsMenuSelector               = "#settings-menu"
+	dashboardSettingsMenuItemSelector           = "#settings-menu-settings"
+	dashboardSettingsModalSelector              = "#settings-modal"
+	dashboardWidgetBottomOffsetInputSelector    = "#widget-placement-bottom-offset"
+	dashboardWidgetBottomOffsetIncreaseSelector = "#widget-bottom-offset-increase"
+	dashboardWidgetBottomOffsetDecreaseSelector = "#widget-bottom-offset-decrease"
+	widgetBottomOffsetStepPixels                = 10
+	dashboardSaveSiteButtonSelector             = "#save-site-button"
+	dashboardReadWidgetBottomOffsetScript       = `(function() {
+		var input = document.getElementById('widget-placement-bottom-offset');
+		if (!input) { return ''; }
+		return String(input.value || '');
+	}())`
 	dashboardSettingsAutoLogoutToggleSelector = "#settings-auto-logout-enabled"
 	dashboardSettingsAutoLogoutPromptSelector = "#settings-auto-logout-prompt-seconds"
 	dashboardSettingsAutoLogoutLogoutSelector = "#settings-auto-logout-logout-seconds"
@@ -160,6 +175,57 @@ const (
 	}())`
 	dashboardDispatchSyntheticMousemoveScript = "document.dispatchEvent(new Event('mousemove'))"
 	widgetTestSummaryOffsetScript             = `document.getElementById('widget-test-summary-offset') ? document.getElementById('widget-test-summary-offset').textContent : ''`
+	widgetTestBottomOffsetInputSelector       = "#widget-test-bottom-offset"
+	widgetTestOffsetIncreaseSelector          = "#widget-test-offset-increase"
+	widgetTestOffsetDecreaseSelector          = "#widget-test-offset-decrease"
+	widgetTestSaveButtonSelector              = "#widget-test-save"
+	widgetTestStatusSelector                  = "#widget-test-status"
+	widgetTestSummaryOffsetSelector           = "#widget-test-summary-offset"
+	widgetTestReadOffsetInputScript           = `(function() {
+		var input = document.getElementById('widget-test-bottom-offset');
+		if (!input) { return ''; }
+		return String(input.value || '');
+	}())`
+	widgetTestReadSummaryOffsetScript = `(function() {
+		var summary = document.getElementById('widget-test-summary-offset');
+		if (!summary) { return ''; }
+		return String(summary.textContent || '');
+	}())`
+	widgetTestBubbleBottomScript = `(function() {
+		var bubble = document.getElementById('mp-feedback-bubble');
+		if (!bubble) { return ''; }
+		return bubble.style.bottom || '';
+	}())`
+	widgetTestPanelBottomScript = `(function() {
+		var panel = document.getElementById('mp-feedback-panel');
+		if (!panel) { return ''; }
+		return panel.style.bottom || '';
+	}())`
+	widgetTestStatusTextScript = `(function() {
+		var status = document.getElementById('widget-test-status');
+		if (!status) { return ''; }
+		return String(status.textContent || '');
+	}())`
+	widgetTestEnsurePreviewElementsScript = `(function() {
+		var bubble = document.getElementById('mp-feedback-bubble');
+		if (!bubble) {
+			bubble = document.createElement('div');
+			bubble.id = 'mp-feedback-bubble';
+			bubble.style.position = 'fixed';
+			document.body.appendChild(bubble);
+		}
+		var panel = document.getElementById('mp-feedback-panel');
+		if (!panel) {
+			panel = document.createElement('div');
+			panel.id = 'mp-feedback-panel';
+			panel.style.position = 'fixed';
+			document.body.appendChild(panel);
+		}
+		return true;
+	}())`
+	widgetBubblePresenceScript = `(function() {
+		return !!document.getElementById('mp-feedback-bubble');
+	}())`
 )
 
 type stubDashboardNotifier struct{}
@@ -964,6 +1030,216 @@ func TestDashboardSiteFaviconOpensOrigin(t *testing.T) {
 	require.Equal(t, "noopener,noreferrer", windowOpenCalls[0].Features)
 }
 
+func TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Offset Step Site",
+		AllowedOrigin:              harness.baseURL,
+		OwnerEmail:                 dashboardTestAdminEmail,
+		CreatorEmail:               dashboardTestAdminEmail,
+		WidgetBubbleSide:           "right",
+		WidgetBubbleBottomOffsetPx: 24,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	waitForVisibleElement(t, page, dashboardWidgetBottomOffsetInputSelector)
+
+	initialOffset := readDashboardWidgetBottomOffset(t, page)
+	require.Equal(t, site.WidgetBubbleBottomOffsetPx, initialOffset)
+
+	clickSelector(t, page, dashboardWidgetBottomOffsetIncreaseSelector)
+	incrementedOffset := readDashboardWidgetBottomOffset(t, page)
+	require.Equal(t, initialOffset+widgetBottomOffsetStepPixels, incrementedOffset)
+
+	manualOffset := 37
+	setInputValue(t, page, dashboardWidgetBottomOffsetInputSelector, strconv.Itoa(manualOffset))
+	currentManual := readDashboardWidgetBottomOffset(t, page)
+	require.Equal(t, manualOffset, currentManual)
+
+	offsetInput := waitForVisibleElement(t, page, dashboardWidgetBottomOffsetInputSelector)
+	require.NoError(t, offsetInput.Focus())
+
+	require.NoError(t, page.Keyboard.Press(input.ArrowUp))
+	upperValue := readDashboardWidgetBottomOffset(t, page)
+	require.Equal(t, manualOffset+widgetBottomOffsetStepPixels, upperValue)
+
+	require.NoError(t, page.Keyboard.Press(input.ArrowDown))
+	finalOffset := readDashboardWidgetBottomOffset(t, page)
+	require.Equal(t, manualOffset, finalOffset)
+
+	interceptFetchRequests(t, page)
+	clickSelector(t, page, dashboardSaveSiteButtonSelector)
+
+	type siteUpdatePayload struct {
+		WidgetBubbleBottomOffset int `json:"widget_bubble_bottom_offset"`
+	}
+	var payload siteUpdatePayload
+
+	require.Eventually(t, func() bool {
+		requests := readCapturedFetchRequests(t, page)
+		for _, record := range requests {
+			if !strings.HasSuffix(record.URL, "/api/sites/"+site.ID) {
+				continue
+			}
+			if !strings.EqualFold(record.Method, http.MethodPatch) {
+				continue
+			}
+			if record.Body == "" {
+				continue
+			}
+			if err := json.Unmarshal([]byte(record.Body), &payload); err != nil {
+				return false
+			}
+			return true
+		}
+		return false
+	}, 5*time.Second, 100*time.Millisecond)
+
+	require.Equal(t, finalOffset, payload.WidgetBubbleBottomOffset)
+}
+
+func TestWidgetTestBottomOffsetControlsAdjustPreviewAndPersist(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Widget Offset Controls",
+		AllowedOrigin:              harness.baseURL,
+		OwnerEmail:                 dashboardTestAdminEmail,
+		CreatorEmail:               dashboardTestAdminEmail,
+		WidgetBubbleSide:           "right",
+		WidgetBubbleBottomOffsetPx: 28,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	require.NoError(t, page.Navigate(harness.baseURL+dashboardTestLandingPath))
+	waitNavigation()
+	evaluateScriptInto(t, page, dashboardSeedPublicThemeScript, nil)
+
+	widgetTestURL := fmt.Sprintf("%s/app/sites/%s/widget-test", harness.baseURL, site.ID)
+	waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	require.NoError(t, page.Navigate(widgetTestURL))
+	waitNavigation()
+
+	evaluateScriptInto(t, page, widgetTestEnsurePreviewElementsScript, nil)
+	waitForVisibleElement(t, page, widgetTestBottomOffsetInputSelector)
+
+	require.Eventually(t, func() bool {
+		return strings.TrimSpace(evaluateScriptString(t, page, widgetTestBubbleBottomScript)) != ""
+	}, 5*time.Second, 100*time.Millisecond)
+	require.Eventually(t, func() bool {
+		return strings.TrimSpace(evaluateScriptString(t, page, widgetTestPanelBottomScript)) != ""
+	}, 5*time.Second, 100*time.Millisecond)
+
+	initialOffset := readWidgetTestBottomOffset(t, page)
+	require.Equal(t, site.WidgetBubbleBottomOffsetPx, initialOffset)
+
+	initialSummary := parseOffsetValue(t, evaluateScriptString(t, page, widgetTestReadSummaryOffsetScript))
+	require.Equal(t, initialOffset, initialSummary)
+
+	initialBubbleBottom := strings.TrimSpace(evaluateScriptString(t, page, widgetTestBubbleBottomScript))
+	require.Equal(t, fmt.Sprintf("%dpx", initialOffset), initialBubbleBottom)
+
+	initialPanelBottom := strings.TrimSpace(evaluateScriptString(t, page, widgetTestPanelBottomScript))
+	require.Equal(t, fmt.Sprintf("%dpx", initialOffset+widgetPanelVerticalSpacingPixels), initialPanelBottom)
+
+	clickSelector(t, page, widgetTestOffsetIncreaseSelector)
+
+	stepOffset := readWidgetTestBottomOffset(t, page)
+	require.Equal(t, initialOffset+widgetBottomOffsetStepPixels, stepOffset)
+
+	stepSummary := parseOffsetValue(t, evaluateScriptString(t, page, widgetTestReadSummaryOffsetScript))
+	require.Equal(t, stepOffset, stepSummary)
+
+	stepBubbleBottom := strings.TrimSpace(evaluateScriptString(t, page, widgetTestBubbleBottomScript))
+	require.Equal(t, fmt.Sprintf("%dpx", stepOffset), stepBubbleBottom)
+
+	stepPanelBottom := strings.TrimSpace(evaluateScriptString(t, page, widgetTestPanelBottomScript))
+	require.Equal(t, fmt.Sprintf("%dpx", stepOffset+widgetPanelVerticalSpacingPixels), stepPanelBottom)
+
+	manualOffset := 31
+	setInputValue(t, page, widgetTestBottomOffsetInputSelector, strconv.Itoa(manualOffset))
+
+	currentManual := readWidgetTestBottomOffset(t, page)
+	require.Equal(t, manualOffset, currentManual)
+
+	manualSummary := parseOffsetValue(t, evaluateScriptString(t, page, widgetTestReadSummaryOffsetScript))
+	require.Equal(t, manualOffset, manualSummary)
+
+	manualBubbleBottom := strings.TrimSpace(evaluateScriptString(t, page, widgetTestBubbleBottomScript))
+	require.Equal(t, fmt.Sprintf("%dpx", manualOffset), manualBubbleBottom)
+
+	manualPanelBottom := strings.TrimSpace(evaluateScriptString(t, page, widgetTestPanelBottomScript))
+	require.Equal(t, fmt.Sprintf("%dpx", manualOffset+widgetPanelVerticalSpacingPixels), manualPanelBottom)
+
+	offsetInput := waitForVisibleElement(t, page, widgetTestBottomOffsetInputSelector)
+	require.NoError(t, offsetInput.Focus())
+
+	require.NoError(t, page.Keyboard.Press(input.ArrowDown))
+
+	finalOffset := readWidgetTestBottomOffset(t, page)
+	require.Equal(t, manualOffset-widgetBottomOffsetStepPixels, finalOffset)
+
+	finalSummary := parseOffsetValue(t, evaluateScriptString(t, page, widgetTestReadSummaryOffsetScript))
+	require.Equal(t, finalOffset, finalSummary)
+
+	finalBubbleBottom := strings.TrimSpace(evaluateScriptString(t, page, widgetTestBubbleBottomScript))
+	require.Equal(t, fmt.Sprintf("%dpx", finalOffset), finalBubbleBottom)
+
+	finalPanelBottom := strings.TrimSpace(evaluateScriptString(t, page, widgetTestPanelBottomScript))
+	require.Equal(t, fmt.Sprintf("%dpx", finalOffset+widgetPanelVerticalSpacingPixels), finalPanelBottom)
+
+	interceptFetchRequests(t, page)
+	clickSelector(t, page, widgetTestSaveButtonSelector)
+
+	type siteUpdatePayload struct {
+		WidgetBubbleBottomOffset int `json:"widget_bubble_bottom_offset"`
+	}
+	var payload siteUpdatePayload
+
+	require.Eventually(t, func() bool {
+		requests := readCapturedFetchRequests(t, page)
+		for _, record := range requests {
+			if !strings.HasSuffix(record.URL, "/api/sites/"+site.ID) {
+				continue
+			}
+			if !strings.EqualFold(record.Method, http.MethodPatch) {
+				continue
+			}
+			if record.Body == "" {
+				continue
+			}
+			if err := json.Unmarshal([]byte(record.Body), &payload); err != nil {
+				return false
+			}
+			return true
+		}
+		return false
+	}, 5*time.Second, 100*time.Millisecond)
+
+	require.Equal(t, finalOffset, payload.WidgetBubbleBottomOffset)
+}
+
 func TestExampleRouteIsUnavailable(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
@@ -972,6 +1248,27 @@ func TestExampleRouteIsUnavailable(t *testing.T) {
 	require.NoError(t, err)
 	defer response.Body.Close()
 	require.Equal(t, http.StatusNotFound, response.StatusCode)
+}
+
+func readDashboardWidgetBottomOffset(testingT *testing.T, page *rod.Page) int {
+	testingT.Helper()
+	value := evaluateScriptString(testingT, page, dashboardReadWidgetBottomOffsetScript)
+	return parseOffsetValue(testingT, value)
+}
+
+func readWidgetTestBottomOffset(testingT *testing.T, page *rod.Page) int {
+	testingT.Helper()
+	value := evaluateScriptString(testingT, page, widgetTestReadOffsetInputScript)
+	return parseOffsetValue(testingT, value)
+}
+
+func parseOffsetValue(testingT *testing.T, value string) int {
+	testingT.Helper()
+	trimmed := strings.TrimSpace(value)
+	require.NotEmpty(testingT, trimmed)
+	parsed, err := strconv.Atoi(trimmed)
+	require.NoError(testingT, err)
+	return parsed
 }
 
 func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *dashboardIntegrationHarness {

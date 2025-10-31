@@ -136,6 +136,13 @@ const (
 	settingsAutoLogoutPromptErrorElementID     = "settings-auto-logout-prompt-error"
 	settingsAutoLogoutLogoutErrorElementID     = "settings-auto-logout-logout-error"
 	settingsAutoLogoutStorageKey               = "loopaware_dashboard_auto_logout"
+	widgetBottomOffsetDecreaseButtonElementID  = "widget-bottom-offset-decrease"
+	widgetBottomOffsetIncreaseButtonElementID  = "widget-bottom-offset-increase"
+	widgetBottomOffsetDecreaseLabel            = "-10 px"
+	widgetBottomOffsetIncreaseLabel            = "+10 px"
+	widgetBottomOffsetDecreaseAriaLabel        = "Decrease bottom offset by 10 pixels"
+	widgetBottomOffsetIncreaseAriaLabel        = "Increase bottom offset by 10 pixels"
+	widgetBottomOffsetStepPixels               = 10
 	autoLogoutMinimumPromptSeconds             = 10
 	autoLogoutMaximumPromptSeconds             = 3600
 	autoLogoutMinimumLogoutSeconds             = 20
@@ -386,6 +393,13 @@ type dashboardTemplateData struct {
 	SettingsAutoLogoutLogoutMin       int
 	SettingsAutoLogoutLogoutMax       int
 	SettingsAutoLogoutGapSeconds      int
+	WidgetBottomOffsetDecreaseButtonID string
+	WidgetBottomOffsetIncreaseButtonID string
+	WidgetBottomOffsetDecreaseLabel    string
+	WidgetBottomOffsetIncreaseLabel    string
+	WidgetBottomOffsetDecreaseAriaLabel string
+	WidgetBottomOffsetIncreaseAriaLabel string
+	WidgetBottomOffsetStep             int
 	ThemeStorageKey                   string
 	PublicThemeStorageKey             string
 	LandingThemeStorageKey            string
@@ -688,6 +702,13 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		SettingsAutoLogoutLogoutMin:       autoLogoutMinimumLogoutSeconds,
 		SettingsAutoLogoutLogoutMax:       autoLogoutMaximumLogoutSeconds,
 		SettingsAutoLogoutGapSeconds:      autoLogoutMinimumGapSeconds,
+		WidgetBottomOffsetDecreaseButtonID: widgetBottomOffsetDecreaseButtonElementID,
+		WidgetBottomOffsetIncreaseButtonID: widgetBottomOffsetIncreaseButtonElementID,
+		WidgetBottomOffsetDecreaseLabel:    widgetBottomOffsetDecreaseLabel,
+		WidgetBottomOffsetIncreaseLabel:    widgetBottomOffsetIncreaseLabel,
+		WidgetBottomOffsetDecreaseAriaLabel: widgetBottomOffsetDecreaseAriaLabel,
+		WidgetBottomOffsetIncreaseAriaLabel: widgetBottomOffsetIncreaseAriaLabel,
+		WidgetBottomOffsetStep:             widgetBottomOffsetStepPixels,
 		ThemeStorageKey:                   themeStorageKey,
 		PublicThemeStorageKey:             publicThemeStorageKey,
 		LandingThemeStorageKey:            publicLandingThemeStorageKey,
@@ -826,6 +847,8 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"widget_side_left":                  widgetPlacementSideLeftInputElementID,
 			"widget_side_right":                 widgetPlacementSideRightInputElementID,
 			"widget_bottom_offset":              widgetPlacementBottomOffsetInputElementID,
+			"widget_bottom_offset_decrease":     widgetBottomOffsetDecreaseButtonElementID,
+			"widget_bottom_offset_increase":     widgetBottomOffsetIncreaseButtonElementID,
 			"session_timeout_container":         sessionTimeoutContainerElementID,
 			"session_timeout_message":           sessionTimeoutMessageElementID,
 			"session_timeout_confirm_button":    sessionTimeoutConfirmButtonElementID,
