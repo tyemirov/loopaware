@@ -86,6 +86,7 @@ type widgetTestTemplateData struct {
 	PublicThemeStorageKey   string
 	LandingThemeStorageKey  string
 	LegacyThemeStorageKey   string
+	DashboardPath           string
 }
 
 func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Context) {
@@ -169,6 +170,7 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 		PublicThemeStorageKey:   publicThemeStorageKey,
 		LandingThemeStorageKey:  publicLandingThemeStorageKey,
 		LegacyThemeStorageKey:   publicLegacyThemeStorageKey,
+		DashboardPath:           publicDashboardPath,
 	}
 
 	var buffer bytes.Buffer

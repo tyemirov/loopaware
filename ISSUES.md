@@ -29,7 +29,7 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
   2. Remove user's specific light/dark theme switch
 - [x] [LA-204] Make clicking on a favicon of a site open a site itself in a new window — favicon interaction now opens the allowed origin in a new tab with keyboard support; integration test captures window.open calls (go test ./...).
 - [x] [LA-205] Make the bottom offset dialog move by the widget position vy 10 pixels when controls are used and allow to manually enter pixel precision
-- [ ] [LA-206] Clicking Save placement shall be closing return to the dashboard.
+- [x] [LA-206] Clicking Save placement shall be closing return to the dashboard.
 
 ## BugFixes (300-399)
 
@@ -57,6 +57,7 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 - [x] [LA-202] Footer now rendered by shared Alpine component from mpr-ui; templates load CDN module and tests confirm config payload & markup (go test ./...).
 - [x] [LA-203] Dashboard theme switch removed from avatar menu; footer toggle drives persistence and integration tests click the new footer control (go test ./...).
 - [x] [LA-204] Dashboard site list favicons now open the allowed origin in a new tab with keyboard activation; regression test verifies window.open is invoked (go test ./...).
+- [x] [LA-206] Widget test Save placement now redirects back to the dashboard and the updated offset persists; coverage via go test ./internal/httpapi -run 'TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist|TestWidgetTestBottomOffsetControlsAdjustPreviewAndPersist' -count=1.
 - [x] [LA-205] Bottom offset controls now step by 10px via buttons and keyboard while accepting manual input; dashboard/widget tests cover UI wiring and persistence (go test ./internal/httpapi -run 'TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist|TestWidgetTestBottomOffsetControlsAdjustPreviewAndPersist' -count=1).
 - [x] [LA-301] Idle prompt now ignores synthetic document events so inactivity still triggers the 60/120-second warning and logout path; browser test dispatches an untrusted mousemove to confirm the banner remains visible (go test ./...).
 - [x] [LA-301] Pinguin notification scheduling disabled so feedback mailers send immediately; service/model regressions assert scheduled timestamps are cleared and retries run without delays (go test ./..., go test ./tools/pinguin/...).

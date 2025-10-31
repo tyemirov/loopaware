@@ -70,6 +70,7 @@ type fetchRequestRecord struct {
 	URL    string `json:"url"`
 	Method string `json:"method"`
 	Body   string `json:"body"`
+	Status int    `json:"status"`
 }
 
 var headlessBrowserExecutableNames = []string{
@@ -319,7 +320,7 @@ func interceptFetchRequests(testingT *testing.T, page *rod.Page) {
   var intercept = window.__loopawareFetchIntercept;
   intercept.requests = [];
   window.fetch = function(resource, init) {
-    var record = { url: '', method: 'GET', body: '' };
+    var record = { url: '', method: 'GET', body: '', status: 0 };
     if (typeof resource === 'string') {
       record.url = resource;
     } else if (resource && typeof resource.url === 'string') {
@@ -335,7 +336,15 @@ func interceptFetchRequests(testingT *testing.T, page *rod.Page) {
       record.body = init.body;
     }
     intercept.requests.push(record);
-    return intercept.originalFetch.apply(this, arguments);
+    return intercept.originalFetch.apply(this, arguments).then(function(response) {
+      if (response && typeof response.status === 'number') {
+        record.status = response.status;
+      }
+      return response;
+    }).catch(function(error) {
+      record.status = 0;
+      throw error;
+    });
   };
   return true;
 }())`

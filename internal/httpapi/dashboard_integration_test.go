@@ -171,53 +171,49 @@ const (
 		return true;
 	}())`
 	dashboardOpenedWindowCallsScript = `(function() {
-		return window.__loopawareOpenedWindows || [];
-	}())`
+    return window.__loopawareOpenedWindows || [];
+}())`
 	dashboardDispatchSyntheticMousemoveScript = "document.dispatchEvent(new Event('mousemove'))"
 	widgetTestSummaryOffsetScript             = `document.getElementById('widget-test-summary-offset') ? document.getElementById('widget-test-summary-offset').textContent : ''`
 	widgetTestBottomOffsetInputSelector       = "#widget-test-bottom-offset"
 	widgetTestOffsetIncreaseSelector          = "#widget-test-offset-increase"
 	widgetTestOffsetDecreaseSelector          = "#widget-test-offset-decrease"
 	widgetTestSaveButtonSelector              = "#widget-test-save"
-	widgetTestStatusSelector                  = "#widget-test-status"
-	widgetTestSummaryOffsetSelector           = "#widget-test-summary-offset"
 	widgetTestReadOffsetInputScript           = `(function() {
 		var input = document.getElementById('widget-test-bottom-offset');
 		if (!input) { return ''; }
 		return String(input.value || '');
 	}())`
 	widgetTestReadSummaryOffsetScript = `(function() {
-		var summary = document.getElementById('widget-test-summary-offset');
-		if (!summary) { return ''; }
-		return String(summary.textContent || '');
-	}())`
+	var summary = document.getElementById('widget-test-summary-offset');
+	if (!summary) { return ''; }
+	return String(summary.textContent || '');
+}())`
 	widgetTestBubbleBottomScript = `(function() {
-		var bubble = document.getElementById('mp-feedback-bubble');
-		if (!bubble) { return ''; }
-		return bubble.style.bottom || '';
-	}())`
+	var bubble = document.getElementById('mp-feedback-bubble');
+	if (!bubble) { return ''; }
+	return bubble.style.bottom || '';
+}())`
 	widgetTestPanelBottomScript = `(function() {
-		var panel = document.getElementById('mp-feedback-panel');
-		if (!panel) { return ''; }
-		return panel.style.bottom || '';
-	}())`
-	widgetTestStatusTextScript = `(function() {
-		var status = document.getElementById('widget-test-status');
-		if (!status) { return ''; }
-		return String(status.textContent || '');
-	}())`
+var panel = document.getElementById('mp-feedback-panel');
+if (!panel) { return ''; }
+return panel.style.bottom || '';
+}())`
+	dashboardWidgetBottomOffsetPresenceScript = `(function() {
+	return !!document.getElementById('widget-placement-bottom-offset');
+}())`
 	widgetTestEnsurePreviewElementsScript = `(function() {
-		var bubble = document.getElementById('mp-feedback-bubble');
-		if (!bubble) {
-			bubble = document.createElement('div');
-			bubble.id = 'mp-feedback-bubble';
-			bubble.style.position = 'fixed';
-			document.body.appendChild(bubble);
-		}
-		var panel = document.getElementById('mp-feedback-panel');
-		if (!panel) {
-			panel = document.createElement('div');
-			panel.id = 'mp-feedback-panel';
+	var bubble = document.getElementById('mp-feedback-bubble');
+	if (!bubble) {
+		bubble = document.createElement('div');
+		bubble.id = 'mp-feedback-bubble';
+		bubble.style.position = 'fixed';
+		document.body.appendChild(bubble);
+	}
+	var panel = document.getElementById('mp-feedback-panel');
+	if (!panel) {
+		panel = document.createElement('div');
+		panel.id = 'mp-feedback-panel';
 			panel.style.position = 'fixed';
 			document.body.appendChild(panel);
 		}
@@ -1087,6 +1083,7 @@ func TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist(t *testing.T) {
 		WidgetBubbleBottomOffset int `json:"widget_bubble_bottom_offset"`
 	}
 	var payload siteUpdatePayload
+	payloadStatus := 0
 
 	require.Eventually(t, func() bool {
 		requests := readCapturedFetchRequests(t, page)
@@ -1103,12 +1100,17 @@ func TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist(t *testing.T) {
 			if err := json.Unmarshal([]byte(record.Body), &payload); err != nil {
 				return false
 			}
+			if record.Status == 0 {
+				return false
+			}
+			payloadStatus = record.Status
 			return true
 		}
 		return false
 	}, 5*time.Second, 100*time.Millisecond)
 
 	require.Equal(t, finalOffset, payload.WidgetBubbleBottomOffset)
+	require.Equal(t, http.StatusOK, payloadStatus)
 }
 
 func TestWidgetTestBottomOffsetControlsAdjustPreviewAndPersist(t *testing.T) {
@@ -1209,35 +1211,27 @@ func TestWidgetTestBottomOffsetControlsAdjustPreviewAndPersist(t *testing.T) {
 	finalPanelBottom := strings.TrimSpace(evaluateScriptString(t, page, widgetTestPanelBottomScript))
 	require.Equal(t, fmt.Sprintf("%dpx", finalOffset+widgetPanelVerticalSpacingPixels), finalPanelBottom)
 
-	interceptFetchRequests(t, page)
+	redirectWait := page.WaitNavigation(proto.PageLifecycleEventNameLoad)
 	clickSelector(t, page, widgetTestSaveButtonSelector)
-
-	type siteUpdatePayload struct {
-		WidgetBubbleBottomOffset int `json:"widget_bubble_bottom_offset"`
-	}
-	var payload siteUpdatePayload
+	redirectWait()
 
 	require.Eventually(t, func() bool {
-		requests := readCapturedFetchRequests(t, page)
-		for _, record := range requests {
-			if !strings.HasSuffix(record.URL, "/api/sites/"+site.ID) {
-				continue
-			}
-			if !strings.EqualFold(record.Method, http.MethodPatch) {
-				continue
-			}
-			if record.Body == "" {
-				continue
-			}
-			if err := json.Unmarshal([]byte(record.Body), &payload); err != nil {
-				return false
-			}
-			return true
-		}
-		return false
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	currentPath := evaluateScriptString(t, page, dashboardLocationPathScript)
+	require.Equal(t, dashboardTestDashboardRoute, currentPath)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
 	}, 5*time.Second, 100*time.Millisecond)
 
-	require.Equal(t, finalOffset, payload.WidgetBubbleBottomOffset)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardWidgetBottomOffsetPresenceScript)
+	}, 5*time.Second, 100*time.Millisecond)
+
+	dashboardOffset := readDashboardWidgetBottomOffset(t, page)
+	require.Equal(t, finalOffset, dashboardOffset)
 }
 
 func TestExampleRouteIsUnavailable(t *testing.T) {
@@ -1332,6 +1326,9 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *d
 	apiGroup.GET("/me", siteHandlers.CurrentUser)
 	apiGroup.GET("/me/avatar", siteHandlers.UserAvatar)
 	apiGroup.GET("/sites", siteHandlers.ListSites)
+	apiGroup.POST("/sites", siteHandlers.CreateSite)
+	apiGroup.PATCH("/sites/:id", siteHandlers.UpdateSite)
+	apiGroup.DELETE("/sites/:id", siteHandlers.DeleteSite)
 	apiGroup.GET("/sites/:id/messages", siteHandlers.ListMessagesBySite)
 	apiGroup.GET("/sites/:id/favicon", siteHandlers.SiteFavicon)
 	apiGroup.GET("/sites/favicons/events", siteHandlers.StreamFaviconUpdates)

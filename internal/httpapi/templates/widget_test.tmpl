@@ -93,6 +93,7 @@
       var logoutButton = document.getElementById('{{js .Header.LogoutButtonID}}');
       var logoutPath = '{{js .LogoutPath}}';
       var landingPath = '{{js .LandingPath}}';
+      var dashboardPath = '{{js .DashboardPath}}';
       var settingsModalElement = document.getElementById('{{js .Header.SettingsModalID}}');
 
       function normalizeClassList(value) {
@@ -372,6 +373,28 @@
         panel.style.bottom = offset + panelSpacing + 'px';
       }
 
+      function resolveDashboardReturnPath() {
+        if (typeof dashboardPath === 'string' && dashboardPath.trim().length > 0) {
+          return dashboardPath;
+        }
+        if (typeof landingPath === 'string' && landingPath.trim().length > 0) {
+          return landingPath.trim();
+        }
+        return '/app';
+      }
+
+      function redirectToDashboard() {
+        var target = resolveDashboardReturnPath();
+        if (window.opener && !window.opener.closed) {
+          try {
+            window.opener.focus();
+          } catch (error) {
+            // ignore focus errors
+          }
+        }
+        window.location.assign(target);
+      }
+
       function applyFormState(side, offset) {
         var normalizedSide = normalizeSide(side);
         var normalizedOffset = normalizeOffset(offset);
@@ -468,6 +491,7 @@
             });
           }).then(function() {
             setStatus('Saved.');
+            redirectToDashboard();
           }).catch(function() {
             setStatus('Save failed.');
           }).finally(function() {
