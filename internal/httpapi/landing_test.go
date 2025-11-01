@@ -48,8 +48,8 @@ const (
 	landingFooterBrandWrapperToken      = "footer-brand d-inline-flex align-items-center"
 	landingFooterPrivacyClassToken      = "footer-privacy-link text-body-secondary text-decoration-none small"
 	landingFooterPaddingToken           = "landing-footer border-top mt-auto py-2"
-    landingFooterThemeToggleToken       = `footer-brand d-inline-flex align-items-center gap-2 text-body-secondary small" data-mpr-footer="brand"><div class="footer-theme-toggle form-check form-switch m-0" data-mpr-footer="theme-toggle" data-bs-theme="light"><input class="form-check-input" type="checkbox" id="public-theme-toggle" aria-label="Toggle theme" data-mpr-footer="theme-toggle-input" /></div>`
-    landingFooterConfigAttributeToken   = "data-mpr-footer-config="
+	landingFooterThemeToggleToken       = `footer-brand d-inline-flex align-items-center gap-2 text-body-secondary small" data-mpr-footer="brand"><div class="footer-theme-toggle form-check form-switch m-0" data-mpr-footer="theme-toggle" data-bs-theme="light"><input class="form-check-input" type="checkbox" id="public-theme-toggle" aria-label="Toggle theme" data-mpr-footer="theme-toggle-input" /></div>`
+	landingFooterConfigAttributeToken   = "data-mpr-footer-config="
 	landingCardHoverToken               = ".landing-card:hover"
 	landingCardFocusToken               = ".landing-card:focus-visible"
 	landingHeroLoginButtonToken         = "btn btn-primary btn-lg\" href=\"/auth/google\">Login"
