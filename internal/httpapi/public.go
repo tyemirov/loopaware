@@ -129,10 +129,7 @@ func (h *PublicHandlers) isRateLimited(ip string) bool {
 	defer h.rateCountersMutex.Unlock()
 
 	h.rateCountersByIP[key]++
-	if h.rateCountersByIP[key] > h.maxRequestsPerIPPerWindow {
-		return true
-	}
-	return false
+	return h.rateCountersByIP[key] > h.maxRequestsPerIPPerWindow
 }
 
 func (h *PublicHandlers) WidgetJS(context *gin.Context) {

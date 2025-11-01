@@ -30,8 +30,8 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 - [x] [LA-204] Make clicking on a favicon of a site open a site itself in a new window — favicon interaction now opens the allowed origin in a new tab with keyboard support; integration test captures window.open calls (go test ./...).
 - [x] [LA-205] Make the bottom offset dialog move by the widget position vy 10 pixels when controls are used and allow to manually enter pixel precision
 - [x] [LA-206] Clicking Save placement shall be closing return to the dashboard.
-- [ ] [LA-207] Shorten the field for bottom offset (px) so that ![input](image.png) is 3x shorter (leave the +/- buttons) on the dashboard page
-- [ ] [LA-208] Move the bottof offset to the second column ![alt text](image-1.png) on the preview page
+- [x] [LA-207] Shorten the field for bottom offset (px) so that ![input](image.png) is 3x shorter (leave the +/- buttons) on the dashboard page
+- [x] [LA-208] Move the bottof offset to the second column ![alt text](image-1.png) on the preview page
 
 ## BugFixes (300-399)
 
@@ -58,7 +58,7 @@ pinguin  | time=2025-11-01T05:26:09.358Z level=INFO msg="gRPC server listening o
 
 ## Maintenance (400-499)
 
-- [ ] [LA-400] Add a Makefile with the relevant commands, such as backend and front end testing, docker up etc. Use make commands in Github workflows. Here is one for inspiration
+- [x] [LA-400] Add a Makefile with the relevant commands, such as backend and front end testing, docker up etc. Use make commands in Github workflows. Here is one for inspiration
 ```
 GO_SOURCES := $(shell find . -name '*.go' -not -path "./vendor/*" -not -path "./.git/*" -not -path "*/.git/*")
 UNIT_PACKAGES := $(shell go list ./... | grep -v '/tests$$')
@@ -118,6 +118,9 @@ ci: check-format lint test
 
 ## Resolution Log
 
+- [x] [LA-400] Added repository Makefile with lint/test/docker targets and updated CI workflow to invoke `make ci` for module verification, vetting, race tests, and Pinguin coverage.
+- [x] [LA-207] Dashboard widget bottom offset input now renders with a compact width class to keep the controls tight; template regression asserts the class (go test ./internal/httpapi).
+- [x] [LA-208] Widget test placement controls now render in a two-column layout, keeping bubble placement and bottom offset side by side; template regression covers the new grid classes (go test ./internal/httpapi).
 - [x] [LA-306] Widget test feedback submissions now invoke the notifier, persist delivery, and Pinguin logs request receipt/outcome; coverage via go test ./internal/httpapi and (cd tools/pinguin && go test ./...).
 - [x] [LA-300] Dashboard theme now honors the latest public selection; regression integration test ensures public preference overrides stale dashboard storage (go test ./...).
 - [x] [LA-201] Theme switch now lives in the footer beside the Built by Marco Polo branding; public landing/privacy tests enforce placement (go test ./...).
