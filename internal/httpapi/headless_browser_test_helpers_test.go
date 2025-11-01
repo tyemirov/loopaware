@@ -66,6 +66,13 @@ type rgbColor struct {
 	Blue  float64
 }
 
+type fetchRequestRecord struct {
+	URL    string `json:"url"`
+	Method string `json:"method"`
+	Body   string `json:"body"`
+	Status int    `json:"status"`
+}
+
 var headlessBrowserExecutableNames = []string{
 	"chromium",
 	"chromium-browser",
@@ -301,6 +308,57 @@ func analyzeScreenshotRegion(testingT *testing.T, screenshot image.Image, bounds
 func evaluateFormElementFits(testingT *testing.T, page *rod.Page, cssSelector string) bool {
 	testingT.Helper()
 	return evaluateScriptBoolean(testingT, page, formElementFitsPanelScript(cssSelector))
+}
+
+func interceptFetchRequests(testingT *testing.T, page *rod.Page) {
+	testingT.Helper()
+	const script = `(function(){
+  if (typeof window !== 'object' || !window) { return false; }
+  if (!window.__loopawareFetchIntercept) {
+    window.__loopawareFetchIntercept = { originalFetch: window.fetch, requests: [] };
+  }
+  var intercept = window.__loopawareFetchIntercept;
+  intercept.requests = [];
+  window.fetch = function(resource, init) {
+    var record = { url: '', method: 'GET', body: '', status: 0 };
+    if (typeof resource === 'string') {
+      record.url = resource;
+    } else if (resource && typeof resource.url === 'string') {
+      record.url = resource.url;
+      if (resource.method && typeof resource.method === 'string') {
+        record.method = resource.method;
+      }
+    }
+    if (init && typeof init.method === 'string') {
+      record.method = init.method;
+    }
+    if (init && typeof init.body === 'string') {
+      record.body = init.body;
+    }
+    intercept.requests.push(record);
+    return intercept.originalFetch.apply(this, arguments).then(function(response) {
+      if (response && typeof response.status === 'number') {
+        record.status = response.status;
+      }
+      return response;
+    }).catch(function(error) {
+      record.status = 0;
+      throw error;
+    });
+  };
+  return true;
+}())`
+	evaluateScriptInto(testingT, page, script, nil)
+}
+
+func readCapturedFetchRequests(testingT *testing.T, page *rod.Page) []fetchRequestRecord {
+	testingT.Helper()
+	var records []fetchRequestRecord
+	evaluateScriptInto(testingT, page, `(function(){
+  if (!window.__loopawareFetchIntercept) { return []; }
+  return window.__loopawareFetchIntercept.requests || [];
+}())`, &records)
+	return records
 }
 
 func convertBoundsToImageRectangle(bounds viewportBounds, imageBounds image.Rectangle, viewportWidth float64, viewportHeight float64) image.Rectangle {
