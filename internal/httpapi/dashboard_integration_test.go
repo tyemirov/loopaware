@@ -917,6 +917,12 @@ func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
 	initialPublicStoredTheme := evaluateScriptString(t, page, dashboardStoredPublicThemeScript)
 	require.Equal(t, "dark", initialPublicStoredTheme)
 
+	require.True(t, evaluateScriptBoolean(t, page, `(function(){
+    var body = document.body;
+    if (!body) { return false; }
+    return body.classList.contains('bg-dark') && body.classList.contains('text-light');
+  }())`))
+
 	clickSelector(t, page, dashboardSettingsButtonSelector)
 	waitForVisibleElement(t, page, dashboardSettingsMenuSelector)
 
@@ -935,6 +941,12 @@ func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
 
 	finalPublicStoredTheme := evaluateScriptString(t, page, dashboardStoredPublicThemeScript)
 	require.Equal(t, "light", finalPublicStoredTheme)
+
+	require.True(t, evaluateScriptBoolean(t, page, `(function(){
+    var body = document.body;
+    if (!body) { return false; }
+    return body.classList.contains('bg-light') && body.classList.contains('text-dark');
+  }())`))
 }
 
 func TestWidgetTestFeedbackSubmissionSucceeds(t *testing.T) {
