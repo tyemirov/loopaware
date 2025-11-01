@@ -48,6 +48,8 @@ loopaware  | {"level":"info","ts":1761975081.2388723,"caller":"httpapi/middlewar
 
 ## Maintenance (400-499)
 
+- [ ] [LA-400] Add a Makefile with the relevant commands, such as backend and front end testing, docker up etc. Use make commands in Github workflows
+
 ## Planning (do not work on these, not ready)
 
 - [x] [LA-300] Dashboard theme now honors the latest public selection; regression integration test ensures public preference overrides stale dashboard storage (go test ./...).
