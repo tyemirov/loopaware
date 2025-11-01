@@ -504,12 +504,16 @@
 
         var targetEndpoint = widgetTestEndpointOverride || endpoint;
 
-        fetch(targetEndpoint, {
+        var fetchOptions = {
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: payload,
           keepalive: true
-        }).then(function(resp){
+        };
+        if (widgetTestModeEnabled && widgetTestEndpointOverride) {
+          fetchOptions.credentials = "same-origin";
+        }
+        fetch(targetEndpoint, fetchOptions).then(function(resp){
           if (!resp.ok) { throw new Error("HTTP " + resp.status); }
           return resp.json();
         }).then(function(){

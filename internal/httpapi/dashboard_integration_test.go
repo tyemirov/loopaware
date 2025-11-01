@@ -949,6 +949,62 @@ func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
   }())`))
 }
 
+func TestWidgetTestFeedbackSubmissionSucceeds(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Widget Test Feedback",
+		AllowedOrigin:              harness.baseURL,
+		OwnerEmail:                 dashboardTestAdminEmail,
+		CreatorEmail:               dashboardTestAdminEmail,
+		WidgetBubbleSide:           "right",
+		WidgetBubbleBottomOffsetPx: 24,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	widgetTestURL := fmt.Sprintf("%s/app/sites/%s/widget-test", harness.baseURL, site.ID)
+	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	require.NoError(t, page.Navigate(widgetTestURL))
+	waitNavigation()
+	widgetScriptURL := fmt.Sprintf("%s/widget.js?site_id=%s", harness.baseURL, site.ID)
+	evaluateScriptInto(t, page, fmt.Sprintf(`(function(src){
+	  var script = document.createElement('script');
+	  script.defer = true;
+	  script.src = src;
+	  document.head.appendChild(script);
+})(%q)`, widgetScriptURL), nil)
+
+	waitForVisibleElement(t, page, widgetBubbleSelector)
+	clickSelector(t, page, widgetBubbleSelector)
+	waitForVisibleElement(t, page, widgetPanelSelector)
+
+	testContact := "tester@example.com"
+	testMessage := "Widget test feedback message"
+
+	setInputValue(t, page, widgetContactSelector, testContact)
+	setInputValue(t, page, widgetMessageSelector, testMessage)
+	clickSelector(t, page, widgetSendButtonSelector)
+
+	var statusText string
+	require.Eventually(t, func() bool {
+		statusText = evaluateScriptString(t, page, widgetStatusResolveScript)
+		return strings.Contains(statusText, widgetSuccessStatusMessage)
+	}, 5*time.Second, 100*time.Millisecond)
+
+	var storedFeedback model.Feedback
+	require.Eventually(t, func() bool {
+		return harness.database.Where("site_id = ? AND contact = ?", site.ID, testContact).Order("created_at desc").First(&storedFeedback).Error == nil
+	}, 5*time.Second, 100*time.Millisecond)
+	require.Equal(t, testMessage, storedFeedback.Message)
+}
+
 func TestDashboardFeedbackStreamRefreshesMessages(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
