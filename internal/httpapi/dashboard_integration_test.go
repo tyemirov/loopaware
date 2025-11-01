@@ -993,6 +993,86 @@ func TestWidgetTestFeedbackSubmissionSucceeds(t *testing.T) {
 	require.Equal(t, testMessage, storedFeedback.Message)
 }
 
+func TestWidgetTestPlacementSavePersists(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Widget Test Placement",
+		AllowedOrigin:              harness.baseURL,
+		OwnerEmail:                 dashboardTestAdminEmail,
+		CreatorEmail:               dashboardTestAdminEmail,
+		WidgetBubbleSide:           "right",
+		WidgetBubbleBottomOffsetPx: 24,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	widgetTestURL := fmt.Sprintf("%s/app/sites/%s/widget-test", harness.baseURL, site.ID)
+	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	require.NoError(t, page.Navigate(widgetTestURL))
+	waitNavigation()
+
+	interceptFetchRequests(t, page)
+	clickSelector(t, page, "#widget-test-side-left")
+	setInputValue(t, page, "#widget-test-bottom-offset", "72")
+	endpointValue := evaluateScriptString(t, page, `(function(){
+  var body = document.body;
+  return body ? body.getAttribute('data-update-endpoint') || '' : '';
+}())`)
+	require.NotEmpty(t, endpointValue)
+	t.Logf("widget test update endpoint: %s", endpointValue)
+	clickSelector(t, page, "#widget-test-save")
+
+	type siteUpdatePayload struct {
+		WidgetBubbleSide         string `json:"widget_bubble_side"`
+		WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
+	}
+
+	var payload siteUpdatePayload
+	var payloadStatus int
+	require.Eventually(t, func() bool {
+		requests := readCapturedFetchRequests(t, page)
+		t.Logf("captured widget test placement requests: %#v", requests)
+		for _, record := range requests {
+			if !strings.HasSuffix(record.URL, "/api/sites/"+site.ID) {
+				continue
+			}
+			if !strings.EqualFold(record.Method, http.MethodPatch) {
+				continue
+			}
+			if record.Body == "" {
+				continue
+			}
+			if record.Status == 0 {
+				continue
+			}
+			if err := json.Unmarshal([]byte(record.Body), &payload); err != nil {
+				return false
+			}
+			payloadStatus = record.Status
+			return true
+		}
+		return false
+	}, 5*time.Second, 100*time.Millisecond)
+
+	require.Equal(t, "left", payload.WidgetBubbleSide)
+	require.Equal(t, 72, payload.WidgetBubbleBottomOffset)
+	require.Equal(t, http.StatusOK, payloadStatus)
+
+	var updatedSite model.Site
+	require.Eventually(t, func() bool {
+		return harness.database.First(&updatedSite, "id = ?", site.ID).Error == nil
+	}, 20*time.Second, 100*time.Millisecond)
+	require.Equal(t, "left", updatedSite.WidgetBubbleSide)
+	require.Equal(t, 72, updatedSite.WidgetBubbleBottomOffsetPx)
+}
+
 func TestDashboardFeedbackStreamRefreshesMessages(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
@@ -1044,6 +1124,83 @@ func TestDashboardFeedbackStreamRefreshesMessages(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardFeedbackCountScript)
 	}, 5*time.Second, 100*time.Millisecond)
+}
+
+func TestDashboardWidgetPlacementSavePersists(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Widget Placement Save",
+		AllowedOrigin:              harness.baseURL,
+		OwnerEmail:                 dashboardTestAdminEmail,
+		CreatorEmail:               dashboardTestAdminEmail,
+		WidgetBubbleSide:           "right",
+		WidgetBubbleBottomOffsetPx: 16,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, 5*time.Second, 100*time.Millisecond)
+
+	interceptFetchRequests(t, page)
+	clickSelector(t, page, "#widget-placement-side-left")
+	setInputValue(t, page, dashboardWidgetBottomOffsetInputSelector, "88")
+	clickSelector(t, page, dashboardSaveSiteButtonSelector)
+
+	type siteUpdatePayload struct {
+		WidgetBubbleSide         string `json:"widget_bubble_side"`
+		WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
+	}
+
+	var payload siteUpdatePayload
+	var payloadStatus int
+	require.Eventually(t, func() bool {
+		requests := readCapturedFetchRequests(t, page)
+		for _, record := range requests {
+			if !strings.HasSuffix(record.URL, "/api/sites/"+site.ID) {
+				continue
+			}
+			if !strings.EqualFold(record.Method, http.MethodPatch) {
+				continue
+			}
+			if record.Body == "" {
+				continue
+			}
+			if record.Status == 0 {
+				continue
+			}
+			if err := json.Unmarshal([]byte(record.Body), &payload); err != nil {
+				return false
+			}
+			payloadStatus = record.Status
+			return true
+		}
+		return false
+	}, 20*time.Second, 100*time.Millisecond)
+
+	require.Equal(t, "left", payload.WidgetBubbleSide)
+	require.Equal(t, 88, payload.WidgetBubbleBottomOffset)
+	require.Equal(t, http.StatusOK, payloadStatus)
+
+	var updatedSite model.Site
+	require.Eventually(t, func() bool {
+		return harness.database.First(&updatedSite, "id = ?", site.ID).Error == nil
+	}, 5*time.Second, 100*time.Millisecond)
+	require.Equal(t, "left", updatedSite.WidgetBubbleSide)
+	require.Equal(t, 88, updatedSite.WidgetBubbleBottomOffsetPx)
 }
 
 func TestDashboardSiteFaviconOpensOrigin(t *testing.T) {
