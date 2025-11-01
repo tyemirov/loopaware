@@ -724,6 +724,32 @@ func TestDashboardSessionTimeoutIgnoresSyntheticActivity(t *testing.T) {
 	}, time.Second, 100*time.Millisecond)
 }
 
+func TestDashboardSessionTimeoutPromptPersistsAfterMousemove(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	waitForVisibleElement(t, page, dashboardUserEmailSelector)
+
+	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
+	waitForVisibleElement(t, page, dashboardNotificationSelector)
+
+	require.NoError(t, page.Mouse.MoveTo(proto.Point{X: 200, Y: 200}))
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSessionTimeoutVisibleScript)
+	}, time.Second, 100*time.Millisecond)
+}
+
 func TestDashboardRestoresThemeFromPublicPreference(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
