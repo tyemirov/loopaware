@@ -1549,7 +1549,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *d
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath)
 	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, stubDashboardNotifier{})
-	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster)
+	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{})
 
 	router := gin.New()
 	router.Use(gin.Recovery())

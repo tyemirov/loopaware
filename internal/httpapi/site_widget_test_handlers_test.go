@@ -2,6 +2,7 @@ package httpapi_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -35,7 +36,7 @@ func TestRenderWidgetTestPage(t *testing.T) {
 	}
 	require.NoError(t, database.Create(&site).Error)
 
-	handler := httpapi.NewSiteWidgetTestHandlers(database, zap.NewNop(), "http://localhost:8080", nil)
+	handler := httpapi.NewSiteWidgetTestHandlers(database, zap.NewNop(), "http://localhost:8080", nil, nil)
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/app/sites/"+site.ID+"/widget-test", nil)
@@ -79,7 +80,7 @@ func TestSubmitWidgetTestFeedback(t *testing.T) {
 	}
 	require.NoError(t, database.Create(&site).Error)
 
-	handler := httpapi.NewSiteWidgetTestHandlers(database, zap.NewNop(), "http://localhost:8080", nil)
+	handler := httpapi.NewSiteWidgetTestHandlers(database, zap.NewNop(), "http://localhost:8080", nil, nil)
 
 	payload := map[string]string{
 		"contact": "tester@example.com",
@@ -104,6 +105,67 @@ func TestSubmitWidgetTestFeedback(t *testing.T) {
 	require.NoError(t, database.First(&stored, "site_id = ?", site.ID).Error)
 	require.Equal(t, payload["contact"], stored.Contact)
 	require.Equal(t, payload["message"], stored.Message)
+}
+
+func TestSubmitWidgetTestFeedbackNotifiesAndUpdatesDelivery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	database := openWidgetTestDatabase(t)
+	defer closeWidgetTestDatabase(t, database)
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Notifier Site",
+		AllowedOrigin:              "https://notify.example",
+		OwnerEmail:                 "owner@example.com",
+		CreatorEmail:               "owner@example.com",
+		WidgetBubbleSide:           "right",
+		WidgetBubbleBottomOffsetPx: 48,
+	}
+	require.NoError(t, database.Create(&site).Error)
+
+	recordingNotifier := &widgetTestRecordingNotifier{delivery: model.FeedbackDeliveryMailed}
+	handler := httpapi.NewSiteWidgetTestHandlers(database, zap.NewNop(), "http://localhost:8080", nil, recordingNotifier)
+
+	payload := map[string]string{
+		"contact": "captain@example.com",
+		"message": "Requesting notification delivery status",
+	}
+	body, err := json.Marshal(payload)
+	require.NoError(t, err)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/app/sites/"+site.ID+"/widget-test/feedback", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = request
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set("httpapi_current_user", &httpapi.CurrentUser{Email: site.OwnerEmail, Role: httpapi.RoleUser})
+
+	handler.SubmitWidgetTestFeedback(context)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, 1, recordingNotifier.callCount)
+	require.Equal(t, site.ID, recordingNotifier.lastSiteID)
+
+	var stored model.Feedback
+	require.NoError(t, database.First(&stored, "site_id = ?", site.ID).Error)
+	require.Equal(t, recordingNotifier.lastFeedbackID, stored.ID)
+	require.Equal(t, model.FeedbackDeliveryMailed, stored.Delivery)
+}
+
+type widgetTestRecordingNotifier struct {
+	delivery       string
+	callCount      int
+	lastSiteID     string
+	lastFeedbackID string
+}
+
+func (notifier *widgetTestRecordingNotifier) NotifyFeedback(ctx context.Context, site model.Site, feedback model.Feedback) (string, error) {
+	notifier.callCount++
+	notifier.lastSiteID = site.ID
+	notifier.lastFeedbackID = feedback.ID
+	return notifier.delivery, nil
 }
 
 func openWidgetTestDatabase(testingT *testing.T) *gorm.DB {

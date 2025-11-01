@@ -22,9 +22,10 @@ type SiteWidgetTestHandlers struct {
 	widgetBaseURL       string
 	template            *template.Template
 	feedbackBroadcaster *FeedbackEventBroadcaster
+	notifier            FeedbackNotifier
 }
 
-func NewSiteWidgetTestHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, feedbackBroadcaster *FeedbackEventBroadcaster) *SiteWidgetTestHandlers {
+func NewSiteWidgetTestHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, feedbackBroadcaster *FeedbackEventBroadcaster, notifier FeedbackNotifier) *SiteWidgetTestHandlers {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -36,6 +37,7 @@ func NewSiteWidgetTestHandlers(database *gorm.DB, logger *zap.Logger, widgetBase
 		widgetBaseURL:       normalizeWidgetBaseURL(widgetBaseURL),
 		template:            compiledTemplate,
 		feedbackBroadcaster: feedbackBroadcaster,
+		notifier:            resolveFeedbackNotifier(notifier),
 	}
 }
 
@@ -240,6 +242,8 @@ func (handlers *SiteWidgetTestHandlers) SubmitWidgetTestFeedback(context *gin.Co
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
 		return
 	}
+
+	applyFeedbackNotification(context.Request.Context(), handlers.database, handlers.logger, handlers.notifier, site, &feedback)
 
 	broadcastFeedbackEvent(handlers.database, handlers.logger, handlers.feedbackBroadcaster, context.Request.Context(), feedback)
 
