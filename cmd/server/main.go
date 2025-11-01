@@ -421,7 +421,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(database)
 	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot)
-	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(database, logger, serverConfig.PublicBaseURL, feedbackBroadcaster)
+	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(database, logger, serverConfig.PublicBaseURL, feedbackBroadcaster, pinguinNotifier)
 	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager)
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
 	sitemapHandlers := httpapi.NewSitemapHandlers(serverConfig.PublicBaseURL)

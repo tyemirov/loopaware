@@ -43,7 +43,7 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 - [x] [LA-303] Site preview shows the Widget test in the light theme despite the rest of the site and theme toggle being in the dark theme. Use the same theme on the widget test as selected.
 - [x] [LA-304] Investigate the send failure from the test page: loopaware  | {"level":"info","ts":1761935043.4114969,"caller":"httpapi/middleware.go:14","msg":"http","method":"POST","path":"/app/sites/e0021c61-fdfd-4d75-8c0b-3c68f3171643/widget-test/feedback","status":401,"dur":0.00002919,"ip":"172.24.0.1","ua":"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0"}. Notice that it is sufficient not to send the timestamp to pinguin for pinguin to schedule an immediate delivery. @tools/pinguin master is the source of truth on how the pinguin service works — widget test fetch now uses same-origin credentials so the dashboard session cookie authenticates the request; integration confirms a successful 200 (go test ./internal/httpapi -run 'TestWidgetTestFeedbackSubmissionSucceeds' -count=1).
 - [x] [LA-305] Clicking Save widget didnt save the new placement of the widget — widget test/dash harness now persists fetch captures across redirects so placement PATCHes succeed; integration tests cover both flows (go test ./internal/httpapi).
-- [ ] [LA-306] The notification is never sent ![alt text](image-2.png) from the test screen. investigate why pinguin never sends the notification. @tools/pinguin. The screen correctly shows the failure but the logs are deceptive
+- [x] [LA-306] The notification is never sent ![alt text](image-2.png) from the test screen. investigate why pinguin never sends the notification. @tools/pinguin. The screen correctly shows the failure but the logs are deceptive
 ```
 loopaware  | {"level":"info","ts":1761975081.2388723,"caller":"httpapi/middleware.go:14","msg":"http","method":"POST","path":"/app/sites/e0021c61-fdfd-4d75-8c0b-3c68f3171643/widget-test/feedback","status":401,"dur":0.00002735,"ip":"172.24.0.1","ua":"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0"}
 ```
@@ -66,6 +66,7 @@ pinguin  | time=2025-11-01T05:26:09.358Z level=INFO msg="gRPC server listening o
 
 ## Resolution Log
 
+- [x] [LA-306] Widget test feedback submissions now invoke the notifier, persist delivery, and Pinguin logs request receipt/outcome; coverage via go test ./internal/httpapi and (cd tools/pinguin && go test ./...).
 - [x] [LA-300] Dashboard theme now honors the latest public selection; regression integration test ensures public preference overrides stale dashboard storage (go test ./...).
 - [x] [LA-201] Theme switch now lives in the footer beside the Built by Marco Polo branding; public landing/privacy tests enforce placement (go test ./...).
 - [x] [LA-200] Added Pinguin-backed notifications for feedback submissions and surfaced delivery statuses across API and dashboard (go test ./...).

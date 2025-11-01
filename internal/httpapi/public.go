@@ -33,12 +33,6 @@ const (
 )
 
 func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaster *FeedbackEventBroadcaster, notifier FeedbackNotifier) *PublicHandlers {
-	var resolvedNotifier FeedbackNotifier
-	if notifier == nil {
-		resolvedNotifier = noopFeedbackNotifier{}
-	} else {
-		resolvedNotifier = notifier
-	}
 	return &PublicHandlers{
 		database:                  database,
 		logger:                    logger,
@@ -46,7 +40,7 @@ func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaste
 		maxRequestsPerIPPerWindow: 6,
 		rateCountersByIP:          make(map[string]int),
 		feedbackBroadcaster:       feedbackBroadcaster,
-		notifier:                  resolvedNotifier,
+		notifier:                  resolveFeedbackNotifier(notifier),
 	}
 }
 
@@ -120,29 +114,7 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 }
 
 func (h *PublicHandlers) applyFeedbackNotification(ctx context.Context, site model.Site, feedback *model.Feedback) {
-	if feedback == nil {
-		return
-	}
-	if h.notifier == nil {
-		return
-	}
-	delivery, notifyErr := h.notifier.NotifyFeedback(ctx, site, *feedback)
-	if notifyErr != nil {
-		h.logger.Warn("feedback_notification_failed", zap.Error(notifyErr), zap.String("site_id", site.ID), zap.String("feedback_id", feedback.ID))
-		delivery = model.FeedbackDeliveryNone
-	}
-	if delivery != model.FeedbackDeliveryMailed && delivery != model.FeedbackDeliveryTexted {
-		delivery = model.FeedbackDeliveryNone
-	}
-	if delivery == feedback.Delivery {
-		return
-	}
-	updateErr := h.database.Model(&model.Feedback{}).Where("id = ?", feedback.ID).Update("delivery", delivery).Error
-	if updateErr != nil {
-		h.logger.Warn("update_feedback_delivery_failed", zap.Error(updateErr), zap.String("feedback_id", feedback.ID))
-		return
-	}
-	feedback.Delivery = delivery
+	applyFeedbackNotification(ctx, h.database, h.logger, h.notifier, site, feedback)
 }
 
 func (h *PublicHandlers) broadcastFeedbackCreated(ctx context.Context, feedback model.Feedback) {
