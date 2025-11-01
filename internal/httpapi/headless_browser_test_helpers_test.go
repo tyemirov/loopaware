@@ -315,10 +315,22 @@ func interceptFetchRequests(testingT *testing.T, page *rod.Page) {
 	const script = `(function(){
   if (typeof window !== 'object' || !window) { return false; }
   if (!window.__loopawareFetchIntercept) {
-    window.__loopawareFetchIntercept = { originalFetch: window.fetch, requests: [] };
+    window.__loopawareFetchIntercept = { originalFetch: window.fetch, requests: [], storageKey: '__loopawareFetchRequests' };
   }
   var intercept = window.__loopawareFetchIntercept;
   intercept.requests = [];
+  var storageKey = intercept.storageKey || '__loopawareFetchRequests';
+  function persistRequests() {
+    if (typeof sessionStorage === 'undefined') {
+      return;
+    }
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify(intercept.requests));
+    } catch (error) {
+      // ignore storage errors
+    }
+  }
+  persistRequests();
   window.fetch = function(resource, init) {
     var record = { url: '', method: 'GET', body: '', status: 0 };
     if (typeof resource === 'string') {
@@ -336,13 +348,16 @@ func interceptFetchRequests(testingT *testing.T, page *rod.Page) {
       record.body = init.body;
     }
     intercept.requests.push(record);
+    persistRequests();
     return intercept.originalFetch.apply(this, arguments).then(function(response) {
       if (response && typeof response.status === 'number') {
         record.status = response.status;
+        persistRequests();
       }
       return response;
     }).catch(function(error) {
       record.status = 0;
+      persistRequests();
       throw error;
     });
   };
@@ -355,8 +370,28 @@ func readCapturedFetchRequests(testingT *testing.T, page *rod.Page) []fetchReque
 	testingT.Helper()
 	var records []fetchRequestRecord
 	evaluateScriptInto(testingT, page, `(function(){
-  if (!window.__loopawareFetchIntercept) { return []; }
-  return window.__loopawareFetchIntercept.requests || [];
+  var combined = [];
+  if (window.__loopawareFetchIntercept && Array.isArray(window.__loopawareFetchIntercept.requests)) {
+    combined = combined.concat(window.__loopawareFetchIntercept.requests);
+  }
+  var storageKey = '__loopawareFetchRequests';
+  if (window.__loopawareFetchIntercept && typeof window.__loopawareFetchIntercept.storageKey === 'string') {
+    storageKey = window.__loopawareFetchIntercept.storageKey;
+  }
+  if (typeof sessionStorage !== 'undefined') {
+    try {
+      var stored = sessionStorage.getItem(storageKey);
+      if (stored) {
+        var parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          combined = combined.concat(parsed);
+        }
+      }
+    } catch (error) {
+      // ignore parse/storage errors
+    }
+  }
+  return combined;
 }())`, &records)
 	return records
 }
