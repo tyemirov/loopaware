@@ -44,7 +44,17 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 - [x] [LA-304] Investigate the send failure from the test page: loopaware  | {"level":"info","ts":1761935043.4114969,"caller":"httpapi/middleware.go:14","msg":"http","method":"POST","path":"/app/sites/e0021c61-fdfd-4d75-8c0b-3c68f3171643/widget-test/feedback","status":401,"dur":0.00002919,"ip":"172.24.0.1","ua":"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0"}. Notice that it is sufficient not to send the timestamp to pinguin for pinguin to schedule an immediate delivery. @tools/pinguin master is the source of truth on how the pinguin service works — widget test fetch now uses same-origin credentials so the dashboard session cookie authenticates the request; integration confirms a successful 200 (go test ./internal/httpapi -run 'TestWidgetTestFeedbackSubmissionSucceeds' -count=1).
 - [x] [LA-305] Clicking Save widget didnt save the new placement of the widget — widget test/dash harness now persists fetch captures across redirects so placement PATCHes succeed; integration tests cover both flows (go test ./internal/httpapi).
 - [ ] [LA-306] The notification is never sent ![alt text](image-2.png) from the test screen. investigate why pinguin never sends the notification. @tools/pinguin. The screen correctly shows the failure but the logs are deceptive
+```
 loopaware  | {"level":"info","ts":1761975081.2388723,"caller":"httpapi/middleware.go:14","msg":"http","method":"POST","path":"/app/sites/e0021c61-fdfd-4d75-8c0b-3c68f3171643/widget-test/feedback","status":401,"dur":0.00002735,"ip":"172.24.0.1","ua":"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0"}
+```
+- Add logging to pinguin, it is currently silent even in DEBUG mode on whether a message was received or not.
+```
+pinguin  | time=2025-11-01T05:26:09.356Z level=INFO msg="Starting gRPC Notification Server on :50051"
+pinguin  | time=2025-11-01T05:26:09.356Z level=INFO msg="Initializing SQLite DB" path=/app/data/pinguin.db
+pinguin  | time=2025-11-01T05:26:09.358Z level=WARN msg="SMS notifications disabled: missing Twilio credentials"
+pinguin  | time=2025-11-01T05:26:09.358Z level=INFO msg="Starting retry worker" base_interval_sec=30 max_retries=3
+pinguin  | time=2025-11-01T05:26:09.358Z level=INFO msg="gRPC server listening on :50051"
+```
 
 ## Maintenance (400-499)
 
