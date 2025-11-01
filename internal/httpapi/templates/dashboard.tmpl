@@ -628,17 +628,14 @@
           function recordSessionActivity(options) {
             var allowPromptDismiss = !!(options && options.allowPromptDismiss === true);
             var shouldUpdateTimestamp = !(options && options.updateTimestamp === false);
+            if (shouldUpdateTimestamp) {
+              idleState.lastActivityTimestamp = Date.now();
+            }
             if (idleState.promptVisible) {
               if (allowPromptDismiss) {
-                if (shouldUpdateTimestamp) {
-                  idleState.lastActivityTimestamp = Date.now();
-                }
                 hidePrompt();
               }
               return;
-            }
-            if (shouldUpdateTimestamp) {
-              idleState.lastActivityTimestamp = Date.now();
             }
           }
 
