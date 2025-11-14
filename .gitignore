@@ -7,3 +7,5 @@
 PLAN.md
 tools/
 tests/
+# Managed by gix gitignore workflow
+bin/
