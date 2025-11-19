@@ -276,12 +276,14 @@ func (handlers *SiteWidgetTestHandlers) resolveWidgetScriptURL(request *http.Req
 		}
 
 		forwardedProto := strings.TrimSpace(request.Header.Get("X-Forwarded-Proto"))
-		if strings.EqualFold(forwardedProto, "https") {
+		primaryForwardedProto, _, _ := strings.Cut(forwardedProto, ",")
+
+		switch {
+		case request.TLS != nil:
 			scheme = "https"
-		}
-		if request.TLS != nil {
+		case strings.EqualFold(strings.TrimSpace(primaryForwardedProto), "https"):
 			scheme = "https"
-		} else if request.URL != nil && request.URL.Scheme != "" {
+		case request.URL != nil && request.URL.Scheme != "":
 			scheme = strings.ToLower(request.URL.Scheme)
 		}
 	}
