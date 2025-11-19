@@ -1,138 +1,21 @@
-# ISSUES (Append-only Log)
+# ISSUES
+**Append-only section-based log**
 
 Entries record newly discovered requests or changes, with their outcomes. No instructive content lives here. Read @NOTES.md for the process to follow when fixing issues.
 
-## Features (100-199)
+Read @AGENTS.md, @AGENTS.DOCKER.md, @AGENTS.FRONTEND.md, @AGENTS.GIT.md, @POLICY.md, @NOTES.md, @README.md and @ISSUES.md. Start working on open issues. Work autonomously and stack up PRs.
 
-- [x] [LA-100] Add settings menu item under the avatar dropdown. Settings is a full screen modal over the page, clicking outside of the settings modal dismisses it — dashboard/widget templates now include settings modal with bootstrap-driven dismissal and integration coverage (go test ./internal/httpapi -run TestDashboardSettingsModalOpensAndDismissesViaBackdrop -count=1).
-- [x] [LA-101] Add auto logout configuration to settings menu: Auto logout enabled/disabled. If enabled, have fields to enter time for showing notification and for the logout (default to 60 and 120 seconds). Settings modal now surfaces the toggle and configurable durations persisted locally; idle manager reconfigures on change with integration coverage (go test ./internal/httpapi -run TestDashboardSettingsAutoLogoutConfiguration -count=1).
+Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes -` [x] [LA-<number>]`
+
+## Features (100-199)
 
 ## Improvements (200-299)
 
-- [x] [LA-201] Move theme switch to the footer, on the left of Built by Marco Polo — toggle now renders beside the Built by prefix within the footer (go test ./...)
-- [x] [LA-200] Integrate with Pinguin service. Find the code under @tools/pinguin. Read documentation and understand the code.
-      Aceptance criteria are integration tests that verify:
-  - When a feedback is received, send a message to the owner (not the registar).
-  - Have a column in the feedback messages table titled Delivery with values either "mailed" or "texted" or "no"
-  - Docker orchestration of both penguin and loopaware services
-  - Updated technical documentation
-    The tests must confirm the cotract fulfillment at the boundaries (message sent and it matches expected payload, message received).
-    In case bugs are discovered in Pinguin, or enhancements are needed in Pinguin, document them as an issue, and stop working before we fix Pinguin.
-- [x] [LA-202] Implement a footer as an alpine component. Ensure that the component accepts styling parameters from the outside. Place the components in MarcoPoloResearchLab/mpr-ui (the repo is under @tools/mpr-ui). Load the footer from the GitHub CDN. Perform changes in @tools/mpr-ui.
-      The component shall have
-  1. Privacy Terms
-  2. Light/Dark theme toggle
-  3. Build by Marco Polo Research Lab drop up (pointing up)
-  4. Each item in the Build by Marco Polo Research Lab shall have links opening a new page.
-- [x] [LA-203] Remove the theme switch from a user menu under the avatar.
-  1. Use the same alpine ui footer component as other pages (but style it with current color palette used in dashboard)
-  2. Remove user's specific light/dark theme switch
-- [x] [LA-204] Make clicking on a favicon of a site open a site itself in a new window — favicon interaction now opens the allowed origin in a new tab with keyboard support; integration test captures window.open calls (go test ./...).
-- [x] [LA-205] Make the bottom offset dialog move by the widget position vy 10 pixels when controls are used and allow to manually enter pixel precision
-- [x] [LA-206] Clicking Save placement shall be closing return to the dashboard.
-- [x] [LA-207] Shorten the field for bottom offset (px) so that ![input](image.png) is 3x shorter (leave the +/- buttons) on the dashboard page
-- [x] [LA-208] Move the bottof offset to the second column ![alt text](image-1.png) on the preview page
-
 ## BugFixes (300-399)
 
-- [x] [LA-300] When logged in with the dark theme the dashboard theme is light, when logged in from the light theme, the dashboard theme is dar, find the bug and fix it
-- [x] [LA-301] The logout functionality behaviour: display a message after 60 seconds of inactivity. The message should match the theme of the page. Log out after 120 seconds of inactivity (same as +60 seconds since being displayed) — synthetic DOM events no longer reset the idle timer, so the prompt stays visible and the 60/120-second flow holds; regression covers the prompt under synthetic activity (go test ./...).
-- [x] [LA-302] LoopAware server exits at startup complaining about missing `pinguin-auth-token` even when running with default docker compose. Resolved by requiring environment-provided bearer token and mirroring `GRPC_AUTH_TOKEN` fallback (go test ./...).
-- [x] [LA-301] Ensure that feedback is being sent the very moment it has been received without utilizing a scheduling feature. Do not pass any time for the scheduling time in order to mail the feedback immididatley — Pinguin now ignores scheduled timestamps and dispatches notifications immediately; model and service tests enforce immediate mailing (go test ./..., go test ./tools/pinguin/...).
-- [x] [LA-302] Logout dialog is getting dismissed on a mouse move. That is incorrect, once shown, the mouse movement shall not dismiss it — session timeout manager now ignores generic activity when the banner is visible; coverage via go test ./internal/httpapi -run 'TestDashboardSessionTimeout(.*)' -count=1.
-- [x] [LA-303] Site preview shows the Widget test in the light theme despite the rest of the site and theme toggle being in the dark theme. Use the same theme on the widget test as selected.
-- [x] [LA-304] Investigate the send failure from the test page: loopaware  | {"level":"info","ts":1761935043.4114969,"caller":"httpapi/middleware.go:14","msg":"http","method":"POST","path":"/app/sites/e0021c61-fdfd-4d75-8c0b-3c68f3171643/widget-test/feedback","status":401,"dur":0.00002919,"ip":"172.24.0.1","ua":"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0"}. Notice that it is sufficient not to send the timestamp to pinguin for pinguin to schedule an immediate delivery. @tools/pinguin master is the source of truth on how the pinguin service works — widget test fetch now uses same-origin credentials so the dashboard session cookie authenticates the request; integration confirms a successful 200 (go test ./internal/httpapi -run 'TestWidgetTestFeedbackSubmissionSucceeds' -count=1).
-- [x] [LA-305] Clicking Save widget didnt save the new placement of the widget — widget test/dash harness now persists fetch captures across redirects so placement PATCHes succeed; integration tests cover both flows (go test ./internal/httpapi).
-- [x] [LA-306] The notification is never sent ![alt text](image-2.png) from the test screen. investigate why pinguin never sends the notification. @tools/pinguin. The screen correctly shows the failure but the logs are deceptive
-```
-loopaware  | {"level":"info","ts":1761975081.2388723,"caller":"httpapi/middleware.go:14","msg":"http","method":"POST","path":"/app/sites/e0021c61-fdfd-4d75-8c0b-3c68f3171643/widget-test/feedback","status":401,"dur":0.00002735,"ip":"172.24.0.1","ua":"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0"}
-```
-- Add logging to pinguin, it is currently silent even in DEBUG mode on whether a message was received or not.
-```
-pinguin  | time=2025-11-01T05:26:09.356Z level=INFO msg="Starting gRPC Notification Server on :50051"
-pinguin  | time=2025-11-01T05:26:09.356Z level=INFO msg="Initializing SQLite DB" path=/app/data/pinguin.db
-pinguin  | time=2025-11-01T05:26:09.358Z level=WARN msg="SMS notifications disabled: missing Twilio credentials"
-pinguin  | time=2025-11-01T05:26:09.358Z level=INFO msg="Starting retry worker" base_interval_sec=30 max_retries=3
-pinguin  | time=2025-11-01T05:26:09.358Z level=INFO msg="gRPC server listening on :50051"
-```
+- [ ] [LA-307] when going to the test page of a widget in production, there is no widget displayed.
 
 ## Maintenance (400-499)
 
-- [x] [LA-400] Add a Makefile with the relevant commands, such as backend and front end testing, docker up etc. Use make commands in Github workflows. Here is one for inspiration
-```
-GO_SOURCES := $(shell find . -name '*.go' -not -path "./vendor/*" -not -path "./.git/*" -not -path "*/.git/*")
-UNIT_PACKAGES := $(shell go list ./... | grep -v '/tests$$')
-RELEASE_TARGETS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
-RELEASE_DIRECTORY := dist
-RELEASE_BINARY_NAME := gix
-STATICCHECK_MODULE := honnef.co/go/tools/cmd/staticcheck@master
-INEFFASSIGN_MODULE := github.com/gordonklaus/ineffassign@latest
-
-.PHONY: format check-format lint test test-unit test-integration build release ci
-
-format:
-	gofmt -w $(GO_SOURCES)
-
-check-format:
-	@formatted_files="$$(gofmt -l $(GO_SOURCES))"; \
-	if [ -n "$$formatted_files" ]; then \
-		echo "Go files require formatting:"; \
-		echo "$$formatted_files"; \
-		exit 1; \
-	fi
-
-lint:
-	go vet ./...
-	go run $(STATICCHECK_MODULE) ./...
-	go run $(INEFFASSIGN_MODULE) ./...
-
-test-unit:
-	go test $(UNIT_PACKAGES)
-
-test-integration:
-	go test ./tests
-
-test: test-unit test-integration
-
-build:
-	mkdir -p bin
-	go build -o bin/gix .
-
-release:
-	rm -rf $(RELEASE_DIRECTORY)
-	mkdir -p $(RELEASE_DIRECTORY)
-	for target in $(RELEASE_TARGETS); do \
-		os=$${target%/*}; \
-		arch=$${target#*/}; \
-		output_path=$(RELEASE_DIRECTORY)/$(RELEASE_BINARY_NAME)-$$os-$$arch; \
-		echo "Building $$output_path"; \
-		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -o $$output_path .; \
-	done
-
-ci: check-format lint test
-```
-
-## Planning (do not work on these, not ready)
-
-- [x] [LA-300] Dashboard theme now honors the latest public selection; regression integration test ensures public preference overrides stale dashboard storage (go test ./...).
-
-## Resolution Log
-
-- [x] [LA-400] Added repository Makefile with lint/test/docker targets and updated CI workflow to invoke `make ci` for module verification, vetting, race tests, and Pinguin coverage.
-- [x] [LA-207] Dashboard widget bottom offset input now renders with a compact width class to keep the controls tight; template regression asserts the class (go test ./internal/httpapi).
-- [x] [LA-208] Widget test placement controls now render in a two-column layout, keeping bubble placement and bottom offset side by side; template regression covers the new grid classes (go test ./internal/httpapi).
-- [x] [LA-306] Widget test feedback submissions now invoke the notifier, persist delivery, and Pinguin logs request receipt/outcome; coverage via go test ./internal/httpapi and (cd tools/pinguin && go test ./...).
-- [x] [LA-300] Dashboard theme now honors the latest public selection; regression integration test ensures public preference overrides stale dashboard storage (go test ./...).
-- [x] [LA-201] Theme switch now lives in the footer beside the Built by Marco Polo branding; public landing/privacy tests enforce placement (go test ./...).
-- [x] [LA-200] Added Pinguin-backed notifications for feedback submissions and surfaced delivery statuses across API and dashboard (go test ./...).
-- [x] [LA-202] Footer now rendered by shared Alpine component from mpr-ui; templates load CDN module and tests confirm config payload & markup (go test ./...).
-- [x] [LA-203] Dashboard theme switch removed from avatar menu; footer toggle drives persistence and integration tests click the new footer control (go test ./...).
-- [x] [LA-204] Dashboard site list favicons now open the allowed origin in a new tab with keyboard activation; regression test verifies window.open is invoked (go test ./...).
-- [x] [LA-206] Widget test Save placement now redirects back to the dashboard and the updated offset persists; coverage via go test ./internal/httpapi -run 'TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist|TestWidgetTestBottomOffsetControlsAdjustPreviewAndPersist' -count=1.
-- [x] [LA-303] Widget test now adopts the dashboard-selected theme by syncing stored preferences before bootstrap loads; integration asserts body classes track dark/light toggles (go test ./internal/httpapi -run 'TestWidgetTestPageUsesDashboardChrome' -count=1).
-- [x] [LA-205] Bottom offset controls now step by 10px via buttons and keyboard while accepting manual input; dashboard/widget tests cover UI wiring and persistence (go test ./internal/httpapi -run 'TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist|TestWidgetTestBottomOffsetControlsAdjustPreviewAndPersist' -count=1).
-- [x] [LA-305] Widget and dashboard placement saves now persist placement metadata; fetch intercept storage updates unblock the new persistence regressions (go test ./internal/httpapi -run 'TestWidgetTestPlacementSavePersists|TestDashboardWidgetPlacementSavePersists' -count=1).
-- [x] [LA-301] Idle prompt now ignores synthetic document events so inactivity still triggers the 60/120-second warning and logout path; browser test dispatches an untrusted mousemove to confirm the banner remains visible (go test ./...).
-- [x] [LA-301] Pinguin notification scheduling disabled so feedback mailers send immediately; service/model regressions assert scheduled timestamps are cleared and retries run without delays (go test ./..., go test ./tools/pinguin/...).
-- [x] [LA-101] Auto logout controls now live in the settings modal with persisted durations and test coverage for disabling and customizing the idle timers (go test ./internal/httpapi -run TestDashboardSettingsAutoLogoutConfiguration -count=1).
-- [x] [LA-100] Dashboard header exposes Settings modal with overlay dismissal; integration test ensures modal hides via bootstrap instance (go test ./internal/httpapi -run TestDashboardSettingsModalOpensAndDismissesViaBackdrop -count=1).
+## Planning 
+**Do not work on these, not ready**
