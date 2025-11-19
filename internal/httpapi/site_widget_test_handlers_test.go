@@ -3,7 +3,9 @@ package httpapi_test
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -40,6 +42,8 @@ func TestRenderWidgetTestPage(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/app/sites/"+site.ID+"/widget-test", nil)
+	request.Host = "widget-preview.test"
+	request.TLS = &tls.ConnectionState{}
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = request
 	context.Params = gin.Params{{Key: "id", Value: site.ID}}
@@ -63,6 +67,7 @@ func TestRenderWidgetTestPage(t *testing.T) {
 	require.Contains(t, body, "data-mpr-footer=\"theme-toggle-input\"")
 	require.Contains(t, body, "id=\"logout-button\"")
 	require.Contains(t, body, "id=\"dashboard-footer\"")
+	require.Contains(t, body, fmt.Sprintf(`src="https://%s/widget.js?site_id=%s"`, request.Host, site.ID))
 }
 
 func TestSubmitWidgetTestFeedback(t *testing.T) {

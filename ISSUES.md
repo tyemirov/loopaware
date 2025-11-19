@@ -13,7 +13,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes -` [x
 
 ## BugFixes (300-399)
 
-- [ ] [LA-307] when going to the test page of a widget in production, there is no widget displayed.
+- [x] [LA-307] widget test page now uses the current request origin for widget.js so the preview widget renders even when the configured public base URL points elsewhere; added coverage.
 
 ## Maintenance (400-499)
 

@@ -115,10 +115,7 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 	}
 
 	ensureWidgetBubblePlacementDefaults(&site)
-	widgetScriptURL := "/widget.js?site_id=" + url.QueryEscape(site.ID)
-	if handlers.widgetBaseURL != "" {
-		widgetScriptURL = handlers.widgetBaseURL + "/widget.js?site_id=" + url.QueryEscape(site.ID)
-	}
+	widgetScriptURL := handlers.resolveWidgetScriptURL(context.Request, site.ID)
 	headerData := dashboardHeaderTemplateData{
 		PageTitle:                    dashboardPageTitle,
 		HeaderLogoDataURI:            landingLogoDataURI,
@@ -259,4 +256,43 @@ func formatWidgetPlacementSide(value string) string {
 	default:
 		return "Right"
 	}
+}
+
+func (handlers *SiteWidgetTestHandlers) resolveWidgetScriptURL(request *http.Request, siteID string) string {
+	trimmedSiteID := strings.TrimSpace(siteID)
+	if trimmedSiteID == "" {
+		return ""
+	}
+	escapedSiteID := url.QueryEscape(trimmedSiteID)
+	pathWithQuery := "/widget.js?site_id=" + escapedSiteID
+
+	var host string
+	scheme := "http"
+
+	if request != nil {
+		host = strings.TrimSpace(request.Host)
+		if host == "" && request.URL != nil {
+			host = strings.TrimSpace(request.URL.Host)
+		}
+
+		forwardedProto := strings.TrimSpace(request.Header.Get("X-Forwarded-Proto"))
+		if strings.EqualFold(forwardedProto, "https") {
+			scheme = "https"
+		}
+		if request.TLS != nil {
+			scheme = "https"
+		} else if request.URL != nil && request.URL.Scheme != "" {
+			scheme = strings.ToLower(request.URL.Scheme)
+		}
+	}
+
+	if host != "" {
+		return scheme + "://" + host + pathWithQuery
+	}
+
+	if handlers.widgetBaseURL != "" {
+		return handlers.widgetBaseURL + pathWithQuery
+	}
+
+	return pathWithQuery
 }
