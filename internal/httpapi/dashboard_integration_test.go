@@ -973,13 +973,6 @@ func TestWidgetTestFeedbackSubmissionSucceeds(t *testing.T) {
 	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameLoad)
 	require.NoError(t, page.Navigate(widgetTestURL))
 	waitNavigation()
-	widgetScriptURL := fmt.Sprintf("%s/widget.js?site_id=%s", harness.baseURL, site.ID)
-	evaluateScriptInto(t, page, fmt.Sprintf(`(function(src){
-	  var script = document.createElement('script');
-	  script.defer = true;
-	  script.src = src;
-	  document.head.appendChild(script);
-})(%q)`, widgetScriptURL), nil)
 
 	waitForVisibleElement(t, page, widgetBubbleSelector)
 	clickSelector(t, page, widgetBubbleSelector)
