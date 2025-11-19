@@ -7,3 +7,7 @@
 PLAN.md
 tools/
 tests/
+# Managed by gix gitignore workflow
+.env.*
+qodana.yaml
+bin/
