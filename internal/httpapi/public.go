@@ -185,6 +185,53 @@ func (h *PublicHandlers) WidgetJS(context *gin.Context) {
 	context.Data(200, "application/javascript; charset=utf-8", []byte(script))
 }
 
+func (h *PublicHandlers) SubscribeJS(context *gin.Context) {
+	siteID := strings.TrimSpace(context.Query("site_id"))
+	if siteID == "" {
+		siteID = strings.TrimSpace(context.GetHeader("X-Site-Id"))
+	}
+	if siteID == "" {
+		context.String(http.StatusBadRequest, "/* missing site_id */")
+		return
+	}
+
+	var site model.Site
+	if err := h.database.First(&site, "id = ?", siteID).Error; err != nil {
+		context.String(http.StatusNotFound, "/* unknown site */")
+		return
+	}
+
+	script, tplErr := renderSubscribeTemplate(site)
+	if tplErr != nil {
+		context.String(http.StatusInternalServerError, "/* render error */")
+		return
+	}
+
+	context.Data(http.StatusOK, "application/javascript; charset=utf-8", []byte(script))
+}
+
+func (h *PublicHandlers) SubscribeDemo(context *gin.Context) {
+	siteID := strings.TrimSpace(context.Query("site_id"))
+	if siteID == "" {
+		context.String(http.StatusBadRequest, "missing site_id")
+		return
+	}
+
+	var site model.Site
+	if err := h.database.First(&site, "id = ?", siteID).Error; err != nil {
+		context.String(http.StatusNotFound, "unknown site")
+		return
+	}
+
+	var buffer bytes.Buffer
+	if err := subscribeDemoTemplate.Execute(&buffer, map[string]any{"SiteID": site.ID}); err != nil {
+		context.String(http.StatusInternalServerError, "render error")
+		return
+	}
+
+	context.Data(http.StatusOK, "text/html; charset=utf-8", buffer.Bytes())
+}
+
 func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 	clientIP := context.ClientIP()
 	if h.isRateLimited(clientIP) {
@@ -397,6 +444,17 @@ func renderWidgetTemplate(site model.Site) (string, error) {
 	})
 	if executeErr != nil {
 		return "", fmt.Errorf("render widget template: %w", executeErr)
+	}
+	return buffer.String(), nil
+}
+
+func renderSubscribeTemplate(site model.Site) (string, error) {
+	var buffer bytes.Buffer
+	executeErr := subscribeJavaScriptTemplate.Execute(&buffer, map[string]any{
+		"SiteID": site.ID,
+	})
+	if executeErr != nil {
+		return "", fmt.Errorf("render subscribe template: %w", executeErr)
 	}
 	return buffer.String(), nil
 }

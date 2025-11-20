@@ -54,6 +54,8 @@ func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier) api
 	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
 	router.POST("/api/subscriptions/unsubscribe", publicHandlers.Unsubscribe)
 	router.GET("/widget.js", publicHandlers.WidgetJS)
+	router.GET("/subscribe.js", publicHandlers.SubscribeJS)
+	router.GET("/subscribe-demo", publicHandlers.SubscribeDemo)
 
 	testingT.Cleanup(feedbackBroadcaster.Close)
 
