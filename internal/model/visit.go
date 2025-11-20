@@ -36,7 +36,7 @@ type SiteVisit struct {
 	UserAgent  string    `gorm:"size:400"`
 	Referrer   string    `gorm:"size:500"`
 	Status     string    `gorm:"size:20"`
-	OccurredAt time.Time `gorm:"autoCreateTime"`
+	OccurredAt time.Time `gorm:"not null;index"`
 }
 
 // SiteVisitInput holds incoming visit data.
