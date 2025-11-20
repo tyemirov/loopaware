@@ -1243,6 +1243,62 @@ func TestUpdateSubscriberStatus(testingT *testing.T) {
 	require.Equal(testingT, model.SubscriberStatusUnsubscribed, refreshed.Status)
 }
 
+func TestVisitStatsRequiresAuth(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
+	siteHandlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	router.GET("/api/sites/:id/visits/stats", func(context *gin.Context) {
+		siteHandlers.VisitStats(context)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sites/123/visits/stats", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(testingT, http.StatusUnauthorized, rec.Code)
+}
+
+func TestVisitStatsReturnsCounts(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	site := model.Site{ID: storage.NewID(), Name: "Stats", AllowedOrigin: "http://example.com", OwnerEmail: testAdminEmailAddress, CreatorEmail: testAdminEmailAddress}
+	require.NoError(testingT, database.Create(&site).Error)
+	visit, _ := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://example.com/page",
+		VisitorID: storage.NewID(),
+	})
+	require.NoError(testingT, database.Create(&visit).Error)
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
+	siteHandlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	router.GET("/api/sites/:id/visits/stats", func(context *gin.Context) {
+		context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+		siteHandlers.VisitStats(context)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sites/"+site.ID+"/visits/stats", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(testingT, http.StatusOK, rec.Code)
+	var payload httpapi.VisitStatsResponse
+	require.NoError(testingT, json.Unmarshal(rec.Body.Bytes(), &payload))
+	require.Equal(testingT, int64(1), payload.VisitCount)
+	require.Equal(testingT, int64(1), payload.UniqueVisitorCount)
+}
+
 func newJSONContext(method string, path string, body any) (*httptest.ResponseRecorder, *gin.Context) {
 	recorder := httptest.NewRecorder()
 	var requestBody *bytes.Reader

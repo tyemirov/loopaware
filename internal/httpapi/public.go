@@ -478,3 +478,33 @@ func renderSubscribeTemplate(site model.Site) (string, error) {
 	}
 	return buffer.String(), nil
 }
+
+func renderPixelTemplate(site model.Site) (string, error) {
+	var buffer bytes.Buffer
+	executeErr := pixelJavaScriptTemplate.Execute(&buffer, map[string]any{
+		"SiteID": site.ID,
+	})
+	if executeErr != nil {
+		return "", fmt.Errorf("render pixel template: %w", executeErr)
+	}
+	return buffer.String(), nil
+}
+
+func (h *PublicHandlers) PixelJS(context *gin.Context) {
+	siteID := strings.TrimSpace(context.Query("site_id"))
+	if siteID == "" {
+		context.String(http.StatusBadRequest, "/* missing site_id */")
+		return
+	}
+	var site model.Site
+	if err := h.database.First(&site, "id = ?", siteID).Error; err != nil {
+		context.String(http.StatusNotFound, "/* unknown site */")
+		return
+	}
+	script, tplErr := renderPixelTemplate(site)
+	if tplErr != nil {
+		context.String(http.StatusInternalServerError, "/* render error */")
+		return
+	}
+	context.Data(http.StatusOK, "application/javascript; charset=utf-8", []byte(script))
+}
