@@ -27,92 +27,106 @@ import (
 )
 
 const (
-	commandUseName                   = "server"
-	commandShortDescription          = "Run the feedback server"
-	commandLongDescription           = "Launch the feedback collection HTTP server"
-	missingConfigurationMessage      = "missing required configuration"
-	loggerCreationErrorMessage       = "logger"
-	logEventListening                = "listening"
-	logFieldAddress                  = "addr"
-	flagNameConfigFile               = "config"
-	flagNameApplicationAddress       = "app-addr"
-	flagNameDatabaseDriver           = "db-driver"
-	flagNameDatabaseDataSourceName   = "db-dsn"
-	flagNameGoogleClientID           = "google-client-id"
-	flagNameGoogleClientSecret       = "google-client-secret"
-	flagNameSessionSecret            = "session-secret"
-	flagNamePublicBaseURL            = "public-base-url"
-	flagNamePinguinAddress           = "pinguin-addr"
-	flagNamePinguinAuthToken         = "pinguin-auth-token"
-	flagNamePinguinConnectionTimeout = "pinguin-conn-timeout"
-	flagNamePinguinOperationTimeout  = "pinguin-op-timeout"
-	flagUsageConfigFile              = "path to configuration file"
-	flagUsageApplicationAddress      = "address for the HTTP server to listen on"
-	flagUsageDatabaseDriver          = "database driver (e.g. sqlite)"
-	flagUsageDatabaseDataSourceName  = "database connection string"
-	flagUsageGoogleClientID          = "Google OAuth client ID"
-	flagUsageGoogleClientSecret      = "Google OAuth client secret"
-	flagUsageSessionSecret           = "session secret for browser sessions"
-	flagUsagePublicBaseURL           = "public base URL for OAuth callbacks"
-	flagUsagePinguinAddress          = "Pinguin gRPC server address"
-	flagUsagePinguinAuthToken        = "Pinguin bearer auth token"
-	flagUsagePinguinConnTimeout      = "Pinguin connection timeout in seconds"
-	flagUsagePinguinOpTimeout        = "Pinguin operation timeout in seconds"
-	environmentKeyApplicationAddress = "APP_ADDR"
-	environmentKeyDatabaseDriverName = "DB_DRIVER"
-	environmentKeyDatabaseDataSource = "DB_DSN"
-	environmentKeyAdmins             = "ADMINS"
-	environmentKeyGoogleClientID     = "GOOGLE_CLIENT_ID"
-	environmentKeyGoogleClientSecret = "GOOGLE_CLIENT_SECRET"
-	environmentKeySessionSecret      = "SESSION_SECRET"
-	environmentKeyPublicBaseURL      = "PUBLIC_BASE_URL"
-	environmentKeyPinguinAddress     = "PINGUIN_ADDR"
-	environmentKeyPinguinAuthToken   = "PINGUIN_AUTH_TOKEN"
-	environmentKeyPinguinSharedAuth  = "GRPC_AUTH_TOKEN"
-	environmentKeyPinguinConnTimeout = "PINGUIN_CONNECTION_TIMEOUT_SEC"
-	environmentKeyPinguinOpTimeout   = "PINGUIN_OPERATION_TIMEOUT_SEC"
-	configurationKeyAdmins           = "admins"
-	defaultApplicationAddress        = ":8080"
-	sqliteFileDataSourceNamePattern  = "file:%s?_foreign_keys=on"
-	defaultSQLiteDatabaseFileName    = "loopaware.sqlite"
-	defaultConfigFileName            = "config.yaml"
-	defaultPublicBaseURL             = "http://localhost:8080"
-	defaultPinguinAddress            = "localhost:50051"
-	defaultPinguinConnTimeoutSeconds = 5
-	defaultPinguinOpTimeoutSeconds   = 30
-	publicRouteFeedback              = "/api/feedback"
-	publicRouteWidget                = "/widget.js"
-	landingRouteRoot                 = constants.LoginPath
-	dashboardRoute                   = "/app"
-	apiRoutePrefix                   = "/api"
-	apiRouteMe                       = "/me"
-	apiRouteMeAvatar                 = "/me/avatar"
-	apiRouteSites                    = "/sites"
-	apiRouteSiteUpdate               = "/sites/:id"
-	apiRouteSiteMessages             = "/sites/:id/messages"
-	apiRouteSiteFavicon              = "/sites/:id/favicon"
-	apiRouteSiteFaviconEvents        = "/sites/favicons/events"
-	apiRouteSiteFeedbackEvents       = "/sites/feedback/events"
-	corsOriginWildcard               = "*"
-	corsHeaderAuthorization          = "Authorization"
-	corsHeaderContentType            = "Content-Type"
-	httpMethodGet                    = "GET"
-	httpMethodOptions                = "OPTIONS"
-	httpMethodPost                   = "POST"
-	httpMethodPatch                  = "PATCH"
-	httpMethodDelete                 = "DELETE"
-	loggerContextOpenDatabase        = "open_db"
-	loggerContextAutoMigrate         = "migrate"
-	loggerContextServer              = "server"
-	loggerContextAuthService         = "auth_service"
-	readHeaderTimeoutSeconds         = 5
-	unexpectedArgumentsMessage       = "unexpected command arguments"
-	commandInitializationFailure     = "failed to configure command"
-	flagNotDefinedMessage            = "flag %s not defined"
-	environmentConfigurationError    = "failed to apply environment configuration"
-	configurationFileLoadError       = "failed to load configuration file"
-	administratorEmailSeparator      = ","
-	logMessageMissingAdministrators  = "running without administrators"
+	commandUseName                    = "server"
+	commandShortDescription           = "Run the feedback server"
+	commandLongDescription            = "Launch the feedback collection HTTP server"
+	missingConfigurationMessage       = "missing required configuration"
+	loggerCreationErrorMessage        = "logger"
+	logEventListening                 = "listening"
+	logFieldAddress                   = "addr"
+	flagNameConfigFile                = "config"
+	flagNameApplicationAddress        = "app-addr"
+	flagNameDatabaseDriver            = "db-driver"
+	flagNameDatabaseDataSourceName    = "db-dsn"
+	flagNameGoogleClientID            = "google-client-id"
+	flagNameGoogleClientSecret        = "google-client-secret"
+	flagNameSessionSecret             = "session-secret"
+	flagNameSubscriptionNotifications = "subscription-notifications"
+	flagNamePublicBaseURL             = "public-base-url"
+	flagNamePinguinAddress            = "pinguin-addr"
+	flagNamePinguinAuthToken          = "pinguin-auth-token"
+	flagNamePinguinConnectionTimeout  = "pinguin-conn-timeout"
+	flagNamePinguinOperationTimeout   = "pinguin-op-timeout"
+	flagUsageConfigFile               = "path to configuration file"
+	flagUsageApplicationAddress       = "address for the HTTP server to listen on"
+	flagUsageDatabaseDriver           = "database driver (e.g. sqlite)"
+	flagUsageDatabaseDataSourceName   = "database connection string"
+	flagUsageGoogleClientID           = "Google OAuth client ID"
+	flagUsageGoogleClientSecret       = "Google OAuth client secret"
+	flagUsageSessionSecret            = "session secret for browser sessions"
+	flagUsagePublicBaseURL            = "public base URL for OAuth callbacks"
+	flagUsagePinguinAddress           = "Pinguin gRPC server address"
+	flagUsagePinguinAuthToken         = "Pinguin bearer auth token"
+	flagUsagePinguinConnTimeout       = "Pinguin connection timeout in seconds"
+	flagUsagePinguinOpTimeout         = "Pinguin operation timeout in seconds"
+	flagUsageSubscriptionNotify       = "enable notifications for new subscriptions"
+	environmentKeyApplicationAddress  = "APP_ADDR"
+	environmentKeyDatabaseDriverName  = "DB_DRIVER"
+	environmentKeyDatabaseDataSource  = "DB_DSN"
+	environmentKeyAdmins              = "ADMINS"
+	environmentKeyGoogleClientID      = "GOOGLE_CLIENT_ID"
+	environmentKeyGoogleClientSecret  = "GOOGLE_CLIENT_SECRET"
+	environmentKeySessionSecret       = "SESSION_SECRET"
+	environmentKeyPublicBaseURL       = "PUBLIC_BASE_URL"
+	environmentKeyPinguinAddress      = "PINGUIN_ADDR"
+	environmentKeyPinguinAuthToken    = "PINGUIN_AUTH_TOKEN"
+	environmentKeyPinguinSharedAuth   = "GRPC_AUTH_TOKEN"
+	environmentKeyPinguinConnTimeout  = "PINGUIN_CONNECTION_TIMEOUT_SEC"
+	environmentKeyPinguinOpTimeout    = "PINGUIN_OPERATION_TIMEOUT_SEC"
+	environmentKeySubscriptionNotify  = "SUBSCRIPTION_NOTIFICATIONS"
+	configurationKeyAdmins            = "admins"
+	defaultApplicationAddress         = ":8080"
+	sqliteFileDataSourceNamePattern   = "file:%s?_foreign_keys=on"
+	defaultSQLiteDatabaseFileName     = "loopaware.sqlite"
+	defaultConfigFileName             = "config.yaml"
+	defaultPublicBaseURL              = "http://localhost:8080"
+	defaultPinguinAddress             = "localhost:50051"
+	defaultPinguinConnTimeoutSeconds  = 5
+	defaultPinguinOpTimeoutSeconds    = 30
+	defaultSubscriptionNotify         = true
+	publicRouteFeedback               = "/api/feedback"
+	publicRouteSubscription           = "/api/subscriptions"
+	publicRouteSubscriptionConfirm    = "/api/subscriptions/confirm"
+	publicRouteSubscriptionOptOut     = "/api/subscriptions/unsubscribe"
+	publicRouteSubscribeWidget        = "/subscribe.js"
+	publicRouteSubscribeDemo          = "/subscribe-demo"
+	publicRouteVisitPixel             = "/api/visits"
+	publicRouteWidget                 = "/widget.js"
+	landingRouteRoot                  = constants.LoginPath
+	dashboardRoute                    = "/app"
+	apiRoutePrefix                    = "/api"
+	apiRouteMe                        = "/me"
+	apiRouteMeAvatar                  = "/me/avatar"
+	apiRouteSites                     = "/sites"
+	apiRouteSiteUpdate                = "/sites/:id"
+	apiRouteSiteMessages              = "/sites/:id/messages"
+	apiRouteSiteVisitStats            = "/sites/:id/visits/stats"
+	apiRouteSiteSubscribers           = "/sites/:id/subscribers"
+	apiRouteSiteSubscriberUpdate      = "/sites/:id/subscribers/:subscriber_id"
+	apiRouteSiteSubscribersExport     = "/sites/:id/subscribers/export"
+	apiRouteSiteFavicon               = "/sites/:id/favicon"
+	apiRouteSiteFaviconEvents         = "/sites/favicons/events"
+	apiRouteSiteFeedbackEvents        = "/sites/feedback/events"
+	corsOriginWildcard                = "*"
+	corsHeaderAuthorization           = "Authorization"
+	corsHeaderContentType             = "Content-Type"
+	httpMethodGet                     = "GET"
+	httpMethodOptions                 = "OPTIONS"
+	httpMethodPost                    = "POST"
+	httpMethodPatch                   = "PATCH"
+	httpMethodDelete                  = "DELETE"
+	loggerContextOpenDatabase         = "open_db"
+	loggerContextAutoMigrate          = "migrate"
+	loggerContextServer               = "server"
+	loggerContextAuthService          = "auth_service"
+	readHeaderTimeoutSeconds          = 5
+	unexpectedArgumentsMessage        = "unexpected command arguments"
+	commandInitializationFailure      = "failed to configure command"
+	flagNotDefinedMessage             = "flag %s not defined"
+	environmentConfigurationError     = "failed to apply environment configuration"
+	configurationFileLoadError        = "failed to load configuration file"
+	administratorEmailSeparator       = ","
+	logMessageMissingAdministrators   = "running without administrators"
 )
 
 var (
@@ -126,19 +140,20 @@ var (
 
 // ServerConfig captures configuration needed to run the server.
 type ServerConfig struct {
-	ApplicationAddress     string
-	DatabaseDriverName     string
-	DatabaseDataSourceName string
-	AdminEmailAddresses    []string
-	GoogleClientID         string
-	GoogleClientSecret     string
-	SessionSecret          string
-	PublicBaseURL          string
-	ConfigFilePath         string
-	PinguinAddress         string
-	PinguinAuthToken       string
-	PinguinConnTimeoutSec  int
-	PinguinOpTimeoutSec    int
+	ApplicationAddress        string
+	DatabaseDriverName        string
+	DatabaseDataSourceName    string
+	AdminEmailAddresses       []string
+	GoogleClientID            string
+	GoogleClientSecret        string
+	SessionSecret             string
+	PublicBaseURL             string
+	ConfigFilePath            string
+	PinguinAddress            string
+	PinguinAuthToken          string
+	PinguinConnTimeoutSec     int
+	PinguinOpTimeoutSec       int
+	SubscriptionNotifications bool
 }
 
 // DatabaseOpener opens a database connection using the provided configuration.
@@ -193,6 +208,7 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	application.configurationLoader.SetDefault(environmentKeyPinguinConnTimeout, defaultPinguinConnTimeoutSeconds)
 	application.configurationLoader.SetDefault(environmentKeyPinguinOpTimeout, defaultPinguinOpTimeoutSeconds)
 	application.configurationLoader.SetDefault(environmentKeyPinguinSharedAuth, "")
+	application.configurationLoader.SetDefault(environmentKeySubscriptionNotify, defaultSubscriptionNotify)
 	application.configurationLoader.AutomaticEnv()
 
 	commandFlags := command.Flags()
@@ -208,6 +224,7 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	commandFlags.String(flagNamePinguinAuthToken, "", flagUsagePinguinAuthToken)
 	commandFlags.Int(flagNamePinguinConnectionTimeout, defaultPinguinConnTimeoutSeconds, flagUsagePinguinConnTimeout)
 	commandFlags.Int(flagNamePinguinOperationTimeout, defaultPinguinOpTimeoutSeconds, flagUsagePinguinOpTimeout)
+	commandFlags.Bool(flagNameSubscriptionNotifications, defaultSubscriptionNotify, flagUsageSubscriptionNotify)
 
 	if bindErr := application.bindFlag(commandFlags, environmentKeyApplicationAddress, flagNameApplicationAddress); bindErr != nil {
 		return bindErr
@@ -253,6 +270,10 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 		return bindErr
 	}
 
+	if bindErr := application.bindFlag(commandFlags, environmentKeySubscriptionNotify, flagNameSubscriptionNotifications); bindErr != nil {
+		return bindErr
+	}
+
 	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyApplicationAddress, flagNameApplicationAddress); environmentErr != nil {
 		return environmentErr
 	}
@@ -278,6 +299,10 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	}
 
 	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyPublicBaseURL, flagNamePublicBaseURL); environmentErr != nil {
+		return environmentErr
+	}
+
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeySubscriptionNotify, flagNameSubscriptionNotifications); environmentErr != nil {
 		return environmentErr
 	}
 
@@ -409,7 +434,11 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		logger.Fatal("pinguin_notifier", zap.Error(notifierErr))
 	}
 	defer pinguinNotifier.Close()
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, pinguinNotifier)
+	var subscriptionNotifier httpapi.SubscriptionNotifier
+	if serverConfig.SubscriptionNotifications {
+		subscriptionNotifier = pinguinNotifier
+	}
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, pinguinNotifier, subscriptionNotifier, serverConfig.SubscriptionNotifications)
 	faviconResolver := favicon.NewHTTPResolver(sharedHTTPClient, logger)
 	faviconService := favicon.NewService(faviconResolver)
 	faviconManager := httpapi.NewSiteFaviconManager(database, faviconService, logger)
@@ -435,7 +464,14 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	router.GET(httpapi.PrivacyPagePath, privacyHandlers.RenderPrivacyPage)
 	router.GET(httpapi.SitemapRoutePath, sitemapHandlers.RenderSitemap)
 	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
+	router.POST(publicRouteSubscription, publicHandlers.CreateSubscription)
+	router.POST(publicRouteSubscriptionConfirm, publicHandlers.ConfirmSubscription)
+	router.POST(publicRouteSubscriptionOptOut, publicHandlers.Unsubscribe)
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
+	router.GET(publicRouteSubscribeWidget, publicHandlers.SubscribeJS)
+	router.GET(publicRouteSubscribeDemo, publicHandlers.SubscribeDemo)
+	router.GET(publicRouteVisitPixel, publicHandlers.CollectVisit)
+	router.GET("/pixel.js", publicHandlers.PixelJS)
 	router.GET(dashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
 
 	authHandler := gin.WrapH(authMux)
@@ -453,9 +489,13 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	apiGroup.PATCH(apiRouteSiteUpdate, siteHandlers.UpdateSite)
 	apiGroup.DELETE(apiRouteSiteUpdate, siteHandlers.DeleteSite)
 	apiGroup.GET(apiRouteSiteMessages, siteHandlers.ListMessagesBySite)
+	apiGroup.GET(apiRouteSiteSubscribers, siteHandlers.ListSubscribers)
+	apiGroup.GET(apiRouteSiteSubscribersExport, siteHandlers.ExportSubscribers)
+	apiGroup.PATCH(apiRouteSiteSubscriberUpdate, siteHandlers.UpdateSubscriberStatus)
 	apiGroup.GET(apiRouteSiteFavicon, siteHandlers.SiteFavicon)
 	apiGroup.GET(apiRouteSiteFaviconEvents, siteHandlers.StreamFaviconUpdates)
 	apiGroup.GET(apiRouteSiteFeedbackEvents, siteHandlers.StreamFeedbackUpdates)
+	apiGroup.GET(apiRouteSiteVisitStats, siteHandlers.VisitStats)
 
 	httpServer := &http.Server{
 		Addr:              serverConfig.ApplicationAddress,
@@ -495,19 +535,20 @@ func (application *ServerApplication) loadServerConfig(configFilePath string) (S
 	}
 
 	serverConfig := ServerConfig{
-		ApplicationAddress:     application.configurationLoader.GetString(environmentKeyApplicationAddress),
-		DatabaseDriverName:     strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDriverName)),
-		DatabaseDataSourceName: strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDataSource)),
-		AdminEmailAddresses:    administratorEmails,
-		GoogleClientID:         strings.TrimSpace(application.configurationLoader.GetString(environmentKeyGoogleClientID)),
-		GoogleClientSecret:     strings.TrimSpace(application.configurationLoader.GetString(environmentKeyGoogleClientSecret)),
-		SessionSecret:          strings.TrimSpace(application.configurationLoader.GetString(environmentKeySessionSecret)),
-		PublicBaseURL:          strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPublicBaseURL)),
-		ConfigFilePath:         trimmedConfigPath,
-		PinguinAddress:         strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinAddress)),
-		PinguinAuthToken:       strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinAuthToken)),
-		PinguinConnTimeoutSec:  application.configurationLoader.GetInt(environmentKeyPinguinConnTimeout),
-		PinguinOpTimeoutSec:    application.configurationLoader.GetInt(environmentKeyPinguinOpTimeout),
+		ApplicationAddress:        application.configurationLoader.GetString(environmentKeyApplicationAddress),
+		DatabaseDriverName:        strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDriverName)),
+		DatabaseDataSourceName:    strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDataSource)),
+		AdminEmailAddresses:       administratorEmails,
+		GoogleClientID:            strings.TrimSpace(application.configurationLoader.GetString(environmentKeyGoogleClientID)),
+		GoogleClientSecret:        strings.TrimSpace(application.configurationLoader.GetString(environmentKeyGoogleClientSecret)),
+		SessionSecret:             strings.TrimSpace(application.configurationLoader.GetString(environmentKeySessionSecret)),
+		PublicBaseURL:             strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPublicBaseURL)),
+		ConfigFilePath:            trimmedConfigPath,
+		PinguinAddress:            strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinAddress)),
+		PinguinAuthToken:          strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinAuthToken)),
+		PinguinConnTimeoutSec:     application.configurationLoader.GetInt(environmentKeyPinguinConnTimeout),
+		PinguinOpTimeoutSec:       application.configurationLoader.GetInt(environmentKeyPinguinOpTimeout),
+		SubscriptionNotifications: application.configurationLoader.GetBool(environmentKeySubscriptionNotify),
 	}
 
 	if serverConfig.PinguinAuthToken == "" {

@@ -127,6 +127,60 @@ func (notifier *PinguinNotifier) NotifyFeedback(ctx context.Context, site model.
 	return delivery, nil
 }
 
+// NotifySubscription sends a notification describing the subscription.
+func (notifier *PinguinNotifier) NotifySubscription(ctx context.Context, site model.Site, subscriber model.Subscriber) error {
+	if notifier == nil || notifier.client == nil {
+		return errors.New("pinguin notifier not initialized")
+	}
+
+	notificationType, recipient, delivery, deliveryErr := determineRecipient(site.OwnerEmail)
+	if deliveryErr != nil {
+		return deliveryErr
+	}
+
+	subject := fmt.Sprintf("New subscriber for %s", strings.TrimSpace(site.Name))
+	messageBuilder := &strings.Builder{}
+	_, _ = fmt.Fprintf(messageBuilder, "A new subscriber joined %s.\n\n", strings.TrimSpace(site.Name))
+	if subscriber.Email != "" {
+		_, _ = fmt.Fprintf(messageBuilder, "Email: %s\n", strings.TrimSpace(subscriber.Email))
+	}
+	if subscriber.Name != "" {
+		_, _ = fmt.Fprintf(messageBuilder, "Name: %s\n", strings.TrimSpace(subscriber.Name))
+	}
+	if subscriber.SourceURL != "" {
+		_, _ = fmt.Fprintf(messageBuilder, "Source: %s\n", strings.TrimSpace(subscriber.SourceURL))
+	}
+
+	request := &pinguinpb.NotificationRequest{
+		NotificationType: notificationType,
+		Recipient:        recipient,
+		Subject:          subject,
+		Message:          messageBuilder.String(),
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, notifier.operationTimeout)
+	defer cancel()
+	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken)
+
+	response, sendErr := notifier.client.SendNotification(callCtx, request)
+	if sendErr != nil {
+		notifier.logger.Warn("pinguin_send_failed", zap.Error(sendErr), zap.String("site_id", site.ID), zap.String("subscriber_id", subscriber.ID))
+		return sendErr
+	}
+
+	if response.GetStatus() == pinguinpb.Status_FAILED {
+		err := fmt.Errorf("notification failed with status %s", response.GetStatus().String())
+		notifier.logger.Warn("pinguin_send_failed_status", zap.Error(err), zap.String("site_id", site.ID), zap.String("subscriber_id", subscriber.ID))
+		return err
+	}
+
+	if delivery == model.FeedbackDeliveryNone {
+		return nil
+	}
+
+	return nil
+}
+
 func determineRecipient(contact string) (pinguinpb.NotificationType, string, string, error) {
 	trimmed := strings.TrimSpace(contact)
 	if trimmed == "" {

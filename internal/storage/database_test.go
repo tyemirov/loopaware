@@ -24,6 +24,8 @@ const (
 	testMissingDataSourceDescription = "missing data source"
 	testOwnerEmailValue              = "owner@example.com"
 	testExistingCreatorEmail         = "existing@example.com"
+	testSubscriberEmailValue         = "subscriber@example.com"
+	testSubscriberNameValue          = "Test User"
 )
 
 func TestOpenDatabaseWithSQLiteConfiguration(t *testing.T) {
@@ -151,4 +153,50 @@ func TestOpenDatabaseValidation(t *testing.T) {
 			require.True(testingT, errors.Is(openErr, testCase.expectedRootError))
 		})
 	}
+}
+
+func TestSubscriberUniqueEmailPerSite(t *testing.T) {
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
+
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(t, openErr)
+	database = testutil.ConfigureDatabaseLogger(t, database)
+
+	require.NoError(t, storage.AutoMigrate(database))
+
+	firstSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Site One",
+		AllowedOrigin: testSiteAllowedOriginValue,
+	}
+	secondSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Site Two",
+		AllowedOrigin: testSiteAllowedOriginValue,
+	}
+	require.NoError(t, database.Create(&firstSite).Error)
+	require.NoError(t, database.Create(&secondSite).Error)
+
+	firstSubscriber, err := model.NewSubscriber(model.SubscriberInput{
+		SiteID: firstSite.ID,
+		Email:  testSubscriberEmailValue,
+		Name:   testSubscriberNameValue,
+	})
+	require.NoError(t, err)
+	require.NoError(t, database.Create(&firstSubscriber).Error)
+
+	duplicateSubscriber, err := model.NewSubscriber(model.SubscriberInput{
+		SiteID: firstSite.ID,
+		Email:  testSubscriberEmailValue,
+	})
+	require.NoError(t, err)
+	duplicateErr := database.Create(&duplicateSubscriber).Error
+	require.Error(t, duplicateErr)
+
+	otherSiteSubscriber, err := model.NewSubscriber(model.SubscriberInput{
+		SiteID: secondSite.ID,
+		Email:  testSubscriberEmailValue,
+	})
+	require.NoError(t, err)
+	require.NoError(t, database.Create(&otherSiteSubscriber).Error)
 }

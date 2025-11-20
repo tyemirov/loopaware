@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,20 +29,21 @@ const (
 	jsonKeyWidgetBubbleSide   = "widget_bubble_side"
 	jsonKeyWidgetBubbleOffset = "widget_bubble_bottom_offset"
 
-	errorValueInvalidJSON         = "invalid_json"
-	errorValueMissingFields       = "missing_fields"
-	errorValueSaveFailed          = "save_failed"
-	errorValueMissingSite         = "missing_site"
-	errorValueUnknownSite         = "unknown_site"
-	errorValueQueryFailed         = "query_failed"
-	errorValueNotAuthorized       = "not_authorized"
-	errorValueInvalidOwner        = "invalid_owner"
-	errorValueInvalidWidgetSide   = "invalid_widget_side"
-	errorValueInvalidWidgetOffset = "invalid_widget_offset"
-	errorValueNothingToUpdate     = "nothing_to_update"
-	errorValueDeleteFailed        = "delete_failed"
-	errorValueSiteExists          = "site_exists"
-	errorValueStreamUnavailable   = "stream_unavailable"
+	errorValueInvalidJSON             = "invalid_json"
+	errorValueMissingFields           = "missing_fields"
+	errorValueSaveFailed              = "save_failed"
+	errorValueMissingSite             = "missing_site"
+	errorValueUnknownSite             = "unknown_site"
+	errorValueQueryFailed             = "query_failed"
+	errorValueNotAuthorized           = "not_authorized"
+	errorValueInvalidOwner            = "invalid_owner"
+	errorValueInvalidWidgetSide       = "invalid_widget_side"
+	errorValueInvalidWidgetOffset     = "invalid_widget_offset"
+	errorValueInvalidSubscriberStatus = "invalid_subscriber_status"
+	errorValueNothingToUpdate         = "nothing_to_update"
+	errorValueDeleteFailed            = "delete_failed"
+	errorValueSiteExists              = "site_exists"
+	errorValueStreamUnavailable       = "stream_unavailable"
 
 	widgetScriptTemplate            = "<script defer src=\"%s/widget.js?site_id=%s\"></script>"
 	siteFaviconURLTemplate          = "/api/sites/%s/favicon"
@@ -102,6 +104,9 @@ type siteResponse struct {
 	Widget                   string `json:"widget"`
 	CreatedAt                int64  `json:"created_at"`
 	FeedbackCount            int64  `json:"feedback_count"`
+	SubscriberCount          int64  `json:"subscriber_count"`
+	VisitCount               int64  `json:"visit_count"`
+	UniqueVisitorCount       int64  `json:"unique_visitor_count"`
 	WidgetBubbleSide         string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
 }
@@ -115,6 +120,21 @@ type siteMessagesResponse struct {
 	Messages []feedbackMessageResponse `json:"messages"`
 }
 
+type SiteSubscribersResponse struct {
+	SiteID      string             `json:"site_id"`
+	Subscribers []SubscriberRecord `json:"subscribers"`
+}
+
+type SubscriberRecord struct {
+	ID             string `json:"id"`
+	Email          string `json:"email"`
+	Name           string `json:"name"`
+	Status         string `json:"status"`
+	CreatedAt      int64  `json:"created_at"`
+	ConfirmedAt    int64  `json:"confirmed_at"`
+	UnsubscribedAt int64  `json:"unsubscribed_at"`
+}
+
 type feedbackMessageResponse struct {
 	ID        string `json:"id"`
 	Contact   string `json:"contact"`
@@ -123,6 +143,18 @@ type feedbackMessageResponse struct {
 	UserAgent string `json:"user_agent"`
 	CreatedAt int64  `json:"created_at"`
 	Delivery  string `json:"delivery"`
+}
+
+type VisitStatsResponse struct {
+	SiteID             string         `json:"site_id"`
+	VisitCount         int64          `json:"visit_count"`
+	UniqueVisitorCount int64          `json:"unique_visitor_count"`
+	TopPages           []TopPageEntry `json:"top_pages"`
+}
+
+type TopPageEntry struct {
+	Path       string `json:"path"`
+	VisitCount int64  `json:"visit_count"`
 }
 
 func (handlers *SiteHandlers) CurrentUser(context *gin.Context) {
@@ -700,6 +732,184 @@ func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
 	context.JSON(http.StatusOK, siteMessagesResponse{SiteID: site.ID, Messages: messageResponses})
 }
 
+func (handlers *SiteHandlers) VisitStats(context *gin.Context) {
+	site, _, ok := handlers.resolveAuthorizedSite(context)
+	if !ok {
+		return
+	}
+
+	total, err := handlers.statsProvider.VisitCount(context.Request.Context(), site.ID)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+	unique, err := handlers.statsProvider.UniqueVisitorCount(context.Request.Context(), site.ID)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+	topPages, err := handlers.statsProvider.TopPages(context.Request.Context(), site.ID, 10)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+	entries := make([]TopPageEntry, 0, len(topPages))
+	for _, page := range topPages {
+		entry := TopPageEntry(page)
+		entries = append(entries, entry)
+	}
+	context.JSON(http.StatusOK, VisitStatsResponse{
+		SiteID:             site.ID,
+		VisitCount:         total,
+		UniqueVisitorCount: unique,
+		TopPages:           entries,
+	})
+}
+
+func (handlers *SiteHandlers) ListSubscribers(context *gin.Context) {
+	site, currentUser, ok := handlers.resolveAuthorizedSite(context)
+	if !ok {
+		return
+	}
+
+	searchQuery := strings.TrimSpace(context.Query("q"))
+
+	var subscribers []model.Subscriber
+	query := handlers.database.Where("site_id = ?", site.ID)
+	if searchQuery != "" {
+		like := "%" + strings.ToLower(searchQuery) + "%"
+		query = query.Where("(LOWER(email) LIKE ? OR LOWER(name) LIKE ?)", like, like)
+	}
+	if err := query.Order("created_at desc").Find(&subscribers).Error; err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+
+	response := SiteSubscribersResponse{SiteID: site.ID}
+	for _, subscriber := range subscribers {
+		response.Subscribers = append(response.Subscribers, SubscriberRecord{
+			ID:             subscriber.ID,
+			Email:          subscriber.Email,
+			Name:           subscriber.Name,
+			Status:         subscriber.Status,
+			CreatedAt:      subscriber.CreatedAt.Unix(),
+			ConfirmedAt:    subscriber.ConfirmedAt.Unix(),
+			UnsubscribedAt: subscriber.UnsubscribedAt.Unix(),
+		})
+	}
+
+	_ = currentUser // retained for symmetry; auth already enforced
+	context.JSON(http.StatusOK, response)
+}
+
+func (handlers *SiteHandlers) ExportSubscribers(context *gin.Context) {
+	site, _, ok := handlers.resolveAuthorizedSite(context)
+	if !ok {
+		return
+	}
+
+	var subscribers []model.Subscriber
+	if err := handlers.database.Where("site_id = ?", site.ID).Order("created_at desc").Find(&subscribers).Error; err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+
+	context.Header("Content-Type", "text/csv")
+	context.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="subscribers-%s.csv"`, site.ID))
+
+	csvWriter := csv.NewWriter(context.Writer)
+	_ = csvWriter.Write([]string{"email", "name", "status", "created_at", "confirmed_at", "unsubscribed_at"})
+	for _, subscriber := range subscribers {
+		record := []string{
+			subscriber.Email,
+			subscriber.Name,
+			subscriber.Status,
+			fmt.Sprintf("%d", subscriber.CreatedAt.Unix()),
+			fmt.Sprintf("%d", subscriber.ConfirmedAt.Unix()),
+			fmt.Sprintf("%d", subscriber.UnsubscribedAt.Unix()),
+		}
+		_ = csvWriter.Write(record)
+	}
+	csvWriter.Flush()
+}
+
+func (handlers *SiteHandlers) UpdateSubscriberStatus(context *gin.Context) {
+	site, _, ok := handlers.resolveAuthorizedSite(context)
+	if !ok {
+		return
+	}
+
+	subscriberID := strings.TrimSpace(context.Param("subscriber_id"))
+	if subscriberID == "" {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingFields})
+		return
+	}
+
+	var payload struct {
+		Status string `json:"status"`
+	}
+	if bindErr := context.BindJSON(&payload); bindErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidJSON})
+		return
+	}
+	desiredStatus := strings.TrimSpace(payload.Status)
+	if desiredStatus != model.SubscriberStatusConfirmed && desiredStatus != model.SubscriberStatusUnsubscribed {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidSubscriberStatus})
+		return
+	}
+
+	var subscriber model.Subscriber
+	if err := handlers.database.Where("id = ? AND site_id = ?", subscriberID, site.ID).First(&subscriber).Error; err != nil {
+		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownSubscription})
+		return
+	}
+
+	updateFields := map[string]any{
+		"status": desiredStatus,
+	}
+	now := time.Now().UTC()
+	if desiredStatus == model.SubscriberStatusUnsubscribed {
+		updateFields["unsubscribed_at"] = now
+	}
+	if desiredStatus == model.SubscriberStatusConfirmed {
+		updateFields["confirmed_at"] = now
+		updateFields["unsubscribed_at"] = time.Time{}
+	}
+
+	if err := handlers.database.Model(&subscriber).Updates(updateFields).Error; err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func (handlers *SiteHandlers) resolveAuthorizedSite(context *gin.Context) (model.Site, *CurrentUser, bool) {
+	siteIdentifier := strings.TrimSpace(context.Param("id"))
+	if siteIdentifier == "" {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingSite})
+		return model.Site{}, nil, false
+	}
+
+	currentUser, ok := CurrentUserFromContext(context)
+	if !ok {
+		context.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
+		return model.Site{}, nil, false
+	}
+
+	var site model.Site
+	if err := handlers.database.First(&site, "id = ?", siteIdentifier).Error; err != nil {
+		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownSite})
+		return model.Site{}, nil, false
+	}
+
+	if !currentUser.canManageSite(site) {
+		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
+		return model.Site{}, nil, false
+	}
+
+	return site, currentUser, true
+}
 func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Site, feedbackCount int64) siteResponse {
 	widgetBase := handlers.widgetBaseURL
 	if widgetBase == "" {
@@ -721,6 +931,9 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 		Widget:                   fmt.Sprintf(widgetScriptTemplate, widgetBase, site.ID),
 		CreatedAt:                site.CreatedAt.UTC().Unix(),
 		FeedbackCount:            feedbackCount,
+		SubscriberCount:          handlers.subscriberCount(ctx, site.ID),
+		VisitCount:               handlers.visitCount(ctx, site.ID),
+		UniqueVisitorCount:       handlers.uniqueVisitorCount(ctx, site.ID),
 		WidgetBubbleSide:         site.WidgetBubbleSide,
 		WidgetBubbleBottomOffset: site.WidgetBubbleBottomOffsetPx,
 	}
@@ -733,6 +946,42 @@ func (handlers *SiteHandlers) feedbackCount(ctx context.Context, siteID string) 
 	count, err := handlers.statsProvider.FeedbackCount(ctx, siteID)
 	if err != nil && handlers.logger != nil {
 		handlers.logger.Debug("feedback_count_failed", zap.String("site_id", siteID), zap.Error(err))
+		return 0
+	}
+	return count
+}
+
+func (handlers *SiteHandlers) subscriberCount(ctx context.Context, siteID string) int64 {
+	if handlers.statsProvider == nil {
+		return 0
+	}
+	count, err := handlers.statsProvider.SubscriberCount(ctx, siteID)
+	if err != nil && handlers.logger != nil {
+		handlers.logger.Debug("subscriber_count_failed", zap.String("site_id", siteID), zap.Error(err))
+		return 0
+	}
+	return count
+}
+
+func (handlers *SiteHandlers) visitCount(ctx context.Context, siteID string) int64 {
+	if handlers.statsProvider == nil {
+		return 0
+	}
+	count, err := handlers.statsProvider.VisitCount(ctx, siteID)
+	if err != nil && handlers.logger != nil {
+		handlers.logger.Debug("visit_count_failed", zap.String("site_id", siteID), zap.Error(err))
+		return 0
+	}
+	return count
+}
+
+func (handlers *SiteHandlers) uniqueVisitorCount(ctx context.Context, siteID string) int64 {
+	if handlers.statsProvider == nil {
+		return 0
+	}
+	count, err := handlers.statsProvider.UniqueVisitorCount(ctx, siteID)
+	if err != nil && handlers.logger != nil {
+		handlers.logger.Debug("unique_visitor_count_failed", zap.String("site_id", siteID), zap.Error(err))
 		return 0
 	}
 	return count

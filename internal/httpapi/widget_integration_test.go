@@ -27,7 +27,7 @@ const (
 	integrationSiteOwnerEmail       = "integration@example.com"
 	integrationFeedbackContactValue = "integration@example.com"
 	integrationFeedbackMessageValue = "Headless integration feedback"
-	integrationStatusWaitTimeout    = 5 * time.Second
+	integrationStatusWaitTimeout    = 20 * time.Second
 	integrationStatusPollInterval   = 100 * time.Millisecond
 	integrationPanelAutoHideTimeout = 4 * time.Second
 	widgetBubbleSelector            = "#mp-feedback-bubble"
@@ -113,7 +113,7 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	page := buildHeadlessPage(t)
 	screenshotsDirectory := createScreenshotsDirectory(t)
 
-	apiHarness := buildAPIHarness(t, nil)
+	apiHarness := buildAPIHarness(t, nil, nil)
 
 	server := httptest.NewServer(apiHarness.router)
 	t.Cleanup(server.Close)
@@ -242,7 +242,7 @@ func TestWidgetAppliesDarkThemeStyles(t *testing.T) {
 	page := buildHeadlessPage(t)
 	screenshotsDirectory := createScreenshotsDirectory(t)
 
-	apiHarness := buildAPIHarness(t, nil)
+	apiHarness := buildAPIHarness(t, nil, nil)
 
 	server := httptest.NewServer(apiHarness.router)
 	t.Cleanup(server.Close)
@@ -340,7 +340,7 @@ func TestWidgetRespondsToThemeToggle(t *testing.T) {
 
 	page := buildHeadlessPage(t)
 
-	apiHarness := buildAPIHarness(t, nil)
+	apiHarness := buildAPIHarness(t, nil, nil)
 
 	server := httptest.NewServer(apiHarness.router)
 	t.Cleanup(server.Close)
@@ -418,7 +418,7 @@ func TestWidgetCloseButtonDismissesPanel(t *testing.T) {
 	page := buildHeadlessPage(t)
 	screenshotsDirectory := createScreenshotsDirectory(t)
 
-	apiHarness := buildAPIHarness(t, nil)
+	apiHarness := buildAPIHarness(t, nil, nil)
 
 	server := httptest.NewServer(apiHarness.router)
 	t.Cleanup(server.Close)

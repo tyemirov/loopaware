@@ -157,6 +157,18 @@ const (
 	newSiteButtonActiveClass                   = "btn btn-primary btn-sm"
 	siteListItemClass                          = "list-group-item list-group-item-action"
 	siteListItemActiveClass                    = "active"
+	subscriberCountElementID                   = "subscriber-count"
+	subscribersTableBodyElementID              = "subscribers-table-body"
+	exportSubscribersButtonElementID           = "export-subscribers-button"
+	exportSubscribersButtonLabel               = "Export CSV"
+	exportButtonClass                          = "btn btn-outline-secondary btn-sm"
+	subscribersStatusElementID                 = "subscribers-status"
+	subscribersPlaceholder                     = "No subscribers yet."
+	visitCountElementID                        = "visit-count"
+	uniqueVisitorCountElementID                = "unique-visitor-count"
+	trafficStatusElementID                     = "traffic-status"
+	topPagesTableBodyElementID                 = "top-pages-table-body"
+	topPagesPlaceholder                        = "No visits yet."
 	clientConfigElementID                      = "dashboard-config"
 	dashboardStatusDeletingSite                = "Deleting site..."
 	dashboardStatusSiteDeleted                 = "Site deleted."
@@ -322,6 +334,18 @@ type dashboardTemplateData struct {
 	FeedbackTableHeaderID               string
 	FeedbackTableHeaderLightClass       string
 	FeedbackTableBodyID                 string
+	SubscriberCountElementID            string
+	SubscribersTableBodyID              string
+	ExportSubscribersButtonID           string
+	ExportSubscribersButtonLabel        string
+	ExportButtonClass                   string
+	SubscribersStatusID                 string
+	SubscribersPlaceholder              string
+	VisitCountElementID                 string
+	UniqueVisitorCountElementID         string
+	TrafficStatusID                     string
+	TopPagesTableBodyID                 string
+	TopPagesPlaceholder                 string
 	LogoutButtonID                      string
 	NewSiteOptionValue                  string
 	CreateButtonLabel                   string
@@ -514,6 +538,7 @@ type dashboardClientConfig struct {
 	WidgetTexts        map[string]string           `json:"widget_texts"`
 	ThemeStorageKey    string                      `json:"theme_storage_key"`
 	OptionValues       map[string]string           `json:"option_values"`
+	Placeholders       map[string]string           `json:"placeholders"`
 	FormStatusClasses  map[string]string           `json:"form_status_classes"`
 	FooterThemeClasses map[string]string           `json:"footer_theme_classes"`
 	TableThemeClasses  map[string]string           `json:"table_theme_classes"`
@@ -624,6 +649,18 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		FeedbackTableHeaderID:               feedbackTableHeaderElementID,
 		FeedbackTableHeaderLightClass:       feedbackTableHeaderLightClass,
 		FeedbackTableBodyID:                 feedbackTableBodyElementID,
+		SubscriberCountElementID:            subscriberCountElementID,
+		SubscribersTableBodyID:              subscribersTableBodyElementID,
+		ExportSubscribersButtonID:           exportSubscribersButtonElementID,
+		ExportSubscribersButtonLabel:        exportSubscribersButtonLabel,
+		ExportButtonClass:                   exportButtonClass,
+		SubscribersStatusID:                 subscribersStatusElementID,
+		SubscribersPlaceholder:              subscribersPlaceholder,
+		VisitCountElementID:                 visitCountElementID,
+		UniqueVisitorCountElementID:         uniqueVisitorCountElementID,
+		TrafficStatusID:                     trafficStatusElementID,
+		TopPagesTableBodyID:                 topPagesTableBodyElementID,
+		TopPagesPlaceholder:                 topPagesPlaceholder,
 		LogoutButtonID:                      logoutButtonElementID,
 		NewSiteOptionValue:                  newSiteOptionValue,
 		CreateButtonLabel:                   siteFormCreateButtonLabel,
@@ -774,13 +811,18 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 
 	clientConfig := dashboardClientConfig{
 		APIPaths: map[string]string{
-			"me":                   "/api/me",
-			"sites":                "/api/sites",
-			"site_update_prefix":   "/api/sites/",
-			"site_messages_prefix": "/api/sites/",
-			"site_messages_suffix": "/messages",
-			"site_favicon_events":  "/api/sites/favicons/events",
-			"feedback_events":      "/api/sites/feedback/events",
+			"me":                      "/api/me",
+			"sites":                   "/api/sites",
+			"site_update_prefix":      "/api/sites/",
+			"site_messages_prefix":    "/api/sites/",
+			"site_messages_suffix":    "/messages",
+			"site_subscribers_prefix": "/api/sites/",
+			"site_subscribers_suffix": "/subscribers",
+			"site_subscribers_export": "/subscribers/export",
+			"site_subscriber_update":  "/subscribers/",
+			"site_visit_stats":        "/visits/stats",
+			"site_favicon_events":     "/api/sites/favicons/events",
+			"feedback_events":         "/api/sites/feedback/events",
 		},
 		Paths: map[string]string{
 			"logout":             constants.LogoutPath,
@@ -807,6 +849,14 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"refresh_messages_button":           refreshMessagesButtonElementID,
 			"feedback_table_header":             feedbackTableHeaderElementID,
 			"feedback_table_body":               feedbackTableBodyElementID,
+			"subscriber_count":                  subscriberCountElementID,
+			"subscribers_table_body":            subscribersTableBodyElementID,
+			"export_subscribers_button":         exportSubscribersButtonElementID,
+			"subscribers_status":                subscribersStatusElementID,
+			"visit_count":                       visitCountElementID,
+			"unique_visitor_count":              uniqueVisitorCountElementID,
+			"traffic_status":                    trafficStatusElementID,
+			"top_pages_table_body":              topPagesTableBodyElementID,
 			"logout_button":                     logoutButtonElementID,
 			"widget_snippet_textarea":           widgetSnippetTextareaElementID,
 			"copy_widget_snippet_button":        copyWidgetSnippetButtonElementID,
@@ -928,6 +978,10 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		ThemeStorageKey: themeStorageKey,
 		OptionValues: map[string]string{
 			"new_site": newSiteOptionValue,
+		},
+		Placeholders: map[string]string{
+			"subscribers": subscribersPlaceholder,
+			"top_pages":   topPagesPlaceholder,
 		},
 		FormStatusClasses: map[string]string{
 			"base":    formStatusBaseClass,
