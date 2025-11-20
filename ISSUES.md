@@ -29,6 +29,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes -` [x
 ## Maintenance (400-499)
 
 - [x] [LA-400] Prepare a short marketing blurb about the LoopAware service. Place it under docs/ . The goal is to place this description in a card on a main site that advertises all mprlab products
+- [x] [LA-401] Refresh the LoopAware marketing blurb for the mprlab product catalogue card with concise, card-ready copy under docs/; updated with new two-sentence catalog blurb.
 
 ## Planning 
 **Do not work on these, not ready**
