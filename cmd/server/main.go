@@ -90,6 +90,7 @@ const (
 	publicRouteSubscriptionOptOut     = "/api/subscriptions/unsubscribe"
 	publicRouteSubscribeWidget        = "/subscribe.js"
 	publicRouteSubscribeDemo          = "/subscribe-demo"
+	publicRouteVisitPixel             = "/api/visits"
 	publicRouteWidget                 = "/widget.js"
 	landingRouteRoot                  = constants.LoginPath
 	dashboardRoute                    = "/app"
@@ -468,6 +469,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
 	router.GET(publicRouteSubscribeWidget, publicHandlers.SubscribeJS)
 	router.GET(publicRouteSubscribeDemo, publicHandlers.SubscribeDemo)
+	router.GET(publicRouteVisitPixel, publicHandlers.CollectVisit)
 	router.GET(dashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
 
 	authHandler := gin.WrapH(authMux)

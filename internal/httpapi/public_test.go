@@ -56,6 +56,7 @@ func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, sub
 	router.GET("/widget.js", publicHandlers.WidgetJS)
 	router.GET("/subscribe.js", publicHandlers.SubscribeJS)
 	router.GET("/subscribe-demo", publicHandlers.SubscribeDemo)
+	router.GET("/api/visits", publicHandlers.CollectVisit)
 
 	testingT.Cleanup(feedbackBroadcaster.Close)
 
@@ -370,6 +371,42 @@ func TestSubscriptionNotificationsCanBeDisabled(t *testing.T) {
 	}, map[string]string{"Origin": "http://notifyoff.example"})
 	require.Equal(t, http.StatusOK, resp.Code)
 	require.Equal(t, 0, subscriptionNotifier.CallCount())
+}
+
+func TestCollectVisitStoresRecord(t *testing.T) {
+	api := buildAPIHarness(t, nil, nil)
+	site := insertSite(t, api.database, "Visits", "http://visits.example", "owner@example.com")
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://visits.example/page", nil)
+	request.Header.Set("Origin", "http://visits.example")
+
+	api.router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Header().Get("Content-Type"), "image/gif")
+
+	var stored model.SiteVisit
+	require.NoError(t, api.database.First(&stored).Error)
+	require.Equal(t, site.ID, stored.SiteID)
+	require.Equal(t, "http://visits.example/page", stored.URL)
+	require.Equal(t, "/page", stored.Path)
+}
+
+func TestCollectVisitValidatesInput(t *testing.T) {
+	api := buildAPIHarness(t, nil, nil)
+	site := insertSite(t, api.database, "Visits Invalid", "http://visits.example", "owner@example.com")
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=//bad-url", nil)
+	request.Header.Set("Origin", "http://visits.example")
+	api.router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://visits.example/page", nil)
+	request.Header.Set("Origin", "http://evil.example")
+	api.router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusForbidden, recorder.Code)
 }
 
 type feedbackNotificationCall struct {

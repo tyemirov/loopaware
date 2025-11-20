@@ -37,10 +37,12 @@ const (
 
 	errorValueInvalidEmail         = "invalid_email"
 	errorValueUnknownSubscription  = "unknown_subscription"
-	errorValueDuplicateSubscriber  = "duplicate_subscription"
-	errorValueUnsubscribedAccount  = "unsubscribed"
-	errorValueSaveSubscriberFailed = "save_failed"
-	errorValueInvalidSite          = "unknown_site"
+errorValueDuplicateSubscriber  = "duplicate_subscription"
+errorValueUnsubscribedAccount  = "unsubscribed"
+errorValueSaveSubscriberFailed = "save_failed"
+errorValueInvalidSite          = "unknown_site"
+errorValueInvalidVisitorID     = "invalid_visitor"
+errorValueInvalidURL           = "invalid_url"
 
 	subscriptionIPMaxLength        = 64
 	subscriptionUserAgentMaxLength = 400

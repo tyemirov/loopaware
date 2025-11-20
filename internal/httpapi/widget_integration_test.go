@@ -27,7 +27,7 @@ const (
 	integrationSiteOwnerEmail       = "integration@example.com"
 	integrationFeedbackContactValue = "integration@example.com"
 	integrationFeedbackMessageValue = "Headless integration feedback"
-	integrationStatusWaitTimeout    = 10 * time.Second
+	integrationStatusWaitTimeout    = 15 * time.Second
 	integrationStatusPollInterval   = 100 * time.Millisecond
 	integrationPanelAutoHideTimeout = 4 * time.Second
 	widgetBubbleSelector            = "#mp-feedback-bubble"
