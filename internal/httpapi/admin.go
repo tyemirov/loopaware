@@ -145,6 +145,18 @@ type feedbackMessageResponse struct {
 	Delivery  string `json:"delivery"`
 }
 
+type VisitStatsResponse struct {
+	SiteID             string         `json:"site_id"`
+	VisitCount         int64          `json:"visit_count"`
+	UniqueVisitorCount int64          `json:"unique_visitor_count"`
+	TopPages           []TopPageEntry `json:"top_pages"`
+}
+
+type TopPageEntry struct {
+	Path       string `json:"path"`
+	VisitCount int64  `json:"visit_count"`
+}
+
 func (handlers *SiteHandlers) CurrentUser(context *gin.Context) {
 	currentUser, ok := CurrentUserFromContext(context)
 	if !ok {
@@ -718,6 +730,40 @@ func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
 	}
 
 	context.JSON(http.StatusOK, siteMessagesResponse{SiteID: site.ID, Messages: messageResponses})
+}
+
+func (handlers *SiteHandlers) VisitStats(context *gin.Context) {
+	site, _, ok := handlers.resolveAuthorizedSite(context)
+	if !ok {
+		return
+	}
+
+	total, err := handlers.statsProvider.VisitCount(context.Request.Context(), site.ID)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+	unique, err := handlers.statsProvider.UniqueVisitorCount(context.Request.Context(), site.ID)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+	topPages, err := handlers.statsProvider.TopPages(context.Request.Context(), site.ID, 10)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+	entries := make([]TopPageEntry, 0, len(topPages))
+	for _, page := range topPages {
+		entry := TopPageEntry(page)
+		entries = append(entries, entry)
+	}
+	context.JSON(http.StatusOK, VisitStatsResponse{
+		SiteID:             site.ID,
+		VisitCount:         total,
+		UniqueVisitorCount: unique,
+		TopPages:           entries,
+	})
 }
 
 func (handlers *SiteHandlers) ListSubscribers(context *gin.Context) {

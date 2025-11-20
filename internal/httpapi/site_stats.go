@@ -89,7 +89,7 @@ func (provider *DatabaseSiteStatisticsProvider) TopPages(ctx context.Context, si
 	err := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
 		Select("path, COUNT(*) as visit_count").
-		Where("site_id = ?", siteID).
+		Where("site_id = ? AND path <> ''", siteID).
 		Group("path").
 		Order("visit_count desc").
 		Limit(limit).

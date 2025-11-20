@@ -77,13 +77,13 @@ const (
 	}())`
 	dashboardSettingsHooksReadyScript    = "typeof window.__loopawareDashboardSettingsTestHooks !== 'undefined'"
 	dashboardSessionTimeoutVisibleScript = `(function() {
-		var container = document.getElementById('session-timeout-notification');
-		if (!container) { return false; }
-		return container.getAttribute('aria-hidden') === 'false';
-	}())`
+                var container = document.getElementById('session-timeout-notification');
+                if (!container) { return false; }
+                return container.getAttribute('aria-hidden') === 'false';
+        }())`
 	dashboardReadAutoLogoutSettingsScript = `(function() {
-		if (!window.__loopawareDashboardSettingsTestHooks) { return null; }
-		return window.__loopawareDashboardSettingsTestHooks.readAutoLogoutSettings();
+                if (!window.__loopawareDashboardSettingsTestHooks) { return null; }
+                return window.__loopawareDashboardSettingsTestHooks.readAutoLogoutSettings();
 	}())`
 	dashboardReadAutoLogoutMinimumsScript = `(function() {
 		if (!window.__loopawareDashboardSettingsTestHooks) {
@@ -100,6 +100,11 @@ const (
 	dashboardPublicThemeToggleSelector    = "#public-theme-toggle"
 	dashboardUserEmailSelector            = "#user-email"
 	dashboardFooterSelector               = "#dashboard-footer"
+	dashboardTrafficStatusSelector        = "#traffic-status"
+	dashboardVisitCountSelector           = "#visit-count"
+	dashboardUniqueVisitorCountSelector   = "#unique-visitor-count"
+	dashboardTopPagesTableBodySelector    = "#top-pages-table-body"
+	dashboardTopPagesPlaceholderText      = "No visits yet."
 	dashboardLightPromptScreenshotName    = "dashboard-session-timeout-light"
 	dashboardDarkPromptScreenshotName     = "dashboard-session-timeout-dark"
 	dashboardForcePromptScript            = "window.__loopawareDashboardIdleTestHooks.forcePrompt();"
@@ -109,18 +114,52 @@ const (
 	dashboardIdleHooksReadyScript         = "typeof window.__loopawareDashboardIdleTestHooks !== 'undefined'"
 	dashboardPromptColorPresenceRatio     = colorPresenceMinimumRatio / 5.0
 	dashboardSelectFirstSiteScript        = `(function() {
-		var list = document.getElementById('sites-list');
-		if (!list) { return false; }
-		var item = list.querySelector('[data-site-id]');
-		if (!item) { return false; }
-		item.click();
-		return true;
-	}())`
+                var list = document.getElementById('sites-list');
+                if (!list) { return false; }
+                var item = list.querySelector('[data-site-id]');
+                if (!item) { return false; }
+                item.click();
+                return true;
+        }())`
+	dashboardTrafficStatusHiddenScript = `(function() {
+                var status = document.querySelector('#traffic-status');
+                if (!status) { return false; }
+                return status.classList.contains('d-none');
+        }())`
+	dashboardTopPagesPlaceholderScript = `(function() {
+                var body = document.querySelector('#top-pages-table-body');
+                if (!body) { return ''; }
+                var row = body.querySelector('tr');
+                if (!row) { return ''; }
+                return row.textContent.trim();
+        }())`
+	dashboardTopPagesRowsScript = `(function() {
+                var body = document.querySelector('#top-pages-table-body');
+                if (!body) { return []; }
+                var rows = body.querySelectorAll('tr');
+                var results = [];
+                rows.forEach(function(row) {
+                        var cells = row.querySelectorAll('td');
+                        if (cells.length < 2) { return; }
+                        results.push({ path: cells[0].textContent.trim(), count: cells[1].textContent.trim() });
+                });
+                return results;
+        }())`
+	dashboardVisitCountsScript = `(function() {
+                var total = document.getElementById('visit-count');
+                var unique = document.getElementById('unique-visitor-count');
+                return {
+                        totalVisible: !!(total && !total.classList.contains('d-none')),
+                        totalText: total ? total.textContent.trim() : '',
+                        uniqueVisible: !!(unique && !unique.classList.contains('d-none')),
+                        uniqueText: unique ? unique.textContent.trim() : ''
+                };
+        }())`
 	dashboardNoMessagesPlaceholderScript = `(function() {
-		var body = document.getElementById('feedback-table-body');
-		if (!body) { return false; }
-		return body.textContent.indexOf('No feedback yet.') !== -1;
-	}())`
+                var body = document.getElementById('feedback-table-body');
+                if (!body) { return false; }
+                return body.textContent.indexOf('No feedback yet.') !== -1;
+        }())`
 	dashboardFeedbackRenderedScript = `(function() {
 		var body = document.getElementById('feedback-table-body');
 		if (!body) { return false; }
@@ -858,6 +897,117 @@ func TestDashboardPrefersPublicThemeOverStoredPreference(t *testing.T) {
 	}
 }
 
+func TestDashboardTrafficPlaceholderWithoutVisits(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Traffic Placeholder",
+		AllowedOrigin: harness.baseURL,
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardTrafficStatusHiddenScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	placeholder := evaluateScriptString(t, page, dashboardTopPagesPlaceholderScript)
+	require.Equal(t, dashboardTopPagesPlaceholderText, placeholder)
+
+	var visitBadges struct {
+		TotalVisible  bool   `json:"totalVisible"`
+		TotalText     string `json:"totalText"`
+		UniqueVisible bool   `json:"uniqueVisible"`
+		UniqueText    string `json:"uniqueText"`
+	}
+	evaluateScriptInto(t, page, dashboardVisitCountsScript, &visitBadges)
+	require.False(t, visitBadges.TotalVisible)
+	require.Empty(t, visitBadges.TotalText)
+	require.False(t, visitBadges.UniqueVisible)
+	require.Empty(t, visitBadges.UniqueText)
+}
+
+func TestDashboardTrafficRendersTopPages(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Traffic Data",
+		AllowedOrigin: harness.baseURL,
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	visitorA := storage.NewID()
+	visitorB := storage.NewID()
+	visits := []model.SiteVisitInput{
+		{SiteID: site.ID, URL: harness.baseURL + "/home", VisitorID: visitorA},
+		{SiteID: site.ID, URL: harness.baseURL + "/home", VisitorID: visitorB},
+		{SiteID: site.ID, URL: harness.baseURL + "/about", VisitorID: visitorA},
+	}
+	for _, input := range visits {
+		visit, err := model.NewSiteVisit(input)
+		require.NoError(t, err)
+		require.NoError(t, harness.database.Create(&visit).Error)
+	}
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(t, func() bool {
+		var rows []struct {
+			Path  string `json:"path"`
+			Count string `json:"count"`
+		}
+		evaluateScriptInto(t, page, dashboardTopPagesRowsScript, &rows)
+		if len(rows) != 2 {
+			return false
+		}
+		return rows[0].Path == "/home" && rows[0].Count == "2" && rows[1].Path == "/about" && rows[1].Count == "1"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	var visitBadges struct {
+		TotalVisible  bool   `json:"totalVisible"`
+		TotalText     string `json:"totalText"`
+		UniqueVisible bool   `json:"uniqueVisible"`
+		UniqueText    string `json:"uniqueText"`
+	}
+	evaluateScriptInto(t, page, dashboardVisitCountsScript, &visitBadges)
+	require.True(t, visitBadges.TotalVisible)
+	require.Equal(t, "3 visits", visitBadges.TotalText)
+	require.True(t, visitBadges.UniqueVisible)
+	require.Equal(t, "2 unique", visitBadges.UniqueText)
+	require.True(t, evaluateScriptBoolean(t, page, dashboardTrafficStatusHiddenScript))
+}
+
 func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
@@ -1578,6 +1728,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *d
 	apiGroup.PATCH("/sites/:id", siteHandlers.UpdateSite)
 	apiGroup.DELETE("/sites/:id", siteHandlers.DeleteSite)
 	apiGroup.GET("/sites/:id/messages", siteHandlers.ListMessagesBySite)
+	apiGroup.GET("/sites/:id/visits/stats", siteHandlers.VisitStats)
 	apiGroup.GET("/sites/:id/favicon", siteHandlers.SiteFavicon)
 	apiGroup.GET("/sites/favicons/events", siteHandlers.StreamFaviconUpdates)
 	apiGroup.GET("/sites/feedback/events", siteHandlers.StreamFeedbackUpdates)

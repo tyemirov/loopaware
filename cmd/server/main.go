@@ -100,6 +100,7 @@ const (
 	apiRouteSites                     = "/sites"
 	apiRouteSiteUpdate                = "/sites/:id"
 	apiRouteSiteMessages              = "/sites/:id/messages"
+	apiRouteSiteVisitStats            = "/sites/:id/visits/stats"
 	apiRouteSiteSubscribers           = "/sites/:id/subscribers"
 	apiRouteSiteSubscriberUpdate      = "/sites/:id/subscribers/:subscriber_id"
 	apiRouteSiteSubscribersExport     = "/sites/:id/subscribers/export"
@@ -470,6 +471,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	router.GET(publicRouteSubscribeWidget, publicHandlers.SubscribeJS)
 	router.GET(publicRouteSubscribeDemo, publicHandlers.SubscribeDemo)
 	router.GET(publicRouteVisitPixel, publicHandlers.CollectVisit)
+	router.GET("/pixel.js", publicHandlers.PixelJS)
 	router.GET(dashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
 
 	authHandler := gin.WrapH(authMux)
@@ -493,6 +495,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	apiGroup.GET(apiRouteSiteFavicon, siteHandlers.SiteFavicon)
 	apiGroup.GET(apiRouteSiteFaviconEvents, siteHandlers.StreamFaviconUpdates)
 	apiGroup.GET(apiRouteSiteFeedbackEvents, siteHandlers.StreamFeedbackUpdates)
+	apiGroup.GET(apiRouteSiteVisitStats, siteHandlers.VisitStats)
 
 	httpServer := &http.Server{
 		Addr:              serverConfig.ApplicationAddress,
