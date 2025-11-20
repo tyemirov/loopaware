@@ -1133,6 +1133,116 @@ func TestUserAvatarReturnsNotFoundWhenMissing(testingT *testing.T) {
 	require.Equal(testingT, http.StatusNotFound, recorder.Code)
 }
 
+func TestListSubscribersReturnsDataForAdmin(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
+	siteHandlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	router.GET("/api/sites/:id/subscribers", func(context *gin.Context) {
+		context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+		siteHandlers.ListSubscribers(context)
+	})
+
+	site := model.Site{ID: storage.NewID(), Name: "Subs", AllowedOrigin: "http://example.com", OwnerEmail: testAdminEmailAddress, CreatorEmail: testAdminEmailAddress}
+	require.NoError(testingT, database.Create(&site).Error)
+	subscriber, subErr := model.NewSubscriber(model.SubscriberInput{
+		SiteID: site.ID,
+		Email:  "user@example.com",
+		Name:   "User",
+	})
+	require.NoError(testingT, subErr)
+	require.NoError(testingT, database.Create(&subscriber).Error)
+
+	request, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/sites/%s/subscribers", site.ID), nil)
+	require.NoError(testingT, err)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var response httpapi.SiteSubscribersResponse
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Len(testingT, response.Subscribers, 1)
+	require.Equal(testingT, subscriber.Email, response.Subscribers[0].Email)
+}
+
+func TestExportSubscribersReturnsCSV(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
+	siteHandlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	router.GET("/api/sites/:id/subscribers/export", func(context *gin.Context) {
+		context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+		siteHandlers.ExportSubscribers(context)
+	})
+
+	site := model.Site{ID: storage.NewID(), Name: "Subs", AllowedOrigin: "http://example.com", OwnerEmail: testAdminEmailAddress, CreatorEmail: testAdminEmailAddress}
+	require.NoError(testingT, database.Create(&site).Error)
+	subscriber, subErr := model.NewSubscriber(model.SubscriberInput{
+		SiteID: site.ID,
+		Email:  "csv@example.com",
+	})
+	require.NoError(testingT, subErr)
+	require.NoError(testingT, database.Create(&subscriber).Error)
+
+	request, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/sites/%s/subscribers/export", site.ID), nil)
+	require.NoError(testingT, err)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+	require.Contains(testingT, recorder.Body.String(), "csv@example.com")
+	require.Contains(testingT, recorder.Header().Get("Content-Type"), "text/csv")
+}
+
+func TestUpdateSubscriberStatus(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
+	siteHandlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	router.PATCH("/api/sites/:id/subscribers/:subscriber_id", func(context *gin.Context) {
+		context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+		siteHandlers.UpdateSubscriberStatus(context)
+	})
+
+	site := model.Site{ID: storage.NewID(), Name: "Subs", AllowedOrigin: "http://example.com", OwnerEmail: testAdminEmailAddress, CreatorEmail: testAdminEmailAddress}
+	require.NoError(testingT, database.Create(&site).Error)
+	subscriber, subErr := model.NewSubscriber(model.SubscriberInput{
+		SiteID: site.ID,
+		Email:  "status@example.com",
+	})
+	require.NoError(testingT, subErr)
+	require.NoError(testingT, database.Create(&subscriber).Error)
+
+	body := bytes.NewBufferString(`{"status":"unsubscribed"}`)
+	request, err := http.NewRequest(http.MethodPatch, fmt.Sprintf("/api/sites/%s/subscribers/%s", site.ID, subscriber.ID), body)
+	require.NoError(testingT, err)
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var refreshed model.Subscriber
+	require.NoError(testingT, database.First(&refreshed, "id = ?", subscriber.ID).Error)
+	require.Equal(testingT, model.SubscriberStatusUnsubscribed, refreshed.Status)
+}
+
 func newJSONContext(method string, path string, body any) (*httptest.ResponseRecorder, *gin.Context) {
 	recorder := httptest.NewRecorder()
 	var requestBody *bytes.Reader

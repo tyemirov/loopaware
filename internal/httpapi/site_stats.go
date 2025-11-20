@@ -11,6 +11,7 @@ import (
 // SiteStatisticsProvider exposes site metadata such as feedback counts.
 type SiteStatisticsProvider interface {
 	FeedbackCount(ctx context.Context, siteID string) (int64, error)
+	SubscriberCount(ctx context.Context, siteID string) (int64, error)
 }
 
 // DatabaseSiteStatisticsProvider implements SiteStatisticsProvider using GORM.
@@ -30,5 +31,15 @@ func (provider *DatabaseSiteStatisticsProvider) FeedbackCount(ctx context.Contex
 	}
 	var count int64
 	err := provider.database.WithContext(ctx).Model(&model.Feedback{}).Where("site_id = ?", siteID).Count(&count).Error
+	return count, err
+}
+
+// SubscriberCount returns the number of subscribers for a site.
+func (provider *DatabaseSiteStatisticsProvider) SubscriberCount(ctx context.Context, siteID string) (int64, error) {
+	if strings.TrimSpace(siteID) == "" {
+		return 0, nil
+	}
+	var count int64
+	err := provider.database.WithContext(ctx).Model(&model.Subscriber{}).Where("site_id = ?", siteID).Count(&count).Error
 	return count, err
 }

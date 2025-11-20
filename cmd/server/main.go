@@ -99,6 +99,9 @@ const (
 	apiRouteSites                     = "/sites"
 	apiRouteSiteUpdate                = "/sites/:id"
 	apiRouteSiteMessages              = "/sites/:id/messages"
+	apiRouteSiteSubscribers           = "/sites/:id/subscribers"
+	apiRouteSiteSubscriberUpdate      = "/sites/:id/subscribers/:subscriber_id"
+	apiRouteSiteSubscribersExport     = "/sites/:id/subscribers/export"
 	apiRouteSiteFavicon               = "/sites/:id/favicon"
 	apiRouteSiteFaviconEvents         = "/sites/favicons/events"
 	apiRouteSiteFeedbackEvents        = "/sites/feedback/events"
@@ -482,6 +485,9 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	apiGroup.PATCH(apiRouteSiteUpdate, siteHandlers.UpdateSite)
 	apiGroup.DELETE(apiRouteSiteUpdate, siteHandlers.DeleteSite)
 	apiGroup.GET(apiRouteSiteMessages, siteHandlers.ListMessagesBySite)
+	apiGroup.GET(apiRouteSiteSubscribers, siteHandlers.ListSubscribers)
+	apiGroup.GET(apiRouteSiteSubscribersExport, siteHandlers.ExportSubscribers)
+	apiGroup.PATCH(apiRouteSiteSubscriberUpdate, siteHandlers.UpdateSubscriberStatus)
 	apiGroup.GET(apiRouteSiteFavicon, siteHandlers.SiteFavicon)
 	apiGroup.GET(apiRouteSiteFaviconEvents, siteHandlers.StreamFaviconUpdates)
 	apiGroup.GET(apiRouteSiteFeedbackEvents, siteHandlers.StreamFeedbackUpdates)
