@@ -203,11 +203,11 @@
                       <div id="{{.SubscribersStatusID}}" class="d-none py-1 px-2 small"></div>
                     </div>
                   </div>
-                  <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                      <thead class="{{.FeedbackTableHeaderLightClass}}">
-                        <tr>
-                          <th scope="col">Email</th>
+                <div class="table-responsive">
+                  <table class="table table-striped table-hover align-middle">
+                    <thead class="{{.FeedbackTableHeaderLightClass}}">
+                      <tr>
+                        <th scope="col">Email</th>
                           <th scope="col">Name</th>
                           <th scope="col">Status</th>
                           <th scope="col" class="text-end">Actions</th>
@@ -220,8 +220,35 @@
                   </div>
                 </div>
               </div>
+              <div class="card mt-4">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                      <h6 class="mb-0">Traffic</h6>
+                      <span id="{{.VisitCountElementID}}" class="badge bg-secondary d-none"></span>
+                      <span id="{{.UniqueVisitorCountElementID}}" class="badge bg-secondary d-none"></span>
+                    </div>
+                    <div id="{{.TrafficStatusID}}" class="d-none py-1 px-2 small"></div>
+                  </div>
+                  <p class="text-muted small mb-2">Top pages</p>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                      <thead class="{{.FeedbackTableHeaderLightClass}}">
+                        <tr>
+                          <th scope="col">Path</th>
+                          <th scope="col" class="text-end">Views</th>
+                        </tr>
+                      </thead>
+                      <tbody id="{{.TopPagesTableBodyID}}">
+                        <tr><td colspan="2" class="text-center text-muted">{{.TopPagesPlaceholder}}</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </div>
+        </div>
+      </div>
           </div>
       </div>
     </div>
@@ -442,6 +469,10 @@
         var subscribersTableBody = document.getElementById(elementIds.subscribers_table_body);
         var exportSubscribersButton = document.getElementById(elementIds.export_subscribers_button);
         var subscribersStatusElement = document.getElementById(elementIds.subscribers_status);
+        var visitCountElement = document.getElementById(elementIds.visit_count);
+        var uniqueVisitorCountElement = document.getElementById(elementIds.unique_visitor_count);
+        var trafficStatusElement = document.getElementById(elementIds.traffic_status);
+        var topPagesTableBody = document.getElementById(elementIds.top_pages_table_body);
         var logoutButton = document.getElementById(elementIds.logout_button);
         var sessionTimeoutContainer = document.getElementById(elementIds.session_timeout_container);
         var sessionTimeoutMessage = document.getElementById(elementIds.session_timeout_message);
@@ -500,6 +531,7 @@
         var apiSiteSubscribersSuffix = apiPaths.site_subscribers_suffix || '';
         var apiSiteSubscribersExportSuffix = apiPaths.site_subscribers_export || '';
         var apiSiteSubscriberUpdateSuffix = apiPaths.site_subscriber_update || '';
+        var apiSiteVisitStatsSuffix = apiPaths.site_visit_stats || '';
 
         var state = {
           user: null,
@@ -1340,11 +1372,34 @@
           subscriberCountElement.classList.remove('d-none');
           subscriberCountElement.textContent = normalizedTotal.toString();
         }
+        function setVisitCounts(total, unique) {
+          if (visitCountElement) {
+            var normalizedTotal = typeof total === 'number' && total > 0 ? total : 0;
+            if (normalizedTotal === 0) {
+              visitCountElement.classList.add('d-none');
+              visitCountElement.textContent = '';
+            } else {
+              visitCountElement.classList.remove('d-none');
+              visitCountElement.textContent = normalizedTotal + ' visits';
+            }
+          }
+          if (uniqueVisitorCountElement) {
+            var normalizedUnique = typeof unique === 'number' && unique > 0 ? unique : 0;
+            if (normalizedUnique === 0) {
+              uniqueVisitorCountElement.classList.add('d-none');
+              uniqueVisitorCountElement.textContent = '';
+            } else {
+              uniqueVisitorCountElement.classList.remove('d-none');
+              uniqueVisitorCountElement.textContent = normalizedUnique + ' unique';
+            }
+          }
+        }
         function updateSelectedSiteSummary(site) {
           if (!site) {
             setSiteCreatedAt(null);
             setFeedbackCount(0, 0);
             setSubscriberCount(0);
+            setVisitCounts(0, 0);
             return;
           }
           setSiteCreatedAt(site.created_at);
@@ -1352,6 +1407,9 @@
           setFeedbackCount(totalCount, messagesSearchQuery ? Math.min(totalCount, totalCount) : totalCount);
           var subscriberTotal = typeof site.subscriber_count === 'number' ? site.subscriber_count : 0;
           setSubscriberCount(subscriberTotal);
+          var visitTotal = typeof site.visit_count === 'number' ? site.visit_count : 0;
+          var uniqueTotal = typeof site.unique_visitor_count === 'number' ? site.unique_visitor_count : 0;
+          setVisitCounts(visitTotal, uniqueTotal);
         }
         function normalizeSearchQuery(value) {
           if (typeof value !== 'string') {
@@ -2136,10 +2194,12 @@
           if (previousSelectedSiteId !== state.selectedSiteId || !state.siteMessages[state.selectedSiteId]) {
             loadMessages(false);
             loadSubscribers();
+            loadVisitStats();
             return;
           }
           renderMessages(state.siteMessages[state.selectedSiteId]);
           loadSubscribers();
+          loadVisitStats();
         }
 
         function handleSitesListClick(event) {
@@ -2332,6 +2392,35 @@
           });
         }
 
+        function renderTopPages(pages) {
+          if (!topPagesTableBody) {
+            return;
+          }
+          var items = Array.isArray(pages) ? pages : [];
+          topPagesTableBody.innerHTML = '';
+          if (items.length === 0) {
+            var placeholderRow = document.createElement('tr');
+            var placeholderCell = document.createElement('td');
+            placeholderCell.colSpan = 2;
+            placeholderCell.className = 'text-center text-muted';
+            placeholderCell.textContent = topPagesPlaceholder;
+            placeholderRow.appendChild(placeholderCell);
+            topPagesTableBody.appendChild(placeholderRow);
+            return;
+          }
+          items.forEach(function(entry) {
+            var row = document.createElement('tr');
+            var pathCell = document.createElement('td');
+            pathCell.textContent = entry.path || '/';
+            var countCell = document.createElement('td');
+            countCell.className = 'text-end';
+            countCell.textContent = (entry.visit_count || 0).toString();
+            row.appendChild(pathCell);
+            row.appendChild(countCell);
+            topPagesTableBody.appendChild(row);
+          });
+        }
+
         function formatTimestamp(unixSeconds) {
           if (!unixSeconds) {
             return '';
@@ -2431,6 +2520,26 @@
           if (subscribersStatusElement) {
             subscribersStatusElement.textContent = error.message || statusMessages.load_failed || '';
             subscribersStatusElement.classList.remove('d-none');
+          }
+        });
+      }
+
+      function loadVisitStats() {
+        if (!state.selectedSiteId || isNewSiteSelected()) {
+          setVisitCounts(0, 0);
+          renderTopPages([]);
+          return;
+        }
+        var endpoint = apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteVisitStatsSuffix;
+        fetchJSON(endpoint).then(function(payload) {
+          var total = typeof payload.visit_count === 'number' ? payload.visit_count : 0;
+          var unique = typeof payload.unique_visitor_count === 'number' ? payload.unique_visitor_count : 0;
+          setVisitCounts(total, unique);
+          renderTopPages(payload.top_pages || []);
+        }).catch(function(error) {
+          if (trafficStatusElement) {
+            trafficStatusElement.textContent = error.message || statusMessages.load_failed || '';
+            trafficStatusElement.classList.remove('d-none');
           }
         });
       }
