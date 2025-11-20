@@ -540,7 +540,7 @@ func TestStreamFeedbackUpdatesReceivesCreateEvents(testingT *testing.T) {
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	testingT.Cleanup(feedbackBroadcaster.Close)
 	siteHandlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
-	publicHandlers := httpapi.NewPublicHandlers(database, zap.NewNop(), feedbackBroadcaster, nil)
+	publicHandlers := httpapi.NewPublicHandlers(database, zap.NewNop(), feedbackBroadcaster, nil, nil, true)
 
 	engine := gin.New()
 	engine.GET("/stream", func(context *gin.Context) {

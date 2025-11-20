@@ -230,6 +230,10 @@ func (stubDashboardNotifier) NotifyFeedback(ctx context.Context, site model.Site
 	return model.FeedbackDeliveryMailed, nil
 }
 
+func (stubDashboardNotifier) NotifySubscription(ctx context.Context, site model.Site, subscriber model.Subscriber) error {
+	return nil
+}
+
 type dashboardIntegrationHarness struct {
 	router         *gin.Engine
 	authManager    *httpapi.AuthManager
@@ -1541,7 +1545,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *d
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath)
-	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, stubDashboardNotifier{})
+	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, stubDashboardNotifier{}, stubDashboardNotifier{}, true)
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{})
 
 	router := gin.New()

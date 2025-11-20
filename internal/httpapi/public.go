@@ -26,7 +26,9 @@ type PublicHandlers struct {
 	rateCountersByIP          map[string]int
 	rateCountersMutex         sync.Mutex
 	feedbackBroadcaster       *FeedbackEventBroadcaster
-	notifier                  FeedbackNotifier
+	feedbackNotifier          FeedbackNotifier
+	subscriptionNotifier      SubscriptionNotifier
+	subscriptionNotifications bool
 }
 
 const (
@@ -44,7 +46,7 @@ const (
 	subscriptionUserAgentMaxLength = 400
 )
 
-func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaster *FeedbackEventBroadcaster, notifier FeedbackNotifier) *PublicHandlers {
+func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaster *FeedbackEventBroadcaster, notifier FeedbackNotifier, subscriptionNotifier SubscriptionNotifier, subscriptionNotificationsEnabled bool) *PublicHandlers {
 	return &PublicHandlers{
 		database:                  database,
 		logger:                    logger,
@@ -52,7 +54,9 @@ func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaste
 		maxRequestsPerIPPerWindow: 6,
 		rateCountersByIP:          make(map[string]int),
 		feedbackBroadcaster:       feedbackBroadcaster,
-		notifier:                  resolveFeedbackNotifier(notifier),
+		feedbackNotifier:          resolveFeedbackNotifier(notifier),
+		subscriptionNotifier:      resolveSubscriptionNotifier(subscriptionNotifier),
+		subscriptionNotifications: subscriptionNotificationsEnabled,
 	}
 }
 
@@ -132,11 +136,23 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 }
 
 func (h *PublicHandlers) applyFeedbackNotification(ctx context.Context, site model.Site, feedback *model.Feedback) {
-	applyFeedbackNotification(ctx, h.database, h.logger, h.notifier, site, feedback)
+	applyFeedbackNotification(ctx, h.database, h.logger, h.feedbackNotifier, site, feedback)
 }
 
 func (h *PublicHandlers) broadcastFeedbackCreated(ctx context.Context, feedback model.Feedback) {
 	broadcastFeedbackEvent(h.database, h.logger, h.feedbackBroadcaster, ctx, feedback)
+}
+
+func (h *PublicHandlers) applySubscriptionNotification(ctx context.Context, site model.Site, subscriber model.Subscriber) {
+	if !h.subscriptionNotifications {
+		return
+	}
+	if h.subscriptionNotifier == nil {
+		return
+	}
+	if notifyErr := h.subscriptionNotifier.NotifySubscription(ctx, site, subscriber); notifyErr != nil {
+		h.logger.Warn("subscription_notification_failed", zap.Error(notifyErr), zap.String("site_id", site.ID), zap.String("subscriber_id", subscriber.ID))
+	}
 }
 
 func (h *PublicHandlers) isRateLimited(ip string) bool {
@@ -290,6 +306,7 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 				context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
 				return
 			}
+			h.applySubscriptionNotification(context.Request.Context(), site, existingSubscriber)
 			context.JSON(http.StatusOK, gin.H{"status": "ok", "subscriber_id": existingSubscriber.ID})
 			return
 		}
@@ -323,6 +340,7 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 		return
 	}
 
+	h.applySubscriptionNotification(context.Request.Context(), site, subscriber)
 	context.JSON(http.StatusOK, gin.H{"status": "ok", "subscriber_id": subscriber.ID})
 }
 

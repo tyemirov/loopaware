@@ -25,7 +25,7 @@ func TestSubscribeWidgetSubmitsSubscription(t *testing.T) {
 	page := buildHeadlessPage(t)
 	screenshotsDirectory := createScreenshotsDirectory(t)
 
-	api := buildAPIHarness(t, nil)
+	api := buildAPIHarness(t, nil, nil)
 
 	server := httptest.NewServer(api.router)
 	t.Cleanup(server.Close)

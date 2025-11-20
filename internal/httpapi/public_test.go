@@ -29,7 +29,7 @@ type apiHarness struct {
 	events   *httpapi.FeedbackEventBroadcaster
 }
 
-func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier) apiHarness {
+func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, subscriptionNotifier httpapi.SubscriptionNotifier) apiHarness {
 	testingT.Helper()
 
 	gin.SetMode(gin.TestMode)
@@ -48,7 +48,7 @@ func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier) api
 	router.Use(httpapi.RequestLogger(logger))
 
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, notifier)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, notifier, subscriptionNotifier, true)
 	router.POST("/api/feedback", publicHandlers.CreateFeedback)
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
 	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
@@ -99,7 +99,7 @@ func insertSite(testingT *testing.T, database *gorm.DB, name string, origin stri
 }
 
 func TestFeedbackFlow(t *testing.T) {
-	api := buildAPIHarness(t, nil)
+	api := buildAPIHarness(t, nil, nil)
 	site := insertSite(t, api.database, "Moving Maps", "http://example.com", "admin@example.com")
 
 	widgetResp := performJSONRequest(t, api.router, http.MethodGet, "/widget.js?site_id="+site.ID, nil, nil)
@@ -130,7 +130,7 @@ func TestFeedbackFlow(t *testing.T) {
 }
 
 func TestRateLimitingReturnsTooManyRequests(t *testing.T) {
-	api := buildAPIHarness(t, nil)
+	api := buildAPIHarness(t, nil, nil)
 	site := insertSite(t, api.database, "Burst Site", "http://burst.example", "admin@example.com")
 
 	headers := map[string]string{"Origin": "http://burst.example"}
@@ -148,7 +148,7 @@ func TestRateLimitingReturnsTooManyRequests(t *testing.T) {
 }
 
 func TestWidgetJSHonorsCustomPlacement(t *testing.T) {
-	api := buildAPIHarness(t, nil)
+	api := buildAPIHarness(t, nil, nil)
 	site := insertSite(t, api.database, "Custom Placement", "http://placement.example", "owner@example.com")
 	require.NoError(t, api.database.Model(&model.Site{}).
 		Where("id = ?", site.ID).
@@ -165,7 +165,7 @@ func TestWidgetJSHonorsCustomPlacement(t *testing.T) {
 }
 
 func TestWidgetRequiresValidSiteId(t *testing.T) {
-	api := buildAPIHarness(t, nil)
+	api := buildAPIHarness(t, nil, nil)
 
 	resp := performJSONRequest(t, api.router, http.MethodGet, "/widget.js?site_id=", nil, nil)
 	require.Equal(t, http.StatusBadRequest, resp.Code)
@@ -175,7 +175,7 @@ func TestWidgetRequiresValidSiteId(t *testing.T) {
 }
 
 func TestCreateFeedbackValidatesPayload(t *testing.T) {
-	api := buildAPIHarness(t, nil)
+	api := buildAPIHarness(t, nil, nil)
 	site := insertSite(t, api.database, "Validation", "http://valid.example", "owner@example.com")
 
 	respMissing := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
@@ -194,7 +194,7 @@ func TestCreateFeedbackValidatesPayload(t *testing.T) {
 }
 
 func TestCreateSubscriptionStoresSubscriber(t *testing.T) {
-	api := buildAPIHarness(t, nil)
+	api := buildAPIHarness(t, nil, nil)
 	site := insertSite(t, api.database, "Newsletter", "http://newsletter.example", "owner@example.com")
 
 	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
@@ -212,7 +212,7 @@ func TestCreateSubscriptionStoresSubscriber(t *testing.T) {
 }
 
 func TestCreateSubscriptionValidatesInput(t *testing.T) {
-	api := buildAPIHarness(t, nil)
+	api := buildAPIHarness(t, nil, nil)
 	site := insertSite(t, api.database, "Validation Subscription", "http://sub.example", "owner@example.com")
 
 	respMissing := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
@@ -229,7 +229,7 @@ func TestCreateSubscriptionValidatesInput(t *testing.T) {
 }
 
 func TestCreateSubscriptionBlocksOriginAndDuplicates(t *testing.T) {
-	api := buildAPIHarness(t, nil)
+	api := buildAPIHarness(t, nil, nil)
 	site := insertSite(t, api.database, "Origins", "http://origin.example", "owner@example.com")
 
 	badOrigin := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
@@ -252,7 +252,7 @@ func TestCreateSubscriptionBlocksOriginAndDuplicates(t *testing.T) {
 }
 
 func TestConfirmAndUnsubscribeSubscription(t *testing.T) {
-	api := buildAPIHarness(t, nil)
+	api := buildAPIHarness(t, nil, nil)
 	site := insertSite(t, api.database, "Confirmations", "http://confirm.example", "owner@example.com")
 
 	createResp := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
@@ -296,6 +296,82 @@ func TestConfirmAndUnsubscribeSubscription(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, missing.Code)
 }
 
+func TestCreateSubscriptionDispatchesNotification(t *testing.T) {
+	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
+	api := buildAPIHarness(t, nil, subscriptionNotifier)
+	site := insertSite(t, api.database, "Notify", "http://notify.example", "owner@example.com")
+
+	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+		"site_id": site.ID,
+		"email":   "notify@example.com",
+	}, map[string]string{"Origin": "http://notify.example"})
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, 1, subscriptionNotifier.CallCount())
+}
+
+func TestSubscriptionNotificationFailureDoesNotBlock(t *testing.T) {
+	subscriptionNotifier := &recordingSubscriptionNotifier{t: t, callErr: errors.New("pinguin down")}
+
+	gin.SetMode(gin.TestMode)
+	logger, loggerErr := zap.NewDevelopment()
+	require.NoError(t, loggerErr)
+
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(t, openErr)
+	database = testutil.ConfigureDatabaseLogger(t, database)
+	require.NoError(t, storage.AutoMigrate(database))
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.Use(httpapi.RequestLogger(logger))
+
+	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
+	t.Cleanup(feedbackBroadcaster.Close)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, subscriptionNotifier, true)
+
+	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
+
+	site := insertSite(t, database, "Notify Fail", "http://notifyfail.example", "owner@example.com")
+	resp := performJSONRequest(t, router, http.MethodPost, "/api/subscriptions", map[string]any{
+		"site_id": site.ID,
+		"email":   "notify@example.com",
+	}, map[string]string{"Origin": "http://notifyfail.example"})
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, 1, subscriptionNotifier.CallCount())
+}
+
+func TestSubscriptionNotificationsCanBeDisabled(t *testing.T) {
+	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
+
+	gin.SetMode(gin.TestMode)
+	logger, loggerErr := zap.NewDevelopment()
+	require.NoError(t, loggerErr)
+
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(t, openErr)
+	database = testutil.ConfigureDatabaseLogger(t, database)
+	require.NoError(t, storage.AutoMigrate(database))
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.Use(httpapi.RequestLogger(logger))
+
+	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
+	t.Cleanup(feedbackBroadcaster.Close)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, subscriptionNotifier, false)
+	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
+
+	site := insertSite(t, database, "Notify Off", "http://notifyoff.example", "owner@example.com")
+	resp := performJSONRequest(t, router, http.MethodPost, "/api/subscriptions", map[string]any{
+		"site_id": site.ID,
+		"email":   "notify@example.com",
+	}, map[string]string{"Origin": "http://notifyoff.example"})
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, 0, subscriptionNotifier.CallCount())
+}
+
 type feedbackNotificationCall struct {
 	Site     model.Site
 	Feedback model.Feedback
@@ -308,6 +384,26 @@ type recordingFeedbackNotifier struct {
 	calls     []feedbackNotificationCall
 	delivery  string
 	callError error
+}
+
+type recordingSubscriptionNotifier struct {
+	t       *testing.T
+	mu      sync.Mutex
+	calls   []model.Subscriber
+	callErr error
+}
+
+func (notifier *recordingSubscriptionNotifier) NotifySubscription(ctx context.Context, site model.Site, subscriber model.Subscriber) error {
+	notifier.mu.Lock()
+	defer notifier.mu.Unlock()
+	notifier.calls = append(notifier.calls, subscriber)
+	return notifier.callErr
+}
+
+func (notifier *recordingSubscriptionNotifier) CallCount() int {
+	notifier.mu.Lock()
+	defer notifier.mu.Unlock()
+	return len(notifier.calls)
 }
 
 func (notifier *recordingFeedbackNotifier) NotifyFeedback(ctx context.Context, site model.Site, feedback model.Feedback) (string, error) {
@@ -341,7 +437,7 @@ func TestCreateFeedbackDispatchesNotificationToOwner(t *testing.T) {
 		t:        t,
 		delivery: model.FeedbackDeliveryMailed,
 	}
-	api := buildAPIHarness(t, notifier)
+	api := buildAPIHarness(t, notifier, nil)
 	site := insertSite(t, api.database, "Dispatcher", "http://dispatch.example", "owner@example.com")
 	require.NoError(t, api.database.Model(&model.Site{}).
 		Where("id = ?", site.ID).
@@ -371,7 +467,7 @@ func TestCreateFeedbackRecordsNoDeliveryOnNotifierFailure(t *testing.T) {
 		delivery:  model.FeedbackDeliveryMailed,
 		callError: errors.New("send failed"),
 	}
-	api := buildAPIHarness(t, notifier)
+	api := buildAPIHarness(t, notifier, nil)
 	site := insertSite(t, api.database, "Failure Delivery", "http://failure.example", "owner@example.com")
 
 	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
