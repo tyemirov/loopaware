@@ -81,6 +81,9 @@ const (
 	defaultPinguinConnTimeoutSeconds = 5
 	defaultPinguinOpTimeoutSeconds   = 30
 	publicRouteFeedback              = "/api/feedback"
+	publicRouteSubscription          = "/api/subscriptions"
+	publicRouteSubscriptionConfirm   = "/api/subscriptions/confirm"
+	publicRouteSubscriptionOptOut    = "/api/subscriptions/unsubscribe"
 	publicRouteWidget                = "/widget.js"
 	landingRouteRoot                 = constants.LoginPath
 	dashboardRoute                   = "/app"
@@ -435,6 +438,9 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	router.GET(httpapi.PrivacyPagePath, privacyHandlers.RenderPrivacyPage)
 	router.GET(httpapi.SitemapRoutePath, sitemapHandlers.RenderSitemap)
 	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
+	router.POST(publicRouteSubscription, publicHandlers.CreateSubscription)
+	router.POST(publicRouteSubscriptionConfirm, publicHandlers.ConfirmSubscription)
+	router.POST(publicRouteSubscriptionOptOut, publicHandlers.Unsubscribe)
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
 	router.GET(dashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
 

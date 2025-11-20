@@ -50,6 +50,9 @@ func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier) api
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, notifier)
 	router.POST("/api/feedback", publicHandlers.CreateFeedback)
+	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
+	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
+	router.POST("/api/subscriptions/unsubscribe", publicHandlers.Unsubscribe)
 	router.GET("/widget.js", publicHandlers.WidgetJS)
 
 	testingT.Cleanup(feedbackBroadcaster.Close)
@@ -186,6 +189,109 @@ func TestCreateFeedbackValidatesPayload(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	api.router.ServeHTTP(bad, req)
 	require.Equal(t, http.StatusBadRequest, bad.Code)
+}
+
+func TestCreateSubscriptionStoresSubscriber(t *testing.T) {
+	api := buildAPIHarness(t, nil)
+	site := insertSite(t, api.database, "Newsletter", "http://newsletter.example", "owner@example.com")
+
+	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+		"site_id": site.ID,
+		"email":   "Subscriber@example.com",
+		"name":    "Subscriber",
+	}, map[string]string{"Origin": "http://newsletter.example"})
+	require.Equal(t, http.StatusOK, resp.Code)
+
+	var stored model.Subscriber
+	require.NoError(t, api.database.First(&stored).Error)
+	require.Equal(t, site.ID, stored.SiteID)
+	require.Equal(t, "subscriber@example.com", stored.Email)
+	require.Equal(t, model.SubscriberStatusPending, stored.Status)
+}
+
+func TestCreateSubscriptionValidatesInput(t *testing.T) {
+	api := buildAPIHarness(t, nil)
+	site := insertSite(t, api.database, "Validation Subscription", "http://sub.example", "owner@example.com")
+
+	respMissing := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+		"site_id": "",
+		"email":   "",
+	}, map[string]string{"Origin": "http://sub.example"})
+	require.Equal(t, http.StatusBadRequest, respMissing.Code)
+
+	respInvalidEmail := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+		"site_id": site.ID,
+		"email":   "not-an-email",
+	}, map[string]string{"Origin": "http://sub.example"})
+	require.Equal(t, http.StatusBadRequest, respInvalidEmail.Code)
+}
+
+func TestCreateSubscriptionBlocksOriginAndDuplicates(t *testing.T) {
+	api := buildAPIHarness(t, nil)
+	site := insertSite(t, api.database, "Origins", "http://origin.example", "owner@example.com")
+
+	badOrigin := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+		"site_id": site.ID,
+		"email":   "user@example.com",
+	}, map[string]string{"Origin": "http://evil.example"})
+	require.Equal(t, http.StatusForbidden, badOrigin.Code)
+
+	ok := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+		"site_id": site.ID,
+		"email":   "user@example.com",
+	}, map[string]string{"Origin": "http://origin.example"})
+	require.Equal(t, http.StatusOK, ok.Code)
+
+	duplicate := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+		"site_id": site.ID,
+		"email":   "user@example.com",
+	}, map[string]string{"Origin": "http://origin.example"})
+	require.Equal(t, http.StatusConflict, duplicate.Code)
+}
+
+func TestConfirmAndUnsubscribeSubscription(t *testing.T) {
+	api := buildAPIHarness(t, nil)
+	site := insertSite(t, api.database, "Confirmations", "http://confirm.example", "owner@example.com")
+
+	createResp := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+		"site_id": site.ID,
+		"email":   "confirm@example.com",
+	}, map[string]string{"Origin": "http://confirm.example"})
+	require.Equal(t, http.StatusOK, createResp.Code)
+
+	confirm := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+		"site_id": site.ID,
+		"email":   "confirm@example.com",
+	}, map[string]string{"Origin": "http://confirm.example"})
+	require.Equal(t, http.StatusOK, confirm.Code)
+
+	var confirmed model.Subscriber
+	require.NoError(t, api.database.First(&confirmed).Error)
+	require.Equal(t, model.SubscriberStatusConfirmed, confirmed.Status)
+	require.False(t, confirmed.ConfirmedAt.IsZero())
+
+	unsubscribe := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions/unsubscribe", map[string]any{
+		"site_id": site.ID,
+		"email":   "confirm@example.com",
+	}, map[string]string{"Origin": "http://confirm.example"})
+	require.Equal(t, http.StatusOK, unsubscribe.Code)
+
+	var unsubscribed model.Subscriber
+	require.NoError(t, api.database.First(&unsubscribed).Error)
+	require.Equal(t, model.SubscriberStatusUnsubscribed, unsubscribed.Status)
+	require.False(t, unsubscribed.UnsubscribedAt.IsZero())
+
+	reconfirm := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+		"site_id": site.ID,
+		"email":   "confirm@example.com",
+	}, map[string]string{"Origin": "http://confirm.example"})
+	require.Equal(t, http.StatusConflict, reconfirm.Code)
+
+	missing := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+		"site_id": site.ID,
+		"email":   "absent@example.com",
+	}, map[string]string{"Origin": "http://confirm.example"})
+	require.Equal(t, http.StatusNotFound, missing.Code)
 }
 
 type feedbackNotificationCall struct {

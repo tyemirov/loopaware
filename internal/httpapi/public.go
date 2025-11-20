@@ -3,7 +3,9 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +32,16 @@ type PublicHandlers struct {
 const (
 	demoWidgetSiteID   = "__loopaware_widget_demo__"
 	demoWidgetSiteName = "LoopAware Widget Demo"
+
+	errorValueInvalidEmail         = "invalid_email"
+	errorValueUnknownSubscription  = "unknown_subscription"
+	errorValueDuplicateSubscriber  = "duplicate_subscription"
+	errorValueUnsubscribedAccount  = "unsubscribed"
+	errorValueSaveSubscriberFailed = "save_failed"
+	errorValueInvalidSite          = "unknown_site"
+
+	subscriptionIPMaxLength        = 64
+	subscriptionUserAgentMaxLength = 400
 )
 
 func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaster *FeedbackEventBroadcaster, notifier FeedbackNotifier) *PublicHandlers {
@@ -48,6 +60,18 @@ type createFeedbackRequest struct {
 	SiteID      string `json:"site_id"`
 	ContactInfo string `json:"contact"`
 	MessageBody string `json:"message"`
+}
+
+type createSubscriptionRequest struct {
+	SiteID    string `json:"site_id"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	SourceURL string `json:"source_url"`
+}
+
+type subscriptionMutationRequest struct {
+	SiteID string `json:"site_id"`
+	Email  string `json:"email"`
 }
 
 func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
@@ -80,15 +104,9 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 
 	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
 	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
-	if site.AllowedOrigin != "" {
-		if originHeader != "" && originHeader != site.AllowedOrigin {
-			context.JSON(403, gin.H{"error": "origin_forbidden"})
-			return
-		}
-		if originHeader == "" && refererHeader != "" && !strings.HasPrefix(refererHeader, site.AllowedOrigin) {
-			context.JSON(403, gin.H{"error": "origin_forbidden"})
-			return
-		}
+	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader) {
+		context.JSON(403, gin.H{"error": "origin_forbidden"})
+		return
 	}
 
 	feedback := model.Feedback{
@@ -165,6 +183,202 @@ func (h *PublicHandlers) WidgetJS(context *gin.Context) {
 	}
 
 	context.Data(200, "application/javascript; charset=utf-8", []byte(script))
+}
+
+func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
+	clientIP := context.ClientIP()
+	if h.isRateLimited(clientIP) {
+		context.JSON(http.StatusTooManyRequests, gin.H{"error": "rate_limited"})
+		return
+	}
+
+	var payload createSubscriptionRequest
+	if bindErr := context.BindJSON(&payload); bindErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": "invalid_json"})
+		return
+	}
+
+	payload.SiteID = strings.TrimSpace(payload.SiteID)
+	payload.Email = strings.TrimSpace(payload.Email)
+	payload.Name = strings.TrimSpace(payload.Name)
+	payload.SourceURL = strings.TrimSpace(payload.SourceURL)
+
+	if payload.SiteID == "" || payload.Email == "" {
+		context.JSON(http.StatusBadRequest, gin.H{"error": "missing_fields"})
+		return
+	}
+
+	var site model.Site
+	if err := h.database.First(&site, "id = ?", payload.SiteID).Error; err != nil {
+		context.JSON(http.StatusNotFound, gin.H{"error": errorValueInvalidSite})
+		return
+	}
+
+	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
+	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
+	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader) {
+		context.JSON(http.StatusForbidden, gin.H{"error": "origin_forbidden"})
+		return
+	}
+
+	existingSubscriber, err := findSubscriber(context.Request.Context(), h.database, site.ID, payload.Email)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
+		return
+	}
+	if err == nil {
+		if existingSubscriber.Status == model.SubscriberStatusUnsubscribed {
+			now := time.Now().UTC()
+			updateErr := h.database.Model(&existingSubscriber).Updates(map[string]any{
+				"status":          model.SubscriberStatusPending,
+				"unsubscribed_at": time.Time{},
+				"confirmed_at":    time.Time{},
+				"consent_at":      now,
+				"name":            payload.Name,
+				"source_url":      payload.SourceURL,
+				"ip":              truncate(clientIP, subscriptionIPMaxLength),
+				"user_agent":      truncate(context.Request.UserAgent(), subscriptionUserAgentMaxLength),
+			}).Error
+			if updateErr != nil {
+				context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
+				return
+			}
+			context.JSON(http.StatusOK, gin.H{"status": "ok", "subscriber_id": existingSubscriber.ID})
+			return
+		}
+		context.JSON(http.StatusConflict, gin.H{"error": errorValueDuplicateSubscriber})
+		return
+	}
+
+	input := model.SubscriberInput{
+		SiteID:    site.ID,
+		Email:     payload.Email,
+		Name:      payload.Name,
+		SourceURL: payload.SourceURL,
+		IP:        truncate(clientIP, subscriptionIPMaxLength),
+		UserAgent: truncate(context.Request.UserAgent(), subscriptionUserAgentMaxLength),
+		Status:    model.SubscriberStatusPending,
+		ConsentAt: time.Now().UTC(),
+	}
+
+	subscriber, subscriberErr := model.NewSubscriber(input)
+	if subscriberErr != nil {
+		if errors.Is(subscriberErr, model.ErrInvalidSubscriberEmail) {
+			context.JSON(http.StatusBadRequest, gin.H{"error": errorValueInvalidEmail})
+			return
+		}
+		context.JSON(http.StatusBadRequest, gin.H{"error": errorValueInvalidEmail})
+		return
+	}
+
+	if err := h.database.Create(&subscriber).Error; err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{"status": "ok", "subscriber_id": subscriber.ID})
+}
+
+func (h *PublicHandlers) ConfirmSubscription(context *gin.Context) {
+	h.updateSubscriptionStatus(context, model.SubscriberStatusConfirmed)
+}
+
+func (h *PublicHandlers) Unsubscribe(context *gin.Context) {
+	h.updateSubscriptionStatus(context, model.SubscriberStatusUnsubscribed)
+}
+
+func (h *PublicHandlers) updateSubscriptionStatus(context *gin.Context, targetStatus string) {
+	clientIP := context.ClientIP()
+	if h.isRateLimited(clientIP) {
+		context.JSON(http.StatusTooManyRequests, gin.H{"error": "rate_limited"})
+		return
+	}
+
+	var payload subscriptionMutationRequest
+	if bindErr := context.BindJSON(&payload); bindErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": "invalid_json"})
+		return
+	}
+
+	payload.SiteID = strings.TrimSpace(payload.SiteID)
+	payload.Email = strings.TrimSpace(strings.ToLower(payload.Email))
+	if payload.SiteID == "" || payload.Email == "" {
+		context.JSON(http.StatusBadRequest, gin.H{"error": "missing_fields"})
+		return
+	}
+
+	var site model.Site
+	if err := h.database.First(&site, "id = ?", payload.SiteID).Error; err != nil {
+		context.JSON(http.StatusNotFound, gin.H{"error": errorValueInvalidSite})
+		return
+	}
+
+	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
+	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
+	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader) {
+		context.JSON(http.StatusForbidden, gin.H{"error": "origin_forbidden"})
+		return
+	}
+
+	subscriber, findErr := findSubscriber(context.Request.Context(), h.database, site.ID, payload.Email)
+	if findErr != nil {
+		if errors.Is(findErr, gorm.ErrRecordNotFound) {
+			context.JSON(http.StatusNotFound, gin.H{"error": errorValueUnknownSubscription})
+			return
+		}
+		context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
+		return
+	}
+
+	if targetStatus == model.SubscriberStatusConfirmed && subscriber.Status == model.SubscriberStatusUnsubscribed {
+		context.JSON(http.StatusConflict, gin.H{"error": errorValueUnsubscribedAccount})
+		return
+	}
+	if subscriber.Status == targetStatus {
+		context.JSON(http.StatusOK, gin.H{"status": "ok"})
+		return
+	}
+
+	updateFields := map[string]any{
+		"status": targetStatus,
+	}
+	now := time.Now().UTC()
+	if targetStatus == model.SubscriberStatusConfirmed {
+		updateFields["confirmed_at"] = now
+		updateFields["unsubscribed_at"] = time.Time{}
+	}
+	if targetStatus == model.SubscriberStatusUnsubscribed {
+		updateFields["unsubscribed_at"] = now
+	}
+
+	if err := h.database.Model(&subscriber).Updates(updateFields).Error; err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func isOriginAllowed(allowedOrigin string, originHeader string, refererHeader string) bool {
+	normalizedAllowedOrigin := strings.TrimSpace(allowedOrigin)
+	if normalizedAllowedOrigin == "" {
+		return true
+	}
+
+	if originHeader != "" {
+		return originHeader == normalizedAllowedOrigin
+	}
+	if refererHeader != "" {
+		return strings.HasPrefix(refererHeader, normalizedAllowedOrigin)
+	}
+	return false
+}
+
+func findSubscriber(ctx context.Context, database *gorm.DB, siteID string, email string) (model.Subscriber, error) {
+	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
+	var subscriber model.Subscriber
+	err := database.WithContext(ctx).First(&subscriber, "site_id = ? AND email = ?", siteID, normalizedEmail).Error
+	return subscriber, err
 }
 
 func truncate(input string, max int) string {
