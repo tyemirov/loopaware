@@ -981,6 +981,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		},
 		Placeholders: map[string]string{
 			"subscribers": subscribersPlaceholder,
+			"top_pages":   topPagesPlaceholder,
 		},
 		FormStatusClasses: map[string]string{
 			"base":    formStatusBaseClass,
