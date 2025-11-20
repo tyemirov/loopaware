@@ -105,6 +105,8 @@ type siteResponse struct {
 	CreatedAt                int64  `json:"created_at"`
 	FeedbackCount            int64  `json:"feedback_count"`
 	SubscriberCount          int64  `json:"subscriber_count"`
+	VisitCount               int64  `json:"visit_count"`
+	UniqueVisitorCount       int64  `json:"unique_visitor_count"`
 	WidgetBubbleSide         string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
 }
@@ -884,6 +886,8 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 		CreatedAt:                site.CreatedAt.UTC().Unix(),
 		FeedbackCount:            feedbackCount,
 		SubscriberCount:          handlers.subscriberCount(ctx, site.ID),
+		VisitCount:               handlers.visitCount(ctx, site.ID),
+		UniqueVisitorCount:       handlers.uniqueVisitorCount(ctx, site.ID),
 		WidgetBubbleSide:         site.WidgetBubbleSide,
 		WidgetBubbleBottomOffset: site.WidgetBubbleBottomOffsetPx,
 	}
@@ -908,6 +912,30 @@ func (handlers *SiteHandlers) subscriberCount(ctx context.Context, siteID string
 	count, err := handlers.statsProvider.SubscriberCount(ctx, siteID)
 	if err != nil && handlers.logger != nil {
 		handlers.logger.Debug("subscriber_count_failed", zap.String("site_id", siteID), zap.Error(err))
+		return 0
+	}
+	return count
+}
+
+func (handlers *SiteHandlers) visitCount(ctx context.Context, siteID string) int64 {
+	if handlers.statsProvider == nil {
+		return 0
+	}
+	count, err := handlers.statsProvider.VisitCount(ctx, siteID)
+	if err != nil && handlers.logger != nil {
+		handlers.logger.Debug("visit_count_failed", zap.String("site_id", siteID), zap.Error(err))
+		return 0
+	}
+	return count
+}
+
+func (handlers *SiteHandlers) uniqueVisitorCount(ctx context.Context, siteID string) int64 {
+	if handlers.statsProvider == nil {
+		return 0
+	}
+	count, err := handlers.statsProvider.UniqueVisitorCount(ctx, siteID)
+	if err != nil && handlers.logger != nil {
+		handlers.logger.Debug("unique_visitor_count_failed", zap.String("site_id", siteID), zap.Error(err))
 		return 0
 	}
 	return count
