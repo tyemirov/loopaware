@@ -16,10 +16,9 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes -` [x
 - [x] [LA-104] Build embeddable `subscribe.js` and demo page: customizable copy/colors, inline + bubble modes, origin-safe submission to APIs, and browser test asserting end-to-end subscription persistence. Added subscribe.js asset with inline/bubble modes, public demo route, and headless integration test to verify persisted subscriptions.
 - [x] [LA-105] Add dashboard subscriber management: owner/admin APIs to list/search/export/update status, UI table/cards with counts and SSE updates, and tests for auth + export contents. Added subscriber counts to site responses, list/export/status APIs with tests, and dashboard UI to view/export/toggle subscribers.
 - [x] [LA-106] Wire subscription notifications: optional Pinguin hook on new confirmed subscribers, feature flag/env, and tests using a fake notifier to assert delivery codes. Subscription notifications now reuse Pinguin with a feature flag, plus tests for success/failure and disablement paths.
-- [ ] [LA-107] Implement visit tracking storage, origin-validated collection endpoint/pixel.js + pixel.gif response, and retention/rollups per LA-101.
-- [ ] [LA-107] Implement visit tracking storage and collection: `SiteVisit` model, origin-validated pixel endpoint (GIF/POST), visitor_id cookie persistence, and Go tests for validation/persistence.
-- [ ] [LA-108] Add dashboard traffic stats and top-pages reporting: APIs returning timeseries and top URLs, UI cards/tables, auth checks, and integration tests on aggregates.
-- [ ] [LA-109] Build visit rollup + retention jobs: scheduler aggregating daily page_views/unique_visitors, pruning raw visits beyond retention, with tests for rollup math and trimming.
+- [x] [LA-107] Implement visit tracking storage, origin-validated collection endpoint/pixel.js + pixel.gif response, and retention/rollups per LA-101. Delivered SiteVisit model, pixel endpoint, pixel.js asset, and retention/rollup job.
+- [x] [LA-108] Add dashboard traffic stats and top-pages reporting: APIs returning totals and top URLs, UI card/table, and tests for auth/aggregation.
+- [x] [LA-109] Build visit rollup + retention jobs: scheduler aggregating daily page_views/unique_visitors, pruning raw visits beyond retention, with tests.
 
 ## Improvements (200-299)
 
