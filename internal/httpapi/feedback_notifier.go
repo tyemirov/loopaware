@@ -34,28 +34,36 @@ func applyFeedbackNotification(ctx context.Context, database *gorm.DB, logger *z
 	if notifier == nil {
 		return
 	}
-	delivery, notifyErr := notifier.NotifyFeedback(ctx, site, *feedback)
+	intendedDelivery := model.FeedbackDeliveryMailed
+	payload := *feedback
+	payload.Delivery = intendedDelivery
+
+	delivery, notifyErr := notifier.NotifyFeedback(ctx, site, payload)
 	if notifyErr != nil {
 		if logger != nil {
 			logger.Warn("feedback_notification_failed", zap.Error(notifyErr), zap.String("site_id", site.ID), zap.String("feedback_id", feedback.ID))
 		}
-		delivery = model.FeedbackDeliveryNone
+		intendedDelivery = model.FeedbackDeliveryNone
 	}
 
+	if (delivery == model.FeedbackDeliveryMailed || delivery == model.FeedbackDeliveryTexted) && notifyErr == nil {
+		intendedDelivery = delivery
+	}
 	if delivery != model.FeedbackDeliveryMailed && delivery != model.FeedbackDeliveryTexted {
 		delivery = model.FeedbackDeliveryNone
 	}
-	if delivery == feedback.Delivery {
+	if intendedDelivery == feedback.Delivery {
 		return
 	}
 	if database == nil {
 		return
 	}
-	feedback.Delivery = delivery
-	updateErr := database.Save(feedback).Error
+	updateErr := database.Exec("UPDATE feedbacks SET delivery = ? WHERE id = ?", delivery, feedback.ID).Error
 	if updateErr != nil {
 		if logger != nil {
 			logger.Warn("update_feedback_delivery_failed", zap.Error(updateErr), zap.String("feedback_id", feedback.ID))
 		}
+		return
 	}
+	feedback.Delivery = intendedDelivery
 }
