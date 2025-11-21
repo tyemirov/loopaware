@@ -44,12 +44,13 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 2. Subscribers pane after
 3. Traffic page after
 
-- [ ] [LA-204] Add subscriber flow integration tests mirroring feedback coverage: stub notifier, submit subscription via widget, assert persisted state and notifier delivery codes.
-- [ ] [LA-205] Add widget end-to-end notification tests: exercise embed submission through the widget, verify delivery persistence and notifier calls similar to feedback tests; include race/CI coverage.
+- [x] [LA-204] Subscriber widget integration test now stubs the subscription notifier, drives subscribe.js end-to-end, and asserts stored subscriber fields plus notifier call metadata so coverage mirrors the feedback flow.
+- [x] [LA-205] Widget integration suite now includes notifier failure/status scenarios, driving widget.js end-to-end and asserting delivery persistence plus notifier call metadata (covered under both standard and race CI runs).
 
 ## BugFixes (300-399)
 
 - [x] [LA-307] widget test page now uses the current request origin for widget.js so the preview widget renders even when the configured public base URL points elsewhere; added coverage.
+- [ ] [LA-308] Intermittent `TestWidgetIntegrationSubmitsFeedback` failure (headless focus wait around internal/httpapi/widget_integration_test.go:166) observed while preparing LA-204/205; investigate the rod/headless flow so the integration suite stays reliable locally and in CI.
 
 ## Maintenance (400-499)
 

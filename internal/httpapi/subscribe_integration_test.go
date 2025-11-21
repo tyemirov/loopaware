@@ -25,7 +25,8 @@ func TestSubscribeWidgetSubmitsSubscription(t *testing.T) {
 	page := buildHeadlessPage(t)
 	screenshotsDirectory := createScreenshotsDirectory(t)
 
-	api := buildAPIHarness(t, nil, nil)
+	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
+	api := buildAPIHarness(t, nil, subscriptionNotifier)
 
 	server := httptest.NewServer(api.router)
 	t.Cleanup(server.Close)
@@ -54,5 +55,15 @@ func TestSubscribeWidgetSubmitsSubscription(t *testing.T) {
 	require.NoError(t, api.database.First(&stored).Error)
 	require.Equal(t, site.ID, stored.SiteID)
 	require.Equal(t, "subscriber@example.com", stored.Email)
+	require.Equal(t, "Newsletter User", stored.Name)
+	require.Equal(t, demoURL, stored.SourceURL)
 	require.Equal(t, model.SubscriberStatusPending, stored.Status)
+	require.False(t, stored.ConsentAt.IsZero())
+
+	require.Equal(t, 1, subscriptionNotifier.CallCount())
+	notification := subscriptionNotifier.LastCall()
+	require.Equal(t, site.ID, notification.Site.ID)
+	require.Equal(t, stored.ID, notification.Subscriber.ID)
+	require.Equal(t, stored.Email, notification.Subscriber.Email)
+	require.Equal(t, model.SubscriberStatusPending, notification.Subscriber.Status)
 }
