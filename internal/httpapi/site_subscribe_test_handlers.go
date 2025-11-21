@@ -132,7 +132,7 @@ func (handlers *SiteSubscribeTestHandlers) RenderSubscribeTestPage(context *gin.
 	}
 
 	previewBase := "/subscribe-demo?site_id=" + url.QueryEscape(site.ID)
-	eventsEndpoint := "/api/sites/" + site.ID + "/subscription-tests/events"
+	eventsEndpoint := "/app/sites/" + site.ID + "/subscribe-test/events"
 
 	data := subscribeTestTemplateData{
 		PageTitle:               "Subscribe Widget Test — " + site.Name,
@@ -228,6 +228,7 @@ func (handlers *SiteSubscribeTestHandlers) StreamSubscriptionTestEvents(context 
 	context.Header("Cache-Control", "no-cache")
 	context.Header("Connection", "keep-alive")
 	context.Status(http.StatusOK)
+	flusher.Flush()
 
 	for {
 		select {
