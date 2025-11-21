@@ -71,6 +71,11 @@ const (
 	dashboardFeedbackWidgetCardSelector       = `[data-widget-card="feedback"]`
 	dashboardSubscribeWidgetCardSelector      = `[data-widget-card="subscribe"]`
 	dashboardTrafficWidgetCardSelector        = `[data-widget-card="traffic"]`
+	dashboardDashboardCardSelector            = "[data-dashboard-card]"
+	dashboardFeedbackMessagesCardSelector     = `[data-dashboard-card="feedback"]`
+	dashboardSubscribersCardSelector          = `[data-dashboard-card="subscribers"]`
+	dashboardTrafficCardSelector              = `[data-dashboard-card="traffic"]`
+	dashboardSubscribersTableBodySelector     = "#subscribers-table-body"
 	dashboardSettingsMenuOpenScript           = `(function() {
 		var menu = document.querySelector('#settings-menu');
 		if (!menu) { return false; }
@@ -631,6 +636,64 @@ func TestDashboardShowsDistinctWidgetSnippets(t *testing.T) {
 	require.False(t, snippets.FeedbackCopyDisabled)
 	require.False(t, snippets.SubscribeCopyDisabled)
 	require.False(t, snippets.TrafficCopyDisabled)
+}
+
+func TestDashboardSeparatesSubscribersAndTrafficCards(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Dashboard Cards Site",
+		AllowedOrigin: harness.baseURL,
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	cardScript := fmt.Sprintf(`(function(){
+		var sequence = Array.prototype.slice.call(document.querySelectorAll(%q)).map(function(node) {
+			return (node.getAttribute('data-dashboard-card') || '').trim();
+		});
+		var feedbackCard = document.querySelector(%q);
+		var subscribersCard = document.querySelector(%q);
+		var trafficCard = document.querySelector(%q);
+		return {
+			cards: sequence,
+			subscribersInFeedback: !!(feedbackCard && feedbackCard.querySelector(%q)),
+			trafficInFeedback: !!(feedbackCard && feedbackCard.querySelector(%q)),
+			subscribersInOwnCard: !!(subscribersCard && subscribersCard.querySelector(%q)),
+			trafficInOwnCard: !!(trafficCard && trafficCard.querySelector(%q))
+		};
+	}())`, dashboardDashboardCardSelector, dashboardFeedbackMessagesCardSelector, dashboardSubscribersCardSelector, dashboardTrafficCardSelector, dashboardSubscribersTableBodySelector, dashboardTopPagesTableBodySelector, dashboardSubscribersTableBodySelector, dashboardTopPagesTableBodySelector)
+
+	var layout struct {
+		Cards                 []string `json:"cards"`
+		SubscribersInFeedback bool     `json:"subscribersInFeedback"`
+		TrafficInFeedback     bool     `json:"trafficInFeedback"`
+		SubscribersInOwnCard  bool     `json:"subscribersInOwnCard"`
+		TrafficInOwnCard      bool     `json:"trafficInOwnCard"`
+	}
+
+	evaluateScriptInto(t, page, cardScript, &layout)
+
+	require.Equal(t, []string{"feedback", "subscribers", "traffic"}, layout.Cards)
+	require.False(t, layout.SubscribersInFeedback)
+	require.False(t, layout.TrafficInFeedback)
+	require.True(t, layout.SubscribersInOwnCard)
+	require.True(t, layout.TrafficInOwnCard)
 }
 
 func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {
