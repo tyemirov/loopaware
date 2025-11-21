@@ -236,6 +236,49 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	require.Equal(t, widgetPanelHiddenDisplayValue, panelDisplayState)
 }
 
+func TestWidgetIntegrationSendsNotification(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	notifier := &recordingFeedbackNotifier{
+		t:        t,
+		delivery: model.FeedbackDeliveryMailed,
+	}
+	page := buildHeadlessPage(t)
+
+	apiHarness := buildAPIHarness(t, notifier, nil)
+	server := httptest.NewServer(apiHarness.router)
+	t.Cleanup(server.Close)
+
+	site := insertSite(t, apiHarness.database, integrationSiteName, server.URL, integrationSiteOwnerEmail)
+	integrationPageHTML := fmt.Sprintf(integrationPageHTMLTemplate, site.ID)
+	apiHarness.router.GET(integrationPageRoutePath, func(ginContext *gin.Context) {
+		ginContext.Data(http.StatusOK, integrationPageContentType, []byte(integrationPageHTML))
+	})
+
+	navigateToPage(t, page, server.URL+integrationPageRoutePath)
+	waitForVisibleElement(t, page, widgetBubbleSelector)
+	clickSelector(t, page, widgetBubbleSelector)
+	waitForVisibleElement(t, page, widgetPanelSelector)
+
+	setInputValue(t, page, widgetContactSelector, integrationFeedbackContactValue)
+	setInputValue(t, page, widgetMessageSelector, integrationFeedbackMessageValue)
+	clickSelector(t, page, widgetSendButtonSelector)
+
+	var widgetStatusText string
+	require.Eventually(t, func() bool {
+		widgetStatusText = evaluateScriptString(t, page, widgetStatusResolveScript)
+		return strings.Contains(widgetStatusText, widgetSuccessStatusMessage)
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+	require.Equal(t, 1, notifier.CallCount())
+	call := notifier.LastCall()
+	require.Equal(t, site.ID, call.Site.ID)
+	require.Equal(t, integrationFeedbackMessageValue, call.Feedback.Message)
+	var stored []model.Feedback
+	require.NoError(t, apiHarness.database.Find(&stored).Error)
+	require.Len(t, stored, 1)
+	require.Equal(t, model.FeedbackDeliveryMailed, stored[0].Delivery)
+}
+
 func TestWidgetAppliesDarkThemeStyles(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
