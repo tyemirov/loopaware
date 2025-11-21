@@ -23,6 +23,27 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## Improvements (200-299)
 
+- [ ] [LA-200] Goal: use the latest version of mpr-ui for the footer and header. Find the mpr-ui documentation under tools/mpr-ui
+      Deliverable: document missing DSL/functionality of the mpr-ui to allo GAuth integration with the login in details, including coding suggestions.
+      Non-deliverable: code changes
+- [ ] [LA-201] Separate widgets into three widgets:
+
+1. Feedback widget
+2. Subscribe widget
+3. Traffic (pixel) widget
+
+- [ ] [LA-202] Have separate panes for the retrieval of Subscribers Widget and Traffic Widget underneath Site widget
+
+1. Site Widget
+2. Subscribers Widget
+3. Traffic Widget
+
+- [ ] [LA-308] Have separate panes for Subscribers and Traffic, not nested inside the feedback messages:
+
+1. Feedback messages pane stays the same
+2. Subscribers pane after
+3. Traffic page after
+
 ## BugFixes (300-399)
 
 - [x] [LA-307] widget test page now uses the current request origin for widget.js so the preview widget renders even when the configured public base URL points elsewhere; added coverage.
@@ -31,6 +52,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 - [x] [LA-400] Prepare a short marketing blurb about the LoopAware service. Place it under docs/ . The goal is to place this description in a card on a main site that advertises all mprlab products
 - [x] [LA-401] Refresh the LoopAware marketing blurb for the mprlab product catalogue card with concise, card-ready copy under docs/; updated with new two-sentence catalog blurb.
+- [ ] [LA-402] Fefactor the Dockerfile multibuild with alpine-based images
 
 ## Planning
 
