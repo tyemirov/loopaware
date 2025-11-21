@@ -34,16 +34,16 @@ import (
 )
 
 const (
-	dashboardTestSessionSecretBytes             = "12345678901234567890123456789012"
-	dashboardTestAdminEmail                     = "admin@example.com"
-	dashboardTestAdminDisplayName               = "Admin Example"
-	dashboardTestWidgetBaseURL                  = "http://example.test"
-	dashboardTestLandingPath                    = "/landing"
-	dashboardTestDashboardRoute                 = "/app"
-	dashboardPromptWaitTimeout                  = 10 * time.Second
-	dashboardPromptPollInterval                 = 200 * time.Millisecond
-	dashboardNotificationSelector               = "#session-timeout-notification"
-	dashboardPromptVisibleScript                = `(function(){
+	dashboardTestSessionSecretBytes = "12345678901234567890123456789012"
+	dashboardTestAdminEmail         = "admin@example.com"
+	dashboardTestAdminDisplayName   = "Admin Example"
+	dashboardTestWidgetBaseURL      = "http://example.test"
+	dashboardTestLandingPath        = "/landing"
+	dashboardTestDashboardRoute     = "/app"
+	dashboardPromptWaitTimeout      = 10 * time.Second
+	dashboardPromptPollInterval     = 200 * time.Millisecond
+	dashboardNotificationSelector   = "#session-timeout-notification"
+	dashboardPromptVisibleScript    = `(function(){
 		var element = document.querySelector('#session-timeout-notification');
 		if (!element) { return false; }
 		var style = window.getComputedStyle(element);
@@ -129,28 +129,8 @@ const (
 	dashboardTopPagesPlaceholderText      = "No visits yet."
 	dashboardLightPromptScreenshotName    = "dashboard-session-timeout-light"
 	dashboardDarkPromptScreenshotName     = "dashboard-session-timeout-dark"
-	dashboardForcePromptScript            = `(function(){
-		var container = document.getElementById('session-timeout-notification');
-		if (container) {
-			container.classList.remove('d-none');
-			container.classList.add('d-block');
-			container.setAttribute('aria-hidden','false');
-		}
-		if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forcePrompt === 'function') {
-			window.__loopawareDashboardIdleTestHooks.forcePrompt();
-		}
-	}())`
-	dashboardForceLogoutScript = `(function(){
-		var container = document.getElementById('session-timeout-notification');
-		if (container) {
-			container.classList.remove('d-none');
-			container.classList.add('d-block');
-			container.setAttribute('aria-hidden','false');
-		}
-		if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forceLogout === 'function') {
-			window.__loopawareDashboardIdleTestHooks.forceLogout();
-		}
-	}())`
+	dashboardForcePromptScript            = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forcePrompt === 'function') { window.__loopawareDashboardIdleTestHooks.forcePrompt(); }"
+	dashboardForceLogoutScript            = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forceLogout === 'function') { window.__loopawareDashboardIdleTestHooks.forceLogout(); }"
 	dashboardNotificationBackgroundScript = `window.getComputedStyle(document.querySelector("#session-timeout-notification")).backgroundColor`
 	dashboardLocationPathScript           = "window.location.pathname"
 	dashboardIdleHooksReadyScript         = "typeof window.__loopawareDashboardIdleTestHooks !== 'undefined'"
