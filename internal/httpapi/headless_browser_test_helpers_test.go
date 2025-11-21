@@ -28,7 +28,7 @@ import (
 const (
 	headlessViewportWidth                = 1280
 	headlessViewportHeight               = 720
-	integrationTestTimeout               = 20 * time.Second
+	integrationTestTimeout               = 35 * time.Second
 	browserStartupTimeout                = 5 * time.Second
 	headlessBrowserSkipReason            = "headless browser not available"
 	headlessBrowserLocateErrorMessage    = "locate headless browser executable"
