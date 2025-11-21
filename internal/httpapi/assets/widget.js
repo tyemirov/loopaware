@@ -508,11 +508,8 @@
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: payload,
-          keepalive: true
+          credentials: "same-origin"
         };
-        if (widgetTestModeEnabled && widgetTestEndpointOverride) {
-          fetchOptions.credentials = "same-origin";
-        }
         fetch(targetEndpoint, fetchOptions).then(function(resp){
           if (!resp.ok) { throw new Error("HTTP " + resp.status); }
           return resp.json();
