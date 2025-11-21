@@ -881,6 +881,7 @@
             window.__loopawareDashboardIdleTestHooks = {
               forcePrompt: function() {
                 idleState.lastActivityTimestamp = Date.now() - (promptDelayMilliseconds + 1000);
+                showPrompt();
                 checkSessionIdleState();
               },
               forceLogout: function() {

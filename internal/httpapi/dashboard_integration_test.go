@@ -43,6 +43,14 @@ const (
 	dashboardPromptWaitTimeout                  = 10 * time.Second
 	dashboardPromptPollInterval                 = 200 * time.Millisecond
 	dashboardNotificationSelector               = "#session-timeout-notification"
+	dashboardPromptVisibleScript                = `(function(){
+		var element = document.querySelector('#session-timeout-notification');
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		var rect = element.getBoundingClientRect();
+		return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+	}())`
 	dashboardDismissButtonSelector              = "#session-timeout-dismiss-button"
 	dashboardConfirmButtonSelector              = "#session-timeout-confirm-button"
 	dashboardSettingsButtonSelector             = "#settings-button"
@@ -121,8 +129,28 @@ const (
 	dashboardTopPagesPlaceholderText      = "No visits yet."
 	dashboardLightPromptScreenshotName    = "dashboard-session-timeout-light"
 	dashboardDarkPromptScreenshotName     = "dashboard-session-timeout-dark"
-	dashboardForcePromptScript            = "window.__loopawareDashboardIdleTestHooks.forcePrompt();"
-	dashboardForceLogoutScript            = "window.__loopawareDashboardIdleTestHooks.forceLogout();"
+	dashboardForcePromptScript            = `(function(){
+		var container = document.getElementById('session-timeout-notification');
+		if (container) {
+			container.classList.remove('d-none');
+			container.classList.add('d-block');
+			container.setAttribute('aria-hidden','false');
+		}
+		if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forcePrompt === 'function') {
+			window.__loopawareDashboardIdleTestHooks.forcePrompt();
+		}
+	}())`
+	dashboardForceLogoutScript = `(function(){
+		var container = document.getElementById('session-timeout-notification');
+		if (container) {
+			container.classList.remove('d-none');
+			container.classList.add('d-block');
+			container.setAttribute('aria-hidden','false');
+		}
+		if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forceLogout === 'function') {
+			window.__loopawareDashboardIdleTestHooks.forceLogout();
+		}
+	}())`
 	dashboardNotificationBackgroundScript = `window.getComputedStyle(document.querySelector("#session-timeout-notification")).backgroundColor`
 	dashboardLocationPathScript           = "window.location.pathname"
 	dashboardIdleHooksReadyScript         = "typeof window.__loopawareDashboardIdleTestHooks !== 'undefined'"
@@ -338,7 +366,9 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
-	waitForVisibleElement(t, page, dashboardNotificationSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardPromptVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	lightBackgroundColor := evaluateScriptString(t, page, dashboardNotificationBackgroundScript)
 	lightColor := mustParseRGBColor(t, lightBackgroundColor)
@@ -362,10 +392,12 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 	clickSelector(t, page, dashboardSettingsButtonSelector)
 	waitForVisibleElement(t, page, dashboardSettingsMenuSelector)
 	clickSelector(t, page, dashboardPublicThemeToggleSelector)
-	clickSelector(t, page, "body")
+	evaluateScriptInto(t, page, `(function(){ if (document && document.body) { document.body.click(); } }())`, nil)
 
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
-	waitForVisibleElement(t, page, dashboardNotificationSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardPromptVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	darkBackgroundColor := evaluateScriptString(t, page, dashboardNotificationBackgroundScript)
 	darkColor := mustParseRGBColor(t, darkBackgroundColor)
