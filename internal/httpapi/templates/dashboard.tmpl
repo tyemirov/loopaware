@@ -152,6 +152,24 @@
                   </div>
                 </div>
                 <textarea id="{{.WidgetSnippetTextareaID}}" class="form-control font-monospace" rows="3" readonly></textarea>
+                <hr class="my-4" />
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div>
+                    <h6 class="fw-semibold mb-1">{{.SubscribeWidgetTitle}}</h6>
+                    <p class="text-muted small mb-0">{{.SubscribeWidgetInstructions}}</p>
+                  </div>
+                  <button id="{{.CopySubscribeSnippetButtonID}}" type="button" class="{{.CopyButtonDefaultClass}}">{{.CopyButtonDefaultLabel}}</button>
+                </div>
+                <textarea id="{{.SubscribeSnippetTextareaID}}" class="form-control font-monospace" rows="3" readonly></textarea>
+                <hr class="my-4" />
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div>
+                    <h6 class="fw-semibold mb-1">{{.TrafficWidgetTitle}}</h6>
+                    <p class="text-muted small mb-0">{{.TrafficWidgetInstructions}}</p>
+                  </div>
+                  <button id="{{.CopyTrafficSnippetButtonID}}" type="button" class="{{.CopyButtonDefaultClass}}">{{.CopyButtonDefaultLabel}}</button>
+                </div>
+                <textarea id="{{.TrafficWidgetSnippetTextareaID}}" class="form-control font-monospace" rows="3" readonly></textarea>
               </div>
             </div>
             <div class="card shadow-sm">
@@ -487,6 +505,10 @@
         var autoLogoutGapMessage = autoLogoutFieldsContainer ? autoLogoutFieldsContainer.getAttribute('data-gap-message') || '' : '';
         var widgetSnippetTextarea = document.getElementById(elementIds.widget_snippet_textarea);
         var copyWidgetSnippetButton = document.getElementById(elementIds.copy_widget_snippet_button);
+        var subscribeSnippetTextarea = document.getElementById(elementIds.subscribe_snippet_textarea);
+        var copySubscribeSnippetButton = document.getElementById(elementIds.copy_subscribe_snippet_button);
+        var trafficSnippetTextarea = document.getElementById(elementIds.traffic_snippet_textarea);
+        var copyTrafficSnippetButton = document.getElementById(elementIds.copy_traffic_snippet_button);
         var widgetTestButton = document.getElementById(elementIds.widget_test_button);
         var widgetTestPagePrefix = typeof sharedPaths.widget_test_prefix === 'string' ? sharedPaths.widget_test_prefix : '';
         var widgetTestPageSuffix = typeof sharedPaths.widget_test_suffix === 'string' ? sharedPaths.widget_test_suffix : '';
@@ -1543,10 +1565,24 @@
         if (widgetSnippetTextarea) {
           widgetSnippetTextarea.value = widgetUnavailableMessage;
         }
+        if (subscribeSnippetTextarea) {
+          subscribeSnippetTextarea.value = widgetUnavailableMessage;
+        }
+        if (trafficSnippetTextarea) {
+          trafficSnippetTextarea.value = widgetUnavailableMessage;
+        }
         if (copyWidgetSnippetButton) {
           copyWidgetSnippetButton.disabled = true;
         }
+        if (copySubscribeSnippetButton) {
+          copySubscribeSnippetButton.disabled = true;
+        }
+        if (copyTrafficSnippetButton) {
+          copyTrafficSnippetButton.disabled = true;
+        }
         setButtonDefault(copyWidgetSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
+        setButtonDefault(copySubscribeSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
+        setButtonDefault(copyTrafficSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
         setButtonDefault(refreshMessagesButton, buttonLabels.refresh_default || '', buttonClasses.refresh_default || '');
         setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
         registerValidationHandlers();
@@ -1754,6 +1790,14 @@
 
         function buildWidgetSnippet(siteId) {
           return '<script defer src="' + widgetBaseURL + '/widget.js?site_id=' + siteId + '"></script>';
+        }
+
+        function buildSubscribeSnippet(siteId) {
+          return '<script defer src="' + widgetBaseURL + '/subscribe.js?site_id=' + siteId + '"></script>';
+        }
+
+        function buildTrafficSnippet(siteId) {
+          return '<script defer src="' + widgetBaseURL + '/pixel.js?site_id=' + siteId + '"></script>';
         }
 
         function updateButtonStatus(button, text, extraClass) {
@@ -2013,63 +2057,104 @@
           });
         }
 
+        function setSnippetUnavailable(textarea, copyButton) {
+          if (textarea) {
+            textarea.value = widgetUnavailableMessage;
+          }
+          if (copyButton) {
+            copyButton.disabled = true;
+          }
+        }
+
+        function setSnippetValue(textarea, copyButton, snippet) {
+          if (textarea) {
+            textarea.value = snippet;
+          }
+          if (copyButton) {
+            copyButton.disabled = false;
+          }
+        }
+
         function updateWidgetSnippet() {
           if (!state.selectedSiteId || isNewSiteSelected()) {
-            widgetSnippetTextarea.value = widgetUnavailableMessage;
-            copyWidgetSnippetButton.disabled = true;
+            setSnippetUnavailable(widgetSnippetTextarea, copyWidgetSnippetButton);
+            setSnippetUnavailable(subscribeSnippetTextarea, copySubscribeSnippetButton);
+            setSnippetUnavailable(trafficSnippetTextarea, copyTrafficSnippetButton);
             disableWidgetTestButton();
             return;
           }
           var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
           if (!site) {
-            widgetSnippetTextarea.value = widgetUnavailableMessage;
-            copyWidgetSnippetButton.disabled = true;
+            setSnippetUnavailable(widgetSnippetTextarea, copyWidgetSnippetButton);
+            setSnippetUnavailable(subscribeSnippetTextarea, copySubscribeSnippetButton);
+            setSnippetUnavailable(trafficSnippetTextarea, copyTrafficSnippetButton);
             disableWidgetTestButton();
             return;
           }
-          widgetSnippetTextarea.value = buildWidgetSnippet(site.id);
-          copyWidgetSnippetButton.disabled = false;
+          setSnippetValue(widgetSnippetTextarea, copyWidgetSnippetButton, buildWidgetSnippet(site.id));
+          setSnippetValue(subscribeSnippetTextarea, copySubscribeSnippetButton, buildSubscribeSnippet(site.id));
+          setSnippetValue(trafficSnippetTextarea, copyTrafficSnippetButton, buildTrafficSnippet(site.id));
           enableWidgetTestButton(site.id);
         }
 
         function copyWidgetSnippet() {
-          if (copyWidgetSnippetButton.disabled) {
+          copySnippet(widgetSnippetTextarea, copyWidgetSnippetButton);
+        }
+
+        function copySubscribeSnippet() {
+          copySnippet(subscribeSnippetTextarea, copySubscribeSnippetButton);
+        }
+
+        function copyTrafficSnippet() {
+          copySnippet(trafficSnippetTextarea, copyTrafficSnippetButton);
+        }
+
+        function copySnippet(textarea, copyButton) {
+          if (!copyButton || copyButton.disabled) {
             return;
           }
-          var snippet = widgetSnippetTextarea.value;
+          if (!textarea) {
+            updateButtonStatus(copyButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
+            return;
+          }
+          var snippet = textarea.value;
           if (!snippet || snippet === widgetUnavailableMessage) {
-            updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
+            updateButtonStatus(copyButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
             return;
           }
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(snippet).then(function() {
-              updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_copied || '', buttonStyles.primary || '');
+              updateButtonStatus(copyButton, buttonLabels.copy_copied || '', buttonStyles.primary || '');
             }).catch(function() {
-              fallbackCopyWidgetSnippet(snippet);
+              fallbackCopySnippet(textarea, copyButton);
             });
           } else {
-            fallbackCopyWidgetSnippet(snippet);
+            fallbackCopySnippet(textarea, copyButton);
           }
         }
 
-        function fallbackCopyWidgetSnippet(snippet) {
-          var previousSelectionStart = widgetSnippetTextarea.selectionStart;
-          var previousSelectionEnd = widgetSnippetTextarea.selectionEnd;
-          widgetSnippetTextarea.focus();
-          widgetSnippetTextarea.select();
+        function fallbackCopySnippet(textarea, copyButton) {
+          if (!textarea) {
+            updateButtonStatus(copyButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
+            return;
+          }
+          var previousSelectionStart = textarea.selectionStart;
+          var previousSelectionEnd = textarea.selectionEnd;
+          textarea.focus();
+          textarea.select();
           var copySucceeded = false;
           try {
             copySucceeded = document.execCommand('copy');
           } catch (error) {
             copySucceeded = false;
           }
-          widgetSnippetTextarea.selectionStart = previousSelectionStart;
-          widgetSnippetTextarea.selectionEnd = previousSelectionEnd;
-          widgetSnippetTextarea.blur();
+          textarea.selectionStart = previousSelectionStart;
+          textarea.selectionEnd = previousSelectionEnd;
+          textarea.blur();
           if (copySucceeded) {
-            updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_copied || '', buttonStyles.primary || '');
+            updateButtonStatus(copyButton, buttonLabels.copy_copied || '', buttonStyles.primary || '');
           } else {
-            updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
+            updateButtonStatus(copyButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
           }
         }
 
@@ -2913,6 +2998,18 @@
           copyWidgetSnippetButton.addEventListener('click', function(event) {
             event.preventDefault();
             copyWidgetSnippet();
+          });
+        }
+        if (copySubscribeSnippetButton) {
+          copySubscribeSnippetButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            copySubscribeSnippet();
+          });
+        }
+        if (copyTrafficSnippetButton) {
+          copyTrafficSnippetButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            copyTrafficSnippet();
           });
         }
 

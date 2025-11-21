@@ -32,8 +32,12 @@ const (
 	dashboardRoleAdminValue                    = "admin"
 	dashboardRoleUserValue                     = "user"
 	dashboardFeedbackPlaceholder               = "Select a site to load feedback."
-	dashboardWidgetCardTitle                   = "Site widget"
+	dashboardWidgetCardTitle                   = "Feedback widget"
 	dashboardWidgetInstructions                = "Embed this <script> tag on pages served from the allowed origin."
+	subscribeWidgetCardTitle                   = "Subscribers widget"
+	subscribeWidgetInstructions                = "Place this snippet on pages where you want visitors to subscribe."
+	trafficWidgetCardTitle                     = "Traffic widget"
+	trafficWidgetInstructions                  = "Add this pixel to every page to capture visit counts."
 	dashboardWidgetUnavailable                 = "Save the site to generate a widget snippet."
 	dashboardWidgetPlacementTitle              = "Widget placement"
 	dashboardWidgetPlacementSideLabel          = "Bubble position"
@@ -108,6 +112,10 @@ const (
 	widgetPlacementSideRightInputElementID     = "widget-placement-side-right"
 	widgetPlacementBottomOffsetInputElementID  = "widget-placement-bottom-offset"
 	widgetPlacementBottomOffsetHelpElementID   = "widget-placement-bottom-offset-help"
+	subscribeWidgetSnippetTextareaElementID    = "subscribe-widget-snippet"
+	trafficWidgetSnippetTextareaElementID      = "traffic-widget-snippet"
+	copySubscribeWidgetSnippetButtonElementID  = "copy-subscribe-widget-snippet"
+	copyTrafficWidgetSnippetButtonElementID    = "copy-traffic-widget-snippet"
 	settingsButtonElementID                    = "settings-button"
 	settingsMenuElementID                      = "settings-menu"
 	settingsAvatarImageElementID               = "settings-avatar-image"
@@ -366,10 +374,18 @@ type dashboardTemplateData struct {
 	WidgetCardTitle                     string
 	WidgetInstructions                  string
 	WidgetUnavailableMessage            string
+	SubscribeWidgetTitle                string
+	SubscribeWidgetInstructions         string
+	TrafficWidgetTitle                  string
+	TrafficWidgetInstructions           string
 	StatusWidgetCopied                  string
 	StatusWidgetCopyFailed              string
 	WidgetSnippetTextareaID             string
+	SubscribeSnippetTextareaID          string
+	TrafficWidgetSnippetTextareaID      string
 	CopyWidgetSnippetButtonID           string
+	CopySubscribeSnippetButtonID        string
+	CopyTrafficSnippetButtonID          string
 	WidgetTestButtonID                  string
 	WidgetTestButtonLabel               string
 	WidgetTestButtonClass               string
@@ -681,10 +697,18 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		WidgetCardTitle:                     dashboardWidgetCardTitle,
 		WidgetInstructions:                  dashboardWidgetInstructions,
 		WidgetUnavailableMessage:            dashboardWidgetUnavailable,
+		SubscribeWidgetTitle:                subscribeWidgetCardTitle,
+		SubscribeWidgetInstructions:         subscribeWidgetInstructions,
+		TrafficWidgetTitle:                  trafficWidgetCardTitle,
+		TrafficWidgetInstructions:           trafficWidgetInstructions,
 		StatusWidgetCopied:                  dashboardStatusWidgetCopied,
 		StatusWidgetCopyFailed:              dashboardStatusWidgetCopyFailed,
 		WidgetSnippetTextareaID:             widgetSnippetTextareaElementID,
+		SubscribeSnippetTextareaID:          subscribeWidgetSnippetTextareaElementID,
+		TrafficWidgetSnippetTextareaID:      trafficWidgetSnippetTextareaElementID,
 		CopyWidgetSnippetButtonID:           copyWidgetSnippetButtonElementID,
+		CopySubscribeSnippetButtonID:        copySubscribeWidgetSnippetButtonElementID,
+		CopyTrafficSnippetButtonID:          copyTrafficWidgetSnippetButtonElementID,
 		WidgetTestButtonID:                  widgetTestButtonElementID,
 		WidgetTestButtonLabel:               dashboardWidgetTestButtonLabel,
 		WidgetTestButtonClass:               dashboardActionButtonSecondaryClass,
@@ -860,6 +884,10 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"logout_button":                     logoutButtonElementID,
 			"widget_snippet_textarea":           widgetSnippetTextareaElementID,
 			"copy_widget_snippet_button":        copyWidgetSnippetButtonElementID,
+			"subscribe_snippet_textarea":        subscribeWidgetSnippetTextareaElementID,
+			"copy_subscribe_snippet_button":     copySubscribeWidgetSnippetButtonElementID,
+			"traffic_snippet_textarea":          trafficWidgetSnippetTextareaElementID,
+			"copy_traffic_snippet_button":       copyTrafficWidgetSnippetButtonElementID,
 			"widget_test_button":                widgetTestButtonElementID,
 			"settings_button":                   settingsButtonElementID,
 			"settings_menu":                     settingsMenuElementID,

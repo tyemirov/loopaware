@@ -26,7 +26,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 - [ ] [LA-200] Goal: use the latest version of mpr-ui for the footer and header. Find the mpr-ui documentation under tools/mpr-ui
       Deliverable: document missing DSL/functionality of the mpr-ui to allo GAuth integration with the login in details, including coding suggestions.
       Non-deliverable: code changes
-- [ ] [LA-201] Separate widgets into three widgets:
+- [x] [LA-201] Separate widgets into three widgets — dashboard now provides distinct feedback, subscribe, and traffic snippets with dedicated copy controls.
 
 1. Feedback widget
 2. Subscribe widget

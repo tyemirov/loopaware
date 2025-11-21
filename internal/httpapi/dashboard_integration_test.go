@@ -62,6 +62,12 @@ const (
 	dashboardSettingsAutoLogoutToggleSelector = "#settings-auto-logout-enabled"
 	dashboardSettingsAutoLogoutPromptSelector = "#settings-auto-logout-prompt-seconds"
 	dashboardSettingsAutoLogoutLogoutSelector = "#settings-auto-logout-logout-seconds"
+	dashboardFeedbackWidgetSnippetSelector    = "#widget-snippet"
+	dashboardSubscribeWidgetSnippetSelector   = "#subscribe-widget-snippet"
+	dashboardTrafficWidgetSnippetSelector     = "#traffic-widget-snippet"
+	dashboardFeedbackCopyButtonSelector       = "#copy-widget-snippet"
+	dashboardSubscribeCopyButtonSelector      = "#copy-subscribe-widget-snippet"
+	dashboardTrafficCopyButtonSelector        = "#copy-traffic-widget-snippet"
 	dashboardSettingsMenuOpenScript           = `(function() {
 		var menu = document.querySelector('#settings-menu');
 		if (!menu) { return false; }
@@ -546,6 +552,72 @@ func TestDashboardSettingsModalOpensAndDismissesViaBackdrop(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return !evaluateScriptBoolean(t, page, dashboardSettingsMenuOpenScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardShowsDistinctWidgetSnippets(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Widget Snippet Site",
+		AllowedOrigin: harness.baseURL,
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	snippetScript := fmt.Sprintf(`(function(){
+		var feedback = document.querySelector(%q);
+		var subscribe = document.querySelector(%q);
+		var traffic = document.querySelector(%q);
+		var copyFeedback = document.querySelector(%q);
+		var copySubscribe = document.querySelector(%q);
+		var copyTraffic = document.querySelector(%q);
+		return {
+			feedback: feedback ? (feedback.value || '').trim() : '',
+			subscribe: subscribe ? (subscribe.value || '').trim() : '',
+			traffic: traffic ? (traffic.value || '').trim() : '',
+			feedbackCopyDisabled: copyFeedback ? !!copyFeedback.disabled : true,
+			subscribeCopyDisabled: copySubscribe ? !!copySubscribe.disabled : true,
+			trafficCopyDisabled: copyTraffic ? !!copyTraffic.disabled : true
+		};
+	}())`, dashboardFeedbackWidgetSnippetSelector, dashboardSubscribeWidgetSnippetSelector, dashboardTrafficWidgetSnippetSelector, dashboardFeedbackCopyButtonSelector, dashboardSubscribeCopyButtonSelector, dashboardTrafficCopyButtonSelector)
+
+	var snippets struct {
+		Feedback              string `json:"feedback"`
+		Subscribe             string `json:"subscribe"`
+		Traffic               string `json:"traffic"`
+		FeedbackCopyDisabled  bool   `json:"feedbackCopyDisabled"`
+		SubscribeCopyDisabled bool   `json:"subscribeCopyDisabled"`
+		TrafficCopyDisabled   bool   `json:"trafficCopyDisabled"`
+	}
+
+	require.Eventually(t, func() bool {
+		evaluateScriptInto(t, page, snippetScript, &snippets)
+		return strings.Contains(snippets.Feedback, site.ID) &&
+			strings.Contains(snippets.Subscribe, site.ID) &&
+			strings.Contains(snippets.Traffic, site.ID)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Contains(t, snippets.Feedback, "/widget.js?site_id="+site.ID)
+	require.Contains(t, snippets.Subscribe, "/subscribe.js?site_id="+site.ID)
+	require.Contains(t, snippets.Traffic, "/pixel.js?site_id="+site.ID)
+	require.False(t, snippets.FeedbackCopyDisabled)
+	require.False(t, snippets.SubscribeCopyDisabled)
+	require.False(t, snippets.TrafficCopyDisabled)
 }
 
 func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {
