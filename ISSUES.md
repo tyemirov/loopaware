@@ -79,7 +79,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 - [x] [LA-400] Prepare a short marketing blurb about the LoopAware service. Place it under docs/ . The goal is to place this description in a card on a main site that advertises all mprlab products
 - [x] [LA-401] Refresh the LoopAware marketing blurb for the mprlab product catalogue card with concise, card-ready copy under docs/; updated with new two-sentence catalog blurb.
-- [ ] [LA-402] Fefactor the Dockerfile multibuild with alpine-based images
+- [x] [LA-402] Refactor the Dockerfile multibuild with alpine-based images — builder now uses `golang:1.25-alpine`, runtime uses `alpine:3.20` with ca-certs + `/app/data`, and `docker build` succeeds to verify the image.
 
 ## Planning
 
