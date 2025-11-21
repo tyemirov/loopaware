@@ -93,6 +93,13 @@ var (
 	headlessBrowserRuntimeFailure      error
 )
 
+var sharedBrowserCache struct {
+	once      sync.Once
+	browser   *rod.Browser
+	launcher  *launcher.Launcher
+	initError error
+}
+
 var projectRootCache struct {
 	once sync.Once
 	path string
@@ -108,40 +115,7 @@ func buildHeadlessPage(testingT *testing.T) *rod.Page {
 		testingT.Skipf(headlessBrowserSkipMessageFormat, headlessBrowserSkipReason, failure)
 	}
 
-	browserExecutablePath, locateErr := locateHeadlessBrowserExecutable()
-	if locateErr != nil {
-		storeHeadlessBrowserRuntimeFailure(locateErr)
-		testingT.Skipf(headlessBrowserSkipMessageFormat, headlessBrowserSkipReason, locateErr)
-	}
-
-	startupContext, startupCancel := context.WithTimeout(context.Background(), browserStartupTimeout)
-	launcherInstance := launcher.New().
-		Bin(browserExecutablePath).
-		Context(startupContext)
-	browserControlURL, launchErr := launcherInstance.Launch()
-	startupCancel()
-	if launchErr != nil {
-		storeHeadlessBrowserRuntimeFailure(launchErr)
-		testingT.Skipf(headlessBrowserSkipMessageFormat, headlessBrowserSkipReason, launchErr)
-	}
-
-	testingT.Cleanup(func() {
-		launcherInstance.Cleanup()
-	})
-
-	browser := rod.New().ControlURL(browserControlURL).Timeout(integrationTestTimeout)
-	connectErr := browser.Connect()
-	if connectErr != nil {
-		storeHeadlessBrowserRuntimeFailure(connectErr)
-		testingT.Skipf(headlessBrowserSkipMessageFormat, headlessBrowserSkipReason, connectErr)
-	}
-
-	testingT.Cleanup(func() {
-		closeErr := browser.Close()
-		if closeErr != nil && !errors.Is(closeErr, context.Canceled) {
-			storeHeadlessBrowserRuntimeFailure(closeErr)
-		}
-	})
+	browser := acquireSharedBrowser(testingT)
 
 	page, pageErr := browser.Page(proto.TargetCreateTarget{URL: headlessBlankPageURL})
 	if pageErr != nil {
@@ -266,6 +240,49 @@ func convertSameSiteMode(mode http.SameSite) proto.NetworkCookieSameSite {
 	default:
 		return ""
 	}
+}
+
+func acquireSharedBrowser(testingT *testing.T) *rod.Browser {
+	testingT.Helper()
+
+	sharedBrowserCache.once.Do(func() {
+		browserExecutablePath, locateErr := locateHeadlessBrowserExecutable()
+		if locateErr != nil {
+			storeHeadlessBrowserRuntimeFailure(locateErr)
+			sharedBrowserCache.initError = locateErr
+			return
+		}
+
+		startupContext, startupCancel := context.WithTimeout(context.Background(), browserStartupTimeout)
+		launcherInstance := launcher.New().
+			Bin(browserExecutablePath).
+			Context(startupContext)
+		browserControlURL, launchErr := launcherInstance.Launch()
+		startupCancel()
+		if launchErr != nil {
+			storeHeadlessBrowserRuntimeFailure(launchErr)
+			sharedBrowserCache.initError = launchErr
+			return
+		}
+
+		sharedBrowserCache.launcher = launcherInstance
+
+		browser := rod.New().ControlURL(browserControlURL).Timeout(integrationTestTimeout)
+		connectErr := browser.Connect()
+		if connectErr != nil {
+			storeHeadlessBrowserRuntimeFailure(connectErr)
+			sharedBrowserCache.initError = connectErr
+			return
+		}
+
+		sharedBrowserCache.browser = browser
+	})
+
+	if sharedBrowserCache.initError != nil {
+		testingT.Skipf(headlessBrowserSkipMessageFormat, headlessBrowserSkipReason, sharedBrowserCache.initError)
+	}
+
+	return sharedBrowserCache.browser
 }
 
 func resolveViewportBounds(testingT *testing.T, page *rod.Page, cssSelector string) viewportBounds {
