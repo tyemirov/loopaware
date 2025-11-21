@@ -24,9 +24,10 @@ import (
 )
 
 type apiHarness struct {
-	router   *gin.Engine
-	database *gorm.DB
-	events   *httpapi.FeedbackEventBroadcaster
+	router             *gin.Engine
+	database           *gorm.DB
+	events             *httpapi.FeedbackEventBroadcaster
+	subscriptionEvents *httpapi.SubscriptionTestEventBroadcaster
 }
 
 func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, subscriptionNotifier httpapi.SubscriptionNotifier) apiHarness {
@@ -48,7 +49,8 @@ func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, sub
 	router.Use(httpapi.RequestLogger(logger))
 
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, notifier, subscriptionNotifier, true)
+	subscriptionEvents := httpapi.NewSubscriptionTestEventBroadcaster()
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, notifier, subscriptionNotifier, true)
 	router.POST("/api/feedback", publicHandlers.CreateFeedback)
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
 	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
@@ -59,11 +61,13 @@ func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, sub
 	router.GET("/api/visits", publicHandlers.CollectVisit)
 
 	testingT.Cleanup(feedbackBroadcaster.Close)
+	testingT.Cleanup(subscriptionEvents.Close)
 
 	return apiHarness{
-		router:   router,
-		database: database,
-		events:   feedbackBroadcaster,
+		router:             router,
+		database:           database,
+		events:             feedbackBroadcaster,
+		subscriptionEvents: subscriptionEvents,
 	}
 }
 
@@ -329,7 +333,7 @@ func TestSubscriptionNotificationFailureDoesNotBlock(t *testing.T) {
 
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	t.Cleanup(feedbackBroadcaster.Close)
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, subscriptionNotifier, true)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, true)
 
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
 
@@ -361,7 +365,7 @@ func TestSubscriptionNotificationsCanBeDisabled(t *testing.T) {
 
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	t.Cleanup(feedbackBroadcaster.Close)
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, subscriptionNotifier, false)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, false)
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
 
 	site := insertSite(t, database, "Notify Off", "http://notifyoff.example", "owner@example.com")

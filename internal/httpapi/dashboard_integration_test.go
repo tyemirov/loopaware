@@ -1,11 +1,13 @@
 package httpapi_test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -60,6 +62,10 @@ const (
 	dashboardWidgetBottomOffsetInputSelector    = "#widget-placement-bottom-offset"
 	dashboardWidgetBottomOffsetIncreaseSelector = "#widget-bottom-offset-increase"
 	dashboardWidgetBottomOffsetDecreaseSelector = "#widget-bottom-offset-decrease"
+	dashboardSubscribeTestButtonSelector        = "#subscribe-test-button"
+	subscribeTestInlineFrameSelector            = "#subscribe-test-inline-frame"
+	subscribeTestBubbleFrameSelector            = "#subscribe-test-bubble-frame"
+	subscribeTestLogSelector                    = "#subscribe-test-log"
 	widgetBottomOffsetStepPixels                = 10
 	dashboardSaveSiteButtonSelector             = "#save-site-button"
 	dashboardReadWidgetBottomOffsetScript       = `(function() {
@@ -296,13 +302,28 @@ func (stubDashboardNotifier) NotifySubscription(ctx context.Context, site model.
 }
 
 type dashboardIntegrationHarness struct {
-	router         *gin.Engine
-	authManager    *httpapi.AuthManager
-	faviconManager *httpapi.SiteFaviconManager
-	database       *gorm.DB
-	sqlDB          *sql.DB
-	server         *httptest.Server
-	baseURL        string
+	router             *gin.Engine
+	authManager        *httpapi.AuthManager
+	faviconManager     *httpapi.SiteFaviconManager
+	database           *gorm.DB
+	sqlDB              *sql.DB
+	server             *httptest.Server
+	baseURL            string
+	subscriptionEvents *httpapi.SubscriptionTestEventBroadcaster
+}
+
+type dashboardHarnessOptions struct {
+	subscriptionNotifier httpapi.SubscriptionNotifier
+}
+
+type dashboardHarnessOption func(*dashboardHarnessOptions)
+
+func withSubscriptionNotifier(notifier httpapi.SubscriptionNotifier) dashboardHarnessOption {
+	return func(options *dashboardHarnessOptions) {
+		if notifier != nil {
+			options.subscriptionNotifier = notifier
+		}
+	}
 }
 
 func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
@@ -1392,6 +1413,220 @@ func TestWidgetTestPlacementSavePersists(t *testing.T) {
 	require.Equal(t, 72, updatedSite.WidgetBubbleBottomOffsetPx)
 }
 
+func TestSubscribeWidgetTestFlowSubmitsSubscription(t *testing.T) {
+	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail, withSubscriptionNotifier(subscriptionNotifier))
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Subscribe Test Flow",
+		AllowedOrigin: harness.baseURL,
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	require.NoError(t, page.Navigate(harness.baseURL+dashboardTestDashboardRoute))
+	waitNavigation()
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.True(t, evaluateScriptBoolean(t, page, `(function(){
+        var originalOpen = window.open;
+        window.open = function(url, target, features) {
+          if (url) {
+            window.location.assign(url);
+          }
+          return window;
+        };
+        window.open._original = originalOpen;
+        return true;
+      }())`))
+
+	waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	clickSelector(t, page, dashboardSubscribeTestButtonSelector)
+	waitNavigation()
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardLocationPathScript) == fmt.Sprintf("/app/sites/%s/subscribe-test", site.ID)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	waitForVisibleElement(t, page, subscribeTestInlineFrameSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, fmt.Sprintf(`(function(){
+        var frame = document.querySelector(%q);
+        if (!frame || !frame.contentWindow || !frame.contentWindow.document) { return false; }
+        var doc = frame.contentWindow.document;
+        return !!(doc.getElementById(%q) && doc.getElementById(%q) && doc.getElementById(%q));
+      }())`, subscribeTestInlineFrameSelector, subscribeEmailInputID, subscribeNameInputID, subscribeSubmitButtonID))
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	testEmail := "preview-subscriber@example.com"
+	require.True(t, evaluateScriptBoolean(t, page, fmt.Sprintf(`(function(){
+        var frame = document.querySelector(%q);
+        if (!frame || !frame.contentWindow || !frame.contentWindow.document) { return false; }
+        var doc = frame.contentWindow.document;
+        var email = doc.getElementById(%q);
+        var name = doc.getElementById(%q);
+        if (!email || !name) { return false; }
+        email.value = %q;
+        name.value = %q;
+        return true;
+      }())`, subscribeTestInlineFrameSelector, subscribeEmailInputID, subscribeNameInputID, testEmail, "Preview User")))
+
+	require.True(t, evaluateScriptBoolean(t, page, fmt.Sprintf(`(function(){
+        var frame = document.querySelector(%q);
+        if (!frame || !frame.contentWindow || !frame.contentWindow.document) { return false; }
+        var doc = frame.contentWindow.document;
+        var submit = doc.getElementById(%q);
+        if (!submit) { return false; }
+        submit.click();
+        return true;
+      }())`, subscribeTestInlineFrameSelector, subscribeSubmitButtonID)))
+
+	var inlineStatus string
+	require.Eventually(t, func() bool {
+		inlineStatus = evaluateScriptString(t, page, fmt.Sprintf(`(function(){
+        var frame = document.querySelector(%q);
+        if (!frame || !frame.contentWindow || !frame.contentWindow.document) { return ""; }
+        var doc = frame.contentWindow.document;
+        var status = doc.getElementById(%q);
+        if (!status) { return ""; }
+        return status.innerText || "";
+      }())`, subscribeTestInlineFrameSelector, subscribeStatusElementID))
+		return strings.Contains(inlineStatus, "You're on the list")
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+
+	require.Eventually(t, func() bool {
+		var stored model.Subscriber
+		return harness.database.
+			Where("site_id = ? AND email = ?", site.ID, testEmail).
+			Order("created_at desc").
+			First(&stored).Error == nil
+	}, 5*time.Second, 100*time.Millisecond)
+
+	require.Equal(t, 1, subscriptionNotifier.CallCount())
+	notification := subscriptionNotifier.LastCall()
+	require.Equal(t, site.ID, notification.Site.ID)
+	require.Equal(t, testEmail, notification.Subscriber.Email)
+
+}
+
+func TestSubscribeTestPageExposesEventsEndpoint(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Subscribe Test Events Endpoint",
+		AllowedOrigin: harness.baseURL,
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	request, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/app/sites/%s/subscribe-test", harness.baseURL, site.ID), nil)
+	require.NoError(t, err)
+	request.AddCookie(sessionCookie)
+
+	response, err := harness.server.Client().Do(request)
+	require.NoError(t, err)
+	defer response.Body.Close()
+
+	require.Equal(t, http.StatusOK, response.StatusCode)
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+
+	expectedEndpoint := fmt.Sprintf(`data-events-endpoint="/app/sites/%s/subscribe-test/events"`, site.ID)
+	require.Contains(t, string(body), expectedEndpoint)
+}
+
+func TestSubscribeTestEventsEndpointStreamsBroadcasts(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Subscribe Test Event Stream",
+		AllowedOrigin: harness.baseURL,
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	request, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/app/sites/%s/subscribe-test/events", harness.baseURL, site.ID), nil)
+	require.NoError(t, err)
+	request.AddCookie(sessionCookie)
+
+	client := harness.server.Client()
+	client.Timeout = 5 * time.Second
+
+	response, err := client.Do(request)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	reader := bufio.NewReader(response.Body)
+
+	expectedEvent := httpapi.SubscriptionTestEvent{
+		SiteID:       site.ID,
+		SubscriberID: "subscriber-123",
+		Email:        "subscriber@example.com",
+		EventType:    "submission",
+		Status:       "received",
+	}
+
+	lineChannel := make(chan string, 1)
+	errorChannel := make(chan error, 1)
+	go func() {
+		defer close(lineChannel)
+		defer close(errorChannel)
+		line, readErr := reader.ReadString('\n')
+		if readErr != nil {
+			errorChannel <- readErr
+			return
+		}
+		lineChannel <- line
+	}()
+
+	harness.subscriptionEvents.Broadcast(expectedEvent)
+
+	var line string
+	select {
+	case line = <-lineChannel:
+	case readErr := <-errorChannel:
+		require.NoError(t, readErr)
+	case <-time.After(3 * time.Second):
+		require.FailNow(t, "timed out waiting for subscription test event")
+	}
+
+	require.NoError(t, response.Body.Close())
+
+	payloadText := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+	require.NotEmpty(t, payloadText)
+
+	var receivedEvent httpapi.SubscriptionTestEvent
+	require.NoError(t, json.Unmarshal([]byte(payloadText), &receivedEvent))
+
+	require.Equal(t, expectedEvent.SiteID, receivedEvent.SiteID)
+	require.Equal(t, expectedEvent.SubscriberID, receivedEvent.SubscriberID)
+	require.Equal(t, expectedEvent.Email, receivedEvent.Email)
+	require.Equal(t, expectedEvent.EventType, receivedEvent.EventType)
+	require.Equal(t, expectedEvent.Status, receivedEvent.Status)
+	require.False(t, receivedEvent.Timestamp.IsZero())
+}
+
 func TestDashboardFeedbackStreamRefreshesMessages(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
@@ -1823,13 +2058,22 @@ func parseOffsetValue(testingT *testing.T, value string) int {
 	return parsed
 }
 
-func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *dashboardIntegrationHarness {
+func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, opts ...dashboardHarnessOption) *dashboardIntegrationHarness {
 	testingT.Helper()
 
 	session.NewSession([]byte(dashboardTestSessionSecretBytes))
 
 	gin.SetMode(gin.TestMode)
 	logger := zap.NewNop()
+
+	config := dashboardHarnessOptions{
+		subscriptionNotifier: stubDashboardNotifier{},
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&config)
+		}
+	}
 
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
 	gormDatabase, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
@@ -1849,14 +2093,16 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *d
 	faviconManager.Start(managerContext)
 
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
+	subscriptionEvents := httpapi.NewSubscriptionTestEventBroadcaster()
 
 	siteHandlers := httpapi.NewSiteHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, faviconManager, nil, feedbackBroadcaster)
 	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager)
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath)
-	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, stubDashboardNotifier{}, stubDashboardNotifier{}, true)
+	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true)
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{})
+	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -1872,11 +2118,16 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *d
 	router.GET(dashboardTestDashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
 	router.GET("/app/sites/:id/widget-test", authManager.RequireAuthenticatedWeb(), widgetTestHandlers.RenderWidgetTestPage)
 	router.POST("/app/sites/:id/widget-test/feedback", authManager.RequireAuthenticatedJSON(), widgetTestHandlers.SubmitWidgetTestFeedback)
+	router.GET("/app/sites/:id/subscribe-test", authManager.RequireAuthenticatedWeb(), subscribeTestHandlers.RenderSubscribeTestPage)
+	router.GET("/app/sites/:id/subscribe-test/events", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.StreamSubscriptionTestEvents)
 	router.POST(constants.LogoutPath, func(context *gin.Context) {
 		context.Status(http.StatusOK)
 	})
 
 	router.POST("/api/feedback", publicHandlers.CreateFeedback)
+	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
+	router.GET("/subscribe.js", publicHandlers.SubscribeJS)
+	router.GET("/subscribe-demo", publicHandlers.SubscribeDemo)
 	router.GET("/widget.js", publicHandlers.WidgetJS)
 
 	apiGroup := router.Group("/api")
@@ -1899,18 +2150,20 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string) *d
 		managerCancel()
 		faviconManager.Stop()
 		feedbackBroadcaster.Close()
+		subscriptionEvents.Close()
 		server.Close()
 		require.NoError(testingT, sqlDatabase.Close())
 	})
 
 	return &dashboardIntegrationHarness{
-		router:         router,
-		authManager:    authManager,
-		faviconManager: faviconManager,
-		database:       gormDatabase,
-		sqlDB:          sqlDatabase,
-		server:         server,
-		baseURL:        server.URL,
+		router:             router,
+		authManager:        authManager,
+		faviconManager:     faviconManager,
+		database:           gormDatabase,
+		sqlDB:              sqlDatabase,
+		server:             server,
+		baseURL:            server.URL,
+		subscriptionEvents: subscriptionEvents,
 	}
 }
 

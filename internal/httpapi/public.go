@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +27,7 @@ type PublicHandlers struct {
 	rateCountersByIP          map[string]int
 	rateCountersMutex         sync.Mutex
 	feedbackBroadcaster       *FeedbackEventBroadcaster
+	subscriptionEvents        *SubscriptionTestEventBroadcaster
 	feedbackNotifier          FeedbackNotifier
 	subscriptionNotifier      SubscriptionNotifier
 	subscriptionNotifications bool
@@ -37,18 +39,24 @@ const (
 
 	errorValueInvalidEmail         = "invalid_email"
 	errorValueUnknownSubscription  = "unknown_subscription"
-errorValueDuplicateSubscriber  = "duplicate_subscription"
-errorValueUnsubscribedAccount  = "unsubscribed"
-errorValueSaveSubscriberFailed = "save_failed"
-errorValueInvalidSite          = "unknown_site"
-errorValueInvalidVisitorID     = "invalid_visitor"
-errorValueInvalidURL           = "invalid_url"
+	errorValueDuplicateSubscriber  = "duplicate_subscription"
+	errorValueUnsubscribedAccount  = "unsubscribed"
+	errorValueSaveSubscriberFailed = "save_failed"
+	errorValueInvalidSite          = "unknown_site"
+	errorValueInvalidVisitorID     = "invalid_visitor"
+	errorValueInvalidURL           = "invalid_url"
 
 	subscriptionIPMaxLength        = 64
 	subscriptionUserAgentMaxLength = 400
+
+	subscriptionEventTypeSubmission   = "subscription"
+	subscriptionEventTypeNotification = "notification"
+	subscriptionEventStatusSuccess    = "ok"
+	subscriptionEventStatusError      = "error"
+	subscriptionEventStatusSkipped    = "skipped"
 )
 
-func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaster *FeedbackEventBroadcaster, notifier FeedbackNotifier, subscriptionNotifier SubscriptionNotifier, subscriptionNotificationsEnabled bool) *PublicHandlers {
+func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaster *FeedbackEventBroadcaster, subscriptionEvents *SubscriptionTestEventBroadcaster, notifier FeedbackNotifier, subscriptionNotifier SubscriptionNotifier, subscriptionNotificationsEnabled bool) *PublicHandlers {
 	return &PublicHandlers{
 		database:                  database,
 		logger:                    logger,
@@ -56,6 +64,7 @@ func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaste
 		maxRequestsPerIPPerWindow: 6,
 		rateCountersByIP:          make(map[string]int),
 		feedbackBroadcaster:       feedbackBroadcaster,
+		subscriptionEvents:        subscriptionEvents,
 		feedbackNotifier:          resolveFeedbackNotifier(notifier),
 		subscriptionNotifier:      resolveSubscriptionNotifier(subscriptionNotifier),
 		subscriptionNotifications: subscriptionNotificationsEnabled,
@@ -145,16 +154,50 @@ func (h *PublicHandlers) broadcastFeedbackCreated(ctx context.Context, feedback 
 	broadcastFeedbackEvent(h.database, h.logger, h.feedbackBroadcaster, ctx, feedback)
 }
 
+func (h *PublicHandlers) recordSubscriptionTestEvent(site model.Site, subscriber model.Subscriber, eventType, status, message string) {
+	if h == nil || h.subscriptionEvents == nil {
+		return
+	}
+	normalizedSiteID := strings.TrimSpace(site.ID)
+	normalizedSubscriberID := strings.TrimSpace(subscriber.ID)
+	if normalizedSiteID == "" || normalizedSubscriberID == "" {
+		return
+	}
+	normalizedStatus := strings.TrimSpace(status)
+	if normalizedStatus == "" {
+		normalizedStatus = subscriptionEventStatusSuccess
+	}
+	normalizedMessage := strings.TrimSpace(message)
+	event := SubscriptionTestEvent{
+		SiteID:       normalizedSiteID,
+		SubscriberID: normalizedSubscriberID,
+		Email:        strings.ToLower(strings.TrimSpace(subscriber.Email)),
+		EventType:    strings.TrimSpace(eventType),
+		Status:       normalizedStatus,
+		Error:        normalizedMessage,
+		Timestamp:    time.Now().UTC(),
+	}
+	if event.EventType == "" {
+		event.EventType = subscriptionEventTypeSubmission
+	}
+	h.subscriptionEvents.Broadcast(event)
+}
+
 func (h *PublicHandlers) applySubscriptionNotification(ctx context.Context, site model.Site, subscriber model.Subscriber) {
 	if !h.subscriptionNotifications {
+		h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeNotification, subscriptionEventStatusSkipped, "subscription notifications disabled")
 		return
 	}
 	if h.subscriptionNotifier == nil {
+		h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeNotification, subscriptionEventStatusSkipped, "subscription notifier unavailable")
 		return
 	}
 	if notifyErr := h.subscriptionNotifier.NotifySubscription(ctx, site, subscriber); notifyErr != nil {
 		h.logger.Warn("subscription_notification_failed", zap.Error(notifyErr), zap.String("site_id", site.ID), zap.String("subscriber_id", subscriber.ID))
+		h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeNotification, subscriptionEventStatusError, notifyErr.Error())
+		return
 	}
+	h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeNotification, subscriptionEventStatusSuccess, "")
 }
 
 func (h *PublicHandlers) isRateLimited(ip string) bool {
@@ -241,8 +284,24 @@ func (h *PublicHandlers) SubscribeDemo(context *gin.Context) {
 		return
 	}
 
+	extraParams := url.Values{}
+	for _, key := range []string{"mode", "accent", "cta", "success", "error", "name_field"} {
+		value := strings.TrimSpace(context.Query(key))
+		if value != "" {
+			extraParams.Set(key, value)
+		}
+	}
+
+	scriptURL := "/subscribe.js?site_id=" + url.QueryEscape(site.ID)
+	if encoded := extraParams.Encode(); encoded != "" {
+		scriptURL += "&" + encoded
+	}
+
 	var buffer bytes.Buffer
-	if err := subscribeDemoTemplate.Execute(&buffer, map[string]any{"SiteID": site.ID}); err != nil {
+	if err := subscribeDemoTemplate.Execute(&buffer, map[string]any{
+		"SiteID":    site.ID,
+		"ScriptURL": scriptURL,
+	}); err != nil {
 		context.String(http.StatusInternalServerError, "render error")
 		return
 	}
@@ -308,10 +367,12 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 				context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
 				return
 			}
+			h.recordSubscriptionTestEvent(site, existingSubscriber, subscriptionEventTypeSubmission, subscriptionEventStatusSuccess, "")
 			h.applySubscriptionNotification(context.Request.Context(), site, existingSubscriber)
 			context.JSON(http.StatusOK, gin.H{"status": "ok", "subscriber_id": existingSubscriber.ID})
 			return
 		}
+		h.recordSubscriptionTestEvent(site, existingSubscriber, subscriptionEventTypeSubmission, subscriptionEventStatusError, errorValueDuplicateSubscriber)
 		context.JSON(http.StatusConflict, gin.H{"error": errorValueDuplicateSubscriber})
 		return
 	}
@@ -342,6 +403,7 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 		return
 	}
 
+	h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeSubmission, subscriptionEventStatusSuccess, "")
 	h.applySubscriptionNotification(context.Request.Context(), site, subscriber)
 	context.JSON(http.StatusOK, gin.H{"status": "ok", "subscriber_id": subscriber.ID})
 }

@@ -104,9 +104,12 @@ const (
 	widgetSnippetTextareaElementID             = "widget-snippet"
 	copyWidgetSnippetButtonElementID           = "copy-widget-snippet"
 	widgetTestButtonElementID                  = "widget-test-button"
+	subscribeTestButtonElementID               = "subscribe-test-button"
 	dashboardWidgetTestButtonLabel             = "Test"
 	dashboardWidgetTestPathPrefix              = "/app/sites/"
 	dashboardWidgetTestPathSuffix              = "/widget-test"
+	dashboardSubscribeTestPathPrefix           = "/app/sites/"
+	dashboardSubscribeTestPathSuffix           = "/subscribe-test"
 	widgetPlacementSideInputName               = "widget-bubble-side"
 	widgetPlacementSideLeftInputElementID      = "widget-placement-side-left"
 	widgetPlacementSideRightInputElementID     = "widget-placement-side-right"
@@ -389,6 +392,9 @@ type dashboardTemplateData struct {
 	WidgetTestButtonID                  string
 	WidgetTestButtonLabel               string
 	WidgetTestButtonClass               string
+	SubscribeTestButtonID               string
+	SubscribeTestButtonLabel            string
+	SubscribeTestButtonClass            string
 	CopyButtonCopied                    string
 	CopyButtonFailed                    string
 	CopyButtonDefaultLabel              string
@@ -401,6 +407,8 @@ type dashboardTemplateData struct {
 	WidgetPlacementBottomOffsetHelp     string
 	WidgetTestPagePrefix                string
 	WidgetTestPageSuffix                string
+	SubscribeTestPagePrefix             string
+	SubscribeTestPageSuffix             string
 	SettingsButtonID                    string
 	SettingsButtonLabel                 string
 	LogoutLabel                         string
@@ -712,6 +720,9 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		WidgetTestButtonID:                  widgetTestButtonElementID,
 		WidgetTestButtonLabel:               dashboardWidgetTestButtonLabel,
 		WidgetTestButtonClass:               dashboardActionButtonSecondaryClass,
+		SubscribeTestButtonID:               subscribeTestButtonElementID,
+		SubscribeTestButtonLabel:            dashboardWidgetTestButtonLabel,
+		SubscribeTestButtonClass:            dashboardActionButtonSecondaryClass,
 		CopyButtonCopied:                    "Snippet copied.",
 		CopyButtonFailed:                    "Copy failed.",
 		CopyButtonDefaultLabel:              "Copy snippet",
@@ -724,6 +735,8 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		WidgetPlacementBottomOffsetHelp:     dashboardWidgetPlacementBottomOffsetHelp,
 		WidgetTestPagePrefix:                dashboardWidgetTestPathPrefix,
 		WidgetTestPageSuffix:                dashboardWidgetTestPathSuffix,
+		SubscribeTestPagePrefix:             dashboardSubscribeTestPathPrefix,
+		SubscribeTestPageSuffix:             dashboardSubscribeTestPathSuffix,
 		WidgetPlacementSideLeftID:           widgetPlacementSideLeftInputElementID,
 		WidgetPlacementSideRightID:          widgetPlacementSideRightInputElementID,
 		WidgetPlacementSideInputName:        widgetPlacementSideInputName,
@@ -849,11 +862,13 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"feedback_events":         "/api/sites/feedback/events",
 		},
 		Paths: map[string]string{
-			"logout":             constants.LogoutPath,
-			"login":              constants.LoginPath,
-			"landing":            handlers.landingPath,
-			"widget_test_prefix": dashboardWidgetTestPathPrefix,
-			"widget_test_suffix": dashboardWidgetTestPathSuffix,
+			"logout":                constants.LogoutPath,
+			"login":                 constants.LoginPath,
+			"landing":               handlers.landingPath,
+			"widget_test_prefix":    dashboardWidgetTestPathPrefix,
+			"widget_test_suffix":    dashboardWidgetTestPathSuffix,
+			"subscribe_test_prefix": dashboardSubscribeTestPathPrefix,
+			"subscribe_test_suffix": dashboardSubscribeTestPathSuffix,
 		},
 		ElementIDs: map[string]string{
 			"user_name":                         userNameElementID,
@@ -889,6 +904,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"traffic_snippet_textarea":          trafficWidgetSnippetTextareaElementID,
 			"copy_traffic_snippet_button":       copyTrafficWidgetSnippetButtonElementID,
 			"widget_test_button":                widgetTestButtonElementID,
+			"subscribe_test_button":             subscribeTestButtonElementID,
 			"settings_button":                   settingsButtonElementID,
 			"settings_menu":                     settingsMenuElementID,
 			"settings_menu_settings":            settingsMenuSettingsButtonElementID,
