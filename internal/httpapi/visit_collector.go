@@ -38,12 +38,11 @@ func (h *PublicHandlers) CollectVisit(context *gin.Context) {
 
 	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
 	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
-	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader) {
+	rawURL := strings.TrimSpace(context.Query(visitQueryURL))
+	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader, rawURL) {
 		context.String(http.StatusForbidden, "/* origin_forbidden */")
 		return
 	}
-
-	rawURL := context.Query(visitQueryURL)
 	if rawURL == "" && refererHeader != "" {
 		rawURL = refererHeader
 	}

@@ -20,5 +20,8 @@ var widgetTestTemplateHTML string
 //go:embed templates/subscribe_test.tmpl
 var subscribeTestTemplateHTML string
 
+//go:embed templates/traffic_test.tmpl
+var trafficTestTemplateHTML string
+
 //go:embed templates/logo.png
 var landingLogoImage []byte

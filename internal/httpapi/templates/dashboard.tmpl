@@ -171,9 +171,12 @@
             </div>
             <div class="card shadow-sm mb-4" data-widget-card="traffic">
               <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                   <h5 class="mb-0">{{.TrafficWidgetTitle}}</h5>
-                  <button id="{{.CopyTrafficSnippetButtonID}}" type="button" class="{{.CopyButtonDefaultClass}}">{{.CopyButtonDefaultLabel}}</button>
+                  <div class="d-flex gap-2">
+                    <button id="{{.TrafficTestButtonID}}" type="button" class="{{.TrafficTestButtonClass}}">{{.TrafficTestButtonLabel}}</button>
+                    <button id="{{.CopyTrafficSnippetButtonID}}" type="button" class="{{.CopyButtonDefaultClass}}">{{.CopyButtonDefaultLabel}}</button>
+                  </div>
                 </div>
               </div>
               <div class="card-body">
@@ -525,6 +528,9 @@
         var subscribeTestButton = document.getElementById(elementIds.subscribe_test_button);
         var subscribeTestPagePrefix = typeof sharedPaths.subscribe_test_prefix === 'string' ? sharedPaths.subscribe_test_prefix : '';
         var subscribeTestPageSuffix = typeof sharedPaths.subscribe_test_suffix === 'string' ? sharedPaths.subscribe_test_suffix : '';
+        var trafficTestButton = document.getElementById(elementIds.traffic_test_button);
+        var trafficTestPagePrefix = typeof sharedPaths.traffic_test_prefix === 'string' ? sharedPaths.traffic_test_prefix : '';
+        var trafficTestPageSuffix = typeof sharedPaths.traffic_test_suffix === 'string' ? sharedPaths.traffic_test_suffix : '';
         var widgetSideLeftOption = document.getElementById(elementIds.widget_side_left);
         var widgetSideRightOption = document.getElementById(elementIds.widget_side_right);
         var widgetBottomOffsetInput = document.getElementById(elementIds.widget_bottom_offset);
@@ -1890,6 +1896,22 @@
           subscribeTestButton.dataset.siteId = siteId || '';
         }
 
+        function disableTrafficTestButton() {
+          if (!trafficTestButton) {
+            return;
+          }
+          trafficTestButton.disabled = true;
+          trafficTestButton.dataset.siteId = '';
+        }
+
+        function enableTrafficTestButton(siteId) {
+          if (!trafficTestButton) {
+            return;
+          }
+          trafficTestButton.disabled = false;
+          trafficTestButton.dataset.siteId = siteId || '';
+        }
+
         function normalizeClassList(value) {
           if (typeof value !== 'string') {
             return [];
@@ -2111,7 +2133,8 @@
             setSnippetUnavailable(subscribeSnippetTextarea, copySubscribeSnippetButton);
             setSnippetUnavailable(trafficSnippetTextarea, copyTrafficSnippetButton);
             disableWidgetTestButton();
-             disableSubscribeTestButton();
+            disableSubscribeTestButton();
+            disableTrafficTestButton();
             return;
           }
           var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
@@ -2120,7 +2143,8 @@
             setSnippetUnavailable(subscribeSnippetTextarea, copySubscribeSnippetButton);
             setSnippetUnavailable(trafficSnippetTextarea, copyTrafficSnippetButton);
             disableWidgetTestButton();
-             disableSubscribeTestButton();
+            disableSubscribeTestButton();
+            disableTrafficTestButton();
             return;
           }
           setSnippetValue(widgetSnippetTextarea, copyWidgetSnippetButton, buildWidgetSnippet(site.id));
@@ -2128,6 +2152,7 @@
           setSnippetValue(trafficSnippetTextarea, copyTrafficSnippetButton, buildTrafficSnippet(site.id));
           enableWidgetTestButton(site.id);
           enableSubscribeTestButton(site.id);
+          enableTrafficTestButton(site.id);
         }
 
         function copyWidgetSnippet() {
@@ -3077,6 +3102,23 @@
             var subscribeURL = (subscribeTestPagePrefix || '') + subscribeSiteId + (subscribeTestPageSuffix || '');
             if (subscribeURL) {
               window.open(subscribeURL, '_blank', 'noopener');
+            }
+          });
+        }
+        disableTrafficTestButton();
+        if (trafficTestButton) {
+          trafficTestButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            if (trafficTestButton.disabled) {
+              return;
+            }
+            var trafficSiteId = trafficTestButton.dataset.siteId || '';
+            if (!trafficSiteId) {
+              return;
+            }
+            var trafficURL = (trafficTestPagePrefix || '') + trafficSiteId + (trafficTestPageSuffix || '');
+            if (trafficURL) {
+              window.open(trafficURL, '_blank', 'noopener');
             }
           });
         }
