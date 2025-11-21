@@ -38,7 +38,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 2. Subscribers Widget
 3. Traffic Widget
 
-- [ ] [LA-308] Have separate panes for Subscribers and Traffic, not nested inside the feedback messages:
+- [ ] [LA-203] Have separate panes for Subscribers and Traffic, not nested inside the feedback messages:
 
 1. Feedback messages pane stays the same
 2. Subscribers pane after
