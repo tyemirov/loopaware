@@ -23,9 +23,10 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## Improvements (200-299)
 
-- [ ] [LA-200] Goal: use the latest version of mpr-ui for the footer and header. Find the mpr-ui documentation under @tools/mpr-ui, @tools/mpr-ui/docs/custom-elements/md
+- [x] [LA-200] Goal: use the latest version of mpr-ui for the footer and header. Find the mpr-ui documentation under @tools/mpr-ui, @tools/mpr-ui/docs/custom-elements/md
       Deliverable: document missing DSL/functionality of the mpr-ui to allo GAuth integration with the login in details, including coding suggestions. Look into the declarative syntax of the mpr-ui web-components.
       Non-deliverable: code changes
+      Captured the gaps + suggested attributes/events under docs/LA-200-mpr-ui-gauth.md so the header can run against GAuss (server-managed login, profile endpoint mapping, logout modes).
 - [x] [LA-201] Separate widgets into three widgets — dashboard now provides distinct feedback, subscribe, and traffic snippets with dedicated copy controls.
 
 1. Feedback widget
@@ -79,7 +80,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 - [x] [LA-400] Prepare a short marketing blurb about the LoopAware service. Place it under docs/ . The goal is to place this description in a card on a main site that advertises all mprlab products
 - [x] [LA-401] Refresh the LoopAware marketing blurb for the mprlab product catalogue card with concise, card-ready copy under docs/; updated with new two-sentence catalog blurb.
-- [ ] [LA-402] Fefactor the Dockerfile multibuild with alpine-based images
+- [x] [LA-402] Refactor the Dockerfile multibuild with alpine-based images — builder now uses `golang:1.25-alpine`, runtime uses `alpine:3.20` with ca-certs + `/app/data`, and `docker build` succeeds to verify the image.
 
 ## Planning
 
