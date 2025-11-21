@@ -51,12 +51,11 @@ func applyFeedbackNotification(ctx context.Context, database *gorm.DB, logger *z
 	if database == nil {
 		return
 	}
-	updateErr := database.Model(&model.Feedback{}).Where("id = ?", feedback.ID).Update("delivery", delivery).Error
+	feedback.Delivery = delivery
+	updateErr := database.Save(feedback).Error
 	if updateErr != nil {
 		if logger != nil {
 			logger.Warn("update_feedback_delivery_failed", zap.Error(updateErr), zap.String("feedback_id", feedback.ID))
 		}
-		return
 	}
-	feedback.Delivery = delivery
 }

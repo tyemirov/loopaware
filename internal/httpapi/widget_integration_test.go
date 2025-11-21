@@ -113,7 +113,11 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	page := buildHeadlessPage(t)
 	screenshotsDirectory := createScreenshotsDirectory(t)
 
-	apiHarness := buildAPIHarness(t, nil, nil)
+	notifier := &recordingFeedbackNotifier{
+		t:        t,
+		delivery: model.FeedbackDeliveryMailed,
+	}
+	apiHarness := buildAPIHarness(t, notifier, nil)
 
 	server := httptest.NewServer(apiHarness.router)
 	t.Cleanup(server.Close)
@@ -234,6 +238,11 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 		return panelDisplayState == widgetPanelHiddenDisplayValue
 	}, integrationPanelAutoHideTimeout, integrationStatusPollInterval)
 	require.Equal(t, widgetPanelHiddenDisplayValue, panelDisplayState)
+
+	require.Equal(t, 1, notifier.CallCount())
+	call := notifier.LastCall()
+	require.Equal(t, site.ID, call.Site.ID)
+	require.Equal(t, model.FeedbackDeliveryMailed, call.Feedback.Delivery)
 }
 
 func TestWidgetIntegrationSendsNotification(t *testing.T) {
