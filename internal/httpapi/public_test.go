@@ -423,17 +423,27 @@ type recordingFeedbackNotifier struct {
 	callError error
 }
 
+type subscriptionNotificationCall struct {
+	Site       model.Site
+	Subscriber model.Subscriber
+	Context    context.Context
+}
+
 type recordingSubscriptionNotifier struct {
 	t       *testing.T
 	mu      sync.Mutex
-	calls   []model.Subscriber
+	calls   []subscriptionNotificationCall
 	callErr error
 }
 
 func (notifier *recordingSubscriptionNotifier) NotifySubscription(ctx context.Context, site model.Site, subscriber model.Subscriber) error {
 	notifier.mu.Lock()
 	defer notifier.mu.Unlock()
-	notifier.calls = append(notifier.calls, subscriber)
+	notifier.calls = append(notifier.calls, subscriptionNotificationCall{
+		Site:       site,
+		Subscriber: subscriber,
+		Context:    ctx,
+	})
 	return notifier.callErr
 }
 
@@ -441,6 +451,15 @@ func (notifier *recordingSubscriptionNotifier) CallCount() int {
 	notifier.mu.Lock()
 	defer notifier.mu.Unlock()
 	return len(notifier.calls)
+}
+
+func (notifier *recordingSubscriptionNotifier) LastCall() subscriptionNotificationCall {
+	notifier.mu.Lock()
+	defer notifier.mu.Unlock()
+	if len(notifier.calls) == 0 {
+		notifier.t.Fatalf("expected at least one subscription notifier call")
+	}
+	return notifier.calls[len(notifier.calls)-1]
 }
 
 func (notifier *recordingFeedbackNotifier) NotifyFeedback(ctx context.Context, site model.Site, feedback model.Feedback) (string, error) {
