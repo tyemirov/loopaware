@@ -44,7 +44,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 2. Subscribers pane after
 3. Traffic page after
 
-- [ ] [LA-204] Add a dashboard “Test subscribe widget” flow matching the feedback widget experience.
+- [x] [LA-204] Add a dashboard “Test subscribe widget” flow matching the feedback widget experience. Added subscribe-test dashboard button + preview page (inline/bubble controls, SSE status log) with Rod coverage for clicking through and verifying subscriber creation/notifications; wired public + SSE handlers plus template updates.
 
   1. Introduce a `Test subscribe widget` button alongside the copy button in the subscribe card header; wire new element IDs/config entries plus JS (`sharedPaths` prefix/suffix) so the button opens a per-site preview page just like the existing feedback widget test button.
   2. Implement `/app/sites/:id/subscribe-test` (template + handlers) that renders the dashboard chrome, hosts the subscribe widget in both inline/bubble modes, surfaces accent/CTA/name-field toggles, and posts to the real `/api/subscriptions` endpoint for the selected site.

@@ -424,6 +424,8 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, landingRouteRoot)
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	defer feedbackBroadcaster.Close()
+	subscriptionEvents := httpapi.NewSubscriptionTestEventBroadcaster()
+	defer subscriptionEvents.Close()
 	pinguinNotifier, notifierErr := notifications.NewPinguinNotifier(logger, notifications.PinguinConfig{
 		Address:           serverConfig.PinguinAddress,
 		AuthToken:         serverConfig.PinguinAuthToken,
@@ -438,7 +440,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	if serverConfig.SubscriptionNotifications {
 		subscriptionNotifier = pinguinNotifier
 	}
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, pinguinNotifier, subscriptionNotifier, serverConfig.SubscriptionNotifications)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, pinguinNotifier, subscriptionNotifier, serverConfig.SubscriptionNotifications)
 	faviconResolver := favicon.NewHTTPResolver(sharedHTTPClient, logger)
 	faviconService := favicon.NewService(faviconResolver)
 	faviconManager := httpapi.NewSiteFaviconManager(database, faviconService, logger)
@@ -451,6 +453,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot)
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(database, logger, serverConfig.PublicBaseURL, feedbackBroadcaster, pinguinNotifier)
+	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(database, logger, subscriptionEvents)
 	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager)
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
 	sitemapHandlers := httpapi.NewSitemapHandlers(serverConfig.PublicBaseURL)
@@ -461,6 +464,8 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	router.GET(landingRouteRoot, landingHandlers.RenderLandingPage)
 	router.GET("/app/sites/:id/widget-test", authManager.RequireAuthenticatedWeb(), widgetTestHandlers.RenderWidgetTestPage)
 	router.POST("/app/sites/:id/widget-test/feedback", authManager.RequireAuthenticatedJSON(), widgetTestHandlers.SubmitWidgetTestFeedback)
+	router.GET("/app/sites/:id/subscribe-test", authManager.RequireAuthenticatedWeb(), subscribeTestHandlers.RenderSubscribeTestPage)
+	router.GET("/app/sites/:id/subscribe-test/events", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.StreamSubscriptionTestEvents)
 	router.GET(httpapi.PrivacyPagePath, privacyHandlers.RenderPrivacyPage)
 	router.GET(httpapi.SitemapRoutePath, sitemapHandlers.RenderSitemap)
 	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)

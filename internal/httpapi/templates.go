@@ -17,5 +17,8 @@ var privacyTemplateHTML string
 //go:embed templates/widget_test.tmpl
 var widgetTestTemplateHTML string
 
+//go:embed templates/subscribe_test.tmpl
+var subscribeTestTemplateHTML string
+
 //go:embed templates/logo.png
 var landingLogoImage []byte

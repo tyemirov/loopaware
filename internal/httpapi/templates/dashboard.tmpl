@@ -156,9 +156,12 @@
             </div>
             <div class="card shadow-sm mb-4" data-widget-card="subscribe">
               <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                   <h5 class="mb-0">{{.SubscribeWidgetTitle}}</h5>
-                  <button id="{{.CopySubscribeSnippetButtonID}}" type="button" class="{{.CopyButtonDefaultClass}}">{{.CopyButtonDefaultLabel}}</button>
+                  <div class="d-flex gap-2">
+                    <button id="{{.SubscribeTestButtonID}}" type="button" class="{{.SubscribeTestButtonClass}}">{{.SubscribeTestButtonLabel}}</button>
+                    <button id="{{.CopySubscribeSnippetButtonID}}" type="button" class="{{.CopyButtonDefaultClass}}">{{.CopyButtonDefaultLabel}}</button>
+                  </div>
                 </div>
               </div>
               <div class="card-body">
@@ -519,6 +522,9 @@
         var widgetTestButton = document.getElementById(elementIds.widget_test_button);
         var widgetTestPagePrefix = typeof sharedPaths.widget_test_prefix === 'string' ? sharedPaths.widget_test_prefix : '';
         var widgetTestPageSuffix = typeof sharedPaths.widget_test_suffix === 'string' ? sharedPaths.widget_test_suffix : '';
+        var subscribeTestButton = document.getElementById(elementIds.subscribe_test_button);
+        var subscribeTestPagePrefix = typeof sharedPaths.subscribe_test_prefix === 'string' ? sharedPaths.subscribe_test_prefix : '';
+        var subscribeTestPageSuffix = typeof sharedPaths.subscribe_test_suffix === 'string' ? sharedPaths.subscribe_test_suffix : '';
         var widgetSideLeftOption = document.getElementById(elementIds.widget_side_left);
         var widgetSideRightOption = document.getElementById(elementIds.widget_side_right);
         var widgetBottomOffsetInput = document.getElementById(elementIds.widget_bottom_offset);
@@ -1868,6 +1874,22 @@
           widgetTestButton.dataset.siteId = siteId || '';
         }
 
+        function disableSubscribeTestButton() {
+          if (!subscribeTestButton) {
+            return;
+          }
+          subscribeTestButton.disabled = true;
+          subscribeTestButton.dataset.siteId = '';
+        }
+
+        function enableSubscribeTestButton(siteId) {
+          if (!subscribeTestButton) {
+            return;
+          }
+          subscribeTestButton.disabled = false;
+          subscribeTestButton.dataset.siteId = siteId || '';
+        }
+
         function normalizeClassList(value) {
           if (typeof value !== 'string') {
             return [];
@@ -2089,6 +2111,7 @@
             setSnippetUnavailable(subscribeSnippetTextarea, copySubscribeSnippetButton);
             setSnippetUnavailable(trafficSnippetTextarea, copyTrafficSnippetButton);
             disableWidgetTestButton();
+             disableSubscribeTestButton();
             return;
           }
           var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
@@ -2097,12 +2120,14 @@
             setSnippetUnavailable(subscribeSnippetTextarea, copySubscribeSnippetButton);
             setSnippetUnavailable(trafficSnippetTextarea, copyTrafficSnippetButton);
             disableWidgetTestButton();
+             disableSubscribeTestButton();
             return;
           }
           setSnippetValue(widgetSnippetTextarea, copyWidgetSnippetButton, buildWidgetSnippet(site.id));
           setSnippetValue(subscribeSnippetTextarea, copySubscribeSnippetButton, buildSubscribeSnippet(site.id));
           setSnippetValue(trafficSnippetTextarea, copyTrafficSnippetButton, buildTrafficSnippet(site.id));
           enableWidgetTestButton(site.id);
+          enableSubscribeTestButton(site.id);
         }
 
         function copyWidgetSnippet() {
@@ -3035,6 +3060,23 @@
             var targetURL = (widgetTestPagePrefix || '') + siteIdForTest + (widgetTestPageSuffix || '');
             if (targetURL) {
               window.open(targetURL, '_blank', 'noopener');
+            }
+          });
+        }
+        disableSubscribeTestButton();
+        if (subscribeTestButton) {
+          subscribeTestButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            if (subscribeTestButton.disabled) {
+              return;
+            }
+            var subscribeSiteId = subscribeTestButton.dataset.siteId || '';
+            if (!subscribeSiteId) {
+              return;
+            }
+            var subscribeURL = (subscribeTestPagePrefix || '') + subscribeSiteId + (subscribeTestPageSuffix || '');
+            if (subscribeURL) {
+              window.open(subscribeURL, '_blank', 'noopener');
             }
           });
         }
