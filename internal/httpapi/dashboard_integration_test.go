@@ -69,6 +69,7 @@ const (
 	trafficTestURLInputSelector                 = "#traffic-test-url"
 	trafficTestSendButtonSelector               = "#traffic-test-send-hit"
 	trafficTestTotalSelector                    = "#traffic-test-visit-total"
+	trafficTestUniqueSelector                   = "#traffic-test-visit-unique"
 	widgetBottomOffsetStepPixels                = 10
 	dashboardSaveSiteButtonSelector             = "#save-site-button"
 	dashboardReadWidgetBottomOffsetScript       = `(function() {
@@ -1663,6 +1664,28 @@ func TestTrafficWidgetTestFlowRecordsVisit(t *testing.T) {
 	require.Eventually(t, func() bool {
 		totalText := evaluateScriptString(t, page, fmt.Sprintf(`document.querySelector(%q).textContent || ""`, trafficTestTotalSelector))
 		return strings.TrimSpace(totalText) != "" && strings.TrimSpace(totalText) != "0"
+	}, 5*time.Second, 100*time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		uniqueText := evaluateScriptString(t, page, fmt.Sprintf(`document.querySelector(%q).textContent || ""`, trafficTestUniqueSelector))
+		return strings.TrimSpace(uniqueText) == "1"
+	}, 5*time.Second, 100*time.Millisecond)
+
+	clickSelector(t, page, trafficTestSendButtonSelector)
+
+	require.Eventually(t, func() bool {
+		totalText := evaluateScriptString(t, page, fmt.Sprintf(`document.querySelector(%q).textContent || ""`, trafficTestTotalSelector))
+		return strings.TrimSpace(totalText) == "2"
+	}, 5*time.Second, 100*time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		uniqueText := evaluateScriptString(t, page, fmt.Sprintf(`document.querySelector(%q).textContent || ""`, trafficTestUniqueSelector))
+		return strings.TrimSpace(uniqueText) == "1"
+	}, 5*time.Second, 100*time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		logText := evaluateScriptString(t, page, `document.getElementById("traffic-test-log").textContent || ""`)
+		return strings.Contains(logText, "Country: Local network") && strings.Contains(logText, "IP:")
 	}, 5*time.Second, 100*time.Millisecond)
 }
 

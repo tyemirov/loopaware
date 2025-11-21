@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -146,15 +147,28 @@ type feedbackMessageResponse struct {
 }
 
 type VisitStatsResponse struct {
-	SiteID             string         `json:"site_id"`
-	VisitCount         int64          `json:"visit_count"`
-	UniqueVisitorCount int64          `json:"unique_visitor_count"`
-	TopPages           []TopPageEntry `json:"top_pages"`
+	SiteID             string          `json:"site_id"`
+	VisitCount         int64           `json:"visit_count"`
+	UniqueVisitorCount int64           `json:"unique_visitor_count"`
+	TopPages           []TopPageEntry  `json:"top_pages"`
+	RecentVisits       []VisitLogEntry `json:"recent_visits"`
 }
 
 type TopPageEntry struct {
 	Path       string `json:"path"`
 	VisitCount int64  `json:"visit_count"`
+}
+
+type VisitLogEntry struct {
+	URL        string `json:"url"`
+	Path       string `json:"path"`
+	IP         string `json:"ip"`
+	Country    string `json:"country"`
+	Browser    string `json:"browser"`
+	UserAgent  string `json:"user_agent"`
+	Referrer   string `json:"referrer"`
+	VisitorID  string `json:"visitor_id"`
+	OccurredAt int64  `json:"occurred_at"`
 }
 
 func (handlers *SiteHandlers) CurrentUser(context *gin.Context) {
@@ -758,12 +772,91 @@ func (handlers *SiteHandlers) VisitStats(context *gin.Context) {
 		entry := TopPageEntry(page)
 		entries = append(entries, entry)
 	}
+	recentVisits, err := handlers.recentVisits(context.Request.Context(), site.ID, 6)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
 	context.JSON(http.StatusOK, VisitStatsResponse{
 		SiteID:             site.ID,
 		VisitCount:         total,
 		UniqueVisitorCount: unique,
 		TopPages:           entries,
+		RecentVisits:       recentVisits,
 	})
+}
+
+func (handlers *SiteHandlers) recentVisits(ctx context.Context, siteID string, limit int) ([]VisitLogEntry, error) {
+	if strings.TrimSpace(siteID) == "" || handlers.database == nil {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 5
+	}
+	var visits []model.SiteVisit
+	if err := handlers.database.
+		WithContext(ctx).
+		Where("site_id = ?", siteID).
+		Order("occurred_at desc").
+		Limit(limit).
+		Find(&visits).Error; err != nil {
+		return nil, err
+	}
+	entries := make([]VisitLogEntry, 0, len(visits))
+	for _, visit := range visits {
+		entries = append(entries, VisitLogEntry{
+			URL:        visit.URL,
+			Path:       visit.Path,
+			IP:         visit.IP,
+			Country:    classifyVisitCountry(visit.IP),
+			Browser:    classifyVisitBrowser(visit.UserAgent),
+			UserAgent:  visit.UserAgent,
+			Referrer:   visit.Referrer,
+			VisitorID:  visit.VisitorID,
+			OccurredAt: visit.OccurredAt.Unix(),
+		})
+	}
+	return entries, nil
+}
+
+func classifyVisitBrowser(userAgent string) string {
+	normalized := strings.ToLower(strings.TrimSpace(userAgent))
+	if normalized == "" {
+		return "Unknown"
+	}
+	switch {
+	case strings.Contains(normalized, "edg/"):
+		return "Microsoft Edge"
+	case strings.Contains(normalized, "opr/") || strings.Contains(normalized, "opera"):
+		return "Opera"
+	case strings.Contains(normalized, "chrome") && strings.Contains(normalized, "safari"):
+		return "Google Chrome"
+	case strings.Contains(normalized, "safari"):
+		return "Safari"
+	case strings.Contains(normalized, "firefox"):
+		return "Firefox"
+	case strings.Contains(normalized, "msie") || strings.Contains(normalized, "trident/"):
+		return "Internet Explorer"
+	case strings.Contains(normalized, "curl"):
+		return "curl"
+	default:
+		return "Other"
+	}
+}
+
+func classifyVisitCountry(ipAddress string) string {
+	trimmed := strings.TrimSpace(ipAddress)
+	if trimmed == "" {
+		return "Unknown"
+	}
+	parsed := net.ParseIP(trimmed)
+	if parsed == nil {
+		return "Unknown"
+	}
+	if parsed.IsLoopback() || parsed.IsPrivate() || parsed.IsLinkLocalUnicast() || parsed.IsLinkLocalMulticast() {
+		return "Local network"
+	}
+	return "Unknown"
 }
 
 func (handlers *SiteHandlers) ListSubscribers(context *gin.Context) {
