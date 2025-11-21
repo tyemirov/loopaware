@@ -44,6 +44,9 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 2. Subscribers pane after
 3. Traffic page after
 
+- [ ] [LA-204] Add subscriber flow integration tests mirroring feedback coverage: stub notifier, submit subscription via widget, assert persisted state and notifier delivery codes.
+- [ ] [LA-205] Add widget end-to-end notification tests: exercise embed submission through the widget, verify delivery persistence and notifier calls similar to feedback tests; include race/CI coverage.
+
 ## BugFixes (300-399)
 
 - [x] [LA-307] widget test page now uses the current request origin for widget.js so the preview widget renders even when the configured public base URL points elsewhere; added coverage.
