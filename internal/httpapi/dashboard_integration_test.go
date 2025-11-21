@@ -63,8 +63,7 @@ const (
 	dashboardWidgetBottomOffsetIncreaseSelector = "#widget-bottom-offset-increase"
 	dashboardWidgetBottomOffsetDecreaseSelector = "#widget-bottom-offset-decrease"
 	dashboardSubscribeTestButtonSelector        = "#subscribe-test-button"
-	subscribeTestInlineFrameSelector            = "#subscribe-test-inline-frame"
-	subscribeTestBubbleFrameSelector            = "#subscribe-test-bubble-frame"
+	subscribeTestFormContainerSelector          = "#subscribe-test-inline-preview"
 	subscribeTestLogSelector                    = "#subscribe-test-log"
 	dashboardTrafficTestButtonSelector          = "#traffic-test-button"
 	trafficTestURLInputSelector                 = "#traffic-test-url"
@@ -1463,49 +1462,22 @@ func TestSubscribeWidgetTestFlowSubmitsSubscription(t *testing.T) {
 		return evaluateScriptString(t, page, dashboardLocationPathScript) == fmt.Sprintf("/app/sites/%s/subscribe-test", site.ID)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
-	waitForVisibleElement(t, page, subscribeTestInlineFrameSelector)
-	require.Eventually(t, func() bool {
-		return evaluateScriptBoolean(t, page, fmt.Sprintf(`(function(){
-        var frame = document.querySelector(%q);
-        if (!frame || !frame.contentWindow || !frame.contentWindow.document) { return false; }
-        var doc = frame.contentWindow.document;
-        return !!(doc.getElementById(%q) && doc.getElementById(%q) && doc.getElementById(%q));
-      }())`, subscribeTestInlineFrameSelector, subscribeEmailInputID, subscribeNameInputID, subscribeSubmitButtonID))
-	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+	waitForVisibleElement(t, page, subscribeTestFormContainerSelector)
+	waitForVisibleElement(t, page, "#"+subscribeEmailInputID)
+	waitForVisibleElement(t, page, "#"+subscribeSubmitButtonID)
 
 	testEmail := "preview-subscriber@example.com"
-	require.True(t, evaluateScriptBoolean(t, page, fmt.Sprintf(`(function(){
-        var frame = document.querySelector(%q);
-        if (!frame || !frame.contentWindow || !frame.contentWindow.document) { return false; }
-        var doc = frame.contentWindow.document;
-        var email = doc.getElementById(%q);
-        var name = doc.getElementById(%q);
-        if (!email || !name) { return false; }
-        email.value = %q;
-        name.value = %q;
-        return true;
-      }())`, subscribeTestInlineFrameSelector, subscribeEmailInputID, subscribeNameInputID, testEmail, "Preview User")))
-
-	require.True(t, evaluateScriptBoolean(t, page, fmt.Sprintf(`(function(){
-        var frame = document.querySelector(%q);
-        if (!frame || !frame.contentWindow || !frame.contentWindow.document) { return false; }
-        var doc = frame.contentWindow.document;
-        var submit = doc.getElementById(%q);
-        if (!submit) { return false; }
-        submit.click();
-        return true;
-      }())`, subscribeTestInlineFrameSelector, subscribeSubmitButtonID)))
+	setInputValue(t, page, "#"+subscribeEmailInputID, testEmail)
+	setInputValue(t, page, "#"+subscribeNameInputID, "Preview User")
+	clickSelector(t, page, "#"+subscribeSubmitButtonID)
 
 	var inlineStatus string
 	require.Eventually(t, func() bool {
 		inlineStatus = evaluateScriptString(t, page, fmt.Sprintf(`(function(){
-        var frame = document.querySelector(%q);
-        if (!frame || !frame.contentWindow || !frame.contentWindow.document) { return ""; }
-        var doc = frame.contentWindow.document;
-        var status = doc.getElementById(%q);
+        var status = document.getElementById(%q);
         if (!status) { return ""; }
         return status.innerText || "";
-      }())`, subscribeTestInlineFrameSelector, subscribeStatusElementID))
+      }())`, subscribeStatusElementID))
 		return strings.Contains(inlineStatus, "You're on the list")
 	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
 

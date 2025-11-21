@@ -62,11 +62,12 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 - [x] [LA-307] widget test page now uses the current request origin for widget.js so the preview widget renders even when the configured public base URL points elsewhere; added coverage.
 - [x] [LA-308] Intermittent `TestWidgetIntegrationSubmitsFeedback` failure (headless focus wait around internal/httpapi/widget_integration_test.go:166) observed while preparing LA-204/205; investigate the rod/headless flow so the integration suite stays reliable locally and in CI. Resolved by waiting for panel focus transitions (including the initial field focus) and centralizing the shift-tab key chord to keep Rod interactions stable; headless + race suites now pass consistently.
-- [ ] [LA-309] 
+- [x] [LA-309] 
 1. There is no form preview for the subscribe widget on the test page. Add form preview for the subscribe widget on the test page. 
 2. It is always supposed to be inline (embedded). Remove Bubble Preview section. 
 3. Remove Inline Preview and place the submission form in its place. 
 4. The theme toggle switch is no longer operation on the subscribe widget  test page. See @test_subscribe_widget_page.png
+   Resolved by embedding the real inline subscribe form directly on the page, removing the unused bubble preview cards, wiring the controls to update the inline form, and restoring the theme toggle via the mpr-ui footer bundle.
 - [ ] [LA-310] 
 1. The theme toggle switch is no longer operation on the subscribe widget  test page. See @test_traffic_widget_page.png. 
 2. The user avatar is hidden and some hideous oval is around it.  See @test_traffic_widget_page.png. 

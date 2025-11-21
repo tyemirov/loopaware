@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -47,18 +46,13 @@ type subscribeTestTemplateData struct {
 	FaviconDataURI          template.URL
 	SiteName                string
 	SiteID                  string
-	PreviewBase             template.URL
-	InlinePreviewTitle      string
-	BubblePreviewTitle      string
 	AccentInputID           string
 	CTAInputID              string
 	NameFieldInputID        string
-	InlineFrameID           string
-	BubbleFrameID           string
+	InlineFormTitle         string
+	InlineFormContainerID   string
 	StatusLogElementID      string
 	StatusTextElementID     string
-	ReloadInlineButtonID    string
-	ReloadBubbleButtonID    string
 	EventsEndpoint          template.URL
 	DefaultAccent           string
 	DefaultCTA              string
@@ -131,7 +125,6 @@ func (handlers *SiteSubscribeTestHandlers) RenderSubscribeTestPage(context *gin.
 		footerHTML = template.HTML("")
 	}
 
-	previewBase := "/subscribe-demo?site_id=" + url.QueryEscape(site.ID)
 	eventsEndpoint := "/app/sites/" + site.ID + "/subscribe-test/events"
 
 	data := subscribeTestTemplateData{
@@ -143,18 +136,13 @@ func (handlers *SiteSubscribeTestHandlers) RenderSubscribeTestPage(context *gin.
 		FaviconDataURI:          template.URL(dashboardFaviconDataURI),
 		SiteName:                site.Name,
 		SiteID:                  site.ID,
-		PreviewBase:             template.URL(previewBase),
-		InlinePreviewTitle:      "Inline preview",
-		BubblePreviewTitle:      "Bubble preview",
+		InlineFormTitle:         "Subscribe form preview",
+		InlineFormContainerID:   "subscribe-test-inline-preview",
 		AccentInputID:           "subscribe-test-accent",
 		CTAInputID:              "subscribe-test-cta",
 		NameFieldInputID:        "subscribe-test-name-field",
-		InlineFrameID:           "subscribe-test-inline-frame",
-		BubbleFrameID:           "subscribe-test-bubble-frame",
 		StatusLogElementID:      "subscribe-test-log",
 		StatusTextElementID:     "subscribe-test-status",
-		ReloadInlineButtonID:    "subscribe-test-inline-reload",
-		ReloadBubbleButtonID:    "subscribe-test-bubble-reload",
 		EventsEndpoint:          template.URL(eventsEndpoint),
 		DefaultAccent:           subscribeTestAccentDefault,
 		DefaultCTA:              subscribeTestCTADefault,
