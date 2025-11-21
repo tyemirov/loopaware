@@ -48,17 +48,17 @@ func applyFeedbackNotification(ctx context.Context, database *gorm.DB, logger *z
 
 	if (delivery == model.FeedbackDeliveryMailed || delivery == model.FeedbackDeliveryTexted) && notifyErr == nil {
 		intendedDelivery = delivery
+	} else if delivery != model.FeedbackDeliveryMailed && delivery != model.FeedbackDeliveryTexted {
+		intendedDelivery = model.FeedbackDeliveryNone
 	}
-	if delivery != model.FeedbackDeliveryMailed && delivery != model.FeedbackDeliveryTexted {
-		delivery = model.FeedbackDeliveryNone
-	}
+
 	if intendedDelivery == feedback.Delivery {
 		return
 	}
 	if database == nil {
 		return
 	}
-	updateErr := database.Exec("UPDATE feedbacks SET delivery = ? WHERE id = ?", delivery, feedback.ID).Error
+	updateErr := database.Exec("UPDATE feedbacks SET delivery = ? WHERE id = ?", intendedDelivery, feedback.ID).Error
 	if updateErr != nil {
 		if logger != nil {
 			logger.Warn("update_feedback_delivery_failed", zap.Error(updateErr), zap.String("feedback_id", feedback.ID))
