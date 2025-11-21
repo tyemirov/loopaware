@@ -541,7 +541,9 @@
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: payload,
-          credentials: "same-origin"
+          credentials: "same-origin",
+          referrer: window.location.href,
+          referrerPolicy: "strict-origin-when-cross-origin"
         };
         fetch(targetEndpoint, fetchOptions).then(function(resp){
           if (!resp.ok) { throw new Error("HTTP " + resp.status); }
