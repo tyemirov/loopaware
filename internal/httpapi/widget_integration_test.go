@@ -108,6 +108,18 @@ func setBootstrapThemeAttribute(testingT *testing.T, page *rod.Page, themeValue 
 	require.True(testingT, evaluateScriptBoolean(testingT, page, themeScript))
 }
 
+func waitForFocus(testingT *testing.T, page *rod.Page, focusResolveScript string) {
+	testingT.Helper()
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, page, focusResolveScript)
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+}
+
+func sendShiftTab(testingT *testing.T, page *rod.Page) {
+	testingT.Helper()
+	require.NoError(testingT, page.KeyActions().Press(input.ShiftLeft).Type(input.Tab).Release(input.ShiftLeft).Do())
+}
+
 func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -154,27 +166,17 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 
 	clickSelector(t, page, widgetBubbleSelector)
 	waitForVisibleElement(t, page, widgetPanelSelector)
-	require.True(t, evaluateScriptBoolean(t, page, widgetContactFocusScript))
+	waitForFocus(t, page, widgetContactFocusScript)
 	require.NoError(t, page.Keyboard.Type(input.Tab))
-	require.Eventually(t, func() bool {
-		return evaluateScriptBoolean(t, page, widgetMessageFocusScript)
-	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+	waitForFocus(t, page, widgetMessageFocusScript)
 	require.NoError(t, page.Keyboard.Type(input.Tab))
-	require.Eventually(t, func() bool {
-		return evaluateScriptBoolean(t, page, widgetSendButtonFocusScript)
-	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
-	require.NoError(t, page.KeyActions().Press(input.ShiftLeft).Type(input.Tab).Release(input.ShiftLeft).Do())
-	require.Eventually(t, func() bool {
-		return evaluateScriptBoolean(t, page, widgetMessageFocusScript)
-	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
-	require.NoError(t, page.KeyActions().Press(input.ShiftLeft).Type(input.Tab).Release(input.ShiftLeft).Do())
-	require.Eventually(t, func() bool {
-		return evaluateScriptBoolean(t, page, widgetContactFocusScript)
-	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
-	require.NoError(t, page.KeyActions().Press(input.ShiftLeft).Type(input.Tab).Release(input.ShiftLeft).Do())
-	require.Eventually(t, func() bool {
-		return evaluateScriptBoolean(t, page, widgetSendButtonFocusScript)
-	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+	waitForFocus(t, page, widgetSendButtonFocusScript)
+	sendShiftTab(t, page)
+	waitForFocus(t, page, widgetMessageFocusScript)
+	sendShiftTab(t, page)
+	waitForFocus(t, page, widgetContactFocusScript)
+	sendShiftTab(t, page)
+	waitForFocus(t, page, widgetSendButtonFocusScript)
 
 	panelBounds := resolveViewportBounds(t, page, widgetPanelSelector)
 	require.InDelta(t, expectedBubbleLeft, panelBounds.Left, positionTolerancePixels)

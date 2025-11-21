@@ -59,7 +59,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 ## BugFixes (300-399)
 
 - [x] [LA-307] widget test page now uses the current request origin for widget.js so the preview widget renders even when the configured public base URL points elsewhere; added coverage.
-- [ ] [LA-308] Intermittent `TestWidgetIntegrationSubmitsFeedback` failure (headless focus wait around internal/httpapi/widget_integration_test.go:166) observed while preparing LA-204/205; investigate the rod/headless flow so the integration suite stays reliable locally and in CI.
+- [x] [LA-308] Intermittent `TestWidgetIntegrationSubmitsFeedback` failure (headless focus wait around internal/httpapi/widget_integration_test.go:166) observed while preparing LA-204/205; investigate the rod/headless flow so the integration suite stays reliable locally and in CI. Resolved by waiting for panel focus transitions (including the initial field focus) and centralizing the shift-tab key chord to keep Rod interactions stable; headless + race suites now pass consistently.
 
 ## Maintenance (400-499)
 
