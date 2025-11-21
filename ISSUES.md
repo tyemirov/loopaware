@@ -23,8 +23,8 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## Improvements (200-299)
 
-- [ ] [LA-200] Goal: use the latest version of mpr-ui for the footer and header. Find the mpr-ui documentation under tools/mpr-ui
-      Deliverable: document missing DSL/functionality of the mpr-ui to allo GAuth integration with the login in details, including coding suggestions.
+- [ ] [LA-200] Goal: use the latest version of mpr-ui for the footer and header. Find the mpr-ui documentation under @tools/mpr-ui, @tools/mpr-ui/docs/custom-elements/md
+      Deliverable: document missing DSL/functionality of the mpr-ui to allo GAuth integration with the login in details, including coding suggestions. Look into the declarative syntax of the mpr-ui web-components.
       Non-deliverable: code changes
 - [x] [LA-201] Separate widgets into three widgets — dashboard now provides distinct feedback, subscribe, and traffic snippets with dedicated copy controls.
 
