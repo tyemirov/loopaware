@@ -1630,7 +1630,6 @@ func TestSubscribeTestEventsEndpointStreamsBroadcasts(t *testing.T) {
 	require.Equal(t, expectedEvent.Status, receivedEvent.Status)
 	require.False(t, receivedEvent.Timestamp.IsZero())
 }
-
 func TestTrafficWidgetTestFlowRecordsVisit(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
