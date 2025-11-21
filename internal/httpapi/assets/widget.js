@@ -266,6 +266,12 @@
         if (focusedElement === message && isShiftTab) {
           event.preventDefault();
           focusInputElement(contact);
+          return;
+        }
+        if (focusedElement === message && !isShiftTab) {
+          event.preventDefault();
+          focusInputElement(send);
+          return;
         }
       }
 
@@ -419,6 +425,32 @@
         }
       }
 
+      function handleGlobalTabNavigation(event) {
+        if (event.key !== "Tab") {
+          return;
+        }
+        if (panel.style.display !== panelDisplayBlockValue) {
+          return;
+        }
+        var active = document.activeElement;
+        var isShift = event.shiftKey === true;
+        if (active === contact && !isShift) {
+          event.preventDefault();
+          focusInputElement(message);
+          return;
+        }
+        if (active === message && !isShift) {
+          event.preventDefault();
+          focusInputElement(send);
+          return;
+        }
+        if (active === send && !isShift) {
+          event.preventDefault();
+          focusInputElement(contact);
+          return;
+        }
+      }
+
       function schedulePanelAutoHide() {
         cancelPanelAutoHide();
         panelAutoHideTimer = window.setTimeout(function(){
@@ -439,6 +471,7 @@
         cancelPanelAutoHide();
         panel.style.display = panelDisplayNoneValue;
       });
+      document.addEventListener("keydown", handleGlobalTabNavigation, true);
 
       bubble.addEventListener("click", function(){
         cancelPanelAutoHide();
@@ -508,11 +541,10 @@
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: payload,
-          keepalive: true
+          credentials: "same-origin",
+          referrer: window.location.href,
+          referrerPolicy: "strict-origin-when-cross-origin"
         };
-        if (widgetTestModeEnabled && widgetTestEndpointOverride) {
-          fetchOptions.credentials = "same-origin";
-        }
         fetch(targetEndpoint, fetchOptions).then(function(resp){
           if (!resp.ok) { throw new Error("HTTP " + resp.status); }
           return resp.json();
