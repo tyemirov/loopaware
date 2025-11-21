@@ -71,7 +71,8 @@
                 <span class="badge text-bg-secondary">Preview only</span>
               </div>
               <hr class="my-4" />
-              <p class="text-muted mb-0">Send sample visits to verify pixel.js before embedding. Each preview uses the live <code>/api/visits</code> endpoint for the selected site.</p>
+              <p class="text-muted mb-1">Send sample visits to verify pixel.js before embedding. Each preview uses the live <code>/api/visits</code> endpoint for the selected site.</p>
+              <p class="text-muted small mb-0">Use page URLs that match the site's Allowed Origin to pass origin checks.</p>
             </div>
           </div>
           <div class="card shadow-sm border-0 mb-4">
@@ -342,8 +343,8 @@
           removeBeacon(beacon);
         };
         beacon.onerror = function() {
-          updateStatus('Failed to record visit. See console.', 'danger');
-          appendLogEntry('Visit failed for ' + sampleURL);
+          updateStatus('Failed to record visit. Check the Allowed Origin and see console.', 'danger');
+          appendLogEntry('Visit failed for ' + sampleURL + ' (origin mismatch?)');
           removeBeacon(beacon);
         };
         beacon.src = buildVisitURL(sampleURL);

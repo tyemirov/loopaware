@@ -410,6 +410,18 @@ func TestCollectVisitValidatesInput(t *testing.T) {
 	request = httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://visits.example/page", nil)
 	request.Header.Set("Origin", "http://evil.example")
 	api.router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code)
+}
+
+func TestCollectVisitRequiresMatchingURLOrigin(t *testing.T) {
+	api := buildAPIHarness(t, nil, nil)
+	site := insertSite(t, api.database, "Visits Mismatch", "http://visits.example", "owner@example.com")
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://other.example/page", nil)
+	request.Header.Set("Referer", "http://dashboard.loopaware.test/app/sites/"+site.ID+"/traffic-test")
+
+	api.router.ServeHTTP(recorder, request)
 	require.Equal(t, http.StatusForbidden, recorder.Code)
 }
 

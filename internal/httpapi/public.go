@@ -119,7 +119,7 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 
 	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
 	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
-	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader) {
+	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader, "") {
 		context.JSON(403, gin.H{"error": "origin_forbidden"})
 		return
 	}
@@ -340,7 +340,7 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 
 	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
 	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
-	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader) {
+	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader, "") {
 		context.JSON(http.StatusForbidden, gin.H{"error": "origin_forbidden"})
 		return
 	}
@@ -444,7 +444,7 @@ func (h *PublicHandlers) updateSubscriptionStatus(context *gin.Context, targetSt
 
 	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
 	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
-	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader) {
+	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader, "") {
 		context.JSON(http.StatusForbidden, gin.H{"error": "origin_forbidden"})
 		return
 	}
@@ -488,17 +488,20 @@ func (h *PublicHandlers) updateSubscriptionStatus(context *gin.Context, targetSt
 	context.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-func isOriginAllowed(allowedOrigin string, originHeader string, refererHeader string) bool {
+func isOriginAllowed(allowedOrigin string, originHeader string, refererHeader string, urlValue string) bool {
 	normalizedAllowedOrigin := strings.TrimSpace(allowedOrigin)
 	if normalizedAllowedOrigin == "" {
 		return true
 	}
 
-	if originHeader != "" {
-		return originHeader == normalizedAllowedOrigin
+	if originHeader == normalizedAllowedOrigin {
+		return true
 	}
-	if refererHeader != "" {
-		return strings.HasPrefix(refererHeader, normalizedAllowedOrigin)
+	if urlValue != "" && strings.HasPrefix(urlValue, normalizedAllowedOrigin) {
+		return true
+	}
+	if refererHeader != "" && strings.HasPrefix(refererHeader, normalizedAllowedOrigin) {
+		return true
 	}
 	return false
 }
