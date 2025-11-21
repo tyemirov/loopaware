@@ -64,6 +64,10 @@ const (
 	subscribeTestInlineFrameSelector            = "#subscribe-test-inline-frame"
 	subscribeTestBubbleFrameSelector            = "#subscribe-test-bubble-frame"
 	subscribeTestLogSelector                    = "#subscribe-test-log"
+	dashboardTrafficTestButtonSelector = "#traffic-test-button"
+	trafficTestURLInputSelector        = "#traffic-test-url"
+	trafficTestSendButtonSelector      = "#traffic-test-send-hit"
+	trafficTestTotalSelector           = "#traffic-test-visit-total"
 	widgetBottomOffsetStepPixels                = 10
 	dashboardSaveSiteButtonSelector             = "#save-site-button"
 	dashboardReadWidgetBottomOffsetScript       = `(function() {
@@ -1517,6 +1521,70 @@ func TestSubscribeWidgetTestFlowSubmitsSubscription(t *testing.T) {
 
 }
 
+func TestTrafficWidgetTestFlowRecordsVisit(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Traffic Test Flow",
+		AllowedOrigin: harness.baseURL,
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	require.NoError(t, page.Navigate(harness.baseURL+dashboardTestDashboardRoute))
+	waitNavigation()
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.True(t, evaluateScriptBoolean(t, page, `(function(){
+        var originalOpen = window.open;
+        window.open = function(url){
+          if (url) { window.location.assign(url); }
+          return window;
+        };
+        window.open._original = originalOpen;
+        return true;
+      }())`))
+
+	waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	clickSelector(t, page, dashboardTrafficTestButtonSelector)
+	waitNavigation()
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardLocationPathScript) == fmt.Sprintf("/app/sites/%s/traffic-test", site.ID)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	testURL := harness.baseURL + "/preview-traffic"
+	waitForVisibleElement(t, page, trafficTestURLInputSelector)
+	setInputValue(t, page, trafficTestURLInputSelector, testURL)
+	currentURLValue := evaluateScriptString(t, page, fmt.Sprintf(`document.querySelector(%q).value || ""`, trafficTestURLInputSelector))
+	require.Equal(t, testURL, strings.TrimSpace(currentURLValue))
+	clickSelector(t, page, trafficTestSendButtonSelector)
+
+	require.Eventually(t, func() bool {
+		var count int64
+		if err := harness.database.Model(&model.SiteVisit{}).Where("site_id = ?", site.ID).Count(&count).Error; err != nil {
+			return false
+		}
+		return count > 0
+	}, 5*time.Second, 100*time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		totalText := evaluateScriptString(t, page, fmt.Sprintf(`document.querySelector(%q).textContent || ""`, trafficTestTotalSelector))
+		return strings.TrimSpace(totalText) != "" && strings.TrimSpace(totalText) != "0"
+	}, 5*time.Second, 100*time.Millisecond)
+}
+
 func TestDashboardFeedbackStreamRefreshesMessages(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
@@ -1985,13 +2053,15 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	subscriptionEvents := httpapi.NewSubscriptionTestEventBroadcaster()
 
-	siteHandlers := httpapi.NewSiteHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, faviconManager, nil, feedbackBroadcaster)
+	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(gormDatabase)
+	siteHandlers := httpapi.NewSiteHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
 	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager)
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath)
 	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true)
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{})
+	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(gormDatabase, logger)
 	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents)
 
 	router := gin.New()
@@ -2008,12 +2078,14 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	router.GET(dashboardTestDashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
 	router.GET("/app/sites/:id/widget-test", authManager.RequireAuthenticatedWeb(), widgetTestHandlers.RenderWidgetTestPage)
 	router.POST("/app/sites/:id/widget-test/feedback", authManager.RequireAuthenticatedJSON(), widgetTestHandlers.SubmitWidgetTestFeedback)
+	router.GET("/app/sites/:id/traffic-test", authManager.RequireAuthenticatedWeb(), trafficTestHandlers.RenderTrafficTestPage)
 	router.GET("/app/sites/:id/subscribe-test", authManager.RequireAuthenticatedWeb(), subscribeTestHandlers.RenderSubscribeTestPage)
 	router.GET("/app/sites/:id/subscribe-test/events", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.StreamSubscriptionTestEvents)
 	router.POST(constants.LogoutPath, func(context *gin.Context) {
 		context.Status(http.StatusOK)
 	})
 
+	router.GET("/api/visits", publicHandlers.CollectVisit)
 	router.POST("/api/feedback", publicHandlers.CreateFeedback)
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
 	router.GET("/subscribe.js", publicHandlers.SubscribeJS)

@@ -105,11 +105,14 @@ const (
 	copyWidgetSnippetButtonElementID           = "copy-widget-snippet"
 	widgetTestButtonElementID                  = "widget-test-button"
 	subscribeTestButtonElementID               = "subscribe-test-button"
+	trafficTestButtonElementID                 = "traffic-test-button"
 	dashboardWidgetTestButtonLabel             = "Test"
 	dashboardWidgetTestPathPrefix              = "/app/sites/"
 	dashboardWidgetTestPathSuffix              = "/widget-test"
 	dashboardSubscribeTestPathPrefix           = "/app/sites/"
 	dashboardSubscribeTestPathSuffix           = "/subscribe-test"
+	dashboardTrafficTestPathPrefix             = "/app/sites/"
+	dashboardTrafficTestPathSuffix             = "/traffic-test"
 	widgetPlacementSideInputName               = "widget-bubble-side"
 	widgetPlacementSideLeftInputElementID      = "widget-placement-side-left"
 	widgetPlacementSideRightInputElementID     = "widget-placement-side-right"
@@ -395,6 +398,9 @@ type dashboardTemplateData struct {
 	SubscribeTestButtonID               string
 	SubscribeTestButtonLabel            string
 	SubscribeTestButtonClass            string
+	TrafficTestButtonID                 string
+	TrafficTestButtonLabel              string
+	TrafficTestButtonClass              string
 	CopyButtonCopied                    string
 	CopyButtonFailed                    string
 	CopyButtonDefaultLabel              string
@@ -409,6 +415,8 @@ type dashboardTemplateData struct {
 	WidgetTestPageSuffix                string
 	SubscribeTestPagePrefix             string
 	SubscribeTestPageSuffix             string
+	TrafficTestPagePrefix               string
+	TrafficTestPageSuffix               string
 	SettingsButtonID                    string
 	SettingsButtonLabel                 string
 	LogoutLabel                         string
@@ -723,6 +731,9 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		SubscribeTestButtonID:               subscribeTestButtonElementID,
 		SubscribeTestButtonLabel:            dashboardWidgetTestButtonLabel,
 		SubscribeTestButtonClass:            dashboardActionButtonSecondaryClass,
+		TrafficTestButtonID:                 trafficTestButtonElementID,
+		TrafficTestButtonLabel:              dashboardWidgetTestButtonLabel,
+		TrafficTestButtonClass:              dashboardActionButtonSecondaryClass,
 		CopyButtonCopied:                    "Snippet copied.",
 		CopyButtonFailed:                    "Copy failed.",
 		CopyButtonDefaultLabel:              "Copy snippet",
@@ -737,6 +748,8 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		WidgetTestPageSuffix:                dashboardWidgetTestPathSuffix,
 		SubscribeTestPagePrefix:             dashboardSubscribeTestPathPrefix,
 		SubscribeTestPageSuffix:             dashboardSubscribeTestPathSuffix,
+		TrafficTestPagePrefix:               dashboardTrafficTestPathPrefix,
+		TrafficTestPageSuffix:               dashboardTrafficTestPathSuffix,
 		WidgetPlacementSideLeftID:           widgetPlacementSideLeftInputElementID,
 		WidgetPlacementSideRightID:          widgetPlacementSideRightInputElementID,
 		WidgetPlacementSideInputName:        widgetPlacementSideInputName,
@@ -869,6 +882,8 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"widget_test_suffix":    dashboardWidgetTestPathSuffix,
 			"subscribe_test_prefix": dashboardSubscribeTestPathPrefix,
 			"subscribe_test_suffix": dashboardSubscribeTestPathSuffix,
+			"traffic_test_prefix":   dashboardTrafficTestPathPrefix,
+			"traffic_test_suffix":   dashboardTrafficTestPathSuffix,
 		},
 		ElementIDs: map[string]string{
 			"user_name":                         userNameElementID,
@@ -905,6 +920,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"copy_traffic_snippet_button":       copyTrafficWidgetSnippetButtonElementID,
 			"widget_test_button":                widgetTestButtonElementID,
 			"subscribe_test_button":             subscribeTestButtonElementID,
+			"traffic_test_button":               trafficTestButtonElementID,
 			"settings_button":                   settingsButtonElementID,
 			"settings_menu":                     settingsMenuElementID,
 			"settings_menu_settings":            settingsMenuSettingsButtonElementID,

@@ -50,11 +50,13 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   2. Implement `/app/sites/:id/subscribe-test` (template + handlers) that renders the dashboard chrome, hosts the subscribe widget in both inline/bubble modes, surfaces accent/CTA/name-field toggles, and posts to the real `/api/subscriptions` endpoint for the selected site.
   3. Show submission status + notifier results on the test page, and add rod-based integration tests that (a) click the dashboard button, (b) interact with the test page, and (c) assert subscribers + notifier calls are recorded.
 
-- [ ] [LA-205] Provide a dashboard “Test traffic widget” workflow so pixel.js can be exercised from the UI, mirroring the feedback widget test page.
+- [x] [LA-205] Provide a dashboard “Test traffic widget” workflow so pixel.js can be exercised from the UI, mirroring the feedback widget test page.
 
   1. Add a `Test traffic widget` button to the traffic card header and expose `sharedPaths` entries for a new `/app/sites/:id/traffic-test` page.
   2. Build the traffic test page (dashboard chrome + instructions) that loads `pixel.js` with the selected site ID, lets operators trigger sample hits (URL input + trigger button), and displays live visit totals/top pages pulled from `/api/visits` or SSE.
   3. Extend dashboard/headless integration tests to verify the button opens the page, pixel hits get recorded for the chosen site, and visit counts/top pages update during the session (both normal and `-race` CI runs).
+
+  Traffic test preview page is wired into the dashboard, and the integration harness now exposes `/api/visits` so sample beacons hit the real collector; Rod tests confirm sample visits increment stats.
 
 ## BugFixes (300-399)
 
