@@ -64,10 +64,10 @@ const (
 	subscribeTestInlineFrameSelector            = "#subscribe-test-inline-frame"
 	subscribeTestBubbleFrameSelector            = "#subscribe-test-bubble-frame"
 	subscribeTestLogSelector                    = "#subscribe-test-log"
-	dashboardTrafficTestButtonSelector = "#traffic-test-button"
-	trafficTestURLInputSelector        = "#traffic-test-url"
-	trafficTestSendButtonSelector      = "#traffic-test-send-hit"
-	trafficTestTotalSelector           = "#traffic-test-visit-total"
+	dashboardTrafficTestButtonSelector          = "#traffic-test-button"
+	trafficTestURLInputSelector                 = "#traffic-test-url"
+	trafficTestSendButtonSelector               = "#traffic-test-send-hit"
+	trafficTestTotalSelector                    = "#traffic-test-visit-total"
 	widgetBottomOffsetStepPixels                = 10
 	dashboardSaveSiteButtonSelector             = "#save-site-button"
 	dashboardReadWidgetBottomOffsetScript       = `(function() {
