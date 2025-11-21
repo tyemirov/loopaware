@@ -1,11 +1,12 @@
 # ISSUES
+
 **Append-only section-based log**
 
 Entries record newly discovered requests or changes, with their outcomes. No instructive content lives here. Read @NOTES.md for the process to follow when fixing issues.
 
 Read @AGENTS.md, @AGENTS.DOCKER.md, @AGENTS.FRONTEND.md, @AGENTS.GIT.md, @POLICY.md, @NOTES.md, @README.md and @ISSUES.md. Start working on open issues. Work autonomously and stack up PRs.
 
-Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes -` [x] [LA-<number>]`
+Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x] [LA-<number>]`
 
 ## Features (100-199)
 
@@ -31,5 +32,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes -` [x
 - [x] [LA-400] Prepare a short marketing blurb about the LoopAware service. Place it under docs/ . The goal is to place this description in a card on a main site that advertises all mprlab products
 - [x] [LA-401] Refresh the LoopAware marketing blurb for the mprlab product catalogue card with concise, card-ready copy under docs/; updated with new two-sentence catalog blurb.
 
-## Planning 
+## Planning
+
 **Do not work on these, not ready**
