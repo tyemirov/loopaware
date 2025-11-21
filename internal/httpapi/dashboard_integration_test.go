@@ -34,15 +34,23 @@ import (
 )
 
 const (
-	dashboardTestSessionSecretBytes             = "12345678901234567890123456789012"
-	dashboardTestAdminEmail                     = "admin@example.com"
-	dashboardTestAdminDisplayName               = "Admin Example"
-	dashboardTestWidgetBaseURL                  = "http://example.test"
-	dashboardTestLandingPath                    = "/landing"
-	dashboardTestDashboardRoute                 = "/app"
-	dashboardPromptWaitTimeout                  = 10 * time.Second
-	dashboardPromptPollInterval                 = 200 * time.Millisecond
-	dashboardNotificationSelector               = "#session-timeout-notification"
+	dashboardTestSessionSecretBytes = "12345678901234567890123456789012"
+	dashboardTestAdminEmail         = "admin@example.com"
+	dashboardTestAdminDisplayName   = "Admin Example"
+	dashboardTestWidgetBaseURL      = "http://example.test"
+	dashboardTestLandingPath        = "/landing"
+	dashboardTestDashboardRoute     = "/app"
+	dashboardPromptWaitTimeout      = 10 * time.Second
+	dashboardPromptPollInterval     = 200 * time.Millisecond
+	dashboardNotificationSelector   = "#session-timeout-notification"
+	dashboardPromptVisibleScript    = `(function(){
+		var element = document.querySelector('#session-timeout-notification');
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		var rect = element.getBoundingClientRect();
+		return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+	}())`
 	dashboardDismissButtonSelector              = "#session-timeout-dismiss-button"
 	dashboardConfirmButtonSelector              = "#session-timeout-confirm-button"
 	dashboardSettingsButtonSelector             = "#settings-button"
@@ -62,6 +70,20 @@ const (
 	dashboardSettingsAutoLogoutToggleSelector = "#settings-auto-logout-enabled"
 	dashboardSettingsAutoLogoutPromptSelector = "#settings-auto-logout-prompt-seconds"
 	dashboardSettingsAutoLogoutLogoutSelector = "#settings-auto-logout-logout-seconds"
+	dashboardFeedbackWidgetSnippetSelector    = "#widget-snippet"
+	dashboardSubscribeWidgetSnippetSelector   = "#subscribe-widget-snippet"
+	dashboardTrafficWidgetSnippetSelector     = "#traffic-widget-snippet"
+	dashboardFeedbackCopyButtonSelector       = "#copy-widget-snippet"
+	dashboardSubscribeCopyButtonSelector      = "#copy-subscribe-widget-snippet"
+	dashboardTrafficCopyButtonSelector        = "#copy-traffic-widget-snippet"
+	dashboardFeedbackWidgetCardSelector       = `[data-widget-card="feedback"]`
+	dashboardSubscribeWidgetCardSelector      = `[data-widget-card="subscribe"]`
+	dashboardTrafficWidgetCardSelector        = `[data-widget-card="traffic"]`
+	dashboardDashboardCardSelector            = "[data-dashboard-card]"
+	dashboardFeedbackMessagesCardSelector     = `[data-dashboard-card="feedback"]`
+	dashboardSubscribersCardSelector          = `[data-dashboard-card="subscribers"]`
+	dashboardTrafficCardSelector              = `[data-dashboard-card="traffic"]`
+	dashboardSubscribersTableBodySelector     = "#subscribers-table-body"
 	dashboardSettingsMenuOpenScript           = `(function() {
 		var menu = document.querySelector('#settings-menu');
 		if (!menu) { return false; }
@@ -107,8 +129,8 @@ const (
 	dashboardTopPagesPlaceholderText      = "No visits yet."
 	dashboardLightPromptScreenshotName    = "dashboard-session-timeout-light"
 	dashboardDarkPromptScreenshotName     = "dashboard-session-timeout-dark"
-	dashboardForcePromptScript            = "window.__loopawareDashboardIdleTestHooks.forcePrompt();"
-	dashboardForceLogoutScript            = "window.__loopawareDashboardIdleTestHooks.forceLogout();"
+	dashboardForcePromptScript            = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forcePrompt === 'function') { window.__loopawareDashboardIdleTestHooks.forcePrompt(); }"
+	dashboardForceLogoutScript            = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forceLogout === 'function') { window.__loopawareDashboardIdleTestHooks.forceLogout(); }"
 	dashboardNotificationBackgroundScript = `window.getComputedStyle(document.querySelector("#session-timeout-notification")).backgroundColor`
 	dashboardLocationPathScript           = "window.location.pathname"
 	dashboardIdleHooksReadyScript         = "typeof window.__loopawareDashboardIdleTestHooks !== 'undefined'"
@@ -324,7 +346,9 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
-	waitForVisibleElement(t, page, dashboardNotificationSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardPromptVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	lightBackgroundColor := evaluateScriptString(t, page, dashboardNotificationBackgroundScript)
 	lightColor := mustParseRGBColor(t, lightBackgroundColor)
@@ -348,10 +372,12 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 	clickSelector(t, page, dashboardSettingsButtonSelector)
 	waitForVisibleElement(t, page, dashboardSettingsMenuSelector)
 	clickSelector(t, page, dashboardPublicThemeToggleSelector)
-	clickSelector(t, page, "body")
+	evaluateScriptInto(t, page, `(function(){ if (document && document.body) { document.body.click(); } }())`, nil)
 
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
-	waitForVisibleElement(t, page, dashboardNotificationSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardPromptVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	darkBackgroundColor := evaluateScriptString(t, page, dashboardNotificationBackgroundScript)
 	darkColor := mustParseRGBColor(t, darkBackgroundColor)
@@ -546,6 +572,140 @@ func TestDashboardSettingsModalOpensAndDismissesViaBackdrop(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return !evaluateScriptBoolean(t, page, dashboardSettingsMenuOpenScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardShowsDistinctWidgetSnippets(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Widget Snippet Site",
+		AllowedOrigin: harness.baseURL,
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	snippetScript := fmt.Sprintf(`(function(){
+		var feedback = document.querySelector(%q);
+		var subscribe = document.querySelector(%q);
+		var traffic = document.querySelector(%q);
+		var copyFeedback = document.querySelector(%q);
+		var copySubscribe = document.querySelector(%q);
+		var copyTraffic = document.querySelector(%q);
+		return {
+			feedbackCard: !!document.querySelector(%q),
+			subscribeCard: !!document.querySelector(%q),
+			trafficCard: !!document.querySelector(%q),
+			feedback: feedback ? (feedback.value || '').trim() : '',
+			subscribe: subscribe ? (subscribe.value || '').trim() : '',
+			traffic: traffic ? (traffic.value || '').trim() : '',
+			feedbackCopyDisabled: copyFeedback ? !!copyFeedback.disabled : true,
+			subscribeCopyDisabled: copySubscribe ? !!copySubscribe.disabled : true,
+			trafficCopyDisabled: copyTraffic ? !!copyTraffic.disabled : true
+		};
+	}())`, dashboardFeedbackWidgetSnippetSelector, dashboardSubscribeWidgetSnippetSelector, dashboardTrafficWidgetSnippetSelector, dashboardFeedbackCopyButtonSelector, dashboardSubscribeCopyButtonSelector, dashboardTrafficCopyButtonSelector, dashboardFeedbackWidgetCardSelector, dashboardSubscribeWidgetCardSelector, dashboardTrafficWidgetCardSelector)
+
+	var snippets struct {
+		FeedbackCard          bool   `json:"feedbackCard"`
+		SubscribeCard         bool   `json:"subscribeCard"`
+		TrafficCard           bool   `json:"trafficCard"`
+		Feedback              string `json:"feedback"`
+		Subscribe             string `json:"subscribe"`
+		Traffic               string `json:"traffic"`
+		FeedbackCopyDisabled  bool   `json:"feedbackCopyDisabled"`
+		SubscribeCopyDisabled bool   `json:"subscribeCopyDisabled"`
+		TrafficCopyDisabled   bool   `json:"trafficCopyDisabled"`
+	}
+
+	require.Eventually(t, func() bool {
+		evaluateScriptInto(t, page, snippetScript, &snippets)
+		return snippets.FeedbackCard && snippets.SubscribeCard && snippets.TrafficCard &&
+			strings.Contains(snippets.Feedback, site.ID) &&
+			strings.Contains(snippets.Subscribe, site.ID) &&
+			strings.Contains(snippets.Traffic, site.ID)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.True(t, snippets.FeedbackCard)
+	require.True(t, snippets.SubscribeCard)
+	require.True(t, snippets.TrafficCard)
+	require.Contains(t, snippets.Feedback, "/widget.js?site_id="+site.ID)
+	require.Contains(t, snippets.Subscribe, "/subscribe.js?site_id="+site.ID)
+	require.Contains(t, snippets.Traffic, "/pixel.js?site_id="+site.ID)
+	require.False(t, snippets.FeedbackCopyDisabled)
+	require.False(t, snippets.SubscribeCopyDisabled)
+	require.False(t, snippets.TrafficCopyDisabled)
+}
+
+func TestDashboardSeparatesSubscribersAndTrafficCards(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Dashboard Cards Site",
+		AllowedOrigin: harness.baseURL,
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	cardScript := fmt.Sprintf(`(function(){
+		var sequence = Array.prototype.slice.call(document.querySelectorAll(%q)).map(function(node) {
+			return (node.getAttribute('data-dashboard-card') || '').trim();
+		});
+		var feedbackCard = document.querySelector(%q);
+		var subscribersCard = document.querySelector(%q);
+		var trafficCard = document.querySelector(%q);
+		return {
+			cards: sequence,
+			subscribersInFeedback: !!(feedbackCard && feedbackCard.querySelector(%q)),
+			trafficInFeedback: !!(feedbackCard && feedbackCard.querySelector(%q)),
+			subscribersInOwnCard: !!(subscribersCard && subscribersCard.querySelector(%q)),
+			trafficInOwnCard: !!(trafficCard && trafficCard.querySelector(%q))
+		};
+	}())`, dashboardDashboardCardSelector, dashboardFeedbackMessagesCardSelector, dashboardSubscribersCardSelector, dashboardTrafficCardSelector, dashboardSubscribersTableBodySelector, dashboardTopPagesTableBodySelector, dashboardSubscribersTableBodySelector, dashboardTopPagesTableBodySelector)
+
+	var layout struct {
+		Cards                 []string `json:"cards"`
+		SubscribersInFeedback bool     `json:"subscribersInFeedback"`
+		TrafficInFeedback     bool     `json:"trafficInFeedback"`
+		SubscribersInOwnCard  bool     `json:"subscribersInOwnCard"`
+		TrafficInOwnCard      bool     `json:"trafficInOwnCard"`
+	}
+
+	evaluateScriptInto(t, page, cardScript, &layout)
+
+	require.Equal(t, []string{"feedback", "subscribers", "traffic"}, layout.Cards)
+	require.False(t, layout.SubscribersInFeedback)
+	require.False(t, layout.TrafficInFeedback)
+	require.True(t, layout.SubscribersInOwnCard)
+	require.True(t, layout.TrafficInOwnCard)
 }
 
 func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {

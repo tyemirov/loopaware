@@ -22,7 +22,7 @@
         
         <div class="row g-4">
           <div class="col-lg-4">
-            <div class="card shadow-sm">
+            <div class="card shadow-sm mb-4">
               <div class="card-header">Account</div>
               <div class="card-body">
                 <div class="d-flex align-items-center">
@@ -115,7 +115,7 @@
                 </form>
               </div>
             </div>
-            <div class="card shadow-sm mb-4">
+            <div class="card shadow-sm mb-4" data-widget-card="feedback">
               <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center">
                   <h5 class="mb-0">{{.WidgetCardTitle}}</h5>
@@ -154,7 +154,31 @@
                 <textarea id="{{.WidgetSnippetTextareaID}}" class="form-control font-monospace" rows="3" readonly></textarea>
               </div>
             </div>
-            <div class="card shadow-sm">
+            <div class="card shadow-sm mb-4" data-widget-card="subscribe">
+              <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0">{{.SubscribeWidgetTitle}}</h5>
+                  <button id="{{.CopySubscribeSnippetButtonID}}" type="button" class="{{.CopyButtonDefaultClass}}">{{.CopyButtonDefaultLabel}}</button>
+                </div>
+              </div>
+              <div class="card-body">
+                <p class="text-muted small mb-3">{{.SubscribeWidgetInstructions}}</p>
+                <textarea id="{{.SubscribeSnippetTextareaID}}" class="form-control font-monospace" rows="3" readonly></textarea>
+              </div>
+            </div>
+            <div class="card shadow-sm mb-4" data-widget-card="traffic">
+              <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0">{{.TrafficWidgetTitle}}</h5>
+                  <button id="{{.CopyTrafficSnippetButtonID}}" type="button" class="{{.CopyButtonDefaultClass}}">{{.CopyButtonDefaultLabel}}</button>
+                </div>
+              </div>
+              <div class="card-body">
+                <p class="text-muted small mb-3">{{.TrafficWidgetInstructions}}</p>
+                <textarea id="{{.TrafficWidgetSnippetTextareaID}}" class="form-control font-monospace" rows="3" readonly></textarea>
+              </div>
+            </div>
+            <div class="card shadow-sm mb-4" data-dashboard-card="feedback">
               <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                   <div class="d-flex align-items-center gap-2">
@@ -174,85 +198,86 @@
                 </div>
               </div>
               <div class="card-body">
-              <div class="row g-3">
-                <div class="col-lg-6">
-                  <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                      <thead id="{{.FeedbackTableHeaderID}}" class="{{.FeedbackTableHeaderLightClass}}">
-                        <tr>
-                          <th scope="col">When</th>
-                          <th scope="col">Contact</th>
-                          <th scope="col">Message</th>
-                          <th scope="col">Delivery</th>
-                        </tr>
-                      </thead>
-                      <tbody id="{{.FeedbackTableBodyID}}">
-                        <tr><td colspan="4" class="text-center text-muted">{{.FeedbackPlaceholder}}</td></tr>
-                      </tbody>
-                    </table>
+                <div class="table-responsive">
+                  <table class="table table-striped table-hover align-middle">
+                    <thead id="{{.FeedbackTableHeaderID}}" class="{{.FeedbackTableHeaderLightClass}}">
+                      <tr>
+                        <th scope="col">When</th>
+                        <th scope="col">Contact</th>
+                        <th scope="col">Message</th>
+                        <th scope="col">Delivery</th>
+                      </tr>
+                    </thead>
+                    <tbody id="{{.FeedbackTableBodyID}}">
+                      <tr><td colspan="4" class="text-center text-muted">{{.FeedbackPlaceholder}}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="card shadow-sm mb-4" data-dashboard-card="subscribers">
+              <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <h5 class="mb-0">Subscribers</h5>
+                    <span id="{{.SubscriberCountElementID}}" class="badge bg-secondary d-none"></span>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <button id="{{.ExportSubscribersButtonID}}" class="{{.ExportButtonClass}}" type="button">{{.ExportSubscribersButtonLabel}}</button>
+                    <div id="{{.SubscribersStatusID}}" class="d-none py-1 px-2 small"></div>
                   </div>
                 </div>
-                <div class="col-lg-6">
-                  <div class="d-flex justify-content-between align-items-center mb-2">
-                    <div class="d-flex align-items-center gap-2">
-                      <h6 class="mb-0">Subscribers</h6>
-                      <span id="{{.SubscriberCountElementID}}" class="badge bg-secondary d-none"></span>
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                      <button id="{{.ExportSubscribersButtonID}}" class="{{.ExportButtonClass}}" type="button">{{.ExportSubscribersButtonLabel}}</button>
-                      <div id="{{.SubscribersStatusID}}" class="d-none py-1 px-2 small"></div>
-                    </div>
-                  </div>
+              </div>
+              <div class="card-body">
                 <div class="table-responsive">
                   <table class="table table-striped table-hover align-middle">
                     <thead class="{{.FeedbackTableHeaderLightClass}}">
                       <tr>
                         <th scope="col">Email</th>
-                          <th scope="col">Name</th>
-                          <th scope="col">Status</th>
-                          <th scope="col" class="text-end">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody id="{{.SubscribersTableBodyID}}">
-                        <tr><td colspan="4" class="text-center text-muted">{{.SubscribersPlaceholder}}</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-              <div class="card mt-4">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                    <div class="d-flex align-items-center gap-2">
-                      <h6 class="mb-0">Traffic</h6>
-                      <span id="{{.VisitCountElementID}}" class="badge bg-secondary d-none"></span>
-                      <span id="{{.UniqueVisitorCountElementID}}" class="badge bg-secondary d-none"></span>
-                    </div>
-                    <div id="{{.TrafficStatusID}}" class="d-none py-1 px-2 small"></div>
-                  </div>
-                  <p class="text-muted small mb-2">Top pages</p>
-                  <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                      <thead class="{{.FeedbackTableHeaderLightClass}}">
-                        <tr>
-                          <th scope="col">Path</th>
-                          <th scope="col" class="text-end">Views</th>
-                        </tr>
-                      </thead>
-                      <tbody id="{{.TopPagesTableBodyID}}">
-                        <tr><td colspan="2" class="text-center text-muted">{{.TopPagesPlaceholder}}</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
+                        <th scope="col">Name</th>
+                        <th scope="col">Status</th>
+                        <th scope="col" class="text-end">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="{{.SubscribersTableBodyID}}">
+                      <tr><td colspan="4" class="text-center text-muted">{{.SubscribersPlaceholder}}</td></tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
+            <div class="card shadow-sm mb-4" data-dashboard-card="traffic">
+              <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <h5 class="mb-0">Traffic</h5>
+                    <span id="{{.VisitCountElementID}}" class="badge bg-secondary d-none"></span>
+                    <span id="{{.UniqueVisitorCountElementID}}" class="badge bg-secondary d-none"></span>
+                  </div>
+                  <div id="{{.TrafficStatusID}}" class="d-none py-1 px-2 small"></div>
+                </div>
+              </div>
+              <div class="card-body">
+                <p class="text-muted small mb-2">Top pages</p>
+                <div class="table-responsive">
+                  <table class="table table-striped table-hover align-middle">
+                    <thead class="{{.FeedbackTableHeaderLightClass}}">
+                      <tr>
+                        <th scope="col">Path</th>
+                        <th scope="col" class="text-end">Views</th>
+                      </tr>
+                    </thead>
+                    <tbody id="{{.TopPagesTableBodyID}}">
+                      <tr><td colspan="2" class="text-center text-muted">{{.TopPagesPlaceholder}}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-          </div>
-      </div>
-    </div>
-  </main>
+    </main>
     <div class="modal fade" id="{{.SettingsModalID}}" tabindex="-1" aria-labelledby="{{.SettingsModalTitleID}}" aria-describedby="{{.SettingsModalContentID}}" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
         <div class="modal-content">
@@ -487,6 +512,10 @@
         var autoLogoutGapMessage = autoLogoutFieldsContainer ? autoLogoutFieldsContainer.getAttribute('data-gap-message') || '' : '';
         var widgetSnippetTextarea = document.getElementById(elementIds.widget_snippet_textarea);
         var copyWidgetSnippetButton = document.getElementById(elementIds.copy_widget_snippet_button);
+        var subscribeSnippetTextarea = document.getElementById(elementIds.subscribe_snippet_textarea);
+        var copySubscribeSnippetButton = document.getElementById(elementIds.copy_subscribe_snippet_button);
+        var trafficSnippetTextarea = document.getElementById(elementIds.traffic_snippet_textarea);
+        var copyTrafficSnippetButton = document.getElementById(elementIds.copy_traffic_snippet_button);
         var widgetTestButton = document.getElementById(elementIds.widget_test_button);
         var widgetTestPagePrefix = typeof sharedPaths.widget_test_prefix === 'string' ? sharedPaths.widget_test_prefix : '';
         var widgetTestPageSuffix = typeof sharedPaths.widget_test_suffix === 'string' ? sharedPaths.widget_test_suffix : '';
@@ -852,6 +881,7 @@
             window.__loopawareDashboardIdleTestHooks = {
               forcePrompt: function() {
                 idleState.lastActivityTimestamp = Date.now() - (promptDelayMilliseconds + 1000);
+                showPrompt();
                 checkSessionIdleState();
               },
               forceLogout: function() {
@@ -1543,10 +1573,24 @@
         if (widgetSnippetTextarea) {
           widgetSnippetTextarea.value = widgetUnavailableMessage;
         }
+        if (subscribeSnippetTextarea) {
+          subscribeSnippetTextarea.value = widgetUnavailableMessage;
+        }
+        if (trafficSnippetTextarea) {
+          trafficSnippetTextarea.value = widgetUnavailableMessage;
+        }
         if (copyWidgetSnippetButton) {
           copyWidgetSnippetButton.disabled = true;
         }
+        if (copySubscribeSnippetButton) {
+          copySubscribeSnippetButton.disabled = true;
+        }
+        if (copyTrafficSnippetButton) {
+          copyTrafficSnippetButton.disabled = true;
+        }
         setButtonDefault(copyWidgetSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
+        setButtonDefault(copySubscribeSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
+        setButtonDefault(copyTrafficSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
         setButtonDefault(refreshMessagesButton, buttonLabels.refresh_default || '', buttonClasses.refresh_default || '');
         setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
         registerValidationHandlers();
@@ -1754,6 +1798,14 @@
 
         function buildWidgetSnippet(siteId) {
           return '<script defer src="' + widgetBaseURL + '/widget.js?site_id=' + siteId + '"></script>';
+        }
+
+        function buildSubscribeSnippet(siteId) {
+          return '<script defer src="' + widgetBaseURL + '/subscribe.js?site_id=' + siteId + '"></script>';
+        }
+
+        function buildTrafficSnippet(siteId) {
+          return '<script defer src="' + widgetBaseURL + '/pixel.js?site_id=' + siteId + '"></script>';
         }
 
         function updateButtonStatus(button, text, extraClass) {
@@ -2013,63 +2065,104 @@
           });
         }
 
+        function setSnippetUnavailable(textarea, copyButton) {
+          if (textarea) {
+            textarea.value = widgetUnavailableMessage;
+          }
+          if (copyButton) {
+            copyButton.disabled = true;
+          }
+        }
+
+        function setSnippetValue(textarea, copyButton, snippet) {
+          if (textarea) {
+            textarea.value = snippet;
+          }
+          if (copyButton) {
+            copyButton.disabled = false;
+          }
+        }
+
         function updateWidgetSnippet() {
           if (!state.selectedSiteId || isNewSiteSelected()) {
-            widgetSnippetTextarea.value = widgetUnavailableMessage;
-            copyWidgetSnippetButton.disabled = true;
+            setSnippetUnavailable(widgetSnippetTextarea, copyWidgetSnippetButton);
+            setSnippetUnavailable(subscribeSnippetTextarea, copySubscribeSnippetButton);
+            setSnippetUnavailable(trafficSnippetTextarea, copyTrafficSnippetButton);
             disableWidgetTestButton();
             return;
           }
           var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
           if (!site) {
-            widgetSnippetTextarea.value = widgetUnavailableMessage;
-            copyWidgetSnippetButton.disabled = true;
+            setSnippetUnavailable(widgetSnippetTextarea, copyWidgetSnippetButton);
+            setSnippetUnavailable(subscribeSnippetTextarea, copySubscribeSnippetButton);
+            setSnippetUnavailable(trafficSnippetTextarea, copyTrafficSnippetButton);
             disableWidgetTestButton();
             return;
           }
-          widgetSnippetTextarea.value = buildWidgetSnippet(site.id);
-          copyWidgetSnippetButton.disabled = false;
+          setSnippetValue(widgetSnippetTextarea, copyWidgetSnippetButton, buildWidgetSnippet(site.id));
+          setSnippetValue(subscribeSnippetTextarea, copySubscribeSnippetButton, buildSubscribeSnippet(site.id));
+          setSnippetValue(trafficSnippetTextarea, copyTrafficSnippetButton, buildTrafficSnippet(site.id));
           enableWidgetTestButton(site.id);
         }
 
         function copyWidgetSnippet() {
-          if (copyWidgetSnippetButton.disabled) {
+          copySnippet(widgetSnippetTextarea, copyWidgetSnippetButton);
+        }
+
+        function copySubscribeSnippet() {
+          copySnippet(subscribeSnippetTextarea, copySubscribeSnippetButton);
+        }
+
+        function copyTrafficSnippet() {
+          copySnippet(trafficSnippetTextarea, copyTrafficSnippetButton);
+        }
+
+        function copySnippet(textarea, copyButton) {
+          if (!copyButton || copyButton.disabled) {
             return;
           }
-          var snippet = widgetSnippetTextarea.value;
+          if (!textarea) {
+            updateButtonStatus(copyButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
+            return;
+          }
+          var snippet = textarea.value;
           if (!snippet || snippet === widgetUnavailableMessage) {
-            updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
+            updateButtonStatus(copyButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
             return;
           }
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(snippet).then(function() {
-              updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_copied || '', buttonStyles.primary || '');
+              updateButtonStatus(copyButton, buttonLabels.copy_copied || '', buttonStyles.primary || '');
             }).catch(function() {
-              fallbackCopyWidgetSnippet(snippet);
+              fallbackCopySnippet(textarea, copyButton);
             });
           } else {
-            fallbackCopyWidgetSnippet(snippet);
+            fallbackCopySnippet(textarea, copyButton);
           }
         }
 
-        function fallbackCopyWidgetSnippet(snippet) {
-          var previousSelectionStart = widgetSnippetTextarea.selectionStart;
-          var previousSelectionEnd = widgetSnippetTextarea.selectionEnd;
-          widgetSnippetTextarea.focus();
-          widgetSnippetTextarea.select();
+        function fallbackCopySnippet(textarea, copyButton) {
+          if (!textarea) {
+            updateButtonStatus(copyButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
+            return;
+          }
+          var previousSelectionStart = textarea.selectionStart;
+          var previousSelectionEnd = textarea.selectionEnd;
+          textarea.focus();
+          textarea.select();
           var copySucceeded = false;
           try {
             copySucceeded = document.execCommand('copy');
           } catch (error) {
             copySucceeded = false;
           }
-          widgetSnippetTextarea.selectionStart = previousSelectionStart;
-          widgetSnippetTextarea.selectionEnd = previousSelectionEnd;
-          widgetSnippetTextarea.blur();
+          textarea.selectionStart = previousSelectionStart;
+          textarea.selectionEnd = previousSelectionEnd;
+          textarea.blur();
           if (copySucceeded) {
-            updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_copied || '', buttonStyles.primary || '');
+            updateButtonStatus(copyButton, buttonLabels.copy_copied || '', buttonStyles.primary || '');
           } else {
-            updateButtonStatus(copyWidgetSnippetButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
+            updateButtonStatus(copyButton, buttonLabels.copy_failed || '', buttonStyles.danger || '');
           }
         }
 
@@ -2913,6 +3006,18 @@
           copyWidgetSnippetButton.addEventListener('click', function(event) {
             event.preventDefault();
             copyWidgetSnippet();
+          });
+        }
+        if (copySubscribeSnippetButton) {
+          copySubscribeSnippetButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            copySubscribeSnippet();
+          });
+        }
+        if (copyTrafficSnippetButton) {
+          copyTrafficSnippetButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            copyTrafficSnippet();
           });
         }
 

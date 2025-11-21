@@ -519,3 +519,25 @@ func TestCreateFeedbackRecordsNoDeliveryOnNotifierFailure(t *testing.T) {
 	require.NoError(t, api.database.First(&stored).Error)
 	require.Equal(t, model.FeedbackDeliveryNone, stored.Delivery)
 }
+
+func TestCreateFeedbackPersistsFailureDeliveryWhenNotifierReturnsStatusAndError(t *testing.T) {
+	notifier := &recordingFeedbackNotifier{
+		t:         t,
+		delivery:  model.FeedbackDeliveryTexted,
+		callError: errors.New("notifier failed"),
+	}
+	api := buildAPIHarness(t, notifier, nil)
+	site := insertSite(t, api.database, "Failure Delivery Status", "http://failure-status.example", "owner@example.com")
+
+	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+		"site_id": site.ID,
+		"contact": "submitter@example.com",
+		"message": "Expect failure status",
+	}, map[string]string{"Origin": "http://failure-status.example"})
+	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, 1, notifier.CallCount())
+
+	var stored model.Feedback
+	require.NoError(t, api.database.First(&stored).Error)
+	require.Equal(t, model.FeedbackDeliveryNone, stored.Delivery)
+}
