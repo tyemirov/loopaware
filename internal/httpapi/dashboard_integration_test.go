@@ -68,6 +68,9 @@ const (
 	dashboardFeedbackCopyButtonSelector       = "#copy-widget-snippet"
 	dashboardSubscribeCopyButtonSelector      = "#copy-subscribe-widget-snippet"
 	dashboardTrafficCopyButtonSelector        = "#copy-traffic-widget-snippet"
+	dashboardFeedbackWidgetCardSelector       = `[data-widget-card="feedback"]`
+	dashboardSubscribeWidgetCardSelector      = `[data-widget-card="subscribe"]`
+	dashboardTrafficWidgetCardSelector        = `[data-widget-card="traffic"]`
 	dashboardSettingsMenuOpenScript           = `(function() {
 		var menu = document.querySelector('#settings-menu');
 		if (!menu) { return false; }
@@ -587,6 +590,9 @@ func TestDashboardShowsDistinctWidgetSnippets(t *testing.T) {
 		var copySubscribe = document.querySelector(%q);
 		var copyTraffic = document.querySelector(%q);
 		return {
+			feedbackCard: !!document.querySelector(%q),
+			subscribeCard: !!document.querySelector(%q),
+			trafficCard: !!document.querySelector(%q),
 			feedback: feedback ? (feedback.value || '').trim() : '',
 			subscribe: subscribe ? (subscribe.value || '').trim() : '',
 			traffic: traffic ? (traffic.value || '').trim() : '',
@@ -594,9 +600,12 @@ func TestDashboardShowsDistinctWidgetSnippets(t *testing.T) {
 			subscribeCopyDisabled: copySubscribe ? !!copySubscribe.disabled : true,
 			trafficCopyDisabled: copyTraffic ? !!copyTraffic.disabled : true
 		};
-	}())`, dashboardFeedbackWidgetSnippetSelector, dashboardSubscribeWidgetSnippetSelector, dashboardTrafficWidgetSnippetSelector, dashboardFeedbackCopyButtonSelector, dashboardSubscribeCopyButtonSelector, dashboardTrafficCopyButtonSelector)
+	}())`, dashboardFeedbackWidgetSnippetSelector, dashboardSubscribeWidgetSnippetSelector, dashboardTrafficWidgetSnippetSelector, dashboardFeedbackCopyButtonSelector, dashboardSubscribeCopyButtonSelector, dashboardTrafficCopyButtonSelector, dashboardFeedbackWidgetCardSelector, dashboardSubscribeWidgetCardSelector, dashboardTrafficWidgetCardSelector)
 
 	var snippets struct {
+		FeedbackCard          bool   `json:"feedbackCard"`
+		SubscribeCard         bool   `json:"subscribeCard"`
+		TrafficCard           bool   `json:"trafficCard"`
 		Feedback              string `json:"feedback"`
 		Subscribe             string `json:"subscribe"`
 		Traffic               string `json:"traffic"`
@@ -607,11 +616,15 @@ func TestDashboardShowsDistinctWidgetSnippets(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		evaluateScriptInto(t, page, snippetScript, &snippets)
-		return strings.Contains(snippets.Feedback, site.ID) &&
+		return snippets.FeedbackCard && snippets.SubscribeCard && snippets.TrafficCard &&
+			strings.Contains(snippets.Feedback, site.ID) &&
 			strings.Contains(snippets.Subscribe, site.ID) &&
 			strings.Contains(snippets.Traffic, site.ID)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
+	require.True(t, snippets.FeedbackCard)
+	require.True(t, snippets.SubscribeCard)
+	require.True(t, snippets.TrafficCard)
 	require.Contains(t, snippets.Feedback, "/widget.js?site_id="+site.ID)
 	require.Contains(t, snippets.Subscribe, "/subscribe.js?site_id="+site.ID)
 	require.Contains(t, snippets.Traffic, "/pixel.js?site_id="+site.ID)

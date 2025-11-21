@@ -32,7 +32,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 2. Subscribe widget
 3. Traffic (pixel) widget
 
-- [ ] [LA-202] Have separate panes for the retrieval of Subscribers Widget and Traffic Widget underneath Site widget
+- [x] [LA-202] Have separate panes for the retrieval of Subscribers Widget and Traffic Widget underneath Site widget — feedback, subscribers, and traffic snippets now live in individual cards stacked under site details.
 
 1. Site Widget
 2. Subscribers Widget
