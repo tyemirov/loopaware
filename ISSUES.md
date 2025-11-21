@@ -23,9 +23,10 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## Improvements (200-299)
 
-- [ ] [LA-200] Goal: use the latest version of mpr-ui for the footer and header. Find the mpr-ui documentation under @tools/mpr-ui, @tools/mpr-ui/docs/custom-elements/md
+- [x] [LA-200] Goal: use the latest version of mpr-ui for the footer and header. Find the mpr-ui documentation under @tools/mpr-ui, @tools/mpr-ui/docs/custom-elements/md
       Deliverable: document missing DSL/functionality of the mpr-ui to allo GAuth integration with the login in details, including coding suggestions. Look into the declarative syntax of the mpr-ui web-components.
       Non-deliverable: code changes
+      Captured the gaps + suggested attributes/events under docs/LA-200-mpr-ui-gauth.md so the header can run against GAuss (server-managed login, profile endpoint mapping, logout modes).
 - [x] [LA-201] Separate widgets into three widgets — dashboard now provides distinct feedback, subscribe, and traffic snippets with dedicated copy controls.
 
 1. Feedback widget
@@ -62,22 +63,24 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 - [x] [LA-307] widget test page now uses the current request origin for widget.js so the preview widget renders even when the configured public base URL points elsewhere; added coverage.
 - [x] [LA-308] Intermittent `TestWidgetIntegrationSubmitsFeedback` failure (headless focus wait around internal/httpapi/widget_integration_test.go:166) observed while preparing LA-204/205; investigate the rod/headless flow so the integration suite stays reliable locally and in CI. Resolved by waiting for panel focus transitions (including the initial field focus) and centralizing the shift-tab key chord to keep Rod interactions stable; headless + race suites now pass consistently.
-- [ ] [LA-309] 
+- [x] [LA-309] 
 1. There is no form preview for the subscribe widget on the test page. Add form preview for the subscribe widget on the test page. 
 2. It is always supposed to be inline (embedded). Remove Bubble Preview section. 
 3. Remove Inline Preview and place the submission form in its place. 
 4. The theme toggle switch is no longer operation on the subscribe widget  test page. See @test_subscribe_widget_page.png
-- [ ] [LA-310] 
+   Resolved by embedding the real inline subscribe form directly on the page, removing the unused bubble preview cards, wiring the controls to update the inline form, and restoring the theme toggle via the mpr-ui footer bundle.
+- [x] [LA-310] 
 1. The theme toggle switch is no longer operation on the subscribe widget  test page. See @test_traffic_widget_page.png. 
 2. The user avatar is hidden and some hideous oval is around it.  See @test_traffic_widget_page.png. 
 3. I was expecting much richer information such as IP, country, browser, time of the day etc
 4. I clicked record sample visit twice and got 2 unique visitors but I was expecting 1 unqiue visitor
+   Restored the footer/mpr-ui imports so the theme toggle works, hydrate the header avatar from `/api/me`, persist preview visitor IDs, expanded the visit stats API with recent visit metadata (IP/country/browser/occurred_at), and refreshed the traffic test UI plus Rod coverage to surface the richer log entries and correct unique counts.
 
 ## Maintenance (400-499)
 
 - [x] [LA-400] Prepare a short marketing blurb about the LoopAware service. Place it under docs/ . The goal is to place this description in a card on a main site that advertises all mprlab products
 - [x] [LA-401] Refresh the LoopAware marketing blurb for the mprlab product catalogue card with concise, card-ready copy under docs/; updated with new two-sentence catalog blurb.
-- [ ] [LA-402] Fefactor the Dockerfile multibuild with alpine-based images
+- [x] [LA-402] Refactor the Dockerfile multibuild with alpine-based images — builder now uses `golang:1.25-alpine`, runtime uses `alpine:3.20` with ca-certs + `/app/data`, and `docker build` succeeds to verify the image.
 
 ## Planning
 

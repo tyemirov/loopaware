@@ -1279,6 +1279,9 @@ func TestVisitStatsReturnsCounts(testingT *testing.T) {
 		SiteID:    site.ID,
 		URL:       "http://example.com/page",
 		VisitorID: storage.NewID(),
+		IP:        "127.0.0.1",
+		UserAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+		Referrer:  "http://example.com/",
 	})
 	require.NoError(testingT, database.Create(&visit).Error)
 
@@ -1299,6 +1302,11 @@ func TestVisitStatsReturnsCounts(testingT *testing.T) {
 	require.NoError(testingT, json.Unmarshal(rec.Body.Bytes(), &payload))
 	require.Equal(testingT, int64(1), payload.VisitCount)
 	require.Equal(testingT, int64(1), payload.UniqueVisitorCount)
+	require.Len(testingT, payload.RecentVisits, 1)
+	require.Equal(testingT, visit.URL, payload.RecentVisits[0].URL)
+	require.Equal(testingT, visit.IP, payload.RecentVisits[0].IP)
+	require.Equal(testingT, "Local network", payload.RecentVisits[0].Country)
+	require.Equal(testingT, "Google Chrome", payload.RecentVisits[0].Browser)
 }
 
 func newJSONContext(method string, path string, body any) (*httptest.ResponseRecorder, *gin.Context) {
