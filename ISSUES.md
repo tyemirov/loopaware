@@ -38,11 +38,14 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 2. Subscribers Widget
 3. Traffic Widget
 
-- [ ] [LA-203] Have separate panes for Subscribers and Traffic, not nested inside the feedback messages:
+- [x] [LA-203] Have separate panes for Subscribers and Traffic, not nested inside the feedback messages — dashboard now renders standalone feedback, subscriber, and traffic cards.
 
 1. Feedback messages pane stays the same
 2. Subscribers pane after
 3. Traffic page after
+
+- [ ] [LA-204] Add subscriber flow integration tests mirroring feedback coverage: stub notifier, submit subscription via widget, assert persisted state and notifier delivery codes.
+- [ ] [LA-205] Add widget end-to-end notification tests: exercise embed submission through the widget, verify delivery persistence and notifier calls similar to feedback tests; include race/CI coverage.
 
 ## BugFixes (300-399)
 

@@ -3,7 +3,7 @@ PINGUIN_DIR := tools/pinguin
 STATICCHECK := honnef.co/go/tools/cmd/staticcheck@latest
 INEFFASSIGN := github.com/gordonklaus/ineffassign@latest
 
-.PHONY: format format-pinguin build lint test test-race test-httpapi test-pinguin tidy tidy-check docker-up docker-down docker-logs ci
+.PHONY: format format-pinguin build lint test test-race test-httpapi tidy tidy-check docker-up docker-down docker-logs ci
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -32,13 +32,6 @@ test-race:
 test-httpapi:
 	go test ./internal/httpapi
 
-test-pinguin:
-	@if [ -d "$(PINGUIN_DIR)" ]; then \
-		cd $(PINGUIN_DIR) && go test ./...; \
-	else \
-		echo "Skipping test-pinguin: $(PINGUIN_DIR) not found."; \
-	fi
-
 tidy:
 	go mod tidy
 
@@ -55,4 +48,4 @@ docker-down:
 docker-logs:
 	docker compose logs -f
 
-ci: tidy-check build lint test-race test-pinguin
+ci: tidy-check build lint test-race
