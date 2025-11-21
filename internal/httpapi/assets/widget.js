@@ -266,6 +266,12 @@
         if (focusedElement === message && isShiftTab) {
           event.preventDefault();
           focusInputElement(contact);
+          return;
+        }
+        if (focusedElement === message && !isShiftTab) {
+          event.preventDefault();
+          focusInputElement(send);
+          return;
         }
       }
 
