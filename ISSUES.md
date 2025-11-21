@@ -68,11 +68,12 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 3. Remove Inline Preview and place the submission form in its place. 
 4. The theme toggle switch is no longer operation on the subscribe widget  test page. See @test_subscribe_widget_page.png
    Resolved by embedding the real inline subscribe form directly on the page, removing the unused bubble preview cards, wiring the controls to update the inline form, and restoring the theme toggle via the mpr-ui footer bundle.
-- [ ] [LA-310] 
+- [x] [LA-310] 
 1. The theme toggle switch is no longer operation on the subscribe widget  test page. See @test_traffic_widget_page.png. 
 2. The user avatar is hidden and some hideous oval is around it.  See @test_traffic_widget_page.png. 
 3. I was expecting much richer information such as IP, country, browser, time of the day etc
 4. I clicked record sample visit twice and got 2 unique visitors but I was expecting 1 unqiue visitor
+   Restored the footer/mpr-ui imports so the theme toggle works, hydrate the header avatar from `/api/me`, persist preview visitor IDs, expanded the visit stats API with recent visit metadata (IP/country/browser/occurred_at), and refreshed the traffic test UI plus Rod coverage to surface the richer log entries and correct unique counts.
 
 ## Maintenance (400-499)
 

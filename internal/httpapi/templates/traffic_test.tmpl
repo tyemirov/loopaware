@@ -141,6 +141,8 @@
       var logoutPath = '{{js .LogoutPath}}';
       var landingPath = '{{js .LandingPath}}';
       var dashboardPath = '{{js .DashboardPath}}';
+      var settingsAvatarImage = document.getElementById('{{js .Header.SettingsAvatarImageID}}');
+      var settingsAvatarFallback = document.getElementById('{{js .Header.SettingsAvatarFallbackID}}');
 
       function normalizeClassList(value) {
         if (typeof value !== 'string') {
@@ -243,11 +245,43 @@
           window.location.assign(logoutPath || landingPath || dashboardPath || '/');
         });
       }
+      function applyAvatar(url) {
+        if (!settingsAvatarImage || !settingsAvatarFallback) {
+          return;
+        }
+        if (url) {
+          settingsAvatarImage.src = url;
+          settingsAvatarImage.classList.remove('d-none');
+          settingsAvatarFallback.classList.add('d-none');
+        } else {
+          settingsAvatarImage.src = '';
+          settingsAvatarImage.classList.add('d-none');
+          settingsAvatarFallback.classList.remove('d-none');
+        }
+      }
+
+      function hydrateCurrentUser() {
+        fetch('/api/me', { credentials: 'same-origin' }).then(function(response) {
+          if (!response.ok) {
+            throw new Error('me_failed');
+          }
+          return response.json();
+        }).then(function(payload) {
+          var avatarURL = '';
+          if (payload && payload.avatar && payload.avatar.url) {
+            avatarURL = payload.avatar.url;
+          }
+          applyAvatar(avatarURL);
+        }).catch(function() {
+          applyAvatar('');
+        });
+      }
 
       var body = document.body;
       if (!body) {
         return;
       }
+      hydrateCurrentUser();
       var siteId = body.getAttribute('data-site-id') || '';
       var visitsEndpoint = body.getAttribute('data-visits-endpoint') || '';
       var statsEndpoint = body.getAttribute('data-stats-endpoint') || '';
@@ -259,6 +293,8 @@
       var totalCounter = document.getElementById('{{js .TotalCounterID}}');
       var uniqueCounter = document.getElementById('{{js .UniqueCounterID}}');
       var topPagesTable = document.getElementById('{{js .TopPagesTableID}}');
+      var previewVisitorStorageKey = 'loopaware_traffic_preview_visitor_id';
+      var cachedVisitorId = '';
 
       function updateStatus(message, variant) {
         if (!statusLabel) {
@@ -275,20 +311,62 @@
         }
       }
 
-      function appendLogEntry(message) {
-        if (!statusLog) {
-          return;
+      function formatVisitTimestamp(seconds) {
+        if (typeof seconds !== 'number' || !isFinite(seconds)) {
+          return '';
         }
-        var item = document.createElement('div');
-        item.className = 'list-group-item small';
-        item.textContent = message || '';
-        statusLog.insertBefore(item, statusLog.firstChild);
-        while (statusLog.children.length > 6) {
-          statusLog.removeChild(statusLog.lastChild);
+        try {
+          return new Date(seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        } catch (error) {
+          return '';
         }
       }
 
-      function generateVisitorId() {
+      function renderRecentVisits(visits) {
+        if (!statusLog) {
+          return;
+        }
+        statusLog.innerHTML = '';
+        var entries = Array.isArray(visits) ? visits : [];
+        if (entries.length === 0) {
+          var placeholder = document.createElement('div');
+          placeholder.className = 'list-group-item text-muted small';
+          placeholder.textContent = 'No recorded visits yet.';
+          statusLog.appendChild(placeholder);
+          return;
+        }
+        entries.forEach(function(entry) {
+          var wrapper = document.createElement('div');
+          wrapper.className = 'list-group-item d-flex flex-column gap-1';
+          var header = document.createElement('div');
+          header.className = 'd-flex justify-content-between align-items-start gap-2';
+          var urlLabel = document.createElement('span');
+          urlLabel.className = 'fw-semibold text-break';
+          urlLabel.textContent = entry.url || '(no url)';
+          var timeLabel = document.createElement('span');
+          timeLabel.className = 'text-muted small';
+          timeLabel.textContent = formatVisitTimestamp(entry.occurred_at);
+          header.appendChild(urlLabel);
+          header.appendChild(timeLabel);
+          wrapper.appendChild(header);
+          var metaRow = document.createElement('div');
+          metaRow.className = 'text-muted small';
+          var ipText = entry.ip || 'Unknown';
+          var countryText = entry.country || 'Unknown';
+          var browserText = entry.browser || entry.user_agent || 'Unknown';
+          metaRow.textContent = 'IP: ' + ipText + ' • Country: ' + countryText + ' • Browser: ' + browserText;
+          wrapper.appendChild(metaRow);
+          if (entry.referrer) {
+            var refRow = document.createElement('div');
+            refRow.className = 'text-muted small';
+            refRow.textContent = 'Referrer: ' + entry.referrer;
+            wrapper.appendChild(refRow);
+          }
+          statusLog.appendChild(wrapper);
+        });
+      }
+
+      function randomVisitorId() {
         try {
           if (window.crypto && typeof window.crypto.randomUUID === 'function') {
             return window.crypto.randomUUID();
@@ -302,6 +380,24 @@
         });
       }
 
+      function resolveVisitorId() {
+        if (cachedVisitorId) {
+          return cachedVisitorId;
+        }
+        try {
+          var stored = window.localStorage.getItem(previewVisitorStorageKey);
+          if (stored) {
+            cachedVisitorId = stored;
+            return stored;
+          }
+        } catch (error) {}
+        cachedVisitorId = randomVisitorId();
+        try {
+          window.localStorage.setItem(previewVisitorStorageKey, cachedVisitorId);
+        } catch (storageError) {}
+        return cachedVisitorId;
+      }
+
       function buildVisitURL(sampleURL) {
         var params = new URLSearchParams();
         params.set('site_id', siteId);
@@ -311,7 +407,10 @@
         if (document.location) {
           params.set('referrer', document.location.href);
         }
-        params.set('visitor_id', generateVisitorId());
+        var visitorIdentifier = resolveVisitorId();
+        if (visitorIdentifier) {
+          params.set('visitor_id', visitorIdentifier);
+        }
         return visitsEndpoint + '?' + params.toString();
       }
 
@@ -338,13 +437,11 @@
         inflightBeacons.push(beacon);
         beacon.onload = function() {
           updateStatus('Sample visit sent for ' + sampleURL, 'success');
-          appendLogEntry('Recorded sample visit for ' + sampleURL);
           loadStats();
           removeBeacon(beacon);
         };
         beacon.onerror = function() {
           updateStatus('Failed to record visit. Check the Allowed Origin and see console.', 'danger');
-          appendLogEntry('Visit failed for ' + sampleURL + ' (origin mismatch?)');
           removeBeacon(beacon);
         };
         beacon.src = buildVisitURL(sampleURL);
@@ -386,6 +483,7 @@
             uniqueCounter.textContent = unique.toString();
           }
           renderTopPages(payload.top_pages || []);
+          renderRecentVisits(payload.recent_visits || []);
         }).catch(function(error) {
           console.error(error);
           updateStatus('Failed to refresh stats.', 'danger');
@@ -409,6 +507,13 @@
       loadStats();
       setInterval(loadStats, 8000);
     }());
+  </script>
+  <script type="module">
+    import Alpine from "https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/module.esm.js";
+    import { mprFooter } from "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@main/footer.js";
+    window.Alpine = Alpine;
+    window.mprFooter = mprFooter;
+    Alpine.start();
   </script>
 </body>
 </html>
