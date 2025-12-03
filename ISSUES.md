@@ -16,8 +16,8 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## Maintenance (405-499)
 
-- [ ] [LA-403] Document subscribe integration in the @README.md
-- [ ] [LA-403] Document pixel integration in the @README.md
+- [x] [LA-403] Document subscribe integration in the @README.md — added subscribe.js snippet, REST endpoints, and dashboard description to README.md
+- [x] [LA-403] Document pixel integration in the @README.md — added pixel.js snippet, REST endpoints, and traffic dashboard description to README.md
 
 ## Planning
 

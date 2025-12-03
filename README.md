@@ -8,9 +8,11 @@ role-aware dashboard for managing sites and messages.
 - Google OAuth 2.0 authentication via [GAuss](https://github.com/temirov/GAuss)
 - Role-aware dashboard (`/app`) with admin and creator/owner scopes
 - YAML configuration for privileged accounts (`config.yaml`)
-- REST API to create, update, and inspect sites and feedback
+- REST API to create, update, and inspect sites, feedback, subscribers, and traffic
 - Background favicon refresh scheduler with live dashboard notifications
 - Embeddable JavaScript widget with strict origin validation
+- Email subscription capture via an embeddable subscribe form
+- Privacy-safe traffic pixel with per-site visit and visitor counts
 - SQLite-first storage with pluggable drivers
 - Public privacy policy and sitemap endpoints for compliance visibility
 - Table-driven tests and fast in-memory SQLite fixtures
@@ -110,19 +112,30 @@ Set `PUBLIC_BASE_URL` to the externally reachable origin so the sitemap emits fu
 
 ## REST API
 
-All authenticated endpoints live under `/api` and require the GAuss session cookie. JSON responses include Unix
-timestamps in seconds.
+All authenticated endpoints live under `/api` and require the GAuss session cookie. Public collection endpoints for
+feedback, subscriptions, and visits do not require a session but still enforce per-site origin rules. JSON responses
+include Unix timestamps in seconds.
 
-| Method  | Path                      | Role        | Description                                                               |
-|---------|---------------------------|-------------|---------------------------------------------------------------------------|
-| `GET`   | `/api/me`                 | any         | Current account metadata (email, name, `role`, `avatar.url`)              |
-| `GET`   | `/api/sites`              | any         | Sites visible to the caller (admin = all, user = owned)                   |
-| `POST`  | `/api/sites`              | admin       | Create a site (requires `name`, `allowed_origin`, `owner_email`)          |
-| `PATCH` | `/api/sites/:id`          | owner/admin | Update name/origin; admins may reassign ownership                         |
-| `GET`   | `/api/sites/:id/messages` | owner/admin | List feedback messages (newest first)                                     |
-| `GET`   | `/api/sites/favicons/events` | any      | Server-sent events stream announcing refreshed site favicons             |
-| `POST`  | `/api/feedback`           | public      | Submit feedback (requires JSON body with `site_id`, `contact`, `message`) |
-| `GET`   | `/widget.js`              | public      | Serve embeddable JavaScript widget                                        |
+| Method  | Path                                  | Role        | Description                                                                                             |
+|---------|---------------------------------------|-------------|---------------------------------------------------------------------------------------------------------|
+| `GET`   | `/api/me`                             | any         | Current account metadata (email, name, `role`, `avatar.url`)                                            |
+| `GET`   | `/api/sites`                          | any         | Sites visible to the caller (admin = all, user = owned)                                                 |
+| `POST`  | `/api/sites`                          | admin       | Create a site (requires `name`, `allowed_origin`, `owner_email`)                                        |
+| `PATCH` | `/api/sites/:id`                      | owner/admin | Update name/origin; admins may reassign ownership                                                       |
+| `GET`   | `/api/sites/:id/messages`             | owner/admin | List feedback messages (newest first)                                                                   |
+| `GET`   | `/api/sites/:id/subscribers`          | owner/admin | List subscribers for a site                                                                             |
+| `GET`   | `/api/sites/:id/subscribers/export`   | owner/admin | Download subscribers as CSV                                                                             |
+| `PATCH` | `/api/sites/:id/subscribers/:subscriber_id` | owner/admin | Update a subscriber’s status (confirm or unsubscribe)                                             |
+| `GET`   | `/api/sites/:id/visits/stats`         | owner/admin | Aggregate visit and unique visitor counts plus recent visits and top pages                              |
+| `GET`   | `/api/sites/favicons/events`          | any         | Server-sent events stream announcing refreshed site favicons                                            |
+| `POST`  | `/api/feedback`                       | public      | Submit feedback (requires JSON body with `site_id`, `contact`, `message`)                               |
+| `POST`  | `/api/subscriptions`                  | public      | Submit an email subscription (JSON body with `site_id`, `email`, optional `name` and `source_url`)      |
+| `POST`  | `/api/subscriptions/confirm`          | public      | Confirm a subscription for a given `site_id` and email                                                  |
+| `POST`  | `/api/subscriptions/unsubscribe`      | public      | Unsubscribe an email address for a given `site_id`                                                      |
+| `GET`   | `/api/visits`                         | public      | Record a page visit for a site (returns a 1×1 GIF for use as a tracking pixel)                          |
+| `GET`   | `/widget.js`                          | public      | Serve embeddable JavaScript feedback widget                                                             |
+| `GET`   | `/subscribe.js`                       | public      | Serve embeddable JavaScript subscribe form                                                              |
+| `GET`   | `/pixel.js`                           | public      | Serve embeddable JavaScript visit tracking pixel                                                        |
 
 The `/api/me` response includes a `role` value of `admin` or `user` and an `avatar.url` pointing to the caller's cached
 profile image (served from `/api/me/avatar`). The dashboard uses this payload to render the account card and determine
@@ -144,6 +157,8 @@ The Bootstrap front end consumes the APIs above. Features include:
 - Owner/admin editor for site metadata
 - Widget placement controls that persist the bubble’s side (left/right) and bottom offset without code changes
 - Feedback table with human-readable timestamps
+- Subscribers panel with per-site subscriber counts, table, CSV export, and a copyable `subscribe.js` snippet
+- Traffic card with visit and unique visitor counts, recent visits, and a copyable `pixel.js` snippet
 - Real-time favicon refresh notifications delivered through the SSE stream
 - Logout button (links to `/logout`)
 - Inactivity prompt appears after 60 seconds without input and logs out automatically after 120 seconds if unanswered
@@ -162,6 +177,47 @@ Example snippet (replace the base URL with your LoopAware deployment and the sit
 
 ```html
 <script defer src="https://loopaware.mprlab.com/widget.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"></script>
+```
+
+## Embedding the subscribe form
+
+Each site exposes a subscribe snippet that renders an email capture form and posts subscriptions to `/api/subscriptions`.
+
+1. In the dashboard, select a site and use the Subscribers panel to copy the subscribe snippet.
+2. Embed the script on pages served from the site’s `allowed_origin`. The basic form looks like:
+
+   ```html
+   <script defer src="https://loopaware.mprlab.com/subscribe.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"></script>
+   ```
+
+3. Optional query parameters let you adjust behavior and styling:
+   - `mode=inline` (default) or `mode=bubble` for a floating button.
+   - `accent=#0d6efd` to override the accent color.
+   - `cta=Subscribe` to customize the button text.
+   - `success=You%27re+on+the+list%21` and `error=Please+try+again.` for inline messages.
+   - `name_field=false` to hide the optional name field.
+
+The form enforces the site’s `allowed_origin` using request headers and `source_url` and responds with inline success or
+error messages so visitors never leave the page.
+
+## Embedding the traffic pixel
+
+The traffic pixel records page visits per site and powers the dashboard Traffic card and top-pages table.
+
+1. In the dashboard, select a site and use the Traffic panel to copy the pixel snippet.
+2. Embed the script on every page served from the site’s `allowed_origin`:
+
+   ```html
+   <script defer src="https://loopaware.mprlab.com/pixel.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"></script>
+   ```
+
+3. On load, `pixel.js` sends a beacon to `/api/visits` with the site ID, current URL, referrer, and a stable visitor ID
+   stored in `localStorage`. Requests from origins outside the site’s `allowed_origin` are rejected.
+
+For non-JavaScript environments you can fall back to a plain image pixel:
+
+```html
+<img src="https://loopaware.mprlab.com/api/visits?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f&url=https%3A%2F%2Fexample.com%2F" alt="" width="1" height="1" />
 ```
 
 ## Development workflow
