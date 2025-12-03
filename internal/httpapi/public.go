@@ -488,20 +488,68 @@ func (h *PublicHandlers) updateSubscriptionStatus(context *gin.Context, targetSt
 	context.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
+func parseAllowedOrigins(rawAllowedOrigin string) []string {
+	trimmedValue := strings.TrimSpace(rawAllowedOrigin)
+	if trimmedValue == "" {
+		return nil
+	}
+	normalizedSeparators := strings.NewReplacer(",", " ", ";", " ").Replace(trimmedValue)
+	parts := strings.Fields(normalizedSeparators)
+	if len(parts) == 0 {
+		return nil
+	}
+	uniqueOrigins := make([]string, 0, len(parts))
+	seenOrigins := make(map[string]struct{}, len(parts))
+	for _, partValue := range parts {
+		trimmedPart := strings.TrimSpace(partValue)
+		if trimmedPart == "" {
+			continue
+		}
+		lowerPart := strings.ToLower(trimmedPart)
+		if _, alreadySeen := seenOrigins[lowerPart]; alreadySeen {
+			continue
+		}
+		seenOrigins[lowerPart] = struct{}{}
+		uniqueOrigins = append(uniqueOrigins, trimmedPart)
+	}
+	if len(uniqueOrigins) == 0 {
+		return nil
+	}
+	return uniqueOrigins
+}
+
+func primaryAllowedOrigin(rawAllowedOrigin string) string {
+	origins := parseAllowedOrigins(rawAllowedOrigin)
+	if len(origins) == 0 {
+		return ""
+	}
+	return origins[0]
+}
+
 func isOriginAllowed(allowedOrigin string, originHeader string, refererHeader string, urlValue string) bool {
-	normalizedAllowedOrigin := strings.TrimSpace(allowedOrigin)
-	if normalizedAllowedOrigin == "" {
+	allowedOrigins := parseAllowedOrigins(allowedOrigin)
+	if len(allowedOrigins) == 0 {
 		return true
 	}
 
-	if originHeader == normalizedAllowedOrigin {
-		return true
-	}
-	if urlValue != "" && strings.HasPrefix(urlValue, normalizedAllowedOrigin) {
-		return true
-	}
-	if refererHeader != "" && strings.HasPrefix(refererHeader, normalizedAllowedOrigin) {
-		return true
+	normalizedOriginHeader := strings.TrimSpace(originHeader)
+	normalizedRefererHeader := strings.TrimSpace(refererHeader)
+	normalizedURLValue := strings.TrimSpace(urlValue)
+
+	for _, configuredOrigin := range allowedOrigins {
+		normalizedAllowedOrigin := strings.TrimSpace(configuredOrigin)
+		if normalizedAllowedOrigin == "" {
+			continue
+		}
+		if normalizedOriginHeader == normalizedAllowedOrigin {
+			return true
+		}
+		if normalizedURLValue != "" && strings.HasPrefix(normalizedURLValue, normalizedAllowedOrigin) {
+			return true
+		}
+		if normalizedRefererHeader != "" && strings.HasPrefix(normalizedRefererHeader, normalizedAllowedOrigin) {
+			return true
+		}
 	}
 	return false
 }

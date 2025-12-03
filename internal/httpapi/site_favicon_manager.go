@@ -160,7 +160,8 @@ func (manager *SiteFaviconManager) ScheduleFetch(site model.Site) {
 		return
 	}
 
-	normalizedOrigin := strings.TrimSpace(site.AllowedOrigin)
+	primaryOriginValue := primaryAllowedOrigin(site.AllowedOrigin)
+	normalizedOrigin := strings.TrimSpace(primaryOriginValue)
 	manager.scheduleFetch(
 		site,
 		normalizedOrigin,
@@ -305,7 +306,8 @@ func (manager *SiteFaviconManager) processFetch(ctx context.Context, task fetchT
 		return
 	}
 
-	normalizedOrigin := strings.TrimSpace(site.AllowedOrigin)
+	primaryOriginValue := primaryAllowedOrigin(site.AllowedOrigin)
+	normalizedOrigin := strings.TrimSpace(primaryOriginValue)
 	if normalizedOrigin == "" {
 		return
 	}
@@ -375,7 +377,8 @@ func (manager *SiteFaviconManager) performScheduledRefresh(ctx context.Context) 
 		case <-ctx.Done():
 			return
 		default:
-			normalizedOrigin := strings.TrimSpace(site.AllowedOrigin)
+			primaryOriginValue := primaryAllowedOrigin(site.AllowedOrigin)
+			normalizedOrigin := strings.TrimSpace(primaryOriginValue)
 			manager.scheduleFetch(
 				site,
 				normalizedOrigin,

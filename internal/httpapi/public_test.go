@@ -256,6 +256,44 @@ func TestCreateSubscriptionBlocksOriginAndDuplicates(t *testing.T) {
 	require.Equal(t, http.StatusConflict, duplicate.Code)
 }
 
+func TestCreateSubscriptionSupportsMultipleAllowedOrigins(t *testing.T) {
+	api := buildAPIHarness(t, nil, nil)
+	site := insertSite(t, api.database, "Multi Origins", "https://mprlab.com http://localhost:8080", "owner@example.com")
+
+	testCases := []struct {
+		name           string
+		originHeader   string
+		expectedStatus int
+	}{
+		{
+			name:           "primary origin accepted",
+			originHeader:   "https://mprlab.com",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "secondary origin accepted",
+			originHeader:   "http://localhost:8080",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "unknown origin rejected",
+			originHeader:   "https://evil.example",
+			expectedStatus: http.StatusForbidden,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(testingT *testing.T) {
+			subscriberEmailValue := storage.NewID() + "@example.com"
+			response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+				"site_id": site.ID,
+				"email":   subscriberEmailValue,
+			}, map[string]string{"Origin": testCase.originHeader})
+			require.Equal(testingT, testCase.expectedStatus, response.Code)
+		})
+	}
+}
+
 func TestConfirmAndUnsubscribeSubscription(t *testing.T) {
 	api := buildAPIHarness(t, nil, nil)
 	site := insertSite(t, api.database, "Confirmations", "http://confirm.example", "owner@example.com")

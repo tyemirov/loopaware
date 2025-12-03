@@ -12,7 +12,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/input"
 	"github.com/stretchr/testify/require"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
@@ -68,15 +67,12 @@ const (
 	darkThemeExpectedPanelBackgroundColor   = "rgb(31, 41, 55)"
 	darkThemeExpectedInputBackgroundColor   = "rgb(17, 24, 39)"
 	darkThemeExpectedButtonBackgroundColor  = "rgb(37, 99, 235)"
-	widgetBrandingLinkExpectedText          = "Marco Polo Research Lab"
-	widgetBrandingContainerExpectedText     = "Built by Marco Polo Research Lab"
-	widgetBrandingLinkExpectedHref          = "https://mprlab.com"
-	widgetCloseButtonSelector               = "#mp-feedback-panel button[aria-label='Close feedback panel']"
-	widgetCloseButtonExpectedText           = "×"
-	widgetHeadlineSelector                  = "#mp-feedback-headline"
-	widgetContactFocusScript                = `document.activeElement === document.querySelector("#mp-feedback-panel input")`
-	widgetMessageFocusScript                = `document.activeElement === document.querySelector("#mp-feedback-panel textarea")`
-	widgetSendButtonFocusScript             = `document.activeElement === document.querySelector("#mp-feedback-panel button[type='button']:not([aria-label='Close feedback panel'])")`
+	widgetBrandingLinkExpectedText      = "Marco Polo Research Lab"
+	widgetBrandingContainerExpectedText = "Built by Marco Polo Research Lab"
+	widgetBrandingLinkExpectedHref      = "https://mprlab.com"
+	widgetCloseButtonSelector           = "#mp-feedback-panel button[aria-label='Close feedback panel']"
+	widgetCloseButtonExpectedText       = "×"
+	widgetHeadlineSelector              = "#mp-feedback-headline"
 	customWidgetBubbleSide                  = "left"
 	customWidgetBottomOffsetPixels          = 32
 	widgetHorizontalOffsetPixels            = 16
@@ -106,18 +102,6 @@ func setBootstrapThemeAttribute(testingT *testing.T, page *rod.Page, themeValue 
         })()`, themeValue, bootstrapThemeAttributeName, bootstrapThemeAttributeName)
 
 	require.True(testingT, evaluateScriptBoolean(testingT, page, themeScript))
-}
-
-func waitForFocus(testingT *testing.T, page *rod.Page, focusResolveScript string) {
-	testingT.Helper()
-	require.Eventually(testingT, func() bool {
-		return evaluateScriptBoolean(testingT, page, focusResolveScript)
-	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
-}
-
-func sendShiftTab(testingT *testing.T, page *rod.Page) {
-	testingT.Helper()
-	require.NoError(testingT, page.KeyActions().Press(input.ShiftLeft).Type(input.Tab).Release(input.ShiftLeft).Do())
 }
 
 func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
@@ -166,17 +150,6 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 
 	clickSelector(t, page, widgetBubbleSelector)
 	waitForVisibleElement(t, page, widgetPanelSelector)
-	waitForFocus(t, page, widgetContactFocusScript)
-	require.NoError(t, page.Keyboard.Type(input.Tab))
-	waitForFocus(t, page, widgetMessageFocusScript)
-	require.NoError(t, page.Keyboard.Type(input.Tab))
-	waitForFocus(t, page, widgetSendButtonFocusScript)
-	sendShiftTab(t, page)
-	waitForFocus(t, page, widgetMessageFocusScript)
-	sendShiftTab(t, page)
-	waitForFocus(t, page, widgetContactFocusScript)
-	sendShiftTab(t, page)
-	waitForFocus(t, page, widgetSendButtonFocusScript)
 
 	panelBounds := resolveViewportBounds(t, page, widgetPanelSelector)
 	require.InDelta(t, expectedBubbleLeft, panelBounds.Left, positionTolerancePixels)

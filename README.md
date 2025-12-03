@@ -137,6 +137,8 @@ include Unix timestamps in seconds.
 | `GET`   | `/subscribe.js`                       | public      | Serve embeddable JavaScript subscribe form                                                              |
 | `GET`   | `/pixel.js`                           | public      | Serve embeddable JavaScript visit tracking pixel                                                        |
 
+The `allowed_origin` field for a site may contain multiple origins separated by spaces or commas (for example `https://mprlab.com http://localhost:8080`); widgets, subscribe forms, and pixels will accept requests from any configured origin while still rejecting traffic from unknown sites.
+
 The `/api/me` response includes a `role` value of `admin` or `user` and an `avatar.url` pointing to the caller's cached
 profile image (served from `/api/me/avatar`). The dashboard uses this payload to render the account card and determine
 site scope.
@@ -168,8 +170,7 @@ The dashboard automatically redirects unauthenticated visitors to `/login`.
 ## Embedding the widget
 
 1. Create a site (admin) and copy the generated `<script>` tag from the API response.
-2. Embed the script on any page served from the configured `allowed_origin`. Include the `defer` attribute so the widget
-   loads without blocking the page; the script waits for the body before rendering the UI.
+2. Embed the script on any page served from one of the site’s configured `allowed_origin` values (you can supply multiple origins separated by spaces or commas). Include the `defer` attribute so the widget loads without blocking the page; the script waits for the body before rendering the UI.
 3. Visitors can open the floating bubble, submit feedback, and the messages appear under `/api/sites/:id/messages` and
    in the dashboard.
 
@@ -184,7 +185,7 @@ Example snippet (replace the base URL with your LoopAware deployment and the sit
 Each site exposes a subscribe snippet that renders an email capture form and posts subscriptions to `/api/subscriptions`.
 
 1. In the dashboard, select a site and use the Subscribers panel to copy the subscribe snippet.
-2. Embed the script on pages served from the site’s `allowed_origin`. The basic form looks like:
+2. Embed the script on pages served from any of the site’s `allowed_origin` entries. The basic form looks like:
 
    ```html
    <script defer src="https://loopaware.mprlab.com/subscribe.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"></script>
@@ -197,7 +198,7 @@ Each site exposes a subscribe snippet that renders an email capture form and pos
    - `success=You%27re+on+the+list%21` and `error=Please+try+again.` for inline messages.
    - `name_field=false` to hide the optional name field.
 
-The form enforces the site’s `allowed_origin` using request headers and `source_url` and responds with inline success or
+The form enforces the site’s `allowed_origin` list using request headers and `source_url` and responds with inline success or
 error messages so visitors never leave the page.
 
 ## Embedding the traffic pixel
@@ -205,14 +206,14 @@ error messages so visitors never leave the page.
 The traffic pixel records page visits per site and powers the dashboard Traffic card and top-pages table.
 
 1. In the dashboard, select a site and use the Traffic panel to copy the pixel snippet.
-2. Embed the script on every page served from the site’s `allowed_origin`:
+2. Embed the script on every page served from any of the site’s `allowed_origin` entries:
 
    ```html
    <script defer src="https://loopaware.mprlab.com/pixel.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"></script>
    ```
 
 3. On load, `pixel.js` sends a beacon to `/api/visits` with the site ID, current URL, referrer, and a stable visitor ID
-   stored in `localStorage`. Requests from origins outside the site’s `allowed_origin` are rejected.
+   stored in `localStorage`. Requests from origins outside the site’s `allowed_origin` list are rejected.
 
 For non-JavaScript environments you can fall back to a plain image pixel:
 
