@@ -248,7 +248,7 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		AllowedOrigin:              payload.AllowedOrigin,
 		OwnerEmail:                 desiredOwnerEmail,
 		CreatorEmail:               creatorEmail,
-		FaviconOrigin:              payload.AllowedOrigin,
+		FaviconOrigin:              primaryAllowedOrigin(payload.AllowedOrigin),
 		WidgetBubbleSide:           widgetBubbleSide,
 		WidgetBubbleBottomOffsetPx: widgetBubbleBottomOffset,
 	}
@@ -632,14 +632,17 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		site.WidgetBubbleBottomOffsetPx = offset
 	}
 
+	primaryOriginValue := primaryAllowedOrigin(site.AllowedOrigin)
+	normalizedPrimaryOrigin := strings.TrimSpace(primaryOriginValue)
+
 	if originChanged {
 		site.FaviconData = nil
 		site.FaviconContentType = ""
 		site.FaviconFetchedAt = time.Time{}
 		site.FaviconLastAttemptAt = time.Time{}
-		site.FaviconOrigin = strings.TrimSpace(site.AllowedOrigin)
+		site.FaviconOrigin = normalizedPrimaryOrigin
 	} else if strings.TrimSpace(site.FaviconOrigin) == "" {
-		site.FaviconOrigin = strings.TrimSpace(site.AllowedOrigin)
+		site.FaviconOrigin = normalizedPrimaryOrigin
 	}
 
 	if err := handlers.database.Save(&site).Error; err != nil {
@@ -1006,7 +1009,8 @@ func (handlers *SiteHandlers) resolveAuthorizedSite(context *gin.Context) (model
 func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Site, feedbackCount int64) siteResponse {
 	widgetBase := handlers.widgetBaseURL
 	if widgetBase == "" {
-		widgetBase = normalizeWidgetBaseURL(site.AllowedOrigin)
+		widgetBaseOrigin := primaryAllowedOrigin(site.AllowedOrigin)
+		widgetBase = normalizeWidgetBaseURL(widgetBaseOrigin)
 	}
 	ensureWidgetBubblePlacementDefaults(&site)
 

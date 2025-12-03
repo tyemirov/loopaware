@@ -121,7 +121,7 @@ func (handlers *SiteTrafficTestHandlers) RenderTrafficTestPage(context *gin.Cont
 
 	statsEndpoint := "/api/sites/" + site.ID + "/visits/stats"
 	visitsEndpoint := "/api/visits"
-	defaultURL := site.AllowedOrigin
+	defaultURL := primaryAllowedOrigin(site.AllowedOrigin)
 	if strings.TrimSpace(defaultURL) == "" {
 		defaultURL = handlers.defaultSampleURL(context.Request)
 	}

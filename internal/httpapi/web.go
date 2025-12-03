@@ -241,7 +241,7 @@ const (
 	siteNameHelpContent                    = "Displayed in the sites list for your team."
 	allowedOriginHelpButtonElementID       = "allowed-origin-help-button"
 	allowedOriginHelpTitle                 = "Allowed origin"
-	allowedOriginHelpContent               = "Must match the full protocol, host, and optional port where the widget will run."
+	allowedOriginHelpContent               = "One or more origins (protocol, host, optional port) where the widget will run; separate multiple origins with commas or spaces."
 	ownerEmailHelpButtonElementID          = "owner-email-help-button"
 	ownerEmailHelpTitle                    = "Owner email"
 	ownerEmailHelpContent                  = "Receives notifications when visitors submit feedback."

@@ -1225,24 +1225,37 @@
           if (!value) {
             return false;
           }
-          try {
-            var parsed = new URL(value);
-            if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-              return false;
-            }
-            if (!parsed.hostname) {
-              return false;
-            }
-            if (parsed.username || parsed.password) {
-              return false;
-            }
-            if ((parsed.pathname && parsed.pathname !== '/') || parsed.search || parsed.hash) {
-              return false;
-            }
-            return true;
-          } catch (error) {
+          var normalizedValue = String(value).trim();
+          if (!normalizedValue) {
             return false;
           }
+          var originParts = normalizedValue.split(/[,;\s]+/);
+          var hasValidOrigin = false;
+          for (var originIndex = 0; originIndex < originParts.length; originIndex += 1) {
+            var originPart = originParts[originIndex];
+            if (!originPart) {
+              continue;
+            }
+            try {
+              var parsed = new URL(originPart);
+              if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+                return false;
+              }
+              if (!parsed.hostname) {
+                return false;
+              }
+              if (parsed.username || parsed.password) {
+                return false;
+              }
+              if ((parsed.pathname && parsed.pathname !== '/') || parsed.search || parsed.hash) {
+                return false;
+              }
+            } catch (error) {
+              return false;
+            }
+            hasValidOrigin = true;
+          }
+          return hasValidOrigin;
         }
         function isOwnerEmailValid(value) {
           if (typeof value !== 'string') {
