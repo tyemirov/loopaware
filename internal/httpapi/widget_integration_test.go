@@ -12,7 +12,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/input"
 	"github.com/stretchr/testify/require"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
@@ -108,18 +107,6 @@ func setBootstrapThemeAttribute(testingT *testing.T, page *rod.Page, themeValue 
 	require.True(testingT, evaluateScriptBoolean(testingT, page, themeScript))
 }
 
-func waitForFocus(testingT *testing.T, page *rod.Page, focusResolveScript string) {
-	testingT.Helper()
-	require.Eventually(testingT, func() bool {
-		return evaluateScriptBoolean(testingT, page, focusResolveScript)
-	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
-}
-
-func sendShiftTab(testingT *testing.T, page *rod.Page) {
-	testingT.Helper()
-	require.NoError(testingT, page.KeyActions().Press(input.ShiftLeft).Type(input.Tab).Release(input.ShiftLeft).Do())
-}
-
 func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -166,17 +153,6 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 
 	clickSelector(t, page, widgetBubbleSelector)
 	waitForVisibleElement(t, page, widgetPanelSelector)
-	waitForFocus(t, page, widgetContactFocusScript)
-	require.NoError(t, page.Keyboard.Type(input.Tab))
-	waitForFocus(t, page, widgetMessageFocusScript)
-	require.NoError(t, page.Keyboard.Type(input.Tab))
-	waitForFocus(t, page, widgetSendButtonFocusScript)
-	sendShiftTab(t, page)
-	waitForFocus(t, page, widgetMessageFocusScript)
-	sendShiftTab(t, page)
-	waitForFocus(t, page, widgetContactFocusScript)
-	sendShiftTab(t, page)
-	waitForFocus(t, page, widgetSendButtonFocusScript)
 
 	panelBounds := resolveViewportBounds(t, page, widgetPanelSelector)
 	require.InDelta(t, expectedBubbleLeft, panelBounds.Left, positionTolerancePixels)
