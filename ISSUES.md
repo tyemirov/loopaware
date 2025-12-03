@@ -10,6 +10,8 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## Features (110-199)
 
+- [ ] [LA-111] Allow multiple origins for subscribe widgets, e.g. a single subscribe widget can be embedded in multiple sites, not all of them matching the original url, such as gravity.mprlab.com needs to be able to be retreieved and function from both https://mprlab.com and http://localcost:8080
+
 ## Improvements (206-299)
 
 ## BugFixes (311-399)
