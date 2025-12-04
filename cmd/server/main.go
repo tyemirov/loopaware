@@ -110,6 +110,7 @@ const (
 	corsOriginWildcard                = "*"
 	corsHeaderAuthorization           = "Authorization"
 	corsHeaderContentType             = "Content-Type"
+	corsHeaderXTAuthTenant            = "X-TAuth-Tenant"
 	httpMethodGet                     = "GET"
 	httpMethodOptions                 = "OPTIONS"
 	httpMethodPost                    = "POST"
@@ -131,7 +132,7 @@ const (
 
 var (
 	corsAllowedMethods          = []string{httpMethodPost, httpMethodGet, httpMethodOptions, httpMethodPatch, httpMethodDelete}
-	corsAllowedHeaders          = []string{corsHeaderAuthorization, corsHeaderContentType}
+	corsAllowedHeaders          = []string{corsHeaderAuthorization, corsHeaderContentType, corsHeaderXTAuthTenant}
 	corsExposedHeaders          = []string{corsHeaderContentType}
 	corsAllowOrigins            = []string{corsOriginWildcard}
 	defaultDatabaseDriverName   = storage.DriverNameSQLite
