@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/temirov/GAuss/pkg/constants"
-	"github.com/temirov/GAuss/pkg/gauss"
-	"github.com/temirov/GAuss/pkg/session"
+	"github.com/tyemirov/GAuss/pkg/constants"
+	"github.com/tyemirov/GAuss/pkg/gauss"
+	"github.com/tyemirov/GAuss/pkg/session"
 )
 
 func TestGoogleAuthRedirectHonorsForwardedProtocol(t *testing.T) {
