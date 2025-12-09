@@ -14,9 +14,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/temirov/GAuss/pkg/constants"
-	"github.com/temirov/GAuss/pkg/gauss"
-	"github.com/temirov/GAuss/pkg/session"
+	"github.com/tyemirov/GAuss/pkg/constants"
+	"github.com/tyemirov/GAuss/pkg/gauss"
+	"github.com/tyemirov/GAuss/pkg/session"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
