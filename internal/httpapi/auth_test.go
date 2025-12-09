@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/temirov/GAuss/pkg/session"
+	"github.com/tyemirov/GAuss/pkg/session"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
