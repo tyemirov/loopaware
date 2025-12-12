@@ -1,4 +1,14 @@
 services:
+  tauth:
+    image: ghcr.io/tyemirov/tauth:latest
+    env_file:
+      - ./.env.tauth
+    ports:
+      - "8082:8082"
+    volumes:
+      - tauth_data:/data
+      - ./config.yaml:/config/config.yaml:ro
+    restart: unless-stopped
   pinguin:
     image: ghcr.io/tyemirov/pinguin:latest
     container_name: pinguin
@@ -42,3 +52,4 @@ services:
 volumes:
   loopaware-data:
   pinguin-data:
+  tauth-data:
