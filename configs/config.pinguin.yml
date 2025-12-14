@@ -1,0 +1,46 @@
+server:
+  databasePath: ${DATABASE_PATH}
+  grpcAuthToken: ${GRPC_AUTH_TOKEN}
+  logLevel: ${LOG_LEVEL}
+  maxRetries: ${MAX_RETRIES}
+  retryIntervalSec: ${RETRY_INTERVAL_SEC}
+  masterEncryptionKey: ${MASTER_ENCRYPTION_KEY}
+  connectionTimeoutSec: ${CONNECTION_TIMEOUT_SEC}
+  operationTimeoutSec: ${OPERATION_TIMEOUT_SEC}
+
+tenants:
+  - id: loopaware-local
+    displayName: Loopaware Sandbox
+    supportEmail: support@mprlab.com
+    enabled: true
+    domains:
+      - ${LOOPAWARE_LOCAL_DOMAIN_PRIMARY}
+      - ${LOOPAWARE_LOCAL_DOMAIN_SECONDARY}
+    admins:
+      - ${LOOPAWARE_LOCAL_ADMIN_EMAIL_1}
+      - ${LOOPAWARE_LOCAL_ADMIN_EMAIL_2}
+    identity:
+      googleClientId: ${LOOPAWARE_LOCAL_GOOGLE_CLIENT_ID}
+      tauthBaseUrl: ${LOOPAWARE_LOCAL_TAUTH_BASE_URL}
+    emailProfile:
+      host: ${LOOPAWARE_LOCAL_SMTP_HOST}
+      port: ${LOOPAWARE_LOCAL_SMTP_PORT}
+      username: ${LOOPAWARE_LOCAL_SMTP_USERNAME}
+      password: ${LOOPAWARE_LOCAL_SMTP_PASSWORD}
+      fromAddress: ${LOOPAWARE_LOCAL_FROM_EMAIL}
+    smsProfile:
+      accountSid: ${LOOPAWARE_TWILIO_ACCOUNT_SID}
+      authToken: ${LOOPAWARE_TWILIO_AUTH_TOKEN}
+      fromNumber: ${LOOPAWARE_TWILIO_FROM_NUMBER}
+
+web:
+  enabled: true
+  listenAddr: ${HTTP_LISTEN_ADDR}
+  allowedOrigins:
+    - ${HTTP_ALLOWED_ORIGIN1}
+    - ${HTTP_ALLOWED_ORIGIN2}
+    - ${HTTP_ALLOWED_ORIGIN3}
+  tauth:
+    signingKey: ${TAUTH_SIGNING_KEY}
+    issuer: tauth
+    cookieName: app_session

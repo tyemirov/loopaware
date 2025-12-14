@@ -1,19 +1,37 @@
 services:
-  pinguin:
-    image: ghcr.io/tyemirov/pinguin:latest
-    container_name: pinguin
+  tauth:
+    image: ghcr.io/tyemirov/tauth:latest
+    container_name: tauth
     restart: unless-stopped
     pull_policy: always
     env_file:
-      - .env.pinguin
+      - ./configs/.env.tauth
+    ports:
+      - "8082:8082"
+    volumes:
+      - tauth-data:/data
+      - ./configs/config.tauth.yml:/config/config.yml:ro
+  
+  pinguin:
+    container_name: pinguin
+    depends_on:
+      - tauth
+    image: ghcr.io/tyemirov/pinguin:latest
+    restart: unless-stopped
+    pull_policy: always
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./configs/.env.pinguin
     volumes:
       - pinguin-data:/app/data
+      - ./configs/config.pinguin.yml:/config/config.yml:ro
 
   loopaware:
     build: .
     container_name: loopaware
     env_file:
-      - .env.loopaware
+      - ./configs/.env.loopaware
     depends_on:
       pinguin:
         condition: service_started
@@ -42,3 +60,4 @@ services:
 volumes:
   loopaware-data:
   pinguin-data:
+  tauth-data:

@@ -6,6 +6,10 @@ on:
       - master
     paths:
       - '**/*.go'
+      - 'docker-compose.yml'
+      - 'configs/**'
+      - 'internal/httpapi/assets/**'
+      - 'internal/httpapi/templates/**'
       - 'go.mod'
       - 'go.sum'
   pull_request:
@@ -13,6 +17,10 @@ on:
       - master
     paths:
       - '**/*.go'
+      - 'docker-compose.yml'
+      - 'configs/**'
+      - 'internal/httpapi/assets/**'
+      - 'internal/httpapi/templates/**'
       - 'go.mod'
       - 'go.sum'
 
@@ -35,6 +43,66 @@ jobs:
           go-version-file: go.mod
           check-latest: true
           cache: true
+
+      - name: Prepare config env fixtures
+        run: |
+          cat > configs/.env.tauth <<'EOF'
+          TAUTH_CONFIG_FILE=/config/config.yml
+          TAUTH_LISTEN_ADDR=:8082
+          TAUTH_DATABASE_URL=sqlite:///data/tauth.db
+          TAUTH_ENABLE_CORS=true
+          TAUTH_CORS_ORIGIN_1=http://localhost:8000
+          TAUTH_CORS_ORIGIN_2=http://127.0.0.1:8000
+          TAUTH_CORS_ORIGIN_3=http://localhost:4173
+          TAUTH_ALLOW_INSECURE_HTTP=true
+          TAUTH_COOKIE_DOMAIN=localhost
+          TAUTH_LOOPAWARE_GOOGLE_WEB_CLIENT_ID=ci-google-client-id
+          TAUTH_LOOPAWARE_JWT_SIGNING_KEY=ci-signing-key
+          EOF
+
+          cat > configs/.env.pinguin <<'EOF'
+          PINGUIN_CONFIG_PATH=/config/config.yml
+          DATABASE_PATH=/app/data/pinguin.db
+          GRPC_AUTH_TOKEN=ci-grpc-auth-token
+          LOG_LEVEL=INFO
+          MAX_RETRIES=3
+          RETRY_INTERVAL_SEC=30
+          CONNECTION_TIMEOUT_SEC=5
+          OPERATION_TIMEOUT_SEC=30
+          HTTP_LISTEN_ADDR=:8081
+          HTTP_ALLOWED_ORIGIN1=http://localhost:4173
+          HTTP_ALLOWED_ORIGIN2=http://127.0.0.1:4173
+          HTTP_ALLOWED_ORIGIN3=https://accounts.google.com
+          MASTER_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          LOOPAWARE_LOCAL_DOMAIN_PRIMARY=localhost
+          LOOPAWARE_LOCAL_DOMAIN_SECONDARY=127.0.0.1
+          LOOPAWARE_LOCAL_ADMIN_EMAIL_1=support@example.com
+          LOOPAWARE_LOCAL_ADMIN_EMAIL_2=admin@example.com
+          LOOPAWARE_LOCAL_GOOGLE_CLIENT_ID=ci-google-client-id
+          LOOPAWARE_LOCAL_TAUTH_BASE_URL=http://localhost:8082
+          LOOPAWARE_LOCAL_SMTP_HOST=smtp.example.com
+          LOOPAWARE_LOCAL_SMTP_PORT=587
+          LOOPAWARE_LOCAL_SMTP_USERNAME=ci
+          LOOPAWARE_LOCAL_SMTP_PASSWORD=ci
+          LOOPAWARE_LOCAL_FROM_EMAIL=loopaware@example.com
+          LOOPAWARE_TWILIO_ACCOUNT_SID=ci
+          LOOPAWARE_TWILIO_AUTH_TOKEN=ci
+          LOOPAWARE_TWILIO_FROM_NUMBER=+10000000000
+          TAUTH_SIGNING_KEY=ci-signing-key
+          EOF
+
+          cat > configs/.env.loopaware <<'EOF'
+          APP_ADDR=:8080
+          DB_DRIVER=sqlite
+          DB_DSN=file:/app/data/loopaware.sqlite?_foreign_keys=on
+          GOOGLE_CLIENT_ID=ci-google-client-id
+          GOOGLE_CLIENT_SECRET=ci-google-client-secret
+          SESSION_SECRET=ci-session-secret
+          PUBLIC_BASE_URL=http://localhost:8080
+          ADMINS=admin@example.com
+          PINGUIN_ADDR=pinguin:50051
+          PINGUIN_AUTH_TOKEN=ci-grpc-auth-token
+          EOF
 
       - name: Make CI
         run: make ci
