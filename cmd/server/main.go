@@ -303,6 +303,22 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 		return environmentErr
 	}
 
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyPinguinAddress, flagNamePinguinAddress); environmentErr != nil {
+		return environmentErr
+	}
+
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyPinguinAuthToken, flagNamePinguinAuthToken); environmentErr != nil {
+		return environmentErr
+	}
+
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyPinguinConnTimeout, flagNamePinguinConnectionTimeout); environmentErr != nil {
+		return environmentErr
+	}
+
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyPinguinOpTimeout, flagNamePinguinOperationTimeout); environmentErr != nil {
+		return environmentErr
+	}
+
 	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeySubscriptionNotify, flagNameSubscriptionNotifications); environmentErr != nil {
 		return environmentErr
 	}

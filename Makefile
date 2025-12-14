@@ -3,7 +3,7 @@ PINGUIN_DIR := tools/pinguin
 STATICCHECK := honnef.co/go/tools/cmd/staticcheck@latest
 INEFFASSIGN := github.com/gordonklaus/ineffassign@latest
 
-.PHONY: format format-pinguin build lint test test-race test-httpapi tidy tidy-check docker-up docker-down docker-logs ci
+.PHONY: format format-pinguin build lint config-audit test test-race test-httpapi tidy tidy-check docker-up docker-down docker-logs ci
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -39,6 +39,9 @@ tidy-check:
 	go mod tidy
 	git diff --exit-code go.mod go.sum
 
+config-audit:
+	go run ./cmd/configaudit
+
 docker-up:
 	docker compose up --build
 
@@ -48,4 +51,4 @@ docker-down:
 docker-logs:
 	docker compose logs -f
 
-ci: tidy-check build lint test-race
+ci: tidy-check config-audit build lint test-race
