@@ -16,7 +16,6 @@ const (
 	landingDetailedAuthCopyToken        = "Google Sign-In powered by GAuss keeps every login secure."
 	landingDetailedWidgetCopyToken      = "Origin-locked widgets and APIs capture feedback where customers already are."
 	landingDetailedWorkflowCopyToken    = "Role-aware workflows assign owners, surface trends, and track resolution."
-	landingThemeToggleIDToken           = "id=\"public-theme-toggle\""
 	landingThemeScriptKeyToken          = "var publicThemeStorageKey = 'loopaware_public_theme'"
 	landingThemeFallbackKeyToken        = "var landingThemeStorageKey = 'loopaware_landing_theme'"
 	landingThemeFallbackLoadToken       = "var landingStoredTheme = localStorage.getItem(landingThemeStorageKey);"
@@ -24,6 +23,9 @@ const (
 	landingThemeMigrationToken          = "var legacyStoredTheme = localStorage.getItem(legacyThemeStorageKey);"
 	landingThemeApplyFunctionToken      = "function applyPublicTheme(theme)"
 	landingThemeDataAttributeToken      = "data-bs-theme"
+	landingThemeFooterQueryToken        = "var footerElement = document.querySelector('mpr-footer');"
+	landingThemeFooterListenerToken     = "footerElement.addEventListener('mpr-footer:theme-change'"
+	landingThemeFooterModeToken         = "footerElement.setAttribute('theme-mode', normalizedTheme);"
 	landingLogoImageClassToken          = "class=\"landing-logo-image\""
 	landingLogoAltToken                 = "alt=\"LoopAware logo\""
 	landingLogoDataToken                = "src=\"data:image/png;base64,"
@@ -33,8 +35,11 @@ const (
 	landingLogoLegacyDarkBackground     = "background-color: rgba(59, 130, 246, 0.18);"
 	landingLogoLegacyLightBackground    = "background-color: rgba(37, 99, 235, 0.12);"
 	landingHeaderStickyToken            = "<header class=\"landing-header\">"
-	landingFooterDropdownToggleToken    = "data-bs-toggle=\"dropdown\""
-	landingFooterDropdownMenuToken      = "dropdown-menu"
+	landingFooterComponentToken         = "<mpr-footer"
+	landingFooterThemeSwitcherToken     = "theme-switcher=\"toggle\""
+	landingFooterThemeConfigToken       = "theme-config="
+	landingFooterStickyDisabledToken    = "sticky=\"false\""
+	landingFooterLinksToken             = "links="
 	landingFooterLinkGravityToken       = "https://gravity.mprlab.com"
 	landingFooterLinkLoopAwareToken     = "https://loopaware.mprlab.com"
 	landingFooterLinkAllergyToken       = "https://allergy.mprlab.com"
@@ -48,8 +53,6 @@ const (
 	landingFooterBrandWrapperToken      = "footer-brand d-inline-flex align-items-center"
 	landingFooterPrivacyClassToken      = "footer-privacy-link text-body-secondary text-decoration-none small"
 	landingFooterPaddingToken           = "landing-footer border-top mt-auto py-2"
-	landingFooterThemeToggleToken       = `footer-brand d-inline-flex align-items-center gap-2 text-body-secondary small" data-mpr-footer="brand"><div class="footer-theme-toggle form-check form-switch m-0" data-mpr-footer="theme-toggle" data-bs-theme="light"><input class="form-check-input" type="checkbox" id="public-theme-toggle" aria-label="Toggle theme" data-mpr-footer="theme-toggle-input" /></div>`
-	landingFooterConfigAttributeToken   = "data-mpr-footer-config="
 	landingCardHoverToken               = ".landing-card:hover"
 	landingCardFocusToken               = ".landing-card:focus-visible"
 	landingHeroLoginButtonToken         = "btn btn-primary btn-lg\" href=\"/auth/google\">Login"
@@ -61,7 +64,8 @@ const (
 	landingHeaderHeroDashboardHrefToken = "href=\"/app\""
 	landingHeaderHeroLandingHrefToken   = "href=\"/login\""
 	landingFaviconLinkToken             = "<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg&#43;xml"
-	landingPrivacyLinkToken             = "href=\"/privacy\">Privacy • Terms"
+	landingFooterPrivacyHrefToken       = "privacy-link-href=\"/privacy\""
+	landingFooterPrivacyLabelToken      = "privacy-link-label=\"Privacy • Terms\""
 )
 
 func TestLandingPageIncludesDetailedCopy(t *testing.T) {
@@ -102,7 +106,6 @@ func TestLandingPageProvidesThemeSwitch(t *testing.T) {
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
-	require.Contains(t, body, landingThemeToggleIDToken)
 	require.Contains(t, body, landingThemeScriptKeyToken)
 	require.Contains(t, body, landingThemeFallbackKeyToken)
 	require.Contains(t, body, landingThemeFallbackLoadToken)
@@ -110,10 +113,12 @@ func TestLandingPageProvidesThemeSwitch(t *testing.T) {
 	require.Contains(t, body, landingThemeMigrationToken)
 	require.Contains(t, body, landingThemeApplyFunctionToken)
 	require.Contains(t, body, landingThemeDataAttributeToken)
-	require.Contains(t, body, "themeToggleElement.checked = normalizedTheme === 'dark';")
-	require.Contains(t, body, "var nextTheme = event.target.checked ? 'dark' : 'light';")
+	require.Contains(t, body, landingThemeFooterQueryToken)
+	require.Contains(t, body, landingThemeFooterListenerToken)
+	require.Contains(t, body, landingThemeFooterModeToken)
 	require.Contains(t, body, landingHeaderStickyToken)
-	require.Contains(t, body, landingFooterThemeToggleToken)
+	require.Contains(t, body, landingFooterComponentToken)
+	require.Contains(t, body, landingFooterThemeSwitcherToken)
 }
 
 func TestLandingHeaderProvidesStickyStyles(t *testing.T) {
@@ -205,8 +210,8 @@ func TestLandingFooterDisplaysProductMenu(t *testing.T) {
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
-	require.Contains(t, body, landingFooterDropdownToggleToken)
-	require.Contains(t, body, landingFooterDropdownMenuToken)
+	require.Contains(t, body, landingFooterComponentToken)
+	require.Contains(t, body, landingFooterLinksToken)
 	require.Contains(t, body, landingFooterLinkGravityToken)
 	require.Contains(t, body, landingFooterLinkLoopAwareToken)
 	require.Contains(t, body, landingFooterLinkAllergyToken)
@@ -219,7 +224,8 @@ func TestLandingFooterDisplaysProductMenu(t *testing.T) {
 	require.Contains(t, body, landingFooterLayoutToken)
 	require.Contains(t, body, landingFooterBrandWrapperToken)
 	require.Contains(t, body, landingFooterPaddingToken)
-	require.Contains(t, body, landingFooterConfigAttributeToken)
+	require.Contains(t, body, landingFooterThemeConfigToken)
+	require.Contains(t, body, landingFooterStickyDisabledToken)
 }
 
 func TestLandingPageDisplaysPrivacyLink(t *testing.T) {
@@ -232,7 +238,8 @@ func TestLandingPageDisplaysPrivacyLink(t *testing.T) {
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
-	require.Contains(t, body, landingPrivacyLinkToken)
+	require.Contains(t, body, landingFooterPrivacyHrefToken)
+	require.Contains(t, body, landingFooterPrivacyLabelToken)
 	require.Contains(t, body, landingFooterPrivacyClassToken)
 }
 func TestLandingCardsProvideInteractiveStates(t *testing.T) {

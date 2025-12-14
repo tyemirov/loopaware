@@ -78,7 +78,7 @@ Even if we could disable GIS, the current implementation only understands the pr
 
 ## 4. Footer/theme wiring already works but needs documentation
 
-`<mpr-footer>` does not touch authentication; LoopAware can drop it in today as long as we load `mpr-ui.css/js` plus Alpine (we already do this on the landing/dashboard templates). No DSL change required, but we should document the load order (CSS → Alpine → `mprFooter()` factory) so other contributors do not regress GAuss by reordering scripts.
+`<mpr-footer>` does not touch authentication; LoopAware can drop it in today as long as we load `mpr-ui.css` first, then `mpr-ui.js` (the bundle auto-registers the custom elements). No Alpine wiring or `mprFooter()` factory is required on `mpr-ui` v0.2.0+.
 
 ## Next steps
 
