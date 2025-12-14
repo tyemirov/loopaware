@@ -14,7 +14,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## Improvements (206-299)
 
-- [ ] [LA-207] Upgrade to the latest version of mpr-ui. Check tools/mpr-ui/README.md and @tools/mpr-ui/docs/custom-elements.md and @tols/mpr-ui/demo/index.html for documentation and examples.
+- [x] [LA-207] Upgrade to the latest version of mpr-ui. Check tools/mpr-ui/README.md and @tools/mpr-ui/docs/custom-elements.md and @tols/mpr-ui/demo/index.html for documentation and examples. — migrated LoopAware templates to the v0.2+ `<mpr-footer>` custom element, loading `mpr-ui@latest/mpr-ui.css` + `mpr-ui@latest/mpr-ui.js`, and removed the legacy `footer.js`/`mprFooter` helper import.
 ```
 Uncaught SyntaxError: The requested module 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@main/footer.js' doesn't provide an export named: 'mprFooter' subscribe-test:709:14
 ```
