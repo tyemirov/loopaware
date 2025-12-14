@@ -4,7 +4,7 @@ services:
     container_name: tauth
     restart: unless-stopped
     env_file:
-      - ../configs/.env.tauth
+      - ./configs/.env.tauth
     ports:
       - "8082:8082"
     volumes:
@@ -19,12 +19,11 @@ services:
     restart: unless-stopped
     pull_policy: always
     ports:
-      - "8080:8080"
+      - "8081:8081"
     env_file:
       - ./configs/.env.pinguin
     volumes:
       - pinguin-data:/app/data
-      - ./web:/web:ro
       - ./configs/config.pinguin.yml:/config/config.yml:ro
 
   loopaware:
