@@ -508,24 +508,29 @@ func scanAssetRoot(root string, allowedPorts map[string]struct{}, result *auditR
 			return nil
 		}
 
-		file, openErr := os.Open(path)
-		if openErr != nil {
-			return openErr
-		}
-		defer func() { _ = file.Close() }()
-
-		scanner := bufio.NewScanner(file)
-		lineNumber := 0
-		for scanner.Scan() {
-			lineNumber++
-			line := scanner.Text()
-			checkLocalPortMatches(path, lineNumber, line, allowedPorts, result)
-		}
-		if err := scanner.Err(); err != nil {
-			return err
-		}
-		return nil
+		return scanAssetFile(path, allowedPorts, result)
 	})
+}
+
+func scanAssetFile(path string, allowedPorts map[string]struct{}, result *auditResult) error {
+	file, openErr := os.Open(path)
+	if openErr != nil {
+		return openErr
+	}
+
+	scanner := bufio.NewScanner(file)
+	lineNumber := 0
+	for scanner.Scan() {
+		lineNumber++
+		line := scanner.Text()
+		checkLocalPortMatches(path, lineNumber, line, allowedPorts, result)
+	}
+	scanErr := scanner.Err()
+	closeErr := file.Close()
+	if scanErr != nil || closeErr != nil {
+		return errors.Join(scanErr, closeErr)
+	}
+	return nil
 }
 
 func checkLocalPortMatches(path string, lineNumber int, line string, allowedPorts map[string]struct{}, result *auditResult) {
