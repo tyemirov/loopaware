@@ -11,3 +11,5 @@ tests/
 .env.*
 qodana.yaml
 bin/
+.gocache/
+.cache/
