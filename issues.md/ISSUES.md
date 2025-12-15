@@ -32,6 +32,10 @@ Issue IDs in Features, Improvements, BugFixes, and Maintenance never reuse compl
   Clicking on Traffic shows Traffic Widget and Traffic pane
   The idea is that these widgets are now crowding a single screen and we want to hide them under the top selector, so Tabbed navigation will work here
 
+- [ ] [LA-210] Style the subscription confirmed page and add a link to open the subscribed site. — Update the `/subscriptions/confirm` success page to match the LoopAware theme and include an action to open the site the subscriber subscribed to (e.g., primary origin or source URL, whichever is decided).
+
+- [ ] [LA-211] Add delete action to subscribers pane, using the flow and design approach similar to site deletion in the sites pane
+
 ## BugFixes (312–399)
 
 - [x] [LA-311] TestWidgetIntegrationSubmitsFeedback can time out under `make ci` race tests with a `context deadline exceeded` error from the headless browser harness; investigate and stabilize the widget integration test so `make ci` passes reliably — simplified the keyboard focus assertions in the widget integration test to avoid brittle Shift+Tab focus loops while preserving end-to-end feedback submission coverage; `make test`, `make lint`, and `make ci` now pass cleanly including the race suite.
