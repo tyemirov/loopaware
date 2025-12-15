@@ -321,6 +321,7 @@ type dashboardIntegrationHarness struct {
 
 type dashboardHarnessOptions struct {
 	subscriptionNotifier httpapi.SubscriptionNotifier
+	emailSender          httpapi.EmailSender
 }
 
 type dashboardHarnessOption func(*dashboardHarnessOptions)
@@ -329,6 +330,14 @@ func withSubscriptionNotifier(notifier httpapi.SubscriptionNotifier) dashboardHa
 	return func(options *dashboardHarnessOptions) {
 		if notifier != nil {
 			options.subscriptionNotifier = notifier
+		}
+	}
+}
+
+func withEmailSender(sender httpapi.EmailSender) dashboardHarnessOption {
+	return func(options *dashboardHarnessOptions) {
+		if sender != nil {
+			options.emailSender = sender
 		}
 	}
 }
@@ -1394,7 +1403,8 @@ func TestWidgetTestPlacementSavePersists(t *testing.T) {
 
 func TestSubscribeWidgetTestFlowSubmitsSubscription(t *testing.T) {
 	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
-	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail, withSubscriptionNotifier(subscriptionNotifier))
+	emailSender := &recordingEmailSender{t: t}
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail, withSubscriptionNotifier(subscriptionNotifier), withEmailSender(emailSender))
 	defer harness.Close()
 
 	site := model.Site{
@@ -1465,10 +1475,8 @@ func TestSubscribeWidgetTestFlowSubmitsSubscription(t *testing.T) {
 			First(&stored).Error == nil
 	}, 5*time.Second, 100*time.Millisecond)
 
-	require.Equal(t, 1, subscriptionNotifier.CallCount())
-	notification := subscriptionNotifier.LastCall()
-	require.Equal(t, site.ID, notification.Site.ID)
-	require.Equal(t, testEmail, notification.Subscriber.Email)
+	require.Equal(t, 1, emailSender.CallCount())
+	require.Equal(t, 0, subscriptionNotifier.CallCount())
 
 }
 
@@ -2184,6 +2192,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 
 	config := dashboardHarnessOptions{
 		subscriptionNotifier: stubDashboardNotifier{},
+		emailSender:          nil,
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -2217,10 +2226,10 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath)
-	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", nil)
+	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", config.emailSender)
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{})
 	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(gormDatabase, logger)
-	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents, config.subscriptionNotifier, true)
+	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", config.emailSender)
 
 	router := gin.New()
 	router.Use(gin.Recovery())

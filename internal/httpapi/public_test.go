@@ -344,7 +344,8 @@ func TestConfirmAndUnsubscribeSubscription(t *testing.T) {
 
 func TestSubscriptionConfirmationEmailConfirmsViaLink(t *testing.T) {
 	emailSender := &recordingEmailSender{t: t}
-	api := buildAPIHarness(t, nil, nil, emailSender)
+	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
+	api := buildAPIHarness(t, nil, subscriptionNotifier, emailSender)
 	site := insertSite(t, api.database, "Confirmation Email", "http://confirm.example", "owner@example.com")
 
 	createResp := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
@@ -353,6 +354,7 @@ func TestSubscriptionConfirmationEmailConfirmsViaLink(t *testing.T) {
 	}, map[string]string{"Origin": "http://confirm.example"})
 	require.Equal(t, http.StatusOK, createResp.Code)
 	require.Equal(t, 1, emailSender.CallCount())
+	require.Equal(t, 0, subscriptionNotifier.CallCount())
 
 	lastEmail := emailSender.LastCall()
 	require.Equal(t, "confirm@example.com", lastEmail.Recipient)
@@ -379,9 +381,14 @@ func TestSubscriptionConfirmationEmailConfirmsViaLink(t *testing.T) {
 	require.NoError(t, api.database.First(&stored, "site_id = ? AND email = ?", site.ID, "confirm@example.com").Error)
 	require.Equal(t, model.SubscriberStatusConfirmed, stored.Status)
 	require.False(t, stored.ConfirmedAt.IsZero())
+
+	require.Equal(t, 1, subscriptionNotifier.CallCount())
+	notification := subscriptionNotifier.LastCall()
+	require.Equal(t, site.ID, notification.Site.ID)
+	require.Equal(t, "confirm@example.com", notification.Subscriber.Email)
 }
 
-func TestCreateSubscriptionDispatchesNotification(t *testing.T) {
+func TestCreateSubscriptionDoesNotNotifyUntilConfirmed(t *testing.T) {
 	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
 	api := buildAPIHarness(t, nil, subscriptionNotifier, nil)
 	site := insertSite(t, api.database, "Notify", "http://notify.example", "owner@example.com")
@@ -391,6 +398,13 @@ func TestCreateSubscriptionDispatchesNotification(t *testing.T) {
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notify.example"})
 	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, 0, subscriptionNotifier.CallCount())
+
+	confirm := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+		"site_id": site.ID,
+		"email":   "notify@example.com",
+	}, map[string]string{"Origin": "http://notify.example"})
+	require.Equal(t, http.StatusOK, confirm.Code)
 	require.Equal(t, 1, subscriptionNotifier.CallCount())
 }
 
@@ -416,6 +430,7 @@ func TestSubscriptionNotificationFailureDoesNotBlock(t *testing.T) {
 	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", nil)
 
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
+	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
 
 	site := insertSite(t, database, "Notify Fail", "http://notifyfail.example", "owner@example.com")
 	resp := performJSONRequest(t, router, http.MethodPost, "/api/subscriptions", map[string]any{
@@ -423,6 +438,13 @@ func TestSubscriptionNotificationFailureDoesNotBlock(t *testing.T) {
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notifyfail.example"})
 	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, 0, subscriptionNotifier.CallCount())
+
+	confirm := performJSONRequest(t, router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+		"site_id": site.ID,
+		"email":   "notify@example.com",
+	}, map[string]string{"Origin": "http://notifyfail.example"})
+	require.Equal(t, http.StatusOK, confirm.Code)
 	require.Equal(t, 1, subscriptionNotifier.CallCount())
 }
 
@@ -447,6 +469,7 @@ func TestSubscriptionNotificationsCanBeDisabled(t *testing.T) {
 	t.Cleanup(feedbackBroadcaster.Close)
 	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, false, "http://loopaware.test", "unit-test-session-secret", nil)
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
+	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
 
 	site := insertSite(t, database, "Notify Off", "http://notifyoff.example", "owner@example.com")
 	resp := performJSONRequest(t, router, http.MethodPost, "/api/subscriptions", map[string]any{
@@ -454,6 +477,13 @@ func TestSubscriptionNotificationsCanBeDisabled(t *testing.T) {
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notifyoff.example"})
 	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, 0, subscriptionNotifier.CallCount())
+
+	confirm := performJSONRequest(t, router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+		"site_id": site.ID,
+		"email":   "notify@example.com",
+	}, map[string]string{"Origin": "http://notifyoff.example"})
+	require.Equal(t, http.StatusOK, confirm.Code)
 	require.Equal(t, 0, subscriptionNotifier.CallCount())
 }
 

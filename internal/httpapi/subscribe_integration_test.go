@@ -2,6 +2,7 @@ package httpapi_test
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -22,7 +23,8 @@ func TestSubscribeWidgetSubmitsSubscription(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
-	api := buildAPIHarness(t, nil, subscriptionNotifier, nil)
+	emailSender := &recordingEmailSender{t: t}
+	api := buildAPIHarness(t, nil, subscriptionNotifier, emailSender)
 
 	server := newHTTPTestServer(t, api.router)
 
@@ -58,10 +60,39 @@ func TestSubscribeWidgetSubmitsSubscription(t *testing.T) {
 	require.Equal(t, model.SubscriberStatusPending, stored.Status)
 	require.False(t, stored.ConsentAt.IsZero())
 
+	require.Equal(t, 1, emailSender.CallCount())
+	require.Equal(t, 0, subscriptionNotifier.CallCount())
+
+	lastEmail := emailSender.LastCall()
+	require.Equal(t, stored.Email, lastEmail.Recipient)
+	require.Contains(t, lastEmail.Subject, "Confirm your subscription")
+
+	var confirmationLink string
+	for _, line := range strings.Split(lastEmail.Message, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.Contains(line, "/subscriptions/confirm?token=") {
+			confirmationLink = line
+			break
+		}
+	}
+	require.NotEmpty(t, confirmationLink)
+
+	parsedURL, parseErr := url.Parse(confirmationLink)
+	require.NoError(t, parseErr)
+
+	response, requestErr := server.Client().Get(server.URL + parsedURL.RequestURI())
+	require.NoError(t, requestErr)
+	require.NoError(t, response.Body.Close())
+
+	var confirmed model.Subscriber
+	require.NoError(t, api.database.First(&confirmed, "id = ?", stored.ID).Error)
+	require.Equal(t, model.SubscriberStatusConfirmed, confirmed.Status)
+
 	require.Equal(t, 1, subscriptionNotifier.CallCount())
 	notification := subscriptionNotifier.LastCall()
 	require.Equal(t, site.ID, notification.Site.ID)
+	require.Equal(t, "owner@example.com", notification.Site.OwnerEmail)
 	require.Equal(t, stored.ID, notification.Subscriber.ID)
 	require.Equal(t, stored.Email, notification.Subscriber.Email)
-	require.Equal(t, model.SubscriberStatusPending, notification.Subscriber.Status)
+	require.Equal(t, model.SubscriberStatusConfirmed, notification.Subscriber.Status)
 }
