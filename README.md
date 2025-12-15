@@ -39,6 +39,7 @@ Set the `ADMINS` environment variable with a comma-separated list (for example `
 | `GOOGLE_CLIENT_SECRET` | ✅        | OAuth client secret                                         |
 | `SESSION_SECRET`       | ✅        | 32+ byte secret for cookie signing                          |
 | `PINGUIN_AUTH_TOKEN`¹  | ✅        | Bearer token passed to the Pinguin gRPC service             |
+| `PINGUIN_TENANT_ID`    | ✅        | Tenant identifier used when calling the Pinguin gRPC API     |
 | `ADMINS`               | ⚙️       | Comma-separated admin emails; overrides the YAML roster     |
 | `PUBLIC_BASE_URL`      | ⚙️       | Public URL of the service (default `http://localhost:8080`) |
 | `APP_ADDR`             | ⚙️       | Listen address (default `:8080`)                            |
@@ -136,6 +137,8 @@ include Unix timestamps in seconds.
 | `GET`   | `/widget.js`                          | public      | Serve embeddable JavaScript feedback widget                                                             |
 | `GET`   | `/subscribe.js`                       | public      | Serve embeddable JavaScript subscribe form                                                              |
 | `GET`   | `/pixel.js`                           | public      | Serve embeddable JavaScript visit tracking pixel                                                        |
+
+Subscriptions use a confirmation link sent via email: `GET /subscriptions/confirm?token=...` confirms the pending subscriber without requiring browser origin headers.
 
 The `allowed_origin` field for a site may contain multiple origins separated by spaces or commas (for example `https://mprlab.com http://localhost:8080`); widgets, subscribe forms, and pixels will accept requests from any configured origin while still rejecting traffic from unknown sites.
 

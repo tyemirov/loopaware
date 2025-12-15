@@ -2217,7 +2217,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath)
-	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true)
+	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", nil)
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{})
 	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(gormDatabase, logger)
 	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents, config.subscriptionNotifier, true)
@@ -2265,14 +2265,13 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	apiGroup.GET("/sites/favicons/events", siteHandlers.StreamFaviconUpdates)
 	apiGroup.GET("/sites/feedback/events", siteHandlers.StreamFeedbackUpdates)
 
-	server := httptest.NewServer(router)
+	server := newHTTPTestServer(testingT, router)
 
 	testingT.Cleanup(func() {
 		managerCancel()
 		faviconManager.Stop()
 		feedbackBroadcaster.Close()
 		subscriptionEvents.Close()
-		server.Close()
 		require.NoError(testingT, sqlDatabase.Close())
 	})
 

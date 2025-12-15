@@ -45,6 +45,7 @@ const (
 	flagNamePublicBaseURL             = "public-base-url"
 	flagNamePinguinAddress            = "pinguin-addr"
 	flagNamePinguinAuthToken          = "pinguin-auth-token"
+	flagNamePinguinTenantID           = "pinguin-tenant-id"
 	flagNamePinguinConnectionTimeout  = "pinguin-conn-timeout"
 	flagNamePinguinOperationTimeout   = "pinguin-op-timeout"
 	flagUsageConfigFile               = "path to configuration file"
@@ -57,6 +58,7 @@ const (
 	flagUsagePublicBaseURL            = "public base URL for OAuth callbacks"
 	flagUsagePinguinAddress           = "Pinguin gRPC server address"
 	flagUsagePinguinAuthToken         = "Pinguin bearer auth token"
+	flagUsagePinguinTenantID          = "Pinguin tenant identifier"
 	flagUsagePinguinConnTimeout       = "Pinguin connection timeout in seconds"
 	flagUsagePinguinOpTimeout         = "Pinguin operation timeout in seconds"
 	flagUsageSubscriptionNotify       = "enable notifications for new subscriptions"
@@ -70,6 +72,7 @@ const (
 	environmentKeyPublicBaseURL       = "PUBLIC_BASE_URL"
 	environmentKeyPinguinAddress      = "PINGUIN_ADDR"
 	environmentKeyPinguinAuthToken    = "PINGUIN_AUTH_TOKEN"
+	environmentKeyPinguinTenantID     = "PINGUIN_TENANT_ID"
 	environmentKeyPinguinSharedAuth   = "GRPC_AUTH_TOKEN"
 	environmentKeyPinguinConnTimeout  = "PINGUIN_CONNECTION_TIMEOUT_SEC"
 	environmentKeyPinguinOpTimeout    = "PINGUIN_OPERATION_TIMEOUT_SEC"
@@ -88,6 +91,7 @@ const (
 	publicRouteSubscription           = "/api/subscriptions"
 	publicRouteSubscriptionConfirm    = "/api/subscriptions/confirm"
 	publicRouteSubscriptionOptOut     = "/api/subscriptions/unsubscribe"
+	publicRouteSubscriptionConfirmWeb = "/subscriptions/confirm"
 	publicRouteSubscribeWidget        = "/subscribe.js"
 	publicRouteSubscribeDemo          = "/subscribe-demo"
 	publicRouteVisitPixel             = "/api/visits"
@@ -152,6 +156,7 @@ type ServerConfig struct {
 	ConfigFilePath            string
 	PinguinAddress            string
 	PinguinAuthToken          string
+	PinguinTenantID           string
 	PinguinConnTimeoutSec     int
 	PinguinOpTimeoutSec       int
 	SubscriptionNotifications bool
@@ -206,6 +211,7 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	application.configurationLoader.SetDefault(environmentKeySessionSecret, "")
 	application.configurationLoader.SetDefault(environmentKeyPinguinAddress, defaultPinguinAddress)
 	application.configurationLoader.SetDefault(environmentKeyPinguinAuthToken, "")
+	application.configurationLoader.SetDefault(environmentKeyPinguinTenantID, "")
 	application.configurationLoader.SetDefault(environmentKeyPinguinConnTimeout, defaultPinguinConnTimeoutSeconds)
 	application.configurationLoader.SetDefault(environmentKeyPinguinOpTimeout, defaultPinguinOpTimeoutSeconds)
 	application.configurationLoader.SetDefault(environmentKeyPinguinSharedAuth, "")
@@ -223,6 +229,7 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	commandFlags.String(flagNamePublicBaseURL, defaultPublicBaseURL, flagUsagePublicBaseURL)
 	commandFlags.String(flagNamePinguinAddress, defaultPinguinAddress, flagUsagePinguinAddress)
 	commandFlags.String(flagNamePinguinAuthToken, "", flagUsagePinguinAuthToken)
+	commandFlags.String(flagNamePinguinTenantID, "", flagUsagePinguinTenantID)
 	commandFlags.Int(flagNamePinguinConnectionTimeout, defaultPinguinConnTimeoutSeconds, flagUsagePinguinConnTimeout)
 	commandFlags.Int(flagNamePinguinOperationTimeout, defaultPinguinOpTimeoutSeconds, flagUsagePinguinOpTimeout)
 	commandFlags.Bool(flagNameSubscriptionNotifications, defaultSubscriptionNotify, flagUsageSubscriptionNotify)
@@ -260,6 +267,10 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	}
 
 	if bindErr := application.bindFlag(commandFlags, environmentKeyPinguinAuthToken, flagNamePinguinAuthToken); bindErr != nil {
+		return bindErr
+	}
+
+	if bindErr := application.bindFlag(commandFlags, environmentKeyPinguinTenantID, flagNamePinguinTenantID); bindErr != nil {
 		return bindErr
 	}
 
@@ -308,6 +319,10 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	}
 
 	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyPinguinAuthToken, flagNamePinguinAuthToken); environmentErr != nil {
+		return environmentErr
+	}
+
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyPinguinTenantID, flagNamePinguinTenantID); environmentErr != nil {
 		return environmentErr
 	}
 
@@ -446,6 +461,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	pinguinNotifier, notifierErr := notifications.NewPinguinNotifier(logger, notifications.PinguinConfig{
 		Address:           serverConfig.PinguinAddress,
 		AuthToken:         serverConfig.PinguinAuthToken,
+		TenantID:          serverConfig.PinguinTenantID,
 		ConnectionTimeout: time.Duration(serverConfig.PinguinConnTimeoutSec) * time.Second,
 		OperationTimeout:  time.Duration(serverConfig.PinguinOpTimeoutSec) * time.Second,
 	})
@@ -457,7 +473,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	if serverConfig.SubscriptionNotifications {
 		subscriptionNotifier = pinguinNotifier
 	}
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, pinguinNotifier, subscriptionNotifier, serverConfig.SubscriptionNotifications)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, pinguinNotifier, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier)
 	faviconResolver := favicon.NewHTTPResolver(sharedHTTPClient, logger)
 	faviconService := favicon.NewService(faviconResolver)
 	faviconManager := httpapi.NewSiteFaviconManager(database, faviconService, logger)
@@ -492,6 +508,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	router.POST(publicRouteSubscription, publicHandlers.CreateSubscription)
 	router.POST(publicRouteSubscriptionConfirm, publicHandlers.ConfirmSubscription)
 	router.POST(publicRouteSubscriptionOptOut, publicHandlers.Unsubscribe)
+	router.GET(publicRouteSubscriptionConfirmWeb, publicHandlers.ConfirmSubscriptionLink)
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
 	router.GET(publicRouteSubscribeWidget, publicHandlers.SubscribeJS)
 	router.GET(publicRouteSubscribeDemo, publicHandlers.SubscribeDemo)
@@ -571,6 +588,7 @@ func (application *ServerApplication) loadServerConfig(configFilePath string) (S
 		ConfigFilePath:            trimmedConfigPath,
 		PinguinAddress:            strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinAddress)),
 		PinguinAuthToken:          strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinAuthToken)),
+		PinguinTenantID:           strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinTenantID)),
 		PinguinConnTimeoutSec:     application.configurationLoader.GetInt(environmentKeyPinguinConnTimeout),
 		PinguinOpTimeoutSec:       application.configurationLoader.GetInt(environmentKeyPinguinOpTimeout),
 		SubscriptionNotifications: application.configurationLoader.GetBool(environmentKeySubscriptionNotify),
@@ -645,6 +663,10 @@ func (application *ServerApplication) ensureRequiredConfiguration(configuration 
 
 	if configuration.PinguinAuthToken == "" {
 		missingParameters = append(missingParameters, flagNamePinguinAuthToken)
+	}
+
+	if configuration.PinguinTenantID == "" {
+		missingParameters = append(missingParameters, flagNamePinguinTenantID)
 	}
 
 	if configuration.PinguinConnTimeoutSec <= 0 {

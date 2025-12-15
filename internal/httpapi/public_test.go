@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"sync"
 	"testing"
 
@@ -30,7 +32,7 @@ type apiHarness struct {
 	subscriptionEvents *httpapi.SubscriptionTestEventBroadcaster
 }
 
-func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, subscriptionNotifier httpapi.SubscriptionNotifier) apiHarness {
+func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, subscriptionNotifier httpapi.SubscriptionNotifier, emailSender httpapi.EmailSender) apiHarness {
 	testingT.Helper()
 
 	gin.SetMode(gin.TestMode)
@@ -50,11 +52,12 @@ func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, sub
 
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	subscriptionEvents := httpapi.NewSubscriptionTestEventBroadcaster()
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, notifier, subscriptionNotifier, true)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, notifier, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", emailSender)
 	router.POST("/api/feedback", publicHandlers.CreateFeedback)
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
 	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
 	router.POST("/api/subscriptions/unsubscribe", publicHandlers.Unsubscribe)
+	router.GET("/subscriptions/confirm", publicHandlers.ConfirmSubscriptionLink)
 	router.GET("/widget.js", publicHandlers.WidgetJS)
 	router.GET("/subscribe.js", publicHandlers.SubscribeJS)
 	router.GET("/subscribe-demo", publicHandlers.SubscribeDemo)
@@ -104,7 +107,7 @@ func insertSite(testingT *testing.T, database *gorm.DB, name string, origin stri
 }
 
 func TestFeedbackFlow(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil)
+	api := buildAPIHarness(t, nil, nil, nil)
 	site := insertSite(t, api.database, "Moving Maps", "http://example.com", "admin@example.com")
 
 	widgetResp := performJSONRequest(t, api.router, http.MethodGet, "/widget.js?site_id="+site.ID, nil, nil)
@@ -135,7 +138,7 @@ func TestFeedbackFlow(t *testing.T) {
 }
 
 func TestRateLimitingReturnsTooManyRequests(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil)
+	api := buildAPIHarness(t, nil, nil, nil)
 	site := insertSite(t, api.database, "Burst Site", "http://burst.example", "admin@example.com")
 
 	headers := map[string]string{"Origin": "http://burst.example"}
@@ -153,7 +156,7 @@ func TestRateLimitingReturnsTooManyRequests(t *testing.T) {
 }
 
 func TestWidgetJSHonorsCustomPlacement(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil)
+	api := buildAPIHarness(t, nil, nil, nil)
 	site := insertSite(t, api.database, "Custom Placement", "http://placement.example", "owner@example.com")
 	require.NoError(t, api.database.Model(&model.Site{}).
 		Where("id = ?", site.ID).
@@ -170,7 +173,7 @@ func TestWidgetJSHonorsCustomPlacement(t *testing.T) {
 }
 
 func TestWidgetRequiresValidSiteId(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil)
+	api := buildAPIHarness(t, nil, nil, nil)
 
 	resp := performJSONRequest(t, api.router, http.MethodGet, "/widget.js?site_id=", nil, nil)
 	require.Equal(t, http.StatusBadRequest, resp.Code)
@@ -180,7 +183,7 @@ func TestWidgetRequiresValidSiteId(t *testing.T) {
 }
 
 func TestCreateFeedbackValidatesPayload(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil)
+	api := buildAPIHarness(t, nil, nil, nil)
 	site := insertSite(t, api.database, "Validation", "http://valid.example", "owner@example.com")
 
 	respMissing := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
@@ -199,7 +202,7 @@ func TestCreateFeedbackValidatesPayload(t *testing.T) {
 }
 
 func TestCreateSubscriptionStoresSubscriber(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil)
+	api := buildAPIHarness(t, nil, nil, nil)
 	site := insertSite(t, api.database, "Newsletter", "http://newsletter.example", "owner@example.com")
 
 	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
@@ -217,7 +220,7 @@ func TestCreateSubscriptionStoresSubscriber(t *testing.T) {
 }
 
 func TestCreateSubscriptionValidatesInput(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil)
+	api := buildAPIHarness(t, nil, nil, nil)
 	site := insertSite(t, api.database, "Validation Subscription", "http://sub.example", "owner@example.com")
 
 	respMissing := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
@@ -234,7 +237,7 @@ func TestCreateSubscriptionValidatesInput(t *testing.T) {
 }
 
 func TestCreateSubscriptionBlocksOriginAndDuplicates(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil)
+	api := buildAPIHarness(t, nil, nil, nil)
 	site := insertSite(t, api.database, "Origins", "http://origin.example", "owner@example.com")
 
 	badOrigin := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
@@ -257,7 +260,7 @@ func TestCreateSubscriptionBlocksOriginAndDuplicates(t *testing.T) {
 }
 
 func TestCreateSubscriptionSupportsMultipleAllowedOrigins(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil)
+	api := buildAPIHarness(t, nil, nil, nil)
 	site := insertSite(t, api.database, "Multi Origins", "https://mprlab.com http://localhost:8080", "owner@example.com")
 
 	testCases := []struct {
@@ -295,7 +298,7 @@ func TestCreateSubscriptionSupportsMultipleAllowedOrigins(t *testing.T) {
 }
 
 func TestConfirmAndUnsubscribeSubscription(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil)
+	api := buildAPIHarness(t, nil, nil, nil)
 	site := insertSite(t, api.database, "Confirmations", "http://confirm.example", "owner@example.com")
 
 	createResp := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
@@ -339,9 +342,48 @@ func TestConfirmAndUnsubscribeSubscription(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, missing.Code)
 }
 
+func TestSubscriptionConfirmationEmailConfirmsViaLink(t *testing.T) {
+	emailSender := &recordingEmailSender{t: t}
+	api := buildAPIHarness(t, nil, nil, emailSender)
+	site := insertSite(t, api.database, "Confirmation Email", "http://confirm.example", "owner@example.com")
+
+	createResp := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+		"site_id": site.ID,
+		"email":   "confirm@example.com",
+	}, map[string]string{"Origin": "http://confirm.example"})
+	require.Equal(t, http.StatusOK, createResp.Code)
+	require.Equal(t, 1, emailSender.CallCount())
+
+	lastEmail := emailSender.LastCall()
+	require.Equal(t, "confirm@example.com", lastEmail.Recipient)
+	require.Contains(t, lastEmail.Subject, "Confirm your subscription")
+
+	var confirmationLink string
+	for _, line := range strings.Split(lastEmail.Message, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.Contains(line, "/subscriptions/confirm?token=") {
+			confirmationLink = line
+			break
+		}
+	}
+	require.NotEmpty(t, confirmationLink)
+
+	parsedURL, parseErr := url.Parse(confirmationLink)
+	require.NoError(t, parseErr)
+
+	confirmResponse := performJSONRequest(t, api.router, http.MethodGet, parsedURL.RequestURI(), nil, nil)
+	require.Equal(t, http.StatusOK, confirmResponse.Code)
+	require.Contains(t, confirmResponse.Body.String(), "subscription confirmed")
+
+	var stored model.Subscriber
+	require.NoError(t, api.database.First(&stored, "site_id = ? AND email = ?", site.ID, "confirm@example.com").Error)
+	require.Equal(t, model.SubscriberStatusConfirmed, stored.Status)
+	require.False(t, stored.ConfirmedAt.IsZero())
+}
+
 func TestCreateSubscriptionDispatchesNotification(t *testing.T) {
 	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
-	api := buildAPIHarness(t, nil, subscriptionNotifier)
+	api := buildAPIHarness(t, nil, subscriptionNotifier, nil)
 	site := insertSite(t, api.database, "Notify", "http://notify.example", "owner@example.com")
 
 	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
@@ -371,7 +413,7 @@ func TestSubscriptionNotificationFailureDoesNotBlock(t *testing.T) {
 
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	t.Cleanup(feedbackBroadcaster.Close)
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, true)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", nil)
 
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
 
@@ -403,7 +445,7 @@ func TestSubscriptionNotificationsCanBeDisabled(t *testing.T) {
 
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	t.Cleanup(feedbackBroadcaster.Close)
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, false)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, false, "http://loopaware.test", "unit-test-session-secret", nil)
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
 
 	site := insertSite(t, database, "Notify Off", "http://notifyoff.example", "owner@example.com")
@@ -416,7 +458,7 @@ func TestSubscriptionNotificationsCanBeDisabled(t *testing.T) {
 }
 
 func TestCollectVisitStoresRecord(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil)
+	api := buildAPIHarness(t, nil, nil, nil)
 	site := insertSite(t, api.database, "Visits", "http://visits.example", "owner@example.com")
 
 	recorder := httptest.NewRecorder()
@@ -435,7 +477,7 @@ func TestCollectVisitStoresRecord(t *testing.T) {
 }
 
 func TestCollectVisitValidatesInput(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil)
+	api := buildAPIHarness(t, nil, nil, nil)
 	site := insertSite(t, api.database, "Visits Invalid", "http://visits.example", "owner@example.com")
 
 	recorder := httptest.NewRecorder()
@@ -452,7 +494,7 @@ func TestCollectVisitValidatesInput(t *testing.T) {
 }
 
 func TestCollectVisitRequiresMatchingURLOrigin(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil)
+	api := buildAPIHarness(t, nil, nil, nil)
 	site := insertSite(t, api.database, "Visits Mismatch", "http://visits.example", "owner@example.com")
 
 	recorder := httptest.NewRecorder()
@@ -488,6 +530,47 @@ type recordingSubscriptionNotifier struct {
 	mu      sync.Mutex
 	calls   []subscriptionNotificationCall
 	callErr error
+}
+
+type emailSendCall struct {
+	Recipient string
+	Subject   string
+	Message   string
+	Context   context.Context
+}
+
+type recordingEmailSender struct {
+	t       *testing.T
+	mu      sync.Mutex
+	calls   []emailSendCall
+	callErr error
+}
+
+func (sender *recordingEmailSender) SendEmail(ctx context.Context, recipient string, subject string, message string) error {
+	sender.mu.Lock()
+	defer sender.mu.Unlock()
+	sender.calls = append(sender.calls, emailSendCall{
+		Recipient: recipient,
+		Subject:   subject,
+		Message:   message,
+		Context:   ctx,
+	})
+	return sender.callErr
+}
+
+func (sender *recordingEmailSender) CallCount() int {
+	sender.mu.Lock()
+	defer sender.mu.Unlock()
+	return len(sender.calls)
+}
+
+func (sender *recordingEmailSender) LastCall() emailSendCall {
+	sender.mu.Lock()
+	defer sender.mu.Unlock()
+	if len(sender.calls) == 0 {
+		sender.t.Fatalf("expected at least one email sender call")
+	}
+	return sender.calls[len(sender.calls)-1]
 }
 
 func (notifier *recordingSubscriptionNotifier) NotifySubscription(ctx context.Context, site model.Site, subscriber model.Subscriber) error {
@@ -547,7 +630,7 @@ func TestCreateFeedbackDispatchesNotificationToOwner(t *testing.T) {
 		t:        t,
 		delivery: model.FeedbackDeliveryMailed,
 	}
-	api := buildAPIHarness(t, notifier, nil)
+	api := buildAPIHarness(t, notifier, nil, nil)
 	site := insertSite(t, api.database, "Dispatcher", "http://dispatch.example", "owner@example.com")
 	require.NoError(t, api.database.Model(&model.Site{}).
 		Where("id = ?", site.ID).
@@ -577,7 +660,7 @@ func TestCreateFeedbackRecordsNoDeliveryOnNotifierFailure(t *testing.T) {
 		delivery:  model.FeedbackDeliveryMailed,
 		callError: errors.New("send failed"),
 	}
-	api := buildAPIHarness(t, notifier, nil)
+	api := buildAPIHarness(t, notifier, nil, nil)
 	site := insertSite(t, api.database, "Failure Delivery", "http://failure.example", "owner@example.com")
 
 	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
@@ -599,7 +682,7 @@ func TestCreateFeedbackPersistsFailureDeliveryWhenNotifierReturnsStatusAndError(
 		delivery:  model.FeedbackDeliveryTexted,
 		callError: errors.New("notifier failed"),
 	}
-	api := buildAPIHarness(t, notifier, nil)
+	api := buildAPIHarness(t, notifier, nil, nil)
 	site := insertSite(t, api.database, "Failure Delivery Status", "http://failure-status.example", "owner@example.com")
 
 	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{

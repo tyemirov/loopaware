@@ -20,6 +20,7 @@ import (
 type PinguinConfig struct {
 	Address           string
 	AuthToken         string
+	TenantID          string
 	ConnectionTimeout time.Duration
 	OperationTimeout  time.Duration
 }
@@ -30,6 +31,7 @@ type PinguinNotifier struct {
 	conn              *grpc.ClientConn
 	client            pinguinpb.NotificationServiceClient
 	authToken         string
+	tenantID          string
 	operationTimeout  time.Duration
 	connectionTimeout time.Duration
 }
@@ -43,6 +45,10 @@ func NewPinguinNotifier(logger *zap.Logger, cfg PinguinConfig) (*PinguinNotifier
 	}
 	if cfg.AuthToken == "" {
 		return nil, errors.New("pinguin auth token is required")
+	}
+	cfg.TenantID = strings.TrimSpace(cfg.TenantID)
+	if cfg.TenantID == "" {
+		return nil, errors.New("pinguin tenant id is required")
 	}
 	if cfg.ConnectionTimeout <= 0 {
 		cfg.ConnectionTimeout = 5 * time.Second
@@ -69,6 +75,7 @@ func NewPinguinNotifier(logger *zap.Logger, cfg PinguinConfig) (*PinguinNotifier
 		conn:              conn,
 		client:            pinguinpb.NewNotificationServiceClient(conn),
 		authToken:         cfg.AuthToken,
+		tenantID:          cfg.TenantID,
 		operationTimeout:  cfg.OperationTimeout,
 		connectionTimeout: cfg.ConnectionTimeout,
 	}, nil
@@ -110,7 +117,7 @@ func (notifier *PinguinNotifier) NotifyFeedback(ctx context.Context, site model.
 
 	callCtx, cancel := context.WithTimeout(ctx, notifier.operationTimeout)
 	defer cancel()
-	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken)
+	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken, "x-tenant-id", notifier.tenantID)
 
 	response, sendErr := notifier.client.SendNotification(callCtx, request)
 	if sendErr != nil {
@@ -160,7 +167,7 @@ func (notifier *PinguinNotifier) NotifySubscription(ctx context.Context, site mo
 
 	callCtx, cancel := context.WithTimeout(ctx, notifier.operationTimeout)
 	defer cancel()
-	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken)
+	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken, "x-tenant-id", notifier.tenantID)
 
 	response, sendErr := notifier.client.SendNotification(callCtx, request)
 	if sendErr != nil {
@@ -176,6 +183,46 @@ func (notifier *PinguinNotifier) NotifySubscription(ctx context.Context, site mo
 
 	if delivery == model.FeedbackDeliveryNone {
 		return nil
+	}
+
+	return nil
+}
+
+// SendEmail dispatches an email notification through the Pinguin service.
+func (notifier *PinguinNotifier) SendEmail(ctx context.Context, recipient string, subject string, message string) error {
+	if notifier == nil || notifier.client == nil {
+		return errors.New("pinguin notifier not initialized")
+	}
+
+	normalizedRecipient := strings.TrimSpace(recipient)
+	if normalizedRecipient == "" {
+		return errors.New("recipient is required")
+	}
+	if !strings.Contains(normalizedRecipient, "@") {
+		return errors.New("recipient must be an email address")
+	}
+
+	request := &pinguinpb.NotificationRequest{
+		NotificationType: pinguinpb.NotificationType_EMAIL,
+		Recipient:        normalizedRecipient,
+		Subject:          strings.TrimSpace(subject),
+		Message:          message,
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, notifier.operationTimeout)
+	defer cancel()
+	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken, "x-tenant-id", notifier.tenantID)
+
+	response, sendErr := notifier.client.SendNotification(callCtx, request)
+	if sendErr != nil {
+		notifier.logger.Warn("pinguin_send_failed", zap.Error(sendErr))
+		return sendErr
+	}
+
+	if response.GetStatus() == pinguinpb.Status_FAILED {
+		err := fmt.Errorf("notification failed with status %s", response.GetStatus().String())
+		notifier.logger.Warn("pinguin_send_failed_status", zap.Error(err))
+		return err
 	}
 
 	return nil

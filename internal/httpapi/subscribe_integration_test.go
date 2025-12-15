@@ -2,7 +2,6 @@ package httpapi_test
 
 import (
 	"fmt"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -22,14 +21,13 @@ const (
 func TestSubscribeWidgetSubmitsSubscription(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
+	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
+	api := buildAPIHarness(t, nil, subscriptionNotifier, nil)
+
+	server := newHTTPTestServer(t, api.router)
+
 	page := buildHeadlessPage(t)
 	screenshotsDirectory := createScreenshotsDirectory(t)
-
-	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
-	api := buildAPIHarness(t, nil, subscriptionNotifier)
-
-	server := httptest.NewServer(api.router)
-	t.Cleanup(server.Close)
 
 	site := insertSite(t, api.database, "Subscribe Integration", server.URL, "owner@example.com")
 
