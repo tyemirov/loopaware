@@ -375,7 +375,10 @@ func TestSubscriptionConfirmationEmailConfirmsViaLink(t *testing.T) {
 
 	confirmResponse := performJSONRequest(t, api.router, http.MethodGet, parsedURL.RequestURI(), nil, nil)
 	require.Equal(t, http.StatusOK, confirmResponse.Code)
-	require.Contains(t, confirmResponse.Body.String(), "subscription confirmed")
+	confirmBody := confirmResponse.Body.String()
+	require.Contains(t, confirmBody, "Subscription confirmed")
+	require.Contains(t, confirmBody, "Open Confirmation Email")
+	require.Contains(t, confirmBody, `href="http://confirm.example"`)
 
 	var stored model.Subscriber
 	require.NoError(t, api.database.First(&stored, "site_id = ? AND email = ?", site.ID, "confirm@example.com").Error)

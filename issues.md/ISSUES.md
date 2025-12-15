@@ -31,7 +31,7 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
   Clicking on Traffic shows Traffic Widget and Traffic pane
   The idea is that these widgets are now crowding a single screen and we want to hide them under the top selector, so Tabbed navigation will work here
 
-- [ ] [LA-210] Style the subscription confirmed page and add a link to open the subscribed site. — Update the `/subscriptions/confirm` success page to match the LoopAware theme and include an action to open the site the subscriber subscribed to (e.g., primary origin or source URL, whichever is decided).
+- [x] [LA-210] Style the subscription confirmed page and add a link to open the subscribed site. — replaced the plain-text `/subscriptions/confirm` response with a LoopAware-themed HTML page and added a safe “Open <site>” link (prefers an allowed `source_url`, otherwise the primary allowed origin).
 
 - [ ] [LA-211] Add delete action to subscribers pane, using the flow and design approach similar to site deletion in the sites pane
 
