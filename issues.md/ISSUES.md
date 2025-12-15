@@ -11,6 +11,10 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 ## Features (110-199)
 
 - [x] [LA-111] Allow multiple origins for subscribe widgets, e.g. a single subscribe widget can be embedded in multiple sites, not all of them matching the original url, such as gravity.mprlab.com needs to be able to be retreieved and function from both https://mprlab.com and http://localhost:8080 — implemented multi-origin support for site `allowed_origin` values (space/comma-separated list), extended backend origin checks and dashboard validation, and updated README to document the behavior.
+- [ ] [LA-112] Implement the subscription flow:
+Send a confirmation email to the subscriber
+The confirmation email contains a link to the loopaware
+When a user clicks the link the subscription is confirmed
 
 ## Improvements (206-299)
 
