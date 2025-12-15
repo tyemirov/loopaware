@@ -22,14 +22,14 @@ const (
 func TestSubscribeWidgetSubmitsSubscription(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	page := buildHeadlessPage(t)
-	screenshotsDirectory := createScreenshotsDirectory(t)
-
 	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
-	api := buildAPIHarness(t, nil, subscriptionNotifier)
+	api := buildAPIHarness(t, nil, subscriptionNotifier, nil)
 
 	server := httptest.NewServer(api.router)
 	t.Cleanup(server.Close)
+
+	page := buildHeadlessPage(t)
+	screenshotsDirectory := createScreenshotsDirectory(t)
 
 	site := insertSite(t, api.database, "Subscribe Integration", server.URL, "owner@example.com")
 

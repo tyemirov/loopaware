@@ -542,7 +542,7 @@ func TestStreamFeedbackUpdatesReceivesCreateEvents(testingT *testing.T) {
 	subscriptionEvents := httpapi.NewSubscriptionTestEventBroadcaster()
 	testingT.Cleanup(subscriptionEvents.Close)
 	siteHandlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
-	publicHandlers := httpapi.NewPublicHandlers(database, zap.NewNop(), feedbackBroadcaster, subscriptionEvents, nil, nil, true)
+	publicHandlers := httpapi.NewPublicHandlers(database, zap.NewNop(), feedbackBroadcaster, subscriptionEvents, nil, nil, true, testWidgetBaseURL, "unit-test-session-secret", nil)
 
 	engine := gin.New()
 	engine.GET("/stream", func(context *gin.Context) {

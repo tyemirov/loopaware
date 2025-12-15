@@ -114,7 +114,7 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 		t:        t,
 		delivery: model.FeedbackDeliveryMailed,
 	}
-	apiHarness := buildAPIHarness(t, notifier, nil)
+	apiHarness := buildAPIHarness(t, notifier, nil, nil)
 
 	server := httptest.NewServer(apiHarness.router)
 	t.Cleanup(server.Close)
@@ -230,7 +230,7 @@ func TestWidgetIntegrationSendsNotification(t *testing.T) {
 	}
 	page := buildHeadlessPage(t)
 
-	apiHarness := buildAPIHarness(t, notifier, nil)
+	apiHarness := buildAPIHarness(t, notifier, nil, nil)
 	server := httptest.NewServer(apiHarness.router)
 	t.Cleanup(server.Close)
 
@@ -274,7 +274,7 @@ func TestWidgetIntegrationRecordsNoDeliveryWhenNotifierFails(t *testing.T) {
 	}
 	page := buildHeadlessPage(t)
 
-	apiHarness := buildAPIHarness(t, notifier, nil)
+	apiHarness := buildAPIHarness(t, notifier, nil, nil)
 	server := httptest.NewServer(apiHarness.router)
 	t.Cleanup(server.Close)
 
@@ -320,7 +320,7 @@ func TestWidgetIntegrationKeepsDeliveryNoneWhenNotifierReturnsStatusAndError(t *
 	}
 	page := buildHeadlessPage(t)
 
-	apiHarness := buildAPIHarness(t, notifier, nil)
+	apiHarness := buildAPIHarness(t, notifier, nil, nil)
 	server := httptest.NewServer(apiHarness.router)
 	t.Cleanup(server.Close)
 
@@ -361,7 +361,7 @@ func TestWidgetAppliesDarkThemeStyles(t *testing.T) {
 	page := buildHeadlessPage(t)
 	screenshotsDirectory := createScreenshotsDirectory(t)
 
-	apiHarness := buildAPIHarness(t, nil, nil)
+	apiHarness := buildAPIHarness(t, nil, nil, nil)
 
 	server := httptest.NewServer(apiHarness.router)
 	t.Cleanup(server.Close)
@@ -459,7 +459,7 @@ func TestWidgetRespondsToThemeToggle(t *testing.T) {
 
 	page := buildHeadlessPage(t)
 
-	apiHarness := buildAPIHarness(t, nil, nil)
+	apiHarness := buildAPIHarness(t, nil, nil, nil)
 
 	server := httptest.NewServer(apiHarness.router)
 	t.Cleanup(server.Close)
@@ -537,7 +537,7 @@ func TestWidgetCloseButtonDismissesPanel(t *testing.T) {
 	page := buildHeadlessPage(t)
 	screenshotsDirectory := createScreenshotsDirectory(t)
 
-	apiHarness := buildAPIHarness(t, nil, nil)
+	apiHarness := buildAPIHarness(t, nil, nil, nil)
 
 	server := httptest.NewServer(apiHarness.router)
 	t.Cleanup(server.Close)
