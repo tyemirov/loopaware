@@ -6,7 +6,6 @@ Read @AGENTS.md, @ARCHITECTURE.md, @README.md, @PRD.md. Read @POLICY.md, PLANNIN
 
 Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- [x] [<ID>-<number>]`.
 
-Issue IDs in Features, Improvements, BugFixes, and Maintenance never reuse completed numbers; cleanup renumbers remaining entries so numbering stays monotonic.
 ## Features (113–199)
 - [x] [LA-111] Allow multiple origins for subscribe widgets, e.g. — a single subscribe widget can be embedded in multiple sites, not all of them matching the original url, such as gravity.mprlab.com needs to be able to be retreieved and function from both https://mprlab.com and http://localhost:8080
   implemented multi-origin support for site `allowed_origin` values (space/comma-separated list), extended backend origin checks and dashboard validation, and updated README to document the behavior.
@@ -70,5 +69,9 @@ Issue IDs in Features, Improvements, BugFixes, and Maintenance never reuse compl
 ## Maintenance (405–499)
 - [x] [LA-403] Document pixel integration in the @README.md — added pixel.js snippet, REST endpoints, and traffic dashboard description to README.md
 - [x] [LA-405] Stabilize Go tooling and tests by reducing reliance on external tool downloads and network listeners. — pinned `staticcheck`/`ineffassign` fallback versions in `make lint`, prefer locally installed binaries when present, and refactored favicon resolver + HTTPAPI tests to use a local listener/stub HTTP client instead of `httptest.NewServer` where practical.
+- [ ] [LA-406] Cleanup:
+  1. Review the completed issues and compare the code against the README.md and ARCHITECTURE.md files.
+  2. Update the README.md and ARCHITECTURE.
+  3. Clean up the completed issues.
 
 ## Planning (do not implement yet) (450–499)
