@@ -534,6 +534,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	apiGroup.GET(apiRouteSiteSubscribers, siteHandlers.ListSubscribers)
 	apiGroup.GET(apiRouteSiteSubscribersExport, siteHandlers.ExportSubscribers)
 	apiGroup.PATCH(apiRouteSiteSubscriberUpdate, siteHandlers.UpdateSubscriberStatus)
+	apiGroup.DELETE(apiRouteSiteSubscriberUpdate, siteHandlers.DeleteSubscriber)
 	apiGroup.GET(apiRouteSiteFavicon, siteHandlers.SiteFavicon)
 	apiGroup.GET(apiRouteSiteFaviconEvents, siteHandlers.StreamFaviconUpdates)
 	apiGroup.GET(apiRouteSiteFeedbackEvents, siteHandlers.StreamFeedbackUpdates)

@@ -347,6 +347,28 @@
         </div>
       </div>
     </div>
+    <div class="modal fade" id="{{.DeleteSubscriberModalID}}" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">{{.DeleteSubscriberModalTitle}}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{.DeleteSubscriberModalCancelButtonLabel}}"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-3">{{.DeleteSubscriberModalDescription}}</p>
+            <div class="mb-3">
+              <label class="form-label" for="{{.DeleteSubscriberModalInputID}}">{{.DeleteSubscriberModalInputLabel}}</label>
+              <input id="{{.DeleteSubscriberModalInputID}}" type="text" class="form-control" placeholder="{{.DeleteSubscriberModalInputPlaceholder}}" autocomplete="off" />
+              <div class="form-text">{{.DeleteSubscriberModalHintPrefix}}<strong id="{{.DeleteSubscriberTargetEmailID}}"></strong>{{.DeleteSubscriberModalHintSuffix}}</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="{{.DeleteSubscriberModalCancelButtonClass}}" data-bs-dismiss="modal">{{.DeleteSubscriberModalCancelButtonLabel}}</button>
+            <button id="{{.DeleteSubscriberModalConfirmButtonID}}" type="button" class="{{.DeleteSubscriberModalConfirmButtonClass}}" disabled>{{.DeleteSubscriberModalConfirmButtonLabel}}</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <div id="{{.SessionTimeoutContainerID}}" class="{{.SessionTimeoutContainerClass}}" aria-live="polite" aria-hidden="true">
       <div class="{{.SessionTimeoutInnerClass}}">
         <p id="{{.SessionTimeoutMessageID}}" class="{{.SessionTimeoutMessageClass}}">{{.SessionTimeoutPromptText}}</p>
@@ -551,6 +573,11 @@
         var deleteSiteConfirmButton = document.getElementById(elementIds.delete_site_confirm_button);
         var deleteSiteConfirmInput = document.getElementById(elementIds.delete_site_confirm_input);
         var deleteSiteTargetName = document.getElementById(elementIds.delete_site_target_name);
+        var deleteSubscriberModalElement = document.getElementById(elementIds.delete_subscriber_modal);
+        var deleteSubscriberModal = deleteSubscriberModalElement && window.bootstrap && window.bootstrap.Modal ? new window.bootstrap.Modal(deleteSubscriberModalElement) : null;
+        var deleteSubscriberConfirmButton = document.getElementById(elementIds.delete_subscriber_confirm_button);
+        var deleteSubscriberConfirmInput = document.getElementById(elementIds.delete_subscriber_confirm_input);
+        var deleteSubscriberTargetEmail = document.getElementById(elementIds.delete_subscriber_target_email);
         var formStatus = document.getElementById(elementIds.form_status);
         var formStatusBaseClass = formStatusClasses.base || '';
         var formStatusSuccessClass = formStatusClasses.success || '';
@@ -580,6 +607,8 @@
           sites: [],
           selectedSiteId: '',
           pendingDeletionSiteId: '',
+          pendingDeletionSubscriberId: '',
+          pendingDeletionSubscriberEmail: '',
           siteMessages: {},
           siteSubscribers: {}
         };
@@ -2149,6 +2178,81 @@
           });
         }
 
+        function clearDeleteSubscriberConfirmationInput() {
+          if (deleteSubscriberConfirmInput) {
+            deleteSubscriberConfirmInput.value = '';
+            deleteSubscriberConfirmInput.dataset.expectedEmail = '';
+          }
+          if (deleteSubscriberConfirmButton) {
+            deleteSubscriberConfirmButton.disabled = true;
+          }
+        }
+
+        function updateDeleteSubscriberConfirmationState() {
+          if (!deleteSubscriberConfirmInput || !deleteSubscriberConfirmButton) {
+            return;
+          }
+          var expectedEmail = (deleteSubscriberConfirmInput.dataset.expectedEmail || '').trim().toLowerCase();
+          var typedEmail = deleteSubscriberConfirmInput.value.trim().toLowerCase();
+          deleteSubscriberConfirmButton.disabled = expectedEmail === '' || typedEmail !== expectedEmail;
+        }
+
+        function openDeleteSubscriberModal(subscriberId, subscriberEmail) {
+          if (!deleteSubscriberModal || !state.selectedSiteId || isNewSiteSelected()) {
+            return;
+          }
+          var trimmedSubscriberId = (subscriberId || '').trim();
+          var trimmedEmail = (subscriberEmail || '').trim();
+          if (!trimmedSubscriberId || !trimmedEmail) {
+            return;
+          }
+          state.pendingDeletionSubscriberId = trimmedSubscriberId;
+          state.pendingDeletionSubscriberEmail = trimmedEmail;
+          if (deleteSubscriberTargetEmail) {
+            deleteSubscriberTargetEmail.textContent = trimmedEmail;
+          }
+          if (deleteSubscriberConfirmInput) {
+            deleteSubscriberConfirmInput.dataset.expectedEmail = trimmedEmail;
+            deleteSubscriberConfirmInput.value = '';
+          }
+          if (deleteSubscriberConfirmButton) {
+            deleteSubscriberConfirmButton.disabled = true;
+          }
+          deleteSubscriberModal.show();
+          window.setTimeout(function() {
+            if (deleteSubscriberConfirmInput) {
+              deleteSubscriberConfirmInput.focus();
+            }
+          }, 150);
+        }
+
+        function deleteSelectedSubscriber() {
+          if (!state.pendingDeletionSubscriberId || !state.selectedSiteId || isNewSiteSelected()) {
+            return;
+          }
+          var endpoint = apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteSubscriberUpdateSuffix + state.pendingDeletionSubscriberId;
+          if (deleteSubscriberConfirmButton) {
+            deleteSubscriberConfirmButton.disabled = true;
+          }
+          fetchJSON(endpoint, { method: 'DELETE' }).then(function() {
+            state.pendingDeletionSubscriberId = '';
+            state.pendingDeletionSubscriberEmail = '';
+            if (deleteSubscriberModal) {
+              deleteSubscriberModal.hide();
+            }
+            clearDeleteSubscriberConfirmationInput();
+            loadSubscribers();
+          }).catch(function(error) {
+            if (subscribersStatusElement) {
+              subscribersStatusElement.textContent = error.message || statusMessages.load_failed || '';
+              subscribersStatusElement.classList.remove('d-none');
+            }
+            if (deleteSubscriberConfirmInput) {
+              updateDeleteSubscriberConfirmationState();
+            }
+          });
+        }
+
         function setSnippetUnavailable(textarea, copyButton) {
           if (textarea) {
             textarea.value = widgetUnavailableMessage;
@@ -2571,6 +2675,18 @@
             toggleButton.dataset.subscriberId = subscriber.id || '';
             toggleButton.dataset.targetStatus = unsubscribed ? 'confirmed' : 'unsubscribed';
             actionsCell.appendChild(toggleButton);
+            var deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = '{{js .DeleteSubscriberButtonClass}}';
+            deleteButton.setAttribute('aria-label', 'Delete subscriber');
+            deleteButton.dataset.subscriberAction = 'delete';
+            deleteButton.dataset.subscriberId = subscriber.id || '';
+            deleteButton.dataset.subscriberEmail = subscriber.email || '';
+            var deleteIcon = document.createElement('i');
+            deleteIcon.className = '{{js .DeleteSubscriberIconClass}}';
+            deleteIcon.setAttribute('aria-hidden', 'true');
+            deleteButton.appendChild(deleteIcon);
+            actionsCell.appendChild(deleteButton);
             row.appendChild(actionsCell);
 
             subscribersTableBody.appendChild(row);
@@ -2760,8 +2876,17 @@
       }
 
       function handleSubscribersTableClick(event) {
-        var target = event.target;
+        var rawTarget = event.target;
+        if (!rawTarget) {
+          return;
+        }
+        var target = rawTarget.closest && typeof rawTarget.closest === 'function' ? rawTarget.closest('button') : rawTarget;
         if (!target || target.tagName !== 'BUTTON') {
+          return;
+        }
+        var subscriberAction = target.dataset.subscriberAction || '';
+        if (subscriberAction === 'delete') {
+          openDeleteSubscriberModal(target.dataset.subscriberId || '', target.dataset.subscriberEmail || '');
           return;
         }
         var subscriberId = target.dataset.subscriberId || '';
@@ -3021,6 +3146,20 @@
             deleteSelectedSite();
           });
         }
+        if (deleteSubscriberConfirmInput) {
+          deleteSubscriberConfirmInput.addEventListener('input', function() {
+            updateDeleteSubscriberConfirmationState();
+          });
+          deleteSubscriberConfirmInput.addEventListener('blur', function() {
+            updateDeleteSubscriberConfirmationState();
+          });
+        }
+        if (deleteSubscriberConfirmButton) {
+          deleteSubscriberConfirmButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            deleteSelectedSubscriber();
+          });
+        }
         if (settingsModalElement) {
           settingsModalElement.dataset.loopawareSettingsModalDismissAttached = 'true';
           settingsModalElement.addEventListener('click', function(event) {
@@ -3072,6 +3211,13 @@
           deleteSiteModalElement.addEventListener('hidden.bs.modal', function() {
             state.pendingDeletionSiteId = '';
             clearDeleteConfirmationInput();
+          });
+        }
+        if (deleteSubscriberModalElement) {
+          deleteSubscriberModalElement.addEventListener('hidden.bs.modal', function() {
+            state.pendingDeletionSubscriberId = '';
+            state.pendingDeletionSubscriberEmail = '';
+            clearDeleteSubscriberConfirmationInput();
           });
         }
 
