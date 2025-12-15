@@ -10,10 +10,11 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
 - [x] [LA-111] Allow multiple origins for subscribe widgets, e.g. — a single subscribe widget can be embedded in multiple sites, not all of them matching the original url, such as gravity.mprlab.com needs to be able to be retreieved and function from both https://mprlab.com and http://localhost:8080
   implemented multi-origin support for site `allowed_origin` values (space/comma-separated list), extended backend origin checks and dashboard validation, and updated README to document the behavior.
 
-- [ ] [LA-112] Implement the subscription flow: — Send a confirmation email to the subscriber
+- [x] [LA-112] Implement the subscription flow: — Send a confirmation email to the subscriber
   The confirmation email contains a link to the loopaware
   When a user clicks the link the subscription is confirmed
   Carefully plan the execution and testing
+  implemented double opt-in subscriptions: creating a subscription sends a confirmation email with `GET /subscriptions/confirm?token=...`, and clicking the link confirms the subscriber.
 
 ## Improvements (210–299)
 - [x] [LA-207] Upgrade to the latest version of mpr-ui. — Check tools/mpr-ui/README.md and @tools/mpr-ui/docs/custom-elements.md and @tols/mpr-ui/demo/index.html for documentation and examples.
