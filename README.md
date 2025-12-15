@@ -138,6 +138,8 @@ include Unix timestamps in seconds.
 | `GET`   | `/subscribe.js`                       | public      | Serve embeddable JavaScript subscribe form                                                              |
 | `GET`   | `/pixel.js`                           | public      | Serve embeddable JavaScript visit tracking pixel                                                        |
 
+Subscriptions use a confirmation link sent via email: `GET /subscriptions/confirm?token=...` confirms the pending subscriber without requiring browser origin headers.
+
 The `allowed_origin` field for a site may contain multiple origins separated by spaces or commas (for example `https://mprlab.com http://localhost:8080`); widgets, subscribe forms, and pixels will accept requests from any configured origin while still rejecting traffic from unknown sites.
 
 The `/api/me` response includes a `role` value of `admin` or `user` and an `avatar.url` pointing to the caller's cached

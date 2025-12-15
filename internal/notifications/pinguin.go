@@ -188,6 +188,46 @@ func (notifier *PinguinNotifier) NotifySubscription(ctx context.Context, site mo
 	return nil
 }
 
+// SendEmail dispatches an email notification through the Pinguin service.
+func (notifier *PinguinNotifier) SendEmail(ctx context.Context, recipient string, subject string, message string) error {
+	if notifier == nil || notifier.client == nil {
+		return errors.New("pinguin notifier not initialized")
+	}
+
+	normalizedRecipient := strings.TrimSpace(recipient)
+	if normalizedRecipient == "" {
+		return errors.New("recipient is required")
+	}
+	if !strings.Contains(normalizedRecipient, "@") {
+		return errors.New("recipient must be an email address")
+	}
+
+	request := &pinguinpb.NotificationRequest{
+		NotificationType: pinguinpb.NotificationType_EMAIL,
+		Recipient:        normalizedRecipient,
+		Subject:          strings.TrimSpace(subject),
+		Message:          message,
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, notifier.operationTimeout)
+	defer cancel()
+	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken, "x-tenant-id", notifier.tenantID)
+
+	response, sendErr := notifier.client.SendNotification(callCtx, request)
+	if sendErr != nil {
+		notifier.logger.Warn("pinguin_send_failed", zap.Error(sendErr))
+		return sendErr
+	}
+
+	if response.GetStatus() == pinguinpb.Status_FAILED {
+		err := fmt.Errorf("notification failed with status %s", response.GetStatus().String())
+		notifier.logger.Warn("pinguin_send_failed_status", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
 func determineRecipient(contact string) (pinguinpb.NotificationType, string, string, error) {
 	trimmed := strings.TrimSpace(contact)
 	if trimmed == "" {

@@ -58,5 +58,6 @@ Issue IDs in Features, Improvements, BugFixes, and Maintenance never reuse compl
 
 ## Maintenance (405–499)
 - [x] [LA-403] Document pixel integration in the @README.md — added pixel.js snippet, REST endpoints, and traffic dashboard description to README.md
+- [x] [LA-405] Stabilize Go tooling and tests by reducing reliance on external tool downloads and network listeners. — pinned `staticcheck`/`ineffassign` fallback versions in `make lint`, prefer locally installed binaries when present, and refactored favicon resolver + HTTPAPI tests to use a local listener/stub HTTP client instead of `httptest.NewServer` where practical.
 
 ## Planning (do not implement yet) (450–499)

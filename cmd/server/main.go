@@ -91,6 +91,7 @@ const (
 	publicRouteSubscription           = "/api/subscriptions"
 	publicRouteSubscriptionConfirm    = "/api/subscriptions/confirm"
 	publicRouteSubscriptionOptOut     = "/api/subscriptions/unsubscribe"
+	publicRouteSubscriptionConfirmWeb = "/subscriptions/confirm"
 	publicRouteSubscribeWidget        = "/subscribe.js"
 	publicRouteSubscribeDemo          = "/subscribe-demo"
 	publicRouteVisitPixel             = "/api/visits"
@@ -472,7 +473,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	if serverConfig.SubscriptionNotifications {
 		subscriptionNotifier = pinguinNotifier
 	}
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, pinguinNotifier, subscriptionNotifier, serverConfig.SubscriptionNotifications)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, pinguinNotifier, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier)
 	faviconResolver := favicon.NewHTTPResolver(sharedHTTPClient, logger)
 	faviconService := favicon.NewService(faviconResolver)
 	faviconManager := httpapi.NewSiteFaviconManager(database, faviconService, logger)
@@ -507,6 +508,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	router.POST(publicRouteSubscription, publicHandlers.CreateSubscription)
 	router.POST(publicRouteSubscriptionConfirm, publicHandlers.ConfirmSubscription)
 	router.POST(publicRouteSubscriptionOptOut, publicHandlers.Unsubscribe)
+	router.GET(publicRouteSubscriptionConfirmWeb, publicHandlers.ConfirmSubscriptionLink)
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
 	router.GET(publicRouteSubscribeWidget, publicHandlers.SubscribeJS)
 	router.GET(publicRouteSubscribeDemo, publicHandlers.SubscribeDemo)

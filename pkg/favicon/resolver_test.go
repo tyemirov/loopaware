@@ -1,9 +1,10 @@
 package favicon_test
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,89 +13,120 @@ import (
 	"github.com/MarkoPoloResearchLab/loopaware/pkg/favicon"
 )
 
+type roundTripperFunc func(request *http.Request) (*http.Response, error)
+
+func (roundTripper roundTripperFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return roundTripper(request)
+}
+
+type stubHTTPResponse struct {
+	StatusCode  int
+	ContentType string
+	Body        []byte
+}
+
+func newStubHTTPClient(responseByPath map[string]stubHTTPResponse) *http.Client {
+	return &http.Client{
+		Transport: roundTripperFunc(func(request *http.Request) (*http.Response, error) {
+			response, ok := responseByPath[request.URL.Path]
+			if !ok {
+				response = stubHTTPResponse{StatusCode: http.StatusNotFound}
+			}
+			headers := make(http.Header)
+			if response.ContentType != "" {
+				headers.Set("Content-Type", response.ContentType)
+			}
+			body := io.NopCloser(bytes.NewReader(response.Body))
+			return &http.Response{
+				StatusCode: response.StatusCode,
+				Header:     headers,
+				Body:       body,
+				Request:    request,
+			}, nil
+		}),
+	}
+}
+
 func TestHTTPResolverPrefersDefaultIcon(testingT *testing.T) {
-	iconServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		switch request.URL.Path {
-		case "/favicon.ico":
-			writer.Header().Set("Content-Type", "image/x-icon")
-			writer.WriteHeader(http.StatusOK)
-			_, _ = writer.Write([]byte{0x00, 0x01})
-		default:
-			writer.WriteHeader(http.StatusNotFound)
-		}
-	}))
-	testingT.Cleanup(iconServer.Close)
+	allowedOrigin := "http://icon.test"
+	httpClient := newStubHTTPClient(map[string]stubHTTPResponse{
+		"/favicon.ico": {
+			StatusCode:  http.StatusOK,
+			ContentType: "image/x-icon",
+			Body:        []byte{0x00, 0x01},
+		},
+	})
 
-	resolver := favicon.NewHTTPResolver(iconServer.Client(), zap.NewNop())
+	resolver := favicon.NewHTTPResolver(httpClient, zap.NewNop())
 
-	faviconURL, resolveErr := resolver.Resolve(context.Background(), iconServer.URL)
+	faviconURL, resolveErr := resolver.Resolve(context.Background(), allowedOrigin)
 	require.NoError(testingT, resolveErr)
-	require.Equal(testingT, iconServer.URL+"/favicon.ico", faviconURL)
+	require.Equal(testingT, allowedOrigin+"/favicon.ico", faviconURL)
 }
 
 func TestHTTPResolverParsesHTMLLinks(testingT *testing.T) {
 	iconPath := "/assets/icon.png"
 	htmlResponse := "<!doctype html><html><head><link rel=\"icon\" href=\"" + iconPath + "\"></head><body></body></html>"
-	iconServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		switch request.URL.Path {
-		case "/favicon.ico":
-			writer.WriteHeader(http.StatusNotFound)
-		case iconPath:
-			writer.Header().Set("Content-Type", "image/png")
-			writer.WriteHeader(http.StatusOK)
-			_, _ = writer.Write([]byte{0x89, 0x50, 0x4e, 0x47})
-		default:
-			writer.Header().Set("Content-Type", "text/html")
-			writer.WriteHeader(http.StatusOK)
-			_, _ = writer.Write([]byte(htmlResponse))
-		}
-	}))
-	testingT.Cleanup(iconServer.Close)
+	allowedOrigin := "http://html.test"
+	httpClient := newStubHTTPClient(map[string]stubHTTPResponse{
+		"/favicon.ico": {
+			StatusCode: http.StatusNotFound,
+		},
+		"/": {
+			StatusCode:  http.StatusOK,
+			ContentType: "text/html",
+			Body:        []byte(htmlResponse),
+		},
+		iconPath: {
+			StatusCode:  http.StatusOK,
+			ContentType: "image/png",
+			Body:        []byte{0x89, 0x50, 0x4e, 0x47},
+		},
+	})
 
-	resolver := favicon.NewHTTPResolver(iconServer.Client(), zap.NewNop())
+	resolver := favicon.NewHTTPResolver(httpClient, zap.NewNop())
 
-	faviconURL, resolveErr := resolver.Resolve(context.Background(), iconServer.URL)
+	faviconURL, resolveErr := resolver.Resolve(context.Background(), allowedOrigin)
 	require.NoError(testingT, resolveErr)
-	require.Equal(testingT, iconServer.URL+iconPath, faviconURL)
+	require.Equal(testingT, allowedOrigin+iconPath, faviconURL)
 }
 
 func TestHTTPResolverSupportsInlineData(testingT *testing.T) {
 	inlineData := "data:image/png;base64,iVBORw0KGgo="
 	htmlResponse := "<!doctype html><html><head><link rel=\"icon\" href=\"" + inlineData + "\"></head></html>"
-	iconServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/" {
-			writer.Header().Set("Content-Type", "text/html")
-			writer.WriteHeader(http.StatusOK)
-			_, _ = writer.Write([]byte(htmlResponse))
-			return
-		}
-		writer.WriteHeader(http.StatusNotFound)
-	}))
-	testingT.Cleanup(iconServer.Close)
+	allowedOrigin := "http://inline.test"
+	httpClient := newStubHTTPClient(map[string]stubHTTPResponse{
+		"/favicon.ico": {
+			StatusCode: http.StatusNotFound,
+		},
+		"/": {
+			StatusCode:  http.StatusOK,
+			ContentType: "text/html",
+			Body:        []byte(htmlResponse),
+		},
+	})
 
-	resolver := favicon.NewHTTPResolver(iconServer.Client(), zap.NewNop())
+	resolver := favicon.NewHTTPResolver(httpClient, zap.NewNop())
 
-	faviconURL, resolveErr := resolver.Resolve(context.Background(), iconServer.URL)
+	faviconURL, resolveErr := resolver.Resolve(context.Background(), allowedOrigin)
 	require.NoError(testingT, resolveErr)
 	require.Equal(testingT, inlineData, faviconURL)
 }
 
 func TestHTTPResolverResolveAssetReturnsBinaryData(testingT *testing.T) {
 	iconBytes := []byte{0x00, 0x11, 0x22}
-	iconServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/favicon.ico" {
-			writer.Header().Set("Content-Type", "image/x-icon")
-			writer.WriteHeader(http.StatusOK)
-			_, _ = writer.Write(iconBytes)
-			return
-		}
-		writer.WriteHeader(http.StatusNotFound)
-	}))
-	testingT.Cleanup(iconServer.Close)
+	allowedOrigin := "http://asset.test"
+	httpClient := newStubHTTPClient(map[string]stubHTTPResponse{
+		"/favicon.ico": {
+			StatusCode:  http.StatusOK,
+			ContentType: "image/x-icon",
+			Body:        iconBytes,
+		},
+	})
 
-	resolver := favicon.NewHTTPResolver(iconServer.Client(), zap.NewNop())
+	resolver := favicon.NewHTTPResolver(httpClient, zap.NewNop())
 
-	asset, resolveErr := resolver.ResolveAsset(context.Background(), iconServer.URL)
+	asset, resolveErr := resolver.ResolveAsset(context.Background(), allowedOrigin)
 	require.NoError(testingT, resolveErr)
 	require.NotNil(testingT, asset)
 	require.Equal(testingT, "image/x-icon", asset.ContentType)
@@ -104,20 +136,21 @@ func TestHTTPResolverResolveAssetReturnsBinaryData(testingT *testing.T) {
 func TestHTTPResolverResolveAssetParsesInlineData(testingT *testing.T) {
 	inlineData := "data:image/svg+xml;base64,PHN2Zy8+"
 	htmlResponse := "<!doctype html><html><head><link rel=\"icon\" href=\"" + inlineData + "\"></head></html>"
-	iconServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/" {
-			writer.Header().Set("Content-Type", "text/html")
-			writer.WriteHeader(http.StatusOK)
-			_, _ = writer.Write([]byte(htmlResponse))
-			return
-		}
-		writer.WriteHeader(http.StatusNotFound)
-	}))
-	testingT.Cleanup(iconServer.Close)
+	allowedOrigin := "http://inline-asset.test"
+	httpClient := newStubHTTPClient(map[string]stubHTTPResponse{
+		"/favicon.ico": {
+			StatusCode: http.StatusNotFound,
+		},
+		"/": {
+			StatusCode:  http.StatusOK,
+			ContentType: "text/html",
+			Body:        []byte(htmlResponse),
+		},
+	})
 
-	resolver := favicon.NewHTTPResolver(iconServer.Client(), zap.NewNop())
+	resolver := favicon.NewHTTPResolver(httpClient, zap.NewNop())
 
-	asset, resolveErr := resolver.ResolveAsset(context.Background(), iconServer.URL)
+	asset, resolveErr := resolver.ResolveAsset(context.Background(), allowedOrigin)
 	require.NoError(testingT, resolveErr)
 	require.NotNil(testingT, asset)
 	require.Equal(testingT, "image/svg+xml", asset.ContentType)
@@ -126,50 +159,50 @@ func TestHTTPResolverResolveAssetParsesInlineData(testingT *testing.T) {
 
 func TestHTTPResolverResolveAssetReturnsNilForUnsupportedContentType(testingT *testing.T) {
 	htmlResponse := "<!doctype html><html><head><link rel=\"icon\" href=\"/icon\"></head></html>"
-	iconServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		switch request.URL.Path {
-		case "/":
-			writer.Header().Set("Content-Type", "text/html")
-			writer.WriteHeader(http.StatusOK)
-			_, _ = writer.Write([]byte(htmlResponse))
-		case "/icon":
-			writer.Header().Set("Content-Type", "text/plain")
-			writer.WriteHeader(http.StatusOK)
-			_, _ = writer.Write([]byte("not an icon"))
-		default:
-			writer.WriteHeader(http.StatusNotFound)
-		}
-	}))
-	testingT.Cleanup(iconServer.Close)
+	allowedOrigin := "http://unsupported.test"
+	httpClient := newStubHTTPClient(map[string]stubHTTPResponse{
+		"/favicon.ico": {
+			StatusCode: http.StatusNotFound,
+		},
+		"/": {
+			StatusCode:  http.StatusOK,
+			ContentType: "text/html",
+			Body:        []byte(htmlResponse),
+		},
+		"/icon": {
+			StatusCode:  http.StatusOK,
+			ContentType: "text/plain",
+			Body:        []byte("not an icon"),
+		},
+	})
 
-	resolver := favicon.NewHTTPResolver(iconServer.Client(), zap.NewNop())
+	resolver := favicon.NewHTTPResolver(httpClient, zap.NewNop())
 
-	asset, resolveErr := resolver.ResolveAsset(context.Background(), iconServer.URL)
+	asset, resolveErr := resolver.ResolveAsset(context.Background(), allowedOrigin)
 	require.NoError(testingT, resolveErr)
 	require.Nil(testingT, asset)
 }
 
 func TestHTTPResolverFallsBackToAppPath(testingT *testing.T) {
 	inlineData := "data:image/svg+xml;utf8,<svg/>"
-	iconServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		switch request.URL.Path {
-		case "/favicon.ico":
-			writer.WriteHeader(http.StatusNotFound)
-		case "/":
-			writer.WriteHeader(http.StatusNotFound)
-		case "/app":
-			writer.Header().Set("Content-Type", "text/html")
-			writer.WriteHeader(http.StatusOK)
-			_, _ = writer.Write([]byte("<!doctype html><html><head><link rel=\"icon\" href=\"" + inlineData + "\"></head></html>"))
-		default:
-			writer.WriteHeader(http.StatusNotFound)
-		}
-	}))
-	testingT.Cleanup(iconServer.Close)
+	allowedOrigin := "http://fallback.test/app"
+	httpClient := newStubHTTPClient(map[string]stubHTTPResponse{
+		"/favicon.ico": {
+			StatusCode: http.StatusNotFound,
+		},
+		"/": {
+			StatusCode: http.StatusNotFound,
+		},
+		"/app": {
+			StatusCode:  http.StatusOK,
+			ContentType: "text/html",
+			Body:        []byte("<!doctype html><html><head><link rel=\"icon\" href=\"" + inlineData + "\"></head></html>"),
+		},
+	})
 
-	resolver := favicon.NewHTTPResolver(iconServer.Client(), zap.NewNop())
+	resolver := favicon.NewHTTPResolver(httpClient, zap.NewNop())
 
-	asset, resolveErr := resolver.ResolveAsset(context.Background(), iconServer.URL+"/app")
+	asset, resolveErr := resolver.ResolveAsset(context.Background(), allowedOrigin)
 	require.NoError(testingT, resolveErr)
 	require.NotNil(testingT, asset)
 	require.Equal(testingT, "image/svg+xml", asset.ContentType)

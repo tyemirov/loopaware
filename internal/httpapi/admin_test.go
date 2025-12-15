@@ -455,8 +455,7 @@ func TestStreamFaviconUpdatesEmitsEvents(testingT *testing.T) {
 		handlers.StreamFaviconUpdates(context)
 	})
 
-	server := httptest.NewServer(engine)
-	testingT.Cleanup(server.Close)
+	server := newHTTPTestServer(testingT, engine)
 
 	client := server.Client()
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/stream", nil)
@@ -542,7 +541,7 @@ func TestStreamFeedbackUpdatesReceivesCreateEvents(testingT *testing.T) {
 	subscriptionEvents := httpapi.NewSubscriptionTestEventBroadcaster()
 	testingT.Cleanup(subscriptionEvents.Close)
 	siteHandlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
-	publicHandlers := httpapi.NewPublicHandlers(database, zap.NewNop(), feedbackBroadcaster, subscriptionEvents, nil, nil, true)
+	publicHandlers := httpapi.NewPublicHandlers(database, zap.NewNop(), feedbackBroadcaster, subscriptionEvents, nil, nil, true, testWidgetBaseURL, "unit-test-session-secret", nil)
 
 	engine := gin.New()
 	engine.GET("/stream", func(context *gin.Context) {
@@ -553,8 +552,7 @@ func TestStreamFeedbackUpdatesReceivesCreateEvents(testingT *testing.T) {
 		publicHandlers.CreateFeedback(context)
 	})
 
-	server := httptest.NewServer(engine)
-	testingT.Cleanup(server.Close)
+	server := newHTTPTestServer(testingT, engine)
 
 	client := server.Client()
 
