@@ -200,330 +200,376 @@ const (
          C 160 108, 128 108, 128 128
          C 128 148, 96 148, 96 128"/>
   </svg>`
-	deleteSiteButtonElementID              = "delete-site-button"
-	deleteSiteButtonClass                  = "btn btn-sm border-0 bg-transparent text-danger opacity-100"
-	deleteSiteButtonDisabledClass          = "btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled"
-	deleteSiteIconClass                    = "bi bi-trash3-fill text-danger"
-	footerElementID                        = "dashboard-footer"
-	footerInnerElementID                   = "dashboard-footer-inner"
-	footerBaseClass                        = "mpr-footer mt-auto py-2 fixed-bottom border-top"
-	footerThemeLightClass                  = "bg-body text-body-secondary"
-	footerThemeDarkClass                   = "bg-dark text-light border-light"
-	deleteSiteModalElementID               = "delete-site-modal"
-	deleteSiteModalTitle                   = "Delete site"
-	deleteSiteModalDescription             = "This action permanently removes the site and its feedback."
-	deleteSiteModalInputElementID          = "delete-site-confirm-name"
-	deleteSiteModalInputLabel              = "Type the site name to confirm"
-	deleteSiteModalInputPlaceholder        = "Enter the site name"
-	deleteSiteModalConfirmButtonID         = "delete-site-confirm-button"
-	deleteSiteModalConfirmButtonLabel      = "Delete site"
-	deleteSiteModalConfirmButtonClass      = "btn btn-danger"
-	deleteSiteModalCancelButtonLabel       = "Cancel"
-	deleteSiteModalCancelButtonClass       = "btn btn-secondary"
-	deleteSiteTargetNameElementID          = "delete-site-target-name"
-	deleteSiteModalHintPrefix              = "Type "
-	deleteSiteModalHintSuffix              = " exactly to confirm."
-	formStatusBaseClass                    = "d-none py-1 px-2 small rounded"
-	formStatusSuccessClass                 = "py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"
-	formStatusDangerClass                  = "py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle"
-	fieldHelpButtonClass                   = "btn btn-link p-0 text-secondary"
-	fieldHelpButtonTabIndexValue           = "-1"
-	fieldHelpIconClass                     = "bi bi-question-circle-fill"
-	fieldHelpTextClass                     = "form-text text-muted"
-	siteListItemHeaderClass                = "d-flex align-items-center gap-2"
-	siteListItemFaviconClass               = "flex-shrink-0 rounded border bg-white"
-	siteCreatedAtElementID                 = "site-created-at"
-	siteCreatedAtContainerElementID        = "site-created-at-container"
-	siteCreatedAtPlaceholder               = "Not saved yet."
-	feedbackCountElementID                 = "feedback-count"
-	siteNameHelpButtonElementID            = "site-name-help-button"
-	siteNameHelpTitle                      = "Site name"
-	siteNameHelpContent                    = "Displayed in the sites list for your team."
-	allowedOriginHelpButtonElementID       = "allowed-origin-help-button"
-	allowedOriginHelpTitle                 = "Allowed origins"
-	allowedOriginHelpContent               = "One or more origins (protocol, host, optional port) where the widget will run; separate multiple origins with commas or spaces."
-	ownerEmailHelpButtonElementID          = "owner-email-help-button"
-	ownerEmailHelpTitle                    = "Owner email"
-	ownerEmailHelpContent                  = "Receives notifications when visitors submit feedback."
-	siteSearchToggleButtonElementID        = "site-search-toggle-button"
-	siteSearchContainerElementID           = "site-search-container"
-	siteSearchInputElementID               = "site-search-input"
-	siteSearchToggleLabel                  = "Toggle site search"
-	siteSearchPlaceholder                  = "Search sites"
-	messagesSearchToggleButtonElementID    = "messages-search-toggle-button"
-	messagesSearchContainerElementID       = "messages-search-container"
-	messagesSearchInputElementID           = "messages-search-input"
-	messagesSearchToggleLabel              = "Toggle feedback search"
-	messagesSearchPlaceholder              = "Search feedback"
-	searchToggleButtonClass                = "btn btn-link p-0 text-secondary"
-	searchInputClass                       = "form-control form-control-sm"
-	dashboardStatusNoSiteMatches           = "No sites match your search."
-	dashboardStatusNoMessageMatches        = "No feedback matches your search."
-	validationMessageNameRequiredKey       = "name_required"
-	validationMessageOriginKey             = "origin_invalid"
-	validationMessageOwnerKey              = "owner_invalid"
-	validationMessageWidgetOffsetKey       = "widget_offset_invalid"
-	dashboardValidationNameMessage         = "Site name is required."
-	dashboardValidationOriginMessage       = "Allowed origins must include protocol and hostname, for example https://example.com http://localhost:8080."
-	dashboardValidationOwnerMessage        = "Provide a valid owner email address."
-	dashboardValidationWidgetOffsetMessage = "Provide a whole number between 0 and 240."
-	dashboardValidationWidgetSideMessage   = "Choose left or right for the widget bubble."
-	dashboardErrorMessageSiteExists        = "A site for this allowed origin already exists."
-	dashboardErrorMessageInvalidJSON       = "Submitted data could not be parsed."
-	dashboardErrorMessageMissingFields     = "Provide site name and allowed origin."
-	dashboardErrorMessageInvalidOwner      = dashboardValidationOwnerMessage
-	dashboardErrorMessageNotAuthorized     = "You are not allowed to manage that site."
-	dashboardErrorMessageSaveFailed        = "Failed to save site."
+	deleteSiteButtonElementID                = "delete-site-button"
+	deleteSiteButtonClass                    = "btn btn-sm border-0 bg-transparent text-danger opacity-100"
+	deleteSiteButtonDisabledClass            = "btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled"
+	deleteSiteIconClass                      = "bi bi-trash3-fill text-danger"
+	deleteSubscriberButtonClass              = "btn btn-sm border-0 bg-transparent text-danger opacity-100 ms-2"
+	deleteSubscriberIconClass                = "bi bi-trash3-fill text-danger"
+	footerElementID                          = "dashboard-footer"
+	footerInnerElementID                     = "dashboard-footer-inner"
+	footerBaseClass                          = "mpr-footer mt-auto py-2 fixed-bottom border-top"
+	footerThemeLightClass                    = "bg-body text-body-secondary"
+	footerThemeDarkClass                     = "bg-dark text-light border-light"
+	deleteSiteModalElementID                 = "delete-site-modal"
+	deleteSiteModalTitle                     = "Delete site"
+	deleteSiteModalDescription               = "This action permanently removes the site and its feedback."
+	deleteSiteModalInputElementID            = "delete-site-confirm-name"
+	deleteSiteModalInputLabel                = "Type the site name to confirm"
+	deleteSiteModalInputPlaceholder          = "Enter the site name"
+	deleteSiteModalConfirmButtonID           = "delete-site-confirm-button"
+	deleteSiteModalConfirmButtonLabel        = "Delete site"
+	deleteSiteModalConfirmButtonClass        = "btn btn-danger"
+	deleteSiteModalCancelButtonLabel         = "Cancel"
+	deleteSiteModalCancelButtonClass         = "btn btn-secondary"
+	deleteSiteTargetNameElementID            = "delete-site-target-name"
+	deleteSiteModalHintPrefix                = "Type "
+	deleteSiteModalHintSuffix                = " exactly to confirm."
+	deleteSubscriberModalElementID           = "delete-subscriber-modal"
+	deleteSubscriberModalTitle               = "Delete subscriber"
+	deleteSubscriberModalDescription         = "This action permanently removes the subscriber record."
+	deleteSubscriberModalInputElementID      = "delete-subscriber-confirm-email"
+	deleteSubscriberModalInputLabel          = "Type the subscriber email to confirm"
+	deleteSubscriberModalInputPlaceholder    = "Enter the subscriber email"
+	deleteSubscriberModalConfirmButtonID     = "delete-subscriber-confirm-button"
+	deleteSubscriberModalConfirmButtonLabel  = "Delete subscriber"
+	deleteSubscriberModalConfirmButtonClass  = "btn btn-danger"
+	deleteSubscriberModalCancelButtonLabel   = "Cancel"
+	deleteSubscriberModalCancelButtonClass   = "btn btn-secondary"
+	deleteSubscriberTargetEmailElementID     = "delete-subscriber-target-email"
+	deleteSubscriberModalHintPrefix          = "Type "
+	deleteSubscriberModalHintSuffix          = " exactly to confirm."
+	formStatusBaseClass                      = "d-none py-1 px-2 small rounded"
+	formStatusSuccessClass                   = "py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"
+	formStatusDangerClass                    = "py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle"
+	fieldHelpButtonClass                     = "btn btn-link p-0 text-secondary"
+	fieldHelpButtonTabIndexValue             = "-1"
+	fieldHelpIconClass                       = "bi bi-question-circle-fill"
+	fieldHelpTextClass                       = "form-text text-muted"
+	siteListItemHeaderClass                  = "d-flex align-items-center gap-2"
+	siteListItemFaviconClass                 = "flex-shrink-0 rounded border bg-white"
+	siteCreatedAtElementID                   = "site-created-at"
+	siteCreatedAtContainerElementID          = "site-created-at-container"
+	siteCreatedAtPlaceholder                 = "Not saved yet."
+	feedbackCountElementID                   = "feedback-count"
+	siteNameHelpButtonElementID              = "site-name-help-button"
+	siteNameHelpTitle                        = "Site name"
+	siteNameHelpContent                      = "Displayed in the sites list for your team."
+	allowedOriginHelpButtonElementID         = "allowed-origin-help-button"
+	allowedOriginHelpTitle                   = "Allowed origins"
+	allowedOriginHelpContent                 = "One or more origins (protocol, host, optional port) where the widget will run; separate multiple origins with commas or spaces."
+	ownerEmailHelpButtonElementID            = "owner-email-help-button"
+	ownerEmailHelpTitle                      = "Owner email"
+	ownerEmailHelpContent                    = "Receives notifications when visitors submit feedback."
+	siteSearchToggleButtonElementID          = "site-search-toggle-button"
+	siteSearchContainerElementID             = "site-search-container"
+	siteSearchInputElementID                 = "site-search-input"
+	siteSearchToggleLabel                    = "Toggle site search"
+	siteSearchPlaceholder                    = "Search sites"
+	messagesSearchToggleButtonElementID      = "messages-search-toggle-button"
+	messagesSearchContainerElementID         = "messages-search-container"
+	messagesSearchInputElementID             = "messages-search-input"
+	messagesSearchToggleLabel                = "Toggle feedback search"
+	messagesSearchPlaceholder                = "Search feedback"
+	dashboardSectionTabsElementID            = "dashboard-section-tabs"
+	dashboardSectionTabFeedbackButtonID      = "dashboard-section-tab-feedback"
+	dashboardSectionTabSubscriptionsButtonID = "dashboard-section-tab-subscriptions"
+	dashboardSectionTabTrafficButtonID       = "dashboard-section-tab-traffic"
+	dashboardSectionFeedbackTabLabel         = "Feedback"
+	dashboardSectionSubscriptionsTabLabel    = "Subscriptions"
+	dashboardSectionTrafficTabLabel          = "Traffic"
+	searchToggleButtonClass                  = "btn btn-link p-0 text-secondary"
+	searchInputClass                         = "form-control form-control-sm"
+	dashboardStatusNoSiteMatches             = "No sites match your search."
+	dashboardStatusNoMessageMatches          = "No feedback matches your search."
+	validationMessageNameRequiredKey         = "name_required"
+	validationMessageOriginKey               = "origin_invalid"
+	validationMessageOwnerKey                = "owner_invalid"
+	validationMessageWidgetOffsetKey         = "widget_offset_invalid"
+	dashboardValidationNameMessage           = "Site name is required."
+	dashboardValidationOriginMessage         = "Allowed origins must include protocol and hostname, for example https://example.com http://localhost:8080."
+	dashboardValidationOwnerMessage          = "Provide a valid owner email address."
+	dashboardValidationWidgetOffsetMessage   = "Provide a whole number between 0 and 240."
+	dashboardValidationWidgetSideMessage     = "Choose left or right for the widget bubble."
+	dashboardErrorMessageSiteExists          = "A site for this allowed origin already exists."
+	dashboardErrorMessageInvalidJSON         = "Submitted data could not be parsed."
+	dashboardErrorMessageMissingFields       = "Provide site name and allowed origin."
+	dashboardErrorMessageInvalidOwner        = dashboardValidationOwnerMessage
+	dashboardErrorMessageNotAuthorized       = "You are not allowed to manage that site."
+	dashboardErrorMessageSaveFailed          = "Failed to save site."
 )
 
 type dashboardTemplateData struct {
-	PageTitle                           string
-	APIMeEndpoint                       string
-	APISitesEndpoint                    string
-	APISiteUpdateEndpointPrefix         string
-	APIMessagesEndpointPrefix           string
-	APIMessagesEndpointSuffix           string
-	LogoutPath                          string
-	LoginPath                           string
-	BootstrapIconsIntegrityAttr         template.HTMLAttr
-	FaviconDataURI                      template.URL
-	HeaderLogoDataURI                   template.URL
-	HeaderLogoImageID                   string
-	StatusLoadingUser                   string
-	StatusLoadingSites                  string
-	StatusLoadFailed                    string
-	StatusSavingSite                    string
-	StatusSiteSaved                     string
-	StatusCreatingSite                  string
-	StatusSiteCreated                   string
-	StatusDeletingSite                  string
-	StatusSiteDeleted                   string
-	StatusDeleteSiteFailed              string
-	StatusSelectSite                    string
-	StatusNoMessages                    string
-	StatusNoSites                       string
-	RoleAdmin                           string
-	RoleUser                            string
-	EmptySitesMessage                   string
-	FeedbackPlaceholder                 string
-	FooterHTML                          template.HTML
-	FooterElementID                     string
-	FooterInnerElementID                string
-	FooterBaseClass                     string
-	UserNameID                          string
-	UserEmailID                         string
-	UserRoleBadgeID                     string
-	UserAvatarID                        string
-	SitesListID                         string
-	EmptySitesMessageID                 string
-	SiteFormID                          string
-	EditSiteNameInputID                 string
-	EditSiteOriginInputID               string
-	EditSiteOwnerContainerID            string
-	EditSiteOwnerInputID                string
-	SiteCreatedAtElementID              string
-	SiteCreatedAtContainerID            string
-	SiteCreatedAtPlaceholder            string
-	SiteSearchToggleButtonID            string
-	SiteSearchToggleLabel               string
-	SiteSearchContainerID               string
-	SiteSearchInputID                   string
-	SiteSearchPlaceholder               string
-	SaveSiteButtonID                    string
-	SaveButtonSaving                    string
-	SaveButtonSaved                     string
-	SaveButtonCreated                   string
-	SaveButtonFailed                    string
-	SaveButtonDefaultClass              string
-	RefreshMessagesButtonID             string
-	RefreshButtonLoading                string
-	RefreshButtonSuccess                string
-	RefreshButtonFailed                 string
-	RefreshButtonDefaultLabel           string
-	RefreshButtonDefaultClass           string
-	ActionButtonPrimaryClass            string
-	ActionButtonSuccessClass            string
-	ActionButtonSecondaryClass          string
-	ActionButtonDangerClass             string
-	FeedbackTableHeaderID               string
-	FeedbackTableHeaderLightClass       string
-	FeedbackTableBodyID                 string
-	SubscriberCountElementID            string
-	SubscribersTableBodyID              string
-	ExportSubscribersButtonID           string
-	ExportSubscribersButtonLabel        string
-	ExportButtonClass                   string
-	SubscribersStatusID                 string
-	SubscribersPlaceholder              string
-	VisitCountElementID                 string
-	UniqueVisitorCountElementID         string
-	TrafficStatusID                     string
-	TopPagesTableBodyID                 string
-	TopPagesPlaceholder                 string
-	LogoutButtonID                      string
-	NewSiteOptionValue                  string
-	CreateButtonLabel                   string
-	UpdateButtonLabel                   string
-	CreateButtonClass                   string
-	UpdateButtonClass                   string
-	NewSiteButtonID                     string
-	NewSiteButtonLabel                  string
-	NewSiteButtonClass                  string
-	NewSiteButtonActiveClass            string
-	DeleteSiteButtonID                  string
-	DeleteSiteButtonLabel               string
-	DeleteSiteButtonClass               string
-	DeleteSiteButtonDisabledClass       string
-	DeleteSiteIconClass                 string
-	SiteListItemClass                   string
-	SiteListItemActiveClass             string
-	WidgetCardTitle                     string
-	WidgetInstructions                  string
-	WidgetUnavailableMessage            string
-	SubscribeWidgetTitle                string
-	SubscribeWidgetInstructions         string
-	TrafficWidgetTitle                  string
-	TrafficWidgetInstructions           string
-	StatusWidgetCopied                  string
-	StatusWidgetCopyFailed              string
-	WidgetSnippetTextareaID             string
-	SubscribeSnippetTextareaID          string
-	TrafficWidgetSnippetTextareaID      string
-	CopyWidgetSnippetButtonID           string
-	CopySubscribeSnippetButtonID        string
-	CopyTrafficSnippetButtonID          string
-	WidgetTestButtonID                  string
-	WidgetTestButtonLabel               string
-	WidgetTestButtonClass               string
-	SubscribeTestButtonID               string
-	SubscribeTestButtonLabel            string
-	SubscribeTestButtonClass            string
-	TrafficTestButtonID                 string
-	TrafficTestButtonLabel              string
-	TrafficTestButtonClass              string
-	CopyButtonCopied                    string
-	CopyButtonFailed                    string
-	CopyButtonDefaultLabel              string
-	CopyButtonDefaultClass              string
-	WidgetPlacementTitle                string
-	WidgetPlacementSideLabel            string
-	WidgetPlacementLeftLabel            string
-	WidgetPlacementRightLabel           string
-	WidgetPlacementBottomOffsetLabel    string
-	WidgetPlacementBottomOffsetHelp     string
-	WidgetTestPagePrefix                string
-	WidgetTestPageSuffix                string
-	SubscribeTestPagePrefix             string
-	SubscribeTestPageSuffix             string
-	TrafficTestPagePrefix               string
-	TrafficTestPageSuffix               string
-	SettingsButtonID                    string
-	SettingsButtonLabel                 string
-	LogoutLabel                         string
-	SettingsMenuID                      string
-	SettingsMenuSettingsButtonID        string
-	SettingsMenuSettingsLabel           string
-	SettingsModalID                     string
-	SettingsModalTitleID                string
-	SettingsModalTitle                  string
-	SettingsModalIntro                  string
-	SettingsModalCloseLabel             string
-	SettingsModalContentID              string
-	SettingsAutoLogoutSectionTitle      string
-	SettingsAutoLogoutDescription       string
-	SettingsAutoLogoutEnableLabel       string
-	SettingsAutoLogoutPromptLabel       string
-	SettingsAutoLogoutLogoutLabel       string
-	SettingsAutoLogoutHelpText          string
-	SettingsAutoLogoutPromptError       string
-	SettingsAutoLogoutLogoutError       string
-	SettingsAutoLogoutGapError          string
-	SettingsAutoLogoutFieldsID          string
-	SettingsAutoLogoutToggleID          string
-	SettingsAutoLogoutPromptInputID     string
-	SettingsAutoLogoutLogoutInputID     string
-	SettingsAutoLogoutPromptErrorID     string
-	SettingsAutoLogoutLogoutErrorID     string
-	SettingsAutoLogoutPromptMin         int
-	SettingsAutoLogoutPromptMax         int
-	SettingsAutoLogoutLogoutMin         int
-	SettingsAutoLogoutLogoutMax         int
-	SettingsAutoLogoutGapSeconds        int
-	WidgetBottomOffsetDecreaseButtonID  string
-	WidgetBottomOffsetIncreaseButtonID  string
-	WidgetBottomOffsetDecreaseLabel     string
-	WidgetBottomOffsetIncreaseLabel     string
-	WidgetBottomOffsetDecreaseAriaLabel string
-	WidgetBottomOffsetIncreaseAriaLabel string
-	WidgetBottomOffsetStep              int
-	ThemeStorageKey                     string
-	PublicThemeStorageKey               string
-	LandingThemeStorageKey              string
-	SettingsAvatarImageID               string
-	SettingsAvatarFallbackID            string
-	FormStatusID                        string
-	FormStatusBaseClass                 string
-	FormStatusSuccessClass              string
-	FormStatusDangerClass               string
-	SearchToggleButtonClass             string
-	SearchInputClass                    string
-	FieldHelpButtonClass                string
-	FieldHelpButtonTabIndex             string
-	FieldHelpIconClass                  string
-	FieldHelpTextClass                  string
-	SiteNameHelpButtonID                string
-	SiteNameHelpTitle                   string
-	SiteNameHelpContent                 string
-	AllowedOriginHelpButtonID           string
-	AllowedOriginHelpTitle              string
-	AllowedOriginHelpContent            string
-	OwnerEmailHelpButtonID              string
-	OwnerEmailHelpTitle                 string
-	OwnerEmailHelpContent               string
-	MessagesSearchToggleButtonID        string
-	MessagesSearchToggleLabel           string
-	MessagesSearchContainerID           string
-	MessagesSearchInputID               string
-	MessagesSearchPlaceholder           string
-	FeedbackCountElementID              string
-	WidgetStatusID                      string
-	WidgetPlacementSideLeftID           string
-	WidgetPlacementSideRightID          string
-	WidgetPlacementSideInputName        string
-	WidgetBottomOffsetInputID           string
-	WidgetBottomOffsetHelpID            string
-	WidgetBottomOffsetMin               string
-	WidgetBottomOffsetMax               string
-	MessagesStatusID                    string
-	SessionTimeoutContainerID           string
-	SessionTimeoutContainerClass        string
-	SessionTimeoutInnerClass            string
-	SessionTimeoutMessageID             string
-	SessionTimeoutMessageClass          string
-	SessionTimeoutPromptText            string
-	SessionTimeoutActionsClass          string
-	SessionTimeoutConfirmButtonID       string
-	SessionTimeoutConfirmLabel          string
-	SessionTimeoutConfirmButtonClass    string
-	SessionTimeoutDismissButtonID       string
-	SessionTimeoutDismissLabel          string
-	SessionTimeoutDismissButtonClass    string
-	DeleteSiteModalID                   string
-	DeleteSiteModalTitle                string
-	DeleteSiteModalDescription          string
-	DeleteSiteModalInputID              string
-	DeleteSiteModalInputLabel           string
-	DeleteSiteModalInputPlaceholder     string
-	DeleteSiteModalConfirmButtonID      string
-	DeleteSiteModalConfirmButtonLabel   string
-	DeleteSiteModalConfirmButtonClass   string
-	DeleteSiteModalCancelButtonLabel    string
-	DeleteSiteModalCancelButtonClass    string
-	DeleteSiteTargetNameID              string
-	DeleteSiteModalHintPrefix           string
-	DeleteSiteModalHintSuffix           string
-	ClientConfigElementID               string
-	ClientConfigJSON                    template.JS
+	PageTitle                               string
+	APIMeEndpoint                           string
+	APISitesEndpoint                        string
+	APISiteUpdateEndpointPrefix             string
+	APIMessagesEndpointPrefix               string
+	APIMessagesEndpointSuffix               string
+	LogoutPath                              string
+	LoginPath                               string
+	BootstrapIconsIntegrityAttr             template.HTMLAttr
+	FaviconDataURI                          template.URL
+	HeaderLogoDataURI                       template.URL
+	HeaderLogoImageID                       string
+	StatusLoadingUser                       string
+	StatusLoadingSites                      string
+	StatusLoadFailed                        string
+	StatusSavingSite                        string
+	StatusSiteSaved                         string
+	StatusCreatingSite                      string
+	StatusSiteCreated                       string
+	StatusDeletingSite                      string
+	StatusSiteDeleted                       string
+	StatusDeleteSiteFailed                  string
+	StatusSelectSite                        string
+	StatusNoMessages                        string
+	StatusNoSites                           string
+	RoleAdmin                               string
+	RoleUser                                string
+	EmptySitesMessage                       string
+	FeedbackPlaceholder                     string
+	FooterHTML                              template.HTML
+	FooterElementID                         string
+	FooterInnerElementID                    string
+	FooterBaseClass                         string
+	UserNameID                              string
+	UserEmailID                             string
+	UserRoleBadgeID                         string
+	UserAvatarID                            string
+	SitesListID                             string
+	EmptySitesMessageID                     string
+	SiteFormID                              string
+	EditSiteNameInputID                     string
+	EditSiteOriginInputID                   string
+	EditSiteOwnerContainerID                string
+	EditSiteOwnerInputID                    string
+	SiteCreatedAtElementID                  string
+	SiteCreatedAtContainerID                string
+	SiteCreatedAtPlaceholder                string
+	SiteSearchToggleButtonID                string
+	SiteSearchToggleLabel                   string
+	SiteSearchContainerID                   string
+	SiteSearchInputID                       string
+	SiteSearchPlaceholder                   string
+	SaveSiteButtonID                        string
+	SaveButtonSaving                        string
+	SaveButtonSaved                         string
+	SaveButtonCreated                       string
+	SaveButtonFailed                        string
+	SaveButtonDefaultClass                  string
+	RefreshMessagesButtonID                 string
+	RefreshButtonLoading                    string
+	RefreshButtonSuccess                    string
+	RefreshButtonFailed                     string
+	RefreshButtonDefaultLabel               string
+	RefreshButtonDefaultClass               string
+	ActionButtonPrimaryClass                string
+	ActionButtonSuccessClass                string
+	ActionButtonSecondaryClass              string
+	ActionButtonDangerClass                 string
+	FeedbackTableHeaderID                   string
+	FeedbackTableHeaderLightClass           string
+	FeedbackTableBodyID                     string
+	SubscriberCountElementID                string
+	SubscribersTableBodyID                  string
+	ExportSubscribersButtonID               string
+	ExportSubscribersButtonLabel            string
+	ExportButtonClass                       string
+	SubscribersStatusID                     string
+	SubscribersPlaceholder                  string
+	VisitCountElementID                     string
+	UniqueVisitorCountElementID             string
+	TrafficStatusID                         string
+	TopPagesTableBodyID                     string
+	TopPagesPlaceholder                     string
+	LogoutButtonID                          string
+	NewSiteOptionValue                      string
+	CreateButtonLabel                       string
+	UpdateButtonLabel                       string
+	CreateButtonClass                       string
+	UpdateButtonClass                       string
+	NewSiteButtonID                         string
+	NewSiteButtonLabel                      string
+	NewSiteButtonClass                      string
+	NewSiteButtonActiveClass                string
+	DeleteSiteButtonID                      string
+	DeleteSiteButtonLabel                   string
+	DeleteSiteButtonClass                   string
+	DeleteSiteButtonDisabledClass           string
+	DeleteSiteIconClass                     string
+	SiteListItemClass                       string
+	SiteListItemActiveClass                 string
+	WidgetCardTitle                         string
+	WidgetInstructions                      string
+	WidgetUnavailableMessage                string
+	SubscribeWidgetTitle                    string
+	SubscribeWidgetInstructions             string
+	TrafficWidgetTitle                      string
+	TrafficWidgetInstructions               string
+	StatusWidgetCopied                      string
+	StatusWidgetCopyFailed                  string
+	WidgetSnippetTextareaID                 string
+	SubscribeSnippetTextareaID              string
+	TrafficWidgetSnippetTextareaID          string
+	CopyWidgetSnippetButtonID               string
+	CopySubscribeSnippetButtonID            string
+	CopyTrafficSnippetButtonID              string
+	WidgetTestButtonID                      string
+	WidgetTestButtonLabel                   string
+	WidgetTestButtonClass                   string
+	SubscribeTestButtonID                   string
+	SubscribeTestButtonLabel                string
+	SubscribeTestButtonClass                string
+	TrafficTestButtonID                     string
+	TrafficTestButtonLabel                  string
+	TrafficTestButtonClass                  string
+	CopyButtonCopied                        string
+	CopyButtonFailed                        string
+	CopyButtonDefaultLabel                  string
+	CopyButtonDefaultClass                  string
+	WidgetPlacementTitle                    string
+	WidgetPlacementSideLabel                string
+	WidgetPlacementLeftLabel                string
+	WidgetPlacementRightLabel               string
+	WidgetPlacementBottomOffsetLabel        string
+	WidgetPlacementBottomOffsetHelp         string
+	WidgetTestPagePrefix                    string
+	WidgetTestPageSuffix                    string
+	SubscribeTestPagePrefix                 string
+	SubscribeTestPageSuffix                 string
+	TrafficTestPagePrefix                   string
+	TrafficTestPageSuffix                   string
+	SettingsButtonID                        string
+	SettingsButtonLabel                     string
+	LogoutLabel                             string
+	SettingsMenuID                          string
+	SettingsMenuSettingsButtonID            string
+	SettingsMenuSettingsLabel               string
+	SettingsModalID                         string
+	SettingsModalTitleID                    string
+	SettingsModalTitle                      string
+	SettingsModalIntro                      string
+	SettingsModalCloseLabel                 string
+	SettingsModalContentID                  string
+	SettingsAutoLogoutSectionTitle          string
+	SettingsAutoLogoutDescription           string
+	SettingsAutoLogoutEnableLabel           string
+	SettingsAutoLogoutPromptLabel           string
+	SettingsAutoLogoutLogoutLabel           string
+	SettingsAutoLogoutHelpText              string
+	SettingsAutoLogoutPromptError           string
+	SettingsAutoLogoutLogoutError           string
+	SettingsAutoLogoutGapError              string
+	SettingsAutoLogoutFieldsID              string
+	SettingsAutoLogoutToggleID              string
+	SettingsAutoLogoutPromptInputID         string
+	SettingsAutoLogoutLogoutInputID         string
+	SettingsAutoLogoutPromptErrorID         string
+	SettingsAutoLogoutLogoutErrorID         string
+	SettingsAutoLogoutPromptMin             int
+	SettingsAutoLogoutPromptMax             int
+	SettingsAutoLogoutLogoutMin             int
+	SettingsAutoLogoutLogoutMax             int
+	SettingsAutoLogoutGapSeconds            int
+	WidgetBottomOffsetDecreaseButtonID      string
+	WidgetBottomOffsetIncreaseButtonID      string
+	WidgetBottomOffsetDecreaseLabel         string
+	WidgetBottomOffsetIncreaseLabel         string
+	WidgetBottomOffsetDecreaseAriaLabel     string
+	WidgetBottomOffsetIncreaseAriaLabel     string
+	WidgetBottomOffsetStep                  int
+	ThemeStorageKey                         string
+	PublicThemeStorageKey                   string
+	LandingThemeStorageKey                  string
+	SettingsAvatarImageID                   string
+	SettingsAvatarFallbackID                string
+	FormStatusID                            string
+	FormStatusBaseClass                     string
+	FormStatusSuccessClass                  string
+	FormStatusDangerClass                   string
+	SearchToggleButtonClass                 string
+	SearchInputClass                        string
+	FieldHelpButtonClass                    string
+	FieldHelpButtonTabIndex                 string
+	FieldHelpIconClass                      string
+	FieldHelpTextClass                      string
+	SiteNameHelpButtonID                    string
+	SiteNameHelpTitle                       string
+	SiteNameHelpContent                     string
+	AllowedOriginHelpButtonID               string
+	AllowedOriginHelpTitle                  string
+	AllowedOriginHelpContent                string
+	OwnerEmailHelpButtonID                  string
+	OwnerEmailHelpTitle                     string
+	OwnerEmailHelpContent                   string
+	MessagesSearchToggleButtonID            string
+	MessagesSearchToggleLabel               string
+	MessagesSearchContainerID               string
+	MessagesSearchInputID                   string
+	MessagesSearchPlaceholder               string
+	DashboardSectionTabsID                  string
+	DashboardSectionFeedbackTabID           string
+	DashboardSectionSubscriptionsTabID      string
+	DashboardSectionTrafficTabID            string
+	DashboardSectionFeedbackTabLabel        string
+	DashboardSectionSubscriptionsTabLabel   string
+	DashboardSectionTrafficTabLabel         string
+	FeedbackCountElementID                  string
+	WidgetStatusID                          string
+	WidgetPlacementSideLeftID               string
+	WidgetPlacementSideRightID              string
+	WidgetPlacementSideInputName            string
+	WidgetBottomOffsetInputID               string
+	WidgetBottomOffsetHelpID                string
+	WidgetBottomOffsetMin                   string
+	WidgetBottomOffsetMax                   string
+	MessagesStatusID                        string
+	SessionTimeoutContainerID               string
+	SessionTimeoutContainerClass            string
+	SessionTimeoutInnerClass                string
+	SessionTimeoutMessageID                 string
+	SessionTimeoutMessageClass              string
+	SessionTimeoutPromptText                string
+	SessionTimeoutActionsClass              string
+	SessionTimeoutConfirmButtonID           string
+	SessionTimeoutConfirmLabel              string
+	SessionTimeoutConfirmButtonClass        string
+	SessionTimeoutDismissButtonID           string
+	SessionTimeoutDismissLabel              string
+	SessionTimeoutDismissButtonClass        string
+	DeleteSiteModalID                       string
+	DeleteSiteModalTitle                    string
+	DeleteSiteModalDescription              string
+	DeleteSiteModalInputID                  string
+	DeleteSiteModalInputLabel               string
+	DeleteSiteModalInputPlaceholder         string
+	DeleteSiteModalConfirmButtonID          string
+	DeleteSiteModalConfirmButtonLabel       string
+	DeleteSiteModalConfirmButtonClass       string
+	DeleteSiteModalCancelButtonLabel        string
+	DeleteSiteModalCancelButtonClass        string
+	DeleteSiteTargetNameID                  string
+	DeleteSiteModalHintPrefix               string
+	DeleteSiteModalHintSuffix               string
+	DeleteSubscriberButtonClass             string
+	DeleteSubscriberIconClass               string
+	DeleteSubscriberModalID                 string
+	DeleteSubscriberModalTitle              string
+	DeleteSubscriberModalDescription        string
+	DeleteSubscriberModalInputID            string
+	DeleteSubscriberModalInputLabel         string
+	DeleteSubscriberModalInputPlaceholder   string
+	DeleteSubscriberModalConfirmButtonID    string
+	DeleteSubscriberModalConfirmButtonLabel string
+	DeleteSubscriberModalConfirmButtonClass string
+	DeleteSubscriberModalCancelButtonLabel  string
+	DeleteSubscriberModalCancelButtonClass  string
+	DeleteSubscriberTargetEmailID           string
+	DeleteSubscriberModalHintPrefix         string
+	DeleteSubscriberModalHintSuffix         string
+	ClientConfigElementID                   string
+	ClientConfigJSON                        template.JS
 }
 
 type sessionTimeoutConfig struct {
@@ -610,251 +656,274 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 	}
 
 	data := dashboardTemplateData{
-		PageTitle:                           dashboardPageTitle,
-		APIMeEndpoint:                       "/api/me",
-		APISitesEndpoint:                    "/api/sites",
-		APISiteUpdateEndpointPrefix:         "/api/sites/",
-		APIMessagesEndpointPrefix:           "/api/sites/",
-		APIMessagesEndpointSuffix:           "/messages",
-		LogoutPath:                          constants.LogoutPath,
-		LoginPath:                           constants.LoginPath,
-		BootstrapIconsIntegrityAttr:         template.HTMLAttr(dashboardBootstrapIconsIntegrityAttr),
-		FaviconDataURI:                      template.URL(dashboardFaviconDataURI),
-		HeaderLogoDataURI:                   landingLogoDataURI,
-		HeaderLogoImageID:                   dashboardHeaderLogoElementID,
-		StatusLoadingUser:                   dashboardStatusLoadingUser,
-		StatusLoadingSites:                  dashboardStatusLoadingSites,
-		StatusLoadFailed:                    dashboardStatusLoadFailed,
-		StatusSavingSite:                    dashboardStatusSavingSite,
-		StatusSiteSaved:                     dashboardStatusSiteSaved,
-		StatusCreatingSite:                  dashboardStatusCreatingSite,
-		StatusSiteCreated:                   dashboardStatusSiteCreated,
-		StatusDeletingSite:                  dashboardStatusDeletingSite,
-		StatusSiteDeleted:                   dashboardStatusSiteDeleted,
-		StatusDeleteSiteFailed:              dashboardStatusDeleteFailed,
-		StatusSelectSite:                    dashboardStatusSelectSite,
-		StatusNoMessages:                    dashboardStatusNoMessages,
-		StatusNoSites:                       dashboardStatusNoSites,
-		RoleAdmin:                           dashboardRoleAdminLabel,
-		RoleUser:                            dashboardRoleUserLabel,
-		EmptySitesMessage:                   dashboardStatusNoSites,
-		FeedbackPlaceholder:                 dashboardFeedbackPlaceholder,
-		FooterHTML:                          footerHTML,
-		FooterElementID:                     footerElementID,
-		FooterInnerElementID:                footerInnerElementID,
-		FooterBaseClass:                     footerBaseClass,
-		UserNameID:                          userNameElementID,
-		UserEmailID:                         userEmailElementID,
-		UserRoleBadgeID:                     userRoleBadgeElementID,
-		UserAvatarID:                        userAvatarElementID,
-		SitesListID:                         sitesListElementID,
-		EmptySitesMessageID:                 emptySitesMessageElementID,
-		SiteFormID:                          siteFormElementID,
-		EditSiteNameInputID:                 editSiteNameInputElementID,
-		EditSiteOriginInputID:               editSiteOriginInputElementID,
-		EditSiteOwnerContainerID:            editSiteOwnerContainerElementID,
-		EditSiteOwnerInputID:                editSiteOwnerInputElementID,
-		SiteCreatedAtElementID:              siteCreatedAtElementID,
-		SiteCreatedAtContainerID:            siteCreatedAtContainerElementID,
-		SiteCreatedAtPlaceholder:            siteCreatedAtPlaceholder,
-		SiteSearchToggleButtonID:            siteSearchToggleButtonElementID,
-		SiteSearchToggleLabel:               siteSearchToggleLabel,
-		SiteSearchContainerID:               siteSearchContainerElementID,
-		SiteSearchInputID:                   siteSearchInputElementID,
-		SiteSearchPlaceholder:               siteSearchPlaceholder,
-		SaveSiteButtonID:                    saveSiteButtonElementID,
-		SaveButtonSaving:                    "Saving site...",
-		SaveButtonSaved:                     "Site updated.",
-		SaveButtonCreated:                   "Site created.",
-		SaveButtonFailed:                    "Failed to save site.",
-		SaveButtonDefaultClass:              dashboardActionButtonSuccessClass,
-		RefreshMessagesButtonID:             refreshMessagesButtonElementID,
-		RefreshButtonLoading:                "Refreshing...",
-		RefreshButtonSuccess:                "Feedback refreshed.",
-		RefreshButtonFailed:                 "Refresh failed.",
-		RefreshButtonDefaultLabel:           "Refresh feedback",
-		RefreshButtonDefaultClass:           dashboardActionButtonSecondaryClass,
-		ActionButtonPrimaryClass:            dashboardActionButtonPrimaryClass,
-		ActionButtonSuccessClass:            dashboardActionButtonSuccessClass,
-		ActionButtonSecondaryClass:          dashboardActionButtonSecondaryClass,
-		ActionButtonDangerClass:             dashboardActionButtonDangerClass,
-		FeedbackTableHeaderID:               feedbackTableHeaderElementID,
-		FeedbackTableHeaderLightClass:       feedbackTableHeaderLightClass,
-		FeedbackTableBodyID:                 feedbackTableBodyElementID,
-		SubscriberCountElementID:            subscriberCountElementID,
-		SubscribersTableBodyID:              subscribersTableBodyElementID,
-		ExportSubscribersButtonID:           exportSubscribersButtonElementID,
-		ExportSubscribersButtonLabel:        exportSubscribersButtonLabel,
-		ExportButtonClass:                   exportButtonClass,
-		SubscribersStatusID:                 subscribersStatusElementID,
-		SubscribersPlaceholder:              subscribersPlaceholder,
-		VisitCountElementID:                 visitCountElementID,
-		UniqueVisitorCountElementID:         uniqueVisitorCountElementID,
-		TrafficStatusID:                     trafficStatusElementID,
-		TopPagesTableBodyID:                 topPagesTableBodyElementID,
-		TopPagesPlaceholder:                 topPagesPlaceholder,
-		LogoutButtonID:                      logoutButtonElementID,
-		NewSiteOptionValue:                  newSiteOptionValue,
-		CreateButtonLabel:                   siteFormCreateButtonLabel,
-		UpdateButtonLabel:                   siteFormUpdateButtonLabel,
-		CreateButtonClass:                   siteFormCreateButtonClass,
-		UpdateButtonClass:                   siteFormUpdateButtonClass,
-		NewSiteButtonID:                     newSiteButtonElementID,
-		NewSiteButtonLabel:                  newSiteOptionLabel,
-		NewSiteButtonClass:                  newSiteButtonClass,
-		NewSiteButtonActiveClass:            newSiteButtonActiveClass,
-		DeleteSiteButtonID:                  deleteSiteButtonElementID,
-		DeleteSiteButtonLabel:               deleteSiteModalConfirmButtonLabel,
-		DeleteSiteButtonClass:               deleteSiteButtonClass,
-		DeleteSiteButtonDisabledClass:       deleteSiteButtonDisabledClass,
-		DeleteSiteIconClass:                 deleteSiteIconClass,
-		SiteListItemClass:                   siteListItemClass,
-		SiteListItemActiveClass:             siteListItemActiveClass,
-		WidgetCardTitle:                     dashboardWidgetCardTitle,
-		WidgetInstructions:                  dashboardWidgetInstructions,
-		WidgetUnavailableMessage:            dashboardWidgetUnavailable,
-		SubscribeWidgetTitle:                subscribeWidgetCardTitle,
-		SubscribeWidgetInstructions:         subscribeWidgetInstructions,
-		TrafficWidgetTitle:                  trafficWidgetCardTitle,
-		TrafficWidgetInstructions:           trafficWidgetInstructions,
-		StatusWidgetCopied:                  dashboardStatusWidgetCopied,
-		StatusWidgetCopyFailed:              dashboardStatusWidgetCopyFailed,
-		WidgetSnippetTextareaID:             widgetSnippetTextareaElementID,
-		SubscribeSnippetTextareaID:          subscribeWidgetSnippetTextareaElementID,
-		TrafficWidgetSnippetTextareaID:      trafficWidgetSnippetTextareaElementID,
-		CopyWidgetSnippetButtonID:           copyWidgetSnippetButtonElementID,
-		CopySubscribeSnippetButtonID:        copySubscribeWidgetSnippetButtonElementID,
-		CopyTrafficSnippetButtonID:          copyTrafficWidgetSnippetButtonElementID,
-		WidgetTestButtonID:                  widgetTestButtonElementID,
-		WidgetTestButtonLabel:               dashboardWidgetTestButtonLabel,
-		WidgetTestButtonClass:               dashboardActionButtonSecondaryClass,
-		SubscribeTestButtonID:               subscribeTestButtonElementID,
-		SubscribeTestButtonLabel:            dashboardWidgetTestButtonLabel,
-		SubscribeTestButtonClass:            dashboardActionButtonSecondaryClass,
-		TrafficTestButtonID:                 trafficTestButtonElementID,
-		TrafficTestButtonLabel:              dashboardWidgetTestButtonLabel,
-		TrafficTestButtonClass:              dashboardActionButtonSecondaryClass,
-		CopyButtonCopied:                    "Snippet copied.",
-		CopyButtonFailed:                    "Copy failed.",
-		CopyButtonDefaultLabel:              "Copy snippet",
-		CopyButtonDefaultClass:              dashboardActionButtonPrimaryClass,
-		WidgetPlacementTitle:                dashboardWidgetPlacementTitle,
-		WidgetPlacementSideLabel:            dashboardWidgetPlacementSideLabel,
-		WidgetPlacementLeftLabel:            dashboardWidgetPlacementLeftLabel,
-		WidgetPlacementRightLabel:           dashboardWidgetPlacementRightLabel,
-		WidgetPlacementBottomOffsetLabel:    dashboardWidgetPlacementBottomOffsetLabel,
-		WidgetPlacementBottomOffsetHelp:     dashboardWidgetPlacementBottomOffsetHelp,
-		WidgetTestPagePrefix:                dashboardWidgetTestPathPrefix,
-		WidgetTestPageSuffix:                dashboardWidgetTestPathSuffix,
-		SubscribeTestPagePrefix:             dashboardSubscribeTestPathPrefix,
-		SubscribeTestPageSuffix:             dashboardSubscribeTestPathSuffix,
-		TrafficTestPagePrefix:               dashboardTrafficTestPathPrefix,
-		TrafficTestPageSuffix:               dashboardTrafficTestPathSuffix,
-		WidgetPlacementSideLeftID:           widgetPlacementSideLeftInputElementID,
-		WidgetPlacementSideRightID:          widgetPlacementSideRightInputElementID,
-		WidgetPlacementSideInputName:        widgetPlacementSideInputName,
-		WidgetBottomOffsetInputID:           widgetPlacementBottomOffsetInputElementID,
-		WidgetBottomOffsetHelpID:            widgetPlacementBottomOffsetHelpElementID,
-		WidgetBottomOffsetMin:               strconv.Itoa(minWidgetBubbleBottomOffset),
-		WidgetBottomOffsetMax:               strconv.Itoa(maxWidgetBubbleBottomOffset),
-		SettingsButtonID:                    settingsButtonElementID,
-		SettingsButtonLabel:                 navbarSettingsButtonLabel,
-		LogoutLabel:                         navbarLogoutLabel,
-		SettingsMenuID:                      settingsMenuElementID,
-		SettingsMenuSettingsButtonID:        settingsMenuSettingsButtonElementID,
-		SettingsMenuSettingsLabel:           settingsMenuSettingsLabel,
-		SettingsModalID:                     settingsModalElementID,
-		SettingsModalTitleID:                settingsModalTitleElementID,
-		SettingsModalTitle:                  settingsModalTitle,
-		SettingsModalIntro:                  settingsModalIntroText,
-		SettingsModalCloseLabel:             settingsModalCloseButtonLabel,
-		SettingsModalContentID:              settingsModalContentElementID,
-		SettingsAutoLogoutSectionTitle:      settingsAutoLogoutSectionTitle,
-		SettingsAutoLogoutDescription:       settingsAutoLogoutDescription,
-		SettingsAutoLogoutEnableLabel:       settingsAutoLogoutEnableLabel,
-		SettingsAutoLogoutPromptLabel:       settingsAutoLogoutPromptLabel,
-		SettingsAutoLogoutLogoutLabel:       settingsAutoLogoutLogoutLabel,
-		SettingsAutoLogoutHelpText:          settingsAutoLogoutHelpText,
-		SettingsAutoLogoutPromptError:       fmt.Sprintf(settingsAutoLogoutPromptError, autoLogoutMinimumPromptSeconds, autoLogoutMaximumPromptSeconds),
-		SettingsAutoLogoutLogoutError:       fmt.Sprintf(settingsAutoLogoutLogoutError, autoLogoutMinimumLogoutSeconds, autoLogoutMaximumLogoutSeconds),
-		SettingsAutoLogoutGapError:          fmt.Sprintf(settingsAutoLogoutGapError, autoLogoutMinimumGapSeconds),
-		SettingsAutoLogoutFieldsID:          settingsAutoLogoutFieldsContainerElementID,
-		SettingsAutoLogoutToggleID:          settingsAutoLogoutToggleElementID,
-		SettingsAutoLogoutPromptInputID:     settingsAutoLogoutPromptInputElementID,
-		SettingsAutoLogoutLogoutInputID:     settingsAutoLogoutLogoutInputElementID,
-		SettingsAutoLogoutPromptErrorID:     settingsAutoLogoutPromptErrorElementID,
-		SettingsAutoLogoutLogoutErrorID:     settingsAutoLogoutLogoutErrorElementID,
-		SettingsAutoLogoutPromptMin:         autoLogoutMinimumPromptSeconds,
-		SettingsAutoLogoutPromptMax:         autoLogoutMaximumPromptSeconds,
-		SettingsAutoLogoutLogoutMin:         autoLogoutMinimumLogoutSeconds,
-		SettingsAutoLogoutLogoutMax:         autoLogoutMaximumLogoutSeconds,
-		SettingsAutoLogoutGapSeconds:        autoLogoutMinimumGapSeconds,
-		WidgetBottomOffsetDecreaseButtonID:  widgetBottomOffsetDecreaseButtonElementID,
-		WidgetBottomOffsetIncreaseButtonID:  widgetBottomOffsetIncreaseButtonElementID,
-		WidgetBottomOffsetDecreaseLabel:     widgetBottomOffsetDecreaseLabel,
-		WidgetBottomOffsetIncreaseLabel:     widgetBottomOffsetIncreaseLabel,
-		WidgetBottomOffsetDecreaseAriaLabel: widgetBottomOffsetDecreaseAriaLabel,
-		WidgetBottomOffsetIncreaseAriaLabel: widgetBottomOffsetIncreaseAriaLabel,
-		WidgetBottomOffsetStep:              widgetBottomOffsetStepPixels,
-		ThemeStorageKey:                     themeStorageKey,
-		PublicThemeStorageKey:               publicThemeStorageKey,
-		LandingThemeStorageKey:              publicLandingThemeStorageKey,
-		SettingsAvatarImageID:               settingsAvatarImageElementID,
-		SettingsAvatarFallbackID:            settingsAvatarFallbackElementID,
-		FormStatusID:                        formStatusElementID,
-		FormStatusBaseClass:                 formStatusBaseClass,
-		FormStatusSuccessClass:              formStatusSuccessClass,
-		FormStatusDangerClass:               formStatusDangerClass,
-		SearchToggleButtonClass:             searchToggleButtonClass,
-		SearchInputClass:                    searchInputClass,
-		FieldHelpButtonClass:                fieldHelpButtonClass,
-		FieldHelpButtonTabIndex:             fieldHelpButtonTabIndexValue,
-		FieldHelpIconClass:                  fieldHelpIconClass,
-		FieldHelpTextClass:                  fieldHelpTextClass,
-		SiteNameHelpButtonID:                siteNameHelpButtonElementID,
-		SiteNameHelpTitle:                   siteNameHelpTitle,
-		SiteNameHelpContent:                 siteNameHelpContent,
-		AllowedOriginHelpButtonID:           allowedOriginHelpButtonElementID,
-		AllowedOriginHelpTitle:              allowedOriginHelpTitle,
-		AllowedOriginHelpContent:            allowedOriginHelpContent,
-		OwnerEmailHelpButtonID:              ownerEmailHelpButtonElementID,
-		OwnerEmailHelpTitle:                 ownerEmailHelpTitle,
-		OwnerEmailHelpContent:               ownerEmailHelpContent,
-		MessagesSearchToggleButtonID:        messagesSearchToggleButtonElementID,
-		MessagesSearchToggleLabel:           messagesSearchToggleLabel,
-		MessagesSearchContainerID:           messagesSearchContainerElementID,
-		MessagesSearchInputID:               messagesSearchInputElementID,
-		MessagesSearchPlaceholder:           messagesSearchPlaceholder,
-		FeedbackCountElementID:              feedbackCountElementID,
-		WidgetStatusID:                      widgetStatusElementID,
-		MessagesStatusID:                    messagesStatusElementID,
-		SessionTimeoutContainerID:           sessionTimeoutContainerElementID,
-		SessionTimeoutContainerClass:        sessionTimeoutContainerBaseClass,
-		SessionTimeoutInnerClass:            sessionTimeoutInnerClass,
-		SessionTimeoutMessageID:             sessionTimeoutMessageElementID,
-		SessionTimeoutMessageClass:          sessionTimeoutMessageClass,
-		SessionTimeoutPromptText:            sessionTimeoutPromptText,
-		SessionTimeoutActionsClass:          sessionTimeoutActionsClass,
-		SessionTimeoutConfirmButtonID:       sessionTimeoutConfirmButtonElementID,
-		SessionTimeoutConfirmLabel:          sessionTimeoutConfirmButtonLabel,
-		SessionTimeoutConfirmButtonClass:    sessionTimeoutConfirmButtonClass,
-		SessionTimeoutDismissButtonID:       sessionTimeoutDismissButtonElementID,
-		SessionTimeoutDismissLabel:          sessionTimeoutDismissButtonLabel,
-		SessionTimeoutDismissButtonClass:    sessionTimeoutDismissButtonClass,
-		DeleteSiteModalID:                   deleteSiteModalElementID,
-		DeleteSiteModalTitle:                deleteSiteModalTitle,
-		DeleteSiteModalDescription:          deleteSiteModalDescription,
-		DeleteSiteModalInputID:              deleteSiteModalInputElementID,
-		DeleteSiteModalInputLabel:           deleteSiteModalInputLabel,
-		DeleteSiteModalInputPlaceholder:     deleteSiteModalInputPlaceholder,
-		DeleteSiteModalConfirmButtonID:      deleteSiteModalConfirmButtonID,
-		DeleteSiteModalConfirmButtonLabel:   deleteSiteModalConfirmButtonLabel,
-		DeleteSiteModalConfirmButtonClass:   deleteSiteModalConfirmButtonClass,
-		DeleteSiteModalCancelButtonLabel:    deleteSiteModalCancelButtonLabel,
-		DeleteSiteModalCancelButtonClass:    deleteSiteModalCancelButtonClass,
-		DeleteSiteTargetNameID:              deleteSiteTargetNameElementID,
-		DeleteSiteModalHintPrefix:           deleteSiteModalHintPrefix,
-		DeleteSiteModalHintSuffix:           deleteSiteModalHintSuffix,
+		PageTitle:                               dashboardPageTitle,
+		APIMeEndpoint:                           "/api/me",
+		APISitesEndpoint:                        "/api/sites",
+		APISiteUpdateEndpointPrefix:             "/api/sites/",
+		APIMessagesEndpointPrefix:               "/api/sites/",
+		APIMessagesEndpointSuffix:               "/messages",
+		LogoutPath:                              constants.LogoutPath,
+		LoginPath:                               constants.LoginPath,
+		BootstrapIconsIntegrityAttr:             template.HTMLAttr(dashboardBootstrapIconsIntegrityAttr),
+		FaviconDataURI:                          template.URL(dashboardFaviconDataURI),
+		HeaderLogoDataURI:                       landingLogoDataURI,
+		HeaderLogoImageID:                       dashboardHeaderLogoElementID,
+		StatusLoadingUser:                       dashboardStatusLoadingUser,
+		StatusLoadingSites:                      dashboardStatusLoadingSites,
+		StatusLoadFailed:                        dashboardStatusLoadFailed,
+		StatusSavingSite:                        dashboardStatusSavingSite,
+		StatusSiteSaved:                         dashboardStatusSiteSaved,
+		StatusCreatingSite:                      dashboardStatusCreatingSite,
+		StatusSiteCreated:                       dashboardStatusSiteCreated,
+		StatusDeletingSite:                      dashboardStatusDeletingSite,
+		StatusSiteDeleted:                       dashboardStatusSiteDeleted,
+		StatusDeleteSiteFailed:                  dashboardStatusDeleteFailed,
+		StatusSelectSite:                        dashboardStatusSelectSite,
+		StatusNoMessages:                        dashboardStatusNoMessages,
+		StatusNoSites:                           dashboardStatusNoSites,
+		RoleAdmin:                               dashboardRoleAdminLabel,
+		RoleUser:                                dashboardRoleUserLabel,
+		EmptySitesMessage:                       dashboardStatusNoSites,
+		FeedbackPlaceholder:                     dashboardFeedbackPlaceholder,
+		FooterHTML:                              footerHTML,
+		FooterElementID:                         footerElementID,
+		FooterInnerElementID:                    footerInnerElementID,
+		FooterBaseClass:                         footerBaseClass,
+		UserNameID:                              userNameElementID,
+		UserEmailID:                             userEmailElementID,
+		UserRoleBadgeID:                         userRoleBadgeElementID,
+		UserAvatarID:                            userAvatarElementID,
+		SitesListID:                             sitesListElementID,
+		EmptySitesMessageID:                     emptySitesMessageElementID,
+		SiteFormID:                              siteFormElementID,
+		EditSiteNameInputID:                     editSiteNameInputElementID,
+		EditSiteOriginInputID:                   editSiteOriginInputElementID,
+		EditSiteOwnerContainerID:                editSiteOwnerContainerElementID,
+		EditSiteOwnerInputID:                    editSiteOwnerInputElementID,
+		SiteCreatedAtElementID:                  siteCreatedAtElementID,
+		SiteCreatedAtContainerID:                siteCreatedAtContainerElementID,
+		SiteCreatedAtPlaceholder:                siteCreatedAtPlaceholder,
+		SiteSearchToggleButtonID:                siteSearchToggleButtonElementID,
+		SiteSearchToggleLabel:                   siteSearchToggleLabel,
+		SiteSearchContainerID:                   siteSearchContainerElementID,
+		SiteSearchInputID:                       siteSearchInputElementID,
+		SiteSearchPlaceholder:                   siteSearchPlaceholder,
+		SaveSiteButtonID:                        saveSiteButtonElementID,
+		SaveButtonSaving:                        "Saving site...",
+		SaveButtonSaved:                         "Site updated.",
+		SaveButtonCreated:                       "Site created.",
+		SaveButtonFailed:                        "Failed to save site.",
+		SaveButtonDefaultClass:                  dashboardActionButtonSuccessClass,
+		RefreshMessagesButtonID:                 refreshMessagesButtonElementID,
+		RefreshButtonLoading:                    "Refreshing...",
+		RefreshButtonSuccess:                    "Feedback refreshed.",
+		RefreshButtonFailed:                     "Refresh failed.",
+		RefreshButtonDefaultLabel:               "Refresh feedback",
+		RefreshButtonDefaultClass:               dashboardActionButtonSecondaryClass,
+		ActionButtonPrimaryClass:                dashboardActionButtonPrimaryClass,
+		ActionButtonSuccessClass:                dashboardActionButtonSuccessClass,
+		ActionButtonSecondaryClass:              dashboardActionButtonSecondaryClass,
+		ActionButtonDangerClass:                 dashboardActionButtonDangerClass,
+		FeedbackTableHeaderID:                   feedbackTableHeaderElementID,
+		FeedbackTableHeaderLightClass:           feedbackTableHeaderLightClass,
+		FeedbackTableBodyID:                     feedbackTableBodyElementID,
+		SubscriberCountElementID:                subscriberCountElementID,
+		SubscribersTableBodyID:                  subscribersTableBodyElementID,
+		ExportSubscribersButtonID:               exportSubscribersButtonElementID,
+		ExportSubscribersButtonLabel:            exportSubscribersButtonLabel,
+		ExportButtonClass:                       exportButtonClass,
+		SubscribersStatusID:                     subscribersStatusElementID,
+		SubscribersPlaceholder:                  subscribersPlaceholder,
+		VisitCountElementID:                     visitCountElementID,
+		UniqueVisitorCountElementID:             uniqueVisitorCountElementID,
+		TrafficStatusID:                         trafficStatusElementID,
+		TopPagesTableBodyID:                     topPagesTableBodyElementID,
+		TopPagesPlaceholder:                     topPagesPlaceholder,
+		LogoutButtonID:                          logoutButtonElementID,
+		NewSiteOptionValue:                      newSiteOptionValue,
+		CreateButtonLabel:                       siteFormCreateButtonLabel,
+		UpdateButtonLabel:                       siteFormUpdateButtonLabel,
+		CreateButtonClass:                       siteFormCreateButtonClass,
+		UpdateButtonClass:                       siteFormUpdateButtonClass,
+		NewSiteButtonID:                         newSiteButtonElementID,
+		NewSiteButtonLabel:                      newSiteOptionLabel,
+		NewSiteButtonClass:                      newSiteButtonClass,
+		NewSiteButtonActiveClass:                newSiteButtonActiveClass,
+		DeleteSiteButtonID:                      deleteSiteButtonElementID,
+		DeleteSiteButtonLabel:                   deleteSiteModalConfirmButtonLabel,
+		DeleteSiteButtonClass:                   deleteSiteButtonClass,
+		DeleteSiteButtonDisabledClass:           deleteSiteButtonDisabledClass,
+		DeleteSiteIconClass:                     deleteSiteIconClass,
+		SiteListItemClass:                       siteListItemClass,
+		SiteListItemActiveClass:                 siteListItemActiveClass,
+		WidgetCardTitle:                         dashboardWidgetCardTitle,
+		WidgetInstructions:                      dashboardWidgetInstructions,
+		WidgetUnavailableMessage:                dashboardWidgetUnavailable,
+		SubscribeWidgetTitle:                    subscribeWidgetCardTitle,
+		SubscribeWidgetInstructions:             subscribeWidgetInstructions,
+		TrafficWidgetTitle:                      trafficWidgetCardTitle,
+		TrafficWidgetInstructions:               trafficWidgetInstructions,
+		StatusWidgetCopied:                      dashboardStatusWidgetCopied,
+		StatusWidgetCopyFailed:                  dashboardStatusWidgetCopyFailed,
+		WidgetSnippetTextareaID:                 widgetSnippetTextareaElementID,
+		SubscribeSnippetTextareaID:              subscribeWidgetSnippetTextareaElementID,
+		TrafficWidgetSnippetTextareaID:          trafficWidgetSnippetTextareaElementID,
+		CopyWidgetSnippetButtonID:               copyWidgetSnippetButtonElementID,
+		CopySubscribeSnippetButtonID:            copySubscribeWidgetSnippetButtonElementID,
+		CopyTrafficSnippetButtonID:              copyTrafficWidgetSnippetButtonElementID,
+		WidgetTestButtonID:                      widgetTestButtonElementID,
+		WidgetTestButtonLabel:                   dashboardWidgetTestButtonLabel,
+		WidgetTestButtonClass:                   dashboardActionButtonSecondaryClass,
+		SubscribeTestButtonID:                   subscribeTestButtonElementID,
+		SubscribeTestButtonLabel:                dashboardWidgetTestButtonLabel,
+		SubscribeTestButtonClass:                dashboardActionButtonSecondaryClass,
+		TrafficTestButtonID:                     trafficTestButtonElementID,
+		TrafficTestButtonLabel:                  dashboardWidgetTestButtonLabel,
+		TrafficTestButtonClass:                  dashboardActionButtonSecondaryClass,
+		CopyButtonCopied:                        "Snippet copied.",
+		CopyButtonFailed:                        "Copy failed.",
+		CopyButtonDefaultLabel:                  "Copy snippet",
+		CopyButtonDefaultClass:                  dashboardActionButtonPrimaryClass,
+		WidgetPlacementTitle:                    dashboardWidgetPlacementTitle,
+		WidgetPlacementSideLabel:                dashboardWidgetPlacementSideLabel,
+		WidgetPlacementLeftLabel:                dashboardWidgetPlacementLeftLabel,
+		WidgetPlacementRightLabel:               dashboardWidgetPlacementRightLabel,
+		WidgetPlacementBottomOffsetLabel:        dashboardWidgetPlacementBottomOffsetLabel,
+		WidgetPlacementBottomOffsetHelp:         dashboardWidgetPlacementBottomOffsetHelp,
+		WidgetTestPagePrefix:                    dashboardWidgetTestPathPrefix,
+		WidgetTestPageSuffix:                    dashboardWidgetTestPathSuffix,
+		SubscribeTestPagePrefix:                 dashboardSubscribeTestPathPrefix,
+		SubscribeTestPageSuffix:                 dashboardSubscribeTestPathSuffix,
+		TrafficTestPagePrefix:                   dashboardTrafficTestPathPrefix,
+		TrafficTestPageSuffix:                   dashboardTrafficTestPathSuffix,
+		WidgetPlacementSideLeftID:               widgetPlacementSideLeftInputElementID,
+		WidgetPlacementSideRightID:              widgetPlacementSideRightInputElementID,
+		WidgetPlacementSideInputName:            widgetPlacementSideInputName,
+		WidgetBottomOffsetInputID:               widgetPlacementBottomOffsetInputElementID,
+		WidgetBottomOffsetHelpID:                widgetPlacementBottomOffsetHelpElementID,
+		WidgetBottomOffsetMin:                   strconv.Itoa(minWidgetBubbleBottomOffset),
+		WidgetBottomOffsetMax:                   strconv.Itoa(maxWidgetBubbleBottomOffset),
+		SettingsButtonID:                        settingsButtonElementID,
+		SettingsButtonLabel:                     navbarSettingsButtonLabel,
+		LogoutLabel:                             navbarLogoutLabel,
+		SettingsMenuID:                          settingsMenuElementID,
+		SettingsMenuSettingsButtonID:            settingsMenuSettingsButtonElementID,
+		SettingsMenuSettingsLabel:               settingsMenuSettingsLabel,
+		SettingsModalID:                         settingsModalElementID,
+		SettingsModalTitleID:                    settingsModalTitleElementID,
+		SettingsModalTitle:                      settingsModalTitle,
+		SettingsModalIntro:                      settingsModalIntroText,
+		SettingsModalCloseLabel:                 settingsModalCloseButtonLabel,
+		SettingsModalContentID:                  settingsModalContentElementID,
+		SettingsAutoLogoutSectionTitle:          settingsAutoLogoutSectionTitle,
+		SettingsAutoLogoutDescription:           settingsAutoLogoutDescription,
+		SettingsAutoLogoutEnableLabel:           settingsAutoLogoutEnableLabel,
+		SettingsAutoLogoutPromptLabel:           settingsAutoLogoutPromptLabel,
+		SettingsAutoLogoutLogoutLabel:           settingsAutoLogoutLogoutLabel,
+		SettingsAutoLogoutHelpText:              settingsAutoLogoutHelpText,
+		SettingsAutoLogoutPromptError:           fmt.Sprintf(settingsAutoLogoutPromptError, autoLogoutMinimumPromptSeconds, autoLogoutMaximumPromptSeconds),
+		SettingsAutoLogoutLogoutError:           fmt.Sprintf(settingsAutoLogoutLogoutError, autoLogoutMinimumLogoutSeconds, autoLogoutMaximumLogoutSeconds),
+		SettingsAutoLogoutGapError:              fmt.Sprintf(settingsAutoLogoutGapError, autoLogoutMinimumGapSeconds),
+		SettingsAutoLogoutFieldsID:              settingsAutoLogoutFieldsContainerElementID,
+		SettingsAutoLogoutToggleID:              settingsAutoLogoutToggleElementID,
+		SettingsAutoLogoutPromptInputID:         settingsAutoLogoutPromptInputElementID,
+		SettingsAutoLogoutLogoutInputID:         settingsAutoLogoutLogoutInputElementID,
+		SettingsAutoLogoutPromptErrorID:         settingsAutoLogoutPromptErrorElementID,
+		SettingsAutoLogoutLogoutErrorID:         settingsAutoLogoutLogoutErrorElementID,
+		SettingsAutoLogoutPromptMin:             autoLogoutMinimumPromptSeconds,
+		SettingsAutoLogoutPromptMax:             autoLogoutMaximumPromptSeconds,
+		SettingsAutoLogoutLogoutMin:             autoLogoutMinimumLogoutSeconds,
+		SettingsAutoLogoutLogoutMax:             autoLogoutMaximumLogoutSeconds,
+		SettingsAutoLogoutGapSeconds:            autoLogoutMinimumGapSeconds,
+		WidgetBottomOffsetDecreaseButtonID:      widgetBottomOffsetDecreaseButtonElementID,
+		WidgetBottomOffsetIncreaseButtonID:      widgetBottomOffsetIncreaseButtonElementID,
+		WidgetBottomOffsetDecreaseLabel:         widgetBottomOffsetDecreaseLabel,
+		WidgetBottomOffsetIncreaseLabel:         widgetBottomOffsetIncreaseLabel,
+		WidgetBottomOffsetDecreaseAriaLabel:     widgetBottomOffsetDecreaseAriaLabel,
+		WidgetBottomOffsetIncreaseAriaLabel:     widgetBottomOffsetIncreaseAriaLabel,
+		WidgetBottomOffsetStep:                  widgetBottomOffsetStepPixels,
+		ThemeStorageKey:                         themeStorageKey,
+		PublicThemeStorageKey:                   publicThemeStorageKey,
+		LandingThemeStorageKey:                  publicLandingThemeStorageKey,
+		SettingsAvatarImageID:                   settingsAvatarImageElementID,
+		SettingsAvatarFallbackID:                settingsAvatarFallbackElementID,
+		FormStatusID:                            formStatusElementID,
+		FormStatusBaseClass:                     formStatusBaseClass,
+		FormStatusSuccessClass:                  formStatusSuccessClass,
+		FormStatusDangerClass:                   formStatusDangerClass,
+		SearchToggleButtonClass:                 searchToggleButtonClass,
+		SearchInputClass:                        searchInputClass,
+		FieldHelpButtonClass:                    fieldHelpButtonClass,
+		FieldHelpButtonTabIndex:                 fieldHelpButtonTabIndexValue,
+		FieldHelpIconClass:                      fieldHelpIconClass,
+		FieldHelpTextClass:                      fieldHelpTextClass,
+		SiteNameHelpButtonID:                    siteNameHelpButtonElementID,
+		SiteNameHelpTitle:                       siteNameHelpTitle,
+		SiteNameHelpContent:                     siteNameHelpContent,
+		AllowedOriginHelpButtonID:               allowedOriginHelpButtonElementID,
+		AllowedOriginHelpTitle:                  allowedOriginHelpTitle,
+		AllowedOriginHelpContent:                allowedOriginHelpContent,
+		OwnerEmailHelpButtonID:                  ownerEmailHelpButtonElementID,
+		OwnerEmailHelpTitle:                     ownerEmailHelpTitle,
+		OwnerEmailHelpContent:                   ownerEmailHelpContent,
+		MessagesSearchToggleButtonID:            messagesSearchToggleButtonElementID,
+		MessagesSearchToggleLabel:               messagesSearchToggleLabel,
+		MessagesSearchContainerID:               messagesSearchContainerElementID,
+		MessagesSearchInputID:                   messagesSearchInputElementID,
+		MessagesSearchPlaceholder:               messagesSearchPlaceholder,
+		DashboardSectionTabsID:                  dashboardSectionTabsElementID,
+		DashboardSectionFeedbackTabID:           dashboardSectionTabFeedbackButtonID,
+		DashboardSectionSubscriptionsTabID:      dashboardSectionTabSubscriptionsButtonID,
+		DashboardSectionTrafficTabID:            dashboardSectionTabTrafficButtonID,
+		DashboardSectionFeedbackTabLabel:        dashboardSectionFeedbackTabLabel,
+		DashboardSectionSubscriptionsTabLabel:   dashboardSectionSubscriptionsTabLabel,
+		DashboardSectionTrafficTabLabel:         dashboardSectionTrafficTabLabel,
+		FeedbackCountElementID:                  feedbackCountElementID,
+		WidgetStatusID:                          widgetStatusElementID,
+		MessagesStatusID:                        messagesStatusElementID,
+		SessionTimeoutContainerID:               sessionTimeoutContainerElementID,
+		SessionTimeoutContainerClass:            sessionTimeoutContainerBaseClass,
+		SessionTimeoutInnerClass:                sessionTimeoutInnerClass,
+		SessionTimeoutMessageID:                 sessionTimeoutMessageElementID,
+		SessionTimeoutMessageClass:              sessionTimeoutMessageClass,
+		SessionTimeoutPromptText:                sessionTimeoutPromptText,
+		SessionTimeoutActionsClass:              sessionTimeoutActionsClass,
+		SessionTimeoutConfirmButtonID:           sessionTimeoutConfirmButtonElementID,
+		SessionTimeoutConfirmLabel:              sessionTimeoutConfirmButtonLabel,
+		SessionTimeoutConfirmButtonClass:        sessionTimeoutConfirmButtonClass,
+		SessionTimeoutDismissButtonID:           sessionTimeoutDismissButtonElementID,
+		SessionTimeoutDismissLabel:              sessionTimeoutDismissButtonLabel,
+		SessionTimeoutDismissButtonClass:        sessionTimeoutDismissButtonClass,
+		DeleteSiteModalID:                       deleteSiteModalElementID,
+		DeleteSiteModalTitle:                    deleteSiteModalTitle,
+		DeleteSiteModalDescription:              deleteSiteModalDescription,
+		DeleteSiteModalInputID:                  deleteSiteModalInputElementID,
+		DeleteSiteModalInputLabel:               deleteSiteModalInputLabel,
+		DeleteSiteModalInputPlaceholder:         deleteSiteModalInputPlaceholder,
+		DeleteSiteModalConfirmButtonID:          deleteSiteModalConfirmButtonID,
+		DeleteSiteModalConfirmButtonLabel:       deleteSiteModalConfirmButtonLabel,
+		DeleteSiteModalConfirmButtonClass:       deleteSiteModalConfirmButtonClass,
+		DeleteSiteModalCancelButtonLabel:        deleteSiteModalCancelButtonLabel,
+		DeleteSiteModalCancelButtonClass:        deleteSiteModalCancelButtonClass,
+		DeleteSiteTargetNameID:                  deleteSiteTargetNameElementID,
+		DeleteSiteModalHintPrefix:               deleteSiteModalHintPrefix,
+		DeleteSiteModalHintSuffix:               deleteSiteModalHintSuffix,
+		DeleteSubscriberButtonClass:             deleteSubscriberButtonClass,
+		DeleteSubscriberIconClass:               deleteSubscriberIconClass,
+		DeleteSubscriberModalID:                 deleteSubscriberModalElementID,
+		DeleteSubscriberModalTitle:              deleteSubscriberModalTitle,
+		DeleteSubscriberModalDescription:        deleteSubscriberModalDescription,
+		DeleteSubscriberModalInputID:            deleteSubscriberModalInputElementID,
+		DeleteSubscriberModalInputLabel:         deleteSubscriberModalInputLabel,
+		DeleteSubscriberModalInputPlaceholder:   deleteSubscriberModalInputPlaceholder,
+		DeleteSubscriberModalConfirmButtonID:    deleteSubscriberModalConfirmButtonID,
+		DeleteSubscriberModalConfirmButtonLabel: deleteSubscriberModalConfirmButtonLabel,
+		DeleteSubscriberModalConfirmButtonClass: deleteSubscriberModalConfirmButtonClass,
+		DeleteSubscriberModalCancelButtonLabel:  deleteSubscriberModalCancelButtonLabel,
+		DeleteSubscriberModalCancelButtonClass:  deleteSubscriberModalCancelButtonClass,
+		DeleteSubscriberTargetEmailID:           deleteSubscriberTargetEmailElementID,
+		DeleteSubscriberModalHintPrefix:         deleteSubscriberModalHintPrefix,
+		DeleteSubscriberModalHintSuffix:         deleteSubscriberModalHintSuffix,
 	}
 
 	data.ClientConfigElementID = clientConfigElementID
@@ -886,83 +955,91 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"traffic_test_suffix":   dashboardTrafficTestPathSuffix,
 		},
 		ElementIDs: map[string]string{
-			"user_name":                         userNameElementID,
-			"user_email":                        userEmailElementID,
-			"user_avatar":                       userAvatarElementID,
-			"user_role":                         userRoleBadgeElementID,
-			"sites_list":                        sitesListElementID,
-			"empty_sites_message":               emptySitesMessageElementID,
-			"site_form":                         siteFormElementID,
-			"edit_site_name":                    editSiteNameInputElementID,
-			"edit_site_origin":                  editSiteOriginInputElementID,
-			"edit_site_owner_container":         editSiteOwnerContainerElementID,
-			"edit_site_owner":                   editSiteOwnerInputElementID,
-			"site_created_at":                   siteCreatedAtElementID,
-			"site_created_at_container":         siteCreatedAtContainerElementID,
-			"save_site_button":                  saveSiteButtonElementID,
-			"refresh_messages_button":           refreshMessagesButtonElementID,
-			"feedback_table_header":             feedbackTableHeaderElementID,
-			"feedback_table_body":               feedbackTableBodyElementID,
-			"subscriber_count":                  subscriberCountElementID,
-			"subscribers_table_body":            subscribersTableBodyElementID,
-			"export_subscribers_button":         exportSubscribersButtonElementID,
-			"subscribers_status":                subscribersStatusElementID,
-			"visit_count":                       visitCountElementID,
-			"unique_visitor_count":              uniqueVisitorCountElementID,
-			"traffic_status":                    trafficStatusElementID,
-			"top_pages_table_body":              topPagesTableBodyElementID,
-			"logout_button":                     logoutButtonElementID,
-			"widget_snippet_textarea":           widgetSnippetTextareaElementID,
-			"copy_widget_snippet_button":        copyWidgetSnippetButtonElementID,
-			"subscribe_snippet_textarea":        subscribeWidgetSnippetTextareaElementID,
-			"copy_subscribe_snippet_button":     copySubscribeWidgetSnippetButtonElementID,
-			"traffic_snippet_textarea":          trafficWidgetSnippetTextareaElementID,
-			"copy_traffic_snippet_button":       copyTrafficWidgetSnippetButtonElementID,
-			"widget_test_button":                widgetTestButtonElementID,
-			"subscribe_test_button":             subscribeTestButtonElementID,
-			"traffic_test_button":               trafficTestButtonElementID,
-			"settings_button":                   settingsButtonElementID,
-			"settings_menu":                     settingsMenuElementID,
-			"settings_menu_settings":            settingsMenuSettingsButtonElementID,
-			"settings_modal":                    settingsModalElementID,
-			"settings_modal_title":              settingsModalTitleElementID,
-			"settings_modal_content":            settingsModalContentElementID,
-			"settings_auto_logout_fields":       settingsAutoLogoutFieldsContainerElementID,
-			"settings_auto_logout_toggle":       settingsAutoLogoutToggleElementID,
-			"settings_auto_logout_prompt":       settingsAutoLogoutPromptInputElementID,
-			"settings_auto_logout_logout":       settingsAutoLogoutLogoutInputElementID,
-			"settings_auto_logout_prompt_error": settingsAutoLogoutPromptErrorElementID,
-			"settings_auto_logout_logout_error": settingsAutoLogoutLogoutErrorElementID,
-			"settings_avatar_image":             settingsAvatarImageElementID,
-			"settings_avatar_fallback":          settingsAvatarFallbackElementID,
-			"form_status":                       formStatusElementID,
-			"new_site_button":                   newSiteButtonElementID,
-			"delete_site_button":                deleteSiteButtonElementID,
-			"delete_site_modal":                 deleteSiteModalElementID,
-			"delete_site_confirm_button":        deleteSiteModalConfirmButtonID,
-			"delete_site_confirm_input":         deleteSiteModalInputElementID,
-			"delete_site_target_name":           deleteSiteTargetNameElementID,
-			"footer":                            footerElementID,
-			"footer_inner":                      footerInnerElementID,
-			"site_name_help_button":             siteNameHelpButtonElementID,
-			"allowed_origin_help_button":        allowedOriginHelpButtonElementID,
-			"owner_email_help_button":           ownerEmailHelpButtonElementID,
-			"site_search_toggle_button":         siteSearchToggleButtonElementID,
-			"site_search_container":             siteSearchContainerElementID,
-			"site_search_input":                 siteSearchInputElementID,
-			"messages_search_toggle_button":     messagesSearchToggleButtonElementID,
-			"messages_search_container":         messagesSearchContainerElementID,
-			"messages_search_input":             messagesSearchInputElementID,
-			"feedback_count":                    feedbackCountElementID,
-			"widget_side_left":                  widgetPlacementSideLeftInputElementID,
-			"widget_side_right":                 widgetPlacementSideRightInputElementID,
-			"widget_bottom_offset":              widgetPlacementBottomOffsetInputElementID,
-			"widget_bottom_offset_decrease":     widgetBottomOffsetDecreaseButtonElementID,
-			"widget_bottom_offset_increase":     widgetBottomOffsetIncreaseButtonElementID,
-			"session_timeout_container":         sessionTimeoutContainerElementID,
-			"session_timeout_message":           sessionTimeoutMessageElementID,
-			"session_timeout_confirm_button":    sessionTimeoutConfirmButtonElementID,
-			"session_timeout_dismiss_button":    sessionTimeoutDismissButtonElementID,
+			"user_name":                           userNameElementID,
+			"user_email":                          userEmailElementID,
+			"user_avatar":                         userAvatarElementID,
+			"user_role":                           userRoleBadgeElementID,
+			"sites_list":                          sitesListElementID,
+			"empty_sites_message":                 emptySitesMessageElementID,
+			"site_form":                           siteFormElementID,
+			"edit_site_name":                      editSiteNameInputElementID,
+			"edit_site_origin":                    editSiteOriginInputElementID,
+			"edit_site_owner_container":           editSiteOwnerContainerElementID,
+			"edit_site_owner":                     editSiteOwnerInputElementID,
+			"site_created_at":                     siteCreatedAtElementID,
+			"site_created_at_container":           siteCreatedAtContainerElementID,
+			"save_site_button":                    saveSiteButtonElementID,
+			"refresh_messages_button":             refreshMessagesButtonElementID,
+			"feedback_table_header":               feedbackTableHeaderElementID,
+			"feedback_table_body":                 feedbackTableBodyElementID,
+			"subscriber_count":                    subscriberCountElementID,
+			"subscribers_table_body":              subscribersTableBodyElementID,
+			"export_subscribers_button":           exportSubscribersButtonElementID,
+			"subscribers_status":                  subscribersStatusElementID,
+			"visit_count":                         visitCountElementID,
+			"unique_visitor_count":                uniqueVisitorCountElementID,
+			"traffic_status":                      trafficStatusElementID,
+			"top_pages_table_body":                topPagesTableBodyElementID,
+			"logout_button":                       logoutButtonElementID,
+			"widget_snippet_textarea":             widgetSnippetTextareaElementID,
+			"copy_widget_snippet_button":          copyWidgetSnippetButtonElementID,
+			"subscribe_snippet_textarea":          subscribeWidgetSnippetTextareaElementID,
+			"copy_subscribe_snippet_button":       copySubscribeWidgetSnippetButtonElementID,
+			"traffic_snippet_textarea":            trafficWidgetSnippetTextareaElementID,
+			"copy_traffic_snippet_button":         copyTrafficWidgetSnippetButtonElementID,
+			"widget_test_button":                  widgetTestButtonElementID,
+			"subscribe_test_button":               subscribeTestButtonElementID,
+			"traffic_test_button":                 trafficTestButtonElementID,
+			"settings_button":                     settingsButtonElementID,
+			"settings_menu":                       settingsMenuElementID,
+			"settings_menu_settings":              settingsMenuSettingsButtonElementID,
+			"settings_modal":                      settingsModalElementID,
+			"settings_modal_title":                settingsModalTitleElementID,
+			"settings_modal_content":              settingsModalContentElementID,
+			"settings_auto_logout_fields":         settingsAutoLogoutFieldsContainerElementID,
+			"settings_auto_logout_toggle":         settingsAutoLogoutToggleElementID,
+			"settings_auto_logout_prompt":         settingsAutoLogoutPromptInputElementID,
+			"settings_auto_logout_logout":         settingsAutoLogoutLogoutInputElementID,
+			"settings_auto_logout_prompt_error":   settingsAutoLogoutPromptErrorElementID,
+			"settings_auto_logout_logout_error":   settingsAutoLogoutLogoutErrorElementID,
+			"settings_avatar_image":               settingsAvatarImageElementID,
+			"settings_avatar_fallback":            settingsAvatarFallbackElementID,
+			"form_status":                         formStatusElementID,
+			"new_site_button":                     newSiteButtonElementID,
+			"delete_site_button":                  deleteSiteButtonElementID,
+			"delete_site_modal":                   deleteSiteModalElementID,
+			"delete_site_confirm_button":          deleteSiteModalConfirmButtonID,
+			"delete_site_confirm_input":           deleteSiteModalInputElementID,
+			"delete_site_target_name":             deleteSiteTargetNameElementID,
+			"delete_subscriber_modal":             deleteSubscriberModalElementID,
+			"delete_subscriber_confirm_button":    deleteSubscriberModalConfirmButtonID,
+			"delete_subscriber_confirm_input":     deleteSubscriberModalInputElementID,
+			"delete_subscriber_target_email":      deleteSubscriberTargetEmailElementID,
+			"footer":                              footerElementID,
+			"footer_inner":                        footerInnerElementID,
+			"site_name_help_button":               siteNameHelpButtonElementID,
+			"allowed_origin_help_button":          allowedOriginHelpButtonElementID,
+			"owner_email_help_button":             ownerEmailHelpButtonElementID,
+			"site_search_toggle_button":           siteSearchToggleButtonElementID,
+			"site_search_container":               siteSearchContainerElementID,
+			"site_search_input":                   siteSearchInputElementID,
+			"messages_search_toggle_button":       messagesSearchToggleButtonElementID,
+			"messages_search_container":           messagesSearchContainerElementID,
+			"messages_search_input":               messagesSearchInputElementID,
+			"dashboard_section_tabs":              dashboardSectionTabsElementID,
+			"dashboard_section_tab_feedback":      dashboardSectionTabFeedbackButtonID,
+			"dashboard_section_tab_subscriptions": dashboardSectionTabSubscriptionsButtonID,
+			"dashboard_section_tab_traffic":       dashboardSectionTabTrafficButtonID,
+			"feedback_count":                      feedbackCountElementID,
+			"widget_side_left":                    widgetPlacementSideLeftInputElementID,
+			"widget_side_right":                   widgetPlacementSideRightInputElementID,
+			"widget_bottom_offset":                widgetPlacementBottomOffsetInputElementID,
+			"widget_bottom_offset_decrease":       widgetBottomOffsetDecreaseButtonElementID,
+			"widget_bottom_offset_increase":       widgetBottomOffsetIncreaseButtonElementID,
+			"session_timeout_container":           sessionTimeoutContainerElementID,
+			"session_timeout_message":             sessionTimeoutMessageElementID,
+			"session_timeout_confirm_button":      sessionTimeoutConfirmButtonElementID,
+			"session_timeout_dismiss_button":      sessionTimeoutDismissButtonElementID,
 		},
 		ButtonClasses: map[string]string{
 			"new_site_default":        newSiteButtonClass,
