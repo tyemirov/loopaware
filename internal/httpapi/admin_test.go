@@ -455,8 +455,7 @@ func TestStreamFaviconUpdatesEmitsEvents(testingT *testing.T) {
 		handlers.StreamFaviconUpdates(context)
 	})
 
-	server := httptest.NewServer(engine)
-	testingT.Cleanup(server.Close)
+	server := newHTTPTestServer(testingT, engine)
 
 	client := server.Client()
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/stream", nil)
@@ -553,8 +552,7 @@ func TestStreamFeedbackUpdatesReceivesCreateEvents(testingT *testing.T) {
 		publicHandlers.CreateFeedback(context)
 	})
 
-	server := httptest.NewServer(engine)
-	testingT.Cleanup(server.Close)
+	server := newHTTPTestServer(testingT, engine)
 
 	client := server.Client()
 

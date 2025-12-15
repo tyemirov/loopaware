@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -107,17 +106,16 @@ func setBootstrapThemeAttribute(testingT *testing.T, page *rod.Page, themeValue 
 func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	page := buildHeadlessPage(t)
-	screenshotsDirectory := createScreenshotsDirectory(t)
-
 	notifier := &recordingFeedbackNotifier{
 		t:        t,
 		delivery: model.FeedbackDeliveryMailed,
 	}
 	apiHarness := buildAPIHarness(t, notifier, nil, nil)
 
-	server := httptest.NewServer(apiHarness.router)
-	t.Cleanup(server.Close)
+	server := newHTTPTestServer(t, apiHarness.router)
+
+	page := buildHeadlessPage(t)
+	screenshotsDirectory := createScreenshotsDirectory(t)
 
 	site := insertSite(t, apiHarness.database, integrationSiteName, server.URL, integrationSiteOwnerEmail)
 	require.NoError(t, apiHarness.database.Model(&model.Site{}).
@@ -228,11 +226,9 @@ func TestWidgetIntegrationSendsNotification(t *testing.T) {
 		t:        t,
 		delivery: model.FeedbackDeliveryMailed,
 	}
-	page := buildHeadlessPage(t)
-
 	apiHarness := buildAPIHarness(t, notifier, nil, nil)
-	server := httptest.NewServer(apiHarness.router)
-	t.Cleanup(server.Close)
+	server := newHTTPTestServer(t, apiHarness.router)
+	page := buildHeadlessPage(t)
 
 	site := insertSite(t, apiHarness.database, integrationSiteName, server.URL, integrationSiteOwnerEmail)
 	integrationPageHTML := fmt.Sprintf(integrationPageHTMLTemplate, site.ID)
@@ -272,11 +268,9 @@ func TestWidgetIntegrationRecordsNoDeliveryWhenNotifierFails(t *testing.T) {
 		delivery:  model.FeedbackDeliveryMailed,
 		callError: errors.New("send failed"),
 	}
-	page := buildHeadlessPage(t)
-
 	apiHarness := buildAPIHarness(t, notifier, nil, nil)
-	server := httptest.NewServer(apiHarness.router)
-	t.Cleanup(server.Close)
+	server := newHTTPTestServer(t, apiHarness.router)
+	page := buildHeadlessPage(t)
 
 	site := insertSite(t, apiHarness.database, integrationSiteName, server.URL, integrationSiteOwnerEmail)
 	integrationPageHTML := fmt.Sprintf(integrationPageHTMLTemplate, site.ID)
@@ -318,11 +312,9 @@ func TestWidgetIntegrationKeepsDeliveryNoneWhenNotifierReturnsStatusAndError(t *
 		delivery:  model.FeedbackDeliveryTexted,
 		callError: errors.New("notifier failed"),
 	}
-	page := buildHeadlessPage(t)
-
 	apiHarness := buildAPIHarness(t, notifier, nil, nil)
-	server := httptest.NewServer(apiHarness.router)
-	t.Cleanup(server.Close)
+	server := newHTTPTestServer(t, apiHarness.router)
+	page := buildHeadlessPage(t)
 
 	site := insertSite(t, apiHarness.database, integrationSiteName, server.URL, integrationSiteOwnerEmail)
 	integrationPageHTML := fmt.Sprintf(integrationPageHTMLTemplate, site.ID)
@@ -358,14 +350,12 @@ func TestWidgetIntegrationKeepsDeliveryNoneWhenNotifierReturnsStatusAndError(t *
 func TestWidgetAppliesDarkThemeStyles(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	page := buildHeadlessPage(t)
-	screenshotsDirectory := createScreenshotsDirectory(t)
-
 	apiHarness := buildAPIHarness(t, nil, nil, nil)
 
-	server := httptest.NewServer(apiHarness.router)
-	t.Cleanup(server.Close)
+	server := newHTTPTestServer(t, apiHarness.router)
 
+	page := buildHeadlessPage(t)
+	screenshotsDirectory := createScreenshotsDirectory(t)
 	site := insertSite(t, apiHarness.database, integrationSiteName, server.URL, integrationSiteOwnerEmail)
 
 	darkThemePageHTML := fmt.Sprintf(darkThemePageHTMLTemplate, site.ID)
@@ -457,13 +447,11 @@ func TestWidgetAppliesDarkThemeStyles(t *testing.T) {
 func TestWidgetRespondsToThemeToggle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	page := buildHeadlessPage(t)
-
 	apiHarness := buildAPIHarness(t, nil, nil, nil)
 
-	server := httptest.NewServer(apiHarness.router)
-	t.Cleanup(server.Close)
+	server := newHTTPTestServer(t, apiHarness.router)
 
+	page := buildHeadlessPage(t)
 	site := insertSite(t, apiHarness.database, integrationSiteName, server.URL, integrationSiteOwnerEmail)
 
 	integrationPageHTML := fmt.Sprintf(integrationPageHTMLTemplate, site.ID)
@@ -534,14 +522,12 @@ func TestWidgetRespondsToThemeToggle(t *testing.T) {
 func TestWidgetCloseButtonDismissesPanel(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	page := buildHeadlessPage(t)
-	screenshotsDirectory := createScreenshotsDirectory(t)
-
 	apiHarness := buildAPIHarness(t, nil, nil, nil)
 
-	server := httptest.NewServer(apiHarness.router)
-	t.Cleanup(server.Close)
+	server := newHTTPTestServer(t, apiHarness.router)
 
+	page := buildHeadlessPage(t)
+	screenshotsDirectory := createScreenshotsDirectory(t)
 	site := insertSite(t, apiHarness.database, integrationSiteName, server.URL, integrationSiteOwnerEmail)
 
 	integrationPageHTML := fmt.Sprintf(integrationPageHTMLTemplate, site.ID)

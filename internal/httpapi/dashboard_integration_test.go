@@ -2265,14 +2265,13 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	apiGroup.GET("/sites/favicons/events", siteHandlers.StreamFaviconUpdates)
 	apiGroup.GET("/sites/feedback/events", siteHandlers.StreamFeedbackUpdates)
 
-	server := httptest.NewServer(router)
+	server := newHTTPTestServer(testingT, router)
 
 	testingT.Cleanup(func() {
 		managerCancel()
 		faviconManager.Stop()
 		feedbackBroadcaster.Close()
 		subscriptionEvents.Close()
-		server.Close()
 		require.NoError(testingT, sqlDatabase.Close())
 	})
 
