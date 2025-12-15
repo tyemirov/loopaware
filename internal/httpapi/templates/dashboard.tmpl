@@ -89,7 +89,7 @@
                   </div>
                   <div class="col-md-6">
                     <div class="d-flex align-items-center justify-content-between">
-                      <label class="form-label mb-0" for="{{.EditSiteOriginInputID}}">Allowed origin</label>
+                      <label class="form-label mb-0" for="{{.EditSiteOriginInputID}}">Allowed origins</label>
                       <button id="{{.AllowedOriginHelpButtonID}}" type="button" class="{{.FieldHelpButtonClass}}" tabindex="{{.FieldHelpButtonTabIndex}}" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" title="{{.AllowedOriginHelpTitle}}" data-bs-content="{{.AllowedOriginHelpContent}}">
                         <span class="visually-hidden">{{.AllowedOriginHelpTitle}}</span>
                         <i class="{{.FieldHelpIconClass}}"></i>
@@ -1229,15 +1229,37 @@
         function isSiteNameValid(value) {
           return value.length > 0;
         }
-        function isAllowedOriginValid(value) {
+        function splitAllowedOrigins(value) {
           if (!value) {
-            return false;
+            return [];
           }
           var normalizedValue = String(value).trim();
           if (!normalizedValue) {
+            return [];
+          }
+          return normalizedValue.split(/[,;\s]+/).filter(function(part) {
+            return Boolean(part);
+          });
+        }
+        function primaryAllowedOrigin(value) {
+          var parts = splitAllowedOrigins(value);
+          return parts.length > 0 ? parts[0] : '';
+        }
+        function summarizeAllowedOrigins(value) {
+          var parts = splitAllowedOrigins(value);
+          if (parts.length === 0) {
+            return '';
+          }
+          if (parts.length === 1) {
+            return parts[0];
+          }
+          return parts[0] + ' +' + String(parts.length - 1) + ' more';
+        }
+        function isAllowedOriginValid(value) {
+          var originParts = splitAllowedOrigins(value);
+          if (originParts.length === 0) {
             return false;
           }
-          var originParts = normalizedValue.split(/[,;\s]+/);
           var hasValidOrigin = false;
           for (var originIndex = 0; originIndex < originParts.length; originIndex += 1) {
             var originPart = originParts[originIndex];
@@ -2287,7 +2309,7 @@
             faviconElement.loading = 'lazy';
             faviconElement.referrerPolicy = 'no-referrer';
             var faviconURL = (site.favicon_url || '').trim();
-            var siteOrigin = (site.allowed_origin || '').trim();
+            var siteOrigin = primaryAllowedOrigin(site.allowed_origin);
             var hasSiteOrigin = siteOrigin.length > 0;
             if (faviconURL.length > 0) {
               faviconElement.src = faviconURL;
@@ -2327,7 +2349,8 @@
 
             var originElement = document.createElement('div');
             originElement.className = 'small text-muted text-truncate';
-            originElement.textContent = site.allowed_origin || '';
+            originElement.textContent = summarizeAllowedOrigins(site.allowed_origin);
+            originElement.title = site.allowed_origin || '';
             listItem.appendChild(originElement);
 
             sitesList.appendChild(listItem);
