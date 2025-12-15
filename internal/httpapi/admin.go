@@ -980,6 +980,31 @@ func (handlers *SiteHandlers) UpdateSubscriberStatus(context *gin.Context) {
 	context.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
+func (handlers *SiteHandlers) DeleteSubscriber(context *gin.Context) {
+	site, _, ok := handlers.resolveAuthorizedSite(context)
+	if !ok {
+		return
+	}
+
+	subscriberID := strings.TrimSpace(context.Param("subscriber_id"))
+	if subscriberID == "" {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingFields})
+		return
+	}
+
+	deleteResult := handlers.database.Where("id = ? AND site_id = ?", subscriberID, site.ID).Delete(&model.Subscriber{})
+	if deleteResult.Error != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
+		return
+	}
+	if deleteResult.RowsAffected == 0 {
+		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownSubscription})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
 func (handlers *SiteHandlers) resolveAuthorizedSite(context *gin.Context) (model.Site, *CurrentUser, bool) {
 	siteIdentifier := strings.TrimSpace(context.Param("id"))
 	if siteIdentifier == "" {

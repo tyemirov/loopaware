@@ -10,10 +10,11 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
 - [x] [LA-111] Allow multiple origins for subscribe widgets, e.g. — a single subscribe widget can be embedded in multiple sites, not all of them matching the original url, such as gravity.mprlab.com needs to be able to be retreieved and function from both https://mprlab.com and http://localhost:8080
   implemented multi-origin support for site `allowed_origin` values (space/comma-separated list), extended backend origin checks and dashboard validation, and updated README to document the behavior.
 
-- [ ] [LA-112] Implement the subscription flow: — Send a confirmation email to the subscriber
+- [x] [LA-112] Implement the subscription flow: — Send a confirmation email to the subscriber
   The confirmation email contains a link to the loopaware
   When a user clicks the link the subscription is confirmed
   Carefully plan the execution and testing
+  implemented double opt-in subscriptions: creating a subscription sends a confirmation email with `GET /subscriptions/confirm?token=...`, and clicking the link confirms the subscriber.
 
 ## Improvements (210–299)
 - [x] [LA-207] Upgrade to the latest version of mpr-ui. — Check tools/mpr-ui/README.md and @tools/mpr-ui/docs/custom-elements.md and @tols/mpr-ui/demo/index.html for documentation and examples.
@@ -24,16 +25,19 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
 
 - [x] [LA-208] Add front-end for LA-111 which would allow entering multiple origins for the same subscribe widget. — updated the dashboard UI to treat `allowed_origin` as a multi-origin field (space/comma-separated), summarize the primary origin in the sites list, and ensure favicon-click opens the primary origin.
 
-- [ ] [LA-209] Add a section selector for Feedback, Subscriptions, Traffic. — Add a tabbed selection below Site details to have three sections: Feedback, Subscriptions, Traffic.
+- [x] [LA-209] Add a section selector for Feedback, Subscriptions, Traffic. — added dashboard tabs below Site details to switch between Feedback, Subscriptions, and Traffic sections, showing only the relevant widget + pane at a time.
   Only one section is shown at a time
   Clicking on Feedback shows Feedback widget and Feedback messages panes
   Clicking on Subscriptions shows Subscribers Widget and Subscribers panes
   Clicking on Traffic shows Traffic Widget and Traffic pane
   The idea is that these widgets are now crowding a single screen and we want to hide them under the top selector, so Tabbed navigation will work here
 
-- [ ] [LA-210] Style the subscription confirmed page and add a link to open the subscribed site. — Update the `/subscriptions/confirm` success page to match the LoopAware theme and include an action to open the site the subscriber subscribed to (e.g., primary origin or source URL, whichever is decided).
+- [x] [LA-210] Style the subscription confirmed page and add a link to open the subscribed site. — replaced the plain-text `/subscriptions/confirm` response with a LoopAware-themed HTML page and added a safe “Open <site>” link (prefers an allowed `source_url`, otherwise the primary allowed origin).
 
-- [ ] [LA-211] Add delete action to subscribers pane, using the flow and design approach similar to site deletion in the sites pane
+- [x] [LA-211] Add delete action to subscribers pane, using the flow and design approach similar to site deletion in the sites pane — added an authenticated DELETE subscriber endpoint and a dashboard confirmation modal (type email) to remove subscriber records.
+
+- [x] [LA-212] Subscription confirmed page should show Open + Unsubscribe buttons (no “Return to LoopAware” on the confirmed card).
+  added a token-based `/subscriptions/unsubscribe?token=...` web route and updated the confirmation page to display “Open <site>” and “Unsubscribe” actions; added coverage.
 
 ## BugFixes (312–399)
 
