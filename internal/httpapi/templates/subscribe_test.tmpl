@@ -252,7 +252,7 @@
       var statusLog = document.getElementById('{{js .StatusLogElementID}}');
       var eventSource = null;
       var inlinePreview = null;
-      var submitEndpoint = (window.location && window.location.origin ? window.location.origin : '') + '/api/subscriptions';
+      var submitEndpoint = (window.location && window.location.origin ? window.location.origin : '') + '/app/sites/' + encodeURIComponent(siteIdentifier) + '/subscribe-test/subscriptions';
 
       function normalizeCTA(value) {
         var trimmed = (value || '').trim();

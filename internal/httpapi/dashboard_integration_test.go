@@ -1392,7 +1392,7 @@ func TestSubscribeWidgetTestFlowSubmitsSubscription(t *testing.T) {
 	site := model.Site{
 		ID:            storage.NewID(),
 		Name:          "Subscribe Test Flow",
-		AllowedOrigin: harness.baseURL,
+		AllowedOrigin: "https://widget.example",
 		OwnerEmail:    dashboardTestAdminEmail,
 		CreatorEmail:  dashboardTestAdminEmail,
 	}
@@ -2133,7 +2133,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true)
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{})
 	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(gormDatabase, logger)
-	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents)
+	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents, config.subscriptionNotifier, true)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -2152,6 +2152,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	router.GET("/app/sites/:id/traffic-test", authManager.RequireAuthenticatedWeb(), trafficTestHandlers.RenderTrafficTestPage)
 	router.GET("/app/sites/:id/subscribe-test", authManager.RequireAuthenticatedWeb(), subscribeTestHandlers.RenderSubscribeTestPage)
 	router.GET("/app/sites/:id/subscribe-test/events", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.StreamSubscriptionTestEvents)
+	router.POST("/app/sites/:id/subscribe-test/subscriptions", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.CreateSubscription)
 	router.POST(constants.LogoutPath, func(context *gin.Context) {
 		context.Status(http.StatusOK)
 	})

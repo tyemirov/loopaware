@@ -24,7 +24,7 @@ Uncaught SyntaxError: The requested module 'https://cdn.jsdelivr.net/gh/MarcoPol
 
 - [x] [LA-311] TestWidgetIntegrationSubmitsFeedback can time out under `make ci` race tests with a `context deadline exceeded` error from the headless browser harness; investigate and stabilize the widget integration test so `make ci` passes reliably — simplified the keyboard focus assertions in the widget integration test to avoid brittle Shift+Tab focus loops while preserving end-to-end feedback submission coverage; `make test`, `make lint`, and `make ci` now pass cleanly including the race suite.
 
-- [ ] [LS-312] Investigate the 403 errro when trying to subscribe on a test subscribe page. I have entered a valid enail and my name but got an error: "Please try again"
+- [x] [LS-312] Investigate the 403 errro when trying to subscribe on a test subscribe page. I have entered a valid enail and my name but got an error: "Please try again" — routed the subscribe-test preview submission through an authenticated `/app/sites/:id/subscribe-test/subscriptions` endpoint (origin checks remain enforced for public `/api/subscriptions`).
 ```
 Error: http_403
     submitInlineForm http://localhost:8080/app/sites/c6bf3dd5-0bd4-4d0b-9be3-c647991f7092/subscribe-test:589
