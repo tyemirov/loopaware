@@ -14,7 +14,7 @@ Issue IDs in Features, Improvements, BugFixes, and Maintenance never reuse compl
 - [ ] [LA-112] Implement the subscription flow: — Send a confirmation email to the subscriber
   The confirmation email contains a link to the loopaware
   When a user clicks the link the subscription is confirmed
-  Carefully plan the executionesting
+  Carefully plan the execution and testing
 
 ## Improvements (210–299)
 - [x] [LA-207] Upgrade to the latest version of mpr-ui. — Check tools/mpr-ui/README.md and @tools/mpr-ui/docs/custom-elements.md and @tols/mpr-ui/demo/index.html for documentation and examples.
