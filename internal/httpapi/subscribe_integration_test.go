@@ -2,7 +2,6 @@ package httpapi_test
 
 import (
 	"fmt"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -25,8 +24,7 @@ func TestSubscribeWidgetSubmitsSubscription(t *testing.T) {
 	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
 	api := buildAPIHarness(t, nil, subscriptionNotifier, nil)
 
-	server := httptest.NewServer(api.router)
-	t.Cleanup(server.Close)
+	server := newHTTPTestServer(t, api.router)
 
 	page := buildHeadlessPage(t)
 	screenshotsDirectory := createScreenshotsDirectory(t)
