@@ -60,9 +60,8 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
 
 - [x] [LA-314] Pinguin notification calls fail with `tenant_id is required` when submitting feedback/subscriptions. — added `PINGUIN_TENANT_ID` config and send it as `x-tenant-id` gRPC metadata on Pinguin notification requests.
 
-- [ ] [LA-315] mpr-ui footer: ![alt text](../image.png)
-1. The footer lacks "Built by Marco Polo Research Lab" drop up
-2. The padding on the left and right is absent
+- [x] [LA-315] mpr-ui footer: ![alt text](../image.png)
+  restored the `<mpr-footer>` default class hooks (so internal padding is applied) and updated the menu label to read “Built by Marco Polo Research Lab”.
 
 - [x] [LS-316] Subscription confirmation flow sends notifications before confirmation — updated subscription creation to send a subscriber confirmation email first and defer owner notifications until the subscription is confirmed, including the authenticated subscribe-test preview flow; added coverage.
 

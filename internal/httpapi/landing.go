@@ -11,13 +11,12 @@ import (
 )
 
 const (
-	landingTemplateName     = "landing"
-	landingHTMLContentType  = "text/html; charset=utf-8"
-	landingFooterElementID  = "landing-footer"
-	landingFooterInnerID    = "landing-footer-inner"
-	landingFooterToggleID   = "landing-footer-toggle"
-	landingFooterBaseClass  = "landing-footer border-top mt-auto py-2"
-	landingFooterInnerClass = "container py-2"
+	landingTemplateName    = "landing"
+	landingHTMLContentType = "text/html; charset=utf-8"
+	landingFooterElementID = "landing-footer"
+	landingFooterInnerID   = "landing-footer-inner"
+	landingFooterToggleID  = "landing-footer-toggle"
+	landingFooterBaseClass = "mpr-footer landing-footer border-top mt-auto py-2"
 )
 
 type landingTemplateData struct {
