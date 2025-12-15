@@ -153,6 +153,14 @@ const (
                 if (!status) { return false; }
                 return status.classList.contains('d-none');
         }())`
+	dashboardEditSiteAllowedOriginsSelector = "#edit-site-origin"
+	dashboardFirstSiteOriginTextScript      = `(function() {
+		var item = document.querySelector('#sites-list [data-site-id]');
+		if (!item) { return ''; }
+		var elements = item.querySelectorAll('div');
+		if (!elements || elements.length < 2) { return ''; }
+		return (elements[1].textContent || '').trim();
+	}())`
 	dashboardTopPagesPlaceholderScript = `(function() {
                 var body = document.querySelector('#top-pages-table-body');
                 if (!body) { return ''; }
@@ -1392,7 +1400,7 @@ func TestSubscribeWidgetTestFlowSubmitsSubscription(t *testing.T) {
 	site := model.Site{
 		ID:            storage.NewID(),
 		Name:          "Subscribe Test Flow",
-		AllowedOrigin: harness.baseURL,
+		AllowedOrigin: "https://widget.example",
 		OwnerEmail:    dashboardTestAdminEmail,
 		CreatorEmail:  dashboardTestAdminEmail,
 	}
@@ -1786,6 +1794,85 @@ func TestDashboardWidgetPlacementSavePersists(t *testing.T) {
 	require.Equal(t, 88, updatedSite.WidgetBubbleBottomOffsetPx)
 }
 
+func TestDashboardAllowedOriginsAcceptsMultipleEntries(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Multi-Origin Save",
+		AllowedOrigin:              harness.baseURL,
+		OwnerEmail:                 dashboardTestAdminEmail,
+		CreatorEmail:               dashboardTestAdminEmail,
+		WidgetBubbleSide:           "right",
+		WidgetBubbleBottomOffsetPx: 16,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, 5*time.Second, 100*time.Millisecond)
+
+	interceptFetchRequests(t, page)
+
+	allowedOrigins := "https://widget.example " + harness.baseURL
+	setInputValue(t, page, dashboardEditSiteAllowedOriginsSelector, allowedOrigins)
+	clickSelector(t, page, dashboardSaveSiteButtonSelector)
+
+	type siteUpdatePayload struct {
+		AllowedOrigin string `json:"allowed_origin"`
+	}
+
+	var payload siteUpdatePayload
+	var payloadStatus int
+	require.Eventually(t, func() bool {
+		requests := readCapturedFetchRequests(t, page)
+		for _, record := range requests {
+			if !strings.HasSuffix(record.URL, "/api/sites/"+site.ID) {
+				continue
+			}
+			if !strings.EqualFold(record.Method, http.MethodPatch) {
+				continue
+			}
+			if record.Body == "" {
+				continue
+			}
+			if record.Status == 0 {
+				continue
+			}
+			if err := json.Unmarshal([]byte(record.Body), &payload); err != nil {
+				return false
+			}
+			payloadStatus = record.Status
+			return true
+		}
+		return false
+	}, 20*time.Second, 100*time.Millisecond)
+
+	require.Equal(t, allowedOrigins, payload.AllowedOrigin)
+	require.Equal(t, http.StatusOK, payloadStatus)
+
+	var updatedSite model.Site
+	require.Eventually(t, func() bool {
+		return harness.database.First(&updatedSite, "id = ?", site.ID).Error == nil
+	}, 5*time.Second, 100*time.Millisecond)
+	require.Equal(t, allowedOrigins, updatedSite.AllowedOrigin)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardFirstSiteOriginTextScript) == "https://widget.example +1 more"
+	}, 5*time.Second, 100*time.Millisecond)
+}
+
 func TestDashboardSiteFaviconOpensOrigin(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
@@ -2133,7 +2220,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true)
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{})
 	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(gormDatabase, logger)
-	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents)
+	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents, config.subscriptionNotifier, true)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -2152,6 +2239,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	router.GET("/app/sites/:id/traffic-test", authManager.RequireAuthenticatedWeb(), trafficTestHandlers.RenderTrafficTestPage)
 	router.GET("/app/sites/:id/subscribe-test", authManager.RequireAuthenticatedWeb(), subscribeTestHandlers.RenderSubscribeTestPage)
 	router.GET("/app/sites/:id/subscribe-test/events", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.StreamSubscriptionTestEvents)
+	router.POST("/app/sites/:id/subscribe-test/subscriptions", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.CreateSubscription)
 	router.POST(constants.LogoutPath, func(context *gin.Context) {
 		context.Status(http.StatusOK)
 	})
