@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"html/template"
 	"net/http"
 	"strings"
@@ -17,23 +19,27 @@ import (
 )
 
 type SiteSubscribeTestHandlers struct {
-	database         *gorm.DB
-	logger           *zap.Logger
-	template         *template.Template
-	eventBroadcaster *SubscriptionTestEventBroadcaster
+	database                  *gorm.DB
+	logger                    *zap.Logger
+	template                  *template.Template
+	eventBroadcaster          *SubscriptionTestEventBroadcaster
+	subscriptionNotifier      SubscriptionNotifier
+	subscriptionNotifications bool
 }
 
-func NewSiteSubscribeTestHandlers(database *gorm.DB, logger *zap.Logger, broadcaster *SubscriptionTestEventBroadcaster) *SiteSubscribeTestHandlers {
+func NewSiteSubscribeTestHandlers(database *gorm.DB, logger *zap.Logger, broadcaster *SubscriptionTestEventBroadcaster, subscriptionNotifier SubscriptionNotifier, subscriptionNotificationsEnabled bool) *SiteSubscribeTestHandlers {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 	baseTemplate := template.Must(template.New("subscribe_test").Parse(dashboardHeaderTemplateHTML))
 	compiled := template.Must(baseTemplate.Parse(subscribeTestTemplateHTML))
 	return &SiteSubscribeTestHandlers{
-		database:         database,
-		logger:           logger,
-		template:         compiled,
-		eventBroadcaster: broadcaster,
+		database:                  database,
+		logger:                    logger,
+		template:                  compiled,
+		eventBroadcaster:          broadcaster,
+		subscriptionNotifier:      resolveSubscriptionNotifier(subscriptionNotifier),
+		subscriptionNotifications: subscriptionNotificationsEnabled,
 	}
 }
 
@@ -245,4 +251,155 @@ func (handlers *SiteSubscribeTestHandlers) StreamSubscriptionTestEvents(context 
 			flusher.Flush()
 		}
 	}
+}
+
+func (handlers *SiteSubscribeTestHandlers) CreateSubscription(context *gin.Context) {
+	siteIdentifier := strings.TrimSpace(context.Param("id"))
+	if siteIdentifier == "" {
+		context.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	currentUser, ok := CurrentUserFromContext(context)
+	if !ok {
+		context.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
+		return
+	}
+
+	var payload createSubscriptionRequest
+	if bindErr := context.BindJSON(&payload); bindErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": "invalid_json"})
+		return
+	}
+	payload.Email = strings.TrimSpace(payload.Email)
+	payload.Name = strings.TrimSpace(payload.Name)
+	payload.SourceURL = strings.TrimSpace(payload.SourceURL)
+
+	if payload.Email == "" {
+		context.JSON(http.StatusBadRequest, gin.H{"error": "missing_fields"})
+		return
+	}
+
+	var site model.Site
+	if handlers.database == nil || handlers.database.First(&site, "id = ?", siteIdentifier).Error != nil {
+		context.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	if !currentUser.canManageSite(site) {
+		context.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
+	clientIP := context.ClientIP()
+	existingSubscriber, err := findSubscriber(context.Request.Context(), handlers.database, site.ID, payload.Email)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
+		return
+	}
+	if err == nil {
+		if existingSubscriber.Status == model.SubscriberStatusUnsubscribed {
+			now := time.Now().UTC()
+			updateErr := handlers.database.Model(&existingSubscriber).Updates(map[string]any{
+				"status":          model.SubscriberStatusPending,
+				"unsubscribed_at": time.Time{},
+				"confirmed_at":    time.Time{},
+				"consent_at":      now,
+				"name":            payload.Name,
+				"source_url":      payload.SourceURL,
+				"ip":              truncate(clientIP, subscriptionIPMaxLength),
+				"user_agent":      truncate(context.Request.UserAgent(), subscriptionUserAgentMaxLength),
+			}).Error
+			if updateErr != nil {
+				context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
+				return
+			}
+			handlers.recordSubscriptionTestEvent(site, existingSubscriber, subscriptionEventTypeSubmission, subscriptionEventStatusSuccess, "")
+			handlers.applySubscriptionNotification(context.Request.Context(), site, existingSubscriber)
+			context.JSON(http.StatusOK, gin.H{"status": "ok", "subscriber_id": existingSubscriber.ID})
+			return
+		}
+		handlers.recordSubscriptionTestEvent(site, existingSubscriber, subscriptionEventTypeSubmission, subscriptionEventStatusError, errorValueDuplicateSubscriber)
+		context.JSON(http.StatusConflict, gin.H{"error": errorValueDuplicateSubscriber})
+		return
+	}
+
+	input := model.SubscriberInput{
+		SiteID:    site.ID,
+		Email:     payload.Email,
+		Name:      payload.Name,
+		SourceURL: payload.SourceURL,
+		IP:        truncate(clientIP, subscriptionIPMaxLength),
+		UserAgent: truncate(context.Request.UserAgent(), subscriptionUserAgentMaxLength),
+		Status:    model.SubscriberStatusPending,
+		ConsentAt: time.Now().UTC(),
+	}
+
+	subscriber, subscriberErr := model.NewSubscriber(input)
+	if subscriberErr != nil {
+		if errors.Is(subscriberErr, model.ErrInvalidSubscriberEmail) {
+			context.JSON(http.StatusBadRequest, gin.H{"error": errorValueInvalidEmail})
+			return
+		}
+		context.JSON(http.StatusBadRequest, gin.H{"error": errorValueInvalidEmail})
+		return
+	}
+
+	if err := handlers.database.Create(&subscriber).Error; err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
+		return
+	}
+
+	handlers.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeSubmission, subscriptionEventStatusSuccess, "")
+	handlers.applySubscriptionNotification(context.Request.Context(), site, subscriber)
+	context.JSON(http.StatusOK, gin.H{"status": "ok", "subscriber_id": subscriber.ID})
+}
+
+func (handlers *SiteSubscribeTestHandlers) recordSubscriptionTestEvent(site model.Site, subscriber model.Subscriber, eventType, status, message string) {
+	if handlers == nil || handlers.eventBroadcaster == nil {
+		return
+	}
+	normalizedSiteID := strings.TrimSpace(site.ID)
+	normalizedSubscriberID := strings.TrimSpace(subscriber.ID)
+	if normalizedSiteID == "" || normalizedSubscriberID == "" {
+		return
+	}
+	normalizedStatus := strings.TrimSpace(status)
+	if normalizedStatus == "" {
+		normalizedStatus = subscriptionEventStatusSuccess
+	}
+	normalizedMessage := strings.TrimSpace(message)
+	event := SubscriptionTestEvent{
+		SiteID:       normalizedSiteID,
+		SubscriberID: normalizedSubscriberID,
+		Email:        strings.ToLower(strings.TrimSpace(subscriber.Email)),
+		EventType:    strings.TrimSpace(eventType),
+		Status:       normalizedStatus,
+		Error:        normalizedMessage,
+		Timestamp:    time.Now().UTC(),
+	}
+	if event.EventType == "" {
+		event.EventType = subscriptionEventTypeSubmission
+	}
+	handlers.eventBroadcaster.Broadcast(event)
+}
+
+func (handlers *SiteSubscribeTestHandlers) applySubscriptionNotification(ctx context.Context, site model.Site, subscriber model.Subscriber) {
+	if handlers == nil {
+		return
+	}
+	if !handlers.subscriptionNotifications {
+		handlers.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeNotification, subscriptionEventStatusSkipped, "subscription notifications disabled")
+		return
+	}
+	if handlers.subscriptionNotifier == nil {
+		handlers.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeNotification, subscriptionEventStatusSkipped, "subscription notifier unavailable")
+		return
+	}
+	if notifyErr := handlers.subscriptionNotifier.NotifySubscription(ctx, site, subscriber); notifyErr != nil {
+		if handlers.logger != nil {
+			handlers.logger.Warn("subscription_notification_failed", zap.Error(notifyErr), zap.String("site_id", site.ID), zap.String("subscriber_id", subscriber.ID))
+		}
+		handlers.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeNotification, subscriptionEventStatusError, notifyErr.Error())
+		return
+	}
+	handlers.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeNotification, subscriptionEventStatusSuccess, "")
 }

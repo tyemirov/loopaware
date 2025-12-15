@@ -11,7 +11,6 @@ import (
 const (
 	publicBrandName              = "LoopAware"
 	publicLoginPath              = "/auth/google"
-	publicThemeToggleID          = "public-theme-toggle"
 	publicThemeStorageKey        = "loopaware_public_theme"
 	publicLandingThemeStorageKey = "loopaware_landing_theme"
 	publicLegacyThemeStorageKey  = "landing_theme"
@@ -141,15 +140,19 @@ var (
   var publicThemeStorageKey = '{{.PublicThemeStorageKey}}';
   var landingThemeStorageKey = '{{.LandingThemeStorageKey}}';
   var legacyThemeStorageKey = '{{.LegacyThemeStorageKey}}';
-  var themeToggleElement = document.getElementById('{{.ThemeToggleID}}');
   var rootElement = document.body;
+  var documentRoot = document.documentElement;
+  var footerElement = document.querySelector('mpr-footer');
   function applyPublicTheme(theme) {
     var normalizedTheme = theme === 'light' ? 'light' : 'dark';
     rootElement.setAttribute('data-bs-theme', normalizedTheme);
+    if (documentRoot) {
+      documentRoot.setAttribute('data-bs-theme', normalizedTheme);
+    }
     rootElement.classList.toggle('bg-body', true);
     rootElement.classList.toggle('text-body', true);
-    if (themeToggleElement) {
-      themeToggleElement.checked = normalizedTheme === 'dark';
+    if (footerElement) {
+      footerElement.setAttribute('theme-mode', normalizedTheme);
     }
   }
   function loadPublicTheme() {
@@ -178,9 +181,9 @@ var (
     var storedTheme = loadPublicTheme();
     applyPublicTheme(storedTheme);
   }
-  if (themeToggleElement) {
-    themeToggleElement.addEventListener('change', function(event) {
-      var nextTheme = event.target.checked ? 'dark' : 'light';
+  if (footerElement) {
+    footerElement.addEventListener('mpr-footer:theme-change', function(event) {
+      var nextTheme = event && event.detail && event.detail.theme === 'dark' ? 'dark' : 'light';
       applyPublicTheme(nextTheme);
       persistPublicTheme(nextTheme);
     });
@@ -209,7 +212,6 @@ type publicHeaderTemplateData struct {
 }
 
 type publicThemeScriptTemplateData struct {
-	ThemeToggleID            string
 	PublicThemeStorageKey    string
 	LandingThemeStorageKey   string
 	LegacyThemeStorageKey    string
@@ -251,7 +253,6 @@ func renderPublicHeader(logoDataURI template.URL, isAuthenticated bool, pageType
 
 func renderPublicThemeScript() (template.JS, error) {
 	data := publicThemeScriptTemplateData{
-		ThemeToggleID:            publicThemeToggleID,
 		PublicThemeStorageKey:    publicThemeStorageKey,
 		LandingThemeStorageKey:   publicLandingThemeStorageKey,
 		LegacyThemeStorageKey:    publicLegacyThemeStorageKey,

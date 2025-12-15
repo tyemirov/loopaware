@@ -67,12 +67,12 @@ const (
 	darkThemeExpectedPanelBackgroundColor   = "rgb(31, 41, 55)"
 	darkThemeExpectedInputBackgroundColor   = "rgb(17, 24, 39)"
 	darkThemeExpectedButtonBackgroundColor  = "rgb(37, 99, 235)"
-	widgetBrandingLinkExpectedText      = "Marco Polo Research Lab"
-	widgetBrandingContainerExpectedText = "Built by Marco Polo Research Lab"
-	widgetBrandingLinkExpectedHref      = "https://mprlab.com"
-	widgetCloseButtonSelector           = "#mp-feedback-panel button[aria-label='Close feedback panel']"
-	widgetCloseButtonExpectedText       = "×"
-	widgetHeadlineSelector              = "#mp-feedback-headline"
+	widgetBrandingLinkExpectedText          = "Marco Polo Research Lab"
+	widgetBrandingContainerExpectedText     = "Built by Marco Polo Research Lab"
+	widgetBrandingLinkExpectedHref          = "https://mprlab.com"
+	widgetCloseButtonSelector               = "#mp-feedback-panel button[aria-label='Close feedback panel']"
+	widgetCloseButtonExpectedText           = "×"
+	widgetHeadlineSelector                  = "#mp-feedback-headline"
 	customWidgetBubbleSide                  = "left"
 	customWidgetBottomOffsetPixels          = 32
 	widgetHorizontalOffsetPixels            = 16

@@ -3,7 +3,6 @@ package footer
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"html/template"
 )
 
@@ -17,135 +16,126 @@ type Link struct {
 
 // Config captures the markup and style hooks required to render the footer.
 type Config struct {
-	ElementID               string
-	InnerElementID          string
-	BaseClass               string
-	InnerClass              string
-	WrapperClass            string
-	BrandWrapperClass       string
-	MenuWrapperClass        string
-	PrefixClass             string
-	PrefixText              string
-	ToggleButtonID          string
-	ToggleButtonClass       string
-	ToggleLabel             string
-	MenuClass               string
-	MenuItemClass           string
-	PrivacyLinkClass        string
-	PrivacyLinkHref         string
-	PrivacyLinkLabel        string
-	LeadingHTML             template.HTML
-	Links                   []Link
-	ThemeToggleEnabled      bool
-	ThemeToggleID           string
-	ThemeToggleWrapperClass string
-	ThemeToggleInputClass   string
-	ThemeToggleDataTheme    string
-	ThemeToggleAriaLabel    string
+	HostElementID     string
+	ElementID         string
+	InnerElementID    string
+	BaseClass         string
+	InnerClass        string
+	WrapperClass      string
+	BrandWrapperClass string
+	MenuWrapperClass  string
+	PrefixClass       string
+	PrefixText        string
+	ToggleButtonID    string
+	ToggleButtonClass string
+	ToggleLabel       string
+	MenuClass         string
+	MenuItemClass     string
+	PrivacyLinkClass  string
+	PrivacyLinkHref   string
+	PrivacyLinkLabel  string
+	PrivacyModalHTML  string
+	Links             []Link
+	Sticky            bool
+	Size              string
+
+	ThemeToggleEnabled bool
+	ThemeSwitcher      string
+	ThemeMode          string
+	ThemeAttribute     string
+	ThemeAriaLabel     string
 }
 
-var footerTemplate = template.Must(template.New("footer").Parse(`<footer id="{{.ElementID}}" class="{{.BaseClass}}" data-mpr-footer="root" data-mpr-footer-config='{{.ComponentJSON}}' x-data="mprFooter()" x-init="init(JSON.parse($el.getAttribute('data-mpr-footer-config')))">
-  <div id="{{.InnerElementID}}" class="{{.InnerClass}}" data-mpr-footer="inner">
-    <div class="{{.WrapperClass}}" data-mpr-footer="layout">
-      <a class="{{.PrivacyLinkClass}}" data-mpr-footer="privacy-link" href="{{.PrivacyLinkHref}}">{{.PrivacyLinkLabel}}</a>
-      <div class="{{.BrandWrapperClass}}" data-mpr-footer="brand">{{.LeadingHTML}}
-        <span class="{{.PrefixClass}}" data-mpr-footer="prefix">{{.PrefixText}}</span>
-        <div class="{{.MenuWrapperClass}}" data-mpr-footer="menu-wrapper">
-          <button id="{{.ToggleButtonID}}" class="{{.ToggleButtonClass}}" data-mpr-footer="toggle-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">{{.ToggleLabel}}</button>
-          <ul class="{{.MenuClass}}" data-mpr-footer="menu" aria-labelledby="{{.ToggleButtonID}}">
-            {{range .Links}}
-            <li><a class="{{$.MenuItemClass}}" data-mpr-footer="menu-link" href="{{.URL}}" target="{{if .Target}}{{.Target}}{{else}}_blank{{end}}" rel="{{if .Rel}}{{.Rel}}{{else}}noopener noreferrer{{end}}">{{.Label}}</a></li>
-            {{end}}
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
-</footer>`))
+type footerThemeConfig struct {
+	Attribute string `json:"attribute,omitempty"`
+	AriaLabel string `json:"ariaLabel,omitempty"`
+}
+
+var footerTemplate = template.Must(template.New("footer").Parse(`<mpr-footer id="{{.HostID}}" element-id="{{.ElementID}}" base-class="{{.BaseClass}}" inner-element-id="{{.InnerElementID}}" inner-class="{{.InnerClass}}" wrapper-class="{{.WrapperClass}}" brand-wrapper-class="{{.BrandWrapperClass}}" menu-wrapper-class="{{.MenuWrapperClass}}" prefix-class="{{.PrefixClass}}" prefix-text="{{.PrefixText}}" toggle-button-id="{{.ToggleButtonID}}" toggle-button-class="{{.ToggleButtonClass}}" toggle-label="{{.ToggleLabel}}" menu-class="{{.MenuClass}}" menu-item-class="{{.MenuItemClass}}" privacy-link-class="{{.PrivacyLinkClass}}" privacy-link-href="{{.PrivacyLinkHref}}" privacy-link-label="{{.PrivacyLinkLabel}}" links='{{.LinksJSON}}' sticky="{{.StickyValue}}"{{if .Size}} size="{{.Size}}"{{end}}{{if .PrivacyModalHTML}} privacy-modal-content="{{.PrivacyModalHTML}}"{{end}}{{if .ThemeToggleEnabled}} theme-switcher="{{.ThemeSwitcher}}" theme-config='{{.ThemeConfigJSON}}'{{if .ThemeMode}} theme-mode="{{.ThemeMode}}"{{end}}{{end}}></mpr-footer>`))
 
 // Render returns the footer HTML for the provided configuration.
 func Render(config Config) (template.HTML, error) {
-	normalizedConfig := config
-
-	if normalizedConfig.ThemeToggleEnabled && normalizedConfig.ThemeToggleID != "" {
-		normalizedConfig.LeadingHTML = template.HTML(fmt.Sprintf(
-			`<div class="%s" data-mpr-footer="theme-toggle" data-bs-theme="%s"><input class="%s" type="checkbox" id="%s" aria-label="%s" data-mpr-footer="theme-toggle-input" /></div>`,
-			normalizedConfig.ThemeToggleWrapperClass,
-			normalizedConfig.ThemeToggleDataTheme,
-			normalizedConfig.ThemeToggleInputClass,
-			normalizedConfig.ThemeToggleID,
-			normalizedConfig.ThemeToggleAriaLabel,
-		))
-	} else {
-		normalizedConfig.LeadingHTML = template.HTML("")
-	}
-
-	componentDescriptor := struct {
-		ElementID         string `json:"elementId"`
-		InnerElementID    string `json:"innerElementId"`
-		BaseClass         string `json:"baseClass"`
-		InnerClass        string `json:"innerClass"`
-		WrapperClass      string `json:"wrapperClass"`
-		BrandWrapperClass string `json:"brandWrapperClass"`
-		MenuWrapperClass  string `json:"menuWrapperClass"`
-		PrefixClass       string `json:"prefixClass"`
-		PrefixText        string `json:"prefixText"`
-		ToggleButtonID    string `json:"toggleButtonId"`
-		ToggleButtonClass string `json:"toggleButtonClass"`
-		ToggleLabel       string `json:"toggleLabel"`
-		MenuClass         string `json:"menuClass"`
-		MenuItemClass     string `json:"menuItemClass"`
-		PrivacyLinkClass  string `json:"privacyLinkClass"`
-		PrivacyLinkHref   string `json:"privacyLinkHref"`
-		PrivacyLinkLabel  string `json:"privacyLinkLabel"`
-		ThemeToggle       struct {
-			Enabled      bool   `json:"enabled"`
-			WrapperClass string `json:"wrapperClass"`
-			InputClass   string `json:"inputClass"`
-			DataTheme    string `json:"dataTheme"`
-			InputID      string `json:"inputId"`
-			AriaLabel    string `json:"ariaLabel"`
-		} `json:"themeToggle"`
-		Links []Link `json:"links"`
-	}{
-		ElementID:         normalizedConfig.ElementID,
-		InnerElementID:    normalizedConfig.InnerElementID,
-		BaseClass:         normalizedConfig.BaseClass,
-		InnerClass:        normalizedConfig.InnerClass,
-		WrapperClass:      normalizedConfig.WrapperClass,
-		BrandWrapperClass: normalizedConfig.BrandWrapperClass,
-		MenuWrapperClass:  normalizedConfig.MenuWrapperClass,
-		PrefixClass:       normalizedConfig.PrefixClass,
-		PrefixText:        normalizedConfig.PrefixText,
-		ToggleButtonID:    normalizedConfig.ToggleButtonID,
-		ToggleButtonClass: normalizedConfig.ToggleButtonClass,
-		ToggleLabel:       normalizedConfig.ToggleLabel,
-		MenuClass:         normalizedConfig.MenuClass,
-		MenuItemClass:     normalizedConfig.MenuItemClass,
-		PrivacyLinkClass:  normalizedConfig.PrivacyLinkClass,
-		PrivacyLinkHref:   normalizedConfig.PrivacyLinkHref,
-		PrivacyLinkLabel:  normalizedConfig.PrivacyLinkLabel,
-		Links:             normalizedConfig.Links,
-	}
-
-	componentDescriptor.ThemeToggle.Enabled = normalizedConfig.ThemeToggleEnabled
-	componentDescriptor.ThemeToggle.WrapperClass = normalizedConfig.ThemeToggleWrapperClass
-	componentDescriptor.ThemeToggle.InputClass = normalizedConfig.ThemeToggleInputClass
-	componentDescriptor.ThemeToggle.DataTheme = normalizedConfig.ThemeToggleDataTheme
-	componentDescriptor.ThemeToggle.InputID = normalizedConfig.ThemeToggleID
-	componentDescriptor.ThemeToggle.AriaLabel = normalizedConfig.ThemeToggleAriaLabel
-
-	componentJSON, marshalErr := json.Marshal(componentDescriptor)
+	linksJSON, marshalErr := json.Marshal(config.Links)
 	if marshalErr != nil {
 		return "", marshalErr
 	}
 
+	stickyValue := "true"
+	if !config.Sticky {
+		stickyValue = "false"
+	}
+
+	themeSwitcher := config.ThemeSwitcher
+	if config.ThemeToggleEnabled && themeSwitcher == "" {
+		themeSwitcher = "toggle"
+	}
+
+	themeConfigJSON := "{}"
+	if config.ThemeToggleEnabled {
+		themeConfig, jsonErr := json.Marshal(footerThemeConfig{
+			Attribute: config.ThemeAttribute,
+			AriaLabel: config.ThemeAriaLabel,
+		})
+		if jsonErr != nil {
+			return "", jsonErr
+		}
+		themeConfigJSON = string(themeConfig)
+	}
+
 	renderConfig := struct {
-		Config
-		ComponentJSON string
+		HostID             string
+		ElementID          string
+		BaseClass          string
+		InnerElementID     string
+		InnerClass         string
+		WrapperClass       string
+		BrandWrapperClass  string
+		MenuWrapperClass   string
+		PrefixClass        string
+		PrefixText         string
+		ToggleButtonID     string
+		ToggleButtonClass  string
+		ToggleLabel        string
+		MenuClass          string
+		MenuItemClass      string
+		PrivacyLinkClass   string
+		PrivacyLinkHref    string
+		PrivacyLinkLabel   string
+		PrivacyModalHTML   string
+		LinksJSON          string
+		StickyValue        string
+		Size               string
+		ThemeToggleEnabled bool
+		ThemeSwitcher      string
+		ThemeConfigJSON    string
+		ThemeMode          string
 	}{
-		Config:        normalizedConfig,
-		ComponentJSON: string(componentJSON),
+		HostID:             config.HostElementID,
+		ElementID:          config.ElementID,
+		BaseClass:          config.BaseClass,
+		InnerElementID:     config.InnerElementID,
+		InnerClass:         config.InnerClass,
+		WrapperClass:       config.WrapperClass,
+		BrandWrapperClass:  config.BrandWrapperClass,
+		MenuWrapperClass:   config.MenuWrapperClass,
+		PrefixClass:        config.PrefixClass,
+		PrefixText:         config.PrefixText,
+		ToggleButtonID:     config.ToggleButtonID,
+		ToggleButtonClass:  config.ToggleButtonClass,
+		ToggleLabel:        config.ToggleLabel,
+		MenuClass:          config.MenuClass,
+		MenuItemClass:      config.MenuItemClass,
+		PrivacyLinkClass:   config.PrivacyLinkClass,
+		PrivacyLinkHref:    config.PrivacyLinkHref,
+		PrivacyLinkLabel:   config.PrivacyLinkLabel,
+		PrivacyModalHTML:   config.PrivacyModalHTML,
+		LinksJSON:          string(linksJSON),
+		StickyValue:        stickyValue,
+		Size:               config.Size,
+		ThemeToggleEnabled: config.ThemeToggleEnabled,
+		ThemeSwitcher:      themeSwitcher,
+		ThemeConfigJSON:    themeConfigJSON,
+		ThemeMode:          config.ThemeMode,
 	}
 
 	var buffer bytes.Buffer

@@ -40,6 +40,8 @@ const (
 	colorChannelTolerance                = 12.0
 	colorPresenceMinimumRatio            = 0.01
 	headlessBlankPageURL                 = "about:blank"
+	viewportBoundsLookupTimeout          = 10 * time.Second
+	viewportBoundsLookupPollInterval     = 100 * time.Millisecond
 )
 
 type viewportBounds struct {
@@ -143,9 +145,10 @@ func buildHeadlessPage(testingT *testing.T) *rod.Page {
 
 func waitForVisibleElement(testingT *testing.T, page *rod.Page, selector string) *rod.Element {
 	testingT.Helper()
-	element, elementErr := page.Element(selector)
+	scopedPage := page.Timeout(viewportBoundsLookupTimeout)
+	element, elementErr := scopedPage.Element(selector)
 	require.NoError(testingT, elementErr)
-	require.NoError(testingT, element.WaitVisible())
+	require.NoError(testingT, element.Timeout(viewportBoundsLookupTimeout).WaitVisible())
 	return element
 }
 
@@ -159,8 +162,20 @@ func navigateToPage(testingT *testing.T, page *rod.Page, targetURL string) {
 
 func clickSelector(testingT *testing.T, page *rod.Page, selector string) {
 	testingT.Helper()
-	element := waitForVisibleElement(testingT, page, selector)
-	require.NoError(testingT, element.Click(proto.InputMouseButtonLeft, 1))
+	var clickErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		element := waitForVisibleElement(testingT, page, selector)
+		clickErr = element.Timeout(viewportBoundsLookupTimeout).Click(proto.InputMouseButtonLeft, 1)
+		if clickErr == nil {
+			return
+		}
+		if strings.Contains(clickErr.Error(), "cannot find object") || strings.Contains(clickErr.Error(), "Node is detached") {
+			time.Sleep(viewportBoundsLookupPollInterval)
+			continue
+		}
+		break
+	}
+	require.NoError(testingT, clickErr)
 }
 
 func setInputValue(testingT *testing.T, page *rod.Page, selector string, value string) {
@@ -288,9 +303,11 @@ func convertSameSiteMode(mode http.SameSite) proto.NetworkCookieSameSite {
 func resolveViewportBounds(testingT *testing.T, page *rod.Page, cssSelector string) viewportBounds {
 	testingT.Helper()
 	var bounds viewportBounds
-	evaluateScriptInto(testingT, page, boundingBoxScript(cssSelector), &bounds)
-	require.Greater(testingT, bounds.Width, 0.0)
-	require.Greater(testingT, bounds.Height, 0.0)
+	require.Eventually(testingT, func() bool {
+		bounds = viewportBounds{}
+		evaluateScriptInto(testingT, page, boundingBoxScript(cssSelector), &bounds)
+		return bounds.Width > 0.0 && bounds.Height > 0.0
+	}, viewportBoundsLookupTimeout, viewportBoundsLookupPollInterval)
 	return bounds
 }
 

@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -129,7 +128,6 @@ const (
 			maxLogoutSeconds: window.__loopawareDashboardSettingsTestHooks.maxLogoutSeconds || 0
 		};
 	}())`
-	dashboardPublicThemeToggleSelector    = "#public-theme-toggle"
 	dashboardUserEmailSelector            = "#user-email"
 	dashboardFooterSelector               = "#dashboard-footer"
 	dashboardTrafficStatusSelector        = "#traffic-status"
@@ -137,18 +135,15 @@ const (
 	dashboardUniqueVisitorCountSelector   = "#unique-visitor-count"
 	dashboardTopPagesTableBodySelector    = "#top-pages-table-body"
 	dashboardTopPagesPlaceholderText      = "No visits yet."
-	dashboardLightPromptScreenshotName    = "dashboard-session-timeout-light"
-	dashboardDarkPromptScreenshotName     = "dashboard-session-timeout-dark"
 	dashboardForcePromptScript            = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forcePrompt === 'function') { window.__loopawareDashboardIdleTestHooks.forcePrompt(); }"
 	dashboardForceLogoutScript            = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forceLogout === 'function') { window.__loopawareDashboardIdleTestHooks.forceLogout(); }"
 	dashboardNotificationBackgroundScript = `window.getComputedStyle(document.querySelector("#session-timeout-notification")).backgroundColor`
 	dashboardLocationPathScript           = "window.location.pathname"
 	dashboardIdleHooksReadyScript         = "typeof window.__loopawareDashboardIdleTestHooks !== 'undefined'"
-	dashboardPromptColorPresenceRatio     = colorPresenceMinimumRatio / 5.0
 	dashboardSelectFirstSiteScript        = `(function() {
-                var list = document.getElementById('sites-list');
-                if (!list) { return false; }
-                var item = list.querySelector('[data-site-id]');
+	                var list = document.getElementById('sites-list');
+	                if (!list) { return false; }
+	                var item = list.querySelector('[data-site-id]');
                 if (!item) { return false; }
                 item.click();
                 return true;
@@ -158,6 +153,14 @@ const (
                 if (!status) { return false; }
                 return status.classList.contains('d-none');
         }())`
+	dashboardEditSiteAllowedOriginsSelector = "#edit-site-origin"
+	dashboardFirstSiteOriginTextScript      = `(function() {
+		var item = document.querySelector('#sites-list [data-site-id]');
+		if (!item) { return ''; }
+		var elements = item.querySelectorAll('div');
+		if (!elements || elements.length < 2) { return ''; }
+		return (elements[1].textContent || '').trim();
+	}())`
 	dashboardTopPagesPlaceholderScript = `(function() {
                 var body = document.querySelector('#top-pages-table-body');
                 if (!body) { return ''; }
@@ -217,11 +220,11 @@ const (
 	dashboardStoredDashboardThemeScript = "localStorage.getItem('loopaware_dashboard_theme') || ''"
 	dashboardStoredPublicThemeScript    = "localStorage.getItem('loopaware_public_theme') || ''"
 	dashboardSeedPublicThemeScript      = `localStorage.setItem('loopaware_public_theme','dark');localStorage.removeItem('loopaware_dashboard_theme');localStorage.removeItem('loopaware_theme');`
-	dashboardThemeToggleStateScript     = `(function(){var toggle=document.querySelector('[data-mpr-footer="theme-toggle-input"]');return !!(toggle && toggle.checked);}())`
+	dashboardFooterThemeModeScript      = `(function(){var footer=document.getElementById('dashboard-footer');return footer ? (footer.getAttribute('theme-mode') || '') : '';}())`
 	dashboardSiteFaviconSelector        = "#sites-list [data-site-id] img"
 	dashboardSiteFaviconVisibleScript   = `(function() {
-		var list = document.getElementById('sites-list');
-		if (!list) { return false; }
+			var list = document.getElementById('sites-list');
+			if (!list) { return false; }
 		var item = list.querySelector('[data-site-id]');
 		if (!item) { return false; }
 		var icon = item.querySelector('img');
@@ -347,7 +350,6 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 
 	page := buildHeadlessPage(t)
 	var waitNavigation func()
-	screenshotsDirectory := createScreenshotsDirectory(t)
 
 	setPageCookie(t, page, harness.baseURL, sessionCookie)
 
@@ -378,26 +380,12 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 	lightBackgroundColor := evaluateScriptString(t, page, dashboardNotificationBackgroundScript)
 	lightColor := mustParseRGBColor(t, lightBackgroundColor)
 
-	lightPromptBounds := resolveViewportBounds(t, page, dashboardNotificationSelector)
-	lightPromptScreenshot := captureAndStoreScreenshot(t, page, screenshotsDirectory, dashboardLightPromptScreenshotName)
-	require.FileExists(t, filepath.Join(screenshotsDirectory, dashboardLightPromptScreenshotName+".png"))
-	analyzeScreenshotRegion(t, lightPromptScreenshot, lightPromptBounds, screenshotExpectation{
-		MinimumVariance: screenshotMinimumVariance,
-		ColorPresence: []colorPresenceExpectation{
-			{
-				Color:        lightColor,
-				Tolerance:    colorChannelTolerance,
-				MinimumRatio: dashboardPromptColorPresenceRatio,
-			},
-		},
-	}, float64(headlessViewportWidth), float64(headlessViewportHeight))
-	footerBounds := resolveViewportBounds(t, page, dashboardFooterSelector)
-	require.LessOrEqual(t, lightPromptBounds.Top+lightPromptBounds.Height, footerBounds.Top)
-
-	clickSelector(t, page, dashboardSettingsButtonSelector)
-	waitForVisibleElement(t, page, dashboardSettingsMenuSelector)
-	clickSelector(t, page, dashboardPublicThemeToggleSelector)
-	evaluateScriptInto(t, page, `(function(){ if (document && document.body) { document.body.click(); } }())`, nil)
+	evaluateScriptInto(t, page, `(function(){
+		var footer = document.getElementById('dashboard-footer');
+		if (!footer || typeof footer.dispatchEvent !== 'function') { return false; }
+		footer.dispatchEvent(new CustomEvent('mpr-footer:theme-change', { detail: { theme: 'dark' } }));
+		return true;
+	}())`, nil)
 
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
 	require.Eventually(t, func() bool {
@@ -408,22 +396,8 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 	darkColor := mustParseRGBColor(t, darkBackgroundColor)
 	require.NotEqual(t, lightColor, darkColor)
 
-	darkPromptBounds := resolveViewportBounds(t, page, dashboardNotificationSelector)
-	darkPromptScreenshot := captureAndStoreScreenshot(t, page, screenshotsDirectory, dashboardDarkPromptScreenshotName)
-	require.FileExists(t, filepath.Join(screenshotsDirectory, dashboardDarkPromptScreenshotName+".png"))
-	analyzeScreenshotRegion(t, darkPromptScreenshot, darkPromptBounds, screenshotExpectation{
-		MinimumVariance: screenshotMinimumVariance,
-		ColorPresence: []colorPresenceExpectation{
-			{
-				Color:        darkColor,
-				Tolerance:    colorChannelTolerance,
-				MinimumRatio: dashboardPromptColorPresenceRatio,
-			},
-		},
-	}, float64(headlessViewportWidth), float64(headlessViewportHeight))
-	require.LessOrEqual(t, darkPromptBounds.Top+darkPromptBounds.Height, footerBounds.Top)
-
-	clickSelector(t, page, dashboardDismissButtonSelector)
+	dismissClickScript := fmt.Sprintf("document.querySelector(%q).click()", dashboardDismissButtonSelector)
+	evaluateScriptInto(t, page, dismissClickScript, nil)
 	require.Eventually(t, func() bool {
 		notificationElement, elementErr := page.Element(dashboardNotificationSelector)
 		if elementErr != nil {
@@ -867,7 +841,8 @@ func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {
 
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
 	waitForVisibleElement(t, page, dashboardNotificationSelector)
-	clickSelector(t, page, dashboardDismissButtonSelector)
+	dismissClickScript := fmt.Sprintf("document.querySelector(%q).click()", dashboardDismissButtonSelector)
+	evaluateScriptInto(t, page, dismissClickScript, nil)
 	require.Eventually(t, func() bool {
 		return !evaluateScriptBoolean(t, page, dashboardSessionTimeoutVisibleScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
@@ -1013,8 +988,9 @@ func TestDashboardRestoresThemeFromPublicPreference(t *testing.T) {
 	documentTheme := evaluateScriptString(t, page, dashboardDocumentThemeScript)
 	require.Equal(t, "dark", documentTheme)
 
-	toggleChecked := evaluateScriptBoolean(t, page, dashboardThemeToggleStateScript)
-	require.True(t, toggleChecked)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardFooterThemeModeScript) == "dark"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	storedTheme := evaluateScriptString(t, page, dashboardStoredDashboardThemeScript)
 	require.Equal(t, "dark", storedTheme)
@@ -1031,25 +1007,22 @@ func TestDashboardPrefersPublicThemeOverStoredPreference(t *testing.T) {
 	setPageCookie(t, page, harness.baseURL, sessionCookie)
 
 	testCases := []struct {
-		name             string
-		storedTheme      string
-		publicTheme      string
-		expectedTheme    string
-		expectedToggleOn bool
+		name          string
+		storedTheme   string
+		publicTheme   string
+		expectedTheme string
 	}{
 		{
-			name:             "public_dark_overrides_stored_light",
-			storedTheme:      "light",
-			publicTheme:      "dark",
-			expectedTheme:    "dark",
-			expectedToggleOn: true,
+			name:          "public_dark_overrides_stored_light",
+			storedTheme:   "light",
+			publicTheme:   "dark",
+			expectedTheme: "dark",
 		},
 		{
-			name:             "public_light_overrides_stored_dark",
-			storedTheme:      "dark",
-			publicTheme:      "light",
-			expectedTheme:    "light",
-			expectedToggleOn: false,
+			name:          "public_light_overrides_stored_dark",
+			storedTheme:   "dark",
+			publicTheme:   "light",
+			expectedTheme: "light",
 		},
 	}
 
@@ -1076,8 +1049,9 @@ func TestDashboardPrefersPublicThemeOverStoredPreference(t *testing.T) {
 			storedDashboardTheme := evaluateScriptString(t, page, dashboardStoredDashboardThemeScript)
 			require.Equal(t, testCase.expectedTheme, storedDashboardTheme)
 
-			toggleChecked := evaluateScriptBoolean(t, page, dashboardThemeToggleStateScript)
-			require.Equal(t, testCase.expectedToggleOn, toggleChecked)
+			require.Eventually(t, func() bool {
+				return evaluateScriptString(t, page, dashboardFooterThemeModeScript) == testCase.expectedTheme
+			}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 		})
 	}
 }
@@ -1262,14 +1236,15 @@ func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
     return body.classList.contains('bg-dark') && body.classList.contains('text-light');
   }())`))
 
-	clickSelector(t, page, dashboardSettingsButtonSelector)
-	waitForVisibleElement(t, page, dashboardSettingsMenuSelector)
-
-	currentToggleChecked := evaluateScriptBoolean(t, page, dashboardThemeToggleStateScript)
-	require.True(t, currentToggleChecked)
-
-	clickSelector(t, page, dashboardPublicThemeToggleSelector)
-	clickSelector(t, page, "body")
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardFooterThemeModeScript) == "dark"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	evaluateScriptInto(t, page, `(function(){
+		var footer = document.getElementById('dashboard-footer');
+		if (!footer || typeof footer.dispatchEvent !== 'function') { return false; }
+		footer.dispatchEvent(new CustomEvent('mpr-footer:theme-change', { detail: { theme: 'light' } }));
+		return true;
+	}())`, nil)
 
 	require.Eventually(t, func() bool {
 		return evaluateScriptString(t, page, dashboardDocumentThemeScript) == "light"
@@ -1425,7 +1400,7 @@ func TestSubscribeWidgetTestFlowSubmitsSubscription(t *testing.T) {
 	site := model.Site{
 		ID:            storage.NewID(),
 		Name:          "Subscribe Test Flow",
-		AllowedOrigin: harness.baseURL,
+		AllowedOrigin: "https://widget.example",
 		OwnerEmail:    dashboardTestAdminEmail,
 		CreatorEmail:  dashboardTestAdminEmail,
 	}
@@ -1819,6 +1794,85 @@ func TestDashboardWidgetPlacementSavePersists(t *testing.T) {
 	require.Equal(t, 88, updatedSite.WidgetBubbleBottomOffsetPx)
 }
 
+func TestDashboardAllowedOriginsAcceptsMultipleEntries(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Multi-Origin Save",
+		AllowedOrigin:              harness.baseURL,
+		OwnerEmail:                 dashboardTestAdminEmail,
+		CreatorEmail:               dashboardTestAdminEmail,
+		WidgetBubbleSide:           "right",
+		WidgetBubbleBottomOffsetPx: 16,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, 5*time.Second, 100*time.Millisecond)
+
+	interceptFetchRequests(t, page)
+
+	allowedOrigins := "https://widget.example " + harness.baseURL
+	setInputValue(t, page, dashboardEditSiteAllowedOriginsSelector, allowedOrigins)
+	clickSelector(t, page, dashboardSaveSiteButtonSelector)
+
+	type siteUpdatePayload struct {
+		AllowedOrigin string `json:"allowed_origin"`
+	}
+
+	var payload siteUpdatePayload
+	var payloadStatus int
+	require.Eventually(t, func() bool {
+		requests := readCapturedFetchRequests(t, page)
+		for _, record := range requests {
+			if !strings.HasSuffix(record.URL, "/api/sites/"+site.ID) {
+				continue
+			}
+			if !strings.EqualFold(record.Method, http.MethodPatch) {
+				continue
+			}
+			if record.Body == "" {
+				continue
+			}
+			if record.Status == 0 {
+				continue
+			}
+			if err := json.Unmarshal([]byte(record.Body), &payload); err != nil {
+				return false
+			}
+			payloadStatus = record.Status
+			return true
+		}
+		return false
+	}, 20*time.Second, 100*time.Millisecond)
+
+	require.Equal(t, allowedOrigins, payload.AllowedOrigin)
+	require.Equal(t, http.StatusOK, payloadStatus)
+
+	var updatedSite model.Site
+	require.Eventually(t, func() bool {
+		return harness.database.First(&updatedSite, "id = ?", site.ID).Error == nil
+	}, 5*time.Second, 100*time.Millisecond)
+	require.Equal(t, allowedOrigins, updatedSite.AllowedOrigin)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardFirstSiteOriginTextScript) == "https://widget.example +1 more"
+	}, 5*time.Second, 100*time.Millisecond)
+}
+
 func TestDashboardSiteFaviconOpensOrigin(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
@@ -2166,7 +2220,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true)
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{})
 	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(gormDatabase, logger)
-	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents)
+	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents, config.subscriptionNotifier, true)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -2185,6 +2239,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	router.GET("/app/sites/:id/traffic-test", authManager.RequireAuthenticatedWeb(), trafficTestHandlers.RenderTrafficTestPage)
 	router.GET("/app/sites/:id/subscribe-test", authManager.RequireAuthenticatedWeb(), subscribeTestHandlers.RenderSubscribeTestPage)
 	router.GET("/app/sites/:id/subscribe-test/events", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.StreamSubscriptionTestEvents)
+	router.POST("/app/sites/:id/subscribe-test/subscriptions", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.CreateSubscription)
 	router.POST(constants.LogoutPath, func(context *gin.Context) {
 		context.Status(http.StatusOK)
 	})

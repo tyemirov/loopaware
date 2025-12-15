@@ -119,7 +119,8 @@ const (
 	dashboardFooterLinkCrosswordToken          = "https://llm-crossword.mprlab.com"
 	dashboardFooterLinkPromptsToken            = "https://prompts.mprlab.com"
 	dashboardFooterLinkWallpapersToken         = "https://wallpapers.mprlab.com"
-	dashboardPrivacyLinkToken                  = "href=\"/privacy\">Privacy • Terms"
+	dashboardPrivacyLinkHrefToken              = "privacy-link-href=\"/privacy\""
+	dashboardPrivacyLinkLabelToken             = "privacy-link-label=\"Privacy • Terms\""
 	dashboardHeaderLogoImageIDToken            = "id=\"dashboard-header-logo\""
 	dashboardHeaderLogoAltToken                = "alt=\"LoopAware logo\""
 	dashboardHeaderLogoDataToken               = "src=\"data:image/png;base64,"
@@ -451,7 +452,8 @@ func TestDashboardFooterDisplaysPrivacyLink(t *testing.T) {
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
-	require.Contains(t, body, dashboardPrivacyLinkToken)
+	require.Contains(t, body, dashboardPrivacyLinkHrefToken)
+	require.Contains(t, body, dashboardPrivacyLinkLabelToken)
 	require.Contains(t, body, dashboardFooterPrivacyClassToken)
 }
 
