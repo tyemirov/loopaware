@@ -1106,20 +1106,46 @@ func (handlers *SiteHandlers) allowedOriginConflictExists(allowedOrigin string, 
 	if handlers.database == nil {
 		return false, nil
 	}
-	normalizedOrigin := strings.ToLower(strings.TrimSpace(allowedOrigin))
-	if normalizedOrigin == "" {
+	allowedOrigins := parseAllowedOrigins(allowedOrigin)
+	if len(allowedOrigins) == 0 {
 		return false, nil
 	}
-	query := handlers.database.Model(&model.Site{}).Where("LOWER(allowed_origin) = ?", normalizedOrigin)
+
+	normalizedOrigins := make(map[string]struct{}, len(allowedOrigins))
+	for _, origin := range allowedOrigins {
+		normalized := strings.ToLower(strings.TrimSpace(origin))
+		if normalized == "" {
+			continue
+		}
+		normalizedOrigins[normalized] = struct{}{}
+	}
+	if len(normalizedOrigins) == 0 {
+		return false, nil
+	}
+
+	query := handlers.database.Model(&model.Site{}).Select("id", "allowed_origin")
 	excludedIdentifier := strings.TrimSpace(excludeSiteID)
 	if excludedIdentifier != "" {
 		query = query.Where("id <> ?", excludedIdentifier)
 	}
-	var existingCount int64
-	if err := query.Count(&existingCount).Error; err != nil {
+	var existingSites []model.Site
+	if err := query.Find(&existingSites).Error; err != nil {
 		return false, err
 	}
-	return existingCount > 0, nil
+
+	for _, site := range existingSites {
+		for _, existingOrigin := range parseAllowedOrigins(site.AllowedOrigin) {
+			normalized := strings.ToLower(strings.TrimSpace(existingOrigin))
+			if normalized == "" {
+				continue
+			}
+			if _, ok := normalizedOrigins[normalized]; ok {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
 
 func normalizeWidgetBaseURL(value string) string {

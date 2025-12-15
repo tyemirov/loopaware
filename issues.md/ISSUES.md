@@ -40,6 +40,8 @@ loopaware  | {"level":"info","ts":1765747925.552095,"caller":"httpapi/middleware
 loopaware  | {"level":"info","ts":1765747936.5625567,"caller":"httpapi/middleware.go:14","msg":"http","method":"GET","path":"/app/sites/c6bf3dd5-0bd4-4d0b-9be3-c647991f7092/subscribe-test","status":302,"dur":0.000044817,"ip":"173.194.65.95","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0"}
 ```
 
+- [x] [LS-313] Prevent duplicate origins when a site's `allowed_origin` contains multiple origins (comma/space-separated). — updated conflict detection to compare per-origin rather than the raw `allowed_origin` string and added coverage.
+
 ## Maintenance (405-499)
 
 - [x] [LA-403] Document subscribe integration in the @README.md — added subscribe.js snippet, REST endpoints, and dashboard description to README.md

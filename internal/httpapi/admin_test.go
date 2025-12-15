@@ -762,6 +762,35 @@ func TestCreateSiteRejectsDuplicateAllowedOrigin(testingT *testing.T) {
 	require.Equal(testingT, errorCodeSiteExists, responseBody[jsonErrorKey])
 }
 
+func TestCreateSiteRejectsDuplicateAllowedOriginAcrossOriginList(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	existingSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Existing Site",
+		AllowedOrigin: "https://duplicate.example",
+		OwnerEmail:    testAdminEmailAddress,
+		CreatorEmail:  testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&existingSite).Error)
+
+	payload := map[string]string{
+		"name":           "Duplicate Site",
+		"allowed_origin": "https://duplicate.example https://other.example",
+		"owner_email":    testAdminEmailAddress,
+	}
+
+	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.CreateSite(context)
+	require.Equal(testingT, http.StatusConflict, recorder.Code)
+
+	var responseBody map[string]string
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, errorCodeSiteExists, responseBody[jsonErrorKey])
+}
+
 func TestCreateSiteAcceptsWidgetPlacementOverrides(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
@@ -854,6 +883,43 @@ func TestUpdateSiteRejectsDuplicateAllowedOrigin(testingT *testing.T) {
 
 	payload := map[string]string{
 		"allowed_origin": "https://conflict.example",
+	}
+
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+targetSite.ID, payload)
+	context.Params = gin.Params{{Key: "id", Value: targetSite.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.UpdateSite(context)
+	require.Equal(testingT, http.StatusConflict, recorder.Code)
+
+	var responseBody map[string]string
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, errorCodeSiteExists, responseBody[jsonErrorKey])
+}
+
+func TestUpdateSiteRejectsDuplicateAllowedOriginAcrossOriginList(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	targetSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Primary Site",
+		AllowedOrigin: "https://primary.example",
+		OwnerEmail:    testAdminEmailAddress,
+		CreatorEmail:  testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&targetSite).Error)
+
+	conflictingSite := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Existing Site",
+		AllowedOrigin: "https://conflict.example https://secondary.example",
+		OwnerEmail:    testAdminEmailAddress,
+		CreatorEmail:  testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&conflictingSite).Error)
+
+	payload := map[string]string{
+		"allowed_origin": "https://primary.example https://conflict.example",
 	}
 
 	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+targetSite.ID, payload)
