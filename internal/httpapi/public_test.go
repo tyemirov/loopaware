@@ -58,6 +58,7 @@ func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, sub
 	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
 	router.POST("/api/subscriptions/unsubscribe", publicHandlers.Unsubscribe)
 	router.GET("/subscriptions/confirm", publicHandlers.ConfirmSubscriptionLink)
+	router.GET("/subscriptions/unsubscribe", publicHandlers.UnsubscribeSubscriptionLink)
 	router.GET("/widget.js", publicHandlers.WidgetJS)
 	router.GET("/subscribe.js", publicHandlers.SubscribeJS)
 	router.GET("/subscribe-demo", publicHandlers.SubscribeDemo)
@@ -379,11 +380,23 @@ func TestSubscriptionConfirmationEmailConfirmsViaLink(t *testing.T) {
 	require.Contains(t, confirmBody, "Subscription confirmed")
 	require.Contains(t, confirmBody, "Open Confirmation Email")
 	require.Contains(t, confirmBody, `href="http://confirm.example"`)
+	require.Contains(t, confirmBody, "Unsubscribe")
+	require.Contains(t, confirmBody, "/subscriptions/unsubscribe?token=")
+
+	tokenValue := parsedURL.Query().Get("token")
+	require.NotEmpty(t, tokenValue)
+
+	unsubscribeQuery := url.Values{}
+	unsubscribeQuery.Set("token", tokenValue)
+	unsubscribeResponse := performJSONRequest(t, api.router, http.MethodGet, "/subscriptions/unsubscribe?"+unsubscribeQuery.Encode(), nil, nil)
+	require.Equal(t, http.StatusOK, unsubscribeResponse.Code)
+	require.Contains(t, unsubscribeResponse.Body.String(), "Unsubscribed")
 
 	var stored model.Subscriber
 	require.NoError(t, api.database.First(&stored, "site_id = ? AND email = ?", site.ID, "confirm@example.com").Error)
-	require.Equal(t, model.SubscriberStatusConfirmed, stored.Status)
+	require.Equal(t, model.SubscriberStatusUnsubscribed, stored.Status)
 	require.False(t, stored.ConfirmedAt.IsZero())
+	require.False(t, stored.UnsubscribedAt.IsZero())
 
 	require.Equal(t, 1, subscriptionNotifier.CallCount())
 	notification := subscriptionNotifier.LastCall()

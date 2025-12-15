@@ -34,16 +34,16 @@
                       <p class="text-body-secondary mb-0">{{.Message}}</p>
                     </div>
                   </div>
-                  {{if .OpenURL}}
                   <div class="mt-4 d-flex flex-wrap gap-2">
+                    {{if .OpenURL}}
                     <a class="btn btn-primary" href="{{.OpenURL}}" target="_blank" rel="noopener noreferrer">{{.OpenLabel}}</a>
+                    {{end}}
+                    {{if .UnsubscribeURL}}
+                    <a class="btn btn-outline-danger" href="{{.UnsubscribeURL}}">Unsubscribe</a>
+                    {{else}}
                     <a class="btn btn-outline-secondary" href="/login">Return to LoopAware</a>
+                    {{end}}
                   </div>
-                  {{else}}
-                  <div class="mt-4">
-                    <a class="btn btn-outline-secondary" href="/login">Return to LoopAware</a>
-                  </div>
-                  {{end}}
                 </div>
               </div>
             </div>
@@ -58,4 +58,3 @@
     </script>
   </body>
 </html>
-
