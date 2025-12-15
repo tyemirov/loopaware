@@ -42,6 +42,8 @@ loopaware  | {"level":"info","ts":1765747936.5625567,"caller":"httpapi/middlewar
 
 - [x] [LS-313] Prevent duplicate origins when a site's `allowed_origin` contains multiple origins (comma/space-separated). — updated conflict detection to compare per-origin rather than the raw `allowed_origin` string and added coverage.
 
+- [x] [LS-314] Pinguin notification calls fail with `tenant_id is required` when submitting feedback/subscriptions. — added `PINGUIN_TENANT_ID` config and send it as `x-tenant-id` gRPC metadata on Pinguin notification requests.
+
 ## Maintenance (405-499)
 
 - [x] [LA-403] Document subscribe integration in the @README.md — added subscribe.js snippet, REST endpoints, and dashboard description to README.md

@@ -46,6 +46,7 @@ func TestEnsureRequiredConfigurationDetectsMissingFields(t *testing.T) {
 		ConfigFilePath:         "testdata/config.yaml",
 		PinguinAddress:         defaultPinguinAddress,
 		PinguinAuthToken:       "test-token",
+		PinguinTenantID:        "tenant-test",
 		PinguinConnTimeoutSec:  defaultPinguinConnTimeoutSeconds,
 		PinguinOpTimeoutSec:    defaultPinguinOpTimeoutSeconds,
 	}
@@ -129,6 +130,14 @@ func TestEnsureRequiredConfigurationDetectsMissingFields(t *testing.T) {
 			expectedToken: flagNamePinguinAuthToken,
 		},
 		{
+			name: "missing pinguin tenant id",
+			mutate: func(config *ServerConfig) {
+				config.PinguinTenantID = ""
+			},
+			expectsError:  true,
+			expectedToken: flagNamePinguinTenantID,
+		},
+		{
 			name: "missing pinguin connection timeout",
 			mutate: func(config *ServerConfig) {
 				config.PinguinConnTimeoutSec = 0
@@ -195,6 +204,10 @@ func TestServerCommandFlagDefaults(t *testing.T) {
 	pinguinAuthFlag := command.Flag(flagNamePinguinAuthToken)
 	require.NotNil(t, pinguinAuthFlag)
 	require.Equal(t, "", pinguinAuthFlag.DefValue)
+
+	pinguinTenantFlag := command.Flag(flagNamePinguinTenantID)
+	require.NotNil(t, pinguinTenantFlag)
+	require.Equal(t, "", pinguinTenantFlag.DefValue)
 
 	pinguinConnFlag := command.Flag(flagNamePinguinConnectionTimeout)
 	require.NotNil(t, pinguinConnFlag)

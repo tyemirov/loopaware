@@ -20,6 +20,7 @@ import (
 type PinguinConfig struct {
 	Address           string
 	AuthToken         string
+	TenantID          string
 	ConnectionTimeout time.Duration
 	OperationTimeout  time.Duration
 }
@@ -30,6 +31,7 @@ type PinguinNotifier struct {
 	conn              *grpc.ClientConn
 	client            pinguinpb.NotificationServiceClient
 	authToken         string
+	tenantID          string
 	operationTimeout  time.Duration
 	connectionTimeout time.Duration
 }
@@ -43,6 +45,10 @@ func NewPinguinNotifier(logger *zap.Logger, cfg PinguinConfig) (*PinguinNotifier
 	}
 	if cfg.AuthToken == "" {
 		return nil, errors.New("pinguin auth token is required")
+	}
+	cfg.TenantID = strings.TrimSpace(cfg.TenantID)
+	if cfg.TenantID == "" {
+		return nil, errors.New("pinguin tenant id is required")
 	}
 	if cfg.ConnectionTimeout <= 0 {
 		cfg.ConnectionTimeout = 5 * time.Second
@@ -69,6 +75,7 @@ func NewPinguinNotifier(logger *zap.Logger, cfg PinguinConfig) (*PinguinNotifier
 		conn:              conn,
 		client:            pinguinpb.NewNotificationServiceClient(conn),
 		authToken:         cfg.AuthToken,
+		tenantID:          cfg.TenantID,
 		operationTimeout:  cfg.OperationTimeout,
 		connectionTimeout: cfg.ConnectionTimeout,
 	}, nil
@@ -110,7 +117,7 @@ func (notifier *PinguinNotifier) NotifyFeedback(ctx context.Context, site model.
 
 	callCtx, cancel := context.WithTimeout(ctx, notifier.operationTimeout)
 	defer cancel()
-	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken)
+	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken, "x-tenant-id", notifier.tenantID)
 
 	response, sendErr := notifier.client.SendNotification(callCtx, request)
 	if sendErr != nil {
@@ -160,7 +167,7 @@ func (notifier *PinguinNotifier) NotifySubscription(ctx context.Context, site mo
 
 	callCtx, cancel := context.WithTimeout(ctx, notifier.operationTimeout)
 	defer cancel()
-	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken)
+	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken, "x-tenant-id", notifier.tenantID)
 
 	response, sendErr := notifier.client.SendNotification(callCtx, request)
 	if sendErr != nil {

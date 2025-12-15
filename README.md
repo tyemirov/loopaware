@@ -39,6 +39,7 @@ Set the `ADMINS` environment variable with a comma-separated list (for example `
 | `GOOGLE_CLIENT_SECRET` | ✅        | OAuth client secret                                         |
 | `SESSION_SECRET`       | ✅        | 32+ byte secret for cookie signing                          |
 | `PINGUIN_AUTH_TOKEN`¹  | ✅        | Bearer token passed to the Pinguin gRPC service             |
+| `PINGUIN_TENANT_ID`    | ✅        | Tenant identifier used when calling the Pinguin gRPC API     |
 | `ADMINS`               | ⚙️       | Comma-separated admin emails; overrides the YAML roster     |
 | `PUBLIC_BASE_URL`      | ⚙️       | Public URL of the service (default `http://localhost:8080`) |
 | `APP_ADDR`             | ⚙️       | Listen address (default `:8080`)                            |
