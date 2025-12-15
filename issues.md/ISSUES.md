@@ -25,7 +25,7 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
 
 - [x] [LA-208] Add front-end for LA-111 which would allow entering multiple origins for the same subscribe widget. — updated the dashboard UI to treat `allowed_origin` as a multi-origin field (space/comma-separated), summarize the primary origin in the sites list, and ensure favicon-click opens the primary origin.
 
-- [ ] [LA-209] Add a section selector for Feedback, Subscriptions, Traffic. — Add a tabbed selection below Site details to have three sections: Feedback, Subscriptions, Traffic.
+- [x] [LA-209] Add a section selector for Feedback, Subscriptions, Traffic. — added dashboard tabs below Site details to switch between Feedback, Subscriptions, and Traffic sections, showing only the relevant widget + pane at a time.
   Only one section is shown at a time
   Clicking on Feedback shows Feedback widget and Feedback messages panes
   Clicking on Subscriptions shows Subscribers Widget and Subscribers panes

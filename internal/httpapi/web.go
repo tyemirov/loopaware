@@ -200,96 +200,103 @@ const (
          C 160 108, 128 108, 128 128
          C 128 148, 96 148, 96 128"/>
   </svg>`
-	deleteSiteButtonElementID               = "delete-site-button"
-	deleteSiteButtonClass                   = "btn btn-sm border-0 bg-transparent text-danger opacity-100"
-	deleteSiteButtonDisabledClass           = "btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled"
-	deleteSiteIconClass                     = "bi bi-trash3-fill text-danger"
-	deleteSubscriberButtonClass             = "btn btn-sm border-0 bg-transparent text-danger opacity-100 ms-2"
-	deleteSubscriberIconClass               = "bi bi-trash3-fill text-danger"
-	footerElementID                         = "dashboard-footer"
-	footerInnerElementID                    = "dashboard-footer-inner"
-	footerBaseClass                         = "mpr-footer mt-auto py-2 fixed-bottom border-top"
-	footerThemeLightClass                   = "bg-body text-body-secondary"
-	footerThemeDarkClass                    = "bg-dark text-light border-light"
-	deleteSiteModalElementID                = "delete-site-modal"
-	deleteSiteModalTitle                    = "Delete site"
-	deleteSiteModalDescription              = "This action permanently removes the site and its feedback."
-	deleteSiteModalInputElementID           = "delete-site-confirm-name"
-	deleteSiteModalInputLabel               = "Type the site name to confirm"
-	deleteSiteModalInputPlaceholder         = "Enter the site name"
-	deleteSiteModalConfirmButtonID          = "delete-site-confirm-button"
-	deleteSiteModalConfirmButtonLabel       = "Delete site"
-	deleteSiteModalConfirmButtonClass       = "btn btn-danger"
-	deleteSiteModalCancelButtonLabel        = "Cancel"
-	deleteSiteModalCancelButtonClass        = "btn btn-secondary"
-	deleteSiteTargetNameElementID           = "delete-site-target-name"
-	deleteSiteModalHintPrefix               = "Type "
-	deleteSiteModalHintSuffix               = " exactly to confirm."
-	deleteSubscriberModalElementID          = "delete-subscriber-modal"
-	deleteSubscriberModalTitle              = "Delete subscriber"
-	deleteSubscriberModalDescription        = "This action permanently removes the subscriber record."
-	deleteSubscriberModalInputElementID     = "delete-subscriber-confirm-email"
-	deleteSubscriberModalInputLabel         = "Type the subscriber email to confirm"
-	deleteSubscriberModalInputPlaceholder   = "Enter the subscriber email"
-	deleteSubscriberModalConfirmButtonID    = "delete-subscriber-confirm-button"
-	deleteSubscriberModalConfirmButtonLabel = "Delete subscriber"
-	deleteSubscriberModalConfirmButtonClass = "btn btn-danger"
-	deleteSubscriberModalCancelButtonLabel  = "Cancel"
-	deleteSubscriberModalCancelButtonClass  = "btn btn-secondary"
-	deleteSubscriberTargetEmailElementID    = "delete-subscriber-target-email"
-	deleteSubscriberModalHintPrefix         = "Type "
-	deleteSubscriberModalHintSuffix         = " exactly to confirm."
-	formStatusBaseClass                     = "d-none py-1 px-2 small rounded"
-	formStatusSuccessClass                  = "py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"
-	formStatusDangerClass                   = "py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle"
-	fieldHelpButtonClass                    = "btn btn-link p-0 text-secondary"
-	fieldHelpButtonTabIndexValue            = "-1"
-	fieldHelpIconClass                      = "bi bi-question-circle-fill"
-	fieldHelpTextClass                      = "form-text text-muted"
-	siteListItemHeaderClass                 = "d-flex align-items-center gap-2"
-	siteListItemFaviconClass                = "flex-shrink-0 rounded border bg-white"
-	siteCreatedAtElementID                  = "site-created-at"
-	siteCreatedAtContainerElementID         = "site-created-at-container"
-	siteCreatedAtPlaceholder                = "Not saved yet."
-	feedbackCountElementID                  = "feedback-count"
-	siteNameHelpButtonElementID             = "site-name-help-button"
-	siteNameHelpTitle                       = "Site name"
-	siteNameHelpContent                     = "Displayed in the sites list for your team."
-	allowedOriginHelpButtonElementID        = "allowed-origin-help-button"
-	allowedOriginHelpTitle                  = "Allowed origins"
-	allowedOriginHelpContent                = "One or more origins (protocol, host, optional port) where the widget will run; separate multiple origins with commas or spaces."
-	ownerEmailHelpButtonElementID           = "owner-email-help-button"
-	ownerEmailHelpTitle                     = "Owner email"
-	ownerEmailHelpContent                   = "Receives notifications when visitors submit feedback."
-	siteSearchToggleButtonElementID         = "site-search-toggle-button"
-	siteSearchContainerElementID            = "site-search-container"
-	siteSearchInputElementID                = "site-search-input"
-	siteSearchToggleLabel                   = "Toggle site search"
-	siteSearchPlaceholder                   = "Search sites"
-	messagesSearchToggleButtonElementID     = "messages-search-toggle-button"
-	messagesSearchContainerElementID        = "messages-search-container"
-	messagesSearchInputElementID            = "messages-search-input"
-	messagesSearchToggleLabel               = "Toggle feedback search"
-	messagesSearchPlaceholder               = "Search feedback"
-	searchToggleButtonClass                 = "btn btn-link p-0 text-secondary"
-	searchInputClass                        = "form-control form-control-sm"
-	dashboardStatusNoSiteMatches            = "No sites match your search."
-	dashboardStatusNoMessageMatches         = "No feedback matches your search."
-	validationMessageNameRequiredKey        = "name_required"
-	validationMessageOriginKey              = "origin_invalid"
-	validationMessageOwnerKey               = "owner_invalid"
-	validationMessageWidgetOffsetKey        = "widget_offset_invalid"
-	dashboardValidationNameMessage          = "Site name is required."
-	dashboardValidationOriginMessage        = "Allowed origins must include protocol and hostname, for example https://example.com http://localhost:8080."
-	dashboardValidationOwnerMessage         = "Provide a valid owner email address."
-	dashboardValidationWidgetOffsetMessage  = "Provide a whole number between 0 and 240."
-	dashboardValidationWidgetSideMessage    = "Choose left or right for the widget bubble."
-	dashboardErrorMessageSiteExists         = "A site for this allowed origin already exists."
-	dashboardErrorMessageInvalidJSON        = "Submitted data could not be parsed."
-	dashboardErrorMessageMissingFields      = "Provide site name and allowed origin."
-	dashboardErrorMessageInvalidOwner       = dashboardValidationOwnerMessage
-	dashboardErrorMessageNotAuthorized      = "You are not allowed to manage that site."
-	dashboardErrorMessageSaveFailed         = "Failed to save site."
+	deleteSiteButtonElementID                = "delete-site-button"
+	deleteSiteButtonClass                    = "btn btn-sm border-0 bg-transparent text-danger opacity-100"
+	deleteSiteButtonDisabledClass            = "btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled"
+	deleteSiteIconClass                      = "bi bi-trash3-fill text-danger"
+	deleteSubscriberButtonClass              = "btn btn-sm border-0 bg-transparent text-danger opacity-100 ms-2"
+	deleteSubscriberIconClass                = "bi bi-trash3-fill text-danger"
+	footerElementID                          = "dashboard-footer"
+	footerInnerElementID                     = "dashboard-footer-inner"
+	footerBaseClass                          = "mpr-footer mt-auto py-2 fixed-bottom border-top"
+	footerThemeLightClass                    = "bg-body text-body-secondary"
+	footerThemeDarkClass                     = "bg-dark text-light border-light"
+	deleteSiteModalElementID                 = "delete-site-modal"
+	deleteSiteModalTitle                     = "Delete site"
+	deleteSiteModalDescription               = "This action permanently removes the site and its feedback."
+	deleteSiteModalInputElementID            = "delete-site-confirm-name"
+	deleteSiteModalInputLabel                = "Type the site name to confirm"
+	deleteSiteModalInputPlaceholder          = "Enter the site name"
+	deleteSiteModalConfirmButtonID           = "delete-site-confirm-button"
+	deleteSiteModalConfirmButtonLabel        = "Delete site"
+	deleteSiteModalConfirmButtonClass        = "btn btn-danger"
+	deleteSiteModalCancelButtonLabel         = "Cancel"
+	deleteSiteModalCancelButtonClass         = "btn btn-secondary"
+	deleteSiteTargetNameElementID            = "delete-site-target-name"
+	deleteSiteModalHintPrefix                = "Type "
+	deleteSiteModalHintSuffix                = " exactly to confirm."
+	deleteSubscriberModalElementID           = "delete-subscriber-modal"
+	deleteSubscriberModalTitle               = "Delete subscriber"
+	deleteSubscriberModalDescription         = "This action permanently removes the subscriber record."
+	deleteSubscriberModalInputElementID      = "delete-subscriber-confirm-email"
+	deleteSubscriberModalInputLabel          = "Type the subscriber email to confirm"
+	deleteSubscriberModalInputPlaceholder    = "Enter the subscriber email"
+	deleteSubscriberModalConfirmButtonID     = "delete-subscriber-confirm-button"
+	deleteSubscriberModalConfirmButtonLabel  = "Delete subscriber"
+	deleteSubscriberModalConfirmButtonClass  = "btn btn-danger"
+	deleteSubscriberModalCancelButtonLabel   = "Cancel"
+	deleteSubscriberModalCancelButtonClass   = "btn btn-secondary"
+	deleteSubscriberTargetEmailElementID     = "delete-subscriber-target-email"
+	deleteSubscriberModalHintPrefix          = "Type "
+	deleteSubscriberModalHintSuffix          = " exactly to confirm."
+	formStatusBaseClass                      = "d-none py-1 px-2 small rounded"
+	formStatusSuccessClass                   = "py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"
+	formStatusDangerClass                    = "py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle"
+	fieldHelpButtonClass                     = "btn btn-link p-0 text-secondary"
+	fieldHelpButtonTabIndexValue             = "-1"
+	fieldHelpIconClass                       = "bi bi-question-circle-fill"
+	fieldHelpTextClass                       = "form-text text-muted"
+	siteListItemHeaderClass                  = "d-flex align-items-center gap-2"
+	siteListItemFaviconClass                 = "flex-shrink-0 rounded border bg-white"
+	siteCreatedAtElementID                   = "site-created-at"
+	siteCreatedAtContainerElementID          = "site-created-at-container"
+	siteCreatedAtPlaceholder                 = "Not saved yet."
+	feedbackCountElementID                   = "feedback-count"
+	siteNameHelpButtonElementID              = "site-name-help-button"
+	siteNameHelpTitle                        = "Site name"
+	siteNameHelpContent                      = "Displayed in the sites list for your team."
+	allowedOriginHelpButtonElementID         = "allowed-origin-help-button"
+	allowedOriginHelpTitle                   = "Allowed origins"
+	allowedOriginHelpContent                 = "One or more origins (protocol, host, optional port) where the widget will run; separate multiple origins with commas or spaces."
+	ownerEmailHelpButtonElementID            = "owner-email-help-button"
+	ownerEmailHelpTitle                      = "Owner email"
+	ownerEmailHelpContent                    = "Receives notifications when visitors submit feedback."
+	siteSearchToggleButtonElementID          = "site-search-toggle-button"
+	siteSearchContainerElementID             = "site-search-container"
+	siteSearchInputElementID                 = "site-search-input"
+	siteSearchToggleLabel                    = "Toggle site search"
+	siteSearchPlaceholder                    = "Search sites"
+	messagesSearchToggleButtonElementID      = "messages-search-toggle-button"
+	messagesSearchContainerElementID         = "messages-search-container"
+	messagesSearchInputElementID             = "messages-search-input"
+	messagesSearchToggleLabel                = "Toggle feedback search"
+	messagesSearchPlaceholder                = "Search feedback"
+	dashboardSectionTabsElementID            = "dashboard-section-tabs"
+	dashboardSectionTabFeedbackButtonID      = "dashboard-section-tab-feedback"
+	dashboardSectionTabSubscriptionsButtonID = "dashboard-section-tab-subscriptions"
+	dashboardSectionTabTrafficButtonID       = "dashboard-section-tab-traffic"
+	dashboardSectionFeedbackTabLabel         = "Feedback"
+	dashboardSectionSubscriptionsTabLabel    = "Subscriptions"
+	dashboardSectionTrafficTabLabel          = "Traffic"
+	searchToggleButtonClass                  = "btn btn-link p-0 text-secondary"
+	searchInputClass                         = "form-control form-control-sm"
+	dashboardStatusNoSiteMatches             = "No sites match your search."
+	dashboardStatusNoMessageMatches          = "No feedback matches your search."
+	validationMessageNameRequiredKey         = "name_required"
+	validationMessageOriginKey               = "origin_invalid"
+	validationMessageOwnerKey                = "owner_invalid"
+	validationMessageWidgetOffsetKey         = "widget_offset_invalid"
+	dashboardValidationNameMessage           = "Site name is required."
+	dashboardValidationOriginMessage         = "Allowed origins must include protocol and hostname, for example https://example.com http://localhost:8080."
+	dashboardValidationOwnerMessage          = "Provide a valid owner email address."
+	dashboardValidationWidgetOffsetMessage   = "Provide a whole number between 0 and 240."
+	dashboardValidationWidgetSideMessage     = "Choose left or right for the widget bubble."
+	dashboardErrorMessageSiteExists          = "A site for this allowed origin already exists."
+	dashboardErrorMessageInvalidJSON         = "Submitted data could not be parsed."
+	dashboardErrorMessageMissingFields       = "Provide site name and allowed origin."
+	dashboardErrorMessageInvalidOwner        = dashboardValidationOwnerMessage
+	dashboardErrorMessageNotAuthorized       = "You are not allowed to manage that site."
+	dashboardErrorMessageSaveFailed          = "Failed to save site."
 )
 
 type dashboardTemplateData struct {
@@ -501,6 +508,13 @@ type dashboardTemplateData struct {
 	MessagesSearchContainerID               string
 	MessagesSearchInputID                   string
 	MessagesSearchPlaceholder               string
+	DashboardSectionTabsID                  string
+	DashboardSectionFeedbackTabID           string
+	DashboardSectionSubscriptionsTabID      string
+	DashboardSectionTrafficTabID            string
+	DashboardSectionFeedbackTabLabel        string
+	DashboardSectionSubscriptionsTabLabel   string
+	DashboardSectionTrafficTabLabel         string
 	FeedbackCountElementID                  string
 	WidgetStatusID                          string
 	WidgetPlacementSideLeftID               string
@@ -857,6 +871,13 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		MessagesSearchContainerID:               messagesSearchContainerElementID,
 		MessagesSearchInputID:                   messagesSearchInputElementID,
 		MessagesSearchPlaceholder:               messagesSearchPlaceholder,
+		DashboardSectionTabsID:                  dashboardSectionTabsElementID,
+		DashboardSectionFeedbackTabID:           dashboardSectionTabFeedbackButtonID,
+		DashboardSectionSubscriptionsTabID:      dashboardSectionTabSubscriptionsButtonID,
+		DashboardSectionTrafficTabID:            dashboardSectionTabTrafficButtonID,
+		DashboardSectionFeedbackTabLabel:        dashboardSectionFeedbackTabLabel,
+		DashboardSectionSubscriptionsTabLabel:   dashboardSectionSubscriptionsTabLabel,
+		DashboardSectionTrafficTabLabel:         dashboardSectionTrafficTabLabel,
 		FeedbackCountElementID:                  feedbackCountElementID,
 		WidgetStatusID:                          widgetStatusElementID,
 		MessagesStatusID:                        messagesStatusElementID,
@@ -934,87 +955,91 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"traffic_test_suffix":   dashboardTrafficTestPathSuffix,
 		},
 		ElementIDs: map[string]string{
-			"user_name":                         userNameElementID,
-			"user_email":                        userEmailElementID,
-			"user_avatar":                       userAvatarElementID,
-			"user_role":                         userRoleBadgeElementID,
-			"sites_list":                        sitesListElementID,
-			"empty_sites_message":               emptySitesMessageElementID,
-			"site_form":                         siteFormElementID,
-			"edit_site_name":                    editSiteNameInputElementID,
-			"edit_site_origin":                  editSiteOriginInputElementID,
-			"edit_site_owner_container":         editSiteOwnerContainerElementID,
-			"edit_site_owner":                   editSiteOwnerInputElementID,
-			"site_created_at":                   siteCreatedAtElementID,
-			"site_created_at_container":         siteCreatedAtContainerElementID,
-			"save_site_button":                  saveSiteButtonElementID,
-			"refresh_messages_button":           refreshMessagesButtonElementID,
-			"feedback_table_header":             feedbackTableHeaderElementID,
-			"feedback_table_body":               feedbackTableBodyElementID,
-			"subscriber_count":                  subscriberCountElementID,
-			"subscribers_table_body":            subscribersTableBodyElementID,
-			"export_subscribers_button":         exportSubscribersButtonElementID,
-			"subscribers_status":                subscribersStatusElementID,
-			"visit_count":                       visitCountElementID,
-			"unique_visitor_count":              uniqueVisitorCountElementID,
-			"traffic_status":                    trafficStatusElementID,
-			"top_pages_table_body":              topPagesTableBodyElementID,
-			"logout_button":                     logoutButtonElementID,
-			"widget_snippet_textarea":           widgetSnippetTextareaElementID,
-			"copy_widget_snippet_button":        copyWidgetSnippetButtonElementID,
-			"subscribe_snippet_textarea":        subscribeWidgetSnippetTextareaElementID,
-			"copy_subscribe_snippet_button":     copySubscribeWidgetSnippetButtonElementID,
-			"traffic_snippet_textarea":          trafficWidgetSnippetTextareaElementID,
-			"copy_traffic_snippet_button":       copyTrafficWidgetSnippetButtonElementID,
-			"widget_test_button":                widgetTestButtonElementID,
-			"subscribe_test_button":             subscribeTestButtonElementID,
-			"traffic_test_button":               trafficTestButtonElementID,
-			"settings_button":                   settingsButtonElementID,
-			"settings_menu":                     settingsMenuElementID,
-			"settings_menu_settings":            settingsMenuSettingsButtonElementID,
-			"settings_modal":                    settingsModalElementID,
-			"settings_modal_title":              settingsModalTitleElementID,
-			"settings_modal_content":            settingsModalContentElementID,
-			"settings_auto_logout_fields":       settingsAutoLogoutFieldsContainerElementID,
-			"settings_auto_logout_toggle":       settingsAutoLogoutToggleElementID,
-			"settings_auto_logout_prompt":       settingsAutoLogoutPromptInputElementID,
-			"settings_auto_logout_logout":       settingsAutoLogoutLogoutInputElementID,
-			"settings_auto_logout_prompt_error": settingsAutoLogoutPromptErrorElementID,
-			"settings_auto_logout_logout_error": settingsAutoLogoutLogoutErrorElementID,
-			"settings_avatar_image":             settingsAvatarImageElementID,
-			"settings_avatar_fallback":          settingsAvatarFallbackElementID,
-			"form_status":                       formStatusElementID,
-			"new_site_button":                   newSiteButtonElementID,
-			"delete_site_button":                deleteSiteButtonElementID,
-			"delete_site_modal":                 deleteSiteModalElementID,
-			"delete_site_confirm_button":        deleteSiteModalConfirmButtonID,
-			"delete_site_confirm_input":         deleteSiteModalInputElementID,
-			"delete_site_target_name":           deleteSiteTargetNameElementID,
-			"delete_subscriber_modal":           deleteSubscriberModalElementID,
-			"delete_subscriber_confirm_button":  deleteSubscriberModalConfirmButtonID,
-			"delete_subscriber_confirm_input":   deleteSubscriberModalInputElementID,
-			"delete_subscriber_target_email":    deleteSubscriberTargetEmailElementID,
-			"footer":                            footerElementID,
-			"footer_inner":                      footerInnerElementID,
-			"site_name_help_button":             siteNameHelpButtonElementID,
-			"allowed_origin_help_button":        allowedOriginHelpButtonElementID,
-			"owner_email_help_button":           ownerEmailHelpButtonElementID,
-			"site_search_toggle_button":         siteSearchToggleButtonElementID,
-			"site_search_container":             siteSearchContainerElementID,
-			"site_search_input":                 siteSearchInputElementID,
-			"messages_search_toggle_button":     messagesSearchToggleButtonElementID,
-			"messages_search_container":         messagesSearchContainerElementID,
-			"messages_search_input":             messagesSearchInputElementID,
-			"feedback_count":                    feedbackCountElementID,
-			"widget_side_left":                  widgetPlacementSideLeftInputElementID,
-			"widget_side_right":                 widgetPlacementSideRightInputElementID,
-			"widget_bottom_offset":              widgetPlacementBottomOffsetInputElementID,
-			"widget_bottom_offset_decrease":     widgetBottomOffsetDecreaseButtonElementID,
-			"widget_bottom_offset_increase":     widgetBottomOffsetIncreaseButtonElementID,
-			"session_timeout_container":         sessionTimeoutContainerElementID,
-			"session_timeout_message":           sessionTimeoutMessageElementID,
-			"session_timeout_confirm_button":    sessionTimeoutConfirmButtonElementID,
-			"session_timeout_dismiss_button":    sessionTimeoutDismissButtonElementID,
+			"user_name":                           userNameElementID,
+			"user_email":                          userEmailElementID,
+			"user_avatar":                         userAvatarElementID,
+			"user_role":                           userRoleBadgeElementID,
+			"sites_list":                          sitesListElementID,
+			"empty_sites_message":                 emptySitesMessageElementID,
+			"site_form":                           siteFormElementID,
+			"edit_site_name":                      editSiteNameInputElementID,
+			"edit_site_origin":                    editSiteOriginInputElementID,
+			"edit_site_owner_container":           editSiteOwnerContainerElementID,
+			"edit_site_owner":                     editSiteOwnerInputElementID,
+			"site_created_at":                     siteCreatedAtElementID,
+			"site_created_at_container":           siteCreatedAtContainerElementID,
+			"save_site_button":                    saveSiteButtonElementID,
+			"refresh_messages_button":             refreshMessagesButtonElementID,
+			"feedback_table_header":               feedbackTableHeaderElementID,
+			"feedback_table_body":                 feedbackTableBodyElementID,
+			"subscriber_count":                    subscriberCountElementID,
+			"subscribers_table_body":              subscribersTableBodyElementID,
+			"export_subscribers_button":           exportSubscribersButtonElementID,
+			"subscribers_status":                  subscribersStatusElementID,
+			"visit_count":                         visitCountElementID,
+			"unique_visitor_count":                uniqueVisitorCountElementID,
+			"traffic_status":                      trafficStatusElementID,
+			"top_pages_table_body":                topPagesTableBodyElementID,
+			"logout_button":                       logoutButtonElementID,
+			"widget_snippet_textarea":             widgetSnippetTextareaElementID,
+			"copy_widget_snippet_button":          copyWidgetSnippetButtonElementID,
+			"subscribe_snippet_textarea":          subscribeWidgetSnippetTextareaElementID,
+			"copy_subscribe_snippet_button":       copySubscribeWidgetSnippetButtonElementID,
+			"traffic_snippet_textarea":            trafficWidgetSnippetTextareaElementID,
+			"copy_traffic_snippet_button":         copyTrafficWidgetSnippetButtonElementID,
+			"widget_test_button":                  widgetTestButtonElementID,
+			"subscribe_test_button":               subscribeTestButtonElementID,
+			"traffic_test_button":                 trafficTestButtonElementID,
+			"settings_button":                     settingsButtonElementID,
+			"settings_menu":                       settingsMenuElementID,
+			"settings_menu_settings":              settingsMenuSettingsButtonElementID,
+			"settings_modal":                      settingsModalElementID,
+			"settings_modal_title":                settingsModalTitleElementID,
+			"settings_modal_content":              settingsModalContentElementID,
+			"settings_auto_logout_fields":         settingsAutoLogoutFieldsContainerElementID,
+			"settings_auto_logout_toggle":         settingsAutoLogoutToggleElementID,
+			"settings_auto_logout_prompt":         settingsAutoLogoutPromptInputElementID,
+			"settings_auto_logout_logout":         settingsAutoLogoutLogoutInputElementID,
+			"settings_auto_logout_prompt_error":   settingsAutoLogoutPromptErrorElementID,
+			"settings_auto_logout_logout_error":   settingsAutoLogoutLogoutErrorElementID,
+			"settings_avatar_image":               settingsAvatarImageElementID,
+			"settings_avatar_fallback":            settingsAvatarFallbackElementID,
+			"form_status":                         formStatusElementID,
+			"new_site_button":                     newSiteButtonElementID,
+			"delete_site_button":                  deleteSiteButtonElementID,
+			"delete_site_modal":                   deleteSiteModalElementID,
+			"delete_site_confirm_button":          deleteSiteModalConfirmButtonID,
+			"delete_site_confirm_input":           deleteSiteModalInputElementID,
+			"delete_site_target_name":             deleteSiteTargetNameElementID,
+			"delete_subscriber_modal":             deleteSubscriberModalElementID,
+			"delete_subscriber_confirm_button":    deleteSubscriberModalConfirmButtonID,
+			"delete_subscriber_confirm_input":     deleteSubscriberModalInputElementID,
+			"delete_subscriber_target_email":      deleteSubscriberTargetEmailElementID,
+			"footer":                              footerElementID,
+			"footer_inner":                        footerInnerElementID,
+			"site_name_help_button":               siteNameHelpButtonElementID,
+			"allowed_origin_help_button":          allowedOriginHelpButtonElementID,
+			"owner_email_help_button":             ownerEmailHelpButtonElementID,
+			"site_search_toggle_button":           siteSearchToggleButtonElementID,
+			"site_search_container":               siteSearchContainerElementID,
+			"site_search_input":                   siteSearchInputElementID,
+			"messages_search_toggle_button":       messagesSearchToggleButtonElementID,
+			"messages_search_container":           messagesSearchContainerElementID,
+			"messages_search_input":               messagesSearchInputElementID,
+			"dashboard_section_tabs":              dashboardSectionTabsElementID,
+			"dashboard_section_tab_feedback":      dashboardSectionTabFeedbackButtonID,
+			"dashboard_section_tab_subscriptions": dashboardSectionTabSubscriptionsButtonID,
+			"dashboard_section_tab_traffic":       dashboardSectionTabTrafficButtonID,
+			"feedback_count":                      feedbackCountElementID,
+			"widget_side_left":                    widgetPlacementSideLeftInputElementID,
+			"widget_side_right":                   widgetPlacementSideRightInputElementID,
+			"widget_bottom_offset":                widgetPlacementBottomOffsetInputElementID,
+			"widget_bottom_offset_decrease":       widgetBottomOffsetDecreaseButtonElementID,
+			"widget_bottom_offset_increase":       widgetBottomOffsetIncreaseButtonElementID,
+			"session_timeout_container":           sessionTimeoutContainerElementID,
+			"session_timeout_message":             sessionTimeoutMessageElementID,
+			"session_timeout_confirm_button":      sessionTimeoutConfirmButtonElementID,
+			"session_timeout_dismiss_button":      sessionTimeoutDismissButtonElementID,
 		},
 		ButtonClasses: map[string]string{
 			"new_site_default":        newSiteButtonClass,
