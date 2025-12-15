@@ -36,6 +36,9 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
 
 - [x] [LA-211] Add delete action to subscribers pane, using the flow and design approach similar to site deletion in the sites pane — added an authenticated DELETE subscriber endpoint and a dashboard confirmation modal (type email) to remove subscriber records.
 
+- [x] [LA-212] Subscription confirmed page should show Open + Unsubscribe buttons (no “Return to LoopAware” on the confirmed card).
+  added a token-based `/subscriptions/unsubscribe?token=...` web route and updated the confirmation page to display “Open <site>” and “Unsubscribe” actions; added coverage.
+
 ## BugFixes (312–399)
 
 - [x] [LA-311] TestWidgetIntegrationSubmitsFeedback can time out under `make ci` race tests with a `context deadline exceeded` error from the headless browser harness; investigate and stabilize the widget integration test so `make ci` passes reliably — simplified the keyboard focus assertions in the widget integration test to avoid brittle Shift+Tab focus loops while preserving end-to-end feedback submission coverage; `make test`, `make lint`, and `make ci` now pass cleanly including the race suite.
