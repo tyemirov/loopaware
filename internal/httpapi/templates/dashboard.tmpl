@@ -117,6 +117,19 @@
                 </form>
               </div>
             </div>
+            <div class="mb-3" role="navigation" aria-label="Dashboard sections">
+              <ul class="nav nav-tabs" id="{{.DashboardSectionTabsID}}">
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link active" id="{{.DashboardSectionFeedbackTabID}}" type="button" role="tab" aria-selected="true">{{.DashboardSectionFeedbackTabLabel}}</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link" id="{{.DashboardSectionSubscriptionsTabID}}" type="button" role="tab" aria-selected="false">{{.DashboardSectionSubscriptionsTabLabel}}</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link" id="{{.DashboardSectionTrafficTabID}}" type="button" role="tab" aria-selected="false">{{.DashboardSectionTrafficTabLabel}}</button>
+                </li>
+              </ul>
+            </div>
             <div class="card shadow-sm mb-4" data-widget-card="feedback">
               <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center">
@@ -601,6 +614,10 @@
         var apiSiteSubscribersExportSuffix = apiPaths.site_subscribers_export || '';
         var apiSiteSubscriberUpdateSuffix = apiPaths.site_subscriber_update || '';
         var apiSiteVisitStatsSuffix = apiPaths.site_visit_stats || '';
+        var dashboardSectionTabFeedback = document.getElementById(elementIds.dashboard_section_tab_feedback);
+        var dashboardSectionTabSubscriptions = document.getElementById(elementIds.dashboard_section_tab_subscriptions);
+        var dashboardSectionTabTraffic = document.getElementById(elementIds.dashboard_section_tab_traffic);
+        var dashboardSectionCurrentKey = 'feedback';
 
         var state = {
           user: null,
@@ -1997,6 +2014,51 @@
           return value.trim();
         }
 
+        function setDashboardSection(sectionKey) {
+          var key = (sectionKey || '').toLowerCase();
+          if (key !== 'feedback' && key !== 'subscriptions' && key !== 'traffic') {
+            key = 'feedback';
+          }
+          dashboardSectionCurrentKey = key;
+          applyDashboardSectionSelection();
+          applyDashboardSectionVisibility();
+        }
+
+        function setTabButtonState(button, isActive) {
+          if (!button) {
+            return;
+          }
+          button.classList.toggle('active', isActive);
+          button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        }
+
+        function applyDashboardSectionSelection() {
+          setTabButtonState(dashboardSectionTabFeedback, dashboardSectionCurrentKey === 'feedback');
+          setTabButtonState(dashboardSectionTabSubscriptions, dashboardSectionCurrentKey === 'subscriptions');
+          setTabButtonState(dashboardSectionTabTraffic, dashboardSectionCurrentKey === 'traffic');
+        }
+
+        function setCardVisible(selector, isVisible) {
+          var element = document.querySelector(selector);
+          if (!element) {
+            return;
+          }
+          element.classList.toggle('d-none', !isVisible);
+        }
+
+        function applyDashboardSectionVisibility() {
+          var showFeedback = dashboardSectionCurrentKey === 'feedback';
+          var showSubscriptions = dashboardSectionCurrentKey === 'subscriptions';
+          var showTraffic = dashboardSectionCurrentKey === 'traffic';
+
+          setCardVisible('[data-widget-card=\"feedback\"]', showFeedback);
+          setCardVisible('[data-dashboard-card=\"feedback\"]', showFeedback);
+          setCardVisible('[data-widget-card=\"subscribe\"]', showSubscriptions);
+          setCardVisible('[data-dashboard-card=\"subscribers\"]', showSubscriptions);
+          setCardVisible('[data-widget-card=\"traffic\"]', showTraffic);
+          setCardVisible('[data-dashboard-card=\"traffic\"]', showTraffic);
+        }
+
         function resolveErrorMessage(errorCode, fallbackMessage) {
           var normalizedCode = normalizeMessage(errorCode);
           if (normalizedCode !== '') {
@@ -3318,6 +3380,24 @@
         if (subscribersTableBody) {
           subscribersTableBody.addEventListener('click', handleSubscribersTableClick);
         }
+        if (dashboardSectionTabFeedback) {
+          dashboardSectionTabFeedback.addEventListener('click', function(event) {
+            event.preventDefault();
+            setDashboardSection('feedback');
+          });
+        }
+        if (dashboardSectionTabSubscriptions) {
+          dashboardSectionTabSubscriptions.addEventListener('click', function(event) {
+            event.preventDefault();
+            setDashboardSection('subscriptions');
+          });
+        }
+        if (dashboardSectionTabTraffic) {
+          dashboardSectionTabTraffic.addEventListener('click', function(event) {
+            event.preventDefault();
+            setDashboardSection('traffic');
+          });
+        }
         if (logoutButton) {
           logoutButton.addEventListener('click', function(event) {
             event.preventDefault();
@@ -3331,6 +3411,8 @@
         });
 
         loadThemePreference();
+        applyDashboardSectionSelection();
+        applyDashboardSectionVisibility();
         sessionTimeoutStartRequested = true;
         if (sessionTimeoutManager && typeof sessionTimeoutManager.start === 'function') {
           sessionTimeoutManager.start();

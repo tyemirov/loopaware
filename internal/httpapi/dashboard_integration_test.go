@@ -92,6 +92,9 @@ const (
 	dashboardFeedbackMessagesCardSelector     = `[data-dashboard-card="feedback"]`
 	dashboardSubscribersCardSelector          = `[data-dashboard-card="subscribers"]`
 	dashboardTrafficCardSelector              = `[data-dashboard-card="traffic"]`
+	dashboardSectionTabFeedbackSelector       = "#dashboard-section-tab-feedback"
+	dashboardSectionTabSubscriptionsSelector  = "#dashboard-section-tab-subscriptions"
+	dashboardSectionTabTrafficSelector        = "#dashboard-section-tab-traffic"
 	dashboardSubscribersTableBodySelector     = "#subscribers-table-body"
 	dashboardSettingsMenuOpenScript           = `(function() {
 		var menu = document.querySelector('#settings-menu');
@@ -656,6 +659,109 @@ func TestDashboardShowsDistinctWidgetSnippets(t *testing.T) {
 	require.False(t, snippets.FeedbackCopyDisabled)
 	require.False(t, snippets.SubscribeCopyDisabled)
 	require.False(t, snippets.TrafficCopyDisabled)
+}
+
+func TestDashboardSectionTabsTogglePanes(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Dashboard Tabs Site",
+		AllowedOrigin: harness.baseURL,
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	visibilityScript := fmt.Sprintf(`(function(){
+		function hidden(selector) {
+			var node = document.querySelector(selector);
+			if (!node) { return null; }
+			return node.classList.contains('d-none');
+		}
+		return {
+			feedbackWidgetHidden: hidden(%q),
+			subscribeWidgetHidden: hidden(%q),
+			trafficWidgetHidden: hidden(%q),
+			feedbackPaneHidden: hidden(%q),
+			subscribePaneHidden: hidden(%q),
+			trafficPaneHidden: hidden(%q)
+		};
+	}())`, dashboardFeedbackWidgetCardSelector, dashboardSubscribeWidgetCardSelector, dashboardTrafficWidgetCardSelector, dashboardFeedbackMessagesCardSelector, dashboardSubscribersCardSelector, dashboardTrafficCardSelector)
+
+	var state struct {
+		FeedbackWidgetHidden  *bool `json:"feedbackWidgetHidden"`
+		SubscribeWidgetHidden *bool `json:"subscribeWidgetHidden"`
+		TrafficWidgetHidden   *bool `json:"trafficWidgetHidden"`
+		FeedbackPaneHidden    *bool `json:"feedbackPaneHidden"`
+		SubscribePaneHidden   *bool `json:"subscribePaneHidden"`
+		TrafficPaneHidden     *bool `json:"trafficPaneHidden"`
+	}
+
+	require.Eventually(t, func() bool {
+		evaluateScriptInto(t, page, visibilityScript, &state)
+		return state.FeedbackWidgetHidden != nil &&
+			state.SubscribeWidgetHidden != nil &&
+			state.TrafficWidgetHidden != nil &&
+			state.FeedbackPaneHidden != nil &&
+			state.SubscribePaneHidden != nil &&
+			state.TrafficPaneHidden != nil
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.False(t, *state.FeedbackWidgetHidden)
+	require.True(t, *state.SubscribeWidgetHidden)
+	require.True(t, *state.TrafficWidgetHidden)
+	require.False(t, *state.FeedbackPaneHidden)
+	require.True(t, *state.SubscribePaneHidden)
+	require.True(t, *state.TrafficPaneHidden)
+
+	waitForVisibleElement(t, page, dashboardSectionTabSubscriptionsSelector)
+	clickSelector(t, page, dashboardSectionTabSubscriptionsSelector)
+	require.Eventually(t, func() bool {
+		evaluateScriptInto(t, page, visibilityScript, &state)
+		return state.SubscribePaneHidden != nil && !*state.SubscribePaneHidden
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.True(t, *state.FeedbackPaneHidden)
+	require.False(t, *state.SubscribeWidgetHidden)
+	require.False(t, *state.SubscribePaneHidden)
+
+	waitForVisibleElement(t, page, dashboardSectionTabTrafficSelector)
+	clickSelector(t, page, dashboardSectionTabTrafficSelector)
+	require.Eventually(t, func() bool {
+		evaluateScriptInto(t, page, visibilityScript, &state)
+		return state.TrafficPaneHidden != nil && !*state.TrafficPaneHidden
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.True(t, *state.FeedbackPaneHidden)
+	require.True(t, *state.SubscribePaneHidden)
+	require.False(t, *state.TrafficWidgetHidden)
+	require.False(t, *state.TrafficPaneHidden)
+
+	waitForVisibleElement(t, page, dashboardSectionTabFeedbackSelector)
+	clickSelector(t, page, dashboardSectionTabFeedbackSelector)
+	require.Eventually(t, func() bool {
+		evaluateScriptInto(t, page, visibilityScript, &state)
+		return state.FeedbackPaneHidden != nil && !*state.FeedbackPaneHidden
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.False(t, *state.FeedbackWidgetHidden)
+	require.False(t, *state.FeedbackPaneHidden)
+	require.True(t, *state.SubscribePaneHidden)
+	require.True(t, *state.TrafficPaneHidden)
 }
 
 func TestDashboardSeparatesSubscribersAndTrafficCards(t *testing.T) {
@@ -1440,6 +1546,10 @@ func TestSubscribeWidgetTestFlowSubmitsSubscription(t *testing.T) {
         return true;
       }())`))
 
+	waitForVisibleElement(t, page, dashboardSectionTabSubscriptionsSelector)
+	clickSelector(t, page, dashboardSectionTabSubscriptionsSelector)
+	waitForVisibleElement(t, page, dashboardSubscribeTestButtonSelector)
+
 	waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameLoad)
 	clickSelector(t, page, dashboardSubscribeTestButtonSelector)
 	waitNavigation()
@@ -1620,6 +1730,10 @@ func TestTrafficWidgetTestFlowRecordsVisit(t *testing.T) {
         window.open._original = originalOpen;
         return true;
       }())`))
+
+	waitForVisibleElement(t, page, dashboardSectionTabTrafficSelector)
+	clickSelector(t, page, dashboardSectionTabTrafficSelector)
+	waitForVisibleElement(t, page, dashboardTrafficTestButtonSelector)
 
 	waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameLoad)
 	clickSelector(t, page, dashboardTrafficTestButtonSelector)
