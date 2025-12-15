@@ -19,9 +19,9 @@ const (
 	privacySupportEmailToken   = "mailto:support@mprlab.com"
 	privacyBodyFontStyleToken  = "body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif"
 	privacyGeneratorCommentTag = "<!doctype html>"
-	privacyFooterLayoutToken   = "footer-layout"
-	privacyFooterBrandToken    = "footer-brand d-inline-flex align-items-center"
-	privacyFooterPrivacyToken  = "footer-privacy-link text-body-secondary text-decoration-none small"
+	privacyFooterLayoutToken   = "mpr-footer__layout"
+	privacyFooterBrandToken    = "mpr-footer__brand"
+	privacyFooterPrivacyToken  = "mpr-footer__privacy"
 )
 
 func TestPrivacyPageRendersPolicyMarkup(t *testing.T) {
