@@ -21,4 +21,5 @@ type subscriptionConfirmedTemplateData struct {
 	Message        string
 	OpenURL        template.URL
 	OpenLabel      string
+	UnsubscribeURL template.URL
 }

@@ -92,6 +92,7 @@ const (
 	publicRouteSubscriptionConfirm    = "/api/subscriptions/confirm"
 	publicRouteSubscriptionOptOut     = "/api/subscriptions/unsubscribe"
 	publicRouteSubscriptionConfirmWeb = "/subscriptions/confirm"
+	publicRouteSubscriptionOptOutWeb  = "/subscriptions/unsubscribe"
 	publicRouteSubscribeWidget        = "/subscribe.js"
 	publicRouteSubscribeDemo          = "/subscribe-demo"
 	publicRouteVisitPixel             = "/api/visits"
@@ -509,6 +510,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	router.POST(publicRouteSubscriptionConfirm, publicHandlers.ConfirmSubscription)
 	router.POST(publicRouteSubscriptionOptOut, publicHandlers.Unsubscribe)
 	router.GET(publicRouteSubscriptionConfirmWeb, publicHandlers.ConfirmSubscriptionLink)
+	router.GET(publicRouteSubscriptionOptOutWeb, publicHandlers.UnsubscribeSubscriptionLink)
 	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
 	router.GET(publicRouteSubscribeWidget, publicHandlers.SubscribeJS)
 	router.GET(publicRouteSubscribeDemo, publicHandlers.SubscribeDemo)
