@@ -33,6 +33,7 @@ Issue IDs in Features, Improvements, BugFixes, and Maintenance never reuse compl
   The idea is that these widgets are now crowding a single screen and we want to hide them under the top selector, so Tabbed navigation will work here
 
 ## BugFixes (312–399)
+
 - [x] [LA-311] TestWidgetIntegrationSubmitsFeedback can time out under `make ci` race tests with a `context deadline exceeded` error from the headless browser harness; investigate and stabilize the widget integration test so `make ci` passes reliably — simplified the keyboard focus assertions in the widget integration test to avoid brittle Shift+Tab focus loops while preserving end-to-end feedback submission coverage; `make test`, `make lint`, and `make ci` now pass cleanly including the race suite.
 
 - [x] [LS-312] Investigate the 403 errro when trying to subscribe on a test subscribe page. — I have entered a valid enail and my name but got an error: "Please try again"
@@ -54,7 +55,11 @@ Issue IDs in Features, Improvements, BugFixes, and Maintenance never reuse compl
 
 - [x] [LS-313] Prevent duplicate origins when a site's `allowed_origin` contains multiple origins (comma/space-separated). — updated conflict detection to compare per-origin rather than the raw `allowed_origin` string and added coverage.
 
-- [x] [LS-314] Pinguin notification calls fail with `tenant_id is required` when submitting feedback/subscriptions. — added `PINGUIN_TENANT_ID` config and send it as `x-tenant-id` gRPC metadata on Pinguin notification requests.
+- [x] [LA-314] Pinguin notification calls fail with `tenant_id is required` when submitting feedback/subscriptions. — added `PINGUIN_TENANT_ID` config and send it as `x-tenant-id` gRPC metadata on Pinguin notification requests.
+
+- [ ] [LA-315] mpr-ui footer: ![alt text](../image.png)
+1. The footer lacks "Built by Marco Polo Research Lab" drop up
+2. The padding on the left and right is absent
 
 ## Maintenance (405–499)
 - [x] [LA-403] Document pixel integration in the @README.md — added pixel.js snippet, REST endpoints, and traffic dashboard description to README.md
