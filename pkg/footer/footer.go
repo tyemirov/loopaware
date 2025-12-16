@@ -44,11 +44,13 @@ type Config struct {
 	ThemeMode          string
 	ThemeAttribute     string
 	ThemeAriaLabel     string
+	ThemeModes         []string
 }
 
 type footerThemeConfig struct {
-	Attribute string `json:"attribute,omitempty"`
-	AriaLabel string `json:"ariaLabel,omitempty"`
+	Attribute string   `json:"attribute,omitempty"`
+	AriaLabel string   `json:"ariaLabel,omitempty"`
+	Modes     []string `json:"modes,omitempty"`
 }
 
 var footerTemplate = template.Must(template.New("footer").Parse(`<mpr-footer id="{{.HostID}}" element-id="{{.ElementID}}" base-class="{{.BaseClass}}" inner-element-id="{{.InnerElementID}}" inner-class="{{.InnerClass}}" wrapper-class="{{.WrapperClass}}" brand-wrapper-class="{{.BrandWrapperClass}}" menu-wrapper-class="{{.MenuWrapperClass}}" prefix-class="{{.PrefixClass}}" prefix-text="{{.PrefixText}}" toggle-button-id="{{.ToggleButtonID}}" toggle-button-class="{{.ToggleButtonClass}}" toggle-label="{{.ToggleLabel}}" menu-class="{{.MenuClass}}" menu-item-class="{{.MenuItemClass}}" privacy-link-class="{{.PrivacyLinkClass}}" privacy-link-href="{{.PrivacyLinkHref}}" privacy-link-label="{{.PrivacyLinkLabel}}" links='{{.LinksJSON}}' sticky="{{.StickyValue}}"{{if .Size}} size="{{.Size}}"{{end}}{{if .PrivacyModalHTML}} privacy-modal-content="{{.PrivacyModalHTML}}"{{end}}{{if .ThemeToggleEnabled}} theme-switcher="{{.ThemeSwitcher}}" theme-config='{{.ThemeConfigJSON}}'{{if .ThemeMode}} theme-mode="{{.ThemeMode}}"{{end}}{{end}}></mpr-footer>`))
@@ -75,6 +77,7 @@ func Render(config Config) (template.HTML, error) {
 		themeConfig, jsonErr := json.Marshal(footerThemeConfig{
 			Attribute: config.ThemeAttribute,
 			AriaLabel: config.ThemeAriaLabel,
+			Modes:     config.ThemeModes,
 		})
 		if jsonErr != nil {
 			return "", jsonErr

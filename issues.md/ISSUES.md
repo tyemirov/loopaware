@@ -10,10 +10,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## BugFixes (312–399)
 
-- [ ] [LA-318] Theme toggle defaults and mapping are wrong (left = light, right = dark).
+- [x] [LA-318] Theme toggle defaults and mapping are wrong (left = light, right = dark).
   Priority: P0
   Goal: The left toggle state represents light theme, the right state represents dark theme, and the initial UI state matches the applied theme.
   Deliverable: PR that fixes theme toggle behavior across landing, dashboard, and public pages; automated coverage updated.
+  Resolution: Reordered `mpr-footer` theme modes to `light` then `dark` and added headless integration coverage for landing/privacy/dashboard toggle state + applied theme.
   Docs/Refs:
   - `issues.md/AGENTS.FRONTEND.md`
   - `internal/httpapi/footer.go`
