@@ -36,10 +36,11 @@ func TestDashboardPersistsSubscribeAllowedOrigins(t *testing.T) {
 
 	clickSelector(t, page, dashboardSectionTabSubscriptionsSelector)
 
-	waitForVisibleElement(t, page, "#subscribe-allowed-origins-add")
-	waitForVisibleElement(t, page, `#subscribe-allowed-origins-list input[data-subscribe-origin]`)
+	waitForVisibleElement(t, page, `#subscribe-allowed-origins-list input[data-subscribe-origin-placeholder]`)
+	waitForVisibleElement(t, page, `#subscribe-allowed-origins-list button[data-subscribe-origin-add]`)
 
-	clickSelector(t, page, "#subscribe-allowed-origins-add")
+	setInputValue(t, page, `#subscribe-allowed-origins-list input[data-subscribe-origin-placeholder]`, "http://newsletter.example")
+	clickSelector(t, page, `#subscribe-allowed-origins-list button[data-subscribe-origin-add]`)
 
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, `(function(){
@@ -55,7 +56,8 @@ func TestDashboardPersistsSubscribeAllowedOrigins(t *testing.T) {
     }())`)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
-	setInputValue(t, page, `#subscribe-allowed-origins-list input[data-subscribe-origin]`, "http://newsletter.example")
+	setInputValue(t, page, `#subscribe-allowed-origins-list input[data-subscribe-origin-placeholder]`, "http://newsletter.example")
+	clickSelector(t, page, `#subscribe-allowed-origins-list button[data-subscribe-origin-add]`)
 
 	clickSelector(t, page, dashboardSaveSiteButtonSelector)
 

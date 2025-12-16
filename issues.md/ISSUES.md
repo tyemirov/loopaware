@@ -82,6 +82,16 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - Add a small static preview block or link to the existing subscribe demo page.
   - Validate copy is consistent with current query parameters and behavior.
 
+- [x] [LA-216] Subscribe widget “additional origins” should use an inline Add button on the always-visible placeholder input (no standalone Add origin button).
+  Priority: P2
+  Goal: The Additional subscribe origins editor always shows a placeholder input with an inline Add button; existing origins remain removable via Remove.
+  Deliverable: PR adjusting the dashboard UI and updating headless integration coverage.
+  Resolution: Removed the standalone Add origin button, introduced an always-present placeholder input row with an inline Add button, and updated the dashboard integration test accordingly.
+  Docs/Refs:
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/web.go`
+  - `internal/httpapi/subscribe_allowed_origins_dashboard_integration_test.go`
+
 ## Maintenance (408–499)
 
 ### Recurring (close when done but do not remove)

@@ -182,14 +182,11 @@
               <div class="card-body">
                 <p class="text-muted small mb-1">{{.SubscribeWidgetInstructions}}</p>
                 <p class="text-muted small mb-3">{{.SubscribeWidgetPreviewInstructions}}</p>
-                <div class="mb-3">
-                  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <label class="form-label mb-0">{{.SubscribeAllowedOriginsTitle}}</label>
-                    <button id="{{.SubscribeAllowedOriginsAddButtonID}}" type="button" class="btn btn-outline-secondary btn-sm">{{.SubscribeAllowedOriginsAddButtonLabel}}</button>
-                  </div>
-                  <div id="{{.SubscribeAllowedOriginsListID}}" class="d-flex flex-column gap-2 mt-2"></div>
-                  <div class="form-text">{{.SubscribeAllowedOriginsHelpText}}</div>
-                </div>
+	                <div class="mb-3">
+	                  <label class="form-label mb-0">{{.SubscribeAllowedOriginsTitle}}</label>
+	                  <div id="{{.SubscribeAllowedOriginsListID}}" class="d-flex flex-column gap-2 mt-2"></div>
+	                  <div class="form-text">{{.SubscribeAllowedOriginsHelpText}}</div>
+	                </div>
                 <textarea id="{{.SubscribeSnippetTextareaID}}" class="form-control font-monospace" rows="3" readonly></textarea>
               </div>
             </div>
@@ -564,13 +561,12 @@
         var autoLogoutGapMessage = autoLogoutFieldsContainer ? autoLogoutFieldsContainer.getAttribute('data-gap-message') || '' : '';
         var widgetSnippetTextarea = document.getElementById(elementIds.widget_snippet_textarea);
         var copyWidgetSnippetButton = document.getElementById(elementIds.copy_widget_snippet_button);
-        var subscribeSnippetTextarea = document.getElementById(elementIds.subscribe_snippet_textarea);
-        var copySubscribeSnippetButton = document.getElementById(elementIds.copy_subscribe_snippet_button);
-        var subscribeAllowedOriginsList = document.getElementById(elementIds.subscribe_allowed_origins_list);
-        var subscribeAllowedOriginsAddButton = document.getElementById(elementIds.subscribe_allowed_origins_add);
-        var trafficSnippetTextarea = document.getElementById(elementIds.traffic_snippet_textarea);
-        var copyTrafficSnippetButton = document.getElementById(elementIds.copy_traffic_snippet_button);
-        var widgetTestButton = document.getElementById(elementIds.widget_test_button);
+	        var subscribeSnippetTextarea = document.getElementById(elementIds.subscribe_snippet_textarea);
+	        var copySubscribeSnippetButton = document.getElementById(elementIds.copy_subscribe_snippet_button);
+	        var subscribeAllowedOriginsList = document.getElementById(elementIds.subscribe_allowed_origins_list);
+	        var trafficSnippetTextarea = document.getElementById(elementIds.traffic_snippet_textarea);
+	        var copyTrafficSnippetButton = document.getElementById(elementIds.copy_traffic_snippet_button);
+	        var widgetTestButton = document.getElementById(elementIds.widget_test_button);
         var widgetTestPagePrefix = typeof sharedPaths.widget_test_prefix === 'string' ? sharedPaths.widget_test_prefix : '';
         var widgetTestPageSuffix = typeof sharedPaths.widget_test_suffix === 'string' ? sharedPaths.widget_test_suffix : '';
         var subscribeTestButton = document.getElementById(elementIds.subscribe_test_button);
@@ -1312,10 +1308,13 @@
           }
           return parts[0] + ' +' + String(parts.length - 1) + ' more';
         }
-        var subscribeAllowedOriginInputDataAttribute = 'data-subscribe-origin';
-        var subscribeAllowedOriginRemoveButtonDataAttribute = 'data-subscribe-origin-remove';
-        var subscribeAllowedOriginPlaceholder = 'https://example.com';
-        var subscribeAllowedOriginRemoveLabel = 'Remove';
+	        var subscribeAllowedOriginInputDataAttribute = 'data-subscribe-origin';
+	        var subscribeAllowedOriginRemoveButtonDataAttribute = 'data-subscribe-origin-remove';
+	        var subscribeAllowedOriginAddButtonDataAttribute = 'data-subscribe-origin-add';
+	        var subscribeAllowedOriginPlaceholderInputDataAttribute = 'data-subscribe-origin-placeholder';
+	        var subscribeAllowedOriginPlaceholder = 'https://example.com';
+	        var subscribeAllowedOriginAddLabel = 'Add';
+	        var subscribeAllowedOriginRemoveLabel = 'Remove';
 
         function normalizeAllowedOriginsList(value) {
           var parts = splitAllowedOrigins(value);
@@ -1339,82 +1338,118 @@
           return unique.join(' ');
         }
 
-        function createSubscribeAllowedOriginRow(initialValue) {
-          var row = document.createElement('div');
-          row.className = 'input-group';
+	        function createSubscribeAllowedOriginRow(initialValue, isPlaceholder) {
+	          var row = document.createElement('div');
+	          row.className = 'input-group';
 
-          var input = document.createElement('input');
-          input.type = 'url';
-          input.className = 'form-control';
-          input.placeholder = subscribeAllowedOriginPlaceholder;
-          input.autocomplete = 'off';
-          input.setAttribute(subscribeAllowedOriginInputDataAttribute, 'true');
-          input.value = typeof initialValue === 'string' ? initialValue : '';
-          row.appendChild(input);
+	          var input = document.createElement('input');
+	          input.type = 'url';
+	          input.className = 'form-control';
+	          input.placeholder = subscribeAllowedOriginPlaceholder;
+	          input.autocomplete = 'off';
+	          input.setAttribute(subscribeAllowedOriginInputDataAttribute, 'true');
+	          if (isPlaceholder) {
+	            input.setAttribute(subscribeAllowedOriginPlaceholderInputDataAttribute, 'true');
+	          }
+	          input.value = typeof initialValue === 'string' ? initialValue : '';
+	          row.appendChild(input);
 
-          var removeButton = document.createElement('button');
-          removeButton.type = 'button';
-          removeButton.className = 'btn btn-outline-secondary';
-          removeButton.textContent = subscribeAllowedOriginRemoveLabel;
-          removeButton.setAttribute(subscribeAllowedOriginRemoveButtonDataAttribute, 'true');
-          removeButton.addEventListener('click', function() {
-            if (!subscribeAllowedOriginsList) {
-              return;
-            }
-            if (row.parentNode === subscribeAllowedOriginsList) {
-              subscribeAllowedOriginsList.removeChild(row);
-            }
-            ensureSubscribeAllowedOriginsRow();
-          });
-          row.appendChild(removeButton);
+	          var actionButton = document.createElement('button');
+	          actionButton.type = 'button';
+	          actionButton.className = 'btn btn-outline-secondary';
+	          if (isPlaceholder) {
+	            actionButton.textContent = subscribeAllowedOriginAddLabel;
+	            actionButton.setAttribute(subscribeAllowedOriginAddButtonDataAttribute, 'true');
+	            actionButton.addEventListener('click', function(event) {
+	              event.preventDefault();
+	              if (actionButton.disabled) {
+	                return;
+	              }
+	              if (!subscribeAllowedOriginsList) {
+	                return;
+	              }
+	              var trimmedValue = getTrimmedValue(input);
+	              if (!trimmedValue) {
+	                input.focus();
+	                return;
+	              }
+	              var placeholderRow = row;
+	              var newOriginRow = createSubscribeAllowedOriginRow(trimmedValue, false);
+	              if (placeholderRow.parentNode === subscribeAllowedOriginsList) {
+	                subscribeAllowedOriginsList.insertBefore(newOriginRow, placeholderRow);
+	              } else {
+	                subscribeAllowedOriginsList.appendChild(newOriginRow);
+	              }
+	              input.value = '';
+	              ensureSubscribeAllowedOriginsRow();
+	            });
+	          } else {
+	            actionButton.textContent = subscribeAllowedOriginRemoveLabel;
+	            actionButton.setAttribute(subscribeAllowedOriginRemoveButtonDataAttribute, 'true');
+	            actionButton.addEventListener('click', function(event) {
+	              event.preventDefault();
+	              if (!subscribeAllowedOriginsList) {
+	                return;
+	              }
+	              if (row.parentNode === subscribeAllowedOriginsList) {
+	                subscribeAllowedOriginsList.removeChild(row);
+	              }
+	              ensureSubscribeAllowedOriginsRow();
+	            });
+	          }
+	          row.appendChild(actionButton);
 
-          return row;
-        }
+	          return row;
+	        }
 
-        function ensureSubscribeAllowedOriginsRow() {
-          if (!subscribeAllowedOriginsList) {
-            return;
-          }
-          var inputs = subscribeAllowedOriginsList.querySelectorAll('input[' + subscribeAllowedOriginInputDataAttribute + ']');
-          if (!inputs || inputs.length === 0) {
-            subscribeAllowedOriginsList.appendChild(createSubscribeAllowedOriginRow(''));
-          }
-        }
+	        function ensureSubscribeAllowedOriginsRow() {
+	          if (!subscribeAllowedOriginsList) {
+	            return;
+	          }
+	          var placeholderInput = subscribeAllowedOriginsList.querySelector('input[' + subscribeAllowedOriginPlaceholderInputDataAttribute + ']');
+	          if (!placeholderInput) {
+	            subscribeAllowedOriginsList.appendChild(createSubscribeAllowedOriginRow('', true));
+	            return;
+	          }
+	          var placeholderRow = placeholderInput.closest('.input-group');
+	          if (placeholderRow && placeholderRow.parentNode === subscribeAllowedOriginsList && placeholderRow !== subscribeAllowedOriginsList.lastElementChild) {
+	            subscribeAllowedOriginsList.appendChild(placeholderRow);
+	          }
+	        }
 
-        function setSubscribeAllowedOriginsDisabled(disabled) {
-          var shouldDisable = Boolean(disabled);
-          if (subscribeAllowedOriginsAddButton) {
-            subscribeAllowedOriginsAddButton.disabled = shouldDisable;
-          }
-          if (!subscribeAllowedOriginsList) {
-            return;
-          }
-          var inputs = subscribeAllowedOriginsList.querySelectorAll('input[' + subscribeAllowedOriginInputDataAttribute + ']');
-          for (var index = 0; index < inputs.length; index += 1) {
-            inputs[index].disabled = shouldDisable;
-          }
-          var removeButtons = subscribeAllowedOriginsList.querySelectorAll('button[' + subscribeAllowedOriginRemoveButtonDataAttribute + ']');
-          for (var buttonIndex = 0; buttonIndex < removeButtons.length; buttonIndex += 1) {
-            removeButtons[buttonIndex].disabled = shouldDisable;
-          }
-        }
+	        function setSubscribeAllowedOriginsDisabled(disabled) {
+	          var shouldDisable = Boolean(disabled);
+	          if (!subscribeAllowedOriginsList) {
+	            return;
+	          }
+	          var inputs = subscribeAllowedOriginsList.querySelectorAll('input[' + subscribeAllowedOriginInputDataAttribute + ']');
+	          for (var index = 0; index < inputs.length; index += 1) {
+	            inputs[index].disabled = shouldDisable;
+	          }
+	          var actionButtons = subscribeAllowedOriginsList.querySelectorAll(
+	            'button[' + subscribeAllowedOriginRemoveButtonDataAttribute + '], button[' + subscribeAllowedOriginAddButtonDataAttribute + ']'
+	          );
+	          for (var buttonIndex = 0; buttonIndex < actionButtons.length; buttonIndex += 1) {
+	            actionButtons[buttonIndex].disabled = shouldDisable;
+	          }
+	        }
 
-        function renderSubscribeAllowedOrigins(value) {
-          if (!subscribeAllowedOriginsList) {
-            return;
-          }
-          subscribeAllowedOriginsList.innerHTML = '';
-          var normalizedValue = normalizeAllowedOriginsList(value);
-          var parts = splitAllowedOrigins(normalizedValue);
-          if (!parts.length) {
-            subscribeAllowedOriginsList.appendChild(createSubscribeAllowedOriginRow(''));
-            return;
-          }
-          parts.forEach(function(part) {
-            subscribeAllowedOriginsList.appendChild(createSubscribeAllowedOriginRow(part));
-          });
-          ensureSubscribeAllowedOriginsRow();
-        }
+	        function renderSubscribeAllowedOrigins(value) {
+	          if (!subscribeAllowedOriginsList) {
+	            return;
+	          }
+	          subscribeAllowedOriginsList.innerHTML = '';
+	          var normalizedValue = normalizeAllowedOriginsList(value);
+	          var parts = splitAllowedOrigins(normalizedValue);
+	          if (!parts.length) {
+	            subscribeAllowedOriginsList.appendChild(createSubscribeAllowedOriginRow('', true));
+	            return;
+	          }
+	          parts.forEach(function(part) {
+	            subscribeAllowedOriginsList.appendChild(createSubscribeAllowedOriginRow(part, false));
+	          });
+	          ensureSubscribeAllowedOriginsRow();
+	        }
 
         function readSubscribeAllowedOrigins() {
           if (!subscribeAllowedOriginsList) {
@@ -3478,27 +3513,14 @@
             copySubscribeSnippet();
           });
         }
-        if (copyTrafficSnippetButton) {
-          copyTrafficSnippetButton.addEventListener('click', function(event) {
-            event.preventDefault();
-            copyTrafficSnippet();
-          });
-        }
-        if (subscribeAllowedOriginsAddButton) {
-          subscribeAllowedOriginsAddButton.addEventListener('click', function(event) {
-            event.preventDefault();
-            if (subscribeAllowedOriginsAddButton.disabled) {
-              return;
-            }
-            if (!subscribeAllowedOriginsList) {
-              return;
-            }
-            subscribeAllowedOriginsList.appendChild(createSubscribeAllowedOriginRow(''));
-            ensureSubscribeAllowedOriginsRow();
-          });
-        }
+	        if (copyTrafficSnippetButton) {
+	          copyTrafficSnippetButton.addEventListener('click', function(event) {
+	            event.preventDefault();
+	            copyTrafficSnippet();
+	          });
+	        }
 
-        disableWidgetTestButton();
+	        disableWidgetTestButton();
         if (widgetTestButton) {
           widgetTestButton.addEventListener('click', function(event) {
             event.preventDefault();
