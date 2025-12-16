@@ -5,7 +5,7 @@ role-aware dashboard for managing sites and messages.
 
 ## Highlights
 
-- Google OAuth 2.0 authentication via [GAuss](https://github.com/temirov/GAuss)
+- Google OAuth 2.0 authentication via [GAuss](https://github.com/tyemirov/GAuss)
 - Role-aware dashboard (`/app`) with admin and creator/owner scopes
 - YAML configuration for privileged accounts (`config.yaml`)
 - REST API to create, update, and inspect sites, feedback, subscribers, and traffic
@@ -25,7 +25,7 @@ Create a YAML file next to the binary with the email addresses that should recei
 
 ```yaml
 admins:
-  - temirov@gmail.com
+  - tyemirov@gmail.com
 ```
 
 LoopAware loads the file specified by `--config` (default `config.yaml`) before starting the HTTP server.
@@ -150,7 +150,7 @@ Both roles can create, update, and delete sites. Administrators additionally vie
 see only the sites they own or originally created.
 
 Deployments upgraded from versions prior to LA-57 should allow the server startup migration to run once; it backfills any
-sites missing a `creator_email` with `temirov@gmail.com` to preserve creator-based visibility rules. New site creations
+sites missing a `creator_email` with `tyemirov@gmail.com` to preserve creator-based visibility rules. New site creations
 store the authenticated creator separately from the configured owner mailbox.
 
 ## Dashboard (`/app`)
