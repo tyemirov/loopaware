@@ -4,13 +4,13 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 
 Read @AGENTS.md, @ARCHITECTURE.md, @README.md, @PRD.md. Read @POLICY.md, PLANNING.md, @NOTES.md, and @ISSUES.md under issues.md/.  Start working on open issues. Work autonomously and stack up PRs. Prioritize bugfixes.
 
-Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- [x] [<ID>-<number>]`.
+Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x] [LA-<number>]`.
 
 ## Features (113–199)
 
 ## BugFixes (312–399)
 
-- [ ] [LS-318] Theme toggle defaults and mapping are wrong (left = light, right = dark).
+- [ ] [LA-318] Theme toggle defaults and mapping are wrong (left = light, right = dark).
   Priority: P0
   Goal: The left toggle state represents light theme, the right state represents dark theme, and the initial UI state matches the applied theme.
   Deliverable: PR that fixes theme toggle behavior across landing, dashboard, and public pages; automated coverage updated.
@@ -24,7 +24,7 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
   - Fix toggle UI state mapping (mpr-ui footer event + local storage + `data-bs-theme`).
   - Add/adjust integration assertions around theme attribute and toggle state.
 
-- [ ] [LS-317] mpr-ui footer menu label “Built by Marco Polo Research Lab” is invisible.
+- [ ] [LA-317] mpr-ui footer menu label “Built by Marco Polo Research Lab” is invisible.
   Priority: P1
   Goal: Footer label is visible in both light and dark themes and matches the mpr-ui demo styling.
   Deliverable: PR that removes/adjusts conflicting CSS and validates footer label visibility; screenshot-based evidence if needed.
@@ -81,13 +81,13 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
 
 ### Recurring (close when done but do not remove)
 
-- [ ] [LA-406] Cleanup:
+- [x] [LA-406] Cleanup:
   1. Review the completed issues and compare the code against the README.md and ARCHITECTURE.md files.
   2. Update the README.md and ARCHITECTURE.
   3. Clean up the completed issues.
   reconciled the README REST API table, subscription token routes, and dashboard feature list with the shipped behavior; expanded ARCHITECTURE.md with an overview of components and key flows.
 
-- [ ] [LA-407] Polish:
+- [x] [LA-407] Polish:
 1. Review each open issue
 2. Add additional context: dependencies, documentation, execution plan, goal
 3. Add priroity and deliverable. Reaarange and renumber issues as needed.
