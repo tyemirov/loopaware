@@ -69,10 +69,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - Extend subscribe widget + backend origin checks to consult both site and subscribe-specific origins.
   - Add integration coverage for “extra origin accepted / unknown origin rejected”.
 
-- [ ] [LA-215] Improve subscribe widget instructions (separate snippet and rendered form).
+- [x] [LA-215] Improve subscribe widget instructions (separate snippet and rendered form).
   Priority: P3
   Goal: Dashboard instructions clearly explain (a) the script snippet to embed and (b) what the rendered form looks like / where it appears.
   Deliverable: PR that updates dashboard copy and/or adds an in-dashboard preview of the subscribe form.
+  Resolution: Split Subscribers widget instructions into “embed snippet” and “rendered form” guidance and pointed operators at the built-in Test preview.
   Docs/Refs:
   - `README.md` “Embedding the subscribe form”
   - `internal/httpapi/templates/dashboard.tmpl`
