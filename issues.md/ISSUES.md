@@ -17,6 +17,7 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
   implemented double opt-in subscriptions: creating a subscription sends a confirmation email with `GET /subscriptions/confirm?token=...`, and clicking the link confirms the subscriber.
 
 ## Improvements (210–299)
+
 - [x] [LA-207] Upgrade to the latest version of mpr-ui. — Check tools/mpr-ui/README.md and @tools/mpr-ui/docs/custom-elements.md and @tols/mpr-ui/demo/index.html for documentation and examples.
   migrated LoopAware templates to the v0.2+ `<mpr-footer>` custom element, loading `mpr-ui@latest/mpr-ui.css` + `mpr-ui@latest/mpr-ui.js`, and removed the legacy `footer.js`/`mprFooter` helper import.
   ```
@@ -38,6 +39,14 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
 
 - [x] [LA-212] Subscription confirmed page should show Open + Unsubscribe buttons (no “Return to LoopAware” on the confirmed card).
   added a token-based `/subscriptions/unsubscribe?token=...` web route and updated the confirmation page to display “Open <site>” and “Unsubscribe” actions; added coverage.
+
+- [ ] [LA-213] Make the tabs span wider so thay occupy all o their space and divide it in 3 equal parts ![alt text](<../image copy.png>)
+
+- [ ] [LA-214] Add additional source origins UX to the subscriber widget ![alt text](image.png). Add an extra source origin section before the "Place this snippet on pages where you want visitors to subscribe." have + and - buttons to add input fields with extra allowed source origins.
+
+- [ ] [LA-215] Improve instructions for the subscribe widget. copying the script probably won't be sufficient, so we shall have two pieces:
+1. <script defer src="http://localhost:8080/subscribe.js?site_id=12665b6e-78a2-421f-9149-04be800f6245"></script>
+2. The form that actually displays the subscribe fields
 
 ## BugFixes (312–399)
 
@@ -69,7 +78,12 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
 
 - [x] [LS-316] Subscription confirmation flow sends notifications before confirmation — updated subscription creation to send a subscriber confirmation email first and defer owner notifications until the subscription is confirmed, including the authenticated subscribe-test preview flow; added coverage.
 
+- [ ] [LS-317] the menu label “Built by Marco Polo Research Lab” is invisible. Consult the examples in @tools/mpr-ui/demo and be sure not to override any of the mpr-ui css with our own css ![alt text](<../image copy 2.png>)
+
+- [ ] [LS-317] the site starts in the light switch toogle on the left which shall be light theme but it displays dark theme. FIx it and make the toggle on the left be light theme and the toggle on the right be dark theme ![alt text](<../image copy 2.png>)
+
 ## Maintenance (405–499)
+
 - [x] [LA-403] Document pixel integration in the @README.md — added pixel.js snippet, REST endpoints, and traffic dashboard description to README.md
 - [x] [LA-405] Stabilize Go tooling and tests by reducing reliance on external tool downloads and network listeners. — pinned `staticcheck`/`ineffassign` fallback versions in `make lint`, prefer locally installed binaries when present, and refactored favicon resolver + HTTPAPI tests to use a local listener/stub HTTP client instead of `httptest.NewServer` where practical.
 - [ ] [LA-406] Cleanup:
@@ -77,4 +91,4 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
   2. Update the README.md and ARCHITECTURE.
   3. Clean up the completed issues.
 
-## Planning (do not implement yet) (450–499)
+## Planning (do not implement yet)
