@@ -1,15 +1,12 @@
-# ISSUES (Open items)
+# ISSUES (Append-only section-based log)
 
-This file lists open work only. Completed entries live in `issues.md/ISSUES_ARCHIVE.md`.
+Entries record newly discovered requests or changes, with their outcomes. No instructive content lives here. Read @NOTES.md for the process to follow when fixing issues.
 
-Each issue is formatted as `- [ ] [<ID>-<number>]`. This list is curated and may be reordered as priorities change.
+Read @AGENTS.md, @ARCHITECTURE.md, @README.md, @PRD.md. Read @POLICY.md, PLANNING.md, @NOTES.md, and @ISSUES.md under issues.md/.  Start working on open issues. Work autonomously and stack up PRs. Prioritize bugfixes.
 
-Issue metadata fields:
-- **Priority**: `P0` (blocking/urgent), `P1` (high), `P2` (normal), `P3` (nice-to-have)
-- **Goal**: end-state outcome
-- **Deliverable**: what ships (PR + tests, UI changes, docs)
-- **Docs/Refs**: relevant repo docs and code entry points
-- **Execution plan**: concrete implementation steps
+Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- [x] [<ID>-<number>]`.
+
+## Features (113–199)
 
 ## BugFixes (312–399)
 
@@ -79,5 +76,20 @@ Issue metadata fields:
   - Rewrite instruction copy to be action-oriented and unambiguous.
   - Add a small static preview block or link to the existing subscribe demo page.
   - Validate copy is consistent with current query parameters and behavior.
+
+## Maintenance (408–499)
+
+### Recurring (close when done but do not remove)
+
+- [ ] [LA-406] Cleanup:
+  1. Review the completed issues and compare the code against the README.md and ARCHITECTURE.md files.
+  2. Update the README.md and ARCHITECTURE.
+  3. Clean up the completed issues.
+  reconciled the README REST API table, subscription token routes, and dashboard feature list with the shipped behavior; expanded ARCHITECTURE.md with an overview of components and key flows.
+
+- [ ] [LA-407] Polish:
+1. Review each open issue
+2. Add additional context: dependencies, documentation, execution plan, goal
+3. Add priroity and deliverable. Reaarange and renumber issues as needed.
 
 ## Planning (do not implement yet)
