@@ -121,24 +121,29 @@ include Unix timestamps in seconds.
 |---------|---------------------------------------|-------------|---------------------------------------------------------------------------------------------------------|
 | `GET`   | `/api/me`                             | any         | Current account metadata (email, name, `role`, `avatar.url`)                                            |
 | `GET`   | `/api/sites`                          | any         | Sites visible to the caller (admin = all, user = owned)                                                 |
-| `POST`  | `/api/sites`                          | admin       | Create a site (requires `name`, `allowed_origin`, `owner_email`)                                        |
+| `POST`  | `/api/sites`                          | any         | Create a site (requires `name`, `allowed_origin`, `owner_email`)                                        |
 | `PATCH` | `/api/sites/:id`                      | owner/admin | Update name/origin; admins may reassign ownership                                                       |
+| `DELETE`| `/api/sites/:id`                      | owner/admin | Delete a site                                                                                            |
 | `GET`   | `/api/sites/:id/messages`             | owner/admin | List feedback messages (newest first)                                                                   |
 | `GET`   | `/api/sites/:id/subscribers`          | owner/admin | List subscribers for a site                                                                             |
 | `GET`   | `/api/sites/:id/subscribers/export`   | owner/admin | Download subscribers as CSV                                                                             |
 | `PATCH` | `/api/sites/:id/subscribers/:subscriber_id` | owner/admin | Update a subscriber’s status (confirm or unsubscribe)                                             |
+| `DELETE`| `/api/sites/:id/subscribers/:subscriber_id` | owner/admin | Delete a subscriber                                                                                |
 | `GET`   | `/api/sites/:id/visits/stats`         | owner/admin | Aggregate visit and unique visitor counts plus recent visits and top pages                              |
 | `GET`   | `/api/sites/favicons/events`          | any         | Server-sent events stream announcing refreshed site favicons                                            |
+| `GET`   | `/api/sites/feedback/events`          | any         | Server-sent events stream announcing new feedback                                                      |
 | `POST`  | `/api/feedback`                       | public      | Submit feedback (requires JSON body with `site_id`, `contact`, `message`)                               |
 | `POST`  | `/api/subscriptions`                  | public      | Submit an email subscription (JSON body with `site_id`, `email`, optional `name` and `source_url`)      |
 | `POST`  | `/api/subscriptions/confirm`          | public      | Confirm a subscription for a given `site_id` and email                                                  |
 | `POST`  | `/api/subscriptions/unsubscribe`      | public      | Unsubscribe an email address for a given `site_id`                                                      |
+| `GET`   | `/subscriptions/confirm`              | public      | Confirm a pending subscription via email token (HTML page)                                              |
+| `GET`   | `/subscriptions/unsubscribe`          | public      | Unsubscribe via email token (HTML page)                                                                 |
 | `GET`   | `/api/visits`                         | public      | Record a page visit for a site (returns a 1×1 GIF for use as a tracking pixel)                          |
 | `GET`   | `/widget.js`                          | public      | Serve embeddable JavaScript feedback widget                                                             |
 | `GET`   | `/subscribe.js`                       | public      | Serve embeddable JavaScript subscribe form                                                              |
 | `GET`   | `/pixel.js`                           | public      | Serve embeddable JavaScript visit tracking pixel                                                        |
 
-Subscriptions use a confirmation link sent via email: `GET /subscriptions/confirm?token=...` confirms the pending subscriber without requiring browser origin headers.
+Subscriptions use confirmation and unsubscribe links sent via email: `GET /subscriptions/confirm?token=...` confirms the pending subscriber, and `GET /subscriptions/unsubscribe?token=...` unsubscribes, both without requiring browser origin headers.
 
 The `allowed_origin` field for a site may contain multiple origins separated by spaces or commas (for example `https://mprlab.com http://localhost:8080`); widgets, subscribe forms, and pixels will accept requests from any configured origin while still rejecting traffic from unknown sites.
 
@@ -163,6 +168,8 @@ The Bootstrap front end consumes the APIs above. Features include:
 - Widget placement controls that persist the bubble’s side (left/right) and bottom offset without code changes
 - Feedback table with human-readable timestamps
 - Subscribers panel with per-site subscriber counts, table, CSV export, and a copyable `subscribe.js` snippet
+- Section selector tabs to switch between Feedback, Subscriptions, and Traffic
+- Subscriber deletion via a confirmation modal
 - Traffic card with visit and unique visitor counts, recent visits, and a copyable `pixel.js` snippet
 - Real-time favicon refresh notifications delivered through the SSE stream
 - Logout button (links to `/logout`)
@@ -227,9 +234,9 @@ For non-JavaScript environments you can fall back to a plain image pixel:
 ## Development workflow
 
 ```bash
-go fmt ./...
-go vet ./...
-go test ./...
+make format
+make lint
+make test
 ```
 
 The test suite runs entirely in memory using temporary SQLite databases; no external services are required.

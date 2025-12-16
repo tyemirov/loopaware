@@ -86,9 +86,10 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
 
 - [x] [LA-403] Document pixel integration in the @README.md — added pixel.js snippet, REST endpoints, and traffic dashboard description to README.md
 - [x] [LA-405] Stabilize Go tooling and tests by reducing reliance on external tool downloads and network listeners. — pinned `staticcheck`/`ineffassign` fallback versions in `make lint`, prefer locally installed binaries when present, and refactored favicon resolver + HTTPAPI tests to use a local listener/stub HTTP client instead of `httptest.NewServer` where practical.
-- [ ] [LA-406] Cleanup:
+- [x] [LA-406] Cleanup:
   1. Review the completed issues and compare the code against the README.md and ARCHITECTURE.md files.
   2. Update the README.md and ARCHITECTURE.
   3. Clean up the completed issues.
+  reconciled the README REST API table, subscription token routes, and dashboard feature list with the shipped behavior; expanded ARCHITECTURE.md with an overview of components and key flows.
 
 ## Planning (do not implement yet)

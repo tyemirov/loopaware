@@ -1,4 +1,44 @@
-# Migrations
+# Architecture
+
+## Overview
+
+LoopAware is a single Go web service (`cmd/server`) that serves both the authenticated dashboard (`/app`) and the public
+collection endpoints and assets (widgets, pixels, and confirmation pages). It uses Gin for routing and Gorm for storage,
+with SQLite as the default driver.
+
+## Components
+
+- **Auth**: `/login` and all `/api/*` endpoints are secured by the GAuss OAuth flow and a signed session cookie.
+- **Dashboard**: a server-rendered HTML application backed by JSON APIs and server-sent events (SSE) for live updates.
+- **Public assets**: `GET /widget.js`, `GET /subscribe.js`, and `GET /pixel.js` are generated JavaScript payloads that
+  embed the selected `site_id` and call the public JSON endpoints.
+- **Storage**: `internal/storage` opens the configured DB driver and runs migrations on startup; `internal/model` defines
+  domain structs and smart constructors.
+- **Notifications**: feedback and subscription notifications are sent to the Pinguin gRPC service; calls include the
+  configured tenant metadata and shared auth token.
+
+## Key flows
+
+### Feedback
+
+1. The widget (`/widget.js`) posts JSON feedback to `POST /api/feedback`.
+2. The server validates the request origin against the site’s `allowed_origin` list (space/comma-separated values).
+3. Feedback is persisted and broadcast over SSE (`GET /api/sites/feedback/events`) for dashboard updates.
+
+### Subscriptions (double opt-in)
+
+1. The subscribe form (`/subscribe.js`) posts JSON to `POST /api/subscriptions`, which records a pending subscriber.
+2. A confirmation email is sent containing `GET /subscriptions/confirm?token=...`.
+3. Visiting the link confirms the subscriber and (when enabled) notifies the site owner.
+4. Unsubscribe is available either via the origin-validated JSON endpoint (`POST /api/subscriptions/unsubscribe`) or the
+   token-based link (`GET /subscriptions/unsubscribe?token=...`) from the confirmation UI.
+
+### Traffic
+
+1. The pixel (`/pixel.js`) sends beacons to `GET /api/visits` with a stable visitor ID and the current URL.
+2. The server stores visits and serves aggregated stats to the dashboard (`GET /api/sites/:id/visits/stats`).
+
+## Migrations
 
 ## LA-60: Unified Owner Assignment
 
