@@ -1749,6 +1749,9 @@
           var normalized = mode === 'dark' ? 'dark' : 'light';
           currentThemeMode = normalized;
           document.documentElement.setAttribute('data-bs-theme', normalized);
+          document.documentElement.setAttribute('data-mpr-theme', normalized);
+          document.body.setAttribute('data-bs-theme', normalized);
+          document.body.setAttribute('data-mpr-theme', normalized);
           if (normalized === 'dark') {
             document.body.classList.remove('bg-light');
             document.body.classList.add('bg-dark', 'text-light');

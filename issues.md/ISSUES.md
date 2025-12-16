@@ -25,10 +25,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - Fix toggle UI state mapping (mpr-ui footer event + local storage + `data-bs-theme`).
   - Add/adjust integration assertions around theme attribute and toggle state.
 
-- [ ] [LA-317] mpr-ui footer menu label “Built by Marco Polo Research Lab” is invisible.
+- [x] [LA-317] mpr-ui footer menu label “Built by Marco Polo Research Lab” is invisible.
   Priority: P1
   Goal: Footer label is visible in both light and dark themes and matches the mpr-ui demo styling.
   Deliverable: PR that removes/adjusts conflicting CSS and validates footer label visibility; screenshot-based evidence if needed.
+  Resolution: Stop passing `toggle-button-id` so mpr-ui can populate the footer menu button label/classes, and synchronize `data-mpr-theme` with `data-bs-theme` so light-mode tokens apply; added headless integration coverage for computed label color.
   Docs/Refs:
   - `tools/mpr-ui/demo/index.html`
   - `internal/httpapi/templates/dashboard.tmpl`
