@@ -54,10 +54,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - Verify keyboard focus/active styles remain correct.
   - Update integration tests to assert correct tab visibility and interaction.
 
-- [ ] [LA-214] Add “additional source origins” UX to the subscriber widget (add/remove inputs).
+- [x] [LA-214] Add “additional source origins” UX to the subscriber widget (add/remove inputs).
   Priority: P2
   Goal: Dashboard exposes a dedicated UI to enter extra allowed origins for the subscribe widget (separate from the site’s `allowed_origin`), with +/− controls.
   Deliverable: PR adding UI, persisting the new configuration, and updating the subscribe widget to enforce the combined origin set.
+  Resolution: Added `subscribe_allowed_origins` to `Site`, exposed editable add/remove inputs in the dashboard, and enforced combined origin checks for subscription create/confirm/unsubscribe; coverage added for API + dashboard flows.
   Docs/Refs:
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/public.go` (origin validation helpers)

@@ -12,6 +12,7 @@ type Site struct {
 	ID                         string `gorm:"primaryKey;size:36"`
 	Name                       string `gorm:"not null;size:200"`
 	AllowedOrigin              string `gorm:"not null;size:500"`
+	SubscribeAllowedOrigins    string `gorm:"size:500"`
 	OwnerEmail                 string `gorm:"size:320"`
 	CreatorEmail               string `gorm:"size:320"`
 	WidgetBubbleSide           string `gorm:"not null;size:16;default:right"`

@@ -178,6 +178,11 @@ const (
 	exportButtonClass                          = "btn btn-outline-secondary btn-sm"
 	subscribersStatusElementID                 = "subscribers-status"
 	subscribersPlaceholder                     = "No subscribers yet."
+	subscribeAllowedOriginsTitle               = "Additional subscribe origins"
+	subscribeAllowedOriginsHelpText            = "Optional: allow the subscribe form to run on extra origins beyond the site's allowed origins."
+	subscribeAllowedOriginsAddButtonLabel      = "Add origin"
+	subscribeAllowedOriginsListElementID       = "subscribe-allowed-origins-list"
+	subscribeAllowedOriginsAddButtonElementID  = "subscribe-allowed-origins-add"
 	visitCountElementID                        = "visit-count"
 	uniqueVisitorCountElementID                = "unique-visitor-count"
 	trafficStatusElementID                     = "traffic-status"
@@ -378,6 +383,11 @@ type dashboardTemplateData struct {
 	ExportButtonClass                       string
 	SubscribersStatusID                     string
 	SubscribersPlaceholder                  string
+	SubscribeAllowedOriginsTitle            string
+	SubscribeAllowedOriginsHelpText         string
+	SubscribeAllowedOriginsListID           string
+	SubscribeAllowedOriginsAddButtonID      string
+	SubscribeAllowedOriginsAddButtonLabel   string
 	VisitCountElementID                     string
 	UniqueVisitorCountElementID             string
 	TrafficStatusID                         string
@@ -734,6 +744,11 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		ExportButtonClass:                       exportButtonClass,
 		SubscribersStatusID:                     subscribersStatusElementID,
 		SubscribersPlaceholder:                  subscribersPlaceholder,
+		SubscribeAllowedOriginsTitle:            subscribeAllowedOriginsTitle,
+		SubscribeAllowedOriginsHelpText:         subscribeAllowedOriginsHelpText,
+		SubscribeAllowedOriginsListID:           subscribeAllowedOriginsListElementID,
+		SubscribeAllowedOriginsAddButtonID:      subscribeAllowedOriginsAddButtonElementID,
+		SubscribeAllowedOriginsAddButtonLabel:   subscribeAllowedOriginsAddButtonLabel,
 		VisitCountElementID:                     visitCountElementID,
 		UniqueVisitorCountElementID:             uniqueVisitorCountElementID,
 		TrafficStatusID:                         trafficStatusElementID,
@@ -976,6 +991,8 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"subscribers_table_body":              subscribersTableBodyElementID,
 			"export_subscribers_button":           exportSubscribersButtonElementID,
 			"subscribers_status":                  subscribersStatusElementID,
+			"subscribe_allowed_origins_list":      subscribeAllowedOriginsListElementID,
+			"subscribe_allowed_origins_add":       subscribeAllowedOriginsAddButtonElementID,
 			"visit_count":                         visitCountElementID,
 			"unique_visitor_count":                uniqueVisitorCountElementID,
 			"traffic_status":                      trafficStatusElementID,

@@ -961,6 +961,37 @@ func TestUpdateSiteAllowsOwnerToChangeDetails(testingT *testing.T) {
 	require.Equal(testingT, "http://updated.example", responseBody["allowed_origin"])
 }
 
+func TestUpdateSitePersistsSubscribeAllowedOrigins(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Subscribe Origin Site",
+		AllowedOrigin: "http://owner.example",
+		OwnerEmail:    testUserEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	payload := map[string]string{
+		"subscribe_allowed_origins": "http://newsletter.example, http://secondary.example",
+	}
+
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID, payload)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
+
+	harness.handlers.UpdateSite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody map[string]any
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, "http://newsletter.example http://secondary.example", responseBody["subscribe_allowed_origins"])
+
+	var updatedSite model.Site
+	require.NoError(testingT, harness.database.First(&updatedSite, "id = ?", site.ID).Error)
+	require.Equal(testingT, "http://newsletter.example http://secondary.example", updatedSite.SubscribeAllowedOrigins)
+}
+
 func TestUpdateSiteAllowsOwnerToReassignOwnership(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
