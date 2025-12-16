@@ -1,10 +1,11 @@
-# ISSUES (Open items)
+# ISSUES (Append-only section-based log)
 
-This file lists open items only. Completed entries live in `issues.md/ISSUES_ARCHIVE.md`.
+Entries record newly discovered requests or changes, with their outcomes. No instructive content lives here. Read @NOTES.md for the process to follow when fixing issues.
 
 Read @AGENTS.md, @ARCHITECTURE.md, @README.md, @PRD.md. Read @POLICY.md, PLANNING.md, @NOTES.md, and @ISSUES.md under issues.md/.  Start working on open issues. Work autonomously and stack up PRs. Prioritize bugfixes.
 
-Each issue is formatted as `- [ ] [<ID>-<number>]`.
+Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- [x] [<ID>-<number>]`.
+## Features (113–199)
 
 ## Improvements (210–299)
 - [ ] [LA-213] Make the tabs span wider so thay occupy all o their space and divide it in 3 equal parts ![alt text](<../image copy.png>)
@@ -16,5 +17,15 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`.
 ## BugFixes (312–399)
 - [ ] [LS-317] the menu label “Built by Marco Polo Research Lab” is invisible. Consult the examples in @tools/mpr-ui/demo and be sure not to override any of the mpr-ui css with our own css ![alt text](<../image copy 2.png>)
 - [ ] [LS-318] the site starts in the light switch toogle on the left which shall be light theme but it displays dark theme. FIx it and make the toggle on the left be light theme and the toggle on the right be dark theme ![alt text](<../image copy 2.png>)
+
+## Maintenance (408–499)
+
+### Recurring
+
+- [ ] [LA-406] Cleanup:
+  1. Review the completed issues and compare the code against the README.md and ARCHITECTURE.md files.
+  2. Update the README.md and ARCHITECTURE.
+  3. Clean up the completed issues.
+  reconciled the README REST API table, subscription token routes, and dashboard feature list with the shipped behavior; expanded ARCHITECTURE.md with an overview of components and key flows.
 
 ## Planning (do not implement yet)
