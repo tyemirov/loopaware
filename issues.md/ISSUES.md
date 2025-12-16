@@ -20,7 +20,7 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
 
 ## Maintenance (408–499)
 
-### Recurring
+### Recurring (close when done but do not remove)
 
 - [ ] [LA-406] Cleanup:
   1. Review the completed issues and compare the code against the README.md and ARCHITECTURE.md files.
