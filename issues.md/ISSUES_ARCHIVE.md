@@ -77,3 +77,5 @@ This file contains completed entries that were previously listed in `issues.md/I
   3. Remove the completed issues.
   reconciled the README REST API table, subscription token routes, and dashboard feature list with the shipped behavior; expanded ARCHITECTURE.md with an overview of components and key flows.
 
+- [x] [LA-407] Polish open issues list with priorities, goals, deliverables, and execution plans.
+  reorganized `issues.md/ISSUES.md` as an open-issues-only list with per-issue metadata (priority, goal, deliverable, docs, execution plan) and consistent formatting.
