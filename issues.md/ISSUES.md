@@ -30,7 +30,7 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
 
 - [ ] [LA-407] Polish:
 1. Review each open issue
-2. Add additional context: documentation, execution plan, goal
+2. Add additional context: dependencies, documentation, execution plan, goal
 3. Add priroity and deliverable. Reaarange and renumber issues as needed.
 
 ## Planning (do not implement yet)
