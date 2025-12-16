@@ -25,14 +25,20 @@ type SiteSubscribeTestHandlers struct {
 	eventBroadcaster          *SubscriptionTestEventBroadcaster
 	subscriptionNotifier      SubscriptionNotifier
 	subscriptionNotifications bool
+	publicBaseURL             string
+	subscriptionTokenSecret   string
+	subscriptionTokenTTL      time.Duration
+	confirmationEmailSender   EmailSender
 }
 
-func NewSiteSubscribeTestHandlers(database *gorm.DB, logger *zap.Logger, broadcaster *SubscriptionTestEventBroadcaster, subscriptionNotifier SubscriptionNotifier, subscriptionNotificationsEnabled bool) *SiteSubscribeTestHandlers {
+func NewSiteSubscribeTestHandlers(database *gorm.DB, logger *zap.Logger, broadcaster *SubscriptionTestEventBroadcaster, subscriptionNotifier SubscriptionNotifier, subscriptionNotificationsEnabled bool, publicBaseURL string, subscriptionTokenSecret string, confirmationEmailSender EmailSender) *SiteSubscribeTestHandlers {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 	baseTemplate := template.Must(template.New("subscribe_test").Parse(dashboardHeaderTemplateHTML))
 	compiled := template.Must(baseTemplate.Parse(subscribeTestTemplateHTML))
+	normalizedPublicBaseURL := strings.TrimSpace(publicBaseURL)
+	normalizedTokenSecret := strings.TrimSpace(subscriptionTokenSecret)
 	return &SiteSubscribeTestHandlers{
 		database:                  database,
 		logger:                    logger,
@@ -40,6 +46,10 @@ func NewSiteSubscribeTestHandlers(database *gorm.DB, logger *zap.Logger, broadca
 		eventBroadcaster:          broadcaster,
 		subscriptionNotifier:      resolveSubscriptionNotifier(subscriptionNotifier),
 		subscriptionNotifications: subscriptionNotificationsEnabled,
+		publicBaseURL:             normalizedPublicBaseURL,
+		subscriptionTokenSecret:   normalizedTokenSecret,
+		subscriptionTokenTTL:      defaultSubscriptionConfirmationTokenTTL,
+		confirmationEmailSender:   confirmationEmailSender,
 	}
 }
 
@@ -313,7 +323,7 @@ func (handlers *SiteSubscribeTestHandlers) CreateSubscription(context *gin.Conte
 				return
 			}
 			handlers.recordSubscriptionTestEvent(site, existingSubscriber, subscriptionEventTypeSubmission, subscriptionEventStatusSuccess, "")
-			handlers.applySubscriptionNotification(context.Request.Context(), site, existingSubscriber)
+			handlers.sendSubscriptionConfirmation(context.Request.Context(), site, existingSubscriber)
 			context.JSON(http.StatusOK, gin.H{"status": "ok", "subscriber_id": existingSubscriber.ID})
 			return
 		}
@@ -349,8 +359,15 @@ func (handlers *SiteSubscribeTestHandlers) CreateSubscription(context *gin.Conte
 	}
 
 	handlers.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeSubmission, subscriptionEventStatusSuccess, "")
-	handlers.applySubscriptionNotification(context.Request.Context(), site, subscriber)
+	handlers.sendSubscriptionConfirmation(context.Request.Context(), site, subscriber)
 	context.JSON(http.StatusOK, gin.H{"status": "ok", "subscriber_id": subscriber.ID})
+}
+
+func (handlers *SiteSubscribeTestHandlers) sendSubscriptionConfirmation(ctx context.Context, site model.Site, subscriber model.Subscriber) {
+	if handlers == nil {
+		return
+	}
+	sendSubscriptionConfirmationEmail(ctx, handlers.logger, handlers.recordSubscriptionTestEvent, handlers.confirmationEmailSender, handlers.publicBaseURL, handlers.subscriptionTokenSecret, handlers.subscriptionTokenTTL, site, subscriber)
 }
 
 func (handlers *SiteSubscribeTestHandlers) recordSubscriptionTestEvent(site model.Site, subscriber model.Subscriber, eventType, status, message string) {
@@ -380,26 +397,4 @@ func (handlers *SiteSubscribeTestHandlers) recordSubscriptionTestEvent(site mode
 		event.EventType = subscriptionEventTypeSubmission
 	}
 	handlers.eventBroadcaster.Broadcast(event)
-}
-
-func (handlers *SiteSubscribeTestHandlers) applySubscriptionNotification(ctx context.Context, site model.Site, subscriber model.Subscriber) {
-	if handlers == nil {
-		return
-	}
-	if !handlers.subscriptionNotifications {
-		handlers.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeNotification, subscriptionEventStatusSkipped, "subscription notifications disabled")
-		return
-	}
-	if handlers.subscriptionNotifier == nil {
-		handlers.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeNotification, subscriptionEventStatusSkipped, "subscription notifier unavailable")
-		return
-	}
-	if notifyErr := handlers.subscriptionNotifier.NotifySubscription(ctx, site, subscriber); notifyErr != nil {
-		if handlers.logger != nil {
-			handlers.logger.Warn("subscription_notification_failed", zap.Error(notifyErr), zap.String("site_id", site.ID), zap.String("subscriber_id", subscriber.ID))
-		}
-		handlers.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeNotification, subscriptionEventStatusError, notifyErr.Error())
-		return
-	}
-	handlers.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeNotification, subscriptionEventStatusSuccess, "")
 }

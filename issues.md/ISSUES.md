@@ -2,19 +2,19 @@
 
 Entries record newly discovered requests or changes, with their outcomes. No instructive content lives here. Read @NOTES.md for the process to follow when fixing issues.
 
-Read @AGENTS.md, @AGENTS.GO.md, @AGENTS.DOCKER.md, @AGENTS.FRONTEND.md, @AGENTS.GIT.md, @POLICY.md, @NOTES.md, @README.md and @ISSUES.md. Start working on open issues. Work autonomously and stack up PRs.
+Read @AGENTS.md, @ARCHITECTURE.md, @README.md, @PRD.md. Read @POLICY.md, PLANNING.md, @NOTES.md, and @ISSUES.md under issues.md/.  Start working on open issues. Work autonomously and stack up PRs. Prioritize bugfixes.
 
 Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- [x] [<ID>-<number>]`.
 
-Issue IDs in Features, Improvements, BugFixes, and Maintenance never reuse completed numbers; cleanup renumbers remaining entries so numbering stays monotonic.
 ## Features (113–199)
 - [x] [LA-111] Allow multiple origins for subscribe widgets, e.g. — a single subscribe widget can be embedded in multiple sites, not all of them matching the original url, such as gravity.mprlab.com needs to be able to be retreieved and function from both https://mprlab.com and http://localhost:8080
   implemented multi-origin support for site `allowed_origin` values (space/comma-separated list), extended backend origin checks and dashboard validation, and updated README to document the behavior.
 
-- [ ] [LA-112] Implement the subscription flow: — Send a confirmation email to the subscriber
+- [x] [LA-112] Implement the subscription flow: — Send a confirmation email to the subscriber
   The confirmation email contains a link to the loopaware
   When a user clicks the link the subscription is confirmed
   Carefully plan the execution and testing
+  implemented double opt-in subscriptions: creating a subscription sends a confirmation email with `GET /subscriptions/confirm?token=...`, and clicking the link confirms the subscriber.
 
 ## Improvements (210–299)
 - [x] [LA-207] Upgrade to the latest version of mpr-ui. — Check tools/mpr-ui/README.md and @tools/mpr-ui/docs/custom-elements.md and @tols/mpr-ui/demo/index.html for documentation and examples.
@@ -25,12 +25,19 @@ Issue IDs in Features, Improvements, BugFixes, and Maintenance never reuse compl
 
 - [x] [LA-208] Add front-end for LA-111 which would allow entering multiple origins for the same subscribe widget. — updated the dashboard UI to treat `allowed_origin` as a multi-origin field (space/comma-separated), summarize the primary origin in the sites list, and ensure favicon-click opens the primary origin.
 
-- [ ] [LA-209] Add a section selector for Feedback, Subscriptions, Traffic. — Add a tabbed selection below Site details to have three sections: Feedback, Subscriptions, Traffic.
+- [x] [LA-209] Add a section selector for Feedback, Subscriptions, Traffic. — added dashboard tabs below Site details to switch between Feedback, Subscriptions, and Traffic sections, showing only the relevant widget + pane at a time.
   Only one section is shown at a time
   Clicking on Feedback shows Feedback widget and Feedback messages panes
   Clicking on Subscriptions shows Subscribers Widget and Subscribers panes
   Clicking on Traffic shows Traffic Widget and Traffic pane
   The idea is that these widgets are now crowding a single screen and we want to hide them under the top selector, so Tabbed navigation will work here
+
+- [x] [LA-210] Style the subscription confirmed page and add a link to open the subscribed site. — replaced the plain-text `/subscriptions/confirm` response with a LoopAware-themed HTML page and added a safe “Open <site>” link (prefers an allowed `source_url`, otherwise the primary allowed origin).
+
+- [x] [LA-211] Add delete action to subscribers pane, using the flow and design approach similar to site deletion in the sites pane — added an authenticated DELETE subscriber endpoint and a dashboard confirmation modal (type email) to remove subscriber records.
+
+- [x] [LA-212] Subscription confirmed page should show Open + Unsubscribe buttons (no “Return to LoopAware” on the confirmed card).
+  added a token-based `/subscriptions/unsubscribe?token=...` web route and updated the confirmation page to display “Open <site>” and “Unsubscribe” actions; added coverage.
 
 ## BugFixes (312–399)
 
@@ -57,12 +64,17 @@ Issue IDs in Features, Improvements, BugFixes, and Maintenance never reuse compl
 
 - [x] [LA-314] Pinguin notification calls fail with `tenant_id is required` when submitting feedback/subscriptions. — added `PINGUIN_TENANT_ID` config and send it as `x-tenant-id` gRPC metadata on Pinguin notification requests.
 
-- [ ] [LA-315] mpr-ui footer: ![alt text](../image.png)
-1. The footer lacks "Built by Marco Polo Research Lab" drop up
-2. The padding on the left and right is absent
+- [x] [LA-315] mpr-ui footer: ![alt text](../image.png)
+  restored the `<mpr-footer>` default class hooks (so internal padding is applied) and updated the menu label to read “Built by Marco Polo Research Lab”.
+
+- [x] [LS-316] Subscription confirmation flow sends notifications before confirmation — updated subscription creation to send a subscriber confirmation email first and defer owner notifications until the subscription is confirmed, including the authenticated subscribe-test preview flow; added coverage.
 
 ## Maintenance (405–499)
 - [x] [LA-403] Document pixel integration in the @README.md — added pixel.js snippet, REST endpoints, and traffic dashboard description to README.md
 - [x] [LA-405] Stabilize Go tooling and tests by reducing reliance on external tool downloads and network listeners. — pinned `staticcheck`/`ineffassign` fallback versions in `make lint`, prefer locally installed binaries when present, and refactored favicon resolver + HTTPAPI tests to use a local listener/stub HTTP client instead of `httptest.NewServer` where practical.
+- [ ] [LA-406] Cleanup:
+  1. Review the completed issues and compare the code against the README.md and ARCHITECTURE.md files.
+  2. Update the README.md and ARCHITECTURE.
+  3. Clean up the completed issues.
 
 ## Planning (do not implement yet) (450–499)

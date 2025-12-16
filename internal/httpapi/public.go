@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/url"
 	"strings"
@@ -80,7 +81,7 @@ func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaste
 		publicBaseURL:             normalizedPublicBaseURL,
 		subscriptionTokenSecret:   normalizedTokenSecret,
 		subscriptionTokenTTL:      defaultSubscriptionConfirmationTokenTTL,
-		confirmationEmailSender:   resolveEmailSender(confirmationEmailSender),
+		confirmationEmailSender:   confirmationEmailSender,
 	}
 }
 
@@ -197,6 +198,10 @@ func (h *PublicHandlers) recordSubscriptionTestEvent(site model.Site, subscriber
 }
 
 func (h *PublicHandlers) applySubscriptionNotification(ctx context.Context, site model.Site, subscriber model.Subscriber) {
+	if subscriber.Status != model.SubscriberStatusConfirmed {
+		h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeNotification, subscriptionEventStatusSkipped, "subscriber not confirmed")
+		return
+	}
 	if !h.subscriptionNotifications {
 		h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeNotification, subscriptionEventStatusSkipped, "subscription notifications disabled")
 		return
@@ -217,63 +222,7 @@ func (h *PublicHandlers) sendSubscriptionConfirmation(ctx context.Context, site 
 	if h == nil {
 		return
 	}
-	if h.confirmationEmailSender == nil {
-		h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeConfirmation, subscriptionEventStatusSkipped, "email sender unavailable")
-		return
-	}
-	if strings.TrimSpace(h.publicBaseURL) == "" || strings.TrimSpace(h.subscriptionTokenSecret) == "" {
-		h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeConfirmation, subscriptionEventStatusSkipped, "confirmation email not configured")
-		return
-	}
-	if subscriber.Status != model.SubscriberStatusPending {
-		h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeConfirmation, subscriptionEventStatusSkipped, "subscriber not pending")
-		return
-	}
-	if strings.TrimSpace(subscriber.ID) == "" || strings.TrimSpace(subscriber.SiteID) == "" || strings.TrimSpace(subscriber.Email) == "" {
-		h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeConfirmation, subscriptionEventStatusSkipped, "subscriber missing fields")
-		return
-	}
-
-	token, tokenErr := buildSubscriptionConfirmationToken(h.subscriptionTokenSecret, subscriber.ID, subscriber.SiteID, subscriber.Email, time.Now().UTC(), h.subscriptionTokenTTL)
-	if tokenErr != nil {
-		if h.logger != nil {
-			h.logger.Warn("subscription_confirmation_token_failed", zap.Error(tokenErr), zap.String("site_id", site.ID), zap.String("subscriber_id", subscriber.ID))
-		}
-		h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeConfirmation, subscriptionEventStatusError, "confirmation token failed")
-		return
-	}
-
-	confirmationURL, urlErr := url.Parse(strings.TrimRight(h.publicBaseURL, "/") + "/subscriptions/confirm")
-	if urlErr != nil {
-		if h.logger != nil {
-			h.logger.Warn("subscription_confirmation_url_failed", zap.Error(urlErr), zap.String("site_id", site.ID), zap.String("subscriber_id", subscriber.ID))
-		}
-		h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeConfirmation, subscriptionEventStatusError, "confirmation url failed")
-		return
-	}
-	query := confirmationURL.Query()
-	query.Set("token", token)
-	confirmationURL.RawQuery = query.Encode()
-
-	siteName := strings.TrimSpace(site.Name)
-	if siteName == "" {
-		siteName = "LoopAware"
-	}
-	subject := fmt.Sprintf("Confirm your subscription to %s", siteName)
-	messageBuilder := &strings.Builder{}
-	_, _ = fmt.Fprintf(messageBuilder, "Thanks for subscribing to %s.\n\n", siteName)
-	_, _ = fmt.Fprintf(messageBuilder, "Confirm your subscription:\n%s\n\n", confirmationURL.String())
-	_, _ = fmt.Fprintf(messageBuilder, "If you did not request this, you can ignore this email.\n")
-
-	sendErr := h.confirmationEmailSender.SendEmail(ctx, subscriber.Email, subject, messageBuilder.String())
-	if sendErr != nil {
-		if h.logger != nil {
-			h.logger.Warn("subscription_confirmation_email_failed", zap.Error(sendErr), zap.String("site_id", site.ID), zap.String("subscriber_id", subscriber.ID))
-		}
-		h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeConfirmation, subscriptionEventStatusError, "confirmation email failed")
-		return
-	}
-	h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeConfirmation, subscriptionEventStatusSuccess, "")
+	sendSubscriptionConfirmationEmail(ctx, h.logger, h.recordSubscriptionTestEvent, h.confirmationEmailSender, h.publicBaseURL, h.subscriptionTokenSecret, h.subscriptionTokenTTL, site, subscriber)
 }
 
 func (h *PublicHandlers) isRateLimited(ip string) bool {
@@ -452,7 +401,6 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 			existingSubscriber.IP = truncate(clientIP, subscriptionIPMaxLength)
 			existingSubscriber.UserAgent = truncate(context.Request.UserAgent(), subscriptionUserAgentMaxLength)
 			h.recordSubscriptionTestEvent(site, existingSubscriber, subscriptionEventTypeSubmission, subscriptionEventStatusSuccess, "")
-			h.applySubscriptionNotification(context.Request.Context(), site, existingSubscriber)
 			h.sendSubscriptionConfirmation(context.Request.Context(), site, existingSubscriber)
 			context.JSON(http.StatusOK, gin.H{"status": "ok", "subscriber_id": existingSubscriber.ID})
 			return
@@ -489,7 +437,6 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 	}
 
 	h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeSubmission, subscriptionEventStatusSuccess, "")
-	h.applySubscriptionNotification(context.Request.Context(), site, subscriber)
 	h.sendSubscriptionConfirmation(context.Request.Context(), site, subscriber)
 	context.JSON(http.StatusOK, gin.H{"status": "ok", "subscriber_id": subscriber.ID})
 }
@@ -505,37 +452,42 @@ func (h *PublicHandlers) Unsubscribe(context *gin.Context) {
 func (h *PublicHandlers) ConfirmSubscriptionLink(context *gin.Context) {
 	token := strings.TrimSpace(context.Query("token"))
 	if token == "" {
-		context.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte("missing token"))
+		h.renderSubscriptionConfirmationPage(context, http.StatusBadRequest, "Subscription confirmation", "Missing confirmation token.", model.Site{}, model.Subscriber{}, "")
 		return
 	}
 	if strings.TrimSpace(h.subscriptionTokenSecret) == "" {
-		context.Data(http.StatusInternalServerError, "text/html; charset=utf-8", []byte("subscription confirmation unavailable"))
+		h.renderSubscriptionConfirmationPage(context, http.StatusInternalServerError, "Subscription confirmation", "Subscription confirmation is unavailable.", model.Site{}, model.Subscriber{}, "")
 		return
 	}
 
 	parsed, tokenErr := parseSubscriptionConfirmationToken(context.Request.Context(), h.subscriptionTokenSecret, token, time.Now().UTC())
 	if tokenErr != nil {
-		context.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte("invalid or expired token"))
+		h.renderSubscriptionConfirmationPage(context, http.StatusBadRequest, "Subscription confirmation", "Invalid or expired token.", model.Site{}, model.Subscriber{}, "")
 		return
 	}
 
 	var subscriber model.Subscriber
 	findErr := h.database.First(&subscriber, "id = ? AND site_id = ?", parsed.SubscriberID, parsed.SiteID).Error
 	if findErr != nil {
-		context.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte("invalid or expired token"))
+		h.renderSubscriptionConfirmationPage(context, http.StatusBadRequest, "Subscription confirmation", "Invalid or expired token.", model.Site{}, model.Subscriber{}, "")
 		return
 	}
 	if strings.TrimSpace(strings.ToLower(subscriber.Email)) != strings.TrimSpace(strings.ToLower(parsed.Email)) {
-		context.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte("invalid or expired token"))
+		h.renderSubscriptionConfirmationPage(context, http.StatusBadRequest, "Subscription confirmation", "Invalid or expired token.", model.Site{}, model.Subscriber{}, "")
 		return
 	}
 
+	var site model.Site
+	if siteErr := h.database.First(&site, "id = ?", subscriber.SiteID).Error; siteErr != nil {
+		site = model.Site{}
+	}
+
 	if subscriber.Status == model.SubscriberStatusUnsubscribed {
-		context.Data(http.StatusConflict, "text/html; charset=utf-8", []byte("subscription already unsubscribed"))
+		h.renderSubscriptionConfirmationPage(context, http.StatusConflict, "Subscription confirmation", "Subscription already unsubscribed.", site, subscriber, "")
 		return
 	}
 	if subscriber.Status == model.SubscriberStatusConfirmed {
-		context.Data(http.StatusOK, "text/html; charset=utf-8", []byte("subscription already confirmed"))
+		h.renderSubscriptionConfirmationPage(context, http.StatusOK, "Subscription confirmed", "Your subscription is already confirmed.", site, subscriber, token)
 		return
 	}
 
@@ -546,11 +498,166 @@ func (h *PublicHandlers) ConfirmSubscriptionLink(context *gin.Context) {
 		"unsubscribed_at": time.Time{},
 	}).Error
 	if updateErr != nil {
-		context.Data(http.StatusInternalServerError, "text/html; charset=utf-8", []byte("failed to confirm subscription"))
+		h.renderSubscriptionConfirmationPage(context, http.StatusInternalServerError, "Subscription confirmation", "Failed to confirm subscription.", site, subscriber, "")
 		return
 	}
 
-	context.Data(http.StatusOK, "text/html; charset=utf-8", []byte("subscription confirmed"))
+	subscriber.Status = model.SubscriberStatusConfirmed
+	subscriber.ConfirmedAt = now
+	subscriber.UnsubscribedAt = time.Time{}
+
+	if strings.TrimSpace(site.ID) != "" {
+		h.applySubscriptionNotification(context.Request.Context(), site, subscriber)
+	}
+
+	h.renderSubscriptionConfirmationPage(context, http.StatusOK, "Subscription confirmed", "Subscription confirmed.", site, subscriber, token)
+}
+
+func (h *PublicHandlers) UnsubscribeSubscriptionLink(context *gin.Context) {
+	token := strings.TrimSpace(context.Query("token"))
+	if token == "" {
+		h.renderSubscriptionConfirmationPage(context, http.StatusBadRequest, "Unsubscribe", "Missing unsubscribe token.", model.Site{}, model.Subscriber{}, "")
+		return
+	}
+	if strings.TrimSpace(h.subscriptionTokenSecret) == "" {
+		h.renderSubscriptionConfirmationPage(context, http.StatusInternalServerError, "Unsubscribe", "Subscription unsubscribe is unavailable.", model.Site{}, model.Subscriber{}, "")
+		return
+	}
+
+	parsed, tokenErr := parseSubscriptionConfirmationToken(context.Request.Context(), h.subscriptionTokenSecret, token, time.Now().UTC())
+	if tokenErr != nil {
+		h.renderSubscriptionConfirmationPage(context, http.StatusBadRequest, "Unsubscribe", "Invalid or expired token.", model.Site{}, model.Subscriber{}, "")
+		return
+	}
+
+	var subscriber model.Subscriber
+	findErr := h.database.First(&subscriber, "id = ? AND site_id = ?", parsed.SubscriberID, parsed.SiteID).Error
+	if findErr != nil {
+		h.renderSubscriptionConfirmationPage(context, http.StatusBadRequest, "Unsubscribe", "Invalid or expired token.", model.Site{}, model.Subscriber{}, "")
+		return
+	}
+	if strings.TrimSpace(strings.ToLower(subscriber.Email)) != strings.TrimSpace(strings.ToLower(parsed.Email)) {
+		h.renderSubscriptionConfirmationPage(context, http.StatusBadRequest, "Unsubscribe", "Invalid or expired token.", model.Site{}, model.Subscriber{}, "")
+		return
+	}
+
+	var site model.Site
+	if siteErr := h.database.First(&site, "id = ?", subscriber.SiteID).Error; siteErr != nil {
+		site = model.Site{}
+	}
+
+	if subscriber.Status == model.SubscriberStatusUnsubscribed {
+		h.renderSubscriptionConfirmationPage(context, http.StatusOK, "Unsubscribed", "Subscription already unsubscribed.", site, subscriber, "")
+		return
+	}
+
+	now := time.Now().UTC()
+	updateErr := h.database.Model(&subscriber).Updates(map[string]any{
+		"status":          model.SubscriberStatusUnsubscribed,
+		"unsubscribed_at": now,
+	}).Error
+	if updateErr != nil {
+		h.renderSubscriptionConfirmationPage(context, http.StatusInternalServerError, "Unsubscribe", "Failed to unsubscribe.", site, subscriber, "")
+		return
+	}
+
+	subscriber.Status = model.SubscriberStatusUnsubscribed
+	subscriber.UnsubscribedAt = now
+
+	h.renderSubscriptionConfirmationPage(context, http.StatusOK, "Unsubscribed", "You have been unsubscribed.", site, subscriber, "")
+}
+
+func (h *PublicHandlers) renderSubscriptionConfirmationPage(context *gin.Context, statusCode int, heading string, message string, site model.Site, subscriber model.Subscriber, confirmationToken string) {
+	footerHTML, footerErr := renderFooterHTMLForVariant(footerVariantLanding)
+	if footerErr != nil {
+		footerHTML = ""
+	}
+
+	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, false, publicPageLanding)
+	if headerErr != nil {
+		headerHTML = ""
+	}
+
+	themeScript, themeErr := renderPublicThemeScript()
+	if themeErr != nil {
+		themeScript = ""
+	}
+
+	openURL := subscriptionConfirmationOpenURL(site, subscriber)
+	openLabel := "Open site"
+	trimmedSiteName := strings.TrimSpace(site.Name)
+	if trimmedSiteName != "" {
+		openLabel = "Open " + trimmedSiteName
+	}
+
+	unsubscribeURLValue := ""
+	if strings.TrimSpace(confirmationToken) != "" && subscriber.Status == model.SubscriberStatusConfirmed {
+		query := url.Values{}
+		query.Set("token", confirmationToken)
+		unsubscribeURLValue = "/subscriptions/unsubscribe?" + query.Encode()
+	}
+
+	payload := subscriptionConfirmedTemplateData{
+		PageTitle:      heading + " — LoopAware",
+		SharedStyles:   sharedPublicStyles(),
+		ThemeScript:    themeScript,
+		FaviconDataURI: dashboardFaviconDataURI,
+		HeaderHTML:     headerHTML,
+		FooterHTML:     footerHTML,
+		Heading:        heading,
+		Message:        message,
+		OpenURL:        "",
+		OpenLabel:      openLabel,
+		UnsubscribeURL: "",
+	}
+	if openURL != "" {
+		payload.OpenURL = template.URL(openURL)
+	}
+	if unsubscribeURLValue != "" {
+		payload.UnsubscribeURL = template.URL(unsubscribeURLValue)
+	}
+
+	var buffer bytes.Buffer
+	if err := subscriptionConfirmedTemplate.Execute(&buffer, payload); err != nil {
+		if h.logger != nil {
+			h.logger.Warn("render_subscription_confirmed_page", zap.Error(err))
+		}
+		context.Data(statusCode, "text/html; charset=utf-8", []byte(message))
+		return
+	}
+	context.Data(statusCode, "text/html; charset=utf-8", buffer.Bytes())
+}
+
+func subscriptionConfirmationOpenURL(site model.Site, subscriber model.Subscriber) string {
+	trimmedSourceURL := strings.TrimSpace(subscriber.SourceURL)
+	if trimmedSourceURL != "" {
+		parsed, parseErr := url.Parse(trimmedSourceURL)
+		if parseErr == nil && parsed != nil {
+			scheme := strings.ToLower(strings.TrimSpace(parsed.Scheme))
+			if (scheme == "http" || scheme == "https") && strings.TrimSpace(parsed.Host) != "" {
+				if isOriginAllowed(site.AllowedOrigin, "", "", trimmedSourceURL) {
+					return trimmedSourceURL
+				}
+			}
+		}
+	}
+
+	originCandidate := strings.TrimSpace(primaryAllowedOrigin(site.AllowedOrigin))
+	if originCandidate == "" {
+		return ""
+	}
+	parsedOrigin, originErr := url.Parse(originCandidate)
+	if originErr != nil || parsedOrigin == nil {
+		return ""
+	}
+	scheme := strings.ToLower(strings.TrimSpace(parsedOrigin.Scheme))
+	if scheme != "http" && scheme != "https" {
+		return ""
+	}
+	if strings.TrimSpace(parsedOrigin.Host) == "" {
+		return ""
+	}
+	return originCandidate
 }
 
 func (h *PublicHandlers) updateSubscriptionStatus(context *gin.Context, targetStatus string) {
@@ -620,6 +727,13 @@ func (h *PublicHandlers) updateSubscriptionStatus(context *gin.Context, targetSt
 	if err := h.database.Model(&subscriber).Updates(updateFields).Error; err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
 		return
+	}
+
+	if targetStatus == model.SubscriberStatusConfirmed {
+		subscriber.Status = model.SubscriberStatusConfirmed
+		subscriber.ConfirmedAt = now
+		subscriber.UnsubscribedAt = time.Time{}
+		h.applySubscriptionNotification(context.Request.Context(), site, subscriber)
 	}
 
 	context.JSON(http.StatusOK, gin.H{"status": "ok"})

@@ -92,6 +92,9 @@ const (
 	dashboardFeedbackMessagesCardSelector     = `[data-dashboard-card="feedback"]`
 	dashboardSubscribersCardSelector          = `[data-dashboard-card="subscribers"]`
 	dashboardTrafficCardSelector              = `[data-dashboard-card="traffic"]`
+	dashboardSectionTabFeedbackSelector       = "#dashboard-section-tab-feedback"
+	dashboardSectionTabSubscriptionsSelector  = "#dashboard-section-tab-subscriptions"
+	dashboardSectionTabTrafficSelector        = "#dashboard-section-tab-traffic"
 	dashboardSubscribersTableBodySelector     = "#subscribers-table-body"
 	dashboardSettingsMenuOpenScript           = `(function() {
 		var menu = document.querySelector('#settings-menu');
@@ -321,6 +324,7 @@ type dashboardIntegrationHarness struct {
 
 type dashboardHarnessOptions struct {
 	subscriptionNotifier httpapi.SubscriptionNotifier
+	emailSender          httpapi.EmailSender
 }
 
 type dashboardHarnessOption func(*dashboardHarnessOptions)
@@ -329,6 +333,14 @@ func withSubscriptionNotifier(notifier httpapi.SubscriptionNotifier) dashboardHa
 	return func(options *dashboardHarnessOptions) {
 		if notifier != nil {
 			options.subscriptionNotifier = notifier
+		}
+	}
+}
+
+func withEmailSender(sender httpapi.EmailSender) dashboardHarnessOption {
+	return func(options *dashboardHarnessOptions) {
+		if sender != nil {
+			options.emailSender = sender
 		}
 	}
 }
@@ -647,6 +659,109 @@ func TestDashboardShowsDistinctWidgetSnippets(t *testing.T) {
 	require.False(t, snippets.FeedbackCopyDisabled)
 	require.False(t, snippets.SubscribeCopyDisabled)
 	require.False(t, snippets.TrafficCopyDisabled)
+}
+
+func TestDashboardSectionTabsTogglePanes(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Dashboard Tabs Site",
+		AllowedOrigin: harness.baseURL,
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	visibilityScript := fmt.Sprintf(`(function(){
+		function hidden(selector) {
+			var node = document.querySelector(selector);
+			if (!node) { return null; }
+			return node.classList.contains('d-none');
+		}
+		return {
+			feedbackWidgetHidden: hidden(%q),
+			subscribeWidgetHidden: hidden(%q),
+			trafficWidgetHidden: hidden(%q),
+			feedbackPaneHidden: hidden(%q),
+			subscribePaneHidden: hidden(%q),
+			trafficPaneHidden: hidden(%q)
+		};
+	}())`, dashboardFeedbackWidgetCardSelector, dashboardSubscribeWidgetCardSelector, dashboardTrafficWidgetCardSelector, dashboardFeedbackMessagesCardSelector, dashboardSubscribersCardSelector, dashboardTrafficCardSelector)
+
+	var state struct {
+		FeedbackWidgetHidden  *bool `json:"feedbackWidgetHidden"`
+		SubscribeWidgetHidden *bool `json:"subscribeWidgetHidden"`
+		TrafficWidgetHidden   *bool `json:"trafficWidgetHidden"`
+		FeedbackPaneHidden    *bool `json:"feedbackPaneHidden"`
+		SubscribePaneHidden   *bool `json:"subscribePaneHidden"`
+		TrafficPaneHidden     *bool `json:"trafficPaneHidden"`
+	}
+
+	require.Eventually(t, func() bool {
+		evaluateScriptInto(t, page, visibilityScript, &state)
+		return state.FeedbackWidgetHidden != nil &&
+			state.SubscribeWidgetHidden != nil &&
+			state.TrafficWidgetHidden != nil &&
+			state.FeedbackPaneHidden != nil &&
+			state.SubscribePaneHidden != nil &&
+			state.TrafficPaneHidden != nil
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.False(t, *state.FeedbackWidgetHidden)
+	require.True(t, *state.SubscribeWidgetHidden)
+	require.True(t, *state.TrafficWidgetHidden)
+	require.False(t, *state.FeedbackPaneHidden)
+	require.True(t, *state.SubscribePaneHidden)
+	require.True(t, *state.TrafficPaneHidden)
+
+	waitForVisibleElement(t, page, dashboardSectionTabSubscriptionsSelector)
+	clickSelector(t, page, dashboardSectionTabSubscriptionsSelector)
+	require.Eventually(t, func() bool {
+		evaluateScriptInto(t, page, visibilityScript, &state)
+		return state.SubscribePaneHidden != nil && !*state.SubscribePaneHidden
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.True(t, *state.FeedbackPaneHidden)
+	require.False(t, *state.SubscribeWidgetHidden)
+	require.False(t, *state.SubscribePaneHidden)
+
+	waitForVisibleElement(t, page, dashboardSectionTabTrafficSelector)
+	clickSelector(t, page, dashboardSectionTabTrafficSelector)
+	require.Eventually(t, func() bool {
+		evaluateScriptInto(t, page, visibilityScript, &state)
+		return state.TrafficPaneHidden != nil && !*state.TrafficPaneHidden
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.True(t, *state.FeedbackPaneHidden)
+	require.True(t, *state.SubscribePaneHidden)
+	require.False(t, *state.TrafficWidgetHidden)
+	require.False(t, *state.TrafficPaneHidden)
+
+	waitForVisibleElement(t, page, dashboardSectionTabFeedbackSelector)
+	clickSelector(t, page, dashboardSectionTabFeedbackSelector)
+	require.Eventually(t, func() bool {
+		evaluateScriptInto(t, page, visibilityScript, &state)
+		return state.FeedbackPaneHidden != nil && !*state.FeedbackPaneHidden
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.False(t, *state.FeedbackWidgetHidden)
+	require.False(t, *state.FeedbackPaneHidden)
+	require.True(t, *state.SubscribePaneHidden)
+	require.True(t, *state.TrafficPaneHidden)
 }
 
 func TestDashboardSeparatesSubscribersAndTrafficCards(t *testing.T) {
@@ -1394,7 +1509,8 @@ func TestWidgetTestPlacementSavePersists(t *testing.T) {
 
 func TestSubscribeWidgetTestFlowSubmitsSubscription(t *testing.T) {
 	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
-	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail, withSubscriptionNotifier(subscriptionNotifier))
+	emailSender := &recordingEmailSender{t: t}
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail, withSubscriptionNotifier(subscriptionNotifier), withEmailSender(emailSender))
 	defer harness.Close()
 
 	site := model.Site{
@@ -1429,6 +1545,10 @@ func TestSubscribeWidgetTestFlowSubmitsSubscription(t *testing.T) {
         window.open._original = originalOpen;
         return true;
       }())`))
+
+	waitForVisibleElement(t, page, dashboardSectionTabSubscriptionsSelector)
+	clickSelector(t, page, dashboardSectionTabSubscriptionsSelector)
+	waitForVisibleElement(t, page, dashboardSubscribeTestButtonSelector)
 
 	waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameLoad)
 	clickSelector(t, page, dashboardSubscribeTestButtonSelector)
@@ -1465,10 +1585,8 @@ func TestSubscribeWidgetTestFlowSubmitsSubscription(t *testing.T) {
 			First(&stored).Error == nil
 	}, 5*time.Second, 100*time.Millisecond)
 
-	require.Equal(t, 1, subscriptionNotifier.CallCount())
-	notification := subscriptionNotifier.LastCall()
-	require.Equal(t, site.ID, notification.Site.ID)
-	require.Equal(t, testEmail, notification.Subscriber.Email)
+	require.Equal(t, 1, emailSender.CallCount())
+	require.Equal(t, 0, subscriptionNotifier.CallCount())
 
 }
 
@@ -1612,6 +1730,10 @@ func TestTrafficWidgetTestFlowRecordsVisit(t *testing.T) {
         window.open._original = originalOpen;
         return true;
       }())`))
+
+	waitForVisibleElement(t, page, dashboardSectionTabTrafficSelector)
+	clickSelector(t, page, dashboardSectionTabTrafficSelector)
+	waitForVisibleElement(t, page, dashboardTrafficTestButtonSelector)
 
 	waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameLoad)
 	clickSelector(t, page, dashboardTrafficTestButtonSelector)
@@ -2184,6 +2306,7 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 
 	config := dashboardHarnessOptions{
 		subscriptionNotifier: stubDashboardNotifier{},
+		emailSender:          nil,
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -2217,10 +2340,10 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
 	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath)
-	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", nil)
+	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", config.emailSender)
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{})
 	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(gormDatabase, logger)
-	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents, config.subscriptionNotifier, true)
+	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", config.emailSender)
 
 	router := gin.New()
 	router.Use(gin.Recovery())

@@ -1309,6 +1309,42 @@ func TestUpdateSubscriberStatus(testingT *testing.T) {
 	require.Equal(testingT, model.SubscriberStatusUnsubscribed, refreshed.Status)
 }
 
+func TestDeleteSubscriber(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
+	siteHandlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	router.DELETE("/api/sites/:id/subscribers/:subscriber_id", func(context *gin.Context) {
+		context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+		siteHandlers.DeleteSubscriber(context)
+	})
+
+	site := model.Site{ID: storage.NewID(), Name: "Subs", AllowedOrigin: "http://example.com", OwnerEmail: testAdminEmailAddress, CreatorEmail: testAdminEmailAddress}
+	require.NoError(testingT, database.Create(&site).Error)
+	subscriber, subErr := model.NewSubscriber(model.SubscriberInput{
+		SiteID: site.ID,
+		Email:  "delete@example.com",
+	})
+	require.NoError(testingT, subErr)
+	require.NoError(testingT, database.Create(&subscriber).Error)
+
+	request, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("/api/sites/%s/subscribers/%s", site.ID, subscriber.ID), nil)
+	require.NoError(testingT, err)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var remaining int64
+	require.NoError(testingT, database.Model(&model.Subscriber{}).Where("site_id = ?", site.ID).Count(&remaining).Error)
+	require.Equal(testingT, int64(0), remaining)
+}
+
 func TestVisitStatsRequiresAuth(testingT *testing.T) {
 	gin.SetMode(gin.TestMode)
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)

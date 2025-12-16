@@ -11,14 +11,16 @@ const (
 	footerPrivacyLinkLabel = "Privacy • Terms"
 	footerPrivacyLinkHref  = PrivacyPagePath
 
-	footerLayoutClass          = "footer-layout w-100 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3"
-	footerBrandWrapperClass    = "footer-brand d-inline-flex align-items-center gap-2 text-body-secondary small"
-	footerMenuWrapperClass     = "footer-menu dropup"
-	footerPrivacyLinkClass     = "footer-privacy-link text-body-secondary text-decoration-none small"
-	footerPrefixClass          = "text-body-secondary fw-semibold"
-	footerToggleButtonClass    = "btn btn-link dropdown-toggle text-decoration-none px-0 fw-semibold text-body-secondary"
-	footerMenuClass            = "dropdown-menu dropdown-menu-end shadow"
-	footerMenuItemClass        = "dropdown-item"
+	footerBrandText            = dashboardFooterBrandPrefix + " " + dashboardFooterBrandName
+	footerInnerClass           = "mpr-footer__inner"
+	footerLayoutClass          = "mpr-footer__layout"
+	footerBrandWrapperClass    = "mpr-footer__brand"
+	footerMenuWrapperClass     = "mpr-footer__menu-wrapper"
+	footerPrivacyLinkClass     = "mpr-footer__privacy"
+	footerPrefixClass          = "mpr-footer__prefix"
+	footerToggleButtonClass    = "mpr-footer__menu-button"
+	footerMenuClass            = "mpr-footer__menu"
+	footerMenuItemClass        = "mpr-footer__menu-item"
 	footerThemeToggleAriaLabel = "Toggle theme"
 	footerThemeAttribute       = "data-bs-theme"
 	footerThemeSwitcher        = "toggle"
@@ -43,14 +45,14 @@ type footerVariantOverrides struct {
 
 var (
 	footerBaseConfig = footer.Config{
-		InnerClass:         landingFooterInnerClass,
+		InnerClass:         footerInnerClass,
 		WrapperClass:       footerLayoutClass,
 		BrandWrapperClass:  footerBrandWrapperClass,
 		MenuWrapperClass:   footerMenuWrapperClass,
 		PrefixClass:        footerPrefixClass,
-		PrefixText:         dashboardFooterBrandPrefix,
+		PrefixText:         footerBrandText,
 		ToggleButtonClass:  footerToggleButtonClass,
-		ToggleLabel:        dashboardFooterBrandName,
+		ToggleLabel:        footerBrandText,
 		MenuClass:          footerMenuClass,
 		MenuItemClass:      footerMenuItemClass,
 		PrivacyLinkClass:   footerPrivacyLinkClass,
