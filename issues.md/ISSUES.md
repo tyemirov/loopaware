@@ -28,4 +28,9 @@ Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- 
   3. Clean up the completed issues.
   reconciled the README REST API table, subscription token routes, and dashboard feature list with the shipped behavior; expanded ARCHITECTURE.md with an overview of components and key flows.
 
+- [ ] [LA-407] Polish:
+1. Review each open issue
+2. Add additional context: documentation, execution plan, goal
+3. Add priroity and deliverable. Reaarange and renumber issues as needed.
+
 ## Planning (do not implement yet)
