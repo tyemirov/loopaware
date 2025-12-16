@@ -41,10 +41,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## Improvements (210–299)
 
-- [ ] [LA-213] Dashboard section tabs should span full width and split into 3 equal parts.
+- [x] [LA-213] Dashboard section tabs should span full width and split into 3 equal parts.
   Priority: P2
   Goal: Feedback/Subscriptions/Traffic tab buttons fill the available width and each takes exactly 1/3 of the row (responsive).
   Deliverable: PR adjusting tab markup/CSS and updating dashboard integration tests as needed.
+  Resolution: Switched section tabs to `nav-justified` + `w-100` and added headless integration assertions for equal computed tab widths.
   Docs/Refs:
   - `internal/httpapi/templates/dashboard.tmpl`
   - existing dashboard integration tests under `internal/httpapi/*integration*_test.go`
