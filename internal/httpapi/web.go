@@ -35,7 +35,8 @@ const (
 	dashboardWidgetCardTitle                   = "Feedback widget"
 	dashboardWidgetInstructions                = "Embed this <script> tag on pages served from the allowed origin."
 	subscribeWidgetCardTitle                   = "Subscribers widget"
-	subscribeWidgetInstructions                = "Place this snippet on pages where you want visitors to subscribe."
+	subscribeWidgetInstructions                = "Embed the script snippet wherever you want visitors to subscribe."
+	subscribeWidgetPreviewInstructions         = "The rendered form appears inline at the script location; use the Test button to preview the live form."
 	trafficWidgetCardTitle                     = "Traffic widget"
 	trafficWidgetInstructions                  = "Add this pixel to every page to capture visit counts."
 	dashboardWidgetUnavailable                 = "Save the site to generate a widget snippet."
@@ -178,6 +179,9 @@ const (
 	exportButtonClass                          = "btn btn-outline-secondary btn-sm"
 	subscribersStatusElementID                 = "subscribers-status"
 	subscribersPlaceholder                     = "No subscribers yet."
+	subscribeAllowedOriginsTitle               = "Additional subscribe origins"
+	subscribeAllowedOriginsHelpText            = "Optional: allow the subscribe form to run on extra origins beyond the site's allowed origins."
+	subscribeAllowedOriginsListElementID       = "subscribe-allowed-origins-list"
 	visitCountElementID                        = "visit-count"
 	uniqueVisitorCountElementID                = "unique-visitor-count"
 	trafficStatusElementID                     = "traffic-status"
@@ -378,6 +382,9 @@ type dashboardTemplateData struct {
 	ExportButtonClass                       string
 	SubscribersStatusID                     string
 	SubscribersPlaceholder                  string
+	SubscribeAllowedOriginsTitle            string
+	SubscribeAllowedOriginsHelpText         string
+	SubscribeAllowedOriginsListID           string
 	VisitCountElementID                     string
 	UniqueVisitorCountElementID             string
 	TrafficStatusID                         string
@@ -405,6 +412,7 @@ type dashboardTemplateData struct {
 	WidgetUnavailableMessage                string
 	SubscribeWidgetTitle                    string
 	SubscribeWidgetInstructions             string
+	SubscribeWidgetPreviewInstructions      string
 	TrafficWidgetTitle                      string
 	TrafficWidgetInstructions               string
 	StatusWidgetCopied                      string
@@ -734,6 +742,9 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		ExportButtonClass:                       exportButtonClass,
 		SubscribersStatusID:                     subscribersStatusElementID,
 		SubscribersPlaceholder:                  subscribersPlaceholder,
+		SubscribeAllowedOriginsTitle:            subscribeAllowedOriginsTitle,
+		SubscribeAllowedOriginsHelpText:         subscribeAllowedOriginsHelpText,
+		SubscribeAllowedOriginsListID:           subscribeAllowedOriginsListElementID,
 		VisitCountElementID:                     visitCountElementID,
 		UniqueVisitorCountElementID:             uniqueVisitorCountElementID,
 		TrafficStatusID:                         trafficStatusElementID,
@@ -761,6 +772,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		WidgetUnavailableMessage:                dashboardWidgetUnavailable,
 		SubscribeWidgetTitle:                    subscribeWidgetCardTitle,
 		SubscribeWidgetInstructions:             subscribeWidgetInstructions,
+		SubscribeWidgetPreviewInstructions:      subscribeWidgetPreviewInstructions,
 		TrafficWidgetTitle:                      trafficWidgetCardTitle,
 		TrafficWidgetInstructions:               trafficWidgetInstructions,
 		StatusWidgetCopied:                      dashboardStatusWidgetCopied,
@@ -976,6 +988,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"subscribers_table_body":              subscribersTableBodyElementID,
 			"export_subscribers_button":           exportSubscribersButtonElementID,
 			"subscribers_status":                  subscribersStatusElementID,
+			"subscribe_allowed_origins_list":      subscribeAllowedOriginsListElementID,
 			"visit_count":                         visitCountElementID,
 			"unique_visitor_count":                uniqueVisitorCountElementID,
 			"traffic_status":                      trafficStatusElementID,

@@ -83,6 +83,7 @@ func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string
 type createSiteRequest struct {
 	Name                     string `json:"name"`
 	AllowedOrigin            string `json:"allowed_origin"`
+	SubscribeAllowedOrigins  string `json:"subscribe_allowed_origins"`
 	OwnerEmail               string `json:"owner_email"`
 	WidgetBubbleSide         string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset *int   `json:"widget_bubble_bottom_offset"`
@@ -91,6 +92,7 @@ type createSiteRequest struct {
 type updateSiteRequest struct {
 	Name                     *string `json:"name"`
 	AllowedOrigin            *string `json:"allowed_origin"`
+	SubscribeAllowedOrigins  *string `json:"subscribe_allowed_origins"`
 	OwnerEmail               *string `json:"owner_email"`
 	WidgetBubbleSide         *string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset *int    `json:"widget_bubble_bottom_offset"`
@@ -100,6 +102,7 @@ type siteResponse struct {
 	ID                       string `json:"id"`
 	Name                     string `json:"name"`
 	AllowedOrigin            string `json:"allowed_origin"`
+	SubscribeAllowedOrigins  string `json:"subscribe_allowed_origins"`
 	OwnerEmail               string `json:"owner_email"`
 	FaviconURL               string `json:"favicon_url"`
 	Widget                   string `json:"widget"`
@@ -204,6 +207,7 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 
 	payload.Name = strings.TrimSpace(payload.Name)
 	payload.AllowedOrigin = strings.TrimSpace(payload.AllowedOrigin)
+	payload.SubscribeAllowedOrigins = normalizeAllowedOrigins(payload.SubscribeAllowedOrigins)
 	creatorEmail := currentUser.normalizedEmail()
 	desiredOwnerEmail := strings.ToLower(strings.TrimSpace(payload.OwnerEmail))
 	if desiredOwnerEmail == "" {
@@ -246,6 +250,7 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		ID:                         storage.NewID(),
 		Name:                       payload.Name,
 		AllowedOrigin:              payload.AllowedOrigin,
+		SubscribeAllowedOrigins:    payload.SubscribeAllowedOrigins,
 		OwnerEmail:                 desiredOwnerEmail,
 		CreatorEmail:               creatorEmail,
 		FaviconOrigin:              primaryAllowedOrigin(payload.AllowedOrigin),
@@ -557,7 +562,7 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		return
 	}
 
-	if payload.Name == nil && payload.AllowedOrigin == nil && payload.OwnerEmail == nil && payload.WidgetBubbleSide == nil && payload.WidgetBubbleBottomOffset == nil {
+	if payload.Name == nil && payload.AllowedOrigin == nil && payload.SubscribeAllowedOrigins == nil && payload.OwnerEmail == nil && payload.WidgetBubbleSide == nil && payload.WidgetBubbleBottomOffset == nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueNothingToUpdate})
 		return
 	}
@@ -612,6 +617,10 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 			return
 		}
 		site.OwnerEmail = trimmed
+	}
+
+	if payload.SubscribeAllowedOrigins != nil {
+		site.SubscribeAllowedOrigins = normalizeAllowedOrigins(*payload.SubscribeAllowedOrigins)
 	}
 
 	if payload.WidgetBubbleSide != nil {
@@ -1048,6 +1057,7 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 		ID:                       site.ID,
 		Name:                     site.Name,
 		AllowedOrigin:            site.AllowedOrigin,
+		SubscribeAllowedOrigins:  site.SubscribeAllowedOrigins,
 		OwnerEmail:               site.OwnerEmail,
 		FaviconURL:               faviconURL,
 		Widget:                   fmt.Sprintf(widgetScriptTemplate, widgetBase, site.ID),
@@ -1059,6 +1069,11 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 		WidgetBubbleSide:         site.WidgetBubbleSide,
 		WidgetBubbleBottomOffset: site.WidgetBubbleBottomOffsetPx,
 	}
+}
+
+func normalizeAllowedOrigins(rawValue string) string {
+	origins := parseAllowedOrigins(rawValue)
+	return strings.Join(origins, " ")
 }
 
 func (handlers *SiteHandlers) feedbackCount(ctx context.Context, siteID string) int64 {

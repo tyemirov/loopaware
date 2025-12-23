@@ -146,8 +146,10 @@ var (
   function applyPublicTheme(theme) {
     var normalizedTheme = theme === 'light' ? 'light' : 'dark';
     rootElement.setAttribute('data-bs-theme', normalizedTheme);
+    rootElement.setAttribute('data-mpr-theme', normalizedTheme);
     if (documentRoot) {
       documentRoot.setAttribute('data-bs-theme', normalizedTheme);
+      documentRoot.setAttribute('data-mpr-theme', normalizedTheme);
     }
     rootElement.classList.toggle('bg-body', true);
     rootElement.classList.toggle('text-body', true);

@@ -298,6 +298,25 @@ func TestCreateSubscriptionSupportsMultipleAllowedOrigins(t *testing.T) {
 	}
 }
 
+func TestCreateSubscriptionAcceptsSubscribeAllowedOrigins(t *testing.T) {
+	api := buildAPIHarness(t, nil, nil, nil)
+	site := insertSite(t, api.database, "Subscribe Origins", "http://origin.example", "owner@example.com")
+	site.SubscribeAllowedOrigins = "http://newsletter.example"
+	require.NoError(t, api.database.Save(&site).Error)
+
+	ok := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+		"site_id": site.ID,
+		"email":   storage.NewID() + "@example.com",
+	}, map[string]string{"Origin": "http://newsletter.example"})
+	require.Equal(t, http.StatusOK, ok.Code)
+
+	badOrigin := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+		"site_id": site.ID,
+		"email":   storage.NewID() + "@example.com",
+	}, map[string]string{"Origin": "http://evil.example"})
+	require.Equal(t, http.StatusForbidden, badOrigin.Code)
+}
+
 func TestConfirmAndUnsubscribeSubscription(t *testing.T) {
 	api := buildAPIHarness(t, nil, nil, nil)
 	site := insertSite(t, api.database, "Confirmations", "http://confirm.example", "owner@example.com")

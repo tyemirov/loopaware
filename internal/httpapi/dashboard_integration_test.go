@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -727,6 +728,46 @@ func TestDashboardSectionTabsTogglePanes(t *testing.T) {
 	require.False(t, *state.FeedbackPaneHidden)
 	require.True(t, *state.SubscribePaneHidden)
 	require.True(t, *state.TrafficPaneHidden)
+
+	tabLayoutScript := `(function() {
+		var tabs = document.getElementById('dashboard-section-tabs');
+		var feedback = document.getElementById('dashboard-section-tab-feedback');
+		var subscriptions = document.getElementById('dashboard-section-tab-subscriptions');
+		var traffic = document.getElementById('dashboard-section-tab-traffic');
+		if (!tabs || !feedback || !subscriptions || !traffic) {
+			return null;
+		}
+		var tabsRect = tabs.getBoundingClientRect();
+		var feedbackRect = feedback.getBoundingClientRect();
+		var subscriptionsRect = subscriptions.getBoundingClientRect();
+		var trafficRect = traffic.getBoundingClientRect();
+		return {
+			tabsWidth: tabsRect.width,
+			feedbackWidth: feedbackRect.width,
+			subscriptionsWidth: subscriptionsRect.width,
+			trafficWidth: trafficRect.width
+		};
+	}())`
+
+	var tabLayout struct {
+		TabsWidth          float64 `json:"tabsWidth"`
+		FeedbackWidth      float64 `json:"feedbackWidth"`
+		SubscriptionsWidth float64 `json:"subscriptionsWidth"`
+		TrafficWidth       float64 `json:"trafficWidth"`
+	}
+
+	require.Eventually(t, func() bool {
+		evaluateScriptInto(t, page, tabLayoutScript, &tabLayout)
+		return tabLayout.TabsWidth > 0 && tabLayout.FeedbackWidth > 0 && tabLayout.SubscriptionsWidth > 0 && tabLayout.TrafficWidth > 0
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	expectedTabWidth := tabLayout.TabsWidth / 3
+	tabWidthDelta := math.Max(2.0, expectedTabWidth*0.06)
+	require.InDelta(t, expectedTabWidth, tabLayout.FeedbackWidth, tabWidthDelta)
+	require.InDelta(t, expectedTabWidth, tabLayout.SubscriptionsWidth, tabWidthDelta)
+	require.InDelta(t, expectedTabWidth, tabLayout.TrafficWidth, tabWidthDelta)
+	require.InDelta(t, tabLayout.FeedbackWidth, tabLayout.SubscriptionsWidth, tabWidthDelta)
+	require.InDelta(t, tabLayout.SubscriptionsWidth, tabLayout.TrafficWidth, tabWidthDelta)
 
 	waitForVisibleElement(t, page, dashboardSectionTabSubscriptionsSelector)
 	clickSelector(t, page, dashboardSectionTabSubscriptionsSelector)
