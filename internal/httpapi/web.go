@@ -181,9 +181,7 @@ const (
 	subscribersPlaceholder                     = "No subscribers yet."
 	subscribeAllowedOriginsTitle               = "Additional subscribe origins"
 	subscribeAllowedOriginsHelpText            = "Optional: allow the subscribe form to run on extra origins beyond the site's allowed origins."
-	subscribeAllowedOriginsAddButtonLabel      = "Add origin"
 	subscribeAllowedOriginsListElementID       = "subscribe-allowed-origins-list"
-	subscribeAllowedOriginsAddButtonElementID  = "subscribe-allowed-origins-add"
 	visitCountElementID                        = "visit-count"
 	uniqueVisitorCountElementID                = "unique-visitor-count"
 	trafficStatusElementID                     = "traffic-status"
@@ -387,8 +385,6 @@ type dashboardTemplateData struct {
 	SubscribeAllowedOriginsTitle            string
 	SubscribeAllowedOriginsHelpText         string
 	SubscribeAllowedOriginsListID           string
-	SubscribeAllowedOriginsAddButtonID      string
-	SubscribeAllowedOriginsAddButtonLabel   string
 	VisitCountElementID                     string
 	UniqueVisitorCountElementID             string
 	TrafficStatusID                         string
@@ -749,8 +745,6 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		SubscribeAllowedOriginsTitle:            subscribeAllowedOriginsTitle,
 		SubscribeAllowedOriginsHelpText:         subscribeAllowedOriginsHelpText,
 		SubscribeAllowedOriginsListID:           subscribeAllowedOriginsListElementID,
-		SubscribeAllowedOriginsAddButtonID:      subscribeAllowedOriginsAddButtonElementID,
-		SubscribeAllowedOriginsAddButtonLabel:   subscribeAllowedOriginsAddButtonLabel,
 		VisitCountElementID:                     visitCountElementID,
 		UniqueVisitorCountElementID:             uniqueVisitorCountElementID,
 		TrafficStatusID:                         trafficStatusElementID,
@@ -995,7 +989,6 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"export_subscribers_button":           exportSubscribersButtonElementID,
 			"subscribers_status":                  subscribersStatusElementID,
 			"subscribe_allowed_origins_list":      subscribeAllowedOriginsListElementID,
-			"subscribe_allowed_origins_add":       subscribeAllowedOriginsAddButtonElementID,
 			"visit_count":                         visitCountElementID,
 			"unique_visitor_count":                uniqueVisitorCountElementID,
 			"traffic_status":                      trafficStatusElementID,
