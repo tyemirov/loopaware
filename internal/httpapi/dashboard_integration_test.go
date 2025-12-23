@@ -25,8 +25,8 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	"github.com/temirov/GAuss/pkg/constants"
-	"github.com/temirov/GAuss/pkg/session"
+	"github.com/tyemirov/GAuss/pkg/constants"
+	"github.com/tyemirov/GAuss/pkg/session"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/httpapi"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"

@@ -5,7 +5,7 @@ role-aware dashboard for managing sites and messages.
 
 ## Highlights
 
-- Google OAuth 2.0 authentication via [GAuss](https://github.com/temirov/GAuss)
+- Google OAuth 2.0 authentication via [GAuss](https://github.com/tyemirov/GAuss)
 - Role-aware dashboard (`/app`) with admin and creator/owner scopes
 - YAML configuration for privileged accounts (`config.yaml`)
 - REST API to create, update, and inspect sites, feedback, subscribers, and traffic
