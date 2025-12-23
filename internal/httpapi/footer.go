@@ -34,6 +34,8 @@ const (
 	footerVariantDashboard footerVariant = "dashboard"
 )
 
+var footerThemeModes = []string{"light", "dark"}
+
 type footerVariantOverrides struct {
 	ElementID          string
 	InnerElementID     string
@@ -64,13 +66,14 @@ var (
 		ThemeSwitcher:      footerThemeSwitcher,
 		ThemeAttribute:     footerThemeAttribute,
 		ThemeAriaLabel:     footerThemeToggleAriaLabel,
+		ThemeModes:         footerThemeModes,
 	}
 	footerVariantOverridesByKey = map[footerVariant]footerVariantOverrides{
 		footerVariantLanding: {
 			ElementID:          landingFooterElementID,
 			InnerElementID:     landingFooterInnerID,
 			BaseClass:          landingFooterBaseClass,
-			ToggleButtonID:     landingFooterToggleID,
+			ToggleButtonID:     "",
 			ThemeToggleEnabled: true,
 			ThemeMode:          "dark",
 		},
@@ -78,7 +81,7 @@ var (
 			ElementID:          privacyFooterElementID,
 			InnerElementID:     privacyFooterInnerID,
 			BaseClass:          landingFooterBaseClass,
-			ToggleButtonID:     dashboardFooterToggleButtonID,
+			ToggleButtonID:     "",
 			ThemeToggleEnabled: true,
 			ThemeMode:          "dark",
 		},
@@ -86,7 +89,7 @@ var (
 			ElementID:          footerElementID,
 			InnerElementID:     footerInnerElementID,
 			BaseClass:          footerBaseClass,
-			ToggleButtonID:     dashboardFooterToggleButtonID,
+			ToggleButtonID:     "",
 			ThemeToggleEnabled: true,
 			ThemeMode:          "light",
 		},

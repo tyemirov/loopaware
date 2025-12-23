@@ -365,7 +365,8 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 
 	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
 	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
-	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader, "") {
+	allowedOrigins := mergedAllowedOrigins(site.AllowedOrigin, site.SubscribeAllowedOrigins)
+	if !isOriginAllowed(allowedOrigins, originHeader, refererHeader, "") {
 		context.JSON(http.StatusForbidden, gin.H{"error": "origin_forbidden"})
 		return
 	}
@@ -635,7 +636,8 @@ func subscriptionConfirmationOpenURL(site model.Site, subscriber model.Subscribe
 		if parseErr == nil && parsed != nil {
 			scheme := strings.ToLower(strings.TrimSpace(parsed.Scheme))
 			if (scheme == "http" || scheme == "https") && strings.TrimSpace(parsed.Host) != "" {
-				if isOriginAllowed(site.AllowedOrigin, "", "", trimmedSourceURL) {
+				allowedOrigins := mergedAllowedOrigins(site.AllowedOrigin, site.SubscribeAllowedOrigins)
+				if isOriginAllowed(allowedOrigins, "", "", trimmedSourceURL) {
 					return trimmedSourceURL
 				}
 			}
@@ -688,7 +690,8 @@ func (h *PublicHandlers) updateSubscriptionStatus(context *gin.Context, targetSt
 
 	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
 	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
-	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader, "") {
+	allowedOrigins := mergedAllowedOrigins(site.AllowedOrigin, site.SubscribeAllowedOrigins)
+	if !isOriginAllowed(allowedOrigins, originHeader, refererHeader, "") {
 		context.JSON(http.StatusForbidden, gin.H{"error": "origin_forbidden"})
 		return
 	}
@@ -775,6 +778,38 @@ func primaryAllowedOrigin(rawAllowedOrigin string) string {
 		return ""
 	}
 	return origins[0]
+}
+
+func mergedAllowedOrigins(primaryAllowedOrigin string, extraAllowedOrigin string) string {
+	primaryList := parseAllowedOrigins(primaryAllowedOrigin)
+	extraList := parseAllowedOrigins(extraAllowedOrigin)
+	if len(primaryList) == 0 && len(extraList) == 0 {
+		return ""
+	}
+	if len(primaryList) == 0 {
+		return strings.Join(extraList, " ")
+	}
+	if len(extraList) == 0 {
+		return strings.Join(primaryList, " ")
+	}
+	merged := make([]string, 0, len(primaryList)+len(extraList))
+	seenOrigins := make(map[string]struct{}, len(primaryList)+len(extraList))
+	for _, origin := range append(primaryList, extraList...) {
+		trimmedOrigin := strings.TrimSpace(origin)
+		if trimmedOrigin == "" {
+			continue
+		}
+		key := strings.ToLower(trimmedOrigin)
+		if _, ok := seenOrigins[key]; ok {
+			continue
+		}
+		seenOrigins[key] = struct{}{}
+		merged = append(merged, trimmedOrigin)
+	}
+	if len(merged) == 0 {
+		return ""
+	}
+	return strings.Join(merged, " ")
 }
 
 func isOriginAllowed(allowedOrigin string, originHeader string, refererHeader string, urlValue string) bool {

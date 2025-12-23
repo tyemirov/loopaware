@@ -4,91 +4,117 @@ Entries record newly discovered requests or changes, with their outcomes. No ins
 
 Read @AGENTS.md, @ARCHITECTURE.md, @README.md, @PRD.md. Read @POLICY.md, PLANNING.md, @NOTES.md, and @ISSUES.md under issues.md/.  Start working on open issues. Work autonomously and stack up PRs. Prioritize bugfixes.
 
-Each issue is formatted as `- [ ] [<ID>-<number>]`. When resolved it becomes `- [x] [<ID>-<number>]`.
+Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x] [LA-<number>]`.
 
 ## Features (113–199)
-- [x] [LA-111] Allow multiple origins for subscribe widgets, e.g. — a single subscribe widget can be embedded in multiple sites, not all of them matching the original url, such as gravity.mprlab.com needs to be able to be retreieved and function from both https://mprlab.com and http://localhost:8080
-  implemented multi-origin support for site `allowed_origin` values (space/comma-separated list), extended backend origin checks and dashboard validation, and updated README to document the behavior.
-
-- [x] [LA-112] Implement the subscription flow: — Send a confirmation email to the subscriber
-  The confirmation email contains a link to the loopaware
-  When a user clicks the link the subscription is confirmed
-  Carefully plan the execution and testing
-  implemented double opt-in subscriptions: creating a subscription sends a confirmation email with `GET /subscriptions/confirm?token=...`, and clicking the link confirms the subscriber.
-
-## Improvements (210–299)
-
-- [x] [LA-207] Upgrade to the latest version of mpr-ui. — Check tools/mpr-ui/README.md and @tools/mpr-ui/docs/custom-elements.md and @tols/mpr-ui/demo/index.html for documentation and examples.
-  migrated LoopAware templates to the v0.2+ `<mpr-footer>` custom element, loading `mpr-ui@latest/mpr-ui.css` + `mpr-ui@latest/mpr-ui.js`, and removed the legacy `footer.js`/`mprFooter` helper import.
-  ```
-  Uncaught SyntaxError: The requested module 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@main/footer.js' doesn't provide an export named: 'mprFooter' subscribe-test:709:14
-  ```
-
-- [x] [LA-208] Add front-end for LA-111 which would allow entering multiple origins for the same subscribe widget. — updated the dashboard UI to treat `allowed_origin` as a multi-origin field (space/comma-separated), summarize the primary origin in the sites list, and ensure favicon-click opens the primary origin.
-
-- [x] [LA-209] Add a section selector for Feedback, Subscriptions, Traffic. — added dashboard tabs below Site details to switch between Feedback, Subscriptions, and Traffic sections, showing only the relevant widget + pane at a time.
-  Only one section is shown at a time
-  Clicking on Feedback shows Feedback widget and Feedback messages panes
-  Clicking on Subscriptions shows Subscribers Widget and Subscribers panes
-  Clicking on Traffic shows Traffic Widget and Traffic pane
-  The idea is that these widgets are now crowding a single screen and we want to hide them under the top selector, so Tabbed navigation will work here
-
-- [x] [LA-210] Style the subscription confirmed page and add a link to open the subscribed site. — replaced the plain-text `/subscriptions/confirm` response with a LoopAware-themed HTML page and added a safe “Open <site>” link (prefers an allowed `source_url`, otherwise the primary allowed origin).
-
-- [x] [LA-211] Add delete action to subscribers pane, using the flow and design approach similar to site deletion in the sites pane — added an authenticated DELETE subscriber endpoint and a dashboard confirmation modal (type email) to remove subscriber records.
-
-- [x] [LA-212] Subscription confirmed page should show Open + Unsubscribe buttons (no “Return to LoopAware” on the confirmed card).
-  added a token-based `/subscriptions/unsubscribe?token=...` web route and updated the confirmation page to display “Open <site>” and “Unsubscribe” actions; added coverage.
-
-- [ ] [LA-213] Make the tabs span wider so thay occupy all o their space and divide it in 3 equal parts ![alt text](<../image copy.png>)
-
-- [ ] [LA-214] Add additional source origins UX to the subscriber widget ![alt text](image.png). Add an extra source origin section before the "Place this snippet on pages where you want visitors to subscribe." have + and - buttons to add input fields with extra allowed source origins.
-
-- [ ] [LA-215] Improve instructions for the subscribe widget. copying the script probably won't be sufficient, so we shall have two pieces:
-1. <script defer src="http://localhost:8080/subscribe.js?site_id=12665b6e-78a2-421f-9149-04be800f6245"></script>
-2. The form that actually displays the subscribe fields
 
 ## BugFixes (312–399)
 
-- [x] [LA-311] TestWidgetIntegrationSubmitsFeedback can time out under `make ci` race tests with a `context deadline exceeded` error from the headless browser harness; investigate and stabilize the widget integration test so `make ci` passes reliably — simplified the keyboard focus assertions in the widget integration test to avoid brittle Shift+Tab focus loops while preserving end-to-end feedback submission coverage; `make test`, `make lint`, and `make ci` now pass cleanly including the race suite.
+- [x] [LA-318] Theme toggle defaults and mapping are wrong (left = light, right = dark).
+  Priority: P0
+  Goal: The left toggle state represents light theme, the right state represents dark theme, and the initial UI state matches the applied theme.
+  Deliverable: PR that fixes theme toggle behavior across landing, dashboard, and public pages; automated coverage updated.
+  Resolution: Reordered `mpr-footer` theme modes to `light` then `dark` and added headless integration coverage for landing/privacy/dashboard toggle state + applied theme.
+  Docs/Refs:
+  - `issues.md/AGENTS.FRONTEND.md`
+  - `internal/httpapi/footer.go`
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/public_assets.go`
+  Execution plan:
+  - Identify the single source of truth for theme mode (document attribute + storage key).
+  - Fix toggle UI state mapping (mpr-ui footer event + local storage + `data-bs-theme`).
+  - Add/adjust integration assertions around theme attribute and toggle state.
 
-- [x] [LS-312] Investigate the 403 errro when trying to subscribe on a test subscribe page. — I have entered a valid enail and my name but got an error: "Please try again"
-  routed the subscribe-test preview submission through an authenticated `/app/sites/:id/subscribe-test/subscriptions` endpoint (origin checks remain enforced for public `/api/subscriptions`).
-  ```
-  Error: http_403
-    submitInlineForm http://localhost:8080/app/sites/c6bf3dd5-0bd4-4d0b-9be3-c647991f7092/subscribe-test:589
-  subscribe-test:599:21
-  ```
-  Server log:
-  ```
-  011581307,"ip":"192.168.65.1","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0"}
-  loopaware  | {"level":"info","ts":1765747899.0851963,"caller":"httpapi/middleware.go:14","msg":"http","method":"GET","path":"/api/sites/c6bf3dd5-0bd4-4d0b-9be3-c647991f7092/subscribers","status":200,"dur":0.005705436,"ip":"192.168.65.1","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0"}
-  loopaware  | {"level":"info","ts":1765747899.0949476,"caller":"httpapi/middleware.go:14","msg":"http","method":"GET","path":"/api/sites/c6bf3dd5-0bd4-4d0b-9be3-c647991f7092/visits/stats","status":200,"dur":0.015284192,"ip":"173.194.65.95","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0"}
-  loopaware  | {"level":"info","ts":1765747907.1529574,"caller":"httpapi/middleware.go:14","msg":"http","method":"GET","path":"/app/sites/c6bf3dd5-0bd4-4d0b-9be3-c647991f7092/subscribe-test","status":200,"dur":0.052474132,"ip":"192.168.65.1","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0"}
-  loopaware  | {"level":"info","ts":1765747925.552095,"caller":"httpapi/middleware.go:14","msg":"http","method":"POST","path":"/api/subscriptions","status":403,"dur":0.000895133,"ip":"173.194.65.95","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0"}
-  loopaware  | {"level":"info","ts":1765747936.5625567,"caller":"httpapi/middleware.go:14","msg":"http","method":"GET","path":"/app/sites/c6bf3dd5-0bd4-4d0b-9be3-c647991f7092/subscribe-test","status":302,"dur":0.000044817,"ip":"173.194.65.95","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0"}
-  ```
+- [x] [LA-317] mpr-ui footer menu label “Built by Marco Polo Research Lab” is invisible.
+  Priority: P1
+  Goal: Footer label is visible in both light and dark themes and matches the mpr-ui demo styling.
+  Deliverable: PR that removes/adjusts conflicting CSS and validates footer label visibility; screenshot-based evidence if needed.
+  Resolution: Stop passing `toggle-button-id` so mpr-ui can populate the footer menu button label/classes, and synchronize `data-mpr-theme` with `data-bs-theme` so light-mode tokens apply; added headless integration coverage for computed label color.
+  Docs/Refs:
+  - `tools/mpr-ui/demo/index.html`
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/public_assets.go`
+  Execution plan:
+  - Compare LoopAware footer DOM/CSS against the mpr-ui demo.
+  - Identify overriding selectors in LoopAware CSS (especially for footer text colors).
+  - Adjust styles to avoid clobbering mpr-ui defaults; verify both themes.
 
-- [x] [LS-313] Prevent duplicate origins when a site's `allowed_origin` contains multiple origins (comma/space-separated). — updated conflict detection to compare per-origin rather than the raw `allowed_origin` string and added coverage.
+- [ ] [LA-319] Additional subscribe origins may not persist/display after saving and returning to the site editor.
+  Priority: P1
+  Goal: When operators add additional subscribe origins, save the site, and later re-open the same site in the dashboard, the saved origins are shown in the “Additional subscribe origins” editor.
+  Deliverable: PR with a reproducible failing test + fix (or documented repro steps if environment-specific).
+  Notes: Reported behavior is “added origins do not appear after returning to the site”; confirm whether the operator clicked Save, and whether the dashboard was refreshed or the site was re-selected without a reload.
+  Docs/Refs:
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/admin.go` (site responses)
+  - `internal/httpapi/subscribe_allowed_origins_dashboard_integration_test.go`
 
-- [x] [LA-314] Pinguin notification calls fail with `tenant_id is required` when submitting feedback/subscriptions. — added `PINGUIN_TENANT_ID` config and send it as `x-tenant-id` gRPC metadata on Pinguin notification requests.
+## Improvements (210–299)
 
-- [x] [LA-315] mpr-ui footer: ![alt text](../image.png)
-  restored the `<mpr-footer>` default class hooks (so internal padding is applied) and updated the menu label to read “Built by Marco Polo Research Lab”.
+- [x] [LA-213] Dashboard section tabs should span full width and split into 3 equal parts.
+  Priority: P2
+  Goal: Feedback/Subscriptions/Traffic tab buttons fill the available width and each takes exactly 1/3 of the row (responsive).
+  Deliverable: PR adjusting tab markup/CSS and updating dashboard integration tests as needed.
+  Resolution: Switched section tabs to `nav-justified` + `w-100` and added headless integration assertions for equal computed tab widths.
+  Docs/Refs:
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - existing dashboard integration tests under `internal/httpapi/*integration*_test.go`
+  Execution plan:
+  - Update tab container layout to a 3-column equal-width grid or flex distribution.
+  - Verify keyboard focus/active styles remain correct.
+  - Update integration tests to assert correct tab visibility and interaction.
 
-- [x] [LS-316] Subscription confirmation flow sends notifications before confirmation — updated subscription creation to send a subscriber confirmation email first and defer owner notifications until the subscription is confirmed, including the authenticated subscribe-test preview flow; added coverage.
+- [x] [LA-214] Add “additional source origins” UX to the subscriber widget (add/remove inputs).
+  Priority: P2
+  Goal: Dashboard exposes a dedicated UI to enter extra allowed origins for the subscribe widget (separate from the site’s `allowed_origin`), with +/− controls.
+  Deliverable: PR adding UI, persisting the new configuration, and updating the subscribe widget to enforce the combined origin set.
+  Resolution: Added `subscribe_allowed_origins` to `Site`, exposed editable add/remove inputs in the dashboard, and enforced combined origin checks for subscription create/confirm/unsubscribe; coverage added for API + dashboard flows.
+  Docs/Refs:
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/public.go` (origin validation helpers)
+  - `internal/model/site.go` (if new persisted fields are added)
+  Execution plan:
+  - Decide data model: extend `Site` with `subscribe_allowed_origins` (or equivalent) and migrate.
+  - Add dashboard editor UI with add/remove controls and validation.
+  - Extend subscribe widget + backend origin checks to consult both site and subscribe-specific origins.
+  - Add integration coverage for “extra origin accepted / unknown origin rejected”.
 
-- [ ] [LS-317] the menu label “Built by Marco Polo Research Lab” is invisible. Consult the examples in @tools/mpr-ui/demo and be sure not to override any of the mpr-ui css with our own css ![alt text](<../image copy 2.png>)
+- [x] [LA-215] Improve subscribe widget instructions (separate snippet and rendered form).
+  Priority: P3
+  Goal: Dashboard instructions clearly explain (a) the script snippet to embed and (b) what the rendered form looks like / where it appears.
+  Deliverable: PR that updates dashboard copy and/or adds an in-dashboard preview of the subscribe form.
+  Resolution: Split Subscribers widget instructions into “embed snippet” and “rendered form” guidance and pointed operators at the built-in Test preview.
+  Docs/Refs:
+  - `README.md` “Embedding the subscribe form”
+  - `internal/httpapi/templates/dashboard.tmpl`
+  Execution plan:
+  - Rewrite instruction copy to be action-oriented and unambiguous.
+  - Add a small static preview block or link to the existing subscribe demo page.
+  - Validate copy is consistent with current query parameters and behavior.
 
-- [ ] [LS-317] the site starts in the light switch toogle on the left which shall be light theme but it displays dark theme. FIx it and make the toggle on the left be light theme and the toggle on the right be dark theme ![alt text](<../image copy 2.png>)
+- [x] [LA-216] Subscribe widget “additional origins” should use an inline Add button on the always-visible placeholder input (no standalone Add origin button).
+  Priority: P2
+  Goal: The Additional subscribe origins editor always shows a placeholder input with an inline Add button; existing origins remain removable via Remove.
+  Deliverable: PR adjusting the dashboard UI and updating headless integration coverage.
+  Resolution: Removed the standalone Add origin button, introduced an always-present placeholder input row with an inline Add button, and updated the dashboard integration test accordingly.
+  Docs/Refs:
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/web.go`
+  - `internal/httpapi/subscribe_allowed_origins_dashboard_integration_test.go`
 
-## Maintenance (405–499)
+## Maintenance (408–499)
 
-- [x] [LA-403] Document pixel integration in the @README.md — added pixel.js snippet, REST endpoints, and traffic dashboard description to README.md
-- [x] [LA-405] Stabilize Go tooling and tests by reducing reliance on external tool downloads and network listeners. — pinned `staticcheck`/`ineffassign` fallback versions in `make lint`, prefer locally installed binaries when present, and refactored favicon resolver + HTTPAPI tests to use a local listener/stub HTTP client instead of `httptest.NewServer` where practical.
-- [ ] [LA-406] Cleanup:
+### Recurring (close when done but do not remove)
+
+- [x] [LA-406] Cleanup:
   1. Review the completed issues and compare the code against the README.md and ARCHITECTURE.md files.
   2. Update the README.md and ARCHITECTURE.
   3. Clean up the completed issues.
+  reconciled the README REST API table, subscription token routes, and dashboard feature list with the shipped behavior; expanded ARCHITECTURE.md with an overview of components and key flows.
+
+- [x] [LA-407] Polish:
+1. Review each open issue
+2. Add additional context: dependencies, documentation, execution plan, goal
+3. Add priroity and deliverable. Reaarange and renumber issues as needed.
 
 ## Planning (do not implement yet)

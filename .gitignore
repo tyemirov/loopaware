@@ -5,6 +5,7 @@
 .env.loopaware
 .DS_Store
 PLAN.md
+issues.md/PLAN.md
 tools/
 tests/
 # Managed by gix gitignore workflow
