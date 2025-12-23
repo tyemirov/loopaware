@@ -39,6 +39,16 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - Identify overriding selectors in LoopAware CSS (especially for footer text colors).
   - Adjust styles to avoid clobbering mpr-ui defaults; verify both themes.
 
+- [ ] [LA-319] Additional subscribe origins may not persist/display after saving and returning to the site editor.
+  Priority: P1
+  Goal: When operators add additional subscribe origins, save the site, and later re-open the same site in the dashboard, the saved origins are shown in the “Additional subscribe origins” editor.
+  Deliverable: PR with a reproducible failing test + fix (or documented repro steps if environment-specific).
+  Notes: Reported behavior is “added origins do not appear after returning to the site”; confirm whether the operator clicked Save, and whether the dashboard was refreshed or the site was re-selected without a reload.
+  Docs/Refs:
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/admin.go` (site responses)
+  - `internal/httpapi/subscribe_allowed_origins_dashboard_integration_test.go`
+
 ## Improvements (210–299)
 
 - [x] [LA-213] Dashboard section tabs should span full width and split into 3 equal parts.
@@ -69,10 +79,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - Extend subscribe widget + backend origin checks to consult both site and subscribe-specific origins.
   - Add integration coverage for “extra origin accepted / unknown origin rejected”.
 
-- [ ] [LA-215] Improve subscribe widget instructions (separate snippet and rendered form).
+- [x] [LA-215] Improve subscribe widget instructions (separate snippet and rendered form).
   Priority: P3
   Goal: Dashboard instructions clearly explain (a) the script snippet to embed and (b) what the rendered form looks like / where it appears.
   Deliverable: PR that updates dashboard copy and/or adds an in-dashboard preview of the subscribe form.
+  Resolution: Split Subscribers widget instructions into “embed snippet” and “rendered form” guidance and pointed operators at the built-in Test preview.
   Docs/Refs:
   - `README.md` “Embedding the subscribe form”
   - `internal/httpapi/templates/dashboard.tmpl`
@@ -80,6 +91,16 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - Rewrite instruction copy to be action-oriented and unambiguous.
   - Add a small static preview block or link to the existing subscribe demo page.
   - Validate copy is consistent with current query parameters and behavior.
+
+- [x] [LA-216] Subscribe widget “additional origins” should use an inline Add button on the always-visible placeholder input (no standalone Add origin button).
+  Priority: P2
+  Goal: The Additional subscribe origins editor always shows a placeholder input with an inline Add button; existing origins remain removable via Remove.
+  Deliverable: PR adjusting the dashboard UI and updating headless integration coverage.
+  Resolution: Removed the standalone Add origin button, introduced an always-present placeholder input row with an inline Add button, and updated the dashboard integration test accordingly.
+  Docs/Refs:
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/web.go`
+  - `internal/httpapi/subscribe_allowed_origins_dashboard_integration_test.go`
 
 ## Maintenance (408–499)
 
