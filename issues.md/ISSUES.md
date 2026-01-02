@@ -117,4 +117,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 2. Add additional context: dependencies, documentation, execution plan, goal
 3. Add priroity and deliverable. Reaarange and renumber issues as needed.
 
+- [x] [LA-408] Dashboard widget bottom offset integration test fails after dependency updates.
+  Priority: P1
+  Goal: Ensure the dashboard widget bottom offset test waits for site selection/value population so it passes after dependency updates.
+  Deliverable: PR updating the integration test readiness with passing `make ci`.
+  Notes: Failure observed in `TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist` due to an empty bottom offset input value.
+  Resolution: Added a site-selection readiness wait to the integration test; `make ci` passes.
+
 ## Planning (do not implement yet)

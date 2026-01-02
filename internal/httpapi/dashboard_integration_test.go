@@ -2122,6 +2122,9 @@ func TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	waitForVisibleElement(t, page, dashboardWidgetBottomOffsetInputSelector)
 
