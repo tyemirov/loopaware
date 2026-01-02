@@ -17,6 +17,8 @@ type subscriptionConfirmedTemplateData struct {
 	FaviconDataURI template.URL
 	HeaderHTML     template.HTML
 	FooterHTML     template.HTML
+	TauthScriptURL template.URL
+	LandingPath    string
 	Heading        string
 	Message        string
 	OpenURL        template.URL

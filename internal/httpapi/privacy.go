@@ -20,21 +20,24 @@ const (
 type PrivacyPageHandlers struct {
 	template            *template.Template
 	currentUserProvider PublicPageCurrentUserProvider
+	authConfig          AuthClientConfig
 }
 
 type privacyTemplateData struct {
-	SharedStyles  template.CSS
-	PrivacyStyles template.CSS
-	FooterHTML    template.HTML
-	HeaderHTML    template.HTML
-	ThemeScript   template.JS
+	SharedStyles   template.CSS
+	PrivacyStyles  template.CSS
+	FooterHTML     template.HTML
+	HeaderHTML     template.HTML
+	ThemeScript    template.JS
+	TauthScriptURL template.URL
 }
 
-func NewPrivacyPageHandlers(currentUserProvider PublicPageCurrentUserProvider) *PrivacyPageHandlers {
+func NewPrivacyPageHandlers(currentUserProvider PublicPageCurrentUserProvider, authConfig AuthClientConfig) *PrivacyPageHandlers {
 	compiledTemplate := template.Must(template.New(privacyTemplateName).Parse(privacyTemplateHTML))
 	return &PrivacyPageHandlers{
 		template:            compiledTemplate,
 		currentUserProvider: currentUserProvider,
+		authConfig:          authConfig,
 	}
 }
 
@@ -49,7 +52,7 @@ func (handlers *PrivacyPageHandlers) RenderPrivacyPage(context *gin.Context) {
 		_, isAuthenticated = handlers.currentUserProvider.CurrentUser(context)
 	}
 
-	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, isAuthenticated, publicPagePrivacy)
+	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, isAuthenticated, publicPagePrivacy, handlers.authConfig)
 	if headerErr != nil {
 		headerHTML = template.HTML("")
 	}
@@ -60,11 +63,12 @@ func (handlers *PrivacyPageHandlers) RenderPrivacyPage(context *gin.Context) {
 	}
 
 	payload := privacyTemplateData{
-		SharedStyles:  sharedPublicStyles(),
-		PrivacyStyles: privacyPageStyles(),
-		FooterHTML:    footerHTML,
-		HeaderHTML:    headerHTML,
-		ThemeScript:   themeScript,
+		SharedStyles:   sharedPublicStyles(),
+		PrivacyStyles:  privacyPageStyles(),
+		FooterHTML:     footerHTML,
+		HeaderHTML:     headerHTML,
+		ThemeScript:    themeScript,
+		TauthScriptURL: template.URL(handlers.authConfig.TauthScriptURL),
 	}
 
 	var buffer bytes.Buffer

@@ -34,7 +34,9 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" {{.BootstrapIconsIntegrity}} crossorigin="anonymous" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css" />
   <link rel="icon" type="image/svg+xml" href="{{.FaviconDataURI}}" />
+  {{if .TauthScriptURL}}<script defer src="{{.TauthScriptURL}}"></script>{{end}}
   <script defer src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>{{.SharedStyles}}</style>
 </head>
 <body class="d-flex flex-column min-vh-100" data-site-id="{{.SiteID}}" data-widget-side="{{.PlacementSide}}" data-widget-offset="{{.PlacementOffset}}" data-update-endpoint="{{.WidgetUpdateEndpoint}}">
@@ -123,10 +125,7 @@
       var footerLightClass = '{{js .FooterThemeLightClass}}';
       var footerDarkClass = '{{js .FooterThemeDarkClass}}';
       var footerBaseClass = '{{js .FooterBaseClass}}';
-      var logoutButton = document.getElementById('{{js .Header.LogoutButtonID}}');
-      var logoutPath = '{{js .LogoutPath}}';
       var landingPath = '{{js .LandingPath}}';
-      var dashboardPath = '{{js .DashboardPath}}';
       var settingsModalElement = document.getElementById('{{js .Header.SettingsModalID}}');
 
       function normalizeClassList(value) {
@@ -253,20 +252,6 @@
         applyThemePreference(stored);
       }
 
-      function performLogout() {
-        var redirectToLanding = function() {
-          window.location.href = landingPath;
-        };
-      if (!logoutPath) {
-        redirectToLanding();
-        return;
-      }
-      window.fetch(logoutPath, {
-        method: 'POST',
-        credentials: 'same-origin'
-      }).then(redirectToLanding).catch(redirectToLanding);
-    }
-
       if (settingsModalElement) {
         settingsModalElement.dataset.loopawareSettingsModalDismissAttached = 'true';
         settingsModalElement.addEventListener('click', function(event) {
@@ -277,13 +262,6 @@
               settingsModalElement.dataset.loopawareSettingsModalDismissTriggered = 'true';
             }
           }
-        });
-      }
-
-      if (logoutButton) {
-        logoutButton.addEventListener('click', function(event) {
-          event.preventDefault();
-          performLogout();
         });
       }
 
@@ -303,6 +281,8 @@
       if (!body) {
         return;
       }
+      var landingPath = '{{js .LandingPath}}';
+      var dashboardPath = '{{js .DashboardPath}}';
       var updateEndpoint = body.getAttribute('data-update-endpoint') || '';
       var defaultSide = (body.getAttribute('data-widget-side') || 'right').toLowerCase();
       var defaultOffset = parseInt(body.getAttribute('data-widget-offset') || '16', 10);
@@ -503,12 +483,17 @@
             widget_bubble_side: currentSide(),
             widget_bubble_bottom_offset: currentOffset()
           };
-          fetch(updateEndpoint, {
+          var authFetch = typeof window.apiFetch === 'function' ? window.apiFetch : window.fetch.bind(window);
+          authFetch(updateEndpoint, {
             method: 'PATCH',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           }).then(function(response) {
+            if (response.status === 401) {
+              window.location.href = landingPath;
+              throw new Error('unauthorized');
+            }
             if (!response.ok) {
               throw new Error('save_failed');
             }
@@ -518,7 +503,10 @@
           }).then(function() {
             setStatus('Saved.');
             redirectToDashboard();
-          }).catch(function() {
+          }).catch(function(error) {
+            if (error && error.message === 'unauthorized') {
+              return;
+            }
             setStatus('Save failed.');
           }).finally(function() {
             saving = false;

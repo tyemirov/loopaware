@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	landingDetailedAuthCopyToken        = "Google Sign-In powered by GAuss keeps every login secure."
+	landingDetailedAuthCopyToken        = "Google Sign-In secured by TAuth keeps every login protected."
 	landingDetailedWidgetCopyToken      = "Origin-locked widgets and APIs capture feedback where customers already are."
 	landingDetailedWorkflowCopyToken    = "Role-aware workflows assign owners, surface trends, and track resolution."
 	landingThemeScriptKeyToken          = "var publicThemeStorageKey = 'loopaware_public_theme'"
@@ -34,7 +34,7 @@ const (
 	landingLogoLegacyWidthToken         = "width: 36px;"
 	landingLogoLegacyDarkBackground     = "background-color: rgba(59, 130, 246, 0.18);"
 	landingLogoLegacyLightBackground    = "background-color: rgba(37, 99, 235, 0.12);"
-	landingHeaderStickyToken            = "<header class=\"landing-header\">"
+	landingHeaderStickyToken            = "<mpr-header class=\"landing-header\""
 	landingFooterComponentToken         = "<mpr-footer"
 	landingFooterThemeSwitcherToken     = "theme-switcher=\"toggle\""
 	landingFooterThemeConfigToken       = "theme-config="
@@ -55,8 +55,10 @@ const (
 	landingFooterPaddingToken           = "mpr-footer landing-footer border-top mt-auto py-2"
 	landingCardHoverToken               = ".landing-card:hover"
 	landingCardFocusToken               = ".landing-card:focus-visible"
-	landingHeroLoginButtonToken         = "btn btn-primary btn-lg\" href=\"/auth/google\">Login"
-	landingHeaderLoginButtonToken       = "btn btn-primary btn-sm\" href=\"/auth/google\">Login"
+	landingHeaderLoginPathToken         = "tauth-login-path=\"/auth/google\""
+	landingHeaderNoncePathToken         = "tauth-nonce-path=\"/auth/nonce\""
+	landingHeaderTauthTenantToken       = "tauth-tenant-id=\""
+	landingHeaderGoogleClientToken      = "google-site-id=\""
 	landingHeaderStickyStyleToken       = ".landing-header {\n        position: sticky;\n        top: 0;\n        z-index: 1030;\n        padding: 0;"
 	landingHeaderHeroDataToken          = "data-public-hero=\"true\""
 	landingHeaderHeroScrollToken        = "data-scroll-to-top=\"true\""
@@ -66,7 +68,12 @@ const (
 	landingFaviconLinkToken             = "<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg&#43;xml"
 	landingFooterPrivacyHrefToken       = "privacy-link-href=\"/privacy\""
 	landingFooterPrivacyLabelToken      = "privacy-link-label=\"Privacy • Terms\""
+	testAuthGoogleClientID              = "test-google-client-id"
+	testAuthTauthBaseURL                = "https://tauth.example.com"
+	testAuthTauthTenantID               = "test-tenant"
 )
+
+var testLandingAuthConfig = httpapi.NewAuthClientConfig(testAuthGoogleClientID, testAuthTauthBaseURL, testAuthTauthTenantID)
 
 func TestLandingPageIncludesDetailedCopy(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -74,7 +81,7 @@ func TestLandingPageIncludesDetailedCopy(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
-	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{})
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{}, testLandingAuthConfig)
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
@@ -89,7 +96,7 @@ func TestLandingPageExposesFaviconLink(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
-	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{})
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{}, testLandingAuthConfig)
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
@@ -102,7 +109,7 @@ func TestLandingPageProvidesThemeSwitch(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
-	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{})
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{}, testLandingAuthConfig)
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
@@ -127,7 +134,7 @@ func TestLandingHeaderProvidesStickyStyles(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
-	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{})
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{}, testLandingAuthConfig)
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
@@ -140,7 +147,7 @@ func TestLandingPageDisplaysHeaderLogo(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
-	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{})
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{}, testLandingAuthConfig)
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
@@ -155,7 +162,7 @@ func TestLandingPageLogoUsesProminentDimensions(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
-	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{})
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{}, testLandingAuthConfig)
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
@@ -172,7 +179,7 @@ func TestLandingHeroScrollsToTopWhenUnauthenticated(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
-	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{})
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{}, testLandingAuthConfig)
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
@@ -189,7 +196,7 @@ func TestLandingHeroNavigatesToDashboardWhenAuthenticated(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
-	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{authenticated: true})
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{authenticated: true}, testLandingAuthConfig)
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
@@ -206,7 +213,7 @@ func TestLandingFooterDisplaysProductMenu(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
-	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{})
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{}, testLandingAuthConfig)
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
@@ -234,7 +241,7 @@ func TestLandingPageDisplaysPrivacyLink(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
-	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{})
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{}, testLandingAuthConfig)
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
@@ -248,7 +255,7 @@ func TestLandingCardsProvideInteractiveStates(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
-	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{})
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{}, testLandingAuthConfig)
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
@@ -257,17 +264,18 @@ func TestLandingCardsProvideInteractiveStates(t *testing.T) {
 	require.Contains(t, body, "tabindex=\"0\"")
 }
 
-func TestLandingPageProvidesHeaderLoginOnly(t *testing.T) {
+func TestLandingPageProvidesTauthHeaderConfig(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
-	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{})
+	handlers := httpapi.NewLandingPageHandlers(zap.NewNop(), &stubCurrentUserProvider{}, testLandingAuthConfig)
 	handlers.RenderLandingPage(context)
 
 	body := recorder.Body.String()
-	require.Contains(t, body, landingHeaderLoginButtonToken)
-	require.NotContains(t, body, "View dashboard")
-	require.NotContains(t, body, landingHeroLoginButtonToken)
+	require.Contains(t, body, landingHeaderLoginPathToken)
+	require.Contains(t, body, landingHeaderNoncePathToken)
+	require.Contains(t, body, landingHeaderTauthTenantToken)
+	require.Contains(t, body, landingHeaderGoogleClientToken)
 }

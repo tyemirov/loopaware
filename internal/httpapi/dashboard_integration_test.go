@@ -21,12 +21,12 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	"github.com/tyemirov/GAuss/pkg/constants"
-	"github.com/tyemirov/GAuss/pkg/session"
+	"github.com/tyemirov/tauth/pkg/sessionvalidator"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/httpapi"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
@@ -36,16 +36,19 @@ import (
 )
 
 const (
-	dashboardTestSessionSecretBytes = "12345678901234567890123456789012"
-	dashboardTestAdminEmail         = "admin@example.com"
-	dashboardTestAdminDisplayName   = "Admin Example"
-	dashboardTestWidgetBaseURL      = "http://example.test"
-	dashboardTestLandingPath        = "/landing"
-	dashboardTestDashboardRoute     = "/app"
-	dashboardPromptWaitTimeout      = 10 * time.Second
-	dashboardPromptPollInterval     = 200 * time.Millisecond
-	dashboardNotificationSelector   = "#session-timeout-notification"
-	dashboardPromptVisibleScript    = `(function(){
+	dashboardTestTauthSigningKey   = "test-tauth-signing-key"
+	dashboardTestJWTIssuer         = "tauth"
+	dashboardTestSessionCookieName = "app_session"
+	dashboardTestTauthTenantID     = "test-tenant"
+	dashboardTestGoogleClientID    = "test-google-client-id"
+	dashboardTestAdminEmail        = "admin@example.com"
+	dashboardTestAdminDisplayName  = "Admin Example"
+	dashboardTestWidgetBaseURL     = "http://example.test"
+	dashboardTestDashboardRoute    = "/app"
+	dashboardPromptWaitTimeout     = 10 * time.Second
+	dashboardPromptPollInterval    = 200 * time.Millisecond
+	dashboardNotificationSelector  = "#session-timeout-notification"
+	dashboardPromptVisibleScript   = `(function(){
 		var element = document.querySelector('#session-timeout-notification');
 		if (!element) { return false; }
 		var style = window.getComputedStyle(element);
@@ -56,8 +59,6 @@ const (
 	dashboardDismissButtonSelector              = "#session-timeout-dismiss-button"
 	dashboardConfirmButtonSelector              = "#session-timeout-confirm-button"
 	dashboardSettingsButtonSelector             = "#settings-button"
-	dashboardSettingsMenuSelector               = "#settings-menu"
-	dashboardSettingsMenuItemSelector           = "#settings-menu-settings"
 	dashboardSettingsModalSelector              = "#settings-modal"
 	dashboardWidgetBottomOffsetInputSelector    = "#widget-placement-bottom-offset"
 	dashboardWidgetBottomOffsetIncreaseSelector = "#widget-bottom-offset-increase"
@@ -97,12 +98,7 @@ const (
 	dashboardSectionTabSubscriptionsSelector  = "#dashboard-section-tab-subscriptions"
 	dashboardSectionTabTrafficSelector        = "#dashboard-section-tab-traffic"
 	dashboardSubscribersTableBodySelector     = "#subscribers-table-body"
-	dashboardSettingsMenuOpenScript           = `(function() {
-		var menu = document.querySelector('#settings-menu');
-		if (!menu) { return false; }
-		return menu.classList.contains('show');
-	}())`
-	dashboardSettingsModalVisibleScript = `(function() {
+	dashboardSettingsModalVisibleScript       = `(function() {
 		var modal = document.getElementById('settings-modal');
 		if (!modal) { return false; }
 		return modal.classList.contains('show');
@@ -302,6 +298,8 @@ return panel.style.bottom || '';
 	}())`
 )
 
+var dashboardTestLandingPath = httpapi.LandingPagePath
+
 type stubDashboardNotifier struct{}
 
 func (stubDashboardNotifier) NotifyFeedback(ctx context.Context, site model.Site, feedback model.Feedback) (string, error) {
@@ -479,11 +477,6 @@ func TestDashboardSettingsModalOpensAndDismissesViaBackdrop(t *testing.T) {
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	clickSelector(t, page, dashboardSettingsButtonSelector)
-	require.Eventually(t, func() bool {
-		return evaluateScriptBoolean(t, page, dashboardSettingsMenuOpenScript)
-	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
-
-	clickSelector(t, page, dashboardSettingsMenuItemSelector)
 
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
@@ -580,9 +573,6 @@ func TestDashboardSettingsModalOpensAndDismissesViaBackdrop(t *testing.T) {
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 	require.Eventually(t, func() bool {
 		return !evaluateScriptBoolean(t, page, dashboardBodyModalOpenScript)
-	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
-	require.Eventually(t, func() bool {
-		return !evaluateScriptBoolean(t, page, dashboardSettingsMenuOpenScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 
@@ -892,7 +882,9 @@ func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	clickSelector(t, page, dashboardSettingsButtonSelector)
-	clickSelector(t, page, dashboardSettingsMenuItemSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	toggleElement := waitForVisibleElement(t, page, dashboardSettingsAutoLogoutToggleSelector)
 	toggleCheckedScript := `(function(){var toggle=document.querySelector('#settings-auto-logout-enabled');return !!(toggle&&toggle.checked);}())`
@@ -916,6 +908,9 @@ func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return !evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return !evaluateScriptBoolean(t, page, dashboardBodyModalOpenScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
 	require.Eventually(t, func() bool {
@@ -923,7 +918,9 @@ func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	clickSelector(t, page, dashboardSettingsButtonSelector)
-	clickSelector(t, page, dashboardSettingsMenuItemSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	toggleElement = waitForVisibleElement(t, page, dashboardSettingsAutoLogoutToggleSelector)
 	if !evaluateScriptBoolean(t, page, toggleCheckedScript) {
@@ -2343,8 +2340,6 @@ func parseOffsetValue(testingT *testing.T, value string) int {
 func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, opts ...dashboardHarnessOption) *dashboardIntegrationHarness {
 	testingT.Helper()
 
-	session.NewSession([]byte(dashboardTestSessionSecretBytes))
-
 	gin.SetMode(gin.TestMode)
 	logger := zap.NewNop()
 
@@ -2367,7 +2362,12 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	require.NoError(testingT, sqlErr)
 
 	adminEmails := []string{adminEmail}
-	authManager := httpapi.NewAuthManager(gormDatabase, logger, adminEmails, nil, dashboardTestLandingPath)
+	authManager, authErr := httpapi.NewAuthManager(gormDatabase, logger, adminEmails, nil, dashboardTestLandingPath, httpapi.AuthConfig{
+		SigningKey: dashboardTestTauthSigningKey,
+		TenantID:   dashboardTestTauthTenantID,
+	})
+	require.NoError(testingT, authErr)
+	authClientConfig := httpapi.NewAuthClientConfig(dashboardTestGoogleClientID, "", dashboardTestTauthTenantID)
 
 	noopResolver := &staticFaviconResolver{}
 	faviconService := favicon.NewService(noopResolver)
@@ -2380,14 +2380,14 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 
 	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(gormDatabase)
 	siteHandlers := httpapi.NewSiteHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
-	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager)
-	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
+	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager, authClientConfig)
+	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager, authClientConfig)
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
-	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath)
-	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", config.emailSender)
-	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{})
-	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(gormDatabase, logger)
-	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", config.emailSender)
+	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath, authClientConfig)
+	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", config.emailSender, authClientConfig)
+	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{}, authClientConfig)
+	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(gormDatabase, logger, authClientConfig)
+	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", config.emailSender, authClientConfig)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -2397,7 +2397,6 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 		context.Redirect(http.StatusFound, dashboardTestLandingPath)
 	})
 	router.GET(dashboardTestLandingPath, landingHandlers.RenderLandingPage)
-	router.GET(constants.LoginPath, landingHandlers.RenderLandingPage)
 	router.GET(httpapi.PrivacyPagePath, privacyHandlers.RenderPrivacyPage)
 	router.GET(httpapi.SitemapRoutePath, sitemapHandlers.RenderSitemap)
 	router.GET(dashboardTestDashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
@@ -2407,9 +2406,6 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	router.GET("/app/sites/:id/subscribe-test", authManager.RequireAuthenticatedWeb(), subscribeTestHandlers.RenderSubscribeTestPage)
 	router.GET("/app/sites/:id/subscribe-test/events", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.StreamSubscriptionTestEvents)
 	router.POST("/app/sites/:id/subscribe-test/subscriptions", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.CreateSubscription)
-	router.POST(constants.LogoutPath, func(context *gin.Context) {
-		context.Status(http.StatusOK)
-	})
 
 	router.GET("/api/visits", publicHandlers.CollectVisit)
 	router.POST("/api/feedback", publicHandlers.CreateFeedback)
@@ -2471,26 +2467,28 @@ func (resolver *staticFaviconResolver) ResolveAsset(ctx context.Context, allowed
 func createAuthenticatedSessionCookie(testingT *testing.T, email string, name string) *http.Cookie {
 	testingT.Helper()
 
-	store := session.Store()
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	recorder := httptest.NewRecorder()
-
-	sessionInstance, err := store.Get(request, constants.SessionName)
+	now := time.Now().UTC()
+	claims := &sessionvalidator.Claims{
+		TenantID:        dashboardTestTauthTenantID,
+		UserID:          "test-user",
+		UserEmail:       email,
+		UserDisplayName: name,
+		UserAvatarURL:   "",
+		UserRoles:       []string{},
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    dashboardTestJWTIssuer,
+			Subject:   "test-user",
+			IssuedAt:  jwt.NewNumericDate(now.Add(-time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(1 * time.Hour)),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedToken, err := token.SignedString([]byte(dashboardTestTauthSigningKey))
 	require.NoError(testingT, err)
 
-	sessionInstance.Values[constants.SessionKeyUserEmail] = email
-	sessionInstance.Values[constants.SessionKeyUserName] = name
-	sessionInstance.Values[constants.SessionKeyUserPicture] = ""
-	sessionInstance.Values[constants.SessionKeyOAuthToken] = "test-token"
-
-	require.NoError(testingT, sessionInstance.Save(request, recorder))
-
-	response := recorder.Result()
-	for _, cookie := range response.Cookies() {
-		if cookie.Name == constants.SessionName {
-			return cookie
-		}
+	return &http.Cookie{
+		Name:  dashboardTestSessionCookieName,
+		Value: signedToken,
+		Path:  "/",
 	}
-	require.FailNow(testingT, "session cookie not found in recorder")
-	return nil
 }

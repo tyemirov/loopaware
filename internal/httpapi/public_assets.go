@@ -4,18 +4,17 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-
-	"github.com/tyemirov/GAuss/pkg/constants"
 )
 
 const (
 	publicBrandName              = "LoopAware"
-	publicLoginPath              = "/auth/google"
 	publicThemeStorageKey        = "loopaware_public_theme"
 	publicLandingThemeStorageKey = "loopaware_landing_theme"
 	publicLegacyThemeStorageKey  = "landing_theme"
-	publicLandingPath            = constants.LoginPath
+	publicLandingPath            = LandingPagePath
 	publicDashboardPath          = "/app"
+	publicSignInLabel            = "Login"
+	publicSignOutLabel           = "Logout"
 	publicHeroScrollTarget       = "#top"
 	publicHeroAttributeName      = "data-public-hero"
 	publicHeroAttributeValue     = "true"
@@ -31,12 +30,9 @@ const (
         padding: 0;
         transition: background-color 0.3s ease;
       }
-      .landing-navbar {
-        border-radius: 0;
-        padding: 0.35rem 0;
-      }
       .landing-brand {
         font-size: 1.25rem;
+        font-weight: 600;
       }
       .landing-logo {
         display: inline-flex;
@@ -60,23 +56,10 @@ const (
         outline: 0;
       }
       body[data-bs-theme="dark"] .landing-header {
-        background-color: #0f172a;
-      }
-      body[data-bs-theme="dark"] .landing-navbar {
-        background-color: #0f172a;
-      }
-      body[data-bs-theme="dark"] .landing-navbar .navbar-brand,
-      body[data-bs-theme="dark"] .landing-navbar .btn-primary {
-        color: #f8fafc;
-      }
-      body[data-bs-theme="dark"] .landing-navbar .btn-primary {
-        background-color: #2563eb;
-        border-color: #2563eb;
-      }
-      body[data-bs-theme="dark"] .landing-navbar .form-check-input,
-      body[data-bs-theme="dark"] .landing-footer .form-check-input {
-        background-color: #334155;
-        border-color: #475569;
+        --mpr-color-surface-primary: #0f172a;
+        --mpr-color-text-primary: #f8fafc;
+        --mpr-color-border: rgba(148, 163, 184, 0.25);
+        --mpr-chip-bg: rgba(148, 163, 184, 0.18);
       }
       body[data-bs-theme="dark"] .landing-card {
         background-color: rgba(15, 23, 42, 0.8);
@@ -90,21 +73,10 @@ const (
         color: #94a3b8;
       }
       body[data-bs-theme="light"] .landing-header {
-        background-color: #ffffff;
-      }
-      body[data-bs-theme="light"] .landing-navbar {
-        background-color: #ffffff;
-      }
-      body[data-bs-theme="light"] .landing-navbar .navbar-brand {
-        color: #0f172a;
-      }
-      body[data-bs-theme="light"] .landing-navbar .btn-primary {
-        background-color: #2563eb;
-        border-color: #2563eb;
-        color: #ffffff;
-      }
-      body[data-bs-theme="light"] .landing-footer .form-check-input {
-        border-color: #94a3b8;
+        --mpr-color-surface-primary: #ffffff;
+        --mpr-color-text-primary: #0f172a;
+        --mpr-color-border: rgba(148, 163, 184, 0.2);
+        --mpr-chip-bg: rgba(148, 163, 184, 0.18);
       }
       body[data-bs-theme="light"] .landing-card {
         background-color: #f8fafc;
@@ -123,19 +95,14 @@ const (
 )
 
 var (
-	publicHeaderTemplate = template.Must(template.New("public_header").Parse(`<header class="landing-header">
-  <nav class="navbar landing-navbar shadow-sm px-3">
-    <div class="container d-flex align-items-center justify-content-between">
-      <a class="navbar-brand d-flex align-items-center gap-3 landing-brand" href="{{.HeroTarget}}" {{.HeroDataAttribute}}{{if .HeroScrollAttribute}} {{.HeroScrollAttribute}}{{end}}>
-        <span class="landing-logo">
-          <img src="{{.LogoDataURI}}" alt="LoopAware logo" class="landing-logo-image" />
-        </span>
-        <span>{{.BrandName}}</span>
-      </a>
-      <a class="btn btn-primary btn-sm" href="{{.LoginPath}}">Login</a>
-    </div>
-  </nav>
-</header>`))
+	publicHeaderTemplate = template.Must(template.New("public_header").Parse(`<mpr-header class="landing-header" google-site-id="{{.GoogleClientID}}"{{if .TauthBaseURL}} tauth-url="{{.TauthBaseURL}}"{{end}} tauth-tenant-id="{{.TauthTenantID}}" tauth-login-path="{{.TauthLoginPath}}" tauth-logout-path="{{.TauthLogoutPath}}" tauth-nonce-path="{{.TauthNoncePath}}" sign-in-label="{{.SignInLabel}}" sign-out-label="{{.SignOutLabel}}">
+  <a slot="brand" class="landing-brand d-inline-flex align-items-center gap-3 text-decoration-none" href="{{.HeroTarget}}" {{.HeroDataAttribute}}{{if .HeroScrollAttribute}} {{.HeroScrollAttribute}}{{end}}>
+    <span class="landing-logo">
+      <img src="{{.LogoDataURI}}" alt="LoopAware logo" class="landing-logo-image" />
+    </span>
+    <span>{{.BrandName}}</span>
+  </a>
+</mpr-header>`))
 	publicThemeScriptTemplate = template.Must(template.New("public_theme_script").Parse(`(function() {
   var publicThemeStorageKey = '{{.PublicThemeStorageKey}}';
   var landingThemeStorageKey = '{{.LandingThemeStorageKey}}';
@@ -207,10 +174,17 @@ var (
 type publicHeaderTemplateData struct {
 	LogoDataURI         template.URL
 	BrandName           string
-	LoginPath           string
 	HeroTarget          string
 	HeroDataAttribute   template.HTMLAttr
 	HeroScrollAttribute template.HTMLAttr
+	GoogleClientID      string
+	TauthBaseURL        string
+	TauthTenantID       string
+	TauthLoginPath      string
+	TauthLogoutPath     string
+	TauthNoncePath      string
+	SignInLabel         string
+	SignOutLabel        string
 }
 
 type publicThemeScriptTemplateData struct {
@@ -234,14 +208,21 @@ type publicHeroBehavior struct {
 	ShouldScroll bool
 }
 
-func renderPublicHeader(logoDataURI template.URL, isAuthenticated bool, pageType publicPageType) (template.HTML, error) {
+func renderPublicHeader(logoDataURI template.URL, isAuthenticated bool, pageType publicPageType, authConfig AuthClientConfig) (template.HTML, error) {
 	heroBehavior := resolvePublicHeroBehavior(isAuthenticated, pageType)
 	data := publicHeaderTemplateData{
 		LogoDataURI:       logoDataURI,
 		BrandName:         publicBrandName,
-		LoginPath:         publicLoginPath,
 		HeroTarget:        heroBehavior.Target,
 		HeroDataAttribute: template.HTMLAttr(fmt.Sprintf(`%s="%s"`, publicHeroAttributeName, publicHeroAttributeValue)),
+		GoogleClientID:    authConfig.GoogleClientID,
+		TauthBaseURL:      authConfig.TauthBaseURL,
+		TauthTenantID:     authConfig.TauthTenantID,
+		TauthLoginPath:    TauthLoginPath,
+		TauthLogoutPath:   TauthLogoutPath,
+		TauthNoncePath:    TauthNoncePath,
+		SignInLabel:       publicSignInLabel,
+		SignOutLabel:      publicSignOutLabel,
 	}
 	if heroBehavior.ShouldScroll {
 		data.HeroScrollAttribute = template.HTMLAttr(fmt.Sprintf(`%s="%s"`, publicHeroScrollAttribute, publicHeroScrollValue))

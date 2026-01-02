@@ -443,8 +443,10 @@ func checkLoopAwareRequiredEnvironment(environmentByService map[string]map[strin
 	}
 	requiredKeys := []string{
 		"GOOGLE_CLIENT_ID",
-		"GOOGLE_CLIENT_SECRET",
 		"SESSION_SECRET",
+		"TAUTH_BASE_URL",
+		"TAUTH_TENANT_ID",
+		"TAUTH_JWT_SIGNING_KEY",
 		"PUBLIC_BASE_URL",
 		"PINGUIN_ADDR",
 		"PINGUIN_AUTH_TOKEN",

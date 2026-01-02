@@ -14,9 +14,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/tyemirov/GAuss/pkg/constants"
-	"github.com/tyemirov/GAuss/pkg/gauss"
-	"github.com/tyemirov/GAuss/pkg/session"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
@@ -39,8 +36,10 @@ const (
 	flagNameDatabaseDriver            = "db-driver"
 	flagNameDatabaseDataSourceName    = "db-dsn"
 	flagNameGoogleClientID            = "google-client-id"
-	flagNameGoogleClientSecret        = "google-client-secret"
 	flagNameSessionSecret             = "session-secret"
+	flagNameTauthBaseURL              = "tauth-base-url"
+	flagNameTauthTenantID             = "tauth-tenant-id"
+	flagNameTauthSigningKey           = "tauth-signing-key"
 	flagNameSubscriptionNotifications = "subscription-notifications"
 	flagNamePublicBaseURL             = "public-base-url"
 	flagNamePinguinAddress            = "pinguin-addr"
@@ -53,9 +52,11 @@ const (
 	flagUsageDatabaseDriver           = "database driver (e.g. sqlite)"
 	flagUsageDatabaseDataSourceName   = "database connection string"
 	flagUsageGoogleClientID           = "Google OAuth client ID"
-	flagUsageGoogleClientSecret       = "Google OAuth client secret"
-	flagUsageSessionSecret            = "session secret for browser sessions"
-	flagUsagePublicBaseURL            = "public base URL for OAuth callbacks"
+	flagUsageSessionSecret            = "secret for subscription confirmation tokens"
+	flagUsageTauthBaseURL             = "base URL for the TAuth service"
+	flagUsageTauthTenantID            = "tenant identifier configured in TAuth"
+	flagUsageTauthSigningKey          = "JWT signing key for validating TAuth sessions"
+	flagUsagePublicBaseURL            = "public base URL for landing pages and sitemap"
 	flagUsagePinguinAddress           = "Pinguin gRPC server address"
 	flagUsagePinguinAuthToken         = "Pinguin bearer auth token"
 	flagUsagePinguinTenantID          = "Pinguin tenant identifier"
@@ -67,8 +68,10 @@ const (
 	environmentKeyDatabaseDataSource  = "DB_DSN"
 	environmentKeyAdmins              = "ADMINS"
 	environmentKeyGoogleClientID      = "GOOGLE_CLIENT_ID"
-	environmentKeyGoogleClientSecret  = "GOOGLE_CLIENT_SECRET"
 	environmentKeySessionSecret       = "SESSION_SECRET"
+	environmentKeyTauthBaseURL        = "TAUTH_BASE_URL"
+	environmentKeyTauthTenantID       = "TAUTH_TENANT_ID"
+	environmentKeyTauthSigningKey     = "TAUTH_JWT_SIGNING_KEY"
 	environmentKeyPublicBaseURL       = "PUBLIC_BASE_URL"
 	environmentKeyPinguinAddress      = "PINGUIN_ADDR"
 	environmentKeyPinguinAuthToken    = "PINGUIN_AUTH_TOKEN"
@@ -97,7 +100,7 @@ const (
 	publicRouteSubscribeDemo          = "/subscribe-demo"
 	publicRouteVisitPixel             = "/api/visits"
 	publicRouteWidget                 = "/widget.js"
-	landingRouteRoot                  = constants.LoginPath
+	landingRouteRoot                  = httpapi.LandingPagePath
 	dashboardRoute                    = "/app"
 	apiRoutePrefix                    = "/api"
 	apiRouteMe                        = "/me"
@@ -151,8 +154,10 @@ type ServerConfig struct {
 	DatabaseDataSourceName    string
 	AdminEmailAddresses       []string
 	GoogleClientID            string
-	GoogleClientSecret        string
 	SessionSecret             string
+	TauthBaseURL              string
+	TauthTenantID             string
+	TauthSigningKey           string
 	PublicBaseURL             string
 	ConfigFilePath            string
 	PinguinAddress            string
@@ -208,8 +213,10 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	application.configurationLoader.SetDefault(environmentKeyDatabaseDataSource, defaultSQLiteDataSourceName)
 	application.configurationLoader.SetDefault(environmentKeyPublicBaseURL, defaultPublicBaseURL)
 	application.configurationLoader.SetDefault(environmentKeyGoogleClientID, "")
-	application.configurationLoader.SetDefault(environmentKeyGoogleClientSecret, "")
 	application.configurationLoader.SetDefault(environmentKeySessionSecret, "")
+	application.configurationLoader.SetDefault(environmentKeyTauthBaseURL, "")
+	application.configurationLoader.SetDefault(environmentKeyTauthTenantID, "")
+	application.configurationLoader.SetDefault(environmentKeyTauthSigningKey, "")
 	application.configurationLoader.SetDefault(environmentKeyPinguinAddress, defaultPinguinAddress)
 	application.configurationLoader.SetDefault(environmentKeyPinguinAuthToken, "")
 	application.configurationLoader.SetDefault(environmentKeyPinguinTenantID, "")
@@ -225,8 +232,10 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	commandFlags.String(flagNameDatabaseDriver, defaultDatabaseDriverName, flagUsageDatabaseDriver)
 	commandFlags.String(flagNameDatabaseDataSourceName, defaultSQLiteDataSourceName, flagUsageDatabaseDataSourceName)
 	commandFlags.String(flagNameGoogleClientID, "", flagUsageGoogleClientID)
-	commandFlags.String(flagNameGoogleClientSecret, "", flagUsageGoogleClientSecret)
 	commandFlags.String(flagNameSessionSecret, "", flagUsageSessionSecret)
+	commandFlags.String(flagNameTauthBaseURL, "", flagUsageTauthBaseURL)
+	commandFlags.String(flagNameTauthTenantID, "", flagUsageTauthTenantID)
+	commandFlags.String(flagNameTauthSigningKey, "", flagUsageTauthSigningKey)
 	commandFlags.String(flagNamePublicBaseURL, defaultPublicBaseURL, flagUsagePublicBaseURL)
 	commandFlags.String(flagNamePinguinAddress, defaultPinguinAddress, flagUsagePinguinAddress)
 	commandFlags.String(flagNamePinguinAuthToken, "", flagUsagePinguinAuthToken)
@@ -251,11 +260,19 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 		return bindErr
 	}
 
-	if bindErr := application.bindFlag(commandFlags, environmentKeyGoogleClientSecret, flagNameGoogleClientSecret); bindErr != nil {
+	if bindErr := application.bindFlag(commandFlags, environmentKeySessionSecret, flagNameSessionSecret); bindErr != nil {
 		return bindErr
 	}
 
-	if bindErr := application.bindFlag(commandFlags, environmentKeySessionSecret, flagNameSessionSecret); bindErr != nil {
+	if bindErr := application.bindFlag(commandFlags, environmentKeyTauthBaseURL, flagNameTauthBaseURL); bindErr != nil {
+		return bindErr
+	}
+
+	if bindErr := application.bindFlag(commandFlags, environmentKeyTauthTenantID, flagNameTauthTenantID); bindErr != nil {
+		return bindErr
+	}
+
+	if bindErr := application.bindFlag(commandFlags, environmentKeyTauthSigningKey, flagNameTauthSigningKey); bindErr != nil {
 		return bindErr
 	}
 
@@ -303,11 +320,19 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 		return environmentErr
 	}
 
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyGoogleClientSecret, flagNameGoogleClientSecret); environmentErr != nil {
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeySessionSecret, flagNameSessionSecret); environmentErr != nil {
 		return environmentErr
 	}
 
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeySessionSecret, flagNameSessionSecret); environmentErr != nil {
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyTauthBaseURL, flagNameTauthBaseURL); environmentErr != nil {
+		return environmentErr
+	}
+
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyTauthTenantID, flagNameTauthTenantID); environmentErr != nil {
+		return environmentErr
+	}
+
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyTauthSigningKey, flagNameTauthSigningKey); environmentErr != nil {
 		return environmentErr
 	}
 
@@ -343,11 +368,19 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 		return markErr
 	}
 
-	if markErr := command.MarkFlagRequired(flagNameGoogleClientSecret); markErr != nil {
+	if markErr := command.MarkFlagRequired(flagNameSessionSecret); markErr != nil {
 		return markErr
 	}
 
-	if markErr := command.MarkFlagRequired(flagNameSessionSecret); markErr != nil {
+	if markErr := command.MarkFlagRequired(flagNameTauthBaseURL); markErr != nil {
+		return markErr
+	}
+
+	if markErr := command.MarkFlagRequired(flagNameTauthTenantID); markErr != nil {
+		return markErr
+	}
+
+	if markErr := command.MarkFlagRequired(flagNameTauthSigningKey); markErr != nil {
 		return markErr
 	}
 
@@ -405,8 +438,6 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 
 	application.logAdministratorWarning(logger, serverConfig)
 
-	session.NewSession([]byte(serverConfig.SessionSecret))
-
 	database, databaseErr := application.databaseOpener(storage.Config{
 		DriverName:     serverConfig.DatabaseDriverName,
 		DataSourceName: serverConfig.DatabaseDataSourceName,
@@ -418,27 +449,6 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	if migrateErr := storage.AutoMigrate(database); migrateErr != nil {
 		logger.Fatal(loggerContextAutoMigrate, zap.Error(migrateErr))
 	}
-
-	authService, authErr := gauss.NewService(
-		serverConfig.GoogleClientID,
-		serverConfig.GoogleClientSecret,
-		serverConfig.PublicBaseURL,
-		dashboardRoute,
-		gauss.ScopeStrings(gauss.DefaultScopes),
-		"",
-		gauss.WithLogoutRedirectURL(constants.LoginPath),
-	)
-	if authErr != nil {
-		logger.Fatal(loggerContextAuthService, zap.Error(authErr))
-	}
-
-	authHandlers, handlersErr := gauss.NewHandlers(authService)
-	if handlersErr != nil {
-		logger.Fatal(loggerContextAuthService, zap.Error(handlersErr))
-	}
-
-	authMux := http.NewServeMux()
-	authHandlers.RegisterRoutes(authMux)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -454,7 +464,14 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	}))
 
 	sharedHTTPClient := &http.Client{Timeout: 5 * time.Second}
-	authManager := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, landingRouteRoot)
+	authManager, authManagerErr := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, landingRouteRoot, httpapi.AuthConfig{
+		SigningKey: serverConfig.TauthSigningKey,
+		TenantID:   serverConfig.TauthTenantID,
+	})
+	if authManagerErr != nil {
+		logger.Fatal(loggerContextAuthService, zap.Error(authManagerErr))
+	}
+	authClientConfig := httpapi.NewAuthClientConfig(serverConfig.GoogleClientID, serverConfig.TauthBaseURL, serverConfig.TauthTenantID)
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	defer feedbackBroadcaster.Close()
 	subscriptionEvents := httpapi.NewSubscriptionTestEventBroadcaster()
@@ -474,7 +491,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	if serverConfig.SubscriptionNotifications {
 		subscriptionNotifier = pinguinNotifier
 	}
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, pinguinNotifier, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, pinguinNotifier, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier, authClientConfig)
 	faviconResolver := favicon.NewHTTPResolver(sharedHTTPClient, logger)
 	faviconService := favicon.NewService(faviconResolver)
 	faviconManager := httpapi.NewSiteFaviconManager(database, faviconService, logger)
@@ -485,16 +502,16 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	faviconManager.TriggerScheduledRefresh()
 	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(database)
 	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
-	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot)
-	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(database, logger, serverConfig.PublicBaseURL, feedbackBroadcaster, pinguinNotifier)
-	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(database, logger)
-	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(database, logger, subscriptionEvents, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier)
-	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager)
-	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
+	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot, authClientConfig)
+	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(database, logger, serverConfig.PublicBaseURL, feedbackBroadcaster, pinguinNotifier, authClientConfig)
+	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(database, logger, authClientConfig)
+	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(database, logger, subscriptionEvents, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier, authClientConfig)
+	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager, authClientConfig)
+	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager, authClientConfig)
 	sitemapHandlers := httpapi.NewSitemapHandlers(serverConfig.PublicBaseURL)
 
 	router.GET("/", func(context *gin.Context) {
-		context.Redirect(http.StatusFound, constants.LoginPath)
+		context.Redirect(http.StatusFound, landingRouteRoot)
 	})
 	router.GET(landingRouteRoot, landingHandlers.RenderLandingPage)
 	router.GET("/app/sites/:id/widget-test", authManager.RequireAuthenticatedWeb(), widgetTestHandlers.RenderWidgetTestPage)
@@ -517,12 +534,6 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	router.GET(publicRouteVisitPixel, publicHandlers.CollectVisit)
 	router.GET("/pixel.js", publicHandlers.PixelJS)
 	router.GET(dashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
-
-	authHandler := gin.WrapH(authMux)
-	router.GET(constants.GoogleAuthPath, authHandler)
-	router.GET(constants.CallbackPath, authHandler)
-	router.GET(constants.LogoutPath, authHandler)
-	router.POST(constants.LogoutPath, authHandler)
 
 	apiGroup := router.Group(apiRoutePrefix)
 	apiGroup.Use(authManager.RequireAuthenticatedJSON())
@@ -585,8 +596,10 @@ func (application *ServerApplication) loadServerConfig(configFilePath string) (S
 		DatabaseDataSourceName:    strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDataSource)),
 		AdminEmailAddresses:       administratorEmails,
 		GoogleClientID:            strings.TrimSpace(application.configurationLoader.GetString(environmentKeyGoogleClientID)),
-		GoogleClientSecret:        strings.TrimSpace(application.configurationLoader.GetString(environmentKeyGoogleClientSecret)),
 		SessionSecret:             strings.TrimSpace(application.configurationLoader.GetString(environmentKeySessionSecret)),
+		TauthBaseURL:              strings.TrimSpace(application.configurationLoader.GetString(environmentKeyTauthBaseURL)),
+		TauthTenantID:             strings.TrimSpace(application.configurationLoader.GetString(environmentKeyTauthTenantID)),
+		TauthSigningKey:           strings.TrimSpace(application.configurationLoader.GetString(environmentKeyTauthSigningKey)),
 		PublicBaseURL:             strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPublicBaseURL)),
 		ConfigFilePath:            trimmedConfigPath,
 		PinguinAddress:            strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinAddress)),
@@ -648,12 +661,20 @@ func (application *ServerApplication) ensureRequiredConfiguration(configuration 
 		missingParameters = append(missingParameters, flagNameGoogleClientID)
 	}
 
-	if configuration.GoogleClientSecret == "" {
-		missingParameters = append(missingParameters, flagNameGoogleClientSecret)
-	}
-
 	if configuration.SessionSecret == "" {
 		missingParameters = append(missingParameters, flagNameSessionSecret)
+	}
+
+	if configuration.TauthBaseURL == "" {
+		missingParameters = append(missingParameters, flagNameTauthBaseURL)
+	}
+
+	if configuration.TauthTenantID == "" {
+		missingParameters = append(missingParameters, flagNameTauthTenantID)
+	}
+
+	if configuration.TauthSigningKey == "" {
+		missingParameters = append(missingParameters, flagNameTauthSigningKey)
 	}
 
 	if configuration.PublicBaseURL == "" {

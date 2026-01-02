@@ -30,7 +30,7 @@ func TestPrivacyPageRendersPolicyMarkup(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/privacy", nil)
 
-	handlers := httpapi.NewPrivacyPageHandlers(&stubCurrentUserProvider{})
+	handlers := httpapi.NewPrivacyPageHandlers(&stubCurrentUserProvider{}, testLandingAuthConfig)
 	handlers.RenderPrivacyPage(context)
 
 	require.Equal(t, http.StatusOK, recorder.Code)
@@ -70,7 +70,7 @@ func TestPrivacyHeroNavigatesToLandingWhenUnauthenticated(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/privacy", nil)
 
-	handlers := httpapi.NewPrivacyPageHandlers(&stubCurrentUserProvider{})
+	handlers := httpapi.NewPrivacyPageHandlers(&stubCurrentUserProvider{}, testLandingAuthConfig)
 	handlers.RenderPrivacyPage(context)
 
 	body := recorder.Body.String()
@@ -87,7 +87,7 @@ func TestPrivacyHeroNavigatesToDashboardWhenAuthenticated(t *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/privacy", nil)
 
-	handlers := httpapi.NewPrivacyPageHandlers(&stubCurrentUserProvider{authenticated: true})
+	handlers := httpapi.NewPrivacyPageHandlers(&stubCurrentUserProvider{authenticated: true}, testLandingAuthConfig)
 	handlers.RenderPrivacyPage(context)
 
 	body := recorder.Body.String()

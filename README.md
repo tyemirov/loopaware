@@ -5,7 +5,7 @@ role-aware dashboard for managing sites and messages.
 
 ## Highlights
 
-- Google OAuth 2.0 authentication via [GAuss](https://github.com/tyemirov/GAuss)
+- Google Identity Services authentication via TAuth
 - Role-aware dashboard (`/app`) with admin and creator/owner scopes
 - YAML configuration for privileged accounts (`config.yaml`)
 - REST API to create, update, and inspect sites, feedback, subscribers, and traffic
@@ -36,8 +36,10 @@ Set the `ADMINS` environment variable with a comma-separated list (for example `
 | Variable               | Required | Description                                                 |
 |------------------------|----------|-------------------------------------------------------------|
 | `GOOGLE_CLIENT_ID`     | ✅        | OAuth client ID from Google Cloud Console                   |
-| `GOOGLE_CLIENT_SECRET` | ✅        | OAuth client secret                                         |
-| `SESSION_SECRET`       | ✅        | 32+ byte secret for cookie signing                          |
+| `SESSION_SECRET`       | ✅        | 32+ byte secret for subscription confirmation tokens        |
+| `TAUTH_BASE_URL`       | ✅        | Base URL for the TAuth service (serves `/tauth.js`)          |
+| `TAUTH_TENANT_ID`      | ✅        | Tenant identifier configured in TAuth                       |
+| `TAUTH_JWT_SIGNING_KEY`| ✅        | JWT signing key used to validate `app_session`              |
 | `PINGUIN_AUTH_TOKEN`¹  | ✅        | Bearer token passed to the Pinguin gRPC service             |
 | `PINGUIN_TENANT_ID`    | ✅        | Tenant identifier used when calling the Pinguin gRPC API     |
 | `ADMINS`               | ⚙️       | Comma-separated admin emails; overrides the YAML roster     |
@@ -74,8 +76,10 @@ loopaware --config=config.yaml \
   --db-driver=sqlite \
   --db-dsn="file:loopaware.sqlite?_foreign_keys=on" \
   --google-client-id=$GOOGLE_CLIENT_ID \
-  --google-client-secret=$GOOGLE_CLIENT_SECRET \
   --session-secret=$SESSION_SECRET \
+  --tauth-base-url=$TAUTH_BASE_URL \
+  --tauth-tenant-id=$TAUTH_TENANT_ID \
+  --tauth-signing-key=$TAUTH_JWT_SIGNING_KEY \
   --public-base-url=https://feedback.example.com
 ```
 
@@ -85,27 +89,30 @@ Flags are optional when the equivalent environment variables are set.
 
 ```bash
 GOOGLE_CLIENT_ID=... \
-GOOGLE_CLIENT_SECRET=... \
 SESSION_SECRET=$(openssl rand -hex 32) \
+TAUTH_BASE_URL=http://localhost:8081 \
+TAUTH_TENANT_ID=loopaware \
+TAUTH_JWT_SIGNING_KEY=replace-with-tauth-jwt-signing-key \
 go run ./cmd/server --config=config.yaml
 ```
 
-Open `http://localhost:8080/app` to trigger Google Sign-In. Administrators listed in `config.yaml` can manage every
+Open `http://localhost:8080/app` to trigger Google Sign-In. Ensure the TAuth service is running at
+`TAUTH_BASE_URL` with a tenant that matches `TAUTH_TENANT_ID`. Administrators listed in `config.yaml` can manage every
 site; other users see only the sites they own or originally created with their Google account.
 
 ## Authentication flow
 
 1. Users visit `/login` (automatic redirect from protected routes).
-2. GAuss handles OAuth and stores the session in an encrypted cookie.
-3. `httpapi.AuthManager` reads the session, injects user details into the request context, and enforces admin / owner
-   access.
+2. TAuth issues the `app_session` cookie via Google Identity Services and keeps it refreshed.
+3. `httpapi.AuthManager` validates the session JWT, injects user details into the request context, and enforces admin /
+   owner access.
 4. The dashboard and JSON APIs consume the authenticated context.
 
 ## Public pages
 
 LoopAware serves a minimal public surface derived from `PUBLIC_BASE_URL`:
 
-- `/login` — marketing-focused landing page with GAuss login.
+- `/login` — marketing-focused landing page with TAuth-backed Google Sign-In.
 - `/privacy` — static privacy policy linked from the landing and dashboard footers.
 - `/sitemap.xml` — XML sitemap enumerating the login and privacy URLs for search engines.
 
@@ -113,7 +120,7 @@ Set `PUBLIC_BASE_URL` to the externally reachable origin so the sitemap emits fu
 
 ## REST API
 
-All authenticated endpoints live under `/api` and require the GAuss session cookie. Public collection endpoints for
+All authenticated endpoints live under `/api` and require the TAuth `app_session` cookie. Public collection endpoints for
 feedback, subscriptions, and visits do not require a session but still enforce per-site origin rules. JSON responses
 include Unix timestamps in seconds.
 
@@ -172,7 +179,7 @@ The Bootstrap front end consumes the APIs above. Features include:
 - Subscriber deletion via a confirmation modal
 - Traffic card with visit and unique visitor counts, recent visits, and a copyable `pixel.js` snippet
 - Real-time favicon refresh notifications delivered through the SSE stream
-- Logout button (links to `/logout`)
+- Sign-out button wired to TAuth (`/auth/logout`)
 - Inactivity prompt appears after 60 seconds without input and logs out automatically after 120 seconds if unanswered
 
 The dashboard automatically redirects unauthenticated visitors to `/login`.
