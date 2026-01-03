@@ -92,6 +92,18 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/dashboard_integration_test.go`
 
+- [x] [LA-324] Landing page does not redirect to the dashboard after successful TAuth login.
+  Priority: P0
+  Goal: When a user authenticates via TAuth, the landing page should redirect them to `/app` once the header is authenticated.
+  Deliverable: PR that detects already-authenticated header state on boot, redirects to the dashboard, and adds integration coverage.
+  Notes: The header shows the logged-in user, but no navigation occurs.
+  Resolution: Avoided HTML-escaped `<` in the auth script loop, added a `getCurrentUser` bootstrap fallback, and tightened the landing redirect integration assertions; `make ci` passes.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/templates/landing.tmpl`
+  - `internal/httpapi/landing.go`
+  - `internal/httpapi/dashboard_integration_test.go`
+
 ## Improvements (210–299)
 
 - [x] [LA-213] Dashboard section tabs should span full width and split into 3 equal parts.

@@ -140,8 +140,36 @@ const (
 	dashboardForceLogoutScript            = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forceLogout === 'function') { window.__loopawareDashboardIdleTestHooks.forceLogout(); }"
 	dashboardNotificationBackgroundScript = `window.getComputedStyle(document.querySelector("#session-timeout-notification")).backgroundColor`
 	dashboardLocationPathScript           = "window.location.pathname"
-	dashboardIdleHooksReadyScript         = "typeof window.__loopawareDashboardIdleTestHooks !== 'undefined'"
-	dashboardSelectFirstSiteScript        = `(function() {
+	landingMarkAuthenticatedScript        = `(function() {
+		function markAuthenticated() {
+			var headerHost = document.querySelector('mpr-header');
+			if (!headerHost) {
+				return false;
+			}
+			headerHost.setAttribute('data-user-display', 'Test User');
+			return true;
+		}
+		function scheduleMark() {
+			var remainingAttempts = 60;
+			function attemptMark() {
+				if (markAuthenticated()) {
+					return;
+				}
+				remainingAttempts -= 1;
+				if (remainingAttempts > 0) {
+					window.setTimeout(attemptMark, 100);
+				}
+			}
+			attemptMark();
+		}
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', scheduleMark);
+		} else {
+			scheduleMark();
+		}
+	}())`
+	dashboardIdleHooksReadyScript  = "typeof window.__loopawareDashboardIdleTestHooks !== 'undefined'"
+	dashboardSelectFirstSiteScript = `(function() {
 	                var list = document.getElementById('sites-list');
 	                if (!list) { return false; }
 	                var item = list.querySelector('[data-site-id]');
@@ -1154,6 +1182,80 @@ func TestDashboardRestoresThemeFromPublicPreference(t *testing.T) {
 
 	storedTheme := evaluateScriptString(t, page, dashboardStoredDashboardThemeScript)
 	require.Equal(t, "dark", storedTheme)
+}
+
+func TestLandingRedirectsToDashboardWhenAuthenticated(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	_, err := page.EvalOnNewDocument(landingMarkAuthenticatedScript)
+	require.NoError(t, err)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestLandingPath)
+
+	authScriptRendered := evaluateScriptBoolean(t, page, `(function(){
+		return Array.from(document.scripts || []).some(function(script){
+			return (script.textContent || '').indexOf('data-loopaware-auth-script') !== -1;
+		});
+	}())`)
+	require.True(t, authScriptRendered)
+
+	authScriptParseError := evaluateScriptString(t, page, `(function(){
+		var script = Array.from(document.scripts || []).find(function(item){
+			return (item.textContent || '').indexOf('data-loopaware-auth-script') !== -1;
+		});
+		if (!script) { return 'missing'; }
+		try {
+			new Function(script.textContent || '');
+			return '';
+		} catch (err) {
+			if (err && err.message) {
+				if (typeof err.lineNumber === 'number') {
+					return err.message + ' at ' + err.lineNumber + ':' + err.columnNumber;
+				}
+				return err.message;
+			}
+			return String(err);
+		}
+	}())`)
+	require.Equal(t, "", authScriptParseError)
+
+	authScriptMarker := evaluateScriptString(t, page, `(function(){
+		return document.documentElement ? (document.documentElement.getAttribute('data-loopaware-auth-script') || '') : '';
+	}())`)
+	require.Equal(t, "true", authScriptMarker)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, `(function(){
+			var header = document.querySelector('mpr-header');
+			if (!header) { return ''; }
+			return header.getAttribute('data-user-display') || '';
+		}())`) == "Test User"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	authBoundValue := evaluateScriptString(t, page, `(function(){
+		var header = document.querySelector('mpr-header');
+		if (!header) { return ''; }
+		return header.getAttribute('data-loopaware-auth-bound') || '';
+	}())`)
+	require.Equal(t, "true", authBoundValue)
+
+	require.Eventually(t, func() bool {
+		info, infoErr := page.Info()
+		if infoErr != nil {
+			return false
+		}
+		parsed, parseErr := url.Parse(info.URL)
+		if parseErr != nil {
+			return false
+		}
+		return parsed.Path == dashboardTestDashboardRoute
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 
 func TestDashboardInheritsLandingDefaultTheme(t *testing.T) {

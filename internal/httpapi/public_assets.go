@@ -197,6 +197,9 @@ var (
   }
 })();`))
 	publicAuthScriptTemplate = template.Must(template.New("public_auth_script").Parse(`(function() {
+  if (document && document.documentElement) {
+    document.documentElement.setAttribute('data-loopaware-auth-script', 'true');
+  }
   function ensureProfileBody(profileContainer, nameNode, signOutNode) {
     var body = profileContainer.querySelector('[data-loopaware-profile-body]');
     if (!body) {
@@ -234,7 +237,20 @@ var (
     };
   }
 
-  function resolveProfileDisplay(profile, headerRoot) {
+  function resolveProfileAttribute(headerRoot, headerHost, attributeName) {
+    if (headerRoot && typeof headerRoot.getAttribute === 'function') {
+      var value = headerRoot.getAttribute(attributeName);
+      if (value) {
+        return value;
+      }
+    }
+    if (headerHost && typeof headerHost.getAttribute === 'function') {
+      return headerHost.getAttribute(attributeName) || '';
+    }
+    return '';
+  }
+
+  function resolveProfileDisplay(profile, headerRoot, headerHost) {
     if (profile && profile.display) {
       return profile.display;
     }
@@ -244,10 +260,11 @@ var (
     if (profile && profile.email) {
       return profile.email;
     }
-    if (headerRoot) {
-      return headerRoot.getAttribute('data-user-display-name') || headerRoot.getAttribute('data-user-name') || headerRoot.getAttribute('data-user-email') || '';
-    }
-    return '';
+    return resolveProfileAttribute(headerRoot, headerHost, 'data-user-display') ||
+      resolveProfileAttribute(headerRoot, headerHost, 'data-user-display-name') ||
+      resolveProfileAttribute(headerRoot, headerHost, 'data-user-name') ||
+      resolveProfileAttribute(headerRoot, headerHost, 'data-user-email') ||
+      '';
   }
 
   function handleLogout(headerHost) {
@@ -302,10 +319,12 @@ var (
         }
         if (typeof event.composedPath === 'function') {
           var path = event.composedPath();
-          for (var i = 0; i < path.length; i += 1) {
-            if (path[i] === profileMenu) {
+          var pathIndex = 0;
+          while (pathIndex !== path.length) {
+            if (path[pathIndex] === profileMenu) {
               return true;
             }
+            pathIndex += 1;
           }
         }
         return false;
@@ -331,25 +350,22 @@ var (
     }
   }
 
-  function resolveAvatarURL(headerRoot, profile) {
+  function resolveAvatarURL(headerRoot, headerHost, profile) {
     if (profile && profile.avatar_url) {
       return profile.avatar_url;
     }
-    if (headerRoot) {
-      return headerRoot.getAttribute('data-user-avatar-url') || '';
-    }
-    return '';
+    return resolveProfileAttribute(headerRoot, headerHost, 'data-user-avatar-url');
   }
 
-  function updateCustomProfile(profileElements, profile, headerRoot) {
+  function updateCustomProfile(profileElements, profile, headerRoot, headerHost) {
     if (!profileElements) {
       return;
     }
-    var displayName = resolveProfileDisplay(profile, headerRoot);
+    var displayName = resolveProfileDisplay(profile, headerRoot, headerHost);
     if (profileElements.profileName) {
       profileElements.profileName.textContent = displayName;
     }
-    var avatarUrl = resolveAvatarURL(headerRoot, profile);
+    var avatarUrl = resolveAvatarURL(headerRoot, headerHost, profile);
     var avatar = profileElements.avatar;
     if (!avatar && avatarUrl && profileElements.toggleButton) {
       avatar = document.createElement('img');
@@ -373,15 +389,29 @@ var (
     }
   }
 
+  function resolveHeaderRoot(headerHost) {
+    if (!headerHost) {
+      return null;
+    }
+    var root = headerHost.querySelector('header.mpr-header');
+    if (root) {
+      return root;
+    }
+    if (headerHost.shadowRoot && typeof headerHost.shadowRoot.querySelector === 'function') {
+      return headerHost.shadowRoot.querySelector('header.mpr-header');
+    }
+    return null;
+  }
+
   function updateHeaderAvatar(headerHost, profile) {
     if (!headerHost) {
       return;
     }
-    var headerRoot = headerHost.querySelector('header.mpr-header');
+    var headerRoot = resolveHeaderRoot(headerHost);
     var customProfile = resolveCustomProfileElements(headerHost);
     if (customProfile) {
       ensureCustomProfileMenu(headerHost, customProfile);
-      updateCustomProfile(customProfile, profile, headerRoot);
+      updateCustomProfile(customProfile, profile, headerRoot, headerHost);
       return;
     }
     var profileContainer = headerHost.querySelector('[data-mpr-header="profile"]');
@@ -390,7 +420,7 @@ var (
     if (!profileContainer || !profileName || !signOutButton) {
       return;
     }
-    var avatarUrl = resolveAvatarURL(headerRoot, profile);
+    var avatarUrl = resolveAvatarURL(headerRoot, headerHost, profile);
     var body = ensureProfileBody(profileContainer, profileName, signOutButton);
     var avatar = profileContainer.querySelector('[data-loopaware-avatar]');
     if (!avatarUrl) {
@@ -438,35 +468,181 @@ var (
     attemptSetup();
   }
 
-  function attachHeaderAuth(headerHost) {
+  function hasAuthenticatedProfile(headerHost) {
+    if (!headerHost) {
+      return false;
+    }
+    var headerRoot = resolveHeaderRoot(headerHost);
+    if (headerRoot && headerRoot.classList.contains('mpr-header--authenticated')) {
+      return true;
+    }
+    return Boolean(headerHost.getAttribute('data-user-id') || headerHost.getAttribute('data-user-email') || headerHost.getAttribute('data-user-display'));
+  }
+
+  var authBootstrapAttempts = 0;
+  var authBootstrapInFlight = false;
+  var authBootstrapLimit = 3;
+  function attemptAuthBootstrap(headerHost) {
+    if (!headerHost || authBootstrapInFlight || authBootstrapAttempts >= authBootstrapLimit) {
+      return;
+    }
+    if (typeof window.getCurrentUser !== 'function') {
+      return;
+    }
+    authBootstrapInFlight = true;
+    authBootstrapAttempts += 1;
+    Promise.resolve()
+      .then(function() {
+        return window.getCurrentUser();
+      })
+      .then(function(profile) {
+        authBootstrapInFlight = false;
+        if (!profile) {
+          return;
+        }
+        updateHeaderAvatar(headerHost, profile);
+        if (headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
+          window.location.assign('{{.DashboardPath}}');
+        }
+      })
+      .catch(function() {
+        authBootstrapInFlight = false;
+      });
+  }
+
+  function observeHeaderAuthState(headerHost) {
+    if (!headerHost || typeof MutationObserver !== 'function') {
+      return;
+    }
+    if (headerHost.getAttribute('data-loopaware-auth-observer') === 'true') {
+      return;
+    }
+    headerHost.setAttribute('data-loopaware-auth-observer', 'true');
+    var wasAuthenticated = hasAuthenticatedProfile(headerHost);
+    if (wasAuthenticated && headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
+      window.location.assign('{{.DashboardPath}}');
+      return;
+    }
+    var observer = new MutationObserver(function() {
+      var isAuthenticated = hasAuthenticatedProfile(headerHost);
+      if (isAuthenticated) {
+        updateHeaderAvatar(headerHost, null);
+        if (headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
+          window.location.assign('{{.DashboardPath}}');
+          return;
+        }
+      } else if (wasAuthenticated) {
+        updateHeaderAvatar(headerHost, null);
+        if (headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
+          window.location.assign('{{.LandingPath}}');
+          return;
+        }
+      }
+      if (isAuthenticated !== wasAuthenticated) {
+        wasAuthenticated = isAuthenticated;
+      }
+    });
+    observer.observe(headerHost, {
+      attributes: true,
+      attributeFilter: ['data-user-id', 'data-user-email', 'data-user-display', 'data-user-avatar-url']
+    });
+  }
+
+  function resolveAuthHost(event) {
+    if (event && event.target && event.target.nodeType === 1 && typeof event.target.matches === 'function') {
+      if (event.target.matches('mpr-header')) {
+        return event.target;
+      }
+    }
+    return document.querySelector('mpr-header');
+  }
+
+  function handleAuthenticatedEvent(event) {
+    var headerHost = resolveAuthHost(event);
     if (!headerHost) {
       return;
     }
-    headerHost.addEventListener('mpr-ui:auth:authenticated', function(event) {
-      var profile = event && event.detail && event.detail.profile ? event.detail.profile : null;
-      updateHeaderAvatar(headerHost, profile);
-      if (headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
-        window.location.assign('{{.DashboardPath}}');
-      }
-    });
-    headerHost.addEventListener('mpr-ui:auth:unauthenticated', function() {
-      updateHeaderAvatar(headerHost, null);
-      if (headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
-        window.location.assign('{{.LandingPath}}');
-      }
-    });
+    var profile = event && event.detail && event.detail.profile ? event.detail.profile : null;
+    updateHeaderAvatar(headerHost, profile);
+    if (headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
+      window.location.assign('{{.DashboardPath}}');
+    }
+  }
+
+  function handleUnauthenticatedEvent(event) {
+    var headerHost = resolveAuthHost(event);
+    if (!headerHost) {
+      return;
+    }
+    updateHeaderAvatar(headerHost, null);
+    if (headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
+      window.location.assign('{{.LandingPath}}');
+    }
+  }
+
+  var authListenersAttached = false;
+  function attachHeaderAuth(headerHost) {
+    if (!authListenersAttached && document && typeof document.addEventListener === 'function') {
+      document.addEventListener('mpr-ui:auth:authenticated', handleAuthenticatedEvent);
+      document.addEventListener('mpr-ui:auth:unauthenticated', handleUnauthenticatedEvent);
+      authListenersAttached = true;
+    }
+    if (!headerHost) {
+      return;
+    }
+    if (typeof headerHost.addEventListener === 'function' && headerHost.getAttribute('data-loopaware-auth-listeners') !== 'true') {
+      headerHost.setAttribute('data-loopaware-auth-listeners', 'true');
+      headerHost.addEventListener('mpr-ui:auth:authenticated', handleAuthenticatedEvent);
+      headerHost.addEventListener('mpr-ui:auth:unauthenticated', handleUnauthenticatedEvent);
+    }
+    headerHost.setAttribute('data-loopaware-auth-bound', 'true');
     ensureHeaderProfileReady(headerHost);
+    observeHeaderAuthState(headerHost);
+    (function redirectIfAlreadyAuthenticated() {
+      var remainingAttempts = 120;
+      function attemptRedirect() {
+        var currentHeader = document.querySelector('mpr-header');
+        var shouldRedirect = currentHeader && currentHeader.getAttribute('data-loopaware-auth-redirect') === 'true';
+        if (shouldRedirect && hasAuthenticatedProfile(currentHeader)) {
+          window.location.assign('{{.DashboardPath}}');
+          return;
+        }
+        if (shouldRedirect) {
+          attemptAuthBootstrap(currentHeader);
+        }
+        remainingAttempts -= 1;
+        if (remainingAttempts > 0) {
+          window.setTimeout(attemptRedirect, 100);
+        }
+      }
+      attemptRedirect();
+    }());
   }
 
-  function boot() {
-    attachHeaderAuth(document.querySelector('mpr-header'));
+  var bindingInProgress = false;
+  function bindHeaderAuth() {
+    if (bindingInProgress) {
+      return;
+    }
+    bindingInProgress = true;
+    var remainingAttempts = 120;
+    function attemptBind() {
+      var headerHost = document.querySelector('mpr-header');
+      if (headerHost && headerHost.getAttribute('data-loopaware-auth-bound') !== 'true') {
+        attachHeaderAuth(headerHost);
+      }
+      remainingAttempts -= 1;
+      if (remainingAttempts > 0) {
+        window.setTimeout(attemptBind, 100);
+        return;
+      }
+      bindingInProgress = false;
+    }
+    attemptBind();
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
+  bindHeaderAuth();
+  document.addEventListener('DOMContentLoaded', bindHeaderAuth);
 })();`))
 )
 
