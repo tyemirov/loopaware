@@ -303,6 +303,7 @@ type dashboardTemplateData struct {
 	APIMessagesEndpointPrefix               string
 	APIMessagesEndpointSuffix               string
 	TauthScriptURL                          template.URL
+	AuthScript                              template.JS
 	BootstrapIconsIntegrityAttr             template.HTMLAttr
 	FaviconDataURI                          template.URL
 	HeaderLogoDataURI                       template.URL
@@ -656,6 +657,11 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		handlers.logger.Warn("render_dashboard_footer", zap.Error(footerErr))
 		footerHTML = template.HTML("")
 	}
+	authScript, authErr := renderPublicAuthScript()
+	if authErr != nil {
+		handlers.logger.Warn("render_dashboard_auth_script", zap.Error(authErr))
+		authScript = template.JS("")
+	}
 
 	data := dashboardTemplateData{
 		PageTitle:                               dashboardPageTitle,
@@ -665,6 +671,7 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		APIMessagesEndpointPrefix:               "/api/sites/",
 		APIMessagesEndpointSuffix:               "/messages",
 		TauthScriptURL:                          template.URL(handlers.authConfig.TauthScriptURL),
+		AuthScript:                              authScript,
 		BootstrapIconsIntegrityAttr:             template.HTMLAttr(dashboardBootstrapIconsIntegrityAttr),
 		FaviconDataURI:                          template.URL(dashboardFaviconDataURI),
 		HeaderLogoDataURI:                       landingLogoDataURI,

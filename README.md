@@ -40,6 +40,7 @@ Set the `ADMINS` environment variable with a comma-separated list (for example `
 | `TAUTH_BASE_URL`       | ✅        | Base URL for the TAuth service (serves `/tauth.js`)          |
 | `TAUTH_TENANT_ID`      | ✅        | Tenant identifier configured in TAuth                       |
 | `TAUTH_JWT_SIGNING_KEY`| ✅        | JWT signing key used to validate `app_session`              |
+| `TAUTH_SESSION_COOKIE_NAME` | ✅   | Session cookie name set by TAuth (defaults to `app_session`) |
 | `PINGUIN_AUTH_TOKEN`¹  | ✅        | Bearer token passed to the Pinguin gRPC service             |
 | `PINGUIN_TENANT_ID`    | ✅        | Tenant identifier used when calling the Pinguin gRPC API     |
 | `ADMINS`               | ⚙️       | Comma-separated admin emails; overrides the YAML roster     |
@@ -80,6 +81,7 @@ loopaware --config=config.yaml \
   --tauth-base-url=$TAUTH_BASE_URL \
   --tauth-tenant-id=$TAUTH_TENANT_ID \
   --tauth-signing-key=$TAUTH_JWT_SIGNING_KEY \
+  --tauth-session-cookie-name=$TAUTH_SESSION_COOKIE_NAME \
   --public-base-url=https://feedback.example.com
 ```
 
@@ -93,6 +95,7 @@ SESSION_SECRET=$(openssl rand -hex 32) \
 TAUTH_BASE_URL=http://localhost:8081 \
 TAUTH_TENANT_ID=loopaware \
 TAUTH_JWT_SIGNING_KEY=replace-with-tauth-jwt-signing-key \
+TAUTH_SESSION_COOKIE_NAME=app_session_loopaware \
 go run ./cmd/server --config=config.yaml
 ```
 
@@ -103,7 +106,7 @@ site; other users see only the sites they own or originally created with their G
 ## Authentication flow
 
 1. Users visit `/login` (automatic redirect from protected routes).
-2. TAuth issues the `app_session` cookie via Google Identity Services and keeps it refreshed.
+2. TAuth issues the session cookie configured by `TAUTH_SESSION_COOKIE_NAME` (defaults to `app_session`) via Google Identity Services and keeps it refreshed.
 3. `httpapi.AuthManager` validates the session JWT, injects user details into the request context, and enforces admin /
    owner access.
 4. The dashboard and JSON APIs consume the authenticated context.
@@ -120,7 +123,7 @@ Set `PUBLIC_BASE_URL` to the externally reachable origin so the sitemap emits fu
 
 ## REST API
 
-All authenticated endpoints live under `/api` and require the TAuth `app_session` cookie. Public collection endpoints for
+All authenticated endpoints live under `/api` and require the TAuth session cookie configured by `TAUTH_SESSION_COOKIE_NAME`. Public collection endpoints for
 feedback, subscriptions, and visits do not require a session but still enforce per-site origin rules. JSON responses
 include Unix timestamps in seconds.
 

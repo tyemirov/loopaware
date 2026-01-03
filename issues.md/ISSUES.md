@@ -49,6 +49,49 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/admin.go` (site responses)
   - `internal/httpapi/subscribe_allowed_origins_dashboard_integration_test.go`
 
+- [x] [LA-320] Login loop between `/login` and `/app` when TAuth session cookie name is customized.
+  Priority: P0
+  Goal: Dashboard loads after successful TAuth login; LoopAware validates the configured session cookie name.
+  Deliverable: PR that passes the TAuth session cookie name into the validator and updates env/docs.
+  Notes: LoopAware currently assumes `app_session`; TAuth tenant uses `app_session_loopaware`.
+  Resolution: Added `TAUTH_SESSION_COOKIE_NAME` config/flag, wired it into session validation, and updated env samples/docs plus config-audit.
+  Docs/Refs:
+  - `cmd/server/main.go`
+  - `internal/httpapi/auth.go`
+  - `configs/.env.loopaware`
+
+- [x] [LA-321] Logout should redirect to the landing page from authenticated views.
+  Priority: P1
+  Goal: After logging out via the header, the dashboard (and related authenticated pages) return to `/login`.
+  Deliverable: PR that redirects on `mpr-ui:auth:unauthenticated` when configured on dashboard headers.
+  Resolution: Added a logout-redirect flag to dashboard headers and routed unauthenticated events back to the landing path.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/templates/dashboard_header.tmpl`
+
+- [x] [LA-322] Landing theme preference does not persist to the dashboard after login.
+  Priority: P1
+  Goal: When no explicit theme is stored, the landing theme persists to localStorage and the dashboard uses it after login.
+  Deliverable: PR that persists the landing default theme and adds integration coverage for landing-to-dashboard theme propagation.
+  Notes: Landing defaults to dark without persisting; dashboard defaults to light when no preference exists.
+  Resolution: Persisted landing default theme on boot and added integration coverage for landing-default propagation into the dashboard.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/dashboard_integration_test.go`
+  - `internal/httpapi/templates/dashboard.tmpl`
+
+- [x] [LA-323] Dashboard header profile menu regressed to oversized buttons after TAuth migration.
+  Priority: P1
+  Goal: Restore the avatar dropdown with account settings and logout while keeping TAuth-backed authentication.
+  Deliverable: PR that renders the profile dropdown and updates integration coverage for opening the settings modal.
+  Notes: The header currently shows separate large buttons instead of a compact dropdown menu.
+  Resolution: Reintroduced a compact avatar dropdown in the dashboard header, hid the built-in header actions, added dropdown open fallbacks, and updated integration coverage to open the menu before clicking settings; `make ci` passes.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/templates/dashboard_header.tmpl`
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/dashboard_integration_test.go`
+
 ## Improvements (210–299)
 
 - [x] [LA-213] Dashboard section tabs should span full width and split into 3 equal parts.
@@ -132,3 +175,14 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Resolution: Replaced GAuss sessions with TAuth validator, wired mpr-ui header + `tauth.js` across templates, updated env/config/doc/test coverage, and verified `make ci`.
 
 ## Planning (do not implement yet)
+
+- [ ] [LA-410] Refactor LoopAware into a separate frontend and backend to adopt TAuth via mpr-ui.
+  Priority: P0
+  Goal: Split the UI into a dedicated frontend app that loads `tauth.js` + mpr-ui DSL, while the backend becomes a clean API that validates TAuth sessions.
+  Deliverable: A documented architecture/migration plan that defines service boundaries, routing/origin model, auth flow, and rollout steps.
+  Docs/Refs:
+  - `tools/TAuth/docs/usage.md`
+  - `tools/TAuth/docs/migration.md`
+  - `issues.md/AGENTS.FRONTEND.md`
+  - `issues.md/AGENTS.GO.md`
+  - `issues.md/AGENTS.DOCKER.md`

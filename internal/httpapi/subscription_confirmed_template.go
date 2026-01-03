@@ -14,6 +14,7 @@ type subscriptionConfirmedTemplateData struct {
 	PageTitle      string
 	SharedStyles   template.CSS
 	ThemeScript    template.JS
+	AuthScript     template.JS
 	FaviconDataURI template.URL
 	HeaderHTML     template.HTML
 	FooterHTML     template.HTML

@@ -576,7 +576,7 @@ func (h *PublicHandlers) renderSubscriptionConfirmationPage(context *gin.Context
 		footerHTML = ""
 	}
 
-	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, false, publicPageLanding, h.authConfig)
+	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, false, publicPageLanding, h.authConfig, false)
 	if headerErr != nil {
 		headerHTML = ""
 	}
@@ -584,6 +584,10 @@ func (h *PublicHandlers) renderSubscriptionConfirmationPage(context *gin.Context
 	themeScript, themeErr := renderPublicThemeScript()
 	if themeErr != nil {
 		themeScript = ""
+	}
+	authScript, authErr := renderPublicAuthScript()
+	if authErr != nil {
+		authScript = ""
 	}
 
 	openURL := subscriptionConfirmationOpenURL(site, subscriber)
@@ -604,6 +608,7 @@ func (h *PublicHandlers) renderSubscriptionConfirmationPage(context *gin.Context
 		PageTitle:      heading + " — LoopAware",
 		SharedStyles:   sharedPublicStyles(),
 		ThemeScript:    themeScript,
+		AuthScript:     authScript,
 		FaviconDataURI: template.URL(dashboardFaviconDataURI),
 		HeaderHTML:     headerHTML,
 		FooterHTML:     footerHTML,

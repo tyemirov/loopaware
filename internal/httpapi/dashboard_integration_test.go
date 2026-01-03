@@ -59,6 +59,7 @@ const (
 	dashboardDismissButtonSelector              = "#session-timeout-dismiss-button"
 	dashboardConfirmButtonSelector              = "#session-timeout-confirm-button"
 	dashboardSettingsButtonSelector             = "#settings-button"
+	dashboardProfileToggleSelector              = `[data-loopaware-profile-toggle="true"]`
 	dashboardSettingsModalSelector              = "#settings-modal"
 	dashboardWidgetBottomOffsetInputSelector    = "#widget-placement-bottom-offset"
 	dashboardWidgetBottomOffsetIncreaseSelector = "#widget-bottom-offset-increase"
@@ -219,7 +220,9 @@ const (
 	dashboardDocumentThemeScript        = "document.documentElement.getAttribute('data-bs-theme') || ''"
 	dashboardStoredDashboardThemeScript = "localStorage.getItem('loopaware_dashboard_theme') || ''"
 	dashboardStoredPublicThemeScript    = "localStorage.getItem('loopaware_public_theme') || ''"
+	dashboardStoredLandingThemeScript   = "localStorage.getItem('loopaware_landing_theme') || ''"
 	dashboardSeedPublicThemeScript      = `localStorage.setItem('loopaware_public_theme','dark');localStorage.removeItem('loopaware_dashboard_theme');localStorage.removeItem('loopaware_theme');`
+	dashboardClearThemeStorageScript    = `localStorage.removeItem('loopaware_public_theme');localStorage.removeItem('loopaware_landing_theme');localStorage.removeItem('loopaware_dashboard_theme');localStorage.removeItem('loopaware_theme');`
 	dashboardFooterThemeModeScript      = `(function(){var footer=document.getElementById('dashboard-footer');return footer ? (footer.getAttribute('theme-mode') || '') : '';}())`
 	dashboardSiteFaviconSelector        = "#sites-list [data-site-id] img"
 	dashboardSiteFaviconVisibleScript   = `(function() {
@@ -476,6 +479,8 @@ func TestDashboardSettingsModalOpensAndDismissesViaBackdrop(t *testing.T) {
 		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
+	openDashboardProfileMenu(t, page)
+	openDashboardProfileMenu(t, page)
 	clickSelector(t, page, dashboardSettingsButtonSelector)
 
 	require.Eventually(t, func() bool {
@@ -881,6 +886,7 @@ func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {
 		return evaluateScriptBoolean(t, page, dashboardSettingsHooksReadyScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
+	openDashboardProfileMenu(t, page)
 	clickSelector(t, page, dashboardSettingsButtonSelector)
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
@@ -917,6 +923,7 @@ func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {
 		return !evaluateScriptBoolean(t, page, dashboardSessionTimeoutVisibleScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
+	openDashboardProfileMenu(t, page)
 	clickSelector(t, page, dashboardSettingsButtonSelector)
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
@@ -1149,6 +1156,49 @@ func TestDashboardRestoresThemeFromPublicPreference(t *testing.T) {
 	require.Equal(t, "dark", storedTheme)
 }
 
+func TestDashboardInheritsLandingDefaultTheme(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestLandingPath)
+	evaluateScriptInto(t, page, dashboardClearThemeStorageScript, nil)
+	navigateToPage(t, page, harness.baseURL+dashboardTestLandingPath)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, selectorExistsScript(landingThemeToggleControlSelector))
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Equal(t, "dark", evaluateScriptString(t, page, dashboardDocumentThemeScript))
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardStoredPublicThemeScript) == "dark"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardStoredLandingThemeScript) == "dark"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Equal(t, "dark", evaluateScriptString(t, page, dashboardDocumentThemeScript))
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardFooterThemeModeScript) == "dark"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	storedTheme := evaluateScriptString(t, page, dashboardStoredDashboardThemeScript)
+	require.Equal(t, "dark", storedTheme)
+}
+
 func TestDashboardPrefersPublicThemeOverStoredPreference(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
@@ -1358,7 +1408,7 @@ func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
     var style = window.getComputedStyle(element);
     if (!style) { return false; }
     return style.display !== 'none' && style.visibility !== 'hidden';
-}())`, dashboardSettingsButtonSelector)
+}())`, dashboardProfileToggleSelector)
 	footerVisibleScript := fmt.Sprintf(`(function(){
     var element = document.querySelector(%q);
     if (!element) { return false; }
@@ -2491,4 +2541,11 @@ func createAuthenticatedSessionCookie(testingT *testing.T, email string, name st
 		Value: signedToken,
 		Path:  "/",
 	}
+}
+
+func openDashboardProfileMenu(testingT *testing.T, page *rod.Page) {
+	testingT.Helper()
+
+	clickSelector(testingT, page, dashboardProfileToggleSelector)
+	waitForVisibleElement(testingT, page, dashboardSettingsButtonSelector)
 }

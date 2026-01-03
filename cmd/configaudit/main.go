@@ -447,6 +447,7 @@ func checkLoopAwareRequiredEnvironment(environmentByService map[string]map[strin
 		"TAUTH_BASE_URL",
 		"TAUTH_TENANT_ID",
 		"TAUTH_JWT_SIGNING_KEY",
+		"TAUTH_SESSION_COOKIE_NAME",
 		"PUBLIC_BASE_URL",
 		"PINGUIN_ADDR",
 		"PINGUIN_AUTH_TOKEN",

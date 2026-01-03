@@ -29,6 +29,7 @@ type privacyTemplateData struct {
 	FooterHTML     template.HTML
 	HeaderHTML     template.HTML
 	ThemeScript    template.JS
+	AuthScript     template.JS
 	TauthScriptURL template.URL
 }
 
@@ -52,7 +53,7 @@ func (handlers *PrivacyPageHandlers) RenderPrivacyPage(context *gin.Context) {
 		_, isAuthenticated = handlers.currentUserProvider.CurrentUser(context)
 	}
 
-	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, isAuthenticated, publicPagePrivacy, handlers.authConfig)
+	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, isAuthenticated, publicPagePrivacy, handlers.authConfig, false)
 	if headerErr != nil {
 		headerHTML = template.HTML("")
 	}
@@ -61,6 +62,10 @@ func (handlers *PrivacyPageHandlers) RenderPrivacyPage(context *gin.Context) {
 	if themeErr != nil {
 		themeScript = template.JS("")
 	}
+	authScript, authErr := renderPublicAuthScript()
+	if authErr != nil {
+		authScript = template.JS("")
+	}
 
 	payload := privacyTemplateData{
 		SharedStyles:   sharedPublicStyles(),
@@ -68,6 +73,7 @@ func (handlers *PrivacyPageHandlers) RenderPrivacyPage(context *gin.Context) {
 		FooterHTML:     footerHTML,
 		HeaderHTML:     headerHTML,
 		ThemeScript:    themeScript,
+		AuthScript:     authScript,
 		TauthScriptURL: template.URL(handlers.authConfig.TauthScriptURL),
 	}
 

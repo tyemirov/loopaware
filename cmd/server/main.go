@@ -40,6 +40,7 @@ const (
 	flagNameTauthBaseURL              = "tauth-base-url"
 	flagNameTauthTenantID             = "tauth-tenant-id"
 	flagNameTauthSigningKey           = "tauth-signing-key"
+	flagNameTauthSessionCookieName    = "tauth-session-cookie-name"
 	flagNameSubscriptionNotifications = "subscription-notifications"
 	flagNamePublicBaseURL             = "public-base-url"
 	flagNamePinguinAddress            = "pinguin-addr"
@@ -56,6 +57,7 @@ const (
 	flagUsageTauthBaseURL             = "base URL for the TAuth service"
 	flagUsageTauthTenantID            = "tenant identifier configured in TAuth"
 	flagUsageTauthSigningKey          = "JWT signing key for validating TAuth sessions"
+	flagUsageTauthSessionCookieName   = "session cookie name used by TAuth"
 	flagUsagePublicBaseURL            = "public base URL for landing pages and sitemap"
 	flagUsagePinguinAddress           = "Pinguin gRPC server address"
 	flagUsagePinguinAuthToken         = "Pinguin bearer auth token"
@@ -72,6 +74,7 @@ const (
 	environmentKeyTauthBaseURL        = "TAUTH_BASE_URL"
 	environmentKeyTauthTenantID       = "TAUTH_TENANT_ID"
 	environmentKeyTauthSigningKey     = "TAUTH_JWT_SIGNING_KEY"
+	environmentKeyTauthSessionCookie  = "TAUTH_SESSION_COOKIE_NAME"
 	environmentKeyPublicBaseURL       = "PUBLIC_BASE_URL"
 	environmentKeyPinguinAddress      = "PINGUIN_ADDR"
 	environmentKeyPinguinAuthToken    = "PINGUIN_AUTH_TOKEN"
@@ -86,6 +89,7 @@ const (
 	defaultSQLiteDatabaseFileName     = "loopaware.sqlite"
 	defaultConfigFileName             = "config.yaml"
 	defaultPublicBaseURL              = "http://localhost:8080"
+	defaultTauthSessionCookieName     = "app_session"
 	defaultPinguinAddress             = "localhost:50051"
 	defaultPinguinConnTimeoutSeconds  = 5
 	defaultPinguinOpTimeoutSeconds    = 30
@@ -158,6 +162,7 @@ type ServerConfig struct {
 	TauthBaseURL              string
 	TauthTenantID             string
 	TauthSigningKey           string
+	TauthSessionCookieName    string
 	PublicBaseURL             string
 	ConfigFilePath            string
 	PinguinAddress            string
@@ -217,6 +222,7 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	application.configurationLoader.SetDefault(environmentKeyTauthBaseURL, "")
 	application.configurationLoader.SetDefault(environmentKeyTauthTenantID, "")
 	application.configurationLoader.SetDefault(environmentKeyTauthSigningKey, "")
+	application.configurationLoader.SetDefault(environmentKeyTauthSessionCookie, defaultTauthSessionCookieName)
 	application.configurationLoader.SetDefault(environmentKeyPinguinAddress, defaultPinguinAddress)
 	application.configurationLoader.SetDefault(environmentKeyPinguinAuthToken, "")
 	application.configurationLoader.SetDefault(environmentKeyPinguinTenantID, "")
@@ -236,6 +242,7 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	commandFlags.String(flagNameTauthBaseURL, "", flagUsageTauthBaseURL)
 	commandFlags.String(flagNameTauthTenantID, "", flagUsageTauthTenantID)
 	commandFlags.String(flagNameTauthSigningKey, "", flagUsageTauthSigningKey)
+	commandFlags.String(flagNameTauthSessionCookieName, defaultTauthSessionCookieName, flagUsageTauthSessionCookieName)
 	commandFlags.String(flagNamePublicBaseURL, defaultPublicBaseURL, flagUsagePublicBaseURL)
 	commandFlags.String(flagNamePinguinAddress, defaultPinguinAddress, flagUsagePinguinAddress)
 	commandFlags.String(flagNamePinguinAuthToken, "", flagUsagePinguinAuthToken)
@@ -273,6 +280,10 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	}
 
 	if bindErr := application.bindFlag(commandFlags, environmentKeyTauthSigningKey, flagNameTauthSigningKey); bindErr != nil {
+		return bindErr
+	}
+
+	if bindErr := application.bindFlag(commandFlags, environmentKeyTauthSessionCookie, flagNameTauthSessionCookieName); bindErr != nil {
 		return bindErr
 	}
 
@@ -333,6 +344,10 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	}
 
 	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyTauthSigningKey, flagNameTauthSigningKey); environmentErr != nil {
+		return environmentErr
+	}
+
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyTauthSessionCookie, flagNameTauthSessionCookieName); environmentErr != nil {
 		return environmentErr
 	}
 
@@ -466,6 +481,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	sharedHTTPClient := &http.Client{Timeout: 5 * time.Second}
 	authManager, authManagerErr := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, landingRouteRoot, httpapi.AuthConfig{
 		SigningKey: serverConfig.TauthSigningKey,
+		CookieName: serverConfig.TauthSessionCookieName,
 		TenantID:   serverConfig.TauthTenantID,
 	})
 	if authManagerErr != nil {
@@ -600,6 +616,7 @@ func (application *ServerApplication) loadServerConfig(configFilePath string) (S
 		TauthBaseURL:              strings.TrimSpace(application.configurationLoader.GetString(environmentKeyTauthBaseURL)),
 		TauthTenantID:             strings.TrimSpace(application.configurationLoader.GetString(environmentKeyTauthTenantID)),
 		TauthSigningKey:           strings.TrimSpace(application.configurationLoader.GetString(environmentKeyTauthSigningKey)),
+		TauthSessionCookieName:    strings.TrimSpace(application.configurationLoader.GetString(environmentKeyTauthSessionCookie)),
 		PublicBaseURL:             strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPublicBaseURL)),
 		ConfigFilePath:            trimmedConfigPath,
 		PinguinAddress:            strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinAddress)),
