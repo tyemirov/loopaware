@@ -43,8 +43,8 @@ func TestLandingThemeToggleMatchesThemePreferenceAndMapping(t *testing.T) {
 			}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 			require.Equal(t, testCase.theme, evaluateScriptString(t, page, dashboardDocumentThemeScript))
+			require.Equal(t, testCase.theme, evaluateScriptString(t, page, dashboardDocumentMprThemeScript))
 			require.Equal(t, testCase.expectedChecked, evaluateScriptBoolean(t, page, toggleCheckedScript(landingThemeToggleControlSelector)))
-			require.Equal(t, testCase.theme, evaluateScriptString(t, page, footerThemeModeAttributeScript(`mpr-footer`)))
 		})
 	}
 }
@@ -77,8 +77,8 @@ func TestPrivacyThemeToggleMatchesThemePreferenceAndMapping(t *testing.T) {
 			}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 			require.Equal(t, testCase.theme, evaluateScriptString(t, page, dashboardDocumentThemeScript))
+			require.Equal(t, testCase.theme, evaluateScriptString(t, page, dashboardDocumentMprThemeScript))
 			require.Equal(t, testCase.expectedChecked, evaluateScriptBoolean(t, page, toggleCheckedScript(landingThemeToggleControlSelector)))
-			require.Equal(t, testCase.theme, evaluateScriptString(t, page, footerThemeModeAttributeScript(`mpr-footer`)))
 		})
 	}
 }
@@ -124,12 +124,4 @@ func toggleCheckedScript(selector string) string {
     var control = document.querySelector(%q);
     return !!(control && control.checked);
   }())`, selector)
-}
-
-func footerThemeModeAttributeScript(hostSelector string) string {
-	return fmt.Sprintf(`(function(){
-    var footer = document.querySelector(%q);
-    if (!footer) { return ''; }
-    return footer.getAttribute('theme-mode') || '';
-  }())`, hostSelector)
 }

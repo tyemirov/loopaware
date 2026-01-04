@@ -143,9 +143,32 @@ var (
     }
     rootElement.classList.toggle('bg-body', true);
     rootElement.classList.toggle('text-body', true);
-    if (footerElement) {
-      footerElement.setAttribute('theme-mode', normalizedTheme);
+  }
+  function parseThemeConfig(rawValue) {
+    if (!rawValue) {
+      return {};
     }
+    try {
+      var parsed = JSON.parse(rawValue);
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+    } catch (error) {
+      console.error(error);
+    }
+    return {};
+  }
+  function updateFooterThemeConfig(theme) {
+    if (!footerElement) {
+      return;
+    }
+    var normalizedTheme = theme === 'light' ? 'light' : 'dark';
+    var config = parseThemeConfig(footerElement.getAttribute('theme-config'));
+    if (!config.attribute) {
+      config.attribute = 'data-bs-theme';
+    }
+    config.initialMode = normalizedTheme;
+    footerElement.setAttribute('theme-config', JSON.stringify(config));
   }
   function loadPublicTheme() {
     var storedTheme = localStorage.getItem(publicThemeStorageKey);
@@ -173,6 +196,7 @@ var (
     var storedTheme = loadPublicTheme();
     var normalizedTheme = storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : 'dark';
     applyPublicTheme(normalizedTheme);
+    updateFooterThemeConfig(normalizedTheme);
     if (storedTheme !== 'light' && storedTheme !== 'dark') {
       persistPublicTheme(normalizedTheme);
     }

@@ -186,6 +186,18 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Notes: Follow `tools/TAuth/docs/migration.md` and mpr-ui docs; ensure refresh handling via `apiFetch` and update login/logout flows.
   Resolution: Replaced GAuss sessions with TAuth validator, wired mpr-ui header + `tauth.js` across templates, updated env/config/doc/test coverage, and verified `make ci`.
 
+- [x] [LA-411] Align LoopAware footer integration with mpr-ui v3.4.0 DSL.
+  Priority: P1
+  Goal: Remove legacy footer attributes (`links`, `theme-mode`) and sync theme state via `theme-config` + document attributes while keeping toggle behavior and link catalog intact.
+  Deliverable: PR that updates footer rendering + theme scripts/tests to use `links-collection` and `theme-config.initialMode`; `make ci` passes.
+  Docs/Refs:
+  - `tools/mpr-ui/docs/custom-elements.md`
+  - `tools/mpr-ui/CHANGELOG.md`
+  - `pkg/footer/footer.go`
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/templates/dashboard.tmpl`
+  Resolution: Switched footer rendering to `links-collection`, moved initial theme into `theme-config.initialMode`, removed `theme-mode` syncing, and updated landing/privacy/dashboard/theme toggle tests; `make ci` passes.
+
 ## Planning (do not implement yet)
 
 - [ ] [LA-410] Refactor LoopAware into a separate frontend and backend to adopt TAuth via mpr-ui.

@@ -2061,23 +2061,43 @@
           writeThemePreference(themePreferenceLegacyStorageKey, mode);
         }
 
-        function synchronizeFooterThemeMode(mode) {
+        function parseThemeConfig(rawValue) {
+          if (!rawValue) {
+            return {};
+          }
+          try {
+            var parsed = JSON.parse(rawValue);
+            if (parsed && typeof parsed === 'object') {
+              return parsed;
+            }
+          } catch (error) {
+            console.error(error);
+          }
+          return {};
+        }
+
+        function updateFooterThemeConfig(mode) {
           if (!footerElement) {
             return;
           }
-          footerElement.setAttribute('theme-mode', mode);
+          var normalizedMode = mode === 'dark' ? 'dark' : 'light';
+          var config = parseThemeConfig(footerElement.getAttribute('theme-config'));
+          if (!config.attribute) {
+            config.attribute = 'data-bs-theme';
+          }
+          config.initialMode = normalizedMode;
+          footerElement.setAttribute('theme-config', JSON.stringify(config));
         }
 
         function handleThemeSelection(mode) {
           var normalizedMode = mode === 'dark' ? 'dark' : 'light';
           applyThemePreference(normalizedMode);
           persistThemePreference(normalizedMode);
-          synchronizeFooterThemeMode(normalizedMode);
         }
 
         function loadThemePreference() {
           var stored = resolveThemePreference();
-          synchronizeFooterThemeMode(stored);
+          updateFooterThemeConfig(stored);
           applyThemePreference(stored);
         }
 

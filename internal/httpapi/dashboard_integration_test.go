@@ -246,12 +246,12 @@ const (
 		return textContent === '1';
 	}())`
 	dashboardDocumentThemeScript        = "document.documentElement.getAttribute('data-bs-theme') || ''"
+	dashboardDocumentMprThemeScript     = "document.documentElement.getAttribute('data-mpr-theme') || ''"
 	dashboardStoredDashboardThemeScript = "localStorage.getItem('loopaware_dashboard_theme') || ''"
 	dashboardStoredPublicThemeScript    = "localStorage.getItem('loopaware_public_theme') || ''"
 	dashboardStoredLandingThemeScript   = "localStorage.getItem('loopaware_landing_theme') || ''"
 	dashboardSeedPublicThemeScript      = `localStorage.setItem('loopaware_public_theme','dark');localStorage.removeItem('loopaware_dashboard_theme');localStorage.removeItem('loopaware_theme');`
 	dashboardClearThemeStorageScript    = `localStorage.removeItem('loopaware_public_theme');localStorage.removeItem('loopaware_landing_theme');localStorage.removeItem('loopaware_dashboard_theme');localStorage.removeItem('loopaware_theme');`
-	dashboardFooterThemeModeScript      = `(function(){var footer=document.getElementById('dashboard-footer');return footer ? (footer.getAttribute('theme-mode') || '') : '';}())`
 	dashboardSiteFaviconSelector        = "#sites-list [data-site-id] img"
 	dashboardSiteFaviconVisibleScript   = `(function() {
 			var list = document.getElementById('sites-list');
@@ -1177,7 +1177,7 @@ func TestDashboardRestoresThemeFromPublicPreference(t *testing.T) {
 	require.Equal(t, "dark", documentTheme)
 
 	require.Eventually(t, func() bool {
-		return evaluateScriptString(t, page, dashboardFooterThemeModeScript) == "dark"
+		return evaluateScriptString(t, page, dashboardDocumentMprThemeScript) == "dark"
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	storedTheme := evaluateScriptString(t, page, dashboardStoredDashboardThemeScript)
@@ -1294,7 +1294,7 @@ func TestDashboardInheritsLandingDefaultTheme(t *testing.T) {
 	require.Equal(t, "dark", evaluateScriptString(t, page, dashboardDocumentThemeScript))
 
 	require.Eventually(t, func() bool {
-		return evaluateScriptString(t, page, dashboardFooterThemeModeScript) == "dark"
+		return evaluateScriptString(t, page, dashboardDocumentMprThemeScript) == "dark"
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	storedTheme := evaluateScriptString(t, page, dashboardStoredDashboardThemeScript)
@@ -1355,7 +1355,7 @@ func TestDashboardPrefersPublicThemeOverStoredPreference(t *testing.T) {
 			require.Equal(t, testCase.expectedTheme, storedDashboardTheme)
 
 			require.Eventually(t, func() bool {
-				return evaluateScriptString(t, page, dashboardFooterThemeModeScript) == testCase.expectedTheme
+				return evaluateScriptString(t, page, dashboardDocumentMprThemeScript) == testCase.expectedTheme
 			}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 		})
 	}
@@ -1542,7 +1542,7 @@ func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
   }())`))
 
 	require.Eventually(t, func() bool {
-		return evaluateScriptString(t, page, dashboardFooterThemeModeScript) == "dark"
+		return evaluateScriptString(t, page, dashboardDocumentMprThemeScript) == "dark"
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 	evaluateScriptInto(t, page, `(function(){
 		var footer = document.getElementById('dashboard-footer');
