@@ -60,6 +60,7 @@ const (
 	dashboardConfirmButtonSelector              = "#session-timeout-confirm-button"
 	dashboardSettingsButtonSelector             = "#settings-button"
 	dashboardProfileToggleSelector              = `[data-loopaware-profile-toggle="true"]`
+	dashboardLogoutButtonSelector               = `[data-loopaware-logout="true"]`
 	dashboardSettingsModalSelector              = "#settings-modal"
 	dashboardWidgetBottomOffsetInputSelector    = "#widget-placement-bottom-offset"
 	dashboardWidgetBottomOffsetIncreaseSelector = "#widget-bottom-offset-increase"
@@ -99,10 +100,54 @@ const (
 	dashboardSectionTabSubscriptionsSelector  = "#dashboard-section-tab-subscriptions"
 	dashboardSectionTabTrafficSelector        = "#dashboard-section-tab-traffic"
 	dashboardSubscribersTableBodySelector     = "#subscribers-table-body"
+	dashboardLogoutFetchStorageKey            = "loopawareLogoutFetch"
 	dashboardSettingsModalVisibleScript       = `(function() {
 		var modal = document.getElementById('settings-modal');
 		if (!modal) { return false; }
 		return modal.classList.contains('show');
+	}())`
+	dashboardLogoutTestHookScript = `(function() {
+		var storageKey = '` + dashboardLogoutFetchStorageKey + `';
+		var originalFetch = window.fetch ? window.fetch.bind(window) : null;
+		window.__loopawareLogoutFetchCalls = [];
+		window.fetch = function(input, options) {
+			var url = '';
+			if (typeof input === 'string') {
+				url = input;
+			} else if (input && typeof input.url === 'string') {
+				url = input.url;
+			}
+			if (url.indexOf('/auth/logout') !== -1) {
+				window.__loopawareLogoutFetchCalls.push({ url: url, options: options || null });
+				if (window.sessionStorage) {
+					window.sessionStorage.setItem(storageKey, 'true');
+				}
+				return Promise.resolve(new Response(null, { status: 204 }));
+			}
+			if (originalFetch) {
+				return originalFetch(input, options);
+			}
+			return Promise.reject(new Error('fetch unavailable'));
+		};
+		window.logout = function() {
+			return Promise.reject(new Error('logout failed'));
+		};
+	}())`
+	dashboardLogoutFetchClearScript = `(function() {
+		var storageKey = '` + dashboardLogoutFetchStorageKey + `';
+		if (window.sessionStorage) {
+			window.sessionStorage.removeItem(storageKey);
+		}
+		return true;
+	}())`
+	dashboardLogoutFetchCalledScript = `(function() {
+		var storageKey = '` + dashboardLogoutFetchStorageKey + `';
+		if (window.sessionStorage) {
+			var value = window.sessionStorage.getItem(storageKey);
+			if (value === 'true') { return true; }
+		}
+		var calls = window.__loopawareLogoutFetchCalls || [];
+		return calls.length > 0;
 	}())`
 	dashboardBodyModalOpenScript = `(function() {
 		return document.body && document.body.classList.contains('modal-open');
@@ -506,6 +551,13 @@ func TestDashboardSettingsModalOpensAndDismissesViaBackdrop(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, `(function(){
+			var header = document.querySelector('mpr-header');
+			if (!header) { return ''; }
+			return header.getAttribute('data-loopaware-auth-bound') || '';
+		}())`) == "true"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	openDashboardProfileMenu(t, page)
 	openDashboardProfileMenu(t, page)
@@ -606,6 +658,53 @@ func TestDashboardSettingsModalOpensAndDismissesViaBackdrop(t *testing.T) {
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 	require.Eventually(t, func() bool {
 		return !evaluateScriptBoolean(t, page, dashboardBodyModalOpenScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardLogoutFallsBackToFetchWhenLogoutFails(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		return style.display !== 'none' && style.visibility !== 'hidden';
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, `(function(){
+			var header = document.querySelector('mpr-header');
+			if (!header) { return ''; }
+			return header.getAttribute('data-loopaware-auth-bound') || '';
+		}())`) == "true"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	evaluateScriptInto(t, page, dashboardLogoutFetchClearScript, nil)
+	evaluateScriptInto(t, page, dashboardLogoutTestHookScript, nil)
+
+	openDashboardProfileMenu(t, page)
+	openDashboardProfileMenu(t, page)
+	clickSelector(t, page, dashboardLogoutButtonSelector)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardLogoutFetchCalledScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardLocationPathScript) == dashboardTestLandingPath
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 

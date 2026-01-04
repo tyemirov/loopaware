@@ -291,17 +291,95 @@ var (
       '';
   }
 
+  function normalizeBaseURL(value) {
+    if (!value) {
+      return '';
+    }
+    var trimmed = String(value).trim();
+    if (!trimmed) {
+      return '';
+    }
+    return trimmed.replace(/\/+$/, '');
+  }
+
+  function normalizePath(value, fallback) {
+    if (!value) {
+      return fallback;
+    }
+    var trimmed = String(value).trim();
+    if (!trimmed) {
+      return fallback;
+    }
+    return trimmed;
+  }
+
+  function resolveLogoutURL(headerHost) {
+    var logoutPath = '/auth/logout';
+    var baseUrl = '';
+    if (headerHost && typeof headerHost.getAttribute === 'function') {
+      baseUrl = normalizeBaseURL(headerHost.getAttribute('tauth-url'));
+      logoutPath = normalizePath(headerHost.getAttribute('tauth-logout-path'), logoutPath);
+    }
+    if (!baseUrl && window.location && typeof window.location.origin === 'string') {
+      baseUrl = normalizeBaseURL(window.location.origin);
+    }
+    if (logoutPath.indexOf('http://') === 0 || logoutPath.indexOf('https://') === 0) {
+      return logoutPath;
+    }
+    if (!baseUrl) {
+      return logoutPath;
+    }
+    if (logoutPath.indexOf('/') === 0) {
+      return baseUrl + logoutPath;
+    }
+    return baseUrl + '/' + logoutPath;
+  }
+
+  function resolveLogoutHeaders(headerHost) {
+    var headers = { 'X-Requested-With': 'XMLHttpRequest' };
+    if (headerHost && typeof headerHost.getAttribute === 'function') {
+      var tenantId = headerHost.getAttribute('tauth-tenant-id');
+      if (tenantId) {
+        headers['X-TAuth-Tenant'] = tenantId;
+      }
+    }
+    return headers;
+  }
+
+  function performLogoutRequest(headerHost) {
+    var logoutUrl = resolveLogoutURL(headerHost);
+    var logoutRequest = function() {
+      return window.fetch(logoutUrl, {
+        method: 'POST',
+        credentials: 'include',
+        headers: resolveLogoutHeaders(headerHost)
+      });
+    };
+    if (typeof window.logout === 'function') {
+      try {
+        return Promise.resolve(window.logout())
+          .catch(function() {
+            return null;
+          })
+          .then(function() {
+            return logoutRequest();
+          });
+      } catch (error) {
+        return logoutRequest();
+      }
+    }
+    return logoutRequest();
+  }
+
   function handleLogout(headerHost) {
     var redirectToLanding = function() {
       if (headerHost && headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
         window.location.assign('{{.LandingPath}}');
       }
     };
-    if (typeof window.logout === 'function') {
-      Promise.resolve(window.logout()).then(redirectToLanding).catch(redirectToLanding);
-      return;
-    }
-    redirectToLanding();
+    performLogoutRequest(headerHost)
+      .then(redirectToLanding)
+      .catch(redirectToLanding);
   }
 
   function ensureCustomProfileMenu(headerHost, profileElements) {

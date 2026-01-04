@@ -104,6 +104,48 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/landing.go`
   - `internal/httpapi/dashboard_integration_test.go`
 
+- [x] [LA-325] Logout does not clear the TAuth session from the dashboard header.
+  Priority: P0
+  Goal: Clicking Logout clears the TAuth session cookie and returns the user to `/login`, with the header showing unauthenticated state on reload.
+  Deliverable: PR that wires the custom dropdown logout to the same auth/logout path as mpr-ui (or TAuth), with integration coverage for logout + redirect.
+  Notes: The custom menu uses `public_assets.go` `handleLogout` → `window.logout` fallback; if `tauth.js` is missing/mis-wired, we redirect without invalidating the session. Confirm the logout helper includes `X-TAuth-Tenant` and correct `tauth-url`. If the issue is in `tauth.js` or mpr-ui auth helpers, note/update those repos.
+  Resolution: Always issue a direct `/auth/logout` POST after `window.logout` (tauth.js swallows errors), plus logout integration coverage that asserts the logout request and landing redirect; `make ci` passes.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/templates/dashboard_header.tmpl`
+  - `tools/mpr-ui/docs/custom-elements.md`
+  - `tools/TAuth/docs/migration.md`
+
+- [ ] [LA-326] Account settings modal opens blank from the header dropdown.
+  Priority: P1
+  Goal: The Account settings action opens a modal with the expected auto-logout controls and descriptive copy across both themes.
+  Deliverable: PR that ensures the modal renders content and remains readable in both light/dark modes; add integration coverage for settings modal visibility + content.
+  Notes: The menu item targets `SettingsModalID`, but users report an empty modal. Verify Bootstrap modal wiring, `SettingsModalID` parity between `dashboard_header.tmpl` and `dashboard.tmpl`, and theme styling that could render content invisible. Consider migrating to `<mpr-settings>` if the modal is brittle.
+  Docs/Refs:
+  - `internal/httpapi/templates/dashboard_header.tmpl`
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/web.go`
+
+- [ ] [LA-327] Dashboard header/footer palette is out of sync with body theme.
+  Priority: P1
+  Goal: Header, footer, and body share the same light/dark palette so the UI feels cohesive in both themes.
+  Deliverable: PR that aligns mpr-ui theme tokens with Bootstrap theme state (or documents a new preset) and adds integration coverage for theme consistency.
+  Notes: Landing page overrides `--mpr-color-*` tokens, but dashboard does not. mpr-ui uses its own CSS variables keyed off `data-mpr-theme`, while the dashboard applies Bootstrap classes; the palettes can diverge. If a shared preset or `data-bs-theme` integration belongs in mpr-ui, note it for that repo.
+  Docs/Refs:
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/public_assets.go`
+  - `tools/mpr-ui/README.md`
+
+- [ ] [LA-328] Dashboard header profile toggle should be avatar-only with dropdown actions.
+  Priority: P1
+  Goal: The header shows a single avatar (no wide name button) that opens the settings/logout dropdown; display name can appear inside the menu.
+  Deliverable: PR that adjusts header markup/CSS and updates profile name injection logic to render inside the dropdown instead of the toggle.
+  Notes: `dashboard_header.tmpl` currently renders the name inside the toggle button, producing a large pill button. Update the template and `public_assets.go` profile sync to support the compact avatar-only toggle.
+  Docs/Refs:
+  - `internal/httpapi/templates/dashboard_header.tmpl`
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/public_assets.go`
+
 ## Improvements (210–299)
 
 - [x] [LA-213] Dashboard section tabs should span full width and split into 3 equal parts.
