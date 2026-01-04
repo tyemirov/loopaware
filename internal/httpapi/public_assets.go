@@ -347,6 +347,45 @@ var (
     return headers;
   }
 
+  function submitLogoutForm(logoutUrl) {
+    return new Promise(function(resolve) {
+      if (!document || !logoutUrl) {
+        resolve();
+        return;
+      }
+      var root = document.body || document.documentElement;
+      if (!root || typeof document.createElement !== 'function') {
+        resolve();
+        return;
+      }
+      var iframeName = 'loopaware-logout-target';
+      var iframe = document.createElement('iframe');
+      iframe.name = iframeName;
+      iframe.setAttribute('data-loopaware-logout-target', 'true');
+      iframe.style.display = 'none';
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = logoutUrl;
+      form.target = iframeName;
+      form.style.display = 'none';
+      form.setAttribute('data-loopaware-logout-form', 'true');
+      root.appendChild(iframe);
+      root.appendChild(form);
+      try {
+        form.submit();
+      } catch (error) {}
+      window.setTimeout(function() {
+        if (form.parentNode) {
+          form.parentNode.removeChild(form);
+        }
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+        resolve();
+      }, 1500);
+    });
+  }
+
   function performLogoutRequest(headerHost) {
     var logoutUrl = resolveLogoutURL(headerHost);
     var logoutRequest = function() {
@@ -356,20 +395,22 @@ var (
         headers: resolveLogoutHeaders(headerHost)
       });
     };
+    var logoutWithFetchFallback = function() {
+      return logoutRequest().catch(function() {
+        return submitLogoutForm(logoutUrl);
+      });
+    };
     if (typeof window.logout === 'function') {
       try {
         return Promise.resolve(window.logout())
           .catch(function() {
-            return null;
-          })
-          .then(function() {
-            return logoutRequest();
+            return logoutWithFetchFallback();
           });
       } catch (error) {
-        return logoutRequest();
+        return logoutWithFetchFallback();
       }
     }
-    return logoutRequest();
+    return logoutWithFetchFallback();
   }
 
   function handleLogout(headerHost) {
