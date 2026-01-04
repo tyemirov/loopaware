@@ -647,85 +647,6 @@ var (
     attemptSetup();
   }
 
-  function hasAuthenticatedProfile(headerHost) {
-    if (!headerHost) {
-      return false;
-    }
-    var headerRoot = resolveHeaderRoot(headerHost);
-    if (headerRoot && headerRoot.classList.contains('mpr-header--authenticated')) {
-      return true;
-    }
-    return Boolean(headerHost.getAttribute('data-user-id') || headerHost.getAttribute('data-user-email') || headerHost.getAttribute('data-user-display'));
-  }
-
-  var authBootstrapAttempts = 0;
-  var authBootstrapInFlight = false;
-  var authBootstrapLimit = 3;
-  function attemptAuthBootstrap(headerHost) {
-    if (!headerHost || authBootstrapInFlight || authBootstrapAttempts >= authBootstrapLimit) {
-      return;
-    }
-    if (typeof window.getCurrentUser !== 'function') {
-      return;
-    }
-    authBootstrapInFlight = true;
-    authBootstrapAttempts += 1;
-    Promise.resolve()
-      .then(function() {
-        return window.getCurrentUser();
-      })
-      .then(function(profile) {
-        authBootstrapInFlight = false;
-        if (!profile) {
-          return;
-        }
-        updateHeaderAvatar(headerHost, profile);
-        if (headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
-          window.location.assign('{{.DashboardPath}}');
-        }
-      })
-      .catch(function() {
-        authBootstrapInFlight = false;
-      });
-  }
-
-  function observeHeaderAuthState(headerHost) {
-    if (!headerHost || typeof MutationObserver !== 'function') {
-      return;
-    }
-    if (headerHost.getAttribute('data-loopaware-auth-observer') === 'true') {
-      return;
-    }
-    headerHost.setAttribute('data-loopaware-auth-observer', 'true');
-    var wasAuthenticated = hasAuthenticatedProfile(headerHost);
-    if (wasAuthenticated && headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
-      window.location.assign('{{.DashboardPath}}');
-      return;
-    }
-    var observer = new MutationObserver(function() {
-      var isAuthenticated = hasAuthenticatedProfile(headerHost);
-      if (isAuthenticated) {
-        updateHeaderAvatar(headerHost, null);
-        if (headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
-          window.location.assign('{{.DashboardPath}}');
-          return;
-        }
-      } else if (wasAuthenticated) {
-        updateHeaderAvatar(headerHost, null);
-        if (headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
-          window.location.assign('{{.LandingPath}}');
-          return;
-        }
-      }
-      if (isAuthenticated !== wasAuthenticated) {
-        wasAuthenticated = isAuthenticated;
-      }
-    });
-    observer.observe(headerHost, {
-      attributes: true,
-      attributeFilter: ['data-user-id', 'data-user-email', 'data-user-display', 'data-user-avatar-url']
-    });
-  }
 
   function resolveAuthHost(event) {
     if (event && event.target && event.target.nodeType === 1 && typeof event.target.matches === 'function') {
@@ -776,26 +697,6 @@ var (
     }
     headerHost.setAttribute('data-loopaware-auth-bound', 'true');
     ensureHeaderProfileReady(headerHost);
-    observeHeaderAuthState(headerHost);
-    (function redirectIfAlreadyAuthenticated() {
-      var remainingAttempts = 120;
-      function attemptRedirect() {
-        var currentHeader = document.querySelector('mpr-header');
-        var shouldRedirect = currentHeader && currentHeader.getAttribute('data-loopaware-auth-redirect') === 'true';
-        if (shouldRedirect && hasAuthenticatedProfile(currentHeader)) {
-          window.location.assign('{{.DashboardPath}}');
-          return;
-        }
-        if (shouldRedirect) {
-          attemptAuthBootstrap(currentHeader);
-        }
-        remainingAttempts -= 1;
-        if (remainingAttempts > 0) {
-          window.setTimeout(attemptRedirect, 100);
-        }
-      }
-      attemptRedirect();
-    }());
   }
 
   var bindingInProgress = false;

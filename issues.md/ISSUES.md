@@ -170,6 +170,16 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/dashboard_integration_test.go`
 
+- [x] [LA-331] Remove auth fallbacks and rely solely on mpr-ui auth events.
+  Priority: P1
+  Goal: Login/logout announcements and redirects are driven only by `mpr-ui:auth:*` events, without MutationObserver or manual bootstrap fallbacks.
+  Deliverable: PR that removes attribute/observer fallbacks and confirms event-driven redirects still work.
+  Notes: Required to align with mpr-ui integration guidance and avoid double-trigger behavior.
+  Resolution: Removed attribute observers/bootstraps, and now dispatches `mpr-ui:auth:authenticated` when dashboard user data loads so the header updates via events only; `make ci` passes.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/templates/dashboard.tmpl`
+
 ## Improvements (210–299)
 
 - [x] [LA-213] Dashboard section tabs should span full width and split into 3 equal parts.
