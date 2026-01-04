@@ -317,6 +317,14 @@ var (
   function resolveLogoutURL(headerHost) {
     var logoutPath = '/auth/logout';
     var baseUrl = '';
+    if (typeof window.getAuthEndpoints === 'function') {
+      try {
+        var endpoints = window.getAuthEndpoints();
+        if (endpoints && typeof endpoints.logoutUrl === 'string' && endpoints.logoutUrl.trim()) {
+          return endpoints.logoutUrl;
+        }
+      } catch (error) {}
+    }
     if (headerHost && typeof headerHost.getAttribute === 'function') {
       baseUrl = normalizeBaseURL(headerHost.getAttribute('tauth-url'));
       logoutPath = normalizePath(headerHost.getAttribute('tauth-logout-path'), logoutPath);
@@ -489,11 +497,6 @@ var (
     if (profileElements.settingsButton && !profileElements.settingsButton.getAttribute('data-loopaware-settings-bound')) {
       profileElements.settingsButton.setAttribute('data-loopaware-settings-bound', 'true');
       profileElements.settingsButton.addEventListener('click', function(event) {
-        if (event) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-        setMenuOpen(false);
         var targetSelector = profileElements.settingsButton.getAttribute('data-bs-target');
         if (!targetSelector) {
           return;
@@ -505,9 +508,16 @@ var (
         if (window.bootstrap && window.bootstrap.Modal && typeof window.bootstrap.Modal.getOrCreateInstance === 'function') {
           var modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalElement);
           if (modalInstance && typeof modalInstance.show === 'function') {
+            if (event) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+            setMenuOpen(false);
             modalInstance.show();
+            return;
           }
         }
+        setMenuOpen(false);
       });
     }
     if (profileElements.logoutButton && !profileElements.logoutButton.getAttribute('data-loopaware-logout-bound')) {
@@ -615,13 +625,13 @@ var (
     if (!headerHost) {
       return;
     }
-    var customProfile = resolveCustomProfileElements(headerHost);
-    if (customProfile) {
-      updateHeaderAvatar(headerHost, null);
-      return;
-    }
     var remainingAttempts = 20;
     function attemptSetup() {
+      var customProfile = resolveCustomProfileElements(headerHost);
+      if (customProfile) {
+        updateHeaderAvatar(headerHost, null);
+        return;
+      }
       var profileContainer = headerHost.querySelector('[data-mpr-header="profile"]');
       var profileName = headerHost.querySelector('[data-mpr-header="profile-name"]');
       var signOutButton = headerHost.querySelector('[data-mpr-header="sign-out-button"]');

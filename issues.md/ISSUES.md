@@ -160,6 +160,16 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/dashboard_integration_test.go`
 
+- [x] [LA-330] Header dropdown actions are unresponsive in some sessions.
+  Priority: P1
+  Goal: Settings and logout reliably bind even when the header renders late or auth attributes update before slot content mounts.
+  Deliverable: PR that retries custom profile binding and resolves logout endpoints from tauth.js when available, plus coverage if possible.
+  Notes: Users report the settings modal and logout action do nothing; likely the custom menu handlers never attach or the logout request targets the wrong origin.
+  Resolution: Added retry logic for custom profile binding, made logout prefer tauth.js `getAuthEndpoints()` when available, and relaxed settings click handling so Bootstrap’s data API still works when manual modal control is unavailable; `make ci` passes.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/dashboard_integration_test.go`
+
 ## Improvements (210–299)
 
 - [x] [LA-213] Dashboard section tabs should span full width and split into 3 equal parts.
