@@ -111,9 +111,26 @@
         background: rgba(15, 23, 42, 0.08);
         color: #0f172a;
       }
+      body[data-mpr-theme="dark"],
+      body[data-mpr-theme="light"] {
+        --bs-body-bg: var(--mpr-color-surface-primary);
+        --bs-body-color: var(--mpr-color-text-primary);
+        --bs-secondary-color: var(--mpr-color-text-muted);
+        --bs-border-color: var(--mpr-color-border);
+      }
+      body[data-mpr-theme="dark"] {
+        --bs-body-bg-rgb: 15, 23, 42;
+        --bs-body-color-rgb: 226, 232, 240;
+        --bs-secondary-color-rgb: 203, 213, 245;
+      }
+      body[data-mpr-theme="light"] {
+        --bs-body-bg-rgb: 248, 250, 252;
+        --bs-body-color-rgb: 15, 23, 42;
+        --bs-secondary-color-rgb: 51, 65, 85;
+      }
     </style>
   </head>
-  <body class="d-flex flex-column min-vh-100 bg-light">
+  <body class="d-flex flex-column min-vh-100">
     {{template "dashboard_header" .}}
     <main class="flex-grow-1 pt-5 mt-4">
       <div class="container py-4">
@@ -2036,16 +2053,11 @@
           document.documentElement.setAttribute('data-mpr-theme', normalized);
           document.body.setAttribute('data-bs-theme', normalized);
           document.body.setAttribute('data-mpr-theme', normalized);
+          document.body.classList.remove('bg-dark', 'text-light', 'bg-light');
           if (normalized === 'dark') {
-            document.body.classList.remove('bg-light');
-            document.body.classList.add('bg-dark', 'text-light');
             applyElementThemeClasses(footerElement, footerThemeClasses.dark || '', footerThemeClasses.light || '');
             applyElementThemeClasses(feedbackTableHeader, tableThemeClasses.dark || '', tableThemeClasses.light || '');
           } else {
-            document.body.classList.remove('bg-dark', 'text-light');
-            if (!document.body.classList.contains('bg-light')) {
-              document.body.classList.add('bg-light');
-            }
             applyElementThemeClasses(footerElement, footerThemeClasses.light || '', footerThemeClasses.dark || '');
             applyElementThemeClasses(feedbackTableHeader, tableThemeClasses.light || '', tableThemeClasses.dark || '');
           }
