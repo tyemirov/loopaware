@@ -43,6 +43,7 @@ const (
 	dashboardTestGoogleClientID    = "test-google-client-id"
 	dashboardTestAdminEmail        = "admin@example.com"
 	dashboardTestAdminDisplayName  = "Admin Example"
+	dashboardTestAvatarDataURI     = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
 	dashboardTestWidgetBaseURL     = "http://example.test"
 	dashboardTestDashboardRoute    = "/app"
 	dashboardPromptWaitTimeout     = 10 * time.Second
@@ -130,6 +131,26 @@ const (
 		}
 		return { textLength: textLength, contrast: delta };
 	}())`
+	dashboardProfileMenuStateScript = `(function() {
+		var toggle = document.querySelector('[data-loopaware-profile-toggle="true"]');
+		var name = document.querySelector('[data-loopaware-profile-name="true"]');
+		var avatar = document.querySelector('[data-loopaware-avatar]');
+		var toggleText = toggle ? (toggle.textContent || '').trim() : '';
+		var menuName = name ? (name.textContent || '').trim() : '';
+		var avatarVisible = false;
+		if (avatar) {
+			var avatarStyle = window.getComputedStyle(avatar);
+			var avatarRect = avatar.getBoundingClientRect();
+			avatarVisible = avatarStyle.display !== 'none' && avatarStyle.visibility !== 'hidden' && avatarRect.width > 0 && avatarRect.height > 0;
+		}
+		var nameVisible = false;
+		if (name) {
+			var nameStyle = window.getComputedStyle(name);
+			var nameRect = name.getBoundingClientRect();
+			nameVisible = nameStyle.display !== 'none' && nameStyle.visibility !== 'hidden' && nameRect.width > 0 && nameRect.height > 0;
+		}
+		return { toggleText: toggleText, menuName: menuName, avatarVisible: avatarVisible, nameVisible: nameVisible };
+	}())`
 	dashboardLogoutTestHookScript = `(function() {
 		var storageKey = '` + dashboardLogoutFetchStorageKey + `';
 		var originalFetch = window.fetch ? window.fetch.bind(window) : null;
@@ -210,20 +231,30 @@ const (
 	dashboardNotificationBackgroundScript = `window.getComputedStyle(document.querySelector("#session-timeout-notification")).backgroundColor`
 	dashboardLocationPathScript           = "window.location.pathname"
 	landingMarkAuthenticatedScript        = `(function() {
+		var profile = { display: 'Test User', email: 'test@example.com' };
+		window.__loopawareTestProfile = profile;
+		window.initAuthClient = function(options) {
+			if (options && typeof options.onAuthenticated === 'function') {
+				options.onAuthenticated(profile);
+			}
+			return Promise.resolve(profile);
+		};
+		window.getCurrentUser = function() {
+			return Promise.resolve(profile);
+		};
 		function markAuthenticated() {
 			var headerHost = document.querySelector('mpr-header');
 			if (!headerHost) {
 				return false;
 			}
-			headerHost.setAttribute('data-user-display', 'Test User');
+			headerHost.setAttribute('data-user-display', profile.display);
+			headerHost.setAttribute('data-user-email', profile.email);
 			return true;
 		}
 		function scheduleMark() {
 			var remainingAttempts = 60;
 			function attemptMark() {
-				if (markAuthenticated()) {
-					return;
-				}
+				markAuthenticated();
 				remainingAttempts -= 1;
 				if (remainingAttempts > 0) {
 					window.setTimeout(attemptMark, 100);
@@ -738,6 +769,58 @@ func TestDashboardLogoutFallsBackToFetchWhenLogoutFails(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return evaluateScriptString(t, page, dashboardLocationPathScript) == dashboardTestLandingPath
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardProfileMenuShowsAvatarOnly(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookieWithAvatar(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName, dashboardTestAvatarDataURI)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		return style.display !== 'none' && style.visibility !== 'hidden';
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, `(function(){
+			var header = document.querySelector('mpr-header');
+			if (!header) { return ''; }
+			return header.getAttribute('data-loopaware-auth-bound') || '';
+		}())`) == "true"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	openDashboardProfileMenu(t, page)
+	openDashboardProfileMenu(t, page)
+
+	var state struct {
+		ToggleText    string `json:"toggleText"`
+		MenuName      string `json:"menuName"`
+		AvatarVisible bool   `json:"avatarVisible"`
+		NameVisible   bool   `json:"nameVisible"`
+	}
+	require.Eventually(t, func() bool {
+		evaluateScriptInto(t, page, dashboardProfileMenuStateScript, &state)
+		return state.MenuName == dashboardTestAdminDisplayName && state.AvatarVisible && state.NameVisible
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	evaluateScriptInto(t, page, dashboardProfileMenuStateScript, &state)
+	require.Equal(t, "", state.ToggleText)
+	require.Equal(t, dashboardTestAdminDisplayName, state.MenuName)
+	require.True(t, state.AvatarVisible)
+	require.True(t, state.NameVisible)
 }
 
 func TestDashboardShowsDistinctWidgetSnippets(t *testing.T) {
@@ -2749,6 +2832,11 @@ func (resolver *staticFaviconResolver) ResolveAsset(ctx context.Context, allowed
 
 func createAuthenticatedSessionCookie(testingT *testing.T, email string, name string) *http.Cookie {
 	testingT.Helper()
+	return createAuthenticatedSessionCookieWithAvatar(testingT, email, name, "")
+}
+
+func createAuthenticatedSessionCookieWithAvatar(testingT *testing.T, email string, name string, avatarURL string) *http.Cookie {
+	testingT.Helper()
 
 	now := time.Now().UTC()
 	claims := &sessionvalidator.Claims{
@@ -2756,7 +2844,7 @@ func createAuthenticatedSessionCookie(testingT *testing.T, email string, name st
 		UserID:          "test-user",
 		UserEmail:       email,
 		UserDisplayName: name,
-		UserAvatarURL:   "",
+		UserAvatarURL:   avatarURL,
 		UserRoles:       []string{},
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    dashboardTestJWTIssuer,

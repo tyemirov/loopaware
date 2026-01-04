@@ -138,15 +138,17 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/public_assets.go`
   - `tools/mpr-ui/README.md`
 
-- [ ] [LA-328] Dashboard header profile toggle should be avatar-only with dropdown actions.
+- [x] [LA-328] Dashboard header profile toggle should be avatar-only with dropdown actions.
   Priority: P1
   Goal: The header shows a single avatar (no wide name button) that opens the settings/logout dropdown; display name can appear inside the menu.
   Deliverable: PR that adjusts header markup/CSS and updates profile name injection logic to render inside the dropdown instead of the toggle.
   Notes: `dashboard_header.tmpl` currently renders the name inside the toggle button, producing a large pill button. Update the template and `public_assets.go` profile sync to support the compact avatar-only toggle.
+  Resolution: Moved the display name into the dropdown, rendered an avatar-only toggle with updated header styling and profile sync attributes, and added integration coverage for avatar-only toggle/menu display; landing auth harness now stubs mpr-ui auth bootstrap to keep redirect checks stable; `make ci` passes.
   Docs/Refs:
   - `internal/httpapi/templates/dashboard_header.tmpl`
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/dashboard_integration_test.go`
 
 ## Improvements (210–299)
 
