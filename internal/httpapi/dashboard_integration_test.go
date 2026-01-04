@@ -106,6 +106,30 @@ const (
 		if (!modal) { return false; }
 		return modal.classList.contains('show');
 	}())`
+	dashboardSettingsModalContentScript = `(function() {
+		function parseRGB(value) {
+			if (!value) { return null; }
+			var match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+			if (!match) { return null; }
+			return { r: Number(match[1]), g: Number(match[2]), b: Number(match[3]) };
+		}
+		var content = document.getElementById('settings-modal-content');
+		var body = document.querySelector('#settings-modal .modal-body');
+		var modal = document.querySelector('#settings-modal .modal-content');
+		if (!content || !body || !modal) {
+			return { textLength: 0, contrast: 0 };
+		}
+		var bodyStyle = window.getComputedStyle(body);
+		var modalStyle = window.getComputedStyle(modal);
+		var textLength = (content.textContent || '').trim().length;
+		var textColor = parseRGB(bodyStyle.color);
+		var modalColor = parseRGB(modalStyle.backgroundColor);
+		var delta = 0;
+		if (textColor && modalColor) {
+			delta = Math.abs(textColor.r - modalColor.r) + Math.abs(textColor.g - modalColor.g) + Math.abs(textColor.b - modalColor.b);
+		}
+		return { textLength: textLength, contrast: delta };
+	}())`
 	dashboardLogoutTestHookScript = `(function() {
 		var storageKey = '` + dashboardLogoutFetchStorageKey + `';
 		var originalFetch = window.fetch ? window.fetch.bind(window) : null;
@@ -570,6 +594,14 @@ func TestDashboardSettingsModalOpensAndDismissesViaBackdrop(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardBodyModalOpenScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	var modalContent struct {
+		TextLength float64 `json:"textLength"`
+		Contrast   float64 `json:"contrast"`
+	}
+	evaluateScriptInto(t, page, dashboardSettingsModalContentScript, &modalContent)
+	require.Greater(t, modalContent.TextLength, 0.0)
+	require.Greater(t, modalContent.Contrast, 30.0)
 
 	var modalBounds viewportBounds
 	evaluateScriptInto(t, page, `(function(){

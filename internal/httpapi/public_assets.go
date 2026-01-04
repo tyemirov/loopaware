@@ -257,6 +257,7 @@ var (
       menuItems: menuItems,
       profileName: profileName,
       avatar: profileMenu.querySelector('[data-loopaware-avatar]'),
+      settingsButton: profileMenu.querySelector('[data-loopaware-settings="true"]'),
       logoutButton: profileMenu.querySelector('[data-loopaware-logout="true"]')
     };
   }
@@ -390,12 +391,13 @@ var (
     var toggleButton = profileElements.toggleButton;
     var menuItems = profileElements.menuItems;
     var dropdownInstance = null;
+    var setMenuOpen = function() {};
     if (window.bootstrap && window.bootstrap.Dropdown && typeof window.bootstrap.Dropdown.getOrCreateInstance === 'function') {
       dropdownInstance = window.bootstrap.Dropdown.getOrCreateInstance(toggleButton);
     }
     if (!profileMenu.getAttribute('data-loopaware-dropdown-bound')) {
       profileMenu.setAttribute('data-loopaware-dropdown-bound', 'true');
-      var setMenuOpen = function(shouldOpen) {
+      setMenuOpen = function(shouldOpen) {
         if (dropdownInstance && typeof dropdownInstance.show === 'function' && typeof dropdownInstance.hide === 'function') {
           if (shouldOpen) {
             dropdownInstance.show();
@@ -440,6 +442,30 @@ var (
       document.addEventListener('click', function(event) {
         if (!clickInsideMenu(event)) {
           setMenuOpen(false);
+        }
+      });
+    }
+    if (profileElements.settingsButton && !profileElements.settingsButton.getAttribute('data-loopaware-settings-bound')) {
+      profileElements.settingsButton.setAttribute('data-loopaware-settings-bound', 'true');
+      profileElements.settingsButton.addEventListener('click', function(event) {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        setMenuOpen(false);
+        var targetSelector = profileElements.settingsButton.getAttribute('data-bs-target');
+        if (!targetSelector) {
+          return;
+        }
+        var modalElement = document.querySelector(targetSelector);
+        if (!modalElement) {
+          return;
+        }
+        if (window.bootstrap && window.bootstrap.Modal && typeof window.bootstrap.Modal.getOrCreateInstance === 'function') {
+          var modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalElement);
+          if (modalInstance && typeof modalInstance.show === 'function') {
+            modalInstance.show();
+          }
         }
       });
     }

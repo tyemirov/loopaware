@@ -116,11 +116,12 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `tools/mpr-ui/docs/custom-elements.md`
   - `tools/TAuth/docs/migration.md`
 
-- [ ] [LA-326] Account settings modal opens blank from the header dropdown.
+- [x] [LA-326] Account settings modal opens blank from the header dropdown.
   Priority: P1
   Goal: The Account settings action opens a modal with the expected auto-logout controls and descriptive copy across both themes.
   Deliverable: PR that ensures the modal renders content and remains readable in both light/dark modes; add integration coverage for settings modal visibility + content.
   Notes: The menu item targets `SettingsModalID`, but users report an empty modal. Verify Bootstrap modal wiring, `SettingsModalID` parity between `dashboard_header.tmpl` and `dashboard.tmpl`, and theme styling that could render content invisible. Consider migrating to `<mpr-settings>` if the modal is brittle.
+  Resolution: Bound the dropdown settings action to open the Bootstrap modal directly from the custom profile menu and added integration coverage that asserts modal content text + contrast; `make ci` passes.
   Docs/Refs:
   - `internal/httpapi/templates/dashboard_header.tmpl`
   - `internal/httpapi/templates/dashboard.tmpl`
