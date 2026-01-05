@@ -181,6 +181,16 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard.tmpl`
 
 - [ ] [LA-332] ![alt text](image-1.png) The logout notification is floating in space instead of being sticky to the bottom of the screen
+- [x] [LA-333] Safari header dropdown actions are unresponsive after auth.
+  Priority: P1
+  Goal: Avatar dropdown opens and settings/logout clicks work on Safari without missing bindings.
+  Deliverable: PR that makes header menu bindings resilient to mpr-ui re-renders; update tests if feasible.
+  Notes: Safari appears to drop or never attach the click handlers on the avatar menu items, so no logout request is sent and the settings modal never opens.
+  Resolution: Switched auth script rendering to a text template to prevent HTML escaping in JS, and added delegated profile menu click handling to keep settings/logout responsive across browsers; `make ci` passes.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/templates/dashboard_header.tmpl`
+  - `tools/mpr-ui/docs/custom-elements.md`
 
 ## Improvements (210–299)
 

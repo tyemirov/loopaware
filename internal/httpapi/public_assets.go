@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	texttemplate "text/template"
 )
 
 const (
@@ -220,7 +221,7 @@ var (
     }
   }
 })();`))
-	publicAuthScriptTemplate = template.Must(template.New("public_auth_script").Parse(`(function() {
+	publicAuthScriptTemplate = texttemplate.Must(texttemplate.New("public_auth_script").Parse(`(function() {
   if (document && document.documentElement) {
     document.documentElement.setAttribute('data-loopaware-auth-script', 'true');
   }
@@ -529,6 +530,164 @@ var (
     }
   }
 
+  function closestElement(startNode, selector) {
+    var current = startNode;
+    while (current && current.nodeType === 1) {
+      if (typeof current.matches === 'function' && current.matches(selector)) {
+        return current;
+      }
+      if (current.parentElement) {
+        current = current.parentElement;
+        continue;
+      }
+      if (current.getRootNode && current.getRootNode().host) {
+        current = current.getRootNode().host;
+        continue;
+      }
+      break;
+    }
+    return null;
+  }
+
+  function resolveHeaderHostFromNode(node) {
+    var headerHost = closestElement(node, 'mpr-header');
+    if (headerHost) {
+      return headerHost;
+    }
+    return document.querySelector('mpr-header');
+  }
+
+  function resolveProfileMenuParts(profileMenu) {
+    if (!profileMenu) {
+      return null;
+    }
+    var toggleButton = profileMenu.querySelector('[data-loopaware-profile-toggle="true"]');
+    var menuItems = profileMenu.querySelector('[data-loopaware-profile-menu-items="true"]');
+    if (!toggleButton || !menuItems) {
+      return null;
+    }
+    return {
+      profileMenu: profileMenu,
+      toggleButton: toggleButton,
+      menuItems: menuItems
+    };
+  }
+
+  function resolveProfileMenuPartsFromNode(node) {
+    var profileMenu = closestElement(node, '[data-loopaware-profile-menu="true"]');
+    if (!profileMenu) {
+      var headerHost = resolveHeaderHostFromNode(node);
+      if (headerHost) {
+        profileMenu = headerHost.querySelector('[data-loopaware-profile-menu="true"]');
+      }
+    }
+    return resolveProfileMenuParts(profileMenu);
+  }
+
+  function setProfileMenuOpen(menuParts, shouldOpen) {
+    if (!menuParts) {
+      return;
+    }
+    var dropdownInstance = null;
+    if (window.bootstrap && window.bootstrap.Dropdown && typeof window.bootstrap.Dropdown.getOrCreateInstance === 'function') {
+      dropdownInstance = window.bootstrap.Dropdown.getOrCreateInstance(menuParts.toggleButton);
+    }
+    if (dropdownInstance && typeof dropdownInstance.show === 'function' && typeof dropdownInstance.hide === 'function') {
+      if (shouldOpen) {
+        dropdownInstance.show();
+      } else {
+        dropdownInstance.hide();
+      }
+      return;
+    }
+    if (shouldOpen) {
+      menuParts.menuItems.classList.add('show');
+      menuParts.toggleButton.setAttribute('aria-expanded', 'true');
+    } else {
+      menuParts.menuItems.classList.remove('show');
+      menuParts.toggleButton.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function closeAllProfileMenus(activeMenu) {
+    if (!document || typeof document.querySelectorAll !== 'function') {
+      return;
+    }
+    var menus = document.querySelectorAll('[data-loopaware-profile-menu="true"]');
+    for (var index = 0; index < menus.length; index += 1) {
+      var menu = menus[index];
+      if (activeMenu && menu === activeMenu) {
+        continue;
+      }
+      setProfileMenuOpen(resolveProfileMenuParts(menu), false);
+    }
+  }
+
+  function handleDelegatedProfileMenuClick(event) {
+    if (!event || !event.target || event.target.nodeType !== 1) {
+      return;
+    }
+    var target = event.target;
+    var toggleButton = closestElement(target, '[data-loopaware-profile-toggle="true"]');
+    if (toggleButton) {
+      if (event.defaultPrevented) {
+        return;
+      }
+      var toggleMenuParts = resolveProfileMenuPartsFromNode(toggleButton);
+      if (!toggleMenuParts) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      var isOpen = toggleMenuParts.menuItems.classList.contains('show');
+      if (!isOpen) {
+        closeAllProfileMenus(toggleMenuParts.profileMenu);
+      }
+      setProfileMenuOpen(toggleMenuParts, !isOpen);
+      return;
+    }
+
+    var settingsButton = closestElement(target, '[data-loopaware-settings="true"]');
+    if (settingsButton) {
+      if (event.defaultPrevented) {
+        return;
+      }
+      var settingsMenuParts = resolveProfileMenuPartsFromNode(settingsButton);
+      var targetSelector = settingsButton.getAttribute('data-bs-target');
+      if (targetSelector) {
+        var modalElement = document.querySelector(targetSelector);
+        if (modalElement && window.bootstrap && window.bootstrap.Modal && typeof window.bootstrap.Modal.getOrCreateInstance === 'function') {
+          var modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalElement);
+          if (modalInstance && typeof modalInstance.show === 'function') {
+            event.preventDefault();
+            event.stopPropagation();
+            setProfileMenuOpen(settingsMenuParts, false);
+            modalInstance.show();
+            return;
+          }
+        }
+      }
+      setProfileMenuOpen(settingsMenuParts, false);
+      return;
+    }
+
+    var logoutButton = closestElement(target, '[data-loopaware-logout="true"]');
+    if (logoutButton) {
+      if (event.defaultPrevented) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      setProfileMenuOpen(resolveProfileMenuPartsFromNode(logoutButton), false);
+      handleLogout(resolveHeaderHostFromNode(logoutButton));
+      return;
+    }
+
+    if (!closestElement(target, '[data-loopaware-profile-menu="true"]')) {
+      closeAllProfileMenus(null);
+    }
+  }
+
   function resolveAvatarURL(headerRoot, headerHost, profile) {
     if (profile && profile.avatar_url) {
       return profile.avatar_url;
@@ -681,7 +840,17 @@ var (
   }
 
   var authListenersAttached = false;
+  var profileMenuDelegatesAttached = false;
+  function attachProfileMenuDelegates() {
+    if (profileMenuDelegatesAttached || !document || typeof document.addEventListener !== 'function') {
+      return;
+    }
+    document.addEventListener('click', handleDelegatedProfileMenuClick);
+    profileMenuDelegatesAttached = true;
+  }
+
   function attachHeaderAuth(headerHost) {
+    attachProfileMenuDelegates();
     if (!authListenersAttached && document && typeof document.addEventListener === 'function') {
       document.addEventListener('mpr-ui:auth:authenticated', handleAuthenticatedEvent);
       document.addEventListener('mpr-ui:auth:unauthenticated', handleUnauthenticatedEvent);
