@@ -61,19 +61,6 @@ func setupWebKitBrowser(testingT *testing.T) playwright.Browser {
 	return webkitBrowser
 }
 
-func createWebKitPage(testingT *testing.T, browser playwright.Browser) playwright.Page {
-	testingT.Helper()
-
-	page, pageErr := browser.NewPage()
-	require.NoError(testingT, pageErr)
-
-	testingT.Cleanup(func() {
-		page.Close()
-	})
-
-	return page
-}
-
 func setWebKitCookie(testingT *testing.T, context playwright.BrowserContext, baseURL string, cookie *http.Cookie) {
 	testingT.Helper()
 
