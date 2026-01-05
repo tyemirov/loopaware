@@ -7,6 +7,12 @@ server:
   masterEncryptionKey: ${MASTER_ENCRYPTION_KEY}
   connectionTimeoutSec: ${CONNECTION_TIMEOUT_SEC}
   operationTimeoutSec: ${OPERATION_TIMEOUT_SEC}
+  tauth:
+    signingKey: ${TAUTH_SIGNING_KEY}
+    cookieName: ${TAUTH_COOKIE_NAME}
+    googleClientId: ${TAUTH_GOOGLE_CLIENT_ID}
+    tauthBaseUrl: ${TAUTH_BASE_URL}
+    tauthTenantId: ${TAUTH_TENANT_ID}
 
 tenants:
   - id: loopaware-local
@@ -40,7 +46,3 @@ web:
     - ${HTTP_ALLOWED_ORIGIN1}
     - ${HTTP_ALLOWED_ORIGIN2}
     - ${HTTP_ALLOWED_ORIGIN3}
-  tauth:
-    signingKey: ${TAUTH_SIGNING_KEY}
-    issuer: tauth
-    cookieName: app_session
