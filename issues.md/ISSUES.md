@@ -138,15 +138,59 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/public_assets.go`
   - `tools/mpr-ui/README.md`
 
-- [ ] [LA-328] Dashboard header profile toggle should be avatar-only with dropdown actions.
+- [x] [LA-328] Dashboard header profile toggle should be avatar-only with dropdown actions.
   Priority: P1
   Goal: The header shows a single avatar (no wide name button) that opens the settings/logout dropdown; display name can appear inside the menu.
   Deliverable: PR that adjusts header markup/CSS and updates profile name injection logic to render inside the dropdown instead of the toggle.
   Notes: `dashboard_header.tmpl` currently renders the name inside the toggle button, producing a large pill button. Update the template and `public_assets.go` profile sync to support the compact avatar-only toggle.
+  Resolution: Moved the display name into the dropdown, rendered an avatar-only toggle with updated header styling and profile sync attributes, and added integration coverage for avatar-only toggle/menu display; landing auth harness now stubs mpr-ui auth bootstrap to keep redirect checks stable; `make ci` passes.
   Docs/Refs:
   - `internal/httpapi/templates/dashboard_header.tmpl`
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/dashboard_integration_test.go`
+
+- [x] [LA-329] Logout button does not terminate the session after the header refactor.
+  Priority: P1
+  Goal: Clicking Logout clears the TAuth session and returns the user to the landing page without re-authentication loops.
+  Deliverable: PR that hardens the logout flow against helper/fetch failures and adds integration coverage for the fallback behavior.
+  Notes: Regression observed after the header dropdown refactor; logout should still work even when the TAuth helper or fetch path fails (e.g., transient CORS issues). If the fix needs a TAuth change, document it here.
+  Resolution: Added a form-post fallback when both `window.logout` and the fetch path fail, and added integration coverage that forces both failures and verifies the fallback + redirect; `make ci` passes.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/dashboard_integration_test.go`
+
+- [x] [LA-330] Header dropdown actions are unresponsive in some sessions.
+  Priority: P1
+  Goal: Settings and logout reliably bind even when the header renders late or auth attributes update before slot content mounts.
+  Deliverable: PR that retries custom profile binding and resolves logout endpoints from tauth.js when available, plus coverage if possible.
+  Notes: Users report the settings modal and logout action do nothing; likely the custom menu handlers never attach or the logout request targets the wrong origin.
+  Resolution: Added retry logic for custom profile binding, made logout prefer tauth.js `getAuthEndpoints()` when available, and relaxed settings click handling so Bootstrap’s data API still works when manual modal control is unavailable; `make ci` passes.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/dashboard_integration_test.go`
+
+- [x] [LA-331] Remove auth fallbacks and rely solely on mpr-ui auth events.
+  Priority: P1
+  Goal: Login/logout announcements and redirects are driven only by `mpr-ui:auth:*` events, without MutationObserver or manual bootstrap fallbacks.
+  Deliverable: PR that removes attribute/observer fallbacks and confirms event-driven redirects still work.
+  Notes: Required to align with mpr-ui integration guidance and avoid double-trigger behavior.
+  Resolution: Removed attribute observers/bootstraps, and now dispatches `mpr-ui:auth:authenticated` when dashboard user data loads so the header updates via events only; `make ci` passes.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/templates/dashboard.tmpl`
+
+- [ ] [LA-332] ![alt text](image-1.png) The logout notification is floating in space instead of being sticky to the bottom of the screen
+- [x] [LA-333] Safari header dropdown actions are unresponsive after auth.
+  Priority: P1
+  Goal: Avatar dropdown opens and settings/logout clicks work on Safari without missing bindings.
+  Deliverable: PR that makes header menu bindings resilient to mpr-ui re-renders; update tests if feasible.
+  Notes: Safari appears to drop or never attach the click handlers on the avatar menu items, so no logout request is sent and the settings modal never opens.
+  Resolution: Switched auth script rendering to a text template to prevent HTML escaping in JS, and added delegated profile menu click handling to keep settings/logout responsive across browsers; `make ci` passes.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/templates/dashboard_header.tmpl`
+  - `tools/mpr-ui/docs/custom-elements.md`
 
 ## Improvements (210–299)
 

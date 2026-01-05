@@ -5,11 +5,14 @@
     <span class="fw-semibold">{{.PageTitle}}</span>
   </span>
   <div slot="aux" class="loopaware-profile-dropdown dropdown" data-loopaware-profile-menu="true">
-    <button type="button" class="loopaware-profile-toggle dropdown-toggle" data-loopaware-profile-toggle="true" data-bs-toggle="dropdown" aria-expanded="false">
+    <button type="button" class="loopaware-profile-toggle dropdown-toggle" data-loopaware-profile-toggle="true" aria-expanded="false">
       <img class="loopaware-header-avatar d-none" data-loopaware-avatar="true" alt="User avatar" />
-      <span class="loopaware-profile-name" data-loopaware-profile-name="true"></span>
     </button>
     <div class="dropdown-menu dropdown-menu-end loopaware-profile-menu" data-loopaware-profile-menu-items="true">
+      <div class="loopaware-profile-menu-header">
+        <span class="loopaware-profile-name" data-loopaware-profile-name="true"></span>
+      </div>
+      <div class="dropdown-divider"></div>
       <button id="{{.SettingsButtonID}}" type="button" class="dropdown-item loopaware-profile-item" data-loopaware-settings="true" data-bs-toggle="modal" data-bs-target="#{{.SettingsModalID}}">{{.SettingsButtonLabel}}</button>
       <button type="button" class="dropdown-item loopaware-profile-item" data-loopaware-logout="true">{{.HeaderSignOutLabel}}</button>
     </div>
