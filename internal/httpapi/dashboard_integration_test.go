@@ -21,12 +21,12 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	"github.com/tyemirov/GAuss/pkg/constants"
-	"github.com/tyemirov/GAuss/pkg/session"
+	"github.com/tyemirov/tauth/pkg/sessionvalidator"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/httpapi"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
@@ -36,16 +36,20 @@ import (
 )
 
 const (
-	dashboardTestSessionSecretBytes = "12345678901234567890123456789012"
-	dashboardTestAdminEmail         = "admin@example.com"
-	dashboardTestAdminDisplayName   = "Admin Example"
-	dashboardTestWidgetBaseURL      = "http://example.test"
-	dashboardTestLandingPath        = "/landing"
-	dashboardTestDashboardRoute     = "/app"
-	dashboardPromptWaitTimeout      = 10 * time.Second
-	dashboardPromptPollInterval     = 200 * time.Millisecond
-	dashboardNotificationSelector   = "#session-timeout-notification"
-	dashboardPromptVisibleScript    = `(function(){
+	dashboardTestTauthSigningKey   = "test-tauth-signing-key"
+	dashboardTestJWTIssuer         = "tauth"
+	dashboardTestSessionCookieName = "app_session"
+	dashboardTestTauthTenantID     = "test-tenant"
+	dashboardTestGoogleClientID    = "test-google-client-id"
+	dashboardTestAdminEmail        = "admin@example.com"
+	dashboardTestAdminDisplayName  = "Admin Example"
+	dashboardTestAvatarDataURI     = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
+	dashboardTestWidgetBaseURL     = "http://example.test"
+	dashboardTestDashboardRoute    = "/app"
+	dashboardPromptWaitTimeout     = 10 * time.Second
+	dashboardPromptPollInterval    = 200 * time.Millisecond
+	dashboardNotificationSelector  = "#session-timeout-notification"
+	dashboardPromptVisibleScript   = `(function(){
 		var element = document.querySelector('#session-timeout-notification');
 		if (!element) { return false; }
 		var style = window.getComputedStyle(element);
@@ -56,8 +60,8 @@ const (
 	dashboardDismissButtonSelector              = "#session-timeout-dismiss-button"
 	dashboardConfirmButtonSelector              = "#session-timeout-confirm-button"
 	dashboardSettingsButtonSelector             = "#settings-button"
-	dashboardSettingsMenuSelector               = "#settings-menu"
-	dashboardSettingsMenuItemSelector           = "#settings-menu-settings"
+	dashboardProfileToggleSelector              = `[data-loopaware-profile-toggle="true"]`
+	dashboardLogoutButtonSelector               = `[data-loopaware-logout="true"]`
 	dashboardSettingsModalSelector              = "#settings-modal"
 	dashboardWidgetBottomOffsetInputSelector    = "#widget-placement-bottom-offset"
 	dashboardWidgetBottomOffsetIncreaseSelector = "#widget-bottom-offset-increase"
@@ -97,15 +101,122 @@ const (
 	dashboardSectionTabSubscriptionsSelector  = "#dashboard-section-tab-subscriptions"
 	dashboardSectionTabTrafficSelector        = "#dashboard-section-tab-traffic"
 	dashboardSubscribersTableBodySelector     = "#subscribers-table-body"
-	dashboardSettingsMenuOpenScript           = `(function() {
-		var menu = document.querySelector('#settings-menu');
-		if (!menu) { return false; }
-		return menu.classList.contains('show');
-	}())`
-	dashboardSettingsModalVisibleScript = `(function() {
+	dashboardLogoutFetchStorageKey            = "loopawareLogoutFetch"
+	dashboardSettingsModalVisibleScript       = `(function() {
 		var modal = document.getElementById('settings-modal');
 		if (!modal) { return false; }
 		return modal.classList.contains('show');
+	}())`
+	dashboardSettingsModalContentScript = `(function() {
+		function parseRGB(value) {
+			if (!value) { return null; }
+			var match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+			if (!match) { return null; }
+			return { r: Number(match[1]), g: Number(match[2]), b: Number(match[3]) };
+		}
+		var content = document.getElementById('settings-modal-content');
+		var body = document.querySelector('#settings-modal .modal-body');
+		var modal = document.querySelector('#settings-modal .modal-content');
+		if (!content || !body || !modal) {
+			return { textLength: 0, contrast: 0 };
+		}
+		var bodyStyle = window.getComputedStyle(body);
+		var modalStyle = window.getComputedStyle(modal);
+		var textLength = (content.textContent || '').trim().length;
+		var textColor = parseRGB(bodyStyle.color);
+		var modalColor = parseRGB(modalStyle.backgroundColor);
+		var delta = 0;
+		if (textColor && modalColor) {
+			delta = Math.abs(textColor.r - modalColor.r) + Math.abs(textColor.g - modalColor.g) + Math.abs(textColor.b - modalColor.b);
+		}
+		return { textLength: textLength, contrast: delta };
+	}())`
+	dashboardProfileMenuStateScript = `(function() {
+		var toggle = document.querySelector('[data-loopaware-profile-toggle="true"]');
+		var name = document.querySelector('[data-loopaware-profile-name="true"]');
+		var avatar = document.querySelector('[data-loopaware-avatar]');
+		var toggleText = toggle ? (toggle.textContent || '').trim() : '';
+		var menuName = name ? (name.textContent || '').trim() : '';
+		var avatarVisible = false;
+		if (avatar) {
+			var avatarStyle = window.getComputedStyle(avatar);
+			var avatarRect = avatar.getBoundingClientRect();
+			avatarVisible = avatarStyle.display !== 'none' && avatarStyle.visibility !== 'hidden' && avatarRect.width > 0 && avatarRect.height > 0;
+		}
+		var nameVisible = false;
+		if (name) {
+			var nameStyle = window.getComputedStyle(name);
+			var nameRect = name.getBoundingClientRect();
+			nameVisible = nameStyle.display !== 'none' && nameStyle.visibility !== 'hidden' && nameRect.width > 0 && nameRect.height > 0;
+		}
+		return { toggleText: toggleText, menuName: menuName, avatarVisible: avatarVisible, nameVisible: nameVisible };
+	}())`
+	dashboardLogoutTestHookScript = `(function() {
+		var storageKey = '` + dashboardLogoutFetchStorageKey + `';
+		var originalFetch = window.fetch ? window.fetch.bind(window) : null;
+		window.__loopawareLogoutFetchCalls = [];
+		window.fetch = function(input, options) {
+			var url = '';
+			if (typeof input === 'string') {
+				url = input;
+			} else if (input && typeof input.url === 'string') {
+				url = input.url;
+			}
+			if (url.indexOf('/auth/logout') !== -1) {
+				window.__loopawareLogoutFetchCalls.push({ url: url, options: options || null });
+				if (window.sessionStorage) {
+					window.sessionStorage.setItem(storageKey, 'true');
+				}
+				return Promise.resolve(new Response(null, { status: 204 }));
+			}
+			if (originalFetch) {
+				return originalFetch(input, options);
+			}
+			return Promise.reject(new Error('fetch unavailable'));
+		};
+		window.logout = function() {
+			return Promise.reject(new Error('logout failed'));
+		};
+	}())`
+	dashboardLogoutFetchClearScript = `(function() {
+		var storageKey = '` + dashboardLogoutFetchStorageKey + `';
+		if (window.sessionStorage) {
+			window.sessionStorage.removeItem(storageKey);
+		}
+		return true;
+	}())`
+	dashboardLogoutFetchCalledScript = `(function() {
+		var storageKey = '` + dashboardLogoutFetchStorageKey + `';
+		if (window.sessionStorage) {
+			var value = window.sessionStorage.getItem(storageKey);
+			if (value === 'true') { return true; }
+		}
+		var calls = window.__loopawareLogoutFetchCalls || [];
+		return calls.length > 0;
+	}())`
+	dashboardLogoutFormPresentScript = `(function() {
+		return !!document.querySelector('[data-loopaware-logout-form="true"]');
+	}())`
+	dashboardLogoutFormFallbackScript = `(function() {
+		var originalFetch = window.fetch ? window.fetch.bind(window) : null;
+		window.fetch = function(input, options) {
+			var url = '';
+			if (typeof input === 'string') {
+				url = input;
+			} else if (input && typeof input.url === 'string') {
+				url = input.url;
+			}
+			if (url.indexOf('/auth/logout') !== -1) {
+				return Promise.reject(new Error('logout blocked'));
+			}
+			if (originalFetch) {
+				return originalFetch(input, options);
+			}
+			return Promise.reject(new Error('fetch unavailable'));
+		};
+		window.logout = function() {
+			return Promise.reject(new Error('logout blocked'));
+		};
 	}())`
 	dashboardBodyModalOpenScript = `(function() {
 		return document.body && document.body.classList.contains('modal-open');
@@ -143,8 +254,46 @@ const (
 	dashboardForceLogoutScript            = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forceLogout === 'function') { window.__loopawareDashboardIdleTestHooks.forceLogout(); }"
 	dashboardNotificationBackgroundScript = `window.getComputedStyle(document.querySelector("#session-timeout-notification")).backgroundColor`
 	dashboardLocationPathScript           = "window.location.pathname"
-	dashboardIdleHooksReadyScript         = "typeof window.__loopawareDashboardIdleTestHooks !== 'undefined'"
-	dashboardSelectFirstSiteScript        = `(function() {
+	landingMarkAuthenticatedScript        = `(function() {
+		var profile = { display: 'Test User', email: 'test@example.com' };
+		window.__loopawareTestProfile = profile;
+		window.initAuthClient = function(options) {
+			if (options && typeof options.onAuthenticated === 'function') {
+				options.onAuthenticated(profile);
+			}
+			return Promise.resolve(profile);
+		};
+		window.getCurrentUser = function() {
+			return Promise.resolve(profile);
+		};
+		function markAuthenticated() {
+			var headerHost = document.querySelector('mpr-header');
+			if (!headerHost) {
+				return false;
+			}
+			headerHost.setAttribute('data-user-display', profile.display);
+			headerHost.setAttribute('data-user-email', profile.email);
+			return true;
+		}
+		function scheduleMark() {
+			var remainingAttempts = 60;
+			function attemptMark() {
+				markAuthenticated();
+				remainingAttempts -= 1;
+				if (remainingAttempts > 0) {
+					window.setTimeout(attemptMark, 100);
+				}
+			}
+			attemptMark();
+		}
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', scheduleMark);
+		} else {
+			scheduleMark();
+		}
+	}())`
+	dashboardIdleHooksReadyScript  = "typeof window.__loopawareDashboardIdleTestHooks !== 'undefined'"
+	dashboardSelectFirstSiteScript = `(function() {
 	                var list = document.getElementById('sites-list');
 	                if (!list) { return false; }
 	                var item = list.querySelector('[data-site-id]');
@@ -221,10 +370,12 @@ const (
 		return textContent === '1';
 	}())`
 	dashboardDocumentThemeScript        = "document.documentElement.getAttribute('data-bs-theme') || ''"
+	dashboardDocumentMprThemeScript     = "document.documentElement.getAttribute('data-mpr-theme') || ''"
 	dashboardStoredDashboardThemeScript = "localStorage.getItem('loopaware_dashboard_theme') || ''"
 	dashboardStoredPublicThemeScript    = "localStorage.getItem('loopaware_public_theme') || ''"
+	dashboardStoredLandingThemeScript   = "localStorage.getItem('loopaware_landing_theme') || ''"
 	dashboardSeedPublicThemeScript      = `localStorage.setItem('loopaware_public_theme','dark');localStorage.removeItem('loopaware_dashboard_theme');localStorage.removeItem('loopaware_theme');`
-	dashboardFooterThemeModeScript      = `(function(){var footer=document.getElementById('dashboard-footer');return footer ? (footer.getAttribute('theme-mode') || '') : '';}())`
+	dashboardClearThemeStorageScript    = `localStorage.removeItem('loopaware_public_theme');localStorage.removeItem('loopaware_landing_theme');localStorage.removeItem('loopaware_dashboard_theme');localStorage.removeItem('loopaware_theme');`
 	dashboardSiteFaviconSelector        = "#sites-list [data-site-id] img"
 	dashboardSiteFaviconVisibleScript   = `(function() {
 			var list = document.getElementById('sites-list');
@@ -301,6 +452,8 @@ return panel.style.bottom || '';
 		return !!document.getElementById('mp-feedback-bubble');
 	}())`
 )
+
+var dashboardTestLandingPath = httpapi.LandingPagePath
 
 type stubDashboardNotifier struct{}
 
@@ -477,13 +630,17 @@ func TestDashboardSettingsModalOpensAndDismissesViaBackdrop(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
-
-	clickSelector(t, page, dashboardSettingsButtonSelector)
 	require.Eventually(t, func() bool {
-		return evaluateScriptBoolean(t, page, dashboardSettingsMenuOpenScript)
+		return evaluateScriptString(t, page, `(function(){
+			var header = document.querySelector('mpr-header');
+			if (!header) { return ''; }
+			return header.getAttribute('data-loopaware-auth-bound') || '';
+		}())`) == "true"
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
-	clickSelector(t, page, dashboardSettingsMenuItemSelector)
+	openDashboardProfileMenu(t, page)
+	openDashboardProfileMenu(t, page)
+	clickSelector(t, page, dashboardSettingsButtonSelector)
 
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
@@ -492,6 +649,14 @@ func TestDashboardSettingsModalOpensAndDismissesViaBackdrop(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardBodyModalOpenScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	var modalContent struct {
+		TextLength float64 `json:"textLength"`
+		Contrast   float64 `json:"contrast"`
+	}
+	evaluateScriptInto(t, page, dashboardSettingsModalContentScript, &modalContent)
+	require.Greater(t, modalContent.TextLength, 0.0)
+	require.Greater(t, modalContent.Contrast, 30.0)
 
 	var modalBounds viewportBounds
 	evaluateScriptInto(t, page, `(function(){
@@ -581,9 +746,151 @@ func TestDashboardSettingsModalOpensAndDismissesViaBackdrop(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return !evaluateScriptBoolean(t, page, dashboardBodyModalOpenScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardLogoutFallsBackToFetchWhenLogoutFails(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
 	require.Eventually(t, func() bool {
-		return !evaluateScriptBoolean(t, page, dashboardSettingsMenuOpenScript)
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		return style.display !== 'none' && style.visibility !== 'hidden';
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, `(function(){
+			var header = document.querySelector('mpr-header');
+			if (!header) { return ''; }
+			return header.getAttribute('data-loopaware-auth-bound') || '';
+		}())`) == "true"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	evaluateScriptInto(t, page, dashboardLogoutFetchClearScript, nil)
+	evaluateScriptInto(t, page, dashboardLogoutTestHookScript, nil)
+
+	openDashboardProfileMenu(t, page)
+	openDashboardProfileMenu(t, page)
+	clickSelector(t, page, dashboardLogoutButtonSelector)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardLogoutFetchCalledScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardLocationPathScript) == dashboardTestLandingPath
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardLogoutFallsBackToFormWhenLogoutAndFetchFail(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		return style.display !== 'none' && style.visibility !== 'hidden';
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, `(function(){
+			var header = document.querySelector('mpr-header');
+			if (!header) { return ''; }
+			return header.getAttribute('data-loopaware-auth-bound') || '';
+		}())`) == "true"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	evaluateScriptInto(t, page, dashboardLogoutFormFallbackScript, nil)
+
+	openDashboardProfileMenu(t, page)
+	openDashboardProfileMenu(t, page)
+	clickSelector(t, page, dashboardLogoutButtonSelector)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardLogoutFormPresentScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardLocationPathScript) == dashboardTestLandingPath
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardProfileMenuShowsAvatarOnly(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookieWithAvatar(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName, dashboardTestAvatarDataURI)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		return style.display !== 'none' && style.visibility !== 'hidden';
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, `(function(){
+			var header = document.querySelector('mpr-header');
+			if (!header) { return ''; }
+			return header.getAttribute('data-loopaware-auth-bound') || '';
+		}())`) == "true"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	openDashboardProfileMenu(t, page)
+	openDashboardProfileMenu(t, page)
+
+	var state struct {
+		ToggleText    string `json:"toggleText"`
+		MenuName      string `json:"menuName"`
+		AvatarVisible bool   `json:"avatarVisible"`
+		NameVisible   bool   `json:"nameVisible"`
+	}
+	require.Eventually(t, func() bool {
+		evaluateScriptInto(t, page, dashboardProfileMenuStateScript, &state)
+		return state.MenuName == dashboardTestAdminDisplayName && state.AvatarVisible && state.NameVisible
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	evaluateScriptInto(t, page, dashboardProfileMenuStateScript, &state)
+	require.Equal(t, "", state.ToggleText)
+	require.Equal(t, dashboardTestAdminDisplayName, state.MenuName)
+	require.True(t, state.AvatarVisible)
+	require.True(t, state.NameVisible)
 }
 
 func TestDashboardShowsDistinctWidgetSnippets(t *testing.T) {
@@ -891,8 +1198,11 @@ func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {
 		return evaluateScriptBoolean(t, page, dashboardSettingsHooksReadyScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
+	openDashboardProfileMenu(t, page)
 	clickSelector(t, page, dashboardSettingsButtonSelector)
-	clickSelector(t, page, dashboardSettingsMenuItemSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	toggleElement := waitForVisibleElement(t, page, dashboardSettingsAutoLogoutToggleSelector)
 	toggleCheckedScript := `(function(){var toggle=document.querySelector('#settings-auto-logout-enabled');return !!(toggle&&toggle.checked);}())`
@@ -916,14 +1226,20 @@ func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return !evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return !evaluateScriptBoolean(t, page, dashboardBodyModalOpenScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
 	require.Eventually(t, func() bool {
 		return !evaluateScriptBoolean(t, page, dashboardSessionTimeoutVisibleScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
+	openDashboardProfileMenu(t, page)
 	clickSelector(t, page, dashboardSettingsButtonSelector)
-	clickSelector(t, page, dashboardSettingsMenuItemSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	toggleElement = waitForVisibleElement(t, page, dashboardSettingsAutoLogoutToggleSelector)
 	if !evaluateScriptBoolean(t, page, toggleCheckedScript) {
@@ -1145,7 +1461,124 @@ func TestDashboardRestoresThemeFromPublicPreference(t *testing.T) {
 	require.Equal(t, "dark", documentTheme)
 
 	require.Eventually(t, func() bool {
-		return evaluateScriptString(t, page, dashboardFooterThemeModeScript) == "dark"
+		return evaluateScriptString(t, page, dashboardDocumentMprThemeScript) == "dark"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	storedTheme := evaluateScriptString(t, page, dashboardStoredDashboardThemeScript)
+	require.Equal(t, "dark", storedTheme)
+}
+
+func TestLandingRedirectsToDashboardWhenAuthenticated(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	_, err := page.EvalOnNewDocument(landingMarkAuthenticatedScript)
+	require.NoError(t, err)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestLandingPath)
+
+	authScriptRendered := evaluateScriptBoolean(t, page, `(function(){
+		return Array.from(document.scripts || []).some(function(script){
+			return (script.textContent || '').indexOf('data-loopaware-auth-script') !== -1;
+		});
+	}())`)
+	require.True(t, authScriptRendered)
+
+	authScriptParseError := evaluateScriptString(t, page, `(function(){
+		var script = Array.from(document.scripts || []).find(function(item){
+			return (item.textContent || '').indexOf('data-loopaware-auth-script') !== -1;
+		});
+		if (!script) { return 'missing'; }
+		try {
+			new Function(script.textContent || '');
+			return '';
+		} catch (err) {
+			if (err && err.message) {
+				if (typeof err.lineNumber === 'number') {
+					return err.message + ' at ' + err.lineNumber + ':' + err.columnNumber;
+				}
+				return err.message;
+			}
+			return String(err);
+		}
+	}())`)
+	require.Equal(t, "", authScriptParseError)
+
+	authScriptMarker := evaluateScriptString(t, page, `(function(){
+		return document.documentElement ? (document.documentElement.getAttribute('data-loopaware-auth-script') || '') : '';
+	}())`)
+	require.Equal(t, "true", authScriptMarker)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, `(function(){
+			var header = document.querySelector('mpr-header');
+			if (!header) { return ''; }
+			return header.getAttribute('data-user-display') || '';
+		}())`) == "Test User"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	authBoundValue := evaluateScriptString(t, page, `(function(){
+		var header = document.querySelector('mpr-header');
+		if (!header) { return ''; }
+		return header.getAttribute('data-loopaware-auth-bound') || '';
+	}())`)
+	require.Equal(t, "true", authBoundValue)
+
+	require.Eventually(t, func() bool {
+		info, infoErr := page.Info()
+		if infoErr != nil {
+			return false
+		}
+		parsed, parseErr := url.Parse(info.URL)
+		if parseErr != nil {
+			return false
+		}
+		return parsed.Path == dashboardTestDashboardRoute
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardInheritsLandingDefaultTheme(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestLandingPath)
+	evaluateScriptInto(t, page, dashboardClearThemeStorageScript, nil)
+	navigateToPage(t, page, harness.baseURL+dashboardTestLandingPath)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, selectorExistsScript(landingThemeToggleControlSelector))
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Equal(t, "dark", evaluateScriptString(t, page, dashboardDocumentThemeScript))
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardStoredPublicThemeScript) == "dark"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardStoredLandingThemeScript) == "dark"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Equal(t, "dark", evaluateScriptString(t, page, dashboardDocumentThemeScript))
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, dashboardDocumentMprThemeScript) == "dark"
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	storedTheme := evaluateScriptString(t, page, dashboardStoredDashboardThemeScript)
@@ -1206,7 +1639,7 @@ func TestDashboardPrefersPublicThemeOverStoredPreference(t *testing.T) {
 			require.Equal(t, testCase.expectedTheme, storedDashboardTheme)
 
 			require.Eventually(t, func() bool {
-				return evaluateScriptString(t, page, dashboardFooterThemeModeScript) == testCase.expectedTheme
+				return evaluateScriptString(t, page, dashboardDocumentMprThemeScript) == testCase.expectedTheme
 			}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 		})
 	}
@@ -1361,7 +1794,7 @@ func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
     var style = window.getComputedStyle(element);
     if (!style) { return false; }
     return style.display !== 'none' && style.visibility !== 'hidden';
-}())`, dashboardSettingsButtonSelector)
+}())`, dashboardProfileToggleSelector)
 	footerVisibleScript := fmt.Sprintf(`(function(){
     var element = document.querySelector(%q);
     if (!element) { return false; }
@@ -1393,7 +1826,7 @@ func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
   }())`))
 
 	require.Eventually(t, func() bool {
-		return evaluateScriptString(t, page, dashboardFooterThemeModeScript) == "dark"
+		return evaluateScriptString(t, page, dashboardDocumentMprThemeScript) == "dark"
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 	evaluateScriptInto(t, page, `(function(){
 		var footer = document.getElementById('dashboard-footer');
@@ -2343,8 +2776,6 @@ func parseOffsetValue(testingT *testing.T, value string) int {
 func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, opts ...dashboardHarnessOption) *dashboardIntegrationHarness {
 	testingT.Helper()
 
-	session.NewSession([]byte(dashboardTestSessionSecretBytes))
-
 	gin.SetMode(gin.TestMode)
 	logger := zap.NewNop()
 
@@ -2367,7 +2798,12 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	require.NoError(testingT, sqlErr)
 
 	adminEmails := []string{adminEmail}
-	authManager := httpapi.NewAuthManager(gormDatabase, logger, adminEmails, nil, dashboardTestLandingPath)
+	authManager, authErr := httpapi.NewAuthManager(gormDatabase, logger, adminEmails, nil, dashboardTestLandingPath, httpapi.AuthConfig{
+		SigningKey: dashboardTestTauthSigningKey,
+		TenantID:   dashboardTestTauthTenantID,
+	})
+	require.NoError(testingT, authErr)
+	authClientConfig := httpapi.NewAuthClientConfig(dashboardTestGoogleClientID, "", dashboardTestTauthTenantID)
 
 	noopResolver := &staticFaviconResolver{}
 	faviconService := favicon.NewService(noopResolver)
@@ -2380,14 +2816,14 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 
 	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(gormDatabase)
 	siteHandlers := httpapi.NewSiteHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
-	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager)
-	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager)
+	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager, authClientConfig)
+	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager, authClientConfig)
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
-	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath)
-	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", config.emailSender)
-	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{})
-	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(gormDatabase, logger)
-	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", config.emailSender)
+	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath, authClientConfig)
+	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", config.emailSender, authClientConfig)
+	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{}, authClientConfig)
+	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(gormDatabase, logger, authClientConfig)
+	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(gormDatabase, logger, subscriptionEvents, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", config.emailSender, authClientConfig)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -2397,7 +2833,6 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 		context.Redirect(http.StatusFound, dashboardTestLandingPath)
 	})
 	router.GET(dashboardTestLandingPath, landingHandlers.RenderLandingPage)
-	router.GET(constants.LoginPath, landingHandlers.RenderLandingPage)
 	router.GET(httpapi.PrivacyPagePath, privacyHandlers.RenderPrivacyPage)
 	router.GET(httpapi.SitemapRoutePath, sitemapHandlers.RenderSitemap)
 	router.GET(dashboardTestDashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
@@ -2407,9 +2842,6 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	router.GET("/app/sites/:id/subscribe-test", authManager.RequireAuthenticatedWeb(), subscribeTestHandlers.RenderSubscribeTestPage)
 	router.GET("/app/sites/:id/subscribe-test/events", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.StreamSubscriptionTestEvents)
 	router.POST("/app/sites/:id/subscribe-test/subscriptions", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.CreateSubscription)
-	router.POST(constants.LogoutPath, func(context *gin.Context) {
-		context.Status(http.StatusOK)
-	})
 
 	router.GET("/api/visits", publicHandlers.CollectVisit)
 	router.POST("/api/feedback", publicHandlers.CreateFeedback)
@@ -2470,27 +2902,41 @@ func (resolver *staticFaviconResolver) ResolveAsset(ctx context.Context, allowed
 
 func createAuthenticatedSessionCookie(testingT *testing.T, email string, name string) *http.Cookie {
 	testingT.Helper()
+	return createAuthenticatedSessionCookieWithAvatar(testingT, email, name, "")
+}
 
-	store := session.Store()
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	recorder := httptest.NewRecorder()
+func createAuthenticatedSessionCookieWithAvatar(testingT *testing.T, email string, name string, avatarURL string) *http.Cookie {
+	testingT.Helper()
 
-	sessionInstance, err := store.Get(request, constants.SessionName)
+	now := time.Now().UTC()
+	claims := &sessionvalidator.Claims{
+		TenantID:        dashboardTestTauthTenantID,
+		UserID:          "test-user",
+		UserEmail:       email,
+		UserDisplayName: name,
+		UserAvatarURL:   avatarURL,
+		UserRoles:       []string{},
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    dashboardTestJWTIssuer,
+			Subject:   "test-user",
+			IssuedAt:  jwt.NewNumericDate(now.Add(-time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(1 * time.Hour)),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedToken, err := token.SignedString([]byte(dashboardTestTauthSigningKey))
 	require.NoError(testingT, err)
 
-	sessionInstance.Values[constants.SessionKeyUserEmail] = email
-	sessionInstance.Values[constants.SessionKeyUserName] = name
-	sessionInstance.Values[constants.SessionKeyUserPicture] = ""
-	sessionInstance.Values[constants.SessionKeyOAuthToken] = "test-token"
-
-	require.NoError(testingT, sessionInstance.Save(request, recorder))
-
-	response := recorder.Result()
-	for _, cookie := range response.Cookies() {
-		if cookie.Name == constants.SessionName {
-			return cookie
-		}
+	return &http.Cookie{
+		Name:  dashboardTestSessionCookieName,
+		Value: signedToken,
+		Path:  "/",
 	}
-	require.FailNow(testingT, "session cookie not found in recorder")
-	return nil
+}
+
+func openDashboardProfileMenu(testingT *testing.T, page *rod.Page) {
+	testingT.Helper()
+
+	clickSelector(testingT, page, dashboardProfileToggleSelector)
+	waitForVisibleElement(testingT, page, dashboardSettingsButtonSelector)
 }

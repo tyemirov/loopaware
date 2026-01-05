@@ -5,21 +5,34 @@ server:
   cors_allowed_origins:
     - ${TAUTH_CORS_ORIGIN_1}
     - ${TAUTH_CORS_ORIGIN_2}
-    - ${TAUTH_CORS_ORIGIN_3}
-  enable_tenant_header_override: false
+  cors_allowed_origin_exceptions:
+    - "${TAUTH_CORS_EXCEPTION_1}"
+  enable_tenant_header_override: ${TAUTH_ENABLE_TENANT_HEADER_OVERRIDE}
 
 tenants:
-  - id: pinguin
-    display_name: Pinguin
-    allowed_hosts:
-      - "localhost"
-      - "127.0.0.1"
-    google_web_client_id: "${TAUTH_LOOPAWARE_GOOGLE_WEB_CLIENT_ID}"
-    jwt_signing_key: "${TAUTH_LOOPAWARE_JWT_SIGNING_KEY}"
+  - id: ${TAUTH_TENANT_ID_PINGUIN}
+    display_name: ${TAUTH_TENANT_DISPLAY_NAME_PINGUIN}
+    tenant_origins:
+      - ${TAUTH_TENANT_ORIGIN_PINGUIN}
+    google_web_client_id: "${TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_PINGUIN}"
+    jwt_signing_key: "${TAUTH_TENANT_JWT_SIGNING_KEY_PINGUIN}"
     cookie_domain: "${TAUTH_COOKIE_DOMAIN}"
-    session_cookie_name: "app_session"
-    refresh_cookie_name: "app_refresh"
-    session_ttl: "30m"
-    refresh_ttl: "720h"
-    nonce_ttl: "5m"
+    session_cookie_name: ${TAUTH_TENANT_SESSION_COOKIE_NAME_PINGUIN}
+    refresh_cookie_name: ${TAUTH_TENANT_REFRESH_COOKIE_NAME_PINGUIN}
+    session_ttl: ${TAUTH_SESSION_TTL}
+    refresh_ttl: ${TAUTH_REFRESH_TTL}
+    nonce_ttl: ${TAUTH_NONCE_TTL}
+    allow_insecure_http: "${TAUTH_ALLOW_INSECURE_HTTP}"
+  - id: ${TAUTH_TENANT_ID_LOOPAWARE}
+    display_name: ${TAUTH_TENANT_DISPLAY_NAME_LOOPAWARE}
+    tenant_origins:
+      - ${TAUTH_TENANT_ORIGIN_LOOPAWARE}
+    google_web_client_id: "${TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE}"
+    jwt_signing_key: "${TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE}"
+    cookie_domain: "${TAUTH_COOKIE_DOMAIN}"
+    session_cookie_name: ${TAUTH_TENANT_SESSION_COOKIE_NAME_LOOPAWARE}
+    refresh_cookie_name: ${TAUTH_TENANT_REFRESH_COOKIE_NAME_LOOPAWARE}
+    session_ttl: ${TAUTH_SESSION_TTL}
+    refresh_ttl: ${TAUTH_REFRESH_TTL}
+    nonce_ttl: ${TAUTH_NONCE_TTL}
     allow_insecure_http: "${TAUTH_ALLOW_INSECURE_HTTP}"

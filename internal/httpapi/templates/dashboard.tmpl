@@ -8,16 +8,135 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" {{.BootstrapIconsIntegrityAttr}} crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css" />
     <link rel="icon" type="image/svg+xml" href="{{.FaviconDataURI}}" />
+    {{if .TauthScriptURL}}<script defer src="{{.TauthScriptURL}}"></script>{{end}}
     <script defer src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
       .widget-bottom-offset-input {
         flex: 0 0 auto;
         width: 6rem;
         max-width: 6rem;
       }
+      .dashboard-header .mpr-header__actions {
+        margin-left: auto;
+      }
+      .dashboard-header .mpr-header__nav {
+        margin-left: 0;
+      }
+      .dashboard-header .mpr-header__chip {
+        flex-direction: row;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .dashboard-header[data-loopaware-authenticated="true"] [data-mpr-header="profile"] {
+        display: none;
+      }
+      .dashboard-header[data-loopaware-authenticated="true"] [data-mpr-header="google-signin"] {
+        display: none;
+      }
+      .dashboard-header[data-loopaware-authenticated="true"] [data-mpr-header="settings-button"] {
+        display: none;
+      }
+      .dashboard-header .loopaware-header-profile-body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      .dashboard-header .loopaware-header-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 999px;
+        object-fit: cover;
+        box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.25);
+      }
+      .dashboard-header .loopaware-profile-dropdown {
+        position: relative;
+      }
+      .dashboard-header .loopaware-profile-toggle {
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.65);
+        color: #e2e8f0;
+        padding: 0.25rem;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 0;
+        font-weight: 600;
+      }
+      .dashboard-header .loopaware-profile-toggle:focus-visible {
+        outline: 2px solid rgba(148, 163, 184, 0.6);
+        outline-offset: 2px;
+      }
+      .dashboard-header .loopaware-profile-name {
+        line-height: 1.1;
+      }
+      .dashboard-header .loopaware-profile-menu-header {
+        padding: 0.35rem 0.75rem 0.5rem;
+      }
+      .dashboard-header .loopaware-profile-menu-header .loopaware-profile-name {
+        font-weight: 600;
+      }
+      .dashboard-header .loopaware-profile-menu {
+        min-width: 200px;
+        padding: 0.5rem;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.98);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.45);
+        display: none;
+      }
+      .dashboard-header .loopaware-profile-menu.show,
+      .dashboard-header .loopaware-profile-dropdown:focus-within .loopaware-profile-menu {
+        display: block;
+      }
+      .dashboard-header .loopaware-profile-item {
+        border-radius: 0.5rem;
+        font-weight: 600;
+        padding: 0.45rem 0.75rem;
+        color: #e2e8f0;
+        background: transparent;
+      }
+      .dashboard-header .loopaware-profile-item:hover,
+      .dashboard-header .loopaware-profile-item:focus {
+        background: rgba(148, 163, 184, 0.18);
+        color: #f8fafc;
+      }
+      body[data-bs-theme="light"] .dashboard-header .loopaware-profile-toggle {
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      body[data-bs-theme="light"] .dashboard-header .loopaware-profile-menu {
+        background: #ffffff;
+        color: #0f172a;
+      }
+      body[data-bs-theme="light"] .dashboard-header .loopaware-profile-item {
+        color: #0f172a;
+      }
+      body[data-bs-theme="light"] .dashboard-header .loopaware-profile-item:hover,
+      body[data-bs-theme="light"] .dashboard-header .loopaware-profile-item:focus {
+        background: rgba(15, 23, 42, 0.08);
+        color: #0f172a;
+      }
+      body[data-mpr-theme="dark"],
+      body[data-mpr-theme="light"] {
+        --bs-body-bg: var(--mpr-color-surface-primary);
+        --bs-body-color: var(--mpr-color-text-primary);
+        --bs-secondary-color: var(--mpr-color-text-muted);
+        --bs-border-color: var(--mpr-color-border);
+      }
+      body[data-mpr-theme="dark"] {
+        --bs-body-bg-rgb: 15, 23, 42;
+        --bs-body-color-rgb: 226, 232, 240;
+        --bs-secondary-color-rgb: 203, 213, 245;
+      }
+      body[data-mpr-theme="light"] {
+        --bs-body-bg-rgb: 248, 250, 252;
+        --bs-body-color-rgb: 15, 23, 42;
+        --bs-secondary-color-rgb: 51, 65, 85;
+      }
     </style>
   </head>
-  <body class="d-flex flex-column min-vh-100 bg-light">
+  <body class="d-flex flex-column min-vh-100">
     {{template "dashboard_header" .}}
     <main class="flex-grow-1 pt-5 mt-4">
       <div class="container py-4">
@@ -401,7 +520,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script type="application/json" id="{{.ClientConfigElementID}}">{{.ClientConfigJSON}}</script>
     <script>
-      (function() {
+      window.addEventListener('DOMContentLoaded', function() {
+        (function() {
         var configElement = document.getElementById('{{.ClientConfigElementID}}');
         var parsedConfig = {};
         if (configElement) {
@@ -494,10 +614,7 @@
         var feedbackEventSource = null;
         var feedbackReconnectDelayMilliseconds = 5000;
         var settingsButton = document.getElementById(elementIds.settings_button);
-        var settingsMenu = document.getElementById(elementIds.settings_menu);
         var settingsModalElement = document.getElementById(elementIds.settings_modal);
-        var settingsAvatarImage = document.getElementById(elementIds.settings_avatar_image);
-        var settingsAvatarFallback = document.getElementById(elementIds.settings_avatar_fallback);
         var siteNameHelpButton = document.getElementById(elementIds.site_name_help_button);
         var allowedOriginHelpButton = document.getElementById(elementIds.allowed_origin_help_button);
         var ownerEmailHelpButton = document.getElementById(elementIds.owner_email_help_button);
@@ -547,7 +664,6 @@
         var uniqueVisitorCountElement = document.getElementById(elementIds.unique_visitor_count);
         var trafficStatusElement = document.getElementById(elementIds.traffic_status);
         var topPagesTableBody = document.getElementById(elementIds.top_pages_table_body);
-        var logoutButton = document.getElementById(elementIds.logout_button);
         var sessionTimeoutContainer = document.getElementById(elementIds.session_timeout_container);
         var sessionTimeoutMessage = document.getElementById(elementIds.session_timeout_message);
         var sessionTimeoutConfirmButton = document.getElementById(elementIds.session_timeout_confirm_button);
@@ -608,8 +724,6 @@
         var footerThemeClasses = parsedConfig.footer_theme_classes || {};
         var tableThemeClasses = parsedConfig.table_theme_classes || {};
         var landingPath = sharedPaths.landing || '/';
-        var logoutPath = sharedPaths.logout || '';
-        var loginPath = sharedPaths.login || '';
         var widgetUnavailableMessage = widgetTexts.unavailable || '';
         var apiMeEndpoint = apiPaths.me || '';
         var apiSitesEndpoint = apiPaths.sites || '';
@@ -1945,16 +2059,11 @@
           document.documentElement.setAttribute('data-mpr-theme', normalized);
           document.body.setAttribute('data-bs-theme', normalized);
           document.body.setAttribute('data-mpr-theme', normalized);
+          document.body.classList.remove('bg-dark', 'text-light', 'bg-light');
           if (normalized === 'dark') {
-            document.body.classList.remove('bg-light');
-            document.body.classList.add('bg-dark', 'text-light');
             applyElementThemeClasses(footerElement, footerThemeClasses.dark || '', footerThemeClasses.light || '');
             applyElementThemeClasses(feedbackTableHeader, tableThemeClasses.dark || '', tableThemeClasses.light || '');
           } else {
-            document.body.classList.remove('bg-dark', 'text-light');
-            if (!document.body.classList.contains('bg-light')) {
-              document.body.classList.add('bg-light');
-            }
             applyElementThemeClasses(footerElement, footerThemeClasses.light || '', footerThemeClasses.dark || '');
             applyElementThemeClasses(feedbackTableHeader, tableThemeClasses.light || '', tableThemeClasses.dark || '');
           }
@@ -1970,23 +2079,43 @@
           writeThemePreference(themePreferenceLegacyStorageKey, mode);
         }
 
-        function synchronizeFooterThemeMode(mode) {
+        function parseThemeConfig(rawValue) {
+          if (!rawValue) {
+            return {};
+          }
+          try {
+            var parsed = JSON.parse(rawValue);
+            if (parsed && typeof parsed === 'object') {
+              return parsed;
+            }
+          } catch (error) {
+            console.error(error);
+          }
+          return {};
+        }
+
+        function updateFooterThemeConfig(mode) {
           if (!footerElement) {
             return;
           }
-          footerElement.setAttribute('theme-mode', mode);
+          var normalizedMode = mode === 'dark' ? 'dark' : 'light';
+          var config = parseThemeConfig(footerElement.getAttribute('theme-config'));
+          if (!config.attribute) {
+            config.attribute = 'data-bs-theme';
+          }
+          config.initialMode = normalizedMode;
+          footerElement.setAttribute('theme-config', JSON.stringify(config));
         }
 
         function handleThemeSelection(mode) {
           var normalizedMode = mode === 'dark' ? 'dark' : 'light';
           applyThemePreference(normalizedMode);
           persistThemePreference(normalizedMode);
-          synchronizeFooterThemeMode(normalizedMode);
         }
 
         function loadThemePreference() {
           var stored = resolveThemePreference();
-          synchronizeFooterThemeMode(stored);
+          updateFooterThemeConfig(stored);
           applyThemePreference(stored);
         }
 
@@ -1994,17 +2123,21 @@
           if (sessionTimeoutManager && typeof sessionTimeoutManager.stop === 'function') {
             sessionTimeoutManager.stop();
           }
-          if (!logoutPath) {
-            window.location.href = landingPath;
-            return;
-          }
           var redirectToLanding = function() {
             window.location.href = landingPath;
           };
-          window.fetch(logoutPath, {
-            method: 'POST',
-            credentials: 'same-origin'
-          }).then(redirectToLanding).catch(redirectToLanding);
+          if (typeof window.logout === 'function') {
+            Promise.resolve(window.logout()).then(redirectToLanding).catch(redirectToLanding);
+            return;
+          }
+          redirectToLanding();
+        }
+
+        function resolveAuthFetch() {
+          if (typeof window.apiFetch === 'function') {
+            return window.apiFetch;
+          }
+          return window.fetch.bind(window);
         }
 
         function fetchJSON(url, options) {
@@ -2012,9 +2145,9 @@
           if (!requestOptions.credentials) {
             requestOptions.credentials = 'same-origin';
           }
-          return window.fetch(url, requestOptions).then(function(response) {
+          return resolveAuthFetch()(url, requestOptions).then(function(response) {
             if (response.status === 401) {
-              window.location.href = loginPath;
+              window.location.href = landingPath;
               return Promise.reject(new Error('unauthorized'));
             }
             var forbiddenResponse = response.status === 403;
@@ -2073,16 +2206,35 @@
           if (editSiteOwnerContainer) {
             editSiteOwnerContainer.classList.remove('d-none');
           }
-
-          var shouldShowAvatar = avatarURL !== '';
-          settingsAvatarImage.src = shouldShowAvatar ? avatarURL : '';
-          if (shouldShowAvatar) {
-            settingsAvatarImage.classList.remove('d-none');
-            settingsAvatarFallback.classList.add('d-none');
-          } else {
-            settingsAvatarImage.classList.add('d-none');
-            settingsAvatarFallback.classList.remove('d-none');
+          var headerHost = document.querySelector('mpr-header');
+          if (headerHost) {
+            if (displayName) {
+              headerHost.setAttribute('data-user-display', displayName);
+            } else {
+              headerHost.removeAttribute('data-user-display');
+            }
+            if (state.user.email) {
+              headerHost.setAttribute('data-user-email', state.user.email);
+            } else {
+              headerHost.removeAttribute('data-user-email');
+            }
+            if (avatarURL) {
+              headerHost.setAttribute('data-user-avatar-url', avatarURL);
+            } else {
+              headerHost.removeAttribute('data-user-avatar-url');
+            }
+            if (state.user.email || displayName) {
+              var profile = {
+                user_email: state.user.email || '',
+                display: displayName || '',
+                avatar_url: avatarURL || ''
+              };
+              try {
+                headerHost.dispatchEvent(new CustomEvent('mpr-ui:auth:authenticated', { detail: { profile: profile }, bubbles: true }));
+              } catch (error) {}
+            }
           }
+
           clearValidationFeedback();
         }
 
@@ -2395,12 +2547,12 @@
             deleteSiteConfirmButton.disabled = true;
           }
           setFormStatus(statusMessages.deleting_site || '', formStatusDangerClass);
-          window.fetch(apiSiteUpdatePrefix + site.id, {
+          resolveAuthFetch()(apiSiteUpdatePrefix + site.id, {
             method: 'DELETE',
             credentials: 'same-origin'
           }).then(function(response) {
             if (response.status === 401) {
-              window.location.href = loginPath;
+              window.location.href = landingPath;
               throw new Error('unauthorized');
             }
             if (!response.ok) {
@@ -3604,13 +3756,6 @@
             setDashboardSection('traffic');
           });
         }
-        if (logoutButton) {
-          logoutButton.addEventListener('click', function(event) {
-            event.preventDefault();
-            performLogout();
-          });
-        }
-
         window.addEventListener('beforeunload', function() {
           closeFaviconEventStream();
           closeFeedbackEventStream();
@@ -3628,7 +3773,11 @@
           openFeedbackEventStream();
           return loadSites();
         });
-      })();
+        })();
+      });
+    </script>
+    <script>
+{{.AuthScript}}
     </script>
   </body>
 </html>

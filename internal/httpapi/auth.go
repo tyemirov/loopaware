@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/sessions"
-	"github.com/tyemirov/GAuss/pkg/constants"
-	"github.com/tyemirov/GAuss/pkg/session"
+	"github.com/tyemirov/tauth/pkg/sessionvalidator"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
@@ -89,14 +87,20 @@ func (currentUser *CurrentUser) canManageSite(site model.Site) bool {
 type AuthManager struct {
 	database                    *gorm.DB
 	logger                      *zap.Logger
-	sessionStore                *sessions.CookieStore
 	adminEmails                 map[string]struct{}
 	httpClient                  HTTPClient
 	unauthenticatedRedirectPath string
+	sessionValidator            *sessionvalidator.Validator
+	expectedTenantID            string
 }
 
-func NewAuthManager(database *gorm.DB, logger *zap.Logger, adminEmails []string, httpClient HTTPClient, loginRedirectPath string) *AuthManager {
-	store := session.Store()
+type AuthConfig struct {
+	SigningKey string
+	CookieName string
+	TenantID   string
+}
+
+func NewAuthManager(database *gorm.DB, logger *zap.Logger, adminEmails []string, httpClient HTTPClient, loginRedirectPath string, authConfig AuthConfig) (*AuthManager, error) {
 	adminMap := make(map[string]struct{}, len(adminEmails))
 	for _, email := range adminEmails {
 		trimmedEmail := strings.ToLower(strings.TrimSpace(email))
@@ -113,17 +117,27 @@ func NewAuthManager(database *gorm.DB, logger *zap.Logger, adminEmails []string,
 
 	redirectPath := strings.TrimSpace(loginRedirectPath)
 	if redirectPath == "" {
-		redirectPath = constants.LoginPath
+		redirectPath = LandingPagePath
+	}
+
+	validatorConfig := sessionvalidator.Config{
+		SigningKey: []byte(strings.TrimSpace(authConfig.SigningKey)),
+		CookieName: strings.TrimSpace(authConfig.CookieName),
+	}
+	sessionValidator, validatorErr := sessionvalidator.New(validatorConfig)
+	if validatorErr != nil {
+		return nil, validatorErr
 	}
 
 	return &AuthManager{
 		database:                    database,
 		logger:                      logger,
-		sessionStore:                store,
 		adminEmails:                 adminMap,
 		httpClient:                  client,
 		unauthenticatedRedirectPath: redirectPath,
-	}
+		sessionValidator:            sessionValidator,
+		expectedTenantID:            strings.TrimSpace(authConfig.TenantID),
+	}, nil
 }
 
 func (authManager *AuthManager) RequireAuthenticatedJSON() gin.HandlerFunc {
@@ -181,19 +195,29 @@ func (authManager *AuthManager) ensureUser(context *gin.Context) (*CurrentUser, 
 		return currentUser, true
 	}
 
-	sessionInstance, sessionErr := authManager.sessionStore.Get(context.Request, constants.SessionName)
-	if sessionErr != nil {
-		authManager.logger.Warn(logEventLoadSession, zap.Error(sessionErr))
+	if authManager.sessionValidator == nil {
+		authManager.logger.Warn(logEventLoadSession, zap.Error(sessionvalidator.ErrMissingSigningKey))
 		return nil, false
 	}
 
-	email := extractString(sessionInstance.Values[constants.SessionKeyUserEmail])
+	claims, validationErr := authManager.sessionValidator.ValidateRequest(context.Request)
+	if validationErr != nil {
+		authManager.logger.Warn(logEventLoadSession, zap.Error(validationErr))
+		return nil, false
+	}
+	expectedTenantID := authManager.expectedTenantID
+	if expectedTenantID != "" && !strings.EqualFold(claims.GetTenantID(), expectedTenantID) {
+		authManager.logger.Warn(logEventLoadSession, zap.Error(sessionvalidator.ErrInvalidToken))
+		return nil, false
+	}
+
+	email := strings.TrimSpace(claims.GetUserEmail())
 	if email == "" {
 		return nil, false
 	}
 
-	name := extractString(sessionInstance.Values[constants.SessionKeyUserName])
-	pictureURL := extractString(sessionInstance.Values[constants.SessionKeyUserPicture])
+	name := strings.TrimSpace(claims.GetUserDisplayName())
+	pictureURL := strings.TrimSpace(claims.GetUserAvatarURL())
 	lowercaseEmail := strings.ToLower(email)
 	userRole := RoleUser
 	if _, isPrivileged := authManager.adminEmails[lowercaseEmail]; isPrivileged {
@@ -298,12 +322,4 @@ func (authManager *AuthManager) fetchAvatar(ctx context.Context, sourceURL strin
 		contentType = defaultAvatarMimeType
 	}
 	return data, contentType, nil
-}
-
-func extractString(value interface{}) string {
-	text, ok := value.(string)
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(text)
 }

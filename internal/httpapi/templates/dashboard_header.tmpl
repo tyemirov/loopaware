@@ -1,22 +1,21 @@
 {{define "dashboard_header"}}
-<header class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top shadow-sm">
-  <div class="container-fluid">
-    <span class="navbar-brand d-flex align-items-center gap-3">
-      <img id="{{.HeaderLogoImageID}}" src="{{.HeaderLogoDataURI}}" alt="LoopAware logo" width="44" height="44" />
-      <span class="fw-semibold">{{.PageTitle}}</span>
-    </span>
-    <div class="dropdown ms-auto">
-      <button id="{{.SettingsButtonID}}" class="btn btn-outline-light border-0 rounded-circle p-1 d-flex align-items-center justify-content-center" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-        <span class="visually-hidden">{{.SettingsButtonLabel}}</span>
-        <img id="{{.SettingsAvatarImageID}}" src="" alt="Avatar" class="rounded-circle d-none" width="36" height="36" />
-        <i id="{{.SettingsAvatarFallbackID}}" class="bi bi-person-circle fs-3"></i>
-      </button>
-      <div id="{{.SettingsMenuID}}" class="dropdown-menu dropdown-menu-end">
-        <button id="{{.SettingsMenuSettingsButtonID}}" class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#{{.SettingsModalID}}">{{.SettingsMenuSettingsLabel}}</button>
-        <div class="dropdown-divider"></div>
-        <button id="{{.LogoutButtonID}}" class="dropdown-item" type="button">{{.LogoutLabel}}</button>
+<mpr-header class="dashboard-header" google-site-id="{{.HeaderGoogleClientID}}"{{if .HeaderTauthBaseURL}} tauth-url="{{.HeaderTauthBaseURL}}"{{end}} tauth-tenant-id="{{.HeaderTauthTenantID}}" tauth-login-path="{{.HeaderTauthLoginPath}}" tauth-logout-path="{{.HeaderTauthLogoutPath}}" tauth-nonce-path="{{.HeaderTauthNoncePath}}" sign-in-label="{{.HeaderSignInLabel}}" sign-out-label="{{.HeaderSignOutLabel}}" data-loopaware-auth-redirect-on-logout="true" data-loopaware-authenticated="true">
+  <span slot="brand" class="d-inline-flex align-items-center gap-3">
+    <img id="{{.HeaderLogoImageID}}" src="{{.HeaderLogoDataURI}}" alt="LoopAware logo" width="44" height="44" />
+    <span class="fw-semibold">{{.PageTitle}}</span>
+  </span>
+  <div slot="aux" class="loopaware-profile-dropdown dropdown" data-loopaware-profile-menu="true">
+    <button type="button" class="loopaware-profile-toggle dropdown-toggle" data-loopaware-profile-toggle="true" aria-expanded="false">
+      <img class="loopaware-header-avatar d-none" data-loopaware-avatar="true" alt="User avatar" />
+    </button>
+    <div class="dropdown-menu dropdown-menu-end loopaware-profile-menu" data-loopaware-profile-menu-items="true">
+      <div class="loopaware-profile-menu-header">
+        <span class="loopaware-profile-name" data-loopaware-profile-name="true"></span>
       </div>
+      <div class="dropdown-divider"></div>
+      <button id="{{.SettingsButtonID}}" type="button" class="dropdown-item loopaware-profile-item" data-loopaware-settings="true" data-bs-toggle="modal" data-bs-target="#{{.SettingsModalID}}">{{.SettingsButtonLabel}}</button>
+      <button type="button" class="dropdown-item loopaware-profile-item" data-loopaware-logout="true">{{.HeaderSignOutLabel}}</button>
     </div>
   </div>
-</header>
+</mpr-header>
 {{end}}

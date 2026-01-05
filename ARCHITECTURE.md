@@ -8,7 +8,7 @@ with SQLite as the default driver.
 
 ## Components
 
-- **Auth**: `/login` and all `/api/*` endpoints are secured by the GAuss OAuth flow and a signed session cookie.
+- **Auth**: `/login` and all `/api/*` endpoints are secured by TAuth, which issues the `app_session` JWT cookie via Google Identity Services.
 - **Dashboard**: a server-rendered HTML application backed by JSON APIs and server-sent events (SSE) for live updates.
 - **Public assets**: `GET /widget.js`, `GET /subscribe.js`, and `GET /pixel.js` are generated JavaScript payloads that
   embed the selected `site_id` and call the public JSON endpoints.

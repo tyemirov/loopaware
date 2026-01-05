@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tyemirov/GAuss/pkg/constants"
 )
 
 const (
@@ -18,7 +17,7 @@ const (
 )
 
 var sitemapStaticPaths = []string{
-	constants.LoginPath,
+	LandingPagePath,
 	PrivacyPagePath,
 }
 
