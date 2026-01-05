@@ -25,7 +25,7 @@ const (
 	landingThemeDataAttributeToken      = "data-bs-theme"
 	landingThemeFooterQueryToken        = "var footerElement = document.querySelector('mpr-footer');"
 	landingThemeFooterListenerToken     = "footerElement.addEventListener('mpr-footer:theme-change'"
-	landingThemeFooterModeToken         = "footerElement.setAttribute('theme-mode', normalizedTheme);"
+	landingThemeFooterConfigToken       = "footerElement.setAttribute('theme-config', JSON.stringify(config));"
 	landingLogoImageClassToken          = "class=\"landing-logo-image\""
 	landingLogoAltToken                 = "alt=\"LoopAware logo\""
 	landingLogoDataToken                = "src=\"data:image/png;base64,"
@@ -39,7 +39,7 @@ const (
 	landingFooterThemeSwitcherToken     = "theme-switcher=\"toggle\""
 	landingFooterThemeConfigToken       = "theme-config="
 	landingFooterStickyDisabledToken    = "sticky=\"false\""
-	landingFooterLinksToken             = "links="
+	landingFooterLinksToken             = "links-collection="
 	landingFooterLinkGravityToken       = "https://gravity.mprlab.com"
 	landingFooterLinkLoopAwareToken     = "https://loopaware.mprlab.com"
 	landingFooterLinkAllergyToken       = "https://allergy.mprlab.com"
@@ -122,7 +122,7 @@ func TestLandingPageProvidesThemeSwitch(t *testing.T) {
 	require.Contains(t, body, landingThemeDataAttributeToken)
 	require.Contains(t, body, landingThemeFooterQueryToken)
 	require.Contains(t, body, landingThemeFooterListenerToken)
-	require.Contains(t, body, landingThemeFooterModeToken)
+	require.Contains(t, body, landingThemeFooterConfigToken)
 	require.Contains(t, body, landingHeaderStickyToken)
 	require.Contains(t, body, landingFooterComponentToken)
 	require.Contains(t, body, landingFooterThemeSwitcherToken)

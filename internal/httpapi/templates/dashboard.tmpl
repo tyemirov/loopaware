@@ -56,11 +56,11 @@
         border: 1px solid rgba(148, 163, 184, 0.35);
         background: rgba(15, 23, 42, 0.65);
         color: #e2e8f0;
-        padding: 0.35rem 0.75rem;
+        padding: 0.25rem;
         border-radius: 999px;
         display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0;
         font-weight: 600;
       }
       .dashboard-header .loopaware-profile-toggle:focus-visible {
@@ -69,6 +69,12 @@
       }
       .dashboard-header .loopaware-profile-name {
         line-height: 1.1;
+      }
+      .dashboard-header .loopaware-profile-menu-header {
+        padding: 0.35rem 0.75rem 0.5rem;
+      }
+      .dashboard-header .loopaware-profile-menu-header .loopaware-profile-name {
+        font-weight: 600;
       }
       .dashboard-header .loopaware-profile-menu {
         min-width: 200px;
@@ -111,9 +117,26 @@
         background: rgba(15, 23, 42, 0.08);
         color: #0f172a;
       }
+      body[data-mpr-theme="dark"],
+      body[data-mpr-theme="light"] {
+        --bs-body-bg: var(--mpr-color-surface-primary);
+        --bs-body-color: var(--mpr-color-text-primary);
+        --bs-secondary-color: var(--mpr-color-text-muted);
+        --bs-border-color: var(--mpr-color-border);
+      }
+      body[data-mpr-theme="dark"] {
+        --bs-body-bg-rgb: 15, 23, 42;
+        --bs-body-color-rgb: 226, 232, 240;
+        --bs-secondary-color-rgb: 203, 213, 245;
+      }
+      body[data-mpr-theme="light"] {
+        --bs-body-bg-rgb: 248, 250, 252;
+        --bs-body-color-rgb: 15, 23, 42;
+        --bs-secondary-color-rgb: 51, 65, 85;
+      }
     </style>
   </head>
-  <body class="d-flex flex-column min-vh-100 bg-light">
+  <body class="d-flex flex-column min-vh-100">
     {{template "dashboard_header" .}}
     <main class="flex-grow-1 pt-5 mt-4">
       <div class="container py-4">
@@ -2036,16 +2059,11 @@
           document.documentElement.setAttribute('data-mpr-theme', normalized);
           document.body.setAttribute('data-bs-theme', normalized);
           document.body.setAttribute('data-mpr-theme', normalized);
+          document.body.classList.remove('bg-dark', 'text-light', 'bg-light');
           if (normalized === 'dark') {
-            document.body.classList.remove('bg-light');
-            document.body.classList.add('bg-dark', 'text-light');
             applyElementThemeClasses(footerElement, footerThemeClasses.dark || '', footerThemeClasses.light || '');
             applyElementThemeClasses(feedbackTableHeader, tableThemeClasses.dark || '', tableThemeClasses.light || '');
           } else {
-            document.body.classList.remove('bg-dark', 'text-light');
-            if (!document.body.classList.contains('bg-light')) {
-              document.body.classList.add('bg-light');
-            }
             applyElementThemeClasses(footerElement, footerThemeClasses.light || '', footerThemeClasses.dark || '');
             applyElementThemeClasses(feedbackTableHeader, tableThemeClasses.light || '', tableThemeClasses.dark || '');
           }
@@ -2061,23 +2079,43 @@
           writeThemePreference(themePreferenceLegacyStorageKey, mode);
         }
 
-        function synchronizeFooterThemeMode(mode) {
+        function parseThemeConfig(rawValue) {
+          if (!rawValue) {
+            return {};
+          }
+          try {
+            var parsed = JSON.parse(rawValue);
+            if (parsed && typeof parsed === 'object') {
+              return parsed;
+            }
+          } catch (error) {
+            console.error(error);
+          }
+          return {};
+        }
+
+        function updateFooterThemeConfig(mode) {
           if (!footerElement) {
             return;
           }
-          footerElement.setAttribute('theme-mode', mode);
+          var normalizedMode = mode === 'dark' ? 'dark' : 'light';
+          var config = parseThemeConfig(footerElement.getAttribute('theme-config'));
+          if (!config.attribute) {
+            config.attribute = 'data-bs-theme';
+          }
+          config.initialMode = normalizedMode;
+          footerElement.setAttribute('theme-config', JSON.stringify(config));
         }
 
         function handleThemeSelection(mode) {
           var normalizedMode = mode === 'dark' ? 'dark' : 'light';
           applyThemePreference(normalizedMode);
           persistThemePreference(normalizedMode);
-          synchronizeFooterThemeMode(normalizedMode);
         }
 
         function loadThemePreference() {
           var stored = resolveThemePreference();
-          synchronizeFooterThemeMode(stored);
+          updateFooterThemeConfig(stored);
           applyThemePreference(stored);
         }
 
@@ -2167,6 +2205,34 @@
           userRole.className = isAdminUser ? 'badge bg-warning text-dark mt-2' : 'badge bg-secondary mt-2';
           if (editSiteOwnerContainer) {
             editSiteOwnerContainer.classList.remove('d-none');
+          }
+          var headerHost = document.querySelector('mpr-header');
+          if (headerHost) {
+            if (displayName) {
+              headerHost.setAttribute('data-user-display', displayName);
+            } else {
+              headerHost.removeAttribute('data-user-display');
+            }
+            if (state.user.email) {
+              headerHost.setAttribute('data-user-email', state.user.email);
+            } else {
+              headerHost.removeAttribute('data-user-email');
+            }
+            if (avatarURL) {
+              headerHost.setAttribute('data-user-avatar-url', avatarURL);
+            } else {
+              headerHost.removeAttribute('data-user-avatar-url');
+            }
+            if (state.user.email || displayName) {
+              var profile = {
+                user_email: state.user.email || '',
+                display: displayName || '',
+                avatar_url: avatarURL || ''
+              };
+              try {
+                headerHost.dispatchEvent(new CustomEvent('mpr-ui:auth:authenticated', { detail: { profile: profile }, bubbles: true }));
+              } catch (error) {}
+            }
           }
 
           clearValidationFeedback();
