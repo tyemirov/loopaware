@@ -2223,6 +2223,16 @@
             } else {
               headerHost.removeAttribute('data-user-avatar-url');
             }
+            if (state.user.email || displayName) {
+              var profile = {
+                user_email: state.user.email || '',
+                display: displayName || '',
+                avatar_url: avatarURL || ''
+              };
+              try {
+                headerHost.dispatchEvent(new CustomEvent('mpr-ui:auth:authenticated', { detail: { profile: profile }, bubbles: true }));
+              } catch (error) {}
+            }
           }
 
           clearValidationFeedback();
