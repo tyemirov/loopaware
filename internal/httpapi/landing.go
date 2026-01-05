@@ -24,7 +24,9 @@ type landingTemplateData struct {
 	FooterHTML     template.HTML
 	HeaderHTML     template.HTML
 	ThemeScript    template.JS
+	AuthScript     template.JS
 	FaviconDataURI template.URL
+	TauthScriptURL template.URL
 }
 
 // PublicPageCurrentUserProvider exposes the authenticated user when available.
@@ -37,10 +39,11 @@ type LandingPageHandlers struct {
 	logger              *zap.Logger
 	template            *template.Template
 	currentUserProvider PublicPageCurrentUserProvider
+	authConfig          AuthClientConfig
 }
 
 // NewLandingPageHandlers constructs handlers that render the landing template.
-func NewLandingPageHandlers(logger *zap.Logger, currentUserProvider PublicPageCurrentUserProvider) *LandingPageHandlers {
+func NewLandingPageHandlers(logger *zap.Logger, currentUserProvider PublicPageCurrentUserProvider, authConfig AuthClientConfig) *LandingPageHandlers {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -49,6 +52,7 @@ func NewLandingPageHandlers(logger *zap.Logger, currentUserProvider PublicPageCu
 		logger:              logger,
 		template:            compiledTemplate,
 		currentUserProvider: currentUserProvider,
+		authConfig:          authConfig,
 	}
 }
 
@@ -65,7 +69,7 @@ func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
 		_, isAuthenticated = handlers.currentUserProvider.CurrentUser(context)
 	}
 
-	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, isAuthenticated, publicPageLanding)
+	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, isAuthenticated, publicPageLanding, handlers.authConfig, true)
 	if headerErr != nil {
 		handlers.logger.Error("render_landing_header", zap.Error(headerErr))
 		headerHTML = template.HTML("")
@@ -76,13 +80,20 @@ func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
 		handlers.logger.Error("render_public_theme_script", zap.Error(themeErr))
 		themeScript = template.JS("")
 	}
+	authScript, authErr := renderPublicAuthScript()
+	if authErr != nil {
+		handlers.logger.Error("render_public_auth_script", zap.Error(authErr))
+		authScript = template.JS("")
+	}
 
 	data := landingTemplateData{
 		SharedStyles:   sharedPublicStyles(),
 		FooterHTML:     footerHTML,
 		HeaderHTML:     headerHTML,
 		ThemeScript:    themeScript,
+		AuthScript:     authScript,
 		FaviconDataURI: template.URL(dashboardFaviconDataURI),
+		TauthScriptURL: template.URL(handlers.authConfig.TauthScriptURL),
 	}
 
 	var buffer bytes.Buffer

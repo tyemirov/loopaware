@@ -23,8 +23,10 @@ const (
 	testDefaultPublicBaseURL         = "http://localhost:8080"
 	testAdminEmail                   = "admin@example.com"
 	testGoogleClientID               = "client-id"
-	testGoogleClientSecret           = "client-secret"
 	testSessionSecret                = "session-secret"
+	testTauthBaseURL                 = "https://tauth.example.com"
+	testTauthTenantID                = "tenant-test"
+	testTauthSigningKey              = "test-signing-key"
 	testAdministratorsEnvironmentKey = "ADMINS"
 	testConfigAdminFirstEmail        = "config-admin-one@example.com"
 	testConfigAdminSecondEmail       = "config-admin-two@example.com"
@@ -40,8 +42,10 @@ func TestEnsureRequiredConfigurationDetectsMissingFields(t *testing.T) {
 		DatabaseDataSourceName: "",
 		AdminEmailAddresses:    []string{testAdminEmail},
 		GoogleClientID:         testGoogleClientID,
-		GoogleClientSecret:     testGoogleClientSecret,
 		SessionSecret:          testSessionSecret,
+		TauthBaseURL:           testTauthBaseURL,
+		TauthTenantID:          testTauthTenantID,
+		TauthSigningKey:        testTauthSigningKey,
 		PublicBaseURL:          testDefaultPublicBaseURL,
 		ConfigFilePath:         "testdata/config.yaml",
 		PinguinAddress:         defaultPinguinAddress,
@@ -90,20 +94,36 @@ func TestEnsureRequiredConfigurationDetectsMissingFields(t *testing.T) {
 			expectedToken: flagNameGoogleClientID,
 		},
 		{
-			name: "missing google client secret",
-			mutate: func(config *ServerConfig) {
-				config.GoogleClientSecret = ""
-			},
-			expectsError:  true,
-			expectedToken: flagNameGoogleClientSecret,
-		},
-		{
 			name: "missing session secret",
 			mutate: func(config *ServerConfig) {
 				config.SessionSecret = ""
 			},
 			expectsError:  true,
 			expectedToken: flagNameSessionSecret,
+		},
+		{
+			name: "missing tauth base url",
+			mutate: func(config *ServerConfig) {
+				config.TauthBaseURL = ""
+			},
+			expectsError:  true,
+			expectedToken: flagNameTauthBaseURL,
+		},
+		{
+			name: "missing tauth tenant id",
+			mutate: func(config *ServerConfig) {
+				config.TauthTenantID = ""
+			},
+			expectsError:  true,
+			expectedToken: flagNameTauthTenantID,
+		},
+		{
+			name: "missing tauth signing key",
+			mutate: func(config *ServerConfig) {
+				config.TauthSigningKey = ""
+			},
+			expectsError:  true,
+			expectedToken: flagNameTauthSigningKey,
 		},
 		{
 			name: "missing public base url",
@@ -277,8 +297,10 @@ func TestLoadServerConfigAllowsMissingConfigFile(t *testing.T) {
 
 	t.Setenv(testAdministratorsEnvironmentKey, fmt.Sprintf("%s,%s", testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail))
 	t.Setenv(environmentKeyGoogleClientID, testGoogleClientID)
-	t.Setenv(environmentKeyGoogleClientSecret, testGoogleClientSecret)
 	t.Setenv(environmentKeySessionSecret, testSessionSecret)
+	t.Setenv(environmentKeyTauthBaseURL, testTauthBaseURL)
+	t.Setenv(environmentKeyTauthTenantID, testTauthTenantID)
+	t.Setenv(environmentKeyTauthSigningKey, testTauthSigningKey)
 	t.Setenv(environmentKeyPublicBaseURL, testDefaultPublicBaseURL)
 
 	application := NewServerApplication()
@@ -296,8 +318,10 @@ func TestLoadServerConfigFallsBackToSharedAuthToken(t *testing.T) {
 	require.NoError(t, os.WriteFile(configFilePath, []byte("admins: []\n"), 0600))
 
 	t.Setenv(environmentKeyGoogleClientID, testGoogleClientID)
-	t.Setenv(environmentKeyGoogleClientSecret, testGoogleClientSecret)
 	t.Setenv(environmentKeySessionSecret, testSessionSecret)
+	t.Setenv(environmentKeyTauthBaseURL, testTauthBaseURL)
+	t.Setenv(environmentKeyTauthTenantID, testTauthTenantID)
+	t.Setenv(environmentKeyTauthSigningKey, testTauthSigningKey)
 	t.Setenv(environmentKeyPublicBaseURL, testDefaultPublicBaseURL)
 	t.Setenv(environmentKeyPinguinAuthToken, "")
 	t.Setenv(environmentKeyPinguinSharedAuth, "shared-token")

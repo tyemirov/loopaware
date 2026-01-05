@@ -9,7 +9,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css" />
     <link rel="icon" type="image/svg+xml" href="{{.FaviconDataURI}}" />
     <script defer src="https://loopaware.mprlab.com/widget.js?site_id=a3222433-92ec-473a-9255-0797226c2273"></script>
+    {{if .TauthScriptURL}}<script defer src="{{.TauthScriptURL}}"></script>{{end}}
     <script defer src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
 {{.SharedStyles}}
     </style>
@@ -26,7 +28,7 @@
               <ul class="list-unstyled text-body-secondary lead">
                 <li class="d-flex align-items-start gap-3 mb-3">
                   <i class="bi bi-shield-lock-fill text-primary fs-4"></i>
-                  <span>Google Sign-In powered by GAuss keeps every login secure.</span>
+                  <span>Google Sign-In secured by TAuth keeps every login protected.</span>
                 </li>
                 <li class="d-flex align-items-start gap-3 mb-3">
                   <i class="bi bi-broadcast-pin text-success fs-4"></i>
@@ -82,6 +84,9 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script>
 {{.ThemeScript}}
+    </script>
+    <script>
+{{.AuthScript}}
     </script>
   </body>
 </html>

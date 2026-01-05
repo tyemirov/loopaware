@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tyemirov/GAuss/pkg/constants"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
@@ -15,31 +14,33 @@ import (
 )
 
 type SiteTrafficTestHandlers struct {
-	database *gorm.DB
-	logger   *zap.Logger
-	template *template.Template
+	database   *gorm.DB
+	logger     *zap.Logger
+	template   *template.Template
+	authConfig AuthClientConfig
 }
 
-func NewSiteTrafficTestHandlers(database *gorm.DB, logger *zap.Logger) *SiteTrafficTestHandlers {
+func NewSiteTrafficTestHandlers(database *gorm.DB, logger *zap.Logger, authConfig AuthClientConfig) *SiteTrafficTestHandlers {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 	baseTemplate := template.Must(template.New("traffic_test").Parse(dashboardHeaderTemplateHTML))
 	compiled := template.Must(baseTemplate.Parse(trafficTestTemplateHTML))
 	return &SiteTrafficTestHandlers{
-		database: database,
-		logger:   logger,
-		template: compiled,
+		database:   database,
+		logger:     logger,
+		template:   compiled,
+		authConfig: authConfig,
 	}
 }
 
 type trafficTestTemplateData struct {
 	PageTitle               string
 	Header                  dashboardHeaderTemplateData
-	LogoutPath              string
 	LandingPath             string
 	BootstrapIconsIntegrity template.HTMLAttr
 	FaviconDataURI          template.URL
+	TauthScriptURL          template.URL
 	SiteID                  string
 	SiteName                string
 	VisitsEndpoint          template.URL
@@ -76,7 +77,7 @@ func (handlers *SiteTrafficTestHandlers) RenderTrafficTestPage(context *gin.Cont
 
 	currentUser, ok := CurrentUserFromContext(context)
 	if !ok {
-		context.Redirect(http.StatusFound, constants.LoginPath)
+		context.Redirect(http.StatusFound, LandingPagePath)
 		return
 	}
 
@@ -91,24 +92,25 @@ func (handlers *SiteTrafficTestHandlers) RenderTrafficTestPage(context *gin.Cont
 	}
 
 	headerData := dashboardHeaderTemplateData{
-		PageTitle:                    dashboardPageTitle,
-		HeaderLogoDataURI:            landingLogoDataURI,
-		HeaderLogoImageID:            dashboardHeaderLogoElementID,
-		SettingsButtonID:             settingsButtonElementID,
-		SettingsButtonLabel:          navbarSettingsButtonLabel,
-		SettingsAvatarImageID:        settingsAvatarImageElementID,
-		SettingsAvatarFallbackID:     settingsAvatarFallbackElementID,
-		SettingsMenuID:               settingsMenuElementID,
-		SettingsMenuSettingsButtonID: settingsMenuSettingsButtonElementID,
-		SettingsMenuSettingsLabel:    settingsMenuSettingsLabel,
-		SettingsModalID:              settingsModalElementID,
-		SettingsModalTitleID:         settingsModalTitleElementID,
-		SettingsModalTitle:           settingsModalTitle,
-		SettingsModalIntro:           settingsModalIntroText,
-		SettingsModalCloseLabel:      settingsModalCloseButtonLabel,
-		SettingsModalContentID:       settingsModalContentElementID,
-		LogoutButtonID:               logoutButtonElementID,
-		LogoutLabel:                  navbarLogoutLabel,
+		PageTitle:               dashboardPageTitle,
+		HeaderLogoDataURI:       landingLogoDataURI,
+		HeaderLogoImageID:       dashboardHeaderLogoElementID,
+		HeaderGoogleClientID:    handlers.authConfig.GoogleClientID,
+		HeaderTauthBaseURL:      handlers.authConfig.TauthBaseURL,
+		HeaderTauthTenantID:     handlers.authConfig.TauthTenantID,
+		HeaderTauthLoginPath:    TauthLoginPath,
+		HeaderTauthLogoutPath:   TauthLogoutPath,
+		HeaderTauthNoncePath:    TauthNoncePath,
+		HeaderSignInLabel:       publicSignInLabel,
+		HeaderSignOutLabel:      publicSignOutLabel,
+		SettingsButtonID:        settingsButtonElementID,
+		SettingsButtonLabel:     navbarSettingsButtonLabel,
+		SettingsModalID:         settingsModalElementID,
+		SettingsModalTitleID:    settingsModalTitleElementID,
+		SettingsModalTitle:      settingsModalTitle,
+		SettingsModalIntro:      settingsModalIntroText,
+		SettingsModalCloseLabel: settingsModalCloseButtonLabel,
+		SettingsModalContentID:  settingsModalContentElementID,
 	}
 
 	footerHTML, footerErr := renderFooterHTMLForVariant(footerVariantDashboard)
@@ -129,10 +131,10 @@ func (handlers *SiteTrafficTestHandlers) RenderTrafficTestPage(context *gin.Cont
 	data := trafficTestTemplateData{
 		PageTitle:               "Traffic Widget Test — " + site.Name,
 		Header:                  headerData,
-		LogoutPath:              constants.LogoutPath,
-		LandingPath:             constants.LoginPath,
+		LandingPath:             LandingPagePath,
 		BootstrapIconsIntegrity: template.HTMLAttr(dashboardBootstrapIconsIntegrityAttr),
 		FaviconDataURI:          template.URL(dashboardFaviconDataURI),
+		TauthScriptURL:          template.URL(handlers.authConfig.TauthScriptURL),
 		SiteID:                  site.ID,
 		SiteName:                site.Name,
 		VisitsEndpoint:          template.URL(visitsEndpoint),

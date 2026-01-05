@@ -11,14 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/tyemirov/GAuss/pkg/session"
-
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/testutil"
 )
 
-const testLoginRedirectPath = "/landing"
+const testLoginRedirectPath = LandingPagePath
 
 type stubHTTPClient struct {
 	statusCode  int
@@ -43,7 +41,6 @@ func (client *stubHTTPClient) Do(request *http.Request) (*http.Response, error) 
 }
 
 func TestPersistUserStoresAvatar(t *testing.T) {
-	session.NewSession([]byte("12345678901234567890123456789012"))
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
 	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(t, err)
@@ -51,7 +48,8 @@ func TestPersistUserStoresAvatar(t *testing.T) {
 	require.NoError(t, storage.AutoMigrate(database))
 
 	client := &stubHTTPClient{statusCode: http.StatusOK, contentType: "image/png", body: []byte{0x01, 0x02}}
-	manager := NewAuthManager(database, zap.NewNop(), nil, client, testLoginRedirectPath)
+	manager, err := NewAuthManager(database, zap.NewNop(), nil, client, testLoginRedirectPath, AuthConfig{SigningKey: "test-signing-key"})
+	require.NoError(t, err)
 
 	path, err := manager.persistUser(context.Background(), "user@example.com", "User Example", "https://example.com/avatar.png")
 	require.NoError(t, err)
@@ -66,7 +64,6 @@ func TestPersistUserStoresAvatar(t *testing.T) {
 }
 
 func TestPersistUserHandlesFetchErrorsGracefully(t *testing.T) {
-	session.NewSession([]byte("12345678901234567890123456789012"))
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
 	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(t, err)
@@ -74,7 +71,8 @@ func TestPersistUserHandlesFetchErrorsGracefully(t *testing.T) {
 	require.NoError(t, storage.AutoMigrate(database))
 
 	client := &stubHTTPClient{err: errors.New("network failure")}
-	manager := NewAuthManager(database, zap.NewNop(), nil, client, testLoginRedirectPath)
+	manager, err := NewAuthManager(database, zap.NewNop(), nil, client, testLoginRedirectPath, AuthConfig{SigningKey: "test-signing-key"})
+	require.NoError(t, err)
 
 	path, err := manager.persistUser(context.Background(), "user2@example.com", "User Example", "https://example.com/avatar.png")
 	require.NoError(t, err)
@@ -86,7 +84,6 @@ func TestPersistUserHandlesFetchErrorsGracefully(t *testing.T) {
 }
 
 func TestPersistUserDoesNotRefetchWhenSourceUnchanged(t *testing.T) {
-	session.NewSession([]byte("12345678901234567890123456789012"))
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
 	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
 	require.NoError(t, err)
@@ -94,7 +91,8 @@ func TestPersistUserDoesNotRefetchWhenSourceUnchanged(t *testing.T) {
 	require.NoError(t, storage.AutoMigrate(database))
 
 	firstClient := &stubHTTPClient{statusCode: http.StatusOK, contentType: "image/png", body: []byte{0x01}}
-	manager := NewAuthManager(database, zap.NewNop(), nil, firstClient, testLoginRedirectPath)
+	manager, err := NewAuthManager(database, zap.NewNop(), nil, firstClient, testLoginRedirectPath, AuthConfig{SigningKey: "test-signing-key"})
+	require.NoError(t, err)
 
 	_, err = manager.persistUser(context.Background(), "user3@example.com", "User Example", "https://example.com/avatar.png")
 	require.NoError(t, err)

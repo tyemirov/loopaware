@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tyemirov/GAuss/pkg/constants"
 	"go.uber.org/zap"
 )
 
@@ -54,7 +53,6 @@ const (
 	dashboardFooterToggleButtonID              = "dashboard-footer-toggle"
 	dashboardHeaderLogoElementID               = "dashboard-header-logo"
 	navbarSettingsButtonLabel                  = "Account settings"
-	navbarLogoutLabel                          = "Logout"
 	newSiteOptionValue                         = "__new__"
 	newSiteOptionLabel                         = "New site"
 	siteFormCreateButtonLabel                  = "Create site"
@@ -82,7 +80,6 @@ const (
 	feedbackTableHeaderLightClass              = "table-light"
 	feedbackTableHeaderDarkClass               = "table-dark"
 	feedbackTableBodyElementID                 = "feedback-table-body"
-	logoutButtonElementID                      = "logout-button"
 	sessionTimeoutContainerElementID           = "session-timeout-notification"
 	sessionTimeoutInnerClass                   = "container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3"
 	sessionTimeoutMessageElementID             = "session-timeout-message"
@@ -124,11 +121,6 @@ const (
 	copySubscribeWidgetSnippetButtonElementID  = "copy-subscribe-widget-snippet"
 	copyTrafficWidgetSnippetButtonElementID    = "copy-traffic-widget-snippet"
 	settingsButtonElementID                    = "settings-button"
-	settingsMenuElementID                      = "settings-menu"
-	settingsAvatarImageElementID               = "settings-avatar-image"
-	settingsAvatarFallbackElementID            = "settings-avatar-fallback"
-	settingsMenuSettingsButtonElementID        = "settings-menu-settings"
-	settingsMenuSettingsLabel                  = "Settings"
 	settingsModalElementID                     = "settings-modal"
 	settingsModalTitleElementID                = "settings-modal-title"
 	settingsModalContentElementID              = "settings-modal-content"
@@ -310,12 +302,20 @@ type dashboardTemplateData struct {
 	APISiteUpdateEndpointPrefix             string
 	APIMessagesEndpointPrefix               string
 	APIMessagesEndpointSuffix               string
-	LogoutPath                              string
-	LoginPath                               string
+	TauthScriptURL                          template.URL
+	AuthScript                              template.JS
 	BootstrapIconsIntegrityAttr             template.HTMLAttr
 	FaviconDataURI                          template.URL
 	HeaderLogoDataURI                       template.URL
 	HeaderLogoImageID                       string
+	HeaderGoogleClientID                    string
+	HeaderTauthBaseURL                      string
+	HeaderTauthTenantID                     string
+	HeaderTauthLoginPath                    string
+	HeaderTauthLogoutPath                   string
+	HeaderTauthNoncePath                    string
+	HeaderSignInLabel                       string
+	HeaderSignOutLabel                      string
 	StatusLoadingUser                       string
 	StatusLoadingSites                      string
 	StatusLoadFailed                        string
@@ -390,7 +390,6 @@ type dashboardTemplateData struct {
 	TrafficStatusID                         string
 	TopPagesTableBodyID                     string
 	TopPagesPlaceholder                     string
-	LogoutButtonID                          string
 	NewSiteOptionValue                      string
 	CreateButtonLabel                       string
 	UpdateButtonLabel                       string
@@ -450,10 +449,6 @@ type dashboardTemplateData struct {
 	TrafficTestPageSuffix                   string
 	SettingsButtonID                        string
 	SettingsButtonLabel                     string
-	LogoutLabel                             string
-	SettingsMenuID                          string
-	SettingsMenuSettingsButtonID            string
-	SettingsMenuSettingsLabel               string
 	SettingsModalID                         string
 	SettingsModalTitleID                    string
 	SettingsModalTitle                      string
@@ -490,8 +485,6 @@ type dashboardTemplateData struct {
 	ThemeStorageKey                         string
 	PublicThemeStorageKey                   string
 	LandingThemeStorageKey                  string
-	SettingsAvatarImageID                   string
-	SettingsAvatarFallbackID                string
 	FormStatusID                            string
 	FormStatusBaseClass                     string
 	FormStatusSuccessClass                  string
@@ -640,9 +633,10 @@ type DashboardWebHandlers struct {
 	logger      *zap.Logger
 	template    *template.Template
 	landingPath string
+	authConfig  AuthClientConfig
 }
 
-func NewDashboardWebHandlers(logger *zap.Logger, landingPath string) *DashboardWebHandlers {
+func NewDashboardWebHandlers(logger *zap.Logger, landingPath string, authConfig AuthClientConfig) *DashboardWebHandlers {
 	baseTemplate := template.Must(template.New(dashboardTemplateName).Parse(dashboardHeaderTemplateHTML))
 	compiledTemplate := template.Must(baseTemplate.Parse(dashboardTemplateHTML))
 	normalizedLandingPath := landingPath
@@ -653,6 +647,7 @@ func NewDashboardWebHandlers(logger *zap.Logger, landingPath string) *DashboardW
 		logger:      logger,
 		template:    compiledTemplate,
 		landingPath: normalizedLandingPath,
+		authConfig:  authConfig,
 	}
 }
 
@@ -662,6 +657,11 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		handlers.logger.Warn("render_dashboard_footer", zap.Error(footerErr))
 		footerHTML = template.HTML("")
 	}
+	authScript, authErr := renderPublicAuthScript()
+	if authErr != nil {
+		handlers.logger.Warn("render_dashboard_auth_script", zap.Error(authErr))
+		authScript = template.JS("")
+	}
 
 	data := dashboardTemplateData{
 		PageTitle:                               dashboardPageTitle,
@@ -670,12 +670,20 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		APISiteUpdateEndpointPrefix:             "/api/sites/",
 		APIMessagesEndpointPrefix:               "/api/sites/",
 		APIMessagesEndpointSuffix:               "/messages",
-		LogoutPath:                              constants.LogoutPath,
-		LoginPath:                               constants.LoginPath,
+		TauthScriptURL:                          template.URL(handlers.authConfig.TauthScriptURL),
+		AuthScript:                              authScript,
 		BootstrapIconsIntegrityAttr:             template.HTMLAttr(dashboardBootstrapIconsIntegrityAttr),
 		FaviconDataURI:                          template.URL(dashboardFaviconDataURI),
 		HeaderLogoDataURI:                       landingLogoDataURI,
 		HeaderLogoImageID:                       dashboardHeaderLogoElementID,
+		HeaderGoogleClientID:                    handlers.authConfig.GoogleClientID,
+		HeaderTauthBaseURL:                      handlers.authConfig.TauthBaseURL,
+		HeaderTauthTenantID:                     handlers.authConfig.TauthTenantID,
+		HeaderTauthLoginPath:                    TauthLoginPath,
+		HeaderTauthLogoutPath:                   TauthLogoutPath,
+		HeaderTauthNoncePath:                    TauthNoncePath,
+		HeaderSignInLabel:                       publicSignInLabel,
+		HeaderSignOutLabel:                      publicSignOutLabel,
 		StatusLoadingUser:                       dashboardStatusLoadingUser,
 		StatusLoadingSites:                      dashboardStatusLoadingSites,
 		StatusLoadFailed:                        dashboardStatusLoadFailed,
@@ -750,7 +758,6 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		TrafficStatusID:                         trafficStatusElementID,
 		TopPagesTableBodyID:                     topPagesTableBodyElementID,
 		TopPagesPlaceholder:                     topPagesPlaceholder,
-		LogoutButtonID:                          logoutButtonElementID,
 		NewSiteOptionValue:                      newSiteOptionValue,
 		CreateButtonLabel:                       siteFormCreateButtonLabel,
 		UpdateButtonLabel:                       siteFormUpdateButtonLabel,
@@ -817,10 +824,6 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		WidgetBottomOffsetMax:                   strconv.Itoa(maxWidgetBubbleBottomOffset),
 		SettingsButtonID:                        settingsButtonElementID,
 		SettingsButtonLabel:                     navbarSettingsButtonLabel,
-		LogoutLabel:                             navbarLogoutLabel,
-		SettingsMenuID:                          settingsMenuElementID,
-		SettingsMenuSettingsButtonID:            settingsMenuSettingsButtonElementID,
-		SettingsMenuSettingsLabel:               settingsMenuSettingsLabel,
 		SettingsModalID:                         settingsModalElementID,
 		SettingsModalTitleID:                    settingsModalTitleElementID,
 		SettingsModalTitle:                      settingsModalTitle,
@@ -857,8 +860,6 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		ThemeStorageKey:                         themeStorageKey,
 		PublicThemeStorageKey:                   publicThemeStorageKey,
 		LandingThemeStorageKey:                  publicLandingThemeStorageKey,
-		SettingsAvatarImageID:                   settingsAvatarImageElementID,
-		SettingsAvatarFallbackID:                settingsAvatarFallbackElementID,
 		FormStatusID:                            formStatusElementID,
 		FormStatusBaseClass:                     formStatusBaseClass,
 		FormStatusSuccessClass:                  formStatusSuccessClass,
@@ -956,8 +957,6 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"feedback_events":         "/api/sites/feedback/events",
 		},
 		Paths: map[string]string{
-			"logout":                constants.LogoutPath,
-			"login":                 constants.LoginPath,
 			"landing":               handlers.landingPath,
 			"widget_test_prefix":    dashboardWidgetTestPathPrefix,
 			"widget_test_suffix":    dashboardWidgetTestPathSuffix,
@@ -993,7 +992,6 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"unique_visitor_count":                uniqueVisitorCountElementID,
 			"traffic_status":                      trafficStatusElementID,
 			"top_pages_table_body":                topPagesTableBodyElementID,
-			"logout_button":                       logoutButtonElementID,
 			"widget_snippet_textarea":             widgetSnippetTextareaElementID,
 			"copy_widget_snippet_button":          copyWidgetSnippetButtonElementID,
 			"subscribe_snippet_textarea":          subscribeWidgetSnippetTextareaElementID,
@@ -1004,8 +1002,6 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"subscribe_test_button":               subscribeTestButtonElementID,
 			"traffic_test_button":                 trafficTestButtonElementID,
 			"settings_button":                     settingsButtonElementID,
-			"settings_menu":                       settingsMenuElementID,
-			"settings_menu_settings":              settingsMenuSettingsButtonElementID,
 			"settings_modal":                      settingsModalElementID,
 			"settings_modal_title":                settingsModalTitleElementID,
 			"settings_modal_content":              settingsModalContentElementID,
@@ -1015,8 +1011,6 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"settings_auto_logout_logout":         settingsAutoLogoutLogoutInputElementID,
 			"settings_auto_logout_prompt_error":   settingsAutoLogoutPromptErrorElementID,
 			"settings_auto_logout_logout_error":   settingsAutoLogoutLogoutErrorElementID,
-			"settings_avatar_image":               settingsAvatarImageElementID,
-			"settings_avatar_fallback":            settingsAvatarFallbackElementID,
 			"form_status":                         formStatusElementID,
 			"new_site_button":                     newSiteButtonElementID,
 			"delete_site_button":                  deleteSiteButtonElementID,

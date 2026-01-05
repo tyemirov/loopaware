@@ -36,6 +36,7 @@ type PublicHandlers struct {
 	subscriptionTokenSecret   string
 	subscriptionTokenTTL      time.Duration
 	confirmationEmailSender   EmailSender
+	authConfig                AuthClientConfig
 }
 
 const (
@@ -64,7 +65,7 @@ const (
 	defaultSubscriptionConfirmationTokenTTL = 48 * time.Hour
 )
 
-func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaster *FeedbackEventBroadcaster, subscriptionEvents *SubscriptionTestEventBroadcaster, notifier FeedbackNotifier, subscriptionNotifier SubscriptionNotifier, subscriptionNotificationsEnabled bool, publicBaseURL string, subscriptionTokenSecret string, confirmationEmailSender EmailSender) *PublicHandlers {
+func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaster *FeedbackEventBroadcaster, subscriptionEvents *SubscriptionTestEventBroadcaster, notifier FeedbackNotifier, subscriptionNotifier SubscriptionNotifier, subscriptionNotificationsEnabled bool, publicBaseURL string, subscriptionTokenSecret string, confirmationEmailSender EmailSender, authConfig AuthClientConfig) *PublicHandlers {
 	normalizedPublicBaseURL := strings.TrimSpace(publicBaseURL)
 	normalizedTokenSecret := strings.TrimSpace(subscriptionTokenSecret)
 	return &PublicHandlers{
@@ -82,6 +83,7 @@ func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaste
 		subscriptionTokenSecret:   normalizedTokenSecret,
 		subscriptionTokenTTL:      defaultSubscriptionConfirmationTokenTTL,
 		confirmationEmailSender:   confirmationEmailSender,
+		authConfig:                authConfig,
 	}
 }
 
@@ -574,7 +576,7 @@ func (h *PublicHandlers) renderSubscriptionConfirmationPage(context *gin.Context
 		footerHTML = ""
 	}
 
-	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, false, publicPageLanding)
+	headerHTML, headerErr := renderPublicHeader(landingLogoDataURI, false, publicPageLanding, h.authConfig, false)
 	if headerErr != nil {
 		headerHTML = ""
 	}
@@ -582,6 +584,10 @@ func (h *PublicHandlers) renderSubscriptionConfirmationPage(context *gin.Context
 	themeScript, themeErr := renderPublicThemeScript()
 	if themeErr != nil {
 		themeScript = ""
+	}
+	authScript, authErr := renderPublicAuthScript()
+	if authErr != nil {
+		authScript = ""
 	}
 
 	openURL := subscriptionConfirmationOpenURL(site, subscriber)
@@ -602,9 +608,12 @@ func (h *PublicHandlers) renderSubscriptionConfirmationPage(context *gin.Context
 		PageTitle:      heading + " — LoopAware",
 		SharedStyles:   sharedPublicStyles(),
 		ThemeScript:    themeScript,
-		FaviconDataURI: dashboardFaviconDataURI,
+		AuthScript:     authScript,
+		FaviconDataURI: template.URL(dashboardFaviconDataURI),
 		HeaderHTML:     headerHTML,
 		FooterHTML:     footerHTML,
+		TauthScriptURL: template.URL(h.authConfig.TauthScriptURL),
+		LandingPath:    LandingPagePath,
 		Heading:        heading,
 		Message:        message,
 		OpenURL:        "",

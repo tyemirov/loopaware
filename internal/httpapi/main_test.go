@@ -94,9 +94,8 @@ const (
 	dashboardTabCycleFunctionToken             = "function registerSiteFormTabCycle()"
 	dashboardTabCycleRegistrationToken         = "registerSiteFormTabCycle();"
 	dashboardLandingPathVarToken               = "var landingPath = sharedPaths.landing || '/'"
-	dashboardLogoutFetchCallToken              = "window.fetch(logoutPath, {"
-	dashboardLogoutFetchMethodPostToken        = "method: 'POST'"
-	dashboardLogoutFetchCredentialsToken       = "credentials: 'same-origin'"
+	dashboardLogoutHelperToken                 = "typeof window.logout === 'function'"
+	dashboardLogoutPromiseToken                = "Promise.resolve(window.logout())"
 	dashboardLogoutRedirectToken               = "window.location.href = landingPath;"
 	dashboardPathsLandingToken                 = "\"landing\":\"/\""
 	dashboardUpdateSelectedSiteSummaryToken    = "function updateSelectedSiteSummary(site)"
@@ -149,7 +148,7 @@ func TestDashboardPageRendersForAuthenticatedUser(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	require.Equal(t, http.StatusOK, recorder.Code)
@@ -171,7 +170,7 @@ func TestDashboardHeaderDisplaysLogo(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -188,7 +187,7 @@ func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -293,18 +292,13 @@ func TestDashboardTemplateUsesSitesListPanel(t *testing.T) {
 			expectPresent: true,
 		},
 		{
-			testName:      "logout uses fetch api",
-			substring:     dashboardLogoutFetchCallToken,
+			testName:      "logout uses tauth helper",
+			substring:     dashboardLogoutHelperToken,
 			expectPresent: true,
 		},
 		{
-			testName:      "logout request uses post",
-			substring:     dashboardLogoutFetchMethodPostToken,
-			expectPresent: true,
-		},
-		{
-			testName:      "logout request includes credentials",
-			substring:     dashboardLogoutFetchCredentialsToken,
+			testName:      "logout helper resolves promise",
+			substring:     dashboardLogoutPromiseToken,
 			expectPresent: true,
 		},
 		{
@@ -343,7 +337,7 @@ func TestDashboardTemplateIncludesSessionTimeoutNotification(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -361,7 +355,7 @@ func TestDashboardConfigIncludesSessionTimeoutSettings(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -377,7 +371,7 @@ func TestDashboardFooterIncludesBranding(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -422,7 +416,7 @@ func TestDashboardFooterDisplaysProductMenu(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -448,7 +442,7 @@ func TestDashboardFooterDisplaysPrivacyLink(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -464,7 +458,7 @@ func TestDashboardTemplateDisplaysRegistrationInline(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -479,7 +473,7 @@ func TestDashboardTimestampFormattedAsDateOnly(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -494,7 +488,7 @@ func TestDashboardFormStatusUsesThemeAwareBackgrounds(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -509,7 +503,7 @@ func TestDashboardFormStatusClearsAfterTimeout(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -525,7 +519,7 @@ func TestDashboardTemplateConfiguresButtonStatusManager(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -690,7 +684,7 @@ func TestDashboardTemplateAddsSiteFormTabCycle(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -706,7 +700,7 @@ func TestDashboardTemplateIncludesSiteValidationSupport(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -776,7 +770,7 @@ func TestDashboardJavaScriptDoesNotHideOwnerFieldForNonAdmins(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -791,7 +785,7 @@ func TestDashboardTemplateUsesUniformActionButtonStyles(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -836,7 +830,7 @@ func TestDashboardWidgetBottomOffsetInputUsesCompactWidth(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -850,7 +844,7 @@ func TestDashboardTemplateSupportsMailtoLinksForFeedback(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -900,7 +894,7 @@ func TestDashboardTemplateSupportsSiteFavicons(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()
@@ -945,7 +939,7 @@ func TestDashboardTemplateExposesSiteMetadataHelpers(t *testing.T) {
 	context.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 	context.Set(dashboardSessionContextKey, &httpapi.CurrentUser{Email: testDashboardAuthenticatedEmail})
 
-	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot)
+	handlers := httpapi.NewDashboardWebHandlers(zap.NewNop(), testDashboardLandingPathRoot, testLandingAuthConfig)
 	handlers.RenderDashboard(context)
 
 	body := recorder.Body.String()

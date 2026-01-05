@@ -52,7 +52,7 @@ func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, sub
 
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	subscriptionEvents := httpapi.NewSubscriptionTestEventBroadcaster()
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, notifier, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", emailSender)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, notifier, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", emailSender, testLandingAuthConfig)
 	router.POST("/api/feedback", publicHandlers.CreateFeedback)
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
 	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
@@ -462,7 +462,7 @@ func TestSubscriptionNotificationFailureDoesNotBlock(t *testing.T) {
 
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	t.Cleanup(feedbackBroadcaster.Close)
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", nil)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", nil, testLandingAuthConfig)
 
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
 	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
@@ -502,7 +502,7 @@ func TestSubscriptionNotificationsCanBeDisabled(t *testing.T) {
 
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
 	t.Cleanup(feedbackBroadcaster.Close)
-	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, false, "http://loopaware.test", "unit-test-session-secret", nil)
+	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, false, "http://loopaware.test", "unit-test-session-secret", nil, testLandingAuthConfig)
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
 	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
 

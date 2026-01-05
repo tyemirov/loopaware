@@ -1,7 +1,7 @@
 services:
-  tauth:
+  la-tauth:
     image: ghcr.io/tyemirov/tauth:latest
-    container_name: tauth
+    container_name: la-tauth
     restart: unless-stopped
     pull_policy: always
     env_file:
@@ -12,10 +12,10 @@ services:
       - tauth-data:/data
       - ./configs/config.tauth.yml:/config/config.yml:ro
   
-  pinguin:
-    container_name: pinguin
+  la-pinguin:
+    container_name: la-pinguin
     depends_on:
-      - tauth
+      - la-tauth
     image: ghcr.io/tyemirov/pinguin:latest
     restart: unless-stopped
     pull_policy: always
@@ -33,7 +33,9 @@ services:
     env_file:
       - ./configs/.env.loopaware
     depends_on:
-      pinguin:
+      la-pinguin:
+        condition: service_started
+      la-tauth:
         condition: service_started
     volumes:
       - loopaware-data:/app/data

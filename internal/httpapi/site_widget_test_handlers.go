@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tyemirov/GAuss/pkg/constants"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
@@ -23,9 +22,10 @@ type SiteWidgetTestHandlers struct {
 	template            *template.Template
 	feedbackBroadcaster *FeedbackEventBroadcaster
 	notifier            FeedbackNotifier
+	authConfig          AuthClientConfig
 }
 
-func NewSiteWidgetTestHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, feedbackBroadcaster *FeedbackEventBroadcaster, notifier FeedbackNotifier) *SiteWidgetTestHandlers {
+func NewSiteWidgetTestHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, feedbackBroadcaster *FeedbackEventBroadcaster, notifier FeedbackNotifier, authConfig AuthClientConfig) *SiteWidgetTestHandlers {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -38,37 +38,39 @@ func NewSiteWidgetTestHandlers(database *gorm.DB, logger *zap.Logger, widgetBase
 		template:            compiledTemplate,
 		feedbackBroadcaster: feedbackBroadcaster,
 		notifier:            resolveFeedbackNotifier(notifier),
+		authConfig:          authConfig,
 	}
 }
 
 type dashboardHeaderTemplateData struct {
-	PageTitle                    string
-	HeaderLogoDataURI            template.URL
-	HeaderLogoImageID            string
-	SettingsButtonID             string
-	SettingsButtonLabel          string
-	SettingsAvatarImageID        string
-	SettingsAvatarFallbackID     string
-	SettingsMenuID               string
-	SettingsMenuSettingsButtonID string
-	SettingsMenuSettingsLabel    string
-	SettingsModalID              string
-	SettingsModalTitleID         string
-	SettingsModalTitle           string
-	SettingsModalIntro           string
-	SettingsModalCloseLabel      string
-	SettingsModalContentID       string
-	LogoutButtonID               string
-	LogoutLabel                  string
+	PageTitle               string
+	HeaderLogoDataURI       template.URL
+	HeaderLogoImageID       string
+	HeaderGoogleClientID    string
+	HeaderTauthBaseURL      string
+	HeaderTauthTenantID     string
+	HeaderTauthLoginPath    string
+	HeaderTauthLogoutPath   string
+	HeaderTauthNoncePath    string
+	HeaderSignInLabel       string
+	HeaderSignOutLabel      string
+	SettingsButtonID        string
+	SettingsButtonLabel     string
+	SettingsModalID         string
+	SettingsModalTitleID    string
+	SettingsModalTitle      string
+	SettingsModalIntro      string
+	SettingsModalCloseLabel string
+	SettingsModalContentID  string
 }
 
 type widgetTestTemplateData struct {
 	PageTitle               string
 	Header                  dashboardHeaderTemplateData
-	LogoutPath              string
 	LandingPath             string
 	BootstrapIconsIntegrity template.HTMLAttr
 	FaviconDataURI          template.URL
+	TauthScriptURL          template.URL
 	SiteName                string
 	SiteID                  string
 	PlacementSide           string
@@ -100,7 +102,7 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 
 	currentUser, ok := CurrentUserFromContext(context)
 	if !ok {
-		context.Redirect(http.StatusFound, constants.LoginPath)
+		context.Redirect(http.StatusFound, LandingPagePath)
 		return
 	}
 
@@ -117,24 +119,25 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 	ensureWidgetBubblePlacementDefaults(&site)
 	widgetScriptURL := handlers.resolveWidgetScriptURL(context.Request, site.ID)
 	headerData := dashboardHeaderTemplateData{
-		PageTitle:                    dashboardPageTitle,
-		HeaderLogoDataURI:            landingLogoDataURI,
-		HeaderLogoImageID:            dashboardHeaderLogoElementID,
-		SettingsButtonID:             settingsButtonElementID,
-		SettingsButtonLabel:          navbarSettingsButtonLabel,
-		SettingsAvatarImageID:        settingsAvatarImageElementID,
-		SettingsAvatarFallbackID:     settingsAvatarFallbackElementID,
-		SettingsMenuID:               settingsMenuElementID,
-		SettingsMenuSettingsButtonID: settingsMenuSettingsButtonElementID,
-		SettingsMenuSettingsLabel:    settingsMenuSettingsLabel,
-		SettingsModalID:              settingsModalElementID,
-		SettingsModalTitleID:         settingsModalTitleElementID,
-		SettingsModalTitle:           settingsModalTitle,
-		SettingsModalIntro:           settingsModalIntroText,
-		SettingsModalCloseLabel:      settingsModalCloseButtonLabel,
-		SettingsModalContentID:       settingsModalContentElementID,
-		LogoutButtonID:               logoutButtonElementID,
-		LogoutLabel:                  navbarLogoutLabel,
+		PageTitle:               dashboardPageTitle,
+		HeaderLogoDataURI:       landingLogoDataURI,
+		HeaderLogoImageID:       dashboardHeaderLogoElementID,
+		HeaderGoogleClientID:    handlers.authConfig.GoogleClientID,
+		HeaderTauthBaseURL:      handlers.authConfig.TauthBaseURL,
+		HeaderTauthTenantID:     handlers.authConfig.TauthTenantID,
+		HeaderTauthLoginPath:    TauthLoginPath,
+		HeaderTauthLogoutPath:   TauthLogoutPath,
+		HeaderTauthNoncePath:    TauthNoncePath,
+		HeaderSignInLabel:       publicSignInLabel,
+		HeaderSignOutLabel:      publicSignOutLabel,
+		SettingsButtonID:        settingsButtonElementID,
+		SettingsButtonLabel:     navbarSettingsButtonLabel,
+		SettingsModalID:         settingsModalElementID,
+		SettingsModalTitleID:    settingsModalTitleElementID,
+		SettingsModalTitle:      settingsModalTitle,
+		SettingsModalIntro:      settingsModalIntroText,
+		SettingsModalCloseLabel: settingsModalCloseButtonLabel,
+		SettingsModalContentID:  settingsModalContentElementID,
 	}
 	footerHTML, footerErr := renderFooterHTMLForVariant(footerVariantDashboard)
 	if footerErr != nil {
@@ -146,10 +149,10 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 	data := widgetTestTemplateData{
 		PageTitle:               "Widget Test — " + site.Name,
 		Header:                  headerData,
-		LogoutPath:              constants.LogoutPath,
-		LandingPath:             constants.LoginPath,
+		LandingPath:             LandingPagePath,
 		BootstrapIconsIntegrity: template.HTMLAttr(dashboardBootstrapIconsIntegrityAttr),
 		FaviconDataURI:          template.URL(dashboardFaviconDataURI),
+		TauthScriptURL:          template.URL(handlers.authConfig.TauthScriptURL),
 		SiteName:                site.Name,
 		SiteID:                  site.ID,
 		PlacementSide:           strings.ToLower(strings.TrimSpace(site.WidgetBubbleSide)),
