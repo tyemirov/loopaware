@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	texttemplate "text/template"
 )
 
 const (
@@ -143,9 +144,32 @@ var (
     }
     rootElement.classList.toggle('bg-body', true);
     rootElement.classList.toggle('text-body', true);
-    if (footerElement) {
-      footerElement.setAttribute('theme-mode', normalizedTheme);
+  }
+  function parseThemeConfig(rawValue) {
+    if (!rawValue) {
+      return {};
     }
+    try {
+      var parsed = JSON.parse(rawValue);
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+    } catch (error) {
+      console.error(error);
+    }
+    return {};
+  }
+  function updateFooterThemeConfig(theme) {
+    if (!footerElement) {
+      return;
+    }
+    var normalizedTheme = theme === 'light' ? 'light' : 'dark';
+    var config = parseThemeConfig(footerElement.getAttribute('theme-config'));
+    if (!config.attribute) {
+      config.attribute = 'data-bs-theme';
+    }
+    config.initialMode = normalizedTheme;
+    footerElement.setAttribute('theme-config', JSON.stringify(config));
   }
   function loadPublicTheme() {
     var storedTheme = localStorage.getItem(publicThemeStorageKey);
@@ -173,6 +197,7 @@ var (
     var storedTheme = loadPublicTheme();
     var normalizedTheme = storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : 'dark';
     applyPublicTheme(normalizedTheme);
+    updateFooterThemeConfig(normalizedTheme);
     if (storedTheme !== 'light' && storedTheme !== 'dark') {
       persistPublicTheme(normalizedTheme);
     }
@@ -196,7 +221,10 @@ var (
     }
   }
 })();`))
-	publicAuthScriptTemplate = template.Must(template.New("public_auth_script").Parse(`(function() {
+	publicAuthScriptTemplate = texttemplate.Must(texttemplate.New("public_auth_script").Parse(`(function() {
+  if (document && document.documentElement) {
+    document.documentElement.setAttribute('data-loopaware-auth-script', 'true');
+  }
   function ensureProfileBody(profileContainer, nameNode, signOutNode) {
     var body = profileContainer.querySelector('[data-loopaware-profile-body]');
     if (!body) {
@@ -230,11 +258,25 @@ var (
       menuItems: menuItems,
       profileName: profileName,
       avatar: profileMenu.querySelector('[data-loopaware-avatar]'),
+      settingsButton: profileMenu.querySelector('[data-loopaware-settings="true"]'),
       logoutButton: profileMenu.querySelector('[data-loopaware-logout="true"]')
     };
   }
 
-  function resolveProfileDisplay(profile, headerRoot) {
+  function resolveProfileAttribute(headerRoot, headerHost, attributeName) {
+    if (headerRoot && typeof headerRoot.getAttribute === 'function') {
+      var value = headerRoot.getAttribute(attributeName);
+      if (value) {
+        return value;
+      }
+    }
+    if (headerHost && typeof headerHost.getAttribute === 'function') {
+      return headerHost.getAttribute(attributeName) || '';
+    }
+    return '';
+  }
+
+  function resolveProfileDisplay(profile, headerRoot, headerHost) {
     if (profile && profile.display) {
       return profile.display;
     }
@@ -244,10 +286,140 @@ var (
     if (profile && profile.email) {
       return profile.email;
     }
-    if (headerRoot) {
-      return headerRoot.getAttribute('data-user-display-name') || headerRoot.getAttribute('data-user-name') || headerRoot.getAttribute('data-user-email') || '';
+    return resolveProfileAttribute(headerRoot, headerHost, 'data-user-display') ||
+      resolveProfileAttribute(headerRoot, headerHost, 'data-user-display-name') ||
+      resolveProfileAttribute(headerRoot, headerHost, 'data-user-name') ||
+      resolveProfileAttribute(headerRoot, headerHost, 'data-user-email') ||
+      '';
+  }
+
+  function normalizeBaseURL(value) {
+    if (!value) {
+      return '';
     }
-    return '';
+    var trimmed = String(value).trim();
+    if (!trimmed) {
+      return '';
+    }
+    return trimmed.replace(/\/+$/, '');
+  }
+
+  function normalizePath(value, fallback) {
+    if (!value) {
+      return fallback;
+    }
+    var trimmed = String(value).trim();
+    if (!trimmed) {
+      return fallback;
+    }
+    return trimmed;
+  }
+
+  function resolveLogoutURL(headerHost) {
+    var logoutPath = '/auth/logout';
+    var baseUrl = '';
+    if (typeof window.getAuthEndpoints === 'function') {
+      try {
+        var endpoints = window.getAuthEndpoints();
+        if (endpoints && typeof endpoints.logoutUrl === 'string' && endpoints.logoutUrl.trim()) {
+          return endpoints.logoutUrl;
+        }
+      } catch (error) {}
+    }
+    if (headerHost && typeof headerHost.getAttribute === 'function') {
+      baseUrl = normalizeBaseURL(headerHost.getAttribute('tauth-url'));
+      logoutPath = normalizePath(headerHost.getAttribute('tauth-logout-path'), logoutPath);
+    }
+    if (!baseUrl && window.location && typeof window.location.origin === 'string') {
+      baseUrl = normalizeBaseURL(window.location.origin);
+    }
+    if (logoutPath.indexOf('http://') === 0 || logoutPath.indexOf('https://') === 0) {
+      return logoutPath;
+    }
+    if (!baseUrl) {
+      return logoutPath;
+    }
+    if (logoutPath.indexOf('/') === 0) {
+      return baseUrl + logoutPath;
+    }
+    return baseUrl + '/' + logoutPath;
+  }
+
+  function resolveLogoutHeaders(headerHost) {
+    var headers = { 'X-Requested-With': 'XMLHttpRequest' };
+    if (headerHost && typeof headerHost.getAttribute === 'function') {
+      var tenantId = headerHost.getAttribute('tauth-tenant-id');
+      if (tenantId) {
+        headers['X-TAuth-Tenant'] = tenantId;
+      }
+    }
+    return headers;
+  }
+
+  function submitLogoutForm(logoutUrl) {
+    return new Promise(function(resolve) {
+      if (!document || !logoutUrl) {
+        resolve();
+        return;
+      }
+      var root = document.body || document.documentElement;
+      if (!root || typeof document.createElement !== 'function') {
+        resolve();
+        return;
+      }
+      var iframeName = 'loopaware-logout-target';
+      var iframe = document.createElement('iframe');
+      iframe.name = iframeName;
+      iframe.setAttribute('data-loopaware-logout-target', 'true');
+      iframe.style.display = 'none';
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = logoutUrl;
+      form.target = iframeName;
+      form.style.display = 'none';
+      form.setAttribute('data-loopaware-logout-form', 'true');
+      root.appendChild(iframe);
+      root.appendChild(form);
+      try {
+        form.submit();
+      } catch (error) {}
+      window.setTimeout(function() {
+        if (form.parentNode) {
+          form.parentNode.removeChild(form);
+        }
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+        resolve();
+      }, 1500);
+    });
+  }
+
+  function performLogoutRequest(headerHost) {
+    var logoutUrl = resolveLogoutURL(headerHost);
+    var logoutRequest = function() {
+      return window.fetch(logoutUrl, {
+        method: 'POST',
+        credentials: 'include',
+        headers: resolveLogoutHeaders(headerHost)
+      });
+    };
+    var logoutWithFetchFallback = function() {
+      return logoutRequest().catch(function() {
+        return submitLogoutForm(logoutUrl);
+      });
+    };
+    if (typeof window.logout === 'function') {
+      try {
+        return Promise.resolve(window.logout())
+          .catch(function() {
+            return logoutWithFetchFallback();
+          });
+      } catch (error) {
+        return logoutWithFetchFallback();
+      }
+    }
+    return logoutWithFetchFallback();
   }
 
   function handleLogout(headerHost) {
@@ -256,11 +428,9 @@ var (
         window.location.assign('{{.LandingPath}}');
       }
     };
-    if (typeof window.logout === 'function') {
-      Promise.resolve(window.logout()).then(redirectToLanding).catch(redirectToLanding);
-      return;
-    }
-    redirectToLanding();
+    performLogoutRequest(headerHost)
+      .then(redirectToLanding)
+      .catch(redirectToLanding);
   }
 
   function ensureCustomProfileMenu(headerHost, profileElements) {
@@ -271,12 +441,13 @@ var (
     var toggleButton = profileElements.toggleButton;
     var menuItems = profileElements.menuItems;
     var dropdownInstance = null;
+    var setMenuOpen = function() {};
     if (window.bootstrap && window.bootstrap.Dropdown && typeof window.bootstrap.Dropdown.getOrCreateInstance === 'function') {
       dropdownInstance = window.bootstrap.Dropdown.getOrCreateInstance(toggleButton);
     }
     if (!profileMenu.getAttribute('data-loopaware-dropdown-bound')) {
       profileMenu.setAttribute('data-loopaware-dropdown-bound', 'true');
-      var setMenuOpen = function(shouldOpen) {
+      setMenuOpen = function(shouldOpen) {
         if (dropdownInstance && typeof dropdownInstance.show === 'function' && typeof dropdownInstance.hide === 'function') {
           if (shouldOpen) {
             dropdownInstance.show();
@@ -302,10 +473,12 @@ var (
         }
         if (typeof event.composedPath === 'function') {
           var path = event.composedPath();
-          for (var i = 0; i < path.length; i += 1) {
-            if (path[i] === profileMenu) {
+          var pathIndex = 0;
+          while (pathIndex !== path.length) {
+            if (path[pathIndex] === profileMenu) {
               return true;
             }
+            pathIndex += 1;
           }
         }
         return false;
@@ -322,6 +495,32 @@ var (
         }
       });
     }
+    if (profileElements.settingsButton && !profileElements.settingsButton.getAttribute('data-loopaware-settings-bound')) {
+      profileElements.settingsButton.setAttribute('data-loopaware-settings-bound', 'true');
+      profileElements.settingsButton.addEventListener('click', function(event) {
+        var targetSelector = profileElements.settingsButton.getAttribute('data-bs-target');
+        if (!targetSelector) {
+          return;
+        }
+        var modalElement = document.querySelector(targetSelector);
+        if (!modalElement) {
+          return;
+        }
+        if (window.bootstrap && window.bootstrap.Modal && typeof window.bootstrap.Modal.getOrCreateInstance === 'function') {
+          var modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalElement);
+          if (modalInstance && typeof modalInstance.show === 'function') {
+            if (event) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+            setMenuOpen(false);
+            modalInstance.show();
+            return;
+          }
+        }
+        setMenuOpen(false);
+      });
+    }
     if (profileElements.logoutButton && !profileElements.logoutButton.getAttribute('data-loopaware-logout-bound')) {
       profileElements.logoutButton.setAttribute('data-loopaware-logout-bound', 'true');
       profileElements.logoutButton.addEventListener('click', function(event) {
@@ -331,25 +530,180 @@ var (
     }
   }
 
-  function resolveAvatarURL(headerRoot, profile) {
+  function closestElement(startNode, selector) {
+    var current = startNode;
+    while (current && current.nodeType === 1) {
+      if (typeof current.matches === 'function' && current.matches(selector)) {
+        return current;
+      }
+      if (current.parentElement) {
+        current = current.parentElement;
+        continue;
+      }
+      if (current.getRootNode && current.getRootNode().host) {
+        current = current.getRootNode().host;
+        continue;
+      }
+      break;
+    }
+    return null;
+  }
+
+  function resolveHeaderHostFromNode(node) {
+    var headerHost = closestElement(node, 'mpr-header');
+    if (headerHost) {
+      return headerHost;
+    }
+    return document.querySelector('mpr-header');
+  }
+
+  function resolveProfileMenuParts(profileMenu) {
+    if (!profileMenu) {
+      return null;
+    }
+    var toggleButton = profileMenu.querySelector('[data-loopaware-profile-toggle="true"]');
+    var menuItems = profileMenu.querySelector('[data-loopaware-profile-menu-items="true"]');
+    if (!toggleButton || !menuItems) {
+      return null;
+    }
+    return {
+      profileMenu: profileMenu,
+      toggleButton: toggleButton,
+      menuItems: menuItems
+    };
+  }
+
+  function resolveProfileMenuPartsFromNode(node) {
+    var profileMenu = closestElement(node, '[data-loopaware-profile-menu="true"]');
+    if (!profileMenu) {
+      var headerHost = resolveHeaderHostFromNode(node);
+      if (headerHost) {
+        profileMenu = headerHost.querySelector('[data-loopaware-profile-menu="true"]');
+      }
+    }
+    return resolveProfileMenuParts(profileMenu);
+  }
+
+  function setProfileMenuOpen(menuParts, shouldOpen) {
+    if (!menuParts) {
+      return;
+    }
+    var dropdownInstance = null;
+    if (window.bootstrap && window.bootstrap.Dropdown && typeof window.bootstrap.Dropdown.getOrCreateInstance === 'function') {
+      dropdownInstance = window.bootstrap.Dropdown.getOrCreateInstance(menuParts.toggleButton);
+    }
+    if (dropdownInstance && typeof dropdownInstance.show === 'function' && typeof dropdownInstance.hide === 'function') {
+      if (shouldOpen) {
+        dropdownInstance.show();
+      } else {
+        dropdownInstance.hide();
+      }
+      return;
+    }
+    if (shouldOpen) {
+      menuParts.menuItems.classList.add('show');
+      menuParts.toggleButton.setAttribute('aria-expanded', 'true');
+    } else {
+      menuParts.menuItems.classList.remove('show');
+      menuParts.toggleButton.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function closeAllProfileMenus(activeMenu) {
+    if (!document || typeof document.querySelectorAll !== 'function') {
+      return;
+    }
+    var menus = document.querySelectorAll('[data-loopaware-profile-menu="true"]');
+    for (var index = 0; index < menus.length; index += 1) {
+      var menu = menus[index];
+      if (activeMenu && menu === activeMenu) {
+        continue;
+      }
+      setProfileMenuOpen(resolveProfileMenuParts(menu), false);
+    }
+  }
+
+  function handleDelegatedProfileMenuClick(event) {
+    if (!event || !event.target || event.target.nodeType !== 1) {
+      return;
+    }
+    var target = event.target;
+    var toggleButton = closestElement(target, '[data-loopaware-profile-toggle="true"]');
+    if (toggleButton) {
+      if (event.defaultPrevented) {
+        return;
+      }
+      var toggleMenuParts = resolveProfileMenuPartsFromNode(toggleButton);
+      if (!toggleMenuParts) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      var isOpen = toggleMenuParts.menuItems.classList.contains('show');
+      if (!isOpen) {
+        closeAllProfileMenus(toggleMenuParts.profileMenu);
+      }
+      setProfileMenuOpen(toggleMenuParts, !isOpen);
+      return;
+    }
+
+    var settingsButton = closestElement(target, '[data-loopaware-settings="true"]');
+    if (settingsButton) {
+      if (event.defaultPrevented) {
+        return;
+      }
+      var settingsMenuParts = resolveProfileMenuPartsFromNode(settingsButton);
+      var targetSelector = settingsButton.getAttribute('data-bs-target');
+      if (targetSelector) {
+        var modalElement = document.querySelector(targetSelector);
+        if (modalElement && window.bootstrap && window.bootstrap.Modal && typeof window.bootstrap.Modal.getOrCreateInstance === 'function') {
+          var modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalElement);
+          if (modalInstance && typeof modalInstance.show === 'function') {
+            event.preventDefault();
+            event.stopPropagation();
+            setProfileMenuOpen(settingsMenuParts, false);
+            modalInstance.show();
+            return;
+          }
+        }
+      }
+      setProfileMenuOpen(settingsMenuParts, false);
+      return;
+    }
+
+    var logoutButton = closestElement(target, '[data-loopaware-logout="true"]');
+    if (logoutButton) {
+      if (event.defaultPrevented) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      setProfileMenuOpen(resolveProfileMenuPartsFromNode(logoutButton), false);
+      handleLogout(resolveHeaderHostFromNode(logoutButton));
+      return;
+    }
+
+    if (!closestElement(target, '[data-loopaware-profile-menu="true"]')) {
+      closeAllProfileMenus(null);
+    }
+  }
+
+  function resolveAvatarURL(headerRoot, headerHost, profile) {
     if (profile && profile.avatar_url) {
       return profile.avatar_url;
     }
-    if (headerRoot) {
-      return headerRoot.getAttribute('data-user-avatar-url') || '';
-    }
-    return '';
+    return resolveProfileAttribute(headerRoot, headerHost, 'data-user-avatar-url');
   }
 
-  function updateCustomProfile(profileElements, profile, headerRoot) {
+  function updateCustomProfile(profileElements, profile, headerRoot, headerHost) {
     if (!profileElements) {
       return;
     }
-    var displayName = resolveProfileDisplay(profile, headerRoot);
+    var displayName = resolveProfileDisplay(profile, headerRoot, headerHost);
     if (profileElements.profileName) {
       profileElements.profileName.textContent = displayName;
     }
-    var avatarUrl = resolveAvatarURL(headerRoot, profile);
+    var avatarUrl = resolveAvatarURL(headerRoot, headerHost, profile);
     var avatar = profileElements.avatar;
     if (!avatar && avatarUrl && profileElements.toggleButton) {
       avatar = document.createElement('img');
@@ -373,15 +727,29 @@ var (
     }
   }
 
+  function resolveHeaderRoot(headerHost) {
+    if (!headerHost) {
+      return null;
+    }
+    var root = headerHost.querySelector('header.mpr-header');
+    if (root) {
+      return root;
+    }
+    if (headerHost.shadowRoot && typeof headerHost.shadowRoot.querySelector === 'function') {
+      return headerHost.shadowRoot.querySelector('header.mpr-header');
+    }
+    return null;
+  }
+
   function updateHeaderAvatar(headerHost, profile) {
     if (!headerHost) {
       return;
     }
-    var headerRoot = headerHost.querySelector('header.mpr-header');
+    var headerRoot = resolveHeaderRoot(headerHost);
     var customProfile = resolveCustomProfileElements(headerHost);
     if (customProfile) {
       ensureCustomProfileMenu(headerHost, customProfile);
-      updateCustomProfile(customProfile, profile, headerRoot);
+      updateCustomProfile(customProfile, profile, headerRoot, headerHost);
       return;
     }
     var profileContainer = headerHost.querySelector('[data-mpr-header="profile"]');
@@ -390,7 +758,7 @@ var (
     if (!profileContainer || !profileName || !signOutButton) {
       return;
     }
-    var avatarUrl = resolveAvatarURL(headerRoot, profile);
+    var avatarUrl = resolveAvatarURL(headerRoot, headerHost, profile);
     var body = ensureProfileBody(profileContainer, profileName, signOutButton);
     var avatar = profileContainer.querySelector('[data-loopaware-avatar]');
     if (!avatarUrl) {
@@ -416,13 +784,13 @@ var (
     if (!headerHost) {
       return;
     }
-    var customProfile = resolveCustomProfileElements(headerHost);
-    if (customProfile) {
-      updateHeaderAvatar(headerHost, null);
-      return;
-    }
     var remainingAttempts = 20;
     function attemptSetup() {
+      var customProfile = resolveCustomProfileElements(headerHost);
+      if (customProfile) {
+        updateHeaderAvatar(headerHost, null);
+        return;
+      }
       var profileContainer = headerHost.querySelector('[data-mpr-header="profile"]');
       var profileName = headerHost.querySelector('[data-mpr-header="profile-name"]');
       var signOutButton = headerHost.querySelector('[data-mpr-header="sign-out-button"]');
@@ -438,35 +806,92 @@ var (
     attemptSetup();
   }
 
-  function attachHeaderAuth(headerHost) {
+
+  function resolveAuthHost(event) {
+    if (event && event.target && event.target.nodeType === 1 && typeof event.target.matches === 'function') {
+      if (event.target.matches('mpr-header')) {
+        return event.target;
+      }
+    }
+    return document.querySelector('mpr-header');
+  }
+
+  function handleAuthenticatedEvent(event) {
+    var headerHost = resolveAuthHost(event);
     if (!headerHost) {
       return;
     }
-    headerHost.addEventListener('mpr-ui:auth:authenticated', function(event) {
-      var profile = event && event.detail && event.detail.profile ? event.detail.profile : null;
-      updateHeaderAvatar(headerHost, profile);
-      if (headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
-        window.location.assign('{{.DashboardPath}}');
-      }
-    });
-    headerHost.addEventListener('mpr-ui:auth:unauthenticated', function() {
-      updateHeaderAvatar(headerHost, null);
-      if (headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
-        window.location.assign('{{.LandingPath}}');
-      }
-    });
+    var profile = event && event.detail && event.detail.profile ? event.detail.profile : null;
+    updateHeaderAvatar(headerHost, profile);
+    if (headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
+      window.location.assign('{{.DashboardPath}}');
+    }
+  }
+
+  function handleUnauthenticatedEvent(event) {
+    var headerHost = resolveAuthHost(event);
+    if (!headerHost) {
+      return;
+    }
+    updateHeaderAvatar(headerHost, null);
+    if (headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
+      window.location.assign('{{.LandingPath}}');
+    }
+  }
+
+  var authListenersAttached = false;
+  var profileMenuDelegatesAttached = false;
+  function attachProfileMenuDelegates() {
+    if (profileMenuDelegatesAttached || !document || typeof document.addEventListener !== 'function') {
+      return;
+    }
+    document.addEventListener('click', handleDelegatedProfileMenuClick);
+    profileMenuDelegatesAttached = true;
+  }
+
+  function attachHeaderAuth(headerHost) {
+    attachProfileMenuDelegates();
+    if (!authListenersAttached && document && typeof document.addEventListener === 'function') {
+      document.addEventListener('mpr-ui:auth:authenticated', handleAuthenticatedEvent);
+      document.addEventListener('mpr-ui:auth:unauthenticated', handleUnauthenticatedEvent);
+      authListenersAttached = true;
+    }
+    if (!headerHost) {
+      return;
+    }
+    if (typeof headerHost.addEventListener === 'function' && headerHost.getAttribute('data-loopaware-auth-listeners') !== 'true') {
+      headerHost.setAttribute('data-loopaware-auth-listeners', 'true');
+      headerHost.addEventListener('mpr-ui:auth:authenticated', handleAuthenticatedEvent);
+      headerHost.addEventListener('mpr-ui:auth:unauthenticated', handleUnauthenticatedEvent);
+    }
+    headerHost.setAttribute('data-loopaware-auth-bound', 'true');
     ensureHeaderProfileReady(headerHost);
   }
 
-  function boot() {
-    attachHeaderAuth(document.querySelector('mpr-header'));
+  var bindingInProgress = false;
+  function bindHeaderAuth() {
+    if (bindingInProgress) {
+      return;
+    }
+    bindingInProgress = true;
+    var remainingAttempts = 120;
+    function attemptBind() {
+      var headerHost = document.querySelector('mpr-header');
+      if (headerHost && headerHost.getAttribute('data-loopaware-auth-bound') !== 'true') {
+        attachHeaderAuth(headerHost);
+      }
+      remainingAttempts -= 1;
+      if (remainingAttempts > 0) {
+        window.setTimeout(attemptBind, 100);
+        return;
+      }
+      bindingInProgress = false;
+    }
+    attemptBind();
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
+  bindHeaderAuth();
+  document.addEventListener('DOMContentLoaded', bindHeaderAuth);
 })();`))
 )
 
