@@ -24,122 +24,130 @@ import (
 )
 
 const (
-	commandUseName                    = "server"
-	commandShortDescription           = "Run the feedback server"
-	commandLongDescription            = "Launch the feedback collection HTTP server"
-	missingConfigurationMessage       = "missing required configuration"
-	loggerCreationErrorMessage        = "logger"
-	logEventListening                 = "listening"
-	logFieldAddress                   = "addr"
-	flagNameConfigFile                = "config"
-	flagNameApplicationAddress        = "app-addr"
-	flagNameDatabaseDriver            = "db-driver"
-	flagNameDatabaseDataSourceName    = "db-dsn"
-	flagNameGoogleClientID            = "google-client-id"
-	flagNameSessionSecret             = "session-secret"
-	flagNameTauthBaseURL              = "tauth-base-url"
-	flagNameTauthTenantID             = "tauth-tenant-id"
-	flagNameTauthSigningKey           = "tauth-signing-key"
-	flagNameTauthSessionCookieName    = "tauth-session-cookie-name"
-	flagNameSubscriptionNotifications = "subscription-notifications"
-	flagNamePublicBaseURL             = "public-base-url"
-	flagNamePinguinAddress            = "pinguin-addr"
-	flagNamePinguinAuthToken          = "pinguin-auth-token"
-	flagNamePinguinTenantID           = "pinguin-tenant-id"
-	flagNamePinguinConnectionTimeout  = "pinguin-conn-timeout"
-	flagNamePinguinOperationTimeout   = "pinguin-op-timeout"
-	flagUsageConfigFile               = "path to configuration file"
-	flagUsageApplicationAddress       = "address for the HTTP server to listen on"
-	flagUsageDatabaseDriver           = "database driver (e.g. sqlite)"
-	flagUsageDatabaseDataSourceName   = "database connection string"
-	flagUsageGoogleClientID           = "Google OAuth client ID"
-	flagUsageSessionSecret            = "secret for subscription confirmation tokens"
-	flagUsageTauthBaseURL             = "base URL for the TAuth service"
-	flagUsageTauthTenantID            = "tenant identifier configured in TAuth"
-	flagUsageTauthSigningKey          = "JWT signing key for validating TAuth sessions"
-	flagUsageTauthSessionCookieName   = "session cookie name used by TAuth"
-	flagUsagePublicBaseURL            = "public base URL for landing pages and sitemap"
-	flagUsagePinguinAddress           = "Pinguin gRPC server address"
-	flagUsagePinguinAuthToken         = "Pinguin bearer auth token"
-	flagUsagePinguinTenantID          = "Pinguin tenant identifier"
-	flagUsagePinguinConnTimeout       = "Pinguin connection timeout in seconds"
-	flagUsagePinguinOpTimeout         = "Pinguin operation timeout in seconds"
-	flagUsageSubscriptionNotify       = "enable notifications for new subscriptions"
-	environmentKeyApplicationAddress  = "APP_ADDR"
-	environmentKeyDatabaseDriverName  = "DB_DRIVER"
-	environmentKeyDatabaseDataSource  = "DB_DSN"
-	environmentKeyAdmins              = "ADMINS"
-	environmentKeyGoogleClientID      = "GOOGLE_CLIENT_ID"
-	environmentKeySessionSecret       = "SESSION_SECRET"
-	environmentKeyTauthBaseURL        = "TAUTH_BASE_URL"
-	environmentKeyTauthTenantID       = "TAUTH_TENANT_ID"
-	environmentKeyTauthSigningKey     = "TAUTH_JWT_SIGNING_KEY"
-	environmentKeyTauthSessionCookie  = "TAUTH_SESSION_COOKIE_NAME"
-	environmentKeyPublicBaseURL       = "PUBLIC_BASE_URL"
-	environmentKeyPinguinAddress      = "PINGUIN_ADDR"
-	environmentKeyPinguinAuthToken    = "PINGUIN_AUTH_TOKEN"
-	environmentKeyPinguinTenantID     = "PINGUIN_TENANT_ID"
-	environmentKeyPinguinSharedAuth   = "GRPC_AUTH_TOKEN"
-	environmentKeyPinguinConnTimeout  = "PINGUIN_CONNECTION_TIMEOUT_SEC"
-	environmentKeyPinguinOpTimeout    = "PINGUIN_OPERATION_TIMEOUT_SEC"
-	environmentKeySubscriptionNotify  = "SUBSCRIPTION_NOTIFICATIONS"
-	configurationKeyAdmins            = "admins"
-	defaultApplicationAddress         = ":8080"
-	sqliteFileDataSourceNamePattern   = "file:%s?_foreign_keys=on"
-	defaultSQLiteDatabaseFileName     = "loopaware.sqlite"
-	defaultConfigFileName             = "config.yaml"
-	defaultPublicBaseURL              = "http://localhost:8080"
-	defaultTauthSessionCookieName     = "app_session"
-	defaultPinguinAddress             = "localhost:50051"
-	defaultPinguinConnTimeoutSeconds  = 5
-	defaultPinguinOpTimeoutSeconds    = 30
-	defaultSubscriptionNotify         = true
-	publicRouteFeedback               = "/api/feedback"
-	publicRouteSubscription           = "/api/subscriptions"
-	publicRouteSubscriptionConfirm    = "/api/subscriptions/confirm"
-	publicRouteSubscriptionOptOut     = "/api/subscriptions/unsubscribe"
-	publicRouteSubscriptionConfirmWeb = "/subscriptions/confirm"
-	publicRouteSubscriptionOptOutWeb  = "/subscriptions/unsubscribe"
-	publicRouteSubscribeWidget        = "/subscribe.js"
-	publicRouteSubscribeDemo          = "/subscribe-demo"
-	publicRouteVisitPixel             = "/api/visits"
-	publicRouteWidget                 = "/widget.js"
-	landingRouteRoot                  = httpapi.LandingPagePath
-	dashboardRoute                    = "/app"
-	apiRoutePrefix                    = "/api"
-	apiRouteMe                        = "/me"
-	apiRouteMeAvatar                  = "/me/avatar"
-	apiRouteSites                     = "/sites"
-	apiRouteSiteUpdate                = "/sites/:id"
-	apiRouteSiteMessages              = "/sites/:id/messages"
-	apiRouteSiteVisitStats            = "/sites/:id/visits/stats"
-	apiRouteSiteSubscribers           = "/sites/:id/subscribers"
-	apiRouteSiteSubscriberUpdate      = "/sites/:id/subscribers/:subscriber_id"
-	apiRouteSiteSubscribersExport     = "/sites/:id/subscribers/export"
-	apiRouteSiteFavicon               = "/sites/:id/favicon"
-	apiRouteSiteFaviconEvents         = "/sites/favicons/events"
-	apiRouteSiteFeedbackEvents        = "/sites/feedback/events"
-	corsOriginWildcard                = "*"
-	corsHeaderAuthorization           = "Authorization"
-	corsHeaderContentType             = "Content-Type"
-	corsHeaderXTAuthTenant            = "X-TAuth-Tenant"
-	httpMethodGet                     = "GET"
-	httpMethodOptions                 = "OPTIONS"
-	httpMethodPost                    = "POST"
-	httpMethodPatch                   = "PATCH"
-	httpMethodDelete                  = "DELETE"
-	loggerContextOpenDatabase         = "open_db"
-	loggerContextAutoMigrate          = "migrate"
-	loggerContextServer               = "server"
-	loggerContextAuthService          = "auth_service"
-	readHeaderTimeoutSeconds          = 5
-	unexpectedArgumentsMessage        = "unexpected command arguments"
-	commandInitializationFailure      = "failed to configure command"
-	flagNotDefinedMessage             = "flag %s not defined"
-	environmentConfigurationError     = "failed to apply environment configuration"
-	configurationFileLoadError        = "failed to load configuration file"
-	administratorEmailSeparator       = ","
-	logMessageMissingAdministrators   = "running without administrators"
+	commandUseName                            = "server"
+	commandShortDescription                   = "Run the feedback server"
+	commandLongDescription                    = "Launch the feedback collection HTTP server"
+	missingConfigurationMessage               = "missing required configuration"
+	loggerCreationErrorMessage                = "logger"
+	logEventListening                         = "listening"
+	logFieldAddress                           = "addr"
+	flagNameConfigFile                        = "config"
+	flagNameApplicationAddress                = "app-addr"
+	flagNameDatabaseDriver                    = "db-driver"
+	flagNameDatabaseDataSourceName            = "db-dsn"
+	flagNameGoogleClientID                    = "google-client-id"
+	flagNameSessionSecret                     = "session-secret"
+	flagNameTauthBaseURL                      = "tauth-base-url"
+	flagNameTauthTenantID                     = "tauth-tenant-id"
+	flagNameTauthSigningKey                   = "tauth-signing-key"
+	flagNameTauthSessionCookieName            = "tauth-session-cookie-name"
+	flagNameSessionTimeoutPromptSeconds       = "session-timeout-prompt-seconds"
+	flagNameSessionTimeoutLogoutSeconds       = "session-timeout-logout-seconds"
+	flagNameSubscriptionNotifications         = "subscription-notifications"
+	flagNamePublicBaseURL                     = "public-base-url"
+	flagNamePinguinAddress                    = "pinguin-addr"
+	flagNamePinguinAuthToken                  = "pinguin-auth-token"
+	flagNamePinguinTenantID                   = "pinguin-tenant-id"
+	flagNamePinguinConnectionTimeout          = "pinguin-conn-timeout"
+	flagNamePinguinOperationTimeout           = "pinguin-op-timeout"
+	flagUsageConfigFile                       = "path to configuration file"
+	flagUsageApplicationAddress               = "address for the HTTP server to listen on"
+	flagUsageDatabaseDriver                   = "database driver (e.g. sqlite)"
+	flagUsageDatabaseDataSourceName           = "database connection string"
+	flagUsageGoogleClientID                   = "Google OAuth client ID"
+	flagUsageSessionSecret                    = "secret for subscription confirmation tokens"
+	flagUsageTauthBaseURL                     = "base URL for the TAuth service"
+	flagUsageTauthTenantID                    = "tenant identifier configured in TAuth"
+	flagUsageTauthSigningKey                  = "JWT signing key for validating TAuth sessions"
+	flagUsageTauthSessionCookieName           = "session cookie name used by TAuth"
+	flagUsageSessionTimeoutPromptSeconds      = "session timeout prompt delay in seconds"
+	flagUsageSessionTimeoutLogoutSeconds      = "session timeout auto logout delay in seconds"
+	flagUsagePublicBaseURL                    = "public base URL for landing pages and sitemap"
+	flagUsagePinguinAddress                   = "Pinguin gRPC server address"
+	flagUsagePinguinAuthToken                 = "Pinguin bearer auth token"
+	flagUsagePinguinTenantID                  = "Pinguin tenant identifier"
+	flagUsagePinguinConnTimeout               = "Pinguin connection timeout in seconds"
+	flagUsagePinguinOpTimeout                 = "Pinguin operation timeout in seconds"
+	flagUsageSubscriptionNotify               = "enable notifications for new subscriptions"
+	environmentKeyApplicationAddress          = "APP_ADDR"
+	environmentKeyDatabaseDriverName          = "DB_DRIVER"
+	environmentKeyDatabaseDataSource          = "DB_DSN"
+	environmentKeyAdmins                      = "ADMINS"
+	environmentKeyGoogleClientID              = "GOOGLE_CLIENT_ID"
+	environmentKeySessionSecret               = "SESSION_SECRET"
+	environmentKeyTauthBaseURL                = "TAUTH_BASE_URL"
+	environmentKeyTauthTenantID               = "TAUTH_TENANT_ID"
+	environmentKeyTauthSigningKey             = "TAUTH_JWT_SIGNING_KEY"
+	environmentKeyTauthSessionCookie          = "TAUTH_SESSION_COOKIE_NAME"
+	environmentKeySessionTimeoutPromptSeconds = "SESSION_TIMEOUT_PROMPT_SECONDS"
+	environmentKeySessionTimeoutLogoutSeconds = "SESSION_TIMEOUT_LOGOUT_SECONDS"
+	environmentKeyPublicBaseURL               = "PUBLIC_BASE_URL"
+	environmentKeyPinguinAddress              = "PINGUIN_ADDR"
+	environmentKeyPinguinAuthToken            = "PINGUIN_AUTH_TOKEN"
+	environmentKeyPinguinTenantID             = "PINGUIN_TENANT_ID"
+	environmentKeyPinguinSharedAuth           = "GRPC_AUTH_TOKEN"
+	environmentKeyPinguinConnTimeout          = "PINGUIN_CONNECTION_TIMEOUT_SEC"
+	environmentKeyPinguinOpTimeout            = "PINGUIN_OPERATION_TIMEOUT_SEC"
+	environmentKeySubscriptionNotify          = "SUBSCRIPTION_NOTIFICATIONS"
+	configurationKeyAdmins                    = "admins"
+	defaultApplicationAddress                 = ":8080"
+	sqliteFileDataSourceNamePattern           = "file:%s?_foreign_keys=on"
+	defaultSQLiteDatabaseFileName             = "loopaware.sqlite"
+	defaultConfigFileName                     = "config.yaml"
+	defaultPublicBaseURL                      = "http://localhost:8080"
+	defaultTauthSessionCookieName             = "app_session"
+	defaultPinguinAddress                     = "localhost:50051"
+	defaultPinguinConnTimeoutSeconds          = 5
+	defaultPinguinOpTimeoutSeconds            = 30
+	defaultSessionTimeoutPromptSeconds        = 60
+	defaultSessionTimeoutLogoutSeconds        = 120
+	defaultSubscriptionNotify                 = true
+	publicRouteFeedback                       = "/api/feedback"
+	publicRouteSubscription                   = "/api/subscriptions"
+	publicRouteSubscriptionConfirm            = "/api/subscriptions/confirm"
+	publicRouteSubscriptionOptOut             = "/api/subscriptions/unsubscribe"
+	publicRouteSubscriptionConfirmWeb         = "/subscriptions/confirm"
+	publicRouteSubscriptionOptOutWeb          = "/subscriptions/unsubscribe"
+	publicRouteSubscribeWidget                = "/subscribe.js"
+	publicRouteSubscribeDemo                  = "/subscribe-demo"
+	publicRouteVisitPixel                     = "/api/visits"
+	publicRouteWidget                         = "/widget.js"
+	landingRouteRoot                          = httpapi.LandingPagePath
+	dashboardRoute                            = "/app"
+	apiRoutePrefix                            = "/api"
+	apiRouteMe                                = "/me"
+	apiRouteMeAvatar                          = "/me/avatar"
+	apiRouteSites                             = "/sites"
+	apiRouteSiteUpdate                        = "/sites/:id"
+	apiRouteSiteMessages                      = "/sites/:id/messages"
+	apiRouteSiteVisitStats                    = "/sites/:id/visits/stats"
+	apiRouteSiteSubscribers                   = "/sites/:id/subscribers"
+	apiRouteSiteSubscriberUpdate              = "/sites/:id/subscribers/:subscriber_id"
+	apiRouteSiteSubscribersExport             = "/sites/:id/subscribers/export"
+	apiRouteSiteFavicon                       = "/sites/:id/favicon"
+	apiRouteSiteFaviconEvents                 = "/sites/favicons/events"
+	apiRouteSiteFeedbackEvents                = "/sites/feedback/events"
+	corsOriginWildcard                        = "*"
+	corsHeaderAuthorization                   = "Authorization"
+	corsHeaderContentType                     = "Content-Type"
+	corsHeaderXTAuthTenant                    = "X-TAuth-Tenant"
+	httpMethodGet                             = "GET"
+	httpMethodOptions                         = "OPTIONS"
+	httpMethodPost                            = "POST"
+	httpMethodPatch                           = "PATCH"
+	httpMethodDelete                          = "DELETE"
+	loggerContextOpenDatabase                 = "open_db"
+	loggerContextAutoMigrate                  = "migrate"
+	loggerContextServer                       = "server"
+	loggerContextAuthService                  = "auth_service"
+	readHeaderTimeoutSeconds                  = 5
+	unexpectedArgumentsMessage                = "unexpected command arguments"
+	commandInitializationFailure              = "failed to configure command"
+	flagNotDefinedMessage                     = "flag %s not defined"
+	environmentConfigurationError             = "failed to apply environment configuration"
+	configurationFileLoadError                = "failed to load configuration file"
+	administratorEmailSeparator               = ","
+	logMessageMissingAdministrators           = "running without administrators"
 )
 
 var (
@@ -170,6 +178,8 @@ type ServerConfig struct {
 	PinguinTenantID           string
 	PinguinConnTimeoutSec     int
 	PinguinOpTimeoutSec       int
+	SessionTimeoutPromptSec   int
+	SessionTimeoutLogoutSec   int
 	SubscriptionNotifications bool
 }
 
@@ -223,6 +233,8 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	application.configurationLoader.SetDefault(environmentKeyTauthTenantID, "")
 	application.configurationLoader.SetDefault(environmentKeyTauthSigningKey, "")
 	application.configurationLoader.SetDefault(environmentKeyTauthSessionCookie, defaultTauthSessionCookieName)
+	application.configurationLoader.SetDefault(environmentKeySessionTimeoutPromptSeconds, defaultSessionTimeoutPromptSeconds)
+	application.configurationLoader.SetDefault(environmentKeySessionTimeoutLogoutSeconds, defaultSessionTimeoutLogoutSeconds)
 	application.configurationLoader.SetDefault(environmentKeyPinguinAddress, defaultPinguinAddress)
 	application.configurationLoader.SetDefault(environmentKeyPinguinAuthToken, "")
 	application.configurationLoader.SetDefault(environmentKeyPinguinTenantID, "")
@@ -243,6 +255,8 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	commandFlags.String(flagNameTauthTenantID, "", flagUsageTauthTenantID)
 	commandFlags.String(flagNameTauthSigningKey, "", flagUsageTauthSigningKey)
 	commandFlags.String(flagNameTauthSessionCookieName, defaultTauthSessionCookieName, flagUsageTauthSessionCookieName)
+	commandFlags.Int(flagNameSessionTimeoutPromptSeconds, defaultSessionTimeoutPromptSeconds, flagUsageSessionTimeoutPromptSeconds)
+	commandFlags.Int(flagNameSessionTimeoutLogoutSeconds, defaultSessionTimeoutLogoutSeconds, flagUsageSessionTimeoutLogoutSeconds)
 	commandFlags.String(flagNamePublicBaseURL, defaultPublicBaseURL, flagUsagePublicBaseURL)
 	commandFlags.String(flagNamePinguinAddress, defaultPinguinAddress, flagUsagePinguinAddress)
 	commandFlags.String(flagNamePinguinAuthToken, "", flagUsagePinguinAuthToken)
@@ -284,6 +298,14 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	}
 
 	if bindErr := application.bindFlag(commandFlags, environmentKeyTauthSessionCookie, flagNameTauthSessionCookieName); bindErr != nil {
+		return bindErr
+	}
+
+	if bindErr := application.bindFlag(commandFlags, environmentKeySessionTimeoutPromptSeconds, flagNameSessionTimeoutPromptSeconds); bindErr != nil {
+		return bindErr
+	}
+
+	if bindErr := application.bindFlag(commandFlags, environmentKeySessionTimeoutLogoutSeconds, flagNameSessionTimeoutLogoutSeconds); bindErr != nil {
 		return bindErr
 	}
 
@@ -348,6 +370,14 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	}
 
 	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyTauthSessionCookie, flagNameTauthSessionCookieName); environmentErr != nil {
+		return environmentErr
+	}
+
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeySessionTimeoutPromptSeconds, flagNameSessionTimeoutPromptSeconds); environmentErr != nil {
+		return environmentErr
+	}
+
+	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeySessionTimeoutLogoutSeconds, flagNameSessionTimeoutLogoutSeconds); environmentErr != nil {
 		return environmentErr
 	}
 
@@ -518,7 +548,9 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	faviconManager.TriggerScheduledRefresh()
 	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(database)
 	siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
-	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot, authClientConfig)
+	sessionTimeoutPromptDuration := time.Duration(serverConfig.SessionTimeoutPromptSec) * time.Second
+	sessionTimeoutLogoutDuration := time.Duration(serverConfig.SessionTimeoutLogoutSec) * time.Second
+	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot, authClientConfig, httpapi.WithDashboardSessionTimeout(sessionTimeoutPromptDuration, sessionTimeoutLogoutDuration))
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(database, logger, serverConfig.PublicBaseURL, feedbackBroadcaster, pinguinNotifier, authClientConfig)
 	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(database, logger, authClientConfig)
 	subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(database, logger, subscriptionEvents, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier, authClientConfig)
@@ -617,6 +649,8 @@ func (application *ServerApplication) loadServerConfig(configFilePath string) (S
 		TauthTenantID:             strings.TrimSpace(application.configurationLoader.GetString(environmentKeyTauthTenantID)),
 		TauthSigningKey:           strings.TrimSpace(application.configurationLoader.GetString(environmentKeyTauthSigningKey)),
 		TauthSessionCookieName:    strings.TrimSpace(application.configurationLoader.GetString(environmentKeyTauthSessionCookie)),
+		SessionTimeoutPromptSec:   application.configurationLoader.GetInt(environmentKeySessionTimeoutPromptSeconds),
+		SessionTimeoutLogoutSec:   application.configurationLoader.GetInt(environmentKeySessionTimeoutLogoutSeconds),
 		PublicBaseURL:             strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPublicBaseURL)),
 		ConfigFilePath:            trimmedConfigPath,
 		PinguinAddress:            strings.TrimSpace(application.configurationLoader.GetString(environmentKeyPinguinAddress)),
@@ -692,6 +726,18 @@ func (application *ServerApplication) ensureRequiredConfiguration(configuration 
 
 	if configuration.TauthSigningKey == "" {
 		missingParameters = append(missingParameters, flagNameTauthSigningKey)
+	}
+
+	if configuration.SessionTimeoutPromptSec <= 0 {
+		missingParameters = append(missingParameters, flagNameSessionTimeoutPromptSeconds)
+	}
+
+	if configuration.SessionTimeoutLogoutSec <= 0 {
+		missingParameters = append(missingParameters, flagNameSessionTimeoutLogoutSeconds)
+	}
+
+	if configuration.SessionTimeoutPromptSec > 0 && configuration.SessionTimeoutLogoutSec > 0 && configuration.SessionTimeoutLogoutSec <= configuration.SessionTimeoutPromptSec {
+		missingParameters = append(missingParameters, flagNameSessionTimeoutLogoutSeconds)
 	}
 
 	if configuration.PublicBaseURL == "" {

@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -628,27 +629,46 @@ type dashboardClientConfig struct {
 	AutoLogout         autoLogoutClientConfig      `json:"auto_logout"`
 }
 
+// DashboardWebHandlersOption configures DashboardWebHandlers.
+type DashboardWebHandlersOption func(*DashboardWebHandlers)
+
 // DashboardWebHandlers serves the authenticated dashboard UI.
 type DashboardWebHandlers struct {
-	logger      *zap.Logger
-	template    *template.Template
-	landingPath string
-	authConfig  AuthClientConfig
+	logger                                *zap.Logger
+	template                              *template.Template
+	landingPath                           string
+	authConfig                            AuthClientConfig
+	sessionTimeoutPromptDelayMilliseconds int
+	sessionTimeoutAutoLogoutMilliseconds  int
 }
 
-func NewDashboardWebHandlers(logger *zap.Logger, landingPath string, authConfig AuthClientConfig) *DashboardWebHandlers {
+// WithDashboardSessionTimeout overrides the default dashboard session timeout timing.
+func WithDashboardSessionTimeout(promptDelay time.Duration, autoLogout time.Duration) DashboardWebHandlersOption {
+	return func(handlers *DashboardWebHandlers) {
+		handlers.sessionTimeoutPromptDelayMilliseconds = int(promptDelay.Milliseconds())
+		handlers.sessionTimeoutAutoLogoutMilliseconds = int(autoLogout.Milliseconds())
+	}
+}
+
+func NewDashboardWebHandlers(logger *zap.Logger, landingPath string, authConfig AuthClientConfig, options ...DashboardWebHandlersOption) *DashboardWebHandlers {
 	baseTemplate := template.Must(template.New(dashboardTemplateName).Parse(dashboardHeaderTemplateHTML))
 	compiledTemplate := template.Must(baseTemplate.Parse(dashboardTemplateHTML))
 	normalizedLandingPath := landingPath
 	if normalizedLandingPath == "" {
 		normalizedLandingPath = "/"
 	}
-	return &DashboardWebHandlers{
-		logger:      logger,
-		template:    compiledTemplate,
-		landingPath: normalizedLandingPath,
-		authConfig:  authConfig,
+	handlers := &DashboardWebHandlers{
+		logger:                                logger,
+		template:                              compiledTemplate,
+		landingPath:                           normalizedLandingPath,
+		authConfig:                            authConfig,
+		sessionTimeoutPromptDelayMilliseconds: sessionTimeoutPromptDelayMilliseconds,
+		sessionTimeoutAutoLogoutMilliseconds:  sessionTimeoutAutoLogoutMilliseconds,
 	}
+	for _, option := range options {
+		option(handlers)
+	}
+	return handlers
 }
 
 func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
@@ -1171,8 +1191,8 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			authErrorForbidden:            dashboardErrorMessageNotAuthorized,
 		},
 		SessionTimeout: sessionTimeoutConfig{
-			PromptDelayMilliseconds: sessionTimeoutPromptDelayMilliseconds,
-			AutoLogoutMilliseconds:  sessionTimeoutAutoLogoutMilliseconds,
+			PromptDelayMilliseconds: handlers.sessionTimeoutPromptDelayMilliseconds,
+			AutoLogoutMilliseconds:  handlers.sessionTimeoutAutoLogoutMilliseconds,
 			Texts: map[string]string{
 				"prompt":  sessionTimeoutPromptText,
 				"confirm": sessionTimeoutConfirmButtonLabel,

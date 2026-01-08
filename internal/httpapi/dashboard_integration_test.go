@@ -101,6 +101,7 @@ const (
 	dashboardSectionTabSubscriptionsSelector   = "#dashboard-section-tab-subscriptions"
 	dashboardSectionTabTrafficSelector         = "#dashboard-section-tab-traffic"
 	dashboardSubscribersTableBodySelector      = "#subscribers-table-body"
+	dashboardAutoLogoutStorageKey              = "loopaware_dashboard_auto_logout"
 	dashboardLogoutFetchStorageKey             = "loopawareLogoutFetch"
 	dashboardDisableGoogleAutoSelectStorageKey = "loopawareDisableGoogleAutoSelect"
 	dashboardSettingsModalVisibleScript        = `(function() {
@@ -252,17 +253,24 @@ const (
 			maxLogoutSeconds: window.__loopawareDashboardSettingsTestHooks.maxLogoutSeconds || 0
 		};
 	}())`
-	dashboardUserEmailSelector                     = "#user-email"
-	dashboardFooterSelector                        = "#dashboard-footer"
-	dashboardTrafficStatusSelector                 = "#traffic-status"
-	dashboardVisitCountSelector                    = "#visit-count"
-	dashboardUniqueVisitorCountSelector            = "#unique-visitor-count"
-	dashboardTopPagesTableBodySelector             = "#top-pages-table-body"
-	dashboardTopPagesPlaceholderText               = "No visits yet."
-	dashboardForcePromptScript                     = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forcePrompt === 'function') { window.__loopawareDashboardIdleTestHooks.forcePrompt(); }"
-	dashboardForceLogoutScript                     = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forceLogout === 'function') { window.__loopawareDashboardIdleTestHooks.forceLogout(); }"
-	dashboardNotificationBackgroundScript          = `window.getComputedStyle(document.querySelector("#session-timeout-notification")).backgroundColor`
-	dashboardLocationPathScript                    = "window.location.pathname"
+	dashboardUserEmailSelector            = "#user-email"
+	dashboardFooterSelector               = "#dashboard-footer"
+	dashboardTrafficStatusSelector        = "#traffic-status"
+	dashboardVisitCountSelector           = "#visit-count"
+	dashboardUniqueVisitorCountSelector   = "#unique-visitor-count"
+	dashboardTopPagesTableBodySelector    = "#top-pages-table-body"
+	dashboardTopPagesPlaceholderText      = "No visits yet."
+	dashboardForcePromptScript            = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forcePrompt === 'function') { window.__loopawareDashboardIdleTestHooks.forcePrompt(); }"
+	dashboardForceLogoutScript            = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forceLogout === 'function') { window.__loopawareDashboardIdleTestHooks.forceLogout(); }"
+	dashboardNotificationBackgroundScript = `window.getComputedStyle(document.querySelector("#session-timeout-notification")).backgroundColor`
+	dashboardLocationPathScript           = "window.location.pathname"
+	dashboardClearAutoLogoutStorageScript = `(function() {
+		var storageKey = '%s';
+		if (window.localStorage) {
+			window.localStorage.removeItem(storageKey);
+		}
+		return true;
+	}())`
 	dashboardDisableGoogleAutoSelectTrackingScript = `(function() {
 		var storageKey = '%s';
 		if (window.localStorage) {
@@ -505,8 +513,10 @@ type dashboardIntegrationHarness struct {
 }
 
 type dashboardHarnessOptions struct {
-	subscriptionNotifier httpapi.SubscriptionNotifier
-	emailSender          httpapi.EmailSender
+	subscriptionNotifier        httpapi.SubscriptionNotifier
+	emailSender                 httpapi.EmailSender
+	sessionTimeoutPromptSeconds int
+	sessionTimeoutLogoutSeconds int
 }
 
 type dashboardHarnessOption func(*dashboardHarnessOptions)
@@ -524,6 +534,13 @@ func withEmailSender(sender httpapi.EmailSender) dashboardHarnessOption {
 		if sender != nil {
 			options.emailSender = sender
 		}
+	}
+}
+
+func withSessionTimeoutSeconds(promptSeconds int, logoutSeconds int) dashboardHarnessOption {
+	return func(options *dashboardHarnessOptions) {
+		options.sessionTimeoutPromptSeconds = promptSeconds
+		options.sessionTimeoutLogoutSeconds = logoutSeconds
 	}
 }
 
@@ -1394,6 +1411,39 @@ func TestDashboardSessionTimeoutAutoLogout(t *testing.T) {
 		}
 		return parsed.Path == dashboardTestLandingPath
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardSessionTimeoutDefaultsMatchConfiguredValues(testingT *testing.T) {
+	configuredPromptSeconds := 300
+	configuredLogoutSeconds := 900
+
+	harness := buildDashboardIntegrationHarness(testingT, dashboardTestAdminEmail, withSessionTimeoutSeconds(configuredPromptSeconds, configuredLogoutSeconds))
+	defer harness.Close()
+
+	page := buildHeadlessPage(testingT)
+
+	navigateToPage(testingT, page, harness.baseURL+dashboardTestLandingPath)
+	clearScript := fmt.Sprintf(dashboardClearAutoLogoutStorageScript, dashboardAutoLogoutStorageKey)
+	evaluateScriptInto(testingT, page, clearScript, nil)
+
+	sessionCookie := createAuthenticatedSessionCookie(testingT, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	setPageCookie(testingT, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(testingT, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, page, dashboardSettingsHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	var current struct {
+		Enabled       bool    `json:"enabled"`
+		PromptSeconds float64 `json:"promptSeconds"`
+		LogoutSeconds float64 `json:"logoutSeconds"`
+	}
+	evaluateScriptInto(testingT, page, dashboardReadAutoLogoutSettingsScript, &current)
+
+	require.True(testingT, current.Enabled)
+	require.Equal(testingT, configuredPromptSeconds, int(current.PromptSeconds))
+	require.Equal(testingT, configuredLogoutSeconds, int(current.LogoutSeconds))
 }
 
 func TestDashboardSessionTimeoutDisablesGoogleAutoSelect(t *testing.T) {
@@ -2894,7 +2944,13 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager, authClientConfig)
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager, authClientConfig)
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
-	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath, authClientConfig)
+	dashboardHandlerOptions := []httpapi.DashboardWebHandlersOption{}
+	if config.sessionTimeoutPromptSeconds > 0 && config.sessionTimeoutLogoutSeconds > 0 {
+		promptDuration := time.Duration(config.sessionTimeoutPromptSeconds) * time.Second
+		logoutDuration := time.Duration(config.sessionTimeoutLogoutSeconds) * time.Second
+		dashboardHandlerOptions = append(dashboardHandlerOptions, httpapi.WithDashboardSessionTimeout(promptDuration, logoutDuration))
+	}
+	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath, authClientConfig, dashboardHandlerOptions...)
 	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", config.emailSender, authClientConfig)
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{}, authClientConfig)
 	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(gormDatabase, logger, authClientConfig)

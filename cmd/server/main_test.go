@@ -37,22 +37,24 @@ const (
 
 func TestEnsureRequiredConfigurationDetectsMissingFields(t *testing.T) {
 	baseConfig := ServerConfig{
-		ApplicationAddress:     ":0",
-		DatabaseDriverName:     storage.DriverNameSQLite,
-		DatabaseDataSourceName: "",
-		AdminEmailAddresses:    []string{testAdminEmail},
-		GoogleClientID:         testGoogleClientID,
-		SessionSecret:          testSessionSecret,
-		TauthBaseURL:           testTauthBaseURL,
-		TauthTenantID:          testTauthTenantID,
-		TauthSigningKey:        testTauthSigningKey,
-		PublicBaseURL:          testDefaultPublicBaseURL,
-		ConfigFilePath:         "testdata/config.yaml",
-		PinguinAddress:         defaultPinguinAddress,
-		PinguinAuthToken:       "test-token",
-		PinguinTenantID:        "tenant-test",
-		PinguinConnTimeoutSec:  defaultPinguinConnTimeoutSeconds,
-		PinguinOpTimeoutSec:    defaultPinguinOpTimeoutSeconds,
+		ApplicationAddress:      ":0",
+		DatabaseDriverName:      storage.DriverNameSQLite,
+		DatabaseDataSourceName:  "",
+		AdminEmailAddresses:     []string{testAdminEmail},
+		GoogleClientID:          testGoogleClientID,
+		SessionSecret:           testSessionSecret,
+		TauthBaseURL:            testTauthBaseURL,
+		TauthTenantID:           testTauthTenantID,
+		TauthSigningKey:         testTauthSigningKey,
+		PublicBaseURL:           testDefaultPublicBaseURL,
+		ConfigFilePath:          "testdata/config.yaml",
+		PinguinAddress:          defaultPinguinAddress,
+		PinguinAuthToken:        "test-token",
+		PinguinTenantID:         "tenant-test",
+		PinguinConnTimeoutSec:   defaultPinguinConnTimeoutSeconds,
+		PinguinOpTimeoutSec:     defaultPinguinOpTimeoutSeconds,
+		SessionTimeoutPromptSec: defaultSessionTimeoutPromptSeconds,
+		SessionTimeoutLogoutSec: defaultSessionTimeoutLogoutSeconds,
 	}
 
 	testCases := []struct {
@@ -124,6 +126,30 @@ func TestEnsureRequiredConfigurationDetectsMissingFields(t *testing.T) {
 			},
 			expectsError:  true,
 			expectedToken: flagNameTauthSigningKey,
+		},
+		{
+			name: "missing session timeout prompt",
+			mutate: func(config *ServerConfig) {
+				config.SessionTimeoutPromptSec = 0
+			},
+			expectsError:  true,
+			expectedToken: flagNameSessionTimeoutPromptSeconds,
+		},
+		{
+			name: "missing session timeout logout",
+			mutate: func(config *ServerConfig) {
+				config.SessionTimeoutLogoutSec = 0
+			},
+			expectsError:  true,
+			expectedToken: flagNameSessionTimeoutLogoutSeconds,
+		},
+		{
+			name: "logout before prompt",
+			mutate: func(config *ServerConfig) {
+				config.SessionTimeoutLogoutSec = config.SessionTimeoutPromptSec - 1
+			},
+			expectsError:  true,
+			expectedToken: flagNameSessionTimeoutLogoutSeconds,
 		},
 		{
 			name: "missing public base url",
@@ -236,6 +262,14 @@ func TestServerCommandFlagDefaults(t *testing.T) {
 	pinguinOpFlag := command.Flag(flagNamePinguinOperationTimeout)
 	require.NotNil(t, pinguinOpFlag)
 	require.Equal(t, fmt.Sprintf("%d", defaultPinguinOpTimeoutSeconds), pinguinOpFlag.DefValue)
+
+	sessionTimeoutPromptFlag := command.Flag(flagNameSessionTimeoutPromptSeconds)
+	require.NotNil(t, sessionTimeoutPromptFlag)
+	require.Equal(t, fmt.Sprintf("%d", defaultSessionTimeoutPromptSeconds), sessionTimeoutPromptFlag.DefValue)
+
+	sessionTimeoutLogoutFlag := command.Flag(flagNameSessionTimeoutLogoutSeconds)
+	require.NotNil(t, sessionTimeoutLogoutFlag)
+	require.Equal(t, fmt.Sprintf("%d", defaultSessionTimeoutLogoutSeconds), sessionTimeoutLogoutFlag.DefValue)
 }
 
 func TestLoadServerConfigReadsAdminEmailsFromEnvironment(t *testing.T) {
