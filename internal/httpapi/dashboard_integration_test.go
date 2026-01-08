@@ -227,6 +227,14 @@ const (
                 if (!container) { return false; }
                 return container.getAttribute('aria-hidden') === 'false';
         }())`
+	dashboardSessionTimeoutAtBottomScript = `(function() {
+		var container = document.getElementById('session-timeout-notification');
+		if (!container) { return false; }
+		var rect = container.getBoundingClientRect();
+		var viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+		if (!viewportHeight) { return false; }
+		return Math.abs(rect.bottom - viewportHeight) <= 2;
+	}())`
 	dashboardReadAutoLogoutSettingsScript = `(function() {
                 if (!window.__loopawareDashboardSettingsTestHooks) { return null; }
                 return window.__loopawareDashboardSettingsTestHooks.readAutoLogoutSettings();
@@ -541,6 +549,9 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardPromptVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSessionTimeoutAtBottomScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	lightBackgroundColor := evaluateScriptString(t, page, dashboardNotificationBackgroundScript)

@@ -180,7 +180,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/templates/dashboard.tmpl`
 
-- [ ] [LA-332] ![alt text](image-1.png) The logout notification is floating in space instead of being sticky to the bottom of the screen
+- [x] [LA-332] ![alt text](image-1.png) The logout notification is floating in space instead of being sticky to the bottom of the screen
+  Priority: P1
+  Goal: Session timeout notification is fixed to the bottom edge of the viewport.
+  Deliverable: PR that pins the timeout notification to the bottom and adds integration coverage for its position.
+  Resolution: Added bottom anchoring to the timeout banner and integration coverage asserting its bottom alignment.
 - [x] [LA-333] Safari header dropdown actions are unresponsive after auth.
   Priority: P1
   Goal: Avatar dropdown opens and settings/logout clicks work on Safari without missing bindings.
