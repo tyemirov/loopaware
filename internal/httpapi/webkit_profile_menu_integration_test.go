@@ -12,14 +12,14 @@ import (
 )
 
 const (
-	webkitTestTimeout               = 30 * time.Second
-	webkitTestPollInterval          = 100 * time.Millisecond
-	webkitProfileToggleSelector     = `[data-loopaware-profile-toggle="true"]`
-	webkitSettingsButtonSelector    = `[data-loopaware-settings="true"]`
-	webkitLogoutButtonSelector      = `[data-loopaware-logout="true"]`
-	webkitSettingsModalSelector     = "#settings-modal"
-	webkitProfileMenuItemsSelector  = `[data-loopaware-profile-menu-items="true"]`
-	webkitProfileMenuSelector       = `[data-loopaware-profile-menu="true"]`
+	webkitTestTimeout              = 30 * time.Second
+	webkitTestPollInterval         = 100 * time.Millisecond
+	webkitProfileToggleSelector    = `[data-loopaware-profile-toggle="true"]`
+	webkitSettingsButtonSelector   = `[data-loopaware-settings="true"]`
+	webkitLogoutButtonSelector     = `[data-loopaware-logout="true"]`
+	webkitSettingsModalSelector    = "#settings-modal"
+	webkitProfileMenuItemsSelector = `[data-loopaware-profile-menu-items="true"]`
+	webkitProfileMenuSelector      = `[data-loopaware-profile-menu="true"]`
 )
 
 var (

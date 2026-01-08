@@ -192,6 +192,24 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard_header.tmpl`
   - `tools/mpr-ui/docs/custom-elements.md`
 
+- [ ] [LA-334] Logout occurs much faster than the configured timeout.
+  Priority: P1
+  Goal: Authentication sessions honor the configured timeout before forcing logout.
+  Deliverable: PR that identifies the premature logout trigger, aligns the effective timeout with configuration, and adds/updates integration coverage for session duration.
+  Notes: Reported behavior indicates logout occurs significantly earlier than the configured session timeout; confirm whether this is driven by the dashboard inactivity timer vs. server/TAuth session expiry.
+
+- [ ] [LA-335] Google Sign-In auto-suggests login after a timed-out logout.
+  Priority: P1
+  Goal: After an inactivity-triggered logout, Google Sign-In should not immediately prompt or auto-suggest login without user action.
+  Deliverable: PR that suppresses auto-prompt/auto-select behavior after timeout-driven logout and adds integration coverage for the post-timeout login UX.
+  Notes: Observed behavior is a Google Sign-In prompt immediately after timeout logout; confirm whether GIS auto-select or mpr-ui auth bootstrap is responsible and ensure the prompt only appears on explicit user intent.
+
+- [ ] [LA-336] Additional subscribe origins disappear after logout/login.
+  Priority: P1
+  Goal: Additional subscribe origins remain visible in the dashboard editor after a logout/login cycle and are enforced by the backend.
+  Deliverable: PR that persists and rehydrates additional subscribe origins in the UI after re-auth and adds coverage for visibility + origin enforcement.
+  Notes: Reported behavior: added origins are not shown after logging out and back in, even though they were saved.
+
 ## Improvements (210–299)
 
 - [x] [LA-213] Dashboard section tabs should span full width and split into 3 equal parts.
@@ -244,6 +262,18 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/web.go`
   - `internal/httpapi/subscribe_allowed_origins_dashboard_integration_test.go`
+
+- [ ] [LA-217] Autosave site edits and remove the Update Site button.
+  Priority: P2
+  Goal: Site name/origin/owner/placement changes are auto-saved without requiring a manual Update action.
+  Deliverable: PR that debounces/saves site edits automatically, removes the Update button from the UI, and adds integration coverage for auto-save behavior.
+  Notes: Ensure auto-save handles validation errors gracefully and does not persist partial/invalid values.
+
+- [ ] [LA-218] Add per-widget additional origins for feedback and traffic widgets.
+  Priority: P2
+  Goal: Operators can configure extra allowed origins independently for feedback and traffic widgets, similar to subscribe.
+  Deliverable: PR that adds per-widget additional origins fields for feedback + traffic, persists them, enforces them in widget endpoints, and adds integration coverage for UI + origin validation.
+  Notes: Keep site-level `allowed_origin` as the shared baseline; widget-specific origins should be additive.
 
 ## Maintenance (408–499)
 
