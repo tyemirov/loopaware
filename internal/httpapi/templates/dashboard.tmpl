@@ -2119,10 +2119,28 @@
           applyThemePreference(stored);
         }
 
+        function disableGoogleAutoSelect() {
+          if (!window || !window.google || !window.google.accounts || !window.google.accounts.id) {
+            return;
+          }
+          var identityApi = window.google.accounts.id;
+          if (typeof identityApi.cancel === 'function') {
+            try {
+              identityApi.cancel();
+            } catch (error) {}
+          }
+          if (typeof identityApi.disableAutoSelect === 'function') {
+            try {
+              identityApi.disableAutoSelect();
+            } catch (error) {}
+          }
+        }
+
         function performLogout() {
           if (sessionTimeoutManager && typeof sessionTimeoutManager.stop === 'function') {
             sessionTimeoutManager.stop();
           }
+          disableGoogleAutoSelect();
           var redirectToLanding = function() {
             window.location.href = landingPath;
           };

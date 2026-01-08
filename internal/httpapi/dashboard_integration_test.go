@@ -81,28 +81,29 @@ const (
 		if (!input) { return ''; }
 		return String(input.value || '');
 	}())`
-	dashboardSettingsAutoLogoutToggleSelector = "#settings-auto-logout-enabled"
-	dashboardSettingsAutoLogoutPromptSelector = "#settings-auto-logout-prompt-seconds"
-	dashboardSettingsAutoLogoutLogoutSelector = "#settings-auto-logout-logout-seconds"
-	dashboardFeedbackWidgetSnippetSelector    = "#widget-snippet"
-	dashboardSubscribeWidgetSnippetSelector   = "#subscribe-widget-snippet"
-	dashboardTrafficWidgetSnippetSelector     = "#traffic-widget-snippet"
-	dashboardFeedbackCopyButtonSelector       = "#copy-widget-snippet"
-	dashboardSubscribeCopyButtonSelector      = "#copy-subscribe-widget-snippet"
-	dashboardTrafficCopyButtonSelector        = "#copy-traffic-widget-snippet"
-	dashboardFeedbackWidgetCardSelector       = `[data-widget-card="feedback"]`
-	dashboardSubscribeWidgetCardSelector      = `[data-widget-card="subscribe"]`
-	dashboardTrafficWidgetCardSelector        = `[data-widget-card="traffic"]`
-	dashboardDashboardCardSelector            = "[data-dashboard-card]"
-	dashboardFeedbackMessagesCardSelector     = `[data-dashboard-card="feedback"]`
-	dashboardSubscribersCardSelector          = `[data-dashboard-card="subscribers"]`
-	dashboardTrafficCardSelector              = `[data-dashboard-card="traffic"]`
-	dashboardSectionTabFeedbackSelector       = "#dashboard-section-tab-feedback"
-	dashboardSectionTabSubscriptionsSelector  = "#dashboard-section-tab-subscriptions"
-	dashboardSectionTabTrafficSelector        = "#dashboard-section-tab-traffic"
-	dashboardSubscribersTableBodySelector     = "#subscribers-table-body"
-	dashboardLogoutFetchStorageKey            = "loopawareLogoutFetch"
-	dashboardSettingsModalVisibleScript       = `(function() {
+	dashboardSettingsAutoLogoutToggleSelector  = "#settings-auto-logout-enabled"
+	dashboardSettingsAutoLogoutPromptSelector  = "#settings-auto-logout-prompt-seconds"
+	dashboardSettingsAutoLogoutLogoutSelector  = "#settings-auto-logout-logout-seconds"
+	dashboardFeedbackWidgetSnippetSelector     = "#widget-snippet"
+	dashboardSubscribeWidgetSnippetSelector    = "#subscribe-widget-snippet"
+	dashboardTrafficWidgetSnippetSelector      = "#traffic-widget-snippet"
+	dashboardFeedbackCopyButtonSelector        = "#copy-widget-snippet"
+	dashboardSubscribeCopyButtonSelector       = "#copy-subscribe-widget-snippet"
+	dashboardTrafficCopyButtonSelector         = "#copy-traffic-widget-snippet"
+	dashboardFeedbackWidgetCardSelector        = `[data-widget-card="feedback"]`
+	dashboardSubscribeWidgetCardSelector       = `[data-widget-card="subscribe"]`
+	dashboardTrafficWidgetCardSelector         = `[data-widget-card="traffic"]`
+	dashboardDashboardCardSelector             = "[data-dashboard-card]"
+	dashboardFeedbackMessagesCardSelector      = `[data-dashboard-card="feedback"]`
+	dashboardSubscribersCardSelector           = `[data-dashboard-card="subscribers"]`
+	dashboardTrafficCardSelector               = `[data-dashboard-card="traffic"]`
+	dashboardSectionTabFeedbackSelector        = "#dashboard-section-tab-feedback"
+	dashboardSectionTabSubscriptionsSelector   = "#dashboard-section-tab-subscriptions"
+	dashboardSectionTabTrafficSelector         = "#dashboard-section-tab-traffic"
+	dashboardSubscribersTableBodySelector      = "#subscribers-table-body"
+	dashboardLogoutFetchStorageKey             = "loopawareLogoutFetch"
+	dashboardDisableGoogleAutoSelectStorageKey = "loopawareDisableGoogleAutoSelect"
+	dashboardSettingsModalVisibleScript        = `(function() {
 		var modal = document.getElementById('settings-modal');
 		if (!modal) { return false; }
 		return modal.classList.contains('show');
@@ -251,18 +252,37 @@ const (
 			maxLogoutSeconds: window.__loopawareDashboardSettingsTestHooks.maxLogoutSeconds || 0
 		};
 	}())`
-	dashboardUserEmailSelector            = "#user-email"
-	dashboardFooterSelector               = "#dashboard-footer"
-	dashboardTrafficStatusSelector        = "#traffic-status"
-	dashboardVisitCountSelector           = "#visit-count"
-	dashboardUniqueVisitorCountSelector   = "#unique-visitor-count"
-	dashboardTopPagesTableBodySelector    = "#top-pages-table-body"
-	dashboardTopPagesPlaceholderText      = "No visits yet."
-	dashboardForcePromptScript            = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forcePrompt === 'function') { window.__loopawareDashboardIdleTestHooks.forcePrompt(); }"
-	dashboardForceLogoutScript            = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forceLogout === 'function') { window.__loopawareDashboardIdleTestHooks.forceLogout(); }"
-	dashboardNotificationBackgroundScript = `window.getComputedStyle(document.querySelector("#session-timeout-notification")).backgroundColor`
-	dashboardLocationPathScript           = "window.location.pathname"
-	landingMarkAuthenticatedScript        = `(function() {
+	dashboardUserEmailSelector                     = "#user-email"
+	dashboardFooterSelector                        = "#dashboard-footer"
+	dashboardTrafficStatusSelector                 = "#traffic-status"
+	dashboardVisitCountSelector                    = "#visit-count"
+	dashboardUniqueVisitorCountSelector            = "#unique-visitor-count"
+	dashboardTopPagesTableBodySelector             = "#top-pages-table-body"
+	dashboardTopPagesPlaceholderText               = "No visits yet."
+	dashboardForcePromptScript                     = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forcePrompt === 'function') { window.__loopawareDashboardIdleTestHooks.forcePrompt(); }"
+	dashboardForceLogoutScript                     = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forceLogout === 'function') { window.__loopawareDashboardIdleTestHooks.forceLogout(); }"
+	dashboardNotificationBackgroundScript          = `window.getComputedStyle(document.querySelector("#session-timeout-notification")).backgroundColor`
+	dashboardLocationPathScript                    = "window.location.pathname"
+	dashboardDisableGoogleAutoSelectTrackingScript = `(function() {
+		var storageKey = '%s';
+		if (window.localStorage) {
+			window.localStorage.removeItem(storageKey);
+		}
+		if (!window.google) { window.google = {}; }
+		if (!window.google.accounts) { window.google.accounts = {}; }
+		if (!window.google.accounts.id) { window.google.accounts.id = {}; }
+		var original = window.google.accounts.id.disableAutoSelect;
+		window.google.accounts.id.disableAutoSelect = function() {
+			if (window.localStorage) {
+				window.localStorage.setItem(storageKey, 'true');
+			}
+			if (typeof original === 'function') {
+				return original();
+			}
+			return undefined;
+		};
+	}())`
+	landingMarkAuthenticatedScript = `(function() {
 		var profile = { display: 'Test User', email: 'test@example.com' };
 		window.__loopawareTestProfile = profile;
 		window.initAuthClient = function(options) {
@@ -1373,6 +1393,50 @@ func TestDashboardSessionTimeoutAutoLogout(t *testing.T) {
 			return false
 		}
 		return parsed.Path == dashboardTestLandingPath
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardSessionTimeoutDisablesGoogleAutoSelect(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		return style.display !== 'none' && style.visibility !== 'hidden';
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	evaluateScriptInto(t, page, fmt.Sprintf(dashboardDisableGoogleAutoSelectTrackingScript, dashboardDisableGoogleAutoSelectStorageKey), nil)
+
+	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
+	waitForVisibleElement(t, page, dashboardNotificationSelector)
+
+	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	evaluateScriptInto(t, page, dashboardForceLogoutScript, nil)
+	waitNavigation()
+
+	disableAutoSelectScript := fmt.Sprintf(`(function(){
+		if (!window.localStorage) { return ''; }
+		return window.localStorage.getItem(%q) || '';
+	}())`, dashboardDisableGoogleAutoSelectStorageKey)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, disableAutoSelectScript) == "true"
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 
