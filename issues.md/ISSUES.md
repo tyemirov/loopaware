@@ -39,11 +39,12 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - Identify overriding selectors in LoopAware CSS (especially for footer text colors).
   - Adjust styles to avoid clobbering mpr-ui defaults; verify both themes.
 
-- [ ] [LA-319] Additional subscribe origins may not persist/display after saving and returning to the site editor.
+- [x] [LA-319] Additional subscribe origins may not persist/display after saving and returning to the site editor.
   Priority: P1
   Goal: When operators add additional subscribe origins, save the site, and later re-open the same site in the dashboard, the saved origins are shown in the “Additional subscribe origins” editor.
   Deliverable: PR with a reproducible failing test + fix (or documented repro steps if environment-specific).
   Notes: Reported behavior is “added origins do not appear after returning to the site”; confirm whether the operator clicked Save, and whether the dashboard was refreshed or the site was re-selected without a reload.
+  Resolution: Unable to reproduce after verifying persistence/rehydration coverage for subscribe origins.
   Docs/Refs:
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/admin.go` (site responses)
