@@ -1410,18 +1410,32 @@
           exposeAutoLogoutTestHooks();
         }
 
+        function clearLegacyAutoLogoutSettings() {
+          if (!autoLogoutStorageBaseKey || typeof window !== 'object' || !window || !window.localStorage) {
+            return;
+          }
+          try {
+            window.localStorage.removeItem(autoLogoutStorageBaseKey);
+          } catch (error) {
+          }
+        }
+
         function applyAutoLogoutSettingsForUser(user) {
           var resolvedStorageKey = resolveAutoLogoutStorageKey(user);
           var storedAutoLogoutSettings = loadStoredAutoLogoutSettings(resolvedStorageKey);
-          if (!storedAutoLogoutSettings && autoLogoutStorageBaseKey && autoLogoutStorageBaseKey !== resolvedStorageKey) {
-            var legacySettings = loadStoredAutoLogoutSettings(autoLogoutStorageBaseKey);
-            if (legacySettings) {
+          var legacySettings = null;
+          if (autoLogoutStorageBaseKey && autoLogoutStorageBaseKey !== resolvedStorageKey) {
+            legacySettings = loadStoredAutoLogoutSettings(autoLogoutStorageBaseKey);
+            if (!storedAutoLogoutSettings && legacySettings) {
               persistAutoLogoutSettings(legacySettings, resolvedStorageKey);
-              storedAutoLogoutSettings = legacySettings;
+              storedAutoLogoutSettings = loadStoredAutoLogoutSettings(resolvedStorageKey) || legacySettings;
             }
           }
           autoLogoutStorageKey = resolvedStorageKey;
           applyAutoLogoutSettingsState(storedAutoLogoutSettings);
+          if (legacySettings) {
+            clearLegacyAutoLogoutSettings();
+          }
         }
 
         resetSessionTimeoutTestHooks();
