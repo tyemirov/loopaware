@@ -197,17 +197,19 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard_header.tmpl`
   - `tools/mpr-ui/docs/custom-elements.md`
 
-- [ ] [LA-334] Logout occurs much faster than the configured timeout.
+- [x] [LA-334] Logout occurs much faster than the configured timeout.
   Priority: P1
   Goal: Authentication sessions honor the configured timeout before forcing logout.
   Deliverable: PR that identifies the premature logout trigger, aligns the effective timeout with configuration, and adds/updates integration coverage for session duration.
   Notes: Reported behavior indicates logout occurs significantly earlier than the configured session timeout; confirm whether this is driven by the dashboard inactivity timer vs. server/TAuth session expiry.
+  Resolution: Scoped auto-logout settings to user-specific storage keys with legacy-key migration and added integration coverage to confirm per-user settings; `make ci` passes.
 
-- [ ] [LA-335] Google Sign-In auto-suggests login after a timed-out logout.
+- [x] [LA-335] Google Sign-In auto-suggests login after a timed-out logout.
   Priority: P1
   Goal: After an inactivity-triggered logout, Google Sign-In should not immediately prompt or auto-suggest login without user action.
   Deliverable: PR that suppresses auto-prompt/auto-select behavior after timeout-driven logout and adds integration coverage for the post-timeout login UX.
   Notes: Observed behavior is a Google Sign-In prompt immediately after timeout logout; confirm whether GIS auto-select or mpr-ui auth bootstrap is responsible and ensure the prompt only appears on explicit user intent.
+  Resolution: Disabled Google auto-select during timeout-driven logout and added integration coverage to verify the suppression; `make ci` passes.
 
 - [x] [LA-336] Additional subscribe origins disappear after logout/login.
   Priority: P1

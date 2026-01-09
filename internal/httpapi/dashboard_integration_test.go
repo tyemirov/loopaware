@@ -36,20 +36,22 @@ import (
 )
 
 const (
-	dashboardTestTauthSigningKey   = "test-tauth-signing-key"
-	dashboardTestJWTIssuer         = "tauth"
-	dashboardTestSessionCookieName = "app_session"
-	dashboardTestTauthTenantID     = "test-tenant"
-	dashboardTestGoogleClientID    = "test-google-client-id"
-	dashboardTestAdminEmail        = "admin@example.com"
-	dashboardTestAdminDisplayName  = "Admin Example"
-	dashboardTestAvatarDataURI     = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
-	dashboardTestWidgetBaseURL     = "http://example.test"
-	dashboardTestDashboardRoute    = "/app"
-	dashboardPromptWaitTimeout     = 10 * time.Second
-	dashboardPromptPollInterval    = 200 * time.Millisecond
-	dashboardNotificationSelector  = "#session-timeout-notification"
-	dashboardPromptVisibleScript   = `(function(){
+	dashboardTestTauthSigningKey      = "test-tauth-signing-key"
+	dashboardTestJWTIssuer            = "tauth"
+	dashboardTestSessionCookieName    = "app_session"
+	dashboardTestTauthTenantID        = "test-tenant"
+	dashboardTestGoogleClientID       = "test-google-client-id"
+	dashboardTestAdminEmail           = "admin@example.com"
+	dashboardTestAdminDisplayName     = "Admin Example"
+	dashboardTestSecondaryEmail       = "operator@example.com"
+	dashboardTestSecondaryDisplayName = "Operator Example"
+	dashboardTestAvatarDataURI        = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
+	dashboardTestWidgetBaseURL        = "http://example.test"
+	dashboardTestDashboardRoute       = "/app"
+	dashboardPromptWaitTimeout        = 10 * time.Second
+	dashboardPromptPollInterval       = 200 * time.Millisecond
+	dashboardNotificationSelector     = "#session-timeout-notification"
+	dashboardPromptVisibleScript      = `(function(){
 		var element = document.querySelector('#session-timeout-notification');
 		if (!element) { return false; }
 		var style = window.getComputedStyle(element);
@@ -81,28 +83,30 @@ const (
 		if (!input) { return ''; }
 		return String(input.value || '');
 	}())`
-	dashboardSettingsAutoLogoutToggleSelector = "#settings-auto-logout-enabled"
-	dashboardSettingsAutoLogoutPromptSelector = "#settings-auto-logout-prompt-seconds"
-	dashboardSettingsAutoLogoutLogoutSelector = "#settings-auto-logout-logout-seconds"
-	dashboardFeedbackWidgetSnippetSelector    = "#widget-snippet"
-	dashboardSubscribeWidgetSnippetSelector   = "#subscribe-widget-snippet"
-	dashboardTrafficWidgetSnippetSelector     = "#traffic-widget-snippet"
-	dashboardFeedbackCopyButtonSelector       = "#copy-widget-snippet"
-	dashboardSubscribeCopyButtonSelector      = "#copy-subscribe-widget-snippet"
-	dashboardTrafficCopyButtonSelector        = "#copy-traffic-widget-snippet"
-	dashboardFeedbackWidgetCardSelector       = `[data-widget-card="feedback"]`
-	dashboardSubscribeWidgetCardSelector      = `[data-widget-card="subscribe"]`
-	dashboardTrafficWidgetCardSelector        = `[data-widget-card="traffic"]`
-	dashboardDashboardCardSelector            = "[data-dashboard-card]"
-	dashboardFeedbackMessagesCardSelector     = `[data-dashboard-card="feedback"]`
-	dashboardSubscribersCardSelector          = `[data-dashboard-card="subscribers"]`
-	dashboardTrafficCardSelector              = `[data-dashboard-card="traffic"]`
-	dashboardSectionTabFeedbackSelector       = "#dashboard-section-tab-feedback"
-	dashboardSectionTabSubscriptionsSelector  = "#dashboard-section-tab-subscriptions"
-	dashboardSectionTabTrafficSelector        = "#dashboard-section-tab-traffic"
-	dashboardSubscribersTableBodySelector     = "#subscribers-table-body"
-	dashboardLogoutFetchStorageKey            = "loopawareLogoutFetch"
-	dashboardSettingsModalVisibleScript       = `(function() {
+	dashboardSettingsAutoLogoutToggleSelector  = "#settings-auto-logout-enabled"
+	dashboardSettingsAutoLogoutPromptSelector  = "#settings-auto-logout-prompt-seconds"
+	dashboardSettingsAutoLogoutLogoutSelector  = "#settings-auto-logout-logout-seconds"
+	dashboardFeedbackWidgetSnippetSelector     = "#widget-snippet"
+	dashboardSubscribeWidgetSnippetSelector    = "#subscribe-widget-snippet"
+	dashboardTrafficWidgetSnippetSelector      = "#traffic-widget-snippet"
+	dashboardFeedbackCopyButtonSelector        = "#copy-widget-snippet"
+	dashboardSubscribeCopyButtonSelector       = "#copy-subscribe-widget-snippet"
+	dashboardTrafficCopyButtonSelector         = "#copy-traffic-widget-snippet"
+	dashboardFeedbackWidgetCardSelector        = `[data-widget-card="feedback"]`
+	dashboardSubscribeWidgetCardSelector       = `[data-widget-card="subscribe"]`
+	dashboardTrafficWidgetCardSelector         = `[data-widget-card="traffic"]`
+	dashboardDashboardCardSelector             = "[data-dashboard-card]"
+	dashboardFeedbackMessagesCardSelector      = `[data-dashboard-card="feedback"]`
+	dashboardSubscribersCardSelector           = `[data-dashboard-card="subscribers"]`
+	dashboardTrafficCardSelector               = `[data-dashboard-card="traffic"]`
+	dashboardSectionTabFeedbackSelector        = "#dashboard-section-tab-feedback"
+	dashboardSectionTabSubscriptionsSelector   = "#dashboard-section-tab-subscriptions"
+	dashboardSectionTabTrafficSelector         = "#dashboard-section-tab-traffic"
+	dashboardSubscribersTableBodySelector      = "#subscribers-table-body"
+	dashboardAutoLogoutStorageBaseKey          = "loopaware_dashboard_auto_logout"
+	dashboardLogoutFetchStorageKey             = "loopawareLogoutFetch"
+	dashboardDisableGoogleAutoSelectStorageKey = "loopawareDisableGoogleAutoSelect"
+	dashboardSettingsModalVisibleScript        = `(function() {
 		var modal = document.getElementById('settings-modal');
 		if (!modal) { return false; }
 		return modal.classList.contains('show');
@@ -251,18 +255,57 @@ const (
 			maxLogoutSeconds: window.__loopawareDashboardSettingsTestHooks.maxLogoutSeconds || 0
 		};
 	}())`
-	dashboardUserEmailSelector            = "#user-email"
-	dashboardFooterSelector               = "#dashboard-footer"
-	dashboardTrafficStatusSelector        = "#traffic-status"
-	dashboardVisitCountSelector           = "#visit-count"
-	dashboardUniqueVisitorCountSelector   = "#unique-visitor-count"
-	dashboardTopPagesTableBodySelector    = "#top-pages-table-body"
-	dashboardTopPagesPlaceholderText      = "No visits yet."
-	dashboardForcePromptScript            = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forcePrompt === 'function') { window.__loopawareDashboardIdleTestHooks.forcePrompt(); }"
-	dashboardForceLogoutScript            = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forceLogout === 'function') { window.__loopawareDashboardIdleTestHooks.forceLogout(); }"
-	dashboardNotificationBackgroundScript = `window.getComputedStyle(document.querySelector("#session-timeout-notification")).backgroundColor`
-	dashboardLocationPathScript           = "window.location.pathname"
-	landingMarkAuthenticatedScript        = `(function() {
+	dashboardUserEmailSelector                = "#user-email"
+	dashboardFooterSelector                   = "#dashboard-footer"
+	dashboardTrafficStatusSelector            = "#traffic-status"
+	dashboardVisitCountSelector               = "#visit-count"
+	dashboardUniqueVisitorCountSelector       = "#unique-visitor-count"
+	dashboardTopPagesTableBodySelector        = "#top-pages-table-body"
+	dashboardTopPagesPlaceholderText          = "No visits yet."
+	dashboardForcePromptScript                = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forcePrompt === 'function') { window.__loopawareDashboardIdleTestHooks.forcePrompt(); }"
+	dashboardForceLogoutScript                = "if (window.__loopawareDashboardIdleTestHooks && typeof window.__loopawareDashboardIdleTestHooks.forceLogout === 'function') { window.__loopawareDashboardIdleTestHooks.forceLogout(); }"
+	dashboardNotificationBackgroundScript     = `window.getComputedStyle(document.querySelector("#session-timeout-notification")).backgroundColor`
+	dashboardLocationPathScript               = "window.location.pathname"
+	dashboardClearAutoLogoutStorageKeysScript = `(function() {
+		var baseKey = '%s';
+		var emails = [%q, %q];
+		if (!window.localStorage) {
+			return true;
+		}
+		window.localStorage.removeItem(baseKey);
+		emails.forEach(function(value) {
+			var normalizedEmail = '';
+			if (typeof value === 'string') {
+				normalizedEmail = value.trim().toLowerCase();
+			}
+			if (!normalizedEmail) {
+				return;
+			}
+			var storageKey = baseKey + ':' + encodeURIComponent(normalizedEmail);
+			window.localStorage.removeItem(storageKey);
+		});
+		return true;
+	}())`
+	dashboardDisableGoogleAutoSelectTrackingScript = `(function() {
+		var storageKey = '%s';
+		if (window.localStorage) {
+			window.localStorage.removeItem(storageKey);
+		}
+		if (!window.google) { window.google = {}; }
+		if (!window.google.accounts) { window.google.accounts = {}; }
+		if (!window.google.accounts.id) { window.google.accounts.id = {}; }
+		var original = window.google.accounts.id.disableAutoSelect;
+		window.google.accounts.id.disableAutoSelect = function() {
+			if (window.localStorage) {
+				window.localStorage.setItem(storageKey, 'true');
+			}
+			if (typeof original === 'function') {
+				return original();
+			}
+			return undefined;
+		};
+	}())`
+	landingMarkAuthenticatedScript = `(function() {
 		var profile = { display: 'Test User', email: 'test@example.com' };
 		window.__loopawareTestProfile = profile;
 		window.initAuthClient = function(options) {
@@ -1331,6 +1374,165 @@ func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 
+func TestDashboardAutoLogoutSettingsAreUserScoped(testingT *testing.T) {
+	harness := buildDashboardIntegrationHarness(testingT, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	dashboardPage := buildHeadlessPage(testingT)
+
+	navigateToPage(testingT, dashboardPage, harness.baseURL+dashboardTestLandingPath)
+	clearScript := fmt.Sprintf(dashboardClearAutoLogoutStorageKeysScript, dashboardAutoLogoutStorageBaseKey, dashboardTestAdminEmail, dashboardTestSecondaryEmail)
+	evaluateScriptInto(testingT, dashboardPage, clearScript, nil)
+
+	adminSessionCookie := createAuthenticatedSessionCookie(testingT, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	setPageCookie(testingT, dashboardPage, harness.baseURL, adminSessionCookie)
+
+	navigateToPage(testingT, dashboardPage, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, dashboardPage, dashboardSettingsHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	adminEmailScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return ''; }
+		return (element.textContent || '').trim();
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptString(testingT, dashboardPage, adminEmailScript) == dashboardTestAdminEmail
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	var defaultSettings struct {
+		Enabled       bool    `json:"enabled"`
+		PromptSeconds float64 `json:"promptSeconds"`
+		LogoutSeconds float64 `json:"logoutSeconds"`
+	}
+	evaluateScriptInto(testingT, dashboardPage, dashboardReadAutoLogoutSettingsScript, &defaultSettings)
+	require.True(testingT, defaultSettings.Enabled)
+
+	openDashboardProfileMenu(testingT, dashboardPage)
+	clickSelector(testingT, dashboardPage, dashboardSettingsButtonSelector)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, dashboardPage, dashboardSettingsModalVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	var minimums struct {
+		MinPromptSeconds  float64 `json:"minPromptSeconds"`
+		MinLogoutSeconds  float64 `json:"minLogoutSeconds"`
+		MinimumGapSeconds float64 `json:"minimumGapSeconds"`
+		MaxPromptSeconds  float64 `json:"maxPromptSeconds"`
+		MaxLogoutSeconds  float64 `json:"maxLogoutSeconds"`
+	}
+	evaluateScriptInto(testingT, dashboardPage, dashboardReadAutoLogoutMinimumsScript, &minimums)
+	minPrompt := int(minimums.MinPromptSeconds)
+	minLogout := int(minimums.MinLogoutSeconds)
+	minGap := int(minimums.MinimumGapSeconds)
+	maxPrompt := int(minimums.MaxPromptSeconds)
+	maxLogout := int(minimums.MaxLogoutSeconds)
+	if minPrompt <= 0 {
+		minPrompt = 10
+	}
+	if minLogout <= 0 {
+		minLogout = 20
+	}
+	if minGap < 1 {
+		minGap = 5
+	}
+	customPromptSeconds := minPrompt + minGap + 11
+	if customPromptSeconds < minPrompt {
+		customPromptSeconds = minPrompt
+	}
+	if maxPrompt > 0 && customPromptSeconds > maxPrompt {
+		customPromptSeconds = maxPrompt
+	}
+	customLogoutSeconds := customPromptSeconds + minGap + 11
+	if customLogoutSeconds < minLogout {
+		customLogoutSeconds = minLogout
+	}
+	if maxLogout > 0 && customLogoutSeconds > maxLogout {
+		customLogoutSeconds = maxLogout
+	}
+	if customLogoutSeconds <= customPromptSeconds+minGap {
+		customLogoutSeconds = customPromptSeconds + minGap + 1
+	}
+
+	setInputValue(testingT, dashboardPage, dashboardSettingsAutoLogoutPromptSelector, fmt.Sprintf("%d", customPromptSeconds))
+	setInputValue(testingT, dashboardPage, dashboardSettingsAutoLogoutLogoutSelector, fmt.Sprintf("%d", customLogoutSeconds))
+
+	require.Eventually(testingT, func() bool {
+		var current struct {
+			Enabled       bool    `json:"enabled"`
+			PromptSeconds float64 `json:"promptSeconds"`
+			LogoutSeconds float64 `json:"logoutSeconds"`
+		}
+		evaluateScriptInto(testingT, dashboardPage, dashboardReadAutoLogoutSettingsScript, &current)
+		if !current.Enabled {
+			return false
+		}
+		return int(current.PromptSeconds) == customPromptSeconds && int(current.LogoutSeconds) == customLogoutSeconds
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	closeButton := waitForVisibleElement(testingT, dashboardPage, "#settings-modal .btn-close")
+	require.NoError(testingT, closeButton.Click(proto.InputMouseButtonLeft, 1))
+	require.Eventually(testingT, func() bool {
+		return !evaluateScriptBoolean(testingT, dashboardPage, dashboardSettingsModalVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	secondarySessionCookie := createAuthenticatedSessionCookie(testingT, dashboardTestSecondaryEmail, dashboardTestSecondaryDisplayName)
+	setPageCookie(testingT, dashboardPage, harness.baseURL, secondarySessionCookie)
+
+	navigateToPage(testingT, dashboardPage, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, dashboardPage, dashboardSettingsHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	secondaryEmailScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return ''; }
+		return (element.textContent || '').trim();
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptString(testingT, dashboardPage, secondaryEmailScript) == dashboardTestSecondaryEmail
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(testingT, func() bool {
+		var current struct {
+			Enabled       bool    `json:"enabled"`
+			PromptSeconds float64 `json:"promptSeconds"`
+			LogoutSeconds float64 `json:"logoutSeconds"`
+		}
+		evaluateScriptInto(testingT, dashboardPage, dashboardReadAutoLogoutSettingsScript, &current)
+		if !current.Enabled {
+			return false
+		}
+		return int(current.PromptSeconds) == int(defaultSettings.PromptSeconds) && int(current.LogoutSeconds) == int(defaultSettings.LogoutSeconds)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	adminSessionCookie = createAuthenticatedSessionCookie(testingT, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	setPageCookie(testingT, dashboardPage, harness.baseURL, adminSessionCookie)
+
+	navigateToPage(testingT, dashboardPage, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, dashboardPage, dashboardSettingsHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptString(testingT, dashboardPage, adminEmailScript) == dashboardTestAdminEmail
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(testingT, func() bool {
+		var current struct {
+			Enabled       bool    `json:"enabled"`
+			PromptSeconds float64 `json:"promptSeconds"`
+			LogoutSeconds float64 `json:"logoutSeconds"`
+		}
+		evaluateScriptInto(testingT, dashboardPage, dashboardReadAutoLogoutSettingsScript, &current)
+		if !current.Enabled {
+			return false
+		}
+		return int(current.PromptSeconds) == customPromptSeconds && int(current.LogoutSeconds) == customLogoutSeconds
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
 func TestDashboardSessionTimeoutAutoLogout(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
@@ -1373,6 +1575,50 @@ func TestDashboardSessionTimeoutAutoLogout(t *testing.T) {
 			return false
 		}
 		return parsed.Path == dashboardTestLandingPath
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardSessionTimeoutDisablesGoogleAutoSelect(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		return style.display !== 'none' && style.visibility !== 'hidden';
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	evaluateScriptInto(t, page, fmt.Sprintf(dashboardDisableGoogleAutoSelectTrackingScript, dashboardDisableGoogleAutoSelectStorageKey), nil)
+
+	evaluateScriptInto(t, page, dashboardForcePromptScript, nil)
+	waitForVisibleElement(t, page, dashboardNotificationSelector)
+
+	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	evaluateScriptInto(t, page, dashboardForceLogoutScript, nil)
+	waitNavigation()
+
+	disableAutoSelectScript := fmt.Sprintf(`(function(){
+		if (!window.localStorage) { return ''; }
+		return window.localStorage.getItem(%q) || '';
+	}())`, dashboardDisableGoogleAutoSelectStorageKey)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, disableAutoSelectScript) == "true"
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 
