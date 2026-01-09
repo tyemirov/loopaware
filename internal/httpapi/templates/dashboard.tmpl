@@ -555,7 +555,8 @@
         var sessionTimeoutHiddenClassName = sessionTimeoutComponentClasses.container_hidden || 'd-none';
         var sessionTimeoutVisibleClassName = sessionTimeoutComponentClasses.container_visible || 'd-block';
         var autoLogoutConfig = parsedConfig.auto_logout || {};
-        var autoLogoutStorageKey = autoLogoutConfig.storage_key || '';
+        var autoLogoutStorageBaseKey = autoLogoutConfig.storage_key || '';
+        var autoLogoutStorageKey = autoLogoutStorageBaseKey;
         var autoLogoutPromptMinSeconds = Number(autoLogoutConfig.min_prompt_seconds);
         if (!Number.isFinite(autoLogoutPromptMinSeconds)) {
           autoLogoutPromptMinSeconds = {{.SettingsAutoLogoutPromptMin}};
@@ -1131,12 +1132,35 @@
           return rounded;
         }
 
-        function loadStoredAutoLogoutSettings() {
-          if (!autoLogoutStorageKey || typeof window !== 'object' || !window || !window.localStorage) {
+        function normalizeAutoLogoutStorageIdentifier(value) {
+          if (!value || typeof value !== 'string') {
+            return '';
+          }
+          return value.trim().toLowerCase();
+        }
+
+        function resolveAutoLogoutStorageKey(user) {
+          if (!autoLogoutStorageBaseKey) {
+            return '';
+          }
+          if (!user || typeof user !== 'object') {
+            return autoLogoutStorageBaseKey;
+          }
+          var emailValue = typeof user.email === 'string' ? user.email : '';
+          var normalizedEmail = normalizeAutoLogoutStorageIdentifier(emailValue);
+          if (!normalizedEmail) {
+            return autoLogoutStorageBaseKey;
+          }
+          return autoLogoutStorageBaseKey + ':' + encodeURIComponent(normalizedEmail);
+        }
+
+        function loadStoredAutoLogoutSettings(storageKeyOverride) {
+          var storageKey = typeof storageKeyOverride === 'string' ? storageKeyOverride : autoLogoutStorageKey;
+          if (!storageKey || typeof window !== 'object' || !window || !window.localStorage) {
             return null;
           }
           try {
-            var rawValue = window.localStorage.getItem(autoLogoutStorageKey);
+            var rawValue = window.localStorage.getItem(storageKey);
             if (!rawValue) {
               return null;
             }
@@ -1160,12 +1184,13 @@
           }
         }
 
-        function persistAutoLogoutSettings(settings) {
-          if (!autoLogoutStorageKey || typeof window !== 'object' || !window || !window.localStorage) {
+        function persistAutoLogoutSettings(settings, storageKeyOverride) {
+          var storageKey = typeof storageKeyOverride === 'string' ? storageKeyOverride : autoLogoutStorageKey;
+          if (!storageKey || typeof window !== 'object' || !window || !window.localStorage) {
             return;
           }
           try {
-            window.localStorage.setItem(autoLogoutStorageKey, JSON.stringify({
+            window.localStorage.setItem(storageKey, JSON.stringify({
               enabled: !!settings.enabled,
               prompt_seconds: settings.promptSeconds,
               logout_seconds: settings.logoutSeconds
@@ -1373,17 +1398,34 @@
         if (autoLogoutDefaultLogoutSeconds <= autoLogoutDefaultPromptSeconds + autoLogoutMinimumGapSeconds) {
           autoLogoutDefaultLogoutSeconds = clampAutoLogoutSeconds(autoLogoutDefaultPromptSeconds + autoLogoutMinimumGapSeconds, autoLogoutLogoutMinSeconds, autoLogoutLogoutMaxSeconds);
         }
+        function applyAutoLogoutSettingsState(storedSettings) {
+          autoLogoutSettingsState = normalizeAutoLogoutSettings({
+            enabled: storedSettings && typeof storedSettings.enabled === 'boolean' ? storedSettings.enabled : true,
+            promptSeconds: storedSettings && Number.isFinite(storedSettings.promptSeconds) ? storedSettings.promptSeconds : autoLogoutDefaultPromptSeconds,
+            logoutSeconds: storedSettings && Number.isFinite(storedSettings.logoutSeconds) ? storedSettings.logoutSeconds : autoLogoutDefaultLogoutSeconds
+          });
+          updateAutoLogoutInputs(autoLogoutSettingsState);
+          persistAutoLogoutSettings(autoLogoutSettingsState);
+          configureSessionTimeoutFromSettings(autoLogoutSettingsState);
+          exposeAutoLogoutTestHooks();
+        }
+
+        function applyAutoLogoutSettingsForUser(user) {
+          var resolvedStorageKey = resolveAutoLogoutStorageKey(user);
+          var storedAutoLogoutSettings = loadStoredAutoLogoutSettings(resolvedStorageKey);
+          if (!storedAutoLogoutSettings && autoLogoutStorageBaseKey && autoLogoutStorageBaseKey !== resolvedStorageKey) {
+            var legacySettings = loadStoredAutoLogoutSettings(autoLogoutStorageBaseKey);
+            if (legacySettings) {
+              persistAutoLogoutSettings(legacySettings, resolvedStorageKey);
+              storedAutoLogoutSettings = legacySettings;
+            }
+          }
+          autoLogoutStorageKey = resolvedStorageKey;
+          applyAutoLogoutSettingsState(storedAutoLogoutSettings);
+        }
+
         resetSessionTimeoutTestHooks();
-        var storedAutoLogoutSettings = loadStoredAutoLogoutSettings();
-        autoLogoutSettingsState = normalizeAutoLogoutSettings({
-          enabled: storedAutoLogoutSettings && typeof storedAutoLogoutSettings.enabled === 'boolean' ? storedAutoLogoutSettings.enabled : true,
-          promptSeconds: storedAutoLogoutSettings && Number.isFinite(storedAutoLogoutSettings.promptSeconds) ? storedAutoLogoutSettings.promptSeconds : autoLogoutDefaultPromptSeconds,
-          logoutSeconds: storedAutoLogoutSettings && Number.isFinite(storedAutoLogoutSettings.logoutSeconds) ? storedAutoLogoutSettings.logoutSeconds : autoLogoutDefaultLogoutSeconds
-        });
-        updateAutoLogoutInputs(autoLogoutSettingsState);
-        persistAutoLogoutSettings(autoLogoutSettingsState);
-        configureSessionTimeoutFromSettings(autoLogoutSettingsState);
-        exposeAutoLogoutTestHooks();
+        applyAutoLogoutSettingsForUser(null);
         function shouldValidateOwnerEmail() {
           return Boolean(state.user);
         }
@@ -3178,6 +3220,7 @@
           return fetchJSON(apiMeEndpoint).then(function(payload) {
             state.user = payload;
             updateUserCard();
+            applyAutoLogoutSettingsForUser(state.user);
           }).catch(function(error) {
             updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
             saveSiteButton.disabled = false;

@@ -202,7 +202,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Goal: Authentication sessions honor the configured timeout before forcing logout.
   Deliverable: PR that identifies the premature logout trigger, aligns the effective timeout with configuration, and adds/updates integration coverage for session duration.
   Notes: Reported behavior indicates logout occurs significantly earlier than the configured session timeout; confirm whether this is driven by the dashboard inactivity timer vs. server/TAuth session expiry.
-  Resolution: Added configurable session timeout prompt/logout durations and integration coverage to assert the dashboard defaults honor the configured values; `make ci` passes.
+  Resolution: Scoped auto-logout settings to user-specific storage keys with legacy-key migration and added integration coverage to confirm per-user settings; `make ci` passes.
 
 - [x] [LA-335] Google Sign-In auto-suggests login after a timed-out logout.
   Priority: P1

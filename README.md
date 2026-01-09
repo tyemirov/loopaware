@@ -45,8 +45,6 @@ Set the `ADMINS` environment variable with a comma-separated list (for example `
 | `PINGUIN_TENANT_ID`    | ✅        | Tenant identifier used when calling the Pinguin gRPC API     |
 | `ADMINS`               | ⚙️       | Comma-separated admin emails; overrides the YAML roster     |
 | `PUBLIC_BASE_URL`      | ⚙️       | Public URL of the service (default `http://localhost:8080`) |
-| `SESSION_TIMEOUT_PROMPT_SECONDS` | ⚙️ | Inactivity prompt delay in seconds (default 60)           |
-| `SESSION_TIMEOUT_LOGOUT_SECONDS` | ⚙️ | Inactivity auto-logout delay in seconds (default 120)     |
 | `APP_ADDR`             | ⚙️       | Listen address (default `:8080`)                            |
 | `DB_DRIVER`            | ⚙️       | Storage driver (`sqlite`, etc.)                             |
 | `DB_DSN`               | ⚙️       | Driver-specific DSN                                         |
@@ -84,8 +82,6 @@ loopaware --config=config.yaml \
   --tauth-tenant-id=$TAUTH_TENANT_ID \
   --tauth-signing-key=$TAUTH_JWT_SIGNING_KEY \
   --tauth-session-cookie-name=$TAUTH_SESSION_COOKIE_NAME \
-  --session-timeout-prompt-seconds=$SESSION_TIMEOUT_PROMPT_SECONDS \
-  --session-timeout-logout-seconds=$SESSION_TIMEOUT_LOGOUT_SECONDS \
   --public-base-url=https://feedback.example.com
 ```
 
