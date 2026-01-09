@@ -183,7 +183,7 @@ The Bootstrap front end consumes the APIs above. Features include:
 - Traffic card with visit and unique visitor counts, recent visits, and a copyable `pixel.js` snippet
 - Real-time favicon refresh notifications delivered through the SSE stream
 - Sign-out button wired to TAuth (`/auth/logout`)
-- Inactivity prompt appears after 60 seconds without input and logs out automatically after 120 seconds if unanswered
+- Inactivity prompt appears after the configured delay (defaults to 60 seconds) and logs out automatically after the configured timeout (defaults to 120 seconds) if unanswered
 
 The dashboard automatically redirects unauthenticated visitors to `/login`.
 

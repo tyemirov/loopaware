@@ -197,11 +197,12 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard_header.tmpl`
   - `tools/mpr-ui/docs/custom-elements.md`
 
-- [ ] [LA-334] Logout occurs much faster than the configured timeout.
+- [x] [LA-334] Logout occurs much faster than the configured timeout.
   Priority: P1
   Goal: Authentication sessions honor the configured timeout before forcing logout.
   Deliverable: PR that identifies the premature logout trigger, aligns the effective timeout with configuration, and adds/updates integration coverage for session duration.
   Notes: Reported behavior indicates logout occurs significantly earlier than the configured session timeout; confirm whether this is driven by the dashboard inactivity timer vs. server/TAuth session expiry.
+  Resolution: Scoped auto-logout settings to user-specific storage keys with legacy-key migration and added integration coverage to confirm per-user settings; `make ci` passes.
 
 - [x] [LA-335] Google Sign-In auto-suggests login after a timed-out logout.
   Priority: P1
