@@ -202,7 +202,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Goal: Authentication sessions honor the configured timeout before forcing logout.
   Deliverable: PR that identifies the premature logout trigger, aligns the effective timeout with configuration, and adds/updates integration coverage for session duration.
   Notes: Reported behavior indicates logout occurs significantly earlier than the configured session timeout; confirm whether this is driven by the dashboard inactivity timer vs. server/TAuth session expiry.
-  Resolution: Scoped auto-logout settings to user-specific storage keys with legacy-key migration and added integration coverage to confirm per-user settings; `make ci` passes.
+  Resolution: Scoped auto-logout settings to user-specific storage keys, clear legacy storage after migration, and added integration coverage to confirm per-user settings; `make ci` passes.
 
 - [x] [LA-335] Google Sign-In auto-suggests login after a timed-out logout.
   Priority: P1
@@ -217,6 +217,16 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: PR that persists and rehydrates additional subscribe origins in the UI after re-auth and adds coverage for visibility + origin enforcement.
   Notes: Reported behavior: added origins are not shown after logging out and back in, even though they were saved.
   Resolution: Unable to reproduce; added headless coverage to rehydrate subscribe origins after re-login and verified persistence in storage.
+
+- [ ] [LA-337] Subscribe form renders a name field even when the widget disables it.
+  Priority: P1
+  Goal: When the subscribe widget requests no name field, the rendered form omits it consistently across embed/test flows.
+  Deliverable: PR with a failing integration test plus a fix that honors the widget flag end-to-end.
+  Notes: Reported behavior: subscribe form still renders the name input even when the widget says no name.
+  Docs/Refs:
+  - `internal/httpapi/subscribe_template.go`
+  - `internal/httpapi/subscribe_demo_template.go`
+  - `internal/httpapi/templates/subscribe_test.tmpl`
 
 ## Improvements (210–299)
 

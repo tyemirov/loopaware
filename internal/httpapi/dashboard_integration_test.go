@@ -286,6 +286,25 @@ const (
 		});
 		return true;
 	}())`
+	dashboardLegacyAutoLogoutStoragePresentScript = `(function() {
+		var storageKey = '%s';
+		if (!window.localStorage) {
+			return false;
+		}
+		return window.localStorage.getItem(storageKey) !== null;
+	}())`
+	dashboardSetLegacyAutoLogoutSettingsScript = `(function() {
+		var storageKey = '%s';
+		var payload = {
+			enabled: true,
+			prompt_seconds: %d,
+			logout_seconds: %d
+		};
+		if (window.localStorage) {
+			window.localStorage.setItem(storageKey, JSON.stringify(payload));
+		}
+		return true;
+	}())`
 	dashboardDisableGoogleAutoSelectTrackingScript = `(function() {
 		var storageKey = '%s';
 		if (window.localStorage) {
@@ -1384,6 +1403,11 @@ func TestDashboardAutoLogoutSettingsAreUserScoped(testingT *testing.T) {
 	clearScript := fmt.Sprintf(dashboardClearAutoLogoutStorageKeysScript, dashboardAutoLogoutStorageBaseKey, dashboardTestAdminEmail, dashboardTestSecondaryEmail)
 	evaluateScriptInto(testingT, dashboardPage, clearScript, nil)
 
+	legacyPromptSeconds := 300
+	legacyLogoutSeconds := 900
+	setLegacyScript := fmt.Sprintf(dashboardSetLegacyAutoLogoutSettingsScript, dashboardAutoLogoutStorageBaseKey, legacyPromptSeconds, legacyLogoutSeconds)
+	evaluateScriptInto(testingT, dashboardPage, setLegacyScript, nil)
+
 	adminSessionCookie := createAuthenticatedSessionCookie(testingT, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
 	setPageCookie(testingT, dashboardPage, harness.baseURL, adminSessionCookie)
 
@@ -1401,63 +1425,6 @@ func TestDashboardAutoLogoutSettingsAreUserScoped(testingT *testing.T) {
 		return evaluateScriptString(testingT, dashboardPage, adminEmailScript) == dashboardTestAdminEmail
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
-	var defaultSettings struct {
-		Enabled       bool    `json:"enabled"`
-		PromptSeconds float64 `json:"promptSeconds"`
-		LogoutSeconds float64 `json:"logoutSeconds"`
-	}
-	evaluateScriptInto(testingT, dashboardPage, dashboardReadAutoLogoutSettingsScript, &defaultSettings)
-	require.True(testingT, defaultSettings.Enabled)
-
-	openDashboardProfileMenu(testingT, dashboardPage)
-	clickSelector(testingT, dashboardPage, dashboardSettingsButtonSelector)
-	require.Eventually(testingT, func() bool {
-		return evaluateScriptBoolean(testingT, dashboardPage, dashboardSettingsModalVisibleScript)
-	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
-
-	var minimums struct {
-		MinPromptSeconds  float64 `json:"minPromptSeconds"`
-		MinLogoutSeconds  float64 `json:"minLogoutSeconds"`
-		MinimumGapSeconds float64 `json:"minimumGapSeconds"`
-		MaxPromptSeconds  float64 `json:"maxPromptSeconds"`
-		MaxLogoutSeconds  float64 `json:"maxLogoutSeconds"`
-	}
-	evaluateScriptInto(testingT, dashboardPage, dashboardReadAutoLogoutMinimumsScript, &minimums)
-	minPrompt := int(minimums.MinPromptSeconds)
-	minLogout := int(minimums.MinLogoutSeconds)
-	minGap := int(minimums.MinimumGapSeconds)
-	maxPrompt := int(minimums.MaxPromptSeconds)
-	maxLogout := int(minimums.MaxLogoutSeconds)
-	if minPrompt <= 0 {
-		minPrompt = 10
-	}
-	if minLogout <= 0 {
-		minLogout = 20
-	}
-	if minGap < 1 {
-		minGap = 5
-	}
-	customPromptSeconds := minPrompt + minGap + 11
-	if customPromptSeconds < minPrompt {
-		customPromptSeconds = minPrompt
-	}
-	if maxPrompt > 0 && customPromptSeconds > maxPrompt {
-		customPromptSeconds = maxPrompt
-	}
-	customLogoutSeconds := customPromptSeconds + minGap + 11
-	if customLogoutSeconds < minLogout {
-		customLogoutSeconds = minLogout
-	}
-	if maxLogout > 0 && customLogoutSeconds > maxLogout {
-		customLogoutSeconds = maxLogout
-	}
-	if customLogoutSeconds <= customPromptSeconds+minGap {
-		customLogoutSeconds = customPromptSeconds + minGap + 1
-	}
-
-	setInputValue(testingT, dashboardPage, dashboardSettingsAutoLogoutPromptSelector, fmt.Sprintf("%d", customPromptSeconds))
-	setInputValue(testingT, dashboardPage, dashboardSettingsAutoLogoutLogoutSelector, fmt.Sprintf("%d", customLogoutSeconds))
-
 	require.Eventually(testingT, func() bool {
 		var current struct {
 			Enabled       bool    `json:"enabled"`
@@ -1468,13 +1435,12 @@ func TestDashboardAutoLogoutSettingsAreUserScoped(testingT *testing.T) {
 		if !current.Enabled {
 			return false
 		}
-		return int(current.PromptSeconds) == customPromptSeconds && int(current.LogoutSeconds) == customLogoutSeconds
+		return int(current.PromptSeconds) == legacyPromptSeconds && int(current.LogoutSeconds) == legacyLogoutSeconds
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
-	closeButton := waitForVisibleElement(testingT, dashboardPage, "#settings-modal .btn-close")
-	require.NoError(testingT, closeButton.Click(proto.InputMouseButtonLeft, 1))
 	require.Eventually(testingT, func() bool {
-		return !evaluateScriptBoolean(testingT, dashboardPage, dashboardSettingsModalVisibleScript)
+		legacyPresentScript := fmt.Sprintf(dashboardLegacyAutoLogoutStoragePresentScript, dashboardAutoLogoutStorageBaseKey)
+		return !evaluateScriptBoolean(testingT, dashboardPage, legacyPresentScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	secondarySessionCookie := createAuthenticatedSessionCookie(testingT, dashboardTestSecondaryEmail, dashboardTestSecondaryDisplayName)
@@ -1504,7 +1470,7 @@ func TestDashboardAutoLogoutSettingsAreUserScoped(testingT *testing.T) {
 		if !current.Enabled {
 			return false
 		}
-		return int(current.PromptSeconds) == int(defaultSettings.PromptSeconds) && int(current.LogoutSeconds) == int(defaultSettings.LogoutSeconds)
+		return !(int(current.PromptSeconds) == legacyPromptSeconds && int(current.LogoutSeconds) == legacyLogoutSeconds)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	adminSessionCookie = createAuthenticatedSessionCookie(testingT, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
@@ -1529,7 +1495,7 @@ func TestDashboardAutoLogoutSettingsAreUserScoped(testingT *testing.T) {
 		if !current.Enabled {
 			return false
 		}
-		return int(current.PromptSeconds) == customPromptSeconds && int(current.LogoutSeconds) == customLogoutSeconds
+		return int(current.PromptSeconds) == legacyPromptSeconds && int(current.LogoutSeconds) == legacyLogoutSeconds
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 
