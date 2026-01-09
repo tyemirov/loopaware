@@ -87,7 +87,7 @@ const (
 	sessionTimeoutMessageClass                 = "session-timeout-message fw-semibold mb-0"
 	sessionTimeoutConfirmButtonElementID       = "session-timeout-confirm-button"
 	sessionTimeoutDismissButtonElementID       = "session-timeout-dismiss-button"
-	sessionTimeoutContainerBaseClass           = "session-timeout-banner position-fixed start-0 end-0 border-top py-3 w-100 d-none z-3"
+	sessionTimeoutContainerBaseClass           = "session-timeout-banner position-fixed start-0 end-0 bottom-0 border-top py-3 w-100 d-none z-3"
 	sessionTimeoutContainerVisibleClass        = "d-block"
 	sessionTimeoutContainerHiddenClass         = "d-none"
 	sessionTimeoutLightThemeClass              = "bg-body-secondary text-dark border-light-subtle"
