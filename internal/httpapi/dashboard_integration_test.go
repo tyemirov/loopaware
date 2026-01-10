@@ -243,6 +243,12 @@ const (
                 if (!window.__loopawareDashboardSettingsTestHooks) { return null; }
                 return window.__loopawareDashboardSettingsTestHooks.readAutoLogoutSettings();
 	}())`
+	dashboardReadSessionTimeoutStartRequestedScript = `(function() {
+                if (!window.__loopawareDashboardSettingsTestHooks || typeof window.__loopawareDashboardSettingsTestHooks.readSessionTimeoutStartRequested !== 'function') {
+                        return false;
+                }
+                return !!window.__loopawareDashboardSettingsTestHooks.readSessionTimeoutStartRequested();
+	}())`
 	dashboardReadAutoLogoutMinimumsScript = `(function() {
 		if (!window.__loopawareDashboardSettingsTestHooks) {
 			return { minPromptSeconds: 0, minLogoutSeconds: 0, minimumGapSeconds: 0, maxPromptSeconds: 0, maxLogoutSeconds: 0 };
@@ -549,6 +555,7 @@ type dashboardIntegrationHarness struct {
 type dashboardHarnessOptions struct {
 	subscriptionNotifier httpapi.SubscriptionNotifier
 	emailSender          httpapi.EmailSender
+	userLoadDelay        time.Duration
 }
 
 type dashboardHarnessOption func(*dashboardHarnessOptions)
@@ -565,6 +572,14 @@ func withEmailSender(sender httpapi.EmailSender) dashboardHarnessOption {
 	return func(options *dashboardHarnessOptions) {
 		if sender != nil {
 			options.emailSender = sender
+		}
+	}
+}
+
+func withUserLoadDelay(delay time.Duration) dashboardHarnessOption {
+	return func(options *dashboardHarnessOptions) {
+		if delay > 0 {
+			options.userLoadDelay = delay
 		}
 	}
 }
@@ -667,6 +682,38 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 			return false
 		}
 		return parsed.Path == dashboardTestLandingPath
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardSessionTimeoutStartsAfterUserSettingsLoad(testingT *testing.T) {
+	harness := buildDashboardIntegrationHarness(testingT, dashboardTestAdminEmail, withUserLoadDelay(2*time.Second))
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(testingT, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	dashboardPage := buildHeadlessPage(testingT)
+
+	setPageCookie(testingT, dashboardPage, harness.baseURL, sessionCookie)
+	navigateToPage(testingT, dashboardPage, harness.baseURL+dashboardTestDashboardRoute)
+
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, dashboardPage, dashboardSettingsHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.False(testingT, evaluateScriptBoolean(testingT, dashboardPage, dashboardReadSessionTimeoutStartRequestedScript))
+
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+        var element = document.querySelector(%q);
+        if (!element) { return false; }
+        var style = window.getComputedStyle(element);
+        if (!style) { return false; }
+        return style.display !== 'none' && style.visibility !== 'hidden';
+    }())`, dashboardUserEmailSelector)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, dashboardPage, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, dashboardPage, dashboardReadSessionTimeoutStartRequestedScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 
@@ -3075,7 +3122,12 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 
 	apiGroup := router.Group("/api")
 	apiGroup.Use(authManager.RequireAuthenticatedJSON())
-	apiGroup.GET("/me", siteHandlers.CurrentUser)
+	apiGroup.GET("/me", func(context *gin.Context) {
+		if config.userLoadDelay > 0 {
+			time.Sleep(config.userLoadDelay)
+		}
+		siteHandlers.CurrentUser(context)
+	})
 	apiGroup.GET("/me/avatar", siteHandlers.UserAvatar)
 	apiGroup.GET("/sites", siteHandlers.ListSites)
 	apiGroup.POST("/sites", siteHandlers.CreateSite)

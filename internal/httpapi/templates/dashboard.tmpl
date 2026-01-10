@@ -1350,6 +1350,16 @@
           }
         }
 
+        function requestSessionTimeoutStart() {
+          if (sessionTimeoutStartRequested) {
+            return;
+          }
+          sessionTimeoutStartRequested = true;
+          if (sessionTimeoutManager && typeof sessionTimeoutManager.start === 'function') {
+            sessionTimeoutManager.start();
+          }
+        }
+
         function handleAutoLogoutSettingsChange() {
           if (!autoLogoutToggle) {
             return;
@@ -1384,6 +1394,9 @@
                 promptSeconds: autoLogoutSettingsState.promptSeconds,
                 logoutSeconds: autoLogoutSettingsState.logoutSeconds
               };
+            },
+            readSessionTimeoutStartRequested: function() {
+              return sessionTimeoutStartRequested;
             },
             minPromptSeconds: autoLogoutPromptMinSeconds,
             maxPromptSeconds: autoLogoutPromptMaxSeconds,
@@ -3839,11 +3852,8 @@
         loadThemePreference();
         applyDashboardSectionSelection();
         applyDashboardSectionVisibility();
-        sessionTimeoutStartRequested = true;
-        if (sessionTimeoutManager && typeof sessionTimeoutManager.start === 'function') {
-          sessionTimeoutManager.start();
-        }
         loadUser().then(function() {
+          requestSessionTimeoutStart();
           openFaviconEventStream();
           openFeedbackEventStream();
           return loadSites();
