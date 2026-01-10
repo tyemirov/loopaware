@@ -189,7 +189,6 @@
                   <h5 class="mb-0">Site details</h5>
                   <div class="d-flex align-items-center gap-2">
                     <div id="{{.FormStatusID}}" class="{{.FormStatusBaseClass}}"></div>
-                    <button id="{{.SaveSiteButtonID}}" type="button" class="{{.SaveButtonDefaultClass}}"></button>
                   </div>
                 </div>
               </div>
@@ -620,10 +619,6 @@
         var allowedOriginHelpButton = document.getElementById(elementIds.allowed_origin_help_button);
         var ownerEmailHelpButton = document.getElementById(elementIds.owner_email_help_button);
         var newSiteOptionValue = optionValues.new_site || '';
-        var createButtonLabel = buttonLabels.create || '';
-        var updateButtonLabel = buttonLabels.update || '';
-        var createButtonClass = buttonClasses.create || '';
-        var updateButtonClass = buttonClasses.update || '';
         var newSiteButton = document.getElementById(elementIds.new_site_button);
         var newSiteButtonDefaultClass = buttonClasses.new_site_default || '';
         var newSiteButtonActiveClass = buttonClasses.new_site_active || '';
@@ -653,7 +648,6 @@
         var editSiteOriginInput = document.getElementById(elementIds.edit_site_origin);
         var editSiteOwnerContainer = document.getElementById(elementIds.edit_site_owner_container);
         var editSiteOwnerInput = document.getElementById(elementIds.edit_site_owner);
-        var saveSiteButton = document.getElementById(elementIds.save_site_button);
         var refreshMessagesButton = document.getElementById(elementIds.refresh_messages_button);
         var feedbackTableHeader = document.getElementById(elementIds.feedback_table_header);
         var feedbackTableBody = document.getElementById(elementIds.feedback_table_body);
@@ -721,6 +715,15 @@
         var formStatusDangerClass = formStatusClasses.danger || '';
         var formStatusDisplayDuration = 4000;
         var formStatusResetTimerId = null;
+        var autoSaveDelayMilliseconds = 800;
+        var autoSaveTimerId = null;
+        var autoSavePending = false;
+        var autoSaveInFlight = false;
+        var autoSaveCandidate = null;
+        var saveModeManual = 'manual';
+        var saveModeAuto = 'auto';
+        var validationFocusModePrompt = 'prompt';
+        var validationFocusModeSilent = 'silent';
         var footerElement = document.getElementById(elementIds.footer);
         var footerThemeClasses = parsedConfig.footer_theme_classes || {};
         var tableThemeClasses = parsedConfig.table_theme_classes || {};
@@ -1531,11 +1534,16 @@
 	          input.placeholder = subscribeAllowedOriginPlaceholder;
 	          input.autocomplete = 'off';
 	          input.setAttribute(subscribeAllowedOriginInputDataAttribute, 'true');
-	          if (isPlaceholder) {
-	            input.setAttribute(subscribeAllowedOriginPlaceholderInputDataAttribute, 'true');
-	          }
-	          input.value = typeof initialValue === 'string' ? initialValue : '';
-	          row.appendChild(input);
+          if (isPlaceholder) {
+            input.setAttribute(subscribeAllowedOriginPlaceholderInputDataAttribute, 'true');
+          }
+          input.value = typeof initialValue === 'string' ? initialValue : '';
+          input.addEventListener('input', function() {
+            input.classList.remove(invalidFieldClassName);
+            clearFormStatus();
+            scheduleAutoSave();
+          });
+          row.appendChild(input);
 
 	          var actionButton = document.createElement('button');
 	          actionButton.type = 'button';
@@ -1558,28 +1566,32 @@
 	              }
 	              var placeholderRow = row;
 	              var newOriginRow = createSubscribeAllowedOriginRow(trimmedValue, false);
-	              if (placeholderRow.parentNode === subscribeAllowedOriginsList) {
-	                subscribeAllowedOriginsList.insertBefore(newOriginRow, placeholderRow);
-	              } else {
-	                subscribeAllowedOriginsList.appendChild(newOriginRow);
-	              }
-	              input.value = '';
-	              ensureSubscribeAllowedOriginsRow();
-	            });
-	          } else {
-	            actionButton.textContent = subscribeAllowedOriginRemoveLabel;
-	            actionButton.setAttribute(subscribeAllowedOriginRemoveButtonDataAttribute, 'true');
-	            actionButton.addEventListener('click', function(event) {
+              if (placeholderRow.parentNode === subscribeAllowedOriginsList) {
+                subscribeAllowedOriginsList.insertBefore(newOriginRow, placeholderRow);
+              } else {
+                subscribeAllowedOriginsList.appendChild(newOriginRow);
+              }
+              input.value = '';
+              ensureSubscribeAllowedOriginsRow();
+              clearFormStatus();
+              scheduleAutoSave();
+            });
+          } else {
+            actionButton.textContent = subscribeAllowedOriginRemoveLabel;
+            actionButton.setAttribute(subscribeAllowedOriginRemoveButtonDataAttribute, 'true');
+            actionButton.addEventListener('click', function(event) {
 	              event.preventDefault();
 	              if (!subscribeAllowedOriginsList) {
 	                return;
 	              }
-	              if (row.parentNode === subscribeAllowedOriginsList) {
-	                subscribeAllowedOriginsList.removeChild(row);
-	              }
-	              ensureSubscribeAllowedOriginsRow();
-	            });
-	          }
+              if (row.parentNode === subscribeAllowedOriginsList) {
+                subscribeAllowedOriginsList.removeChild(row);
+              }
+              ensureSubscribeAllowedOriginsRow();
+              clearFormStatus();
+              scheduleAutoSave();
+            });
+          }
 	          row.appendChild(actionButton);
 
 	          return row;
@@ -1748,16 +1760,19 @@
           }
           clearFormStatus();
         }
-        function markFieldInvalid(fieldElement, messageKey) {
+        function markFieldInvalid(fieldElement, messageKey, focusMode) {
           if (!fieldElement) {
             return;
           }
           fieldElement.classList.add(invalidFieldClassName);
-          fieldElement.focus();
+          if (focusMode === validationFocusModePrompt) {
+            fieldElement.focus();
+          }
           var message = validationMessages[messageKey] || '';
           setFormStatus(message, formStatusDangerClass);
         }
-        function validateSiteForm() {
+        function validateSiteForm(focusMode) {
+          var resolvedFocusMode = focusMode === validationFocusModeSilent ? validationFocusModeSilent : validationFocusModePrompt;
           clearValidationFeedback();
           for (var index = 0; index < siteFormValidationDescriptors.length; index += 1) {
             var descriptor = siteFormValidationDescriptors[index];
@@ -1769,13 +1784,13 @@
             }
             var value = getTrimmedValue(descriptor.fieldElement);
             if (typeof descriptor.validateValue === 'function' && !descriptor.validateValue(value)) {
-              markFieldInvalid(descriptor.fieldElement, descriptor.messageKey);
+              markFieldInvalid(descriptor.fieldElement, descriptor.messageKey, resolvedFocusMode);
               return false;
             }
           }
           var invalidSubscribeAllowedOriginInput = findInvalidSubscribeAllowedOriginInput();
           if (invalidSubscribeAllowedOriginInput) {
-            markFieldInvalid(invalidSubscribeAllowedOriginInput, validationMessageKeyOriginInvalid);
+            markFieldInvalid(invalidSubscribeAllowedOriginInput, validationMessageKeyOriginInvalid, resolvedFocusMode);
             return false;
           }
           return true;
@@ -1788,6 +1803,7 @@
             descriptor.fieldElement.addEventListener('input', function() {
               descriptor.fieldElement.classList.remove(invalidFieldClassName);
               clearFormStatus();
+              scheduleAutoSave();
             });
           });
         }
@@ -2069,7 +2085,6 @@
         setButtonDefault(copySubscribeSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
         setButtonDefault(copyTrafficSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
         setButtonDefault(refreshMessagesButton, buttonLabels.refresh_default || '', buttonClasses.refresh_default || '');
-        setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
         registerValidationHandlers();
         registerSiteFormTabCycle();
         initializeFieldHelpPopovers();
@@ -3022,7 +3037,6 @@
           if (!state.selectedSiteId) {
             updateSelectedSiteSummary(null);
             clearSiteForm();
-            saveSiteButton.disabled = true;
             setSubscribeAllowedOriginsDisabled(true);
             updateFormMode();
             updateWidgetSnippet();
@@ -3032,7 +3046,6 @@
           if (isNewSiteSelected()) {
             updateSelectedSiteSummary(null);
             clearSiteForm();
-            saveSiteButton.disabled = false;
             renderSubscribeAllowedOrigins('');
             setSubscribeAllowedOriginsDisabled(false);
             updateFormMode();
@@ -3044,7 +3057,6 @@
           if (!site) {
             updateSelectedSiteSummary(null);
             clearSiteForm();
-            saveSiteButton.disabled = true;
             setSubscribeAllowedOriginsDisabled(true);
             updateFormMode();
             updateWidgetSnippet();
@@ -3058,7 +3070,6 @@
           setWidgetPlacementControls(site.widget_bubble_side, site.widget_bubble_bottom_offset);
           renderSubscribeAllowedOrigins(site.subscribe_allowed_origins || '');
           setSubscribeAllowedOriginsDisabled(false);
-          saveSiteButton.disabled = false;
           updateFormMode();
           updateWidgetSnippet();
         }
@@ -3066,11 +3077,6 @@
         function updateFormMode() {
           if (!state.user) {
             return;
-          }
-          if (isNewSiteSelected()) {
-            setButtonDefault(saveSiteButton, createButtonLabel, createButtonClass);
-          } else {
-            setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
           }
           if (!editSiteOwnerInput) {
             return;
@@ -3243,27 +3249,25 @@
           return 'no';
         }
 
-        function loadUser() {
-          return fetchJSON(apiMeEndpoint).then(function(payload) {
-            state.user = payload;
-            updateUserCard();
-            applyAutoLogoutSettingsForUser(state.user);
-          }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
-            saveSiteButton.disabled = false;
-            throw error;
-          });
-        }
+      function loadUser() {
+        return fetchJSON(apiMeEndpoint).then(function(payload) {
+          state.user = payload;
+          updateUserCard();
+          applyAutoLogoutSettingsForUser(state.user);
+        }).catch(function(error) {
+          setFormStatus(error.message || statusMessages.load_failed || '', formStatusDangerClass);
+          throw error;
+        });
+      }
 
-        function loadSites() {
-          updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_loading || '', buttonStyles.secondary || '');
+      function loadSites() {
+        updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_loading || '', buttonStyles.secondary || '');
           return fetchJSON(apiSitesEndpoint).then(function(payload) {
             state.sites = payload.sites || [];
             state.siteMessages = {};
             renderSites();
           }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
-            saveSiteButton.disabled = false;
+            setFormStatus(error.message || statusMessages.load_failed || '', formStatusDangerClass);
           });
         }
 
@@ -3504,92 +3508,202 @@
         renderSites();
       }
 
+      function resolveSelectedSite() {
+        if (!state.selectedSiteId || isNewSiteSelected()) {
+          return null;
+        }
+        return state.sites.find(function(item) { return item.id === state.selectedSiteId; }) || null;
+      }
+
+      function hasSiteEdits(site, payload, ownerEmailValue) {
+        if (!site) {
+          return true;
+        }
+        var normalizedOwnerEmail = ownerEmailValue || '';
+        if (payload.name !== (site.name || '')) {
+          return true;
+        }
+        if (payload.allowed_origin !== (site.allowed_origin || '')) {
+          return true;
+        }
+        if (normalizedOwnerEmail !== (site.owner_email || '')) {
+          return true;
+        }
+        var existingSubscribeOrigins = normalizeAllowedOriginsList(site.subscribe_allowed_origins || '');
+        if (payload.subscribe_allowed_origins !== existingSubscribeOrigins) {
+          return true;
+        }
+        if (payload.widget_bubble_side !== normalizeWidgetSideValue(site.widget_bubble_side)) {
+          return true;
+        }
+        if (payload.widget_bubble_bottom_offset !== normalizeWidgetBottomOffsetValue(site.widget_bubble_bottom_offset)) {
+          return true;
+        }
+        return false;
+      }
+
+      function buildSiteSaveCandidate() {
+        if (!state.selectedSiteId) {
+          return null;
+        }
+        var selectedSite = resolveSelectedSite();
+        var ownerEmailValue = getTrimmedValue(editSiteOwnerInput);
+        var placementPayload = determineWidgetPlacementPayload();
+        var payload = {
+          name: getTrimmedValue(editSiteNameInput),
+          allowed_origin: getTrimmedValue(editSiteOriginInput),
+          subscribe_allowed_origins: readSubscribeAllowedOrigins(),
+          widget_bubble_side: placementPayload.widget_bubble_side,
+          widget_bubble_bottom_offset: placementPayload.widget_bubble_bottom_offset
+        };
+        if (isNewSiteSelected()) {
+          payload.owner_email = ownerEmailValue;
+        } else if (ownerEmailValue && ownerEmailValue !== (selectedSite ? selectedSite.owner_email || '' : '')) {
+          payload.owner_email = ownerEmailValue;
+        }
+        return {
+          siteId: state.selectedSiteId,
+          isNew: isNewSiteSelected(),
+          ownerEmail: ownerEmailValue,
+          payload: payload,
+          hasEdits: hasSiteEdits(selectedSite, payload, ownerEmailValue)
+        };
+      }
+
+      function scheduleAutoSave() {
+        if (!state.selectedSiteId) {
+          return;
+        }
+        var candidate = buildSiteSaveCandidate();
+        if (!candidate) {
+          return;
+        }
+        if (!candidate.isNew && !candidate.hasEdits) {
+          return;
+        }
+        autoSaveCandidate = candidate;
+        if (autoSaveTimerId) {
+          clearTimeout(autoSaveTimerId);
+        }
+        autoSaveTimerId = window.setTimeout(function() {
+          triggerAutoSave();
+        }, autoSaveDelayMilliseconds);
+      }
+
+      function triggerAutoSave() {
+        if (autoSaveTimerId) {
+          clearTimeout(autoSaveTimerId);
+          autoSaveTimerId = null;
+        }
+        var candidate = autoSaveCandidate;
+        autoSaveCandidate = null;
+        if (!candidate) {
+          return;
+        }
+        if (candidate.siteId !== state.selectedSiteId) {
+          return;
+        }
+        requestSiteSave(candidate, saveModeAuto);
+      }
+
+      function requestSiteSave(candidate, saveMode) {
+        if (!candidate) {
+          return;
+        }
+        if (!candidate.isNew && !candidate.hasEdits) {
+          return;
+        }
+        if (autoSaveTimerId) {
+          clearTimeout(autoSaveTimerId);
+          autoSaveTimerId = null;
+        }
+        if (saveMode === saveModeAuto && candidate.siteId !== state.selectedSiteId) {
+          return;
+        }
+        var focusMode = saveMode === saveModeAuto ? validationFocusModeSilent : validationFocusModePrompt;
+        if (!validateSiteForm(focusMode)) {
+          return;
+        }
+        if (autoSaveInFlight) {
+          autoSavePending = true;
+          autoSaveCandidate = candidate;
+          return;
+        }
+        autoSaveInFlight = true;
+        if (candidate.isNew) {
+          setFormStatus(statusMessages.creating_site || '', formStatusBaseClass);
+          createSite(candidate);
+          return;
+        }
+        setFormStatus(statusMessages.saving_site || '', formStatusBaseClass);
+        updateSite(candidate);
+      }
+
       function submitSite(event) {
         if (event) { event.preventDefault(); }
-        if (saveSiteButton.disabled) { return; }
         if (!state.selectedSiteId) {
-            updateButtonStatus(saveSiteButton, statusMessages.select_site || '', buttonStyles.secondary || '');
-            return;
-          }
-          if (!validateSiteForm()) {
-            return;
-          }
-          if (isNewSiteSelected()) {
-            createSite();
-          } else {
-            updateSite();
-          }
+          setFormStatus(statusMessages.select_site || '', formStatusDangerClass);
+          return;
         }
+        var candidate = buildSiteSaveCandidate();
+        if (!candidate) {
+          return;
+        }
+        requestSiteSave(candidate, saveModeManual);
+      }
 
-        function updateSite() {
-          saveSiteButton.disabled = true;
-          updateButtonStatus(saveSiteButton, buttonLabels.save_saving || '');
-          var ownerEmailValue = getTrimmedValue(editSiteOwnerInput);
-          var body = {
-            name: getTrimmedValue(editSiteNameInput),
-            allowed_origin: getTrimmedValue(editSiteOriginInput),
-            subscribe_allowed_origins: readSubscribeAllowedOrigins()
-          };
-          if (ownerEmailValue) {
-            body.owner_email = ownerEmailValue;
-          }
-          var placementPayload = determineWidgetPlacementPayload();
-          body.widget_bubble_side = placementPayload.widget_bubble_side;
-          body.widget_bubble_bottom_offset = placementPayload.widget_bubble_bottom_offset;
-          var endpoint = apiSiteUpdatePrefix + state.selectedSiteId;
-          fetchJSON(endpoint, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-          }).then(function(payload) {
-            updateButtonStatus(saveSiteButton, buttonLabels.save_saved || '');
-            saveSiteButton.disabled = false;
-            var index = state.sites.findIndex(function(item) { return item.id === payload.id; });
-            if (index >= 0) {
-              state.sites[index] = payload;
-            }
-            renderSites();
-          }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
-            saveSiteButton.disabled = false;
-          });
+      function finalizeAutoSave() {
+        autoSaveInFlight = false;
+        if (autoSavePending) {
+          autoSavePending = false;
+          scheduleAutoSave();
         }
+      }
 
-        function createSite() {
-          saveSiteButton.disabled = true;
-          updateButtonStatus(saveSiteButton, buttonLabels.save_saving || '');
-          var body = {
-            name: getTrimmedValue(editSiteNameInput),
-            allowed_origin: getTrimmedValue(editSiteOriginInput),
-            owner_email: getTrimmedValue(editSiteOwnerInput),
-            subscribe_allowed_origins: readSubscribeAllowedOrigins()
-          };
-          var placementPayload = determineWidgetPlacementPayload();
-          body.widget_bubble_side = placementPayload.widget_bubble_side;
-          body.widget_bubble_bottom_offset = placementPayload.widget_bubble_bottom_offset;
-          fetchJSON(apiSitesEndpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-          }).then(function(payload) {
-            updateButtonStatus(saveSiteButton, buttonLabels.save_created || '');
-            saveSiteButton.disabled = false;
-            state.sites.unshift(payload);
-            if (!state.siteMessages) {
-              state.siteMessages = {};
-            }
-            state.siteMessages[payload.id] = [];
-            state.selectedSiteId = payload.id;
-            renderSites();
-          }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
-            saveSiteButton.disabled = false;
-          });
-        }
+      function updateSite(candidate) {
+        var endpoint = apiSiteUpdatePrefix + candidate.siteId;
+        fetchJSON(endpoint, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(candidate.payload)
+        }).then(function(payload) {
+          setFormStatus(statusMessages.site_saved || '', formStatusSuccessClass);
+          var index = state.sites.findIndex(function(item) { return item.id === payload.id; });
+          if (index >= 0) {
+            state.sites[index] = payload;
+          }
+          renderSites();
+          finalizeAutoSave();
+        }).catch(function(error) {
+          setFormStatus(error.message || buttonLabels.save_failed || '', formStatusDangerClass);
+          finalizeAutoSave();
+        });
+      }
+
+      function createSite(candidate) {
+        fetchJSON(apiSitesEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(candidate.payload)
+        }).then(function(payload) {
+          setFormStatus(statusMessages.site_created || '', formStatusSuccessClass);
+          state.sites.unshift(payload);
+          if (!state.siteMessages) {
+            state.siteMessages = {};
+          }
+          state.siteMessages[payload.id] = [];
+          state.selectedSiteId = payload.id;
+          renderSites();
+          finalizeAutoSave();
+        }).catch(function(error) {
+          setFormStatus(error.message || buttonLabels.save_failed || '', formStatusDangerClass);
+          finalizeAutoSave();
+        });
+      }
 
         if (sitesList) {
           sitesList.addEventListener('click', handleSitesListClick);
@@ -3694,6 +3808,16 @@
             adjustWidgetBottomOffset(widgetBottomOffsetStep);
           });
         }
+        if (widgetSideLeftOption) {
+          widgetSideLeftOption.addEventListener('change', function() {
+            scheduleAutoSave();
+          });
+        }
+        if (widgetSideRightOption) {
+          widgetSideRightOption.addEventListener('change', function() {
+            scheduleAutoSave();
+          });
+        }
         if (widgetBottomOffsetInput) {
           widgetBottomOffsetInput.addEventListener('keydown', function(event) {
             if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
@@ -3731,9 +3855,6 @@
 
         if (siteForm) {
           siteForm.addEventListener('submit', submitSite);
-        }
-        if (saveSiteButton) {
-          saveSiteButton.addEventListener('click', submitSite);
         }
         if (footerElement) {
           footerElement.addEventListener('mpr-footer:theme-change', function(event) {

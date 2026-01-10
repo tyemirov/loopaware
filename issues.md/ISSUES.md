@@ -300,11 +300,12 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/web.go`
   - `internal/httpapi/subscribe_allowed_origins_dashboard_integration_test.go`
 
-- [ ] [LA-217] Autosave site edits and remove the Update Site button.
+- [x] [LA-217] Autosave site edits and remove the Update Site button.
   Priority: P2
   Goal: Site name/origin/owner/placement changes are auto-saved without requiring a manual Update action.
   Deliverable: PR that debounces/saves site edits automatically, removes the Update button from the UI, and adds integration coverage for auto-save behavior.
   Notes: Ensure auto-save handles validation errors gracefully and does not persist partial/invalid values.
+  Resolution: Removed the Update Site button, added debounced autosave with form-status messaging/validation handling, and updated integration coverage for autosaved site edits and subscribe origins; `make ci` passes.
 
 - [ ] [LA-218] Add per-widget additional origins for feedback and traffic widgets.
   Priority: P2

@@ -90,8 +90,6 @@ func TestDashboardPersistsSubscribeAllowedOrigins(testingT *testing.T) {
 	setInputValue(testingT, page, subscribeAllowedOriginsPlaceholderInputSelector, subscribeAllowedOriginExample)
 	clickSelector(testingT, page, subscribeAllowedOriginsAddButtonSelector)
 
-	clickSelector(testingT, page, dashboardSaveSiteButtonSelector)
-
 	require.Eventually(testingT, func() bool {
 		var updated model.Site
 		if err := harness.database.First(&updated, "id = ?", site.ID).Error; err != nil {
@@ -134,8 +132,6 @@ func TestDashboardRehydratesSubscribeAllowedOriginsAfterLogin(testingT *testing.
 	clickSelector(testingT, page, subscribeAllowedOriginsAddButtonSelector)
 	setInputValue(testingT, page, subscribeAllowedOriginsPlaceholderInputSelector, subscribeAllowedOriginSecondary)
 	clickSelector(testingT, page, subscribeAllowedOriginsAddButtonSelector)
-
-	clickSelector(testingT, page, dashboardSaveSiteButtonSelector)
 
 	require.Eventually(testingT, func() bool {
 		var updated model.Site
