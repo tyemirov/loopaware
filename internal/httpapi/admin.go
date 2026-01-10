@@ -84,6 +84,8 @@ type createSiteRequest struct {
 	Name                     string `json:"name"`
 	AllowedOrigin            string `json:"allowed_origin"`
 	SubscribeAllowedOrigins  string `json:"subscribe_allowed_origins"`
+	WidgetAllowedOrigins     string `json:"widget_allowed_origins"`
+	TrafficAllowedOrigins    string `json:"traffic_allowed_origins"`
 	OwnerEmail               string `json:"owner_email"`
 	WidgetBubbleSide         string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset *int   `json:"widget_bubble_bottom_offset"`
@@ -93,6 +95,8 @@ type updateSiteRequest struct {
 	Name                     *string `json:"name"`
 	AllowedOrigin            *string `json:"allowed_origin"`
 	SubscribeAllowedOrigins  *string `json:"subscribe_allowed_origins"`
+	WidgetAllowedOrigins     *string `json:"widget_allowed_origins"`
+	TrafficAllowedOrigins    *string `json:"traffic_allowed_origins"`
 	OwnerEmail               *string `json:"owner_email"`
 	WidgetBubbleSide         *string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset *int    `json:"widget_bubble_bottom_offset"`
@@ -103,6 +107,8 @@ type siteResponse struct {
 	Name                     string `json:"name"`
 	AllowedOrigin            string `json:"allowed_origin"`
 	SubscribeAllowedOrigins  string `json:"subscribe_allowed_origins"`
+	WidgetAllowedOrigins     string `json:"widget_allowed_origins"`
+	TrafficAllowedOrigins    string `json:"traffic_allowed_origins"`
 	OwnerEmail               string `json:"owner_email"`
 	FaviconURL               string `json:"favicon_url"`
 	Widget                   string `json:"widget"`
@@ -208,6 +214,8 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 	payload.Name = strings.TrimSpace(payload.Name)
 	payload.AllowedOrigin = strings.TrimSpace(payload.AllowedOrigin)
 	payload.SubscribeAllowedOrigins = normalizeAllowedOrigins(payload.SubscribeAllowedOrigins)
+	payload.WidgetAllowedOrigins = normalizeAllowedOrigins(payload.WidgetAllowedOrigins)
+	payload.TrafficAllowedOrigins = normalizeAllowedOrigins(payload.TrafficAllowedOrigins)
 	creatorEmail := currentUser.normalizedEmail()
 	desiredOwnerEmail := strings.ToLower(strings.TrimSpace(payload.OwnerEmail))
 	if desiredOwnerEmail == "" {
@@ -251,6 +259,8 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		Name:                       payload.Name,
 		AllowedOrigin:              payload.AllowedOrigin,
 		SubscribeAllowedOrigins:    payload.SubscribeAllowedOrigins,
+		WidgetAllowedOrigins:       payload.WidgetAllowedOrigins,
+		TrafficAllowedOrigins:      payload.TrafficAllowedOrigins,
 		OwnerEmail:                 desiredOwnerEmail,
 		CreatorEmail:               creatorEmail,
 		FaviconOrigin:              primaryAllowedOrigin(payload.AllowedOrigin),
@@ -562,7 +572,7 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		return
 	}
 
-	if payload.Name == nil && payload.AllowedOrigin == nil && payload.SubscribeAllowedOrigins == nil && payload.OwnerEmail == nil && payload.WidgetBubbleSide == nil && payload.WidgetBubbleBottomOffset == nil {
+	if payload.Name == nil && payload.AllowedOrigin == nil && payload.SubscribeAllowedOrigins == nil && payload.WidgetAllowedOrigins == nil && payload.TrafficAllowedOrigins == nil && payload.OwnerEmail == nil && payload.WidgetBubbleSide == nil && payload.WidgetBubbleBottomOffset == nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueNothingToUpdate})
 		return
 	}
@@ -621,6 +631,12 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 
 	if payload.SubscribeAllowedOrigins != nil {
 		site.SubscribeAllowedOrigins = normalizeAllowedOrigins(*payload.SubscribeAllowedOrigins)
+	}
+	if payload.WidgetAllowedOrigins != nil {
+		site.WidgetAllowedOrigins = normalizeAllowedOrigins(*payload.WidgetAllowedOrigins)
+	}
+	if payload.TrafficAllowedOrigins != nil {
+		site.TrafficAllowedOrigins = normalizeAllowedOrigins(*payload.TrafficAllowedOrigins)
 	}
 
 	if payload.WidgetBubbleSide != nil {
@@ -1058,6 +1074,8 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 		Name:                     site.Name,
 		AllowedOrigin:            site.AllowedOrigin,
 		SubscribeAllowedOrigins:  site.SubscribeAllowedOrigins,
+		WidgetAllowedOrigins:     site.WidgetAllowedOrigins,
+		TrafficAllowedOrigins:    site.TrafficAllowedOrigins,
 		OwnerEmail:               site.OwnerEmail,
 		FaviconURL:               faviconURL,
 		Widget:                   fmt.Sprintf(widgetScriptTemplate, widgetBase, site.ID),

@@ -189,7 +189,6 @@
                   <h5 class="mb-0">Site details</h5>
                   <div class="d-flex align-items-center gap-2">
                     <div id="{{.FormStatusID}}" class="{{.FormStatusBaseClass}}"></div>
-                    <button id="{{.SaveSiteButtonID}}" type="button" class="{{.SaveButtonDefaultClass}}"></button>
                   </div>
                 </div>
               </div>
@@ -285,6 +284,11 @@
                     <div class="form-text" id="{{.WidgetBottomOffsetHelpID}}">{{.WidgetPlacementBottomOffsetHelp}}</div>
                   </div>
                 </div>
+                <div class="mb-3">
+                  <label class="form-label mb-0">{{.WidgetAllowedOriginsTitle}}</label>
+                  <div id="{{.WidgetAllowedOriginsListID}}" class="d-flex flex-column gap-2 mt-2"></div>
+                  <div class="form-text">{{.WidgetAllowedOriginsHelpText}}</div>
+                </div>
                 <textarea id="{{.WidgetSnippetTextareaID}}" class="form-control font-monospace" rows="3" readonly></textarea>
               </div>
             </div>
@@ -321,6 +325,11 @@
               </div>
               <div class="card-body">
                 <p class="text-muted small mb-3">{{.TrafficWidgetInstructions}}</p>
+                <div class="mb-3">
+                  <label class="form-label mb-0">{{.TrafficAllowedOriginsTitle}}</label>
+                  <div id="{{.TrafficAllowedOriginsListID}}" class="d-flex flex-column gap-2 mt-2"></div>
+                  <div class="form-text">{{.TrafficAllowedOriginsHelpText}}</div>
+                </div>
                 <textarea id="{{.TrafficWidgetSnippetTextareaID}}" class="form-control font-monospace" rows="3" readonly></textarea>
               </div>
             </div>
@@ -620,10 +629,6 @@
         var allowedOriginHelpButton = document.getElementById(elementIds.allowed_origin_help_button);
         var ownerEmailHelpButton = document.getElementById(elementIds.owner_email_help_button);
         var newSiteOptionValue = optionValues.new_site || '';
-        var createButtonLabel = buttonLabels.create || '';
-        var updateButtonLabel = buttonLabels.update || '';
-        var createButtonClass = buttonClasses.create || '';
-        var updateButtonClass = buttonClasses.update || '';
         var newSiteButton = document.getElementById(elementIds.new_site_button);
         var newSiteButtonDefaultClass = buttonClasses.new_site_default || '';
         var newSiteButtonActiveClass = buttonClasses.new_site_active || '';
@@ -653,7 +658,6 @@
         var editSiteOriginInput = document.getElementById(elementIds.edit_site_origin);
         var editSiteOwnerContainer = document.getElementById(elementIds.edit_site_owner_container);
         var editSiteOwnerInput = document.getElementById(elementIds.edit_site_owner);
-        var saveSiteButton = document.getElementById(elementIds.save_site_button);
         var refreshMessagesButton = document.getElementById(elementIds.refresh_messages_button);
         var feedbackTableHeader = document.getElementById(elementIds.feedback_table_header);
         var feedbackTableBody = document.getElementById(elementIds.feedback_table_body);
@@ -678,12 +682,14 @@
         var autoLogoutGapMessage = autoLogoutFieldsContainer ? autoLogoutFieldsContainer.getAttribute('data-gap-message') || '' : '';
         var widgetSnippetTextarea = document.getElementById(elementIds.widget_snippet_textarea);
         var copyWidgetSnippetButton = document.getElementById(elementIds.copy_widget_snippet_button);
-	        var subscribeSnippetTextarea = document.getElementById(elementIds.subscribe_snippet_textarea);
-	        var copySubscribeSnippetButton = document.getElementById(elementIds.copy_subscribe_snippet_button);
-	        var subscribeAllowedOriginsList = document.getElementById(elementIds.subscribe_allowed_origins_list);
-	        var trafficSnippetTextarea = document.getElementById(elementIds.traffic_snippet_textarea);
-	        var copyTrafficSnippetButton = document.getElementById(elementIds.copy_traffic_snippet_button);
-	        var widgetTestButton = document.getElementById(elementIds.widget_test_button);
+        var widgetAllowedOriginsList = document.getElementById(elementIds.widget_allowed_origins_list);
+        var subscribeSnippetTextarea = document.getElementById(elementIds.subscribe_snippet_textarea);
+        var copySubscribeSnippetButton = document.getElementById(elementIds.copy_subscribe_snippet_button);
+        var subscribeAllowedOriginsList = document.getElementById(elementIds.subscribe_allowed_origins_list);
+        var trafficSnippetTextarea = document.getElementById(elementIds.traffic_snippet_textarea);
+        var copyTrafficSnippetButton = document.getElementById(elementIds.copy_traffic_snippet_button);
+        var trafficAllowedOriginsList = document.getElementById(elementIds.traffic_allowed_origins_list);
+        var widgetTestButton = document.getElementById(elementIds.widget_test_button);
         var widgetTestPagePrefix = typeof sharedPaths.widget_test_prefix === 'string' ? sharedPaths.widget_test_prefix : '';
         var widgetTestPageSuffix = typeof sharedPaths.widget_test_suffix === 'string' ? sharedPaths.widget_test_suffix : '';
         var subscribeTestButton = document.getElementById(elementIds.subscribe_test_button);
@@ -721,6 +727,15 @@
         var formStatusDangerClass = formStatusClasses.danger || '';
         var formStatusDisplayDuration = 4000;
         var formStatusResetTimerId = null;
+        var autoSaveDelayMilliseconds = 800;
+        var autoSaveTimerId = null;
+        var autoSavePending = false;
+        var autoSaveInFlight = false;
+        var autoSaveCandidate = null;
+        var saveModeManual = 'manual';
+        var saveModeAuto = 'auto';
+        var validationFocusModePrompt = 'prompt';
+        var validationFocusModeSilent = 'silent';
         var footerElement = document.getElementById(elementIds.footer);
         var footerThemeClasses = parsedConfig.footer_theme_classes || {};
         var tableThemeClasses = parsedConfig.table_theme_classes || {};
@@ -1491,13 +1506,21 @@
           }
           return parts[0] + ' +' + String(parts.length - 1) + ' more';
         }
-	        var subscribeAllowedOriginInputDataAttribute = 'data-subscribe-origin';
-	        var subscribeAllowedOriginRemoveButtonDataAttribute = 'data-subscribe-origin-remove';
-	        var subscribeAllowedOriginAddButtonDataAttribute = 'data-subscribe-origin-add';
-	        var subscribeAllowedOriginPlaceholderInputDataAttribute = 'data-subscribe-origin-placeholder';
-	        var subscribeAllowedOriginPlaceholder = 'https://example.com';
-	        var subscribeAllowedOriginAddLabel = 'Add';
-	        var subscribeAllowedOriginRemoveLabel = 'Remove';
+        var subscribeAllowedOriginInputDataAttribute = 'data-subscribe-origin';
+        var subscribeAllowedOriginRemoveButtonDataAttribute = 'data-subscribe-origin-remove';
+        var subscribeAllowedOriginAddButtonDataAttribute = 'data-subscribe-origin-add';
+        var subscribeAllowedOriginPlaceholderInputDataAttribute = 'data-subscribe-origin-placeholder';
+        var widgetAllowedOriginInputDataAttribute = 'data-widget-origin';
+        var widgetAllowedOriginRemoveButtonDataAttribute = 'data-widget-origin-remove';
+        var widgetAllowedOriginAddButtonDataAttribute = 'data-widget-origin-add';
+        var widgetAllowedOriginPlaceholderInputDataAttribute = 'data-widget-origin-placeholder';
+        var trafficAllowedOriginInputDataAttribute = 'data-traffic-origin';
+        var trafficAllowedOriginRemoveButtonDataAttribute = 'data-traffic-origin-remove';
+        var trafficAllowedOriginAddButtonDataAttribute = 'data-traffic-origin-add';
+        var trafficAllowedOriginPlaceholderInputDataAttribute = 'data-traffic-origin-placeholder';
+        var allowedOriginPlaceholder = 'https://example.com';
+        var allowedOriginAddLabel = 'Add';
+        var allowedOriginRemoveLabel = 'Remove';
 
         function normalizeAllowedOriginsList(value) {
           var parts = splitAllowedOrigins(value);
@@ -1521,150 +1544,290 @@
           return unique.join(' ');
         }
 
-	        function createSubscribeAllowedOriginRow(initialValue, isPlaceholder) {
-	          var row = document.createElement('div');
-	          row.className = 'input-group';
+        function buildAllowedOriginsListManager(options) {
+          var listElement = options && options.listElement ? options.listElement : null;
+          var inputDataAttribute = options && options.inputDataAttribute ? options.inputDataAttribute : '';
+          var removeButtonDataAttribute = options && options.removeButtonDataAttribute ? options.removeButtonDataAttribute : '';
+          var addButtonDataAttribute = options && options.addButtonDataAttribute ? options.addButtonDataAttribute : '';
+          var placeholderInputDataAttribute = options && options.placeholderInputDataAttribute ? options.placeholderInputDataAttribute : '';
+          var placeholder = options && options.placeholder ? options.placeholder : '';
+          var addLabel = options && options.addLabel ? options.addLabel : '';
+          var removeLabel = options && options.removeLabel ? options.removeLabel : '';
 
-	          var input = document.createElement('input');
-	          input.type = 'url';
-	          input.className = 'form-control';
-	          input.placeholder = subscribeAllowedOriginPlaceholder;
-	          input.autocomplete = 'off';
-	          input.setAttribute(subscribeAllowedOriginInputDataAttribute, 'true');
-	          if (isPlaceholder) {
-	            input.setAttribute(subscribeAllowedOriginPlaceholderInputDataAttribute, 'true');
-	          }
-	          input.value = typeof initialValue === 'string' ? initialValue : '';
-	          row.appendChild(input);
+          function createAllowedOriginRow(initialValue, isPlaceholder) {
+            var row = document.createElement('div');
+            row.className = 'input-group';
 
-	          var actionButton = document.createElement('button');
-	          actionButton.type = 'button';
-	          actionButton.className = 'btn btn-outline-secondary';
-	          if (isPlaceholder) {
-	            actionButton.textContent = subscribeAllowedOriginAddLabel;
-	            actionButton.setAttribute(subscribeAllowedOriginAddButtonDataAttribute, 'true');
-	            actionButton.addEventListener('click', function(event) {
-	              event.preventDefault();
-	              if (actionButton.disabled) {
-	                return;
-	              }
-	              if (!subscribeAllowedOriginsList) {
-	                return;
-	              }
-	              var trimmedValue = getTrimmedValue(input);
-	              if (!trimmedValue) {
-	                input.focus();
-	                return;
-	              }
-	              var placeholderRow = row;
-	              var newOriginRow = createSubscribeAllowedOriginRow(trimmedValue, false);
-	              if (placeholderRow.parentNode === subscribeAllowedOriginsList) {
-	                subscribeAllowedOriginsList.insertBefore(newOriginRow, placeholderRow);
-	              } else {
-	                subscribeAllowedOriginsList.appendChild(newOriginRow);
-	              }
-	              input.value = '';
-	              ensureSubscribeAllowedOriginsRow();
-	            });
-	          } else {
-	            actionButton.textContent = subscribeAllowedOriginRemoveLabel;
-	            actionButton.setAttribute(subscribeAllowedOriginRemoveButtonDataAttribute, 'true');
-	            actionButton.addEventListener('click', function(event) {
-	              event.preventDefault();
-	              if (!subscribeAllowedOriginsList) {
-	                return;
-	              }
-	              if (row.parentNode === subscribeAllowedOriginsList) {
-	                subscribeAllowedOriginsList.removeChild(row);
-	              }
-	              ensureSubscribeAllowedOriginsRow();
-	            });
-	          }
-	          row.appendChild(actionButton);
+            var input = document.createElement('input');
+            input.type = 'url';
+            input.className = 'form-control';
+            input.placeholder = placeholder;
+            input.autocomplete = 'off';
+            if (inputDataAttribute) {
+              input.setAttribute(inputDataAttribute, 'true');
+            }
+            if (isPlaceholder && placeholderInputDataAttribute) {
+              input.setAttribute(placeholderInputDataAttribute, 'true');
+            }
+            input.value = typeof initialValue === 'string' ? initialValue : '';
+            input.addEventListener('input', function() {
+              input.classList.remove(invalidFieldClassName);
+              clearFormStatus();
+              scheduleAutoSave();
+            });
+            row.appendChild(input);
 
-	          return row;
-	        }
+            var actionButton = document.createElement('button');
+            actionButton.type = 'button';
+            actionButton.className = 'btn btn-outline-secondary';
+            if (isPlaceholder) {
+              actionButton.textContent = addLabel;
+              if (addButtonDataAttribute) {
+                actionButton.setAttribute(addButtonDataAttribute, 'true');
+              }
+              actionButton.addEventListener('click', function(event) {
+                event.preventDefault();
+                if (actionButton.disabled) {
+                  return;
+                }
+                if (!listElement) {
+                  return;
+                }
+                var trimmedValue = getTrimmedValue(input);
+                if (!trimmedValue) {
+                  input.focus();
+                  return;
+                }
+                var placeholderRow = row;
+                var newOriginRow = createAllowedOriginRow(trimmedValue, false);
+                if (placeholderRow.parentNode === listElement) {
+                  listElement.insertBefore(newOriginRow, placeholderRow);
+                } else {
+                  listElement.appendChild(newOriginRow);
+                }
+                input.value = '';
+                ensurePlaceholderRow();
+                clearFormStatus();
+                scheduleAutoSave();
+              });
+            } else {
+              actionButton.textContent = removeLabel;
+              if (removeButtonDataAttribute) {
+                actionButton.setAttribute(removeButtonDataAttribute, 'true');
+              }
+              actionButton.addEventListener('click', function(event) {
+                event.preventDefault();
+                if (!listElement) {
+                  return;
+                }
+                if (row.parentNode === listElement) {
+                  listElement.removeChild(row);
+                }
+                ensurePlaceholderRow();
+                clearFormStatus();
+                scheduleAutoSave();
+              });
+            }
+            row.appendChild(actionButton);
 
-	        function ensureSubscribeAllowedOriginsRow() {
-	          if (!subscribeAllowedOriginsList) {
-	            return;
-	          }
-	          var placeholderInput = subscribeAllowedOriginsList.querySelector('input[' + subscribeAllowedOriginPlaceholderInputDataAttribute + ']');
-	          if (!placeholderInput) {
-	            subscribeAllowedOriginsList.appendChild(createSubscribeAllowedOriginRow('', true));
-	            return;
-	          }
-	          var placeholderRow = placeholderInput.closest('.input-group');
-	          if (placeholderRow && placeholderRow.parentNode === subscribeAllowedOriginsList && placeholderRow !== subscribeAllowedOriginsList.lastElementChild) {
-	            subscribeAllowedOriginsList.appendChild(placeholderRow);
-	          }
-	        }
-
-	        function setSubscribeAllowedOriginsDisabled(disabled) {
-	          var shouldDisable = Boolean(disabled);
-	          if (!subscribeAllowedOriginsList) {
-	            return;
-	          }
-	          var inputs = subscribeAllowedOriginsList.querySelectorAll('input[' + subscribeAllowedOriginInputDataAttribute + ']');
-	          for (var index = 0; index < inputs.length; index += 1) {
-	            inputs[index].disabled = shouldDisable;
-	          }
-	          var actionButtons = subscribeAllowedOriginsList.querySelectorAll(
-	            'button[' + subscribeAllowedOriginRemoveButtonDataAttribute + '], button[' + subscribeAllowedOriginAddButtonDataAttribute + ']'
-	          );
-	          for (var buttonIndex = 0; buttonIndex < actionButtons.length; buttonIndex += 1) {
-	            actionButtons[buttonIndex].disabled = shouldDisable;
-	          }
-	        }
-
-	        function renderSubscribeAllowedOrigins(value) {
-	          if (!subscribeAllowedOriginsList) {
-	            return;
-	          }
-	          subscribeAllowedOriginsList.innerHTML = '';
-	          var normalizedValue = normalizeAllowedOriginsList(value);
-	          var parts = splitAllowedOrigins(normalizedValue);
-	          if (!parts.length) {
-	            subscribeAllowedOriginsList.appendChild(createSubscribeAllowedOriginRow('', true));
-	            return;
-	          }
-	          parts.forEach(function(part) {
-	            subscribeAllowedOriginsList.appendChild(createSubscribeAllowedOriginRow(part, false));
-	          });
-	          ensureSubscribeAllowedOriginsRow();
-	        }
-
-        function readSubscribeAllowedOrigins() {
-          if (!subscribeAllowedOriginsList) {
-            return '';
+            return row;
           }
-          var inputs = subscribeAllowedOriginsList.querySelectorAll('input[' + subscribeAllowedOriginInputDataAttribute + ']');
-          var parts = [];
-          for (var index = 0; index < inputs.length; index += 1) {
-            var trimmedValue = getTrimmedValue(inputs[index]);
-            if (trimmedValue) {
-              parts.push(trimmedValue);
+
+          function ensurePlaceholderRow() {
+            if (!listElement || !placeholderInputDataAttribute) {
+              return;
+            }
+            var placeholderInput = listElement.querySelector('input[' + placeholderInputDataAttribute + ']');
+            if (!placeholderInput) {
+              listElement.appendChild(createAllowedOriginRow('', true));
+              return;
+            }
+            var placeholderRow = placeholderInput.closest('.input-group');
+            if (placeholderRow && placeholderRow.parentNode === listElement && placeholderRow !== listElement.lastElementChild) {
+              listElement.appendChild(placeholderRow);
             }
           }
-          return normalizeAllowedOriginsList(parts.join(' '));
+
+          function setDisabled(disabled) {
+            var shouldDisable = Boolean(disabled);
+            if (!listElement || !inputDataAttribute) {
+              return;
+            }
+            var inputs = listElement.querySelectorAll('input[' + inputDataAttribute + ']');
+            for (var index = 0; index < inputs.length; index += 1) {
+              inputs[index].disabled = shouldDisable;
+            }
+            if (!removeButtonDataAttribute && !addButtonDataAttribute) {
+              return;
+            }
+            var actionButtons = listElement.querySelectorAll(
+              'button[' + removeButtonDataAttribute + '], button[' + addButtonDataAttribute + ']'
+            );
+            for (var buttonIndex = 0; buttonIndex < actionButtons.length; buttonIndex += 1) {
+              actionButtons[buttonIndex].disabled = shouldDisable;
+            }
+          }
+
+          function render(value) {
+            if (!listElement) {
+              return;
+            }
+            listElement.innerHTML = '';
+            var normalizedValue = normalizeAllowedOriginsList(value);
+            var parts = splitAllowedOrigins(normalizedValue);
+            if (!parts.length) {
+              listElement.appendChild(createAllowedOriginRow('', true));
+              return;
+            }
+            parts.forEach(function(part) {
+              listElement.appendChild(createAllowedOriginRow(part, false));
+            });
+            ensurePlaceholderRow();
+          }
+
+          function read() {
+            if (!listElement || !inputDataAttribute) {
+              return '';
+            }
+            var inputs = listElement.querySelectorAll('input[' + inputDataAttribute + ']');
+            var parts = [];
+            for (var index = 0; index < inputs.length; index += 1) {
+              var trimmedValue = getTrimmedValue(inputs[index]);
+              if (trimmedValue) {
+                parts.push(trimmedValue);
+              }
+            }
+            return normalizeAllowedOriginsList(parts.join(' '));
+          }
+
+          function findInvalidInput() {
+            if (!listElement || !inputDataAttribute) {
+              return null;
+            }
+            var inputs = listElement.querySelectorAll('input[' + inputDataAttribute + ']');
+            for (var index = 0; index < inputs.length; index += 1) {
+              var input = inputs[index];
+              var trimmedValue = getTrimmedValue(input);
+              if (!trimmedValue) {
+                continue;
+              }
+              if (!isAllowedOriginValid(trimmedValue)) {
+                return input;
+              }
+            }
+            return null;
+          }
+
+          function clearInvalidState() {
+            if (!listElement || !inputDataAttribute) {
+              return;
+            }
+            var inputs = listElement.querySelectorAll('input[' + inputDataAttribute + ']');
+            for (var index = 0; index < inputs.length; index += 1) {
+              inputs[index].classList.remove(invalidFieldClassName);
+            }
+          }
+
+          return {
+            render: render,
+            read: read,
+            setDisabled: setDisabled,
+            findInvalidInput: findInvalidInput,
+            clearInvalidState: clearInvalidState
+          };
+        }
+
+        var subscribeAllowedOriginsManager = buildAllowedOriginsListManager({
+          listElement: subscribeAllowedOriginsList,
+          inputDataAttribute: subscribeAllowedOriginInputDataAttribute,
+          removeButtonDataAttribute: subscribeAllowedOriginRemoveButtonDataAttribute,
+          addButtonDataAttribute: subscribeAllowedOriginAddButtonDataAttribute,
+          placeholderInputDataAttribute: subscribeAllowedOriginPlaceholderInputDataAttribute,
+          placeholder: allowedOriginPlaceholder,
+          addLabel: allowedOriginAddLabel,
+          removeLabel: allowedOriginRemoveLabel
+        });
+
+        var widgetAllowedOriginsManager = buildAllowedOriginsListManager({
+          listElement: widgetAllowedOriginsList,
+          inputDataAttribute: widgetAllowedOriginInputDataAttribute,
+          removeButtonDataAttribute: widgetAllowedOriginRemoveButtonDataAttribute,
+          addButtonDataAttribute: widgetAllowedOriginAddButtonDataAttribute,
+          placeholderInputDataAttribute: widgetAllowedOriginPlaceholderInputDataAttribute,
+          placeholder: allowedOriginPlaceholder,
+          addLabel: allowedOriginAddLabel,
+          removeLabel: allowedOriginRemoveLabel
+        });
+
+        var trafficAllowedOriginsManager = buildAllowedOriginsListManager({
+          listElement: trafficAllowedOriginsList,
+          inputDataAttribute: trafficAllowedOriginInputDataAttribute,
+          removeButtonDataAttribute: trafficAllowedOriginRemoveButtonDataAttribute,
+          addButtonDataAttribute: trafficAllowedOriginAddButtonDataAttribute,
+          placeholderInputDataAttribute: trafficAllowedOriginPlaceholderInputDataAttribute,
+          placeholder: allowedOriginPlaceholder,
+          addLabel: allowedOriginAddLabel,
+          removeLabel: allowedOriginRemoveLabel
+        });
+
+        function renderSubscribeAllowedOrigins(value) {
+          subscribeAllowedOriginsManager.render(value);
+        }
+
+        function setSubscribeAllowedOriginsDisabled(disabled) {
+          subscribeAllowedOriginsManager.setDisabled(disabled);
+        }
+
+        function readSubscribeAllowedOrigins() {
+          return subscribeAllowedOriginsManager.read();
         }
 
         function findInvalidSubscribeAllowedOriginInput() {
-          if (!subscribeAllowedOriginsList) {
-            return null;
-          }
-          var inputs = subscribeAllowedOriginsList.querySelectorAll('input[' + subscribeAllowedOriginInputDataAttribute + ']');
-          for (var index = 0; index < inputs.length; index += 1) {
-            var input = inputs[index];
-            var trimmedValue = getTrimmedValue(input);
-            if (!trimmedValue) {
-              continue;
-            }
-            if (!isAllowedOriginValid(trimmedValue)) {
-              return input;
-            }
-          }
-          return null;
+          return subscribeAllowedOriginsManager.findInvalidInput();
+        }
+
+        function clearSubscribeAllowedOriginsValidation() {
+          subscribeAllowedOriginsManager.clearInvalidState();
+        }
+
+        function renderWidgetAllowedOrigins(value) {
+          widgetAllowedOriginsManager.render(value);
+        }
+
+        function setWidgetAllowedOriginsDisabled(disabled) {
+          widgetAllowedOriginsManager.setDisabled(disabled);
+        }
+
+        function readWidgetAllowedOrigins() {
+          return widgetAllowedOriginsManager.read();
+        }
+
+        function findInvalidWidgetAllowedOriginInput() {
+          return widgetAllowedOriginsManager.findInvalidInput();
+        }
+
+        function clearWidgetAllowedOriginsValidation() {
+          widgetAllowedOriginsManager.clearInvalidState();
+        }
+
+        function renderTrafficAllowedOrigins(value) {
+          trafficAllowedOriginsManager.render(value);
+        }
+
+        function setTrafficAllowedOriginsDisabled(disabled) {
+          trafficAllowedOriginsManager.setDisabled(disabled);
+        }
+
+        function readTrafficAllowedOrigins() {
+          return trafficAllowedOriginsManager.read();
+        }
+
+        function findInvalidTrafficAllowedOriginInput() {
+          return trafficAllowedOriginsManager.findInvalidInput();
+        }
+
+        function clearTrafficAllowedOriginsValidation() {
+          trafficAllowedOriginsManager.clearInvalidState();
         }
         function isAllowedOriginValid(value) {
           var originParts = splitAllowedOrigins(value);
@@ -1740,24 +1903,24 @@
               descriptor.fieldElement.classList.remove(invalidFieldClassName);
             }
           });
-          if (subscribeAllowedOriginsList) {
-            var inputs = subscribeAllowedOriginsList.querySelectorAll('input[' + subscribeAllowedOriginInputDataAttribute + ']');
-            for (var index = 0; index < inputs.length; index += 1) {
-              inputs[index].classList.remove(invalidFieldClassName);
-            }
-          }
+          clearSubscribeAllowedOriginsValidation();
+          clearWidgetAllowedOriginsValidation();
+          clearTrafficAllowedOriginsValidation();
           clearFormStatus();
         }
-        function markFieldInvalid(fieldElement, messageKey) {
+        function markFieldInvalid(fieldElement, messageKey, focusMode) {
           if (!fieldElement) {
             return;
           }
           fieldElement.classList.add(invalidFieldClassName);
-          fieldElement.focus();
+          if (focusMode === validationFocusModePrompt) {
+            fieldElement.focus();
+          }
           var message = validationMessages[messageKey] || '';
           setFormStatus(message, formStatusDangerClass);
         }
-        function validateSiteForm() {
+        function validateSiteForm(focusMode) {
+          var resolvedFocusMode = focusMode === validationFocusModeSilent ? validationFocusModeSilent : validationFocusModePrompt;
           clearValidationFeedback();
           for (var index = 0; index < siteFormValidationDescriptors.length; index += 1) {
             var descriptor = siteFormValidationDescriptors[index];
@@ -1769,13 +1932,23 @@
             }
             var value = getTrimmedValue(descriptor.fieldElement);
             if (typeof descriptor.validateValue === 'function' && !descriptor.validateValue(value)) {
-              markFieldInvalid(descriptor.fieldElement, descriptor.messageKey);
+              markFieldInvalid(descriptor.fieldElement, descriptor.messageKey, resolvedFocusMode);
               return false;
             }
           }
+          var invalidWidgetAllowedOriginInput = findInvalidWidgetAllowedOriginInput();
+          if (invalidWidgetAllowedOriginInput) {
+            markFieldInvalid(invalidWidgetAllowedOriginInput, validationMessageKeyOriginInvalid, resolvedFocusMode);
+            return false;
+          }
           var invalidSubscribeAllowedOriginInput = findInvalidSubscribeAllowedOriginInput();
           if (invalidSubscribeAllowedOriginInput) {
-            markFieldInvalid(invalidSubscribeAllowedOriginInput, validationMessageKeyOriginInvalid);
+            markFieldInvalid(invalidSubscribeAllowedOriginInput, validationMessageKeyOriginInvalid, resolvedFocusMode);
+            return false;
+          }
+          var invalidTrafficAllowedOriginInput = findInvalidTrafficAllowedOriginInput();
+          if (invalidTrafficAllowedOriginInput) {
+            markFieldInvalid(invalidTrafficAllowedOriginInput, validationMessageKeyOriginInvalid, resolvedFocusMode);
             return false;
           }
           return true;
@@ -1788,6 +1961,7 @@
             descriptor.fieldElement.addEventListener('input', function() {
               descriptor.fieldElement.classList.remove(invalidFieldClassName);
               clearFormStatus();
+              scheduleAutoSave();
             });
           });
         }
@@ -2069,7 +2243,6 @@
         setButtonDefault(copySubscribeSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
         setButtonDefault(copyTrafficSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
         setButtonDefault(refreshMessagesButton, buttonLabels.refresh_default || '', buttonClasses.refresh_default || '');
-        setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
         registerValidationHandlers();
         registerSiteFormTabCycle();
         initializeFieldHelpPopovers();
@@ -3010,8 +3183,12 @@
           editSiteOriginInput.value = '';
           editSiteOwnerInput.value = '';
           setWidgetPlacementControls(widgetDefaultSide, widgetDefaultBottomOffset);
+          renderWidgetAllowedOrigins('');
+          setWidgetAllowedOriginsDisabled(true);
           renderSubscribeAllowedOrigins('');
           setSubscribeAllowedOriginsDisabled(true);
+          renderTrafficAllowedOrigins('');
+          setTrafficAllowedOriginsDisabled(true);
           clearValidationFeedback();
           setSiteCreatedAt(null);
           setFeedbackCount(0, 0);
@@ -3022,8 +3199,9 @@
           if (!state.selectedSiteId) {
             updateSelectedSiteSummary(null);
             clearSiteForm();
-            saveSiteButton.disabled = true;
+            setWidgetAllowedOriginsDisabled(true);
             setSubscribeAllowedOriginsDisabled(true);
+            setTrafficAllowedOriginsDisabled(true);
             updateFormMode();
             updateWidgetSnippet();
             return;
@@ -3032,9 +3210,12 @@
           if (isNewSiteSelected()) {
             updateSelectedSiteSummary(null);
             clearSiteForm();
-            saveSiteButton.disabled = false;
+            renderWidgetAllowedOrigins('');
+            setWidgetAllowedOriginsDisabled(false);
             renderSubscribeAllowedOrigins('');
             setSubscribeAllowedOriginsDisabled(false);
+            renderTrafficAllowedOrigins('');
+            setTrafficAllowedOriginsDisabled(false);
             updateFormMode();
             updateWidgetSnippet();
             return;
@@ -3044,8 +3225,9 @@
           if (!site) {
             updateSelectedSiteSummary(null);
             clearSiteForm();
-            saveSiteButton.disabled = true;
+            setWidgetAllowedOriginsDisabled(true);
             setSubscribeAllowedOriginsDisabled(true);
+            setTrafficAllowedOriginsDisabled(true);
             updateFormMode();
             updateWidgetSnippet();
             return;
@@ -3056,9 +3238,12 @@
           editSiteOriginInput.value = site.allowed_origin || '';
           editSiteOwnerInput.value = site.owner_email || '';
           setWidgetPlacementControls(site.widget_bubble_side, site.widget_bubble_bottom_offset);
+          renderWidgetAllowedOrigins(site.widget_allowed_origins || '');
+          setWidgetAllowedOriginsDisabled(false);
           renderSubscribeAllowedOrigins(site.subscribe_allowed_origins || '');
           setSubscribeAllowedOriginsDisabled(false);
-          saveSiteButton.disabled = false;
+          renderTrafficAllowedOrigins(site.traffic_allowed_origins || '');
+          setTrafficAllowedOriginsDisabled(false);
           updateFormMode();
           updateWidgetSnippet();
         }
@@ -3066,11 +3251,6 @@
         function updateFormMode() {
           if (!state.user) {
             return;
-          }
-          if (isNewSiteSelected()) {
-            setButtonDefault(saveSiteButton, createButtonLabel, createButtonClass);
-          } else {
-            setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);
           }
           if (!editSiteOwnerInput) {
             return;
@@ -3243,27 +3423,25 @@
           return 'no';
         }
 
-        function loadUser() {
-          return fetchJSON(apiMeEndpoint).then(function(payload) {
-            state.user = payload;
-            updateUserCard();
-            applyAutoLogoutSettingsForUser(state.user);
-          }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
-            saveSiteButton.disabled = false;
-            throw error;
-          });
-        }
+      function loadUser() {
+        return fetchJSON(apiMeEndpoint).then(function(payload) {
+          state.user = payload;
+          updateUserCard();
+          applyAutoLogoutSettingsForUser(state.user);
+        }).catch(function(error) {
+          setFormStatus(error.message || statusMessages.load_failed || '', formStatusDangerClass);
+          throw error;
+        });
+      }
 
-        function loadSites() {
-          updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_loading || '', buttonStyles.secondary || '');
+      function loadSites() {
+        updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_loading || '', buttonStyles.secondary || '');
           return fetchJSON(apiSitesEndpoint).then(function(payload) {
             state.sites = payload.sites || [];
             state.siteMessages = {};
             renderSites();
           }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
-            saveSiteButton.disabled = false;
+            setFormStatus(error.message || statusMessages.load_failed || '', formStatusDangerClass);
           });
         }
 
@@ -3504,92 +3682,212 @@
         renderSites();
       }
 
+      function resolveSelectedSite() {
+        if (!state.selectedSiteId || isNewSiteSelected()) {
+          return null;
+        }
+        return state.sites.find(function(item) { return item.id === state.selectedSiteId; }) || null;
+      }
+
+      function hasSiteEdits(site, payload, ownerEmailValue) {
+        if (!site) {
+          return true;
+        }
+        var normalizedOwnerEmail = ownerEmailValue || '';
+        if (payload.name !== (site.name || '')) {
+          return true;
+        }
+        if (payload.allowed_origin !== (site.allowed_origin || '')) {
+          return true;
+        }
+        if (normalizedOwnerEmail !== (site.owner_email || '')) {
+          return true;
+        }
+        var existingSubscribeOrigins = normalizeAllowedOriginsList(site.subscribe_allowed_origins || '');
+        if (payload.subscribe_allowed_origins !== existingSubscribeOrigins) {
+          return true;
+        }
+        var existingWidgetOrigins = normalizeAllowedOriginsList(site.widget_allowed_origins || '');
+        if (payload.widget_allowed_origins !== existingWidgetOrigins) {
+          return true;
+        }
+        var existingTrafficOrigins = normalizeAllowedOriginsList(site.traffic_allowed_origins || '');
+        if (payload.traffic_allowed_origins !== existingTrafficOrigins) {
+          return true;
+        }
+        if (payload.widget_bubble_side !== normalizeWidgetSideValue(site.widget_bubble_side)) {
+          return true;
+        }
+        if (payload.widget_bubble_bottom_offset !== normalizeWidgetBottomOffsetValue(site.widget_bubble_bottom_offset)) {
+          return true;
+        }
+        return false;
+      }
+
+      function buildSiteSaveCandidate() {
+        if (!state.selectedSiteId) {
+          return null;
+        }
+        var selectedSite = resolveSelectedSite();
+        var ownerEmailValue = getTrimmedValue(editSiteOwnerInput);
+        var placementPayload = determineWidgetPlacementPayload();
+        var payload = {
+          name: getTrimmedValue(editSiteNameInput),
+          allowed_origin: getTrimmedValue(editSiteOriginInput),
+          subscribe_allowed_origins: readSubscribeAllowedOrigins(),
+          widget_allowed_origins: readWidgetAllowedOrigins(),
+          traffic_allowed_origins: readTrafficAllowedOrigins(),
+          widget_bubble_side: placementPayload.widget_bubble_side,
+          widget_bubble_bottom_offset: placementPayload.widget_bubble_bottom_offset
+        };
+        if (isNewSiteSelected()) {
+          payload.owner_email = ownerEmailValue;
+        } else if (ownerEmailValue && ownerEmailValue !== (selectedSite ? selectedSite.owner_email || '' : '')) {
+          payload.owner_email = ownerEmailValue;
+        }
+        return {
+          siteId: state.selectedSiteId,
+          isNew: isNewSiteSelected(),
+          ownerEmail: ownerEmailValue,
+          payload: payload,
+          hasEdits: hasSiteEdits(selectedSite, payload, ownerEmailValue)
+        };
+      }
+
+      function scheduleAutoSave() {
+        if (!state.selectedSiteId) {
+          return;
+        }
+        var candidate = buildSiteSaveCandidate();
+        if (!candidate) {
+          return;
+        }
+        if (!candidate.isNew && !candidate.hasEdits) {
+          return;
+        }
+        autoSaveCandidate = candidate;
+        if (autoSaveTimerId) {
+          clearTimeout(autoSaveTimerId);
+        }
+        autoSaveTimerId = window.setTimeout(function() {
+          triggerAutoSave();
+        }, autoSaveDelayMilliseconds);
+      }
+
+      function triggerAutoSave() {
+        if (autoSaveTimerId) {
+          clearTimeout(autoSaveTimerId);
+          autoSaveTimerId = null;
+        }
+        var candidate = autoSaveCandidate;
+        autoSaveCandidate = null;
+        if (!candidate) {
+          return;
+        }
+        if (candidate.siteId !== state.selectedSiteId) {
+          return;
+        }
+        requestSiteSave(candidate, saveModeAuto);
+      }
+
+      function requestSiteSave(candidate, saveMode) {
+        if (!candidate) {
+          return;
+        }
+        if (!candidate.isNew && !candidate.hasEdits) {
+          return;
+        }
+        if (autoSaveTimerId) {
+          clearTimeout(autoSaveTimerId);
+          autoSaveTimerId = null;
+        }
+        if (saveMode === saveModeAuto && candidate.siteId !== state.selectedSiteId) {
+          return;
+        }
+        var focusMode = saveMode === saveModeAuto ? validationFocusModeSilent : validationFocusModePrompt;
+        if (!validateSiteForm(focusMode)) {
+          return;
+        }
+        if (autoSaveInFlight) {
+          autoSavePending = true;
+          autoSaveCandidate = candidate;
+          return;
+        }
+        autoSaveInFlight = true;
+        if (candidate.isNew) {
+          setFormStatus(statusMessages.creating_site || '', formStatusBaseClass);
+          createSite(candidate);
+          return;
+        }
+        setFormStatus(statusMessages.saving_site || '', formStatusBaseClass);
+        updateSite(candidate);
+      }
+
       function submitSite(event) {
         if (event) { event.preventDefault(); }
-        if (saveSiteButton.disabled) { return; }
         if (!state.selectedSiteId) {
-            updateButtonStatus(saveSiteButton, statusMessages.select_site || '', buttonStyles.secondary || '');
-            return;
-          }
-          if (!validateSiteForm()) {
-            return;
-          }
-          if (isNewSiteSelected()) {
-            createSite();
-          } else {
-            updateSite();
-          }
+          setFormStatus(statusMessages.select_site || '', formStatusDangerClass);
+          return;
         }
+        var candidate = buildSiteSaveCandidate();
+        if (!candidate) {
+          return;
+        }
+        requestSiteSave(candidate, saveModeManual);
+      }
 
-        function updateSite() {
-          saveSiteButton.disabled = true;
-          updateButtonStatus(saveSiteButton, buttonLabels.save_saving || '');
-          var ownerEmailValue = getTrimmedValue(editSiteOwnerInput);
-          var body = {
-            name: getTrimmedValue(editSiteNameInput),
-            allowed_origin: getTrimmedValue(editSiteOriginInput),
-            subscribe_allowed_origins: readSubscribeAllowedOrigins()
-          };
-          if (ownerEmailValue) {
-            body.owner_email = ownerEmailValue;
-          }
-          var placementPayload = determineWidgetPlacementPayload();
-          body.widget_bubble_side = placementPayload.widget_bubble_side;
-          body.widget_bubble_bottom_offset = placementPayload.widget_bubble_bottom_offset;
-          var endpoint = apiSiteUpdatePrefix + state.selectedSiteId;
-          fetchJSON(endpoint, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-          }).then(function(payload) {
-            updateButtonStatus(saveSiteButton, buttonLabels.save_saved || '');
-            saveSiteButton.disabled = false;
-            var index = state.sites.findIndex(function(item) { return item.id === payload.id; });
-            if (index >= 0) {
-              state.sites[index] = payload;
-            }
-            renderSites();
-          }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
-            saveSiteButton.disabled = false;
-          });
+      function finalizeAutoSave() {
+        autoSaveInFlight = false;
+        if (autoSavePending) {
+          autoSavePending = false;
+          scheduleAutoSave();
         }
+      }
 
-        function createSite() {
-          saveSiteButton.disabled = true;
-          updateButtonStatus(saveSiteButton, buttonLabels.save_saving || '');
-          var body = {
-            name: getTrimmedValue(editSiteNameInput),
-            allowed_origin: getTrimmedValue(editSiteOriginInput),
-            owner_email: getTrimmedValue(editSiteOwnerInput),
-            subscribe_allowed_origins: readSubscribeAllowedOrigins()
-          };
-          var placementPayload = determineWidgetPlacementPayload();
-          body.widget_bubble_side = placementPayload.widget_bubble_side;
-          body.widget_bubble_bottom_offset = placementPayload.widget_bubble_bottom_offset;
-          fetchJSON(apiSitesEndpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-          }).then(function(payload) {
-            updateButtonStatus(saveSiteButton, buttonLabels.save_created || '');
-            saveSiteButton.disabled = false;
-            state.sites.unshift(payload);
-            if (!state.siteMessages) {
-              state.siteMessages = {};
-            }
-            state.siteMessages[payload.id] = [];
-            state.selectedSiteId = payload.id;
-            renderSites();
-          }).catch(function(error) {
-            updateButtonStatus(saveSiteButton, error.message || buttonLabels.save_failed || '', buttonStyles.danger || '');
-            saveSiteButton.disabled = false;
-          });
-        }
+      function updateSite(candidate) {
+        var endpoint = apiSiteUpdatePrefix + candidate.siteId;
+        fetchJSON(endpoint, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(candidate.payload)
+        }).then(function(payload) {
+          setFormStatus(statusMessages.site_saved || '', formStatusSuccessClass);
+          var index = state.sites.findIndex(function(item) { return item.id === payload.id; });
+          if (index >= 0) {
+            state.sites[index] = payload;
+          }
+          renderSites();
+          finalizeAutoSave();
+        }).catch(function(error) {
+          setFormStatus(error.message || buttonLabels.save_failed || '', formStatusDangerClass);
+          finalizeAutoSave();
+        });
+      }
+
+      function createSite(candidate) {
+        fetchJSON(apiSitesEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(candidate.payload)
+        }).then(function(payload) {
+          setFormStatus(statusMessages.site_created || '', formStatusSuccessClass);
+          state.sites.unshift(payload);
+          if (!state.siteMessages) {
+            state.siteMessages = {};
+          }
+          state.siteMessages[payload.id] = [];
+          state.selectedSiteId = payload.id;
+          renderSites();
+          finalizeAutoSave();
+        }).catch(function(error) {
+          setFormStatus(error.message || buttonLabels.save_failed || '', formStatusDangerClass);
+          finalizeAutoSave();
+        });
+      }
 
         if (sitesList) {
           sitesList.addEventListener('click', handleSitesListClick);
@@ -3694,6 +3992,16 @@
             adjustWidgetBottomOffset(widgetBottomOffsetStep);
           });
         }
+        if (widgetSideLeftOption) {
+          widgetSideLeftOption.addEventListener('change', function() {
+            scheduleAutoSave();
+          });
+        }
+        if (widgetSideRightOption) {
+          widgetSideRightOption.addEventListener('change', function() {
+            scheduleAutoSave();
+          });
+        }
         if (widgetBottomOffsetInput) {
           widgetBottomOffsetInput.addEventListener('keydown', function(event) {
             if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
@@ -3731,9 +4039,6 @@
 
         if (siteForm) {
           siteForm.addEventListener('submit', submitSite);
-        }
-        if (saveSiteButton) {
-          saveSiteButton.addEventListener('click', submitSite);
         }
         if (footerElement) {
           footerElement.addEventListener('mpr-footer:theme-change', function(event) {

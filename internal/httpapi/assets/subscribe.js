@@ -42,6 +42,10 @@
     var success = params.get("success") || defaultSuccessText;
     var error = params.get("error") || defaultErrorText;
     var hideName = params.get("name_field") === "false";
+    var targetId = params.get("target") || scriptTag.getAttribute("data-target") || "";
+    if (targetId) {
+      targetId = String(targetId).trim();
+    }
     var siteId = params.get("site_id") || scriptTag.getAttribute("data-site-id") || "";
     if (!siteId) {
       siteId = "{{ .SiteID }}";
@@ -53,7 +57,8 @@
       cta: cta,
       success: success,
       error: error,
-      hideName: hideName
+      hideName: hideName,
+      targetId: targetId
     };
   }
 
@@ -181,7 +186,7 @@
     return { email: email, name: name, submit: submit, status: status };
   }
 
-  function renderInline(container, formElements) {
+  function renderInline(container, formElements, targetElement) {
     var heading = document.createElement("div");
     heading.style.fontWeight = "600";
     heading.style.marginBottom = "8px";
@@ -197,7 +202,10 @@
     container.appendChild(spacer);
     container.appendChild(formElements.submit);
     container.appendChild(formElements.status);
-    document.body.appendChild(container);
+    var host = targetElement || document.body;
+    if (host) {
+      host.appendChild(container);
+    }
   }
 
   function renderBubble(bubble, panel, formElements) {
@@ -288,6 +296,10 @@
       console.error("subscribe.js: missing site_id");
       return;
     }
+    var targetElement = null;
+    if (config.targetId) {
+      targetElement = document.getElementById(config.targetId);
+    }
     var endpoint = buildEndpoint(scriptTag);
     var formElements = createFormElements(config);
     var togglePanel = null;
@@ -312,7 +324,7 @@
         togglePanel(false);
       });
     } else {
-      renderInline(createInlineContainer(config), formElements);
+      renderInline(createInlineContainer(config), formElements, targetElement);
     }
 
     attachBehavior(config, endpoint, formElements, togglePanel);
