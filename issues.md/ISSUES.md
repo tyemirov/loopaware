@@ -231,11 +231,12 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Notes: Reported behavior: added origins are not shown after logging out and back in, even though they were saved.
   Resolution: Unable to reproduce; added headless coverage to rehydrate subscribe origins after re-login and verified persistence in storage.
 
-- [ ] [LA-337] Subscribe form renders a name field even when the widget disables it.
+- [x] [LA-337] Subscribe form renders a name field even when the widget disables it.
   Priority: P1
   Goal: When the subscribe widget requests no name field, the rendered form omits it consistently across embed/test flows.
   Deliverable: PR with a failing integration test plus a fix that honors the widget flag end-to-end.
   Notes: Reported behavior: subscribe form still renders the name input even when the widget says no name.
+  Resolution: Omitted the name input when `name_field=false` in the embed script and subscribe test preview, with integration coverage asserting the field is absent.
   Docs/Refs:
   - `internal/httpapi/subscribe_template.go`
   - `internal/httpapi/subscribe_demo_template.go`

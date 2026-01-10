@@ -142,19 +142,19 @@
     email.style.boxSizing = "border-box";
     email.autocomplete = "email";
 
-    var name = document.createElement("input");
-    name.id = nameInputId;
-    name.type = "text";
-    name.placeholder = defaultNamePlaceholder;
-    name.style.width = "100%";
-    name.style.padding = "10px 12px";
-    name.style.border = "1px solid #d1d5db";
-    name.style.borderRadius = "8px";
-    name.style.fontSize = "14px";
-    name.style.boxSizing = "border-box";
-    name.autocomplete = "name";
-    if (config.hideName) {
-      name.style.display = "none";
+    var name = null;
+    if (!config.hideName) {
+      name = document.createElement("input");
+      name.id = nameInputId;
+      name.type = "text";
+      name.placeholder = defaultNamePlaceholder;
+      name.style.width = "100%";
+      name.style.padding = "10px 12px";
+      name.style.border = "1px solid #d1d5db";
+      name.style.borderRadius = "8px";
+      name.style.fontSize = "14px";
+      name.style.boxSizing = "border-box";
+      name.autocomplete = "name";
     }
 
     var submit = document.createElement("button");
@@ -189,7 +189,9 @@
     container.appendChild(heading);
 
     container.appendChild(formElements.email);
-    container.appendChild(formElements.name);
+    if (formElements.name) {
+      container.appendChild(formElements.name);
+    }
     var spacer = document.createElement("div");
     spacer.style.height = "8px";
     container.appendChild(spacer);
@@ -200,7 +202,9 @@
 
   function renderBubble(bubble, panel, formElements) {
     panel.appendChild(formElements.email);
-    panel.appendChild(formElements.name);
+    if (formElements.name) {
+      panel.appendChild(formElements.name);
+    }
     var spacer = document.createElement("div");
     spacer.style.height = "8px";
     panel.appendChild(spacer);
@@ -225,7 +229,10 @@
     formElements.submit.addEventListener("click", function(){
       if (sending) { return; }
       var emailValue = (formElements.email.value || "").trim();
-      var nameValue = (formElements.name.value || "").trim();
+      var nameValue = "";
+      if (formElements.name) {
+        nameValue = (formElements.name.value || "").trim();
+      }
       if (!validateEmail(emailValue)) {
         showStatus(formElements.status, "Enter a valid email.", "#dc2626");
         formElements.email.focus();
@@ -238,9 +245,11 @@
       var payload = {
         site_id: config.siteId,
         email: emailValue,
-        name: nameValue,
         source_url: window.location ? window.location.href : ""
       };
+      if (formElements.name) {
+        payload.name = nameValue;
+      }
 
       var fetchOptions = {
         method: "POST",
@@ -254,7 +263,9 @@
         return resp.json();
       }).then(function(){
         formElements.email.value = "";
-        formElements.name.value = "";
+        if (formElements.name) {
+          formElements.name.value = "";
+        }
         showStatus(formElements.status, config.success || defaultSuccessText, "#15803d");
         formElements.submit.disabled = false;
         sending = false;

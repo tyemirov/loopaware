@@ -96,3 +96,25 @@ func TestSubscribeWidgetSubmitsSubscription(t *testing.T) {
 	require.Equal(t, stored.Email, notification.Subscriber.Email)
 	require.Equal(t, model.SubscriberStatusConfirmed, notification.Subscriber.Status)
 }
+
+func TestSubscribeWidgetOmitsNameFieldWhenDisabled(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	subscriptionNotifier := &recordingSubscriptionNotifier{t: testingT}
+	emailSender := &recordingEmailSender{t: testingT}
+	api := buildAPIHarness(testingT, nil, subscriptionNotifier, emailSender)
+
+	server := newHTTPTestServer(testingT, api.router)
+
+	page := buildHeadlessPage(testingT)
+
+	site := insertSite(testingT, api.database, "Subscribe No Name", server.URL, "owner@example.com")
+
+	demoURL := fmt.Sprintf("%s/subscribe-demo?site_id=%s&name_field=false", server.URL, site.ID)
+	navigateToPage(testingT, page, demoURL)
+	waitForVisibleElement(testingT, page, "#"+subscribeEmailInputID)
+
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, page, `document.getElementById("`+subscribeNameInputID+`") === null`)
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+}
