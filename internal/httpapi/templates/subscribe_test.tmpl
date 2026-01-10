@@ -313,7 +313,7 @@
         return container;
       }
 
-      function createFormElements() {
+      function createFormElements(showName) {
         var heading = document.createElement('div');
         heading.style.fontWeight = '600';
         heading.style.marginBottom = '8px';
@@ -332,17 +332,20 @@
         email.style.boxSizing = 'border-box';
         email.autocomplete = 'email';
 
-        var name = document.createElement('input');
-        name.id = 'mp-subscribe-name';
-        name.type = 'text';
-        name.placeholder = 'Your name (optional)';
-        name.style.width = '100%';
-        name.style.padding = '10px 12px';
-        name.style.border = '1px solid #d1d5db';
-        name.style.borderRadius = '8px';
-        name.style.fontSize = '14px';
-        name.style.boxSizing = 'border-box';
-        name.autocomplete = 'name';
+        var name = null;
+        if (showName) {
+          name = document.createElement('input');
+          name.id = 'mp-subscribe-name';
+          name.type = 'text';
+          name.placeholder = 'Your name (optional)';
+          name.style.width = '100%';
+          name.style.padding = '10px 12px';
+          name.style.border = '1px solid #d1d5db';
+          name.style.borderRadius = '8px';
+          name.style.fontSize = '14px';
+          name.style.boxSizing = 'border-box';
+          name.autocomplete = 'name';
+        }
 
         var submit = document.createElement('button');
         submit.id = 'mp-subscribe-submit';
@@ -374,7 +377,7 @@
         };
       }
 
-      function renderInlinePreview() {
+      function renderInlinePreview(showName) {
         if (!inlineFormContainer) {
           return null;
         }
@@ -384,10 +387,12 @@
         innerWrapper.style.display = 'flex';
         innerWrapper.style.justifyContent = 'center';
         var container = createInlineContainer();
-        var elements = createFormElements();
+        var elements = createFormElements(showName);
         container.appendChild(elements.heading);
         container.appendChild(elements.email);
-        container.appendChild(elements.name);
+        if (elements.name) {
+          container.appendChild(elements.name);
+        }
         var spacer = document.createElement('div');
         spacer.style.height = '8px';
         container.appendChild(spacer);
@@ -401,7 +406,12 @@
           name: elements.name,
           submit: elements.submit,
           status: elements.status,
+          hasNameField: showName,
         };
+      }
+
+      function shouldShowNameField() {
+        return !nameFieldInput || nameFieldInput.checked;
       }
 
       function applyPreviewOptions() {
@@ -410,11 +420,12 @@
         }
         inlinePreview.submit.textContent = normalizeCTA(ctaInput && ctaInput.value);
         inlinePreview.submit.style.background = normalizeAccent(accentInput && accentInput.value);
-        var showName = !nameFieldInput || nameFieldInput.checked;
-        inlinePreview.name.style.display = showName ? 'block' : 'none';
-        if (!showName) {
-          inlinePreview.name.value = '';
-        }
+      }
+
+      function refreshInlinePreview() {
+        inlinePreview = renderInlinePreview(shouldShowNameField());
+        applyPreviewOptions();
+        attachFormBehavior();
       }
 
       function updateFormStatus(message, color) {
@@ -432,7 +443,10 @@
         var sending = false;
         function currentNameValue() {
           if (!nameFieldInput || nameFieldInput.checked) {
-            return inlinePreview.name.value || '';
+            if (inlinePreview.name) {
+              return inlinePreview.name.value || '';
+            }
+            return '';
           }
           return '';
         }
@@ -473,7 +487,9 @@
             });
           }).then(function() {
             inlinePreview.email.value = '';
-            inlinePreview.name.value = '';
+            if (inlinePreview.name) {
+              inlinePreview.name.value = '';
+            }
             updateFormStatus("You're on the list!", '#15803d');
           }).catch(function(error) {
             if (error && error.message === 'unauthorized') {
@@ -495,12 +511,14 @@
             submitInlineForm();
           }
         });
-        inlinePreview.name.addEventListener('keydown', function(event) {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            submitInlineForm();
-          }
-        });
+        if (inlinePreview.name) {
+          inlinePreview.name.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              submitInlineForm();
+            }
+          });
+        }
       }
 
       function appendStatusLog(event) {
@@ -570,9 +588,7 @@
         };
       }
 
-      inlinePreview = renderInlinePreview();
-      applyPreviewOptions();
-      attachFormBehavior();
+      refreshInlinePreview();
       connectEvents();
 
       if (accentInput) {
@@ -582,7 +598,7 @@
         ctaInput.addEventListener('input', applyPreviewOptions);
       }
       if (nameFieldInput) {
-        nameFieldInput.addEventListener('change', applyPreviewOptions);
+        nameFieldInput.addEventListener('change', refreshInlinePreview);
       }
     }());
   </script>

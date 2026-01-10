@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -62,6 +63,28 @@ func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, sub
 	router.GET("/widget.js", publicHandlers.WidgetJS)
 	router.GET("/subscribe.js", publicHandlers.SubscribeJS)
 	router.GET("/subscribe-demo", publicHandlers.SubscribeDemo)
+	router.GET("/subscribe-target-test", func(context *gin.Context) {
+		siteID := strings.TrimSpace(context.Query("site_id"))
+		if siteID == "" {
+			context.String(http.StatusBadRequest, "missing site_id")
+			return
+		}
+		targetID := strings.TrimSpace(context.Query("target"))
+		if targetID == "" {
+			targetID = "subscribe-target"
+		}
+		useDataTarget := context.Query("data_target") == "true"
+		scriptURL := "/subscribe.js?site_id=" + url.QueryEscape(siteID)
+		if !useDataTarget {
+			scriptURL += "&target=" + url.QueryEscape(targetID)
+		}
+		dataTargetAttribute := ""
+		if useDataTarget {
+			dataTargetAttribute = fmt.Sprintf(` data-target="%s"`, targetID)
+		}
+		page := fmt.Sprintf(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Subscribe Target Test</title></head><body><div id="%s"></div><script defer src="%s"%s></script></body></html>`, targetID, scriptURL, dataTargetAttribute)
+		context.Data(http.StatusOK, "text/html; charset=utf-8", []byte(page))
+	})
 	router.GET("/api/visits", publicHandlers.CollectVisit)
 
 	testingT.Cleanup(feedbackBroadcaster.Close)
@@ -200,6 +223,27 @@ func TestCreateFeedbackValidatesPayload(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	api.router.ServeHTTP(bad, req)
 	require.Equal(t, http.StatusBadRequest, bad.Code)
+}
+
+func TestCreateFeedbackAcceptsWidgetAllowedOrigins(t *testing.T) {
+	api := buildAPIHarness(t, nil, nil, nil)
+	site := insertSite(t, api.database, "Widget Origins", "http://origin.example", "owner@example.com")
+	site.WidgetAllowedOrigins = "http://widget.example"
+	require.NoError(t, api.database.Save(&site).Error)
+
+	ok := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+		"site_id": site.ID,
+		"contact": "person@example.com",
+		"message": "Hello",
+	}, map[string]string{"Origin": "http://widget.example"})
+	require.Equal(t, http.StatusOK, ok.Code)
+
+	badOrigin := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+		"site_id": site.ID,
+		"contact": "person@example.com",
+		"message": "Hello",
+	}, map[string]string{"Origin": "http://evil.example"})
+	require.Equal(t, http.StatusForbidden, badOrigin.Code)
 }
 
 func TestCreateSubscriptionStoresSubscriber(t *testing.T) {
@@ -566,6 +610,25 @@ func TestCollectVisitRequiresMatchingURLOrigin(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://other.example/page", nil)
 	request.Header.Set("Referer", "http://dashboard.loopaware.test/app/sites/"+site.ID+"/traffic-test")
 
+	api.router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusForbidden, recorder.Code)
+}
+
+func TestCollectVisitAcceptsTrafficAllowedOrigins(t *testing.T) {
+	api := buildAPIHarness(t, nil, nil, nil)
+	site := insertSite(t, api.database, "Traffic Origins", "http://visits.example", "owner@example.com")
+	site.TrafficAllowedOrigins = "http://pixel.example"
+	require.NoError(t, api.database.Save(&site).Error)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://pixel.example/page", nil)
+	request.Header.Set("Origin", "http://pixel.example")
+	api.router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code)
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://evil.example/page", nil)
+	request.Header.Set("Origin", "http://evil.example")
 	api.router.ServeHTTP(recorder, request)
 	require.Equal(t, http.StatusForbidden, recorder.Code)
 }

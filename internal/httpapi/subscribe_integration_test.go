@@ -13,10 +13,12 @@ import (
 )
 
 const (
-	subscribeEmailInputID    = "mp-subscribe-email"
-	subscribeNameInputID     = "mp-subscribe-name"
-	subscribeSubmitButtonID  = "mp-subscribe-submit"
-	subscribeStatusElementID = "mp-subscribe-status"
+	subscribeEmailInputID      = "mp-subscribe-email"
+	subscribeNameInputID       = "mp-subscribe-name"
+	subscribeSubmitButtonID    = "mp-subscribe-submit"
+	subscribeStatusElementID   = "mp-subscribe-status"
+	subscribeFormContainerID   = "mp-subscribe-form"
+	subscribeTargetContainerID = "subscribe-target"
 )
 
 func TestSubscribeWidgetSubmitsSubscription(t *testing.T) {
@@ -95,4 +97,68 @@ func TestSubscribeWidgetSubmitsSubscription(t *testing.T) {
 	require.Equal(t, stored.ID, notification.Subscriber.ID)
 	require.Equal(t, stored.Email, notification.Subscriber.Email)
 	require.Equal(t, model.SubscriberStatusConfirmed, notification.Subscriber.Status)
+}
+
+func TestSubscribeWidgetRendersIntoTargetContainer(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	subscriptionNotifier := &recordingSubscriptionNotifier{t: testingT}
+	emailSender := &recordingEmailSender{t: testingT}
+	api := buildAPIHarness(testingT, nil, subscriptionNotifier, emailSender)
+
+	server := newHTTPTestServer(testingT, api.router)
+
+	site := insertSite(testingT, api.database, "Subscribe Target", server.URL, "owner@example.com")
+
+	testCases := []struct {
+		name          string
+		targetTestURL string
+	}{
+		{
+			name:          "query_param_target",
+			targetTestURL: fmt.Sprintf("%s/subscribe-target-test?site_id=%s&target=%s", server.URL, site.ID, subscribeTargetContainerID),
+		},
+		{
+			name:          "data_attribute_target",
+			targetTestURL: fmt.Sprintf("%s/subscribe-target-test?site_id=%s&target=%s&data_target=true", server.URL, site.ID, subscribeTargetContainerID),
+		},
+	}
+
+	for _, testCase := range testCases {
+		testingT.Run(testCase.name, func(subTest *testing.T) {
+			page := buildHeadlessPage(subTest)
+			navigateToPage(subTest, page, testCase.targetTestURL)
+
+			require.Eventually(subTest, func() bool {
+				lookupScript := fmt.Sprintf(`(function(){
+					var target = document.getElementById(%q);
+					if (!target) { return false; }
+					return !!target.querySelector(%q);
+				}())`, subscribeTargetContainerID, "#"+subscribeFormContainerID)
+				return evaluateScriptBoolean(subTest, page, lookupScript)
+			}, integrationStatusWaitTimeout, integrationStatusPollInterval)
+		})
+	}
+}
+
+func TestSubscribeWidgetOmitsNameFieldWhenDisabled(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	subscriptionNotifier := &recordingSubscriptionNotifier{t: testingT}
+	emailSender := &recordingEmailSender{t: testingT}
+	api := buildAPIHarness(testingT, nil, subscriptionNotifier, emailSender)
+
+	server := newHTTPTestServer(testingT, api.router)
+
+	page := buildHeadlessPage(testingT)
+
+	site := insertSite(testingT, api.database, "Subscribe No Name", server.URL, "owner@example.com")
+
+	demoURL := fmt.Sprintf("%s/subscribe-demo?site_id=%s&name_field=false", server.URL, site.ID)
+	navigateToPage(testingT, page, demoURL)
+	waitForVisibleElement(testingT, page, "#"+subscribeEmailInputID)
+
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, page, `document.getElementById("`+subscribeNameInputID+`") === null`)
+	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
 }
