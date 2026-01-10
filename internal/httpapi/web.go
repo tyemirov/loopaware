@@ -87,7 +87,7 @@ const (
 	sessionTimeoutMessageClass                 = "session-timeout-message fw-semibold mb-0"
 	sessionTimeoutConfirmButtonElementID       = "session-timeout-confirm-button"
 	sessionTimeoutDismissButtonElementID       = "session-timeout-dismiss-button"
-	sessionTimeoutContainerBaseClass           = "session-timeout-banner position-fixed start-0 end-0 border-top py-3 w-100 d-none z-3"
+	sessionTimeoutContainerBaseClass           = "session-timeout-banner position-fixed start-0 end-0 bottom-0 border-top py-3 w-100 d-none z-3"
 	sessionTimeoutContainerVisibleClass        = "d-block"
 	sessionTimeoutContainerHiddenClass         = "d-none"
 	sessionTimeoutLightThemeClass              = "bg-body-secondary text-dark border-light-subtle"
@@ -174,6 +174,12 @@ const (
 	subscribeAllowedOriginsTitle               = "Additional subscribe origins"
 	subscribeAllowedOriginsHelpText            = "Optional: allow the subscribe form to run on extra origins beyond the site's allowed origins."
 	subscribeAllowedOriginsListElementID       = "subscribe-allowed-origins-list"
+	widgetAllowedOriginsTitle                  = "Additional widget origins"
+	widgetAllowedOriginsHelpText               = "Optional: allow the feedback widget to run on extra origins beyond the site's allowed origins."
+	widgetAllowedOriginsListElementID          = "widget-allowed-origins-list"
+	trafficAllowedOriginsTitle                 = "Additional traffic origins"
+	trafficAllowedOriginsHelpText              = "Optional: allow the traffic pixel to run on extra origins beyond the site's allowed origins."
+	trafficAllowedOriginsListElementID         = "traffic-allowed-origins-list"
 	visitCountElementID                        = "visit-count"
 	uniqueVisitorCountElementID                = "unique-visitor-count"
 	trafficStatusElementID                     = "traffic-status"
@@ -385,6 +391,12 @@ type dashboardTemplateData struct {
 	SubscribeAllowedOriginsTitle            string
 	SubscribeAllowedOriginsHelpText         string
 	SubscribeAllowedOriginsListID           string
+	WidgetAllowedOriginsTitle               string
+	WidgetAllowedOriginsHelpText            string
+	WidgetAllowedOriginsListID              string
+	TrafficAllowedOriginsTitle              string
+	TrafficAllowedOriginsHelpText           string
+	TrafficAllowedOriginsListID             string
 	VisitCountElementID                     string
 	UniqueVisitorCountElementID             string
 	TrafficStatusID                         string
@@ -753,6 +765,12 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		SubscribeAllowedOriginsTitle:            subscribeAllowedOriginsTitle,
 		SubscribeAllowedOriginsHelpText:         subscribeAllowedOriginsHelpText,
 		SubscribeAllowedOriginsListID:           subscribeAllowedOriginsListElementID,
+		WidgetAllowedOriginsTitle:               widgetAllowedOriginsTitle,
+		WidgetAllowedOriginsHelpText:            widgetAllowedOriginsHelpText,
+		WidgetAllowedOriginsListID:              widgetAllowedOriginsListElementID,
+		TrafficAllowedOriginsTitle:              trafficAllowedOriginsTitle,
+		TrafficAllowedOriginsHelpText:           trafficAllowedOriginsHelpText,
+		TrafficAllowedOriginsListID:             trafficAllowedOriginsListElementID,
 		VisitCountElementID:                     visitCountElementID,
 		UniqueVisitorCountElementID:             uniqueVisitorCountElementID,
 		TrafficStatusID:                         trafficStatusElementID,
@@ -988,6 +1006,8 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 			"export_subscribers_button":           exportSubscribersButtonElementID,
 			"subscribers_status":                  subscribersStatusElementID,
 			"subscribe_allowed_origins_list":      subscribeAllowedOriginsListElementID,
+			"widget_allowed_origins_list":         widgetAllowedOriginsListElementID,
+			"traffic_allowed_origins_list":        trafficAllowedOriginsListElementID,
 			"visit_count":                         visitCountElementID,
 			"unique_visitor_count":                uniqueVisitorCountElementID,
 			"traffic_status":                      trafficStatusElementID,

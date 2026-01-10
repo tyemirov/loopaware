@@ -8,6 +8,20 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## Features (113–199)
 
+- [x] [LA-113] Add `target` parameter to subscribe.js for rendering into specific DOM elements.
+  Priority: P1
+  Goal: Allow subscribe.js to render the subscribe form into a specific element instead of always appending to document.body. This enables embedding the subscribe widget inside cards, modals, or other constrained containers without using iframes.
+  Deliverable: PR that adds `target` parameter support to subscribe.js; form renders into `document.getElementById(targetId)` when specified, falls back to `document.body` when not.
+  Use case: Marco Polo Research Lab landing page embeds subscribe forms on flippable card backs. Using iframes causes CORS issues (srcdoc iframes have `Origin: null`). Direct embedding with target parameter avoids this.
+  Resolution: Added target param/data-target support to subscribe.js and integration coverage ensuring inline forms render into the requested container.
+  Implementation notes:
+  - Add `target` to `parseConfig()` alongside existing params
+  - Support both URL param (`?target=my-element-id`) and data attribute (`data-target="my-element-id"`)
+  - Modify `renderInline()` to accept optional `targetElement` parameter
+  - Resolve target in `main()`: `document.getElementById(config.targetId)` or fallback to `document.body`
+  Docs/Refs:
+  - `internal/httpapi/assets/subscribe.js`
+
 ## BugFixes (312–399)
 
 - [x] [LA-318] Theme toggle defaults and mapping are wrong (left = light, right = dark).
@@ -39,11 +53,12 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - Identify overriding selectors in LoopAware CSS (especially for footer text colors).
   - Adjust styles to avoid clobbering mpr-ui defaults; verify both themes.
 
-- [ ] [LA-319] Additional subscribe origins may not persist/display after saving and returning to the site editor.
+- [x] [LA-319] Additional subscribe origins may not persist/display after saving and returning to the site editor.
   Priority: P1
   Goal: When operators add additional subscribe origins, save the site, and later re-open the same site in the dashboard, the saved origins are shown in the “Additional subscribe origins” editor.
   Deliverable: PR with a reproducible failing test + fix (or documented repro steps if environment-specific).
   Notes: Reported behavior is “added origins do not appear after returning to the site”; confirm whether the operator clicked Save, and whether the dashboard was refreshed or the site was re-selected without a reload.
+  Resolution: Unable to reproduce after verifying persistence/rehydration coverage for subscribe origins.
   Docs/Refs:
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/admin.go` (site responses)
@@ -180,7 +195,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/templates/dashboard.tmpl`
 
-- [ ] [LA-332] ![alt text](image-1.png) The logout notification is floating in space instead of being sticky to the bottom of the screen
+- [x] [LA-332] ![alt text](image-1.png) The logout notification is floating in space instead of being sticky to the bottom of the screen
+  Priority: P1
+  Goal: Session timeout notification is fixed to the bottom edge of the viewport.
+  Deliverable: PR that pins the timeout notification to the bottom and adds integration coverage for its position.
+  Resolution: Added bottom anchoring to the timeout banner and integration coverage asserting its bottom alignment.
 - [x] [LA-333] Safari header dropdown actions are unresponsive after auth.
   Priority: P1
   Goal: Avatar dropdown opens and settings/logout clicks work on Safari without missing bindings.
@@ -191,6 +210,42 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/templates/dashboard_header.tmpl`
   - `tools/mpr-ui/docs/custom-elements.md`
+
+- [x] [LA-334] Logout occurs much faster than the configured timeout.
+  Priority: P1
+  Goal: Authentication sessions honor the configured timeout before forcing logout.
+  Deliverable: PR that identifies the premature logout trigger, aligns the effective timeout with configuration, and adds/updates integration coverage for session duration.
+  Notes: Reported behavior indicates logout occurs significantly earlier than the configured session timeout; confirm whether this is driven by the dashboard inactivity timer vs. server/TAuth session expiry.
+  Resolution: Scoped auto-logout settings to user-specific storage keys, clear legacy storage after migration, and added integration coverage to confirm per-user settings; `make ci` passes.
+
+- [x] [LA-335] Google Sign-In auto-suggests login after a timed-out logout.
+  Priority: P1
+  Goal: After an inactivity-triggered logout, Google Sign-In should not immediately prompt or auto-suggest login without user action.
+  Deliverable: PR that suppresses auto-prompt/auto-select behavior after timeout-driven logout and adds integration coverage for the post-timeout login UX.
+  Notes: Observed behavior is a Google Sign-In prompt immediately after timeout logout; confirm whether GIS auto-select or mpr-ui auth bootstrap is responsible and ensure the prompt only appears on explicit user intent.
+  Resolution: Disabled Google auto-select during timeout-driven logout and added integration coverage to verify the suppression; `make ci` passes.
+
+- [x] [LA-336] Additional subscribe origins disappear after logout/login.
+  Priority: P1
+  Goal: Additional subscribe origins remain visible in the dashboard editor after a logout/login cycle and are enforced by the backend.
+  Deliverable: PR that persists and rehydrates additional subscribe origins in the UI after re-auth and adds coverage for visibility + origin enforcement.
+  Notes: Reported behavior: added origins are not shown after logging out and back in, even though they were saved.
+  Resolution: Unable to reproduce; added headless coverage to rehydrate subscribe origins after re-login and verified persistence in storage.
+
+- [x] [LA-337] Subscribe form renders a name field even when the widget disables it.
+  Priority: P1
+  Goal: When the subscribe widget requests no name field, the rendered form omits it consistently across embed/test flows.
+  Deliverable: PR with a failing integration test plus a fix that honors the widget flag end-to-end.
+  Notes: Reported behavior: subscribe form still renders the name input even when the widget says no name.
+  Resolution: Omitted the name input when `name_field=false` in the embed script and subscribe test preview, with integration coverage asserting the field is absent.
+  Docs/Refs:
+  - `internal/httpapi/subscribe_template.go`
+  - `internal/httpapi/subscribe_demo_template.go`
+  - `internal/httpapi/templates/subscribe_test.tmpl`
+
+- [x] [LA-338] Defer timeout start until user settings are loaded
+  Because applyAutoLogoutSettingsForUser(null) runs before loadUser() and the session-timeout manager is started before loadUser() resolves (see sessionTimeoutStartRequested/sessionTimeoutManager.start() later in this template), the idle timer begins with default settings until the user-specific key is known. After this change clears the legacy base key, a slow /me response (e.g., degraded API or high latency) can trigger the 60/120-second defaults even for users who have configured longer timeouts, reintroducing “premature logout” in that scenario. Consider delaying sessionTimeoutStartRequested until applyAutoLogoutSettingsForUser(state.user) runs or caching the last user key so the correct settings are loaded before starting the timer.
+  Resolution: Deferred session-timeout start until after user settings load and added integration coverage with a delayed /api/me response to confirm the start gate.
 
 ## Improvements (210–299)
 
@@ -244,6 +299,20 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/web.go`
   - `internal/httpapi/subscribe_allowed_origins_dashboard_integration_test.go`
+
+- [x] [LA-217] Autosave site edits and remove the Update Site button.
+  Priority: P2
+  Goal: Site name/origin/owner/placement changes are auto-saved without requiring a manual Update action.
+  Deliverable: PR that debounces/saves site edits automatically, removes the Update button from the UI, and adds integration coverage for auto-save behavior.
+  Notes: Ensure auto-save handles validation errors gracefully and does not persist partial/invalid values.
+  Resolution: Removed the Update Site button, added debounced autosave with form-status messaging/validation handling, and updated integration coverage for autosaved site edits and subscribe origins; `make ci` passes.
+
+- [x] [LA-218] Add per-widget additional origins for feedback and traffic widgets.
+  Priority: P2
+  Goal: Operators can configure extra allowed origins independently for feedback and traffic widgets, similar to subscribe.
+  Deliverable: PR that adds per-widget additional origins fields for feedback + traffic, persists them, enforces them in widget endpoints, and adds integration coverage for UI + origin validation.
+  Notes: Keep site-level `allowed_origin` as the shared baseline; widget-specific origins should be additive.
+  Resolution: Added widget/traffic allowed origins fields to the admin API and site model, enforced them in feedback/visit endpoints, and added dashboard autosave integration coverage; `make ci` passes.
 
 ## Maintenance (408–499)
 

@@ -135,7 +135,8 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 
 	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
 	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
-	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader, "") {
+	allowedOrigins := mergedAllowedOrigins(site.AllowedOrigin, site.WidgetAllowedOrigins)
+	if !isOriginAllowed(allowedOrigins, originHeader, refererHeader, "") {
 		context.JSON(403, gin.H{"error": "origin_forbidden"})
 		return
 	}

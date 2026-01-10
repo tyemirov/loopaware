@@ -25,8 +25,8 @@ const (
 	dashboardFooterBrandName                   = "Marco Polo Research Lab"
 	dashboardButtonStatusToken                 = "buttonStatusDisplayDuration"
 	dashboardRestoreButtonToken                = "restoreButtonDefault"
-	dashboardCreateButtonPattern               = "setButtonDefault(saveSiteButton, createButtonLabel, createButtonClass);"
-	dashboardUpdateButtonPattern               = "setButtonDefault(saveSiteButton, updateButtonLabel, updateButtonClass);"
+	dashboardAutoSaveDelayToken                = "var autoSaveDelayMilliseconds ="
+	dashboardAutoSaveScheduleToken             = "function scheduleAutoSave()"
 	dashboardButtonStylesToken                 = "var buttonStyles = parsedConfig.button_styles || {};"
 	dashboardButtonStylesPrimary               = "\"primary\":\"btn btn-outline-primary btn-sm\""
 	dashboardButtonStylesSuccess               = "\"success\":\"btn btn-outline-success btn-sm\""
@@ -48,10 +48,8 @@ const (
 	dashboardRefreshSuccessUpdateCall          = "updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_success || '', buttonStyles.secondary || '');"
 	dashboardRefreshFailureUpdateCall          = "updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_failed || '', buttonStyles.danger || '');"
 	dashboardRefreshLoadingUpdateCall          = "updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_loading || '', buttonStyles.secondary || '');"
-	dashboardSubmitGuardUpdateCall             = "updateButtonStatus(saveSiteButton, statusMessages.select_site || '', buttonStyles.secondary || '');"
-	dashboardSaveButtonClassMarkup             = "class=\"btn btn-outline-success btn-sm\""
+	dashboardSubmitGuardStatusToken            = "setFormStatus(statusMessages.select_site"
 	dashboardNewSiteButtonClass                = "class=\"btn btn-outline-primary btn-sm\""
-	dashboardLegacySaveButtonClass             = "btn btn-success\""
 	dashboardDeleteButtonClassMarkup           = "class=\"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled\""
 	dashboardDeleteIconMarkup                  = "class=\"bi bi-trash3-fill text-danger\""
 	dashboardFooterElementID                   = "id=\"dashboard-footer\""
@@ -63,7 +61,7 @@ const (
 	dashboardFaviconLinkToken                  = "rel=\"icon\""
 	dashboardValidationMessagesToken           = "\"validation_messages\":{"
 	dashboardValidationScriptToken             = "var validationMessages = parsedConfig.validation_messages || {};"
-	dashboardValidationGuardToken              = "if (!validateSiteForm()) {"
+	dashboardValidationGuardToken              = "if (!validateSiteForm(focusMode)) {"
 	dashboardValidationResetToken              = "function clearValidationFeedback() {"
 	dashboardSiteNameHelpButtonID              = "site-name-help-button"
 	dashboardAllowedOriginHelpButtonID         = "allowed-origin-help-button"
@@ -539,13 +537,13 @@ func TestDashboardTemplateConfiguresButtonStatusManager(t *testing.T) {
 			expectPresent: true,
 		},
 		{
-			testName:      "create mode styling",
-			substring:     dashboardCreateButtonPattern,
+			testName:      "auto-save delay token",
+			substring:     dashboardAutoSaveDelayToken,
 			expectPresent: true,
 		},
 		{
-			testName:      "update mode styling",
-			substring:     dashboardUpdateButtonPattern,
+			testName:      "auto-save scheduler",
+			substring:     dashboardAutoSaveScheduleToken,
 			expectPresent: true,
 		},
 		{
@@ -609,8 +607,8 @@ func TestDashboardTemplateConfiguresButtonStatusManager(t *testing.T) {
 			expectPresent: true,
 		},
 		{
-			testName:      "submit guard uses button update",
-			substring:     dashboardSubmitGuardUpdateCall,
+			testName:      "submit guard uses form status",
+			substring:     dashboardSubmitGuardStatusToken,
 			expectPresent: true,
 		},
 		{
@@ -795,19 +793,14 @@ func TestDashboardTemplateUsesUniformActionButtonStyles(t *testing.T) {
 		expectPresent bool
 	}{
 		{
-			testName:      "save button uses outline class",
-			substring:     dashboardSaveButtonClassMarkup,
-			expectPresent: true,
-		},
-		{
 			testName:      "new site button uses shared outline class",
 			substring:     dashboardNewSiteButtonClass,
 			expectPresent: true,
 		},
 		{
-			testName:      "legacy solid success class removed",
-			substring:     dashboardLegacySaveButtonClass,
-			expectPresent: false,
+			testName:      "delete button uses transparent class",
+			substring:     dashboardDeleteButtonClassMarkup,
+			expectPresent: true,
 		},
 	}
 
