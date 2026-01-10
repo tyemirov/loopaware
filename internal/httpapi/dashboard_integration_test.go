@@ -77,7 +77,6 @@ const (
 	trafficTestTotalSelector                    = "#traffic-test-visit-total"
 	trafficTestUniqueSelector                   = "#traffic-test-visit-unique"
 	widgetBottomOffsetStepPixels                = 10
-	dashboardSaveSiteButtonSelector             = "#save-site-button"
 	dashboardReadWidgetBottomOffsetScript       = `(function() {
 		var input = document.getElementById('widget-placement-bottom-offset');
 		if (!input) { return ''; }
@@ -2615,7 +2614,6 @@ func TestDashboardWidgetPlacementSavePersists(t *testing.T) {
 	interceptFetchRequests(t, page)
 	clickSelector(t, page, "#widget-placement-side-left")
 	setInputValue(t, page, dashboardWidgetBottomOffsetInputSelector, "88")
-	clickSelector(t, page, dashboardSaveSiteButtonSelector)
 
 	type siteUpdatePayload struct {
 		WidgetBubbleSide         string `json:"widget_bubble_side"`
@@ -2641,6 +2639,9 @@ func TestDashboardWidgetPlacementSavePersists(t *testing.T) {
 			}
 			if err := json.Unmarshal([]byte(record.Body), &payload); err != nil {
 				return false
+			}
+			if payload.WidgetBubbleSide != "left" || payload.WidgetBubbleBottomOffset != 88 {
+				continue
 			}
 			payloadStatus = record.Status
 			return true
@@ -2693,7 +2694,6 @@ func TestDashboardAllowedOriginsAcceptsMultipleEntries(t *testing.T) {
 
 	allowedOrigins := "https://widget.example " + harness.baseURL
 	setInputValue(t, page, dashboardEditSiteAllowedOriginsSelector, allowedOrigins)
-	clickSelector(t, page, dashboardSaveSiteButtonSelector)
 
 	type siteUpdatePayload struct {
 		AllowedOrigin string `json:"allowed_origin"`
@@ -2718,6 +2718,9 @@ func TestDashboardAllowedOriginsAcceptsMultipleEntries(t *testing.T) {
 			}
 			if err := json.Unmarshal([]byte(record.Body), &payload); err != nil {
 				return false
+			}
+			if payload.AllowedOrigin != allowedOrigins {
+				continue
 			}
 			payloadStatus = record.Status
 			return true
@@ -2834,6 +2837,8 @@ func TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist(t *testing.T) {
 	initialOffset := readDashboardWidgetBottomOffset(t, page)
 	require.Equal(t, site.WidgetBubbleBottomOffsetPx, initialOffset)
 
+	interceptFetchRequests(t, page)
+
 	clickSelector(t, page, dashboardWidgetBottomOffsetIncreaseSelector)
 	incrementedOffset := readDashboardWidgetBottomOffset(t, page)
 	require.Equal(t, initialOffset+widgetBottomOffsetStepPixels, incrementedOffset)
@@ -2853,9 +2858,6 @@ func TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist(t *testing.T) {
 	require.NoError(t, page.Keyboard.Press(input.ArrowDown))
 	finalOffset := readDashboardWidgetBottomOffset(t, page)
 	require.Equal(t, manualOffset, finalOffset)
-
-	interceptFetchRequests(t, page)
-	clickSelector(t, page, dashboardSaveSiteButtonSelector)
 
 	type siteUpdatePayload struct {
 		WidgetBubbleBottomOffset int `json:"widget_bubble_bottom_offset"`
@@ -2880,6 +2882,9 @@ func TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist(t *testing.T) {
 			}
 			if record.Status == 0 {
 				return false
+			}
+			if payload.WidgetBubbleBottomOffset != finalOffset {
+				continue
 			}
 			payloadStatus = record.Status
 			return true
