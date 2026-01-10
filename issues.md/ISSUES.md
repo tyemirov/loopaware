@@ -307,11 +307,12 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Notes: Ensure auto-save handles validation errors gracefully and does not persist partial/invalid values.
   Resolution: Removed the Update Site button, added debounced autosave with form-status messaging/validation handling, and updated integration coverage for autosaved site edits and subscribe origins; `make ci` passes.
 
-- [ ] [LA-218] Add per-widget additional origins for feedback and traffic widgets.
+- [x] [LA-218] Add per-widget additional origins for feedback and traffic widgets.
   Priority: P2
   Goal: Operators can configure extra allowed origins independently for feedback and traffic widgets, similar to subscribe.
   Deliverable: PR that adds per-widget additional origins fields for feedback + traffic, persists them, enforces them in widget endpoints, and adds integration coverage for UI + origin validation.
   Notes: Keep site-level `allowed_origin` as the shared baseline; widget-specific origins should be additive.
+  Resolution: Added widget/traffic allowed origins fields to the admin API and site model, enforced them in feedback/visit endpoints, and added dashboard autosave integration coverage; `make ci` passes.
 
 ## Maintenance (408–499)
 

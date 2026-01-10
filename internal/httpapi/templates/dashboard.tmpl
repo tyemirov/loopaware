@@ -284,6 +284,11 @@
                     <div class="form-text" id="{{.WidgetBottomOffsetHelpID}}">{{.WidgetPlacementBottomOffsetHelp}}</div>
                   </div>
                 </div>
+                <div class="mb-3">
+                  <label class="form-label mb-0">{{.WidgetAllowedOriginsTitle}}</label>
+                  <div id="{{.WidgetAllowedOriginsListID}}" class="d-flex flex-column gap-2 mt-2"></div>
+                  <div class="form-text">{{.WidgetAllowedOriginsHelpText}}</div>
+                </div>
                 <textarea id="{{.WidgetSnippetTextareaID}}" class="form-control font-monospace" rows="3" readonly></textarea>
               </div>
             </div>
@@ -320,6 +325,11 @@
               </div>
               <div class="card-body">
                 <p class="text-muted small mb-3">{{.TrafficWidgetInstructions}}</p>
+                <div class="mb-3">
+                  <label class="form-label mb-0">{{.TrafficAllowedOriginsTitle}}</label>
+                  <div id="{{.TrafficAllowedOriginsListID}}" class="d-flex flex-column gap-2 mt-2"></div>
+                  <div class="form-text">{{.TrafficAllowedOriginsHelpText}}</div>
+                </div>
                 <textarea id="{{.TrafficWidgetSnippetTextareaID}}" class="form-control font-monospace" rows="3" readonly></textarea>
               </div>
             </div>
@@ -672,12 +682,14 @@
         var autoLogoutGapMessage = autoLogoutFieldsContainer ? autoLogoutFieldsContainer.getAttribute('data-gap-message') || '' : '';
         var widgetSnippetTextarea = document.getElementById(elementIds.widget_snippet_textarea);
         var copyWidgetSnippetButton = document.getElementById(elementIds.copy_widget_snippet_button);
-	        var subscribeSnippetTextarea = document.getElementById(elementIds.subscribe_snippet_textarea);
-	        var copySubscribeSnippetButton = document.getElementById(elementIds.copy_subscribe_snippet_button);
-	        var subscribeAllowedOriginsList = document.getElementById(elementIds.subscribe_allowed_origins_list);
-	        var trafficSnippetTextarea = document.getElementById(elementIds.traffic_snippet_textarea);
-	        var copyTrafficSnippetButton = document.getElementById(elementIds.copy_traffic_snippet_button);
-	        var widgetTestButton = document.getElementById(elementIds.widget_test_button);
+        var widgetAllowedOriginsList = document.getElementById(elementIds.widget_allowed_origins_list);
+        var subscribeSnippetTextarea = document.getElementById(elementIds.subscribe_snippet_textarea);
+        var copySubscribeSnippetButton = document.getElementById(elementIds.copy_subscribe_snippet_button);
+        var subscribeAllowedOriginsList = document.getElementById(elementIds.subscribe_allowed_origins_list);
+        var trafficSnippetTextarea = document.getElementById(elementIds.traffic_snippet_textarea);
+        var copyTrafficSnippetButton = document.getElementById(elementIds.copy_traffic_snippet_button);
+        var trafficAllowedOriginsList = document.getElementById(elementIds.traffic_allowed_origins_list);
+        var widgetTestButton = document.getElementById(elementIds.widget_test_button);
         var widgetTestPagePrefix = typeof sharedPaths.widget_test_prefix === 'string' ? sharedPaths.widget_test_prefix : '';
         var widgetTestPageSuffix = typeof sharedPaths.widget_test_suffix === 'string' ? sharedPaths.widget_test_suffix : '';
         var subscribeTestButton = document.getElementById(elementIds.subscribe_test_button);
@@ -1494,13 +1506,21 @@
           }
           return parts[0] + ' +' + String(parts.length - 1) + ' more';
         }
-	        var subscribeAllowedOriginInputDataAttribute = 'data-subscribe-origin';
-	        var subscribeAllowedOriginRemoveButtonDataAttribute = 'data-subscribe-origin-remove';
-	        var subscribeAllowedOriginAddButtonDataAttribute = 'data-subscribe-origin-add';
-	        var subscribeAllowedOriginPlaceholderInputDataAttribute = 'data-subscribe-origin-placeholder';
-	        var subscribeAllowedOriginPlaceholder = 'https://example.com';
-	        var subscribeAllowedOriginAddLabel = 'Add';
-	        var subscribeAllowedOriginRemoveLabel = 'Remove';
+        var subscribeAllowedOriginInputDataAttribute = 'data-subscribe-origin';
+        var subscribeAllowedOriginRemoveButtonDataAttribute = 'data-subscribe-origin-remove';
+        var subscribeAllowedOriginAddButtonDataAttribute = 'data-subscribe-origin-add';
+        var subscribeAllowedOriginPlaceholderInputDataAttribute = 'data-subscribe-origin-placeholder';
+        var widgetAllowedOriginInputDataAttribute = 'data-widget-origin';
+        var widgetAllowedOriginRemoveButtonDataAttribute = 'data-widget-origin-remove';
+        var widgetAllowedOriginAddButtonDataAttribute = 'data-widget-origin-add';
+        var widgetAllowedOriginPlaceholderInputDataAttribute = 'data-widget-origin-placeholder';
+        var trafficAllowedOriginInputDataAttribute = 'data-traffic-origin';
+        var trafficAllowedOriginRemoveButtonDataAttribute = 'data-traffic-origin-remove';
+        var trafficAllowedOriginAddButtonDataAttribute = 'data-traffic-origin-add';
+        var trafficAllowedOriginPlaceholderInputDataAttribute = 'data-traffic-origin-placeholder';
+        var allowedOriginPlaceholder = 'https://example.com';
+        var allowedOriginAddLabel = 'Add';
+        var allowedOriginRemoveLabel = 'Remove';
 
         function normalizeAllowedOriginsList(value) {
           var parts = splitAllowedOrigins(value);
@@ -1524,159 +1544,290 @@
           return unique.join(' ');
         }
 
-	        function createSubscribeAllowedOriginRow(initialValue, isPlaceholder) {
-	          var row = document.createElement('div');
-	          row.className = 'input-group';
+        function buildAllowedOriginsListManager(options) {
+          var listElement = options && options.listElement ? options.listElement : null;
+          var inputDataAttribute = options && options.inputDataAttribute ? options.inputDataAttribute : '';
+          var removeButtonDataAttribute = options && options.removeButtonDataAttribute ? options.removeButtonDataAttribute : '';
+          var addButtonDataAttribute = options && options.addButtonDataAttribute ? options.addButtonDataAttribute : '';
+          var placeholderInputDataAttribute = options && options.placeholderInputDataAttribute ? options.placeholderInputDataAttribute : '';
+          var placeholder = options && options.placeholder ? options.placeholder : '';
+          var addLabel = options && options.addLabel ? options.addLabel : '';
+          var removeLabel = options && options.removeLabel ? options.removeLabel : '';
 
-	          var input = document.createElement('input');
-	          input.type = 'url';
-	          input.className = 'form-control';
-	          input.placeholder = subscribeAllowedOriginPlaceholder;
-	          input.autocomplete = 'off';
-	          input.setAttribute(subscribeAllowedOriginInputDataAttribute, 'true');
-          if (isPlaceholder) {
-            input.setAttribute(subscribeAllowedOriginPlaceholderInputDataAttribute, 'true');
-          }
-          input.value = typeof initialValue === 'string' ? initialValue : '';
-          input.addEventListener('input', function() {
-            input.classList.remove(invalidFieldClassName);
-            clearFormStatus();
-            scheduleAutoSave();
-          });
-          row.appendChild(input);
+          function createAllowedOriginRow(initialValue, isPlaceholder) {
+            var row = document.createElement('div');
+            row.className = 'input-group';
 
-	          var actionButton = document.createElement('button');
-	          actionButton.type = 'button';
-	          actionButton.className = 'btn btn-outline-secondary';
-	          if (isPlaceholder) {
-	            actionButton.textContent = subscribeAllowedOriginAddLabel;
-	            actionButton.setAttribute(subscribeAllowedOriginAddButtonDataAttribute, 'true');
-	            actionButton.addEventListener('click', function(event) {
-	              event.preventDefault();
-	              if (actionButton.disabled) {
-	                return;
-	              }
-	              if (!subscribeAllowedOriginsList) {
-	                return;
-	              }
-	              var trimmedValue = getTrimmedValue(input);
-	              if (!trimmedValue) {
-	                input.focus();
-	                return;
-	              }
-	              var placeholderRow = row;
-	              var newOriginRow = createSubscribeAllowedOriginRow(trimmedValue, false);
-              if (placeholderRow.parentNode === subscribeAllowedOriginsList) {
-                subscribeAllowedOriginsList.insertBefore(newOriginRow, placeholderRow);
-              } else {
-                subscribeAllowedOriginsList.appendChild(newOriginRow);
-              }
-              input.value = '';
-              ensureSubscribeAllowedOriginsRow();
+            var input = document.createElement('input');
+            input.type = 'url';
+            input.className = 'form-control';
+            input.placeholder = placeholder;
+            input.autocomplete = 'off';
+            if (inputDataAttribute) {
+              input.setAttribute(inputDataAttribute, 'true');
+            }
+            if (isPlaceholder && placeholderInputDataAttribute) {
+              input.setAttribute(placeholderInputDataAttribute, 'true');
+            }
+            input.value = typeof initialValue === 'string' ? initialValue : '';
+            input.addEventListener('input', function() {
+              input.classList.remove(invalidFieldClassName);
               clearFormStatus();
               scheduleAutoSave();
             });
-          } else {
-            actionButton.textContent = subscribeAllowedOriginRemoveLabel;
-            actionButton.setAttribute(subscribeAllowedOriginRemoveButtonDataAttribute, 'true');
-            actionButton.addEventListener('click', function(event) {
-	              event.preventDefault();
-	              if (!subscribeAllowedOriginsList) {
-	                return;
-	              }
-              if (row.parentNode === subscribeAllowedOriginsList) {
-                subscribeAllowedOriginsList.removeChild(row);
+            row.appendChild(input);
+
+            var actionButton = document.createElement('button');
+            actionButton.type = 'button';
+            actionButton.className = 'btn btn-outline-secondary';
+            if (isPlaceholder) {
+              actionButton.textContent = addLabel;
+              if (addButtonDataAttribute) {
+                actionButton.setAttribute(addButtonDataAttribute, 'true');
               }
-              ensureSubscribeAllowedOriginsRow();
-              clearFormStatus();
-              scheduleAutoSave();
-            });
+              actionButton.addEventListener('click', function(event) {
+                event.preventDefault();
+                if (actionButton.disabled) {
+                  return;
+                }
+                if (!listElement) {
+                  return;
+                }
+                var trimmedValue = getTrimmedValue(input);
+                if (!trimmedValue) {
+                  input.focus();
+                  return;
+                }
+                var placeholderRow = row;
+                var newOriginRow = createAllowedOriginRow(trimmedValue, false);
+                if (placeholderRow.parentNode === listElement) {
+                  listElement.insertBefore(newOriginRow, placeholderRow);
+                } else {
+                  listElement.appendChild(newOriginRow);
+                }
+                input.value = '';
+                ensurePlaceholderRow();
+                clearFormStatus();
+                scheduleAutoSave();
+              });
+            } else {
+              actionButton.textContent = removeLabel;
+              if (removeButtonDataAttribute) {
+                actionButton.setAttribute(removeButtonDataAttribute, 'true');
+              }
+              actionButton.addEventListener('click', function(event) {
+                event.preventDefault();
+                if (!listElement) {
+                  return;
+                }
+                if (row.parentNode === listElement) {
+                  listElement.removeChild(row);
+                }
+                ensurePlaceholderRow();
+                clearFormStatus();
+                scheduleAutoSave();
+              });
+            }
+            row.appendChild(actionButton);
+
+            return row;
           }
-	          row.appendChild(actionButton);
 
-	          return row;
-	        }
-
-	        function ensureSubscribeAllowedOriginsRow() {
-	          if (!subscribeAllowedOriginsList) {
-	            return;
-	          }
-	          var placeholderInput = subscribeAllowedOriginsList.querySelector('input[' + subscribeAllowedOriginPlaceholderInputDataAttribute + ']');
-	          if (!placeholderInput) {
-	            subscribeAllowedOriginsList.appendChild(createSubscribeAllowedOriginRow('', true));
-	            return;
-	          }
-	          var placeholderRow = placeholderInput.closest('.input-group');
-	          if (placeholderRow && placeholderRow.parentNode === subscribeAllowedOriginsList && placeholderRow !== subscribeAllowedOriginsList.lastElementChild) {
-	            subscribeAllowedOriginsList.appendChild(placeholderRow);
-	          }
-	        }
-
-	        function setSubscribeAllowedOriginsDisabled(disabled) {
-	          var shouldDisable = Boolean(disabled);
-	          if (!subscribeAllowedOriginsList) {
-	            return;
-	          }
-	          var inputs = subscribeAllowedOriginsList.querySelectorAll('input[' + subscribeAllowedOriginInputDataAttribute + ']');
-	          for (var index = 0; index < inputs.length; index += 1) {
-	            inputs[index].disabled = shouldDisable;
-	          }
-	          var actionButtons = subscribeAllowedOriginsList.querySelectorAll(
-	            'button[' + subscribeAllowedOriginRemoveButtonDataAttribute + '], button[' + subscribeAllowedOriginAddButtonDataAttribute + ']'
-	          );
-	          for (var buttonIndex = 0; buttonIndex < actionButtons.length; buttonIndex += 1) {
-	            actionButtons[buttonIndex].disabled = shouldDisable;
-	          }
-	        }
-
-	        function renderSubscribeAllowedOrigins(value) {
-	          if (!subscribeAllowedOriginsList) {
-	            return;
-	          }
-	          subscribeAllowedOriginsList.innerHTML = '';
-	          var normalizedValue = normalizeAllowedOriginsList(value);
-	          var parts = splitAllowedOrigins(normalizedValue);
-	          if (!parts.length) {
-	            subscribeAllowedOriginsList.appendChild(createSubscribeAllowedOriginRow('', true));
-	            return;
-	          }
-	          parts.forEach(function(part) {
-	            subscribeAllowedOriginsList.appendChild(createSubscribeAllowedOriginRow(part, false));
-	          });
-	          ensureSubscribeAllowedOriginsRow();
-	        }
-
-        function readSubscribeAllowedOrigins() {
-          if (!subscribeAllowedOriginsList) {
-            return '';
-          }
-          var inputs = subscribeAllowedOriginsList.querySelectorAll('input[' + subscribeAllowedOriginInputDataAttribute + ']');
-          var parts = [];
-          for (var index = 0; index < inputs.length; index += 1) {
-            var trimmedValue = getTrimmedValue(inputs[index]);
-            if (trimmedValue) {
-              parts.push(trimmedValue);
+          function ensurePlaceholderRow() {
+            if (!listElement || !placeholderInputDataAttribute) {
+              return;
+            }
+            var placeholderInput = listElement.querySelector('input[' + placeholderInputDataAttribute + ']');
+            if (!placeholderInput) {
+              listElement.appendChild(createAllowedOriginRow('', true));
+              return;
+            }
+            var placeholderRow = placeholderInput.closest('.input-group');
+            if (placeholderRow && placeholderRow.parentNode === listElement && placeholderRow !== listElement.lastElementChild) {
+              listElement.appendChild(placeholderRow);
             }
           }
-          return normalizeAllowedOriginsList(parts.join(' '));
+
+          function setDisabled(disabled) {
+            var shouldDisable = Boolean(disabled);
+            if (!listElement || !inputDataAttribute) {
+              return;
+            }
+            var inputs = listElement.querySelectorAll('input[' + inputDataAttribute + ']');
+            for (var index = 0; index < inputs.length; index += 1) {
+              inputs[index].disabled = shouldDisable;
+            }
+            if (!removeButtonDataAttribute && !addButtonDataAttribute) {
+              return;
+            }
+            var actionButtons = listElement.querySelectorAll(
+              'button[' + removeButtonDataAttribute + '], button[' + addButtonDataAttribute + ']'
+            );
+            for (var buttonIndex = 0; buttonIndex < actionButtons.length; buttonIndex += 1) {
+              actionButtons[buttonIndex].disabled = shouldDisable;
+            }
+          }
+
+          function render(value) {
+            if (!listElement) {
+              return;
+            }
+            listElement.innerHTML = '';
+            var normalizedValue = normalizeAllowedOriginsList(value);
+            var parts = splitAllowedOrigins(normalizedValue);
+            if (!parts.length) {
+              listElement.appendChild(createAllowedOriginRow('', true));
+              return;
+            }
+            parts.forEach(function(part) {
+              listElement.appendChild(createAllowedOriginRow(part, false));
+            });
+            ensurePlaceholderRow();
+          }
+
+          function read() {
+            if (!listElement || !inputDataAttribute) {
+              return '';
+            }
+            var inputs = listElement.querySelectorAll('input[' + inputDataAttribute + ']');
+            var parts = [];
+            for (var index = 0; index < inputs.length; index += 1) {
+              var trimmedValue = getTrimmedValue(inputs[index]);
+              if (trimmedValue) {
+                parts.push(trimmedValue);
+              }
+            }
+            return normalizeAllowedOriginsList(parts.join(' '));
+          }
+
+          function findInvalidInput() {
+            if (!listElement || !inputDataAttribute) {
+              return null;
+            }
+            var inputs = listElement.querySelectorAll('input[' + inputDataAttribute + ']');
+            for (var index = 0; index < inputs.length; index += 1) {
+              var input = inputs[index];
+              var trimmedValue = getTrimmedValue(input);
+              if (!trimmedValue) {
+                continue;
+              }
+              if (!isAllowedOriginValid(trimmedValue)) {
+                return input;
+              }
+            }
+            return null;
+          }
+
+          function clearInvalidState() {
+            if (!listElement || !inputDataAttribute) {
+              return;
+            }
+            var inputs = listElement.querySelectorAll('input[' + inputDataAttribute + ']');
+            for (var index = 0; index < inputs.length; index += 1) {
+              inputs[index].classList.remove(invalidFieldClassName);
+            }
+          }
+
+          return {
+            render: render,
+            read: read,
+            setDisabled: setDisabled,
+            findInvalidInput: findInvalidInput,
+            clearInvalidState: clearInvalidState
+          };
+        }
+
+        var subscribeAllowedOriginsManager = buildAllowedOriginsListManager({
+          listElement: subscribeAllowedOriginsList,
+          inputDataAttribute: subscribeAllowedOriginInputDataAttribute,
+          removeButtonDataAttribute: subscribeAllowedOriginRemoveButtonDataAttribute,
+          addButtonDataAttribute: subscribeAllowedOriginAddButtonDataAttribute,
+          placeholderInputDataAttribute: subscribeAllowedOriginPlaceholderInputDataAttribute,
+          placeholder: allowedOriginPlaceholder,
+          addLabel: allowedOriginAddLabel,
+          removeLabel: allowedOriginRemoveLabel
+        });
+
+        var widgetAllowedOriginsManager = buildAllowedOriginsListManager({
+          listElement: widgetAllowedOriginsList,
+          inputDataAttribute: widgetAllowedOriginInputDataAttribute,
+          removeButtonDataAttribute: widgetAllowedOriginRemoveButtonDataAttribute,
+          addButtonDataAttribute: widgetAllowedOriginAddButtonDataAttribute,
+          placeholderInputDataAttribute: widgetAllowedOriginPlaceholderInputDataAttribute,
+          placeholder: allowedOriginPlaceholder,
+          addLabel: allowedOriginAddLabel,
+          removeLabel: allowedOriginRemoveLabel
+        });
+
+        var trafficAllowedOriginsManager = buildAllowedOriginsListManager({
+          listElement: trafficAllowedOriginsList,
+          inputDataAttribute: trafficAllowedOriginInputDataAttribute,
+          removeButtonDataAttribute: trafficAllowedOriginRemoveButtonDataAttribute,
+          addButtonDataAttribute: trafficAllowedOriginAddButtonDataAttribute,
+          placeholderInputDataAttribute: trafficAllowedOriginPlaceholderInputDataAttribute,
+          placeholder: allowedOriginPlaceholder,
+          addLabel: allowedOriginAddLabel,
+          removeLabel: allowedOriginRemoveLabel
+        });
+
+        function renderSubscribeAllowedOrigins(value) {
+          subscribeAllowedOriginsManager.render(value);
+        }
+
+        function setSubscribeAllowedOriginsDisabled(disabled) {
+          subscribeAllowedOriginsManager.setDisabled(disabled);
+        }
+
+        function readSubscribeAllowedOrigins() {
+          return subscribeAllowedOriginsManager.read();
         }
 
         function findInvalidSubscribeAllowedOriginInput() {
-          if (!subscribeAllowedOriginsList) {
-            return null;
-          }
-          var inputs = subscribeAllowedOriginsList.querySelectorAll('input[' + subscribeAllowedOriginInputDataAttribute + ']');
-          for (var index = 0; index < inputs.length; index += 1) {
-            var input = inputs[index];
-            var trimmedValue = getTrimmedValue(input);
-            if (!trimmedValue) {
-              continue;
-            }
-            if (!isAllowedOriginValid(trimmedValue)) {
-              return input;
-            }
-          }
-          return null;
+          return subscribeAllowedOriginsManager.findInvalidInput();
+        }
+
+        function clearSubscribeAllowedOriginsValidation() {
+          subscribeAllowedOriginsManager.clearInvalidState();
+        }
+
+        function renderWidgetAllowedOrigins(value) {
+          widgetAllowedOriginsManager.render(value);
+        }
+
+        function setWidgetAllowedOriginsDisabled(disabled) {
+          widgetAllowedOriginsManager.setDisabled(disabled);
+        }
+
+        function readWidgetAllowedOrigins() {
+          return widgetAllowedOriginsManager.read();
+        }
+
+        function findInvalidWidgetAllowedOriginInput() {
+          return widgetAllowedOriginsManager.findInvalidInput();
+        }
+
+        function clearWidgetAllowedOriginsValidation() {
+          widgetAllowedOriginsManager.clearInvalidState();
+        }
+
+        function renderTrafficAllowedOrigins(value) {
+          trafficAllowedOriginsManager.render(value);
+        }
+
+        function setTrafficAllowedOriginsDisabled(disabled) {
+          trafficAllowedOriginsManager.setDisabled(disabled);
+        }
+
+        function readTrafficAllowedOrigins() {
+          return trafficAllowedOriginsManager.read();
+        }
+
+        function findInvalidTrafficAllowedOriginInput() {
+          return trafficAllowedOriginsManager.findInvalidInput();
+        }
+
+        function clearTrafficAllowedOriginsValidation() {
+          trafficAllowedOriginsManager.clearInvalidState();
         }
         function isAllowedOriginValid(value) {
           var originParts = splitAllowedOrigins(value);
@@ -1752,12 +1903,9 @@
               descriptor.fieldElement.classList.remove(invalidFieldClassName);
             }
           });
-          if (subscribeAllowedOriginsList) {
-            var inputs = subscribeAllowedOriginsList.querySelectorAll('input[' + subscribeAllowedOriginInputDataAttribute + ']');
-            for (var index = 0; index < inputs.length; index += 1) {
-              inputs[index].classList.remove(invalidFieldClassName);
-            }
-          }
+          clearSubscribeAllowedOriginsValidation();
+          clearWidgetAllowedOriginsValidation();
+          clearTrafficAllowedOriginsValidation();
           clearFormStatus();
         }
         function markFieldInvalid(fieldElement, messageKey, focusMode) {
@@ -1788,9 +1936,19 @@
               return false;
             }
           }
+          var invalidWidgetAllowedOriginInput = findInvalidWidgetAllowedOriginInput();
+          if (invalidWidgetAllowedOriginInput) {
+            markFieldInvalid(invalidWidgetAllowedOriginInput, validationMessageKeyOriginInvalid, resolvedFocusMode);
+            return false;
+          }
           var invalidSubscribeAllowedOriginInput = findInvalidSubscribeAllowedOriginInput();
           if (invalidSubscribeAllowedOriginInput) {
             markFieldInvalid(invalidSubscribeAllowedOriginInput, validationMessageKeyOriginInvalid, resolvedFocusMode);
+            return false;
+          }
+          var invalidTrafficAllowedOriginInput = findInvalidTrafficAllowedOriginInput();
+          if (invalidTrafficAllowedOriginInput) {
+            markFieldInvalid(invalidTrafficAllowedOriginInput, validationMessageKeyOriginInvalid, resolvedFocusMode);
             return false;
           }
           return true;
@@ -3025,8 +3183,12 @@
           editSiteOriginInput.value = '';
           editSiteOwnerInput.value = '';
           setWidgetPlacementControls(widgetDefaultSide, widgetDefaultBottomOffset);
+          renderWidgetAllowedOrigins('');
+          setWidgetAllowedOriginsDisabled(true);
           renderSubscribeAllowedOrigins('');
           setSubscribeAllowedOriginsDisabled(true);
+          renderTrafficAllowedOrigins('');
+          setTrafficAllowedOriginsDisabled(true);
           clearValidationFeedback();
           setSiteCreatedAt(null);
           setFeedbackCount(0, 0);
@@ -3037,7 +3199,9 @@
           if (!state.selectedSiteId) {
             updateSelectedSiteSummary(null);
             clearSiteForm();
+            setWidgetAllowedOriginsDisabled(true);
             setSubscribeAllowedOriginsDisabled(true);
+            setTrafficAllowedOriginsDisabled(true);
             updateFormMode();
             updateWidgetSnippet();
             return;
@@ -3046,8 +3210,12 @@
           if (isNewSiteSelected()) {
             updateSelectedSiteSummary(null);
             clearSiteForm();
+            renderWidgetAllowedOrigins('');
+            setWidgetAllowedOriginsDisabled(false);
             renderSubscribeAllowedOrigins('');
             setSubscribeAllowedOriginsDisabled(false);
+            renderTrafficAllowedOrigins('');
+            setTrafficAllowedOriginsDisabled(false);
             updateFormMode();
             updateWidgetSnippet();
             return;
@@ -3057,7 +3225,9 @@
           if (!site) {
             updateSelectedSiteSummary(null);
             clearSiteForm();
+            setWidgetAllowedOriginsDisabled(true);
             setSubscribeAllowedOriginsDisabled(true);
+            setTrafficAllowedOriginsDisabled(true);
             updateFormMode();
             updateWidgetSnippet();
             return;
@@ -3068,8 +3238,12 @@
           editSiteOriginInput.value = site.allowed_origin || '';
           editSiteOwnerInput.value = site.owner_email || '';
           setWidgetPlacementControls(site.widget_bubble_side, site.widget_bubble_bottom_offset);
+          renderWidgetAllowedOrigins(site.widget_allowed_origins || '');
+          setWidgetAllowedOriginsDisabled(false);
           renderSubscribeAllowedOrigins(site.subscribe_allowed_origins || '');
           setSubscribeAllowedOriginsDisabled(false);
+          renderTrafficAllowedOrigins(site.traffic_allowed_origins || '');
+          setTrafficAllowedOriginsDisabled(false);
           updateFormMode();
           updateWidgetSnippet();
         }
@@ -3533,6 +3707,14 @@
         if (payload.subscribe_allowed_origins !== existingSubscribeOrigins) {
           return true;
         }
+        var existingWidgetOrigins = normalizeAllowedOriginsList(site.widget_allowed_origins || '');
+        if (payload.widget_allowed_origins !== existingWidgetOrigins) {
+          return true;
+        }
+        var existingTrafficOrigins = normalizeAllowedOriginsList(site.traffic_allowed_origins || '');
+        if (payload.traffic_allowed_origins !== existingTrafficOrigins) {
+          return true;
+        }
         if (payload.widget_bubble_side !== normalizeWidgetSideValue(site.widget_bubble_side)) {
           return true;
         }
@@ -3553,6 +3735,8 @@
           name: getTrimmedValue(editSiteNameInput),
           allowed_origin: getTrimmedValue(editSiteOriginInput),
           subscribe_allowed_origins: readSubscribeAllowedOrigins(),
+          widget_allowed_origins: readWidgetAllowedOrigins(),
+          traffic_allowed_origins: readTrafficAllowedOrigins(),
           widget_bubble_side: placementPayload.widget_bubble_side,
           widget_bubble_bottom_offset: placementPayload.widget_bubble_bottom_offset
         };

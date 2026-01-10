@@ -225,6 +225,27 @@ func TestCreateFeedbackValidatesPayload(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, bad.Code)
 }
 
+func TestCreateFeedbackAcceptsWidgetAllowedOrigins(t *testing.T) {
+	api := buildAPIHarness(t, nil, nil, nil)
+	site := insertSite(t, api.database, "Widget Origins", "http://origin.example", "owner@example.com")
+	site.WidgetAllowedOrigins = "http://widget.example"
+	require.NoError(t, api.database.Save(&site).Error)
+
+	ok := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+		"site_id": site.ID,
+		"contact": "person@example.com",
+		"message": "Hello",
+	}, map[string]string{"Origin": "http://widget.example"})
+	require.Equal(t, http.StatusOK, ok.Code)
+
+	badOrigin := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+		"site_id": site.ID,
+		"contact": "person@example.com",
+		"message": "Hello",
+	}, map[string]string{"Origin": "http://evil.example"})
+	require.Equal(t, http.StatusForbidden, badOrigin.Code)
+}
+
 func TestCreateSubscriptionStoresSubscriber(t *testing.T) {
 	api := buildAPIHarness(t, nil, nil, nil)
 	site := insertSite(t, api.database, "Newsletter", "http://newsletter.example", "owner@example.com")
@@ -589,6 +610,25 @@ func TestCollectVisitRequiresMatchingURLOrigin(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://other.example/page", nil)
 	request.Header.Set("Referer", "http://dashboard.loopaware.test/app/sites/"+site.ID+"/traffic-test")
 
+	api.router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusForbidden, recorder.Code)
+}
+
+func TestCollectVisitAcceptsTrafficAllowedOrigins(t *testing.T) {
+	api := buildAPIHarness(t, nil, nil, nil)
+	site := insertSite(t, api.database, "Traffic Origins", "http://visits.example", "owner@example.com")
+	site.TrafficAllowedOrigins = "http://pixel.example"
+	require.NoError(t, api.database.Save(&site).Error)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://pixel.example/page", nil)
+	request.Header.Set("Origin", "http://pixel.example")
+	api.router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code)
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://evil.example/page", nil)
+	request.Header.Set("Origin", "http://evil.example")
 	api.router.ServeHTTP(recorder, request)
 	require.Equal(t, http.StatusForbidden, recorder.Code)
 }
