@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -62,6 +63,28 @@ func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, sub
 	router.GET("/widget.js", publicHandlers.WidgetJS)
 	router.GET("/subscribe.js", publicHandlers.SubscribeJS)
 	router.GET("/subscribe-demo", publicHandlers.SubscribeDemo)
+	router.GET("/subscribe-target-test", func(context *gin.Context) {
+		siteID := strings.TrimSpace(context.Query("site_id"))
+		if siteID == "" {
+			context.String(http.StatusBadRequest, "missing site_id")
+			return
+		}
+		targetID := strings.TrimSpace(context.Query("target"))
+		if targetID == "" {
+			targetID = "subscribe-target"
+		}
+		useDataTarget := context.Query("data_target") == "true"
+		scriptURL := "/subscribe.js?site_id=" + url.QueryEscape(siteID)
+		if !useDataTarget {
+			scriptURL += "&target=" + url.QueryEscape(targetID)
+		}
+		dataTargetAttribute := ""
+		if useDataTarget {
+			dataTargetAttribute = fmt.Sprintf(` data-target="%s"`, targetID)
+		}
+		page := fmt.Sprintf(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Subscribe Target Test</title></head><body><div id="%s"></div><script defer src="%s"%s></script></body></html>`, targetID, scriptURL, dataTargetAttribute)
+		context.Data(http.StatusOK, "text/html; charset=utf-8", []byte(page))
+	})
 	router.GET("/api/visits", publicHandlers.CollectVisit)
 
 	testingT.Cleanup(feedbackBroadcaster.Close)

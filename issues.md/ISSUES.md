@@ -8,11 +8,12 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## Features (113–199)
 
-- [ ] [LA-113] Add `target` parameter to subscribe.js for rendering into specific DOM elements.
+- [x] [LA-113] Add `target` parameter to subscribe.js for rendering into specific DOM elements.
   Priority: P1
   Goal: Allow subscribe.js to render the subscribe form into a specific element instead of always appending to document.body. This enables embedding the subscribe widget inside cards, modals, or other constrained containers without using iframes.
   Deliverable: PR that adds `target` parameter support to subscribe.js; form renders into `document.getElementById(targetId)` when specified, falls back to `document.body` when not.
   Use case: Marco Polo Research Lab landing page embeds subscribe forms on flippable card backs. Using iframes causes CORS issues (srcdoc iframes have `Origin: null`). Direct embedding with target parameter avoids this.
+  Resolution: Added target param/data-target support to subscribe.js and integration coverage ensuring inline forms render into the requested container.
   Implementation notes:
   - Add `target` to `parseConfig()` alongside existing params
   - Support both URL param (`?target=my-element-id`) and data attribute (`data-target="my-element-id"`)
