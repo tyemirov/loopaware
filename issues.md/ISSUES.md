@@ -8,11 +8,12 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## Features (113–199)
 
-- [ ] [LA-113] Add `target` parameter to subscribe.js for rendering into specific DOM elements.
+- [x] [LA-113] Add `target` parameter to subscribe.js for rendering into specific DOM elements.
   Priority: P1
   Goal: Allow subscribe.js to render the subscribe form into a specific element instead of always appending to document.body. This enables embedding the subscribe widget inside cards, modals, or other constrained containers without using iframes.
   Deliverable: PR that adds `target` parameter support to subscribe.js; form renders into `document.getElementById(targetId)` when specified, falls back to `document.body` when not.
   Use case: Marco Polo Research Lab landing page embeds subscribe forms on flippable card backs. Using iframes causes CORS issues (srcdoc iframes have `Origin: null`). Direct embedding with target parameter avoids this.
+  Resolution: Added target param/data-target support to subscribe.js and integration coverage ensuring inline forms render into the requested container.
   Implementation notes:
   - Add `target` to `parseConfig()` alongside existing params
   - Support both URL param (`?target=my-element-id`) and data attribute (`data-target="my-element-id"`)
@@ -242,6 +243,10 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/subscribe_demo_template.go`
   - `internal/httpapi/templates/subscribe_test.tmpl`
 
+- [x] [LA-338] Defer timeout start until user settings are loaded
+  Because applyAutoLogoutSettingsForUser(null) runs before loadUser() and the session-timeout manager is started before loadUser() resolves (see sessionTimeoutStartRequested/sessionTimeoutManager.start() later in this template), the idle timer begins with default settings until the user-specific key is known. After this change clears the legacy base key, a slow /me response (e.g., degraded API or high latency) can trigger the 60/120-second defaults even for users who have configured longer timeouts, reintroducing “premature logout” in that scenario. Consider delaying sessionTimeoutStartRequested until applyAutoLogoutSettingsForUser(state.user) runs or caching the last user key so the correct settings are loaded before starting the timer.
+  Resolution: Deferred session-timeout start until after user settings load and added integration coverage with a delayed /api/me response to confirm the start gate.
+
 ## Improvements (210–299)
 
 - [x] [LA-213] Dashboard section tabs should span full width and split into 3 equal parts.
@@ -295,17 +300,19 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/web.go`
   - `internal/httpapi/subscribe_allowed_origins_dashboard_integration_test.go`
 
-- [ ] [LA-217] Autosave site edits and remove the Update Site button.
+- [x] [LA-217] Autosave site edits and remove the Update Site button.
   Priority: P2
   Goal: Site name/origin/owner/placement changes are auto-saved without requiring a manual Update action.
   Deliverable: PR that debounces/saves site edits automatically, removes the Update button from the UI, and adds integration coverage for auto-save behavior.
   Notes: Ensure auto-save handles validation errors gracefully and does not persist partial/invalid values.
+  Resolution: Removed the Update Site button, added debounced autosave with form-status messaging/validation handling, and updated integration coverage for autosaved site edits and subscribe origins; `make ci` passes.
 
-- [ ] [LA-218] Add per-widget additional origins for feedback and traffic widgets.
+- [x] [LA-218] Add per-widget additional origins for feedback and traffic widgets.
   Priority: P2
   Goal: Operators can configure extra allowed origins independently for feedback and traffic widgets, similar to subscribe.
   Deliverable: PR that adds per-widget additional origins fields for feedback + traffic, persists them, enforces them in widget endpoints, and adds integration coverage for UI + origin validation.
   Notes: Keep site-level `allowed_origin` as the shared baseline; widget-specific origins should be additive.
+  Resolution: Added widget/traffic allowed origins fields to the admin API and site model, enforced them in feedback/visit endpoints, and added dashboard autosave integration coverage; `make ci` passes.
 
 ## Maintenance (408–499)
 

@@ -77,7 +77,6 @@ const (
 	trafficTestTotalSelector                    = "#traffic-test-visit-total"
 	trafficTestUniqueSelector                   = "#traffic-test-visit-unique"
 	widgetBottomOffsetStepPixels                = 10
-	dashboardSaveSiteButtonSelector             = "#save-site-button"
 	dashboardReadWidgetBottomOffsetScript       = `(function() {
 		var input = document.getElementById('widget-placement-bottom-offset');
 		if (!input) { return ''; }
@@ -242,6 +241,12 @@ const (
 	dashboardReadAutoLogoutSettingsScript = `(function() {
                 if (!window.__loopawareDashboardSettingsTestHooks) { return null; }
                 return window.__loopawareDashboardSettingsTestHooks.readAutoLogoutSettings();
+	}())`
+	dashboardReadSessionTimeoutStartRequestedScript = `(function() {
+                if (!window.__loopawareDashboardSettingsTestHooks || typeof window.__loopawareDashboardSettingsTestHooks.readSessionTimeoutStartRequested !== 'function') {
+                        return false;
+                }
+                return !!window.__loopawareDashboardSettingsTestHooks.readSessionTimeoutStartRequested();
 	}())`
 	dashboardReadAutoLogoutMinimumsScript = `(function() {
 		if (!window.__loopawareDashboardSettingsTestHooks) {
@@ -549,6 +554,7 @@ type dashboardIntegrationHarness struct {
 type dashboardHarnessOptions struct {
 	subscriptionNotifier httpapi.SubscriptionNotifier
 	emailSender          httpapi.EmailSender
+	userLoadDelay        time.Duration
 }
 
 type dashboardHarnessOption func(*dashboardHarnessOptions)
@@ -565,6 +571,14 @@ func withEmailSender(sender httpapi.EmailSender) dashboardHarnessOption {
 	return func(options *dashboardHarnessOptions) {
 		if sender != nil {
 			options.emailSender = sender
+		}
+	}
+}
+
+func withUserLoadDelay(delay time.Duration) dashboardHarnessOption {
+	return func(options *dashboardHarnessOptions) {
+		if delay > 0 {
+			options.userLoadDelay = delay
 		}
 	}
 }
@@ -667,6 +681,38 @@ func TestDashboardSessionTimeoutPromptHonorsThemeAndLogout(t *testing.T) {
 			return false
 		}
 		return parsed.Path == dashboardTestLandingPath
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardSessionTimeoutStartsAfterUserSettingsLoad(testingT *testing.T) {
+	harness := buildDashboardIntegrationHarness(testingT, dashboardTestAdminEmail, withUserLoadDelay(2*time.Second))
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(testingT, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	dashboardPage := buildHeadlessPage(testingT)
+
+	setPageCookie(testingT, dashboardPage, harness.baseURL, sessionCookie)
+	navigateToPage(testingT, dashboardPage, harness.baseURL+dashboardTestDashboardRoute)
+
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, dashboardPage, dashboardSettingsHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.False(testingT, evaluateScriptBoolean(testingT, dashboardPage, dashboardReadSessionTimeoutStartRequestedScript))
+
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+        var element = document.querySelector(%q);
+        if (!element) { return false; }
+        var style = window.getComputedStyle(element);
+        if (!style) { return false; }
+        return style.display !== 'none' && style.visibility !== 'hidden';
+    }())`, dashboardUserEmailSelector)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, dashboardPage, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, dashboardPage, dashboardReadSessionTimeoutStartRequestedScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 
@@ -2568,7 +2614,6 @@ func TestDashboardWidgetPlacementSavePersists(t *testing.T) {
 	interceptFetchRequests(t, page)
 	clickSelector(t, page, "#widget-placement-side-left")
 	setInputValue(t, page, dashboardWidgetBottomOffsetInputSelector, "88")
-	clickSelector(t, page, dashboardSaveSiteButtonSelector)
 
 	type siteUpdatePayload struct {
 		WidgetBubbleSide         string `json:"widget_bubble_side"`
@@ -2594,6 +2639,9 @@ func TestDashboardWidgetPlacementSavePersists(t *testing.T) {
 			}
 			if err := json.Unmarshal([]byte(record.Body), &payload); err != nil {
 				return false
+			}
+			if payload.WidgetBubbleSide != "left" || payload.WidgetBubbleBottomOffset != 88 {
+				continue
 			}
 			payloadStatus = record.Status
 			return true
@@ -2646,7 +2694,6 @@ func TestDashboardAllowedOriginsAcceptsMultipleEntries(t *testing.T) {
 
 	allowedOrigins := "https://widget.example " + harness.baseURL
 	setInputValue(t, page, dashboardEditSiteAllowedOriginsSelector, allowedOrigins)
-	clickSelector(t, page, dashboardSaveSiteButtonSelector)
 
 	type siteUpdatePayload struct {
 		AllowedOrigin string `json:"allowed_origin"`
@@ -2671,6 +2718,9 @@ func TestDashboardAllowedOriginsAcceptsMultipleEntries(t *testing.T) {
 			}
 			if err := json.Unmarshal([]byte(record.Body), &payload); err != nil {
 				return false
+			}
+			if payload.AllowedOrigin != allowedOrigins {
+				continue
 			}
 			payloadStatus = record.Status
 			return true
@@ -2787,6 +2837,8 @@ func TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist(t *testing.T) {
 	initialOffset := readDashboardWidgetBottomOffset(t, page)
 	require.Equal(t, site.WidgetBubbleBottomOffsetPx, initialOffset)
 
+	interceptFetchRequests(t, page)
+
 	clickSelector(t, page, dashboardWidgetBottomOffsetIncreaseSelector)
 	incrementedOffset := readDashboardWidgetBottomOffset(t, page)
 	require.Equal(t, initialOffset+widgetBottomOffsetStepPixels, incrementedOffset)
@@ -2806,9 +2858,6 @@ func TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist(t *testing.T) {
 	require.NoError(t, page.Keyboard.Press(input.ArrowDown))
 	finalOffset := readDashboardWidgetBottomOffset(t, page)
 	require.Equal(t, manualOffset, finalOffset)
-
-	interceptFetchRequests(t, page)
-	clickSelector(t, page, dashboardSaveSiteButtonSelector)
 
 	type siteUpdatePayload struct {
 		WidgetBubbleBottomOffset int `json:"widget_bubble_bottom_offset"`
@@ -2833,6 +2882,9 @@ func TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist(t *testing.T) {
 			}
 			if record.Status == 0 {
 				return false
+			}
+			if payload.WidgetBubbleBottomOffset != finalOffset {
+				continue
 			}
 			payloadStatus = record.Status
 			return true
@@ -3075,7 +3127,12 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 
 	apiGroup := router.Group("/api")
 	apiGroup.Use(authManager.RequireAuthenticatedJSON())
-	apiGroup.GET("/me", siteHandlers.CurrentUser)
+	apiGroup.GET("/me", func(context *gin.Context) {
+		if config.userLoadDelay > 0 {
+			time.Sleep(config.userLoadDelay)
+		}
+		siteHandlers.CurrentUser(context)
+	})
 	apiGroup.GET("/me/avatar", siteHandlers.UserAvatar)
 	apiGroup.GET("/sites", siteHandlers.ListSites)
 	apiGroup.POST("/sites", siteHandlers.CreateSite)
