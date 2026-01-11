@@ -314,6 +314,24 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Notes: Keep site-level `allowed_origin` as the shared baseline; widget-specific origins should be additive.
   Resolution: Added widget/traffic allowed origins fields to the admin API and site model, enforced them in feedback/visit endpoints, and added dashboard autosave integration coverage; `make ci` passes.
 
+- [x] [LA-219] Improve subscribe.js error handling for 409 (already subscribed) responses.
+  Priority: P2
+  Goal: When the API returns 409 Conflict (email already subscribed), show a user-friendly message like "You're already subscribed!" instead of the generic "Please try again" error.
+  Deliverable: PR that updates subscribe.js to check response status and display contextual messages for known error codes (409, 400, etc.).
+  Use case: Users who try to subscribe twice see a confusing "Please try again" message; a specific message improves UX.
+  Resolution: Added status-specific error messages (409 → "You're already subscribed!", 400 → "Please enter a valid email") with customizable text via `already_subscribed` and `invalid_email` URL params.
+  Docs/Refs:
+  - `internal/httpapi/assets/subscribe.js`
+
+- [x] [LA-220] Add success/error callback support to subscribe.js widget.
+  Priority: P2
+  Goal: Allow embedding pages to react to subscription success/error events for custom UX flows (e.g., hide form, show thank you, flip card back).
+  Deliverable: PR that adds optional callback parameters to subscribe.js and fires them on success/error.
+  Use case: Marco Polo Research Lab landing page wants to show a thank you message and flip the card back after successful subscription.
+  Resolution: Added `onSuccess` and `onError` URL params/data attributes that call global functions, plus CustomEvents (`loopaware:subscribe:success`, `loopaware:subscribe:error`) dispatched on the target element with detail containing email, status, and reason.
+  Docs/Refs:
+  - `internal/httpapi/assets/subscribe.js`
+
 ## Maintenance (408–499)
 
 ### Recurring (close when done but do not remove)
