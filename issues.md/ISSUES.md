@@ -381,7 +381,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/dashboard_integration_test.go`
   Resolution: Added debounced autosave for site settings with a non-invasive render path and integration coverage that preserves subscribe-origin typing; `make ci` passes.
 
-- [ ] [LA-414] Remove the remnant avatar/name/sign-out markup that appears alongside the LoopAware header profile menu.
+- [x] [LA-414] Remove the remnant avatar/name/sign-out markup that appears alongside the LoopAware header profile menu.
   Priority: P1
   Goal: Only the LoopAware profile dropdown renders in the dashboard header; default mpr-ui profile elements remain hidden/removed.
   Deliverable: PR that removes the duplicate header markup and adds integration coverage for a single visible profile control.
@@ -390,6 +390,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/public_assets.go`
   - `tools/mpr-ui/docs/custom-elements.md`
+  Resolution: Removed default mpr-ui profile/settings/sign-in elements when the LoopAware profile menu is present and added integration coverage ensuring they are absent; `make ci` passes.
 
 - [ ] [LA-415] Dashboard sign-in requires multiple attempts instead of completing on first click.
   Priority: P1

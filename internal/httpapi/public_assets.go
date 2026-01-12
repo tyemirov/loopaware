@@ -263,6 +263,18 @@ var (
     };
   }
 
+  function removeDefaultHeaderProfileElements(headerHost) {
+    if (!headerHost || typeof headerHost.querySelector !== 'function') {
+      return;
+    }
+    ['[data-mpr-header="profile"]', '[data-mpr-header="google-signin"]', '[data-mpr-header="settings-button"]'].forEach(function(selector) {
+      var element = headerHost.querySelector(selector);
+      if (element && element.parentNode) {
+        element.parentNode.removeChild(element);
+      }
+    });
+  }
+
   function resolveProfileAttribute(headerRoot, headerHost, attributeName) {
     if (headerRoot && typeof headerRoot.getAttribute === 'function') {
       var value = headerRoot.getAttribute(attributeName);
@@ -766,6 +778,7 @@ var (
     var headerRoot = resolveHeaderRoot(headerHost);
     var customProfile = resolveCustomProfileElements(headerHost);
     if (customProfile) {
+      removeDefaultHeaderProfileElements(headerHost);
       ensureCustomProfileMenu(headerHost, customProfile);
       updateCustomProfile(customProfile, profile, headerRoot, headerHost);
       return;
@@ -806,6 +819,7 @@ var (
     function attemptSetup() {
       var customProfile = resolveCustomProfileElements(headerHost);
       if (customProfile) {
+        removeDefaultHeaderProfileElements(headerHost);
         updateHeaderAvatar(headerHost, null);
         return;
       }

@@ -155,6 +155,13 @@ const (
 		}
 		return { toggleText: toggleText, menuName: menuName, avatarVisible: avatarVisible, nameVisible: nameVisible };
 	}())`
+	dashboardHeaderDefaultProfileStateScript = `(function() {
+		return {
+			hasProfile: !!document.querySelector('[data-mpr-header="profile"]'),
+			hasGoogleSignin: !!document.querySelector('[data-mpr-header="google-signin"]'),
+			hasSettingsButton: !!document.querySelector('[data-mpr-header="settings-button"]')
+		};
+	}())`
 	dashboardLogoutTestHookScript = `(function() {
 		var storageKey = '` + dashboardLogoutFetchStorageKey + `';
 		var originalFetch = window.fetch ? window.fetch.bind(window) : null;
@@ -1062,6 +1069,40 @@ func TestDashboardProfileMenuShowsAvatarOnly(t *testing.T) {
 	require.Equal(t, dashboardTestAdminDisplayName, state.MenuName)
 	require.True(t, state.AvatarVisible)
 	require.True(t, state.NameVisible)
+}
+
+func TestDashboardHeaderRemovesDefaultProfileElements(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookieWithAvatar(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName, dashboardTestAvatarDataURI)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, `(function(){
+			var header = document.querySelector('mpr-header');
+			if (!header) { return ''; }
+			return header.getAttribute('data-loopaware-auth-bound') || '';
+		}())`) == "true"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	var state struct {
+		HasProfile        bool `json:"hasProfile"`
+		HasGoogleSignin   bool `json:"hasGoogleSignin"`
+		HasSettingsButton bool `json:"hasSettingsButton"`
+	}
+	evaluateScriptInto(t, page, dashboardHeaderDefaultProfileStateScript, &state)
+
+	require.False(t, state.HasProfile)
+	require.False(t, state.HasGoogleSignin)
+	require.False(t, state.HasSettingsButton)
 }
 
 func TestDashboardShowsDistinctWidgetSnippets(t *testing.T) {
