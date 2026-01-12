@@ -961,6 +961,56 @@ func TestDashboardLogoutFallsBackToFormWhenLogoutAndFetchFail(t *testing.T) {
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 
+func TestDashboardLogoutDisablesGoogleAutoSelect(testingT *testing.T) {
+	harness := buildDashboardIntegrationHarness(testingT, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(testingT, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(testingT)
+
+	setPageCookie(testingT, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(testingT, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		return style.display !== 'none' && style.visibility !== 'hidden';
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, page, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptString(testingT, page, `(function(){
+			var header = document.querySelector('mpr-header');
+			if (!header) { return ''; }
+			return header.getAttribute('data-loopaware-auth-bound') || '';
+		}())`) == "true"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	evaluateScriptInto(testingT, page, fmt.Sprintf(dashboardDisableGoogleAutoSelectTrackingScript, dashboardDisableGoogleAutoSelectStorageKey), nil)
+
+	openDashboardProfileMenu(testingT, page)
+	openDashboardProfileMenu(testingT, page)
+	clickSelector(testingT, page, dashboardLogoutButtonSelector)
+
+	disableAutoSelectScript := fmt.Sprintf(`(function(){
+		if (!window.localStorage) { return ''; }
+		return window.localStorage.getItem(%q) || '';
+	}())`, dashboardDisableGoogleAutoSelectStorageKey)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptString(testingT, page, disableAutoSelectScript) == "true"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptString(testingT, page, dashboardLocationPathScript) == dashboardTestLandingPath
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
 func TestDashboardProfileMenuShowsAvatarOnly(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()

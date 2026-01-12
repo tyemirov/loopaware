@@ -422,7 +422,25 @@ var (
     return logoutWithFetchFallback();
   }
 
+  function disableGoogleAutoSelect() {
+    if (!window || !window.google || !window.google.accounts || !window.google.accounts.id) {
+      return;
+    }
+    var identityApi = window.google.accounts.id;
+    if (typeof identityApi.cancel === 'function') {
+      try {
+        identityApi.cancel();
+      } catch (error) {}
+    }
+    if (typeof identityApi.disableAutoSelect === 'function') {
+      try {
+        identityApi.disableAutoSelect();
+      } catch (error) {}
+    }
+  }
+
   function handleLogout(headerHost) {
+    disableGoogleAutoSelect();
     var redirectToLanding = function() {
       if (headerHost && headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
         window.location.assign('{{.LandingPath}}');
@@ -830,6 +848,7 @@ var (
 
   function handleUnauthenticatedEvent(event) {
     var headerHost = resolveAuthHost(event);
+    disableGoogleAutoSelect();
     if (!headerHost) {
       return;
     }
