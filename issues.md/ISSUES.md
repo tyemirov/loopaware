@@ -369,3 +369,34 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `issues.md/AGENTS.FRONTEND.md`
   - `issues.md/AGENTS.GO.md`
   - `issues.md/AGENTS.DOCKER.md`
+
+## BugFixes (413–499)
+
+- [x] [LA-413] Autosave should not reload the dashboard or interrupt typing while editing site settings.
+  Priority: P1
+  Goal: Autosave site edits without refreshing the form or dropping focus while operators type.
+  Deliverable: PR adding debounced autosave with integration coverage proving input focus/value persists during autosave.
+  Docs/Refs:
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/dashboard_integration_test.go`
+  Resolution: Added debounced autosave for site settings with a non-invasive render path and integration coverage that preserves subscribe-origin typing; `make ci` passes.
+
+- [ ] [LA-414] Remove the remnant avatar/name/sign-out markup that appears alongside the LoopAware header profile menu.
+  Priority: P1
+  Goal: Only the LoopAware profile dropdown renders in the dashboard header; default mpr-ui profile elements remain hidden/removed.
+  Deliverable: PR that removes the duplicate header markup and adds integration coverage for a single visible profile control.
+  Docs/Refs:
+  - `internal/httpapi/templates/dashboard_header.tmpl`
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/public_assets.go`
+  - `tools/mpr-ui/docs/custom-elements.md`
+
+- [ ] [LA-415] Dashboard sign-in requires multiple attempts instead of completing on first click.
+  Priority: P1
+  Goal: The first sign-in interaction completes authentication without extra prompts or repeat clicks.
+  Deliverable: PR that eliminates double sign-in behavior and adds integration coverage for a single sign-in flow.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/templates/dashboard_header.tmpl`
+  - `tools/mpr-ui/docs/custom-elements.md`
+  - `tools/TAuth/docs/usage.md`

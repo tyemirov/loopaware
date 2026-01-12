@@ -382,8 +382,9 @@ const (
                 if (!status) { return false; }
                 return status.classList.contains('d-none');
         }())`
-	dashboardEditSiteAllowedOriginsSelector = "#edit-site-origin"
-	dashboardFirstSiteOriginTextScript      = `(function() {
+	dashboardEditSiteAllowedOriginsSelector       = "#edit-site-origin"
+	dashboardSubscribeAllowedOriginsInputSelector = "input[data-subscribe-origin-placeholder=\"true\"]"
+	dashboardFirstSiteOriginTextScript            = `(function() {
 		var item = document.querySelector('#sites-list [data-site-id]');
 		if (!item) { return ''; }
 		var elements = item.querySelectorAll('div');
@@ -2787,6 +2788,90 @@ func TestDashboardAllowedOriginsAcceptsMultipleEntries(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return evaluateScriptString(t, page, dashboardFirstSiteOriginTextScript) == "https://widget.example +1 more"
 	}, 5*time.Second, 100*time.Millisecond)
+}
+
+func TestDashboardAutosavePreservesSubscribeOriginTyping(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Autosave Subscribe Origins",
+		AllowedOrigin:              harness.baseURL,
+		OwnerEmail:                 dashboardTestAdminEmail,
+		CreatorEmail:               dashboardTestAdminEmail,
+		WidgetBubbleSide:           "right",
+		WidgetBubbleBottomOffsetPx: 16,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, 5*time.Second, 100*time.Millisecond)
+
+	clickSelector(t, page, dashboardSectionTabSubscriptionsSelector)
+	waitForVisibleElement(t, page, dashboardSubscribeAllowedOriginsInputSelector)
+
+	interceptFetchRequests(t, page)
+
+	input := waitForVisibleElement(t, page, dashboardSubscribeAllowedOriginsInputSelector)
+	require.NoError(t, input.Focus())
+	require.NoError(t, input.SelectAllText())
+	require.NoError(t, input.Input("https://autosave.example"))
+
+	type siteUpdatePayload struct {
+		SubscribeAllowedOrigins string `json:"subscribe_allowed_origins"`
+	}
+
+	var payload siteUpdatePayload
+	require.Eventually(t, func() bool {
+		requests := readCapturedFetchRequests(t, page)
+		for _, record := range requests {
+			if !strings.HasSuffix(record.URL, "/api/sites/"+site.ID) {
+				continue
+			}
+			if !strings.EqualFold(record.Method, http.MethodPatch) {
+				continue
+			}
+			if record.Body == "" {
+				continue
+			}
+			if record.Status == 0 {
+				continue
+			}
+			if err := json.Unmarshal([]byte(record.Body), &payload); err != nil {
+				return false
+			}
+			return payload.SubscribeAllowedOrigins == "https://autosave.example"
+		}
+		return false
+	}, 20*time.Second, 100*time.Millisecond)
+
+	type inputState struct {
+		Focused bool   `json:"focused"`
+		Value   string `json:"value"`
+	}
+
+	var state inputState
+	focusScript := fmt.Sprintf(`(function() {
+		var input = document.querySelector(%q);
+		if (!input) { return { focused: false, value: '' }; }
+		return { focused: document.activeElement === input, value: input.value || '' };
+	}())`, dashboardSubscribeAllowedOriginsInputSelector)
+	evaluateScriptInto(t, page, focusScript, &state)
+
+	require.True(t, state.Focused)
+	require.Equal(t, "https://autosave.example", state.Value)
 }
 
 func TestDashboardSiteFaviconOpensOrigin(t *testing.T) {
