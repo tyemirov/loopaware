@@ -373,6 +373,16 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard.tmpl`
   Resolution: Switched footer rendering to `links-collection`, moved initial theme into `theme-config.initialMode`, removed `theme-mode` syncing, and updated landing/privacy/dashboard/theme toggle tests; `make ci` passes.
 
+- [ ] [LA-412] do not allow repeated login dialog after log out.
+Currently a dialog to log in appears after logout. DO not allow it, and expect users explicit actions instead.
+Google Sign in shows automatic pop up to log in. That is unnessary and we want to rely on users explicit click. Investiaget if google sign in offers a parameter in its initialization to disable auto-login, check if we can use it with TAuth/mpr-ui initialization (check @tools/TAuth and @tools/mpr-ui).
+
+- [ ] [LA-413] Autosave shall not reload the page. currently autosave interrupts typing and reloads the page. we shall have better and more intellegint auto-save that allows people to type without interrupting.
+
+- [ ] [LA-414] there is a bizzare remnant of html which shows user avatar, user name and sign out button. remove it completely, it serves no function.
+
+- [ ] [LA-415] User sign in often doesnt work, and requires double action: I try to sign in once, nothing happens, and it signs me in on a second attwempt. ensure we dont have double initialization and that google signin is straight forward and uses tauth.js.
+
 ## Planning (do not implement yet)
 
 - [ ] [LA-410] Refactor LoopAware into a separate frontend and backend to adopt TAuth via mpr-ui.
