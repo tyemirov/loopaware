@@ -247,6 +247,16 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Because applyAutoLogoutSettingsForUser(null) runs before loadUser() and the session-timeout manager is started before loadUser() resolves (see sessionTimeoutStartRequested/sessionTimeoutManager.start() later in this template), the idle timer begins with default settings until the user-specific key is known. After this change clears the legacy base key, a slow /me response (e.g., degraded API or high latency) can trigger the 60/120-second defaults even for users who have configured longer timeouts, reintroducing “premature logout” in that scenario. Consider delaying sessionTimeoutStartRequested until applyAutoLogoutSettingsForUser(state.user) runs or caching the last user key so the correct settings are loaded before starting the timer.
   Resolution: Deferred session-timeout start until after user settings load and added integration coverage with a delayed /api/me response to confirm the start gate.
 
+- [x] [LA-339] Remove the full name login area in favor of the avatar-only header profile.
+  Priority: P1
+  Goal: Remove the full-name login layout (name + logout button) from all pages and use the avatar-only profile menu.
+  Deliverable: PR updating public headers and auth scripts to render the avatar-only dropdown, removing default profile layout elements, with integration coverage.
+  Resolution: Added avatar-only profile menu markup to public headers, removed default mpr-ui profile elements via the auth script, and added landing header integration coverage; `make ci` passes.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/landing_profile_menu_integration_test.go`
+
 ## Improvements (210–299)
 
 - [x] [LA-213] Dashboard section tabs should span full width and split into 3 equal parts.

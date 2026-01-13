@@ -67,17 +67,64 @@ const (
         align-items: center;
         gap: 0.5rem;
       }
-      .landing-header .loopaware-header-profile-body {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-      }
       .landing-header .loopaware-header-avatar {
         width: 32px;
         height: 32px;
         border-radius: 999px;
         object-fit: cover;
         box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.25);
+      }
+      .landing-header .loopaware-profile-dropdown {
+        position: relative;
+      }
+      .landing-header .loopaware-profile-toggle {
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.65);
+        color: #e2e8f0;
+        padding: 0.25rem;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 0;
+        font-weight: 600;
+      }
+      .landing-header .loopaware-profile-toggle:focus-visible {
+        outline: 2px solid rgba(148, 163, 184, 0.6);
+        outline-offset: 2px;
+      }
+      .landing-header .loopaware-profile-name {
+        line-height: 1.1;
+      }
+      .landing-header .loopaware-profile-menu-header {
+        padding: 0.35rem 0.75rem 0.5rem;
+      }
+      .landing-header .loopaware-profile-menu-header .loopaware-profile-name {
+        font-weight: 600;
+      }
+      .landing-header .loopaware-profile-menu {
+        min-width: 200px;
+        padding: 0.5rem;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.98);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.45);
+        display: none;
+      }
+      .landing-header .loopaware-profile-menu.show,
+      .landing-header .loopaware-profile-dropdown:focus-within .loopaware-profile-menu {
+        display: block;
+      }
+      .landing-header .loopaware-profile-item {
+        border-radius: 0.5rem;
+        font-weight: 600;
+        padding: 0.45rem 0.75rem;
+        color: #e2e8f0;
+        background: transparent;
+      }
+      .landing-header .loopaware-profile-item:hover,
+      .landing-header .loopaware-profile-item:focus {
+        background: rgba(148, 163, 184, 0.18);
+        color: #f8fafc;
       }
       body[data-bs-theme="dark"] .landing-header {
         --mpr-color-surface-primary: #0f172a;
@@ -101,6 +148,22 @@ const (
         --mpr-color-text-primary: #0f172a;
         --mpr-color-border: rgba(148, 163, 184, 0.2);
         --mpr-chip-bg: rgba(148, 163, 184, 0.18);
+      }
+      body[data-bs-theme="light"] .landing-header .loopaware-profile-toggle {
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      body[data-bs-theme="light"] .landing-header .loopaware-profile-menu {
+        background: #ffffff;
+        color: #0f172a;
+      }
+      body[data-bs-theme="light"] .landing-header .loopaware-profile-item {
+        color: #0f172a;
+      }
+      body[data-bs-theme="light"] .landing-header .loopaware-profile-item:hover,
+      body[data-bs-theme="light"] .landing-header .loopaware-profile-item:focus {
+        background: rgba(15, 23, 42, 0.08);
+        color: #0f172a;
       }
       body[data-bs-theme="light"] .landing-card {
         background-color: #f8fafc;
@@ -126,6 +189,18 @@ var (
     </span>
     <span>{{.BrandName}}</span>
   </a>
+  <div slot="aux" class="loopaware-profile-dropdown dropdown d-none" data-loopaware-profile-menu="true">
+    <button type="button" class="loopaware-profile-toggle dropdown-toggle" data-loopaware-profile-toggle="true" aria-expanded="false">
+      <img class="loopaware-header-avatar d-none" data-loopaware-avatar="true" alt="User avatar" />
+    </button>
+    <div class="dropdown-menu dropdown-menu-end loopaware-profile-menu" data-loopaware-profile-menu-items="true">
+      <div class="loopaware-profile-menu-header">
+        <span class="loopaware-profile-name" data-loopaware-profile-name="true"></span>
+      </div>
+      <div class="dropdown-divider"></div>
+      <button type="button" class="dropdown-item loopaware-profile-item" data-loopaware-logout="true">{{.SignOutLabel}}</button>
+    </div>
+  </div>
 </mpr-header>`))
 	publicThemeScriptTemplate = template.Must(template.New("public_theme_script").Parse(`(function() {
   var publicThemeStorageKey = '{{.PublicThemeStorageKey}}';
@@ -225,19 +300,6 @@ var (
   if (document && document.documentElement) {
     document.documentElement.setAttribute('data-loopaware-auth-script', 'true');
   }
-  function ensureProfileBody(profileContainer, nameNode, signOutNode) {
-    var body = profileContainer.querySelector('[data-loopaware-profile-body]');
-    if (!body) {
-      body = document.createElement('div');
-      body.className = 'loopaware-header-profile-body';
-      body.setAttribute('data-loopaware-profile-body', 'true');
-      profileContainer.insertBefore(body, nameNode);
-      body.appendChild(nameNode);
-      body.appendChild(signOutNode);
-    }
-    return body;
-  }
-
   function resolveCustomProfileElements(headerHost) {
     if (!headerHost) {
       return null;
@@ -263,15 +325,28 @@ var (
     };
   }
 
-  function removeDefaultHeaderProfileElements(headerHost) {
-    if (!headerHost || typeof headerHost.querySelector !== 'function') {
+  function removeDefaultHeaderProfileElements(headerHost, removeSignin) {
+    if (!headerHost) {
       return;
     }
-    ['[data-mpr-header="profile"]', '[data-mpr-header="google-signin"]', '[data-mpr-header="settings-button"]'].forEach(function(selector) {
-      var element = headerHost.querySelector(selector);
-      if (element && element.parentNode) {
-        element.parentNode.removeChild(element);
+    var selectors = ['[data-mpr-header="profile"]', '[data-mpr-header="settings-button"]'];
+    if (removeSignin) {
+      selectors.push('[data-mpr-header="google-signin"]');
+    }
+    var roots = [headerHost];
+    if (headerHost.shadowRoot) {
+      roots.push(headerHost.shadowRoot);
+    }
+    roots.forEach(function(rootElement) {
+      if (!rootElement || typeof rootElement.querySelector !== 'function') {
+        return;
       }
+      selectors.forEach(function(selector) {
+        var element = rootElement.querySelector(selector);
+        if (element && element.parentNode) {
+          element.parentNode.removeChild(element);
+        }
+      });
     });
   }
 
@@ -815,6 +890,19 @@ var (
     return resolveProfileAttribute(headerRoot, headerHost, 'data-user-avatar-url');
   }
 
+  function setCustomProfileVisibility(profileElements, shouldShow) {
+    if (!profileElements || !profileElements.profileMenu) {
+      return;
+    }
+    if (shouldShow) {
+      profileElements.profileMenu.classList.remove('d-none');
+      profileElements.profileMenu.setAttribute('aria-hidden', 'false');
+      return;
+    }
+    profileElements.profileMenu.classList.add('d-none');
+    profileElements.profileMenu.setAttribute('aria-hidden', 'true');
+  }
+
   function updateCustomProfile(profileElements, profile, headerRoot, headerHost) {
     if (!profileElements) {
       return;
@@ -824,6 +912,8 @@ var (
       profileElements.profileName.textContent = displayName;
     }
     var avatarUrl = resolveAvatarURL(headerRoot, headerHost, profile);
+    var shouldShowMenu = !!displayName || !!avatarUrl;
+    setCustomProfileVisibility(profileElements, shouldShowMenu);
     var avatar = profileElements.avatar;
     if (!avatar && avatarUrl && profileElements.toggleButton) {
       avatar = document.createElement('img');
@@ -866,39 +956,17 @@ var (
       return;
     }
     var headerRoot = resolveHeaderRoot(headerHost);
+    var displayName = resolveProfileDisplay(profile, headerRoot, headerHost);
+    var avatarUrl = resolveAvatarURL(headerRoot, headerHost, profile);
+    var shouldRemoveSignin = !!displayName || !!avatarUrl;
     var customProfile = resolveCustomProfileElements(headerHost);
     if (customProfile) {
-      removeDefaultHeaderProfileElements(headerHost);
+      removeDefaultHeaderProfileElements(headerHost, shouldRemoveSignin);
       ensureCustomProfileMenu(headerHost, customProfile);
       updateCustomProfile(customProfile, profile, headerRoot, headerHost);
       return;
     }
-    var profileContainer = headerHost.querySelector('[data-mpr-header="profile"]');
-    var profileName = headerHost.querySelector('[data-mpr-header="profile-name"]');
-    var signOutButton = headerHost.querySelector('[data-mpr-header="sign-out-button"]');
-    if (!profileContainer || !profileName || !signOutButton) {
-      return;
-    }
-    var avatarUrl = resolveAvatarURL(headerRoot, headerHost, profile);
-    var body = ensureProfileBody(profileContainer, profileName, signOutButton);
-    var avatar = profileContainer.querySelector('[data-loopaware-avatar]');
-    if (!avatarUrl) {
-      if (avatar) {
-        avatar.remove();
-      }
-      return;
-    }
-    if (!avatar) {
-      avatar = document.createElement('img');
-      avatar.className = 'loopaware-header-avatar';
-      avatar.setAttribute('data-loopaware-avatar', 'true');
-      avatar.alt = 'User avatar';
-      profileContainer.insertBefore(avatar, body);
-    }
-    if (profile && profile.display) {
-      avatar.alt = profile.display;
-    }
-    avatar.src = avatarUrl;
+    removeDefaultHeaderProfileElements(headerHost, shouldRemoveSignin);
   }
 
   function ensureHeaderProfileReady(headerHost) {
@@ -909,14 +977,7 @@ var (
     function attemptSetup() {
       var customProfile = resolveCustomProfileElements(headerHost);
       if (customProfile) {
-        removeDefaultHeaderProfileElements(headerHost);
-        updateHeaderAvatar(headerHost, null);
-        return;
-      }
-      var profileContainer = headerHost.querySelector('[data-mpr-header="profile"]');
-      var profileName = headerHost.querySelector('[data-mpr-header="profile-name"]');
-      var signOutButton = headerHost.querySelector('[data-mpr-header="sign-out-button"]');
-      if (profileContainer && profileName && signOutButton) {
+        removeDefaultHeaderProfileElements(headerHost, false);
         updateHeaderAvatar(headerHost, null);
         return;
       }

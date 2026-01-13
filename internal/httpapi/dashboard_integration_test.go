@@ -36,23 +36,23 @@ import (
 )
 
 const (
-	dashboardTestTauthSigningKey      = "test-tauth-signing-key"
-	dashboardTestJWTIssuer            = "tauth"
-	dashboardTestSessionCookieName    = "app_session"
-	dashboardTestTauthTenantID        = "test-tenant"
-	dashboardTestGoogleClientID       = "test-google-client-id"
-	dashboardTestAdminEmail           = "admin@example.com"
-	dashboardTestAdminDisplayName     = "Admin Example"
-	dashboardTestSecondaryEmail       = "operator@example.com"
-	dashboardTestSecondaryDisplayName = "Operator Example"
-	dashboardTestAvatarDataURI        = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
-	dashboardTestWidgetBaseURL        = "http://example.test"
-	dashboardTestDashboardRoute       = "/app"
+	dashboardTestTauthSigningKey        = "test-tauth-signing-key"
+	dashboardTestJWTIssuer              = "tauth"
+	dashboardTestSessionCookieName      = "app_session"
+	dashboardTestTauthTenantID          = "test-tenant"
+	dashboardTestGoogleClientID         = "test-google-client-id"
+	dashboardTestAdminEmail             = "admin@example.com"
+	dashboardTestAdminDisplayName       = "Admin Example"
+	dashboardTestSecondaryEmail         = "operator@example.com"
+	dashboardTestSecondaryDisplayName   = "Operator Example"
+	dashboardTestAvatarDataURI          = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
+	dashboardTestWidgetBaseURL          = "http://example.test"
+	dashboardTestDashboardRoute         = "/app"
 	landingGoogleNonceDelayMilliseconds = 5000
-	dashboardPromptWaitTimeout        = 10 * time.Second
-	dashboardPromptPollInterval       = 200 * time.Millisecond
-	dashboardNotificationSelector     = "#session-timeout-notification"
-	dashboardPromptVisibleScript      = `(function(){
+	dashboardPromptWaitTimeout          = 10 * time.Second
+	dashboardPromptPollInterval         = 200 * time.Millisecond
+	dashboardNotificationSelector       = "#session-timeout-notification"
+	dashboardPromptVisibleScript        = `(function(){
 		var element = document.querySelector('#session-timeout-notification');
 		if (!element) { return false; }
 		var style = window.getComputedStyle(element);
@@ -157,10 +157,23 @@ const (
 		return { toggleText: toggleText, menuName: menuName, avatarVisible: avatarVisible, nameVisible: nameVisible };
 	}())`
 	dashboardHeaderDefaultProfileStateScript = `(function() {
+		var headerHost = document.querySelector('mpr-header');
+		if (!headerHost) {
+			return { hasProfile: false, hasGoogleSignin: false, hasSettingsButton: false };
+		}
+		var hasSelector = function(selector) {
+			if (headerHost.querySelector(selector)) {
+				return true;
+			}
+			if (headerHost.shadowRoot && headerHost.shadowRoot.querySelector(selector)) {
+				return true;
+			}
+			return false;
+		};
 		return {
-			hasProfile: !!document.querySelector('[data-mpr-header="profile"]'),
-			hasGoogleSignin: !!document.querySelector('[data-mpr-header="google-signin"]'),
-			hasSettingsButton: !!document.querySelector('[data-mpr-header="settings-button"]')
+			hasProfile: hasSelector('[data-mpr-header="profile"]'),
+			hasGoogleSignin: hasSelector('[data-mpr-header="google-signin"]'),
+			hasSettingsButton: hasSelector('[data-mpr-header="settings-button"]')
 		};
 	}())`
 	dashboardLogoutTestHookScript = `(function() {
