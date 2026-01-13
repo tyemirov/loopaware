@@ -263,6 +263,18 @@ var (
     };
   }
 
+  function removeDefaultHeaderProfileElements(headerHost) {
+    if (!headerHost || typeof headerHost.querySelector !== 'function') {
+      return;
+    }
+    ['[data-mpr-header="profile"]', '[data-mpr-header="google-signin"]', '[data-mpr-header="settings-button"]'].forEach(function(selector) {
+      var element = headerHost.querySelector(selector);
+      if (element && element.parentNode) {
+        element.parentNode.removeChild(element);
+      }
+    });
+  }
+
   function resolveProfileAttribute(headerRoot, headerHost, attributeName) {
     if (headerRoot && typeof headerRoot.getAttribute === 'function') {
       var value = headerRoot.getAttribute(attributeName);
@@ -422,7 +434,115 @@ var (
     return logoutWithFetchFallback();
   }
 
+  function disableGoogleAutoSelect() {
+    if (!window || !window.google || !window.google.accounts || !window.google.accounts.id) {
+      return;
+    }
+    var identityApi = window.google.accounts.id;
+    if (typeof identityApi.cancel === 'function') {
+      try {
+        identityApi.cancel();
+      } catch (error) {}
+    }
+    if (typeof identityApi.disableAutoSelect === 'function') {
+      try {
+        identityApi.disableAutoSelect();
+      } catch (error) {}
+    }
+  }
+
+  var googleSigninGateMaxAttempts = 40;
+  var googleSigninGatePollIntervalMs = 100;
+  var googleSigninGateSlowPollIntervalMs = 1000;
+
+  function resolveGoogleSigninTarget(headerHost) {
+    if (!headerHost || typeof headerHost.querySelector !== 'function') {
+      return null;
+    }
+    var container = headerHost.querySelector('[data-mpr-header="google-signin"]');
+    if (!container) {
+      return null;
+    }
+    var wrapper = container.querySelector('[data-mpr-google-wrapper="true"]');
+    if (wrapper) {
+      return wrapper;
+    }
+    return container;
+  }
+
+  function hasGooglePromptNonce() {
+    return !!(window && window.__googleInitConfig && window.__googleInitConfig.nonce);
+  }
+
+  function setGoogleSigninDisabled(target, disabled) {
+    if (!target || typeof target.setAttribute !== 'function') {
+      return;
+    }
+    if (disabled) {
+      target.setAttribute('data-loopaware-signin-disabled', 'true');
+      target.setAttribute('aria-disabled', 'true');
+      if (target.tagName === 'BUTTON') {
+        target.disabled = true;
+      }
+      if (target.style) {
+        target.style.pointerEvents = 'none';
+      }
+      return;
+    }
+    target.removeAttribute('data-loopaware-signin-disabled');
+    target.removeAttribute('aria-disabled');
+    if (target.tagName === 'BUTTON') {
+      target.disabled = false;
+    }
+    if (target.style && target.style.pointerEvents === 'none') {
+      target.style.pointerEvents = '';
+    }
+  }
+
+  function clearGoogleSigninGate(target) {
+    if (!target) {
+      return;
+    }
+    target.removeAttribute('data-loopaware-signin-gate');
+    setGoogleSigninDisabled(target, false);
+  }
+
+  function gateGoogleSigninUntilNonce(headerHost) {
+    if (!headerHost) {
+      return;
+    }
+    var remainingAttempts = googleSigninGateMaxAttempts;
+    function scheduleNextGateAttempt() {
+      var interval = remainingAttempts > 0 ? googleSigninGatePollIntervalMs : googleSigninGateSlowPollIntervalMs;
+      window.setTimeout(attemptGate, interval);
+    }
+    function attemptGate() {
+      var target = resolveGoogleSigninTarget(headerHost);
+      if (!target) {
+        if (remainingAttempts > 0) {
+          remainingAttempts -= 1;
+        }
+        scheduleNextGateAttempt();
+        return;
+      }
+      if (hasGooglePromptNonce()) {
+        clearGoogleSigninGate(target);
+        return;
+      }
+      if (target.getAttribute('data-loopaware-signin-gate') !== 'true') {
+        target.setAttribute('data-loopaware-signin-gate', 'true');
+      }
+      setGoogleSigninDisabled(target, true);
+      if (remainingAttempts > 0) {
+        remainingAttempts -= 1;
+      }
+      scheduleNextGateAttempt();
+    }
+    attemptGate();
+  }
+
   function handleLogout(headerHost) {
+    disableGoogleAutoSelect();
     var redirectToLanding = function() {
       if (headerHost && headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
         window.location.assign('{{.LandingPath}}');
@@ -748,6 +868,7 @@ var (
     var headerRoot = resolveHeaderRoot(headerHost);
     var customProfile = resolveCustomProfileElements(headerHost);
     if (customProfile) {
+      removeDefaultHeaderProfileElements(headerHost);
       ensureCustomProfileMenu(headerHost, customProfile);
       updateCustomProfile(customProfile, profile, headerRoot, headerHost);
       return;
@@ -788,6 +909,7 @@ var (
     function attemptSetup() {
       var customProfile = resolveCustomProfileElements(headerHost);
       if (customProfile) {
+        removeDefaultHeaderProfileElements(headerHost);
         updateHeaderAvatar(headerHost, null);
         return;
       }
@@ -823,6 +945,7 @@ var (
     }
     var profile = event && event.detail && event.detail.profile ? event.detail.profile : null;
     updateHeaderAvatar(headerHost, profile);
+    clearGoogleSigninGate(resolveGoogleSigninTarget(headerHost));
     if (headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
       window.location.assign('{{.DashboardPath}}');
     }
@@ -830,10 +953,12 @@ var (
 
   function handleUnauthenticatedEvent(event) {
     var headerHost = resolveAuthHost(event);
+    disableGoogleAutoSelect();
     if (!headerHost) {
       return;
     }
     updateHeaderAvatar(headerHost, null);
+    gateGoogleSigninUntilNonce(headerHost);
     if (headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
       window.location.assign('{{.LandingPath}}');
     }
@@ -866,6 +991,7 @@ var (
     }
     headerHost.setAttribute('data-loopaware-auth-bound', 'true');
     ensureHeaderProfileReady(headerHost);
+    gateGoogleSigninUntilNonce(headerHost);
   }
 
   var bindingInProgress = false;

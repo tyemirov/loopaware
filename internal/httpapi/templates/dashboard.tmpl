@@ -766,6 +766,10 @@
           siteMessages: {},
           siteSubscribers: {}
         };
+        var siteAutosaveDelayMilliseconds = 800;
+        var siteAutosaveTimerId = null;
+        var siteAutosavePending = false;
+        var siteAutosaveInFlight = false;
         var sessionTimeoutManager = null;
         var siteSearchQuery = '';
         var messagesSearchQuery = '';
@@ -1557,7 +1561,6 @@
           function createAllowedOriginRow(initialValue, isPlaceholder) {
             var row = document.createElement('div');
             row.className = 'input-group';
-
             var input = document.createElement('input');
             input.type = 'url';
             input.className = 'form-control';
@@ -1949,6 +1952,26 @@
           var invalidTrafficAllowedOriginInput = findInvalidTrafficAllowedOriginInput();
           if (invalidTrafficAllowedOriginInput) {
             markFieldInvalid(invalidTrafficAllowedOriginInput, validationMessageKeyOriginInvalid, resolvedFocusMode);
+            return false;
+          }
+          return true;
+        }
+        function isSiteFormValidForAutosave() {
+          for (var index = 0; index < siteFormValidationDescriptors.length; index += 1) {
+            var descriptor = siteFormValidationDescriptors[index];
+            if (!descriptor.fieldElement) {
+              continue;
+            }
+            if (typeof descriptor.shouldValidate === 'function' && !descriptor.shouldValidate()) {
+              continue;
+            }
+            var value = getTrimmedValue(descriptor.fieldElement);
+            if (typeof descriptor.validateValue === 'function' && !descriptor.validateValue(value)) {
+              return false;
+            }
+          }
+          var invalidSubscribeAllowedOriginInput = findInvalidSubscribeAllowedOriginInput();
+          if (invalidSubscribeAllowedOriginInput) {
             return false;
           }
           return true;
@@ -3030,10 +3053,13 @@
           }
         }
 
-        function renderSites() {
+        function renderSites(options) {
           if (!sitesList) {
             return;
           }
+          var renderOptions = options || {};
+          var skipFormPopulate = renderOptions.skipFormPopulate === true;
+          var skipDataRefresh = renderOptions.skipDataRefresh === true;
           while (sitesList.firstChild) {
             sitesList.removeChild(sitesList.firstChild);
           }
@@ -3140,8 +3166,15 @@
           updateNewSiteButtonState();
           updateDeleteButtonState();
           updateSelectedSiteSummary(selectedSite);
-          populateSiteForm();
-          updateWidgetSnippet();
+          if (!skipFormPopulate) {
+            populateSiteForm();
+          } else {
+            updateFormMode();
+            updateWidgetSnippet();
+          }
+          if (skipDataRefresh) {
+            return;
+          }
           if (!state.selectedSiteId) {
             renderFeedbackPlaceholder(siteSearchQuery ? statusNoSiteMatches : statusMessages.select_site || '');
             return;
@@ -3173,6 +3206,7 @@
           if (!siteIdentifier || siteIdentifier === state.selectedSiteId) {
             return;
           }
+          cancelAutoSave();
           clearValidationFeedback();
           state.selectedSiteId = siteIdentifier;
           renderSites();
@@ -3774,6 +3808,15 @@
         }, autoSaveDelayMilliseconds);
       }
 
+      function cancelAutoSave() {
+        if (autoSaveTimerId) {
+          clearTimeout(autoSaveTimerId);
+          autoSaveTimerId = null;
+        }
+        autoSaveCandidate = null;
+        autoSavePending = false;
+      }
+
       function triggerAutoSave() {
         if (autoSaveTimerId) {
           clearTimeout(autoSaveTimerId);
@@ -3820,11 +3863,12 @@
           return;
         }
         setFormStatus(statusMessages.saving_site || '', formStatusBaseClass);
-        updateSite(candidate);
+        updateSite(candidate, saveMode);
       }
 
       function submitSite(event) {
         if (event) { event.preventDefault(); }
+        cancelAutoSave();
         if (!state.selectedSiteId) {
           setFormStatus(statusMessages.select_site || '', formStatusDangerClass);
           return;
@@ -3844,7 +3888,7 @@
         }
       }
 
-      function updateSite(candidate) {
+      function updateSite(candidate, saveMode) {
         var endpoint = apiSiteUpdatePrefix + candidate.siteId;
         fetchJSON(endpoint, {
           method: 'PATCH',
@@ -3858,7 +3902,8 @@
           if (index >= 0) {
             state.sites[index] = payload;
           }
-          renderSites();
+          var renderOptions = saveMode === saveModeAuto ? { skipFormPopulate: true, skipDataRefresh: true } : null;
+          renderSites(renderOptions);
           finalizeAutoSave();
         }).catch(function(error) {
           setFormStatus(error.message || buttonLabels.save_failed || '', formStatusDangerClass);
@@ -3914,6 +3959,7 @@
             if (state.selectedSiteId === newSiteOptionValue) {
               return;
             }
+            cancelAutoSave();
             clearValidationFeedback();
             state.selectedSiteId = newSiteOptionValue;
             renderSites();
@@ -4008,6 +4054,11 @@
               event.preventDefault();
               adjustWidgetBottomOffset(event.key === 'ArrowUp' ? widgetBottomOffsetStep : -widgetBottomOffsetStep);
             }
+          });
+        }
+        if (subscribeAllowedOriginsList) {
+          subscribeAllowedOriginsList.addEventListener('input', function() {
+            scheduleAutoSave();
           });
         }
         if (autoLogoutToggle) {
