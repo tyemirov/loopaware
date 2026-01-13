@@ -65,6 +65,7 @@ type subscribeTestTemplateData struct {
 	SiteID                  string
 	AccentInputID           string
 	CTAInputID              string
+	TargetInputID           string
 	NameFieldInputID        string
 	InlineFormTitle         string
 	InlineFormContainerID   string
@@ -158,6 +159,7 @@ func (handlers *SiteSubscribeTestHandlers) RenderSubscribeTestPage(context *gin.
 		InlineFormContainerID:   "subscribe-test-inline-preview",
 		AccentInputID:           "subscribe-test-accent",
 		CTAInputID:              "subscribe-test-cta",
+		TargetInputID:           "subscribe-test-target",
 		NameFieldInputID:        "subscribe-test-name-field",
 		StatusLogElementID:      "subscribe-test-log",
 		StatusTextElementID:     "subscribe-test-status",
