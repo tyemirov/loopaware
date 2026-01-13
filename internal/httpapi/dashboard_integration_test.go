@@ -48,6 +48,7 @@ const (
 	dashboardTestAvatarDataURI        = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
 	dashboardTestWidgetBaseURL        = "http://example.test"
 	dashboardTestDashboardRoute       = "/app"
+	landingGoogleNonceDelayMilliseconds = 800
 	dashboardPromptWaitTimeout        = 10 * time.Second
 	dashboardPromptPollInterval       = 200 * time.Millisecond
 	dashboardNotificationSelector     = "#session-timeout-notification"
@@ -64,6 +65,7 @@ const (
 	dashboardSettingsButtonSelector             = "#settings-button"
 	dashboardProfileToggleSelector              = `[data-loopaware-profile-toggle="true"]`
 	dashboardLogoutButtonSelector               = `[data-loopaware-logout="true"]`
+	landingGoogleSigninWrapperSelector          = `mpr-header [data-mpr-google-wrapper="true"]`
 	dashboardSettingsModalSelector              = "#settings-modal"
 	dashboardWidgetBottomOffsetInputSelector    = "#widget-placement-bottom-offset"
 	dashboardWidgetBottomOffsetIncreaseSelector = "#widget-bottom-offset-increase"
@@ -374,6 +376,45 @@ const (
 		} else {
 			scheduleMark();
 		}
+	}())`
+	landingDelayedNonceScript = `(function() {
+		var delayMs = %d;
+		window.__loopawareNonceResolved = false;
+		window.requestNonce = function() {
+			return new Promise(function(resolve) {
+				window.setTimeout(function() {
+					window.__loopawareNonceResolved = true;
+					resolve({ nonce: 'test-nonce' });
+				}, delayMs);
+			});
+		};
+		if (!window.google) { window.google = {}; }
+		if (!window.google.accounts) { window.google.accounts = {}; }
+		if (!window.google.accounts.id) { window.google.accounts.id = {}; }
+		window.google.accounts.id.initialize = function(config) {};
+		window.google.accounts.id.renderButton = function(target) {
+			if (!target || typeof document === 'undefined') {
+				return;
+			}
+			var button = document.createElement('div');
+			button.textContent = 'Sign in';
+			target.appendChild(button);
+		};
+		window.google.accounts.id.prompt = function() {};
+	}())`
+	landingSigninDisabledScript = `(function() {
+		var header = document.querySelector('mpr-header');
+		if (!header) { return false; }
+		return !!header.querySelector('[data-loopaware-signin-disabled="true"]');
+	}())`
+	landingSigninDisabledWhileNoncePendingScript = `(function() {
+		if (window.__loopawareNonceResolved) { return false; }
+		var header = document.querySelector('mpr-header');
+		if (!header) { return false; }
+		return !!header.querySelector('[data-loopaware-signin-disabled="true"]');
+	}())`
+	landingNonceResolvedScript = `(function() {
+		return window.__loopawareNonceResolved === true;
 	}())`
 	dashboardIdleHooksReadyScript  = "typeof window.__loopawareDashboardIdleTestHooks !== 'undefined'"
 	dashboardSelectFirstSiteScript = `(function() {
@@ -1901,6 +1942,32 @@ func TestLandingRedirectsToDashboardWhenAuthenticated(t *testing.T) {
 			return false
 		}
 		return parsed.Path == dashboardTestDashboardRoute
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestLandingSigninWaitsForNonce(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	page := buildHeadlessPage(t)
+
+	_, err := page.EvalOnNewDocument(fmt.Sprintf(landingDelayedNonceScript, landingGoogleNonceDelayMilliseconds))
+	require.NoError(t, err)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestLandingPath)
+
+	waitForVisibleElement(t, page, landingGoogleSigninWrapperSelector)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, landingSigninDisabledWhileNoncePendingScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, landingNonceResolvedScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(t, func() bool {
+		return !evaluateScriptBoolean(t, page, landingSigninDisabledScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 
