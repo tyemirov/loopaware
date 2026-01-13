@@ -275,87 +275,59 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Goal: Feedback/Subscriptions/Traffic tab buttons fill the available width and each takes exactly 1/3 of the row (responsive).
   Deliverable: PR adjusting tab markup/CSS and updating dashboard integration tests as needed.
   Resolution: Switched section tabs to `nav-justified` + `w-100` and added headless integration assertions for equal computed tab widths.
+- [x] [LA-413] Autosave should not reload the dashboard or interrupt typing while editing site settings.
+  Priority: P1
+  Goal: Autosave site edits without refreshing the form or dropping focus while operators type.
+  Deliverable: PR adding debounced autosave with integration coverage proving input focus/value persists during autosave.
   Docs/Refs:
   - `internal/httpapi/templates/dashboard.tmpl`
-  - existing dashboard integration tests under `internal/httpapi/*integration*_test.go`
-  Execution plan:
-  - Update tab container layout to a 3-column equal-width grid or flex distribution.
-  - Verify keyboard focus/active styles remain correct.
-  - Update integration tests to assert correct tab visibility and interaction.
+  - `internal/httpapi/dashboard_integration_test.go`
+  Resolution: Added debounced autosave for site settings with a non-invasive render path and integration coverage that preserves subscribe-origin typing; `make ci` passes.
 
-- [x] [LA-214] Add “additional source origins” UX to the subscriber widget (add/remove inputs).
-  Priority: P2
-  Goal: Dashboard exposes a dedicated UI to enter extra allowed origins for the subscribe widget (separate from the site’s `allowed_origin`), with +/− controls.
-  Deliverable: PR adding UI, persisting the new configuration, and updating the subscribe widget to enforce the combined origin set.
-  Resolution: Added `subscribe_allowed_origins` to `Site`, exposed editable add/remove inputs in the dashboard, and enforced combined origin checks for subscription create/confirm/unsubscribe; coverage added for API + dashboard flows.
+- [x] [LA-414] Remove the remnant avatar/name/sign-out markup that appears alongside the LoopAware header profile menu.
+  Priority: P1
+  Goal: Only the LoopAware profile dropdown renders in the dashboard header; default mpr-ui profile elements remain hidden/removed.
+  Deliverable: PR that removes the duplicate header markup and adds integration coverage for a single visible profile control.
   Docs/Refs:
+  - `internal/httpapi/templates/dashboard_header.tmpl`
   - `internal/httpapi/templates/dashboard.tmpl`
-  - `internal/httpapi/public.go` (origin validation helpers)
-  - `internal/model/site.go` (if new persisted fields are added)
-  Execution plan:
-  - Decide data model: extend `Site` with `subscribe_allowed_origins` (or equivalent) and migrate.
-  - Add dashboard editor UI with add/remove controls and validation.
-  - Extend subscribe widget + backend origin checks to consult both site and subscribe-specific origins.
-  - Add integration coverage for “extra origin accepted / unknown origin rejected”.
+  - `internal/httpapi/public_assets.go`
+  - `tools/mpr-ui/docs/custom-elements.md`
+  Resolution: Removed default mpr-ui profile/settings/sign-in elements when the LoopAware profile menu is present and added integration coverage ensuring they are absent; `make ci` passes.
 
-- [x] [LA-215] Improve subscribe widget instructions (separate snippet and rendered form).
-  Priority: P3
-  Goal: Dashboard instructions clearly explain (a) the script snippet to embed and (b) what the rendered form looks like / where it appears.
-  Deliverable: PR that updates dashboard copy and/or adds an in-dashboard preview of the subscribe form.
-  Resolution: Split Subscribers widget instructions into “embed snippet” and “rendered form” guidance and pointed operators at the built-in Test preview.
+- [x] [LA-415] Dashboard sign-in requires multiple attempts instead of completing on first click.
+  Priority: P1
+  Goal: The first sign-in interaction completes authentication without extra prompts or repeat clicks.
+  Deliverable: PR that eliminates double sign-in behavior and adds integration coverage for a single sign-in flow.
   Docs/Refs:
-  - `README.md` “Embedding the subscribe form”
-  - `internal/httpapi/templates/dashboard.tmpl`
-  Execution plan:
-  - Rewrite instruction copy to be action-oriented and unambiguous.
-  - Add a small static preview block or link to the existing subscribe demo page.
-  - Validate copy is consistent with current query parameters and behavior.
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/templates/dashboard_header.tmpl`
+  - `tools/mpr-ui/docs/custom-elements.md`
+  - `tools/TAuth/docs/usage.md`
+  Resolution: Gated the Google sign-in control until the nonce-backed GIS initialization is available and added integration coverage to verify the gate releases after nonce readiness; `make ci` passes.
 
-- [x] [LA-216] Subscribe widget “additional origins” should use an inline Add button on the always-visible placeholder input (no standalone Add origin button).
-  Priority: P2
-  Goal: The Additional subscribe origins editor always shows a placeholder input with an inline Add button; existing origins remain removable via Remove.
-  Deliverable: PR adjusting the dashboard UI and updating headless integration coverage.
-  Resolution: Removed the standalone Add origin button, introduced an always-present placeholder input row with an inline Add button, and updated the dashboard integration test accordingly.
+- [ ] [LA-339] ![Full name login area](image-3.png) Remove the full name login area in favor of current avatar only design ![alt text](image-4.png). Ensure that the layout for the full name and log out button is deleted from all pages
+
+## Planning (500-599)
+**do not implement yet**
+
+- [ ] [LA-410] Refactor LoopAware into a separate frontend and backend to adopt TAuth via mpr-ui.
+  Priority: P0
+  Goal: Split the UI into a dedicated frontend app that loads `tauth.js` + mpr-ui DSL, while the backend becomes a clean API that validates TAuth sessions.
+  Deliverable: A documented architecture/migration plan that defines service boundaries, routing/origin model, auth flow, and rollout steps.
   Docs/Refs:
-  - `internal/httpapi/templates/dashboard.tmpl`
-  - `internal/httpapi/web.go`
-  - `internal/httpapi/subscribe_allowed_origins_dashboard_integration_test.go`
-
-- [x] [LA-217] Autosave site edits and remove the Update Site button.
-  Priority: P2
-  Goal: Site name/origin/owner/placement changes are auto-saved without requiring a manual Update action.
-  Deliverable: PR that debounces/saves site edits automatically, removes the Update button from the UI, and adds integration coverage for auto-save behavior.
-  Notes: Ensure auto-save handles validation errors gracefully and does not persist partial/invalid values.
-  Resolution: Removed the Update Site button, added debounced autosave with form-status messaging/validation handling, and updated integration coverage for autosaved site edits and subscribe origins; `make ci` passes.
-
-- [x] [LA-218] Add per-widget additional origins for feedback and traffic widgets.
-  Priority: P2
-  Goal: Operators can configure extra allowed origins independently for feedback and traffic widgets, similar to subscribe.
-  Deliverable: PR that adds per-widget additional origins fields for feedback + traffic, persists them, enforces them in widget endpoints, and adds integration coverage for UI + origin validation.
-  Notes: Keep site-level `allowed_origin` as the shared baseline; widget-specific origins should be additive.
-  Resolution: Added widget/traffic allowed origins fields to the admin API and site model, enforced them in feedback/visit endpoints, and added dashboard autosave integration coverage; `make ci` passes.
-
-- [x] [LA-219] Improve subscribe.js error handling for 409 (already subscribed) responses.
-  Priority: P2
-  Goal: When the API returns 409 Conflict (email already subscribed), show a user-friendly message like "You're already subscribed!" instead of the generic "Please try again" error.
-  Deliverable: PR that updates subscribe.js to check response status and display contextual messages for known error codes (409, 400, etc.).
-  Use case: Users who try to subscribe twice see a confusing "Please try again" message; a specific message improves UX.
-  Resolution: Added status-specific error messages (409 → "You're already subscribed!", 400 → "Please enter a valid email") with customizable text via `already_subscribed` and `invalid_email` URL params.
-  Docs/Refs:
-  - `internal/httpapi/assets/subscribe.js`
-
-- [x] [LA-220] Add success/error callback support to subscribe.js widget.
-  Priority: P2
-  Goal: Allow embedding pages to react to subscription success/error events for custom UX flows (e.g., hide form, show thank you, flip card back).
-  Deliverable: PR that adds optional callback parameters to subscribe.js and fires them on success/error.
-  Use case: Marco Polo Research Lab landing page wants to show a thank you message and flip the card back after successful subscription.
-  Resolution: Added `onSuccess` and `onError` URL params/data attributes that call global functions, plus CustomEvents (`loopaware:subscribe:success`, `loopaware:subscribe:error`) dispatched on the target element with detail containing email, status, and reason.
-  Docs/Refs:
-  - `internal/httpapi/assets/subscribe.js`
+  - `tools/TAuth/docs/usage.md`
+  - `tools/TAuth/docs/migration.md`
+  - `issues.md/AGENTS.FRONTEND.md`
+  - `issues.md/AGENTS.GO.md`
+  - `issues.md/AGENTS.DOCKER.md`
 
 ## Maintenance (408–499)
 
-### Recurring (close when done but do not remove)
+- [ ] [LA-409] Improve tests coverage to 95%
+
+### Recurring (600-699)
+**close when done but do not remove**
 
 - [x] [LA-406] Cleanup:
   1. Review the completed issues and compare the code against the README.md and ARCHITECTURE.md files.
@@ -407,49 +379,3 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `ARCHITECTURE.md`
   - `docs/LA-200-mpr-ui-gauth.md`
   Resolution: Added PRD/PLANNING docs for LoopAware, and documented mpr-ui custom elements/integration in MarcoPoloResearchLab/mpr-ui#127; `make ci` passes.
-
-## Planning (do not implement yet)
-
-- [ ] [LA-410] Refactor LoopAware into a separate frontend and backend to adopt TAuth via mpr-ui.
-  Priority: P0
-  Goal: Split the UI into a dedicated frontend app that loads `tauth.js` + mpr-ui DSL, while the backend becomes a clean API that validates TAuth sessions.
-  Deliverable: A documented architecture/migration plan that defines service boundaries, routing/origin model, auth flow, and rollout steps.
-  Docs/Refs:
-  - `tools/TAuth/docs/usage.md`
-  - `tools/TAuth/docs/migration.md`
-  - `issues.md/AGENTS.FRONTEND.md`
-  - `issues.md/AGENTS.GO.md`
-  - `issues.md/AGENTS.DOCKER.md`
-
-## BugFixes (413–499)
-
-- [x] [LA-413] Autosave should not reload the dashboard or interrupt typing while editing site settings.
-  Priority: P1
-  Goal: Autosave site edits without refreshing the form or dropping focus while operators type.
-  Deliverable: PR adding debounced autosave with integration coverage proving input focus/value persists during autosave.
-  Docs/Refs:
-  - `internal/httpapi/templates/dashboard.tmpl`
-  - `internal/httpapi/dashboard_integration_test.go`
-  Resolution: Added debounced autosave for site settings with a non-invasive render path and integration coverage that preserves subscribe-origin typing; `make ci` passes.
-
-- [x] [LA-414] Remove the remnant avatar/name/sign-out markup that appears alongside the LoopAware header profile menu.
-  Priority: P1
-  Goal: Only the LoopAware profile dropdown renders in the dashboard header; default mpr-ui profile elements remain hidden/removed.
-  Deliverable: PR that removes the duplicate header markup and adds integration coverage for a single visible profile control.
-  Docs/Refs:
-  - `internal/httpapi/templates/dashboard_header.tmpl`
-  - `internal/httpapi/templates/dashboard.tmpl`
-  - `internal/httpapi/public_assets.go`
-  - `tools/mpr-ui/docs/custom-elements.md`
-  Resolution: Removed default mpr-ui profile/settings/sign-in elements when the LoopAware profile menu is present and added integration coverage ensuring they are absent; `make ci` passes.
-
-- [x] [LA-415] Dashboard sign-in requires multiple attempts instead of completing on first click.
-  Priority: P1
-  Goal: The first sign-in interaction completes authentication without extra prompts or repeat clicks.
-  Deliverable: PR that eliminates double sign-in behavior and adds integration coverage for a single sign-in flow.
-  Docs/Refs:
-  - `internal/httpapi/public_assets.go`
-  - `internal/httpapi/templates/dashboard_header.tmpl`
-  - `tools/mpr-ui/docs/custom-elements.md`
-  - `tools/TAuth/docs/usage.md`
-  Resolution: Gated the Google sign-in control until the nonce-backed GIS initialization is available and added integration coverage to verify the gate releases after nonce readiness; `make ci` passes.
