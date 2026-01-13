@@ -673,6 +673,34 @@ func TestCreateSiteAllowsAdminToSpecifyOwner(testingT *testing.T) {
 	require.Equal(testingT, defaultWidgetTestBottomOffsetPixels, createdSite.WidgetBubbleBottomOffsetPx)
 }
 
+func TestCreateSitePersistsWidgetAndTrafficAllowedOrigins(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	payload := map[string]string{
+		"name":                    "Widget Origins",
+		"allowed_origin":          "http://origin.example",
+		"owner_email":             testUserEmailAddress,
+		"widget_allowed_origins":  "http://widget.example, http://secondary.example",
+		"traffic_allowed_origins": "http://traffic.example, http://secondary.example",
+	}
+
+	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.CreateSite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody map[string]any
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, "http://widget.example http://secondary.example", responseBody["widget_allowed_origins"])
+	require.Equal(testingT, "http://traffic.example http://secondary.example", responseBody["traffic_allowed_origins"])
+
+	var createdSite model.Site
+	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Widget Origins").Error)
+	require.Equal(testingT, "http://widget.example http://secondary.example", createdSite.WidgetAllowedOrigins)
+	require.Equal(testingT, "http://traffic.example http://secondary.example", createdSite.TrafficAllowedOrigins)
+}
+
 func TestCreateSiteAssignsCurrentUserAsOwner(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
@@ -990,6 +1018,68 @@ func TestUpdateSitePersistsSubscribeAllowedOrigins(testingT *testing.T) {
 	var updatedSite model.Site
 	require.NoError(testingT, harness.database.First(&updatedSite, "id = ?", site.ID).Error)
 	require.Equal(testingT, "http://newsletter.example http://secondary.example", updatedSite.SubscribeAllowedOrigins)
+}
+
+func TestUpdateSitePersistsWidgetAllowedOrigins(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Widget Origin Site",
+		AllowedOrigin: "http://owner.example",
+		OwnerEmail:    testUserEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	payload := map[string]string{
+		"widget_allowed_origins": "http://widget.example, http://secondary.example",
+	}
+
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID, payload)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
+
+	harness.handlers.UpdateSite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody map[string]any
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, "http://widget.example http://secondary.example", responseBody["widget_allowed_origins"])
+
+	var updatedSite model.Site
+	require.NoError(testingT, harness.database.First(&updatedSite, "id = ?", site.ID).Error)
+	require.Equal(testingT, "http://widget.example http://secondary.example", updatedSite.WidgetAllowedOrigins)
+}
+
+func TestUpdateSitePersistsTrafficAllowedOrigins(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Traffic Origin Site",
+		AllowedOrigin: "http://owner.example",
+		OwnerEmail:    testUserEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	payload := map[string]string{
+		"traffic_allowed_origins": "http://traffic.example, http://secondary.example",
+	}
+
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID, payload)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
+
+	harness.handlers.UpdateSite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody map[string]any
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, "http://traffic.example http://secondary.example", responseBody["traffic_allowed_origins"])
+
+	var updatedSite model.Site
+	require.NoError(testingT, harness.database.First(&updatedSite, "id = ?", site.ID).Error)
+	require.Equal(testingT, "http://traffic.example http://secondary.example", updatedSite.TrafficAllowedOrigins)
 }
 
 func TestUpdateSiteAllowsOwnerToReassignOwnership(testingT *testing.T) {

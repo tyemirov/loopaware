@@ -11,6 +11,8 @@
   var defaultCTA = "Subscribe";
   var defaultSuccessText = "You're on the list!";
   var defaultErrorText = "Please try again.";
+  var defaultAlreadySubscribedText = "You're already subscribed!";
+  var defaultInvalidEmailText = "Please enter a valid email.";
   var defaultEmailPlaceholder = "you@example.com";
   var defaultNamePlaceholder = "Your name (optional)";
   var modeBubble = "bubble";
@@ -42,10 +44,18 @@
     var success = params.get("success") || defaultSuccessText;
     var error = params.get("error") || defaultErrorText;
     var hideName = params.get("name_field") === "false";
+    var targetId = params.get("target") || scriptTag.getAttribute("data-target") || "";
+    if (targetId) {
+      targetId = String(targetId).trim();
+    }
     var siteId = params.get("site_id") || scriptTag.getAttribute("data-site-id") || "";
     if (!siteId) {
       siteId = "{{ .SiteID }}";
     }
+    var alreadySubscribed = params.get("already_subscribed") || defaultAlreadySubscribedText;
+    var invalidEmail = params.get("invalid_email") || defaultInvalidEmailText;
+    var onSuccess = params.get("onSuccess") || scriptTag.getAttribute("data-on-success") || "";
+    var onError = params.get("onError") || scriptTag.getAttribute("data-on-error") || "";
     return {
       siteId: siteId,
       accent: accent,
@@ -53,7 +63,12 @@
       cta: cta,
       success: success,
       error: error,
-      hideName: hideName
+      alreadySubscribed: alreadySubscribed,
+      invalidEmail: invalidEmail,
+      hideName: hideName,
+      targetId: targetId,
+      onSuccess: onSuccess,
+      onError: onError
     };
   }
 
@@ -181,7 +196,7 @@
     return { email: email, name: name, submit: submit, status: status };
   }
 
-  function renderInline(container, formElements) {
+  function renderInline(container, formElements, targetElement) {
     var heading = document.createElement("div");
     heading.style.fontWeight = "600";
     heading.style.marginBottom = "8px";
@@ -197,7 +212,10 @@
     container.appendChild(spacer);
     container.appendChild(formElements.submit);
     container.appendChild(formElements.status);
-    document.body.appendChild(container);
+    var host = targetElement || document.body;
+    if (host) {
+      host.appendChild(container);
+    }
   }
 
   function renderBubble(bubble, panel, formElements) {
@@ -224,6 +242,24 @@
     statusElement.style.color = color;
   }
 
+  function fireCallback(callbackName, detail) {
+    if (callbackName && typeof window[callbackName] === "function") {
+      try {
+        window[callbackName](detail);
+      } catch (callbackError) {
+        console.error("subscribe.js callback error:", callbackError);
+      }
+    }
+  }
+
+  function dispatchSubscribeEvent(targetId, eventName, detail) {
+    var target = targetId ? document.getElementById(targetId) : document.body;
+    if (target) {
+      var event = new CustomEvent(eventName, { detail: detail, bubbles: true });
+      target.dispatchEvent(event);
+    }
+  }
+
   function attachBehavior(config, endpoint, formElements, togglePanel) {
     var sending = false;
     formElements.submit.addEventListener("click", function(){
@@ -234,7 +270,7 @@
         nameValue = (formElements.name.value || "").trim();
       }
       if (!validateEmail(emailValue)) {
-        showStatus(formElements.status, "Enter a valid email.", "#dc2626");
+        showStatus(formElements.status, config.invalidEmail || defaultInvalidEmailText, "#dc2626");
         formElements.email.focus();
         return;
       }
@@ -259,24 +295,52 @@
       };
 
       fetch(endpoint, fetchOptions).then(function(resp){
-        if (!resp.ok) { throw new Error("HTTP " + resp.status); }
-        return resp.json();
-      }).then(function(){
-        formElements.email.value = "";
-        if (formElements.name) {
-          formElements.name.value = "";
+        if (resp.ok) {
+          return resp.json().then(function(data) {
+            return { ok: true, status: resp.status, data: data };
+          });
         }
-        showStatus(formElements.status, config.success || defaultSuccessText, "#15803d");
+        return { ok: false, status: resp.status };
+      }).then(function(result){
         formElements.submit.disabled = false;
         sending = false;
-        if (typeof togglePanel === "function") {
-          togglePanel(true);
+
+        if (result.ok) {
+          formElements.email.value = "";
+          if (formElements.name) {
+            formElements.name.value = "";
+          }
+          showStatus(formElements.status, config.success || defaultSuccessText, "#15803d");
+          if (typeof togglePanel === "function") {
+            togglePanel(true);
+          }
+          var successDetail = { email: emailValue, status: result.status };
+          fireCallback(config.onSuccess, successDetail);
+          dispatchSubscribeEvent(config.targetId, "loopaware:subscribe:success", successDetail);
+        } else if (result.status === 409) {
+          showStatus(formElements.status, config.alreadySubscribed || defaultAlreadySubscribedText, "#2563eb");
+          var alreadyDetail = { email: emailValue, status: 409, reason: "already_subscribed" };
+          fireCallback(config.onSuccess, alreadyDetail);
+          dispatchSubscribeEvent(config.targetId, "loopaware:subscribe:success", alreadyDetail);
+        } else if (result.status === 400) {
+          showStatus(formElements.status, config.invalidEmail || defaultInvalidEmailText, "#dc2626");
+          var invalidDetail = { email: emailValue, status: 400, reason: "invalid_email" };
+          fireCallback(config.onError, invalidDetail);
+          dispatchSubscribeEvent(config.targetId, "loopaware:subscribe:error", invalidDetail);
+        } else {
+          showStatus(formElements.status, config.error || defaultErrorText, "#dc2626");
+          var errorDetail = { email: emailValue, status: result.status, reason: "unknown" };
+          fireCallback(config.onError, errorDetail);
+          dispatchSubscribeEvent(config.targetId, "loopaware:subscribe:error", errorDetail);
         }
       }).catch(function(err){
         console.error(err);
         showStatus(formElements.status, config.error || defaultErrorText, "#dc2626");
         formElements.submit.disabled = false;
         sending = false;
+        var errorDetail = { email: emailValue, status: 0, reason: "network", error: err.message };
+        fireCallback(config.onError, errorDetail);
+        dispatchSubscribeEvent(config.targetId, "loopaware:subscribe:error", errorDetail);
       });
     });
   }
@@ -287,6 +351,10 @@
     if (!config.siteId) {
       console.error("subscribe.js: missing site_id");
       return;
+    }
+    var targetElement = null;
+    if (config.targetId) {
+      targetElement = document.getElementById(config.targetId);
     }
     var endpoint = buildEndpoint(scriptTag);
     var formElements = createFormElements(config);
@@ -312,7 +380,7 @@
         togglePanel(false);
       });
     } else {
-      renderInline(createInlineContainer(config), formElements);
+      renderInline(createInlineContainer(config), formElements, targetElement);
     }
 
     attachBehavior(config, endpoint, formElements, togglePanel);

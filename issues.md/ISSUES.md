@@ -8,11 +8,12 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## Features (113–199)
 
-- [ ] [LA-113] Add `target` parameter to subscribe.js for rendering into specific DOM elements.
+- [x] [LA-113] Add `target` parameter to subscribe.js for rendering into specific DOM elements.
   Priority: P1
   Goal: Allow subscribe.js to render the subscribe form into a specific element instead of always appending to document.body. This enables embedding the subscribe widget inside cards, modals, or other constrained containers without using iframes.
   Deliverable: PR that adds `target` parameter support to subscribe.js; form renders into `document.getElementById(targetId)` when specified, falls back to `document.body` when not.
   Use case: Marco Polo Research Lab landing page embeds subscribe forms on flippable card backs. Using iframes causes CORS issues (srcdoc iframes have `Origin: null`). Direct embedding with target parameter avoids this.
+  Resolution: Added target param/data-target support to subscribe.js and integration coverage ensuring inline forms render into the requested container.
   Implementation notes:
   - Add `target` to `parseConfig()` alongside existing params
   - Support both URL param (`?target=my-element-id`) and data attribute (`data-target="my-element-id"`)
@@ -299,17 +300,37 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/web.go`
   - `internal/httpapi/subscribe_allowed_origins_dashboard_integration_test.go`
 
-- [ ] [LA-217] Autosave site edits and remove the Update Site button.
+- [x] [LA-217] Autosave site edits and remove the Update Site button.
   Priority: P2
   Goal: Site name/origin/owner/placement changes are auto-saved without requiring a manual Update action.
   Deliverable: PR that debounces/saves site edits automatically, removes the Update button from the UI, and adds integration coverage for auto-save behavior.
   Notes: Ensure auto-save handles validation errors gracefully and does not persist partial/invalid values.
+  Resolution: Removed the Update Site button, added debounced autosave with form-status messaging/validation handling, and updated integration coverage for autosaved site edits and subscribe origins; `make ci` passes.
 
-- [ ] [LA-218] Add per-widget additional origins for feedback and traffic widgets.
+- [x] [LA-218] Add per-widget additional origins for feedback and traffic widgets.
   Priority: P2
   Goal: Operators can configure extra allowed origins independently for feedback and traffic widgets, similar to subscribe.
   Deliverable: PR that adds per-widget additional origins fields for feedback + traffic, persists them, enforces them in widget endpoints, and adds integration coverage for UI + origin validation.
   Notes: Keep site-level `allowed_origin` as the shared baseline; widget-specific origins should be additive.
+  Resolution: Added widget/traffic allowed origins fields to the admin API and site model, enforced them in feedback/visit endpoints, and added dashboard autosave integration coverage; `make ci` passes.
+
+- [x] [LA-219] Improve subscribe.js error handling for 409 (already subscribed) responses.
+  Priority: P2
+  Goal: When the API returns 409 Conflict (email already subscribed), show a user-friendly message like "You're already subscribed!" instead of the generic "Please try again" error.
+  Deliverable: PR that updates subscribe.js to check response status and display contextual messages for known error codes (409, 400, etc.).
+  Use case: Users who try to subscribe twice see a confusing "Please try again" message; a specific message improves UX.
+  Resolution: Added status-specific error messages (409 → "You're already subscribed!", 400 → "Please enter a valid email") with customizable text via `already_subscribed` and `invalid_email` URL params.
+  Docs/Refs:
+  - `internal/httpapi/assets/subscribe.js`
+
+- [x] [LA-220] Add success/error callback support to subscribe.js widget.
+  Priority: P2
+  Goal: Allow embedding pages to react to subscription success/error events for custom UX flows (e.g., hide form, show thank you, flip card back).
+  Deliverable: PR that adds optional callback parameters to subscribe.js and fires them on success/error.
+  Use case: Marco Polo Research Lab landing page wants to show a thank you message and flip the card back after successful subscription.
+  Resolution: Added `onSuccess` and `onError` URL params/data attributes that call global functions, plus CustomEvents (`loopaware:subscribe:success`, `loopaware:subscribe:error`) dispatched on the target element with detail containing email, status, and reason.
+  Docs/Refs:
+  - `internal/httpapi/assets/subscribe.js`
 
 ## Maintenance (408–499)
 
@@ -351,7 +372,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/templates/dashboard.tmpl`
   Resolution: Switched footer rendering to `links-collection`, moved initial theme into `theme-config.initialMode`, removed `theme-mode` syncing, and updated landing/privacy/dashboard/theme toggle tests; `make ci` passes.
-
 - [x] [LA-412] do not allow repeated login dialog after log out.
   Currently a dialog to log in appears after logout. DO not allow it, and expect users explicit actions instead.
   Google Sign in shows automatic pop up to log in. That is unnessary and we want to rely on users explicit click. Investiaget if google sign in offers a parameter in its initialization to disable auto-login, check if we can use it with TAuth/mpr-ui initialization (check @tools/TAuth and @tools/mpr-ui).
