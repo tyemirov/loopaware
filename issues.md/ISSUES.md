@@ -357,6 +357,16 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Google Sign in shows automatic pop up to log in. That is unnessary and we want to rely on users explicit click. Investiaget if google sign in offers a parameter in its initialization to disable auto-login, check if we can use it with TAuth/mpr-ui initialization (check @tools/TAuth and @tools/mpr-ui).
   Resolution: Disabled Google auto-select on explicit logout and unauthenticated events and added integration coverage for logout-triggered suppression; `make ci` passes.
 
+- [x] [LA-416] Add missing product and integration docs.
+  Priority: P2
+  Goal: Provide missing product and integration docs referenced by process instructions and docs.
+  Deliverable: PRs adding `PRD.md`, `PLANNING.md`, and mpr-ui custom element/integration guides.
+  Docs/Refs:
+  - `README.md`
+  - `ARCHITECTURE.md`
+  - `docs/LA-200-mpr-ui-gauth.md`
+  Resolution: Added PRD/PLANNING docs for LoopAware, and documented mpr-ui custom elements/integration in MarcoPoloResearchLab/mpr-ui#127; `make ci` passes.
+
 ## Planning (do not implement yet)
 
 - [ ] [LA-410] Refactor LoopAware into a separate frontend and backend to adopt TAuth via mpr-ui.
@@ -381,7 +391,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/dashboard_integration_test.go`
   Resolution: Added debounced autosave for site settings with a non-invasive render path and integration coverage that preserves subscribe-origin typing; `make ci` passes.
 
-- [ ] [LA-414] Remove the remnant avatar/name/sign-out markup that appears alongside the LoopAware header profile menu.
+- [x] [LA-414] Remove the remnant avatar/name/sign-out markup that appears alongside the LoopAware header profile menu.
   Priority: P1
   Goal: Only the LoopAware profile dropdown renders in the dashboard header; default mpr-ui profile elements remain hidden/removed.
   Deliverable: PR that removes the duplicate header markup and adds integration coverage for a single visible profile control.
@@ -390,8 +400,9 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/public_assets.go`
   - `tools/mpr-ui/docs/custom-elements.md`
+  Resolution: Removed default mpr-ui profile/settings/sign-in elements when the LoopAware profile menu is present and added integration coverage ensuring they are absent; `make ci` passes.
 
-- [ ] [LA-415] Dashboard sign-in requires multiple attempts instead of completing on first click.
+- [x] [LA-415] Dashboard sign-in requires multiple attempts instead of completing on first click.
   Priority: P1
   Goal: The first sign-in interaction completes authentication without extra prompts or repeat clicks.
   Deliverable: PR that eliminates double sign-in behavior and adds integration coverage for a single sign-in flow.
@@ -400,3 +411,4 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard_header.tmpl`
   - `tools/mpr-ui/docs/custom-elements.md`
   - `tools/TAuth/docs/usage.md`
+  Resolution: Gated the Google sign-in control until the nonce-backed GIS initialization is available and added integration coverage to verify the gate releases after nonce readiness; `make ci` passes.
