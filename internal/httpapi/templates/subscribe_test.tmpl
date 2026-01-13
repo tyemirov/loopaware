@@ -76,15 +76,20 @@
               <hr class="my-4" />
               <p class="text-muted mb-4">Adjust colors and copy, then try both widget modes. Submissions are stored on the selected site.</p>
               <div class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-6 col-lg-3">
                   <label class="form-label" for="{{.AccentInputID}}">Accent color</label>
                   <input type="color" class="form-control form-control-color w-100" id="{{.AccentInputID}}" value="{{.DefaultAccent}}" title="Choose a hex color">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6 col-lg-3">
                   <label class="form-label" for="{{.CTAInputID}}">CTA text</label>
                   <input type="text" class="form-control" id="{{.CTAInputID}}" value="{{.DefaultCTA}}" maxlength="40" autocomplete="off" placeholder="Call to action">
                 </div>
-                <div class="col-md-4 d-flex align-items-center">
+                <div class="col-md-6 col-lg-3">
+                  <label class="form-label" for="{{.TargetInputID}}">Target element ID</label>
+                  <input type="text" class="form-control" id="{{.TargetInputID}}" value="{{.InlineFormContainerID}}" autocomplete="off" placeholder="subscribe-inline-target">
+                  <div class="form-text">Optional. Render the inline form inside this element.</div>
+                </div>
+                <div class="col-md-6 col-lg-3 d-flex align-items-center">
                   <div class="form-check mt-4">
                     <input class="form-check-input" type="checkbox" id="{{.NameFieldInputID}}" checked>
                     <label class="form-check-label" for="{{.NameFieldInputID}}">Include optional name field</label>
@@ -100,7 +105,7 @@
             <div class="card-body">
               <p class="text-muted small mb-4">This preview renders the inline subscribe widget with the options above and submits to the live API.</p>
               <div class="d-flex justify-content-center">
-                <div id="{{.InlineFormContainerID}}" class="w-100 d-flex justify-content-center"></div>
+                <div id="{{.InlineFormContainerID}}" data-subscribe-test-preview="true" class="w-100 d-flex justify-content-center"></div>
               </div>
             </div>
           </div>
@@ -273,8 +278,10 @@
       var inlineFormContainer = document.getElementById('{{js .InlineFormContainerID}}');
       var statusText = document.getElementById('{{js .StatusTextElementID}}');
       var statusLog = document.getElementById('{{js .StatusLogElementID}}');
+      var targetInput = document.getElementById('{{js .TargetInputID}}');
       var eventSource = null;
       var inlinePreview = null;
+      var defaultTargetId = inlineFormContainer ? inlineFormContainer.id : '';
       var submitEndpoint = (window.location && window.location.origin ? window.location.origin : '') + '/app/sites/' + encodeURIComponent(siteIdentifier) + '/subscribe-test/subscriptions';
 
       function normalizeCTA(value) {
@@ -291,6 +298,27 @@
           return defaultAccent || '#0d6efd';
         }
         return trimmed;
+      }
+
+      function normalizeTargetId(value) {
+        var trimmed = (value || '').trim();
+        if (!trimmed) {
+          return defaultTargetId || '';
+        }
+        return trimmed;
+      }
+
+      function applyTargetId() {
+        if (!inlineFormContainer) {
+          return;
+        }
+        var targetId = normalizeTargetId(targetInput ? targetInput.value : '');
+        if (!targetId) {
+          return;
+        }
+        if (inlineFormContainer.id !== targetId) {
+          inlineFormContainer.id = targetId;
+        }
       }
 
       function validateEmail(value) {
@@ -423,6 +451,7 @@
       }
 
       function refreshInlinePreview() {
+        applyTargetId();
         inlinePreview = renderInlinePreview(shouldShowNameField());
         applyPreviewOptions();
         attachFormBehavior();
@@ -596,6 +625,13 @@
       }
       if (ctaInput) {
         ctaInput.addEventListener('input', applyPreviewOptions);
+      }
+      if (targetInput) {
+        targetInput.addEventListener('input', applyTargetId);
+        targetInput.addEventListener('blur', function() {
+          targetInput.value = (targetInput.value || '').trim();
+          applyTargetId();
+        });
       }
       if (nameFieldInput) {
         nameFieldInput.addEventListener('change', refreshInlinePreview);
