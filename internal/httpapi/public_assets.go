@@ -453,6 +453,7 @@ var (
 
   var googleSigninGateMaxAttempts = 40;
   var googleSigninGatePollIntervalMs = 100;
+  var googleSigninGateSlowPollIntervalMs = 1000;
 
   function resolveGoogleSigninTarget(headerHost) {
     if (!headerHost || typeof headerHost.querySelector !== 'function') {
@@ -511,13 +512,17 @@ var (
       return;
     }
     var remainingAttempts = googleSigninGateMaxAttempts;
+    function scheduleNextGateAttempt() {
+      var interval = remainingAttempts > 0 ? googleSigninGatePollIntervalMs : googleSigninGateSlowPollIntervalMs;
+      window.setTimeout(attemptGate, interval);
+    }
     function attemptGate() {
       var target = resolveGoogleSigninTarget(headerHost);
       if (!target) {
-        remainingAttempts -= 1;
         if (remainingAttempts > 0) {
-          window.setTimeout(attemptGate, googleSigninGatePollIntervalMs);
+          remainingAttempts -= 1;
         }
+        scheduleNextGateAttempt();
         return;
       }
       if (hasGooglePromptNonce()) {
@@ -528,12 +533,10 @@ var (
         target.setAttribute('data-loopaware-signin-gate', 'true');
       }
       setGoogleSigninDisabled(target, true);
-      remainingAttempts -= 1;
       if (remainingAttempts > 0) {
-        window.setTimeout(attemptGate, googleSigninGatePollIntervalMs);
-        return;
+        remainingAttempts -= 1;
       }
-      clearGoogleSigninGate(target);
+      scheduleNextGateAttempt();
     }
     attemptGate();
   }

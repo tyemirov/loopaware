@@ -48,7 +48,7 @@ const (
 	dashboardTestAvatarDataURI        = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
 	dashboardTestWidgetBaseURL        = "http://example.test"
 	dashboardTestDashboardRoute       = "/app"
-	landingGoogleNonceDelayMilliseconds = 800
+	landingGoogleNonceDelayMilliseconds = 5000
 	dashboardPromptWaitTimeout        = 10 * time.Second
 	dashboardPromptPollInterval       = 200 * time.Millisecond
 	dashboardNotificationSelector     = "#session-timeout-notification"
@@ -1960,6 +1960,13 @@ func TestLandingSigninWaitsForNonce(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, landingSigninDisabledWhileNoncePendingScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Never(t, func() bool {
+		if evaluateScriptBoolean(t, page, landingNonceResolvedScript) {
+			return false
+		}
+		return !evaluateScriptBoolean(t, page, landingSigninDisabledScript)
+	}, time.Duration(landingGoogleNonceDelayMilliseconds-500)*time.Millisecond, dashboardPromptPollInterval)
 
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, landingNonceResolvedScript)
