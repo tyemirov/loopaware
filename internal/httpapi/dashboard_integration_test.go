@@ -48,6 +48,7 @@ const (
 	dashboardTestAvatarDataURI        = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
 	dashboardTestWidgetBaseURL        = "http://example.test"
 	dashboardTestDashboardRoute       = "/app"
+	landingGoogleNonceDelayMilliseconds = 800
 	dashboardPromptWaitTimeout        = 10 * time.Second
 	dashboardPromptPollInterval       = 200 * time.Millisecond
 	dashboardNotificationSelector     = "#session-timeout-notification"
@@ -64,6 +65,7 @@ const (
 	dashboardSettingsButtonSelector             = "#settings-button"
 	dashboardProfileToggleSelector              = `[data-loopaware-profile-toggle="true"]`
 	dashboardLogoutButtonSelector               = `[data-loopaware-logout="true"]`
+	landingGoogleSigninWrapperSelector          = `mpr-header [data-mpr-google-wrapper="true"]`
 	dashboardSettingsModalSelector              = "#settings-modal"
 	dashboardWidgetBottomOffsetInputSelector    = "#widget-placement-bottom-offset"
 	dashboardWidgetBottomOffsetIncreaseSelector = "#widget-bottom-offset-increase"
@@ -154,6 +156,13 @@ const (
 			nameVisible = nameStyle.display !== 'none' && nameStyle.visibility !== 'hidden' && nameRect.width > 0 && nameRect.height > 0;
 		}
 		return { toggleText: toggleText, menuName: menuName, avatarVisible: avatarVisible, nameVisible: nameVisible };
+	}())`
+	dashboardHeaderDefaultProfileStateScript = `(function() {
+		return {
+			hasProfile: !!document.querySelector('[data-mpr-header="profile"]'),
+			hasGoogleSignin: !!document.querySelector('[data-mpr-header="google-signin"]'),
+			hasSettingsButton: !!document.querySelector('[data-mpr-header="settings-button"]')
+		};
 	}())`
 	dashboardLogoutTestHookScript = `(function() {
 		var storageKey = '` + dashboardLogoutFetchStorageKey + `';
@@ -368,6 +377,45 @@ const (
 			scheduleMark();
 		}
 	}())`
+	landingDelayedNonceScript = `(function() {
+		var delayMs = %d;
+		window.__loopawareNonceResolved = false;
+		window.requestNonce = function() {
+			return new Promise(function(resolve) {
+				window.setTimeout(function() {
+					window.__loopawareNonceResolved = true;
+					resolve({ nonce: 'test-nonce' });
+				}, delayMs);
+			});
+		};
+		if (!window.google) { window.google = {}; }
+		if (!window.google.accounts) { window.google.accounts = {}; }
+		if (!window.google.accounts.id) { window.google.accounts.id = {}; }
+		window.google.accounts.id.initialize = function(config) {};
+		window.google.accounts.id.renderButton = function(target) {
+			if (!target || typeof document === 'undefined') {
+				return;
+			}
+			var button = document.createElement('div');
+			button.textContent = 'Sign in';
+			target.appendChild(button);
+		};
+		window.google.accounts.id.prompt = function() {};
+	}())`
+	landingSigninDisabledScript = `(function() {
+		var header = document.querySelector('mpr-header');
+		if (!header) { return false; }
+		return !!header.querySelector('[data-loopaware-signin-disabled="true"]');
+	}())`
+	landingSigninDisabledWhileNoncePendingScript = `(function() {
+		if (window.__loopawareNonceResolved) { return false; }
+		var header = document.querySelector('mpr-header');
+		if (!header) { return false; }
+		return !!header.querySelector('[data-loopaware-signin-disabled="true"]');
+	}())`
+	landingNonceResolvedScript = `(function() {
+		return window.__loopawareNonceResolved === true;
+	}())`
 	dashboardIdleHooksReadyScript  = "typeof window.__loopawareDashboardIdleTestHooks !== 'undefined'"
 	dashboardSelectFirstSiteScript = `(function() {
 	                var list = document.getElementById('sites-list');
@@ -382,8 +430,9 @@ const (
                 if (!status) { return false; }
                 return status.classList.contains('d-none');
         }())`
-	dashboardEditSiteAllowedOriginsSelector = "#edit-site-origin"
-	dashboardFirstSiteOriginTextScript      = `(function() {
+	dashboardEditSiteAllowedOriginsSelector       = "#edit-site-origin"
+	dashboardSubscribeAllowedOriginsInputSelector = "input[data-subscribe-origin-placeholder=\"true\"]"
+	dashboardFirstSiteOriginTextScript            = `(function() {
 		var item = document.querySelector('#sites-list [data-site-id]');
 		if (!item) { return ''; }
 		var elements = item.querySelectorAll('div');
@@ -1061,6 +1110,40 @@ func TestDashboardProfileMenuShowsAvatarOnly(t *testing.T) {
 	require.Equal(t, dashboardTestAdminDisplayName, state.MenuName)
 	require.True(t, state.AvatarVisible)
 	require.True(t, state.NameVisible)
+}
+
+func TestDashboardHeaderRemovesDefaultProfileElements(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookieWithAvatar(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName, dashboardTestAvatarDataURI)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, `(function(){
+			var header = document.querySelector('mpr-header');
+			if (!header) { return ''; }
+			return header.getAttribute('data-loopaware-auth-bound') || '';
+		}())`) == "true"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	var state struct {
+		HasProfile        bool `json:"hasProfile"`
+		HasGoogleSignin   bool `json:"hasGoogleSignin"`
+		HasSettingsButton bool `json:"hasSettingsButton"`
+	}
+	evaluateScriptInto(t, page, dashboardHeaderDefaultProfileStateScript, &state)
+
+	require.False(t, state.HasProfile)
+	require.False(t, state.HasGoogleSignin)
+	require.False(t, state.HasSettingsButton)
 }
 
 func TestDashboardShowsDistinctWidgetSnippets(t *testing.T) {
@@ -1859,6 +1942,32 @@ func TestLandingRedirectsToDashboardWhenAuthenticated(t *testing.T) {
 			return false
 		}
 		return parsed.Path == dashboardTestDashboardRoute
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestLandingSigninWaitsForNonce(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	page := buildHeadlessPage(t)
+
+	_, err := page.EvalOnNewDocument(fmt.Sprintf(landingDelayedNonceScript, landingGoogleNonceDelayMilliseconds))
+	require.NoError(t, err)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestLandingPath)
+
+	waitForVisibleElement(t, page, landingGoogleSigninWrapperSelector)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, landingSigninDisabledWhileNoncePendingScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, landingNonceResolvedScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(t, func() bool {
+		return !evaluateScriptBoolean(t, page, landingSigninDisabledScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 
@@ -2787,6 +2896,90 @@ func TestDashboardAllowedOriginsAcceptsMultipleEntries(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return evaluateScriptString(t, page, dashboardFirstSiteOriginTextScript) == "https://widget.example +1 more"
 	}, 5*time.Second, 100*time.Millisecond)
+}
+
+func TestDashboardAutosavePreservesSubscribeOriginTyping(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Autosave Subscribe Origins",
+		AllowedOrigin:              harness.baseURL,
+		OwnerEmail:                 dashboardTestAdminEmail,
+		CreatorEmail:               dashboardTestAdminEmail,
+		WidgetBubbleSide:           "right",
+		WidgetBubbleBottomOffsetPx: 16,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardSelectFirstSiteScript)
+	}, 5*time.Second, 100*time.Millisecond)
+
+	clickSelector(t, page, dashboardSectionTabSubscriptionsSelector)
+	waitForVisibleElement(t, page, dashboardSubscribeAllowedOriginsInputSelector)
+
+	interceptFetchRequests(t, page)
+
+	input := waitForVisibleElement(t, page, dashboardSubscribeAllowedOriginsInputSelector)
+	require.NoError(t, input.Focus())
+	require.NoError(t, input.SelectAllText())
+	require.NoError(t, input.Input("https://autosave.example"))
+
+	type siteUpdatePayload struct {
+		SubscribeAllowedOrigins string `json:"subscribe_allowed_origins"`
+	}
+
+	var payload siteUpdatePayload
+	require.Eventually(t, func() bool {
+		requests := readCapturedFetchRequests(t, page)
+		for _, record := range requests {
+			if !strings.HasSuffix(record.URL, "/api/sites/"+site.ID) {
+				continue
+			}
+			if !strings.EqualFold(record.Method, http.MethodPatch) {
+				continue
+			}
+			if record.Body == "" {
+				continue
+			}
+			if record.Status == 0 {
+				continue
+			}
+			if err := json.Unmarshal([]byte(record.Body), &payload); err != nil {
+				return false
+			}
+			return payload.SubscribeAllowedOrigins == "https://autosave.example"
+		}
+		return false
+	}, 20*time.Second, 100*time.Millisecond)
+
+	type inputState struct {
+		Focused bool   `json:"focused"`
+		Value   string `json:"value"`
+	}
+
+	var state inputState
+	focusScript := fmt.Sprintf(`(function() {
+		var input = document.querySelector(%q);
+		if (!input) { return { focused: false, value: '' }; }
+		return { focused: document.activeElement === input, value: input.value || '' };
+	}())`, dashboardSubscribeAllowedOriginsInputSelector)
+	evaluateScriptInto(t, page, focusScript, &state)
+
+	require.True(t, state.Focused)
+	require.Equal(t, "https://autosave.example", state.Value)
 }
 
 func TestDashboardSiteFaviconOpensOrigin(t *testing.T) {
