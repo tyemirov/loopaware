@@ -71,7 +71,11 @@ const (
 	dashboardWidgetBottomOffsetIncreaseSelector = "#widget-bottom-offset-increase"
 	dashboardWidgetBottomOffsetDecreaseSelector = "#widget-bottom-offset-decrease"
 	dashboardSubscribeTestButtonSelector        = "#subscribe-test-button"
-	subscribeTestFormContainerSelector          = "#subscribe-test-inline-preview"
+	subscribeTestInlineContainerID              = "subscribe-test-inline-preview"
+	subscribeTestFormContainerSelector          = "#" + subscribeTestInlineContainerID
+	subscribeTestTargetInputID                  = "subscribe-test-target"
+	subscribeTestTargetInputSelector            = "#" + subscribeTestTargetInputID
+	subscribeTestPreviewContainerSelector       = `[data-subscribe-test-preview="true"]`
 	subscribeTestLogSelector                    = "#subscribe-test-log"
 	dashboardTrafficTestButtonSelector          = "#traffic-test-button"
 	trafficTestURLInputSelector                 = "#traffic-test-url"
@@ -2510,6 +2514,62 @@ func TestSubscribeWidgetTestFlowSubmitsSubscription(t *testing.T) {
 	require.Equal(t, 1, emailSender.CallCount())
 	require.Equal(t, 0, subscriptionNotifier.CallCount())
 
+}
+
+func TestSubscribeTestPageSupportsTargetInput(testingT *testing.T) {
+	harness := buildDashboardIntegrationHarness(testingT, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Subscribe Test Target Input",
+		AllowedOrigin: "https://widget.example",
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(testingT, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	page := buildHeadlessPage(testingT)
+	setPageCookie(testingT, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(testingT, page, harness.baseURL+fmt.Sprintf("/app/sites/%s/subscribe-test", site.ID))
+
+	waitForVisibleElement(testingT, page, subscribeTestTargetInputSelector)
+	waitForVisibleElement(testingT, page, subscribeTestPreviewContainerSelector)
+
+	var initialState struct {
+		TargetValue string `json:"targetValue"`
+		PreviewID   string `json:"previewId"`
+	}
+	initialStateScript := fmt.Sprintf(`(function(){
+        var input = document.querySelector(%q);
+        var preview = document.querySelector(%q);
+        return { targetValue: input ? input.value || '' : '', previewId: preview ? preview.id || '' : '' };
+      }())`, subscribeTestTargetInputSelector, subscribeTestPreviewContainerSelector)
+	evaluateScriptInto(testingT, page, initialStateScript, &initialState)
+	require.Equal(testingT, subscribeTestInlineContainerID, initialState.TargetValue)
+	require.Equal(testingT, subscribeTestInlineContainerID, initialState.PreviewID)
+
+	targetID := "subscribe-test-target-demo"
+	setInputValue(testingT, page, subscribeTestTargetInputSelector, targetID)
+
+	targetPreviewScript := fmt.Sprintf(`(function(){
+        var preview = document.querySelector(%q);
+        if (!preview) { return false; }
+        if (preview.id !== %q) { return false; }
+        return !!preview.querySelector(%q);
+      }())`, subscribeTestPreviewContainerSelector, targetID, "#"+subscribeEmailInputID)
+	require.Eventually(testingT, func() bool {
+		return evaluateScriptBoolean(testingT, page, targetPreviewScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	targetValueScript := fmt.Sprintf(`(function(){
+        var input = document.querySelector(%q);
+        if (!input) { return ''; }
+        return input.value || '';
+      }())`, subscribeTestTargetInputSelector)
+	require.Equal(testingT, targetID, evaluateScriptString(testingT, page, targetValueScript))
 }
 
 func TestSubscribeTestPageExposesEventsEndpoint(t *testing.T) {

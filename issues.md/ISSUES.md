@@ -442,3 +442,15 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `tools/mpr-ui/docs/custom-elements.md`
   - `tools/TAuth/docs/usage.md`
   Resolution: Gated the Google sign-in control until the nonce-backed GIS initialization is available and added integration coverage to verify the gate releases after nonce readiness; `make ci` passes.
+
+## Features (113–199)
+
+- [x] [LA-114] Subscribe test page needs a target element ID input for subscribe.js previews.
+  Priority: P1
+  Goal: Let operators set the subscribe.js target element ID on the test page so inline previews render into the specified container.
+  Deliverable: Target element ID input wired to the inline preview container and integration coverage verifying the preview updates.
+  Docs/Refs:
+  - `internal/httpapi/templates/subscribe_test.tmpl`
+  - `internal/httpapi/site_subscribe_test_handlers.go`
+  - `internal/httpapi/dashboard_integration_test.go`
+  Resolution: Added a target input that updates the inline preview container ID, and integration coverage asserting the preview renders in the updated target; `make ci` passes.
