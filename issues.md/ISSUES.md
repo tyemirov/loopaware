@@ -32,6 +32,19 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/dashboard_integration_test.go`
   Resolution: Added a target input that updates the inline preview container ID, and integration coverage asserting the preview renders in the updated target; `make ci` passes.
 
+- [ ] [LA-115] Integrate logged in drop down with the latest version of mpr-ui. mpr-ui provides the mpr-user element which can be integrated with tauth and shown instead of custom logic we employ for displaying a user. Check @tools/mpr-ui for the documentation and @tools/mpr-ui/demoi for the integration examples
+
+- [ ] [LA-116] Refactor LoopAware into a separate frontend and backend to adopt TAuth via mpr-ui.
+  Priority: P0
+  Goal: Split the UI into a dedicated frontend app that loads `tauth.js` + mpr-ui DSL, while the backend becomes a clean API that validates TAuth sessions.
+  Deliverable: A documented architecture/migration plan that defines service boundaries, routing/origin model, auth flow, and rollout steps.
+  Docs/Refs:
+  - `tools/TAuth/docs/usage.md`
+  - `tools/TAuth/docs/migration.md`
+  - `issues.md/AGENTS.FRONTEND.md`
+  - `issues.md/AGENTS.GO.md`
+  - `issues.md/AGENTS.DOCKER.md`
+
 ## BugFixes (312–399)
 
 - [x] [LA-318] Theme toggle defaults and mapping are wrong (left = light, right = dark).
@@ -308,37 +321,9 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 - [ ] [LA-339] ![Full name login area](image-3.png) Remove the full name login area in favor of current avatar only design ![alt text](image-4.png). Ensure that the layout for the full name and log out button is deleted from all pages
 
-## Planning (500-599)
-**do not implement yet**
-
-- [ ] [LA-410] Refactor LoopAware into a separate frontend and backend to adopt TAuth via mpr-ui.
-  Priority: P0
-  Goal: Split the UI into a dedicated frontend app that loads `tauth.js` + mpr-ui DSL, while the backend becomes a clean API that validates TAuth sessions.
-  Deliverable: A documented architecture/migration plan that defines service boundaries, routing/origin model, auth flow, and rollout steps.
-  Docs/Refs:
-  - `tools/TAuth/docs/usage.md`
-  - `tools/TAuth/docs/migration.md`
-  - `issues.md/AGENTS.FRONTEND.md`
-  - `issues.md/AGENTS.GO.md`
-  - `issues.md/AGENTS.DOCKER.md`
-
 ## Maintenance (408–499)
 
 - [ ] [LA-409] Improve tests coverage to 95%
-
-### Recurring (600-699)
-**close when done but do not remove**
-
-- [x] [LA-406] Cleanup:
-  1. Review the completed issues and compare the code against the README.md and ARCHITECTURE.md files.
-  2. Update the README.md and ARCHITECTURE.
-  3. Clean up the completed issues.
-  reconciled the README REST API table, subscription token routes, and dashboard feature list with the shipped behavior; expanded ARCHITECTURE.md with an overview of components and key flows.
-
-- [x] [LA-407] Polish:
-1. Review each open issue
-2. Add additional context: dependencies, documentation, execution plan, goal
-3. Add priroity and deliverable. Reaarange and renumber issues as needed.
 
 - [x] [LA-408] Dashboard widget bottom offset integration test fails after dependency updates.
   Priority: P1
@@ -379,3 +364,21 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `ARCHITECTURE.md`
   - `docs/LA-200-mpr-ui-gauth.md`
   Resolution: Added PRD/PLANNING docs for LoopAware, and documented mpr-ui custom elements/integration in MarcoPoloResearchLab/mpr-ui#127; `make ci` passes.
+
+### Recurring (600-699)
+**close when done but do not remove**
+
+- [x] [LA-406] Cleanup:
+  1. Review the completed issues and compare the code against the README.md and ARCHITECTURE.md files.
+  2. Update the README.md and ARCHITECTURE.
+  3. Clean up the completed issues.
+  reconciled the README REST API table, subscription token routes, and dashboard feature list with the shipped behavior; expanded ARCHITECTURE.md with an overview of components and key flows.
+
+- [x] [LA-407] Polish:
+1. Review each open issue
+2. Add additional context: dependencies, documentation, execution plan, goal
+3. Add priroity and deliverable. Reaarange and renumber issues as needed.
+
+
+## Planning (500-599)
+**do not implement yet**
