@@ -55,6 +55,7 @@ type trafficTestTemplateData struct {
 	UniqueCounterID         string
 	TopPagesTableID         string
 	SharedStyles            template.CSS
+	AuthScript              template.JS
 	FooterHTML              template.HTML
 	FooterElementID         string
 	FooterInnerElementID    string
@@ -120,6 +121,13 @@ func (handlers *SiteTrafficTestHandlers) RenderTrafficTestPage(context *gin.Cont
 		}
 		footerHTML = template.HTML("")
 	}
+	authScript, authErr := renderPublicAuthScript()
+	if authErr != nil {
+		if handlers.logger != nil {
+			handlers.logger.Warn("render_traffic_test_auth_script", zap.Error(authErr))
+		}
+		authScript = template.JS("")
+	}
 
 	statsEndpoint := "/api/sites/" + site.ID + "/visits/stats"
 	visitsEndpoint := "/api/visits"
@@ -149,6 +157,7 @@ func (handlers *SiteTrafficTestHandlers) RenderTrafficTestPage(context *gin.Cont
 		UniqueCounterID:         "traffic-test-visit-unique",
 		TopPagesTableID:         "traffic-test-top-pages",
 		SharedStyles:            sharedPublicStyles(),
+		AuthScript:              authScript,
 		FooterHTML:              footerHTML,
 		FooterElementID:         footerElementID,
 		FooterInnerElementID:    footerInnerElementID,

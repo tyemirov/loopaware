@@ -80,6 +80,7 @@ type widgetTestTemplateData struct {
 	TestFeedbackEndpoint    template.URL
 	WidgetUpdateEndpoint    template.URL
 	SharedStyles            template.CSS
+	AuthScript              template.JS
 	FooterHTML              template.HTML
 	FooterElementID         string
 	FooterInnerElementID    string
@@ -146,6 +147,13 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 		}
 		footerHTML = template.HTML("")
 	}
+	authScript, authErr := renderPublicAuthScript()
+	if authErr != nil {
+		if handlers.logger != nil {
+			handlers.logger.Warn("render_widget_test_auth_script", zap.Error(authErr))
+		}
+		authScript = template.JS("")
+	}
 	data := widgetTestTemplateData{
 		PageTitle:               "Widget Test — " + site.Name,
 		Header:                  headerData,
@@ -162,6 +170,7 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 		TestFeedbackEndpoint:    template.URL("/app/sites/" + site.ID + "/widget-test/feedback"),
 		WidgetUpdateEndpoint:    template.URL("/api/sites/" + site.ID),
 		SharedStyles:            sharedPublicStyles(),
+		AuthScript:              authScript,
 		FooterHTML:              footerHTML,
 		FooterElementID:         footerElementID,
 		FooterInnerElementID:    footerInnerElementID,

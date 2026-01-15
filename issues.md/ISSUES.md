@@ -306,7 +306,8 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `tools/TAuth/docs/usage.md`
   Resolution: Gated the Google sign-in control until the nonce-backed GIS initialization is available and added integration coverage to verify the gate releases after nonce readiness; `make ci` passes.
 
-- [ ] [LA-339] ![Full name login area](image-3.png) Remove the full name login area in favor of current avatar only design ![alt text](image-4.png). Ensure that the layout for the full name and log out button is deleted from all pages
+- [x] [LA-339] ![Full name login area](image-3.png) Remove the full name login area in favor of current avatar only design ![alt text](image-4.png). Ensure that the layout for the full name and log out button is deleted from all pages
+  Resolution: Added auth script binding on widget/subscribe/traffic test pages and integration coverage confirming the default header profile layout is removed; `make ci` passes.
 
 ## Planning (500-599)
 **do not implement yet**

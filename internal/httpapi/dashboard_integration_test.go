@@ -2304,6 +2304,62 @@ func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
   }())`))
 }
 
+func TestTestPagesUseAvatarOnlyProfileMenu(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Test Pages Profile Menu",
+		AllowedOrigin: harness.baseURL,
+		OwnerEmail:    dashboardTestAdminEmail,
+		CreatorEmail:  dashboardTestAdminEmail,
+	}
+	require.NoError(t, harness.database.Create(&site).Error)
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+	page := buildHeadlessPage(t)
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	_, evalErr := page.EvalOnNewDocument(landingMarkAuthenticatedScript)
+	require.NoError(t, evalErr)
+
+	pagePaths := []string{
+		fmt.Sprintf("/app/sites/%s/widget-test", site.ID),
+		fmt.Sprintf("/app/sites/%s/subscribe-test", site.ID),
+		fmt.Sprintf("/app/sites/%s/traffic-test", site.ID),
+	}
+
+	for _, path := range pagePaths {
+		navigateToPage(t, page, harness.baseURL+path)
+
+		require.Eventually(t, func() bool {
+			return evaluateScriptString(t, page, `(function(){
+				var header = document.querySelector('mpr-header');
+				if (!header) { return ''; }
+				return header.getAttribute('data-user-display') || '';
+			}())`) == "Test User"
+		}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+		require.Eventually(t, func() bool {
+			return evaluateScriptString(t, page, `(function(){
+				var header = document.querySelector('mpr-header');
+				if (!header) { return ''; }
+				return header.getAttribute('data-loopaware-auth-bound') || '';
+			}())`) == "true"
+		}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+		var defaultState struct {
+			HasProfile        bool `json:"hasProfile"`
+			HasSettingsButton bool `json:"hasSettingsButton"`
+		}
+		require.Eventually(t, func() bool {
+			evaluateScriptInto(t, page, dashboardHeaderDefaultProfileStateScript, &defaultState)
+			return !defaultState.HasProfile && !defaultState.HasSettingsButton
+		}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	}
+}
+
 func TestWidgetTestFeedbackSubmissionSucceeds(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
