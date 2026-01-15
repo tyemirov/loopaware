@@ -2490,8 +2490,8 @@ func TestWidgetTestPlacementSavePersists(t *testing.T) {
 }
 
 func TestSubscribeWidgetTestFlowSubmitsSubscription(t *testing.T) {
-	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
-	emailSender := &recordingEmailSender{t: t}
+	subscriptionNotifier := &recordingSubscriptionNotifier{testingT: t}
+	emailSender := &recordingEmailSender{testingT: t}
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail, withSubscriptionNotifier(subscriptionNotifier), withEmailSender(emailSender))
 	defer harness.Close()
 

@@ -325,7 +325,8 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## Maintenance (408–499)
 
-- [ ] [LA-409] Improve tests coverage to 95%
+- [x] [LA-409] Improve tests coverage to 95%
+  Resolution: Added targeted tests across configaudit, httpapi, footer, favicon, storage, and notifications paths, reaching 95.0% total coverage; `make format`, `make test`, `make lint`, `make coverage`, and `make ci` pass.
 
 ### Recurring (600-699)
 **close when done but do not remove**

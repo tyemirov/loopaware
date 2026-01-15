@@ -21,53 +21,53 @@ const (
 	subscribeTargetContainerID = "subscribe-target"
 )
 
-func TestSubscribeWidgetSubmitsSubscription(t *testing.T) {
+func TestSubscribeWidgetSubmitsSubscription(testingT *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
-	emailSender := &recordingEmailSender{t: t}
-	api := buildAPIHarness(t, nil, subscriptionNotifier, emailSender)
+	subscriptionNotifier := &recordingSubscriptionNotifier{testingT: testingT}
+	emailSender := &recordingEmailSender{testingT: testingT}
+	api := buildAPIHarness(testingT, nil, subscriptionNotifier, emailSender)
 
-	server := newHTTPTestServer(t, api.router)
+	server := newHTTPTestServer(testingT, api.router)
 
-	page := buildHeadlessPage(t)
-	screenshotsDirectory := createScreenshotsDirectory(t)
+	page := buildHeadlessPage(testingT)
+	screenshotsDirectory := createScreenshotsDirectory(testingT)
 
-	site := insertSite(t, api.database, "Subscribe Integration", server.URL, "owner@example.com")
+	site := insertSite(testingT, api.database, "Subscribe Integration", server.URL, "owner@example.com")
 
 	demoURL := fmt.Sprintf("%s/subscribe-demo?site_id=%s", server.URL, site.ID)
-	navigateToPage(t, page, demoURL)
-	waitForVisibleElement(t, page, "#"+subscribeEmailInputID)
+	navigateToPage(testingT, page, demoURL)
+	waitForVisibleElement(testingT, page, "#"+subscribeEmailInputID)
 
-	setInputValue(t, page, "#"+subscribeEmailInputID, "subscriber@example.com")
-	setInputValue(t, page, "#"+subscribeNameInputID, "Newsletter User")
+	setInputValue(testingT, page, "#"+subscribeEmailInputID, "subscriber@example.com")
+	setInputValue(testingT, page, "#"+subscribeNameInputID, "Newsletter User")
 
-	clickSelector(t, page, "#"+subscribeSubmitButtonID)
+	clickSelector(testingT, page, "#"+subscribeSubmitButtonID)
 
 	var statusText string
-	require.Eventually(t, func() bool {
-		statusText = evaluateScriptString(t, page, `document.getElementById("`+subscribeStatusElementID+`").innerText || ""`)
+	require.Eventually(testingT, func() bool {
+		statusText = evaluateScriptString(testingT, page, `document.getElementById("`+subscribeStatusElementID+`").innerText || ""`)
 		return strings.Contains(statusText, "You're on the list")
 	}, integrationStatusWaitTimeout, integrationStatusPollInterval)
-	require.Contains(t, statusText, "You're on the list")
+	require.Contains(testingT, statusText, "You're on the list")
 
-	_ = captureAndStoreScreenshot(t, page, screenshotsDirectory, "subscribe-inline")
+	_ = captureAndStoreScreenshot(testingT, page, screenshotsDirectory, "subscribe-inline")
 
 	var stored model.Subscriber
-	require.NoError(t, api.database.First(&stored).Error)
-	require.Equal(t, site.ID, stored.SiteID)
-	require.Equal(t, "subscriber@example.com", stored.Email)
-	require.Equal(t, "Newsletter User", stored.Name)
-	require.Equal(t, demoURL, stored.SourceURL)
-	require.Equal(t, model.SubscriberStatusPending, stored.Status)
-	require.False(t, stored.ConsentAt.IsZero())
+	require.NoError(testingT, api.database.First(&stored).Error)
+	require.Equal(testingT, site.ID, stored.SiteID)
+	require.Equal(testingT, "subscriber@example.com", stored.Email)
+	require.Equal(testingT, "Newsletter User", stored.Name)
+	require.Equal(testingT, demoURL, stored.SourceURL)
+	require.Equal(testingT, model.SubscriberStatusPending, stored.Status)
+	require.False(testingT, stored.ConsentAt.IsZero())
 
-	require.Equal(t, 1, emailSender.CallCount())
-	require.Equal(t, 0, subscriptionNotifier.CallCount())
+	require.Equal(testingT, 1, emailSender.CallCount())
+	require.Equal(testingT, 0, subscriptionNotifier.CallCount())
 
 	lastEmail := emailSender.LastCall()
-	require.Equal(t, stored.Email, lastEmail.Recipient)
-	require.Contains(t, lastEmail.Subject, "Confirm your subscription")
+	require.Equal(testingT, stored.Email, lastEmail.Recipient)
+	require.Contains(testingT, lastEmail.Subject, "Confirm your subscription")
 
 	var confirmationLink string
 	for _, line := range strings.Split(lastEmail.Message, "\n") {
@@ -77,33 +77,33 @@ func TestSubscribeWidgetSubmitsSubscription(t *testing.T) {
 			break
 		}
 	}
-	require.NotEmpty(t, confirmationLink)
+	require.NotEmpty(testingT, confirmationLink)
 
 	parsedURL, parseErr := url.Parse(confirmationLink)
-	require.NoError(t, parseErr)
+	require.NoError(testingT, parseErr)
 
 	response, requestErr := server.Client().Get(server.URL + parsedURL.RequestURI())
-	require.NoError(t, requestErr)
-	require.NoError(t, response.Body.Close())
+	require.NoError(testingT, requestErr)
+	require.NoError(testingT, response.Body.Close())
 
 	var confirmed model.Subscriber
-	require.NoError(t, api.database.First(&confirmed, "id = ?", stored.ID).Error)
-	require.Equal(t, model.SubscriberStatusConfirmed, confirmed.Status)
+	require.NoError(testingT, api.database.First(&confirmed, "id = ?", stored.ID).Error)
+	require.Equal(testingT, model.SubscriberStatusConfirmed, confirmed.Status)
 
-	require.Equal(t, 1, subscriptionNotifier.CallCount())
+	require.Equal(testingT, 1, subscriptionNotifier.CallCount())
 	notification := subscriptionNotifier.LastCall()
-	require.Equal(t, site.ID, notification.Site.ID)
-	require.Equal(t, "owner@example.com", notification.Site.OwnerEmail)
-	require.Equal(t, stored.ID, notification.Subscriber.ID)
-	require.Equal(t, stored.Email, notification.Subscriber.Email)
-	require.Equal(t, model.SubscriberStatusConfirmed, notification.Subscriber.Status)
+	require.Equal(testingT, site.ID, notification.Site.ID)
+	require.Equal(testingT, "owner@example.com", notification.Site.OwnerEmail)
+	require.Equal(testingT, stored.ID, notification.Subscriber.ID)
+	require.Equal(testingT, stored.Email, notification.Subscriber.Email)
+	require.Equal(testingT, model.SubscriberStatusConfirmed, notification.Subscriber.Status)
 }
 
 func TestSubscribeWidgetRendersIntoTargetContainer(testingT *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	subscriptionNotifier := &recordingSubscriptionNotifier{t: testingT}
-	emailSender := &recordingEmailSender{t: testingT}
+	subscriptionNotifier := &recordingSubscriptionNotifier{testingT: testingT}
+	emailSender := &recordingEmailSender{testingT: testingT}
 	api := buildAPIHarness(testingT, nil, subscriptionNotifier, emailSender)
 
 	server := newHTTPTestServer(testingT, api.router)
@@ -144,8 +144,8 @@ func TestSubscribeWidgetRendersIntoTargetContainer(testingT *testing.T) {
 func TestSubscribeWidgetOmitsNameFieldWhenDisabled(testingT *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	subscriptionNotifier := &recordingSubscriptionNotifier{t: testingT}
-	emailSender := &recordingEmailSender{t: testingT}
+	subscriptionNotifier := &recordingSubscriptionNotifier{testingT: testingT}
+	emailSender := &recordingEmailSender{testingT: testingT}
 	api := buildAPIHarness(testingT, nil, subscriptionNotifier, emailSender)
 
 	server := newHTTPTestServer(testingT, api.router)
