@@ -107,7 +107,7 @@ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	notifier := &recordingFeedbackNotifier{
-		t:        t,
+		testingT: t,
 		delivery: model.FeedbackDeliveryMailed,
 	}
 	apiHarness := buildAPIHarness(t, notifier, nil, nil)
@@ -223,7 +223,7 @@ func TestWidgetIntegrationSendsNotification(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	notifier := &recordingFeedbackNotifier{
-		t:        t,
+		testingT: t,
 		delivery: model.FeedbackDeliveryMailed,
 	}
 	apiHarness := buildAPIHarness(t, notifier, nil, nil)
@@ -264,7 +264,7 @@ func TestWidgetIntegrationRecordsNoDeliveryWhenNotifierFails(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	notifier := &recordingFeedbackNotifier{
-		t:         t,
+		testingT:  t,
 		delivery:  model.FeedbackDeliveryMailed,
 		callError: errors.New("send failed"),
 	}
@@ -308,7 +308,7 @@ func TestWidgetIntegrationKeepsDeliveryNoneWhenNotifierReturnsStatusAndError(t *
 	gin.SetMode(gin.TestMode)
 
 	notifier := &recordingFeedbackNotifier{
-		t:         t,
+		testingT:  t,
 		delivery:  model.FeedbackDeliveryTexted,
 		callError: errors.New("notifier failed"),
 	}

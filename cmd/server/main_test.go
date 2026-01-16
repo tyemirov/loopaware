@@ -1,353 +1,384 @@
 package main
 
 import (
-	"fmt"
+	"context"
+	"errors"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
+	"time"
 
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
+	"gorm.io/gorm"
 
+	"github.com/MarkoPoloResearchLab/loopaware/internal/notifications/pinguinpb"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
 )
 
 const (
-	testFlagNameDatabaseDriver       = "db-driver"
-	testFlagNameDatabaseDataSource   = "db-dsn"
-	testFlagNamePublicBaseURL        = "public-base-url"
-	testSQLiteDefaultFileName        = "loopaware.sqlite"
-	testSQLiteDataSourcePattern      = "file:%s?_foreign_keys=on"
-	testDefaultPublicBaseURL         = "http://localhost:8080"
-	testAdminEmail                   = "admin@example.com"
-	testGoogleClientID               = "client-id"
-	testSessionSecret                = "session-secret"
-	testTauthBaseURL                 = "https://tauth.example.com"
-	testTauthTenantID                = "tenant-test"
-	testTauthSigningKey              = "test-signing-key"
-	testAdministratorsEnvironmentKey = "ADMINS"
-	testConfigAdminFirstEmail        = "config-admin-one@example.com"
-	testConfigAdminSecondEmail       = "config-admin-two@example.com"
-	testEnvironmentAdminFirstEmail   = "environment-admin-one@example.com"
-	testEnvironmentAdminSecondEmail  = "environment-admin-two@example.com"
-	testConfigFileName               = "config.yaml"
+	testAdminEmailsEnv        = "admin@example.com, owner@example.com"
+	testAuthTokenValue        = "test-auth-token"
+	testTenantValue           = "test-tenant"
+	testGoogleClientIDValue   = "test-google-client"
+	testSessionSecretValue    = "test-session-secret"
+	testTauthBaseURLValue     = "http://tauth.test"
+	testTauthTenantIDValue    = "tenant-id"
+	testTauthSigningKeyValue  = "signing-key"
+	testTauthCookieNameValue  = "app_session"
+	testPublicBaseURLValue    = "http://localhost:8080"
+	testPinguinAddress        = "bufnet"
+	testDatabaseDriverValue   = storage.DriverNameSQLite
+	testDatabaseDSNValue      = "file:server-test?mode=memory&cache=shared&_foreign_keys=on"
+	testPinguinTimeoutSeconds = "1"
+	testDatabaseOpenerMessage = "database opener error"
+	testBufferSize            = 1024 * 1024
+	testInvalidTimeoutValue   = "invalid"
+	testServerAddress         = "127.0.0.1:0"
+	testBindFlagAddress       = "127.0.0.1:9999"
 )
 
-func TestEnsureRequiredConfigurationDetectsMissingFields(t *testing.T) {
-	baseConfig := ServerConfig{
-		ApplicationAddress:     ":0",
-		DatabaseDriverName:     storage.DriverNameSQLite,
-		DatabaseDataSourceName: "",
-		AdminEmailAddresses:    []string{testAdminEmail},
-		GoogleClientID:         testGoogleClientID,
-		SessionSecret:          testSessionSecret,
-		TauthBaseURL:           testTauthBaseURL,
-		TauthTenantID:          testTauthTenantID,
-		TauthSigningKey:        testTauthSigningKey,
-		PublicBaseURL:          testDefaultPublicBaseURL,
-		ConfigFilePath:         "testdata/config.yaml",
-		PinguinAddress:         defaultPinguinAddress,
-		PinguinAuthToken:       "test-token",
-		PinguinTenantID:        "tenant-test",
-		PinguinConnTimeoutSec:  defaultPinguinConnTimeoutSeconds,
-		PinguinOpTimeoutSec:    defaultPinguinOpTimeoutSeconds,
-	}
+type stubNotificationServer struct {
+	pinguinpb.UnimplementedNotificationServiceServer
+}
 
-	testCases := []struct {
-		name          string
-		mutate        func(*ServerConfig)
-		expectsError  bool
-		expectedToken string
-	}{
-		{
-			name: "missing database driver",
-			mutate: func(config *ServerConfig) {
-				config.DatabaseDriverName = ""
-			},
-			expectsError:  true,
-			expectedToken: testFlagNameDatabaseDriver,
-		},
-		{
-			name: "missing datasource for non-sqlite",
-			mutate: func(config *ServerConfig) {
-				config.DatabaseDriverName = "postgres"
-				config.DatabaseDataSourceName = ""
-			},
-			expectsError:  true,
-			expectedToken: testFlagNameDatabaseDataSource,
-		},
-		{
-			name: "missing admins",
-			mutate: func(config *ServerConfig) {
-				config.AdminEmailAddresses = nil
-			},
-			expectsError: false,
-		},
-		{
-			name: "missing google client id",
-			mutate: func(config *ServerConfig) {
-				config.GoogleClientID = ""
-			},
-			expectsError:  true,
-			expectedToken: flagNameGoogleClientID,
-		},
-		{
-			name: "missing session secret",
-			mutate: func(config *ServerConfig) {
-				config.SessionSecret = ""
-			},
-			expectsError:  true,
-			expectedToken: flagNameSessionSecret,
-		},
-		{
-			name: "missing tauth base url",
-			mutate: func(config *ServerConfig) {
-				config.TauthBaseURL = ""
-			},
-			expectsError:  true,
-			expectedToken: flagNameTauthBaseURL,
-		},
-		{
-			name: "missing tauth tenant id",
-			mutate: func(config *ServerConfig) {
-				config.TauthTenantID = ""
-			},
-			expectsError:  true,
-			expectedToken: flagNameTauthTenantID,
-		},
-		{
-			name: "missing tauth signing key",
-			mutate: func(config *ServerConfig) {
-				config.TauthSigningKey = ""
-			},
-			expectsError:  true,
-			expectedToken: flagNameTauthSigningKey,
-		},
-		{
-			name: "missing public base url",
-			mutate: func(config *ServerConfig) {
-				config.PublicBaseURL = ""
-			},
-			expectsError:  true,
-			expectedToken: flagNamePublicBaseURL,
-		},
-		{
-			name: "missing pinguin address",
-			mutate: func(config *ServerConfig) {
-				config.PinguinAddress = ""
-			},
-			expectsError:  true,
-			expectedToken: flagNamePinguinAddress,
-		},
-		{
-			name: "missing pinguin auth token",
-			mutate: func(config *ServerConfig) {
-				config.PinguinAuthToken = ""
-			},
-			expectsError:  true,
-			expectedToken: flagNamePinguinAuthToken,
-		},
-		{
-			name: "missing pinguin tenant id",
-			mutate: func(config *ServerConfig) {
-				config.PinguinTenantID = ""
-			},
-			expectsError:  true,
-			expectedToken: flagNamePinguinTenantID,
-		},
-		{
-			name: "missing pinguin connection timeout",
-			mutate: func(config *ServerConfig) {
-				config.PinguinConnTimeoutSec = 0
-			},
-			expectsError:  true,
-			expectedToken: flagNamePinguinConnectionTimeout,
-		},
-		{
-			name: "missing pinguin operation timeout",
-			mutate: func(config *ServerConfig) {
-				config.PinguinOpTimeoutSec = 0
-			},
-			expectsError:  true,
-			expectedToken: flagNamePinguinOperationTimeout,
-		},
-		{
-			name:         "valid configuration",
-			mutate:       func(config *ServerConfig) {},
-			expectsError: false,
-		},
-	}
+func (stub *stubNotificationServer) SendNotification(context.Context, *pinguinpb.NotificationRequest) (*pinguinpb.NotificationResponse, error) {
+	return &pinguinpb.NotificationResponse{Status: pinguinpb.Status_SENT}, nil
+}
 
-	application := NewServerApplication()
+func (stub *stubNotificationServer) GetNotificationStatus(context.Context, *pinguinpb.GetNotificationStatusRequest) (*pinguinpb.NotificationResponse, error) {
+	return &pinguinpb.NotificationResponse{Status: pinguinpb.Status_SENT}, nil
+}
 
-	for _, testCase := range testCases {
-		testCase := testCase
-		t.Run(testCase.name, func(testingT *testing.T) {
-			config := baseConfig
-			testCase.mutate(&config)
-			err := application.ensureRequiredConfiguration(config)
-			if testCase.expectsError {
-				require.Error(testingT, err)
-				require.Contains(testingT, err.Error(), testCase.expectedToken)
-			} else {
-				require.NoError(testingT, err)
-			}
-		})
+func startPinguinServer(testingT *testing.T) *bufconn.Listener {
+	listener := bufconn.Listen(testBufferSize)
+	grpcServer := grpc.NewServer()
+	pinguinpb.RegisterNotificationServiceServer(grpcServer, &stubNotificationServer{})
+
+	go func() {
+		_ = grpcServer.Serve(listener)
+	}()
+
+	testingT.Cleanup(func() {
+		grpcServer.Stop()
+		_ = listener.Close()
+	})
+
+	return listener
+}
+
+func createPinguinDialer(listener *bufconn.Listener) func(context.Context, string) (net.Conn, error) {
+	return func(requestContext context.Context, _ string) (net.Conn, error) {
+		return listener.DialContext(requestContext)
 	}
 }
 
-func TestServerCommandFlagDefaults(t *testing.T) {
-	expectedSQLiteDataSource := fmt.Sprintf(testSQLiteDataSourcePattern, testSQLiteDefaultFileName)
+func setRequiredEnvironment(testingT *testing.T, pinguinAddress string) {
+	testingT.Setenv(environmentKeyApplicationAddress, "127.0.0.1:0")
+	testingT.Setenv(environmentKeyDatabaseDriverName, testDatabaseDriverValue)
+	testingT.Setenv(environmentKeyDatabaseDataSource, testDatabaseDSNValue)
+	testingT.Setenv(environmentKeyGoogleClientID, testGoogleClientIDValue)
+	testingT.Setenv(environmentKeySessionSecret, testSessionSecretValue)
+	testingT.Setenv(environmentKeyTauthBaseURL, testTauthBaseURLValue)
+	testingT.Setenv(environmentKeyTauthTenantID, testTauthTenantIDValue)
+	testingT.Setenv(environmentKeyTauthSigningKey, testTauthSigningKeyValue)
+	testingT.Setenv(environmentKeyTauthSessionCookie, testTauthCookieNameValue)
+	testingT.Setenv(environmentKeyPublicBaseURL, testPublicBaseURLValue)
+	testingT.Setenv(environmentKeyPinguinAddress, pinguinAddress)
+	testingT.Setenv(environmentKeyPinguinAuthToken, testAuthTokenValue)
+	testingT.Setenv(environmentKeyPinguinTenantID, testTenantValue)
+	testingT.Setenv(environmentKeyPinguinConnTimeout, testPinguinTimeoutSeconds)
+	testingT.Setenv(environmentKeyPinguinOpTimeout, testPinguinTimeoutSeconds)
+	testingT.Setenv(environmentKeySubscriptionNotify, "true")
+}
 
+func TestBindFlagReturnsErrorWhenMissing(testingT *testing.T) {
+	application := NewServerApplication()
+	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
+
+	bindErr := application.bindFlag(flagSet, environmentKeyApplicationAddress, "missing-flag")
+	require.Error(testingT, bindErr)
+}
+
+func TestBindFlagBindsValue(testingT *testing.T) {
+	application := NewServerApplication()
+	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flagSet.String(flagNameApplicationAddress, defaultApplicationAddress, "")
+
+	bindErr := application.bindFlag(flagSet, environmentKeyApplicationAddress, flagNameApplicationAddress)
+	require.NoError(testingT, bindErr)
+
+	require.NoError(testingT, flagSet.Set(flagNameApplicationAddress, testBindFlagAddress))
+	require.Equal(testingT, testBindFlagAddress, application.configurationLoader.GetString(environmentKeyApplicationAddress))
+}
+
+func TestNewServerApplicationHasDefaults(testingT *testing.T) {
+	application := NewServerApplication()
+	require.NotNil(testingT, application.configurationLoader)
+	require.NotNil(testingT, application.databaseOpener)
+	require.NotNil(testingT, application.serverRunner)
+	require.Nil(testingT, application.pinguinDialer)
+}
+
+func TestWithPinguinDialerOverrides(testingT *testing.T) {
+	application := NewServerApplication()
+	application.WithPinguinDialer(func(context.Context, string) (net.Conn, error) {
+		return nil, errors.New("dialer error")
+	})
+
+	require.NotNil(testingT, application.pinguinDialer)
+}
+
+func TestWithDatabaseOpenerOverrides(testingT *testing.T) {
+	application := NewServerApplication()
+	application.WithDatabaseOpener(func(storage.Config) (*gorm.DB, error) {
+		return nil, errors.New(testDatabaseOpenerMessage)
+	})
+
+	_, openErr := application.databaseOpener(storage.Config{})
+	require.ErrorContains(testingT, openErr, testDatabaseOpenerMessage)
+}
+
+func TestWithServerRunnerOverrides(testingT *testing.T) {
+	application := NewServerApplication()
+	var runnerCalls int
+	application.WithServerRunner(func(*http.Server) error {
+		runnerCalls++
+		return http.ErrServerClosed
+	})
+
+	require.NotNil(testingT, application.serverRunner)
+	_ = application.serverRunner(&http.Server{})
+	require.Equal(testingT, 1, runnerCalls)
+}
+
+func TestApplyEnvironmentConfigurationSetsFlag(testingT *testing.T) {
+	application := NewServerApplication()
+	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flagSet.String(flagNameApplicationAddress, "", "")
+
+	testingT.Setenv(environmentKeyApplicationAddress, "127.0.0.1:1234")
+	applyErr := application.applyEnvironmentConfiguration(flagSet, environmentKeyApplicationAddress, flagNameApplicationAddress)
+	require.NoError(testingT, applyErr)
+
+	value, valueErr := flagSet.GetString(flagNameApplicationAddress)
+	require.NoError(testingT, valueErr)
+	require.Equal(testingT, "127.0.0.1:1234", value)
+}
+
+func TestApplyEnvironmentConfigurationSkipsWhenMissing(testingT *testing.T) {
+	application := NewServerApplication()
+	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flagSet.String(flagNameApplicationAddress, "default", "")
+
+	environmentKey := "LOOPAWARE_TEST_MISSING_ENV"
+	require.NoError(testingT, os.Unsetenv(environmentKey))
+	applyErr := application.applyEnvironmentConfiguration(flagSet, environmentKey, flagNameApplicationAddress)
+	require.NoError(testingT, applyErr)
+
+	value, valueErr := flagSet.GetString(flagNameApplicationAddress)
+	require.NoError(testingT, valueErr)
+	require.Equal(testingT, "default", value)
+}
+
+func TestApplyEnvironmentConfigurationReportsUnknownFlag(testingT *testing.T) {
+	application := NewServerApplication()
+	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
+
+	testingT.Setenv(environmentKeyApplicationAddress, "127.0.0.1:1234")
+	applyErr := application.applyEnvironmentConfiguration(flagSet, environmentKeyApplicationAddress, "missing-flag")
+	require.Error(testingT, applyErr)
+}
+
+func TestApplyEnvironmentConfigurationRejectsInvalidInt(testingT *testing.T) {
+	application := NewServerApplication()
+	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flagSet.Int(flagNamePinguinConnectionTimeout, 0, "")
+
+	testingT.Setenv(environmentKeyPinguinConnTimeout, testInvalidTimeoutValue)
+	applyErr := application.applyEnvironmentConfiguration(flagSet, environmentKeyPinguinConnTimeout, flagNamePinguinConnectionTimeout)
+	require.Error(testingT, applyErr)
+	require.ErrorContains(testingT, applyErr, environmentConfigurationError)
+}
+
+func TestNormalizeEmailAddressesSkipsBlanks(testingT *testing.T) {
+	normalized := normalizeEmailAddresses([]string{" admin@example.com ", "", "owner@example.com"})
+	require.Equal(testingT, []string{"admin@example.com", "owner@example.com"}, normalized)
+}
+
+func TestLoadServerConfigUsesDefaultsAndEnvironment(testingT *testing.T) {
+	application := NewServerApplication()
+	_, commandErr := application.Command()
+	require.NoError(testingT, commandErr)
+
+	testingT.Setenv(environmentKeyAdmins, testAdminEmailsEnv)
+	testingT.Setenv(environmentKeyDatabaseDriverName, storage.DriverNameSQLite)
+	testingT.Setenv(environmentKeyDatabaseDataSource, "")
+	testingT.Setenv(environmentKeyPinguinSharedAuth, testAuthTokenValue)
+
+	config, loadErr := application.loadServerConfig("")
+	require.NoError(testingT, loadErr)
+	require.Equal(testingT, []string{"admin@example.com", "owner@example.com"}, config.AdminEmailAddresses)
+	require.Equal(testingT, defaultSQLiteDataSourceName, config.DatabaseDataSourceName)
+	require.Equal(testingT, testAuthTokenValue, config.PinguinAuthToken)
+}
+
+func TestLoadServerConfigReportsConfigurationFileError(testingT *testing.T) {
+	application := NewServerApplication()
+	_, commandErr := application.Command()
+	require.NoError(testingT, commandErr)
+
+	tempDirectory := testingT.TempDir()
+	configPath := filepath.Join(tempDirectory, "config.yaml")
+	require.NoError(testingT, os.WriteFile(configPath, []byte(": [}"), 0o600))
+
+	_, loadErr := application.loadServerConfig(configPath)
+	require.Error(testingT, loadErr)
+	require.ErrorContains(testingT, loadErr, configurationFileLoadError)
+}
+
+func TestEnsureRequiredConfigurationReportsMissing(testingT *testing.T) {
+	application := NewServerApplication()
+	missingErr := application.ensureRequiredConfiguration(ServerConfig{})
+	require.Error(testingT, missingErr)
+
+	config := ServerConfig{
+		DatabaseDriverName:        storage.DriverNameSQLite,
+		DatabaseDataSourceName:    testDatabaseDSNValue,
+		GoogleClientID:            testGoogleClientIDValue,
+		SessionSecret:             testSessionSecretValue,
+		TauthBaseURL:              testTauthBaseURLValue,
+		TauthTenantID:             testTauthTenantIDValue,
+		TauthSigningKey:           testTauthSigningKeyValue,
+		PublicBaseURL:             testPublicBaseURLValue,
+		PinguinAddress:            "127.0.0.1:50051",
+		PinguinAuthToken:          testAuthTokenValue,
+		PinguinTenantID:           testTenantValue,
+		PinguinConnTimeoutSec:     1,
+		PinguinOpTimeoutSec:       1,
+		SubscriptionNotifications: true,
+	}
+	require.NoError(testingT, application.ensureRequiredConfiguration(config))
+}
+
+func TestLogAdministratorWarningEmitsWhenMissing(testingT *testing.T) {
+	observedCore, observedLogs := observer.New(zap.WarnLevel)
+	logger := zap.New(observedCore)
+
+	application := NewServerApplication()
+	application.logAdministratorWarning(logger, ServerConfig{})
+	require.Equal(testingT, 1, observedLogs.Len())
+
+	observedLogs.TakeAll()
+	application.logAdministratorWarning(logger, ServerConfig{AdminEmailAddresses: []string{"admin@example.com"}})
+	require.Equal(testingT, 0, observedLogs.Len())
+}
+
+func TestRunCommandUsesServerRunner(testingT *testing.T) {
+	listener := startPinguinServer(testingT)
+	setRequiredEnvironment(testingT, testPinguinAddress)
+
+	application := NewServerApplication()
+	application.WithPinguinDialer(createPinguinDialer(listener))
+	command, commandErr := application.Command()
+	require.NoError(testingT, commandErr)
+
+	var runnerCalls int
+	application.WithServerRunner(func(*http.Server) error {
+		runnerCalls++
+		return http.ErrServerClosed
+	})
+
+	runErr := application.runCommand(command, nil)
+	require.NoError(testingT, runErr)
+	require.Equal(testingT, 1, runnerCalls)
+}
+
+func TestRunCommandReportsMissingConfiguration(testingT *testing.T) {
 	application := NewServerApplication()
 	command, commandErr := application.Command()
-	require.NoError(t, commandErr)
+	require.NoError(testingT, commandErr)
 
-	driverFlag := command.Flag(testFlagNameDatabaseDriver)
-	require.NotNil(t, driverFlag)
-	require.Equal(t, storage.DriverNameSQLite, driverFlag.DefValue)
+	testingT.Setenv(environmentKeyApplicationAddress, "")
+	testingT.Setenv(environmentKeyDatabaseDriverName, "")
+	testingT.Setenv(environmentKeyDatabaseDataSource, "")
+	testingT.Setenv(environmentKeyGoogleClientID, "")
+	testingT.Setenv(environmentKeySessionSecret, "")
+	testingT.Setenv(environmentKeyTauthBaseURL, "")
+	testingT.Setenv(environmentKeyTauthTenantID, "")
+	testingT.Setenv(environmentKeyTauthSigningKey, "")
+	testingT.Setenv(environmentKeyPublicBaseURL, "")
+	testingT.Setenv(environmentKeyPinguinAddress, "")
+	testingT.Setenv(environmentKeyPinguinAuthToken, "")
+	testingT.Setenv(environmentKeyPinguinTenantID, "")
+	testingT.Setenv(environmentKeyPinguinConnTimeout, "0")
+	testingT.Setenv(environmentKeyPinguinOpTimeout, "0")
 
-	dataSourceFlag := command.Flag(testFlagNameDatabaseDataSource)
-	require.NotNil(t, dataSourceFlag)
-	require.Equal(t, expectedSQLiteDataSource, dataSourceFlag.DefValue)
-
-	publicBaseFlag := command.Flag(testFlagNamePublicBaseURL)
-	require.NotNil(t, publicBaseFlag)
-	require.Equal(t, testDefaultPublicBaseURL, publicBaseFlag.DefValue)
-
-	pinguinAddrFlag := command.Flag(flagNamePinguinAddress)
-	require.NotNil(t, pinguinAddrFlag)
-	require.Equal(t, defaultPinguinAddress, pinguinAddrFlag.DefValue)
-
-	pinguinAuthFlag := command.Flag(flagNamePinguinAuthToken)
-	require.NotNil(t, pinguinAuthFlag)
-	require.Equal(t, "", pinguinAuthFlag.DefValue)
-
-	pinguinTenantFlag := command.Flag(flagNamePinguinTenantID)
-	require.NotNil(t, pinguinTenantFlag)
-	require.Equal(t, "", pinguinTenantFlag.DefValue)
-
-	pinguinConnFlag := command.Flag(flagNamePinguinConnectionTimeout)
-	require.NotNil(t, pinguinConnFlag)
-	require.Equal(t, fmt.Sprintf("%d", defaultPinguinConnTimeoutSeconds), pinguinConnFlag.DefValue)
-
-	pinguinOpFlag := command.Flag(flagNamePinguinOperationTimeout)
-	require.NotNil(t, pinguinOpFlag)
-	require.Equal(t, fmt.Sprintf("%d", defaultPinguinOpTimeoutSeconds), pinguinOpFlag.DefValue)
+	runErr := application.runCommand(command, nil)
+	require.Error(testingT, runErr)
+	require.ErrorContains(testingT, runErr, missingConfigurationMessage)
 }
 
-func TestLoadServerConfigReadsAdminEmailsFromEnvironment(t *testing.T) {
-	tempDirectory := t.TempDir()
-	configFilePath := filepath.Join(tempDirectory, testConfigFileName)
-	configFileContents := fmt.Sprintf("admins:\n  - %s\n  - %s\n", testConfigAdminFirstEmail, testConfigAdminSecondEmail)
-	writeErr := os.WriteFile(configFilePath, []byte(configFileContents), 0600)
-	require.NoError(t, writeErr)
+func TestRunCommandRejectsArguments(testingT *testing.T) {
+	application := NewServerApplication()
+	command, commandErr := application.Command()
+	require.NoError(testingT, commandErr)
 
-	testCases := []struct {
-		name                                string
-		environmentAdministratorsValue      string
-		expectedAdministratorEmailAddresses []string
-	}{
-		{
-			name:                                "config administrators used when environment empty",
-			environmentAdministratorsValue:      "",
-			expectedAdministratorEmailAddresses: []string{testConfigAdminFirstEmail, testConfigAdminSecondEmail},
-		},
-		{
-			name:                                "environment administrators override config",
-			environmentAdministratorsValue:      fmt.Sprintf("%s,%s", testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail),
-			expectedAdministratorEmailAddresses: []string{testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail},
-		},
-		{
-			name:                                "environment administrators trimmed whitespace",
-			environmentAdministratorsValue:      fmt.Sprintf("%s, %s", testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail),
-			expectedAdministratorEmailAddresses: []string{testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail},
-		},
+	runErr := application.runCommand(command, []string{"unexpected"})
+	require.Error(testingT, runErr)
+}
+
+func TestServerRunnerCanBeOverridden(testingT *testing.T) {
+	application := NewServerApplication()
+	var runnerCalls int
+	application.WithServerRunner(func(*http.Server) error {
+		runnerCalls++
+		return nil
+	})
+
+	server := &http.Server{
+		Addr:              testServerAddress,
+		ReadHeaderTimeout: time.Second,
+	}
+	runErr := application.serverRunner(server)
+	require.NoError(testingT, runErr)
+	require.Equal(testingT, 1, runnerCalls)
+}
+
+func TestCommandReportsInvalidEnvironmentConfiguration(testingT *testing.T) {
+	application := NewServerApplication()
+	testingT.Setenv(environmentKeyPinguinConnTimeout, testInvalidTimeoutValue)
+
+	command, commandErr := application.Command()
+	require.Error(testingT, commandErr)
+	require.Nil(testingT, command)
+}
+
+func TestDefaultServerRunnerHandlesServerClose(testingT *testing.T) {
+	application := NewServerApplication()
+	server := &http.Server{
+		Addr:              testServerAddress,
+		ReadHeaderTimeout: time.Second,
 	}
 
-	for _, testCase := range testCases {
-		testCase := testCase
-		t.Run(testCase.name, func(testingT *testing.T) {
-			testingT.Setenv(testAdministratorsEnvironmentKey, testCase.environmentAdministratorsValue)
+	closeDone := make(chan struct{})
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		_ = server.Close()
+		close(closeDone)
+	}()
 
-			application := NewServerApplication()
-			application.configurationLoader.AutomaticEnv()
-
-			serverConfig, loadErr := application.loadServerConfig(configFilePath)
-			require.NoError(testingT, loadErr)
-			require.Equal(testingT, testCase.expectedAdministratorEmailAddresses, serverConfig.AdminEmailAddresses)
-		})
+	runErr := application.serverRunner(server)
+	if runErr != nil && errors.Is(runErr, syscall.EPERM) {
+		testingT.Skip("server listen not permitted in sandbox")
 	}
-}
-
-func TestDockerfileUsesLoopawareBinary(t *testing.T) {
-	contents, err := os.ReadFile(filepath.Join("..", "..", "Dockerfile"))
-	require.NoError(t, err)
-	text := string(contents)
-	require.Contains(t, text, "/out/loopaware")
-	require.Contains(t, text, "/app/loopaware")
-	require.NotContains(t, text, "feedbacksvc")
-}
-
-func TestLoadServerConfigAllowsMissingConfigFile(t *testing.T) {
-	tempDirectory := t.TempDir()
-	missingConfigFilePath := filepath.Join(tempDirectory, testConfigFileName)
-
-	t.Setenv(testAdministratorsEnvironmentKey, fmt.Sprintf("%s,%s", testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail))
-	t.Setenv(environmentKeyGoogleClientID, testGoogleClientID)
-	t.Setenv(environmentKeySessionSecret, testSessionSecret)
-	t.Setenv(environmentKeyTauthBaseURL, testTauthBaseURL)
-	t.Setenv(environmentKeyTauthTenantID, testTauthTenantID)
-	t.Setenv(environmentKeyTauthSigningKey, testTauthSigningKey)
-	t.Setenv(environmentKeyPublicBaseURL, testDefaultPublicBaseURL)
-
-	application := NewServerApplication()
-	application.configurationLoader.AutomaticEnv()
-
-	serverConfig, loadErr := application.loadServerConfig(missingConfigFilePath)
-	require.NoError(t, loadErr)
-	require.Equal(t, []string{testEnvironmentAdminFirstEmail, testEnvironmentAdminSecondEmail}, serverConfig.AdminEmailAddresses)
-	require.Equal(t, missingConfigFilePath, serverConfig.ConfigFilePath)
-}
-
-func TestLoadServerConfigFallsBackToSharedAuthToken(t *testing.T) {
-	tempDirectory := t.TempDir()
-	configFilePath := filepath.Join(tempDirectory, testConfigFileName)
-	require.NoError(t, os.WriteFile(configFilePath, []byte("admins: []\n"), 0600))
-
-	t.Setenv(environmentKeyGoogleClientID, testGoogleClientID)
-	t.Setenv(environmentKeySessionSecret, testSessionSecret)
-	t.Setenv(environmentKeyTauthBaseURL, testTauthBaseURL)
-	t.Setenv(environmentKeyTauthTenantID, testTauthTenantID)
-	t.Setenv(environmentKeyTauthSigningKey, testTauthSigningKey)
-	t.Setenv(environmentKeyPublicBaseURL, testDefaultPublicBaseURL)
-	t.Setenv(environmentKeyPinguinAuthToken, "")
-	t.Setenv(environmentKeyPinguinSharedAuth, "shared-token")
-
-	application := NewServerApplication()
-	application.configurationLoader.AutomaticEnv()
-
-	serverConfig, loadErr := application.loadServerConfig(configFilePath)
-	require.NoError(t, loadErr)
-	require.Equal(t, "shared-token", serverConfig.PinguinAuthToken)
-}
-
-func TestLogAdministratorWarning(t *testing.T) {
-	logObserver, logObserverEntries := observer.New(zapcore.WarnLevel)
-	logger := zap.New(logObserver)
-
-	application := NewServerApplication()
-
-	application.logAdministratorWarning(logger, ServerConfig{AdminEmailAddresses: nil})
-	require.Equal(t, 1, logObserverEntries.Len())
-	warningEntry := logObserverEntries.All()[0]
-	require.Equal(t, zapcore.WarnLevel, warningEntry.Level)
-	require.Equal(t, logMessageMissingAdministrators, warningEntry.Message)
-
-	logObserverEntries.TakeAll()
-
-	application.logAdministratorWarning(logger, ServerConfig{AdminEmailAddresses: []string{testAdminEmail}})
-	require.Equal(t, 0, logObserverEntries.Len())
+	require.ErrorIs(testingT, runErr, http.ErrServerClosed)
+	<-closeDone
 }

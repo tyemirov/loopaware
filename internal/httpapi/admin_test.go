@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -40,11 +41,40 @@ const (
 	defaultWidgetTestBottomOffsetPixels = 16
 	customWidgetTestBubbleSide          = "left"
 	customWidgetTestBottomOffsetPixels  = 48
+	testInvalidSubscriberStatus         = "pending"
+	testMissingSubscriberID             = "missing-subscriber"
+	testStatsErrorMessage               = "stats provider error"
 )
 
 type siteTestHarness struct {
 	handlers *httpapi.SiteHandlers
 	database *gorm.DB
+}
+
+type failingStatsProvider struct {
+	visitCountError         error
+	uniqueVisitorCountError error
+	topPagesError           error
+}
+
+func (provider *failingStatsProvider) FeedbackCount(context.Context, string) (int64, error) {
+	return 0, nil
+}
+
+func (provider *failingStatsProvider) SubscriberCount(context.Context, string) (int64, error) {
+	return 0, nil
+}
+
+func (provider *failingStatsProvider) VisitCount(context.Context, string) (int64, error) {
+	return 0, provider.visitCountError
+}
+
+func (provider *failingStatsProvider) UniqueVisitorCount(context.Context, string) (int64, error) {
+	return 0, provider.uniqueVisitorCountError
+}
+
+func (provider *failingStatsProvider) TopPages(context.Context, string, int) ([]httpapi.TopPageStat, error) {
+	return nil, provider.topPagesError
 }
 
 func newSiteTestHarness(testingT *testing.T) siteTestHarness {
@@ -90,6 +120,53 @@ func TestCurrentUserReturnsAvatarPayload(testingT *testing.T) {
 	require.Equal(testingT, "Display Name", payload.Name)
 	require.Equal(testingT, string(httpapi.RoleUser), payload.Role)
 	require.Equal(testingT, expectedAvatarURL, payload.Avatar.URL)
+}
+
+func TestCurrentUserRequiresAuth(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/me", nil)
+	harness.handlers.CurrentUser(context)
+	require.Equal(testingT, http.StatusUnauthorized, recorder.Code)
+}
+
+func TestListMessagesBySiteRequiresSiteID(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites//messages", nil)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.ListMessagesBySite(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+}
+
+func TestListMessagesBySiteRequiresAuth(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/site-id/messages", nil)
+	context.Params = gin.Params{{Key: "id", Value: "site-id"}}
+
+	harness.handlers.ListMessagesBySite(context)
+	require.Equal(testingT, http.StatusUnauthorized, recorder.Code)
+}
+
+func TestListMessagesBySiteRejectsForbidden(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Forbidden Messages Site",
+		AllowedOrigin: "http://forbidden-messages.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/messages", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
+
+	harness.handlers.ListMessagesBySite(context)
+	require.Equal(testingT, http.StatusForbidden, recorder.Code)
 }
 
 func TestListMessagesBySiteReturnsOrderedUnixTimestamps(testingT *testing.T) {
@@ -370,6 +447,85 @@ func TestListSitesExcludesForeignSitesForNonAdmin(testingT *testing.T) {
 	require.Equal(testingT, managedSite.ID, responseBody.Sites[0].Identifier)
 }
 
+func TestSiteFaviconRequiresSiteID(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites//favicon", nil)
+	harness.handlers.SiteFavicon(context)
+
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+}
+
+func TestSiteFaviconRequiresAuth(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/unknown/favicon", nil)
+	context.Params = gin.Params{{Key: "id", Value: "unknown"}}
+
+	harness.handlers.SiteFavicon(context)
+	require.Equal(testingT, http.StatusUnauthorized, recorder.Code)
+}
+
+func TestSiteFaviconRejectsForbidden(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Forbidden Site",
+		AllowedOrigin: "https://forbidden.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/favicon", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testUserEmailAddress, Role: httpapi.RoleUser})
+
+	harness.handlers.SiteFavicon(context)
+	require.Equal(testingT, http.StatusForbidden, recorder.Code)
+}
+
+func TestSiteFaviconReturnsNotFoundWhenMissingData(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Empty Icon Site",
+		AllowedOrigin: "https://empty-icon.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/favicon", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.SiteFavicon(context)
+	require.Equal(testingT, http.StatusNotFound, recorder.Code)
+}
+
+func TestSiteFaviconDefaultsContentType(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Default Icon Site",
+		AllowedOrigin: "https://default-icon.example",
+		OwnerEmail:    testAdminEmailAddress,
+		FaviconData:   []byte{0x01, 0x02},
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/favicon", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.SiteFavicon(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+	require.Equal(testingT, "application/octet-stream", recorder.Header().Get("Content-Type"))
+	require.Equal(testingT, site.FaviconData, recorder.Body.Bytes())
+}
+
 func TestSiteFaviconReturnsStoredIcon(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
@@ -393,6 +549,44 @@ func TestSiteFaviconReturnsStoredIcon(testingT *testing.T) {
 	require.Equal(testingT, http.StatusOK, recorder.Code)
 	require.Equal(testingT, "image/png", recorder.Header().Get("Content-Type"))
 	require.Equal(testingT, []byte{0x10, 0x20, 0x30}, recorder.Body.Bytes())
+}
+
+func TestStreamFaviconUpdatesRequiresAuth(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/favicons/events", nil)
+	harness.handlers.StreamFaviconUpdates(context)
+
+	require.Equal(testingT, http.StatusUnauthorized, recorder.Code)
+}
+
+func TestStreamFaviconUpdatesRequiresManager(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/favicons/events", nil)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.StreamFaviconUpdates(context)
+	require.Equal(testingT, http.StatusServiceUnavailable, recorder.Code)
+}
+
+func TestStreamFeedbackUpdatesRequiresAuth(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/feedback/events", nil)
+	harness.handlers.StreamFeedbackUpdates(context)
+
+	require.Equal(testingT, http.StatusUnauthorized, recorder.Code)
+}
+
+func TestStreamFeedbackUpdatesRequiresBroadcaster(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/feedback/events", nil)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.StreamFeedbackUpdates(context)
+	require.Equal(testingT, http.StatusServiceUnavailable, recorder.Code)
 }
 
 type streamStubFaviconResolver struct {
@@ -1268,6 +1462,37 @@ func TestDeleteSiteRemovesSiteAndFeedback(testingT *testing.T) {
 	require.ErrorIs(testingT, harness.database.First(&remainingFeedback, "id = ?", feedback.ID).Error, gorm.ErrRecordNotFound)
 }
 
+func TestDeleteSiteRequiresSiteID(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodDelete, "/api/sites//", nil)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.DeleteSite(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+}
+
+func TestDeleteSiteRequiresAuth(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodDelete, "/api/sites/site-id", nil)
+	context.Params = gin.Params{{Key: "id", Value: "site-id"}}
+
+	harness.handlers.DeleteSite(context)
+	require.Equal(testingT, http.StatusUnauthorized, recorder.Code)
+}
+
+func TestDeleteSiteRejectsUnknownSite(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodDelete, "/api/sites/"+testMissingSubscriberID, nil)
+	context.Params = gin.Params{{Key: "id", Value: testMissingSubscriberID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.DeleteSite(context)
+	require.Equal(testingT, http.StatusNotFound, recorder.Code)
+}
+
 func TestDeleteSitePreventsUnauthorizedUser(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
@@ -1308,6 +1533,24 @@ func TestUserAvatarReturnsStoredImage(testingT *testing.T) {
 	require.Equal(testingT, http.StatusOK, recorder.Code)
 	require.Equal(testingT, "image/png", recorder.Header().Get("Content-Type"))
 	require.Equal(testingT, []byte{0x01, 0x02, 0x03}, recorder.Body.Bytes())
+}
+
+func TestUserAvatarRequiresAuth(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/me/avatar", nil)
+	harness.handlers.UserAvatar(context)
+	require.Equal(testingT, http.StatusUnauthorized, recorder.Code)
+}
+
+func TestUserAvatarReturnsNotFoundForEmptyEmail(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/me/avatar", nil)
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: " ", Role: httpapi.RoleUser})
+
+	harness.handlers.UserAvatar(context)
+	require.Equal(testingT, http.StatusNotFound, recorder.Code)
 }
 
 func TestUserAvatarReturnsNotFoundWhenMissing(testingT *testing.T) {
@@ -1356,6 +1599,51 @@ func TestListSubscribersReturnsDataForAdmin(testingT *testing.T) {
 	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &response))
 	require.Len(testingT, response.Subscribers, 1)
 	require.Equal(testingT, subscriber.Email, response.Subscribers[0].Email)
+}
+
+func TestListSubscribersFiltersByQuery(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
+	siteHandlers := httpapi.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	router.GET("/api/sites/:id/subscribers", func(context *gin.Context) {
+		context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+		siteHandlers.ListSubscribers(context)
+	})
+
+	site := model.Site{ID: storage.NewID(), Name: "Subs", AllowedOrigin: "http://example.com", OwnerEmail: testAdminEmailAddress, CreatorEmail: testAdminEmailAddress}
+	require.NoError(testingT, database.Create(&site).Error)
+	matchingSubscriber, matchErr := model.NewSubscriber(model.SubscriberInput{
+		SiteID: site.ID,
+		Email:  "match@example.com",
+		Name:   "Match",
+	})
+	require.NoError(testingT, matchErr)
+	require.NoError(testingT, database.Create(&matchingSubscriber).Error)
+	otherSubscriber, otherErr := model.NewSubscriber(model.SubscriberInput{
+		SiteID: site.ID,
+		Email:  "other@example.com",
+		Name:   "Other",
+	})
+	require.NoError(testingT, otherErr)
+	require.NoError(testingT, database.Create(&otherSubscriber).Error)
+
+	request, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/sites/%s/subscribers?q=match", site.ID), nil)
+	require.NoError(testingT, err)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var response httpapi.SiteSubscribersResponse
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Len(testingT, response.Subscribers, 1)
+	require.Equal(testingT, matchingSubscriber.Email, response.Subscribers[0].Email)
 }
 
 func TestExportSubscribersReturnsCSV(testingT *testing.T) {
@@ -1430,6 +1718,99 @@ func TestUpdateSubscriberStatus(testingT *testing.T) {
 	require.Equal(testingT, model.SubscriberStatusUnsubscribed, refreshed.Status)
 }
 
+func TestUpdateSubscriberStatusRequiresSiteID(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites//subscribers/"+testMissingSubscriberID, nil)
+	context.Params = gin.Params{{Key: "subscriber_id", Value: testMissingSubscriberID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.UpdateSubscriberStatus(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+}
+
+func TestUpdateSubscriberStatusRequiresSubscriberID(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Status Missing Subscriber",
+		AllowedOrigin: "http://subscriber-id.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID+"/subscribers/", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.UpdateSubscriberStatus(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+}
+
+func TestUpdateSubscriberStatusRejectsInvalidJSON(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Status Invalid JSON",
+		AllowedOrigin: "http://invalid-json.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	request := httptest.NewRequest(http.MethodPatch, "/api/sites/"+site.ID+"/subscribers/"+testMissingSubscriberID, strings.NewReader("{"))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = request
+	context.Params = gin.Params{{Key: "id", Value: site.ID}, {Key: "subscriber_id", Value: testMissingSubscriberID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.UpdateSubscriberStatus(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+}
+
+func TestUpdateSubscriberStatusRejectsInvalidStatus(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Status Invalid Value",
+		AllowedOrigin: "http://invalid-status.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	payload := map[string]any{"status": testInvalidSubscriberStatus}
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID+"/subscribers/"+testMissingSubscriberID, payload)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}, {Key: "subscriber_id", Value: testMissingSubscriberID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.UpdateSubscriberStatus(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+}
+
+func TestUpdateSubscriberStatusReturnsNotFound(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Status Missing Subscriber",
+		AllowedOrigin: "http://missing-subscriber.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	payload := map[string]any{"status": model.SubscriberStatusConfirmed}
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID+"/subscribers/"+testMissingSubscriberID, payload)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}, {Key: "subscriber_id", Value: testMissingSubscriberID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.UpdateSubscriberStatus(context)
+	require.Equal(testingT, http.StatusNotFound, recorder.Code)
+}
+
 func TestDeleteSubscriber(testingT *testing.T) {
 	gin.SetMode(gin.TestMode)
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
@@ -1464,6 +1845,44 @@ func TestDeleteSubscriber(testingT *testing.T) {
 	var remaining int64
 	require.NoError(testingT, database.Model(&model.Subscriber{}).Where("site_id = ?", site.ID).Count(&remaining).Error)
 	require.Equal(testingT, int64(0), remaining)
+}
+
+func TestDeleteSubscriberRequiresSubscriberID(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Missing Delete Subscriber",
+		AllowedOrigin: "http://missing-delete.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodDelete, "/api/sites/"+site.ID+"/subscribers/", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.DeleteSubscriber(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+}
+
+func TestDeleteSubscriberReturnsNotFound(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Missing Delete Subscriber",
+		AllowedOrigin: "http://missing-delete.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodDelete, "/api/sites/"+site.ID+"/subscribers/"+testMissingSubscriberID, nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}, {Key: "subscriber_id", Value: testMissingSubscriberID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	harness.handlers.DeleteSubscriber(context)
+	require.Equal(testingT, http.StatusNotFound, recorder.Code)
 }
 
 func TestVisitStatsRequiresAuth(testingT *testing.T) {
@@ -1528,6 +1947,72 @@ func TestVisitStatsReturnsCounts(testingT *testing.T) {
 	require.Equal(testingT, visit.IP, payload.RecentVisits[0].IP)
 	require.Equal(testingT, "Local network", payload.RecentVisits[0].Country)
 	require.Equal(testingT, "Google Chrome", payload.RecentVisits[0].Browser)
+}
+
+func TestVisitStatsReturnsErrorOnVisitCount(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Visit Count Error",
+		AllowedOrigin: "http://visit-count-error.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	statsProvider := &failingStatsProvider{visitCountError: errors.New(testStatsErrorMessage)}
+	handlers := httpapi.NewSiteHandlers(harness.database, zap.NewNop(), testWidgetBaseURL, nil, statsProvider, nil)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/stats", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	handlers.VisitStats(context)
+	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
+}
+
+func TestVisitStatsReturnsErrorOnUniqueVisitorCount(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Unique Count Error",
+		AllowedOrigin: "http://unique-count-error.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	statsProvider := &failingStatsProvider{uniqueVisitorCountError: errors.New(testStatsErrorMessage)}
+	handlers := httpapi.NewSiteHandlers(harness.database, zap.NewNop(), testWidgetBaseURL, nil, statsProvider, nil)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/stats", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	handlers.VisitStats(context)
+	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
+}
+
+func TestVisitStatsReturnsErrorOnTopPages(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Top Pages Error",
+		AllowedOrigin: "http://top-pages-error.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	statsProvider := &failingStatsProvider{topPagesError: errors.New(testStatsErrorMessage)}
+	handlers := httpapi.NewSiteHandlers(harness.database, zap.NewNop(), testWidgetBaseURL, nil, statsProvider, nil)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/stats", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &httpapi.CurrentUser{Email: testAdminEmailAddress, Role: httpapi.RoleAdmin})
+
+	handlers.VisitStats(context)
+	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
 }
 
 func newJSONContext(method string, path string, body any) (*httptest.ResponseRecorder, *gin.Context) {
