@@ -32,7 +32,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Resolution: Added a target input that updates the inline preview container ID, and integration coverage asserting the preview renders in the updated target; `make ci` passes.
 - [ ] [LA-115] (P0) Integrate logged in drop down with the latest version of mpr-ui.
   mpr-ui provides the mpr-user element which can be integrated with tauth and shown instead of custom logic we employ for displaying a user. Check @tools/mpr-ui for the documentation and @tools/mpr-ui/demoi for the integration examples
-- [ ] [LA-116] Refactor LoopAware into a separate frontend and backend to adopt TAuth via mpr-ui.
+- [ ] [LA-116] (P1) Refactor LoopAware into a separate frontend and backend to adopt TAuth via mpr-ui.
   Priority: P0
   Goal: Split the UI into a dedicated frontend app that loads `tauth.js` + mpr-ui DSL, while the backend becomes a clean API that validates TAuth sessions.
   Deliverable: A documented architecture/migration plan that defines service boundaries, routing/origin model, auth flow, and rollout steps.
