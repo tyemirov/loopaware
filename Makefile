@@ -44,6 +44,7 @@ test-httpapi:
 	go test ./internal/httpapi
 
 coverage:
+	@mkdir -p $(CURDIR)/.cache
 	go test ./... -coverprofile=$(CURDIR)/.cache/coverage.out -covermode=count
 	go tool cover -func=$(CURDIR)/.cache/coverage.out
 
