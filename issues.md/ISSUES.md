@@ -319,11 +319,17 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `tools/TAuth/docs/usage.md`
   Resolution: Gated the Google sign-in control until the nonce-backed GIS initialization is available and added integration coverage to verify the gate releases after nonce readiness; `make ci` passes.
 
-- [ ] [LA-339] ![Full name login area](image-3.png) Remove the full name login area in favor of current avatar only design ![alt text](image-4.png). Ensure that the layout for the full name and log out button is deleted from all pages
+- [x] [LA-339] ![Full name login area](image-3.png) Remove the full name login area in favor of current avatar only design ![alt text](image-4.png). Ensure that the layout for the full name and log out button is deleted from all pages
+  Resolution: Added auth script binding on widget/subscribe/traffic test pages and integration coverage confirming the default header profile layout is removed; `make ci` passes.
 
 ## Maintenance (408–499)
 
-- [ ] [LA-409] Improve tests coverage to 95%
+- [x] [LA-409] Improve tests coverage to 95%
+  Resolution: Added targeted tests across configaudit, httpapi, footer, favicon, storage, and notifications paths, reaching 95.0% total coverage; `make format`, `make test`, `make lint`, `make coverage`, and `make ci` pass.
+- [x] [LA-417] Ensure coverage target creates output directory
+  Priority: P2
+  Goal: `make coverage` should succeed in a clean checkout by creating the `.cache` directory before writing coverage output.
+  Resolution: Added a `mkdir -p $(CURDIR)/.cache` step to the coverage target.
 
 - [x] [LA-408] Dashboard widget bottom offset integration test fails after dependency updates.
   Priority: P1

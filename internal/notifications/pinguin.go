@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"regexp"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ type PinguinConfig struct {
 	TenantID          string
 	ConnectionTimeout time.Duration
 	OperationTimeout  time.Duration
+	Dialer            func(context.Context, string) (net.Conn, error)
 }
 
 // PinguinNotifier dispatches notifications through the Pinguin gRPC service.
@@ -60,12 +62,14 @@ func NewPinguinNotifier(logger *zap.Logger, cfg PinguinConfig) (*PinguinNotifier
 	dialCtx, cancel := context.WithTimeout(context.Background(), cfg.ConnectionTimeout)
 	defer cancel()
 
-	conn, dialErr := grpc.DialContext(
-		dialCtx,
-		cfg.Address,
+	dialOptions := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
-	)
+	}
+	if cfg.Dialer != nil {
+		dialOptions = append(dialOptions, grpc.WithContextDialer(cfg.Dialer))
+	}
+	conn, dialErr := grpc.DialContext(dialCtx, cfg.Address, dialOptions...)
 	if dialErr != nil {
 		return nil, fmt.Errorf("connect to pinguin: %w", dialErr)
 	}

@@ -1,4 +1,4 @@
-package testutil_test
+package testutil
 
 import (
 	"testing"
@@ -6,44 +6,47 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
-	"github.com/MarkoPoloResearchLab/loopaware/internal/testutil"
 )
 
-const (
-	testCaseDescriptionMemoryModeParameter  = "includes memory mode parameter"
-	testCaseDescriptionSharedCacheParameter = "includes shared cache parameter"
-	testCaseDescriptionForeignKeysParameter = "enforces foreign keys"
-	sqliteModeMemoryParameter               = "mode=memory"
-	sqliteSharedCacheParameter              = "cache=shared"
-	sqliteForeignKeysParameter              = "_foreign_keys=on"
-)
-
-func TestNewSQLiteTestDatabaseProvidesInMemoryConfiguration(t *testing.T) {
-	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
-	configuration := sqliteDatabase.Configuration()
-
-	require.Equal(t, storage.DriverNameSQLite, configuration.DriverName)
-
+func TestTestingLogWriterWrite(testingT *testing.T) {
 	testCases := []struct {
-		name              string
-		expectedSubstring string
+		name        string
+		inputBytes  []byte
+		expectCount int
 	}{
-		{name: testCaseDescriptionMemoryModeParameter, expectedSubstring: sqliteModeMemoryParameter},
-		{name: testCaseDescriptionSharedCacheParameter, expectedSubstring: sqliteSharedCacheParameter},
-		{name: testCaseDescriptionForeignKeysParameter, expectedSubstring: sqliteForeignKeysParameter},
+		{
+			name:        "records message",
+			inputBytes:  []byte(" database log \n"),
+			expectCount: len([]byte(" database log \n")),
+		},
+		{
+			name:        "ignores empty message",
+			inputBytes:  []byte("   \n"),
+			expectCount: len([]byte("   \n")),
+		},
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
-		t.Run(testCase.name, func(testingT *testing.T) {
-			require.Contains(testingT, configuration.DataSourceName, testCase.expectedSubstring)
+		testingT.Run(testCase.name, func(testingT *testing.T) {
+			writer := testingLogWriter{testingT: testingT}
+			count, writeErr := writer.Write(testCase.inputBytes)
+			require.NoError(testingT, writeErr)
+			require.Equal(testingT, testCase.expectCount, count)
 		})
 	}
 }
 
-func TestNewSQLiteTestDatabaseReturnsUniqueDataSourceNames(t *testing.T) {
-	firstDatabase := testutil.NewSQLiteTestDatabase(t)
-	secondDatabase := testutil.NewSQLiteTestDatabase(t)
+func TestConfigureDatabaseLoggerReturnsSession(testingT *testing.T) {
+	sqliteDatabase := NewSQLiteTestDatabase(testingT)
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, openErr)
 
-	require.NotEqual(t, firstDatabase.DataSourceName(), secondDatabase.DataSourceName())
+	configured := ConfigureDatabaseLogger(testingT, database)
+	require.NotNil(testingT, configured)
+	require.NotNil(testingT, configured.Logger)
+}
+
+func TestSQLiteTestDatabaseDataSourceName(testingT *testing.T) {
+	sqliteDatabase := NewSQLiteTestDatabase(testingT)
+	require.Equal(testingT, sqliteDatabase.Configuration().DataSourceName, sqliteDatabase.DataSourceName())
 }

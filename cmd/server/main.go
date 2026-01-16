@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -176,10 +177,15 @@ type ServerConfig struct {
 // DatabaseOpener opens a database connection using the provided configuration.
 type DatabaseOpener func(storage.Config) (*gorm.DB, error)
 
+// ServerRunner executes the HTTP server.
+type ServerRunner func(*http.Server) error
+
 // ServerApplication constructs and executes the server command.
 type ServerApplication struct {
 	configurationLoader *viper.Viper
 	databaseOpener      DatabaseOpener
+	serverRunner        ServerRunner
+	pinguinDialer       func(context.Context, string) (net.Conn, error)
 }
 
 // NewServerApplication creates a ServerApplication with default dependencies.
@@ -187,12 +193,27 @@ func NewServerApplication() *ServerApplication {
 	return &ServerApplication{
 		configurationLoader: viper.New(),
 		databaseOpener:      storage.OpenDatabase,
+		serverRunner: func(server *http.Server) error {
+			return server.ListenAndServe()
+		},
 	}
 }
 
 // WithDatabaseOpener overrides the database opener dependency.
 func (application *ServerApplication) WithDatabaseOpener(databaseOpener DatabaseOpener) *ServerApplication {
 	application.databaseOpener = databaseOpener
+	return application
+}
+
+// WithServerRunner overrides the HTTP server runner dependency.
+func (application *ServerApplication) WithServerRunner(serverRunner ServerRunner) *ServerApplication {
+	application.serverRunner = serverRunner
+	return application
+}
+
+// WithPinguinDialer overrides the Pinguin gRPC dialer dependency.
+func (application *ServerApplication) WithPinguinDialer(dialer func(context.Context, string) (net.Conn, error)) *ServerApplication {
+	application.pinguinDialer = dialer
 	return application
 }
 
@@ -213,190 +234,124 @@ func (application *ServerApplication) Command() (*cobra.Command, error) {
 }
 
 func (application *ServerApplication) configureCommand(command *cobra.Command) error {
-	application.configurationLoader.SetDefault(environmentKeyApplicationAddress, defaultApplicationAddress)
-	application.configurationLoader.SetDefault(environmentKeyDatabaseDriverName, defaultDatabaseDriverName)
-	application.configurationLoader.SetDefault(environmentKeyDatabaseDataSource, defaultSQLiteDataSourceName)
-	application.configurationLoader.SetDefault(environmentKeyPublicBaseURL, defaultPublicBaseURL)
-	application.configurationLoader.SetDefault(environmentKeyGoogleClientID, "")
-	application.configurationLoader.SetDefault(environmentKeySessionSecret, "")
-	application.configurationLoader.SetDefault(environmentKeyTauthBaseURL, "")
-	application.configurationLoader.SetDefault(environmentKeyTauthTenantID, "")
-	application.configurationLoader.SetDefault(environmentKeyTauthSigningKey, "")
-	application.configurationLoader.SetDefault(environmentKeyTauthSessionCookie, defaultTauthSessionCookieName)
-	application.configurationLoader.SetDefault(environmentKeyPinguinAddress, defaultPinguinAddress)
-	application.configurationLoader.SetDefault(environmentKeyPinguinAuthToken, "")
-	application.configurationLoader.SetDefault(environmentKeyPinguinTenantID, "")
-	application.configurationLoader.SetDefault(environmentKeyPinguinConnTimeout, defaultPinguinConnTimeoutSeconds)
-	application.configurationLoader.SetDefault(environmentKeyPinguinOpTimeout, defaultPinguinOpTimeoutSeconds)
-	application.configurationLoader.SetDefault(environmentKeyPinguinSharedAuth, "")
-	application.configurationLoader.SetDefault(environmentKeySubscriptionNotify, defaultSubscriptionNotify)
+	defaults := []struct {
+		environmentKey string
+		value          any
+	}{
+		{environmentKeyApplicationAddress, defaultApplicationAddress},
+		{environmentKeyDatabaseDriverName, defaultDatabaseDriverName},
+		{environmentKeyDatabaseDataSource, defaultSQLiteDataSourceName},
+		{environmentKeyPublicBaseURL, defaultPublicBaseURL},
+		{environmentKeyGoogleClientID, ""},
+		{environmentKeySessionSecret, ""},
+		{environmentKeyTauthBaseURL, ""},
+		{environmentKeyTauthTenantID, ""},
+		{environmentKeyTauthSigningKey, ""},
+		{environmentKeyTauthSessionCookie, defaultTauthSessionCookieName},
+		{environmentKeyPinguinAddress, defaultPinguinAddress},
+		{environmentKeyPinguinAuthToken, ""},
+		{environmentKeyPinguinTenantID, ""},
+		{environmentKeyPinguinConnTimeout, defaultPinguinConnTimeoutSeconds},
+		{environmentKeyPinguinOpTimeout, defaultPinguinOpTimeoutSeconds},
+		{environmentKeyPinguinSharedAuth, ""},
+		{environmentKeySubscriptionNotify, defaultSubscriptionNotify},
+	}
+	for _, entry := range defaults {
+		application.configurationLoader.SetDefault(entry.environmentKey, entry.value)
+	}
 	application.configurationLoader.AutomaticEnv()
 
 	commandFlags := command.Flags()
-	commandFlags.String(flagNameConfigFile, defaultConfigFileName, flagUsageConfigFile)
-	commandFlags.String(flagNameApplicationAddress, defaultApplicationAddress, flagUsageApplicationAddress)
-	commandFlags.String(flagNameDatabaseDriver, defaultDatabaseDriverName, flagUsageDatabaseDriver)
-	commandFlags.String(flagNameDatabaseDataSourceName, defaultSQLiteDataSourceName, flagUsageDatabaseDataSourceName)
-	commandFlags.String(flagNameGoogleClientID, "", flagUsageGoogleClientID)
-	commandFlags.String(flagNameSessionSecret, "", flagUsageSessionSecret)
-	commandFlags.String(flagNameTauthBaseURL, "", flagUsageTauthBaseURL)
-	commandFlags.String(flagNameTauthTenantID, "", flagUsageTauthTenantID)
-	commandFlags.String(flagNameTauthSigningKey, "", flagUsageTauthSigningKey)
-	commandFlags.String(flagNameTauthSessionCookieName, defaultTauthSessionCookieName, flagUsageTauthSessionCookieName)
-	commandFlags.String(flagNamePublicBaseURL, defaultPublicBaseURL, flagUsagePublicBaseURL)
-	commandFlags.String(flagNamePinguinAddress, defaultPinguinAddress, flagUsagePinguinAddress)
-	commandFlags.String(flagNamePinguinAuthToken, "", flagUsagePinguinAuthToken)
-	commandFlags.String(flagNamePinguinTenantID, "", flagUsagePinguinTenantID)
-	commandFlags.Int(flagNamePinguinConnectionTimeout, defaultPinguinConnTimeoutSeconds, flagUsagePinguinConnTimeout)
-	commandFlags.Int(flagNamePinguinOperationTimeout, defaultPinguinOpTimeoutSeconds, flagUsagePinguinOpTimeout)
-	commandFlags.Bool(flagNameSubscriptionNotifications, defaultSubscriptionNotify, flagUsageSubscriptionNotify)
-
-	if bindErr := application.bindFlag(commandFlags, environmentKeyApplicationAddress, flagNameApplicationAddress); bindErr != nil {
-		return bindErr
+	stringFlags := []struct {
+		flagName     string
+		defaultValue string
+		usage        string
+	}{
+		{flagNameConfigFile, defaultConfigFileName, flagUsageConfigFile},
+		{flagNameApplicationAddress, defaultApplicationAddress, flagUsageApplicationAddress},
+		{flagNameDatabaseDriver, defaultDatabaseDriverName, flagUsageDatabaseDriver},
+		{flagNameDatabaseDataSourceName, defaultSQLiteDataSourceName, flagUsageDatabaseDataSourceName},
+		{flagNameGoogleClientID, "", flagUsageGoogleClientID},
+		{flagNameSessionSecret, "", flagUsageSessionSecret},
+		{flagNameTauthBaseURL, "", flagUsageTauthBaseURL},
+		{flagNameTauthTenantID, "", flagUsageTauthTenantID},
+		{flagNameTauthSigningKey, "", flagUsageTauthSigningKey},
+		{flagNameTauthSessionCookieName, defaultTauthSessionCookieName, flagUsageTauthSessionCookieName},
+		{flagNamePublicBaseURL, defaultPublicBaseURL, flagUsagePublicBaseURL},
+		{flagNamePinguinAddress, defaultPinguinAddress, flagUsagePinguinAddress},
+		{flagNamePinguinAuthToken, "", flagUsagePinguinAuthToken},
+		{flagNamePinguinTenantID, "", flagUsagePinguinTenantID},
+	}
+	for _, flagEntry := range stringFlags {
+		commandFlags.String(flagEntry.flagName, flagEntry.defaultValue, flagEntry.usage)
 	}
 
-	if bindErr := application.bindFlag(commandFlags, environmentKeyDatabaseDriverName, flagNameDatabaseDriver); bindErr != nil {
-		return bindErr
+	intFlags := []struct {
+		flagName     string
+		defaultValue int
+		usage        string
+	}{
+		{flagNamePinguinConnectionTimeout, defaultPinguinConnTimeoutSeconds, flagUsagePinguinConnTimeout},
+		{flagNamePinguinOperationTimeout, defaultPinguinOpTimeoutSeconds, flagUsagePinguinOpTimeout},
+	}
+	for _, flagEntry := range intFlags {
+		commandFlags.Int(flagEntry.flagName, flagEntry.defaultValue, flagEntry.usage)
 	}
 
-	if bindErr := application.bindFlag(commandFlags, environmentKeyDatabaseDataSource, flagNameDatabaseDataSourceName); bindErr != nil {
-		return bindErr
+	boolFlags := []struct {
+		flagName     string
+		defaultValue bool
+		usage        string
+	}{
+		{flagNameSubscriptionNotifications, defaultSubscriptionNotify, flagUsageSubscriptionNotify},
+	}
+	for _, flagEntry := range boolFlags {
+		commandFlags.Bool(flagEntry.flagName, flagEntry.defaultValue, flagEntry.usage)
 	}
 
-	if bindErr := application.bindFlag(commandFlags, environmentKeyGoogleClientID, flagNameGoogleClientID); bindErr != nil {
-		return bindErr
+	flagBindings := []struct {
+		environmentKey string
+		flagName       string
+	}{
+		{environmentKeyApplicationAddress, flagNameApplicationAddress},
+		{environmentKeyDatabaseDriverName, flagNameDatabaseDriver},
+		{environmentKeyDatabaseDataSource, flagNameDatabaseDataSourceName},
+		{environmentKeyGoogleClientID, flagNameGoogleClientID},
+		{environmentKeySessionSecret, flagNameSessionSecret},
+		{environmentKeyTauthBaseURL, flagNameTauthBaseURL},
+		{environmentKeyTauthTenantID, flagNameTauthTenantID},
+		{environmentKeyTauthSigningKey, flagNameTauthSigningKey},
+		{environmentKeyTauthSessionCookie, flagNameTauthSessionCookieName},
+		{environmentKeyPublicBaseURL, flagNamePublicBaseURL},
+		{environmentKeyPinguinAddress, flagNamePinguinAddress},
+		{environmentKeyPinguinAuthToken, flagNamePinguinAuthToken},
+		{environmentKeyPinguinTenantID, flagNamePinguinTenantID},
+		{environmentKeyPinguinConnTimeout, flagNamePinguinConnectionTimeout},
+		{environmentKeyPinguinOpTimeout, flagNamePinguinOperationTimeout},
+		{environmentKeySubscriptionNotify, flagNameSubscriptionNotifications},
+	}
+	for _, binding := range flagBindings {
+		if bindErr := application.bindFlag(commandFlags, binding.environmentKey, binding.flagName); bindErr != nil {
+			return bindErr
+		}
+	}
+	for _, binding := range flagBindings {
+		if environmentErr := application.applyEnvironmentConfiguration(commandFlags, binding.environmentKey, binding.flagName); environmentErr != nil {
+			return environmentErr
+		}
 	}
 
-	if bindErr := application.bindFlag(commandFlags, environmentKeySessionSecret, flagNameSessionSecret); bindErr != nil {
-		return bindErr
+	requiredFlags := []string{
+		flagNameGoogleClientID,
+		flagNameSessionSecret,
+		flagNameTauthBaseURL,
+		flagNameTauthTenantID,
+		flagNameTauthSigningKey,
 	}
-
-	if bindErr := application.bindFlag(commandFlags, environmentKeyTauthBaseURL, flagNameTauthBaseURL); bindErr != nil {
-		return bindErr
-	}
-
-	if bindErr := application.bindFlag(commandFlags, environmentKeyTauthTenantID, flagNameTauthTenantID); bindErr != nil {
-		return bindErr
-	}
-
-	if bindErr := application.bindFlag(commandFlags, environmentKeyTauthSigningKey, flagNameTauthSigningKey); bindErr != nil {
-		return bindErr
-	}
-
-	if bindErr := application.bindFlag(commandFlags, environmentKeyTauthSessionCookie, flagNameTauthSessionCookieName); bindErr != nil {
-		return bindErr
-	}
-
-	if bindErr := application.bindFlag(commandFlags, environmentKeyPublicBaseURL, flagNamePublicBaseURL); bindErr != nil {
-		return bindErr
-	}
-
-	if bindErr := application.bindFlag(commandFlags, environmentKeyPinguinAddress, flagNamePinguinAddress); bindErr != nil {
-		return bindErr
-	}
-
-	if bindErr := application.bindFlag(commandFlags, environmentKeyPinguinAuthToken, flagNamePinguinAuthToken); bindErr != nil {
-		return bindErr
-	}
-
-	if bindErr := application.bindFlag(commandFlags, environmentKeyPinguinTenantID, flagNamePinguinTenantID); bindErr != nil {
-		return bindErr
-	}
-
-	if bindErr := application.bindFlag(commandFlags, environmentKeyPinguinConnTimeout, flagNamePinguinConnectionTimeout); bindErr != nil {
-		return bindErr
-	}
-
-	if bindErr := application.bindFlag(commandFlags, environmentKeyPinguinOpTimeout, flagNamePinguinOperationTimeout); bindErr != nil {
-		return bindErr
-	}
-
-	if bindErr := application.bindFlag(commandFlags, environmentKeySubscriptionNotify, flagNameSubscriptionNotifications); bindErr != nil {
-		return bindErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyApplicationAddress, flagNameApplicationAddress); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyDatabaseDriverName, flagNameDatabaseDriver); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyDatabaseDataSource, flagNameDatabaseDataSourceName); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyGoogleClientID, flagNameGoogleClientID); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeySessionSecret, flagNameSessionSecret); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyTauthBaseURL, flagNameTauthBaseURL); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyTauthTenantID, flagNameTauthTenantID); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyTauthSigningKey, flagNameTauthSigningKey); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyTauthSessionCookie, flagNameTauthSessionCookieName); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyPublicBaseURL, flagNamePublicBaseURL); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyPinguinAddress, flagNamePinguinAddress); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyPinguinAuthToken, flagNamePinguinAuthToken); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyPinguinTenantID, flagNamePinguinTenantID); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyPinguinConnTimeout, flagNamePinguinConnectionTimeout); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeyPinguinOpTimeout, flagNamePinguinOperationTimeout); environmentErr != nil {
-		return environmentErr
-	}
-
-	if environmentErr := application.applyEnvironmentConfiguration(commandFlags, environmentKeySubscriptionNotify, flagNameSubscriptionNotifications); environmentErr != nil {
-		return environmentErr
-	}
-
-	if markErr := command.MarkFlagRequired(flagNameGoogleClientID); markErr != nil {
-		return markErr
-	}
-
-	if markErr := command.MarkFlagRequired(flagNameSessionSecret); markErr != nil {
-		return markErr
-	}
-
-	if markErr := command.MarkFlagRequired(flagNameTauthBaseURL); markErr != nil {
-		return markErr
-	}
-
-	if markErr := command.MarkFlagRequired(flagNameTauthTenantID); markErr != nil {
-		return markErr
-	}
-
-	if markErr := command.MarkFlagRequired(flagNameTauthSigningKey); markErr != nil {
-		return markErr
+	for _, requiredFlag := range requiredFlags {
+		if markErr := command.MarkFlagRequired(requiredFlag); markErr != nil {
+			return markErr
+		}
 	}
 
 	return nil
@@ -498,6 +453,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		TenantID:          serverConfig.PinguinTenantID,
 		ConnectionTimeout: time.Duration(serverConfig.PinguinConnTimeoutSec) * time.Second,
 		OperationTimeout:  time.Duration(serverConfig.PinguinOpTimeoutSec) * time.Second,
+		Dialer:            application.pinguinDialer,
 	})
 	if notifierErr != nil {
 		logger.Fatal("pinguin_notifier", zap.Error(notifierErr))
@@ -576,7 +532,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	}
 
 	logger.Info(logEventListening, zap.String(logFieldAddress, serverConfig.ApplicationAddress))
-	if serveErr := httpServer.ListenAndServe(); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+	if serveErr := application.serverRunner(httpServer); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
 		logger.Fatal(loggerContextServer, zap.Error(serveErr))
 	}
 

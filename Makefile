@@ -5,7 +5,7 @@ INEFFASSIGN_VERSION ?= v0.2.0
 STATICCHECK := honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 INEFFASSIGN := github.com/gordonklaus/ineffassign@$(INEFFASSIGN_VERSION)
 
-.PHONY: format format-pinguin build lint config-audit test test-race test-httpapi tidy tidy-check docker-up docker-down docker-logs ci
+.PHONY: format format-pinguin build lint config-audit test test-race test-httpapi coverage tidy tidy-check docker-up docker-down docker-logs ci
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -42,6 +42,11 @@ test-race:
 
 test-httpapi:
 	go test ./internal/httpapi
+
+coverage:
+	@mkdir -p $(CURDIR)/.cache
+	go test ./... -coverprofile=$(CURDIR)/.cache/coverage.out -covermode=count
+	go tool cover -func=$(CURDIR)/.cache/coverage.out
 
 tidy:
 	go mod tidy

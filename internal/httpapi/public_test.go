@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -24,6 +25,23 @@ import (
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/testutil"
+)
+
+const (
+	testSubscribeSiteName              = "Subscribe Site"
+	testSubscribeSiteOrigin            = "http://subscribe.example"
+	testSubscribeOwnerAddress          = "owner@example.com"
+	testSubscribeHeaderName            = "X-Site-Id"
+	testSubscribeDemoMode              = "inline"
+	testSubscribeDemoAccent            = "blue"
+	testSubscribeDemoSuccessMsg        = "Thanks"
+	testSubscribeDemoErrorMsg          = "Oops"
+	testSubscribeMissingSiteID         = "missing"
+	testSubscriptionUpdateCallbackName = "force_subscription_update_error"
+	testSubscriptionUpdateErrorMessage = "subscription_update_failed"
+	testSubscriptionUpdateTableName    = "subscribers"
+	testSubscriptionUpdateEmail        = "subscriber@example.com"
+	testSubscriptionUpdateName         = "Subscriber"
 )
 
 type apiHarness struct {
@@ -61,6 +79,7 @@ func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, sub
 	router.GET("/subscriptions/confirm", publicHandlers.ConfirmSubscriptionLink)
 	router.GET("/subscriptions/unsubscribe", publicHandlers.UnsubscribeSubscriptionLink)
 	router.GET("/widget.js", publicHandlers.WidgetJS)
+	router.GET("/pixel.js", publicHandlers.PixelJS)
 	router.GET("/subscribe.js", publicHandlers.SubscribeJS)
 	router.GET("/subscribe-demo", publicHandlers.SubscribeDemo)
 	router.GET("/subscribe-target-test", func(context *gin.Context) {
@@ -130,183 +149,259 @@ func insertSite(testingT *testing.T, database *gorm.DB, name string, origin stri
 	return site
 }
 
-func TestFeedbackFlow(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Moving Maps", "http://example.com", "admin@example.com")
+func TestFeedbackFlow(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Moving Maps", "http://example.com", "admin@example.com")
 
-	widgetResp := performJSONRequest(t, api.router, http.MethodGet, "/widget.js?site_id="+site.ID, nil, nil)
-	require.Equal(t, http.StatusOK, widgetResp.Code)
-	require.Contains(t, widgetResp.Header().Get("Content-Type"), "application/javascript")
+	widgetResp := performJSONRequest(testingT, api.router, http.MethodGet, "/widget.js?site_id="+site.ID, nil, nil)
+	require.Equal(testingT, http.StatusOK, widgetResp.Code)
+	require.Contains(testingT, widgetResp.Header().Get("Content-Type"), "application/javascript")
 	widgetBody := widgetResp.Body.String()
-	require.Contains(t, widgetBody, `panel.style.width = "320px"`)
-	require.Contains(t, widgetBody, `site_id: "`+site.ID+`"`)
-	require.Contains(t, widgetBody, `var widgetPlacementSideValue = "right"`)
-	require.Contains(t, widgetBody, `var widgetPlacementBottomOffsetValue = 16`)
-	require.Contains(t, widgetBody, `document.readyState === "loading"`)
-	require.Contains(t, widgetBody, "scheduleWhenBodyReady")
-	require.NotContains(t, widgetBody, "%!(")
+	require.Contains(testingT, widgetBody, `panel.style.width = "320px"`)
+	require.Contains(testingT, widgetBody, `site_id: "`+site.ID+`"`)
+	require.Contains(testingT, widgetBody, `var widgetPlacementSideValue = "right"`)
+	require.Contains(testingT, widgetBody, `var widgetPlacementBottomOffsetValue = 16`)
+	require.Contains(testingT, widgetBody, `document.readyState === "loading"`)
+	require.Contains(testingT, widgetBody, "scheduleWhenBodyReady")
+	require.NotContains(testingT, widgetBody, "%!(")
 
-	okFeedback := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	okFeedback := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "user@example.com",
 		"message": "Hello from tests",
 	}, map[string]string{"Origin": "http://example.com"})
-	require.Equal(t, http.StatusOK, okFeedback.Code)
+	require.Equal(testingT, http.StatusOK, okFeedback.Code)
 
-	badOrigin := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	badOrigin := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "user@example.com",
 		"message": "attack",
 	}, map[string]string{"Origin": "http://malicious.example"})
-	require.Equal(t, http.StatusForbidden, badOrigin.Code)
+	require.Equal(testingT, http.StatusForbidden, badOrigin.Code)
 }
 
-func TestRateLimitingReturnsTooManyRequests(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Burst Site", "http://burst.example", "admin@example.com")
+func TestRateLimitingReturnsTooManyRequests(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Burst Site", "http://burst.example", "admin@example.com")
 
 	headers := map[string]string{"Origin": "http://burst.example"}
 	payload := map[string]any{"site_id": site.ID, "contact": "u@example.com", "message": "m"}
 
 	tooMany := 0
 	for attemptIndex := 0; attemptIndex < 12; attemptIndex++ {
-		resp := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", payload, headers)
+		resp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", payload, headers)
 		if resp.Code == http.StatusTooManyRequests {
 			tooMany++
 			break
 		}
 	}
-	require.GreaterOrEqual(t, tooMany, 1)
+	require.GreaterOrEqual(testingT, tooMany, 1)
 }
 
-func TestWidgetJSHonorsCustomPlacement(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Custom Placement", "http://placement.example", "owner@example.com")
-	require.NoError(t, api.database.Model(&model.Site{}).
+func TestConfirmSubscriptionReportsUpdateError(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, testSubscribeSiteName, testSubscribeSiteOrigin, testSubscribeOwnerAddress)
+
+	subscriber, subscriberErr := model.NewSubscriber(model.SubscriberInput{
+		SiteID:    site.ID,
+		Email:     testSubscriptionUpdateEmail,
+		Name:      testSubscriptionUpdateName,
+		Status:    model.SubscriberStatusPending,
+		ConsentAt: time.Now().UTC(),
+	})
+	require.NoError(testingT, subscriberErr)
+	require.NoError(testingT, api.database.Create(&subscriber).Error)
+
+	callbackName := testSubscriptionUpdateCallbackName
+	api.database.Callback().Update().Before("gorm:update").Register(callbackName, func(database *gorm.DB) {
+		if database.Statement != nil && database.Statement.Table == testSubscriptionUpdateTableName {
+			database.AddError(errors.New(testSubscriptionUpdateErrorMessage))
+		}
+	})
+	testingT.Cleanup(func() {
+		api.database.Callback().Update().Remove(callbackName)
+	})
+
+	response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+		"site_id": site.ID,
+		"email":   subscriber.Email,
+	}, map[string]string{"Origin": site.AllowedOrigin})
+	require.Equal(testingT, http.StatusInternalServerError, response.Code)
+}
+
+func TestWidgetJSHonorsCustomPlacement(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Custom Placement", "http://placement.example", "owner@example.com")
+	require.NoError(testingT, api.database.Model(&model.Site{}).
 		Where("id = ?", site.ID).
 		Updates(map[string]any{
 			"widget_bubble_side":             "left",
 			"widget_bubble_bottom_offset_px": 48,
 		}).Error)
 
-	widgetResp := performJSONRequest(t, api.router, http.MethodGet, "/widget.js?site_id="+site.ID, nil, nil)
-	require.Equal(t, http.StatusOK, widgetResp.Code)
+	widgetResp := performJSONRequest(testingT, api.router, http.MethodGet, "/widget.js?site_id="+site.ID, nil, nil)
+	require.Equal(testingT, http.StatusOK, widgetResp.Code)
 	widgetBody := widgetResp.Body.String()
-	require.Contains(t, widgetBody, `var widgetPlacementSideValue = "left"`)
-	require.Contains(t, widgetBody, `var widgetPlacementBottomOffsetValue = 48`)
+	require.Contains(testingT, widgetBody, `var widgetPlacementSideValue = "left"`)
+	require.Contains(testingT, widgetBody, `var widgetPlacementBottomOffsetValue = 48`)
 }
 
-func TestWidgetRequiresValidSiteId(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
+func TestWidgetRequiresValidSiteId(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
 
-	resp := performJSONRequest(t, api.router, http.MethodGet, "/widget.js?site_id=", nil, nil)
-	require.Equal(t, http.StatusBadRequest, resp.Code)
+	resp := performJSONRequest(testingT, api.router, http.MethodGet, "/widget.js?site_id=", nil, nil)
+	require.Equal(testingT, http.StatusBadRequest, resp.Code)
 
-	respUnknown := performJSONRequest(t, api.router, http.MethodGet, "/widget.js?site_id=does-not-exist", nil, nil)
-	require.Equal(t, http.StatusNotFound, respUnknown.Code)
+	respUnknown := performJSONRequest(testingT, api.router, http.MethodGet, "/widget.js?site_id=does-not-exist", nil, nil)
+	require.Equal(testingT, http.StatusNotFound, respUnknown.Code)
 }
 
-func TestCreateFeedbackValidatesPayload(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Validation", "http://valid.example", "owner@example.com")
+func TestCreateFeedbackValidatesPayload(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Validation", "http://valid.example", "owner@example.com")
 
-	respMissing := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	respMissing := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "",
 		"message": "",
 	}, map[string]string{"Origin": "http://valid.example"})
-	require.Equal(t, http.StatusBadRequest, respMissing.Code)
+	require.Equal(testingT, http.StatusBadRequest, respMissing.Code)
 
 	bad := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/feedback", bytes.NewBufferString("{"))
 	req.Header.Set("Origin", "http://valid.example")
 	req.Header.Set("Content-Type", "application/json")
 	api.router.ServeHTTP(bad, req)
-	require.Equal(t, http.StatusBadRequest, bad.Code)
+	require.Equal(testingT, http.StatusBadRequest, bad.Code)
 }
 
-func TestCreateFeedbackAcceptsWidgetAllowedOrigins(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Widget Origins", "http://origin.example", "owner@example.com")
+func TestCreateFeedbackAcceptsWidgetAllowedOrigins(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Widget Origins", "http://origin.example", "owner@example.com")
 	site.WidgetAllowedOrigins = "http://widget.example"
-	require.NoError(t, api.database.Save(&site).Error)
+	require.NoError(testingT, api.database.Save(&site).Error)
 
-	ok := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	ok := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "person@example.com",
 		"message": "Hello",
 	}, map[string]string{"Origin": "http://widget.example"})
-	require.Equal(t, http.StatusOK, ok.Code)
+	require.Equal(testingT, http.StatusOK, ok.Code)
 
-	badOrigin := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	badOrigin := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "person@example.com",
 		"message": "Hello",
 	}, map[string]string{"Origin": "http://evil.example"})
-	require.Equal(t, http.StatusForbidden, badOrigin.Code)
+	require.Equal(testingT, http.StatusForbidden, badOrigin.Code)
 }
 
-func TestCreateSubscriptionStoresSubscriber(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Newsletter", "http://newsletter.example", "owner@example.com")
+func TestCreateFeedbackRateLimited(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Rate Limit", "http://rate-limit.example", "owner@example.com")
 
-	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	headers := map[string]string{
+		"Origin":          site.AllowedOrigin,
+		"X-Forwarded-For": "127.0.0.1",
+	}
+	payload := map[string]any{
+		"site_id": site.ID,
+		"contact": "person@example.com",
+		"message": "Hello",
+	}
+
+	rateLimited := false
+	for attemptIndex := 0; attemptIndex < 12; attemptIndex++ {
+		response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", payload, headers)
+		if response.Code == http.StatusTooManyRequests {
+			rateLimited = true
+			break
+		}
+	}
+	require.True(testingT, rateLimited)
+}
+
+func TestCreateFeedbackReportsSaveError(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Save Error", "http://save-error.example", "owner@example.com")
+
+	registerErr := api.database.Callback().Create().Before("gorm:create").Register("force_feedback_error", func(callbackDatabase *gorm.DB) {
+		callbackDatabase.AddError(errors.New("forced feedback error"))
+	})
+	require.NoError(testingT, registerErr)
+	testingT.Cleanup(func() {
+		_ = api.database.Callback().Create().Remove("force_feedback_error")
+	})
+
+	response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
+		"site_id": site.ID,
+		"contact": "person@example.com",
+		"message": "Hello",
+	}, map[string]string{"Origin": site.AllowedOrigin})
+	require.Equal(testingT, http.StatusInternalServerError, response.Code)
+}
+
+func TestCreateSubscriptionStoresSubscriber(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Newsletter", "http://newsletter.example", "owner@example.com")
+
+	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "Subscriber@example.com",
 		"name":    "Subscriber",
 	}, map[string]string{"Origin": "http://newsletter.example"})
-	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(testingT, http.StatusOK, resp.Code)
 
 	var stored model.Subscriber
-	require.NoError(t, api.database.First(&stored).Error)
-	require.Equal(t, site.ID, stored.SiteID)
-	require.Equal(t, "subscriber@example.com", stored.Email)
-	require.Equal(t, model.SubscriberStatusPending, stored.Status)
+	require.NoError(testingT, api.database.First(&stored).Error)
+	require.Equal(testingT, site.ID, stored.SiteID)
+	require.Equal(testingT, "subscriber@example.com", stored.Email)
+	require.Equal(testingT, model.SubscriberStatusPending, stored.Status)
 }
 
-func TestCreateSubscriptionValidatesInput(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Validation Subscription", "http://sub.example", "owner@example.com")
+func TestCreateSubscriptionValidatesInput(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Validation Subscription", "http://sub.example", "owner@example.com")
 
-	respMissing := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	respMissing := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
 		"site_id": "",
 		"email":   "",
 	}, map[string]string{"Origin": "http://sub.example"})
-	require.Equal(t, http.StatusBadRequest, respMissing.Code)
+	require.Equal(testingT, http.StatusBadRequest, respMissing.Code)
 
-	respInvalidEmail := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	respInvalidEmail := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "not-an-email",
 	}, map[string]string{"Origin": "http://sub.example"})
-	require.Equal(t, http.StatusBadRequest, respInvalidEmail.Code)
+	require.Equal(testingT, http.StatusBadRequest, respInvalidEmail.Code)
 }
 
-func TestCreateSubscriptionBlocksOriginAndDuplicates(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Origins", "http://origin.example", "owner@example.com")
+func TestCreateSubscriptionBlocksOriginAndDuplicates(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Origins", "http://origin.example", "owner@example.com")
 
-	badOrigin := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	badOrigin := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "user@example.com",
 	}, map[string]string{"Origin": "http://evil.example"})
-	require.Equal(t, http.StatusForbidden, badOrigin.Code)
+	require.Equal(testingT, http.StatusForbidden, badOrigin.Code)
 
-	ok := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	ok := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "user@example.com",
 	}, map[string]string{"Origin": "http://origin.example"})
-	require.Equal(t, http.StatusOK, ok.Code)
+	require.Equal(testingT, http.StatusOK, ok.Code)
 
-	duplicate := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	duplicate := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "user@example.com",
 	}, map[string]string{"Origin": "http://origin.example"})
-	require.Equal(t, http.StatusConflict, duplicate.Code)
+	require.Equal(testingT, http.StatusConflict, duplicate.Code)
 }
 
-func TestCreateSubscriptionSupportsMultipleAllowedOrigins(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Multi Origins", "https://mprlab.com http://localhost:8080", "owner@example.com")
+func TestCreateSubscriptionSupportsMultipleAllowedOrigins(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Multi Origins", "https://mprlab.com http://localhost:8080", "owner@example.com")
 
 	testCases := []struct {
 		name           string
@@ -331,7 +426,7 @@ func TestCreateSubscriptionSupportsMultipleAllowedOrigins(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Run(testCase.name, func(testingT *testing.T) {
+		testingT.Run(testCase.name, func(testingT *testing.T) {
 			subscriberEmailValue := storage.NewID() + "@example.com"
 			response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
 				"site_id": site.ID,
@@ -342,87 +437,87 @@ func TestCreateSubscriptionSupportsMultipleAllowedOrigins(t *testing.T) {
 	}
 }
 
-func TestCreateSubscriptionAcceptsSubscribeAllowedOrigins(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Subscribe Origins", "http://origin.example", "owner@example.com")
+func TestCreateSubscriptionAcceptsSubscribeAllowedOrigins(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Subscribe Origins", "http://origin.example", "owner@example.com")
 	site.SubscribeAllowedOrigins = "http://newsletter.example"
-	require.NoError(t, api.database.Save(&site).Error)
+	require.NoError(testingT, api.database.Save(&site).Error)
 
-	ok := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	ok := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   storage.NewID() + "@example.com",
 	}, map[string]string{"Origin": "http://newsletter.example"})
-	require.Equal(t, http.StatusOK, ok.Code)
+	require.Equal(testingT, http.StatusOK, ok.Code)
 
-	badOrigin := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	badOrigin := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   storage.NewID() + "@example.com",
 	}, map[string]string{"Origin": "http://evil.example"})
-	require.Equal(t, http.StatusForbidden, badOrigin.Code)
+	require.Equal(testingT, http.StatusForbidden, badOrigin.Code)
 }
 
-func TestConfirmAndUnsubscribeSubscription(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Confirmations", "http://confirm.example", "owner@example.com")
+func TestConfirmAndUnsubscribeSubscription(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Confirmations", "http://confirm.example", "owner@example.com")
 
-	createResp := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	createResp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "confirm@example.com",
 	}, map[string]string{"Origin": "http://confirm.example"})
-	require.Equal(t, http.StatusOK, createResp.Code)
+	require.Equal(testingT, http.StatusOK, createResp.Code)
 
-	confirm := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	confirm := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   "confirm@example.com",
 	}, map[string]string{"Origin": "http://confirm.example"})
-	require.Equal(t, http.StatusOK, confirm.Code)
+	require.Equal(testingT, http.StatusOK, confirm.Code)
 
 	var confirmed model.Subscriber
-	require.NoError(t, api.database.First(&confirmed).Error)
-	require.Equal(t, model.SubscriberStatusConfirmed, confirmed.Status)
-	require.False(t, confirmed.ConfirmedAt.IsZero())
+	require.NoError(testingT, api.database.First(&confirmed).Error)
+	require.Equal(testingT, model.SubscriberStatusConfirmed, confirmed.Status)
+	require.False(testingT, confirmed.ConfirmedAt.IsZero())
 
-	unsubscribe := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions/unsubscribe", map[string]any{
+	unsubscribe := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/unsubscribe", map[string]any{
 		"site_id": site.ID,
 		"email":   "confirm@example.com",
 	}, map[string]string{"Origin": "http://confirm.example"})
-	require.Equal(t, http.StatusOK, unsubscribe.Code)
+	require.Equal(testingT, http.StatusOK, unsubscribe.Code)
 
 	var unsubscribed model.Subscriber
-	require.NoError(t, api.database.First(&unsubscribed).Error)
-	require.Equal(t, model.SubscriberStatusUnsubscribed, unsubscribed.Status)
-	require.False(t, unsubscribed.UnsubscribedAt.IsZero())
+	require.NoError(testingT, api.database.First(&unsubscribed).Error)
+	require.Equal(testingT, model.SubscriberStatusUnsubscribed, unsubscribed.Status)
+	require.False(testingT, unsubscribed.UnsubscribedAt.IsZero())
 
-	reconfirm := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	reconfirm := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   "confirm@example.com",
 	}, map[string]string{"Origin": "http://confirm.example"})
-	require.Equal(t, http.StatusConflict, reconfirm.Code)
+	require.Equal(testingT, http.StatusConflict, reconfirm.Code)
 
-	missing := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	missing := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   "absent@example.com",
 	}, map[string]string{"Origin": "http://confirm.example"})
-	require.Equal(t, http.StatusNotFound, missing.Code)
+	require.Equal(testingT, http.StatusNotFound, missing.Code)
 }
 
-func TestSubscriptionConfirmationEmailConfirmsViaLink(t *testing.T) {
-	emailSender := &recordingEmailSender{t: t}
-	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
-	api := buildAPIHarness(t, nil, subscriptionNotifier, emailSender)
-	site := insertSite(t, api.database, "Confirmation Email", "http://confirm.example", "owner@example.com")
+func TestSubscriptionConfirmationEmailConfirmsViaLink(testingT *testing.T) {
+	emailSender := &recordingEmailSender{testingT: testingT}
+	subscriptionNotifier := &recordingSubscriptionNotifier{testingT: testingT}
+	api := buildAPIHarness(testingT, nil, subscriptionNotifier, emailSender)
+	site := insertSite(testingT, api.database, "Confirmation Email", "http://confirm.example", "owner@example.com")
 
-	createResp := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	createResp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "confirm@example.com",
 	}, map[string]string{"Origin": "http://confirm.example"})
-	require.Equal(t, http.StatusOK, createResp.Code)
-	require.Equal(t, 1, emailSender.CallCount())
-	require.Equal(t, 0, subscriptionNotifier.CallCount())
+	require.Equal(testingT, http.StatusOK, createResp.Code)
+	require.Equal(testingT, 1, emailSender.CallCount())
+	require.Equal(testingT, 0, subscriptionNotifier.CallCount())
 
 	lastEmail := emailSender.LastCall()
-	require.Equal(t, "confirm@example.com", lastEmail.Recipient)
-	require.Contains(t, lastEmail.Subject, "Confirm your subscription")
+	require.Equal(testingT, "confirm@example.com", lastEmail.Recipient)
+	require.Contains(testingT, lastEmail.Subject, "Confirm your subscription")
 
 	var confirmationLink string
 	for _, line := range strings.Split(lastEmail.Message, "\n") {
@@ -432,205 +527,205 @@ func TestSubscriptionConfirmationEmailConfirmsViaLink(t *testing.T) {
 			break
 		}
 	}
-	require.NotEmpty(t, confirmationLink)
+	require.NotEmpty(testingT, confirmationLink)
 
 	parsedURL, parseErr := url.Parse(confirmationLink)
-	require.NoError(t, parseErr)
+	require.NoError(testingT, parseErr)
 
-	confirmResponse := performJSONRequest(t, api.router, http.MethodGet, parsedURL.RequestURI(), nil, nil)
-	require.Equal(t, http.StatusOK, confirmResponse.Code)
+	confirmResponse := performJSONRequest(testingT, api.router, http.MethodGet, parsedURL.RequestURI(), nil, nil)
+	require.Equal(testingT, http.StatusOK, confirmResponse.Code)
 	confirmBody := confirmResponse.Body.String()
-	require.Contains(t, confirmBody, "Subscription confirmed")
-	require.Contains(t, confirmBody, "Open Confirmation Email")
-	require.Contains(t, confirmBody, `href="http://confirm.example"`)
-	require.Contains(t, confirmBody, "Unsubscribe")
-	require.Contains(t, confirmBody, "/subscriptions/unsubscribe?token=")
+	require.Contains(testingT, confirmBody, "Subscription confirmed")
+	require.Contains(testingT, confirmBody, "Open Confirmation Email")
+	require.Contains(testingT, confirmBody, `href="http://confirm.example"`)
+	require.Contains(testingT, confirmBody, "Unsubscribe")
+	require.Contains(testingT, confirmBody, "/subscriptions/unsubscribe?token=")
 
 	tokenValue := parsedURL.Query().Get("token")
-	require.NotEmpty(t, tokenValue)
+	require.NotEmpty(testingT, tokenValue)
 
 	unsubscribeQuery := url.Values{}
 	unsubscribeQuery.Set("token", tokenValue)
-	unsubscribeResponse := performJSONRequest(t, api.router, http.MethodGet, "/subscriptions/unsubscribe?"+unsubscribeQuery.Encode(), nil, nil)
-	require.Equal(t, http.StatusOK, unsubscribeResponse.Code)
-	require.Contains(t, unsubscribeResponse.Body.String(), "Unsubscribed")
+	unsubscribeResponse := performJSONRequest(testingT, api.router, http.MethodGet, "/subscriptions/unsubscribe?"+unsubscribeQuery.Encode(), nil, nil)
+	require.Equal(testingT, http.StatusOK, unsubscribeResponse.Code)
+	require.Contains(testingT, unsubscribeResponse.Body.String(), "Unsubscribed")
 
 	var stored model.Subscriber
-	require.NoError(t, api.database.First(&stored, "site_id = ? AND email = ?", site.ID, "confirm@example.com").Error)
-	require.Equal(t, model.SubscriberStatusUnsubscribed, stored.Status)
-	require.False(t, stored.ConfirmedAt.IsZero())
-	require.False(t, stored.UnsubscribedAt.IsZero())
+	require.NoError(testingT, api.database.First(&stored, "site_id = ? AND email = ?", site.ID, "confirm@example.com").Error)
+	require.Equal(testingT, model.SubscriberStatusUnsubscribed, stored.Status)
+	require.False(testingT, stored.ConfirmedAt.IsZero())
+	require.False(testingT, stored.UnsubscribedAt.IsZero())
 
-	require.Equal(t, 1, subscriptionNotifier.CallCount())
+	require.Equal(testingT, 1, subscriptionNotifier.CallCount())
 	notification := subscriptionNotifier.LastCall()
-	require.Equal(t, site.ID, notification.Site.ID)
-	require.Equal(t, "confirm@example.com", notification.Subscriber.Email)
+	require.Equal(testingT, site.ID, notification.Site.ID)
+	require.Equal(testingT, "confirm@example.com", notification.Subscriber.Email)
 }
 
-func TestCreateSubscriptionDoesNotNotifyUntilConfirmed(t *testing.T) {
-	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
-	api := buildAPIHarness(t, nil, subscriptionNotifier, nil)
-	site := insertSite(t, api.database, "Notify", "http://notify.example", "owner@example.com")
+func TestCreateSubscriptionDoesNotNotifyUntilConfirmed(testingT *testing.T) {
+	subscriptionNotifier := &recordingSubscriptionNotifier{testingT: testingT}
+	api := buildAPIHarness(testingT, nil, subscriptionNotifier, nil)
+	site := insertSite(testingT, api.database, "Notify", "http://notify.example", "owner@example.com")
 
-	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notify.example"})
-	require.Equal(t, http.StatusOK, resp.Code)
-	require.Equal(t, 0, subscriptionNotifier.CallCount())
+	require.Equal(testingT, http.StatusOK, resp.Code)
+	require.Equal(testingT, 0, subscriptionNotifier.CallCount())
 
-	confirm := performJSONRequest(t, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	confirm := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notify.example"})
-	require.Equal(t, http.StatusOK, confirm.Code)
-	require.Equal(t, 1, subscriptionNotifier.CallCount())
+	require.Equal(testingT, http.StatusOK, confirm.Code)
+	require.Equal(testingT, 1, subscriptionNotifier.CallCount())
 }
 
-func TestSubscriptionNotificationFailureDoesNotBlock(t *testing.T) {
-	subscriptionNotifier := &recordingSubscriptionNotifier{t: t, callErr: errors.New("pinguin down")}
+func TestSubscriptionNotificationFailureDoesNotBlock(testingT *testing.T) {
+	subscriptionNotifier := &recordingSubscriptionNotifier{testingT: testingT, callErr: errors.New("pinguin down")}
 
 	gin.SetMode(gin.TestMode)
 	logger, loggerErr := zap.NewDevelopment()
-	require.NoError(t, loggerErr)
+	require.NoError(testingT, loggerErr)
 
-	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
 	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
-	require.NoError(t, openErr)
-	database = testutil.ConfigureDatabaseLogger(t, database)
-	require.NoError(t, storage.AutoMigrate(database))
+	require.NoError(testingT, openErr)
+	database = testutil.ConfigureDatabaseLogger(testingT, database)
+	require.NoError(testingT, storage.AutoMigrate(database))
 
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(httpapi.RequestLogger(logger))
 
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
-	t.Cleanup(feedbackBroadcaster.Close)
+	testingT.Cleanup(feedbackBroadcaster.Close)
 	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", nil, testLandingAuthConfig)
 
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
 	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
 
-	site := insertSite(t, database, "Notify Fail", "http://notifyfail.example", "owner@example.com")
-	resp := performJSONRequest(t, router, http.MethodPost, "/api/subscriptions", map[string]any{
+	site := insertSite(testingT, database, "Notify Fail", "http://notifyfail.example", "owner@example.com")
+	resp := performJSONRequest(testingT, router, http.MethodPost, "/api/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notifyfail.example"})
-	require.Equal(t, http.StatusOK, resp.Code)
-	require.Equal(t, 0, subscriptionNotifier.CallCount())
+	require.Equal(testingT, http.StatusOK, resp.Code)
+	require.Equal(testingT, 0, subscriptionNotifier.CallCount())
 
-	confirm := performJSONRequest(t, router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	confirm := performJSONRequest(testingT, router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notifyfail.example"})
-	require.Equal(t, http.StatusOK, confirm.Code)
-	require.Equal(t, 1, subscriptionNotifier.CallCount())
+	require.Equal(testingT, http.StatusOK, confirm.Code)
+	require.Equal(testingT, 1, subscriptionNotifier.CallCount())
 }
 
-func TestSubscriptionNotificationsCanBeDisabled(t *testing.T) {
-	subscriptionNotifier := &recordingSubscriptionNotifier{t: t}
+func TestSubscriptionNotificationsCanBeDisabled(testingT *testing.T) {
+	subscriptionNotifier := &recordingSubscriptionNotifier{testingT: testingT}
 
 	gin.SetMode(gin.TestMode)
 	logger, loggerErr := zap.NewDevelopment()
-	require.NoError(t, loggerErr)
+	require.NoError(testingT, loggerErr)
 
-	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
 	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
-	require.NoError(t, openErr)
-	database = testutil.ConfigureDatabaseLogger(t, database)
-	require.NoError(t, storage.AutoMigrate(database))
+	require.NoError(testingT, openErr)
+	database = testutil.ConfigureDatabaseLogger(testingT, database)
+	require.NoError(testingT, storage.AutoMigrate(database))
 
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(httpapi.RequestLogger(logger))
 
 	feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
-	t.Cleanup(feedbackBroadcaster.Close)
+	testingT.Cleanup(feedbackBroadcaster.Close)
 	publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, false, "http://loopaware.test", "unit-test-session-secret", nil, testLandingAuthConfig)
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
 	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
 
-	site := insertSite(t, database, "Notify Off", "http://notifyoff.example", "owner@example.com")
-	resp := performJSONRequest(t, router, http.MethodPost, "/api/subscriptions", map[string]any{
+	site := insertSite(testingT, database, "Notify Off", "http://notifyoff.example", "owner@example.com")
+	resp := performJSONRequest(testingT, router, http.MethodPost, "/api/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notifyoff.example"})
-	require.Equal(t, http.StatusOK, resp.Code)
-	require.Equal(t, 0, subscriptionNotifier.CallCount())
+	require.Equal(testingT, http.StatusOK, resp.Code)
+	require.Equal(testingT, 0, subscriptionNotifier.CallCount())
 
-	confirm := performJSONRequest(t, router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	confirm := performJSONRequest(testingT, router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notifyoff.example"})
-	require.Equal(t, http.StatusOK, confirm.Code)
-	require.Equal(t, 0, subscriptionNotifier.CallCount())
+	require.Equal(testingT, http.StatusOK, confirm.Code)
+	require.Equal(testingT, 0, subscriptionNotifier.CallCount())
 }
 
-func TestCollectVisitStoresRecord(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Visits", "http://visits.example", "owner@example.com")
+func TestCollectVisitStoresRecord(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Visits", "http://visits.example", "owner@example.com")
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://visits.example/page", nil)
 	request.Header.Set("Origin", "http://visits.example")
 
 	api.router.ServeHTTP(recorder, request)
-	require.Equal(t, http.StatusOK, recorder.Code)
-	require.Contains(t, recorder.Header().Get("Content-Type"), "image/gif")
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+	require.Contains(testingT, recorder.Header().Get("Content-Type"), "image/gif")
 
 	var stored model.SiteVisit
-	require.NoError(t, api.database.First(&stored).Error)
-	require.Equal(t, site.ID, stored.SiteID)
-	require.Equal(t, "http://visits.example/page", stored.URL)
-	require.Equal(t, "/page", stored.Path)
+	require.NoError(testingT, api.database.First(&stored).Error)
+	require.Equal(testingT, site.ID, stored.SiteID)
+	require.Equal(testingT, "http://visits.example/page", stored.URL)
+	require.Equal(testingT, "/page", stored.Path)
 }
 
-func TestCollectVisitValidatesInput(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Visits Invalid", "http://visits.example", "owner@example.com")
+func TestCollectVisitValidatesInput(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Visits Invalid", "http://visits.example", "owner@example.com")
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=//bad-url", nil)
 	request.Header.Set("Origin", "http://visits.example")
 	api.router.ServeHTTP(recorder, request)
-	require.Equal(t, http.StatusBadRequest, recorder.Code)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
 
 	recorder = httptest.NewRecorder()
 	request = httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://visits.example/page", nil)
 	request.Header.Set("Origin", "http://evil.example")
 	api.router.ServeHTTP(recorder, request)
-	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
 }
 
-func TestCollectVisitRequiresMatchingURLOrigin(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Visits Mismatch", "http://visits.example", "owner@example.com")
+func TestCollectVisitRequiresMatchingURLOrigin(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Visits Mismatch", "http://visits.example", "owner@example.com")
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://other.example/page", nil)
 	request.Header.Set("Referer", "http://dashboard.loopaware.test/app/sites/"+site.ID+"/traffic-test")
 
 	api.router.ServeHTTP(recorder, request)
-	require.Equal(t, http.StatusForbidden, recorder.Code)
+	require.Equal(testingT, http.StatusForbidden, recorder.Code)
 }
 
-func TestCollectVisitAcceptsTrafficAllowedOrigins(t *testing.T) {
-	api := buildAPIHarness(t, nil, nil, nil)
-	site := insertSite(t, api.database, "Traffic Origins", "http://visits.example", "owner@example.com")
+func TestCollectVisitAcceptsTrafficAllowedOrigins(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Traffic Origins", "http://visits.example", "owner@example.com")
 	site.TrafficAllowedOrigins = "http://pixel.example"
-	require.NoError(t, api.database.Save(&site).Error)
+	require.NoError(testingT, api.database.Save(&site).Error)
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://pixel.example/page", nil)
 	request.Header.Set("Origin", "http://pixel.example")
 	api.router.ServeHTTP(recorder, request)
-	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
 
 	recorder = httptest.NewRecorder()
 	request = httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://evil.example/page", nil)
 	request.Header.Set("Origin", "http://evil.example")
 	api.router.ServeHTTP(recorder, request)
-	require.Equal(t, http.StatusForbidden, recorder.Code)
+	require.Equal(testingT, http.StatusForbidden, recorder.Code)
 }
 
 type feedbackNotificationCall struct {
@@ -640,7 +735,7 @@ type feedbackNotificationCall struct {
 }
 
 type recordingFeedbackNotifier struct {
-	t         *testing.T
+	testingT  *testing.T
 	mu        sync.Mutex
 	calls     []feedbackNotificationCall
 	delivery  string
@@ -654,10 +749,10 @@ type subscriptionNotificationCall struct {
 }
 
 type recordingSubscriptionNotifier struct {
-	t       *testing.T
-	mu      sync.Mutex
-	calls   []subscriptionNotificationCall
-	callErr error
+	testingT *testing.T
+	mu       sync.Mutex
+	calls    []subscriptionNotificationCall
+	callErr  error
 }
 
 type emailSendCall struct {
@@ -668,10 +763,10 @@ type emailSendCall struct {
 }
 
 type recordingEmailSender struct {
-	t       *testing.T
-	mu      sync.Mutex
-	calls   []emailSendCall
-	callErr error
+	testingT *testing.T
+	mu       sync.Mutex
+	calls    []emailSendCall
+	callErr  error
 }
 
 func (sender *recordingEmailSender) SendEmail(ctx context.Context, recipient string, subject string, message string) error {
@@ -696,7 +791,7 @@ func (sender *recordingEmailSender) LastCall() emailSendCall {
 	sender.mu.Lock()
 	defer sender.mu.Unlock()
 	if len(sender.calls) == 0 {
-		sender.t.Fatalf("expected at least one email sender call")
+		sender.testingT.Fatalf("expected at least one email sender call")
 	}
 	return sender.calls[len(sender.calls)-1]
 }
@@ -722,7 +817,7 @@ func (notifier *recordingSubscriptionNotifier) LastCall() subscriptionNotificati
 	notifier.mu.Lock()
 	defer notifier.mu.Unlock()
 	if len(notifier.calls) == 0 {
-		notifier.t.Fatalf("expected at least one subscription notifier call")
+		notifier.testingT.Fatalf("expected at least one subscription notifier call")
 	}
 	return notifier.calls[len(notifier.calls)-1]
 }
@@ -748,80 +843,117 @@ func (notifier *recordingFeedbackNotifier) LastCall() feedbackNotificationCall {
 	notifier.mu.Lock()
 	defer notifier.mu.Unlock()
 	if len(notifier.calls) == 0 {
-		notifier.t.Fatalf("expected at least one notifier call")
+		notifier.testingT.Fatalf("expected at least one notifier call")
 	}
 	return notifier.calls[len(notifier.calls)-1]
 }
 
-func TestCreateFeedbackDispatchesNotificationToOwner(t *testing.T) {
+func TestCreateFeedbackDispatchesNotificationToOwner(testingT *testing.T) {
 	notifier := &recordingFeedbackNotifier{
-		t:        t,
+		testingT: testingT,
 		delivery: model.FeedbackDeliveryMailed,
 	}
-	api := buildAPIHarness(t, notifier, nil, nil)
-	site := insertSite(t, api.database, "Dispatcher", "http://dispatch.example", "owner@example.com")
-	require.NoError(t, api.database.Model(&model.Site{}).
+	api := buildAPIHarness(testingT, notifier, nil, nil)
+	site := insertSite(testingT, api.database, "Dispatcher", "http://dispatch.example", "owner@example.com")
+	require.NoError(testingT, api.database.Model(&model.Site{}).
 		Where("id = ?", site.ID).
 		Update("creator_email", "registrar@example.com").Error)
 
-	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "submitter@example.com",
 		"message": "Dispatch notification",
 	}, map[string]string{"Origin": "http://dispatch.example"})
-	require.Equal(t, http.StatusOK, resp.Code)
-	require.Equal(t, 1, notifier.CallCount())
+	require.Equal(testingT, http.StatusOK, resp.Code)
+	require.Equal(testingT, 1, notifier.CallCount())
 
 	var stored model.Feedback
-	require.NoError(t, api.database.First(&stored).Error)
-	require.Equal(t, model.FeedbackDeliveryMailed, stored.Delivery)
+	require.NoError(testingT, api.database.First(&stored).Error)
+	require.Equal(testingT, model.FeedbackDeliveryMailed, stored.Delivery)
 
 	lastCall := notifier.LastCall()
-	require.Equal(t, site.ID, lastCall.Site.ID)
-	require.Equal(t, "owner@example.com", lastCall.Site.OwnerEmail)
-	require.Equal(t, stored.ID, lastCall.Feedback.ID)
+	require.Equal(testingT, site.ID, lastCall.Site.ID)
+	require.Equal(testingT, "owner@example.com", lastCall.Site.OwnerEmail)
+	require.Equal(testingT, stored.ID, lastCall.Feedback.ID)
 }
 
-func TestCreateFeedbackRecordsNoDeliveryOnNotifierFailure(t *testing.T) {
+func TestCreateFeedbackRecordsNoDeliveryOnNotifierFailure(testingT *testing.T) {
 	notifier := &recordingFeedbackNotifier{
-		t:         t,
+		testingT:  testingT,
 		delivery:  model.FeedbackDeliveryMailed,
 		callError: errors.New("send failed"),
 	}
-	api := buildAPIHarness(t, notifier, nil, nil)
-	site := insertSite(t, api.database, "Failure Delivery", "http://failure.example", "owner@example.com")
+	api := buildAPIHarness(testingT, notifier, nil, nil)
+	site := insertSite(testingT, api.database, "Failure Delivery", "http://failure.example", "owner@example.com")
 
-	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "submitter@example.com",
 		"message": "Expect failure",
 	}, map[string]string{"Origin": "http://failure.example"})
-	require.Equal(t, http.StatusOK, resp.Code)
-	require.Equal(t, 1, notifier.CallCount())
+	require.Equal(testingT, http.StatusOK, resp.Code)
+	require.Equal(testingT, 1, notifier.CallCount())
 
 	var stored model.Feedback
-	require.NoError(t, api.database.First(&stored).Error)
-	require.Equal(t, model.FeedbackDeliveryNone, stored.Delivery)
+	require.NoError(testingT, api.database.First(&stored).Error)
+	require.Equal(testingT, model.FeedbackDeliveryNone, stored.Delivery)
 }
 
-func TestCreateFeedbackPersistsFailureDeliveryWhenNotifierReturnsStatusAndError(t *testing.T) {
+func TestCreateFeedbackPersistsFailureDeliveryWhenNotifierReturnsStatusAndError(testingT *testing.T) {
 	notifier := &recordingFeedbackNotifier{
-		t:         t,
+		testingT:  testingT,
 		delivery:  model.FeedbackDeliveryTexted,
 		callError: errors.New("notifier failed"),
 	}
-	api := buildAPIHarness(t, notifier, nil, nil)
-	site := insertSite(t, api.database, "Failure Delivery Status", "http://failure-status.example", "owner@example.com")
+	api := buildAPIHarness(testingT, notifier, nil, nil)
+	site := insertSite(testingT, api.database, "Failure Delivery Status", "http://failure-status.example", "owner@example.com")
 
-	resp := performJSONRequest(t, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "submitter@example.com",
 		"message": "Expect failure status",
 	}, map[string]string{"Origin": "http://failure-status.example"})
-	require.Equal(t, http.StatusOK, resp.Code)
-	require.Equal(t, 1, notifier.CallCount())
+	require.Equal(testingT, http.StatusOK, resp.Code)
+	require.Equal(testingT, 1, notifier.CallCount())
 
 	var stored model.Feedback
-	require.NoError(t, api.database.First(&stored).Error)
-	require.Equal(t, model.FeedbackDeliveryNone, stored.Delivery)
+	require.NoError(testingT, api.database.First(&stored).Error)
+	require.Equal(testingT, model.FeedbackDeliveryNone, stored.Delivery)
+}
+
+func TestSubscribeJSHandlesMissingAndHeaderSiteID(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, testSubscribeSiteName, testSubscribeSiteOrigin, testSubscribeOwnerAddress)
+
+	missingResp := performJSONRequest(testingT, api.router, http.MethodGet, "/subscribe.js?site_id=", nil, nil)
+	require.Equal(testingT, http.StatusBadRequest, missingResp.Code)
+
+	unknownResp := performJSONRequest(testingT, api.router, http.MethodGet, "/subscribe.js?site_id="+testSubscribeMissingSiteID, nil, nil)
+	require.Equal(testingT, http.StatusNotFound, unknownResp.Code)
+
+	headerResp := performJSONRequest(testingT, api.router, http.MethodGet, "/subscribe.js", nil, map[string]string{testSubscribeHeaderName: site.ID})
+	require.Equal(testingT, http.StatusOK, headerResp.Code)
+	require.Contains(testingT, headerResp.Body.String(), site.ID)
+}
+
+func TestSubscribeDemoRendersScriptURL(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, testSubscribeSiteName, testSubscribeSiteOrigin, testSubscribeOwnerAddress)
+
+	missingResp := performJSONRequest(testingT, api.router, http.MethodGet, "/subscribe-demo", nil, nil)
+	require.Equal(testingT, http.StatusBadRequest, missingResp.Code)
+
+	unknownResp := performJSONRequest(testingT, api.router, http.MethodGet, "/subscribe-demo?site_id="+testSubscribeMissingSiteID, nil, nil)
+	require.Equal(testingT, http.StatusNotFound, unknownResp.Code)
+
+	demoPath := "/subscribe-demo?site_id=" + url.QueryEscape(site.ID) +
+		"&mode=" + url.QueryEscape(testSubscribeDemoMode) +
+		"&accent=" + url.QueryEscape(testSubscribeDemoAccent) +
+		"&success=" + url.QueryEscape(testSubscribeDemoSuccessMsg) +
+		"&error=" + url.QueryEscape(testSubscribeDemoErrorMsg)
+	demoResp := performJSONRequest(testingT, api.router, http.MethodGet, demoPath, nil, nil)
+	require.Equal(testingT, http.StatusOK, demoResp.Code)
+	require.Contains(testingT, demoResp.Body.String(), "/subscribe.js?site_id="+site.ID)
+	require.Contains(testingT, demoResp.Body.String(), "mode="+url.QueryEscape(testSubscribeDemoMode))
+	require.Contains(testingT, demoResp.Body.String(), "accent="+url.QueryEscape(testSubscribeDemoAccent))
 }

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -144,21 +145,29 @@ func (result auditResult) ok() bool {
 }
 
 func main() {
-	result := runAudit("docker-compose.yml")
+	exitCode := runAuditCommand("docker-compose.yml", os.Stdout, os.Stderr)
+	if exitCode != 0 {
+		os.Exit(exitCode)
+	}
+}
+
+func runAuditCommand(composePath string, stdout io.Writer, stderr io.Writer) int {
+	result := runAudit(composePath)
 	sort.Strings(result.errors)
 	sort.Strings(result.warnings)
 
 	for _, warning := range result.warnings {
-		_, _ = fmt.Fprintf(os.Stdout, "WARN: %s\n", warning)
+		_, _ = fmt.Fprintf(stdout, "WARN: %s\n", warning)
 	}
 	for _, errorMessage := range result.errors {
-		_, _ = fmt.Fprintf(os.Stderr, "ERROR: %s\n", errorMessage)
+		_, _ = fmt.Fprintf(stderr, "ERROR: %s\n", errorMessage)
 	}
 	if !result.ok() {
-		_, _ = fmt.Fprintf(os.Stderr, "config-audit failed\n")
-		os.Exit(1)
+		_, _ = fmt.Fprintf(stderr, "config-audit failed\n")
+		return 1
 	}
-	_, _ = fmt.Fprintf(os.Stdout, "config-audit OK\n")
+	_, _ = fmt.Fprintf(stdout, "config-audit OK\n")
+	return 0
 }
 
 func runAudit(composePath string) auditResult {

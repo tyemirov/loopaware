@@ -75,6 +75,7 @@ type subscribeTestTemplateData struct {
 	DefaultAccent           string
 	DefaultCTA              string
 	SharedStyles            template.CSS
+	AuthScript              template.JS
 	FooterHTML              template.HTML
 	FooterElementID         string
 	FooterInnerElementID    string
@@ -143,6 +144,11 @@ func (handlers *SiteSubscribeTestHandlers) RenderSubscribeTestPage(context *gin.
 		handlers.logger.Warn("render_subscribe_test_footer", zap.Error(footerErr))
 		footerHTML = template.HTML("")
 	}
+	authScript, authErr := renderPublicAuthScript()
+	if authErr != nil && handlers.logger != nil {
+		handlers.logger.Warn("render_subscribe_test_auth_script", zap.Error(authErr))
+		authScript = template.JS("")
+	}
 
 	eventsEndpoint := "/app/sites/" + site.ID + "/subscribe-test/events"
 
@@ -167,6 +173,7 @@ func (handlers *SiteSubscribeTestHandlers) RenderSubscribeTestPage(context *gin.
 		DefaultAccent:           subscribeTestAccentDefault,
 		DefaultCTA:              subscribeTestCTADefault,
 		SharedStyles:            sharedPublicStyles(),
+		AuthScript:              authScript,
 		FooterHTML:              footerHTML,
 		FooterElementID:         footerElementID,
 		FooterInnerElementID:    footerInnerElementID,
