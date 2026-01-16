@@ -6,7 +6,7 @@ Read @AGENTS.md, @ARCHITECTURE.md, @README.md, @PRD.md. Read @POLICY.md, PLANNIN
 
 Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x] [LA-<number>]`.
 
-## Features (113–199)
+## Features (117–199)
 
 - [x] [LA-113] Add `target` parameter to subscribe.js for rendering into specific DOM elements.
   Priority: P1
@@ -21,7 +21,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - Resolve target in `main()`: `document.getElementById(config.targetId)` or fallback to `document.body`
   Docs/Refs:
   - `internal/httpapi/assets/subscribe.js`
-
 - [x] [LA-114] Subscribe test page needs a target element ID input for subscribe.js previews.
   Priority: P1
   Goal: Let operators set the subscribe.js target element ID on the test page so inline previews render into the specified container.
@@ -31,9 +30,8 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/site_subscribe_test_handlers.go`
   - `internal/httpapi/dashboard_integration_test.go`
   Resolution: Added a target input that updates the inline preview container ID, and integration coverage asserting the preview renders in the updated target; `make ci` passes.
-
-- [ ] [LA-115] Integrate logged in drop down with the latest version of mpr-ui. mpr-ui provides the mpr-user element which can be integrated with tauth and shown instead of custom logic we employ for displaying a user. Check @tools/mpr-ui for the documentation and @tools/mpr-ui/demoi for the integration examples
-
+- [ ] [LA-115] (P0) Integrate logged in drop down with the latest version of mpr-ui.
+  mpr-ui provides the mpr-user element which can be integrated with tauth and shown instead of custom logic we employ for displaying a user. Check @tools/mpr-ui for the documentation and @tools/mpr-ui/demoi for the integration examples
 - [ ] [LA-116] Refactor LoopAware into a separate frontend and backend to adopt TAuth via mpr-ui.
   Priority: P0
   Goal: Split the UI into a dedicated frontend app that loads `tauth.js` + mpr-ui DSL, while the backend becomes a clean API that validates TAuth sessions.
@@ -45,22 +43,48 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `issues.md/AGENTS.GO.md`
   - `issues.md/AGENTS.DOCKER.md`
 
-## BugFixes (312–399)
 
-- [x] [LA-318] Theme toggle defaults and mapping are wrong (left = light, right = dark).
-  Priority: P0
-  Goal: The left toggle state represents light theme, the right state represents dark theme, and the initial UI state matches the applied theme.
-  Deliverable: PR that fixes theme toggle behavior across landing, dashboard, and public pages; automated coverage updated.
-  Resolution: Reordered `mpr-footer` theme modes to `light` then `dark` and added headless integration coverage for landing/privacy/dashboard toggle state + applied theme.
+## Improvements (416–515)
+
+- [x] [LA-213] Dashboard section tabs should span full width and split into 3 equal parts.
+  Priority: P2
+  Goal: Feedback/Subscriptions/Traffic tab buttons fill the available width and each takes exactly 1/3 of the row (responsive).
+  Deliverable: PR adjusting tab markup/CSS and updating dashboard integration tests as needed.
+  Resolution: Switched section tabs to `nav-justified` + `w-100` and added headless integration assertions for equal computed tab widths.
+- [x] [LA-339] ![Full name login area](image-3.png) Remove the full name login area in favor of current avatar only design ![alt text](image-4.png).
+  Ensure that the layout for the full name and log out button is deleted from all pages
+  Resolution: Added auth script binding on widget/subscribe/traffic test pages and integration coverage confirming the default header profile layout is removed; `make ci` passes.
+- [x] [LA-413] Autosave should not reload the dashboard or interrupt typing while editing site settings.
+  Priority: P1
+  Goal: Autosave site edits without refreshing the form or dropping focus while operators type.
+  Deliverable: PR adding debounced autosave with integration coverage proving input focus/value persists during autosave.
   Docs/Refs:
-  - `issues.md/AGENTS.FRONTEND.md`
-  - `internal/httpapi/footer.go`
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/dashboard_integration_test.go`
+  Resolution: Added debounced autosave for site settings with a non-invasive render path and integration coverage that preserves subscribe-origin typing; `make ci` passes.
+- [x] [LA-414] Remove the remnant avatar/name/sign-out markup that appears alongside the LoopAware header profile menu.
+  Priority: P1
+  Goal: Only the LoopAware profile dropdown renders in the dashboard header; default mpr-ui profile elements remain hidden/removed.
+  Deliverable: PR that removes the duplicate header markup and adds integration coverage for a single visible profile control.
+  Docs/Refs:
+  - `internal/httpapi/templates/dashboard_header.tmpl`
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/public_assets.go`
-  Execution plan:
-  - Identify the single source of truth for theme mode (document attribute + storage key).
-  - Fix toggle UI state mapping (mpr-ui footer event + local storage + `data-bs-theme`).
-  - Add/adjust integration assertions around theme attribute and toggle state.
+  - `tools/mpr-ui/docs/custom-elements.md`
+  Resolution: Removed default mpr-ui profile/settings/sign-in elements when the LoopAware profile menu is present and added integration coverage ensuring they are absent; `make ci` passes.
+- [x] [LA-415] Dashboard sign-in requires multiple attempts instead of completing on first click.
+  Priority: P1
+  Goal: The first sign-in interaction completes authentication without extra prompts or repeat clicks.
+  Deliverable: PR that eliminates double sign-in behavior and adds integration coverage for a single sign-in flow.
+  Docs/Refs:
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/templates/dashboard_header.tmpl`
+  - `tools/mpr-ui/docs/custom-elements.md`
+  - `tools/TAuth/docs/usage.md`
+  Resolution: Gated the Google sign-in control until the nonce-backed GIS initialization is available and added integration coverage to verify the gate releases after nonce readiness; `make ci` passes.
+
+
+## BugFixes (339–399)
 
 - [x] [LA-317] mpr-ui footer menu label “Built by Marco Polo Research Lab” is invisible.
   Priority: P1
@@ -75,7 +99,20 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - Compare LoopAware footer DOM/CSS against the mpr-ui demo.
   - Identify overriding selectors in LoopAware CSS (especially for footer text colors).
   - Adjust styles to avoid clobbering mpr-ui defaults; verify both themes.
-
+- [x] [LA-318] Theme toggle defaults and mapping are wrong (left = light, right = dark).
+  Priority: P0
+  Goal: The left toggle state represents light theme, the right state represents dark theme, and the initial UI state matches the applied theme.
+  Deliverable: PR that fixes theme toggle behavior across landing, dashboard, and public pages; automated coverage updated.
+  Resolution: Reordered `mpr-footer` theme modes to `light` then `dark` and added headless integration coverage for landing/privacy/dashboard toggle state + applied theme.
+  Docs/Refs:
+  - `issues.md/AGENTS.FRONTEND.md`
+  - `internal/httpapi/footer.go`
+  - `internal/httpapi/templates/dashboard.tmpl`
+  - `internal/httpapi/public_assets.go`
+  Execution plan:
+  - Identify the single source of truth for theme mode (document attribute + storage key).
+  - Fix toggle UI state mapping (mpr-ui footer event + local storage + `data-bs-theme`).
+  - Add/adjust integration assertions around theme attribute and toggle state.
 - [x] [LA-319] Additional subscribe origins may not persist/display after saving and returning to the site editor.
   Priority: P1
   Goal: When operators add additional subscribe origins, save the site, and later re-open the same site in the dashboard, the saved origins are shown in the “Additional subscribe origins” editor.
@@ -86,7 +123,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/admin.go` (site responses)
   - `internal/httpapi/subscribe_allowed_origins_dashboard_integration_test.go`
-
 - [x] [LA-320] Login loop between `/login` and `/app` when TAuth session cookie name is customized.
   Priority: P0
   Goal: Dashboard loads after successful TAuth login; LoopAware validates the configured session cookie name.
@@ -97,7 +133,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `cmd/server/main.go`
   - `internal/httpapi/auth.go`
   - `configs/.env.loopaware`
-
 - [x] [LA-321] Logout should redirect to the landing page from authenticated views.
   Priority: P1
   Goal: After logging out via the header, the dashboard (and related authenticated pages) return to `/login`.
@@ -106,7 +141,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Docs/Refs:
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/templates/dashboard_header.tmpl`
-
 - [x] [LA-322] Landing theme preference does not persist to the dashboard after login.
   Priority: P1
   Goal: When no explicit theme is stored, the landing theme persists to localStorage and the dashboard uses it after login.
@@ -117,7 +151,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/dashboard_integration_test.go`
   - `internal/httpapi/templates/dashboard.tmpl`
-
 - [x] [LA-323] Dashboard header profile menu regressed to oversized buttons after TAuth migration.
   Priority: P1
   Goal: Restore the avatar dropdown with account settings and logout while keeping TAuth-backed authentication.
@@ -129,7 +162,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard_header.tmpl`
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/dashboard_integration_test.go`
-
 - [x] [LA-324] Landing page does not redirect to the dashboard after successful TAuth login.
   Priority: P0
   Goal: When a user authenticates via TAuth, the landing page should redirect them to `/app` once the header is authenticated.
@@ -141,7 +173,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/landing.tmpl`
   - `internal/httpapi/landing.go`
   - `internal/httpapi/dashboard_integration_test.go`
-
 - [x] [LA-325] Logout does not clear the TAuth session from the dashboard header.
   Priority: P0
   Goal: Clicking Logout clears the TAuth session cookie and returns the user to `/login`, with the header showing unauthenticated state on reload.
@@ -153,7 +184,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard_header.tmpl`
   - `tools/mpr-ui/docs/custom-elements.md`
   - `tools/TAuth/docs/migration.md`
-
 - [x] [LA-326] Account settings modal opens blank from the header dropdown.
   Priority: P1
   Goal: The Account settings action opens a modal with the expected auto-logout controls and descriptive copy across both themes.
@@ -164,7 +194,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard_header.tmpl`
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/web.go`
-
 - [x] [LA-327] Dashboard header/footer palette is out of sync with body theme.
   Priority: P1
   Goal: Header, footer, and body share the same light/dark palette so the UI feels cohesive in both themes.
@@ -175,7 +204,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/public_assets.go`
   - `tools/mpr-ui/README.md`
-
 - [x] [LA-328] Dashboard header profile toggle should be avatar-only with dropdown actions.
   Priority: P1
   Goal: The header shows a single avatar (no wide name button) that opens the settings/logout dropdown; display name can appear inside the menu.
@@ -187,7 +215,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/templates/dashboard.tmpl`
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/dashboard_integration_test.go`
-
 - [x] [LA-329] Logout button does not terminate the session after the header refactor.
   Priority: P1
   Goal: Clicking Logout clears the TAuth session and returns the user to the landing page without re-authentication loops.
@@ -197,7 +224,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Docs/Refs:
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/dashboard_integration_test.go`
-
 - [x] [LA-330] Header dropdown actions are unresponsive in some sessions.
   Priority: P1
   Goal: Settings and logout reliably bind even when the header renders late or auth attributes update before slot content mounts.
@@ -207,7 +233,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Docs/Refs:
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/dashboard_integration_test.go`
-
 - [x] [LA-331] Remove auth fallbacks and rely solely on mpr-ui auth events.
   Priority: P1
   Goal: Login/logout announcements and redirects are driven only by `mpr-ui:auth:*` events, without MutationObserver or manual bootstrap fallbacks.
@@ -217,8 +242,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Docs/Refs:
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/templates/dashboard.tmpl`
-
-- [x] [LA-332] ![alt text](image-1.png) The logout notification is floating in space instead of being sticky to the bottom of the screen
+- [x] [LA-332] ![alt text](image-1.png) The logout notification is floating in space instead of being sticky to the bottom of the screen.
   Priority: P1
   Goal: Session timeout notification is fixed to the bottom edge of the viewport.
   Deliverable: PR that pins the timeout notification to the bottom and adds integration coverage for its position.
@@ -233,28 +257,24 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/templates/dashboard_header.tmpl`
   - `tools/mpr-ui/docs/custom-elements.md`
-
 - [x] [LA-334] Logout occurs much faster than the configured timeout.
   Priority: P1
   Goal: Authentication sessions honor the configured timeout before forcing logout.
   Deliverable: PR that identifies the premature logout trigger, aligns the effective timeout with configuration, and adds/updates integration coverage for session duration.
   Notes: Reported behavior indicates logout occurs significantly earlier than the configured session timeout; confirm whether this is driven by the dashboard inactivity timer vs. server/TAuth session expiry.
   Resolution: Scoped auto-logout settings to user-specific storage keys, clear legacy storage after migration, and added integration coverage to confirm per-user settings; `make ci` passes.
-
 - [x] [LA-335] Google Sign-In auto-suggests login after a timed-out logout.
   Priority: P1
   Goal: After an inactivity-triggered logout, Google Sign-In should not immediately prompt or auto-suggest login without user action.
   Deliverable: PR that suppresses auto-prompt/auto-select behavior after timeout-driven logout and adds integration coverage for the post-timeout login UX.
   Notes: Observed behavior is a Google Sign-In prompt immediately after timeout logout; confirm whether GIS auto-select or mpr-ui auth bootstrap is responsible and ensure the prompt only appears on explicit user intent.
   Resolution: Disabled Google auto-select during timeout-driven logout and added integration coverage to verify the suppression; `make ci` passes.
-
 - [x] [LA-336] Additional subscribe origins disappear after logout/login.
   Priority: P1
   Goal: Additional subscribe origins remain visible in the dashboard editor after a logout/login cycle and are enforced by the backend.
   Deliverable: PR that persists and rehydrates additional subscribe origins in the UI after re-auth and adds coverage for visibility + origin enforcement.
   Notes: Reported behavior: added origins are not shown after logging out and back in, even though they were saved.
   Resolution: Unable to reproduce; added headless coverage to rehydrate subscribe origins after re-login and verified persistence in storage.
-
 - [x] [LA-337] Subscribe form renders a name field even when the widget disables it.
   Priority: P1
   Goal: When the subscribe widget requests no name field, the rendered form omits it consistently across embed/test flows.
@@ -265,86 +285,34 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/subscribe_template.go`
   - `internal/httpapi/subscribe_demo_template.go`
   - `internal/httpapi/templates/subscribe_test.tmpl`
-
-- [x] [LA-338] Defer timeout start until user settings are loaded
+- [x] [LA-338] Defer timeout start until user settings are loaded.
   Because applyAutoLogoutSettingsForUser(null) runs before loadUser() and the session-timeout manager is started before loadUser() resolves (see sessionTimeoutStartRequested/sessionTimeoutManager.start() later in this template), the idle timer begins with default settings until the user-specific key is known. After this change clears the legacy base key, a slow /me response (e.g., degraded API or high latency) can trigger the 60/120-second defaults even for users who have configured longer timeouts, reintroducing “premature logout” in that scenario. Consider delaying sessionTimeoutStartRequested until applyAutoLogoutSettingsForUser(state.user) runs or caching the last user key so the correct settings are loaded before starting the timer.
   Resolution: Deferred session-timeout start until after user settings load and added integration coverage with a delayed /api/me response to confirm the start gate.
 
-- [x] [LA-339] Remove the full name login area in favor of the avatar-only design.
-  Priority: P1
-  Goal: Replace the full-name login layout with the avatar-only profile menu across public pages.
-  Deliverable: Public headers render the avatar-only menu and remove the default profile layout, with integration coverage verifying the landing header.
-  Docs/Refs:
-  - `internal/httpapi/public_assets.go`
-  - `internal/httpapi/templates/dashboard.tmpl`
-  - `internal/httpapi/landing_profile_menu_integration_test.go`
-  - `internal/httpapi/dashboard_integration_test.go`
-  Resolution: Added avatar-only profile dropdowns to public headers, removed the default mpr-ui profile layout, and added landing header coverage; `make ci` passes.
 
-## Improvements (210–299)
+## Maintenance (418–499)
 
-- [x] [LA-213] Dashboard section tabs should span full width and split into 3 equal parts.
-  Priority: P2
-  Goal: Feedback/Subscriptions/Traffic tab buttons fill the available width and each takes exactly 1/3 of the row (responsive).
-  Deliverable: PR adjusting tab markup/CSS and updating dashboard integration tests as needed.
-  Resolution: Switched section tabs to `nav-justified` + `w-100` and added headless integration assertions for equal computed tab widths.
-- [x] [LA-413] Autosave should not reload the dashboard or interrupt typing while editing site settings.
-  Priority: P1
-  Goal: Autosave site edits without refreshing the form or dropping focus while operators type.
-  Deliverable: PR adding debounced autosave with integration coverage proving input focus/value persists during autosave.
-  Docs/Refs:
-  - `internal/httpapi/templates/dashboard.tmpl`
-  - `internal/httpapi/dashboard_integration_test.go`
-  Resolution: Added debounced autosave for site settings with a non-invasive render path and integration coverage that preserves subscribe-origin typing; `make ci` passes.
-
-- [x] [LA-414] Remove the remnant avatar/name/sign-out markup that appears alongside the LoopAware header profile menu.
-  Priority: P1
-  Goal: Only the LoopAware profile dropdown renders in the dashboard header; default mpr-ui profile elements remain hidden/removed.
-  Deliverable: PR that removes the duplicate header markup and adds integration coverage for a single visible profile control.
-  Docs/Refs:
-  - `internal/httpapi/templates/dashboard_header.tmpl`
-  - `internal/httpapi/templates/dashboard.tmpl`
-  - `internal/httpapi/public_assets.go`
-  - `tools/mpr-ui/docs/custom-elements.md`
-  Resolution: Removed default mpr-ui profile/settings/sign-in elements when the LoopAware profile menu is present and added integration coverage ensuring they are absent; `make ci` passes.
-
-- [x] [LA-415] Dashboard sign-in requires multiple attempts instead of completing on first click.
-  Priority: P1
-  Goal: The first sign-in interaction completes authentication without extra prompts or repeat clicks.
-  Deliverable: PR that eliminates double sign-in behavior and adds integration coverage for a single sign-in flow.
-  Docs/Refs:
-  - `internal/httpapi/public_assets.go`
-  - `internal/httpapi/templates/dashboard_header.tmpl`
-  - `tools/mpr-ui/docs/custom-elements.md`
-  - `tools/TAuth/docs/usage.md`
-  Resolution: Gated the Google sign-in control until the nonce-backed GIS initialization is available and added integration coverage to verify the gate releases after nonce readiness; `make ci` passes.
-
-- [x] [LA-339] ![Full name login area](image-3.png) Remove the full name login area in favor of current avatar only design ![alt text](image-4.png). Ensure that the layout for the full name and log out button is deleted from all pages
-  Resolution: Added auth script binding on widget/subscribe/traffic test pages and integration coverage confirming the default header profile layout is removed; `make ci` passes.
-
-## Maintenance (408–499)
-
-- [x] [LA-409] Improve tests coverage to 95%
-  Resolution: Added targeted tests across configaudit, httpapi, footer, favicon, storage, and notifications paths, reaching 95.0% total coverage; `make format`, `make test`, `make lint`, `make coverage`, and `make ci` pass.
-- [x] [LA-417] Ensure coverage target creates output directory
-  Priority: P2
-  Goal: `make coverage` should succeed in a clean checkout by creating the `.cache` directory before writing coverage output.
-  Resolution: Added a `mkdir -p $(CURDIR)/.cache` step to the coverage target.
-
+- [x] [LA-406] Cleanup:.
+  1. Review the completed issues and compare the code against the README.md and ARCHITECTURE.md files.
+  2. Update the README.md and ARCHITECTURE.
+  3. Clean up the completed issues.
+  reconciled the README REST API table, subscription token routes, and dashboard feature list with the shipped behavior; expanded ARCHITECTURE.md with an overview of components and key flows.
+- [x] [LA-407] Polish:.
+  1. Review each open issue
+  2. Add additional context: dependencies, documentation, execution plan, goal
+  3. Add priroity and deliverable. Reaarange and renumber issues as needed.
 - [x] [LA-408] Dashboard widget bottom offset integration test fails after dependency updates.
   Priority: P1
   Goal: Ensure the dashboard widget bottom offset test waits for site selection/value population so it passes after dependency updates.
   Deliverable: PR updating the integration test readiness with passing `make ci`.
   Notes: Failure observed in `TestDashboardWidgetBottomOffsetStepButtonsAdjustAndPersist` due to an empty bottom offset input value.
   Resolution: Added a site-selection readiness wait to the integration test; `make ci` passes.
-
 - [x] [LA-409] Migrate LoopAware auth UI and server validation to the latest TAuth client integration.
   Priority: P0
   Goal: Replace GAuss session handling with TAuth session validation and use the mpr-ui declarative DSL (with `tauth.js`) for auth UI.
   Deliverable: PR updating templates, auth middleware, and config to use `tauth.js` + `<mpr-header>`; tests and `make ci` pass.
   Notes: Follow `tools/TAuth/docs/migration.md` and mpr-ui docs; ensure refresh handling via `apiFetch` and update login/logout flows.
   Resolution: Replaced GAuss sessions with TAuth validator, wired mpr-ui header + `tauth.js` across templates, updated env/config/doc/test coverage, and verified `make ci`.
-
 - [x] [LA-411] Align LoopAware footer integration with mpr-ui v3.4.0 DSL.
   Priority: P1
   Goal: Remove legacy footer attributes (`links`, `theme-mode`) and sync theme state via `theme-config` + document attributes while keeping toggle behavior and link catalog intact.
@@ -360,7 +328,6 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Currently a dialog to log in appears after logout. DO not allow it, and expect users explicit actions instead.
   Google Sign in shows automatic pop up to log in. That is unnessary and we want to rely on users explicit click. Investiaget if google sign in offers a parameter in its initialization to disable auto-login, check if we can use it with TAuth/mpr-ui initialization (check @tools/TAuth and @tools/mpr-ui).
   Resolution: Disabled Google auto-select on explicit logout and unauthenticated events and added integration coverage for logout-triggered suppression; `make ci` passes.
-
 - [x] [LA-416] Add missing product and integration docs.
   Priority: P2
   Goal: Provide missing product and integration docs referenced by process instructions and docs.
@@ -370,21 +337,14 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `ARCHITECTURE.md`
   - `docs/LA-200-mpr-ui-gauth.md`
   Resolution: Added PRD/PLANNING docs for LoopAware, and documented mpr-ui custom elements/integration in MarcoPoloResearchLab/mpr-ui#127; `make ci` passes.
-
-### Recurring (600-699)
-**close when done but do not remove**
-
-- [x] [LA-406] Cleanup:
-  1. Review the completed issues and compare the code against the README.md and ARCHITECTURE.md files.
-  2. Update the README.md and ARCHITECTURE.
-  3. Clean up the completed issues.
-  reconciled the README REST API table, subscription token routes, and dashboard feature list with the shipped behavior; expanded ARCHITECTURE.md with an overview of components and key flows.
-
-- [x] [LA-407] Polish:
-1. Review each open issue
-2. Add additional context: dependencies, documentation, execution plan, goal
-3. Add priroity and deliverable. Reaarange and renumber issues as needed.
+  ### Recurring (600-699)
+  **close when done but do not remove**
+- [x] [LA-417] Ensure coverage target creates output directory.
+  Priority: P2
+  Goal: `make coverage` should succeed in a clean checkout by creating the `.cache` directory before writing coverage output.
+  Resolution: Added a `mkdir -p $(CURDIR)/.cache` step to the coverage target.
 
 
-## Planning (500-599)
-**do not implement yet**
+## Planning (500–59999)
+*do not implement yet*
+
