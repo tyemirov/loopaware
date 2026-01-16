@@ -327,6 +327,10 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 - [x] [LA-409] Improve tests coverage to 95%
   Resolution: Added targeted tests across configaudit, httpapi, footer, favicon, storage, and notifications paths, reaching 95.0% total coverage; `make format`, `make test`, `make lint`, `make coverage`, and `make ci` pass.
+- [x] [LA-417] Ensure coverage target creates output directory
+  Priority: P2
+  Goal: `make coverage` should succeed in a clean checkout by creating the `.cache` directory before writing coverage output.
+  Resolution: Added a `mkdir -p $(CURDIR)/.cache` step to the coverage target.
 
 ### Recurring (600-699)
 **close when done but do not remove**
