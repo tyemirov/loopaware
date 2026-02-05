@@ -12,14 +12,14 @@ import (
 )
 
 const (
-	webkitTestTimeout              = 30 * time.Second
-	webkitTestPollInterval         = 100 * time.Millisecond
-	webkitProfileToggleSelector    = `[data-loopaware-profile-toggle="true"]`
-	webkitSettingsButtonSelector   = `[data-loopaware-settings="true"]`
-	webkitLogoutButtonSelector     = `[data-loopaware-logout="true"]`
-	webkitSettingsModalSelector    = "#settings-modal"
-	webkitProfileMenuItemsSelector = `[data-loopaware-profile-menu-items="true"]`
-	webkitProfileMenuSelector      = `[data-loopaware-profile-menu="true"]`
+	webkitTestTimeout             = 30 * time.Second
+	webkitTestPollInterval        = 100 * time.Millisecond
+	webkitUserMenuSelector        = `mpr-user[data-loopaware-user-menu="true"]`
+	webkitUserMenuTriggerSelector = webkitUserMenuSelector + ` [data-mpr-user="trigger"]`
+	webkitUserMenuOpenSelector    = webkitUserMenuSelector + ` [data-mpr-user="menu"][aria-hidden="false"]`
+	webkitAccountSettingsSelector = webkitUserMenuSelector + ` [data-mpr-user="menu-item"][data-mpr-user-action="account-settings"]`
+	webkitLogoutButtonSelector    = webkitUserMenuSelector + ` [data-mpr-user="logout"]`
+	webkitSettingsModalSelector   = "#settings-modal"
 )
 
 var (
@@ -134,42 +134,30 @@ func TestWebKitProfileMenuSettingsOpens(testingT *testing.T) {
 		return result == "true"
 	}, webkitTestTimeout, webkitTestPollInterval, "auth binding did not complete")
 
-	require.Eventually(testingT, func() bool {
-		result, evalErr := page.Evaluate(`() => {
-			var menu = document.querySelector('[data-loopaware-profile-menu="true"]');
-			if (!menu) { return ''; }
-			return menu.getAttribute('data-loopaware-dropdown-bound') || '';
-		}`)
-		if evalErr != nil {
-			return false
-		}
-		return result == "true"
-	}, webkitTestTimeout, webkitTestPollInterval, "profile menu dropdown binding did not complete")
-
-	profileToggle, toggleErr := page.WaitForSelector(webkitProfileToggleSelector, playwright.PageWaitForSelectorOptions{
+	userMenuTrigger, triggerErr := page.WaitForSelector(webkitUserMenuTriggerSelector, playwright.PageWaitForSelectorOptions{
 		State:   playwright.WaitForSelectorStateVisible,
 		Timeout: playwright.Float(float64(webkitTestTimeout.Milliseconds())),
 	})
-	require.NoError(testingT, toggleErr)
-	require.NotNil(testingT, profileToggle)
+	require.NoError(testingT, triggerErr)
+	require.NotNil(testingT, userMenuTrigger)
 
-	require.NoError(testingT, profileToggle.Click())
+	require.NoError(testingT, userMenuTrigger.Click())
 
-	menuItems, menuErr := page.WaitForSelector(webkitProfileMenuItemsSelector+".show", playwright.PageWaitForSelectorOptions{
+	menuItems, menuErr := page.WaitForSelector(webkitUserMenuOpenSelector, playwright.PageWaitForSelectorOptions{
 		State:   playwright.WaitForSelectorStateVisible,
 		Timeout: playwright.Float(float64(webkitTestTimeout.Milliseconds())),
 	})
-	require.NoError(testingT, menuErr, "profile menu did not open")
+	require.NoError(testingT, menuErr, "user menu did not open")
 	require.NotNil(testingT, menuItems)
 
-	settingsButton, settingsErr := page.WaitForSelector(webkitSettingsButtonSelector, playwright.PageWaitForSelectorOptions{
+	settingsItem, settingsErr := page.WaitForSelector(webkitAccountSettingsSelector, playwright.PageWaitForSelectorOptions{
 		State:   playwright.WaitForSelectorStateVisible,
 		Timeout: playwright.Float(float64(webkitTestTimeout.Milliseconds())),
 	})
 	require.NoError(testingT, settingsErr)
-	require.NotNil(testingT, settingsButton)
+	require.NotNil(testingT, settingsItem)
 
-	require.NoError(testingT, settingsButton.Click())
+	require.NoError(testingT, settingsItem.Click())
 
 	require.Eventually(testingT, func() bool {
 		result, evalErr := page.Evaluate(`() => {
@@ -225,18 +213,6 @@ func TestWebKitProfileMenuLogoutWorks(testingT *testing.T) {
 		return result == "true"
 	}, webkitTestTimeout, webkitTestPollInterval, "auth binding did not complete")
 
-	require.Eventually(testingT, func() bool {
-		result, evalErr := page.Evaluate(`() => {
-			var menu = document.querySelector('[data-loopaware-profile-menu="true"]');
-			if (!menu) { return ''; }
-			return menu.getAttribute('data-loopaware-dropdown-bound') || '';
-		}`)
-		if evalErr != nil {
-			return false
-		}
-		return result == "true"
-	}, webkitTestTimeout, webkitTestPollInterval, "profile menu dropdown binding did not complete")
-
 	_, hookErr := page.Evaluate(`() => {
 		if (window.sessionStorage) {
 			window.sessionStorage.setItem('__webkitLogoutCalled', 'false');
@@ -260,7 +236,7 @@ func TestWebKitProfileMenuLogoutWorks(testingT *testing.T) {
 			}
 			return Promise.reject(new Error('fetch not available'));
 		};
-		window.logout = function() {
+		window.__loopawareLogoutDelegate = function() {
 			return Promise.reject(new Error('logout failed'));
 		};
 		var originalLocationAssign = window.location.assign;
@@ -272,20 +248,20 @@ func TestWebKitProfileMenuLogoutWorks(testingT *testing.T) {
 	}`)
 	require.NoError(testingT, hookErr)
 
-	profileToggle, toggleErr := page.WaitForSelector(webkitProfileToggleSelector, playwright.PageWaitForSelectorOptions{
+	userMenuTrigger, toggleErr := page.WaitForSelector(webkitUserMenuTriggerSelector, playwright.PageWaitForSelectorOptions{
 		State:   playwright.WaitForSelectorStateVisible,
 		Timeout: playwright.Float(float64(webkitTestTimeout.Milliseconds())),
 	})
 	require.NoError(testingT, toggleErr)
-	require.NotNil(testingT, profileToggle)
+	require.NotNil(testingT, userMenuTrigger)
 
-	require.NoError(testingT, profileToggle.Click())
+	require.NoError(testingT, userMenuTrigger.Click())
 
-	menuItems, menuErr := page.WaitForSelector(webkitProfileMenuItemsSelector+".show", playwright.PageWaitForSelectorOptions{
+	menuItems, menuErr := page.WaitForSelector(webkitUserMenuOpenSelector, playwright.PageWaitForSelectorOptions{
 		State:   playwright.WaitForSelectorStateVisible,
 		Timeout: playwright.Float(float64(webkitTestTimeout.Milliseconds())),
 	})
-	require.NoError(testingT, menuErr, "profile menu did not open")
+	require.NoError(testingT, menuErr, "user menu did not open")
 	require.NotNil(testingT, menuItems)
 
 	logoutButton, logoutErr := page.WaitForSelector(webkitLogoutButtonSelector, playwright.PageWaitForSelectorOptions{
@@ -310,6 +286,19 @@ func TestWebKitProfileMenuLogoutWorks(testingT *testing.T) {
 		boolResult, ok := result.(bool)
 		return ok && boolResult
 	}, webkitTestTimeout, webkitTestPollInterval, "logout fetch was not called in WebKit")
+
+	redirectURL := ""
+	redirectResult, redirectErr := page.Evaluate(`() => {
+			if (window.sessionStorage) {
+				return window.sessionStorage.getItem('__webkitLogoutRedirect') || '';
+			}
+			return '';
+		}`)
+	require.NoError(testingT, redirectErr)
+	if value, ok := redirectResult.(string); ok {
+		redirectURL = value
+	}
+	require.Contains(testingT, redirectURL, "/login")
 }
 
 func TestWebKitProfileMenuDropdownOpens(testingT *testing.T) {
@@ -345,42 +334,30 @@ func TestWebKitProfileMenuDropdownOpens(testingT *testing.T) {
 		return result == "true"
 	}, webkitTestTimeout, webkitTestPollInterval, "auth binding did not complete")
 
-	require.Eventually(testingT, func() bool {
-		result, evalErr := page.Evaluate(`() => {
-			var menu = document.querySelector('[data-loopaware-profile-menu="true"]');
-			if (!menu) { return ''; }
-			return menu.getAttribute('data-loopaware-dropdown-bound') || '';
-		}`)
-		if evalErr != nil {
-			return false
-		}
-		return result == "true"
-	}, webkitTestTimeout, webkitTestPollInterval, "profile menu dropdown binding did not complete")
-
-	profileToggle, toggleErr := page.WaitForSelector(webkitProfileToggleSelector, playwright.PageWaitForSelectorOptions{
+	userMenuTrigger, toggleErr := page.WaitForSelector(webkitUserMenuTriggerSelector, playwright.PageWaitForSelectorOptions{
 		State:   playwright.WaitForSelectorStateVisible,
 		Timeout: playwright.Float(float64(webkitTestTimeout.Milliseconds())),
 	})
 	require.NoError(testingT, toggleErr)
-	require.NotNil(testingT, profileToggle)
+	require.NotNil(testingT, userMenuTrigger)
 
-	menuItemsBeforeClick, _ := page.QuerySelector(webkitProfileMenuItemsSelector + ".show")
-	require.Nil(testingT, menuItemsBeforeClick, "menu should not be open before click")
+	menuBeforeClick, _ := page.QuerySelector(webkitUserMenuOpenSelector)
+	require.Nil(testingT, menuBeforeClick, "menu should not be open before click")
 
-	require.NoError(testingT, profileToggle.Click())
+	require.NoError(testingT, userMenuTrigger.Click())
 
-	menuItems, menuErr := page.WaitForSelector(webkitProfileMenuItemsSelector+".show", playwright.PageWaitForSelectorOptions{
+	menuItems, menuErr := page.WaitForSelector(webkitUserMenuOpenSelector, playwright.PageWaitForSelectorOptions{
 		State:   playwright.WaitForSelectorStateVisible,
 		Timeout: playwright.Float(float64(webkitTestTimeout.Milliseconds())),
 	})
-	require.NoError(testingT, menuErr, "profile menu dropdown did not open in WebKit after clicking toggle")
+	require.NoError(testingT, menuErr, "user menu did not open in WebKit after clicking trigger")
 	require.NotNil(testingT, menuItems)
 
-	settingsVisible, settingsErr := page.WaitForSelector(webkitSettingsButtonSelector, playwright.PageWaitForSelectorOptions{
+	settingsVisible, settingsErr := page.WaitForSelector(webkitAccountSettingsSelector, playwright.PageWaitForSelectorOptions{
 		State:   playwright.WaitForSelectorStateVisible,
 		Timeout: playwright.Float(float64(webkitTestTimeout.Milliseconds())),
 	})
-	require.NoError(testingT, settingsErr, "settings button not visible after menu opened")
+	require.NoError(testingT, settingsErr, "account settings item not visible after menu opened")
 	require.NotNil(testingT, settingsVisible)
 
 	logoutVisible, logoutErr := page.WaitForSelector(webkitLogoutButtonSelector, playwright.PageWaitForSelectorOptions{

@@ -62,9 +62,12 @@ const (
 	}())`
 	dashboardDismissButtonSelector              = "#session-timeout-dismiss-button"
 	dashboardConfirmButtonSelector              = "#session-timeout-confirm-button"
-	dashboardSettingsButtonSelector             = "#settings-button"
-	dashboardProfileToggleSelector              = `[data-loopaware-profile-toggle="true"]`
-	dashboardLogoutButtonSelector               = `[data-loopaware-logout="true"]`
+	dashboardUserMenuSelector                   = `mpr-user[data-loopaware-user-menu="true"]`
+	dashboardUserMenuTriggerSelector            = dashboardUserMenuSelector + ` [data-mpr-user="trigger"]`
+	dashboardUserMenuOpenSelector               = dashboardUserMenuSelector + ` [data-mpr-user="menu"][aria-hidden="false"]`
+	dashboardUserMenuAccountSettingsSelector    = dashboardUserMenuSelector + ` [data-mpr-user="menu-item"][data-mpr-user-action="account-settings"]`
+	dashboardUserMenuLogoutButtonSelector       = dashboardUserMenuSelector + ` [data-mpr-user="logout"]`
+	dashboardUserMenuAvatarSelector             = dashboardUserMenuSelector + ` [data-mpr-user="avatar-image"]`
 	landingGoogleSigninWrapperSelector          = `mpr-header [data-mpr-google-wrapper="true"]`
 	dashboardSettingsModalSelector              = "#settings-modal"
 	dashboardWidgetBottomOffsetInputSelector    = "#widget-placement-bottom-offset"
@@ -140,12 +143,38 @@ const (
 		}
 		return { textLength: textLength, contrast: delta };
 	}())`
-	dashboardProfileMenuStateScript = `(function() {
-		var toggle = document.querySelector('[data-loopaware-profile-toggle="true"]');
-		var name = document.querySelector('[data-loopaware-profile-name="true"]');
-		var avatar = document.querySelector('[data-loopaware-avatar]');
-		var toggleText = toggle ? (toggle.textContent || '').trim() : '';
-		var menuName = name ? (name.textContent || '').trim() : '';
+	dashboardUserMenuStateScript = `(function() {
+		var headerHost = document.querySelector('mpr-header');
+		var loopawareMenuCount = document.querySelectorAll('mpr-user[data-loopaware-user-menu="true"]').length;
+		var headerUserMenuCount = 0;
+		var extraHeaderUserMenuCount = 0;
+		var headerAvatarCount = 0;
+		var visibleHeaderAvatarCount = 0;
+		if (headerHost && typeof headerHost.querySelectorAll === 'function') {
+			headerUserMenuCount = headerHost.querySelectorAll('mpr-user[data-mpr-header="user-menu"]').length;
+			extraHeaderUserMenuCount = headerHost.querySelectorAll('mpr-user[data-mpr-header="user-menu"]:not([data-loopaware-user-menu="true"])').length;
+			var headerAvatars = headerHost.querySelectorAll('[data-mpr-user="avatar-image"]');
+			headerAvatarCount = headerAvatars ? headerAvatars.length : 0;
+			for (var headerAvatarIndex = 0; headerAvatarIndex < headerAvatarCount; headerAvatarIndex += 1) {
+				var headerAvatar = headerAvatars[headerAvatarIndex];
+				if (!headerAvatar) {
+					continue;
+				}
+				var avatarStyle = window.getComputedStyle(headerAvatar);
+				var avatarRect = headerAvatar.getBoundingClientRect();
+				var isVisible = avatarStyle.display !== 'none' && avatarStyle.visibility !== 'hidden' && avatarRect.width > 0 && avatarRect.height > 0;
+				if (isVisible) {
+					visibleHeaderAvatarCount += 1;
+				}
+			}
+		}
+		var userMenu = document.querySelector('mpr-user[data-loopaware-user-menu="true"]');
+		if (!userMenu) {
+			return { loopawareMenuCount: loopawareMenuCount, headerUserMenuCount: headerUserMenuCount, extraHeaderUserMenuCount: extraHeaderUserMenuCount, headerAvatarCount: headerAvatarCount, visibleHeaderAvatarCount: visibleHeaderAvatarCount, avatarCount: 0, displayName: '', avatarVisible: false, nameVisible: false };
+		}
+		var avatarNodes = userMenu.querySelectorAll('[data-mpr-user="avatar-image"]');
+		var avatar = avatarNodes && avatarNodes.length ? avatarNodes[0] : null;
+		var name = userMenu.querySelector('[data-mpr-user="name"]');
 		var avatarVisible = false;
 		if (avatar) {
 			var avatarStyle = window.getComputedStyle(avatar);
@@ -158,12 +187,22 @@ const (
 			var nameRect = name.getBoundingClientRect();
 			nameVisible = nameStyle.display !== 'none' && nameStyle.visibility !== 'hidden' && nameRect.width > 0 && nameRect.height > 0;
 		}
-		return { toggleText: toggleText, menuName: menuName, avatarVisible: avatarVisible, nameVisible: nameVisible };
+		return {
+			loopawareMenuCount: loopawareMenuCount,
+			headerUserMenuCount: headerUserMenuCount,
+			extraHeaderUserMenuCount: extraHeaderUserMenuCount,
+			headerAvatarCount: headerAvatarCount,
+			visibleHeaderAvatarCount: visibleHeaderAvatarCount,
+			avatarCount: avatarNodes ? avatarNodes.length : 0,
+			displayName: name ? (name.textContent || '').trim() : '',
+			avatarVisible: avatarVisible,
+			nameVisible: nameVisible
+		};
 	}())`
 	dashboardHeaderDefaultProfileStateScript = `(function() {
 		var headerHost = document.querySelector('mpr-header');
 		if (!headerHost) {
-			return { hasProfile: false, hasGoogleSignin: false, hasSettingsButton: false };
+			return { hasUserMenu: false, hasLegacyProfileMenu: false, hasGoogleSignin: false, hasSettingsButton: false };
 		}
 		var hasSelector = function(selector) {
 			if (headerHost.querySelector(selector)) {
@@ -174,8 +213,13 @@ const (
 			}
 			return false;
 		};
+		var userMenuCount = 0;
+		if (headerHost.querySelectorAll) {
+			userMenuCount = headerHost.querySelectorAll('mpr-user[data-loopaware-user-menu="true"]').length;
+		}
 		return {
-			hasProfile: hasSelector('[data-mpr-header="profile"]'),
+			hasUserMenu: userMenuCount === 1 || hasSelector('mpr-user[data-loopaware-user-menu="true"]') || hasSelector('[data-mpr-header="user-menu"]'),
+			hasLegacyProfileMenu: !!document.querySelector('[data-loopaware-profile-menu="true"]'),
 			hasGoogleSignin: hasSelector('[data-mpr-header="google-signin"]'),
 			hasSettingsButton: hasSelector('[data-mpr-header="settings-button"]')
 		};
@@ -183,6 +227,16 @@ const (
 	dashboardLogoutTestHookScript = `(function() {
 		var storageKey = '` + dashboardLogoutFetchStorageKey + `';
 		var originalFetch = window.fetch ? window.fetch.bind(window) : null;
+		var sessionCookieName = '` + dashboardTestSessionCookieName + `';
+		function clearSessionCookie() {
+			if (typeof document === 'undefined') {
+				return;
+			}
+			try {
+				document.cookie = sessionCookieName + '=; Max-Age=0; path=/';
+				document.cookie = sessionCookieName + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+			} catch (error) {}
+		}
 		window.__loopawareLogoutFetchCalls = [];
 		window.fetch = function(input, options) {
 			var url = '';
@@ -196,6 +250,7 @@ const (
 				if (window.sessionStorage) {
 					window.sessionStorage.setItem(storageKey, 'true');
 				}
+				clearSessionCookie();
 				return Promise.resolve(new Response(null, { status: 204 }));
 			}
 			if (originalFetch) {
@@ -203,7 +258,7 @@ const (
 			}
 			return Promise.reject(new Error('fetch unavailable'));
 		};
-		window.logout = function() {
+		window.__loopawareLogoutDelegate = function() {
 			return Promise.reject(new Error('logout failed'));
 		};
 	}())`
@@ -243,7 +298,7 @@ const (
 			}
 			return Promise.reject(new Error('fetch unavailable'));
 		};
-		window.logout = function() {
+		window.__loopawareLogoutDelegate = function() {
 			return Promise.reject(new Error('logout blocked'));
 		};
 	}())`
@@ -356,7 +411,7 @@ const (
 		};
 	}())`
 	landingMarkAuthenticatedScript = `(function() {
-		var profile = { display: 'Test User', email: 'test@example.com' };
+		var profile = { display: 'Test User', email: 'test@example.com', avatar_url: 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==' };
 		window.__loopawareTestProfile = profile;
 		window.initAuthClient = function(options) {
 			if (options && typeof options.onAuthenticated === 'function') {
@@ -374,6 +429,7 @@ const (
 			}
 			headerHost.setAttribute('data-user-display', profile.display);
 			headerHost.setAttribute('data-user-email', profile.email);
+			headerHost.setAttribute('data-user-avatar-url', profile.avatar_url);
 			return true;
 		}
 		function scheduleMark() {
@@ -400,7 +456,7 @@ const (
 			return new Promise(function(resolve) {
 				window.setTimeout(function() {
 					window.__loopawareNonceResolved = true;
-					resolve({ nonce: 'test-nonce' });
+					resolve('test-nonce');
 				}, delayMs);
 			});
 		};
@@ -417,6 +473,193 @@ const (
 			target.appendChild(button);
 		};
 		window.google.accounts.id.prompt = function() {};
+	}())`
+	dashboardTestTauthStubScript = `(function() {
+		if (typeof window === 'undefined') {
+			return;
+		}
+
+		var runtimeKey = '__loopawareTestTauthRuntime';
+		var sessionCookieName = '` + dashboardTestSessionCookieName + `';
+
+		var runtime = window[runtimeKey];
+		if (!runtime || typeof runtime !== 'object') {
+			runtime = { tenantId: '', profile: null, options: null };
+			window[runtimeKey] = runtime;
+		}
+
+		function readCookieValue(name) {
+			if (typeof document === 'undefined' || typeof document.cookie !== 'string') {
+				return '';
+			}
+			var prefix = String(name || '').trim() + '=';
+			if (prefix === '=') {
+				return '';
+			}
+			var parts = document.cookie.split(';');
+			for (var index = 0; index < parts.length; index += 1) {
+				var entry = parts[index];
+				if (!entry) {
+					continue;
+				}
+				var trimmed = entry.trim();
+				if (trimmed.indexOf(prefix) !== 0) {
+					continue;
+				}
+				return trimmed.slice(prefix.length);
+			}
+			return '';
+		}
+
+		function decodeBase64Url(input) {
+			if (!input || typeof input !== 'string' || typeof window.atob !== 'function') {
+				return '';
+			}
+			var normalized = input.replace(/-/g, '+').replace(/_/g, '/');
+			var padding = normalized.length % 4;
+			if (padding === 2) {
+				normalized += '==';
+			} else if (padding === 3) {
+				normalized += '=';
+			} else if (padding !== 0) {
+				return '';
+			}
+			try {
+				return window.atob(normalized);
+			} catch (error) {
+				return '';
+			}
+		}
+
+		function parseSessionClaims() {
+			var token = readCookieValue(sessionCookieName);
+			if (!token) {
+				return null;
+			}
+			var parts = token.split('.');
+			if (!parts || parts.length < 2) {
+				return null;
+			}
+			var payload = decodeBase64Url(parts[1]);
+			if (!payload) {
+				return null;
+			}
+			try {
+				return JSON.parse(payload);
+			} catch (error) {
+				return null;
+			}
+		}
+
+		function resolveProfileFromClaims(claims) {
+			if (!claims || typeof claims !== 'object') {
+				return null;
+			}
+			var email = typeof claims.user_email === 'string' ? claims.user_email.trim() : '';
+			var display = typeof claims.user_display_name === 'string' ? claims.user_display_name.trim() : '';
+			var avatarUrl = typeof claims.user_avatar_url === 'string' ? claims.user_avatar_url.trim() : '';
+			var userId = typeof claims.user_id === 'string' ? claims.user_id.trim() : '';
+			var roles = Array.isArray(claims.user_roles) ? claims.user_roles.slice() : [];
+			if (!email && !display && !avatarUrl && !userId) {
+				return null;
+			}
+			if (!display) {
+				display = email;
+			}
+			return {
+				user_id: userId,
+				user_email: email,
+				email: email,
+				display: display,
+				avatar_url: avatarUrl,
+				roles: roles
+			};
+		}
+
+		function hydrateProfile() {
+			var claims = parseSessionClaims();
+			runtime.profile = resolveProfileFromClaims(claims);
+			return runtime.profile;
+		}
+
+		function setAuthTenantId(tenantId) {
+			runtime.tenantId = String(tenantId || '');
+		}
+
+		function getCurrentUser() {
+			return runtime.profile;
+		}
+
+		function initAuthClient(options) {
+			runtime.options = options || null;
+			var profile = hydrateProfile();
+			try {
+				if (profile && options && typeof options.onAuthenticated === 'function') {
+					options.onAuthenticated(profile);
+				}
+				if (!profile && options && typeof options.onUnauthenticated === 'function') {
+					options.onUnauthenticated();
+				}
+			} catch (error) {}
+			return Promise.resolve();
+		}
+
+		function apiFetch(url, initOptions) {
+			var merged = Object.assign({}, initOptions || {});
+			merged.credentials = 'include';
+			return window.fetch(url, merged);
+		}
+
+		function getAuthEndpoints() {
+			return {
+				baseUrl: '',
+				meUrl: '/api/me',
+				nonceUrl: '/auth/nonce',
+				googleUrl: '/auth/google',
+				refreshUrl: '/auth/refresh',
+				logoutUrl: '/auth/logout'
+			};
+		}
+
+		function requestNonce() {
+			return Promise.resolve('test-nonce');
+		}
+
+		function exchangeGoogleCredential() {
+			return Promise.reject(new Error('tauth.exchange_not_supported'));
+		}
+
+		function logout() {
+			runtime.profile = null;
+			return Promise.resolve();
+		}
+
+		hydrateProfile();
+
+		if (typeof window.setAuthTenantId !== 'function') {
+			window.setAuthTenantId = setAuthTenantId;
+		}
+		if (typeof window.getCurrentUser !== 'function') {
+			window.getCurrentUser = getCurrentUser;
+		}
+		if (typeof window.initAuthClient !== 'function') {
+			window.initAuthClient = initAuthClient;
+		}
+		if (typeof window.apiFetch !== 'function') {
+			window.apiFetch = apiFetch;
+		}
+		if (typeof window.getAuthEndpoints !== 'function') {
+			window.getAuthEndpoints = getAuthEndpoints;
+		}
+		if (typeof window.requestNonce !== 'function') {
+			window.requestNonce = requestNonce;
+		}
+		if (typeof window.exchangeGoogleCredential !== 'function') {
+			window.exchangeGoogleCredential = exchangeGoogleCredential;
+		}
+		if (typeof window.logout !== 'function') {
+			window.logout = logout;
+		}
 	}())`
 	landingSigninDisabledScript = `(function() {
 		var header = document.querySelector('mpr-header');
@@ -823,9 +1066,9 @@ func TestDashboardSettingsModalOpensAndDismissesViaBackdrop(t *testing.T) {
 		}())`) == "true"
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
-	openDashboardProfileMenu(t, page)
-	openDashboardProfileMenu(t, page)
-	clickSelector(t, page, dashboardSettingsButtonSelector)
+	openDashboardUserMenu(t, page)
+	openDashboardUserMenu(t, page)
+	clickSelector(t, page, dashboardUserMenuAccountSettingsSelector)
 
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
@@ -968,9 +1211,9 @@ func TestDashboardLogoutFallsBackToFetchWhenLogoutFails(t *testing.T) {
 	evaluateScriptInto(t, page, dashboardLogoutFetchClearScript, nil)
 	evaluateScriptInto(t, page, dashboardLogoutTestHookScript, nil)
 
-	openDashboardProfileMenu(t, page)
-	openDashboardProfileMenu(t, page)
-	clickSelector(t, page, dashboardLogoutButtonSelector)
+	openDashboardUserMenu(t, page)
+	openDashboardUserMenu(t, page)
+	clickSelector(t, page, dashboardUserMenuLogoutButtonSelector)
 
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardLogoutFetchCalledScript)
@@ -1014,9 +1257,9 @@ func TestDashboardLogoutFallsBackToFormWhenLogoutAndFetchFail(t *testing.T) {
 
 	evaluateScriptInto(t, page, dashboardLogoutFormFallbackScript, nil)
 
-	openDashboardProfileMenu(t, page)
-	openDashboardProfileMenu(t, page)
-	clickSelector(t, page, dashboardLogoutButtonSelector)
+	openDashboardUserMenu(t, page)
+	openDashboardUserMenu(t, page)
+	clickSelector(t, page, dashboardUserMenuLogoutButtonSelector)
 
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardLogoutFormPresentScript)
@@ -1060,9 +1303,9 @@ func TestDashboardLogoutDisablesGoogleAutoSelect(testingT *testing.T) {
 
 	evaluateScriptInto(testingT, page, fmt.Sprintf(dashboardDisableGoogleAutoSelectTrackingScript, dashboardDisableGoogleAutoSelectStorageKey), nil)
 
-	openDashboardProfileMenu(testingT, page)
-	openDashboardProfileMenu(testingT, page)
-	clickSelector(testingT, page, dashboardLogoutButtonSelector)
+	openDashboardUserMenu(testingT, page)
+	openDashboardUserMenu(testingT, page)
+	clickSelector(testingT, page, dashboardUserMenuLogoutButtonSelector)
 
 	disableAutoSelectScript := fmt.Sprintf(`(function(){
 		if (!window.localStorage) { return ''; }
@@ -1076,7 +1319,7 @@ func TestDashboardLogoutDisablesGoogleAutoSelect(testingT *testing.T) {
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 }
 
-func TestDashboardProfileMenuShowsAvatarOnly(t *testing.T) {
+func TestDashboardUserMenuHasSingleAvatarAndExpectedItems(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
 
@@ -1108,27 +1351,64 @@ func TestDashboardProfileMenuShowsAvatarOnly(t *testing.T) {
 		}())`) == "true"
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
-	openDashboardProfileMenu(t, page)
-	openDashboardProfileMenu(t, page)
+	openDashboardUserMenu(t, page)
+	openDashboardUserMenu(t, page)
 
 	var state struct {
-		ToggleText    string `json:"toggleText"`
-		MenuName      string `json:"menuName"`
-		AvatarVisible bool   `json:"avatarVisible"`
-		NameVisible   bool   `json:"nameVisible"`
+		LoopawareMenuCount       int    `json:"loopawareMenuCount"`
+		HeaderUserMenuCount      int    `json:"headerUserMenuCount"`
+		ExtraHeaderUserMenuCount int    `json:"extraHeaderUserMenuCount"`
+		HeaderAvatarCount        int    `json:"headerAvatarCount"`
+		VisibleHeaderAvatarCount int    `json:"visibleHeaderAvatarCount"`
+		AvatarCount              int    `json:"avatarCount"`
+		DisplayName              string `json:"displayName"`
+		AvatarVisible            bool   `json:"avatarVisible"`
+		NameVisible              bool   `json:"nameVisible"`
 	}
 	require.Eventually(t, func() bool {
-		evaluateScriptInto(t, page, dashboardProfileMenuStateScript, &state)
-		return state.MenuName == dashboardTestAdminDisplayName && state.AvatarVisible && state.NameVisible
+		evaluateScriptInto(t, page, dashboardUserMenuStateScript, &state)
+		return state.AvatarVisible && state.AvatarCount == 1 && state.HeaderUserMenuCount == 1 && state.ExtraHeaderUserMenuCount == 0 && state.HeaderAvatarCount == 1 && state.VisibleHeaderAvatarCount == 1
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
-	evaluateScriptInto(t, page, dashboardProfileMenuStateScript, &state)
-	require.Equal(t, "", state.ToggleText)
-	require.Equal(t, dashboardTestAdminDisplayName, state.MenuName)
+	evaluateScriptInto(t, page, dashboardUserMenuStateScript, &state)
+	require.Equal(t, 1, state.LoopawareMenuCount)
+	require.Equal(t, 1, state.HeaderUserMenuCount)
+	require.Equal(t, 0, state.ExtraHeaderUserMenuCount)
+	require.Equal(t, 1, state.HeaderAvatarCount)
+	require.Equal(t, 1, state.VisibleHeaderAvatarCount)
+	require.Equal(t, 1, state.AvatarCount)
 	require.True(t, state.AvatarVisible)
-	require.True(t, state.NameVisible)
+	require.False(t, state.NameVisible)
+
+	var menuCount int
+	evaluateScriptInto(t, page, `(function(){
+		return document.querySelectorAll('mpr-user[data-loopaware-user-menu="true"]').length;
+	}())`, &menuCount)
+	require.Equal(t, 1, menuCount)
+
+	var headerState struct {
+		HasUserMenu          bool `json:"hasUserMenu"`
+		HasLegacyProfileMenu bool `json:"hasLegacyProfileMenu"`
+	}
+	evaluateScriptInto(t, page, dashboardHeaderDefaultProfileStateScript, &headerState)
+	require.True(t, headerState.HasUserMenu)
+	require.False(t, headerState.HasLegacyProfileMenu)
+
+	accountSettingsLabel := evaluateScriptString(t, page, fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return ''; }
+		return String(element.textContent || '').trim();
+	}())`, dashboardUserMenuAccountSettingsSelector))
+	require.Equal(t, "Account settings", accountSettingsLabel)
+
+	logoutLabel := evaluateScriptString(t, page, fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return ''; }
+		return String(element.textContent || '').trim();
+	}())`, dashboardUserMenuLogoutButtonSelector))
+	require.Equal(t, "Logout", logoutLabel)
 }
 
-func TestDashboardHeaderRemovesDefaultProfileElements(t *testing.T) {
+func TestDashboardHeaderUsesSingleUserMenu(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
 
@@ -1151,15 +1431,19 @@ func TestDashboardHeaderRemovesDefaultProfileElements(t *testing.T) {
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	var state struct {
-		HasProfile        bool `json:"hasProfile"`
-		HasGoogleSignin   bool `json:"hasGoogleSignin"`
-		HasSettingsButton bool `json:"hasSettingsButton"`
+		HasUserMenu          bool `json:"hasUserMenu"`
+		HasLegacyProfileMenu bool `json:"hasLegacyProfileMenu"`
 	}
 	evaluateScriptInto(t, page, dashboardHeaderDefaultProfileStateScript, &state)
 
-	require.False(t, state.HasProfile)
-	require.False(t, state.HasGoogleSignin)
-	require.False(t, state.HasSettingsButton)
+	require.True(t, state.HasUserMenu)
+	require.False(t, state.HasLegacyProfileMenu)
+
+	var menuCount int
+	evaluateScriptInto(t, page, `(function(){
+		return document.querySelectorAll('mpr-user[data-loopaware-user-menu="true"]').length;
+	}())`, &menuCount)
+	require.Equal(t, 1, menuCount)
 }
 
 func TestDashboardShowsDistinctWidgetSnippets(t *testing.T) {
@@ -1467,8 +1751,8 @@ func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {
 		return evaluateScriptBoolean(t, page, dashboardSettingsHooksReadyScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
-	openDashboardProfileMenu(t, page)
-	clickSelector(t, page, dashboardSettingsButtonSelector)
+	openDashboardUserMenu(t, page)
+	clickSelector(t, page, dashboardUserMenuAccountSettingsSelector)
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
@@ -1504,8 +1788,8 @@ func TestDashboardSettingsAutoLogoutConfiguration(t *testing.T) {
 		return !evaluateScriptBoolean(t, page, dashboardSessionTimeoutVisibleScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
-	openDashboardProfileMenu(t, page)
-	clickSelector(t, page, dashboardSettingsButtonSelector)
+	openDashboardUserMenu(t, page)
+	clickSelector(t, page, dashboardUserMenuAccountSettingsSelector)
 	require.Eventually(t, func() bool {
 		return evaluateScriptBoolean(t, page, dashboardSettingsModalVisibleScript)
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
@@ -2246,7 +2530,7 @@ func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
     var style = window.getComputedStyle(element);
     if (!style) { return false; }
     return style.display !== 'none' && style.visibility !== 'hidden';
-}())`, dashboardProfileToggleSelector)
+}())`, dashboardUserMenuTriggerSelector)
 	footerVisibleScript := fmt.Sprintf(`(function(){
     var element = document.querySelector(%q);
     if (!element) { return false; }
@@ -2304,7 +2588,7 @@ func TestWidgetTestPageUsesDashboardChrome(t *testing.T) {
   }())`))
 }
 
-func TestTestPagesUseAvatarOnlyProfileMenu(t *testing.T) {
+func TestTestPagesUseUserMenu(t *testing.T) {
 	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
 	defer harness.Close()
 
@@ -2337,26 +2621,35 @@ func TestTestPagesUseAvatarOnlyProfileMenu(t *testing.T) {
 			return evaluateScriptString(t, page, `(function(){
 				var header = document.querySelector('mpr-header');
 				if (!header) { return ''; }
-				return header.getAttribute('data-user-display') || '';
-			}())`) == "Test User"
-		}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
-
-		require.Eventually(t, func() bool {
-			return evaluateScriptString(t, page, `(function(){
-				var header = document.querySelector('mpr-header');
-				if (!header) { return ''; }
 				return header.getAttribute('data-loopaware-auth-bound') || '';
 			}())`) == "true"
 		}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
-		var defaultState struct {
-			HasProfile        bool `json:"hasProfile"`
-			HasSettingsButton bool `json:"hasSettingsButton"`
+		var headerState struct {
+			HasUserMenu          bool `json:"hasUserMenu"`
+			HasLegacyProfileMenu bool `json:"hasLegacyProfileMenu"`
 		}
 		require.Eventually(t, func() bool {
-			evaluateScriptInto(t, page, dashboardHeaderDefaultProfileStateScript, &defaultState)
-			return !defaultState.HasProfile && !defaultState.HasSettingsButton
+			evaluateScriptInto(t, page, dashboardHeaderDefaultProfileStateScript, &headerState)
+			return headerState.HasUserMenu && !headerState.HasLegacyProfileMenu
 		}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+		openDashboardUserMenu(t, page)
+		openDashboardUserMenu(t, page)
+
+		accountSettingsLabel := evaluateScriptString(t, page, fmt.Sprintf(`(function(){
+			var element = document.querySelector(%q);
+			if (!element) { return ''; }
+			return String(element.textContent || '').trim();
+		}())`, dashboardUserMenuAccountSettingsSelector))
+		require.Equal(t, "Account settings", accountSettingsLabel)
+
+		logoutLabel := evaluateScriptString(t, page, fmt.Sprintf(`(function(){
+			var element = document.querySelector(%q);
+			if (!element) { return ''; }
+			return String(element.textContent || '').trim();
+		}())`, dashboardUserMenuLogoutButtonSelector))
+		require.Equal(t, "Logout", logoutLabel)
 	}
 }
 
@@ -3483,6 +3776,14 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	router.Use(gin.Recovery())
 	router.Use(httpapi.RequestLogger(logger))
 
+	router.GET(httpapi.TauthScriptPath, func(context *gin.Context) {
+		context.Header("Content-Type", "application/javascript; charset=utf-8")
+		context.String(http.StatusOK, dashboardTestTauthStubScript)
+	})
+	router.POST(httpapi.TauthLogoutPath, func(context *gin.Context) {
+		context.SetCookie(dashboardTestSessionCookieName, "", -1, "/", "", false, true)
+		context.Status(http.StatusNoContent)
+	})
 	router.GET("/", func(context *gin.Context) {
 		context.Redirect(http.StatusFound, dashboardTestLandingPath)
 	})
@@ -3593,9 +3894,16 @@ func createAuthenticatedSessionCookieWithAvatar(testingT *testing.T, email strin
 	}
 }
 
-func openDashboardProfileMenu(testingT *testing.T, page *rod.Page) {
+func openDashboardUserMenu(testingT *testing.T, page *rod.Page) {
 	testingT.Helper()
 
-	clickSelector(testingT, page, dashboardProfileToggleSelector)
-	waitForVisibleElement(testingT, page, dashboardSettingsButtonSelector)
+	isOpen := evaluateScriptBoolean(testingT, page, `(function(){
+		var menu = document.querySelector('mpr-user[data-loopaware-user-menu="true"]');
+		if (!menu) { return false; }
+		return menu.getAttribute('data-mpr-user-open') === 'true';
+	}())`)
+	if !isOpen {
+		clickSelector(testingT, page, dashboardUserMenuTriggerSelector)
+	}
+	waitForVisibleElement(testingT, page, dashboardUserMenuOpenSelector)
 }

@@ -343,8 +343,17 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Priority: P2
   Goal: `make coverage` should succeed in a clean checkout by creating the `.cache` directory before writing coverage output.
   Resolution: Added a `mkdir -p $(CURDIR)/.cache` step to the coverage target.
+- [x] [LA-418] Header shows duplicate avatars (mpr-header + user menu).
+  Priority: P1
+  Goal: Render a single avatar (mpr-ui `mpr-user`) and ensure the user menu includes Account settings + Logout.
+  Deliverable: Replace legacy profile dropdown with a single `mpr-user` in the header `aux` slot, remove unused legacy code, and add integration coverage guarding against duplicate avatars and missing menu items.
+  Docs/Refs:
+  - `tools/mpr-ui/docs/custom-elements.md`
+  - `internal/httpapi/templates/dashboard_header.tmpl`
+  - `internal/httpapi/public_assets.go`
+  - `internal/httpapi/dashboard_integration_test.go`
+  Resolution: Replaced legacy profile dropdown with a single `mpr-user` avatar menu (Account settings + Logout), removed unused legacy profile CSS/JS, and added integration coverage asserting a single visible avatar + expected menu items on both landing and dashboard; `make ci` passes.
 
 
 ## Planning (500–59999)
 *do not implement yet*
-
