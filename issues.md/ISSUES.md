@@ -353,6 +353,14 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/dashboard_integration_test.go`
   Resolution: Replaced legacy profile dropdown with a single `mpr-user` avatar menu (Account settings + Logout), removed unused legacy profile CSS/JS, and added integration coverage asserting a single visible avatar + expected menu items on both landing and dashboard; `make ci` passes.
+- [x] [LA-419] Docker Compose should serve `computercat.tyemirov.net:4443` with TLS.
+  Priority: P1
+  Goal: Run the LoopAware + TAuth stack on `https://computercat.tyemirov.net:4443` (not `localhost`) using the shared certificate files.
+  Deliverable: Add a docker compose variant that terminates TLS on port `4443` using certs from `/media/share/Drive/exchange/certs/computercat`, and update env/config defaults so the browser uses `https://computercat.tyemirov.net:4443` for LoopAware and TAuth endpoints.
+  Docs/Refs:
+  - `docker-compose.yml`
+  - `tools/TAuth/docs/usage.md`
+  Resolution: Added `docker-compose.computercat.yml` using `ghttp` TLS reverse proxy on `:4443` (no nginx), documented required env/proxy setup in `configs/README.md`, and verified `make ci`; `make ci` passes.
 
 
 ## Planning (500–59999)
