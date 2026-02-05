@@ -15,6 +15,11 @@ Create these env files:
 - `configs/.env.tauth`
 - `configs/.env.pinguin`
 
+Required config file pointers:
+
+- `configs/.env.tauth` must set `TAUTH_CONFIG_FILE=/config/config.yml` (Compose mounts `configs/config.tauth.yml` at that path).
+- `configs/.env.pinguin` must set `PINGUIN_CONFIG_PATH=/config/config.yml` (Compose mounts `configs/config.pinguin.yml` at that path).
+
 ## computercat TLS compose (`docker-compose.computercat.yml`)
 
 This variant exposes only `https://computercat.tyemirov.net:4443` and uses `ghttp` as the TLS terminator + reverse proxy (no nginx).
@@ -49,4 +54,3 @@ Update the existing service env files so browser traffic uses the public origin:
 
 TAuth requires HTTPS for secure cookies when `allow_insecure_http=false`. gHTTP’s reverse proxy does not currently set `X-Forwarded-Proto`,
 so keep `TAUTH_ALLOW_INSECURE_HTTP=true` unless you front TAuth with a proxy that forwards `X-Forwarded-Proto=https`.
-
