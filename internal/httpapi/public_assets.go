@@ -62,69 +62,8 @@ const (
       .landing-header .mpr-header__nav {
         margin-left: 0;
       }
-      .landing-header .mpr-header__chip {
-        flex-direction: row;
-        align-items: center;
-        gap: 0.5rem;
-      }
-      .landing-header .loopaware-header-avatar {
-        width: 32px;
-        height: 32px;
-        border-radius: 999px;
-        object-fit: cover;
-        box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.25);
-      }
-      .landing-header .loopaware-profile-dropdown {
-        position: relative;
-      }
-      .landing-header .loopaware-profile-toggle {
-        border: 1px solid rgba(148, 163, 184, 0.35);
-        background: rgba(15, 23, 42, 0.65);
-        color: #e2e8f0;
-        padding: 0.25rem;
-        border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-        gap: 0;
-        font-weight: 600;
-      }
-      .landing-header .loopaware-profile-toggle:focus-visible {
-        outline: 2px solid rgba(148, 163, 184, 0.6);
-        outline-offset: 2px;
-      }
-      .landing-header .loopaware-profile-name {
-        line-height: 1.1;
-      }
-      .landing-header .loopaware-profile-menu-header {
-        padding: 0.35rem 0.75rem 0.5rem;
-      }
-      .landing-header .loopaware-profile-menu-header .loopaware-profile-name {
-        font-weight: 600;
-      }
-      .landing-header .loopaware-profile-menu {
-        min-width: 200px;
-        padding: 0.5rem;
-        border-radius: 0.75rem;
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        background: rgba(15, 23, 42, 0.98);
-        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.45);
-        display: none;
-      }
-      .landing-header .loopaware-profile-menu.show,
-      .landing-header .loopaware-profile-dropdown:focus-within .loopaware-profile-menu {
-        display: block;
-      }
-      .landing-header .loopaware-profile-item {
-        border-radius: 0.5rem;
-        font-weight: 600;
-        padding: 0.45rem 0.75rem;
-        color: #e2e8f0;
-        background: transparent;
-      }
-      .landing-header .loopaware-profile-item:hover,
-      .landing-header .loopaware-profile-item:focus {
-        background: rgba(148, 163, 184, 0.18);
-        color: #f8fafc;
+      .landing-header mpr-user[data-mpr-header="user-menu"]:not([data-loopaware-user-menu="true"]) {
+        display: none !important;
       }
       body[data-bs-theme="dark"] .landing-header {
         --mpr-color-surface-primary: #0f172a;
@@ -148,22 +87,6 @@ const (
         --mpr-color-text-primary: #0f172a;
         --mpr-color-border: rgba(148, 163, 184, 0.2);
         --mpr-chip-bg: rgba(148, 163, 184, 0.18);
-      }
-      body[data-bs-theme="light"] .landing-header .loopaware-profile-toggle {
-        background: #f8fafc;
-        color: #0f172a;
-      }
-      body[data-bs-theme="light"] .landing-header .loopaware-profile-menu {
-        background: #ffffff;
-        color: #0f172a;
-      }
-      body[data-bs-theme="light"] .landing-header .loopaware-profile-item {
-        color: #0f172a;
-      }
-      body[data-bs-theme="light"] .landing-header .loopaware-profile-item:hover,
-      body[data-bs-theme="light"] .landing-header .loopaware-profile-item:focus {
-        background: rgba(15, 23, 42, 0.08);
-        color: #0f172a;
       }
       body[data-bs-theme="light"] .landing-card {
         background-color: #f8fafc;
@@ -189,18 +112,13 @@ var (
     </span>
     <span>{{.BrandName}}</span>
   </a>
-  <div slot="aux" class="loopaware-profile-dropdown dropdown d-none" data-loopaware-profile-menu="true">
-    <button type="button" class="loopaware-profile-toggle dropdown-toggle" data-loopaware-profile-toggle="true" aria-expanded="false">
-      <img class="loopaware-header-avatar d-none" data-loopaware-avatar="true" alt="User avatar" />
-    </button>
-    <div class="dropdown-menu dropdown-menu-end loopaware-profile-menu" data-loopaware-profile-menu-items="true">
-      <div class="loopaware-profile-menu-header">
-        <span class="loopaware-profile-name" data-loopaware-profile-name="true"></span>
-      </div>
-      <div class="dropdown-divider"></div>
-      <button type="button" class="dropdown-item loopaware-profile-item" data-loopaware-logout="true">{{.SignOutLabel}}</button>
-    </div>
-  </div>
+  <mpr-user
+    slot="aux"
+    data-loopaware-user-menu="true"
+    display-mode="avatar"
+    logout-url="/login"
+    menu-items='[{"label":"Account Settings","href":"/app"}]'
+  ></mpr-user>
 </mpr-header>`))
 	publicThemeScriptTemplate = template.Must(template.New("public_theme_script").Parse(`(function() {
   var publicThemeStorageKey = '{{.PublicThemeStorageKey}}';
@@ -300,84 +218,25 @@ var (
   if (document && document.documentElement) {
     document.documentElement.setAttribute('data-loopaware-auth-script', 'true');
   }
-  function resolveCustomProfileElements(headerHost) {
-    if (!headerHost) {
-      return null;
-    }
-    var profileMenu = headerHost.querySelector('[data-loopaware-profile-menu="true"]');
-    if (!profileMenu) {
-      return null;
-    }
-    var toggleButton = profileMenu.querySelector('[data-loopaware-profile-toggle="true"]');
-    var menuItems = profileMenu.querySelector('[data-loopaware-profile-menu-items="true"]');
-    var profileName = profileMenu.querySelector('[data-loopaware-profile-name="true"]');
-    if (!toggleButton || !menuItems || !profileName) {
-      return null;
-    }
-    return {
-      profileMenu: profileMenu,
-      toggleButton: toggleButton,
-      menuItems: menuItems,
-      profileName: profileName,
-      avatar: profileMenu.querySelector('[data-loopaware-avatar]'),
-      settingsButton: profileMenu.querySelector('[data-loopaware-settings="true"]'),
-      logoutButton: profileMenu.querySelector('[data-loopaware-logout="true"]')
-    };
-  }
-
-  function removeDefaultHeaderProfileElements(headerHost, removeSignin) {
-    if (!headerHost) {
+  function pruneHeaderUserMenus(headerHost) {
+    if (!headerHost || typeof headerHost.querySelectorAll !== 'function') {
       return;
     }
-    var selectors = ['[data-mpr-header="profile"]', '[data-mpr-header="settings-button"]'];
-    if (removeSignin) {
-      selectors.push('[data-mpr-header="google-signin"]');
+    var userMenus = headerHost.querySelectorAll('mpr-user');
+    if (!userMenus || userMenus.length <= 1) {
+      return;
     }
-    var roots = [headerHost];
-    if (headerHost.shadowRoot) {
-      roots.push(headerHost.shadowRoot);
-    }
-    roots.forEach(function(rootElement) {
-      if (!rootElement || typeof rootElement.querySelector !== 'function') {
-        return;
+    var preferred = headerHost.querySelector('mpr-user[data-loopaware-user-menu="true"]');
+    var keep = preferred || userMenus[0];
+    for (var index = 0; index < userMenus.length; index += 1) {
+      var candidate = userMenus[index];
+      if (!candidate || candidate === keep) {
+        continue;
       }
-      selectors.forEach(function(selector) {
-        var element = rootElement.querySelector(selector);
-        if (element && element.parentNode) {
-          element.parentNode.removeChild(element);
-        }
-      });
-    });
-  }
-
-  function resolveProfileAttribute(headerRoot, headerHost, attributeName) {
-    if (headerRoot && typeof headerRoot.getAttribute === 'function') {
-      var value = headerRoot.getAttribute(attributeName);
-      if (value) {
-        return value;
+      if (candidate.parentNode) {
+        candidate.parentNode.removeChild(candidate);
       }
     }
-    if (headerHost && typeof headerHost.getAttribute === 'function') {
-      return headerHost.getAttribute(attributeName) || '';
-    }
-    return '';
-  }
-
-  function resolveProfileDisplay(profile, headerRoot, headerHost) {
-    if (profile && profile.display) {
-      return profile.display;
-    }
-    if (profile && profile.name) {
-      return profile.name;
-    }
-    if (profile && profile.email) {
-      return profile.email;
-    }
-    return resolveProfileAttribute(headerRoot, headerHost, 'data-user-display') ||
-      resolveProfileAttribute(headerRoot, headerHost, 'data-user-display-name') ||
-      resolveProfileAttribute(headerRoot, headerHost, 'data-user-name') ||
-      resolveProfileAttribute(headerRoot, headerHost, 'data-user-email') ||
-      '';
   }
 
   function normalizeBaseURL(value) {
@@ -482,7 +341,7 @@ var (
     });
   }
 
-  function performLogoutRequest(headerHost) {
+  function performLogoutRequest(headerHost, logoutDelegate) {
     var logoutUrl = resolveLogoutURL(headerHost);
     var logoutRequest = function() {
       return window.fetch(logoutUrl, {
@@ -491,22 +350,60 @@ var (
         headers: resolveLogoutHeaders(headerHost)
       });
     };
-    var logoutWithFetchFallback = function() {
-      return logoutRequest().catch(function() {
-        return submitLogoutForm(logoutUrl);
-      });
-    };
-    if (typeof window.logout === 'function') {
+    function assertLogoutResponseOk(response) {
+      if (!response || typeof response.ok !== 'boolean') {
+        return response;
+      }
+      if (response.ok) {
+        return response;
+      }
+      var error = new Error('loopaware.logout_failed');
+      error.code = 'loopaware.logout_failed';
+      error.status = response.status;
+      throw error;
+    }
+    function invokeLogoutDelegate() {
+      if (typeof logoutDelegate !== 'function') {
+        return Promise.resolve();
+      }
       try {
-        return Promise.resolve(window.logout())
-          .catch(function() {
-            return logoutWithFetchFallback();
-          });
+        return Promise.resolve(logoutDelegate()).catch(function() {});
       } catch (error) {
-        return logoutWithFetchFallback();
+        return Promise.resolve();
       }
     }
-    return logoutWithFetchFallback();
+    var logoutWithFetchFallback = function() {
+      return logoutRequest()
+        .then(assertLogoutResponseOk)
+        .catch(function(error) {
+          if (error && typeof error.status === 'number' && error.status) {
+            throw error;
+          }
+          return submitLogoutForm(logoutUrl);
+        });
+    };
+    return logoutWithFetchFallback().then(function(result) {
+      return invokeLogoutDelegate().then(function() {
+        return result;
+      });
+    });
+  }
+
+  function ensureLogoutFallback(headerHost) {
+    if (!window || !headerHost) {
+      return;
+    }
+    if (typeof window.logout === 'function' && window.logout.__loopawareLogoutWrapper === true) {
+      return;
+    }
+    if (typeof window.__loopawareLogoutDelegate !== 'function' && typeof window.logout === 'function') {
+      window.__loopawareLogoutDelegate = window.logout;
+    }
+    var wrapper = function() {
+      return performLogoutRequest(headerHost, window.__loopawareLogoutDelegate);
+    };
+    wrapper.__loopawareLogoutWrapper = true;
+    window.logout = wrapper;
   }
 
   function disableGoogleAutoSelect() {
@@ -546,7 +443,104 @@ var (
   }
 
   function hasGooglePromptNonce() {
-    return !!(window && window.__googleInitConfig && window.__googleInitConfig.nonce);
+    return !!(window && ((window.__googleInitConfig && window.__googleInitConfig.nonce) || window.__loopawareGooglePromptNonce));
+  }
+
+  function normalizeNonceValue(value) {
+    if (!value) {
+      return '';
+    }
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    if (typeof value === 'object') {
+      if (typeof value.nonce === 'string') {
+        return value.nonce.trim();
+      }
+      if (value.nonce && typeof value.nonce.nonce === 'string') {
+        return value.nonce.nonce.trim();
+      }
+    }
+    return '';
+  }
+
+  function storeGooglePromptNonce(value) {
+    if (!window) {
+      return;
+    }
+    var nonce = normalizeNonceValue(value);
+    if (!nonce) {
+      return;
+    }
+    window.__loopawareGooglePromptNonce = nonce;
+    if (!window.__googleInitConfig) {
+      window.__googleInitConfig = {};
+    }
+    window.__googleInitConfig.nonce = nonce;
+  }
+
+  function wrapRequestNonce(requestNonce) {
+    if (typeof requestNonce !== 'function') {
+      return requestNonce;
+    }
+    if (requestNonce.__loopawareNonceWrapper === true) {
+      return requestNonce;
+    }
+    var wrapper = function() {
+      var result;
+      try {
+        result = requestNonce.apply(this, arguments);
+      } catch (error) {
+        throw error;
+      } finally {
+        try {
+          if (result && typeof result.then === 'function') {
+            result.then(storeGooglePromptNonce).catch(function() {});
+          } else {
+            storeGooglePromptNonce(result);
+          }
+        } catch (error) {}
+      }
+      return result;
+    };
+    wrapper.__loopawareNonceWrapper = true;
+    return wrapper;
+  }
+
+  function ensureRequestNonceNonceTracking() {
+    if (!window) {
+      return;
+    }
+    if (typeof window.requestNonce === 'function') {
+      window.requestNonce = wrapRequestNonce(window.requestNonce);
+      return;
+    }
+    if (window.__loopawareRequestNonceTracking === true) {
+      return;
+    }
+    window.__loopawareRequestNonceTracking = true;
+    try {
+      Object.defineProperty(window, 'requestNonce', {
+        configurable: true,
+        enumerable: true,
+        get: function() {
+          return undefined;
+        },
+        set: function(value) {
+          var wrapped = wrapRequestNonce(value);
+          try {
+            Object.defineProperty(window, 'requestNonce', {
+              configurable: true,
+              enumerable: true,
+              writable: true,
+              value: wrapped
+            });
+          } catch (error) {
+            window.requestNonce = wrapped;
+          }
+        }
+      });
+    } catch (error) {}
   }
 
   function setGoogleSigninDisabled(target, disabled) {
@@ -575,17 +569,33 @@ var (
   }
 
   function clearGoogleSigninGate(target) {
-    if (!target) {
+    if (target) {
+      target.removeAttribute('data-loopaware-signin-gate');
+      setGoogleSigninDisabled(target, false);
+    }
+    var headerHost = document.querySelector('mpr-header');
+    if (!headerHost || typeof headerHost.querySelectorAll !== 'function') {
       return;
     }
-    target.removeAttribute('data-loopaware-signin-gate');
-    setGoogleSigninDisabled(target, false);
+    var disabledNodes = headerHost.querySelectorAll('[data-loopaware-signin-disabled="true"]');
+    if (!disabledNodes) {
+      return;
+    }
+    for (var index = 0; index < disabledNodes.length; index += 1) {
+      var node = disabledNodes[index];
+      if (!node || typeof node.removeAttribute !== 'function') {
+        continue;
+      }
+      node.removeAttribute('data-loopaware-signin-gate');
+      setGoogleSigninDisabled(node, false);
+    }
   }
 
   function gateGoogleSigninUntilNonce(headerHost) {
     if (!headerHost) {
       return;
     }
+    ensureRequestNonceNonceTracking();
     var remainingAttempts = googleSigninGateMaxAttempts;
     function scheduleNextGateAttempt() {
       var interval = remainingAttempts > 0 ? googleSigninGatePollIntervalMs : googleSigninGateSlowPollIntervalMs;
@@ -616,380 +626,6 @@ var (
     attemptGate();
   }
 
-  function handleLogout(headerHost) {
-    disableGoogleAutoSelect();
-    var redirectToLanding = function() {
-      if (headerHost && headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
-        window.location.assign('{{.LandingPath}}');
-      }
-    };
-    performLogoutRequest(headerHost)
-      .then(redirectToLanding)
-      .catch(redirectToLanding);
-  }
-
-  function ensureCustomProfileMenu(headerHost, profileElements) {
-    if (!profileElements || !profileElements.profileMenu || !profileElements.toggleButton || !profileElements.menuItems) {
-      return;
-    }
-    var profileMenu = profileElements.profileMenu;
-    var toggleButton = profileElements.toggleButton;
-    var menuItems = profileElements.menuItems;
-    var dropdownInstance = null;
-    var setMenuOpen = function() {};
-    if (window.bootstrap && window.bootstrap.Dropdown && typeof window.bootstrap.Dropdown.getOrCreateInstance === 'function') {
-      dropdownInstance = window.bootstrap.Dropdown.getOrCreateInstance(toggleButton);
-    }
-    if (!profileMenu.getAttribute('data-loopaware-dropdown-bound')) {
-      profileMenu.setAttribute('data-loopaware-dropdown-bound', 'true');
-      setMenuOpen = function(shouldOpen) {
-        if (dropdownInstance && typeof dropdownInstance.show === 'function' && typeof dropdownInstance.hide === 'function') {
-          if (shouldOpen) {
-            dropdownInstance.show();
-          } else {
-            dropdownInstance.hide();
-          }
-          return;
-        }
-        if (shouldOpen) {
-          menuItems.classList.add('show');
-          toggleButton.setAttribute('aria-expanded', 'true');
-        } else {
-          menuItems.classList.remove('show');
-          toggleButton.setAttribute('aria-expanded', 'false');
-        }
-      };
-      var clickInsideMenu = function(event) {
-        if (!event) {
-          return false;
-        }
-        if (profileMenu.contains(event.target)) {
-          return true;
-        }
-        if (typeof event.composedPath === 'function') {
-          var path = event.composedPath();
-          var pathIndex = 0;
-          while (pathIndex !== path.length) {
-            if (path[pathIndex] === profileMenu) {
-              return true;
-            }
-            pathIndex += 1;
-          }
-        }
-        return false;
-      };
-      toggleButton.addEventListener('click', function(event) {
-        event.preventDefault();
-        event.stopPropagation();
-        var isOpen = menuItems.classList.contains('show');
-        setMenuOpen(!isOpen);
-      });
-      document.addEventListener('click', function(event) {
-        if (!clickInsideMenu(event)) {
-          setMenuOpen(false);
-        }
-      });
-    }
-    if (profileElements.settingsButton && !profileElements.settingsButton.getAttribute('data-loopaware-settings-bound')) {
-      profileElements.settingsButton.setAttribute('data-loopaware-settings-bound', 'true');
-      profileElements.settingsButton.addEventListener('click', function(event) {
-        var targetSelector = profileElements.settingsButton.getAttribute('data-bs-target');
-        if (!targetSelector) {
-          return;
-        }
-        var modalElement = document.querySelector(targetSelector);
-        if (!modalElement) {
-          return;
-        }
-        if (window.bootstrap && window.bootstrap.Modal && typeof window.bootstrap.Modal.getOrCreateInstance === 'function') {
-          var modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalElement);
-          if (modalInstance && typeof modalInstance.show === 'function') {
-            if (event) {
-              event.preventDefault();
-              event.stopPropagation();
-            }
-            setMenuOpen(false);
-            modalInstance.show();
-            return;
-          }
-        }
-        setMenuOpen(false);
-      });
-    }
-    if (profileElements.logoutButton && !profileElements.logoutButton.getAttribute('data-loopaware-logout-bound')) {
-      profileElements.logoutButton.setAttribute('data-loopaware-logout-bound', 'true');
-      profileElements.logoutButton.addEventListener('click', function(event) {
-        event.preventDefault();
-        handleLogout(headerHost);
-      });
-    }
-  }
-
-  function closestElement(startNode, selector) {
-    var current = startNode;
-    while (current && current.nodeType === 1) {
-      if (typeof current.matches === 'function' && current.matches(selector)) {
-        return current;
-      }
-      if (current.parentElement) {
-        current = current.parentElement;
-        continue;
-      }
-      if (current.getRootNode && current.getRootNode().host) {
-        current = current.getRootNode().host;
-        continue;
-      }
-      break;
-    }
-    return null;
-  }
-
-  function resolveHeaderHostFromNode(node) {
-    var headerHost = closestElement(node, 'mpr-header');
-    if (headerHost) {
-      return headerHost;
-    }
-    return document.querySelector('mpr-header');
-  }
-
-  function resolveProfileMenuParts(profileMenu) {
-    if (!profileMenu) {
-      return null;
-    }
-    var toggleButton = profileMenu.querySelector('[data-loopaware-profile-toggle="true"]');
-    var menuItems = profileMenu.querySelector('[data-loopaware-profile-menu-items="true"]');
-    if (!toggleButton || !menuItems) {
-      return null;
-    }
-    return {
-      profileMenu: profileMenu,
-      toggleButton: toggleButton,
-      menuItems: menuItems
-    };
-  }
-
-  function resolveProfileMenuPartsFromNode(node) {
-    var profileMenu = closestElement(node, '[data-loopaware-profile-menu="true"]');
-    if (!profileMenu) {
-      var headerHost = resolveHeaderHostFromNode(node);
-      if (headerHost) {
-        profileMenu = headerHost.querySelector('[data-loopaware-profile-menu="true"]');
-      }
-    }
-    return resolveProfileMenuParts(profileMenu);
-  }
-
-  function setProfileMenuOpen(menuParts, shouldOpen) {
-    if (!menuParts) {
-      return;
-    }
-    var dropdownInstance = null;
-    if (window.bootstrap && window.bootstrap.Dropdown && typeof window.bootstrap.Dropdown.getOrCreateInstance === 'function') {
-      dropdownInstance = window.bootstrap.Dropdown.getOrCreateInstance(menuParts.toggleButton);
-    }
-    if (dropdownInstance && typeof dropdownInstance.show === 'function' && typeof dropdownInstance.hide === 'function') {
-      if (shouldOpen) {
-        dropdownInstance.show();
-      } else {
-        dropdownInstance.hide();
-      }
-      return;
-    }
-    if (shouldOpen) {
-      menuParts.menuItems.classList.add('show');
-      menuParts.toggleButton.setAttribute('aria-expanded', 'true');
-    } else {
-      menuParts.menuItems.classList.remove('show');
-      menuParts.toggleButton.setAttribute('aria-expanded', 'false');
-    }
-  }
-
-  function closeAllProfileMenus(activeMenu) {
-    if (!document || typeof document.querySelectorAll !== 'function') {
-      return;
-    }
-    var menus = document.querySelectorAll('[data-loopaware-profile-menu="true"]');
-    for (var index = 0; index < menus.length; index += 1) {
-      var menu = menus[index];
-      if (activeMenu && menu === activeMenu) {
-        continue;
-      }
-      setProfileMenuOpen(resolveProfileMenuParts(menu), false);
-    }
-  }
-
-  function handleDelegatedProfileMenuClick(event) {
-    if (!event || !event.target || event.target.nodeType !== 1) {
-      return;
-    }
-    var target = event.target;
-    var toggleButton = closestElement(target, '[data-loopaware-profile-toggle="true"]');
-    if (toggleButton) {
-      if (event.defaultPrevented) {
-        return;
-      }
-      var toggleMenuParts = resolveProfileMenuPartsFromNode(toggleButton);
-      if (!toggleMenuParts) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      var isOpen = toggleMenuParts.menuItems.classList.contains('show');
-      if (!isOpen) {
-        closeAllProfileMenus(toggleMenuParts.profileMenu);
-      }
-      setProfileMenuOpen(toggleMenuParts, !isOpen);
-      return;
-    }
-
-    var settingsButton = closestElement(target, '[data-loopaware-settings="true"]');
-    if (settingsButton) {
-      if (event.defaultPrevented) {
-        return;
-      }
-      var settingsMenuParts = resolveProfileMenuPartsFromNode(settingsButton);
-      var targetSelector = settingsButton.getAttribute('data-bs-target');
-      if (targetSelector) {
-        var modalElement = document.querySelector(targetSelector);
-        if (modalElement && window.bootstrap && window.bootstrap.Modal && typeof window.bootstrap.Modal.getOrCreateInstance === 'function') {
-          var modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalElement);
-          if (modalInstance && typeof modalInstance.show === 'function') {
-            event.preventDefault();
-            event.stopPropagation();
-            setProfileMenuOpen(settingsMenuParts, false);
-            modalInstance.show();
-            return;
-          }
-        }
-      }
-      setProfileMenuOpen(settingsMenuParts, false);
-      return;
-    }
-
-    var logoutButton = closestElement(target, '[data-loopaware-logout="true"]');
-    if (logoutButton) {
-      if (event.defaultPrevented) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      setProfileMenuOpen(resolveProfileMenuPartsFromNode(logoutButton), false);
-      handleLogout(resolveHeaderHostFromNode(logoutButton));
-      return;
-    }
-
-    if (!closestElement(target, '[data-loopaware-profile-menu="true"]')) {
-      closeAllProfileMenus(null);
-    }
-  }
-
-  function resolveAvatarURL(headerRoot, headerHost, profile) {
-    if (profile && profile.avatar_url) {
-      return profile.avatar_url;
-    }
-    return resolveProfileAttribute(headerRoot, headerHost, 'data-user-avatar-url');
-  }
-
-  function setCustomProfileVisibility(profileElements, shouldShow) {
-    if (!profileElements || !profileElements.profileMenu) {
-      return;
-    }
-    if (shouldShow) {
-      profileElements.profileMenu.classList.remove('d-none');
-      profileElements.profileMenu.setAttribute('aria-hidden', 'false');
-      return;
-    }
-    profileElements.profileMenu.classList.add('d-none');
-    profileElements.profileMenu.setAttribute('aria-hidden', 'true');
-  }
-
-  function updateCustomProfile(profileElements, profile, headerRoot, headerHost) {
-    if (!profileElements) {
-      return;
-    }
-    var displayName = resolveProfileDisplay(profile, headerRoot, headerHost);
-    if (profileElements.profileName) {
-      profileElements.profileName.textContent = displayName;
-    }
-    var avatarUrl = resolveAvatarURL(headerRoot, headerHost, profile);
-    var shouldShowMenu = !!displayName || !!avatarUrl;
-    setCustomProfileVisibility(profileElements, shouldShowMenu);
-    var avatar = profileElements.avatar;
-    if (!avatar && avatarUrl && profileElements.toggleButton) {
-      avatar = document.createElement('img');
-      avatar.className = 'loopaware-header-avatar';
-      avatar.setAttribute('data-loopaware-avatar', 'true');
-      avatar.alt = 'User avatar';
-      profileElements.toggleButton.insertBefore(avatar, profileElements.toggleButton.firstChild);
-      profileElements.avatar = avatar;
-    }
-    if (avatar) {
-      if (!avatarUrl) {
-        avatar.removeAttribute('src');
-        avatar.classList.add('d-none');
-      } else {
-        avatar.classList.remove('d-none');
-        avatar.src = avatarUrl;
-        if (profile && profile.display) {
-          avatar.alt = profile.display;
-        }
-      }
-    }
-  }
-
-  function resolveHeaderRoot(headerHost) {
-    if (!headerHost) {
-      return null;
-    }
-    var root = headerHost.querySelector('header.mpr-header');
-    if (root) {
-      return root;
-    }
-    if (headerHost.shadowRoot && typeof headerHost.shadowRoot.querySelector === 'function') {
-      return headerHost.shadowRoot.querySelector('header.mpr-header');
-    }
-    return null;
-  }
-
-  function updateHeaderAvatar(headerHost, profile) {
-    if (!headerHost) {
-      return;
-    }
-    var headerRoot = resolveHeaderRoot(headerHost);
-    var displayName = resolveProfileDisplay(profile, headerRoot, headerHost);
-    var avatarUrl = resolveAvatarURL(headerRoot, headerHost, profile);
-    var shouldRemoveSignin = !!displayName || !!avatarUrl;
-    var customProfile = resolveCustomProfileElements(headerHost);
-    if (customProfile) {
-      removeDefaultHeaderProfileElements(headerHost, shouldRemoveSignin);
-      ensureCustomProfileMenu(headerHost, customProfile);
-      updateCustomProfile(customProfile, profile, headerRoot, headerHost);
-      return;
-    }
-    removeDefaultHeaderProfileElements(headerHost, shouldRemoveSignin);
-  }
-
-  function ensureHeaderProfileReady(headerHost) {
-    if (!headerHost) {
-      return;
-    }
-    var remainingAttempts = 20;
-    function attemptSetup() {
-      var customProfile = resolveCustomProfileElements(headerHost);
-      if (customProfile) {
-        removeDefaultHeaderProfileElements(headerHost, false);
-        updateHeaderAvatar(headerHost, null);
-        return;
-      }
-      remainingAttempts -= 1;
-      if (remainingAttempts > 0) {
-        window.setTimeout(attemptSetup, 50);
-      }
-    }
-    attemptSetup();
-  }
-
-
   function resolveAuthHost(event) {
     if (event && event.target && event.target.nodeType === 1 && typeof event.target.matches === 'function') {
       if (event.target.matches('mpr-header')) {
@@ -1004,8 +640,7 @@ var (
     if (!headerHost) {
       return;
     }
-    var profile = event && event.detail && event.detail.profile ? event.detail.profile : null;
-    updateHeaderAvatar(headerHost, profile);
+    pruneHeaderUserMenus(headerHost);
     clearGoogleSigninGate(resolveGoogleSigninTarget(headerHost));
     if (headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
       window.location.assign('{{.DashboardPath}}');
@@ -1018,25 +653,66 @@ var (
     if (!headerHost) {
       return;
     }
-    updateHeaderAvatar(headerHost, null);
     gateGoogleSigninUntilNonce(headerHost);
     if (headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
       window.location.assign('{{.LandingPath}}');
     }
   }
 
-  var authListenersAttached = false;
-  var profileMenuDelegatesAttached = false;
-  function attachProfileMenuDelegates() {
-    if (profileMenuDelegatesAttached || !document || typeof document.addEventListener !== 'function') {
+  function openAccountSettingsModal() {
+    var modalElement = document.getElementById('settings-modal');
+    if (!modalElement) {
+      return false;
+    }
+    if (window.bootstrap && window.bootstrap.Modal && typeof window.bootstrap.Modal.getOrCreateInstance === 'function') {
+      var modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalElement);
+      if (modalInstance && typeof modalInstance.show === 'function') {
+        modalInstance.show();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function handleUserMenuItem(event) {
+    if (!event || !event.detail) {
       return;
     }
-    document.addEventListener('click', handleDelegatedProfileMenuClick);
-    profileMenuDelegatesAttached = true;
+    if (event.detail.action !== 'account-settings') {
+      return;
+    }
+    if (typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
+    openAccountSettingsModal();
+  }
+
+  function handleHeaderSettingsClick(event) {
+    if (event && typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
+    openAccountSettingsModal();
+  }
+
+  function handleUserMenuLogout() {
+    disableGoogleAutoSelect();
+  }
+
+  var authListenersAttached = false;
+  var userMenuListenersAttached = false;
+
+  function attachUserMenuListeners() {
+    if (userMenuListenersAttached || !document || typeof document.addEventListener !== 'function') {
+      return;
+    }
+    document.addEventListener('mpr-user:menu-item', handleUserMenuItem);
+    document.addEventListener('mpr-ui:header:settings-click', handleHeaderSettingsClick);
+    document.addEventListener('mpr-user:logout', handleUserMenuLogout);
+    userMenuListenersAttached = true;
   }
 
   function attachHeaderAuth(headerHost) {
-    attachProfileMenuDelegates();
+    attachUserMenuListeners();
     if (!authListenersAttached && document && typeof document.addEventListener === 'function') {
       document.addEventListener('mpr-ui:auth:authenticated', handleAuthenticatedEvent);
       document.addEventListener('mpr-ui:auth:unauthenticated', handleUnauthenticatedEvent);
@@ -1045,13 +721,14 @@ var (
     if (!headerHost) {
       return;
     }
+    pruneHeaderUserMenus(headerHost);
+    ensureLogoutFallback(headerHost);
     if (typeof headerHost.addEventListener === 'function' && headerHost.getAttribute('data-loopaware-auth-listeners') !== 'true') {
       headerHost.setAttribute('data-loopaware-auth-listeners', 'true');
       headerHost.addEventListener('mpr-ui:auth:authenticated', handleAuthenticatedEvent);
       headerHost.addEventListener('mpr-ui:auth:unauthenticated', handleUnauthenticatedEvent);
     }
     headerHost.setAttribute('data-loopaware-auth-bound', 'true');
-    ensureHeaderProfileReady(headerHost);
     gateGoogleSigninUntilNonce(headerHost);
   }
 

@@ -51,11 +51,13 @@ Set the `ADMINS` environment variable with a comma-separated list (for example `
 
 Secrets must come from the environment; only non-sensitive settings belong in `config.yaml`.
 
-Copy the provided template and edit the values before running the service or Docker Compose stack:
+When running via Docker Compose, copy the tracked env templates under `configs/` and edit the local `.env.*` files:
 
 ```bash
-cp .env.sample .env
-$EDITOR .env
+cp configs/.env.loopaware.example configs/.env.loopaware
+cp configs/.env.tauth.example configs/.env.tauth
+cp configs/.env.pinguin.example configs/.env.pinguin
+$EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin
 ```
 
 ¹Pinguin and LoopAware must share the **exact same** bearer secret. Provide identical values for `GRPC_AUTH_TOKEN` and `PINGUIN_AUTH_TOKEN`, for example:
@@ -258,11 +260,13 @@ The previous Docker and Compose files remain compatible. Ensure the container re
 and mounts a `config.yaml` containing the admin roster.
 
 ```bash
-cp .env.sample .env
-$EDITOR .env             # fill in real secrets
+cp configs/.env.loopaware.example configs/.env.loopaware
+cp configs/.env.tauth.example configs/.env.tauth
+cp configs/.env.pinguin.example configs/.env.pinguin
+$EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin
 docker compose up --build --remove-orphans
 ```
 
-The compose file binds `config.yaml` into the container at `/app/config.yaml` and loads environment variables from `.env`.
+The compose file binds `config.yaml` into the LoopAware container at `/app/config.yaml` and loads per-service environment variables via `env_file` from `configs/.env.*`.
 The container now runs as root so the SQLite data volume remains writable; if you need to switch back to an unprivileged
 user, update the Docker image to chown the mounted directory before starting the binary.

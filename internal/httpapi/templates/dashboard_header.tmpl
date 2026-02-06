@@ -1,21 +1,15 @@
 {{define "dashboard_header"}}
-<mpr-header class="dashboard-header" google-site-id="{{.HeaderGoogleClientID}}"{{if .HeaderTauthBaseURL}} tauth-url="{{.HeaderTauthBaseURL}}"{{end}} tauth-tenant-id="{{.HeaderTauthTenantID}}" tauth-login-path="{{.HeaderTauthLoginPath}}" tauth-logout-path="{{.HeaderTauthLogoutPath}}" tauth-nonce-path="{{.HeaderTauthNoncePath}}" sign-in-label="{{.HeaderSignInLabel}}" sign-out-label="{{.HeaderSignOutLabel}}" data-loopaware-auth-redirect-on-logout="true" data-loopaware-authenticated="true">
+<mpr-header class="dashboard-header" google-site-id="{{.HeaderGoogleClientID}}"{{if .HeaderTauthBaseURL}} tauth-url="{{.HeaderTauthBaseURL}}"{{end}} tauth-tenant-id="{{.HeaderTauthTenantID}}" tauth-login-path="{{.HeaderTauthLoginPath}}" tauth-logout-path="{{.HeaderTauthLogoutPath}}" tauth-nonce-path="{{.HeaderTauthNoncePath}}" sign-in-label="{{.HeaderSignInLabel}}" sign-out-label="{{.HeaderSignOutLabel}}" data-loopaware-auth-redirect-on-logout="true">
   <span slot="brand" class="d-inline-flex align-items-center gap-3">
     <img id="{{.HeaderLogoImageID}}" src="{{.HeaderLogoDataURI}}" alt="LoopAware logo" width="44" height="44" />
     <span class="fw-semibold">{{.PageTitle}}</span>
   </span>
-  <div slot="aux" class="loopaware-profile-dropdown dropdown" data-loopaware-profile-menu="true">
-    <button type="button" class="loopaware-profile-toggle dropdown-toggle" data-loopaware-profile-toggle="true" aria-expanded="false">
-      <img class="loopaware-header-avatar d-none" data-loopaware-avatar="true" alt="User avatar" />
-    </button>
-    <div class="dropdown-menu dropdown-menu-end loopaware-profile-menu" data-loopaware-profile-menu-items="true">
-      <div class="loopaware-profile-menu-header">
-        <span class="loopaware-profile-name" data-loopaware-profile-name="true"></span>
-      </div>
-      <div class="dropdown-divider"></div>
-      <button id="{{.SettingsButtonID}}" type="button" class="dropdown-item loopaware-profile-item" data-loopaware-settings="true" data-bs-toggle="modal" data-bs-target="#{{.SettingsModalID}}">{{.SettingsButtonLabel}}</button>
-      <button type="button" class="dropdown-item loopaware-profile-item" data-loopaware-logout="true">{{.HeaderSignOutLabel}}</button>
-    </div>
-  </div>
+  <mpr-user
+    slot="aux"
+    data-loopaware-user-menu="true"
+    display-mode="avatar"
+    logout-url="/login"
+    menu-items='[{"label":"Account Settings","action":"account-settings"}]'
+  ></mpr-user>
 </mpr-header>
 {{end}}

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLandingHeaderUsesAvatarOnlyProfileMenu(testingT *testing.T) {
+func TestLandingHeaderUsesUserMenu(testingT *testing.T) {
 	harness := buildDashboardIntegrationHarness(testingT, dashboardTestAdminEmail)
 	defer harness.Close()
 
@@ -29,24 +29,50 @@ func TestLandingHeaderUsesAvatarOnlyProfileMenu(testingT *testing.T) {
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	require.Eventually(testingT, func() bool {
-		return evaluateScriptBoolean(testingT, page, selectorExistsScript(webkitProfileMenuSelector))
+		return evaluateScriptBoolean(testingT, page, selectorExistsScript(dashboardUserMenuTriggerSelector))
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
-	clickSelector(testingT, page, dashboardProfileToggleSelector)
+	openDashboardUserMenu(testingT, page)
+	openDashboardUserMenu(testingT, page)
 
 	var menuState struct {
-		ToggleText  string `json:"toggleText"`
-		MenuName    string `json:"menuName"`
-		NameVisible bool   `json:"nameVisible"`
+		LoopawareMenuCount       int  `json:"loopawareMenuCount"`
+		HeaderUserMenuCount      int  `json:"headerUserMenuCount"`
+		ExtraHeaderUserMenuCount int  `json:"extraHeaderUserMenuCount"`
+		HeaderAvatarCount        int  `json:"headerAvatarCount"`
+		VisibleHeaderAvatarCount int  `json:"visibleHeaderAvatarCount"`
+		AvatarCount              int  `json:"avatarCount"`
+		AvatarVisible            bool `json:"avatarVisible"`
+		NameVisible              bool `json:"nameVisible"`
 	}
 	require.Eventually(testingT, func() bool {
-		evaluateScriptInto(testingT, page, dashboardProfileMenuStateScript, &menuState)
-		return len(menuState.ToggleText) == 0 && len(menuState.MenuName) > 0 && menuState.NameVisible
+		evaluateScriptInto(testingT, page, dashboardUserMenuStateScript, &menuState)
+		return menuState.LoopawareMenuCount == 1 && menuState.HeaderUserMenuCount == 1 && menuState.ExtraHeaderUserMenuCount == 0 && menuState.HeaderAvatarCount == 1 && menuState.VisibleHeaderAvatarCount == 1 && menuState.AvatarCount == 1 && menuState.AvatarVisible
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
 
 	var defaultState struct {
-		HasProfile bool `json:"hasProfile"`
+		HasUserMenu          bool `json:"hasUserMenu"`
+		HasLegacyProfileMenu bool `json:"hasLegacyProfileMenu"`
 	}
 	evaluateScriptInto(testingT, page, dashboardHeaderDefaultProfileStateScript, &defaultState)
-	require.False(testingT, defaultState.HasProfile)
+	require.True(testingT, defaultState.HasUserMenu)
+	require.False(testingT, defaultState.HasLegacyProfileMenu)
+
+	accountSettingsLabel := evaluateScriptString(testingT, page, `(function(){
+		var menu = document.querySelector('mpr-user[data-loopaware-user-menu="true"]');
+		if (!menu) { return ''; }
+		var item = menu.querySelector('[data-mpr-user="menu-item"]');
+		if (!item) { return ''; }
+		return String(item.textContent || '').trim();
+	}())`)
+	require.Equal(testingT, "Account Settings", accountSettingsLabel)
+
+	logoutLabel := evaluateScriptString(testingT, page, `(function(){
+		var menu = document.querySelector('mpr-user[data-loopaware-user-menu="true"]');
+		if (!menu) { return ''; }
+		var item = menu.querySelector('[data-mpr-user="logout"]');
+		if (!item) { return ''; }
+		return String(item.textContent || '').trim();
+	}())`)
+	require.Equal(testingT, "Logout", logoutLabel)
 }

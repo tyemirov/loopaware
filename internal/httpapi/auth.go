@@ -26,6 +26,7 @@ const (
 	logEventFetchAvatar   = "fetch_avatar"
 	avatarEndpointPath    = "/api/me/avatar"
 	defaultAvatarMimeType = "application/octet-stream"
+	defaultAvatarDataURI  = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0IiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IlVzZXIiPgogIDxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjMyIiBmaWxsPSIjMzM0MTU1Ii8+CiAgPHBhdGggZmlsbD0iI2UyZThmMCIgZD0iTTMyIDM0YzYuNjI3IDAgMTItNS4zNzMgMTItMTJTMzguNjI3IDEwIDMyIDEwIDIwIDE1LjM3MyAyMCAyMnM1LjM3MyAxMiAxMiAxMnptMCA0Yy0xMC40OTMgMC0xOSA2LjUwNy0xOSAxNC41VjU2aDM4di0zLjVDNTEgNDQuNTA3IDQyLjQ5MyAzOCAzMiAzOHoiLz4KPC9zdmc+Cg=="
 	maxAvatarBytes        = 1 << 20
 )
 
@@ -243,6 +244,9 @@ func (authManager *AuthManager) ensureUser(context *gin.Context) (*CurrentUser, 
 		currentUser.PictureURL = localAvatarPath
 	} else {
 		currentUser.PictureURL = pictureURL
+	}
+	if currentUser.PictureURL == "" {
+		currentUser.PictureURL = defaultAvatarDataURI
 	}
 
 	context.Set(contextKeyCurrentUser, currentUser)
