@@ -117,7 +117,7 @@ var (
     data-loopaware-user-menu="true"
     display-mode="avatar"
     logout-url="/login"
-    menu-items='[{"label":"Account settings","href":"/app"}]'
+    menu-items='[{"label":"Account Settings","href":"/app"}]'
   ></mpr-user>
 </mpr-header>`))
 	publicThemeScriptTemplate = template.Must(template.New("public_theme_script").Parse(`(function() {

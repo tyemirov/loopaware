@@ -52,7 +52,7 @@ const (
 	dashboardFooterBrandURL                    = "https://mprlab.com"
 	dashboardFooterToggleButtonID              = "dashboard-footer-toggle"
 	dashboardHeaderLogoElementID               = "dashboard-header-logo"
-	navbarSettingsButtonLabel                  = "Account settings"
+	navbarSettingsButtonLabel                  = "Account Settings"
 	newSiteOptionValue                         = "__new__"
 	newSiteOptionLabel                         = "New site"
 	siteFormCreateButtonLabel                  = "Create site"

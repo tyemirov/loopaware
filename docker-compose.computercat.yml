@@ -1,0 +1,68 @@
+services:
+  la-tauth:
+    image: ghcr.io/tyemirov/tauth:latest
+    container_name: la-tauth
+    restart: unless-stopped
+    pull_policy: always
+    env_file:
+      - ./configs/.env.tauth.computercat
+    expose:
+      - "8082"
+    volumes:
+      - tauth-data:/data
+      - ./configs/config.tauth.yml:/config/config.yml:ro
+
+  la-pinguin:
+    container_name: la-pinguin
+    depends_on:
+      - la-tauth
+    image: ghcr.io/tyemirov/pinguin:latest
+    restart: unless-stopped
+    pull_policy: always
+    env_file:
+      - ./configs/.env.pinguin.computercat
+    expose:
+      - "8081"
+    volumes:
+      - pinguin-data:/app/data
+      - ./configs/config.pinguin.yml:/config/config.yml:ro
+
+  loopaware:
+    build:
+      context: .
+    image: ghcr.io/tyemirov/loopaware:latest
+    container_name: loopaware
+    restart: unless-stopped
+    pull_policy: build
+    env_file:
+      - ./configs/.env.loopaware.computercat
+    depends_on:
+      la-pinguin:
+        condition: service_started
+      la-tauth:
+        condition: service_started
+    expose:
+      - "8080"
+    volumes:
+      - loopaware-data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+
+  loopaware-proxy:
+    image: ghcr.io/tyemirov/ghttp:latest
+    container_name: loopaware-proxy
+    pull_policy: always
+    depends_on:
+      - loopaware
+      - la-tauth
+    ports:
+      - "4443:4443"
+    env_file:
+      - ./configs/.env.ghttp.computercat
+    volumes:
+      - /media/share/Drive/exchange/certs/computercat:/certs:ro
+    restart: unless-stopped
+
+volumes:
+  loopaware-data:
+  pinguin-data:
+  tauth-data:
