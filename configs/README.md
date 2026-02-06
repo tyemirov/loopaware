@@ -5,6 +5,7 @@ This directory holds local `.env.*` files and service config templates consumed 
 Notes:
 
 - `configs/.env.*` files are intentionally gitignored. Create them locally.
+- `configs/.env.*.example` files are tracked templates; copy them into `configs/.env.*`.
 - GitHub Actions CI writes minimal env fixtures for `make ci` (see `.github/workflows/ci.yml`).
 
 ## Local compose (`docker-compose.yml`)
@@ -14,6 +15,14 @@ Create these env files:
 - `configs/.env.loopaware`
 - `configs/.env.tauth`
 - `configs/.env.pinguin`
+
+Copy from the tracked templates:
+
+```bash
+cp configs/.env.loopaware.example configs/.env.loopaware
+cp configs/.env.tauth.example configs/.env.tauth
+cp configs/.env.pinguin.example configs/.env.pinguin
+```
 
 Required config file pointers:
 
@@ -42,6 +51,12 @@ GHTTP_SERVE_LOGGING_TYPE=JSON
 GHTTP_SERVE_TLS_CERTIFICATE=/certs/computercat-cert.pem
 GHTTP_SERVE_TLS_PRIVATE_KEY=/certs/computercat-key.pem
 GHTTP_SERVE_PROXIES=/tauth.js=http://la-tauth:8082,/me=http://la-tauth:8082,/auth/=http://la-tauth:8082,/=http://loopaware:8080
+```
+
+You can also copy the tracked template:
+
+```bash
+cp configs/.env.ghttp.example configs/.env.ghttp
 ```
 
 ### Service env updates

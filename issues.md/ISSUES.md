@@ -361,6 +361,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `docker-compose.yml`
   - `tools/TAuth/docs/usage.md`
   Resolution: Added `docker-compose.computercat.yml` using `ghttp` TLS reverse proxy on `:4443` (no nginx), documented required env/proxy setup in `configs/README.md`, and verified `make ci`; `make ci` passes.
+- [x] [LA-420] Consolidate environment templates under `configs/`.
+  Priority: P1
+  Goal: Avoid split `.env*` templates between the repo root and `configs/`; keep Docker Compose configuration and examples in one place.
+  Deliverable: Move tracked env templates into `configs/` with `*.example` files, update `README.md` to reference `configs/` env files for `docker compose`, and remove legacy root env templates.
+  Resolution: Removed legacy root templates (`.env.sample`, `config.tauth.yaml`), added tracked `configs/.env.*.example` templates, and updated docs to reference the `configs/` env layout; `make ci` passes.
 
 
 ## Planning (500–59999)
