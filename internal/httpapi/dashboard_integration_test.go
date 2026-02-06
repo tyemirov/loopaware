@@ -302,6 +302,27 @@ const (
 			return Promise.reject(new Error('logout blocked'));
 		};
 	}())`
+	dashboardLogoutForbiddenScript = `(function() {
+		var originalFetch = window.fetch ? window.fetch.bind(window) : null;
+		window.fetch = function(input, options) {
+			var url = '';
+			if (typeof input === 'string') {
+				url = input;
+			} else if (input && typeof input.url === 'string') {
+				url = input.url;
+			}
+			if (url.indexOf('/auth/logout') !== -1) {
+				return Promise.resolve(new Response(null, { status: 403 }));
+			}
+			if (originalFetch) {
+				return originalFetch(input, options);
+			}
+			return Promise.reject(new Error('fetch unavailable'));
+		};
+		window.__loopawareLogoutDelegate = function() {
+			return Promise.resolve();
+		};
+	}())`
 	dashboardBodyModalOpenScript = `(function() {
 		return document.body && document.body.classList.contains('modal-open');
 	}())`
@@ -1267,6 +1288,55 @@ func TestDashboardLogoutFallsBackToFormWhenLogoutAndFetchFail(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return evaluateScriptString(t, page, dashboardLocationPathScript) == dashboardTestLandingPath
 	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+}
+
+func TestDashboardLogoutDoesNotRedirectWhenLogoutEndpointForbidden(t *testing.T) {
+	harness := buildDashboardIntegrationHarness(t, dashboardTestAdminEmail)
+	defer harness.Close()
+
+	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
+
+	page := buildHeadlessPage(t)
+
+	setPageCookie(t, page, harness.baseURL, sessionCookie)
+
+	navigateToPage(t, page, harness.baseURL+dashboardTestDashboardRoute)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, dashboardIdleHooksReadyScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	userEmailVisibleScript := fmt.Sprintf(`(function(){
+		var element = document.querySelector(%q);
+		if (!element) { return false; }
+		var style = window.getComputedStyle(element);
+		if (!style) { return false; }
+		return style.display !== 'none' && style.visibility !== 'hidden';
+	}())`, dashboardUserEmailSelector)
+	require.Eventually(t, func() bool {
+		return evaluateScriptBoolean(t, page, userEmailVisibleScript)
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, `(function(){
+			var header = document.querySelector('mpr-header');
+			if (!header) { return ''; }
+			return header.getAttribute('data-loopaware-auth-bound') || '';
+		}())`) == "true"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	evaluateScriptInto(t, page, dashboardLogoutForbiddenScript, nil)
+
+	openDashboardUserMenu(t, page)
+	openDashboardUserMenu(t, page)
+	clickSelector(t, page, dashboardUserMenuLogoutButtonSelector)
+
+	require.Eventually(t, func() bool {
+		return evaluateScriptString(t, page, `(function(){
+			var menu = document.querySelector('mpr-user[data-loopaware-user-menu="true"]');
+			if (!menu) { return ''; }
+			return menu.getAttribute('data-mpr-user-error') || '';
+		}())`) == "loopaware.logout_failed"
+	}, dashboardPromptWaitTimeout, dashboardPromptPollInterval)
+
+	require.Equal(t, dashboardTestDashboardRoute, evaluateScriptString(t, page, dashboardLocationPathScript))
 }
 
 func TestDashboardLogoutDisablesGoogleAutoSelect(testingT *testing.T) {

@@ -350,22 +350,43 @@ var (
         headers: resolveLogoutHeaders(headerHost)
       });
     };
-    var logoutWithFetchFallback = function() {
-      return logoutRequest().catch(function() {
-        return submitLogoutForm(logoutUrl);
-      });
-    };
-    if (typeof logoutDelegate === 'function') {
+    function assertLogoutResponseOk(response) {
+      if (!response || typeof response.ok !== 'boolean') {
+        return response;
+      }
+      if (response.ok) {
+        return response;
+      }
+      var error = new Error('loopaware.logout_failed');
+      error.code = 'loopaware.logout_failed';
+      error.status = response.status;
+      throw error;
+    }
+    function invokeLogoutDelegate() {
+      if (typeof logoutDelegate !== 'function') {
+        return Promise.resolve();
+      }
       try {
-        return Promise.resolve(logoutDelegate())
-          .catch(function() {
-            return logoutWithFetchFallback();
-          });
+        return Promise.resolve(logoutDelegate()).catch(function() {});
       } catch (error) {
-        return logoutWithFetchFallback();
+        return Promise.resolve();
       }
     }
-    return logoutWithFetchFallback();
+    var logoutWithFetchFallback = function() {
+      return logoutRequest()
+        .then(assertLogoutResponseOk)
+        .catch(function(error) {
+          if (error && typeof error.status === 'number' && error.status) {
+            throw error;
+          }
+          return submitLogoutForm(logoutUrl);
+        });
+    };
+    return logoutWithFetchFallback().then(function(result) {
+      return invokeLogoutDelegate().then(function() {
+        return result;
+      });
+    });
   }
 
   function ensureLogoutFallback(headerHost) {
