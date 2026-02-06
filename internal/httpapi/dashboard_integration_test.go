@@ -1398,7 +1398,7 @@ func TestDashboardUserMenuHasSingleAvatarAndExpectedItems(t *testing.T) {
 		if (!element) { return ''; }
 		return String(element.textContent || '').trim();
 	}())`, dashboardUserMenuAccountSettingsSelector))
-	require.Equal(t, "Account settings", accountSettingsLabel)
+	require.Equal(t, "Account Settings", accountSettingsLabel)
 
 	logoutLabel := evaluateScriptString(t, page, fmt.Sprintf(`(function(){
 		var element = document.querySelector(%q);
@@ -2642,7 +2642,7 @@ func TestTestPagesUseUserMenu(t *testing.T) {
 			if (!element) { return ''; }
 			return String(element.textContent || '').trim();
 		}())`, dashboardUserMenuAccountSettingsSelector))
-		require.Equal(t, "Account settings", accountSettingsLabel)
+		require.Equal(t, "Account Settings", accountSettingsLabel)
 
 		logoutLabel := evaluateScriptString(t, page, fmt.Sprintf(`(function(){
 			var element = document.querySelector(%q);
