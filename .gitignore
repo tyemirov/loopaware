@@ -10,6 +10,7 @@ tools/
 tests/
 # Managed by gix gitignore workflow
 .env.*
+!configs/.env.*.example
 qodana.yaml
 bin/
 .gocache/
