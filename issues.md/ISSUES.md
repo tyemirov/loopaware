@@ -353,6 +353,24 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/public_assets.go`
   - `internal/httpapi/dashboard_integration_test.go`
   Resolution: Replaced legacy profile dropdown with a single `mpr-user` avatar menu (Account settings + Logout), removed unused legacy profile CSS/JS, and added integration coverage asserting a single visible avatar + expected menu items on both landing and dashboard; `make ci` passes.
+- [x] [LA-419] Docker Compose should serve `computercat.tyemirov.net:4443` with TLS.
+  Priority: P1
+  Goal: Run the LoopAware + TAuth stack on `https://computercat.tyemirov.net:4443` (not `localhost`) using the shared certificate files.
+  Deliverable: Add a docker compose variant that terminates TLS on port `4443` using certs from `/media/share/Drive/exchange/certs/computercat`, and update env/config defaults so the browser uses `https://computercat.tyemirov.net:4443` for LoopAware and TAuth endpoints.
+  Docs/Refs:
+  - `docker-compose.yml`
+  - `tools/TAuth/docs/usage.md`
+  Resolution: Added `docker-compose.computercat.yml` using `ghttp` TLS reverse proxy on `:4443` (no nginx), documented required env/proxy setup in `configs/README.md`, and verified `make ci`; `make ci` passes.
+- [x] [LA-420] Consolidate environment templates under `configs/`.
+  Priority: P1
+  Goal: Avoid split `.env*` templates between the repo root and `configs/`; keep Docker Compose configuration and examples in one place.
+  Deliverable: Move tracked env templates into `configs/` with `*.example` files, update `README.md` to reference `configs/` env files for `docker compose`, and remove legacy root env templates.
+  Resolution: Removed legacy root templates (`.env.sample`, `config.tauth.yaml`), added tracked `configs/.env.*.example` templates, and updated docs to reference the `configs/` env layout; `make ci` passes.
+- [x] [LA-421] Provide computercat-ready env templates under `configs/`.
+  Priority: P1
+  Goal: Make `docker-compose.computercat.yml` runnable on `https://computercat.tyemirov.net:4443` without editing the local-compose env files.
+  Deliverable: Add `configs/.env.*.computercat.example` templates and update `docker-compose.computercat.yml` + `configs/README.md` to use dedicated `configs/.env.*.computercat` env files.
+  Resolution: Added computercat env templates, switched `docker-compose.computercat.yml` to consume the dedicated env files, and updated docs with copy/edit instructions; `make ci` passes.
 
 
 ## Planning (500–59999)

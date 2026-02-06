@@ -65,7 +65,7 @@ func TestLandingHeaderUsesUserMenu(testingT *testing.T) {
 		if (!item) { return ''; }
 		return String(item.textContent || '').trim();
 	}())`)
-	require.Equal(testingT, "Account settings", accountSettingsLabel)
+	require.Equal(testingT, "Account Settings", accountSettingsLabel)
 
 	logoutLabel := evaluateScriptString(testingT, page, `(function(){
 		var menu = document.querySelector('mpr-user[data-loopaware-user-menu="true"]');
