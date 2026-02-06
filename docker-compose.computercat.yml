@@ -27,13 +27,34 @@ services:
       - pinguin-data:/app/data
       - ./configs/config.pinguin.yml:/config/config.yml:ro
 
-  loopaware:
+  loopaware-web:
     build:
       context: .
     image: ghcr.io/tyemirov/loopaware:latest
-    container_name: loopaware
+    container_name: loopaware-web
     restart: unless-stopped
     pull_policy: build
+    command:
+      - --serve-mode=web
+    env_file:
+      - ./configs/.env.loopaware.computercat
+    depends_on:
+      la-tauth:
+        condition: service_started
+    expose:
+      - "8080"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+
+  loopaware-api:
+    build:
+      context: .
+    image: ghcr.io/tyemirov/loopaware:latest
+    container_name: loopaware-api
+    restart: unless-stopped
+    pull_policy: build
+    command:
+      - --serve-mode=api
     env_file:
       - ./configs/.env.loopaware.computercat
     depends_on:
@@ -52,7 +73,8 @@ services:
     container_name: loopaware-proxy
     pull_policy: always
     depends_on:
-      - loopaware
+      - loopaware-web
+      - loopaware-api
       - la-tauth
     ports:
       - "4443:4443"
