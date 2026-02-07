@@ -49,7 +49,7 @@
           return;
         }
 
-        var allowed = ["mode", "accent", "cta", "success", "error", "name_field", "target"];
+        var allowed = ["mode", "accent", "cta", "success", "error", "name_field", "target", "api_origin"];
         var extra = new URLSearchParams();
         for (var index = 0; index < allowed.length; index += 1) {
           var key = allowed[index];
@@ -76,4 +76,3 @@
     </script>
   </body>
 </html>
-

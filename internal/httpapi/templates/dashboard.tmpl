@@ -2153,6 +2153,71 @@
         }
         var buttonStatusDisplayDuration = 3000;
         var widgetBaseURL = window.location.origin.replace(/\/$/, '');
+        function resolveOriginFromURL(value) {
+          if (typeof value !== 'string') {
+            return '';
+          }
+          var trimmed = value.trim();
+          if (!trimmed) {
+            return '';
+          }
+          if (trimmed.indexOf('http://') !== 0 && trimmed.indexOf('https://') !== 0) {
+            return '';
+          }
+          try {
+            var parsed = new URL(trimmed);
+            if (parsed && typeof parsed.origin === 'string' && parsed.origin && parsed.origin !== 'null') {
+              return parsed.origin.replace(/\/$/, '');
+            }
+          } catch (error) {}
+          return '';
+        }
+        var apiOrigin = resolveOriginFromURL(apiMeEndpoint) || resolveOriginFromURL(apiSitesEndpoint) || widgetBaseURL;
+        function shouldIncludeAPIOrigin() {
+          return apiOrigin && apiOrigin !== widgetBaseURL;
+        }
+        function appendQueryParam(url, key, value) {
+          if (!url || !key || !value) {
+            return url;
+          }
+          var separator = url.indexOf('?') === -1 ? '?' : '&';
+          return url + separator + encodeURIComponent(key) + '=' + encodeURIComponent(value);
+        }
+        function appendAPIOriginParam(url) {
+          if (!shouldIncludeAPIOrigin()) {
+            return url;
+          }
+          return appendQueryParam(url, 'api_origin', apiOrigin);
+        }
+        function resolveTauthOrigin() {
+          if (typeof window.getAuthEndpoints === 'function') {
+            try {
+              var endpoints = window.getAuthEndpoints();
+              if (endpoints && typeof endpoints.baseUrl === 'string' && endpoints.baseUrl.trim()) {
+                return endpoints.baseUrl.trim().replace(/\/+$/, '');
+              }
+            } catch (error) {}
+          }
+          var headerHost = document.querySelector('mpr-header');
+          if (!headerHost || typeof headerHost.getAttribute !== 'function') {
+            return '';
+          }
+          var value = String(headerHost.getAttribute('tauth-url') || '').trim();
+          if (!value) {
+            return '';
+          }
+          if (value.indexOf('http://') !== 0 && value.indexOf('https://') !== 0) {
+            return '';
+          }
+          return value.replace(/\/+$/, '');
+        }
+        var tauthOrigin = resolveTauthOrigin();
+        function appendTauthOriginParam(url) {
+          if (!tauthOrigin) {
+            return url;
+          }
+          return appendQueryParam(url, 'tauth_origin', tauthOrigin);
+        }
         if (widgetSnippetTextarea) {
           widgetSnippetTextarea.value = widgetUnavailableMessage;
         }
@@ -2435,15 +2500,21 @@
         }
 
         function buildWidgetSnippet(siteId) {
-          return '<script defer src="' + widgetBaseURL + '/widget.js?site_id=' + siteId + '"></script>';
+          var url = widgetBaseURL + '/widget.js?site_id=' + encodeURIComponent(siteId);
+          url = appendAPIOriginParam(url);
+          return '<script defer src="' + url + '"></script>';
         }
 
         function buildSubscribeSnippet(siteId) {
-          return '<script defer src="' + widgetBaseURL + '/subscribe.js?site_id=' + siteId + '"></script>';
+          var url = widgetBaseURL + '/subscribe.js?site_id=' + encodeURIComponent(siteId);
+          url = appendAPIOriginParam(url);
+          return '<script defer src="' + url + '"></script>';
         }
 
         function buildTrafficSnippet(siteId) {
-          return '<script defer src="' + widgetBaseURL + '/pixel.js?site_id=' + siteId + '"></script>';
+          var url = widgetBaseURL + '/pixel.js?site_id=' + encodeURIComponent(siteId);
+          url = appendAPIOriginParam(url);
+          return '<script defer src="' + url + '"></script>';
         }
 
         function updateButtonStatus(button, text, extraClass) {
@@ -3532,12 +3603,28 @@
         faviconEventSource = null;
       }
 
+      function createEventSource(endpointURL) {
+        if (!window.EventSource || !endpointURL) {
+          return null;
+        }
+        try {
+          return new EventSource(endpointURL, { withCredentials: true });
+        } catch (error) {}
+        try {
+          return new EventSource(endpointURL);
+        } catch (error) {}
+        return null;
+      }
+
       function openFaviconEventStream() {
-        if (!window.EventSource || !siteFaviconEventsEndpoint) {
+        if (!siteFaviconEventsEndpoint) {
           return;
         }
         closeFaviconEventStream();
-        faviconEventSource = new EventSource(siteFaviconEventsEndpoint);
+        faviconEventSource = createEventSource(siteFaviconEventsEndpoint);
+        if (!faviconEventSource) {
+          return;
+        }
         faviconEventSource.addEventListener(faviconUpdatedEventName, handleFaviconUpdateEvent);
         faviconEventSource.onerror = function() {
           closeFaviconEventStream();
@@ -3580,11 +3667,14 @@
       }
 
       function openFeedbackEventStream() {
-        if (!window.EventSource || !feedbackEventsEndpoint) {
+        if (!feedbackEventsEndpoint) {
           return;
         }
         closeFeedbackEventStream();
-        feedbackEventSource = new EventSource(feedbackEventsEndpoint);
+        feedbackEventSource = createEventSource(feedbackEventsEndpoint);
+        if (!feedbackEventSource) {
+          return;
+        }
         feedbackEventSource.addEventListener(feedbackUpdatedEventName, handleFeedbackUpdateEvent);
         feedbackEventSource.onerror = function() {
           closeFeedbackEventStream();
@@ -4037,6 +4127,8 @@
               return;
             }
             var targetURL = (widgetTestPagePrefix || '') + siteIdForTest + (widgetTestPageSuffix || '');
+            targetURL = appendAPIOriginParam(targetURL);
+            targetURL = appendTauthOriginParam(targetURL);
             if (targetURL) {
               window.open(targetURL, '_blank', 'noopener');
             }
@@ -4054,6 +4146,8 @@
               return;
             }
             var subscribeURL = (subscribeTestPagePrefix || '') + subscribeSiteId + (subscribeTestPageSuffix || '');
+            subscribeURL = appendAPIOriginParam(subscribeURL);
+            subscribeURL = appendTauthOriginParam(subscribeURL);
             if (subscribeURL) {
               window.open(subscribeURL, '_blank', 'noopener');
             }
@@ -4071,6 +4165,8 @@
               return;
             }
             var trafficURL = (trafficTestPagePrefix || '') + trafficSiteId + (trafficTestPageSuffix || '');
+            trafficURL = appendAPIOriginParam(trafficURL);
+            trafficURL = appendTauthOriginParam(trafficURL);
             if (trafficURL) {
               window.open(trafficURL, '_blank', 'noopener');
             }

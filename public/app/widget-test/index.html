@@ -20,7 +20,28 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css"
     />
-    <script defer src="/tauth.js"></script>
+    <script id="tauth-script" defer></script>
+    <script>
+      // @ts-check
+      (function () {
+        var params = new URLSearchParams(window.location.search || "");
+        function normalizeOrigin(value) {
+          var trimmed = String(value || "").trim();
+          if (!trimmed) return "";
+          if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) return "";
+          return trimmed.replace(/\/+$/, "");
+        }
+        var apiOrigin = normalizeOrigin(params.get("api_origin") || "");
+        var tauthOrigin = normalizeOrigin(params.get("tauth_origin") || "") || apiOrigin;
+        var script = document.getElementById("tauth-script");
+        if (!script) return;
+        if (tauthOrigin) {
+          script.src = tauthOrigin + "/tauth.js";
+        } else {
+          script.src = "/tauth.js";
+        }
+      })();
+    </script>
     <script defer src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -56,6 +77,25 @@
         menu-items='[{"label":"Account Settings","href":"/app"}]'
       ></mpr-user>
     </mpr-header>
+    <script>
+      // @ts-check
+      (function () {
+        var params = new URLSearchParams(window.location.search || "");
+        function normalizeOrigin(value) {
+          var trimmed = String(value || "").trim();
+          if (!trimmed) return "";
+          if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) return "";
+          return trimmed.replace(/\/+$/, "");
+        }
+        var apiOrigin = normalizeOrigin(params.get("api_origin") || "");
+        var tauthOrigin = normalizeOrigin(params.get("tauth_origin") || "") || apiOrigin;
+        if (!tauthOrigin) return;
+        var headerHost = document.querySelector("mpr-header");
+        if (headerHost) {
+          headerHost.setAttribute("tauth-url", tauthOrigin);
+        }
+      })();
+    </script>
 
     <main class="flex-grow-1 pt-5 mt-4">
       <div class="container py-4">
@@ -140,6 +180,21 @@
       (function () {
         var params = new URLSearchParams(window.location.search || "");
         var siteId = (params.get("site_id") || "").trim();
+        var apiOrigin = (params.get("api_origin") || "").trim();
+
+        function normalizeOrigin(value) {
+          var trimmed = String(value || "").trim();
+          if (!trimmed) return "";
+          if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) return "";
+          return trimmed.replace(/\/+$/, "");
+        }
+
+        var apiBaseURL = normalizeOrigin(apiOrigin);
+        function apiUrl(path) {
+          if (!apiBaseURL) return path;
+          if (String(path || "").indexOf("/") === 0) return apiBaseURL + path;
+          return apiBaseURL + "/" + path;
+        }
 
         var siteIdElement = document.getElementById("widget-test-site-id");
         var siteNameElement = document.getElementById("widget-test-site-name");
@@ -257,7 +312,7 @@
         }
 
         function hydrateFromSite() {
-          authFetch("/api/sites", {
+          authFetch(apiUrl("/api/sites"), {
             method: "GET",
             credentials: "include",
             headers: { Accept: "application/json" },
@@ -297,6 +352,9 @@
           var script = document.createElement("script");
           script.defer = true;
           script.src = "/widget.js?site_id=" + encodeURIComponent(siteId);
+          if (apiBaseURL) {
+            script.src += "&api_origin=" + encodeURIComponent(apiBaseURL);
+          }
           document.head.appendChild(script);
         }
 
@@ -308,9 +366,9 @@
         }
 
         window.LOOPAWARE_WIDGET_TEST_MODE = true;
-        window.LOOPAWARE_WIDGET_TEST_ENDPOINT = "/api/sites/" + encodeURIComponent(siteId) + "/widget-test/feedback";
+        window.LOOPAWARE_WIDGET_TEST_ENDPOINT = apiUrl("/api/sites/" + encodeURIComponent(siteId) + "/widget-test/feedback");
 
-        var updateEndpoint = "/api/sites/" + encodeURIComponent(siteId);
+        var updateEndpoint = apiUrl("/api/sites/" + encodeURIComponent(siteId));
         applyFormState("right", 16);
         hydrateFromSite();
         loadWidgetScript();

@@ -12,24 +12,26 @@ import (
 type SubscriptionLinkPageHandlers struct {
 	logger     *zap.Logger
 	authConfig AuthClientConfig
+	apiBaseURL string
 }
 
-func NewSubscriptionLinkPageHandlers(logger *zap.Logger, authConfig AuthClientConfig) *SubscriptionLinkPageHandlers {
+func NewSubscriptionLinkPageHandlers(logger *zap.Logger, authConfig AuthClientConfig, apiBaseURL string) *SubscriptionLinkPageHandlers {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 	return &SubscriptionLinkPageHandlers{
 		logger:     logger,
 		authConfig: authConfig,
+		apiBaseURL: normalizeBaseURL(apiBaseURL),
 	}
 }
 
 func (handlers *SubscriptionLinkPageHandlers) RenderConfirmSubscriptionLink(context *gin.Context) {
-	handlers.renderSubscriptionLinkPage(context, "Subscription confirmation", "Preparing confirmation...", "/api/subscriptions/confirm-link")
+	handlers.renderSubscriptionLinkPage(context, "Subscription confirmation", "Preparing confirmation...", joinBaseURL(handlers.apiBaseURL, "/api/subscriptions/confirm-link"))
 }
 
 func (handlers *SubscriptionLinkPageHandlers) RenderUnsubscribeSubscriptionLink(context *gin.Context) {
-	handlers.renderSubscriptionLinkPage(context, "Unsubscribe", "Preparing unsubscribe...", "/api/subscriptions/unsubscribe-link")
+	handlers.renderSubscriptionLinkPage(context, "Unsubscribe", "Preparing unsubscribe...", joinBaseURL(handlers.apiBaseURL, "/api/subscriptions/unsubscribe-link"))
 }
 
 func (handlers *SubscriptionLinkPageHandlers) renderSubscriptionLinkPage(context *gin.Context, heading string, message string, actionEndpoint string) {

@@ -2,7 +2,9 @@ package main
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/httpapi"
@@ -49,17 +51,36 @@ func registerBackendRoutes(
 	siteHandlers *httpapi.SiteHandlers,
 	widgetTestHandlers *httpapi.SiteWidgetTestHandlers,
 	subscribeTestHandlers *httpapi.SiteSubscribeTestHandlers,
+	authenticatedOrigin string,
 ) {
-	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
-	router.POST(publicRouteSubscription, publicHandlers.CreateSubscription)
-	router.POST(publicRouteSubscriptionConfirm, publicHandlers.ConfirmSubscription)
-	router.POST(publicRouteSubscriptionOptOut, publicHandlers.Unsubscribe)
-	router.GET("/api/widget-config", publicHandlers.WidgetConfig)
-	router.GET("/api/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
-	router.GET("/api/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
-	router.GET(publicRouteVisitPixel, publicHandlers.CollectVisit)
+	publicCORS := cors.New(cors.Config{
+		AllowOrigins:     []string{corsOriginWildcard},
+		AllowMethods:     corsAllowedMethods,
+		AllowHeaders:     corsAllowedHeaders,
+		ExposeHeaders:    corsExposedHeaders,
+		AllowCredentials: false,
+		MaxAge:           12 * time.Hour,
+	})
+	publicGroup := router.Group("/")
+	publicGroup.Use(publicCORS)
+	publicGroup.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
+	publicGroup.POST(publicRouteSubscription, publicHandlers.CreateSubscription)
+	publicGroup.POST(publicRouteSubscriptionConfirm, publicHandlers.ConfirmSubscription)
+	publicGroup.POST(publicRouteSubscriptionOptOut, publicHandlers.Unsubscribe)
+	publicGroup.GET("/api/widget-config", publicHandlers.WidgetConfig)
+	publicGroup.GET("/api/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
+	publicGroup.GET("/api/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
+	publicGroup.GET(publicRouteVisitPixel, publicHandlers.CollectVisit)
 
 	apiGroup := router.Group(apiRoutePrefix)
+	apiGroup.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{authenticatedOrigin},
+		AllowMethods:     corsAllowedMethods,
+		AllowHeaders:     corsAllowedHeaders,
+		ExposeHeaders:    corsExposedHeaders,
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 	apiGroup.Use(authManager.RequireAuthenticatedJSON())
 	apiGroup.GET(apiRouteMe, siteHandlers.CurrentUser)
 	apiGroup.GET(apiRouteMeAvatar, siteHandlers.UserAvatar)

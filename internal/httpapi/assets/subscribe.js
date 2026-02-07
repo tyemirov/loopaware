@@ -74,6 +74,10 @@
 
   function buildEndpoint(scriptTag) {
     var endpoint = (location.protocol + "//" + location.host + "/api/subscriptions");
+    var apiOriginOverride = resolveAPIOriginOverride(scriptTag);
+    if (apiOriginOverride) {
+      return apiOriginOverride + "/api/subscriptions";
+    }
     try {
       if (scriptTag && scriptTag.src) {
         var link = document.createElement("a");
@@ -82,6 +86,52 @@
       }
     } catch(endpointError){}
     return endpoint;
+  }
+
+  function normalizeAPIOriginOverride(rawValue) {
+    if (typeof rawValue !== "string") {
+      return "";
+    }
+    var trimmed = rawValue.trim();
+    if (!trimmed) {
+      return "";
+    }
+    if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) {
+      return "";
+    }
+    try {
+      var parsed = new URL(trimmed);
+      var origin = parsed && typeof parsed.origin === "string" ? parsed.origin : "";
+      if (!origin || origin === "null") {
+        return "";
+      }
+      return origin.replace(/\/+$/, "");
+    } catch(parseError) {}
+    return "";
+  }
+
+  function resolveAPIOriginOverride(scriptTag) {
+    if (!scriptTag) {
+      return "";
+    }
+    var candidate = "";
+    try {
+      if (typeof scriptTag.getAttribute === "function") {
+        candidate = scriptTag.getAttribute("data-api-origin") || "";
+      }
+    } catch(attributeError){}
+    try {
+      if (scriptTag.src) {
+        var link = document.createElement("a");
+        link.href = scriptTag.src;
+        var params = new URLSearchParams(link.search || "");
+        var queryOrigin = params.get("api_origin") || "";
+        if (queryOrigin) {
+          candidate = queryOrigin;
+        }
+      }
+    } catch(parseError){}
+    return normalizeAPIOriginOverride(candidate);
   }
 
   function createInlineContainer(config) {

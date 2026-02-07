@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -151,7 +151,6 @@ var (
 	corsAllowedMethods          = []string{httpMethodPost, httpMethodGet, httpMethodOptions, httpMethodPatch, httpMethodDelete}
 	corsAllowedHeaders          = []string{corsHeaderAuthorization, corsHeaderContentType, corsHeaderXTAuthTenant}
 	corsExposedHeaders          = []string{corsHeaderContentType}
-	corsAllowOrigins            = []string{corsOriginWildcard}
 	defaultDatabaseDriverName   = storage.DriverNameSQLite
 	defaultSQLiteDataSourceName = fmt.Sprintf(sqliteFileDataSourceNamePattern, defaultSQLiteDatabaseFileName)
 )
@@ -407,15 +406,6 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	router.Use(gin.Recovery())
 	router.Use(httpapi.RequestLogger(logger))
 
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:     corsAllowOrigins,
-		AllowMethods:     corsAllowedMethods,
-		AllowHeaders:     corsAllowedHeaders,
-		ExposeHeaders:    corsExposedHeaders,
-		AllowCredentials: false,
-		MaxAge:           12 * time.Hour,
-	}))
-
 	sharedHTTPClient := &http.Client{Timeout: 5 * time.Second}
 	authClientConfig := httpapi.NewAuthClientConfig(serverConfig.GoogleClientID, serverConfig.TauthBaseURL, serverConfig.TauthTenantID)
 	if serverConfig.ServeMode == ServeModeWeb {
@@ -428,13 +418,13 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 			logger.Fatal(loggerContextAuthService, zap.Error(authManagerErr))
 		}
 
-		dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot, authClientConfig)
-		landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager, authClientConfig)
+		dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot, authClientConfig, "")
+		landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager, authClientConfig, "")
 		privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager, authClientConfig)
 		sitemapHandlers := httpapi.NewSitemapHandlers(serverConfig.PublicBaseURL)
 		publicJavaScriptHandlers := httpapi.NewPublicJavaScriptHandlers()
 		subscribeDemoHandlers := httpapi.NewSubscribeDemoPageHandlers(logger)
-		subscriptionLinkHandlers := httpapi.NewSubscriptionLinkPageHandlers(logger, authClientConfig)
+		subscriptionLinkHandlers := httpapi.NewSubscriptionLinkPageHandlers(logger, authClientConfig, "")
 		widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(nil, logger, serverConfig.PublicBaseURL, nil, nil, authClientConfig)
 		trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(nil, logger, authClientConfig)
 		subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(nil, logger, nil, nil, false, serverConfig.PublicBaseURL, "", nil, authClientConfig)
@@ -495,16 +485,20 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(database, logger, serverConfig.PublicBaseURL, feedbackBroadcaster, pinguinNotifier, authClientConfig)
 		trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(database, logger, authClientConfig)
 		subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(database, logger, subscriptionEvents, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier, authClientConfig)
-		registerBackendRoutes(router, authManager, publicHandlers, siteHandlers, widgetTestHandlers, subscribeTestHandlers)
+		authenticatedOrigin, originErr := resolveOrigin(serverConfig.PublicBaseURL)
+		if originErr != nil {
+			logger.Fatal("cors_origin", zap.Error(originErr))
+		}
+		registerBackendRoutes(router, authManager, publicHandlers, siteHandlers, widgetTestHandlers, subscribeTestHandlers, authenticatedOrigin)
 
 		if serverConfig.ServeMode == ServeModeMonolith {
-			dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot, authClientConfig)
-			landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager, authClientConfig)
+			dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot, authClientConfig, "")
+			landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager, authClientConfig, "")
 			privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager, authClientConfig)
 			sitemapHandlers := httpapi.NewSitemapHandlers(serverConfig.PublicBaseURL)
 			publicJavaScriptHandlers := httpapi.NewPublicJavaScriptHandlers()
 			subscribeDemoHandlers := httpapi.NewSubscribeDemoPageHandlers(logger)
-			subscriptionLinkHandlers := httpapi.NewSubscriptionLinkPageHandlers(logger, authClientConfig)
+			subscriptionLinkHandlers := httpapi.NewSubscriptionLinkPageHandlers(logger, authClientConfig, "")
 			registerFrontendRoutes(router, authManager, landingHandlers, privacyHandlers, sitemapHandlers, dashboardHandlers, publicJavaScriptHandlers, subscribeDemoHandlers, subscriptionLinkHandlers, widgetTestHandlers, trafficTestHandlers, subscribeTestHandlers)
 		}
 	}
@@ -521,6 +515,21 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	}
 
 	return nil
+}
+
+func resolveOrigin(rawURL string) (string, error) {
+	trimmed := strings.TrimSpace(rawURL)
+	if trimmed == "" {
+		return "", errors.New("missing base url")
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("parse base url: %w", err)
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return "", fmt.Errorf("invalid base url: %s", trimmed)
+	}
+	return parsed.Scheme + "://" + parsed.Host, nil
 }
 
 func (application *ServerApplication) loadServerConfig(configFilePath string) (ServerConfig, error) {

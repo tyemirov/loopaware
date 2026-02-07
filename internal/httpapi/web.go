@@ -646,9 +646,10 @@ type DashboardWebHandlers struct {
 	template    *template.Template
 	landingPath string
 	authConfig  AuthClientConfig
+	apiBaseURL  string
 }
 
-func NewDashboardWebHandlers(logger *zap.Logger, landingPath string, authConfig AuthClientConfig) *DashboardWebHandlers {
+func NewDashboardWebHandlers(logger *zap.Logger, landingPath string, authConfig AuthClientConfig, apiBaseURL string) *DashboardWebHandlers {
 	baseTemplate := template.Must(template.New(dashboardTemplateName).Parse(dashboardHeaderTemplateHTML))
 	compiledTemplate := template.Must(baseTemplate.Parse(dashboardTemplateHTML))
 	normalizedLandingPath := landingPath
@@ -660,6 +661,7 @@ func NewDashboardWebHandlers(logger *zap.Logger, landingPath string, authConfig 
 		template:    compiledTemplate,
 		landingPath: normalizedLandingPath,
 		authConfig:  authConfig,
+		apiBaseURL:  normalizeBaseURL(apiBaseURL),
 	}
 }
 
@@ -675,12 +677,16 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 		authScript = template.JS("")
 	}
 
+	apiMeEndpoint := joinBaseURL(handlers.apiBaseURL, "/api/me")
+	apiSitesEndpoint := joinBaseURL(handlers.apiBaseURL, "/api/sites")
+	apiSitesPrefix := joinBaseURL(handlers.apiBaseURL, "/api/sites/")
+
 	data := dashboardTemplateData{
 		PageTitle:                               dashboardPageTitle,
-		APIMeEndpoint:                           "/api/me",
-		APISitesEndpoint:                        "/api/sites",
-		APISiteUpdateEndpointPrefix:             "/api/sites/",
-		APIMessagesEndpointPrefix:               "/api/sites/",
+		APIMeEndpoint:                           apiMeEndpoint,
+		APISitesEndpoint:                        apiSitesEndpoint,
+		APISiteUpdateEndpointPrefix:             apiSitesPrefix,
+		APIMessagesEndpointPrefix:               apiSitesPrefix,
 		APIMessagesEndpointSuffix:               "/messages",
 		TauthScriptURL:                          template.URL(handlers.authConfig.TauthScriptURL),
 		AuthScript:                              authScript,
@@ -961,18 +967,18 @@ func (handlers *DashboardWebHandlers) RenderDashboard(context *gin.Context) {
 
 	clientConfig := dashboardClientConfig{
 		APIPaths: map[string]string{
-			"me":                      "/api/me",
-			"sites":                   "/api/sites",
-			"site_update_prefix":      "/api/sites/",
-			"site_messages_prefix":    "/api/sites/",
+			"me":                      apiMeEndpoint,
+			"sites":                   apiSitesEndpoint,
+			"site_update_prefix":      apiSitesPrefix,
+			"site_messages_prefix":    apiSitesPrefix,
 			"site_messages_suffix":    "/messages",
-			"site_subscribers_prefix": "/api/sites/",
+			"site_subscribers_prefix": apiSitesPrefix,
 			"site_subscribers_suffix": "/subscribers",
 			"site_subscribers_export": "/subscribers/export",
 			"site_subscriber_update":  "/subscribers/",
 			"site_visit_stats":        "/visits/stats",
-			"site_favicon_events":     "/api/sites/favicons/events",
-			"feedback_events":         "/api/sites/feedback/events",
+			"site_favicon_events":     joinBaseURL(handlers.apiBaseURL, "/api/sites/favicons/events"),
+			"feedback_events":         joinBaseURL(handlers.apiBaseURL, "/api/sites/feedback/events"),
 		},
 		Paths: map[string]string{
 			"landing":               handlers.landingPath,

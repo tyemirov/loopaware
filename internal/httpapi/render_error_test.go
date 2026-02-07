@@ -30,7 +30,7 @@ func TestRenderDashboardHandlesFooterAndAuthErrors(testingT *testing.T) {
 		publicAuthScriptTemplate = originalAuthTemplate
 	})
 
-	handlers := NewDashboardWebHandlers(zap.NewNop(), "/", AuthClientConfig{})
+	handlers := NewDashboardWebHandlers(zap.NewNop(), "/", AuthClientConfig{}, "")
 	handlers.RenderDashboard(context)
 
 	require.Equal(testingT, http.StatusOK, recorder.Code)
@@ -85,7 +85,7 @@ func TestRenderLandingPageHandlesAssetErrors(testingT *testing.T) {
 		publicAuthScriptTemplate = originalAuthTemplate
 	})
 
-	handlers := NewLandingPageHandlers(zap.NewNop(), nil, AuthClientConfig{})
+	handlers := NewLandingPageHandlers(zap.NewNop(), nil, AuthClientConfig{}, "")
 	handlers.RenderLandingPage(context)
 
 	require.Equal(testingT, http.StatusOK, recorder.Code)
@@ -98,7 +98,7 @@ func TestRenderLandingPageReportsTemplateError(testingT *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
-	handlers := NewLandingPageHandlers(zap.NewNop(), nil, AuthClientConfig{})
+	handlers := NewLandingPageHandlers(zap.NewNop(), nil, AuthClientConfig{}, "")
 	handlers.template = template.Must(template.New("broken-landing").Parse("{{.MissingField}}"))
 
 	handlers.RenderLandingPage(context)
@@ -165,7 +165,7 @@ func TestRenderSubscriptionConfirmationPageIncludesUnsubscribeLink(testingT *tes
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/subscriptions/confirm", nil)
 
-	handlers := NewSubscriptionLinkPageHandlers(zap.NewNop(), AuthClientConfig{})
+	handlers := NewSubscriptionLinkPageHandlers(zap.NewNop(), AuthClientConfig{}, "")
 	handlers.RenderConfirmSubscriptionLink(context)
 
 	require.Equal(testingT, http.StatusOK, recorder.Code)
@@ -209,7 +209,7 @@ func TestRenderSubscriptionConfirmationPageHandlesTemplateErrors(testingT *testi
 		subscriptionConfirmedTemplate = originalConfirmationTemplate
 	})
 
-	handlers := NewSubscriptionLinkPageHandlers(zap.NewNop(), AuthClientConfig{})
+	handlers := NewSubscriptionLinkPageHandlers(zap.NewNop(), AuthClientConfig{}, "")
 	handlers.RenderConfirmSubscriptionLink(context)
 
 	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)

@@ -20,7 +20,28 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css"
     />
-    <script defer src="/tauth.js"></script>
+    <script id="tauth-script" defer></script>
+    <script>
+      // @ts-check
+      (function () {
+        var params = new URLSearchParams(window.location.search || "");
+        function normalizeOrigin(value) {
+          var trimmed = String(value || "").trim();
+          if (!trimmed) return "";
+          if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) return "";
+          return trimmed.replace(/\/+$/, "");
+        }
+        var apiOrigin = normalizeOrigin(params.get("api_origin") || "");
+        var tauthOrigin = normalizeOrigin(params.get("tauth_origin") || "") || apiOrigin;
+        var script = document.getElementById("tauth-script");
+        if (!script) return;
+        if (tauthOrigin) {
+          script.src = tauthOrigin + "/tauth.js";
+        } else {
+          script.src = "/tauth.js";
+        }
+      })();
+    </script>
     <script defer src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -56,6 +77,25 @@
         menu-items='[{"label":"Account Settings","href":"/app"}]'
       ></mpr-user>
     </mpr-header>
+    <script>
+      // @ts-check
+      (function () {
+        var params = new URLSearchParams(window.location.search || "");
+        function normalizeOrigin(value) {
+          var trimmed = String(value || "").trim();
+          if (!trimmed) return "";
+          if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) return "";
+          return trimmed.replace(/\/+$/, "");
+        }
+        var apiOrigin = normalizeOrigin(params.get("api_origin") || "");
+        var tauthOrigin = normalizeOrigin(params.get("tauth_origin") || "") || apiOrigin;
+        if (!tauthOrigin) return;
+        var headerHost = document.querySelector("mpr-header");
+        if (headerHost) {
+          headerHost.setAttribute("tauth-url", tauthOrigin);
+        }
+      })();
+    </script>
 
     <main class="flex-grow-1 pt-5 mt-4">
       <div class="container py-4">
@@ -166,6 +206,21 @@
       (function () {
         var params = new URLSearchParams(window.location.search || "");
         var siteId = (params.get("site_id") || "").trim();
+        var apiOrigin = (params.get("api_origin") || "").trim();
+
+        function normalizeOrigin(value) {
+          var trimmed = String(value || "").trim();
+          if (!trimmed) return "";
+          if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) return "";
+          return trimmed.replace(/\/+$/, "");
+        }
+
+        var apiBaseURL = normalizeOrigin(apiOrigin);
+        function apiUrl(path) {
+          if (!apiBaseURL) return path;
+          if (String(path || "").indexOf("/") === 0) return apiBaseURL + path;
+          return apiBaseURL + "/" + path;
+        }
 
         var siteIdElement = document.getElementById("subscribe-test-site-id");
         var siteNameElement = document.getElementById("subscribe-test-site-name");
@@ -256,7 +311,7 @@
 
         function hydrateFromSite() {
           if (!siteId) return;
-          authFetch("/api/sites", {
+          authFetch(apiUrl("/api/sites"), {
             method: "GET",
             credentials: "include",
             headers: { Accept: "application/json" },
@@ -418,8 +473,7 @@
         function attachFormBehavior() {
           if (!inlinePreview) return;
           var sending = false;
-          var submitEndpoint =
-            "/api/sites/" + encodeURIComponent(siteId) + "/subscribe-test/subscriptions";
+          var submitEndpoint = apiUrl("/api/sites/" + encodeURIComponent(siteId) + "/subscribe-test/subscriptions");
 
           inlinePreview.submit.addEventListener("click", function () {
             if (sending) return;
@@ -483,15 +537,18 @@
             setText(eventsStatus, "Live events unavailable");
             return;
           }
-          var eventsEndpoint =
-            "/api/sites/" + encodeURIComponent(siteId) + "/subscribe-test/events";
+          var eventsEndpoint = apiUrl("/api/sites/" + encodeURIComponent(siteId) + "/subscribe-test/events");
           if (eventSource) {
             try {
               eventSource.close();
             } catch (error) {}
           }
           setText(eventsStatus, "Connecting…");
-          eventSource = new EventSource(eventsEndpoint);
+          try {
+            eventSource = new EventSource(eventsEndpoint, { withCredentials: true });
+          } catch (error) {
+            eventSource = new EventSource(eventsEndpoint);
+          }
           eventSource.onmessage = function (event) {
             setText(eventsStatus, "Receiving updates");
             try {

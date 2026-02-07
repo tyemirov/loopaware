@@ -3833,10 +3833,10 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 
 	statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(gormDatabase)
 	siteHandlers := httpapi.NewSiteHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
-	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager, authClientConfig)
+	landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager, authClientConfig, "")
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager, authClientConfig)
 	sitemapHandlers := httpapi.NewSitemapHandlers(dashboardTestWidgetBaseURL)
-	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath, authClientConfig)
+	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, dashboardTestLandingPath, authClientConfig, "")
 	publicHandlers := httpapi.NewPublicHandlers(gormDatabase, logger, feedbackBroadcaster, subscriptionEvents, stubDashboardNotifier{}, config.subscriptionNotifier, true, dashboardTestWidgetBaseURL, "unit-test-session-secret", config.emailSender, authClientConfig)
 	widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(gormDatabase, logger, dashboardTestWidgetBaseURL, feedbackBroadcaster, stubDashboardNotifier{}, authClientConfig)
 	trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(gormDatabase, logger, authClientConfig)
