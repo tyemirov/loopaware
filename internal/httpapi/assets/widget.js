@@ -1,3 +1,4 @@
+// @ts-check
 (function(){
   var widgetInitialized = false;
   var themeNameLight = "light";
@@ -16,9 +17,9 @@
   var panelDisplayBlockValue = "block";
   var panelDisplayNoneValue = "none";
   var panelAutoHideDelayMilliseconds = 2000;
-  var widgetPlacementSideValue = "{{ .WidgetBubbleSide }}";
-  var widgetPlacementBottomOffsetValue = {{ .WidgetBottomOffset }};
   var widgetPlacementDefaultBottomOffsetValue = 16;
+  var widgetPlacementSideValue = "right";
+  var widgetPlacementBottomOffsetValue = widgetPlacementDefaultBottomOffsetValue;
   var widgetPlacementHorizontalOffsetValue = "16px";
   var panelVerticalSpacingPixels = 64;
   var widgetBrandingElementID = "mp-feedback-branding";
@@ -62,6 +63,8 @@
   var widgetDemoModeEnabled = false;
   var widgetTestModeEnabled = false;
   var widgetTestEndpointOverride = "";
+  var widgetSiteId = "";
+  var widgetApiOrigin = "";
   try {
     if (typeof window === "object" && window) {
       widgetDemoModeEnabled = Boolean(window[widgetDemoModeFlagName]);
@@ -110,6 +113,181 @@
       closeButtonColor: "#94a3b8"
     }
   };
+
+  function resolveWidgetScriptTag() {
+    var current = document.currentScript;
+    if (current) {
+      return current;
+    }
+    var candidates = document.querySelectorAll('script[src*="widget.js"]');
+    return candidates[candidates.length - 1];
+  }
+
+  function resolveWidgetOrigin(scriptTag) {
+    if (scriptTag && scriptTag.src) {
+      try {
+        var link = document.createElement("a");
+        link.href = scriptTag.src;
+        if (link.protocol && link.host) {
+          return link.protocol + "//" + link.host;
+        }
+      } catch(originError){}
+    }
+    if (window.location && window.location.protocol && window.location.host) {
+      return window.location.protocol + "//" + window.location.host;
+    }
+    return "";
+  }
+
+  function resolveWidgetSiteId(scriptTag) {
+    if (!scriptTag) {
+      return "";
+    }
+    var candidate = "";
+    try {
+      if (typeof scriptTag.getAttribute === "function") {
+        candidate = scriptTag.getAttribute("data-site-id") || "";
+      }
+    } catch(attributeError){}
+    try {
+      if (scriptTag.src) {
+        var link = document.createElement("a");
+        link.href = scriptTag.src;
+        var params = new URLSearchParams(link.search || "");
+        var querySiteId = params.get("site_id") || "";
+        if (querySiteId) {
+          candidate = querySiteId;
+        }
+      }
+    } catch(parseError){}
+    return String(candidate || "").trim();
+  }
+
+  function normalizeWidgetPlacementSide(rawValue) {
+    var normalized =
+      typeof rawValue === "string" ? rawValue.trim().toLowerCase() : "";
+    if (normalized === "left" || normalized === "right") {
+      return normalized;
+    }
+    return "";
+  }
+
+  function normalizeWidgetPlacementOffset(rawValue) {
+    if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
+      return null;
+    }
+    return Math.round(rawValue);
+  }
+
+  function applyWidgetPlacementConfig(config) {
+    if (!config) {
+      return;
+    }
+    var side = normalizeWidgetPlacementSide(config.side);
+    var offset = normalizeWidgetPlacementOffset(config.bottomOffset);
+    if (side) {
+      widgetPlacementSideValue = side;
+    }
+    if (typeof offset === "number") {
+      widgetPlacementBottomOffsetValue = offset;
+    }
+  }
+
+  function fetchWidgetPlacementFromPublicAPI() {
+    if (!widgetApiOrigin || !widgetSiteId) {
+      return Promise.resolve(null);
+    }
+    var requestURL =
+      widgetApiOrigin +
+      "/api/widget-config?site_id=" +
+      encodeURIComponent(widgetSiteId);
+    return fetch(requestURL, {
+      method: "GET",
+      headers: { "Accept": "application/json" },
+      credentials: "omit",
+      referrer: window.location.href,
+      referrerPolicy: "strict-origin-when-cross-origin",
+    })
+      .then(function(response) {
+        if (!response) {
+          var missingResponseError = new Error("widget_config_failed");
+          missingResponseError.status = 0;
+          throw missingResponseError;
+        }
+        if (response.status === 403 || response.status === 404) {
+          var forbiddenError = new Error("widget_config_forbidden");
+          forbiddenError.status = response.status;
+          throw forbiddenError;
+        }
+        if (!response.ok) {
+          var requestError = new Error("widget_config_failed");
+          requestError.status = response.status;
+          throw requestError;
+        }
+        return response.json();
+      })
+      .then(function(payload) {
+        if (!payload || typeof payload !== "object") {
+          return null;
+        }
+        return {
+          side: payload.widget_bubble_side,
+          bottomOffset: payload.widget_bubble_bottom_offset,
+        };
+      });
+  }
+
+  function fetchWidgetPlacementFromDashboard() {
+    if (!widgetApiOrigin || !widgetSiteId) {
+      return Promise.resolve(null);
+    }
+    var requestURL = widgetApiOrigin + "/api/sites";
+    return fetch(requestURL, {
+      method: "GET",
+      headers: { "Accept": "application/json" },
+      credentials: "include",
+      referrer: window.location.href,
+      referrerPolicy: "strict-origin-when-cross-origin",
+    })
+      .then(function(response) {
+        if (!response || !response.ok) {
+          return null;
+        }
+        return response.json().catch(function() {
+          return null;
+        });
+      })
+      .then(function(payload) {
+        if (
+          !payload ||
+          typeof payload !== "object" ||
+          !Array.isArray(payload.sites)
+        ) {
+          return null;
+        }
+        for (var index = 0; index < payload.sites.length; index += 1) {
+          var site = payload.sites[index];
+          if (!site || typeof site !== "object") {
+            continue;
+          }
+          if (String(site.id || "").trim() !== widgetSiteId) {
+            continue;
+          }
+          return {
+            side: site.widget_bubble_side,
+            bottomOffset: site.widget_bubble_bottom_offset,
+          };
+        }
+        return null;
+      });
+  }
+
+  function fetchWidgetPlacementConfig() {
+    if (widgetTestModeEnabled) {
+      return fetchWidgetPlacementFromDashboard();
+    }
+    return fetchWidgetPlacementFromPublicAPI();
+  }
 
   function scheduleWhenBodyReady() {
     if (widgetInitialized) {
@@ -517,23 +695,14 @@
         }
 
         var payload = JSON.stringify({
-          site_id: "{{ .SiteID }}",
+          site_id: widgetSiteId,
           contact: valid.contact,
           message: valid.message
         });
 
-        var endpoint = (location.protocol + "//" + location.host + "/api/feedback");
-        try {
-          var scriptTag = document.currentScript || (function(){
-            var candidates = document.querySelectorAll('script[src*="widget.js"]');
-            return candidates[candidates.length - 1];
-          })();
-          if (scriptTag && scriptTag.src) {
-            var link = document.createElement("a");
-            link.href = scriptTag.src;
-            endpoint = link.protocol + "//" + link.host + "/api/feedback";
-          }
-        } catch(fetchError){}
+        var endpoint = widgetApiOrigin
+          ? (widgetApiOrigin + "/api/feedback")
+          : (location.protocol + "//" + location.host + "/api/feedback");
 
         var targetEndpoint = widgetTestEndpointOverride || endpoint;
 
@@ -773,13 +942,41 @@
     return componentValue;
   }
 
+  function initializeWidget() {
+    var scriptTag = resolveWidgetScriptTag();
+    widgetApiOrigin = resolveWidgetOrigin(scriptTag);
+    widgetSiteId = resolveWidgetSiteId(scriptTag);
+    if (!widgetSiteId) {
+      console.error("widget.js: missing site_id");
+      return;
+    }
+
+    if (widgetDemoModeEnabled) {
+      scheduleWhenBodyReady();
+      return;
+    }
+
+    fetchWidgetPlacementConfig()
+      .then(function(config) {
+        applyWidgetPlacementConfig(config);
+        scheduleWhenBodyReady();
+      })
+      .catch(function(error) {
+        var status = error && typeof error.status === "number" ? error.status : 0;
+        if (status === 403 || status === 404) {
+          return;
+        }
+        scheduleWhenBodyReady();
+      });
+  }
+
   if (document.readyState === "loading") {
     var domContentLoadedListener = function(){
       document.removeEventListener("DOMContentLoaded", domContentLoadedListener);
-      scheduleWhenBodyReady();
+      initializeWidget();
     };
     document.addEventListener("DOMContentLoaded", domContentLoadedListener);
   } else {
-    scheduleWhenBodyReady();
+    initializeWidget();
   }
 })();

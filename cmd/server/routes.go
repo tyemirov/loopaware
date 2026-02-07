@@ -15,6 +15,12 @@ func registerFrontendRoutes(
 	privacyHandlers *httpapi.PrivacyPageHandlers,
 	sitemapHandlers *httpapi.SitemapHandlers,
 	dashboardHandlers *httpapi.DashboardWebHandlers,
+	publicJavaScriptHandlers *httpapi.PublicJavaScriptHandlers,
+	subscribeDemoHandlers *httpapi.SubscribeDemoPageHandlers,
+	subscriptionLinkHandlers *httpapi.SubscriptionLinkPageHandlers,
+	widgetTestHandlers *httpapi.SiteWidgetTestHandlers,
+	trafficTestHandlers *httpapi.SiteTrafficTestHandlers,
+	subscribeTestHandlers *httpapi.SiteSubscribeTestHandlers,
 ) {
 	router.GET("/", func(context *gin.Context) {
 		context.Redirect(http.StatusFound, landingRouteRoot)
@@ -23,6 +29,17 @@ func registerFrontendRoutes(
 	router.GET(httpapi.PrivacyPagePath, privacyHandlers.RenderPrivacyPage)
 	router.GET(httpapi.SitemapRoutePath, sitemapHandlers.RenderSitemap)
 	router.GET(dashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
+
+	router.GET(publicRouteWidget, publicJavaScriptHandlers.WidgetJS)
+	router.GET(publicRouteSubscribeWidget, publicJavaScriptHandlers.SubscribeJS)
+	router.GET("/pixel.js", publicJavaScriptHandlers.PixelJS)
+	router.GET(publicRouteSubscribeDemo, subscribeDemoHandlers.RenderSubscribeDemo)
+	router.GET(publicRouteSubscriptionConfirmWeb, subscriptionLinkHandlers.RenderConfirmSubscriptionLink)
+	router.GET(publicRouteSubscriptionOptOutWeb, subscriptionLinkHandlers.RenderUnsubscribeSubscriptionLink)
+
+	router.GET("/app/sites/:id/widget-test", authManager.RequireAuthenticatedWeb(), widgetTestHandlers.RenderWidgetTestPage)
+	router.GET("/app/sites/:id/traffic-test", authManager.RequireAuthenticatedWeb(), trafficTestHandlers.RenderTrafficTestPage)
+	router.GET("/app/sites/:id/subscribe-test", authManager.RequireAuthenticatedWeb(), subscribeTestHandlers.RenderSubscribeTestPage)
 }
 
 func registerBackendRoutes(
@@ -31,27 +48,16 @@ func registerBackendRoutes(
 	publicHandlers *httpapi.PublicHandlers,
 	siteHandlers *httpapi.SiteHandlers,
 	widgetTestHandlers *httpapi.SiteWidgetTestHandlers,
-	trafficTestHandlers *httpapi.SiteTrafficTestHandlers,
 	subscribeTestHandlers *httpapi.SiteSubscribeTestHandlers,
 ) {
-	router.GET("/app/sites/:id/widget-test", authManager.RequireAuthenticatedWeb(), widgetTestHandlers.RenderWidgetTestPage)
-	router.POST("/app/sites/:id/widget-test/feedback", authManager.RequireAuthenticatedJSON(), widgetTestHandlers.SubmitWidgetTestFeedback)
-	router.GET("/app/sites/:id/traffic-test", authManager.RequireAuthenticatedWeb(), trafficTestHandlers.RenderTrafficTestPage)
-	router.GET("/app/sites/:id/subscribe-test", authManager.RequireAuthenticatedWeb(), subscribeTestHandlers.RenderSubscribeTestPage)
-	router.GET("/app/sites/:id/subscribe-test/events", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.StreamSubscriptionTestEvents)
-	router.POST("/app/sites/:id/subscribe-test/subscriptions", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.CreateSubscription)
-
 	router.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
 	router.POST(publicRouteSubscription, publicHandlers.CreateSubscription)
 	router.POST(publicRouteSubscriptionConfirm, publicHandlers.ConfirmSubscription)
 	router.POST(publicRouteSubscriptionOptOut, publicHandlers.Unsubscribe)
-	router.GET(publicRouteSubscriptionConfirmWeb, publicHandlers.ConfirmSubscriptionLink)
-	router.GET(publicRouteSubscriptionOptOutWeb, publicHandlers.UnsubscribeSubscriptionLink)
-	router.GET(publicRouteWidget, publicHandlers.WidgetJS)
-	router.GET(publicRouteSubscribeWidget, publicHandlers.SubscribeJS)
-	router.GET(publicRouteSubscribeDemo, publicHandlers.SubscribeDemo)
+	router.GET("/api/widget-config", publicHandlers.WidgetConfig)
+	router.GET("/api/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
+	router.GET("/api/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
 	router.GET(publicRouteVisitPixel, publicHandlers.CollectVisit)
-	router.GET("/pixel.js", publicHandlers.PixelJS)
 
 	apiGroup := router.Group(apiRoutePrefix)
 	apiGroup.Use(authManager.RequireAuthenticatedJSON())
@@ -70,4 +76,8 @@ func registerBackendRoutes(
 	apiGroup.GET(apiRouteSiteFaviconEvents, siteHandlers.StreamFaviconUpdates)
 	apiGroup.GET(apiRouteSiteFeedbackEvents, siteHandlers.StreamFeedbackUpdates)
 	apiGroup.GET(apiRouteSiteVisitStats, siteHandlers.VisitStats)
+
+	apiGroup.POST("/sites/:id/widget-test/feedback", widgetTestHandlers.SubmitWidgetTestFeedback)
+	apiGroup.GET("/sites/:id/subscribe-test/events", subscribeTestHandlers.StreamSubscriptionTestEvents)
+	apiGroup.POST("/sites/:id/subscribe-test/subscriptions", subscribeTestHandlers.CreateSubscription)
 }

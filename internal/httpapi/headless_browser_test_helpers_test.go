@@ -347,56 +347,90 @@ func evaluateFormElementFits(testingT *testing.T, page *rod.Page, cssSelector st
 func interceptFetchRequests(testingT *testing.T, page *rod.Page) {
 	testingT.Helper()
 	const script = `(function(){
-  if (typeof window !== 'object' || !window) { return false; }
-  if (!window.__loopawareFetchIntercept) {
-    window.__loopawareFetchIntercept = { originalFetch: window.fetch, requests: [], storageKey: '__loopawareFetchRequests' };
-  }
-  var intercept = window.__loopawareFetchIntercept;
-  intercept.requests = [];
-  var storageKey = intercept.storageKey || '__loopawareFetchRequests';
-  function persistRequests() {
-    if (typeof sessionStorage === 'undefined') {
-      return;
-    }
+	  if (typeof window !== 'object' || !window) { return false; }
+	  if (!window.__loopawareFetchIntercept) {
+	    window.__loopawareFetchIntercept = { requests: [], storageKey: '__loopawareFetchRequests' };
+	  }
+	  var intercept = window.__loopawareFetchIntercept;
+	  if (!intercept.originalFetch && typeof window.fetch === 'function') {
+	    intercept.originalFetch = window.fetch;
+	  }
+	  if (!intercept.originalApiFetch && typeof window.apiFetch === 'function') {
+	    intercept.originalApiFetch = window.apiFetch;
+	  }
+	  intercept.requests = [];
+	  var storageKey = intercept.storageKey || '__loopawareFetchRequests';
+	  function persistRequests() {
+	    if (typeof sessionStorage === 'undefined') {
+	      return;
+	    }
     try {
       sessionStorage.setItem(storageKey, JSON.stringify(intercept.requests));
     } catch (error) {
       // ignore storage errors
     }
-  }
-  persistRequests();
-  window.fetch = function(resource, init) {
-    var record = { url: '', method: 'GET', body: '', status: 0 };
-    if (typeof resource === 'string') {
-      record.url = resource;
-    } else if (resource && typeof resource.url === 'string') {
-      record.url = resource.url;
-      if (resource.method && typeof resource.method === 'string') {
-        record.method = resource.method;
-      }
-    }
-    if (init && typeof init.method === 'string') {
-      record.method = init.method;
-    }
-    if (init && typeof init.body === 'string') {
-      record.body = init.body;
-    }
-    intercept.requests.push(record);
-    persistRequests();
-    return intercept.originalFetch.apply(this, arguments).then(function(response) {
-      if (response && typeof response.status === 'number') {
-        record.status = response.status;
-        persistRequests();
-      }
-      return response;
-    }).catch(function(error) {
-      record.status = 0;
-      persistRequests();
-      throw error;
-    });
-  };
-  return true;
-}())`
+	  }
+	  persistRequests();
+	  function captureRequest(resource, init) {
+	    var record = { url: '', method: 'GET', body: '', status: 0 };
+	    if (typeof resource === 'string') {
+	      record.url = resource;
+	    } else if (resource && typeof resource.url === 'string') {
+	      record.url = resource.url;
+	      if (resource.method && typeof resource.method === 'string') {
+	        record.method = resource.method;
+	      }
+	    }
+	    if (init && typeof init.method === 'string') {
+	      record.method = init.method;
+	    }
+	    if (init && typeof init.body === 'string') {
+	      record.body = init.body;
+	    }
+	    intercept.requests.push(record);
+	    persistRequests();
+	    return record;
+	  }
+	  function wrapFetchLike(originalFn) {
+	    return function(resource, init) {
+	      var record = captureRequest(resource, init);
+	      var result;
+	      try {
+	        result = originalFn.apply(this, arguments);
+	      } catch (error) {
+	        record.status = 0;
+	        persistRequests();
+	        throw error;
+	      }
+	      if (result && typeof result.then === 'function') {
+	        return result.then(function(response) {
+	          if (response && typeof response.status === 'number') {
+	            record.status = response.status;
+	            persistRequests();
+	          }
+	          return response;
+	        }).catch(function(error) {
+	          record.status = 0;
+	          persistRequests();
+	          throw error;
+	        });
+	      }
+	      if (result && typeof result.status === 'number') {
+	        record.status = result.status;
+	        persistRequests();
+	      }
+	      return result;
+	    };
+	  }
+
+	  if (typeof intercept.originalFetch === 'function') {
+	    window.fetch = wrapFetchLike(intercept.originalFetch);
+	  }
+	  if (typeof intercept.originalApiFetch === 'function') {
+	    window.apiFetch = wrapFetchLike(intercept.originalApiFetch);
+	  }
+	  return true;
+	}())`
 	evaluateScriptInto(testingT, page, script, nil)
 }
 

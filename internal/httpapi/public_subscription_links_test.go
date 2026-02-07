@@ -1,6 +1,7 @@
 package httpapi_test
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -31,18 +32,37 @@ const (
 	testSubscriptionLinkUpdateTableName    = "subscribers"
 )
 
+type subscriptionLinkPayload struct {
+	Heading        string `json:"heading"`
+	Message        string `json:"message"`
+	OpenURL        string `json:"open_url"`
+	OpenLabel      string `json:"open_label"`
+	UnsubscribeURL string `json:"unsubscribe_url"`
+}
+
+func decodeSubscriptionLinkPayload(testingT *testing.T, response *httptest.ResponseRecorder) subscriptionLinkPayload {
+	testingT.Helper()
+	var payload subscriptionLinkPayload
+	require.NoError(testingT, json.Unmarshal(response.Body.Bytes(), &payload))
+	return payload
+}
+
 func TestConfirmSubscriptionLinkRequiresToken(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/subscriptions/confirm", nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/confirm-link", nil, nil)
 	require.Equal(testingT, http.StatusBadRequest, response.Code)
-	require.Contains(testingT, response.Body.String(), "Missing confirmation token.")
+	payload := decodeSubscriptionLinkPayload(testingT, response)
+	require.Equal(testingT, "Subscription confirmation", payload.Heading)
+	require.Equal(testingT, "Missing confirmation token.", payload.Message)
 }
 
 func TestConfirmSubscriptionLinkRejectsInvalidToken(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/subscriptions/confirm?token=bad", nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/confirm-link?token=bad", nil, nil)
 	require.Equal(testingT, http.StatusBadRequest, response.Code)
-	require.Contains(testingT, response.Body.String(), "Invalid or expired token.")
+	payload := decodeSubscriptionLinkPayload(testingT, response)
+	require.Equal(testingT, "Subscription confirmation", payload.Heading)
+	require.Equal(testingT, "Invalid or expired token.", payload.Message)
 }
 
 func TestConfirmSubscriptionLinkRequiresSecret(testingT *testing.T) {
@@ -55,13 +75,15 @@ func TestConfirmSubscriptionLinkRequiresSecret(testingT *testing.T) {
 
 	publicHandlers := httpapi.NewPublicHandlers(database, zap.NewNop(), nil, nil, nil, nil, true, "http://loopaware.test", "", nil, testLandingAuthConfig)
 	router := gin.New()
-	router.GET("/subscriptions/confirm", publicHandlers.ConfirmSubscriptionLink)
+	router.GET("/api/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
 
-	request := httptest.NewRequest(http.MethodGet, "/subscriptions/confirm?token=token", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/subscriptions/confirm-link?token=token", nil)
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
-	require.Contains(testingT, recorder.Body.String(), "Subscription confirmation is unavailable.")
+	payload := decodeSubscriptionLinkPayload(testingT, recorder)
+	require.Equal(testingT, "Subscription confirmation", payload.Heading)
+	require.Equal(testingT, "Subscription confirmation is unavailable.", payload.Message)
 }
 
 func TestConfirmSubscriptionLinkRejectsMismatchedEmail(testingT *testing.T) {
@@ -75,9 +97,11 @@ func TestConfirmSubscriptionLinkRejectsMismatchedEmail(testingT *testing.T) {
 		Where("site_id = ? AND email = ?", site.ID, strings.ToLower(testConfirmLinkSubscriber)).
 		Update("email", testConfirmLinkAlternateEmail).Error)
 
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/subscriptions/confirm?token="+url.QueryEscape(token), nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/confirm-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusBadRequest, response.Code)
-	require.Contains(testingT, response.Body.String(), "Invalid or expired token.")
+	payload := decodeSubscriptionLinkPayload(testingT, response)
+	require.Equal(testingT, "Subscription confirmation", payload.Heading)
+	require.Equal(testingT, "Invalid or expired token.", payload.Message)
 }
 
 func TestConfirmSubscriptionLinkHandlesExistingStatuses(testingT *testing.T) {
@@ -91,17 +115,21 @@ func TestConfirmSubscriptionLinkHandlesExistingStatuses(testingT *testing.T) {
 		Where("site_id = ? AND email = ?", site.ID, strings.ToLower(testConfirmLinkSubscriber)).
 		Update("status", model.SubscriberStatusUnsubscribed).Error)
 
-	unsubscribed := performJSONRequest(testingT, api.router, http.MethodGet, "/subscriptions/confirm?token="+url.QueryEscape(token), nil, nil)
+	unsubscribed := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/confirm-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusConflict, unsubscribed.Code)
-	require.Contains(testingT, unsubscribed.Body.String(), "Subscription already unsubscribed.")
+	unsubscribedPayload := decodeSubscriptionLinkPayload(testingT, unsubscribed)
+	require.Equal(testingT, "Subscription confirmation", unsubscribedPayload.Heading)
+	require.Equal(testingT, "Subscription already unsubscribed.", unsubscribedPayload.Message)
 
 	require.NoError(testingT, api.database.Model(&model.Subscriber{}).
 		Where("site_id = ? AND email = ?", site.ID, strings.ToLower(testConfirmLinkSubscriber)).
 		Update("status", model.SubscriberStatusConfirmed).Error)
 
-	confirmed := performJSONRequest(testingT, api.router, http.MethodGet, "/subscriptions/confirm?token="+url.QueryEscape(token), nil, nil)
+	confirmed := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/confirm-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusOK, confirmed.Code)
-	require.Contains(testingT, confirmed.Body.String(), "already confirmed")
+	confirmedPayload := decodeSubscriptionLinkPayload(testingT, confirmed)
+	require.Equal(testingT, "Subscription confirmed", confirmedPayload.Heading)
+	require.Contains(testingT, confirmedPayload.Message, "already confirmed")
 }
 
 func TestConfirmSubscriptionLinkReportsUpdateError(testingT *testing.T) {
@@ -121,23 +149,29 @@ func TestConfirmSubscriptionLinkReportsUpdateError(testingT *testing.T) {
 		api.database.Callback().Update().Remove(callbackName)
 	})
 
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/subscriptions/confirm?token="+url.QueryEscape(token), nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/confirm-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusInternalServerError, response.Code)
-	require.Contains(testingT, response.Body.String(), "Failed to confirm subscription.")
+	payload := decodeSubscriptionLinkPayload(testingT, response)
+	require.Equal(testingT, "Subscription confirmation", payload.Heading)
+	require.Equal(testingT, "Failed to confirm subscription.", payload.Message)
 }
 
 func TestUnsubscribeSubscriptionLinkRequiresToken(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/subscriptions/unsubscribe", nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/unsubscribe-link", nil, nil)
 	require.Equal(testingT, http.StatusBadRequest, response.Code)
-	require.Contains(testingT, response.Body.String(), "Missing unsubscribe token.")
+	payload := decodeSubscriptionLinkPayload(testingT, response)
+	require.Equal(testingT, "Unsubscribe", payload.Heading)
+	require.Equal(testingT, "Missing unsubscribe token.", payload.Message)
 }
 
 func TestUnsubscribeSubscriptionLinkRejectsInvalidToken(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/subscriptions/unsubscribe?token=bad", nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/unsubscribe-link?token=bad", nil, nil)
 	require.Equal(testingT, http.StatusBadRequest, response.Code)
-	require.Contains(testingT, response.Body.String(), "Invalid or expired token.")
+	payload := decodeSubscriptionLinkPayload(testingT, response)
+	require.Equal(testingT, "Unsubscribe", payload.Heading)
+	require.Equal(testingT, "Invalid or expired token.", payload.Message)
 }
 
 func TestUnsubscribeSubscriptionLinkRequiresSecret(testingT *testing.T) {
@@ -150,13 +184,15 @@ func TestUnsubscribeSubscriptionLinkRequiresSecret(testingT *testing.T) {
 
 	publicHandlers := httpapi.NewPublicHandlers(database, zap.NewNop(), nil, nil, nil, nil, true, "http://loopaware.test", "", nil, testLandingAuthConfig)
 	router := gin.New()
-	router.GET("/subscriptions/unsubscribe", publicHandlers.UnsubscribeSubscriptionLink)
+	router.GET("/api/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
 
-	request := httptest.NewRequest(http.MethodGet, "/subscriptions/unsubscribe?token=token", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/subscriptions/unsubscribe-link?token=token", nil)
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
-	require.Contains(testingT, recorder.Body.String(), "Subscription unsubscribe is unavailable.")
+	payload := decodeSubscriptionLinkPayload(testingT, recorder)
+	require.Equal(testingT, "Unsubscribe", payload.Heading)
+	require.Equal(testingT, "Subscription unsubscribe is unavailable.", payload.Message)
 }
 
 func TestUnsubscribeSubscriptionLinkRejectsMismatchedEmail(testingT *testing.T) {
@@ -170,9 +206,11 @@ func TestUnsubscribeSubscriptionLinkRejectsMismatchedEmail(testingT *testing.T) 
 		Where("site_id = ? AND email = ?", site.ID, strings.ToLower(testConfirmLinkSubscriber)).
 		Update("email", testConfirmLinkAlternateEmail).Error)
 
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/subscriptions/unsubscribe?token="+url.QueryEscape(token), nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/unsubscribe-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusBadRequest, response.Code)
-	require.Contains(testingT, response.Body.String(), "Invalid or expired token.")
+	payload := decodeSubscriptionLinkPayload(testingT, response)
+	require.Equal(testingT, "Unsubscribe", payload.Heading)
+	require.Equal(testingT, "Invalid or expired token.", payload.Message)
 }
 
 func TestUnsubscribeSubscriptionLinkHandlesExistingStatus(testingT *testing.T) {
@@ -186,9 +224,11 @@ func TestUnsubscribeSubscriptionLinkHandlesExistingStatus(testingT *testing.T) {
 		Where("site_id = ? AND email = ?", site.ID, strings.ToLower(testConfirmLinkSubscriber)).
 		Update("status", model.SubscriberStatusUnsubscribed).Error)
 
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/subscriptions/unsubscribe?token="+url.QueryEscape(token), nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/unsubscribe-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusOK, response.Code)
-	require.Contains(testingT, response.Body.String(), "Subscription already unsubscribed.")
+	payload := decodeSubscriptionLinkPayload(testingT, response)
+	require.Equal(testingT, "Unsubscribed", payload.Heading)
+	require.Equal(testingT, "Subscription already unsubscribed.", payload.Message)
 }
 
 func TestUnsubscribeSubscriptionLinkUpdatesSubscriber(testingT *testing.T) {
@@ -198,9 +238,11 @@ func TestUnsubscribeSubscriptionLinkUpdatesSubscriber(testingT *testing.T) {
 
 	token := createSubscriptionToken(testingT, api, site, testConfirmLinkSubscriber, emailSender)
 
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/subscriptions/unsubscribe?token="+url.QueryEscape(token), nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/unsubscribe-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusOK, response.Code)
-	require.Contains(testingT, response.Body.String(), "You have been unsubscribed.")
+	payload := decodeSubscriptionLinkPayload(testingT, response)
+	require.Equal(testingT, "Unsubscribed", payload.Heading)
+	require.Equal(testingT, "You have been unsubscribed.", payload.Message)
 
 	var updated model.Subscriber
 	require.NoError(testingT, api.database.First(&updated, "site_id = ? AND email = ?", site.ID, strings.ToLower(testConfirmLinkSubscriber)).Error)
@@ -225,9 +267,11 @@ func TestUnsubscribeSubscriptionLinkReportsUpdateError(testingT *testing.T) {
 		api.database.Callback().Update().Remove(callbackName)
 	})
 
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/subscriptions/unsubscribe?token="+url.QueryEscape(token), nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/unsubscribe-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusInternalServerError, response.Code)
-	require.Contains(testingT, response.Body.String(), "Failed to unsubscribe.")
+	payload := decodeSubscriptionLinkPayload(testingT, response)
+	require.Equal(testingT, "Unsubscribe", payload.Heading)
+	require.Equal(testingT, "Failed to unsubscribe.", payload.Message)
 }
 func createSubscriptionToken(testingT *testing.T, api apiHarness, site model.Site, emailAddress string, emailSender *recordingEmailSender) string {
 	response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{

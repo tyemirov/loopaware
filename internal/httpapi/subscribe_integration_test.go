@@ -2,6 +2,7 @@ package httpapi_test
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -82,8 +83,12 @@ func TestSubscribeWidgetSubmitsSubscription(testingT *testing.T) {
 	parsedURL, parseErr := url.Parse(confirmationLink)
 	require.NoError(testingT, parseErr)
 
-	response, requestErr := server.Client().Get(server.URL + parsedURL.RequestURI())
+	tokenValue := strings.TrimSpace(parsedURL.Query().Get("token"))
+	require.NotEmpty(testingT, tokenValue)
+
+	response, requestErr := server.Client().Get(server.URL + "/api/subscriptions/confirm-link?token=" + url.QueryEscape(tokenValue))
 	require.NoError(testingT, requestErr)
+	require.Equal(testingT, http.StatusOK, response.StatusCode)
 	require.NoError(testingT, response.Body.Close())
 
 	var confirmed model.Subscriber

@@ -49,8 +49,8 @@
       targetId = String(targetId).trim();
     }
     var siteId = params.get("site_id") || scriptTag.getAttribute("data-site-id") || "";
-    if (!siteId) {
-      siteId = "{{ .SiteID }}";
+    if (siteId) {
+      siteId = String(siteId).trim();
     }
     var alreadySubscribed = params.get("already_subscribed") || defaultAlreadySubscribedText;
     var invalidEmail = params.get("invalid_email") || defaultInvalidEmailText;

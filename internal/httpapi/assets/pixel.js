@@ -1,16 +1,33 @@
 // @ts-check
 (function(){
-  var siteId = "{{ .SiteID }}";
   var endpoint = "/api/visits";
   var storageKey = "loopaware_visitor_id";
 
-  function resolveEndpoint() {
+  function resolveScriptTag() {
+    var script = document.currentScript;
+    if (script) {
+      return script;
+    }
+    var scripts = document.querySelectorAll('script[src*="pixel.js"]');
+    return scripts[scripts.length - 1];
+  }
+
+  function resolveSiteId(script) {
+    if (!script || !script.src) {
+      return "";
+    }
     try {
-      var script = document.currentScript;
-      if (!script) {
-        var scripts = document.querySelectorAll('script[src*="pixel.js"]');
-        script = scripts[scripts.length - 1];
-      }
+      var link = document.createElement("a");
+      link.href = script.src;
+      var params = new URLSearchParams(link.search || "");
+      var siteId = params.get("site_id") || script.getAttribute("data-site-id") || "";
+      return String(siteId || "").trim();
+    } catch(e){}
+    return "";
+  }
+
+  function resolveEndpoint(script) {
+    try {
       if (script && script.src) {
         var link = document.createElement("a");
         link.href = script.src;
@@ -35,12 +52,14 @@
   }
 
   function collect() {
+    var script = resolveScriptTag();
+    var siteId = resolveSiteId(script);
     if (!siteId) {
       return;
     }
     var url = window.location ? window.location.href : "";
     var referrer = document.referrer || "";
-    var target = resolveEndpoint();
+    var target = resolveEndpoint(script);
 
     var params = new URLSearchParams();
     params.set("site_id", siteId);

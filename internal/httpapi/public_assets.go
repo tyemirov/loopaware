@@ -393,17 +393,51 @@ var (
     if (!window || !headerHost) {
       return;
     }
-    if (typeof window.logout === 'function' && window.logout.__loopawareLogoutWrapper === true) {
-      return;
+    window.__loopawareLogoutHeaderHost = headerHost;
+    var existingWrapper = window.__loopawareLogoutWrapper;
+    if (typeof existingWrapper !== 'function' || existingWrapper.__loopawareLogoutWrapper !== true) {
+      existingWrapper = function() {
+        var resolvedHost = window.__loopawareLogoutHeaderHost || headerHost;
+        return performLogoutRequest(resolvedHost, window.__loopawareLogoutDelegate);
+      };
+      existingWrapper.__loopawareLogoutWrapper = true;
+      window.__loopawareLogoutWrapper = existingWrapper;
     }
-    if (typeof window.__loopawareLogoutDelegate !== 'function' && typeof window.logout === 'function') {
+    if (typeof window.__loopawareLogoutDelegate !== 'function' && typeof window.logout === 'function' && window.logout.__loopawareLogoutWrapper !== true) {
       window.__loopawareLogoutDelegate = window.logout;
     }
-    var wrapper = function() {
-      return performLogoutRequest(headerHost, window.__loopawareLogoutDelegate);
-    };
-    wrapper.__loopawareLogoutWrapper = true;
-    window.logout = wrapper;
+    if (window.__loopawareLogoutTracking === true) {
+      return;
+    }
+    window.__loopawareLogoutTracking = true;
+    try {
+      Object.defineProperty(window, 'logout', {
+        configurable: true,
+        enumerable: true,
+        get: function() {
+          return window.__loopawareLogoutWrapper || existingWrapper;
+        },
+        set: function(value) {
+          if (typeof value === 'function' && value.__loopawareLogoutWrapper === true) {
+            window.__loopawareLogoutWrapper = value;
+            return;
+          }
+          if (typeof value === 'function') {
+            window.__loopawareLogoutDelegate = value;
+            return;
+          }
+          window.__loopawareLogoutDelegate = undefined;
+        }
+      });
+    } catch (error) {
+      try {
+        window.logout = existingWrapper;
+      } catch (error) {}
+      return;
+    }
+    try {
+      window.logout = existingWrapper;
+    } catch (error) {}
   }
 
   function disableGoogleAutoSelect() {

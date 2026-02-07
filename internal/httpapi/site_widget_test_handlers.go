@@ -101,24 +101,13 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 		return
 	}
 
-	currentUser, ok := CurrentUserFromContext(context)
+	_, ok := CurrentUserFromContext(context)
 	if !ok {
 		context.Redirect(http.StatusFound, LandingPagePath)
 		return
 	}
 
-	var site model.Site
-	if handlers.database == nil || handlers.database.First(&site, "id = ?", siteIdentifier).Error != nil {
-		context.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-	if !currentUser.canManageSite(site) {
-		context.AbortWithStatus(http.StatusForbidden)
-		return
-	}
-
-	ensureWidgetBubblePlacementDefaults(&site)
-	widgetScriptURL := handlers.resolveWidgetScriptURL(context.Request, site.ID)
+	widgetScriptURL := handlers.resolveWidgetScriptURL(context.Request, siteIdentifier)
 	headerData := dashboardHeaderTemplateData{
 		PageTitle:               dashboardPageTitle,
 		HeaderLogoDataURI:       landingLogoDataURI,
@@ -155,20 +144,20 @@ func (handlers *SiteWidgetTestHandlers) RenderWidgetTestPage(context *gin.Contex
 		authScript = template.JS("")
 	}
 	data := widgetTestTemplateData{
-		PageTitle:               "Widget Test — " + site.Name,
+		PageTitle:               "Widget Test — LoopAware",
 		Header:                  headerData,
 		LandingPath:             LandingPagePath,
 		BootstrapIconsIntegrity: template.HTMLAttr(dashboardBootstrapIconsIntegrityAttr),
 		FaviconDataURI:          template.URL(dashboardFaviconDataURI),
 		TauthScriptURL:          template.URL(handlers.authConfig.TauthScriptURL),
-		SiteName:                site.Name,
-		SiteID:                  site.ID,
-		PlacementSide:           strings.ToLower(strings.TrimSpace(site.WidgetBubbleSide)),
-		PlacementSideLabel:      formatWidgetPlacementSide(site.WidgetBubbleSide),
-		PlacementOffset:         site.WidgetBubbleBottomOffsetPx,
+		SiteName:                "Loading...",
+		SiteID:                  siteIdentifier,
+		PlacementSide:           defaultWidgetBubbleSide,
+		PlacementSideLabel:      formatWidgetPlacementSide(defaultWidgetBubbleSide),
+		PlacementOffset:         defaultWidgetBubbleBottomOffset,
 		WidgetScriptURL:         template.URL(widgetScriptURL),
-		TestFeedbackEndpoint:    template.URL("/app/sites/" + site.ID + "/widget-test/feedback"),
-		WidgetUpdateEndpoint:    template.URL("/api/sites/" + site.ID),
+		TestFeedbackEndpoint:    template.URL("/api/sites/" + siteIdentifier + "/widget-test/feedback"),
+		WidgetUpdateEndpoint:    template.URL("/api/sites/" + siteIdentifier),
 		SharedStyles:            sharedPublicStyles(),
 		AuthScript:              authScript,
 		FooterHTML:              footerHTML,

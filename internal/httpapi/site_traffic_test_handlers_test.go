@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/testutil"
 )
@@ -59,50 +58,8 @@ func TestTrafficTestPageRequiresUser(testingT *testing.T) {
 	require.Equal(testingT, LandingPagePath, recorder.Header().Get("Location"))
 }
 
-func TestTrafficTestPageReturnsNotFound(testingT *testing.T) {
+func TestTrafficTestPageRendersHTML(testingT *testing.T) {
 	handlers := buildTrafficHandlers(testingT)
-	recorder := httptest.NewRecorder()
-	context, _ := gin.CreateTestContext(recorder)
-	context.Params = gin.Params{{Key: "id", Value: testTrafficSiteID}}
-	context.Request = httptest.NewRequest(http.MethodGet, "/app/sites/"+testTrafficSiteID+"/traffic-test", nil)
-	context.Set(contextKeyCurrentUser, &CurrentUser{Email: testTrafficOwnerEmail, Role: RoleUser})
-
-	handlers.RenderTrafficTestPage(context)
-
-	require.Equal(testingT, http.StatusNotFound, recorder.Code)
-}
-
-func TestTrafficTestPageRejectsForbidden(testingT *testing.T) {
-	handlers := buildTrafficHandlers(testingT)
-
-	site := model.Site{
-		ID:            testTrafficSiteID,
-		Name:          testTrafficSiteName,
-		OwnerEmail:    testTrafficOwnerEmail,
-		AllowedOrigin: testTrafficOriginValue,
-	}
-	require.NoError(testingT, handlers.database.Create(&site).Error)
-
-	recorder := httptest.NewRecorder()
-	context, _ := gin.CreateTestContext(recorder)
-	context.Params = gin.Params{{Key: "id", Value: testTrafficSiteID}}
-	context.Request = httptest.NewRequest(http.MethodGet, "/app/sites/"+testTrafficSiteID+"/traffic-test", nil)
-	context.Set(contextKeyCurrentUser, &CurrentUser{Email: "other@example.com", Role: RoleUser})
-
-	handlers.RenderTrafficTestPage(context)
-
-	require.Equal(testingT, http.StatusForbidden, recorder.Code)
-}
-
-func TestTrafficTestPageRendersDefaultURL(testingT *testing.T) {
-	handlers := buildTrafficHandlers(testingT)
-
-	site := model.Site{
-		ID:         testTrafficSiteID,
-		Name:       testTrafficSiteName,
-		OwnerEmail: testTrafficOwnerEmail,
-	}
-	require.NoError(testingT, handlers.database.Create(&site).Error)
 
 	recorder := httptest.NewRecorder()
 	context, _ := gin.CreateTestContext(recorder)
@@ -114,7 +71,11 @@ func TestTrafficTestPageRendersDefaultURL(testingT *testing.T) {
 	handlers.RenderTrafficTestPage(context)
 
 	require.Equal(testingT, http.StatusOK, recorder.Code)
-	require.Contains(testingT, recorder.Body.String(), "https://"+testTrafficHost)
+	require.Contains(testingT, recorder.Body.String(), testTrafficSiteID)
+	require.Contains(testingT, recorder.Body.String(), "traffic-test-site-name")
+	require.Contains(testingT, recorder.Body.String(), "Loading...")
+	require.Contains(testingT, recorder.Body.String(), "/api/visits")
+	require.Contains(testingT, recorder.Body.String(), "/api/sites/"+testTrafficSiteID+"/visits/stats")
 }
 
 func TestDefaultSampleURLFallbacks(testingT *testing.T) {
