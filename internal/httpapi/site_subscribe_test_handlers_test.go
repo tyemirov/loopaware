@@ -27,8 +27,8 @@ const (
 	testSubscriberName       = "Subscriber Name"
 	testOtherEmail           = "other@example.com"
 	testSubscribeRenderPath  = "/app/sites/" + testSubscribeSiteID + "/subscribe-test"
-	testSubscribeCreatePath  = "/app/sites/" + testSubscribeSiteID + "/subscribe-test/subscriptions"
-	testSubscribeEventsPath  = "/app/sites/" + testSubscribeSiteID + "/subscribe-test/events"
+	testSubscribeCreatePath  = "/api/sites/" + testSubscribeSiteID + "/subscribe-test/subscriptions"
+	testSubscribeEventsPath  = "/api/sites/" + testSubscribeSiteID + "/subscribe-test/events"
 )
 
 func buildSubscribeHandlers(testingT *testing.T) *SiteSubscribeTestHandlers {
@@ -84,31 +84,8 @@ func TestRenderSubscribeTestPageRequiresUser(testingT *testing.T) {
 	require.Equal(testingT, http.StatusFound, recorder.Code)
 }
 
-func TestRenderSubscribeTestPageReturnsNotFound(testingT *testing.T) {
-	handlers := buildSubscribeHandlers(testingT)
-	context, recorder := buildSubscribeContext(http.MethodGet, testSubscribeRenderPath, nil)
-	context.Params = gin.Params{{Key: "id", Value: testSubscribeSiteID}}
-	context.Set(contextKeyCurrentUser, &CurrentUser{Email: testSubscribeOwnerEmail, Role: RoleUser})
-
-	handlers.RenderSubscribeTestPage(context)
-	require.Equal(testingT, http.StatusNotFound, recorder.Code)
-}
-
-func TestRenderSubscribeTestPageRejectsForbidden(testingT *testing.T) {
-	handlers := buildSubscribeHandlers(testingT)
-	insertSubscribeSite(testingT, handlers)
-
-	context, recorder := buildSubscribeContext(http.MethodGet, testSubscribeRenderPath, nil)
-	context.Params = gin.Params{{Key: "id", Value: testSubscribeSiteID}}
-	context.Set(contextKeyCurrentUser, &CurrentUser{Email: testOtherEmail, Role: RoleUser})
-
-	handlers.RenderSubscribeTestPage(context)
-	require.Equal(testingT, http.StatusForbidden, recorder.Code)
-}
-
 func TestRenderSubscribeTestPageRendersHTML(testingT *testing.T) {
 	handlers := buildSubscribeHandlers(testingT)
-	insertSubscribeSite(testingT, handlers)
 
 	context, recorder := buildSubscribeContext(http.MethodGet, testSubscribeRenderPath, nil)
 	context.Params = gin.Params{{Key: "id", Value: testSubscribeSiteID}}
@@ -116,12 +93,16 @@ func TestRenderSubscribeTestPageRendersHTML(testingT *testing.T) {
 
 	handlers.RenderSubscribeTestPage(context)
 	require.Equal(testingT, http.StatusOK, recorder.Code)
-	require.Contains(testingT, recorder.Body.String(), testSubscribeSiteName)
+	require.Contains(testingT, recorder.Body.String(), testSubscribeSiteID)
+	require.Contains(testingT, recorder.Body.String(), "subscribe-test-site-name")
+	require.Contains(testingT, recorder.Body.String(), "Loading...")
+	require.Contains(testingT, recorder.Body.String(), `data-events-endpoint="`+testSubscribeEventsPath+`"`)
+	require.Contains(testingT, recorder.Body.String(), "subscribe-test/subscriptions")
 }
 
 func TestStreamSubscriptionTestEventsRequiresSiteID(testingT *testing.T) {
 	handlers := buildSubscribeHandlers(testingT)
-	context, recorder := buildSubscribeContext(http.MethodGet, "/app/sites//subscribe-test/events", nil)
+	context, recorder := buildSubscribeContext(http.MethodGet, "/api/sites//subscribe-test/events", nil)
 
 	handlers.StreamSubscriptionTestEvents(context)
 	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
@@ -186,7 +167,7 @@ func TestStreamSubscriptionTestEventsReturnsNoContentWhenClosed(testingT *testin
 
 func TestCreateSubscriptionRequiresSiteID(testingT *testing.T) {
 	handlers := buildSubscribeHandlers(testingT)
-	context, recorder := buildSubscribeContext(http.MethodPost, "/app/sites//subscribe-test/subscriptions", nil)
+	context, recorder := buildSubscribeContext(http.MethodPost, "/api/sites//subscribe-test/subscriptions", nil)
 
 	handlers.CreateSubscription(context)
 	require.Equal(testingT, http.StatusBadRequest, recorder.Code)

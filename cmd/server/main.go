@@ -432,7 +432,13 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager, authClientConfig)
 		privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager, authClientConfig)
 		sitemapHandlers := httpapi.NewSitemapHandlers(serverConfig.PublicBaseURL)
-		registerFrontendRoutes(router, authManager, landingHandlers, privacyHandlers, sitemapHandlers, dashboardHandlers)
+		publicJavaScriptHandlers := httpapi.NewPublicJavaScriptHandlers()
+		subscribeDemoHandlers := httpapi.NewSubscribeDemoPageHandlers(logger)
+		subscriptionLinkHandlers := httpapi.NewSubscriptionLinkPageHandlers(logger, authClientConfig)
+		widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(nil, logger, serverConfig.PublicBaseURL, nil, nil, authClientConfig)
+		trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(nil, logger, authClientConfig)
+		subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(nil, logger, nil, nil, false, serverConfig.PublicBaseURL, "", nil, authClientConfig)
+		registerFrontendRoutes(router, authManager, landingHandlers, privacyHandlers, sitemapHandlers, dashboardHandlers, publicJavaScriptHandlers, subscribeDemoHandlers, subscriptionLinkHandlers, widgetTestHandlers, trafficTestHandlers, subscribeTestHandlers)
 	} else {
 		database, databaseErr := application.databaseOpener(storage.Config{
 			DriverName:     serverConfig.DatabaseDriverName,
@@ -489,14 +495,17 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(database, logger, serverConfig.PublicBaseURL, feedbackBroadcaster, pinguinNotifier, authClientConfig)
 		trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(database, logger, authClientConfig)
 		subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(database, logger, subscriptionEvents, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier, authClientConfig)
-		registerBackendRoutes(router, authManager, publicHandlers, siteHandlers, widgetTestHandlers, trafficTestHandlers, subscribeTestHandlers)
+		registerBackendRoutes(router, authManager, publicHandlers, siteHandlers, widgetTestHandlers, subscribeTestHandlers)
 
 		if serverConfig.ServeMode == ServeModeMonolith {
 			dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot, authClientConfig)
 			landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager, authClientConfig)
 			privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager, authClientConfig)
 			sitemapHandlers := httpapi.NewSitemapHandlers(serverConfig.PublicBaseURL)
-			registerFrontendRoutes(router, authManager, landingHandlers, privacyHandlers, sitemapHandlers, dashboardHandlers)
+			publicJavaScriptHandlers := httpapi.NewPublicJavaScriptHandlers()
+			subscribeDemoHandlers := httpapi.NewSubscribeDemoPageHandlers(logger)
+			subscriptionLinkHandlers := httpapi.NewSubscriptionLinkPageHandlers(logger, authClientConfig)
+			registerFrontendRoutes(router, authManager, landingHandlers, privacyHandlers, sitemapHandlers, dashboardHandlers, publicJavaScriptHandlers, subscribeDemoHandlers, subscriptionLinkHandlers, widgetTestHandlers, trafficTestHandlers, subscribeTestHandlers)
 		}
 	}
 

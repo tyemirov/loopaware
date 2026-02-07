@@ -101,19 +101,9 @@ func (handlers *SiteSubscribeTestHandlers) RenderSubscribeTestPage(context *gin.
 		return
 	}
 
-	currentUser, ok := CurrentUserFromContext(context)
+	_, ok := CurrentUserFromContext(context)
 	if !ok {
 		context.Redirect(http.StatusFound, LandingPagePath)
-		return
-	}
-
-	var site model.Site
-	if handlers.database == nil || handlers.database.First(&site, "id = ?", siteIdentifier).Error != nil {
-		context.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-	if !currentUser.canManageSite(site) {
-		context.AbortWithStatus(http.StatusForbidden)
 		return
 	}
 
@@ -150,17 +140,15 @@ func (handlers *SiteSubscribeTestHandlers) RenderSubscribeTestPage(context *gin.
 		authScript = template.JS("")
 	}
 
-	eventsEndpoint := "/app/sites/" + site.ID + "/subscribe-test/events"
-
 	data := subscribeTestTemplateData{
-		PageTitle:               "Subscribe Widget Test — " + site.Name,
+		PageTitle:               "Subscribe Widget Test — LoopAware",
 		Header:                  headerData,
 		LandingPath:             LandingPagePath,
 		BootstrapIconsIntegrity: template.HTMLAttr(dashboardBootstrapIconsIntegrityAttr),
 		FaviconDataURI:          template.URL(dashboardFaviconDataURI),
 		TauthScriptURL:          template.URL(handlers.authConfig.TauthScriptURL),
-		SiteName:                site.Name,
-		SiteID:                  site.ID,
+		SiteName:                "Loading...",
+		SiteID:                  siteIdentifier,
 		InlineFormTitle:         "Subscribe form preview",
 		InlineFormContainerID:   "subscribe-test-inline-preview",
 		AccentInputID:           "subscribe-test-accent",
@@ -169,7 +157,7 @@ func (handlers *SiteSubscribeTestHandlers) RenderSubscribeTestPage(context *gin.
 		NameFieldInputID:        "subscribe-test-name-field",
 		StatusLogElementID:      "subscribe-test-log",
 		StatusTextElementID:     "subscribe-test-status",
-		EventsEndpoint:          template.URL(eventsEndpoint),
+		EventsEndpoint:          template.URL("/api/sites/" + siteIdentifier + "/subscribe-test/events"),
 		DefaultAccent:           subscribeTestAccentDefault,
 		DefaultCTA:              subscribeTestCTADefault,
 		SharedStyles:            sharedPublicStyles(),

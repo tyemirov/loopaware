@@ -66,7 +66,7 @@
             <div class="card-body">
               <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
                 <div>
-                  <h1 class="h4 mb-1">Widget Test — {{.SiteName}}</h1>
+                  <h1 class="h4 mb-1">Widget Test — <span id="widget-test-site-name">{{.SiteName}}</span></h1>
                   <p class="text-muted small mb-0">Site ID: <code>{{.SiteID}}</code></p>
                 </div>
                 <span class="badge text-bg-secondary">Preview only</span>
@@ -304,10 +304,18 @@
       var landingPath = '{{js .LandingPath}}';
       var dashboardPath = '{{js .DashboardPath}}';
       var updateEndpoint = body.getAttribute('data-update-endpoint') || '';
+      var siteIdentifier = body.getAttribute('data-site-id') || '';
       var defaultSide = (body.getAttribute('data-widget-side') || 'right').toLowerCase();
       var defaultOffset = parseInt(body.getAttribute('data-widget-offset') || '16', 10);
       if (!Number.isFinite(defaultOffset)) {
         defaultOffset = 16;
+      }
+      var siteNameElement = document.getElementById('widget-test-site-name');
+      function authFetch(resource, init) {
+        if (typeof window.apiFetch === 'function') {
+          return window.apiFetch.call(window, resource, init);
+        }
+        return window.fetch.call(window, resource, init);
       }
       var sideLeftInput = document.getElementById('widget-test-side-left');
       var sideRightInput = document.getElementById('widget-test-side-right');
@@ -376,11 +384,20 @@
       }
 
       function updateWidgetPreview(side, offset) {
+        // The widget script may not have rendered yet when the controls hydrate,
+        // so retry using the latest form state instead of captured values.
+        if (typeof updateWidgetPreview.retryTimerId !== 'number') {
+          updateWidgetPreview.retryTimerId = 0;
+        }
         var bubble = document.getElementById('mp-feedback-bubble');
         var panel = document.getElementById('mp-feedback-panel');
         if (!bubble || !panel) {
-          window.setTimeout(function() {
-            updateWidgetPreview(side, offset);
+          if (updateWidgetPreview.retryTimerId) {
+            window.clearTimeout(updateWidgetPreview.retryTimerId);
+          }
+          updateWidgetPreview.retryTimerId = window.setTimeout(function() {
+            updateWidgetPreview.retryTimerId = 0;
+            updateWidgetPreview(normalizeSide(currentSide()), normalizeOffset(currentOffset()));
           }, 50);
           return;
         }
@@ -503,7 +520,6 @@
             widget_bubble_side: currentSide(),
             widget_bubble_bottom_offset: currentOffset()
           };
-          var authFetch = typeof window.apiFetch === 'function' ? window.apiFetch : window.fetch.bind(window);
           authFetch(updateEndpoint, {
             method: 'PATCH',
             credentials: 'same-origin',
@@ -535,7 +551,54 @@
         });
       }
 
+      function hydrateFromSite() {
+        if (!siteIdentifier) {
+          return;
+        }
+        authFetch('/api/sites', {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Accept': 'application/json' }
+        }).then(function(response) {
+          if (response.status === 401) {
+            window.location.href = landingPath;
+            throw new Error('unauthorized');
+          }
+          if (!response.ok) {
+            throw new Error('load_failed');
+          }
+          return response.json();
+        }).then(function(payload) {
+          if (!payload || !Array.isArray(payload.sites)) {
+            return;
+          }
+          for (var index = 0; index < payload.sites.length; index += 1) {
+            var site = payload.sites[index];
+            if (!site || site.id !== siteIdentifier) {
+              continue;
+            }
+            if (siteNameElement && typeof site.name === 'string' && site.name.trim()) {
+              siteNameElement.textContent = site.name.trim();
+              document.title = 'Widget Test — ' + site.name.trim();
+            }
+            if (typeof site.widget_bubble_side === 'string' && site.widget_bubble_side.trim()) {
+              defaultSide = site.widget_bubble_side.trim().toLowerCase();
+            }
+            if (typeof site.widget_bubble_bottom_offset === 'number' && Number.isFinite(site.widget_bubble_bottom_offset)) {
+              defaultOffset = site.widget_bubble_bottom_offset;
+            }
+            applyFormState(defaultSide, defaultOffset);
+            return;
+          }
+        }).catch(function(error) {
+          if (error && error.message === 'unauthorized') {
+            return;
+          }
+        });
+      }
+
       applyFormState(defaultSide, defaultOffset);
+      hydrateFromSite();
     }());
   </script>
   <script>

@@ -105,6 +105,44 @@ type subscriptionMutationRequest struct {
 	Email  string `json:"email"`
 }
 
+type widgetConfigResponse struct {
+	SiteID                   string `json:"site_id"`
+	WidgetBubbleSide         string `json:"widget_bubble_side"`
+	WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
+}
+
+type subscriptionLinkResponse struct {
+	Heading        string `json:"heading"`
+	Message        string `json:"message"`
+	OpenURL        string `json:"open_url"`
+	OpenLabel      string `json:"open_label"`
+	UnsubscribeURL string `json:"unsubscribe_url"`
+}
+
+func buildSubscriptionLinkResponse(heading string, message string, site model.Site, subscriber model.Subscriber, confirmationToken string) subscriptionLinkResponse {
+	openURL := subscriptionConfirmationOpenURL(site, subscriber)
+	openLabel := "Open site"
+	trimmedSiteName := strings.TrimSpace(site.Name)
+	if trimmedSiteName != "" {
+		openLabel = "Open " + trimmedSiteName
+	}
+
+	unsubscribeURLValue := ""
+	if strings.TrimSpace(confirmationToken) != "" && subscriber.Status == model.SubscriberStatusConfirmed {
+		query := url.Values{}
+		query.Set("token", confirmationToken)
+		unsubscribeURLValue = "/subscriptions/unsubscribe?" + query.Encode()
+	}
+
+	return subscriptionLinkResponse{
+		Heading:        heading,
+		Message:        message,
+		OpenURL:        openURL,
+		OpenLabel:      openLabel,
+		UnsubscribeURL: unsubscribeURLValue,
+	}
+}
+
 func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 	clientIP := context.ClientIP()
 	if h.isRateLimited(clientIP) {
@@ -237,6 +275,47 @@ func (h *PublicHandlers) isRateLimited(ip string) bool {
 
 	h.rateCountersByIP[key]++
 	return h.rateCountersByIP[key] > h.maxRequestsPerIPPerWindow
+}
+
+func (h *PublicHandlers) WidgetConfig(context *gin.Context) {
+	siteID := strings.TrimSpace(context.Query("site_id"))
+	if siteID == "" {
+		siteID = strings.TrimSpace(context.GetHeader("X-Site-Id"))
+	}
+	if siteID == "" {
+		context.JSON(http.StatusBadRequest, gin.H{"error": "missing_site_id"})
+		return
+	}
+
+	var site model.Site
+	if siteID == demoWidgetSiteID {
+		site = model.Site{
+			ID:                         demoWidgetSiteID,
+			Name:                       demoWidgetSiteName,
+			WidgetBubbleSide:           widgetBubbleSideLeft,
+			WidgetBubbleBottomOffsetPx: defaultWidgetBubbleBottomOffset,
+		}
+	} else {
+		if h.database == nil || h.database.First(&site, "id = ?", siteID).Error != nil {
+			context.JSON(http.StatusNotFound, gin.H{"error": "unknown_site"})
+			return
+		}
+
+		originHeader := strings.TrimSpace(context.GetHeader("Origin"))
+		refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
+		allowedOrigins := mergedAllowedOrigins(site.AllowedOrigin, site.WidgetAllowedOrigins)
+		if !isOriginAllowed(allowedOrigins, originHeader, refererHeader, "") {
+			context.JSON(http.StatusForbidden, gin.H{"error": "origin_forbidden"})
+			return
+		}
+	}
+
+	ensureWidgetBubblePlacementDefaults(&site)
+	context.JSON(http.StatusOK, widgetConfigResponse{
+		SiteID:                   site.ID,
+		WidgetBubbleSide:         site.WidgetBubbleSide,
+		WidgetBubbleBottomOffset: site.WidgetBubbleBottomOffsetPx,
+	})
 }
 
 func (h *PublicHandlers) WidgetJS(context *gin.Context) {
@@ -451,6 +530,124 @@ func (h *PublicHandlers) ConfirmSubscription(context *gin.Context) {
 
 func (h *PublicHandlers) Unsubscribe(context *gin.Context) {
 	h.updateSubscriptionStatus(context, model.SubscriberStatusUnsubscribed)
+}
+
+func (h *PublicHandlers) ConfirmSubscriptionLinkJSON(context *gin.Context) {
+	token := strings.TrimSpace(context.Query("token"))
+	if token == "" {
+		context.JSON(http.StatusBadRequest, buildSubscriptionLinkResponse("Subscription confirmation", "Missing confirmation token.", model.Site{}, model.Subscriber{}, ""))
+		return
+	}
+	if strings.TrimSpace(h.subscriptionTokenSecret) == "" {
+		context.JSON(http.StatusInternalServerError, buildSubscriptionLinkResponse("Subscription confirmation", "Subscription confirmation is unavailable.", model.Site{}, model.Subscriber{}, ""))
+		return
+	}
+
+	parsed, tokenErr := parseSubscriptionConfirmationToken(context.Request.Context(), h.subscriptionTokenSecret, token, time.Now().UTC())
+	if tokenErr != nil {
+		context.JSON(http.StatusBadRequest, buildSubscriptionLinkResponse("Subscription confirmation", "Invalid or expired token.", model.Site{}, model.Subscriber{}, ""))
+		return
+	}
+
+	var subscriber model.Subscriber
+	findErr := h.database.First(&subscriber, "id = ? AND site_id = ?", parsed.SubscriberID, parsed.SiteID).Error
+	if findErr != nil {
+		context.JSON(http.StatusBadRequest, buildSubscriptionLinkResponse("Subscription confirmation", "Invalid or expired token.", model.Site{}, model.Subscriber{}, ""))
+		return
+	}
+	if strings.TrimSpace(strings.ToLower(subscriber.Email)) != strings.TrimSpace(strings.ToLower(parsed.Email)) {
+		context.JSON(http.StatusBadRequest, buildSubscriptionLinkResponse("Subscription confirmation", "Invalid or expired token.", model.Site{}, model.Subscriber{}, ""))
+		return
+	}
+
+	var site model.Site
+	if siteErr := h.database.First(&site, "id = ?", subscriber.SiteID).Error; siteErr != nil {
+		site = model.Site{}
+	}
+
+	if subscriber.Status == model.SubscriberStatusUnsubscribed {
+		context.JSON(http.StatusConflict, buildSubscriptionLinkResponse("Subscription confirmation", "Subscription already unsubscribed.", site, subscriber, ""))
+		return
+	}
+	if subscriber.Status == model.SubscriberStatusConfirmed {
+		context.JSON(http.StatusOK, buildSubscriptionLinkResponse("Subscription confirmed", "Your subscription is already confirmed.", site, subscriber, token))
+		return
+	}
+
+	now := time.Now().UTC()
+	updateErr := h.database.Model(&subscriber).Updates(map[string]any{
+		"status":          model.SubscriberStatusConfirmed,
+		"confirmed_at":    now,
+		"unsubscribed_at": time.Time{},
+	}).Error
+	if updateErr != nil {
+		context.JSON(http.StatusInternalServerError, buildSubscriptionLinkResponse("Subscription confirmation", "Failed to confirm subscription.", site, subscriber, ""))
+		return
+	}
+
+	subscriber.Status = model.SubscriberStatusConfirmed
+	subscriber.ConfirmedAt = now
+	subscriber.UnsubscribedAt = time.Time{}
+
+	if strings.TrimSpace(site.ID) != "" {
+		h.applySubscriptionNotification(context.Request.Context(), site, subscriber)
+	}
+
+	context.JSON(http.StatusOK, buildSubscriptionLinkResponse("Subscription confirmed", "Subscription confirmed.", site, subscriber, token))
+}
+
+func (h *PublicHandlers) UnsubscribeSubscriptionLinkJSON(context *gin.Context) {
+	token := strings.TrimSpace(context.Query("token"))
+	if token == "" {
+		context.JSON(http.StatusBadRequest, buildSubscriptionLinkResponse("Unsubscribe", "Missing unsubscribe token.", model.Site{}, model.Subscriber{}, ""))
+		return
+	}
+	if strings.TrimSpace(h.subscriptionTokenSecret) == "" {
+		context.JSON(http.StatusInternalServerError, buildSubscriptionLinkResponse("Unsubscribe", "Subscription unsubscribe is unavailable.", model.Site{}, model.Subscriber{}, ""))
+		return
+	}
+
+	parsed, tokenErr := parseSubscriptionConfirmationToken(context.Request.Context(), h.subscriptionTokenSecret, token, time.Now().UTC())
+	if tokenErr != nil {
+		context.JSON(http.StatusBadRequest, buildSubscriptionLinkResponse("Unsubscribe", "Invalid or expired token.", model.Site{}, model.Subscriber{}, ""))
+		return
+	}
+
+	var subscriber model.Subscriber
+	findErr := h.database.First(&subscriber, "id = ? AND site_id = ?", parsed.SubscriberID, parsed.SiteID).Error
+	if findErr != nil {
+		context.JSON(http.StatusBadRequest, buildSubscriptionLinkResponse("Unsubscribe", "Invalid or expired token.", model.Site{}, model.Subscriber{}, ""))
+		return
+	}
+	if strings.TrimSpace(strings.ToLower(subscriber.Email)) != strings.TrimSpace(strings.ToLower(parsed.Email)) {
+		context.JSON(http.StatusBadRequest, buildSubscriptionLinkResponse("Unsubscribe", "Invalid or expired token.", model.Site{}, model.Subscriber{}, ""))
+		return
+	}
+
+	var site model.Site
+	if siteErr := h.database.First(&site, "id = ?", subscriber.SiteID).Error; siteErr != nil {
+		site = model.Site{}
+	}
+
+	if subscriber.Status == model.SubscriberStatusUnsubscribed {
+		context.JSON(http.StatusOK, buildSubscriptionLinkResponse("Unsubscribed", "Subscription already unsubscribed.", site, subscriber, ""))
+		return
+	}
+
+	now := time.Now().UTC()
+	updateErr := h.database.Model(&subscriber).Updates(map[string]any{
+		"status":          model.SubscriberStatusUnsubscribed,
+		"unsubscribed_at": now,
+	}).Error
+	if updateErr != nil {
+		context.JSON(http.StatusInternalServerError, buildSubscriptionLinkResponse("Unsubscribe", "Failed to unsubscribe.", site, subscriber, ""))
+		return
+	}
+
+	subscriber.Status = model.SubscriberStatusUnsubscribed
+	subscriber.UnsubscribedAt = now
+
+	context.JSON(http.StatusOK, buildSubscriptionLinkResponse("Unsubscribed", "You have been unsubscribed.", site, subscriber, ""))
 }
 
 func (h *PublicHandlers) ConfirmSubscriptionLink(context *gin.Context) {

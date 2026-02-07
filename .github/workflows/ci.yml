@@ -66,6 +66,7 @@ jobs:
           TAUTH_TENANT_ID_PINGUIN=pinguin
           TAUTH_TENANT_DISPLAY_NAME_PINGUIN="Pinguin CI"
           TAUTH_TENANT_ORIGIN_PINGUIN=http://localhost:8081
+          TAUTH_TENANT_ORIGIN_PINGUIN_ALT=http://127.0.0.1:8081
           TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_PINGUIN=ci-google-client-id
           TAUTH_TENANT_JWT_SIGNING_KEY_PINGUIN=ci-signing-key
           TAUTH_TENANT_SESSION_COOKIE_NAME_PINGUIN=app_session_pinguin
@@ -73,6 +74,7 @@ jobs:
           TAUTH_TENANT_ID_LOOPAWARE=loopaware
           TAUTH_TENANT_DISPLAY_NAME_LOOPAWARE="LoopAware CI"
           TAUTH_TENANT_ORIGIN_LOOPAWARE=http://localhost:8080
+          TAUTH_TENANT_ORIGIN_LOOPAWARE_ALT=http://127.0.0.1:8080
           TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE=ci-google-client-id
           TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE=ci-signing-key
           TAUTH_TENANT_SESSION_COOKIE_NAME_LOOPAWARE=app_session_loopaware

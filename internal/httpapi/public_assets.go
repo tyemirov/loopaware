@@ -105,13 +105,13 @@ const (
 )
 
 var (
-	publicHeaderTemplate = template.Must(template.New("public_header").Parse(`<mpr-header class="landing-header" google-site-id="{{.GoogleClientID}}"{{if .TauthBaseURL}} tauth-url="{{.TauthBaseURL}}"{{end}} tauth-tenant-id="{{.TauthTenantID}}" tauth-login-path="{{.TauthLoginPath}}" tauth-logout-path="{{.TauthLogoutPath}}" tauth-nonce-path="{{.TauthNoncePath}}" sign-in-label="{{.SignInLabel}}" sign-out-label="{{.SignOutLabel}}"{{if .AuthRedirectAttr}} {{.AuthRedirectAttr}}{{end}}>
-  <a slot="brand" class="landing-brand d-inline-flex align-items-center gap-3 text-decoration-none" href="{{.HeroTarget}}" {{.HeroDataAttribute}}{{if .HeroScrollAttribute}} {{.HeroScrollAttribute}}{{end}}>
-    <span class="landing-logo">
-      <img src="{{.LogoDataURI}}" alt="LoopAware logo" class="landing-logo-image" />
-    </span>
-    <span>{{.BrandName}}</span>
-  </a>
+	publicHeaderTemplate = template.Must(template.New("public_header").Parse(`<mpr-header class="landing-header" google-site-id="{{.GoogleClientID}}"{{if .TauthBaseURL}} tauth-url="{{.TauthBaseURL}}"{{end}} tauth-tenant-id="{{.TauthTenantID}}" tauth-login-path="{{.TauthLoginPath}}" tauth-logout-path="{{.TauthLogoutPath}}" tauth-nonce-path="{{.TauthNoncePath}}" sign-in-label="{{.SignInLabel}}" sign-out-label="{{.SignOutLabel}}" settings="false"{{if .AuthRedirectAttr}} {{.AuthRedirectAttr}}{{end}}>
+	  <a slot="brand" class="landing-brand d-inline-flex align-items-center gap-3 text-decoration-none" href="{{.HeroTarget}}" {{.HeroDataAttribute}}{{if .HeroScrollAttribute}} {{.HeroScrollAttribute}}{{end}}>
+	    <span class="landing-logo">
+	      <img src="{{.LogoDataURI}}" alt="LoopAware logo" class="landing-logo-image" />
+	    </span>
+	    <span>{{.BrandName}}</span>
+	  </a>
   <mpr-user
     slot="aux"
     data-loopaware-user-menu="true"
@@ -393,17 +393,51 @@ var (
     if (!window || !headerHost) {
       return;
     }
-    if (typeof window.logout === 'function' && window.logout.__loopawareLogoutWrapper === true) {
-      return;
+    window.__loopawareLogoutHeaderHost = headerHost;
+    var existingWrapper = window.__loopawareLogoutWrapper;
+    if (typeof existingWrapper !== 'function' || existingWrapper.__loopawareLogoutWrapper !== true) {
+      existingWrapper = function() {
+        var resolvedHost = window.__loopawareLogoutHeaderHost || headerHost;
+        return performLogoutRequest(resolvedHost, window.__loopawareLogoutDelegate);
+      };
+      existingWrapper.__loopawareLogoutWrapper = true;
+      window.__loopawareLogoutWrapper = existingWrapper;
     }
-    if (typeof window.__loopawareLogoutDelegate !== 'function' && typeof window.logout === 'function') {
+    if (typeof window.__loopawareLogoutDelegate !== 'function' && typeof window.logout === 'function' && window.logout.__loopawareLogoutWrapper !== true) {
       window.__loopawareLogoutDelegate = window.logout;
     }
-    var wrapper = function() {
-      return performLogoutRequest(headerHost, window.__loopawareLogoutDelegate);
-    };
-    wrapper.__loopawareLogoutWrapper = true;
-    window.logout = wrapper;
+    if (window.__loopawareLogoutTracking === true) {
+      return;
+    }
+    window.__loopawareLogoutTracking = true;
+    try {
+      Object.defineProperty(window, 'logout', {
+        configurable: true,
+        enumerable: true,
+        get: function() {
+          return window.__loopawareLogoutWrapper || existingWrapper;
+        },
+        set: function(value) {
+          if (typeof value === 'function' && value.__loopawareLogoutWrapper === true) {
+            window.__loopawareLogoutWrapper = value;
+            return;
+          }
+          if (typeof value === 'function') {
+            window.__loopawareLogoutDelegate = value;
+            return;
+          }
+          window.__loopawareLogoutDelegate = undefined;
+        }
+      });
+    } catch (error) {
+      try {
+        window.logout = existingWrapper;
+      } catch (error) {}
+      return;
+    }
+    try {
+      window.logout = existingWrapper;
+    } catch (error) {}
   }
 
   function disableGoogleAutoSelect() {

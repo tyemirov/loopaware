@@ -3018,7 +3018,7 @@ func TestSubscribeTestPageExposesEventsEndpoint(t *testing.T) {
 	body, err := io.ReadAll(response.Body)
 	require.NoError(t, err)
 
-	expectedEndpoint := fmt.Sprintf(`data-events-endpoint="/app/sites/%s/subscribe-test/events"`, site.ID)
+	expectedEndpoint := fmt.Sprintf(`data-events-endpoint="/api/sites/%s/subscribe-test/events"`, site.ID)
 	require.Contains(t, string(body), expectedEndpoint)
 }
 
@@ -3037,7 +3037,7 @@ func TestSubscribeTestEventsEndpointStreamsBroadcasts(t *testing.T) {
 
 	sessionCookie := createAuthenticatedSessionCookie(t, dashboardTestAdminEmail, dashboardTestAdminDisplayName)
 
-	request, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/app/sites/%s/subscribe-test/events", harness.baseURL, site.ID), nil)
+	request, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/sites/%s/subscribe-test/events", harness.baseURL, site.ID), nil)
 	require.NoError(t, err)
 	request.AddCookie(sessionCookie)
 
@@ -3862,11 +3862,11 @@ func buildDashboardIntegrationHarness(testingT *testing.T, adminEmail string, op
 	router.GET(httpapi.SitemapRoutePath, sitemapHandlers.RenderSitemap)
 	router.GET(dashboardTestDashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
 	router.GET("/app/sites/:id/widget-test", authManager.RequireAuthenticatedWeb(), widgetTestHandlers.RenderWidgetTestPage)
-	router.POST("/app/sites/:id/widget-test/feedback", authManager.RequireAuthenticatedJSON(), widgetTestHandlers.SubmitWidgetTestFeedback)
+	router.POST("/api/sites/:id/widget-test/feedback", authManager.RequireAuthenticatedJSON(), widgetTestHandlers.SubmitWidgetTestFeedback)
 	router.GET("/app/sites/:id/traffic-test", authManager.RequireAuthenticatedWeb(), trafficTestHandlers.RenderTrafficTestPage)
 	router.GET("/app/sites/:id/subscribe-test", authManager.RequireAuthenticatedWeb(), subscribeTestHandlers.RenderSubscribeTestPage)
-	router.GET("/app/sites/:id/subscribe-test/events", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.StreamSubscriptionTestEvents)
-	router.POST("/app/sites/:id/subscribe-test/subscriptions", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.CreateSubscription)
+	router.GET("/api/sites/:id/subscribe-test/events", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.StreamSubscriptionTestEvents)
+	router.POST("/api/sites/:id/subscribe-test/subscriptions", authManager.RequireAuthenticatedJSON(), subscribeTestHandlers.CreateSubscription)
 
 	router.GET("/api/visits", publicHandlers.CollectVisit)
 	router.POST("/api/feedback", publicHandlers.CreateFeedback)

@@ -29,7 +29,7 @@ const (
 	testWidgetMessage                = "Test widget message"
 	testWidgetScriptHost             = "widget.local"
 	testWidgetMissingSiteID          = "missing"
-	testWidgetFeedbackPath           = "/app/sites/" + testWidgetSiteID + "/widget-test/feedback"
+	testWidgetFeedbackPath           = "/api/sites/" + testWidgetSiteID + "/widget-test/feedback"
 	testWidgetRenderPath             = "/app/sites/" + testWidgetSiteID + "/widget-test"
 	testWidgetFeedbackCreateCallback = "force_widget_feedback_create_error"
 	testWidgetFeedbackCreateError    = "feedback_create_failed"
@@ -128,26 +128,6 @@ func TestRenderWidgetTestPageRequiresUser(testingT *testing.T) {
 	require.Equal(testingT, http.StatusFound, recorder.Code)
 }
 
-func TestRenderWidgetTestPageReturnsNotFound(testingT *testing.T) {
-	handlers, _ := buildWidgetHandlers(testingT)
-	context, recorder := buildWidgetContext(http.MethodGet, "/app/sites/missing/widget-test", nil)
-	context.Params = gin.Params{{Key: "id", Value: testWidgetMissingSiteID}}
-	context.Set(contextKeyCurrentUser, &CurrentUser{Email: testWidgetOwnerEmail, Role: RoleUser})
-
-	handlers.RenderWidgetTestPage(context)
-	require.Equal(testingT, http.StatusNotFound, recorder.Code)
-}
-
-func TestRenderWidgetTestPageRejectsForbidden(testingT *testing.T) {
-	handlers, _ := buildWidgetHandlers(testingT)
-	context, recorder := buildWidgetContext(http.MethodGet, testWidgetRenderPath, nil)
-	context.Params = gin.Params{{Key: "id", Value: testWidgetSiteID}}
-	context.Set(contextKeyCurrentUser, &CurrentUser{Email: testWidgetOtherEmail, Role: RoleUser})
-
-	handlers.RenderWidgetTestPage(context)
-	require.Equal(testingT, http.StatusForbidden, recorder.Code)
-}
-
 func TestRenderWidgetTestPageRendersHTML(testingT *testing.T) {
 	handlers, _ := buildWidgetHandlers(testingT)
 	context, recorder := buildWidgetContext(http.MethodGet, testWidgetRenderPath, nil)
@@ -156,13 +136,17 @@ func TestRenderWidgetTestPageRendersHTML(testingT *testing.T) {
 
 	handlers.RenderWidgetTestPage(context)
 	require.Equal(testingT, http.StatusOK, recorder.Code)
-	require.Contains(testingT, recorder.Body.String(), testWidgetSiteName)
 	require.Contains(testingT, recorder.Body.String(), testWidgetSiteID)
+	require.Contains(testingT, recorder.Body.String(), "widget-test-site-name")
+	require.Contains(testingT, recorder.Body.String(), "Loading...")
+	require.Contains(testingT, recorder.Body.String(), "window.LOOPAWARE_WIDGET_TEST_MODE = true;")
+	require.Contains(testingT, recorder.Body.String(), "LOOPAWARE_WIDGET_TEST_ENDPOINT")
+	require.Contains(testingT, recorder.Body.String(), "widget-test\\/feedback")
 }
 
 func TestSubmitWidgetTestFeedbackRequiresSiteID(testingT *testing.T) {
 	handlers, _ := buildWidgetHandlers(testingT)
-	context, recorder := buildWidgetContext(http.MethodPost, "/app/sites//widget-test/feedback", nil)
+	context, recorder := buildWidgetContext(http.MethodPost, "/api/sites//widget-test/feedback", nil)
 
 	handlers.SubmitWidgetTestFeedback(context)
 	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
@@ -179,7 +163,7 @@ func TestSubmitWidgetTestFeedbackRequiresUser(testingT *testing.T) {
 
 func TestSubmitWidgetTestFeedbackReturnsNotFound(testingT *testing.T) {
 	handlers, _ := buildWidgetHandlers(testingT)
-	context, recorder := buildWidgetContext(http.MethodPost, "/app/sites/missing/widget-test/feedback", nil)
+	context, recorder := buildWidgetContext(http.MethodPost, "/api/sites/missing/widget-test/feedback", nil)
 	context.Params = gin.Params{{Key: "id", Value: testWidgetMissingSiteID}}
 	context.Set(contextKeyCurrentUser, &CurrentUser{Email: testWidgetOwnerEmail, Role: RoleUser})
 

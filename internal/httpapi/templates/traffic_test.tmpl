@@ -71,7 +71,7 @@
             <div class="card-body">
               <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
                 <div>
-                  <h1 class="h4 mb-1">Test traffic widget — {{.SiteName}}</h1>
+                  <h1 class="h4 mb-1">Test traffic widget — <span id="traffic-test-site-name">{{.SiteName}}</span></h1>
                   <p class="text-muted small mb-0">Site ID: <code>{{.SiteID}}</code></p>
                 </div>
                 <span class="badge text-bg-secondary">Preview only</span>
@@ -144,7 +144,12 @@
       var footerBaseClass = '{{js .FooterBaseClass}}';
       var landingPath = '{{js .LandingPath}}';
       var dashboardPath = '{{js .DashboardPath}}';
-      var authFetch = typeof window.apiFetch === 'function' ? window.apiFetch : window.fetch.bind(window);
+      function authFetch(resource, init) {
+        if (typeof window.apiFetch === 'function') {
+          return window.apiFetch.call(window, resource, init);
+        }
+        return window.fetch.call(window, resource, init);
+      }
 
       function normalizeClassList(value) {
         if (typeof value !== 'string') {
@@ -275,6 +280,7 @@
       if (!body) {
         return;
       }
+      var siteNameElement = document.getElementById('traffic-test-site-name');
       var siteId = body.getAttribute('data-site-id') || '';
       var visitsEndpoint = body.getAttribute('data-visits-endpoint') || '';
       var statsEndpoint = body.getAttribute('data-stats-endpoint') || '';
@@ -288,6 +294,58 @@
       var topPagesTable = document.getElementById('{{js .TopPagesTableID}}');
       var previewVisitorStorageKey = 'loopaware_traffic_preview_visitor_id';
       var cachedVisitorId = '';
+
+      function resolvePrimaryOrigin(rawValue) {
+        if (typeof rawValue !== 'string') {
+          return '';
+        }
+        var normalized = rawValue.trim().replace(/[;,]+/g, ' ');
+        var parts = normalized.split(/\s+/).filter(Boolean);
+        return parts.length ? parts[0] : '';
+      }
+
+      function hydrateFromSite() {
+        if (!siteId) {
+          return;
+        }
+        authFetch('/api/sites', {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Accept': 'application/json' }
+        }).then(function(response) {
+          if (response.status === 401) {
+            window.location.href = landingPath;
+            throw new Error('unauthorized');
+          }
+          if (!response.ok) {
+            throw new Error('load_failed');
+          }
+          return response.json();
+        }).then(function(payload) {
+          if (!payload || !Array.isArray(payload.sites)) {
+            return;
+          }
+          for (var index = 0; index < payload.sites.length; index += 1) {
+            var site = payload.sites[index];
+            if (!site || site.id !== siteId) {
+              continue;
+            }
+            if (siteNameElement && typeof site.name === 'string' && site.name.trim()) {
+              siteNameElement.textContent = site.name.trim();
+              document.title = 'Traffic Widget Test — ' + site.name.trim();
+            }
+            var primaryOrigin = resolvePrimaryOrigin(site.allowed_origin || '');
+            if (urlInput && primaryOrigin) {
+              urlInput.value = primaryOrigin;
+            }
+            return;
+          }
+        }).catch(function(error) {
+          if (error && error.message === 'unauthorized') {
+            return;
+          }
+        });
+      }
 
       function updateStatus(message, variant) {
         if (!statusLabel) {
@@ -503,6 +561,7 @@
         });
       }
 
+      hydrateFromSite();
       loadStats();
       setInterval(loadStats, 8000);
     }());

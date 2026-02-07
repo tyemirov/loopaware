@@ -9,8 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-
-	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 )
 
 type SiteTrafficTestHandlers struct {
@@ -76,19 +74,9 @@ func (handlers *SiteTrafficTestHandlers) RenderTrafficTestPage(context *gin.Cont
 		return
 	}
 
-	currentUser, ok := CurrentUserFromContext(context)
+	_, ok := CurrentUserFromContext(context)
 	if !ok {
 		context.Redirect(http.StatusFound, LandingPagePath)
-		return
-	}
-
-	var site model.Site
-	if handlers.database == nil || handlers.database.First(&site, "id = ?", siteIdentifier).Error != nil {
-		context.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-	if !currentUser.canManageSite(site) {
-		context.AbortWithStatus(http.StatusForbidden)
 		return
 	}
 
@@ -129,25 +117,21 @@ func (handlers *SiteTrafficTestHandlers) RenderTrafficTestPage(context *gin.Cont
 		authScript = template.JS("")
 	}
 
-	statsEndpoint := "/api/sites/" + site.ID + "/visits/stats"
+	statsEndpoint := "/api/sites/" + siteIdentifier + "/visits/stats"
 	visitsEndpoint := "/api/visits"
-	defaultURL := primaryAllowedOrigin(site.AllowedOrigin)
-	if strings.TrimSpace(defaultURL) == "" {
-		defaultURL = handlers.defaultSampleURL(context.Request)
-	}
 
 	data := trafficTestTemplateData{
-		PageTitle:               "Traffic Widget Test — " + site.Name,
+		PageTitle:               "Traffic Widget Test — LoopAware",
 		Header:                  headerData,
 		LandingPath:             LandingPagePath,
 		BootstrapIconsIntegrity: template.HTMLAttr(dashboardBootstrapIconsIntegrityAttr),
 		FaviconDataURI:          template.URL(dashboardFaviconDataURI),
 		TauthScriptURL:          template.URL(handlers.authConfig.TauthScriptURL),
-		SiteID:                  site.ID,
-		SiteName:                site.Name,
+		SiteID:                  siteIdentifier,
+		SiteName:                "Loading...",
 		VisitsEndpoint:          template.URL(visitsEndpoint),
 		StatsEndpoint:           template.URL(statsEndpoint),
-		DefaultURL:              defaultURL,
+		DefaultURL:              "",
 		StatusElementID:         "traffic-test-status",
 		StatusLogElementID:      "traffic-test-log",
 		URLInputID:              "traffic-test-url",

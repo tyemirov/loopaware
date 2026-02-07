@@ -14,6 +14,7 @@ tenants:
     display_name: ${TAUTH_TENANT_DISPLAY_NAME_PINGUIN}
     tenant_origins:
       - ${TAUTH_TENANT_ORIGIN_PINGUIN}
+      - ${TAUTH_TENANT_ORIGIN_PINGUIN_ALT}
     google_web_client_id: "${TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_PINGUIN}"
     jwt_signing_key: "${TAUTH_TENANT_JWT_SIGNING_KEY_PINGUIN}"
     cookie_domain: "${TAUTH_COOKIE_DOMAIN}"
@@ -27,6 +28,7 @@ tenants:
     display_name: ${TAUTH_TENANT_DISPLAY_NAME_LOOPAWARE}
     tenant_origins:
       - ${TAUTH_TENANT_ORIGIN_LOOPAWARE}
+      - ${TAUTH_TENANT_ORIGIN_LOOPAWARE_ALT}
     google_web_client_id: "${TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE}"
     jwt_signing_key: "${TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE}"
     cookie_domain: "${TAUTH_COOKIE_DOMAIN}"

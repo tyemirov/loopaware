@@ -11,16 +11,19 @@ func TestPixelJSRequiresSiteID(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 
 	response := performJSONRequest(testingT, api.router, http.MethodGet, "/pixel.js", nil, nil)
-	require.Equal(testingT, http.StatusBadRequest, response.Code)
-	require.Contains(testingT, response.Body.String(), "missing site_id")
+	require.Equal(testingT, http.StatusOK, response.Code)
+	require.Contains(testingT, response.Header().Get("Content-Type"), "application/javascript")
+	body := response.Body.String()
+	require.Contains(testingT, body, "/api/visits")
+	require.Contains(testingT, body, `params.get("site_id")`)
+	require.NotContains(testingT, body, "%!(")
 }
 
 func TestPixelJSReturnsNotFoundForUnknownSite(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 
 	response := performJSONRequest(testingT, api.router, http.MethodGet, "/pixel.js?site_id=unknown", nil, nil)
-	require.Equal(testingT, http.StatusNotFound, response.Code)
-	require.Contains(testingT, response.Body.String(), "unknown site")
+	require.Equal(testingT, http.StatusOK, response.Code)
 }
 
 func TestPixelJSReturnsScriptForKnownSite(testingT *testing.T) {
@@ -30,5 +33,5 @@ func TestPixelJSReturnsScriptForKnownSite(testingT *testing.T) {
 	response := performJSONRequest(testingT, api.router, http.MethodGet, "/pixel.js?site_id="+site.ID, nil, nil)
 	require.Equal(testingT, http.StatusOK, response.Code)
 	require.Contains(testingT, response.Header().Get("Content-Type"), "application/javascript")
-	require.Contains(testingT, response.Body.String(), site.ID)
+	require.Contains(testingT, response.Body.String(), "/api/visits")
 }
