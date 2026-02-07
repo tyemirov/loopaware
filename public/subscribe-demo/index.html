@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Subscribe Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        margin: 0;
+        padding: 48px 24px;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans,
+          sans-serif;
+        background: #f9fafb;
+        color: #111827;
+      }
+      .page {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      h1 {
+        margin-top: 0;
+      }
+      code {
+        background: rgba(15, 23, 42, 0.08);
+        padding: 0.1rem 0.25rem;
+        border-radius: 0.25rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <h1>Subscribe Demo</h1>
+      <p>
+        Provide <code>site_id</code> and optional customization params in the query string.
+      </p>
+      <p id="subscribe-demo-status"></p>
+      <div id="subscribe-demo"></div>
+    </main>
+    <script>
+      // @ts-check
+      (function () {
+        var params = new URLSearchParams(window.location.search || "");
+        var siteId = (params.get("site_id") || "").trim();
+        var status = document.getElementById("subscribe-demo-status");
+        if (!siteId) {
+          if (status) {
+            status.textContent = "Missing site_id query parameter.";
+          }
+          return;
+        }
+
+        var allowed = ["mode", "accent", "cta", "success", "error", "name_field", "target"];
+        var extra = new URLSearchParams();
+        for (var index = 0; index < allowed.length; index += 1) {
+          var key = allowed[index];
+          var value = (params.get(key) || "").trim();
+          if (value) {
+            extra.set(key, value);
+          }
+        }
+
+        var scriptUrl = "/subscribe.js?site_id=" + encodeURIComponent(siteId);
+        var extraEncoded = extra.toString();
+        if (extraEncoded) {
+          scriptUrl += "&" + extraEncoded;
+        }
+
+        if (status) {
+          status.textContent = "Loading " + scriptUrl;
+        }
+        var script = document.createElement("script");
+        script.defer = true;
+        script.src = scriptUrl;
+        document.head.appendChild(script);
+      })();
+    </script>
+  </body>
+</html>
+

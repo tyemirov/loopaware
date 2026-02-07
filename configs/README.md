@@ -59,11 +59,12 @@ Edit the copied files and replace placeholder secrets (Google client ID, signing
 The `ghttp` container reads TLS + reverse-proxy settings from `configs/.env.ghttp.computercat`:
 
 ```dotenv
+GHTTP_SERVE_DIRECTORY=/data
 GHTTP_SERVE_PORT=4443
 GHTTP_SERVE_LOGGING_TYPE=JSON
 GHTTP_SERVE_TLS_CERTIFICATE=/certs/computercat-cert.pem
 GHTTP_SERVE_TLS_PRIVATE_KEY=/certs/computercat-key.pem
-GHTTP_SERVE_PROXIES=/tauth.js=http://la-tauth:8082,/me=http://la-tauth:8082,/auth/=http://la-tauth:8082,/api/=http://loopaware-api:8080,/=http://loopaware-web:8080
+GHTTP_SERVE_PROXIES=/tauth.js=http://la-tauth:8082,/me=http://la-tauth:8082,/auth/=http://la-tauth:8082,/api/=http://loopaware-api:8080
 ```
 
 ### Service env updates

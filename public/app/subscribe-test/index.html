@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Subscribe Test • LoopAware</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css"
+    />
+    <script defer src="/tauth.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+      .dashboard-header .mpr-header__actions {
+        margin-left: auto;
+      }
+      .dashboard-header .mpr-header__nav {
+        margin-left: 0;
+      }
+      .dashboard-header mpr-user[data-mpr-header="user-menu"]:not([data-loopaware-user-menu="true"]) {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body class="d-flex flex-column min-vh-100 bg-body text-body">
+    <mpr-header
+      class="dashboard-header"
+      google-site-id="281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com"
+      tauth-tenant-id="loopaware"
+      tauth-login-path="/auth/google"
+      tauth-logout-path="/auth/logout"
+      tauth-nonce-path="/auth/nonce"
+      sign-in-label="Login"
+      sign-out-label="Logout"
+      settings="false"
+    >
+      <a slot="brand" class="fw-semibold text-decoration-none text-reset" href="/app">LoopAware</a>
+      <mpr-user
+        slot="aux"
+        data-loopaware-user-menu="true"
+        display-mode="avatar"
+        logout-url="/login"
+        menu-items='[{"label":"Account Settings","href":"/app"}]'
+      ></mpr-user>
+    </mpr-header>
+
+    <main class="flex-grow-1 pt-5 mt-4">
+      <div class="container py-4">
+        <div class="row justify-content-center g-4">
+          <div class="col-lg-10">
+            <div class="card shadow-sm border-0">
+              <div class="card-body p-4">
+                <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+                  <div>
+                    <h1 class="h4 mb-1">
+                      Subscribe Test
+                      <span class="text-muted">•</span>
+                      <span id="subscribe-test-site-name">Loading…</span>
+                    </h1>
+                    <p class="text-muted small mb-0">
+                      Site ID:
+                      <code id="subscribe-test-site-id"></code>
+                    </p>
+                  </div>
+                  <a class="btn btn-outline-secondary btn-sm" href="/app">Back to dashboard</a>
+                </div>
+
+                <hr class="my-4" />
+
+                <div class="row g-4">
+                  <div class="col-lg-5">
+                    <div class="border rounded p-3 bg-body-secondary">
+                      <div class="mb-3">
+                        <label class="form-label" for="subscribe-test-accent">Accent color</label>
+                        <input
+                          type="color"
+                          class="form-control form-control-color w-100"
+                          id="subscribe-test-accent"
+                          value="#0d6efd"
+                          title="Choose a hex color"
+                        />
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label" for="subscribe-test-cta">CTA text</label>
+                        <input
+                          type="text"
+                          class="form-control"
+                          id="subscribe-test-cta"
+                          value="Subscribe"
+                          maxlength="40"
+                          autocomplete="off"
+                          placeholder="Call to action"
+                        />
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label" for="subscribe-test-target">Target element ID</label>
+                        <input
+                          type="text"
+                          class="form-control"
+                          id="subscribe-test-target"
+                          value="subscribe-test-inline-preview"
+                          autocomplete="off"
+                          placeholder="subscribe-inline-target"
+                        />
+                      </div>
+                      <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" id="subscribe-test-name-field" checked />
+                        <label class="form-check-label" for="subscribe-test-name-field">Include optional name field</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-lg-7">
+                    <div class="card border-0 shadow-sm">
+                      <div class="card-header bg-body d-flex align-items-center justify-content-between">
+                        <h2 class="h6 mb-0">Preview</h2>
+                        <span id="subscribe-test-status" class="small text-muted"></span>
+                      </div>
+                      <div class="card-body">
+                        <div id="subscribe-test-inline-preview" class="w-100 d-flex justify-content-center"></div>
+                      </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm mt-4">
+                      <div class="card-header bg-body d-flex align-items-center justify-content-between">
+                        <h2 class="h6 mb-0">Live events</h2>
+                        <span id="subscribe-test-events-status" class="small text-muted"></span>
+                      </div>
+                      <div class="list-group list-group-flush small" id="subscribe-test-log"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <p class="text-muted small mt-4 mb-0">
+                  Submissions POST to <code>/api/sites/:id/subscribe-test/subscriptions</code> and stream updates from
+                  <code>/api/sites/:id/subscribe-test/events</code>.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+      crossorigin="anonymous"
+    ></script>
+
+    <script>
+      // @ts-check
+      (function () {
+        var params = new URLSearchParams(window.location.search || "");
+        var siteId = (params.get("site_id") || "").trim();
+
+        var siteIdElement = document.getElementById("subscribe-test-site-id");
+        var siteNameElement = document.getElementById("subscribe-test-site-name");
+        var accentInput = /** @type {HTMLInputElement|null} */ (document.getElementById("subscribe-test-accent"));
+        var ctaInput = /** @type {HTMLInputElement|null} */ (document.getElementById("subscribe-test-cta"));
+        var targetInput = /** @type {HTMLInputElement|null} */ (document.getElementById("subscribe-test-target"));
+        var nameFieldInput = /** @type {HTMLInputElement|null} */ (document.getElementById("subscribe-test-name-field"));
+        var previewContainer = document.getElementById("subscribe-test-inline-preview");
+        var statusText = document.getElementById("subscribe-test-status");
+        var eventsStatus = document.getElementById("subscribe-test-events-status");
+        var statusLog = document.getElementById("subscribe-test-log");
+
+        var eventSource = null;
+        var inlinePreview = null;
+
+        function authFetch(resource, init) {
+          if (typeof window.apiFetch === "function") {
+            return window.apiFetch(resource, init);
+          }
+          return window.fetch(resource, init);
+        }
+
+        function redirectToLogin() {
+          window.location.assign("/login");
+        }
+
+        function setText(element, value) {
+          if (!element) return;
+          element.textContent = value || "";
+        }
+
+        function normalizeCTA(value) {
+          var trimmed = String(value || "").trim();
+          if (!trimmed) return "Subscribe";
+          return trimmed.slice(0, 40);
+        }
+
+        function normalizeAccent(value) {
+          var trimmed = String(value || "").trim();
+          if (!/^#[0-9a-f]{6}$/i.test(trimmed)) return "#0d6efd";
+          return trimmed;
+        }
+
+        function normalizeTargetId(value) {
+          var trimmed = String(value || "").trim();
+          return trimmed;
+        }
+
+        function validateEmail(value) {
+          var trimmed = String(value || "").trim();
+          return trimmed.length > 3 && trimmed.indexOf("@") > 0;
+        }
+
+        function updateStatusText(message) {
+          setText(statusText, message);
+        }
+
+        function appendStatusLog(event) {
+          if (!statusLog) return;
+
+          var payload = event && typeof event === "object" ? event : {};
+          var wrapper = document.createElement("div");
+          wrapper.className = "list-group-item";
+
+          var title = document.createElement("div");
+          title.className = "fw-semibold";
+
+          var typeLabel = payload.event_type ? String(payload.event_type) : "event";
+          var statusLabel = payload.status ? String(payload.status) : "";
+          title.textContent = statusLabel ? typeLabel + " • " + statusLabel : typeLabel;
+
+          var details = [];
+          if (payload.email) details.push("email: " + payload.email);
+          if (payload.subscriber_id) details.push("subscriber: " + payload.subscriber_id);
+          if (payload.error) details.push("error: " + payload.error);
+
+          var bodyText = document.createElement("div");
+          bodyText.className = "text-muted";
+          bodyText.textContent = details.join(" • ") || "No additional details";
+
+          wrapper.appendChild(title);
+          wrapper.appendChild(bodyText);
+          statusLog.insertBefore(wrapper, statusLog.firstChild);
+          if (statusLog.children.length > 8) {
+            statusLog.removeChild(statusLog.lastChild);
+          }
+        }
+
+        function hydrateFromSite() {
+          if (!siteId) return;
+          authFetch("/api/sites", {
+            method: "GET",
+            credentials: "include",
+            headers: { Accept: "application/json" },
+          })
+            .then(function (response) {
+              if (response.status === 401) {
+                redirectToLogin();
+                throw new Error("unauthorized");
+              }
+              if (!response.ok) throw new Error("load_failed");
+              return response.json();
+            })
+            .then(function (payload) {
+              if (!payload || !Array.isArray(payload.sites)) return;
+              for (var index = 0; index < payload.sites.length; index += 1) {
+                var site = payload.sites[index];
+                if (!site || site.id !== siteId) continue;
+                if (siteNameElement && typeof site.name === "string" && site.name.trim()) {
+                  var name = site.name.trim();
+                  siteNameElement.textContent = name;
+                  document.title = "Subscribe Test • " + name;
+                }
+                return;
+              }
+            })
+            .catch(function (error) {
+              if (error && error.message === "unauthorized") return;
+            });
+        }
+
+        function createInlineContainer() {
+          var container = document.createElement("div");
+          container.style.maxWidth = "420px";
+          container.style.width = "100%";
+          container.style.padding = "12px";
+          container.style.border = "1px solid rgba(0,0,0,0.08)";
+          container.style.borderRadius = "10px";
+          container.style.boxShadow = "0 8px 24px rgba(0,0,0,0.12)";
+          container.style.fontFamily =
+            "system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif";
+          container.style.background = "#fff";
+          container.style.color = "#1f2937";
+          container.style.boxSizing = "border-box";
+          return container;
+        }
+
+        function createFormElements(showName) {
+          var heading = document.createElement("div");
+          heading.style.fontWeight = "600";
+          heading.style.marginBottom = "8px";
+          heading.textContent = "Get updates";
+
+          var email = document.createElement("input");
+          email.type = "email";
+          email.placeholder = "you@example.com";
+          email.required = true;
+          email.style.width = "100%";
+          email.style.padding = "10px 12px";
+          email.style.border = "1px solid #d1d5db";
+          email.style.borderRadius = "8px";
+          email.style.fontSize = "14px";
+          email.style.boxSizing = "border-box";
+          email.autocomplete = "email";
+
+          var name = null;
+          if (showName) {
+            name = document.createElement("input");
+            name.type = "text";
+            name.placeholder = "Your name (optional)";
+            name.style.width = "100%";
+            name.style.padding = "10px 12px";
+            name.style.border = "1px solid #d1d5db";
+            name.style.borderRadius = "8px";
+            name.style.fontSize = "14px";
+            name.style.boxSizing = "border-box";
+            name.autocomplete = "name";
+          }
+
+          var submit = document.createElement("button");
+          submit.type = "button";
+          submit.textContent = normalizeCTA(ctaInput && ctaInput.value);
+          submit.style.width = "100%";
+          submit.style.padding = "10px 12px";
+          submit.style.border = "0";
+          submit.style.borderRadius = "8px";
+          submit.style.fontWeight = "600";
+          submit.style.cursor = "pointer";
+          submit.style.background = normalizeAccent(accentInput && accentInput.value);
+          submit.style.color = "#fff";
+          submit.style.boxSizing = "border-box";
+
+          var status = document.createElement("div");
+          status.style.minHeight = "16px";
+          status.style.marginTop = "8px";
+          status.style.fontSize = "13px";
+          status.style.color = "#374151";
+
+          return { heading: heading, email: email, name: name, submit: submit, status: status };
+        }
+
+        function renderInlinePreview(showName) {
+          if (!previewContainer) return null;
+          previewContainer.innerHTML = "";
+
+          var wrapper = document.createElement("div");
+          wrapper.style.width = "100%";
+          wrapper.style.display = "flex";
+          wrapper.style.justifyContent = "center";
+
+          var container = createInlineContainer();
+          var elements = createFormElements(showName);
+          container.appendChild(elements.heading);
+          container.appendChild(elements.email);
+          if (elements.name) container.appendChild(elements.name);
+          var spacer = document.createElement("div");
+          spacer.style.height = "8px";
+          container.appendChild(spacer);
+          container.appendChild(elements.submit);
+          container.appendChild(elements.status);
+
+          wrapper.appendChild(container);
+          previewContainer.appendChild(wrapper);
+
+          return {
+            email: elements.email,
+            name: elements.name,
+            submit: elements.submit,
+            status: elements.status,
+            hasNameField: showName,
+          };
+        }
+
+        function applyPreviewOptions() {
+          if (!inlinePreview) return;
+          inlinePreview.submit.textContent = normalizeCTA(ctaInput && ctaInput.value);
+          inlinePreview.submit.style.background = normalizeAccent(accentInput && accentInput.value);
+        }
+
+        function shouldShowNameField() {
+          if (!nameFieldInput) return true;
+          return !!nameFieldInput.checked;
+        }
+
+        function applyTargetId() {
+          if (!previewContainer) return;
+          var targetId = normalizeTargetId(targetInput && targetInput.value);
+          if (!targetId) return;
+          if (previewContainer.id !== targetId) {
+            previewContainer.id = targetId;
+          }
+        }
+
+        function updateFormStatus(message, color) {
+          if (!inlinePreview || !inlinePreview.status) return;
+          inlinePreview.status.textContent = message || "";
+          inlinePreview.status.style.color = color || "#374151";
+        }
+
+        function attachFormBehavior() {
+          if (!inlinePreview) return;
+          var sending = false;
+          var submitEndpoint =
+            "/api/sites/" + encodeURIComponent(siteId) + "/subscribe-test/subscriptions";
+
+          inlinePreview.submit.addEventListener("click", function () {
+            if (sending) return;
+            var emailValue = String(inlinePreview.email.value || "").trim();
+            if (!validateEmail(emailValue)) {
+              updateFormStatus("Please enter a valid email.", "#dc3545");
+              return;
+            }
+            var nameValue = inlinePreview.name ? String(inlinePreview.name.value || "").trim() : "";
+            sending = true;
+            updateFormStatus("Submitting…", "#1f2937");
+            authFetch(submitEndpoint, {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: emailValue,
+                name: nameValue,
+                source_url: window.location.href,
+              }),
+            })
+              .then(function (response) {
+                if (response.status === 401) {
+                  redirectToLogin();
+                  throw new Error("unauthorized");
+                }
+                return response.json().catch(function () { return {}; }).then(function (payload) {
+                  if (!response.ok) {
+                    return Object.assign({ error: "request_failed" }, payload || {});
+                  }
+                  return payload || {};
+                });
+              })
+              .then(function (payload) {
+                if (payload && payload.status === "ok") {
+                  updateFormStatus("Submitted. Check email for confirmation.", "#157347");
+                  return;
+                }
+                var errorLabel = payload && payload.error ? String(payload.error) : "request_failed";
+                updateFormStatus("Error: " + errorLabel, "#dc3545");
+              })
+              .catch(function (error) {
+                if (error && error.message === "unauthorized") return;
+                updateFormStatus("Please try again.", "#dc3545");
+              })
+              .finally(function () {
+                sending = false;
+              });
+          });
+        }
+
+        function refreshInlinePreview() {
+          applyTargetId();
+          inlinePreview = renderInlinePreview(shouldShowNameField());
+          applyPreviewOptions();
+          attachFormBehavior();
+        }
+
+        function connectEvents() {
+          if (!siteId || !window.EventSource) {
+            setText(eventsStatus, "Live events unavailable");
+            return;
+          }
+          var eventsEndpoint =
+            "/api/sites/" + encodeURIComponent(siteId) + "/subscribe-test/events";
+          if (eventSource) {
+            try {
+              eventSource.close();
+            } catch (error) {}
+          }
+          setText(eventsStatus, "Connecting…");
+          eventSource = new EventSource(eventsEndpoint);
+          eventSource.onmessage = function (event) {
+            setText(eventsStatus, "Receiving updates");
+            try {
+              appendStatusLog(JSON.parse(event.data || "{}"));
+            } catch (parseError) {}
+          };
+          eventSource.onerror = function () {
+            setText(eventsStatus, "Connection lost. Retrying…");
+          };
+        }
+
+        if (siteIdElement) siteIdElement.textContent = siteId || "(missing)";
+        if (!siteId) {
+          setText(siteNameElement, "Missing site_id");
+          updateStatusText("Missing site_id query parameter.");
+          setText(eventsStatus, "");
+          return;
+        }
+
+        hydrateFromSite();
+        refreshInlinePreview();
+        connectEvents();
+
+        if (accentInput) accentInput.addEventListener("input", applyPreviewOptions);
+        if (ctaInput) ctaInput.addEventListener("input", applyPreviewOptions);
+        if (nameFieldInput) nameFieldInput.addEventListener("change", refreshInlinePreview);
+        if (targetInput) {
+          targetInput.addEventListener("input", applyTargetId);
+          targetInput.addEventListener("blur", function () {
+            targetInput.value = String(targetInput.value || "").trim();
+            applyTargetId();
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

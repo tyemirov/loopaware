@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Traffic Test • LoopAware</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css"
+    />
+    <script defer src="/tauth.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+      .dashboard-header .mpr-header__actions {
+        margin-left: auto;
+      }
+      .dashboard-header .mpr-header__nav {
+        margin-left: 0;
+      }
+      .dashboard-header mpr-user[data-mpr-header="user-menu"]:not([data-loopaware-user-menu="true"]) {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body class="d-flex flex-column min-vh-100 bg-body text-body">
+    <mpr-header
+      class="dashboard-header"
+      google-site-id="281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com"
+      tauth-tenant-id="loopaware"
+      tauth-login-path="/auth/google"
+      tauth-logout-path="/auth/logout"
+      tauth-nonce-path="/auth/nonce"
+      sign-in-label="Login"
+      sign-out-label="Logout"
+      settings="false"
+    >
+      <a slot="brand" class="fw-semibold text-decoration-none text-reset" href="/app">LoopAware</a>
+      <mpr-user
+        slot="aux"
+        data-loopaware-user-menu="true"
+        display-mode="avatar"
+        logout-url="/login"
+        menu-items='[{"label":"Account Settings","href":"/app"}]'
+      ></mpr-user>
+    </mpr-header>
+
+    <main class="flex-grow-1 pt-5 mt-4">
+      <div class="container py-4">
+        <div class="row justify-content-center g-4">
+          <div class="col-lg-10">
+            <div class="card shadow-sm border-0">
+              <div class="card-body p-4">
+                <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+                  <div>
+                    <h1 class="h4 mb-1">
+                      Traffic Test
+                      <span class="text-muted">•</span>
+                      <span id="traffic-test-site-name">Loading…</span>
+                    </h1>
+                    <p class="text-muted small mb-0">
+                      Site ID:
+                      <code id="traffic-test-site-id"></code>
+                    </p>
+                  </div>
+                  <a class="btn btn-outline-secondary btn-sm" href="/app">Back to dashboard</a>
+                </div>
+
+                <hr class="my-4" />
+
+                <div class="row g-4 align-items-start">
+                  <div class="col-lg-5">
+                    <div class="border rounded p-3 bg-body-secondary">
+                      <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-semibold">Record sample visit</span>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="traffic-test-refresh">
+                          Refresh stats
+                        </button>
+                      </div>
+                      <label class="form-label" for="traffic-test-url">Page URL</label>
+                      <input
+                        type="url"
+                        class="form-control"
+                        id="traffic-test-url"
+                        value=""
+                        placeholder="https://example.com/page"
+                        autocomplete="off"
+                      />
+                      <div class="d-flex align-items-center gap-2 mt-3">
+                        <button type="button" class="btn btn-primary" id="traffic-test-send">
+                          Record sample visit
+                        </button>
+                        <span id="traffic-test-status" class="small text-muted"></span>
+                      </div>
+                      <div class="list-group list-group-flush mt-3" id="traffic-test-log"></div>
+                    </div>
+                  </div>
+
+                  <div class="col-lg-7">
+                    <div class="row g-3">
+                      <div class="col-sm-6">
+                        <div class="card shadow-sm border-0">
+                          <div class="card-body">
+                            <div class="text-muted small">Total visits</div>
+                            <div class="display-6 fw-semibold" id="traffic-test-visit-total">0</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="col-sm-6">
+                        <div class="card shadow-sm border-0">
+                          <div class="card-body">
+                            <div class="text-muted small">Unique visitors</div>
+                            <div class="display-6 fw-semibold" id="traffic-test-visit-unique">0</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="card shadow-sm border-0 mt-4">
+                      <div class="card-header bg-body d-flex align-items-center justify-content-between">
+                        <span class="fw-semibold">Top pages</span>
+                        <span class="small text-muted" id="traffic-test-stats-status"></span>
+                      </div>
+                      <div class="card-body p-0">
+                        <div class="table-responsive">
+                          <table class="table mb-0">
+                            <thead>
+                              <tr>
+                                <th scope="col">Path</th>
+                                <th scope="col" class="text-end">Visits</th>
+                              </tr>
+                            </thead>
+                            <tbody id="traffic-test-top-pages">
+                              <tr>
+                                <td colspan="2" class="text-center text-muted">No visits yet.</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <p class="text-muted small mt-4 mb-0">
+                  Sample visits are sent as a pixel request to <code>/api/visits</code> with your URL as the <code>url</code> query param.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+      crossorigin="anonymous"
+    ></script>
+
+    <script>
+      // @ts-check
+      (function () {
+        var params = new URLSearchParams(window.location.search || "");
+        var siteId = (params.get("site_id") || "").trim();
+
+        var siteIdElement = document.getElementById("traffic-test-site-id");
+        var siteNameElement = document.getElementById("traffic-test-site-name");
+        var urlInput = /** @type {HTMLInputElement|null} */ (document.getElementById("traffic-test-url"));
+        var sendButton = document.getElementById("traffic-test-send");
+        var refreshButton = document.getElementById("traffic-test-refresh");
+        var statusElement = document.getElementById("traffic-test-status");
+        var statusLog = document.getElementById("traffic-test-log");
+        var statsStatus = document.getElementById("traffic-test-stats-status");
+        var totalCounter = document.getElementById("traffic-test-visit-total");
+        var uniqueCounter = document.getElementById("traffic-test-visit-unique");
+        var topPagesTable = document.getElementById("traffic-test-top-pages");
+
+        var previewVisitorStorageKey = "loopaware_traffic_preview_visitor_id";
+        var cachedVisitorId = "";
+        var statsEndpoint = "/api/sites/" + encodeURIComponent(siteId) + "/visits/stats";
+        var visitsEndpoint = "/api/visits";
+
+        function authFetch(resource, init) {
+          if (typeof window.apiFetch === "function") {
+            return window.apiFetch(resource, init);
+          }
+          return window.fetch(resource, init);
+        }
+
+        function redirectToLogin() {
+          window.location.assign("/login");
+        }
+
+        function setStatus(message, state) {
+          if (statusElement) {
+            statusElement.textContent = message || "";
+          }
+          if (!statusLog || !message) {
+            return;
+          }
+          var entry = document.createElement("div");
+          entry.className = "list-group-item";
+          var title = document.createElement("div");
+          title.className = "fw-semibold";
+          title.textContent = state ? state : "info";
+          var text = document.createElement("div");
+          text.className = "text-muted";
+          text.textContent = message;
+          entry.appendChild(title);
+          entry.appendChild(text);
+          statusLog.insertBefore(entry, statusLog.firstChild);
+          if (statusLog.children.length > 6) {
+            statusLog.removeChild(statusLog.lastChild);
+          }
+        }
+
+        function randomVisitorId() {
+          try {
+            if (window.crypto && typeof window.crypto.randomUUID === "function") {
+              return window.crypto.randomUUID();
+            }
+          } catch (error) {}
+          var template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
+          return template.replace(/[xy]/g, function (char) {
+            var random = (Math.random() * 16) | 0;
+            var value = char === "x" ? random : (random & 0x3) | 0x8;
+            return value.toString(16);
+          });
+        }
+
+        function resolveVisitorId() {
+          if (cachedVisitorId) return cachedVisitorId;
+          try {
+            var stored = window.localStorage.getItem(previewVisitorStorageKey);
+            if (stored) {
+              cachedVisitorId = stored;
+              return stored;
+            }
+          } catch (error) {}
+          cachedVisitorId = randomVisitorId();
+          try {
+            window.localStorage.setItem(previewVisitorStorageKey, cachedVisitorId);
+          } catch (storageError) {}
+          return cachedVisitorId;
+        }
+
+        function buildVisitURL(sampleURL) {
+          var params = new URLSearchParams();
+          params.set("site_id", siteId);
+          if (sampleURL) params.set("url", sampleURL);
+          if (document.location) params.set("referrer", document.location.href);
+          var visitorIdentifier = resolveVisitorId();
+          if (visitorIdentifier) params.set("visitor_id", visitorIdentifier);
+          return visitsEndpoint + "?" + params.toString();
+        }
+
+        var inflightBeacons = [];
+        function removeBeacon(image) {
+          var index = inflightBeacons.indexOf(image);
+          if (index >= 0) inflightBeacons.splice(index, 1);
+        }
+
+        function renderTopPages(rows) {
+          if (!topPagesTable) return;
+          var entries = Array.isArray(rows) ? rows : [];
+          if (entries.length === 0) {
+            topPagesTable.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No visits yet.</td></tr>';
+            return;
+          }
+          var html = entries
+            .map(function (entry) {
+              var path = entry && typeof entry.path === "string" ? entry.path : "";
+              var count = entry && typeof entry.visit_count === "number" ? entry.visit_count : 0;
+              return '<tr><td class="text-break">' + path + '</td><td class="text-end fw-semibold">' + count + "</td></tr>";
+            })
+            .join("");
+          topPagesTable.innerHTML = html;
+        }
+
+        function loadStats() {
+          if (!siteId) return;
+          if (statsStatus) statsStatus.textContent = "Refreshing…";
+          authFetch(statsEndpoint, { credentials: "include" })
+            .then(function (response) {
+              if (response.status === 401) {
+                redirectToLogin();
+                throw new Error("unauthorized");
+              }
+              if (!response.ok) throw new Error("HTTP " + response.status);
+              return response.json();
+            })
+            .then(function (payload) {
+              if (statsStatus) statsStatus.textContent = "";
+              var total = payload && typeof payload.visit_count === "number" ? payload.visit_count : 0;
+              var unique = payload && typeof payload.unique_visitor_count === "number" ? payload.unique_visitor_count : 0;
+              if (totalCounter) totalCounter.textContent = String(total);
+              if (uniqueCounter) uniqueCounter.textContent = String(unique);
+              renderTopPages(payload && payload.top_pages ? payload.top_pages : []);
+            })
+            .catch(function (error) {
+              if (statsStatus) statsStatus.textContent = "";
+              if (error && error.message === "unauthorized") return;
+              setStatus("Failed to refresh stats.", "error");
+            });
+        }
+
+        function hydrateFromSite() {
+          if (!siteId) return;
+          authFetch("/api/sites", {
+            method: "GET",
+            credentials: "include",
+            headers: { Accept: "application/json" },
+          })
+            .then(function (response) {
+              if (response.status === 401) {
+                redirectToLogin();
+                throw new Error("unauthorized");
+              }
+              if (!response.ok) throw new Error("load_failed");
+              return response.json();
+            })
+            .then(function (payload) {
+              if (!payload || !Array.isArray(payload.sites)) return;
+              for (var index = 0; index < payload.sites.length; index += 1) {
+                var site = payload.sites[index];
+                if (!site || site.id !== siteId) continue;
+                if (siteNameElement && typeof site.name === "string" && site.name.trim()) {
+                  var name = site.name.trim();
+                  siteNameElement.textContent = name;
+                  document.title = "Traffic Test • " + name;
+                }
+                return;
+              }
+            })
+            .catch(function (error) {
+              if (error && error.message === "unauthorized") return;
+            });
+        }
+
+        function sendSampleVisit() {
+          if (!siteId || !visitsEndpoint) return;
+          var sampleURL = (urlInput && urlInput.value ? urlInput.value : "").trim();
+          if (!sampleURL) {
+            setStatus("Enter a URL to record.", "error");
+            return;
+          }
+          setStatus("Recording sample visit…", "info");
+          var beacon = new Image(1, 1);
+          inflightBeacons.push(beacon);
+          beacon.onload = function () {
+            setStatus("Sample visit sent for " + sampleURL, "success");
+            loadStats();
+            removeBeacon(beacon);
+          };
+          beacon.onerror = function () {
+            setStatus("Failed to record visit. Check Allowed Origin and see console.", "error");
+            removeBeacon(beacon);
+          };
+          beacon.src = buildVisitURL(sampleURL);
+        }
+
+        if (siteIdElement) siteIdElement.textContent = siteId || "(missing)";
+        if (!siteId) {
+          if (siteNameElement) siteNameElement.textContent = "Missing site_id";
+          setStatus("Missing site_id query parameter.", "error");
+          return;
+        }
+
+        hydrateFromSite();
+        loadStats();
+
+        if (sendButton) {
+          sendButton.addEventListener("click", function (event) {
+            event.preventDefault();
+            sendSampleVisit();
+          });
+        }
+        if (refreshButton) {
+          refreshButton.addEventListener("click", function (event) {
+            event.preventDefault();
+            loadStats();
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>
