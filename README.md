@@ -255,8 +255,10 @@ make lint
 make test
 ```
 
-The test suite runs entirely in memory using temporary SQLite databases; no external services are required.
-Browser-driven integration specs rely on go-rod; if Chromium is not present locally the launcher downloads a sandboxed binary automatically. Screenshots captured during each run are stored under `tests/<date>/<testname>/` for manual inspection.
+`make test` runs the Playwright integration suite against `docker-compose.integration.yml`, which builds the API image,
+serves `web/` via gHTTP, and exercises both UI and `/api/*` flows. Use `make test-unit` for Go-only tests and
+`make test-integration-api` to focus on API specs. Playwright artifacts (traces, screenshots, videos) land under
+`tests/test-results/` on failure.
 
 ## Docker
 

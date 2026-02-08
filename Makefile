@@ -5,7 +5,7 @@ INEFFASSIGN_VERSION ?= v0.2.0
 STATICCHECK := honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 INEFFASSIGN := github.com/gordonklaus/ineffassign@$(INEFFASSIGN_VERSION)
 
-.PHONY: format format-pinguin build lint config-audit test test-race test-httpapi coverage tidy tidy-check docker-up docker-down docker-logs ci
+.PHONY: format format-pinguin build lint lint-js config-audit test test-unit test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check docker-up docker-down docker-logs ci
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -33,15 +33,30 @@ lint:
 	else \
 		go run $(INEFFASSIGN) ./...; \
 	fi
+	@$(MAKE) lint-js
 
-test:
+lint-js:
+	@if [ ! -d "$(CURDIR)/tests/node_modules" ]; then \
+		npm --prefix tests install; \
+	fi
+	npm --prefix tests run typecheck
+
+test: test-integration
+
+test-unit:
 	go test ./...
+
+test-integration:
+	./tests/scripts/run-integration.sh
+
+test-integration-api:
+	LOOPAWARE_TEST_SUITE=test:api ./tests/scripts/run-integration.sh
+
+test-integration-all:
+	LOOPAWARE_TEST_SUITE=test:all ./tests/scripts/run-integration.sh
 
 test-race:
 	go test ./... -race -count=1
-
-test-httpapi:
-	go test ./internal/httpapi
 
 coverage:
 	@mkdir -p $(CURDIR)/.cache
@@ -67,4 +82,4 @@ docker-down:
 docker-logs:
 	docker compose logs -f
 
-ci: tidy-check config-audit build lint test-race
+ci: tidy-check config-audit build lint test-unit test-race test-integration-all

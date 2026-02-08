@@ -451,6 +451,7 @@
       headerContainer.appendChild(closeButton);
 
       var contact = document.createElement("input");
+      contact.id = "mp-feedback-contact";
       contact.type = "text";
       contact.placeholder = "Email or phone";
       contact.autocomplete = "email";
@@ -462,6 +463,7 @@
       panelContainer.appendChild(contact);
 
       var message = document.createElement("textarea");
+      message.id = "mp-feedback-message";
       message.placeholder = "Your message";
       message.rows = 4;
       message.style.width = "100%";
