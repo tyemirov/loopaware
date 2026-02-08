@@ -1,5 +1,5 @@
 {{define "dashboard_header"}}
-<mpr-header class="dashboard-header" google-site-id="{{.HeaderGoogleClientID}}"{{if .HeaderTauthBaseURL}} tauth-url="{{.HeaderTauthBaseURL}}"{{end}} tauth-tenant-id="{{.HeaderTauthTenantID}}" tauth-login-path="{{.HeaderTauthLoginPath}}" tauth-logout-path="{{.HeaderTauthLogoutPath}}" tauth-nonce-path="{{.HeaderTauthNoncePath}}" sign-in-label="{{.HeaderSignInLabel}}" sign-out-label="{{.HeaderSignOutLabel}}" data-loopaware-auth-redirect-on-logout="true">
+<mpr-header class="dashboard-header" google-site-id="{{.HeaderGoogleClientID}}"{{if .HeaderTauthBaseURL}} tauth-url="{{.HeaderTauthBaseURL}}"{{end}} tauth-tenant-id="{{.HeaderTauthTenantID}}" tauth-login-path="{{.HeaderTauthLoginPath}}" tauth-logout-path="{{.HeaderTauthLogoutPath}}" tauth-nonce-path="{{.HeaderTauthNoncePath}}" sign-in-label="{{.HeaderSignInLabel}}" sign-out-label="{{.HeaderSignOutLabel}}" settings="false" data-loopaware-auth-redirect-on-logout="true">
   <span slot="brand" class="d-inline-flex align-items-center gap-3">
     <img id="{{.HeaderLogoImageID}}" src="{{.HeaderLogoDataURI}}" alt="LoopAware logo" width="44" height="44" />
     <span class="fw-semibold">{{.PageTitle}}</span>

@@ -24,6 +24,6 @@ func TestNewSiteSubscribeTestHandlersDefaultsLogger(testingT *testing.T) {
 }
 
 func TestNewDashboardWebHandlersDefaultsLandingPath(testingT *testing.T) {
-	handlers := NewDashboardWebHandlers(zap.NewNop(), "", AuthClientConfig{})
+	handlers := NewDashboardWebHandlers(zap.NewNop(), "", AuthClientConfig{}, "")
 	require.Equal(testingT, "/", handlers.landingPath)
 }

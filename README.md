@@ -43,8 +43,10 @@ Set the `ADMINS` environment variable with a comma-separated list (for example `
 | `TAUTH_SESSION_COOKIE_NAME` | ✅   | Session cookie name set by TAuth (defaults to `app_session`) |
 | `PINGUIN_AUTH_TOKEN`¹  | ✅        | Bearer token passed to the Pinguin gRPC service             |
 | `PINGUIN_TENANT_ID`    | ✅        | Tenant identifier used when calling the Pinguin gRPC API     |
+| `SERVE_MODE`           | ⚙️       | Server mode (`monolith`, `web`, `api`; defaults to `monolith`) |
 | `ADMINS`               | ⚙️       | Comma-separated admin emails; overrides the YAML roster     |
 | `PUBLIC_BASE_URL`      | ⚙️       | Public URL of the service (default `http://localhost:8080`) |
+| `API_BASE_URL`         | ⚙️       | Public origin of the backend API when hosting the frontend separately (defaults to `PUBLIC_BASE_URL`) |
 | `APP_ADDR`             | ⚙️       | Listen address (default `:8080`)                            |
 | `DB_DRIVER`            | ⚙️       | Storage driver (`sqlite`, etc.)                             |
 | `DB_DSN`               | ⚙️       | Driver-specific DSN                                         |
@@ -75,6 +77,7 @@ All configuration options are also exposed as Cobra flags:
 
 ```
 loopaware --config=config.yaml \
+  --serve-mode=monolith \
   --app-addr=:8080 \
   --db-driver=sqlite \
   --db-dsn="file:loopaware.sqlite?_foreign_keys=on" \

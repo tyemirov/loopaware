@@ -32,7 +32,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Resolution: Added a target input that updates the inline preview container ID, and integration coverage asserting the preview renders in the updated target; `make ci` passes.
 - [ ] [LA-115] (P0) Integrate logged in drop down with the latest version of mpr-ui.
   mpr-ui provides the mpr-user element which can be integrated with tauth and shown instead of custom logic we employ for displaying a user. Check @tools/mpr-ui for the documentation and @tools/mpr-ui/demoi for the integration examples
-- [ ] [LA-116] (P1) Refactor LoopAware into a separate frontend and backend to adopt TAuth via mpr-ui.
+- [x] [LA-116] (P1) Refactor LoopAware into a separate frontend and backend to adopt TAuth via mpr-ui.
   Priority: P0
   Goal: Split the UI into a dedicated frontend app that loads `tauth.js` + mpr-ui DSL, while the backend becomes a clean API that validates TAuth sessions.
   Deliverable: A documented architecture/migration plan that defines service boundaries, routing/origin model, auth flow, and rollout steps.
@@ -42,6 +42,7 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `issues.md/AGENTS.FRONTEND.md`
   - `issues.md/AGENTS.GO.md`
   - `issues.md/AGENTS.DOCKER.md`
+  Resolution: Added `--serve-mode` (`monolith|web|api`) to `cmd/server`, updated `docker-compose.computercat.yml` + ghttp proxy templates to run split `loopaware-web` and `loopaware-api` behind a single origin, and documented rollout/routing in `docs/LA-116-split-frontend-backend.md`; `make ci` passes.
 
 
 ## Improvements (416–515)
@@ -375,3 +376,19 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 
 ## Planning (500–59999)
 *do not implement yet*
+
+- [ ] [LA-422] (P0) Make split deployment fully independent: web serves all HTML/CSS/JS, api is strictly API-only.
+  Goal: Complete the LA-116 migration so ghttp can route `/api/*` to `loopaware-api` and everything else to `loopaware-web` (plus TAuth routes), with no HTML/JS assets served by the api service.
+  Deliverable: Move operator tool HTML pages, subscription link pages, and public JS assets (`/widget.js`, `/subscribe.js`, `/pixel.js`) to the web service; move tool JSON endpoints under `/api/sites/*`; add any required public API endpoints (e.g. widget placement config) so the JS assets remain dynamic; update proxy templates and integration coverage; `make ci` passes.
+  Docs/Refs:
+  - `docs/LA-116-split-frontend-backend.md`
+  - `cmd/server/routes.go`
+  - `configs/.env.ghttp*.example`
+
+- [x] [LA-422] (P0) Make split deployment fully independent: web serves all HTML/CSS/JS, api is strictly API-only.
+  Resolution: Completed the strict split. `loopaware-web` now serves all HTML pages and public JS assets (`/widget.js`, `/subscribe.js`, `/pixel.js`, `/subscribe-demo`, subscription link pages, and operator tool pages). `loopaware-api` now serves only `/api/*` endpoints (public ingestion + authenticated APIs), including new public JSON endpoints for widget placement (`GET /api/widget-config`) and subscription link hydration (`GET /api/subscriptions/{confirm-link,unsubscribe-link}`), plus tool endpoints moved under `/api/sites/:id/...`.
+  Notes:
+  - Public JS assets are static and fetch runtime config from the API.
+  - Tool pages and subscription pages are HTML shells that hydrate via API calls (no direct DB access in web mode).
+  - gHTTP proxy templates updated to route `/api/` to `loopaware-api`, everything else to `loopaware-web`, plus TAuth routes.
+  Verification: `make ci` passes.

@@ -10,8 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-
-	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 )
 
 func TestRenderDashboardHandlesFooterAndAuthErrors(testingT *testing.T) {
@@ -32,7 +30,7 @@ func TestRenderDashboardHandlesFooterAndAuthErrors(testingT *testing.T) {
 		publicAuthScriptTemplate = originalAuthTemplate
 	})
 
-	handlers := NewDashboardWebHandlers(zap.NewNop(), "/", AuthClientConfig{})
+	handlers := NewDashboardWebHandlers(zap.NewNop(), "/", AuthClientConfig{}, "")
 	handlers.RenderDashboard(context)
 
 	require.Equal(testingT, http.StatusOK, recorder.Code)
@@ -87,7 +85,7 @@ func TestRenderLandingPageHandlesAssetErrors(testingT *testing.T) {
 		publicAuthScriptTemplate = originalAuthTemplate
 	})
 
-	handlers := NewLandingPageHandlers(zap.NewNop(), nil, AuthClientConfig{})
+	handlers := NewLandingPageHandlers(zap.NewNop(), nil, AuthClientConfig{}, "")
 	handlers.RenderLandingPage(context)
 
 	require.Equal(testingT, http.StatusOK, recorder.Code)
@@ -100,7 +98,7 @@ func TestRenderLandingPageReportsTemplateError(testingT *testing.T) {
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/login", nil)
 
-	handlers := NewLandingPageHandlers(zap.NewNop(), nil, AuthClientConfig{})
+	handlers := NewLandingPageHandlers(zap.NewNop(), nil, AuthClientConfig{}, "")
 	handlers.template = template.Must(template.New("broken-landing").Parse("{{.MissingField}}"))
 
 	handlers.RenderLandingPage(context)
@@ -167,18 +165,12 @@ func TestRenderSubscriptionConfirmationPageIncludesUnsubscribeLink(testingT *tes
 	context, _ := gin.CreateTestContext(recorder)
 	context.Request = httptest.NewRequest(http.MethodGet, "/subscriptions/confirm", nil)
 
-	handlers := &PublicHandlers{authConfig: AuthClientConfig{}}
-	site := model.Site{Name: "LoopAware", AllowedOrigin: "https://example.com"}
-	subscriber := model.Subscriber{
-		Email:  "subscriber@example.com",
-		Status: model.SubscriberStatusConfirmed,
-	}
-
-	handlers.renderSubscriptionConfirmationPage(context, http.StatusOK, "Heading", "Message", site, subscriber, "token-value")
+	handlers := NewSubscriptionLinkPageHandlers(zap.NewNop(), AuthClientConfig{}, "")
+	handlers.RenderConfirmSubscriptionLink(context)
 
 	require.Equal(testingT, http.StatusOK, recorder.Code)
-	require.Contains(testingT, recorder.Body.String(), "/subscriptions/unsubscribe?token=token-value")
-	require.Contains(testingT, recorder.Body.String(), "Open LoopAware")
+	require.Contains(testingT, recorder.Body.String(), "api\\/subscriptions\\/confirm-link")
+	require.Contains(testingT, recorder.Body.String(), "subscription-link-heading")
 }
 
 func TestRenderSubscriptionConfirmationPageHandlesTemplateErrors(testingT *testing.T) {
@@ -217,9 +209,9 @@ func TestRenderSubscriptionConfirmationPageHandlesTemplateErrors(testingT *testi
 		subscriptionConfirmedTemplate = originalConfirmationTemplate
 	})
 
-	handlers := &PublicHandlers{authConfig: AuthClientConfig{}, logger: zap.NewNop()}
-	handlers.renderSubscriptionConfirmationPage(context, http.StatusBadRequest, "Heading", "Message", model.Site{}, model.Subscriber{}, "")
+	handlers := NewSubscriptionLinkPageHandlers(zap.NewNop(), AuthClientConfig{}, "")
+	handlers.RenderConfirmSubscriptionLink(context)
 
-	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
-	require.Contains(testingT, recorder.Body.String(), "Message")
+	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
+	require.Contains(testingT, recorder.Body.String(), "Preparing confirmation")
 }

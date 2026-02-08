@@ -76,12 +76,18 @@ func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, sub
 	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
 	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
 	router.POST("/api/subscriptions/unsubscribe", publicHandlers.Unsubscribe)
-	router.GET("/subscriptions/confirm", publicHandlers.ConfirmSubscriptionLink)
-	router.GET("/subscriptions/unsubscribe", publicHandlers.UnsubscribeSubscriptionLink)
-	router.GET("/widget.js", publicHandlers.WidgetJS)
-	router.GET("/pixel.js", publicHandlers.PixelJS)
-	router.GET("/subscribe.js", publicHandlers.SubscribeJS)
-	router.GET("/subscribe-demo", publicHandlers.SubscribeDemo)
+	router.GET("/api/widget-config", publicHandlers.WidgetConfig)
+	router.GET("/api/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
+	router.GET("/api/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
+	publicJavaScriptHandlers := httpapi.NewPublicJavaScriptHandlers()
+	router.GET("/widget.js", publicJavaScriptHandlers.WidgetJS)
+	router.GET("/pixel.js", publicJavaScriptHandlers.PixelJS)
+	router.GET("/subscribe.js", publicJavaScriptHandlers.SubscribeJS)
+	subscribeDemoHandlers := httpapi.NewSubscribeDemoPageHandlers(logger)
+	router.GET("/subscribe-demo", subscribeDemoHandlers.RenderSubscribeDemo)
+	subscriptionLinkHandlers := httpapi.NewSubscriptionLinkPageHandlers(logger, testLandingAuthConfig, "")
+	router.GET("/subscriptions/confirm", subscriptionLinkHandlers.RenderConfirmSubscriptionLink)
+	router.GET("/subscriptions/unsubscribe", subscriptionLinkHandlers.RenderUnsubscribeSubscriptionLink)
 	router.GET("/subscribe-target-test", func(context *gin.Context) {
 		siteID := strings.TrimSpace(context.Query("site_id"))
 		if siteID == "" {
@@ -153,17 +159,30 @@ func TestFeedbackFlow(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 	site := insertSite(testingT, api.database, "Moving Maps", "http://example.com", "admin@example.com")
 
-	widgetResp := performJSONRequest(testingT, api.router, http.MethodGet, "/widget.js?site_id="+site.ID, nil, nil)
+	widgetResp := performJSONRequest(testingT, api.router, http.MethodGet, "/widget.js", nil, nil)
 	require.Equal(testingT, http.StatusOK, widgetResp.Code)
 	require.Contains(testingT, widgetResp.Header().Get("Content-Type"), "application/javascript")
 	widgetBody := widgetResp.Body.String()
 	require.Contains(testingT, widgetBody, `panel.style.width = "320px"`)
-	require.Contains(testingT, widgetBody, `site_id: "`+site.ID+`"`)
-	require.Contains(testingT, widgetBody, `var widgetPlacementSideValue = "right"`)
-	require.Contains(testingT, widgetBody, `var widgetPlacementBottomOffsetValue = 16`)
+	require.Contains(testingT, widgetBody, "/api/widget-config?site_id=")
+	require.Contains(testingT, widgetBody, "/api/feedback")
 	require.Contains(testingT, widgetBody, `document.readyState === "loading"`)
 	require.Contains(testingT, widgetBody, "scheduleWhenBodyReady")
 	require.NotContains(testingT, widgetBody, "%!(")
+
+	widgetConfigResp := performJSONRequest(testingT, api.router, http.MethodGet, "/api/widget-config?site_id="+site.ID, nil, map[string]string{
+		"Origin": site.AllowedOrigin,
+	})
+	require.Equal(testingT, http.StatusOK, widgetConfigResp.Code)
+	var widgetConfigPayload struct {
+		SiteID                   string `json:"site_id"`
+		WidgetBubbleSide         string `json:"widget_bubble_side"`
+		WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
+	}
+	require.NoError(testingT, json.Unmarshal(widgetConfigResp.Body.Bytes(), &widgetConfigPayload))
+	require.Equal(testingT, site.ID, widgetConfigPayload.SiteID)
+	require.Equal(testingT, "right", widgetConfigPayload.WidgetBubbleSide)
+	require.Equal(testingT, 16, widgetConfigPayload.WidgetBubbleBottomOffset)
 
 	okFeedback := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
 		"site_id": site.ID,
@@ -229,7 +248,7 @@ func TestConfirmSubscriptionReportsUpdateError(testingT *testing.T) {
 	require.Equal(testingT, http.StatusInternalServerError, response.Code)
 }
 
-func TestWidgetJSHonorsCustomPlacement(testingT *testing.T) {
+func TestWidgetConfigHonorsCustomPlacement(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 	site := insertSite(testingT, api.database, "Custom Placement", "http://placement.example", "owner@example.com")
 	require.NoError(testingT, api.database.Model(&model.Site{}).
@@ -239,21 +258,35 @@ func TestWidgetJSHonorsCustomPlacement(testingT *testing.T) {
 			"widget_bubble_bottom_offset_px": 48,
 		}).Error)
 
-	widgetResp := performJSONRequest(testingT, api.router, http.MethodGet, "/widget.js?site_id="+site.ID, nil, nil)
-	require.Equal(testingT, http.StatusOK, widgetResp.Code)
-	widgetBody := widgetResp.Body.String()
-	require.Contains(testingT, widgetBody, `var widgetPlacementSideValue = "left"`)
-	require.Contains(testingT, widgetBody, `var widgetPlacementBottomOffsetValue = 48`)
+	widgetConfigResp := performJSONRequest(testingT, api.router, http.MethodGet, "/api/widget-config?site_id="+site.ID, nil, map[string]string{
+		"Origin": site.AllowedOrigin,
+	})
+	require.Equal(testingT, http.StatusOK, widgetConfigResp.Code)
+	var widgetConfigPayload struct {
+		SiteID                   string `json:"site_id"`
+		WidgetBubbleSide         string `json:"widget_bubble_side"`
+		WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
+	}
+	require.NoError(testingT, json.Unmarshal(widgetConfigResp.Body.Bytes(), &widgetConfigPayload))
+	require.Equal(testingT, site.ID, widgetConfigPayload.SiteID)
+	require.Equal(testingT, "left", widgetConfigPayload.WidgetBubbleSide)
+	require.Equal(testingT, 48, widgetConfigPayload.WidgetBubbleBottomOffset)
 }
 
-func TestWidgetRequiresValidSiteId(testingT *testing.T) {
+func TestWidgetConfigRequiresValidSiteId(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 
-	resp := performJSONRequest(testingT, api.router, http.MethodGet, "/widget.js?site_id=", nil, nil)
+	resp := performJSONRequest(testingT, api.router, http.MethodGet, "/api/widget-config", nil, nil)
 	require.Equal(testingT, http.StatusBadRequest, resp.Code)
 
-	respUnknown := performJSONRequest(testingT, api.router, http.MethodGet, "/widget.js?site_id=does-not-exist", nil, nil)
+	respUnknown := performJSONRequest(testingT, api.router, http.MethodGet, "/api/widget-config?site_id=does-not-exist", nil, nil)
 	require.Equal(testingT, http.StatusNotFound, respUnknown.Code)
+
+	site := insertSite(testingT, api.database, "Widget Config Origin", "http://widget-config.example", "owner@example.com")
+	respForbidden := performJSONRequest(testingT, api.router, http.MethodGet, "/api/widget-config?site_id="+site.ID, nil, map[string]string{
+		"Origin": "http://evil.example",
+	})
+	require.Equal(testingT, http.StatusForbidden, respForbidden.Code)
 }
 
 func TestCreateFeedbackValidatesPayload(testingT *testing.T) {
@@ -532,23 +565,30 @@ func TestSubscriptionConfirmationEmailConfirmsViaLink(testingT *testing.T) {
 	parsedURL, parseErr := url.Parse(confirmationLink)
 	require.NoError(testingT, parseErr)
 
-	confirmResponse := performJSONRequest(testingT, api.router, http.MethodGet, parsedURL.RequestURI(), nil, nil)
-	require.Equal(testingT, http.StatusOK, confirmResponse.Code)
-	confirmBody := confirmResponse.Body.String()
-	require.Contains(testingT, confirmBody, "Subscription confirmed")
-	require.Contains(testingT, confirmBody, "Open Confirmation Email")
-	require.Contains(testingT, confirmBody, `href="http://confirm.example"`)
-	require.Contains(testingT, confirmBody, "Unsubscribe")
-	require.Contains(testingT, confirmBody, "/subscriptions/unsubscribe?token=")
-
 	tokenValue := parsedURL.Query().Get("token")
 	require.NotEmpty(testingT, tokenValue)
 
-	unsubscribeQuery := url.Values{}
-	unsubscribeQuery.Set("token", tokenValue)
-	unsubscribeResponse := performJSONRequest(testingT, api.router, http.MethodGet, "/subscriptions/unsubscribe?"+unsubscribeQuery.Encode(), nil, nil)
+	type subscriptionLinkPayload struct {
+		Heading        string `json:"heading"`
+		Message        string `json:"message"`
+		OpenURL        string `json:"open_url"`
+		OpenLabel      string `json:"open_label"`
+		UnsubscribeURL string `json:"unsubscribe_url"`
+	}
+
+	confirmResponse := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/confirm-link?token="+url.QueryEscape(tokenValue), nil, nil)
+	require.Equal(testingT, http.StatusOK, confirmResponse.Code)
+	var confirmPayload subscriptionLinkPayload
+	require.NoError(testingT, json.Unmarshal(confirmResponse.Body.Bytes(), &confirmPayload))
+	require.Equal(testingT, "Subscription confirmed", confirmPayload.Heading)
+	require.Equal(testingT, site.AllowedOrigin, confirmPayload.OpenURL)
+	require.Contains(testingT, confirmPayload.UnsubscribeURL, "/subscriptions/unsubscribe?token=")
+
+	unsubscribeResponse := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/unsubscribe-link?token="+url.QueryEscape(tokenValue), nil, nil)
 	require.Equal(testingT, http.StatusOK, unsubscribeResponse.Code)
-	require.Contains(testingT, unsubscribeResponse.Body.String(), "Unsubscribed")
+	var unsubscribePayload subscriptionLinkPayload
+	require.NoError(testingT, json.Unmarshal(unsubscribeResponse.Body.Bytes(), &unsubscribePayload))
+	require.Equal(testingT, "Unsubscribed", unsubscribePayload.Heading)
 
 	var stored model.Subscriber
 	require.NoError(testingT, api.database.First(&stored, "site_id = ? AND email = ?", site.ID, "confirm@example.com").Error)
@@ -921,19 +961,16 @@ func TestCreateFeedbackPersistsFailureDeliveryWhenNotifierReturnsStatusAndError(
 	require.Equal(testingT, model.FeedbackDeliveryNone, stored.Delivery)
 }
 
-func TestSubscribeJSHandlesMissingAndHeaderSiteID(testingT *testing.T) {
+func TestSubscribeJSReturnsStaticScript(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
-	site := insertSite(testingT, api.database, testSubscribeSiteName, testSubscribeSiteOrigin, testSubscribeOwnerAddress)
 
-	missingResp := performJSONRequest(testingT, api.router, http.MethodGet, "/subscribe.js?site_id=", nil, nil)
-	require.Equal(testingT, http.StatusBadRequest, missingResp.Code)
-
-	unknownResp := performJSONRequest(testingT, api.router, http.MethodGet, "/subscribe.js?site_id="+testSubscribeMissingSiteID, nil, nil)
-	require.Equal(testingT, http.StatusNotFound, unknownResp.Code)
-
-	headerResp := performJSONRequest(testingT, api.router, http.MethodGet, "/subscribe.js", nil, map[string]string{testSubscribeHeaderName: site.ID})
-	require.Equal(testingT, http.StatusOK, headerResp.Code)
-	require.Contains(testingT, headerResp.Body.String(), site.ID)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/subscribe.js", nil, nil)
+	require.Equal(testingT, http.StatusOK, response.Code)
+	require.Contains(testingT, response.Header().Get("Content-Type"), "application/javascript")
+	body := response.Body.String()
+	require.Contains(testingT, body, "/api/subscriptions")
+	require.Contains(testingT, body, `params.get("site_id")`)
+	require.NotContains(testingT, body, "%!(")
 }
 
 func TestSubscribeDemoRendersScriptURL(testingT *testing.T) {
@@ -944,7 +981,8 @@ func TestSubscribeDemoRendersScriptURL(testingT *testing.T) {
 	require.Equal(testingT, http.StatusBadRequest, missingResp.Code)
 
 	unknownResp := performJSONRequest(testingT, api.router, http.MethodGet, "/subscribe-demo?site_id="+testSubscribeMissingSiteID, nil, nil)
-	require.Equal(testingT, http.StatusNotFound, unknownResp.Code)
+	require.Equal(testingT, http.StatusOK, unknownResp.Code)
+	require.Contains(testingT, unknownResp.Body.String(), "/subscribe.js?site_id="+testSubscribeMissingSiteID)
 
 	demoPath := "/subscribe-demo?site_id=" + url.QueryEscape(site.ID) +
 		"&mode=" + url.QueryEscape(testSubscribeDemoMode) +

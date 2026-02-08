@@ -5,28 +5,34 @@ import (
 	"encoding/base64"
 	"html/template"
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
 const (
-	landingTemplateName    = "landing"
-	landingHTMLContentType = "text/html; charset=utf-8"
-	landingFooterElementID = "landing-footer"
-	landingFooterInnerID   = "landing-footer-inner"
-	landingFooterToggleID  = "landing-footer-toggle"
-	landingFooterBaseClass = "mpr-footer landing-footer border-top mt-auto py-2"
+	landingTemplateName             = "landing"
+	landingHTMLContentType          = "text/html; charset=utf-8"
+	landingFooterElementID          = "landing-footer"
+	landingFooterInnerID            = "landing-footer-inner"
+	landingFooterToggleID           = "landing-footer-toggle"
+	landingFooterBaseClass          = "mpr-footer landing-footer border-top mt-auto py-2"
+	landingDemoWidgetSiteID         = "a3222433-92ec-473a-9255-0797226c2273"
+	landingWidgetScriptPath         = "/widget.js"
+	widgetScriptQueryParamSiteID    = "site_id"
+	widgetScriptQueryParamAPIOrigin = "api_origin"
 )
 
 type landingTemplateData struct {
-	SharedStyles   template.CSS
-	FooterHTML     template.HTML
-	HeaderHTML     template.HTML
-	ThemeScript    template.JS
-	AuthScript     template.JS
-	FaviconDataURI template.URL
-	TauthScriptURL template.URL
+	SharedStyles    template.CSS
+	FooterHTML      template.HTML
+	HeaderHTML      template.HTML
+	ThemeScript     template.JS
+	AuthScript      template.JS
+	FaviconDataURI  template.URL
+	TauthScriptURL  template.URL
+	WidgetScriptURL template.URL
 }
 
 // PublicPageCurrentUserProvider exposes the authenticated user when available.
@@ -40,10 +46,11 @@ type LandingPageHandlers struct {
 	template            *template.Template
 	currentUserProvider PublicPageCurrentUserProvider
 	authConfig          AuthClientConfig
+	apiBaseURL          string
 }
 
 // NewLandingPageHandlers constructs handlers that render the landing template.
-func NewLandingPageHandlers(logger *zap.Logger, currentUserProvider PublicPageCurrentUserProvider, authConfig AuthClientConfig) *LandingPageHandlers {
+func NewLandingPageHandlers(logger *zap.Logger, currentUserProvider PublicPageCurrentUserProvider, authConfig AuthClientConfig, apiBaseURL string) *LandingPageHandlers {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -53,6 +60,7 @@ func NewLandingPageHandlers(logger *zap.Logger, currentUserProvider PublicPageCu
 		template:            compiledTemplate,
 		currentUserProvider: currentUserProvider,
 		authConfig:          authConfig,
+		apiBaseURL:          normalizeBaseURL(apiBaseURL),
 	}
 }
 
@@ -86,14 +94,22 @@ func (handlers *LandingPageHandlers) RenderLandingPage(context *gin.Context) {
 		authScript = template.JS("")
 	}
 
+	widgetQuery := url.Values{}
+	widgetQuery.Set(widgetScriptQueryParamSiteID, landingDemoWidgetSiteID)
+	if handlers.apiBaseURL != "" {
+		widgetQuery.Set(widgetScriptQueryParamAPIOrigin, handlers.apiBaseURL)
+	}
+	widgetScriptURL := landingWidgetScriptPath + "?" + widgetQuery.Encode()
+
 	data := landingTemplateData{
-		SharedStyles:   sharedPublicStyles(),
-		FooterHTML:     footerHTML,
-		HeaderHTML:     headerHTML,
-		ThemeScript:    themeScript,
-		AuthScript:     authScript,
-		FaviconDataURI: template.URL(dashboardFaviconDataURI),
-		TauthScriptURL: template.URL(handlers.authConfig.TauthScriptURL),
+		SharedStyles:    sharedPublicStyles(),
+		FooterHTML:      footerHTML,
+		HeaderHTML:      headerHTML,
+		ThemeScript:     themeScript,
+		AuthScript:      authScript,
+		FaviconDataURI:  template.URL(dashboardFaviconDataURI),
+		TauthScriptURL:  template.URL(handlers.authConfig.TauthScriptURL),
+		WidgetScriptURL: template.URL(widgetScriptURL),
 	}
 
 	var buffer bytes.Buffer

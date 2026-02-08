@@ -301,6 +301,59 @@ func TestRunCommandUsesServerRunner(testingT *testing.T) {
 	require.Equal(testingT, 1, runnerCalls)
 }
 
+func TestRunCommandWebModeSkipsDatabaseOpener(testingT *testing.T) {
+	testingT.Setenv(environmentKeyApplicationAddress, testServerAddress)
+	testingT.Setenv(environmentKeyServeMode, string(ServeModeWeb))
+	testingT.Setenv(environmentKeyGoogleClientID, testGoogleClientIDValue)
+	testingT.Setenv(environmentKeyTauthBaseURL, testTauthBaseURLValue)
+	testingT.Setenv(environmentKeyTauthTenantID, testTauthTenantIDValue)
+	testingT.Setenv(environmentKeyTauthSigningKey, testTauthSigningKeyValue)
+	testingT.Setenv(environmentKeyTauthSessionCookie, testTauthCookieNameValue)
+	testingT.Setenv(environmentKeyPublicBaseURL, testPublicBaseURLValue)
+
+	application := NewServerApplication()
+	command, commandErr := application.Command()
+	require.NoError(testingT, commandErr)
+
+	databaseOpenerCalls := 0
+	application.WithDatabaseOpener(func(storage.Config) (*gorm.DB, error) {
+		databaseOpenerCalls++
+		return nil, errors.New(testDatabaseOpenerMessage)
+	})
+
+	var runnerCalls int
+	application.WithServerRunner(func(*http.Server) error {
+		runnerCalls++
+		return http.ErrServerClosed
+	})
+
+	runErr := application.runCommand(command, nil)
+	require.NoError(testingT, runErr)
+	require.Equal(testingT, 0, databaseOpenerCalls)
+	require.Equal(testingT, 1, runnerCalls)
+}
+
+func TestRunCommandAPIModeUsesServerRunner(testingT *testing.T) {
+	listener := startPinguinServer(testingT)
+	setRequiredEnvironment(testingT, testPinguinAddress)
+	testingT.Setenv(environmentKeyServeMode, string(ServeModeAPI))
+
+	application := NewServerApplication()
+	application.WithPinguinDialer(createPinguinDialer(listener))
+	command, commandErr := application.Command()
+	require.NoError(testingT, commandErr)
+
+	var runnerCalls int
+	application.WithServerRunner(func(*http.Server) error {
+		runnerCalls++
+		return http.ErrServerClosed
+	})
+
+	runErr := application.runCommand(command, nil)
+	require.NoError(testingT, runErr)
+	require.Equal(testingT, 1, runnerCalls)
+}
+
 func TestRunCommandReportsMissingConfiguration(testingT *testing.T) {
 	application := NewServerApplication()
 	command, commandErr := application.Command()
@@ -324,6 +377,17 @@ func TestRunCommandReportsMissingConfiguration(testingT *testing.T) {
 	runErr := application.runCommand(command, nil)
 	require.Error(testingT, runErr)
 	require.ErrorContains(testingT, runErr, missingConfigurationMessage)
+}
+
+func TestRunCommandRejectsInvalidServeMode(testingT *testing.T) {
+	application := NewServerApplication()
+	command, commandErr := application.Command()
+	require.NoError(testingT, commandErr)
+
+	testingT.Setenv(environmentKeyServeMode, "invalid")
+	runErr := application.runCommand(command, nil)
+	require.Error(testingT, runErr)
+	require.ErrorIs(testingT, runErr, ErrInvalidServeMode)
 }
 
 func TestRunCommandRejectsArguments(testingT *testing.T) {

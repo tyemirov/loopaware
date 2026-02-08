@@ -17,7 +17,7 @@ func TestNewLandingPageHandlersDefaultsLogger(testingT *testing.T) {
 	ginContext, _ := gin.CreateTestContext(recorder)
 	ginContext.Request = httptest.NewRequest(http.MethodGet, httpapi.LandingPagePath, nil)
 
-	handlers := httpapi.NewLandingPageHandlers(nil, &stubCurrentUserProvider{}, testLandingAuthConfig)
+	handlers := httpapi.NewLandingPageHandlers(nil, &stubCurrentUserProvider{}, testLandingAuthConfig, "")
 	handlers.RenderLandingPage(ginContext)
 
 	require.Equal(testingT, http.StatusOK, recorder.Code)

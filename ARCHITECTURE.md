@@ -2,9 +2,16 @@
 
 ## Overview
 
-LoopAware is a single Go web service (`cmd/server`) that serves both the authenticated dashboard (`/app`) and the public
-collection endpoints and assets (widgets, pixels, and confirmation pages). It uses Gin for routing and Gorm for storage,
-with SQLite as the default driver.
+LoopAware is a Go web service (`cmd/server`) that can run as:
+
+- **Monolith**: one process serves both the HTML UI (`/login`, `/app`, `/privacy`, `/sitemap.xml`) and the backend surface
+  (public JS assets + public collection endpoints + authenticated APIs).
+- **Split**: two processes running the same binary behind a reverse proxy.
+  - `--serve-mode=web`: UI pages only.
+  - `--serve-mode=api`: backend routes (APIs + public JS + DB-backed helper pages).
+
+Split deployments are intended to preserve a single browser origin (for example via `ghttp`) so TAuth cookies keep working
+without enabling credentialed CORS on LoopAware.
 
 ## Components
 

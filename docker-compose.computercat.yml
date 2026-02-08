@@ -27,13 +27,15 @@ services:
       - pinguin-data:/app/data
       - ./configs/config.pinguin.yml:/config/config.yml:ro
 
-  loopaware:
+  loopaware-api:
     build:
       context: .
     image: ghcr.io/tyemirov/loopaware:latest
-    container_name: loopaware
+    container_name: loopaware-api
     restart: unless-stopped
     pull_policy: build
+    command:
+      - --serve-mode=api
     env_file:
       - ./configs/.env.loopaware.computercat
     depends_on:
@@ -52,13 +54,14 @@ services:
     container_name: loopaware-proxy
     pull_policy: always
     depends_on:
-      - loopaware
+      - loopaware-api
       - la-tauth
     ports:
       - "4443:4443"
     env_file:
       - ./configs/.env.ghttp.computercat
     volumes:
+      - ./public:/data:ro
       - /media/share/Drive/exchange/certs/computercat:/certs:ro
     restart: unless-stopped
 
