@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	"github.com/MarkoPoloResearchLab/loopaware/internal/httpapi"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/api"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/notifications"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
 	"github.com/MarkoPoloResearchLab/loopaware/pkg/favicon"
@@ -36,13 +36,11 @@ const (
 	flagNameApplicationAddress        = "app-addr"
 	flagNameDatabaseDriver            = "db-driver"
 	flagNameDatabaseDataSourceName    = "db-dsn"
-	flagNameGoogleClientID            = "google-client-id"
 	flagNameSessionSecret             = "session-secret"
 	flagNameTauthBaseURL              = "tauth-base-url"
 	flagNameTauthTenantID             = "tauth-tenant-id"
 	flagNameTauthSigningKey           = "tauth-signing-key"
 	flagNameTauthSessionCookieName    = "tauth-session-cookie-name"
-	flagNameServeMode                 = "serve-mode"
 	flagNameSubscriptionNotifications = "subscription-notifications"
 	flagNamePublicBaseURL             = "public-base-url"
 	flagNamePinguinAddress            = "pinguin-addr"
@@ -54,14 +52,12 @@ const (
 	flagUsageApplicationAddress       = "address for the HTTP server to listen on"
 	flagUsageDatabaseDriver           = "database driver (e.g. sqlite)"
 	flagUsageDatabaseDataSourceName   = "database connection string"
-	flagUsageGoogleClientID           = "Google OAuth client ID"
 	flagUsageSessionSecret            = "secret for subscription confirmation tokens"
 	flagUsageTauthBaseURL             = "base URL for the TAuth service"
 	flagUsageTauthTenantID            = "tenant identifier configured in TAuth"
 	flagUsageTauthSigningKey          = "JWT signing key for validating TAuth sessions"
 	flagUsageTauthSessionCookieName   = "session cookie name used by TAuth"
-	flagUsageServeMode                = "server routing mode (monolith, web, api)"
-	flagUsagePublicBaseURL            = "public base URL for landing pages and sitemap"
+	flagUsagePublicBaseURL            = "public base URL for frontend links and CORS"
 	flagUsagePinguinAddress           = "Pinguin gRPC server address"
 	flagUsagePinguinAuthToken         = "Pinguin bearer auth token"
 	flagUsagePinguinTenantID          = "Pinguin tenant identifier"
@@ -72,13 +68,11 @@ const (
 	environmentKeyDatabaseDriverName  = "DB_DRIVER"
 	environmentKeyDatabaseDataSource  = "DB_DSN"
 	environmentKeyAdmins              = "ADMINS"
-	environmentKeyGoogleClientID      = "GOOGLE_CLIENT_ID"
 	environmentKeySessionSecret       = "SESSION_SECRET"
 	environmentKeyTauthBaseURL        = "TAUTH_BASE_URL"
 	environmentKeyTauthTenantID       = "TAUTH_TENANT_ID"
 	environmentKeyTauthSigningKey     = "TAUTH_JWT_SIGNING_KEY"
 	environmentKeyTauthSessionCookie  = "TAUTH_SESSION_COOKIE_NAME"
-	environmentKeyServeMode           = "SERVE_MODE"
 	environmentKeyPublicBaseURL       = "PUBLIC_BASE_URL"
 	environmentKeyPinguinAddress      = "PINGUIN_ADDR"
 	environmentKeyPinguinAuthToken    = "PINGUIN_AUTH_TOKEN"
@@ -94,7 +88,6 @@ const (
 	defaultConfigFileName             = "config.yaml"
 	defaultPublicBaseURL              = "http://localhost:8080"
 	defaultTauthSessionCookieName     = "app_session"
-	defaultServeMode                  = string(ServeModeMonolith)
 	defaultPinguinAddress             = "localhost:50051"
 	defaultPinguinConnTimeoutSeconds  = 5
 	defaultPinguinOpTimeoutSeconds    = 30
@@ -103,14 +96,7 @@ const (
 	publicRouteSubscription           = "/api/subscriptions"
 	publicRouteSubscriptionConfirm    = "/api/subscriptions/confirm"
 	publicRouteSubscriptionOptOut     = "/api/subscriptions/unsubscribe"
-	publicRouteSubscriptionConfirmWeb = "/subscriptions/confirm"
-	publicRouteSubscriptionOptOutWeb  = "/subscriptions/unsubscribe"
-	publicRouteSubscribeWidget        = "/subscribe.js"
-	publicRouteSubscribeDemo          = "/subscribe-demo"
 	publicRouteVisitPixel             = "/api/visits"
-	publicRouteWidget                 = "/widget.js"
-	landingRouteRoot                  = httpapi.LandingPagePath
-	dashboardRoute                    = "/app"
 	apiRoutePrefix                    = "/api"
 	apiRouteMe                        = "/me"
 	apiRouteMeAvatar                  = "/me/avatar"
@@ -158,11 +144,9 @@ var (
 // ServerConfig captures configuration needed to run the server.
 type ServerConfig struct {
 	ApplicationAddress        string
-	ServeMode                 ServeMode
 	DatabaseDriverName        string
 	DatabaseDataSourceName    string
 	AdminEmailAddresses       []string
-	GoogleClientID            string
 	SessionSecret             string
 	TauthBaseURL              string
 	TauthTenantID             string
@@ -243,11 +227,9 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 		value          any
 	}{
 		{environmentKeyApplicationAddress, defaultApplicationAddress},
-		{environmentKeyServeMode, defaultServeMode},
 		{environmentKeyDatabaseDriverName, defaultDatabaseDriverName},
 		{environmentKeyDatabaseDataSource, defaultSQLiteDataSourceName},
 		{environmentKeyPublicBaseURL, defaultPublicBaseURL},
-		{environmentKeyGoogleClientID, ""},
 		{environmentKeySessionSecret, ""},
 		{environmentKeyTauthBaseURL, ""},
 		{environmentKeyTauthTenantID, ""},
@@ -274,10 +256,8 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 	}{
 		{flagNameConfigFile, defaultConfigFileName, flagUsageConfigFile},
 		{flagNameApplicationAddress, defaultApplicationAddress, flagUsageApplicationAddress},
-		{flagNameServeMode, defaultServeMode, flagUsageServeMode},
 		{flagNameDatabaseDriver, defaultDatabaseDriverName, flagUsageDatabaseDriver},
 		{flagNameDatabaseDataSourceName, defaultSQLiteDataSourceName, flagUsageDatabaseDataSourceName},
-		{flagNameGoogleClientID, "", flagUsageGoogleClientID},
 		{flagNameSessionSecret, "", flagUsageSessionSecret},
 		{flagNameTauthBaseURL, "", flagUsageTauthBaseURL},
 		{flagNameTauthTenantID, "", flagUsageTauthTenantID},
@@ -320,10 +300,8 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 		flagName       string
 	}{
 		{environmentKeyApplicationAddress, flagNameApplicationAddress},
-		{environmentKeyServeMode, flagNameServeMode},
 		{environmentKeyDatabaseDriverName, flagNameDatabaseDriver},
 		{environmentKeyDatabaseDataSource, flagNameDatabaseDataSourceName},
-		{environmentKeyGoogleClientID, flagNameGoogleClientID},
 		{environmentKeySessionSecret, flagNameSessionSecret},
 		{environmentKeyTauthBaseURL, flagNameTauthBaseURL},
 		{environmentKeyTauthTenantID, flagNameTauthTenantID},
@@ -404,104 +382,68 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 
 	router := gin.New()
 	router.Use(gin.Recovery())
-	router.Use(httpapi.RequestLogger(logger))
+	router.Use(api.RequestLogger(logger))
 
 	sharedHTTPClient := &http.Client{Timeout: 5 * time.Second}
-	authClientConfig := httpapi.NewAuthClientConfig(serverConfig.GoogleClientID, serverConfig.TauthBaseURL, serverConfig.TauthTenantID)
-	if serverConfig.ServeMode == ServeModeWeb {
-		authManager, authManagerErr := httpapi.NewAuthManager(nil, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, landingRouteRoot, httpapi.AuthConfig{
-			SigningKey: serverConfig.TauthSigningKey,
-			CookieName: serverConfig.TauthSessionCookieName,
-			TenantID:   serverConfig.TauthTenantID,
-		})
-		if authManagerErr != nil {
-			logger.Fatal(loggerContextAuthService, zap.Error(authManagerErr))
-		}
-
-		dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot, authClientConfig, "")
-		landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager, authClientConfig, "")
-		privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager, authClientConfig)
-		sitemapHandlers := httpapi.NewSitemapHandlers(serverConfig.PublicBaseURL)
-		publicJavaScriptHandlers := httpapi.NewPublicJavaScriptHandlers()
-		subscribeDemoHandlers := httpapi.NewSubscribeDemoPageHandlers(logger)
-		subscriptionLinkHandlers := httpapi.NewSubscriptionLinkPageHandlers(logger, authClientConfig, "")
-		widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(nil, logger, serverConfig.PublicBaseURL, nil, nil, authClientConfig)
-		trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(nil, logger, authClientConfig)
-		subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(nil, logger, nil, nil, false, serverConfig.PublicBaseURL, "", nil, authClientConfig)
-		registerFrontendRoutes(router, authManager, landingHandlers, privacyHandlers, sitemapHandlers, dashboardHandlers, publicJavaScriptHandlers, subscribeDemoHandlers, subscriptionLinkHandlers, widgetTestHandlers, trafficTestHandlers, subscribeTestHandlers)
-	} else {
-		database, databaseErr := application.databaseOpener(storage.Config{
-			DriverName:     serverConfig.DatabaseDriverName,
-			DataSourceName: serverConfig.DatabaseDataSourceName,
-		})
-		if databaseErr != nil {
-			logger.Fatal(loggerContextOpenDatabase, zap.Error(databaseErr))
-		}
-
-		if migrateErr := storage.AutoMigrate(database); migrateErr != nil {
-			logger.Fatal(loggerContextAutoMigrate, zap.Error(migrateErr))
-		}
-
-		authManager, authManagerErr := httpapi.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, landingRouteRoot, httpapi.AuthConfig{
-			SigningKey: serverConfig.TauthSigningKey,
-			CookieName: serverConfig.TauthSessionCookieName,
-			TenantID:   serverConfig.TauthTenantID,
-		})
-		if authManagerErr != nil {
-			logger.Fatal(loggerContextAuthService, zap.Error(authManagerErr))
-		}
-
-		feedbackBroadcaster := httpapi.NewFeedbackEventBroadcaster()
-		defer feedbackBroadcaster.Close()
-		subscriptionEvents := httpapi.NewSubscriptionTestEventBroadcaster()
-		defer subscriptionEvents.Close()
-		pinguinNotifier, notifierErr := notifications.NewPinguinNotifier(logger, notifications.PinguinConfig{
-			Address:           serverConfig.PinguinAddress,
-			AuthToken:         serverConfig.PinguinAuthToken,
-			TenantID:          serverConfig.PinguinTenantID,
-			ConnectionTimeout: time.Duration(serverConfig.PinguinConnTimeoutSec) * time.Second,
-			OperationTimeout:  time.Duration(serverConfig.PinguinOpTimeoutSec) * time.Second,
-			Dialer:            application.pinguinDialer,
-		})
-		if notifierErr != nil {
-			logger.Fatal("pinguin_notifier", zap.Error(notifierErr))
-		}
-		defer pinguinNotifier.Close()
-		var subscriptionNotifier httpapi.SubscriptionNotifier
-		if serverConfig.SubscriptionNotifications {
-			subscriptionNotifier = pinguinNotifier
-		}
-		publicHandlers := httpapi.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, pinguinNotifier, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier, authClientConfig)
-		faviconResolver := favicon.NewHTTPResolver(sharedHTTPClient, logger)
-		faviconService := favicon.NewService(faviconResolver)
-		faviconManager := httpapi.NewSiteFaviconManager(database, faviconService, logger)
-		faviconManagerContext, faviconManagerCancel := context.WithCancel(context.Background())
-		defer faviconManager.Stop()
-		defer faviconManagerCancel()
-		faviconManager.Start(faviconManagerContext)
-		faviconManager.TriggerScheduledRefresh()
-		statsProvider := httpapi.NewDatabaseSiteStatisticsProvider(database)
-		siteHandlers := httpapi.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
-		widgetTestHandlers := httpapi.NewSiteWidgetTestHandlers(database, logger, serverConfig.PublicBaseURL, feedbackBroadcaster, pinguinNotifier, authClientConfig)
-		trafficTestHandlers := httpapi.NewSiteTrafficTestHandlers(database, logger, authClientConfig)
-		subscribeTestHandlers := httpapi.NewSiteSubscribeTestHandlers(database, logger, subscriptionEvents, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier, authClientConfig)
-		authenticatedOrigin, originErr := resolveOrigin(serverConfig.PublicBaseURL)
-		if originErr != nil {
-			logger.Fatal("cors_origin", zap.Error(originErr))
-		}
-		registerBackendRoutes(router, authManager, publicHandlers, siteHandlers, widgetTestHandlers, subscribeTestHandlers, authenticatedOrigin)
-
-		if serverConfig.ServeMode == ServeModeMonolith {
-			dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, landingRouteRoot, authClientConfig, "")
-			landingHandlers := httpapi.NewLandingPageHandlers(logger, authManager, authClientConfig, "")
-			privacyHandlers := httpapi.NewPrivacyPageHandlers(authManager, authClientConfig)
-			sitemapHandlers := httpapi.NewSitemapHandlers(serverConfig.PublicBaseURL)
-			publicJavaScriptHandlers := httpapi.NewPublicJavaScriptHandlers()
-			subscribeDemoHandlers := httpapi.NewSubscribeDemoPageHandlers(logger)
-			subscriptionLinkHandlers := httpapi.NewSubscriptionLinkPageHandlers(logger, authClientConfig, "")
-			registerFrontendRoutes(router, authManager, landingHandlers, privacyHandlers, sitemapHandlers, dashboardHandlers, publicJavaScriptHandlers, subscribeDemoHandlers, subscriptionLinkHandlers, widgetTestHandlers, trafficTestHandlers, subscribeTestHandlers)
-		}
+	database, databaseErr := application.databaseOpener(storage.Config{
+		DriverName:     serverConfig.DatabaseDriverName,
+		DataSourceName: serverConfig.DatabaseDataSourceName,
+	})
+	if databaseErr != nil {
+		logger.Fatal(loggerContextOpenDatabase, zap.Error(databaseErr))
 	}
+
+	if migrateErr := storage.AutoMigrate(database); migrateErr != nil {
+		logger.Fatal(loggerContextAutoMigrate, zap.Error(migrateErr))
+	}
+
+	authManager, authManagerErr := api.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, api.AuthConfig{
+		SigningKey: serverConfig.TauthSigningKey,
+		CookieName: serverConfig.TauthSessionCookieName,
+		TenantID:   serverConfig.TauthTenantID,
+	})
+	if authManagerErr != nil {
+		logger.Fatal(loggerContextAuthService, zap.Error(authManagerErr))
+	}
+
+	feedbackBroadcaster := api.NewFeedbackEventBroadcaster()
+	defer feedbackBroadcaster.Close()
+	subscriptionEvents := api.NewSubscriptionTestEventBroadcaster()
+	defer subscriptionEvents.Close()
+	pinguinNotifier, notifierErr := notifications.NewPinguinNotifier(logger, notifications.PinguinConfig{
+		Address:           serverConfig.PinguinAddress,
+		AuthToken:         serverConfig.PinguinAuthToken,
+		TenantID:          serverConfig.PinguinTenantID,
+		ConnectionTimeout: time.Duration(serverConfig.PinguinConnTimeoutSec) * time.Second,
+		OperationTimeout:  time.Duration(serverConfig.PinguinOpTimeoutSec) * time.Second,
+		Dialer:            application.pinguinDialer,
+	})
+	if notifierErr != nil {
+		logger.Fatal("pinguin_notifier", zap.Error(notifierErr))
+	}
+	defer pinguinNotifier.Close()
+	var subscriptionNotifier api.SubscriptionNotifier
+	if serverConfig.SubscriptionNotifications {
+		subscriptionNotifier = pinguinNotifier
+	}
+	publicHandlers := api.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, pinguinNotifier, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier)
+	faviconResolver := favicon.NewHTTPResolver(sharedHTTPClient, logger)
+	faviconService := favicon.NewService(faviconResolver)
+	faviconManager := api.NewSiteFaviconManager(database, faviconService, logger)
+	faviconManagerContext, faviconManagerCancel := context.WithCancel(context.Background())
+	defer faviconManager.Stop()
+	defer faviconManagerCancel()
+	faviconManager.Start(faviconManagerContext)
+	faviconManager.TriggerScheduledRefresh()
+	statsProvider := api.NewDatabaseSiteStatisticsProvider(database)
+	siteHandlers := api.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
+	widgetTestHandlers := api.NewSiteWidgetTestHandlers(database, logger, feedbackBroadcaster, pinguinNotifier)
+	subscribeTestHandlers := api.NewSiteSubscribeTestHandlers(database, logger, subscriptionEvents, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier)
+	authenticatedOrigin, originErr := resolveOrigin(serverConfig.PublicBaseURL)
+	if originErr != nil {
+		logger.Fatal("cors_origin", zap.Error(originErr))
+	}
+	registerBackendRoutes(router, authManager, publicHandlers, siteHandlers, widgetTestHandlers, subscribeTestHandlers, authenticatedOrigin)
 
 	httpServer := &http.Server{
 		Addr:              serverConfig.ApplicationAddress,
@@ -555,18 +497,11 @@ func (application *ServerApplication) loadServerConfig(configFilePath string) (S
 		administratorEmails = normalizeEmailAddresses(environmentAdministratorEmails)
 	}
 
-	serveMode, serveModeErr := ParseServeMode(application.configurationLoader.GetString(environmentKeyServeMode))
-	if serveModeErr != nil {
-		return ServerConfig{}, serveModeErr
-	}
-
 	serverConfig := ServerConfig{
 		ApplicationAddress:        application.configurationLoader.GetString(environmentKeyApplicationAddress),
-		ServeMode:                 serveMode,
 		DatabaseDriverName:        strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDriverName)),
 		DatabaseDataSourceName:    strings.TrimSpace(application.configurationLoader.GetString(environmentKeyDatabaseDataSource)),
 		AdminEmailAddresses:       administratorEmails,
-		GoogleClientID:            strings.TrimSpace(application.configurationLoader.GetString(environmentKeyGoogleClientID)),
 		SessionSecret:             strings.TrimSpace(application.configurationLoader.GetString(environmentKeySessionSecret)),
 		TauthBaseURL:              strings.TrimSpace(application.configurationLoader.GetString(environmentKeyTauthBaseURL)),
 		TauthTenantID:             strings.TrimSpace(application.configurationLoader.GetString(environmentKeyTauthTenantID)),
@@ -621,14 +556,6 @@ func (application *ServerApplication) logAdministratorWarning(logger *zap.Logger
 func (application *ServerApplication) ensureRequiredConfiguration(configuration ServerConfig) error {
 	var missingParameters []string
 
-	serveMode := configuration.ServeMode
-	if serveMode == "" {
-		serveMode = ServeModeMonolith
-	}
-	if configuration.GoogleClientID == "" {
-		missingParameters = append(missingParameters, flagNameGoogleClientID)
-	}
-
 	if configuration.TauthBaseURL == "" {
 		missingParameters = append(missingParameters, flagNameTauthBaseURL)
 	}
@@ -645,38 +572,36 @@ func (application *ServerApplication) ensureRequiredConfiguration(configuration 
 		missingParameters = append(missingParameters, flagNamePublicBaseURL)
 	}
 
-	if serveMode != ServeModeWeb {
-		if configuration.DatabaseDriverName == "" {
-			missingParameters = append(missingParameters, flagNameDatabaseDriver)
-		}
+	if configuration.DatabaseDriverName == "" {
+		missingParameters = append(missingParameters, flagNameDatabaseDriver)
+	}
 
-		if configuration.DatabaseDriverName != storage.DriverNameSQLite && configuration.DatabaseDataSourceName == "" {
-			missingParameters = append(missingParameters, flagNameDatabaseDataSourceName)
-		}
+	if configuration.DatabaseDriverName != storage.DriverNameSQLite && configuration.DatabaseDataSourceName == "" {
+		missingParameters = append(missingParameters, flagNameDatabaseDataSourceName)
+	}
 
-		if configuration.SessionSecret == "" {
-			missingParameters = append(missingParameters, flagNameSessionSecret)
-		}
+	if configuration.SessionSecret == "" {
+		missingParameters = append(missingParameters, flagNameSessionSecret)
+	}
 
-		if configuration.PinguinAddress == "" {
-			missingParameters = append(missingParameters, flagNamePinguinAddress)
-		}
+	if configuration.PinguinAddress == "" {
+		missingParameters = append(missingParameters, flagNamePinguinAddress)
+	}
 
-		if configuration.PinguinAuthToken == "" {
-			missingParameters = append(missingParameters, flagNamePinguinAuthToken)
-		}
+	if configuration.PinguinAuthToken == "" {
+		missingParameters = append(missingParameters, flagNamePinguinAuthToken)
+	}
 
-		if configuration.PinguinTenantID == "" {
-			missingParameters = append(missingParameters, flagNamePinguinTenantID)
-		}
+	if configuration.PinguinTenantID == "" {
+		missingParameters = append(missingParameters, flagNamePinguinTenantID)
+	}
 
-		if configuration.PinguinConnTimeoutSec <= 0 {
-			missingParameters = append(missingParameters, flagNamePinguinConnectionTimeout)
-		}
+	if configuration.PinguinConnTimeoutSec <= 0 {
+		missingParameters = append(missingParameters, flagNamePinguinConnectionTimeout)
+	}
 
-		if configuration.PinguinOpTimeoutSec <= 0 {
-			missingParameters = append(missingParameters, flagNamePinguinOperationTimeout)
-		}
+	if configuration.PinguinOpTimeoutSec <= 0 {
+		missingParameters = append(missingParameters, flagNamePinguinOperationTimeout)
 	}
 
 	if len(missingParameters) == 0 {

@@ -1,0 +1,62 @@
+services:
+  la-tauth:
+    image: ghcr.io/tyemirov/tauth:latest
+    restart: unless-stopped
+    pull_policy: always
+    env_file:
+      - ./configs/.env.tauth.integration
+    expose:
+      - "8082"
+    volumes:
+      - tauth-data:/data
+      - ./configs/config.tauth.yml:/config/config.yml:ro
+
+  la-pinguin:
+    image: ghcr.io/tyemirov/pinguin:latest
+    restart: unless-stopped
+    pull_policy: always
+    env_file:
+      - ./configs/.env.pinguin.integration
+    depends_on:
+      - la-tauth
+    expose:
+      - "8081"
+    volumes:
+      - pinguin-data:/app/data
+      - ./configs/config.pinguin.yml:/config/config.yml:ro
+
+  loopaware-api:
+    build:
+      context: .
+    pull_policy: build
+    env_file:
+      - ./configs/.env.loopaware.integration
+    depends_on:
+      la-pinguin:
+        condition: service_started
+      la-tauth:
+        condition: service_started
+    expose:
+      - "8080"
+    volumes:
+      - loopaware-data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+
+  loopaware-proxy:
+    image: ghcr.io/tyemirov/ghttp:latest
+    pull_policy: always
+    depends_on:
+      - loopaware-api
+      - la-tauth
+    env_file:
+      - ./configs/.env.ghttp.integration
+    volumes:
+      - ./web:/data:ro
+    ports:
+      - "8090:8090"
+    restart: unless-stopped
+
+volumes:
+  loopaware-data:
+  pinguin-data:
+  tauth-data:

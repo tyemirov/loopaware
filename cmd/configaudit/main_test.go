@@ -159,7 +159,6 @@ func TestRunAuditReportsErrorsForMissingEnvironment(testingT *testing.T) {
 
 	loopAwareEnvPath := filepath.Join(tempDirectory, testLoopAwareEnvFile)
 	loopAwareEnv := strings.Join([]string{
-		"GOOGLE_CLIENT_ID=" + testGoogleClientValue,
 		"SESSION_SECRET=",
 		"TAUTH_BASE_URL=" + testTauthBaseURLValue,
 		"TAUTH_TENANT_ID=" + testTenantValue,
@@ -226,7 +225,6 @@ func TestRunAuditCommandSuccess(testingT *testing.T) {
 		"services:",
 		"  " + testLoopAwareService + ":",
 		"    environment:",
-		"      GOOGLE_CLIENT_ID: " + testGoogleClientValue,
 		"      SESSION_SECRET: " + testSessionSecretValue,
 		"      TAUTH_BASE_URL: " + testTauthBaseURLValue,
 		"      TAUTH_TENANT_ID: " + testTenantValue,

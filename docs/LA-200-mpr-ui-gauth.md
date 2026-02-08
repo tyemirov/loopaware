@@ -83,7 +83,7 @@ Even if we could disable GIS, the current implementation only understands the pr
 ## Next steps
 
 1. Extend `mpr-ui` with the GAuss-friendly attributes above.
-2. Once the bundle ships the new DSL, replace the Bootstrap header/footer snippets in LoopAware’s templates with `<mpr-header>` / `<mpr-footer>`.
-3. Delete the bespoke theme toggle + footer wiring scattered across `internal/httpapi/templates/*.tmpl` as the new components take over.
+2. Once the bundle ships the new DSL, replace the Bootstrap header/footer snippets in LoopAware’s static pages under `web/` with `<mpr-header>` / `<mpr-footer>`.
+3. Delete the bespoke theme toggle + footer wiring scattered across `web/` markup as the new components take over.
 
 Until `auth-mode="gauss"` (or equivalent) lands upstream we cannot adopt the latest mpr-ui header in LoopAware without breaking Google Sign-In.

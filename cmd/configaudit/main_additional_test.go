@@ -116,7 +116,7 @@ func TestScanAssetRootReturnsErrorForMissingRoot(testingT *testing.T) {
 	require.Error(testingT, scanErr)
 }
 
-func TestCheckWebAssetLocalhostPortsScansTemplates(testingT *testing.T) {
+func TestCheckWebAssetLocalhostPortsScansWebRoot(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	originalDirectory, originalErr := os.Getwd()
 	require.NoError(testingT, originalErr)
@@ -125,13 +125,9 @@ func TestCheckWebAssetLocalhostPortsScansTemplates(testingT *testing.T) {
 		_ = os.Chdir(originalDirectory)
 	})
 
-	assetsPath := filepath.Join(tempDirectory, "internal", "httpapi")
-	require.NoError(testingT, os.MkdirAll(assetsPath, 0o755))
-	require.NoError(testingT, os.WriteFile(filepath.Join(assetsPath, "assets"), []byte(""), 0o600))
-
-	templatesPath := filepath.Join(tempDirectory, "internal", "httpapi", "templates")
-	require.NoError(testingT, os.MkdirAll(templatesPath, 0o755))
-	require.NoError(testingT, os.WriteFile(filepath.Join(templatesPath, "sample.html"), []byte("http://localhost:1234"), 0o600))
+	webPath := filepath.Join(tempDirectory, "web")
+	require.NoError(testingT, os.MkdirAll(webPath, 0o755))
+	require.NoError(testingT, os.WriteFile(filepath.Join(webPath, "sample.html"), []byte("http://localhost:1234"), 0o600))
 
 	hostPortToService := map[string]string{"1234": "app"}
 	result := auditResult{}
@@ -455,7 +451,7 @@ func TestCheckLocalPortMatchesSkipsUnexpectedPatternShapes(testingT *testing.T) 
 	require.Empty(testingT, result.warnings)
 }
 
-func TestCheckWebAssetLocalhostPortsReportsScanError(testingT *testing.T) {
+func TestCheckWebAssetLocalhostPortsHandlesLongLines(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	originalDirectory, originalErr := os.Getwd()
 	require.NoError(testingT, originalErr)
@@ -464,17 +460,18 @@ func TestCheckWebAssetLocalhostPortsReportsScanError(testingT *testing.T) {
 		_ = os.Chdir(originalDirectory)
 	})
 
-	assetsPath := filepath.Join(tempDirectory, "internal", "httpapi", "assets")
-	require.NoError(testingT, os.MkdirAll(assetsPath, 0o755))
+	webPath := filepath.Join(tempDirectory, "web")
+	require.NoError(testingT, os.MkdirAll(webPath, 0o755))
 	longLine := strings.Repeat(testEnvScanPad, testEnvScanLineLength)
-	require.NoError(testingT, os.WriteFile(filepath.Join(assetsPath, testAssetScanFileName), []byte(longLine), 0o600))
+	require.NoError(testingT, os.WriteFile(filepath.Join(webPath, testAssetScanFileName), []byte(longLine), 0o600))
 
 	result := auditResult{}
 	checkWebAssetLocalhostPorts(map[string]string{}, &result)
-	require.NotEmpty(testingT, result.errors)
+	require.Empty(testingT, result.errors)
+	require.Empty(testingT, result.warnings)
 }
 
-func TestCheckWebAssetLocalhostPortsReportsStatError(testingT *testing.T) {
+func TestCheckWebAssetLocalhostPortsReportsReadError(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	originalDirectory, originalErr := os.Getwd()
 	require.NoError(testingT, originalErr)
@@ -483,10 +480,13 @@ func TestCheckWebAssetLocalhostPortsReportsStatError(testingT *testing.T) {
 		_ = os.Chdir(originalDirectory)
 	})
 
-	internalPath := filepath.Join(tempDirectory, "internal")
-	require.NoError(testingT, os.MkdirAll(internalPath, 0o755))
-	httpapiPath := filepath.Join(internalPath, "httpapi")
-	require.NoError(testingT, os.WriteFile(httpapiPath, []byte("not a directory"), 0o600))
+	webPath := filepath.Join(tempDirectory, "web")
+	require.NoError(testingT, os.MkdirAll(webPath, 0o755))
+	assetPath := filepath.Join(webPath, "sample.js")
+	require.NoError(testingT, os.WriteFile(assetPath, []byte("http://localhost:1234"), 0o600))
+	if chmodErr := os.Chmod(assetPath, 0o000); chmodErr != nil {
+		testingT.Skipf("chmod not supported: %v", chmodErr)
+	}
 
 	result := auditResult{}
 	checkWebAssetLocalhostPorts(map[string]string{}, &result)
@@ -563,4 +563,21 @@ func TestRunAuditCommandReportsWarnings(testingT *testing.T) {
 	require.Contains(testingT, stdout.String(), "WARN:")
 	require.Contains(testingT, stdout.String(), "config-audit OK")
 	require.Empty(testingT, stderr.String())
+}
+
+func TestMainRunsAuditFromRepoRoot(testingT *testing.T) {
+	workingDirectory, workingDirectoryErr := os.Getwd()
+	require.NoError(testingT, workingDirectoryErr)
+
+	repositoryRoot := filepath.Dir(filepath.Dir(workingDirectory))
+	composePath := filepath.Join(repositoryRoot, testComposeFileName)
+	_, statErr := os.Stat(composePath)
+	require.NoError(testingT, statErr)
+
+	require.NoError(testingT, os.Chdir(repositoryRoot))
+	testingT.Cleanup(func() {
+		_ = os.Chdir(workingDirectory)
+	})
+
+	main()
 }

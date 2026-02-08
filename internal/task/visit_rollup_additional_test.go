@@ -135,3 +135,17 @@ func TestVisitRollupJobRunPrunesOldVisits(testingT *testing.T) {
 	require.NoError(testingT, database.Model(&model.SiteVisit{}).Count(&visitCount).Error)
 	require.Equal(testingT, int64(1), visitCount)
 }
+
+func TestVisitRollupJobRunReturnsErrorWhenContextCanceled(testingT *testing.T) {
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, openErr)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	job := NewVisitRollupJob(database, zap.NewNop(), VisitRollupConfig{RetentionDays: 1})
+	requestContext, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	runErr := job.Run(requestContext)
+	require.Error(testingT, runErr)
+}

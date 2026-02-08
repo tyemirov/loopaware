@@ -4,7 +4,7 @@
 
 Run LoopAware as a backend API plus a fully independent static frontend, while keeping cookie-based auth via TAuth:
 
-- **Frontend (static)**: serves **all HTML/CSS/JS** from `public/` via `ghttp`.
+- **Frontend (static)**: serves **all HTML/CSS/JS** from `web/` via a CDN or `ghttp`.
 - **Backend (api)**: serves **API-only** routes (JSON/SSE/CSV) and validates TAuth sessions for authorization.
 
 The split is designed to preserve a **single browser origin** via a reverse proxy so LoopAware does not need
@@ -12,15 +12,15 @@ credentialed CORS for session cookies.
 
 ## Implementation (current)
 
-LoopAware remains one Go binary (`cmd/server`) with `--serve-mode`:
+LoopAware now runs with a dedicated API backend and a fully static frontend:
 
-- `monolith` (default): serves everything (existing behavior).
-- `api`: serves backend endpoints under `/api/*` only.
+- **Backend**: `cmd/server` is API-only (JSON/SSE/CSV + public collection endpoints).
+- **Frontend**: static files live in `web/` and are served by a CDN or `ghttp` (no generator).
 
 For the computercat orchestration (`docker-compose.computercat.yml`):
 
-- `loopaware-api` runs `--serve-mode=api`
-- `loopaware-proxy` (`ghttp`) serves static files from `./public` and reverse-proxies `/api/*` and TAuth paths.
+- `loopaware-api` runs the API-only `cmd/server`.
+- `loopaware-proxy` (`ghttp`) serves static files from `./web` and reverse-proxies `/api/*` and TAuth paths.
 
 ## Route Boundaries
 
@@ -43,7 +43,7 @@ For the computercat orchestration (`docker-compose.computercat.yml`):
   - `GET /app/traffic-test?site_id=...`
   - `GET /app/subscribe-test?site_id=...`
 
-### Backend (`--serve-mode=api`)
+### Backend (API-only)
 
 All backend routes live under `/api/*`:
 
@@ -73,12 +73,12 @@ For the computercat orchestration, `ghttp`:
 - LoopAware backend:
   - `/api/*` -> `loopaware-api`
 - LoopAware frontend:
-  - everything else is served from `./public` (no LoopAware web container)
+  - everything else is served from `./web` (no LoopAware web container)
 
 See `configs/README.md` and the `configs/.env.ghttp*.example` templates for the exact `GHTTP_SERVE_PROXIES` string.
 
 ## Rollout
 
-1. Keep existing deployments in `monolith` mode (default) until the proxy routes and two-container deployment are validated.
-2. Generate the static frontend into `public/` and mount it into `ghttp`.
-3. Deploy split mode behind the proxy (static frontend + api) on a staging host (computercat).
+1. Publish the static frontend in `web/` (GitHub Pages, CDN, or `ghttp`).
+2. Configure the API backend with `PUBLIC_BASE_URL` pointing at the frontend origin.
+3. Deploy the API-only backend and validate reverse-proxy routing (if using single-origin mode).

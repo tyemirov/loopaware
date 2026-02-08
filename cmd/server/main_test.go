@@ -24,25 +24,29 @@ import (
 )
 
 const (
-	testAdminEmailsEnv        = "admin@example.com, owner@example.com"
-	testAuthTokenValue        = "test-auth-token"
-	testTenantValue           = "test-tenant"
-	testGoogleClientIDValue   = "test-google-client"
-	testSessionSecretValue    = "test-session-secret"
-	testTauthBaseURLValue     = "http://tauth.test"
-	testTauthTenantIDValue    = "tenant-id"
-	testTauthSigningKeyValue  = "signing-key"
-	testTauthCookieNameValue  = "app_session"
-	testPublicBaseURLValue    = "http://localhost:8080"
-	testPinguinAddress        = "bufnet"
-	testDatabaseDriverValue   = storage.DriverNameSQLite
-	testDatabaseDSNValue      = "file:server-test?mode=memory&cache=shared&_foreign_keys=on"
-	testPinguinTimeoutSeconds = "1"
-	testDatabaseOpenerMessage = "database opener error"
-	testBufferSize            = 1024 * 1024
-	testInvalidTimeoutValue   = "invalid"
-	testServerAddress         = "127.0.0.1:0"
-	testBindFlagAddress       = "127.0.0.1:9999"
+	testAdminEmailsEnv         = "admin@example.com, owner@example.com"
+	testAuthTokenValue         = "test-auth-token"
+	testTenantValue            = "test-tenant"
+	testSessionSecretValue     = "test-session-secret"
+	testTauthBaseURLValue      = "http://tauth.test"
+	testTauthTenantIDValue     = "tenant-id"
+	testTauthSigningKeyValue   = "signing-key"
+	testTauthCookieNameValue   = "app_session"
+	testPublicBaseURLValue     = "http://localhost:8080"
+	testPinguinAddress         = "bufnet"
+	testDatabaseDriverValue    = storage.DriverNameSQLite
+	testDatabaseDSNValue       = "file:server-test?mode=memory&cache=shared&_foreign_keys=on"
+	testPinguinTimeoutSeconds  = "1"
+	testDatabaseOpenerMessage  = "database opener error"
+	testBufferSize             = 1024 * 1024
+	testInvalidTimeoutValue    = "invalid"
+	testServerAddress          = "127.0.0.1:0"
+	testBindFlagAddress        = "127.0.0.1:9999"
+	testResolveOriginEmpty     = "   "
+	testResolveOriginMalformed = "http://%zz"
+	testResolveOriginMissing   = "example.com"
+	testResolveOriginValid     = "https://example.com/path"
+	testInvalidConfigContents  = ": [}"
 )
 
 type stubNotificationServer struct {
@@ -84,7 +88,6 @@ func setRequiredEnvironment(testingT *testing.T, pinguinAddress string) {
 	testingT.Setenv(environmentKeyApplicationAddress, "127.0.0.1:0")
 	testingT.Setenv(environmentKeyDatabaseDriverName, testDatabaseDriverValue)
 	testingT.Setenv(environmentKeyDatabaseDataSource, testDatabaseDSNValue)
-	testingT.Setenv(environmentKeyGoogleClientID, testGoogleClientIDValue)
 	testingT.Setenv(environmentKeySessionSecret, testSessionSecretValue)
 	testingT.Setenv(environmentKeyTauthBaseURL, testTauthBaseURLValue)
 	testingT.Setenv(environmentKeyTauthTenantID, testTauthTenantIDValue)
@@ -208,6 +211,47 @@ func TestApplyEnvironmentConfigurationRejectsInvalidInt(testingT *testing.T) {
 	require.ErrorContains(testingT, applyErr, environmentConfigurationError)
 }
 
+func TestResolveOriginValidatesInput(testingT *testing.T) {
+	testCases := []struct {
+		name           string
+		input          string
+		expectedOrigin string
+		expectError    bool
+	}{
+		{
+			name:        "empty",
+			input:       testResolveOriginEmpty,
+			expectError: true,
+		},
+		{
+			name:        "malformed",
+			input:       testResolveOriginMalformed,
+			expectError: true,
+		},
+		{
+			name:        "missing_scheme",
+			input:       testResolveOriginMissing,
+			expectError: true,
+		},
+		{
+			name:           "valid",
+			input:          testResolveOriginValid,
+			expectedOrigin: "https://example.com",
+			expectError:    false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		origin, originErr := resolveOrigin(testCase.input)
+		if testCase.expectError {
+			require.Error(testingT, originErr, testCase.name)
+			continue
+		}
+		require.NoError(testingT, originErr, testCase.name)
+		require.Equal(testingT, testCase.expectedOrigin, origin, testCase.name)
+	}
+}
+
 func TestNormalizeEmailAddressesSkipsBlanks(testingT *testing.T) {
 	normalized := normalizeEmailAddresses([]string{" admin@example.com ", "", "owner@example.com"})
 	require.Equal(testingT, []string{"admin@example.com", "owner@example.com"}, normalized)
@@ -244,6 +288,32 @@ func TestLoadServerConfigReportsConfigurationFileError(testingT *testing.T) {
 	require.ErrorContains(testingT, loadErr, configurationFileLoadError)
 }
 
+func TestRunCommandReportsConfigurationFileError(testingT *testing.T) {
+	application := NewServerApplication()
+	command, commandErr := application.Command()
+	require.NoError(testingT, commandErr)
+
+	configDirectory := testingT.TempDir()
+	configPath := filepath.Join(configDirectory, "config.yaml")
+	require.NoError(testingT, os.WriteFile(configPath, []byte(testInvalidConfigContents), 0o600))
+	require.NoError(testingT, command.Flags().Set(flagNameConfigFile, configPath))
+
+	runErr := application.runCommand(command, nil)
+	require.Error(testingT, runErr)
+	require.ErrorContains(testingT, runErr, configurationFileLoadError)
+}
+
+func TestLoadServerConfigDefaultsSQLiteDataSource(testingT *testing.T) {
+	application := NewServerApplication()
+	application.configurationLoader.Set(environmentKeyDatabaseDriverName, storage.DriverNameSQLite)
+	application.configurationLoader.Set(environmentKeyDatabaseDataSource, "")
+
+	missingConfigPath := filepath.Join(testingT.TempDir(), "missing-config.yaml")
+	config, loadErr := application.loadServerConfig(missingConfigPath)
+	require.NoError(testingT, loadErr)
+	require.Equal(testingT, defaultSQLiteDataSourceName, config.DatabaseDataSourceName)
+}
+
 func TestEnsureRequiredConfigurationReportsMissing(testingT *testing.T) {
 	application := NewServerApplication()
 	missingErr := application.ensureRequiredConfiguration(ServerConfig{})
@@ -252,11 +322,11 @@ func TestEnsureRequiredConfigurationReportsMissing(testingT *testing.T) {
 	config := ServerConfig{
 		DatabaseDriverName:        storage.DriverNameSQLite,
 		DatabaseDataSourceName:    testDatabaseDSNValue,
-		GoogleClientID:            testGoogleClientIDValue,
 		SessionSecret:             testSessionSecretValue,
 		TauthBaseURL:              testTauthBaseURLValue,
 		TauthTenantID:             testTauthTenantIDValue,
 		TauthSigningKey:           testTauthSigningKeyValue,
+		TauthSessionCookieName:    testTauthCookieNameValue,
 		PublicBaseURL:             testPublicBaseURLValue,
 		PinguinAddress:            "127.0.0.1:50051",
 		PinguinAuthToken:          testAuthTokenValue,
@@ -301,59 +371,6 @@ func TestRunCommandUsesServerRunner(testingT *testing.T) {
 	require.Equal(testingT, 1, runnerCalls)
 }
 
-func TestRunCommandWebModeSkipsDatabaseOpener(testingT *testing.T) {
-	testingT.Setenv(environmentKeyApplicationAddress, testServerAddress)
-	testingT.Setenv(environmentKeyServeMode, string(ServeModeWeb))
-	testingT.Setenv(environmentKeyGoogleClientID, testGoogleClientIDValue)
-	testingT.Setenv(environmentKeyTauthBaseURL, testTauthBaseURLValue)
-	testingT.Setenv(environmentKeyTauthTenantID, testTauthTenantIDValue)
-	testingT.Setenv(environmentKeyTauthSigningKey, testTauthSigningKeyValue)
-	testingT.Setenv(environmentKeyTauthSessionCookie, testTauthCookieNameValue)
-	testingT.Setenv(environmentKeyPublicBaseURL, testPublicBaseURLValue)
-
-	application := NewServerApplication()
-	command, commandErr := application.Command()
-	require.NoError(testingT, commandErr)
-
-	databaseOpenerCalls := 0
-	application.WithDatabaseOpener(func(storage.Config) (*gorm.DB, error) {
-		databaseOpenerCalls++
-		return nil, errors.New(testDatabaseOpenerMessage)
-	})
-
-	var runnerCalls int
-	application.WithServerRunner(func(*http.Server) error {
-		runnerCalls++
-		return http.ErrServerClosed
-	})
-
-	runErr := application.runCommand(command, nil)
-	require.NoError(testingT, runErr)
-	require.Equal(testingT, 0, databaseOpenerCalls)
-	require.Equal(testingT, 1, runnerCalls)
-}
-
-func TestRunCommandAPIModeUsesServerRunner(testingT *testing.T) {
-	listener := startPinguinServer(testingT)
-	setRequiredEnvironment(testingT, testPinguinAddress)
-	testingT.Setenv(environmentKeyServeMode, string(ServeModeAPI))
-
-	application := NewServerApplication()
-	application.WithPinguinDialer(createPinguinDialer(listener))
-	command, commandErr := application.Command()
-	require.NoError(testingT, commandErr)
-
-	var runnerCalls int
-	application.WithServerRunner(func(*http.Server) error {
-		runnerCalls++
-		return http.ErrServerClosed
-	})
-
-	runErr := application.runCommand(command, nil)
-	require.NoError(testingT, runErr)
-	require.Equal(testingT, 1, runnerCalls)
-}
-
 func TestRunCommandReportsMissingConfiguration(testingT *testing.T) {
 	application := NewServerApplication()
 	command, commandErr := application.Command()
@@ -362,7 +379,6 @@ func TestRunCommandReportsMissingConfiguration(testingT *testing.T) {
 	testingT.Setenv(environmentKeyApplicationAddress, "")
 	testingT.Setenv(environmentKeyDatabaseDriverName, "")
 	testingT.Setenv(environmentKeyDatabaseDataSource, "")
-	testingT.Setenv(environmentKeyGoogleClientID, "")
 	testingT.Setenv(environmentKeySessionSecret, "")
 	testingT.Setenv(environmentKeyTauthBaseURL, "")
 	testingT.Setenv(environmentKeyTauthTenantID, "")
@@ -377,17 +393,6 @@ func TestRunCommandReportsMissingConfiguration(testingT *testing.T) {
 	runErr := application.runCommand(command, nil)
 	require.Error(testingT, runErr)
 	require.ErrorContains(testingT, runErr, missingConfigurationMessage)
-}
-
-func TestRunCommandRejectsInvalidServeMode(testingT *testing.T) {
-	application := NewServerApplication()
-	command, commandErr := application.Command()
-	require.NoError(testingT, commandErr)
-
-	testingT.Setenv(environmentKeyServeMode, "invalid")
-	runErr := application.runCommand(command, nil)
-	require.Error(testingT, runErr)
-	require.ErrorIs(testingT, runErr, ErrInvalidServeMode)
 }
 
 func TestRunCommandRejectsArguments(testingT *testing.T) {

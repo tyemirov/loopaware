@@ -34,8 +34,6 @@ services:
     container_name: loopaware-api
     restart: unless-stopped
     pull_policy: build
-    command:
-      - --serve-mode=api
     env_file:
       - ./configs/.env.loopaware.computercat
     depends_on:
@@ -61,7 +59,7 @@ services:
     env_file:
       - ./configs/.env.ghttp.computercat
     volumes:
-      - ./public:/data:ro
+      - ./web:/data:ro
       - /media/share/Drive/exchange/certs/computercat:/certs:ro
     restart: unless-stopped
 

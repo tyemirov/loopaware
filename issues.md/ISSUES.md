@@ -377,13 +377,15 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
 ## Planning (500–59999)
 *do not implement yet*
 
-- [ ] [LA-422] (P0) Make split deployment fully independent: web serves all HTML/CSS/JS, api is strictly API-only.
+- [x] [LA-422] (P0) Make split deployment fully independent: web serves all HTML/CSS/JS, api is strictly API-only.
   Goal: Complete the LA-116 migration so ghttp can route `/api/*` to `loopaware-api` and everything else to `loopaware-web` (plus TAuth routes), with no HTML/JS assets served by the api service.
   Deliverable: Move operator tool HTML pages, subscription link pages, and public JS assets (`/widget.js`, `/subscribe.js`, `/pixel.js`) to the web service; move tool JSON endpoints under `/api/sites/*`; add any required public API endpoints (e.g. widget placement config) so the JS assets remain dynamic; update proxy templates and integration coverage; `make ci` passes.
   Docs/Refs:
   - `docs/LA-116-split-frontend-backend.md`
   - `cmd/server/routes.go`
   - `configs/.env.ghttp*.example`
+  Resolution: Completed the API-only backend + static web split (see detailed resolution below).
+  Verification: `make ci` passes.
 
 - [x] [LA-422] (P0) Make split deployment fully independent: web serves all HTML/CSS/JS, api is strictly API-only.
   Resolution: Completed the strict split. `loopaware-web` now serves all HTML pages and public JS assets (`/widget.js`, `/subscribe.js`, `/pixel.js`, `/subscribe-demo`, subscription link pages, and operator tool pages). `loopaware-api` now serves only `/api/*` endpoints (public ingestion + authenticated APIs), including new public JSON endpoints for widget placement (`GET /api/widget-config`) and subscription link hydration (`GET /api/subscriptions/{confirm-link,unsubscribe-link}`), plus tool endpoints moved under `/api/sites/:id/...`.
@@ -392,3 +394,22 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - Tool pages and subscription pages are HTML shells that hydrate via API calls (no direct DB access in web mode).
   - gHTTP proxy templates updated to route `/api/` to `loopaware-api`, everything else to `loopaware-web`, plus TAuth routes.
   Verification: `make ci` passes.
+
+- [ ] [LA-426] Replace placeholder-only inputs with labeled fields in the static frontend.
+  Priority: P1
+  Goal: Remove placeholder-only UX in the dashboard, widget, and subscribe flows and use explicit labels with specific copy.
+  Deliverable: Update `web/app` pages plus `web/widget.js` and `web/subscribe.js` to render labeled inputs and remove placeholder text; update any draft/empty state copy to remain specific; `make ci` passes.
+
+- [x] [LA-427] Raise Go coverage above 95% with focused edge-path tests.
+  Priority: P1
+  Goal: Add missing unit coverage for CLI entrypoints and edge branches without adding defensive production checks.
+  Deliverable: New tests for server/configaudit entrypoints, pinguin proto no-ops, storage backfill/open errors, and visit rollup context cancellation; `make coverage` reports >95%.
+  Resolution: Added targeted tests for CLI entrypoints, pinguin proto no-ops, storage open/backfill errors, and visit rollup edge paths.
+  Verification: `make test`, `make lint`, `make ci`, `make coverage` (95.2% total).
+
+- [x] [LA-428] Run integration tests against the dockerized stack.
+  Priority: P1
+  Goal: Restore UI/API integration coverage by running Playwright suites against a composed stack that serves `web/` via gHTTP and proxies `/api/*`.
+  Deliverable: Add Playwright test harness under `tests/`, `docker-compose.integration.yml`, integration env templates, and update `make test`/`make ci` plus CI workflow triggers; `make ci` passes.
+  Resolution: Added Playwright integration harness and Docker compose stack, updated Makefile/CI triggers, documented integration env templates, and added integration pages plus widget input IDs for UI tests.
+  Verification: `make test`, `make lint`, `make ci`.
