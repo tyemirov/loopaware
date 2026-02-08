@@ -73,3 +73,24 @@ The computercat templates default to the public origin `https://computercat.tyem
 
 TAuth requires HTTPS for secure cookies when `allow_insecure_http=false`. gHTTP’s reverse proxy does not currently set `X-Forwarded-Proto`,
 so keep `TAUTH_ALLOW_INSECURE_HTTP=true` unless you front TAuth with a proxy that forwards `X-Forwarded-Proto=https`.
+
+## Integration compose (`docker-compose.integration.yml`)
+
+This stack serves the static frontend from `./web` via gHTTP on `http://localhost:8090` and proxies `/api/*` plus TAuth paths for the Playwright
+integration suite.
+
+Create these env files:
+
+- `configs/.env.loopaware.integration`
+- `configs/.env.tauth.integration`
+- `configs/.env.pinguin.integration`
+- `configs/.env.ghttp.integration`
+
+Copy the tracked templates:
+
+```bash
+cp configs/.env.loopaware.integration.example configs/.env.loopaware.integration
+cp configs/.env.tauth.integration.example configs/.env.tauth.integration
+cp configs/.env.pinguin.integration.example configs/.env.pinguin.integration
+cp configs/.env.ghttp.integration.example configs/.env.ghttp.integration
+```

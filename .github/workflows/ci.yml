@@ -8,8 +8,9 @@ on:
       - '**/*.go'
       - 'docker-compose*.yml'
       - 'configs/**'
-      - 'internal/httpapi/assets/**'
-      - 'internal/httpapi/templates/**'
+      - 'tests/**'
+      - 'web/**'
+      - 'Makefile'
       - 'go.mod'
       - 'go.sum'
   pull_request:
@@ -19,8 +20,9 @@ on:
       - '**/*.go'
       - 'docker-compose*.yml'
       - 'configs/**'
-      - 'internal/httpapi/assets/**'
-      - 'internal/httpapi/templates/**'
+      - 'tests/**'
+      - 'web/**'
+      - 'Makefile'
       - 'go.mod'
       - 'go.sum'
 
@@ -43,6 +45,13 @@ jobs:
           go-version-file: go.mod
           check-latest: true
           cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: tests/package.json
 
       - name: Prepare config env fixtures
         run: |
@@ -120,8 +129,6 @@ jobs:
           APP_ADDR=:8080
           DB_DRIVER=sqlite
           DB_DSN=file:/app/data/loopaware.sqlite?_foreign_keys=on
-          GOOGLE_CLIENT_ID=ci-google-client-id
-          GOOGLE_CLIENT_SECRET=ci-google-client-secret
           SESSION_SECRET=ci-session-secret
           TAUTH_BASE_URL=http://localhost:8082
           TAUTH_TENANT_ID=loopaware
@@ -133,6 +140,11 @@ jobs:
           PINGUIN_AUTH_TOKEN=ci-grpc-auth-token
           PINGUIN_TENANT_ID=loopaware-local
           EOF
+
+      - name: Install test dependencies
+        run: |
+          npm --prefix tests install
+          npm --prefix tests run install:browsers
 
       - name: Make CI
         run: make ci
