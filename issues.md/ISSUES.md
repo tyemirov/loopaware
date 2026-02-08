@@ -400,10 +400,12 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Goal: Remove placeholder-only UX in the dashboard, widget, and subscribe flows and use explicit labels with specific copy.
   Deliverable: Update `web/app` pages plus `web/widget.js` and `web/subscribe.js` to render labeled inputs and remove placeholder text; update any draft/empty state copy to remain specific; `make ci` passes.
 
-- [ ] [LA-427] Raise Go coverage above 95% with focused edge-path tests.
+- [x] [LA-427] Raise Go coverage above 95% with focused edge-path tests.
   Priority: P1
   Goal: Add missing unit coverage for CLI entrypoints and edge branches without adding defensive production checks.
   Deliverable: New tests for server/configaudit entrypoints, pinguin proto no-ops, storage backfill/open errors, and visit rollup context cancellation; `make coverage` reports >95%.
+  Resolution: Added targeted tests for CLI entrypoints, pinguin proto no-ops, storage open/backfill errors, and visit rollup edge paths.
+  Verification: `make test`, `make lint`, `make ci`, `make coverage` (95.2% total).
 
 - [x] [LA-428] Run integration tests against the dockerized stack.
   Priority: P1
