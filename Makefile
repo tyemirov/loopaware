@@ -1,4 +1,4 @@
-GO_SOURCES := $(shell find . -name '*.go' -not -path "./vendor/*" -not -path "./tests/*" -not -path "./tools/pinguin/vendor/*")
+GO_SOURCES := $(shell find . -name '*.go' -not -path "./vendor/*" -not -path "./tests/*" -not -path "./tools/pinguin/vendor/*" -not -path "./.cache/*" -not -path "./tools/pinguin/.cache/*")
 PINGUIN_DIR := tools/pinguin
 STATICCHECK_VERSION ?= v0.6.1
 INEFFASSIGN_VERSION ?= v0.2.0

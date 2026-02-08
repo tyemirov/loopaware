@@ -1,0 +1,73 @@
+name: GitHub Pages
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/pages.yml'
+      - 'cmd/staticfrontend/**'
+      - 'internal/httpapi/assets/**'
+      - 'internal/httpapi/templates/**'
+      - 'public/**'
+      - 'go.mod'
+      - 'go.sum'
+  workflow_dispatch:
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: true
+
+      - name: Generate static frontend
+        run: |
+          cat > /tmp/loopaware-frontend.env <<'EOF'
+          GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}
+          TAUTH_TENANT_ID=${{ vars.TAUTH_TENANT_ID }}
+          TAUTH_BASE_URL=${{ vars.TAUTH_BASE_URL }}
+          API_BASE_URL=${{ vars.API_BASE_URL }}
+          EOF
+
+          go run ./cmd/staticfrontend --env-file /tmp/loopaware-frontend.env --out public
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+

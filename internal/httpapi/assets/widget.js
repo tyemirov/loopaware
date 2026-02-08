@@ -139,6 +139,52 @@
     return "";
   }
 
+  function normalizeWidgetAPIOrigin(rawValue) {
+    if (typeof rawValue !== "string") {
+      return "";
+    }
+    var trimmed = rawValue.trim();
+    if (!trimmed) {
+      return "";
+    }
+    if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) {
+      return "";
+    }
+    try {
+      var parsed = new URL(trimmed);
+      var origin = parsed && typeof parsed.origin === "string" ? parsed.origin : "";
+      if (!origin || origin === "null") {
+        return "";
+      }
+      return origin.replace(/\/+$/, "");
+    } catch(parseError) {}
+    return "";
+  }
+
+  function resolveWidgetAPIOrigin(scriptTag) {
+    if (!scriptTag) {
+      return "";
+    }
+    var candidate = "";
+    try {
+      if (typeof scriptTag.getAttribute === "function") {
+        candidate = scriptTag.getAttribute("data-api-origin") || "";
+      }
+    } catch(attributeError){}
+    try {
+      if (scriptTag.src) {
+        var link = document.createElement("a");
+        link.href = scriptTag.src;
+        var params = new URLSearchParams(link.search || "");
+        var queryOrigin = params.get("api_origin") || "";
+        if (queryOrigin) {
+          candidate = queryOrigin;
+        }
+      }
+    } catch(parseError){}
+    return normalizeWidgetAPIOrigin(candidate);
+  }
+
   function resolveWidgetSiteId(scriptTag) {
     if (!scriptTag) {
       return "";
@@ -704,13 +750,22 @@
           ? (widgetApiOrigin + "/api/feedback")
           : (location.protocol + "//" + location.host + "/api/feedback");
 
-        var targetEndpoint = widgetTestEndpointOverride || endpoint;
+        var targetEndpoint = endpoint;
+        if (widgetTestEndpointOverride) {
+          if (widgetTestEndpointOverride.indexOf("http://") === 0 || widgetTestEndpointOverride.indexOf("https://") === 0) {
+            targetEndpoint = widgetTestEndpointOverride;
+          } else if (widgetApiOrigin && widgetTestEndpointOverride.indexOf("/") === 0) {
+            targetEndpoint = widgetApiOrigin + widgetTestEndpointOverride;
+          } else {
+            targetEndpoint = widgetTestEndpointOverride;
+          }
+        }
 
         var fetchOptions = {
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: payload,
-          credentials: "same-origin",
+          credentials: widgetTestModeEnabled ? "include" : "same-origin",
           referrer: window.location.href,
           referrerPolicy: "strict-origin-when-cross-origin"
         };
@@ -944,7 +999,7 @@
 
   function initializeWidget() {
     var scriptTag = resolveWidgetScriptTag();
-    widgetApiOrigin = resolveWidgetOrigin(scriptTag);
+    widgetApiOrigin = resolveWidgetAPIOrigin(scriptTag) || resolveWidgetOrigin(scriptTag);
     widgetSiteId = resolveWidgetSiteId(scriptTag);
     if (!widgetSiteId) {
       console.error("widget.js: missing site_id");

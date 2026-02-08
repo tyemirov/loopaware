@@ -46,6 +46,7 @@ Set the `ADMINS` environment variable with a comma-separated list (for example `
 | `SERVE_MODE`           | ⚙️       | Server mode (`monolith`, `web`, `api`; defaults to `monolith`) |
 | `ADMINS`               | ⚙️       | Comma-separated admin emails; overrides the YAML roster     |
 | `PUBLIC_BASE_URL`      | ⚙️       | Public URL of the service (default `http://localhost:8080`) |
+| `API_BASE_URL`         | ⚙️       | Public origin of the backend API when hosting the frontend separately (defaults to `PUBLIC_BASE_URL`) |
 | `APP_ADDR`             | ⚙️       | Listen address (default `:8080`)                            |
 | `DB_DRIVER`            | ⚙️       | Storage driver (`sqlite`, etc.)                             |
 | `DB_DSN`               | ⚙️       | Driver-specific DSN                                         |

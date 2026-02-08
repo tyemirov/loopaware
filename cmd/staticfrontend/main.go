@@ -83,12 +83,12 @@ func writeFile(path string, data []byte) error {
 
 func rewriteDashboardTestPaths(payload []byte) []byte {
 	replacements := map[string]string{
-		`"widget_test_prefix":"/app/sites/"`:       `"widget_test_prefix":"/app/widget-test?site_id="`,
-		`"widget_test_suffix":"/widget-test"`:      `"widget_test_suffix":""`,
-		`"subscribe_test_prefix":"/app/sites/"`:    `"subscribe_test_prefix":"/app/subscribe-test?site_id="`,
+		`"widget_test_prefix":"/app/sites/"`:        `"widget_test_prefix":"/app/widget-test?site_id="`,
+		`"widget_test_suffix":"/widget-test"`:       `"widget_test_suffix":""`,
+		`"subscribe_test_prefix":"/app/sites/"`:     `"subscribe_test_prefix":"/app/subscribe-test?site_id="`,
 		`"subscribe_test_suffix":"/subscribe-test"`: `"subscribe_test_suffix":""`,
-		`"traffic_test_prefix":"/app/sites/"`:      `"traffic_test_prefix":"/app/traffic-test?site_id="`,
-		`"traffic_test_suffix":"/traffic-test"`:    `"traffic_test_suffix":""`,
+		`"traffic_test_prefix":"/app/sites/"`:       `"traffic_test_prefix":"/app/traffic-test?site_id="`,
+		`"traffic_test_suffix":"/traffic-test"`:     `"traffic_test_suffix":""`,
 	}
 
 	for from, to := range replacements {
@@ -115,6 +115,8 @@ func main() {
 
 	googleClientID := strings.TrimSpace(envValues["GOOGLE_CLIENT_ID"])
 	tauthTenantID := strings.TrimSpace(envValues["TAUTH_TENANT_ID"])
+	tauthBaseURL := strings.TrimSpace(envValues["TAUTH_BASE_URL"])
+	apiBaseURL := strings.TrimSpace(envValues["API_BASE_URL"])
 	if googleClientID == "" {
 		_, _ = fmt.Fprintln(os.Stderr, "missing GOOGLE_CLIENT_ID in env file")
 		os.Exit(1)
@@ -124,14 +126,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Serve TAuth through the same origin (ghttp reverse proxy) so static pages stay portable.
-	authConfig := httpapi.NewAuthClientConfig(googleClientID, "", tauthTenantID)
+	authConfig := httpapi.NewAuthClientConfig(googleClientID, tauthBaseURL, tauthTenantID)
 
 	userProvider := anonymousUserProvider{}
-	landingHandlers := httpapi.NewLandingPageHandlers(logger, userProvider, authConfig)
+	landingHandlers := httpapi.NewLandingPageHandlers(logger, userProvider, authConfig, apiBaseURL)
 	privacyHandlers := httpapi.NewPrivacyPageHandlers(userProvider, authConfig)
-	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, httpapi.LandingPagePath, authConfig)
-	subscriptionLinkHandlers := httpapi.NewSubscriptionLinkPageHandlers(logger, authConfig)
+	dashboardHandlers := httpapi.NewDashboardWebHandlers(logger, httpapi.LandingPagePath, authConfig, apiBaseURL)
+	subscriptionLinkHandlers := httpapi.NewSubscriptionLinkPageHandlers(logger, authConfig, apiBaseURL)
+	publicJavaScriptHandlers := httpapi.NewPublicJavaScriptHandlers()
 
 	targets := []renderTarget{
 		{
@@ -165,6 +167,24 @@ func main() {
 			handler:    subscriptionLinkHandlers.RenderUnsubscribeSubscriptionLink,
 			outputPath: filepath.Join(outputDir, "subscriptions/unsubscribe/index.html"),
 		},
+		{
+			method:     http.MethodGet,
+			path:       "/widget.js",
+			handler:    publicJavaScriptHandlers.WidgetJS,
+			outputPath: filepath.Join(outputDir, "widget.js"),
+		},
+		{
+			method:     http.MethodGet,
+			path:       "/subscribe.js",
+			handler:    publicJavaScriptHandlers.SubscribeJS,
+			outputPath: filepath.Join(outputDir, "subscribe.js"),
+		},
+		{
+			method:     http.MethodGet,
+			path:       "/pixel.js",
+			handler:    publicJavaScriptHandlers.PixelJS,
+			outputPath: filepath.Join(outputDir, "pixel.js"),
+		},
 	}
 
 	for _, target := range targets {
@@ -185,4 +205,3 @@ func main() {
 
 	fmt.Println("static frontend generated in", outputDir)
 }
-

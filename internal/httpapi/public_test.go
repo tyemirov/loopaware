@@ -85,7 +85,7 @@ func buildAPIHarness(testingT *testing.T, notifier httpapi.FeedbackNotifier, sub
 	router.GET("/subscribe.js", publicJavaScriptHandlers.SubscribeJS)
 	subscribeDemoHandlers := httpapi.NewSubscribeDemoPageHandlers(logger)
 	router.GET("/subscribe-demo", subscribeDemoHandlers.RenderSubscribeDemo)
-	subscriptionLinkHandlers := httpapi.NewSubscriptionLinkPageHandlers(logger, testLandingAuthConfig)
+	subscriptionLinkHandlers := httpapi.NewSubscriptionLinkPageHandlers(logger, testLandingAuthConfig, "")
 	router.GET("/subscriptions/confirm", subscriptionLinkHandlers.RenderConfirmSubscriptionLink)
 	router.GET("/subscriptions/unsubscribe", subscriptionLinkHandlers.RenderUnsubscribeSubscriptionLink)
 	router.GET("/subscribe-target-test", func(context *gin.Context) {
