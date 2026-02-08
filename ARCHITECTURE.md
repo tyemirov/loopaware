@@ -2,23 +2,20 @@
 
 ## Overview
 
-LoopAware is a Go web service (`cmd/server`) that can run as:
+LoopAware is split into two parts:
 
-- **Monolith**: one process serves both the HTML UI (`/login`, `/app`, `/privacy`, `/sitemap.xml`) and the backend surface
-  (public JS assets + public collection endpoints + authenticated APIs).
-- **Split**: two processes running the same binary behind a reverse proxy.
-  - `--serve-mode=web`: UI pages only.
-  - `--serve-mode=api`: backend routes (APIs + public JS + DB-backed helper pages).
+- **Backend API**: `cmd/server` serves JSON/SSE/CSV endpoints plus public collection routes under `/api/*`.
+- **Static frontend**: `web/` holds handwritten HTML/JS/CSS served by a CDN or reverse proxy (no generator).
 
-Split deployments are intended to preserve a single browser origin (for example via `ghttp`) so TAuth cookies keep working
-without enabling credentialed CORS on LoopAware.
+Deployments can preserve a single browser origin (for example via `ghttp`) so TAuth cookies remain same-origin; otherwise
+configure CORS on the API to allow the frontend origin.
 
 ## Components
 
-- **Auth**: `/login` and all `/api/*` endpoints are secured by TAuth, which issues the `app_session` JWT cookie via Google Identity Services.
-- **Dashboard**: a server-rendered HTML application backed by JSON APIs and server-sent events (SSE) for live updates.
-- **Public assets**: `GET /widget.js`, `GET /subscribe.js`, and `GET /pixel.js` are generated JavaScript payloads that
-  embed the selected `site_id` and call the public JSON endpoints.
+- **Auth**: the frontend uses TAuth to issue the `app_session` JWT cookie via Google Identity Services; `/api/*` validates it.
+- **Dashboard**: a static HTML/JS application backed by JSON APIs and server-sent events (SSE) for live updates.
+- **Public assets**: `GET /widget.js`, `GET /subscribe.js`, and `GET /pixel.js` are served from the static frontend and
+  call the public JSON endpoints at runtime.
 - **Storage**: `internal/storage` opens the configured DB driver and runs migrations on startup; `internal/model` defines
   domain structs and smart constructors.
 - **Notifications**: feedback and subscription notifications are sent to the Pinguin gRPC service; calls include the
@@ -64,10 +61,10 @@ without enabling credentialed CORS on LoopAware.
 
 ## LA-63 & LA-64: Privacy Policy and Sitemap
 
-- The server now serves a static privacy policy at `/privacy`. Update any CDN caches so the new route is immediately
+- The static frontend now serves a privacy policy at `/privacy`. Update any CDN caches so the new route is immediately
   available to end users and compliance tooling.
-- `/sitemap.xml` returns an XML sitemap listing `/login` and `/privacy`. Configure `PUBLIC_BASE_URL` so the generated
-  URLs point at the canonical origin before submitting the sitemap to search engines.
+- If you publish a sitemap at `/sitemap.xml`, keep the URLs aligned with the canonical origin before submitting the
+  sitemap to search engines.
 
 ## LA-77: Session Timeout Prompt
 

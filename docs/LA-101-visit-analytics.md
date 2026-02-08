@@ -3,7 +3,7 @@
 ## Current state (from code)
 - Only metric exposed is `feedback_count` via `SiteStatisticsProvider` and responses from `SiteHandlers.ListSites`.
 - No visit/traffic data is stored. The public surface includes `/widget.js` and `/api/feedback`, both enforcing `Site.AllowedOrigin` with origin/referrer checks and per-IP rate limiting.
-- Dashboard templates and APIs display feedback counts and messages; no charts or counters for traffic exist.
+- Dashboard UI and APIs display feedback counts and messages; no charts or counters for traffic exist.
 
 ## Goals
 - Provide a lightweight “pixel” to record page visits per site (similar to GA/Facebook pixel) with strict origin enforcement and low overhead.

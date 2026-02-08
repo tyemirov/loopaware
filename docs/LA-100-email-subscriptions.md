@@ -2,7 +2,7 @@
 
 ## Current state (from code)
 - Public submissions: `PublicHandlers.CreateFeedback` accepts `site_id/contact/message`, rate limits per IP, enforces `Site.AllowedOrigin`, persists `model.Feedback`, and broadcasts via SSE.
-- Widget: `/widget.js` templated from `internal/httpapi/assets/widget.js`; requires `site_id` query/header; uses stored placement metadata from `model.Site` with defaults injected by `ensureWidgetBubblePlacementDefaults`.
+- Widget: `/widget.js` is served as a static asset from `web/widget.js`; requires `site_id` query/header and fetches placement metadata from `/api/widget-config`.
 - Admin/app: site CRUD and listing in `SiteHandlers`, feedback tables on the dashboard, and counts via `SiteStatisticsProvider` (feedback only). Models live in `internal/model`; schema managed by `storage.AutoMigrate`.
 - Notifications: optional Pinguin gRPC notifier (`notifications.PinguinNotifier`) dispatches feedback alerts to the site owner email/phone.
 
@@ -37,12 +37,12 @@
   - `GET` list with pagination/search by email/status, returns `{ subscribers: [...], total: ... }`.
   - `PATCH /:subscriber_id` to update status (unsubscribe/resubscribe) and name.
   - `POST /export` to download CSV of confirmed subscribers.
-- Dashboard updates in `dashboard.tmpl` and corresponding JS:
+- Dashboard updates in `web/app/index.html`:
   - Add “Subscribers” card/table (status badge, email, name, timestamps) plus count badge mirroring feedback UI patterns.
   - Add controls to copy the subscribe snippet and to export CSV.
 
 ### Embeddable subscribe form
-- Serve `/subscribe.js?site_id=...` (templated asset similar to widget.js but as an ESM-friendly script with `@ts-check`).
+- Serve `/subscribe.js?site_id=...` from `web/subscribe.js` (static asset, ESM-friendly with `@ts-check`).
   - Renders a semantic `<form>` (email + optional name + consent checkbox) styled minimally; inline mode by default, optional floating button variant via query param `mode=bubble`.
   - Customizable via query params or `data-*` attributes: button text, accent color, success/error copy, placeholder text, dark/light theme preference.
   - Posts to `/api/subscriptions` with site_id and source URL; handles duplicate submission responses gracefully.

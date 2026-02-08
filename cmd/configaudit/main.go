@@ -16,6 +16,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const assetScanMaxTokenBytes = 8 * 1024 * 1024
+
 var (
 	errAuditFailed       = errors.New("config_audit_failed")
 	placeholderPattern   = regexp.MustCompile(`\$\{([A-Z0-9_]+)\}`)
@@ -451,7 +453,6 @@ func checkLoopAwareRequiredEnvironment(environmentByService map[string]map[strin
 		return
 	}
 	requiredKeys := []string{
-		"GOOGLE_CLIENT_ID",
 		"SESSION_SECRET",
 		"TAUTH_BASE_URL",
 		"TAUTH_TENANT_ID",
@@ -475,8 +476,6 @@ func checkWebAssetLocalhostPorts(hostPortToService map[string]string, result *au
 	}
 
 	assetRoots := []string{
-		filepath.Join("internal", "httpapi", "assets"),
-		filepath.Join("internal", "httpapi", "templates"),
 		"web",
 	}
 
@@ -531,6 +530,8 @@ func scanAssetFile(path string, allowedPorts map[string]struct{}, result *auditR
 	}
 
 	scanner := bufio.NewScanner(file)
+	scanBuffer := make([]byte, 0, assetScanMaxTokenBytes)
+	scanner.Buffer(scanBuffer, assetScanMaxTokenBytes)
 	lineNumber := 0
 	for scanner.Scan() {
 		lineNumber++

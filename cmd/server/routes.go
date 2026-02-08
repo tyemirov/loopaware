@@ -1,56 +1,21 @@
 package main
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
-	"github.com/MarkoPoloResearchLab/loopaware/internal/httpapi"
+	"github.com/MarkoPoloResearchLab/loopaware/internal/api"
 )
-
-func registerFrontendRoutes(
-	router *gin.Engine,
-	authManager *httpapi.AuthManager,
-	landingHandlers *httpapi.LandingPageHandlers,
-	privacyHandlers *httpapi.PrivacyPageHandlers,
-	sitemapHandlers *httpapi.SitemapHandlers,
-	dashboardHandlers *httpapi.DashboardWebHandlers,
-	publicJavaScriptHandlers *httpapi.PublicJavaScriptHandlers,
-	subscribeDemoHandlers *httpapi.SubscribeDemoPageHandlers,
-	subscriptionLinkHandlers *httpapi.SubscriptionLinkPageHandlers,
-	widgetTestHandlers *httpapi.SiteWidgetTestHandlers,
-	trafficTestHandlers *httpapi.SiteTrafficTestHandlers,
-	subscribeTestHandlers *httpapi.SiteSubscribeTestHandlers,
-) {
-	router.GET("/", func(context *gin.Context) {
-		context.Redirect(http.StatusFound, landingRouteRoot)
-	})
-	router.GET(landingRouteRoot, landingHandlers.RenderLandingPage)
-	router.GET(httpapi.PrivacyPagePath, privacyHandlers.RenderPrivacyPage)
-	router.GET(httpapi.SitemapRoutePath, sitemapHandlers.RenderSitemap)
-	router.GET(dashboardRoute, authManager.RequireAuthenticatedWeb(), dashboardHandlers.RenderDashboard)
-
-	router.GET(publicRouteWidget, publicJavaScriptHandlers.WidgetJS)
-	router.GET(publicRouteSubscribeWidget, publicJavaScriptHandlers.SubscribeJS)
-	router.GET("/pixel.js", publicJavaScriptHandlers.PixelJS)
-	router.GET(publicRouteSubscribeDemo, subscribeDemoHandlers.RenderSubscribeDemo)
-	router.GET(publicRouteSubscriptionConfirmWeb, subscriptionLinkHandlers.RenderConfirmSubscriptionLink)
-	router.GET(publicRouteSubscriptionOptOutWeb, subscriptionLinkHandlers.RenderUnsubscribeSubscriptionLink)
-
-	router.GET("/app/sites/:id/widget-test", authManager.RequireAuthenticatedWeb(), widgetTestHandlers.RenderWidgetTestPage)
-	router.GET("/app/sites/:id/traffic-test", authManager.RequireAuthenticatedWeb(), trafficTestHandlers.RenderTrafficTestPage)
-	router.GET("/app/sites/:id/subscribe-test", authManager.RequireAuthenticatedWeb(), subscribeTestHandlers.RenderSubscribeTestPage)
-}
 
 func registerBackendRoutes(
 	router *gin.Engine,
-	authManager *httpapi.AuthManager,
-	publicHandlers *httpapi.PublicHandlers,
-	siteHandlers *httpapi.SiteHandlers,
-	widgetTestHandlers *httpapi.SiteWidgetTestHandlers,
-	subscribeTestHandlers *httpapi.SiteSubscribeTestHandlers,
+	authManager *api.AuthManager,
+	publicHandlers *api.PublicHandlers,
+	siteHandlers *api.SiteHandlers,
+	widgetTestHandlers *api.SiteWidgetTestHandlers,
+	subscribeTestHandlers *api.SiteSubscribeTestHandlers,
 	authenticatedOrigin string,
 ) {
 	publicCORS := cors.New(cors.Config{
@@ -71,6 +36,7 @@ func registerBackendRoutes(
 	publicGroup.GET("/api/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
 	publicGroup.GET("/api/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
 	publicGroup.GET(publicRouteVisitPixel, publicHandlers.CollectVisit)
+	publicGroup.POST(publicRouteVisitPixel, publicHandlers.CollectVisit)
 
 	apiGroup := router.Group(apiRoutePrefix)
 	apiGroup.Use(cors.New(cors.Config{

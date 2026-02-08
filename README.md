@@ -14,7 +14,7 @@ role-aware dashboard for managing sites and messages.
 - Email subscription capture via an embeddable subscribe form
 - Privacy-safe traffic pixel with per-site visit and visitor counts
 - SQLite-first storage with pluggable drivers
-- Public privacy policy and sitemap endpoints for compliance visibility
+- Public privacy policy and compliance endpoints for visibility
 - Table-driven tests and fast in-memory SQLite fixtures
 
 ## Configuration
@@ -33,20 +33,20 @@ Set the `ADMINS` environment variable with a comma-separated list (for example `
 
 ### 2. Environment variables
 
+Backend (`cmd/server`):
+
 | Variable               | Required | Description                                                 |
 |------------------------|----------|-------------------------------------------------------------|
-| `GOOGLE_CLIENT_ID`     | ✅        | OAuth client ID from Google Cloud Console                   |
 | `SESSION_SECRET`       | ✅        | 32+ byte secret for subscription confirmation tokens        |
-| `TAUTH_BASE_URL`       | ✅        | Base URL for the TAuth service (serves `/tauth.js`)          |
+| `TAUTH_BASE_URL`       | ✅        | Base URL for the TAuth service (serves `/tauth.js`)         |
 | `TAUTH_TENANT_ID`      | ✅        | Tenant identifier configured in TAuth                       |
 | `TAUTH_JWT_SIGNING_KEY`| ✅        | JWT signing key used to validate `app_session`              |
-| `TAUTH_SESSION_COOKIE_NAME` | ✅   | Session cookie name set by TAuth (defaults to `app_session`) |
+| `TAUTH_SESSION_COOKIE_NAME` | ⚙️   | Session cookie name set by TAuth (defaults to `app_session`) |
+| `PINGUIN_ADDR`         | ✅        | Pinguin gRPC address                                        |
 | `PINGUIN_AUTH_TOKEN`¹  | ✅        | Bearer token passed to the Pinguin gRPC service             |
 | `PINGUIN_TENANT_ID`    | ✅        | Tenant identifier used when calling the Pinguin gRPC API     |
-| `SERVE_MODE`           | ⚙️       | Server mode (`monolith`, `web`, `api`; defaults to `monolith`) |
 | `ADMINS`               | ⚙️       | Comma-separated admin emails; overrides the YAML roster     |
-| `PUBLIC_BASE_URL`      | ⚙️       | Public URL of the service (default `http://localhost:8080`) |
-| `API_BASE_URL`         | ⚙️       | Public origin of the backend API when hosting the frontend separately (defaults to `PUBLIC_BASE_URL`) |
+| `PUBLIC_BASE_URL`      | ⚙️       | Frontend origin used for CORS and subscription links        |
 | `APP_ADDR`             | ⚙️       | Listen address (default `:8080`)                            |
 | `DB_DRIVER`            | ⚙️       | Storage driver (`sqlite`, etc.)                             |
 | `DB_DSN`               | ⚙️       | Driver-specific DSN                                         |
@@ -77,11 +77,9 @@ All configuration options are also exposed as Cobra flags:
 
 ```
 loopaware --config=config.yaml \
-  --serve-mode=monolith \
   --app-addr=:8080 \
   --db-driver=sqlite \
   --db-dsn="file:loopaware.sqlite?_foreign_keys=on" \
-  --google-client-id=$GOOGLE_CLIENT_ID \
   --session-secret=$SESSION_SECRET \
   --tauth-base-url=$TAUTH_BASE_URL \
   --tauth-tenant-id=$TAUTH_TENANT_ID \
@@ -95,36 +93,42 @@ Flags are optional when the equivalent environment variables are set.
 ## Running locally
 
 ```bash
-GOOGLE_CLIENT_ID=... \
 SESSION_SECRET=$(openssl rand -hex 32) \
 TAUTH_BASE_URL=http://localhost:8081 \
 TAUTH_TENANT_ID=loopaware \
 TAUTH_JWT_SIGNING_KEY=replace-with-tauth-jwt-signing-key \
 TAUTH_SESSION_COOKIE_NAME=app_session_loopaware \
+PUBLIC_BASE_URL=http://localhost:8080 \
 go run ./cmd/server --config=config.yaml
 ```
 
-Open `http://localhost:8080/app` to trigger Google Sign-In. Ensure the TAuth service is running at
-`TAUTH_BASE_URL` with a tenant that matches `TAUTH_TENANT_ID`. Administrators listed in `config.yaml` can manage every
-site; other users see only the sites they own or originally created with their Google account.
+Serve the static frontend from `web/` (for example with a simple static server), then open `/app` on that origin to
+trigger Google Sign-In. Ensure the TAuth service is running at `TAUTH_BASE_URL` with a tenant that matches
+`TAUTH_TENANT_ID`. Administrators listed in `config.yaml` can manage every site; other users see only the sites they own
+or originally created with their Google account.
 
 ## Authentication flow
 
 1. Users visit `/login` (automatic redirect from protected routes).
 2. TAuth issues the session cookie configured by `TAUTH_SESSION_COOKIE_NAME` (defaults to `app_session`) via Google Identity Services and keeps it refreshed.
-3. `httpapi.AuthManager` validates the session JWT, injects user details into the request context, and enforces admin /
+3. `api.AuthManager` validates the session JWT, injects user details into the request context, and enforces admin /
    owner access.
 4. The dashboard and JSON APIs consume the authenticated context.
 
-## Public pages
+## Static frontend
 
-LoopAware serves a minimal public surface derived from `PUBLIC_BASE_URL`:
+LoopAware’s frontend lives in `web/` and is hosted separately (CDN or reverse proxy). It includes:
 
-- `/login` — marketing-focused landing page with TAuth-backed Google Sign-In.
+- `/login` — landing page with TAuth-backed Google Sign-In.
 - `/privacy` — static privacy policy linked from the landing and dashboard footers.
-- `/sitemap.xml` — XML sitemap enumerating the login and privacy URLs for search engines.
+- `/app` — dashboard shell (data loaded via `/api/*`).
+- `/subscriptions/confirm` and `/subscriptions/unsubscribe` — email link pages.
+- `/widget.js`, `/subscribe.js`, `/pixel.js` — embeddable JavaScript assets.
 
-Set `PUBLIC_BASE_URL` to the externally reachable origin so the sitemap emits fully qualified links for crawlers.
+Set `PUBLIC_BASE_URL` to the frontend origin so the API emits correct links and CORS allows browser access. Use
+absolute `data-api-origin` attributes (or `api_origin` query params) on embed scripts when the API runs on a different
+origin. The dashboard and login pages call `/api` and `/auth` relative to the frontend origin, so split-origin
+deployments should use a reverse proxy or update the static HTML in `web/` to point at those services.
 
 ## REST API
 
@@ -151,14 +155,11 @@ include Unix timestamps in seconds.
 | `POST`  | `/api/subscriptions`                  | public      | Submit an email subscription (JSON body with `site_id`, `email`, optional `name` and `source_url`)      |
 | `POST`  | `/api/subscriptions/confirm`          | public      | Confirm a subscription for a given `site_id` and email                                                  |
 | `POST`  | `/api/subscriptions/unsubscribe`      | public      | Unsubscribe an email address for a given `site_id`                                                      |
-| `GET`   | `/subscriptions/confirm`              | public      | Confirm a pending subscription via email token (HTML page)                                              |
-| `GET`   | `/subscriptions/unsubscribe`          | public      | Unsubscribe via email token (HTML page)                                                                 |
 | `GET`   | `/api/visits`                         | public      | Record a page visit for a site (returns a 1×1 GIF for use as a tracking pixel)                          |
-| `GET`   | `/widget.js`                          | public      | Serve embeddable JavaScript feedback widget                                                             |
-| `GET`   | `/subscribe.js`                       | public      | Serve embeddable JavaScript subscribe form                                                              |
-| `GET`   | `/pixel.js`                           | public      | Serve embeddable JavaScript visit tracking pixel                                                        |
 
-Subscriptions use confirmation and unsubscribe links sent via email: `GET /subscriptions/confirm?token=...` confirms the pending subscriber, and `GET /subscriptions/unsubscribe?token=...` unsubscribes, both without requiring browser origin headers.
+Subscriptions use confirmation and unsubscribe links sent via email: the static frontend pages at
+`/subscriptions/confirm?token=...` and `/subscriptions/unsubscribe?token=...` call the API without requiring browser
+origin headers.
 
 The `allowed_origin` field for a site may contain multiple origins separated by spaces or commas (for example `https://mprlab.com http://localhost:8080`); widgets, subscribe forms, and pixels will accept requests from any configured origin while still rejecting traffic from unknown sites.
 
