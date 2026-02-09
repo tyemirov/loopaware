@@ -425,3 +425,9 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Change: Define a hostname-based environment map so the static frontend can run on GitHub Pages in production and behind a single-origin reverse proxy in development (computercat).
   Resolution: Added `web/runtime-env.js` and updated pages to consume `window.__LOOPAWARE_{API,TAUTH,PINGUIN}_ORIGIN__` instead of duplicating hostname logic across HTML files.
   Verification: `make ci` passes.
+
+- [x] [LA-431] Load frontend runtime origins from `web/config.yml` and drop unused service mappings.
+  Priority: P1
+  Change: Move the hostname-to-service origin map out of JavaScript and into a static `config.yml` fetched over HTTP at runtime.
+  Resolution: Added `web/config.yml` and refactored `web/runtime-env.js` to fetch + validate it synchronously during boot (preserving script ordering), removed all Pinguin-related globals and query params, and now fail fast with a specific error when the hostname is not mapped.
+  Verification: `make ci` passes.
