@@ -31,8 +31,14 @@
           if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) return "";
           return trimmed.replace(/\/+$/, "");
         }
-        var apiOrigin = normalizeOrigin(params.get("api_origin") || "");
-        var tauthOrigin = normalizeOrigin(params.get("tauth_origin") || "") || apiOrigin;
+        var hostname = window.location && window.location.hostname ? window.location.hostname : "";
+        var apiOrigin =
+          normalizeOrigin(params.get("api_origin") || "") ||
+          (hostname === "loopaware.mprlab.com" ? "https://loopaware-api.mprlab.com" : "");
+        var tauthOrigin =
+          normalizeOrigin(params.get("tauth_origin") || "") ||
+          (hostname === "loopaware.mprlab.com" ? "https://tauth-api.mprlab.com" : "") ||
+          apiOrigin;
         var script = document.getElementById("tauth-script");
         if (!script) return;
         if (tauthOrigin) {
@@ -87,8 +93,14 @@
           if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) return "";
           return trimmed.replace(/\/+$/, "");
         }
-        var apiOrigin = normalizeOrigin(params.get("api_origin") || "");
-        var tauthOrigin = normalizeOrigin(params.get("tauth_origin") || "") || apiOrigin;
+        var hostname = window.location && window.location.hostname ? window.location.hostname : "";
+        var apiOrigin =
+          normalizeOrigin(params.get("api_origin") || "") ||
+          (hostname === "loopaware.mprlab.com" ? "https://loopaware-api.mprlab.com" : "");
+        var tauthOrigin =
+          normalizeOrigin(params.get("tauth_origin") || "") ||
+          (hostname === "loopaware.mprlab.com" ? "https://tauth-api.mprlab.com" : "") ||
+          apiOrigin;
         if (!tauthOrigin) return;
         var headerHost = document.querySelector("mpr-header");
         if (headerHost) {
@@ -180,7 +192,11 @@
       (function () {
         var params = new URLSearchParams(window.location.search || "");
         var siteId = (params.get("site_id") || "").trim();
+        var hostname = window.location && window.location.hostname ? window.location.hostname : "";
         var apiOrigin = (params.get("api_origin") || "").trim();
+        if (!apiOrigin && hostname === "loopaware.mprlab.com") {
+          apiOrigin = "https://loopaware-api.mprlab.com";
+        }
 
         function normalizeOrigin(value) {
           var trimmed = String(value || "").trim();
