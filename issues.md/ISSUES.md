@@ -431,3 +431,9 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Change: Move the hostname-to-service origin map out of JavaScript and into a static `config.yml` fetched over HTTP at runtime.
   Resolution: Added `web/config.yml` and refactored `web/runtime-env.js` to fetch + validate it synchronously during boot (preserving script ordering), removed all Pinguin-related globals and query params, and now fail fast with a specific error when the hostname is not mapped.
   Verification: `make ci` passes.
+
+- [x] [LA-432] Make `web/config.yml` real YAML (not JSON-in-YAML) for production editing.
+  Priority: P1
+  Change: Store the frontend environment map as standard YAML so operators can edit it without JSON syntax.
+  Resolution: Converted `web/config.yml` to YAML and updated `web/runtime-env.js` to parse it via `js-yaml` (loaded from a pinned CDN script before bootstrap) while retaining strict validation + fail-fast behavior.
+  Verification: `make ci` passes.

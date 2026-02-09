@@ -45,14 +45,8 @@
     return String(xhr.responseText || "");
   }
 
-  function stripJsonYamlComments(text) {
-    return String(text || "")
-      .replace(/^\uFEFF/, "")
-      .split(/\r?\n/)
-      .filter(function (line) {
-        return !/^\s*#/.test(line);
-      })
-      .join("\n");
+  function stripBom(text) {
+    return String(text || "").replace(/^\uFEFF/, "");
   }
 
   function normalizeOrigin(value) {
@@ -121,26 +115,28 @@
   }
 
   /**
-   * `config.yml` uses JSON syntax (valid YAML 1.2) so we can parse it without
-   * a YAML parser and still keep the config editable over HTTP.
-   *
    * @param {string} text
    * @returns {{ environments: Array<{ name: string, hostnames: string[], services: { apiOrigin: string, tauthOrigin: string } }> }}
    */
   function parseConfig(text) {
-    var cleaned = stripJsonYamlComments(text).trim();
+    var cleaned = stripBom(text).trim();
     if (!cleaned) {
       throw new Error("runtime_env.config_invalid: /config.yml is empty");
+    }
+
+    var yaml = window.jsyaml;
+    if (!yaml || typeof yaml.load !== "function") {
+      throw new Error(
+        "runtime_env.yaml_parser_missing: js-yaml is required to parse /config.yml. Load js-yaml before /runtime-env.js."
+      );
     }
 
     /** @type {any} */
     var parsed = null;
     try {
-      parsed = JSON.parse(cleaned);
+      parsed = yaml.load(cleaned);
     } catch (error) {
-      throw new Error(
-        "runtime_env.config_invalid: /config.yml must be JSON syntax (YAML 1.2 compatible). Parse error: " + String(error)
-      );
+      throw new Error("runtime_env.config_invalid: /config.yml must be valid YAML. Parse error: " + String(error));
     }
     if (!parsed || typeof parsed !== "object") {
       throw new Error("runtime_env.config_invalid: /config.yml must contain an object");
