@@ -21,33 +21,7 @@
       href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css"
     />
     <script id="tauth-script" defer></script>
-    <script>
-      // @ts-check
-      (function () {
-        var params = new URLSearchParams(window.location.search || "");
-        function normalizeOrigin(value) {
-          var trimmed = String(value || "").trim();
-          if (!trimmed) return "";
-          if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) return "";
-          return trimmed.replace(/\/+$/, "");
-        }
-        var hostname = window.location && window.location.hostname ? window.location.hostname : "";
-        var apiOrigin =
-          normalizeOrigin(params.get("api_origin") || "") ||
-          (hostname === "loopaware.mprlab.com" ? "https://loopaware-api.mprlab.com" : "");
-        var tauthOrigin =
-          normalizeOrigin(params.get("tauth_origin") || "") ||
-          (hostname === "loopaware.mprlab.com" ? "https://tauth-api.mprlab.com" : "") ||
-          apiOrigin;
-        var script = document.getElementById("tauth-script");
-        if (!script) return;
-        if (tauthOrigin) {
-          script.src = tauthOrigin + "/tauth.js";
-        } else {
-          script.src = "/tauth.js";
-        }
-      })();
-    </script>
+    <script src="/runtime-env.js"></script>
     <script defer src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -86,21 +60,10 @@
     <script>
       // @ts-check
       (function () {
-        var params = new URLSearchParams(window.location.search || "");
-        function normalizeOrigin(value) {
-          var trimmed = String(value || "").trim();
-          if (!trimmed) return "";
-          if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) return "";
-          return trimmed.replace(/\/+$/, "");
-        }
-        var hostname = window.location && window.location.hostname ? window.location.hostname : "";
-        var apiOrigin =
-          normalizeOrigin(params.get("api_origin") || "") ||
-          (hostname === "loopaware.mprlab.com" ? "https://loopaware-api.mprlab.com" : "");
-        var tauthOrigin =
-          normalizeOrigin(params.get("tauth_origin") || "") ||
-          (hostname === "loopaware.mprlab.com" ? "https://tauth-api.mprlab.com" : "") ||
-          apiOrigin;
+        var tauthOrigin = "";
+        try {
+          tauthOrigin = String(window.__LOOPAWARE_TAUTH_ORIGIN__ || "").trim();
+        } catch (error) {}
         if (!tauthOrigin) return;
         var headerHost = document.querySelector("mpr-header");
         if (headerHost) {
@@ -227,11 +190,10 @@
       (function () {
         var params = new URLSearchParams(window.location.search || "");
         var siteId = (params.get("site_id") || "").trim();
-        var hostname = window.location && window.location.hostname ? window.location.hostname : "";
-        var apiOrigin = (params.get("api_origin") || "").trim();
-        if (!apiOrigin && hostname === "loopaware.mprlab.com") {
-          apiOrigin = "https://loopaware-api.mprlab.com";
-        }
+        var apiOrigin = "";
+        try {
+          apiOrigin = String(window.__LOOPAWARE_API_ORIGIN__ || "").trim();
+        } catch (error) {}
 
         function normalizeOrigin(value) {
           var trimmed = String(value || "").trim();

@@ -419,3 +419,9 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Change: When the frontend is served directly from GitHub Pages (no reverse proxy), default the static pages to call the API at `https://loopaware-api.mprlab.com` and load auth from `https://tauth-api.mprlab.com`.
   Resolution: Added runtime origin selection (hostname-based defaults plus `?api_origin=...&tauth_origin=...` overrides), updated widget/subscription/pixel snippets to carry `api_origin`, and removed hardcoded `localhost` references from assets.
   Verification: `make ci` passes.
+
+- [x] [LA-430] Centralize frontend environment mapping for production vs development.
+  Priority: P1
+  Change: Define a hostname-based environment map so the static frontend can run on GitHub Pages in production and behind a single-origin reverse proxy in development (computercat).
+  Resolution: Added `web/runtime-env.js` and updated pages to consume `window.__LOOPAWARE_{API,TAUTH,PINGUIN}_ORIGIN__` instead of duplicating hostname logic across HTML files.
+  Verification: `make ci` passes.
