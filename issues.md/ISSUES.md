@@ -437,3 +437,13 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Change: Store the frontend environment map as standard YAML so operators can edit it without JSON syntax.
   Resolution: Converted `web/config.yml` to YAML and updated `web/runtime-env.js` to parse it via `js-yaml` (loaded from a pinned CDN script before bootstrap) while retaining strict validation + fail-fast behavior.
   Verification: `make ci` passes.
+
+- [x] [LA-433] Fix dashboard favicon/avatar URLs in multi-origin GitHub Pages deployments.
+  Priority: P1
+  Change: When the frontend is hosted on GitHub Pages (`loopaware.mprlab.com`) and the API runs on a separate origin,
+  the API returns relative resource URLs (for example `/api/sites/:id/favicon` and `/api/me/avatar`). The dashboard must
+  resolve these URLs against the configured API origin instead of the static site origin to avoid 404s.
+  Resolution: Updated `web/app/index.html` to resolve `favicon_url` and `avatar.url` through `apiUrl()` (which now treats
+  `data:`/`blob:` URLs as absolute), ensuring the browser loads these assets from `loopaware-api.mprlab.com` in multi-origin
+  mode while preserving the single-origin reverse-proxy behavior.
+  Verification: `make ci` passes.
