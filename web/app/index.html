@@ -2472,8 +2472,9 @@
           userName.textContent = displayName || '';
           userEmail.textContent = state.user.email || '';
           var avatarURL = extractAvatarURL(state.user);
-          if (avatarURL) {
-            userAvatar.src = apiUrl(avatarURL);
+          var resolvedAvatarURL = avatarURL ? apiUrl(avatarURL) : '';
+          if (resolvedAvatarURL) {
+            userAvatar.src = resolvedAvatarURL;
             userAvatar.classList.remove('d-none');
           } else {
             userAvatar.src = '';
@@ -2498,8 +2499,8 @@
             } else {
               headerHost.removeAttribute('data-user-email');
             }
-            if (avatarURL) {
-              headerHost.setAttribute('data-user-avatar-url', avatarURL);
+            if (resolvedAvatarURL) {
+              headerHost.setAttribute('data-user-avatar-url', resolvedAvatarURL);
             } else {
               headerHost.removeAttribute('data-user-avatar-url');
             }
@@ -2507,7 +2508,7 @@
               var profile = {
                 user_email: state.user.email || '',
                 display: displayName || '',
-                avatar_url: avatarURL || ''
+                avatar_url: resolvedAvatarURL || ''
               };
               try {
                 headerHost.dispatchEvent(new CustomEvent('mpr-ui:auth:authenticated', { detail: { profile: profile }, bubbles: true }));
