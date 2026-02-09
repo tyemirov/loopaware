@@ -1,0 +1,18 @@
+# LoopAware frontend runtime configuration (loaded by `web/runtime-env.js`).
+version: 1
+environments:
+  - name: production
+    hostnames:
+      - loopaware.mprlab.com
+      - tyemirov.github.io
+    services:
+      apiOrigin: https://loopaware-api.mprlab.com
+      tauthOrigin: https://tauth-api.mprlab.com
+  - name: development
+    hostnames:
+      - computercat.tyemirov.net
+      - localhost
+      - 127.0.0.1
+    services:
+      apiOrigin: ""
+      tauthOrigin: ""
