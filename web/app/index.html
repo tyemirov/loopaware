@@ -505,6 +505,9 @@
             if (trimmedPath.indexOf('http://') === 0 || trimmedPath.indexOf('https://') === 0) {
               return trimmedPath;
             }
+            if (trimmedPath.indexOf('data:') === 0 || trimmedPath.indexOf('blob:') === 0) {
+              return trimmedPath;
+            }
             if (!apiBaseURL) {
               return trimmedPath;
             }
@@ -2470,7 +2473,7 @@
           userEmail.textContent = state.user.email || '';
           var avatarURL = extractAvatarURL(state.user);
           if (avatarURL) {
-            userAvatar.src = avatarURL;
+            userAvatar.src = apiUrl(avatarURL);
             userAvatar.classList.remove('d-none');
           } else {
             userAvatar.src = '';
@@ -3118,7 +3121,7 @@
             var siteOrigin = primaryAllowedOrigin(site.allowed_origin);
             var hasSiteOrigin = siteOrigin.length > 0;
             if (faviconURL.length > 0) {
-              faviconElement.src = faviconURL;
+              faviconElement.src = apiUrl(faviconURL);
               faviconElement.addEventListener('error', function() {
                 faviconElement.classList.add('d-none');
               });
