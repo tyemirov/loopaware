@@ -8,7 +8,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg&#43;xml;utf8,%0a%20%20%3csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20256%20256%22%3e%0a%20%20%20%20%3crect%20fill=%22%230A2540%22%20x=%220%22%20y=%220%22%20width=%22256%22%20height=%22256%22%20rx=%2228%22%20ry=%2228%22/%3e%0a%20%20%20%20%3cpath%20stroke=%22%23D4AF37%22%20fill=%22none%22%20stroke-width=%2210%22%20stroke-linejoin=%22round%22%0a%20%20%20%20%20%20d=%22M%2032%20128%20C%2072%2056,%20184%2056,%20224%20128%20C%20184%20200,%2072%20200,%2032%20128%20Z%22/%3e%0a%20%20%20%20%3ccircle%20cx=%22128%22%20cy=%22128%22%20r=%2248%22%20stroke=%22%23D4AF37%22%20fill=%22none%22%20stroke-width=%228%22/%3e%0a%20%20%20%20%3cpath%20stroke=%22%23D4AF37%22%20fill=%22none%22%20stroke-width=%228%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%0a%20%20%20%20%20%20d=%22M%2096%20128%20C%2096%20108,%20128%20108,%20128%20128%0a%20%20%20%20%20%20%20%20%20C%20128%20148,%20160%20148,%20160%20128%0a%20%20%20%20%20%20%20%20%20C%20160%20108,%20128%20108,%20128%20128%0a%20%20%20%20%20%20%20%20%20C%20128%20148,%2096%20148,%2096%20128%22/%3e%0a%20%20%3c/svg%3e" />
-    <script defer src="/tauth.js"></script>
+    <script id="tauth-script" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <script src="/runtime-env.js"></script>
     <script defer src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -60,6 +62,21 @@
     menu-items='[{"label":"Account Settings","action":"account-settings"}]'
   ></mpr-user>
 </mpr-header>
+
+    <script>
+      // @ts-check
+      (function () {
+        var tauthOrigin = "";
+        try {
+          tauthOrigin = String(window.__LOOPAWARE_TAUTH_ORIGIN__ || "").trim();
+        } catch (error) {}
+        if (!tauthOrigin) return;
+        var headerHost = document.querySelector("mpr-header");
+        if (headerHost) {
+          headerHost.setAttribute("tauth-url", tauthOrigin);
+        }
+      })();
+    </script>
 
     <main class="flex-grow-1 pt-5 mt-4">
       <div class="container py-4">
@@ -228,11 +245,11 @@
               <div class="card-body">
                 <p class="text-muted small mb-1">Embed the script snippet wherever you want visitors to subscribe.</p>
                 <p class="text-muted small mb-3">The rendered form appears inline at the script location; use the Test button to preview the live form.</p>
-	                <div class="mb-3">
-	                  <label class="form-label mb-0">Additional subscribe origins</label>
-	                  <div id="subscribe-allowed-origins-list" class="d-flex flex-column gap-2 mt-2"></div>
-	                  <div class="form-text">Optional: allow the subscribe form to run on extra origins beyond the site&#39;s allowed origins.</div>
-	                </div>
+                  <div class="mb-3">
+                    <label class="form-label mb-0">Additional subscribe origins</label>
+                    <div id="subscribe-allowed-origins-list" class="d-flex flex-column gap-2 mt-2"></div>
+                    <div class="form-text">Optional: allow the subscribe form to run on extra origins beyond the site&#39;s allowed origins.</div>
+                  </div>
                 <textarea id="subscribe-widget-snippet" class="form-control font-monospace" rows="3" readonly></textarea>
               </div>
             </div>
@@ -450,25 +467,79 @@
     </div>
     <mpr-footer id="dashboard-footer" element-id="dashboard-footer-root" base-class="mpr-footer mt-auto py-2 fixed-bottom border-top" inner-element-id="dashboard-footer-inner" inner-class="mpr-footer__inner" wrapper-class="mpr-footer__layout" brand-wrapper-class="mpr-footer__brand" menu-wrapper-class="mpr-footer__menu-wrapper" prefix-class="mpr-footer__prefix" prefix-text="Built by Marco Polo Research Lab" toggle-button-id="" toggle-button-class="mpr-footer__menu-button" toggle-label="Built by Marco Polo Research Lab" menu-class="mpr-footer__menu" menu-item-class="mpr-footer__menu-item" privacy-link-class="mpr-footer__privacy" privacy-link-href="/privacy" privacy-link-label="Privacy • Terms" links-collection='{&#34;style&#34;:&#34;drop-up&#34;,&#34;text&#34;:&#34;Built by Marco Polo Research Lab&#34;,&#34;links&#34;:[{&#34;label&#34;:&#34;Marco Polo Research Lab&#34;,&#34;url&#34;:&#34;https://mprlab.com&#34;},{&#34;label&#34;:&#34;Gravity Notes&#34;,&#34;url&#34;:&#34;https://gravity.mprlab.com&#34;},{&#34;label&#34;:&#34;LoopAware&#34;,&#34;url&#34;:&#34;https://loopaware.mprlab.com&#34;},{&#34;label&#34;:&#34;Allergy Wheel&#34;,&#34;url&#34;:&#34;https://allergy.mprlab.com&#34;},{&#34;label&#34;:&#34;Social Threader&#34;,&#34;url&#34;:&#34;https://threader.mprlab.com&#34;},{&#34;label&#34;:&#34;RSVP&#34;,&#34;url&#34;:&#34;https://rsvp.mprlab.com&#34;},{&#34;label&#34;:&#34;Countdown Calendar&#34;,&#34;url&#34;:&#34;https://countdown.mprlab.com&#34;},{&#34;label&#34;:&#34;LLM Crossword&#34;,&#34;url&#34;:&#34;https://llm-crossword.mprlab.com&#34;},{&#34;label&#34;:&#34;Prompt Bubbles&#34;,&#34;url&#34;:&#34;https://prompts.mprlab.com&#34;},{&#34;label&#34;:&#34;Wallpapers&#34;,&#34;url&#34;:&#34;https://wallpapers.mprlab.com&#34;}]}' sticky="false" theme-switcher="toggle" theme-config='{&#34;attribute&#34;:&#34;data-bs-theme&#34;,&#34;ariaLabel&#34;:&#34;Toggle theme&#34;,&#34;modes&#34;:[&#34;light&#34;,&#34;dark&#34;],&#34;initialMode&#34;:&#34;light&#34;}'></mpr-footer>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-    <script type="application/json" id="dashboard-config">{"api_paths":{"feedback_events":"/api/sites/feedback/events","me":"/api/me","site_favicon_events":"/api/sites/favicons/events","site_messages_prefix":"/api/sites/","site_messages_suffix":"/messages","site_subscriber_update":"/subscribers/","site_subscribers_export":"/subscribers/export","site_subscribers_prefix":"/api/sites/","site_subscribers_suffix":"/subscribers","site_update_prefix":"/api/sites/","site_visit_stats":"/visits/stats","sites":"/api/sites"},"paths":{"landing":"/login","subscribe_test_prefix":"/app/subscribe-test?site_id=","subscribe_test_suffix":"","traffic_test_prefix":"/app/traffic-test?site_id=","traffic_test_suffix":"","widget_test_prefix":"/app/widget-test?site_id=","widget_test_suffix":""},"element_ids":{"allowed_origin_help_button":"allowed-origin-help-button","copy_subscribe_snippet_button":"copy-subscribe-widget-snippet","copy_traffic_snippet_button":"copy-traffic-widget-snippet","copy_widget_snippet_button":"copy-widget-snippet","dashboard_section_tab_feedback":"dashboard-section-tab-feedback","dashboard_section_tab_subscriptions":"dashboard-section-tab-subscriptions","dashboard_section_tab_traffic":"dashboard-section-tab-traffic","dashboard_section_tabs":"dashboard-section-tabs","delete_site_button":"delete-site-button","delete_site_confirm_button":"delete-site-confirm-button","delete_site_confirm_input":"delete-site-confirm-name","delete_site_modal":"delete-site-modal","delete_site_target_name":"delete-site-target-name","delete_subscriber_confirm_button":"delete-subscriber-confirm-button","delete_subscriber_confirm_input":"delete-subscriber-confirm-email","delete_subscriber_modal":"delete-subscriber-modal","delete_subscriber_target_email":"delete-subscriber-target-email","edit_site_name":"edit-site-name","edit_site_origin":"edit-site-origin","edit_site_owner":"edit-site-owner","edit_site_owner_container":"edit-site-owner-container","empty_sites_message":"empty-sites-message","export_subscribers_button":"export-subscribers-button","feedback_count":"feedback-count","feedback_table_body":"feedback-table-body","feedback_table_header":"feedback-table-header","footer":"dashboard-footer","footer_inner":"dashboard-footer-inner","form_status":"site-status","messages_search_container":"messages-search-container","messages_search_input":"messages-search-input","messages_search_toggle_button":"messages-search-toggle-button","new_site_button":"new-site-button","owner_email_help_button":"owner-email-help-button","refresh_messages_button":"refresh-messages-button","save_site_button":"save-site-button","session_timeout_confirm_button":"session-timeout-confirm-button","session_timeout_container":"session-timeout-notification","session_timeout_dismiss_button":"session-timeout-dismiss-button","session_timeout_message":"session-timeout-message","settings_auto_logout_fields":"settings-auto-logout-fields","settings_auto_logout_logout":"settings-auto-logout-logout-seconds","settings_auto_logout_logout_error":"settings-auto-logout-logout-error","settings_auto_logout_prompt":"settings-auto-logout-prompt-seconds","settings_auto_logout_prompt_error":"settings-auto-logout-prompt-error","settings_auto_logout_toggle":"settings-auto-logout-enabled","settings_button":"settings-button","settings_modal":"settings-modal","settings_modal_content":"settings-modal-content","settings_modal_title":"settings-modal-title","site_created_at":"site-created-at","site_created_at_container":"site-created-at-container","site_form":"site-form","site_name_help_button":"site-name-help-button","site_search_container":"site-search-container","site_search_input":"site-search-input","site_search_toggle_button":"site-search-toggle-button","sites_list":"sites-list","subscribe_allowed_origins_list":"subscribe-allowed-origins-list","subscribe_snippet_textarea":"subscribe-widget-snippet","subscribe_test_button":"subscribe-test-button","subscriber_count":"subscriber-count","subscribers_status":"subscribers-status","subscribers_table_body":"subscribers-table-body","top_pages_table_body":"top-pages-table-body","traffic_allowed_origins_list":"traffic-allowed-origins-list","traffic_snippet_textarea":"traffic-widget-snippet","traffic_status":"traffic-status","traffic_test_button":"traffic-test-button","unique_visitor_count":"unique-visitor-count","user_avatar":"user-avatar","user_email":"user-email","user_name":"user-name","user_role":"user-role","visit_count":"visit-count","widget_allowed_origins_list":"widget-allowed-origins-list","widget_bottom_offset":"widget-placement-bottom-offset","widget_bottom_offset_decrease":"widget-bottom-offset-decrease","widget_bottom_offset_increase":"widget-bottom-offset-increase","widget_side_left":"widget-placement-side-left","widget_side_right":"widget-placement-side-right","widget_snippet_textarea":"widget-snippet","widget_test_button":"widget-test-button"},"button_classes":{"copy_default":"btn btn-outline-primary btn-sm","create":"btn btn-outline-primary btn-sm","delete_site_default":"btn btn-sm border-0 bg-transparent text-danger opacity-100","delete_site_disabled":"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled","new_site_active":"btn btn-primary btn-sm","new_site_default":"btn btn-outline-primary btn-sm","refresh_default":"btn btn-outline-secondary btn-sm","save_default":"btn btn-outline-success btn-sm","session_timeout_confirm":"btn btn-outline-danger btn-sm","session_timeout_dismiss":"btn btn-outline-secondary btn-sm","update":"btn btn-outline-success btn-sm"},"button_labels":{"copy_copied":"Snippet copied.","copy_default":"Copy snippet","copy_failed":"Copy failed.","create":"Create site","new_site":"New site","refresh_default":"Refresh feedback","refresh_failed":"Refresh failed.","refresh_loading":"Refreshing...","refresh_success":"Feedback refreshed.","save_created":"Site created.","save_failed":"Failed to save site.","save_saved":"Site updated.","save_saving":"Saving site...","update":"Update site"},"status_messages":{"creating_site":"Creating site...","delete_site_failed":"Failed to delete site.","deleting_site":"Deleting site...","load_failed":"Failed to load data.","loading_sites":"Loading sites...","loading_user":"Loading account information...","no_message_matches":"No feedback matches your search.","no_messages":"No feedback yet.","no_site_matches":"No sites match your search.","no_sites":"No sites available yet.","saving_site":"Saving site...","select_site":"Select a site to see details.","site_created":"Site created.","site_deleted":"Site deleted.","site_saved":"Site updated.","widget_copied":"Widget snippet copied.","widget_copy_failed":"Unable to copy widget snippet."},"role_labels":{"admin":"Administrator","user":"User"},"role_values":{"admin":"admin","user":"user"},"button_styles":{"danger":"btn btn-outline-danger btn-sm","primary":"btn btn-outline-primary btn-sm","secondary":"btn btn-outline-secondary btn-sm","success":"btn btn-outline-success btn-sm"},"component_classes":{"site_list_item":"list-group-item list-group-item-action","site_list_item_active":"active","site_list_item_favicon":"flex-shrink-0 rounded border bg-white","site_list_item_header":"d-flex align-items-center gap-2"},"widget_texts":{"unavailable":"Save the site to generate a widget snippet."},"theme_storage_key":"loopaware_dashboard_theme","option_values":{"new_site":"__new__"},"placeholders":{"subscribers":"No subscribers yet.","top_pages":"No visits yet."},"form_status_classes":{"base":"d-none py-1 px-2 small rounded","danger":"py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle","success":"py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"},"footer_theme_classes":{"dark":"bg-dark text-light border-light","light":"bg-body text-body-secondary"},"table_theme_classes":{"dark":"table-dark","light":"table-light"},"validation_messages":{"name_required":"Site name is required.","origin_invalid":"Allowed origins must include protocol and hostname, for example https://example.com http://localhost:8080.","owner_invalid":"Provide a valid owner email address.","widget_offset_invalid":"Provide a whole number between 0 and 240."},"error_messages":{"forbidden":"You are not allowed to manage that site.","invalid_json":"Submitted data could not be parsed.","invalid_owner":"Provide a valid owner email address.","invalid_widget_offset":"Provide a whole number between 0 and 240.","invalid_widget_side":"Choose left or right for the widget bubble.","missing_fields":"Provide site name and allowed origin.","not_authorized":"You are not allowed to manage that site.","save_failed":"Failed to save site.","site_exists":"A site for this allowed origin already exists."},"widget_placement":{"input_name":"widget-bubble-side","default_side":"right","default_bottom_offset":16,"sides":{"left":"Left","right":"Right"},"bottom_offset":{"min":0,"max":240}},"session_timeout":{"prompt_delay_ms":60000,"auto_logout_ms":120000,"texts":{"confirm":"Yes","dismiss":"No","prompt":"Log out due to inactivity?"},"component_classes":{"actions":"session-timeout-actions d-flex flex-shrink-0 gap-2","container":"session-timeout-banner position-fixed start-0 end-0 bottom-0 border-top py-3 w-100 d-none z-3","container_hidden":"d-none","container_visible":"d-block","inner":"container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3","message":"session-timeout-message fw-semibold mb-0"},"theme_classes":{"dark":"bg-dark-subtle text-light border-secondary-subtle","light":"bg-body-secondary text-dark border-light-subtle"}},"auto_logout":{"storage_key":"loopaware_dashboard_auto_logout","min_prompt_seconds":10,"max_prompt_seconds":3600,"min_logout_seconds":20,"max_logout_seconds":7200,"minimum_gap_seconds":5}}</script>
+    <script type="application/json" id="dashboard-config">{"api_paths":{"feedback_events":"/api/sites/feedback/events","me":"/api/me","site_favicon_events":"/api/sites/favicons/events","site_messages_prefix":"/api/sites/","site_messages_suffix":"/messages","site_subscriber_update":"/subscribers/","site_subscribers_export":"/subscribers/export","site_subscribers_prefix":"/api/sites/","site_subscribers_suffix":"/subscribers","site_update_prefix":"/api/sites/","site_visit_stats":"/visits/stats","sites":"/api/sites"},"paths":{"landing":"/login","subscribe_test_prefix":"/app/subscribe-test?site_id=","subscribe_test_suffix":"","traffic_test_prefix":"/app/traffic-test?site_id=","traffic_test_suffix":"","widget_test_prefix":"/app/widget-test?site_id=","widget_test_suffix":""},"element_ids":{"allowed_origin_help_button":"allowed-origin-help-button","copy_subscribe_snippet_button":"copy-subscribe-widget-snippet","copy_traffic_snippet_button":"copy-traffic-widget-snippet","copy_widget_snippet_button":"copy-widget-snippet","dashboard_section_tab_feedback":"dashboard-section-tab-feedback","dashboard_section_tab_subscriptions":"dashboard-section-tab-subscriptions","dashboard_section_tab_traffic":"dashboard-section-tab-traffic","dashboard_section_tabs":"dashboard-section-tabs","delete_site_button":"delete-site-button","delete_site_confirm_button":"delete-site-confirm-button","delete_site_confirm_input":"delete-site-confirm-name","delete_site_modal":"delete-site-modal","delete_site_target_name":"delete-site-target-name","delete_subscriber_confirm_button":"delete-subscriber-confirm-button","delete_subscriber_confirm_input":"delete-subscriber-confirm-email","delete_subscriber_modal":"delete-subscriber-modal","delete_subscriber_target_email":"delete-subscriber-target-email","edit_site_name":"edit-site-name","edit_site_origin":"edit-site-origin","edit_site_owner":"edit-site-owner","edit_site_owner_container":"edit-site-owner-container","empty_sites_message":"empty-sites-message","export_subscribers_button":"export-subscribers-button","feedback_count":"feedback-count","feedback_table_body":"feedback-table-body","feedback_table_header":"feedback-table-header","footer":"dashboard-footer","footer_inner":"dashboard-footer-inner","form_status":"site-status","messages_search_container":"messages-search-container","messages_search_input":"messages-search-input","messages_search_toggle_button":"messages-search-toggle-button","new_site_button":"new-site-button","owner_email_help_button":"owner-email-help-button","refresh_messages_button":"refresh-messages-button","save_site_button":"save-site-button","session_timeout_confirm_button":"session-timeout-confirm-button","session_timeout_container":"session-timeout-notification","session_timeout_dismiss_button":"session-timeout-dismiss-button","session_timeout_message":"session-timeout-message","settings_auto_logout_fields":"settings-auto-logout-fields","settings_auto_logout_logout":"settings-auto-logout-logout-seconds","settings_auto_logout_logout_error":"settings-auto-logout-logout-error","settings_auto_logout_prompt":"settings-auto-logout-prompt-seconds","settings_auto_logout_prompt_error":"settings-auto-logout-prompt-error","settings_auto_logout_toggle":"settings-auto-logout-enabled","settings_button":"settings-button","settings_modal":"settings-modal","settings_modal_content":"settings-modal-content","settings_modal_title":"settings-modal-title","site_created_at":"site-created-at","site_created_at_container":"site-created-at-container","site_form":"site-form","site_name_help_button":"site-name-help-button","site_search_container":"site-search-container","site_search_input":"site-search-input","site_search_toggle_button":"site-search-toggle-button","sites_list":"sites-list","subscribe_allowed_origins_list":"subscribe-allowed-origins-list","subscribe_snippet_textarea":"subscribe-widget-snippet","subscribe_test_button":"subscribe-test-button","subscriber_count":"subscriber-count","subscribers_status":"subscribers-status","subscribers_table_body":"subscribers-table-body","top_pages_table_body":"top-pages-table-body","traffic_allowed_origins_list":"traffic-allowed-origins-list","traffic_snippet_textarea":"traffic-widget-snippet","traffic_status":"traffic-status","traffic_test_button":"traffic-test-button","unique_visitor_count":"unique-visitor-count","user_avatar":"user-avatar","user_email":"user-email","user_name":"user-name","user_role":"user-role","visit_count":"visit-count","widget_allowed_origins_list":"widget-allowed-origins-list","widget_bottom_offset":"widget-placement-bottom-offset","widget_bottom_offset_decrease":"widget-bottom-offset-decrease","widget_bottom_offset_increase":"widget-bottom-offset-increase","widget_side_left":"widget-placement-side-left","widget_side_right":"widget-placement-side-right","widget_snippet_textarea":"widget-snippet","widget_test_button":"widget-test-button"},"button_classes":{"copy_default":"btn btn-outline-primary btn-sm","create":"btn btn-outline-primary btn-sm","delete_site_default":"btn btn-sm border-0 bg-transparent text-danger opacity-100","delete_site_disabled":"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled","new_site_active":"btn btn-primary btn-sm","new_site_default":"btn btn-outline-primary btn-sm","refresh_default":"btn btn-outline-secondary btn-sm","save_default":"btn btn-outline-success btn-sm","session_timeout_confirm":"btn btn-outline-danger btn-sm","session_timeout_dismiss":"btn btn-outline-secondary btn-sm","update":"btn btn-outline-success btn-sm"},"button_labels":{"copy_copied":"Snippet copied.","copy_default":"Copy snippet","copy_failed":"Copy failed.","create":"Create site","new_site":"New site","refresh_default":"Refresh feedback","refresh_failed":"Refresh failed.","refresh_loading":"Refreshing...","refresh_success":"Feedback refreshed.","save_created":"Site created.","save_failed":"Failed to save site.","save_saved":"Site updated.","save_saving":"Saving site...","update":"Update site"},"status_messages":{"creating_site":"Creating site...","delete_site_failed":"Failed to delete site.","deleting_site":"Deleting site...","load_failed":"Failed to load data.","loading_sites":"Loading sites...","loading_user":"Loading account information...","no_message_matches":"No feedback matches your search.","no_messages":"No feedback yet.","no_site_matches":"No sites match your search.","no_sites":"No sites available yet.","saving_site":"Saving site...","select_site":"Select a site to see details.","site_created":"Site created.","site_deleted":"Site deleted.","site_saved":"Site updated.","widget_copied":"Widget snippet copied.","widget_copy_failed":"Unable to copy widget snippet."},"role_labels":{"admin":"Administrator","user":"User"},"role_values":{"admin":"admin","user":"user"},"button_styles":{"danger":"btn btn-outline-danger btn-sm","primary":"btn btn-outline-primary btn-sm","secondary":"btn btn-outline-secondary btn-sm","success":"btn btn-outline-success btn-sm"},"component_classes":{"site_list_item":"list-group-item list-group-item-action","site_list_item_active":"active","site_list_item_favicon":"flex-shrink-0 rounded border bg-white","site_list_item_header":"d-flex align-items-center gap-2"},"widget_texts":{"unavailable":"Save the site to generate a widget snippet."},"theme_storage_key":"loopaware_dashboard_theme","option_values":{"new_site":"__new__"},"placeholders":{"subscribers":"No subscribers yet.","top_pages":"No visits yet."},"form_status_classes":{"base":"d-none py-1 px-2 small rounded","danger":"py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle","success":"py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"},"footer_theme_classes":{"dark":"bg-dark text-light border-light","light":"bg-body text-body-secondary"},"table_theme_classes":{"dark":"table-dark","light":"table-light"},"validation_messages":{"name_required":"Site name is required.","origin_invalid":"Allowed origins must include protocol and hostname, for example https://example.com.","owner_invalid":"Provide a valid owner email address.","widget_offset_invalid":"Provide a whole number between 0 and 240."},"error_messages":{"forbidden":"You are not allowed to manage that site.","invalid_json":"Submitted data could not be parsed.","invalid_owner":"Provide a valid owner email address.","invalid_widget_offset":"Provide a whole number between 0 and 240.","invalid_widget_side":"Choose left or right for the widget bubble.","missing_fields":"Provide site name and allowed origin.","not_authorized":"You are not allowed to manage that site.","save_failed":"Failed to save site.","site_exists":"A site for this allowed origin already exists."},"widget_placement":{"input_name":"widget-bubble-side","default_side":"right","default_bottom_offset":16,"sides":{"left":"Left","right":"Right"},"bottom_offset":{"min":0,"max":240}},"session_timeout":{"prompt_delay_ms":60000,"auto_logout_ms":120000,"texts":{"confirm":"Yes","dismiss":"No","prompt":"Log out due to inactivity?"},"component_classes":{"actions":"session-timeout-actions d-flex flex-shrink-0 gap-2","container":"session-timeout-banner position-fixed start-0 end-0 bottom-0 border-top py-3 w-100 d-none z-3","container_hidden":"d-none","container_visible":"d-block","inner":"container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3","message":"session-timeout-message fw-semibold mb-0"},"theme_classes":{"dark":"bg-dark-subtle text-light border-secondary-subtle","light":"bg-body-secondary text-dark border-light-subtle"}},"auto_logout":{"storage_key":"loopaware_dashboard_auto_logout","min_prompt_seconds":10,"max_prompt_seconds":3600,"min_logout_seconds":20,"max_logout_seconds":7200,"minimum_gap_seconds":5}}</script>
     <script>
       window.addEventListener('DOMContentLoaded', function() {
         (function() {
         var configElement = document.getElementById('dashboard-config');
         var parsedConfig = {};
-        if (configElement) {
-          try {
-            parsedConfig = JSON.parse(configElement.textContent || '{}') || {};
-          } catch (error) {
-            parsedConfig = {};
+          if (configElement) {
+            try {
+              parsedConfig = JSON.parse(configElement.textContent || '{}') || {};
+            } catch (error) {
+              parsedConfig = {};
+            }
           }
-        }
-        var apiPaths = parsedConfig.api_paths || {};
-        var siteFaviconEventsEndpoint = apiPaths.site_favicon_events || '';
-        var feedbackEventsEndpoint = apiPaths.feedback_events || '';
-        var sharedPaths = parsedConfig.paths || {};
-        var elementIds = parsedConfig.element_ids || {};
-        var buttonClasses = parsedConfig.button_classes || {};
+          var apiBaseURL = '';
+          var tauthBaseURL = '';
+          try {
+            apiBaseURL = String(window.__LOOPAWARE_API_ORIGIN__ || '').trim();
+            tauthBaseURL = String(window.__LOOPAWARE_TAUTH_ORIGIN__ || '').trim();
+          } catch (error) {}
+          var shouldAppendAPIOriginParam = false;
+          var shouldAppendTauthOriginParam = false;
+          try {
+            var searchParams = new URLSearchParams(window.location.search || '');
+            shouldAppendAPIOriginParam = searchParams.has('api_origin');
+            shouldAppendTauthOriginParam = searchParams.has('tauth_origin');
+          } catch (error) {}
+
+          function apiUrl(path) {
+            if (typeof path !== 'string') {
+              return '';
+            }
+            var trimmedPath = path.trim();
+            if (!trimmedPath) {
+              return '';
+            }
+            if (trimmedPath.indexOf('http://') === 0 || trimmedPath.indexOf('https://') === 0) {
+              return trimmedPath;
+            }
+            if (!apiBaseURL) {
+              return trimmedPath;
+            }
+            if (trimmedPath.charAt(0) === '/') {
+              return apiBaseURL + trimmedPath;
+            }
+            return apiBaseURL + '/' + trimmedPath;
+          }
+
+          function appendOriginParams(url) {
+            if (typeof url !== 'string') {
+              return '';
+            }
+            var trimmed = url.trim();
+            if (!trimmed) {
+              return '';
+            }
+            var pairs = [];
+            if (shouldAppendAPIOriginParam && apiBaseURL) {
+              pairs.push('api_origin=' + encodeURIComponent(apiBaseURL));
+            }
+            if (shouldAppendTauthOriginParam && tauthBaseURL) {
+              pairs.push('tauth_origin=' + encodeURIComponent(tauthBaseURL));
+            }
+            if (pairs.length === 0) {
+              return trimmed;
+            }
+            return trimmed + (trimmed.indexOf('?') === -1 ? '?' : '&') + pairs.join('&');
+          }
+          var apiPaths = parsedConfig.api_paths || {};
+          var siteFaviconEventsEndpoint = apiUrl(apiPaths.site_favicon_events || '');
+          var feedbackEventsEndpoint = apiUrl(apiPaths.feedback_events || '');
+          var sharedPaths = parsedConfig.paths || {};
+          var elementIds = parsedConfig.element_ids || {};
+          var buttonClasses = parsedConfig.button_classes || {};
         var buttonLabels = parsedConfig.button_labels || {};
         var statusMessages = parsedConfig.status_messages || {};
         var errorMessages = parsedConfig.error_messages || {};
@@ -662,17 +733,17 @@
         var footerElement = document.getElementById(elementIds.footer);
         var footerThemeClasses = parsedConfig.footer_theme_classes || {};
         var tableThemeClasses = parsedConfig.table_theme_classes || {};
-        var landingPath = sharedPaths.landing || '/';
-        var widgetUnavailableMessage = widgetTexts.unavailable || '';
-        var apiMeEndpoint = apiPaths.me || '';
-        var apiSitesEndpoint = apiPaths.sites || '';
-        var apiSiteUpdatePrefix = apiPaths.site_update_prefix || '';
-        var apiSiteMessagesPrefix = apiPaths.site_messages_prefix || '';
-        var apiSiteMessagesSuffix = apiPaths.site_messages_suffix || '';
-        var apiSiteSubscribersPrefix = apiPaths.site_subscribers_prefix || '';
-        var apiSiteSubscribersSuffix = apiPaths.site_subscribers_suffix || '';
-        var apiSiteSubscribersExportSuffix = apiPaths.site_subscribers_export || '';
-        var apiSiteSubscriberUpdateSuffix = apiPaths.site_subscriber_update || '';
+          var landingPath = sharedPaths.landing || '/';
+          var widgetUnavailableMessage = widgetTexts.unavailable || '';
+          var apiMeEndpoint = apiUrl(apiPaths.me || '');
+          var apiSitesEndpoint = apiUrl(apiPaths.sites || '');
+          var apiSiteUpdatePrefix = apiUrl(apiPaths.site_update_prefix || '');
+          var apiSiteMessagesPrefix = apiUrl(apiPaths.site_messages_prefix || '');
+          var apiSiteMessagesSuffix = apiPaths.site_messages_suffix || '';
+          var apiSiteSubscribersPrefix = apiUrl(apiPaths.site_subscribers_prefix || '');
+          var apiSiteSubscribersSuffix = apiPaths.site_subscribers_suffix || '';
+          var apiSiteSubscribersExportSuffix = apiPaths.site_subscribers_export || '';
+          var apiSiteSubscriberUpdateSuffix = apiPaths.site_subscriber_update || '';
         var apiSiteVisitStatsSuffix = apiPaths.site_visit_stats || '';
         var dashboardSectionTabFeedback = document.getElementById(elementIds.dashboard_section_tab_feedback);
         var dashboardSectionTabSubscriptions = document.getElementById(elementIds.dashboard_section_tab_subscriptions);
@@ -2346,15 +2417,15 @@
           return window.fetch.bind(window);
         }
 
-        function fetchJSON(url, options) {
-          var requestOptions = options || {};
-          if (!requestOptions.credentials) {
-            requestOptions.credentials = 'same-origin';
-          }
-          return resolveAuthFetch()(url, requestOptions).then(function(response) {
-            if (response.status === 401) {
-              window.location.href = landingPath;
-              return Promise.reject(new Error('unauthorized'));
+          function fetchJSON(url, options) {
+            var requestOptions = options || {};
+            if (!requestOptions.credentials) {
+              requestOptions.credentials = apiBaseURL ? 'include' : 'same-origin';
+            }
+            return resolveAuthFetch()(url, requestOptions).then(function(response) {
+              if (response.status === 401) {
+                window.location.href = landingPath;
+                return Promise.reject(new Error('unauthorized'));
             }
             var forbiddenResponse = response.status === 403;
             if (!response.ok) {
@@ -2448,17 +2519,29 @@
           return state.selectedSiteId === newSiteOptionValue;
         }
 
-        function buildWidgetSnippet(siteId) {
-          return '\x3Cscript defer src="' + widgetBaseURL + '/widget.js?site_id=' + siteId + '">\x3C/script>';
-        }
+          function buildWidgetSnippet(siteId) {
+            var scriptURL = widgetBaseURL + '/widget.js?site_id=' + siteId;
+            if (apiBaseURL) {
+              scriptURL += '&api_origin=' + encodeURIComponent(apiBaseURL);
+            }
+            return '\x3Cscript defer src="' + scriptURL + '">\x3C/script>';
+          }
 
-        function buildSubscribeSnippet(siteId) {
-          return '\x3Cscript defer src="' + widgetBaseURL + '/subscribe.js?site_id=' + siteId + '">\x3C/script>';
-        }
+          function buildSubscribeSnippet(siteId) {
+            var scriptURL = widgetBaseURL + '/subscribe.js?site_id=' + siteId;
+            if (apiBaseURL) {
+              scriptURL += '&api_origin=' + encodeURIComponent(apiBaseURL);
+            }
+            return '\x3Cscript defer src="' + scriptURL + '">\x3C/script>';
+          }
 
-        function buildTrafficSnippet(siteId) {
-          return '\x3Cscript defer src="' + widgetBaseURL + '/pixel.js?site_id=' + siteId + '">\x3C/script>';
-        }
+          function buildTrafficSnippet(siteId) {
+            var scriptURL = widgetBaseURL + '/pixel.js?site_id=' + siteId;
+            if (apiBaseURL) {
+              scriptURL += '&api_origin=' + encodeURIComponent(apiBaseURL);
+            }
+            return '\x3Cscript defer src="' + scriptURL + '">\x3C/script>';
+          }
 
         function updateButtonStatus(button, text, extraClass) {
           if (!button) {
@@ -2749,17 +2832,17 @@
           if (!site) {
             return;
           }
-          if (deleteSiteConfirmButton) {
-            deleteSiteConfirmButton.disabled = true;
-          }
-          setFormStatus(statusMessages.deleting_site || '', formStatusDangerClass);
-          resolveAuthFetch()(apiSiteUpdatePrefix + site.id, {
-            method: 'DELETE',
-            credentials: 'same-origin'
-          }).then(function(response) {
-            if (response.status === 401) {
-              window.location.href = landingPath;
-              throw new Error('unauthorized');
+            if (deleteSiteConfirmButton) {
+              deleteSiteConfirmButton.disabled = true;
+            }
+            setFormStatus(statusMessages.deleting_site || '', formStatusDangerClass);
+            resolveAuthFetch()(apiSiteUpdatePrefix + site.id, {
+              method: 'DELETE',
+              credentials: apiBaseURL ? 'include' : 'same-origin'
+            }).then(function(response) {
+              if (response.status === 401) {
+                window.location.href = landingPath;
+                throw new Error('unauthorized');
             }
             if (!response.ok) {
               return response.json().catch(function() {
@@ -3546,18 +3629,22 @@
         faviconEventSource = null;
       }
 
-      function openFaviconEventStream() {
-        if (!window.EventSource || !siteFaviconEventsEndpoint) {
-          return;
-        }
-        closeFaviconEventStream();
-        faviconEventSource = new EventSource(siteFaviconEventsEndpoint);
-        faviconEventSource.addEventListener(faviconUpdatedEventName, handleFaviconUpdateEvent);
-        faviconEventSource.onerror = function() {
+        function openFaviconEventStream() {
+          if (!window.EventSource || !siteFaviconEventsEndpoint) {
+            return;
+          }
           closeFaviconEventStream();
-          window.setTimeout(openFaviconEventStream, faviconReconnectDelayMilliseconds);
-        };
-      }
+          if (apiBaseURL) {
+            faviconEventSource = new EventSource(siteFaviconEventsEndpoint, { withCredentials: true });
+          } else {
+            faviconEventSource = new EventSource(siteFaviconEventsEndpoint);
+          }
+          faviconEventSource.addEventListener(faviconUpdatedEventName, handleFaviconUpdateEvent);
+          faviconEventSource.onerror = function() {
+            closeFaviconEventStream();
+            window.setTimeout(openFaviconEventStream, faviconReconnectDelayMilliseconds);
+          };
+        }
 
       function handleFaviconUpdateEvent(event) {
         if (!event || !event.data) {
@@ -3593,18 +3680,22 @@
         feedbackEventSource = null;
       }
 
-      function openFeedbackEventStream() {
-        if (!window.EventSource || !feedbackEventsEndpoint) {
-          return;
-        }
-        closeFeedbackEventStream();
-        feedbackEventSource = new EventSource(feedbackEventsEndpoint);
-        feedbackEventSource.addEventListener(feedbackUpdatedEventName, handleFeedbackUpdateEvent);
-        feedbackEventSource.onerror = function() {
+        function openFeedbackEventStream() {
+          if (!window.EventSource || !feedbackEventsEndpoint) {
+            return;
+          }
           closeFeedbackEventStream();
-          window.setTimeout(openFeedbackEventStream, feedbackReconnectDelayMilliseconds);
-        };
-      }
+          if (apiBaseURL) {
+            feedbackEventSource = new EventSource(feedbackEventsEndpoint, { withCredentials: true });
+          } else {
+            feedbackEventSource = new EventSource(feedbackEventsEndpoint);
+          }
+          feedbackEventSource.addEventListener(feedbackUpdatedEventName, handleFeedbackUpdateEvent);
+          feedbackEventSource.onerror = function() {
+            closeFeedbackEventStream();
+            window.setTimeout(openFeedbackEventStream, feedbackReconnectDelayMilliseconds);
+          };
+        }
 
       function handleFeedbackUpdateEvent(event) {
         if (!event || !event.data) {
@@ -4032,14 +4123,14 @@
             copySubscribeSnippet();
           });
         }
-	        if (copyTrafficSnippetButton) {
-	          copyTrafficSnippetButton.addEventListener('click', function(event) {
-	            event.preventDefault();
-	            copyTrafficSnippet();
-	          });
-	        }
+          if (copyTrafficSnippetButton) {
+            copyTrafficSnippetButton.addEventListener('click', function(event) {
+              event.preventDefault();
+              copyTrafficSnippet();
+            });
+          }
 
-	        disableWidgetTestButton();
+          disableWidgetTestButton();
         if (widgetTestButton) {
           widgetTestButton.addEventListener('click', function(event) {
             event.preventDefault();
@@ -4047,15 +4138,15 @@
               return;
             }
             var siteIdForTest = widgetTestButton.dataset.siteId || '';
-            if (!siteIdForTest) {
-              return;
-            }
-            var targetURL = (widgetTestPagePrefix || '') + siteIdForTest + (widgetTestPageSuffix || '');
-            if (targetURL) {
-              window.open(targetURL, '_blank', 'noopener');
-            }
-          });
-        }
+              if (!siteIdForTest) {
+                return;
+              }
+              var targetURL = appendOriginParams((widgetTestPagePrefix || '') + siteIdForTest + (widgetTestPageSuffix || ''));
+              if (targetURL) {
+                window.open(targetURL, '_blank', 'noopener');
+              }
+            });
+          }
         disableSubscribeTestButton();
         if (subscribeTestButton) {
           subscribeTestButton.addEventListener('click', function(event) {
@@ -4064,15 +4155,15 @@
               return;
             }
             var subscribeSiteId = subscribeTestButton.dataset.siteId || '';
-            if (!subscribeSiteId) {
-              return;
-            }
-            var subscribeURL = (subscribeTestPagePrefix || '') + subscribeSiteId + (subscribeTestPageSuffix || '');
-            if (subscribeURL) {
-              window.open(subscribeURL, '_blank', 'noopener');
-            }
-          });
-        }
+              if (!subscribeSiteId) {
+                return;
+              }
+              var subscribeURL = appendOriginParams((subscribeTestPagePrefix || '') + subscribeSiteId + (subscribeTestPageSuffix || ''));
+              if (subscribeURL) {
+                window.open(subscribeURL, '_blank', 'noopener');
+              }
+            });
+          }
         disableTrafficTestButton();
         if (trafficTestButton) {
           trafficTestButton.addEventListener('click', function(event) {
@@ -4081,15 +4172,15 @@
               return;
             }
             var trafficSiteId = trafficTestButton.dataset.siteId || '';
-            if (!trafficSiteId) {
-              return;
-            }
-            var trafficURL = (trafficTestPagePrefix || '') + trafficSiteId + (trafficTestPageSuffix || '');
-            if (trafficURL) {
-              window.open(trafficURL, '_blank', 'noopener');
-            }
-          });
-        }
+              if (!trafficSiteId) {
+                return;
+              }
+              var trafficURL = appendOriginParams((trafficTestPagePrefix || '') + trafficSiteId + (trafficTestPageSuffix || ''));
+              if (trafficURL) {
+                window.open(trafficURL, '_blank', 'noopener');
+              }
+            });
+          }
         if (refreshMessagesButton) {
           refreshMessagesButton.addEventListener('click', function(event) {
             event.preventDefault();

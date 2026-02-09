@@ -77,6 +77,25 @@ For the computercat orchestration, `ghttp`:
 
 See `configs/README.md` and the `configs/.env.ghttp*.example` templates for the exact `GHTTP_SERVE_PROXIES` string.
 
+## Multi-Origin GitHub Pages Model
+
+If `loopaware.mprlab.com` is served directly from GitHub Pages (no reverse proxy), LoopAware runs as a multi-origin
+deployment:
+
+- Frontend: `https://loopaware.mprlab.com` (static Pages/CDN)
+- API: `https://loopaware-api.mprlab.com`
+- TAuth: `https://tauth-api.mprlab.com`
+
+In this mode:
+
+- The static pages default to the API/TAuth origins above when `window.location.hostname === "loopaware.mprlab.com"`.
+- You can override per request using `?api_origin=...&tauth_origin=...` (primarily for local/dev diagnostics).
+- The widget/subscription/pixel snippets include `api_origin` so they can call the API from customer sites.
+- Authenticated API calls rely on credentialed CORS:
+  - Set `PUBLIC_BASE_URL=https://loopaware.mprlab.com` on the API service.
+  - Ensure the API CORS config allows that origin with credentials enabled (LoopAware's `/api/*` group is configured
+    this way).
+
 ## Rollout
 
 1. Publish the static frontend in `web/` (GitHub Pages, CDN, or `ghttp`).
