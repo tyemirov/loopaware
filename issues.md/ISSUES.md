@@ -447,3 +447,13 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   `data:`/`blob:` URLs as absolute), ensuring the browser loads these assets from `loopaware-api.mprlab.com` in multi-origin
   mode while preserving the single-origin reverse-proxy behavior.
   Verification: `make ci` passes.
+
+- [x] [LA-434] Fix mpr-ui avatar requests in multi-origin GitHub Pages deployments.
+  Priority: P1
+  Change: `mpr-ui` consumes `data-user-avatar-url` and the `mpr-ui:auth:authenticated` profile payload. In multi-origin
+  mode the backend may supply a relative `avatar.url` (for example `/api/me/avatar?...`), which `mpr-ui` then loads from
+  the Pages origin and triggers 404s.
+  Resolution: Updated `web/app/index.html` to resolve the header `data-user-avatar-url` and the dispatched `avatar_url`
+  through `apiUrl()` (reusing the configured API origin from `web/config.yml`), so `mpr-ui` loads avatar assets from the
+  API host in multi-origin deployments.
+  Verification: `make ci` passes.
