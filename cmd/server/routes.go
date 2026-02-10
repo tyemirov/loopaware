@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -8,6 +10,31 @@ import (
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/api"
 )
+
+func isPublicAPIPath(path string) bool {
+	if path == "" {
+		return false
+	}
+	if path == "/api/feedback" || path == "/api/widget-config" || path == "/api/visits" {
+		return true
+	}
+	return strings.HasPrefix(path, "/api/subscriptions")
+}
+
+func registerAPIPreflightRoutes(router *gin.Engine, publicCORS gin.HandlerFunc, authenticatedCORS gin.HandlerFunc) {
+	router.OPTIONS(apiRoutePrefix+"/*path", func(context *gin.Context) {
+		requestPath := context.Request.URL.Path
+		if isPublicAPIPath(requestPath) {
+			publicCORS(context)
+		} else {
+			authenticatedCORS(context)
+		}
+		if context.IsAborted() {
+			return
+		}
+		context.Status(http.StatusNoContent)
+	})
+}
 
 func registerBackendRoutes(
 	router *gin.Engine,
@@ -26,6 +53,17 @@ func registerBackendRoutes(
 		AllowCredentials: false,
 		MaxAge:           12 * time.Hour,
 	})
+	authenticatedCORS := cors.New(cors.Config{
+		AllowOrigins:     []string{authenticatedOrigin},
+		AllowMethods:     corsAllowedMethods,
+		AllowHeaders:     corsAllowedHeaders,
+		ExposeHeaders:    corsExposedHeaders,
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	})
+
+	registerAPIPreflightRoutes(router, publicCORS, authenticatedCORS)
+
 	publicGroup := router.Group("/")
 	publicGroup.Use(publicCORS)
 	publicGroup.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
@@ -39,14 +77,7 @@ func registerBackendRoutes(
 	publicGroup.POST(publicRouteVisitPixel, publicHandlers.CollectVisit)
 
 	apiGroup := router.Group(apiRoutePrefix)
-	apiGroup.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{authenticatedOrigin},
-		AllowMethods:     corsAllowedMethods,
-		AllowHeaders:     corsAllowedHeaders,
-		ExposeHeaders:    corsExposedHeaders,
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}))
+	apiGroup.Use(authenticatedCORS)
 	apiGroup.Use(authManager.RequireAuthenticatedJSON())
 	apiGroup.GET(apiRouteMe, siteHandlers.CurrentUser)
 	apiGroup.GET(apiRouteMeAvatar, siteHandlers.UserAvatar)

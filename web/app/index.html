@@ -3491,22 +3491,27 @@
 
         function loadMessages(shouldUpdateButtonStatus) {
           var manualRefresh = shouldUpdateButtonStatus === true;
-          if (!state.selectedSiteId || isNewSiteSelected()) {
+          var selectedSiteId = state.selectedSiteId;
+          var isSelectedNewSite = selectedSiteId === newSiteOptionValue;
+          if (!selectedSiteId || isSelectedNewSite) {
             renderFeedbackPlaceholder(statusMessages.select_site || '');
             if (manualRefresh) {
               setButtonDefault(refreshMessagesButton, buttonLabels.refresh_default || '', buttonClasses.refresh_default || '');
             }
             return;
           }
-          var endpoint = apiSiteMessagesPrefix + state.selectedSiteId + apiSiteMessagesSuffix;
+          var endpoint = apiSiteMessagesPrefix + selectedSiteId + apiSiteMessagesSuffix;
           renderFeedbackPlaceholder(statusMessages.loading_sites || 'Loading...');
           if (manualRefresh) {
             updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_loading || '', buttonStyles.secondary || '');
           }
           fetchJSON(endpoint).then(function(payload) {
+            if (state.selectedSiteId !== selectedSiteId) {
+              return;
+            }
             var messages = payload.messages || [];
-            var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
-            state.siteMessages[state.selectedSiteId] = messages;
+            var site = state.sites.find(function(item) { return item.id === selectedSiteId; });
+            state.siteMessages[selectedSiteId] = messages;
             if (site) {
               site.feedback_count = messages.length;
               updateSelectedSiteSummary(site);
@@ -3516,8 +3521,11 @@
               updateButtonStatus(refreshMessagesButton, buttonLabels.refresh_success || '', buttonStyles.secondary || '');
             }
         }).catch(function() {
+          if (state.selectedSiteId !== selectedSiteId) {
+            return;
+          }
           renderFeedbackPlaceholder(statusMessages.load_failed || '');
-          var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
+          var site = state.sites.find(function(item) { return item.id === selectedSiteId; });
           if (site) {
             setFeedbackCount(site.feedback_count || 0, site.feedback_count || 0);
           } else {
@@ -3530,22 +3538,30 @@
       }
 
       function loadSubscribers() {
-        if (!state.selectedSiteId || isNewSiteSelected()) {
+        var selectedSiteId = state.selectedSiteId;
+        var isSelectedNewSite = selectedSiteId === newSiteOptionValue;
+        if (!selectedSiteId || isSelectedNewSite) {
           renderSubscribers([]);
           return;
         }
-        var endpoint = apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteSubscribersSuffix;
-        renderSubscribers(state.siteSubscribers[state.selectedSiteId] || []);
+        var endpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteSubscribersSuffix;
+        renderSubscribers(state.siteSubscribers[selectedSiteId] || []);
         fetchJSON(endpoint).then(function(payload) {
+          if (state.selectedSiteId !== selectedSiteId) {
+            return;
+          }
           var subscribers = payload.subscribers || [];
-          state.siteSubscribers[state.selectedSiteId] = subscribers;
-          var site = state.sites.find(function(item) { return item.id === state.selectedSiteId; });
+          state.siteSubscribers[selectedSiteId] = subscribers;
+          var site = state.sites.find(function(item) { return item.id === selectedSiteId; });
           if (site) {
             site.subscriber_count = subscribers.length;
             updateSelectedSiteSummary(site);
           }
           renderSubscribers(subscribers);
         }).catch(function(error) {
+          if (state.selectedSiteId !== selectedSiteId) {
+            return;
+          }
           if (subscribersStatusElement) {
             subscribersStatusElement.textContent = error.message || statusMessages.load_failed || '';
             subscribersStatusElement.classList.remove('d-none');
@@ -3554,18 +3570,26 @@
       }
 
       function loadVisitStats() {
-        if (!state.selectedSiteId || isNewSiteSelected()) {
+        var selectedSiteId = state.selectedSiteId;
+        var isSelectedNewSite = selectedSiteId === newSiteOptionValue;
+        if (!selectedSiteId || isSelectedNewSite) {
           setVisitCounts(0, 0);
           renderTopPages([]);
           return;
         }
-        var endpoint = apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteVisitStatsSuffix;
+        var endpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteVisitStatsSuffix;
         fetchJSON(endpoint).then(function(payload) {
+          if (state.selectedSiteId !== selectedSiteId) {
+            return;
+          }
           var total = typeof payload.visit_count === 'number' ? payload.visit_count : 0;
           var unique = typeof payload.unique_visitor_count === 'number' ? payload.unique_visitor_count : 0;
           setVisitCounts(total, unique);
           renderTopPages(payload.top_pages || []);
         }).catch(function(error) {
+          if (state.selectedSiteId !== selectedSiteId) {
+            return;
+          }
           if (trafficStatusElement) {
             trafficStatusElement.textContent = error.message || statusMessages.load_failed || '';
             trafficStatusElement.classList.remove('d-none');

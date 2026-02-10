@@ -457,3 +457,19 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   through `apiUrl()` (reusing the configured API origin from `web/config.yml`), so `mpr-ui` loads avatar assets from the
   API host in multi-origin deployments.
   Verification: `make ci` passes.
+
+- [x] [LA-435] Fix dashboard site creation failing with "load failed" due to `OPTIONS /api/sites` returning 404.
+  Priority: P0
+  Symptom: Clicking "Create site" briefly shows "load failed" and the site is not created; the UI becomes stuck with no further actions available.
+  Evidence: API logs show `OPTIONS /api/sites` returning `404`, which breaks browser CORS preflight for JSON `POST /api/sites`.
+  Goal: Ensure CORS preflight requests for authenticated API routes succeed (respond with correct `Access-Control-*` headers + `204`) so `POST/PATCH/DELETE` requests work in the browser.
+  Deliverable: Backend fix for preflight handling plus integration coverage exercising site creation via the real browser flow; `make ci` passes.
+  Resolution: Added explicit `OPTIONS /api/*path` handling in the API router so browser preflight requests no longer fall through to 404, and guarded dashboard data loaders against stale async responses when switching into new-site mode.
+  Verification: `make ci` passes.
+
+- [ ] [LA-436] Stop re-saving user avatar blobs (and bumping `updated_at`) on every authenticated request.
+  Priority: P1
+  Symptom: Every request triggers `UPDATE users SET ... avatar_data=<binary> ...` even when the picture URL is unchanged, causing multi-second "SLOW SQL" logs and unnecessary churn.
+  Evidence: Repeated slow `SELECT * FROM users` and `UPDATE users` statements originate from `internal/api/auth.go:persistUser` calling `db.Save(&user)` unconditionally.
+  Goal: Only update `users` when meaningful fields change; avoid loading/writing `avatar_data` unless the avatar is actually being refreshed.
+  Deliverable: Replace unconditional `Save` with targeted updates + lightweight lookups; add tests asserting no-op auth requests do not update `updated_at` or rewrite the avatar blob; `make ci` passes.
