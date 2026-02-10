@@ -32,6 +32,15 @@ const (
 
 var defaultAvatarFetchTimeout = 5 * time.Second
 
+type persistedUserSnapshot struct {
+	Email             string
+	Name              string
+	PictureSourceURL  string
+	AvatarContentType string
+	AvatarSize        int64 `gorm:"column:avatar_size"`
+	UpdatedAt         time.Time
+}
+
 // UserRole enumerates the supported access levels for authenticated dashboard users.
 type UserRole string
 
@@ -243,47 +252,103 @@ func (authManager *AuthManager) ensureUser(context *gin.Context) (*CurrentUser, 
 }
 
 func (authManager *AuthManager) persistUser(ctx context.Context, lowercaseEmail string, name string, pictureURL string) (string, error) {
-	var user model.User
-	result := authManager.database.First(&user, "email = ?", lowercaseEmail)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		user = model.User{Email: lowercaseEmail}
-	} else if result.Error != nil {
-		return "", result.Error
-	}
-
-	user.Name = strings.TrimSpace(name)
+	trimmedName := strings.TrimSpace(name)
 	trimmedPictureURL := strings.TrimSpace(pictureURL)
-	shouldFetchAvatar := false
-	if trimmedPictureURL != "" {
-		if user.PictureSourceURL == "" || user.PictureSourceURL != trimmedPictureURL {
-			shouldFetchAvatar = true
+	database := authManager.database.WithContext(ctx)
+
+	var snapshot persistedUserSnapshot
+	loadErr := database.Model(&model.User{}).
+		Select("email", "name", "picture_source_url", "avatar_content_type", "length(avatar_data) as avatar_size", "updated_at").
+		First(&snapshot, "email = ?", lowercaseEmail).Error
+	if errors.Is(loadErr, gorm.ErrRecordNotFound) {
+		user := model.User{
+			Email: lowercaseEmail,
+			Name:  trimmedName,
 		}
+		if trimmedPictureURL != "" {
+			avatarData, contentType, fetchErr := authManager.fetchAvatar(ctx, trimmedPictureURL)
+			if fetchErr != nil {
+				authManager.logger.Warn(logEventFetchAvatar, zap.Error(fetchErr))
+			} else {
+				user.AvatarData = avatarData
+				user.AvatarContentType = contentType
+				user.PictureSourceURL = trimmedPictureURL
+			}
+		}
+		if user.AvatarContentType == "" && len(user.AvatarData) > 0 {
+			user.AvatarContentType = defaultAvatarMimeType
+		}
+		if createErr := database.Create(&user).Error; createErr != nil {
+			return "", createErr
+		}
+		if len(user.AvatarData) == 0 {
+			return "", nil
+		}
+		return fmt.Sprintf("%s?v=%d", avatarEndpointPath, user.UpdatedAt.Unix()), nil
+	}
+	if loadErr != nil {
+		return "", loadErr
 	}
 
+	updates := make(map[string]any)
+	if trimmedName != snapshot.Name {
+		updates["name"] = trimmedName
+	}
+
+	shouldFetchAvatar := trimmedPictureURL != "" && (snapshot.PictureSourceURL == "" || snapshot.PictureSourceURL != trimmedPictureURL)
+	avatarUpdated := false
 	if shouldFetchAvatar {
 		avatarData, contentType, fetchErr := authManager.fetchAvatar(ctx, trimmedPictureURL)
 		if fetchErr != nil {
 			authManager.logger.Warn(logEventFetchAvatar, zap.Error(fetchErr))
 		} else {
-			user.AvatarData = avatarData
-			user.AvatarContentType = contentType
-			user.PictureSourceURL = trimmedPictureURL
+			updates["avatar_data"] = avatarData
+			updates["avatar_content_type"] = contentType
+			updates["picture_source_url"] = trimmedPictureURL
+			avatarUpdated = true
 		}
 	}
 
-	if user.AvatarContentType == "" && len(user.AvatarData) > 0 {
-		user.AvatarContentType = defaultAvatarMimeType
+	hasAvatar := snapshot.AvatarSize > 0
+	if avatarUpdated {
+		if avatarContentTypeValue, ok := updates["avatar_content_type"].(string); ok {
+			if avatarContentTypeValue == "" {
+				updates["avatar_content_type"] = defaultAvatarMimeType
+			}
+		}
+		if avatarDataValue, ok := updates["avatar_data"].([]byte); ok {
+			hasAvatar = len(avatarDataValue) > 0
+		}
 	}
 
-	if saveErr := authManager.database.Save(&user).Error; saveErr != nil {
-		return "", saveErr
+	if !avatarUpdated && snapshot.AvatarContentType == "" && hasAvatar {
+		updates["avatar_content_type"] = defaultAvatarMimeType
+		avatarUpdated = true
 	}
 
-	if len(user.AvatarData) == 0 {
+	avatarVersionUnix := snapshot.UpdatedAt.Unix()
+	if avatarUpdated {
+		updateTimestamp := time.Now().UTC()
+		updates["updated_at"] = updateTimestamp
+		avatarVersionUnix = updateTimestamp.Unix()
+	}
+
+	if len(updates) == 0 {
+		if !hasAvatar {
+			return "", nil
+		}
+		return fmt.Sprintf("%s?v=%d", avatarEndpointPath, avatarVersionUnix), nil
+	}
+
+	if updateErr := database.Model(&model.User{}).Where("email = ?", lowercaseEmail).Updates(updates).Error; updateErr != nil {
+		return "", updateErr
+	}
+
+	if !hasAvatar {
 		return "", nil
 	}
 
-	return fmt.Sprintf("%s?v=%d", avatarEndpointPath, user.UpdatedAt.Unix()), nil
+	return fmt.Sprintf("%s?v=%d", avatarEndpointPath, avatarVersionUnix), nil
 }
 
 func (authManager *AuthManager) fetchAvatar(ctx context.Context, sourceURL string) ([]byte, string, error) {

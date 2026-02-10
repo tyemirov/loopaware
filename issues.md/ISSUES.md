@@ -467,9 +467,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Resolution: Added explicit `OPTIONS /api/*path` handling in the API router so browser preflight requests no longer fall through to 404, and guarded dashboard data loaders against stale async responses when switching into new-site mode.
   Verification: `make ci` passes.
 
-- [ ] [LA-436] Stop re-saving user avatar blobs (and bumping `updated_at`) on every authenticated request.
+- [x] [LA-436] Stop re-saving user avatar blobs (and bumping `updated_at`) on every authenticated request.
   Priority: P1
   Symptom: Every request triggers `UPDATE users SET ... avatar_data=<binary> ...` even when the picture URL is unchanged, causing multi-second "SLOW SQL" logs and unnecessary churn.
   Evidence: Repeated slow `SELECT * FROM users` and `UPDATE users` statements originate from `internal/api/auth.go:persistUser` calling `db.Save(&user)` unconditionally.
   Goal: Only update `users` when meaningful fields change; avoid loading/writing `avatar_data` unless the avatar is actually being refreshed.
   Deliverable: Replace unconditional `Save` with targeted updates + lightweight lookups; add tests asserting no-op auth requests do not update `updated_at` or rewrite the avatar blob; `make ci` passes.
+  Resolution: Switched `persistUser` to a lightweight snapshot query (no avatar blob reads) plus targeted `Updates` so no-op auth requests avoid rewriting the avatar; added coverage asserting unchanged profiles trigger zero `users` updates.
+  Verification: `make ci` passes.
