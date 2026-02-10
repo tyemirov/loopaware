@@ -258,7 +258,7 @@ func (authManager *AuthManager) persistUser(ctx context.Context, lowercaseEmail 
 
 	var snapshot persistedUserSnapshot
 	loadErr := database.Model(&model.User{}).
-		Select("email", "name", "picture_source_url", "avatar_content_type", "length(avatar_data) as avatar_size", "updated_at").
+		Select("email", "name", "picture_source_url", "avatar_content_type", "coalesce(length(avatar_data), 0) as avatar_size", "updated_at").
 		First(&snapshot, "email = ?", lowercaseEmail).Error
 	if errors.Is(loadErr, gorm.ErrRecordNotFound) {
 		user := model.User{

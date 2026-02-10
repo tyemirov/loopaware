@@ -136,3 +136,34 @@ func TestPersistUserDoesNotUpdateWhenUnchanged(testingT *testing.T) {
 	require.NoError(testingT, err)
 	require.Equal(testingT, 0, updateCount)
 }
+
+func TestPersistUserCoalescesNullAvatarSizeSnapshot(testingT *testing.T) {
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	database = testutil.ConfigureDatabaseLogger(testingT, database)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	failingClient := &stubHTTPClient{err: errors.New("network failure")}
+	manager, err := NewAuthManager(database, zap.NewNop(), nil, failingClient, AuthConfig{SigningKey: "test-signing-key", CookieName: testAuthCookieNameValue})
+	require.NoError(testingT, err)
+
+	path, err := manager.persistUser(context.Background(), "user5@example.com", "User Example", "https://example.com/avatar.png")
+	require.NoError(testingT, err)
+	require.Empty(testingT, path)
+
+	require.NoError(testingT, database.Exec("UPDATE users SET avatar_data = NULL WHERE email = ?", "user5@example.com").Error)
+
+	manager.httpClient = &stubHTTPClient{statusCode: http.StatusOK, contentType: "image/png", body: []byte{0x03, 0x04}}
+
+	path, err = manager.persistUser(context.Background(), "user5@example.com", "User Example", "https://example.com/avatar.png")
+	require.NoError(testingT, err)
+	require.NotEmpty(testingT, path)
+	require.Contains(testingT, path, avatarEndpointPath)
+
+	var user model.User
+	require.NoError(testingT, database.First(&user, "email = ?", "user5@example.com").Error)
+	require.Equal(testingT, []byte{0x03, 0x04}, user.AvatarData)
+	require.Equal(testingT, "image/png", user.AvatarContentType)
+	require.Equal(testingT, "https://example.com/avatar.png", user.PictureSourceURL)
+}

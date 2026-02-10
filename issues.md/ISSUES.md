@@ -475,3 +475,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Replace unconditional `Save` with targeted updates + lightweight lookups; add tests asserting no-op auth requests do not update `updated_at` or rewrite the avatar blob; `make ci` passes.
   Resolution: Switched `persistUser` to a lightweight snapshot query (no avatar blob reads) plus targeted `Updates` so no-op auth requests avoid rewriting the avatar; added coverage asserting unchanged profiles trigger zero `users` updates.
   Verification: `make ci` passes.
+
+- [x] [LA-437] Coalesce NULL avatar length in auth user snapshot query.
+  Priority: P1
+  Symptom: `persistUser` selects `length(avatar_data) as avatar_size` into a non-nullable integer field. When `avatar_data` is `NULL`, `length(NULL)` yields `NULL`, which fails scanning and causes `persistUser` to error (repeated `persist_user` warnings; user snapshot never updates).
+  Goal: Ensure the snapshot query always returns a non-NULL integer (or make the destination nullable) so auth requests do not fail when `avatar_data` is missing.
+  Deliverable: Update query to use `coalesce(length(avatar_data), 0) as avatar_size` (or equivalent) and add regression coverage; `make ci` passes.
+  Resolution: Updated the snapshot select to `coalesce(length(avatar_data), 0) as avatar_size`, and added coverage proving users with `NULL` `avatar_data` no longer break subsequent auth requests.
+  Verification: `make ci` passes.
