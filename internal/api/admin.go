@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,6 +46,8 @@ const (
 	errorValueDeleteFailed            = "delete_failed"
 	errorValueSiteExists              = "site_exists"
 	errorValueStreamUnavailable       = "stream_unavailable"
+	errorValueInvalidDays             = "invalid_days"
+	errorValueInvalidLimit            = "invalid_limit"
 
 	widgetScriptTemplate            = "<script defer src=\"%s/widget.js?site_id=%s\"></script>"
 	siteFaviconURLTemplate          = "/api/sites/%s/favicon"
@@ -55,6 +58,13 @@ const (
 	minWidgetBubbleBottomOffset     = 0
 	maxWidgetBubbleBottomOffset     = 240
 	feedbackCreatedEventName        = "feedback_created"
+	visitTrendDefaultDays           = 7
+	visitTrendMaxDays               = 30
+	visitTrendDateFormat            = "2006-01-02"
+	visitAttributionDefaultLimit    = 10
+	visitAttributionMaxLimit        = 50
+	visitEngagementDefaultDays      = 30
+	visitEngagementMaxDays          = 90
 )
 
 type SiteHandlers struct {
@@ -161,6 +171,56 @@ type VisitStatsResponse struct {
 	UniqueVisitorCount int64           `json:"unique_visitor_count"`
 	TopPages           []TopPageEntry  `json:"top_pages"`
 	RecentVisits       []VisitLogEntry `json:"recent_visits"`
+}
+
+type VisitTrendResponse struct {
+	SiteID string            `json:"site_id"`
+	Days   int               `json:"days"`
+	Trend  []VisitTrendPoint `json:"trend"`
+}
+
+type VisitTrendPoint struct {
+	Date           string `json:"date"`
+	PageViews      int64  `json:"page_views"`
+	UniqueVisitors int64  `json:"unique_visitors"`
+}
+
+type VisitAttributionResponse struct {
+	SiteID    string             `json:"site_id"`
+	Limit     int                `json:"limit"`
+	Sources   []AttributionPoint `json:"sources"`
+	Mediums   []AttributionPoint `json:"mediums"`
+	Campaigns []AttributionPoint `json:"campaigns"`
+}
+
+type AttributionPoint struct {
+	Value      string `json:"value"`
+	VisitCount int64  `json:"visit_count"`
+}
+
+type VisitEngagementResponse struct {
+	SiteID                   string                                `json:"site_id"`
+	Days                     int                                   `json:"days"`
+	TrackedVisitorCount      int64                                 `json:"tracked_visitor_count"`
+	ReturningVisitorCount    int64                                 `json:"returning_visitor_count"`
+	ReturningVisitorRate     float64                               `json:"returning_visitor_rate"`
+	AveragePagesPerVisitor   float64                               `json:"average_pages_per_visitor"`
+	DepthDistribution        VisitDepthDistributionResponse        `json:"depth_distribution"`
+	ObservedTimeDistribution VisitObservedTimeDistributionResponse `json:"observed_time_distribution"`
+}
+
+type VisitDepthDistributionResponse struct {
+	SinglePage       int64 `json:"single_page"`
+	TwoToThreePages  int64 `json:"two_to_three_pages"`
+	FourToSevenPages int64 `json:"four_to_seven_pages"`
+	EightOrMorePages int64 `json:"eight_or_more_pages"`
+}
+
+type VisitObservedTimeDistributionResponse struct {
+	UnderThirtySeconds               int64 `json:"under_30_seconds"`
+	ThirtyToOneNineteenSeconds       int64 `json:"between_30_and_119_seconds"`
+	OneTwentyToFiveNinetyNineSeconds int64 `json:"between_120_and_599_seconds"`
+	SixHundredOrMoreSeconds          int64 `json:"at_least_600_seconds"`
 }
 
 type TopPageEntry struct {
@@ -814,6 +874,96 @@ func (handlers *SiteHandlers) VisitStats(context *gin.Context) {
 	})
 }
 
+func (handlers *SiteHandlers) VisitTrend(context *gin.Context) {
+	site, _, ok := handlers.resolveAuthorizedSite(context)
+	if !ok {
+		return
+	}
+
+	days, parseErr := parseVisitTrendDays(context.Query("days"))
+	if parseErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidDays})
+		return
+	}
+
+	trend, err := handlers.statsProvider.VisitTrend(context.Request.Context(), site.ID, days)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+	points := make([]VisitTrendPoint, 0, len(trend))
+	for _, stat := range trend {
+		points = append(points, VisitTrendPoint{
+			Date:           stat.Date.UTC().Format(visitTrendDateFormat),
+			PageViews:      stat.PageViews,
+			UniqueVisitors: stat.UniqueVisitors,
+		})
+	}
+
+	context.JSON(http.StatusOK, VisitTrendResponse{
+		SiteID: site.ID,
+		Days:   days,
+		Trend:  points,
+	})
+}
+
+func (handlers *SiteHandlers) VisitAttribution(context *gin.Context) {
+	site, _, ok := handlers.resolveAuthorizedSite(context)
+	if !ok {
+		return
+	}
+
+	limit, parseErr := parseVisitAttributionLimit(context.Query("limit"))
+	if parseErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidLimit})
+		return
+	}
+
+	breakdown, err := handlers.statsProvider.VisitAttribution(context.Request.Context(), site.ID, limit)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+
+	context.JSON(http.StatusOK, VisitAttributionResponse{
+		SiteID:    site.ID,
+		Limit:     limit,
+		Sources:   toAttributionPoints(breakdown.Sources),
+		Mediums:   toAttributionPoints(breakdown.Mediums),
+		Campaigns: toAttributionPoints(breakdown.Campaigns),
+	})
+}
+
+func (handlers *SiteHandlers) VisitEngagement(context *gin.Context) {
+	site, _, ok := handlers.resolveAuthorizedSite(context)
+	if !ok {
+		return
+	}
+
+	days, parseErr := parseVisitEngagementDays(context.Query("days"))
+	if parseErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidDays})
+		return
+	}
+
+	engagement, err := handlers.statsProvider.VisitEngagement(context.Request.Context(), site.ID, days)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+
+	context.JSON(http.StatusOK, VisitEngagementResponse{
+		SiteID:                   site.ID,
+		Days:                     days,
+		TrackedVisitorCount:      engagement.TrackedVisitorCount,
+		ReturningVisitorCount:    engagement.ReturningVisitorCount,
+		ReturningVisitorRate:     engagement.ReturningVisitorRate,
+		AveragePagesPerVisitor:   engagement.AveragePagesPerVisitor,
+		DepthDistribution:        toVisitDepthDistributionResponse(engagement.DepthDistribution),
+		ObservedTimeDistribution: toVisitObservedTimeDistributionResponse(engagement.ObservedTimeDistribution),
+	})
+}
+
 func (handlers *SiteHandlers) recentVisits(ctx context.Context, siteID string, limit int) ([]VisitLogEntry, error) {
 	if strings.TrimSpace(siteID) == "" || handlers.database == nil {
 		return nil, nil
@@ -824,7 +974,7 @@ func (handlers *SiteHandlers) recentVisits(ctx context.Context, siteID string, l
 	var visits []model.SiteVisit
 	if err := handlers.database.
 		WithContext(ctx).
-		Where("site_id = ?", siteID).
+		Where("site_id = ? AND is_bot = ?", siteID, false).
 		Order("occurred_at desc").
 		Limit(limit).
 		Find(&visits).Error; err != nil {
@@ -1244,6 +1394,83 @@ func ensureWidgetBubblePlacementDefaults(site *model.Site) {
 	site.WidgetBubbleSide = side
 	if site.WidgetBubbleBottomOffsetPx < minWidgetBubbleBottomOffset || site.WidgetBubbleBottomOffsetPx > maxWidgetBubbleBottomOffset {
 		site.WidgetBubbleBottomOffsetPx = defaultWidgetBubbleBottomOffset
+	}
+}
+
+func parseVisitTrendDays(rawValue string) (int, error) {
+	trimmedValue := strings.TrimSpace(rawValue)
+	if trimmedValue == "" {
+		return visitTrendDefaultDays, nil
+	}
+
+	days, parseErr := strconv.Atoi(trimmedValue)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	if days <= 0 || days > visitTrendMaxDays {
+		return 0, errors.New("visit trend days out of range")
+	}
+	return days, nil
+}
+
+func parseVisitAttributionLimit(rawValue string) (int, error) {
+	trimmedValue := strings.TrimSpace(rawValue)
+	if trimmedValue == "" {
+		return visitAttributionDefaultLimit, nil
+	}
+
+	limit, parseErr := strconv.Atoi(trimmedValue)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	if limit <= 0 || limit > visitAttributionMaxLimit {
+		return 0, errors.New("visit attribution limit out of range")
+	}
+	return limit, nil
+}
+
+func parseVisitEngagementDays(rawValue string) (int, error) {
+	trimmedValue := strings.TrimSpace(rawValue)
+	if trimmedValue == "" {
+		return visitEngagementDefaultDays, nil
+	}
+
+	days, parseErr := strconv.Atoi(trimmedValue)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	if days <= 0 || days > visitEngagementMaxDays {
+		return 0, errors.New("visit engagement days out of range")
+	}
+	return days, nil
+}
+
+func toAttributionPoints(stats []AttributionStat) []AttributionPoint {
+	if len(stats) == 0 {
+		return nil
+	}
+	points := make([]AttributionPoint, 0, len(stats))
+	for _, stat := range stats {
+		points = append(points, AttributionPoint(stat))
+	}
+	return points
+}
+
+func toVisitDepthDistributionResponse(distribution VisitDepthDistributionStat) VisitDepthDistributionResponse {
+	return VisitDepthDistributionResponse{
+		SinglePage:       distribution.SinglePage,
+		TwoToThreePages:  distribution.TwoToThree,
+		FourToSevenPages: distribution.FourToSeven,
+		EightOrMorePages: distribution.EightOrMore,
+	}
+}
+
+func toVisitObservedTimeDistributionResponse(distribution VisitObservedTimeDistributionStat) VisitObservedTimeDistributionResponse {
+	return VisitObservedTimeDistributionResponse{
+		UnderThirtySeconds:               distribution.UnderThirtySeconds,
+		ThirtyToOneNineteenSeconds:       distribution.ThirtyToOneNineteen,
+		OneTwentyToFiveNinetyNineSeconds: distribution.OneTwentyToFiveNinetyNine,
+		SixHundredOrMoreSeconds:          distribution.SixHundredOrMore,
 	}
 }
 

@@ -149,6 +149,9 @@ include Unix timestamps in seconds.
 | `PATCH` | `/api/sites/:id/subscribers/:subscriber_id` | owner/admin | Update a subscriber’s status (confirm or unsubscribe)                                             |
 | `DELETE`| `/api/sites/:id/subscribers/:subscriber_id` | owner/admin | Delete a subscriber                                                                                |
 | `GET`   | `/api/sites/:id/visits/stats`         | owner/admin | Aggregate visit and unique visitor counts plus recent visits and top pages                              |
+| `GET`   | `/api/sites/:id/visits/trend`         | owner/admin | Daily visit trend (default 7 days, optional `days` query param up to 30)                               |
+| `GET`   | `/api/sites/:id/visits/attribution`   | owner/admin | Source/medium/campaign attribution breakdown (optional `limit` query param up to 50; defaults to 10)   |
+| `GET`   | `/api/sites/:id/visits/engagement`    | owner/admin | Visitor engagement metrics (default 30 days, optional `days` query param up to 90)                     |
 | `GET`   | `/api/sites/favicons/events`          | any         | Server-sent events stream announcing refreshed site favicons                                            |
 | `GET`   | `/api/sites/feedback/events`          | any         | Server-sent events stream announcing new feedback                                                      |
 | `POST`  | `/api/feedback`                       | public      | Submit feedback (requires JSON body with `site_id`, `contact`, `message`)                               |
@@ -239,7 +242,9 @@ The traffic pixel records page visits per site and powers the dashboard Traffic 
    ```
 
 3. On load, `pixel.js` sends a beacon to `/api/visits` with the site ID, current URL, referrer, and a stable visitor ID
-   stored in `localStorage`. Requests from origins outside the site’s `allowed_origin` list are rejected.
+   stored in `localStorage`. Requests from origins outside the site’s `allowed_origin` list are rejected. Traffic from
+   known bot user-agent signatures is stored but excluded from default dashboard totals, top-page rankings, trends, and
+   attribution and engagement breakdowns.
 
 For non-JavaScript environments you can fall back to a plain image pixel:
 

@@ -23,9 +23,11 @@ const (
 	testVisitOrigin             = "http://visitors.example"
 	testVisitOriginPage         = "http://visitors.example/page"
 	testVisitReferer            = "http://visitors.example/from-referer"
+	testVisitRefererQuery       = "http://visitors.example/from-query"
 	testVisitSaveErrorOrigin    = "http://savefail.example"
 	testVisitSaveErrorURL       = "http://savefail.example/page"
 	testVisitSaveFailedToken    = "save_failed"
+	testVisitBotUserAgent       = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
 )
 
 func TestCollectVisitRequiresSiteID(testingT *testing.T) {
@@ -96,4 +98,38 @@ func TestCollectVisitReportsSaveError(testingT *testing.T) {
 
 	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
 	require.Contains(testingT, recorder.Body.String(), testVisitSaveFailedToken)
+}
+
+func TestCollectVisitUsesQueryReferrerWhenHeaderMissing(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Visit Query Referrer", testVisitOrigin, "owner@example.com")
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, testVisitQueryPrefix+site.ID+"&referrer="+testVisitRefererQuery, nil)
+	request.Header.Set("Origin", testVisitOrigin)
+	api.router.ServeHTTP(recorder, request)
+
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var stored model.SiteVisit
+	require.NoError(testingT, api.database.Order("occurred_at desc").First(&stored).Error)
+	require.Equal(testingT, testVisitRefererQuery, stored.URL)
+	require.Equal(testingT, testVisitRefererQuery, stored.Referrer)
+}
+
+func TestCollectVisitMarksBotTraffic(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Visit Bot", testVisitOrigin, "owner@example.com")
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, testVisitQueryPrefix+site.ID+"&url="+testVisitOriginPage, nil)
+	request.Header.Set("Origin", testVisitOrigin)
+	request.Header.Set("User-Agent", testVisitBotUserAgent)
+	api.router.ServeHTTP(recorder, request)
+
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var stored model.SiteVisit
+	require.NoError(testingT, api.database.Order("occurred_at desc").First(&stored).Error)
+	require.True(testingT, stored.IsBot)
 }

@@ -64,6 +64,18 @@ func (provider *stubStatsProvider) TopPages(context.Context, string, int) ([]Top
 	return nil, nil
 }
 
+func (provider *stubStatsProvider) VisitTrend(context.Context, string, int) ([]DailyVisitTrendStat, error) {
+	return nil, nil
+}
+
+func (provider *stubStatsProvider) VisitAttribution(context.Context, string, int) (VisitAttributionBreakdown, error) {
+	return VisitAttributionBreakdown{}, nil
+}
+
+func (provider *stubStatsProvider) VisitEngagement(context.Context, string, int) (VisitEngagementStat, error) {
+	return VisitEngagementStat{}, nil
+}
+
 func TestClassifyVisitBrowser(testingT *testing.T) {
 	testCases := []struct {
 		name        string
@@ -116,6 +128,63 @@ func TestNormalizeAllowedOrigins(testingT *testing.T) {
 
 func TestNormalizeWidgetBaseURL(testingT *testing.T) {
 	require.Equal(testingT, "https://example.com", normalizeWidgetBaseURL("https://example.com/"))
+}
+
+func TestParseVisitTrendDays(testingT *testing.T) {
+	days, err := parseVisitTrendDays("")
+	require.NoError(testingT, err)
+	require.Equal(testingT, visitTrendDefaultDays, days)
+
+	days, err = parseVisitTrendDays("14")
+	require.NoError(testingT, err)
+	require.Equal(testingT, 14, days)
+
+	_, err = parseVisitTrendDays("0")
+	require.Error(testingT, err)
+
+	_, err = parseVisitTrendDays("31")
+	require.Error(testingT, err)
+
+	_, err = parseVisitTrendDays("invalid")
+	require.Error(testingT, err)
+}
+
+func TestParseVisitAttributionLimit(testingT *testing.T) {
+	limit, err := parseVisitAttributionLimit("")
+	require.NoError(testingT, err)
+	require.Equal(testingT, visitAttributionDefaultLimit, limit)
+
+	limit, err = parseVisitAttributionLimit("25")
+	require.NoError(testingT, err)
+	require.Equal(testingT, 25, limit)
+
+	_, err = parseVisitAttributionLimit("0")
+	require.Error(testingT, err)
+
+	_, err = parseVisitAttributionLimit("51")
+	require.Error(testingT, err)
+
+	_, err = parseVisitAttributionLimit("invalid")
+	require.Error(testingT, err)
+}
+
+func TestParseVisitEngagementDays(testingT *testing.T) {
+	days, err := parseVisitEngagementDays("")
+	require.NoError(testingT, err)
+	require.Equal(testingT, visitEngagementDefaultDays, days)
+
+	days, err = parseVisitEngagementDays("45")
+	require.NoError(testingT, err)
+	require.Equal(testingT, 45, days)
+
+	_, err = parseVisitEngagementDays("0")
+	require.Error(testingT, err)
+
+	_, err = parseVisitEngagementDays("91")
+	require.Error(testingT, err)
+
+	_, err = parseVisitEngagementDays("invalid")
+	require.Error(testingT, err)
 }
 
 func TestSanitizeWidgetBubbleSide(testingT *testing.T) {

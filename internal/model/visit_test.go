@@ -31,8 +31,19 @@ func TestNewSiteVisitValidatesAndNormalizes(testingT *testing.T) {
 	require.Equal(testingT, "127.0.0.1", visit.IP)
 	require.Equal(testingT, "ua", visit.UserAgent)
 	require.Equal(testingT, "https://ref.example.com/page", visit.Referrer)
+	require.False(testingT, visit.IsBot)
 	require.Equal(testingT, VisitStatusRecorded, visit.Status)
 	require.Equal(testingT, now, visit.OccurredAt)
+}
+
+func TestNewSiteVisitStoresBotFlag(testingT *testing.T) {
+	visit, err := NewSiteVisit(SiteVisitInput{
+		SiteID: "site-1",
+		URL:    "https://example.com/welcome",
+		IsBot:  true,
+	})
+	require.NoError(testingT, err)
+	require.True(testingT, visit.IsBot)
 }
 
 func TestNewSiteVisitRequiresValidInputs(testingT *testing.T) {

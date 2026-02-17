@@ -35,6 +35,7 @@ type SiteVisit struct {
 	IP         string    `gorm:"size:64"`
 	UserAgent  string    `gorm:"size:400"`
 	Referrer   string    `gorm:"size:500"`
+	IsBot      bool      `gorm:"not null;default:false;index"`
 	Status     string    `gorm:"size:20"`
 	OccurredAt time.Time `gorm:"not null;index"`
 }
@@ -47,6 +48,7 @@ type SiteVisitInput struct {
 	IP        string
 	UserAgent string
 	Referrer  string
+	IsBot     bool
 	Occurred  time.Time
 }
 
@@ -84,6 +86,7 @@ func NewSiteVisit(input SiteVisitInput) (SiteVisit, error) {
 		IP:         ip,
 		UserAgent:  userAgent,
 		Referrer:   referrer,
+		IsBot:      input.IsBot,
 		Status:     VisitStatusRecorded,
 		OccurredAt: occurred,
 	}, nil

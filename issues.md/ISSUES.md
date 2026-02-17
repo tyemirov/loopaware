@@ -483,3 +483,16 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Update query to use `coalesce(length(avatar_data), 0) as avatar_size` (or equivalent) and add regression coverage; `make ci` passes.
   Resolution: Updated the snapshot select to `coalesce(length(avatar_data), 0) as avatar_size`, and added coverage proving users with `NULL` `avatar_data` no longer break subsequent auth requests.
   Verification: `make ci` passes.
+
+- [x] [LA-438] Improve collected traffic statistics with trend, attribution, and engagement analytics.
+  Priority: P1
+  Goal: Expand dashboard/API traffic insights beyond raw totals so operators can analyze traffic changes over time, source quality, and visit depth.
+  Deliverable: Add `/api/sites/:id/visits/trend`, `/api/sites/:id/visits/attribution`, and `/api/sites/:id/visits/engagement` with validated query parameters, update docs, and add integration + Go coverage for normal and edge paths.
+  Docs/Refs:
+  - `internal/api/site_stats.go`
+  - `internal/api/admin.go`
+  - `tests/specs/api-admin.spec.js`
+  - `README.md`
+  - `ARCHITECTURE.md`
+  Resolution: Implemented traffic trend, attribution, and engagement aggregations (including bot exclusion and bounded query options), wired authenticated handlers and routing, updated public docs, and added comprehensive Go + Playwright coverage for endpoint behavior and helper/path edge cases.
+  Verification: `timeout -k 10s -s SIGKILL 350s make test`, `timeout -k 10s -s SIGKILL 350s make lint`, `timeout -k 10s -s SIGKILL 350s make ci`, and `timeout -k 10s -s SIGKILL 350s make coverage` all pass (`total: 95.1%`).
