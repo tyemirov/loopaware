@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-origin site configuration support for widget, subscription, and traffic collection.
 
 ### Changed
-- Release automation now publishes GitHub Pages and Docker images only on pushed version tags matching `vXX.XX.XX`.
+- Release automation now publishes GitHub Pages and Docker images only on pushed version tags matching `vMAJOR.MINOR.PATCH`.
 
 ### Fixed
 - Top-pages aggregation now merges trailing-slash and non-trailing-slash paths and normalizes all-slash paths to `/`.
