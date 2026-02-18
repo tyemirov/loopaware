@@ -562,3 +562,19 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Update `.github/workflows/pages.yml` and `.github/workflows/docker-image.yml` to run on tag pushes, enforce `vXX.XX.XX` format, and document the release process in `README.md`.
   Resolution: Switched both release workflows to `push.tags: v*.*.*`, added runtime validation that requires `^v[0-9]{2}\\.[0-9]{2}\\.[0-9]{2}$`, and documented the release tagging/publish process under `README.md` "Release publishing"; Docker publishing now also tags images with `${{ github.ref_name }}`.
   Verification: `timeout -k 350s -s SIGKILL 350s make test`, `timeout -k 350s -s SIGKILL 350s make lint`, and `timeout -k 350s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-446] Merge trailing-slash and non-trailing-slash paths in top-pages traffic stats.
+  Priority: P0
+  Symptom: Traffic top-pages output treated `/path/` and `/path` as separate entries, which split counts for the same human-visible page.
+  Goal: Canonicalize top-page path keys so trailing-slash variants collapse into one URI bucket while preserving root `/`.
+  Deliverable: Update top-pages aggregation in `internal/api/site_stats.go` and add regression coverage for `/decisioning` and `/civilization` slash variants.
+  Resolution: Updated top-pages query grouping to use canonical path expression `CASE WHEN path = / THEN / ELSE RTRIM(path, /) END`, so `/x/` and `/x` merge under `/x`; added regression test `TestDatabaseSiteStatisticsProviderTopPagesMergesTrailingSlashVariants` and aligned integration expectation in `tests/specs/traffic-integration.spec.js`.
+  Verification: `timeout -k 350s -s SIGKILL 350s make test`, `timeout -k 350s -s SIGKILL 350s make lint`, and `timeout -k 350s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-447] Normalize all-slash top-page paths to root `/` to prevent empty traffic buckets.
+  Priority: P0
+  Symptom: The trailing-slash canonicalization added in LA-446 trimmed `//` and similar all-slash paths to an empty string, so top-pages could emit a blank `path` key instead of `/`.
+  Goal: Keep root-like slash-only paths grouped under `/` while retaining trailing-slash merge behavior for non-root paths.
+  Deliverable: Update canonical path SQL expression in `internal/api/site_stats.go` and add regression coverage for `/` + `//` aggregation.
+  Resolution: Changed canonical grouping to `CASE WHEN TRIM(path, '/') = '' THEN '/' ELSE RTRIM(path, '/') END` so all-slash variants normalize to `/`; added regression test `TestDatabaseSiteStatisticsProviderTopPagesNormalizesAllSlashPathsToRoot`.
+  Verification: `timeout -k 10s -s SIGKILL 350s make test`, `timeout -k 10s -s SIGKILL 350s make lint`, and `timeout -k 10s -s SIGKILL 350s make ci` pass.

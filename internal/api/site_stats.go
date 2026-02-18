@@ -21,6 +21,9 @@ const (
 	visitTrendDateTimeTZ  = "2006-01-02 15:04:05-07"
 	visitTrendDateTime    = "2006-01-02 15:04:05"
 
+	topPagesCanonicalPathExpression = "CASE WHEN TRIM(path, '/') = '' THEN '/' ELSE RTRIM(path, '/') END"
+	topPagesSelectStatement         = topPagesCanonicalPathExpression + " as path, COUNT(*) as visit_count"
+
 	defaultVisitAttributionLimit = 10
 	maxVisitAttributionLimit     = 50
 	attributionUTMSourceKey      = "utm_source"
@@ -135,10 +138,10 @@ func (provider *DatabaseSiteStatisticsProvider) TopPages(ctx context.Context, si
 	var results []TopPageStat
 	err := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
-		Select("path, COUNT(*) as visit_count").
+		Select(topPagesSelectStatement).
 		Where("site_id = ? AND path <> '' AND is_bot = ?", siteID, false).
-		Group("path").
-		Order("visit_count desc").
+		Group(topPagesCanonicalPathExpression).
+		Order("visit_count desc, path asc").
 		Limit(limit).
 		Scan(&results).Error
 	return results, err
