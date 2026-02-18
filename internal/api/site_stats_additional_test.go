@@ -116,6 +116,34 @@ func TestDatabaseSiteStatisticsProviderTopPagesMergesTrailingSlashVariants(testi
 	require.Equal(testingT, int64(3), visitCountByPath["/civilization"])
 }
 
+func TestDatabaseSiteStatisticsProviderTopPagesNormalizesAllSlashPathsToRoot(testingT *testing.T) {
+	database := openFaviconManagerDatabase(testingT)
+	siteID := storage.NewID()
+
+	rootVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/",
+		Occurred: time.Date(2024, 1, 3, 1, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, visitErr)
+	doubleSlashVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com//",
+		Occurred: time.Date(2024, 1, 3, 2, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, visitErr)
+
+	require.NoError(testingT, database.Create(&rootVisit).Error)
+	require.NoError(testingT, database.Create(&doubleSlashVisit).Error)
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	results, err := provider.TopPages(context.Background(), siteID, 10)
+	require.NoError(testingT, err)
+	require.Len(testingT, results, 1)
+	require.Equal(testingT, "/", results[0].Path)
+	require.Equal(testingT, int64(2), results[0].VisitCount)
+}
+
 func TestSiteHandlersRecentVisitsDefaultsLimit(testingT *testing.T) {
 	database := openFaviconManagerDatabase(testingT)
 	siteID := storage.NewID()

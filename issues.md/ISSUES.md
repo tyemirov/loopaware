@@ -570,3 +570,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Update top-pages aggregation in `internal/api/site_stats.go` and add regression coverage for `/decisioning` and `/civilization` slash variants.
   Resolution: Updated top-pages query grouping to use canonical path expression `CASE WHEN path = / THEN / ELSE RTRIM(path, /) END`, so `/x/` and `/x` merge under `/x`; added regression test `TestDatabaseSiteStatisticsProviderTopPagesMergesTrailingSlashVariants` and aligned integration expectation in `tests/specs/traffic-integration.spec.js`.
   Verification: `timeout -k 350s -s SIGKILL 350s make test`, `timeout -k 350s -s SIGKILL 350s make lint`, and `timeout -k 350s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-447] Normalize all-slash top-page paths to root `/` to prevent empty traffic buckets.
+  Priority: P0
+  Symptom: The trailing-slash canonicalization added in LA-446 trimmed `//` and similar all-slash paths to an empty string, so top-pages could emit a blank `path` key instead of `/`.
+  Goal: Keep root-like slash-only paths grouped under `/` while retaining trailing-slash merge behavior for non-root paths.
+  Deliverable: Update canonical path SQL expression in `internal/api/site_stats.go` and add regression coverage for `/` + `//` aggregation.
+  Resolution: Changed canonical grouping to `CASE WHEN TRIM(path, '/') = '' THEN '/' ELSE RTRIM(path, '/') END` so all-slash variants normalize to `/`; added regression test `TestDatabaseSiteStatisticsProviderTopPagesNormalizesAllSlashPathsToRoot`.
+  Verification: `timeout -k 10s -s SIGKILL 350s make test`, `timeout -k 10s -s SIGKILL 350s make lint`, and `timeout -k 10s -s SIGKILL 350s make ci` pass.

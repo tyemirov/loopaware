@@ -21,7 +21,7 @@ const (
 	visitTrendDateTimeTZ  = "2006-01-02 15:04:05-07"
 	visitTrendDateTime    = "2006-01-02 15:04:05"
 
-	topPagesCanonicalPathExpression = "CASE WHEN path = '/' THEN '/' ELSE RTRIM(path, '/') END"
+	topPagesCanonicalPathExpression = "CASE WHEN TRIM(path, '/') = '' THEN '/' ELSE RTRIM(path, '/') END"
 	topPagesSelectStatement         = topPagesCanonicalPathExpression + " as path, COUNT(*) as visit_count"
 
 	defaultVisitAttributionLimit = 10
