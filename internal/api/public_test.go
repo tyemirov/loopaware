@@ -65,14 +65,14 @@ func buildAPIHarness(testingT *testing.T, notifier api.FeedbackNotifier, subscri
 	feedbackBroadcaster := api.NewFeedbackEventBroadcaster()
 	subscriptionEvents := api.NewSubscriptionTestEventBroadcaster()
 	publicHandlers := api.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, notifier, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", emailSender)
-	router.POST("/api/feedback", publicHandlers.CreateFeedback)
-	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
-	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
-	router.POST("/api/subscriptions/unsubscribe", publicHandlers.Unsubscribe)
-	router.GET("/api/widget-config", publicHandlers.WidgetConfig)
-	router.GET("/api/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
-	router.GET("/api/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
-	router.GET("/api/visits", publicHandlers.CollectVisit)
+	router.POST("/public/feedback", publicHandlers.CreateFeedback)
+	router.POST("/public/subscriptions", publicHandlers.CreateSubscription)
+	router.POST("/public/subscriptions/confirm", publicHandlers.ConfirmSubscription)
+	router.POST("/public/subscriptions/unsubscribe", publicHandlers.Unsubscribe)
+	router.GET("/public/widget-config", publicHandlers.WidgetConfig)
+	router.GET("/public/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
+	router.GET("/public/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
+	router.GET("/public/visits", publicHandlers.CollectVisit)
 
 	testingT.Cleanup(feedbackBroadcaster.Close)
 	testingT.Cleanup(subscriptionEvents.Close)
@@ -121,7 +121,7 @@ func TestFeedbackFlow(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 	site := insertSite(testingT, api.database, "Moving Maps", "http://example.com", "admin@example.com")
 
-	widgetConfigResp := performJSONRequest(testingT, api.router, http.MethodGet, "/api/widget-config?site_id="+site.ID, nil, map[string]string{
+	widgetConfigResp := performJSONRequest(testingT, api.router, http.MethodGet, "/public/widget-config?site_id="+site.ID, nil, map[string]string{
 		"Origin": site.AllowedOrigin,
 	})
 	require.Equal(testingT, http.StatusOK, widgetConfigResp.Code)
@@ -135,14 +135,14 @@ func TestFeedbackFlow(testingT *testing.T) {
 	require.Equal(testingT, "right", widgetConfigPayload.WidgetBubbleSide)
 	require.Equal(testingT, 16, widgetConfigPayload.WidgetBubbleBottomOffset)
 
-	okFeedback := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	okFeedback := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "user@example.com",
 		"message": "Hello from tests",
 	}, map[string]string{"Origin": "http://example.com"})
 	require.Equal(testingT, http.StatusOK, okFeedback.Code)
 
-	badOrigin := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	badOrigin := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "user@example.com",
 		"message": "attack",
@@ -159,7 +159,7 @@ func TestRateLimitingReturnsTooManyRequests(testingT *testing.T) {
 
 	tooMany := 0
 	for attemptIndex := 0; attemptIndex < 12; attemptIndex++ {
-		resp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", payload, headers)
+		resp := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", payload, headers)
 		if resp.Code == http.StatusTooManyRequests {
 			tooMany++
 			break
@@ -192,7 +192,7 @@ func TestConfirmSubscriptionReportsUpdateError(testingT *testing.T) {
 		api.database.Callback().Update().Remove(callbackName)
 	})
 
-	response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   subscriber.Email,
 	}, map[string]string{"Origin": site.AllowedOrigin})
@@ -209,7 +209,7 @@ func TestWidgetConfigHonorsCustomPlacement(testingT *testing.T) {
 			"widget_bubble_bottom_offset_px": 48,
 		}).Error)
 
-	widgetConfigResp := performJSONRequest(testingT, api.router, http.MethodGet, "/api/widget-config?site_id="+site.ID, nil, map[string]string{
+	widgetConfigResp := performJSONRequest(testingT, api.router, http.MethodGet, "/public/widget-config?site_id="+site.ID, nil, map[string]string{
 		"Origin": site.AllowedOrigin,
 	})
 	require.Equal(testingT, http.StatusOK, widgetConfigResp.Code)
@@ -227,14 +227,14 @@ func TestWidgetConfigHonorsCustomPlacement(testingT *testing.T) {
 func TestWidgetConfigRequiresValidSiteId(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 
-	resp := performJSONRequest(testingT, api.router, http.MethodGet, "/api/widget-config", nil, nil)
+	resp := performJSONRequest(testingT, api.router, http.MethodGet, "/public/widget-config", nil, nil)
 	require.Equal(testingT, http.StatusBadRequest, resp.Code)
 
-	respUnknown := performJSONRequest(testingT, api.router, http.MethodGet, "/api/widget-config?site_id=does-not-exist", nil, nil)
+	respUnknown := performJSONRequest(testingT, api.router, http.MethodGet, "/public/widget-config?site_id=does-not-exist", nil, nil)
 	require.Equal(testingT, http.StatusNotFound, respUnknown.Code)
 
 	site := insertSite(testingT, api.database, "Widget Config Origin", "http://widget-config.example", "owner@example.com")
-	respForbidden := performJSONRequest(testingT, api.router, http.MethodGet, "/api/widget-config?site_id="+site.ID, nil, map[string]string{
+	respForbidden := performJSONRequest(testingT, api.router, http.MethodGet, "/public/widget-config?site_id="+site.ID, nil, map[string]string{
 		"Origin": "http://evil.example",
 	})
 	require.Equal(testingT, http.StatusForbidden, respForbidden.Code)
@@ -244,7 +244,7 @@ func TestCreateFeedbackValidatesPayload(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 	site := insertSite(testingT, api.database, "Validation", "http://valid.example", "owner@example.com")
 
-	respMissing := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	respMissing := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "",
 		"message": "",
@@ -252,7 +252,7 @@ func TestCreateFeedbackValidatesPayload(testingT *testing.T) {
 	require.Equal(testingT, http.StatusBadRequest, respMissing.Code)
 
 	bad := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/feedback", bytes.NewBufferString("{"))
+	req := httptest.NewRequest(http.MethodPost, "/public/feedback", bytes.NewBufferString("{"))
 	req.Header.Set("Origin", "http://valid.example")
 	req.Header.Set("Content-Type", "application/json")
 	api.router.ServeHTTP(bad, req)
@@ -265,14 +265,14 @@ func TestCreateFeedbackAcceptsWidgetAllowedOrigins(testingT *testing.T) {
 	site.WidgetAllowedOrigins = "http://widget.example"
 	require.NoError(testingT, api.database.Save(&site).Error)
 
-	ok := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	ok := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "person@example.com",
 		"message": "Hello",
 	}, map[string]string{"Origin": "http://widget.example"})
 	require.Equal(testingT, http.StatusOK, ok.Code)
 
-	badOrigin := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	badOrigin := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "person@example.com",
 		"message": "Hello",
@@ -296,7 +296,7 @@ func TestCreateFeedbackRateLimited(testingT *testing.T) {
 
 	rateLimited := false
 	for attemptIndex := 0; attemptIndex < 12; attemptIndex++ {
-		response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", payload, headers)
+		response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", payload, headers)
 		if response.Code == http.StatusTooManyRequests {
 			rateLimited = true
 			break
@@ -317,7 +317,7 @@ func TestCreateFeedbackReportsSaveError(testingT *testing.T) {
 		_ = api.database.Callback().Create().Remove("force_feedback_error")
 	})
 
-	response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "person@example.com",
 		"message": "Hello",
@@ -329,7 +329,7 @@ func TestCreateSubscriptionStoresSubscriber(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 	site := insertSite(testingT, api.database, "Newsletter", "http://newsletter.example", "owner@example.com")
 
-	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "Subscriber@example.com",
 		"name":    "Subscriber",
@@ -347,13 +347,13 @@ func TestCreateSubscriptionValidatesInput(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 	site := insertSite(testingT, api.database, "Validation Subscription", "http://sub.example", "owner@example.com")
 
-	respMissing := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	respMissing := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": "",
 		"email":   "",
 	}, map[string]string{"Origin": "http://sub.example"})
 	require.Equal(testingT, http.StatusBadRequest, respMissing.Code)
 
-	respInvalidEmail := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	respInvalidEmail := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "not-an-email",
 	}, map[string]string{"Origin": "http://sub.example"})
@@ -364,19 +364,19 @@ func TestCreateSubscriptionBlocksOriginAndDuplicates(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 	site := insertSite(testingT, api.database, "Origins", "http://origin.example", "owner@example.com")
 
-	badOrigin := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	badOrigin := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "user@example.com",
 	}, map[string]string{"Origin": "http://evil.example"})
 	require.Equal(testingT, http.StatusForbidden, badOrigin.Code)
 
-	ok := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	ok := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "user@example.com",
 	}, map[string]string{"Origin": "http://origin.example"})
 	require.Equal(testingT, http.StatusOK, ok.Code)
 
-	duplicate := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	duplicate := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "user@example.com",
 	}, map[string]string{"Origin": "http://origin.example"})
@@ -412,7 +412,7 @@ func TestCreateSubscriptionSupportsMultipleAllowedOrigins(testingT *testing.T) {
 	for _, testCase := range testCases {
 		testingT.Run(testCase.name, func(testingT *testing.T) {
 			subscriberEmailValue := storage.NewID() + "@example.com"
-			response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+			response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 				"site_id": site.ID,
 				"email":   subscriberEmailValue,
 			}, map[string]string{"Origin": testCase.originHeader})
@@ -427,13 +427,13 @@ func TestCreateSubscriptionAcceptsSubscribeAllowedOrigins(testingT *testing.T) {
 	site.SubscribeAllowedOrigins = "http://newsletter.example"
 	require.NoError(testingT, api.database.Save(&site).Error)
 
-	ok := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	ok := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   storage.NewID() + "@example.com",
 	}, map[string]string{"Origin": "http://newsletter.example"})
 	require.Equal(testingT, http.StatusOK, ok.Code)
 
-	badOrigin := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	badOrigin := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   storage.NewID() + "@example.com",
 	}, map[string]string{"Origin": "http://evil.example"})
@@ -444,13 +444,13 @@ func TestConfirmAndUnsubscribeSubscription(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 	site := insertSite(testingT, api.database, "Confirmations", "http://confirm.example", "owner@example.com")
 
-	createResp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	createResp := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "confirm@example.com",
 	}, map[string]string{"Origin": "http://confirm.example"})
 	require.Equal(testingT, http.StatusOK, createResp.Code)
 
-	confirm := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	confirm := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   "confirm@example.com",
 	}, map[string]string{"Origin": "http://confirm.example"})
@@ -461,7 +461,7 @@ func TestConfirmAndUnsubscribeSubscription(testingT *testing.T) {
 	require.Equal(testingT, model.SubscriberStatusConfirmed, confirmed.Status)
 	require.False(testingT, confirmed.ConfirmedAt.IsZero())
 
-	unsubscribe := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/unsubscribe", map[string]any{
+	unsubscribe := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/unsubscribe", map[string]any{
 		"site_id": site.ID,
 		"email":   "confirm@example.com",
 	}, map[string]string{"Origin": "http://confirm.example"})
@@ -472,13 +472,13 @@ func TestConfirmAndUnsubscribeSubscription(testingT *testing.T) {
 	require.Equal(testingT, model.SubscriberStatusUnsubscribed, unsubscribed.Status)
 	require.False(testingT, unsubscribed.UnsubscribedAt.IsZero())
 
-	reconfirm := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	reconfirm := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   "confirm@example.com",
 	}, map[string]string{"Origin": "http://confirm.example"})
 	require.Equal(testingT, http.StatusConflict, reconfirm.Code)
 
-	missing := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	missing := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   "absent@example.com",
 	}, map[string]string{"Origin": "http://confirm.example"})
@@ -491,7 +491,7 @@ func TestSubscriptionConfirmationEmailConfirmsViaLink(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, subscriptionNotifier, emailSender)
 	site := insertSite(testingT, api.database, "Confirmation Email", "http://confirm.example", "owner@example.com")
 
-	createResp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	createResp := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "confirm@example.com",
 	}, map[string]string{"Origin": "http://confirm.example"})
@@ -527,7 +527,7 @@ func TestSubscriptionConfirmationEmailConfirmsViaLink(testingT *testing.T) {
 		UnsubscribeURL string `json:"unsubscribe_url"`
 	}
 
-	confirmResponse := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/confirm-link?token="+url.QueryEscape(tokenValue), nil, nil)
+	confirmResponse := performJSONRequest(testingT, api.router, http.MethodGet, "/public/subscriptions/confirm-link?token="+url.QueryEscape(tokenValue), nil, nil)
 	require.Equal(testingT, http.StatusOK, confirmResponse.Code)
 	var confirmPayload subscriptionLinkPayload
 	require.NoError(testingT, json.Unmarshal(confirmResponse.Body.Bytes(), &confirmPayload))
@@ -535,7 +535,7 @@ func TestSubscriptionConfirmationEmailConfirmsViaLink(testingT *testing.T) {
 	require.Equal(testingT, site.AllowedOrigin, confirmPayload.OpenURL)
 	require.Contains(testingT, confirmPayload.UnsubscribeURL, "/subscriptions/unsubscribe?token=")
 
-	unsubscribeResponse := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/unsubscribe-link?token="+url.QueryEscape(tokenValue), nil, nil)
+	unsubscribeResponse := performJSONRequest(testingT, api.router, http.MethodGet, "/public/subscriptions/unsubscribe-link?token="+url.QueryEscape(tokenValue), nil, nil)
 	require.Equal(testingT, http.StatusOK, unsubscribeResponse.Code)
 	var unsubscribePayload subscriptionLinkPayload
 	require.NoError(testingT, json.Unmarshal(unsubscribeResponse.Body.Bytes(), &unsubscribePayload))
@@ -558,14 +558,14 @@ func TestCreateSubscriptionDoesNotNotifyUntilConfirmed(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, subscriptionNotifier, nil)
 	site := insertSite(testingT, api.database, "Notify", "http://notify.example", "owner@example.com")
 
-	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notify.example"})
 	require.Equal(testingT, http.StatusOK, resp.Code)
 	require.Equal(testingT, 0, subscriptionNotifier.CallCount())
 
-	confirm := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	confirm := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notify.example"})
@@ -594,18 +594,18 @@ func TestSubscriptionNotificationFailureDoesNotBlock(testingT *testing.T) {
 	testingT.Cleanup(feedbackBroadcaster.Close)
 	publicHandlers := api.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", nil)
 
-	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
-	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
+	router.POST("/public/subscriptions", publicHandlers.CreateSubscription)
+	router.POST("/public/subscriptions/confirm", publicHandlers.ConfirmSubscription)
 
 	site := insertSite(testingT, database, "Notify Fail", "http://notifyfail.example", "owner@example.com")
-	resp := performJSONRequest(testingT, router, http.MethodPost, "/api/subscriptions", map[string]any{
+	resp := performJSONRequest(testingT, router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notifyfail.example"})
 	require.Equal(testingT, http.StatusOK, resp.Code)
 	require.Equal(testingT, 0, subscriptionNotifier.CallCount())
 
-	confirm := performJSONRequest(testingT, router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	confirm := performJSONRequest(testingT, router, http.MethodPost, "/public/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notifyfail.example"})
@@ -633,18 +633,18 @@ func TestSubscriptionNotificationsCanBeDisabled(testingT *testing.T) {
 	feedbackBroadcaster := api.NewFeedbackEventBroadcaster()
 	testingT.Cleanup(feedbackBroadcaster.Close)
 	publicHandlers := api.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, false, "http://loopaware.test", "unit-test-session-secret", nil)
-	router.POST("/api/subscriptions", publicHandlers.CreateSubscription)
-	router.POST("/api/subscriptions/confirm", publicHandlers.ConfirmSubscription)
+	router.POST("/public/subscriptions", publicHandlers.CreateSubscription)
+	router.POST("/public/subscriptions/confirm", publicHandlers.ConfirmSubscription)
 
 	site := insertSite(testingT, database, "Notify Off", "http://notifyoff.example", "owner@example.com")
-	resp := performJSONRequest(testingT, router, http.MethodPost, "/api/subscriptions", map[string]any{
+	resp := performJSONRequest(testingT, router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notifyoff.example"})
 	require.Equal(testingT, http.StatusOK, resp.Code)
 	require.Equal(testingT, 0, subscriptionNotifier.CallCount())
 
-	confirm := performJSONRequest(testingT, router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	confirm := performJSONRequest(testingT, router, http.MethodPost, "/public/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   "notify@example.com",
 	}, map[string]string{"Origin": "http://notifyoff.example"})
@@ -657,7 +657,7 @@ func TestCollectVisitStoresRecord(testingT *testing.T) {
 	site := insertSite(testingT, api.database, "Visits", "http://visits.example", "owner@example.com")
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://visits.example/page", nil)
+	request := httptest.NewRequest(http.MethodGet, "/public/visits?site_id="+site.ID+"&url=http://visits.example/page", nil)
 	request.Header.Set("Origin", "http://visits.example")
 
 	api.router.ServeHTTP(recorder, request)
@@ -676,13 +676,13 @@ func TestCollectVisitValidatesInput(testingT *testing.T) {
 	site := insertSite(testingT, api.database, "Visits Invalid", "http://visits.example", "owner@example.com")
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=//bad-url", nil)
+	request := httptest.NewRequest(http.MethodGet, "/public/visits?site_id="+site.ID+"&url=//bad-url", nil)
 	request.Header.Set("Origin", "http://visits.example")
 	api.router.ServeHTTP(recorder, request)
 	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
 
 	recorder = httptest.NewRecorder()
-	request = httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://visits.example/page", nil)
+	request = httptest.NewRequest(http.MethodGet, "/public/visits?site_id="+site.ID+"&url=http://visits.example/page", nil)
 	request.Header.Set("Origin", "http://evil.example")
 	api.router.ServeHTTP(recorder, request)
 	require.Equal(testingT, http.StatusOK, recorder.Code)
@@ -693,7 +693,7 @@ func TestCollectVisitRequiresMatchingURLOrigin(testingT *testing.T) {
 	site := insertSite(testingT, api.database, "Visits Mismatch", "http://visits.example", "owner@example.com")
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://other.example/page", nil)
+	request := httptest.NewRequest(http.MethodGet, "/public/visits?site_id="+site.ID+"&url=http://other.example/page", nil)
 	request.Header.Set("Referer", "http://dashboard.loopaware.test/app/sites/"+site.ID+"/traffic-test")
 
 	api.router.ServeHTTP(recorder, request)
@@ -707,13 +707,13 @@ func TestCollectVisitAcceptsTrafficAllowedOrigins(testingT *testing.T) {
 	require.NoError(testingT, api.database.Save(&site).Error)
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://pixel.example/page", nil)
+	request := httptest.NewRequest(http.MethodGet, "/public/visits?site_id="+site.ID+"&url=http://pixel.example/page", nil)
 	request.Header.Set("Origin", "http://pixel.example")
 	api.router.ServeHTTP(recorder, request)
 	require.Equal(testingT, http.StatusOK, recorder.Code)
 
 	recorder = httptest.NewRecorder()
-	request = httptest.NewRequest(http.MethodGet, "/api/visits?site_id="+site.ID+"&url=http://evil.example/page", nil)
+	request = httptest.NewRequest(http.MethodGet, "/public/visits?site_id="+site.ID+"&url=http://evil.example/page", nil)
 	request.Header.Set("Origin", "http://evil.example")
 	api.router.ServeHTTP(recorder, request)
 	require.Equal(testingT, http.StatusForbidden, recorder.Code)
@@ -850,7 +850,7 @@ func TestCreateFeedbackDispatchesNotificationToOwner(testingT *testing.T) {
 		Where("id = ?", site.ID).
 		Update("creator_email", "registrar@example.com").Error)
 
-	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "submitter@example.com",
 		"message": "Dispatch notification",
@@ -877,7 +877,7 @@ func TestCreateFeedbackRecordsNoDeliveryOnNotifierFailure(testingT *testing.T) {
 	api := buildAPIHarness(testingT, notifier, nil, nil)
 	site := insertSite(testingT, api.database, "Failure Delivery", "http://failure.example", "owner@example.com")
 
-	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "submitter@example.com",
 		"message": "Expect failure",
@@ -899,7 +899,7 @@ func TestCreateFeedbackPersistsFailureDeliveryWhenNotifierReturnsStatusAndError(
 	api := buildAPIHarness(testingT, notifier, nil, nil)
 	site := insertSite(testingT, api.database, "Failure Delivery Status", "http://failure-status.example", "owner@example.com")
 
-	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/api/feedback", map[string]any{
+	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
 		"site_id": site.ID,
 		"contact": "submitter@example.com",
 		"message": "Expect failure status",

@@ -298,7 +298,7 @@ test.describe("admin api messages and subscribers", () => {
     const site = await createAdminSite("Messages");
     await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/feedback",
+      path: "/public/feedback",
       method: "POST",
       origin: site.allowed_origin,
       clientIP: "10.1.1.1",
@@ -332,7 +332,7 @@ test.describe("admin api messages and subscribers", () => {
     const email = buildUniqueEmail("subscriber-list");
     await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/subscriptions",
+      path: "/public/subscriptions",
       method: "POST",
       origin: site.allowed_origin,
       clientIP: "10.2.2.1",
@@ -357,7 +357,7 @@ test.describe("admin api messages and subscribers", () => {
     const email = buildUniqueEmail("subscriber-update");
     const { payload: created } = await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/subscriptions",
+      path: "/public/subscriptions",
       method: "POST",
       origin: site.allowed_origin,
       clientIP: "10.2.2.2",
@@ -382,7 +382,7 @@ test.describe("admin api messages and subscribers", () => {
     const email = buildUniqueEmail("subscriber-delete");
     const { payload: created } = await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/subscriptions",
+      path: "/public/subscriptions",
       method: "POST",
       origin: site.allowed_origin,
       clientIP: "10.2.2.3",
@@ -406,7 +406,7 @@ test.describe("admin api messages and subscribers", () => {
     const email = buildUniqueEmail("subscriber-export");
     await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/subscriptions",
+      path: "/public/subscriptions",
       method: "POST",
       origin: site.allowed_origin,
       clientIP: "10.2.2.4",
@@ -442,7 +442,7 @@ test.describe("admin api visit stats", () => {
     const site = await createAdminSite("Visit Stats", { allowedOrigin: baseOrigin });
     await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${baseOrigin}/visit`)}`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${baseOrigin}/visit`)}`,
       method: "GET",
       origin: baseOrigin
     });
@@ -468,13 +468,13 @@ test.describe("admin api visit stats", () => {
     const site = await createAdminSite("Visit Trend");
     await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/visit-a`)}&visitor_id=11111111-1111-1111-1111-111111111111`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/visit-a`)}&visitor_id=11111111-1111-1111-1111-111111111111`,
       method: "GET",
       headers: { Origin: site.allowed_origin },
     });
     await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/visit-b`)}&visitor_id=22222222-2222-2222-2222-222222222222`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/visit-b`)}&visitor_id=22222222-2222-2222-2222-222222222222`,
       method: "GET",
       headers: { Origin: site.allowed_origin },
     });
@@ -500,25 +500,25 @@ test.describe("admin api visit stats", () => {
 
     await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/pricing?utm_source=google&utm_medium=cpc&utm_campaign=spring`)}`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/pricing?utm_source=google&utm_medium=cpc&utm_campaign=spring`)}`,
       method: "GET",
       headers: { Origin: site.allowed_origin },
     });
     await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/signup?utm_source=google&utm_medium=cpc&utm_campaign=spring`)}`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/signup?utm_source=google&utm_medium=cpc&utm_campaign=spring`)}`,
       method: "GET",
       headers: { Origin: site.allowed_origin },
     });
     await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/blog`)}&referrer=${encodeURIComponent("https://news.ycombinator.com/item?id=1")}`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/blog`)}&referrer=${encodeURIComponent("https://news.ycombinator.com/item?id=1")}`,
       method: "GET",
       headers: { Origin: site.allowed_origin },
     });
     await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/crawl?utm_source=bot&utm_medium=automation&utm_campaign=spider`)}`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/crawl?utm_source=bot&utm_medium=automation&utm_campaign=spider`)}`,
       method: "GET",
       headers: {
         Origin: site.allowed_origin,
@@ -554,25 +554,25 @@ test.describe("admin api visit stats", () => {
 
     await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/first`)}&visitor_id=11111111-1111-1111-1111-111111111111`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/first`)}&visitor_id=11111111-1111-1111-1111-111111111111`,
       method: "GET",
       headers: { Origin: site.allowed_origin },
     });
     await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/second`)}&visitor_id=22222222-2222-2222-2222-222222222222`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/second`)}&visitor_id=22222222-2222-2222-2222-222222222222`,
       method: "GET",
       headers: { Origin: site.allowed_origin },
     });
     await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/third`)}&visitor_id=22222222-2222-2222-2222-222222222222`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/third`)}&visitor_id=22222222-2222-2222-2222-222222222222`,
       method: "GET",
       headers: { Origin: site.allowed_origin },
     });
     await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/bot`)}&visitor_id=33333333-3333-3333-3333-333333333333`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/bot`)}&visitor_id=33333333-3333-3333-3333-333333333333`,
       method: "GET",
       headers: {
         Origin: site.allowed_origin,

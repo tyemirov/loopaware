@@ -25,21 +25,21 @@ configure CORS on the API to allow the frontend origin.
 
 ### Feedback
 
-1. The widget (`/widget.js`) posts JSON feedback to `POST /api/feedback`.
+1. The widget (`/widget.js`) posts JSON feedback to `POST /public/feedback`.
 2. The server validates the request origin against the site’s `allowed_origin` list (space/comma-separated values).
 3. Feedback is persisted and broadcast over SSE (`GET /api/sites/feedback/events`) for dashboard updates.
 
 ### Subscriptions (double opt-in)
 
-1. The subscribe form (`/subscribe.js`) posts JSON to `POST /api/subscriptions`, which records a pending subscriber.
+1. The subscribe form (`/subscribe.js`) posts JSON to `POST /public/subscriptions`, which records a pending subscriber.
 2. A confirmation email is sent containing `GET /subscriptions/confirm?token=...`.
 3. Visiting the link confirms the subscriber and (when enabled) notifies the site owner.
-4. Unsubscribe is available either via the origin-validated JSON endpoint (`POST /api/subscriptions/unsubscribe`) or the
+4. Unsubscribe is available either via the origin-validated JSON endpoint (`POST /public/subscriptions/unsubscribe`) or the
    token-based link (`GET /subscriptions/unsubscribe?token=...`) from the confirmation UI.
 
 ### Traffic
 
-1. The pixel (`/pixel.js`) sends beacons to `GET /api/visits` with a stable visitor ID and the current URL.
+1. The pixel (`/pixel.js`) sends beacons to `GET /public/visits` with a stable visitor ID and the current URL.
 2. The server stores visits (including bot classification metadata) and serves aggregated stats to the dashboard (`GET /api/sites/:id/visits/stats`).
 3. Daily trend data is available at `GET /api/sites/:id/visits/trend` (default 7 days; optional `days` query parameter).
 4. Attribution breakdown data is available at `GET /api/sites/:id/visits/attribution` (default top 10 values per dimension; optional `limit` query parameter up to 50).

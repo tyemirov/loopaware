@@ -10,8 +10,19 @@ const adminUser = buildAdminUser(config);
 const cookie = buildSessionCookie(config, adminUser);
 let site;
 
-async function openTrafficPage(page, siteId) {
-  await page.goto(`/traffic-integration/?site_id=${encodeURIComponent(siteId)}`, { waitUntil: 'domcontentloaded' });
+function buildCrossOriginAPIOrigin(baseURL) {
+  const parsedBaseURL = new URL(baseURL);
+  const alternateHostname = parsedBaseURL.hostname === 'localhost' ? '127.0.0.1' : 'localhost';
+  return `${parsedBaseURL.protocol}//${alternateHostname}${parsedBaseURL.port ? `:${parsedBaseURL.port}` : ''}`;
+}
+
+async function openTrafficPage(page, siteId, options) {
+  const resolvedOptions = options || {};
+  const params = new URLSearchParams({ site_id: siteId });
+  if (resolvedOptions.apiOrigin) {
+    params.set('api_origin', resolvedOptions.apiOrigin);
+  }
+  await page.goto(`/traffic-integration/?${params.toString()}`, { waitUntil: 'domcontentloaded' });
 }
 
 test.beforeAll(async () => {
@@ -96,4 +107,12 @@ test('traffic integration keeps visitor id across reloads', async ({ page }) => 
   await page.waitForFunction(() => localStorage.getItem('loopaware_visitor_id'));
   const secondId = await page.evaluate(() => localStorage.getItem('loopaware_visitor_id'));
   expect(firstId).toBe(secondId);
+});
+
+test('traffic integration uses GET pixel request for cross-origin api_origin', async ({ page }) => {
+  const crossOriginAPIOrigin = buildCrossOriginAPIOrigin(config.baseURL);
+  const visitRequestPromise = page.waitForRequest((request) => request.url().includes('/public/visits'));
+  await openTrafficPage(page, site.id, { apiOrigin: crossOriginAPIOrigin });
+  const visitRequest = await visitRequestPromise;
+  expect(visitRequest.method()).toBe('GET');
 });

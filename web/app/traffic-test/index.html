@@ -171,7 +171,7 @@
                 </div>
 
                 <p class="text-muted small mt-4 mb-0">
-                  Sample visits are sent as a pixel request to <code>/api/visits</code> with your URL as the <code>url</code> query param.
+                  Sample visits are sent as a pixel request to <code>/public/visits</code> with your URL as the <code>url</code> query param.
                 </p>
               </div>
             </div>
@@ -225,7 +225,7 @@
         var previewVisitorStorageKey = "loopaware_traffic_preview_visitor_id";
         var cachedVisitorId = "";
         var statsEndpoint = apiUrl("/api/sites/" + encodeURIComponent(siteId) + "/visits/stats");
-        var visitsEndpoint = apiUrl("/api/visits");
+        var visitsEndpoint = apiUrl("/public/visits");
 
         function authFetch(resource, init) {
           if (typeof window.apiFetch === "function") {

@@ -148,7 +148,7 @@ export async function createFeedback(config, site, payload) {
   const clientIP = payload && payload.clientIP ? payload.clientIP : nextClientIP();
   const { response, payload: body } = await apiRequest({
     baseURL: config.baseURL,
-    path: '/api/feedback',
+    path: '/public/feedback',
     method: 'POST',
     origin: resolveSiteOrigin(site),
     clientIP,
@@ -168,7 +168,7 @@ export async function createSubscription(config, site, payload) {
   const clientIP = payload && payload.clientIP ? payload.clientIP : nextClientIP();
   const { response, payload: body } = await apiRequest({
     baseURL: config.baseURL,
-    path: '/api/subscriptions',
+    path: '/public/subscriptions',
     method: 'POST',
     origin: resolveSiteOrigin(site),
     clientIP,
@@ -189,7 +189,7 @@ export async function confirmSubscription(config, site, payload) {
   const clientIP = payload && payload.clientIP ? payload.clientIP : nextClientIP();
   const { response, payload: body } = await apiRequest({
     baseURL: config.baseURL,
-    path: '/api/subscriptions/confirm',
+    path: '/public/subscriptions/confirm',
     method: 'POST',
     origin: resolveSiteOrigin(site),
     clientIP,
@@ -207,7 +207,7 @@ export async function confirmSubscription(config, site, payload) {
 export async function confirmSubscriptionLink(config, token) {
   const { response, payload } = await apiRequest({
     baseURL: config.baseURL,
-    path: `/api/subscriptions/confirm-link?token=${encodeURIComponent(token)}`,
+    path: `/public/subscriptions/confirm-link?token=${encodeURIComponent(token)}`,
     method: 'GET'
   });
   if (!response.ok) {
@@ -231,7 +231,7 @@ export async function collectVisit(config, site, payload) {
   }
   const { response, payload: body } = await apiRequest({
     baseURL: config.baseURL,
-    path: `/api/visits?${urlParams.toString()}`,
+    path: `/public/visits?${urlParams.toString()}`,
     method: 'GET',
     origin: resolveSiteOrigin(site),
     clientIP,

@@ -260,7 +260,7 @@
     }
     var requestURL =
       widgetApiOrigin +
-      "/api/widget-config?site_id=" +
+      "/public/widget-config?site_id=" +
       encodeURIComponent(widgetSiteId);
     return fetch(requestURL, {
       method: "GET",
@@ -764,8 +764,8 @@
         });
 
         var endpoint = widgetApiOrigin
-          ? (widgetApiOrigin + "/api/feedback")
-          : (location.protocol + "//" + location.host + "/api/feedback");
+          ? (widgetApiOrigin + "/public/feedback")
+          : (location.protocol + "//" + location.host + "/public/feedback");
 
         var targetEndpoint = endpoint;
         if (widgetTestEndpointOverride) {
