@@ -578,3 +578,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Update canonical path SQL expression in `internal/api/site_stats.go` and add regression coverage for `/` + `//` aggregation.
   Resolution: Changed canonical grouping to `CASE WHEN TRIM(path, '/') = '' THEN '/' ELSE RTRIM(path, '/') END` so all-slash variants normalize to `/`; added regression test `TestDatabaseSiteStatisticsProviderTopPagesNormalizesAllSlashPathsToRoot`.
   Verification: `timeout -k 10s -s SIGKILL 350s make test`, `timeout -k 10s -s SIGKILL 350s make lint`, and `timeout -k 10s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-448] Accept standard semantic release tags (`vMAJOR.MINOR.PATCH`) in publish workflows.
+  Priority: P0
+  Symptom: The release workflows enforced a zero-padded two-digit tag format (`vXX.XX.XX`), so valid SemVer tags such as `v0.1.0` were rejected and release jobs failed before publishing.
+  Goal: Align release automation and documentation with standard SemVer tag format expected by operators.
+  Deliverable: Update release-tag validation in `.github/workflows/pages.yml` and `.github/workflows/docker-image.yml` to accept `vMAJOR.MINOR.PATCH`, and refresh release documentation wording/examples.
+  Resolution: Replaced strict two-digit regex checks with semantic-version validation (`^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$`) in both workflows, and updated `README.md` + `CHANGELOG.md` references from `vXX.XX.XX` to `vMAJOR.MINOR.PATCH` with `v0.1.0` examples.
+  Verification: `timeout -k 10s -s SIGKILL 350s make lint` and `timeout -k 10s -s SIGKILL 350s make ci` pass.
