@@ -96,7 +96,7 @@ test('traffic integration reports top pages', async ({ page }) => {
   const stats = await fetchVisitStats(config, cookie, site.id);
   const topPages = Array.isArray(stats.top_pages) ? stats.top_pages : [];
   const paths = topPages.map((entry) => entry.path);
-  expect(paths).toContain('/traffic-integration/');
+  expect(paths).toContain('/traffic-integration');
 });
 
 test('traffic integration keeps visitor id across reloads', async ({ page }) => {

@@ -55,6 +55,67 @@ func TestDatabaseSiteStatisticsProviderTopPagesSkipsBlankSite(testingT *testing.
 	require.Nil(testingT, results)
 }
 
+func TestDatabaseSiteStatisticsProviderTopPagesMergesTrailingSlashVariants(testingT *testing.T) {
+	database := openFaviconManagerDatabase(testingT)
+	siteID := storage.NewID()
+
+	decisioningTrailingOne, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/decisioning/",
+		Occurred: time.Date(2024, 1, 2, 1, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, visitErr)
+	decisioningTrailingTwo, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/decisioning/",
+		Occurred: time.Date(2024, 1, 2, 2, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, visitErr)
+	decisioningPlain, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/decisioning",
+		Occurred: time.Date(2024, 1, 2, 3, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, visitErr)
+	civilizationTrailingOne, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/civilization/",
+		Occurred: time.Date(2024, 1, 2, 4, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, visitErr)
+	civilizationTrailingTwo, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/civilization/",
+		Occurred: time.Date(2024, 1, 2, 5, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, visitErr)
+	civilizationPlain, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/civilization",
+		Occurred: time.Date(2024, 1, 2, 6, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, visitErr)
+
+	require.NoError(testingT, database.Create(&decisioningTrailingOne).Error)
+	require.NoError(testingT, database.Create(&decisioningTrailingTwo).Error)
+	require.NoError(testingT, database.Create(&decisioningPlain).Error)
+	require.NoError(testingT, database.Create(&civilizationTrailingOne).Error)
+	require.NoError(testingT, database.Create(&civilizationTrailingTwo).Error)
+	require.NoError(testingT, database.Create(&civilizationPlain).Error)
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	results, err := provider.TopPages(context.Background(), siteID, 10)
+	require.NoError(testingT, err)
+	require.Len(testingT, results, 2)
+
+	visitCountByPath := make(map[string]int64, len(results))
+	for _, result := range results {
+		visitCountByPath[result.Path] = result.VisitCount
+	}
+	require.Equal(testingT, int64(3), visitCountByPath["/decisioning"])
+	require.Equal(testingT, int64(3), visitCountByPath["/civilization"])
+}
+
 func TestSiteHandlersRecentVisitsDefaultsLimit(testingT *testing.T) {
 	database := openFaviconManagerDatabase(testingT)
 	siteID := storage.NewID()
