@@ -101,6 +101,20 @@
     }
   }
 
+  function shouldUseBeacon(requestURL) {
+    if (!navigator.sendBeacon) {
+      return false;
+    }
+    try {
+      if (!window.location || !window.location.origin) {
+        return true;
+      }
+      var parsedRequestURL = new URL(requestURL, window.location.href);
+      return parsedRequestURL.origin === window.location.origin;
+    } catch(parseError) {}
+    return false;
+  }
+
   function collect() {
     var script = resolveScriptTag();
     var siteId = resolveSiteId(script);
@@ -118,13 +132,15 @@
     var visitorId = getVisitorId();
     if (visitorId) params.set("visitor_id", visitorId);
 
-    if (navigator.sendBeacon) {
+    var requestURL = target + "?" + params.toString();
+
+    if (shouldUseBeacon(requestURL)) {
       var blob = new Blob([], { type: "application/octet-stream" });
-      navigator.sendBeacon(target + "?" + params.toString(), blob);
+      navigator.sendBeacon(requestURL, blob);
       return;
     }
     var img = new Image(1, 1);
-    img.src = target + "?" + params.toString();
+    img.src = requestURL;
   }
 
   try {
