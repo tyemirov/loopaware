@@ -157,13 +157,21 @@
         return "";
       }
       var pathname = parsed.pathname || "";
-      var normalizedPathname = pathname === "/" ? "" : pathname.replace(/\/+$/, "");
-      return origin.replace(/\/+$/, "") + normalizedPathname;
+      if (pathname && pathname !== "/") {
+        return "";
+      }
+      if (parsed.search || parsed.hash) {
+        return "";
+      }
+      if (parsed.username || parsed.password) {
+        return "";
+      }
+      return origin.replace(/\/+$/, "");
     } catch(parseError) {}
     return "";
   }
 
-  function resolveWidgetAPIOrigin(scriptTag) {
+  function resolveWidgetAPIOriginCandidate(scriptTag) {
     if (!scriptTag) {
       return "";
     }
@@ -184,6 +192,11 @@
         }
       }
     } catch(parseError){}
+    return String(candidate || "").trim();
+  }
+
+  function resolveWidgetAPIOrigin(scriptTag) {
+    var candidate = resolveWidgetAPIOriginCandidate(scriptTag);
     return normalizeWidgetAPIOrigin(candidate);
   }
 
@@ -1003,7 +1016,13 @@
 
   function initializeWidget() {
     var scriptTag = resolveWidgetScriptTag();
-    widgetApiOrigin = resolveWidgetAPIOrigin(scriptTag) || resolveWidgetOrigin(scriptTag);
+    var configuredWidgetAPIOrigin = resolveWidgetAPIOriginCandidate(scriptTag);
+    var normalizedWidgetAPIOrigin = normalizeWidgetAPIOrigin(configuredWidgetAPIOrigin);
+    if (configuredWidgetAPIOrigin && !normalizedWidgetAPIOrigin) {
+      console.error("widget.js: invalid api_origin; expected scheme://host[:port] without path");
+      return;
+    }
+    widgetApiOrigin = normalizedWidgetAPIOrigin || resolveWidgetOrigin(scriptTag);
     widgetSiteId = resolveWidgetSiteId(scriptTag);
     if (!widgetSiteId) {
       console.error("widget.js: missing site_id");

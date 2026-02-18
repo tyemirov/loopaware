@@ -70,50 +70,21 @@ test('widget submission shows success message', async ({ page }) => {
   await expect(page.locator('#mp-feedback-panel')).toContainText('Thanks! Sent.');
 });
 
-test('widget keeps api_origin path prefixes for config and feedback', async ({ page }) => {
+test('widget rejects api_origin values with path prefixes', async ({ page }) => {
   const apiOriginWithPath = `${config.baseOrigin}/app`;
-  let widgetConfigRequestCaptured = false;
-  let feedbackRequestCaptured = false;
-
-  await page.route('**/app/api/widget-config**', async (route) => {
-    const requestURL = new URL(route.request().url());
-    if (requestURL.searchParams.get('site_id') === site.id) {
-      widgetConfigRequestCaptured = true;
+  /** @type {string[]} */
+  const consoleErrors = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
     }
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        site_id: site.id,
-        widget_bubble_side: 'right',
-        widget_bubble_bottom_offset: 16
-      })
-    });
   });
 
-  await page.route('**/app/api/feedback', async (route) => {
-    if (route.request().method() === 'POST') {
-      const payload = route.request().postDataJSON();
-      if (payload && payload.site_id === site.id) {
-        feedbackRequestCaptured = true;
-      }
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ status: 'ok' })
-    });
-  });
+  const params = new URLSearchParams({ site_id: site.id, api_origin: apiOriginWithPath });
+  await page.goto(`/widget-integration/?${params.toString()}`, { waitUntil: 'domcontentloaded' });
 
-  await openWidgetPage(page, site.id, { apiOrigin: apiOriginWithPath });
-  await page.locator('#mp-feedback-bubble').click();
-  await page.locator('#mp-feedback-contact').fill('widget@example.com');
-  await page.locator('#mp-feedback-message').fill('Widget feedback');
-  await page.locator('#mp-feedback-panel button:has-text("Send")').click();
-
-  await expect.poll(() => widgetConfigRequestCaptured).toBe(true);
-  await expect.poll(() => feedbackRequestCaptured).toBe(true);
-  await expect(page.locator('#mp-feedback-panel')).toContainText('Thanks! Sent.');
+  await expect.poll(() => consoleErrors.some((entry) => entry.includes('invalid api_origin'))).toBe(true);
+  await expect(page.locator('#mp-feedback-bubble')).toHaveCount(0);
 });
 
 test('widget branding link uses expected label and href', async ({ page }) => {

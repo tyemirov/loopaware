@@ -514,3 +514,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Update `web/widget.js` API origin normalization and add Playwright coverage that proves widget config + feedback requests use path-prefixed `api_origin` values.
   Resolution: `web/widget.js` now preserves parsed pathname segments (trimming trailing slashes) when normalizing `api_origin`; added `tests/specs/widget-integration.spec.js` coverage (`widget keeps api_origin path prefixes for config and feedback`) that intercepts `/app/api/widget-config` and `/app/api/feedback`.
   Verification: `timeout -k 10s -s SIGKILL 350s make ci` passes (253 Playwright tests).
+
+- [x] [LA-440] Enforce strict-origin semantics for widget `api_origin` (no path support).
+  Priority: P0
+  Symptom: Allowing path-bearing `api_origin` values blurred contract semantics and diverged from `subscribe.js`/`pixel.js`, where `api_origin` is origin-only (`scheme://host[:port]`).
+  Goal: Make widget `api_origin` strict and explicit: accept only absolute origins, reject values containing path/query/hash, and avoid hidden fallback behavior.
+  Deliverable: Update `web/widget.js` to reject invalid `api_origin` values at initialization and replace path-prefix integration coverage with a strict-origin rejection assertion.
+  Resolution: Widget initialization now logs a clear error and aborts when `api_origin` is not a strict origin; Playwright coverage now asserts path-bearing `api_origin` values are rejected and do not render the widget bubble.
+  Verification: `timeout -k 10s -s SIGKILL 350s make ci` passes (253 Playwright tests).
