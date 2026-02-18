@@ -746,26 +746,38 @@ func isOriginAllowed(allowedOrigin string, originHeader string, refererHeader st
 		return true
 	}
 
-	normalizedOriginHeader := strings.TrimSpace(originHeader)
-	normalizedRefererHeader := strings.TrimSpace(refererHeader)
-	normalizedURLValue := strings.TrimSpace(urlValue)
+	normalizedOriginHeader := normalizeOriginValue(originHeader)
+	normalizedRefererHeader := normalizeOriginValue(refererHeader)
+	normalizedURLValue := normalizeOriginValue(urlValue)
 
 	for _, configuredOrigin := range allowedOrigins {
-		normalizedAllowedOrigin := strings.TrimSpace(configuredOrigin)
+		normalizedAllowedOrigin := normalizeOriginValue(configuredOrigin)
 		if normalizedAllowedOrigin == "" {
 			continue
 		}
 		if normalizedOriginHeader == normalizedAllowedOrigin {
 			return true
 		}
-		if normalizedURLValue != "" && strings.HasPrefix(normalizedURLValue, normalizedAllowedOrigin) {
+		if normalizedURLValue != "" && normalizedURLValue == normalizedAllowedOrigin {
 			return true
 		}
-		if normalizedRefererHeader != "" && strings.HasPrefix(normalizedRefererHeader, normalizedAllowedOrigin) {
+		if normalizedRefererHeader != "" && normalizedRefererHeader == normalizedAllowedOrigin {
 			return true
 		}
 	}
 	return false
+}
+
+func normalizeOriginValue(rawValue string) string {
+	trimmedValue := strings.TrimSpace(rawValue)
+	if trimmedValue == "" {
+		return ""
+	}
+	parsedURL, parseErr := url.Parse(trimmedValue)
+	if parseErr != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return ""
+	}
+	return strings.ToLower(parsedURL.Scheme) + "://" + strings.ToLower(parsedURL.Host)
 }
 
 func findSubscriber(ctx context.Context, database *gorm.DB, siteID string, email string) (model.Subscriber, error) {

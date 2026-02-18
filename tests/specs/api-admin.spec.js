@@ -463,4 +463,156 @@ test.describe("admin api visit stats", () => {
     expect(response.status).toBe(403);
     expect(payload.error).toBe("not_authorized");
   });
+
+  test("returns visit trend", async () => {
+    const site = await createAdminSite("Visit Trend");
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/visit-a`)}&visitor_id=11111111-1111-1111-1111-111111111111`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/visit-b`)}&visitor_id=22222222-2222-2222-2222-222222222222`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}/visits/trend`,
+      method: "GET"
+    });
+    expect(response.status).toBe(200);
+    expect(payload.days).toBe(7);
+    expect(Array.isArray(payload.trend)).toBe(true);
+    expect(payload.trend).toHaveLength(7);
+
+    const todayUTC = new Date().toISOString().slice(0, 10);
+    const todayPoint = payload.trend.find((entry) => entry.date === todayUTC);
+    expect(todayPoint).toBeTruthy();
+    expect(todayPoint.page_views).toBeGreaterThanOrEqual(2);
+    expect(todayPoint.unique_visitors).toBeGreaterThanOrEqual(2);
+  });
+
+  test("returns visit attribution breakdown", async () => {
+    const site = await createAdminSite("Visit Attribution");
+
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/pricing?utm_source=google&utm_medium=cpc&utm_campaign=spring`)}`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/signup?utm_source=google&utm_medium=cpc&utm_campaign=spring`)}`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/blog`)}&referrer=${encodeURIComponent("https://news.ycombinator.com/item?id=1")}`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/crawl?utm_source=bot&utm_medium=automation&utm_campaign=spider`)}`,
+      method: "GET",
+      headers: {
+        Origin: site.allowed_origin,
+        "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+      },
+    });
+
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}/visits/attribution`,
+      method: "GET"
+    });
+    expect(response.status).toBe(200);
+    expect(payload.limit).toBe(10);
+
+    const sourceCounts = Object.fromEntries((payload.sources || []).map((entry) => [entry.value, entry.visit_count]));
+    expect(sourceCounts.google).toBe(2);
+    expect(sourceCounts["news.ycombinator.com"]).toBe(1);
+    expect(sourceCounts.bot).toBeUndefined();
+
+    const mediumCounts = Object.fromEntries((payload.mediums || []).map((entry) => [entry.value, entry.visit_count]));
+    expect(mediumCounts.cpc).toBe(2);
+    expect(mediumCounts.referral).toBe(1);
+    expect(mediumCounts.automation).toBeUndefined();
+
+    const campaignCounts = Object.fromEntries((payload.campaigns || []).map((entry) => [entry.value, entry.visit_count]));
+    expect(campaignCounts.spring).toBe(2);
+    expect(campaignCounts.none).toBe(1);
+    expect(campaignCounts.spider).toBeUndefined();
+  });
+
+  test("returns visit engagement metrics", async () => {
+    const site = await createAdminSite("Visit Engagement");
+
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/first`)}&visitor_id=11111111-1111-1111-1111-111111111111`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/second`)}&visitor_id=22222222-2222-2222-2222-222222222222`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/third`)}&visitor_id=22222222-2222-2222-2222-222222222222`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/bot`)}&visitor_id=33333333-3333-3333-3333-333333333333`,
+      method: "GET",
+      headers: {
+        Origin: site.allowed_origin,
+        "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+      },
+    });
+
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}/visits/engagement`,
+      method: "GET"
+    });
+    expect(response.status).toBe(200);
+    expect(payload.days).toBe(30);
+    expect(payload.tracked_visitor_count).toBe(2);
+    expect(payload.returning_visitor_count).toBe(1);
+    expect(payload.returning_visitor_rate).toBe(0.5);
+    expect(payload.average_pages_per_visitor).toBe(1.5);
+    expect(payload.depth_distribution.single_page).toBe(1);
+    expect(payload.depth_distribution.two_to_three_pages).toBe(1);
+    expect(payload.depth_distribution.four_to_seven_pages).toBe(0);
+    expect(payload.depth_distribution.eight_or_more_pages).toBe(0);
+  });
+
+  test("rejects invalid engagement days", async () => {
+    const site = await createAdminSite("Visit Engagement Invalid");
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}/visits/engagement?days=0`,
+      method: "GET"
+    });
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("invalid_days");
+  });
+
+  test("rejects invalid attribution limit", async () => {
+    const site = await createAdminSite("Visit Attribution Invalid");
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}/visits/attribution?limit=0`,
+      method: "GET"
+    });
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("invalid_limit");
+  });
 });

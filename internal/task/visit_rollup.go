@@ -56,7 +56,7 @@ func (job *VisitRollupJob) aggregatePreviousDay(ctx context.Context) error {
 	err := job.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
 		Select("site_id, COUNT(*) as page_views, COUNT(distinct visitor_id) as unique_visitors").
-		Where("occurred_at >= ? AND occurred_at < ?", start, end).
+		Where("occurred_at >= ? AND occurred_at < ? AND is_bot = ?", start, end, false).
 		Group("site_id").
 		Scan(&results).Error
 	if err != nil {

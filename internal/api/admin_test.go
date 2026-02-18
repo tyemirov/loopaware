@@ -55,6 +55,9 @@ type failingStatsProvider struct {
 	visitCountError         error
 	uniqueVisitorCountError error
 	topPagesError           error
+	visitTrendError         error
+	visitAttributionError   error
+	visitEngagementError    error
 }
 
 func (provider *failingStatsProvider) FeedbackCount(context.Context, string) (int64, error) {
@@ -75,6 +78,18 @@ func (provider *failingStatsProvider) UniqueVisitorCount(context.Context, string
 
 func (provider *failingStatsProvider) TopPages(context.Context, string, int) ([]api.TopPageStat, error) {
 	return nil, provider.topPagesError
+}
+
+func (provider *failingStatsProvider) VisitTrend(context.Context, string, int) ([]api.DailyVisitTrendStat, error) {
+	return nil, provider.visitTrendError
+}
+
+func (provider *failingStatsProvider) VisitAttribution(context.Context, string, int) (api.VisitAttributionBreakdown, error) {
+	return api.VisitAttributionBreakdown{}, provider.visitAttributionError
+}
+
+func (provider *failingStatsProvider) VisitEngagement(context.Context, string, int) (api.VisitEngagementStat, error) {
+	return api.VisitEngagementStat{}, provider.visitEngagementError
 }
 
 func newSiteTestHarness(testingT *testing.T) siteTestHarness {
@@ -2012,6 +2027,441 @@ func TestVisitStatsReturnsErrorOnTopPages(testingT *testing.T) {
 	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
 
 	handlers.VisitStats(context)
+	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
+}
+
+func TestVisitTrendRequiresAuth(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	feedbackBroadcaster := api.NewFeedbackEventBroadcaster()
+	siteHandlers := api.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	router.GET("/api/sites/:id/visits/trend", func(context *gin.Context) {
+		siteHandlers.VisitTrend(context)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sites/123/visits/trend", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(testingT, http.StatusUnauthorized, rec.Code)
+}
+
+func TestVisitTrendReturnsSevenDayTrend(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	site := model.Site{ID: storage.NewID(), Name: "Trend", AllowedOrigin: "http://example.com", OwnerEmail: testAdminEmailAddress, CreatorEmail: testAdminEmailAddress}
+	require.NoError(testingT, database.Create(&site).Error)
+	startOfToday := time.Now().UTC().Truncate(24 * time.Hour)
+	yesterday := startOfToday.AddDate(0, 0, -1)
+
+	yesterdayVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://example.com/yesterday",
+		VisitorID: storage.NewID(),
+		Occurred:  yesterday.Add(2 * time.Hour),
+		IsBot:     false,
+	})
+	require.NoError(testingT, visitErr)
+	todayVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://example.com/today",
+		VisitorID: storage.NewID(),
+		Occurred:  startOfToday.Add(3 * time.Hour),
+		IsBot:     false,
+	})
+	require.NoError(testingT, visitErr)
+	todayBotVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://example.com/today",
+		VisitorID: storage.NewID(),
+		Occurred:  startOfToday.Add(4 * time.Hour),
+		IsBot:     true,
+	})
+	require.NoError(testingT, visitErr)
+	require.NoError(testingT, database.Create(&yesterdayVisit).Error)
+	require.NoError(testingT, database.Create(&todayVisit).Error)
+	require.NoError(testingT, database.Create(&todayBotVisit).Error)
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	feedbackBroadcaster := api.NewFeedbackEventBroadcaster()
+	siteHandlers := api.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	router.GET("/api/sites/:id/visits/trend", func(context *gin.Context) {
+		context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+		siteHandlers.VisitTrend(context)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sites/"+site.ID+"/visits/trend", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(testingT, http.StatusOK, rec.Code)
+
+	var payload api.VisitTrendResponse
+	require.NoError(testingT, json.Unmarshal(rec.Body.Bytes(), &payload))
+	require.Equal(testingT, site.ID, payload.SiteID)
+	require.Equal(testingT, 7, payload.Days)
+	require.Len(testingT, payload.Trend, 7)
+
+	trendByDate := make(map[string]api.VisitTrendPoint, len(payload.Trend))
+	for _, point := range payload.Trend {
+		trendByDate[point.Date] = point
+	}
+	require.Equal(testingT, int64(1), trendByDate[yesterday.Format("2006-01-02")].PageViews)
+	require.Equal(testingT, int64(1), trendByDate[yesterday.Format("2006-01-02")].UniqueVisitors)
+	require.Equal(testingT, int64(1), trendByDate[startOfToday.Format("2006-01-02")].PageViews)
+	require.Equal(testingT, int64(1), trendByDate[startOfToday.Format("2006-01-02")].UniqueVisitors)
+}
+
+func TestVisitTrendRejectsInvalidDays(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Invalid Days",
+		AllowedOrigin: "http://trend-invalid.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/trend?days=0", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	harness.handlers.VisitTrend(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+	require.Contains(testingT, recorder.Body.String(), "invalid_days")
+}
+
+func TestVisitTrendReturnsErrorOnProviderFailure(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Trend Error",
+		AllowedOrigin: "http://trend-error.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	statsProvider := &failingStatsProvider{visitTrendError: errors.New(testStatsErrorMessage)}
+	handlers := api.NewSiteHandlers(harness.database, zap.NewNop(), testWidgetBaseURL, nil, statsProvider, nil)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/trend", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	handlers.VisitTrend(context)
+	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
+}
+
+func TestVisitAttributionRequiresAuth(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	feedbackBroadcaster := api.NewFeedbackEventBroadcaster()
+	siteHandlers := api.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	router.GET("/api/sites/:id/visits/attribution", func(context *gin.Context) {
+		siteHandlers.VisitAttribution(context)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sites/123/visits/attribution", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(testingT, http.StatusUnauthorized, rec.Code)
+}
+
+func TestVisitAttributionReturnsBreakdown(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	site := model.Site{ID: storage.NewID(), Name: "Attribution", AllowedOrigin: "http://example.com", OwnerEmail: testAdminEmailAddress, CreatorEmail: testAdminEmailAddress}
+	require.NoError(testingT, database.Create(&site).Error)
+
+	adVisitOne, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://example.com/pricing?utm_source=google&utm_medium=cpc&utm_campaign=spring_launch",
+		VisitorID: storage.NewID(),
+		IsBot:     false,
+	})
+	require.NoError(testingT, visitErr)
+	adVisitTwo, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://example.com/signup?utm_source=google&utm_medium=cpc&utm_campaign=spring_launch",
+		VisitorID: storage.NewID(),
+		IsBot:     false,
+	})
+	require.NoError(testingT, visitErr)
+	referralVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://example.com/blog",
+		Referrer:  "https://news.ycombinator.com/item?id=1",
+		VisitorID: storage.NewID(),
+		IsBot:     false,
+	})
+	require.NoError(testingT, visitErr)
+	directVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://example.com/contact",
+		VisitorID: storage.NewID(),
+		IsBot:     false,
+	})
+	require.NoError(testingT, visitErr)
+	botVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://example.com/crawler?utm_source=botnet&utm_medium=automation&utm_campaign=crawl",
+		VisitorID: storage.NewID(),
+		IsBot:     true,
+	})
+	require.NoError(testingT, visitErr)
+	require.NoError(testingT, database.Create(&adVisitOne).Error)
+	require.NoError(testingT, database.Create(&adVisitTwo).Error)
+	require.NoError(testingT, database.Create(&referralVisit).Error)
+	require.NoError(testingT, database.Create(&directVisit).Error)
+	require.NoError(testingT, database.Create(&botVisit).Error)
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	feedbackBroadcaster := api.NewFeedbackEventBroadcaster()
+	siteHandlers := api.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	router.GET("/api/sites/:id/visits/attribution", func(context *gin.Context) {
+		context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+		siteHandlers.VisitAttribution(context)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sites/"+site.ID+"/visits/attribution", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(testingT, http.StatusOK, rec.Code)
+
+	var payload api.VisitAttributionResponse
+	require.NoError(testingT, json.Unmarshal(rec.Body.Bytes(), &payload))
+	require.Equal(testingT, site.ID, payload.SiteID)
+	require.Equal(testingT, 10, payload.Limit)
+
+	sourcesByValue := make(map[string]api.AttributionPoint, len(payload.Sources))
+	for _, point := range payload.Sources {
+		sourcesByValue[point.Value] = point
+	}
+	require.Equal(testingT, int64(2), sourcesByValue["google"].VisitCount)
+	require.Equal(testingT, int64(1), sourcesByValue["news.ycombinator.com"].VisitCount)
+	require.Equal(testingT, int64(1), sourcesByValue["direct"].VisitCount)
+	_, hasBotSource := sourcesByValue["botnet"]
+	require.False(testingT, hasBotSource)
+
+	mediumsByValue := make(map[string]api.AttributionPoint, len(payload.Mediums))
+	for _, point := range payload.Mediums {
+		mediumsByValue[point.Value] = point
+	}
+	require.Equal(testingT, int64(2), mediumsByValue["cpc"].VisitCount)
+	require.Equal(testingT, int64(1), mediumsByValue["referral"].VisitCount)
+	require.Equal(testingT, int64(1), mediumsByValue["direct"].VisitCount)
+	_, hasBotMedium := mediumsByValue["automation"]
+	require.False(testingT, hasBotMedium)
+
+	campaignsByValue := make(map[string]api.AttributionPoint, len(payload.Campaigns))
+	for _, point := range payload.Campaigns {
+		campaignsByValue[point.Value] = point
+	}
+	require.Equal(testingT, int64(2), campaignsByValue["spring_launch"].VisitCount)
+	require.Equal(testingT, int64(2), campaignsByValue["none"].VisitCount)
+	_, hasBotCampaign := campaignsByValue["crawl"]
+	require.False(testingT, hasBotCampaign)
+}
+
+func TestVisitAttributionRejectsInvalidLimit(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Invalid Attribution Limit",
+		AllowedOrigin: "http://attribution-invalid.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/attribution?limit=0", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	harness.handlers.VisitAttribution(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+	require.Contains(testingT, recorder.Body.String(), "invalid_limit")
+}
+
+func TestVisitAttributionReturnsErrorOnProviderFailure(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Attribution Error",
+		AllowedOrigin: "http://attribution-error.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	statsProvider := &failingStatsProvider{visitAttributionError: errors.New(testStatsErrorMessage)}
+	handlers := api.NewSiteHandlers(harness.database, zap.NewNop(), testWidgetBaseURL, nil, statsProvider, nil)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/attribution", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	handlers.VisitAttribution(context)
+	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
+}
+
+func TestVisitEngagementRequiresAuth(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	feedbackBroadcaster := api.NewFeedbackEventBroadcaster()
+	siteHandlers := api.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	router.GET("/api/sites/:id/visits/engagement", func(context *gin.Context) {
+		siteHandlers.VisitEngagement(context)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sites/123/visits/engagement", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(testingT, http.StatusUnauthorized, rec.Code)
+}
+
+func TestVisitEngagementReturnsMetrics(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	site := model.Site{ID: storage.NewID(), Name: "Engagement", AllowedOrigin: "http://example.com", OwnerEmail: testAdminEmailAddress, CreatorEmail: testAdminEmailAddress}
+	require.NoError(testingT, database.Create(&site).Error)
+	startOfToday := time.Now().UTC().Truncate(24 * time.Hour)
+
+	visitorOneVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://example.com/one",
+		VisitorID: "11111111-1111-1111-1111-111111111111",
+		Occurred:  startOfToday.Add(2 * time.Hour),
+		IsBot:     false,
+	})
+	require.NoError(testingT, visitErr)
+	visitorTwoVisitOne, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://example.com/two-a",
+		VisitorID: "22222222-2222-2222-2222-222222222222",
+		Occurred:  startOfToday.Add(3 * time.Hour),
+		IsBot:     false,
+	})
+	require.NoError(testingT, visitErr)
+	visitorTwoVisitTwo, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://example.com/two-b",
+		VisitorID: "22222222-2222-2222-2222-222222222222",
+		Occurred:  startOfToday.Add(3*time.Hour + 10*time.Second),
+		IsBot:     false,
+	})
+	require.NoError(testingT, visitErr)
+	botVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://example.com/bot",
+		VisitorID: "33333333-3333-3333-3333-333333333333",
+		Occurred:  startOfToday.Add(4 * time.Hour),
+		IsBot:     true,
+	})
+	require.NoError(testingT, visitErr)
+
+	require.NoError(testingT, database.Create(&visitorOneVisit).Error)
+	require.NoError(testingT, database.Create(&visitorTwoVisitOne).Error)
+	require.NoError(testingT, database.Create(&visitorTwoVisitTwo).Error)
+	require.NoError(testingT, database.Create(&botVisit).Error)
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	feedbackBroadcaster := api.NewFeedbackEventBroadcaster()
+	siteHandlers := api.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	router.GET("/api/sites/:id/visits/engagement", func(context *gin.Context) {
+		context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+		siteHandlers.VisitEngagement(context)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sites/"+site.ID+"/visits/engagement", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(testingT, http.StatusOK, rec.Code)
+
+	var payload api.VisitEngagementResponse
+	require.NoError(testingT, json.Unmarshal(rec.Body.Bytes(), &payload))
+	require.Equal(testingT, site.ID, payload.SiteID)
+	require.Equal(testingT, 30, payload.Days)
+	require.Equal(testingT, int64(2), payload.TrackedVisitorCount)
+	require.Equal(testingT, int64(1), payload.ReturningVisitorCount)
+	require.Equal(testingT, 0.5, payload.ReturningVisitorRate)
+	require.Equal(testingT, 1.5, payload.AveragePagesPerVisitor)
+	require.Equal(testingT, int64(1), payload.DepthDistribution.SinglePage)
+	require.Equal(testingT, int64(1), payload.DepthDistribution.TwoToThreePages)
+	require.Equal(testingT, int64(0), payload.DepthDistribution.FourToSevenPages)
+	require.Equal(testingT, int64(0), payload.DepthDistribution.EightOrMorePages)
+	require.Equal(testingT, int64(2), payload.ObservedTimeDistribution.UnderThirtySeconds)
+	require.Equal(testingT, int64(0), payload.ObservedTimeDistribution.ThirtyToOneNineteenSeconds)
+	require.Equal(testingT, int64(0), payload.ObservedTimeDistribution.OneTwentyToFiveNinetyNineSeconds)
+	require.Equal(testingT, int64(0), payload.ObservedTimeDistribution.SixHundredOrMoreSeconds)
+}
+
+func TestVisitEngagementRejectsInvalidDays(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Invalid Engagement Days",
+		AllowedOrigin: "http://engagement-invalid.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/engagement?days=0", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	harness.handlers.VisitEngagement(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+	require.Contains(testingT, recorder.Body.String(), "invalid_days")
+}
+
+func TestVisitEngagementReturnsErrorOnProviderFailure(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Engagement Error",
+		AllowedOrigin: "http://engagement-error.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	statsProvider := &failingStatsProvider{visitEngagementError: errors.New(testStatsErrorMessage)}
+	handlers := api.NewSiteHandlers(harness.database, zap.NewNop(), testWidgetBaseURL, nil, statsProvider, nil)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/engagement", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	handlers.VisitEngagement(context)
 	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
 }
 

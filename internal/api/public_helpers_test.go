@@ -62,7 +62,15 @@ func TestIsOriginAllowedMatchesHeadersAndURL(testingT *testing.T) {
 	require.True(testingT, isOriginAllowed(allowed, testPublicAllowedOriginPrimary, "", ""))
 	require.True(testingT, isOriginAllowed(allowed, "", testPublicAllowedOriginSecondary+"/page", ""))
 	require.True(testingT, isOriginAllowed(allowed, "", "", testPublicAllowedOriginPrimary+"/path"))
+	require.False(testingT, isOriginAllowed(allowed, "", testPublicAllowedOriginPrimary+".evil/path", ""))
+	require.False(testingT, isOriginAllowed(allowed, "", "", testPublicAllowedOriginPrimary+".evil/path"))
 	require.False(testingT, isOriginAllowed(allowed, "", "", "https://untrusted.example"))
+}
+
+func TestNormalizeOriginValue(testingT *testing.T) {
+	require.Equal(testingT, testPublicAllowedOriginPrimary, normalizeOriginValue(testPublicAllowedOriginPrimary+"/path?x=1"))
+	require.Equal(testingT, testPublicAllowedOriginPrimary, normalizeOriginValue("HTTPS://PRIMARY.EXAMPLE/path"))
+	require.Empty(testingT, normalizeOriginValue("not-a-url"))
 }
 
 func TestTruncatePreservesShortAndCutsLong(testingT *testing.T) {

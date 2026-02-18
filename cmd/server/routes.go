@@ -94,6 +94,9 @@ func registerBackendRoutes(
 	apiGroup.GET(apiRouteSiteFaviconEvents, siteHandlers.StreamFaviconUpdates)
 	apiGroup.GET(apiRouteSiteFeedbackEvents, siteHandlers.StreamFeedbackUpdates)
 	apiGroup.GET(apiRouteSiteVisitStats, siteHandlers.VisitStats)
+	apiGroup.GET(apiRouteSiteVisitTrend, siteHandlers.VisitTrend)
+	apiGroup.GET(apiRouteSiteVisitAttribution, siteHandlers.VisitAttribution)
+	apiGroup.GET(apiRouteSiteVisitEngagement, siteHandlers.VisitEngagement)
 
 	apiGroup.POST("/sites/:id/widget-test/feedback", widgetTestHandlers.SubmitWidgetTestFeedback)
 	apiGroup.GET("/sites/:id/subscribe-test/events", subscribeTestHandlers.StreamSubscriptionTestEvents)

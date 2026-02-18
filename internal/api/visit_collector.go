@@ -22,6 +22,24 @@ const (
 	visitQueryReferrer    = "referrer"
 )
 
+var visitBotUserAgentTokens = [...]string{
+	"bot",
+	"crawler",
+	"crawl",
+	"spider",
+	"slurp",
+	"bingpreview",
+	"duckduckbot",
+	"baiduspider",
+	"yandexbot",
+	"semrushbot",
+	"ahrefsbot",
+	"mj12bot",
+	"facebookexternalhit",
+	"telegrambot",
+	"petalbot",
+}
+
 // CollectVisit handles pixel-style visit recording.
 func (h *PublicHandlers) CollectVisit(context *gin.Context) {
 	siteID := strings.TrimSpace(context.Query(visitQuerySiteID))
@@ -38,14 +56,19 @@ func (h *PublicHandlers) CollectVisit(context *gin.Context) {
 
 	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
 	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
+	queryReferrer := strings.TrimSpace(context.Query(visitQueryReferrer))
+	referrerValue := refererHeader
+	if referrerValue == "" {
+		referrerValue = queryReferrer
+	}
 	rawURL := strings.TrimSpace(context.Query(visitQueryURL))
 	allowedOrigins := mergedAllowedOrigins(site.AllowedOrigin, site.TrafficAllowedOrigins)
 	if !isOriginAllowed(allowedOrigins, originHeader, refererHeader, rawURL) {
 		context.String(http.StatusForbidden, "/* origin_forbidden */")
 		return
 	}
-	if rawURL == "" && refererHeader != "" {
-		rawURL = refererHeader
+	if rawURL == "" && referrerValue != "" {
+		rawURL = referrerValue
 	}
 
 	visitorID := strings.TrimSpace(context.Query(visitQueryVisitorID))
@@ -53,13 +76,15 @@ func (h *PublicHandlers) CollectVisit(context *gin.Context) {
 		visitorID = strings.TrimSpace(context.GetHeader(visitHeaderVisitorID))
 	}
 
+	userAgentValue := context.Request.UserAgent()
 	input := model.SiteVisitInput{
 		SiteID:    site.ID,
 		URL:       rawURL,
 		VisitorID: visitorID,
 		IP:        context.ClientIP(),
-		UserAgent: context.Request.UserAgent(),
-		Referrer:  refererHeader,
+		UserAgent: userAgentValue,
+		Referrer:  referrerValue,
+		IsBot:     isLikelyBotUserAgent(userAgentValue),
 		Occurred:  time.Now().UTC(),
 	}
 
@@ -88,4 +113,17 @@ func (h *PublicHandlers) CollectVisit(context *gin.Context) {
 	context.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 	context.Header("Pragma", "no-cache")
 	context.Data(http.StatusOK, visitPixelContentType, []byte(visitPixelBody))
+}
+
+func isLikelyBotUserAgent(userAgentValue string) bool {
+	normalizedUserAgent := strings.ToLower(strings.TrimSpace(userAgentValue))
+	if normalizedUserAgent == "" {
+		return false
+	}
+	for _, userAgentToken := range visitBotUserAgentTokens {
+		if strings.Contains(normalizedUserAgent, userAgentToken) {
+			return true
+		}
+	}
+	return false
 }

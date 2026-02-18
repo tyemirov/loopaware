@@ -40,7 +40,10 @@ configure CORS on the API to allow the frontend origin.
 ### Traffic
 
 1. The pixel (`/pixel.js`) sends beacons to `GET /api/visits` with a stable visitor ID and the current URL.
-2. The server stores visits and serves aggregated stats to the dashboard (`GET /api/sites/:id/visits/stats`).
+2. The server stores visits (including bot classification metadata) and serves aggregated stats to the dashboard (`GET /api/sites/:id/visits/stats`).
+3. Daily trend data is available at `GET /api/sites/:id/visits/trend` (default 7 days; optional `days` query parameter).
+4. Attribution breakdown data is available at `GET /api/sites/:id/visits/attribution` (default top 10 values per dimension; optional `limit` query parameter up to 50).
+5. Engagement data is available at `GET /api/sites/:id/visits/engagement` (default 30 days; optional `days` query parameter up to 90).
 
 ## Migrations
 
