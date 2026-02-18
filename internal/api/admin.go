@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -49,7 +50,14 @@ const (
 	errorValueInvalidDays             = "invalid_days"
 	errorValueInvalidLimit            = "invalid_limit"
 
-	widgetScriptTemplate            = "<script defer src=\"%s/widget.js?site_id=%s\"></script>"
+	widgetScriptTemplate            = "<script defer src=\"%s\"></script>"
+	widgetScriptPath                = "/widget.js"
+	widgetQueryParameterSiteID      = "site_id"
+	widgetQueryParameterAPIOrigin   = "api_origin"
+	headerForwarded                 = "Forwarded"
+	headerXForwardedProto           = "X-Forwarded-Proto"
+	urlSchemeHTTP                   = "http"
+	urlSchemeHTTPS                  = "https"
 	siteFaviconURLTemplate          = "/api/sites/%s/favicon"
 	widgetBubbleSideRight           = "right"
 	widgetBubbleSideLeft            = "left"
@@ -336,7 +344,8 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 
 	handlers.scheduleFaviconFetch(site)
 
-	context.JSON(http.StatusOK, handlers.toSiteResponse(handlers.ginRequestContext(context), site, 0))
+	requestOrigin := resolveRequestOrigin(context, handlers.widgetBaseURL)
+	context.JSON(http.StatusOK, handlers.toSiteResponse(handlers.ginRequestContext(context), site, 0, requestOrigin))
 }
 
 func (handlers *SiteHandlers) ListSites(context *gin.Context) {
@@ -361,10 +370,11 @@ func (handlers *SiteHandlers) ListSites(context *gin.Context) {
 
 	responses := make([]siteResponse, 0, len(sites))
 	requestContext := handlers.ginRequestContext(context)
+	requestOrigin := resolveRequestOrigin(context, handlers.widgetBaseURL)
 	for _, site := range sites {
 		feedbackCount := handlers.feedbackCount(requestContext, site.ID)
 		handlers.scheduleFaviconFetch(site)
-		responses = append(responses, handlers.toSiteResponse(requestContext, site, feedbackCount))
+		responses = append(responses, handlers.toSiteResponse(requestContext, site, feedbackCount, requestOrigin))
 	}
 
 	context.JSON(http.StatusOK, listSitesResponse{Sites: responses})
@@ -737,9 +747,10 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 	}
 
 	ctx := handlers.ginRequestContext(context)
+	requestOrigin := resolveRequestOrigin(context, handlers.widgetBaseURL)
 	feedbackCount := handlers.feedbackCount(ctx, site.ID)
 	handlers.scheduleFaviconFetch(site)
-	context.JSON(http.StatusOK, handlers.toSiteResponse(ctx, site, feedbackCount))
+	context.JSON(http.StatusOK, handlers.toSiteResponse(ctx, site, feedbackCount, requestOrigin))
 }
 
 func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
@@ -1206,7 +1217,7 @@ func (handlers *SiteHandlers) resolveAuthorizedSite(context *gin.Context) (model
 
 	return site, currentUser, true
 }
-func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Site, feedbackCount int64) siteResponse {
+func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Site, feedbackCount int64, requestOrigin string) siteResponse {
 	widgetBase := handlers.widgetBaseURL
 	if widgetBase == "" {
 		widgetBaseOrigin := primaryAllowedOrigin(site.AllowedOrigin)
@@ -1228,7 +1239,7 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 		TrafficAllowedOrigins:    site.TrafficAllowedOrigins,
 		OwnerEmail:               site.OwnerEmail,
 		FaviconURL:               faviconURL,
-		Widget:                   fmt.Sprintf(widgetScriptTemplate, widgetBase, site.ID),
+		Widget:                   buildWidgetSnippet(widgetBase, site.ID, requestOrigin),
 		CreatedAt:                site.CreatedAt.UTC().Unix(),
 		FeedbackCount:            feedbackCount,
 		SubscriberCount:          handlers.subscriberCount(ctx, site.ID),
@@ -1359,6 +1370,109 @@ func (handlers *SiteHandlers) allowedOriginConflictExists(allowedOrigin string, 
 func normalizeWidgetBaseURL(value string) string {
 	trimmed := strings.TrimSpace(value)
 	return strings.TrimRight(trimmed, "/")
+}
+
+func resolveRequestOrigin(ginContext *gin.Context, trustedOrigin string) string {
+	normalizedTrustedOrigin := normalizeOriginValue(trustedOrigin)
+	if ginContext == nil || ginContext.Request == nil {
+		return normalizedTrustedOrigin
+	}
+	requestHost := strings.TrimSpace(ginContext.Request.Host)
+	if requestHost == "" && ginContext.Request.URL != nil {
+		requestHost = strings.TrimSpace(ginContext.Request.URL.Host)
+	}
+	if requestHost == "" {
+		return normalizedTrustedOrigin
+	}
+	requestScheme := resolveRequestScheme(ginContext, normalizedTrustedOrigin)
+	resolvedOrigin := normalizeOriginValue(requestScheme + "://" + requestHost)
+	if resolvedOrigin != "" {
+		return resolvedOrigin
+	}
+	return normalizedTrustedOrigin
+}
+
+func resolveRequestScheme(ginContext *gin.Context, normalizedTrustedOrigin string) string {
+	forwardedProtoHeader := strings.TrimSpace(ginContext.GetHeader(headerXForwardedProto))
+	if forwardedProtoHeader != "" {
+		forwardedValues := strings.Split(forwardedProtoHeader, ",")
+		primaryForwardedValue := strings.ToLower(strings.TrimSpace(forwardedValues[0]))
+		if primaryForwardedValue == urlSchemeHTTP || primaryForwardedValue == urlSchemeHTTPS {
+			return primaryForwardedValue
+		}
+	}
+
+	forwardedHeader := strings.TrimSpace(ginContext.GetHeader(headerForwarded))
+	forwardedScheme := parseForwardedProtoHeaderValue(forwardedHeader)
+	if forwardedScheme != "" {
+		return forwardedScheme
+	}
+
+	if ginContext.Request.TLS != nil {
+		return urlSchemeHTTPS
+	}
+
+	trustedOriginScheme := parseTrustedOriginScheme(normalizedTrustedOrigin)
+	if trustedOriginScheme != "" {
+		return trustedOriginScheme
+	}
+
+	return urlSchemeHTTP
+}
+
+func parseForwardedProtoHeaderValue(forwardedHeader string) string {
+	if strings.TrimSpace(forwardedHeader) == "" {
+		return ""
+	}
+
+	forwardedEntries := strings.Split(forwardedHeader, ",")
+	for _, forwardedEntry := range forwardedEntries {
+		forwardedParameters := strings.Split(strings.TrimSpace(forwardedEntry), ";")
+		for _, forwardedParameter := range forwardedParameters {
+			forwardedParameterParts := strings.SplitN(strings.TrimSpace(forwardedParameter), "=", 2)
+			if len(forwardedParameterParts) != 2 {
+				continue
+			}
+
+			parameterName := strings.ToLower(strings.TrimSpace(forwardedParameterParts[0]))
+			if parameterName != "proto" {
+				continue
+			}
+
+			parameterValue := strings.ToLower(strings.Trim(strings.TrimSpace(forwardedParameterParts[1]), "\""))
+			if parameterValue == urlSchemeHTTP || parameterValue == urlSchemeHTTPS {
+				return parameterValue
+			}
+		}
+	}
+
+	return ""
+}
+
+func parseTrustedOriginScheme(normalizedTrustedOrigin string) string {
+	if normalizedTrustedOrigin == "" {
+		return ""
+	}
+	parsedTrustedOrigin, parseErr := url.Parse(normalizedTrustedOrigin)
+	if parseErr != nil {
+		return ""
+	}
+	trustedOriginScheme := strings.ToLower(strings.TrimSpace(parsedTrustedOrigin.Scheme))
+	if trustedOriginScheme == urlSchemeHTTP || trustedOriginScheme == urlSchemeHTTPS {
+		return trustedOriginScheme
+	}
+	return ""
+}
+
+func buildWidgetSnippet(widgetBase string, siteID string, requestOrigin string) string {
+	trimmedWidgetBase := normalizeWidgetBaseURL(widgetBase)
+	scriptURL := trimmedWidgetBase + widgetScriptPath + "?" + widgetQueryParameterSiteID + "=" + url.QueryEscape(strings.TrimSpace(siteID))
+	normalizedRequestOrigin := normalizeOriginValue(requestOrigin)
+	normalizedWidgetOrigin := normalizeOriginValue(trimmedWidgetBase)
+	if normalizedRequestOrigin != "" && normalizedRequestOrigin != normalizedWidgetOrigin {
+		scriptURL += "&" + widgetQueryParameterAPIOrigin + "=" + url.QueryEscape(normalizedRequestOrigin)
+	}
+	return fmt.Sprintf(widgetScriptTemplate, scriptURL)
 }
 
 func sanitizeWidgetBubbleSide(raw string) (string, error) {

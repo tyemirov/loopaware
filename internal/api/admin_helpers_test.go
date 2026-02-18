@@ -130,6 +130,67 @@ func TestNormalizeWidgetBaseURL(testingT *testing.T) {
 	require.Equal(testingT, "https://example.com", normalizeWidgetBaseURL("https://example.com/"))
 }
 
+func TestResolveRequestOrigin(testingT *testing.T) {
+	require.Equal(testingT, "", resolveRequestOrigin(nil, ""))
+
+	testCases := []struct {
+		name          string
+		requestURL    string
+		headers       map[string]string
+		trustedOrigin string
+		expectOrigin  string
+	}{
+		{
+			name:         "uses x-forwarded-proto",
+			requestURL:   "http://api.example.com/api/sites",
+			headers:      map[string]string{headerXForwardedProto: "https"},
+			expectOrigin: "https://api.example.com",
+		},
+		{
+			name:         "uses standard forwarded proto",
+			requestURL:   "http://api.example.com/api/sites",
+			headers:      map[string]string{headerForwarded: "for=203.0.113.43;proto=https;by=203.0.113.44"},
+			expectOrigin: "https://api.example.com",
+		},
+		{
+			name:          "falls back to trusted origin scheme",
+			requestURL:    "http://api.example.com/api/sites",
+			trustedOrigin: "https://loopaware.mprlab.com",
+			expectOrigin:  "https://api.example.com",
+		},
+	}
+
+	for _, testCase := range testCases {
+		testingT.Run(testCase.name, func(testingT *testing.T) {
+			recorder := httptest.NewRecorder()
+			ginContext, _ := gin.CreateTestContext(recorder)
+			request := httptest.NewRequest(http.MethodGet, testCase.requestURL, nil)
+			for headerName, headerValue := range testCase.headers {
+				request.Header.Set(headerName, headerValue)
+			}
+			ginContext.Request = request
+
+			require.Equal(testingT, testCase.expectOrigin, resolveRequestOrigin(ginContext, testCase.trustedOrigin))
+		})
+	}
+}
+
+func TestBuildWidgetSnippet(testingT *testing.T) {
+	widgetSnippet := buildWidgetSnippet("https://loopaware.mprlab.com", "site-id", "https://loopaware-api.mprlab.com")
+	require.Equal(
+		testingT,
+		"<script defer src=\"https://loopaware.mprlab.com/widget.js?site_id=site-id&api_origin=https%3A%2F%2Floopaware-api.mprlab.com\"></script>",
+		widgetSnippet,
+	)
+
+	sameOriginSnippet := buildWidgetSnippet("https://loopaware.mprlab.com", "site-id", "https://loopaware.mprlab.com")
+	require.Equal(
+		testingT,
+		"<script defer src=\"https://loopaware.mprlab.com/widget.js?site_id=site-id\"></script>",
+		sameOriginSnippet,
+	)
+}
+
 func TestParseVisitTrendDays(testingT *testing.T) {
 	days, err := parseVisitTrendDays("")
 	require.NoError(testingT, err)
@@ -560,7 +621,7 @@ func TestToSiteResponseUsesWidgetBaseURL(testingT *testing.T) {
 		WidgetBubbleBottomOffsetPx: defaultWidgetBubbleBottomOffset,
 	}
 
-	response := handlers.toSiteResponse(context.Background(), site, 0)
+	response := handlers.toSiteResponse(context.Background(), site, 0, "")
 	require.Contains(testingT, response.Widget, "https://widget.example.com")
 }
 
@@ -577,7 +638,7 @@ func TestToSiteResponseUsesAllowedOriginWhenWidgetBaseMissing(testingT *testing.
 		WidgetBubbleBottomOffsetPx: defaultWidgetBubbleBottomOffset,
 	}
 
-	response := handlers.toSiteResponse(context.Background(), site, 0)
+	response := handlers.toSiteResponse(context.Background(), site, 0, "")
 	require.Contains(testingT, response.Widget, testAllowedOriginPrimary)
 }
 
@@ -596,6 +657,6 @@ func TestToSiteResponseAddsFaviconURL(testingT *testing.T) {
 		FaviconFetchedAt:           time.Now().UTC(),
 	}
 
-	response := handlers.toSiteResponse(context.Background(), site, 0)
+	response := handlers.toSiteResponse(context.Background(), site, 0, "")
 	require.NotEmpty(testingT, response.FaviconURL)
 }

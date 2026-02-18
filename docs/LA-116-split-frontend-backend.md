@@ -48,14 +48,14 @@ For the computercat orchestration (`docker-compose.computercat.yml`):
 All backend routes live under `/api/*`:
 
 - Public endpoints:
-  - `POST /api/feedback`
-  - `POST /api/subscriptions`
-  - `POST /api/subscriptions/confirm`
-  - `POST /api/subscriptions/unsubscribe`
-  - `GET /api/visits`
-  - `GET /api/widget-config`
-  - `GET /api/subscriptions/confirm-link`
-  - `GET /api/subscriptions/unsubscribe-link`
+  - `POST /public/feedback`
+  - `POST /public/subscriptions`
+  - `POST /public/subscriptions/confirm`
+  - `POST /public/subscriptions/unsubscribe`
+  - `GET /public/visits`
+  - `GET /public/widget-config`
+  - `GET /public/subscriptions/confirm-link`
+  - `GET /public/subscriptions/unsubscribe-link`
 - Authenticated endpoints (requires TAuth session):
   - `/api/me`, `/api/me/avatar`
   - `/api/sites` (CRUD + SSE + stats + exports)

@@ -15,14 +15,14 @@ func isPublicAPIPath(path string) bool {
 	if path == "" {
 		return false
 	}
-	if path == "/api/feedback" || path == "/api/widget-config" || path == "/api/visits" {
+	if path == publicRouteFeedback || path == "/public/widget-config" || path == publicRouteVisitPixel {
 		return true
 	}
-	return strings.HasPrefix(path, "/api/subscriptions")
+	return strings.HasPrefix(path, publicRouteSubscription)
 }
 
 func registerAPIPreflightRoutes(router *gin.Engine, publicCORS gin.HandlerFunc, authenticatedCORS gin.HandlerFunc) {
-	router.OPTIONS(apiRoutePrefix+"/*path", func(context *gin.Context) {
+	preflightHandler := func(context *gin.Context) {
 		requestPath := context.Request.URL.Path
 		if isPublicAPIPath(requestPath) {
 			publicCORS(context)
@@ -33,7 +33,10 @@ func registerAPIPreflightRoutes(router *gin.Engine, publicCORS gin.HandlerFunc, 
 			return
 		}
 		context.Status(http.StatusNoContent)
-	})
+	}
+
+	router.OPTIONS(apiRoutePrefix+"/*path", preflightHandler)
+	router.OPTIONS(publicRoutePrefix+"/*path", preflightHandler)
 }
 
 func registerBackendRoutes(
@@ -70,9 +73,9 @@ func registerBackendRoutes(
 	publicGroup.POST(publicRouteSubscription, publicHandlers.CreateSubscription)
 	publicGroup.POST(publicRouteSubscriptionConfirm, publicHandlers.ConfirmSubscription)
 	publicGroup.POST(publicRouteSubscriptionOptOut, publicHandlers.Unsubscribe)
-	publicGroup.GET("/api/widget-config", publicHandlers.WidgetConfig)
-	publicGroup.GET("/api/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
-	publicGroup.GET("/api/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
+	publicGroup.GET("/public/widget-config", publicHandlers.WidgetConfig)
+	publicGroup.GET("/public/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
+	publicGroup.GET("/public/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
 	publicGroup.GET(publicRouteVisitPixel, publicHandlers.CollectVisit)
 	publicGroup.POST(publicRouteVisitPixel, publicHandlers.CollectVisit)
 

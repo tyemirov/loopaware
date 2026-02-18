@@ -538,3 +538,19 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Remove the `whatsapp` bot token and add regression coverage proving WhatsApp user-agent visits are stored as non-bot and counted by visit stats.
   Resolution: Deleted `whatsapp` from `visitBotUserAgentTokens` in `internal/api/visit_collector.go` and added `TestCollectVisitTreatsWhatsAppUserAgentAsHumanTraffic` in `internal/api/visit_collector_additional_test.go`.
   Verification: `timeout -k 10s -s SIGKILL 60s go test ./internal/api -run 'TestCollectVisitMarksBotTraffic|TestCollectVisitTreatsWhatsAppUserAgentAsHumanTraffic'`, `timeout -k 10s -s SIGKILL 350s make test`, `timeout -k 10s -s SIGKILL 350s make lint`, and `timeout -k 10s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-443] Include API origin in backend-provided widget snippets for split-origin deployments.
+  Priority: P0
+  Symptom: Sites embedding the `widget` snippet returned by `/api/sites` received `<script ... src="https://loopaware.mprlab.com/widget.js?site_id=...">` without `api_origin`, so widget config requests targeted `https://loopaware.mprlab.com/api/widget-config` and 404ed when frontend and API were split across origins.
+  Goal: Ensure backend-provided widget snippets are valid in split-origin setups by appending an explicit strict `api_origin` when the API request origin differs from the widget script origin.
+  Deliverable: Update `internal/api/admin.go` snippet generation, detect API request origin safely (including `X-Forwarded-Proto`), and add regression coverage for same-origin vs split-origin responses.
+  Resolution: Reworked backend widget snippet rendering to build script URLs via `buildWidgetSnippet(...)`, added request-origin resolution with forwarded-proto support, and now append `api_origin` only when request/API origin and widget script origin differ; added tests in `internal/api/admin_test.go` and `internal/api/admin_helpers_test.go` for split-origin snippets and helper behavior.
+  Verification: `timeout -k 350s -s SIGKILL 350s make test`, `timeout -k 350s -s SIGKILL 350s make lint`, and `timeout -k 350s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-444] Use HTTPS fallback when proxy omits `X-Forwarded-Proto` during widget snippet origin resolution.
+  Priority: P0
+  Symptom: `resolveRequestOrigin` defaulted to `http://` unless `X-Forwarded-Proto` or backend TLS was present. In TLS-terminating proxy setups that do not emit `X-Forwarded-Proto` (for example gHTTP), backend-generated widget snippets could append `api_origin=http://...`, causing mixed-content blocking on HTTPS pages.
+  Goal: Resolve API origin scheme from trusted signals before building widget snippets: honor `X-Forwarded-Proto`, support standard `Forwarded: proto=...`, and fall back to trusted configured origin scheme when proxy headers are absent.
+  Deliverable: Update `internal/api/admin.go` request-origin resolution and add regression coverage for forwarded-header and trusted-origin fallback behavior.
+  Resolution: Refactored `resolveRequestOrigin` to accept a trusted configured origin, added standard `Forwarded` proto parsing, and used configured-origin scheme fallback when proxy proto headers are unavailable; wired `CreateSite`, `ListSites`, and `UpdateSite` to pass `handlers.widgetBaseURL` as the trusted origin source.
+  Verification: `timeout -k 350s -s SIGKILL 350s make test`, `timeout -k 350s -s SIGKILL 350s make lint`, and `timeout -k 350s -s SIGKILL 350s make ci` pass.

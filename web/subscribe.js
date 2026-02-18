@@ -73,16 +73,16 @@
   }
 
   function buildEndpoint(scriptTag) {
-    var endpoint = (location.protocol + "//" + location.host + "/api/subscriptions");
+    var endpoint = (location.protocol + "//" + location.host + "/public/subscriptions");
     var apiOriginOverride = resolveAPIOriginOverride(scriptTag);
     if (apiOriginOverride) {
-      return apiOriginOverride + "/api/subscriptions";
+      return apiOriginOverride + "/public/subscriptions";
     }
     try {
       if (scriptTag && scriptTag.src) {
         var link = document.createElement("a");
         link.href = scriptTag.src;
-        endpoint = link.protocol + "//" + link.host + "/api/subscriptions";
+        endpoint = link.protocol + "//" + link.host + "/public/subscriptions";
       }
     } catch(endpointError){}
     return endpoint;

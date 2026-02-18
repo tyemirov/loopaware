@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -295,7 +296,7 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 		}
 		require.NoError(testingT, harness.database.Create(&feedback).Error)
 	}
-	recorder, context := newJSONContext(http.MethodGet, "/api/sites", nil)
+	recorder, context := newJSONContext(http.MethodGet, strings.TrimRight(testWidgetBaseURL, "/")+"/api/sites", nil)
 	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
 
 	harness.handlers.ListSites(context)
@@ -322,6 +323,44 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	require.Equal(testingT, int64(5), responseBody.Sites[0].FeedbackCount)
 	require.Equal(testingT, defaultWidgetTestBubbleSide, responseBody.Sites[0].WidgetBubbleSide)
 	require.Equal(testingT, defaultWidgetTestBottomOffsetPixels, responseBody.Sites[0].WidgetBubbleBottomOffset)
+}
+
+func TestListSitesUsesSplitOriginAPIParamForWidget(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Split Origin Widget Site",
+		AllowedOrigin:              "https://client.example",
+		OwnerEmail:                 testAdminEmailAddress,
+		WidgetBubbleSide:           defaultWidgetTestBubbleSide,
+		WidgetBubbleBottomOffsetPx: defaultWidgetTestBottomOffsetPixels,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	apiOrigin := "https://loopaware-api.mprlab.com"
+	recorder, context := newJSONContext(http.MethodGet, apiOrigin+"/api/sites", nil)
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	harness.handlers.ListSites(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody struct {
+		Sites []struct {
+			Widget string `json:"widget"`
+		} `json:"sites"`
+	}
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Len(testingT, responseBody.Sites, 1)
+
+	expectedBaseURL := strings.TrimRight(testWidgetBaseURL, "/")
+	expectedWidget := fmt.Sprintf(
+		"<script defer src=\"%s/widget.js?site_id=%s&api_origin=%s\"></script>",
+		expectedBaseURL,
+		site.ID,
+		url.QueryEscape(apiOrigin),
+	)
+	require.Equal(testingT, expectedWidget, responseBody.Sites[0].Widget)
 }
 
 func TestListSitesReturnsOwnerSitesForNonAdminRegardlessOfEmailCase(testingT *testing.T) {
@@ -757,7 +796,7 @@ func TestStreamFeedbackUpdatesReceivesCreateEvents(testingT *testing.T) {
 		context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
 		siteHandlers.StreamFeedbackUpdates(context)
 	})
-	engine.POST("/api/feedback", func(context *gin.Context) {
+	engine.POST("/public/feedback", func(context *gin.Context) {
 		publicHandlers.CreateFeedback(context)
 	})
 
@@ -807,7 +846,7 @@ func TestStreamFeedbackUpdatesReceivesCreateEvents(testingT *testing.T) {
 	}()
 
 	feedbackRequestBody := bytes.NewBufferString(fmt.Sprintf(`{"site_id":"%s","contact":"person@example.com","message":"Hello"}`, site.ID))
-	createRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api/feedback", feedbackRequestBody)
+	createRequest, err := http.NewRequest(http.MethodPost, server.URL+"/public/feedback", feedbackRequestBody)
 	require.NoError(testingT, err)
 	createRequest.Header.Set("Content-Type", "application/json")
 	createResponse, err := client.Do(createRequest)

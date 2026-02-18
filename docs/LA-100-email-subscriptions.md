@@ -2,7 +2,7 @@
 
 ## Current state (from code)
 - Public submissions: `PublicHandlers.CreateFeedback` accepts `site_id/contact/message`, rate limits per IP, enforces `Site.AllowedOrigin`, persists `model.Feedback`, and broadcasts via SSE.
-- Widget: `/widget.js` is served as a static asset from `web/widget.js`; requires `site_id` query/header and fetches placement metadata from `/api/widget-config`.
+- Widget: `/widget.js` is served as a static asset from `web/widget.js`; requires `site_id` query/header and fetches placement metadata from `/public/widget-config`.
 - Admin/app: site CRUD and listing in `SiteHandlers`, feedback tables on the dashboard, and counts via `SiteStatisticsProvider` (feedback only). Models live in `internal/model`; schema managed by `storage.AutoMigrate`.
 - Notifications: optional Pinguin gRPC notifier (`notifications.PinguinNotifier`) dispatches feedback alerts to the site owner email/phone.
 
@@ -19,7 +19,7 @@
 - AutoMigrate updates in `storage.AutoMigrate` to create the table and indexes. Backfills not needed for existing data.
 
 ### Public capture flow
-- New endpoint `POST /api/subscriptions` handled by `PublicHandlers`:
+- New endpoint `POST /public/subscriptions` handled by `PublicHandlers`:
   - Payload: `{ "site_id": "...", "email": "...", "name": "...", "source_url": "...", "accept_tos": true }`.
   - Reuse/extend `PublicHandlers` rate limiting; reject if required fields missing or invalid email.
   - Enforce `AllowedOrigin` with the same origin/referrer checks used for feedback.
@@ -27,9 +27,9 @@
   - Respond with stable error codes (`missing_fields`, `invalid_email`, `origin_forbidden`, `unknown_site`, `save_failed`, `rate_limited`).
 - Optional confirmation flow:
   - Config flag `SUBSCRIPTION_DOUBLE_OPT_IN` (env/flag) toggles whether immediate confirmation is allowed.
-  - If enabled, issue a signed token (HMAC with `SESSION_SECRET`) and expose `POST /api/subscriptions/confirm` to flip status to `confirmed`.
+  - If enabled, issue a signed token (HMAC with `SESSION_SECRET`) and expose `POST /public/subscriptions/confirm` to flip status to `confirmed`.
   - Tokens scoped to `subscriber_id` + `site_id` with short TTL; stored hash in DB for auditing.
-- Unsubscribe endpoint `POST /api/subscriptions/unsubscribe` accepting token/email + site_id; sets `Status=unsubscribed` and timestamps.
+- Unsubscribe endpoint `POST /public/subscriptions/unsubscribe` accepting token/email + site_id; sets `Status=unsubscribed` and timestamps.
 
 ### Admin/dashboard surfaces
 - Extend `SiteStatisticsProvider` and site responses with `subscriber_count` (count of non-unsubscribed subscribers per site).
@@ -45,7 +45,7 @@
 - Serve `/subscribe.js?site_id=...` from `web/subscribe.js` (static asset, ESM-friendly with `@ts-check`).
   - Renders a semantic `<form>` (email + optional name + consent checkbox) styled minimally; inline mode by default, optional floating button variant via query param `mode=bubble`.
   - Customizable via query params or `data-*` attributes: button text, accent color, success/error copy, placeholder text, dark/light theme preference.
-  - Posts to `/api/subscriptions` with site_id and source URL; handles duplicate submission responses gracefully.
+  - Posts to `/public/subscriptions` with site_id and source URL; handles duplicate submission responses gracefully.
   - Honors `Origin`/`Referer` validation; fails closed with inline error messages.
 - Provide a demo/test page (similar to widget demo) for quick preview.
 

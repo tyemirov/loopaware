@@ -842,7 +842,7 @@
         try {
           apiOrigin = String(window.__LOOPAWARE_API_ORIGIN__ || '').trim();
         } catch (error) {}
-        var actionEndpoint = apiOrigin ? (apiOrigin + '/api/subscriptions/confirm-link') : '/api/subscriptions/confirm-link';
+        var actionEndpoint = apiOrigin ? (apiOrigin + '/public/subscriptions/confirm-link') : '/public/subscriptions/confirm-link';
 
         function setText(element, value) {
           if (!element) {

@@ -33,7 +33,7 @@ func TestConfirmSubscriptionLinkJSONReturnsBadRequestWhenSubscriberMissing(testi
 	}, testTokenSecretValue)
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/subscriptions/confirm-link?token="+url.QueryEscape(token), nil)
+	request := httptest.NewRequest(http.MethodGet, "/public/subscriptions/confirm-link?token="+url.QueryEscape(token), nil)
 	ginContext, _ := gin.CreateTestContext(recorder)
 	ginContext.Request = request
 
@@ -44,7 +44,7 @@ func TestConfirmSubscriptionLinkJSONReturnsBadRequestWhenSubscriberMissing(testi
 func TestUpdateSubscriptionStatusRateLimited(testingT *testing.T) {
 	gin.SetMode(gin.TestMode)
 	responseRecorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/api/subscriptions/confirm", nil)
+	request := httptest.NewRequest(http.MethodPost, "/public/subscriptions/confirm", nil)
 	request.RemoteAddr = "127.0.0.1:1234"
 	ginContext, _ := gin.CreateTestContext(responseRecorder)
 	ginContext.Request = request

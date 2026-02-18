@@ -34,7 +34,7 @@ async function createPublicSite(label) {
 async function postFeedbackRequest(siteId, contact, message, originOverride, clientIP) {
   return apiRequest({
     baseURL: config.baseURL,
-    path: "/api/feedback",
+    path: "/public/feedback",
     method: "POST",
     origin: originOverride,
     clientIP: clientIP || nextClientIP(),
@@ -49,7 +49,7 @@ async function postFeedbackRequest(siteId, contact, message, originOverride, cli
 async function postSubscriptionRequest(siteId, email, originOverride, clientIP) {
   return apiRequest({
     baseURL: config.baseURL,
-    path: "/api/subscriptions",
+    path: "/public/subscriptions",
     method: "POST",
     origin: originOverride,
     clientIP: clientIP || nextClientIP(),
@@ -104,7 +104,7 @@ test.describe("public feedback api", () => {
   test("rejects invalid json", async () => {
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/feedback",
+      path: "/public/feedback",
       method: "POST",
       origin: site.allowed_origin,
       clientIP: nextClientIP(),
@@ -217,13 +217,13 @@ test.describe("subscription confirmation flows", () => {
   });
 
   test("confirm rejects missing fields", async () => {
-    const { response, payload } = await postSubscriptionMutation("/api/subscriptions/confirm", "", "", site.allowed_origin);
+    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/confirm", "", "", site.allowed_origin);
     expect(response.status).toBe(400);
     expect(payload.error).toBe("missing_fields");
   });
 
   test("confirm rejects unknown site", async () => {
-    const { response, payload } = await postSubscriptionMutation("/api/subscriptions/confirm", "missing-site", "user@example.com", site.allowed_origin);
+    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/confirm", "missing-site", "user@example.com", site.allowed_origin);
     expect(response.status).toBe(404);
     expect(payload.error).toBe("unknown_site");
   });
@@ -231,13 +231,13 @@ test.describe("subscription confirmation flows", () => {
   test("confirm rejects forbidden origin", async () => {
     const email = buildUniqueEmail("forbidden-confirm");
     const forbiddenOrigin = buildUniqueOrigin("confirm-forbidden");
-    const { response, payload } = await postSubscriptionMutation("/api/subscriptions/confirm", site.id, email, forbiddenOrigin);
+    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/confirm", site.id, email, forbiddenOrigin);
     expect(response.status).toBe(403);
     expect(payload.error).toBe("origin_forbidden");
   });
 
   test("confirm rejects unknown subscription", async () => {
-    const { response, payload } = await postSubscriptionMutation("/api/subscriptions/confirm", site.id, buildUniqueEmail("missing"), site.allowed_origin);
+    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/confirm", site.id, buildUniqueEmail("missing"), site.allowed_origin);
     expect(response.status).toBe(404);
     expect(payload.error).toBe("unknown_subscription");
   });
@@ -245,7 +245,7 @@ test.describe("subscription confirmation flows", () => {
   test("confirm succeeds for pending subscriber", async () => {
     const email = buildUniqueEmail("confirm");
     await postSubscriptionRequest(site.id, email, site.allowed_origin);
-    const { response, payload } = await postSubscriptionMutation("/api/subscriptions/confirm", site.id, email, site.allowed_origin);
+    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/confirm", site.id, email, site.allowed_origin);
     expect(response.status).toBe(200);
     expect(payload.status).toBe("ok");
   });
@@ -253,8 +253,8 @@ test.describe("subscription confirmation flows", () => {
   test("confirm rejects unsubscribed subscriber", async () => {
     const email = buildUniqueEmail("unsubscribed-confirm");
     await postSubscriptionRequest(site.id, email, site.allowed_origin);
-    await postSubscriptionMutation("/api/subscriptions/unsubscribe", site.id, email, site.allowed_origin);
-    const { response, payload } = await postSubscriptionMutation("/api/subscriptions/confirm", site.id, email, site.allowed_origin);
+    await postSubscriptionMutation("/public/subscriptions/unsubscribe", site.id, email, site.allowed_origin);
+    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/confirm", site.id, email, site.allowed_origin);
     expect(response.status).toBe(409);
     expect(payload.error).toBe("unsubscribed");
   });
@@ -262,7 +262,7 @@ test.describe("subscription confirmation flows", () => {
   test("unsubscribe succeeds", async () => {
     const email = buildUniqueEmail("unsubscribe");
     await postSubscriptionRequest(site.id, email, site.allowed_origin);
-    const { response, payload } = await postSubscriptionMutation("/api/subscriptions/unsubscribe", site.id, email, site.allowed_origin);
+    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/unsubscribe", site.id, email, site.allowed_origin);
     expect(response.status).toBe(200);
     expect(payload.status).toBe("ok");
   });
@@ -270,8 +270,8 @@ test.describe("subscription confirmation flows", () => {
   test("confirm returns ok for already confirmed", async () => {
     const email = buildUniqueEmail("already-confirmed");
     await postSubscriptionRequest(site.id, email, site.allowed_origin);
-    await postSubscriptionMutation("/api/subscriptions/confirm", site.id, email, site.allowed_origin);
-    const { response, payload } = await postSubscriptionMutation("/api/subscriptions/confirm", site.id, email, site.allowed_origin);
+    await postSubscriptionMutation("/public/subscriptions/confirm", site.id, email, site.allowed_origin);
+    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/confirm", site.id, email, site.allowed_origin);
     expect(response.status).toBe(200);
     expect(payload.status).toBe("ok");
   });
@@ -281,7 +281,7 @@ test.describe("subscription confirmation flows", () => {
     const email = buildUniqueEmail("rate-confirm");
     let lastResult;
     for (let attemptIndex = 0; attemptIndex < 7; attemptIndex += 1) {
-      lastResult = await postSubscriptionMutation("/api/subscriptions/confirm", site.id, email, site.allowed_origin, clientIP);
+      lastResult = await postSubscriptionMutation("/public/subscriptions/confirm", site.id, email, site.allowed_origin, clientIP);
     }
     expect(lastResult.response.status).toBe(429);
     expect(lastResult.payload.error).toBe("rate_limited");
@@ -292,7 +292,7 @@ test.describe("subscription confirmation flows", () => {
     const email = buildUniqueEmail("rate-unsubscribe");
     let lastResult;
     for (let attemptIndex = 0; attemptIndex < 7; attemptIndex += 1) {
-      lastResult = await postSubscriptionMutation("/api/subscriptions/unsubscribe", site.id, email, site.allowed_origin, clientIP);
+      lastResult = await postSubscriptionMutation("/public/subscriptions/unsubscribe", site.id, email, site.allowed_origin, clientIP);
     }
     expect(lastResult.response.status).toBe(429);
     expect(lastResult.payload.error).toBe("rate_limited");
@@ -309,7 +309,7 @@ test.describe("subscription link endpoints", () => {
   test("confirm link rejects missing token", async () => {
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/subscriptions/confirm-link",
+      path: "/public/subscriptions/confirm-link",
       method: "GET"
     });
     expect(response.status).toBe(400);
@@ -319,7 +319,7 @@ test.describe("subscription link endpoints", () => {
   test("confirm link rejects invalid token", async () => {
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/subscriptions/confirm-link?token=invalid",
+      path: "/public/subscriptions/confirm-link?token=invalid",
       method: "GET"
     });
     expect(response.status).toBe(400);
@@ -332,7 +332,7 @@ test.describe("subscription link endpoints", () => {
     const token = buildSubscriptionConfirmationToken(config.subscriptionSecret, createPayload.subscriber_id, site.id, email, 60);
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/subscriptions/confirm-link?token=${encodeURIComponent(token)}`,
+      path: `/public/subscriptions/confirm-link?token=${encodeURIComponent(token)}`,
       method: "GET"
     });
     expect(response.status).toBe(200);
@@ -343,11 +343,11 @@ test.describe("subscription link endpoints", () => {
   test("confirm link reports already unsubscribed", async () => {
     const email = buildUniqueEmail("confirm-link-unsubscribed");
     const { payload: createPayload } = await postSubscriptionRequest(site.id, email, site.allowed_origin);
-    await postSubscriptionMutation("/api/subscriptions/unsubscribe", site.id, email, site.allowed_origin);
+    await postSubscriptionMutation("/public/subscriptions/unsubscribe", site.id, email, site.allowed_origin);
     const token = buildSubscriptionConfirmationToken(config.subscriptionSecret, createPayload.subscriber_id, site.id, email, 60);
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/subscriptions/confirm-link?token=${encodeURIComponent(token)}`,
+      path: `/public/subscriptions/confirm-link?token=${encodeURIComponent(token)}`,
       method: "GET"
     });
     expect(response.status).toBe(409);
@@ -357,7 +357,7 @@ test.describe("subscription link endpoints", () => {
   test("unsubscribe link rejects missing token", async () => {
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/subscriptions/unsubscribe-link",
+      path: "/public/subscriptions/unsubscribe-link",
       method: "GET"
     });
     expect(response.status).toBe(400);
@@ -367,7 +367,7 @@ test.describe("subscription link endpoints", () => {
   test("unsubscribe link rejects invalid token", async () => {
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/subscriptions/unsubscribe-link?token=invalid",
+      path: "/public/subscriptions/unsubscribe-link?token=invalid",
       method: "GET"
     });
     expect(response.status).toBe(400);
@@ -380,7 +380,7 @@ test.describe("subscription link endpoints", () => {
     const token = buildSubscriptionConfirmationToken(config.subscriptionSecret, createPayload.subscriber_id, site.id, email, 60);
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/subscriptions/unsubscribe-link?token=${encodeURIComponent(token)}`,
+      path: `/public/subscriptions/unsubscribe-link?token=${encodeURIComponent(token)}`,
       method: "GET"
     });
     expect(response.status).toBe(200);
@@ -390,11 +390,11 @@ test.describe("subscription link endpoints", () => {
   test("unsubscribe link confirms already unsubscribed", async () => {
     const email = buildUniqueEmail("unsubscribe-link-already");
     const { payload: createPayload } = await postSubscriptionRequest(site.id, email, site.allowed_origin);
-    await postSubscriptionMutation("/api/subscriptions/unsubscribe", site.id, email, site.allowed_origin);
+    await postSubscriptionMutation("/public/subscriptions/unsubscribe", site.id, email, site.allowed_origin);
     const token = buildSubscriptionConfirmationToken(config.subscriptionSecret, createPayload.subscriber_id, site.id, email, 60);
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/subscriptions/unsubscribe-link?token=${encodeURIComponent(token)}`,
+      path: `/public/subscriptions/unsubscribe-link?token=${encodeURIComponent(token)}`,
       method: "GET"
     });
     expect(response.status).toBe(200);
@@ -412,7 +412,7 @@ test.describe("widget config endpoint", () => {
   test("rejects missing site id", async () => {
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/widget-config",
+      path: "/public/widget-config",
       method: "GET",
       origin: site.allowed_origin
     });
@@ -423,7 +423,7 @@ test.describe("widget config endpoint", () => {
   test("rejects unknown site", async () => {
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/widget-config?site_id=missing",
+      path: "/public/widget-config?site_id=missing",
       method: "GET",
       origin: site.allowed_origin
     });
@@ -435,7 +435,7 @@ test.describe("widget config endpoint", () => {
     const forbiddenOrigin = buildUniqueOrigin("widget-forbidden");
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/widget-config?site_id=${encodeURIComponent(site.id)}`,
+      path: `/public/widget-config?site_id=${encodeURIComponent(site.id)}`,
       method: "GET",
       origin: forbiddenOrigin
     });
@@ -446,7 +446,7 @@ test.describe("widget config endpoint", () => {
   test("returns widget placement defaults", async () => {
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/widget-config?site_id=${encodeURIComponent(site.id)}`,
+      path: `/public/widget-config?site_id=${encodeURIComponent(site.id)}`,
       method: "GET",
       origin: site.allowed_origin
     });
@@ -458,7 +458,7 @@ test.describe("widget config endpoint", () => {
   test("returns demo widget config", async () => {
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/widget-config?site_id=__loopaware_widget_demo__",
+      path: "/public/widget-config?site_id=__loopaware_widget_demo__",
       method: "GET",
       origin: site.allowed_origin
     });
@@ -481,7 +481,7 @@ test.describe("visit collection endpoint", () => {
   test("rejects missing site id", async () => {
     const { response } = await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/visits",
+      path: "/public/visits",
       method: "GET",
       origin: site.allowed_origin
     });
@@ -491,7 +491,7 @@ test.describe("visit collection endpoint", () => {
   test("rejects unknown site", async () => {
     const { response } = await apiRequest({
       baseURL: config.baseURL,
-      path: "/api/visits?site_id=missing",
+      path: "/public/visits?site_id=missing",
       method: "GET",
       origin: site.allowed_origin
     });
@@ -503,7 +503,7 @@ test.describe("visit collection endpoint", () => {
     const forbiddenURL = `${forbiddenOrigin}/visit`;
     const { response } = await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(forbiddenURL)}`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(forbiddenURL)}`,
       method: "GET",
       origin: forbiddenOrigin
     });
@@ -513,7 +513,7 @@ test.describe("visit collection endpoint", () => {
   test("rejects invalid visitor id", async () => {
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/visit`)}&visitor_id=bad`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/visit`)}&visitor_id=bad`,
       method: "GET",
       origin: site.allowed_origin
     });
@@ -524,7 +524,7 @@ test.describe("visit collection endpoint", () => {
   test("rejects invalid url", async () => {
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=//bad-url`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=//bad-url`,
       method: "GET",
       origin: site.allowed_origin
     });
@@ -535,7 +535,7 @@ test.describe("visit collection endpoint", () => {
   test("records visit and returns pixel", async () => {
     const { response } = await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/visit`)}`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/visit`)}`,
       method: "GET",
       origin: site.allowed_origin
     });
@@ -547,7 +547,7 @@ test.describe("visit collection endpoint", () => {
     const refererURL = `${site.allowed_origin}/visit-referer`;
     const { response } = await apiRequest({
       baseURL: config.baseURL,
-      path: `/api/visits?site_id=${encodeURIComponent(site.id)}`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}`,
       method: "GET",
       headers: {
         Origin: site.allowed_origin,

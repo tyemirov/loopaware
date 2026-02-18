@@ -53,18 +53,18 @@ LoopAware collects customer feedback through a lightweight widget, authenticates
 - Support owner reassignment for admins.
 
 ### Feedback widget
-- /widget.js embeds a bubble UI and posts to /api/feedback.
+- /widget.js embeds a bubble UI and posts to /public/feedback.
 - Backend validates origin against allowed origins.
 - Feedback persists and is streamed via SSE.
 
 ### Subscription flow
-- /subscribe.js renders a form and posts to /api/subscriptions.
+- /subscribe.js renders a form and posts to /public/subscriptions.
 - Double opt-in via /subscriptions/confirm token link.
 - Unsubscribe via API or token link.
 - Origin validation for all subscription endpoints.
 
 ### Traffic pixel
-- /pixel.js posts visits to /api/visits.
+- /pixel.js posts visits to /public/visits.
 - Dashboard reads aggregated stats per site.
 
 ### Dashboard
