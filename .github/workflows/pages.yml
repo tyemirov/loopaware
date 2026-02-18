@@ -2,12 +2,8 @@ name: GitHub Pages
 
 on:
   push:
-    branches:
-      - master
-    paths:
-      - '.github/workflows/pages.yml'
-      - 'web/**'
-  workflow_dispatch:
+    tags:
+      - 'v*.*.*'
 
 concurrency:
   group: pages-${{ github.ref }}
@@ -24,6 +20,13 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Validate release tag format
+        run: |
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^v[0-9]{2}\.[0-9]{2}\.[0-9]{2}$ ]]; then
+            echo "Release tags must match vXX.XX.XX. Received: ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
 

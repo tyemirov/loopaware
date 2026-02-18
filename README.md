@@ -265,6 +265,25 @@ serves `web/` via gHTTP, and exercises both UI and `/api/*` flows. Use `make tes
 `make test-integration-api` to focus on API specs. Playwright artifacts (traces, screenshots, videos) land under
 `tests/test-results/` on failure.
 
+## Release publishing
+
+GitHub Pages and Docker release publishing are tag-driven and run only for pushed tags that match `vXX.XX.XX`.
+
+- `GitHub Pages` deploys `web/` from the tagged commit.
+- `Build and Publish Docker Image` pushes:
+  - `ghcr.io/<owner>/loopaware:latest`
+  - `ghcr.io/<owner>/loopaware:<tag>`
+  - `ghcr.io/<owner>/loopaware:<sha>`
+
+Use a two-digit semantic tag format:
+
+```bash
+git tag v01.02.03
+git push origin v01.02.03
+```
+
+Tags that do not match `vXX.XX.XX` are rejected by workflow validation and will not publish release artifacts.
+
 ## Docker
 
 The previous Docker and Compose files remain compatible. Ensure the container receives the OAuth environment variables

@@ -554,3 +554,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Update `internal/api/admin.go` request-origin resolution and add regression coverage for forwarded-header and trusted-origin fallback behavior.
   Resolution: Refactored `resolveRequestOrigin` to accept a trusted configured origin, added standard `Forwarded` proto parsing, and used configured-origin scheme fallback when proxy proto headers are unavailable; wired `CreateSite`, `ListSites`, and `UpdateSite` to pass `handlers.widgetBaseURL` as the trusted origin source.
   Verification: `timeout -k 350s -s SIGKILL 350s make test`, `timeout -k 350s -s SIGKILL 350s make lint`, and `timeout -k 350s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-445] Build release artifacts only from pushed version tags in `vXX.XX.XX` format.
+  Priority: P0
+  Symptom: GitHub Pages and Docker image publishing workflows were triggered by `master` branch pushes, so non-release commits could publish deployment artifacts.
+  Goal: Restrict release publishing to explicit version tags and enforce the tag naming contract.
+  Deliverable: Update `.github/workflows/pages.yml` and `.github/workflows/docker-image.yml` to run on tag pushes, enforce `vXX.XX.XX` format, and document the release process in `README.md`.
+  Resolution: Switched both release workflows to `push.tags: v*.*.*`, added runtime validation that requires `^v[0-9]{2}\\.[0-9]{2}\\.[0-9]{2}$`, and documented the release tagging/publish process under `README.md` "Release publishing"; Docker publishing now also tags images with `${{ github.ref_name }}`.
+  Verification: `timeout -k 350s -s SIGKILL 350s make test`, `timeout -k 350s -s SIGKILL 350s make lint`, and `timeout -k 350s -s SIGKILL 350s make ci` pass.
