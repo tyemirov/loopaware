@@ -522,3 +522,19 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Update `web/widget.js` to reject invalid `api_origin` values at initialization and replace path-prefix integration coverage with a strict-origin rejection assertion.
   Resolution: Widget initialization now logs a clear error and aborts when `api_origin` is not a strict origin; Playwright coverage now asserts path-bearing `api_origin` values are rejected and do not render the widget bubble.
   Verification: `timeout -k 10s -s SIGKILL 350s make ci` passes (253 Playwright tests).
+
+- [x] [LA-441] Normalize visit-trend map keys to `YYYY-MM-DD` before day lookup.
+  Priority: P0
+  Symptom: `VisitTrend` parsed timestamp-like SQL day values but keyed `entriesByDay` with raw `row.Day`. Later lookup used formatted `dayKey` (`YYYY-MM-DD`), causing real counts to be dropped and replaced with zero-filled days when drivers returned non-day-only strings.
+  Goal: Use one canonical key format for both map writes and reads so trend counts remain correct across DB/driver date representations.
+  Deliverable: Update `internal/api/site_stats.go` to key trend rows by normalized formatted day and add regression coverage for timestamp-like day strings.
+  Resolution: Added `normalizeVisitTrendMapKey` and switched `VisitTrend` row mapping to use parsed-date formatted keys (`visitTrendDayLayout`), plus new test `TestNormalizeVisitTrendMapKeyNormalizesTimestampLikeDayStrings`.
+  Verification: `timeout -k 10s -s SIGKILL 30s go test ./internal/api -run 'TestNormalizeVisitTrendMapKeyNormalizesTimestampLikeDayStrings|TestDatabaseSiteStatisticsProviderVisitTrendDefaultsToSevenDays|TestVisitTrendHelperNormalizersAndParsing'`, `timeout -k 10s -s SIGKILL 350s make test`, `timeout -k 10s -s SIGKILL 350s make lint`, and `timeout -k 10s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-442] Remove WhatsApp from bot user-agent signatures so shared-link traffic is counted as human.
+  Priority: P0
+  Symptom: The visit collector classified any user-agent containing `whatsapp` as bot traffic, which excluded real in-app browser visits from totals, top pages, trend, attribution, and engagement metrics (`is_bot = false` filters).
+  Goal: Treat WhatsApp in-app browser sessions as human visits while keeping existing crawler bot detection intact.
+  Deliverable: Remove the `whatsapp` bot token and add regression coverage proving WhatsApp user-agent visits are stored as non-bot and counted by visit stats.
+  Resolution: Deleted `whatsapp` from `visitBotUserAgentTokens` in `internal/api/visit_collector.go` and added `TestCollectVisitTreatsWhatsAppUserAgentAsHumanTraffic` in `internal/api/visit_collector_additional_test.go`.
+  Verification: `timeout -k 10s -s SIGKILL 60s go test ./internal/api -run 'TestCollectVisitMarksBotTraffic|TestCollectVisitTreatsWhatsAppUserAgentAsHumanTraffic'`, `timeout -k 10s -s SIGKILL 350s make test`, `timeout -k 10s -s SIGKILL 350s make lint`, and `timeout -k 10s -s SIGKILL 350s make ci` pass.
