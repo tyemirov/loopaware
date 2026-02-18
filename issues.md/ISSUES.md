@@ -546,3 +546,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Update `internal/api/admin.go` snippet generation, detect API request origin safely (including `X-Forwarded-Proto`), and add regression coverage for same-origin vs split-origin responses.
   Resolution: Reworked backend widget snippet rendering to build script URLs via `buildWidgetSnippet(...)`, added request-origin resolution with forwarded-proto support, and now append `api_origin` only when request/API origin and widget script origin differ; added tests in `internal/api/admin_test.go` and `internal/api/admin_helpers_test.go` for split-origin snippets and helper behavior.
   Verification: `timeout -k 350s -s SIGKILL 350s make test`, `timeout -k 350s -s SIGKILL 350s make lint`, and `timeout -k 350s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-444] Use HTTPS fallback when proxy omits `X-Forwarded-Proto` during widget snippet origin resolution.
+  Priority: P0
+  Symptom: `resolveRequestOrigin` defaulted to `http://` unless `X-Forwarded-Proto` or backend TLS was present. In TLS-terminating proxy setups that do not emit `X-Forwarded-Proto` (for example gHTTP), backend-generated widget snippets could append `api_origin=http://...`, causing mixed-content blocking on HTTPS pages.
+  Goal: Resolve API origin scheme from trusted signals before building widget snippets: honor `X-Forwarded-Proto`, support standard `Forwarded: proto=...`, and fall back to trusted configured origin scheme when proxy headers are absent.
+  Deliverable: Update `internal/api/admin.go` request-origin resolution and add regression coverage for forwarded-header and trusted-origin fallback behavior.
+  Resolution: Refactored `resolveRequestOrigin` to accept a trusted configured origin, added standard `Forwarded` proto parsing, and used configured-origin scheme fallback when proxy proto headers are unavailable; wired `CreateSite`, `ListSites`, and `UpdateSite` to pass `handlers.widgetBaseURL` as the trusted origin source.
+  Verification: `timeout -k 350s -s SIGKILL 350s make test`, `timeout -k 350s -s SIGKILL 350s make lint`, and `timeout -k 350s -s SIGKILL 350s make ci` pass.

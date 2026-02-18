@@ -131,14 +131,48 @@ func TestNormalizeWidgetBaseURL(testingT *testing.T) {
 }
 
 func TestResolveRequestOrigin(testingT *testing.T) {
-	require.Equal(testingT, "", resolveRequestOrigin(nil))
+	require.Equal(testingT, "", resolveRequestOrigin(nil, ""))
 
-	recorder := httptest.NewRecorder()
-	ginContext, _ := gin.CreateTestContext(recorder)
-	request := httptest.NewRequest(http.MethodGet, "http://api.example.com/api/sites", nil)
-	request.Header.Set(headerXForwardedProto, "https")
-	ginContext.Request = request
-	require.Equal(testingT, "https://api.example.com", resolveRequestOrigin(ginContext))
+	testCases := []struct {
+		name          string
+		requestURL    string
+		headers       map[string]string
+		trustedOrigin string
+		expectOrigin  string
+	}{
+		{
+			name:         "uses x-forwarded-proto",
+			requestURL:   "http://api.example.com/api/sites",
+			headers:      map[string]string{headerXForwardedProto: "https"},
+			expectOrigin: "https://api.example.com",
+		},
+		{
+			name:         "uses standard forwarded proto",
+			requestURL:   "http://api.example.com/api/sites",
+			headers:      map[string]string{headerForwarded: "for=203.0.113.43;proto=https;by=203.0.113.44"},
+			expectOrigin: "https://api.example.com",
+		},
+		{
+			name:          "falls back to trusted origin scheme",
+			requestURL:    "http://api.example.com/api/sites",
+			trustedOrigin: "https://loopaware.mprlab.com",
+			expectOrigin:  "https://api.example.com",
+		},
+	}
+
+	for _, testCase := range testCases {
+		testingT.Run(testCase.name, func(testingT *testing.T) {
+			recorder := httptest.NewRecorder()
+			ginContext, _ := gin.CreateTestContext(recorder)
+			request := httptest.NewRequest(http.MethodGet, testCase.requestURL, nil)
+			for headerName, headerValue := range testCase.headers {
+				request.Header.Set(headerName, headerValue)
+			}
+			ginContext.Request = request
+
+			require.Equal(testingT, testCase.expectOrigin, resolveRequestOrigin(ginContext, testCase.trustedOrigin))
+		})
+	}
 }
 
 func TestBuildWidgetSnippet(testingT *testing.T) {
