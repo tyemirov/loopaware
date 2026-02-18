@@ -506,3 +506,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `ARCHITECTURE.md`
   Resolution: Implemented traffic trend, attribution, and engagement aggregations (including bot exclusion and bounded query options), wired authenticated handlers and routing, updated public docs, and added comprehensive Go + Playwright coverage for endpoint behavior and helper/path edge cases.
   Verification: `timeout -k 10s -s SIGKILL 350s make test`, `timeout -k 10s -s SIGKILL 350s make lint`, `timeout -k 10s -s SIGKILL 350s make ci`, and `timeout -k 10s -s SIGKILL 350s make coverage` all pass (`total: 95.1%`).
+
+- [x] [LA-439] Widget `api_origin` should preserve optional path prefixes to avoid `/api/widget-config` 404s.
+  Priority: P0
+  Symptom: Widgets configured with `api_origin` values like `https://poodlescanner.com/app` were normalized to bare origins (`https://poodlescanner.com`), so widget requests targeted `/api/widget-config` and `/api/feedback` instead of `/app/api/...`, returning 404 in subpath deployments.
+  Goal: Keep optional path prefixes in `api_origin` for public widget API calls while preserving current origin-only behavior.
+  Deliverable: Update `web/widget.js` API origin normalization and add Playwright coverage that proves widget config + feedback requests use path-prefixed `api_origin` values.
+  Resolution: `web/widget.js` now preserves parsed pathname segments (trimming trailing slashes) when normalizing `api_origin`; added `tests/specs/widget-integration.spec.js` coverage (`widget keeps api_origin path prefixes for config and feedback`) that intercepts `/app/api/widget-config` and `/app/api/feedback`.
+  Verification: `timeout -k 10s -s SIGKILL 350s make ci` passes (253 Playwright tests).

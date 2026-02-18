@@ -156,7 +156,9 @@
       if (!origin || origin === "null") {
         return "";
       }
-      return origin.replace(/\/+$/, "");
+      var pathname = parsed.pathname || "";
+      var normalizedPathname = pathname === "/" ? "" : pathname.replace(/\/+$/, "");
+      return origin.replace(/\/+$/, "") + normalizedPathname;
     } catch(parseError) {}
     return "";
   }
