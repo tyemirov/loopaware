@@ -2,17 +2,8 @@ name: Build and Publish Docker Image
 
 on:
   push:
-    branches:
-      - master
-    paths:
-      - 'Dockerfile'
-      - '**/*.go'
-      - '**/*.js'
-      - '**/*.css'
-      - '**/*.html'
-      - 'go.mod'
-      - 'go.sum'
-  workflow_dispatch:
+    tags:
+      - 'v*.*.*'
 
 jobs:
   build-and-push:
@@ -24,6 +15,13 @@ jobs:
       packages: write
 
     steps:
+      - name: Validate release tag format
+        run: |
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^v[0-9]{2}\.[0-9]{2}\.[0-9]{2}$ ]]; then
+            echo "Release tags must match vXX.XX.XX. Received: ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+
       - name: Check out repository
         uses: actions/checkout@v4
 
@@ -42,4 +40,5 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/loopaware:latest
+            ghcr.io/${{ github.repository_owner }}/loopaware:${{ github.ref_name }}
             ghcr.io/${{ github.repository_owner }}/loopaware:${{ github.sha }}
