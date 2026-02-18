@@ -30,8 +30,18 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `internal/httpapi/site_subscribe_test_handlers.go`
   - `internal/httpapi/dashboard_integration_test.go`
   Resolution: Added a target input that updates the inline preview container ID, and integration coverage asserting the preview renders in the updated target; `make ci` passes.
-- [ ] [LA-115] (P0) Integrate logged in drop down with the latest version of mpr-ui.
+- [x] [LA-115] (P0) Integrate logged in drop down with the latest version of mpr-ui.
   mpr-ui provides the mpr-user element which can be integrated with tauth and shown instead of custom logic we employ for displaying a user. Check @tools/mpr-ui for the documentation and @tools/mpr-ui/demoi for the integration examples
+  Resolution: Pinned all LoopAware runtime pages from `mpr-ui@latest` to `mpr-ui@3.6.6` because jsDelivr `@latest` currently resolves to `3.6.5`; validated with `make ci` (including full integration suite).
+  Docs/Refs:
+  - `web/app/index.html`
+  - `web/app/subscribe-test/index.html`
+  - `web/app/traffic-test/index.html`
+  - `web/app/widget-test/index.html`
+  - `web/login/index.html`
+  - `web/privacy/index.html`
+  - `web/subscriptions/confirm/index.html`
+  - `web/subscriptions/unsubscribe/index.html`
 - [x] [LA-116] (P1) Refactor LoopAware into a separate frontend and backend to adopt TAuth via mpr-ui.
   Priority: P0
   Goal: Split the UI into a dedicated frontend app that loads `tauth.js` + mpr-ui DSL, while the backend becomes a clean API that validates TAuth sessions.
@@ -496,3 +506,19 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - `ARCHITECTURE.md`
   Resolution: Implemented traffic trend, attribution, and engagement aggregations (including bot exclusion and bounded query options), wired authenticated handlers and routing, updated public docs, and added comprehensive Go + Playwright coverage for endpoint behavior and helper/path edge cases.
   Verification: `timeout -k 10s -s SIGKILL 350s make test`, `timeout -k 10s -s SIGKILL 350s make lint`, `timeout -k 10s -s SIGKILL 350s make ci`, and `timeout -k 10s -s SIGKILL 350s make coverage` all pass (`total: 95.1%`).
+
+- [x] [LA-439] Widget `api_origin` should preserve optional path prefixes to avoid `/api/widget-config` 404s.
+  Priority: P0
+  Symptom: Widgets configured with `api_origin` values like `https://poodlescanner.com/app` were normalized to bare origins (`https://poodlescanner.com`), so widget requests targeted `/api/widget-config` and `/api/feedback` instead of `/app/api/...`, returning 404 in subpath deployments.
+  Goal: Keep optional path prefixes in `api_origin` for public widget API calls while preserving current origin-only behavior.
+  Deliverable: Update `web/widget.js` API origin normalization and add Playwright coverage that proves widget config + feedback requests use path-prefixed `api_origin` values.
+  Resolution: `web/widget.js` now preserves parsed pathname segments (trimming trailing slashes) when normalizing `api_origin`; added `tests/specs/widget-integration.spec.js` coverage (`widget keeps api_origin path prefixes for config and feedback`) that intercepts `/app/api/widget-config` and `/app/api/feedback`.
+  Verification: `timeout -k 10s -s SIGKILL 350s make ci` passes (253 Playwright tests).
+
+- [x] [LA-440] Enforce strict-origin semantics for widget `api_origin` (no path support).
+  Priority: P0
+  Symptom: Allowing path-bearing `api_origin` values blurred contract semantics and diverged from `subscribe.js`/`pixel.js`, where `api_origin` is origin-only (`scheme://host[:port]`).
+  Goal: Make widget `api_origin` strict and explicit: accept only absolute origins, reject values containing path/query/hash, and avoid hidden fallback behavior.
+  Deliverable: Update `web/widget.js` to reject invalid `api_origin` values at initialization and replace path-prefix integration coverage with a strict-origin rejection assertion.
+  Resolution: Widget initialization now logs a clear error and aborts when `api_origin` is not a strict origin; Playwright coverage now asserts path-bearing `api_origin` values are rejected and do not render the widget bubble.
+  Verification: `timeout -k 10s -s SIGKILL 350s make ci` passes (253 Playwright tests).
