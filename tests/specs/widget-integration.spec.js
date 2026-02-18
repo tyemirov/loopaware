@@ -64,7 +64,7 @@ test('widget submission shows success message', async ({ page }) => {
   await messageInput.fill('Widget feedback');
   await expect(contactInput).toHaveValue('widget@example.com');
   await expect(messageInput).toHaveValue('Widget feedback');
-  const feedbackResponse = page.waitForResponse((response) => response.url().includes('/api/feedback') && response.status() === 200);
+  const feedbackResponse = page.waitForResponse((response) => response.url().includes('/public/feedback') && response.status() === 200);
   await page.locator('#mp-feedback-panel button:has-text("Send")').click();
   await feedbackResponse;
   await expect(page.locator('#mp-feedback-panel')).toContainText('Thanks! Sent.');

@@ -2,7 +2,7 @@
 
 ## Current state (from code)
 - Only metric exposed is `feedback_count` via `SiteStatisticsProvider` and responses from `SiteHandlers.ListSites`.
-- No visit/traffic data is stored. The public surface includes `/widget.js` and `/api/feedback`, both enforcing `Site.AllowedOrigin` with origin/referrer checks and per-IP rate limiting.
+- No visit/traffic data is stored. The public surface includes `/widget.js` and `/public/feedback`, both enforcing `Site.AllowedOrigin` with origin/referrer checks and per-IP rate limiting.
 - Dashboard UI and APIs display feedback counts and messages; no charts or counters for traffic exist.
 
 ## Goals
@@ -19,7 +19,7 @@
 - Smart constructors validate non-empty `SiteID`, normalized URLs (strip fragment, truncate/trim), optional visitor id UUID format.
 
 ### Collection endpoints/pixel
-- Public endpoint `GET /pixel.gif` (or `/api/visits`) handled by `PublicHandlers`:
+- Public endpoint `GET /pixel.gif` (or `/public/visits`) handled by `PublicHandlers`:
   - Required params: `site_id`; optional: `url`, `referrer`, `visitor_id`, `ts` (client timestamp), `uid` (session/page id).
   - Enforce `AllowedOrigin` by checking `Origin` or `Referer` prefix; if neither header set, require `url` param for verification.
   - Rate-limit per IP similar to feedback to deter abuse.
@@ -27,7 +27,7 @@
   - Response always succeeds with opaque body to avoid leaking existence of sites beyond origin checks (`404 unknown_site` when site_id invalid).
 - Pixel script `/pixel.js?site_id=...`:
   - ESM with `@ts-check`; generates/stores `visitor_id` cookie (`_loopaware_vid`) scoped to the site origin.
-  - Fires `navigator.sendBeacon` (fallback fetch) to `/api/visits` with payload containing site_id, url, referrer, visitor_id, page_id, client_ts.
+  - Fires `navigator.sendBeacon` (fallback fetch) to `/public/visits` with payload containing site_id, url, referrer, visitor_id, page_id, client_ts.
   - Debounce duplicate sends (one per page load; optional heartbeat not needed).
   - For no-script environments, provide `<img src=".../pixel.gif?site_id=...&url=...">` snippet in dashboard copy.
 

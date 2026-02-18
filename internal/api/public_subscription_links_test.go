@@ -49,7 +49,7 @@ func decodeSubscriptionLinkPayload(testingT *testing.T, response *httptest.Respo
 
 func TestConfirmSubscriptionLinkRequiresToken(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/confirm-link", nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/public/subscriptions/confirm-link", nil, nil)
 	require.Equal(testingT, http.StatusBadRequest, response.Code)
 	payload := decodeSubscriptionLinkPayload(testingT, response)
 	require.Equal(testingT, "Subscription confirmation", payload.Heading)
@@ -58,7 +58,7 @@ func TestConfirmSubscriptionLinkRequiresToken(testingT *testing.T) {
 
 func TestConfirmSubscriptionLinkRejectsInvalidToken(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/confirm-link?token=bad", nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/public/subscriptions/confirm-link?token=bad", nil, nil)
 	require.Equal(testingT, http.StatusBadRequest, response.Code)
 	payload := decodeSubscriptionLinkPayload(testingT, response)
 	require.Equal(testingT, "Subscription confirmation", payload.Heading)
@@ -75,9 +75,9 @@ func TestConfirmSubscriptionLinkRequiresSecret(testingT *testing.T) {
 
 	publicHandlers := api.NewPublicHandlers(database, zap.NewNop(), nil, nil, nil, nil, true, "http://loopaware.test", "", nil)
 	router := gin.New()
-	router.GET("/api/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
+	router.GET("/public/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
 
-	request := httptest.NewRequest(http.MethodGet, "/api/subscriptions/confirm-link?token=token", nil)
+	request := httptest.NewRequest(http.MethodGet, "/public/subscriptions/confirm-link?token=token", nil)
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
@@ -97,7 +97,7 @@ func TestConfirmSubscriptionLinkRejectsMismatchedEmail(testingT *testing.T) {
 		Where("site_id = ? AND email = ?", site.ID, strings.ToLower(testConfirmLinkSubscriber)).
 		Update("email", testConfirmLinkAlternateEmail).Error)
 
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/confirm-link?token="+url.QueryEscape(token), nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/public/subscriptions/confirm-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusBadRequest, response.Code)
 	payload := decodeSubscriptionLinkPayload(testingT, response)
 	require.Equal(testingT, "Subscription confirmation", payload.Heading)
@@ -115,7 +115,7 @@ func TestConfirmSubscriptionLinkHandlesExistingStatuses(testingT *testing.T) {
 		Where("site_id = ? AND email = ?", site.ID, strings.ToLower(testConfirmLinkSubscriber)).
 		Update("status", model.SubscriberStatusUnsubscribed).Error)
 
-	unsubscribed := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/confirm-link?token="+url.QueryEscape(token), nil, nil)
+	unsubscribed := performJSONRequest(testingT, api.router, http.MethodGet, "/public/subscriptions/confirm-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusConflict, unsubscribed.Code)
 	unsubscribedPayload := decodeSubscriptionLinkPayload(testingT, unsubscribed)
 	require.Equal(testingT, "Subscription confirmation", unsubscribedPayload.Heading)
@@ -125,7 +125,7 @@ func TestConfirmSubscriptionLinkHandlesExistingStatuses(testingT *testing.T) {
 		Where("site_id = ? AND email = ?", site.ID, strings.ToLower(testConfirmLinkSubscriber)).
 		Update("status", model.SubscriberStatusConfirmed).Error)
 
-	confirmed := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/confirm-link?token="+url.QueryEscape(token), nil, nil)
+	confirmed := performJSONRequest(testingT, api.router, http.MethodGet, "/public/subscriptions/confirm-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusOK, confirmed.Code)
 	confirmedPayload := decodeSubscriptionLinkPayload(testingT, confirmed)
 	require.Equal(testingT, "Subscription confirmed", confirmedPayload.Heading)
@@ -149,7 +149,7 @@ func TestConfirmSubscriptionLinkReportsUpdateError(testingT *testing.T) {
 		api.database.Callback().Update().Remove(callbackName)
 	})
 
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/confirm-link?token="+url.QueryEscape(token), nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/public/subscriptions/confirm-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusInternalServerError, response.Code)
 	payload := decodeSubscriptionLinkPayload(testingT, response)
 	require.Equal(testingT, "Subscription confirmation", payload.Heading)
@@ -158,7 +158,7 @@ func TestConfirmSubscriptionLinkReportsUpdateError(testingT *testing.T) {
 
 func TestUnsubscribeSubscriptionLinkRequiresToken(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/unsubscribe-link", nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/public/subscriptions/unsubscribe-link", nil, nil)
 	require.Equal(testingT, http.StatusBadRequest, response.Code)
 	payload := decodeSubscriptionLinkPayload(testingT, response)
 	require.Equal(testingT, "Unsubscribe", payload.Heading)
@@ -167,7 +167,7 @@ func TestUnsubscribeSubscriptionLinkRequiresToken(testingT *testing.T) {
 
 func TestUnsubscribeSubscriptionLinkRejectsInvalidToken(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/unsubscribe-link?token=bad", nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/public/subscriptions/unsubscribe-link?token=bad", nil, nil)
 	require.Equal(testingT, http.StatusBadRequest, response.Code)
 	payload := decodeSubscriptionLinkPayload(testingT, response)
 	require.Equal(testingT, "Unsubscribe", payload.Heading)
@@ -184,9 +184,9 @@ func TestUnsubscribeSubscriptionLinkRequiresSecret(testingT *testing.T) {
 
 	publicHandlers := api.NewPublicHandlers(database, zap.NewNop(), nil, nil, nil, nil, true, "http://loopaware.test", "", nil)
 	router := gin.New()
-	router.GET("/api/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
+	router.GET("/public/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
 
-	request := httptest.NewRequest(http.MethodGet, "/api/subscriptions/unsubscribe-link?token=token", nil)
+	request := httptest.NewRequest(http.MethodGet, "/public/subscriptions/unsubscribe-link?token=token", nil)
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
@@ -206,7 +206,7 @@ func TestUnsubscribeSubscriptionLinkRejectsMismatchedEmail(testingT *testing.T) 
 		Where("site_id = ? AND email = ?", site.ID, strings.ToLower(testConfirmLinkSubscriber)).
 		Update("email", testConfirmLinkAlternateEmail).Error)
 
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/unsubscribe-link?token="+url.QueryEscape(token), nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/public/subscriptions/unsubscribe-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusBadRequest, response.Code)
 	payload := decodeSubscriptionLinkPayload(testingT, response)
 	require.Equal(testingT, "Unsubscribe", payload.Heading)
@@ -224,7 +224,7 @@ func TestUnsubscribeSubscriptionLinkHandlesExistingStatus(testingT *testing.T) {
 		Where("site_id = ? AND email = ?", site.ID, strings.ToLower(testConfirmLinkSubscriber)).
 		Update("status", model.SubscriberStatusUnsubscribed).Error)
 
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/unsubscribe-link?token="+url.QueryEscape(token), nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/public/subscriptions/unsubscribe-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusOK, response.Code)
 	payload := decodeSubscriptionLinkPayload(testingT, response)
 	require.Equal(testingT, "Unsubscribed", payload.Heading)
@@ -238,7 +238,7 @@ func TestUnsubscribeSubscriptionLinkUpdatesSubscriber(testingT *testing.T) {
 
 	token := createSubscriptionToken(testingT, api, site, testConfirmLinkSubscriber, emailSender)
 
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/unsubscribe-link?token="+url.QueryEscape(token), nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/public/subscriptions/unsubscribe-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusOK, response.Code)
 	payload := decodeSubscriptionLinkPayload(testingT, response)
 	require.Equal(testingT, "Unsubscribed", payload.Heading)
@@ -267,14 +267,14 @@ func TestUnsubscribeSubscriptionLinkReportsUpdateError(testingT *testing.T) {
 		api.database.Callback().Update().Remove(callbackName)
 	})
 
-	response := performJSONRequest(testingT, api.router, http.MethodGet, "/api/subscriptions/unsubscribe-link?token="+url.QueryEscape(token), nil, nil)
+	response := performJSONRequest(testingT, api.router, http.MethodGet, "/public/subscriptions/unsubscribe-link?token="+url.QueryEscape(token), nil, nil)
 	require.Equal(testingT, http.StatusInternalServerError, response.Code)
 	payload := decodeSubscriptionLinkPayload(testingT, response)
 	require.Equal(testingT, "Unsubscribe", payload.Heading)
 	require.Equal(testingT, "Failed to unsubscribe.", payload.Message)
 }
 func createSubscriptionToken(testingT *testing.T, api apiHarness, site model.Site, emailAddress string, emailSender *recordingEmailSender) string {
-	response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   emailAddress,
 	}, map[string]string{"Origin": site.AllowedOrigin})

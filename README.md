@@ -154,11 +154,11 @@ include Unix timestamps in seconds.
 | `GET`   | `/api/sites/:id/visits/engagement`    | owner/admin | Visitor engagement metrics (default 30 days, optional `days` query param up to 90)                     |
 | `GET`   | `/api/sites/favicons/events`          | any         | Server-sent events stream announcing refreshed site favicons                                            |
 | `GET`   | `/api/sites/feedback/events`          | any         | Server-sent events stream announcing new feedback                                                      |
-| `POST`  | `/api/feedback`                       | public      | Submit feedback (requires JSON body with `site_id`, `contact`, `message`)                               |
-| `POST`  | `/api/subscriptions`                  | public      | Submit an email subscription (JSON body with `site_id`, `email`, optional `name` and `source_url`)      |
-| `POST`  | `/api/subscriptions/confirm`          | public      | Confirm a subscription for a given `site_id` and email                                                  |
-| `POST`  | `/api/subscriptions/unsubscribe`      | public      | Unsubscribe an email address for a given `site_id`                                                      |
-| `GET`   | `/api/visits`                         | public      | Record a page visit for a site (returns a 1×1 GIF for use as a tracking pixel)                          |
+| `POST`  | `/public/feedback`                       | public      | Submit feedback (requires JSON body with `site_id`, `contact`, `message`)                               |
+| `POST`  | `/public/subscriptions`                  | public      | Submit an email subscription (JSON body with `site_id`, `email`, optional `name` and `source_url`)      |
+| `POST`  | `/public/subscriptions/confirm`          | public      | Confirm a subscription for a given `site_id` and email                                                  |
+| `POST`  | `/public/subscriptions/unsubscribe`      | public      | Unsubscribe an email address for a given `site_id`                                                      |
+| `GET`   | `/public/visits`                         | public      | Record a page visit for a site (returns a 1×1 GIF for use as a tracking pixel)                          |
 
 Subscriptions use confirmation and unsubscribe links sent via email: the static frontend pages at
 `/subscriptions/confirm?token=...` and `/subscriptions/unsubscribe?token=...` call the API without requiring browser
@@ -211,7 +211,7 @@ Example snippet (replace the base URL with your LoopAware deployment and the sit
 
 ## Embedding the subscribe form
 
-Each site exposes a subscribe snippet that renders an email capture form and posts subscriptions to `/api/subscriptions`.
+Each site exposes a subscribe snippet that renders an email capture form and posts subscriptions to `/public/subscriptions`.
 
 1. In the dashboard, select a site and use the Subscribers panel to copy the subscribe snippet.
 2. Embed the script on pages served from any of the site’s `allowed_origin` entries. The basic form looks like:
@@ -241,7 +241,7 @@ The traffic pixel records page visits per site and powers the dashboard Traffic 
    <script defer src="https://loopaware.mprlab.com/pixel.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"></script>
    ```
 
-3. On load, `pixel.js` sends a beacon to `/api/visits` with the site ID, current URL, referrer, and a stable visitor ID
+3. On load, `pixel.js` sends a beacon to `/public/visits` with the site ID, current URL, referrer, and a stable visitor ID
    stored in `localStorage`. Requests from origins outside the site’s `allowed_origin` list are rejected. Traffic from
    known bot user-agent signatures is stored but excluded from default dashboard totals, top-page rankings, trends, and
    attribution and engagement breakdowns.
@@ -249,7 +249,7 @@ The traffic pixel records page visits per site and powers the dashboard Traffic 
 For non-JavaScript environments you can fall back to a plain image pixel:
 
 ```html
-<img src="https://loopaware.mprlab.com/api/visits?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f&url=https%3A%2F%2Fexample.com%2F" alt="" width="1" height="1" />
+<img src="https://loopaware.mprlab.com/public/visits?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f&url=https%3A%2F%2Fexample.com%2F" alt="" width="1" height="1" />
 ```
 
 ## Development workflow

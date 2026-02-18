@@ -24,22 +24,22 @@ func TestIsPublicAPIPathClassification(testingT *testing.T) {
 		},
 		{
 			name:       "feedback",
-			path:       "/api/feedback",
+			path:       "/public/feedback",
 			expectOpen: true,
 		},
 		{
 			name:       "widget_config",
-			path:       "/api/widget-config",
+			path:       "/public/widget-config",
 			expectOpen: true,
 		},
 		{
 			name:       "visits",
-			path:       "/api/visits",
+			path:       "/public/visits",
 			expectOpen: true,
 		},
 		{
 			name:       "subscription_prefix",
-			path:       "/api/subscriptions/confirm-link",
+			path:       "/public/subscriptions/confirm-link",
 			expectOpen: true,
 		},
 		{
@@ -114,7 +114,7 @@ func TestAPIPreflightRoutesUseWildcardCORSForPublicRequests(testingT *testing.T)
 	})
 	registerAPIPreflightRoutes(router, publicCORS, authenticatedCORS)
 
-	request := httptest.NewRequest(http.MethodOptions, "/api/feedback", nil)
+	request := httptest.NewRequest(http.MethodOptions, "/public/feedback", nil)
 	request.Header.Set("Origin", "http://widget.example")
 	request.Header.Set("Access-Control-Request-Method", http.MethodPost)
 	request.Header.Set("Access-Control-Request-Headers", "content-type")

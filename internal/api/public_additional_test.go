@@ -29,7 +29,7 @@ func TestCreateFeedbackReturnsNotFoundWhenSiteLookupFails(testingT *testing.T) {
 	require.NoError(testingT, sqlErr)
 	require.NoError(testingT, sqlDatabase.Close())
 
-	response := performJSONRequest(testingT, apiHarness.router, http.MethodPost, "/api/feedback", map[string]any{
+	response := performJSONRequest(testingT, apiHarness.router, http.MethodPost, "/public/feedback", map[string]any{
 		"site_id": "missing-site",
 		"contact": "user@example.com",
 		"message": "Feedback",
@@ -40,7 +40,7 @@ func TestCreateFeedbackReturnsNotFoundWhenSiteLookupFails(testingT *testing.T) {
 
 func TestWidgetConfigReturnsDemoDefaults(testingT *testing.T) {
 	apiHarness := buildAPIHarness(testingT, nil, nil, nil)
-	response := performJSONRequest(testingT, apiHarness.router, http.MethodGet, "/api/widget-config?site_id="+testDemoWidgetSiteID, nil, nil)
+	response := performJSONRequest(testingT, apiHarness.router, http.MethodGet, "/public/widget-config?site_id="+testDemoWidgetSiteID, nil, nil)
 	require.Equal(testingT, http.StatusOK, response.Code)
 
 	var payload struct {
@@ -68,7 +68,7 @@ func TestCreateSubscriptionReturnsServerErrorWhenSubscriberLookupFails(testingT 
 		_ = apiHarness.database.Callback().Query().Remove(testSubscriberQueryHook)
 	})
 
-	response := performJSONRequest(testingT, apiHarness.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	response := performJSONRequest(testingT, apiHarness.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   testSubscriptionUpdateEmail,
 		"name":    testSubscriptionUpdateName,
@@ -101,7 +101,7 @@ func TestCreateSubscriptionReturnsServerErrorWhenUpdateFails(testingT *testing.T
 		_ = apiHarness.database.Callback().Update().Remove(testSubscriberUpdateHook)
 	})
 
-	response := performJSONRequest(testingT, apiHarness.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	response := performJSONRequest(testingT, apiHarness.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   subscriber.Email,
 		"name":    testSubscriptionUpdateName,
@@ -115,7 +115,7 @@ func TestCreateSubscriptionRejectsInvalidContact(testingT *testing.T) {
 	site := insertSite(testingT, apiHarness.database, testSubscribeSiteName, testSubscribeSiteOrigin, testSubscribeOwnerAddress)
 
 	longSubscriberName := strings.Repeat("a", 201)
-	response := performJSONRequest(testingT, apiHarness.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	response := performJSONRequest(testingT, apiHarness.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   testSubscriptionUpdateEmail,
 		"name":    longSubscriberName,

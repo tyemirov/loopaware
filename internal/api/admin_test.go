@@ -796,7 +796,7 @@ func TestStreamFeedbackUpdatesReceivesCreateEvents(testingT *testing.T) {
 		context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
 		siteHandlers.StreamFeedbackUpdates(context)
 	})
-	engine.POST("/api/feedback", func(context *gin.Context) {
+	engine.POST("/public/feedback", func(context *gin.Context) {
 		publicHandlers.CreateFeedback(context)
 	})
 
@@ -846,7 +846,7 @@ func TestStreamFeedbackUpdatesReceivesCreateEvents(testingT *testing.T) {
 	}()
 
 	feedbackRequestBody := bytes.NewBufferString(fmt.Sprintf(`{"site_id":"%s","contact":"person@example.com","message":"Hello"}`, site.ID))
-	createRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api/feedback", feedbackRequestBody)
+	createRequest, err := http.NewRequest(http.MethodPost, server.URL+"/public/feedback", feedbackRequestBody)
 	require.NoError(testingT, err)
 	createRequest.Header.Set("Content-Type", "application/json")
 	createResponse, err := client.Do(createRequest)

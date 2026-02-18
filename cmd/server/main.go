@@ -92,11 +92,12 @@ const (
 	defaultPinguinConnTimeoutSeconds  = 5
 	defaultPinguinOpTimeoutSeconds    = 30
 	defaultSubscriptionNotify         = true
-	publicRouteFeedback               = "/api/feedback"
-	publicRouteSubscription           = "/api/subscriptions"
-	publicRouteSubscriptionConfirm    = "/api/subscriptions/confirm"
-	publicRouteSubscriptionOptOut     = "/api/subscriptions/unsubscribe"
-	publicRouteVisitPixel             = "/api/visits"
+	publicRoutePrefix                 = "/public"
+	publicRouteFeedback               = "/public/feedback"
+	publicRouteSubscription           = "/public/subscriptions"
+	publicRouteSubscriptionConfirm    = "/public/subscriptions/confirm"
+	publicRouteSubscriptionOptOut     = "/public/subscriptions/unsubscribe"
+	publicRouteVisitPixel             = "/public/visits"
 	apiRoutePrefix                    = "/api"
 	apiRouteMe                        = "/me"
 	apiRouteMeAvatar                  = "/me/avatar"

@@ -36,7 +36,7 @@ func TestCreateSubscriptionUpdatesUnsubscribedSubscriber(testingT *testing.T) {
 	require.NoError(testingT, subscriberErr)
 	require.NoError(testingT, api.database.Create(&subscriber).Error)
 
-	response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   testSubscriptionEmail,
 		"name":    "Updated Name",
@@ -53,7 +53,7 @@ func TestCreateSubscriptionUpdatesUnsubscribedSubscriber(testingT *testing.T) {
 func TestCreateSubscriptionRejectsInvalidJSON(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 
-	request := httptest.NewRequest(http.MethodPost, "/api/subscriptions", strings.NewReader(testSubscriptionInvalidJSON))
+	request := httptest.NewRequest(http.MethodPost, "/public/subscriptions", strings.NewReader(testSubscriptionInvalidJSON))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
 	api.router.ServeHTTP(recorder, request)
@@ -64,7 +64,7 @@ func TestCreateSubscriptionRejectsInvalidJSON(testingT *testing.T) {
 func TestCreateSubscriptionRejectsUnknownSite(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 
-	response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": storage.NewID(),
 		"email":   testSubscriptionEmail,
 	}, map[string]string{"Origin": testSubscriptionSiteOrigin})
@@ -80,7 +80,7 @@ func TestCreateSubscriptionRateLimited(testingT *testing.T) {
 
 	tooMany := 0
 	for attemptIndex := 0; attemptIndex < 12; attemptIndex++ {
-		response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", payload, headers)
+		response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", payload, headers)
 		if response.Code == http.StatusTooManyRequests {
 			tooMany++
 			break
@@ -92,7 +92,7 @@ func TestCreateSubscriptionRateLimited(testingT *testing.T) {
 func TestUpdateSubscriptionStatusRejectsInvalidJSON(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 
-	request := httptest.NewRequest(http.MethodPost, "/api/subscriptions/confirm", strings.NewReader(testSubscriptionInvalidJSON))
+	request := httptest.NewRequest(http.MethodPost, "/public/subscriptions/confirm", strings.NewReader(testSubscriptionInvalidJSON))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
 	api.router.ServeHTTP(recorder, request)
@@ -103,7 +103,7 @@ func TestUpdateSubscriptionStatusRejectsInvalidJSON(testingT *testing.T) {
 func TestUpdateSubscriptionStatusRejectsMissingFields(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 
-	response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/confirm", map[string]any{
 		"site_id": "",
 		"email":   "",
 	}, map[string]string{"Origin": testSubscriptionSiteOrigin})
@@ -113,7 +113,7 @@ func TestUpdateSubscriptionStatusRejectsMissingFields(testingT *testing.T) {
 func TestUpdateSubscriptionStatusRejectsUnknownSite(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 
-	response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/confirm", map[string]any{
 		"site_id": storage.NewID(),
 		"email":   testSubscriptionEmail,
 	}, map[string]string{"Origin": testSubscriptionSiteOrigin})
@@ -124,7 +124,7 @@ func TestUpdateSubscriptionStatusRejectsOriginForbidden(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 	site := insertSite(testingT, api.database, testSubscriptionSiteName, testSubscriptionSiteOrigin, testSubscriptionOwnerEmail)
 
-	response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   testSubscriptionEmail,
 	}, map[string]string{"Origin": "http://blocked.example"})
@@ -135,7 +135,7 @@ func TestUpdateSubscriptionStatusReturnsUnknownSubscription(testingT *testing.T)
 	api := buildAPIHarness(testingT, nil, nil, nil)
 	site := insertSite(testingT, api.database, testSubscriptionSiteName, testSubscriptionSiteOrigin, testSubscriptionOwnerEmail)
 
-	response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   testSubscriptionEmail,
 	}, map[string]string{"Origin": site.AllowedOrigin})
@@ -154,7 +154,7 @@ func TestUpdateSubscriptionStatusReturnsOkForSameStatus(testingT *testing.T) {
 	require.NoError(testingT, subscriberErr)
 	require.NoError(testingT, api.database.Create(&subscriber).Error)
 
-	response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions/confirm", map[string]any{
+	response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/confirm", map[string]any{
 		"site_id": site.ID,
 		"email":   testSubscriptionEmail,
 	}, map[string]string{"Origin": site.AllowedOrigin})
@@ -173,7 +173,7 @@ func TestCreateSubscriptionReportsSaveError(testingT *testing.T) {
 		_ = api.database.Callback().Create().Remove("force_subscriber_error")
 	})
 
-	response := performJSONRequest(testingT, api.router, http.MethodPost, "/api/subscriptions", map[string]any{
+	response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
 		"site_id": site.ID,
 		"email":   testSubscriptionEmail,
 	}, map[string]string{"Origin": site.AllowedOrigin})

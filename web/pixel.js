@@ -1,6 +1,6 @@
 // @ts-check
 (function(){
-  var endpoint = "/api/visits";
+  var endpoint = "/public/visits";
   var storageKey = "loopaware_visitor_id";
 
   function resolveScriptTag() {

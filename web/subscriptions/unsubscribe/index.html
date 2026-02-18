@@ -842,7 +842,7 @@
         try {
           apiOrigin = String(window.__LOOPAWARE_API_ORIGIN__ || '').trim();
         } catch (error) {}
-        var actionEndpoint = apiOrigin ? (apiOrigin + '/api/subscriptions/unsubscribe-link') : '/api/subscriptions/unsubscribe-link';
+        var actionEndpoint = apiOrigin ? (apiOrigin + '/public/subscriptions/unsubscribe-link') : '/public/subscriptions/unsubscribe-link';
 
         function setText(element, value) {
           if (!element) {
