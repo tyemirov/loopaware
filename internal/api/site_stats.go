@@ -211,15 +211,11 @@ func (provider *DatabaseSiteStatisticsProvider) VisitTrend(ctx context.Context, 
 
 	entriesByDay := make(map[string]DailyVisitTrendStat, len(rows))
 	for _, row := range rows {
-		normalizedDay := strings.TrimSpace(row.Day)
-		if normalizedDay == "" {
-			return nil, fmt.Errorf("visit_trend_parse_day: empty day value")
+		dayKey, dateValue, normalizeErr := normalizeVisitTrendMapKey(row.Day)
+		if normalizeErr != nil {
+			return nil, normalizeErr
 		}
-		dateValue, parseErr := parseVisitTrendDate(normalizedDay)
-		if parseErr != nil {
-			return nil, fmt.Errorf("visit_trend_parse_day %q: %w", normalizedDay, parseErr)
-		}
-		entriesByDay[normalizedDay] = DailyVisitTrendStat{
+		entriesByDay[dayKey] = DailyVisitTrendStat{
 			Date:           dateValue,
 			PageViews:      row.PageViews,
 			UniqueVisitors: row.UniqueVisitors,
@@ -251,6 +247,20 @@ func normalizeVisitTrendDays(days int) int {
 		return maxVisitTrendDays
 	}
 	return days
+}
+
+func normalizeVisitTrendMapKey(rawDayValue string) (string, time.Time, error) {
+	normalizedDay := strings.TrimSpace(rawDayValue)
+	if normalizedDay == "" {
+		return "", time.Time{}, fmt.Errorf("visit_trend_parse_day: empty day value")
+	}
+
+	dateValue, parseErr := parseVisitTrendDate(normalizedDay)
+	if parseErr != nil {
+		return "", time.Time{}, fmt.Errorf("visit_trend_parse_day %q: %w", normalizedDay, parseErr)
+	}
+
+	return dateValue.Format(visitTrendDayLayout), dateValue, nil
 }
 
 func parseVisitTrendDate(rawValue string) (time.Time, error) {

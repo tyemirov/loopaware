@@ -506,6 +506,18 @@ func TestDatabaseSiteStatisticsProviderVisitEngagementDefaultsAndExcludesBots(te
 	require.Equal(testingT, int64(1), engagement.ObservedTimeDistribution.SixHundredOrMore)
 }
 
+func TestNormalizeVisitTrendMapKeyNormalizesTimestampLikeDayStrings(testingT *testing.T) {
+	dayKey, dateValue, normalizeErr := normalizeVisitTrendMapKey("2025-01-03T12:13:14Z")
+	require.NoError(testingT, normalizeErr)
+	require.Equal(testingT, "2025-01-03", dayKey)
+	require.Equal(testingT, time.Date(2025, 1, 3, 0, 0, 0, 0, time.UTC), dateValue)
+	require.NotEqual(testingT, "2025-01-03T12:13:14Z", dayKey)
+
+	_, _, emptyDayErr := normalizeVisitTrendMapKey("  ")
+	require.Error(testingT, emptyDayErr)
+	require.ErrorContains(testingT, emptyDayErr, "visit_trend_parse_day: empty day value")
+}
+
 func TestVisitTrendHelperNormalizersAndParsing(testingT *testing.T) {
 	require.Equal(testingT, defaultVisitTrendDays, normalizeVisitTrendDays(0))
 	require.Equal(testingT, maxVisitTrendDays, normalizeVisitTrendDays(maxVisitTrendDays+10))
