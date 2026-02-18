@@ -36,7 +36,6 @@ var visitBotUserAgentTokens = [...]string{
 	"ahrefsbot",
 	"mj12bot",
 	"facebookexternalhit",
-	"whatsapp",
 	"telegrambot",
 	"petalbot",
 }

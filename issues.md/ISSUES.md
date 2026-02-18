@@ -530,3 +530,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Update `internal/api/site_stats.go` to key trend rows by normalized formatted day and add regression coverage for timestamp-like day strings.
   Resolution: Added `normalizeVisitTrendMapKey` and switched `VisitTrend` row mapping to use parsed-date formatted keys (`visitTrendDayLayout`), plus new test `TestNormalizeVisitTrendMapKeyNormalizesTimestampLikeDayStrings`.
   Verification: `timeout -k 10s -s SIGKILL 30s go test ./internal/api -run 'TestNormalizeVisitTrendMapKeyNormalizesTimestampLikeDayStrings|TestDatabaseSiteStatisticsProviderVisitTrendDefaultsToSevenDays|TestVisitTrendHelperNormalizersAndParsing'`, `timeout -k 10s -s SIGKILL 350s make test`, `timeout -k 10s -s SIGKILL 350s make lint`, and `timeout -k 10s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-442] Remove WhatsApp from bot user-agent signatures so shared-link traffic is counted as human.
+  Priority: P0
+  Symptom: The visit collector classified any user-agent containing `whatsapp` as bot traffic, which excluded real in-app browser visits from totals, top pages, trend, attribution, and engagement metrics (`is_bot = false` filters).
+  Goal: Treat WhatsApp in-app browser sessions as human visits while keeping existing crawler bot detection intact.
+  Deliverable: Remove the `whatsapp` bot token and add regression coverage proving WhatsApp user-agent visits are stored as non-bot and counted by visit stats.
+  Resolution: Deleted `whatsapp` from `visitBotUserAgentTokens` in `internal/api/visit_collector.go` and added `TestCollectVisitTreatsWhatsAppUserAgentAsHumanTraffic` in `internal/api/visit_collector_additional_test.go`.
+  Verification: `timeout -k 10s -s SIGKILL 60s go test ./internal/api -run 'TestCollectVisitMarksBotTraffic|TestCollectVisitTreatsWhatsAppUserAgentAsHumanTraffic'`, `timeout -k 10s -s SIGKILL 350s make test`, `timeout -k 10s -s SIGKILL 350s make lint`, and `timeout -k 10s -s SIGKILL 350s make ci` pass.

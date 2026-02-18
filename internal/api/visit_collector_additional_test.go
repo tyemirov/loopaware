@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
+	loopawareapi "github.com/MarkoPoloResearchLab/loopaware/internal/api"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 )
 
@@ -28,6 +30,7 @@ const (
 	testVisitSaveErrorURL       = "http://savefail.example/page"
 	testVisitSaveFailedToken    = "save_failed"
 	testVisitBotUserAgent       = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+	testVisitWhatsAppUserAgent  = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36 WhatsApp/2.24.3.78"
 )
 
 func TestCollectVisitRequiresSiteID(testingT *testing.T) {
@@ -132,4 +135,26 @@ func TestCollectVisitMarksBotTraffic(testingT *testing.T) {
 	var stored model.SiteVisit
 	require.NoError(testingT, api.database.Order("occurred_at desc").First(&stored).Error)
 	require.True(testingT, stored.IsBot)
+}
+
+func TestCollectVisitTreatsWhatsAppUserAgentAsHumanTraffic(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Visit WhatsApp", testVisitOrigin, "owner@example.com")
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, testVisitQueryPrefix+site.ID+"&url="+testVisitOriginPage, nil)
+	request.Header.Set("Origin", testVisitOrigin)
+	request.Header.Set("User-Agent", testVisitWhatsAppUserAgent)
+	api.router.ServeHTTP(recorder, request)
+
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var stored model.SiteVisit
+	require.NoError(testingT, api.database.Order("occurred_at desc").First(&stored).Error)
+	require.False(testingT, stored.IsBot)
+
+	statsProvider := loopawareapi.NewDatabaseSiteStatisticsProvider(api.database)
+	visitCount, visitCountErr := statsProvider.VisitCount(context.Background(), site.ID)
+	require.NoError(testingT, visitCountErr)
+	require.Equal(testingT, int64(1), visitCount)
 }
