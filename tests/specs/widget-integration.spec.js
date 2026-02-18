@@ -70,6 +70,23 @@ test('widget submission shows success message', async ({ page }) => {
   await expect(page.locator('#mp-feedback-panel')).toContainText('Thanks! Sent.');
 });
 
+test('widget rejects api_origin values with path prefixes', async ({ page }) => {
+  const apiOriginWithPath = `${config.baseOrigin}/app`;
+  /** @type {string[]} */
+  const consoleErrors = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  const params = new URLSearchParams({ site_id: site.id, api_origin: apiOriginWithPath });
+  await page.goto(`/widget-integration/?${params.toString()}`, { waitUntil: 'domcontentloaded' });
+
+  await expect.poll(() => consoleErrors.some((entry) => entry.includes('invalid api_origin'))).toBe(true);
+  await expect(page.locator('#mp-feedback-bubble')).toHaveCount(0);
+});
+
 test('widget branding link uses expected label and href', async ({ page }) => {
   await openWidgetPage(page, site.id);
   await page.locator('#mp-feedback-bubble').click();
