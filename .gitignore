@@ -1,23 +1,6 @@
-.idea/
-*.iml
-.env
-.env.pinguin
-.env.loopaware
-.DS_Store
-PLAN.md
-issues.md/PLAN.md
-tools/
-tests/20*/
-tests/artifacts/
-tests/playwright-report/
-tests/test-results/
-tests/node_modules/
-tests/.cache/
-tests/.npm/
-# Managed by gix gitignore workflow
-.env.*
-!configs/.env.*.example
-qodana.yaml
-bin/
-.gocache/
-.cache/
+# Managed by ISSUES Managing Director (planning worktree)
+*
+!.gitignore
+!AGENTS.md
+!.mprl/
+!.mprl/**
