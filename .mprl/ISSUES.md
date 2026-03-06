@@ -7,7 +7,11 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
 
 ## BugFixes
 
-- [ ] [B001] (P0) Audit and harden SQL queries for security, correctness, and performance.
+## Improvements
+
+## Maintenance
+
+- [ ] [M001] (P0) Audit and harden SQL queries for security, correctness, and performance.
   ### Summary
   Review all database access paths in the Go backend and confirm SQL behavior is current, secure, and performant. This includes ORM-generated SQL (GORM) and any raw SQL paths used by repository/data-access layers.
   
@@ -40,10 +44,6 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
     - At least one measured plan comparison (`EXPLAIN`/`EXPLAIN ANALYZE`) is captured for each optimized high-cost query, showing improved cost or runtime.
     - Changes are limited to required DB/query paths and documented in the issue with before/after rationale.
 
-
-## Improvements
-
-## Maintenance
 
 ## Features
 
