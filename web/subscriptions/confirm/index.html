@@ -946,11 +946,13 @@
         var search = (window.location && window.location.search) ? window.location.search : '';
         var token = getQueryParam(search, "token");
         if (!token) {
-          throw new Error("subscription_confirm.init_failed: missing token query parameter");
+          applyResponse({ heading: 'Subscription confirmation', message: 'Missing confirmation token.' });
+          return;
         }
         token = token.trim();
         if (!token) {
-          throw new Error("subscription_confirm.init_failed: empty token query parameter");
+          applyResponse({ heading: 'Subscription confirmation', message: 'Missing confirmation token.' });
+          return;
         }
         if (!actionEndpoint) {
           applyResponse({ heading: 'Subscription confirmation', message: 'Subscription confirmation is unavailable.' });
