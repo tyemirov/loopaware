@@ -9,6 +9,9 @@ const adminUser = buildAdminUser(config);
 test('logout overlay appears and content hides on logout event', async ({ page }) => {
   await openDashboard(page, config, adminUser);
   
+  // Wait for auth listeners to be attached
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
+
   // Verify content is visible initially
   await expect(page.locator('main')).toBeVisible();
   await expect(page.locator('#logout-overlay')).toBeHidden();
@@ -44,6 +47,9 @@ test('logout overlay appears and content hides on logout event', async ({ page }
 test('logout overlay appears and content hides on unauthenticated event', async ({ page }) => {
   await openDashboard(page, config, adminUser);
   
+  // Wait for auth listeners to be attached
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
+
   // Trigger unauthenticated event
   await page.evaluate(() => {
     document.dispatchEvent(new CustomEvent('mpr-ui:auth:unauthenticated'));
@@ -75,6 +81,15 @@ test('logout overlay appears and content hides on unauthenticated event', async 
 test('logout overlay appears and content hides on session timeout confirm', async ({ page }) => {
   await openDashboard(page, config, adminUser);
   
+  // Wait for session timeout manager to be started
+  await expect(async () => {
+    const started = await page.evaluate(() => {
+      const win = /** @type {any} */ (window);
+      return !!(win.__loopawareDashboardIdleTestHooks && win.__loopawareDashboardIdleTestHooks.started());
+    });
+    expect(started).toBe(true);
+  }).toPass();
+
   // Force the session timeout prompt
   await page.evaluate(() => {
     const win = /** @type {any} */ (window);
@@ -117,6 +132,9 @@ test('logout overlay appears and content hides on session timeout confirm', asyn
 test('manual window.logout() call triggers overlay', async ({ page }) => {
   await openDashboard(page, config, adminUser);
   
+  // Wait for auth listeners to be attached
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
+
   // Intercept the fetch call to /auth/logout so it doesn't actually redirect yet
   await page.route('**/auth/logout', async route => {
     // Just hang or delay

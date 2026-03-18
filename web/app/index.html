@@ -1128,12 +1128,17 @@
 
           if (typeof window === 'object' && window) {
             window.__loopawareDashboardIdleTestHooks = {
+              started: function() {
+                return listenersBound;
+              },
               forcePrompt: function() {
+                bindListeners();
                 idleState.lastActivityTimestamp = Date.now() - (promptDelayMilliseconds + 1000);
                 showPrompt();
                 checkSessionIdleState();
               },
               forceLogout: function() {
+                bindListeners();
                 idleState.lastActivityTimestamp = Date.now() - (autoLogoutMilliseconds + 1000);
                 showPrompt();
                 checkSessionIdleState();
