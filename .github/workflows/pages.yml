@@ -33,6 +33,9 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
+      - name: Prepare frontend runtime config
+        run: cp configs/config.frontend.yml web/config.yml
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

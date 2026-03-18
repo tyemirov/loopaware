@@ -200,6 +200,43 @@ func TestCheckLoopAwareRequiredEnvironmentSkipsMissingService(testingT *testing.
 	require.Empty(testingT, result.errors)
 }
 
+func TestCheckLoopAwareRequiredEnvironmentUsesComposeServiceAlias(testingT *testing.T) {
+	result := auditResult{}
+	checkLoopAwareRequiredEnvironment(map[string]map[string]string{
+		"loopaware-api": {
+			"TAUTH_BASE_URL":            testTauthBaseURLValue,
+			"TAUTH_TENANT_ID":           testTenantValue,
+			"TAUTH_JWT_SIGNING_KEY":     testSigningKeyValue,
+			"TAUTH_SESSION_COOKIE_NAME": testCookieNameValue,
+			"PUBLIC_BASE_URL":           testPublicBaseURLValue,
+			"PINGUIN_ADDR":              testPinguinAddressValue,
+			"PINGUIN_AUTH_TOKEN":        testAuthTokenValue,
+		},
+	}, &result)
+	require.NotEmpty(testingT, result.errors)
+	require.Contains(testingT, strings.Join(result.errors, " "), "required env SESSION_SECRET is missing or empty")
+}
+
+func TestCheckCrossServiceInvariantsUsesComposeServiceAliases(testingT *testing.T) {
+	result := auditResult{}
+	checkCrossServiceInvariants(map[string]map[string]string{
+		"la-pinguin": {
+			testEnvKeyPinguinSigning:      "wrong-signing-key",
+			testEnvKeyPinguinGoogleClient: testGoogleClientValue,
+			testEnvKeyPinguinAuthToken:    testAuthTokenValue,
+		},
+		"la-tauth": {
+			testEnvKeyTauthSigning:      testSharedSigningKeyValue,
+			testEnvKeyTauthGoogleClient: testGoogleClientValue,
+		},
+		"loopaware-api": {
+			"PINGUIN_AUTH_TOKEN": testAuthTokenValue,
+		},
+	}, &result)
+	require.NotEmpty(testingT, result.errors)
+	require.Contains(testingT, strings.Join(result.errors, " "), "invariant check failed")
+}
+
 func TestRunAuditReportsParseError(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
@@ -560,7 +597,37 @@ func TestRunAuditCommandReportsWarnings(testingT *testing.T) {
 	var stderr bytes.Buffer
 	exitCode := runAuditCommand(composePath, &stdout, &stderr)
 	require.Equal(testingT, 0, exitCode)
-	require.Contains(testingT, stdout.String(), "WARN:")
+	require.Contains(testingT, stdout.String(), "WARN [")
+	require.Contains(testingT, stdout.String(), "config-audit OK")
+	require.Empty(testingT, stderr.String())
+}
+
+func TestRunAuditCommandsSuccessAcrossMultipleComposeFiles(testingT *testing.T) {
+	tempDirectory := testingT.TempDir()
+	composeOnePath := filepath.Join(tempDirectory, "docker-compose.one.yml")
+	composeTwoPath := filepath.Join(tempDirectory, "docker-compose.two.yml")
+	composeContent := strings.Join([]string{
+		"services:",
+		"  loopaware:",
+		"    environment:",
+		"      SESSION_SECRET: " + testSessionSecretValue,
+		"      TAUTH_BASE_URL: " + testTauthBaseURLValue,
+		"      TAUTH_TENANT_ID: " + testTenantValue,
+		"      TAUTH_JWT_SIGNING_KEY: " + testSigningKeyValue,
+		"      TAUTH_SESSION_COOKIE_NAME: " + testCookieNameValue,
+		"      PUBLIC_BASE_URL: " + testPublicBaseURLValue,
+		"      PINGUIN_ADDR: " + testPinguinAddressValue,
+		"      PINGUIN_AUTH_TOKEN: " + testAuthTokenValue,
+		"      PINGUIN_TENANT_ID: " + testTenantValue,
+		"",
+	}, "\n")
+	require.NoError(testingT, os.WriteFile(composeOnePath, []byte(composeContent), 0o600))
+	require.NoError(testingT, os.WriteFile(composeTwoPath, []byte(composeContent), 0o600))
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := runAuditCommands([]string{composeOnePath, composeTwoPath}, &stdout, &stderr)
+	require.Equal(testingT, 0, exitCode)
 	require.Contains(testingT, stdout.String(), "config-audit OK")
 	require.Empty(testingT, stderr.String())
 }

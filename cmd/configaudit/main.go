@@ -24,6 +24,23 @@ var (
 	volumeMappingSuffix  = "/config/config.yml"
 	localURLPattern      = regexp.MustCompile(`https?://(?:localhost|127\.0\.0\.1)(?::([0-9]{2,5}))?`)
 	localHostPortPattern = regexp.MustCompile(`(?:^|[^a-zA-Z0-9_.-])(localhost|127\.0\.0\.1):([0-9]{2,5})`)
+	defaultComposePaths  = []string{
+		"docker-compose.yml",
+		"docker-compose.integration.yml",
+		"docker-compose.computercat.yml",
+	}
+	loopAwareServiceAliases = []string{
+		"loopaware",
+		"loopaware-api",
+	}
+	pinguinServiceAliases = []string{
+		"pinguin",
+		"la-pinguin",
+	}
+	tauthServiceAliases = []string{
+		"tauth",
+		"la-tauth",
+	}
 )
 
 type stringList []string
@@ -147,29 +164,41 @@ func (result auditResult) ok() bool {
 }
 
 func main() {
-	exitCode := runAuditCommand("docker-compose.yml", os.Stdout, os.Stderr)
+	exitCode := runAuditCommands(defaultComposePaths, os.Stdout, os.Stderr)
 	if exitCode != 0 {
 		os.Exit(exitCode)
 	}
 }
 
-func runAuditCommand(composePath string, stdout io.Writer, stderr io.Writer) int {
-	result := runAudit(composePath)
-	sort.Strings(result.errors)
-	sort.Strings(result.warnings)
+func runAuditCommands(composePaths []string, stdout io.Writer, stderr io.Writer) int {
+	overallSuccess := true
 
-	for _, warning := range result.warnings {
-		_, _ = fmt.Fprintf(stdout, "WARN: %s\n", warning)
+	for _, composePath := range composePaths {
+		result := runAudit(composePath)
+		sort.Strings(result.errors)
+		sort.Strings(result.warnings)
+
+		for _, warning := range result.warnings {
+			_, _ = fmt.Fprintf(stdout, "WARN [%s]: %s\n", composePath, warning)
+		}
+		for _, errorMessage := range result.errors {
+			_, _ = fmt.Fprintf(stderr, "ERROR [%s]: %s\n", composePath, errorMessage)
+		}
+		if !result.ok() {
+			overallSuccess = false
+		}
 	}
-	for _, errorMessage := range result.errors {
-		_, _ = fmt.Fprintf(stderr, "ERROR: %s\n", errorMessage)
-	}
-	if !result.ok() {
+
+	if !overallSuccess {
 		_, _ = fmt.Fprintf(stderr, "config-audit failed\n")
 		return 1
 	}
 	_, _ = fmt.Fprintf(stdout, "config-audit OK\n")
 	return 0
+}
+
+func runAuditCommand(composePath string, stdout io.Writer, stderr io.Writer) int {
+	return runAuditCommands([]string{composePath}, stdout, stderr)
 }
 
 func runAudit(composePath string) auditResult {
@@ -421,9 +450,9 @@ func parseHostPort(portMapping string) (string, bool) {
 }
 
 func checkCrossServiceInvariants(environmentByService map[string]map[string]string, result *auditResult) {
-	pinguinEnv, pinguinOk := environmentByService["pinguin"]
-	tauthEnv, tauthOk := environmentByService["tauth"]
-	loopawareEnv, loopawareOk := environmentByService["loopaware"]
+	pinguinEnv, pinguinOk := resolveServiceEnvironment(environmentByService, pinguinServiceAliases)
+	tauthEnv, tauthOk := resolveServiceEnvironment(environmentByService, tauthServiceAliases)
+	loopawareEnv, loopawareOk := resolveServiceEnvironment(environmentByService, loopAwareServiceAliases)
 
 	if pinguinOk && tauthOk {
 		expectEqual("pinguin.TAUTH_SIGNING_KEY", pinguinEnv["TAUTH_SIGNING_KEY"], "tauth.TAUTH_LOOPAWARE_JWT_SIGNING_KEY", tauthEnv["TAUTH_LOOPAWARE_JWT_SIGNING_KEY"], result)
@@ -448,7 +477,7 @@ func expectEqual(leftLabel string, leftValue string, rightLabel string, rightVal
 }
 
 func checkLoopAwareRequiredEnvironment(environmentByService map[string]map[string]string, result *auditResult) {
-	loopawareEnv, ok := environmentByService["loopaware"]
+	loopawareEnv, ok := resolveServiceEnvironment(environmentByService, loopAwareServiceAliases)
 	if !ok {
 		return
 	}
@@ -467,6 +496,15 @@ func checkLoopAwareRequiredEnvironment(environmentByService map[string]map[strin
 			result.addError("service loopaware: required env %s is missing or empty", key)
 		}
 	}
+}
+
+func resolveServiceEnvironment(environmentByService map[string]map[string]string, aliases []string) (map[string]string, bool) {
+	for _, alias := range aliases {
+		if environment, ok := environmentByService[alias]; ok {
+			return environment, true
+		}
+	}
+	return nil, false
 }
 
 func checkWebAssetLocalhostPorts(hostPortToService map[string]string, result *auditResult) {

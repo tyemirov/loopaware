@@ -586,3 +586,27 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Update release-tag validation in `.github/workflows/pages.yml` and `.github/workflows/docker-image.yml` to accept `vMAJOR.MINOR.PATCH`, and refresh release documentation wording/examples.
   Resolution: Replaced strict two-digit regex checks with semantic-version validation (`^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$`) in both workflows, and updated `README.md` + `CHANGELOG.md` references from `vXX.XX.XX` to `vMAJOR.MINOR.PATCH` with `v0.1.0` examples.
   Verification: `timeout -k 10s -s SIGKILL 350s make lint` and `timeout -k 10s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-449] Consolidate tracked LoopAware config sources under `configs/` and remove redundant templates.
+  Priority: P1
+  Symptom: The repo still had live tracked config files split across the root (`config.yaml`) and `web/` (`web/config.yml`), plus a redundant `configs/.env.ghttp.example` template duplicating the computercat variant.
+  Goal: Make `configs/` the source of truth for tracked LoopAware config, remove duplicate templates, and keep Docker/static deployment flows working without path drift.
+  Deliverable: Move the LoopAware admin roster and frontend runtime YAML source into `configs/`, update compose/workflow/docs wiring, remove redundant config templates, and extend `config-audit` to validate the active compose variants with current service names.
+  Resolution: Moved the tracked admin roster to `configs/config.loopaware.yml` and the frontend runtime source to `configs/config.frontend.yml`; updated server defaults, compose mounts, Pages publishing, `up.sh`, and the integration runner to publish `/config.yml` from that source; removed redundant `configs/.env.ghttp.example`; and taught `cmd/configaudit` to audit all three compose files while resolving `loopaware-api`/`la-pinguin`/`la-tauth` service aliases.
+  Verification: `timeout -k 30s -s SIGKILL 30s make format`, `timeout -k 350s -s SIGKILL 350s make test`, `timeout -k 350s -s SIGKILL 350s make lint`, and `timeout -k 350s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-450] Make `up.sh` and `down.sh` the canonical Docker startup path for localhost and computercat.
+  Priority: P1
+  Symptom: Docs were drifting between raw `docker compose` commands and helper-script usage, while `up.sh` only handled the computercat stack even though frontend config publication now depends on startup helpers.
+  Goal: Make the helper scripts the single documented way to start and stop Dockerized LoopAware for both local and computercat environments.
+  Deliverable: Extend `up.sh`/`down.sh` to support both local and computercat modes, and update docs to point operators at those helpers instead of raw `docker compose up`.
+  Resolution: `up.sh`/`down.sh` now default to the local compose stack and accept `computercat` as an explicit mode; `up.sh` still publishes `configs/config.frontend.yml` into `web/config.yml` before startup, and the README/config docs now direct operators to `./up.sh`, `./down.sh`, `./up.sh computercat`, and `./down.sh computercat` as the canonical Docker entrypoints.
+  Verification: `timeout -k 30s -s SIGKILL 30s bash -n up.sh down.sh` and `timeout -k 350s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-451] Make Docker startup target selection interactive in `up.sh` and `down.sh`.
+  Priority: P2
+  Symptom: The helper scripts accepted explicit modes but did not provide the interactive target selector pattern used in the reference repos, so operators had to remember mode names instead of choosing from a menu.
+  Goal: Match the existing interactive startup UX used elsewhere while preserving explicit CLI arguments for automation.
+  Deliverable: Add an arrow-key selector to `up.sh` and `down.sh` that appears when no mode is passed, and refresh docs to mention the selectable behavior plus explicit `local`/`computercat` arguments.
+  Resolution: Added interactive target selectors to both helper scripts using the same Up/Down/Enter menu pattern as the reference repos; non-interactive runs still work when an explicit mode is passed, and docs now describe the selector plus explicit `./up.sh local` / `./up.sh computercat` forms.
+  Verification: `timeout -k 30s -s SIGKILL 30s bash -n up.sh down.sh` and `timeout -k 350s -s SIGKILL 350s make ci` pass.

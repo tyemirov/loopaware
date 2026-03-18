@@ -4,3 +4,6 @@
 !AGENTS.md
 !.mprl/
 !.mprl/**
+!configs/
+!configs/config.loopaware.yml
+!configs/config.frontend.yml

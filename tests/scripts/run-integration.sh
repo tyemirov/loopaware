@@ -5,6 +5,8 @@ script_dir=$(cd "$(dirname "$0")" && pwd)
 repo_root=$(cd "${script_dir}/../.." && pwd)
 config_dir="${repo_root}/configs"
 compose_file="${repo_root}/docker-compose.integration.yml"
+frontend_runtime_target="${repo_root}/web/config.yml"
+generated_frontend_runtime_config=false
 
 ensure_env_file() {
   local target="$1"
@@ -23,6 +25,10 @@ ensure_env_file "${config_dir}/.env.loopaware.integration" "${config_dir}/.env.l
 ensure_env_file "${config_dir}/.env.tauth.integration" "${config_dir}/.env.tauth.integration.example"
 ensure_env_file "${config_dir}/.env.pinguin.integration" "${config_dir}/.env.pinguin.integration.example"
 ensure_env_file "${config_dir}/.env.ghttp.integration" "${config_dir}/.env.ghttp.integration.example"
+if [[ ! -f "${frontend_runtime_target}" ]]; then
+  generated_frontend_runtime_config=true
+fi
+cp "${config_dir}/config.frontend.yml" "${frontend_runtime_target}"
 
 export LOOPAWARE_BASE_URL=${LOOPAWARE_BASE_URL:-http://localhost:8090}
 export LOOPAWARE_ENV_FILE=${LOOPAWARE_ENV_FILE:-${config_dir}/.env.loopaware.integration}
@@ -30,6 +36,9 @@ export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-loopaware-integration-$(date
 
 cleanup() {
   docker compose -f "${compose_file}" down -v --remove-orphans
+  if [[ "${generated_frontend_runtime_config}" == "true" ]]; then
+    rm -f "${frontend_runtime_target}"
+  fi
 }
 trap cleanup EXIT
 
