@@ -95,6 +95,8 @@
       .subscription-confirm-card {
         border-radius: 1rem;
       }
+      #logout-overlay { z-index: 2000; background-color: var(--bs-body-bg); color: var(--bs-body-color); }
+      body.logging-out main, body.logging-out mpr-header, body.logging-out mpr-footer, body.logging-out .modal { display: none !important; }
     </style>
   </head>
   <body class="landing-body d-flex flex-column min-vh-100 bg-body text-body" data-bs-theme="dark">
@@ -256,6 +258,13 @@
 (function() {
   if (document && document.documentElement) {
     document.documentElement.setAttribute('data-loopaware-auth-script', 'true');
+  }
+  function showLogoutOverlay() {
+    var overlay = document.getElementById('logout-overlay');
+    if (overlay) {
+      overlay.classList.remove('d-none');
+    }
+    document.body.classList.add('logging-out');
   }
   function pruneHeaderUserMenus(headerHost) {
     if (!headerHost || typeof headerHost.querySelectorAll !== 'function') {
@@ -436,6 +445,7 @@
     var existingWrapper = window.__loopawareLogoutWrapper;
     if (typeof existingWrapper !== 'function' || existingWrapper.__loopawareLogoutWrapper !== true) {
       existingWrapper = function() {
+        showLogoutOverlay();
         var resolvedHost = window.__loopawareLogoutHeaderHost || headerHost;
         return performLogoutRequest(resolvedHost, window.__loopawareLogoutDelegate);
       };
@@ -721,6 +731,7 @@
   }
 
   function handleUnauthenticatedEvent(event) {
+    showLogoutOverlay();
     var headerHost = resolveAuthHost(event);
     disableGoogleAutoSelect();
     if (!headerHost) {
@@ -768,6 +779,7 @@
   }
 
   function handleUserMenuLogout() {
+    showLogoutOverlay();
     disableGoogleAutoSelect();
   }
 
@@ -944,5 +956,13 @@
         });
       }());
     </script>
+    <div id="logout-overlay" class="d-none position-fixed top-0 start-0 w-100 h-100 bg-body d-flex align-items-center justify-content-center">
+      <div class="text-center">
+        <div class="spinner-border text-primary mb-3" role="status">
+          <span class="visually-hidden">Logging out...</span>
+        </div>
+        <h1 class="h4">Logging out...</h1>
+      </div>
+    </div>
   </body>
 </html>

@@ -35,6 +35,8 @@
       .dashboard-header mpr-user[data-mpr-header="user-menu"]:not([data-loopaware-user-menu="true"]) {
         display: none !important;
       }
+      #logout-overlay { z-index: 2000; background-color: var(--bs-body-bg); color: var(--bs-body-color); }
+      body.logging-out main, body.logging-out mpr-header, body.logging-out mpr-footer, body.logging-out .modal { display: none !important; }
     </style>
   </head>
   <body class="d-flex flex-column min-vh-100 bg-body text-body">
@@ -48,6 +50,7 @@
       sign-in-label="Login"
       sign-out-label="Logout"
       settings="false"
+      data-loopaware-auth-redirect-on-logout="true"
     >
       <a slot="brand" class="fw-semibold text-decoration-none text-reset" href="/app">LoopAware</a>
       <mpr-user
@@ -59,7 +62,14 @@
       ></mpr-user>
     </mpr-header>
     <script>
-      // @ts-check
+      function showLogoutOverlay() {
+        var overlay = document.getElementById('logout-overlay');
+        if (overlay) {
+          overlay.classList.remove('d-none');
+        }
+        document.body.classList.add('logging-out');
+      }
+
       (function () {
         var tauthOrigin = "";
         try {
@@ -69,6 +79,51 @@
         var headerHost = document.querySelector("mpr-header");
         if (headerHost) {
           headerHost.setAttribute("tauth-url", tauthOrigin);
+        }
+      })();
+
+      (function() {
+        function resolveAuthHost(event) {
+          if (event && event.target && event.target.nodeType === 1 && typeof event.target.matches === 'function') {
+            if (event.target.matches('mpr-header')) {
+              return event.target;
+            }
+          }
+          return document.querySelector('mpr-header');
+        }
+
+        function handleUnauthenticatedEvent(event) {
+          showLogoutOverlay();
+          var headerHost = resolveAuthHost(event);
+          if (headerHost && headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
+            window.location.assign('/login');
+          }
+        }
+
+        function handleUserMenuLogout() {
+          showLogoutOverlay();
+        }
+
+        function attachUserMenuListeners() {
+          document.addEventListener('mpr-user:logout', handleUserMenuLogout);
+        }
+
+        function attachHeaderAuth(headerHost) {
+          attachUserMenuListeners();
+          if (headerHost) {
+            headerHost.addEventListener('mpr-ui:auth:unauthenticated', handleUnauthenticatedEvent);
+          }
+          document.addEventListener('mpr-ui:auth:unauthenticated', handleUnauthenticatedEvent);
+        }
+
+        var headerHost = document.querySelector('mpr-header');
+        if (headerHost) {
+          attachHeaderAuth(headerHost);
+        } else {
+          document.addEventListener('DOMContentLoaded', function() {
+            var headerHost = document.querySelector('mpr-header');
+            if (headerHost) attachHeaderAuth(headerHost);
+          });
         }
       })();
     </script>
@@ -563,5 +618,13 @@
         }
       })();
     </script>
+    <div id="logout-overlay" class="d-none position-fixed top-0 start-0 w-100 h-100 bg-body d-flex align-items-center justify-content-center">
+      <div class="text-center">
+        <div class="spinner-border text-primary mb-3" role="status">
+          <span class="visually-hidden">Logging out...</span>
+        </div>
+        <h1 class="h4">Logging out...</h1>
+      </div>
+    </div>
   </body>
 </html>
