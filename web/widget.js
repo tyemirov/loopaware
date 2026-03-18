@@ -171,6 +171,21 @@
     return "";
   }
 
+  function getQueryParam(search, name) {
+    if (!search || !name) {
+      return "";
+    }
+    var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+    var pairs = query.split("&");
+    for (var i = 0; i < pairs.length; i++) {
+      var pair = pairs[i].split("=");
+      if (decodeURIComponent(pair[0]) === name) {
+        return decodeURIComponent(pair[1] || "");
+      }
+    }
+    return "";
+  }
+
   function resolveWidgetAPIOriginCandidate(scriptTag) {
     if (!scriptTag) {
       return "";
@@ -185,8 +200,7 @@
       if (scriptTag.src) {
         var link = document.createElement("a");
         link.href = scriptTag.src;
-        var params = new URLSearchParams(link.search || "");
-        var queryOrigin = params.get("api_origin") || "";
+        var queryOrigin = getQueryParam(link.search || "", "api_origin");
         if (queryOrigin) {
           candidate = queryOrigin;
         }
@@ -214,8 +228,7 @@
       if (scriptTag.src) {
         var link = document.createElement("a");
         link.href = scriptTag.src;
-        var params = new URLSearchParams(link.search || "");
-        var querySiteId = params.get("site_id") || "";
+        var querySiteId = getQueryParam(link.search || "", "site_id");
         if (querySiteId) {
           candidate = querySiteId;
         }
@@ -1023,7 +1036,9 @@
       return;
     }
     widgetApiOrigin = normalizedWidgetAPIOrigin || resolveWidgetOrigin(scriptTag);
+    console.log("widget.js: resolved widgetApiOrigin =", widgetApiOrigin);
     widgetSiteId = resolveWidgetSiteId(scriptTag);
+    console.log("widget.js: resolved widgetSiteId =", widgetSiteId);
     if (!widgetSiteId) {
       console.error("widget.js: missing site_id");
       return;
