@@ -516,9 +516,23 @@
           var shouldAppendAPIOriginParam = false;
           var shouldAppendTauthOriginParam = false;
           try {
-            var searchParams = new URLSearchParams(window.location.search || '');
-            shouldAppendAPIOriginParam = searchParams.has('api_origin');
-            shouldAppendTauthOriginParam = searchParams.has('tauth_origin');
+            function hasQueryParam(search, name) {
+              if (!search || !name) {
+                return false;
+              }
+              var query = search.indexOf('?') === 0 ? search.substring(1) : search;
+              var pairs = query.split('&');
+              for (var i = 0; i < pairs.length; i++) {
+                var pair = pairs[i].split('=');
+                if (decodeURIComponent(pair[0]) === name) {
+                  return true;
+                }
+              }
+              return false;
+            }
+            var search = window.location.search || '';
+            shouldAppendAPIOriginParam = hasQueryParam(search, 'api_origin');
+            shouldAppendTauthOriginParam = hasQueryParam(search, 'tauth_origin');
           } catch (error) {}
 
           function apiUrl(path) {

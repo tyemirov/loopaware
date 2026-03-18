@@ -925,8 +925,23 @@
           }
         }
 
-        var params = new URLSearchParams(window.location && window.location.search ? window.location.search : '');
-        var token = normalizeURL(params.get('token') || '');
+        function getQueryParam(search, name) {
+          if (!search || !name) {
+            return "";
+          }
+          var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+          var pairs = query.split("&");
+          for (var i = 0; i < pairs.length; i++) {
+            var pair = pairs[i].split("=");
+            if (decodeURIComponent(pair[0]) === name) {
+              return decodeURIComponent(pair[1] || "");
+            }
+          }
+          return "";
+        }
+
+        var search = (window.location && window.location.search) ? window.location.search : '';
+        var token = normalizeURL(getQueryParam(search, 'token') || '');
         if (!token) {
           applyResponse({ heading: 'Subscription confirmation', message: 'Missing confirmation token.' });
           return;

@@ -12,6 +12,21 @@
     return scripts[scripts.length - 1];
   }
 
+  function getQueryParam(search, name) {
+    if (!search || !name) {
+      return "";
+    }
+    var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+    var pairs = query.split("&");
+    for (var i = 0; i < pairs.length; i++) {
+      var pair = pairs[i].split("=");
+      if (decodeURIComponent(pair[0]) === name) {
+        return decodeURIComponent(pair[1] || "");
+      }
+    }
+    return "";
+  }
+
   function resolveSiteId(script) {
     if (!script || !script.src) {
       return "";
@@ -19,8 +34,7 @@
     try {
       var link = document.createElement("a");
       link.href = script.src;
-      var params = new URLSearchParams(link.search || "");
-      var siteId = params.get("site_id") || script.getAttribute("data-site-id") || "";
+      var siteId = getQueryParam(link.search || "", "site_id") || script.getAttribute("data-site-id") || "";
       return String(siteId || "").trim();
     } catch(e){}
     return "";
@@ -77,8 +91,7 @@
       if (scriptTag.src) {
         var link = document.createElement("a");
         link.href = scriptTag.src;
-        var params = new URLSearchParams(link.search || "");
-        var queryOrigin = params.get("api_origin") || "";
+        var queryOrigin = getQueryParam(link.search || "", "api_origin");
         if (queryOrigin) {
           candidate = queryOrigin;
         }
@@ -125,14 +138,13 @@
     var referrer = document.referrer || "";
     var target = resolveEndpoint(script);
 
-    var params = new URLSearchParams();
-    params.set("site_id", siteId);
-    if (url) params.set("url", url);
-    if (referrer) params.set("referrer", referrer);
+    var queryString = "site_id=" + encodeURIComponent(siteId);
+    if (url) queryString += "&url=" + encodeURIComponent(url);
+    if (referrer) queryString += "&referrer=" + encodeURIComponent(referrer);
     var visitorId = getVisitorId();
-    if (visitorId) params.set("visitor_id", visitorId);
+    if (visitorId) queryString += "&visitor_id=" + encodeURIComponent(visitorId);
 
-    var requestURL = target + "?" + params.toString();
+    var requestURL = target + "?" + queryString;
 
     if (shouldUseBeacon(requestURL)) {
       var blob = new Blob([], { type: "application/octet-stream" });

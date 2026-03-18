@@ -27,6 +27,21 @@
     return candidates[candidates.length - 1];
   }
 
+  function getQueryParam(search, name) {
+    if (!search || !name) {
+      return "";
+    }
+    var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+    var pairs = query.split("&");
+    for (var i = 0; i < pairs.length; i++) {
+      var pair = pairs[i].split("=");
+      if (decodeURIComponent(pair[0]) === name) {
+        return decodeURIComponent(pair[1] || "");
+      }
+    }
+    return "";
+  }
+
   function parseConfig(scriptTag) {
     var search = "";
     try {
@@ -34,28 +49,27 @@
       link.href = scriptTag.src || "";
       search = link.search || "";
     } catch(parseError){}
-    var params = new URLSearchParams(search);
-    var mode = (params.get("mode") || modeInline).toLowerCase();
+    var mode = (getQueryParam(search, "mode") || modeInline).toLowerCase();
     if (mode !== modeBubble) {
       mode = modeInline;
     }
-    var accent = params.get("accent") || defaultAccentColor;
-    var cta = params.get("cta") || defaultCTA;
-    var success = params.get("success") || defaultSuccessText;
-    var error = params.get("error") || defaultErrorText;
-    var hideName = params.get("name_field") === "false";
-    var targetId = params.get("target") || scriptTag.getAttribute("data-target") || "";
+    var accent = getQueryParam(search, "accent") || defaultAccentColor;
+    var cta = getQueryParam(search, "cta") || defaultCTA;
+    var success = getQueryParam(search, "success") || defaultSuccessText;
+    var error = getQueryParam(search, "error") || defaultErrorText;
+    var hideName = getQueryParam(search, "name_field") === "false";
+    var targetId = getQueryParam(search, "target") || scriptTag.getAttribute("data-target") || "";
     if (targetId) {
       targetId = String(targetId).trim();
     }
-    var siteId = params.get("site_id") || scriptTag.getAttribute("data-site-id") || "";
+    var siteId = getQueryParam(search, "site_id") || scriptTag.getAttribute("data-site-id") || "";
     if (siteId) {
       siteId = String(siteId).trim();
     }
-    var alreadySubscribed = params.get("already_subscribed") || defaultAlreadySubscribedText;
-    var invalidEmail = params.get("invalid_email") || defaultInvalidEmailText;
-    var onSuccess = params.get("onSuccess") || scriptTag.getAttribute("data-on-success") || "";
-    var onError = params.get("onError") || scriptTag.getAttribute("data-on-error") || "";
+    var alreadySubscribed = getQueryParam(search, "already_subscribed") || defaultAlreadySubscribedText;
+    var invalidEmail = getQueryParam(search, "invalid_email") || defaultInvalidEmailText;
+    var onSuccess = getQueryParam(search, "onSuccess") || scriptTag.getAttribute("data-on-success") || "";
+    var onError = getQueryParam(search, "onError") || scriptTag.getAttribute("data-on-error") || "";
     return {
       siteId: siteId,
       accent: accent,
@@ -124,8 +138,7 @@
       if (scriptTag.src) {
         var link = document.createElement("a");
         link.href = scriptTag.src;
-        var params = new URLSearchParams(link.search || "");
-        var queryOrigin = params.get("api_origin") || "";
+        var queryOrigin = getQueryParam(link.search || "", "api_origin");
         if (queryOrigin) {
           candidate = queryOrigin;
         }

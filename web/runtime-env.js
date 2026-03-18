@@ -186,6 +186,21 @@
     return { environments: normalized };
   }
 
+  function getQueryParam(search, name) {
+    if (!search || !name) {
+      return "";
+    }
+    var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+    var pairs = query.split("&");
+    for (var i = 0; i < pairs.length; i++) {
+      var pair = pairs[i].split("=");
+      if (decodeURIComponent(pair[0]) === name) {
+        return decodeURIComponent(pair[1] || "");
+      }
+    }
+    return "";
+  }
+
   function resolveRuntimeEnv(config) {
     var hostname = String(window.location && window.location.hostname ? window.location.hostname : "").toLowerCase();
     var pageOrigin = String(window.location && window.location.origin ? window.location.origin : "");
@@ -203,10 +218,10 @@
       }
     }
 
-    var params = new URLSearchParams(window.location.search || "");
-    var apiOrigin = normalizeOrigin(params.get("api_origin") || "") || normalizeOrigin(defaults.apiOrigin);
+    var search = window.location.search || "";
+    var apiOrigin = normalizeOrigin(getQueryParam(search, "api_origin")) || normalizeOrigin(defaults.apiOrigin);
     var tauthOrigin =
-      normalizeOrigin(params.get("tauth_origin") || "") ||
+      normalizeOrigin(getQueryParam(search, "tauth_origin")) ||
       normalizeOrigin(defaults.tauthOrigin) ||
       apiOrigin;
 

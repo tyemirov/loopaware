@@ -154,8 +154,22 @@
     <script>
       // @ts-check
       (function () {
-        var params = new URLSearchParams(window.location.search || "");
-        var siteId = (params.get("site_id") || "").trim();
+        function getQueryParam(search, name) {
+          if (!search || !name) {
+            return "";
+          }
+          var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+          var pairs = query.split("&");
+          for (var i = 0; i < pairs.length; i++) {
+            var pair = pairs[i].split("=");
+            if (decodeURIComponent(pair[0]) === name) {
+              return decodeURIComponent(pair[1] || "");
+            }
+          }
+          return "";
+        }
+        var search = window.location.search || "";
+        var siteId = (getQueryParam(search, "site_id") || "").trim();
         var apiOrigin = "";
         try {
           apiOrigin = String(window.__LOOPAWARE_API_ORIGIN__ || "").trim();

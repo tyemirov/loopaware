@@ -39,8 +39,22 @@
     <script>
       // @ts-check
       (function () {
-        var params = new URLSearchParams(window.location.search || "");
-        var siteId = (params.get("site_id") || "").trim();
+        function getQueryParam(search, name) {
+          if (!search || !name) {
+            return "";
+          }
+          var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+          var pairs = query.split("&");
+          for (var i = 0; i < pairs.length; i++) {
+            var pair = pairs[i].split("=");
+            if (decodeURIComponent(pair[0]) === name) {
+              return decodeURIComponent(pair[1] || "");
+            }
+          }
+          return "";
+        }
+        var search = window.location.search || "";
+        var siteId = (getQueryParam(search, "site_id") || "").trim();
         var status = document.getElementById("subscribe-demo-status");
         if (!siteId) {
           if (status) {
@@ -50,17 +64,17 @@
         }
 
         var allowed = ["mode", "accent", "cta", "success", "error", "name_field", "target", "api_origin"];
-        var extra = new URLSearchParams();
+        var extraParts = [];
         for (var index = 0; index < allowed.length; index += 1) {
           var key = allowed[index];
-          var value = (params.get(key) || "").trim();
+          var value = (getQueryParam(search, key) || "").trim();
           if (value) {
-            extra.set(key, value);
+            extraParts.push(encodeURIComponent(key) + "=" + encodeURIComponent(value));
           }
         }
 
         var scriptUrl = "/subscribe.js?site_id=" + encodeURIComponent(siteId);
-        var extraEncoded = extra.toString();
+        var extraEncoded = extraParts.join("&");
         if (extraEncoded) {
           scriptUrl += "&" + extraEncoded;
         }
