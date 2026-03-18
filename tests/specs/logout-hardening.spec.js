@@ -58,8 +58,9 @@ test('logout overlay appears and content hides on session timeout confirm', asyn
   
   // Force the session timeout prompt
   await page.evaluate(() => {
-    if (window.__loopawareDashboardIdleTestHooks) {
-      window.__loopawareDashboardIdleTestHooks.forcePrompt();
+    const win = /** @type {any} */ (window);
+    if (win.__loopawareDashboardIdleTestHooks) {
+      win.__loopawareDashboardIdleTestHooks.forcePrompt();
     }
   });
   
@@ -89,8 +90,9 @@ test('manual window.logout() call triggers overlay', async ({ page }) => {
 
   // Call window.logout()
   await page.evaluate(() => {
-    if (typeof window.logout === 'function') {
-      window.logout();
+    const win = /** @type {any} */ (window);
+    if (typeof win.logout === 'function') {
+      win.logout();
     }
   });
 
