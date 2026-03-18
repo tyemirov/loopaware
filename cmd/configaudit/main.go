@@ -41,6 +41,12 @@ var (
 		"tauth",
 		"la-tauth",
 	}
+	legacyRootEnvFiles = []string{
+		".env.loopaware",
+		".env.tauth",
+		".env.pinguin",
+		".env.ghttp",
+	}
 )
 
 type stringList []string
@@ -172,6 +178,21 @@ func main() {
 
 func runAuditCommands(composePaths []string, stdout io.Writer, stderr io.Writer) int {
 	overallSuccess := true
+	repositoryRoot := resolveAuditRoot(composePaths)
+	var repositoryResult auditResult
+	checkLegacyRootEnvFiles(repositoryRoot, &repositoryResult)
+	sort.Strings(repositoryResult.errors)
+	sort.Strings(repositoryResult.warnings)
+
+	for _, warning := range repositoryResult.warnings {
+		_, _ = fmt.Fprintf(stdout, "WARN [repo]: %s\n", warning)
+	}
+	for _, errorMessage := range repositoryResult.errors {
+		_, _ = fmt.Fprintf(stderr, "ERROR [repo]: %s\n", errorMessage)
+	}
+	if !repositoryResult.ok() {
+		overallSuccess = false
+	}
 
 	for _, composePath := range composePaths {
 		result := runAudit(composePath)
@@ -255,6 +276,59 @@ func runAudit(composePath string) auditResult {
 	checkWebAssetLocalhostPorts(hostPortToService, &result)
 
 	return result
+}
+
+func resolveAuditRoot(composePaths []string) string {
+	if len(composePaths) == 0 {
+		return "."
+	}
+	rootDirectory, rootErr := filepath.Abs(filepath.Dir(composePaths[0]))
+	if rootErr != nil {
+		return filepath.Dir(composePaths[0])
+	}
+	for _, composePath := range composePaths[1:] {
+		nextDirectory, nextErr := filepath.Abs(filepath.Dir(composePath))
+		if nextErr != nil {
+			nextDirectory = filepath.Dir(composePath)
+		}
+		rootDirectory = commonDirectory(rootDirectory, nextDirectory)
+	}
+	return rootDirectory
+}
+
+func commonDirectory(leftPath string, rightPath string) string {
+	leftDirectory := filepath.Clean(leftPath)
+	rightDirectory := filepath.Clean(rightPath)
+	for {
+		relativePath, relativeErr := filepath.Rel(leftDirectory, rightDirectory)
+		if relativeErr == nil && relativePath != ".." && !strings.HasPrefix(relativePath, ".."+string(os.PathSeparator)) {
+			return leftDirectory
+		}
+		parentDirectory := filepath.Dir(leftDirectory)
+		if parentDirectory == leftDirectory {
+			return leftDirectory
+		}
+		leftDirectory = parentDirectory
+	}
+}
+
+func checkLegacyRootEnvFiles(rootDirectory string, result *auditResult) {
+	for _, legacyFileName := range legacyRootEnvFiles {
+		legacyPath := filepath.Join(rootDirectory, legacyFileName)
+		legacyInfo, statErr := os.Stat(legacyPath)
+		if statErr != nil {
+			if errors.Is(statErr, os.ErrNotExist) {
+				continue
+			}
+			result.addError("stat legacy env file %s: %v", legacyFileName, statErr)
+			continue
+		}
+		if legacyInfo.IsDir() {
+			result.addError("legacy repo-root env path %s must not be a directory", legacyFileName)
+			continue
+		}
+		result.addError("legacy repo-root env file %s duplicates configs/%s; move values under configs/ and delete the root copy", legacyFileName, legacyFileName)
+	}
 }
 
 func loadServiceEnvironment(composeDirectory string, serviceName string, envFiles []string, environment environmentMap, result *auditResult) (map[string]string, error) {

@@ -632,6 +632,35 @@ func TestRunAuditCommandsSuccessAcrossMultipleComposeFiles(testingT *testing.T) 
 	require.Empty(testingT, stderr.String())
 }
 
+func TestRunAuditCommandsReportsLegacyRootEnvFiles(testingT *testing.T) {
+	tempDirectory := testingT.TempDir()
+	composePath := filepath.Join(tempDirectory, testComposeFileName)
+	composeContent := strings.Join([]string{
+		"services:",
+		"  loopaware:",
+		"    environment:",
+		"      SESSION_SECRET: " + testSessionSecretValue,
+		"      TAUTH_BASE_URL: " + testTauthBaseURLValue,
+		"      TAUTH_TENANT_ID: " + testTenantValue,
+		"      TAUTH_JWT_SIGNING_KEY: " + testSigningKeyValue,
+		"      TAUTH_SESSION_COOKIE_NAME: " + testCookieNameValue,
+		"      PUBLIC_BASE_URL: " + testPublicBaseURLValue,
+		"      PINGUIN_ADDR: " + testPinguinAddressValue,
+		"      PINGUIN_AUTH_TOKEN: " + testAuthTokenValue,
+		"      PINGUIN_TENANT_ID: " + testTenantValue,
+		"",
+	}, "\n")
+	require.NoError(testingT, os.WriteFile(composePath, []byte(composeContent), 0o600))
+	require.NoError(testingT, os.WriteFile(filepath.Join(tempDirectory, ".env.loopaware"), []byte("SESSION_SECRET=legacy"), 0o600))
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := runAuditCommands([]string{composePath}, &stdout, &stderr)
+	require.Equal(testingT, 1, exitCode)
+	require.Contains(testingT, stderr.String(), "ERROR [repo]: legacy repo-root env file .env.loopaware duplicates configs/.env.loopaware")
+	require.Contains(testingT, stderr.String(), "config-audit failed")
+}
+
 func TestMainRunsAuditFromRepoRoot(testingT *testing.T) {
 	workingDirectory, workingDirectoryErr := os.Getwd()
 	require.NoError(testingT, workingDirectoryErr)

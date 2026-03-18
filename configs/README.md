@@ -9,6 +9,7 @@ Notes:
 
 - `configs/.env.*` files are intentionally gitignored. Create them locally.
 - `configs/.env.*.example` files are tracked templates; copy them into `configs/.env.*`.
+- Legacy repo-root `.env.*` files are unsupported duplicates. Move any remaining values into `configs/.env.*` and delete the root copies; `config-audit` fails while they exist.
 - `configs/config.loopaware.yml` is the tracked LoopAware admin-roster config used by the server `--config` flag.
 - `configs/config.frontend.yml` is the tracked frontend runtime config source; deployments publish it as `/config.yml`.
 - GitHub Actions CI writes minimal env fixtures for `make ci` (see `.github/workflows/ci.yml`).

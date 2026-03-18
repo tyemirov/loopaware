@@ -610,3 +610,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Add an arrow-key selector to `up.sh` and `down.sh` that appears when no mode is passed, and refresh docs to mention the selectable behavior plus explicit `local`/`computercat` arguments.
   Resolution: Added interactive target selectors to both helper scripts using the same Up/Down/Enter menu pattern as the reference repos; non-interactive runs still work when an explicit mode is passed, and docs now describe the selector plus explicit `./up.sh local` / `./up.sh computercat` forms.
   Verification: `timeout -k 30s -s SIGKILL 30s bash -n up.sh down.sh` and `timeout -k 350s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-452] Reject legacy repo-root env duplicates outside `configs/`.
+  Priority: P1
+  Symptom: Legacy local env files such as `.env.loopaware` and `.env.pinguin` could still sit at the repo root even though Compose and helper scripts now read `configs/.env.*`, leaving duplicated secrets and configuration outside the declared source-of-truth folder.
+  Goal: Ensure active env files live under `configs/` only, and fail fast when root-level duplicates reappear.
+  Deliverable: Extend `config-audit` to reject repo-root `.env.*` duplicates, document that root copies are unsupported, migrate any remaining local values into `configs/.env.*`, and remove the legacy root files.
+  Resolution: `cmd/configaudit` now fails when `.env.loopaware`, `.env.tauth`, `.env.pinguin`, or `.env.ghttp` exist at the repo root; `configs/README.md` now states that those root files are unsupported; and the remaining local root env values were merged into `configs/.env.*` before deleting the redundant root copies.
+  Verification: `timeout -k 30s -s SIGKILL 30s go test ./cmd/configaudit`, `timeout -k 350s -s SIGKILL 350s make lint`, and `timeout -k 350s -s SIGKILL 350s make ci` pass.
