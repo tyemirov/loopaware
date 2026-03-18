@@ -179,9 +179,22 @@
     }
     var pairs = query.split("&");
     for (var i = 0; i < pairs.length; i++) {
-      var pair = pairs[i].split("=");
-      if (decodeURIComponent(pair[0].replace(/\+/g, " ")) === name) {
-        return decodeURIComponent((pair[1] || "").replace(/\+/g, " "));
+      var rawPair = pairs[i];
+      var separatorIndex = rawPair.indexOf("=");
+      var rawKey = separatorIndex === -1 ? rawPair : rawPair.slice(0, separatorIndex);
+      var rawValue = separatorIndex === -1 ? "" : rawPair.slice(separatorIndex + 1);
+      var decodedKey = null;
+      try {
+        decodedKey = decodeURIComponent(rawKey.replace(/\+/g, " "));
+      } catch(decodeError) {
+        continue;
+      }
+      if (decodedKey === name) {
+        try {
+          return decodeURIComponent(rawValue.replace(/\+/g, " "));
+        } catch(decodeError) {
+          return rawValue.replace(/\+/g, " ");
+        }
       }
     }
     return null;
