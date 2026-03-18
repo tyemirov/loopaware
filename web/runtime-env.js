@@ -1,5 +1,11 @@
 // @ts-check
 (function () {
+  var runtimeEnvDefaults = {
+    envName: "default",
+    apiOrigin: "",
+    tauthOrigin: ""
+  };
+
   function renderFatalError(message) {
     var doc = document;
     if (!doc) return;
@@ -52,10 +58,10 @@
   function normalizeOrigin(value) {
     var trimmed = String(value || "").trim();
     if (!trimmed) {
-      return "";
+      return null;
     }
     if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) {
-      return "";
+      return null;
     }
     return trimmed.replace(/\/+$/, "");
   }
@@ -108,7 +114,7 @@
       return "";
     }
     var normalized = normalizeOrigin(raw);
-    if (!normalized) {
+    if (normalized === null) {
       throw new Error("runtime_env.config_invalid: " + label + " must be an absolute http(s) origin or empty");
     }
     return normalized;
@@ -188,26 +194,32 @@
 
   function getQueryParam(search, name) {
     if (!search || !name) {
-      return "";
+      return null;
     }
     var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+    if (!query) {
+      return null;
+    }
     var pairs = query.split("&");
     for (var i = 0; i < pairs.length; i++) {
       var pair = pairs[i].split("=");
-      if (decodeURIComponent(pair[0]) === name) {
-        return decodeURIComponent(pair[1] || "");
+      if (decodeURIComponent(pair[0].replace(/\+/g, " ")) === name) {
+        return decodeURIComponent((pair[1] || "").replace(/\+/g, " "));
       }
     }
-    return "";
+    return null;
   }
 
   function resolveRuntimeEnv(config) {
     var hostname = String(window.location && window.location.hostname ? window.location.hostname : "").toLowerCase();
     var pageOrigin = String(window.location && window.location.origin ? window.location.origin : "");
 
-    var envName = "default";
+    var envName = runtimeEnvDefaults.envName;
     /** @type {{ apiOrigin: string, tauthOrigin: string }} */
-    var defaults = { apiOrigin: "", tauthOrigin: "" };
+    var defaults = {
+      apiOrigin: runtimeEnvDefaults.apiOrigin,
+      tauthOrigin: runtimeEnvDefaults.tauthOrigin
+    };
 
     for (var i = 0; i < config.environments.length; i += 1) {
       var env = config.environments[i];
@@ -219,11 +231,28 @@
     }
 
     var search = window.location.search || "";
-    var apiOrigin = normalizeOrigin(getQueryParam(search, "api_origin")) || normalizeOrigin(defaults.apiOrigin);
-    var tauthOrigin =
-      normalizeOrigin(getQueryParam(search, "tauth_origin")) ||
-      normalizeOrigin(defaults.tauthOrigin) ||
-      apiOrigin;
+    var apiOriginParam = getQueryParam(search, "api_origin");
+    var apiOrigin = apiOriginParam ? normalizeOrigin(apiOriginParam) : normalizeOrigin(defaults.apiOrigin);
+    if (apiOriginParam && !apiOrigin) {
+      throw new Error("runtime_env: resolve_env.failed: invalid api_origin format in query string");
+    }
+
+    if (!apiOrigin) {
+      // Fallback to current origin is allowed for runtime-env as a core behavioral contract
+      if (window.location && window.location.origin) {
+        apiOrigin = normalizeOrigin(window.location.origin);
+      }
+    }
+
+    if (!apiOrigin) {
+      throw new Error("runtime_env: resolve_env.failed: api_origin is required and cannot be resolved");
+    }
+
+    var tauthOriginParam = getQueryParam(search, "tauth_origin");
+    var tauthOrigin = tauthOriginParam ? normalizeOrigin(tauthOriginParam) : normalizeOrigin(defaults.tauthOrigin) || apiOrigin;
+    if (tauthOriginParam && !tauthOrigin) {
+      throw new Error("runtime_env: resolve_env.failed: invalid tauth_origin format in query string");
+    }
 
     // Treat same-origin as the default "single-origin" mode, so the app doesn't
     // generate unnecessary api_origin params in snippets.
@@ -264,6 +293,7 @@
     if (!script) {
       return;
     }
+    // @ts-ignore
     script.src = resolved.tauthOrigin ? resolved.tauthOrigin + "/tauth.js" : "/tauth.js";
   } catch (error) {
     var err = error instanceof Error ? error : new Error(String(error));

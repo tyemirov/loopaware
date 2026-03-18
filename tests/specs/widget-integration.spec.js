@@ -20,6 +20,7 @@ async function openWidgetPage(page, siteId, options) {
     params.set('api_origin', resolvedOptions.apiOrigin);
   }
   await page.goto(`${basePath}?${params.toString()}`, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#widget-integration-status')).toContainText('Loaded');
   await page.locator('#mp-feedback-bubble').waitFor();
 }
 
@@ -60,8 +61,12 @@ test('widget submission shows success message', async ({ page }) => {
   await page.locator('#mp-feedback-bubble').click();
   const contactInput = page.locator('#mp-feedback-contact');
   const messageInput = page.locator('#mp-feedback-message');
+  
+  await contactInput.clear();
   await contactInput.fill('widget@example.com');
+  await messageInput.clear();
   await messageInput.fill('Widget feedback');
+  
   await expect(contactInput).toHaveValue('widget@example.com');
   await expect(messageInput).toHaveValue('Widget feedback');
   const feedbackResponse = page.waitForResponse((response) => response.url().includes('/public/feedback') && response.status() === 200);

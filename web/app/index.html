@@ -492,6 +492,8 @@
         var overlay = document.getElementById('logout-overlay');
         if (overlay) {
           overlay.classList.remove('d-none');
+          overlay.classList.add('d-flex');
+          overlay.style.display = 'flex';
         }
         document.body.classList.add('logging-out');
       }
@@ -516,25 +518,27 @@
           var shouldAppendAPIOriginParam = false;
           var shouldAppendTauthOriginParam = false;
           try {
-            function hasQueryParam(search, name) {
+            function getQueryParam(search, name) {
               if (!search || !name) {
-                return false;
+                return null;
               }
               var query = search.indexOf('?') === 0 ? search.substring(1) : search;
+              if (!query) {
+                return null;
+              }
               var pairs = query.split('&');
               for (var i = 0; i < pairs.length; i++) {
                 var pair = pairs[i].split('=');
-                if (decodeURIComponent(pair[0]) === name) {
-                  return true;
+                if (decodeURIComponent(pair[0].replace(/\+/g, ' ')) === name) {
+                  return decodeURIComponent((pair[1] || '').replace(/\+/g, ' '));
                 }
               }
-              return false;
+              return null;
             }
             var search = window.location.search || '';
-            shouldAppendAPIOriginParam = hasQueryParam(search, 'api_origin');
-            shouldAppendTauthOriginParam = hasQueryParam(search, 'tauth_origin');
+            shouldAppendAPIOriginParam = getQueryParam(search, 'api_origin') !== null;
+            shouldAppendTauthOriginParam = getQueryParam(search, 'tauth_origin') !== null;
           } catch (error) {}
-
           function apiUrl(path) {
             if (typeof path !== 'string') {
               return '';

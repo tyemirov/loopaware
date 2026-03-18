@@ -34,28 +34,39 @@
       (function () {
         function getQueryParam(search, name) {
           if (!search || !name) {
-            return "";
+            return null;
           }
           var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+          if (!query) {
+            return null;
+          }
           var pairs = query.split("&");
           for (var i = 0; i < pairs.length; i++) {
             var pair = pairs[i].split("=");
-            if (decodeURIComponent(pair[0]) === name) {
-              return decodeURIComponent(pair[1] || "");
+            if (decodeURIComponent(pair[0].replace(/\+/g, " ")) === name) {
+              return decodeURIComponent((pair[1] || "").replace(/\+/g, " "));
             }
           }
-          return "";
+          return null;
         }
         var search = window.location.search || "";
-        var siteId = (getQueryParam(search, "site_id") || "").trim();
-        var apiOrigin = (getQueryParam(search, "api_origin") || "").trim();
+        var siteId = getQueryParam(search, "site_id");
         var status = document.getElementById("traffic-integration-status");
         if (!siteId) {
           if (status) {
             status.textContent = "Missing site_id query parameter.";
           }
-          return;
+          throw new Error("traffic_integration.init_failed: missing site_id query parameter");
         }
+        siteId = siteId.trim();
+        if (!siteId) {
+          if (status) {
+            status.textContent = "Missing site_id query parameter.";
+          }
+          throw new Error("traffic_integration.init_failed: empty site_id query parameter");
+        }
+
+        var apiOrigin = (getQueryParam(search, "api_origin") || "").trim();
         var scriptUrl = "/pixel.js?site_id=" + encodeURIComponent(siteId);
         if (apiOrigin) {
           scriptUrl += "&api_origin=" + encodeURIComponent(apiOrigin);
@@ -66,6 +77,16 @@
         var script = document.createElement("script");
         script.defer = true;
         script.src = scriptUrl;
+        script.onload = function() {
+          if (status) {
+            status.textContent = "Loaded " + scriptUrl;
+          }
+        };
+        script.onerror = function() {
+          if (status) {
+            status.textContent = "Error loading " + scriptUrl;
+          }
+        };
         document.head.appendChild(script);
       })();
     </script>

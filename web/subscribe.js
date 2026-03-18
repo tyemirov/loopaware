@@ -7,16 +7,38 @@
   var statusElementId = "mp-subscribe-status";
   var bubbleId = "mp-subscribe-bubble";
   var panelId = "mp-subscribe-panel";
-  var defaultAccentColor = "#0d6efd";
-  var defaultCTA = "Subscribe";
-  var defaultSuccessText = "You're on the list!";
-  var defaultErrorText = "Please try again.";
-  var defaultAlreadySubscribedText = "You're already subscribed!";
-  var defaultInvalidEmailText = "Please enter a valid email.";
-  var defaultEmailPlaceholder = "you@example.com";
-  var defaultNamePlaceholder = "Your name (optional)";
+
   var modeBubble = "bubble";
   var modeInline = "inline";
+
+  /**
+   * @typedef {Object} SubscribeConfig
+   * @property {string} siteId
+   * @property {string} apiOrigin
+   * @property {string} mode
+   * @property {string} accent
+   * @property {string} cta
+   * @property {string} success
+   * @property {string} error
+   * @property {string} alreadySubscribed
+   * @property {string} invalidEmail
+   * @property {boolean} hideName
+   * @property {string} targetId
+   * @property {string} onSuccess
+   * @property {string} onError
+   */
+
+  var subscribeDefaults = {
+    mode: modeInline,
+    accent: "#0d6efd",
+    cta: "Subscribe",
+    success: "You're on the list!",
+    error: "Please try again.",
+    alreadySubscribed: "You're already subscribed!",
+    invalidEmail: "Please enter a valid email.",
+    emailPlaceholder: "you@example.com",
+    namePlaceholder: "Your name (optional)"
+  };
 
   function selectScriptTag() {
     var current = document.currentScript;
@@ -24,130 +46,172 @@
       return current;
     }
     var candidates = document.querySelectorAll('script[src*="subscribe.js"]');
-    return candidates[candidates.length - 1];
+    if (candidates.length > 0) {
+      return candidates[candidates.length - 1];
+    }
+    return null;
   }
 
   function getQueryParam(search, name) {
     if (!search || !name) {
-      return "";
+      return null;
     }
     var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+    if (!query) {
+      return null;
+    }
     var pairs = query.split("&");
     for (var i = 0; i < pairs.length; i++) {
       var pair = pairs[i].split("=");
-      if (decodeURIComponent(pair[0]) === name) {
-        return decodeURIComponent(pair[1] || "");
+      if (decodeURIComponent(pair[0].replace(/\+/g, " ")) === name) {
+        return decodeURIComponent((pair[1] || "").replace(/\+/g, " "));
       }
     }
-    return "";
+    return null;
   }
 
+  function normalizeAPIOrigin(rawValue) {
+    if (typeof rawValue !== "string") {
+      return null;
+    }
+    var trimmed = rawValue.trim();
+    if (!trimmed) {
+      return null;
+    }
+    if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) {
+      return null;
+    }
+    try {
+      var parsed = new URL(trimmed);
+      var origin = parsed && typeof parsed.origin === "string" ? parsed.origin : "";
+      if (!origin || origin === "null") {
+        return null;
+      }
+      var pathname = parsed.pathname || "";
+      if (pathname && pathname !== "/") {
+        return null;
+      }
+      if (parsed.search || parsed.hash) {
+        return null;
+      }
+      if (parsed.username || parsed.password) {
+        return null;
+      }
+      return origin.replace(/\/+$/, "");
+    } catch(parseError) {
+      return null;
+    }
+  }
+
+  function resolveAPIOriginCandidate(scriptTag) {
+    if (!scriptTag) {
+      throw new Error("subscribe.js: resolve_origin.failed: missing script tag");
+    }
+    var candidate = scriptTag.getAttribute("data-api-origin");
+    if (candidate) {
+      return candidate;
+    }
+    if (scriptTag.src) {
+      var link = document.createElement("a");
+      link.href = scriptTag.src;
+      var queryOrigin = getQueryParam(link.search || "", "api_origin");
+      if (queryOrigin) {
+        return queryOrigin;
+      }
+    }
+    return null;
+  }
+
+  function resolveAPIOrigin(scriptTag) {
+    var candidate = resolveAPIOriginCandidate(scriptTag);
+    if (!candidate) {
+      // Fallback to script origin is allowed as a core behavioral contract
+      if (scriptTag.src) {
+        try {
+          var scriptLink = document.createElement("a");
+          scriptLink.href = scriptTag.src;
+          if (scriptLink.protocol && scriptLink.host) {
+            return scriptLink.protocol + "//" + scriptLink.host;
+          }
+        } catch(originError){}
+      }
+      // If script host is not available, fallback to current host
+      if (window.location && window.location.protocol && window.location.host) {
+        return window.location.protocol + "//" + window.location.host;
+      }
+      throw new Error("subscribe.js: resolve_origin.failed: api_origin not provided and cannot be resolved");
+    }
+    var normalized = normalizeAPIOrigin(candidate);
+    if (!normalized) {
+      throw new Error("subscribe.js: resolve_origin.failed: invalid api_origin format");
+    }
+    return normalized;
+  }
+
+  /**
+   * @param {HTMLOrSVGScriptElement | null} scriptTag
+   * @returns {SubscribeConfig}
+   */
   function parseConfig(scriptTag) {
+    if (!scriptTag) {
+      throw new Error("subscribe.js: parse_config.failed: missing script tag");
+    }
     var search = "";
     try {
-      var link = document.createElement("a");
-      link.href = scriptTag.src || "";
-      search = link.search || "";
-    } catch(parseError){}
-    var mode = (getQueryParam(search, "mode") || modeInline).toLowerCase();
+      if (scriptTag instanceof HTMLScriptElement && scriptTag.src) {
+        var link = document.createElement("a");
+        link.href = scriptTag.src;
+        search = link.search || "";
+      }
+    } catch(parseError){
+      // Non-fatal, search will be empty
+    }
+
+    var apiOrigin = resolveAPIOrigin(scriptTag);
+
+    var siteId = getQueryParam(search, "site_id") || scriptTag.getAttribute("data-site-id");
+    if (!siteId) {
+      throw new Error("subscribe.js: parse_config.failed: site_id not provided in data-site-id or query string");
+    }
+
+    var mode = (getQueryParam(search, "mode") || scriptTag.getAttribute("data-mode") || subscribeDefaults.mode).toLowerCase();
     if (mode !== modeBubble) {
       mode = modeInline;
     }
-    var accent = getQueryParam(search, "accent") || defaultAccentColor;
-    var cta = getQueryParam(search, "cta") || defaultCTA;
-    var success = getQueryParam(search, "success") || defaultSuccessText;
-    var error = getQueryParam(search, "error") || defaultErrorText;
-    var hideName = getQueryParam(search, "name_field") === "false";
+    var accent = getQueryParam(search, "accent") || scriptTag.getAttribute("data-accent") || subscribeDefaults.accent;
+    var cta = getQueryParam(search, "cta") || scriptTag.getAttribute("data-cta") || subscribeDefaults.cta;
+    var success = getQueryParam(search, "success") || scriptTag.getAttribute("data-success") || subscribeDefaults.success;
+    var error = getQueryParam(search, "error") || scriptTag.getAttribute("data-error") || subscribeDefaults.error;
+    var hideName = getQueryParam(search, "name_field") === "false" || scriptTag.getAttribute("data-name-field") === "false";
     var targetId = getQueryParam(search, "target") || scriptTag.getAttribute("data-target") || "";
-    if (targetId) {
-      targetId = String(targetId).trim();
-    }
-    var siteId = getQueryParam(search, "site_id") || scriptTag.getAttribute("data-site-id") || "";
-    if (siteId) {
-      siteId = String(siteId).trim();
-    }
-    var alreadySubscribed = getQueryParam(search, "already_subscribed") || defaultAlreadySubscribedText;
-    var invalidEmail = getQueryParam(search, "invalid_email") || defaultInvalidEmailText;
+    
+    var alreadySubscribed = getQueryParam(search, "already_subscribed") || scriptTag.getAttribute("data-already-subscribed") || subscribeDefaults.alreadySubscribed;
+    var invalidEmail = getQueryParam(search, "invalid_email") || scriptTag.getAttribute("data-invalid-email") || subscribeDefaults.invalidEmail;
     var onSuccess = getQueryParam(search, "onSuccess") || scriptTag.getAttribute("data-on-success") || "";
     var onError = getQueryParam(search, "onError") || scriptTag.getAttribute("data-on-error") || "";
+
     return {
-      siteId: siteId,
-      accent: accent,
+      siteId: String(siteId).trim(),
+      apiOrigin: apiOrigin,
       mode: mode,
+      accent: accent,
       cta: cta,
       success: success,
       error: error,
       alreadySubscribed: alreadySubscribed,
       invalidEmail: invalidEmail,
       hideName: hideName,
-      targetId: targetId,
+      targetId: String(targetId).trim(),
       onSuccess: onSuccess,
       onError: onError
     };
   }
 
-  function buildEndpoint(scriptTag) {
-    var endpoint = (location.protocol + "//" + location.host + "/public/subscriptions");
-    var apiOriginOverride = resolveAPIOriginOverride(scriptTag);
-    if (apiOriginOverride) {
-      return apiOriginOverride + "/public/subscriptions";
-    }
-    try {
-      if (scriptTag && scriptTag.src) {
-        var link = document.createElement("a");
-        link.href = scriptTag.src;
-        endpoint = link.protocol + "//" + link.host + "/public/subscriptions";
-      }
-    } catch(endpointError){}
-    return endpoint;
+  function buildEndpoint(config) {
+    return config.apiOrigin + "/public/subscriptions";
   }
 
-  function normalizeAPIOriginOverride(rawValue) {
-    if (typeof rawValue !== "string") {
-      return "";
-    }
-    var trimmed = rawValue.trim();
-    if (!trimmed) {
-      return "";
-    }
-    if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) {
-      return "";
-    }
-    try {
-      var parsed = new URL(trimmed);
-      var origin = parsed && typeof parsed.origin === "string" ? parsed.origin : "";
-      if (!origin || origin === "null") {
-        return "";
-      }
-      return origin.replace(/\/+$/, "");
-    } catch(parseError) {}
-    return "";
-  }
-
-  function resolveAPIOriginOverride(scriptTag) {
-    if (!scriptTag) {
-      return "";
-    }
-    var candidate = "";
-    try {
-      if (typeof scriptTag.getAttribute === "function") {
-        candidate = scriptTag.getAttribute("data-api-origin") || "";
-      }
-    } catch(attributeError){}
-    try {
-      if (scriptTag.src) {
-        var link = document.createElement("a");
-        link.href = scriptTag.src;
-        var queryOrigin = getQueryParam(link.search || "", "api_origin");
-        if (queryOrigin) {
-          candidate = queryOrigin;
-        }
-      }
-    } catch(parseError){}
-    return normalizeAPIOriginOverride(candidate);
-  }
-
-  function createInlineContainer(config) {
+  function createInlineContainer() {
     var container = document.createElement("div");
     container.id = formContainerId;
     container.style.maxWidth = "420px";
@@ -162,6 +226,9 @@
     return container;
   }
 
+  /**
+   * @param {SubscribeConfig} config
+   */
   function createBubbleContainer(config) {
     var bubble = document.createElement("div");
     bubble.id = bubbleId;
@@ -171,7 +238,7 @@
     bubble.style.width = "56px";
     bubble.style.height = "56px";
     bubble.style.borderRadius = "50%";
-    bubble.style.background = config.accent || defaultAccentColor;
+    bubble.style.background = config.accent;
     bubble.style.color = "#fff";
     bubble.style.display = "flex";
     bubble.style.alignItems = "center";
@@ -206,11 +273,14 @@
     return panel;
   }
 
+  /**
+   * @param {SubscribeConfig} config
+   */
   function createFormElements(config) {
     var email = document.createElement("input");
     email.id = emailInputId;
     email.type = "email";
-    email.placeholder = defaultEmailPlaceholder;
+    email.placeholder = subscribeDefaults.emailPlaceholder;
     email.required = true;
     email.style.width = "100%";
     email.style.padding = "10px 12px";
@@ -225,7 +295,7 @@
       name = document.createElement("input");
       name.id = nameInputId;
       name.type = "text";
-      name.placeholder = defaultNamePlaceholder;
+      name.placeholder = subscribeDefaults.namePlaceholder;
       name.style.width = "100%";
       name.style.padding = "10px 12px";
       name.style.border = "1px solid #d1d5db";
@@ -238,14 +308,14 @@
     var submit = document.createElement("button");
     submit.id = submitButtonId;
     submit.type = "button";
-    submit.innerText = config.cta || defaultCTA;
+    submit.innerText = config.cta;
     submit.style.width = "100%";
     submit.style.padding = "10px 12px";
     submit.style.border = "0";
     submit.style.borderRadius = "8px";
     submit.style.fontWeight = "600";
     submit.style.cursor = "pointer";
-    submit.style.background = config.accent || defaultAccentColor;
+    submit.style.background = config.accent;
     submit.style.color = "#fff";
     submit.style.boxSizing = "border-box";
 
@@ -259,6 +329,11 @@
     return { email: email, name: name, submit: submit, status: status };
   }
 
+  /**
+   * @param {HTMLElement} container
+   * @param {any} formElements
+   * @param {HTMLElement | null} targetElement
+   */
   function renderInline(container, formElements, targetElement) {
     var heading = document.createElement("div");
     heading.style.fontWeight = "600";
@@ -281,6 +356,11 @@
     }
   }
 
+  /**
+   * @param {HTMLElement} bubble
+   * @param {HTMLElement} panel
+   * @param {any} formElements
+   */
   function renderBubble(bubble, panel, formElements) {
     panel.appendChild(formElements.email);
     if (formElements.name) {
@@ -323,6 +403,12 @@
     }
   }
 
+  /**
+   * @param {SubscribeConfig} config
+   * @param {string} endpoint
+   * @param {any} formElements
+   * @param {((forceHide?: boolean) => void) | null} togglePanel
+   */
   function attachBehavior(config, endpoint, formElements, togglePanel) {
     var sending = false;
     formElements.submit.addEventListener("click", function(){
@@ -333,7 +419,7 @@
         nameValue = (formElements.name.value || "").trim();
       }
       if (!validateEmail(emailValue)) {
-        showStatus(formElements.status, config.invalidEmail || defaultInvalidEmailText, "#dc2626");
+        showStatus(formElements.status, config.invalidEmail, "#dc2626");
         formElements.email.focus();
         return;
       }
@@ -373,7 +459,7 @@
           if (formElements.name) {
             formElements.name.value = "";
           }
-          showStatus(formElements.status, config.success || defaultSuccessText, "#15803d");
+          showStatus(formElements.status, config.success, "#15803d");
           if (typeof togglePanel === "function") {
             togglePanel(true);
           }
@@ -381,24 +467,24 @@
           fireCallback(config.onSuccess, successDetail);
           dispatchSubscribeEvent(config.targetId, "loopaware:subscribe:success", successDetail);
         } else if (result.status === 409) {
-          showStatus(formElements.status, config.alreadySubscribed || defaultAlreadySubscribedText, "#2563eb");
+          showStatus(formElements.status, config.alreadySubscribed, "#2563eb");
           var alreadyDetail = { email: emailValue, status: 409, reason: "already_subscribed" };
           fireCallback(config.onSuccess, alreadyDetail);
           dispatchSubscribeEvent(config.targetId, "loopaware:subscribe:success", alreadyDetail);
         } else if (result.status === 400) {
-          showStatus(formElements.status, config.invalidEmail || defaultInvalidEmailText, "#dc2626");
+          showStatus(formElements.status, config.invalidEmail, "#dc2626");
           var invalidDetail = { email: emailValue, status: 400, reason: "invalid_email" };
           fireCallback(config.onError, invalidDetail);
           dispatchSubscribeEvent(config.targetId, "loopaware:subscribe:error", invalidDetail);
         } else {
-          showStatus(formElements.status, config.error || defaultErrorText, "#dc2626");
+          showStatus(formElements.status, config.error, "#dc2626");
           var errorDetail = { email: emailValue, status: result.status, reason: "unknown" };
           fireCallback(config.onError, errorDetail);
           dispatchSubscribeEvent(config.targetId, "loopaware:subscribe:error", errorDetail);
         }
       }).catch(function(err){
         console.error(err);
-        showStatus(formElements.status, config.error || defaultErrorText, "#dc2626");
+        showStatus(formElements.status, config.error, "#dc2626");
         formElements.submit.disabled = false;
         sending = false;
         var errorDetail = { email: emailValue, status: 0, reason: "network", error: err.message };
@@ -411,16 +497,14 @@
   function main() {
     var scriptTag = selectScriptTag();
     var config = parseConfig(scriptTag);
-    if (!config.siteId) {
-      console.error("subscribe.js: missing site_id");
-      return;
-    }
+    
     var targetElement = null;
     if (config.targetId) {
       targetElement = document.getElementById(config.targetId);
     }
-    var endpoint = buildEndpoint(scriptTag);
+    var endpoint = buildEndpoint(config);
     var formElements = createFormElements(config);
+    /** @type {((forceHide?: boolean) => void) | null} */
     var togglePanel = null;
 
     if (config.mode === modeBubble) {
@@ -440,10 +524,10 @@
         formElements.email.focus();
       };
       bubble.addEventListener("click", function(){
-        togglePanel(false);
+        if (togglePanel) togglePanel(false);
       });
     } else {
-      renderInline(createInlineContainer(config), formElements, targetElement);
+      renderInline(createInlineContainer(), formElements, targetElement);
     }
 
     attachBehavior(config, endpoint, formElements, togglePanel);
@@ -457,5 +541,6 @@
     }
   } catch(renderError) {
     console.error(renderError);
+    // No silent fallback - if main fails, it fails.
   }
 })();

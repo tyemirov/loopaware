@@ -20,6 +20,7 @@ async function openSubscribePage(page, params) {
     });
   }
   await page.goto(`/subscribe-demo/?${search.toString()}`, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#subscribe-demo-status')).toContainText('Loaded');
   await page.locator('#mp-subscribe-form').waitFor();
 }
 
