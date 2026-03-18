@@ -50,9 +50,11 @@ test('logout overlay appears and content hides on unauthenticated event', async 
   // Wait for auth listeners to be attached
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
 
-  // Trigger unauthenticated event
+  // Trigger unauthenticated event from the bound header host
   await page.evaluate(() => {
-    document.dispatchEvent(new CustomEvent('mpr-ui:auth:unauthenticated'));
+    const headerHost = document.querySelector('mpr-header');
+    const target = headerHost || document;
+    target.dispatchEvent(new CustomEvent('mpr-ui:auth:unauthenticated'));
   });
 
   // Verify overlay is visible OR we already redirected
