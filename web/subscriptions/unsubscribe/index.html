@@ -442,6 +442,9 @@
       return invokeLogoutDelegate().then(function() {
         return result;
       });
+    }).catch(function(error) {
+      hideLogoutOverlay();
+      throw error;
     });
   }
 

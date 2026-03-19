@@ -28,10 +28,37 @@ const PUBLIC_PAGE_UNAUTH_CASES = Object.freeze([
 async function installExternalScriptStubs(page) {
   for (const scriptUrl of EXTERNAL_SCRIPT_URLS) {
     await page.route(scriptUrl, async (route) => {
+      let body = '';
+      if (scriptUrl.includes('js-yaml')) {
+        body = `window.jsyaml = {
+  load: function() {
+    return {
+      environments: [
+        {
+          name: 'production',
+          hostnames: ['loopaware.mprlab.com', 'tyemirov.github.io'],
+          services: {
+            apiOrigin: 'https://loopaware-api.mprlab.com',
+            tauthOrigin: 'https://tauth-api.mprlab.com'
+          }
+        },
+        {
+          name: 'development',
+          hostnames: ['localhost', '127.0.0.1'],
+          services: {
+            apiOrigin: '',
+            tauthOrigin: ''
+          }
+        }
+      ]
+    };
+  }
+};`;
+      }
       await route.fulfill({
         status: 200,
         contentType: 'application/javascript; charset=utf-8',
-        body: ''
+        body
       });
     });
   }
@@ -245,4 +272,29 @@ test('manual window.logout() call triggers overlay', async ({ page }) => {
     return main && window.getComputedStyle(main).display === 'none';
   });
   expect(isMainHidden).toBe(true);
+});
+
+test('logout failure clears overlay and restores dashboard content', async ({ page }) => {
+  await openDashboard(page, config, adminUser);
+
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
+
+  await page.route('**/auth/logout', async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify({ error: 'logout failed' })
+    });
+  });
+
+  await page.evaluate(async () => {
+    const win = /** @type {any} */ (window);
+    if (typeof win.logout === 'function') {
+      await Promise.resolve(win.logout()).catch(() => null);
+    }
+  });
+
+  await expect(page.locator('#logout-overlay')).toBeHidden();
+  await expect(page.locator('body')).not.toHaveClass(/logging-out/);
+  await expect(page.locator('main')).toBeVisible();
 });
