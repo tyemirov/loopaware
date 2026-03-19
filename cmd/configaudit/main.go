@@ -26,7 +26,6 @@ var (
 	localHostPortPattern = regexp.MustCompile(`(?:^|[^a-zA-Z0-9_.-])(localhost|127\.0\.0\.1):([0-9]{2,5})`)
 	defaultComposePaths  = []string{
 		"docker-compose.yml",
-		"docker-compose.integration.yml",
 		"docker-compose.computercat.yml",
 	}
 	loopAwareServiceAliases = []string{
@@ -360,17 +359,8 @@ func loadServiceEnvironment(composeDirectory string, serviceName string, envFile
 	for _, envFile := range envFiles {
 		resolvedPath := filepath.Clean(filepath.Join(composeDirectory, envFile))
 		if _, statErr := os.Stat(resolvedPath); statErr != nil {
-			fallbackPath, fallbackLabel, fallbackOK := resolveIntegrationExampleEnvFile(composeDirectory, envFile)
-			if !fallbackOK {
-				result.addError("service %s: env_file %s is missing (%v)", serviceName, envFile, statErr)
-				continue
-			}
-			if _, fallbackStatErr := os.Stat(fallbackPath); fallbackStatErr != nil {
-				result.addError("service %s: env_file %s is missing (%v)", serviceName, envFile, statErr)
-				continue
-			}
-			result.addWarning("service %s: env_file %s is missing; using %s for audit", serviceName, envFile, fallbackLabel)
-			resolvedPath = fallbackPath
+			result.addError("service %s: env_file %s is missing (%v)", serviceName, envFile, statErr)
+			continue
 		}
 		values, duplicates, parseErr := parseDotEnv(resolvedPath)
 		if parseErr != nil {
@@ -396,15 +386,6 @@ func loadServiceEnvironment(composeDirectory string, serviceName string, envFile
 	}
 
 	return merged, nil
-}
-
-func resolveIntegrationExampleEnvFile(composeDirectory string, envFile string) (string, string, bool) {
-	if !strings.HasSuffix(envFile, ".integration") {
-		return "", "", false
-	}
-	fallbackLabel := envFile + ".example"
-	fallbackPath := filepath.Clean(filepath.Join(composeDirectory, fallbackLabel))
-	return fallbackPath, fallbackLabel, true
 }
 
 func parseDotEnv(path string) (map[string]string, []string, error) {

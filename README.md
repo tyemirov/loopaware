@@ -153,7 +153,7 @@ absolute `data-api-origin` attributes (or `api_origin` query params) on embed sc
 origin. The dashboard and login pages call `/api` and `/auth` relative to the frontend origin, so split-origin
 deployments should use a reverse proxy or update the static HTML in `web/` to point at those services.
 The tracked runtime host mapping lives in `configs/config.frontend.yml`; static deployments must publish that file at
-`/config.yml` for `web/runtime-env.js` (`./up.sh`, the integration script, and the GitHub Pages workflow do this automatically).
+`/config.yml` for `web/runtime-env.js` (`./up.sh` and the GitHub Pages workflow do this automatically, and the test stack publishes the same file inside its test-owned web root).
 
 ## REST API
 
@@ -285,10 +285,10 @@ make lint
 make test
 ```
 
-`make test` runs the Playwright integration suite against `docker-compose.integration.yml`, which builds the API image,
-serves `web/` via gHTTP, and exercises both UI and `/api/*` flows. Use `make test-unit` for Go-only tests and
-`make test-integration-api` to focus on API specs. Playwright artifacts (traces, screenshots, videos) land under
-`tests/test-results/` on failure.
+`make test` runs the Playwright integration suite against `tests/docker-compose.yml`, with test-owned env fixtures under
+`tests/configs/`. That stack builds the API image, serves `web/` via gHTTP, and exercises both UI and `/api/*` flows.
+Use `make test-unit` for Go-only tests and `make test-integration-api` to focus on API specs. Playwright artifacts
+(traces, screenshots, videos) land under `tests/test-results/` on failure.
 
 ## Release publishing
 

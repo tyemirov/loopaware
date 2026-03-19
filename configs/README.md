@@ -10,9 +10,10 @@ Notes:
 - `configs/.env.*` files are intentionally gitignored. Create them locally.
 - `configs/.env.*.example` files are tracked templates; copy them into `configs/.env.*`.
 - Legacy repo-root `.env.*` files are unsupported duplicates. Move any remaining values into `configs/.env.*` and delete the root copies; `config-audit` fails while they exist.
-- There is no supported plain `configs/.env.ghttp` file. gHTTP env files exist only for `integration` and `computercat`; `config-audit` fails if `configs/.env.ghttp` exists.
+- There is no supported plain `configs/.env.ghttp` file. Under `configs/`, the only supported gHTTP env file is `configs/.env.ghttp.computercat`; test-only proxy fixtures live under `tests/`.
 - `configs/config.loopaware.yml` is the tracked LoopAware admin-roster config used by the server `--config` flag.
 - `configs/config.frontend.yml` is the tracked frontend runtime config source; deployments publish it as `/config.yml`.
+- Test-only compose files and env fixtures do not belong in `configs/`; keep them under `tests/`.
 - GitHub Actions CI writes minimal env fixtures for `make ci` (see `.github/workflows/ci.yml`).
 
 ## Local compose (`docker-compose.yml`)
@@ -104,29 +105,3 @@ Start and stop the computercat stack only through the helper scripts:
 
 TAuth requires HTTPS for secure cookies when `allow_insecure_http=false`. gHTTP’s reverse proxy does not currently set `X-Forwarded-Proto`,
 so keep `TAUTH_ALLOW_INSECURE_HTTP=true` unless you front TAuth with a proxy that forwards `X-Forwarded-Proto=https`.
-
-## Integration compose (`docker-compose.integration.yml`)
-
-This stack serves the static frontend from `./web` via gHTTP on `http://localhost:8090` and proxies `/api/*` plus TAuth paths for the Playwright
-integration suite.
-
-Optional override env files:
-
-- `configs/.env.loopaware.integration`
-- `configs/.env.tauth.integration`
-- `configs/.env.pinguin.integration`
-- `configs/.env.ghttp.integration`
-
-Copy the tracked templates:
-
-```bash
-cp configs/.env.loopaware.integration.example configs/.env.loopaware.integration
-cp configs/.env.tauth.integration.example configs/.env.tauth.integration
-cp configs/.env.pinguin.integration.example configs/.env.pinguin.integration
-cp configs/.env.ghttp.integration.example configs/.env.ghttp.integration
-```
-
-`docker-compose.integration.yml` mounts `configs/config.loopaware.yml` into the API container. The integration runner
-copies `configs/config.frontend.yml` to `web/config.yml` before bringing up the proxy stack.
-
-If the `.integration` env files are absent, `tests/scripts/run-integration.sh` generates them from the tracked `.example` templates and deletes those generated copies during cleanup. Keep persistent `.integration` files only when you need local overrides.

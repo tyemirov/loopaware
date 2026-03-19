@@ -89,19 +89,6 @@ func TestLoadServiceEnvironmentReportsMissingEnvFile(testingT *testing.T) {
 	require.NotEmpty(testingT, result.errors)
 }
 
-func TestLoadServiceEnvironmentUsesIntegrationExampleWhenEnvFileMissing(testingT *testing.T) {
-	tempDirectory := testingT.TempDir()
-	result := auditResult{}
-	examplePath := filepath.Join(tempDirectory, "service.env.integration.example")
-	require.NoError(testingT, os.WriteFile(examplePath, []byte("KEY=value\n"), 0o600))
-
-	environment, loadErr := loadServiceEnvironment(tempDirectory, "app", []string{"service.env.integration"}, environmentMap{}, &result)
-	require.NoError(testingT, loadErr)
-	require.Equal(testingT, map[string]string{"KEY": "value"}, environment)
-	require.Contains(testingT, strings.Join(result.warnings, " "), "using service.env.integration.example for audit")
-	require.Empty(testingT, result.errors)
-}
-
 func TestRunAuditReportsNoServices(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	composePath := filepath.Join(tempDirectory, testComposeFileName)

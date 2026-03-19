@@ -3,47 +3,22 @@ set -euo pipefail
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
 repo_root=$(cd "${script_dir}/../.." && pwd)
-config_dir="${repo_root}/configs"
-compose_file="${repo_root}/docker-compose.integration.yml"
-frontend_runtime_target="${repo_root}/web/config.yml"
-generated_frontend_runtime_config=false
-generated_env_files=()
+test_config_dir="${repo_root}/tests/configs"
+compose_file="${repo_root}/tests/docker-compose.yml"
+test_web_root=$(mktemp -d "${repo_root}/tests/.runtime-web.XXXXXX")
 
-ensure_env_file() {
-  local target="$1"
-  local example="$2"
-  if [[ -f "${target}" ]]; then
-    return
-  fi
-  if [[ ! -f "${example}" ]]; then
-    echo "Missing env template: ${example}" >&2
-    exit 1
-  fi
-  cp "${example}" "${target}"
-  generated_env_files+=("${target}")
-}
-
-ensure_env_file "${config_dir}/.env.loopaware.integration" "${config_dir}/.env.loopaware.integration.example"
-ensure_env_file "${config_dir}/.env.tauth.integration" "${config_dir}/.env.tauth.integration.example"
-ensure_env_file "${config_dir}/.env.pinguin.integration" "${config_dir}/.env.pinguin.integration.example"
-ensure_env_file "${config_dir}/.env.ghttp.integration" "${config_dir}/.env.ghttp.integration.example"
-if [[ ! -f "${frontend_runtime_target}" ]]; then
-  generated_frontend_runtime_config=true
-fi
-cp "${config_dir}/config.frontend.yml" "${frontend_runtime_target}"
+cp -R "${repo_root}/web/." "${test_web_root}/"
+cp "${repo_root}/configs/config.frontend.yml" "${test_web_root}/config.yml"
+chmod -R a+rX "${test_web_root}"
 
 export LOOPAWARE_BASE_URL=${LOOPAWARE_BASE_URL:-http://localhost:8090}
-export LOOPAWARE_ENV_FILE=${LOOPAWARE_ENV_FILE:-${config_dir}/.env.loopaware.integration}
+export LOOPAWARE_ENV_FILE=${LOOPAWARE_ENV_FILE:-${test_config_dir}/loopaware.env}
 export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-loopaware-integration-$(date +%s)}
+export LOOPAWARE_TEST_WEB_ROOT="${test_web_root}"
 
 cleanup() {
   docker compose -f "${compose_file}" down -v --remove-orphans
-  for generated_env_file in "${generated_env_files[@]}"; do
-    rm -f "${generated_env_file}"
-  done
-  if [[ "${generated_frontend_runtime_config}" == "true" ]]; then
-    rm -f "${frontend_runtime_target}"
-  fi
+  rm -rf "${test_web_root}"
 }
 trap cleanup EXIT
 
