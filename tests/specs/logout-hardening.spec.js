@@ -13,6 +13,7 @@ const EXTERNAL_SCRIPT_URLS = Object.freeze([
   'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js',
   'https://accounts.google.com/gsi/client'
 ]);
+const LOGIN_URL_PATTERN = /\/login(?:\/)?(?:[?#].*)?$/;
 const PUBLIC_PAGE_UNAUTH_CASES = Object.freeze([
   { name: 'login page', path: '/login' },
   { name: 'privacy page', path: '/privacy' },
@@ -49,6 +50,22 @@ async function openPublicPage(page, path, localStorageEntries) {
     await setLocalStorage(page, localStorageEntries);
   }
   await page.goto(path, { waitUntil: 'domcontentloaded' });
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<boolean>}
+ */
+async function expectLogoutOverlayOrRedirect(page) {
+  const overlay = page.locator('#logout-overlay');
+  let redirectedToLogin = false;
+  await Promise.any([
+    page.waitForURL(LOGIN_URL_PATTERN, { timeout: 15_000 }).then(() => {
+      redirectedToLogin = true;
+    }),
+    expect(overlay).toBeVisible({ timeout: 15_000 })
+  ]);
+  return redirectedToLogin || LOGIN_URL_PATTERN.test(page.url());
 }
 
 test('privacy page initializes theme and auth scripts instead of rendering raw JavaScript', async ({ page }) => {
@@ -110,14 +127,8 @@ test('logout overlay appears and content hides on logout event', async ({ page }
     document.dispatchEvent(new CustomEvent('mpr-user:logout'));
   });
 
-  // Verify overlay is visible OR we already redirected
-  const overlay = page.locator('#logout-overlay');
-  await expect(async () => {
-    if (page.url().includes('/login')) return;
-    await expect(overlay).toBeVisible();
-  }).toPass({ timeout: 15000 });
-  
-  if (page.url().includes('/login')) {
+  const redirectedToLogin = await expectLogoutOverlayOrRedirect(page);
+  if (redirectedToLogin) {
     return;
   }
 
@@ -146,14 +157,8 @@ test('logout overlay appears and content hides on unauthenticated event', async 
     target.dispatchEvent(new CustomEvent('mpr-ui:auth:unauthenticated'));
   });
 
-  // Verify overlay is visible OR we already redirected
-  const overlay = page.locator('#logout-overlay');
-  await expect(async () => {
-    if (page.url().includes('/login')) return;
-    await expect(overlay).toBeVisible();
-  }).toPass();
-  
-  if (page.url().includes('/login')) {
+  const redirectedToLogin = await expectLogoutOverlayOrRedirect(page);
+  if (redirectedToLogin) {
     return;
   }
 
@@ -194,16 +199,8 @@ test('logout overlay appears and content hides on session timeout confirm', asyn
   // Click confirm (Yes)
   await page.locator('#session-timeout-confirm-button').click();
 
-  // Verify overlay is visible OR we already redirected
-  const overlay = page.locator('#logout-overlay');
-  await expect(async () => {
-    // If we already navigated, it's a pass
-    if (page.url().includes('/login')) return;
-    
-    await expect(overlay).toBeVisible();
-  }).toPass();
-  
-  if (page.url().includes('/login')) {
+  const redirectedToLogin = await expectLogoutOverlayOrRedirect(page);
+  if (redirectedToLogin) {
     return;
   }
 

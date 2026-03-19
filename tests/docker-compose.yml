@@ -1,6 +1,7 @@
 services:
   la-tauth:
     image: ghcr.io/tyemirov/tauth:latest
+    platform: ${LOOPAWARE_TEST_IMAGE_PLATFORM:-linux/amd64}
     restart: unless-stopped
     pull_policy: always
     env_file:
@@ -13,6 +14,7 @@ services:
 
   la-pinguin:
     image: ghcr.io/tyemirov/pinguin:latest
+    platform: ${LOOPAWARE_TEST_IMAGE_PLATFORM:-linux/amd64}
     restart: unless-stopped
     pull_policy: always
     env_file:
@@ -44,6 +46,7 @@ services:
 
   loopaware-proxy:
     image: ghcr.io/tyemirov/ghttp:latest
+    platform: ${LOOPAWARE_TEST_IMAGE_PLATFORM:-linux/amd64}
     pull_policy: always
     depends_on:
       - loopaware-api
