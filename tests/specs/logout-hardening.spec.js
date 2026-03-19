@@ -13,6 +13,12 @@ const EXTERNAL_SCRIPT_URLS = Object.freeze([
   'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js',
   'https://accounts.google.com/gsi/client'
 ]);
+const PUBLIC_PAGE_UNAUTH_CASES = Object.freeze([
+  { name: 'login page', path: '/login' },
+  { name: 'privacy page', path: '/privacy' },
+  { name: 'confirmation page', path: '/subscriptions/confirm' },
+  { name: 'unsubscribe page', path: '/subscriptions/unsubscribe' }
+]);
 
 /**
  * @param {import('@playwright/test').Page} page
@@ -68,6 +74,26 @@ test('unsubscribe page shows friendly missing-token message', async ({ page }) =
   await expect(page.locator('#subscription-link-heading')).toHaveText('Unsubscribe');
   await expect(page.locator('#subscription-link-message')).toHaveText('Missing unsubscribe token.');
 });
+
+for (const publicPageCase of PUBLIC_PAGE_UNAUTH_CASES) {
+  test(`${publicPageCase.name} keeps content visible on unauthenticated events`, async ({ page }) => {
+    await openPublicPage(page, publicPageCase.path, undefined);
+
+    await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
+    await expect(page.locator('main')).toBeVisible();
+    await expect(page.locator('#logout-overlay')).toBeHidden();
+
+    await page.evaluate(() => {
+      const headerHost = document.querySelector('mpr-header');
+      const target = headerHost || document;
+      target.dispatchEvent(new CustomEvent('mpr-ui:auth:unauthenticated'));
+    });
+
+    await expect(page.locator('main')).toBeVisible();
+    await expect(page.locator('#logout-overlay')).toBeHidden();
+    await expect(page.locator('body')).not.toHaveClass(/logging-out/);
+  });
+}
 
 test('logout overlay appears and content hides on logout event', async ({ page }) => {
   await openDashboard(page, config, adminUser);

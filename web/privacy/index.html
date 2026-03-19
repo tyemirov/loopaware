@@ -254,6 +254,12 @@ body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0
     if (overlay) overlay.classList.remove('d-none');
     document.body.classList.add('logging-out');
   }
+
+  function hideLogoutOverlay() {
+    var overlay = document.getElementById('logout-overlay');
+    if (overlay) overlay.classList.add('d-none');
+    document.body.classList.remove('logging-out');
+  }
   function pruneHeaderUserMenus(headerHost) {
     if (!headerHost || typeof headerHost.querySelectorAll !== 'function') {
       return;
@@ -706,6 +712,10 @@ body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0
     return document.querySelector('mpr-header');
   }
 
+  function shouldRedirectOnLogout(headerHost) {
+    return !!(headerHost && typeof headerHost.getAttribute === 'function' && headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true');
+  }
+
   function handleAuthenticatedEvent(event) {
     var headerHost = resolveAuthHost(event);
     if (!headerHost) {
@@ -719,16 +729,19 @@ body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0
   }
 
   function handleUnauthenticatedEvent(event) {
-    showLogoutOverlay();
     var headerHost = resolveAuthHost(event);
     disableGoogleAutoSelect();
     if (!headerHost) {
+      hideLogoutOverlay();
       return;
     }
     gateGoogleSigninUntilNonce(headerHost);
-    if (headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
+    if (shouldRedirectOnLogout(headerHost)) {
+      showLogoutOverlay();
       window.location.assign('/login');
+      return;
     }
+    hideLogoutOverlay();
   }
 
   function openAccountSettingsModal() {

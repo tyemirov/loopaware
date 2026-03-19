@@ -7,6 +7,37 @@ import { buildAdminUser, ensureSiteForOrigin } from '../helpers/fixtures.js';
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
 const cookie = buildSessionCookie(config, adminUser);
+const QUERY_TEXT_CASES = Object.freeze([
+  { name: 'cta label', params: { cta: 'Save = Ship' }, assert: async (page) => {
+    await expect(page.locator('#mp-subscribe-submit')).toContainText('Save = Ship');
+  } },
+  { name: 'success message', params: { success: 'A=B' }, assert: async (page) => {
+    await page.route('**/public/subscriptions', async (route) => {
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({ status: 'created' })
+      });
+    });
+    await page.locator('#mp-subscribe-email').fill(`user-${Date.now()}@example.com`);
+    await page.locator('#mp-subscribe-name').fill('Example User');
+    await page.locator('#mp-subscribe-submit').click();
+    await expect(page.locator('#mp-subscribe-status')).toContainText('A=B');
+  } },
+  { name: 'error message', params: { error: 'Try=A=B' }, assert: async (page) => {
+    await page.route('**/public/subscriptions', async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({ error: 'server_error' })
+      });
+    });
+    await page.locator('#mp-subscribe-email').fill(`user-${Date.now()}@example.com`);
+    await page.locator('#mp-subscribe-name').fill('Example User');
+    await page.locator('#mp-subscribe-submit').click();
+    await expect(page.locator('#mp-subscribe-status')).toContainText('Try=A=B');
+  } }
+]);
 
 let site;
 
@@ -41,10 +72,12 @@ test('name input hides when name_field is false', async ({ page }) => {
   await expect(page.locator('#mp-subscribe-name')).toHaveCount(0);
 });
 
-test('custom cta label is applied', async ({ page }) => {
-  await openSubscribePage(page, { cta: 'Join the list' });
-  await expect(page.locator('#mp-subscribe-submit')).toContainText('Join the list');
-});
+for (const queryTextCase of QUERY_TEXT_CASES) {
+  test(`query-string ${queryTextCase.name} preserves equals signs`, async ({ page }) => {
+    await openSubscribePage(page, queryTextCase.params);
+    await queryTextCase.assert(page);
+  });
+}
 
 test('successful subscribe shows default success message', async ({ page }) => {
   await openSubscribePage(page);
