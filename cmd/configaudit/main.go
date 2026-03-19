@@ -47,6 +47,9 @@ var (
 		".env.pinguin",
 		".env.ghttp",
 	}
+	unsupportedConfigEnvFiles = []string{
+		filepath.Join("configs", ".env.ghttp"),
+	}
 )
 
 type stringList []string
@@ -181,6 +184,7 @@ func runAuditCommands(composePaths []string, stdout io.Writer, stderr io.Writer)
 	repositoryRoot := resolveAuditRoot(composePaths)
 	var repositoryResult auditResult
 	checkLegacyRootEnvFiles(repositoryRoot, &repositoryResult)
+	checkUnsupportedConfigEnvFiles(repositoryRoot, &repositoryResult)
 	sort.Strings(repositoryResult.errors)
 	sort.Strings(repositoryResult.warnings)
 
@@ -331,14 +335,42 @@ func checkLegacyRootEnvFiles(rootDirectory string, result *auditResult) {
 	}
 }
 
+func checkUnsupportedConfigEnvFiles(rootDirectory string, result *auditResult) {
+	for _, unsupportedPath := range unsupportedConfigEnvFiles {
+		absolutePath := filepath.Join(rootDirectory, unsupportedPath)
+		unsupportedInfo, statErr := os.Stat(absolutePath)
+		if statErr != nil {
+			if errors.Is(statErr, os.ErrNotExist) {
+				continue
+			}
+			result.addError("stat unsupported config env file %s: %v", unsupportedPath, statErr)
+			continue
+		}
+		if unsupportedInfo.IsDir() {
+			result.addError("unsupported config env path %s must not be a directory", unsupportedPath)
+			continue
+		}
+		result.addError("unsupported config env file %s is not referenced by any active compose stack; delete it to keep configs/ free of redundant env copies", unsupportedPath)
+	}
+}
+
 func loadServiceEnvironment(composeDirectory string, serviceName string, envFiles []string, environment environmentMap, result *auditResult) (map[string]string, error) {
 	merged := make(map[string]string)
 
 	for _, envFile := range envFiles {
 		resolvedPath := filepath.Clean(filepath.Join(composeDirectory, envFile))
 		if _, statErr := os.Stat(resolvedPath); statErr != nil {
-			result.addError("service %s: env_file %s is missing (%v)", serviceName, envFile, statErr)
-			continue
+			fallbackPath, fallbackLabel, fallbackOK := resolveIntegrationExampleEnvFile(composeDirectory, envFile)
+			if !fallbackOK {
+				result.addError("service %s: env_file %s is missing (%v)", serviceName, envFile, statErr)
+				continue
+			}
+			if _, fallbackStatErr := os.Stat(fallbackPath); fallbackStatErr != nil {
+				result.addError("service %s: env_file %s is missing (%v)", serviceName, envFile, statErr)
+				continue
+			}
+			result.addWarning("service %s: env_file %s is missing; using %s for audit", serviceName, envFile, fallbackLabel)
+			resolvedPath = fallbackPath
 		}
 		values, duplicates, parseErr := parseDotEnv(resolvedPath)
 		if parseErr != nil {
@@ -364,6 +396,15 @@ func loadServiceEnvironment(composeDirectory string, serviceName string, envFile
 	}
 
 	return merged, nil
+}
+
+func resolveIntegrationExampleEnvFile(composeDirectory string, envFile string) (string, string, bool) {
+	if !strings.HasSuffix(envFile, ".integration") {
+		return "", "", false
+	}
+	fallbackLabel := envFile + ".example"
+	fallbackPath := filepath.Clean(filepath.Join(composeDirectory, fallbackLabel))
+	return fallbackPath, fallbackLabel, true
 }
 
 func parseDotEnv(path string) (map[string]string, []string, error) {

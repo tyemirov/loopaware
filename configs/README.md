@@ -10,6 +10,7 @@ Notes:
 - `configs/.env.*` files are intentionally gitignored. Create them locally.
 - `configs/.env.*.example` files are tracked templates; copy them into `configs/.env.*`.
 - Legacy repo-root `.env.*` files are unsupported duplicates. Move any remaining values into `configs/.env.*` and delete the root copies; `config-audit` fails while they exist.
+- There is no supported plain `configs/.env.ghttp` file. gHTTP env files exist only for `integration` and `computercat`; `config-audit` fails if `configs/.env.ghttp` exists.
 - `configs/config.loopaware.yml` is the tracked LoopAware admin-roster config used by the server `--config` flag.
 - `configs/config.frontend.yml` is the tracked frontend runtime config source; deployments publish it as `/config.yml`.
 - GitHub Actions CI writes minimal env fixtures for `make ci` (see `.github/workflows/ci.yml`).
@@ -109,7 +110,7 @@ so keep `TAUTH_ALLOW_INSECURE_HTTP=true` unless you front TAuth with a proxy tha
 This stack serves the static frontend from `./web` via gHTTP on `http://localhost:8090` and proxies `/api/*` plus TAuth paths for the Playwright
 integration suite.
 
-Create these env files:
+Optional override env files:
 
 - `configs/.env.loopaware.integration`
 - `configs/.env.tauth.integration`
@@ -127,3 +128,5 @@ cp configs/.env.ghttp.integration.example configs/.env.ghttp.integration
 
 `docker-compose.integration.yml` mounts `configs/config.loopaware.yml` into the API container. The integration runner
 copies `configs/config.frontend.yml` to `web/config.yml` before bringing up the proxy stack.
+
+If the `.integration` env files are absent, `tests/scripts/run-integration.sh` generates them from the tracked `.example` templates and deletes those generated copies during cleanup. Keep persistent `.integration` files only when you need local overrides.

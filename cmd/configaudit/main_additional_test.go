@@ -89,6 +89,19 @@ func TestLoadServiceEnvironmentReportsMissingEnvFile(testingT *testing.T) {
 	require.NotEmpty(testingT, result.errors)
 }
 
+func TestLoadServiceEnvironmentUsesIntegrationExampleWhenEnvFileMissing(testingT *testing.T) {
+	tempDirectory := testingT.TempDir()
+	result := auditResult{}
+	examplePath := filepath.Join(tempDirectory, "service.env.integration.example")
+	require.NoError(testingT, os.WriteFile(examplePath, []byte("KEY=value\n"), 0o600))
+
+	environment, loadErr := loadServiceEnvironment(tempDirectory, "app", []string{"service.env.integration"}, environmentMap{}, &result)
+	require.NoError(testingT, loadErr)
+	require.Equal(testingT, map[string]string{"KEY": "value"}, environment)
+	require.Contains(testingT, strings.Join(result.warnings, " "), "using service.env.integration.example for audit")
+	require.Empty(testingT, result.errors)
+}
+
 func TestRunAuditReportsNoServices(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
@@ -658,6 +671,36 @@ func TestRunAuditCommandsReportsLegacyRootEnvFiles(testingT *testing.T) {
 	exitCode := runAuditCommands([]string{composePath}, &stdout, &stderr)
 	require.Equal(testingT, 1, exitCode)
 	require.Contains(testingT, stderr.String(), "ERROR [repo]: legacy repo-root env file .env.loopaware duplicates configs/.env.loopaware")
+	require.Contains(testingT, stderr.String(), "config-audit failed")
+}
+
+func TestRunAuditCommandsReportsUnsupportedConfigEnvFile(testingT *testing.T) {
+	tempDirectory := testingT.TempDir()
+	composePath := filepath.Join(tempDirectory, testComposeFileName)
+	composeContent := strings.Join([]string{
+		"services:",
+		"  loopaware:",
+		"    environment:",
+		"      SESSION_SECRET: " + testSessionSecretValue,
+		"      TAUTH_BASE_URL: " + testTauthBaseURLValue,
+		"      TAUTH_TENANT_ID: " + testTenantValue,
+		"      TAUTH_JWT_SIGNING_KEY: " + testSigningKeyValue,
+		"      TAUTH_SESSION_COOKIE_NAME: " + testCookieNameValue,
+		"      PUBLIC_BASE_URL: " + testPublicBaseURLValue,
+		"      PINGUIN_ADDR: " + testPinguinAddressValue,
+		"      PINGUIN_AUTH_TOKEN: " + testAuthTokenValue,
+		"      PINGUIN_TENANT_ID: " + testTenantValue,
+		"",
+	}, "\n")
+	require.NoError(testingT, os.WriteFile(composePath, []byte(composeContent), 0o600))
+	require.NoError(testingT, os.MkdirAll(filepath.Join(tempDirectory, "configs"), 0o755))
+	require.NoError(testingT, os.WriteFile(filepath.Join(tempDirectory, "configs", ".env.ghttp"), []byte("GHTTP_SERVE_PORT=4443"), 0o600))
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := runAuditCommands([]string{composePath}, &stdout, &stderr)
+	require.Equal(testingT, 1, exitCode)
+	require.Contains(testingT, stderr.String(), "ERROR [repo]: unsupported config env file configs/.env.ghttp is not referenced by any active compose stack")
 	require.Contains(testingT, stderr.String(), "config-audit failed")
 }
 

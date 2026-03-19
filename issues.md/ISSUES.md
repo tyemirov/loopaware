@@ -618,3 +618,11 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Extend `config-audit` to reject repo-root `.env.*` duplicates, document that root copies are unsupported, migrate any remaining local values into `configs/.env.*`, and remove the legacy root files.
   Resolution: `cmd/configaudit` now fails when `.env.loopaware`, `.env.tauth`, `.env.pinguin`, or `.env.ghttp` exist at the repo root; `configs/README.md` now states that those root files are unsupported; and the remaining local root env values were merged into `configs/.env.*` before deleting the redundant root copies.
   Verification: `timeout -k 30s -s SIGKILL 30s go test ./cmd/configaudit`, `timeout -k 350s -s SIGKILL 350s make lint`, and `timeout -k 350s -s SIGKILL 350s make ci` pass.
+
+- [x] [LA-453] Remove redundant `configs/.env.ghttp` and stop persisting generated integration env copies.
+  Priority: P1
+  Symptom: The `configs/` directory still accumulated redundant env files: a plain `configs/.env.ghttp` file that no active compose stack reads, plus `.integration` env copies that could be regenerated from the tracked templates but were left behind after test runs.
+  Goal: Keep only active or intentionally overridden env files under `configs/`, and reduce drift between local dev, integration, and computercat env sets.
+  Deliverable: Make `config-audit` reject unsupported `configs/.env.ghttp`, teach the integration runner to clean up generated `.integration` env files, document the lifecycle of integration env overrides, and normalize the local dev env files into one coherent value set.
+  Resolution: `cmd/configaudit` now fails when `configs/.env.ghttp` exists, `tests/scripts/run-integration.sh` removes any `.integration` env files that it generated from `.example` templates, `configs/README.md` now documents that only `computercat` and `integration` use gHTTP env files plus that integration env files are optional overrides, and the local ignored `configs/.env.loopaware`, `configs/.env.tauth`, and `configs/.env.pinguin` files were normalized to match one consistent local-dev credential set instead of mixed fixture/live values.
+  Verification: `timeout -k 30s -s SIGKILL 30s go test ./cmd/configaudit`, `timeout -k 350s -s SIGKILL 350s make lint`, and `timeout -k 350s -s SIGKILL 350s make ci` pass.

@@ -7,6 +7,7 @@ config_dir="${repo_root}/configs"
 compose_file="${repo_root}/docker-compose.integration.yml"
 frontend_runtime_target="${repo_root}/web/config.yml"
 generated_frontend_runtime_config=false
+generated_env_files=()
 
 ensure_env_file() {
   local target="$1"
@@ -19,6 +20,7 @@ ensure_env_file() {
     exit 1
   fi
   cp "${example}" "${target}"
+  generated_env_files+=("${target}")
 }
 
 ensure_env_file "${config_dir}/.env.loopaware.integration" "${config_dir}/.env.loopaware.integration.example"
@@ -36,6 +38,9 @@ export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-loopaware-integration-$(date
 
 cleanup() {
   docker compose -f "${compose_file}" down -v --remove-orphans
+  for generated_env_file in "${generated_env_files[@]}"; do
+    rm -f "${generated_env_file}"
+  done
   if [[ "${generated_frontend_runtime_config}" == "true" ]]; then
     rm -f "${frontend_runtime_target}"
   fi
