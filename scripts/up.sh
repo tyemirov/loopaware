@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/.." && pwd)"
+cd "${repo_root}"
+
 usage() {
   cat <<'USAGE'
-Usage: ./up.sh [local|computercat]
+Usage: ./scripts/up.sh [local|computercat]
 
 When no argument is provided, the script opens an interactive selector.
 USAGE
@@ -26,7 +30,7 @@ resolve_stack_target() {
   )
 
   if [[ ! -t 0 ]]; then
-    echo "error: non-tty runs are not supported. Re-run ./up.sh in an interactive terminal." >&2
+    echo "error: non-tty runs are not supported. Re-run ./scripts/up.sh in an interactive terminal." >&2
     exit 1
   fi
 
@@ -102,7 +106,7 @@ case "${mode}" in
     docker compose --env-file configs/.env.loopaware.computercat -f docker-compose.computercat.yml up --build --remove-orphans --force-recreate
     ;;
   *)
-    echo "Usage: ./up.sh [local|computercat]" >&2
+    echo "Usage: ./scripts/up.sh [local|computercat]" >&2
     exit 1
     ;;
 esac

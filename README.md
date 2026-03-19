@@ -95,17 +95,17 @@ Flags are optional when the equivalent environment variables are set.
 For Docker-based local development, use the helper script:
 
 ```bash
-./up.sh
+./scripts/up.sh
 ```
 
 Stop the local stack with:
 
 ```bash
-./down.sh
+./scripts/down.sh
 ```
 
-`up.sh` is the canonical startup path for Dockerized LoopAware. With no argument it opens an interactive selector.
-You can also call it explicitly as `./up.sh local` or `./up.sh computercat`.
+`scripts/up.sh` is the canonical startup path for Dockerized LoopAware. With no argument it opens an interactive selector.
+You can also call it explicitly as `./scripts/up.sh local` or `./scripts/up.sh computercat`.
 
 If you want to run only the API process without Docker, use:
 
@@ -153,7 +153,7 @@ absolute `data-api-origin` attributes (or `api_origin` query params) on embed sc
 origin. The dashboard and login pages call `/api` and `/auth` relative to the frontend origin, so split-origin
 deployments should use a reverse proxy or update the static HTML in `web/` to point at those services.
 The tracked runtime host mapping lives in `configs/config.frontend.yml`; static deployments must publish that file at
-`/config.yml` for `web/runtime-env.js` (`./up.sh` and the GitHub Pages workflow do this automatically, and the test stack publishes the same file inside its test-owned web root).
+`/config.yml` for `web/runtime-env.js` (`./scripts/up.sh` and the GitHub Pages workflow do this automatically, and the test stack publishes the same file inside its test-owned web root).
 
 ## REST API
 
@@ -319,7 +319,7 @@ cp configs/.env.loopaware.example configs/.env.loopaware
 cp configs/.env.tauth.example configs/.env.tauth
 cp configs/.env.pinguin.example configs/.env.pinguin
 $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin
-./up.sh
+./scripts/up.sh
 ```
 
 The compose file binds `configs/config.loopaware.yml` into the LoopAware container at `/app/configs/config.loopaware.yml`
@@ -330,5 +330,5 @@ user, update the Docker image to chown the mounted directory before starting the
 For the computercat TLS stack, use:
 
 ```bash
-./up.sh computercat
+./scripts/up.sh computercat
 ```
