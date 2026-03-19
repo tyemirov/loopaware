@@ -24,6 +24,31 @@ var (
 	volumeMappingSuffix  = "/config/config.yml"
 	localURLPattern      = regexp.MustCompile(`https?://(?:localhost|127\.0\.0\.1)(?::([0-9]{2,5}))?`)
 	localHostPortPattern = regexp.MustCompile(`(?:^|[^a-zA-Z0-9_.-])(localhost|127\.0\.0\.1):([0-9]{2,5})`)
+	defaultComposePaths  = []string{
+		"docker-compose.yml",
+		"docker-compose.computercat.yml",
+	}
+	loopAwareServiceAliases = []string{
+		"loopaware",
+		"loopaware-api",
+	}
+	pinguinServiceAliases = []string{
+		"pinguin",
+		"la-pinguin",
+	}
+	tauthServiceAliases = []string{
+		"tauth",
+		"la-tauth",
+	}
+	legacyRootEnvFiles = []string{
+		".env.loopaware",
+		".env.tauth",
+		".env.pinguin",
+		".env.ghttp",
+	}
+	unsupportedConfigEnvFiles = []string{
+		filepath.Join("configs", ".env.ghttp"),
+	}
 )
 
 type stringList []string
@@ -147,29 +172,57 @@ func (result auditResult) ok() bool {
 }
 
 func main() {
-	exitCode := runAuditCommand("docker-compose.yml", os.Stdout, os.Stderr)
+	exitCode := runAuditCommands(defaultComposePaths, os.Stdout, os.Stderr)
 	if exitCode != 0 {
 		os.Exit(exitCode)
 	}
 }
 
-func runAuditCommand(composePath string, stdout io.Writer, stderr io.Writer) int {
-	result := runAudit(composePath)
-	sort.Strings(result.errors)
-	sort.Strings(result.warnings)
+func runAuditCommands(composePaths []string, stdout io.Writer, stderr io.Writer) int {
+	overallSuccess := true
+	repositoryRoot := resolveAuditRoot(composePaths)
+	var repositoryResult auditResult
+	checkLegacyRootEnvFiles(repositoryRoot, &repositoryResult)
+	checkUnsupportedConfigEnvFiles(repositoryRoot, &repositoryResult)
+	sort.Strings(repositoryResult.errors)
+	sort.Strings(repositoryResult.warnings)
 
-	for _, warning := range result.warnings {
-		_, _ = fmt.Fprintf(stdout, "WARN: %s\n", warning)
+	for _, warning := range repositoryResult.warnings {
+		_, _ = fmt.Fprintf(stdout, "WARN [repo]: %s\n", warning)
 	}
-	for _, errorMessage := range result.errors {
-		_, _ = fmt.Fprintf(stderr, "ERROR: %s\n", errorMessage)
+	for _, errorMessage := range repositoryResult.errors {
+		_, _ = fmt.Fprintf(stderr, "ERROR [repo]: %s\n", errorMessage)
 	}
-	if !result.ok() {
+	if !repositoryResult.ok() {
+		overallSuccess = false
+	}
+
+	for _, composePath := range composePaths {
+		result := runAudit(composePath)
+		sort.Strings(result.errors)
+		sort.Strings(result.warnings)
+
+		for _, warning := range result.warnings {
+			_, _ = fmt.Fprintf(stdout, "WARN [%s]: %s\n", composePath, warning)
+		}
+		for _, errorMessage := range result.errors {
+			_, _ = fmt.Fprintf(stderr, "ERROR [%s]: %s\n", composePath, errorMessage)
+		}
+		if !result.ok() {
+			overallSuccess = false
+		}
+	}
+
+	if !overallSuccess {
 		_, _ = fmt.Fprintf(stderr, "config-audit failed\n")
 		return 1
 	}
 	_, _ = fmt.Fprintf(stdout, "config-audit OK\n")
 	return 0
+}
+
+func runAuditCommand(composePath string, stdout io.Writer, stderr io.Writer) int {
+	return runAuditCommands([]string{composePath}, stdout, stderr)
 }
 
 func runAudit(composePath string) auditResult {
@@ -226,6 +279,78 @@ func runAudit(composePath string) auditResult {
 	checkWebAssetLocalhostPorts(hostPortToService, &result)
 
 	return result
+}
+
+func resolveAuditRoot(composePaths []string) string {
+	if len(composePaths) == 0 {
+		return "."
+	}
+	rootDirectory, rootErr := filepath.Abs(filepath.Dir(composePaths[0]))
+	if rootErr != nil {
+		return filepath.Dir(composePaths[0])
+	}
+	for _, composePath := range composePaths[1:] {
+		nextDirectory, nextErr := filepath.Abs(filepath.Dir(composePath))
+		if nextErr != nil {
+			nextDirectory = filepath.Dir(composePath)
+		}
+		rootDirectory = commonDirectory(rootDirectory, nextDirectory)
+	}
+	return rootDirectory
+}
+
+func commonDirectory(leftPath string, rightPath string) string {
+	leftDirectory := filepath.Clean(leftPath)
+	rightDirectory := filepath.Clean(rightPath)
+	for {
+		relativePath, relativeErr := filepath.Rel(leftDirectory, rightDirectory)
+		if relativeErr == nil && relativePath != ".." && !strings.HasPrefix(relativePath, ".."+string(os.PathSeparator)) {
+			return leftDirectory
+		}
+		parentDirectory := filepath.Dir(leftDirectory)
+		if parentDirectory == leftDirectory {
+			return leftDirectory
+		}
+		leftDirectory = parentDirectory
+	}
+}
+
+func checkLegacyRootEnvFiles(rootDirectory string, result *auditResult) {
+	for _, legacyFileName := range legacyRootEnvFiles {
+		legacyPath := filepath.Join(rootDirectory, legacyFileName)
+		legacyInfo, statErr := os.Stat(legacyPath)
+		if statErr != nil {
+			if errors.Is(statErr, os.ErrNotExist) {
+				continue
+			}
+			result.addError("stat legacy env file %s: %v", legacyFileName, statErr)
+			continue
+		}
+		if legacyInfo.IsDir() {
+			result.addError("legacy repo-root env path %s must not be a directory", legacyFileName)
+			continue
+		}
+		result.addError("legacy repo-root env file %s duplicates configs/%s; move values under configs/ and delete the root copy", legacyFileName, legacyFileName)
+	}
+}
+
+func checkUnsupportedConfigEnvFiles(rootDirectory string, result *auditResult) {
+	for _, unsupportedPath := range unsupportedConfigEnvFiles {
+		absolutePath := filepath.Join(rootDirectory, unsupportedPath)
+		unsupportedInfo, statErr := os.Stat(absolutePath)
+		if statErr != nil {
+			if errors.Is(statErr, os.ErrNotExist) {
+				continue
+			}
+			result.addError("stat unsupported config env file %s: %v", unsupportedPath, statErr)
+			continue
+		}
+		if unsupportedInfo.IsDir() {
+			result.addError("unsupported config env path %s must not be a directory", unsupportedPath)
+			continue
+		}
+		result.addError("unsupported config env file %s is not referenced by any active compose stack; delete it to keep configs/ free of redundant env copies", unsupportedPath)
+	}
 }
 
 func loadServiceEnvironment(composeDirectory string, serviceName string, envFiles []string, environment environmentMap, result *auditResult) (map[string]string, error) {
@@ -421,9 +546,9 @@ func parseHostPort(portMapping string) (string, bool) {
 }
 
 func checkCrossServiceInvariants(environmentByService map[string]map[string]string, result *auditResult) {
-	pinguinEnv, pinguinOk := environmentByService["pinguin"]
-	tauthEnv, tauthOk := environmentByService["tauth"]
-	loopawareEnv, loopawareOk := environmentByService["loopaware"]
+	pinguinEnv, pinguinOk := resolveServiceEnvironment(environmentByService, pinguinServiceAliases)
+	tauthEnv, tauthOk := resolveServiceEnvironment(environmentByService, tauthServiceAliases)
+	loopawareEnv, loopawareOk := resolveServiceEnvironment(environmentByService, loopAwareServiceAliases)
 
 	if pinguinOk && tauthOk {
 		expectEqual("pinguin.TAUTH_SIGNING_KEY", pinguinEnv["TAUTH_SIGNING_KEY"], "tauth.TAUTH_LOOPAWARE_JWT_SIGNING_KEY", tauthEnv["TAUTH_LOOPAWARE_JWT_SIGNING_KEY"], result)
@@ -448,7 +573,7 @@ func expectEqual(leftLabel string, leftValue string, rightLabel string, rightVal
 }
 
 func checkLoopAwareRequiredEnvironment(environmentByService map[string]map[string]string, result *auditResult) {
-	loopawareEnv, ok := environmentByService["loopaware"]
+	loopawareEnv, ok := resolveServiceEnvironment(environmentByService, loopAwareServiceAliases)
 	if !ok {
 		return
 	}
@@ -467,6 +592,15 @@ func checkLoopAwareRequiredEnvironment(environmentByService map[string]map[strin
 			result.addError("service loopaware: required env %s is missing or empty", key)
 		}
 	}
+}
+
+func resolveServiceEnvironment(environmentByService map[string]map[string]string, aliases []string) (map[string]string, bool) {
+	for _, alias := range aliases {
+		if environment, ok := environmentByService[alias]; ok {
+			return environment, true
+		}
+	}
+	return nil, false
 }
 
 func checkWebAssetLocalhostPorts(hostPortToService map[string]string, result *auditResult) {

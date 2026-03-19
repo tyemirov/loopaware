@@ -7,7 +7,7 @@ role-aware dashboard for managing sites and messages.
 
 - Google Identity Services authentication via TAuth
 - Role-aware dashboard (`/app`) with admin and creator/owner scopes
-- YAML configuration for privileged accounts (`config.yaml`)
+- YAML configuration for privileged accounts (`configs/config.loopaware.yml`)
 - REST API to create, update, and inspect sites, feedback, subscribers, and traffic
 - Background favicon refresh scheduler with live dashboard notifications
 - Embeddable JavaScript widget with strict origin validation
@@ -19,16 +19,16 @@ role-aware dashboard for managing sites and messages.
 
 ## Configuration
 
-### 1. Admin roster (`config.yaml`)
+### 1. Admin roster (`configs/config.loopaware.yml`)
 
-Create a YAML file next to the binary with the email addresses that should receive administrator privileges (the file is optional if you prefer environment-only configuration):
+Edit the tracked YAML file at `configs/config.loopaware.yml` with the email addresses that should receive administrator privileges (the file is optional if you prefer environment-only configuration):
 
 ```yaml
 admins:
   - temirov@gmail.com
 ```
 
-LoopAware loads the file specified by `--config` (default `config.yaml`) before starting the HTTP server.
+LoopAware loads the file specified by `--config` (default `configs/config.loopaware.yml`) before starting the HTTP server.
 Set the `ADMINS` environment variable with a comma-separated list (for example `ADMINS=alice@example.com,bob@example.com`) to override the YAML roster without editing the file. When neither source is present the server starts without administrators and records a warning in the logs.
 
 ### 2. Environment variables
@@ -51,7 +51,7 @@ Backend (`cmd/server`):
 | `DB_DRIVER`            | ⚙️       | Storage driver (`sqlite`, etc.)                             |
 | `DB_DSN`               | ⚙️       | Driver-specific DSN                                         |
 
-Secrets must come from the environment; only non-sensitive settings belong in `config.yaml`.
+Secrets must come from the environment; only non-sensitive settings belong in `configs/config.loopaware.yml`.
 
 When running via Docker Compose, copy the tracked env templates under `configs/` and edit the local `.env.*` files:
 
@@ -76,7 +76,7 @@ LoopAware falls back to `GRPC_AUTH_TOKEN` when `PINGUIN_AUTH_TOKEN` is empty, so
 All configuration options are also exposed as Cobra flags:
 
 ```
-loopaware --config=config.yaml \
+loopaware --config=configs/config.loopaware.yml \
   --app-addr=:8080 \
   --db-driver=sqlite \
   --db-dsn="file:loopaware.sqlite?_foreign_keys=on" \
@@ -92,6 +92,23 @@ Flags are optional when the equivalent environment variables are set.
 
 ## Running locally
 
+For Docker-based local development, use the helper script:
+
+```bash
+./up.sh
+```
+
+Stop the local stack with:
+
+```bash
+./down.sh
+```
+
+`up.sh` is the canonical startup path for Dockerized LoopAware. With no argument it opens an interactive selector.
+You can also call it explicitly as `./up.sh local` or `./up.sh computercat`.
+
+If you want to run only the API process without Docker, use:
+
 ```bash
 SESSION_SECRET=$(openssl rand -hex 32) \
 TAUTH_BASE_URL=http://localhost:8081 \
@@ -99,12 +116,18 @@ TAUTH_TENANT_ID=loopaware \
 TAUTH_JWT_SIGNING_KEY=replace-with-tauth-jwt-signing-key \
 TAUTH_SESSION_COOKIE_NAME=app_session_loopaware \
 PUBLIC_BASE_URL=http://localhost:8080 \
-go run ./cmd/server --config=config.yaml
+go run ./cmd/server --config=configs/config.loopaware.yml
 ```
 
-Serve the static frontend from `web/` (for example with a simple static server), then open `/app` on that origin to
-trigger Google Sign-In. Ensure the TAuth service is running at `TAUTH_BASE_URL` with a tenant that matches
-`TAUTH_TENANT_ID`. Administrators listed in `config.yaml` can manage every site; other users see only the sites they own
+Before serving the static frontend directly from `web/`, publish the tracked runtime config source at `/config.yml`:
+
+```bash
+cp configs/config.frontend.yml web/config.yml
+```
+
+Then serve `web/` (for example with a simple static server) and open `/app` on that origin to trigger Google Sign-In.
+Ensure the TAuth service is running at `TAUTH_BASE_URL` with a tenant that matches `TAUTH_TENANT_ID`.
+Administrators listed in `configs/config.loopaware.yml` can manage every site; other users see only the sites they own
 or originally created with their Google account.
 
 ## Authentication flow
@@ -129,6 +152,8 @@ Set `PUBLIC_BASE_URL` to the frontend origin so the API emits correct links and 
 absolute `data-api-origin` attributes (or `api_origin` query params) on embed scripts when the API runs on a different
 origin. The dashboard and login pages call `/api` and `/auth` relative to the frontend origin, so split-origin
 deployments should use a reverse proxy or update the static HTML in `web/` to point at those services.
+The tracked runtime host mapping lives in `configs/config.frontend.yml`; static deployments must publish that file at
+`/config.yml` for `web/runtime-env.js` (`./up.sh` and the GitHub Pages workflow do this automatically, and the test stack publishes the same file inside its test-owned web root).
 
 ## REST API
 
@@ -260,10 +285,10 @@ make lint
 make test
 ```
 
-`make test` runs the Playwright integration suite against `docker-compose.integration.yml`, which builds the API image,
-serves `web/` via gHTTP, and exercises both UI and `/api/*` flows. Use `make test-unit` for Go-only tests and
-`make test-integration-api` to focus on API specs. Playwright artifacts (traces, screenshots, videos) land under
-`tests/test-results/` on failure.
+`make test` runs the Playwright integration suite against `tests/docker-compose.yml`, with test-owned env fixtures under
+`tests/configs/`. That stack builds the API image, serves `web/` via gHTTP, and exercises both UI and `/api/*` flows.
+Use `make test-unit` for Go-only tests and `make test-integration-api` to focus on API specs. Playwright artifacts
+(traces, screenshots, videos) land under `tests/test-results/` on failure.
 
 ## Release publishing
 
@@ -287,16 +312,23 @@ Tags that do not match `vMAJOR.MINOR.PATCH` are rejected by workflow validation 
 ## Docker
 
 The previous Docker and Compose files remain compatible. Ensure the container receives the OAuth environment variables
-and mounts a `config.yaml` containing the admin roster.
+and mounts `configs/config.loopaware.yml` containing the admin roster.
 
 ```bash
 cp configs/.env.loopaware.example configs/.env.loopaware
 cp configs/.env.tauth.example configs/.env.tauth
 cp configs/.env.pinguin.example configs/.env.pinguin
 $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin
-docker compose up --build --remove-orphans
+./up.sh
 ```
 
-The compose file binds `config.yaml` into the LoopAware container at `/app/config.yaml` and loads per-service environment variables via `env_file` from `configs/.env.*`.
+The compose file binds `configs/config.loopaware.yml` into the LoopAware container at `/app/configs/config.loopaware.yml`
+and loads per-service environment variables via `env_file` from `configs/.env.*`.
 The container now runs as root so the SQLite data volume remains writable; if you need to switch back to an unprivileged
 user, update the Docker image to chown the mounted directory before starting the binary.
+
+For the computercat TLS stack, use:
+
+```bash
+./up.sh computercat
+```

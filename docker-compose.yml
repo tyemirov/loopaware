@@ -39,15 +39,15 @@ services:
         condition: service_started
     volumes:
       - loopaware-data:/app/data
-      - ./config.yaml:/app/config.yaml:ro
+      - ./configs/config.loopaware.yml:/app/configs/config.loopaware.yml:ro
     ports:
       - "8080:8080"
     restart: unless-stopped
     develop:
       watch:
         - action: sync+restart
-          path: ./config.yaml
-          target: /app/config.yaml
+          path: ./configs/config.loopaware.yml
+          target: /app/configs/config.loopaware.yml
         - action: rebuild
           path: ./cmd/server
         - action: rebuild

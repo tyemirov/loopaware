@@ -1,4 +1,4 @@
-# LoopAware frontend runtime configuration (loaded by `web/runtime-env.js`).
+# LoopAware frontend runtime configuration source (published as `/config.yml` for static hosting).
 version: 1
 environments:
   - name: production

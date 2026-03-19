@@ -5,14 +5,14 @@ import { fileURLToPath } from 'node:url';
 
 const helperDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(helperDirectory, '..', '..');
-const configDirectory = path.join(repositoryRoot, 'configs');
+const testConfigDirectory = path.join(repositoryRoot, 'tests', 'configs');
 
 function resolveEnvFilePath() {
   const override = String(process.env.LOOPAWARE_ENV_FILE || '').trim();
   if (override) {
     return path.resolve(override);
   }
-  return path.join(configDirectory, '.env.loopaware');
+  return path.join(testConfigDirectory, 'loopaware.env');
 }
 
 function parseEnvLine(line) {
