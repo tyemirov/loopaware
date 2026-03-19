@@ -78,15 +78,30 @@ func TestEnvironmentMapUnmarshalYAMLHandlesNilAndSequence(testingT *testing.T) {
 	}, map[string]string(environment))
 }
 
-func TestLoadServiceEnvironmentReportsMissingEnvFile(testingT *testing.T) {
+func TestLoadServiceEnvironmentUsesExampleEnvFileWhenRuntimeEnvIsMissing(testingT *testing.T) {
+	tempDirectory := testingT.TempDir()
+	result := auditResult{}
+	examplePath := filepath.Join(tempDirectory, testMissingEnvFileName+".example")
+	require.NoError(testingT, os.WriteFile(examplePath, []byte("KEY=value\n"), 0o600))
+
+	environment, hasAuditableEnvironment, loadErr := loadServiceEnvironment(tempDirectory, "app", []string{testMissingEnvFileName}, environmentMap{}, &result)
+	require.NoError(testingT, loadErr)
+	require.True(testingT, hasAuditableEnvironment)
+	require.Equal(testingT, "value", environment["KEY"])
+	require.Empty(testingT, result.errors)
+	require.Empty(testingT, result.warnings)
+}
+
+func TestLoadServiceEnvironmentSkipsMissingEnvFileWithoutTrackedTemplate(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	result := auditResult{}
 
-	environment, loadErr := loadServiceEnvironment(tempDirectory, "app", []string{"missing.env"}, environmentMap{}, &result)
-	require.Error(testingT, loadErr)
-	require.True(testingT, errors.Is(loadErr, errAuditFailed))
-	require.Nil(testingT, environment)
-	require.NotEmpty(testingT, result.errors)
+	environment, hasAuditableEnvironment, loadErr := loadServiceEnvironment(tempDirectory, "app", []string{testMissingEnvFileName}, environmentMap{}, &result)
+	require.NoError(testingT, loadErr)
+	require.False(testingT, hasAuditableEnvironment)
+	require.Empty(testingT, environment)
+	require.Empty(testingT, result.errors)
+	require.NotEmpty(testingT, result.warnings)
 }
 
 func TestRunAuditReportsNoServices(testingT *testing.T) {
@@ -322,9 +337,11 @@ func TestLoadServiceEnvironmentUsesInlineValuesWhenEnvFileMissing(testingT *test
 		testInlineEnvironmentKey: testPinguinAddressValue,
 	}
 
-	environmentValues, loadErr := loadServiceEnvironment(tempDirectory, "app", []string{testMissingEnvFileName}, environment, &result)
+	environmentValues, hasAuditableEnvironment, loadErr := loadServiceEnvironment(tempDirectory, "app", []string{testMissingEnvFileName}, environment, &result)
 	require.NoError(testingT, loadErr)
-	require.NotEmpty(testingT, result.errors)
+	require.True(testingT, hasAuditableEnvironment)
+	require.Empty(testingT, result.errors)
+	require.NotEmpty(testingT, result.warnings)
 	require.Equal(testingT, testPinguinAddressValue, environmentValues[testInlineEnvironmentKey])
 }
 
@@ -435,7 +452,7 @@ func TestLoadServiceEnvironmentReportsParseError(testingT *testing.T) {
 	require.NoError(testingT, os.WriteFile(envPath, []byte(longLine), 0o600))
 
 	result := auditResult{}
-	_, loadErr := loadServiceEnvironment(tempDirectory, testLoopAwareService, []string{testLoopAwareEnvFile}, environmentMap{}, &result)
+	_, _, loadErr := loadServiceEnvironment(tempDirectory, testLoopAwareService, []string{testLoopAwareEnvFile}, environmentMap{}, &result)
 	require.Error(testingT, loadErr)
 	require.Contains(testingT, loadErr.Error(), "parse env_file")
 }
@@ -448,8 +465,9 @@ func TestLoadServiceEnvironmentSkipsBlankKeys(testingT *testing.T) {
 		testInlineEnvironmentKey: testPinguinAddressValue,
 	}
 
-	values, loadErr := loadServiceEnvironment(tempDirectory, testLoopAwareService, nil, environment, &result)
+	values, hasAuditableEnvironment, loadErr := loadServiceEnvironment(tempDirectory, testLoopAwareService, nil, environment, &result)
 	require.NoError(testingT, loadErr)
+	require.True(testingT, hasAuditableEnvironment)
 	require.Equal(testingT, testPinguinAddressValue, values[testInlineEnvironmentKey])
 	require.Empty(testingT, values[" "])
 }
@@ -530,7 +548,7 @@ func TestCheckWebAssetLocalhostPortsReportsReadError(testingT *testing.T) {
 	require.NotEmpty(testingT, result.errors)
 }
 
-func TestRunAuditReportsServiceEnvironmentError(testingT *testing.T) {
+func TestRunAuditSkipsServiceWithoutEnvironmentData(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
 	compose := composeFile{
@@ -543,8 +561,9 @@ func TestRunAuditReportsServiceEnvironmentError(testingT *testing.T) {
 	require.NoError(testingT, os.WriteFile(composePath, payload, 0o600))
 
 	result := runAudit(composePath)
-	require.False(testingT, result.ok())
-	require.Contains(testingT, strings.Join(result.errors, " "), testEnvErrorMessageSnippet)
+	require.True(testingT, result.ok())
+	require.Empty(testingT, result.errors)
+	require.Empty(testingT, result.warnings)
 }
 
 func TestRunAuditReportsTemplateReadError(testingT *testing.T) {
@@ -632,7 +651,7 @@ func TestRunAuditCommandsSuccessAcrossMultipleComposeFiles(testingT *testing.T) 
 	require.Empty(testingT, stderr.String())
 }
 
-func TestRunAuditCommandsReportsLegacyRootEnvFiles(testingT *testing.T) {
+func TestRunAuditCommandsIgnoresLegacyRootEnvFiles(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
 	composeContent := strings.Join([]string{
@@ -656,12 +675,12 @@ func TestRunAuditCommandsReportsLegacyRootEnvFiles(testingT *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := runAuditCommands([]string{composePath}, &stdout, &stderr)
-	require.Equal(testingT, 1, exitCode)
-	require.Contains(testingT, stderr.String(), "ERROR [repo]: legacy repo-root env file .env.loopaware duplicates configs/.env.loopaware")
-	require.Contains(testingT, stderr.String(), "config-audit failed")
+	require.Equal(testingT, 0, exitCode)
+	require.Contains(testingT, stdout.String(), "config-audit OK")
+	require.Empty(testingT, stderr.String())
 }
 
-func TestRunAuditCommandsReportsUnsupportedConfigEnvFile(testingT *testing.T) {
+func TestRunAuditCommandsIgnoresUnsupportedLocalConfigEnvFile(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
 	composeContent := strings.Join([]string{
@@ -686,9 +705,9 @@ func TestRunAuditCommandsReportsUnsupportedConfigEnvFile(testingT *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := runAuditCommands([]string{composePath}, &stdout, &stderr)
-	require.Equal(testingT, 1, exitCode)
-	require.Contains(testingT, stderr.String(), "ERROR [repo]: unsupported config env file configs/.env.ghttp is not referenced by any active compose stack")
-	require.Contains(testingT, stderr.String(), "config-audit failed")
+	require.Equal(testingT, 0, exitCode)
+	require.Contains(testingT, stdout.String(), "config-audit OK")
+	require.Empty(testingT, stderr.String())
 }
 
 func TestMainRunsAuditFromRepoRoot(testingT *testing.T) {
