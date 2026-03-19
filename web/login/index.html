@@ -76,6 +76,8 @@
       .landing-header mpr-user[data-mpr-header="user-menu"]:not([data-loopaware-user-menu="true"]) {
         display: none !important;
       }
+      #logout-overlay { z-index: 2000; background-color: var(--bs-body-bg); color: var(--bs-body-color); }
+      body.logging-out main, body.logging-out mpr-header, body.logging-out mpr-footer, body.logging-out .modal { display: none !important; }
       body[data-bs-theme="dark"] .landing-header {
         --mpr-color-surface-primary: #0f172a;
         --mpr-color-text-primary: #f8fafc;
@@ -307,6 +309,21 @@
   if (document && document.documentElement) {
     document.documentElement.setAttribute('data-loopaware-auth-script', 'true');
   }
+  function showLogoutOverlay() {
+    var overlay = document.getElementById('logout-overlay');
+    if (overlay) {
+      overlay.classList.remove('d-none');
+    }
+    document.body.classList.add('logging-out');
+  }
+
+  function hideLogoutOverlay() {
+    var overlay = document.getElementById('logout-overlay');
+    if (overlay) {
+      overlay.classList.add('d-none');
+    }
+    document.body.classList.remove('logging-out');
+  }
   function pruneHeaderUserMenus(headerHost) {
     if (!headerHost || typeof headerHost.querySelectorAll !== 'function') {
       return;
@@ -475,6 +492,9 @@
       return invokeLogoutDelegate().then(function() {
         return result;
       });
+    }).catch(function(error) {
+      hideLogoutOverlay();
+      throw error;
     });
   }
 
@@ -486,6 +506,7 @@
     var existingWrapper = window.__loopawareLogoutWrapper;
     if (typeof existingWrapper !== 'function' || existingWrapper.__loopawareLogoutWrapper !== true) {
       existingWrapper = function() {
+        showLogoutOverlay();
         var resolvedHost = window.__loopawareLogoutHeaderHost || headerHost;
         return performLogoutRequest(resolvedHost, window.__loopawareLogoutDelegate);
       };
@@ -758,6 +779,10 @@
     return document.querySelector('mpr-header');
   }
 
+  function shouldRedirectOnLogout(headerHost) {
+    return !!(headerHost && typeof headerHost.getAttribute === 'function' && headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true');
+  }
+
   function handleAuthenticatedEvent(event) {
     var headerHost = resolveAuthHost(event);
     if (!headerHost) {
@@ -774,12 +799,16 @@
     var headerHost = resolveAuthHost(event);
     disableGoogleAutoSelect();
     if (!headerHost) {
+      hideLogoutOverlay();
       return;
     }
     gateGoogleSigninUntilNonce(headerHost);
-    if (headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
+    if (shouldRedirectOnLogout(headerHost)) {
+      showLogoutOverlay();
       window.location.assign('/login');
+      return;
     }
+    hideLogoutOverlay();
   }
 
   function openAccountSettingsModal() {
@@ -818,6 +847,7 @@
   }
 
   function handleUserMenuLogout() {
+    showLogoutOverlay();
     disableGoogleAutoSelect();
   }
 
@@ -881,5 +911,13 @@
   document.addEventListener('DOMContentLoaded', bindHeaderAuth);
 })();
     </script>
+    <div id="logout-overlay" class="d-none position-fixed top-0 start-0 w-100 h-100 bg-body d-flex align-items-center justify-content-center">
+      <div class="text-center">
+        <div class="spinner-border text-primary mb-3" role="status">
+          <span class="visually-hidden">Logging out...</span>
+        </div>
+        <h1 class="h4">Logging out...</h1>
+      </div>
+    </div>
   </body>
 </html>

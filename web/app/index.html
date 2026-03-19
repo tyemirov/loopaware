@@ -45,6 +45,17 @@
         --bs-body-color-rgb: 15, 23, 42;
         --bs-secondary-color-rgb: 51, 65, 85;
       }
+      #logout-overlay {
+        z-index: 2000;
+        background-color: var(--bs-body-bg);
+        color: var(--bs-body-color);
+      }
+      body.logging-out main,
+      body.logging-out mpr-header,
+      body.logging-out mpr-footer,
+      body.logging-out .modal {
+        display: none !important;
+      }
     </style>
   </head>
   <body class="d-flex flex-column min-vh-100">
@@ -466,9 +477,37 @@
       </div>
     </div>
     <mpr-footer id="dashboard-footer" element-id="dashboard-footer-root" base-class="mpr-footer mt-auto py-2 fixed-bottom border-top" inner-element-id="dashboard-footer-inner" inner-class="mpr-footer__inner" wrapper-class="mpr-footer__layout" brand-wrapper-class="mpr-footer__brand" menu-wrapper-class="mpr-footer__menu-wrapper" prefix-class="mpr-footer__prefix" prefix-text="Built by Marco Polo Research Lab" toggle-button-id="" toggle-button-class="mpr-footer__menu-button" toggle-label="Built by Marco Polo Research Lab" menu-class="mpr-footer__menu" menu-item-class="mpr-footer__menu-item" privacy-link-class="mpr-footer__privacy" privacy-link-href="/privacy" privacy-link-label="Privacy • Terms" links-collection='{&#34;style&#34;:&#34;drop-up&#34;,&#34;text&#34;:&#34;Built by Marco Polo Research Lab&#34;,&#34;links&#34;:[{&#34;label&#34;:&#34;Marco Polo Research Lab&#34;,&#34;url&#34;:&#34;https://mprlab.com&#34;},{&#34;label&#34;:&#34;Gravity Notes&#34;,&#34;url&#34;:&#34;https://gravity.mprlab.com&#34;},{&#34;label&#34;:&#34;LoopAware&#34;,&#34;url&#34;:&#34;https://loopaware.mprlab.com&#34;},{&#34;label&#34;:&#34;Allergy Wheel&#34;,&#34;url&#34;:&#34;https://allergy.mprlab.com&#34;},{&#34;label&#34;:&#34;Social Threader&#34;,&#34;url&#34;:&#34;https://threader.mprlab.com&#34;},{&#34;label&#34;:&#34;RSVP&#34;,&#34;url&#34;:&#34;https://rsvp.mprlab.com&#34;},{&#34;label&#34;:&#34;Countdown Calendar&#34;,&#34;url&#34;:&#34;https://countdown.mprlab.com&#34;},{&#34;label&#34;:&#34;LLM Crossword&#34;,&#34;url&#34;:&#34;https://llm-crossword.mprlab.com&#34;},{&#34;label&#34;:&#34;Prompt Bubbles&#34;,&#34;url&#34;:&#34;https://prompts.mprlab.com&#34;},{&#34;label&#34;:&#34;Wallpapers&#34;,&#34;url&#34;:&#34;https://wallpapers.mprlab.com&#34;}]}' sticky="false" theme-switcher="toggle" theme-config='{&#34;attribute&#34;:&#34;data-bs-theme&#34;,&#34;ariaLabel&#34;:&#34;Toggle theme&#34;,&#34;modes&#34;:[&#34;light&#34;,&#34;dark&#34;],&#34;initialMode&#34;:&#34;light&#34;}'></mpr-footer>
+    <div id="logout-overlay" class="d-none position-fixed top-0 start-0 w-100 h-100 bg-body d-flex align-items-center justify-content-center">
+      <div class="text-center">
+        <div class="spinner-border text-primary mb-3" role="status">
+          <span class="visually-hidden">Logging out...</span>
+        </div>
+        <h1 class="h4">Logging out...</h1>
+      </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script type="application/json" id="dashboard-config">{"api_paths":{"feedback_events":"/api/sites/feedback/events","me":"/api/me","site_favicon_events":"/api/sites/favicons/events","site_messages_prefix":"/api/sites/","site_messages_suffix":"/messages","site_subscriber_update":"/subscribers/","site_subscribers_export":"/subscribers/export","site_subscribers_prefix":"/api/sites/","site_subscribers_suffix":"/subscribers","site_update_prefix":"/api/sites/","site_visit_stats":"/visits/stats","sites":"/api/sites"},"paths":{"landing":"/login","subscribe_test_prefix":"/app/subscribe-test?site_id=","subscribe_test_suffix":"","traffic_test_prefix":"/app/traffic-test?site_id=","traffic_test_suffix":"","widget_test_prefix":"/app/widget-test?site_id=","widget_test_suffix":""},"element_ids":{"allowed_origin_help_button":"allowed-origin-help-button","copy_subscribe_snippet_button":"copy-subscribe-widget-snippet","copy_traffic_snippet_button":"copy-traffic-widget-snippet","copy_widget_snippet_button":"copy-widget-snippet","dashboard_section_tab_feedback":"dashboard-section-tab-feedback","dashboard_section_tab_subscriptions":"dashboard-section-tab-subscriptions","dashboard_section_tab_traffic":"dashboard-section-tab-traffic","dashboard_section_tabs":"dashboard-section-tabs","delete_site_button":"delete-site-button","delete_site_confirm_button":"delete-site-confirm-button","delete_site_confirm_input":"delete-site-confirm-name","delete_site_modal":"delete-site-modal","delete_site_target_name":"delete-site-target-name","delete_subscriber_confirm_button":"delete-subscriber-confirm-button","delete_subscriber_confirm_input":"delete-subscriber-confirm-email","delete_subscriber_modal":"delete-subscriber-modal","delete_subscriber_target_email":"delete-subscriber-target-email","edit_site_name":"edit-site-name","edit_site_origin":"edit-site-origin","edit_site_owner":"edit-site-owner","edit_site_owner_container":"edit-site-owner-container","empty_sites_message":"empty-sites-message","export_subscribers_button":"export-subscribers-button","feedback_count":"feedback-count","feedback_table_body":"feedback-table-body","feedback_table_header":"feedback-table-header","footer":"dashboard-footer","footer_inner":"dashboard-footer-inner","form_status":"site-status","messages_search_container":"messages-search-container","messages_search_input":"messages-search-input","messages_search_toggle_button":"messages-search-toggle-button","new_site_button":"new-site-button","owner_email_help_button":"owner-email-help-button","refresh_messages_button":"refresh-messages-button","save_site_button":"save-site-button","session_timeout_confirm_button":"session-timeout-confirm-button","session_timeout_container":"session-timeout-notification","session_timeout_dismiss_button":"session-timeout-dismiss-button","session_timeout_message":"session-timeout-message","settings_auto_logout_fields":"settings-auto-logout-fields","settings_auto_logout_logout":"settings-auto-logout-logout-seconds","settings_auto_logout_logout_error":"settings-auto-logout-logout-error","settings_auto_logout_prompt":"settings-auto-logout-prompt-seconds","settings_auto_logout_prompt_error":"settings-auto-logout-prompt-error","settings_auto_logout_toggle":"settings-auto-logout-enabled","settings_button":"settings-button","settings_modal":"settings-modal","settings_modal_content":"settings-modal-content","settings_modal_title":"settings-modal-title","site_created_at":"site-created-at","site_created_at_container":"site-created-at-container","site_form":"site-form","site_name_help_button":"site-name-help-button","site_search_container":"site-search-container","site_search_input":"site-search-input","site_search_toggle_button":"site-search-toggle-button","sites_list":"sites-list","subscribe_allowed_origins_list":"subscribe-allowed-origins-list","subscribe_snippet_textarea":"subscribe-widget-snippet","subscribe_test_button":"subscribe-test-button","subscriber_count":"subscriber-count","subscribers_status":"subscribers-status","subscribers_table_body":"subscribers-table-body","top_pages_table_body":"top-pages-table-body","traffic_allowed_origins_list":"traffic-allowed-origins-list","traffic_snippet_textarea":"traffic-widget-snippet","traffic_status":"traffic-status","traffic_test_button":"traffic-test-button","unique_visitor_count":"unique-visitor-count","user_avatar":"user-avatar","user_email":"user-email","user_name":"user-name","user_role":"user-role","visit_count":"visit-count","widget_allowed_origins_list":"widget-allowed-origins-list","widget_bottom_offset":"widget-placement-bottom-offset","widget_bottom_offset_decrease":"widget-bottom-offset-decrease","widget_bottom_offset_increase":"widget-bottom-offset-increase","widget_side_left":"widget-placement-side-left","widget_side_right":"widget-placement-side-right","widget_snippet_textarea":"widget-snippet","widget_test_button":"widget-test-button"},"button_classes":{"copy_default":"btn btn-outline-primary btn-sm","create":"btn btn-outline-primary btn-sm","delete_site_default":"btn btn-sm border-0 bg-transparent text-danger opacity-100","delete_site_disabled":"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled","new_site_active":"btn btn-primary btn-sm","new_site_default":"btn btn-outline-primary btn-sm","refresh_default":"btn btn-outline-secondary btn-sm","save_default":"btn btn-outline-success btn-sm","session_timeout_confirm":"btn btn-outline-danger btn-sm","session_timeout_dismiss":"btn btn-outline-secondary btn-sm","update":"btn btn-outline-success btn-sm"},"button_labels":{"copy_copied":"Snippet copied.","copy_default":"Copy snippet","copy_failed":"Copy failed.","create":"Create site","new_site":"New site","refresh_default":"Refresh feedback","refresh_failed":"Refresh failed.","refresh_loading":"Refreshing...","refresh_success":"Feedback refreshed.","save_created":"Site created.","save_failed":"Failed to save site.","save_saved":"Site updated.","save_saving":"Saving site...","update":"Update site"},"status_messages":{"creating_site":"Creating site...","delete_site_failed":"Failed to delete site.","deleting_site":"Deleting site...","load_failed":"Failed to load data.","loading_sites":"Loading sites...","loading_user":"Loading account information...","no_message_matches":"No feedback matches your search.","no_messages":"No feedback yet.","no_site_matches":"No sites match your search.","no_sites":"No sites available yet.","saving_site":"Saving site...","select_site":"Select a site to see details.","site_created":"Site created.","site_deleted":"Site deleted.","site_saved":"Site updated.","widget_copied":"Widget snippet copied.","widget_copy_failed":"Unable to copy widget snippet."},"role_labels":{"admin":"Administrator","user":"User"},"role_values":{"admin":"admin","user":"user"},"button_styles":{"danger":"btn btn-outline-danger btn-sm","primary":"btn btn-outline-primary btn-sm","secondary":"btn btn-outline-secondary btn-sm","success":"btn btn-outline-success btn-sm"},"component_classes":{"site_list_item":"list-group-item list-group-item-action","site_list_item_active":"active","site_list_item_favicon":"flex-shrink-0 rounded border bg-white","site_list_item_header":"d-flex align-items-center gap-2"},"widget_texts":{"unavailable":"Save the site to generate a widget snippet."},"theme_storage_key":"loopaware_dashboard_theme","option_values":{"new_site":"__new__"},"placeholders":{"subscribers":"No subscribers yet.","top_pages":"No visits yet."},"form_status_classes":{"base":"d-none py-1 px-2 small rounded","danger":"py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle","success":"py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"},"footer_theme_classes":{"dark":"bg-dark text-light border-light","light":"bg-body text-body-secondary"},"table_theme_classes":{"dark":"table-dark","light":"table-light"},"validation_messages":{"name_required":"Site name is required.","origin_invalid":"Allowed origins must include protocol and hostname, for example https://example.com.","owner_invalid":"Provide a valid owner email address.","widget_offset_invalid":"Provide a whole number between 0 and 240."},"error_messages":{"forbidden":"You are not allowed to manage that site.","invalid_json":"Submitted data could not be parsed.","invalid_owner":"Provide a valid owner email address.","invalid_widget_offset":"Provide a whole number between 0 and 240.","invalid_widget_side":"Choose left or right for the widget bubble.","missing_fields":"Provide site name and allowed origin.","not_authorized":"You are not allowed to manage that site.","save_failed":"Failed to save site.","site_exists":"A site for this allowed origin already exists."},"widget_placement":{"input_name":"widget-bubble-side","default_side":"right","default_bottom_offset":16,"sides":{"left":"Left","right":"Right"},"bottom_offset":{"min":0,"max":240}},"session_timeout":{"prompt_delay_ms":60000,"auto_logout_ms":120000,"texts":{"confirm":"Yes","dismiss":"No","prompt":"Log out due to inactivity?"},"component_classes":{"actions":"session-timeout-actions d-flex flex-shrink-0 gap-2","container":"session-timeout-banner position-fixed start-0 end-0 bottom-0 border-top py-3 w-100 d-none z-3","container_hidden":"d-none","container_visible":"d-block","inner":"container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3","message":"session-timeout-message fw-semibold mb-0"},"theme_classes":{"dark":"bg-dark-subtle text-light border-secondary-subtle","light":"bg-body-secondary text-dark border-light-subtle"}},"auto_logout":{"storage_key":"loopaware_dashboard_auto_logout","min_prompt_seconds":10,"max_prompt_seconds":3600,"min_logout_seconds":20,"max_logout_seconds":7200,"minimum_gap_seconds":5}}</script>
     <script>
+      function showLogoutOverlay() {
+        var overlay = document.getElementById('logout-overlay');
+        if (overlay) {
+          overlay.classList.remove('d-none');
+          overlay.classList.add('d-flex');
+          overlay.style.display = 'flex';
+        }
+        document.body.classList.add('logging-out');
+      }
+
+      function hideLogoutOverlay() {
+        var overlay = document.getElementById('logout-overlay');
+        if (overlay) {
+          overlay.classList.add('d-none');
+          overlay.classList.remove('d-flex');
+          overlay.style.display = '';
+        }
+        document.body.classList.remove('logging-out');
+      }
+
       window.addEventListener('DOMContentLoaded', function() {
         (function() {
         var configElement = document.getElementById('dashboard-config');
@@ -489,11 +528,27 @@
           var shouldAppendAPIOriginParam = false;
           var shouldAppendTauthOriginParam = false;
           try {
-            var searchParams = new URLSearchParams(window.location.search || '');
-            shouldAppendAPIOriginParam = searchParams.has('api_origin');
-            shouldAppendTauthOriginParam = searchParams.has('tauth_origin');
+            function getQueryParam(search, name) {
+              if (!search || !name) {
+                return null;
+              }
+              var query = search.indexOf('?') === 0 ? search.substring(1) : search;
+              if (!query) {
+                return null;
+              }
+              var pairs = query.split('&');
+              for (var i = 0; i < pairs.length; i++) {
+                var pair = pairs[i].split('=');
+                if (decodeURIComponent(pair[0].replace(/\+/g, ' ')) === name) {
+                  return decodeURIComponent((pair[1] || '').replace(/\+/g, ' '));
+                }
+              }
+              return null;
+            }
+            var search = window.location.search || '';
+            shouldAppendAPIOriginParam = getQueryParam(search, 'api_origin') !== null;
+            shouldAppendTauthOriginParam = getQueryParam(search, 'tauth_origin') !== null;
           } catch (error) {}
-
           function apiUrl(path) {
             if (typeof path !== 'string') {
               return '';
@@ -1083,12 +1138,17 @@
 
           if (typeof window === 'object' && window) {
             window.__loopawareDashboardIdleTestHooks = {
+              started: function() {
+                return listenersBound;
+              },
               forcePrompt: function() {
+                bindListeners();
                 idleState.lastActivityTimestamp = Date.now() - (promptDelayMilliseconds + 1000);
                 showPrompt();
                 checkSessionIdleState();
               },
               forceLogout: function() {
+                bindListeners();
                 idleState.lastActivityTimestamp = Date.now() - (autoLogoutMilliseconds + 1000);
                 showPrompt();
                 checkSessionIdleState();
@@ -2399,6 +2459,7 @@
         }
 
         function performLogout() {
+          showLogoutOverlay();
           if (sessionTimeoutManager && typeof sessionTimeoutManager.stop === 'function') {
             sessionTimeoutManager.stop();
           }
@@ -4432,6 +4493,9 @@
       return invokeLogoutDelegate().then(function() {
         return result;
       });
+    }).catch(function(error) {
+      hideLogoutOverlay();
+      throw error;
     });
   }
 
@@ -4443,6 +4507,7 @@
     var existingWrapper = window.__loopawareLogoutWrapper;
     if (typeof existingWrapper !== 'function' || existingWrapper.__loopawareLogoutWrapper !== true) {
       existingWrapper = function() {
+        showLogoutOverlay();
         var resolvedHost = window.__loopawareLogoutHeaderHost || headerHost;
         return performLogoutRequest(resolvedHost, window.__loopawareLogoutDelegate);
       };
@@ -4715,6 +4780,10 @@
     return document.querySelector('mpr-header');
   }
 
+  function shouldRedirectOnLogout(headerHost) {
+    return !!(headerHost && typeof headerHost.getAttribute === 'function' && headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true');
+  }
+
   function handleAuthenticatedEvent(event) {
     var headerHost = resolveAuthHost(event);
     if (!headerHost) {
@@ -4731,12 +4800,16 @@
     var headerHost = resolveAuthHost(event);
     disableGoogleAutoSelect();
     if (!headerHost) {
+      hideLogoutOverlay();
       return;
     }
     gateGoogleSigninUntilNonce(headerHost);
-    if (headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
+    if (shouldRedirectOnLogout(headerHost)) {
+      showLogoutOverlay();
       window.location.assign('/login');
+      return;
     }
+    hideLogoutOverlay();
   }
 
   function openAccountSettingsModal() {
@@ -4775,6 +4848,7 @@
   }
 
   function handleUserMenuLogout() {
+    showLogoutOverlay();
     disableGoogleAutoSelect();
   }
 

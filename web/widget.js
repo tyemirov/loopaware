@@ -17,10 +17,6 @@
   var panelDisplayBlockValue = "block";
   var panelDisplayNoneValue = "none";
   var panelAutoHideDelayMilliseconds = 2000;
-  var widgetPlacementDefaultBottomOffsetValue = 16;
-  var widgetPlacementSideValue = "right";
-  var widgetPlacementBottomOffsetValue = widgetPlacementDefaultBottomOffsetValue;
-  var widgetPlacementHorizontalOffsetValue = "16px";
   var panelVerticalSpacingPixels = 64;
   var widgetBrandingElementID = "mp-feedback-branding";
   var widgetBrandingLinkURL = "https://mprlab.com";
@@ -65,6 +61,17 @@
   var widgetTestEndpointOverride = "";
   var widgetSiteId = "";
   var widgetApiOrigin = "";
+
+  var widgetDefaults = {
+    placementSide: "right",
+    placementBottomOffset: 16,
+    horizontalOffset: "16px"
+  };
+
+  var widgetPlacementSideValue = widgetDefaults.placementSide;
+  var widgetPlacementBottomOffsetValue = widgetDefaults.placementBottomOffset;
+  var widgetPlacementHorizontalOffsetValue = widgetDefaults.horizontalOffset;
+
   try {
     if (typeof window === "object" && window) {
       widgetDemoModeEnabled = Boolean(window[widgetDemoModeFlagName]);
@@ -74,7 +81,10 @@
         widgetTestEndpointOverride = testEndpointCandidate;
       }
     }
-  } catch(testModeReadError){}
+  } catch(testModeReadError){
+    console.error("widget.js: test_mode_read_failed", testModeReadError);
+  }
+
   var widgetThemePalettes = {
     light: {
       bubbleBackground: "#0d6efd",
@@ -120,108 +130,140 @@
       return current;
     }
     var candidates = document.querySelectorAll('script[src*="widget.js"]');
-    return candidates[candidates.length - 1];
-  }
-
-  function resolveWidgetOrigin(scriptTag) {
-    if (scriptTag && scriptTag.src) {
-      try {
-        var link = document.createElement("a");
-        link.href = scriptTag.src;
-        if (link.protocol && link.host) {
-          return link.protocol + "//" + link.host;
-        }
-      } catch(originError){}
+    if (candidates.length > 0) {
+      return candidates[candidates.length - 1];
     }
-    if (window.location && window.location.protocol && window.location.host) {
-      return window.location.protocol + "//" + window.location.host;
-    }
-    return "";
+    return null;
   }
 
   function normalizeWidgetAPIOrigin(rawValue) {
     if (typeof rawValue !== "string") {
-      return "";
+      return null;
     }
     var trimmed = rawValue.trim();
     if (!trimmed) {
-      return "";
+      return null;
     }
     if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) {
-      return "";
+      return null;
     }
     try {
       var parsed = new URL(trimmed);
       var origin = parsed && typeof parsed.origin === "string" ? parsed.origin : "";
       if (!origin || origin === "null") {
-        return "";
+        return null;
       }
       var pathname = parsed.pathname || "";
       if (pathname && pathname !== "/") {
-        return "";
+        return null;
       }
       if (parsed.search || parsed.hash) {
-        return "";
+        return null;
       }
       if (parsed.username || parsed.password) {
-        return "";
+        return null;
       }
       return origin.replace(/\/+$/, "");
-    } catch(parseError) {}
-    return "";
+    } catch(parseError) {
+      return null;
+    }
+  }
+
+  function getQueryParam(search, name) {
+    if (!search || !name) {
+      return null;
+    }
+    var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+    if (!query) {
+      return null;
+    }
+    var pairs = query.split("&");
+    for (var i = 0; i < pairs.length; i++) {
+      var rawPair = pairs[i];
+      var separatorIndex = rawPair.indexOf("=");
+      var rawKey = separatorIndex === -1 ? rawPair : rawPair.slice(0, separatorIndex);
+      var rawValue = separatorIndex === -1 ? "" : rawPair.slice(separatorIndex + 1);
+      var decodedKey = null;
+      try {
+        decodedKey = decodeURIComponent(rawKey.replace(/\+/g, " "));
+      } catch(decodeError) {
+        continue;
+      }
+      if (decodedKey === name) {
+        try {
+          return decodeURIComponent(rawValue.replace(/\+/g, " "));
+        } catch(decodeError) {
+          return rawValue.replace(/\+/g, " ");
+        }
+      }
+    }
+    return null;
   }
 
   function resolveWidgetAPIOriginCandidate(scriptTag) {
     if (!scriptTag) {
-      return "";
+      throw new Error("widget.js: resolve_origin.failed: missing script tag");
     }
-    var candidate = "";
-    try {
-      if (typeof scriptTag.getAttribute === "function") {
-        candidate = scriptTag.getAttribute("data-api-origin") || "";
+    var candidate = scriptTag.getAttribute("data-api-origin");
+    if (candidate) {
+      return candidate;
+    }
+    if (scriptTag instanceof HTMLScriptElement && scriptTag.src) {
+      var link = document.createElement("a");
+      link.href = scriptTag.src;
+      var queryOrigin = getQueryParam(link.search || "", "api_origin");
+      if (queryOrigin) {
+        return queryOrigin;
       }
-    } catch(attributeError){}
-    try {
-      if (scriptTag.src) {
-        var link = document.createElement("a");
-        link.href = scriptTag.src;
-        var params = new URLSearchParams(link.search || "");
-        var queryOrigin = params.get("api_origin") || "";
-        if (queryOrigin) {
-          candidate = queryOrigin;
-        }
-      }
-    } catch(parseError){}
-    return String(candidate || "").trim();
+    }
+    return null;
   }
 
   function resolveWidgetAPIOrigin(scriptTag) {
     var candidate = resolveWidgetAPIOriginCandidate(scriptTag);
-    return normalizeWidgetAPIOrigin(candidate);
+    if (!candidate) {
+      // Fallback to script origin is allowed as a core behavioral contract for the widget
+      if (scriptTag && scriptTag.src) {
+        try {
+          var link = document.createElement("a");
+          link.href = scriptTag.src;
+          if (link.protocol && link.host) {
+            return link.protocol + "//" + link.host;
+          }
+        } catch(originError){}
+      }
+      // If script host is not available, fallback to current host
+      if (window.location && window.location.protocol && window.location.host) {
+        return window.location.protocol + "//" + window.location.host;
+      }
+      throw new Error("widget.js: resolve_origin.failed: api_origin not provided and cannot be resolved");
+    }
+    var normalized = normalizeWidgetAPIOrigin(candidate);
+    if (!normalized) {
+      throw new Error("widget.js: resolve_origin.failed: invalid api_origin format");
+    }
+    return normalized;
   }
 
   function resolveWidgetSiteId(scriptTag) {
     if (!scriptTag) {
-      return "";
+      throw new Error("widget.js: resolve_site_id.failed: missing script tag");
     }
-    var candidate = "";
-    try {
-      if (typeof scriptTag.getAttribute === "function") {
-        candidate = scriptTag.getAttribute("data-site-id") || "";
-      }
-    } catch(attributeError){}
-    try {
-      if (scriptTag.src) {
+    var candidate = scriptTag.getAttribute("data-site-id");
+    if (candidate) {
+      return candidate;
+    }
+    if (scriptTag && scriptTag.src) {
+      try {
         var link = document.createElement("a");
         link.href = scriptTag.src;
-        var params = new URLSearchParams(link.search || "");
-        var querySiteId = params.get("site_id") || "";
+        var querySiteId = getQueryParam(link.search || "", "site_id");
         if (querySiteId) {
-          candidate = querySiteId;
+          return querySiteId;
         }
-      }
-    } catch(parseError){}
-    return String(candidate || "").trim();
+      } catch(e){}
+    }
+    throw new Error("widget.js: resolve_site_id.failed: site_id not provided in data-site-id or query string");
   }
 
   function normalizeWidgetPlacementSide(rawValue) {
@@ -230,14 +272,15 @@
     if (normalized === "left" || normalized === "right") {
       return normalized;
     }
-    return "";
+    return null;
   }
 
   function normalizeWidgetPlacementOffset(rawValue) {
-    if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
+    var num = Number(rawValue);
+    if (!Number.isFinite(num)) {
       return null;
     }
-    return Math.round(rawValue);
+    return Math.round(num);
   }
 
   function applyWidgetPlacementConfig(config) {
@@ -272,16 +315,19 @@
       .then(function(response) {
         if (!response) {
           var missingResponseError = new Error("widget_config_failed");
+          // @ts-ignore
           missingResponseError.status = 0;
           throw missingResponseError;
         }
         if (response.status === 403 || response.status === 404) {
           var forbiddenError = new Error("widget_config_forbidden");
+          // @ts-ignore
           forbiddenError.status = response.status;
           throw forbiddenError;
         }
         if (!response.ok) {
           var requestError = new Error("widget_config_failed");
+          // @ts-ignore
           requestError.status = response.status;
           throw requestError;
         }
@@ -377,10 +423,10 @@
       var themePalette = selectThemePalette(bodyElement);
       var currentStatusState = statusStatePending;
 
-      var resolvedBubbleSide = (widgetPlacementSideValue || "").toLowerCase() === "left" ? "left" : "right";
+      var resolvedBubbleSide = widgetPlacementSideValue === "left" ? "left" : "right";
       var resolvedBottomOffset = Number(widgetPlacementBottomOffsetValue);
       if (!isFinite(resolvedBottomOffset) || resolvedBottomOffset < 0) {
-        resolvedBottomOffset = widgetPlacementDefaultBottomOffsetValue;
+        resolvedBottomOffset = widgetDefaults.placementBottomOffset;
       }
       var panelBottomOffset = resolvedBottomOffset + panelVerticalSpacingPixels;
 
@@ -488,6 +534,7 @@
       message.style.boxSizing = boxSizingBorderBoxValue;
       panelContainer.appendChild(message);
 
+      /** @param {KeyboardEvent} event */
       function handleInputTabNavigation(event) {
         if (event.key !== "Tab") {
           return;
@@ -561,6 +608,7 @@
 
       bodyElement.appendChild(panel);
 
+      /** @param {HTMLElement} targetElement */
       function focusInputElement(targetElement) {
         if (!targetElement || typeof targetElement.focus !== "function") {
           return;
@@ -666,6 +714,7 @@
         }
       }
 
+      /** @param {KeyboardEvent} event */
       function handleGlobalTabNavigation(event) {
         if (event.key !== "Tab") {
           return;
@@ -798,12 +847,13 @@
         }).catch(function(err){
           show("Failed to send. Please try again.", statusStateError);
           send.disabled = false;
-          console.error(err);
+          console.error("widget.js: send_feedback_failed", err);
         });
       });
     } catch(widgetError) {
       widgetInitialized = false;
-      console.error(widgetError);
+      console.error("widget.js: render_failed", widgetError);
+      throw widgetError;
     }
   }
 
@@ -1015,37 +1065,34 @@
   }
 
   function initializeWidget() {
-    var scriptTag = resolveWidgetScriptTag();
-    var configuredWidgetAPIOrigin = resolveWidgetAPIOriginCandidate(scriptTag);
-    var normalizedWidgetAPIOrigin = normalizeWidgetAPIOrigin(configuredWidgetAPIOrigin);
-    if (configuredWidgetAPIOrigin && !normalizedWidgetAPIOrigin) {
-      console.error("widget.js: invalid api_origin; expected scheme://host[:port] without path");
-      return;
-    }
-    widgetApiOrigin = normalizedWidgetAPIOrigin || resolveWidgetOrigin(scriptTag);
-    widgetSiteId = resolveWidgetSiteId(scriptTag);
-    if (!widgetSiteId) {
-      console.error("widget.js: missing site_id");
-      return;
-    }
+    try {
+      var scriptTag = resolveWidgetScriptTag();
+      widgetApiOrigin = resolveWidgetAPIOrigin(scriptTag);
+      widgetSiteId = resolveWidgetSiteId(scriptTag);
 
-    if (widgetDemoModeEnabled) {
-      scheduleWhenBodyReady();
-      return;
-    }
+      if (widgetDemoModeEnabled) {
+        scheduleWhenBodyReady();
+        return;
+      }
 
-    fetchWidgetPlacementConfig()
-      .then(function(config) {
-        applyWidgetPlacementConfig(config);
-        scheduleWhenBodyReady();
-      })
-      .catch(function(error) {
-        var status = error && typeof error.status === "number" ? error.status : 0;
-        if (status === 403 || status === 404) {
-          return;
-        }
-        scheduleWhenBodyReady();
-      });
+      fetchWidgetPlacementConfig()
+        .then(function(config) {
+          applyWidgetPlacementConfig(config);
+          scheduleWhenBodyReady();
+        })
+        .catch(function(error) {
+          var status = error && typeof error.status === "number" ? error.status : 0;
+          if (status === 403 || status === 404) {
+            console.error("widget.js: initialize_failed: forbidden or not found", error);
+            return;
+          }
+          console.error("widget.js: initialize_failed: config fetch error", error);
+          scheduleWhenBodyReady();
+        });
+    } catch(initError) {
+      console.error("widget.js: initialize_failed", initError);
+      throw initError;
+    }
   }
 
   if (document.readyState === "loading") {

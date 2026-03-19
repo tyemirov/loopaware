@@ -23,6 +23,10 @@ async function openTrafficPage(page, siteId, options) {
     params.set('api_origin', resolvedOptions.apiOrigin);
   }
   await page.goto(`/traffic-integration/?${params.toString()}`, { waitUntil: 'domcontentloaded' });
+  
+  // Wait for status to be non-empty
+  const status = page.locator('#traffic-integration-status');
+  await expect(status).not.toBeEmpty();
 }
 
 test.beforeAll(async () => {
@@ -111,8 +115,37 @@ test('traffic integration keeps visitor id across reloads', async ({ page }) => 
 
 test('traffic integration uses GET pixel request for cross-origin api_origin', async ({ page }) => {
   const crossOriginAPIOrigin = buildCrossOriginAPIOrigin(config.baseURL);
-  const visitRequestPromise = page.waitForRequest((request) => request.url().includes('/public/visits'));
-  await openTrafficPage(page, site.id, { apiOrigin: crossOriginAPIOrigin });
-  const visitRequest = await visitRequestPromise;
-  expect(visitRequest.method()).toBe('GET');
+  
+  const params = new URLSearchParams({ site_id: site.id, api_origin: crossOriginAPIOrigin });
+  const url = `/traffic-integration/?${params.toString()}`;
+  
+  // Listen for console errors
+  const consoleErrors = [];
+  page.on('console', msg => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+
+  // Listen for all requests
+  let requestMethod = null;
+  const onRequestMethod = (request) => {
+    if (request.url().includes('/public/visits')) {
+      requestMethod = request.method();
+    }
+  };
+  page.on('request', onRequestMethod);
+
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  
+  // Wait for request or error
+  await expect(async () => {
+    const hasRequest = requestMethod !== null;
+    const hasError = consoleErrors.some(e => e.includes('resolve_origin.failed'));
+    if (!hasRequest && !hasError) {
+       throw new Error(`Still waiting for request or error. Errors: ${consoleErrors.join(', ')}`);
+    }
+  }).toPass({ timeout: 30000 });
+
+  expect(requestMethod).toBe('GET');
+  
+  page.off('request', onRequestMethod);
 });

@@ -32,16 +32,35 @@
     <script>
       // @ts-check
       (function () {
-        var params = new URLSearchParams(window.location.search || "");
-        var siteId = (params.get("site_id") || "").trim();
-        var apiOrigin = (params.get("api_origin") || "").trim();
-        var status = document.getElementById("widget-integration-status");
-        if (!siteId) {
-          if (status) {
-            status.textContent = "Missing site_id query parameter.";
+        function getQueryParam(search, name) {
+          if (!search || !name) {
+            return null;
           }
-          return;
+          var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+          if (!query) {
+            return null;
+          }
+          var pairs = query.split("&");
+          for (var i = 0; i < pairs.length; i++) {
+            var pair = pairs[i].split("=");
+            if (decodeURIComponent(pair[0].replace(/\+/g, " ")) === name) {
+              return decodeURIComponent((pair[1] || "").replace(/\+/g, " "));
+            }
+          }
+          return null;
         }
+        var search = window.location.search || "";
+        var siteId = getQueryParam(search, "site_id");
+        if (!siteId) {
+          throw new Error("widget_integration.init_failed: missing site_id query parameter");
+        }
+        siteId = siteId.trim();
+        if (!siteId) {
+          throw new Error("widget_integration.init_failed: empty site_id query parameter");
+        }
+
+        var apiOrigin = (getQueryParam(search, "api_origin") || "").trim();
+        var status = document.getElementById("widget-integration-status");
         var scriptUrl = "/widget.js?site_id=" + encodeURIComponent(siteId);
         if (apiOrigin) {
           scriptUrl += "&api_origin=" + encodeURIComponent(apiOrigin);
@@ -52,6 +71,16 @@
         var script = document.createElement("script");
         script.defer = true;
         script.src = scriptUrl;
+        script.onload = function() {
+          if (status) {
+            status.textContent = "Loaded " + scriptUrl;
+          }
+        };
+        script.onerror = function() {
+          if (status) {
+            status.textContent = "Error loading " + scriptUrl;
+          }
+        };
         document.head.appendChild(script);
       })();
     </script>

@@ -9,82 +9,130 @@
       return script;
     }
     var scripts = document.querySelectorAll('script[src*="pixel.js"]');
-    return scripts[scripts.length - 1];
+    if (scripts.length > 0) {
+      return scripts[scripts.length - 1];
+    }
+    return null;
+  }
+
+  function getQueryParam(search, name) {
+    if (!search || !name) {
+      return null;
+    }
+    var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+    if (!query) {
+      return null;
+    }
+    var pairs = query.split("&");
+    for (var i = 0; i < pairs.length; i++) {
+      var pair = pairs[i].split("=");
+      if (decodeURIComponent(pair[0].replace(/\+/g, " ")) === name) {
+        return decodeURIComponent((pair[1] || "").replace(/\+/g, " "));
+      }
+    }
+    return null;
   }
 
   function resolveSiteId(script) {
-    if (!script || !script.src) {
-      return "";
+    if (!script) {
+      throw new Error("pixel.js: resolve_site_id.failed: missing script tag");
     }
+    var search = "";
     try {
-      var link = document.createElement("a");
-      link.href = script.src;
-      var params = new URLSearchParams(link.search || "");
-      var siteId = params.get("site_id") || script.getAttribute("data-site-id") || "";
-      return String(siteId || "").trim();
-    } catch(e){}
-    return "";
-  }
-
-  function resolveEndpoint(script) {
-    var apiOriginOverride = resolveAPIOriginOverride(script);
-    if (apiOriginOverride) {
-      return apiOriginOverride + endpoint;
-    }
-    try {
-      if (script && script.src) {
+      if (script instanceof HTMLScriptElement && script.src) {
         var link = document.createElement("a");
         link.href = script.src;
-        return link.protocol + "//" + link.host + endpoint;
+        search = link.search || "";
       }
     } catch(e){}
-    return endpoint;
+    var siteId = getQueryParam(search, "site_id") || script.getAttribute("data-site-id");
+    if (!siteId) {
+      throw new Error("pixel.js: resolve_site_id.failed: site_id not provided in data-site-id or query string");
+    }
+    return String(siteId).trim();
   }
 
-  function normalizeAPIOriginOverride(rawValue) {
+  function normalizeAPIOrigin(rawValue) {
     if (typeof rawValue !== "string") {
-      return "";
+      return null;
     }
     var trimmed = rawValue.trim();
     if (!trimmed) {
-      return "";
+      return null;
     }
     if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) {
-      return "";
+      return null;
     }
     try {
       var parsed = new URL(trimmed);
       var origin = parsed && typeof parsed.origin === "string" ? parsed.origin : "";
       if (!origin || origin === "null") {
-        return "";
+        return null;
+      }
+      var pathname = parsed.pathname || "";
+      if (pathname && pathname !== "/") {
+        return null;
+      }
+      if (parsed.search || parsed.hash) {
+        return null;
+      }
+      if (parsed.username || parsed.password) {
+        return null;
       }
       return origin.replace(/\/+$/, "");
-    } catch(parseError) {}
-    return "";
+    } catch(parseError) {
+      return null;
+    }
   }
 
-  function resolveAPIOriginOverride(scriptTag) {
+  function resolveAPIOriginCandidate(scriptTag) {
     if (!scriptTag) {
-      return "";
+      throw new Error("pixel.js: resolve_origin.failed: missing script tag");
     }
-    var candidate = "";
-    try {
-      if (typeof scriptTag.getAttribute === "function") {
-        candidate = scriptTag.getAttribute("data-api-origin") || "";
+    var candidate = scriptTag.getAttribute("data-api-origin");
+    if (candidate) {
+      return candidate;
+    }
+    if (scriptTag.src) {
+      var link = document.createElement("a");
+      link.href = scriptTag.src;
+      var queryOrigin = getQueryParam(link.search || "", "api_origin");
+      if (queryOrigin) {
+        return queryOrigin;
       }
-    } catch(attributeError){}
-    try {
-      if (scriptTag.src) {
-        var link = document.createElement("a");
-        link.href = scriptTag.src;
-        var params = new URLSearchParams(link.search || "");
-        var queryOrigin = params.get("api_origin") || "";
-        if (queryOrigin) {
-          candidate = queryOrigin;
-        }
+    }
+    return null;
+  }
+
+  function resolveAPIOrigin(scriptTag) {
+    var candidate = resolveAPIOriginCandidate(scriptTag);
+    if (!candidate) {
+      // Fallback to script origin is allowed as a core behavioral contract
+      if (scriptTag && scriptTag.src) {
+        try {
+          var scriptLink = document.createElement("a");
+          scriptLink.href = scriptTag.src;
+          if (scriptLink.protocol && scriptLink.host) {
+            return scriptLink.protocol + "//" + scriptLink.host;
+          }
+        } catch(originError){}
       }
-    } catch(parseError){}
-    return normalizeAPIOriginOverride(candidate);
+      // Fallback to current host is allowed as a core behavioral contract for the pixel
+      if (window.location && window.location.protocol && window.location.host) {
+        return window.location.protocol + "//" + window.location.host;
+      }
+      throw new Error("pixel.js: resolve_origin.failed: api_origin not provided and cannot be resolved");
+    }
+    var normalized = normalizeAPIOrigin(candidate);
+    if (!normalized) {
+      throw new Error("pixel.js: resolve_origin.failed: invalid api_origin format");
+    }
+    return normalized;
+  }
+
+  function resolveEndpoint(script) {
+    var origin = resolveAPIOrigin(script);
+    return origin + endpoint;
   }
 
   function getVisitorId() {
@@ -97,12 +145,13 @@
       window.localStorage.setItem(storageKey, generated);
       return generated;
     } catch(e){
+      // LocalStorage access might be blocked, non-fatal for visitor tracking
       return "";
     }
   }
 
   function shouldUseBeacon(requestURL) {
-    if (!navigator.sendBeacon) {
+    if (typeof navigator === "undefined" || !navigator.sendBeacon) {
       return false;
     }
     try {
@@ -117,22 +166,21 @@
 
   function collect() {
     var script = resolveScriptTag();
-    var siteId = resolveSiteId(script);
-    if (!siteId) {
-      return;
+    if (!script) {
+      throw new Error("pixel.js: collect.failed: script tag not found");
     }
+    var siteId = resolveSiteId(script);
     var url = window.location ? window.location.href : "";
     var referrer = document.referrer || "";
     var target = resolveEndpoint(script);
 
-    var params = new URLSearchParams();
-    params.set("site_id", siteId);
-    if (url) params.set("url", url);
-    if (referrer) params.set("referrer", referrer);
+    var queryString = "site_id=" + encodeURIComponent(siteId);
+    if (url) queryString += "&url=" + encodeURIComponent(url);
+    if (referrer) queryString += "&referrer=" + encodeURIComponent(referrer);
     var visitorId = getVisitorId();
-    if (visitorId) params.set("visitor_id", visitorId);
+    if (visitorId) queryString += "&visitor_id=" + encodeURIComponent(visitorId);
 
-    var requestURL = target + "?" + params.toString();
+    var requestURL = target + "?" + queryString;
 
     if (shouldUseBeacon(requestURL)) {
       var blob = new Blob([], { type: "application/octet-stream" });
@@ -149,5 +197,8 @@
     } else {
       document.addEventListener("DOMContentLoaded", collect);
     }
-  } catch(e){}
+  } catch(e){
+    console.error(e);
+    throw e;
+  }
 })();

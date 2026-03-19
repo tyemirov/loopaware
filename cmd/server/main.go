@@ -85,7 +85,7 @@ const (
 	defaultApplicationAddress         = ":8080"
 	sqliteFileDataSourceNamePattern   = "file:%s?_foreign_keys=on"
 	defaultSQLiteDatabaseFileName     = "loopaware.sqlite"
-	defaultConfigFileName             = "config.yaml"
+	defaultConfigFileName             = "configs/config.loopaware.yml"
 	defaultPublicBaseURL              = "http://localhost:8080"
 	defaultTauthSessionCookieName     = "app_session"
 	defaultPinguinAddress             = "localhost:50051"

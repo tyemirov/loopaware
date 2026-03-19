@@ -95,6 +95,8 @@
       .subscription-confirm-card {
         border-radius: 1rem;
       }
+      #logout-overlay { z-index: 2000; background-color: var(--bs-body-bg); color: var(--bs-body-color); }
+      body.logging-out main, body.logging-out mpr-header, body.logging-out mpr-footer, body.logging-out .modal { display: none !important; }
     </style>
   </head>
   <body class="landing-body d-flex flex-column min-vh-100 bg-body text-body" data-bs-theme="dark">
@@ -256,6 +258,21 @@
 (function() {
   if (document && document.documentElement) {
     document.documentElement.setAttribute('data-loopaware-auth-script', 'true');
+  }
+  function showLogoutOverlay() {
+    var overlay = document.getElementById('logout-overlay');
+    if (overlay) {
+      overlay.classList.remove('d-none');
+    }
+    document.body.classList.add('logging-out');
+  }
+
+  function hideLogoutOverlay() {
+    var overlay = document.getElementById('logout-overlay');
+    if (overlay) {
+      overlay.classList.add('d-none');
+    }
+    document.body.classList.remove('logging-out');
   }
   function pruneHeaderUserMenus(headerHost) {
     if (!headerHost || typeof headerHost.querySelectorAll !== 'function') {
@@ -425,6 +442,9 @@
       return invokeLogoutDelegate().then(function() {
         return result;
       });
+    }).catch(function(error) {
+      hideLogoutOverlay();
+      throw error;
     });
   }
 
@@ -436,6 +456,7 @@
     var existingWrapper = window.__loopawareLogoutWrapper;
     if (typeof existingWrapper !== 'function' || existingWrapper.__loopawareLogoutWrapper !== true) {
       existingWrapper = function() {
+        showLogoutOverlay();
         var resolvedHost = window.__loopawareLogoutHeaderHost || headerHost;
         return performLogoutRequest(resolvedHost, window.__loopawareLogoutDelegate);
       };
@@ -708,6 +729,10 @@
     return document.querySelector('mpr-header');
   }
 
+  function shouldRedirectOnLogout(headerHost) {
+    return !!(headerHost && typeof headerHost.getAttribute === 'function' && headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true');
+  }
+
   function handleAuthenticatedEvent(event) {
     var headerHost = resolveAuthHost(event);
     if (!headerHost) {
@@ -724,12 +749,16 @@
     var headerHost = resolveAuthHost(event);
     disableGoogleAutoSelect();
     if (!headerHost) {
+      hideLogoutOverlay();
       return;
     }
     gateGoogleSigninUntilNonce(headerHost);
-    if (headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true') {
+    if (shouldRedirectOnLogout(headerHost)) {
+      showLogoutOverlay();
       window.location.assign('/login');
+      return;
     }
+    hideLogoutOverlay();
   }
 
   function openAccountSettingsModal() {
@@ -768,6 +797,7 @@
   }
 
   function handleUserMenuLogout() {
+    showLogoutOverlay();
     disableGoogleAutoSelect();
   }
 
@@ -913,8 +943,31 @@
           }
         }
 
-        var params = new URLSearchParams(window.location && window.location.search ? window.location.search : '');
-        var token = normalizeURL(params.get('token') || '');
+        function getQueryParam(search, name) {
+          if (!search || !name) {
+            return null;
+          }
+          var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+          if (!query) {
+            return null;
+          }
+          var pairs = query.split("&");
+          for (var i = 0; i < pairs.length; i++) {
+            var pair = pairs[i].split("=");
+            if (decodeURIComponent(pair[0].replace(/\+/g, " ")) === name) {
+              return decodeURIComponent((pair[1] || "").replace(/\+/g, " "));
+            }
+          }
+          return null;
+        }
+
+        var search = (window.location && window.location.search) ? window.location.search : '';
+        var token = getQueryParam(search, "token");
+        if (!token) {
+          applyResponse({ heading: 'Subscription confirmation', message: 'Missing confirmation token.' });
+          return;
+        }
+        token = token.trim();
         if (!token) {
           applyResponse({ heading: 'Subscription confirmation', message: 'Missing confirmation token.' });
           return;
@@ -944,5 +997,13 @@
         });
       }());
     </script>
+    <div id="logout-overlay" class="d-none position-fixed top-0 start-0 w-100 h-100 bg-body d-flex align-items-center justify-content-center">
+      <div class="text-center">
+        <div class="spinner-border text-primary mb-3" role="status">
+          <span class="visually-hidden">Logging out...</span>
+        </div>
+        <h1 class="h4">Logging out...</h1>
+      </div>
+    </div>
   </body>
 </html>

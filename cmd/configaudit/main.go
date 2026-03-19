@@ -19,11 +19,26 @@ import (
 const assetScanMaxTokenBytes = 8 * 1024 * 1024
 
 var (
-	errAuditFailed       = errors.New("config_audit_failed")
 	placeholderPattern   = regexp.MustCompile(`\$\{([A-Z0-9_]+)\}`)
 	volumeMappingSuffix  = "/config/config.yml"
 	localURLPattern      = regexp.MustCompile(`https?://(?:localhost|127\.0\.0\.1)(?::([0-9]{2,5}))?`)
 	localHostPortPattern = regexp.MustCompile(`(?:^|[^a-zA-Z0-9_.-])(localhost|127\.0\.0\.1):([0-9]{2,5})`)
+	defaultComposePaths  = []string{
+		"docker-compose.yml",
+		"docker-compose.computercat.yml",
+	}
+	loopAwareServiceAliases = []string{
+		"loopaware",
+		"loopaware-api",
+	}
+	pinguinServiceAliases = []string{
+		"pinguin",
+		"la-pinguin",
+	}
+	tauthServiceAliases = []string{
+		"tauth",
+		"la-tauth",
+	}
 )
 
 type stringList []string
@@ -147,29 +162,41 @@ func (result auditResult) ok() bool {
 }
 
 func main() {
-	exitCode := runAuditCommand("docker-compose.yml", os.Stdout, os.Stderr)
+	exitCode := runAuditCommands(defaultComposePaths, os.Stdout, os.Stderr)
 	if exitCode != 0 {
 		os.Exit(exitCode)
 	}
 }
 
-func runAuditCommand(composePath string, stdout io.Writer, stderr io.Writer) int {
-	result := runAudit(composePath)
-	sort.Strings(result.errors)
-	sort.Strings(result.warnings)
+func runAuditCommands(composePaths []string, stdout io.Writer, stderr io.Writer) int {
+	overallSuccess := true
 
-	for _, warning := range result.warnings {
-		_, _ = fmt.Fprintf(stdout, "WARN: %s\n", warning)
+	for _, composePath := range composePaths {
+		result := runAudit(composePath)
+		sort.Strings(result.errors)
+		sort.Strings(result.warnings)
+
+		for _, warning := range result.warnings {
+			_, _ = fmt.Fprintf(stdout, "WARN [%s]: %s\n", composePath, warning)
+		}
+		for _, errorMessage := range result.errors {
+			_, _ = fmt.Fprintf(stderr, "ERROR [%s]: %s\n", composePath, errorMessage)
+		}
+		if !result.ok() {
+			overallSuccess = false
+		}
 	}
-	for _, errorMessage := range result.errors {
-		_, _ = fmt.Fprintf(stderr, "ERROR: %s\n", errorMessage)
-	}
-	if !result.ok() {
+
+	if !overallSuccess {
 		_, _ = fmt.Fprintf(stderr, "config-audit failed\n")
 		return 1
 	}
 	_, _ = fmt.Fprintf(stdout, "config-audit OK\n")
 	return 0
+}
+
+func runAuditCommand(composePath string, stdout io.Writer, stderr io.Writer) int {
+	return runAuditCommands([]string{composePath}, stdout, stderr)
 }
 
 func runAudit(composePath string) auditResult {
@@ -197,25 +224,31 @@ func runAudit(composePath string) auditResult {
 	hostPortToService := make(map[string]string)
 
 	for serviceName, service := range compose.Services {
-		env, envErr := loadServiceEnvironment(composeDirectory, serviceName, service.EnvFile, service.Environment, &result)
+		env, hasAuditableEnvironment, envErr := loadServiceEnvironment(composeDirectory, serviceName, service.EnvFile, service.Environment, &result)
 		if envErr != nil {
 			result.addError("service %s: %v", serviceName, envErr)
 			continue
 		}
-		environmentByService[serviceName] = env
+		if hasAuditableEnvironment {
+			environmentByService[serviceName] = env
+		}
 
 		configTemplates := resolveConfigTemplates(composeDirectory, service.Volumes)
-		for _, templatePath := range configTemplates {
-			placeholders, placeholderErr := extractPlaceholders(templatePath)
-			if placeholderErr != nil {
-				result.addError("service %s: %v", serviceName, placeholderErr)
-				continue
-			}
-			for _, placeholderName := range placeholders {
-				if _, ok := env[placeholderName]; !ok {
-					result.addError("service %s: %s references ${%s} but %s is not defined in env", serviceName, templatePath, placeholderName, placeholderName)
+		if hasAuditableEnvironment {
+			for _, templatePath := range configTemplates {
+				placeholders, placeholderErr := extractPlaceholders(templatePath)
+				if placeholderErr != nil {
+					result.addError("service %s: %v", serviceName, placeholderErr)
+					continue
+				}
+				for _, placeholderName := range placeholders {
+					if _, ok := env[placeholderName]; !ok {
+						result.addError("service %s: %s references ${%s} but %s is not defined in env", serviceName, templatePath, placeholderName, placeholderName)
+					}
 				}
 			}
+		} else if len(configTemplates) > 0 {
+			result.addWarning("service %s: skipped config template env audit because no tracked environment data is available", serviceName)
 		}
 
 		checkHostPortCollisions(serviceName, service.Ports, hostPortToService, &result)
@@ -228,25 +261,30 @@ func runAudit(composePath string) auditResult {
 	return result
 }
 
-func loadServiceEnvironment(composeDirectory string, serviceName string, envFiles []string, environment environmentMap, result *auditResult) (map[string]string, error) {
+func loadServiceEnvironment(composeDirectory string, serviceName string, envFiles []string, environment environmentMap, result *auditResult) (map[string]string, bool, error) {
 	merged := make(map[string]string)
+	hasAuditableEnvironment := false
 
 	for _, envFile := range envFiles {
-		resolvedPath := filepath.Clean(filepath.Join(composeDirectory, envFile))
-		if _, statErr := os.Stat(resolvedPath); statErr != nil {
-			result.addError("service %s: env_file %s is missing (%v)", serviceName, envFile, statErr)
+		auditPath, displayPath, _, found, resolveErr := resolveAuditEnvFile(composeDirectory, envFile)
+		if resolveErr != nil {
+			return nil, false, fmt.Errorf("resolve env_file %s: %w", envFile, resolveErr)
+		}
+		if !found {
+			result.addWarning("service %s: env_file %s is absent and no tracked template exists; skipping env audit for this file", serviceName, envFile)
 			continue
 		}
-		values, duplicates, parseErr := parseDotEnv(resolvedPath)
+		values, duplicates, parseErr := parseDotEnv(auditPath)
 		if parseErr != nil {
-			return nil, fmt.Errorf("parse env_file %s: %w", envFile, parseErr)
+			return nil, false, fmt.Errorf("parse env_file %s: %w", displayPath, parseErr)
 		}
 		for _, duplicate := range duplicates {
-			result.addError("service %s: env_file %s defines %s more than once", serviceName, envFile, duplicate)
+			result.addError("service %s: env_file %s defines %s more than once", serviceName, displayPath, duplicate)
 		}
 		for key, value := range values {
 			merged[key] = value
 		}
+		hasAuditableEnvironment = true
 	}
 
 	for key, value := range environment {
@@ -254,13 +292,46 @@ func loadServiceEnvironment(composeDirectory string, serviceName string, envFile
 			continue
 		}
 		merged[key] = value
+		hasAuditableEnvironment = true
 	}
 
-	if len(merged) == 0 {
-		return nil, fmt.Errorf("%w: no environment variables resolved", errAuditFailed)
+	return merged, hasAuditableEnvironment, nil
+}
+
+func resolveAuditEnvFile(composeDirectory string, envFile string) (string, string, bool, bool, error) {
+	resolvedPath := filepath.Clean(filepath.Join(composeDirectory, envFile))
+	foundPath, found, resolveErr := findExistingAuditFile(resolvedPath)
+	if resolveErr != nil {
+		return "", "", false, false, resolveErr
+	}
+	if found {
+		return foundPath, envFile, false, true, nil
 	}
 
-	return merged, nil
+	examplePath := resolvedPath + ".example"
+	foundExamplePath, foundExample, exampleErr := findExistingAuditFile(examplePath)
+	if exampleErr != nil {
+		return "", "", false, false, exampleErr
+	}
+	if foundExample {
+		return foundExamplePath, envFile + ".example", true, true, nil
+	}
+
+	return "", "", false, false, nil
+}
+
+func findExistingAuditFile(path string) (string, bool, error) {
+	fileInfo, statErr := os.Stat(path)
+	if statErr != nil {
+		if errors.Is(statErr, os.ErrNotExist) {
+			return "", false, nil
+		}
+		return "", false, statErr
+	}
+	if fileInfo.IsDir() {
+		return "", false, fmt.Errorf("%s must not be a directory", path)
+	}
+	return path, true, nil
 }
 
 func parseDotEnv(path string) (map[string]string, []string, error) {
@@ -421,9 +492,9 @@ func parseHostPort(portMapping string) (string, bool) {
 }
 
 func checkCrossServiceInvariants(environmentByService map[string]map[string]string, result *auditResult) {
-	pinguinEnv, pinguinOk := environmentByService["pinguin"]
-	tauthEnv, tauthOk := environmentByService["tauth"]
-	loopawareEnv, loopawareOk := environmentByService["loopaware"]
+	pinguinEnv, pinguinOk := resolveServiceEnvironment(environmentByService, pinguinServiceAliases)
+	tauthEnv, tauthOk := resolveServiceEnvironment(environmentByService, tauthServiceAliases)
+	loopawareEnv, loopawareOk := resolveServiceEnvironment(environmentByService, loopAwareServiceAliases)
 
 	if pinguinOk && tauthOk {
 		expectEqual("pinguin.TAUTH_SIGNING_KEY", pinguinEnv["TAUTH_SIGNING_KEY"], "tauth.TAUTH_LOOPAWARE_JWT_SIGNING_KEY", tauthEnv["TAUTH_LOOPAWARE_JWT_SIGNING_KEY"], result)
@@ -448,7 +519,7 @@ func expectEqual(leftLabel string, leftValue string, rightLabel string, rightVal
 }
 
 func checkLoopAwareRequiredEnvironment(environmentByService map[string]map[string]string, result *auditResult) {
-	loopawareEnv, ok := environmentByService["loopaware"]
+	loopawareEnv, ok := resolveServiceEnvironment(environmentByService, loopAwareServiceAliases)
 	if !ok {
 		return
 	}
@@ -467,6 +538,15 @@ func checkLoopAwareRequiredEnvironment(environmentByService map[string]map[strin
 			result.addError("service loopaware: required env %s is missing or empty", key)
 		}
 	}
+}
+
+func resolveServiceEnvironment(environmentByService map[string]map[string]string, aliases []string) (map[string]string, bool) {
+	for _, alias := range aliases {
+		if environment, ok := environmentByService[alias]; ok {
+			return environment, true
+		}
+	}
+	return nil, false
 }
 
 func checkWebAssetLocalhostPorts(hostPortToService map[string]string, result *auditResult) {
