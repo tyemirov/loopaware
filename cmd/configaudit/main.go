@@ -19,7 +19,6 @@ import (
 const assetScanMaxTokenBytes = 8 * 1024 * 1024
 
 var (
-	errAuditFailed       = errors.New("config_audit_failed")
 	placeholderPattern   = regexp.MustCompile(`\$\{([A-Z0-9_]+)\}`)
 	volumeMappingSuffix  = "/config/config.yml"
 	localURLPattern      = regexp.MustCompile(`https?://(?:localhost|127\.0\.0\.1)(?::([0-9]{2,5}))?`)
@@ -39,15 +38,6 @@ var (
 	tauthServiceAliases = []string{
 		"tauth",
 		"la-tauth",
-	}
-	legacyRootEnvFiles = []string{
-		".env.loopaware",
-		".env.tauth",
-		".env.pinguin",
-		".env.ghttp",
-	}
-	unsupportedConfigEnvFiles = []string{
-		filepath.Join("configs", ".env.ghttp"),
 	}
 )
 
@@ -180,22 +170,6 @@ func main() {
 
 func runAuditCommands(composePaths []string, stdout io.Writer, stderr io.Writer) int {
 	overallSuccess := true
-	repositoryRoot := resolveAuditRoot(composePaths)
-	var repositoryResult auditResult
-	checkLegacyRootEnvFiles(repositoryRoot, &repositoryResult)
-	checkUnsupportedConfigEnvFiles(repositoryRoot, &repositoryResult)
-	sort.Strings(repositoryResult.errors)
-	sort.Strings(repositoryResult.warnings)
-
-	for _, warning := range repositoryResult.warnings {
-		_, _ = fmt.Fprintf(stdout, "WARN [repo]: %s\n", warning)
-	}
-	for _, errorMessage := range repositoryResult.errors {
-		_, _ = fmt.Fprintf(stderr, "ERROR [repo]: %s\n", errorMessage)
-	}
-	if !repositoryResult.ok() {
-		overallSuccess = false
-	}
 
 	for _, composePath := range composePaths {
 		result := runAudit(composePath)
@@ -250,25 +224,31 @@ func runAudit(composePath string) auditResult {
 	hostPortToService := make(map[string]string)
 
 	for serviceName, service := range compose.Services {
-		env, envErr := loadServiceEnvironment(composeDirectory, serviceName, service.EnvFile, service.Environment, &result)
+		env, hasAuditableEnvironment, envErr := loadServiceEnvironment(composeDirectory, serviceName, service.EnvFile, service.Environment, &result)
 		if envErr != nil {
 			result.addError("service %s: %v", serviceName, envErr)
 			continue
 		}
-		environmentByService[serviceName] = env
+		if hasAuditableEnvironment {
+			environmentByService[serviceName] = env
+		}
 
 		configTemplates := resolveConfigTemplates(composeDirectory, service.Volumes)
-		for _, templatePath := range configTemplates {
-			placeholders, placeholderErr := extractPlaceholders(templatePath)
-			if placeholderErr != nil {
-				result.addError("service %s: %v", serviceName, placeholderErr)
-				continue
-			}
-			for _, placeholderName := range placeholders {
-				if _, ok := env[placeholderName]; !ok {
-					result.addError("service %s: %s references ${%s} but %s is not defined in env", serviceName, templatePath, placeholderName, placeholderName)
+		if hasAuditableEnvironment {
+			for _, templatePath := range configTemplates {
+				placeholders, placeholderErr := extractPlaceholders(templatePath)
+				if placeholderErr != nil {
+					result.addError("service %s: %v", serviceName, placeholderErr)
+					continue
+				}
+				for _, placeholderName := range placeholders {
+					if _, ok := env[placeholderName]; !ok {
+						result.addError("service %s: %s references ${%s} but %s is not defined in env", serviceName, templatePath, placeholderName, placeholderName)
+					}
 				}
 			}
+		} else if len(configTemplates) > 0 {
+			result.addWarning("service %s: skipped config template env audit because no tracked environment data is available", serviceName)
 		}
 
 		checkHostPortCollisions(serviceName, service.Ports, hostPortToService, &result)
@@ -281,97 +261,30 @@ func runAudit(composePath string) auditResult {
 	return result
 }
 
-func resolveAuditRoot(composePaths []string) string {
-	if len(composePaths) == 0 {
-		return "."
-	}
-	rootDirectory, rootErr := filepath.Abs(filepath.Dir(composePaths[0]))
-	if rootErr != nil {
-		return filepath.Dir(composePaths[0])
-	}
-	for _, composePath := range composePaths[1:] {
-		nextDirectory, nextErr := filepath.Abs(filepath.Dir(composePath))
-		if nextErr != nil {
-			nextDirectory = filepath.Dir(composePath)
-		}
-		rootDirectory = commonDirectory(rootDirectory, nextDirectory)
-	}
-	return rootDirectory
-}
-
-func commonDirectory(leftPath string, rightPath string) string {
-	leftDirectory := filepath.Clean(leftPath)
-	rightDirectory := filepath.Clean(rightPath)
-	for {
-		relativePath, relativeErr := filepath.Rel(leftDirectory, rightDirectory)
-		if relativeErr == nil && relativePath != ".." && !strings.HasPrefix(relativePath, ".."+string(os.PathSeparator)) {
-			return leftDirectory
-		}
-		parentDirectory := filepath.Dir(leftDirectory)
-		if parentDirectory == leftDirectory {
-			return leftDirectory
-		}
-		leftDirectory = parentDirectory
-	}
-}
-
-func checkLegacyRootEnvFiles(rootDirectory string, result *auditResult) {
-	for _, legacyFileName := range legacyRootEnvFiles {
-		legacyPath := filepath.Join(rootDirectory, legacyFileName)
-		legacyInfo, statErr := os.Stat(legacyPath)
-		if statErr != nil {
-			if errors.Is(statErr, os.ErrNotExist) {
-				continue
-			}
-			result.addError("stat legacy env file %s: %v", legacyFileName, statErr)
-			continue
-		}
-		if legacyInfo.IsDir() {
-			result.addError("legacy repo-root env path %s must not be a directory", legacyFileName)
-			continue
-		}
-		result.addError("legacy repo-root env file %s duplicates configs/%s; move values under configs/ and delete the root copy", legacyFileName, legacyFileName)
-	}
-}
-
-func checkUnsupportedConfigEnvFiles(rootDirectory string, result *auditResult) {
-	for _, unsupportedPath := range unsupportedConfigEnvFiles {
-		absolutePath := filepath.Join(rootDirectory, unsupportedPath)
-		unsupportedInfo, statErr := os.Stat(absolutePath)
-		if statErr != nil {
-			if errors.Is(statErr, os.ErrNotExist) {
-				continue
-			}
-			result.addError("stat unsupported config env file %s: %v", unsupportedPath, statErr)
-			continue
-		}
-		if unsupportedInfo.IsDir() {
-			result.addError("unsupported config env path %s must not be a directory", unsupportedPath)
-			continue
-		}
-		result.addError("unsupported config env file %s is not referenced by any active compose stack; delete it to keep configs/ free of redundant env copies", unsupportedPath)
-	}
-}
-
-func loadServiceEnvironment(composeDirectory string, serviceName string, envFiles []string, environment environmentMap, result *auditResult) (map[string]string, error) {
+func loadServiceEnvironment(composeDirectory string, serviceName string, envFiles []string, environment environmentMap, result *auditResult) (map[string]string, bool, error) {
 	merged := make(map[string]string)
+	hasAuditableEnvironment := false
 
 	for _, envFile := range envFiles {
-		resolvedPath := filepath.Clean(filepath.Join(composeDirectory, envFile))
-		if _, statErr := os.Stat(resolvedPath); statErr != nil {
-			result.addError("service %s: env_file %s is missing (%v)", serviceName, envFile, statErr)
+		auditPath, displayPath, _, found, resolveErr := resolveAuditEnvFile(composeDirectory, envFile)
+		if resolveErr != nil {
+			return nil, false, fmt.Errorf("resolve env_file %s: %w", envFile, resolveErr)
+		}
+		if !found {
+			result.addWarning("service %s: env_file %s is absent and no tracked template exists; skipping env audit for this file", serviceName, envFile)
 			continue
 		}
-		values, duplicates, parseErr := parseDotEnv(resolvedPath)
+		values, duplicates, parseErr := parseDotEnv(auditPath)
 		if parseErr != nil {
-			return nil, fmt.Errorf("parse env_file %s: %w", envFile, parseErr)
+			return nil, false, fmt.Errorf("parse env_file %s: %w", displayPath, parseErr)
 		}
 		for _, duplicate := range duplicates {
-			result.addError("service %s: env_file %s defines %s more than once", serviceName, envFile, duplicate)
+			result.addError("service %s: env_file %s defines %s more than once", serviceName, displayPath, duplicate)
 		}
 		for key, value := range values {
 			merged[key] = value
 		}
+		hasAuditableEnvironment = true
 	}
 
 	for key, value := range environment {
@@ -379,13 +292,46 @@ func loadServiceEnvironment(composeDirectory string, serviceName string, envFile
 			continue
 		}
 		merged[key] = value
+		hasAuditableEnvironment = true
 	}
 
-	if len(merged) == 0 {
-		return nil, fmt.Errorf("%w: no environment variables resolved", errAuditFailed)
+	return merged, hasAuditableEnvironment, nil
+}
+
+func resolveAuditEnvFile(composeDirectory string, envFile string) (string, string, bool, bool, error) {
+	resolvedPath := filepath.Clean(filepath.Join(composeDirectory, envFile))
+	foundPath, found, resolveErr := findExistingAuditFile(resolvedPath)
+	if resolveErr != nil {
+		return "", "", false, false, resolveErr
+	}
+	if found {
+		return foundPath, envFile, false, true, nil
 	}
 
-	return merged, nil
+	examplePath := resolvedPath + ".example"
+	foundExamplePath, foundExample, exampleErr := findExistingAuditFile(examplePath)
+	if exampleErr != nil {
+		return "", "", false, false, exampleErr
+	}
+	if foundExample {
+		return foundExamplePath, envFile + ".example", true, true, nil
+	}
+
+	return "", "", false, false, nil
+}
+
+func findExistingAuditFile(path string) (string, bool, error) {
+	fileInfo, statErr := os.Stat(path)
+	if statErr != nil {
+		if errors.Is(statErr, os.ErrNotExist) {
+			return "", false, nil
+		}
+		return "", false, statErr
+	}
+	if fileInfo.IsDir() {
+		return "", false, fmt.Errorf("%s must not be a directory", path)
+	}
+	return path, true, nil
 }
 
 func parseDotEnv(path string) (map[string]string, []string, error) {

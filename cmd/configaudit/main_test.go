@@ -218,6 +218,56 @@ func TestRunAuditReportsErrorsForMissingEnvironment(testingT *testing.T) {
 	require.Contains(testingT, combinedErrors, "host port "+testLoopAwareHostPort+" is published by both")
 }
 
+func TestRunAuditUsesTrackedExampleEnvFilesWhenRuntimeEnvFilesAreMissing(testingT *testing.T) {
+	tempDirectory := testingT.TempDir()
+
+	loopAwareExamplePath := filepath.Join(tempDirectory, testLoopAwareEnvFile+".example")
+	loopAwareExample := strings.Join([]string{
+		"SESSION_SECRET=" + testSessionSecretValue,
+		"TAUTH_BASE_URL=" + testTauthBaseURLValue,
+		"TAUTH_TENANT_ID=" + testTenantValue,
+		"TAUTH_JWT_SIGNING_KEY=" + testSigningKeyValue,
+		"TAUTH_SESSION_COOKIE_NAME=" + testCookieNameValue,
+		"PUBLIC_BASE_URL=" + testPublicBaseURLValue,
+		"PINGUIN_ADDR=" + testPinguinAddressValue,
+		"PINGUIN_AUTH_TOKEN=" + testAuthTokenValue,
+		"PINGUIN_TENANT_ID=" + testTenantValue,
+		"",
+	}, "\n")
+	require.NoError(testingT, os.WriteFile(loopAwareExamplePath, []byte(loopAwareExample), 0o600))
+
+	pinguinExamplePath := filepath.Join(tempDirectory, testPinguinEnvFile+".example")
+	pinguinExample := strings.Join([]string{
+		"TAUTH_SIGNING_KEY=" + testSigningKeyValue,
+		"LOOPAWARE_LOCAL_GOOGLE_CLIENT_ID=" + testGoogleClientValue,
+		"GRPC_AUTH_TOKEN=" + testAuthTokenValue,
+		"",
+	}, "\n")
+	require.NoError(testingT, os.WriteFile(pinguinExamplePath, []byte(pinguinExample), 0o600))
+
+	composePath := filepath.Join(tempDirectory, testComposeFileName)
+	composeContent := strings.Join([]string{
+		"services:",
+		"  " + testLoopAwareService + ":",
+		"    env_file:",
+		"      - " + testLoopAwareEnvFile,
+		"  " + testPinguinService + ":",
+		"    env_file:",
+		"      - " + testPinguinEnvFile,
+		"  " + testTauthService + ":",
+		"    environment:",
+		"      TAUTH_LOOPAWARE_JWT_SIGNING_KEY: " + testSigningKeyValue,
+		"      TAUTH_LOOPAWARE_GOOGLE_WEB_CLIENT_ID: " + testGoogleClientValue,
+		"",
+	}, "\n")
+	require.NoError(testingT, os.WriteFile(composePath, []byte(composeContent), 0o600))
+
+	result := runAudit(composePath)
+	require.True(testingT, result.ok())
+	require.Empty(testingT, result.warnings)
+	require.Empty(testingT, result.errors)
+}
+
 func TestRunAuditCommandSuccess(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
