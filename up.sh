@@ -25,8 +25,8 @@ resolve_stack_target() {
     "computercat : https://computercat.tyemirov.net:4443 (docker-compose.computercat.yml)"
   )
 
-  if [[ ! -t 0 || ! -t 1 ]]; then
-    echo "error: non-interactive runs must pass an explicit target: ./up.sh [local|computercat]" >&2
+  if [[ ! -t 0 ]]; then
+    echo "error: non-tty runs are not supported. Re-run ./up.sh in an interactive terminal." >&2
     exit 1
   fi
 
