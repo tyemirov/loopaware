@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.1] - 2026-03-19
+
+### Added
+- Config-audit now rejects unsupported config files and legacy `.env.*` duplicates outside the designated directories.
+- Added expanded repository agent and process documentation across Docker, frontend, Git, and issue policy guides.
+- Added logout-hardening browser coverage for public pages, token-error flows, and logout failure recovery.
+
+### Changed
+- Moved `up.sh` and `down.sh` into `scripts/` and improved their non-TTY handling and error messages.
+- Unified tracked config file paths, moved integration compose/env fixtures under `tests/`, and updated GitHub Pages to publish frontend runtime configuration during deploy.
+- Improved config-audit to cover multiple compose files while excluding gitignored env files from audit requirements.
+- Hardened frontend logout synchronization and public auth overlay handling, and improved compatibility of URL parameter parsing across frontend components.
+
+### Fixed
+- UI content now restores after failed logout requests instead of leaving the logout overlay stuck on screen.
+- Subscribe query values are preserved correctly during logout hardening and origin sync flows.
+- Logout redirect assertions and rapid token-error test flows now behave consistently in integration coverage.
+
 ## [v0.1.0] - 2026-02-18
 
 ### Added
@@ -26,5 +44,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WhatsApp in-app browser traffic is no longer misclassified as bot traffic.
 - Widget API origin resolution now falls back to HTTPS-aware behavior in proxy deployments that omit `X-Forwarded-Proto`.
 
-[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.1.1...HEAD
+[v0.1.1]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.1
 [v0.1.0]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.0
