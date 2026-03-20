@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.2] - 2026-03-20
+
+### Features ✨
+- Added a unified header-auth state machine for consistent authenticated header UI across pages.
+- Introduced focused Playwright tests to cover authenticated header state, session recovery, and logout overlay.
+
+### Improvements ⚙️
+- Synchronized header authentication state with user menu for seamless session recovery on dashboard and static pages.
+- Enhanced test stubs with silent bootstrap and delayed auth initialization options.
+- Updated gitignore to include vendor UI assets and test specifications for better development workflow.
+
+### Bug Fixes 🐛
+- Fixed delayed authentication bootstrap causing static logout overlay display.
+- Corrected header-auth state inconsistencies that left the Google sign-in button visible post-session recovery.
+- Ensured logout overlay remains visible correctly during manual logout and forced session expiration.
+
+### Testing 🧪
+- Added extensive Playwright UI tests for header auth state, dashboard user menu, session timeout handling, and logout hardening.
+- Improved end-to-end test fixture setup with avatar defaults and session cookie handling.
+- Verified logout overlay behavior and header state synchronization under various authentication scenarios.
+
+### Docs 📚
+- Updated issues documentation to reflect fixes for header authentication state and session recovery synchronization issues.
+
 ## [v0.1.1] - 2026-03-19
 
 ### Added
@@ -44,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WhatsApp in-app browser traffic is no longer misclassified as bot traffic.
 - Widget API origin resolution now falls back to HTTPS-aware behavior in proxy deployments that omit `X-Forwarded-Proto`.
 
-[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.1.2...HEAD
+[v0.1.2]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.2
 [v0.1.1]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.1
 [v0.1.0]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.0
