@@ -10,7 +10,6 @@ const adminUser = buildAdminUser(config);
 const EXTERNAL_SCRIPT_URLS = Object.freeze([
   'https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js',
-  'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js',
   'https://accounts.google.com/gsi/client'
 ]);
 const LOGIN_URL_PATTERN = /\/login(?:\/)?(?:[?#].*)?$/;
@@ -265,6 +264,8 @@ test('manual window.logout() call triggers overlay', async ({ page }) => {
   });
 
   // Verify overlay is visible immediately even while fetch is "pending"
+  await expect(page.locator('#logout-overlay')).toBeVisible();
+  await page.waitForTimeout(500);
   await expect(page.locator('#logout-overlay')).toBeVisible();
   
   const isMainHidden = await page.evaluate(() => {

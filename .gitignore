@@ -9,7 +9,15 @@
 !configs/
 !configs/config.loopaware.yml
 !configs/config.frontend.yml
+!web/
+!web/header-auth.js
+!web/vendor/
+!web/vendor/mpr-ui/
+!web/vendor/mpr-ui/mpr-ui.js
+!web/vendor/mpr-ui/mpr-ui.css
 !tests/
 !tests/docker-compose.yml
 !tests/configs/
 !tests/configs/*.env
+!tests/specs/
+!tests/specs/*.js
