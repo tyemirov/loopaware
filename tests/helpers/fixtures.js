@@ -3,6 +3,8 @@ import { createSite, listSites } from './api.js';
 import { applySessionCookie, setLocalStorage } from './browser.js';
 import { installTauthStub } from './tauthStub.js';
 
+const DEFAULT_AVATAR_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=';
+
 function randomSuffix() {
   return `${Date.now().toString(36)}${Math.random().toString(16).slice(2, 8)}`;
 }
@@ -30,7 +32,7 @@ export function buildAdminUser(config, overrides) {
   return {
     email: resolvedOverrides.email || config.adminEmail,
     displayName: resolvedOverrides.displayName || config.adminDisplayName,
-    avatarUrl: resolvedOverrides.avatarUrl || '',
+    avatarUrl: resolvedOverrides.avatarUrl || DEFAULT_AVATAR_DATA_URL,
     issuer: resolvedOverrides.issuer,
     userId: resolvedOverrides.userId || `user-${randomSuffix()}`
   };
@@ -69,7 +71,7 @@ export async function ensureSiteForOrigin(config, cookie, overrides) {
 
 export async function openDashboard(page, config, user, options) {
   const resolvedOptions = options || {};
-  await installTauthStub(page, config);
+  await installTauthStub(page, config, resolvedOptions.tauth);
   if (resolvedOptions.clipboard === true) {
     await installClipboardStub(page);
   }

@@ -1,7 +1,14 @@
 // @ts-check
 
-export function renderTauthStub(sessionCookieName) {
+/**
+ * @param {string} sessionCookieName
+ * @param {{ silentBootstrap?: boolean }} [options]
+ * @returns {string}
+ */
+export function renderTauthStub(sessionCookieName, options) {
   const resolvedCookieName = sessionCookieName || 'app_session';
+  const resolvedOptions = options || {};
+  const silentBootstrap = resolvedOptions.silentBootstrap === true;
   return `(() => {
   if (typeof window === 'undefined') {
     return;
@@ -9,6 +16,7 @@ export function renderTauthStub(sessionCookieName) {
 
   var runtimeKey = '__loopawareTestTauthRuntime';
   var sessionCookieName = '${resolvedCookieName}';
+  var silentBootstrap = ${silentBootstrap ? 'true' : 'false'};
 
   var runtime = window[runtimeKey];
   if (!runtime || typeof runtime !== 'object') {
@@ -121,6 +129,9 @@ export function renderTauthStub(sessionCookieName) {
   function initAuthClient(options) {
     runtime.options = options || null;
     var profile = hydrateProfile();
+    if (silentBootstrap) {
+      return Promise.resolve();
+    }
     try {
       if (profile && options && typeof options.onAuthenticated === 'function') {
         options.onAuthenticated(profile);
@@ -206,8 +217,14 @@ export function renderTauthStub(sessionCookieName) {
 })();`;
 }
 
-export async function installTauthStub(page, config) {
-  const scriptBody = renderTauthStub(config.sessionCookieName);
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {{ sessionCookieName?: string }} config
+ * @param {{ silentBootstrap?: boolean }} [options]
+ * @returns {Promise<void>}
+ */
+export async function installTauthStub(page, config, options) {
+  const scriptBody = renderTauthStub(config.sessionCookieName, options);
   await page.route('**/tauth.js', async (route) => {
     await route.fulfill({
       status: 200,

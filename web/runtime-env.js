@@ -289,12 +289,28 @@
     window.__LOOPAWARE_API_ORIGIN__ = resolved.apiOrigin;
     window.__LOOPAWARE_TAUTH_ORIGIN__ = resolved.tauthOrigin;
 
-    var script = document.getElementById("tauth-script");
-    if (!script) {
+    var tauthScript = document.getElementById("tauth-script");
+    var mprUiScript = document.getElementById("mpr-ui-script");
+    function loadMprUiScript() {
+      if (!mprUiScript || mprUiScript.getAttribute("src")) {
+        return;
+      }
+      var mprUiSource = String(mprUiScript.getAttribute("data-src") || "").trim() || "/vendor/mpr-ui/mpr-ui.js";
+      // @ts-ignore
+      mprUiScript.src = mprUiSource;
+    }
+    if (!tauthScript) {
+      loadMprUiScript();
       return;
     }
+    if (typeof window.initAuthClient === "function") {
+      loadMprUiScript();
+      return;
+    }
+    tauthScript.addEventListener("load", loadMprUiScript, { once: true });
+    tauthScript.addEventListener("error", loadMprUiScript, { once: true });
     // @ts-ignore
-    script.src = resolved.tauthOrigin ? resolved.tauthOrigin + "/tauth.js" : "/tauth.js";
+    tauthScript.src = resolved.tauthOrigin ? resolved.tauthOrigin + "/tauth.js" : "/tauth.js";
   } catch (error) {
     var err = error instanceof Error ? error : new Error(String(error));
     var message = "LoopAware frontend bootstrap failed.\n\n" + String(err && err.message ? err.message : err);

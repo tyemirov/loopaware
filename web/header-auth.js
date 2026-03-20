@@ -1,6 +1,6 @@
 // @ts-check
-(function() {
-  if (document && document.documentElement) {
+(function () {
+  if (typeof document !== 'undefined' && document.documentElement) {
     document.documentElement.setAttribute('data-loopaware-auth-script', 'true');
   }
 
@@ -14,19 +14,28 @@
   var GOOGLE_SIGNIN_GATE_MAX_ATTEMPTS = 40;
   var GOOGLE_SIGNIN_GATE_POLL_INTERVAL_MS = 100;
   var GOOGLE_SIGNIN_GATE_SLOW_POLL_INTERVAL_MS = 1000;
-  var HELPER_SYNC_MAX_ATTEMPTS = 60;
-  var HELPER_SYNC_INTERVAL_MS = 100;
+  var LOGOUT_REQUEST_TIMEOUT_MS = 2000;
   var APP_PATHNAME = '/app';
   var LOGIN_PATHNAME = '/login';
   var store = window.__loopawareHeaderAuthStore;
+  var authListenersAttached = false;
+  var userMenuListenersAttached = false;
+  var bindingInProgress = false;
 
   if (!store || typeof store !== 'object') {
     store = {
+      logoutPending: false,
       snapshot: null,
-      helperSyncStarted: false,
       redirectTarget: ''
     };
     window.__loopawareHeaderAuthStore = store;
+  }
+
+  function createSnapshot(status, source) {
+    return {
+      status: status,
+      source: source || ''
+    };
   }
 
   function showOverlay() {
@@ -39,6 +48,28 @@
     if (typeof window.hideLogoutOverlay === 'function') {
       window.hideLogoutOverlay();
     }
+  }
+
+  function markLogoutPending() {
+    store.logoutPending = true;
+  }
+
+  function clearLogoutPending() {
+    store.logoutPending = false;
+  }
+
+  function isLogoutPending() {
+    return store.logoutPending === true;
+  }
+
+  function startLogoutTransition() {
+    markLogoutPending();
+    showOverlay();
+  }
+
+  function cancelLogoutTransition() {
+    clearLogoutPending();
+    hideOverlay();
   }
 
   function injectAuthStyles() {
@@ -72,27 +103,6 @@
       return;
     }
     head.appendChild(styleElement);
-  }
-
-  function pruneHeaderUserMenus(headerHost) {
-    if (!headerHost || typeof headerHost.querySelectorAll !== 'function') {
-      return;
-    }
-    var userMenus = headerHost.querySelectorAll('mpr-user');
-    if (!userMenus || userMenus.length <= 1) {
-      return;
-    }
-    var preferred = headerHost.querySelector('mpr-user[data-loopaware-user-menu="true"]');
-    var keep = preferred || userMenus[0];
-    for (var index = 0; index < userMenus.length; index += 1) {
-      var candidate = userMenus[index];
-      if (!candidate || candidate === keep) {
-        continue;
-      }
-      if (candidate.parentNode) {
-        candidate.parentNode.removeChild(candidate);
-      }
-    }
   }
 
   function normalizeBaseURL(value) {
@@ -159,7 +169,7 @@
   }
 
   function submitLogoutForm(logoutURL) {
-    return new Promise(function(resolve) {
+    return new Promise(function (resolve) {
       if (!document || !logoutURL) {
         resolve();
         return;
@@ -185,7 +195,7 @@
       try {
         form.submit();
       } catch (error) {}
-      window.setTimeout(function() {
+      window.setTimeout(function () {
         if (form.parentNode) {
           form.parentNode.removeChild(form);
         }
@@ -197,9 +207,46 @@
     });
   }
 
+  function createLogoutTimeoutError() {
+    var error = new Error('loopaware.logout_timeout');
+    error.code = 'loopaware.logout_timeout';
+    return error;
+  }
+
+  function withTimeout(task, timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      var timeoutId = window.setTimeout(function () {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        reject(createLogoutTimeoutError());
+      }, timeoutMs);
+      Promise.resolve()
+        .then(task)
+        .then(function (result) {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          window.clearTimeout(timeoutId);
+          resolve(result);
+        })
+        .catch(function (error) {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          window.clearTimeout(timeoutId);
+          reject(error);
+        });
+    });
+  }
+
   function performLogoutRequest(headerHost, logoutDelegate) {
     var logoutURL = resolveLogoutURL(headerHost);
-    var logoutRequest = function() {
+    var logoutRequest = function () {
       return window.fetch(logoutURL, {
         method: 'POST',
         credentials: 'include',
@@ -223,29 +270,31 @@
         return Promise.resolve();
       }
       try {
-        return Promise.resolve(logoutDelegate()).catch(function() {});
+        return Promise.resolve(logoutDelegate()).catch(function () {});
       } catch (error) {
         return Promise.resolve();
       }
     }
-    var logoutWithFetchFallback = function() {
-      return logoutRequest()
+    var logoutWithFetchFallback = function () {
+      return withTimeout(logoutRequest, LOGOUT_REQUEST_TIMEOUT_MS)
         .then(assertLogoutResponseOk)
-        .catch(function(error) {
+        .catch(function (error) {
           if (error && typeof error.status === 'number' && error.status) {
             throw error;
           }
           return submitLogoutForm(logoutURL);
         });
     };
-    return logoutWithFetchFallback().then(function(result) {
-      return invokeLogoutDelegate().then(function() {
-        return result;
+    return logoutWithFetchFallback()
+      .then(function (result) {
+        return invokeLogoutDelegate().then(function () {
+          return result;
+        });
+      })
+      .catch(function (error) {
+        cancelLogoutTransition();
+        throw error;
       });
-    }).catch(function(error) {
-      hideOverlay();
-      throw error;
-    });
   }
 
   function ensureLogoutFallback(headerHost) {
@@ -255,8 +304,8 @@
     window.__loopawareLogoutHeaderHost = headerHost;
     var existingWrapper = window.__loopawareLogoutWrapper;
     if (typeof existingWrapper !== 'function' || existingWrapper.__loopawareLogoutWrapper !== true) {
-      existingWrapper = function() {
-        showOverlay();
+      existingWrapper = function () {
+        startLogoutTransition();
         var resolvedHost = window.__loopawareLogoutHeaderHost || headerHost;
         return performLogoutRequest(resolvedHost, window.__loopawareLogoutDelegate);
       };
@@ -274,10 +323,10 @@
       Object.defineProperty(window, 'logout', {
         configurable: true,
         enumerable: true,
-        get: function() {
+        get: function () {
           return window.__loopawareLogoutWrapper || existingWrapper;
         },
-        set: function(value) {
+        set: function (value) {
           if (typeof value === 'function' && value.__loopawareLogoutWrapper === true) {
             window.__loopawareLogoutWrapper = value;
             return;
@@ -376,14 +425,14 @@
     if (requestNonce.__loopawareNonceWrapper === true) {
       return requestNonce;
     }
-    var wrapper = function() {
+    var wrapper = function () {
       var result;
       try {
         result = requestNonce.apply(this, arguments);
       } finally {
         try {
           if (result && typeof result.then === 'function') {
-            result.then(storeGooglePromptNonce).catch(function() {});
+            result.then(storeGooglePromptNonce).catch(function () {});
           } else {
             storeGooglePromptNonce(result);
           }
@@ -411,10 +460,10 @@
       Object.defineProperty(window, 'requestNonce', {
         configurable: true,
         enumerable: true,
-        get: function() {
+        get: function () {
           return undefined;
         },
-        set: function(value) {
+        set: function (value) {
           var wrapped = wrapRequestNonce(value);
           try {
             Object.defineProperty(window, 'requestNonce', {
@@ -515,9 +564,14 @@
   }
 
   function resolveAuthHost(event) {
-    if (event && event.target && event.target.nodeType === 1 && typeof event.target.matches === 'function') {
-      if (event.target.matches('mpr-header')) {
-        return event.target;
+    var target = event && event.target && event.target.nodeType === 1 ? event.target : null;
+    if (target && typeof target.matches === 'function' && target.matches('mpr-header')) {
+      return target;
+    }
+    if (target && typeof target.closest === 'function') {
+      var scopedHost = target.closest('mpr-header');
+      if (scopedHost) {
+        return scopedHost;
       }
     }
     return document.querySelector('mpr-header');
@@ -544,92 +598,24 @@
     return value.trim();
   }
 
-  function resolveAvatarURL(profile) {
-    if (!profile || typeof profile !== 'object') {
-      return '';
+  function resolveObservedSnapshot(headerHost) {
+    if (!headerHost) {
+      return createSnapshot(AUTH_STATE_VALUES.syncing, 'dom');
     }
-    if (typeof profile.avatar_url === 'string') {
-      return profile.avatar_url.trim();
-    }
-    if (typeof profile.avatarURL === 'string') {
-      return profile.avatarURL.trim();
-    }
-    if (typeof profile.picture === 'string') {
-      return profile.picture.trim();
-    }
-    if (profile.avatar && typeof profile.avatar === 'object' && typeof profile.avatar.url === 'string') {
-      return profile.avatar.url.trim();
-    }
-    if (typeof profile.url === 'string') {
-      return profile.url.trim();
-    }
-    return '';
-  }
+    var headerRoot = resolveHeaderRootElement(headerHost);
+    var userMenu = resolveLoopawareUserMenu(headerHost);
+    var userMenuStatus = userMenu && typeof userMenu.getAttribute === 'function'
+      ? normalizeTextValue(userMenu.getAttribute('data-mpr-user-status'))
+      : '';
+    var headerAuthenticated = !!(headerRoot && headerRoot.classList && headerRoot.classList.contains('mpr-header--authenticated'));
 
-  function normalizeProfile(profile) {
-    if (!profile || typeof profile !== 'object') {
-      return null;
+    if (headerAuthenticated || userMenuStatus === AUTH_STATE_VALUES.authenticated) {
+      return createSnapshot(AUTH_STATE_VALUES.authenticated, 'dom');
     }
-    var email = normalizeTextValue(profile.user_email || profile.email || '');
-    var display = normalizeTextValue(profile.display || profile.user_display_name || profile.name || email);
-    var avatarURL = resolveAvatarURL(profile);
-    if (!email && !display && !avatarURL) {
-      return null;
+    if (userMenuStatus === AUTH_STATE_VALUES.unauthenticated || userMenuStatus === 'error') {
+      return createSnapshot(AUTH_STATE_VALUES.unauthenticated, 'dom');
     }
-    if (!display) {
-      display = email;
-    }
-    return {
-      email: email,
-      display: display,
-      avatarURL: avatarURL
-    };
-  }
-
-  function clearHeaderProfileAttributes(headerHost) {
-    if (!headerHost || typeof headerHost.removeAttribute !== 'function') {
-      return;
-    }
-    if (headerHost.hasAttribute('data-user-display')) {
-      headerHost.removeAttribute('data-user-display');
-    }
-    if (headerHost.hasAttribute('data-user-email')) {
-      headerHost.removeAttribute('data-user-email');
-    }
-    if (headerHost.hasAttribute('data-user-avatar-url')) {
-      headerHost.removeAttribute('data-user-avatar-url');
-    }
-  }
-
-  function applyHeaderProfileAttributes(headerHost, profile) {
-    if (!headerHost || typeof headerHost.setAttribute !== 'function') {
-      return;
-    }
-    if (!profile) {
-      clearHeaderProfileAttributes(headerHost);
-      return;
-    }
-    if (profile.display) {
-      if (headerHost.getAttribute('data-user-display') !== profile.display) {
-        headerHost.setAttribute('data-user-display', profile.display);
-      }
-    } else if (headerHost.hasAttribute('data-user-display')) {
-      headerHost.removeAttribute('data-user-display');
-    }
-    if (profile.email) {
-      if (headerHost.getAttribute('data-user-email') !== profile.email) {
-        headerHost.setAttribute('data-user-email', profile.email);
-      }
-    } else if (headerHost.hasAttribute('data-user-email')) {
-      headerHost.removeAttribute('data-user-email');
-    }
-    if (profile.avatarURL) {
-      if (headerHost.getAttribute('data-user-avatar-url') !== profile.avatarURL) {
-        headerHost.setAttribute('data-user-avatar-url', profile.avatarURL);
-      }
-    } else if (headerHost.hasAttribute('data-user-avatar-url')) {
-      headerHost.removeAttribute('data-user-avatar-url');
-    }
+    return createSnapshot(AUTH_STATE_VALUES.syncing, 'dom');
   }
 
   function setHeaderAuthStateAttribute(headerHost, stateValue) {
@@ -639,142 +625,6 @@
     if (headerHost.getAttribute('data-loopaware-auth-state') !== stateValue) {
       headerHost.setAttribute('data-loopaware-auth-state', stateValue);
     }
-  }
-
-  function applyHeaderAuthenticatedClass(headerHost, authenticated) {
-    var headerRoot = resolveHeaderRootElement(headerHost);
-    if (!headerRoot || !headerRoot.classList) {
-      return;
-    }
-    headerRoot.classList.toggle('mpr-header--authenticated', authenticated);
-  }
-
-  function applySnapshot(headerHost, snapshot) {
-    if (!headerHost) {
-      return snapshot;
-    }
-    applyHeaderAuthenticatedClass(headerHost, snapshot.status === AUTH_STATE_VALUES.authenticated);
-    setHeaderAuthStateAttribute(headerHost, snapshot.status);
-    if (snapshot.status === AUTH_STATE_VALUES.authenticated) {
-      applyHeaderProfileAttributes(headerHost, snapshot.profile);
-      clearGoogleSigninGate(resolveGoogleSigninTarget(headerHost));
-      hideOverlay();
-      if (shouldRedirectToApp(headerHost, snapshot)) {
-        redirectTo(APP_PATHNAME);
-      }
-      return snapshot;
-    }
-    clearHeaderProfileAttributes(headerHost);
-    if (snapshot.status === AUTH_STATE_VALUES.unauthenticated) {
-      disableGoogleAutoSelect();
-      gateGoogleSigninUntilNonce(headerHost);
-      if (shouldRedirectToLogin(headerHost)) {
-        showOverlay();
-        redirectTo(LOGIN_PATHNAME);
-        return snapshot;
-      }
-      hideOverlay();
-      return snapshot;
-    }
-    gateGoogleSigninUntilNonce(headerHost);
-    hideOverlay();
-    return snapshot;
-  }
-
-  function commitSnapshot(headerHost, snapshot) {
-    var normalizedProfile = snapshot && snapshot.profile ? normalizeProfile(snapshot.profile) : null;
-    var normalizedSnapshot = createSnapshot(snapshot.status, normalizedProfile, snapshot.source);
-    if (snapshotsEqual(store.snapshot, normalizedSnapshot)) {
-      return store.snapshot || normalizedSnapshot;
-    }
-    store.snapshot = normalizedSnapshot;
-    applySnapshot(headerHost, normalizedSnapshot);
-    dispatchAuthStateChange(headerHost, normalizedSnapshot);
-    return normalizedSnapshot;
-  }
-
-  function syncFromObservedState(headerHost) {
-    if (!headerHost) {
-      return createSnapshot(AUTH_STATE_VALUES.syncing, null, 'dom');
-    }
-    return commitSnapshot(headerHost, resolveObservedSnapshot(headerHost));
-  }
-
-  function syncFromAuthenticatedProfile(headerHost, profile, source) {
-    var normalizedProfile = normalizeProfile(profile);
-    if (!normalizedProfile) {
-      return syncFromObservedState(headerHost);
-    }
-    return commitSnapshot(headerHost, createSnapshot(AUTH_STATE_VALUES.authenticated, normalizedProfile, source));
-  }
-
-  function syncFromUnauthenticatedState(headerHost, source) {
-    return commitSnapshot(headerHost, createSnapshot(AUTH_STATE_VALUES.unauthenticated, null, source));
-  }
-
-  function readHeaderProfileAttributes(headerHost) {
-    if (!headerHost || typeof headerHost.getAttribute !== 'function') {
-      return null;
-    }
-    return normalizeProfile({
-      email: headerHost.getAttribute('data-user-email'),
-      display: headerHost.getAttribute('data-user-display'),
-      avatar_url: headerHost.getAttribute('data-user-avatar-url')
-    });
-  }
-
-  function readUserMenuProfile(userMenu) {
-    if (!userMenu || typeof userMenu.getAttribute !== 'function') {
-      return null;
-    }
-    return normalizeProfile({
-      email: userMenu.getAttribute('data-user-email'),
-      display: userMenu.getAttribute('data-user-display'),
-      avatar_url: userMenu.getAttribute('data-user-avatar-url')
-    });
-  }
-
-  function createSnapshot(status, profile, source) {
-    return {
-      status: status,
-      profile: profile || null,
-      source: source || ''
-    };
-  }
-
-  function snapshotsEqual(left, right) {
-    if (left === right) {
-      return true;
-    }
-    if (!left || !right) {
-      return false;
-    }
-    var leftProfile = left.profile || null;
-    var rightProfile = right.profile || null;
-    return left.status === right.status &&
-      ((leftProfile === null && rightProfile === null) ||
-        (leftProfile && rightProfile &&
-          leftProfile.email === rightProfile.email &&
-          leftProfile.display === rightProfile.display &&
-          leftProfile.avatarURL === rightProfile.avatarURL));
-  }
-
-  function resolveObservedSnapshot(headerHost) {
-    if (!headerHost) {
-      return createSnapshot(AUTH_STATE_VALUES.syncing, null, 'dom');
-    }
-    var userMenu = resolveLoopawareUserMenu(headerHost);
-    var userMenuStatus = userMenu && typeof userMenu.getAttribute === 'function'
-      ? normalizeTextValue(userMenu.getAttribute('data-mpr-user-status'))
-      : '';
-    var profile = readHeaderProfileAttributes(headerHost) || readUserMenuProfile(userMenu);
-    if (profile) {
-      return createSnapshot(AUTH_STATE_VALUES.authenticated, profile, 'dom');
-    }
-    if (userMenuStatus === AUTH_STATE_VALUES.unauthenticated) {
-      return createSnapshot(AUTH_STATE_VALUES.unauthenticated, null, 'dom');
-    }
-    return createSnapshot(AUTH_STATE_VALUES.syncing, null, 'dom');
   }
 
   function shouldRedirectToApp(headerHost, snapshot) {
@@ -809,84 +659,93 @@
     if (!headerHost || typeof headerHost.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') {
       return;
     }
-    var detail = {
-      status: snapshot.status,
-      profile: snapshot.profile,
-      source: snapshot.source
-    };
     try {
       headerHost.dispatchEvent(new CustomEvent(AUTH_STATE_CHANGE_EVENT, {
-        detail: detail,
+        detail: {
+          status: snapshot.status,
+          source: snapshot.source
+        },
         bubbles: true
       }));
     } catch (error) {}
   }
 
-
-  function scheduleHelperSync(headerHost) {
-    if (!headerHost || store.helperSyncStarted === true) {
+  function applySnapshot(headerHost, snapshot) {
+    if (!headerHost) {
       return;
     }
-    store.helperSyncStarted = true;
-    var remainingAttempts = HELPER_SYNC_MAX_ATTEMPTS;
-
-    function finalizeFallback() {
-      if (!store.snapshot || store.snapshot.status === AUTH_STATE_VALUES.syncing) {
-        syncFromUnauthenticatedState(headerHost, 'helper-timeout');
+    setHeaderAuthStateAttribute(headerHost, snapshot.status);
+    if (snapshot.status === AUTH_STATE_VALUES.authenticated) {
+      clearGoogleSigninGate(resolveGoogleSigninTarget(headerHost));
+      if (!isLogoutPending()) {
+        hideOverlay();
       }
+      if (shouldRedirectToApp(headerHost, snapshot)) {
+        redirectTo(APP_PATHNAME);
+      }
+      return;
     }
-
-    function syncAttempt() {
-      if (!headerHost || !document.contains(headerHost)) {
+    if (snapshot.status === AUTH_STATE_VALUES.unauthenticated) {
+      clearLogoutPending();
+      disableGoogleAutoSelect();
+      gateGoogleSigninUntilNonce(headerHost);
+      if (shouldRedirectToLogin(headerHost)) {
+        showOverlay();
+        redirectTo(LOGIN_PATHNAME);
         return;
       }
-      if (typeof window.getCurrentUser !== 'function') {
-        if (remainingAttempts > 0) {
-          remainingAttempts -= 1;
-          window.setTimeout(syncAttempt, HELPER_SYNC_INTERVAL_MS);
-          return;
-        }
-        finalizeFallback();
-        return;
-      }
-      var helperResult;
-      try {
-        helperResult = window.getCurrentUser();
-      } catch (error) {
-        syncFromUnauthenticatedState(headerHost, 'helper-error');
-        return;
-      }
-      Promise.resolve(helperResult).then(function(profile) {
-        var normalizedProfile = normalizeProfile(profile);
-        if (normalizedProfile) {
-          syncFromAuthenticatedProfile(headerHost, normalizedProfile, 'helper');
-          return;
-        }
-        if (!store.snapshot || store.snapshot.status !== AUTH_STATE_VALUES.authenticated) {
-          syncFromUnauthenticatedState(headerHost, 'helper');
-        }
-      }).catch(function() {
-        if (!store.snapshot || store.snapshot.status !== AUTH_STATE_VALUES.authenticated) {
-          syncFromUnauthenticatedState(headerHost, 'helper-error');
-        }
-      });
+      hideOverlay();
+      return;
     }
+    gateGoogleSigninUntilNonce(headerHost);
+    if (!isLogoutPending()) {
+      hideOverlay();
+    }
+  }
 
-    syncAttempt();
+  function commitSnapshot(headerHost, snapshot) {
+    var previousSnapshot = store.snapshot;
+    store.snapshot = snapshot;
+    applySnapshot(headerHost, snapshot);
+    if (!previousSnapshot || previousSnapshot.status !== snapshot.status) {
+      dispatchAuthStateChange(headerHost, snapshot);
+    }
+    return snapshot;
+  }
+
+  function syncFromObservedState(headerHost) {
+    var observedSnapshot = resolveObservedSnapshot(headerHost);
+    var previousSnapshot = store.snapshot;
+    if (
+      observedSnapshot.status === AUTH_STATE_VALUES.syncing &&
+      previousSnapshot &&
+      previousSnapshot.status !== AUTH_STATE_VALUES.syncing
+    ) {
+      return commitSnapshot(headerHost, createSnapshot(previousSnapshot.status, 'dom-stable'));
+    }
+    return commitSnapshot(headerHost, observedSnapshot);
+  }
+
+  function syncFromAuthenticatedState(headerHost, source) {
+    return commitSnapshot(headerHost, createSnapshot(AUTH_STATE_VALUES.authenticated, source));
+  }
+
+  function syncFromUnauthenticatedState(headerHost, source) {
+    return commitSnapshot(headerHost, createSnapshot(AUTH_STATE_VALUES.unauthenticated, source));
   }
 
   function observeHeaderState(headerHost) {
     if (!headerHost || headerHost.__loopawareAuthObserver || typeof MutationObserver !== 'function') {
       return;
     }
-    var observer = new MutationObserver(function() {
+    var observer = new MutationObserver(function () {
       syncFromObservedState(headerHost);
     });
     observer.observe(headerHost, {
       subtree: true,
       childList: true,
       attributes: true,
-      attributeFilter: ['data-mpr-user-status', 'data-user-display', 'data-user-email', 'data-user-avatar-url']
+      attributeFilter: ['class', 'data-mpr-user-status']
     });
     headerHost.__loopawareAuthObserver = observer;
   }
@@ -924,7 +783,7 @@
   }
 
   function handleUserMenuLogout() {
-    showOverlay();
+    startLogoutTransition();
     disableGoogleAutoSelect();
   }
 
@@ -933,9 +792,7 @@
     if (!headerHost) {
       return;
     }
-    pruneHeaderUserMenus(headerHost);
-    var profile = event && event.detail ? event.detail.profile : null;
-    syncFromAuthenticatedProfile(headerHost, profile, 'event');
+    syncFromAuthenticatedState(headerHost, 'event');
   }
 
   function handleUnauthenticatedEvent(event) {
@@ -946,9 +803,6 @@
     }
     syncFromUnauthenticatedState(headerHost, 'event');
   }
-
-  var authListenersAttached = false;
-  var userMenuListenersAttached = false;
 
   function attachUserMenuListeners() {
     if (userMenuListenersAttached || !document || typeof document.addEventListener !== 'function') {
@@ -971,21 +825,18 @@
     if (!headerHost) {
       return;
     }
-    pruneHeaderUserMenus(headerHost);
     ensureLogoutFallback(headerHost);
     if (typeof headerHost.addEventListener === 'function' && headerHost.getAttribute('data-loopaware-auth-listeners') !== 'true') {
       headerHost.setAttribute('data-loopaware-auth-listeners', 'true');
       headerHost.addEventListener('mpr-ui:auth:authenticated', handleAuthenticatedEvent);
       headerHost.addEventListener('mpr-ui:auth:unauthenticated', handleUnauthenticatedEvent);
     }
-    headerHost.setAttribute('data-loopaware-auth-bound', 'true');
-    headerHost.setAttribute('data-loopaware-auth-state', AUTH_STATE_VALUES.syncing);
+    if (headerHost.getAttribute('data-loopaware-auth-bound') !== 'true') {
+      headerHost.setAttribute('data-loopaware-auth-bound', 'true');
+    }
     observeHeaderState(headerHost);
     syncFromObservedState(headerHost);
-    scheduleHelperSync(headerHost);
   }
-
-  var bindingInProgress = false;
 
   function bindHeaderAuth() {
     if (bindingInProgress) {
@@ -996,8 +847,10 @@
 
     function attemptBind() {
       var headerHost = document.querySelector('mpr-header');
-      if (headerHost && headerHost.getAttribute('data-loopaware-auth-bound') !== 'true') {
+      if (headerHost) {
         attachHeaderAuth(headerHost);
+        bindingInProgress = false;
+        return;
       }
       remainingAttempts -= 1;
       if (remainingAttempts > 0) {

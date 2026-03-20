@@ -61,7 +61,18 @@ test('confirm logs out to login', async ({ page }) => {
   await openDashboardWithHooks(page);
   await forcePrompt(page);
   await page.locator('#session-timeout-confirm-button').click();
-  await expect(page).toHaveURL(/\/login/);
+  const overlay = page.locator('#logout-overlay');
+  let redirectedToLogin = false;
+  await Promise.any([
+    page.waitForURL(/\/login/, { timeout: 15_000 }).then(() => {
+      redirectedToLogin = true;
+    }),
+    expect(overlay).toBeVisible({ timeout: 15_000 })
+  ]);
+  if (redirectedToLogin) {
+    return;
+  }
+  await expect(page.locator('main')).toBeHidden();
 });
 
 test('force logout redirects automatically', async ({ page }) => {

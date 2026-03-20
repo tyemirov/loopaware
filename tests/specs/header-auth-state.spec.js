@@ -38,22 +38,24 @@ window.google.accounts.id = {
 /**
  * @param {import('@playwright/test').Page} page
  * @param {string} path
+ * @param {{ silentBootstrap?: boolean }} [tauthOptions]
  * @returns {Promise<void>}
  */
-async function openPageWithoutSession(page, path) {
+async function openPageWithoutSession(page, path, tauthOptions) {
   await installGoogleIdentityStub(page);
-  await installTauthStub(page, config);
+  await installTauthStub(page, config, tauthOptions);
   await page.goto(path, { waitUntil: 'domcontentloaded' });
 }
 
 /**
  * @param {import('@playwright/test').Page} page
  * @param {string} path
+ * @param {{ silentBootstrap?: boolean }} [tauthOptions]
  * @returns {Promise<void>}
  */
-async function openPageWithSession(page, path) {
+async function openPageWithSession(page, path, tauthOptions) {
   await installGoogleIdentityStub(page);
-  await installTauthStub(page, config);
+  await installTauthStub(page, config, tauthOptions);
   await applySessionCookie(page.context(), config, adminUser);
   await page.goto(path, { waitUntil: 'domcontentloaded' });
 }
@@ -68,10 +70,16 @@ test('login page redirects authenticated users to the dashboard', async ({ page 
   await expect(page).toHaveURL(/\/app\/?$/);
 });
 
+test('login page redirects authenticated users after silent session recovery', async ({ page }) => {
+  await openPageWithSession(page, '/login', { silentBootstrap: true });
+  await expect(page).toHaveURL(/\/app\/?$/);
+});
+
 test('privacy page keeps header auth state synchronized for authenticated sessions', async ({ page }) => {
   await openPageWithSession(page, '/privacy');
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
   await expect(page.locator('mpr-header > header.mpr-header')).toHaveClass(/mpr-header--authenticated/);
+  await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toHaveAttribute('data-mpr-user-status', 'authenticated');
   await expect(page.locator('mpr-header [data-mpr-header="google-signin"]')).toBeHidden();
   await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toBeVisible();
 });

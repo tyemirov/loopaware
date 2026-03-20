@@ -53,6 +53,16 @@ test('authenticated dashboard header hides sign-in and shows avatar dropdown', a
   await openDashboard(page, config, adminUser, { waitForSites: false });
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
   await expect(page.locator('mpr-header > header.mpr-header')).toHaveClass(/mpr-header--authenticated/);
+  await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toHaveAttribute('data-mpr-user-status', 'authenticated');
+  await expect(page.locator('mpr-header [data-mpr-header="google-signin"]')).toBeHidden();
+  await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toBeVisible();
+});
+
+test('authenticated dashboard header stays synchronized after silent session recovery', async ({ page }) => {
+  await openDashboard(page, config, adminUser, { waitForSites: false, tauth: { silentBootstrap: true } });
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
+  await expect(page.locator('mpr-header > header.mpr-header')).toHaveClass(/mpr-header--authenticated/);
+  await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toHaveAttribute('data-mpr-user-status', 'authenticated');
   await expect(page.locator('mpr-header [data-mpr-header="google-signin"]')).toBeHidden();
   await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toBeVisible();
 });
