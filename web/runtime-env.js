@@ -307,10 +307,9 @@
       loadMprUiScript();
       return;
     }
-    tauthScript.addEventListener("load", loadMprUiScript, { once: true });
-    tauthScript.addEventListener("error", loadMprUiScript, { once: true });
     // @ts-ignore
     tauthScript.src = resolved.tauthOrigin ? resolved.tauthOrigin + "/tauth.js" : "/tauth.js";
+    loadMprUiScript();
   } catch (error) {
     var err = error instanceof Error ? error : new Error(String(error));
     var message = "LoopAware frontend bootstrap failed.\n\n" + String(err && err.message ? err.message : err);

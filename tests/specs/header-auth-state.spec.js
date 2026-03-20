@@ -38,7 +38,7 @@ window.google.accounts.id = {
 /**
  * @param {import('@playwright/test').Page} page
  * @param {string} path
- * @param {{ silentBootstrap?: boolean }} [tauthOptions]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number }} [tauthOptions]
  * @returns {Promise<void>}
  */
 async function openPageWithoutSession(page, path, tauthOptions) {
@@ -50,7 +50,7 @@ async function openPageWithoutSession(page, path, tauthOptions) {
 /**
  * @param {import('@playwright/test').Page} page
  * @param {string} path
- * @param {{ silentBootstrap?: boolean }} [tauthOptions]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number }} [tauthOptions]
  * @returns {Promise<void>}
  */
 async function openPageWithSession(page, path, tauthOptions) {
@@ -75,6 +75,13 @@ test('login page redirects authenticated users after silent session recovery', a
   await expect(page).toHaveURL(/\/app\/?$/);
 });
 
+test('login page renders header while tauth bootstrap is delayed', async ({ page }) => {
+  await openPageWithoutSession(page, '/login', { delayMs: 2500 });
+  await expect(page.locator('mpr-header > header.mpr-header')).toBeVisible({ timeout: 1000 });
+  await expect(page.locator('mpr-footer footer.mpr-footer')).toBeVisible({ timeout: 1000 });
+  await expect(page).toHaveURL(/\/login\/?$/);
+});
+
 test('privacy page keeps header auth state synchronized for authenticated sessions', async ({ page }) => {
   await openPageWithSession(page, '/privacy');
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
@@ -82,4 +89,13 @@ test('privacy page keeps header auth state synchronized for authenticated sessio
   await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toHaveAttribute('data-mpr-user-status', 'authenticated');
   await expect(page.locator('mpr-header [data-mpr-header="google-signin"]')).toBeHidden();
   await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toBeVisible();
+});
+
+test('privacy page shows logout overlay for static-page sign-out', async ({ page }) => {
+  await openPageWithSession(page, '/privacy');
+  await page.evaluate(() => {
+    document.dispatchEvent(new CustomEvent('mpr-user:logout'));
+  });
+  await expect(page.locator('#logout-overlay')).toBeVisible();
+  await expect(page.locator('body')).toHaveClass(/logging-out/);
 });

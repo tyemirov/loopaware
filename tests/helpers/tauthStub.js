@@ -220,12 +220,18 @@ export function renderTauthStub(sessionCookieName, options) {
 /**
  * @param {import('@playwright/test').Page} page
  * @param {{ sessionCookieName?: string }} config
- * @param {{ silentBootstrap?: boolean }} [options]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number }} [options]
  * @returns {Promise<void>}
  */
 export async function installTauthStub(page, config, options) {
   const scriptBody = renderTauthStub(config.sessionCookieName, options);
+  const delayMs = Number.isFinite(options?.delayMs) ? Math.max(0, Number(options.delayMs)) : 0;
   await page.route('**/tauth.js', async (route) => {
+    if (delayMs > 0) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, delayMs);
+      });
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/javascript; charset=utf-8',

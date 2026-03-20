@@ -38,16 +38,46 @@
     };
   }
 
+  function resolveLogoutOverlay() {
+    if (!document || typeof document.getElementById !== 'function') {
+      return null;
+    }
+    return document.getElementById('logout-overlay');
+  }
+
+  function setBodyLogoutState(isActive) {
+    if (!document || !document.body || !document.body.classList) {
+      return;
+    }
+    document.body.classList.toggle('logging-out', isActive === true);
+  }
+
   function showOverlay() {
     if (typeof window.showLogoutOverlay === 'function') {
       window.showLogoutOverlay();
+      return;
     }
+    var overlay = resolveLogoutOverlay();
+    if (overlay) {
+      overlay.classList.remove('d-none');
+      overlay.classList.add('d-flex');
+      overlay.style.display = 'flex';
+    }
+    setBodyLogoutState(true);
   }
 
   function hideOverlay() {
     if (typeof window.hideLogoutOverlay === 'function') {
       window.hideLogoutOverlay();
+      return;
     }
+    var overlay = resolveLogoutOverlay();
+    if (overlay) {
+      overlay.classList.add('d-none');
+      overlay.classList.remove('d-flex');
+      overlay.style.display = '';
+    }
+    setBodyLogoutState(false);
   }
 
   function markLogoutPending() {
