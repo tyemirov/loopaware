@@ -6,9 +6,9 @@
     tauthOrigin: ""
   };
   var cdnAssetUrls = Object.freeze({
-    mprUiStyle: "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@139e488fdf02013eba7fec42d08dda0c6ccc0364/mpr-ui.css",
-    mprUiScript: "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@139e488fdf02013eba7fec42d08dda0c6ccc0364/mpr-ui.js",
-    tauthScript: "https://cdn.jsdelivr.net/gh/tyemirov/TAuth@cd2d9a6a580870f6d4430d5759649acf13bd252a/web/tauth.js"
+    mprUiStyle: "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.1/mpr-ui.css",
+    mprUiScript: "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.1/mpr-ui.js",
+    tauthScript: "https://cdn.jsdelivr.net/gh/tyemirov/TAuth@v1.0.1/web/tauth.js"
   });
 
   function renderFatalError(message) {

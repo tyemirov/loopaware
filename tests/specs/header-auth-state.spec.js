@@ -7,9 +7,9 @@ import { installTauthStub } from '../helpers/tauthStub.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const MPR_UI_STYLE_URL = 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@139e488fdf02013eba7fec42d08dda0c6ccc0364/mpr-ui.css';
-const MPR_UI_SCRIPT_URL = 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@139e488fdf02013eba7fec42d08dda0c6ccc0364/mpr-ui.js';
-const TAUTH_SCRIPT_URL = 'https://cdn.jsdelivr.net/gh/tyemirov/TAuth@cd2d9a6a580870f6d4430d5759649acf13bd252a/web/tauth.js';
+const MPR_UI_STYLE_URL = 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.1/mpr-ui.css';
+const MPR_UI_SCRIPT_URL = 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.1/mpr-ui.js';
+const TAUTH_SCRIPT_URL = 'https://cdn.jsdelivr.net/gh/tyemirov/TAuth@v1.0.1/web/tauth.js';
 
 /**
  * @param {import('@playwright/test').Page} page
