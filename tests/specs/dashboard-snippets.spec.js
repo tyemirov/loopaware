@@ -9,12 +9,14 @@ const adminUser = buildAdminUser(config);
 const baseOrigin = buildBaseOrigin(config);
 const escapedBaseOrigin = baseOrigin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-let cookie;
 let site;
 
+function buildAdminCookie() {
+  return buildSessionCookie(config, adminUser);
+}
+
 test.beforeAll(async () => {
-  cookie = buildSessionCookie(config, adminUser);
-  site = await createTestSite(config, cookie, {
+  site = await createTestSite(config, buildAdminCookie(), {
     name: buildUniqueName('Snippet Site'),
     allowedOrigin: buildUniqueOrigin('snippet'),
     ownerEmail: config.adminEmail
@@ -61,6 +63,14 @@ test('traffic snippet includes site id', async ({ page }) => {
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
   await expect(page.locator('#traffic-widget-snippet')).toHaveValue(new RegExp(`site_id=${site.id}`));
+});
+
+test('customer snippets do not expose api_origin', async ({ page }) => {
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await expect(page.locator('#widget-snippet')).not.toHaveValue(/api_origin=/);
+  await expect(page.locator('#subscribe-widget-snippet')).not.toHaveValue(/api_origin=/);
+  await expect(page.locator('#traffic-widget-snippet')).not.toHaveValue(/api_origin=/);
 });
 
 test('copy widget snippet updates button label', async ({ page }) => {

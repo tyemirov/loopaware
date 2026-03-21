@@ -7,8 +7,11 @@ import { fetchVisitStats } from '../helpers/api.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const cookie = buildSessionCookie(config, adminUser);
 let site;
+
+function buildAdminCookie() {
+  return buildSessionCookie(config, adminUser);
+}
 
 function buildCrossOriginAPIOrigin(baseURL) {
   const parsedBaseURL = new URL(baseURL);
@@ -30,7 +33,7 @@ async function openTrafficPage(page, siteId, options) {
 }
 
 test.beforeAll(async () => {
-  site = await ensureSiteForOrigin(config, cookie, {
+  site = await ensureSiteForOrigin(config, buildAdminCookie(), {
     allowedOrigin: config.baseOrigin,
     ownerEmail: config.adminEmail
   });
@@ -51,7 +54,7 @@ test('traffic integration stores visitor id', async ({ page }) => {
 test('traffic integration records a visit on load', async ({ page }) => {
   await openTrafficPage(page, site.id);
   await expect.poll(async () => {
-    const stats = await fetchVisitStats(config, cookie, site.id);
+    const stats = await fetchVisitStats(config, buildAdminCookie(), site.id);
     return stats.visit_count;
   }).toBeGreaterThan(0);
 });
@@ -59,45 +62,45 @@ test('traffic integration records a visit on load', async ({ page }) => {
 test('traffic integration increments visit count on reload', async ({ page }) => {
   await openTrafficPage(page, site.id);
   await expect.poll(async () => {
-    const stats = await fetchVisitStats(config, cookie, site.id);
+    const stats = await fetchVisitStats(config, buildAdminCookie(), site.id);
     return stats.visit_count;
   }).toBeGreaterThan(0);
-  const initialStats = await fetchVisitStats(config, cookie, site.id);
+  const initialStats = await fetchVisitStats(config, buildAdminCookie(), site.id);
   const initialCount = initialStats.visit_count;
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect.poll(async () => {
-    const stats = await fetchVisitStats(config, cookie, site.id);
+    const stats = await fetchVisitStats(config, buildAdminCookie(), site.id);
     return stats.visit_count;
   }).toBeGreaterThan(initialCount);
 });
 
 test('traffic integration keeps unique visitor count stable on reload', async ({ page }) => {
-  const baselineStats = await fetchVisitStats(config, cookie, site.id);
+  const baselineStats = await fetchVisitStats(config, buildAdminCookie(), site.id);
   const baselineVisitCount = baselineStats.visit_count;
   await openTrafficPage(page, site.id);
   await expect.poll(async () => {
-    const stats = await fetchVisitStats(config, cookie, site.id);
+    const stats = await fetchVisitStats(config, buildAdminCookie(), site.id);
     return stats.visit_count;
   }).toBeGreaterThan(baselineVisitCount);
-  const initialStats = await fetchVisitStats(config, cookie, site.id);
+  const initialStats = await fetchVisitStats(config, buildAdminCookie(), site.id);
   const initialUnique = initialStats.unique_visitor_count;
   const initialVisitCount = initialStats.visit_count;
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect.poll(async () => {
-    const stats = await fetchVisitStats(config, cookie, site.id);
+    const stats = await fetchVisitStats(config, buildAdminCookie(), site.id);
     return stats.visit_count;
   }).toBeGreaterThan(initialVisitCount);
-  const reloadStats = await fetchVisitStats(config, cookie, site.id);
+  const reloadStats = await fetchVisitStats(config, buildAdminCookie(), site.id);
   expect(reloadStats.unique_visitor_count).toBe(initialUnique);
 });
 
 test('traffic integration reports top pages', async ({ page }) => {
   await openTrafficPage(page, site.id);
   await expect.poll(async () => {
-    const stats = await fetchVisitStats(config, cookie, site.id);
+    const stats = await fetchVisitStats(config, buildAdminCookie(), site.id);
     return Array.isArray(stats.top_pages) ? stats.top_pages.length : 0;
   }).toBeGreaterThan(0);
-  const stats = await fetchVisitStats(config, cookie, site.id);
+  const stats = await fetchVisitStats(config, buildAdminCookie(), site.id);
   const topPages = Array.isArray(stats.top_pages) ? stats.top_pages : [];
   const paths = topPages.map((entry) => entry.path);
   expect(paths).toContain('/traffic-integration');

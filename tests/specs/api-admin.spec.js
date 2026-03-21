@@ -13,19 +13,25 @@ import { apiRequest } from "../helpers/api.js";
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const adminCookie = buildSessionCookie(config, adminUser);
 const baseOrigin = config.baseOrigin || new URL(config.baseURL).origin;
 
 const nonAdminUser = buildAdminUser(config, {
   email: buildUniqueEmail("user"),
   displayName: "Regular User"
 });
-const nonAdminCookie = buildSessionCookie(config, nonAdminUser);
+
+function buildAdminCookie() {
+  return buildSessionCookie(config, adminUser);
+}
+
+function buildNonAdminCookie() {
+  return buildSessionCookie(config, nonAdminUser);
+}
 
 async function adminRequest(options) {
   return apiRequest({
     baseURL: config.baseURL,
-    cookie: adminCookie,
+    cookie: buildAdminCookie(),
     ...options
   });
 }
@@ -33,13 +39,13 @@ async function adminRequest(options) {
 async function nonAdminRequest(options) {
   return apiRequest({
     baseURL: config.baseURL,
-    cookie: nonAdminCookie,
+    cookie: buildNonAdminCookie(),
     ...options
   });
 }
 
 async function createAdminSite(label, overrides) {
-  return createTestSite(config, adminCookie, {
+  return createTestSite(config, buildAdminCookie(), {
     name: buildUniqueName(label),
     allowedOrigin: buildUniqueOrigin(label),
     ownerEmail: config.adminEmail,

@@ -61,6 +61,11 @@
   var widgetTestEndpointOverride = "";
   var widgetSiteId = "";
   var widgetApiOrigin = "";
+  // Public embeds should only expose site_id; LoopAware-owned script hosts map to the API internally.
+  var loopAwarePublicAPIOriginsByScriptOrigin = {
+    "https://loopaware.mprlab.com": "https://loopaware-api.mprlab.com",
+    "https://tyemirov.github.io": "https://loopaware-api.mprlab.com"
+  };
 
   var widgetDefaults = {
     placementSide: "right",
@@ -219,30 +224,51 @@
     return null;
   }
 
+  function resolveInternalWidgetAPIOrigin(scriptTag) {
+    if (!scriptTag || !scriptTag.src) {
+      return null;
+    }
+    try {
+      var link = document.createElement("a");
+      link.href = scriptTag.src;
+      if (!link.protocol || !link.host) {
+        return null;
+      }
+      var scriptOrigin = link.protocol + "//" + link.host;
+      return loopAwarePublicAPIOriginsByScriptOrigin[scriptOrigin] || null;
+    } catch(parseError) {
+      return null;
+    }
+  }
+
   function resolveWidgetAPIOrigin(scriptTag) {
     var candidate = resolveWidgetAPIOriginCandidate(scriptTag);
-    if (!candidate) {
-      // Fallback to script origin is allowed as a core behavioral contract for the widget
-      if (scriptTag && scriptTag.src) {
-        try {
-          var link = document.createElement("a");
-          link.href = scriptTag.src;
-          if (link.protocol && link.host) {
-            return link.protocol + "//" + link.host;
-          }
-        } catch(originError){}
+    if (candidate) {
+      var normalizedCandidate = normalizeWidgetAPIOrigin(candidate);
+      if (!normalizedCandidate) {
+        throw new Error("widget.js: resolve_origin.failed: invalid api_origin format");
       }
-      // If script host is not available, fallback to current host
-      if (window.location && window.location.protocol && window.location.host) {
-        return window.location.protocol + "//" + window.location.host;
-      }
-      throw new Error("widget.js: resolve_origin.failed: api_origin not provided and cannot be resolved");
+      return normalizedCandidate;
     }
-    var normalized = normalizeWidgetAPIOrigin(candidate);
-    if (!normalized) {
-      throw new Error("widget.js: resolve_origin.failed: invalid api_origin format");
+    var internalOrigin = resolveInternalWidgetAPIOrigin(scriptTag);
+    if (internalOrigin) {
+      return internalOrigin;
     }
-    return normalized;
+    // Fallback to script origin is allowed as a core behavioral contract for the widget
+    if (scriptTag && scriptTag.src) {
+      try {
+        var link = document.createElement("a");
+        link.href = scriptTag.src;
+        if (link.protocol && link.host) {
+          return link.protocol + "//" + link.host;
+        }
+      } catch(originError){}
+    }
+    // If script host is not available, fallback to current host
+    if (window.location && window.location.protocol && window.location.host) {
+      return window.location.protocol + "//" + window.location.host;
+    }
+    throw new Error("widget.js: resolve_origin.failed: api_origin not provided and cannot be resolved");
   }
 
   function resolveWidgetSiteId(scriptTag) {

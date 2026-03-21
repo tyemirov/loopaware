@@ -8,14 +8,17 @@ import { collectVisit, fetchVisitStats } from '../helpers/api.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const cookie = buildSessionCookie(config, adminUser);
+
+function buildAdminCookie() {
+  return buildSessionCookie(config, adminUser);
+}
 
 function buildVisitorId() {
   return crypto.randomUUID();
 }
 
 async function createTrafficSite() {
-  return createTestSite(config, cookie, {
+  return createTestSite(config, buildAdminCookie(), {
     name: buildUniqueName('Traffic Site'),
     allowedOrigin: buildUniqueOrigin('traffic'),
     ownerEmail: config.adminEmail
@@ -99,7 +102,7 @@ test('dashboard counts match visit stats API', async ({ page }) => {
   await collectVisit(config, site, { url: `${site.allowed_origin}/alpha`, visitorId: buildVisitorId() });
   await collectVisit(config, site, { url: `${site.allowed_origin}/alpha`, visitorId: buildVisitorId() });
   await collectVisit(config, site, { url: `${site.allowed_origin}/beta`, visitorId: buildVisitorId() });
-  const stats = await fetchVisitStats(config, cookie, site.id);
+  const stats = await fetchVisitStats(config, buildAdminCookie(), site.id);
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
   await expect(page.locator('#visit-count')).toHaveText(`${stats.visit_count} visits`);

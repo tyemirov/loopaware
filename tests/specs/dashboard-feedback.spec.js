@@ -7,10 +7,13 @@ import { createFeedback } from '../helpers/api.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const cookie = buildSessionCookie(config, adminUser);
+
+function buildAdminCookie() {
+  return buildSessionCookie(config, adminUser);
+}
 
 async function createFeedbackSite() {
-  return createTestSite(config, cookie, {
+  return createTestSite(config, buildAdminCookie(), {
     name: buildUniqueName('Feedback Site'),
     allowedOrigin: buildUniqueOrigin('feedback'),
     ownerEmail: config.adminEmail
