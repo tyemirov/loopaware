@@ -5,6 +5,11 @@
     apiOrigin: "",
     tauthOrigin: ""
   };
+  var cdnAssetUrls = Object.freeze({
+    mprUiStyle: "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@139e488fdf02013eba7fec42d08dda0c6ccc0364/mpr-ui.css",
+    mprUiScript: "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@139e488fdf02013eba7fec42d08dda0c6ccc0364/mpr-ui.js",
+    tauthScript: "https://cdn.jsdelivr.net/gh/tyemirov/TAuth@v1.0.1/web/tauth.js"
+  });
 
   function renderFatalError(message) {
     var doc = document;
@@ -64,6 +69,62 @@
       return null;
     }
     return trimmed.replace(/\/+$/, "");
+  }
+
+  /**
+   * @param {Element | null} element
+   * @param {string} url
+   */
+  function setAssetUrl(element, url) {
+    if (!element || !url) {
+      return;
+    }
+    var tagName = String(element.tagName || "").toUpperCase();
+    if (tagName === "LINK") {
+      if (element.getAttribute("href") !== url) {
+        element.setAttribute("href", url);
+      }
+      return;
+    }
+    if (tagName === "SCRIPT" && element.getAttribute("src") !== url) {
+      element.setAttribute("src", url);
+    }
+  }
+
+  /**
+   * @param {string} tauthOrigin
+   */
+  function applyAuthBootstrapConfig(tauthOrigin) {
+    if (!document || typeof document.querySelectorAll !== "function") {
+      return;
+    }
+    var authHosts = document.querySelectorAll("mpr-header, mpr-login-button");
+    for (var i = 0; i < authHosts.length; i += 1) {
+      var authHost = authHosts[i];
+      if (!authHost || typeof authHost.setAttribute !== "function" || typeof authHost.removeAttribute !== "function") {
+        continue;
+      }
+      if (tauthOrigin) {
+        authHost.setAttribute("tauth-url", tauthOrigin);
+        continue;
+      }
+      authHost.removeAttribute("tauth-url");
+    }
+  }
+
+  /**
+   * @param {() => void} callback
+   */
+  function whenDocumentReady(callback) {
+    if (!document || typeof document.addEventListener !== "function") {
+      callback();
+      return;
+    }
+    if (document.readyState && document.readyState !== "loading") {
+      callback();
+      return;
+    }
+    document.addEventListener("DOMContentLoaded", callback, { once: true });
   }
 
   /**
@@ -288,28 +349,28 @@
     window.__LOOPAWARE_RUNTIME_ENV__ = resolved.envName;
     window.__LOOPAWARE_API_ORIGIN__ = resolved.apiOrigin;
     window.__LOOPAWARE_TAUTH_ORIGIN__ = resolved.tauthOrigin;
+    window.__LOOPAWARE_CDN_ASSET_URLS__ = cdnAssetUrls;
 
+    var mprUiStyle = document.getElementById("mpr-ui-style");
     var tauthScript = document.getElementById("tauth-script");
     var mprUiScript = document.getElementById("mpr-ui-script");
+    setAssetUrl(mprUiStyle, cdnAssetUrls.mprUiStyle);
+
     function loadMprUiScript() {
-      if (!mprUiScript || mprUiScript.getAttribute("src")) {
+      applyAuthBootstrapConfig(resolved.tauthOrigin);
+      if (!mprUiScript) {
         return;
       }
-      var mprUiSource = String(mprUiScript.getAttribute("data-src") || "").trim() || "/vendor/mpr-ui/mpr-ui.js";
-      // @ts-ignore
-      mprUiScript.src = mprUiSource;
+      setAssetUrl(mprUiScript, cdnAssetUrls.mprUiScript);
     }
     if (!tauthScript) {
-      loadMprUiScript();
+      whenDocumentReady(loadMprUiScript);
       return;
     }
-    if (typeof window.initAuthClient === "function") {
-      loadMprUiScript();
-      return;
+    if (typeof window.initAuthClient !== "function") {
+      setAssetUrl(tauthScript, cdnAssetUrls.tauthScript);
     }
-    // @ts-ignore
-    tauthScript.src = resolved.tauthOrigin ? resolved.tauthOrigin + "/tauth.js" : "/tauth.js";
-    loadMprUiScript();
+    whenDocumentReady(loadMprUiScript);
   } catch (error) {
     var err = error instanceof Error ? error : new Error(String(error));
     var message = "LoopAware frontend bootstrap failed.\n\n" + String(err && err.message ? err.message : err);

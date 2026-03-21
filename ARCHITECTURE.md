@@ -5,10 +5,26 @@
 LoopAware is split into two parts:
 
 - **Backend API**: `cmd/server` serves JSON/SSE/CSV endpoints plus public collection routes under `/api/*`.
-- **Static frontend**: `web/` holds handwritten HTML/JS/CSS served by a CDN or reverse proxy (no generator).
+- **Static frontend**: `web/` holds handwritten LoopAware-owned HTML/JS/CSS served by a CDN or reverse proxy (no generator).
 
 Deployments can preserve a single browser origin (for example via `ghttp`) so TAuth cookies remain same-origin; otherwise
 configure CORS on the API to allow the frontend origin.
+
+## Frontend Dependency Delivery
+
+The static frontend has a strict delivery contract for browser dependencies:
+
+1. `web/` stores only LoopAware-authored frontend assets and markup. Do not commit vendored copies of third-party
+   JavaScript or CSS under `web/` (including `web/vendor/`).
+2. Every third-party browser dependency must be consumed from a CDN URL at the point of use. A browser dependency that
+   is not delivered by CDN is forbidden.
+3. Local fallbacks, mirrored bundles, and checked-in vendor copies are forbidden because they bypass the CDN-only
+   delivery contract.
+4. CDN URLs for third-party dependencies must be versioned/pinned so deployments are reproducible and testable.
+5. When a dependency cannot be consumed through CDN delivery, it is not an acceptable static-frontend dependency for
+   this repository until the architecture decision is revisited explicitly.
+6. `web/runtime-env.js` is the single point where pinned CDN URLs for shared frontend dependencies are selected and
+   applied. Page markup must not bypass that contract with local file paths or alternate third-party sources.
 
 ## Components
 
@@ -20,6 +36,24 @@ configure CORS on the API to allow the frontend origin.
   domain structs and smart constructors.
 - **Notifications**: feedback and subscription notifications are sent to the Pinguin gRPC service; calls include the
   configured tenant metadata and shared auth token.
+
+## Auth Bootstrap Constraints
+
+The static frontend depends on a strict auth bootstrap order. Treat the following as architectural constraints, not
+implementation details:
+
+1. `web/runtime-env.js` resolves `window.__LOOPAWARE_TAUTH_ORIGIN__` and `window.__LOOPAWARE_API_ORIGIN__`, applies the
+   resolved auth attributes to the parsed auth hosts, and only then loads `mpr-ui` from its pinned CDN URL.
+2. `mpr-header` auth bootstrap must derive its TAuth base URL from either an explicit `tauth-url` attribute or the
+   resolved runtime global. If `tauth-url` is applied after initial render, the auth controller must treat the new
+   value as authoritative and rebind.
+3. Slotted `mpr-user` elements on static pages must include all required auth attributes in the page markup itself:
+   `tauth-tenant-id`, `logout-url`, and `logout-label`. Do not rely on a parent component to backfill required values
+   after the child has already connected.
+4. Public static pages (`/login`, `/privacy`) must boot without logging `mpr-ui.tenant_id_required`, because that error
+   means the user menu connected before receiving required auth configuration.
+5. Browser regression tests must cover both runtime-origin wiring and the “no tenant bootstrap error on public pages”
+   contract before auth-related frontend changes can land.
 
 ## Key flows
 

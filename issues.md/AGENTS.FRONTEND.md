@@ -78,6 +78,9 @@ Guidelines for building the browser front end with semantic web components, Alpi
 
 ### Dependencies & Versions
 
+- Third-party browser dependencies must be loaded from pinned CDN URLs. Any browser dependency that is not delivered by
+  CDN is forbidden.
+- `web/` stores LoopAware-authored frontend assets only; do not add `web/vendor` mirrors or local fallback bundles.
 - CDN dependencies only; no bundlers.
 - Alpine.js: `3.13.5` from `https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/module.esm.js`
 - Google Identity Services: `https://accounts.google.com/gsi/client`
