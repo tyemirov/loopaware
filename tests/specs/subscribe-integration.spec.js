@@ -6,7 +6,6 @@ import { buildAdminUser, ensureSiteForOrigin } from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const cookie = buildSessionCookie(config, adminUser);
 const QUERY_TEXT_CASES = Object.freeze([
   { name: 'cta label', params: { cta: 'Save = Ship' }, assert: async (page) => {
     await expect(page.locator('#mp-subscribe-submit')).toContainText('Save = Ship');
@@ -41,6 +40,10 @@ const QUERY_TEXT_CASES = Object.freeze([
 
 let site;
 
+function buildAdminCookie() {
+  return buildSessionCookie(config, adminUser);
+}
+
 async function openSubscribePage(page, params) {
   const search = new URLSearchParams({ site_id: site.id });
   if (params) {
@@ -56,7 +59,7 @@ async function openSubscribePage(page, params) {
 }
 
 test.beforeAll(async () => {
-  site = await ensureSiteForOrigin(config, cookie, {
+  site = await ensureSiteForOrigin(config, buildAdminCookie(), {
     allowedOrigin: config.baseOrigin,
     ownerEmail: config.adminEmail
   });

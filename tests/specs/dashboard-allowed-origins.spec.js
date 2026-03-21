@@ -7,7 +7,10 @@ import { listSites, updateSite } from '../helpers/api.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const cookie = buildSessionCookie(config, adminUser);
+
+function buildAdminCookie() {
+  return buildSessionCookie(config, adminUser);
+}
 
 const originTypes = [
   {
@@ -39,7 +42,7 @@ const originTypes = [
 let site;
 
 async function resetAllowedOrigins() {
-  await updateSite(config, cookie, site.id, {
+  await updateSite(config, buildAdminCookie(), site.id, {
     widget_allowed_origins: '',
     subscribe_allowed_origins: '',
     traffic_allowed_origins: ''
@@ -60,7 +63,7 @@ async function openSite(page, section) {
 }
 
 async function loadSite() {
-  const payload = await listSites(config, cookie);
+  const payload = await listSites(config, buildAdminCookie());
   const sites = Array.isArray(payload?.sites) ? payload.sites : [];
   const match = sites.find((entry) => entry.id === site.id);
   if (!match) {
@@ -70,7 +73,7 @@ async function loadSite() {
 }
 
 test.beforeAll(async () => {
-  site = await createTestSite(config, cookie, {
+  site = await createTestSite(config, buildAdminCookie(), {
     name: buildUniqueName('Allowed Origins Site'),
     allowedOrigin: buildUniqueOrigin('allowed-origins'),
     ownerEmail: config.adminEmail
@@ -98,7 +101,7 @@ for (const originType of originTypes) {
   test(`${originType.name} allowed origins rehydrate`, async ({ page }) => {
     const firstOrigin = `http://${originType.name}-first-${Date.now()}.example.com`;
     const secondOrigin = `http://${originType.name}-second-${Date.now()}.example.com`;
-    await updateSite(config, cookie, site.id, {
+    await updateSite(config, buildAdminCookie(), site.id, {
       [originType.apiField]: `${firstOrigin} ${secondOrigin}`
     });
     await openSite(page, originType.name);
@@ -111,7 +114,7 @@ for (const originType of originTypes) {
   test(`${originType.name} allowed origins remove persists`, async ({ page }) => {
     const firstOrigin = `http://${originType.name}-remove-a-${Date.now()}.example.com`;
     const secondOrigin = `http://${originType.name}-remove-b-${Date.now()}.example.com`;
-    await updateSite(config, cookie, site.id, {
+    await updateSite(config, buildAdminCookie(), site.id, {
       [originType.apiField]: `${firstOrigin} ${secondOrigin}`
     });
     await openSite(page, originType.name);

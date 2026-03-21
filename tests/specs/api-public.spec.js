@@ -14,7 +14,10 @@ import { buildSubscriptionConfirmationToken } from "../helpers/subscriptionToken
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const adminCookie = buildSessionCookie(config, adminUser);
+
+function buildAdminCookie() {
+  return buildSessionCookie(config, adminUser);
+}
 
 let clientIPCounter = 1;
 function nextClientIP() {
@@ -24,7 +27,7 @@ function nextClientIP() {
 }
 
 async function createPublicSite(label) {
-  return createTestSite(config, adminCookie, {
+  return createTestSite(config, buildAdminCookie(), {
     name: buildUniqueName(label),
     allowedOrigin: buildUniqueOrigin(label),
     ownerEmail: config.adminEmail
@@ -471,7 +474,7 @@ test.describe("visit collection endpoint", () => {
   let site;
 
   test.beforeAll(async () => {
-    site = await createTestSite(config, adminCookie, {
+    site = await createTestSite(config, buildAdminCookie(), {
       name: buildUniqueName("Visits"),
       allowedOrigin: buildUniqueOrigin("visits"),
       ownerEmail: config.adminEmail

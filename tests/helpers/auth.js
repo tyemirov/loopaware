@@ -38,6 +38,7 @@ export function buildSessionCookie(config, options) {
     email: options.email,
     displayName: options.displayName,
     avatarUrl: options.avatarUrl,
+    userId: options.userId,
     issuer: options.issuer
   });
   const baseURL = new URL(config.baseURL);

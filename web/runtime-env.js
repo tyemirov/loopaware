@@ -3,7 +3,8 @@
   var runtimeEnvDefaults = {
     envName: "default",
     apiOrigin: "",
-    tauthOrigin: ""
+    tauthOrigin: "",
+    siteWidgetSiteId: ""
   };
   var cdnAssetUrls = Object.freeze({
     mprUiStyle: "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.2/mpr-ui.css",
@@ -194,8 +195,19 @@
   }
 
   /**
+   * @param {any} value
+   * @param {string} label
+   */
+  function requireOptionalString(value, label) {
+    if (typeof value === "undefined" || value === null) {
+      return "";
+    }
+    return requireString(value, label).trim();
+  }
+
+  /**
    * @param {string} text
-   * @returns {{ environments: Array<{ name: string, hostnames: string[], services: { apiOrigin: string, tauthOrigin: string } }> }}
+   * @returns {{ environments: Array<{ name: string, hostnames: string[], services: { apiOrigin: string, tauthOrigin: string, siteWidgetSiteId: string } }> }}
    */
   function parseConfig(text) {
     var cleaned = stripBom(text).trim();
@@ -223,7 +235,7 @@
 
     var environments = requireArray(parsed.environments, "/config.yml environments");
 
-    /** @type {Array<{ name: string, hostnames: string[], services: { apiOrigin: string, tauthOrigin: string } }>} */
+    /** @type {Array<{ name: string, hostnames: string[], services: { apiOrigin: string, tauthOrigin: string, siteWidgetSiteId: string } }>} */
     var normalized = [];
     for (var i = 0; i < environments.length; i += 1) {
       var env = environments[i];
@@ -251,6 +263,10 @@
       }
       var apiOrigin = requireOrigin(env.services.apiOrigin, "environments[" + String(i) + "].services.apiOrigin");
       var tauthOrigin = requireOrigin(env.services.tauthOrigin, "environments[" + String(i) + "].services.tauthOrigin");
+      var siteWidgetSiteId = requireOptionalString(
+        env.services.siteWidgetSiteId,
+        "environments[" + String(i) + "].services.siteWidgetSiteId"
+      );
 
       normalized.push({
         name: name,
@@ -258,6 +274,7 @@
         services: {
           apiOrigin: apiOrigin,
           tauthOrigin: tauthOrigin,
+          siteWidgetSiteId: siteWidgetSiteId,
         },
       });
     }
@@ -288,10 +305,11 @@
     var pageOrigin = String(window.location && window.location.origin ? window.location.origin : "");
 
     var envName = runtimeEnvDefaults.envName;
-    /** @type {{ apiOrigin: string, tauthOrigin: string }} */
+    /** @type {{ apiOrigin: string, tauthOrigin: string, siteWidgetSiteId: string }} */
     var defaults = {
       apiOrigin: runtimeEnvDefaults.apiOrigin,
-      tauthOrigin: runtimeEnvDefaults.tauthOrigin
+      tauthOrigin: runtimeEnvDefaults.tauthOrigin,
+      siteWidgetSiteId: runtimeEnvDefaults.siteWidgetSiteId
     };
 
     for (var i = 0; i < config.environments.length; i += 1) {
@@ -327,6 +345,12 @@
       throw new Error("runtime_env: resolve_env.failed: invalid tauth_origin format in query string");
     }
 
+    var siteWidgetSiteIdParam = getQueryParam(search, "site_widget_site_id");
+    var siteWidgetSiteId = siteWidgetSiteIdParam !== null ? siteWidgetSiteIdParam.trim() : defaults.siteWidgetSiteId;
+    if (!siteWidgetSiteId) {
+      siteWidgetSiteId = "";
+    }
+
     // Treat same-origin as the default "single-origin" mode, so the app doesn't
     // generate unnecessary api_origin params in snippets.
     if (pageOrigin) {
@@ -350,6 +374,7 @@
       envName: envName,
       apiOrigin: apiOrigin,
       tauthOrigin: tauthOrigin,
+      siteWidgetSiteId: siteWidgetSiteId,
     };
   }
 
@@ -361,6 +386,7 @@
     window.__LOOPAWARE_RUNTIME_ENV__ = resolved.envName;
     window.__LOOPAWARE_API_ORIGIN__ = resolved.apiOrigin;
     window.__LOOPAWARE_TAUTH_ORIGIN__ = resolved.tauthOrigin;
+    window.__LOOPAWARE_SITE_WIDGET_SITE_ID__ = resolved.siteWidgetSiteId;
     window.__LOOPAWARE_CDN_ASSET_URLS__ = cdnAssetUrls;
 
     var mprUiStyle = document.getElementById("mpr-ui-style");

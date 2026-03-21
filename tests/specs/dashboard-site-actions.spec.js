@@ -8,22 +8,24 @@ const config = resolveTestConfig();
 const adminUser = buildAdminUser(config, { displayName: 'Admin Example' });
 const baseOrigin = buildBaseOrigin(config);
 
-let cookie;
 let primarySite;
 let searchSite;
 
+function buildAdminCookie() {
+  return buildSessionCookie(config, adminUser);
+}
+
 test.beforeAll(async () => {
-  cookie = buildSessionCookie(config, adminUser);
   const primaryOrigin = buildUniqueOrigin('primary');
   const searchOrigin = buildUniqueOrigin('search');
   const primaryName = buildUniqueName('Primary Site');
   const searchName = buildUniqueName('Searchable Site');
-  primarySite = await createTestSite(config, cookie, {
+  primarySite = await createTestSite(config, buildAdminCookie(), {
     name: primaryName,
     allowedOrigin: primaryOrigin,
     ownerEmail: config.adminEmail
   });
-  searchSite = await createTestSite(config, cookie, {
+  searchSite = await createTestSite(config, buildAdminCookie(), {
     name: searchName,
     allowedOrigin: searchOrigin,
     ownerEmail: config.adminEmail

@@ -162,6 +162,8 @@ origin. The dashboard and login pages call `/api` and `/auth` relative to the fr
 deployments should use a reverse proxy or update the static HTML in `web/` to point at those services.
 The tracked runtime host mapping lives in `configs/config.frontend.yml`; static deployments must publish that file at
 `/config.yml` for `web/runtime-env.js` (`./scripts/up.sh` and the GitHub Pages workflow do this automatically, and the test stack publishes the same file inside its test-owned web root).
+Each environment may also define `services.siteWidgetSiteId` there to bootstrap the first-party feedback widget on
+`/login` and `/app` without hard-coding a site UUID into the static HTML.
 
 ## REST API
 

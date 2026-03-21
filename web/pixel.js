@@ -2,6 +2,11 @@
 (function(){
   var endpoint = "/public/visits";
   var storageKey = "loopaware_visitor_id";
+  // Public embeds should only expose site_id; LoopAware-owned script hosts map to the API internally.
+  var loopAwarePublicAPIOriginsByScriptOrigin = {
+    "https://loopaware.mprlab.com": "https://loopaware-api.mprlab.com",
+    "https://tyemirov.github.io": "https://loopaware-api.mprlab.com"
+  };
 
   function resolveScriptTag() {
     var script = document.currentScript;
@@ -104,30 +109,51 @@
     return null;
   }
 
+  function resolveInternalAPIOrigin(scriptTag) {
+    if (!scriptTag || !scriptTag.src) {
+      return null;
+    }
+    try {
+      var scriptLink = document.createElement("a");
+      scriptLink.href = scriptTag.src;
+      if (!scriptLink.protocol || !scriptLink.host) {
+        return null;
+      }
+      var scriptOrigin = scriptLink.protocol + "//" + scriptLink.host;
+      return loopAwarePublicAPIOriginsByScriptOrigin[scriptOrigin] || null;
+    } catch(parseError) {
+      return null;
+    }
+  }
+
   function resolveAPIOrigin(scriptTag) {
     var candidate = resolveAPIOriginCandidate(scriptTag);
-    if (!candidate) {
-      // Fallback to script origin is allowed as a core behavioral contract
-      if (scriptTag && scriptTag.src) {
-        try {
-          var scriptLink = document.createElement("a");
-          scriptLink.href = scriptTag.src;
-          if (scriptLink.protocol && scriptLink.host) {
-            return scriptLink.protocol + "//" + scriptLink.host;
-          }
-        } catch(originError){}
+    if (candidate) {
+      var normalizedCandidate = normalizeAPIOrigin(candidate);
+      if (!normalizedCandidate) {
+        throw new Error("pixel.js: resolve_origin.failed: invalid api_origin format");
       }
-      // Fallback to current host is allowed as a core behavioral contract for the pixel
-      if (window.location && window.location.protocol && window.location.host) {
-        return window.location.protocol + "//" + window.location.host;
-      }
-      throw new Error("pixel.js: resolve_origin.failed: api_origin not provided and cannot be resolved");
+      return normalizedCandidate;
     }
-    var normalized = normalizeAPIOrigin(candidate);
-    if (!normalized) {
-      throw new Error("pixel.js: resolve_origin.failed: invalid api_origin format");
+    var internalOrigin = resolveInternalAPIOrigin(scriptTag);
+    if (internalOrigin) {
+      return internalOrigin;
     }
-    return normalized;
+    // Fallback to script origin is allowed as a core behavioral contract
+    if (scriptTag && scriptTag.src) {
+      try {
+        var scriptLink = document.createElement("a");
+        scriptLink.href = scriptTag.src;
+        if (scriptLink.protocol && scriptLink.host) {
+          return scriptLink.protocol + "//" + scriptLink.host;
+        }
+      } catch(originError){}
+    }
+    // Fallback to current host is allowed as a core behavioral contract for the pixel
+    if (window.location && window.location.protocol && window.location.host) {
+      return window.location.protocol + "//" + window.location.host;
+    }
+    throw new Error("pixel.js: resolve_origin.failed: api_origin not provided and cannot be resolved");
   }
 
   function resolveEndpoint(script) {

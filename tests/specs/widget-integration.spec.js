@@ -8,9 +8,12 @@ import { parseRgb } from '../helpers/browser.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const cookie = buildSessionCookie(config, adminUser);
 
 let site;
+
+function buildAdminCookie() {
+  return buildSessionCookie(config, adminUser);
+}
 
 async function openWidgetPage(page, siteId, options) {
   const resolvedOptions = options || {};
@@ -25,14 +28,14 @@ async function openWidgetPage(page, siteId, options) {
 }
 
 test.beforeAll(async () => {
-  site = await ensureSiteForOrigin(config, cookie, {
+  site = await ensureSiteForOrigin(config, buildAdminCookie(), {
     allowedOrigin: config.baseOrigin,
     ownerEmail: config.adminEmail
   });
 });
 
 test.beforeEach(async () => {
-  await updateSite(config, cookie, site.id, {
+  await updateSite(config, buildAdminCookie(), site.id, {
     widget_bubble_side: 'right',
     widget_bubble_bottom_offset: 16
   });
@@ -113,7 +116,7 @@ test('widget uses dark theme bubble color', async ({ page }) => {
 });
 
 test('widget placement honors left side', async ({ page }) => {
-  await updateSite(config, cookie, site.id, {
+  await updateSite(config, buildAdminCookie(), site.id, {
     widget_bubble_side: 'left',
     widget_bubble_bottom_offset: 48
   });
@@ -124,7 +127,7 @@ test('widget placement honors left side', async ({ page }) => {
 });
 
 test('widget placement applies custom bottom offset', async ({ page }) => {
-  await updateSite(config, cookie, site.id, {
+  await updateSite(config, buildAdminCookie(), site.id, {
     widget_bubble_side: 'left',
     widget_bubble_bottom_offset: 48
   });
@@ -134,7 +137,7 @@ test('widget placement applies custom bottom offset', async ({ page }) => {
 });
 
 test('widget panel offset tracks bubble offset', async ({ page }) => {
-  await updateSite(config, cookie, site.id, {
+  await updateSite(config, buildAdminCookie(), site.id, {
     widget_bubble_side: 'left',
     widget_bubble_bottom_offset: 48
   });
