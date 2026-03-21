@@ -148,7 +148,24 @@ test('login page loads pinned CDN assets for auth UI', async ({ page }) => {
   await expectPinnedCdnAssets(page);
 });
 
-test('login page bootstraps the landing widget', async ({ page }) => {
+test('login page does not bootstrap the landing widget when runtime widget site is unset', async ({ page }) => {
+  const widgetRequests = [];
+  page.on('request', (request) => {
+    const url = request.url();
+    if (url.includes('/widget.js') || url.includes('/public/widget-config')) {
+      widgetRequests.push(url);
+    }
+  });
+
+  await openPageWithoutSession(page, '/login');
+  await expect(page.locator('mpr-header > header.mpr-header')).toBeVisible();
+  await expect(page.locator('mpr-footer footer.mpr-footer')).toBeVisible();
+  await expect(page.locator('#mp-feedback-bubble')).toHaveCount(0);
+  expect(widgetRequests).toEqual([]);
+  expect(await page.evaluate(() => String(window['__LOOPAWARE_SITE_WIDGET_SITE_ID__'] || ''))).toBe('');
+});
+
+test('login page bootstraps the landing widget when runtime widget site is configured', async ({ page }) => {
   const widgetRequests = [];
   const consoleErrors = [];
   page.on('request', (request) => {
@@ -163,11 +180,12 @@ test('login page bootstraps the landing widget', async ({ page }) => {
     }
   });
 
-  await openPageWithoutSession(page, '/login');
+  await openPageWithoutSession(page, `/login?site_widget_site_id=${encodeURIComponent(SITE_WIDGET_SITE_ID)}`);
   await expect(page.locator('mpr-header > header.mpr-header')).toBeVisible();
   await expect(page.locator('mpr-footer footer.mpr-footer')).toBeVisible();
   await expect(page.locator('#mp-feedback-bubble')).toBeVisible();
 
+  expect(await page.evaluate(() => String(window['__LOOPAWARE_SITE_WIDGET_SITE_ID__'] || ''))).toBe(SITE_WIDGET_SITE_ID);
   expect(widgetRequests.some((url) => url.includes(`/widget.js?site_id=${SITE_WIDGET_SITE_ID}`))).toBe(true);
   expect(widgetRequests.some((url) => url.includes('api_origin='))).toBe(false);
   expect(widgetRequests.some((url) => url.includes(`/public/widget-config?site_id=${SITE_WIDGET_SITE_ID}`))).toBe(true);
@@ -176,7 +194,7 @@ test('login page bootstraps the landing widget', async ({ page }) => {
   ).toHaveLength(0);
 });
 
-test('dashboard bootstraps the site widget', async ({ page }) => {
+test('dashboard bootstraps the site widget when runtime widget site is configured', async ({ page }) => {
   const widgetRequests = [];
   const consoleErrors = [];
   page.on('request', (request) => {
@@ -191,9 +209,10 @@ test('dashboard bootstraps the site widget', async ({ page }) => {
     }
   });
 
-  await openPageWithSession(page, '/app');
+  await openPageWithSession(page, `/app?site_widget_site_id=${encodeURIComponent(SITE_WIDGET_SITE_ID)}`);
   await expect(page.locator('#mp-feedback-bubble')).toBeVisible();
 
+  expect(await page.evaluate(() => String(window['__LOOPAWARE_SITE_WIDGET_SITE_ID__'] || ''))).toBe(SITE_WIDGET_SITE_ID);
   expect(widgetRequests.some((url) => url.includes(`/widget.js?site_id=${SITE_WIDGET_SITE_ID}`))).toBe(true);
   expect(widgetRequests.some((url) => url.includes('api_origin='))).toBe(false);
   expect(widgetRequests.some((url) => url.includes(`/public/widget-config?site_id=${SITE_WIDGET_SITE_ID}`))).toBe(true);

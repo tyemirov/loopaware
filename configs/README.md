@@ -14,6 +14,7 @@ Notes:
 - `config-audit` validates tracked `.env.*.example` templates when local `.env.*` files are absent. Runtime still requires the real `.env.*` files.
 - `configs/config.loopaware.yml` is the tracked LoopAware admin-roster config used by the server `--config` flag.
 - `configs/config.frontend.yml` is the tracked frontend runtime config source; deployments publish it as `/config.yml`.
+  It also carries per-environment frontend service settings such as `siteWidgetSiteId` for the first-party landing/dashboard widget.
 - Test-only compose files and env fixtures do not belong in `configs/`; keep them under `tests/`.
 
 ## Local compose (`docker-compose.yml`)

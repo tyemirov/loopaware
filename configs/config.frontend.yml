@@ -8,6 +8,7 @@ environments:
     services:
       apiOrigin: https://loopaware-api.mprlab.com
       tauthOrigin: https://tauth-api.mprlab.com
+      siteWidgetSiteId: a3222433-92ec-473a-9255-0797226c2273
   - name: development
     hostnames:
       - computercat.tyemirov.net
@@ -16,3 +17,4 @@ environments:
     services:
       apiOrigin: ""
       tauthOrigin: ""
+      siteWidgetSiteId: ""

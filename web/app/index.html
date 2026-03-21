@@ -18,7 +18,8 @@
       (function () {
         var widgetScript = document.getElementById("site-widget-script");
         if (!widgetScript) return;
-        var siteId = "a7ea8b8a-ff37-4a99-81fa-09a5952f83a9";
+        var siteId = String(window.__LOOPAWARE_SITE_WIDGET_SITE_ID__ || "").trim();
+        if (!siteId) return;
         widgetScript.src = "/widget.js?site_id=" + encodeURIComponent(siteId);
       })();
     </script>
