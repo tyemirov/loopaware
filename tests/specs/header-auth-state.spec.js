@@ -7,8 +7,8 @@ import { installTauthStub } from '../helpers/tauthStub.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const MPR_UI_STYLE_URL = 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.1/mpr-ui.css';
-const MPR_UI_SCRIPT_URL = 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.1/mpr-ui.js';
+const MPR_UI_STYLE_URL = 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.2/mpr-ui.css';
+const MPR_UI_SCRIPT_URL = 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.2/mpr-ui.js';
 const TAUTH_SCRIPT_URL = 'https://cdn.jsdelivr.net/gh/tyemirov/TAuth@v1.0.1/web/tauth.js';
 
 /**
@@ -118,6 +118,31 @@ test('dashboard preserves authenticated session state while tauth script load is
 test('login page loads pinned CDN assets for auth UI', async ({ page }) => {
   await openPageWithoutSession(page, '/login');
   await expectPinnedCdnAssets(page);
+});
+
+test('login page does not bootstrap the landing widget', async ({ page }) => {
+  const widgetRequests = [];
+  const consoleErrors = [];
+  page.on('request', (request) => {
+    const url = request.url();
+    if (url.includes('/widget.js') || url.includes('/public/widget-config')) {
+      widgetRequests.push(url);
+    }
+  });
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  await openPageWithoutSession(page, '/login');
+  await expect(page.locator('mpr-header > header.mpr-header')).toBeVisible();
+  await expect(page.locator('mpr-footer footer.mpr-footer')).toBeVisible();
+
+  expect(widgetRequests).toEqual([]);
+  expect(
+    consoleErrors.filter((message) => message.includes('widget.js: initialize_failed') || message.includes('widget_config_forbidden'))
+  ).toHaveLength(0);
 });
 
 test('login page applies configured tauth origin to the header', async ({ page }) => {

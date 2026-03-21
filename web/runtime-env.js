@@ -6,8 +6,8 @@
     tauthOrigin: ""
   };
   var cdnAssetUrls = Object.freeze({
-    mprUiStyle: "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.1/mpr-ui.css",
-    mprUiScript: "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.1/mpr-ui.js",
+    mprUiStyle: "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.2/mpr-ui.css",
+    mprUiScript: "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.2/mpr-ui.js",
     tauthScript: "https://cdn.jsdelivr.net/gh/tyemirov/TAuth@v1.0.1/web/tauth.js"
   });
 
