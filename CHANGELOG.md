@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.4] - 2026-03-21
+
+### Features ✨
+- Add `siteWidgetSiteId` support in frontend runtime config to bootstrap the first-party feedback widget on `/login` and `/app`.
+- Internalize API origin mapping in widget and subscribe scripts to avoid exposing `api_origin` in customer snippets.
+
+### Improvements ⚙️
+- Restore site widget bootstrap on LoopAware-owned login and dashboard pages.
+- Refactor test helpers to generate fresh session cookies dynamically for more reliable authenticated Playwright tests.
+- Update dashboard snippets to omit `api_origin` ensuring secure embeds for customers.
+- Enhance Playwright coverage for authenticated and unauthenticated header auth states with a new header-auth state machine.
+
+### Bug Fixes 🐛
+- Fix stale server-side session cookie reuse causing intermittent `401 unauthorized` errors in authenticated integration tests.
+- Resolve customer embed issues requiring customers to copy internal API hosts by internalizing the API origin resolution.
+
+### Testing 🧪
+- Expanded Playwright tests to cover unauthenticated `/app` redirect, authenticated `/login` redirect, and dashboard avatar-dropdown UI states.
+- Added focused test coverage asserting that customer snippets do not expose `api_origin`.
+- Refreshed integration test sessions with userId-based JWT generation for stability after worker restarts.
+
+### Docs 📚
+- Documented `siteWidgetSiteId` configuration in `configs/config.frontend.yml` and deployment notes.
+- Updated config README to describe frontend service settings including `siteWidgetSiteId` for the widget bootstrap.
+
 ## [v0.1.3] - 2026-03-21
 
 ### Features ✨
@@ -99,7 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WhatsApp in-app browser traffic is no longer misclassified as bot traffic.
 - Widget API origin resolution now falls back to HTTPS-aware behavior in proxy deployments that omit `X-Forwarded-Proto`.
 
-[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.1.4...HEAD
+[v0.1.4]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.4
 [v0.1.3]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.3
 [v0.1.2]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.2
 [v0.1.1]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.1
