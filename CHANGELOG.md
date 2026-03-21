@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.3] - 2026-03-21
+
+### Features ✨
+- Enforce CDN-only delivery for all third-party frontend dependencies, removing vendored `mpr-ui` assets.
+- Pin third-party browser dependencies (`mpr-ui`, `TAuth`) to specific CDN URLs for reproducible deployments.
+- Add new auth bootstrap architectural constraints to prevent tenant bootstrap errors on public pages.
+
+### Improvements ⚙️
+- Prevent auth redirect flicker during session recovery for smoother user experience.
+- Defer UI bootstrap until TAuth script is ready to avoid race conditions.
+- Update `mpr-ui` to version 3.8.2 and remove bundled login widget bootstrap.
+- Enhance test helpers with delay options to simulate various authentication bootstrap delays.
+- Add browser regression tests to verify pinned CDN asset usage and auth state management during delayed bootstrapping.
+
+### Bug Fixes 🐛
+- Fix login page to not bootstrap the landing widget, avoiding unnecessary network requests and console errors.
+
+### Testing 🧪
+- Add comprehensive Playwright tests covering:
+  - Auth state preservation during TAuth script/load delays.
+  - Correct loading of pinned CDN assets on login pages.
+  - Proper handling of silent session bootstrap and current user delays.
+  - Enforcement of CDN-only frontend dependency usage with no local vendor assets.
+
+### Docs 📚
+- Update architecture documentation to specify strict frontend dependency delivery rules (CDN-only).
+- Clarify frontend deployment and auth bootstrap constraints.
+- Enhance README and issue guidelines with requirements to use pinned CDN URLs for third-party assets.
+- Document changes in frontend auth bootstrap strategy and runtime environment configuration.
+
+
 ## [v0.1.2] - 2026-03-20
 
 ### Features ✨
@@ -68,7 +99,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WhatsApp in-app browser traffic is no longer misclassified as bot traffic.
 - Widget API origin resolution now falls back to HTTPS-aware behavior in proxy deployments that omit `X-Forwarded-Proto`.
 
-[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.1.3...HEAD
+[v0.1.3]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.3
 [v0.1.2]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.2
 [v0.1.1]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.1
 [v0.1.0]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.0
