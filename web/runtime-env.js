@@ -73,6 +73,18 @@
 
   /**
    * @param {Element | null} element
+   * @param {string} eventName
+   * @param {() => void} callback
+   */
+  function addOnceListener(element, eventName, callback) {
+    if (!element || typeof element.addEventListener !== "function") {
+      return;
+    }
+    element.addEventListener(eventName, callback, { once: true });
+  }
+
+  /**
+   * @param {Element | null} element
    * @param {string} url
    */
   function setAssetUrl(element, url) {
@@ -363,14 +375,25 @@
       }
       setAssetUrl(mprUiScript, cdnAssetUrls.mprUiScript);
     }
-    if (!tauthScript) {
+    function failScriptLoad(scriptName, url) {
+      throw new Error("runtime_env." + scriptName + "_load_failed: failed to load " + url);
+    }
+    function loadMprUiWhenReady() {
       whenDocumentReady(loadMprUiScript);
+    }
+    if (!tauthScript) {
+      loadMprUiWhenReady();
       return;
     }
-    if (typeof window.initAuthClient !== "function") {
-      setAssetUrl(tauthScript, cdnAssetUrls.tauthScript);
+    if (typeof window.initAuthClient === "function") {
+      loadMprUiWhenReady();
+      return;
     }
-    whenDocumentReady(loadMprUiScript);
+    addOnceListener(tauthScript, "load", loadMprUiWhenReady);
+    addOnceListener(tauthScript, "error", function () {
+      failScriptLoad("tauth_script", cdnAssetUrls.tauthScript);
+    });
+    setAssetUrl(tauthScript, cdnAssetUrls.tauthScript);
   } catch (error) {
     var err = error instanceof Error ? error : new Error(String(error));
     var message = "LoopAware frontend bootstrap failed.\n\n" + String(err && err.message ? err.message : err);

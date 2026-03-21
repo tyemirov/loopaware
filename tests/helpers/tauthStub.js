@@ -2,13 +2,16 @@
 
 /**
  * @param {string} sessionCookieName
- * @param {{ silentBootstrap?: boolean }} [options]
+ * @param {{ silentBootstrap?: boolean, bootstrapDelayMs?: number }} [options]
  * @returns {string}
  */
 export function renderTauthStub(sessionCookieName, options) {
   const resolvedCookieName = sessionCookieName || 'app_session';
   const resolvedOptions = options || {};
   const silentBootstrap = resolvedOptions.silentBootstrap === true;
+  const bootstrapDelayMs = Number.isFinite(resolvedOptions.bootstrapDelayMs)
+    ? Math.max(0, Number(resolvedOptions.bootstrapDelayMs))
+    : 0;
   return `(() => {
   if (typeof window === 'undefined') {
     return;
@@ -17,6 +20,7 @@ export function renderTauthStub(sessionCookieName, options) {
   var runtimeKey = '__loopawareTestTauthRuntime';
   var sessionCookieName = '${resolvedCookieName}';
   var silentBootstrap = ${silentBootstrap ? 'true' : 'false'};
+  var bootstrapDelayMs = ${bootstrapDelayMs};
 
   var runtime = window[runtimeKey];
   if (!runtime || typeof runtime !== 'object') {
@@ -129,18 +133,28 @@ export function renderTauthStub(sessionCookieName, options) {
   function initAuthClient(options) {
     runtime.options = options || null;
     var profile = hydrateProfile();
-    if (silentBootstrap) {
-      return Promise.resolve();
-    }
-    try {
-      if (profile && options && typeof options.onAuthenticated === 'function') {
-        options.onAuthenticated(profile);
+    return new Promise(function (resolve) {
+      var finalize = function () {
+        if (silentBootstrap) {
+          resolve();
+          return;
+        }
+        try {
+          if (profile && options && typeof options.onAuthenticated === 'function') {
+            options.onAuthenticated(profile);
+          }
+          if (!profile && options && typeof options.onUnauthenticated === 'function') {
+            options.onUnauthenticated();
+          }
+        } catch (error) {}
+        resolve();
+      };
+      if (bootstrapDelayMs > 0) {
+        window.setTimeout(finalize, bootstrapDelayMs);
+        return;
       }
-      if (!profile && options && typeof options.onUnauthenticated === 'function') {
-        options.onUnauthenticated();
-      }
-    } catch (error) {}
-    return Promise.resolve();
+      finalize();
+    });
   }
 
   function apiFetch(url, initOptions) {
@@ -220,7 +234,7 @@ export function renderTauthStub(sessionCookieName, options) {
 /**
  * @param {import('@playwright/test').Page} page
  * @param {{ sessionCookieName?: string }} config
- * @param {{ silentBootstrap?: boolean, delayMs?: number }} [options]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number }} [options]
  * @returns {Promise<void>}
  */
 export async function installTauthStub(page, config, options) {

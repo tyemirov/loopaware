@@ -41,7 +41,7 @@ window.google.accounts.id = {
 /**
  * @param {import('@playwright/test').Page} page
  * @param {string} path
- * @param {{ silentBootstrap?: boolean, delayMs?: number }} [tauthOptions]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number }} [tauthOptions]
  * @returns {Promise<void>}
  */
 async function openPageWithoutSession(page, path, tauthOptions) {
@@ -53,7 +53,7 @@ async function openPageWithoutSession(page, path, tauthOptions) {
 /**
  * @param {import('@playwright/test').Page} page
  * @param {string} path
- * @param {{ silentBootstrap?: boolean, delayMs?: number }} [tauthOptions]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number }} [tauthOptions]
  * @returns {Promise<void>}
  */
 async function openPageWithSession(page, path, tauthOptions) {
@@ -102,11 +102,17 @@ test('login page redirects authenticated users after silent session recovery', a
   await expect(page).toHaveURL(/\/app\/?$/);
 });
 
-test('login page renders header while tauth bootstrap is delayed', async ({ page }) => {
-  await openPageWithoutSession(page, '/login', { delayMs: 2500 });
+test('login page renders header while tauth session bootstrap is delayed', async ({ page }) => {
+  await openPageWithoutSession(page, '/login', { bootstrapDelayMs: 2500 });
   await expect(page.locator('mpr-header > header.mpr-header')).toBeVisible({ timeout: 2000 });
   await expect(page.locator('mpr-footer footer.mpr-footer')).toBeVisible({ timeout: 2000 });
   await expect(page).toHaveURL(/\/login\/?$/);
+});
+
+test('dashboard preserves authenticated session state while tauth script load is delayed', async ({ page }) => {
+  await openPageWithSession(page, '/app', { delayMs: 2500 });
+  await expect(page).toHaveURL(/\/app\/?$/);
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
 });
 
 test('login page loads pinned CDN assets for auth UI', async ({ page }) => {
