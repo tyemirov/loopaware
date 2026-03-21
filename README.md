@@ -38,7 +38,7 @@ Backend (`cmd/server`):
 | Variable               | Required | Description                                                 |
 |------------------------|----------|-------------------------------------------------------------|
 | `SESSION_SECRET`       | ✅        | 32+ byte secret for subscription confirmation tokens        |
-| `TAUTH_BASE_URL`       | ✅        | Base URL for the TAuth service (serves `/tauth.js`)         |
+| `TAUTH_BASE_URL`       | ✅        | Base URL for the TAuth API                                  |
 | `TAUTH_TENANT_ID`      | ✅        | Tenant identifier configured in TAuth                       |
 | `TAUTH_JWT_SIGNING_KEY`| ✅        | JWT signing key used to validate `app_session`              |
 | `TAUTH_SESSION_COOKIE_NAME` | ⚙️   | Session cookie name set by TAuth (defaults to `app_session`) |
@@ -130,6 +130,9 @@ Ensure the TAuth service is running at `TAUTH_BASE_URL` with a tenant that match
 Administrators listed in `configs/config.loopaware.yml` can manage every site; other users see only the sites they own
 or originally created with their Google account.
 
+The static frontend pins `mpr-ui` and `tauth.js` through CDN URLs in `web/runtime-env.js`. Do not copy third-party
+browser bundles into `web/`; non-CDN frontend dependencies are forbidden by architecture.
+
 ## Authentication flow
 
 1. Users visit `/login` (automatic redirect from protected routes).
@@ -147,6 +150,11 @@ LoopAware’s frontend lives in `web/` and is hosted separately (CDN or reverse 
 - `/app` — dashboard shell (data loaded via `/api/*`).
 - `/subscriptions/confirm` and `/subscriptions/unsubscribe` — email link pages.
 - `/widget.js`, `/subscribe.js`, `/pixel.js` — embeddable JavaScript assets.
+
+The repository does not vendor third-party browser dependencies into `web/`. External JavaScript and CSS, including UI
+libraries, must be referenced through pinned CDN URLs. Any browser dependency that is not delivered by CDN is
+forbidden. `web/` is reserved for LoopAware-authored assets only, so deployments, cache behavior, and browser tests
+exercise the same delivery path used in production.
 
 Set `PUBLIC_BASE_URL` to the frontend origin so the API emits correct links and CORS allows browser access. Use
 absolute `data-api-origin` attributes (or `api_origin` query params) on embed scripts when the API runs on a different

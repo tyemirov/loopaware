@@ -15,6 +15,7 @@
   var GOOGLE_SIGNIN_GATE_POLL_INTERVAL_MS = 100;
   var GOOGLE_SIGNIN_GATE_SLOW_POLL_INTERVAL_MS = 1000;
   var LOGOUT_REQUEST_TIMEOUT_MS = 2000;
+  var INITIAL_APP_AUTH_SETTLE_TIMEOUT_MS = 3000;
   var APP_PATHNAME = '/app';
   var LOGIN_PATHNAME = '/login';
   var store = window.__loopawareHeaderAuthStore;
@@ -36,6 +37,21 @@
       status: status,
       source: source || ''
     };
+  }
+
+  function resolveAuthSettleState(headerHost, shouldCreate) {
+    if (!headerHost) {
+      return null;
+    }
+    var settleState = headerHost.__loopawareAuthSettleState;
+    if (!settleState && shouldCreate) {
+      settleState = {
+        settled: false,
+        timeoutId: 0
+      };
+      headerHost.__loopawareAuthSettleState = settleState;
+    }
+    return settleState || null;
   }
 
   function resolveLogoutOverlay() {
@@ -674,6 +690,42 @@
     return !!(headerHost && typeof headerHost.getAttribute === 'function' && headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true');
   }
 
+  function markAppAuthSettled(headerHost) {
+    var settleState = resolveAuthSettleState(headerHost, false);
+    if (!settleState) {
+      return;
+    }
+    settleState.settled = true;
+    if (settleState.timeoutId) {
+      window.clearTimeout(settleState.timeoutId);
+      settleState.timeoutId = 0;
+    }
+  }
+
+  function isAppAuthSettled(headerHost) {
+    if (!shouldRedirectToLogin(headerHost)) {
+      return true;
+    }
+    var settleState = resolveAuthSettleState(headerHost, false);
+    return !!(settleState && settleState.settled === true);
+  }
+
+  function ensureAppAuthSettling(headerHost) {
+    if (!shouldRedirectToLogin(headerHost)) {
+      return null;
+    }
+    var settleState = resolveAuthSettleState(headerHost, true);
+    if (settleState.settled === true || settleState.timeoutId) {
+      return settleState;
+    }
+    settleState.timeoutId = window.setTimeout(function () {
+      settleState.timeoutId = 0;
+      settleState.settled = true;
+      syncFromObservedState(headerHost);
+    }, INITIAL_APP_AUTH_SETTLE_TIMEOUT_MS);
+    return settleState;
+  }
+
   function redirectTo(pathname) {
     if (!window.location || typeof window.location.assign !== 'function') {
       return;
@@ -747,6 +799,18 @@
     var observedSnapshot = resolveObservedSnapshot(headerHost);
     var previousSnapshot = store.snapshot;
     if (
+      observedSnapshot.status === AUTH_STATE_VALUES.unauthenticated &&
+      shouldRedirectToLogin(headerHost) &&
+      !isAppAuthSettled(headerHost) &&
+      (!previousSnapshot || previousSnapshot.status === AUTH_STATE_VALUES.syncing)
+    ) {
+      ensureAppAuthSettling(headerHost);
+      return commitSnapshot(headerHost, createSnapshot(AUTH_STATE_VALUES.syncing, 'dom-pending'));
+    }
+    if (observedSnapshot.status === AUTH_STATE_VALUES.authenticated) {
+      markAppAuthSettled(headerHost);
+    }
+    if (
       observedSnapshot.status === AUTH_STATE_VALUES.syncing &&
       previousSnapshot &&
       previousSnapshot.status !== AUTH_STATE_VALUES.syncing
@@ -757,10 +821,12 @@
   }
 
   function syncFromAuthenticatedState(headerHost, source) {
+    markAppAuthSettled(headerHost);
     return commitSnapshot(headerHost, createSnapshot(AUTH_STATE_VALUES.authenticated, source));
   }
 
   function syncFromUnauthenticatedState(headerHost, source) {
+    markAppAuthSettled(headerHost);
     return commitSnapshot(headerHost, createSnapshot(AUTH_STATE_VALUES.unauthenticated, source));
   }
 
@@ -864,6 +930,7 @@
     if (headerHost.getAttribute('data-loopaware-auth-bound') !== 'true') {
       headerHost.setAttribute('data-loopaware-auth-bound', 'true');
     }
+    ensureAppAuthSettling(headerHost);
     observeHeaderState(headerHost);
     syncFromObservedState(headerHost);
   }
