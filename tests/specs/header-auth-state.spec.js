@@ -41,7 +41,7 @@ window.google.accounts.id = {
 /**
  * @param {import('@playwright/test').Page} page
  * @param {string} path
- * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number }} [tauthOptions]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number }} [tauthOptions]
  * @returns {Promise<void>}
  */
 async function openPageWithoutSession(page, path, tauthOptions) {
@@ -53,7 +53,7 @@ async function openPageWithoutSession(page, path, tauthOptions) {
 /**
  * @param {import('@playwright/test').Page} page
  * @param {string} path
- * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number }} [tauthOptions]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number }} [tauthOptions]
  * @returns {Promise<void>}
  */
 async function openPageWithSession(page, path, tauthOptions) {
@@ -113,6 +113,12 @@ test('dashboard preserves authenticated session state while tauth script load is
   await openPageWithSession(page, '/app', { delayMs: 2500 });
   await expect(page).toHaveURL(/\/app\/?$/);
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
+});
+
+test('dashboard does not bounce to login while authenticated session recovery is still settling', async ({ page }) => {
+  await openPageWithSession(page, '/app', { silentBootstrap: true, currentUserDelayMs: 2500 });
+  await expect(page).toHaveURL(/\/app\/?$/);
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated', { timeout: 5000 });
 });
 
 test('login page loads pinned CDN assets for auth UI', async ({ page }) => {

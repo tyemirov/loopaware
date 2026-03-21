@@ -2,7 +2,7 @@
 
 /**
  * @param {string} sessionCookieName
- * @param {{ silentBootstrap?: boolean, bootstrapDelayMs?: number }} [options]
+ * @param {{ silentBootstrap?: boolean, bootstrapDelayMs?: number, currentUserDelayMs?: number }} [options]
  * @returns {string}
  */
 export function renderTauthStub(sessionCookieName, options) {
@@ -11,6 +11,9 @@ export function renderTauthStub(sessionCookieName, options) {
   const silentBootstrap = resolvedOptions.silentBootstrap === true;
   const bootstrapDelayMs = Number.isFinite(resolvedOptions.bootstrapDelayMs)
     ? Math.max(0, Number(resolvedOptions.bootstrapDelayMs))
+    : 0;
+  const currentUserDelayMs = Number.isFinite(resolvedOptions.currentUserDelayMs)
+    ? Math.max(0, Number(resolvedOptions.currentUserDelayMs))
     : 0;
   return `(() => {
   if (typeof window === 'undefined') {
@@ -21,6 +24,7 @@ export function renderTauthStub(sessionCookieName, options) {
   var sessionCookieName = '${resolvedCookieName}';
   var silentBootstrap = ${silentBootstrap ? 'true' : 'false'};
   var bootstrapDelayMs = ${bootstrapDelayMs};
+  var currentUserDelayMs = ${currentUserDelayMs};
 
   var runtime = window[runtimeKey];
   if (!runtime || typeof runtime !== 'object') {
@@ -127,6 +131,13 @@ export function renderTauthStub(sessionCookieName, options) {
   }
 
   function getCurrentUser() {
+    if (currentUserDelayMs > 0) {
+      return new Promise(function(resolve) {
+        window.setTimeout(function() {
+          resolve(runtime.profile);
+        }, currentUserDelayMs);
+      });
+    }
     return runtime.profile;
   }
 
@@ -234,7 +245,7 @@ export function renderTauthStub(sessionCookieName, options) {
 /**
  * @param {import('@playwright/test').Page} page
  * @param {{ sessionCookieName?: string }} config
- * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number }} [options]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number }} [options]
  * @returns {Promise<void>}
  */
 export async function installTauthStub(page, config, options) {
