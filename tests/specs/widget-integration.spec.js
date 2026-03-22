@@ -72,9 +72,43 @@ test('widget submission shows success message', async ({ page }) => {
   
   await expect(contactInput).toHaveValue('widget@example.com');
   await expect(messageInput).toHaveValue('Widget feedback');
+  const feedbackRequest = page.waitForRequest((request) => request.url().includes('/public/feedback') && request.method() === 'POST');
   const feedbackResponse = page.waitForResponse((response) => response.url().includes('/public/feedback') && response.status() === 200);
   await page.locator('#mp-feedback-panel button:has-text("Send")').click();
+  const request = await feedbackRequest;
   await feedbackResponse;
+  expect(JSON.parse(request.postData() || '{}')).toMatchObject({ contact: 'widget@example.com', message: 'Widget feedback', sentiment: '' });
+  await expect(page.locator('#mp-feedback-sentiment-happy')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#mp-feedback-panel')).toContainText('Thanks! Sent.');
+});
+
+test('widget submission accepts sentiment without message', async ({ page }) => {
+  await openWidgetPage(page, site.id);
+  await page.locator('#mp-feedback-bubble').click();
+  await page.locator('#mp-feedback-contact').fill('widget@example.com');
+  await page.locator('#mp-feedback-sentiment-happy').click();
+  await expect(page.locator('#mp-feedback-sentiment-happy')).toHaveAttribute('aria-pressed', 'true');
+  const feedbackRequest = page.waitForRequest((request) => request.url().includes('/public/feedback') && request.method() === 'POST');
+  const feedbackResponse = page.waitForResponse((response) => response.url().includes('/public/feedback') && response.status() === 200);
+  await page.locator('#mp-feedback-panel button:has-text("Send")').click();
+  const request = await feedbackRequest;
+  await feedbackResponse;
+  expect(JSON.parse(request.postData() || '{}')).toMatchObject({ contact: 'widget@example.com', message: '', sentiment: 'happy' });
+  await expect(page.locator('#mp-feedback-panel')).toContainText('Thanks! Sent.');
+});
+
+test('widget submission accepts sentiment with message', async ({ page }) => {
+  await openWidgetPage(page, site.id);
+  await page.locator('#mp-feedback-bubble').click();
+  await page.locator('#mp-feedback-contact').fill('+1 (415) 555-1212');
+  await page.locator('#mp-feedback-sentiment-sad').click();
+  await page.locator('#mp-feedback-message').fill('Needs work');
+  const feedbackRequest = page.waitForRequest((request) => request.url().includes('/public/feedback') && request.method() === 'POST');
+  const feedbackResponse = page.waitForResponse((response) => response.url().includes('/public/feedback') && response.status() === 200);
+  await page.locator('#mp-feedback-panel button:has-text("Send")').click();
+  const request = await feedbackRequest;
+  await feedbackResponse;
+  expect(JSON.parse(request.postData() || '{}')).toMatchObject({ contact: '+14155551212', message: 'Needs work', sentiment: 'sad' });
   await expect(page.locator('#mp-feedback-panel')).toContainText('Thanks! Sent.');
 });
 

@@ -251,6 +251,43 @@ func TestCreateFeedbackValidatesPayload(testingT *testing.T) {
 	}, map[string]string{"Origin": "http://valid.example"})
 	require.Equal(testingT, http.StatusBadRequest, respMissing.Code)
 
+	respInvalidContact := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
+		"site_id": site.ID,
+		"contact": "not a contact",
+		"message": "Hello",
+	}, map[string]string{"Origin": "http://valid.example"})
+	require.Equal(testingT, http.StatusBadRequest, respInvalidContact.Code)
+
+	respInvalidSentiment := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
+		"site_id":   site.ID,
+		"contact":   "person@example.com",
+		"message":   "Hello",
+		"sentiment": "angry",
+	}, map[string]string{"Origin": "http://valid.example"})
+	require.Equal(testingT, http.StatusBadRequest, respInvalidSentiment.Code)
+
+	respMessageOrSentimentRequired := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
+		"site_id":   site.ID,
+		"contact":   "person@example.com",
+		"message":   "",
+		"sentiment": "",
+	}, map[string]string{"Origin": "http://valid.example"})
+	require.Equal(testingT, http.StatusBadRequest, respMessageOrSentimentRequired.Code)
+
+	respPhoneOnlySentiment := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
+		"site_id":   site.ID,
+		"contact":   "+1 (415) 555-1212",
+		"message":   "",
+		"sentiment": model.FeedbackSentimentHappy,
+	}, map[string]string{"Origin": "http://valid.example"})
+	require.Equal(testingT, http.StatusOK, respPhoneOnlySentiment.Code)
+
+	var storedFeedback model.Feedback
+	require.NoError(testingT, api.database.Last(&storedFeedback).Error)
+	require.Equal(testingT, "+14155551212", storedFeedback.Contact)
+	require.Equal(testingT, model.FeedbackSentimentHappy, storedFeedback.Sentiment)
+	require.Equal(testingT, "", storedFeedback.Message)
+
 	bad := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/public/feedback", bytes.NewBufferString("{"))
 	req.Header.Set("Origin", "http://valid.example")
@@ -866,6 +903,28 @@ func TestCreateFeedbackDispatchesNotificationToOwner(testingT *testing.T) {
 	require.Equal(testingT, site.ID, lastCall.Site.ID)
 	require.Equal(testingT, "owner@example.com", lastCall.Site.OwnerEmail)
 	require.Equal(testingT, stored.ID, lastCall.Feedback.ID)
+}
+
+func TestCreateFeedbackDispatchesSentimentToNotifier(testingT *testing.T) {
+	notifier := &recordingFeedbackNotifier{
+		testingT: testingT,
+		delivery: model.FeedbackDeliveryMailed,
+	}
+	api := buildAPIHarness(testingT, notifier, nil, nil)
+	site := insertSite(testingT, api.database, "Sentiment Dispatcher", "http://sentiment-dispatch.example", "owner@example.com")
+
+	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
+		"site_id":   site.ID,
+		"contact":   "submitter@example.com",
+		"message":   "",
+		"sentiment": model.FeedbackSentimentSad,
+	}, map[string]string{"Origin": site.AllowedOrigin})
+	require.Equal(testingT, http.StatusOK, resp.Code)
+	require.Equal(testingT, 1, notifier.CallCount())
+
+	lastCall := notifier.LastCall()
+	require.Equal(testingT, model.FeedbackSentimentSad, lastCall.Feedback.Sentiment)
+	require.Equal(testingT, "", lastCall.Feedback.Message)
 }
 
 func TestCreateFeedbackRecordsNoDeliveryOnNotifierFailure(testingT *testing.T) {

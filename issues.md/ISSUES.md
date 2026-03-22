@@ -650,3 +650,14 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Update `web/widget.js`, `web/subscribe.js`, and `web/pixel.js` to resolve LoopAware’s API host internally for known public script origins; restore the widget bootstrap on `/login` and `/app`; update dashboard snippets to omit `api_origin`; and fix the affected Playwright helpers/specs so authenticated test setup mints fresh session cookies per request/setup step.
   Resolution: Internalized the LoopAware script-origin-to-API-origin mapping in `web/widget.js`, `web/subscribe.js`, and `web/pixel.js`; restored the site widget bootstrap in `web/login/index.html` and `web/app/index.html`; updated dashboard snippet generation and Playwright coverage to assert that customer snippets no longer expose `api_origin`; and changed the authenticated Playwright specs/helpers to build fresh session cookies on demand, including propagating `userId` into test JWT generation so the full suite stays green after worker restarts.
   Verification: `make test-integration-api`, `make test`, and `make lint` pass.
+
+- [x] [LA-457] Add optional emoji sentiment to feedback submissions.
+  Priority: P1
+  Goal: Add sad, neutral, and happy emoji choices between the contact and message fields in the feedback widget, require a valid contact value (email or phone), and allow feedback submission when the visitor provides either a message, a sentiment choice, or both.
+  Deliverable: Update `web/widget.js`, the public feedback handlers (including widget-test feedback), feedback persistence/admin responses, dashboard feedback rendering, and black-box coverage so the selected sentiment is stored and visible to operators; `make ci` passes.
+  Notes:
+  - Keep the existing `contact` request field and validate it as either a valid email address or a valid phone number; reject arbitrary free-form strings.
+  - UI copy should stay generic, for example `Email or phone`, because both contact modes remain supported.
+  - Dashboard feedback search should include the selected sentiment label in addition to contact, message, and delivery.
+  Resolution: Added sad/neutral/happy sentiment selection to the widget between contact and message, enforced shared contact validation for email-or-phone inputs in both public feedback handlers, stored sentiment on feedback records, surfaced it in admin APIs and the dashboard feedback table/search, updated notification formatting for sentiment-only submissions, and extended Go plus Playwright coverage for invalid contact/sentiment cases and sentiment/message submission combinations.
+  Verification: `make lint`, `make test`, and `make ci` pass.

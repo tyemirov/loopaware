@@ -27,6 +27,7 @@ const (
 	testWidgetTestCreateCallbackName = "force_widget_feedback_create_error"
 	testWidgetTestCreateErrorMessage = "feedback_create_failed"
 	testWidgetTestContactEmail       = "contact@example.com"
+	testWidgetTestPhoneContact       = "+1 (415) 555-1212"
 	testWidgetTestMessage            = "Test widget message"
 )
 
@@ -124,6 +125,30 @@ func TestSubmitWidgetTestFeedbackRequiresFields(testingT *testing.T) {
 	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
 }
 
+func TestSubmitWidgetTestFeedbackRejectsInvalidContact(testingT *testing.T) {
+	harness := buildWidgetTestHarness(testingT)
+	insertWidgetTestSite(testingT, harness.database)
+
+	context, recorder := buildWidgetTestContext(http.MethodPost, testWidgetTestFeedbackPath, []byte(`{"contact":"bad contact","message":"hello"}`))
+	context.Params = gin.Params{{Key: "id", Value: testWidgetTestSiteID}}
+	context.Set(contextKeyCurrentUser, &CurrentUser{Email: testWidgetTestOwnerEmail, Role: RoleUser})
+
+	harness.handlers.SubmitWidgetTestFeedback(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+}
+
+func TestSubmitWidgetTestFeedbackRejectsInvalidSentiment(testingT *testing.T) {
+	harness := buildWidgetTestHarness(testingT)
+	insertWidgetTestSite(testingT, harness.database)
+
+	context, recorder := buildWidgetTestContext(http.MethodPost, testWidgetTestFeedbackPath, []byte(`{"contact":"contact@example.com","message":"hello","sentiment":"angry"}`))
+	context.Params = gin.Params{{Key: "id", Value: testWidgetTestSiteID}}
+	context.Set(contextKeyCurrentUser, &CurrentUser{Email: testWidgetTestOwnerEmail, Role: RoleUser})
+
+	harness.handlers.SubmitWidgetTestFeedback(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+}
+
 func TestSubmitWidgetTestFeedbackRejectsInvalidJSON(testingT *testing.T) {
 	harness := buildWidgetTestHarness(testingT)
 	insertWidgetTestSite(testingT, harness.database)
@@ -188,4 +213,30 @@ func TestSubmitWidgetTestFeedbackCreatesRecord(testingT *testing.T) {
 	require.NoError(testingT, harness.database.First(&storedFeedback).Error)
 	require.Equal(testingT, testWidgetTestContactEmail, storedFeedback.Contact)
 	require.Equal(testingT, testWidgetTestMessage, storedFeedback.Message)
+}
+
+func TestSubmitWidgetTestFeedbackCreatesSentimentOnlyRecord(testingT *testing.T) {
+	harness := buildWidgetTestHarness(testingT)
+	insertWidgetTestSite(testingT, harness.database)
+
+	payload := map[string]string{
+		"contact":   testWidgetTestPhoneContact,
+		"message":   "",
+		"sentiment": model.FeedbackSentimentNeutral,
+	}
+	body, marshalErr := json.Marshal(payload)
+	require.NoError(testingT, marshalErr)
+
+	context, recorder := buildWidgetTestContext(http.MethodPost, testWidgetTestFeedbackPath, body)
+	context.Params = gin.Params{{Key: "id", Value: testWidgetTestSiteID}}
+	context.Set(contextKeyCurrentUser, &CurrentUser{Email: testWidgetTestOwnerEmail, Role: RoleUser})
+
+	harness.handlers.SubmitWidgetTestFeedback(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var storedFeedback model.Feedback
+	require.NoError(testingT, harness.database.First(&storedFeedback).Error)
+	require.Equal(testingT, "+14155551212", storedFeedback.Contact)
+	require.Equal(testingT, "", storedFeedback.Message)
+	require.Equal(testingT, model.FeedbackSentimentNeutral, storedFeedback.Sentiment)
 }

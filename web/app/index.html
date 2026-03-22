@@ -308,12 +308,13 @@
                       <tr>
                         <th scope="col">When</th>
                         <th scope="col">Contact</th>
+                        <th scope="col">Sentiment</th>
                         <th scope="col">Message</th>
                         <th scope="col">Delivery</th>
                       </tr>
                     </thead>
                     <tbody id="feedback-table-body">
-                      <tr><td colspan="4" class="text-center text-muted">Select a site to load feedback.</td></tr>
+                      <tr><td colspan="5" class="text-center text-muted">Select a site to load feedback.</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -835,6 +836,7 @@
         var autoLogoutSettingsState = null;
         var validationEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         var mailtoSchemePrefix = 'mailto:';
+        var telSchemePrefix = 'tel:';
         var contactLinkClassName = 'text-decoration-none';
         var emptyString = '';
         var statusNoSiteMatches = statusMessages.no_site_matches || '';
@@ -2080,7 +2082,29 @@
             cell.appendChild(link);
             return;
           }
+          if (/^\+?[0-9]{10,15}$/.test(normalized)) {
+            var phoneLink = document.createElement('a');
+            phoneLink.href = telSchemePrefix + normalized;
+            phoneLink.textContent = normalized;
+            phoneLink.className = contactLinkClassName;
+            cell.textContent = emptyString;
+            cell.appendChild(phoneLink);
+            return;
+          }
           cell.textContent = normalized;
+        }
+        function resolveFeedbackSentimentMeta(value) {
+          var normalized = (value || emptyString).toLowerCase();
+          if (normalized === 'sad') {
+            return { emoji: '🙁', label: 'Sad' };
+          }
+          if (normalized === 'neutral') {
+            return { emoji: '😐', label: 'Neutral' };
+          }
+          if (normalized === 'happy') {
+            return { emoji: '🙂', label: 'Happy' };
+          }
+          return { emoji: emptyString, label: emptyString };
         }
         function setSiteCreatedAt(unixSeconds) {
           if (!siteCreatedAtElement) {
@@ -3327,7 +3351,7 @@
           feedbackTableBody.innerHTML = '';
           var row = document.createElement('tr');
           var cell = document.createElement('td');
-          cell.colSpan = 4;
+          cell.colSpan = 5;
           cell.className = 'text-center text-muted';
           cell.textContent = message;
           row.appendChild(cell);
@@ -3355,12 +3379,16 @@
             createdCell.textContent = formatTimestamp(message.created_at);
             var contactCell = document.createElement('td');
             renderContactValue(contactCell, message.contact);
+            var sentimentCell = document.createElement('td');
+            var sentimentMeta = resolveFeedbackSentimentMeta(message.sentiment);
+            sentimentCell.textContent = sentimentMeta.label ? (sentimentMeta.emoji + ' ' + sentimentMeta.label) : emptyString;
             var bodyCell = document.createElement('td');
-            bodyCell.textContent = message.message;
+            bodyCell.textContent = message.message || emptyString;
             var deliveryCell = document.createElement('td');
             deliveryCell.textContent = resolveDeliveryLabel(message.delivery);
             row.appendChild(createdCell);
             row.appendChild(contactCell);
+            row.appendChild(sentimentCell);
             row.appendChild(bodyCell);
             row.appendChild(deliveryCell);
             feedbackTableBody.appendChild(row);
@@ -3376,8 +3404,10 @@
           return messages.filter(function(message) {
             var contactValue = (message.contact || emptyString).toLowerCase();
             var bodyValue = (message.message || emptyString).toLowerCase();
+            var sentimentMeta = resolveFeedbackSentimentMeta(message.sentiment);
+            var sentimentValue = ((message.sentiment || emptyString) + ' ' + (sentimentMeta.label || emptyString)).toLowerCase();
             var deliveryValue = (message.delivery || emptyString).toLowerCase();
-            return contactValue.indexOf(query) !== -1 || bodyValue.indexOf(query) !== -1 || deliveryValue.indexOf(query) !== -1;
+            return contactValue.indexOf(query) !== -1 || sentimentValue.indexOf(query) !== -1 || bodyValue.indexOf(query) !== -1 || deliveryValue.indexOf(query) !== -1;
           });
         }
 

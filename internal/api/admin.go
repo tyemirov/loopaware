@@ -167,6 +167,7 @@ type feedbackMessageResponse struct {
 	ID        string `json:"id"`
 	Contact   string `json:"contact"`
 	Message   string `json:"message"`
+	Sentiment string `json:"sentiment"`
 	IP        string `json:"ip"`
 	UserAgent string `json:"user_agent"`
 	CreatedAt int64  `json:"created_at"`
@@ -835,6 +836,7 @@ func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
 			ID:        feedback.ID,
 			Contact:   feedback.Contact,
 			Message:   feedback.Message,
+			Sentiment: feedback.Sentiment,
 			IP:        feedback.IP,
 			UserAgent: feedback.UserAgent,
 			CreatedAt: feedback.CreatedAt.Unix(),

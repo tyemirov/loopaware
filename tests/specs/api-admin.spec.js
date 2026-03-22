@@ -311,7 +311,8 @@ test.describe("admin api messages and subscribers", () => {
       body: {
         site_id: site.id,
         contact: "contact@example.com",
-        message: "Feedback message"
+        message: "Feedback message",
+        sentiment: "happy"
       }
     });
     const { response, payload } = await adminRequest({
@@ -321,6 +322,7 @@ test.describe("admin api messages and subscribers", () => {
     expect(response.status).toBe(200);
     const messages = Array.isArray(payload.messages) ? payload.messages : [];
     expect(messages.some((message) => message.message === "Feedback message")).toBe(true);
+    expect(messages.some((message) => message.sentiment === "happy")).toBe(true);
   });
 
   test("rejects messages for unauthorized user", async () => {

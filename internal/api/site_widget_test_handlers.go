@@ -34,8 +34,9 @@ func NewSiteWidgetTestHandlers(database *gorm.DB, logger *zap.Logger, feedbackBr
 }
 
 type widgetTestFeedbackRequest struct {
-	Contact string `json:"contact"`
-	Message string `json:"message"`
+	Contact   string `json:"contact"`
+	Message   string `json:"message"`
+	Sentiment string `json:"sentiment"`
 }
 
 // SubmitWidgetTestFeedback records feedback submitted from the widget test UI.
@@ -70,7 +71,25 @@ func (handlers *SiteWidgetTestHandlers) SubmitWidgetTestFeedback(context *gin.Co
 
 	contact := strings.TrimSpace(payload.Contact)
 	message := strings.TrimSpace(payload.Message)
-	if contact == "" || message == "" {
+	sentiment := strings.TrimSpace(payload.Sentiment)
+	if contact == "" {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingFields})
+		return
+	}
+
+	normalizedContact, contactErr := normalizeFeedbackContact(contact)
+	if contactErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidContact})
+		return
+	}
+
+	normalizedSentiment, sentimentErr := model.NormalizeFeedbackSentiment(sentiment)
+	if sentimentErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidSentiment})
+		return
+	}
+
+	if message == "" && normalizedSentiment == "" {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingFields})
 		return
 	}
@@ -78,8 +97,9 @@ func (handlers *SiteWidgetTestHandlers) SubmitWidgetTestFeedback(context *gin.Co
 	feedback := model.Feedback{
 		ID:        storage.NewID(),
 		SiteID:    site.ID,
-		Contact:   truncate(contact, 320),
+		Contact:   truncate(normalizedContact, 320),
 		Message:   truncate(message, 4000),
+		Sentiment: truncate(normalizedSentiment, 16),
 		IP:        context.ClientIP(),
 		UserAgent: truncate(context.Request.UserAgent(), 400),
 	}

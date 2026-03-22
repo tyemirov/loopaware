@@ -42,11 +42,13 @@ const (
 	demoWidgetSiteName = "LoopAware Widget Demo"
 
 	errorValueInvalidEmail         = "invalid_email"
+	errorValueInvalidContact       = "invalid_contact"
 	errorValueUnknownSubscription  = "unknown_subscription"
 	errorValueDuplicateSubscriber  = "duplicate_subscription"
 	errorValueUnsubscribedAccount  = "unsubscribed"
 	errorValueSaveSubscriberFailed = "save_failed"
 	errorValueInvalidSite          = "unknown_site"
+	errorValueInvalidSentiment     = "invalid_sentiment"
 	errorValueInvalidVisitorID     = "invalid_visitor"
 	errorValueInvalidURL           = "invalid_url"
 
@@ -89,6 +91,7 @@ type createFeedbackRequest struct {
 	SiteID      string `json:"site_id"`
 	ContactInfo string `json:"contact"`
 	MessageBody string `json:"message"`
+	Sentiment   string `json:"sentiment"`
 }
 
 type createSubscriptionRequest struct {
@@ -158,8 +161,26 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 	payload.SiteID = strings.TrimSpace(payload.SiteID)
 	payload.ContactInfo = strings.TrimSpace(payload.ContactInfo)
 	payload.MessageBody = strings.TrimSpace(payload.MessageBody)
+	payload.Sentiment = strings.TrimSpace(payload.Sentiment)
 
-	if payload.SiteID == "" || payload.ContactInfo == "" || payload.MessageBody == "" {
+	if payload.SiteID == "" || payload.ContactInfo == "" {
+		context.JSON(400, gin.H{"error": "missing_fields"})
+		return
+	}
+
+	normalizedContact, contactErr := normalizeFeedbackContact(payload.ContactInfo)
+	if contactErr != nil {
+		context.JSON(400, gin.H{"error": errorValueInvalidContact})
+		return
+	}
+
+	normalizedSentiment, sentimentErr := model.NormalizeFeedbackSentiment(payload.Sentiment)
+	if sentimentErr != nil {
+		context.JSON(400, gin.H{"error": errorValueInvalidSentiment})
+		return
+	}
+
+	if payload.MessageBody == "" && normalizedSentiment == "" {
 		context.JSON(400, gin.H{"error": "missing_fields"})
 		return
 	}
@@ -181,8 +202,9 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 	feedback := model.Feedback{
 		ID:        storage.NewID(),
 		SiteID:    site.ID,
-		Contact:   truncate(payload.ContactInfo, 320),
+		Contact:   truncate(normalizedContact, 320),
 		Message:   truncate(payload.MessageBody, 4000),
+		Sentiment: truncate(normalizedSentiment, 16),
 		IP:        clientIP,
 		UserAgent: truncate(context.Request.UserAgent(), 400),
 		Delivery:  model.FeedbackDeliveryNone,

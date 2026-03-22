@@ -78,6 +78,34 @@ func TestTruncatePreservesShortAndCutsLong(testingT *testing.T) {
 	require.Equal(testingT, "tool", truncate("toolong", 4))
 }
 
+func TestNormalizeFeedbackContact(testingT *testing.T) {
+	testCases := []struct {
+		name          string
+		rawInput      string
+		expectedValue string
+		expectError   bool
+	}{
+		{name: "email", rawInput: "User@example.com", expectedValue: "user@example.com"},
+		{name: "phone_with_symbols", rawInput: "+1 (415) 555-1212", expectedValue: "+14155551212"},
+		{name: "phone_with_spaces", rawInput: "415 555 1212", expectedValue: "4155551212"},
+		{name: "display_name_email", rawInput: "User <user@example.com>", expectError: true},
+		{name: "text", rawInput: "fuck you", expectError: true},
+		{name: "short_phone", rawInput: "12345", expectError: true},
+	}
+
+	for _, testCase := range testCases {
+		testingT.Run(testCase.name, func(testingT *testing.T) {
+			normalizedValue, normalizeErr := normalizeFeedbackContact(testCase.rawInput)
+			if testCase.expectError {
+				require.Error(testingT, normalizeErr)
+				return
+			}
+			require.NoError(testingT, normalizeErr)
+			require.Equal(testingT, testCase.expectedValue, normalizedValue)
+		})
+	}
+}
+
 func TestSubscriptionConfirmationOpenURLPrefersSourceURL(testingT *testing.T) {
 	site := model.Site{AllowedOrigin: testPublicAllowedOriginPrimary}
 	subscriber := model.Subscriber{SourceURL: testPublicSourceURLAllowed}

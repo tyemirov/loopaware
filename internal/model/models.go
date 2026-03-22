@@ -33,6 +33,7 @@ type Feedback struct {
 	SiteID    string    `gorm:"index;not null;size:36"`
 	Contact   string    `gorm:"not null;size:320"`
 	Message   string    `gorm:"not null;size:4000"`
+	Sentiment string    `gorm:"size:16"`
 	IP        string    `gorm:"size:64"`
 	UserAgent string    `gorm:"size:400"`
 	Delivery  string    `gorm:"not null;size:16;default:no"`

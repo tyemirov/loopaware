@@ -271,6 +271,44 @@ func TestListMessagesBySiteIncludesDelivery(testingT *testing.T) {
 	require.Equal(testingT, model.FeedbackDeliveryTexted, responseBody.Messages[0].Delivery)
 }
 
+func TestListMessagesBySiteIncludesSentiment(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Sentiment Site",
+		AllowedOrigin: "http://sentiment.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	feedback := model.Feedback{
+		ID:        storage.NewID(),
+		SiteID:    site.ID,
+		Contact:   "submitter@example.com",
+		Message:   "",
+		Sentiment: model.FeedbackSentimentHappy,
+		CreatedAt: time.Now(),
+	}
+	require.NoError(testingT, harness.database.Create(&feedback).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/messages", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	harness.handlers.ListMessagesBySite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody struct {
+		Messages []struct {
+			Sentiment string `json:"sentiment"`
+		} `json:"messages"`
+	}
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Len(testingT, responseBody.Messages, 1)
+	require.Equal(testingT, model.FeedbackSentimentHappy, responseBody.Messages[0].Sentiment)
+}
+
 func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 

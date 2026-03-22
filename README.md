@@ -189,7 +189,7 @@ include Unix timestamps in seconds.
 | `GET`   | `/api/sites/:id/visits/engagement`    | owner/admin | Visitor engagement metrics (default 30 days, optional `days` query param up to 90)                     |
 | `GET`   | `/api/sites/favicons/events`          | any         | Server-sent events stream announcing refreshed site favicons                                            |
 | `GET`   | `/api/sites/feedback/events`          | any         | Server-sent events stream announcing new feedback                                                      |
-| `POST`  | `/public/feedback`                       | public      | Submit feedback (requires JSON body with `site_id`, `contact`, `message`)                               |
+| `POST`  | `/public/feedback`                       | public      | Submit feedback (requires `site_id`, valid `contact` as email or phone, and at least one of `message` or `sentiment`) |
 | `POST`  | `/public/subscriptions`                  | public      | Submit an email subscription (JSON body with `site_id`, `email`, optional `name` and `source_url`)      |
 | `POST`  | `/public/subscriptions/confirm`          | public      | Confirm a subscription for a given `site_id` and email                                                  |
 | `POST`  | `/public/subscriptions/unsubscribe`      | public      | Unsubscribe an email address for a given `site_id`                                                      |
@@ -235,7 +235,7 @@ The dashboard automatically redirects unauthenticated visitors to `/login`.
 
 1. Create a site (admin) and copy the generated `<script>` tag from the API response.
 2. Embed the script on any page served from one of the site’s configured `allowed_origin` values (you can supply multiple origins separated by spaces or commas). Include the `defer` attribute so the widget loads without blocking the page; the script waits for the body before rendering the UI.
-3. Visitors can open the floating bubble, submit feedback, and the messages appear under `/api/sites/:id/messages` and
+3. Visitors can open the floating bubble, submit feedback with a valid email or phone plus a message and/or sentiment, and the messages appear under `/api/sites/:id/messages` and
    in the dashboard.
 
 Example snippet (replace the base URL with your LoopAware deployment and the site identifier with the value returned by the API):

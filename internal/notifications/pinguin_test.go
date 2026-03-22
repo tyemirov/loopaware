@@ -28,6 +28,7 @@ const (
 	testFeedbackSiteName     = "Example Site"
 	testFeedbackMessage      = "Hello"
 	testFeedbackContactEmail = "contact@example.com"
+	testFeedbackSentiment    = "happy"
 	testSubscriberID         = "subscriber-id"
 	testSubscriberEmail      = "subscriber@example.com"
 	testSubscriberName       = "Subscriber Name"
@@ -169,6 +170,44 @@ func TestNotifyFeedbackSendsEmailNotification(testingT *testing.T) {
 	require.Contains(testingT, recordedRequest.GetSubject(), testNotificationSubject)
 	require.Contains(testingT, recordedMetadata.Get(testNotificationAuthKey)[0], testPinguinAuthToken)
 	require.Contains(testingT, recordedMetadata.Get(testNotificationTenant)[0], testPinguinTenantID)
+}
+
+func TestNotifyFeedbackIncludesSentiment(testingT *testing.T) {
+	service := &testNotificationService{responseStatus: pinguinpb.Status_SENT}
+	listener := startNotificationServer(testingT, service)
+
+	notifier, createErr := NewPinguinNotifier(zap.NewNop(), PinguinConfig{
+		Address:           testPinguinAddress,
+		AuthToken:         testPinguinAuthToken,
+		TenantID:          testPinguinTenantID,
+		ConnectionTimeout: time.Second,
+		OperationTimeout:  time.Second,
+		Dialer:            createPinguinDialer(listener),
+	})
+	require.NoError(testingT, createErr)
+	testingT.Cleanup(func() {
+		_ = notifier.Close()
+	})
+
+	site := model.Site{
+		ID:         testFeedbackSiteID,
+		Name:       testFeedbackSiteName,
+		OwnerEmail: testFeedbackOwnerEmail,
+	}
+	feedback := model.Feedback{
+		ID:        testFeedbackID,
+		Contact:   testFeedbackContactEmail,
+		Sentiment: testFeedbackSentiment,
+	}
+
+	delivery, notifyErr := notifier.NotifyFeedback(context.Background(), site, feedback)
+	require.NoError(testingT, notifyErr)
+	require.Equal(testingT, model.FeedbackDeliveryMailed, delivery)
+
+	recordedRequest, _ := service.recordedRequest()
+	require.NotNil(testingT, recordedRequest)
+	require.Contains(testingT, recordedRequest.GetMessage(), "Sentiment: Happy")
+	require.NotContains(testingT, recordedRequest.GetMessage(), "Message:\n")
 }
 
 func TestNotifyFeedbackReturnsErrorOnFailedStatus(testingT *testing.T) {
