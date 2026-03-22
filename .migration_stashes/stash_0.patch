@@ -1,0 +1,63 @@
+diff --git a/internal/httpapi/assets/widget.js b/internal/httpapi/assets/widget.js
+index 9e136e1..38714c0 100644
+--- a/internal/httpapi/assets/widget.js
++++ b/internal/httpapi/assets/widget.js
+@@ -50,6 +50,8 @@
+   var widgetCloseButtonRightValue = "0px";
+   var widgetCloseButtonWidthValue = "28px";
+   var widgetCloseButtonHeightValue = "28px";
++  var widgetCloseButtonMarginLeftValue = "12px";
++  var widgetCloseButtonFlexShrinkValue = "0";
+   var widgetCloseButtonOpacityValue = "0.6";
+   var widgetCloseButtonHoverOpacityValue = "1";
+   var widgetCloseButtonAriaLabel = "Close feedback panel";
+@@ -212,9 +214,6 @@
+       var closeButton = document.createElement("button");
+       closeButton.type = "button";
+       closeButton.innerText = widgetCloseButtonText;
+-      closeButton.style.position = widgetCloseButtonPositionValue;
+-      closeButton.style.top = widgetCloseButtonTopValue;
+-      closeButton.style.right = widgetCloseButtonRightValue;
+       closeButton.style.width = widgetCloseButtonWidthValue;
+       closeButton.style.height = widgetCloseButtonHeightValue;
+       closeButton.style.padding = widgetCloseButtonPaddingValue;
+@@ -226,6 +225,8 @@
+       closeButton.style.cursor = widgetCloseButtonCursorValue;
+       closeButton.style.opacity = widgetCloseButtonOpacityValue;
+       closeButton.style.boxSizing = boxSizingBorderBoxValue;
++      closeButton.style.marginLeft = widgetCloseButtonMarginLeftValue;
++      closeButton.style.flexShrink = widgetCloseButtonFlexShrinkValue;
+       closeButton.setAttribute("aria-label", widgetCloseButtonAriaLabel);
+       headerContainer.appendChild(closeButton);
+ 
+diff --git a/internal/httpapi/widget_integration_test.go b/internal/httpapi/widget_integration_test.go
+index fbe3161..b6ec6fe 100644
+--- a/internal/httpapi/widget_integration_test.go
++++ b/internal/httpapi/widget_integration_test.go
+@@ -65,12 +65,14 @@ const (
+ 	widgetBrandingLinkExpectedHref         = "https://mprlab.com"
+ 	widgetCloseButtonSelector              = "#mp-feedback-panel button[aria-label='Close feedback panel']"
+ 	widgetCloseButtonExpectedText          = "×"
++	widgetHeadlineSelector                 = "#mp-feedback-headline"
+ 	customWidgetBubbleSide                 = "left"
+ 	customWidgetBottomOffsetPixels         = 32
+ 	widgetHorizontalOffsetPixels           = 16
+ 	widgetBubbleDiameterPixels             = 56
+ 	widgetPanelVerticalSpacingPixels       = 64
+ 	positionTolerancePixels                = 6.0
++	closeButtonAlignmentTolerancePixels    = 2.0
+ )
+ 
+ func TestWidgetIntegrationSubmitsFeedback(t *testing.T) {
+@@ -310,6 +312,11 @@ func TestWidgetCloseButtonDismissesPanel(t *testing.T) {
+ 	require.Equal(t, panelDisplayBlockValue, panelDisplayBeforeClose)
+ 
+ 	closeButtonElement := waitForVisibleElement(t, page, widgetCloseButtonSelector)
++	headlineBounds := resolveViewportBounds(t, page, widgetHeadlineSelector)
++	closeButtonBounds := resolveViewportBounds(t, page, widgetCloseButtonSelector)
++	headlineCenter := headlineBounds.Top + (headlineBounds.Height / 2.0)
++	closeButtonCenter := closeButtonBounds.Top + (closeButtonBounds.Height / 2.0)
++	require.InDelta(t, headlineCenter, closeButtonCenter, closeButtonAlignmentTolerancePixels)
+ 	closeButtonText, closeButtonTextErr := closeButtonElement.Text()
+ 	require.NoError(t, closeButtonTextErr)
+ 	require.Equal(t, widgetCloseButtonExpectedText, strings.TrimSpace(closeButtonText))
