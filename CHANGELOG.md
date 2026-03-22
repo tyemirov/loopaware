@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.0] - 2026-03-21
+
+### Features ✨
+- Add sentiment support for public and admin feedback APIs.
+- Configure widget feedback inputs and visual capture flow for message input and sentiment buttons.
+
+### Improvements ⚙️
+- Enhance widget configurability: allow toggling of message input and sentiment buttons on the feedback widget.
+- Update API and dashboard to display sentiment data with feedback messages.
+- Restore and refine `.gitignore` for better project file management.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- Add tests for widget feedback visibility settings (message input and sentiment toggling).
+- Verify sentiment field presence and correctness in feedback API responses.
+- Include tests ensuring widget defaults and validation logic for feedback visibility.
+
+### Docs 📚
+- Clarify feedback submission requirements to include valid contact plus message and/or sentiment in the README.
+
 ## [v0.1.4] - 2026-03-21
 
 ### Features ✨
@@ -124,7 +146,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WhatsApp in-app browser traffic is no longer misclassified as bot traffic.
 - Widget API origin resolution now falls back to HTTPS-aware behavior in proxy deployments that omit `X-Forwarded-Proto`.
 
-[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.2.0...HEAD
+[v0.2.0]: https://github.com/tyemirov/loopaware/releases/tag/v0.2.0
 [v0.1.4]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.4
 [v0.1.3]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.3
 [v0.1.2]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.2
