@@ -19,6 +19,8 @@ type Site struct {
 	CreatorEmail               string `gorm:"size:320"`
 	WidgetBubbleSide           string `gorm:"not null;size:16;default:right"`
 	WidgetBubbleBottomOffsetPx int    `gorm:"not null;default:16"`
+	WidgetShowMessageInput     bool   `gorm:"not null;default:true"`
+	WidgetShowSentimentButtons bool   `gorm:"not null;default:true"`
 	FaviconData                []byte `gorm:"type:blob"`
 	FaviconContentType         string `gorm:"size:100"`
 	FaviconFetchedAt           time.Time

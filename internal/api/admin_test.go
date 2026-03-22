@@ -38,6 +38,7 @@ const (
 	errorCodeSiteExists                 = "site_exists"
 	errorCodeInvalidWidgetSide          = "invalid_widget_side"
 	errorCodeInvalidWidgetOffset        = "invalid_widget_offset"
+	errorCodeInvalidWidgetVisibility    = "invalid_widget_feedback_visibility"
 	defaultWidgetTestBubbleSide         = "right"
 	defaultWidgetTestBottomOffsetPixels = 16
 	customWidgetTestBubbleSide          = "left"
@@ -1130,6 +1131,33 @@ func TestCreateSiteAcceptsWidgetPlacementOverrides(testingT *testing.T) {
 	require.Equal(testingT, customWidgetTestBottomOffsetPixels, createdSite.WidgetBubbleBottomOffsetPx)
 }
 
+func TestCreateSiteAcceptsWidgetFeedbackVisibilityOverrides(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	payload := map[string]any{
+		"name":                          "Widget Visibility",
+		"allowed_origin":                "http://widget-visibility.example",
+		"widget_show_message_input":     false,
+		"widget_show_sentiment_buttons": true,
+	}
+
+	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	harness.handlers.CreateSite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody map[string]any
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, false, responseBody["widget_show_message_input"])
+	require.Equal(testingT, true, responseBody["widget_show_sentiment_buttons"])
+
+	var createdSite model.Site
+	require.NoError(testingT, harness.database.First(&createdSite, "name = ?", "Widget Visibility").Error)
+	require.False(testingT, createdSite.WidgetShowMessageInput)
+	require.True(testingT, createdSite.WidgetShowSentimentButtons)
+}
+
 func TestCreateSiteRejectsInvalidWidgetPlacement(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
@@ -1149,6 +1177,27 @@ func TestCreateSiteRejectsInvalidWidgetPlacement(testingT *testing.T) {
 	var responseBody map[string]string
 	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
 	require.Equal(testingT, errorCodeInvalidWidgetOffset, responseBody[jsonErrorKey])
+}
+
+func TestCreateSiteRejectsHiddenWidgetFeedbackInputs(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	payload := map[string]any{
+		"name":                          "Hidden Widget Inputs",
+		"allowed_origin":                "http://hidden-widget-inputs.example",
+		"widget_show_message_input":     false,
+		"widget_show_sentiment_buttons": false,
+	}
+
+	recorder, context := newJSONContext(http.MethodPost, "/api/sites", payload)
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	harness.handlers.CreateSite(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+
+	var responseBody map[string]string
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, errorCodeInvalidWidgetVisibility, responseBody[jsonErrorKey])
 }
 
 func TestCreateSiteRejectsInvalidWidgetSide(testingT *testing.T) {
@@ -1440,6 +1489,44 @@ func TestUpdateSiteAdjustsWidgetPlacement(testingT *testing.T) {
 	require.Equal(testingT, customWidgetTestBottomOffsetPixels, updatedSite.WidgetBubbleBottomOffsetPx)
 }
 
+func TestUpdateSiteAdjustsWidgetFeedbackVisibility(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Visibility Update",
+		AllowedOrigin:              "http://visibility-update.example",
+		OwnerEmail:                 testUserEmailAddress,
+		WidgetBubbleSide:           defaultWidgetTestBubbleSide,
+		WidgetBubbleBottomOffsetPx: defaultWidgetTestBottomOffsetPixels,
+		WidgetShowMessageInput:     true,
+		WidgetShowSentimentButtons: true,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	payload := map[string]any{
+		"widget_show_message_input":     false,
+		"widget_show_sentiment_buttons": true,
+	}
+
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID, payload)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testUserEmailAddress, Role: api.RoleUser})
+
+	harness.handlers.UpdateSite(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var responseBody map[string]any
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, false, responseBody["widget_show_message_input"])
+	require.Equal(testingT, true, responseBody["widget_show_sentiment_buttons"])
+
+	var updatedSite model.Site
+	require.NoError(testingT, harness.database.First(&updatedSite, "id = ?", site.ID).Error)
+	require.False(testingT, updatedSite.WidgetShowMessageInput)
+	require.True(testingT, updatedSite.WidgetShowSentimentButtons)
+}
+
 func TestUpdateSiteRejectsInvalidWidgetPlacement(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 
@@ -1468,6 +1555,38 @@ func TestUpdateSiteRejectsInvalidWidgetPlacement(testingT *testing.T) {
 	var responseBody map[string]string
 	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
 	require.Equal(testingT, errorCodeInvalidWidgetOffset, responseBody[jsonErrorKey])
+}
+
+func TestUpdateSiteRejectsHiddenWidgetFeedbackInputs(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+
+	site := model.Site{
+		ID:                         storage.NewID(),
+		Name:                       "Visibility Invalid Update",
+		AllowedOrigin:              "http://visibility-invalid-update.example",
+		OwnerEmail:                 testUserEmailAddress,
+		WidgetBubbleSide:           defaultWidgetTestBubbleSide,
+		WidgetBubbleBottomOffsetPx: defaultWidgetTestBottomOffsetPixels,
+		WidgetShowMessageInput:     true,
+		WidgetShowSentimentButtons: true,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	payload := map[string]any{
+		"widget_show_message_input":     false,
+		"widget_show_sentiment_buttons": false,
+	}
+
+	recorder, context := newJSONContext(http.MethodPatch, "/api/sites/"+site.ID, payload)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testUserEmailAddress, Role: api.RoleUser})
+
+	harness.handlers.UpdateSite(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+
+	var responseBody map[string]string
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(testingT, errorCodeInvalidWidgetVisibility, responseBody[jsonErrorKey])
 }
 
 func TestUpdateSiteRejectsInvalidWidgetSide(testingT *testing.T) {

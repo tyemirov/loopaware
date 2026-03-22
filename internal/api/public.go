@@ -110,6 +110,8 @@ type widgetConfigResponse struct {
 	SiteID                   string `json:"site_id"`
 	WidgetBubbleSide         string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
+	WidgetShowMessageInput   bool   `json:"widget_show_message_input"`
+	WidgetShowSentiment      bool   `json:"widget_show_sentiment_buttons"`
 }
 
 type subscriptionLinkResponse struct {
@@ -316,6 +318,8 @@ func (h *PublicHandlers) WidgetConfig(context *gin.Context) {
 			Name:                       demoWidgetSiteName,
 			WidgetBubbleSide:           widgetBubbleSideLeft,
 			WidgetBubbleBottomOffsetPx: defaultWidgetBubbleBottomOffset,
+			WidgetShowMessageInput:     defaultWidgetShowMessageInput,
+			WidgetShowSentimentButtons: defaultWidgetShowSentiment,
 		}
 	} else {
 		if h.database == nil || h.database.First(&site, "id = ?", siteID).Error != nil {
@@ -333,10 +337,13 @@ func (h *PublicHandlers) WidgetConfig(context *gin.Context) {
 	}
 
 	ensureWidgetBubblePlacementDefaults(&site)
+	ensureWidgetFeedbackVisibilityDefaults(&site)
 	context.JSON(http.StatusOK, widgetConfigResponse{
 		SiteID:                   site.ID,
 		WidgetBubbleSide:         site.WidgetBubbleSide,
 		WidgetBubbleBottomOffset: site.WidgetBubbleBottomOffsetPx,
+		WidgetShowMessageInput:   site.WidgetShowMessageInput,
+		WidgetShowSentiment:      site.WidgetShowSentimentButtons,
 	})
 }
 

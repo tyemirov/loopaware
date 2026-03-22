@@ -42,6 +42,7 @@ const (
 	errorValueInvalidOwner            = "invalid_owner"
 	errorValueInvalidWidgetSide       = "invalid_widget_side"
 	errorValueInvalidWidgetOffset     = "invalid_widget_offset"
+	errorValueInvalidWidgetVisibility = "invalid_widget_feedback_visibility"
 	errorValueInvalidSubscriberStatus = "invalid_subscriber_status"
 	errorValueNothingToUpdate         = "nothing_to_update"
 	errorValueDeleteFailed            = "delete_failed"
@@ -63,6 +64,8 @@ const (
 	widgetBubbleSideLeft            = "left"
 	defaultWidgetBubbleSide         = widgetBubbleSideRight
 	defaultWidgetBubbleBottomOffset = 16
+	defaultWidgetShowMessageInput   = true
+	defaultWidgetShowSentiment      = true
 	minWidgetBubbleBottomOffset     = 0
 	maxWidgetBubbleBottomOffset     = 240
 	feedbackCreatedEventName        = "feedback_created"
@@ -107,6 +110,8 @@ type createSiteRequest struct {
 	OwnerEmail               string `json:"owner_email"`
 	WidgetBubbleSide         string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset *int   `json:"widget_bubble_bottom_offset"`
+	WidgetShowMessageInput   *bool  `json:"widget_show_message_input"`
+	WidgetShowSentiment      *bool  `json:"widget_show_sentiment_buttons"`
 }
 
 type updateSiteRequest struct {
@@ -118,6 +123,8 @@ type updateSiteRequest struct {
 	OwnerEmail               *string `json:"owner_email"`
 	WidgetBubbleSide         *string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset *int    `json:"widget_bubble_bottom_offset"`
+	WidgetShowMessageInput   *bool   `json:"widget_show_message_input"`
+	WidgetShowSentiment      *bool   `json:"widget_show_sentiment_buttons"`
 }
 
 type siteResponse struct {
@@ -137,6 +144,8 @@ type siteResponse struct {
 	UniqueVisitorCount       int64  `json:"unique_visitor_count"`
 	WidgetBubbleSide         string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
+	WidgetShowMessageInput   bool   `json:"widget_show_message_input"`
+	WidgetShowSentiment      bool   `json:"widget_show_sentiment_buttons"`
 }
 
 type listSitesResponse struct {
@@ -311,6 +320,16 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidWidgetOffset})
 		return
 	}
+	widgetShowMessageInput, widgetShowSentiment, widgetVisibilityErr := resolveWidgetFeedbackVisibility(
+		payload.WidgetShowMessageInput,
+		defaultWidgetShowMessageInput,
+		payload.WidgetShowSentiment,
+		defaultWidgetShowSentiment,
+	)
+	if widgetVisibilityErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidWidgetVisibility})
+		return
+	}
 
 	conflictExists, conflictCheckErr := handlers.allowedOriginConflictExists(payload.AllowedOrigin, "")
 	if conflictCheckErr != nil {
@@ -335,12 +354,26 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		FaviconOrigin:              primaryAllowedOrigin(payload.AllowedOrigin),
 		WidgetBubbleSide:           widgetBubbleSide,
 		WidgetBubbleBottomOffsetPx: widgetBubbleBottomOffset,
+		WidgetShowMessageInput:     widgetShowMessageInput,
+		WidgetShowSentimentButtons: widgetShowSentiment,
 	}
 
 	if err := handlers.database.Create(&site).Error; err != nil {
 		handlers.logger.Warn("create_site", zap.Error(err))
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
 		return
+	}
+	if !widgetShowMessageInput || !widgetShowSentiment {
+		if err := handlers.database.Model(&model.Site{}).Where("id = ?", site.ID).Updates(map[string]any{
+			"widget_show_message_input":     widgetShowMessageInput,
+			"widget_show_sentiment_buttons": widgetShowSentiment,
+		}).Error; err != nil {
+			handlers.logger.Warn("create_site", zap.Error(err))
+			context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
+			return
+		}
+		site.WidgetShowMessageInput = widgetShowMessageInput
+		site.WidgetShowSentimentButtons = widgetShowSentiment
 	}
 
 	handlers.scheduleFaviconFetch(site)
@@ -643,7 +676,7 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		return
 	}
 
-	if payload.Name == nil && payload.AllowedOrigin == nil && payload.SubscribeAllowedOrigins == nil && payload.WidgetAllowedOrigins == nil && payload.TrafficAllowedOrigins == nil && payload.OwnerEmail == nil && payload.WidgetBubbleSide == nil && payload.WidgetBubbleBottomOffset == nil {
+	if payload.Name == nil && payload.AllowedOrigin == nil && payload.SubscribeAllowedOrigins == nil && payload.WidgetAllowedOrigins == nil && payload.TrafficAllowedOrigins == nil && payload.OwnerEmail == nil && payload.WidgetBubbleSide == nil && payload.WidgetBubbleBottomOffset == nil && payload.WidgetShowMessageInput == nil && payload.WidgetShowSentiment == nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueNothingToUpdate})
 		return
 	}
@@ -658,6 +691,7 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
 		return
 	}
+	ensureWidgetFeedbackVisibilityDefaults(&site)
 
 	if payload.Name != nil {
 		trimmed := strings.TrimSpace(*payload.Name)
@@ -726,6 +760,20 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 			return
 		}
 		site.WidgetBubbleBottomOffsetPx = offset
+	}
+	if payload.WidgetShowMessageInput != nil || payload.WidgetShowSentiment != nil {
+		resolvedShowMessageInput, resolvedShowSentiment, widgetVisibilityErr := resolveWidgetFeedbackVisibility(
+			payload.WidgetShowMessageInput,
+			site.WidgetShowMessageInput,
+			payload.WidgetShowSentiment,
+			site.WidgetShowSentimentButtons,
+		)
+		if widgetVisibilityErr != nil {
+			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidWidgetVisibility})
+			return
+		}
+		site.WidgetShowMessageInput = resolvedShowMessageInput
+		site.WidgetShowSentimentButtons = resolvedShowSentiment
 	}
 
 	primaryOriginValue := primaryAllowedOrigin(site.AllowedOrigin)
@@ -1226,6 +1274,7 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 		widgetBase = normalizeWidgetBaseURL(widgetBaseOrigin)
 	}
 	ensureWidgetBubblePlacementDefaults(&site)
+	ensureWidgetFeedbackVisibilityDefaults(&site)
 
 	faviconURL := ""
 	if len(site.FaviconData) > 0 {
@@ -1249,6 +1298,8 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 		UniqueVisitorCount:       handlers.uniqueVisitorCount(ctx, site.ID),
 		WidgetBubbleSide:         site.WidgetBubbleSide,
 		WidgetBubbleBottomOffset: site.WidgetBubbleBottomOffsetPx,
+		WidgetShowMessageInput:   site.WidgetShowMessageInput,
+		WidgetShowSentiment:      site.WidgetShowSentimentButtons,
 	}
 }
 
@@ -1499,6 +1550,21 @@ func sanitizeWidgetBubbleBottomOffset(value *int) (int, error) {
 	return offset, nil
 }
 
+func resolveWidgetFeedbackVisibility(showMessageInput *bool, fallbackShowMessageInput bool, showSentiment *bool, fallbackShowSentiment bool) (bool, bool, error) {
+	resolvedShowMessageInput := fallbackShowMessageInput
+	if showMessageInput != nil {
+		resolvedShowMessageInput = *showMessageInput
+	}
+	resolvedShowSentiment := fallbackShowSentiment
+	if showSentiment != nil {
+		resolvedShowSentiment = *showSentiment
+	}
+	if !resolvedShowMessageInput && !resolvedShowSentiment {
+		return false, false, errors.New("invalid widget feedback visibility")
+	}
+	return resolvedShowMessageInput, resolvedShowSentiment, nil
+}
+
 func ensureWidgetBubblePlacementDefaults(site *model.Site) {
 	if site == nil {
 		return
@@ -1510,6 +1576,16 @@ func ensureWidgetBubblePlacementDefaults(site *model.Site) {
 	site.WidgetBubbleSide = side
 	if site.WidgetBubbleBottomOffsetPx < minWidgetBubbleBottomOffset || site.WidgetBubbleBottomOffsetPx > maxWidgetBubbleBottomOffset {
 		site.WidgetBubbleBottomOffsetPx = defaultWidgetBubbleBottomOffset
+	}
+}
+
+func ensureWidgetFeedbackVisibilityDefaults(site *model.Site) {
+	if site == nil {
+		return
+	}
+	if !site.WidgetShowMessageInput && !site.WidgetShowSentimentButtons {
+		site.WidgetShowMessageInput = defaultWidgetShowMessageInput
+		site.WidgetShowSentimentButtons = defaultWidgetShowSentiment
 	}
 }
 

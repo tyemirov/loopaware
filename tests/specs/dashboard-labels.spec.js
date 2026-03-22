@@ -21,6 +21,8 @@ const labelCases = [
   { selector: 'h5:has-text("Feedback widget")', text: 'Feedback widget' },
   { selector: 'h5:has-text("Subscribers widget")', text: 'Subscribers widget' },
   { selector: 'h5:has-text("Traffic widget")', text: 'Traffic widget' },
+  { selector: 'label[for="widget-show-message-input"]', text: 'Show message input' },
+  { selector: 'label[for="widget-show-sentiment-buttons"]', text: 'Show sentiment buttons' },
   { selector: '#dashboard-section-tab-feedback', text: 'Feedback' },
   { selector: '#dashboard-section-tab-subscriptions', text: 'Subscriptions' },
   { selector: '#dashboard-section-tab-traffic', text: 'Traffic' },

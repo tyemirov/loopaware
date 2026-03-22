@@ -129,11 +129,15 @@ func TestFeedbackFlow(testingT *testing.T) {
 		SiteID                   string `json:"site_id"`
 		WidgetBubbleSide         string `json:"widget_bubble_side"`
 		WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
+		WidgetShowMessageInput   bool   `json:"widget_show_message_input"`
+		WidgetShowSentiment      bool   `json:"widget_show_sentiment_buttons"`
 	}
 	require.NoError(testingT, json.Unmarshal(widgetConfigResp.Body.Bytes(), &widgetConfigPayload))
 	require.Equal(testingT, site.ID, widgetConfigPayload.SiteID)
 	require.Equal(testingT, "right", widgetConfigPayload.WidgetBubbleSide)
 	require.Equal(testingT, 16, widgetConfigPayload.WidgetBubbleBottomOffset)
+	require.True(testingT, widgetConfigPayload.WidgetShowMessageInput)
+	require.True(testingT, widgetConfigPayload.WidgetShowSentiment)
 
 	okFeedback := performJSONRequest(testingT, api.router, http.MethodPost, "/public/feedback", map[string]any{
 		"site_id": site.ID,
@@ -207,6 +211,8 @@ func TestWidgetConfigHonorsCustomPlacement(testingT *testing.T) {
 		Updates(map[string]any{
 			"widget_bubble_side":             "left",
 			"widget_bubble_bottom_offset_px": 48,
+			"widget_show_message_input":      false,
+			"widget_show_sentiment_buttons":  true,
 		}).Error)
 
 	widgetConfigResp := performJSONRequest(testingT, api.router, http.MethodGet, "/public/widget-config?site_id="+site.ID, nil, map[string]string{
@@ -217,11 +223,15 @@ func TestWidgetConfigHonorsCustomPlacement(testingT *testing.T) {
 		SiteID                   string `json:"site_id"`
 		WidgetBubbleSide         string `json:"widget_bubble_side"`
 		WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
+		WidgetShowMessageInput   bool   `json:"widget_show_message_input"`
+		WidgetShowSentiment      bool   `json:"widget_show_sentiment_buttons"`
 	}
 	require.NoError(testingT, json.Unmarshal(widgetConfigResp.Body.Bytes(), &widgetConfigPayload))
 	require.Equal(testingT, site.ID, widgetConfigPayload.SiteID)
 	require.Equal(testingT, "left", widgetConfigPayload.WidgetBubbleSide)
 	require.Equal(testingT, 48, widgetConfigPayload.WidgetBubbleBottomOffset)
+	require.False(testingT, widgetConfigPayload.WidgetShowMessageInput)
+	require.True(testingT, widgetConfigPayload.WidgetShowSentiment)
 }
 
 func TestWidgetConfigRequiresValidSiteId(testingT *testing.T) {

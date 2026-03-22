@@ -481,6 +481,8 @@ test.describe("widget config endpoint", () => {
     expect(response.status).toBe(200);
     expect(payload.site_id).toBe(site.id);
     expect(payload.widget_bubble_side).toBeTruthy();
+    expect(payload.widget_show_message_input).toBe(true);
+    expect(payload.widget_show_sentiment_buttons).toBe(true);
   });
 
   test("returns demo widget config", async () => {
@@ -492,6 +494,8 @@ test.describe("widget config endpoint", () => {
     });
     expect(response.status).toBe(200);
     expect(payload.site_id).toBe("__loopaware_widget_demo__");
+    expect(payload.widget_show_message_input).toBe(true);
+    expect(payload.widget_show_sentiment_buttons).toBe(true);
   });
 });
 

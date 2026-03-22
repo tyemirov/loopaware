@@ -47,11 +47,15 @@ func TestWidgetConfigReturnsDemoDefaults(testingT *testing.T) {
 		SiteID                   string `json:"site_id"`
 		WidgetBubbleSide         string `json:"widget_bubble_side"`
 		WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
+		WidgetShowMessageInput   bool   `json:"widget_show_message_input"`
+		WidgetShowSentiment      bool   `json:"widget_show_sentiment_buttons"`
 	}
 	require.NoError(testingT, json.Unmarshal(response.Body.Bytes(), &payload))
 	require.Equal(testingT, testDemoWidgetSiteID, payload.SiteID)
 	require.Equal(testingT, testDemoWidgetBubbleSide, payload.WidgetBubbleSide)
 	require.Equal(testingT, testDemoWidgetBubbleOffset, payload.WidgetBubbleBottomOffset)
+	require.True(testingT, payload.WidgetShowMessageInput)
+	require.True(testingT, payload.WidgetShowSentiment)
 }
 
 func TestCreateSubscriptionReturnsServerErrorWhenSubscriberLookupFails(testingT *testing.T) {

@@ -22,10 +22,9 @@ playwright-report/
 
 qodana.yaml
 test-results/
+tests/artifacts/
+tests/.runtime-web.*/
 !web/static/vendor/
 !web/static/vendor/**
 !test/web/static/vendor/
 !test/web/static/vendor/**
-
-data/asins/*.txt
-issues.md/*.png

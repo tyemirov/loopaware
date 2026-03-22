@@ -37,7 +37,9 @@ test.beforeAll(async () => {
 test.beforeEach(async () => {
   await updateSite(config, buildAdminCookie(), site.id, {
     widget_bubble_side: 'right',
-    widget_bubble_bottom_offset: 16
+    widget_bubble_bottom_offset: 16,
+    widget_show_message_input: true,
+    widget_show_sentiment_buttons: true
   });
 });
 
@@ -50,6 +52,52 @@ test('widget panel opens on bubble click', async ({ page }) => {
   await openWidgetPage(page, site.id);
   await page.locator('#mp-feedback-bubble').click();
   await expect(page.locator('#mp-feedback-panel')).toBeVisible();
+});
+
+test('widget sentiment buttons render as circular icon controls', async ({ page }) => {
+  await openWidgetPage(page, site.id);
+  await page.locator('#mp-feedback-bubble').click();
+  const sentimentStyle = await page.locator('#mp-feedback-sentiment-happy').evaluate((element) => {
+    const computedStyle = getComputedStyle(element);
+    return {
+      width: computedStyle.width,
+      height: computedStyle.height,
+      borderRadius: computedStyle.borderRadius,
+      fontSize: computedStyle.fontSize,
+      borderTopWidth: computedStyle.borderTopWidth,
+      backgroundColor: computedStyle.backgroundColor
+    };
+  });
+  expect(sentimentStyle).toEqual({
+    width: '64px',
+    height: '64px',
+    borderRadius: '999px',
+    fontSize: '48px',
+    borderTopWidth: '0px',
+    backgroundColor: 'rgba(0, 0, 0, 0)'
+  });
+});
+
+test('widget hides message input when site disables text feedback', async ({ page }) => {
+  await updateSite(config, buildAdminCookie(), site.id, {
+    widget_show_message_input: false,
+    widget_show_sentiment_buttons: true
+  });
+  await openWidgetPage(page, site.id);
+  await page.locator('#mp-feedback-bubble').click();
+  await expect(page.locator('#mp-feedback-message')).toHaveCount(0);
+  await expect(page.locator('#mp-feedback-sentiment')).toBeVisible();
+});
+
+test('widget hides sentiment buttons when site disables sentiment feedback', async ({ page }) => {
+  await updateSite(config, buildAdminCookie(), site.id, {
+    widget_show_message_input: true,
+    widget_show_sentiment_buttons: false
+  });
+  await openWidgetPage(page, site.id);
+  await page.locator('#mp-feedback-bubble').click();
+  await expect(page.locator('#mp-feedback-sentiment')).toHaveCount(0);
+  await expect(page.locator('#mp-feedback-message')).toBeVisible();
 });
 
 test('widget close button hides panel', async ({ page }) => {

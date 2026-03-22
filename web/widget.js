@@ -57,6 +57,10 @@
   var widgetSentimentSadValue = "sad";
   var widgetSentimentNeutralValue = "neutral";
   var widgetSentimentHappyValue = "happy";
+  var widgetSentimentButtonSizeValue = "64px";
+  var widgetSentimentButtonFontSizeValue = "48px";
+  var widgetSentimentButtonRowGapValue = "10px";
+  var widgetSentimentButtonTransitionValue = "transform 120ms ease, opacity 120ms ease, filter 120ms ease";
   var widgetSentimentOptions = [
     { value: widgetSentimentSadValue, label: "Sad", emoji: "🙁" },
     { value: widgetSentimentNeutralValue, label: "Neutral", emoji: "😐" },
@@ -88,6 +92,8 @@
   var widgetPlacementSideValue = widgetDefaults.placementSide;
   var widgetPlacementBottomOffsetValue = widgetDefaults.placementBottomOffset;
   var widgetPlacementHorizontalOffsetValue = widgetDefaults.horizontalOffset;
+  var widgetShowMessageInputValue = true;
+  var widgetShowSentimentButtonsValue = true;
 
   try {
     if (typeof window === "object" && window) {
@@ -321,6 +327,13 @@
     return Math.round(num);
   }
 
+  function normalizeWidgetVisibilityValue(rawValue) {
+    if (typeof rawValue !== "boolean") {
+      return null;
+    }
+    return rawValue;
+  }
+
   function applyWidgetPlacementConfig(config) {
     if (!config) {
       return;
@@ -332,6 +345,14 @@
     }
     if (typeof offset === "number") {
       widgetPlacementBottomOffsetValue = offset;
+    }
+    var showMessageInput = normalizeWidgetVisibilityValue(config.showMessageInput);
+    var showSentimentButtons = normalizeWidgetVisibilityValue(config.showSentimentButtons);
+    if (typeof showMessageInput === "boolean") {
+      widgetShowMessageInputValue = showMessageInput;
+    }
+    if (typeof showSentimentButtons === "boolean") {
+      widgetShowSentimentButtonsValue = showSentimentButtons;
     }
   }
 
@@ -378,6 +399,8 @@
         return {
           side: payload.widget_bubble_side,
           bottomOffset: payload.widget_bubble_bottom_offset,
+          showMessageInput: payload.widget_show_message_input,
+          showSentimentButtons: payload.widget_show_sentiment_buttons,
         };
       });
   }
@@ -421,6 +444,8 @@
           return {
             side: site.widget_bubble_side,
             bottomOffset: site.widget_bubble_bottom_offset,
+            showMessageInput: site.widget_show_message_input,
+            showSentimentButtons: site.widget_show_sentiment_buttons,
           };
         }
         return null;
@@ -464,6 +489,12 @@
 
       var resolvedBubbleSide = widgetPlacementSideValue === "left" ? "left" : "right";
       var resolvedBottomOffset = Number(widgetPlacementBottomOffsetValue);
+      var resolvedShowMessageInput = widgetShowMessageInputValue !== false;
+      var resolvedShowSentimentButtons = widgetShowSentimentButtonsValue !== false;
+      if (!resolvedShowMessageInput && !resolvedShowSentimentButtons) {
+        resolvedShowMessageInput = true;
+        resolvedShowSentimentButtons = true;
+      }
       if (!isFinite(resolvedBottomOffset) || resolvedBottomOffset < 0) {
         resolvedBottomOffset = widgetDefaults.placementBottomOffset;
       }
@@ -562,25 +593,30 @@
       contact.style.boxSizing = boxSizingBorderBoxValue;
       panelContainer.appendChild(contact);
 
-      var sentimentSection = document.createElement("div");
-      sentimentSection.id = "mp-feedback-sentiment";
-      sentimentSection.style.margin = "6px 0 8px";
-      panelContainer.appendChild(sentimentSection);
-
-      var sentimentLabel = document.createElement("div");
-      sentimentLabel.textContent = widgetSentimentPromptText;
-      sentimentLabel.style.fontSize = "12px";
-      sentimentLabel.style.fontWeight = "600";
-      sentimentLabel.style.marginBottom = "6px";
-      sentimentSection.appendChild(sentimentLabel);
-
-      var sentimentButtonRow = document.createElement("div");
-      sentimentButtonRow.style.display = "grid";
-      sentimentButtonRow.style.gridTemplateColumns = "repeat(3, minmax(0, 1fr))";
-      sentimentButtonRow.style.gap = "8px";
-      sentimentSection.appendChild(sentimentButtonRow);
-
+      var sentimentSection = null;
+      var sentimentButtonRow = null;
       var sentimentButtons = [];
+
+      if (resolvedShowSentimentButtons) {
+        sentimentSection = document.createElement("div");
+        sentimentSection.id = "mp-feedback-sentiment";
+        sentimentSection.style.margin = "6px 0 8px";
+        panelContainer.appendChild(sentimentSection);
+
+        var sentimentLabel = document.createElement("div");
+        sentimentLabel.textContent = widgetSentimentPromptText;
+        sentimentLabel.style.fontSize = "12px";
+        sentimentLabel.style.fontWeight = "600";
+        sentimentLabel.style.marginBottom = "6px";
+        sentimentSection.appendChild(sentimentLabel);
+
+        sentimentButtonRow = document.createElement("div");
+        sentimentButtonRow.style.display = "flex";
+        sentimentButtonRow.style.justifyContent = "center";
+        sentimentButtonRow.style.alignItems = "center";
+        sentimentButtonRow.style.gap = widgetSentimentButtonRowGapValue;
+        sentimentSection.appendChild(sentimentButtonRow);
+      }
 
       function updateSentimentSelectionStyles() {
         for (var sentimentButtonIndex = 0; sentimentButtonIndex < sentimentButtons.length; sentimentButtonIndex++) {
@@ -588,10 +624,13 @@
           var sentimentValue = sentimentButton.getAttribute("data-sentiment-value") || "";
           var isSelected = sentimentValue === selectedSentimentValue;
           sentimentButton.setAttribute("aria-pressed", isSelected ? "true" : "false");
-          sentimentButton.style.border = isSelected ? ("1px solid " + themePalette.buttonBackground) : themePalette.inputBorder;
-          sentimentButton.style.background = isSelected ? themePalette.buttonBackground : themePalette.inputBackground;
-          sentimentButton.style.color = isSelected ? themePalette.buttonTextColor : themePalette.inputTextColor;
+          sentimentButton.style.border = "0";
+          sentimentButton.style.background = "transparent";
+          sentimentButton.style.color = themePalette.panelTextColor;
           sentimentButton.style.fontWeight = isSelected ? "700" : "600";
+          sentimentButton.style.opacity = isSelected ? "1" : "0.72";
+          sentimentButton.style.transform = isSelected ? "scale(1.08)" : "scale(1)";
+          sentimentButton.style.filter = isSelected ? "drop-shadow(0 6px 12px rgba(0,0,0,0.16))" : "none";
         }
       }
 
@@ -604,43 +643,55 @@
         updateSentimentSelectionStyles();
       }
 
-      for (var sentimentOptionIndex = 0; sentimentOptionIndex < widgetSentimentOptions.length; sentimentOptionIndex++) {
-        var sentimentOption = widgetSentimentOptions[sentimentOptionIndex];
-        var sentimentButton = document.createElement("button");
-        sentimentButton.type = "button";
-        sentimentButton.id = "mp-feedback-sentiment-" + sentimentOption.value;
-        sentimentButton.setAttribute("data-sentiment-value", sentimentOption.value);
-        sentimentButton.setAttribute("aria-label", sentimentOption.label);
-        sentimentButton.setAttribute("aria-pressed", "false");
-        sentimentButton.title = sentimentOption.label;
-        sentimentButton.textContent = sentimentOption.emoji;
-        sentimentButton.style.width = "100%";
-        sentimentButton.style.padding = "10px 0";
-        sentimentButton.style.borderRadius = "8px";
-        sentimentButton.style.border = "1px solid transparent";
-        sentimentButton.style.boxSizing = boxSizingBorderBoxValue;
-        sentimentButton.style.cursor = "pointer";
-        sentimentButton.style.fontSize = "24px";
-        sentimentButton.style.lineHeight = "1";
-        sentimentButton.addEventListener("click", function(event){
-          var button = event.currentTarget;
-          var value = button && typeof button.getAttribute === "function" ? (button.getAttribute("data-sentiment-value") || "") : "";
-          setSelectedSentiment(value);
-        });
-        sentimentButtonRow.appendChild(sentimentButton);
-        sentimentButtons.push(sentimentButton);
+      if (resolvedShowSentimentButtons && sentimentButtonRow) {
+        for (var sentimentOptionIndex = 0; sentimentOptionIndex < widgetSentimentOptions.length; sentimentOptionIndex++) {
+          var sentimentOption = widgetSentimentOptions[sentimentOptionIndex];
+          var sentimentButton = document.createElement("button");
+          sentimentButton.type = "button";
+          sentimentButton.id = "mp-feedback-sentiment-" + sentimentOption.value;
+          sentimentButton.setAttribute("data-sentiment-value", sentimentOption.value);
+          sentimentButton.setAttribute("aria-label", sentimentOption.label);
+          sentimentButton.setAttribute("aria-pressed", "false");
+          sentimentButton.title = sentimentOption.label;
+          sentimentButton.textContent = sentimentOption.emoji;
+          sentimentButton.style.width = widgetSentimentButtonSizeValue;
+          sentimentButton.style.height = widgetSentimentButtonSizeValue;
+          sentimentButton.style.padding = "0";
+          sentimentButton.style.borderRadius = "999px";
+          sentimentButton.style.border = "0";
+          sentimentButton.style.background = "transparent";
+          sentimentButton.style.boxSizing = boxSizingBorderBoxValue;
+          sentimentButton.style.cursor = "pointer";
+          sentimentButton.style.display = "flex";
+          sentimentButton.style.alignItems = "center";
+          sentimentButton.style.justifyContent = "center";
+          sentimentButton.style.flex = "0 0 auto";
+          sentimentButton.style.fontSize = widgetSentimentButtonFontSizeValue;
+          sentimentButton.style.lineHeight = "1";
+          sentimentButton.style.transition = widgetSentimentButtonTransitionValue;
+          sentimentButton.addEventListener("click", function(event){
+            var button = event.currentTarget;
+            var value = button && typeof button.getAttribute === "function" ? (button.getAttribute("data-sentiment-value") || "") : "";
+            setSelectedSentiment(value);
+          });
+          sentimentButtonRow.appendChild(sentimentButton);
+          sentimentButtons.push(sentimentButton);
+        }
       }
 
-      var message = document.createElement("textarea");
-      message.id = "mp-feedback-message";
-      message.placeholder = "Your message";
-      message.rows = 4;
-      message.style.width = "100%";
-      message.style.margin = "6px 0 8px";
-      message.style.padding = "10px";
-      message.style.borderRadius = "8px";
-      message.style.boxSizing = boxSizingBorderBoxValue;
-      panelContainer.appendChild(message);
+      var message = null;
+      if (resolvedShowMessageInput) {
+        message = document.createElement("textarea");
+        message.id = "mp-feedback-message";
+        message.placeholder = "Your message";
+        message.rows = 4;
+        message.style.width = "100%";
+        message.style.margin = "6px 0 8px";
+        message.style.padding = "10px";
+        message.style.borderRadius = "8px";
+        message.style.boxSizing = boxSizingBorderBoxValue;
+        panelContainer.appendChild(message);
+      }
 
       var send = null;
       function getPanelFocusableElements() {
@@ -648,7 +699,9 @@
         for (var focusableSentimentIndex = 0; focusableSentimentIndex < sentimentButtons.length; focusableSentimentIndex++) {
           orderedElements.push(sentimentButtons[focusableSentimentIndex]);
         }
-        orderedElements.push(message);
+        if (message) {
+          orderedElements.push(message);
+        }
         orderedElements.push(send);
         var focusableElements = [];
         for (var elementIndex = 0; elementIndex < orderedElements.length; elementIndex++) {
@@ -678,7 +731,9 @@
       }
 
       contact.addEventListener("keydown", handleInputTabNavigation);
-      message.addEventListener("keydown", handleInputTabNavigation);
+      if (message) {
+        message.addEventListener("keydown", handleInputTabNavigation);
+      }
       for (var sentimentKeydownIndex = 0; sentimentKeydownIndex < sentimentButtons.length; sentimentKeydownIndex++) {
         sentimentButtons[sentimentKeydownIndex].addEventListener("keydown", handleInputTabNavigation);
       }
@@ -773,9 +828,11 @@
         contact.style.border = palette.inputBorder;
         contact.style.background = palette.inputBackground;
         contact.style.color = palette.inputTextColor;
-        message.style.border = palette.inputBorder;
-        message.style.background = palette.inputBackground;
-        message.style.color = palette.inputTextColor;
+        if (message) {
+          message.style.border = palette.inputBorder;
+          message.style.background = palette.inputBackground;
+          message.style.color = palette.inputTextColor;
+        }
         send.style.background = palette.buttonBackground;
         send.style.color = palette.buttonTextColor;
         closeButton.style.color = palette.closeButtonColor;
@@ -907,9 +964,20 @@
 
       function validate() {
         var contactValue = normalizeContactValue(contact.value || "");
-        var messageValue = (message.value || "").trim();
+        var messageValue = message ? (message.value || "").trim() : "";
         if (!contactValue) { show("Please enter a valid email or phone.", statusStateError); return null; }
-        if (messageValue.length === 0 && !selectedSentimentValue) { show("Please write a message, choose a face, or both.", statusStateError); return null; }
+        if (messageValue.length === 0 && !selectedSentimentValue) {
+          if (!resolvedShowMessageInput) {
+            show("Please choose a face.", statusStateError);
+            return null;
+          }
+          if (!resolvedShowSentimentButtons) {
+            show("Please write a message.", statusStateError);
+            return null;
+          }
+          show("Please write a message, choose a face, or both.", statusStateError);
+          return null;
+        }
         return {contact: contactValue, message: messageValue, sentiment: selectedSentimentValue};
       }
 
@@ -965,7 +1033,9 @@
         }).then(function(){
           show("Thanks! Sent.", statusStateSuccess);
           contact.value = "";
-          message.value = "";
+          if (message) {
+            message.value = "";
+          }
           selectedSentimentValue = "";
           updateSentimentSelectionStyles();
           send.disabled = false;

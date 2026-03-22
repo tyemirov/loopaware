@@ -26,3 +26,18 @@ func backfillSiteCreatorEmails(database *gorm.DB) error {
 		Where("creator_email IS NULL OR TRIM(creator_email) = ''").
 		Updates(assignments).Error
 }
+
+func backfillSiteWidgetFeedbackVisibility(database *gorm.DB) error {
+	assignments := map[string]any{
+		"widget_show_message_input":     true,
+		"widget_show_sentiment_buttons": true,
+	}
+
+	return database.Model(&model.Site{}).
+		Where(
+			"widget_show_message_input IS NULL OR widget_show_sentiment_buttons IS NULL OR (widget_show_message_input = ? AND widget_show_sentiment_buttons = ?)",
+			false,
+			false,
+		).
+		Updates(assignments).Error
+}
