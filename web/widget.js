@@ -53,6 +53,22 @@
   var widgetCloseButtonOpacityValue = "0.6";
   var widgetCloseButtonHoverOpacityValue = "1";
   var widgetCloseButtonAriaLabel = "Close feedback panel";
+  var widgetSentimentPromptText = "How was your experience?";
+  var widgetSentimentSadValue = "sad";
+  var widgetSentimentNeutralValue = "neutral";
+  var widgetSentimentHappyValue = "happy";
+  var widgetSentimentButtonSizeValue = "64px";
+  var widgetSentimentButtonFontSizeValue = "48px";
+  var widgetSentimentButtonRowGapValue = "10px";
+  var widgetSentimentButtonTransitionValue = "transform 120ms ease, opacity 120ms ease, filter 120ms ease";
+  var widgetSentimentOptions = [
+    { value: widgetSentimentSadValue, label: "Sad", emoji: "🙁" },
+    { value: widgetSentimentNeutralValue, label: "Neutral", emoji: "😐" },
+    { value: widgetSentimentHappyValue, label: "Happy", emoji: "🙂" }
+  ];
+  var feedbackPhoneMinimumDigits = 10;
+  var feedbackPhoneMaximumDigits = 15;
+  var feedbackPhoneAllowedCharactersPattern = /^[0-9+().\-\s]+$/;
   var widgetDemoModeFlagName = "LOOPAWARE_WIDGET_DEMO_MODE";
   var widgetTestModeFlagName = "LOOPAWARE_WIDGET_TEST_MODE";
   var widgetTestEndpointFlagName = "LOOPAWARE_WIDGET_TEST_ENDPOINT";
@@ -76,6 +92,8 @@
   var widgetPlacementSideValue = widgetDefaults.placementSide;
   var widgetPlacementBottomOffsetValue = widgetDefaults.placementBottomOffset;
   var widgetPlacementHorizontalOffsetValue = widgetDefaults.horizontalOffset;
+  var widgetShowMessageInputValue = true;
+  var widgetShowSentimentButtonsValue = true;
 
   try {
     if (typeof window === "object" && window) {
@@ -309,6 +327,13 @@
     return Math.round(num);
   }
 
+  function normalizeWidgetVisibilityValue(rawValue) {
+    if (typeof rawValue !== "boolean") {
+      return null;
+    }
+    return rawValue;
+  }
+
   function applyWidgetPlacementConfig(config) {
     if (!config) {
       return;
@@ -320,6 +345,14 @@
     }
     if (typeof offset === "number") {
       widgetPlacementBottomOffsetValue = offset;
+    }
+    var showMessageInput = normalizeWidgetVisibilityValue(config.showMessageInput);
+    var showSentimentButtons = normalizeWidgetVisibilityValue(config.showSentimentButtons);
+    if (typeof showMessageInput === "boolean") {
+      widgetShowMessageInputValue = showMessageInput;
+    }
+    if (typeof showSentimentButtons === "boolean") {
+      widgetShowSentimentButtonsValue = showSentimentButtons;
     }
   }
 
@@ -366,6 +399,8 @@
         return {
           side: payload.widget_bubble_side,
           bottomOffset: payload.widget_bubble_bottom_offset,
+          showMessageInput: payload.widget_show_message_input,
+          showSentimentButtons: payload.widget_show_sentiment_buttons,
         };
       });
   }
@@ -409,6 +444,8 @@
           return {
             side: site.widget_bubble_side,
             bottomOffset: site.widget_bubble_bottom_offset,
+            showMessageInput: site.widget_show_message_input,
+            showSentimentButtons: site.widget_show_sentiment_buttons,
           };
         }
         return null;
@@ -448,9 +485,16 @@
       var bodyElement = document.body;
       var themePalette = selectThemePalette(bodyElement);
       var currentStatusState = statusStatePending;
+      var selectedSentimentValue = "";
 
       var resolvedBubbleSide = widgetPlacementSideValue === "left" ? "left" : "right";
       var resolvedBottomOffset = Number(widgetPlacementBottomOffsetValue);
+      var resolvedShowMessageInput = widgetShowMessageInputValue !== false;
+      var resolvedShowSentimentButtons = widgetShowSentimentButtonsValue !== false;
+      if (!resolvedShowMessageInput && !resolvedShowSentimentButtons) {
+        resolvedShowMessageInput = true;
+        resolvedShowSentimentButtons = true;
+      }
       if (!isFinite(resolvedBottomOffset) || resolvedBottomOffset < 0) {
         resolvedBottomOffset = widgetDefaults.placementBottomOffset;
       }
@@ -541,7 +585,7 @@
       contact.id = "mp-feedback-contact";
       contact.type = "text";
       contact.placeholder = "Email or phone";
-      contact.autocomplete = "email";
+      contact.autocomplete = "off";
       contact.style.width = "100%";
       contact.style.margin = "6px 0";
       contact.style.padding = "10px";
@@ -549,50 +593,152 @@
       contact.style.boxSizing = boxSizingBorderBoxValue;
       panelContainer.appendChild(contact);
 
-      var message = document.createElement("textarea");
-      message.id = "mp-feedback-message";
-      message.placeholder = "Your message";
-      message.rows = 4;
-      message.style.width = "100%";
-      message.style.margin = "6px 0 8px";
-      message.style.padding = "10px";
-      message.style.borderRadius = "8px";
-      message.style.boxSizing = boxSizingBorderBoxValue;
-      panelContainer.appendChild(message);
+      var sentimentSection = null;
+      var sentimentButtonRow = null;
+      var sentimentButtons = [];
+
+      if (resolvedShowSentimentButtons) {
+        sentimentSection = document.createElement("div");
+        sentimentSection.id = "mp-feedback-sentiment";
+        sentimentSection.style.margin = "6px 0 8px";
+        panelContainer.appendChild(sentimentSection);
+
+        var sentimentLabel = document.createElement("div");
+        sentimentLabel.textContent = widgetSentimentPromptText;
+        sentimentLabel.style.fontSize = "12px";
+        sentimentLabel.style.fontWeight = "600";
+        sentimentLabel.style.marginBottom = "6px";
+        sentimentSection.appendChild(sentimentLabel);
+
+        sentimentButtonRow = document.createElement("div");
+        sentimentButtonRow.style.display = "flex";
+        sentimentButtonRow.style.justifyContent = "center";
+        sentimentButtonRow.style.alignItems = "center";
+        sentimentButtonRow.style.gap = widgetSentimentButtonRowGapValue;
+        sentimentSection.appendChild(sentimentButtonRow);
+      }
+
+      function updateSentimentSelectionStyles() {
+        for (var sentimentButtonIndex = 0; sentimentButtonIndex < sentimentButtons.length; sentimentButtonIndex++) {
+          var sentimentButton = sentimentButtons[sentimentButtonIndex];
+          var sentimentValue = sentimentButton.getAttribute("data-sentiment-value") || "";
+          var isSelected = sentimentValue === selectedSentimentValue;
+          sentimentButton.setAttribute("aria-pressed", isSelected ? "true" : "false");
+          sentimentButton.style.border = "0";
+          sentimentButton.style.background = "transparent";
+          sentimentButton.style.color = themePalette.panelTextColor;
+          sentimentButton.style.fontWeight = isSelected ? "700" : "600";
+          sentimentButton.style.opacity = isSelected ? "1" : "0.72";
+          sentimentButton.style.transform = isSelected ? "scale(1.08)" : "scale(1)";
+          sentimentButton.style.filter = isSelected ? "drop-shadow(0 6px 12px rgba(0,0,0,0.16))" : "none";
+        }
+      }
+
+      function setSelectedSentiment(value) {
+        if (value === selectedSentimentValue) {
+          selectedSentimentValue = "";
+        } else {
+          selectedSentimentValue = value || "";
+        }
+        updateSentimentSelectionStyles();
+      }
+
+      if (resolvedShowSentimentButtons && sentimentButtonRow) {
+        for (var sentimentOptionIndex = 0; sentimentOptionIndex < widgetSentimentOptions.length; sentimentOptionIndex++) {
+          var sentimentOption = widgetSentimentOptions[sentimentOptionIndex];
+          var sentimentButton = document.createElement("button");
+          sentimentButton.type = "button";
+          sentimentButton.id = "mp-feedback-sentiment-" + sentimentOption.value;
+          sentimentButton.setAttribute("data-sentiment-value", sentimentOption.value);
+          sentimentButton.setAttribute("aria-label", sentimentOption.label);
+          sentimentButton.setAttribute("aria-pressed", "false");
+          sentimentButton.title = sentimentOption.label;
+          sentimentButton.textContent = sentimentOption.emoji;
+          sentimentButton.style.width = widgetSentimentButtonSizeValue;
+          sentimentButton.style.height = widgetSentimentButtonSizeValue;
+          sentimentButton.style.padding = "0";
+          sentimentButton.style.borderRadius = "999px";
+          sentimentButton.style.border = "0";
+          sentimentButton.style.background = "transparent";
+          sentimentButton.style.boxSizing = boxSizingBorderBoxValue;
+          sentimentButton.style.cursor = "pointer";
+          sentimentButton.style.display = "flex";
+          sentimentButton.style.alignItems = "center";
+          sentimentButton.style.justifyContent = "center";
+          sentimentButton.style.flex = "0 0 auto";
+          sentimentButton.style.fontSize = widgetSentimentButtonFontSizeValue;
+          sentimentButton.style.lineHeight = "1";
+          sentimentButton.style.transition = widgetSentimentButtonTransitionValue;
+          sentimentButton.addEventListener("click", function(event){
+            var button = event.currentTarget;
+            var value = button && typeof button.getAttribute === "function" ? (button.getAttribute("data-sentiment-value") || "") : "";
+            setSelectedSentiment(value);
+          });
+          sentimentButtonRow.appendChild(sentimentButton);
+          sentimentButtons.push(sentimentButton);
+        }
+      }
+
+      var message = null;
+      if (resolvedShowMessageInput) {
+        message = document.createElement("textarea");
+        message.id = "mp-feedback-message";
+        message.placeholder = "Your message";
+        message.rows = 4;
+        message.style.width = "100%";
+        message.style.margin = "6px 0 8px";
+        message.style.padding = "10px";
+        message.style.borderRadius = "8px";
+        message.style.boxSizing = boxSizingBorderBoxValue;
+        panelContainer.appendChild(message);
+      }
+
+      var send = null;
+      function getPanelFocusableElements() {
+        var orderedElements = [contact];
+        for (var focusableSentimentIndex = 0; focusableSentimentIndex < sentimentButtons.length; focusableSentimentIndex++) {
+          orderedElements.push(sentimentButtons[focusableSentimentIndex]);
+        }
+        if (message) {
+          orderedElements.push(message);
+        }
+        orderedElements.push(send);
+        var focusableElements = [];
+        for (var elementIndex = 0; elementIndex < orderedElements.length; elementIndex++) {
+          var candidateElement = orderedElements[elementIndex];
+          if (candidateElement) {
+            focusableElements.push(candidateElement);
+          }
+        }
+        return focusableElements;
+      }
 
       /** @param {KeyboardEvent} event */
       function handleInputTabNavigation(event) {
         if (event.key !== "Tab") {
           return;
         }
+        var focusableElements = getPanelFocusableElements();
         var focusedElement = event.target;
-        var isShiftTab = event.shiftKey === true;
-        if (focusedElement === contact && !isShiftTab) {
-          event.preventDefault();
-          focusInputElement(message);
+        var currentIndex = focusableElements.indexOf(focusedElement);
+        if (currentIndex === -1 || focusableElements.length === 0) {
           return;
         }
-        if (focusedElement === contact && isShiftTab) {
-          event.preventDefault();
-          focusInputElement(send);
-          return;
-        }
-        if (focusedElement === message && isShiftTab) {
-          event.preventDefault();
-          focusInputElement(contact);
-          return;
-        }
-        if (focusedElement === message && !isShiftTab) {
-          event.preventDefault();
-          focusInputElement(send);
-          return;
-        }
+        var direction = event.shiftKey === true ? -1 : 1;
+        var nextIndex = (currentIndex + direction + focusableElements.length) % focusableElements.length;
+        event.preventDefault();
+        focusInputElement(focusableElements[nextIndex]);
       }
 
       contact.addEventListener("keydown", handleInputTabNavigation);
-      message.addEventListener("keydown", handleInputTabNavigation);
+      if (message) {
+        message.addEventListener("keydown", handleInputTabNavigation);
+      }
+      for (var sentimentKeydownIndex = 0; sentimentKeydownIndex < sentimentButtons.length; sentimentKeydownIndex++) {
+        sentimentButtons[sentimentKeydownIndex].addEventListener("keydown", handleInputTabNavigation);
+      }
 
-      var send = document.createElement("button");
+      send = document.createElement("button");
       send.type = "button";
       send.innerText = "Send";
       send.style.width = "100%";
@@ -603,6 +749,7 @@
       send.style.cursor = "pointer";
       send.style.boxSizing = boxSizingBorderBoxValue;
       panelContainer.appendChild(send);
+      send.addEventListener("keydown", handleInputTabNavigation);
 
       var status = document.createElement("div");
       status.style.marginTop = "6px";
@@ -681,13 +828,16 @@
         contact.style.border = palette.inputBorder;
         contact.style.background = palette.inputBackground;
         contact.style.color = palette.inputTextColor;
-        message.style.border = palette.inputBorder;
-        message.style.background = palette.inputBackground;
-        message.style.color = palette.inputTextColor;
+        if (message) {
+          message.style.border = palette.inputBorder;
+          message.style.background = palette.inputBackground;
+          message.style.color = palette.inputTextColor;
+        }
         send.style.background = palette.buttonBackground;
         send.style.color = palette.buttonTextColor;
         closeButton.style.color = palette.closeButtonColor;
         status.style.color = selectStatusColor(palette, currentStatusState);
+        updateSentimentSelectionStyles();
       }
 
       function refreshThemePalette() {
@@ -740,33 +890,6 @@
         }
       }
 
-      /** @param {KeyboardEvent} event */
-      function handleGlobalTabNavigation(event) {
-        if (event.key !== "Tab") {
-          return;
-        }
-        if (panel.style.display !== panelDisplayBlockValue) {
-          return;
-        }
-        var active = document.activeElement;
-        var isShift = event.shiftKey === true;
-        if (active === contact && !isShift) {
-          event.preventDefault();
-          focusInputElement(message);
-          return;
-        }
-        if (active === message && !isShift) {
-          event.preventDefault();
-          focusInputElement(send);
-          return;
-        }
-        if (active === send && !isShift) {
-          event.preventDefault();
-          focusInputElement(contact);
-          return;
-        }
-      }
-
       function schedulePanelAutoHide() {
         cancelPanelAutoHide();
         panelAutoHideTimer = window.setTimeout(function(){
@@ -787,7 +910,6 @@
         cancelPanelAutoHide();
         panel.style.display = panelDisplayNoneValue;
       });
-      document.addEventListener("keydown", handleGlobalTabNavigation, true);
 
       bubble.addEventListener("click", function(){
         cancelPanelAutoHide();
@@ -808,12 +930,55 @@
         status.style.color = selectStatusColor(themePalette, currentStatusState);
       }
 
+      function normalizeContactValue(rawValue) {
+        var trimmed = String(rawValue || "").trim();
+        if (!trimmed) {
+          return null;
+        }
+        if (trimmed.indexOf("@") !== -1) {
+          var normalizedEmail = trimmed.toLowerCase();
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+            return null;
+          }
+          return normalizedEmail;
+        }
+        if (!feedbackPhoneAllowedCharactersPattern.test(trimmed)) {
+          return null;
+        }
+        var plusMatches = trimmed.match(/\+/g);
+        if (plusMatches && plusMatches.length > 1) {
+          return null;
+        }
+        if (trimmed.indexOf("+") > 0) {
+          return null;
+        }
+        var digitsOnlyValue = trimmed.replace(/[^0-9]/g, "");
+        if (digitsOnlyValue.length < feedbackPhoneMinimumDigits || digitsOnlyValue.length > feedbackPhoneMaximumDigits) {
+          return null;
+        }
+        if (trimmed.charAt(0) === "+") {
+          return "+" + digitsOnlyValue;
+        }
+        return digitsOnlyValue;
+      }
+
       function validate() {
-        var contactValue = (contact.value || "").trim();
-        var messageValue = (message.value || "").trim();
-        if (contactValue.length < 3) { show("Please enter a valid email or phone.", statusStateError); return null; }
-        if (messageValue.length === 0) { show("Please write a message.", statusStateError); return null; }
-        return {contact: contactValue, message: messageValue};
+        var contactValue = normalizeContactValue(contact.value || "");
+        var messageValue = message ? (message.value || "").trim() : "";
+        if (!contactValue) { show("Please enter a valid email or phone.", statusStateError); return null; }
+        if (messageValue.length === 0 && !selectedSentimentValue) {
+          if (!resolvedShowMessageInput) {
+            show("Please choose a face.", statusStateError);
+            return null;
+          }
+          if (!resolvedShowSentimentButtons) {
+            show("Please write a message.", statusStateError);
+            return null;
+          }
+          show("Please write a message, choose a face, or both.", statusStateError);
+          return null;
+        }
+        return {contact: contactValue, message: messageValue, sentiment: selectedSentimentValue};
       }
 
       send.addEventListener("click", function(){
@@ -835,7 +1000,8 @@
         var payload = JSON.stringify({
           site_id: widgetSiteId,
           contact: valid.contact,
-          message: valid.message
+          message: valid.message,
+          sentiment: valid.sentiment
         });
 
         var endpoint = widgetApiOrigin
@@ -867,7 +1033,11 @@
         }).then(function(){
           show("Thanks! Sent.", statusStateSuccess);
           contact.value = "";
-          message.value = "";
+          if (message) {
+            message.value = "";
+          }
+          selectedSentimentValue = "";
+          updateSentimentSelectionStyles();
           send.disabled = false;
           schedulePanelAutoHide();
         }).catch(function(err){

@@ -162,6 +162,37 @@ test.describe("admin api sites", () => {
     expect(payload.error).toBe("invalid_widget_offset");
   });
 
+  test("create site rejects disabling both widget feedback inputs", async () => {
+    const { response, payload } = await adminRequest({
+      path: "/api/sites",
+      method: "POST",
+      body: {
+        name: "Widget Visibility Invalid",
+        allowed_origin: buildUniqueOrigin("widget-visibility-invalid"),
+        widget_show_message_input: false,
+        widget_show_sentiment_buttons: false
+      }
+    });
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("invalid_widget_feedback_visibility");
+  });
+
+  test("create site accepts disabling widget message input when sentiment stays enabled", async () => {
+    const { response, payload } = await adminRequest({
+      path: "/api/sites",
+      method: "POST",
+      body: {
+        name: "Widget Visibility Valid",
+        allowed_origin: buildUniqueOrigin("widget-visibility-valid"),
+        widget_show_message_input: false,
+        widget_show_sentiment_buttons: true
+      }
+    });
+    expect(response.status).toBe(200);
+    expect(payload.widget_show_message_input).toBe(false);
+    expect(payload.widget_show_sentiment_buttons).toBe(true);
+  });
+
   test("create site rejects duplicate origin", async () => {
     const duplicateOrigin = buildUniqueOrigin("duplicate");
     await adminRequest({
@@ -256,6 +287,35 @@ test.describe("admin api sites", () => {
     expect(payload.error).toBe("invalid_widget_offset");
   });
 
+  test("update site rejects disabling both widget feedback inputs", async () => {
+    const site = await createAdminSite("Update Widget Visibility Invalid");
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}`,
+      method: "PATCH",
+      body: {
+        widget_show_message_input: false,
+        widget_show_sentiment_buttons: false
+      }
+    });
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("invalid_widget_feedback_visibility");
+  });
+
+  test("update site accepts toggling widget feedback visibility", async () => {
+    const site = await createAdminSite("Update Widget Visibility");
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}`,
+      method: "PATCH",
+      body: {
+        widget_show_message_input: true,
+        widget_show_sentiment_buttons: false
+      }
+    });
+    expect(response.status).toBe(200);
+    expect(payload.widget_show_message_input).toBe(true);
+    expect(payload.widget_show_sentiment_buttons).toBe(false);
+  });
+
   test("update site rejects conflicting origin", async () => {
     const firstSite = await createAdminSite("Update Conflict A");
     const secondSite = await createAdminSite("Update Conflict B");
@@ -311,7 +371,8 @@ test.describe("admin api messages and subscribers", () => {
       body: {
         site_id: site.id,
         contact: "contact@example.com",
-        message: "Feedback message"
+        message: "Feedback message",
+        sentiment: "happy"
       }
     });
     const { response, payload } = await adminRequest({
@@ -321,6 +382,7 @@ test.describe("admin api messages and subscribers", () => {
     expect(response.status).toBe(200);
     const messages = Array.isArray(payload.messages) ? payload.messages : [];
     expect(messages.some((message) => message.message === "Feedback message")).toBe(true);
+    expect(messages.some((message) => message.sentiment === "happy")).toBe(true);
   });
 
   test("rejects messages for unauthorized user", async () => {

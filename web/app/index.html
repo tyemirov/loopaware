@@ -233,6 +233,23 @@
                     <div class="form-text" id="widget-placement-bottom-offset-help">Keeps the bubble above sticky footers.</div>
                   </div>
                 </div>
+                <h6 class="fw-semibold mb-2">Feedback inputs</h6>
+                <div class="row g-3 mb-3">
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="widget-show-message-input" checked />
+                      <label class="form-check-label" for="widget-show-message-input">Show message input</label>
+                    </div>
+                    <div class="form-text">Lets visitors type written feedback in the widget.</div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="widget-show-sentiment-buttons" checked />
+                      <label class="form-check-label" for="widget-show-sentiment-buttons">Show sentiment buttons</label>
+                    </div>
+                    <div class="form-text">Lets visitors respond with the face buttons.</div>
+                  </div>
+                </div>
                 <div class="mb-3">
                   <label class="form-label mb-0">Additional widget origins</label>
                   <div id="widget-allowed-origins-list" class="d-flex flex-column gap-2 mt-2"></div>
@@ -308,12 +325,13 @@
                       <tr>
                         <th scope="col">When</th>
                         <th scope="col">Contact</th>
+                        <th scope="col">Sentiment</th>
                         <th scope="col">Message</th>
                         <th scope="col">Delivery</th>
                       </tr>
                     </thead>
                     <tbody id="feedback-table-body">
-                      <tr><td colspan="4" class="text-center text-muted">Select a site to load feedback.</td></tr>
+                      <tr><td colspan="5" class="text-center text-muted">Select a site to load feedback.</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -753,6 +771,10 @@
         var widgetBottomOffsetInput = document.getElementById(elementIds.widget_bottom_offset);
         var widgetBottomOffsetDecreaseButton = document.getElementById(elementIds.widget_bottom_offset_decrease);
         var widgetBottomOffsetIncreaseButton = document.getElementById(elementIds.widget_bottom_offset_increase);
+        var widgetShowMessageInputCheckbox = document.getElementById('widget-show-message-input');
+        var widgetShowSentimentButtonsCheckbox = document.getElementById('widget-show-sentiment-buttons');
+        var widgetFeedbackVisibilityInvalidMessage = 'Enable the message input, sentiment buttons, or both.';
+        errorMessages.invalid_widget_feedback_visibility = errorMessages.invalid_widget_feedback_visibility || widgetFeedbackVisibilityInvalidMessage;
         var widgetBottomOffsetStep =  10 ;
         if (widgetBottomOffsetInput) {
           widgetBottomOffsetInput.min = String(widgetBottomOffsetMinimum);
@@ -835,6 +857,7 @@
         var autoLogoutSettingsState = null;
         var validationEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         var mailtoSchemePrefix = 'mailto:';
+        var telSchemePrefix = 'tel:';
         var contactLinkClassName = 'text-decoration-none';
         var emptyString = '';
         var statusNoSiteMatches = statusMessages.no_site_matches || '';
@@ -864,6 +887,10 @@
             numericValue = widgetBottomOffsetMaximum;
           }
           return numericValue;
+        }
+
+        function normalizeWidgetFeedbackVisibilityValue(value) {
+          return value !== false;
         }
 
         function adjustWidgetBottomOffset(delta) {
@@ -899,6 +926,15 @@
           }
         }
 
+        function setWidgetFeedbackVisibilityControls(showMessageInput, showSentimentButtons) {
+          if (widgetShowMessageInputCheckbox) {
+            widgetShowMessageInputCheckbox.checked = normalizeWidgetFeedbackVisibilityValue(showMessageInput);
+          }
+          if (widgetShowSentimentButtonsCheckbox) {
+            widgetShowSentimentButtonsCheckbox.checked = normalizeWidgetFeedbackVisibilityValue(showSentimentButtons);
+          }
+        }
+
         function determineWidgetPlacementPayload() {
           var sideValue = resolveWidgetSideSelection();
           var offsetValue = widgetBottomOffsetInput ? normalizeWidgetBottomOffsetValue(widgetBottomOffsetInput.value) : widgetDefaultBottomOffset;
@@ -906,6 +942,18 @@
             widget_bubble_side: sideValue,
             widget_bubble_bottom_offset: offsetValue
           };
+        }
+
+        function determineWidgetFeedbackVisibilityPayload() {
+          return {
+            widget_show_message_input: widgetShowMessageInputCheckbox ? widgetShowMessageInputCheckbox.checked === true : true,
+            widget_show_sentiment_buttons: widgetShowSentimentButtonsCheckbox ? widgetShowSentimentButtonsCheckbox.checked === true : true
+          };
+        }
+
+        function isWidgetFeedbackVisibilityValid() {
+          var visibilityPayload = determineWidgetFeedbackVisibilityPayload();
+          return visibilityPayload.widget_show_message_input || visibilityPayload.widget_show_sentiment_buttons;
         }
 
         function isWidgetBottomOffsetValid(value) {
@@ -1929,6 +1977,29 @@
           }
           return validationEmailPattern.test(normalizedOwnerEmail);
         }
+
+        function clearWidgetFeedbackVisibilityValidation() {
+          if (widgetShowMessageInputCheckbox) {
+            widgetShowMessageInputCheckbox.classList.remove(invalidFieldClassName);
+          }
+          if (widgetShowSentimentButtonsCheckbox) {
+            widgetShowSentimentButtonsCheckbox.classList.remove(invalidFieldClassName);
+          }
+        }
+
+        function markWidgetFeedbackVisibilityInvalid(focusMode) {
+          if (widgetShowMessageInputCheckbox) {
+            widgetShowMessageInputCheckbox.classList.add(invalidFieldClassName);
+          }
+          if (widgetShowSentimentButtonsCheckbox) {
+            widgetShowSentimentButtonsCheckbox.classList.add(invalidFieldClassName);
+          }
+          if (focusMode === validationFocusModePrompt && widgetShowMessageInputCheckbox) {
+            widgetShowMessageInputCheckbox.focus();
+          }
+          setFormStatus(widgetFeedbackVisibilityInvalidMessage, formStatusDangerClass);
+        }
+
         var siteFormValidationDescriptors = [
           {
             fieldElement: editSiteNameInput,
@@ -1961,6 +2032,7 @@
               descriptor.fieldElement.classList.remove(invalidFieldClassName);
             }
           });
+          clearWidgetFeedbackVisibilityValidation();
           clearSubscribeAllowedOriginsValidation();
           clearWidgetAllowedOriginsValidation();
           clearTrafficAllowedOriginsValidation();
@@ -2009,6 +2081,10 @@
             markFieldInvalid(invalidTrafficAllowedOriginInput, validationMessageKeyOriginInvalid, resolvedFocusMode);
             return false;
           }
+          if (!isWidgetFeedbackVisibilityValid()) {
+            markWidgetFeedbackVisibilityInvalid(resolvedFocusMode);
+            return false;
+          }
           return true;
         }
         function isSiteFormValidForAutosave() {
@@ -2029,6 +2105,9 @@
           if (invalidSubscribeAllowedOriginInput) {
             return false;
           }
+          if (!isWidgetFeedbackVisibilityValid()) {
+            return false;
+          }
           return true;
         }
         function registerValidationHandlers() {
@@ -2044,7 +2123,7 @@
           });
         }
         function registerSiteFormTabCycle() {
-          var tabOrderedFields = [editSiteNameInput, editSiteOriginInput, editSiteOwnerInput, widgetBottomOffsetInput].filter(function(element) {
+          var tabOrderedFields = [editSiteNameInput, editSiteOriginInput, editSiteOwnerInput, widgetShowMessageInputCheckbox, widgetShowSentimentButtonsCheckbox, widgetBottomOffsetInput].filter(function(element) {
             return element;
           });
           if (tabOrderedFields.length === 0) {
@@ -2080,7 +2159,29 @@
             cell.appendChild(link);
             return;
           }
+          if (/^\+?[0-9]{10,15}$/.test(normalized)) {
+            var phoneLink = document.createElement('a');
+            phoneLink.href = telSchemePrefix + normalized;
+            phoneLink.textContent = normalized;
+            phoneLink.className = contactLinkClassName;
+            cell.textContent = emptyString;
+            cell.appendChild(phoneLink);
+            return;
+          }
           cell.textContent = normalized;
+        }
+        function resolveFeedbackSentimentMeta(value) {
+          var normalized = (value || emptyString).toLowerCase();
+          if (normalized === 'sad') {
+            return { emoji: '🙁', label: 'Sad' };
+          }
+          if (normalized === 'neutral') {
+            return { emoji: '😐', label: 'Neutral' };
+          }
+          if (normalized === 'happy') {
+            return { emoji: '🙂', label: 'Happy' };
+          }
+          return { emoji: emptyString, label: emptyString };
         }
         function setSiteCreatedAt(unixSeconds) {
           if (!siteCreatedAtElement) {
@@ -3248,6 +3349,7 @@
           editSiteOriginInput.value = '';
           editSiteOwnerInput.value = '';
           setWidgetPlacementControls(widgetDefaultSide, widgetDefaultBottomOffset);
+          setWidgetFeedbackVisibilityControls(true, true);
           renderWidgetAllowedOrigins('');
           setWidgetAllowedOriginsDisabled(true);
           renderSubscribeAllowedOrigins('');
@@ -3303,6 +3405,7 @@
           editSiteOriginInput.value = site.allowed_origin || '';
           editSiteOwnerInput.value = site.owner_email || '';
           setWidgetPlacementControls(site.widget_bubble_side, site.widget_bubble_bottom_offset);
+          setWidgetFeedbackVisibilityControls(site.widget_show_message_input, site.widget_show_sentiment_buttons);
           renderWidgetAllowedOrigins(site.widget_allowed_origins || '');
           setWidgetAllowedOriginsDisabled(false);
           renderSubscribeAllowedOrigins(site.subscribe_allowed_origins || '');
@@ -3327,7 +3430,7 @@
           feedbackTableBody.innerHTML = '';
           var row = document.createElement('tr');
           var cell = document.createElement('td');
-          cell.colSpan = 4;
+          cell.colSpan = 5;
           cell.className = 'text-center text-muted';
           cell.textContent = message;
           row.appendChild(cell);
@@ -3355,12 +3458,16 @@
             createdCell.textContent = formatTimestamp(message.created_at);
             var contactCell = document.createElement('td');
             renderContactValue(contactCell, message.contact);
+            var sentimentCell = document.createElement('td');
+            var sentimentMeta = resolveFeedbackSentimentMeta(message.sentiment);
+            sentimentCell.textContent = sentimentMeta.label ? (sentimentMeta.emoji + ' ' + sentimentMeta.label) : emptyString;
             var bodyCell = document.createElement('td');
-            bodyCell.textContent = message.message;
+            bodyCell.textContent = message.message || emptyString;
             var deliveryCell = document.createElement('td');
             deliveryCell.textContent = resolveDeliveryLabel(message.delivery);
             row.appendChild(createdCell);
             row.appendChild(contactCell);
+            row.appendChild(sentimentCell);
             row.appendChild(bodyCell);
             row.appendChild(deliveryCell);
             feedbackTableBody.appendChild(row);
@@ -3376,8 +3483,10 @@
           return messages.filter(function(message) {
             var contactValue = (message.contact || emptyString).toLowerCase();
             var bodyValue = (message.message || emptyString).toLowerCase();
+            var sentimentMeta = resolveFeedbackSentimentMeta(message.sentiment);
+            var sentimentValue = ((message.sentiment || emptyString) + ' ' + (sentimentMeta.label || emptyString)).toLowerCase();
             var deliveryValue = (message.delivery || emptyString).toLowerCase();
-            return contactValue.indexOf(query) !== -1 || bodyValue.indexOf(query) !== -1 || deliveryValue.indexOf(query) !== -1;
+            return contactValue.indexOf(query) !== -1 || sentimentValue.indexOf(query) !== -1 || bodyValue.indexOf(query) !== -1 || deliveryValue.indexOf(query) !== -1;
           });
         }
 
@@ -3786,7 +3895,7 @@
         return state.sites.find(function(item) { return item.id === state.selectedSiteId; }) || null;
       }
 
-      function hasSiteEdits(site, payload, ownerEmailValue) {
+        function hasSiteEdits(site, payload, ownerEmailValue) {
         if (!site) {
           return true;
         }
@@ -3818,6 +3927,12 @@
         if (payload.widget_bubble_bottom_offset !== normalizeWidgetBottomOffsetValue(site.widget_bubble_bottom_offset)) {
           return true;
         }
+        if (payload.widget_show_message_input !== normalizeWidgetFeedbackVisibilityValue(site.widget_show_message_input)) {
+          return true;
+        }
+        if (payload.widget_show_sentiment_buttons !== normalizeWidgetFeedbackVisibilityValue(site.widget_show_sentiment_buttons)) {
+          return true;
+        }
         return false;
       }
 
@@ -3828,6 +3943,7 @@
         var selectedSite = resolveSelectedSite();
         var ownerEmailValue = getTrimmedValue(editSiteOwnerInput);
         var placementPayload = determineWidgetPlacementPayload();
+        var visibilityPayload = determineWidgetFeedbackVisibilityPayload();
         var payload = {
           name: getTrimmedValue(editSiteNameInput),
           allowed_origin: getTrimmedValue(editSiteOriginInput),
@@ -3835,7 +3951,9 @@
           widget_allowed_origins: readWidgetAllowedOrigins(),
           traffic_allowed_origins: readTrafficAllowedOrigins(),
           widget_bubble_side: placementPayload.widget_bubble_side,
-          widget_bubble_bottom_offset: placementPayload.widget_bubble_bottom_offset
+          widget_bubble_bottom_offset: placementPayload.widget_bubble_bottom_offset,
+          widget_show_message_input: visibilityPayload.widget_show_message_input,
+          widget_show_sentiment_buttons: visibilityPayload.widget_show_sentiment_buttons
         };
         if (isNewSiteSelected()) {
           payload.owner_email = ownerEmailValue;
@@ -4108,6 +4226,20 @@
         }
         if (widgetSideRightOption) {
           widgetSideRightOption.addEventListener('change', function() {
+            scheduleAutoSave();
+          });
+        }
+        if (widgetShowMessageInputCheckbox) {
+          widgetShowMessageInputCheckbox.addEventListener('change', function() {
+            clearWidgetFeedbackVisibilityValidation();
+            clearFormStatus();
+            scheduleAutoSave();
+          });
+        }
+        if (widgetShowSentimentButtonsCheckbox) {
+          widgetShowSentimentButtonsCheckbox.addEventListener('change', function() {
+            clearWidgetFeedbackVisibilityValidation();
+            clearFormStatus();
             scheduleAutoSave();
           });
         }

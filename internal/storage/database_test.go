@@ -111,6 +111,35 @@ func TestAutoMigrateBackfillsMissingCreatorEmails(t *testing.T) {
 	require.Equal(t, testExistingCreatorEmail, refreshedExisting.CreatorEmail)
 }
 
+func TestAutoMigrateBackfillsWidgetFeedbackVisibility(t *testing.T) {
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
+
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(t, openErr)
+	database = testutil.ConfigureDatabaseLogger(t, database)
+
+	require.NoError(t, storage.AutoMigrate(database))
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Hidden Feedback Inputs",
+		AllowedOrigin: testSiteAllowedOriginValue,
+		OwnerEmail:    testOwnerEmailValue,
+	}
+	require.NoError(t, database.Create(&site).Error)
+	require.NoError(t, database.Model(&model.Site{}).Where("id = ?", site.ID).Updates(map[string]any{
+		"widget_show_message_input":     false,
+		"widget_show_sentiment_buttons": false,
+	}).Error)
+
+	require.NoError(t, storage.AutoMigrate(database))
+
+	var refreshedSite model.Site
+	require.NoError(t, database.First(&refreshedSite, "id = ?", site.ID).Error)
+	require.True(t, refreshedSite.WidgetShowMessageInput)
+	require.True(t, refreshedSite.WidgetShowSentimentButtons)
+}
+
 func TestOpenDatabaseValidation(t *testing.T) {
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
 

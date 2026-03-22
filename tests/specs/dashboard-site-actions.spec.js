@@ -121,3 +121,11 @@ test('validation rejects invalid widget offset', async ({ page }) => {
   await page.locator('#widget-placement-bottom-offset').fill('999');
   await expect(page.locator('#site-status')).toContainText('Provide a whole number between 0 and 240');
 });
+
+test('validation rejects hiding both widget feedback inputs', async ({ page }) => {
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, primarySite.id);
+  await page.locator('#widget-show-message-input').uncheck();
+  await page.locator('#widget-show-sentiment-buttons').uncheck();
+  await expect(page.locator('#site-status')).toContainText('Enable the message input, sentiment buttons, or both');
+});

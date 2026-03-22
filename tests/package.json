@@ -8,6 +8,7 @@
     "test:ui": "playwright test -c playwright.ui.config.js --ui",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "install:browsers": "playwright install --with-deps",
+    "capture:visual": "node scripts/capture-visual.mjs",
     "test:api": "playwright test -c playwright.api.config.js",
     "test:all": "playwright test"
   },
@@ -15,7 +16,6 @@
     "@playwright/test": "^1.50.1",
     "@types/node": "^22.13.5",
     "jsonwebtoken": "^9.0.2",
-    "pngjs": "^7.0.0",
     "typescript": "^5.4.5"
   },
   "engines": {

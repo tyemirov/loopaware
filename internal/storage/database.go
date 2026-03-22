@@ -85,7 +85,10 @@ func AutoMigrate(database *gorm.DB) error {
 	if err := database.AutoMigrate(&model.Site{}, &model.Feedback{}, &model.User{}, &model.Subscriber{}, &model.SiteVisit{}, &model.SiteVisitRollup{}); err != nil {
 		return err
 	}
-	return backfillSiteCreatorEmails(database)
+	if err := backfillSiteCreatorEmails(database); err != nil {
+		return err
+	}
+	return backfillSiteWidgetFeedbackVisibility(database)
 }
 
 // NewID generates a new globally unique identifier.

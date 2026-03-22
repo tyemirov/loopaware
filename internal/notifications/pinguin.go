@@ -106,11 +106,16 @@ func (notifier *PinguinNotifier) NotifyFeedback(ctx context.Context, site model.
 
 	subject := fmt.Sprintf("New feedback for %s", strings.TrimSpace(site.Name))
 	messageBuilder := &strings.Builder{}
-	_, _ = fmt.Fprintf(messageBuilder, "A new feedback message was submitted for %s.\n\n", strings.TrimSpace(site.Name))
+	_, _ = fmt.Fprintf(messageBuilder, "A new feedback entry was submitted for %s.\n\n", strings.TrimSpace(site.Name))
 	if feedback.Contact != "" {
 		_, _ = fmt.Fprintf(messageBuilder, "Contact: %s\n", strings.TrimSpace(feedback.Contact))
 	}
-	_, _ = fmt.Fprintf(messageBuilder, "Message:\n%s\n", strings.TrimSpace(feedback.Message))
+	if feedback.Sentiment != "" {
+		_, _ = fmt.Fprintf(messageBuilder, "Sentiment: %s\n", formatFeedbackSentimentLabel(feedback.Sentiment))
+	}
+	if strings.TrimSpace(feedback.Message) != "" {
+		_, _ = fmt.Fprintf(messageBuilder, "Message:\n%s\n", strings.TrimSpace(feedback.Message))
+	}
 
 	request := &pinguinpb.NotificationRequest{
 		NotificationType: notificationType,
@@ -136,6 +141,19 @@ func (notifier *PinguinNotifier) NotifyFeedback(ctx context.Context, site model.
 	}
 
 	return delivery, nil
+}
+
+func formatFeedbackSentimentLabel(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case model.FeedbackSentimentSad:
+		return "Sad"
+	case model.FeedbackSentimentNeutral:
+		return "Neutral"
+	case model.FeedbackSentimentHappy:
+		return "Happy"
+	default:
+		return strings.TrimSpace(value)
+	}
 }
 
 // NotifySubscription sends a notification describing the subscription.

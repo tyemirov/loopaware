@@ -34,7 +34,7 @@ async function createPublicSite(label) {
   });
 }
 
-async function postFeedbackRequest(siteId, contact, message, originOverride, clientIP) {
+async function postFeedbackRequest(siteId, contact, message, originOverride, clientIP, sentiment) {
   return apiRequest({
     baseURL: config.baseURL,
     path: "/public/feedback",
@@ -44,7 +44,8 @@ async function postFeedbackRequest(siteId, contact, message, originOverride, cli
     body: {
       site_id: siteId,
       contact,
-      message
+      message,
+      sentiment: sentiment || ""
     }
   });
 }
@@ -98,10 +99,22 @@ test.describe("public feedback api", () => {
     expect(payload.error).toBe("missing_fields");
   });
 
-  test("rejects missing message", async () => {
+  test("rejects invalid contact", async () => {
+    const { response, payload } = await postFeedbackRequest(site.id, "fuck you", "Hello", site.allowed_origin);
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("invalid_contact");
+  });
+
+  test("rejects missing message and sentiment", async () => {
     const { response, payload } = await postFeedbackRequest(site.id, "person@example.com", "", site.allowed_origin);
     expect(response.status).toBe(400);
     expect(payload.error).toBe("missing_fields");
+  });
+
+  test("rejects invalid sentiment", async () => {
+    const { response, payload } = await postFeedbackRequest(site.id, "person@example.com", "Hello", site.allowed_origin, undefined, "angry");
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("invalid_sentiment");
   });
 
   test("rejects invalid json", async () => {
@@ -136,11 +149,23 @@ test.describe("public feedback api", () => {
     expect(payload.status).toBe("ok");
   });
 
+  test("accepts valid phone feedback", async () => {
+    const { response, payload } = await postFeedbackRequest(site.id, "+1 (415) 555-1212", "Hello", site.allowed_origin);
+    expect(response.status).toBe(200);
+    expect(payload.status).toBe("ok");
+  });
+
+  test("accepts sentiment-only feedback", async () => {
+    const { response, payload } = await postFeedbackRequest(site.id, "person@example.com", "", site.allowed_origin, undefined, "happy");
+    expect(response.status).toBe(200);
+    expect(payload.status).toBe("ok");
+  });
+
   test("rate limits repeated feedback requests", async () => {
     const clientIP = nextClientIP();
     let lastResult;
     for (let attemptIndex = 0; attemptIndex < 7; attemptIndex += 1) {
-      lastResult = await postFeedbackRequest(site.id, "person@example.com", "", site.allowed_origin, clientIP);
+      lastResult = await postFeedbackRequest(site.id, "person@example.com", "Hello", site.allowed_origin, clientIP);
     }
     expect(lastResult.response.status).toBe(429);
     expect(lastResult.payload.error).toBe("rate_limited");
@@ -456,6 +481,8 @@ test.describe("widget config endpoint", () => {
     expect(response.status).toBe(200);
     expect(payload.site_id).toBe(site.id);
     expect(payload.widget_bubble_side).toBeTruthy();
+    expect(payload.widget_show_message_input).toBe(true);
+    expect(payload.widget_show_sentiment_buttons).toBe(true);
   });
 
   test("returns demo widget config", async () => {
@@ -467,6 +494,8 @@ test.describe("widget config endpoint", () => {
     });
     expect(response.status).toBe(200);
     expect(payload.site_id).toBe("__loopaware_widget_demo__");
+    expect(payload.widget_show_message_input).toBe(true);
+    expect(payload.widget_show_sentiment_buttons).toBe(true);
   });
 });
 

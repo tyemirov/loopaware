@@ -30,6 +30,8 @@ const elementIds = [
   'widget-test-button',
   'copy-widget-snippet',
   'widget-snippet',
+  'widget-show-message-input',
+  'widget-show-sentiment-buttons',
   'subscribe-test-button',
   'copy-subscribe-widget-snippet',
   'subscribe-widget-snippet',

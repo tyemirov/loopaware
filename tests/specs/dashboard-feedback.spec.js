@@ -45,6 +45,16 @@ test('feedback table lists messages', async ({ page }) => {
   await expect(page.locator('#feedback-table-body')).toContainText('Beta feedback');
 });
 
+test('feedback table lists sentiment for sentiment-only feedback', async ({ page }) => {
+  const site = await createFeedbackSite();
+  await createFeedback(config, site, { contact: 'alpha@example.com', message: '', sentiment: 'happy' });
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
+  await expect(page.locator('#feedback-table-body')).toContainText('Happy');
+  await expect(page.locator('#feedback-table-body')).toContainText('🙂');
+});
+
 test('feedback count badge reflects totals', async ({ page }) => {
   const site = await createFeedbackSite();
   await createFeedback(config, site, { contact: 'one@example.com', message: 'One' });
@@ -69,6 +79,20 @@ test('feedback search filters messages', async ({ page }) => {
   await page.locator('#messages-search-input').fill('Alpha');
   await expect(page.locator('#feedback-table-body')).toContainText('Alpha search');
   await expect(page.locator('#feedback-table-body')).not.toContainText('Beta search');
+});
+
+test('feedback search filters by sentiment label', async ({ page }) => {
+  const site = await createFeedbackSite();
+  await createFeedback(config, site, { contact: 'happy@example.com', message: '', sentiment: 'happy' });
+  await createFeedback(config, site, { contact: 'sad@example.com', message: '', sentiment: 'sad' });
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await expect(page.locator('#feedback-table-body')).toContainText('Happy');
+  await expect(page.locator('#feedback-table-body')).toContainText('Sad');
+  await page.locator('#messages-search-toggle-button').click();
+  await page.locator('#messages-search-input').fill('happy');
+  await expect(page.locator('#feedback-table-body')).toContainText('Happy');
+  await expect(page.locator('#feedback-table-body')).not.toContainText('Sad');
 });
 
 test('feedback search shows empty state', async ({ page }) => {

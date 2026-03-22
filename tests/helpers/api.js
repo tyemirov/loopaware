@@ -155,7 +155,8 @@ export async function createFeedback(config, site, payload) {
     body: {
       site_id: site.id,
       contact: payload.contact,
-      message: payload.message
+      message: payload.message,
+      sentiment: payload.sentiment || ''
     }
   });
   if (!response.ok) {

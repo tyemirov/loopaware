@@ -276,6 +276,23 @@ func TestSanitizeWidgetBubbleBottomOffset(testingT *testing.T) {
 	require.Error(testingT, normalizeErr)
 }
 
+func TestResolveWidgetFeedbackVisibility(testingT *testing.T) {
+	showMessageInput, showSentiment, resolveErr := resolveWidgetFeedbackVisibility(nil, defaultWidgetShowMessageInput, nil, defaultWidgetShowSentiment)
+	require.NoError(testingT, resolveErr)
+	require.True(testingT, showMessageInput)
+	require.True(testingT, showSentiment)
+
+	disableMessageInput := false
+	showMessageInput, showSentiment, resolveErr = resolveWidgetFeedbackVisibility(&disableMessageInput, defaultWidgetShowMessageInput, nil, defaultWidgetShowSentiment)
+	require.NoError(testingT, resolveErr)
+	require.False(testingT, showMessageInput)
+	require.True(testingT, showSentiment)
+
+	disableSentiment := false
+	_, _, resolveErr = resolveWidgetFeedbackVisibility(&disableMessageInput, defaultWidgetShowMessageInput, &disableSentiment, defaultWidgetShowSentiment)
+	require.Error(testingT, resolveErr)
+}
+
 func TestEnsureWidgetBubblePlacementDefaults(testingT *testing.T) {
 	site := &model.Site{
 		WidgetBubbleSide:           "invalid",
@@ -284,6 +301,21 @@ func TestEnsureWidgetBubblePlacementDefaults(testingT *testing.T) {
 	ensureWidgetBubblePlacementDefaults(site)
 	require.Equal(testingT, defaultWidgetBubbleSide, site.WidgetBubbleSide)
 	require.Equal(testingT, defaultWidgetBubbleBottomOffset, site.WidgetBubbleBottomOffsetPx)
+}
+
+func TestEnsureWidgetFeedbackVisibilityDefaults(testingT *testing.T) {
+	site := &model.Site{}
+	ensureWidgetFeedbackVisibilityDefaults(site)
+	require.True(testingT, site.WidgetShowMessageInput)
+	require.True(testingT, site.WidgetShowSentimentButtons)
+
+	site = &model.Site{
+		WidgetShowMessageInput:     false,
+		WidgetShowSentimentButtons: true,
+	}
+	ensureWidgetFeedbackVisibilityDefaults(site)
+	require.False(testingT, site.WidgetShowMessageInput)
+	require.True(testingT, site.WidgetShowSentimentButtons)
 }
 
 func TestGinRequestContext(testingT *testing.T) {
