@@ -1,7 +1,36 @@
 # LoopAware
 
-LoopAware collects customer feedback through a lightweight widget, authenticates operators with Google, and offers a
-role-aware dashboard for managing sites and messages.
+[![CI](https://github.com/tyemirov/loopaware/actions/workflows/ci.yml/badge.svg)](https://github.com/tyemirov/loopaware/actions/workflows/ci.yml)
+[![License: Source Available](https://img.shields.io/badge/License-Source%20Available-blue)](./LICENSE)
+[![Go 1.25](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go)](https://go.dev)
+[![Latest Release](https://img.shields.io/github/v/release/tyemirov/loopaware)](https://github.com/tyemirov/loopaware/releases)
+
+**Privacy-first feedback widget and traffic analytics for developers.** Drop a single script tag on your site to collect customer feedback, capture email subscribers, and track visits -- all backed by a role-aware dashboard and a self-hosted SQLite backend.
+
+- **Free** for personal and non-revenue projects
+- **Commercial license** required for revenue-generating use
+- See [LICENSE](./LICENSE) for details
+
+<!-- TODO: Add screenshot of dashboard here -->
+<!-- ![LoopAware Dashboard](docs/screenshot-dashboard.png) -->
+
+## Quick Start
+
+```bash
+# Clone and start the development stack
+git clone https://github.com/tyemirov/loopaware.git
+cd loopaware
+./scripts/up.sh
+
+# Open the dashboard
+open http://localhost:8080/login
+```
+
+Embed the feedback widget on any page:
+
+```html
+<script src="https://loopaware.mprlab.com/widget.js?site_id=YOUR_SITE_ID" defer></script>
+```
 
 ## Highlights
 

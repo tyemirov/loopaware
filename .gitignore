@@ -17,6 +17,7 @@ configs/*
 .DS_Store
 
 PLAN.md
+MARKETING-READINESS.md
 node_modules/
 playwright-report/
 
