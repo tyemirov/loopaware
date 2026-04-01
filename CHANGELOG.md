@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.1] - 2026-04-01
+
+### Features ✨
+- Added new Pricing and Terms of Service pages with updated footer links.
+
+### Improvements ⚙️
+- Updated README with usage instructions, license details, and badges for CI, license, Go version, and latest release.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- _No changes._
+
+### Docs 📚
+- Added CONTRIBUTING guide covering license, development workflow, submission process, coding style, and issue reporting.
+
 ## [v0.2.0] - 2026-03-21
 
 ### Features ✨
@@ -146,7 +163,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WhatsApp in-app browser traffic is no longer misclassified as bot traffic.
 - Widget API origin resolution now falls back to HTTPS-aware behavior in proxy deployments that omit `X-Forwarded-Proto`.
 
-[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.2.1...HEAD
+[v0.2.1]: https://github.com/tyemirov/loopaware/releases/tag/v0.2.1
 [v0.2.0]: https://github.com/tyemirov/loopaware/releases/tag/v0.2.0
 [v0.1.4]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.4
 [v0.1.3]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.3
