@@ -14,6 +14,8 @@
   var GOOGLE_SIGNIN_GATE_MAX_ATTEMPTS = 40;
   var GOOGLE_SIGNIN_GATE_POLL_INTERVAL_MS = 100;
   var GOOGLE_SIGNIN_GATE_SLOW_POLL_INTERVAL_MS = 1000;
+  var PUBLIC_AUTH_RECOVERY_POLL_INTERVAL_MS = 500;
+  var PUBLIC_AUTH_RECOVERY_MAX_ATTEMPTS = 120;
   var LOGOUT_REQUEST_TIMEOUT_MS = 2000;
   var INITIAL_APP_AUTH_SETTLE_TIMEOUT_MS = 3000;
   var APP_PATHNAME = '/app';
@@ -21,13 +23,19 @@
   var store = window.__loopawareHeaderAuthStore;
   var authListenersAttached = false;
   var userMenuListenersAttached = false;
+  var publicAuthRecoveryListenersAttached = false;
+  var publicSigninListenersAttached = false;
   var bindingInProgress = false;
 
   if (!store || typeof store !== 'object') {
     store = {
       logoutPending: false,
       snapshot: null,
-      redirectTarget: ''
+      redirectTarget: '',
+      loginRedirectPending: false,
+      runtimeRefreshPending: false,
+      publicAuthRecoveryTimerId: 0,
+      publicAuthRecoveryRemainingAttempts: 0
     };
     window.__loopawareHeaderAuthStore = store;
   }
@@ -677,7 +685,7 @@
     if (!headerHost || !snapshot || snapshot.status !== AUTH_STATE_VALUES.authenticated) {
       return false;
     }
-    if (headerHost.getAttribute('data-loopaware-auth-redirect') !== 'true') {
+    if (store.loginRedirectPending !== true && headerHost.getAttribute('data-loopaware-auth-redirect') !== 'true') {
       return false;
     }
     if (!window.location || typeof window.location.pathname !== 'string') {
@@ -688,6 +696,42 @@
 
   function shouldRedirectToLogin(headerHost) {
     return !!(headerHost && typeof headerHost.getAttribute === 'function' && headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true');
+  }
+
+  function supportsPublicSigninRecovery(headerHost) {
+    if (!headerHost || typeof headerHost.getAttribute !== 'function') {
+      return false;
+    }
+    if (shouldRedirectToLogin(headerHost)) {
+      return false;
+    }
+    return !!(
+      normalizeTextValue(headerHost.getAttribute('google-site-id')) &&
+      normalizeTextValue(headerHost.getAttribute('tauth-login-path'))
+    );
+  }
+
+  function shouldRefreshPublicAuthSession(headerHost) {
+    if (!headerHost || typeof headerHost.getAttribute !== 'function') {
+      return false;
+    }
+    if (headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
+      return true;
+    }
+    return supportsPublicSigninRecovery(headerHost);
+  }
+
+  function clearPublicAuthRecoveryPolling() {
+    if (store.publicAuthRecoveryTimerId) {
+      window.clearTimeout(store.publicAuthRecoveryTimerId);
+      store.publicAuthRecoveryTimerId = 0;
+    }
+    store.publicAuthRecoveryRemainingAttempts = 0;
+  }
+
+  function resetPublicAuthRecovery() {
+    clearPublicAuthRecoveryPolling();
+    store.loginRedirectPending = false;
   }
 
   function markAppAuthSettled(headerHost) {
@@ -734,6 +778,9 @@
       return;
     }
     store.redirectTarget = pathname;
+    if (pathname === APP_PATHNAME) {
+      resetPublicAuthRecovery();
+    }
     window.location.assign(pathname);
   }
 
@@ -821,6 +868,7 @@
   }
 
   function syncFromAuthenticatedState(headerHost, source) {
+    clearPublicAuthRecoveryPolling();
     markAppAuthSettled(headerHost);
     return commitSnapshot(headerHost, createSnapshot(AUTH_STATE_VALUES.authenticated, source));
   }
@@ -828,6 +876,117 @@
   function syncFromUnauthenticatedState(headerHost, source) {
     markAppAuthSettled(headerHost);
     return commitSnapshot(headerHost, createSnapshot(AUTH_STATE_VALUES.unauthenticated, source));
+  }
+
+  function refreshPublicAuthSession(headerHost, source) {
+    if (!shouldRefreshPublicAuthSession(headerHost) || typeof window.getCurrentUser !== 'function') {
+      return;
+    }
+    if (store.runtimeRefreshPending === true) {
+      return;
+    }
+    store.runtimeRefreshPending = true;
+    var profilePromise;
+    try {
+      profilePromise = window.getCurrentUser();
+    } catch (error) {
+      store.runtimeRefreshPending = false;
+      return;
+    }
+    Promise.resolve(profilePromise)
+      .then(function (profile) {
+        store.runtimeRefreshPending = false;
+        if (profile && typeof profile === 'object') {
+          syncFromAuthenticatedState(headerHost, source || 'runtime');
+          return;
+        }
+        syncFromObservedState(headerHost);
+      })
+      .catch(function () {
+        store.runtimeRefreshPending = false;
+      });
+  }
+
+  function handlePublicAuthRecoveryEvent(event) {
+    if (event && event.type === 'visibilitychange' && document && document.visibilityState === 'hidden') {
+      return;
+    }
+    var headerHost = document.querySelector('mpr-header');
+    if (!headerHost) {
+      return;
+    }
+    refreshPublicAuthSession(headerHost, event && event.type ? 'runtime-' + event.type : 'runtime');
+  }
+
+  function schedulePublicAuthRecoveryPolling(headerHost, source) {
+    if (!shouldRefreshPublicAuthSession(headerHost)) {
+      resetPublicAuthRecovery();
+      return;
+    }
+    if (store.publicAuthRecoveryRemainingAttempts <= 0) {
+      resetPublicAuthRecovery();
+      return;
+    }
+    if (store.publicAuthRecoveryTimerId) {
+      return;
+    }
+    store.publicAuthRecoveryTimerId = window.setTimeout(function () {
+      store.publicAuthRecoveryTimerId = 0;
+      store.publicAuthRecoveryRemainingAttempts -= 1;
+      refreshPublicAuthSession(headerHost, source || 'runtime-poll');
+      if (store.snapshot && store.snapshot.status === AUTH_STATE_VALUES.authenticated) {
+        clearPublicAuthRecoveryPolling();
+        return;
+      }
+      schedulePublicAuthRecoveryPolling(headerHost, source || 'runtime-poll');
+    }, PUBLIC_AUTH_RECOVERY_POLL_INTERVAL_MS);
+  }
+
+  function startPublicAuthRecoveryPolling(headerHost, source) {
+    if (!shouldRefreshPublicAuthSession(headerHost)) {
+      return;
+    }
+    store.loginRedirectPending = true;
+    store.publicAuthRecoveryRemainingAttempts = PUBLIC_AUTH_RECOVERY_MAX_ATTEMPTS;
+    refreshPublicAuthSession(headerHost, source || 'runtime-start');
+    schedulePublicAuthRecoveryPolling(headerHost, source || 'runtime-poll');
+  }
+
+  function attachPublicAuthRecoveryListeners(headerHost) {
+    if (publicAuthRecoveryListenersAttached || !shouldRefreshPublicAuthSession(headerHost)) {
+      return;
+    }
+    if (window && typeof window.addEventListener === 'function') {
+      window.addEventListener('focus', handlePublicAuthRecoveryEvent);
+      window.addEventListener('pageshow', handlePublicAuthRecoveryEvent);
+    }
+    if (document && typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', handlePublicAuthRecoveryEvent);
+    }
+    publicAuthRecoveryListenersAttached = true;
+  }
+
+  function handlePublicSigninIntent(event) {
+    var target = event && event.target && event.target.nodeType === 1 ? event.target : null;
+    if (!target || typeof target.closest !== 'function') {
+      return;
+    }
+    if (!target.closest('[data-mpr-header="google-signin"]')) {
+      return;
+    }
+    var headerHost = resolveAuthHost(event);
+    if (!headerHost) {
+      return;
+    }
+    startPublicAuthRecoveryPolling(headerHost, 'runtime-signin');
+  }
+
+  function attachPublicSigninListeners(headerHost) {
+    if (publicSigninListenersAttached || !headerHost || !shouldRefreshPublicAuthSession(headerHost) || typeof headerHost.addEventListener !== 'function') {
+      return;
+    }
+    headerHost.addEventListener('click', handlePublicSigninIntent, true);
+    publicSigninListenersAttached = true;
   }
 
   function observeHeaderState(headerHost) {
@@ -897,6 +1056,7 @@
       hideOverlay();
       return;
     }
+    resetPublicAuthRecovery();
     syncFromUnauthenticatedState(headerHost, 'event');
   }
 
@@ -922,6 +1082,8 @@
       return;
     }
     ensureLogoutFallback(headerHost);
+    attachPublicAuthRecoveryListeners(headerHost);
+    attachPublicSigninListeners(headerHost);
     if (typeof headerHost.addEventListener === 'function' && headerHost.getAttribute('data-loopaware-auth-listeners') !== 'true') {
       headerHost.setAttribute('data-loopaware-auth-listeners', 'true');
       headerHost.addEventListener('mpr-ui:auth:authenticated', handleAuthenticatedEvent);
@@ -933,6 +1095,7 @@
     ensureAppAuthSettling(headerHost);
     observeHeaderState(headerHost);
     syncFromObservedState(headerHost);
+    refreshPublicAuthSession(headerHost, 'runtime-bind');
   }
 
   function bindHeaderAuth() {
