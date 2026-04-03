@@ -230,6 +230,15 @@ export async function collectVisit(config, site, payload) {
   if (payload.referrer) {
     urlParams.set('referrer', payload.referrer);
   }
+  if (payload.screenResolution) {
+    urlParams.set('screen_resolution', payload.screenResolution);
+  }
+  if (payload.viewport) {
+    urlParams.set('viewport', payload.viewport);
+  }
+  if (payload.timezone) {
+    urlParams.set('timezone', payload.timezone);
+  }
   const { response, payload: body } = await apiRequest({
     baseURL: config.baseURL,
     path: `/public/visits?${urlParams.toString()}`,
@@ -253,6 +262,32 @@ export async function fetchVisitStats(config, cookie, siteId) {
   });
   if (!response.ok) {
     throw new Error(`visit_stats_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
+export async function fetchDeviceBreakdown(config, cookie, siteId) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/sites/${siteId}/visits/devices`,
+    method: 'GET',
+    cookie
+  });
+  if (!response.ok) {
+    throw new Error(`device_breakdown_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
+export async function fetchTimezoneDistribution(config, cookie, siteId) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/sites/${siteId}/visits/timezones`,
+    method: 'GET',
+    cookie
+  });
+  if (!response.ok) {
+    throw new Error(`timezone_distribution_failed:${response.status}:${JSON.stringify(payload)}`);
   }
   return payload;
 }

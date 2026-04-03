@@ -74,8 +74,12 @@ const (
 	visitTrendDateFormat            = "2006-01-02"
 	visitAttributionDefaultLimit    = 10
 	visitAttributionMaxLimit        = 50
-	visitEngagementDefaultDays      = 30
-	visitEngagementMaxDays          = 90
+	visitEngagementDefaultDays           = 30
+	visitEngagementMaxDays               = 90
+	deviceBreakdownDefaultLimit          = 10
+	deviceBreakdownMaxLimit              = 50
+	timezoneDistributionDefaultLimit     = 10
+	timezoneDistributionMaxLimit         = 50
 )
 
 type SiteHandlers struct {
@@ -239,6 +243,30 @@ type VisitObservedTimeDistributionResponse struct {
 	ThirtyToOneNineteenSeconds       int64 `json:"between_30_and_119_seconds"`
 	OneTwentyToFiveNinetyNineSeconds int64 `json:"between_120_and_599_seconds"`
 	SixHundredOrMoreSeconds          int64 `json:"at_least_600_seconds"`
+}
+
+type DeviceBreakdownResponse struct {
+	SiteID         string             `json:"site_id"`
+	Limit          int                `json:"limit"`
+	DeviceTypes    []DeviceTypePoint  `json:"device_types"`
+	TopResolutions []AttributionPoint `json:"top_resolutions"`
+	TopViewports   []AttributionPoint `json:"top_viewports"`
+}
+
+type DeviceTypePoint struct {
+	DeviceType string `json:"device_type"`
+	VisitCount int64  `json:"visit_count"`
+}
+
+type TimezoneDistributionResponse struct {
+	SiteID    string          `json:"site_id"`
+	Limit     int             `json:"limit"`
+	Timezones []TimezonePoint `json:"timezones"`
+}
+
+type TimezonePoint struct {
+	Timezone   string `json:"timezone"`
+	VisitCount int64  `json:"visit_count"`
 }
 
 type TopPageEntry struct {
@@ -1025,6 +1053,58 @@ func (handlers *SiteHandlers) VisitEngagement(context *gin.Context) {
 	})
 }
 
+func (handlers *SiteHandlers) DeviceBreakdown(context *gin.Context) {
+	site, _, ok := handlers.resolveAuthorizedSite(context)
+	if !ok {
+		return
+	}
+
+	limit, parseErr := parseDeviceBreakdownLimit(context.Query("limit"))
+	if parseErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidLimit})
+		return
+	}
+
+	breakdown, err := handlers.statsProvider.DeviceBreakdown(context.Request.Context(), site.ID, limit)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+
+	context.JSON(http.StatusOK, DeviceBreakdownResponse{
+		SiteID:         site.ID,
+		Limit:          limit,
+		DeviceTypes:    toDeviceTypePoints(breakdown.DeviceTypes),
+		TopResolutions: toAttributionPoints(breakdown.TopResolutions),
+		TopViewports:   toAttributionPoints(breakdown.TopViewports),
+	})
+}
+
+func (handlers *SiteHandlers) TimezoneDistribution(context *gin.Context) {
+	site, _, ok := handlers.resolveAuthorizedSite(context)
+	if !ok {
+		return
+	}
+
+	limit, parseErr := parseTimezoneDistributionLimit(context.Query("limit"))
+	if parseErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidLimit})
+		return
+	}
+
+	timezones, err := handlers.statsProvider.TimezoneDistribution(context.Request.Context(), site.ID, limit)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+
+	context.JSON(http.StatusOK, TimezoneDistributionResponse{
+		SiteID:    site.ID,
+		Limit:     limit,
+		Timezones: toTimezonePoints(timezones),
+	})
+}
+
 func (handlers *SiteHandlers) recentVisits(ctx context.Context, siteID string, limit int) ([]VisitLogEntry, error) {
 	if strings.TrimSpace(siteID) == "" || handlers.database == nil {
 		return nil, nil
@@ -1664,6 +1744,58 @@ func toVisitObservedTimeDistributionResponse(distribution VisitObservedTimeDistr
 		OneTwentyToFiveNinetyNineSeconds: distribution.OneTwentyToFiveNinetyNine,
 		SixHundredOrMoreSeconds:          distribution.SixHundredOrMore,
 	}
+}
+
+func parseDeviceBreakdownLimit(rawValue string) (int, error) {
+	trimmedValue := strings.TrimSpace(rawValue)
+	if trimmedValue == "" {
+		return deviceBreakdownDefaultLimit, nil
+	}
+	limit, parseErr := strconv.Atoi(trimmedValue)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	if limit <= 0 || limit > deviceBreakdownMaxLimit {
+		return 0, errors.New("device breakdown limit out of range")
+	}
+	return limit, nil
+}
+
+func parseTimezoneDistributionLimit(rawValue string) (int, error) {
+	trimmedValue := strings.TrimSpace(rawValue)
+	if trimmedValue == "" {
+		return timezoneDistributionDefaultLimit, nil
+	}
+	limit, parseErr := strconv.Atoi(trimmedValue)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	if limit <= 0 || limit > timezoneDistributionMaxLimit {
+		return 0, errors.New("timezone distribution limit out of range")
+	}
+	return limit, nil
+}
+
+func toDeviceTypePoints(stats []DeviceTypeStat) []DeviceTypePoint {
+	if len(stats) == 0 {
+		return nil
+	}
+	points := make([]DeviceTypePoint, 0, len(stats))
+	for _, stat := range stats {
+		points = append(points, DeviceTypePoint(stat))
+	}
+	return points
+}
+
+func toTimezonePoints(stats []TimezoneDistributionStat) []TimezonePoint {
+	if len(stats) == 0 {
+		return nil
+	}
+	points := make([]TimezonePoint, 0, len(stats))
+	for _, stat := range stats {
+		points = append(points, TimezonePoint(stat))
+	}
+	return points
 }
 
 func (handlers *SiteHandlers) ginRequestContext(ginContext *gin.Context) context.Context {

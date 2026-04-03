@@ -711,3 +711,219 @@ func TestVisitEngagementHelperFunctions(testingT *testing.T) {
 
 	require.Equal(testingT, 0.33, roundVisitEngagementMetric(1.0/3.0))
 }
+
+func TestDatabaseSiteStatisticsProviderDeviceBreakdownClassifiesViewportWidths(testingT *testing.T) {
+	database := openFaviconManagerDatabase(testingT)
+	siteID := storage.NewID()
+
+	mobileVisit, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/m",
+		Viewport: "375x667",
+		Occurred: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, err)
+	tabletVisit, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/t",
+		Viewport: "800x600",
+		Occurred: time.Date(2024, 1, 1, 1, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, err)
+	desktopVisit, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/d",
+		Viewport: "1440x900",
+		Occurred: time.Date(2024, 1, 1, 2, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, err)
+	emptyViewportVisit, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/e",
+		Occurred: time.Date(2024, 1, 1, 3, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, err)
+
+	require.NoError(testingT, database.Create(&mobileVisit).Error)
+	require.NoError(testingT, database.Create(&tabletVisit).Error)
+	require.NoError(testingT, database.Create(&desktopVisit).Error)
+	require.NoError(testingT, database.Create(&emptyViewportVisit).Error)
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	result, err := provider.DeviceBreakdown(context.Background(), siteID, 10)
+	require.NoError(testingT, err)
+
+	deviceMap := make(map[string]int64)
+	for _, dt := range result.DeviceTypes {
+		deviceMap[dt.DeviceType] = dt.VisitCount
+	}
+	require.Equal(testingT, int64(1), deviceMap["mobile"])
+	require.Equal(testingT, int64(1), deviceMap["tablet"])
+	require.Equal(testingT, int64(1), deviceMap["desktop"])
+}
+
+func TestDatabaseSiteStatisticsProviderDeviceBreakdownExcludesBots(testingT *testing.T) {
+	database := openFaviconManagerDatabase(testingT)
+	siteID := storage.NewID()
+
+	botVisit, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    siteID,
+		URL:       "https://example.com/bot",
+		Viewport:  "1920x1080",
+		UserAgent: "Googlebot/2.1",
+		IsBot:     true,
+		Occurred:  time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, err)
+	require.NoError(testingT, database.Create(&botVisit).Error)
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	result, err := provider.DeviceBreakdown(context.Background(), siteID, 10)
+	require.NoError(testingT, err)
+	require.Nil(testingT, result.DeviceTypes)
+	require.Nil(testingT, result.TopViewports)
+}
+
+func TestDatabaseSiteStatisticsProviderDeviceBreakdownSkipsBlankSite(testingT *testing.T) {
+	database := openFaviconManagerDatabase(testingT)
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	result, err := provider.DeviceBreakdown(context.Background(), "   ", 10)
+	require.NoError(testingT, err)
+	require.Nil(testingT, result.DeviceTypes)
+}
+
+func TestDatabaseSiteStatisticsProviderDeviceBreakdownTopResolutions(testingT *testing.T) {
+	database := openFaviconManagerDatabase(testingT)
+	siteID := storage.NewID()
+
+	for i := 0; i < 3; i++ {
+		visit, err := model.NewSiteVisit(model.SiteVisitInput{
+			SiteID:           siteID,
+			URL:              "https://example.com/page",
+			ScreenResolution: "1920x1080",
+			Viewport:         "1440x900",
+			Occurred:         time.Date(2024, 1, 1, i, 0, 0, 0, time.UTC),
+		})
+		require.NoError(testingT, err)
+		require.NoError(testingT, database.Create(&visit).Error)
+	}
+	visit, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:           siteID,
+		URL:              "https://example.com/other",
+		ScreenResolution: "1366x768",
+		Viewport:         "1366x768",
+		Occurred:         time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, err)
+	require.NoError(testingT, database.Create(&visit).Error)
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	result, err := provider.DeviceBreakdown(context.Background(), siteID, 10)
+	require.NoError(testingT, err)
+	require.NotEmpty(testingT, result.TopResolutions)
+	require.Equal(testingT, "1920x1080", result.TopResolutions[0].Value)
+	require.Equal(testingT, int64(3), result.TopResolutions[0].VisitCount)
+}
+
+func TestDatabaseSiteStatisticsProviderTimezoneDistributionGroupsByTimezone(testingT *testing.T) {
+	database := openFaviconManagerDatabase(testingT)
+	siteID := storage.NewID()
+
+	for i := 0; i < 2; i++ {
+		visit, err := model.NewSiteVisit(model.SiteVisitInput{
+			SiteID:   siteID,
+			URL:      "https://example.com/page",
+			Timezone: "America/New_York",
+			Occurred: time.Date(2024, 1, 1, i, 0, 0, 0, time.UTC),
+		})
+		require.NoError(testingT, err)
+		require.NoError(testingT, database.Create(&visit).Error)
+	}
+	visit, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/other",
+		Timezone: "Europe/London",
+		Occurred: time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, err)
+	require.NoError(testingT, database.Create(&visit).Error)
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	results, err := provider.TimezoneDistribution(context.Background(), siteID, 10)
+	require.NoError(testingT, err)
+	require.Len(testingT, results, 2)
+	require.Equal(testingT, "America/New_York", results[0].Timezone)
+	require.Equal(testingT, int64(2), results[0].VisitCount)
+	require.Equal(testingT, "Europe/London", results[1].Timezone)
+	require.Equal(testingT, int64(1), results[1].VisitCount)
+}
+
+func TestDatabaseSiteStatisticsProviderTimezoneDistributionExcludesBots(testingT *testing.T) {
+	database := openFaviconManagerDatabase(testingT)
+	siteID := storage.NewID()
+
+	botVisit, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/bot",
+		Timezone: "Asia/Tokyo",
+		IsBot:    true,
+		Occurred: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, err)
+	require.NoError(testingT, database.Create(&botVisit).Error)
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	results, err := provider.TimezoneDistribution(context.Background(), siteID, 10)
+	require.NoError(testingT, err)
+	require.Empty(testingT, results)
+}
+
+func TestDatabaseSiteStatisticsProviderTimezoneDistributionSkipsEmptyTimezone(testingT *testing.T) {
+	database := openFaviconManagerDatabase(testingT)
+	siteID := storage.NewID()
+
+	visit, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/page",
+		Occurred: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, err)
+	require.NoError(testingT, database.Create(&visit).Error)
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	results, err := provider.TimezoneDistribution(context.Background(), siteID, 10)
+	require.NoError(testingT, err)
+	require.Empty(testingT, results)
+}
+
+func TestDatabaseSiteStatisticsProviderTimezoneDistributionSkipsBlankSite(testingT *testing.T) {
+	database := openFaviconManagerDatabase(testingT)
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	results, err := provider.TimezoneDistribution(context.Background(), "   ", 10)
+	require.NoError(testingT, err)
+	require.Nil(testingT, results)
+}
+
+func TestDeviceBreakdownHelperFunctions(testingT *testing.T) {
+	require.Equal(testingT, "mobile", classifyDeviceType("375x667"))
+	require.Equal(testingT, "mobile", classifyDeviceType("320x568"))
+	require.Equal(testingT, "tablet", classifyDeviceType("768x1024"))
+	require.Equal(testingT, "tablet", classifyDeviceType("800x600"))
+	require.Equal(testingT, "desktop", classifyDeviceType("1024x768"))
+	require.Equal(testingT, "desktop", classifyDeviceType("1440x900"))
+	require.Equal(testingT, "desktop", classifyDeviceType("1920x1080"))
+	require.Equal(testingT, "desktop", classifyDeviceType("invalid"))
+	require.Equal(testingT, "desktop", classifyDeviceType("abcx100"))
+
+	require.Equal(testingT, 10, normalizeDeviceBreakdownLimit(0))
+	require.Equal(testingT, 10, normalizeDeviceBreakdownLimit(-1))
+	require.Equal(testingT, 50, normalizeDeviceBreakdownLimit(100))
+	require.Equal(testingT, 25, normalizeDeviceBreakdownLimit(25))
+}
+
+func TestTimezoneDistributionHelperFunctions(testingT *testing.T) {
+	require.Equal(testingT, 10, normalizeTimezoneDistributionLimit(0))
+	require.Equal(testingT, 10, normalizeTimezoneDistributionLimit(-1))
+	require.Equal(testingT, 50, normalizeTimezoneDistributionLimit(100))
+	require.Equal(testingT, 25, normalizeTimezoneDistributionLimit(25))
+}

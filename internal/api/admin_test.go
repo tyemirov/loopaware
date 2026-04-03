@@ -54,12 +54,14 @@ type siteTestHarness struct {
 }
 
 type failingStatsProvider struct {
-	visitCountError         error
-	uniqueVisitorCountError error
-	topPagesError           error
-	visitTrendError         error
-	visitAttributionError   error
-	visitEngagementError    error
+	visitCountError              error
+	uniqueVisitorCountError      error
+	topPagesError                error
+	visitTrendError              error
+	visitAttributionError        error
+	visitEngagementError         error
+	deviceBreakdownError         error
+	timezoneDistributionError    error
 }
 
 func (provider *failingStatsProvider) FeedbackCount(context.Context, string) (int64, error) {
@@ -92,6 +94,14 @@ func (provider *failingStatsProvider) VisitAttribution(context.Context, string, 
 
 func (provider *failingStatsProvider) VisitEngagement(context.Context, string, int) (api.VisitEngagementStat, error) {
 	return api.VisitEngagementStat{}, provider.visitEngagementError
+}
+
+func (provider *failingStatsProvider) DeviceBreakdown(context.Context, string, int) (api.DeviceBreakdownStat, error) {
+	return api.DeviceBreakdownStat{}, provider.deviceBreakdownError
+}
+
+func (provider *failingStatsProvider) TimezoneDistribution(context.Context, string, int) ([]api.TimezoneDistributionStat, error) {
+	return nil, provider.timezoneDistributionError
 }
 
 func newSiteTestHarness(testingT *testing.T) siteTestHarness {
@@ -2658,6 +2668,206 @@ func TestVisitEngagementReturnsErrorOnProviderFailure(testingT *testing.T) {
 	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
 
 	handlers.VisitEngagement(context)
+	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
+}
+
+func TestDeviceBreakdownRequiresAuth(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Device Auth",
+		AllowedOrigin: "http://device-auth.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/devices", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+
+	harness.handlers.DeviceBreakdown(context)
+	require.Equal(testingT, http.StatusUnauthorized, recorder.Code)
+}
+
+func TestDeviceBreakdownReturnsBreakdown(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Device Breakdown",
+		AllowedOrigin: "http://device-breakdown.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	mobileVisit, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:           site.ID,
+		URL:              "https://device-breakdown.example/mobile",
+		Viewport:         "375x667",
+		ScreenResolution: "750x1334",
+		Occurred:         time.Now().UTC(),
+	})
+	require.NoError(testingT, err)
+	desktopVisit, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:           site.ID,
+		URL:              "https://device-breakdown.example/desktop",
+		Viewport:         "1440x900",
+		ScreenResolution: "1920x1080",
+		Occurred:         time.Now().UTC(),
+	})
+	require.NoError(testingT, err)
+	require.NoError(testingT, harness.database.Create(&mobileVisit).Error)
+	require.NoError(testingT, harness.database.Create(&desktopVisit).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/devices", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	harness.handlers.DeviceBreakdown(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var response api.DeviceBreakdownResponse
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Equal(testingT, site.ID, response.SiteID)
+	require.Equal(testingT, 10, response.Limit)
+	require.NotEmpty(testingT, response.DeviceTypes)
+	require.NotEmpty(testingT, response.TopResolutions)
+	require.NotEmpty(testingT, response.TopViewports)
+}
+
+func TestDeviceBreakdownRejectsInvalidLimit(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Device Limit",
+		AllowedOrigin: "http://device-limit.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/devices?limit=0", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	harness.handlers.DeviceBreakdown(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+	require.Contains(testingT, recorder.Body.String(), "invalid_limit")
+}
+
+func TestDeviceBreakdownReturnsErrorOnProviderFailure(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Device Error",
+		AllowedOrigin: "http://device-error.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	statsProvider := &failingStatsProvider{deviceBreakdownError: errors.New(testStatsErrorMessage)}
+	handlers := api.NewSiteHandlers(harness.database, zap.NewNop(), testWidgetBaseURL, nil, statsProvider, nil)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/devices", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	handlers.DeviceBreakdown(context)
+	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
+}
+
+func TestTimezoneDistributionRequiresAuth(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Timezone Auth",
+		AllowedOrigin: "http://timezone-auth.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/timezones", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+
+	harness.handlers.TimezoneDistribution(context)
+	require.Equal(testingT, http.StatusUnauthorized, recorder.Code)
+}
+
+func TestTimezoneDistributionReturnsTimezones(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Timezone Distribution",
+		AllowedOrigin: "http://timezone-dist.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	visitNY, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   site.ID,
+		URL:      "https://timezone-dist.example/page",
+		Timezone: "America/New_York",
+		Occurred: time.Now().UTC(),
+	})
+	require.NoError(testingT, err)
+	visitLondon, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   site.ID,
+		URL:      "https://timezone-dist.example/other",
+		Timezone: "Europe/London",
+		Occurred: time.Now().UTC(),
+	})
+	require.NoError(testingT, err)
+	require.NoError(testingT, harness.database.Create(&visitNY).Error)
+	require.NoError(testingT, harness.database.Create(&visitLondon).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/timezones", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	harness.handlers.TimezoneDistribution(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var response api.TimezoneDistributionResponse
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Equal(testingT, site.ID, response.SiteID)
+	require.Equal(testingT, 10, response.Limit)
+	require.Len(testingT, response.Timezones, 2)
+}
+
+func TestTimezoneDistributionRejectsInvalidLimit(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Timezone Limit",
+		AllowedOrigin: "http://timezone-limit.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/timezones?limit=0", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	harness.handlers.TimezoneDistribution(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+	require.Contains(testingT, recorder.Body.String(), "invalid_limit")
+}
+
+func TestTimezoneDistributionReturnsErrorOnProviderFailure(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Timezone Error",
+		AllowedOrigin: "http://timezone-error.example",
+		OwnerEmail:    testAdminEmailAddress,
+	}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+
+	statsProvider := &failingStatsProvider{timezoneDistributionError: errors.New(testStatsErrorMessage)}
+	handlers := api.NewSiteHandlers(harness.database, zap.NewNop(), testWidgetBaseURL, nil, statsProvider, nil)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/timezones", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	handlers.TimezoneDistribution(context)
 	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
 }
 

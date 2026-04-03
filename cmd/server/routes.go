@@ -100,6 +100,8 @@ func registerBackendRoutes(
 	apiGroup.GET(apiRouteSiteVisitTrend, siteHandlers.VisitTrend)
 	apiGroup.GET(apiRouteSiteVisitAttribution, siteHandlers.VisitAttribution)
 	apiGroup.GET(apiRouteSiteVisitEngagement, siteHandlers.VisitEngagement)
+	apiGroup.GET(apiRouteSiteVisitDevices, siteHandlers.DeviceBreakdown)
+	apiGroup.GET(apiRouteSiteVisitTimezones, siteHandlers.TimezoneDistribution)
 
 	apiGroup.POST("/sites/:id/widget-test/feedback", widgetTestHandlers.SubmitWidgetTestFeedback)
 	apiGroup.GET("/sites/:id/subscribe-test/events", subscribeTestHandlers.StreamSubscriptionTestEvents)

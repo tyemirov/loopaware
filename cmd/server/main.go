@@ -108,6 +108,8 @@ const (
 	apiRouteSiteVisitTrend            = "/sites/:id/visits/trend"
 	apiRouteSiteVisitAttribution      = "/sites/:id/visits/attribution"
 	apiRouteSiteVisitEngagement       = "/sites/:id/visits/engagement"
+	apiRouteSiteVisitDevices          = "/sites/:id/visits/devices"
+	apiRouteSiteVisitTimezones        = "/sites/:id/visits/timezones"
 	apiRouteSiteSubscribers           = "/sites/:id/subscribers"
 	apiRouteSiteSubscriberUpdate      = "/sites/:id/subscribers/:subscriber_id"
 	apiRouteSiteSubscribersExport     = "/sites/:id/subscribers/export"

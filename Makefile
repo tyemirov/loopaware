@@ -5,6 +5,8 @@ INEFFASSIGN_VERSION ?= v0.2.0
 STATICCHECK := honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 INEFFASSIGN := github.com/gordonklaus/ineffassign@$(INEFFASSIGN_VERSION)
 
+export GOWORK := off
+
 .PHONY: format format-pinguin build lint lint-js config-audit test test-unit test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check docker-up docker-down docker-logs ci
 
 format:

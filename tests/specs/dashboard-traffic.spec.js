@@ -84,6 +84,29 @@ test('traffic status stays hidden on success', async ({ page }) => {
   await expect(page.locator('#traffic-status')).toHaveClass(/d-none/);
 });
 
+test('device and timezone fetch failures show traffic error state', async ({ page }) => {
+  const site = await createTrafficSite();
+  await page.route(`**/api/sites/${site.id}/visits/devices`, async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'query_failed' })
+    });
+  });
+  await page.route(`**/api/sites/${site.id}/visits/timezones`, async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'query_failed' })
+    });
+  });
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await expect(page.locator('#traffic-status')).toHaveText('Failed to load data.');
+  await expect(page.locator('#device-types-table-body')).toContainText('Failed to load data.');
+  await expect(page.locator('#timezones-table-body')).toContainText('Failed to load data.');
+});
+
 test('traffic stats refresh after reload', async ({ page }) => {
   const site = await createTrafficSite();
   await collectVisit(config, site, { url: `${site.allowed_origin}/alpha`, visitorId: buildVisitorId() });
@@ -107,4 +130,56 @@ test('dashboard counts match visit stats API', async ({ page }) => {
   await selectSite(page, site.id);
   await expect(page.locator('#visit-count')).toHaveText(`${stats.visit_count} visits`);
   await expect(page.locator('#unique-visitor-count')).toHaveText(`${stats.unique_visitor_count} unique`);
+});
+
+test('device types table shows breakdown by viewport width', async ({ page }) => {
+  const site = await createTrafficSite();
+  await collectVisit(config, site, {
+    url: `${site.allowed_origin}/mobile`,
+    visitorId: buildVisitorId(),
+    viewport: '375x667',
+    screenResolution: '750x1334'
+  });
+  await collectVisit(config, site, {
+    url: `${site.allowed_origin}/desktop`,
+    visitorId: buildVisitorId(),
+    viewport: '1440x900',
+    screenResolution: '1920x1080'
+  });
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await expect(page.locator('#device-types-table-body')).toContainText('mobile');
+  await expect(page.locator('#device-types-table-body')).toContainText('desktop');
+});
+
+test('device types table shows placeholder for new sites', async ({ page }) => {
+  const site = await createTrafficSite();
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await expect(page.locator('#device-types-table-body')).toContainText('No device data yet');
+});
+
+test('timezones table shows distribution', async ({ page }) => {
+  const site = await createTrafficSite();
+  await collectVisit(config, site, {
+    url: `${site.allowed_origin}/page1`,
+    visitorId: buildVisitorId(),
+    timezone: 'America/New_York'
+  });
+  await collectVisit(config, site, {
+    url: `${site.allowed_origin}/page2`,
+    visitorId: buildVisitorId(),
+    timezone: 'Europe/London'
+  });
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await expect(page.locator('#timezones-table-body')).toContainText('America/New_York');
+  await expect(page.locator('#timezones-table-body')).toContainText('Europe/London');
+});
+
+test('timezones table shows placeholder for new sites', async ({ page }) => {
+  const site = await createTrafficSite();
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await expect(page.locator('#timezones-table-body')).toContainText('No timezone data yet');
 });

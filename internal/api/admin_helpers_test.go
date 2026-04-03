@@ -76,6 +76,14 @@ func (provider *stubStatsProvider) VisitEngagement(context.Context, string, int)
 	return VisitEngagementStat{}, nil
 }
 
+func (provider *stubStatsProvider) DeviceBreakdown(context.Context, string, int) (DeviceBreakdownStat, error) {
+	return DeviceBreakdownStat{}, nil
+}
+
+func (provider *stubStatsProvider) TimezoneDistribution(context.Context, string, int) ([]TimezoneDistributionStat, error) {
+	return nil, nil
+}
+
 func TestClassifyVisitBrowser(testingT *testing.T) {
 	testCases := []struct {
 		name        string

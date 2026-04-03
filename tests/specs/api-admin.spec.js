@@ -683,4 +683,115 @@ test.describe("admin api visit stats", () => {
     expect(response.status).toBe(400);
     expect(payload.error).toBe("invalid_limit");
   });
+
+  test("returns device breakdown from viewport and resolution", async () => {
+    const site = await createAdminSite("Device Breakdown");
+
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/mobile`)}&viewport=375x667&screen_resolution=750x1334`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/tablet`)}&viewport=800x600&screen_resolution=1024x768`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/desktop`)}&viewport=1440x900&screen_resolution=1920x1080`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/bot`)}&viewport=1920x1080&screen_resolution=1920x1080`,
+      method: "GET",
+      headers: {
+        Origin: site.allowed_origin,
+        "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+      },
+    });
+
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}/visits/devices`,
+      method: "GET"
+    });
+    expect(response.status).toBe(200);
+    expect(payload.limit).toBe(10);
+
+    const deviceCounts = Object.fromEntries((payload.device_types || []).map((entry) => [entry.device_type, entry.visit_count]));
+    expect(deviceCounts.mobile).toBe(1);
+    expect(deviceCounts.tablet).toBe(1);
+    expect(deviceCounts.desktop).toBe(1);
+
+    expect(Array.isArray(payload.top_resolutions)).toBe(true);
+    expect(Array.isArray(payload.top_viewports)).toBe(true);
+  });
+
+  test("returns timezone distribution", async () => {
+    const site = await createAdminSite("Timezone Distribution");
+
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/page1`)}&timezone=${encodeURIComponent("America/New_York")}`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/page2`)}&timezone=${encodeURIComponent("America/New_York")}`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/page3`)}&timezone=${encodeURIComponent("Europe/London")}`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/bot`)}&timezone=${encodeURIComponent("Asia/Tokyo")}`,
+      method: "GET",
+      headers: {
+        Origin: site.allowed_origin,
+        "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+      },
+    });
+
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}/visits/timezones`,
+      method: "GET"
+    });
+    expect(response.status).toBe(200);
+    expect(payload.limit).toBe(10);
+
+    const tzCounts = Object.fromEntries((payload.timezones || []).map((entry) => [entry.timezone, entry.visit_count]));
+    expect(tzCounts["America/New_York"]).toBe(2);
+    expect(tzCounts["Europe/London"]).toBe(1);
+    expect(tzCounts["Asia/Tokyo"]).toBeUndefined();
+  });
+
+  test("rejects invalid device breakdown limit", async () => {
+    const site = await createAdminSite("Device Breakdown Invalid");
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}/visits/devices?limit=0`,
+      method: "GET"
+    });
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("invalid_limit");
+  });
+
+  test("rejects invalid timezone distribution limit", async () => {
+    const site = await createAdminSite("Timezone Distribution Invalid");
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}/visits/timezones?limit=0`,
+      method: "GET"
+    });
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("invalid_limit");
+  });
 });

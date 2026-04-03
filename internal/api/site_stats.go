@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,6 +46,15 @@ const (
 	visitDurationUnderTwoMinutes     = 120
 	visitDurationUnderTenMinutes     = 600
 	visitEngagementMetricRoundFactor = 100
+
+	defaultDeviceBreakdownLimit = 10
+	maxDeviceBreakdownLimit     = 50
+	deviceTypeMobile            = "mobile"
+	deviceTypeTablet            = "tablet"
+	deviceTypeDesktop           = "desktop"
+
+	defaultTimezoneDistributionLimit = 10
+	maxTimezoneDistributionLimit     = 50
 )
 
 var visitTrendParseLayouts = [...]string{
@@ -65,6 +75,8 @@ type SiteStatisticsProvider interface {
 	VisitTrend(ctx context.Context, siteID string, days int) ([]DailyVisitTrendStat, error)
 	VisitAttribution(ctx context.Context, siteID string, limit int) (VisitAttributionBreakdown, error)
 	VisitEngagement(ctx context.Context, siteID string, days int) (VisitEngagementStat, error)
+	DeviceBreakdown(ctx context.Context, siteID string, limit int) (DeviceBreakdownStat, error)
+	TimezoneDistribution(ctx context.Context, siteID string, limit int) ([]TimezoneDistributionStat, error)
 }
 
 // DatabaseSiteStatisticsProvider implements SiteStatisticsProvider using GORM.
@@ -191,6 +203,25 @@ type VisitEngagementStat struct {
 	AveragePagesPerVisitor   float64
 	DepthDistribution        VisitDepthDistributionStat
 	ObservedTimeDistribution VisitObservedTimeDistributionStat
+}
+
+// DeviceTypeStat captures visit counts per device category.
+type DeviceTypeStat struct {
+	DeviceType string
+	VisitCount int64
+}
+
+// DeviceBreakdownStat aggregates device type, resolution, and viewport data.
+type DeviceBreakdownStat struct {
+	DeviceTypes    []DeviceTypeStat
+	TopResolutions []AttributionStat
+	TopViewports   []AttributionStat
+}
+
+// TimezoneDistributionStat captures visit counts per timezone.
+type TimezoneDistributionStat struct {
+	Timezone   string
+	VisitCount int64
 }
 
 func (provider *DatabaseSiteStatisticsProvider) VisitTrend(ctx context.Context, siteID string, days int) ([]DailyVisitTrendStat, error) {
@@ -540,4 +571,199 @@ func observedVisitDurationSeconds(firstSeen time.Time, lastSeen time.Time) int64
 
 func roundVisitEngagementMetric(value float64) float64 {
 	return math.Round(value*visitEngagementMetricRoundFactor) / visitEngagementMetricRoundFactor
+}
+
+type visitDimensionCountRow struct {
+	Value      string
+	VisitCount int64
+}
+
+type viewportCountRow struct {
+	Viewport   string
+	VisitCount int64
+}
+
+func (provider *DatabaseSiteStatisticsProvider) DeviceBreakdown(ctx context.Context, siteID string, limit int) (DeviceBreakdownStat, error) {
+	if strings.TrimSpace(siteID) == "" {
+		return DeviceBreakdownStat{}, nil
+	}
+	normalizedLimit := normalizeDeviceBreakdownLimit(limit)
+
+	resolutionStats, err := provider.topScreenResolutionStats(ctx, siteID, normalizedLimit)
+	if err != nil {
+		return DeviceBreakdownStat{}, err
+	}
+
+	viewportRows, err := provider.viewportCounts(ctx, siteID)
+	if err != nil {
+		return DeviceBreakdownStat{}, err
+	}
+
+	deviceCounts := make(map[string]int64)
+	topViewportStats := make([]AttributionStat, 0, minInt(len(viewportRows), normalizedLimit))
+	for index, row := range viewportRows {
+		viewportValue := strings.TrimSpace(row.Viewport)
+		if viewportValue == "" {
+			continue
+		}
+		deviceType := classifyDeviceType(viewportValue)
+		deviceCounts[deviceType] += row.VisitCount
+		if index < normalizedLimit {
+			topViewportStats = append(topViewportStats, AttributionStat{
+				Value:      viewportValue,
+				VisitCount: row.VisitCount,
+			})
+		}
+	}
+
+	return DeviceBreakdownStat{
+		DeviceTypes:    topDeviceTypeStats(deviceCounts),
+		TopResolutions: resolutionStats,
+		TopViewports:   topViewportStats,
+	}, nil
+}
+
+func (provider *DatabaseSiteStatisticsProvider) topScreenResolutionStats(ctx context.Context, siteID string, limit int) ([]AttributionStat, error) {
+	var rows []visitDimensionCountRow
+	err := provider.database.WithContext(ctx).
+		Model(&model.SiteVisit{}).
+		Select("screen_resolution as value, COUNT(*) as visit_count").
+		Where("site_id = ? AND is_bot = ? AND screen_resolution <> ''", siteID, false).
+		Group("screen_resolution").
+		Order("visit_count desc, screen_resolution asc").
+		Limit(limit).
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return attributionStatsFromDimensionRows(rows), nil
+}
+
+func (provider *DatabaseSiteStatisticsProvider) viewportCounts(ctx context.Context, siteID string) ([]viewportCountRow, error) {
+	var rows []viewportCountRow
+	err := provider.database.WithContext(ctx).
+		Model(&model.SiteVisit{}).
+		Select("viewport, COUNT(*) as visit_count").
+		Where("site_id = ? AND is_bot = ? AND viewport <> ''", siteID, false).
+		Group("viewport").
+		Order("visit_count desc, viewport asc").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+func attributionStatsFromDimensionRows(rows []visitDimensionCountRow) []AttributionStat {
+	if len(rows) == 0 {
+		return nil
+	}
+	stats := make([]AttributionStat, 0, len(rows))
+	for _, row := range rows {
+		value := strings.TrimSpace(row.Value)
+		if value == "" {
+			continue
+		}
+		stats = append(stats, AttributionStat{
+			Value:      value,
+			VisitCount: row.VisitCount,
+		})
+	}
+	if len(stats) == 0 {
+		return nil
+	}
+	return stats
+}
+
+func classifyDeviceType(viewport string) string {
+	parts := strings.SplitN(viewport, "x", 2)
+	if len(parts) < 2 {
+		return deviceTypeDesktop
+	}
+	width, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return deviceTypeDesktop
+	}
+	switch {
+	case width < 768:
+		return deviceTypeMobile
+	case width < 1024:
+		return deviceTypeTablet
+	default:
+		return deviceTypeDesktop
+	}
+}
+
+func normalizeDeviceBreakdownLimit(limit int) int {
+	if limit <= 0 {
+		return defaultDeviceBreakdownLimit
+	}
+	if limit > maxDeviceBreakdownLimit {
+		return maxDeviceBreakdownLimit
+	}
+	return limit
+}
+
+func topDeviceTypeStats(counts map[string]int64) []DeviceTypeStat {
+	if len(counts) == 0 {
+		return nil
+	}
+	entries := make([]DeviceTypeStat, 0, len(counts))
+	for deviceType, visitCount := range counts {
+		entries = append(entries, DeviceTypeStat{DeviceType: deviceType, VisitCount: visitCount})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].VisitCount == entries[j].VisitCount {
+			return entries[i].DeviceType < entries[j].DeviceType
+		}
+		return entries[i].VisitCount > entries[j].VisitCount
+	})
+	return entries
+}
+
+func (provider *DatabaseSiteStatisticsProvider) TimezoneDistribution(ctx context.Context, siteID string, limit int) ([]TimezoneDistributionStat, error) {
+	if strings.TrimSpace(siteID) == "" {
+		return nil, nil
+	}
+	normalizedLimit := normalizeTimezoneDistributionLimit(limit)
+
+	type timezoneRow struct {
+		Timezone   string
+		VisitCount int64
+	}
+	var rows []timezoneRow
+	err := provider.database.WithContext(ctx).
+		Model(&model.SiteVisit{}).
+		Select("timezone, COUNT(*) as visit_count").
+		Where("site_id = ? AND is_bot = ? AND timezone <> ''", siteID, false).
+		Group("timezone").
+		Order("visit_count desc, timezone asc").
+		Limit(normalizedLimit).
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	stats := make([]TimezoneDistributionStat, 0, len(rows))
+	for _, row := range rows {
+		stats = append(stats, TimezoneDistributionStat(row))
+	}
+	return stats, nil
+}
+
+func normalizeTimezoneDistributionLimit(limit int) int {
+	if limit <= 0 {
+		return defaultTimezoneDistributionLimit
+	}
+	if limit > maxTimezoneDistributionLimit {
+		return maxTimezoneDistributionLimit
+	}
+	return limit
+}
+
+func minInt(left int, right int) int {
+	if left < right {
+		return left
+	}
+	return right
 }
