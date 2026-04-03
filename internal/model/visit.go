@@ -13,10 +13,14 @@ import (
 const (
 	VisitStatusRecorded = "recorded"
 
-	visitURLMaxLength       = 500
-	visitPathMaxLength      = 300
-	visitIPMaxLength        = 64
-	visitUserAgentMaxLength = 400
+	visitURLMaxLength              = 500
+	visitPathMaxLength             = 300
+	visitIPMaxLength               = 64
+	visitUserAgentMaxLength        = 400
+	visitScreenResolutionMaxLength = 20
+	visitViewportMaxLength         = 20
+	visitTimezoneMaxLength         = 60
+	visitPageTitleMaxLength        = 200
 )
 
 var (
@@ -35,21 +39,29 @@ type SiteVisit struct {
 	IP         string    `gorm:"size:64"`
 	UserAgent  string    `gorm:"size:400"`
 	Referrer   string    `gorm:"size:500"`
-	IsBot      bool      `gorm:"not null;default:false;index"`
-	Status     string    `gorm:"size:20"`
-	OccurredAt time.Time `gorm:"not null;index"`
+	IsBot            bool      `gorm:"not null;default:false;index"`
+	ScreenResolution string    `gorm:"size:20"`
+	Viewport         string    `gorm:"size:20"`
+	Timezone         string    `gorm:"size:60"`
+	PageTitle        string    `gorm:"size:200"`
+	Status           string    `gorm:"size:20"`
+	OccurredAt       time.Time `gorm:"not null;index"`
 }
 
 // SiteVisitInput holds incoming visit data.
 type SiteVisitInput struct {
-	SiteID    string
-	URL       string
-	VisitorID string
-	IP        string
-	UserAgent string
-	Referrer  string
-	IsBot     bool
-	Occurred  time.Time
+	SiteID           string
+	URL              string
+	VisitorID        string
+	IP               string
+	UserAgent        string
+	Referrer         string
+	IsBot            bool
+	ScreenResolution string
+	Viewport         string
+	Timezone         string
+	PageTitle        string
+	Occurred         time.Time
 }
 
 // NewSiteVisit constructs a validated SiteVisit.
@@ -76,19 +88,27 @@ func NewSiteVisit(input SiteVisitInput) (SiteVisit, error) {
 	ip := truncateString(input.IP, visitIPMaxLength)
 	userAgent := truncateString(input.UserAgent, visitUserAgentMaxLength)
 	referrer := truncateString(strings.TrimSpace(input.Referrer), visitURLMaxLength)
+	screenResolution := truncateString(strings.TrimSpace(input.ScreenResolution), visitScreenResolutionMaxLength)
+	viewport := truncateString(strings.TrimSpace(input.Viewport), visitViewportMaxLength)
+	timezone := truncateString(strings.TrimSpace(input.Timezone), visitTimezoneMaxLength)
+	pageTitle := truncateString(strings.TrimSpace(input.PageTitle), visitPageTitleMaxLength)
 
 	return SiteVisit{
-		ID:         uuid.NewString(),
-		SiteID:     siteID,
-		URL:        normalizedURL,
-		Path:       path,
-		VisitorID:  visitorID,
-		IP:         ip,
-		UserAgent:  userAgent,
-		Referrer:   referrer,
-		IsBot:      input.IsBot,
-		Status:     VisitStatusRecorded,
-		OccurredAt: occurred,
+		ID:               uuid.NewString(),
+		SiteID:           siteID,
+		URL:              normalizedURL,
+		Path:             path,
+		VisitorID:        visitorID,
+		IP:               ip,
+		UserAgent:        userAgent,
+		Referrer:         referrer,
+		IsBot:            input.IsBot,
+		ScreenResolution: screenResolution,
+		Viewport:         viewport,
+		Timezone:         timezone,
+		PageTitle:        pageTitle,
+		Status:           VisitStatusRecorded,
+		OccurredAt:       occurred,
 	}, nil
 }
 

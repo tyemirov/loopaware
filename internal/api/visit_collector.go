@@ -16,10 +16,14 @@ const (
 	visitPixelContentType = "image/gif"
 	visitPixelBody        = "\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff\x21\xf9\x04\x01\x00\x00\x00\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x4c\x01\x00\x3b"
 	visitHeaderVisitorID  = "X-Visitor-Id"
-	visitQuerySiteID      = "site_id"
-	visitQueryURL         = "url"
-	visitQueryVisitorID   = "visitor_id"
-	visitQueryReferrer    = "referrer"
+	visitQuerySiteID           = "site_id"
+	visitQueryURL              = "url"
+	visitQueryVisitorID        = "visitor_id"
+	visitQueryReferrer         = "referrer"
+	visitQueryScreenResolution = "screen_resolution"
+	visitQueryViewport         = "viewport"
+	visitQueryTimezone         = "timezone"
+	visitQueryPageTitle        = "page_title"
 )
 
 var visitBotUserAgentTokens = [...]string{
@@ -78,14 +82,18 @@ func (h *PublicHandlers) CollectVisit(context *gin.Context) {
 
 	userAgentValue := context.Request.UserAgent()
 	input := model.SiteVisitInput{
-		SiteID:    site.ID,
-		URL:       rawURL,
-		VisitorID: visitorID,
-		IP:        context.ClientIP(),
-		UserAgent: userAgentValue,
-		Referrer:  referrerValue,
-		IsBot:     isLikelyBotUserAgent(userAgentValue),
-		Occurred:  time.Now().UTC(),
+		SiteID:           site.ID,
+		URL:              rawURL,
+		VisitorID:        visitorID,
+		IP:               context.ClientIP(),
+		UserAgent:        userAgentValue,
+		Referrer:         referrerValue,
+		IsBot:            isLikelyBotUserAgent(userAgentValue),
+		ScreenResolution: strings.TrimSpace(context.Query(visitQueryScreenResolution)),
+		Viewport:         strings.TrimSpace(context.Query(visitQueryViewport)),
+		Timezone:         strings.TrimSpace(context.Query(visitQueryTimezone)),
+		PageTitle:        strings.TrimSpace(context.Query(visitQueryPageTitle)),
+		Occurred:         time.Now().UTC(),
 	}
 
 	visit, err := model.NewSiteVisit(input)

@@ -206,6 +206,28 @@
     var visitorId = getVisitorId();
     if (visitorId) queryString += "&visitor_id=" + encodeURIComponent(visitorId);
 
+    // Screen resolution and viewport
+    try {
+      if (screen && screen.width && screen.height) {
+        queryString += "&screen_resolution=" + encodeURIComponent(screen.width + "x" + screen.height);
+      }
+      if (window.innerWidth && window.innerHeight) {
+        queryString += "&viewport=" + encodeURIComponent(window.innerWidth + "x" + window.innerHeight);
+      }
+    } catch(e){}
+
+    // Timezone
+    try {
+      var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz) queryString += "&timezone=" + encodeURIComponent(tz);
+    } catch(e){}
+
+    // Page title
+    try {
+      var title = document.title;
+      if (title) queryString += "&page_title=" + encodeURIComponent(title);
+    } catch(e){}
+
     var requestURL = target + "?" + queryString;
 
     if (shouldUseBeacon(requestURL)) {

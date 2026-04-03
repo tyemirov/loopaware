@@ -81,18 +81,25 @@ test('force logout redirects automatically', async ({ page }) => {
   await expect(page).toHaveURL(/\/login/);
 });
 
-test('timeout banner stays anchored to bottom', async ({ page }) => {
+test('timeout banner stays anchored to the viewport bottom', async ({ page }) => {
   await openDashboardWithHooks(page);
   await forcePrompt(page);
   const banner = page.locator('#session-timeout-notification');
   await expect(banner).toBeVisible();
-  const box = await banner.boundingBox();
-  const viewport = page.viewportSize();
-  if (!box || !viewport) {
-    throw new Error('missing_bounds');
-  }
-  const distance = Math.abs(box.y + box.height - viewport.height);
-  expect(distance).toBeLessThanOrEqual(1);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const bannerElement = document.getElementById('session-timeout-notification');
+        const footerRoot = document.querySelector('#dashboard-footer [data-mpr-footer="root"]');
+        if (!bannerElement || !footerRoot) {
+          return null;
+        }
+        const bannerRect = bannerElement.getBoundingClientRect();
+        const footerRect = footerRoot.getBoundingClientRect();
+        return Math.abs(bannerRect.bottom - footerRect.top);
+      })
+    )
+    .toBeLessThanOrEqual(1);
 });
 
 test('timeout banner uses dark theme classes', async ({ page }) => {

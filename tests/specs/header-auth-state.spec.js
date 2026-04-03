@@ -7,10 +7,22 @@ import { installTauthStub } from '../helpers/tauthStub.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const MPR_UI_STYLE_URL = 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.2/mpr-ui.css';
-const MPR_UI_SCRIPT_URL = 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.8.2/mpr-ui.js';
+const MPR_UI_STYLE_URL = 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css';
+const MPR_UI_SCRIPT_URL = 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js';
 const TAUTH_SCRIPT_URL = 'https://cdn.jsdelivr.net/gh/tyemirov/TAuth@v1.0.1/web/tauth.js';
 const SITE_WIDGET_SITE_ID = 'a7ea8b8a-ff37-4a99-81fa-09a5952f83a9';
+const PUBLIC_LOGIN_ENTRY_CASES = Object.freeze([
+  Object.freeze({ label: 'pricing page', path: '/pricing' }),
+  Object.freeze({ label: 'privacy page', path: '/privacy' }),
+  Object.freeze({ label: 'terms page', path: '/terms' }),
+  Object.freeze({ label: 'subscription confirmation page', path: '/subscriptions/confirm' }),
+  Object.freeze({ label: 'subscription unsubscribe page', path: '/subscriptions/unsubscribe' })
+]);
+const DASHBOARD_PREVIEW_CASES = Object.freeze([
+  Object.freeze({ label: 'widget test page', path: '/app/widget-test' }),
+  Object.freeze({ label: 'subscribe test page', path: '/app/subscribe-test' }),
+  Object.freeze({ label: 'traffic test page', path: '/app/traffic-test' })
+]);
 
 /**
  * @param {import('@playwright/test').Page} page
@@ -89,24 +101,125 @@ async function installSiteWidgetConfigStub(page) {
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<void>}
  */
-async function expectPinnedCdnAssets(page) {
-  const assetUrls = await page.evaluate(() => {
-    const mprUiStyle = document.getElementById('mpr-ui-style');
-    const tauthScript = document.getElementById('tauth-script');
-    const mprUiScript = document.getElementById('mpr-ui-script');
-    const browserAssetUrls = Array.from(document.querySelectorAll('script[src], link[rel="stylesheet"][href]'))
-      .map((element) => element.getAttribute('src') || element.getAttribute('href') || '');
+async function expectLatestCdnAssets(page) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const mprUiStyle = document.getElementById('mpr-ui-style');
+        const tauthScript = document.getElementById('tauth-script');
+        const mprUiScript = document.getElementById('mpr-ui-script');
+        const browserAssetUrls = Array.from(document.querySelectorAll('script[src], link[rel="stylesheet"][href]'))
+          .map((element) => element.getAttribute('src') || element.getAttribute('href') || '');
+        return {
+          styleHref: mprUiStyle ? mprUiStyle.getAttribute('href') || '' : '',
+          tauthSrc: tauthScript ? tauthScript.getAttribute('src') || '' : '',
+          mprUiSrc: mprUiScript ? mprUiScript.getAttribute('src') || '' : '',
+          vendorUrls: browserAssetUrls.filter((url) => url.includes('/vendor/'))
+        };
+      })
+    )
+    .toEqual({
+      styleHref: MPR_UI_STYLE_URL,
+      tauthSrc: TAUTH_SCRIPT_URL,
+      mprUiSrc: MPR_UI_SCRIPT_URL,
+      vendorUrls: []
+    });
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function expectFooterUtilityLinks(page) {
+  const footerLayout = page.locator('mpr-footer [data-mpr-footer="layout"]');
+  await expect(footerLayout.locator('[data-mpr-footer="horizontal-links"] a')).toHaveCount(2);
+  await expect(footerLayout.locator('[data-mpr-footer="menu"] a')).toHaveCount(10);
+
+  const horizontalLinkLabels = await footerLayout
+    .locator('[data-mpr-footer="horizontal-links"] a')
+    .allTextContents();
+  const menuLinkLabels = await footerLayout
+    .locator('[data-mpr-footer="menu"] a')
+    .allTextContents();
+
+  await expect(footerLayout.locator('[data-mpr-footer="privacy-link"]')).toHaveText('Privacy');
+  await expect(footerLayout.locator('[data-mpr-footer="horizontal-links"] a')).toHaveText([
+    'Terms of Service',
+    'Pricing'
+  ]);
+  expect(horizontalLinkLabels).toEqual(['Terms of Service', 'Pricing']);
+  expect(menuLinkLabels).not.toContain('Terms of Service');
+  expect(menuLinkLabels).not.toContain('Pricing');
+
+  const ordering = await footerLayout.evaluate((layoutElement) => {
+    const privacyLink = layoutElement.querySelector('[data-mpr-footer="privacy-link"]');
+    const horizontalLinks = layoutElement.querySelector('[data-mpr-footer="horizontal-links"]');
+    const toggleButton = layoutElement.querySelector('[data-mpr-footer="toggle-button"]');
     return {
-      styleHref: mprUiStyle ? mprUiStyle.getAttribute('href') || '' : '',
-      tauthSrc: tauthScript ? tauthScript.getAttribute('src') || '' : '',
-      mprUiSrc: mprUiScript ? mprUiScript.getAttribute('src') || '' : '',
-      vendorUrls: browserAssetUrls.filter((url) => url.includes('/vendor/'))
+      privacyBeforeHorizontal: Boolean(
+        privacyLink &&
+          horizontalLinks &&
+          (privacyLink.compareDocumentPosition(horizontalLinks) & Node.DOCUMENT_POSITION_FOLLOWING)
+      ),
+      horizontalBeforeToggle: Boolean(
+        horizontalLinks &&
+          toggleButton &&
+          (horizontalLinks.compareDocumentPosition(toggleButton) & Node.DOCUMENT_POSITION_FOLLOWING)
+      )
     };
   });
-  expect(assetUrls.styleHref).toBe(MPR_UI_STYLE_URL);
-  expect(assetUrls.tauthSrc).toBe(TAUTH_SCRIPT_URL);
-  expect(assetUrls.mprUiSrc).toBe(MPR_UI_SCRIPT_URL);
-  expect(assetUrls.vendorUrls).toEqual([]);
+
+  expect(ordering.privacyBeforeHorizontal).toBe(true);
+  expect(ordering.horizontalBeforeToggle).toBe(true);
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {{ email: string, displayName: string, avatarUrl: string, userId: string }} user
+ * @returns {Promise<void>}
+ */
+async function seedRuntimeAuthenticatedUser(page, user) {
+  await page.evaluate((resolvedUser) => {
+    const runtime = window['__loopawareTestTauthRuntime'];
+    if (!runtime || typeof runtime !== 'object') {
+      throw new Error('tauth runtime not found');
+    }
+    runtime.profile = {
+      user_id: String(resolvedUser.userId || ''),
+      user_email: String(resolvedUser.email || ''),
+      email: String(resolvedUser.email || ''),
+      display: String(resolvedUser.displayName || resolvedUser.email || ''),
+      avatar_url: String(resolvedUser.avatarUrl || ''),
+      roles: []
+    };
+  }, user);
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function beginHeaderLoginFlow(page) {
+  await expect(page.locator('mpr-header [data-mpr-header="google-signin"]')).toHaveCount(1);
+  await page.evaluate(() => {
+    const signinTarget = document.querySelector('mpr-header [data-mpr-header="google-signin"]');
+    if (!signinTarget) {
+      throw new Error('google sign-in target not found');
+    }
+    signinTarget.dispatchEvent(new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      composed: true
+    }));
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const authStore = window['__loopawareHeaderAuthStore'];
+        return !!(authStore && authStore.loginRedirectPending === true);
+      })
+    )
+    .toBe(true);
 }
 
 test('dashboard requires authentication and redirects unauthenticated users to login', async ({ page }) => {
@@ -123,6 +236,41 @@ test('login page redirects authenticated users after silent session recovery', a
   await openPageWithSession(page, '/login', { silentBootstrap: true });
   await expect(page).toHaveURL(/\/app\/?$/);
 });
+
+for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
+  test(`${label} redirects to the dashboard after login flow auth completion`, async ({ page }) => {
+    await openPageWithoutSession(page, path);
+    await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
+    await beginHeaderLoginFlow(page);
+
+    await Promise.all([
+      page.waitForURL(/\/app\/?$/),
+      page.evaluate(() => {
+        const headerHost = document.querySelector('mpr-header');
+        if (!headerHost) {
+          throw new Error('mpr-header not found');
+        }
+        headerHost.dispatchEvent(new CustomEvent('mpr-ui:auth:authenticated'));
+      })
+    ]);
+  });
+}
+
+for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
+  test(`${label} redirects to the dashboard after login flow runtime recovery`, async ({ page }) => {
+    await openPageWithoutSession(page, path);
+    await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
+    await beginHeaderLoginFlow(page);
+    await seedRuntimeAuthenticatedUser(page, adminUser);
+
+    await Promise.all([
+      page.waitForURL(/\/app\/?$/),
+      page.evaluate(() => {
+        window.dispatchEvent(new Event('focus'));
+      })
+    ]);
+  });
+}
 
 test('login page renders header while tauth session bootstrap is delayed', async ({ page }) => {
   await openPageWithoutSession(page, '/login', { bootstrapDelayMs: 2500 });
@@ -143,9 +291,31 @@ test('dashboard does not bounce to login while authenticated session recovery is
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated', { timeout: 5000 });
 });
 
-test('login page loads pinned CDN assets for auth UI', async ({ page }) => {
+test('login page loads latest CDN assets for auth UI', async ({ page }) => {
   await openPageWithoutSession(page, '/login');
-  await expectPinnedCdnAssets(page);
+  await expectLatestCdnAssets(page);
+});
+
+for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
+  test(`${label} loads latest CDN assets for auth UI`, async ({ page }) => {
+    await openPageWithoutSession(page, path);
+    await expectLatestCdnAssets(page);
+  });
+}
+
+test('public pages render privacy separately and inline utility links before the toggle', async ({ page }) => {
+  await openPageWithoutSession(page, '/login');
+  await expectFooterUtilityLinks(page);
+
+  for (const { path } of PUBLIC_LOGIN_ENTRY_CASES) {
+    await page.goto(path, { waitUntil: 'domcontentloaded' });
+    await expectFooterUtilityLinks(page);
+  }
+});
+
+test('dashboard footer renders privacy separately and inline utility links before the toggle', async ({ page }) => {
+  await openPageWithSession(page, '/app');
+  await expectFooterUtilityLinks(page);
 });
 
 test('login page does not bootstrap the landing widget when runtime widget site is unset', async ({ page }) => {
@@ -240,26 +410,32 @@ test('login page user menu does not emit tenant bootstrap errors', async ({ page
   expect(consoleErrors.filter((message) => message.includes('mpr-ui.tenant_id_required'))).toHaveLength(0);
 });
 
-test('privacy page keeps header auth state synchronized for authenticated sessions', async ({ page }) => {
-  await openPageWithSession(page, '/privacy');
-  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
-  await expect(page.locator('mpr-header > header.mpr-header')).toHaveClass(/mpr-header--authenticated/);
-  await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toHaveAttribute('data-mpr-user-status', 'authenticated');
-  await expect(page.locator('mpr-header [data-mpr-header="google-signin"]')).toBeHidden();
-  await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toBeVisible();
-});
+for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
+  test(`${label} keeps authenticated users on the current page until login flow starts`, async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        consoleErrors.push(message.text());
+      }
+    });
 
-test('privacy page user menu does not emit tenant bootstrap errors', async ({ page }) => {
-  const consoleErrors = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error') {
-      consoleErrors.push(message.text());
-    }
+    await openPageWithSession(page, path);
+    await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
+    await expect(page.locator('mpr-header > header.mpr-header')).toHaveClass(/mpr-header--authenticated/);
+    await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toHaveAttribute('data-mpr-user-status', 'authenticated');
+    await expect(page.locator('mpr-header [data-mpr-header="google-signin"]')).toBeHidden();
+    await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const currentPath = window.location.pathname.replace(/\/$/, '');
+          return currentPath || '/';
+        })
+      )
+      .toBe(path);
+    expect(consoleErrors.filter((message) => message.includes('mpr-ui.tenant_id_required'))).toHaveLength(0);
   });
-  await openPageWithSession(page, '/privacy');
-  await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toHaveAttribute('data-mpr-user-status', 'authenticated');
-  expect(consoleErrors.filter((message) => message.includes('mpr-ui.tenant_id_required'))).toHaveLength(0);
-});
+}
 
 test('privacy page shows logout overlay for static-page sign-out', async ({ page }) => {
   await openPageWithSession(page, '/privacy');
@@ -270,15 +446,17 @@ test('privacy page shows logout overlay for static-page sign-out', async ({ page
   await expect(page.locator('body')).toHaveClass(/logging-out/);
 });
 
-test('privacy page loads pinned CDN assets for auth UI', async ({ page }) => {
-  await openPageWithoutSession(page, '/privacy');
-  await expectPinnedCdnAssets(page);
+test('dashboard loads latest CDN assets for auth UI', async ({ page }) => {
+  await openPageWithSession(page, '/app');
+  await expectLatestCdnAssets(page);
 });
 
-test('dashboard loads pinned CDN assets for auth UI', async ({ page }) => {
-  await openPageWithSession(page, '/app');
-  await expectPinnedCdnAssets(page);
-});
+for (const { label, path } of DASHBOARD_PREVIEW_CASES) {
+  test(`${label} loads latest CDN assets for auth UI`, async ({ page }) => {
+    await openPageWithSession(page, path);
+    await expectLatestCdnAssets(page);
+  });
+}
 
 test('vendored mpr-ui asset URLs are not served', async ({ page }) => {
   const scriptResponse = await page.request.get('/vendor/mpr-ui/mpr-ui.js');
