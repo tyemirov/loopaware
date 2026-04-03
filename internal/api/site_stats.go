@@ -600,7 +600,10 @@ func (provider *DatabaseSiteStatisticsProvider) DeviceBreakdown(ctx context.Cont
 	}
 
 	deviceCounts := make(map[string]int64)
-	topViewportStats := make([]AttributionStat, 0, minInt(len(viewportRows), normalizedLimit))
+	var topViewportStats []AttributionStat
+	if len(viewportRows) > 0 {
+		topViewportStats = make([]AttributionStat, 0, minInt(len(viewportRows), normalizedLimit))
+	}
 	for index, row := range viewportRows {
 		viewportValue := strings.TrimSpace(row.Viewport)
 		if viewportValue == "" {
