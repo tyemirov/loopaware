@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.0] - 2026-04-03
+
+### Features ✨
+- Capture richer visit metadata including screen resolution, viewport, timezone, and page title.
+- Refresh public authentication UI and update MPRUI to latest version.
+- Add a gHTTP proxy stack serving the local web folder and forwarding backend API requests.
+
+### Improvements ⚙️
+- Update docker-compose setup to include a new proxy service for local development.
+- Enhance footer layout with improved utility links order: Privacy link before horizontal links and correct link grouping.
+- Upgrade CDN asset references to use latest MPRUI versions in tests.
+
+### Bug Fixes 🐛
+- Fix timeout banner anchoring to stay properly above the hydrated footer in dashboard UI.
+
+### Testing 🧪
+- Refine Playwright tests for allowed origins update checks with polling for persistence.
+- Improve session timeout banner tests to verify anchoring relative to footer using layout calculation.
+- Update auth header state tests to assert latest CDN URLs for MPR UI assets.
+- Add utility functions and refine UI state tests for footer links and authentication UI.
+
+### Docs 📚
+- Remove the planning document from the repository.
+- Add documentation for the gHTTP proxy stack and its configuration.
+- Update README with proxy usage instructions and local compose stack changes.
+- Add multiple new LoopAware logo image assets in various sizes and SVG format.
+
 ## [v0.2.1] - 2026-04-01
 
 ### Features ✨
