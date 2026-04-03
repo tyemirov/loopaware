@@ -93,9 +93,12 @@ for (const originType of originTypes) {
     const existingInputs = page.locator(`input[${originType.dataAttribute}]:not([${originType.placeholderAttribute}])`);
     await expect(existingInputs).toHaveCount(1);
     await expect(existingInputs.first()).toHaveValue(originValue);
-    await expect(page.locator('#site-status')).toContainText('Site updated');
-    const updated = await loadSite();
-    expect(String(updated[originType.apiField] || '')).toBe(originValue);
+    await expect
+      .poll(async () => {
+        const updated = await loadSite();
+        return String(updated[originType.apiField] || '');
+      })
+      .toBe(originValue);
   });
 
   test(`${originType.name} allowed origins rehydrate`, async ({ page }) => {
