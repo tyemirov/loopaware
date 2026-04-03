@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.0] - 2026-04-03
+
+### Features ✨
+- Added new API endpoints for device breakdown and timezone distribution statistics.
+- Introduced device breakdown and timezone distribution data models and handlers.
+
+### Improvements ⚙️
+- Optimized site statistics to avoid unnecessary slice allocation for empty viewport rows.
+- Added limit parameters with validation for device breakdown and timezone distribution endpoints.
+- Enhanced test coverage for new API endpoints and validation rules.
+
+### Bug Fixes 🐛
+- Fixed unnecessary slice allocation in site statistics calculation for empty viewport rows.
+
+### Testing 🧪
+- Added comprehensive tests for device breakdown and timezone distribution API endpoints.
+- Included authentication and error handling tests for new statistics endpoints.
+
+### Docs 📚
+- _No changes._
+
 ## [v0.3.0] - 2026-04-03
 
 ### Features ✨
