@@ -40,8 +40,8 @@ services:
     volumes:
       - loopaware-data:/app/data
       - ./configs/config.loopaware.yml:/app/configs/config.loopaware.yml:ro
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     restart: unless-stopped
     develop:
       watch:
@@ -52,6 +52,21 @@ services:
           path: ./cmd/server
         - action: rebuild
           path: ./go.sum
+
+  loopaware-proxy:
+    image: ghcr.io/tyemirov/ghttp:latest
+    container_name: loopaware-proxy
+    pull_policy: always
+    env_file:
+      - ./configs/.env.ghttp
+    depends_on:
+      - loopaware
+      - la-tauth
+    volumes:
+      - ./web:/data:ro
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
 
 volumes:
   loopaware-data:
