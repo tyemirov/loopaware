@@ -1,0 +1,32 @@
+// @ts-check
+import { test, expect } from '@playwright/test';
+import { resolveTestConfig } from '../helpers/config.js';
+import { buildAdminUser, openDashboard } from '../helpers/fixtures.js';
+
+const config = resolveTestConfig();
+const adminUser = buildAdminUser(config);
+const MAX_HEADER_CONTENT_GAP_PIXELS = 40;
+
+test('dashboard content starts close to the sticky header', async ({ page }) => {
+  await openDashboard(page, config, adminUser);
+
+  const header = page.locator('mpr-header > header.mpr-header');
+  const accountCard = page.locator('main .card').first();
+  await expect(header).toBeVisible();
+  await expect(accountCard).toBeVisible();
+
+  const headerBox = await header.boundingBox();
+  const accountCardBox = await accountCard.boundingBox();
+  if (!headerBox || !accountCardBox) {
+    throw new Error('dashboard_layout_boxes_missing');
+  }
+
+  const layout = {
+    headerBottom: Math.round(headerBox.y + headerBox.height),
+    cardTop: Math.round(accountCardBox.y),
+    gap: Math.round(accountCardBox.y - (headerBox.y + headerBox.height))
+  };
+
+  expect(layout.cardTop).toBeGreaterThan(layout.headerBottom);
+  expect(layout.gap, `dashboard gap measured ${layout.gap}px`).toBeLessThanOrEqual(MAX_HEADER_CONTENT_GAP_PIXELS);
+});
