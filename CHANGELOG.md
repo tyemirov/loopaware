@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-04-06
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Removed extra padding and margin from dashboard main container for tighter layout.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- Added layout test to verify dashboard content spacing under the sticky header.
+
+### Docs 📚
+- _No changes._
+
 ## [v0.4.0] - 2026-04-03
 
 ### Features ✨
