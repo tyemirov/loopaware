@@ -1,7 +1,7 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
-import { buildAdminUser, openDashboard } from '../helpers/fixtures.js';
+import { buildAdminUser, openDashboardShell } from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
@@ -12,7 +12,7 @@ const secondaryUser = buildAdminUser(config, {
 });
 
 async function openSettingsModal(page, user) {
-  await openDashboard(page, config, user);
+  await openDashboardShell(page, config, user);
   await page.evaluate(() => {
     document.dispatchEvent(new CustomEvent('mpr-user:menu-item', { detail: { action: 'account-settings' } }));
   });
@@ -35,7 +35,7 @@ async function readAutoLogoutHooks(page) {
 }
 
 test('auto logout defaults within bounds', async ({ page }) => {
-  await openDashboard(page, config, adminUser);
+  await openDashboardShell(page, config, adminUser);
   const data = await readAutoLogoutHooks(page);
   expect(data.settings.enabled).toBe(true);
   expect(data.settings.promptSeconds).toBeGreaterThanOrEqual(data.minPrompt);
@@ -131,7 +131,7 @@ test('auto logout settings are scoped per user', async ({ page }) => {
   await page.locator('#settings-auto-logout-logout-seconds').fill('600');
   await page.locator('#settings-auto-logout-logout-seconds').blur();
   const secondaryPage = await page.context().newPage();
-  await openDashboard(secondaryPage, config, secondaryUser, { allowEmptySites: true });
+  await openDashboardShell(secondaryPage, config, secondaryUser);
   await secondaryPage.waitForFunction(() => window.__loopawareDashboardSettingsTestHooks);
   const secondarySettings = await secondaryPage.evaluate(() => window.__loopawareDashboardSettingsTestHooks.readAutoLogoutSettings());
   expect(secondarySettings.promptSeconds).not.toBe(300);

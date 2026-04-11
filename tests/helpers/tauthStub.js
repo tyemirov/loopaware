@@ -250,6 +250,14 @@ export function renderTauthStub(sessionCookieName, options) {
  */
 export async function installTauthStub(page, config, options) {
   const scriptBody = renderTauthStub(config.sessionCookieName, options);
+  const browserPage = /** @type {any} */ (page);
+  if (browserPage.__loopawareTauthStubScriptBody === scriptBody) {
+    return;
+  }
+  if (typeof browserPage.__loopawareTauthStubScriptBody === 'string') {
+    throw new Error('tauth_stub_already_installed_with_different_options');
+  }
+  browserPage.__loopawareTauthStubScriptBody = scriptBody;
   const delayMs = Number.isFinite(options?.delayMs) ? Math.max(0, Number(options.delayMs)) : 0;
   await page.route('**/tauth.js', async (route) => {
     if (delayMs > 0) {
