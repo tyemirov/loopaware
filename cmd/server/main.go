@@ -388,6 +388,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 
 	router := gin.New()
 	router.Use(gin.Recovery())
+	router.Use(api.SecurityHeaders())
 	router.Use(api.RequestLogger(logger))
 
 	sharedHTTPClient := &http.Client{Timeout: 5 * time.Second}
