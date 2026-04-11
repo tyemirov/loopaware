@@ -9,14 +9,12 @@ import (
 )
 
 const (
-	securityHeaderContentSecurityPolicy      = "Content-Security-Policy"
 	securityHeaderPermissionsPolicy          = "Permissions-Policy"
 	securityHeaderReferrerPolicy             = "Referrer-Policy"
 	securityHeaderStrictTransportSecurity    = "Strict-Transport-Security"
 	securityHeaderXContentTypeOptions        = "X-Content-Type-Options"
 	securityHeaderXFrameOptions              = "X-Frame-Options"
 	securityHeaderXPermittedCrossDomainRules = "X-Permitted-Cross-Domain-Policies"
-	securityValueContentSecurityPolicy       = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 	securityValuePermissionsPolicy           = "accelerometer=(), autoplay=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
 	securityValueReferrerPolicy              = "strict-origin-when-cross-origin"
 	securityValueStrictTransportSecurity     = "max-age=31536000; includeSubDomains"
@@ -28,7 +26,6 @@ const (
 func SecurityHeaders() gin.HandlerFunc {
 	return func(context *gin.Context) {
 		headers := context.Writer.Header()
-		headers.Set(securityHeaderContentSecurityPolicy, securityValueContentSecurityPolicy)
 		headers.Set(securityHeaderPermissionsPolicy, securityValuePermissionsPolicy)
 		headers.Set(securityHeaderReferrerPolicy, securityValueReferrerPolicy)
 		headers.Set(securityHeaderXContentTypeOptions, securityValueXContentTypeOptions)
@@ -65,7 +62,7 @@ func requestUsesHTTPS(context *gin.Context) bool {
 	}
 	forwardedProto := strings.TrimSpace(context.GetHeader("X-Forwarded-Proto"))
 	if forwardedProto == "" {
-		return false
+		return parseForwardedProtoHeaderValue(strings.TrimSpace(context.GetHeader(headerForwarded))) == urlSchemeHTTPS
 	}
 	return strings.EqualFold(strings.TrimSpace(strings.Split(forwardedProto, ",")[0]), "https")
 }

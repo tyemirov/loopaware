@@ -24,7 +24,6 @@ func TestSecurityHeadersAddsHardeningHeaders(testingT *testing.T) {
 
 	router.ServeHTTP(recorder, request)
 
-	require.Equal(testingT, securityValueContentSecurityPolicy, recorder.Header().Get(securityHeaderContentSecurityPolicy))
 	require.Equal(testingT, securityValuePermissionsPolicy, recorder.Header().Get(securityHeaderPermissionsPolicy))
 	require.Equal(testingT, securityValueReferrerPolicy, recorder.Header().Get(securityHeaderReferrerPolicy))
 	require.Equal(testingT, securityValueXContentTypeOptions, recorder.Header().Get(securityHeaderXContentTypeOptions))
@@ -44,6 +43,24 @@ func TestSecurityHeadersAddsHSTSForForwardedHTTPS(testingT *testing.T) {
 
 	request := httptest.NewRequest(http.MethodGet, "/health", nil)
 	request.Header.Set("X-Forwarded-Proto", "https")
+	recorder := httptest.NewRecorder()
+
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(testingT, securityValueStrictTransportSecurity, recorder.Header().Get(securityHeaderStrictTransportSecurity))
+}
+
+func TestSecurityHeadersAddsHSTSForForwardedHeader(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	router.Use(SecurityHeaders())
+	router.GET("/health", func(context *gin.Context) {
+		context.String(http.StatusOK, "ok")
+	})
+
+	request := httptest.NewRequest(http.MethodGet, "/health", nil)
+	request.Header.Set(headerForwarded, "for=203.0.113.43;proto=https;by=203.0.113.44")
 	recorder := httptest.NewRecorder()
 
 	router.ServeHTTP(recorder, request)

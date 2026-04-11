@@ -150,13 +150,11 @@ PUBLIC_BASE_URL=http://localhost:8080 \
 go run ./cmd/server --config=configs/config.loopaware.yml
 ```
 
-Before serving the static frontend directly from `web/`, publish the tracked runtime config source at `/config.yml`:
+When serving the static frontend directly from `web/`, no preparation step is required. Keep the tracked runtime
+config in `web/config.yml` and serve `web/` from the frontend origin or reverse proxy that will answer `/config.yml`,
+`/api`, and `/auth`.
 
-```bash
-cp configs/config.frontend.yml web/config.yml
-```
-
-Then serve `web/` (for example with a simple static server) and open `/app` on that origin to trigger Google Sign-In.
+Then open `/app` on that frontend origin to trigger Google Sign-In.
 Ensure the TAuth service is running at `TAUTH_BASE_URL` with a tenant that matches `TAUTH_TENANT_ID`.
 Administrators listed in `configs/config.loopaware.yml` can manage every site; other users see only the sites they own
 or originally created with their Google account.
@@ -191,8 +189,9 @@ Set `PUBLIC_BASE_URL` to the frontend origin so the API emits correct links and 
 absolute `data-api-origin` attributes (or `api_origin` query params) on embed scripts when the API runs on a different
 origin. The dashboard and login pages call `/api` and `/auth` relative to the frontend origin, so split-origin
 deployments should use a reverse proxy or update the static HTML in `web/` to point at those services.
-The tracked runtime host mapping lives in `configs/config.frontend.yml`; static deployments must publish that file at
-`/config.yml` for `web/runtime-env.js` (`./scripts/up.sh` and the GitHub Pages workflow do this automatically, and the test stack publishes the same file inside its test-owned web root).
+The tracked runtime host mapping lives in `web/config.yml`, which `web/runtime-env.js` fetches directly at runtime.
+Canonical SEO metadata, Open Graph URLs, `robots.txt`, and `sitemap.xml` are fixed to the single public site
+`https://loopaware.mprlab.com` and are not environment-specific.
 Each environment may also define `services.siteWidgetSiteId` there to bootstrap the first-party feedback widget on
 `/login` and `/app` without hard-coding a site UUID into the static HTML.
 
@@ -335,7 +334,7 @@ Use `make test-unit` for Go-only tests and `make test-integration-api` to focus 
 
 GitHub Pages and Docker release publishing are tag-driven and run only for pushed tags that match `vMAJOR.MINOR.PATCH`.
 
-- `GitHub Pages` deploys `web/` from the tagged commit.
+- `GitHub Pages` deploys the tracked `web/` tree from the tagged commit.
 - `Build and Publish Docker Image` pushes:
   - `ghcr.io/<owner>/loopaware:latest`
   - `ghcr.io/<owner>/loopaware:<tag>`

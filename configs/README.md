@@ -13,7 +13,7 @@ Notes:
 - There is no supported plain `configs/.env.ghttp` file. Under `configs/`, the only supported gHTTP env file is `configs/.env.ghttp.computercat`; test-only proxy fixtures live under `tests/`.
 - `config-audit` validates tracked `.env.*.example` templates when local `.env.*` files are absent. Runtime still requires the real `.env.*` files.
 - `configs/config.loopaware.yml` is the tracked LoopAware admin-roster config used by the server `--config` flag.
-- `configs/config.frontend.yml` is the tracked frontend runtime config source; deployments publish it as `/config.yml`.
+- Frontend runtime host mapping now lives in `web/config.yml`; it is served directly as `/config.yml` by the static site.
   It also carries per-environment frontend service settings such as `siteWidgetSiteId` for the first-party landing/dashboard widget.
 - Test-only compose files and env fixtures do not belong in `configs/`; keep them under `tests/`.
 
@@ -89,11 +89,7 @@ GHTTP_SERVE_PROXIES=/tauth.js=http://la-tauth:8082,/me=http://la-tauth:8082,/aut
 ### Service env updates
 
 The computercat templates default to the public origin `https://computercat.tyemirov.net:4443` so the browser uses the reverse proxy for both LoopAware and TAuth.
-Before starting the proxy stack, publish the tracked frontend runtime config into `web/`:
-
-```bash
-cp configs/config.frontend.yml web/config.yml
-```
+`./up.sh computercat` serves the tracked `web/` tree directly through the proxy stack.
 
 Start and stop the computercat stack only through the helper scripts:
 
@@ -101,8 +97,6 @@ Start and stop the computercat stack only through the helper scripts:
 ./up.sh computercat
 ./down.sh computercat
 ```
-
-`up.sh computercat` does the config publish step automatically before invoking `docker compose`.
 
 TAuth requires HTTPS for secure cookies when `allow_insecure_http=false`. gHTTP’s reverse proxy does not currently set `X-Forwarded-Proto`,
 so keep `TAUTH_ALLOW_INSECURE_HTTP=true` unless you front TAuth with a proxy that forwards `X-Forwarded-Proto=https`.
