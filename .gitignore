@@ -1,18 +1,14 @@
 .cache/
-configs/
-!configs/config.loopaware.yml
-!configs/config.frontend.yml
 tools/
 
 
 .idea/
+.vscode/
 vendor/
 bin/
-tools/
 *.iml
 .env
 .env.*
-configs/*
 
 .DS_Store
 
@@ -25,7 +21,4 @@ qodana.yaml
 test-results/
 tests/artifacts/
 tests/.runtime-web.*/
-!web/static/vendor/
-!web/static/vendor/**
-!test/web/static/vendor/
-!test/web/static/vendor/**
+.runtime-web.*/
