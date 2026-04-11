@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /login
+Allow: /pricing
+Allow: /favicon.svg
+Allow: /loopaware-logo-120x120.png
+Allow: /loopaware-logo-256x256.png
+Allow: /loopaware-logo-512x512.png
+Allow: /site.webmanifest
+Disallow: /app/
+Disallow: /subscriptions/
+Disallow: /subscribe-demo/
+Disallow: /traffic-integration/
+Disallow: /widget-integration/
+Disallow: /widget-integration-dark/
+
+Sitemap: https://loopaware.mprlab.com/sitemap.xml
