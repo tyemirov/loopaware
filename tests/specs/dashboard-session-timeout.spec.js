@@ -1,13 +1,13 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
-import { buildAdminUser, openDashboard } from '../helpers/fixtures.js';
+import { buildAdminUser, openDashboardShell, waitForLogoutOverlayOrRedirect } from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
 
 async function openDashboardWithHooks(page) {
-  await openDashboard(page, config, adminUser);
+  await openDashboardShell(page, config, adminUser);
   await page.waitForFunction(() => {
     const hooks = window.__loopawareDashboardIdleTestHooks;
     const settings = window.__loopawareDashboardSettingsTestHooks;
@@ -61,14 +61,7 @@ test('confirm logs out to login', async ({ page }) => {
   await openDashboardWithHooks(page);
   await forcePrompt(page);
   await page.locator('#session-timeout-confirm-button').click();
-  const overlay = page.locator('#logout-overlay');
-  let redirectedToLogin = false;
-  await Promise.any([
-    page.waitForURL(/\/login/, { timeout: 15_000 }).then(() => {
-      redirectedToLogin = true;
-    }),
-    expect(overlay).toBeVisible({ timeout: 15_000 })
-  ]);
+  const redirectedToLogin = await waitForLogoutOverlayOrRedirect(page, { redirectPattern: /\/login/ });
   if (redirectedToLogin) {
     return;
   }
@@ -78,7 +71,8 @@ test('confirm logs out to login', async ({ page }) => {
 test('force logout redirects automatically', async ({ page }) => {
   await openDashboardWithHooks(page);
   await forceLogout(page);
-  await expect(page).toHaveURL(/\/login/);
+  const redirectedToLogin = await waitForLogoutOverlayOrRedirect(page, { redirectPattern: /\/login/ });
+  expect(redirectedToLogin).toBe(true);
 });
 
 test('timeout banner stays anchored to the viewport bottom', async ({ page }) => {

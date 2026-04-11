@@ -1,18 +1,15 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
-import { setLocalStorage } from '../helpers/browser.js';
 import { resolveTestConfig } from '../helpers/config.js';
-import { buildAdminUser, openDashboard } from '../helpers/fixtures.js';
-import { installTauthStub } from '../helpers/tauthStub.js';
+import {
+  buildAdminUser,
+  openDashboardShell,
+  openPublicPage as openSharedPublicPage,
+  waitForLogoutOverlayOrRedirect
+} from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const EXTERNAL_SCRIPT_URLS = Object.freeze([
-  'https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js',
-  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js',
-  'https://accounts.google.com/gsi/client'
-]);
-const LOGIN_URL_PATTERN = /\/login(?:\/)?(?:[?#].*)?$/;
 const PUBLIC_PAGE_UNAUTH_CASES = Object.freeze([
   { name: 'login page', path: '/login' },
   { name: 'privacy page', path: '/privacy' },
@@ -22,76 +19,12 @@ const PUBLIC_PAGE_UNAUTH_CASES = Object.freeze([
 
 /**
  * @param {import('@playwright/test').Page} page
- * @returns {Promise<void>}
- */
-async function installExternalScriptStubs(page) {
-  for (const scriptUrl of EXTERNAL_SCRIPT_URLS) {
-    await page.route(scriptUrl, async (route) => {
-      let body = '';
-      if (scriptUrl.includes('js-yaml')) {
-        body = `window.jsyaml = {
-  load: function() {
-    return {
-      environments: [
-        {
-          name: 'production',
-          hostnames: ['loopaware.mprlab.com', 'tyemirov.github.io'],
-          services: {
-            apiOrigin: 'https://loopaware-api.mprlab.com',
-            tauthOrigin: 'https://tauth-api.mprlab.com'
-          }
-        },
-        {
-          name: 'development',
-          hostnames: ['localhost', '127.0.0.1'],
-          services: {
-            apiOrigin: '',
-            tauthOrigin: ''
-          }
-        }
-      ]
-    };
-  }
-};`;
-      }
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/javascript; charset=utf-8',
-        body
-      });
-    });
-  }
-}
-
-/**
- * @param {import('@playwright/test').Page} page
  * @param {string} path
  * @param {Record<string, string> | undefined} localStorageEntries
  * @returns {Promise<void>}
  */
 async function openPublicPage(page, path, localStorageEntries) {
-  await installExternalScriptStubs(page);
-  await installTauthStub(page, config);
-  if (localStorageEntries) {
-    await setLocalStorage(page, localStorageEntries);
-  }
-  await page.goto(path, { waitUntil: 'domcontentloaded' });
-}
-
-/**
- * @param {import('@playwright/test').Page} page
- * @returns {Promise<boolean>}
- */
-async function expectLogoutOverlayOrRedirect(page) {
-  const overlay = page.locator('#logout-overlay');
-  let redirectedToLogin = false;
-  await Promise.any([
-    page.waitForURL(LOGIN_URL_PATTERN, { timeout: 15_000 }).then(() => {
-      redirectedToLogin = true;
-    }),
-    expect(overlay).toBeVisible({ timeout: 15_000 })
-  ]);
-  return redirectedToLogin || LOGIN_URL_PATTERN.test(page.url());
+  await openSharedPublicPage(page, config, path, { localStorage: localStorageEntries });
 }
 
 test('privacy page initializes theme and auth scripts instead of rendering raw JavaScript', async ({ page }) => {
@@ -139,21 +72,16 @@ for (const publicPageCase of PUBLIC_PAGE_UNAUTH_CASES) {
 }
 
 test('logout overlay appears and content hides on logout event', async ({ page }) => {
-  await openDashboard(page, config, adminUser);
-  
-  // Wait for auth listeners to be attached
-  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
+  await openDashboardShell(page, config, adminUser);
 
-  // Verify content is visible initially
   await expect(page.locator('main')).toBeVisible();
   await expect(page.locator('#logout-overlay')).toBeHidden();
 
-  // Trigger logout event
   await page.evaluate(() => {
     document.dispatchEvent(new CustomEvent('mpr-user:logout'));
   });
 
-  const redirectedToLogin = await expectLogoutOverlayOrRedirect(page);
+  const redirectedToLogin = await waitForLogoutOverlayOrRedirect(page);
   if (redirectedToLogin) {
     return;
   }
@@ -171,19 +99,15 @@ test('logout overlay appears and content hides on logout event', async ({ page }
 });
 
 test('logout overlay appears and content hides on unauthenticated event', async ({ page }) => {
-  await openDashboard(page, config, adminUser);
-  
-  // Wait for auth listeners to be attached
-  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
+  await openDashboardShell(page, config, adminUser);
 
-  // Trigger unauthenticated event from the bound header host
   await page.evaluate(() => {
     const headerHost = document.querySelector('mpr-header');
     const target = headerHost || document;
     target.dispatchEvent(new CustomEvent('mpr-ui:auth:unauthenticated'));
   });
 
-  const redirectedToLogin = await expectLogoutOverlayOrRedirect(page);
+  const redirectedToLogin = await waitForLogoutOverlayOrRedirect(page);
   if (redirectedToLogin) {
     return;
   }
@@ -201,9 +125,8 @@ test('logout overlay appears and content hides on unauthenticated event', async 
 });
 
 test('logout overlay appears and content hides on session timeout confirm', async ({ page }) => {
-  await openDashboard(page, config, adminUser);
-  
-  // Wait for session timeout manager to be started
+  await openDashboardShell(page, config, adminUser);
+
   await expect(async () => {
     const started = await page.evaluate(() => {
       const win = /** @type {any} */ (window);
@@ -219,13 +142,11 @@ test('logout overlay appears and content hides on session timeout confirm', asyn
       win.__loopawareDashboardIdleTestHooks.forcePrompt();
     }
   });
-  
+
   await expect(page.locator('#session-timeout-notification')).toBeVisible();
-  
-  // Click confirm (Yes)
   await page.locator('#session-timeout-confirm-button').click();
 
-  const redirectedToLogin = await expectLogoutOverlayOrRedirect(page);
+  const redirectedToLogin = await waitForLogoutOverlayOrRedirect(page);
   if (redirectedToLogin) {
     return;
   }
@@ -244,18 +165,12 @@ test('logout overlay appears and content hides on session timeout confirm', asyn
 });
 
 test('manual window.logout() call triggers overlay', async ({ page }) => {
-  await openDashboard(page, config, adminUser);
-  
-  // Wait for auth listeners to be attached
-  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
+  await openDashboardShell(page, config, adminUser);
 
-  // Intercept the fetch call to /auth/logout so it doesn't actually redirect yet
   await page.route('**/auth/logout', async route => {
-    // Just hang or delay
     await new Promise(resolve => setTimeout(resolve, 5000));
   });
 
-  // Call window.logout()
   await page.evaluate(() => {
     const win = /** @type {any} */ (window);
     if (typeof win.logout === 'function') {
@@ -263,7 +178,6 @@ test('manual window.logout() call triggers overlay', async ({ page }) => {
     }
   });
 
-  // Verify overlay is visible immediately even while fetch is "pending"
   await expect(page.locator('#logout-overlay')).toBeVisible();
   await page.waitForTimeout(500);
   await expect(page.locator('#logout-overlay')).toBeVisible();
@@ -276,9 +190,7 @@ test('manual window.logout() call triggers overlay', async ({ page }) => {
 });
 
 test('logout failure clears overlay and restores dashboard content', async ({ page }) => {
-  await openDashboard(page, config, adminUser);
-
-  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
+  await openDashboardShell(page, config, adminUser);
 
   await page.route('**/auth/logout', async (route) => {
     await route.fulfill({
