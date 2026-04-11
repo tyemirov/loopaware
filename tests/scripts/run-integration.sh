@@ -5,20 +5,13 @@ script_dir=$(cd "$(dirname "$0")" && pwd)
 repo_root=$(cd "${script_dir}/../.." && pwd)
 test_config_dir="${repo_root}/tests/configs"
 compose_file="${repo_root}/tests/docker-compose.yml"
-test_web_root=$(mktemp -d "${repo_root}/tests/.runtime-web.XXXXXX")
-
-cp -R "${repo_root}/web/." "${test_web_root}/"
-cp "${repo_root}/configs/config.frontend.yml" "${test_web_root}/config.yml"
-chmod -R a+rX "${test_web_root}"
 
 export LOOPAWARE_BASE_URL=${LOOPAWARE_BASE_URL:-http://localhost:8090}
 export LOOPAWARE_ENV_FILE=${LOOPAWARE_ENV_FILE:-${test_config_dir}/loopaware.env}
 export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-loopaware-integration-$(date +%s)}
-export LOOPAWARE_TEST_WEB_ROOT="${test_web_root}"
 
 cleanup() {
   docker compose -f "${compose_file}" down -v --remove-orphans
-  rm -rf "${test_web_root}"
 }
 trap cleanup EXIT
 

@@ -1,9 +1,8 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
-import { applySessionCookie } from '../helpers/browser.js';
 import { resolveTestConfig } from '../helpers/config.js';
-import { buildAdminUser } from '../helpers/fixtures.js';
-import { installTauthStub } from '../helpers/tauthStub.js';
+import { installAssetInspectionStubs } from '../helpers/externalAssets.js';
+import { buildAdminUser, openAuthenticatedPage, openPublicPage } from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
@@ -26,28 +25,18 @@ const DASHBOARD_PREVIEW_CASES = Object.freeze([
 
 /**
  * @param {import('@playwright/test').Page} page
+ * @param {string} path
+ * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number }} [tauthOptions]
+ * @param {{ waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
  * @returns {Promise<void>}
  */
-async function installGoogleIdentityStub(page) {
-  await page.route('https://accounts.google.com/gsi/client', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/javascript; charset=utf-8',
-      body: `window.google = window.google || {};
-window.google.accounts = window.google.accounts || {};
-window.google.accounts.id = {
-  initialize: function() {},
-  renderButton: function(target) {
-    if (target && typeof target.setAttribute === 'function') {
-      target.setAttribute('data-google-stubbed', 'true');
-    }
-  },
-  prompt: function() {},
-  cancel: function() {},
-  disableAutoSelect: function() {},
-  revoke: function() {}
-};`
-    });
+async function openPageWithoutSession(page, path, tauthOptions, options) {
+  const resolvedOptions = options || {};
+  await installSiteWidgetConfigStub(page);
+  await openPublicPage(page, config, path, {
+    tauth: tauthOptions,
+    waitForHeaderAuth: resolvedOptions.waitForHeaderAuth,
+    waitUntil: resolvedOptions.waitUntil
   });
 }
 
@@ -55,27 +44,37 @@ window.google.accounts.id = {
  * @param {import('@playwright/test').Page} page
  * @param {string} path
  * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number }} [tauthOptions]
+ * @param {{ waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
  * @returns {Promise<void>}
  */
-async function openPageWithoutSession(page, path, tauthOptions) {
-  await installGoogleIdentityStub(page);
-  await installTauthStub(page, config, tauthOptions);
+async function openPageWithSession(page, path, tauthOptions, options) {
+  const resolvedOptions = options || {};
   await installSiteWidgetConfigStub(page);
-  await page.goto(path, { waitUntil: 'domcontentloaded' });
+  await openAuthenticatedPage(page, config, adminUser, path, {
+    tauth: tauthOptions,
+    waitForHeaderAuth: resolvedOptions.waitForHeaderAuth,
+    waitUntil: resolvedOptions.waitUntil
+  });
 }
 
 /**
  * @param {import('@playwright/test').Page} page
  * @param {string} path
- * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number }} [tauthOptions]
  * @returns {Promise<void>}
  */
-async function openPageWithSession(page, path, tauthOptions) {
-  await installGoogleIdentityStub(page);
-  await installTauthStub(page, config, tauthOptions);
-  await installSiteWidgetConfigStub(page);
-  await applySessionCookie(page.context(), config, adminUser);
-  await page.goto(path, { waitUntil: 'domcontentloaded' });
+async function openPublicPageForAssetInspection(page, path) {
+  await installAssetInspectionStubs(page);
+  await openPageWithoutSession(page, path, undefined, { waitForHeaderAuth: false });
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {string} path
+ * @returns {Promise<void>}
+ */
+async function openAuthenticatedPageForAssetInspection(page, path) {
+  await installAssetInspectionStubs(page);
+  await openPageWithSession(page, path, undefined, { waitForHeaderAuth: false });
 }
 
 /**
@@ -292,13 +291,13 @@ test('dashboard does not bounce to login while authenticated session recovery is
 });
 
 test('login page loads latest CDN assets for auth UI', async ({ page }) => {
-  await openPageWithoutSession(page, '/login');
+  await openPublicPageForAssetInspection(page, '/login');
   await expectLatestCdnAssets(page);
 });
 
 for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
   test(`${label} loads latest CDN assets for auth UI`, async ({ page }) => {
-    await openPageWithoutSession(page, path);
+    await openPublicPageForAssetInspection(page, path);
     await expectLatestCdnAssets(page);
   });
 }
@@ -447,13 +446,13 @@ test('privacy page shows logout overlay for static-page sign-out', async ({ page
 });
 
 test('dashboard loads latest CDN assets for auth UI', async ({ page }) => {
-  await openPageWithSession(page, '/app');
+  await openAuthenticatedPageForAssetInspection(page, '/app');
   await expectLatestCdnAssets(page);
 });
 
 for (const { label, path } of DASHBOARD_PREVIEW_CASES) {
   test(`${label} loads latest CDN assets for auth UI`, async ({ page }) => {
-    await openPageWithSession(page, path);
+    await openAuthenticatedPageForAssetInspection(page, path);
     await expectLatestCdnAssets(page);
   });
 }
