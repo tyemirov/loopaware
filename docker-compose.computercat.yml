@@ -51,6 +51,19 @@ services:
     image: ghcr.io/tyemirov/ghttp:latest
     container_name: loopaware-proxy
     pull_policy: always
+    command:
+      - --response-header
+      - "/=Permissions-Policy:accelerometer=(), autoplay=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+      - --response-header
+      - "/=Referrer-Policy:strict-origin-when-cross-origin"
+      - --response-header
+      - "/=Strict-Transport-Security:max-age=31536000; includeSubDomains"
+      - --response-header
+      - "/=X-Content-Type-Options:nosniff"
+      - --response-header
+      - "/=X-Frame-Options:DENY"
+      - --response-header
+      - "/=X-Permitted-Cross-Domain-Policies:none"
     depends_on:
       - loopaware-api
       - la-tauth

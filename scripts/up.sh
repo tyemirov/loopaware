@@ -96,8 +96,6 @@ case "${mode}" in
     ;;
 esac
 
-cp configs/config.frontend.yml web/config.yml
-
 case "${mode}" in
   local|localhost)
     docker compose -f docker-compose.yml up --build --remove-orphans --force-recreate

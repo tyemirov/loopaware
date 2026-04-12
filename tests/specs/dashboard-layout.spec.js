@@ -1,14 +1,14 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
-import { buildAdminUser, openDashboard } from '../helpers/fixtures.js';
+import { buildAdminUser, openDashboardShell } from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
 const MAX_HEADER_CONTENT_GAP_PIXELS = 40;
 
 test('dashboard content starts close to the sticky header', async ({ page }) => {
-  await openDashboard(page, config, adminUser);
+  await openDashboardShell(page, config, adminUser);
 
   const header = page.locator('mpr-header > header.mpr-header');
   const accountCard = page.locator('main .card').first();

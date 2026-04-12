@@ -661,3 +661,43 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   - Dashboard feedback search should include the selected sentiment label in addition to contact, message, and delivery.
   Resolution: Added sad/neutral/happy sentiment selection to the widget between contact and message, enforced shared contact validation for email-or-phone inputs in both public feedback handlers, stored sentiment on feedback records, surfaced it in admin APIs and the dashboard feedback table/search, updated notification formatting for sentiment-only submissions, and extended Go plus Playwright coverage for invalid contact/sentiment cases and sentiment/message submission combinations.
   Verification: `make lint`, `make test`, and `make ci` pass.
+
+- [x] [LA-459] Keep public SEO canonical to `loopaware.mprlab.com` and remove frontend prep staging.
+  Priority: P1
+  Symptom: Public pages, `robots.txt`, and `sitemap.xml` were being reworked to stamp deployment-specific origins via `scripts/prepare-frontend.sh`, even though LoopAware has exactly one canonical public site and the repo already tracks `web/config.yml`.
+  Goal: Treat SEO identity as fixed static content for `https://loopaware.mprlab.com`, keep frontend runtime behavior driven by tracked config, and remove the temp web-root preparation flow from local/test/Pages paths.
+  Deliverable: Restore fixed canonical/Open Graph/sitemap URLs in the public static files, serve the tracked `web/` tree directly in Compose/tests/Pages, delete `scripts/prepare-frontend.sh` plus `configs/config.frontend.yml`, and update docs to point at `web/config.yml` as the runtime source of truth.
+  Resolution: Hard-coded the public SEO metadata, `robots.txt`, and `sitemap.xml` back to `https://loopaware.mprlab.com`; switched local, computercat, integration, and GitHub Pages flows back to serving `web/` directly; deleted the staging script and redundant `configs/config.frontend.yml`; and updated README/config docs to describe `web/config.yml` as the tracked frontend runtime config while keeping SEO non-configurable.
+  Verification: `timeout -k 30s -s SIGKILL 30s bash -n scripts/up.sh tests/scripts/run-integration.sh` passes; `timeout -k 350s -s SIGKILL 350s make ci` completes `go mod tidy`, `config-audit`, `go build`, `go vet`, JS typecheck, `go test`, and `go test -race`, then reaches Playwright integration before the repo timeout budget; `timeout -k 350s -s SIGKILL 350s bash -lc 'set -euo pipefail; export LOOPAWARE_BASE_URL=${LOOPAWARE_BASE_URL:-http://localhost:8090}; export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-loopaware-seo-$(date +%s)}; cleanup() { docker compose -f tests/docker-compose.yml down -v --remove-orphans >/dev/null 2>&1 || true; }; trap cleanup EXIT; cleanup; docker compose -f tests/docker-compose.yml up --build -d; ready=false; for _ in $(seq 1 60); do if curl -fsS "$LOOPAWARE_BASE_URL/login" >/dev/null 2>&1; then ready=true; break; fi; sleep 1; done; if [[ "$ready" != "true" ]]; then echo "Integration stack did not become ready at $LOOPAWARE_BASE_URL" >&2; exit 1; fi; cd tests; npx playwright test specs/seo-public-pages.spec.js'` passes.
+
+- [x] [LA-460] Restore `make up` / `make down` aliases for the documented Docker helper scripts.
+  Priority: P2
+  Symptom: The Makefile only exposed `docker-up` / `docker-down`, so `make down` failed even though the repo documents `scripts/up.sh` and `scripts/down.sh` as the canonical Docker entrypoints.
+  Goal: Keep the Makefile aligned with the documented operator workflow and provide the expected `make up` / `make down` convenience targets.
+  Deliverable: Add `up` and `down` Makefile targets that delegate to the helper scripts without changing the existing raw Docker targets.
+  Resolution: Added `up` and `down` aliases in the Makefile that call `./scripts/up.sh` and `./scripts/down.sh`, while leaving the existing `docker-*` targets intact.
+  Verification: `make -n up` and `make -n down` print the helper-script recipes without errors.
+
+- [x] [LA-461] Add a dedicated cleanup target for running Playwright compose projects.
+  Priority: P2
+  Symptom: The integration stack runs under `tests/docker-compose.yml` and can be left behind after interrupted runs or manual compose sessions, but the repo had no command to discover and stop those projects.
+  Goal: Provide a deterministic way to clean up every running compose project backed by `tests/docker-compose.yml` without affecting the local or computercat stacks.
+  Deliverable: Add a `make test-down` target that inspects `docker compose ls --format json`, matches running projects whose `ConfigFiles` include `tests/docker-compose.yml`, and tears each one down with `docker compose down -v --remove-orphans`.
+  Resolution: Added `tests/scripts/down-integration.sh`, wired it to `make test-down`, and documented the cleanup path in the README.
+  Verification: `make -n test-down` prints the integration cleanup script recipe without errors.
+
+- [x] [LA-462] Make the Playwright integration runner tear down its own compose project on exit.
+  Priority: P1
+  Symptom: The integration harness could leave `tests/docker-compose.yml` containers behind when the Playwright process failed or the shell exited unexpectedly, so cleanup depended on a separate manual command instead of the test runner itself.
+  Goal: Make teardown part of the test contract so the integration stack is brought down automatically after normal completion, failures, and common signal exits.
+  Deliverable: Harden `tests/scripts/run-integration.sh` with idempotent teardown, explicit `EXIT`/`INT`/`TERM`/`HUP`/`QUIT` handling, and a detached guardian that removes the compose project if the parent shell dies unexpectedly.
+  Resolution: Added an idempotent `down_stack` helper, signal-aware cleanup traps, and a detached guardian process to `tests/scripts/run-integration.sh` so the integration compose project is torn down by the harness itself.
+  Verification: `bash -n tests/scripts/run-integration.sh` passes.
+
+- [x] [LA-463] Make the local and integration proxy stacks enforce browser security headers at the edge.
+  Priority: P1
+  Symptom: The Go middleware added hardening headers only on backend routes, but the local, computercat, and Playwright stacks serve the browser-facing HTML from `ghttp`, so `/login`, `/pricing`, `/app`, and related pages were still missing the new headers. The TLS computercat proxy also needed HSTS at that edge because the backend cannot infer HTTPS there from `X-Forwarded-Proto`.
+  Goal: Move the setup-side hardening policy onto the `ghttp` edge used by the real local/browser stacks, while keeping local HTTP free of HSTS and ensuring the integration harness exercises that same proxy behavior.
+  Deliverable: Add `ghttp --response-header` policies to the local, computercat, and test compose proxies; emit HSTS only on the TLS computercat stack; and add black-box Playwright coverage that checks the real proxy responses for both static and proxied routes.
+  Resolution: Added repeated `--response-header` flags to all tracked `loopaware-proxy` compose services so gHTTP now serves the hardening headers for static pages and proxied responses, limited `Strict-Transport-Security` to the computercat TLS proxy, documented the edge-owned policy in the local/config docs, and added a focused Playwright spec that asserts the headers on `/login` and `/api/me`.
+  Verification: `docker compose -f docker-compose.yml config`, `docker compose -f tests/docker-compose.yml config`, `npm --prefix tests run typecheck`, and `bash -lc 'set -euo pipefail; export COMPOSE_PROJECT_NAME=loopaware-security-headers-$(date +%s); cleanup() { docker compose -f tests/docker-compose.yml down -v --remove-orphans >/dev/null 2>&1 || true; }; trap cleanup EXIT; docker compose -f tests/docker-compose.yml up --build -d; for _ in $(seq 1 60); do if curl -fsS http://localhost:8090/login >/dev/null 2>&1; then break; fi; sleep 1; done; cd tests; npx playwright test -c playwright.ui.config.js specs/security-headers.spec.js'` pass; `docker compose -f docker-compose.computercat.yml config` also passes when the usual `configs/.env.*.computercat` files exist (validated locally with temporary copies from the tracked `.example` templates).

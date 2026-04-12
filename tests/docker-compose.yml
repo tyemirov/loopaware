@@ -48,13 +48,24 @@ services:
     image: ghcr.io/tyemirov/ghttp:latest
     platform: ${LOOPAWARE_TEST_IMAGE_PLATFORM:-linux/amd64}
     pull_policy: always
+    command:
+      - --response-header
+      - "/=Permissions-Policy:accelerometer=(), autoplay=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+      - --response-header
+      - "/=Referrer-Policy:strict-origin-when-cross-origin"
+      - --response-header
+      - "/=X-Content-Type-Options:nosniff"
+      - --response-header
+      - "/=X-Frame-Options:DENY"
+      - --response-header
+      - "/=X-Permitted-Cross-Domain-Policies:none"
     depends_on:
       - loopaware-api
       - la-tauth
     env_file:
       - ./configs/ghttp.env
     volumes:
-      - ${LOOPAWARE_TEST_WEB_ROOT}:/data:ro
+      - ../web:/data:ro
     ports:
       - "8090:8090"
     restart: unless-stopped

@@ -1,18 +1,18 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
-import { buildAdminUser, openDashboard } from '../helpers/fixtures.js';
+import { buildAdminUser, openDashboardShell } from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
 
 test('single loopaware user menu rendered', async ({ page }) => {
-  await openDashboard(page, config, adminUser, { waitForSites: false });
+  await openDashboardShell(page, config, adminUser);
   await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toHaveCount(1);
 });
 
 test('user menu includes account settings action', async ({ page }) => {
-  await openDashboard(page, config, adminUser, { waitForSites: false });
+  await openDashboardShell(page, config, adminUser);
   const menuItems = await page.locator('mpr-user[data-loopaware-user-menu="true"]').getAttribute('menu-items');
   const parsed = menuItems ? JSON.parse(menuItems) : [];
   const actions = Array.isArray(parsed) ? parsed.map((item) => item.action) : [];
@@ -20,7 +20,7 @@ test('user menu includes account settings action', async ({ page }) => {
 });
 
 test('account settings menu event opens modal', async ({ page }) => {
-  await openDashboard(page, config, adminUser, { waitForSites: false });
+  await openDashboardShell(page, config, adminUser);
   await page.evaluate(() => {
     document.dispatchEvent(new CustomEvent('mpr-user:menu-item', { detail: { action: 'account-settings' } }));
   });
@@ -28,7 +28,7 @@ test('account settings menu event opens modal', async ({ page }) => {
 });
 
 test('header settings click opens modal', async ({ page }) => {
-  await openDashboard(page, config, adminUser, { waitForSites: false });
+  await openDashboardShell(page, config, adminUser);
   await page.evaluate(() => {
     document.dispatchEvent(new CustomEvent('mpr-ui:header:settings-click'));
   });
@@ -36,7 +36,7 @@ test('header settings click opens modal', async ({ page }) => {
 });
 
 test('unknown menu action leaves modal hidden', async ({ page }) => {
-  await openDashboard(page, config, adminUser, { waitForSites: false });
+  await openDashboardShell(page, config, adminUser);
   await expect(page.locator('#settings-modal')).toBeHidden();
   await page.evaluate(() => {
     document.dispatchEvent(new CustomEvent('mpr-user:menu-item', { detail: { action: 'unknown' } }));
@@ -45,12 +45,12 @@ test('unknown menu action leaves modal hidden', async ({ page }) => {
 });
 
 test('user menu renders in avatar mode', async ({ page }) => {
-  await openDashboard(page, config, adminUser, { waitForSites: false });
+  await openDashboardShell(page, config, adminUser);
   await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toHaveAttribute('display-mode', 'avatar');
 });
 
 test('authenticated dashboard header hides sign-in and shows avatar dropdown', async ({ page }) => {
-  await openDashboard(page, config, adminUser, { waitForSites: false });
+  await openDashboardShell(page, config, adminUser);
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
   await expect(page.locator('mpr-header > header.mpr-header')).toHaveClass(/mpr-header--authenticated/);
   await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toHaveAttribute('data-mpr-user-status', 'authenticated');
@@ -59,7 +59,7 @@ test('authenticated dashboard header hides sign-in and shows avatar dropdown', a
 });
 
 test('authenticated dashboard header stays synchronized after silent session recovery', async ({ page }) => {
-  await openDashboard(page, config, adminUser, { waitForSites: false, tauth: { silentBootstrap: true } });
+  await openDashboardShell(page, config, adminUser, { tauth: { silentBootstrap: true } });
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
   await expect(page.locator('mpr-header > header.mpr-header')).toHaveClass(/mpr-header--authenticated/);
   await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toHaveAttribute('data-mpr-user-status', 'authenticated');

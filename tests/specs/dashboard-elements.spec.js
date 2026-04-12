@@ -1,12 +1,12 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
-import { buildAdminUser, openDashboard } from '../helpers/fixtures.js';
+import { buildAdminUser, openDashboardShell } from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
 
-const elementIds = [
+const elementIds = Object.freeze([
   'user-avatar',
   'user-name',
   'user-email',
@@ -55,11 +55,12 @@ const elementIds = [
   'settings-auto-logout-enabled',
   'settings-auto-logout-prompt-seconds',
   'settings-auto-logout-logout-seconds'
-];
+]);
 
-for (const elementId of elementIds) {
-  test(`dashboard renders #${elementId}`, async ({ page }) => {
-    await openDashboard(page, config, adminUser);
+test('dashboard renders the expected shell element ids', async ({ page }) => {
+  await openDashboardShell(page, config, adminUser);
+
+  for (const elementId of elementIds) {
     await expect(page.locator(`#${elementId}`)).toHaveCount(1);
-  });
-}
+  }
+});
