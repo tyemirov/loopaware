@@ -89,7 +89,8 @@ GHTTP_SERVE_PROXIES=/tauth.js=http://la-tauth:8082,/me=http://la-tauth:8082,/aut
 ### Service env updates
 
 The computercat templates default to the public origin `https://computercat.tyemirov.net:4443` so the browser uses the reverse proxy for both LoopAware and TAuth.
-`./up.sh computercat` serves the tracked `web/` tree directly through the proxy stack.
+`./up.sh computercat` serves the tracked `web/` tree directly through the proxy stack, and the compose service adds the
+browser-facing hardening headers there so the static HTML and proxied API responses share one edge policy.
 
 Start and stop the computercat stack only through the helper scripts:
 

@@ -136,7 +136,8 @@ Stop the local stack with:
 `scripts/up.sh` is the canonical startup path for Dockerized LoopAware. With no argument it opens an interactive selector.
 You can also call it explicitly as `./scripts/up.sh local` or `./scripts/up.sh computercat`.
 The local compose stack now includes a gHTTP proxy that serves `web/` at `http://localhost:8080` and forwards `/api`,
-`/auth`, `/public`, and `/tauth.js` to the backend services.
+`/auth`, `/public`, and `/tauth.js` to the backend services. That proxy is also responsible for the browser-facing
+security headers on the static HTML and proxied API responses in the local stack.
 
 If you want to run only the API process without Docker, use:
 
