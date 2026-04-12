@@ -669,3 +669,27 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Deliverable: Restore fixed canonical/Open Graph/sitemap URLs in the public static files, serve the tracked `web/` tree directly in Compose/tests/Pages, delete `scripts/prepare-frontend.sh` plus `configs/config.frontend.yml`, and update docs to point at `web/config.yml` as the runtime source of truth.
   Resolution: Hard-coded the public SEO metadata, `robots.txt`, and `sitemap.xml` back to `https://loopaware.mprlab.com`; switched local, computercat, integration, and GitHub Pages flows back to serving `web/` directly; deleted the staging script and redundant `configs/config.frontend.yml`; and updated README/config docs to describe `web/config.yml` as the tracked frontend runtime config while keeping SEO non-configurable.
   Verification: `timeout -k 30s -s SIGKILL 30s bash -n scripts/up.sh tests/scripts/run-integration.sh` passes; `timeout -k 350s -s SIGKILL 350s make ci` completes `go mod tidy`, `config-audit`, `go build`, `go vet`, JS typecheck, `go test`, and `go test -race`, then reaches Playwright integration before the repo timeout budget; `timeout -k 350s -s SIGKILL 350s bash -lc 'set -euo pipefail; export LOOPAWARE_BASE_URL=${LOOPAWARE_BASE_URL:-http://localhost:8090}; export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-loopaware-seo-$(date +%s)}; cleanup() { docker compose -f tests/docker-compose.yml down -v --remove-orphans >/dev/null 2>&1 || true; }; trap cleanup EXIT; cleanup; docker compose -f tests/docker-compose.yml up --build -d; ready=false; for _ in $(seq 1 60); do if curl -fsS "$LOOPAWARE_BASE_URL/login" >/dev/null 2>&1; then ready=true; break; fi; sleep 1; done; if [[ "$ready" != "true" ]]; then echo "Integration stack did not become ready at $LOOPAWARE_BASE_URL" >&2; exit 1; fi; cd tests; npx playwright test specs/seo-public-pages.spec.js'` passes.
+
+- [x] [LA-460] Restore `make up` / `make down` aliases for the documented Docker helper scripts.
+  Priority: P2
+  Symptom: The Makefile only exposed `docker-up` / `docker-down`, so `make down` failed even though the repo documents `scripts/up.sh` and `scripts/down.sh` as the canonical Docker entrypoints.
+  Goal: Keep the Makefile aligned with the documented operator workflow and provide the expected `make up` / `make down` convenience targets.
+  Deliverable: Add `up` and `down` Makefile targets that delegate to the helper scripts without changing the existing raw Docker targets.
+  Resolution: Added `up` and `down` aliases in the Makefile that call `./scripts/up.sh` and `./scripts/down.sh`, while leaving the existing `docker-*` targets intact.
+  Verification: `make -n up` and `make -n down` print the helper-script recipes without errors.
+
+- [x] [LA-461] Add a dedicated cleanup target for running Playwright compose projects.
+  Priority: P2
+  Symptom: The integration stack runs under `tests/docker-compose.yml` and can be left behind after interrupted runs or manual compose sessions, but the repo had no command to discover and stop those projects.
+  Goal: Provide a deterministic way to clean up every running compose project backed by `tests/docker-compose.yml` without affecting the local or computercat stacks.
+  Deliverable: Add a `make test-down` target that inspects `docker compose ls --format json`, matches running projects whose `ConfigFiles` include `tests/docker-compose.yml`, and tears each one down with `docker compose down -v --remove-orphans`.
+  Resolution: Added `tests/scripts/down-integration.sh`, wired it to `make test-down`, and documented the cleanup path in the README.
+  Verification: `make -n test-down` prints the integration cleanup script recipe without errors.
+
+- [x] [LA-462] Make the Playwright integration runner tear down its own compose project on exit.
+  Priority: P1
+  Symptom: The integration harness could leave `tests/docker-compose.yml` containers behind when the Playwright process failed or the shell exited unexpectedly, so cleanup depended on a separate manual command instead of the test runner itself.
+  Goal: Make teardown part of the test contract so the integration stack is brought down automatically after normal completion, failures, and common signal exits.
+  Deliverable: Harden `tests/scripts/run-integration.sh` with idempotent teardown, explicit `EXIT`/`INT`/`TERM`/`HUP`/`QUIT` handling, and a detached guardian that removes the compose project if the parent shell dies unexpectedly.
+  Resolution: Added an idempotent `down_stack` helper, signal-aware cleanup traps, and a detached guardian process to `tests/scripts/run-integration.sh` so the integration compose project is torn down by the harness itself.
+  Verification: `bash -n tests/scripts/run-integration.sh` passes.
