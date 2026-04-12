@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-12
+
+### Features ✨
+- Enforced browser security headers at the edge for all compose stacks via proxy middleware.
+- Added new `up` and `down` aliases and integration cleanup targets to Makefile for improved developer experience.
+
+### Improvements ⚙️
+- Centralized Playwright test harness and normalized specs for better testing consistency.
+- Refined runtime configuration and hardened security settings for the API and deployment stacks.
+- Migrated frontend runtime configuration from tracked config file to static `web/config.yml` for direct serving.
+- Enhanced SEO metadata for public-facing pages.
+- Removed Bootstrap JS stubs from test helpers for cleaner test setup.
+- Updated Compose proxy services to deliver comprehensive security headers consistently.
+- Improved documentation regarding static frontend hosting and integration test workflows.
+
+### Bug Fixes 🐛
+- Excluded service files from the build and deploy processes as intended.
+- Fixed integration tests teardown behavior with new `test-down` target to avoid stale Docker Compose projects.
+
+### Testing 🧪
+- Added middleware tests verifying security headers are set including HSTS on HTTPS requests.
+- Added layout tests for dashboard content spacing under sticky header.
+- Updated and cleaned integration test scripts and Playwright specs.
+
+### Docs 📚
+- Updated setup instructions for static frontend hosting and proxy security header management.
+- Documented new Makefile aliases for starting and stopping integration test stacks.
+- Clarified configuration file locations and usage for runtime frontend settings.
+
 ## [0.4.1] - 2026-04-06
 
 ### Features ✨
@@ -228,7 +257,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WhatsApp in-app browser traffic is no longer misclassified as bot traffic.
 - Widget API origin resolution now falls back to HTTPS-aware behavior in proxy deployments that omit `X-Forwarded-Proto`.
 
-[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/tyemirov/loopaware/releases/tag/v0.5.0
 [v0.2.1]: https://github.com/tyemirov/loopaware/releases/tag/v0.2.1
 [v0.2.0]: https://github.com/tyemirov/loopaware/releases/tag/v0.2.0
 [v0.1.4]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.4
