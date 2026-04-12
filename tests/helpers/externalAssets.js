@@ -1,7 +1,4 @@
 // @ts-check
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 const JS_YAML_URL = 'https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js';
 const GOOGLE_IDENTITY_URL = 'https://accounts.google.com/gsi/client';
@@ -9,10 +6,6 @@ const GOOGLE_IDENTITY_STYLE_URL = 'https://accounts.google.com/gsi/style';
 const GOOGLE_IDENTITY_BUTTON_URL_PATTERN = /^https:\/\/accounts\.google\.com\/gsi\/button(?:\?.*)?$/;
 const BOOTSTRAP_CSS_URL = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css';
 const BOOTSTRAP_ICONS_CSS_URL = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
-const BOOTSTRAP_BUNDLE_URL = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js';
-const helperDirectory = path.dirname(fileURLToPath(import.meta.url));
-const BOOTSTRAP_BUNDLE_PATH = path.resolve(helperDirectory, '../../../MediaOps/node_modules/bootstrap/dist/js/bootstrap.bundle.min.js');
-const BOOTSTRAP_BUNDLE_BODY = fs.existsSync(BOOTSTRAP_BUNDLE_PATH) ? fs.readFileSync(BOOTSTRAP_BUNDLE_PATH, 'utf-8') : '';
 const JS_YAML_STUB = `window.jsyaml = {
   load: function() {
     return {
@@ -55,7 +48,6 @@ window.google.accounts.id = {
 };`;
 const GOOGLE_IDENTITY_BUTTON_STUB = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body></body></html>';
 const EMPTY_CSS_STUB = '';
-const EMPTY_SCRIPT_STUB = '';
 const DEFAULT_ASSET_SETTLE_TIMEOUT_MS = 5_000;
 const DEFAULT_ASSET_SETTLE_QUIET_MS = 150;
 
@@ -181,15 +173,6 @@ export async function installExternalAssetStubs(page, config) {
       });
     });
   });
-  await page.route(BOOTSTRAP_BUNDLE_URL, async (route) => {
-    await runTrackedRoute(browserPage, async () => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/javascript; charset=utf-8',
-        body: BOOTSTRAP_BUNDLE_BODY
-      });
-    });
-  });
   await page.route('**/*', async (route) => {
     await runTrackedRoute(browserPage, async () => {
       const request = route.request();
@@ -222,8 +205,8 @@ export async function installExternalAssetStubs(page, config) {
 
 /**
  * Asset-inspection tests only need the page to finish parsing so they can verify
- * the configured CDN URLs. These stubs prevent third-party CSS and Bootstrap JS
- * from blocking parser progress when the network is slow.
+ * the configured CDN URLs. These stubs prevent third-party CSS from blocking
+ * parser progress when the network is slow.
  *
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<void>}
@@ -247,13 +230,6 @@ export async function installAssetInspectionStubs(page) {
       status: 200,
       contentType: 'text/css; charset=utf-8',
       body: EMPTY_CSS_STUB
-    });
-  });
-  await page.route(BOOTSTRAP_BUNDLE_URL, async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/javascript; charset=utf-8',
-      body: EMPTY_SCRIPT_STUB
     });
   });
 }
