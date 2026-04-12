@@ -257,8 +257,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WhatsApp in-app browser traffic is no longer misclassified as bot traffic.
 - Widget API origin resolution now falls back to HTTPS-aware behavior in proxy deployments that omit `X-Forwarded-Proto`.
 
-[Unreleased]: https://github.com/tyemirov/loopaware/compare/v0.5.0...HEAD
-[0.5.0]: https://github.com/tyemirov/loopaware/releases/tag/v0.5.0
+[Unreleased]: https://github.com/tyemirov/loopaware/compare/0.5.0...HEAD
+[0.5.0]: https://github.com/tyemirov/loopaware/releases/tag/0.5.0
+[0.4.1]: https://github.com/tyemirov/loopaware/releases/tag/0.4.1
 [v0.2.1]: https://github.com/tyemirov/loopaware/releases/tag/v0.2.1
 [v0.2.0]: https://github.com/tyemirov/loopaware/releases/tag/v0.2.0
 [v0.1.4]: https://github.com/tyemirov/loopaware/releases/tag/v0.1.4
