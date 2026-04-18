@@ -11,9 +11,14 @@ cleanup_complete=0
 export LOOPAWARE_BASE_URL=${LOOPAWARE_BASE_URL:-http://localhost:8090}
 export LOOPAWARE_ENV_FILE=${LOOPAWARE_ENV_FILE:-${test_config_dir}/loopaware.env}
 export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-loopaware-integration-$(date +%s)}
+compose_project_name="${COMPOSE_PROJECT_NAME}"
+
+get_process_start_time() {
+  ps -o lstart= -p "$1" 2>/dev/null | sed 's/^[[:space:]]*//'
+}
 
 down_stack() {
-  docker compose -f "${compose_file}" down -v --remove-orphans >/dev/null 2>&1 || true
+  docker compose -f "${compose_file}" -p "${compose_project_name}" down -v --remove-orphans >/dev/null 2>&1 || true
 }
 
 cleanup() {
@@ -40,29 +45,60 @@ on_signal() {
 
 start_cleanup_guardian() {
   local parent_pid="$$"
+  local parent_start_time=""
+
+  parent_start_time="$(get_process_start_time "${parent_pid}")"
 
   if command -v setsid >/dev/null 2>&1; then
     setsid nohup bash -c '
       parent_pid="$1"
-      compose_file="$2"
+      parent_start_time="$2"
+      compose_file="$3"
+      compose_project_name="$4"
 
-      while kill -0 "${parent_pid}" >/dev/null 2>&1; do
+      get_process_start_time() {
+        ps -o lstart= -p "$1" 2>/dev/null | sed "s/^[[:space:]]*//"
+      }
+
+      while true; do
+        if [[ -n "${parent_start_time}" ]]; then
+          current_parent_start_time="$(get_process_start_time "${parent_pid}")"
+          if [[ -z "${current_parent_start_time}" || "${current_parent_start_time}" != "${parent_start_time}" ]]; then
+            break
+          fi
+        elif ! kill -0 "${parent_pid}" >/dev/null 2>&1; then
+          break
+        fi
         sleep 1
       done
 
-      docker compose -f "${compose_file}" down -v --remove-orphans >/dev/null 2>&1 || true
-    ' bash "${parent_pid}" "${compose_file}" >/dev/null 2>&1 </dev/null &
+      docker compose -f "${compose_file}" -p "${compose_project_name}" down -v --remove-orphans >/dev/null 2>&1 || true
+    ' bash "${parent_pid}" "${parent_start_time}" "${compose_file}" "${compose_project_name}" >/dev/null 2>&1 </dev/null &
   else
     nohup bash -c '
       parent_pid="$1"
-      compose_file="$2"
+      parent_start_time="$2"
+      compose_file="$3"
+      compose_project_name="$4"
 
-      while kill -0 "${parent_pid}" >/dev/null 2>&1; do
+      get_process_start_time() {
+        ps -o lstart= -p "$1" 2>/dev/null | sed "s/^[[:space:]]*//"
+      }
+
+      while true; do
+        if [[ -n "${parent_start_time}" ]]; then
+          current_parent_start_time="$(get_process_start_time "${parent_pid}")"
+          if [[ -z "${current_parent_start_time}" || "${current_parent_start_time}" != "${parent_start_time}" ]]; then
+            break
+          fi
+        elif ! kill -0 "${parent_pid}" >/dev/null 2>&1; then
+          break
+        fi
         sleep 1
       done
 
-      docker compose -f "${compose_file}" down -v --remove-orphans >/dev/null 2>&1 || true
-    ' bash "${parent_pid}" "${compose_file}" >/dev/null 2>&1 </dev/null &
+      docker compose -f "${compose_file}" -p "${compose_project_name}" down -v --remove-orphans >/dev/null 2>&1 || true
+    ' bash "${parent_pid}" "${parent_start_time}" "${compose_file}" "${compose_project_name}" >/dev/null 2>&1 </dev/null &
   fi
 
   cleanup_guardian_pid=$!
@@ -77,7 +113,7 @@ start_cleanup_guardian
 
 down_stack
 
-docker compose -f "${compose_file}" up --build -d
+docker compose -f "${compose_file}" -p "${compose_project_name}" up --build -d
 
 ready=false
 for _ in $(seq 1 60); do

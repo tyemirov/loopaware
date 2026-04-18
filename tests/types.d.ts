@@ -3,6 +3,7 @@ export {};
 declare global {
   interface Window {
     apiFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+    logout?: () => Promise<unknown> | unknown;
     __loopawareFetchIntercept?: {
       requests: Array<{ url: string; method: string; body: string; status: number }>;
       storageKey?: string;

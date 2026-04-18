@@ -329,9 +329,8 @@ make test
 `make test` runs the Playwright integration suite against `tests/docker-compose.yml`, with test-owned env fixtures under
 `tests/configs/`. That stack builds the API image, serves `web/` via gHTTP, and exercises both UI and `/api/*` flows.
 Use `make test-unit` for Go-only tests and `make test-integration-api` to focus on API specs. Playwright artifacts
-(traces, screenshots, videos) land under `tests/test-results/` on failure.
-The integration runner tears its compose project down on exit, including failures and signal exits. Use `make test-down`
-only if an external interruption leaves a `tests/docker-compose.yml` project behind.
+(traces, screenshots, videos) land under `tests/test-results/` on failure. The integration runner tears its compose
+project down on exit, including failures and signal exits.
 
 ## Release publishing
 

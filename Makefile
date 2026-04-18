@@ -7,7 +7,7 @@ INEFFASSIGN := github.com/gordonklaus/ineffassign@$(INEFFASSIGN_VERSION)
 
 export GOWORK := off
 
-.PHONY: format format-pinguin build lint lint-js config-audit test test-unit test-integration test-integration-api test-integration-all test-down test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci
+.PHONY: format format-pinguin build lint lint-js config-audit test test-unit test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -57,9 +57,6 @@ test-integration-api:
 test-integration-all:
 	LOOPAWARE_TEST_SUITE=test:all ./tests/scripts/run-integration.sh
 
-test-down:
-	./tests/scripts/down-integration.sh
-
 test-race:
 	go test ./... -race -count=1
 
@@ -82,7 +79,7 @@ up:
 	./scripts/up.sh
 
 down:
-	./scripts/down.sh
+	./scripts/down.sh local
 
 docker-up:
 	docker compose up --build
