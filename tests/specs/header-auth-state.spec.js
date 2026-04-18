@@ -276,6 +276,20 @@ test('dashboard keeps the auth transition visible until the authenticated UI fin
   await expect(page.locator('#user-name')).not.toHaveText('');
 });
 
+test('dashboard hides the auth transition after a normal authenticated boot', async ({ page }) => {
+  await openPageWithSession(
+    page,
+    '/app',
+    undefined,
+    { waitForHeaderAuth: false, waitUntil: 'domcontentloaded' }
+  );
+
+  const transition = page.locator('mpr-header [data-mpr-header="auth-transition"]');
+
+  await expect(transition).toHaveAttribute('data-mpr-visible', 'false');
+  await expect(page.locator('#user-name')).not.toHaveText('');
+});
+
 for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
   test(`${label} redirects to the dashboard after login flow auth completion`, async ({ page }) => {
     await openPageWithoutSession(page, path);

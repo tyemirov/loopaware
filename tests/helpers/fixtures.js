@@ -127,6 +127,29 @@ export async function waitForHeaderAuthReady(page) {
 }
 
 /**
+ * Wait until the dashboard auth-transition overlay stops intercepting input.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function waitForDashboardAuthTransitionToHide(page) {
+  await page.waitForFunction(() => {
+    const header = document.querySelector('mpr-header');
+    if (!header) {
+      return false;
+    }
+    if (typeof header.getAttribute === 'function' && !header.getAttribute('auth-transition')) {
+      return true;
+    }
+    const transition = header.querySelector('[data-mpr-header="auth-transition"]');
+    if (!transition) {
+      return false;
+    }
+    return transition.getAttribute('data-mpr-visible') !== 'true';
+  });
+}
+
+/**
  * @param {import('@playwright/test').Page} page
  * @param {{ allowEmptySites?: boolean }} [options]
  * @returns {Promise<void>}
@@ -148,6 +171,7 @@ export async function waitForDashboardReady(page, options) {
     const selected = list.querySelectorAll('[data-site-id].active');
     return selected.length > 0;
   }, allowEmpty);
+  await waitForDashboardAuthTransitionToHide(page);
 }
 
 /**
@@ -221,6 +245,7 @@ export async function openDashboard(page, config, user, options) {
   }
   await waitForHeaderAuthReady(page);
   await page.locator('#user-name').waitFor();
+  await waitForDashboardAuthTransitionToHide(page);
 }
 
 /**

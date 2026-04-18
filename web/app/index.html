@@ -561,7 +561,11 @@
         var configElement = document.getElementById('dashboard-config');
         var parsedConfig = {};
         var dashboardReadyEventName = 'loopaware:dashboard-ready';
-        var dashboardReadyDispatched = false;
+        var dashboardReadyReleaseStarted = false;
+        var dashboardReadyDispatchCount = 0;
+        var dashboardReadyRetryTimerId = 0;
+        var dashboardReadyRetryLimit = 60;
+        var dashboardReadyRetryDelayMilliseconds = 50;
           if (configElement) {
             try {
               parsedConfig = JSON.parse(configElement.textContent || '{}') || {};
@@ -650,21 +654,78 @@
             return Promise.resolve();
           }
 
-          function dispatchDashboardReady() {
-            if (dashboardReadyDispatched || typeof document.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') {
+          function resolveDashboardHeaderHost() {
+            if (!document || typeof document.querySelector !== 'function') {
+              return null;
+            }
+            return document.querySelector('mpr-header');
+          }
+
+          function isDashboardAuthTransitionReleased() {
+            var headerHost = resolveDashboardHeaderHost();
+            if (!headerHost || typeof headerHost.getAttribute !== 'function') {
+              return false;
+            }
+            if (!headerHost.getAttribute('auth-transition')) {
+              return true;
+            }
+            if (typeof headerHost.querySelector !== 'function') {
+              return false;
+            }
+            var transition = headerHost.querySelector('[data-mpr-header="auth-transition"]');
+            if (!transition || typeof transition.getAttribute !== 'function') {
+              return false;
+            }
+            return transition.getAttribute('data-mpr-visible') !== 'true';
+          }
+
+          function clearDashboardReadyRetryTimer() {
+            if (!dashboardReadyRetryTimerId) {
               return;
             }
-            dashboardReadyDispatched = true;
+            window.clearTimeout(dashboardReadyRetryTimerId);
+            dashboardReadyRetryTimerId = 0;
+          }
+
+          function dispatchDashboardReady() {
+            if (typeof document.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') {
+              return false;
+            }
+            dashboardReadyDispatchCount += 1;
             document.dispatchEvent(new CustomEvent(dashboardReadyEventName));
+            return true;
+          }
+
+          function scheduleDashboardReadyRetry() {
+            clearDashboardReadyRetryTimer();
+            if (isDashboardAuthTransitionReleased() || dashboardReadyDispatchCount >= dashboardReadyRetryLimit) {
+              return;
+            }
+            dashboardReadyRetryTimerId = window.setTimeout(function() {
+              if (!dispatchDashboardReady()) {
+                return;
+              }
+              scheduleDashboardReadyRetry();
+            }, dashboardReadyRetryDelayMilliseconds);
           }
 
           function releaseDashboardAuthTransition() {
+            if (dashboardReadyReleaseStarted) {
+              return;
+            }
+            dashboardReadyReleaseStarted = true;
             waitForMprUiAutoOrchestrationReady()
               .then(function() {
-                dispatchDashboardReady();
+                if (!dispatchDashboardReady()) {
+                  return;
+                }
+                scheduleDashboardReadyRetry();
               })
               .catch(function() {
-                dispatchDashboardReady();
+                if (!dispatchDashboardReady()) {
+                  return;
+                }
+                scheduleDashboardReadyRetry();
               });
           }
 
