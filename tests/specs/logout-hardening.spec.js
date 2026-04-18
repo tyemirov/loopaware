@@ -107,8 +107,10 @@ test('explicit logout does not reopen the auth transition modal on login', async
       localStorage.removeItem('__loopawareTestAuthTransitionSeen');
     } catch (error) {}
 
+    /** @type {typeof Element.prototype.setAttribute & { __loopawareLogoutTransitionRecorder?: boolean }} */
     var originalSetAttribute = Element.prototype.setAttribute;
     if (originalSetAttribute && originalSetAttribute.__loopawareLogoutTransitionRecorder !== true) {
+      /** @type {typeof Element.prototype.setAttribute & { __loopawareLogoutTransitionRecorder?: boolean }} */
       var wrappedSetAttribute = function(name, value) {
         var result = originalSetAttribute.apply(this, arguments);
         try {
