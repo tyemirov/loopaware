@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-04-18
+
+### Features ✨
+- Use MPR UI's built-in auth transition for login-to-dashboard handoff.
+- Add dashboard auth transition overlay with visible loading state until authenticated UI finishes loading.
+- Dispatch `loopaware:dashboard-ready` event once authenticated dashboard shell is ready.
+
+### Improvements ⚙️
+- Retry dispatching dashboard ready event until auth transition overlay hides, ensuring reliable dashboard handoff.
+- Update dashboard test helpers to wait for auth transition overlay to disappear before interactions.
+- Revert MPR UI frontend asset URLs back to `@latest` after upstream release confirmation.
+
+### Bug Fixes 🐛
+- Harden transition release to work when MPR UI boots without readiness helper, preventing dashboard overlay from hanging CI tests.
+
+### Testing 🧪
+- Add focused Playwright tests covering auth transition overlay visibility and disappearance during dashboard boot.
+- Add regression tests to verify normal authenticated dashboard boot hides the auth transition overlay.
+- Enhance existing header auth state tests to cover new transition behavior.
+
+### Docs 📚
+- Add detailed ISSUE entries documenting the `auth-transition` feature and dashboard ready event contract.
+
 ## [0.5.0] - 2026-04-12
 
 ### Features ✨
