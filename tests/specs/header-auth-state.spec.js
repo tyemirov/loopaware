@@ -236,6 +236,60 @@ test('login page redirects authenticated users after silent session recovery', a
   await expect(page).toHaveURL(/\/app\/?$/);
 });
 
+test('dashboard keeps the auth transition visible until the authenticated UI finishes loading', async ({ page }) => {
+  /** @type {(value?: unknown) => void} */
+  let releaseSitesResponse = () => {};
+  const sitesResponseGate = new Promise((resolve) => {
+    releaseSitesResponse = resolve;
+  });
+
+  await page.route(/\/api\/sites(?:\?.*)?$/, async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback();
+      return;
+    }
+    await sitesResponseGate;
+    await route.fallback();
+  });
+
+  await openPageWithSession(
+    page,
+    '/app',
+    { currentUserDelayMs: 150 },
+    { waitForHeaderAuth: false, waitUntil: 'domcontentloaded' }
+  );
+
+  const transition = page.locator('mpr-header [data-mpr-header="auth-transition"]');
+  const transitionTitle = page.locator('mpr-header [data-mpr-header="auth-transition-title"]');
+  const transitionMessage = page.locator('mpr-header [data-mpr-header="auth-transition-message"]');
+
+  await expect(transition).toHaveAttribute('data-mpr-visible', 'true');
+  await expect(transitionTitle).toHaveText('Opening LoopAware');
+  await expect(transitionMessage).toHaveText('Loading your authenticated workspace.');
+
+  await page.waitForTimeout(250);
+  await expect(transition).toHaveAttribute('data-mpr-visible', 'true');
+
+  releaseSitesResponse();
+
+  await expect(transition).toHaveAttribute('data-mpr-visible', 'false');
+  await expect(page.locator('#user-name')).not.toHaveText('');
+});
+
+test('dashboard hides the auth transition after a normal authenticated boot', async ({ page }) => {
+  await openPageWithSession(
+    page,
+    '/app',
+    undefined,
+    { waitForHeaderAuth: false, waitUntil: 'domcontentloaded' }
+  );
+
+  const transition = page.locator('mpr-header [data-mpr-header="auth-transition"]');
+
+  await expect(transition).toHaveAttribute('data-mpr-visible', 'false');
+  await expect(page.locator('#user-name')).not.toHaveText('');
+});
+
 for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
   test(`${label} redirects to the dashboard after login flow auth completion`, async ({ page }) => {
     await openPageWithoutSession(page, path);

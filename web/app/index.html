@@ -75,7 +75,7 @@
   </head>
   <body class="d-flex flex-column min-vh-100">
     
-<mpr-header class="dashboard-header" google-site-id="281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com" tauth-tenant-id="loopaware" tauth-login-path="/auth/google" tauth-logout-path="/auth/logout" tauth-nonce-path="/auth/nonce" sign-in-label="Login" sign-out-label="Logout" settings="false" data-loopaware-auth-redirect-on-logout="true">
+<mpr-header class="dashboard-header" google-site-id="281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com" tauth-tenant-id="loopaware" tauth-login-path="/auth/google" tauth-logout-path="/auth/logout" tauth-nonce-path="/auth/nonce" sign-in-label="Login" sign-out-label="Logout" settings="false" auth-transition='{"title":"Opening LoopAware","message":"Loading your authenticated workspace.","completionEvent":"loopaware:dashboard-ready"}' data-loopaware-auth-redirect-on-logout="true">
   <span slot="brand" class="d-inline-flex align-items-center gap-3">
     <img id="dashboard-header-logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij4KICA8cGF0aCBzdHJva2U9IiNENEFGMzciIGZpbGw9Im5vbmUiIHN0cm9rZS13aWR0aD0iMTAiIHN0cm9rZS1saW5lam9pbj0icm91bmQiCiAgICBkPSJNIDMyIDEyOCBDIDcyIDU2LCAxODQgNTYsIDIyNCAxMjggQyAxODQgMjAwLCA3MiAyMDAsIDMyIDEyOCBaIi8+CiAgPGNpcmNsZSBjeD0iMTI4IiBjeT0iMTI4IiByPSI0OCIgc3Ryb2tlPSIjRDRBRjM3IiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjgiLz4KICA8cGF0aCBzdHJva2U9IiNENEFGMzciIGZpbGw9Im5vbmUiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIgogICAgZD0iTSA5NiAxMjggQyA5NiAxMDgsIDEyOCAxMDgsIDEyOCAxMjgKICAgICAgIEMgMTI4IDE0OCwgMTYwIDE0OCwgMTYwIDEyOAogICAgICAgQyAxNjAgMTA4LCAxMjggMTA4LCAxMjggMTI4CiAgICAgICBDIDEyOCAxNDgsIDk2IDE0OCwgOTYgMTI4Ii8+Cjwvc3ZnPgo=" alt="LoopAware logo" width="44" height="44" />
     <span class="fw-semibold">LoopAware Dashboard</span>
@@ -560,6 +560,12 @@
         (function() {
         var configElement = document.getElementById('dashboard-config');
         var parsedConfig = {};
+        var dashboardReadyEventName = 'loopaware:dashboard-ready';
+        var dashboardReadyReleaseStarted = false;
+        var dashboardReadyDispatchCount = 0;
+        var dashboardReadyRetryTimerId = 0;
+        var dashboardReadyRetryLimit = 60;
+        var dashboardReadyRetryDelayMilliseconds = 50;
           if (configElement) {
             try {
               parsedConfig = JSON.parse(configElement.textContent || '{}') || {};
@@ -640,6 +646,89 @@
             }
             return trimmed + (trimmed.indexOf('?') === -1 ? '?' : '&') + pairs.join('&');
           }
+
+          function waitForMprUiAutoOrchestrationReady() {
+            if (window.MPRUI && typeof window.MPRUI.whenAutoOrchestrationReady === 'function') {
+              return window.MPRUI.whenAutoOrchestrationReady();
+            }
+            return Promise.resolve();
+          }
+
+          function resolveDashboardHeaderHost() {
+            if (!document || typeof document.querySelector !== 'function') {
+              return null;
+            }
+            return document.querySelector('mpr-header');
+          }
+
+          function isDashboardAuthTransitionReleased() {
+            var headerHost = resolveDashboardHeaderHost();
+            if (!headerHost || typeof headerHost.getAttribute !== 'function') {
+              return false;
+            }
+            if (!headerHost.getAttribute('auth-transition')) {
+              return true;
+            }
+            if (typeof headerHost.querySelector !== 'function') {
+              return false;
+            }
+            var transition = headerHost.querySelector('[data-mpr-header="auth-transition"]');
+            if (!transition || typeof transition.getAttribute !== 'function') {
+              return false;
+            }
+            return transition.getAttribute('data-mpr-visible') !== 'true';
+          }
+
+          function clearDashboardReadyRetryTimer() {
+            if (!dashboardReadyRetryTimerId) {
+              return;
+            }
+            window.clearTimeout(dashboardReadyRetryTimerId);
+            dashboardReadyRetryTimerId = 0;
+          }
+
+          function dispatchDashboardReady() {
+            if (typeof document.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') {
+              return false;
+            }
+            dashboardReadyDispatchCount += 1;
+            document.dispatchEvent(new CustomEvent(dashboardReadyEventName));
+            return true;
+          }
+
+          function scheduleDashboardReadyRetry() {
+            clearDashboardReadyRetryTimer();
+            if (isDashboardAuthTransitionReleased() || dashboardReadyDispatchCount >= dashboardReadyRetryLimit) {
+              return;
+            }
+            dashboardReadyRetryTimerId = window.setTimeout(function() {
+              if (!dispatchDashboardReady()) {
+                return;
+              }
+              scheduleDashboardReadyRetry();
+            }, dashboardReadyRetryDelayMilliseconds);
+          }
+
+          function releaseDashboardAuthTransition() {
+            if (dashboardReadyReleaseStarted) {
+              return;
+            }
+            dashboardReadyReleaseStarted = true;
+            waitForMprUiAutoOrchestrationReady()
+              .then(function() {
+                if (!dispatchDashboardReady()) {
+                  return;
+                }
+                scheduleDashboardReadyRetry();
+              })
+              .catch(function() {
+                if (!dispatchDashboardReady()) {
+                  return;
+                }
+                scheduleDashboardReadyRetry();
+              });
+          }
+
           var apiPaths = parsedConfig.api_paths || {};
           var siteFaviconEventsEndpoint = apiUrl(apiPaths.site_favicon_events || '');
           var feedbackEventsEndpoint = apiUrl(apiPaths.feedback_events || '');
@@ -4577,6 +4666,8 @@
           openFaviconEventStream();
           openFeedbackEventStream();
           return loadSites();
+        }).finally(function() {
+          releaseDashboardAuthTransition();
         });
         })();
       });
