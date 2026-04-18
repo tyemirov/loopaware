@@ -10,6 +10,8 @@ import {
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
+const STALE_AUTH_AFTER_LOGOUT_FLAG = '__loopawareTestStaleAuthAfterLogout';
+const AUTH_TRANSITION_SEEN_FLAG = '__loopawareTestAuthTransitionSeen';
 const PUBLIC_PAGE_UNAUTH_CASES = Object.freeze([
   { name: 'login page', path: '/login' },
   { name: 'privacy page', path: '/privacy' },
@@ -96,6 +98,99 @@ test('logout overlay appears and content hides on logout event', async ({ page }
   } catch (e) {
     if (!e.message.includes('context was destroyed')) throw e;
   }
+});
+
+test('explicit logout does not reopen the auth transition modal on login', async ({ page }) => {
+  await page.addInitScript((resolvedUser) => {
+    try {
+      localStorage.removeItem('__loopawareTestStaleAuthAfterLogout');
+      localStorage.removeItem('__loopawareTestAuthTransitionSeen');
+    } catch (error) {}
+
+    var originalSetAttribute = Element.prototype.setAttribute;
+    if (originalSetAttribute && originalSetAttribute.__loopawareLogoutTransitionRecorder !== true) {
+      var wrappedSetAttribute = function(name, value) {
+        var result = originalSetAttribute.apply(this, arguments);
+        try {
+          if (
+            name === 'data-mpr-visible' &&
+            value === 'true' &&
+            this &&
+            typeof this.getAttribute === 'function' &&
+            this.getAttribute('data-mpr-header') === 'auth-transition'
+          ) {
+            localStorage.setItem('__loopawareTestAuthTransitionSeen', 'true');
+          }
+        } catch (error) {}
+        return result;
+      };
+      wrappedSetAttribute.__loopawareLogoutTransitionRecorder = true;
+      Element.prototype.setAttribute = wrappedSetAttribute;
+    }
+
+    Object.defineProperty(window, 'getCurrentUser', {
+      configurable: true,
+      enumerable: true,
+      get: function() {
+        return undefined;
+      },
+      set: function(value) {
+        if (typeof value !== 'function') {
+          Object.defineProperty(window, 'getCurrentUser', {
+            configurable: true,
+            enumerable: true,
+            writable: true,
+            value: value
+          });
+          return;
+        }
+        var wrappedGetCurrentUser = function() {
+          var normalizedPath = window.location && typeof window.location.pathname === 'string'
+            ? window.location.pathname.replace(/\/$/, '')
+            : '';
+          if (normalizedPath === '/login' && localStorage.getItem('__loopawareTestStaleAuthAfterLogout') === 'true') {
+            return Promise.resolve({
+              user_id: String(resolvedUser.userId || ''),
+              user_email: String(resolvedUser.email || ''),
+              email: String(resolvedUser.email || ''),
+              display: String(resolvedUser.displayName || resolvedUser.email || ''),
+              avatar_url: String(resolvedUser.avatarUrl || ''),
+              roles: []
+            });
+          }
+          return value.apply(this, arguments);
+        };
+        Object.defineProperty(window, 'getCurrentUser', {
+          configurable: true,
+          enumerable: true,
+          writable: true,
+          value: wrappedGetCurrentUser
+        });
+      }
+    });
+  }, adminUser);
+
+  await openDashboardShell(page, config, adminUser);
+
+  await page.evaluate(() => {
+    localStorage.setItem('__loopawareTestStaleAuthAfterLogout', 'true');
+    localStorage.removeItem('__loopawareTestAuthTransitionSeen');
+    document.dispatchEvent(new CustomEvent('mpr-user:logout'));
+    Promise.resolve(typeof window.logout === 'function' ? window.logout() : undefined)
+      .catch(() => undefined)
+      .finally(() => {
+        window.location.href = '/login';
+      });
+  });
+
+  await page.waitForTimeout(1200);
+  await expect(page).toHaveURL(/\/login\/?$/);
+  await expect(page.locator('mpr-header [data-mpr-header="auth-transition"]')).toHaveAttribute('data-mpr-visible', 'false');
+  await expect
+    .poll(() =>
+      page.evaluate(() => localStorage.getItem('__loopawareTestAuthTransitionSeen'))
+    )
+    .not.toBe('true');
 });
 
 test('logout overlay appears and content hides on unauthenticated event', async ({ page }) => {

@@ -20,6 +20,7 @@
   var INITIAL_APP_AUTH_SETTLE_TIMEOUT_MS = 3000;
   var APP_PATHNAME = '/app';
   var LOGIN_PATHNAME = '/login';
+  var EXPLICIT_LOGOUT_STORAGE_KEY = 'loopaware_explicit_logout';
   var store = window.__loopawareHeaderAuthStore;
   var authListenersAttached = false;
   var userMenuListenersAttached = false;
@@ -38,6 +39,62 @@
       publicAuthRecoveryRemainingAttempts: 0
     };
     window.__loopawareHeaderAuthStore = store;
+  }
+
+  function resolveExplicitLogoutStorage() {
+    if (!window) {
+      return null;
+    }
+    try {
+      if (window.sessionStorage) {
+        return window.sessionStorage;
+      }
+    } catch (error) {}
+    try {
+      if (window.localStorage) {
+        return window.localStorage;
+      }
+    } catch (error) {}
+    return null;
+  }
+
+  function hasExplicitLogoutState() {
+    var storage = resolveExplicitLogoutStorage();
+    if (!storage || typeof storage.getItem !== 'function') {
+      return false;
+    }
+    try {
+      return storage.getItem(EXPLICIT_LOGOUT_STORAGE_KEY) === 'true';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function syncExplicitLogoutState(headerHost) {
+    if (!headerHost || typeof headerHost.toggleAttribute !== 'function') {
+      return;
+    }
+    headerHost.toggleAttribute('data-loopaware-explicit-logout', hasExplicitLogoutState());
+  }
+
+  function markExplicitLogoutState() {
+    var storage = resolveExplicitLogoutStorage();
+    if (storage && typeof storage.setItem === 'function') {
+      try {
+        storage.setItem(EXPLICIT_LOGOUT_STORAGE_KEY, 'true');
+      } catch (error) {}
+    }
+    syncExplicitLogoutState(document.querySelector('mpr-header'));
+  }
+
+  function clearExplicitLogoutState() {
+    var storage = resolveExplicitLogoutStorage();
+    if (storage && typeof storage.removeItem === 'function') {
+      try {
+        storage.removeItem(EXPLICIT_LOGOUT_STORAGE_KEY);
+      } catch (error) {}
+    }
+    syncExplicitLogoutState(document.querySelector('mpr-header'));
   }
 
   function createSnapshot(status, source) {
@@ -117,6 +174,7 @@
   }
 
   function startLogoutTransition() {
+    markExplicitLogoutState();
     markLogoutPending();
     showOverlay();
   }
@@ -151,6 +209,9 @@
       '}' +
       'mpr-header[data-loopaware-auth-state="unauthenticated"] [data-mpr-header="google-signin"]{' +
       'display:flex !important;' +
+      '}' +
+      'mpr-header[data-loopaware-explicit-logout] [data-mpr-header="auth-transition"]{' +
+      'display:none !important;' +
       '}';
     var head = document.head || document.documentElement;
     if (!head || typeof head.appendChild !== 'function') {
@@ -685,6 +746,9 @@
     if (!headerHost || !snapshot || snapshot.status !== AUTH_STATE_VALUES.authenticated) {
       return false;
     }
+    if (hasExplicitLogoutState() && headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
+      return false;
+    }
     if (store.loginRedirectPending !== true && headerHost.getAttribute('data-loopaware-auth-redirect') !== 'true') {
       return false;
     }
@@ -779,9 +843,24 @@
     }
     store.redirectTarget = pathname;
     if (pathname === APP_PATHNAME) {
+      clearExplicitLogoutState();
       resetPublicAuthRecovery();
     }
     window.location.assign(pathname);
+  }
+
+  function normalizeSnapshotForExplicitLogout(headerHost, snapshot) {
+    syncExplicitLogoutState(headerHost);
+    if (!snapshot || snapshot.status !== AUTH_STATE_VALUES.authenticated) {
+      return snapshot;
+    }
+    if (!headerHost || typeof headerHost.getAttribute !== 'function') {
+      return snapshot;
+    }
+    if (headerHost.getAttribute('data-loopaware-auth-redirect') !== 'true' || !hasExplicitLogoutState()) {
+      return snapshot;
+    }
+    return createSnapshot(AUTH_STATE_VALUES.unauthenticated, snapshot.source || 'explicit-logout');
   }
 
   function dispatchAuthStateChange(headerHost, snapshot) {
@@ -803,6 +882,7 @@
     if (!headerHost) {
       return;
     }
+    syncExplicitLogoutState(headerHost);
     setHeaderAuthStateAttribute(headerHost, snapshot.status);
     if (snapshot.status === AUTH_STATE_VALUES.authenticated) {
       clearGoogleSigninGate(resolveGoogleSigninTarget(headerHost));
@@ -819,6 +899,7 @@
       disableGoogleAutoSelect();
       gateGoogleSigninUntilNonce(headerHost);
       if (shouldRedirectToLogin(headerHost)) {
+        markExplicitLogoutState();
         showOverlay();
         redirectTo(LOGIN_PATHNAME);
         return;
@@ -833,6 +914,7 @@
   }
 
   function commitSnapshot(headerHost, snapshot) {
+    snapshot = normalizeSnapshotForExplicitLogout(headerHost, snapshot);
     var previousSnapshot = store.snapshot;
     store.snapshot = snapshot;
     applySnapshot(headerHost, snapshot);
@@ -978,6 +1060,7 @@
     if (!headerHost) {
       return;
     }
+    clearExplicitLogoutState();
     startPublicAuthRecoveryPolling(headerHost, 'runtime-signin');
   }
 
@@ -1081,6 +1164,7 @@
     if (!headerHost) {
       return;
     }
+    syncExplicitLogoutState(headerHost);
     ensureLogoutFallback(headerHost);
     attachPublicAuthRecoveryListeners(headerHost);
     attachPublicSigninListeners(headerHost);
