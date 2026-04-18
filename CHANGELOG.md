@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.2] - 2026-04-18
+
+### Features ✨
+- Add explicit logout state persistence to avoid erroneous auth transition modal reopening after logout.
+- Introduce test to verify explicit logout does not reopen auth transition modal on login.
+
+### Improvements ⚙️
+- Update integration test script to track and use Docker Compose project names for proper cleanup.
+- Modify Makefile to streamline targets and update Docker Compose down command for local environment.
+- Enhance header-auth module with explicit logout state tracking via session/local storage and UI sync.
+- Improve auth state snapshot normalization considering explicit logout flag.
+- Remove logout message from UI for a cleaner user experience.
+- Refactor integration test shutdown logic to prevent leftover Docker Compose projects.
+
+### Bug Fixes 🐛
+- Fix test-related bugs ensuring stable logout test cases.
+- Prevent auth transition modal from appearing after explicit user logout.
+
+### Testing 🧪
+- Add robust logout-hardening.spec.js test to check logout overlay behavior and auth modal persistence.
+- Refine integration tests and add improved logout transition tracking.
+
+### Docs 📚
+- Clarify integration test runner behavior in README, removing outdated instructions about manual test stack teardown.
+- Miscellaneous documentation tweaks for consistency with new test and auth flow updates.
+
 ## [0.5.1] - 2026-04-18
 
 ### Features ✨
