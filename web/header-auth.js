@@ -16,6 +16,9 @@
   var GOOGLE_SIGNIN_GATE_SLOW_POLL_INTERVAL_MS = 1000;
   var PUBLIC_AUTH_RECOVERY_POLL_INTERVAL_MS = 500;
   var PUBLIC_AUTH_RECOVERY_MAX_ATTEMPTS = 120;
+  var PUBLIC_AUTH_SCREEN_ELEMENT_ID = 'loopaware-public-auth-screen';
+  var DEFAULT_PUBLIC_AUTH_TITLE = 'Opening LoopAware';
+  var DEFAULT_PUBLIC_AUTH_MESSAGE = 'Preparing your authenticated workspace.';
   var LOGOUT_REQUEST_TIMEOUT_MS = 2000;
   var INITIAL_APP_AUTH_SETTLE_TIMEOUT_MS = 3000;
   var APP_PATHNAME = '/app';
@@ -161,6 +164,135 @@
     setBodyLogoutState(false);
   }
 
+  function resolvePublicAuthMain() {
+    if (!document || typeof document.querySelector !== 'function') {
+      return null;
+    }
+    return document.querySelector('main');
+  }
+
+  function resolvePublicAuthScreen() {
+    if (!document || typeof document.getElementById !== 'function') {
+      return null;
+    }
+    return document.getElementById(PUBLIC_AUTH_SCREEN_ELEMENT_ID);
+  }
+
+  function parseHeaderTransitionConfig(headerHost) {
+    if (!headerHost || typeof headerHost.getAttribute !== 'function') {
+      return {};
+    }
+    var rawValue = headerHost.getAttribute('auth-transition');
+    if (!rawValue) {
+      return {};
+    }
+    try {
+      var parsedValue = JSON.parse(rawValue);
+      if (parsedValue && typeof parsedValue === 'object') {
+        return parsedValue;
+      }
+    } catch (error) {}
+    return {};
+  }
+
+  function resolvePublicAuthScreenCopy(headerHost) {
+    var transitionConfig = parseHeaderTransitionConfig(headerHost);
+    var title = normalizeTextValue(transitionConfig.title) || DEFAULT_PUBLIC_AUTH_TITLE;
+    var message = normalizeTextValue(transitionConfig.message) || DEFAULT_PUBLIC_AUTH_MESSAGE;
+    return {
+      title: title,
+      message: message
+    };
+  }
+
+  function ensurePublicAuthScreen(headerHost) {
+    var mainElement = resolvePublicAuthMain();
+    if (!mainElement || typeof document.createElement !== 'function') {
+      return null;
+    }
+    var screenElement = resolvePublicAuthScreen();
+    if (!screenElement) {
+      screenElement = document.createElement('section');
+      screenElement.id = PUBLIC_AUTH_SCREEN_ELEMENT_ID;
+      screenElement.className = 'loopaware-public-auth-screen';
+      screenElement.hidden = true;
+      screenElement.setAttribute('aria-hidden', 'true');
+      screenElement.setAttribute('aria-live', 'polite');
+      screenElement.setAttribute('data-loopaware-visible', 'false');
+
+      var contentElement = document.createElement('div');
+      contentElement.className = 'loopaware-public-auth-screen__content';
+
+      var spinnerElement = document.createElement('div');
+      spinnerElement.className = 'spinner-border text-primary loopaware-public-auth-screen__spinner';
+      spinnerElement.setAttribute('role', 'status');
+
+      var spinnerLabel = document.createElement('span');
+      spinnerLabel.className = 'visually-hidden';
+      spinnerLabel.textContent = 'Signing in...';
+      spinnerElement.appendChild(spinnerLabel);
+
+      var titleElement = document.createElement('h1');
+      titleElement.className = 'h3 fw-semibold mb-3';
+      titleElement.setAttribute('data-loopaware-public-auth-screen-copy', 'title');
+
+      var messageElement = document.createElement('p');
+      messageElement.className = 'lead mb-0 loopaware-public-auth-screen__message';
+      messageElement.setAttribute('data-loopaware-public-auth-screen-copy', 'message');
+
+      contentElement.appendChild(spinnerElement);
+      contentElement.appendChild(titleElement);
+      contentElement.appendChild(messageElement);
+      screenElement.appendChild(contentElement);
+      mainElement.appendChild(screenElement);
+    }
+
+    var copy = resolvePublicAuthScreenCopy(headerHost);
+    var titleTarget = screenElement.querySelector('[data-loopaware-public-auth-screen-copy="title"]');
+    var messageTarget = screenElement.querySelector('[data-loopaware-public-auth-screen-copy="message"]');
+    if (titleTarget) {
+      titleTarget.textContent = copy.title;
+    }
+    if (messageTarget) {
+      messageTarget.textContent = copy.message;
+    }
+    return screenElement;
+  }
+
+  function showPublicAuthScreen(headerHost) {
+    if (!document || !document.body || typeof document.body.setAttribute !== 'function') {
+      return;
+    }
+    var mainElement = resolvePublicAuthMain();
+    var screenElement = ensurePublicAuthScreen(headerHost);
+    if (!mainElement || !screenElement) {
+      return;
+    }
+    document.body.setAttribute('data-loopaware-public-auth-screen', 'true');
+    mainElement.setAttribute('aria-busy', 'true');
+    screenElement.hidden = false;
+    screenElement.setAttribute('aria-hidden', 'false');
+    screenElement.setAttribute('data-loopaware-visible', 'true');
+  }
+
+  function hidePublicAuthScreen() {
+    if (!document || !document.body || typeof document.body.removeAttribute !== 'function') {
+      return;
+    }
+    var mainElement = resolvePublicAuthMain();
+    var screenElement = resolvePublicAuthScreen();
+    document.body.removeAttribute('data-loopaware-public-auth-screen');
+    if (mainElement) {
+      mainElement.removeAttribute('aria-busy');
+    }
+    if (!screenElement) {
+      return;
+    }
+    screenElement.hidden = true;
+    screenElement.setAttribute('aria-hidden', 'true');
+    screenElement.setAttribute('data-loopaware-visible', 'false');
+  }
+
   function markLogoutPending() {
     store.logoutPending = true;
   }
@@ -211,6 +343,40 @@
       'display:flex !important;' +
       '}' +
       'mpr-header[data-loopaware-explicit-logout] [data-mpr-header="auth-transition"]{' +
+      'display:none !important;' +
+      '}' +
+      '#' + PUBLIC_AUTH_SCREEN_ELEMENT_ID + '{' +
+      'display:none;' +
+      'width:100%;' +
+      'min-height:clamp(18rem,42vh,28rem);' +
+      'padding:3rem 1.5rem;' +
+      '}' +
+      '#' + PUBLIC_AUTH_SCREEN_ELEMENT_ID + '[data-loopaware-visible="true"]{' +
+      'display:flex;' +
+      'align-items:center;' +
+      'justify-content:center;' +
+      '}' +
+      '#' + PUBLIC_AUTH_SCREEN_ELEMENT_ID + ' .loopaware-public-auth-screen__content{' +
+      'width:min(100%,32rem);' +
+      'margin:0 auto;' +
+      'text-align:center;' +
+      '}' +
+      '#' + PUBLIC_AUTH_SCREEN_ELEMENT_ID + ' .loopaware-public-auth-screen__spinner{' +
+      'margin:0 auto 1rem auto;' +
+      '}' +
+      '#' + PUBLIC_AUTH_SCREEN_ELEMENT_ID + ' .loopaware-public-auth-screen__message{' +
+      'max-width:28rem;' +
+      'margin:0 auto;' +
+      'color:var(--bs-secondary-color);' +
+      '}' +
+      'body[data-loopaware-public-auth-screen="true"] main{' +
+      'display:flex !important;' +
+      'align-items:center;' +
+      '}' +
+      'body[data-loopaware-public-auth-screen="true"] main > :not(#' + PUBLIC_AUTH_SCREEN_ELEMENT_ID + '){' +
+      'display:none !important;' +
+      '}' +
+      'mpr-header[data-loopaware-public-auth-screen-mode] [data-mpr-header="auth-transition"]{' +
       'display:none !important;' +
       '}';
     var head = document.head || document.documentElement;
@@ -643,6 +809,40 @@
     }
   }
 
+  function resolveAuthController(headerHost) {
+    if (!headerHost || typeof headerHost !== 'object') {
+      return null;
+    }
+    var authController = headerHost.__authController;
+    if (!authController || typeof authController.prepareGoogleNonce !== 'function') {
+      return null;
+    }
+    return authController;
+  }
+
+  function forceHeaderAuthRefresh(headerHost) {
+    if (!headerHost || typeof headerHost.getAttribute !== 'function' || typeof headerHost.setAttribute !== 'function') {
+      return;
+    }
+    var signInLabel = headerHost.getAttribute('sign-in-label');
+    if (typeof signInLabel !== 'string') {
+      return;
+    }
+    headerHost.setAttribute('sign-in-label', signInLabel + ' ');
+    headerHost.setAttribute('sign-in-label', signInLabel);
+  }
+
+  function primeGoogleSigninNonce(headerHost) {
+    var authController = resolveAuthController(headerHost);
+    if (authController) {
+      try {
+        Promise.resolve(authController.prepareGoogleNonce()).catch(function () {});
+      } catch (error) {}
+      return;
+    }
+    forceHeaderAuthRefresh(headerHost);
+  }
+
   function gateGoogleSigninUntilNonce(headerHost) {
     if (!headerHost) {
       return;
@@ -760,6 +960,17 @@
 
   function shouldRedirectToLogin(headerHost) {
     return !!(headerHost && typeof headerHost.getAttribute === 'function' && headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true');
+  }
+
+  function isPublicAuthScreenMode(headerHost) {
+    return !!(headerHost && !shouldRedirectToLogin(headerHost));
+  }
+
+  function syncPublicAuthScreenMode(headerHost) {
+    if (!headerHost || typeof headerHost.toggleAttribute !== 'function') {
+      return;
+    }
+    headerHost.toggleAttribute('data-loopaware-public-auth-screen-mode', isPublicAuthScreenMode(headerHost));
   }
 
   function supportsPublicSigninRecovery(headerHost) {
@@ -882,6 +1093,14 @@
     if (!headerHost) {
       return;
     }
+    if (isPublicAuthScreenMode(headerHost) && (
+      store.loginRedirectPending === true ||
+      (snapshot && snapshot.status === AUTH_STATE_VALUES.authenticated && shouldRedirectToApp(headerHost, snapshot))
+    )) {
+      showPublicAuthScreen(headerHost);
+    } else {
+      hidePublicAuthScreen();
+    }
     syncExplicitLogoutState(headerHost);
     setHeaderAuthStateAttribute(headerHost, snapshot.status);
     if (snapshot.status === AUTH_STATE_VALUES.authenticated) {
@@ -916,8 +1135,17 @@
   function commitSnapshot(headerHost, snapshot) {
     snapshot = normalizeSnapshotForExplicitLogout(headerHost, snapshot);
     var previousSnapshot = store.snapshot;
+    var shouldPrimeGoogleNonce = !!(
+      previousSnapshot &&
+      previousSnapshot.status === AUTH_STATE_VALUES.authenticated &&
+      snapshot &&
+      snapshot.status === AUTH_STATE_VALUES.unauthenticated
+    );
     store.snapshot = snapshot;
     applySnapshot(headerHost, snapshot);
+    if (shouldPrimeGoogleNonce) {
+      primeGoogleSigninNonce(headerHost);
+    }
     if (!previousSnapshot || previousSnapshot.status !== snapshot.status) {
       dispatchAuthStateChange(headerHost, snapshot);
     }
@@ -1003,10 +1231,12 @@
   function schedulePublicAuthRecoveryPolling(headerHost, source) {
     if (!shouldRefreshPublicAuthSession(headerHost)) {
       resetPublicAuthRecovery();
+      hidePublicAuthScreen();
       return;
     }
     if (store.publicAuthRecoveryRemainingAttempts <= 0) {
       resetPublicAuthRecovery();
+      hidePublicAuthScreen();
       return;
     }
     if (store.publicAuthRecoveryTimerId) {
@@ -1030,6 +1260,7 @@
     }
     store.loginRedirectPending = true;
     store.publicAuthRecoveryRemainingAttempts = PUBLIC_AUTH_RECOVERY_MAX_ATTEMPTS;
+    showPublicAuthScreen(headerHost);
     refreshPublicAuthSession(headerHost, source || 'runtime-start');
     schedulePublicAuthRecoveryPolling(headerHost, source || 'runtime-poll');
   }
@@ -1137,6 +1368,7 @@
     var headerHost = resolveAuthHost(event);
     if (!headerHost) {
       hideOverlay();
+      hidePublicAuthScreen();
       return;
     }
     resetPublicAuthRecovery();
@@ -1165,6 +1397,7 @@
       return;
     }
     syncExplicitLogoutState(headerHost);
+    syncPublicAuthScreenMode(headerHost);
     ensureLogoutFallback(headerHost);
     attachPublicAuthRecoveryListeners(headerHost);
     attachPublicSigninListeners(headerHost);

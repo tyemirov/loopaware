@@ -28,8 +28,14 @@ export function renderTauthStub(sessionCookieName, options) {
 
   var runtime = window[runtimeKey];
   if (!runtime || typeof runtime !== 'object') {
-    runtime = { tenantId: '', profile: null, options: null };
+    runtime = { tenantId: '', profile: null, options: null, exchangeProfile: null, nonceCounter: 0 };
     window[runtimeKey] = runtime;
+  }
+  if (!Object.prototype.hasOwnProperty.call(runtime, 'exchangeProfile')) {
+    runtime.exchangeProfile = null;
+  }
+  if (!Number.isFinite(runtime.nonceCounter)) {
+    runtime.nonceCounter = 0;
   }
 
   function readCookieValue(name) {
@@ -126,6 +132,60 @@ export function renderTauthStub(sessionCookieName, options) {
     return runtime.profile;
   }
 
+  function normalizeRuntimeProfile(profile) {
+    if (!profile || typeof profile !== 'object') {
+      return null;
+    }
+    var email = typeof profile.user_email === 'string'
+      ? profile.user_email.trim()
+      : (typeof profile.email === 'string' ? profile.email.trim() : '');
+    var display = typeof profile.display === 'string'
+      ? profile.display.trim()
+      : (typeof profile.user_display_name === 'string' ? profile.user_display_name.trim() : '');
+    var avatarUrl = typeof profile.avatar_url === 'string'
+      ? profile.avatar_url.trim()
+      : (typeof profile.user_avatar_url === 'string' ? profile.user_avatar_url.trim() : '');
+    var userId = typeof profile.user_id === 'string' ? profile.user_id.trim() : '';
+    var roles = Array.isArray(profile.roles)
+      ? profile.roles.slice()
+      : (Array.isArray(profile.user_roles) ? profile.user_roles.slice() : []);
+    if (!display) {
+      display = email;
+    }
+    return {
+      user_id: userId,
+      user_email: email,
+      email: email,
+      display: display,
+      avatar_url: avatarUrl,
+      roles: roles
+    };
+  }
+
+  function resolveExchangeProfile() {
+    return normalizeRuntimeProfile(runtime.exchangeProfile) ||
+      normalizeRuntimeProfile(runtime.profile) ||
+      resolveProfileFromClaims(parseSessionClaims()) || {
+        user_id: 'test-user',
+        user_email: 'user@example.com',
+        email: 'user@example.com',
+        display: 'Test User',
+        avatar_url: '',
+        roles: []
+      };
+  }
+
+  function readCredentialNonce(credential) {
+    if (typeof credential !== 'string') {
+      return '';
+    }
+    var prefix = 'stub-google-credential::';
+    if (credential.indexOf(prefix) !== 0) {
+      return '';
+    }
+    return credential.slice(prefix.length);
+  }
+
   function setAuthTenantId(tenantId) {
     runtime.tenantId = String(tenantId || '');
   }
@@ -186,11 +246,20 @@ export function renderTauthStub(sessionCookieName, options) {
   }
 
   function requestNonce() {
-    return Promise.resolve('test-nonce');
+    runtime.nonceCounter += 1;
+    return Promise.resolve('test-nonce-' + String(runtime.nonceCounter));
   }
 
-  function exchangeGoogleCredential() {
-    return Promise.reject(new Error('tauth.exchange_not_supported'));
+  function exchangeGoogleCredential(input) {
+    var normalizedInput = input && typeof input === 'object' ? input : {};
+    var credential = typeof normalizedInput.credential === 'string' ? normalizedInput.credential : '';
+    var nonceToken = typeof normalizedInput.nonceToken === 'string' ? normalizedInput.nonceToken : '';
+    var credentialNonce = readCredentialNonce(credential);
+    if (!credentialNonce || !nonceToken || credentialNonce !== nonceToken) {
+      return Promise.reject(new Error('tauth.exchange_failed'));
+    }
+    runtime.profile = resolveExchangeProfile();
+    return Promise.resolve(runtime.profile);
   }
 
   function clearSessionCookie() {

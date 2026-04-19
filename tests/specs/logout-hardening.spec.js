@@ -195,6 +195,91 @@ test('explicit logout does not reopen the auth transition modal on login', async
     .not.toBe('true');
 });
 
+test('public auth can sign in again after sign-out without reloading the page', async ({ page }) => {
+  await openPublicPage(page, '/pricing', undefined);
+
+  await page.evaluate((resolvedUser) => {
+    const win = /** @type {any} */ (window);
+    const runtime = win.__loopawareTestTauthRuntime;
+    if (!runtime || typeof runtime !== 'object') {
+      throw new Error('tauth runtime not found');
+    }
+    runtime.exchangeProfile = {
+      user_id: String(resolvedUser.userId || ''),
+      user_email: String(resolvedUser.email || ''),
+      email: String(resolvedUser.email || ''),
+      display: String(resolvedUser.displayName || resolvedUser.email || ''),
+      avatar_url: String(resolvedUser.avatarUrl || ''),
+      roles: []
+    };
+  }, adminUser);
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const win = /** @type {any} */ (window);
+        const state = win.__loopawareGoogleIdentityState;
+        if (!state || !state.lastInitializeConfig) {
+          return '';
+        }
+        return String(state.lastInitializeConfig.nonce || '');
+      })
+    )
+    .not.toBe('');
+
+  await page.evaluate(() => {
+    const win = /** @type {any} */ (window);
+    const state = win.__loopawareGoogleIdentityState;
+    if (!state || typeof state.emitCredential !== 'function') {
+      throw new Error('google identity state not found');
+    }
+    state.emitCredential();
+  });
+
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
+
+  const firstNonce = await page.evaluate(() => {
+    const win = /** @type {any} */ (window);
+    return String(win.__loopawareGoogleIdentityState.lastInitializeConfig.nonce || '');
+  });
+
+  await page.evaluate(async () => {
+    document.dispatchEvent(new CustomEvent('mpr-user:logout'));
+    const runtime = /** @type {any} */ (window).__loopawareTestTauthRuntime;
+    if (!runtime || typeof runtime !== 'object') {
+      throw new Error('tauth runtime not found');
+    }
+    runtime.profile = null;
+    const headerHost = document.querySelector('mpr-header');
+    const target = headerHost || document;
+    target.dispatchEvent(new CustomEvent('mpr-ui:auth:unauthenticated'));
+  });
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const win = /** @type {any} */ (window);
+        const state = win.__loopawareGoogleIdentityState;
+        if (!state || !state.lastInitializeConfig) {
+          return '';
+        }
+        return String(state.lastInitializeConfig.nonce || '');
+      })
+    )
+    .not.toBe(firstNonce);
+
+  await page.evaluate(() => {
+    const win = /** @type {any} */ (window);
+    const state = win.__loopawareGoogleIdentityState;
+    if (!state || typeof state.emitCredential !== 'function') {
+      throw new Error('google identity state not found');
+    }
+    state.emitCredential();
+  });
+
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
+});
+
 test('logout overlay appears and content hides on unauthenticated event', async ({ page }) => {
   await openDashboardShell(page, config, adminUser);
 

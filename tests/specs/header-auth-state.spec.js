@@ -236,6 +236,29 @@ test('login page redirects authenticated users after silent session recovery', a
   await expect(page).toHaveURL(/\/app\/?$/);
 });
 
+test('login page swaps to an in-page waiting screen during sign-in', async ({ page }) => {
+  await openPageWithoutSession(page, '/login');
+  await beginHeaderLoginFlow(page);
+
+  const waitingScreen = page.locator('#loopaware-public-auth-screen');
+  await expect(waitingScreen).toBeVisible();
+  await expect(waitingScreen.getByRole('heading', { level: 1, name: 'Opening LoopAware' })).toBeVisible();
+  await expect(waitingScreen).toContainText('Preparing your authenticated workspace.');
+  await expect(page.getByRole('heading', { level: 1, name: /Privacy-first feedback widget and traffic analytics for developers/i })).toBeHidden();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const transition = document.querySelector('mpr-header [data-mpr-header="auth-transition"]');
+        if (!transition) {
+          return false;
+        }
+        return window.getComputedStyle(transition).display !== 'none';
+      })
+    )
+    .toBe(false);
+});
+
 test('dashboard keeps the auth transition visible until the authenticated UI finishes loading', async ({ page }) => {
   /** @type {(value?: unknown) => void} */
   let releaseSitesResponse = () => {};
