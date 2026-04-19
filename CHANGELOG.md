@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.3] - 2026-04-19
+
+### Features ✨
+- Added a copy snippet button next to widget snippets for improved UX.
+- Introduced a public auth waiting screen during sign-in transitions on public pages.
+
+### Improvements ⚙️
+- Updated header authentication helpers and strengthened logout hardening flows.
+- Enhanced Google Identity and TAuth browser stubs to support nonce-backed credential exchange.
+- Refined test coverage for UI states related to header authentication and logout recovery.
+
+### Bug Fixes 🐛
+- Fixed an issue where public pages could not complete Google sign-in after logout without a full page reload, improving sign-in recovery without reloads.
+- Resolved a bug where the waiting screen on login was not properly shown during authentication handoff.
+
+### Testing 🧪
+- Added extensive Playwright tests covering snippet copy buttons UI and functionality.
+- Expanded tests for header auth state transitions, login page behavior during sign-in, and logout-to-login recovery paths.
+- Improved stub helpers for external assets and TAuth to better simulate authentication flows.
+
+### Docs 📚
+- Updated issues documentation with detailed resolution steps and verification commands related to authentication fixes and UI improvements.
+
 ## [v0.5.2] - 2026-04-18
 
 ### Features ✨
