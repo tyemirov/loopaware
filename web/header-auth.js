@@ -37,6 +37,7 @@
       snapshot: null,
       redirectTarget: '',
       loginRedirectPending: false,
+      publicAuthScreenPending: false,
       runtimeRefreshPending: false,
       publicAuthRecoveryTimerId: 0,
       publicAuthRecoveryRemainingAttempts: 0
@@ -962,6 +963,24 @@
     return !!(headerHost && typeof headerHost.getAttribute === 'function' && headerHost.getAttribute('data-loopaware-auth-redirect-on-logout') === 'true');
   }
 
+  function shouldShowPublicAuthScreen(headerHost, snapshot) {
+    if (!isPublicAuthScreenMode(headerHost)) {
+      return false;
+    }
+    if (snapshot && snapshot.status === AUTH_STATE_VALUES.authenticated && shouldRedirectToApp(headerHost, snapshot)) {
+      return true;
+    }
+    return store.loginRedirectPending === true && store.publicAuthScreenPending === true && store.runtimeRefreshPending === true;
+  }
+
+  function syncPublicAuthScreen(headerHost, snapshot) {
+    if (shouldShowPublicAuthScreen(headerHost, snapshot)) {
+      showPublicAuthScreen(headerHost);
+      return;
+    }
+    hidePublicAuthScreen();
+  }
+
   function isPublicAuthScreenMode(headerHost) {
     return !!(headerHost && !shouldRedirectToLogin(headerHost));
   }
@@ -1007,6 +1026,7 @@
   function resetPublicAuthRecovery() {
     clearPublicAuthRecoveryPolling();
     store.loginRedirectPending = false;
+    store.publicAuthScreenPending = false;
   }
 
   function markAppAuthSettled(headerHost) {
@@ -1093,14 +1113,7 @@
     if (!headerHost) {
       return;
     }
-    if (isPublicAuthScreenMode(headerHost) && (
-      store.loginRedirectPending === true ||
-      (snapshot && snapshot.status === AUTH_STATE_VALUES.authenticated && shouldRedirectToApp(headerHost, snapshot))
-    )) {
-      showPublicAuthScreen(headerHost);
-    } else {
-      hidePublicAuthScreen();
-    }
+    syncPublicAuthScreen(headerHost, snapshot);
     syncExplicitLogoutState(headerHost);
     setHeaderAuthStateAttribute(headerHost, snapshot.status);
     if (snapshot.status === AUTH_STATE_VALUES.authenticated) {
@@ -1188,19 +1201,31 @@
     return commitSnapshot(headerHost, createSnapshot(AUTH_STATE_VALUES.unauthenticated, source));
   }
 
+  function shouldSurfacePublicAuthRefresh(source) {
+    return source === 'runtime-signin' ||
+      source === 'runtime-focus' ||
+      source === 'runtime-pageshow' ||
+      source === 'runtime-visibilitychange';
+  }
+
   function refreshPublicAuthSession(headerHost, source) {
     if (!shouldRefreshPublicAuthSession(headerHost) || typeof window.getCurrentUser !== 'function') {
+      syncPublicAuthScreen(headerHost, store.snapshot);
       return;
     }
     if (store.runtimeRefreshPending === true) {
       return;
     }
     store.runtimeRefreshPending = true;
+    store.publicAuthScreenPending = store.loginRedirectPending === true && shouldSurfacePublicAuthRefresh(source || '');
+    syncPublicAuthScreen(headerHost, store.snapshot);
     var profilePromise;
     try {
       profilePromise = window.getCurrentUser();
     } catch (error) {
       store.runtimeRefreshPending = false;
+      store.publicAuthScreenPending = false;
+      syncPublicAuthScreen(headerHost, store.snapshot);
       return;
     }
     Promise.resolve(profilePromise)
@@ -1210,10 +1235,14 @@
           syncFromAuthenticatedState(headerHost, source || 'runtime');
           return;
         }
+        store.publicAuthScreenPending = false;
+        syncPublicAuthScreen(headerHost, store.snapshot);
         syncFromObservedState(headerHost);
       })
       .catch(function () {
         store.runtimeRefreshPending = false;
+        store.publicAuthScreenPending = false;
+        syncPublicAuthScreen(headerHost, store.snapshot);
       });
   }
 
@@ -1260,7 +1289,6 @@
     }
     store.loginRedirectPending = true;
     store.publicAuthRecoveryRemainingAttempts = PUBLIC_AUTH_RECOVERY_MAX_ATTEMPTS;
-    showPublicAuthScreen(headerHost);
     refreshPublicAuthSession(headerHost, source || 'runtime-start');
     schedulePublicAuthRecoveryPolling(headerHost, source || 'runtime-poll');
   }

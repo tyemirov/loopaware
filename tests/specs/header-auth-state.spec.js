@@ -236,15 +236,13 @@ test('login page redirects authenticated users after silent session recovery', a
   await expect(page).toHaveURL(/\/app\/?$/);
 });
 
-test('login page swaps to an in-page waiting screen during sign-in', async ({ page }) => {
-  await openPageWithoutSession(page, '/login');
+test('login page keeps public content visible while sign-in is still pending', async ({ page }) => {
+  await openPageWithoutSession(page, '/login', { currentUserDelayMs: 1000 });
   await beginHeaderLoginFlow(page);
 
   const waitingScreen = page.locator('#loopaware-public-auth-screen');
-  await expect(waitingScreen).toBeVisible();
-  await expect(waitingScreen.getByRole('heading', { level: 1, name: 'Opening LoopAware' })).toBeVisible();
-  await expect(waitingScreen).toContainText('Preparing your authenticated workspace.');
-  await expect(page.getByRole('heading', { level: 1, name: /Privacy-first feedback widget and traffic analytics for developers/i })).toBeHidden();
+  await expect(waitingScreen).toBeHidden();
+  await expect(page.getByRole('heading', { level: 1, name: /Privacy-first feedback widget and traffic analytics for developers/i })).toBeVisible();
 
   await expect
     .poll(() =>
@@ -257,6 +255,15 @@ test('login page swaps to an in-page waiting screen during sign-in', async ({ pa
       })
     )
     .toBe(false);
+});
+
+test('login page keeps public content visible after a canceled sign-in click', async ({ page }) => {
+  await openPageWithoutSession(page, '/login');
+  await beginHeaderLoginFlow(page);
+
+  const waitingScreen = page.locator('#loopaware-public-auth-screen');
+  await expect(waitingScreen).toBeHidden();
+  await expect(page.getByRole('heading', { level: 1, name: /Privacy-first feedback widget and traffic analytics for developers/i })).toBeVisible();
 });
 
 test('dashboard keeps the auth transition visible until the authenticated UI finishes loading', async ({ page }) => {
