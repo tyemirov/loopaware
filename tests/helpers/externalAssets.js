@@ -32,20 +32,66 @@ const JS_YAML_STUB = `window.jsyaml = {
     };
   }
 };`;
-const GOOGLE_IDENTITY_STUB = `window.google = window.google || {};
-window.google.accounts = window.google.accounts || {};
-window.google.accounts.id = {
-  initialize: function() {},
-  renderButton: function(target) {
-    if (target && typeof target.setAttribute === 'function') {
-      target.setAttribute('data-google-stubbed', 'true');
+const GOOGLE_IDENTITY_STUB = `(() => {
+  window.google = window.google || {};
+  window.google.accounts = window.google.accounts || {};
+
+  var state = window.__loopawareGoogleIdentityState;
+  if (!state || typeof state !== 'object') {
+    state = {
+      autoCredentialOnClick: false,
+      initializeCalls: [],
+      lastInitializeConfig: null,
+      renderCount: 0
+    };
+    window.__loopawareGoogleIdentityState = state;
+  }
+
+  function emitCredential(options) {
+    var config = state.lastInitializeConfig;
+    if (!config || typeof config.callback !== 'function') {
+      throw new Error('loopaware.google_stub_missing_callback');
     }
-  },
-  prompt: function() {},
-  cancel: function() {},
-  disableAutoSelect: function() {},
-  revoke: function() {}
-};`;
+    var override = options && typeof options === 'object' ? options : {};
+    var nonce = typeof override.nonce === 'string' ? override.nonce : String(config.nonce || '');
+    var credential = typeof override.credential === 'string'
+      ? override.credential
+      : 'stub-google-credential::' + nonce;
+    config.callback({ credential: credential });
+  }
+
+  state.emitCredential = emitCredential;
+
+  window.google.accounts.id = {
+    initialize: function(config) {
+      state.lastInitializeConfig = config || null;
+      state.initializeCalls.push({
+        nonce: String(config && config.nonce ? config.nonce : ''),
+        clientId: String(config && (config.client_id || config.clientId) ? (config.client_id || config.clientId) : '')
+      });
+    },
+    renderButton: function(target) {
+      state.renderCount += 1;
+      if (target && typeof target.setAttribute === 'function') {
+        target.setAttribute('data-google-stubbed', 'true');
+      }
+      if (target && typeof target.addEventListener === 'function' && target.__loopawareGoogleStubBound !== true) {
+        target.__loopawareGoogleStubBound = true;
+        target.addEventListener('click', function() {
+          if (state.autoCredentialOnClick === true) {
+            try {
+              emitCredential();
+            } catch (error) {}
+          }
+        });
+      }
+    },
+    prompt: function() {},
+    cancel: function() {},
+    disableAutoSelect: function() {},
+    revoke: function() {}
+  };
+})();`;
 const GOOGLE_IDENTITY_BUTTON_STUB = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body></body></html>';
 const EMPTY_CSS_STUB = '';
 const DEFAULT_ASSET_SETTLE_TIMEOUT_MS = 5_000;

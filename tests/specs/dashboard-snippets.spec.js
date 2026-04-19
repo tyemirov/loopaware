@@ -15,6 +15,35 @@ function buildAdminCookie() {
   return buildSessionCookie(config, adminUser);
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {string} textareaSelector
+ * @param {string} buttonSelector
+ */
+async function expectSnippetCopyLayout(page, textareaSelector, buttonSelector) {
+  const textarea = page.locator(textareaSelector);
+  const copyButton = page.locator(buttonSelector);
+  const copyIcon = copyButton.locator('.bi-copy');
+
+  await expect(textarea).toBeVisible();
+  await expect(copyButton).toBeVisible();
+  await expect(copyIcon).toHaveCount(1);
+
+  const textareaBox = await textarea.boundingBox();
+  const buttonBox = await copyButton.boundingBox();
+
+  expect(textareaBox).not.toBeNull();
+  expect(buttonBox).not.toBeNull();
+
+  if (!textareaBox || !buttonBox) {
+    return;
+  }
+
+  expect(Math.abs(buttonBox.x - (textareaBox.x + textareaBox.width))).toBeLessThanOrEqual(2);
+  expect(Math.abs(buttonBox.y - textareaBox.y)).toBeLessThanOrEqual(4);
+  expect(Math.abs(buttonBox.height - textareaBox.height)).toBeLessThanOrEqual(4);
+}
+
 test.beforeAll(async () => {
   site = await createTestSite(config, buildAdminCookie(), {
     name: buildUniqueName('Snippet Site'),
@@ -78,7 +107,13 @@ test('copy widget snippet updates button label', async ({ page }) => {
   await selectSite(page, site.id);
   await expect(page.locator('#copy-widget-snippet')).toBeEnabled();
   await page.locator('#copy-widget-snippet').click();
-  await expect(page.locator('#copy-widget-snippet')).toContainText('Snippet copied');
+  await expect(page.locator('#copy-widget-snippet')).toContainText('Copied');
+});
+
+test('widget snippet copy button sits beside the snippet and matches its height', async ({ page }) => {
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await expectSnippetCopyLayout(page, '#widget-snippet', '#copy-widget-snippet');
 });
 
 test('copy subscribe snippet updates button label', async ({ page }) => {
@@ -88,7 +123,15 @@ test('copy subscribe snippet updates button label', async ({ page }) => {
   await expect(page.locator('[data-widget-card="subscribe"]')).toBeVisible();
   await expect(page.locator('#copy-subscribe-widget-snippet')).toBeEnabled();
   await page.locator('#copy-subscribe-widget-snippet').click();
-  await expect(page.locator('#copy-subscribe-widget-snippet')).toContainText('Snippet copied');
+  await expect(page.locator('#copy-subscribe-widget-snippet')).toContainText('Copied');
+});
+
+test('subscribe snippet copy button sits beside the snippet and matches its height', async ({ page }) => {
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await page.locator('#dashboard-section-tab-subscriptions').click();
+  await expect(page.locator('[data-widget-card="subscribe"]')).toBeVisible();
+  await expectSnippetCopyLayout(page, '#subscribe-widget-snippet', '#copy-subscribe-widget-snippet');
 });
 
 test('copy traffic snippet updates button label', async ({ page }) => {
@@ -98,5 +141,13 @@ test('copy traffic snippet updates button label', async ({ page }) => {
   await expect(page.locator('[data-widget-card="traffic"]')).toBeVisible();
   await expect(page.locator('#copy-traffic-widget-snippet')).toBeEnabled();
   await page.locator('#copy-traffic-widget-snippet').click();
-  await expect(page.locator('#copy-traffic-widget-snippet')).toContainText('Snippet copied');
+  await expect(page.locator('#copy-traffic-widget-snippet')).toContainText('Copied');
+});
+
+test('traffic snippet copy button sits beside the snippet and matches its height', async ({ page }) => {
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await page.locator('#dashboard-section-tab-traffic').click();
+  await expect(page.locator('[data-widget-card="traffic"]')).toBeVisible();
+  await expectSnippetCopyLayout(page, '#traffic-widget-snippet', '#copy-traffic-widget-snippet');
 });

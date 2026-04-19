@@ -236,6 +236,36 @@ test('login page redirects authenticated users after silent session recovery', a
   await expect(page).toHaveURL(/\/app\/?$/);
 });
 
+test('login page keeps public content visible while sign-in is still pending', async ({ page }) => {
+  await openPageWithoutSession(page, '/login', { currentUserDelayMs: 1000 });
+  await beginHeaderLoginFlow(page);
+
+  const waitingScreen = page.locator('#loopaware-public-auth-screen');
+  await expect(waitingScreen).toBeHidden();
+  await expect(page.getByRole('heading', { level: 1, name: /Privacy-first feedback widget and traffic analytics for developers/i })).toBeVisible();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const transition = document.querySelector('mpr-header [data-mpr-header="auth-transition"]');
+        if (!transition) {
+          return false;
+        }
+        return window.getComputedStyle(transition).display !== 'none';
+      })
+    )
+    .toBe(false);
+});
+
+test('login page keeps public content visible after a canceled sign-in click', async ({ page }) => {
+  await openPageWithoutSession(page, '/login');
+  await beginHeaderLoginFlow(page);
+
+  const waitingScreen = page.locator('#loopaware-public-auth-screen');
+  await expect(waitingScreen).toBeHidden();
+  await expect(page.getByRole('heading', { level: 1, name: /Privacy-first feedback widget and traffic analytics for developers/i })).toBeVisible();
+});
+
 test('dashboard keeps the auth transition visible until the authenticated UI finishes loading', async ({ page }) => {
   /** @type {(value?: unknown) => void} */
   let releaseSitesResponse = () => {};
