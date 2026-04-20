@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.4] - 2026-04-20
+
+### Features ✨
+- Added Google Analytics tracking to all main HTML pages for improved traffic insights.
+
+### Improvements ⚙️
+- _No changes._
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- _No changes._
+
+### Docs 📚
+- _No changes._
+
 ## [v0.5.3] - 2026-04-19
 
 ### Features ✨
