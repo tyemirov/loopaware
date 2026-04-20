@@ -36,6 +36,15 @@
       #logout-overlay { z-index: 2000; background-color: var(--bs-body-bg); color: var(--bs-body-color); }
       body.logging-out main, body.logging-out mpr-header, body.logging-out mpr-footer, body.logging-out .modal { display: none !important; }
     </style>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-7SBVN6YRV9"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag("js", new Date());
+
+    gtag("config", "G-7SBVN6YRV9");
+  </script>
   </head>
   <body class="d-flex flex-column min-vh-100 bg-body text-body">
     <mpr-header
