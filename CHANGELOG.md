@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.5.6 (2026-04-21)
+
+## [v0.5.6] - 2026-04-21
+
+### Features ✨
+- Start login flow immediately on dashboard call-to-action before redirect on the login page.
+
+### Improvements ⚙️
+- Added script to handle dashboard login clicks by triggering the login flow via UI events.
+- Enhanced login page links to use the new dashboard login flow trigger attribute.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- Added Playwright tests to verify the dashboard CTA triggers login flow correctly before redirecting.
+- Included new helper function and test case for dashboard login flow on the login page.
+
+### Docs 📚
+- _No changes._
+
+## v0.5.6 (2026-04-21)
+
+
+
 ## [Unreleased]
 
 ## [v0.5.5] - 2026-04-21
