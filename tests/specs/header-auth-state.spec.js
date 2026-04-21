@@ -221,6 +221,23 @@ async function beginHeaderLoginFlow(page) {
     .toBe(true);
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function beginLandingDashboardLoginFlow(page) {
+  await page.getByRole('link', { name: 'Open dashboard' }).click();
+  await expect(page).toHaveURL(/\/login\/?$/);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const authStore = window['__loopawareHeaderAuthStore'];
+        return !!(authStore && authStore.loginRedirectPending === true);
+      })
+    )
+    .toBe(true);
+}
+
 test('dashboard requires authentication and redirects unauthenticated users to login', async ({ page }) => {
   await openPageWithoutSession(page, '/app');
   await expect(page).toHaveURL(/\/login\/?$/);
@@ -274,6 +291,23 @@ test('login page keeps public content visible after a canceled sign-in click', a
       name: /Collect feedback, capture subscribers, and understand what visitors are doing from one dashboard/i
     })
   ).toBeVisible();
+});
+
+test('login page dashboard CTA starts the login flow before redirecting to the dashboard', async ({ page }) => {
+  await openPageWithoutSession(page, '/login');
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
+  await beginLandingDashboardLoginFlow(page);
+
+  await Promise.all([
+    page.waitForURL(/\/app\/?$/),
+    page.evaluate(() => {
+      const headerHost = document.querySelector('mpr-header');
+      if (!headerHost) {
+        throw new Error('mpr-header not found');
+      }
+      headerHost.dispatchEvent(new CustomEvent('mpr-ui:auth:authenticated'));
+    })
+  ]);
 });
 
 test('dashboard keeps the auth transition visible until the authenticated UI finishes loading', async ({ page }) => {
