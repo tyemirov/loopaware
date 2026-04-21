@@ -242,7 +242,12 @@ test('login page keeps public content visible while sign-in is still pending', a
 
   const waitingScreen = page.locator('#loopaware-public-auth-screen');
   await expect(waitingScreen).toBeHidden();
-  await expect(page.getByRole('heading', { level: 1, name: /Privacy-first feedback widget and traffic analytics for developers/i })).toBeVisible();
+  await expect(
+    page.getByRole('heading', {
+      level: 1,
+      name: /Collect feedback, capture subscribers, and understand what visitors are doing from one dashboard/i
+    })
+  ).toBeVisible();
 
   await expect
     .poll(() =>
@@ -263,7 +268,12 @@ test('login page keeps public content visible after a canceled sign-in click', a
 
   const waitingScreen = page.locator('#loopaware-public-auth-screen');
   await expect(waitingScreen).toBeHidden();
-  await expect(page.getByRole('heading', { level: 1, name: /Privacy-first feedback widget and traffic analytics for developers/i })).toBeVisible();
+  await expect(
+    page.getByRole('heading', {
+      level: 1,
+      name: /Collect feedback, capture subscribers, and understand what visitors are doing from one dashboard/i
+    })
+  ).toBeVisible();
 });
 
 test('dashboard keeps the auth transition visible until the authenticated UI finishes loading', async ({ page }) => {

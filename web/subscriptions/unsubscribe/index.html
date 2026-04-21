@@ -13,7 +13,6 @@
     <script id="mpr-ui-script"></script>
     <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
     <script src="/runtime-env.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
 .landing-body {
         transition: background-color 0.3s ease, color 0.3s ease;
@@ -122,20 +121,6 @@
     menu-items='[{"label":"Account Settings","href":"/app"}]'
   ></mpr-user>
 </mpr-header>
-    <script>
-      // @ts-check
-      (function () {
-        var tauthOrigin = "";
-        try {
-          tauthOrigin = String(window.__LOOPAWARE_TAUTH_ORIGIN__ || "").trim();
-        } catch (error) {}
-        if (!tauthOrigin) return;
-        var headerHost = document.querySelector("mpr-header");
-        if (headerHost) {
-          headerHost.setAttribute("tauth-url", tauthOrigin);
-        }
-      })();
-    </script>
       <main class="flex-grow-1">
         <section class="py-5">
           <div class="container">

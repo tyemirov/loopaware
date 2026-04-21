@@ -22,7 +22,6 @@
     <script id="mpr-ui-script"></script>
     <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
     <script src="/runtime-env.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
       .dashboard-header .mpr-header__actions {
         margin-left: auto;
@@ -76,18 +75,6 @@
         }
         document.body.classList.add('logging-out');
       }
-
-      (function () {
-        var tauthOrigin = "";
-        try {
-          tauthOrigin = String(window.__LOOPAWARE_TAUTH_ORIGIN__ || "").trim();
-        } catch (error) {}
-        if (!tauthOrigin) return;
-        var headerHost = document.querySelector("mpr-header");
-        if (headerHost) {
-          headerHost.setAttribute("tauth-url", tauthOrigin);
-        }
-      })();
 
       (function() {
         function resolveAuthHost(event) {

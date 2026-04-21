@@ -146,7 +146,7 @@ SESSION_SECRET=$(openssl rand -hex 32) \
 TAUTH_BASE_URL=http://localhost:8081 \
 TAUTH_TENANT_ID=loopaware \
 TAUTH_JWT_SIGNING_KEY=replace-with-tauth-jwt-signing-key \
-TAUTH_SESSION_COOKIE_NAME=app_session_loopaware \
+TAUTH_SESSION_COOKIE_NAME=loopaware_development_session \
 PUBLIC_BASE_URL=http://localhost:8080 \
 go run ./cmd/server --config=configs/config.loopaware.yml
 ```

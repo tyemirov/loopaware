@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.5] - 2026-04-21
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Removed redundant page-level Google Identity bootstrap wiring from the public auth pages and test surfaces so `mpr-ui@latest` remains the single auth bootstrap owner.
+- Aligned local development and integration cookie names with the explicit `loopaware_development_*` prefix to avoid collisions with production sessions.
+
+### Bug Fixes 🐛
+- Fixed the public login shell so it no longer double-initializes Google Identity, preventing the broken sign-in handoff that surfaced as duplicate GIS initialization warnings and `POST /auth/google` failures.
+- Updated public-page auth and SEO assertions to match the current landing-page copy and metadata.
+
+### Testing 🧪
+- `make ci` passes, including the full Playwright integration suite covering public auth state, CDN asset loading, and SEO metadata.
+
+### Docs 📚
+- Updated README examples to use the development-scoped LoopAware cookie names.
+
 ## [v0.5.4] - 2026-04-20
 
 ### Features ✨
