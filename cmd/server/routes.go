@@ -44,6 +44,7 @@ func registerBackendRoutes(
 	authManager *api.AuthManager,
 	publicHandlers *api.PublicHandlers,
 	siteHandlers *api.SiteHandlers,
+	trafficReportHandlers *api.TrafficReportHandlers,
 	widgetTestHandlers *api.SiteWidgetTestHandlers,
 	subscribeTestHandlers *api.SiteSubscribeTestHandlers,
 	authenticatedOrigin string,
@@ -102,6 +103,9 @@ func registerBackendRoutes(
 	apiGroup.GET(apiRouteSiteVisitEngagement, siteHandlers.VisitEngagement)
 	apiGroup.GET(apiRouteSiteVisitDevices, siteHandlers.DeviceBreakdown)
 	apiGroup.GET(apiRouteSiteVisitTimezones, siteHandlers.TimezoneDistribution)
+	apiGroup.GET(apiRouteSiteTrafficReportSchedule, trafficReportHandlers.GetSchedule)
+	apiGroup.PUT(apiRouteSiteTrafficReportSchedule, trafficReportHandlers.SaveSchedule)
+	apiGroup.POST(apiRouteSiteTrafficReportTest, trafficReportHandlers.SendTestReport)
 
 	apiGroup.POST("/sites/:id/widget-test/feedback", widgetTestHandlers.SubmitWidgetTestFeedback)
 	apiGroup.GET("/sites/:id/subscribe-test/events", subscribeTestHandlers.StreamSubscriptionTestEvents)

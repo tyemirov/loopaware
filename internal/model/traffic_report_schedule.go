@@ -1,0 +1,225 @@
+package model
+
+import (
+	"errors"
+	"fmt"
+	"net/mail"
+	"strings"
+	"time"
+	_ "time/tzdata"
+
+	"github.com/google/uuid"
+)
+
+const (
+	TrafficReportFrequencyDaily   = "daily"
+	TrafficReportFrequencyWeekly  = "weekly"
+	TrafficReportFrequencyMonthly = "monthly"
+
+	TrafficReportStatusPending = "pending"
+	TrafficReportStatusSent    = "sent"
+	TrafficReportStatusFailed  = "failed"
+
+	DefaultTrafficReportTimezone   = "UTC"
+	DefaultTrafficReportSendHour   = 9
+	DefaultTrafficReportSendMinute = 0
+	DefaultTrafficReportWeekday    = int(time.Monday)
+	DefaultTrafficReportMonthDay   = 1
+
+	trafficReportRecipientMaxLength = 320
+	trafficReportTimezoneMaxLength  = 100
+)
+
+var ErrInvalidTrafficReportSchedule = errors.New("invalid_traffic_report_schedule")
+
+// TrafficReportSchedule captures one site's recurring traffic report settings.
+type TrafficReportSchedule struct {
+	ID                string    `gorm:"primaryKey;size:36"`
+	SiteID            string    `gorm:"not null;size:36;uniqueIndex"`
+	Enabled           bool      `gorm:"not null;default:false;index"`
+	Frequency         string    `gorm:"not null;size:16"`
+	RecipientEmail    string    `gorm:"not null;size:320"`
+	Timezone          string    `gorm:"not null;size:100"`
+	SendHour          int       `gorm:"not null"`
+	SendMinute        int       `gorm:"not null"`
+	Weekday           int       `gorm:"not null"`
+	MonthDay          int       `gorm:"not null"`
+	NextSendAt        time.Time `gorm:"index"`
+	LastSentAt        time.Time
+	LastAttemptedAt   time.Time `gorm:"index"`
+	RetryCount        int       `gorm:"not null;default:0;index"`
+	LastStatus        string    `gorm:"not null;size:32;default:pending"`
+	LastError         string    `gorm:"size:500"`
+	ProviderMessageID string    `gorm:"size:120"`
+	CreatedAt         time.Time `gorm:"autoCreateTime"`
+	UpdatedAt         time.Time `gorm:"autoUpdateTime"`
+}
+
+// TrafficReportScheduleInput holds incoming schedule values from API/configuration edges.
+type TrafficReportScheduleInput struct {
+	SiteID         string
+	Enabled        bool
+	Frequency      string
+	RecipientEmail string
+	Timezone       string
+	SendHour       int
+	SendMinute     int
+	Weekday        int
+	MonthDay       int
+	ReferenceTime  time.Time
+}
+
+// NewTrafficReportSchedule constructs a validated TrafficReportSchedule.
+func NewTrafficReportSchedule(input TrafficReportScheduleInput) (TrafficReportSchedule, error) {
+	siteID := strings.TrimSpace(input.SiteID)
+	if siteID == "" {
+		return TrafficReportSchedule{}, fmt.Errorf("%w: missing site_id", ErrInvalidTrafficReportSchedule)
+	}
+
+	frequency := normalizeTrafficReportFrequency(input.Frequency)
+	if frequency == "" {
+		return TrafficReportSchedule{}, fmt.Errorf("%w: invalid frequency", ErrInvalidTrafficReportSchedule)
+	}
+
+	recipientEmail, recipientErr := normalizeTrafficReportRecipient(input.RecipientEmail)
+	if recipientErr != nil {
+		return TrafficReportSchedule{}, recipientErr
+	}
+
+	timezoneName, _, timezoneErr := normalizeTrafficReportTimezone(input.Timezone)
+	if timezoneErr != nil {
+		return TrafficReportSchedule{}, timezoneErr
+	}
+
+	if input.SendHour < 0 || input.SendHour > 23 {
+		return TrafficReportSchedule{}, fmt.Errorf("%w: invalid send_hour", ErrInvalidTrafficReportSchedule)
+	}
+	if input.SendMinute < 0 || input.SendMinute > 59 {
+		return TrafficReportSchedule{}, fmt.Errorf("%w: invalid send_minute", ErrInvalidTrafficReportSchedule)
+	}
+	if input.Weekday < int(time.Sunday) || input.Weekday > int(time.Saturday) {
+		return TrafficReportSchedule{}, fmt.Errorf("%w: invalid weekday", ErrInvalidTrafficReportSchedule)
+	}
+	if input.MonthDay < 1 || input.MonthDay > 28 {
+		return TrafficReportSchedule{}, fmt.Errorf("%w: invalid month_day", ErrInvalidTrafficReportSchedule)
+	}
+
+	referenceTime := input.ReferenceTime
+	if referenceTime.IsZero() {
+		referenceTime = time.Now().UTC()
+	}
+
+	schedule := TrafficReportSchedule{
+		ID:             uuid.NewString(),
+		SiteID:         siteID,
+		Enabled:        input.Enabled,
+		Frequency:      frequency,
+		RecipientEmail: recipientEmail,
+		Timezone:       timezoneName,
+		SendHour:       input.SendHour,
+		SendMinute:     input.SendMinute,
+		Weekday:        input.Weekday,
+		MonthDay:       input.MonthDay,
+		LastStatus:     TrafficReportStatusPending,
+	}
+	nextSendAt, nextErr := schedule.NextAfter(referenceTime)
+	if nextErr != nil {
+		return TrafficReportSchedule{}, nextErr
+	}
+	schedule.NextSendAt = nextSendAt
+	return schedule, nil
+}
+
+// NextAfter returns the next scheduled send time strictly after referenceTime.
+func (schedule TrafficReportSchedule) NextAfter(referenceTime time.Time) (time.Time, error) {
+	_, location, timezoneErr := normalizeTrafficReportTimezone(schedule.Timezone)
+	if timezoneErr != nil {
+		return time.Time{}, timezoneErr
+	}
+	if referenceTime.IsZero() {
+		referenceTime = time.Now().UTC()
+	}
+	localReference := referenceTime.In(location)
+
+	var candidate time.Time
+	switch schedule.Frequency {
+	case TrafficReportFrequencyDaily:
+		candidate = time.Date(localReference.Year(), localReference.Month(), localReference.Day(), schedule.SendHour, schedule.SendMinute, 0, 0, location)
+		if !candidate.After(localReference) {
+			candidate = candidate.AddDate(0, 0, 1)
+		}
+	case TrafficReportFrequencyWeekly:
+		candidate = time.Date(localReference.Year(), localReference.Month(), localReference.Day(), schedule.SendHour, schedule.SendMinute, 0, 0, location)
+		daysUntil := (schedule.Weekday - int(localReference.Weekday()) + 7) % 7
+		candidate = candidate.AddDate(0, 0, daysUntil)
+		if !candidate.After(localReference) {
+			candidate = candidate.AddDate(0, 0, 7)
+		}
+	case TrafficReportFrequencyMonthly:
+		candidate = time.Date(localReference.Year(), localReference.Month(), schedule.MonthDay, schedule.SendHour, schedule.SendMinute, 0, 0, location)
+		if !candidate.After(localReference) {
+			candidate = candidate.AddDate(0, 1, 0)
+		}
+	default:
+		return time.Time{}, fmt.Errorf("%w: invalid frequency", ErrInvalidTrafficReportSchedule)
+	}
+
+	return candidate.UTC(), nil
+}
+
+// ReportWindowDays returns the number of days summarized by the report frequency.
+func (schedule TrafficReportSchedule) ReportWindowDays() int {
+	switch schedule.Frequency {
+	case TrafficReportFrequencyDaily:
+		return 1
+	case TrafficReportFrequencyWeekly:
+		return 7
+	case TrafficReportFrequencyMonthly:
+		return 30
+	default:
+		return 1
+	}
+}
+
+func normalizeTrafficReportFrequency(rawFrequency string) string {
+	switch strings.ToLower(strings.TrimSpace(rawFrequency)) {
+	case TrafficReportFrequencyDaily:
+		return TrafficReportFrequencyDaily
+	case TrafficReportFrequencyWeekly:
+		return TrafficReportFrequencyWeekly
+	case TrafficReportFrequencyMonthly:
+		return TrafficReportFrequencyMonthly
+	default:
+		return ""
+	}
+}
+
+func normalizeTrafficReportRecipient(rawRecipient string) (string, error) {
+	trimmedRecipient := strings.ToLower(strings.TrimSpace(rawRecipient))
+	if trimmedRecipient == "" {
+		return "", fmt.Errorf("%w: missing recipient_email", ErrInvalidTrafficReportSchedule)
+	}
+	parsedAddress, parseErr := mail.ParseAddress(trimmedRecipient)
+	if parseErr != nil || parsedAddress.Address != trimmedRecipient {
+		return "", fmt.Errorf("%w: invalid recipient_email", ErrInvalidTrafficReportSchedule)
+	}
+	if len(trimmedRecipient) > trafficReportRecipientMaxLength {
+		return "", fmt.Errorf("%w: recipient_email too long", ErrInvalidTrafficReportSchedule)
+	}
+	return trimmedRecipient, nil
+}
+
+func normalizeTrafficReportTimezone(rawTimezone string) (string, *time.Location, error) {
+	timezoneName := strings.TrimSpace(rawTimezone)
+	if timezoneName == "" {
+		timezoneName = DefaultTrafficReportTimezone
+	}
+	if len(timezoneName) > trafficReportTimezoneMaxLength {
+		return "", nil, fmt.Errorf("%w: timezone too long", ErrInvalidTrafficReportSchedule)
+	}
+	location, locationErr := time.LoadLocation(timezoneName)
+	if locationErr != nil {
+		return "", nil, fmt.Errorf("%w: invalid timezone", ErrInvalidTrafficReportSchedule)
+	}
+	return timezoneName, location, nil
+}

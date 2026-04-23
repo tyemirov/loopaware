@@ -4,7 +4,7 @@ import * as crypto from 'node:crypto';
 import { resolveTestConfig } from '../helpers/config.js';
 import { buildSessionCookie } from '../helpers/auth.js';
 import { buildAdminUser, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite } from '../helpers/fixtures.js';
-import { collectVisit, fetchVisitStats } from '../helpers/api.js';
+import { collectVisit, fetchTrafficReportSchedule, fetchVisitStats } from '../helpers/api.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
@@ -82,6 +82,38 @@ test('traffic status stays hidden on success', async ({ page }) => {
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
   await expect(page.locator('#traffic-status')).toHaveClass(/d-none/);
+});
+
+test('traffic report schedule can be configured from dashboard', async ({ page }) => {
+  const site = await createTrafficSite();
+  const cookie = buildAdminCookie();
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await page.locator('#dashboard-section-tab-traffic').click();
+  await expect(page.locator('[data-dashboard-card="traffic-report"]')).toBeVisible();
+  await expect(page.locator('#traffic-report-recipient')).toHaveValue(config.adminEmail);
+
+  await page.locator('#traffic-report-enabled').check();
+  await page.locator('label[for="traffic-report-frequency-weekly"]').click();
+  await expect(page.locator('#traffic-report-weekday-container')).toBeVisible();
+  await page.locator('#traffic-report-send-time').fill('14:30');
+  await page.locator('#traffic-report-timezone').fill('America/New_York');
+  await page.locator('#traffic-report-weekday').selectOption('5');
+  await page.locator('#traffic-report-recipient').fill('reports@example.com');
+  await page.locator('#traffic-report-save-button').click();
+
+  await expect(page.locator('#traffic-report-status')).toHaveText('Traffic report schedule saved.');
+  await expect(page.locator('#traffic-report-next-send')).not.toHaveText('Not scheduled.');
+
+  const schedule = await fetchTrafficReportSchedule(config, cookie, site.id);
+  expect(schedule.enabled).toBe(true);
+  expect(schedule.frequency).toBe('weekly');
+  expect(schedule.recipient_email).toBe('reports@example.com');
+  expect(schedule.timezone).toBe('America/New_York');
+  expect(schedule.send_hour).toBe(14);
+  expect(schedule.send_minute).toBe(30);
+  expect(schedule.weekday).toBe(5);
+  expect(schedule.next_send_at).toBeGreaterThan(0);
 });
 
 test('device and timezone fetch failures show traffic error state', async ({ page }) => {

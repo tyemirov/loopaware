@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/tyemirov/loopaware/actions/workflows/ci.yml/badge.svg)](https://github.com/tyemirov/loopaware/actions/workflows/ci.yml)
 [![License: Source Available](https://img.shields.io/badge/License-Source%20Available-blue)](./LICENSE)
-[![Go 1.25](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go)](https://go.dev)
+[![Go 1.26](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)](https://go.dev)
 [![Latest Release](https://img.shields.io/github/v/release/tyemirov/loopaware)](https://github.com/tyemirov/loopaware/releases)
 
 **Privacy-first feedback widget and traffic analytics for developers.** Drop a single script tag on your site to collect customer feedback, capture email subscribers, and track visits -- all backed by a role-aware dashboard and a self-hosted SQLite backend.
@@ -42,6 +42,7 @@ Embed the feedback widget on any page:
 - Embeddable JavaScript widget with strict origin validation
 - Email subscription capture via an embeddable subscribe form
 - Privacy-safe traffic pixel with per-site visit and visitor counts
+- Daily, weekly, or monthly traffic report emails delivered through Pinguin
 - SQLite-first storage with pluggable drivers
 - Public privacy policy and compliance endpoints for visibility
 - Table-driven tests and fast in-memory SQLite fixtures
@@ -74,6 +75,7 @@ Backend (`cmd/server`):
 | `PINGUIN_ADDR`         | ✅        | Pinguin gRPC address                                        |
 | `PINGUIN_AUTH_TOKEN`¹  | ✅        | Bearer token passed to the Pinguin gRPC service             |
 | `PINGUIN_TENANT_ID`    | ✅        | Tenant identifier used when calling the Pinguin gRPC API     |
+| `TRAFFIC_REPORT_EMAILS_ENABLED` | ⚙️ | Enables scheduled/test traffic report emails (default `true`) |
 | `ADMINS`               | ⚙️       | Comma-separated admin emails; overrides the YAML roster     |
 | `PUBLIC_BASE_URL`      | ⚙️       | Frontend origin used for CORS and subscription links        |
 | `APP_ADDR`             | ⚙️       | Listen address (default `:8080`)                            |
@@ -114,6 +116,7 @@ loopaware --config=configs/config.loopaware.yml \
   --tauth-tenant-id=$TAUTH_TENANT_ID \
   --tauth-signing-key=$TAUTH_JWT_SIGNING_KEY \
   --tauth-session-cookie-name=$TAUTH_SESSION_COOKIE_NAME \
+  --traffic-report-emails=true \
   --public-base-url=https://feedback.example.com
 ```
 

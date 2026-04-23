@@ -1,0 +1,20 @@
+{{ define "subject" }}{{ .FrequencyLabel }} traffic report for {{ .SiteName }}{{ end }}
+
+{{ define "body" }}{{ .FrequencyLabel }} traffic report for {{ .SiteName }}
+
+Window: last {{ .WindowDays }} day{{ if ne .WindowDays 1 }}s{{ end }}
+Page views: {{ .PageViews }}
+Unique visitors: {{ .UniqueVisitors }}
+
+Top pages:
+{{ if .TopPages }}{{ range .TopPages }}- {{ .Path }}: {{ .VisitCount }} view{{ if ne .VisitCount 1 }}s{{ end }}
+{{ end }}{{ else }}- No page views recorded.
+{{ end }}
+Devices:
+{{ if .Devices }}{{ range .Devices }}- {{ .DeviceType }}: {{ .VisitCount }} visit{{ if ne .VisitCount 1 }}s{{ end }}
+{{ end }}{{ else }}- No device data recorded.
+{{ end }}
+Timezones:
+{{ if .Timezones }}{{ range .Timezones }}- {{ .Timezone }}: {{ .VisitCount }} visit{{ if ne .VisitCount 1 }}s{{ end }}
+{{ end }}{{ else }}- No timezone data recorded.
+{{ end }}{{ end }}
