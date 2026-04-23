@@ -514,23 +514,26 @@
 
   function dispatchGoogleSigninClick(signinTarget) {
     if (!signinTarget || typeof signinTarget.dispatchEvent !== 'function') {
-      return;
+      return false;
+    }
+    if ('disabled' in signinTarget && signinTarget.disabled) {
+      return false;
     }
     if (typeof signinTarget.click === 'function') {
       signinTarget.click();
-      return;
+      return true;
     }
     signinTarget.dispatchEvent(new MouseEvent('click', {
       bubbles: true,
       cancelable: true,
       composed: true
     }));
+    return true;
   }
 
   function openDashboardSignin(headerHost, targetHref, remainingAttempts) {
     var signinTarget = resolveGoogleSigninTarget(headerHost);
-    if (signinTarget) {
-      dispatchGoogleSigninClick(signinTarget);
+    if (signinTarget && dispatchGoogleSigninClick(signinTarget)) {
       return;
     }
     if (remainingAttempts > 0) {

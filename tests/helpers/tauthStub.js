@@ -262,14 +262,16 @@ export function renderTauthStub(sessionCookieName, options) {
     if (!credentialNonce || !nonceToken || credentialNonce !== nonceToken) {
       return Promise.reject(new Error('tauth.exchange_failed'));
     }
-    runtime.profile = resolveExchangeProfile();
+    var exchangeProfile = resolveExchangeProfile();
     if (exchangeDelayMs > 0) {
       return new Promise(function(resolve) {
         window.setTimeout(function() {
+          runtime.profile = exchangeProfile;
           resolve(runtime.profile);
         }, exchangeDelayMs);
       });
     }
+    runtime.profile = exchangeProfile;
     return Promise.resolve(runtime.profile);
   }
 
