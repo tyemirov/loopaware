@@ -26,7 +26,7 @@ const DASHBOARD_PREVIEW_CASES = Object.freeze([
 /**
  * @param {import('@playwright/test').Page} page
  * @param {string} path
- * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number }} [tauthOptions]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number }} [tauthOptions]
  * @param {{ waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
  * @returns {Promise<void>}
  */
@@ -43,7 +43,7 @@ async function openPageWithoutSession(page, path, tauthOptions, options) {
 /**
  * @param {import('@playwright/test').Page} page
  * @param {string} path
- * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number }} [tauthOptions]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number }} [tauthOptions]
  * @param {{ waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
  * @returns {Promise<void>}
  */
@@ -201,9 +201,20 @@ async function seedRuntimeAuthenticatedUser(page, user) {
 async function beginHeaderLoginFlow(page) {
   await expect(page.locator('mpr-header [data-mpr-header="google-signin"]')).toHaveCount(1);
   await page.evaluate(() => {
-    const signinTarget = document.querySelector('mpr-header [data-mpr-header="google-signin"]');
-    if (!signinTarget) {
+    const signinContainer = document.querySelector('mpr-header [data-mpr-header="google-signin"]');
+    if (!signinContainer) {
       throw new Error('google sign-in target not found');
+    }
+    const signinTarget = /** @type {HTMLElement} */ (
+      signinContainer.querySelector('button:not([data-mpr-google-wrapper="true"])') ||
+      signinContainer.querySelector('[role="button"]') ||
+      signinContainer.querySelector('[data-mpr-google-target="true"]') ||
+      signinContainer.querySelector('[data-mpr-google-wrapper="true"]') ||
+      signinContainer
+    );
+    if (typeof signinTarget.click === 'function') {
+      signinTarget.click();
+      return;
     }
     signinTarget.dispatchEvent(new MouseEvent('click', {
       bubbles: true,
@@ -238,6 +249,21 @@ async function beginLandingDashboardLoginFlow(page) {
     .toBe(true);
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function enableAutoGoogleCredentialOnClick(page) {
+  await page.evaluate(() => {
+    const win = /** @type {any} */ (window);
+    const state = win.__loopawareGoogleIdentityState;
+    if (!state || typeof state !== 'object') {
+      throw new Error('loopaware.google_identity_state_missing');
+    }
+    state.autoCredentialOnClick = true;
+  });
+}
+
 test('dashboard requires authentication and redirects unauthenticated users to login', async ({ page }) => {
   await openPageWithoutSession(page, '/app');
   await expect(page).toHaveURL(/\/login\/?$/);
@@ -253,38 +279,25 @@ test('login page redirects authenticated users after silent session recovery', a
   await expect(page).toHaveURL(/\/app\/?$/);
 });
 
-test('login page keeps public content visible while sign-in is still pending', async ({ page }) => {
-  await openPageWithoutSession(page, '/login', { currentUserDelayMs: 1000 });
+test('login page shows the mpr-ui auth transition while sign-in is still pending', async ({ page }) => {
+  await openPageWithoutSession(page, '/login', { exchangeDelayMs: 1000 });
+  await enableAutoGoogleCredentialOnClick(page);
   await beginHeaderLoginFlow(page);
 
-  const waitingScreen = page.locator('#loopaware-public-auth-screen');
-  await expect(waitingScreen).toBeHidden();
-  await expect(
-    page.getByRole('heading', {
-      level: 1,
-      name: /Collect feedback, capture subscribers, and understand what visitors are doing from one dashboard/i
-    })
-  ).toBeVisible();
+  const transition = page.locator('mpr-header [data-mpr-header="auth-transition"]');
+  const transitionTitle = page.locator('mpr-header [data-mpr-header="auth-transition-title"]');
+  const transitionMessage = page.locator('mpr-header [data-mpr-header="auth-transition-message"]');
 
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const transition = document.querySelector('mpr-header [data-mpr-header="auth-transition"]');
-        if (!transition) {
-          return false;
-        }
-        return window.getComputedStyle(transition).display !== 'none';
-      })
-    )
-    .toBe(false);
+  await expect(transition).toHaveAttribute('data-mpr-visible', 'true');
+  await expect(transitionTitle).toHaveText('Opening LoopAware');
+  await expect(transitionMessage).toHaveText('Preparing your authenticated workspace.');
 });
 
 test('login page keeps public content visible after a canceled sign-in click', async ({ page }) => {
   await openPageWithoutSession(page, '/login');
   await beginHeaderLoginFlow(page);
 
-  const waitingScreen = page.locator('#loopaware-public-auth-screen');
-  await expect(waitingScreen).toBeHidden();
+  await expect(page.locator('mpr-header [data-mpr-header="auth-transition"]')).toHaveAttribute('data-mpr-visible', 'false');
   await expect(
     page.getByRole('heading', {
       level: 1,
@@ -293,21 +306,14 @@ test('login page keeps public content visible after a canceled sign-in click', a
   ).toBeVisible();
 });
 
-test('login page dashboard CTA starts the login flow before redirecting to the dashboard', async ({ page }) => {
-  await openPageWithoutSession(page, '/login');
+test('login page dashboard CTA uses the mpr-ui auth transition before redirecting to the dashboard', async ({ page }) => {
+  await openPageWithoutSession(page, '/login', { exchangeDelayMs: 1000 });
+  await enableAutoGoogleCredentialOnClick(page);
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
   await beginLandingDashboardLoginFlow(page);
 
-  await Promise.all([
-    page.waitForURL(/\/app\/?$/),
-    page.evaluate(() => {
-      const headerHost = document.querySelector('mpr-header');
-      if (!headerHost) {
-        throw new Error('mpr-header not found');
-      }
-      headerHost.dispatchEvent(new CustomEvent('mpr-ui:auth:authenticated'));
-    })
-  ]);
+  await expect(page.locator('mpr-header [data-mpr-header="auth-transition"]')).toHaveAttribute('data-mpr-visible', 'true');
+  await page.waitForURL(/\/app\/?$/);
 });
 
 test('dashboard keeps the auth transition visible until the authenticated UI finishes loading', async ({ page }) => {
