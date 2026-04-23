@@ -232,6 +232,69 @@ func TestSaveTrafficReportSchedulePersistsValues(testingT *testing.T) {
 	require.False(testingT, stored.NextSendAt.IsZero())
 }
 
+func TestSaveTrafficReportScheduleResetsRetryState(testingT *testing.T) {
+	harness := buildTrafficReportHarness(testingT, true)
+	insertTrafficReportSite(testingT, harness.database)
+	previousSentAt := time.Date(2026, time.April, 20, 9, 0, 0, 0, time.UTC)
+	schedule, scheduleErr := model.NewTrafficReportSchedule(model.TrafficReportScheduleInput{
+		SiteID:         testTrafficReportSiteID,
+		Enabled:        true,
+		Frequency:      model.TrafficReportFrequencyDaily,
+		RecipientEmail: "bad-recipient@example.com",
+		Timezone:       model.DefaultTrafficReportTimezone,
+		SendHour:       9,
+		SendMinute:     0,
+		Weekday:        model.DefaultTrafficReportWeekday,
+		MonthDay:       model.DefaultTrafficReportMonthDay,
+		ReferenceTime:  previousSentAt,
+	})
+	require.NoError(testingT, scheduleErr)
+	schedule.RetryCount = defaultTrafficReportSchedulerRetries
+	schedule.LastStatus = model.TrafficReportStatusFailed
+	schedule.LastError = trafficReportStatusDispatchFailed
+	schedule.LastAttemptedAt = time.Date(2026, time.April, 23, 15, 30, 0, 0, time.UTC)
+	schedule.LastSentAt = previousSentAt
+	schedule.ProviderMessageID = "pinguin-old-message"
+	require.NoError(testingT, harness.database.Create(&schedule).Error)
+
+	hour := 16
+	minute := 30
+	payload := trafficReportScheduleRequest{
+		Enabled:        true,
+		Frequency:      model.TrafficReportFrequencyDaily,
+		RecipientEmail: testTrafficReportRecipient,
+		Timezone:       model.DefaultTrafficReportTimezone,
+		SendHour:       &hour,
+		SendMinute:     &minute,
+	}
+	context, recorder := buildTrafficReportContext(http.MethodPut, testTrafficReportPath, marshalTrafficReportSchedule(testingT, payload))
+	setTrafficReportUser(context, testTrafficReportOwnerEmail)
+
+	harness.handlers.SaveSchedule(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+	response := decodeTrafficReportSchedule(testingT, recorder)
+	require.Equal(testingT, model.TrafficReportStatusPending, response.LastStatus)
+	require.Empty(testingT, response.LastError)
+	require.Equal(testingT, previousSentAt.Unix(), response.LastSentAt)
+
+	var stored model.TrafficReportSchedule
+	require.NoError(testingT, harness.database.First(&stored, "site_id = ?", testTrafficReportSiteID).Error)
+	require.Equal(testingT, schedule.ID, stored.ID)
+	require.Equal(testingT, testTrafficReportRecipient, stored.RecipientEmail)
+	require.Equal(testingT, 0, stored.RetryCount)
+	require.Equal(testingT, model.TrafficReportStatusPending, stored.LastStatus)
+	require.Empty(testingT, stored.LastError)
+	require.True(testingT, stored.LastAttemptedAt.IsZero())
+	require.Empty(testingT, stored.ProviderMessageID)
+	require.WithinDuration(testingT, previousSentAt, stored.LastSentAt, time.Second)
+
+	repository := trafficReportRepository{database: harness.database}
+	jobs, pendingErr := repository.PendingJobs(context.Request.Context(), defaultTrafficReportSchedulerRetries, stored.NextSendAt.Add(time.Second))
+	require.NoError(testingT, pendingErr)
+	require.Len(testingT, jobs, 1)
+	require.Equal(testingT, schedule.ID, jobs[0].ID)
+}
+
 func TestSaveTrafficReportScheduleRejectsInvalidValues(testingT *testing.T) {
 	harness := buildTrafficReportHarness(testingT, true)
 	insertTrafficReportSite(testingT, harness.database)

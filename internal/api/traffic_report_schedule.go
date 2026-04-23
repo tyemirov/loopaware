@@ -233,9 +233,11 @@ func (handlers *TrafficReportHandlers) upsertSchedule(ctx context.Context, sched
 	existing.Weekday = schedule.Weekday
 	existing.MonthDay = schedule.MonthDay
 	existing.NextSendAt = schedule.NextSendAt
-	if existing.LastStatus == "" {
-		existing.LastStatus = model.TrafficReportStatusPending
-	}
+	existing.LastAttemptedAt = time.Time{}
+	existing.RetryCount = 0
+	existing.LastStatus = model.TrafficReportStatusPending
+	existing.LastError = ""
+	existing.ProviderMessageID = ""
 	if saveErr := handlers.database.WithContext(ctx).Save(&existing).Error; saveErr != nil {
 		return model.TrafficReportSchedule{}, saveErr
 	}
