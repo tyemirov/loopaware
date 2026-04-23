@@ -55,6 +55,41 @@ func TestDatabaseSiteStatisticsProviderTopPagesSkipsBlankSite(testingT *testing.
 	require.Nil(testingT, results)
 }
 
+func TestDatabaseSiteStatisticsProviderTopPagesForDaysScopesToWindow(testingT *testing.T) {
+	database := openFaviconManagerDatabase(testingT)
+	siteID := storage.NewID()
+	startOfToday := time.Now().UTC().Truncate(24 * time.Hour)
+	oldVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/lifetime-winner",
+		Occurred: startOfToday.AddDate(0, 0, -2),
+	})
+	require.NoError(testingT, visitErr)
+	recentVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/window-winner",
+		Occurred: startOfToday.Add(2 * time.Hour),
+	})
+	require.NoError(testingT, visitErr)
+	recentBotVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/window-winner",
+		IsBot:    true,
+		Occurred: startOfToday.Add(3 * time.Hour),
+	})
+	require.NoError(testingT, visitErr)
+	require.NoError(testingT, database.Create(&oldVisit).Error)
+	require.NoError(testingT, database.Create(&recentVisit).Error)
+	require.NoError(testingT, database.Create(&recentBotVisit).Error)
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	results, err := provider.TopPagesForDays(context.Background(), siteID, 1, 10)
+	require.NoError(testingT, err)
+	require.Len(testingT, results, 1)
+	require.Equal(testingT, "/window-winner", results[0].Path)
+	require.Equal(testingT, int64(1), results[0].VisitCount)
+}
+
 func TestDatabaseSiteStatisticsProviderTopPagesMergesTrailingSlashVariants(testingT *testing.T) {
 	database := openFaviconManagerDatabase(testingT)
 	siteID := storage.NewID()

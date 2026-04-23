@@ -54,14 +54,14 @@ type siteTestHarness struct {
 }
 
 type failingStatsProvider struct {
-	visitCountError              error
-	uniqueVisitorCountError      error
-	topPagesError                error
-	visitTrendError              error
-	visitAttributionError        error
-	visitEngagementError         error
-	deviceBreakdownError         error
-	timezoneDistributionError    error
+	visitCountError           error
+	uniqueVisitorCountError   error
+	topPagesError             error
+	visitTrendError           error
+	visitAttributionError     error
+	visitEngagementError      error
+	deviceBreakdownError      error
+	timezoneDistributionError error
 }
 
 func (provider *failingStatsProvider) FeedbackCount(context.Context, string) (int64, error) {
@@ -81,6 +81,10 @@ func (provider *failingStatsProvider) UniqueVisitorCount(context.Context, string
 }
 
 func (provider *failingStatsProvider) TopPages(context.Context, string, int) ([]api.TopPageStat, error) {
+	return nil, provider.topPagesError
+}
+
+func (provider *failingStatsProvider) TopPagesForDays(context.Context, string, int, int) ([]api.TopPageStat, error) {
 	return nil, provider.topPagesError
 }
 

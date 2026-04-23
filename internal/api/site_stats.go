@@ -72,6 +72,7 @@ type SiteStatisticsProvider interface {
 	VisitCount(ctx context.Context, siteID string) (int64, error)
 	UniqueVisitorCount(ctx context.Context, siteID string) (int64, error)
 	TopPages(ctx context.Context, siteID string, limit int) ([]TopPageStat, error)
+	TopPagesForDays(ctx context.Context, siteID string, days int, limit int) ([]TopPageStat, error)
 	VisitTrend(ctx context.Context, siteID string, days int) ([]DailyVisitTrendStat, error)
 	VisitAttribution(ctx context.Context, siteID string, limit int) (VisitAttributionBreakdown, error)
 	VisitEngagement(ctx context.Context, siteID string, days int) (VisitEngagementStat, error)
@@ -141,6 +142,16 @@ type TopPageStat struct {
 
 // TopPages returns top pages by visit count.
 func (provider *DatabaseSiteStatisticsProvider) TopPages(ctx context.Context, siteID string, limit int) ([]TopPageStat, error) {
+	return provider.topPages(ctx, siteID, limit, time.Time{})
+}
+
+// TopPagesForDays returns top pages by visit count within the same UTC day window used by VisitTrend.
+func (provider *DatabaseSiteStatisticsProvider) TopPagesForDays(ctx context.Context, siteID string, days int, limit int) ([]TopPageStat, error) {
+	normalizedDays := normalizeVisitTrendDays(days)
+	return provider.topPages(ctx, siteID, limit, visitWindowStartDay(normalizedDays))
+}
+
+func (provider *DatabaseSiteStatisticsProvider) topPages(ctx context.Context, siteID string, limit int, startDay time.Time) ([]TopPageStat, error) {
 	if strings.TrimSpace(siteID) == "" {
 		return nil, nil
 	}
@@ -148,11 +159,14 @@ func (provider *DatabaseSiteStatisticsProvider) TopPages(ctx context.Context, si
 		limit = 10
 	}
 	var results []TopPageStat
-	err := provider.database.WithContext(ctx).
+	query := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
 		Select(topPagesSelectStatement).
-		Where("site_id = ? AND path <> '' AND is_bot = ?", siteID, false).
-		Group(topPagesCanonicalPathExpression).
+		Where("site_id = ? AND path <> '' AND is_bot = ?", siteID, false)
+	if !startDay.IsZero() {
+		query = query.Where("occurred_at >= ?", startDay)
+	}
+	err := query.Group(topPagesCanonicalPathExpression).
 		Order("visit_count desc, path asc").
 		Limit(limit).
 		Scan(&results).Error
@@ -229,7 +243,7 @@ func (provider *DatabaseSiteStatisticsProvider) VisitTrend(ctx context.Context, 
 		return nil, nil
 	}
 	normalizedDays := normalizeVisitTrendDays(days)
-	startDay := time.Now().UTC().Truncate(24*time.Hour).AddDate(0, 0, -(normalizedDays - 1))
+	startDay := visitWindowStartDay(normalizedDays)
 
 	var rows []dailyVisitTrendRow
 	err := provider.database.WithContext(ctx).
@@ -271,6 +285,10 @@ func (provider *DatabaseSiteStatisticsProvider) VisitTrend(ctx context.Context, 
 		})
 	}
 	return trend, nil
+}
+
+func visitWindowStartDay(normalizedDays int) time.Time {
+	return time.Now().UTC().Truncate(24*time.Hour).AddDate(0, 0, -(normalizedDays - 1))
 }
 
 func normalizeVisitTrendDays(days int) int {

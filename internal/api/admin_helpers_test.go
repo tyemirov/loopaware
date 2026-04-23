@@ -64,6 +64,10 @@ func (provider *stubStatsProvider) TopPages(context.Context, string, int) ([]Top
 	return nil, nil
 }
 
+func (provider *stubStatsProvider) TopPagesForDays(context.Context, string, int, int) ([]TopPageStat, error) {
+	return nil, nil
+}
+
 func (provider *stubStatsProvider) VisitTrend(context.Context, string, int) ([]DailyVisitTrendStat, error) {
 	return nil, nil
 }

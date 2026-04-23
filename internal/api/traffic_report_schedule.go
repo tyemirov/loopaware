@@ -471,7 +471,7 @@ func buildTrafficReportEmail(ctx context.Context, statsProvider SiteStatisticsPr
 	if trendErr != nil {
 		return trafficReportEmail{}, fmt.Errorf("traffic_report_email visit_trend: %w", trendErr)
 	}
-	topPages, topPagesErr := statsProvider.TopPages(ctx, site.ID, trafficReportTopPagesLimit)
+	topPages, topPagesErr := statsProvider.TopPagesForDays(ctx, site.ID, windowDays, trafficReportTopPagesLimit)
 	if topPagesErr != nil {
 		return trafficReportEmail{}, fmt.Errorf("traffic_report_email top_pages: %w", topPagesErr)
 	}

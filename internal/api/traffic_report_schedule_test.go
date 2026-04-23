@@ -56,10 +56,12 @@ func (sender *recordingTrafficReportEmailSender) SendEmail(_ context.Context, re
 }
 
 type recordingTrafficReportStatsProvider struct {
-	trend     []DailyVisitTrendStat
-	topPages  []TopPageStat
-	devices   DeviceBreakdownStat
-	timezones []TimezoneDistributionStat
+	trend         []DailyVisitTrendStat
+	topPages      []TopPageStat
+	topPagesDays  int
+	topPagesLimit int
+	devices       DeviceBreakdownStat
+	timezones     []TimezoneDistributionStat
 }
 
 func (provider *recordingTrafficReportStatsProvider) FeedbackCount(context.Context, string) (int64, error) {
@@ -79,6 +81,12 @@ func (provider *recordingTrafficReportStatsProvider) UniqueVisitorCount(context.
 }
 
 func (provider *recordingTrafficReportStatsProvider) TopPages(context.Context, string, int) ([]TopPageStat, error) {
+	return provider.topPages, nil
+}
+
+func (provider *recordingTrafficReportStatsProvider) TopPagesForDays(_ context.Context, _ string, days int, limit int) ([]TopPageStat, error) {
+	provider.topPagesDays = days
+	provider.topPagesLimit = limit
 	return provider.topPages, nil
 }
 
@@ -391,6 +399,34 @@ func TestBuildTrafficReportEmailRendersTemplateFallbackSections(testingT *testin
 	require.Contains(testingT, report.message, "- No page views recorded.")
 	require.Contains(testingT, report.message, "- No device data recorded.")
 	require.Contains(testingT, report.message, "- No timezone data recorded.")
+}
+
+func TestBuildTrafficReportEmailUsesReportWindowForTopPages(testingT *testing.T) {
+	schedule, scheduleErr := model.NewTrafficReportSchedule(model.TrafficReportScheduleInput{
+		SiteID:         testTrafficReportSiteID,
+		Enabled:        true,
+		Frequency:      model.TrafficReportFrequencyMonthly,
+		RecipientEmail: testTrafficReportRecipient,
+		Timezone:       model.DefaultTrafficReportTimezone,
+		SendHour:       model.DefaultTrafficReportSendHour,
+		SendMinute:     model.DefaultTrafficReportSendMinute,
+		Weekday:        model.DefaultTrafficReportWeekday,
+		MonthDay:       model.DefaultTrafficReportMonthDay,
+	})
+	require.NoError(testingT, scheduleErr)
+	stats := &recordingTrafficReportStatsProvider{
+		topPages: []TopPageStat{{Path: "/monthly", VisitCount: 4}},
+	}
+
+	report, reportErr := buildTrafficReportEmail(context.Background(), stats, model.Site{
+		ID:   testTrafficReportSiteID,
+		Name: testTrafficReportSiteName,
+	}, schedule)
+	require.NoError(testingT, reportErr)
+	require.Equal(testingT, 30, stats.topPagesDays)
+	require.Equal(testingT, trafficReportTopPagesLimit, stats.topPagesLimit)
+	require.Contains(testingT, report.message, "Window: last 30 days")
+	require.Contains(testingT, report.message, "/monthly: 4 views")
 }
 
 func TestTrafficReportSchedulerSendsDueSchedule(testingT *testing.T) {
