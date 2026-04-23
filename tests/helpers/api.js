@@ -291,3 +291,30 @@ export async function fetchTimezoneDistribution(config, cookie, siteId) {
   }
   return payload;
 }
+
+export async function fetchTrafficReportSchedule(config, cookie, siteId) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/sites/${siteId}/traffic-report-schedule`,
+    method: 'GET',
+    cookie
+  });
+  if (!response.ok) {
+    throw new Error(`traffic_report_schedule_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
+export async function saveTrafficReportSchedule(config, cookie, siteId, schedule) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/sites/${siteId}/traffic-report-schedule`,
+    method: 'PUT',
+    cookie,
+    body: schedule
+  });
+  if (!response.ok) {
+    throw new Error(`traffic_report_schedule_save_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}

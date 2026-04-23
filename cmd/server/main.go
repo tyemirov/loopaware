@@ -48,6 +48,7 @@ const (
 	flagNamePinguinTenantID           = "pinguin-tenant-id"
 	flagNamePinguinConnectionTimeout  = "pinguin-conn-timeout"
 	flagNamePinguinOperationTimeout   = "pinguin-op-timeout"
+	flagNameTrafficReportEmails       = "traffic-report-emails"
 	flagUsageConfigFile               = "path to configuration file"
 	flagUsageApplicationAddress       = "address for the HTTP server to listen on"
 	flagUsageDatabaseDriver           = "database driver (e.g. sqlite)"
@@ -64,6 +65,7 @@ const (
 	flagUsagePinguinConnTimeout       = "Pinguin connection timeout in seconds"
 	flagUsagePinguinOpTimeout         = "Pinguin operation timeout in seconds"
 	flagUsageSubscriptionNotify       = "enable notifications for new subscriptions"
+	flagUsageTrafficReportEmails      = "enable scheduled traffic report emails"
 	environmentKeyApplicationAddress  = "APP_ADDR"
 	environmentKeyDatabaseDriverName  = "DB_DRIVER"
 	environmentKeyDatabaseDataSource  = "DB_DSN"
@@ -81,6 +83,7 @@ const (
 	environmentKeyPinguinConnTimeout  = "PINGUIN_CONNECTION_TIMEOUT_SEC"
 	environmentKeyPinguinOpTimeout    = "PINGUIN_OPERATION_TIMEOUT_SEC"
 	environmentKeySubscriptionNotify  = "SUBSCRIPTION_NOTIFICATIONS"
+	environmentKeyTrafficReportEmails = "TRAFFIC_REPORT_EMAILS_ENABLED"
 	configurationKeyAdmins            = "admins"
 	defaultApplicationAddress         = ":8080"
 	sqliteFileDataSourceNamePattern   = "file:%s?_foreign_keys=on"
@@ -92,6 +95,7 @@ const (
 	defaultPinguinConnTimeoutSeconds  = 5
 	defaultPinguinOpTimeoutSeconds    = 30
 	defaultSubscriptionNotify         = true
+	defaultTrafficReportEmails        = true
 	publicRoutePrefix                 = "/public"
 	publicRouteFeedback               = "/public/feedback"
 	publicRouteSubscription           = "/public/subscriptions"
@@ -110,6 +114,8 @@ const (
 	apiRouteSiteVisitEngagement       = "/sites/:id/visits/engagement"
 	apiRouteSiteVisitDevices          = "/sites/:id/visits/devices"
 	apiRouteSiteVisitTimezones        = "/sites/:id/visits/timezones"
+	apiRouteSiteTrafficReportSchedule = "/sites/:id/traffic-report-schedule"
+	apiRouteSiteTrafficReportTest     = "/sites/:id/traffic-report-schedule/test"
 	apiRouteSiteSubscribers           = "/sites/:id/subscribers"
 	apiRouteSiteSubscriberUpdate      = "/sites/:id/subscribers/:subscriber_id"
 	apiRouteSiteSubscribersExport     = "/sites/:id/subscribers/export"
@@ -124,6 +130,7 @@ const (
 	httpMethodOptions                 = "OPTIONS"
 	httpMethodPost                    = "POST"
 	httpMethodPatch                   = "PATCH"
+	httpMethodPut                     = "PUT"
 	httpMethodDelete                  = "DELETE"
 	loggerContextOpenDatabase         = "open_db"
 	loggerContextAutoMigrate          = "migrate"
@@ -140,7 +147,7 @@ const (
 )
 
 var (
-	corsAllowedMethods          = []string{httpMethodPost, httpMethodGet, httpMethodOptions, httpMethodPatch, httpMethodDelete}
+	corsAllowedMethods          = []string{httpMethodPost, httpMethodGet, httpMethodOptions, httpMethodPatch, httpMethodPut, httpMethodDelete}
 	corsAllowedHeaders          = []string{corsHeaderAuthorization, corsHeaderContentType, corsHeaderXTAuthTenant}
 	corsExposedHeaders          = []string{corsHeaderContentType}
 	defaultDatabaseDriverName   = storage.DriverNameSQLite
@@ -166,6 +173,7 @@ type ServerConfig struct {
 	PinguinConnTimeoutSec     int
 	PinguinOpTimeoutSec       int
 	SubscriptionNotifications bool
+	TrafficReportEmails       bool
 }
 
 // DatabaseOpener opens a database connection using the provided configuration.
@@ -248,6 +256,7 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 		{environmentKeyPinguinOpTimeout, defaultPinguinOpTimeoutSeconds},
 		{environmentKeyPinguinSharedAuth, ""},
 		{environmentKeySubscriptionNotify, defaultSubscriptionNotify},
+		{environmentKeyTrafficReportEmails, defaultTrafficReportEmails},
 	}
 	for _, entry := range defaults {
 		application.configurationLoader.SetDefault(entry.environmentKey, entry.value)
@@ -296,6 +305,7 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 		usage        string
 	}{
 		{flagNameSubscriptionNotifications, defaultSubscriptionNotify, flagUsageSubscriptionNotify},
+		{flagNameTrafficReportEmails, defaultTrafficReportEmails, flagUsageTrafficReportEmails},
 	}
 	for _, flagEntry := range boolFlags {
 		commandFlags.Bool(flagEntry.flagName, flagEntry.defaultValue, flagEntry.usage)
@@ -320,6 +330,7 @@ func (application *ServerApplication) configureCommand(command *cobra.Command) e
 		{environmentKeyPinguinConnTimeout, flagNamePinguinConnectionTimeout},
 		{environmentKeyPinguinOpTimeout, flagNamePinguinOperationTimeout},
 		{environmentKeySubscriptionNotify, flagNameSubscriptionNotifications},
+		{environmentKeyTrafficReportEmails, flagNameTrafficReportEmails},
 	}
 	for _, binding := range flagBindings {
 		if bindErr := application.bindFlag(commandFlags, binding.environmentKey, binding.flagName); bindErr != nil {
@@ -433,6 +444,10 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	if serverConfig.SubscriptionNotifications {
 		subscriptionNotifier = pinguinNotifier
 	}
+	var trafficReportEmailSender api.EmailSender
+	if serverConfig.TrafficReportEmails {
+		trafficReportEmailSender = pinguinNotifier
+	}
 	publicHandlers := api.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, pinguinNotifier, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier)
 	faviconResolver := favicon.NewHTTPResolver(sharedHTTPClient, logger)
 	faviconService := favicon.NewService(faviconResolver)
@@ -444,13 +459,24 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	faviconManager.TriggerScheduledRefresh()
 	statsProvider := api.NewDatabaseSiteStatisticsProvider(database)
 	siteHandlers := api.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
+	trafficReportHandlers := api.NewTrafficReportHandlers(database, logger, statsProvider, trafficReportEmailSender, serverConfig.TrafficReportEmails)
+	if serverConfig.TrafficReportEmails {
+		trafficReportScheduler, schedulerErr := api.NewTrafficReportScheduler(database, logger, statsProvider, trafficReportEmailSender, 0, 0)
+		if schedulerErr != nil {
+			logger.Fatal("traffic_report_scheduler", zap.Error(schedulerErr))
+		}
+		trafficReportSchedulerContext, trafficReportSchedulerCancel := context.WithCancel(context.Background())
+		defer trafficReportScheduler.Stop()
+		defer trafficReportSchedulerCancel()
+		trafficReportScheduler.Start(trafficReportSchedulerContext)
+	}
 	widgetTestHandlers := api.NewSiteWidgetTestHandlers(database, logger, feedbackBroadcaster, pinguinNotifier)
 	subscribeTestHandlers := api.NewSiteSubscribeTestHandlers(database, logger, subscriptionEvents, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier)
 	authenticatedOrigin, originErr := resolveOrigin(serverConfig.PublicBaseURL)
 	if originErr != nil {
 		logger.Fatal("cors_origin", zap.Error(originErr))
 	}
-	registerBackendRoutes(router, authManager, publicHandlers, siteHandlers, widgetTestHandlers, subscribeTestHandlers, authenticatedOrigin)
+	registerBackendRoutes(router, authManager, publicHandlers, siteHandlers, trafficReportHandlers, widgetTestHandlers, subscribeTestHandlers, authenticatedOrigin)
 
 	httpServer := &http.Server{
 		Addr:              serverConfig.ApplicationAddress,
@@ -522,6 +548,7 @@ func (application *ServerApplication) loadServerConfig(configFilePath string) (S
 		PinguinConnTimeoutSec:     application.configurationLoader.GetInt(environmentKeyPinguinConnTimeout),
 		PinguinOpTimeoutSec:       application.configurationLoader.GetInt(environmentKeyPinguinOpTimeout),
 		SubscriptionNotifications: application.configurationLoader.GetBool(environmentKeySubscriptionNotify),
+		TrafficReportEmails:       application.configurationLoader.GetBool(environmentKeyTrafficReportEmails),
 	}
 
 	if serverConfig.PinguinAuthToken == "" {

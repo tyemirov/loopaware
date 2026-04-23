@@ -472,6 +472,80 @@
                 </div>
               </div>
             </div>
+            <div class="card shadow-sm mb-4" data-dashboard-card="traffic-report">
+              <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <h5 class="mb-0">Traffic reports</h5>
+                    <span id="traffic-report-email-state" class="badge bg-secondary d-none"></span>
+                  </div>
+                  <div id="traffic-report-status" class="d-none py-1 px-2 small"></div>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="form-check form-switch mb-3">
+                  <input class="form-check-input" type="checkbox" role="switch" id="traffic-report-enabled" />
+                  <label class="form-check-label" for="traffic-report-enabled">Enable scheduled reports</label>
+                </div>
+                <div class="row g-3 align-items-end">
+                  <div class="col-md-4">
+                    <span class="form-label d-block">Frequency</span>
+                    <div class="btn-group w-100" role="group" aria-label="Traffic report frequency">
+                      <input class="btn-check" type="radio" name="traffic-report-frequency" id="traffic-report-frequency-daily" value="daily" checked />
+                      <label class="btn btn-outline-secondary" for="traffic-report-frequency-daily">Daily</label>
+                      <input class="btn-check" type="radio" name="traffic-report-frequency" id="traffic-report-frequency-weekly" value="weekly" />
+                      <label class="btn btn-outline-secondary" for="traffic-report-frequency-weekly">Weekly</label>
+                      <input class="btn-check" type="radio" name="traffic-report-frequency" id="traffic-report-frequency-monthly" value="monthly" />
+                      <label class="btn btn-outline-secondary" for="traffic-report-frequency-monthly">Monthly</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label" for="traffic-report-send-time">Send at</label>
+                    <input class="form-control" type="time" id="traffic-report-send-time" value="09:00" />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label" for="traffic-report-timezone">Timezone</label>
+                    <input class="form-control" type="text" id="traffic-report-timezone" autocomplete="off" />
+                  </div>
+                  <div class="col-md-4" id="traffic-report-weekday-container">
+                    <label class="form-label" for="traffic-report-weekday">Send on</label>
+                    <select class="form-select" id="traffic-report-weekday">
+                      <option value="1">Monday</option>
+                      <option value="2">Tuesday</option>
+                      <option value="3">Wednesday</option>
+                      <option value="4">Thursday</option>
+                      <option value="5">Friday</option>
+                      <option value="6">Saturday</option>
+                      <option value="0">Sunday</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4" id="traffic-report-month-day-container">
+                    <label class="form-label" for="traffic-report-month-day">Send on day</label>
+                    <select class="form-select" id="traffic-report-month-day">
+                      <option value="1">1</option>
+                      <option value="7">7</option>
+                      <option value="14">14</option>
+                      <option value="21">21</option>
+                      <option value="28">28</option>
+                    </select>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label" for="traffic-report-recipient">Recipient email</label>
+                    <input class="form-control" type="email" id="traffic-report-recipient" autocomplete="off" />
+                  </div>
+                </div>
+                <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mt-3">
+                  <div class="small text-muted">
+                    <div>Next email: <span id="traffic-report-next-send">Not scheduled.</span></div>
+                    <div>Last sent: <span id="traffic-report-last-sent">Never.</span></div>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button id="traffic-report-save-button" class="btn btn-outline-success btn-sm" type="button">Save schedule</button>
+                    <button id="traffic-report-test-button" class="btn btn-outline-secondary btn-sm" type="button">Send test report</button>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="card shadow-sm mb-4" data-dashboard-card="traffic">
               <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -838,6 +912,9 @@
         var buttonLabels = parsedConfig.button_labels || {};
         var statusMessages = parsedConfig.status_messages || {};
         var errorMessages = parsedConfig.error_messages || {};
+        errorMessages.invalid_traffic_report_schedule = errorMessages.invalid_traffic_report_schedule || 'Check the report schedule fields.';
+        errorMessages.traffic_report_email_disabled = errorMessages.traffic_report_email_disabled || 'Traffic report email delivery is disabled.';
+        errorMessages.traffic_report_send_failed = errorMessages.traffic_report_send_failed || 'Unable to send test report.';
         var roleLabels = parsedConfig.role_labels || {};
         var roleValues = parsedConfig.role_values || {};
         var adminRoleValue = roleValues.admin || 'admin';
@@ -960,6 +1037,23 @@
         var topPagesTableBody = document.getElementById(elementIds.top_pages_table_body);
         var deviceTypesTableBody = document.getElementById(elementIds.device_types_table_body);
         var timezonesTableBody = document.getElementById(elementIds.timezones_table_body);
+        var trafficReportEnabledInput = document.getElementById('traffic-report-enabled');
+        var trafficReportFrequencyDailyInput = document.getElementById('traffic-report-frequency-daily');
+        var trafficReportFrequencyWeeklyInput = document.getElementById('traffic-report-frequency-weekly');
+        var trafficReportFrequencyMonthlyInput = document.getElementById('traffic-report-frequency-monthly');
+        var trafficReportSendTimeInput = document.getElementById('traffic-report-send-time');
+        var trafficReportTimezoneInput = document.getElementById('traffic-report-timezone');
+        var trafficReportWeekdayInput = document.getElementById('traffic-report-weekday');
+        var trafficReportMonthDayInput = document.getElementById('traffic-report-month-day');
+        var trafficReportRecipientInput = document.getElementById('traffic-report-recipient');
+        var trafficReportWeekdayContainer = document.getElementById('traffic-report-weekday-container');
+        var trafficReportMonthDayContainer = document.getElementById('traffic-report-month-day-container');
+        var trafficReportStatusElement = document.getElementById('traffic-report-status');
+        var trafficReportEmailStateElement = document.getElementById('traffic-report-email-state');
+        var trafficReportNextSendElement = document.getElementById('traffic-report-next-send');
+        var trafficReportLastSentElement = document.getElementById('traffic-report-last-sent');
+        var trafficReportSaveButton = document.getElementById('traffic-report-save-button');
+        var trafficReportTestButton = document.getElementById('traffic-report-test-button');
         var sessionTimeoutContainer = document.getElementById(elementIds.session_timeout_container);
         var sessionTimeoutMessage = document.getElementById(elementIds.session_timeout_message);
         var sessionTimeoutConfirmButton = document.getElementById(elementIds.session_timeout_confirm_button);
@@ -1048,6 +1142,8 @@
         var apiSiteVisitStatsSuffix = apiPaths.site_visit_stats || '';
         var apiSiteVisitDevicesSuffix = apiPaths.site_visit_devices || '';
         var apiSiteVisitTimezonesSuffix = apiPaths.site_visit_timezones || '';
+        var apiSiteTrafficReportScheduleSuffix = '/traffic-report-schedule';
+        var apiSiteTrafficReportTestSuffix = '/traffic-report-schedule/test';
         var dashboardSectionTabFeedback = document.getElementById(elementIds.dashboard_section_tab_feedback);
         var dashboardSectionTabSubscriptions = document.getElementById(elementIds.dashboard_section_tab_subscriptions);
         var dashboardSectionTabTraffic = document.getElementById(elementIds.dashboard_section_tab_traffic);
@@ -1061,7 +1157,8 @@
           pendingDeletionSubscriberId: '',
           pendingDeletionSubscriberEmail: '',
           siteMessages: {},
-          siteSubscribers: {}
+          siteSubscribers: {},
+          trafficReportSchedules: {}
         };
         var siteAutosaveDelayMilliseconds = 800;
         var siteAutosaveTimerId = null;
@@ -3116,6 +3213,7 @@
           setCardVisible('[data-widget-card=\"subscribe\"]', showSubscriptions);
           setCardVisible('[data-dashboard-card=\"subscribers\"]', showSubscriptions);
           setCardVisible('[data-widget-card=\"traffic\"]', showTraffic);
+          setCardVisible('[data-dashboard-card=\"traffic-report\"]', showTraffic);
           setCardVisible('[data-dashboard-card=\"traffic\"]', showTraffic);
         }
 
@@ -3616,11 +3714,13 @@
             loadMessages(false);
             loadSubscribers();
             loadVisitStats();
+            loadTrafficReportSchedule();
             return;
           }
           renderMessages(state.siteMessages[state.selectedSiteId]);
           loadSubscribers();
           loadVisitStats();
+          loadTrafficReportSchedule();
         }
 
         function handleSitesListClick(event) {
@@ -3656,6 +3756,17 @@
           clearValidationFeedback();
           setSiteCreatedAt(null);
           setFeedbackCount(0, 0);
+          setTrafficReportControlsDisabled(true);
+          setTrafficReportScheduleControls({
+            enabled: false,
+            frequency: 'daily',
+            recipient_email: '',
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+            send_hour: 9,
+            send_minute: 0,
+            weekday: 1,
+            month_day: 1
+          });
         }
 
         function populateSiteForm() {
@@ -3954,12 +4065,236 @@
           });
         }
 
+        function clearTrafficReportStatus() {
+          if (!trafficReportStatusElement) {
+            return;
+          }
+          trafficReportStatusElement.textContent = '';
+          trafficReportStatusElement.classList.add('d-none');
+        }
+
+        function showTrafficReportStatus(message, isError) {
+          if (!trafficReportStatusElement) {
+            return;
+          }
+          trafficReportStatusElement.textContent = message || '';
+          trafficReportStatusElement.classList.remove('d-none');
+          trafficReportStatusElement.classList.toggle('text-danger-emphasis', isError === true);
+          trafficReportStatusElement.classList.toggle('bg-danger-subtle', isError === true);
+          trafficReportStatusElement.classList.toggle('text-success-emphasis', isError !== true);
+          trafficReportStatusElement.classList.toggle('bg-success-subtle', isError !== true);
+        }
+
+        function selectedTrafficReportFrequency() {
+          var selected = document.querySelector('input[name="traffic-report-frequency"]:checked');
+          if (selected && typeof selected.value === 'string') {
+            return selected.value;
+          }
+          return 'daily';
+        }
+
+        function updateTrafficReportFrequencyVisibility() {
+          var frequency = selectedTrafficReportFrequency();
+          if (trafficReportWeekdayContainer) {
+            trafficReportWeekdayContainer.classList.toggle('d-none', frequency !== 'weekly');
+          }
+          if (trafficReportMonthDayContainer) {
+            trafficReportMonthDayContainer.classList.toggle('d-none', frequency !== 'monthly');
+          }
+        }
+
+        function trafficReportTimeValue(sendHour, sendMinute) {
+          var hour = Number(sendHour);
+          var minute = Number(sendMinute);
+          if (!Number.isFinite(hour)) {
+            hour = 9;
+          }
+          if (!Number.isFinite(minute)) {
+            minute = 0;
+          }
+          return String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
+        }
+
+        function setTrafficReportControlsDisabled(disabled) {
+          var shouldDisable = Boolean(disabled);
+          [
+            trafficReportEnabledInput,
+            trafficReportFrequencyDailyInput,
+            trafficReportFrequencyWeeklyInput,
+            trafficReportFrequencyMonthlyInput,
+            trafficReportSendTimeInput,
+            trafficReportTimezoneInput,
+            trafficReportWeekdayInput,
+            trafficReportMonthDayInput,
+            trafficReportRecipientInput,
+            trafficReportSaveButton,
+            trafficReportTestButton
+          ].forEach(function(element) {
+            if (element) {
+              element.disabled = shouldDisable;
+            }
+          });
+        }
+
+        function setTrafficReportScheduleControls(schedule) {
+          var normalizedSchedule = schedule || {};
+          if (trafficReportEnabledInput) {
+            trafficReportEnabledInput.checked = normalizedSchedule.enabled === true;
+          }
+          var frequency = normalizedSchedule.frequency || 'daily';
+          if (trafficReportFrequencyDailyInput) {
+            trafficReportFrequencyDailyInput.checked = frequency === 'daily';
+          }
+          if (trafficReportFrequencyWeeklyInput) {
+            trafficReportFrequencyWeeklyInput.checked = frequency === 'weekly';
+          }
+          if (trafficReportFrequencyMonthlyInput) {
+            trafficReportFrequencyMonthlyInput.checked = frequency === 'monthly';
+          }
+          if (trafficReportSendTimeInput) {
+            trafficReportSendTimeInput.value = trafficReportTimeValue(normalizedSchedule.send_hour, normalizedSchedule.send_minute);
+          }
+          if (trafficReportTimezoneInput) {
+            trafficReportTimezoneInput.value = normalizedSchedule.timezone || (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+          }
+          if (trafficReportWeekdayInput) {
+            trafficReportWeekdayInput.value = String(typeof normalizedSchedule.weekday === 'number' ? normalizedSchedule.weekday : 1);
+          }
+          if (trafficReportMonthDayInput) {
+            trafficReportMonthDayInput.value = String(typeof normalizedSchedule.month_day === 'number' ? normalizedSchedule.month_day : 1);
+          }
+          if (trafficReportRecipientInput) {
+            trafficReportRecipientInput.value = normalizedSchedule.recipient_email || '';
+          }
+          if (trafficReportEmailStateElement) {
+            if (normalizedSchedule.email_enabled === false) {
+              trafficReportEmailStateElement.textContent = 'Email disabled';
+              trafficReportEmailStateElement.classList.remove('d-none');
+            } else {
+              trafficReportEmailStateElement.textContent = '';
+              trafficReportEmailStateElement.classList.add('d-none');
+            }
+          }
+          if (trafficReportTestButton && normalizedSchedule.email_enabled === false) {
+            trafficReportTestButton.disabled = true;
+          }
+          renderTrafficReportScheduleSummary(normalizedSchedule);
+          updateTrafficReportFrequencyVisibility();
+        }
+
+        function renderTrafficReportScheduleSummary(schedule) {
+          var normalizedSchedule = schedule || {};
+          if (trafficReportNextSendElement) {
+            trafficReportNextSendElement.textContent = normalizedSchedule.enabled === true ? (formatDateTime(normalizedSchedule.next_send_at) || 'Not scheduled.') : 'Not scheduled.';
+          }
+          if (trafficReportLastSentElement) {
+            trafficReportLastSentElement.textContent = formatDateTime(normalizedSchedule.last_sent_at) || 'Never.';
+          }
+        }
+
+        function readTrafficReportSchedulePayload() {
+          var timeValue = trafficReportSendTimeInput && trafficReportSendTimeInput.value ? trafficReportSendTimeInput.value : '09:00';
+          var timeParts = timeValue.split(':');
+          return {
+            enabled: trafficReportEnabledInput ? trafficReportEnabledInput.checked === true : false,
+            frequency: selectedTrafficReportFrequency(),
+            recipient_email: trafficReportRecipientInput ? trafficReportRecipientInput.value.trim() : '',
+            timezone: trafficReportTimezoneInput ? trafficReportTimezoneInput.value.trim() : '',
+            send_hour: Number(timeParts[0]),
+            send_minute: Number(timeParts[1]),
+            weekday: trafficReportWeekdayInput ? Number(trafficReportWeekdayInput.value) : 1,
+            month_day: trafficReportMonthDayInput ? Number(trafficReportMonthDayInput.value) : 1
+          };
+        }
+
+        function loadTrafficReportSchedule() {
+          var selectedSiteId = state.selectedSiteId;
+          if (!selectedSiteId || isNewSiteSelected()) {
+            setTrafficReportControlsDisabled(true);
+            setTrafficReportScheduleControls({
+              enabled: false,
+              frequency: 'daily',
+              recipient_email: '',
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+              send_hour: 9,
+              send_minute: 0,
+              weekday: 1,
+              month_day: 1
+            });
+            clearTrafficReportStatus();
+            return;
+          }
+          setTrafficReportControlsDisabled(false);
+          var endpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteTrafficReportScheduleSuffix;
+          fetchJSON(endpoint).then(function(payload) {
+            if (state.selectedSiteId !== selectedSiteId) {
+              return;
+            }
+            state.trafficReportSchedules[selectedSiteId] = payload;
+            setTrafficReportScheduleControls(payload);
+            clearTrafficReportStatus();
+          }).catch(function(error) {
+            if (state.selectedSiteId !== selectedSiteId) {
+              return;
+            }
+            showTrafficReportStatus(error.message || statusMessages.load_failed || '', true);
+          });
+        }
+
+        function saveTrafficReportSchedule(successMessage) {
+          if (!state.selectedSiteId || isNewSiteSelected()) {
+            return Promise.resolve(null);
+          }
+          var endpoint = apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteTrafficReportScheduleSuffix;
+          var payload = readTrafficReportSchedulePayload();
+          clearTrafficReportStatus();
+          return fetchJSON(endpoint, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          }).then(function(responsePayload) {
+            state.trafficReportSchedules[state.selectedSiteId] = responsePayload;
+            setTrafficReportScheduleControls(responsePayload);
+            if (successMessage) {
+              showTrafficReportStatus(successMessage, false);
+            }
+            return responsePayload;
+          }).catch(function(error) {
+            showTrafficReportStatus(error.message || buttonLabels.save_failed || '', true);
+            throw error;
+          });
+        }
+
+        function sendTrafficReportTest() {
+          saveTrafficReportSchedule('').then(function() {
+            if (!state.selectedSiteId || isNewSiteSelected()) {
+              return;
+            }
+            var endpoint = apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteTrafficReportTestSuffix;
+            return fetchJSON(endpoint, { method: 'POST' });
+          }).then(function() {
+            showTrafficReportStatus('Test report sent.', false);
+          }).catch(function(error) {
+            showTrafficReportStatus(error.message || 'Unable to send test report.', true);
+          });
+        }
+
         function formatTimestamp(unixSeconds) {
           if (!unixSeconds) {
             return '';
           }
           var date = new Date(unixSeconds * 1000);
           return date.toLocaleDateString();
+        }
+
+        function formatDateTime(unixSeconds) {
+          if (!unixSeconds) {
+            return '';
+          }
+          var date = new Date(unixSeconds * 1000);
+          return date.toLocaleString();
         }
 
         function resolveDeliveryLabel(value) {
@@ -4766,6 +5101,26 @@
               }
             });
           }
+        [trafficReportFrequencyDailyInput, trafficReportFrequencyWeeklyInput, trafficReportFrequencyMonthlyInput].forEach(function(input) {
+          if (input) {
+            input.addEventListener('change', updateTrafficReportFrequencyVisibility);
+          }
+        });
+        if (trafficReportSaveButton) {
+          trafficReportSaveButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            saveTrafficReportSchedule('Traffic report schedule saved.');
+          });
+        }
+        if (trafficReportTestButton) {
+          trafficReportTestButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            if (trafficReportTestButton.disabled) {
+              return;
+            }
+            sendTrafficReportTest();
+          });
+        }
         if (refreshMessagesButton) {
           refreshMessagesButton.addEventListener('click', function(event) {
             event.preventDefault();

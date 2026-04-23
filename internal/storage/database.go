@@ -82,7 +82,7 @@ func openSQLiteDatabase(configuration Config) (*gorm.DB, error) {
 
 // AutoMigrate runs database migrations for the storage layer models.
 func AutoMigrate(database *gorm.DB) error {
-	if err := database.AutoMigrate(&model.Site{}, &model.Feedback{}, &model.User{}, &model.Subscriber{}, &model.SiteVisit{}, &model.SiteVisitRollup{}); err != nil {
+	if err := database.AutoMigrate(&model.Site{}, &model.Feedback{}, &model.User{}, &model.Subscriber{}, &model.SiteVisit{}, &model.SiteVisitRollup{}, &model.TrafficReportSchedule{}); err != nil {
 		return err
 	}
 	if err := backfillSiteCreatorEmails(database); err != nil {
