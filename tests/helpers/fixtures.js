@@ -185,7 +185,8 @@ export async function waitForDashboardReady(page, options) {
  *     silentBootstrap?: boolean,
  *     delayMs?: number,
  *     bootstrapDelayMs?: number,
- *     currentUserDelayMs?: number
+ *     currentUserDelayMs?: number,
+ *     exchangeDelayMs?: number
  *   },
  *   waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle',
  *   waitForHeaderAuth?: boolean
@@ -214,7 +215,8 @@ export async function openPublicPage(page, config, path, options) {
  *     silentBootstrap?: boolean,
  *     delayMs?: number,
  *     bootstrapDelayMs?: number,
- *     currentUserDelayMs?: number
+ *     currentUserDelayMs?: number,
+ *     exchangeDelayMs?: number
  *   },
  *   waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle',
  *   waitForHeaderAuth?: boolean

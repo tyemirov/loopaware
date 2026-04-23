@@ -2,7 +2,7 @@
 
 /**
  * @param {string} sessionCookieName
- * @param {{ silentBootstrap?: boolean, bootstrapDelayMs?: number, currentUserDelayMs?: number }} [options]
+ * @param {{ silentBootstrap?: boolean, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number }} [options]
  * @returns {string}
  */
 export function renderTauthStub(sessionCookieName, options) {
@@ -15,6 +15,9 @@ export function renderTauthStub(sessionCookieName, options) {
   const currentUserDelayMs = Number.isFinite(resolvedOptions.currentUserDelayMs)
     ? Math.max(0, Number(resolvedOptions.currentUserDelayMs))
     : 0;
+  const exchangeDelayMs = Number.isFinite(resolvedOptions.exchangeDelayMs)
+    ? Math.max(0, Number(resolvedOptions.exchangeDelayMs))
+    : 0;
   return `(() => {
   if (typeof window === 'undefined') {
     return;
@@ -25,6 +28,7 @@ export function renderTauthStub(sessionCookieName, options) {
   var silentBootstrap = ${silentBootstrap ? 'true' : 'false'};
   var bootstrapDelayMs = ${bootstrapDelayMs};
   var currentUserDelayMs = ${currentUserDelayMs};
+  var exchangeDelayMs = ${exchangeDelayMs};
 
   var runtime = window[runtimeKey];
   if (!runtime || typeof runtime !== 'object') {
@@ -259,6 +263,13 @@ export function renderTauthStub(sessionCookieName, options) {
       return Promise.reject(new Error('tauth.exchange_failed'));
     }
     runtime.profile = resolveExchangeProfile();
+    if (exchangeDelayMs > 0) {
+      return new Promise(function(resolve) {
+        window.setTimeout(function() {
+          resolve(runtime.profile);
+        }, exchangeDelayMs);
+      });
+    }
     return Promise.resolve(runtime.profile);
   }
 
@@ -314,7 +325,7 @@ export function renderTauthStub(sessionCookieName, options) {
 /**
  * @param {import('@playwright/test').Page} page
  * @param {{ sessionCookieName?: string }} config
- * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number }} [options]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number }} [options]
  * @returns {Promise<void>}
  */
 export async function installTauthStub(page, config, options) {

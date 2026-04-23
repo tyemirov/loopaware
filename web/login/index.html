@@ -592,62 +592,6 @@
 })();
     </script>
     <script src="/header-auth.js"></script>
-    <script>
-      // @ts-check
-      (function () {
-        var SIGNIN_TARGET_MAX_ATTEMPTS = 20;
-        var SIGNIN_TARGET_RETRY_DELAY_MS = 50;
-
-        function resolveDashboardSigninTarget() {
-          var headerHost = document.querySelector('mpr-header');
-          if (!headerHost || typeof headerHost.querySelector !== 'function') {
-            return null;
-          }
-          return headerHost.querySelector('[data-mpr-header="google-signin"]');
-        }
-
-        function dispatchSigninClick(signinTarget) {
-          signinTarget.dispatchEvent(new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            composed: true
-          }));
-        }
-
-        function openDashboardSignin(triggerHref, remainingAttempts) {
-          var signinTarget = resolveDashboardSigninTarget();
-          if (signinTarget && typeof signinTarget.dispatchEvent === 'function') {
-            dispatchSigninClick(signinTarget);
-            return;
-          }
-          if (remainingAttempts > 0) {
-            window.setTimeout(function () {
-              openDashboardSignin(triggerHref, remainingAttempts - 1);
-            }, SIGNIN_TARGET_RETRY_DELAY_MS);
-            return;
-          }
-          window.location.assign(triggerHref);
-        }
-
-        function handleDashboardLoginClick(event) {
-          var trigger = event.currentTarget;
-          if (!trigger || typeof trigger.getAttribute !== 'function') {
-            return;
-          }
-          event.preventDefault();
-          openDashboardSignin(trigger.getAttribute('href') || '/app', SIGNIN_TARGET_MAX_ATTEMPTS);
-        }
-
-        var triggers = document.querySelectorAll('[data-loopaware-dashboard-login="true"]');
-        for (var index = 0; index < triggers.length; index += 1) {
-          var trigger = triggers[index];
-          if (!trigger || typeof trigger.addEventListener !== 'function') {
-            continue;
-          }
-          trigger.addEventListener('click', handleDashboardLoginClick);
-        }
-      })();
-    </script>
     <div id="logout-overlay" class="d-none position-fixed top-0 start-0 w-100 h-100 bg-body d-flex align-items-center justify-content-center">
       <div class="text-center">
         <div class="spinner-border text-primary mb-3" role="status">
