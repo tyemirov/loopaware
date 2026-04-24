@@ -1,13 +1,13 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
-import { buildAdminUser, openDashboardShell, waitForLogoutOverlayOrRedirect } from '../helpers/fixtures.js';
+import { buildAdminUser, openAuthenticatedPage, waitForLogoutOverlayOrRedirect } from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
 
 async function openDashboardWithHooks(page) {
-  await openDashboardShell(page, config, adminUser);
+  await openAuthenticatedPage(page, config, adminUser, '/app');
   await page.waitForFunction(() => {
     const hooks = window.__loopawareDashboardIdleTestHooks;
     const settings = window.__loopawareDashboardSettingsTestHooks;
@@ -55,6 +55,17 @@ test('dismiss hides timeout banner', async ({ page }) => {
   await forcePrompt(page);
   await page.locator('#session-timeout-dismiss-button').click();
   await expect(page.locator('#session-timeout-notification')).toHaveAttribute('aria-hidden', 'true');
+});
+
+test('trusted dashboard activity hides stale timeout banner', async ({ page }) => {
+  await openDashboardWithHooks(page);
+  await forcePrompt(page);
+  const banner = page.locator('#session-timeout-notification');
+  await expect(banner).toBeVisible();
+
+  await page.mouse.move(80, 80);
+
+  await expect(banner).toHaveAttribute('aria-hidden', 'true');
 });
 
 test('confirm logs out to login', async ({ page }) => {

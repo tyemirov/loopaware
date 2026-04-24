@@ -1338,19 +1338,18 @@
             dismissButtonElement.textContent = dismissButtonLabel;
           }
           var listenersBound = false;
-          var activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+          var activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'touchmove', 'scroll', 'wheel', 'input', 'focusin', 'pointerdown', 'pointermove'];
           var activityHandler = function(event) {
             if (event && typeof event.isTrusted === 'boolean' && event.isTrusted === false) {
               return;
             }
-            recordSessionActivity();
-          };
-          var visibilityHandler = function() {
-            if (document.visibilityState === 'visible') {
-              recordSessionActivity();
+            if (isSessionTimeoutPromptEvent(event)) {
               return;
             }
-            recordSessionActivity();
+            recordSessionActivity({ allowPromptDismiss: true });
+          };
+          var visibilityHandler = function() {
+            recordSessionActivity({ allowPromptDismiss: document.visibilityState === 'visible' });
           };
           var confirmHandler = function(event) {
             event.preventDefault();
@@ -1381,6 +1380,24 @@
               }
               return;
             }
+          }
+
+          function isSessionTimeoutPromptEvent(event) {
+            if (!event || !idleState.promptVisible || !containerElement) {
+              return false;
+            }
+            if (typeof event.composedPath === 'function') {
+              var eventPath = event.composedPath();
+              if (Array.isArray(eventPath) && eventPath.indexOf(containerElement) !== -1) {
+                return true;
+              }
+            }
+            return !!(
+              event.target &&
+              typeof event.target.nodeType === 'number' &&
+              typeof containerElement.contains === 'function' &&
+              containerElement.contains(event.target)
+            );
           }
 
           function checkSessionIdleState() {

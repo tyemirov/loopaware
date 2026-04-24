@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Bug Fixes 🐛
+- Hide stale dashboard inactivity prompts when trusted operator activity resumes outside the timeout banner.
+
+### Testing 🧪
+- Added Playwright coverage for active dashboard interaction dismissing the inactivity prompt without breaking explicit timeout confirm/dismiss actions.
+
 ## [v0.5.5] - 2026-04-21
 
 ### Features ✨
