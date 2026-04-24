@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.7] - 2026-04-23
+
+### Features ✨
+- Added scheduled traffic report emails with daily, weekly, or monthly delivery options.
+- Introduced API endpoints to manage traffic report schedules and send test reports.
+- Enabled autosave controls for traffic report scheduling in the dashboard.
+
+### Improvements ⚙️
+- Scopped traffic report top pages data to the current window for relevance.
+- Moved login authentication transitions into the header for better UX.
+- Upgraded Go dependency to 1.26 and updated related module dependencies.
+
+### Bug Fixes 🐛
+- Fixed stale dashboard inactivity prompts hiding correctly when trusted user activity resumes outside the timeout banner.
+- Reset traffic report retry state correctly on save to ensure reliable scheduling.
+- Fixed sign-in retry issues and delayed auth profile mutations to improve login stability.
+
+### Testing 🧪
+- Added Playwright tests covering dashboard inactivity prompt behavior and traffic report schedule controls.
+- Introduced new tests for traffic report scheduling API and email sending functionality.
+
+### Docs 📚
+- Updated README with instructions for enabling and configuring traffic report emails.
+- Added environment variable documentation for traffic report email feature (`TRAFFIC_REPORT_EMAILS_ENABLED`).
+
 ## v0.5.6 (2026-04-21)
 
 ## [v0.5.6] - 2026-04-21
