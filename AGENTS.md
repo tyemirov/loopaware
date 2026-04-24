@@ -44,7 +44,7 @@ Operational playbook for working in this repository. Use it to coordinate planni
 - `.mprlab/POLICY.md` for validation/confident-programming rules.
 - `.mprlab/AGENTS.GIT.md` for Git/GitHub workflow.
 - `.mprlab/AGENTS.DOCKER.md` for container expectations.
-- `.mprlab/ISSUES.FORMAT.md` for the canonical ISSUES.md entry format specification.
+- `.mprlab/issues-md-format.md` for the canonical ISSUES.md entry format specification.
 - `README.md` for product context.
 
 ### Workflow Overview
