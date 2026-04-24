@@ -226,7 +226,7 @@ func TestSaveTrafficReportSchedulePersistsValues(testingT *testing.T) {
 	response := decodeTrafficReportSchedule(testingT, recorder)
 	require.True(testingT, response.Enabled)
 	require.Equal(testingT, model.TrafficReportFrequencyWeekly, response.Frequency)
-	require.Equal(testingT, testTrafficReportRecipient, response.RecipientEmail)
+	require.Equal(testingT, testTrafficReportOwnerEmail, response.RecipientEmail)
 	require.Equal(testingT, "America/New_York", response.Timezone)
 	require.Equal(testingT, hour, response.SendHour)
 	require.Equal(testingT, minute, response.SendMinute)
@@ -236,7 +236,7 @@ func TestSaveTrafficReportSchedulePersistsValues(testingT *testing.T) {
 	var stored model.TrafficReportSchedule
 	require.NoError(testingT, harness.database.First(&stored, "site_id = ?", testTrafficReportSiteID).Error)
 	require.True(testingT, stored.Enabled)
-	require.Equal(testingT, testTrafficReportRecipient, stored.RecipientEmail)
+	require.Equal(testingT, testTrafficReportOwnerEmail, stored.RecipientEmail)
 	require.False(testingT, stored.NextSendAt.IsZero())
 }
 
@@ -288,7 +288,7 @@ func TestSaveTrafficReportScheduleResetsRetryState(testingT *testing.T) {
 	var stored model.TrafficReportSchedule
 	require.NoError(testingT, harness.database.First(&stored, "site_id = ?", testTrafficReportSiteID).Error)
 	require.Equal(testingT, schedule.ID, stored.ID)
-	require.Equal(testingT, testTrafficReportRecipient, stored.RecipientEmail)
+	require.Equal(testingT, testTrafficReportOwnerEmail, stored.RecipientEmail)
 	require.Equal(testingT, 0, stored.RetryCount)
 	require.Equal(testingT, model.TrafficReportStatusPending, stored.LastStatus)
 	require.Empty(testingT, stored.LastError)

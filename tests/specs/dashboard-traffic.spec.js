@@ -91,28 +91,44 @@ test('traffic report schedule can be configured from dashboard', async ({ page }
   await selectSite(page, site.id);
   await page.locator('#dashboard-section-tab-traffic').click();
   await expect(page.locator('[data-dashboard-card="traffic-report"]')).toBeVisible();
+  await expect(page.locator('[data-dashboard-card="traffic-report"] .card-header #traffic-report-enabled')).toBeVisible();
+  await expect(page.locator('#traffic-report-save-button')).toHaveCount(0);
   await expect(page.locator('#traffic-report-recipient')).toHaveValue(config.adminEmail);
+  await expect(page.locator('#traffic-report-recipient')).toHaveAttribute('readonly', '');
+  await expect(page.locator('#traffic-report-timezone')).toHaveAttribute('readonly', '');
+  const detectedTimezone = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+  await expect(page.locator('#traffic-report-timezone')).toHaveValue(detectedTimezone);
 
   await page.locator('#traffic-report-enabled').check();
   await page.locator('label[for="traffic-report-frequency-weekly"]').click();
   await expect(page.locator('#traffic-report-weekday-container')).toBeVisible();
   await page.locator('#traffic-report-send-time').fill('14:30');
-  await page.locator('#traffic-report-timezone').fill('America/New_York');
   await page.locator('#traffic-report-weekday').selectOption('5');
-  await page.locator('#traffic-report-recipient').fill('reports@example.com');
-  await page.locator('#traffic-report-save-button').click();
 
+  await expect.poll(async () => {
+    const schedule = await fetchTrafficReportSchedule(config, cookie, site.id);
+    return {
+      enabled: schedule.enabled,
+      frequency: schedule.frequency,
+      recipient_email: schedule.recipient_email,
+      timezone: schedule.timezone,
+      send_hour: schedule.send_hour,
+      send_minute: schedule.send_minute,
+      weekday: schedule.weekday
+    };
+  }, { timeout: 10000 }).toEqual({
+    enabled: true,
+    frequency: 'weekly',
+    recipient_email: config.adminEmail,
+    timezone: detectedTimezone,
+    send_hour: 14,
+    send_minute: 30,
+    weekday: 5
+  });
   await expect(page.locator('#traffic-report-status')).toHaveText('Traffic report schedule saved.');
   await expect(page.locator('#traffic-report-next-send')).not.toHaveText('Not scheduled.');
 
   const schedule = await fetchTrafficReportSchedule(config, cookie, site.id);
-  expect(schedule.enabled).toBe(true);
-  expect(schedule.frequency).toBe('weekly');
-  expect(schedule.recipient_email).toBe('reports@example.com');
-  expect(schedule.timezone).toBe('America/New_York');
-  expect(schedule.send_hour).toBe(14);
-  expect(schedule.send_minute).toBe(30);
-  expect(schedule.weekday).toBe(5);
   expect(schedule.next_send_at).toBeGreaterThan(0);
 });
 

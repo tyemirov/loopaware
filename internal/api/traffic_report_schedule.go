@@ -95,7 +95,7 @@ func NewTrafficReportHandlers(database *gorm.DB, logger *zap.Logger, statsProvid
 
 // GetSchedule returns the saved traffic report schedule or site-specific defaults.
 func (handlers *TrafficReportHandlers) GetSchedule(context *gin.Context) {
-	site, _, ok := handlers.resolveAuthorizedSite(context)
+	site, currentUser, ok := handlers.resolveAuthorizedSite(context)
 	if !ok {
 		return
 	}
@@ -106,16 +106,17 @@ func (handlers *TrafficReportHandlers) GetSchedule(context *gin.Context) {
 		return
 	}
 	if !exists {
-		context.JSON(http.StatusOK, handlers.toScheduleResponse(defaultTrafficReportSchedule(site), site.ID))
+		context.JSON(http.StatusOK, handlers.toScheduleResponse(defaultTrafficReportSchedule(site, currentUser.normalizedEmail()), site.ID))
 		return
 	}
+	schedule.RecipientEmail = currentUser.normalizedEmail()
 
 	context.JSON(http.StatusOK, handlers.toScheduleResponse(schedule, site.ID))
 }
 
 // SaveSchedule validates and persists a traffic report schedule.
 func (handlers *TrafficReportHandlers) SaveSchedule(context *gin.Context) {
-	site, _, ok := handlers.resolveAuthorizedSite(context)
+	site, currentUser, ok := handlers.resolveAuthorizedSite(context)
 	if !ok {
 		return
 	}
@@ -126,7 +127,7 @@ func (handlers *TrafficReportHandlers) SaveSchedule(context *gin.Context) {
 		return
 	}
 
-	schedule, scheduleErr := buildTrafficReportScheduleFromRequest(site, payload, handlers.now().UTC())
+	schedule, scheduleErr := buildTrafficReportScheduleFromRequest(site, currentUser.normalizedEmail(), payload, handlers.now().UTC())
 	if scheduleErr != nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidTrafficReportSchedule})
 		return
@@ -144,7 +145,7 @@ func (handlers *TrafficReportHandlers) SaveSchedule(context *gin.Context) {
 
 // SendTestReport sends the saved traffic report immediately without changing the recurring cadence.
 func (handlers *TrafficReportHandlers) SendTestReport(context *gin.Context) {
-	site, _, ok := handlers.resolveAuthorizedSite(context)
+	site, currentUser, ok := handlers.resolveAuthorizedSite(context)
 	if !ok {
 		return
 	}
@@ -159,7 +160,7 @@ func (handlers *TrafficReportHandlers) SendTestReport(context *gin.Context) {
 		return
 	}
 	if !exists {
-		schedule = defaultTrafficReportSchedule(site)
+		schedule = defaultTrafficReportSchedule(site, currentUser.normalizedEmail())
 	}
 
 	dispatcher := trafficReportDispatcher{
@@ -267,11 +268,8 @@ func (handlers *TrafficReportHandlers) toScheduleResponse(schedule model.Traffic
 	}
 }
 
-func defaultTrafficReportSchedule(site model.Site) model.TrafficReportSchedule {
-	recipientEmail := strings.TrimSpace(site.OwnerEmail)
-	if recipientEmail == "" {
-		recipientEmail = strings.TrimSpace(site.CreatorEmail)
-	}
+func defaultTrafficReportSchedule(site model.Site, recipientEmail string) model.TrafficReportSchedule {
+	recipientEmail = strings.TrimSpace(recipientEmail)
 	schedule, scheduleErr := model.NewTrafficReportSchedule(model.TrafficReportScheduleInput{
 		SiteID:         site.ID,
 		Enabled:        false,
@@ -300,14 +298,10 @@ func defaultTrafficReportSchedule(site model.Site) model.TrafficReportSchedule {
 	return schedule
 }
 
-func buildTrafficReportScheduleFromRequest(site model.Site, payload trafficReportScheduleRequest, referenceTime time.Time) (model.TrafficReportSchedule, error) {
+func buildTrafficReportScheduleFromRequest(site model.Site, recipientEmail string, payload trafficReportScheduleRequest, referenceTime time.Time) (model.TrafficReportSchedule, error) {
 	frequency := strings.TrimSpace(payload.Frequency)
 	if frequency == "" {
 		frequency = model.TrafficReportFrequencyDaily
-	}
-	recipientEmail := strings.TrimSpace(payload.RecipientEmail)
-	if recipientEmail == "" {
-		recipientEmail = strings.TrimSpace(site.OwnerEmail)
 	}
 	timezoneName := strings.TrimSpace(payload.Timezone)
 	if timezoneName == "" {
