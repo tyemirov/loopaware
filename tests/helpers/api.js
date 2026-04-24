@@ -318,3 +318,87 @@ export async function saveTrafficReportSchedule(config, cookie, siteId, schedule
   }
   return payload;
 }
+
+export async function rotateSentryToken(config, cookie, siteId) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/sites/${siteId}/sentry/token`,
+    method: 'POST',
+    cookie
+  });
+  if (!response.ok) {
+    throw new Error(`sentry_token_rotate_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
+export async function captureSentryError(config, token, event) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: '/sentry/errors',
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
+    body: event
+  });
+  if (!response.ok) {
+    throw new Error(`sentry_capture_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
+export async function captureBrowserSentryError(config, event, origin, clientIP) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: '/sentry/browser-errors',
+    method: 'POST',
+    origin,
+    clientIP: clientIP || nextClientIP(),
+    body: event
+  });
+  if (!response.ok) {
+    throw new Error(`sentry_browser_capture_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
+export async function listSentryIssues(config, cookie, siteId) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/sites/${siteId}/sentry/issues`,
+    method: 'GET',
+    cookie
+  });
+  if (!response.ok) {
+    throw new Error(`sentry_issues_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
+export async function getSentryIssueDetail(config, cookie, siteId, issueId) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/sites/${siteId}/sentry/issues/${issueId}`,
+    method: 'GET',
+    cookie
+  });
+  if (!response.ok) {
+    throw new Error(`sentry_issue_detail_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
+export async function updateSentryIssueStatus(config, cookie, siteId, issueId, status) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/sites/${siteId}/sentry/issues/${issueId}`,
+    method: 'PATCH',
+    cookie,
+    body: { status }
+  });
+  if (!response.ok) {
+    throw new Error(`sentry_issue_update_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}

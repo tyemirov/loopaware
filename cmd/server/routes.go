@@ -37,6 +37,13 @@ func registerAPIPreflightRoutes(router *gin.Engine, publicCORS gin.HandlerFunc, 
 
 	router.OPTIONS(apiRoutePrefix+"/*path", preflightHandler)
 	router.OPTIONS(publicRoutePrefix+"/*path", preflightHandler)
+	router.OPTIONS(sentryRouteBrowserErrors, func(context *gin.Context) {
+		publicCORS(context)
+		if context.IsAborted() {
+			return
+		}
+		context.Status(http.StatusNoContent)
+	})
 }
 
 func registerBackendRoutes(
@@ -45,6 +52,7 @@ func registerBackendRoutes(
 	publicHandlers *api.PublicHandlers,
 	siteHandlers *api.SiteHandlers,
 	trafficReportHandlers *api.TrafficReportHandlers,
+	sentryHandlers *api.SentryHandlers,
 	widgetTestHandlers *api.SiteWidgetTestHandlers,
 	subscribeTestHandlers *api.SiteSubscribeTestHandlers,
 	authenticatedOrigin string,
@@ -79,6 +87,9 @@ func registerBackendRoutes(
 	publicGroup.GET("/public/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
 	publicGroup.GET(publicRouteVisitPixel, publicHandlers.CollectVisit)
 	publicGroup.POST(publicRouteVisitPixel, publicHandlers.CollectVisit)
+	publicGroup.POST(sentryRouteBrowserErrors, sentryHandlers.CaptureBrowserError)
+
+	router.POST(sentryRouteErrors, sentryHandlers.CaptureError)
 
 	apiGroup := router.Group(apiRoutePrefix)
 	apiGroup.Use(authenticatedCORS)
@@ -106,6 +117,10 @@ func registerBackendRoutes(
 	apiGroup.GET(apiRouteSiteTrafficReportSchedule, trafficReportHandlers.GetSchedule)
 	apiGroup.PUT(apiRouteSiteTrafficReportSchedule, trafficReportHandlers.SaveSchedule)
 	apiGroup.POST(apiRouteSiteTrafficReportTest, trafficReportHandlers.SendTestReport)
+	apiGroup.GET(apiRouteSiteSentryIssues, sentryHandlers.ListIssues)
+	apiGroup.GET(apiRouteSiteSentryIssueDetail, sentryHandlers.IssueDetail)
+	apiGroup.PATCH(apiRouteSiteSentryIssueDetail, sentryHandlers.UpdateIssueStatus)
+	apiGroup.POST(apiRouteSiteSentryToken, sentryHandlers.RotateToken)
 
 	apiGroup.POST("/sites/:id/widget-test/feedback", widgetTestHandlers.SubmitWidgetTestFeedback)
 	apiGroup.GET("/sites/:id/subscribe-test/events", subscribeTestHandlers.StreamSubscriptionTestEvents)

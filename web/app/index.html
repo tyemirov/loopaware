@@ -260,6 +260,9 @@
                 <li class="nav-item" role="presentation">
                   <button class="nav-link w-100" id="dashboard-section-tab-traffic" type="button" role="tab" aria-selected="false">Traffic</button>
                 </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link w-100" id="dashboard-section-tab-sentry" type="button" role="tab" aria-selected="false">LA Sentry</button>
+                </li>
               </ul>
             </div>
             <div class="card shadow-sm mb-4" data-widget-card="feedback">
@@ -399,6 +402,34 @@
                       <i class="bi bi-copy" aria-hidden="true"></i>
                       <span data-button-label>Copy</span>
                     </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card shadow-sm mb-4" data-widget-card="sentry">
+              <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <h5 class="mb-0">LA Sentry clients</h5>
+                  <div class="d-flex align-items-center gap-2">
+                    <div id="sentry-config-status" class="d-none py-1 px-2 small"></div>
+                    <button id="rotate-sentry-token-button" type="button" class="btn btn-outline-secondary btn-sm">Rotate token</button>
+                  </div>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label" for="sentry-ingest-endpoint">Ingest endpoint</label>
+                    <input id="sentry-ingest-endpoint" class="form-control font-monospace" type="text" readonly />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="sentry-ingest-token">Ingest token</label>
+                    <textarea id="sentry-ingest-token" class="form-control font-monospace" rows="2" readonly></textarea>
+                    <div class="form-text">The token is shown only immediately after rotation.</div>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="sentry-browser-snippet">Browser snippet</label>
+                    <textarea id="sentry-browser-snippet" class="form-control font-monospace" rows="2" readonly></textarea>
                   </div>
                 </div>
               </div>
@@ -601,6 +632,66 @@
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+            <div class="card shadow-sm mb-4" data-dashboard-card="sentry">
+              <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <h5 class="mb-0">LA Sentry issues</h5>
+                    <span id="sentry-issue-count" class="badge bg-secondary d-none"></span>
+                  </div>
+                  <div id="sentry-issues-status" class="d-none py-1 px-2 small"></div>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-striped table-hover align-middle">
+                    <thead class="table-light">
+                      <tr>
+                        <th scope="col">Issue</th>
+                        <th scope="col">Level</th>
+                        <th scope="col">Environment</th>
+                        <th scope="col">Release</th>
+                        <th scope="col" class="text-end">Count</th>
+                        <th scope="col">Last seen</th>
+                        <th scope="col">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="sentry-issues-table-body">
+                      <tr><td colspan="7" class="text-center text-muted">No LA Sentry issues yet.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <section id="sentry-issue-detail" class="border rounded p-3 mt-3 d-none">
+                  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div>
+                      <h6 id="sentry-issue-detail-title" class="fw-semibold mb-1">Issue detail</h6>
+                      <p id="sentry-issue-detail-meta" class="text-muted small mb-0"></p>
+                    </div>
+                    <div class="d-flex gap-2">
+                      <button id="sentry-issue-resolve-button" type="button" class="btn btn-outline-success btn-sm">Resolve</button>
+                      <button id="sentry-issue-reopen-button" type="button" class="btn btn-outline-secondary btn-sm">Reopen</button>
+                      <button id="sentry-issue-ignore-button" type="button" class="btn btn-outline-warning btn-sm">Ignore</button>
+                    </div>
+                  </div>
+                  <p class="text-muted small mb-2 mt-3">Latest stack</p>
+                  <pre id="sentry-issue-stacktrace" class="bg-body-tertiary border rounded p-2 small mb-3 text-wrap"></pre>
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <p class="text-muted small mb-2">Request</p>
+                      <pre id="sentry-issue-request" class="bg-body-tertiary border rounded p-2 small mb-0 text-wrap"></pre>
+                    </div>
+                    <div class="col-md-4">
+                      <p class="text-muted small mb-2">Tags</p>
+                      <pre id="sentry-issue-tags" class="bg-body-tertiary border rounded p-2 small mb-0 text-wrap"></pre>
+                    </div>
+                    <div class="col-md-4">
+                      <p class="text-muted small mb-2">Extra</p>
+                      <pre id="sentry-issue-extra" class="bg-body-tertiary border rounded p-2 small mb-0 text-wrap"></pre>
+                    </div>
+                  </div>
+                </section>
               </div>
             </div>
           </div>
@@ -1074,6 +1165,24 @@
         var trafficSnippetTextarea = document.getElementById(elementIds.traffic_snippet_textarea);
         var copyTrafficSnippetButton = document.getElementById(elementIds.copy_traffic_snippet_button);
         var trafficAllowedOriginsList = document.getElementById(elementIds.traffic_allowed_origins_list);
+        var sentryIngestEndpointInput = document.getElementById('sentry-ingest-endpoint');
+        var sentryIngestTokenTextarea = document.getElementById('sentry-ingest-token');
+        var sentryBrowserSnippetTextarea = document.getElementById('sentry-browser-snippet');
+        var sentryConfigStatusElement = document.getElementById('sentry-config-status');
+        var rotateSentryTokenButton = document.getElementById('rotate-sentry-token-button');
+        var sentryIssuesStatusElement = document.getElementById('sentry-issues-status');
+        var sentryIssueCountElement = document.getElementById('sentry-issue-count');
+        var sentryIssuesTableBody = document.getElementById('sentry-issues-table-body');
+        var sentryIssueDetailElement = document.getElementById('sentry-issue-detail');
+        var sentryIssueDetailTitle = document.getElementById('sentry-issue-detail-title');
+        var sentryIssueDetailMeta = document.getElementById('sentry-issue-detail-meta');
+        var sentryIssueStacktrace = document.getElementById('sentry-issue-stacktrace');
+        var sentryIssueRequest = document.getElementById('sentry-issue-request');
+        var sentryIssueTags = document.getElementById('sentry-issue-tags');
+        var sentryIssueExtra = document.getElementById('sentry-issue-extra');
+        var sentryIssueResolveButton = document.getElementById('sentry-issue-resolve-button');
+        var sentryIssueReopenButton = document.getElementById('sentry-issue-reopen-button');
+        var sentryIssueIgnoreButton = document.getElementById('sentry-issue-ignore-button');
         var widgetTestButton = document.getElementById(elementIds.widget_test_button);
         var widgetTestPagePrefix = typeof sharedPaths.widget_test_prefix === 'string' ? sharedPaths.widget_test_prefix : '';
         var widgetTestPageSuffix = typeof sharedPaths.widget_test_suffix === 'string' ? sharedPaths.widget_test_suffix : '';
@@ -1144,9 +1253,12 @@
         var apiSiteVisitTimezonesSuffix = apiPaths.site_visit_timezones || '';
         var apiSiteTrafficReportScheduleSuffix = '/traffic-report-schedule';
         var apiSiteTrafficReportTestSuffix = '/traffic-report-schedule/test';
+        var apiSiteSentryIssuesSuffix = '/sentry/issues';
+        var apiSiteSentryTokenSuffix = '/sentry/token';
         var dashboardSectionTabFeedback = document.getElementById(elementIds.dashboard_section_tab_feedback);
         var dashboardSectionTabSubscriptions = document.getElementById(elementIds.dashboard_section_tab_subscriptions);
         var dashboardSectionTabTraffic = document.getElementById(elementIds.dashboard_section_tab_traffic);
+        var dashboardSectionTabSentry = document.getElementById('dashboard-section-tab-sentry');
         var dashboardSectionCurrentKey = 'feedback';
 
         var state = {
@@ -1158,7 +1270,10 @@
           pendingDeletionSubscriberEmail: '',
           siteMessages: {},
           siteSubscribers: {},
-          trafficReportSchedules: {}
+          trafficReportSchedules: {},
+          siteSentryIssues: {},
+          siteSentryDetails: {},
+          selectedSentryIssueId: ''
         };
         var siteAutosaveDelayMilliseconds = 800;
         var siteAutosaveTimerId = null;
@@ -1175,6 +1290,8 @@
         var topPagesPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.top_pages ? parsedConfig.placeholders.top_pages : 'No visits yet.';
         var deviceTypesPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.device_types ? parsedConfig.placeholders.device_types : 'No device data yet.';
         var timezonesPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.timezones ? parsedConfig.placeholders.timezones : 'No timezone data yet.';
+        var sentryIssuesPlaceholder = 'No LA Sentry issues yet.';
+        var sentrySelectIssueMessage = 'Select an issue to inspect the latest occurrence.';
         var validationMessageKeyNameRequired = 'name_required';
         var validationMessageKeyOriginInvalid = 'origin_invalid';
         var validationMessageKeyOwnerInvalid = 'owner_invalid';
@@ -2769,6 +2886,7 @@
         }
         var buttonStatusDisplayDuration = 3000;
         var widgetBaseURL = window.location.origin.replace(/\/$/, '');
+        var sentryIngestEndpointDefault = (apiBaseURL || widgetBaseURL) + '/sentry/errors';
         if (widgetSnippetTextarea) {
           widgetSnippetTextarea.value = widgetUnavailableMessage;
         }
@@ -2778,6 +2896,15 @@
         if (trafficSnippetTextarea) {
           trafficSnippetTextarea.value = widgetUnavailableMessage;
         }
+        if (sentryIngestEndpointInput) {
+          sentryIngestEndpointInput.value = sentryIngestEndpointDefault;
+        }
+        if (sentryIngestTokenTextarea) {
+          sentryIngestTokenTextarea.value = 'Rotate the token to reveal a new secret.';
+        }
+        if (sentryBrowserSnippetTextarea) {
+          sentryBrowserSnippetTextarea.value = widgetUnavailableMessage;
+        }
         if (copyWidgetSnippetButton) {
           copyWidgetSnippetButton.disabled = true;
         }
@@ -2786,6 +2913,9 @@
         }
         if (copyTrafficSnippetButton) {
           copyTrafficSnippetButton.disabled = true;
+        }
+        if (rotateSentryTokenButton) {
+          rotateSentryTokenButton.disabled = true;
         }
         setButtonDefault(copyWidgetSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
         setButtonDefault(copySubscribeSnippetButton, buttonLabels.copy_default || '', buttonClasses.copy_default || '');
@@ -3194,7 +3324,7 @@
 
         function setDashboardSection(sectionKey) {
           var key = (sectionKey || '').toLowerCase();
-          if (key !== 'feedback' && key !== 'subscriptions' && key !== 'traffic') {
+          if (key !== 'feedback' && key !== 'subscriptions' && key !== 'traffic' && key !== 'sentry') {
             key = 'feedback';
           }
           dashboardSectionCurrentKey = key;
@@ -3214,6 +3344,7 @@
           setTabButtonState(dashboardSectionTabFeedback, dashboardSectionCurrentKey === 'feedback');
           setTabButtonState(dashboardSectionTabSubscriptions, dashboardSectionCurrentKey === 'subscriptions');
           setTabButtonState(dashboardSectionTabTraffic, dashboardSectionCurrentKey === 'traffic');
+          setTabButtonState(dashboardSectionTabSentry, dashboardSectionCurrentKey === 'sentry');
         }
 
         function setCardVisible(selector, isVisible) {
@@ -3228,6 +3359,7 @@
           var showFeedback = dashboardSectionCurrentKey === 'feedback';
           var showSubscriptions = dashboardSectionCurrentKey === 'subscriptions';
           var showTraffic = dashboardSectionCurrentKey === 'traffic';
+          var showSentry = dashboardSectionCurrentKey === 'sentry';
 
           setCardVisible('[data-widget-card=\"feedback\"]', showFeedback);
           setCardVisible('[data-dashboard-card=\"feedback\"]', showFeedback);
@@ -3236,6 +3368,8 @@
           setCardVisible('[data-widget-card=\"traffic\"]', showTraffic);
           setCardVisible('[data-dashboard-card=\"traffic-report\"]', showTraffic);
           setCardVisible('[data-dashboard-card=\"traffic\"]', showTraffic);
+          setCardVisible('[data-widget-card=\"sentry\"]', showSentry);
+          setCardVisible('[data-dashboard-card=\"sentry\"]', showSentry);
         }
 
         function resolveErrorMessage(errorCode, fallbackMessage) {
@@ -3400,7 +3534,18 @@
             if (state.siteMessages) {
               delete state.siteMessages[site.id];
             }
+            if (state.siteSentryIssues) {
+              delete state.siteSentryIssues[site.id];
+            }
+            if (state.siteSentryDetails) {
+              Object.keys(state.siteSentryDetails).forEach(function(cacheKey) {
+                if (cacheKey.indexOf(site.id + ':') === 0) {
+                  delete state.siteSentryDetails[cacheKey];
+                }
+              });
+            }
             state.selectedSiteId = state.sites.length > 0 ? state.sites[0].id : newSiteOptionValue;
+            state.selectedSentryIssueId = '';
             state.pendingDeletionSiteId = '';
             if (deleteSiteModal) {
               deleteSiteModal.hide();
@@ -3714,6 +3859,7 @@
           updateNewSiteButtonState();
           updateDeleteButtonState();
           updateSelectedSiteSummary(selectedSite);
+          updateSentryClientConfiguration(selectedSite);
           if (!skipFormPopulate) {
             populateSiteForm();
           } else {
@@ -3725,10 +3871,14 @@
           }
           if (!state.selectedSiteId) {
             renderFeedbackPlaceholder(siteSearchQuery ? statusNoSiteMatches : statusMessages.select_site || '');
+            renderSentryIssuesPlaceholder(statusMessages.select_site || sentryIssuesPlaceholder);
+            renderSentryIssueDetail(null);
             return;
           }
           if (isNewSiteSelected()) {
             renderFeedbackPlaceholder(statusMessages.select_site || '');
+            renderSentryIssuesPlaceholder(statusMessages.select_site || sentryIssuesPlaceholder);
+            renderSentryIssueDetail(null);
             return;
           }
           if (previousSelectedSiteId !== state.selectedSiteId || !state.siteMessages[state.selectedSiteId]) {
@@ -3736,12 +3886,14 @@
             loadSubscribers();
             loadVisitStats();
             loadTrafficReportSchedule();
+            loadSentryIssues();
             return;
           }
           renderMessages(state.siteMessages[state.selectedSiteId]);
           loadSubscribers();
           loadVisitStats();
           loadTrafficReportSchedule();
+          loadSentryIssues();
         }
 
         function handleSitesListClick(event) {
@@ -3759,6 +3911,7 @@
           cancelAutoSave();
           clearValidationFeedback();
           state.selectedSiteId = siteIdentifier;
+          state.selectedSentryIssueId = '';
           renderSites();
         }
 
@@ -3777,6 +3930,7 @@
           clearValidationFeedback();
           setSiteCreatedAt(null);
           setFeedbackCount(0, 0);
+          updateSentryClientConfiguration(null);
           setTrafficReportControlsDisabled(true);
           setTrafficReportScheduleControls({
             enabled: false,
@@ -3830,6 +3984,7 @@
           }
 
           updateSelectedSiteSummary(site);
+          updateSentryClientConfiguration(site);
           editSiteNameInput.value = site.name || '';
           editSiteOriginInput.value = site.allowed_origin || '';
           editSiteOwnerInput.value = site.owner_email || '';
@@ -4083,6 +4238,317 @@
             row.appendChild(tzCell);
             row.appendChild(countCell);
             timezonesTableBody.appendChild(row);
+          });
+        }
+
+        function setSentryIssueCount(total) {
+          if (!sentryIssueCountElement) {
+            return;
+          }
+          var normalizedTotal = typeof total === 'number' && total > 0 ? total : 0;
+          if (normalizedTotal === 0) {
+            sentryIssueCountElement.classList.add('d-none');
+            sentryIssueCountElement.textContent = '';
+            return;
+          }
+          sentryIssueCountElement.classList.remove('d-none');
+          sentryIssueCountElement.textContent = normalizedTotal.toString();
+        }
+
+        function showSentryStatus(element, message, isError) {
+          if (!element) {
+            return;
+          }
+          element.textContent = message || '';
+          element.classList.remove('d-none');
+          element.classList.toggle('text-danger-emphasis', isError === true);
+          element.classList.toggle('bg-danger-subtle', isError === true);
+          element.classList.toggle('text-success-emphasis', isError !== true);
+          element.classList.toggle('bg-success-subtle', isError !== true);
+        }
+
+        function clearSentryStatus(element) {
+          if (!element) {
+            return;
+          }
+          element.textContent = '';
+          element.classList.add('d-none');
+          element.classList.remove('text-danger-emphasis', 'bg-danger-subtle', 'text-success-emphasis', 'bg-success-subtle');
+        }
+
+        function buildSentryBrowserSnippet(site) {
+          if (!site || !site.id) {
+            return widgetUnavailableMessage;
+          }
+          var scriptURL = widgetBaseURL + '/la-sentry.js?site_id=' + encodeURIComponent(site.id) + '&environment=production';
+          return '<script defer src="' + scriptURL + '"><' + '/script>';
+        }
+
+        function updateSentryClientConfiguration(site) {
+          if (sentryIngestEndpointInput) {
+            sentryIngestEndpointInput.value = sentryIngestEndpointDefault;
+          }
+          if (!site || isNewSiteSelected()) {
+            if (sentryIngestTokenTextarea) {
+              sentryIngestTokenTextarea.value = widgetUnavailableMessage;
+            }
+            if (sentryBrowserSnippetTextarea) {
+              sentryBrowserSnippetTextarea.value = widgetUnavailableMessage;
+            }
+            if (rotateSentryTokenButton) {
+              rotateSentryTokenButton.disabled = true;
+            }
+            clearSentryStatus(sentryConfigStatusElement);
+            return;
+          }
+          if (rotateSentryTokenButton) {
+            rotateSentryTokenButton.disabled = false;
+          }
+          if (sentryIngestTokenTextarea) {
+            sentryIngestTokenTextarea.value = site.sentry_token_configured ? 'Token configured. Rotate to reveal a new secret.' : 'No token configured. Rotate to create one.';
+          }
+          if (sentryBrowserSnippetTextarea) {
+            sentryBrowserSnippetTextarea.value = buildSentryBrowserSnippet(site);
+          }
+          clearSentryStatus(sentryConfigStatusElement);
+        }
+
+        function renderSentryIssuesPlaceholder(message) {
+          if (!sentryIssuesTableBody) {
+            return;
+          }
+          sentryIssuesTableBody.innerHTML = '';
+          var row = document.createElement('tr');
+          var cell = document.createElement('td');
+          cell.colSpan = 7;
+          cell.className = 'text-center text-muted';
+          cell.textContent = message || sentryIssuesPlaceholder;
+          row.appendChild(cell);
+          sentryIssuesTableBody.appendChild(row);
+          setSentryIssueCount(0);
+        }
+
+        function renderSentryIssues(issues) {
+          if (!sentryIssuesTableBody) {
+            return;
+          }
+          var items = Array.isArray(issues) ? issues : [];
+          if (!items.length) {
+            renderSentryIssuesPlaceholder(sentryIssuesPlaceholder);
+            renderSentryIssueDetail(null);
+            return;
+          }
+          setSentryIssueCount(items.length);
+          sentryIssuesTableBody.innerHTML = '';
+          items.forEach(function(issue) {
+            var row = document.createElement('tr');
+            row.dataset.sentryIssueId = issue.id || '';
+            row.tabIndex = 0;
+            row.style.cursor = 'pointer';
+
+            var titleCell = document.createElement('td');
+            titleCell.textContent = issue.title || '';
+            row.appendChild(titleCell);
+
+            var levelCell = document.createElement('td');
+            levelCell.textContent = issue.level || '';
+            row.appendChild(levelCell);
+
+            var environmentCell = document.createElement('td');
+            environmentCell.textContent = issue.environment || '';
+            row.appendChild(environmentCell);
+
+            var releaseCell = document.createElement('td');
+            releaseCell.textContent = issue.release || '';
+            row.appendChild(releaseCell);
+
+            var countCell = document.createElement('td');
+            countCell.className = 'text-end';
+            countCell.textContent = String(issue.occurrence_count || 0);
+            row.appendChild(countCell);
+
+            var lastSeenCell = document.createElement('td');
+            lastSeenCell.textContent = formatDateTime(issue.last_seen_at);
+            row.appendChild(lastSeenCell);
+
+            var statusCell = document.createElement('td');
+            statusCell.textContent = issue.status || '';
+            row.appendChild(statusCell);
+
+            sentryIssuesTableBody.appendChild(row);
+          });
+          if (state.selectedSentryIssueId) {
+            var selectedExists = items.some(function(issue) {
+              return issue.id === state.selectedSentryIssueId;
+            });
+            if (!selectedExists) {
+              state.selectedSentryIssueId = '';
+              renderSentryIssueDetail(null);
+            }
+          }
+        }
+
+        function renderSentryIssueDetail(detail) {
+          if (!sentryIssueDetailElement) {
+            return;
+          }
+          if (!detail || !detail.issue) {
+            sentryIssueDetailElement.classList.add('d-none');
+            return;
+          }
+          var issue = detail.issue;
+          var occurrence = detail.latest_occurrence || {};
+          sentryIssueDetailElement.classList.remove('d-none');
+          if (sentryIssueDetailTitle) {
+            sentryIssueDetailTitle.textContent = issue.title || 'Issue detail';
+          }
+          if (sentryIssueDetailMeta) {
+            sentryIssueDetailMeta.textContent = [issue.level, issue.environment, issue.release, issue.status].filter(function(value) {
+              return Boolean(value);
+            }).join(' · ');
+          }
+          if (sentryIssueStacktrace) {
+            sentryIssueStacktrace.textContent = formatSentryStacktrace(occurrence.stacktrace || []);
+          }
+          if (sentryIssueRequest) {
+            sentryIssueRequest.textContent = formatJSONForDisplay(occurrence.request);
+          }
+          if (sentryIssueTags) {
+            sentryIssueTags.textContent = formatJSONForDisplay(occurrence.tags);
+          }
+          if (sentryIssueExtra) {
+            sentryIssueExtra.textContent = formatJSONForDisplay(occurrence.extra);
+          }
+        }
+
+        function formatSentryStacktrace(stacktrace) {
+          var frames = Array.isArray(stacktrace) ? stacktrace : [];
+          if (!frames.length) {
+            return 'No stack frames recorded.';
+          }
+          return frames.map(function(frame) {
+            var location = (frame.filename || '') + (frame.line ? ':' + frame.line : '');
+            var functionName = frame.function || frame.module || '<unknown>';
+            return functionName + ' ' + location;
+          }).join('\n');
+        }
+
+        function formatJSONForDisplay(value) {
+          if (value === null || value === undefined || value === '') {
+            return '{}';
+          }
+          try {
+            return JSON.stringify(value, null, 2);
+          } catch (error) {
+            return '{}';
+          }
+        }
+
+        function loadSentryIssues() {
+          var selectedSiteId = state.selectedSiteId;
+          var isSelectedNewSite = selectedSiteId === newSiteOptionValue;
+          if (!selectedSiteId || isSelectedNewSite) {
+            renderSentryIssuesPlaceholder(statusMessages.select_site || sentryIssuesPlaceholder);
+            renderSentryIssueDetail(null);
+            return;
+          }
+          clearSentryStatus(sentryIssuesStatusElement);
+          renderSentryIssues(state.siteSentryIssues[selectedSiteId] || []);
+          var endpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteSentryIssuesSuffix;
+          fetchJSON(endpoint).then(function(payload) {
+            if (state.selectedSiteId !== selectedSiteId) {
+              return;
+            }
+            var issues = payload.issues || [];
+            state.siteSentryIssues[selectedSiteId] = issues;
+            renderSentryIssues(issues);
+          }).catch(function(error) {
+            if (state.selectedSiteId !== selectedSiteId) {
+              return;
+            }
+            showSentryStatus(sentryIssuesStatusElement, error.message || statusMessages.load_failed || '', true);
+          });
+        }
+
+        function loadSentryIssueDetail(issueId) {
+          var selectedSiteId = state.selectedSiteId;
+          if (!selectedSiteId || isNewSiteSelected() || !issueId) {
+            renderSentryIssueDetail(null);
+            return;
+          }
+          state.selectedSentryIssueId = issueId;
+          var cacheKey = selectedSiteId + ':' + issueId;
+          if (state.siteSentryDetails[cacheKey]) {
+            renderSentryIssueDetail(state.siteSentryDetails[cacheKey]);
+          }
+          var endpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteSentryIssuesSuffix + '/' + issueId;
+          fetchJSON(endpoint).then(function(payload) {
+            if (state.selectedSiteId !== selectedSiteId || state.selectedSentryIssueId !== issueId) {
+              return;
+            }
+            state.siteSentryDetails[cacheKey] = payload;
+            renderSentryIssueDetail(payload);
+            clearSentryStatus(sentryIssuesStatusElement);
+          }).catch(function(error) {
+            if (state.selectedSiteId !== selectedSiteId) {
+              return;
+            }
+            showSentryStatus(sentryIssuesStatusElement, error.message || statusMessages.load_failed || '', true);
+          });
+        }
+
+        function updateSentryIssueStatus(status) {
+          if (!state.selectedSiteId || isNewSiteSelected() || !state.selectedSentryIssueId) {
+            return;
+          }
+          var selectedSiteId = state.selectedSiteId;
+          var issueId = state.selectedSentryIssueId;
+          var endpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteSentryIssuesSuffix + '/' + issueId;
+          fetchJSON(endpoint, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status: status })
+          }).then(function(updatedIssue) {
+            var issues = state.siteSentryIssues[selectedSiteId] || [];
+            state.siteSentryIssues[selectedSiteId] = issues.map(function(issue) {
+              return issue.id === updatedIssue.id ? updatedIssue : issue;
+            });
+            delete state.siteSentryDetails[selectedSiteId + ':' + issueId];
+            renderSentryIssues(state.siteSentryIssues[selectedSiteId]);
+            loadSentryIssueDetail(issueId);
+          }).catch(function(error) {
+            showSentryStatus(sentryIssuesStatusElement, error.message || statusMessages.load_failed || '', true);
+          });
+        }
+
+        function rotateSentryToken() {
+          if (!state.selectedSiteId || isNewSiteSelected()) {
+            return;
+          }
+          if (rotateSentryTokenButton) {
+            rotateSentryTokenButton.disabled = true;
+          }
+          var endpoint = apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteSentryTokenSuffix;
+          fetchJSON(endpoint, { method: 'POST' }).then(function(payload) {
+            if (sentryIngestEndpointInput) {
+              sentryIngestEndpointInput.value = payload.ingest_endpoint || sentryIngestEndpointDefault;
+            }
+            if (sentryIngestTokenTextarea) {
+              sentryIngestTokenTextarea.value = payload.ingest_token || '';
+            }
+            var site = resolveSelectedSite();
+            if (site) {
+              site.sentry_token_configured = true;
+            }
+            showSentryStatus(sentryConfigStatusElement, 'LA Sentry token rotated.', false);
+          }).catch(function(error) {
+            showSentryStatus(sentryConfigStatusElement, error.message || statusMessages.load_failed || '', true);
+          }).finally(function() {
+            if (rotateSentryTokenButton && state.selectedSiteId && !isNewSiteSelected()) {
+              rotateSentryTokenButton.disabled = false;
+            }
           });
         }
 
@@ -4403,6 +4869,9 @@
           return fetchJSON(apiSitesEndpoint).then(function(payload) {
             state.sites = payload.sites || [];
             state.siteMessages = {};
+            state.siteSentryIssues = {};
+            state.siteSentryDetails = {};
+            state.selectedSentryIssueId = '';
             renderSites();
           }).catch(function(error) {
             setFormStatus(error.message || statusMessages.load_failed || '', formStatusDangerClass);
@@ -4927,7 +5396,12 @@
             state.siteMessages = {};
           }
           state.siteMessages[payload.id] = [];
+          if (!state.siteSentryIssues) {
+            state.siteSentryIssues = {};
+          }
+          state.siteSentryIssues[payload.id] = [];
           state.selectedSiteId = payload.id;
+          state.selectedSentryIssueId = '';
           renderSites();
           finalizeAutoSave();
         }).catch(function(error) {
@@ -4964,6 +5438,7 @@
             cancelAutoSave();
             clearValidationFeedback();
             state.selectedSiteId = newSiteOptionValue;
+            state.selectedSentryIssueId = '';
             renderSites();
           });
         }
@@ -5206,6 +5681,56 @@
             sendTrafficReportTest();
           });
         }
+        if (rotateSentryTokenButton) {
+          rotateSentryTokenButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            if (rotateSentryTokenButton.disabled) {
+              return;
+            }
+            rotateSentryToken();
+          });
+        }
+        if (sentryIssuesTableBody) {
+          sentryIssuesTableBody.addEventListener('click', function(event) {
+            var target = event.target;
+            while (target && target !== sentryIssuesTableBody && !target.dataset.sentryIssueId) {
+              target = target.parentElement;
+            }
+            if (!target || target === sentryIssuesTableBody) {
+              return;
+            }
+            loadSentryIssueDetail(target.dataset.sentryIssueId || '');
+          });
+          sentryIssuesTableBody.addEventListener('keydown', function(event) {
+            if (event.key !== 'Enter' && event.key !== ' ') {
+              return;
+            }
+            var target = event.target;
+            if (!target || !target.dataset || !target.dataset.sentryIssueId) {
+              return;
+            }
+            event.preventDefault();
+            loadSentryIssueDetail(target.dataset.sentryIssueId || '');
+          });
+        }
+        if (sentryIssueResolveButton) {
+          sentryIssueResolveButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            updateSentryIssueStatus('resolved');
+          });
+        }
+        if (sentryIssueReopenButton) {
+          sentryIssueReopenButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            updateSentryIssueStatus('unresolved');
+          });
+        }
+        if (sentryIssueIgnoreButton) {
+          sentryIssueIgnoreButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            updateSentryIssueStatus('ignored');
+          });
+        }
         if (refreshMessagesButton) {
           refreshMessagesButton.addEventListener('click', function(event) {
             event.preventDefault();
@@ -5237,6 +5762,12 @@
           dashboardSectionTabTraffic.addEventListener('click', function(event) {
             event.preventDefault();
             setDashboardSection('traffic');
+          });
+        }
+        if (dashboardSectionTabSentry) {
+          dashboardSectionTabSentry.addEventListener('click', function(event) {
+            event.preventDefault();
+            setDashboardSection('sentry');
           });
         }
         window.addEventListener('beforeunload', function() {

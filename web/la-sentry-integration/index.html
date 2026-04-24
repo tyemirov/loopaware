@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LA Sentry Integration</title>
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <style>
+      body {
+        margin: 0;
+        padding: 48px 24px;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      .page {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      code {
+        background: rgba(15, 23, 42, 0.08);
+        padding: 0.1rem 0.25rem;
+        border-radius: 0.25rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <h1>LA Sentry Integration</h1>
+      <p>Provide <code>site_id</code> in the query string to load the browser harness.</p>
+      <p id="la-sentry-integration-status"></p>
+    </main>
+    <script>
+      // @ts-check
+      (function () {
+        function getQueryParam(search, name) {
+          if (!search || !name) {
+            return null;
+          }
+          var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+          if (!query) {
+            return null;
+          }
+          var pairs = query.split("&");
+          for (var pairIndex = 0; pairIndex < pairs.length; pairIndex += 1) {
+            var pair = pairs[pairIndex].split("=");
+            if (decodeURIComponent(pair[0].replace(/\+/g, " ")) === name) {
+              return decodeURIComponent((pair[1] || "").replace(/\+/g, " "));
+            }
+          }
+          return null;
+        }
+
+        var search = window.location.search || "";
+        var siteId = getQueryParam(search, "site_id");
+        if (!siteId) {
+          throw new Error("la_sentry_integration.init_failed: missing site_id query parameter");
+        }
+        siteId = siteId.trim();
+        if (!siteId) {
+          throw new Error("la_sentry_integration.init_failed: empty site_id query parameter");
+        }
+
+        var apiOrigin = (getQueryParam(search, "api_origin") || "").trim();
+        var environment = (getQueryParam(search, "environment") || "browser-test").trim();
+        var release = (getQueryParam(search, "release") || "browser-test-release").trim();
+        var status = document.getElementById("la-sentry-integration-status");
+        var scriptUrl = "/la-sentry.js?site_id=" + encodeURIComponent(siteId);
+        scriptUrl += "&environment=" + encodeURIComponent(environment);
+        scriptUrl += "&release=" + encodeURIComponent(release);
+        scriptUrl += "&service=browser-harness";
+        if (apiOrigin) {
+          scriptUrl += "&api_origin=" + encodeURIComponent(apiOrigin);
+        }
+        if (status) {
+          status.textContent = "Loading " + scriptUrl;
+        }
+        var script = document.createElement("script");
+        script.defer = true;
+        script.src = scriptUrl;
+        script.onload = function() {
+          if (status) {
+            status.textContent = "Loaded " + scriptUrl;
+          }
+        };
+        script.onerror = function() {
+          if (status) {
+            status.textContent = "Error loading " + scriptUrl;
+          }
+        };
+        document.head.appendChild(script);
+      })();
+    </script>
+  </body>
+</html>

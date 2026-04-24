@@ -11,6 +11,8 @@ bin/
 .env.*
 
 .DS_Store
+__pycache__/
+*.pyc
 
 PLAN.md
 MARKETING-READINESS.md
