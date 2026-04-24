@@ -1,4 +1,4 @@
-package sentry
+package lasentry
 
 import (
 	"bytes"
@@ -27,7 +27,7 @@ type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-// Config describes a LoopAware Sentry client.
+// Config describes a LoopAware LA Sentry client.
 type Config struct {
 	SiteID      string
 	Endpoint    string
@@ -88,19 +88,19 @@ type eventPayload struct {
 	Extra         map[string]any    `json:"extra"`
 }
 
-// NewClient constructs a LoopAware Sentry client.
+// NewClient constructs a LoopAware LA Sentry client.
 func NewClient(config Config) (*Client, error) {
 	siteID := strings.TrimSpace(config.SiteID)
 	if siteID == "" {
-		return nil, errors.New("sentry site id is required")
+		return nil, errors.New("la sentry site id is required")
 	}
 	endpoint := strings.TrimSpace(config.Endpoint)
 	if endpoint == "" {
-		return nil, errors.New("sentry endpoint is required")
+		return nil, errors.New("la sentry endpoint is required")
 	}
 	token := strings.TrimSpace(config.Token)
 	if token == "" {
-		return nil, errors.New("sentry token is required")
+		return nil, errors.New("la sentry token is required")
 	}
 	platform := strings.TrimSpace(config.Platform)
 	if platform == "" {
@@ -128,10 +128,10 @@ func NewClient(config Config) (*Client, error) {
 // CaptureError submits an explicit error event.
 func (client *Client) CaptureError(ctx context.Context, capturedErr error, attributes Attributes) error {
 	if client == nil {
-		return errors.New("sentry client is nil")
+		return errors.New("la sentry client is nil")
 	}
 	if capturedErr == nil {
-		return errors.New("sentry error is required")
+		return errors.New("la sentry error is required")
 	}
 	level := strings.TrimSpace(attributes.Level)
 	if level == "" {
@@ -208,21 +208,21 @@ func RequestMetadata(request *http.Request) map[string]any {
 func (client *Client) submit(ctx context.Context, payload eventPayload) error {
 	serializedPayload, marshalErr := json.Marshal(payload)
 	if marshalErr != nil {
-		return fmt.Errorf("marshal sentry event: %w", marshalErr)
+		return fmt.Errorf("marshal la sentry event: %w", marshalErr)
 	}
 	request, requestErr := http.NewRequestWithContext(ctx, http.MethodPost, client.endpoint, bytes.NewReader(serializedPayload))
 	if requestErr != nil {
-		return fmt.Errorf("create sentry request: %w", requestErr)
+		return fmt.Errorf("create la sentry request: %w", requestErr)
 	}
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Authorization", "Bearer "+client.token)
 	response, responseErr := client.httpClient.Do(request)
 	if responseErr != nil {
-		return fmt.Errorf("submit sentry event: %w", responseErr)
+		return fmt.Errorf("submit la sentry event: %w", responseErr)
 	}
 	defer response.Body.Close()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("submit sentry event: status %d", response.StatusCode)
+		return fmt.Errorf("submit la sentry event: status %d", response.StatusCode)
 	}
 	return nil
 }

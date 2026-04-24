@@ -1,4 +1,4 @@
-"""Protected LoopAware Sentry ingest client for Python services."""
+"""Protected LoopAware LA Sentry ingest client for Python services."""
 
 from __future__ import annotations
 
@@ -25,15 +25,15 @@ MAX_SITE_ID_LENGTH = 36
 MAX_TAG_LENGTH = 200
 MAX_USER_HASH_LENGTH = 200
 PLATFORM = "python"
-SENTRY_ENDPOINT_PATH = "/sentry/errors"
+LA_SENTRY_ENDPOINT_PATH = "/sentry/errors"
 
 
-class InvalidSentryConfig(ValueError):
-    """Raised when client configuration cannot produce valid Sentry events."""
+class InvalidLASentryConfig(ValueError):
+    """Raised when client configuration cannot produce valid LA Sentry events."""
 
 
 class InvalidCaptureAttributes(ValueError):
-    """Raised when capture attributes cannot produce valid Sentry events."""
+    """Raised when capture attributes cannot produce valid LA Sentry events."""
 
 
 class CaptureFailed(RuntimeError):
@@ -64,8 +64,8 @@ Transport = Callable[[Request, float], HTTPResponse]
 
 
 @dataclass(frozen=True)
-class SentryConfig:
-    """Validated configuration for token-protected LoopAware Sentry ingest."""
+class LASentryConfig:
+    """Validated configuration for token-protected LoopAware LA Sentry ingest."""
 
     endpoint: str
     site_id: str
@@ -83,7 +83,7 @@ class SentryConfig:
         release = normalize_optional_string(self.release, MAX_RELEASE_LENGTH)
         timeout_seconds = float(self.timeout_seconds)
         if timeout_seconds <= 0:
-            raise InvalidSentryConfig("invalid_timeout_seconds")
+            raise InvalidLASentryConfig("invalid_timeout_seconds")
         object.__setattr__(self, "endpoint", endpoint)
         object.__setattr__(self, "site_id", site_id)
         object.__setattr__(self, "ingest_token", ingest_token)
@@ -117,9 +117,9 @@ class CaptureAttributes:
 
 
 class Client:
-    """Client for submitting Python exceptions to LoopAware Sentry ingest."""
+    """Client for submitting Python exceptions to LoopAware LA Sentry ingest."""
 
-    def __init__(self, config: SentryConfig, transport: Transport | None = None) -> None:
+    def __init__(self, config: LASentryConfig, transport: Transport | None = None) -> None:
         self._config = config
         self._transport = transport or default_transport
 
@@ -179,7 +179,7 @@ class Client:
         return decoded_payload
 
 
-class WSGISentryMiddleware:
+class WSGILASentryMiddleware:
     """WSGI middleware that captures uncaught application exceptions."""
 
     def __init__(self, app: Callable[..., Any], client: Client) -> None:
@@ -207,7 +207,7 @@ class WSGISentryMiddleware:
                 close()
 
 
-class ASGISentryMiddleware:
+class ASGILASentryMiddleware:
     """ASGI middleware that captures uncaught application exceptions."""
 
     def __init__(self, app: Callable[..., Any], client: Client) -> None:
@@ -272,7 +272,7 @@ def is_in_app_frame(filename: str) -> bool:
     normalized_filename = filename.replace("\\", "/").lower()
     if "/site-packages/" in normalized_filename or "/dist-packages/" in normalized_filename:
         return False
-    return not normalized_filename.endswith("/loopaware_sentry/client.py")
+    return not normalized_filename.endswith("/la_sentry/client.py")
 
 
 def request_from_wsgi_environ(environ: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -320,14 +320,14 @@ def header_value(headers: Any, name: bytes) -> str:
 
 
 def normalize_endpoint(endpoint: str) -> str:
-    """Validate and normalize the LoopAware Sentry endpoint URL."""
+    """Validate and normalize the LoopAware LA Sentry endpoint URL."""
 
     trimmed_endpoint = str(endpoint or "").strip()
     parsed_endpoint = urlparse(trimmed_endpoint)
     if parsed_endpoint.scheme not in {"http", "https"} or not parsed_endpoint.netloc:
-        raise InvalidSentryConfig("invalid_endpoint")
-    if not parsed_endpoint.path.endswith(SENTRY_ENDPOINT_PATH):
-        raise InvalidSentryConfig("invalid_endpoint_path")
+        raise InvalidLASentryConfig("invalid_endpoint")
+    if not parsed_endpoint.path.endswith(LA_SENTRY_ENDPOINT_PATH):
+        raise InvalidLASentryConfig("invalid_endpoint_path")
     return trimmed_endpoint
 
 
@@ -336,7 +336,7 @@ def normalize_required_string(value: str, field_name: str, max_length: int) -> s
 
     normalized = normalize_optional_string(value, max_length)
     if not normalized:
-        raise InvalidSentryConfig("missing_" + field_name)
+        raise InvalidLASentryConfig("missing_" + field_name)
     return normalized
 
 

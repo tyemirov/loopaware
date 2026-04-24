@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sentry Integration</title>
+    <title>LA Sentry Integration</title>
     <meta name="robots" content="noindex,nofollow,noarchive" />
     <style>
       body {
@@ -26,9 +26,9 @@
   </head>
   <body>
     <main class="page">
-      <h1>Sentry Integration</h1>
+      <h1>LA Sentry Integration</h1>
       <p>Provide <code>site_id</code> in the query string to load the browser harness.</p>
-      <p id="sentry-integration-status"></p>
+      <p id="la-sentry-integration-status"></p>
     </main>
     <script>
       // @ts-check
@@ -54,18 +54,18 @@
         var search = window.location.search || "";
         var siteId = getQueryParam(search, "site_id");
         if (!siteId) {
-          throw new Error("sentry_integration.init_failed: missing site_id query parameter");
+          throw new Error("la_sentry_integration.init_failed: missing site_id query parameter");
         }
         siteId = siteId.trim();
         if (!siteId) {
-          throw new Error("sentry_integration.init_failed: empty site_id query parameter");
+          throw new Error("la_sentry_integration.init_failed: empty site_id query parameter");
         }
 
         var apiOrigin = (getQueryParam(search, "api_origin") || "").trim();
         var environment = (getQueryParam(search, "environment") || "browser-test").trim();
         var release = (getQueryParam(search, "release") || "browser-test-release").trim();
-        var status = document.getElementById("sentry-integration-status");
-        var scriptUrl = "/sentry.js?site_id=" + encodeURIComponent(siteId);
+        var status = document.getElementById("la-sentry-integration-status");
+        var scriptUrl = "/la-sentry.js?site_id=" + encodeURIComponent(siteId);
         scriptUrl += "&environment=" + encodeURIComponent(environment);
         scriptUrl += "&release=" + encodeURIComponent(release);
         scriptUrl += "&service=browser-harness";

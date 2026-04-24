@@ -43,7 +43,7 @@ Embed the feedback widget on any page:
 - Email subscription capture via an embeddable subscribe form
 - Privacy-safe traffic pixel with per-site visit and visitor counts
 - Daily, weekly, or monthly traffic report emails delivered through Pinguin
-- First-class Sentry developer error monitoring with protected server-to-server ingest and origin-bound browser capture
+- First-class LA Sentry developer error monitoring with protected server-to-server ingest and origin-bound browser capture
 - SQLite-first storage with pluggable drivers
 - Public privacy policy and compliance endpoints for visibility
 - Table-driven tests and fast in-memory SQLite fixtures
@@ -183,7 +183,7 @@ LoopAware’s frontend lives in `web/` and is hosted separately (CDN or reverse 
 - `/privacy` — static privacy policy linked from the landing and dashboard footers.
 - `/app` — dashboard shell (data loaded via `/api/*`).
 - `/subscriptions/confirm` and `/subscriptions/unsubscribe` — email link pages.
-- `/widget.js`, `/subscribe.js`, `/pixel.js`, `/sentry.js` — embeddable JavaScript assets.
+- `/widget.js`, `/subscribe.js`, `/pixel.js`, `/la-sentry.js` — embeddable JavaScript assets.
 - `/sentry/errors` — protected server-to-server developer error ingest.
 - `/sentry/browser-errors` — origin-bound browser developer error ingest.
 
@@ -222,9 +222,9 @@ include Unix timestamps in seconds.
 | `DELETE`| `/api/sites/:id/subscribers/:subscriber_id` | owner/admin | Delete a subscriber                                                                                |
 | `GET`   | `/api/sites/:id/visits/stats`         | owner/admin | Aggregate visit and unique visitor counts plus recent visits and top pages                              |
 | `GET`   | `/api/sites/:id/sentry/issues`        | owner/admin | List grouped developer error issues for a site                                                          |
-| `GET`   | `/api/sites/:id/sentry/issues/:issue_id` | owner/admin | Inspect latest and recent Sentry error occurrences                                                   |
+| `GET`   | `/api/sites/:id/sentry/issues/:issue_id` | owner/admin | Inspect latest and recent LA Sentry error occurrences                                                |
 | `PATCH` | `/api/sites/:id/sentry/issues/:issue_id` | owner/admin | Update issue status (`unresolved`, `resolved`, or `ignored`)                                         |
-| `POST`  | `/api/sites/:id/sentry/token`         | owner/admin | Rotate and reveal a per-site Sentry ingest token                                                        |
+| `POST`  | `/api/sites/:id/sentry/token`         | owner/admin | Rotate and reveal a per-site LA Sentry ingest token                                                     |
 | `GET`   | `/api/sites/:id/visits/trend`         | owner/admin | Daily visit trend (default 7 days, optional `days` query param up to 30)                               |
 | `GET`   | `/api/sites/:id/visits/attribution`   | owner/admin | Source/medium/campaign attribution breakdown (optional `limit` query param up to 50; defaults to 10)   |
 | `GET`   | `/api/sites/:id/visits/engagement`    | owner/admin | Visitor engagement metrics (default 30 days, optional `days` query param up to 90)                     |
@@ -242,9 +242,9 @@ Subscriptions use confirmation and unsubscribe links sent via email: the static 
 `/subscriptions/confirm?token=...` and `/subscriptions/unsubscribe?token=...` call the API without requiring browser
 origin headers.
 
-Sentry ingest accepts JSON with `site_id`, `event_id`, `timestamp`, `platform`, `environment`, `release`, `level`,
+LA Sentry ingest accepts JSON with `site_id`, `event_id`, `timestamp`, `platform`, `environment`, `release`, `level`,
 `message`, `exception_type`, `stacktrace`, `request`, `user_hash`, `tags`, and `extra`. Rotate the per-site token from
-the dashboard `Sentry` tab; tokens are shown only once and are intended for server-side clients. The browser harness uses
+the dashboard `LA Sentry` tab; tokens are shown only once and are intended for server-side clients. The browser harness uses
 `/sentry/browser-errors` without a token. Browser events are accepted only from the site's configured `allowed_origin`
 values, are rate-limited by client IP, and store minimized request metadata.
 
@@ -341,16 +341,16 @@ For non-JavaScript environments you can fall back to a plain image pixel:
 Server-side clients should use the protected `/sentry/errors` endpoint with a per-site ingest token. The repository
 includes first-party Go and Python clients:
 
-- Go: `pkg/sentry`
-- Python: `clients/python/loopaware_sentry`
+- Go: `pkg/lasentry`
+- Python: `clients/python/la_sentry`
 
 Browser pages can use the standalone harness without exposing the server-side token:
 
 ```html
-<script defer src="https://loopaware.mprlab.com/sentry.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f&environment=production&release=2026.04.24"></script>
+<script defer src="https://loopaware.mprlab.com/la-sentry.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f&environment=production&release=2026.04.24"></script>
 ```
 
-The browser harness installs `window.LoopAwareSentry.captureError(error, attrs)` and automatically captures uncaught
+The browser harness installs `window.LASentry.captureError(error, attrs)` and automatically captures uncaught
 `error` and `unhandledrejection` events. It sends sanitized URL/referrer/user-agent metadata, stack frames, tags, and
 explicit `extra` values supplied by application code.
 

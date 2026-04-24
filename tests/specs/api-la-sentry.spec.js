@@ -25,8 +25,8 @@ const config = resolveTestConfig();
 const execFileAsync = promisify(execFile);
 const adminUser = buildAdminUser(config);
 const nonAdminUser = buildAdminUser(config, {
-  email: buildUniqueEmail("sentry-user"),
-  displayName: "Sentry User"
+  email: buildUniqueEmail("la-sentry-user"),
+  displayName: "LA Sentry User"
 });
 
 function adminCookie() {
@@ -85,12 +85,12 @@ async function runPythonClientCapture(site, tokenPayload) {
   const script = `
 import json
 import os
-from loopaware_sentry import Client, SentryConfig
+from la_sentry import Client, LASentryConfig
 
-client = Client(SentryConfig(
-    endpoint=os.environ["LOOPAWARE_SENTRY_ENDPOINT"],
-    site_id=os.environ["LOOPAWARE_SENTRY_SITE_ID"],
-    ingest_token=os.environ["LOOPAWARE_SENTRY_TOKEN"],
+client = Client(LASentryConfig(
+    endpoint=os.environ["LOOPAWARE_LA_SENTRY_ENDPOINT"],
+    site_id=os.environ["LOOPAWARE_LA_SENTRY_SITE_ID"],
+    ingest_token=os.environ["LOOPAWARE_LA_SENTRY_TOKEN"],
     environment="integration-python",
     release="2026.04.24-python",
     default_tags={"service": "python-client"},
@@ -100,7 +100,7 @@ try:
     raise RuntimeError("python client capture failed")
 except RuntimeError as error:
     response = client.capture_error(error, {
-        "event_id": os.environ["LOOPAWARE_SENTRY_EVENT_ID"],
+        "event_id": os.environ["LOOPAWARE_LA_SENTRY_EVENT_ID"],
         "tags": {"language": "python"},
         "request": {"method": "GET", "url": "https://python-client.example/sync"},
         "extra": {"worker": "alpha"},
@@ -112,18 +112,18 @@ except RuntimeError as error:
     env: {
       ...process.env,
       PYTHONPATH: `${config.repositoryRoot}/clients/python`,
-      LOOPAWARE_SENTRY_ENDPOINT: tokenPayload.ingest_endpoint,
-      LOOPAWARE_SENTRY_SITE_ID: site.id,
-      LOOPAWARE_SENTRY_TOKEN: tokenPayload.ingest_token,
-      LOOPAWARE_SENTRY_EVENT_ID: `python-${Date.now()}`
+      LOOPAWARE_LA_SENTRY_ENDPOINT: tokenPayload.ingest_endpoint,
+      LOOPAWARE_LA_SENTRY_SITE_ID: site.id,
+      LOOPAWARE_LA_SENTRY_TOKEN: tokenPayload.ingest_token,
+      LOOPAWARE_LA_SENTRY_EVENT_ID: `python-${Date.now()}`
     }
   });
   return JSON.parse(stdout.trim());
 }
 
-test.describe("sentry developer monitoring api", () => {
+test.describe("LA Sentry developer monitoring api", () => {
   test("requires a configured ingest token", async () => {
-    const site = await createSentrySite("Sentry Token Missing");
+    const site = await createSentrySite("LA Sentry Token Missing");
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
       path: "/sentry/errors",
@@ -136,7 +136,7 @@ test.describe("sentry developer monitoring api", () => {
   });
 
   test("rejects invalid ingest credentials", async () => {
-    const site = await createSentrySite("Sentry Token Invalid");
+    const site = await createSentrySite("LA Sentry Token Invalid");
     await rotateSentryToken(config, adminCookie(), site.id);
 
     const { response, payload } = await apiRequest({
@@ -154,7 +154,7 @@ test.describe("sentry developer monitoring api", () => {
   });
 
   test("captures, groups, deduplicates, and updates issue status", async () => {
-    const site = await createSentrySite("Sentry Capture");
+    const site = await createSentrySite("LA Sentry Capture");
     const tokenPayload = await rotateSentryToken(config, adminCookie(), site.id);
 
     const event = sentryEvent(site, { eventId: "event-grouped-primary" });
@@ -188,7 +188,7 @@ test.describe("sentry developer monitoring api", () => {
   });
 
   test("keeps issue access scoped to site managers", async () => {
-    const site = await createSentrySite("Sentry Unauthorized");
+    const site = await createSentrySite("LA Sentry Unauthorized");
     const tokenPayload = await rotateSentryToken(config, adminCookie(), site.id);
     await captureSentryError(config, tokenPayload.ingest_token, sentryEvent(site));
 
@@ -204,7 +204,7 @@ test.describe("sentry developer monitoring api", () => {
   });
 
   test("captures browser errors from allowed origins without an ingest token", async () => {
-    const site = await createSentrySite("Sentry Browser API");
+    const site = await createSentrySite("LA Sentry Browser API");
     const event = sentryEvent(site, {
       eventId: "browser-origin-event",
       message: "browser route failed",
@@ -235,7 +235,7 @@ test.describe("sentry developer monitoring api", () => {
   });
 
   test("rejects browser errors from unknown origins", async () => {
-    const site = await createSentrySite("Sentry Browser Forbidden");
+    const site = await createSentrySite("LA Sentry Browser Forbidden");
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
       path: "/sentry/browser-errors",
@@ -249,7 +249,7 @@ test.describe("sentry developer monitoring api", () => {
   });
 
   test("python client captures errors through protected ingest", async () => {
-    const site = await createSentrySite("Sentry Python Client");
+    const site = await createSentrySite("LA Sentry Python Client");
     const tokenPayload = await rotateSentryToken(config, adminCookie(), site.id);
     const capture = await runPythonClientCapture(site, tokenPayload);
 

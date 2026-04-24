@@ -261,7 +261,7 @@
                   <button class="nav-link w-100" id="dashboard-section-tab-traffic" type="button" role="tab" aria-selected="false">Traffic</button>
                 </li>
                 <li class="nav-item" role="presentation">
-                  <button class="nav-link w-100" id="dashboard-section-tab-sentry" type="button" role="tab" aria-selected="false">Sentry</button>
+                  <button class="nav-link w-100" id="dashboard-section-tab-sentry" type="button" role="tab" aria-selected="false">LA Sentry</button>
                 </li>
               </ul>
             </div>
@@ -409,7 +409,7 @@
             <div class="card shadow-sm mb-4" data-widget-card="sentry">
               <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                  <h5 class="mb-0">Sentry client</h5>
+                  <h5 class="mb-0">LA Sentry clients</h5>
                   <div class="d-flex align-items-center gap-2">
                     <div id="sentry-config-status" class="d-none py-1 px-2 small"></div>
                     <button id="rotate-sentry-token-button" type="button" class="btn btn-outline-secondary btn-sm">Rotate token</button>
@@ -638,7 +638,7 @@
               <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                   <div class="d-flex align-items-center gap-2">
-                    <h5 class="mb-0">Sentry issues</h5>
+                    <h5 class="mb-0">LA Sentry issues</h5>
                     <span id="sentry-issue-count" class="badge bg-secondary d-none"></span>
                   </div>
                   <div id="sentry-issues-status" class="d-none py-1 px-2 small"></div>
@@ -659,7 +659,7 @@
                       </tr>
                     </thead>
                     <tbody id="sentry-issues-table-body">
-                      <tr><td colspan="7" class="text-center text-muted">No Sentry issues yet.</td></tr>
+                      <tr><td colspan="7" class="text-center text-muted">No LA Sentry issues yet.</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -1290,7 +1290,7 @@
         var topPagesPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.top_pages ? parsedConfig.placeholders.top_pages : 'No visits yet.';
         var deviceTypesPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.device_types ? parsedConfig.placeholders.device_types : 'No device data yet.';
         var timezonesPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.timezones ? parsedConfig.placeholders.timezones : 'No timezone data yet.';
-        var sentryIssuesPlaceholder = 'No Sentry issues yet.';
+        var sentryIssuesPlaceholder = 'No LA Sentry issues yet.';
         var sentrySelectIssueMessage = 'Select an issue to inspect the latest occurrence.';
         var validationMessageKeyNameRequired = 'name_required';
         var validationMessageKeyOriginInvalid = 'origin_invalid';
@@ -4280,7 +4280,7 @@
           if (!site || !site.id) {
             return widgetUnavailableMessage;
           }
-          var scriptURL = widgetBaseURL + '/sentry.js?site_id=' + encodeURIComponent(site.id) + '&environment=production';
+          var scriptURL = widgetBaseURL + '/la-sentry.js?site_id=' + encodeURIComponent(site.id) + '&environment=production';
           return '<script defer src="' + scriptURL + '"><' + '/script>';
         }
 
@@ -4542,7 +4542,7 @@
             if (site) {
               site.sentry_token_configured = true;
             }
-            showSentryStatus(sentryConfigStatusElement, 'Sentry token rotated.', false);
+            showSentryStatus(sentryConfigStatusElement, 'LA Sentry token rotated.', false);
           }).catch(function(error) {
             showSentryStatus(sentryConfigStatusElement, error.message || statusMessages.load_failed || '', true);
           }).finally(function() {

@@ -21,8 +21,8 @@ function adminCookie() {
 
 async function createDashboardSentrySite() {
   return createTestSite(config, adminCookie(), {
-    name: buildUniqueName("Dashboard Sentry"),
-    allowedOrigin: buildUniqueOrigin("dashboard-sentry"),
+    name: buildUniqueName("Dashboard LA Sentry"),
+    allowedOrigin: buildUniqueOrigin("dashboard-la-sentry"),
     ownerEmail: config.adminEmail
   });
 }
@@ -30,7 +30,7 @@ async function createDashboardSentrySite() {
 function dashboardSentryEvent(site) {
   return {
     site_id: site.id,
-    event_id: `dashboard-sentry-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    event_id: `dashboard-la-sentry-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     timestamp: new Date().toISOString(),
     platform: "go",
     environment: "production",
@@ -62,7 +62,7 @@ function dashboardSentryEvent(site) {
   };
 }
 
-test("dashboard sentry tab shows client config, issues, details, and status actions", async ({ page }) => {
+test("dashboard LA Sentry tab shows client config, issues, details, and status actions", async ({ page }) => {
   const site = await createDashboardSentrySite();
   const tokenPayload = await rotateSentryToken(config, adminCookie(), site.id);
   await captureSentryError(config, tokenPayload.ingest_token, dashboardSentryEvent(site));
@@ -74,7 +74,7 @@ test("dashboard sentry tab shows client config, issues, details, and status acti
   await expect(page.locator('[data-widget-card="sentry"]')).toBeVisible();
   await expect(page.locator("#sentry-ingest-endpoint")).toHaveValue(/\/sentry\/errors$/);
   await expect(page.locator("#sentry-ingest-token")).toHaveValue(/Token configured/);
-  await expect(page.locator("#sentry-browser-snippet")).toHaveValue(new RegExp(`/sentry\\.js\\?site_id=${site.id}&environment=production`));
+  await expect(page.locator("#sentry-browser-snippet")).toHaveValue(new RegExp(`/la-sentry\\.js\\?site_id=${site.id}&environment=production`));
   await expect(page.locator("#rotate-sentry-token-button")).toBeEnabled();
 
   const issueRow = page.locator('#sentry-issues-table-body tr:has-text("CheckoutWorkerError")').first();
@@ -95,7 +95,7 @@ test("dashboard sentry tab shows client config, issues, details, and status acti
   await expect(issueRow).toContainText("unresolved");
 });
 
-test("dashboard can rotate and reveal a new sentry token", async ({ page }) => {
+test("dashboard can rotate and reveal a new LA Sentry token", async ({ page }) => {
   const site = await createDashboardSentrySite();
 
   await openDashboard(page, config, adminUser);
@@ -104,6 +104,6 @@ test("dashboard can rotate and reveal a new sentry token", async ({ page }) => {
 
   await expect(page.locator("#sentry-ingest-token")).toHaveValue(/No token configured/);
   await page.locator("#rotate-sentry-token-button").click();
-  await expect(page.locator("#sentry-config-status")).toContainText("Sentry token rotated.");
+  await expect(page.locator("#sentry-config-status")).toContainText("LA Sentry token rotated.");
   await expect(page.locator("#sentry-ingest-token")).toHaveValue(/^las_/);
 });

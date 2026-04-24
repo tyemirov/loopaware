@@ -1,6 +1,6 @@
 // @ts-check
 (function(){
-  var globalClientName = "LoopAwareSentry";
+  var globalClientName = "LASentry";
   var browserEndpointPath = "/sentry/browser-errors";
   var defaultEnvironment = "browser";
   var defaultLevel = "error";
@@ -22,7 +22,7 @@
    */
 
   /**
-   * @typedef {{siteId: string, apiOrigin: string, environment: string, release: string, defaultTags: Record<string, string>, autoCapture: boolean}} BrowserSentryConfig
+   * @typedef {{siteId: string, apiOrigin: string, environment: string, release: string, defaultTags: Record<string, string>, autoCapture: boolean}} BrowserLASentryConfig
    */
 
   /**
@@ -38,7 +38,7 @@
     if (currentScript) {
       return currentScript;
     }
-    var candidates = document.querySelectorAll('script[src*="sentry.js"]');
+    var candidates = document.querySelectorAll('script[src*="la-sentry.js"]');
     if (candidates.length > 0) {
       return candidates[candidates.length - 1];
     }
@@ -109,7 +109,7 @@
 
   function resolveAPIOriginCandidate(scriptTag) {
     if (!scriptTag) {
-      throw new Error("sentry.js: resolve_origin.failed: missing script tag");
+      throw new Error("la-sentry.js: resolve_origin.failed: missing script tag");
     }
     var candidate = scriptTag.getAttribute("data-api-origin");
     if (candidate) {
@@ -145,7 +145,7 @@
     if (candidate) {
       var normalizedCandidate = normalizeAPIOrigin(candidate);
       if (!normalizedCandidate) {
-        throw new Error("sentry.js: resolve_origin.failed: invalid api_origin format");
+        throw new Error("la-sentry.js: resolve_origin.failed: invalid api_origin format");
       }
       return normalizedCandidate;
     }
@@ -167,7 +167,7 @@
     if (window.location && window.location.protocol && window.location.host) {
       return window.location.protocol + "//" + window.location.host;
     }
-    throw new Error("sentry.js: resolve_origin.failed: api_origin not provided and cannot be resolved");
+    throw new Error("la-sentry.js: resolve_origin.failed: api_origin not provided and cannot be resolved");
   }
 
   function readScriptSearch(scriptTag) {
@@ -208,12 +208,12 @@
 
   function parseConfig(scriptTag) {
     if (!scriptTag) {
-      throw new Error("sentry.js: parse_config.failed: missing script tag");
+      throw new Error("la-sentry.js: parse_config.failed: missing script tag");
     }
     var search = readScriptSearch(scriptTag);
     var siteId = readConfigString(scriptTag, search, "site_id", "data-site-id", "");
     if (!siteId) {
-      throw new Error("sentry.js: parse_config.failed: site_id not provided");
+      throw new Error("la-sentry.js: parse_config.failed: site_id not provided");
     }
     var environment = readConfigString(scriptTag, search, "environment", "data-environment", defaultEnvironment) || defaultEnvironment;
     var release = readConfigString(scriptTag, search, "release", "data-release", "");
@@ -428,7 +428,7 @@
     }).then(function(response) {
       if (!response || !response.ok) {
         var statusCode = response ? response.status : 0;
-        throw new Error("sentry.js: capture_failed: HTTP " + statusCode);
+        throw new Error("la-sentry.js: capture_failed: HTTP " + statusCode);
       }
       return response.json();
     });
@@ -444,7 +444,7 @@
     }
 
     function reportCaptureFailure(captureErrorValue) {
-      console.error("sentry.js: capture_failed", captureErrorValue);
+      console.error("la-sentry.js: capture_failed", captureErrorValue);
     }
 
     if (config.autoCapture) {
@@ -485,7 +485,7 @@
     var config = parseConfig(selectScriptTag());
     window[globalClientName] = install(config);
   } catch(initError) {
-    console.error("sentry.js: init_failed", initError);
+    console.error("la-sentry.js: init_failed", initError);
     throw initError;
   }
 })();

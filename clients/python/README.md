@@ -1,11 +1,11 @@
-# LoopAware Sentry Python Client
+# LoopAware LA Sentry Python Client
 
-This package submits Python service exceptions to LoopAware's protected Sentry ingest endpoint without depending on the commercial Sentry SDK.
+This package submits Python service exceptions to LoopAware's protected LA Sentry ingest endpoint without depending on the commercial Sentry SDK.
 
 ```python
-from loopaware_sentry import Client, SentryConfig
+from la_sentry import Client, LASentryConfig
 
-client = Client(SentryConfig(
+client = Client(LASentryConfig(
     endpoint="https://loopaware.mprlab.com/sentry/errors",
     site_id="YOUR_SITE_ID",
     ingest_token="YOUR_SERVER_SIDE_TOKEN",
@@ -25,16 +25,16 @@ Tokens must stay server-side. Do not embed the token in browser JavaScript.
 ## Middleware
 
 ```python
-from loopaware_sentry import Client, SentryConfig, WSGISentryMiddleware
+from la_sentry import Client, LASentryConfig, WSGILASentryMiddleware
 
-client = Client(SentryConfig(
+client = Client(LASentryConfig(
     endpoint="https://loopaware.mprlab.com/sentry/errors",
     site_id="YOUR_SITE_ID",
     ingest_token="YOUR_SERVER_SIDE_TOKEN",
     environment="production",
 ))
 
-application = WSGISentryMiddleware(application, client)
+application = WSGILASentryMiddleware(application, client)
 ```
 
-ASGI apps can use `ASGISentryMiddleware(app, client)` with the same client configuration.
+ASGI apps can use `ASGILASentryMiddleware(app, client)` with the same client configuration.
