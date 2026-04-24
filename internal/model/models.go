@@ -21,6 +21,7 @@ type Site struct {
 	WidgetBubbleBottomOffsetPx int    `gorm:"not null;default:16"`
 	WidgetShowMessageInput     bool   `gorm:"not null;default:true"`
 	WidgetShowSentimentButtons bool   `gorm:"not null;default:true"`
+	SentryIngestTokenHash      string `gorm:"size:64"`
 	FaviconData                []byte `gorm:"type:blob"`
 	FaviconContentType         string `gorm:"size:100"`
 	FaviconFetchedAt           time.Time

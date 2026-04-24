@@ -51,35 +51,35 @@ const (
 	errorValueInvalidDays             = "invalid_days"
 	errorValueInvalidLimit            = "invalid_limit"
 
-	widgetScriptTemplate            = "<script defer src=\"%s\"></script>"
-	widgetScriptPath                = "/widget.js"
-	widgetQueryParameterSiteID      = "site_id"
-	widgetQueryParameterAPIOrigin   = "api_origin"
-	headerForwarded                 = "Forwarded"
-	headerXForwardedProto           = "X-Forwarded-Proto"
-	urlSchemeHTTP                   = "http"
-	urlSchemeHTTPS                  = "https"
-	siteFaviconURLTemplate          = "/api/sites/%s/favicon"
-	widgetBubbleSideRight           = "right"
-	widgetBubbleSideLeft            = "left"
-	defaultWidgetBubbleSide         = widgetBubbleSideRight
-	defaultWidgetBubbleBottomOffset = 16
-	defaultWidgetShowMessageInput   = true
-	defaultWidgetShowSentiment      = true
-	minWidgetBubbleBottomOffset     = 0
-	maxWidgetBubbleBottomOffset     = 240
-	feedbackCreatedEventName        = "feedback_created"
-	visitTrendDefaultDays           = 7
-	visitTrendMaxDays               = 30
-	visitTrendDateFormat            = "2006-01-02"
-	visitAttributionDefaultLimit    = 10
-	visitAttributionMaxLimit        = 50
-	visitEngagementDefaultDays           = 30
-	visitEngagementMaxDays               = 90
-	deviceBreakdownDefaultLimit          = 10
-	deviceBreakdownMaxLimit              = 50
-	timezoneDistributionDefaultLimit     = 10
-	timezoneDistributionMaxLimit         = 50
+	widgetScriptTemplate             = "<script defer src=\"%s\"></script>"
+	widgetScriptPath                 = "/widget.js"
+	widgetQueryParameterSiteID       = "site_id"
+	widgetQueryParameterAPIOrigin    = "api_origin"
+	headerForwarded                  = "Forwarded"
+	headerXForwardedProto            = "X-Forwarded-Proto"
+	urlSchemeHTTP                    = "http"
+	urlSchemeHTTPS                   = "https"
+	siteFaviconURLTemplate           = "/api/sites/%s/favicon"
+	widgetBubbleSideRight            = "right"
+	widgetBubbleSideLeft             = "left"
+	defaultWidgetBubbleSide          = widgetBubbleSideRight
+	defaultWidgetBubbleBottomOffset  = 16
+	defaultWidgetShowMessageInput    = true
+	defaultWidgetShowSentiment       = true
+	minWidgetBubbleBottomOffset      = 0
+	maxWidgetBubbleBottomOffset      = 240
+	feedbackCreatedEventName         = "feedback_created"
+	visitTrendDefaultDays            = 7
+	visitTrendMaxDays                = 30
+	visitTrendDateFormat             = "2006-01-02"
+	visitAttributionDefaultLimit     = 10
+	visitAttributionMaxLimit         = 50
+	visitEngagementDefaultDays       = 30
+	visitEngagementMaxDays           = 90
+	deviceBreakdownDefaultLimit      = 10
+	deviceBreakdownMaxLimit          = 50
+	timezoneDistributionDefaultLimit = 10
+	timezoneDistributionMaxLimit     = 50
 )
 
 type SiteHandlers struct {
@@ -146,6 +146,7 @@ type siteResponse struct {
 	SubscriberCount          int64  `json:"subscriber_count"`
 	VisitCount               int64  `json:"visit_count"`
 	UniqueVisitorCount       int64  `json:"unique_visitor_count"`
+	SentryTokenConfigured    bool   `json:"sentry_token_configured"`
 	WidgetBubbleSide         string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
 	WidgetShowMessageInput   bool   `json:"widget_show_message_input"`
@@ -858,6 +859,12 @@ func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
 		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.Feedback{}).Error; err != nil {
 			return err
 		}
+		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.SentryOccurrence{}).Error; err != nil {
+			return err
+		}
+		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.SentryIssue{}).Error; err != nil {
+			return err
+		}
 		if err := transaction.Delete(&model.Site{ID: site.ID}).Error; err != nil {
 			return err
 		}
@@ -1376,6 +1383,7 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 		SubscriberCount:          handlers.subscriberCount(ctx, site.ID),
 		VisitCount:               handlers.visitCount(ctx, site.ID),
 		UniqueVisitorCount:       handlers.uniqueVisitorCount(ctx, site.ID),
+		SentryTokenConfigured:    strings.TrimSpace(site.SentryIngestTokenHash) != "",
 		WidgetBubbleSide:         site.WidgetBubbleSide,
 		WidgetBubbleBottomOffset: site.WidgetBubbleBottomOffsetPx,
 		WidgetShowMessageInput:   site.WidgetShowMessageInput,

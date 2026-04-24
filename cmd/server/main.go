@@ -102,6 +102,7 @@ const (
 	publicRouteSubscriptionConfirm    = "/public/subscriptions/confirm"
 	publicRouteSubscriptionOptOut     = "/public/subscriptions/unsubscribe"
 	publicRouteVisitPixel             = "/public/visits"
+	sentryRouteErrors                 = "/sentry/errors"
 	apiRoutePrefix                    = "/api"
 	apiRouteMe                        = "/me"
 	apiRouteMeAvatar                  = "/me/avatar"
@@ -122,6 +123,9 @@ const (
 	apiRouteSiteFavicon               = "/sites/:id/favicon"
 	apiRouteSiteFaviconEvents         = "/sites/favicons/events"
 	apiRouteSiteFeedbackEvents        = "/sites/feedback/events"
+	apiRouteSiteSentryIssues          = "/sites/:id/sentry/issues"
+	apiRouteSiteSentryIssueDetail     = "/sites/:id/sentry/issues/:issue_id"
+	apiRouteSiteSentryToken           = "/sites/:id/sentry/token"
 	corsOriginWildcard                = "*"
 	corsHeaderAuthorization           = "Authorization"
 	corsHeaderContentType             = "Content-Type"
@@ -460,6 +464,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	statsProvider := api.NewDatabaseSiteStatisticsProvider(database)
 	siteHandlers := api.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
 	trafficReportHandlers := api.NewTrafficReportHandlers(database, logger, statsProvider, trafficReportEmailSender, serverConfig.TrafficReportEmails)
+	sentryHandlers := api.NewSentryHandlers(database, logger, pinguinNotifier, serverConfig.PublicBaseURL)
 	if serverConfig.TrafficReportEmails {
 		trafficReportScheduler, schedulerErr := api.NewTrafficReportScheduler(database, logger, statsProvider, trafficReportEmailSender, 0, 0)
 		if schedulerErr != nil {
@@ -476,7 +481,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	if originErr != nil {
 		logger.Fatal("cors_origin", zap.Error(originErr))
 	}
-	registerBackendRoutes(router, authManager, publicHandlers, siteHandlers, trafficReportHandlers, widgetTestHandlers, subscribeTestHandlers, authenticatedOrigin)
+	registerBackendRoutes(router, authManager, publicHandlers, siteHandlers, trafficReportHandlers, sentryHandlers, widgetTestHandlers, subscribeTestHandlers, authenticatedOrigin)
 
 	httpServer := &http.Server{
 		Addr:              serverConfig.ApplicationAddress,

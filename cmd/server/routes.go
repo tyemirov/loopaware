@@ -45,6 +45,7 @@ func registerBackendRoutes(
 	publicHandlers *api.PublicHandlers,
 	siteHandlers *api.SiteHandlers,
 	trafficReportHandlers *api.TrafficReportHandlers,
+	sentryHandlers *api.SentryHandlers,
 	widgetTestHandlers *api.SiteWidgetTestHandlers,
 	subscribeTestHandlers *api.SiteSubscribeTestHandlers,
 	authenticatedOrigin string,
@@ -80,6 +81,8 @@ func registerBackendRoutes(
 	publicGroup.GET(publicRouteVisitPixel, publicHandlers.CollectVisit)
 	publicGroup.POST(publicRouteVisitPixel, publicHandlers.CollectVisit)
 
+	router.POST(sentryRouteErrors, sentryHandlers.CaptureError)
+
 	apiGroup := router.Group(apiRoutePrefix)
 	apiGroup.Use(authenticatedCORS)
 	apiGroup.Use(authManager.RequireAuthenticatedJSON())
@@ -106,6 +109,10 @@ func registerBackendRoutes(
 	apiGroup.GET(apiRouteSiteTrafficReportSchedule, trafficReportHandlers.GetSchedule)
 	apiGroup.PUT(apiRouteSiteTrafficReportSchedule, trafficReportHandlers.SaveSchedule)
 	apiGroup.POST(apiRouteSiteTrafficReportTest, trafficReportHandlers.SendTestReport)
+	apiGroup.GET(apiRouteSiteSentryIssues, sentryHandlers.ListIssues)
+	apiGroup.GET(apiRouteSiteSentryIssueDetail, sentryHandlers.IssueDetail)
+	apiGroup.PATCH(apiRouteSiteSentryIssueDetail, sentryHandlers.UpdateIssueStatus)
+	apiGroup.POST(apiRouteSiteSentryToken, sentryHandlers.RotateToken)
 
 	apiGroup.POST("/sites/:id/widget-test/feedback", widgetTestHandlers.SubmitWidgetTestFeedback)
 	apiGroup.GET("/sites/:id/subscribe-test/events", subscribeTestHandlers.StreamSubscriptionTestEvents)

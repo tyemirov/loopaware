@@ -43,6 +43,7 @@ Embed the feedback widget on any page:
 - Email subscription capture via an embeddable subscribe form
 - Privacy-safe traffic pixel with per-site visit and visitor counts
 - Daily, weekly, or monthly traffic report emails delivered through Pinguin
+- First-class Sentry developer error monitoring with protected server-to-server ingest
 - SQLite-first storage with pluggable drivers
 - Public privacy policy and compliance endpoints for visibility
 - Table-driven tests and fast in-memory SQLite fixtures
@@ -183,6 +184,7 @@ LoopAware’s frontend lives in `web/` and is hosted separately (CDN or reverse 
 - `/app` — dashboard shell (data loaded via `/api/*`).
 - `/subscriptions/confirm` and `/subscriptions/unsubscribe` — email link pages.
 - `/widget.js`, `/subscribe.js`, `/pixel.js` — embeddable JavaScript assets.
+- `/sentry/errors` — protected server-to-server developer error ingest.
 
 The repository does not vendor third-party browser dependencies into `web/`. External JavaScript and CSS, including UI
 libraries, must be referenced through pinned CDN URLs. Any browser dependency that is not delivered by CDN is
@@ -218,6 +220,10 @@ include Unix timestamps in seconds.
 | `PATCH` | `/api/sites/:id/subscribers/:subscriber_id` | owner/admin | Update a subscriber’s status (confirm or unsubscribe)                                             |
 | `DELETE`| `/api/sites/:id/subscribers/:subscriber_id` | owner/admin | Delete a subscriber                                                                                |
 | `GET`   | `/api/sites/:id/visits/stats`         | owner/admin | Aggregate visit and unique visitor counts plus recent visits and top pages                              |
+| `GET`   | `/api/sites/:id/sentry/issues`        | owner/admin | List grouped developer error issues for a site                                                          |
+| `GET`   | `/api/sites/:id/sentry/issues/:issue_id` | owner/admin | Inspect latest and recent Sentry error occurrences                                                   |
+| `PATCH` | `/api/sites/:id/sentry/issues/:issue_id` | owner/admin | Update issue status (`unresolved`, `resolved`, or `ignored`)                                         |
+| `POST`  | `/api/sites/:id/sentry/token`         | owner/admin | Rotate and reveal a per-site Sentry ingest token                                                        |
 | `GET`   | `/api/sites/:id/visits/trend`         | owner/admin | Daily visit trend (default 7 days, optional `days` query param up to 30)                               |
 | `GET`   | `/api/sites/:id/visits/attribution`   | owner/admin | Source/medium/campaign attribution breakdown (optional `limit` query param up to 50; defaults to 10)   |
 | `GET`   | `/api/sites/:id/visits/engagement`    | owner/admin | Visitor engagement metrics (default 30 days, optional `days` query param up to 90)                     |
@@ -228,10 +234,15 @@ include Unix timestamps in seconds.
 | `POST`  | `/public/subscriptions/confirm`          | public      | Confirm a subscription for a given `site_id` and email                                                  |
 | `POST`  | `/public/subscriptions/unsubscribe`      | public      | Unsubscribe an email address for a given `site_id`                                                      |
 | `GET`   | `/public/visits`                         | public      | Record a page visit for a site (returns a 1×1 GIF for use as a tracking pixel)                          |
+| `POST`  | `/sentry/errors`                         | ingest token | Submit developer error events with `Authorization: Bearer <token>` or `X-LoopAware-Sentry-Token`       |
 
 Subscriptions use confirmation and unsubscribe links sent via email: the static frontend pages at
 `/subscriptions/confirm?token=...` and `/subscriptions/unsubscribe?token=...` call the API without requiring browser
 origin headers.
+
+Sentry ingest accepts JSON with `site_id`, `event_id`, `timestamp`, `platform`, `environment`, `release`, `level`,
+`message`, `exception_type`, `stacktrace`, `request`, `user_hash`, `tags`, and `extra`. Rotate the per-site token from
+the dashboard `Sentry` tab; tokens are shown only once and are intended for server-side clients.
 
 The `allowed_origin` field for a site may contain multiple origins separated by spaces or commas (for example `https://mprlab.com http://localhost:8080`); widgets, subscribe forms, and pixels will accept requests from any configured origin while still rejecting traffic from unknown sites.
 
