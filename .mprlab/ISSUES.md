@@ -141,6 +141,7 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
 
   ### Resolution
   Implemented protected LA Sentry ingest with per-site token rotation, grouped developer issues and occurrences, authenticated dashboard APIs, the dashboard LA Sentry tab, a Go client/middleware package, docs, and black-box API/dashboard coverage. `make ci` passed.
+  Post-review hardening now retries concurrent first-occurrence races, atomically increments grouped issue counts, bounds browser rate-limit state, rejects spoofed browser payload URLs, and strips query/fragment secrets from Go middleware request metadata. `make ci` passed.
 
 - [ ] [F002] (P1) {F001} Add a Node.js LA Sentry server client.
   ### Summary

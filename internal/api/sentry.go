@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 )
@@ -34,6 +35,9 @@ const (
 	sentryTokenPrefix                   = "las_"
 	sentryBrowserRateWindowSeconds      = 30
 	sentryBrowserMaxRequestsPerWindow   = 60
+	sentryBrowserMaxRateCounterEntries  = 4096
+	sentryPersistMaxAttempts            = 6
+	sentryPersistRetryDelayMilliseconds = 25
 	sentryPlatformJavaScript            = "javascript"
 	sentryAlertKindFirstSeen            = "first_seen"
 	sentryAlertKindRegressed            = "regressed"
@@ -56,8 +60,13 @@ type SentryHandlers struct {
 	emailSender       EmailSender
 	publicBaseURL     string
 	rateWindow        time.Duration
-	rateCountersByIP  map[string]int
+	rateCountersByIP  map[string]sentryBrowserRateCounter
 	rateCountersMutex sync.Mutex
+}
+
+type sentryBrowserRateCounter struct {
+	windowBucket int64
+	count        int
 }
 
 type sentryErrorRequest struct {
@@ -158,7 +167,7 @@ func NewSentryHandlers(database *gorm.DB, logger *zap.Logger, emailSender EmailS
 		emailSender:      emailSender,
 		publicBaseURL:    strings.TrimRight(strings.TrimSpace(publicBaseURL), "/"),
 		rateWindow:       sentryBrowserRateWindowSeconds * time.Second,
-		rateCountersByIP: make(map[string]int),
+		rateCountersByIP: make(map[string]sentryBrowserRateCounter),
 	}
 }
 
@@ -217,7 +226,7 @@ func (handlers *SentryHandlers) CaptureBrowserError(context *gin.Context) {
 
 	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
 	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
-	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader, browserSentryRequestURL(payload.Request)) {
+	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader, "") {
 		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueOriginForbidden})
 		return
 	}
@@ -404,6 +413,27 @@ func (handlers *SentryHandlers) RotateToken(context *gin.Context) {
 }
 
 func (handlers *SentryHandlers) persistSentryEvent(ctx context.Context, site model.Site, event model.SentryEvent) (model.SentryIssue, model.SentryOccurrence, bool, string, error) {
+	for attempt := 1; attempt <= sentryPersistMaxAttempts; attempt += 1 {
+		issue, occurrence, duplicate, alertKind, persistErr := handlers.persistSentryEventOnce(ctx, site, event)
+		if persistErr == nil {
+			return issue, occurrence, duplicate, alertKind, nil
+		}
+		if !isRetryableSentryPersistError(persistErr) || attempt == sentryPersistMaxAttempts {
+			return model.SentryIssue{}, model.SentryOccurrence{}, false, "", persistErr
+		}
+		retryDelay := time.Duration(attempt*sentryPersistRetryDelayMilliseconds) * time.Millisecond
+		retryTimer := time.NewTimer(retryDelay)
+		select {
+		case <-ctx.Done():
+			retryTimer.Stop()
+			return model.SentryIssue{}, model.SentryOccurrence{}, false, "", ctx.Err()
+		case <-retryTimer.C:
+		}
+	}
+	return model.SentryIssue{}, model.SentryOccurrence{}, false, "", errors.New("sentry persist attempts exhausted")
+}
+
+func (handlers *SentryHandlers) persistSentryEventOnce(ctx context.Context, site model.Site, event model.SentryEvent) (model.SentryIssue, model.SentryOccurrence, bool, string, error) {
 	var duplicateOccurrence model.SentryOccurrence
 	duplicateErr := handlers.database.WithContext(ctx).
 		Where("site_id = ? AND event_id = ?", site.ID, event.Occurrence.EventID).
@@ -440,27 +470,29 @@ func (handlers *SentryHandlers) persistSentryEvent(ctx context.Context, site mod
 			if issueErr != nil {
 				return issueErr
 			}
-			if createErr := transaction.Create(&newIssue).Error; createErr != nil {
-				return createErr
+			createResult := transaction.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "site_id"}, {Name: "grouping_key"}},
+				DoNothing: true,
+			}).Create(&newIssue)
+			if createResult.Error != nil {
+				return createResult.Error
 			}
-			savedIssue = newIssue
-			alertKind = sentryAlertKindFirstSeen
+			if createResult.RowsAffected == 0 {
+				if refetchErr := transaction.Where("site_id = ? AND grouping_key = ?", site.ID, event.GroupingKey).First(&savedIssue).Error; refetchErr != nil {
+					return refetchErr
+				}
+				if updateErr := updateExistingSentryIssue(transaction, &savedIssue, event, &alertKind); updateErr != nil {
+					return updateErr
+				}
+			} else {
+				savedIssue = newIssue
+				alertKind = sentryAlertKindFirstSeen
+			}
 		} else if findErr != nil {
 			return findErr
 		} else {
-			if savedIssue.Status == model.SentryIssueStatusResolved {
-				savedIssue.Status = model.SentryIssueStatusUnresolved
-				alertKind = sentryAlertKindRegressed
-			}
-			savedIssue.Title = event.Title
-			savedIssue.Level = savedOccurrence.Level
-			savedIssue.Platform = savedOccurrence.Platform
-			savedIssue.Environment = savedOccurrence.Environment
-			savedIssue.Release = savedOccurrence.Release
-			savedIssue.LastSeenAt = savedOccurrence.ReceivedAt
-			savedIssue.OccurrenceCount += 1
-			if saveErr := transaction.Save(&savedIssue).Error; saveErr != nil {
-				return saveErr
+			if updateErr := updateExistingSentryIssue(transaction, &savedIssue, event, &alertKind); updateErr != nil {
+				return updateErr
 			}
 		}
 
@@ -475,6 +507,40 @@ func (handlers *SentryHandlers) persistSentryEvent(ctx context.Context, site mod
 	}
 
 	return savedIssue, savedOccurrence, false, alertKind, nil
+}
+
+func updateExistingSentryIssue(transaction *gorm.DB, savedIssue *model.SentryIssue, event model.SentryEvent, alertKind *string) error {
+	savedOccurrence := event.Occurrence
+	updates := map[string]any{
+		"title":            event.Title,
+		"level":            savedOccurrence.Level,
+		"platform":         savedOccurrence.Platform,
+		"environment":      savedOccurrence.Environment,
+		"release":          savedOccurrence.Release,
+		"last_seen_at":     savedOccurrence.ReceivedAt,
+		"occurrence_count": gorm.Expr("occurrence_count + ?", 1),
+	}
+	if savedIssue.Status == model.SentryIssueStatusResolved {
+		updates["status"] = model.SentryIssueStatusUnresolved
+		*alertKind = sentryAlertKindRegressed
+	}
+	if updateErr := transaction.Model(savedIssue).Updates(updates).Error; updateErr != nil {
+		return updateErr
+	}
+	return transaction.First(savedIssue, "id = ?", savedIssue.ID).Error
+}
+
+func isRetryableSentryPersistError(err error) bool {
+	if err == nil {
+		return false
+	}
+	normalizedMessage := strings.ToLower(err.Error())
+	return strings.Contains(normalizedMessage, "database is locked") ||
+		strings.Contains(normalizedMessage, "database table is locked") ||
+		strings.Contains(normalizedMessage, "database is busy") ||
+		strings.Contains(normalizedMessage, "database table is busy") ||
+		strings.Contains(normalizedMessage, "sqlite_busy") ||
+		strings.Contains(normalizedMessage, "sqlite_locked")
 }
 
 func (handlers *SentryHandlers) validateSentryToken(context *gin.Context, site model.Site) error {
@@ -569,17 +635,6 @@ func toSentryStackFrameInputs(frames []sentryStackFrameRequest) []model.SentrySt
 	return inputs
 }
 
-func browserSentryRequestURL(requestPayload map[string]any) string {
-	if requestPayload == nil {
-		return ""
-	}
-	urlValue, ok := requestPayload["url"].(string)
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(urlValue)
-}
-
 func minimizeBrowserSentryRequest(requestPayload map[string]any) map[string]any {
 	if len(requestPayload) == 0 {
 		return nil
@@ -624,13 +679,29 @@ func sanitizeBrowserSentryURL(rawValue string) string {
 
 func (handlers *SentryHandlers) isBrowserRateLimited(ip string) bool {
 	nowBucket := time.Now().Unix() / int64(handlers.rateWindow.Seconds())
-	key := fmt.Sprintf("%s:%d", ip, nowBucket)
 
 	handlers.rateCountersMutex.Lock()
 	defer handlers.rateCountersMutex.Unlock()
 
-	handlers.rateCountersByIP[key]++
-	return handlers.rateCountersByIP[key] > sentryBrowserMaxRequestsPerWindow
+	handlers.pruneBrowserRateCounters(nowBucket)
+	rateCounter, exists := handlers.rateCountersByIP[ip]
+	if !exists && len(handlers.rateCountersByIP) >= sentryBrowserMaxRateCounterEntries {
+		return true
+	}
+	if rateCounter.windowBucket != nowBucket {
+		rateCounter = sentryBrowserRateCounter{windowBucket: nowBucket}
+	}
+	rateCounter.count += 1
+	handlers.rateCountersByIP[ip] = rateCounter
+	return rateCounter.count > sentryBrowserMaxRequestsPerWindow
+}
+
+func (handlers *SentryHandlers) pruneBrowserRateCounters(currentBucket int64) {
+	for clientIP, rateCounter := range handlers.rateCountersByIP {
+		if rateCounter.windowBucket < currentBucket {
+			delete(handlers.rateCountersByIP, clientIP)
+		}
+	}
 }
 
 func (handlers *SentryHandlers) resolveAuthorizedSite(context *gin.Context) (model.Site, bool) {

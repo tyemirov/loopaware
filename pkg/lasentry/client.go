@@ -196,9 +196,18 @@ func RequestMetadata(request *http.Request) map[string]any {
 	if request == nil {
 		return nil
 	}
+	requestURL := ""
+	if request.URL != nil {
+		sanitizedURL := *request.URL
+		sanitizedURL.RawQuery = ""
+		sanitizedURL.ForceQuery = false
+		sanitizedURL.Fragment = ""
+		sanitizedURL.RawFragment = ""
+		requestURL = sanitizedURL.String()
+	}
 	return map[string]any{
 		"method":     request.Method,
-		"url":        request.URL.String(),
+		"url":        requestURL,
 		"host":       request.Host,
 		"user_agent": request.UserAgent(),
 		"remote":     request.RemoteAddr,

@@ -121,6 +121,19 @@ except RuntimeError as error:
   return JSON.parse(stdout.trim());
 }
 
+async function runGoClientCapture(site, tokenPayload) {
+  const { stdout } = await execFileAsync("go", ["run", "./tests/fixtures/la-sentry-go-client"], {
+    cwd: config.repositoryRoot,
+    env: {
+      ...process.env,
+      LOOPAWARE_LA_SENTRY_ENDPOINT: tokenPayload.ingest_endpoint,
+      LOOPAWARE_LA_SENTRY_SITE_ID: site.id,
+      LOOPAWARE_LA_SENTRY_TOKEN: tokenPayload.ingest_token
+    }
+  });
+  return JSON.parse(stdout.trim());
+}
+
 test.describe("LA Sentry developer monitoring api", () => {
   test("requires a configured ingest token", async () => {
     const site = await createSentrySite("LA Sentry Token Missing");
@@ -187,6 +200,23 @@ test.describe("LA Sentry developer monitoring api", () => {
     expect(regressedPayload.issues[0].occurrence_count).toBe(2);
   });
 
+  test("handles concurrent first occurrences for the same issue", async () => {
+    const site = await createSentrySite("LA Sentry Concurrent Capture");
+    const tokenPayload = await rotateSentryToken(config, adminCookie(), site.id);
+    const captureCount = 8;
+
+    const captures = await Promise.all(Array.from({ length: captureCount }, (_, captureIndex) => {
+      return captureSentryError(config, tokenPayload.ingest_token, sentryEvent(site, {
+        eventId: `event-concurrent-${Date.now()}-${captureIndex}`
+      }));
+    }));
+
+    expect(captures.every((capture) => capture.status === "ok")).toBe(true);
+    const issuesPayload = await listSentryIssues(config, adminCookie(), site.id);
+    expect(issuesPayload.issues).toHaveLength(1);
+    expect(issuesPayload.issues[0].occurrence_count).toBe(captureCount);
+  });
+
   test("keeps issue access scoped to site managers", async () => {
     const site = await createSentrySite("LA Sentry Unauthorized");
     const tokenPayload = await rotateSentryToken(config, adminCookie(), site.id);
@@ -246,6 +276,63 @@ test.describe("LA Sentry developer monitoring api", () => {
 
     expect(response.status).toBe(403);
     expect(payload.error).toBe("origin_forbidden");
+  });
+
+  test("rejects browser errors when the payload URL spoofs an allowed origin", async () => {
+    const site = await createSentrySite("LA Sentry Browser Spoofed URL");
+    const event = sentryEvent(site, { eventId: "browser-spoofed-url-event" });
+    event.request = {
+      method: "GET",
+      url: `${site.allowed_origin}/checkout`
+    };
+    const { response, payload } = await apiRequest({
+      baseURL: config.baseURL,
+      path: "/sentry/browser-errors",
+      method: "POST",
+      origin: buildUniqueOrigin("sentry-browser-spoofed"),
+      body: event
+    });
+
+    expect(response.status).toBe(403);
+    expect(payload.error).toBe("origin_forbidden");
+  });
+
+  test("rate limits repeated browser errors from one client IP", async () => {
+    const site = await createSentrySite("LA Sentry Browser Rate Limit");
+    const clientIP = "203.0.113.24";
+    const captureCount = 60;
+
+    for (let captureIndex = 0; captureIndex < captureCount; captureIndex += 1) {
+      await captureBrowserSentryError(config, sentryEvent(site, {
+        eventId: `browser-rate-limit-${Date.now()}-${captureIndex}`
+      }), site.allowed_origin, clientIP);
+    }
+
+    const { response, payload } = await apiRequest({
+      baseURL: config.baseURL,
+      path: "/sentry/browser-errors",
+      method: "POST",
+      origin: site.allowed_origin,
+      clientIP,
+      body: sentryEvent(site, { eventId: `browser-rate-limit-blocked-${Date.now()}` })
+    });
+
+    expect(response.status).toBe(429);
+    expect(payload.error).toBe("rate_limited");
+  });
+
+  test("go middleware captures errors without URL secrets", async () => {
+    const site = await createSentrySite("LA Sentry Go Client");
+    const tokenPayload = await rotateSentryToken(config, adminCookie(), site.id);
+
+    const capture = await runGoClientCapture(site, tokenPayload);
+    expect(capture.status).toBe("ok");
+
+    const issuesPayload = await listSentryIssues(config, adminCookie(), site.id);
+    expect(issuesPayload.issues).toHaveLength(1);
+    const detail = await getSentryIssueDetail(config, adminCookie(), site.id, issuesPayload.issues[0].id);
+    expect(detail.latest_occurrence.request.url).toBe("https://go-client.example/oauth/callback");
+    expect(detail.latest_occurrence.request.url).not.toContain("code=secret");
   });
 
   test("python client captures errors through protected ingest", async () => {
