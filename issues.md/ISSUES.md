@@ -738,3 +738,12 @@ Each issue is formatted as `- [ ] [LA-<number>]`. When resolved it becomes `- [x
   Resolution: Added a public auth waiting screen to `web/header-auth.js`, synchronized that mode with the public-page sign-in recovery path, and explicitly re-primed Google sign-in whenever the header snapshot transitions from `authenticated` back to `unauthenticated`; strengthened the Google Identity and TAuth browser stubs to model nonce-backed credential exchange; and added Playwright coverage for both the in-page waiting screen and the logout-to-login recovery path without reloading.
   Changed files: `issues.md/PLAN.md`, `issues.md/ISSUES.md`, `web/header-auth.js`, `tests/helpers/externalAssets.js`, `tests/helpers/tauthStub.js`, `tests/specs/header-auth-state.spec.js`, `tests/specs/logout-hardening.spec.js`
   Verification: `make lint`, `make build`, and `make test` pass.
+
+- [x] [B001] Active dashboard users still see the inactivity logout prompt.
+  Priority: P1
+  Symptom: The “Log out due to inactivity?” banner can appear at the bottom of the dashboard even while the operator is actively using the page.
+  Goal: User activity should refresh the dashboard idle timer and hide any stale inactivity prompt so active operators are not asked to log out.
+  Deliverable: Patch the dashboard inactivity manager and add browser coverage for active user interaction suppressing the timeout prompt.
+  Resolution: Trusted dashboard activity outside the timeout banner now refreshes the idle clock and hides a stale inactivity prompt, while events on the Yes/No controls still flow to their explicit handlers; expanded activity detection to include pointer, touch move, wheel, input, and focus events.
+  Changed files: `issues.md/PLAN.md`, `issues.md/ISSUES.md`, `CHANGELOG.md`, `web/app/index.html`, `tests/specs/dashboard-session-timeout.spec.js`
+  Verification: Reproduced the failure with `timeout -k 350s -s SIGKILL 350s bash -lc '... npx playwright test -c playwright.ui.config.js specs/dashboard-session-timeout.spec.js -g "trusted dashboard activity hides stale timeout banner"'`; after the fix, `timeout -k 350s -s SIGKILL 350s make lint`, `timeout -k 350s -s SIGKILL 350s make test`, and `timeout -k 350s -s SIGKILL 350s make ci` pass.
