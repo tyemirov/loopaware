@@ -9,6 +9,19 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
 
 ## Improvements
 
+- [ ] [I001] (P1) Replace placeholder-only inputs with labeled fields in the static frontend.
+  ### Summary
+  Remove placeholder-only UX in the dashboard, widget, and subscribe flows and use explicit labels with specific copy.
+
+  ### Deliverables
+  - Update `web/app` pages plus `web/widget.js` and `web/subscribe.js` to render labeled inputs.
+  - Remove placeholder text where it is the only accessible label or instruction.
+  - Keep draft and empty-state copy specific.
+  - Add or update black-box browser coverage for the changed static frontend flows.
+
+  ### Legacy Ref
+  - Migrated from `issues.md` issue `LA-426`.
+
 ## Maintenance
 
 - [ ] [M001] (P0) Audit and harden SQL queries for security, correctness, and performance.

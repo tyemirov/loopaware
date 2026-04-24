@@ -8,6 +8,7 @@ loopaware repository managed through ISSUES.md workflow. See README.md for detai
 
 - AGENTS.md: Read-only workflow + behavior playbook maintained by leads. Agents never edit it during implementation cycles.
 - ISSUES.md: Log of newly discovered requests and changes. Each entry records what changed or what was discovered.
+- ISSUES_ARCHIVE.md: Historical completed issue records. Read-only context, not the live backlog.
 - PLAN.md: Working plan for one concrete change/issue; ephemeral and replaced per change.
 
 ### Document Precedence
@@ -57,7 +58,7 @@ Operational playbook for working in this repository. Use it to coordinate planni
    Also scan `docs/` for integration runbooks and third-party library guidance relevant to the active issue.
 2. Review the backlog in `ISSUES.md`; work sequentially through BugFixes, Improvements, Maintenance, then Features. Planning is reserved for future work; do not implement Planning items.
 3. For the active issue, read `PLANNING.md` and create `PLAN.md` (ignored by git) with bullet steps. Keep it updated and delete/rewrite it for the next issue.
-4. Implement the requested change, keeping to stack-specific standards. Limit edits to necessary files plus issue-document updates when required.
+4. Implement the requested change, keeping to stack-specific standards. Limit edits to necessary files plus issue-document updates and `CHANGELOG.md` updates when required.
 5. Do not manually create/switch branches, run completion-gate command chains, commit/push, or open PRs as part of routine execution; the execution chain does this automatically.
 6. Run local commands only when the issue explicitly asks for investigation/debugging evidence.
 7. Report what changed and any blockers; the execution chain finalizes git/check/PR steps.
@@ -74,6 +75,7 @@ For agent executions launched by ISSUES Managing Director, completion is control
 - Use `Makefile` targets (`make test`, `make lint`, `make ci`) when local diagnostics are explicitly needed.
 - Do not run full completion-gate suites as routine finish steps; the execution chain runs completion checks automatically.
 - Run stack-specific formatters only when the issue requires local validation output or explicit formatting changes.
+- When running local diagnostic or validation commands, prefix long-running commands with `timeout -k <N>s -s SIGKILL <N>s <command>`; use short limits for focused commands and longer limits for full suites.
 
 ### Git & Release Flow
 
