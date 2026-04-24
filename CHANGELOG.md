@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.8] - 2026-04-23
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Consolidated `.mprl` folder contents into `.mprlab` and standardized folder structure.
+- Updated GitHub Actions workflows to use Node 24 runtime and upgraded action versions for CI, Docker image builds, and Pages deployment.
+- Restored MPRL Docker instructions and refined frontend input UX plans in backlog for future updates.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- CI workflows now run on Node 24 ensuring fresh compatibility with latest environment.
+- Enabled CI triggers on workflow file changes to validate pipeline updates.
+
+### Docs 📚
+- Moved documentation including ISSUES and AGENTS files into the new `.mprlab` directory for clarity and standardization.
+- Removed deprecated `.mprl/AGENTS.md` document and archived older issue backlog into `.mprlab/ISSUES_ARCHIVE.md`.
+- Updated Agents frontend documentation to enforce CDN usage for third-party browser dependencies pinned to specific versions.
+
 ## [v0.5.7] - 2026-04-23
 
 ### Features ✨
