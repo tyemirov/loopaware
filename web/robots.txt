@@ -9,6 +9,7 @@ Allow: /site.webmanifest
 Disallow: /app/
 Disallow: /subscriptions/
 Disallow: /subscribe-demo/
+Disallow: /sentry-integration/
 Disallow: /traffic-integration/
 Disallow: /widget-integration/
 Disallow: /widget-integration-dark/

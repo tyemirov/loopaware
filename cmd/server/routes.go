@@ -37,6 +37,13 @@ func registerAPIPreflightRoutes(router *gin.Engine, publicCORS gin.HandlerFunc, 
 
 	router.OPTIONS(apiRoutePrefix+"/*path", preflightHandler)
 	router.OPTIONS(publicRoutePrefix+"/*path", preflightHandler)
+	router.OPTIONS(sentryRouteBrowserErrors, func(context *gin.Context) {
+		publicCORS(context)
+		if context.IsAborted() {
+			return
+		}
+		context.Status(http.StatusNoContent)
+	})
 }
 
 func registerBackendRoutes(
@@ -80,6 +87,7 @@ func registerBackendRoutes(
 	publicGroup.GET("/public/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
 	publicGroup.GET(publicRouteVisitPixel, publicHandlers.CollectVisit)
 	publicGroup.POST(publicRouteVisitPixel, publicHandlers.CollectVisit)
+	publicGroup.POST(sentryRouteBrowserErrors, sentryHandlers.CaptureBrowserError)
 
 	router.POST(sentryRouteErrors, sentryHandlers.CaptureError)
 

@@ -74,6 +74,7 @@ test("dashboard sentry tab shows client config, issues, details, and status acti
   await expect(page.locator('[data-widget-card="sentry"]')).toBeVisible();
   await expect(page.locator("#sentry-ingest-endpoint")).toHaveValue(/\/sentry\/errors$/);
   await expect(page.locator("#sentry-ingest-token")).toHaveValue(/Token configured/);
+  await expect(page.locator("#sentry-browser-snippet")).toHaveValue(new RegExp(`/sentry\\.js\\?site_id=${site.id}&environment=production`));
   await expect(page.locator("#rotate-sentry-token-button")).toBeEnabled();
 
   const issueRow = page.locator('#sentry-issues-table-body tr:has-text("CheckoutWorkerError")').first();

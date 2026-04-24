@@ -5,7 +5,7 @@
 [![Go 1.26](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)](https://go.dev)
 [![Latest Release](https://img.shields.io/github/v/release/tyemirov/loopaware)](https://github.com/tyemirov/loopaware/releases)
 
-**Privacy-first feedback widget and traffic analytics for developers.** Drop a single script tag on your site to collect customer feedback, capture email subscribers, and track visits -- all backed by a role-aware dashboard and a self-hosted SQLite backend.
+**Privacy-first feedback widget, traffic analytics, and developer monitoring.** Drop a single script tag on your site to collect customer feedback, capture email subscribers, track visits, and report browser errors -- all backed by a role-aware dashboard and a self-hosted SQLite backend.
 
 - **Free** for personal and non-revenue projects
 - **Commercial license** required for revenue-generating use
@@ -43,7 +43,7 @@ Embed the feedback widget on any page:
 - Email subscription capture via an embeddable subscribe form
 - Privacy-safe traffic pixel with per-site visit and visitor counts
 - Daily, weekly, or monthly traffic report emails delivered through Pinguin
-- First-class Sentry developer error monitoring with protected server-to-server ingest
+- First-class Sentry developer error monitoring with protected server-to-server ingest and origin-bound browser capture
 - SQLite-first storage with pluggable drivers
 - Public privacy policy and compliance endpoints for visibility
 - Table-driven tests and fast in-memory SQLite fixtures
@@ -183,8 +183,9 @@ LoopAware’s frontend lives in `web/` and is hosted separately (CDN or reverse 
 - `/privacy` — static privacy policy linked from the landing and dashboard footers.
 - `/app` — dashboard shell (data loaded via `/api/*`).
 - `/subscriptions/confirm` and `/subscriptions/unsubscribe` — email link pages.
-- `/widget.js`, `/subscribe.js`, `/pixel.js` — embeddable JavaScript assets.
+- `/widget.js`, `/subscribe.js`, `/pixel.js`, `/sentry.js` — embeddable JavaScript assets.
 - `/sentry/errors` — protected server-to-server developer error ingest.
+- `/sentry/browser-errors` — origin-bound browser developer error ingest.
 
 The repository does not vendor third-party browser dependencies into `web/`. External JavaScript and CSS, including UI
 libraries, must be referenced through pinned CDN URLs. Any browser dependency that is not delivered by CDN is
@@ -235,6 +236,7 @@ include Unix timestamps in seconds.
 | `POST`  | `/public/subscriptions/unsubscribe`      | public      | Unsubscribe an email address for a given `site_id`                                                      |
 | `GET`   | `/public/visits`                         | public      | Record a page visit for a site (returns a 1×1 GIF for use as a tracking pixel)                          |
 | `POST`  | `/sentry/errors`                         | ingest token | Submit developer error events with `Authorization: Bearer <token>` or `X-LoopAware-Sentry-Token`       |
+| `POST`  | `/sentry/browser-errors`                 | site origin | Submit browser JavaScript error events from configured site origins                                     |
 
 Subscriptions use confirmation and unsubscribe links sent via email: the static frontend pages at
 `/subscriptions/confirm?token=...` and `/subscriptions/unsubscribe?token=...` call the API without requiring browser
@@ -242,7 +244,9 @@ origin headers.
 
 Sentry ingest accepts JSON with `site_id`, `event_id`, `timestamp`, `platform`, `environment`, `release`, `level`,
 `message`, `exception_type`, `stacktrace`, `request`, `user_hash`, `tags`, and `extra`. Rotate the per-site token from
-the dashboard `Sentry` tab; tokens are shown only once and are intended for server-side clients.
+the dashboard `Sentry` tab; tokens are shown only once and are intended for server-side clients. The browser harness uses
+`/sentry/browser-errors` without a token. Browser events are accepted only from the site's configured `allowed_origin`
+values, are rate-limited by client IP, and store minimized request metadata.
 
 The `allowed_origin` field for a site may contain multiple origins separated by spaces or commas (for example `https://mprlab.com http://localhost:8080`); widgets, subscribe forms, and pixels will accept requests from any configured origin while still rejecting traffic from unknown sites.
 
@@ -331,6 +335,24 @@ For non-JavaScript environments you can fall back to a plain image pixel:
 ```html
 <img src="https://loopaware.mprlab.com/public/visits?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f&url=https%3A%2F%2Fexample.com%2F" alt="" width="1" height="1" />
 ```
+
+## Capturing developer errors
+
+Server-side clients should use the protected `/sentry/errors` endpoint with a per-site ingest token. The repository
+includes first-party Go and Python clients:
+
+- Go: `pkg/sentry`
+- Python: `clients/python/loopaware_sentry`
+
+Browser pages can use the standalone harness without exposing the server-side token:
+
+```html
+<script defer src="https://loopaware.mprlab.com/sentry.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f&environment=production&release=2026.04.24"></script>
+```
+
+The browser harness installs `window.LoopAwareSentry.captureError(error, attrs)` and automatically captures uncaught
+`error` and `unhandledrejection` events. It sends sanitized URL/referrer/user-agent metadata, stack frames, tags, and
+explicit `extra` values supplied by application code.
 
 ## Development workflow
 

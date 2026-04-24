@@ -1,5 +1,7 @@
 // @ts-check
 import { test, expect } from "@playwright/test";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { resolveTestConfig } from "../helpers/config.js";
 import { buildSessionCookie } from "../helpers/auth.js";
 import {
@@ -11,6 +13,7 @@ import {
 } from "../helpers/fixtures.js";
 import {
   apiRequest,
+  captureBrowserSentryError,
   captureSentryError,
   getSentryIssueDetail,
   listSentryIssues,
@@ -19,6 +22,7 @@ import {
 } from "../helpers/api.js";
 
 const config = resolveTestConfig();
+const execFileAsync = promisify(execFile);
 const adminUser = buildAdminUser(config);
 const nonAdminUser = buildAdminUser(config, {
   email: buildUniqueEmail("sentry-user"),
@@ -75,6 +79,46 @@ function sentryEvent(site, overrides) {
       shard: "alpha"
     }
   };
+}
+
+async function runPythonClientCapture(site, tokenPayload) {
+  const script = `
+import json
+import os
+from loopaware_sentry import Client, SentryConfig
+
+client = Client(SentryConfig(
+    endpoint=os.environ["LOOPAWARE_SENTRY_ENDPOINT"],
+    site_id=os.environ["LOOPAWARE_SENTRY_SITE_ID"],
+    ingest_token=os.environ["LOOPAWARE_SENTRY_TOKEN"],
+    environment="integration-python",
+    release="2026.04.24-python",
+    default_tags={"service": "python-client"},
+))
+
+try:
+    raise RuntimeError("python client capture failed")
+except RuntimeError as error:
+    response = client.capture_error(error, {
+        "event_id": os.environ["LOOPAWARE_SENTRY_EVENT_ID"],
+        "tags": {"language": "python"},
+        "request": {"method": "GET", "url": "https://python-client.example/sync"},
+        "extra": {"worker": "alpha"},
+    })
+    print(json.dumps(response, sort_keys=True))
+`;
+  const { stdout } = await execFileAsync("python3", ["-c", script], {
+    cwd: config.repositoryRoot,
+    env: {
+      ...process.env,
+      PYTHONPATH: `${config.repositoryRoot}/clients/python`,
+      LOOPAWARE_SENTRY_ENDPOINT: tokenPayload.ingest_endpoint,
+      LOOPAWARE_SENTRY_SITE_ID: site.id,
+      LOOPAWARE_SENTRY_TOKEN: tokenPayload.ingest_token,
+      LOOPAWARE_SENTRY_EVENT_ID: `python-${Date.now()}`
+    }
+  });
+  return JSON.parse(stdout.trim());
 }
 
 test.describe("sentry developer monitoring api", () => {
@@ -157,5 +201,68 @@ test.describe("sentry developer monitoring api", () => {
 
     expect(response.status).toBe(403);
     expect(payload.error).toBe("not_authorized");
+  });
+
+  test("captures browser errors from allowed origins without an ingest token", async () => {
+    const site = await createSentrySite("Sentry Browser API");
+    const event = sentryEvent(site, {
+      eventId: "browser-origin-event",
+      message: "browser route failed",
+      exceptionType: "TypeError"
+    });
+    event.environment = "browser";
+    event.release = "browser-release";
+    event.request = {
+      method: "GET",
+      url: `${site.allowed_origin}/checkout?token=hidden`,
+      referrer: `${site.allowed_origin}/pricing?secret=hidden`,
+      user_agent: "Playwright Browser"
+    };
+    event.tags = { service: "browser-harness" };
+
+    const capture = await captureBrowserSentryError(config, event, site.allowed_origin);
+    expect(capture.status).toBe("ok");
+
+    const issuesPayload = await listSentryIssues(config, adminCookie(), site.id);
+    expect(issuesPayload.issues).toHaveLength(1);
+    expect(issuesPayload.issues[0].platform).toBe("javascript");
+    expect(issuesPayload.issues[0].environment).toBe("browser");
+
+    const detail = await getSentryIssueDetail(config, adminCookie(), site.id, issuesPayload.issues[0].id);
+    expect(detail.latest_occurrence.request.url).toBe(`${site.allowed_origin}/checkout`);
+    expect(detail.latest_occurrence.request.referrer).toBe(`${site.allowed_origin}/pricing`);
+    expect(detail.latest_occurrence.request.user_agent).toBe("Playwright Browser");
+  });
+
+  test("rejects browser errors from unknown origins", async () => {
+    const site = await createSentrySite("Sentry Browser Forbidden");
+    const { response, payload } = await apiRequest({
+      baseURL: config.baseURL,
+      path: "/sentry/browser-errors",
+      method: "POST",
+      origin: buildUniqueOrigin("sentry-browser-forbidden"),
+      body: sentryEvent(site, { eventId: "browser-forbidden-event" })
+    });
+
+    expect(response.status).toBe(403);
+    expect(payload.error).toBe("origin_forbidden");
+  });
+
+  test("python client captures errors through protected ingest", async () => {
+    const site = await createSentrySite("Sentry Python Client");
+    const tokenPayload = await rotateSentryToken(config, adminCookie(), site.id);
+    const capture = await runPythonClientCapture(site, tokenPayload);
+
+    expect(capture.status).toBe("ok");
+    const issuesPayload = await listSentryIssues(config, adminCookie(), site.id);
+    expect(issuesPayload.issues).toHaveLength(1);
+    expect(issuesPayload.issues[0].platform).toBe("python");
+    expect(issuesPayload.issues[0].environment).toBe("integration-python");
+
+    const detail = await getSentryIssueDetail(config, adminCookie(), site.id, issuesPayload.issues[0].id);
+    expect(detail.latest_occurrence.message).toBe("python client capture failed");
+    expect(detail.latest_occurrence.tags.language).toBe("python");
+    expect(detail.latest_occurrence.tags.service).toBe("python-client");
+    expect(detail.latest_occurrence.request.url).toBe("https://python-client.example/sync");
   });
 });

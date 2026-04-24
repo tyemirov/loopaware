@@ -31,6 +31,7 @@ const labelCases = [
   { selector: 'h5:has-text("Sentry issues")', text: 'Sentry issues' },
   { selector: 'label[for="sentry-ingest-endpoint"]', text: 'Ingest endpoint' },
   { selector: 'label[for="sentry-ingest-token"]', text: 'Ingest token' },
+  { selector: 'label[for="sentry-browser-snippet"]', text: 'Browser snippet' },
   { selector: '.card-header:has-text("Account")', text: 'Account' },
   { selector: '.card-header:has-text("Sites")', text: 'Sites' },
   { selector: '#settings-modal-title', text: 'Account Settings' },

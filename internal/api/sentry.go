@@ -12,7 +12,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -24,13 +26,19 @@ import (
 
 const (
 	sentryRouteErrors                   = "/sentry/errors"
+	sentryRouteBrowserErrors            = "/sentry/browser-errors"
 	sentryHeaderAuthorization           = "Authorization"
 	sentryHeaderIngestToken             = "X-LoopAware-Sentry-Token"
 	sentryAuthorizationBearerPrefix     = "Bearer "
 	sentryTokenByteLength               = 32
 	sentryTokenPrefix                   = "las_"
+	sentryBrowserRateWindowSeconds      = 30
+	sentryBrowserMaxRequestsPerWindow   = 60
+	sentryPlatformJavaScript            = "javascript"
 	sentryAlertKindFirstSeen            = "first_seen"
 	sentryAlertKindRegressed            = "regressed"
+	errorValueOriginForbidden           = "origin_forbidden"
+	errorValueRateLimited               = "rate_limited"
 	errorValueMissingSentryToken        = "missing_sentry_token"
 	errorValueInvalidSentryToken        = "invalid_sentry_token"
 	errorValueSentryTokenNotConfigured  = "sentry_token_not_configured"
@@ -43,10 +51,13 @@ const (
 
 // SentryHandlers owns developer monitoring ingest and dashboard APIs.
 type SentryHandlers struct {
-	database      *gorm.DB
-	logger        *zap.Logger
-	emailSender   EmailSender
-	publicBaseURL string
+	database          *gorm.DB
+	logger            *zap.Logger
+	emailSender       EmailSender
+	publicBaseURL     string
+	rateWindow        time.Duration
+	rateCountersByIP  map[string]int
+	rateCountersMutex sync.Mutex
 }
 
 type sentryErrorRequest struct {
@@ -142,10 +153,12 @@ func NewSentryHandlers(database *gorm.DB, logger *zap.Logger, emailSender EmailS
 		logger = zap.NewNop()
 	}
 	return &SentryHandlers{
-		database:      database,
-		logger:        logger,
-		emailSender:   emailSender,
-		publicBaseURL: strings.TrimRight(strings.TrimSpace(publicBaseURL), "/"),
+		database:         database,
+		logger:           logger,
+		emailSender:      emailSender,
+		publicBaseURL:    strings.TrimRight(strings.TrimSpace(publicBaseURL), "/"),
+		rateWindow:       sentryBrowserRateWindowSeconds * time.Second,
+		rateCountersByIP: make(map[string]int),
 	}
 }
 
@@ -174,6 +187,47 @@ func (handlers *SentryHandlers) CaptureError(context *gin.Context) {
 		return
 	}
 
+	handlers.captureSentryEvent(context, site, payload)
+}
+
+// CaptureBrowserError accepts browser developer error events from configured site origins.
+func (handlers *SentryHandlers) CaptureBrowserError(context *gin.Context) {
+	clientIP := context.ClientIP()
+	if handlers.isBrowserRateLimited(clientIP) {
+		context.JSON(http.StatusTooManyRequests, gin.H{jsonKeyError: errorValueRateLimited})
+		return
+	}
+
+	var payload sentryErrorRequest
+	if bindErr := context.BindJSON(&payload); bindErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidJSON})
+		return
+	}
+
+	var site model.Site
+	siteIdentifier := strings.TrimSpace(payload.SiteID)
+	if siteIdentifier == "" {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingSite})
+		return
+	}
+	if err := handlers.database.First(&site, "id = ?", siteIdentifier).Error; err != nil {
+		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownSite})
+		return
+	}
+
+	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
+	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
+	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader, browserSentryRequestURL(payload.Request)) {
+		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueOriginForbidden})
+		return
+	}
+
+	payload.Platform = sentryPlatformJavaScript
+	payload.Request = minimizeBrowserSentryRequest(payload.Request)
+	handlers.captureSentryEvent(context, site, payload)
+}
+
+func (handlers *SentryHandlers) captureSentryEvent(context *gin.Context, site model.Site, payload sentryErrorRequest) {
 	occurredAt, timestampErr := parseSentryTimestamp(payload.Timestamp)
 	if timestampErr != nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidSentryEvent})
@@ -513,6 +567,70 @@ func toSentryStackFrameInputs(frames []sentryStackFrameRequest) []model.SentrySt
 		})
 	}
 	return inputs
+}
+
+func browserSentryRequestURL(requestPayload map[string]any) string {
+	if requestPayload == nil {
+		return ""
+	}
+	urlValue, ok := requestPayload["url"].(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(urlValue)
+}
+
+func minimizeBrowserSentryRequest(requestPayload map[string]any) map[string]any {
+	if len(requestPayload) == 0 {
+		return nil
+	}
+	minimized := make(map[string]any)
+	for _, key := range []string{"url", "referrer", "user_agent"} {
+		value, ok := requestPayload[key].(string)
+		if !ok {
+			continue
+		}
+		trimmedValue := strings.TrimSpace(value)
+		if trimmedValue == "" {
+			continue
+		}
+		if key == "url" || key == "referrer" {
+			trimmedValue = sanitizeBrowserSentryURL(trimmedValue)
+		}
+		if trimmedValue != "" {
+			minimized[key] = trimmedValue
+		}
+	}
+	if len(minimized) == 0 {
+		return nil
+	}
+	return minimized
+}
+
+func sanitizeBrowserSentryURL(rawValue string) string {
+	parsedURL, parseErr := url.Parse(strings.TrimSpace(rawValue))
+	if parseErr != nil || parsedURL == nil {
+		return ""
+	}
+	scheme := strings.ToLower(strings.TrimSpace(parsedURL.Scheme))
+	if scheme != urlSchemeHTTP && scheme != urlSchemeHTTPS {
+		return ""
+	}
+	if strings.TrimSpace(parsedURL.Host) == "" {
+		return ""
+	}
+	return (&url.URL{Scheme: scheme, Host: parsedURL.Host, Path: parsedURL.Path}).String()
+}
+
+func (handlers *SentryHandlers) isBrowserRateLimited(ip string) bool {
+	nowBucket := time.Now().Unix() / int64(handlers.rateWindow.Seconds())
+	key := fmt.Sprintf("%s:%d", ip, nowBucket)
+
+	handlers.rateCountersMutex.Lock()
+	defer handlers.rateCountersMutex.Unlock()
+
+	handlers.rateCountersByIP[key]++
+	return handlers.rateCountersByIP[key] > sentryBrowserMaxRequestsPerWindow
 }
 
 func (handlers *SentryHandlers) resolveAuthorizedSite(context *gin.Context) (model.Site, bool) {

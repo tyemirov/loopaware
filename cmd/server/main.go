@@ -103,6 +103,7 @@ const (
 	publicRouteSubscriptionOptOut     = "/public/subscriptions/unsubscribe"
 	publicRouteVisitPixel             = "/public/visits"
 	sentryRouteErrors                 = "/sentry/errors"
+	sentryRouteBrowserErrors          = "/sentry/browser-errors"
 	apiRoutePrefix                    = "/api"
 	apiRouteMe                        = "/me"
 	apiRouteMeAvatar                  = "/me/avatar"

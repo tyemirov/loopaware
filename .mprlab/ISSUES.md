@@ -153,7 +153,7 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
   - Package README with token handling guidance and a minimal integration example.
   - Black-box integration coverage against the LoopAware ingest API.
 
-- [ ] [F003] (P1) {F001} Add a Python Sentry server client.
+- [x] [F003] (P1) {F001} Add a Python Sentry server client.
   ### Summary
   Provide a first-party Python package for protected server-side Sentry ingest. This client should support common WSGI/ASGI service usage without requiring the commercial Sentry SDK.
 
@@ -163,6 +163,9 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
   - WSGI and ASGI middleware for request metadata and uncaught exception capture.
   - Package README with token handling guidance and Flask/FastAPI examples.
   - Black-box integration coverage against the LoopAware ingest API.
+
+  ### Resolution
+  Added `clients/python/loopaware_sentry` with validated config/capture dataclasses, explicit `capture_error`, WSGI/ASGI middleware, docs, and integration coverage that runs a real Python process against `/sentry/errors`. `make ci` passed.
 
 - [ ] [F004] (P2) {F001} Add a Ruby Sentry server client.
   ### Summary
@@ -208,19 +211,24 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
   - Package README with token handling guidance and minimal API/controller examples.
   - Black-box integration coverage against the LoopAware ingest API.
 
-## Planning
-*do not implement yet*
-
-- [ ] [P001] (P1) {F001} Design browser JavaScript Sentry capture without exposed secrets.
+- [x] [F008] (P1) {F001} Add browser JavaScript Sentry capture with origin-bound ingest.
   ### Summary
-  Define whether and how LoopAware should support browser-side JavaScript error capture for the Sentry surface. Browser code cannot keep per-site ingest tokens private, so this issue must resolve the protection model before any SDK is built.
+  Implement the P001 browser design as a standalone browser harness that captures frontend errors without exposing the protected server-side ingest token.
 
-  ### Questions
-  - Should browser capture use signed short-lived envelopes, origin-bound project keys, a relay endpoint, sampling, rate limits, or another non-secret mechanism?
-  - Which event fields are safe to collect from browser contexts by default?
-  - How should source maps, user identifiers, and privacy-sensitive request context be handled?
+  ### Product Decisions
+  - Use `/sentry/browser-errors` for browser events so `/sentry/errors` remains token-protected server-to-server ingest.
+  - Authenticate browser events with the configured site ID plus the site's `allowed_origin` rules, not a browser-visible secret.
+  - Keep browser event request metadata minimized to sanitized URL, referrer, and user agent.
+  - Keep source map upload and source-map resolution out of scope for this issue.
 
   ### Deliverables
-  - Proposed browser ingest authentication and abuse-control model.
-  - Data minimization rules for browser events.
-  - Decision on whether the follow-up implementation should be a standalone browser SDK, a widget extension, or both.
+  - `web/sentry.js` browser harness with automatic unhandled error/rejection capture and explicit `LoopAwareSentry.captureError`.
+  - Origin-bound browser ingest endpoint with public CORS preflight and rate limiting.
+  - Browser integration page and black-box Playwright coverage.
+  - README docs for browser setup and the non-secret protection model.
+
+  ### Resolution
+  Added `/sentry/browser-errors` with allowed-origin validation, rate limiting, JavaScript platform normalization, and minimized request metadata. Added `web/sentry.js`, a dashboard browser snippet, a browser integration page, docs, and black-box API/browser coverage. `make ci` passed.
+
+## Planning
+*do not implement yet*

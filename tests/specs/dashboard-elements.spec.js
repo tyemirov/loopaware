@@ -41,6 +41,7 @@ const elementIds = Object.freeze([
   'traffic-widget-snippet',
   'sentry-ingest-endpoint',
   'sentry-ingest-token',
+  'sentry-browser-snippet',
   'rotate-sentry-token-button',
   'sentry-issues-table-body',
   'sentry-issue-detail',

@@ -427,6 +427,10 @@
                     <textarea id="sentry-ingest-token" class="form-control font-monospace" rows="2" readonly></textarea>
                     <div class="form-text">The token is shown only immediately after rotation.</div>
                   </div>
+                  <div class="col-12">
+                    <label class="form-label" for="sentry-browser-snippet">Browser snippet</label>
+                    <textarea id="sentry-browser-snippet" class="form-control font-monospace" rows="2" readonly></textarea>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1163,6 +1167,7 @@
         var trafficAllowedOriginsList = document.getElementById(elementIds.traffic_allowed_origins_list);
         var sentryIngestEndpointInput = document.getElementById('sentry-ingest-endpoint');
         var sentryIngestTokenTextarea = document.getElementById('sentry-ingest-token');
+        var sentryBrowserSnippetTextarea = document.getElementById('sentry-browser-snippet');
         var sentryConfigStatusElement = document.getElementById('sentry-config-status');
         var rotateSentryTokenButton = document.getElementById('rotate-sentry-token-button');
         var sentryIssuesStatusElement = document.getElementById('sentry-issues-status');
@@ -2897,6 +2902,9 @@
         if (sentryIngestTokenTextarea) {
           sentryIngestTokenTextarea.value = 'Rotate the token to reveal a new secret.';
         }
+        if (sentryBrowserSnippetTextarea) {
+          sentryBrowserSnippetTextarea.value = widgetUnavailableMessage;
+        }
         if (copyWidgetSnippetButton) {
           copyWidgetSnippetButton.disabled = true;
         }
@@ -4268,6 +4276,14 @@
           element.classList.remove('text-danger-emphasis', 'bg-danger-subtle', 'text-success-emphasis', 'bg-success-subtle');
         }
 
+        function buildSentryBrowserSnippet(site) {
+          if (!site || !site.id) {
+            return widgetUnavailableMessage;
+          }
+          var scriptURL = widgetBaseURL + '/sentry.js?site_id=' + encodeURIComponent(site.id) + '&environment=production';
+          return '<script defer src="' + scriptURL + '"><' + '/script>';
+        }
+
         function updateSentryClientConfiguration(site) {
           if (sentryIngestEndpointInput) {
             sentryIngestEndpointInput.value = sentryIngestEndpointDefault;
@@ -4275,6 +4291,9 @@
           if (!site || isNewSiteSelected()) {
             if (sentryIngestTokenTextarea) {
               sentryIngestTokenTextarea.value = widgetUnavailableMessage;
+            }
+            if (sentryBrowserSnippetTextarea) {
+              sentryBrowserSnippetTextarea.value = widgetUnavailableMessage;
             }
             if (rotateSentryTokenButton) {
               rotateSentryTokenButton.disabled = true;
@@ -4287,6 +4306,9 @@
           }
           if (sentryIngestTokenTextarea) {
             sentryIngestTokenTextarea.value = site.sentry_token_configured ? 'Token configured. Rotate to reveal a new secret.' : 'No token configured. Rotate to create one.';
+          }
+          if (sentryBrowserSnippetTextarea) {
+            sentryBrowserSnippetTextarea.value = buildSentryBrowserSnippet(site);
           }
           clearSentryStatus(sentryConfigStatusElement);
         }

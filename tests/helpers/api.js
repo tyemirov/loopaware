@@ -348,6 +348,21 @@ export async function captureSentryError(config, token, event) {
   return payload;
 }
 
+export async function captureBrowserSentryError(config, event, origin, clientIP) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: '/sentry/browser-errors',
+    method: 'POST',
+    origin,
+    clientIP: clientIP || nextClientIP(),
+    body: event
+  });
+  if (!response.ok) {
+    throw new Error(`sentry_browser_capture_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
 export async function listSentryIssues(config, cookie, siteId) {
   const { response, payload } = await apiRequest({
     baseURL: config.baseURL,
