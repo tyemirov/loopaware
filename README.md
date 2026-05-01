@@ -339,10 +339,11 @@ For non-JavaScript environments you can fall back to a plain image pixel:
 ## Capturing developer errors
 
 Server-side clients should use the protected `/sentry/errors` endpoint with a per-site ingest token. The repository
-includes first-party Go and Python clients:
+collects first-party client entrypoints under `clients/`:
 
-- Go: `pkg/lasentry`
+- Go: `clients/go/lasentry` (`pkg/lasentry` remains as a compatibility import path)
 - Python: `clients/python/la_sentry`
+- Browser: `clients/browser` documents the harness served from `web/la-sentry.js`
 
 Browser pages can use the standalone harness without exposing the server-side token:
 

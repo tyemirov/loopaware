@@ -2,6 +2,8 @@
 
 This package submits Python service exceptions to LoopAware's protected LA Sentry ingest endpoint without depending on the commercial Sentry SDK.
 
+See `../README.md` for the full LoopAware client index.
+
 ```python
 from la_sentry import Client, LASentryConfig
 

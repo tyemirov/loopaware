@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 
-	"github.com/MarkoPoloResearchLab/loopaware/pkg/lasentry"
+	"github.com/MarkoPoloResearchLab/loopaware/clients/go/lasentry"
 )
 
 func main() {

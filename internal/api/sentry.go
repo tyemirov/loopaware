@@ -65,8 +65,8 @@ type SentryHandlers struct {
 }
 
 type sentryBrowserRateCounter struct {
-	windowBucket int64
-	count        int
+	windowStartedAt time.Time
+	count           int
 }
 
 type sentryErrorRequest struct {
@@ -678,27 +678,27 @@ func sanitizeBrowserSentryURL(rawValue string) string {
 }
 
 func (handlers *SentryHandlers) isBrowserRateLimited(ip string) bool {
-	nowBucket := time.Now().Unix() / int64(handlers.rateWindow.Seconds())
+	now := time.Now()
 
 	handlers.rateCountersMutex.Lock()
 	defer handlers.rateCountersMutex.Unlock()
 
-	handlers.pruneBrowserRateCounters(nowBucket)
+	handlers.pruneBrowserRateCounters(now)
 	rateCounter, exists := handlers.rateCountersByIP[ip]
 	if !exists && len(handlers.rateCountersByIP) >= sentryBrowserMaxRateCounterEntries {
 		return true
 	}
-	if rateCounter.windowBucket != nowBucket {
-		rateCounter = sentryBrowserRateCounter{windowBucket: nowBucket}
+	if !exists || now.Sub(rateCounter.windowStartedAt) >= handlers.rateWindow {
+		rateCounter = sentryBrowserRateCounter{windowStartedAt: now}
 	}
 	rateCounter.count += 1
 	handlers.rateCountersByIP[ip] = rateCounter
 	return rateCounter.count > sentryBrowserMaxRequestsPerWindow
 }
 
-func (handlers *SentryHandlers) pruneBrowserRateCounters(currentBucket int64) {
+func (handlers *SentryHandlers) pruneBrowserRateCounters(now time.Time) {
 	for clientIP, rateCounter := range handlers.rateCountersByIP {
-		if rateCounter.windowBucket < currentBucket {
+		if now.Sub(rateCounter.windowStartedAt) >= handlers.rateWindow {
 			delete(handlers.rateCountersByIP, clientIP)
 		}
 	}

@@ -2,7 +2,7 @@
 
 /**
  * @param {string} sessionCookieName
- * @param {{ silentBootstrap?: boolean, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number }} [options]
+ * @param {{ silentBootstrap?: boolean, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number, sessionCookieValue?: string }} [options]
  * @returns {string}
  */
 export function renderTauthStub(sessionCookieName, options) {
@@ -18,13 +18,17 @@ export function renderTauthStub(sessionCookieName, options) {
   const exchangeDelayMs = Number.isFinite(resolvedOptions.exchangeDelayMs)
     ? Math.max(0, Number(resolvedOptions.exchangeDelayMs))
     : 0;
+  const sessionCookieValue = typeof resolvedOptions.sessionCookieValue === 'string'
+    ? resolvedOptions.sessionCookieValue.trim()
+    : '';
   return `(() => {
   if (typeof window === 'undefined') {
     return;
   }
 
   var runtimeKey = '__loopawareTestTauthRuntime';
-  var sessionCookieName = '${resolvedCookieName}';
+  var sessionCookieName = ${JSON.stringify(resolvedCookieName)};
+  var exchangeSessionCookieValue = ${JSON.stringify(sessionCookieValue)};
   var silentBootstrap = ${silentBootstrap ? 'true' : 'false'};
   var bootstrapDelayMs = ${bootstrapDelayMs};
   var currentUserDelayMs = ${currentUserDelayMs};
@@ -179,6 +183,14 @@ export function renderTauthStub(sessionCookieName, options) {
       };
   }
 
+  function persistExchangeSessionCookie() {
+    if (!exchangeSessionCookieValue || typeof document === 'undefined') {
+      return;
+    }
+    var secureDirective = window && window.location && window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = sessionCookieName + '=' + exchangeSessionCookieValue + '; Path=/; SameSite=Lax' + secureDirective;
+  }
+
   function readCredentialNonce(credential) {
     if (typeof credential !== 'string') {
       return '';
@@ -267,11 +279,13 @@ export function renderTauthStub(sessionCookieName, options) {
       return new Promise(function(resolve) {
         window.setTimeout(function() {
           runtime.profile = exchangeProfile;
+          persistExchangeSessionCookie();
           resolve(runtime.profile);
         }, exchangeDelayMs);
       });
     }
     runtime.profile = exchangeProfile;
+    persistExchangeSessionCookie();
     return Promise.resolve(runtime.profile);
   }
 
@@ -327,7 +341,7 @@ export function renderTauthStub(sessionCookieName, options) {
 /**
  * @param {import('@playwright/test').Page} page
  * @param {{ sessionCookieName?: string }} config
- * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number }} [options]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number, sessionCookieValue?: string }} [options]
  * @returns {Promise<void>}
  */
 export async function installTauthStub(page, config, options) {

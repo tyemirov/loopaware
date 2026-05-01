@@ -81,7 +81,9 @@ export async function ensureSiteForOrigin(config, cookie, overrides) {
  *     silentBootstrap?: boolean,
  *     delayMs?: number,
  *     bootstrapDelayMs?: number,
- *     currentUserDelayMs?: number
+ *     currentUserDelayMs?: number,
+ *     exchangeDelayMs?: number,
+ *     sessionCookieValue?: string
  *   }
  * }} [options]
  * @returns {Promise<void>}
@@ -186,7 +188,8 @@ export async function waitForDashboardReady(page, options) {
  *     delayMs?: number,
  *     bootstrapDelayMs?: number,
  *     currentUserDelayMs?: number,
- *     exchangeDelayMs?: number
+ *     exchangeDelayMs?: number,
+ *     sessionCookieValue?: string
  *   },
  *   waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle',
  *   waitForHeaderAuth?: boolean
@@ -216,7 +219,8 @@ export async function openPublicPage(page, config, path, options) {
  *     delayMs?: number,
  *     bootstrapDelayMs?: number,
  *     currentUserDelayMs?: number,
- *     exchangeDelayMs?: number
+ *     exchangeDelayMs?: number,
+ *     sessionCookieValue?: string
  *   },
  *   waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle',
  *   waitForHeaderAuth?: boolean
@@ -261,7 +265,9 @@ export async function openDashboard(page, config, user, options) {
  *     silentBootstrap?: boolean,
  *     delayMs?: number,
  *     bootstrapDelayMs?: number,
- *     currentUserDelayMs?: number
+ *     currentUserDelayMs?: number,
+ *     exchangeDelayMs?: number,
+ *     sessionCookieValue?: string
  *   }
  * }} [options]
  * @returns {Promise<void>}

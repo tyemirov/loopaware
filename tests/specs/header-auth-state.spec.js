@@ -1,8 +1,9 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { buildSessionToken } from '../helpers/auth.js';
 import { resolveTestConfig } from '../helpers/config.js';
 import { installAssetInspectionStubs } from '../helpers/externalAssets.js';
-import { buildAdminUser, openAuthenticatedPage, openPublicPage } from '../helpers/fixtures.js';
+import { buildAdminUser, openAuthenticatedPage, openPublicPage, waitForDashboardReady } from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
@@ -26,7 +27,7 @@ const DASHBOARD_PREVIEW_CASES = Object.freeze([
 /**
  * @param {import('@playwright/test').Page} page
  * @param {string} path
- * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number }} [tauthOptions]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number, sessionCookieValue?: string }} [tauthOptions]
  * @param {{ waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
  * @returns {Promise<void>}
  */
@@ -43,7 +44,7 @@ async function openPageWithoutSession(page, path, tauthOptions, options) {
 /**
  * @param {import('@playwright/test').Page} page
  * @param {string} path
- * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number }} [tauthOptions]
+ * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number, sessionCookieValue?: string }} [tauthOptions]
  * @param {{ waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
  * @returns {Promise<void>}
  */
@@ -196,6 +197,44 @@ async function seedRuntimeAuthenticatedUser(page, user) {
 
 /**
  * @param {import('@playwright/test').Page} page
+ * @param {{ email: string, displayName: string, avatarUrl: string, userId: string }} user
+ * @returns {Promise<void>}
+ */
+async function seedRuntimeExchangeUser(page, user) {
+  await page.evaluate((resolvedUser) => {
+    const runtime = window['__loopawareTestTauthRuntime'];
+    if (!runtime || typeof runtime !== 'object') {
+      throw new Error('tauth runtime not found');
+    }
+    runtime.exchangeProfile = {
+      user_id: String(resolvedUser.userId || ''),
+      user_email: String(resolvedUser.email || ''),
+      email: String(resolvedUser.email || ''),
+      display: String(resolvedUser.displayName || resolvedUser.email || ''),
+      avatar_url: String(resolvedUser.avatarUrl || ''),
+      roles: []
+    };
+  }, user);
+}
+
+/**
+ * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
+ * @returns {string}
+ */
+function buildLoginSessionCookieValue(user) {
+  return buildSessionToken({
+    signingKey: config.signingKey,
+    tenantId: config.tenantId,
+    email: user.email,
+    displayName: user.displayName,
+    avatarUrl: user.avatarUrl,
+    userId: user.userId,
+    issuer: user.issuer
+  });
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
  * @returns {Promise<void>}
  */
 async function beginHeaderLoginFlow(page) {
@@ -234,10 +273,15 @@ async function beginHeaderLoginFlow(page) {
 
 /**
  * @param {import('@playwright/test').Page} page
+ * @param {{ waitForRedirectPending?: boolean }} [options]
  * @returns {Promise<void>}
  */
-async function beginLandingDashboardLoginFlow(page) {
+async function beginLandingDashboardLoginFlow(page, options) {
+  const waitForRedirectPending = !options || options.waitForRedirectPending !== false;
   await page.getByRole('link', { name: 'Open dashboard' }).click();
+  if (!waitForRedirectPending) {
+    return;
+  }
   await expect(page).toHaveURL(/\/login\/?$/);
   await expect
     .poll(() =>
@@ -301,7 +345,7 @@ test('login page keeps public content visible after a canceled sign-in click', a
   await expect(
     page.getByRole('heading', {
       level: 1,
-      name: /Collect feedback, capture subscribers, and understand what visitors are doing from one dashboard/i
+      name: /Collect feedback, capture subscribers, catch errors, and understand what visitors are doing from one dashboard/i
     })
   ).toBeVisible();
 });
@@ -314,6 +358,21 @@ test('login page dashboard CTA uses the mpr-ui auth transition before redirectin
 
   await expect(page.locator('mpr-header [data-mpr-header="auth-transition"]')).toHaveAttribute('data-mpr-visible', 'true');
   await page.waitForURL(/\/app\/?$/);
+});
+
+test('login page completed sign-in loads the authenticated dashboard', async ({ page }) => {
+  await openPageWithoutSession(page, '/login', {
+    sessionCookieValue: buildLoginSessionCookieValue(adminUser)
+  });
+  await seedRuntimeExchangeUser(page, adminUser);
+  await enableAutoGoogleCredentialOnClick(page);
+
+  await beginLandingDashboardLoginFlow(page, { waitForRedirectPending: false });
+
+  await page.waitForURL(/\/app\/?$/);
+  await waitForDashboardReady(page, { allowEmptySites: true });
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
+  await expect(page.locator('#user-email')).toHaveText(adminUser.email);
 });
 
 test('dashboard keeps the auth transition visible until the authenticated UI finishes loading', async ({ page }) => {

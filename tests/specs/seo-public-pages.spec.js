@@ -6,8 +6,10 @@ test('login page exposes canonical SEO metadata', async ({ request }) => {
   expect(response.status()).toBe(200);
 
   const html = await response.text();
-  expect(html).toContain('Privacy-first feedback widget and traffic analytics');
-  expect(html).toContain('<meta name="description" content="Collect feedback, grow your email list, and understand site traffic from one dashboard. LoopAware helps teams turn customer signals into faster product decisions." />');
+  expect(html).toContain('Feedback, analytics, and LA Sentry monitoring');
+  expect(html).toContain('<meta name="description" content="Collect feedback, grow your email list, understand site traffic, and catch developer errors from one dashboard. LoopAware helps teams turn customer signals into faster product decisions." />');
+  expect(html).toContain('<h3 class="h5 fw-bold">LA Sentry</h3>');
+  expect(html).toContain('src=".../la-sentry.js?site_id=YOUR_SITE_ID"');
   expect(html).toContain('<link rel="canonical" href="https://loopaware.mprlab.com/login" />');
   expect(html).toContain('<meta property="og:url" content="https://loopaware.mprlab.com/login" />');
   expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
