@@ -17,6 +17,7 @@
   var PUBLIC_AUTH_RECOVERY_POLL_INTERVAL_MS = 500;
   var PUBLIC_AUTH_RECOVERY_MAX_ATTEMPTS = 120;
   var DASHBOARD_LOGIN_TRIGGER_SELECTOR = '[data-loopaware-dashboard-login="true"]';
+  var AUTH_HOME_LINK_SELECTOR = '[data-loopaware-auth-home-link="true"]';
   var SIGNIN_TARGET_MAX_ATTEMPTS = 20;
   var SIGNIN_TARGET_RETRY_DELAY_MS = 50;
   var LOGOUT_REQUEST_TIMEOUT_MS = 2000;
@@ -868,6 +869,27 @@
     }
   }
 
+  function resolveAuthHomePath(snapshot) {
+    if (snapshot && snapshot.status === AUTH_STATE_VALUES.authenticated) {
+      return APP_PATHNAME;
+    }
+    return LOGIN_PATHNAME;
+  }
+
+  function syncAuthHomeLinks(headerHost, snapshot) {
+    if (!headerHost || typeof headerHost.querySelectorAll !== 'function') {
+      return;
+    }
+    var homePath = resolveAuthHomePath(snapshot);
+    var homeLinks = headerHost.querySelectorAll(AUTH_HOME_LINK_SELECTOR);
+    for (var linkIndex = 0; linkIndex < homeLinks.length; linkIndex += 1) {
+      var homeLink = homeLinks[linkIndex];
+      if (homeLink && typeof homeLink.setAttribute === 'function' && homeLink.getAttribute('href') !== homePath) {
+        homeLink.setAttribute('href', homePath);
+      }
+    }
+  }
+
   function shouldRedirectToApp(headerHost, snapshot) {
     if (!headerHost || !snapshot || snapshot.status !== AUTH_STATE_VALUES.authenticated) {
       return false;
@@ -1010,6 +1032,7 @@
     }
     syncExplicitLogoutState(headerHost);
     setHeaderAuthStateAttribute(headerHost, snapshot.status);
+    syncAuthHomeLinks(headerHost, snapshot);
     if (snapshot.status === AUTH_STATE_VALUES.authenticated) {
       clearGoogleSigninGate(resolveGoogleSigninTarget(headerHost));
       if (!isLogoutPending()) {

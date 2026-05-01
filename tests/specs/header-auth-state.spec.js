@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { buildSessionToken } from '../helpers/auth.js';
 import { resolveTestConfig } from '../helpers/config.js';
-import { installAssetInspectionStubs } from '../helpers/externalAssets.js';
+import { installAssetInspectionStubs, waitForExternalAssetStubsToSettle } from '../helpers/externalAssets.js';
 import { buildAdminUser, openAuthenticatedPage, openPublicPage, waitForDashboardReady } from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
@@ -603,6 +603,28 @@ test('login page user menu does not emit tenant bootstrap errors', async ({ page
 });
 
 for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
+  test(`${label} brand link sends unauthenticated users to the landing page`, async ({ page }) => {
+    await openPageWithoutSession(page, path);
+    const brandLink = page.locator('mpr-header a[slot="brand"]');
+    await expect(brandLink).toHaveAttribute('href', '/login');
+    await Promise.all([
+      page.waitForURL(/\/login\/?$/, { waitUntil: 'domcontentloaded' }),
+      brandLink.click({ noWaitAfter: true })
+    ]);
+    await waitForExternalAssetStubsToSettle(page);
+  });
+
+  test(`${label} brand link sends authenticated users to the dashboard`, async ({ page }) => {
+    await openPageWithSession(page, path);
+    const brandLink = page.locator('mpr-header a[slot="brand"]');
+    await expect(brandLink).toHaveAttribute('href', '/app');
+    await Promise.all([
+      page.waitForURL(/\/app\/?$/, { waitUntil: 'domcontentloaded' }),
+      brandLink.click({ noWaitAfter: true })
+    ]);
+    await waitForExternalAssetStubsToSettle(page);
+  });
+
   test(`${label} keeps authenticated users on the current page until login flow starts`, async ({ page }) => {
     const consoleErrors = [];
     page.on('console', (message) => {

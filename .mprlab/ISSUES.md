@@ -31,6 +31,18 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
   ### Resolution
   Replaced wall-clock bucket counters with per-client windows for public API and LA Sentry browser rate limits, updated helper tests, and verified `make test-integration-api` plus `make ci` pass.
 
+- [x] [B003] (P1) Fix subscription confirmation brand navigation.
+  ### Summary
+  The LoopAware brand link on subscription token pages points to `#top`, so confirming a subscription leaves the user trapped on the confirmation page through the natural header flow.
+
+  ### Deliverables
+  - Make subscription token page brand links navigate to LoopAware instead of scrolling the current page.
+  - Route unauthenticated users to `/login` and authenticated users to `/app`.
+  - Add black-box browser coverage for the public-page brand navigation behavior.
+
+  ### Resolution
+  Replaced subscription token page brand `#top` links with auth-aware LoopAware home links, reused shared header auth state to update public-page brand destinations to `/login` or `/app`, added Playwright coverage for signed-out and signed-in public-page brand navigation, and verified `make ci` passes.
+
 ## Improvements
 
 - [x] [I003] (P1) Advertise LA Sentry on the public landing page.
