@@ -52,7 +52,7 @@ func TestUpdateSubscriptionStatusRateLimited(testingT *testing.T) {
 	handlers := &PublicHandlers{
 		rateWindow:                time.Minute,
 		maxRequestsPerIPPerWindow: 0,
-		rateCountersByIP:          make(map[string]int),
+		rateCountersByIP:          make(map[string]publicRateCounter),
 	}
 
 	handlers.updateSubscriptionStatus(ginContext, model.SubscriberStatusConfirmed)

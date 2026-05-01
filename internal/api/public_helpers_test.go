@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -128,10 +129,38 @@ func TestPublicHandlersIsRateLimitedCountsRequests(testingT *testing.T) {
 	handlers := &PublicHandlers{
 		rateWindow:                time.Hour,
 		maxRequestsPerIPPerWindow: 1,
-		rateCountersByIP:          make(map[string]int),
+		rateCountersByIP:          make(map[string]publicRateCounter),
 	}
 	require.False(testingT, handlers.isRateLimited("127.0.0.1"))
 	require.True(testingT, handlers.isRateLimited("127.0.0.1"))
+}
+
+func TestPublicHandlersIsRateLimitedPrunesExpiredBuckets(testingT *testing.T) {
+	handlers := &PublicHandlers{
+		rateWindow:                time.Hour,
+		maxRequestsPerIPPerWindow: 1,
+		rateCountersByIP: map[string]publicRateCounter{
+			"192.0.2.10": {windowBucket: 1, count: 1},
+			"192.0.2.11": {windowBucket: 2, count: 1},
+		},
+	}
+
+	handlers.pruneRateCounters(2)
+	require.NotContains(testingT, handlers.rateCountersByIP, "192.0.2.10")
+	require.Contains(testingT, handlers.rateCountersByIP, "192.0.2.11")
+}
+
+func TestPublicHandlersIsRateLimitedCapsNewClientBuckets(testingT *testing.T) {
+	handlers := &PublicHandlers{
+		rateWindow:                time.Hour,
+		maxRequestsPerIPPerWindow: 1,
+		rateCountersByIP:          make(map[string]publicRateCounter, publicMaxRateCounterEntries),
+	}
+	for index := 0; index < publicMaxRateCounterEntries; index++ {
+		handlers.rateCountersByIP[fmt.Sprintf("192.0.2.%d", index)] = publicRateCounter{windowBucket: time.Now().Unix() / int64(time.Hour.Seconds()), count: 1}
+	}
+
+	require.True(testingT, handlers.isRateLimited("198.51.100.1"))
 }
 
 func TestRecordSubscriptionTestEventDefaults(testingT *testing.T) {

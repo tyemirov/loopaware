@@ -91,6 +91,18 @@ type SiteHandlers struct {
 	feedbackBroadcaster *FeedbackEventBroadcaster
 }
 
+type siteSummaryCounts struct {
+	feedbackCount      int64
+	subscriberCount    int64
+	visitCount         int64
+	uniqueVisitorCount int64
+}
+
+type siteCountRow struct {
+	SiteID string
+	Count  int64
+}
+
 func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, faviconManager *SiteFaviconManager, statsProvider SiteStatisticsProvider, feedbackBroadcaster *FeedbackEventBroadcaster) *SiteHandlers {
 	if statsProvider == nil {
 		statsProvider = NewDatabaseSiteStatisticsProvider(database)
@@ -434,10 +446,10 @@ func (handlers *SiteHandlers) ListSites(context *gin.Context) {
 	responses := make([]siteResponse, 0, len(sites))
 	requestContext := handlers.ginRequestContext(context)
 	requestOrigin := resolveRequestOrigin(context, handlers.widgetBaseURL)
+	countsBySiteID := handlers.listSiteSummaryCounts(requestContext, sites)
 	for _, site := range sites {
-		feedbackCount := handlers.feedbackCount(requestContext, site.ID)
 		handlers.scheduleFaviconFetch(site)
-		responses = append(responses, handlers.toSiteResponse(requestContext, site, feedbackCount, requestOrigin))
+		responses = append(responses, handlers.toSiteResponseWithCounts(site, countsBySiteID[site.ID], requestOrigin))
 	}
 
 	context.JSON(http.StatusOK, listSitesResponse{Sites: responses})
@@ -1355,6 +1367,16 @@ func (handlers *SiteHandlers) resolveAuthorizedSite(context *gin.Context) (model
 	return site, currentUser, true
 }
 func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Site, feedbackCount int64, requestOrigin string) siteResponse {
+	counts := siteSummaryCounts{
+		feedbackCount:      feedbackCount,
+		subscriberCount:    handlers.subscriberCount(ctx, site.ID),
+		visitCount:         handlers.visitCount(ctx, site.ID),
+		uniqueVisitorCount: handlers.uniqueVisitorCount(ctx, site.ID),
+	}
+	return handlers.toSiteResponseWithCounts(site, counts, requestOrigin)
+}
+
+func (handlers *SiteHandlers) toSiteResponseWithCounts(site model.Site, counts siteSummaryCounts, requestOrigin string) siteResponse {
 	widgetBase := handlers.widgetBaseURL
 	if widgetBase == "" {
 		widgetBaseOrigin := primaryAllowedOrigin(site.AllowedOrigin)
@@ -1379,15 +1401,116 @@ func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Sit
 		FaviconURL:               faviconURL,
 		Widget:                   buildWidgetSnippet(widgetBase, site.ID, requestOrigin),
 		CreatedAt:                site.CreatedAt.UTC().Unix(),
-		FeedbackCount:            feedbackCount,
-		SubscriberCount:          handlers.subscriberCount(ctx, site.ID),
-		VisitCount:               handlers.visitCount(ctx, site.ID),
-		UniqueVisitorCount:       handlers.uniqueVisitorCount(ctx, site.ID),
+		FeedbackCount:            counts.feedbackCount,
+		SubscriberCount:          counts.subscriberCount,
+		VisitCount:               counts.visitCount,
+		UniqueVisitorCount:       counts.uniqueVisitorCount,
 		SentryTokenConfigured:    strings.TrimSpace(site.SentryIngestTokenHash) != "",
 		WidgetBubbleSide:         site.WidgetBubbleSide,
 		WidgetBubbleBottomOffset: site.WidgetBubbleBottomOffsetPx,
 		WidgetShowMessageInput:   site.WidgetShowMessageInput,
 		WidgetShowSentiment:      site.WidgetShowSentimentButtons,
+	}
+}
+
+func (handlers *SiteHandlers) listSiteSummaryCounts(ctx context.Context, sites []model.Site) map[string]siteSummaryCounts {
+	countsBySiteID := make(map[string]siteSummaryCounts, len(sites))
+	if len(sites) == 0 || handlers.database == nil {
+		return countsBySiteID
+	}
+
+	siteIDs := make([]string, 0, len(sites))
+	for _, site := range sites {
+		siteIDs = append(siteIDs, site.ID)
+		countsBySiteID[site.ID] = siteSummaryCounts{}
+	}
+
+	handlers.applyFeedbackCounts(ctx, siteIDs, countsBySiteID)
+	handlers.applySubscriberCounts(ctx, siteIDs, countsBySiteID)
+	handlers.applyVisitCounts(ctx, siteIDs, countsBySiteID)
+	handlers.applyUniqueVisitorCounts(ctx, siteIDs, countsBySiteID)
+	return countsBySiteID
+}
+
+func (handlers *SiteHandlers) applyFeedbackCounts(ctx context.Context, siteIDs []string, countsBySiteID map[string]siteSummaryCounts) {
+	var rows []siteCountRow
+	err := handlers.database.WithContext(ctx).
+		Model(&model.Feedback{}).
+		Select("site_id, COUNT(*) as count").
+		Where("site_id IN ?", siteIDs).
+		Group("site_id").
+		Scan(&rows).Error
+	if err != nil {
+		handlers.logSiteSummaryCountFailure("site_feedback_counts_failed", err)
+		return
+	}
+	for _, row := range rows {
+		counts := countsBySiteID[row.SiteID]
+		counts.feedbackCount = row.Count
+		countsBySiteID[row.SiteID] = counts
+	}
+}
+
+func (handlers *SiteHandlers) applySubscriberCounts(ctx context.Context, siteIDs []string, countsBySiteID map[string]siteSummaryCounts) {
+	var rows []siteCountRow
+	err := handlers.database.WithContext(ctx).
+		Model(&model.Subscriber{}).
+		Select("site_id, COUNT(*) as count").
+		Where("site_id IN ?", siteIDs).
+		Group("site_id").
+		Scan(&rows).Error
+	if err != nil {
+		handlers.logSiteSummaryCountFailure("site_subscriber_counts_failed", err)
+		return
+	}
+	for _, row := range rows {
+		counts := countsBySiteID[row.SiteID]
+		counts.subscriberCount = row.Count
+		countsBySiteID[row.SiteID] = counts
+	}
+}
+
+func (handlers *SiteHandlers) applyVisitCounts(ctx context.Context, siteIDs []string, countsBySiteID map[string]siteSummaryCounts) {
+	var rows []siteCountRow
+	err := handlers.database.WithContext(ctx).
+		Model(&model.SiteVisit{}).
+		Select("site_id, COUNT(*) as count").
+		Where("site_id IN ? AND is_bot = ?", siteIDs, false).
+		Group("site_id").
+		Scan(&rows).Error
+	if err != nil {
+		handlers.logSiteSummaryCountFailure("site_visit_counts_failed", err)
+		return
+	}
+	for _, row := range rows {
+		counts := countsBySiteID[row.SiteID]
+		counts.visitCount = row.Count
+		countsBySiteID[row.SiteID] = counts
+	}
+}
+
+func (handlers *SiteHandlers) applyUniqueVisitorCounts(ctx context.Context, siteIDs []string, countsBySiteID map[string]siteSummaryCounts) {
+	var rows []siteCountRow
+	err := handlers.database.WithContext(ctx).
+		Model(&model.SiteVisit{}).
+		Select("site_id, COUNT(DISTINCT visitor_id) as count").
+		Where("site_id IN ? AND visitor_id <> '' AND is_bot = ?", siteIDs, false).
+		Group("site_id").
+		Scan(&rows).Error
+	if err != nil {
+		handlers.logSiteSummaryCountFailure("site_unique_visitor_counts_failed", err)
+		return
+	}
+	for _, row := range rows {
+		counts := countsBySiteID[row.SiteID]
+		counts.uniqueVisitorCount = row.Count
+		countsBySiteID[row.SiteID] = counts
+	}
+}
+
+func (handlers *SiteHandlers) logSiteSummaryCountFailure(message string, err error) {
+	if handlers.logger != nil {
+		handlers.logger.Debug(message, zap.Error(err))
 	}
 }
 

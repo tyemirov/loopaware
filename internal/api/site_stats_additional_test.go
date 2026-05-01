@@ -14,7 +14,7 @@ import (
 )
 
 func TestDatabaseSiteStatisticsProviderTopPagesDefaultsLimit(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
 	visitOne, visitErr := model.NewSiteVisit(model.SiteVisitInput{
@@ -48,7 +48,7 @@ func TestDatabaseSiteStatisticsProviderTopPagesDefaultsLimit(testingT *testing.T
 }
 
 func TestDatabaseSiteStatisticsProviderTopPagesSkipsBlankSite(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	provider := NewDatabaseSiteStatisticsProvider(database)
 	results, err := provider.TopPages(context.Background(), "   ", 1)
 	require.NoError(testingT, err)
@@ -56,7 +56,7 @@ func TestDatabaseSiteStatisticsProviderTopPagesSkipsBlankSite(testingT *testing.
 }
 
 func TestDatabaseSiteStatisticsProviderTopPagesForDaysScopesToWindow(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 	startOfToday := time.Now().UTC().Truncate(24 * time.Hour)
 	oldVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
@@ -91,7 +91,7 @@ func TestDatabaseSiteStatisticsProviderTopPagesForDaysScopesToWindow(testingT *t
 }
 
 func TestDatabaseSiteStatisticsProviderTopPagesMergesTrailingSlashVariants(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
 	decisioningTrailingOne, visitErr := model.NewSiteVisit(model.SiteVisitInput{
@@ -152,7 +152,7 @@ func TestDatabaseSiteStatisticsProviderTopPagesMergesTrailingSlashVariants(testi
 }
 
 func TestDatabaseSiteStatisticsProviderTopPagesNormalizesAllSlashPathsToRoot(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
 	rootVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
@@ -180,7 +180,7 @@ func TestDatabaseSiteStatisticsProviderTopPagesNormalizesAllSlashPathsToRoot(tes
 }
 
 func TestSiteHandlersRecentVisitsDefaultsLimit(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 	firstVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
 		SiteID:   siteID,
@@ -205,7 +205,7 @@ func TestSiteHandlersRecentVisitsDefaultsLimit(testingT *testing.T) {
 }
 
 func TestSiteHandlersRecentVisitsSkipsBlankSite(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	handlers := &SiteHandlers{database: database}
 	entries, err := handlers.recentVisits(context.Background(), "   ", 1)
 	require.NoError(testingT, err)
@@ -213,7 +213,7 @@ func TestSiteHandlersRecentVisitsSkipsBlankSite(testingT *testing.T) {
 }
 
 func TestDatabaseSiteStatisticsProviderCountsSkipBlankSite(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	provider := NewDatabaseSiteStatisticsProvider(database)
 
 	feedbackCount, feedbackErr := provider.FeedbackCount(context.Background(), " ")
@@ -234,7 +234,7 @@ func TestDatabaseSiteStatisticsProviderCountsSkipBlankSite(testingT *testing.T) 
 }
 
 func TestDatabaseSiteStatisticsProviderExcludesBotsFromDefaultStats(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
 	humanVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
@@ -273,7 +273,7 @@ func TestDatabaseSiteStatisticsProviderExcludesBotsFromDefaultStats(testingT *te
 }
 
 func TestDatabaseSiteStatisticsProviderVisitTrendDefaultsToSevenDays(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 	startOfToday := time.Now().UTC().Truncate(24 * time.Hour)
 	yesterday := startOfToday.AddDate(0, 0, -1)
@@ -330,7 +330,7 @@ func TestDatabaseSiteStatisticsProviderVisitTrendDefaultsToSevenDays(testingT *t
 }
 
 func TestDatabaseSiteStatisticsProviderVisitAttributionExcludesBots(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
 	adVisitOne, visitErr := model.NewSiteVisit(model.SiteVisitInput{
@@ -411,7 +411,7 @@ func TestDatabaseSiteStatisticsProviderVisitAttributionExcludesBots(testingT *te
 }
 
 func TestDatabaseSiteStatisticsProviderVisitAttributionRespectsLimit(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
 	googleVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
@@ -450,7 +450,7 @@ func TestDatabaseSiteStatisticsProviderVisitAttributionRespectsLimit(testingT *t
 }
 
 func TestDatabaseSiteStatisticsProviderVisitAggregationsSkipBlankSite(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	provider := NewDatabaseSiteStatisticsProvider(database)
 
 	trend, trendErr := provider.VisitTrend(context.Background(), "   ", 7)
@@ -469,7 +469,7 @@ func TestDatabaseSiteStatisticsProviderVisitAggregationsSkipBlankSite(testingT *
 }
 
 func TestDatabaseSiteStatisticsProviderVisitEngagementDefaultsAndExcludesBots(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 	startOfToday := time.Now().UTC().Truncate(24 * time.Hour)
 
@@ -748,7 +748,7 @@ func TestVisitEngagementHelperFunctions(testingT *testing.T) {
 }
 
 func TestDatabaseSiteStatisticsProviderDeviceBreakdownClassifiesViewportWidths(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
 	mobileVisit, err := model.NewSiteVisit(model.SiteVisitInput{
@@ -798,7 +798,7 @@ func TestDatabaseSiteStatisticsProviderDeviceBreakdownClassifiesViewportWidths(t
 }
 
 func TestDatabaseSiteStatisticsProviderDeviceBreakdownExcludesBots(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
 	botVisit, err := model.NewSiteVisit(model.SiteVisitInput{
@@ -820,7 +820,7 @@ func TestDatabaseSiteStatisticsProviderDeviceBreakdownExcludesBots(testingT *tes
 }
 
 func TestDatabaseSiteStatisticsProviderDeviceBreakdownSkipsBlankSite(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	provider := NewDatabaseSiteStatisticsProvider(database)
 	result, err := provider.DeviceBreakdown(context.Background(), "   ", 10)
 	require.NoError(testingT, err)
@@ -828,7 +828,7 @@ func TestDatabaseSiteStatisticsProviderDeviceBreakdownSkipsBlankSite(testingT *t
 }
 
 func TestDatabaseSiteStatisticsProviderDeviceBreakdownTopResolutions(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
 	for i := 0; i < 3; i++ {
@@ -861,7 +861,7 @@ func TestDatabaseSiteStatisticsProviderDeviceBreakdownTopResolutions(testingT *t
 }
 
 func TestDatabaseSiteStatisticsProviderTimezoneDistributionGroupsByTimezone(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
 	for i := 0; i < 2; i++ {
@@ -894,7 +894,7 @@ func TestDatabaseSiteStatisticsProviderTimezoneDistributionGroupsByTimezone(test
 }
 
 func TestDatabaseSiteStatisticsProviderTimezoneDistributionExcludesBots(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
 	botVisit, err := model.NewSiteVisit(model.SiteVisitInput{
@@ -914,7 +914,7 @@ func TestDatabaseSiteStatisticsProviderTimezoneDistributionExcludesBots(testingT
 }
 
 func TestDatabaseSiteStatisticsProviderTimezoneDistributionSkipsEmptyTimezone(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
 	visit, err := model.NewSiteVisit(model.SiteVisitInput{
@@ -932,7 +932,7 @@ func TestDatabaseSiteStatisticsProviderTimezoneDistributionSkipsEmptyTimezone(te
 }
 
 func TestDatabaseSiteStatisticsProviderTimezoneDistributionSkipsBlankSite(testingT *testing.T) {
-	database := openFaviconManagerDatabase(testingT)
+	database := openSiteStatsDatabase(testingT)
 	provider := NewDatabaseSiteStatisticsProvider(database)
 	results, err := provider.TimezoneDistribution(context.Background(), "   ", 10)
 	require.NoError(testingT, err)

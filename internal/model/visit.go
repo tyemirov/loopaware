@@ -31,21 +31,21 @@ var (
 
 // SiteVisit captures a single page view.
 type SiteVisit struct {
-	ID         string    `gorm:"primaryKey;size:36"`
-	SiteID     string    `gorm:"not null;size:36;index"`
-	URL        string    `gorm:"size:500"`
-	Path       string    `gorm:"size:300;index"`
-	VisitorID  string    `gorm:"size:36;index"`
-	IP         string    `gorm:"size:64"`
-	UserAgent  string    `gorm:"size:400"`
-	Referrer   string    `gorm:"size:500"`
-	IsBot            bool      `gorm:"not null;default:false;index"`
-	ScreenResolution string    `gorm:"size:20"`
-	Viewport         string    `gorm:"size:20"`
-	Timezone         string    `gorm:"size:60"`
+	ID               string    `gorm:"primaryKey;size:36"`
+	SiteID           string    `gorm:"not null;size:36;index;index:idx_site_visits_site_bot_occurred,priority:1;index:idx_site_visits_site_bot_path,priority:1;index:idx_site_visits_site_bot_visitor,priority:1;index:idx_site_visits_site_bot_resolution,priority:1;index:idx_site_visits_site_bot_viewport,priority:1;index:idx_site_visits_site_bot_timezone,priority:1"`
+	URL              string    `gorm:"size:500"`
+	Path             string    `gorm:"size:300;index;index:idx_site_visits_site_bot_path,priority:3"`
+	VisitorID        string    `gorm:"size:36;index;index:idx_site_visits_site_bot_visitor,priority:3"`
+	IP               string    `gorm:"size:64"`
+	UserAgent        string    `gorm:"size:400"`
+	Referrer         string    `gorm:"size:500"`
+	IsBot            bool      `gorm:"not null;default:false;index;index:idx_site_visits_site_bot_occurred,priority:2;index:idx_site_visits_site_bot_path,priority:2;index:idx_site_visits_site_bot_visitor,priority:2;index:idx_site_visits_site_bot_resolution,priority:2;index:idx_site_visits_site_bot_viewport,priority:2;index:idx_site_visits_site_bot_timezone,priority:2"`
+	ScreenResolution string    `gorm:"size:20;index:idx_site_visits_site_bot_resolution,priority:3"`
+	Viewport         string    `gorm:"size:20;index:idx_site_visits_site_bot_viewport,priority:3"`
+	Timezone         string    `gorm:"size:60;index:idx_site_visits_site_bot_timezone,priority:3"`
 	PageTitle        string    `gorm:"size:200"`
 	Status           string    `gorm:"size:20"`
-	OccurredAt       time.Time `gorm:"not null;index"`
+	OccurredAt       time.Time `gorm:"not null;index;index:idx_site_visits_site_bot_occurred,priority:3"`
 }
 
 // SiteVisitInput holds incoming visit data.

@@ -151,6 +151,9 @@ func TestSiteFaviconManagerShouldForceFetchHonorsStoredData(testingT *testing.T)
 	require.False(testingT, manager.shouldForceFetch(site, testFaviconOrigin))
 
 	site.FaviconData = nil
+	require.False(testingT, manager.shouldForceFetch(site, testFaviconOrigin))
+
+	site.FaviconFetchedAt = time.Time{}
 	require.True(testingT, manager.shouldForceFetch(site, testFaviconOrigin))
 }
 

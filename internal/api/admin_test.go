@@ -349,6 +349,24 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 		}
 		require.NoError(testingT, harness.database.Create(&feedback).Error)
 	}
+	subscriber := model.Subscriber{
+		ID:     storage.NewID(),
+		SiteID: site.ID,
+		Email:  "reader@example.com",
+		Status: model.SubscriberStatusConfirmed,
+	}
+	require.NoError(testingT, harness.database.Create(&subscriber).Error)
+	visitorID := storage.NewID()
+	visits := []model.SiteVisitInput{
+		{SiteID: site.ID, URL: "https://client.example/pricing", VisitorID: visitorID},
+		{SiteID: site.ID, URL: "https://client.example/docs", VisitorID: visitorID},
+		{SiteID: site.ID, URL: "https://client.example/bot", VisitorID: storage.NewID(), IsBot: true},
+	}
+	for _, input := range visits {
+		visit, visitErr := model.NewSiteVisit(input)
+		require.NoError(testingT, visitErr)
+		require.NoError(testingT, harness.database.Create(&visit).Error)
+	}
 	recorder, context := newJSONContext(http.MethodGet, strings.TrimRight(testWidgetBaseURL, "/")+"/api/sites", nil)
 	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
 
@@ -361,6 +379,9 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 			Widget                   string `json:"widget"`
 			FaviconURL               string `json:"favicon_url"`
 			FeedbackCount            int64  `json:"feedback_count"`
+			SubscriberCount          int64  `json:"subscriber_count"`
+			VisitCount               int64  `json:"visit_count"`
+			UniqueVisitorCount       int64  `json:"unique_visitor_count"`
 			WidgetBubbleSide         string `json:"widget_bubble_side"`
 			WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
 		} `json:"sites"`
@@ -374,6 +395,9 @@ func TestListSitesUsesPublicBaseURLForWidget(testingT *testing.T) {
 	expectedFavicon := fmt.Sprintf("/api/sites/%s/favicon?ts=%d", site.ID, site.FaviconFetchedAt.UTC().Unix())
 	require.Equal(testingT, expectedFavicon, responseBody.Sites[0].FaviconURL)
 	require.Equal(testingT, int64(5), responseBody.Sites[0].FeedbackCount)
+	require.Equal(testingT, int64(1), responseBody.Sites[0].SubscriberCount)
+	require.Equal(testingT, int64(2), responseBody.Sites[0].VisitCount)
+	require.Equal(testingT, int64(1), responseBody.Sites[0].UniqueVisitorCount)
 	require.Equal(testingT, defaultWidgetTestBubbleSide, responseBody.Sites[0].WidgetBubbleSide)
 	require.Equal(testingT, defaultWidgetTestBottomOffsetPixels, responseBody.Sites[0].WidgetBubbleBottomOffset)
 }
