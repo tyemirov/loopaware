@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.0] - 2026-05-01
+
+### Features ✨
+- Added LA Sentry developer monitoring with protected server-to-server ingest and a dedicated dashboard tab.
+- Introduced first-class LA Sentry clients: Go middleware and Python package for error capture.
+- Implemented browser JavaScript LA Sentry capture with origin-bound ingest and public CORS.
+
+### Improvements ⚙️
+- Improved favicon resolver accuracy and added live favicon integration tests.
+- Enhanced rate limiter to store one bounded counter per client IP and prune expired windows.
+- Optimized dashboard site listing query batching for feedback, subscriber, visit, and unique-visitor counts.
+- Added composite indexes for performance in visit aggregations and Sentry issue listing.
+- Normalized LA Sentry client names and added browser and Python Sentry client support.
+- Hardened Sentry ingest to retry races, atomically increment counts, and strip query/fragment secrets from request metadata.
+
+### Bug Fixes 🐛
+- Fixed favicon discovery to block localhost, private, special-use, link-local, multicast, and unspecified targets before dispatch.
+- Addressed issues from LA Sentry review findings.
+- Fixed rate limiter to reject new clients once counters reach capacity.
+
+### Testing 🧪
+- Added black-box API and dashboard coverage for LA Sentry backend and browser captures.
+- Added live favicon integration coverage validating favicons from Google, Wikipedia, GitHub, Apple, Microsoft, and Reddit.
+- Added Playwright tests for LA Sentry browser and API integrations.
+
+### Docs 📚
+- Added documentation for new LA Sentry developer client types and dashboard features.
+- Updated README with usage and integration details for LA Sentry clients and browser harness.
+- Documented new API endpoints for LA Sentry error ingest and query.
+
 ## [v0.5.8] - 2026-04-23
 
 ### Features ✨
