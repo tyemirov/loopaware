@@ -7,7 +7,56 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
 
 ## BugFixes
 
+- [x] [B001] (P0) Verify successful login lands on a loaded dashboard.
+  ### Summary
+  Add black-box browser coverage for the full login completion path: an unauthenticated user starts from `/login`, completes Google/TAuth sign-in, receives a usable session, reaches `/app`, and sees the authenticated dashboard loaded.
+
+  ### Deliverables
+  - Add Playwright integration coverage that drives the login page sign-in flow rather than pre-seeding a session before navigation.
+  - Assert the final dashboard URL and visible authenticated dashboard state.
+  - Fix any auth handoff regression exposed by the new coverage.
+
+  ### Resolution
+  Added black-box Playwright coverage for the login CTA completing TAuth exchange, receiving a session cookie, reaching `/app`, waiting for the loaded dashboard, and verifying authenticated header/user state. The TAuth test stub now writes the post-exchange session cookie so the browser test matches the real login handoff. `make ci` passed.
+
+- [x] [B002] (P0) Make IP rate limits independent of wall-clock bucket boundaries.
+  ### Summary
+  `make ci` exposed an intermittent LA Sentry browser rate-limit failure where requests started near the end of a 30-second wall-clock bucket could split across buckets and avoid the intended per-window limit.
+
+  ### Deliverables
+  - Use per-client rate windows that start at the first request in the window.
+  - Apply the same boundary-safe behavior to public and browser Sentry rate limits.
+  - Verify the black-box integration suite no longer lets the boundary case through.
+
+  ### Resolution
+  Replaced wall-clock bucket counters with per-client windows for public API and LA Sentry browser rate limits, updated helper tests, and verified `make test-integration-api` plus `make ci` pass.
+
 ## Improvements
+
+- [x] [I003] (P1) Advertise LA Sentry on the public landing page.
+  ### Summary
+  The public landing page currently presents feedback, subscriber capture, and traffic analytics, but omits LA Sentry even though it is now a first-class developer monitoring surface.
+
+  ### Deliverables
+  - Update landing-page metadata and visible copy to include LA Sentry developer error monitoring.
+  - Add LA Sentry as a first-class feature card alongside the other embeddable surfaces.
+  - Update public-page tests that assert landing-page copy.
+
+  ### Resolution
+  Updated `/login` landing metadata, hero copy, feature grid, and setup copy to advertise LA Sentry as a first-class developer monitoring surface; updated public-page and auth-state tests; verified `make ci` passes.
+
+- [x] [I002] (P1) Consolidate LA Sentry client discovery under `clients/`.
+  ### Summary
+  Make the first-party LA Sentry clients discoverable from a dedicated `clients/` entrypoint instead of requiring readers to know that Go, Python, and browser surfaces live in different runtime-oriented folders.
+
+  ### Deliverables
+  - Add a client index under `clients/` for Go, Python, and browser usage.
+  - Move the Go client implementation under `clients/` while preserving compatibility for existing `pkg/lasentry` imports.
+  - Document why the browser harness remains served from `web/la-sentry.js`.
+  - Update repo docs and integration fixtures to prefer the dedicated client locations.
+
+  ### Resolution
+  Added `clients/README.md` as the LA Sentry client index, moved the Go client implementation to `clients/go/lasentry` with a `pkg/lasentry` compatibility package, added browser and Go client docs under `clients/`, updated README references and the Go integration fixture, and verified `make ci` passes.
 
 - [ ] [I001] (P1) Replace placeholder-only inputs with labeled fields in the static frontend.
   ### Summary

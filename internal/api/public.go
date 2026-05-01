@@ -37,8 +37,8 @@ type PublicHandlers struct {
 }
 
 type publicRateCounter struct {
-	windowBucket int64
-	count        int
+	windowStartedAt time.Time
+	count           int
 }
 
 const (
@@ -295,27 +295,27 @@ func (h *PublicHandlers) sendSubscriptionConfirmation(ctx context.Context, site 
 }
 
 func (h *PublicHandlers) isRateLimited(ip string) bool {
-	nowBucket := time.Now().Unix() / int64(h.rateWindow.Seconds())
+	now := time.Now()
 
 	h.rateCountersMutex.Lock()
 	defer h.rateCountersMutex.Unlock()
 
-	h.pruneRateCounters(nowBucket)
+	h.pruneRateCounters(now)
 	rateCounter, exists := h.rateCountersByIP[ip]
 	if !exists && len(h.rateCountersByIP) >= publicMaxRateCounterEntries {
 		return true
 	}
-	if rateCounter.windowBucket != nowBucket {
-		rateCounter = publicRateCounter{windowBucket: nowBucket}
+	if !exists || now.Sub(rateCounter.windowStartedAt) >= h.rateWindow {
+		rateCounter = publicRateCounter{windowStartedAt: now}
 	}
 	rateCounter.count++
 	h.rateCountersByIP[ip] = rateCounter
 	return rateCounter.count > h.maxRequestsPerIPPerWindow
 }
 
-func (h *PublicHandlers) pruneRateCounters(currentBucket int64) {
+func (h *PublicHandlers) pruneRateCounters(now time.Time) {
 	for clientIP, rateCounter := range h.rateCountersByIP {
-		if rateCounter.windowBucket < currentBucket {
+		if now.Sub(rateCounter.windowStartedAt) >= h.rateWindow {
 			delete(h.rateCountersByIP, clientIP)
 		}
 	}
