@@ -33,14 +33,14 @@ type Site struct {
 
 type Feedback struct {
 	ID        string    `gorm:"primaryKey;size:36"`
-	SiteID    string    `gorm:"index;not null;size:36"`
+	SiteID    string    `gorm:"index;index:idx_feedbacks_site_created,priority:1;not null;size:36"`
 	Contact   string    `gorm:"not null;size:320"`
 	Message   string    `gorm:"not null;size:4000"`
 	Sentiment string    `gorm:"size:16"`
 	IP        string    `gorm:"size:64"`
 	UserAgent string    `gorm:"size:400"`
 	Delivery  string    `gorm:"not null;size:16;default:no"`
-	CreatedAt time.Time `gorm:"autoCreateTime"`
+	CreatedAt time.Time `gorm:"autoCreateTime;index:idx_feedbacks_site_created,priority:2"`
 }
 
 type User struct {

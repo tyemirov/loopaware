@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -24,7 +23,7 @@ type PublicHandlers struct {
 	logger                    *zap.Logger
 	rateWindow                time.Duration
 	maxRequestsPerIPPerWindow int
-	rateCountersByIP          map[string]int
+	rateCountersByIP          map[string]publicRateCounter
 	rateCountersMutex         sync.Mutex
 	feedbackBroadcaster       *FeedbackEventBroadcaster
 	subscriptionEvents        *SubscriptionTestEventBroadcaster
@@ -35,6 +34,11 @@ type PublicHandlers struct {
 	subscriptionTokenSecret   string
 	subscriptionTokenTTL      time.Duration
 	confirmationEmailSender   EmailSender
+}
+
+type publicRateCounter struct {
+	windowBucket int64
+	count        int
 }
 
 const (
@@ -63,6 +67,7 @@ const (
 	subscriptionEventStatusSkipped    = "skipped"
 
 	defaultSubscriptionConfirmationTokenTTL = 48 * time.Hour
+	publicMaxRateCounterEntries             = 4096
 )
 
 // NewPublicHandlers constructs a PublicHandlers instance with the provided dependencies.
@@ -74,7 +79,7 @@ func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaste
 		logger:                    logger,
 		rateWindow:                30 * time.Second,
 		maxRequestsPerIPPerWindow: 6,
-		rateCountersByIP:          make(map[string]int),
+		rateCountersByIP:          make(map[string]publicRateCounter),
 		feedbackBroadcaster:       feedbackBroadcaster,
 		subscriptionEvents:        subscriptionEvents,
 		feedbackNotifier:          resolveFeedbackNotifier(notifier),
@@ -291,13 +296,29 @@ func (h *PublicHandlers) sendSubscriptionConfirmation(ctx context.Context, site 
 
 func (h *PublicHandlers) isRateLimited(ip string) bool {
 	nowBucket := time.Now().Unix() / int64(h.rateWindow.Seconds())
-	key := fmt.Sprintf("%s:%d", ip, nowBucket)
 
 	h.rateCountersMutex.Lock()
 	defer h.rateCountersMutex.Unlock()
 
-	h.rateCountersByIP[key]++
-	return h.rateCountersByIP[key] > h.maxRequestsPerIPPerWindow
+	h.pruneRateCounters(nowBucket)
+	rateCounter, exists := h.rateCountersByIP[ip]
+	if !exists && len(h.rateCountersByIP) >= publicMaxRateCounterEntries {
+		return true
+	}
+	if rateCounter.windowBucket != nowBucket {
+		rateCounter = publicRateCounter{windowBucket: nowBucket}
+	}
+	rateCounter.count++
+	h.rateCountersByIP[ip] = rateCounter
+	return rateCounter.count > h.maxRequestsPerIPPerWindow
+}
+
+func (h *PublicHandlers) pruneRateCounters(currentBucket int64) {
+	for clientIP, rateCounter := range h.rateCountersByIP {
+		if rateCounter.windowBucket < currentBucket {
+			delete(h.rateCountersByIP, clientIP)
+		}
+	}
 }
 
 // WidgetConfig returns the widget configuration for a site.

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -356,6 +357,30 @@ func TestDoRequestRejectsInvalidTarget(testingT *testing.T) {
 	require.Nil(testingT, response)
 }
 
+func TestDoRequestAddsRequestHeaders(testingT *testing.T) {
+	var capturedUserAgent string
+	var capturedAcceptHeader string
+	client := &http.Client{
+		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+			capturedUserAgent = request.Header.Get("User-Agent")
+			capturedAcceptHeader = request.Header.Get("Accept")
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(testResolverDataPayload)),
+				Header:     http.Header{},
+			}, nil
+		}),
+	}
+	resolver := NewHTTPResolver(client, zap.NewNop())
+
+	response, requestErr := resolver.doRequest(context.Background(), http.MethodGet, testResolverIconURL)
+	require.NoError(testingT, requestErr)
+	require.NotNil(testingT, response)
+	require.NoError(testingT, response.Body.Close())
+	require.Equal(testingT, defaultUserAgent, capturedUserAgent)
+	require.Equal(testingT, defaultAcceptHeader, capturedAcceptHeader)
+}
+
 func TestRequestContextUsesBackgroundForNil(testingT *testing.T) {
 	resolver := NewHTTPResolver(nil, zap.NewNop())
 	var optionalContext context.Context
@@ -441,6 +466,50 @@ func TestHTTPResolverResolveAssetReturnsNilForInvalidOrigin(testingT *testing.T)
 	asset, resolveErr := resolver.ResolveAsset(context.Background(), "http://")
 	require.NoError(testingT, resolveErr)
 	require.Nil(testingT, asset)
+}
+
+func TestHTTPResolverRejectsLocalAddressBeforeDispatch(testingT *testing.T) {
+	requestCount := 0
+	client := &http.Client{
+		Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			requestCount++
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(testResolverDataPayload)),
+				Header:     http.Header{},
+			}, nil
+		}),
+	}
+	resolver := NewHTTPResolver(client, zap.NewNop())
+
+	asset, resolveErr := resolver.ResolveAsset(context.Background(), "http://127.0.0.1")
+	require.NoError(testingT, resolveErr)
+	require.Nil(testingT, asset)
+	require.Equal(testingT, 0, requestCount)
+}
+
+func TestResolvePublicDialAddressRejectsLocalhost(testingT *testing.T) {
+	address, resolveErr := resolvePublicDialAddress(context.Background(), "localhost", "80")
+	require.Error(testingT, resolveErr)
+	require.Empty(testingT, address)
+}
+
+func TestIsPublicIPClassifiesAddresses(testingT *testing.T) {
+	testCases := []struct {
+		value  string
+		public bool
+	}{
+		{value: "8.8.8.8", public: true},
+		{value: "127.0.0.1", public: false},
+		{value: "10.0.0.1", public: false},
+		{value: "169.254.1.1", public: false},
+		{value: "224.0.0.1", public: false},
+		{value: "::1", public: false},
+	}
+
+	for _, testCase := range testCases {
+		require.Equal(testingT, testCase.public, isPublicIP(net.ParseIP(testCase.value)), testCase.value)
+	}
 }
 
 func TestHTTPResolverResolveAssetReturnsNilWhenNoCandidate(testingT *testing.T) {

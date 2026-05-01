@@ -192,9 +192,6 @@ func (manager *SiteFaviconManager) scheduleFetch(site model.Site, normalizedOrig
 }
 
 func (manager *SiteFaviconManager) shouldForceFetch(site model.Site, normalizedOrigin string) bool {
-	if len(site.FaviconData) == 0 {
-		return true
-	}
 	if site.FaviconFetchedAt.IsZero() {
 		return true
 	}
@@ -209,9 +206,6 @@ func (manager *SiteFaviconManager) shouldForceFetch(site model.Site, normalizedO
 }
 
 func (manager *SiteFaviconManager) shouldNotifySubscribers(site model.Site, normalizedOrigin string) bool {
-	if len(site.FaviconData) == 0 {
-		return true
-	}
 	if site.FaviconFetchedAt.IsZero() {
 		return true
 	}
@@ -364,7 +358,7 @@ func (manager *SiteFaviconManager) performScheduledRefresh(ctx context.Context) 
 
 	var sites []model.Site
 	if err := manager.database.
-		Select("id", "allowed_origin", "favicon_origin", "favicon_data", "favicon_fetched_at", "favicon_last_attempt_at").
+		Select("id", "allowed_origin", "favicon_origin", "favicon_fetched_at", "favicon_last_attempt_at").
 		Find(&sites).Error; err != nil {
 		if manager.logger != nil {
 			manager.logger.Warn("load_sites_for_favicon_refresh", zap.Error(err))
@@ -429,14 +423,11 @@ func (manager *SiteFaviconManager) shouldFetch(site model.Site, normalizedOrigin
 	if !strings.EqualFold(storedOrigin, normalizedOrigin) {
 		return true
 	}
-	if len(site.FaviconData) == 0 {
+	if site.FaviconFetchedAt.IsZero() {
 		if site.FaviconLastAttemptAt.IsZero() {
 			return true
 		}
 		return manager.now().Sub(site.FaviconLastAttemptAt) >= manager.retryInterval
-	}
-	if site.FaviconFetchedAt.IsZero() {
-		return true
 	}
 	return manager.now().Sub(site.FaviconFetchedAt) >= manager.refreshInterval
 }

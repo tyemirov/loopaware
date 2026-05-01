@@ -368,6 +368,10 @@ Use `make test-unit` for Go-only tests and `make test-integration-api` to focus 
 (traces, screenshots, videos) land under `tests/test-results/` on failure. The integration runner tears its compose
 project down on exit, including failures and signal exits.
 
+Use `make test-live-favicons` when validating customer-site favicon collection against known public websites. That
+target performs live network requests and is intentionally outside `make ci` so third-party uptime does not gate normal
+development.
+
 ## Release publishing
 
 GitHub Pages and Docker release publishing are tag-driven and run only for pushed tags that match `vMAJOR.MINOR.PATCH`.

@@ -7,7 +7,7 @@ INEFFASSIGN := github.com/gordonklaus/ineffassign@$(INEFFASSIGN_VERSION)
 
 export GOWORK := off
 
-.PHONY: format format-pinguin build lint lint-js config-audit test test-unit test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci
+.PHONY: format format-pinguin build lint lint-js config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -47,6 +47,9 @@ test: test-integration
 
 test-unit:
 	go test ./...
+
+test-live-favicons:
+	LOOPAWARE_LIVE_FAVICON_TESTS=1 go test ./pkg/favicon -run TestHTTPResolverLiveKnownSitesReturnFavicons -count=1
 
 test-integration:
 	./tests/scripts/run-integration.sh

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -20,6 +21,9 @@ const (
 	defaultCacheTTL     = 6 * time.Hour
 	defaultMaxIconBytes = 128 * 1024
 	defaultMaxHTMLBytes = 512 * 1024
+	defaultHTTPTimeout  = 5 * time.Second
+	defaultUserAgent    = "LoopAware-FaviconResolver/1.0"
+	defaultAcceptHeader = "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
 )
 
 var (
@@ -72,11 +76,7 @@ func NewHTTPResolver(httpClient *http.Client, logger *zap.Logger) *HTTPResolver 
 		maxIconBytes: defaultMaxIconBytes,
 		maxHTMLBytes: defaultMaxHTMLBytes,
 	}
-	if httpClient != nil {
-		resolver.httpClient = httpClient
-	} else {
-		resolver.httpClient = &http.Client{Timeout: 5 * time.Second}
-	}
+	resolver.httpClient = newFaviconHTTPClient(httpClient)
 	return resolver
 }
 
@@ -87,12 +87,10 @@ func (resolver *HTTPResolver) Resolve(ctx context.Context, allowedOrigin string)
 		return "", nil
 	}
 
-	baseURL, parseErr := url.Parse(normalized)
-	if parseErr != nil || baseURL == nil || baseURL.Scheme == "" || baseURL.Host == "" {
+	baseURL, parseErr := parseAllowedOrigin(normalized)
+	if parseErr != nil {
 		return "", nil
 	}
-	baseURL.Fragment = ""
-	baseURL.RawQuery = ""
 
 	cacheKey := strings.ToLower(baseURL.String())
 	if entryValue, ok := resolver.cache.Load(cacheKey); ok {
@@ -135,12 +133,10 @@ func (resolver *HTTPResolver) ResolveAsset(ctx context.Context, allowedOrigin st
 		return nil, nil
 	}
 
-	baseURL, parseErr := url.Parse(normalized)
-	if parseErr != nil || baseURL == nil || baseURL.Scheme == "" || baseURL.Host == "" {
+	baseURL, parseErr := parseAllowedOrigin(normalized)
+	if parseErr != nil {
 		return nil, nil
 	}
-	baseURL.Fragment = ""
-	baseURL.RawQuery = ""
 
 	candidate, lookupErr := resolver.lookupFavicon(ctx, baseURL)
 	if lookupErr != nil {
@@ -455,6 +451,11 @@ func (resolver *HTTPResolver) doRequest(ctx context.Context, method string, targ
 	if err != nil {
 		return nil, err
 	}
+	if validateErr := validateOutboundURL(request.URL); validateErr != nil {
+		return nil, validateErr
+	}
+	request.Header.Set("User-Agent", defaultUserAgent)
+	request.Header.Set("Accept", defaultAcceptHeader)
 	return resolver.httpClient.Do(request)
 }
 
@@ -542,4 +543,119 @@ func (limited limitedReadCloser) Read(buffer []byte) (int, error) {
 
 func (limited limitedReadCloser) Close() error {
 	return limited.closer.Close()
+}
+
+func parseAllowedOrigin(raw string) (*url.URL, error) {
+	baseURL, parseErr := url.Parse(strings.TrimSpace(raw))
+	if parseErr != nil || baseURL == nil || baseURL.Scheme == "" || baseURL.Host == "" {
+		return nil, errors.New("invalid allowed origin")
+	}
+	if !isHTTPScheme(baseURL.Scheme) {
+		return nil, errors.New("unsupported allowed origin scheme")
+	}
+	baseURL.Fragment = ""
+	baseURL.RawQuery = ""
+	if validateErr := validateOutboundURL(baseURL); validateErr != nil {
+		return nil, validateErr
+	}
+	return baseURL, nil
+}
+
+func newFaviconHTTPClient(httpClient *http.Client) *http.Client {
+	if httpClient == nil {
+		return &http.Client{
+			Timeout:   defaultHTTPTimeout,
+			Transport: newSafeFaviconTransport(),
+		}
+	}
+	clientCopy := *httpClient
+	if clientCopy.Timeout == 0 {
+		clientCopy.Timeout = defaultHTTPTimeout
+	}
+	if clientCopy.Transport == nil {
+		clientCopy.Transport = newSafeFaviconTransport()
+	}
+	return &clientCopy
+}
+
+func newSafeFaviconTransport() http.RoundTripper {
+	baseTransport := http.DefaultTransport.(*http.Transport).Clone()
+	dialer := &net.Dialer{
+		Timeout:   defaultHTTPTimeout,
+		KeepAlive: 30 * time.Second,
+	}
+	baseTransport.DialContext = func(ctx context.Context, network string, address string) (net.Conn, error) {
+		host, port, splitErr := net.SplitHostPort(address)
+		if splitErr != nil {
+			return nil, splitErr
+		}
+		resolvedAddress, resolveErr := resolvePublicDialAddress(ctx, host, port)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		return dialer.DialContext(ctx, network, resolvedAddress)
+	}
+	return baseTransport
+}
+
+func resolvePublicDialAddress(ctx context.Context, host string, port string) (string, error) {
+	normalizedHost := strings.TrimSpace(host)
+	if normalizedHost == "" {
+		return "", errors.New("empty favicon host")
+	}
+	if ip := net.ParseIP(normalizedHost); ip != nil {
+		if !isPublicIP(ip) {
+			return "", fmt.Errorf("favicon target resolves to non-public address %s", ip.String())
+		}
+		return net.JoinHostPort(ip.String(), port), nil
+	}
+
+	addresses, lookupErr := net.DefaultResolver.LookupIPAddr(ctx, normalizedHost)
+	if lookupErr != nil {
+		return "", lookupErr
+	}
+	for _, address := range addresses {
+		if isPublicIP(address.IP) {
+			return net.JoinHostPort(address.IP.String(), port), nil
+		}
+	}
+	return "", fmt.Errorf("favicon target has no public DNS address: %s", normalizedHost)
+}
+
+func validateOutboundURL(target *url.URL) error {
+	if target == nil || target.Scheme == "" || target.Host == "" {
+		return errors.New("invalid favicon url")
+	}
+	if !isHTTPScheme(target.Scheme) {
+		return errors.New("unsupported favicon url scheme")
+	}
+	host := strings.TrimSpace(target.Hostname())
+	if host == "" {
+		return errors.New("empty favicon host")
+	}
+	if ip := net.ParseIP(host); ip != nil && !isPublicIP(ip) {
+		return fmt.Errorf("favicon target is non-public address %s", ip.String())
+	}
+	return nil
+}
+
+func isHTTPScheme(scheme string) bool {
+	return strings.EqualFold(scheme, "http") || strings.EqualFold(scheme, "https")
+}
+
+func isPublicIP(ip net.IP) bool {
+	normalized := ip.To16()
+	if normalized == nil {
+		return false
+	}
+	if ip4 := ip.To4(); ip4 != nil {
+		normalized = ip4
+	}
+	if !normalized.IsGlobalUnicast() {
+		return false
+	}
+	if normalized.IsLoopback() || normalized.IsPrivate() || normalized.IsLinkLocalUnicast() || normalized.IsLinkLocalMulticast() || normalized.IsMulticast() || normalized.IsUnspecified() {
+		return false
+	}
+	return true
 }

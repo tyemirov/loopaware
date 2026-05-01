@@ -33,17 +33,17 @@ var (
 // Subscriber captures newsletter/announcement subscriptions for a site.
 type Subscriber struct {
 	ID             string `gorm:"primaryKey;size:36"`
-	SiteID         string `gorm:"not null;size:36;uniqueIndex:idx_subscribers_site_email"`
+	SiteID         string `gorm:"not null;size:36;uniqueIndex:idx_subscribers_site_email;index:idx_subscribers_site_created,priority:1;index:idx_subscribers_site_status,priority:1"`
 	Email          string `gorm:"not null;size:320;uniqueIndex:idx_subscribers_site_email"`
 	Name           string `gorm:"size:200"`
 	SourceURL      string `gorm:"size:500"`
 	IP             string `gorm:"size:64"`
 	UserAgent      string `gorm:"size:400"`
-	Status         string `gorm:"not null;size:16;index"`
+	Status         string `gorm:"not null;size:16;index;index:idx_subscribers_site_status,priority:2"`
 	ConsentAt      time.Time
 	ConfirmedAt    time.Time
 	UnsubscribedAt time.Time
-	CreatedAt      time.Time `gorm:"autoCreateTime"`
+	CreatedAt      time.Time `gorm:"autoCreateTime;index:idx_subscribers_site_created,priority:2"`
 	UpdatedAt      time.Time `gorm:"autoUpdateTime"`
 }
 

@@ -58,16 +58,16 @@ var (
 // SentryIssue groups developer error occurrences for a site.
 type SentryIssue struct {
 	ID              string `gorm:"primaryKey;size:36"`
-	SiteID          string `gorm:"not null;size:36;uniqueIndex:idx_sentry_issues_site_group"`
+	SiteID          string `gorm:"not null;size:36;uniqueIndex:idx_sentry_issues_site_group;index:idx_sentry_issues_site_last_seen,priority:1;index:idx_sentry_issues_site_status,priority:1"`
 	GroupingKey     string `gorm:"not null;size:64;uniqueIndex:idx_sentry_issues_site_group"`
 	Title           string `gorm:"not null;size:500"`
-	Status          string `gorm:"not null;size:16;index"`
+	Status          string `gorm:"not null;size:16;index;index:idx_sentry_issues_site_status,priority:2"`
 	Level           string `gorm:"not null;size:20"`
 	Platform        string `gorm:"not null;size:50"`
 	Environment     string `gorm:"not null;size:100;index"`
 	Release         string `gorm:"size:200"`
 	FirstSeenAt     time.Time
-	LastSeenAt      time.Time `gorm:"index"`
+	LastSeenAt      time.Time `gorm:"index;index:idx_sentry_issues_site_last_seen,priority:2"`
 	OccurrenceCount int64     `gorm:"not null;default:1"`
 	CreatedAt       time.Time `gorm:"autoCreateTime"`
 	UpdatedAt       time.Time `gorm:"autoUpdateTime"`
@@ -76,8 +76,8 @@ type SentryIssue struct {
 // SentryOccurrence stores a raw developer error event.
 type SentryOccurrence struct {
 	ID            string    `gorm:"primaryKey;size:36"`
-	SiteID        string    `gorm:"not null;size:36;index;uniqueIndex:idx_sentry_occurrences_site_event"`
-	IssueID       string    `gorm:"not null;size:36;index"`
+	SiteID        string    `gorm:"not null;size:36;index;uniqueIndex:idx_sentry_occurrences_site_event;index:idx_sentry_occurrences_site_issue_received,priority:1"`
+	IssueID       string    `gorm:"not null;size:36;index;index:idx_sentry_occurrences_site_issue_received,priority:2"`
 	EventID       string    `gorm:"not null;size:100;uniqueIndex:idx_sentry_occurrences_site_event"`
 	RawMessage    string    `gorm:"not null;size:4000"`
 	ExceptionType string    `gorm:"size:300"`
@@ -90,7 +90,7 @@ type SentryOccurrence struct {
 	Environment   string    `gorm:"not null;size:100;index"`
 	Release       string    `gorm:"size:200"`
 	Level         string    `gorm:"not null;size:20"`
-	ReceivedAt    time.Time `gorm:"not null;index"`
+	ReceivedAt    time.Time `gorm:"not null;index;index:idx_sentry_occurrences_site_issue_received,priority:3"`
 	CreatedAt     time.Time `gorm:"autoCreateTime"`
 }
 
