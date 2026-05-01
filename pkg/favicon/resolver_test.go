@@ -494,6 +494,12 @@ func TestResolvePublicDialAddressRejectsLocalhost(testingT *testing.T) {
 	require.Empty(testingT, address)
 }
 
+func TestNewSafeFaviconTransportDisablesProxy(testingT *testing.T) {
+	transport, ok := newSafeFaviconTransport().(*http.Transport)
+	require.True(testingT, ok)
+	require.Nil(testingT, transport.Proxy)
+}
+
 func TestIsPublicIPClassifiesAddresses(testingT *testing.T) {
 	testCases := []struct {
 		value  string
@@ -502,9 +508,24 @@ func TestIsPublicIPClassifiesAddresses(testingT *testing.T) {
 		{value: "8.8.8.8", public: true},
 		{value: "127.0.0.1", public: false},
 		{value: "10.0.0.1", public: false},
+		{value: "100.64.0.1", public: false},
 		{value: "169.254.1.1", public: false},
+		{value: "192.0.0.1", public: false},
+		{value: "192.0.2.1", public: false},
+		{value: "198.18.0.1", public: false},
+		{value: "198.51.100.1", public: false},
+		{value: "203.0.113.1", public: false},
 		{value: "224.0.0.1", public: false},
+		{value: "240.0.0.1", public: false},
+		{value: "2001:4860:4860::8888", public: true},
 		{value: "::1", public: false},
+		{value: "64:ff9b::1", public: false},
+		{value: "100::1", public: false},
+		{value: "2001:20::1", public: false},
+		{value: "2001:db8::1", public: false},
+		{value: "2002::1", public: false},
+		{value: "fc00::1", public: false},
+		{value: "fe80::1", public: false},
 	}
 
 	for _, testCase := range testCases {
