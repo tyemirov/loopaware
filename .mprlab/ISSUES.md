@@ -29,7 +29,8 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Verify the black-box integration suite no longer lets the boundary case through.
   ### Resolution
   Replaced wall-clock bucket counters with per-client windows for public API and LA Sentry browser rate limits, updated helper tests, and verified `make test-integration-api` plus `make ci` pass.
-- [ ] [B003] (P0) Consider a design of a current accordion design of different surfaces. We may want to have a better split out.
+- [ ] [B003] (P0) Consider a design of a current accordion design of different surfaces.
+  We may want to have a better split out.
 
 
 ## Improvements
