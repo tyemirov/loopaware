@@ -33,7 +33,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
-- [ ] [I004] (P0) Consider a design of a current accordion design of different surfaces.
+- [ ] [I004] (P1) Consider a design of a current accordion design of different surfaces.
   We may want to have a better split out.
 - [x] [I001] (P1) Advertise LA Sentry on the public landing page.
   ### Summary
