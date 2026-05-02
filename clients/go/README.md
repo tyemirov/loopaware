@@ -23,5 +23,3 @@ err = client.CaptureError(ctx, errValue, lasentry.Attributes{
 ```
 
 For HTTP services, wrap a handler with `client.Middleware(next)` to capture panics before returning a `500` response.
-
-The older import path `github.com/MarkoPoloResearchLab/loopaware/pkg/lasentry` remains available as a compatibility package.

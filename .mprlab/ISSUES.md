@@ -63,12 +63,12 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
 
   ### Deliverables
   - Add a client index under `clients/` for Go, Python, and browser usage.
-  - Move the Go client implementation under `clients/` while preserving compatibility for existing `pkg/lasentry` imports.
+  - Move the Go client implementation under `clients/` so client-facing SDKs live outside the server package namespace.
   - Document why the browser harness remains served from `web/la-sentry.js`.
   - Update repo docs and integration fixtures to prefer the dedicated client locations.
 
   ### Resolution
-  Added `clients/README.md` as the LA Sentry client index, moved the Go client implementation to `clients/go/lasentry` with a `pkg/lasentry` compatibility package, added browser and Go client docs under `clients/`, updated README references and the Go integration fixture, and verified `make ci` passes.
+  Added `clients/README.md` as the LA Sentry client index, moved the Go client implementation to `clients/go/lasentry`, removed the legacy `pkg/lasentry` package so SDKs are exposed only from `clients/`, added browser and Go client docs under `clients/`, updated README references and the Go integration fixture, and verified `make ci` passes.
 
 - [ ] [I001] (P1) Replace placeholder-only inputs with labeled fields in the static frontend.
   ### Summary
