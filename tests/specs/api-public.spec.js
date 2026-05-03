@@ -50,7 +50,7 @@ async function postFeedbackRequest(siteId, contact, message, originOverride, cli
   });
 }
 
-async function postSubscriptionRequest(siteId, email, originOverride, clientIP) {
+async function postSubscriptionRequest(siteId, email, originOverride, clientIP, audienceKey) {
   return apiRequest({
     baseURL: config.baseURL,
     path: "/public/subscriptions",
@@ -61,12 +61,28 @@ async function postSubscriptionRequest(siteId, email, originOverride, clientIP) 
       site_id: siteId,
       email,
       name: "",
-      source_url: ""
+      source_url: "",
+      audience_key: audienceKey || ""
     }
   });
 }
 
-async function postSubscriptionMutation(path, siteId, email, originOverride, clientIP) {
+async function postSubscriptionStatusRequest(siteId, email, audienceKeys, originOverride, clientIP) {
+  return apiRequest({
+    baseURL: config.baseURL,
+    path: "/public/subscriptions/status",
+    method: "POST",
+    origin: originOverride,
+    clientIP: clientIP || nextClientIP(),
+    body: {
+      site_id: siteId,
+      email,
+      audience_keys: audienceKeys
+    }
+  });
+}
+
+async function postSubscriptionMutation(path, siteId, email, originOverride, clientIP, audienceKey) {
   return apiRequest({
     baseURL: config.baseURL,
     path,
@@ -75,7 +91,8 @@ async function postSubscriptionMutation(path, siteId, email, originOverride, cli
     clientIP: clientIP || nextClientIP(),
     body: {
       site_id: siteId,
-      email
+      email,
+      audience_key: audienceKey || ""
     }
   });
 }
@@ -220,10 +237,52 @@ test.describe("public subscription api", () => {
 
   test("rejects duplicate subscription", async () => {
     const email = buildUniqueEmail("duplicate");
-    await postSubscriptionRequest(site.id, email, site.allowed_origin);
-    const { response, payload } = await postSubscriptionRequest(site.id, email, site.allowed_origin);
+    await postSubscriptionRequest(site.id, email, site.allowed_origin, undefined, "EBAY");
+    const { response, payload } = await postSubscriptionRequest(site.id, email, site.allowed_origin, undefined, "EBAY");
     expect(response.status).toBe(409);
     expect(payload.error).toBe("duplicate_subscription");
+  });
+
+  test("allows the same email in different subscription audiences", async () => {
+    const email = buildUniqueEmail("audience");
+    const ebay = await postSubscriptionRequest(site.id, email, site.allowed_origin, undefined, "EBAY");
+    const walmart = await postSubscriptionRequest(site.id, email, site.allowed_origin, undefined, "WLMT");
+    expect(ebay.response.status).toBe(200);
+    expect(walmart.response.status).toBe(200);
+  });
+
+  test("reports subscription status per audience", async () => {
+    const email = buildUniqueEmail("status");
+    await postSubscriptionRequest(site.id, email, site.allowed_origin, undefined, "EBAY");
+    await postSubscriptionRequest(site.id, email, site.allowed_origin, undefined, "WLMT");
+    await postSubscriptionMutation("/public/subscriptions/unsubscribe", site.id, email, site.allowed_origin, undefined, "WLMT");
+
+    const { response, payload } = await postSubscriptionStatusRequest(site.id, email, ["EBAY", "WLMT", "APPL"], site.allowed_origin);
+    expect(response.status).toBe(200);
+    expect(payload.status).toBe("ok");
+    expect(payload.subscriptions).toEqual([
+      { audience_key: "EBAY", subscribed: true },
+      { audience_key: "WLMT", subscribed: false },
+      { audience_key: "APPL", subscribed: false }
+    ]);
+  });
+
+  test("validates subscription status probes", async () => {
+    const missingAudience = await postSubscriptionStatusRequest(site.id, "user@example.com", [], site.allowed_origin);
+    expect(missingAudience.response.status).toBe(400);
+    expect(missingAudience.payload.error).toBe("missing_fields");
+
+    const invalidEmail = await postSubscriptionStatusRequest(site.id, "not-an-email", ["EBAY"], site.allowed_origin);
+    expect(invalidEmail.response.status).toBe(400);
+    expect(invalidEmail.payload.error).toBe("invalid_email");
+
+    const unknownSite = await postSubscriptionStatusRequest("missing-site", "user@example.com", ["EBAY"], site.allowed_origin);
+    expect(unknownSite.response.status).toBe(404);
+    expect(unknownSite.payload.error).toBe("unknown_site");
+
+    const forbiddenOrigin = await postSubscriptionStatusRequest(site.id, "user@example.com", ["EBAY"], buildUniqueOrigin("status-forbidden"));
+    expect(forbiddenOrigin.response.status).toBe(403);
+    expect(forbiddenOrigin.payload.error).toBe("origin_forbidden");
   });
 
   test("rate limits repeated subscription requests", async () => {

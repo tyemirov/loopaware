@@ -80,6 +80,7 @@ func registerBackendRoutes(
 	publicGroup.Use(publicCORS)
 	publicGroup.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
 	publicGroup.POST(publicRouteSubscription, publicHandlers.CreateSubscription)
+	publicGroup.POST(publicRouteSubscriptionStatus, publicHandlers.SubscriptionStatus)
 	publicGroup.POST(publicRouteSubscriptionConfirm, publicHandlers.ConfirmSubscription)
 	publicGroup.POST(publicRouteSubscriptionOptOut, publicHandlers.Unsubscribe)
 	publicGroup.GET("/public/widget-config", publicHandlers.WidgetConfig)

@@ -146,9 +146,15 @@ func (handlers *SiteSubscribeTestHandlers) CreateSubscription(context *gin.Conte
 	payload.Email = strings.TrimSpace(payload.Email)
 	payload.Name = strings.TrimSpace(payload.Name)
 	payload.SourceURL = strings.TrimSpace(payload.SourceURL)
+	payload.AudienceKey = strings.TrimSpace(payload.AudienceKey)
 
 	if payload.Email == "" {
 		context.JSON(http.StatusBadRequest, gin.H{"error": "missing_fields"})
+		return
+	}
+	audienceKey, audienceKeyErr := model.NormalizeSubscriberAudienceKey(payload.AudienceKey)
+	if audienceKeyErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": errorValueInvalidAudience})
 		return
 	}
 
@@ -163,7 +169,7 @@ func (handlers *SiteSubscribeTestHandlers) CreateSubscription(context *gin.Conte
 	}
 
 	clientIP := context.ClientIP()
-	existingSubscriber, findErr := findSubscriber(context.Request.Context(), handlers.database, site.ID, payload.Email)
+	existingSubscriber, findErr := findSubscriber(context.Request.Context(), handlers.database, site.ID, audienceKey, payload.Email)
 	if findErr != nil && !errors.Is(findErr, gorm.ErrRecordNotFound) {
 		context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
 		return
@@ -178,6 +184,7 @@ func (handlers *SiteSubscribeTestHandlers) CreateSubscription(context *gin.Conte
 				"consent_at":      now,
 				"name":            payload.Name,
 				"source_url":      payload.SourceURL,
+				"audience_key":    audienceKey,
 				"ip":              truncate(clientIP, subscriptionIPMaxLength),
 				"user_agent":      truncate(context.Request.UserAgent(), subscriptionUserAgentMaxLength),
 			}).Error
@@ -191,6 +198,7 @@ func (handlers *SiteSubscribeTestHandlers) CreateSubscription(context *gin.Conte
 			existingSubscriber.ConsentAt = now
 			existingSubscriber.Name = payload.Name
 			existingSubscriber.SourceURL = payload.SourceURL
+			existingSubscriber.AudienceKey = audienceKey
 			existingSubscriber.IP = truncate(clientIP, subscriptionIPMaxLength)
 			existingSubscriber.UserAgent = truncate(context.Request.UserAgent(), subscriptionUserAgentMaxLength)
 			handlers.recordSubscriptionTestEvent(site, existingSubscriber, subscriptionEventTypeSubmission, subscriptionEventStatusSuccess, "")
@@ -204,14 +212,15 @@ func (handlers *SiteSubscribeTestHandlers) CreateSubscription(context *gin.Conte
 	}
 
 	input := model.SubscriberInput{
-		SiteID:    site.ID,
-		Email:     payload.Email,
-		Name:      payload.Name,
-		SourceURL: payload.SourceURL,
-		IP:        truncate(clientIP, subscriptionIPMaxLength),
-		UserAgent: truncate(context.Request.UserAgent(), subscriptionUserAgentMaxLength),
-		Status:    model.SubscriberStatusPending,
-		ConsentAt: time.Now().UTC(),
+		SiteID:      site.ID,
+		Email:       payload.Email,
+		Name:        payload.Name,
+		SourceURL:   payload.SourceURL,
+		AudienceKey: audienceKey,
+		IP:          truncate(clientIP, subscriptionIPMaxLength),
+		UserAgent:   truncate(context.Request.UserAgent(), subscriptionUserAgentMaxLength),
+		Status:      model.SubscriberStatusPending,
+		ConsentAt:   time.Now().UTC(),
 	}
 
 	subscriber, subscriberErr := model.NewSubscriber(input)

@@ -99,6 +99,7 @@ const (
 	publicRoutePrefix                 = "/public"
 	publicRouteFeedback               = "/public/feedback"
 	publicRouteSubscription           = "/public/subscriptions"
+	publicRouteSubscriptionStatus     = "/public/subscriptions/status"
 	publicRouteSubscriptionConfirm    = "/public/subscriptions/confirm"
 	publicRouteSubscriptionOptOut     = "/public/subscriptions/unsubscribe"
 	publicRouteVisitPixel             = "/public/visits"
