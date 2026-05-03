@@ -30,6 +30,17 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Resolution
   Replaced wall-clock bucket counters with per-client windows for public API and LA Sentry browser rate limits, updated helper tests, and verified `make test-integration-api` plus `make ci` pass.
 
+- [x] [B003] (P1) Fix subscription confirmation brand navigation.
+  ### Summary
+  The LoopAware brand link on subscription token pages points to `#top`, so confirming a subscription leaves the user trapped on the confirmation page through the natural header flow.
+
+  ### Deliverables
+  - Make subscription token page brand links navigate to LoopAware instead of scrolling the current page.
+  - Route unauthenticated users to `/login` and authenticated users to `/app`.
+  - Add black-box browser coverage for the public-page brand navigation behavior.
+
+  ### Resolution
+  Replaced subscription token page brand `#top` links with auth-aware LoopAware home links, reused shared header auth state to update public-page brand destinations to `/login` or `/app`, added Playwright coverage for signed-out and signed-in public-page brand navigation, and verified `make ci` passes.
 
 ## Improvements
 
@@ -49,10 +60,13 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Make the first-party LA Sentry clients discoverable from a dedicated `clients/` entrypoint instead of requiring readers to know that Go, Python, and browser surfaces live in different runtime-oriented folders.
   ### Deliverables
   - Add a client index under `clients/` for Go, Python, and browser usage.
-  - Move the Go client implementation under `clients/` while preserving compatibility for existing `pkg/lasentry` imports.
+  - Move the Go client implementation under `clients/` so client-facing SDKs live outside the server package namespace.
   - Document why the browser harness remains served from `web/la-sentry.js`.
   - Update repo docs and integration fixtures to prefer the dedicated client locations.
   ### Resolution
+  Added `clients/README.md` as the LA Sentry client index, moved the Go client implementation to `clients/go/lasentry`, removed the legacy `pkg/lasentry` package so SDKs are exposed only from `clients/`, added browser and Go client docs under `clients/`, updated README references and the Go integration fixture, and verified `make ci` passes.
+
+- [ ] [I001] (P1) Replace placeholder-only inputs with labeled fields in the static frontend.
   Added `clients/README.md` as the LA Sentry client index, moved the Go client implementation to `clients/go/lasentry` with a `pkg/lasentry` compatibility package, added browser and Go client docs under `clients/`, updated README references and the Go integration fixture, and verified `make ci` passes.
 - [ ] [I003] (P1) Replace placeholder-only inputs with labeled fields in the static frontend.
   ### Summary
