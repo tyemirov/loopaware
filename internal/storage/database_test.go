@@ -184,7 +184,7 @@ func TestOpenDatabaseValidation(t *testing.T) {
 	}
 }
 
-func TestSubscriberUniqueEmailPerSite(t *testing.T) {
+func TestSubscriberUniqueEmailPerSiteAudience(t *testing.T) {
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
 
 	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
@@ -207,25 +207,76 @@ func TestSubscriberUniqueEmailPerSite(t *testing.T) {
 	require.NoError(t, database.Create(&secondSite).Error)
 
 	firstSubscriber, err := model.NewSubscriber(model.SubscriberInput{
-		SiteID: firstSite.ID,
-		Email:  testSubscriberEmailValue,
-		Name:   testSubscriberNameValue,
+		SiteID:      firstSite.ID,
+		Email:       testSubscriberEmailValue,
+		Name:        testSubscriberNameValue,
+		AudienceKey: "EBAY",
 	})
 	require.NoError(t, err)
 	require.NoError(t, database.Create(&firstSubscriber).Error)
 
 	duplicateSubscriber, err := model.NewSubscriber(model.SubscriberInput{
-		SiteID: firstSite.ID,
-		Email:  testSubscriberEmailValue,
+		SiteID:      firstSite.ID,
+		Email:       testSubscriberEmailValue,
+		AudienceKey: "EBAY",
 	})
 	require.NoError(t, err)
 	duplicateErr := database.Create(&duplicateSubscriber).Error
 	require.Error(t, duplicateErr)
 
+	otherAudienceSubscriber, err := model.NewSubscriber(model.SubscriberInput{
+		SiteID:      firstSite.ID,
+		Email:       testSubscriberEmailValue,
+		AudienceKey: "WLMT",
+	})
+	require.NoError(t, err)
+	require.NoError(t, database.Create(&otherAudienceSubscriber).Error)
+
 	otherSiteSubscriber, err := model.NewSubscriber(model.SubscriberInput{
-		SiteID: secondSite.ID,
-		Email:  testSubscriberEmailValue,
+		SiteID:      secondSite.ID,
+		Email:       testSubscriberEmailValue,
+		AudienceKey: "EBAY",
 	})
 	require.NoError(t, err)
 	require.NoError(t, database.Create(&otherSiteSubscriber).Error)
+}
+
+func TestAutoMigrateBackfillsSubscriberAudienceAndDropsLegacyIndex(t *testing.T) {
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
+
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(t, openErr)
+	database = testutil.ConfigureDatabaseLogger(t, database)
+
+	require.NoError(t, storage.AutoMigrate(database))
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Legacy Subscribers",
+		AllowedOrigin: testSiteAllowedOriginValue,
+	}
+	require.NoError(t, database.Create(&site).Error)
+
+	legacySubscriber, err := model.NewSubscriber(model.SubscriberInput{
+		SiteID:    site.ID,
+		Email:     testSubscriberEmailValue,
+		SourceURL: "http://scanner.example/settings?waitlist_platform=ebay",
+	})
+	require.NoError(t, err)
+	require.NoError(t, database.Create(&legacySubscriber).Error)
+	require.NoError(t, database.Exec("CREATE UNIQUE INDEX idx_subscribers_site_email ON subscribers(site_id, email)").Error)
+
+	require.NoError(t, storage.AutoMigrate(database))
+
+	var refreshedSubscriber model.Subscriber
+	require.NoError(t, database.First(&refreshedSubscriber, "id = ?", legacySubscriber.ID).Error)
+	require.Equal(t, "EBAY", refreshedSubscriber.AudienceKey)
+
+	otherAudienceSubscriber, err := model.NewSubscriber(model.SubscriberInput{
+		SiteID:      site.ID,
+		Email:       testSubscriberEmailValue,
+		AudienceKey: "WLMT",
+	})
+	require.NoError(t, err)
+	require.NoError(t, database.Create(&otherAudienceSubscriber).Error)
 }

@@ -67,6 +67,7 @@ func buildAPIHarness(testingT *testing.T, notifier api.FeedbackNotifier, subscri
 	publicHandlers := api.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, notifier, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", emailSender)
 	router.POST("/public/feedback", publicHandlers.CreateFeedback)
 	router.POST("/public/subscriptions", publicHandlers.CreateSubscription)
+	router.POST("/public/subscriptions/status", publicHandlers.SubscriptionStatus)
 	router.POST("/public/subscriptions/confirm", publicHandlers.ConfirmSubscription)
 	router.POST("/public/subscriptions/unsubscribe", publicHandlers.Unsubscribe)
 	router.GET("/public/widget-config", publicHandlers.WidgetConfig)
@@ -377,9 +378,10 @@ func TestCreateSubscriptionStoresSubscriber(testingT *testing.T) {
 	site := insertSite(testingT, api.database, "Newsletter", "http://newsletter.example", "owner@example.com")
 
 	resp := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
-		"site_id": site.ID,
-		"email":   "Subscriber@example.com",
-		"name":    "Subscriber",
+		"site_id":      site.ID,
+		"email":        "Subscriber@example.com",
+		"name":         "Subscriber",
+		"audience_key": "ebay",
 	}, map[string]string{"Origin": "http://newsletter.example"})
 	require.Equal(testingT, http.StatusOK, resp.Code)
 
@@ -387,6 +389,7 @@ func TestCreateSubscriptionStoresSubscriber(testingT *testing.T) {
 	require.NoError(testingT, api.database.First(&stored).Error)
 	require.Equal(testingT, site.ID, stored.SiteID)
 	require.Equal(testingT, "subscriber@example.com", stored.Email)
+	require.Equal(testingT, "EBAY", stored.AudienceKey)
 	require.Equal(testingT, model.SubscriberStatusPending, stored.Status)
 }
 
@@ -405,6 +408,13 @@ func TestCreateSubscriptionValidatesInput(testingT *testing.T) {
 		"email":   "not-an-email",
 	}, map[string]string{"Origin": "http://sub.example"})
 	require.Equal(testingT, http.StatusBadRequest, respInvalidEmail.Code)
+
+	respInvalidAudience := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
+		"site_id":      site.ID,
+		"email":        "person@example.com",
+		"audience_key": strings.Repeat("x", 81),
+	}, map[string]string{"Origin": "http://sub.example"})
+	require.Equal(testingT, http.StatusBadRequest, respInvalidAudience.Code)
 }
 
 func TestCreateSubscriptionBlocksOriginAndDuplicates(testingT *testing.T) {
@@ -418,16 +428,146 @@ func TestCreateSubscriptionBlocksOriginAndDuplicates(testingT *testing.T) {
 	require.Equal(testingT, http.StatusForbidden, badOrigin.Code)
 
 	ok := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
-		"site_id": site.ID,
-		"email":   "user@example.com",
+		"site_id":      site.ID,
+		"email":        "user@example.com",
+		"audience_key": "EBAY",
 	}, map[string]string{"Origin": "http://origin.example"})
 	require.Equal(testingT, http.StatusOK, ok.Code)
 
 	duplicate := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
-		"site_id": site.ID,
-		"email":   "user@example.com",
+		"site_id":      site.ID,
+		"email":        "user@example.com",
+		"audience_key": "EBAY",
 	}, map[string]string{"Origin": "http://origin.example"})
 	require.Equal(testingT, http.StatusConflict, duplicate.Code)
+
+	otherAudience := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions", map[string]any{
+		"site_id":      site.ID,
+		"email":        "user@example.com",
+		"audience_key": "WLMT",
+	}, map[string]string{"Origin": "http://origin.example"})
+	require.Equal(testingT, http.StatusOK, otherAudience.Code)
+}
+
+func TestSubscriptionStatusReportsAudienceMembership(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Status", "http://status.example", "owner@example.com")
+
+	pendingSubscriber, pendingErr := model.NewSubscriber(model.SubscriberInput{
+		SiteID:      site.ID,
+		Email:       "user@example.com",
+		AudienceKey: "EBAY",
+		Status:      model.SubscriberStatusPending,
+	})
+	require.NoError(testingT, pendingErr)
+	require.NoError(testingT, api.database.Create(&pendingSubscriber).Error)
+
+	confirmedSubscriber, confirmedErr := model.NewSubscriber(model.SubscriberInput{
+		SiteID:      site.ID,
+		Email:       "user@example.com",
+		AudienceKey: "WLMT",
+		Status:      model.SubscriberStatusConfirmed,
+	})
+	require.NoError(testingT, confirmedErr)
+	require.NoError(testingT, api.database.Create(&confirmedSubscriber).Error)
+
+	unsubscribedSubscriber, unsubscribedErr := model.NewSubscriber(model.SubscriberInput{
+		SiteID:      site.ID,
+		Email:       "user@example.com",
+		AudienceKey: "APPL",
+		Status:      model.SubscriberStatusUnsubscribed,
+	})
+	require.NoError(testingT, unsubscribedErr)
+	require.NoError(testingT, api.database.Create(&unsubscribedSubscriber).Error)
+
+	response := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/status", map[string]any{
+		"site_id":       site.ID,
+		"email":         "User@example.com",
+		"audience_keys": []string{"ebay", "wlmt", "appl", "ytbe"},
+	}, map[string]string{"Origin": site.AllowedOrigin})
+	require.Equal(testingT, http.StatusOK, response.Code)
+
+	var payload struct {
+		Status        string `json:"status"`
+		Subscriptions []struct {
+			AudienceKey string `json:"audience_key"`
+			Subscribed  bool   `json:"subscribed"`
+		} `json:"subscriptions"`
+	}
+	require.NoError(testingT, json.Unmarshal(response.Body.Bytes(), &payload))
+	require.Equal(testingT, "ok", payload.Status)
+	require.Len(testingT, payload.Subscriptions, 4)
+	require.Equal(testingT, "EBAY", payload.Subscriptions[0].AudienceKey)
+	require.True(testingT, payload.Subscriptions[0].Subscribed)
+	require.Equal(testingT, "WLMT", payload.Subscriptions[1].AudienceKey)
+	require.True(testingT, payload.Subscriptions[1].Subscribed)
+	require.Equal(testingT, "APPL", payload.Subscriptions[2].AudienceKey)
+	require.False(testingT, payload.Subscriptions[2].Subscribed)
+	require.Equal(testingT, "YTBE", payload.Subscriptions[3].AudienceKey)
+	require.False(testingT, payload.Subscriptions[3].Subscribed)
+}
+
+func TestSubscriptionStatusValidatesInputOriginAndRateLimit(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Status Validation", "http://status-validation.example", "owner@example.com")
+
+	missingFields := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/status", map[string]any{
+		"site_id":       site.ID,
+		"email":         "user@example.com",
+		"audience_keys": []string{},
+	}, map[string]string{"Origin": site.AllowedOrigin})
+	require.Equal(testingT, http.StatusBadRequest, missingFields.Code)
+
+	invalidEmail := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/status", map[string]any{
+		"site_id":       site.ID,
+		"email":         "not-email",
+		"audience_keys": []string{"EBAY"},
+	}, map[string]string{"Origin": site.AllowedOrigin})
+	require.Equal(testingT, http.StatusBadRequest, invalidEmail.Code)
+
+	invalidAudience := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/status", map[string]any{
+		"site_id":       site.ID,
+		"email":         "user@example.com",
+		"audience_keys": []string{strings.Repeat("x", 81)},
+	}, map[string]string{"Origin": site.AllowedOrigin})
+	require.Equal(testingT, http.StatusBadRequest, invalidAudience.Code)
+
+	unknownSite := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/status", map[string]any{
+		"site_id":       "missing",
+		"email":         "user@example.com",
+		"audience_keys": []string{"EBAY"},
+	}, map[string]string{"Origin": site.AllowedOrigin})
+	require.Equal(testingT, http.StatusNotFound, unknownSite.Code)
+
+	forbiddenOrigin := performJSONRequest(testingT, api.router, http.MethodPost, "/public/subscriptions/status", map[string]any{
+		"site_id":       site.ID,
+		"email":         "user@example.com",
+		"audience_keys": []string{"EBAY"},
+	}, map[string]string{"Origin": "http://evil.example"})
+	require.Equal(testingT, http.StatusForbidden, forbiddenOrigin.Code)
+
+	badJSON := httptest.NewRecorder()
+	badJSONRequest := httptest.NewRequest(http.MethodPost, "/public/subscriptions/status", bytes.NewBufferString("{"))
+	badJSONRequest.Header.Set("Origin", site.AllowedOrigin)
+	badJSONRequest.Header.Set("Content-Type", "application/json")
+	api.router.ServeHTTP(badJSON, badJSONRequest)
+	require.Equal(testingT, http.StatusBadRequest, badJSON.Code)
+
+	rateLimitedAPI := buildAPIHarness(testingT, nil, nil, nil)
+	rateLimitSite := insertSite(testingT, rateLimitedAPI.database, "Status Rate Limit", "http://status-rate.example", "owner@example.com")
+	rateLimited := false
+	for attemptIndex := 0; attemptIndex < 12; attemptIndex++ {
+		response := performJSONRequest(testingT, rateLimitedAPI.router, http.MethodPost, "/public/subscriptions/status", map[string]any{
+			"site_id":       rateLimitSite.ID,
+			"email":         "user@example.com",
+			"audience_keys": []string{"EBAY"},
+		}, map[string]string{"Origin": rateLimitSite.AllowedOrigin})
+		if response.Code == http.StatusTooManyRequests {
+			rateLimited = true
+			break
+		}
+	}
+	require.True(testingT, rateLimited)
 }
 
 func TestCreateSubscriptionSupportsMultipleAllowedOrigins(testingT *testing.T) {

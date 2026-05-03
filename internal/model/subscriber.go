@@ -14,8 +14,10 @@ const (
 	SubscriberStatusPending      = "pending"
 	SubscriberStatusConfirmed    = "confirmed"
 	SubscriberStatusUnsubscribed = "unsubscribed"
+	SubscriberAudienceDefault    = "default"
 
 	subscriberEmailMaxLength     = 320
+	subscriberAudienceMaxLength  = 80
 	subscriberNameMaxLength      = 200
 	subscriberSourceURLMaxLength = 500
 	subscriberIPMaxLength        = 64
@@ -24,17 +26,19 @@ const (
 )
 
 var (
-	ErrInvalidSubscriberSiteID  = errors.New("invalid_subscriber_site_id")
-	ErrInvalidSubscriberEmail   = errors.New("invalid_subscriber_email")
-	ErrInvalidSubscriberStatus  = errors.New("invalid_subscriber_status")
-	ErrInvalidSubscriberContact = errors.New("invalid_subscriber_contact")
+	ErrInvalidSubscriberSiteID   = errors.New("invalid_subscriber_site_id")
+	ErrInvalidSubscriberEmail    = errors.New("invalid_subscriber_email")
+	ErrInvalidSubscriberAudience = errors.New("invalid_subscriber_audience")
+	ErrInvalidSubscriberStatus   = errors.New("invalid_subscriber_status")
+	ErrInvalidSubscriberContact  = errors.New("invalid_subscriber_contact")
 )
 
 // Subscriber captures newsletter/announcement subscriptions for a site.
 type Subscriber struct {
 	ID             string `gorm:"primaryKey;size:36"`
-	SiteID         string `gorm:"not null;size:36;uniqueIndex:idx_subscribers_site_email;index:idx_subscribers_site_created,priority:1;index:idx_subscribers_site_status,priority:1"`
-	Email          string `gorm:"not null;size:320;uniqueIndex:idx_subscribers_site_email"`
+	SiteID         string `gorm:"not null;size:36;uniqueIndex:idx_subscribers_site_audience_email,priority:1;index:idx_subscribers_site_created,priority:1;index:idx_subscribers_site_status,priority:1"`
+	AudienceKey    string `gorm:"not null;size:80;default:default;uniqueIndex:idx_subscribers_site_audience_email,priority:2"`
+	Email          string `gorm:"not null;size:320;uniqueIndex:idx_subscribers_site_audience_email,priority:3"`
 	Name           string `gorm:"size:200"`
 	SourceURL      string `gorm:"size:500"`
 	IP             string `gorm:"size:64"`
@@ -50,6 +54,7 @@ type Subscriber struct {
 // SubscriberInput holds the raw values used to construct a Subscriber.
 type SubscriberInput struct {
 	SiteID         string
+	AudienceKey    string
 	Email          string
 	Name           string
 	SourceURL      string
@@ -71,6 +76,11 @@ func NewSubscriber(input SubscriberInput) (Subscriber, error) {
 	email := strings.ToLower(strings.TrimSpace(input.Email))
 	if err := validateSubscriberEmail(email); err != nil {
 		return Subscriber{}, err
+	}
+
+	audienceKey, audienceKeyErr := NormalizeSubscriberAudienceKey(input.AudienceKey)
+	if audienceKeyErr != nil {
+		return Subscriber{}, audienceKeyErr
 	}
 
 	status := strings.TrimSpace(input.Status)
@@ -104,6 +114,7 @@ func NewSubscriber(input SubscriberInput) (Subscriber, error) {
 	return Subscriber{
 		ID:             uuid.NewString(),
 		SiteID:         siteID,
+		AudienceKey:    audienceKey,
 		Email:          email,
 		Name:           name,
 		SourceURL:      sourceURL,
@@ -114,6 +125,21 @@ func NewSubscriber(input SubscriberInput) (Subscriber, error) {
 		ConfirmedAt:    input.ConfirmedAt,
 		UnsubscribedAt: input.UnsubscribedAt,
 	}, nil
+}
+
+// NormalizeSubscriberAudienceKey normalizes a subscriber audience key.
+func NormalizeSubscriberAudienceKey(audienceKey string) (string, error) {
+	normalizedAudienceKey := strings.TrimSpace(audienceKey)
+	if normalizedAudienceKey == "" {
+		return SubscriberAudienceDefault, nil
+	}
+	if len(normalizedAudienceKey) > subscriberAudienceMaxLength {
+		return "", fmt.Errorf("%w: too long", ErrInvalidSubscriberAudience)
+	}
+	if strings.EqualFold(normalizedAudienceKey, SubscriberAudienceDefault) {
+		return SubscriberAudienceDefault, nil
+	}
+	return strings.ToUpper(normalizedAudienceKey), nil
 }
 
 func validateSubscriberEmail(email string) error {

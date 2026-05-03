@@ -51,6 +51,7 @@ const (
 	errorValueDuplicateSubscriber  = "duplicate_subscription"
 	errorValueUnsubscribedAccount  = "unsubscribed"
 	errorValueSaveSubscriberFailed = "save_failed"
+	errorValueInvalidAudience      = "invalid_audience"
 	errorValueInvalidSite          = "unknown_site"
 	errorValueInvalidSentiment     = "invalid_sentiment"
 	errorValueInvalidVisitorID     = "invalid_visitor"
@@ -100,15 +101,33 @@ type createFeedbackRequest struct {
 }
 
 type createSubscriptionRequest struct {
-	SiteID    string `json:"site_id"`
-	Email     string `json:"email"`
-	Name      string `json:"name"`
-	SourceURL string `json:"source_url"`
+	SiteID      string `json:"site_id"`
+	Email       string `json:"email"`
+	Name        string `json:"name"`
+	SourceURL   string `json:"source_url"`
+	AudienceKey string `json:"audience_key"`
 }
 
 type subscriptionMutationRequest struct {
-	SiteID string `json:"site_id"`
-	Email  string `json:"email"`
+	SiteID      string `json:"site_id"`
+	Email       string `json:"email"`
+	AudienceKey string `json:"audience_key"`
+}
+
+type subscriptionStatusRequest struct {
+	SiteID       string   `json:"site_id"`
+	Email        string   `json:"email"`
+	AudienceKeys []string `json:"audience_keys"`
+}
+
+type subscriptionStatusEntry struct {
+	AudienceKey string `json:"audience_key"`
+	Subscribed  bool   `json:"subscribed"`
+}
+
+type subscriptionStatusResponse struct {
+	Status        string                    `json:"status"`
+	Subscriptions []subscriptionStatusEntry `json:"subscriptions"`
 }
 
 type widgetConfigResponse struct {
@@ -386,9 +405,15 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 	payload.Email = strings.TrimSpace(payload.Email)
 	payload.Name = strings.TrimSpace(payload.Name)
 	payload.SourceURL = strings.TrimSpace(payload.SourceURL)
+	payload.AudienceKey = strings.TrimSpace(payload.AudienceKey)
 
 	if payload.SiteID == "" || payload.Email == "" {
 		context.JSON(http.StatusBadRequest, gin.H{"error": "missing_fields"})
+		return
+	}
+	audienceKey, audienceKeyErr := model.NormalizeSubscriberAudienceKey(payload.AudienceKey)
+	if audienceKeyErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": errorValueInvalidAudience})
 		return
 	}
 
@@ -406,7 +431,7 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 		return
 	}
 
-	existingSubscriber, err := findSubscriber(context.Request.Context(), h.database, site.ID, payload.Email)
+	existingSubscriber, err := findSubscriber(context.Request.Context(), h.database, site.ID, audienceKey, payload.Email)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
 		return
@@ -421,6 +446,7 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 				"consent_at":      now,
 				"name":            payload.Name,
 				"source_url":      payload.SourceURL,
+				"audience_key":    audienceKey,
 				"ip":              truncate(clientIP, subscriptionIPMaxLength),
 				"user_agent":      truncate(context.Request.UserAgent(), subscriptionUserAgentMaxLength),
 			}).Error
@@ -434,6 +460,7 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 			existingSubscriber.ConsentAt = now
 			existingSubscriber.Name = payload.Name
 			existingSubscriber.SourceURL = payload.SourceURL
+			existingSubscriber.AudienceKey = audienceKey
 			existingSubscriber.IP = truncate(clientIP, subscriptionIPMaxLength)
 			existingSubscriber.UserAgent = truncate(context.Request.UserAgent(), subscriptionUserAgentMaxLength)
 			h.recordSubscriptionTestEvent(site, existingSubscriber, subscriptionEventTypeSubmission, subscriptionEventStatusSuccess, "")
@@ -447,14 +474,15 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 	}
 
 	input := model.SubscriberInput{
-		SiteID:    site.ID,
-		Email:     payload.Email,
-		Name:      payload.Name,
-		SourceURL: payload.SourceURL,
-		IP:        truncate(clientIP, subscriptionIPMaxLength),
-		UserAgent: truncate(context.Request.UserAgent(), subscriptionUserAgentMaxLength),
-		Status:    model.SubscriberStatusPending,
-		ConsentAt: time.Now().UTC(),
+		SiteID:      site.ID,
+		Email:       payload.Email,
+		Name:        payload.Name,
+		SourceURL:   payload.SourceURL,
+		AudienceKey: audienceKey,
+		IP:          truncate(clientIP, subscriptionIPMaxLength),
+		UserAgent:   truncate(context.Request.UserAgent(), subscriptionUserAgentMaxLength),
+		Status:      model.SubscriberStatusPending,
+		ConsentAt:   time.Now().UTC(),
 	}
 
 	subscriber, subscriberErr := model.NewSubscriber(input)
@@ -475,6 +503,89 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 	h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeSubmission, subscriptionEventStatusSuccess, "")
 	h.sendSubscriptionConfirmation(context.Request.Context(), site, subscriber)
 	context.JSON(http.StatusOK, gin.H{"status": "ok", "subscriber_id": subscriber.ID})
+}
+
+// SubscriptionStatus reports whether an email is subscribed to requested audiences.
+func (h *PublicHandlers) SubscriptionStatus(context *gin.Context) {
+	clientIP := context.ClientIP()
+	if h.isRateLimited(clientIP) {
+		context.JSON(http.StatusTooManyRequests, gin.H{"error": "rate_limited"})
+		return
+	}
+
+	var payload subscriptionStatusRequest
+	if bindErr := context.BindJSON(&payload); bindErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": "invalid_json"})
+		return
+	}
+
+	payload.SiteID = strings.TrimSpace(payload.SiteID)
+	payload.Email = strings.TrimSpace(payload.Email)
+	if payload.SiteID == "" || payload.Email == "" || len(payload.AudienceKeys) == 0 {
+		context.JSON(http.StatusBadRequest, gin.H{"error": "missing_fields"})
+		return
+	}
+
+	var site model.Site
+	if err := h.database.First(&site, "id = ?", payload.SiteID).Error; err != nil {
+		context.JSON(http.StatusNotFound, gin.H{"error": errorValueInvalidSite})
+		return
+	}
+
+	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
+	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
+	allowedOrigins := mergedAllowedOrigins(site.AllowedOrigin, site.SubscribeAllowedOrigins)
+	if !isOriginAllowed(allowedOrigins, originHeader, refererHeader, "") {
+		context.JSON(http.StatusForbidden, gin.H{"error": "origin_forbidden"})
+		return
+	}
+
+	probeSubscriber, subscriberErr := model.NewSubscriber(model.SubscriberInput{
+		SiteID: site.ID,
+		Email:  payload.Email,
+		Status: model.SubscriberStatusPending,
+	})
+	if subscriberErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": errorValueInvalidEmail})
+		return
+	}
+
+	audienceKeys := make([]string, 0, len(payload.AudienceKeys))
+	for _, rawAudienceKey := range payload.AudienceKeys {
+		audienceKey, audienceKeyErr := model.NormalizeSubscriberAudienceKey(rawAudienceKey)
+		if audienceKeyErr != nil {
+			context.JSON(http.StatusBadRequest, gin.H{"error": errorValueInvalidAudience})
+			return
+		}
+		audienceKeys = append(audienceKeys, audienceKey)
+	}
+
+	var subscribers []model.Subscriber
+	if err := h.database.WithContext(context.Request.Context()).
+		Where("site_id = ? AND email = ? AND audience_key IN ?", site.ID, probeSubscriber.Email, audienceKeys).
+		Find(&subscribers).Error; err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
+		return
+	}
+
+	subscribedByAudienceKey := make(map[string]bool, len(subscribers))
+	for _, subscriber := range subscribers {
+		if subscriber.Status != model.SubscriberStatusUnsubscribed {
+			subscribedByAudienceKey[subscriber.AudienceKey] = true
+		}
+	}
+
+	response := subscriptionStatusResponse{
+		Status:        "ok",
+		Subscriptions: make([]subscriptionStatusEntry, 0, len(audienceKeys)),
+	}
+	for _, audienceKey := range audienceKeys {
+		response.Subscriptions = append(response.Subscriptions, subscriptionStatusEntry{
+			AudienceKey: audienceKey,
+			Subscribed:  subscribedByAudienceKey[audienceKey],
+		})
+	}
+	context.JSON(http.StatusOK, response)
 }
 
 // ConfirmSubscription confirms a pending subscription.
@@ -655,8 +766,14 @@ func (h *PublicHandlers) updateSubscriptionStatus(context *gin.Context, targetSt
 
 	payload.SiteID = strings.TrimSpace(payload.SiteID)
 	payload.Email = strings.TrimSpace(strings.ToLower(payload.Email))
+	payload.AudienceKey = strings.TrimSpace(payload.AudienceKey)
 	if payload.SiteID == "" || payload.Email == "" {
 		context.JSON(http.StatusBadRequest, gin.H{"error": "missing_fields"})
+		return
+	}
+	audienceKey, audienceKeyErr := model.NormalizeSubscriberAudienceKey(payload.AudienceKey)
+	if audienceKeyErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": errorValueInvalidAudience})
 		return
 	}
 
@@ -674,7 +791,7 @@ func (h *PublicHandlers) updateSubscriptionStatus(context *gin.Context, targetSt
 		return
 	}
 
-	subscriber, findErr := findSubscriber(context.Request.Context(), h.database, site.ID, payload.Email)
+	subscriber, findErr := findSubscriber(context.Request.Context(), h.database, site.ID, audienceKey, payload.Email)
 	if findErr != nil {
 		if errors.Is(findErr, gorm.ErrRecordNotFound) {
 			context.JSON(http.StatusNotFound, gin.H{"error": errorValueUnknownSubscription})
@@ -830,10 +947,14 @@ func normalizeOriginValue(rawValue string) string {
 	return strings.ToLower(parsedURL.Scheme) + "://" + strings.ToLower(parsedURL.Host)
 }
 
-func findSubscriber(ctx context.Context, database *gorm.DB, siteID string, email string) (model.Subscriber, error) {
+func findSubscriber(ctx context.Context, database *gorm.DB, siteID string, audienceKey string, email string) (model.Subscriber, error) {
 	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
+	normalizedAudienceKey, audienceErr := model.NormalizeSubscriberAudienceKey(audienceKey)
+	if audienceErr != nil {
+		return model.Subscriber{}, audienceErr
+	}
 	var subscriber model.Subscriber
-	err := database.WithContext(ctx).First(&subscriber, "site_id = ? AND email = ?", siteID, normalizedEmail).Error
+	err := database.WithContext(ctx).First(&subscriber, "site_id = ? AND audience_key = ? AND email = ?", siteID, normalizedAudienceKey, normalizedEmail).Error
 	return subscriber, err
 }
 

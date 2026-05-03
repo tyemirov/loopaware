@@ -3,6 +3,7 @@ package storage
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/glebarez/sqlite"
@@ -82,13 +83,62 @@ func openSQLiteDatabase(configuration Config) (*gorm.DB, error) {
 
 // AutoMigrate runs database migrations for the storage layer models.
 func AutoMigrate(database *gorm.DB) error {
+	if err := dropLegacySubscriberUniqueIndex(database); err != nil {
+		return err
+	}
 	if err := database.AutoMigrate(&model.Site{}, &model.Feedback{}, &model.User{}, &model.Subscriber{}, &model.SiteVisit{}, &model.SiteVisitRollup{}, &model.TrafficReportSchedule{}, &model.SentryIssue{}, &model.SentryOccurrence{}); err != nil {
 		return err
 	}
 	if err := backfillSiteCreatorEmails(database); err != nil {
 		return err
 	}
+	if err := backfillSubscriberAudienceKeys(database); err != nil {
+		return err
+	}
 	return backfillSiteWidgetFeedbackVisibility(database)
+}
+
+func dropLegacySubscriberUniqueIndex(database *gorm.DB) error {
+	if !database.Migrator().HasIndex(&model.Subscriber{}, "idx_subscribers_site_email") {
+		return nil
+	}
+	return database.Migrator().DropIndex(&model.Subscriber{}, "idx_subscribers_site_email")
+}
+
+func backfillSubscriberAudienceKeys(database *gorm.DB) error {
+	type subscriberAudienceBackfillRecord struct {
+		ID        string
+		SourceURL string
+	}
+
+	var subscribers []subscriberAudienceBackfillRecord
+	if err := database.Model(&model.Subscriber{}).
+		Select("id", "source_url").
+		Where("audience_key = ? OR audience_key = '' OR audience_key IS NULL", model.SubscriberAudienceDefault).
+		Find(&subscribers).Error; err != nil {
+		return err
+	}
+	for _, subscriber := range subscribers {
+		audienceKey := subscriberAudienceKeyFromSourceURL(subscriber.SourceURL)
+		if err := database.Model(&model.Subscriber{}).
+			Where("id = ?", subscriber.ID).
+			Update("audience_key", audienceKey).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func subscriberAudienceKeyFromSourceURL(sourceURL string) string {
+	parsedURL, parseErr := url.Parse(strings.TrimSpace(sourceURL))
+	if parseErr != nil || parsedURL == nil {
+		return model.SubscriberAudienceDefault
+	}
+	audienceKey, audienceErr := model.NormalizeSubscriberAudienceKey(parsedURL.Query().Get("waitlist_platform"))
+	if audienceErr != nil {
+		return model.SubscriberAudienceDefault
+	}
+	return audienceKey
 }
 
 // NewID generates a new globally unique identifier.
