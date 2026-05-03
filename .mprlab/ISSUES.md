@@ -1,33 +1,32 @@
 # ISSUES
 
-Working backlog for this repository. Keep it current and small. Use @issues-md-format.md for the canonical format.
+Entries record newly discovered requests or changes.
 
-- Status markers: `[ ]` open, `[!]` blocked (must include a `Blocked:` line), `[x]` closed.
-- Hygiene: once a closed issue's consequences are reflected in code/tests and in user-facing docs, remove the entry from this file. Git history remains the record. (Recurring runbooks below are the exception: keep them open.)
+Read @AGENTS.md (Workflow section), @POLICY.md, and relevant stack guides before implementing changes.
+
+Format: `- [ ] [B042] (P1) {I007} Title`
+
+- `[ ]` open, `[!]` blocked, `[x]` closed.
+- Blocked issues (`[!]`) must include a `Blocked:` line in the body.
 
 ## BugFixes
 
 - [x] [B001] (P0) Verify successful login lands on a loaded dashboard.
   ### Summary
   Add black-box browser coverage for the full login completion path: an unauthenticated user starts from `/login`, completes Google/TAuth sign-in, receives a usable session, reaches `/app`, and sees the authenticated dashboard loaded.
-
   ### Deliverables
   - Add Playwright integration coverage that drives the login page sign-in flow rather than pre-seeding a session before navigation.
   - Assert the final dashboard URL and visible authenticated dashboard state.
   - Fix any auth handoff regression exposed by the new coverage.
-
   ### Resolution
   Added black-box Playwright coverage for the login CTA completing TAuth exchange, receiving a session cookie, reaching `/app`, waiting for the loaded dashboard, and verifying authenticated header/user state. The TAuth test stub now writes the post-exchange session cookie so the browser test matches the real login handoff. `make ci` passed.
-
 - [x] [B002] (P0) Make IP rate limits independent of wall-clock bucket boundaries.
   ### Summary
   `make ci` exposed an intermittent LA Sentry browser rate-limit failure where requests started near the end of a 30-second wall-clock bucket could split across buckets and avoid the intended per-window limit.
-
   ### Deliverables
   - Use per-client rate windows that start at the first request in the window.
   - Apply the same boundary-safe behavior to public and browser Sentry rate limits.
   - Verify the black-box integration suite no longer lets the boundary case through.
-
   ### Resolution
   Replaced wall-clock bucket counters with per-client windows for public API and LA Sentry browser rate limits, updated helper tests, and verified `make test-integration-api` plus `make ci` pass.
 
@@ -45,43 +44,41 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
 
 ## Improvements
 
-- [x] [I003] (P1) Advertise LA Sentry on the public landing page.
+- [ ] [I004] (P1) Consider a design of a current accordion design of different surfaces.
+  We may want to have a better split out.
+- [x] [I001] (P1) Advertise LA Sentry on the public landing page.
   ### Summary
   The public landing page currently presents feedback, subscriber capture, and traffic analytics, but omits LA Sentry even though it is now a first-class developer monitoring surface.
-
   ### Deliverables
   - Update landing-page metadata and visible copy to include LA Sentry developer error monitoring.
   - Add LA Sentry as a first-class feature card alongside the other embeddable surfaces.
   - Update public-page tests that assert landing-page copy.
-
   ### Resolution
   Updated `/login` landing metadata, hero copy, feature grid, and setup copy to advertise LA Sentry as a first-class developer monitoring surface; updated public-page and auth-state tests; verified `make ci` passes.
-
 - [x] [I002] (P1) Consolidate LA Sentry client discovery under `clients/`.
   ### Summary
   Make the first-party LA Sentry clients discoverable from a dedicated `clients/` entrypoint instead of requiring readers to know that Go, Python, and browser surfaces live in different runtime-oriented folders.
-
   ### Deliverables
   - Add a client index under `clients/` for Go, Python, and browser usage.
   - Move the Go client implementation under `clients/` so client-facing SDKs live outside the server package namespace.
   - Document why the browser harness remains served from `web/la-sentry.js`.
   - Update repo docs and integration fixtures to prefer the dedicated client locations.
-
   ### Resolution
   Added `clients/README.md` as the LA Sentry client index, moved the Go client implementation to `clients/go/lasentry`, removed the legacy `pkg/lasentry` package so SDKs are exposed only from `clients/`, added browser and Go client docs under `clients/`, updated README references and the Go integration fixture, and verified `make ci` passes.
 
 - [ ] [I001] (P1) Replace placeholder-only inputs with labeled fields in the static frontend.
+  Added `clients/README.md` as the LA Sentry client index, moved the Go client implementation to `clients/go/lasentry` with a `pkg/lasentry` compatibility package, added browser and Go client docs under `clients/`, updated README references and the Go integration fixture, and verified `make ci` passes.
+- [ ] [I003] (P1) Replace placeholder-only inputs with labeled fields in the static frontend.
   ### Summary
   Remove placeholder-only UX in the dashboard, widget, and subscribe flows and use explicit labels with specific copy.
-
   ### Deliverables
   - Update `web/app` pages plus `web/widget.js` and `web/subscribe.js` to render labeled inputs.
   - Remove placeholder text where it is the only accessible label or instruction.
   - Keep draft and empty-state copy specific.
   - Add or update black-box browser coverage for the changed static frontend flows.
-
   ### Legacy Ref
   - Migrated from `issues.md` issue `LA-426`.
+
 
 ## Maintenance
 
@@ -117,7 +114,6 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
     - All modified query paths pass existing integration tests.
     - At least one measured plan comparison (`EXPLAIN`/`EXPLAIN ANALYZE`) is captured for each optimized high-cost query, showing improved cost or runtime.
     - Changes are limited to required DB/query paths and documented in the issue with before/after rationale.
-
   ### 2026-05-01 Audit Notes
   - Security audit found no user-input SQL string concatenation in the Go backend; GORM calls and raw execution paths reviewed in this pass use placeholders or structured query APIs.
   - Dependency checks: `govulncheck ./...` reported 0 reachable vulnerabilities; `npm --prefix tests audit --audit-level=moderate` reported 0 vulnerabilities.
@@ -135,21 +131,16 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
 - [x] [F001] (P0) Add a developer LA Sentry client type and protected monitoring surface.
   ### Summary
   Extend LoopAware with a Sentry-inspired developer monitoring surface owned by LoopAware. Treat `LA Sentry` as a first-class client type for developers, distinct from the existing feedback widget, subscribe form, and traffic pixel clients. This is not a generic public event endpoint and should not add Sentry as a commercial dependency.
-
   ### Product Decisions
   - Name the dashboard section `LA Sentry`.
   - Reserve the `/sentry/*` route namespace for developer monitoring.
   - Use `/sentry/errors` as the protected error ingestion endpoint.
   - Do not add `/public/errors`.
-
   ### Access Model
   `/sentry/errors` must not be public. The MVP should accept server-to-server submissions authenticated with a per-site/project ingest token or signed request header. The authenticated dashboard remains protected by the existing TAuth session model.
-
   Browser-side capture is out of MVP unless a non-secret protection model is explicitly designed, because browser scripts cannot keep ingest credentials private.
-
   ### Data Model
   Add first-class developer monitoring records rather than overloading feedback. Store grouped issues separately from raw occurrences.
-
   A developer issue should track:
   - Grouping key.
   - Title.
@@ -161,7 +152,6 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
   - First seen.
   - Last seen.
   - Occurrence count.
-
   A developer error occurrence should store:
   - Raw message.
   - Exception type.
@@ -171,27 +161,18 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
   - Tags.
   - Extra JSON.
   - Received timestamp.
-
   ### Ingest Contract
   Accept JSON shaped around error events: `site_id`, `event_id`, `timestamp`, `platform`, `environment`, `release`, `level`, `message`, `exception_type`, `stacktrace`, `request`, `user_hash`, `tags`, and `extra`.
-
   Validate required fields at the edge, normalize stack frames through smart constructors, compute a stable grouping key from exception type/message/top in-app frame, and reject unknown sites or invalid credentials before persistence.
-
   ### Dashboard Plan
   Add a `LA Sentry` tab to the existing static dashboard beside Feedback, Subscriptions, and Traffic. The first view should show issue title, level, environment, release, count, last seen, and status.
-
   The issue detail view should show the latest occurrence stack, request context, tags, and recent occurrences, with actions to resolve, reopen, or ignore an issue.
-
   ### Alert Plan
   Reuse the existing Pinguin notification path for first-seen and regressed issues. Do not email every occurrence. Add configurable alert policy later for threshold bursts such as `N occurrences in M minutes`.
-
   ### Developer Client Type
   Add a new `LA Sentry` client type for developer error monitoring. The client should be configured per site/project with a protected ingest endpoint, credentials, environment, release, and optional tags. It should submit developer error events to LoopAware without sharing secrets through browser-delivered code.
-
   Start with a small Go client/middleware that PoodleScanner can use: recover panics around HTTP handlers, submit explicit `CaptureError(ctx, err, attrs)` events, include request metadata, and support environment/release configuration.
-
   Add frontend/browser capture only after the protected-ingest model is clarified.
-
   ### Deliverables
   - First-class `LA Sentry` developer client type.
   - Server-side Go client/middleware for protected error capture.
@@ -202,7 +183,6 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
   - First-seen/regression notifications.
   - Black-box API/dashboard coverage.
   - Follow-up PoodleScanner Go client integration issue if needed.
-
   ### Docs/Refs
   - `cmd/server/routes.go`
   - `internal/api`
@@ -210,98 +190,82 @@ Working backlog for this repository. Keep it current and small. Use @issues-md-f
   - `internal/storage/migrations.go`
   - `internal/notifications`
   - `web/app/index.html`
-
   ### Resolution
   Implemented protected LA Sentry ingest with per-site token rotation, grouped developer issues and occurrences, authenticated dashboard APIs, the dashboard LA Sentry tab, a Go client/middleware package, docs, and black-box API/dashboard coverage. `make ci` passed.
   Post-review hardening now retries concurrent first-occurrence races, atomically increments grouped issue counts, bounds browser rate-limit state, rejects spoofed browser payload URLs, and strips query/fragment secrets from Go middleware request metadata. `make ci` passed.
-
 - [ ] [F002] (P1) {F001} Add a Node.js LA Sentry server client.
   ### Summary
   Provide a first-party Node.js package for protected server-side LA Sentry ingest. This client should target backend runtimes only and must not expose ingest tokens through browser-delivered code.
-
   ### Deliverables
   - Client configuration for endpoint, site ID, ingest token, environment, release, and default tags.
   - `captureError(error, attrs)` helper that submits the documented `/sentry/errors` payload.
   - Express-compatible middleware for request metadata and thrown error capture.
   - Package README with token handling guidance and a minimal integration example.
   - Black-box integration coverage against the LoopAware ingest API.
-
 - [x] [F003] (P1) {F001} Add a Python LA Sentry server client.
   ### Summary
   Provide a first-party Python package for protected server-side LA Sentry ingest. This client should support common WSGI/ASGI service usage without requiring the commercial Sentry SDK.
-
   ### Deliverables
   - Client configuration for endpoint, site ID, ingest token, environment, release, and default tags.
   - `capture_error(error, attrs)` helper that submits the documented `/sentry/errors` payload.
   - WSGI and ASGI middleware for request metadata and uncaught exception capture.
   - Package README with token handling guidance and Flask/FastAPI examples.
   - Black-box integration coverage against the LoopAware ingest API.
-
   ### Resolution
   Added `clients/python/la_sentry` with validated config/capture dataclasses, explicit `capture_error`, WSGI/ASGI middleware, docs, and integration coverage that runs a real Python process against `/sentry/errors`. `make ci` passed.
-
 - [ ] [F004] (P2) {F001} Add a Ruby LA Sentry server client.
   ### Summary
   Provide a first-party Ruby package for protected server-side LA Sentry ingest.
-
   ### Deliverables
   - Client configuration for endpoint, site ID, ingest token, environment, release, and default tags.
   - `capture_error(error, attrs)` helper that submits the documented `/sentry/errors` payload.
   - Rack middleware for request metadata and uncaught exception capture.
   - Package README with token handling guidance and Rails/Rack examples.
   - Black-box integration coverage against the LoopAware ingest API.
-
 - [ ] [F005] (P2) {F001} Add a PHP LA Sentry server client.
   ### Summary
   Provide a first-party PHP package for protected server-side LA Sentry ingest.
-
   ### Deliverables
   - Client configuration for endpoint, site ID, ingest token, environment, release, and default tags.
   - `captureError(Throwable $error, array $attrs = [])` helper that submits the documented `/sentry/errors` payload.
   - PSR-15 middleware for request metadata and uncaught exception capture.
   - Package README with token handling guidance and framework-neutral examples.
   - Black-box integration coverage against the LoopAware ingest API.
-
 - [ ] [F006] (P2) {F001} Add a Java/Kotlin LA Sentry server client.
   ### Summary
   Provide a first-party JVM package for protected server-side LA Sentry ingest.
-
   ### Deliverables
   - Client configuration for endpoint, site ID, ingest token, environment, release, and default tags.
   - `captureError(Throwable error, attrs)` helper that submits the documented `/sentry/errors` payload.
   - Servlet filter support for request metadata and uncaught exception capture.
   - Package README with token handling guidance and Java/Kotlin examples.
   - Black-box integration coverage against the LoopAware ingest API.
-
 - [ ] [F007] (P2) {F001} Add a .NET LA Sentry server client.
   ### Summary
   Provide a first-party .NET package for protected server-side LA Sentry ingest.
-
   ### Deliverables
   - Client configuration for endpoint, site ID, ingest token, environment, release, and default tags.
   - `CaptureError(Exception error, attrs)` helper that submits the documented `/sentry/errors` payload.
   - ASP.NET Core middleware for request metadata and uncaught exception capture.
   - Package README with token handling guidance and minimal API/controller examples.
   - Black-box integration coverage against the LoopAware ingest API.
-
 - [x] [F008] (P1) {F001} Add browser JavaScript LA Sentry capture with origin-bound ingest.
   ### Summary
   Implement the P001 browser design as a standalone browser harness that captures frontend errors without exposing the protected server-side ingest token.
-
   ### Product Decisions
   - Use `/sentry/browser-errors` for browser events so `/sentry/errors` remains token-protected server-to-server ingest.
   - Authenticate browser events with the configured site ID plus the site's `allowed_origin` rules, not a browser-visible secret.
   - Keep browser event request metadata minimized to sanitized URL, referrer, and user agent.
   - Keep source map upload and source-map resolution out of scope for this issue.
-
   ### Deliverables
   - `web/la-sentry.js` browser harness with automatic unhandled error/rejection capture and explicit `LASentry.captureError`.
   - Origin-bound browser ingest endpoint with public CORS preflight and rate limiting.
   - Browser integration page and black-box Playwright coverage.
   - README docs for browser setup and the non-secret protection model.
-
   ### Resolution
   Added `/sentry/browser-errors` with allowed-origin validation, rate limiting, JavaScript platform normalization, and minimized request metadata. Added `web/la-sentry.js`, a dashboard browser snippet, a browser integration page, docs, and black-box API/browser coverage. `make ci` passed.
 
+
 ## Planning
 *do not implement yet*
+
