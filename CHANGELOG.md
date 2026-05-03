@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.7.0] - 2026-05-03
+
+### Features ✨
+- Added audience-scoped subscription status API.
+- Introduced 'LA Sentry' as a first-class developer monitoring surface with protected server-side ingest endpoints.
+- Added browser JavaScript LA Sentry capture with origin-bound ingest to safely capture frontend errors without exposing secrets.
+
+### Improvements ⚙️
+- Consolidated LA Sentry client discovery under a new `clients/` directory for Go, Python, and browser clients.
+- Removed legacy LA Sentry package wrapper from `pkg/lasentry` for cleaner SDK exposure.
+- Fixed subscription confirmation brand navigation to route users appropriately based on authentication state.
+- Added black-box integration and dashboard coverage for login, subscription flows, and LA Sentry client.
+- Updated landing page to advertise LA Sentry developer monitoring alongside existing features.
+- Enhanced SQL query auditing, security, and performance with no regressions detected.
+
+### Bug Fixes 🐛
+- Fixed B003 subscription brand navigation to prevent users from being trapped on the confirmation page.
+- Updated IP rate limiting to use per-client windows instead of wall-clock buckets to prevent rate-limit boundary issues.
+
+### Testing 🧪
+- Added Playwright black-box tests covering login completion, brand navigation on public pages, and LA Sentry ingest API.
+- Verified integration tests for LA Sentry Go and Python clients.
+- Increased test coverage of public API and authentication flows with new scenarios.
+
+### Docs 📚
+- Updated README files for clients, browser, Go, and Python SDKs with usage instructions and examples.
+- Documented LA Sentry architecture, client configuration, and ingest contract.
+- Enhanced public landing page metadata and feature descriptions to include LA Sentry.
+- Updated ISSUES.md with improved status markers, format, and maintenance guidance.
+
 ## [v0.6.0] - 2026-05-01
 
 ### Features ✨
