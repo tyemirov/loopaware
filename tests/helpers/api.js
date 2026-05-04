@@ -165,6 +165,24 @@ export async function createFeedback(config, site, payload) {
   return body;
 }
 
+export async function createWidgetTestFeedback(config, cookie, site, payload) {
+  const { response, payload: body } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/sites/${site.id}/widget-test/feedback`,
+    method: 'POST',
+    cookie,
+    body: {
+      contact: payload.contact,
+      message: payload.message,
+      sentiment: payload.sentiment || ''
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`create_widget_test_feedback_failed:${response.status}:${JSON.stringify(body)}`);
+  }
+  return body;
+}
+
 export async function createSubscription(config, site, payload) {
   const clientIP = payload && payload.clientIP ? payload.clientIP : nextClientIP();
   const { response, payload: body } = await apiRequest({

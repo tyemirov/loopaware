@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
 import { buildSessionCookie } from '../helpers/auth.js';
 import { buildAdminUser, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite } from '../helpers/fixtures.js';
-import { createFeedback } from '../helpers/api.js';
+import { createWidgetTestFeedback } from '../helpers/api.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
@@ -18,6 +18,10 @@ async function createFeedbackSite() {
     allowedOrigin: buildUniqueOrigin('feedback'),
     ownerEmail: config.adminEmail
   });
+}
+
+async function createDashboardFeedback(site, payload) {
+  return createWidgetTestFeedback(config, buildAdminCookie(), site, payload);
 }
 
 test('feedback table prompts for site selection', async ({ page }) => {
@@ -36,8 +40,8 @@ test('feedback table shows empty state after selection', async ({ page }) => {
 
 test('feedback table lists messages', async ({ page }) => {
   const site = await createFeedbackSite();
-  await createFeedback(config, site, { contact: 'alpha@example.com', message: 'Alpha feedback' });
-  await createFeedback(config, site, { contact: 'beta@example.com', message: 'Beta feedback' });
+  await createDashboardFeedback(site, { contact: 'alpha@example.com', message: 'Alpha feedback' });
+  await createDashboardFeedback(site, { contact: 'beta@example.com', message: 'Beta feedback' });
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
@@ -47,7 +51,7 @@ test('feedback table lists messages', async ({ page }) => {
 
 test('feedback table lists sentiment for sentiment-only feedback', async ({ page }) => {
   const site = await createFeedbackSite();
-  await createFeedback(config, site, { contact: 'alpha@example.com', message: '', sentiment: 'happy' });
+  await createDashboardFeedback(site, { contact: 'alpha@example.com', message: '', sentiment: 'happy' });
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
@@ -57,9 +61,9 @@ test('feedback table lists sentiment for sentiment-only feedback', async ({ page
 
 test('feedback count badge reflects totals', async ({ page }) => {
   const site = await createFeedbackSite();
-  await createFeedback(config, site, { contact: 'one@example.com', message: 'One' });
-  await createFeedback(config, site, { contact: 'two@example.com', message: 'Two' });
-  await createFeedback(config, site, { contact: 'three@example.com', message: 'Three' });
+  await createDashboardFeedback(site, { contact: 'one@example.com', message: 'One' });
+  await createDashboardFeedback(site, { contact: 'two@example.com', message: 'Two' });
+  await createDashboardFeedback(site, { contact: 'three@example.com', message: 'Three' });
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
@@ -68,8 +72,8 @@ test('feedback count badge reflects totals', async ({ page }) => {
 
 test('feedback search filters messages', async ({ page }) => {
   const site = await createFeedbackSite();
-  await createFeedback(config, site, { contact: 'alpha@example.com', message: 'Alpha search' });
-  await createFeedback(config, site, { contact: 'beta@example.com', message: 'Beta search' });
+  await createDashboardFeedback(site, { contact: 'alpha@example.com', message: 'Alpha search' });
+  await createDashboardFeedback(site, { contact: 'beta@example.com', message: 'Beta search' });
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
@@ -83,8 +87,8 @@ test('feedback search filters messages', async ({ page }) => {
 
 test('feedback search filters by sentiment label', async ({ page }) => {
   const site = await createFeedbackSite();
-  await createFeedback(config, site, { contact: 'happy@example.com', message: '', sentiment: 'happy' });
-  await createFeedback(config, site, { contact: 'sad@example.com', message: '', sentiment: 'sad' });
+  await createDashboardFeedback(site, { contact: 'happy@example.com', message: '', sentiment: 'happy' });
+  await createDashboardFeedback(site, { contact: 'sad@example.com', message: '', sentiment: 'sad' });
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
   await expect(page.locator('#feedback-table-body')).toContainText('Happy');
@@ -97,7 +101,7 @@ test('feedback search filters by sentiment label', async ({ page }) => {
 
 test('feedback search shows empty state', async ({ page }) => {
   const site = await createFeedbackSite();
-  await createFeedback(config, site, { contact: 'alpha@example.com', message: 'Alpha search' });
+  await createDashboardFeedback(site, { contact: 'alpha@example.com', message: 'Alpha search' });
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
@@ -109,7 +113,7 @@ test('feedback search shows empty state', async ({ page }) => {
 
 test('refresh button reports success', async ({ page }) => {
   const site = await createFeedbackSite();
-  await createFeedback(config, site, { contact: 'refresh@example.com', message: 'Refresh me' });
+  await createDashboardFeedback(site, { contact: 'refresh@example.com', message: 'Refresh me' });
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
