@@ -4,10 +4,22 @@ STATICCHECK_VERSION ?= v0.6.1
 INEFFASSIGN_VERSION ?= v0.2.0
 STATICCHECK := honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 INEFFASSIGN := github.com/gordonklaus/ineffassign@$(INEFFASSIGN_VERSION)
+RELEASE_ARGS ?=
+PUBLISH_ARGS ?=
+DEPLOY_ARGS ?=
+RELEASE_HELPER ?= /Users/tyemirov/Development/agentSkills/gitrelease/scripts/release_helper.py
+DOCKER_IMAGE ?= ghcr.io/tyemirov/loopaware
+PUBLISH_PLATFORMS ?= linux/amd64
+PUBLISH_REMOTE ?= origin
+PUBLISH_BRANCH ?= master
+GATEWAY_DIR ?= /Users/tyemirov/Development/mprlab-gateway
+APP_MANIFEST ?= $(CURDIR)/deploy/app.yml
+PAGES_WORKFLOW ?= pages.yml
+PAGES_URL ?= https://loopaware.mprlab.com/
 
 export GOWORK := off
 
-.PHONY: format format-pinguin build lint lint-js config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci
+.PHONY: format format-pinguin build lint lint-js config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -94,3 +106,12 @@ docker-logs:
 	docker compose logs -f
 
 ci: tidy-check config-audit build lint test-unit test-race test-integration-all
+
+release:
+	@RELEASE_HELPER="$(RELEASE_HELPER)" ./scripts/release.sh $(RELEASE_ARGS)
+
+publish:
+	@DOCKER_IMAGE="$(DOCKER_IMAGE)" PUBLISH_PLATFORMS="$(PUBLISH_PLATFORMS)" PUBLISH_REMOTE="$(PUBLISH_REMOTE)" PUBLISH_BRANCH="$(PUBLISH_BRANCH)" ./scripts/publish.sh $(PUBLISH_ARGS)
+
+deploy:
+	@GATEWAY_DIR="$(GATEWAY_DIR)" APP_MANIFEST="$(APP_MANIFEST)" PAGES_WORKFLOW="$(PAGES_WORKFLOW)" PAGES_URL="$(PAGES_URL)" ./scripts/deploy.sh $(DEPLOY_ARGS)

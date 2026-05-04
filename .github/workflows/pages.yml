@@ -1,9 +1,7 @@
 name: GitHub Pages
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  workflow_dispatch:
 
 concurrency:
   group: pages-${{ github.ref }}

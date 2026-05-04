@@ -373,24 +373,37 @@ Use `make test-live-favicons` when validating customer-site favicon collection a
 target performs live network requests and is intentionally outside `make ci` so third-party uptime does not gate normal
 development.
 
-## Release publishing
+## Release, Publish, Deploy
 
-GitHub Pages and Docker release publishing are tag-driven and run only for pushed tags that match `vMAJOR.MINOR.PATCH`.
-
-- `GitHub Pages` deploys the tracked `web/` tree from the tagged commit.
-- `Build and Publish Docker Image` pushes:
-  - `ghcr.io/<owner>/loopaware:latest`
-  - `ghcr.io/<owner>/loopaware:<tag>`
-  - `ghcr.io/<owner>/loopaware:<sha>`
-
-Use a semantic version tag:
+Use the deterministic release-to-production sequence:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+make release
+make publish
+make deploy
 ```
 
-Tags that do not match `vMAJOR.MINOR.PATCH` are rejected by workflow validation and will not publish release artifacts.
+`make release` cuts a repository release from `master`: it preflights the default branch,
+rejects dirty worktrees and open PRs into `master`, runs `make ci`, updates
+`CHANGELOG.md`, pushes the release commit, creates the tag, publishes the GitHub Release
+object, and verifies remote release state. It does not publish Docker images, publish
+Pages, or deploy production.
+
+`make publish` publishes the Docker runtime artifact from a clean `master` checkout after
+verifying that a pushed `vMAJOR.MINOR.PATCH` tag points at `HEAD` and rerunning `make ci`.
+It pushes:
+
+- `ghcr.io/tyemirov/loopaware:latest`
+- `ghcr.io/tyemirov/loopaware:<tag>`
+- `ghcr.io/tyemirov/loopaware:<sha>`
+
+`make deploy` reruns `make ci`, deploys the backend through `mprlab-gateway` using
+`deploy/app.yml`, waits for gateway backend verification, then dispatches the GitHub
+Pages workflow for the release tag and verifies `https://loopaware.mprlab.com/`. This
+keeps Pages behind the backend version it depends on.
+
+The Docker image and Pages workflows are manual dispatch workflows. They do not publish
+automatically on tag push; the Makefile targets own the release-to-production ordering.
 
 ## Docker
 
