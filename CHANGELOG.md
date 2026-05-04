@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.7.1] - 2026-05-03
+
+### Features ✨
+- Introduced scripted release, publish, and deploy workflows with gating for controlled production rollout.
+- Added `make` targets for release, publish, and deploy to manage the release lifecycle.
+- Implemented a deployment manifest and backend deployment through mprlab-gateway with health verification.
+
+### Improvements ⚙️
+- Changed GitHub Pages and Docker image workflows to manual dispatch instead of tag-driven triggers.
+- Enhanced release process to ensure release tags are validated and pushed before publishing.
+- Updated README with detailed release, publish, and deploy process workflow and instructions.
+- Added comprehensive shell scripts for publishing Docker images, releasing versions, and deploying backend with GitHub Pages publishing sequencing.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- Added new API helper tests and improved integration test feedback flows.
+- Validated release and deployment processes with CI gates before publishing artifacts.
+
+### Docs 📚
+- Updated README to clarify the release-to-production sequence and manual workflow dispatching.
+- Documented new Makefile targets and deployment manifest usage.
+
 ## [v0.7.0] - 2026-05-03
 
 ### Features ✨
