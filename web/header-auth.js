@@ -16,10 +16,7 @@
   var GOOGLE_SIGNIN_GATE_SLOW_POLL_INTERVAL_MS = 1000;
   var PUBLIC_AUTH_RECOVERY_POLL_INTERVAL_MS = 500;
   var PUBLIC_AUTH_RECOVERY_MAX_ATTEMPTS = 120;
-  var DASHBOARD_LOGIN_TRIGGER_SELECTOR = '[data-loopaware-dashboard-login="true"]';
   var AUTH_HOME_LINK_SELECTOR = '[data-loopaware-auth-home-link="true"]';
-  var SIGNIN_TARGET_MAX_ATTEMPTS = 20;
-  var SIGNIN_TARGET_RETRY_DELAY_MS = 50;
   var LOGOUT_REQUEST_TIMEOUT_MS = 2000;
   var INITIAL_APP_AUTH_SETTLE_TIMEOUT_MS = 3000;
   var APP_PATHNAME = '/app';
@@ -30,7 +27,6 @@
   var userMenuListenersAttached = false;
   var publicAuthRecoveryListenersAttached = false;
   var publicSigninListenersAttached = false;
-  var dashboardLoginListenersAttached = false;
   var bindingInProgress = false;
 
   if (!store || typeof store !== 'object') {
@@ -511,82 +507,6 @@
       return wrapper;
     }
     return container;
-  }
-
-  function dispatchGoogleSigninClick(signinTarget) {
-    if (!signinTarget || typeof signinTarget.dispatchEvent !== 'function') {
-      return false;
-    }
-    if ('disabled' in signinTarget && signinTarget.disabled) {
-      return false;
-    }
-    if (typeof signinTarget.click === 'function') {
-      signinTarget.click();
-      return true;
-    }
-    signinTarget.dispatchEvent(new MouseEvent('click', {
-      bubbles: true,
-      cancelable: true,
-      composed: true
-    }));
-    return true;
-  }
-
-  function openDashboardSignin(headerHost, targetHref, remainingAttempts) {
-    var signinTarget = resolveGoogleSigninTarget(headerHost);
-    if (signinTarget && dispatchGoogleSigninClick(signinTarget)) {
-      return;
-    }
-    if (remainingAttempts > 0) {
-      window.setTimeout(function () {
-        openDashboardSignin(headerHost, targetHref, remainingAttempts - 1);
-      }, SIGNIN_TARGET_RETRY_DELAY_MS);
-      return;
-    }
-    if (targetHref && typeof window.location.assign === 'function') {
-      window.location.assign(targetHref);
-    }
-  }
-
-  function runDashboardLogin(targetHref) {
-    var headerHost = document.querySelector('mpr-header');
-    startPublicAuthRecoveryPolling(headerHost, 'runtime-signin');
-    var safeHref = typeof targetHref === 'string' && targetHref.trim() ? targetHref : APP_PATHNAME;
-    if (typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(function () {
-        openDashboardSignin(headerHost, safeHref, SIGNIN_TARGET_MAX_ATTEMPTS);
-      });
-      return;
-    }
-    window.setTimeout(function () {
-      openDashboardSignin(headerHost, safeHref, SIGNIN_TARGET_MAX_ATTEMPTS);
-    }, 0);
-  }
-
-  function handleDashboardLoginClick(event) {
-    var target = event && event.target && event.target.nodeType === 1 ? event.target : null;
-    if (!target || typeof target.closest !== 'function') {
-      return;
-    }
-    if (!target.closest(DASHBOARD_LOGIN_TRIGGER_SELECTOR)) {
-      return;
-    }
-    if (event && typeof event.preventDefault === 'function') {
-      event.preventDefault();
-    }
-    var trigger = target.closest(DASHBOARD_LOGIN_TRIGGER_SELECTOR);
-    if (!trigger || typeof trigger.getAttribute !== 'function') {
-      return;
-    }
-    runDashboardLogin(trigger.getAttribute('href'));
-  }
-
-  function attachDashboardLoginListeners() {
-    if (dashboardLoginListenersAttached || !document || typeof document.addEventListener !== 'function') {
-      return;
-    }
-    document.addEventListener('click', handleDashboardLoginClick);
-    dashboardLoginListenersAttached = true;
   }
 
   function hasGooglePromptNonce() {
@@ -1326,7 +1246,6 @@
     ensureLogoutFallback(headerHost);
     attachPublicAuthRecoveryListeners(headerHost);
     attachPublicSigninListeners(headerHost);
-    attachDashboardLoginListeners();
     if (typeof headerHost.addEventListener === 'function' && headerHost.getAttribute('data-loopaware-auth-listeners') !== 'true') {
       headerHost.setAttribute('data-loopaware-auth-listeners', 'true');
       headerHost.addEventListener('mpr-ui:auth:authenticated', handleAuthenticatedEvent);

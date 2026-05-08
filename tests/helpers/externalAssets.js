@@ -75,9 +75,14 @@ const GOOGLE_IDENTITY_STUB = `(() => {
       if (target && typeof target.setAttribute === 'function') {
         target.setAttribute('data-google-stubbed', 'true');
       }
-      if (target && typeof target.addEventListener === 'function' && target.__loopawareGoogleStubBound !== true) {
-        target.__loopawareGoogleStubBound = true;
-        target.addEventListener('click', function() {
+      if (target && target.ownerDocument && typeof target.appendChild === 'function') {
+        target.innerHTML = '';
+        var button = target.ownerDocument.createElement('button');
+        button.type = 'button';
+        button.setAttribute('data-test', 'google-signin');
+        button.textContent = 'Sign in with Google';
+        target.appendChild(button);
+        button.addEventListener('click', function() {
           if (state.autoCredentialOnClick === true) {
             try {
               emitCredential();

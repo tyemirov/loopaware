@@ -32,10 +32,26 @@ Environment:
 USAGE
 }
 
-HELPER="${RELEASE_HELPER:-/Users/tyemirov/Development/agentSkills/gitrelease/scripts/release_helper.py}"
-BUMP="${RELEASE_BUMP:-patch}"
-VERSION="${RELEASE_VERSION:-}"
-SCHEME="${RELEASE_SCHEME:-}"
+if [[ -v RELEASE_HELPER ]]; then
+  HELPER="${RELEASE_HELPER}"
+else
+  HELPER=""
+fi
+if [[ -v RELEASE_BUMP ]] && [[ -n "${RELEASE_BUMP}" ]]; then
+  BUMP="${RELEASE_BUMP}"
+else
+  BUMP="patch"
+fi
+if [[ -v RELEASE_VERSION ]]; then
+  VERSION="${RELEASE_VERSION}"
+else
+  VERSION=""
+fi
+if [[ -v RELEASE_SCHEME ]]; then
+  SCHEME="${RELEASE_SCHEME}"
+else
+  SCHEME=""
+fi
 DRY_RUN="false"
 SKIP_PAGES_VERIFY="false"
 
@@ -86,7 +102,6 @@ case "${SCHEME}" in
   *) echo "error: --scheme must be semver or calver" >&2; exit 1 ;;
 esac
 
-[[ -x "${HELPER}" ]] || { echo "error: release helper is not executable: ${HELPER}" >&2; exit 1; }
 command -v git >/dev/null 2>&1 || { echo "error: git is required" >&2; exit 1; }
 command -v gh >/dev/null 2>&1 || { echo "error: gh is required" >&2; exit 1; }
 command -v gix >/dev/null 2>&1 || { echo "error: gix is required" >&2; exit 1; }
@@ -94,6 +109,41 @@ command -v python3 >/dev/null 2>&1 || { echo "error: python3 is required" >&2; e
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "${repo_root}"
+
+resolve_release_helper() {
+  local candidate
+  if [[ -n "${HELPER}" ]]; then
+    printf "%s\n" "${HELPER}"
+    return
+  fi
+  if command -v release_helper.py >/dev/null 2>&1; then
+    command -v release_helper.py
+    return
+  fi
+  candidate="${repo_root}/../agentSkills/gitrelease/scripts/release_helper.py"
+  if [[ -x "${candidate}" ]]; then
+    printf "%s\n" "${candidate}"
+    return
+  fi
+  if [[ -v CODEX_HOME ]] && [[ -n "${CODEX_HOME}" ]]; then
+    candidate="${CODEX_HOME}/skills/gitrelease/scripts/release_helper.py"
+    if [[ -x "${candidate}" ]]; then
+      printf "%s\n" "${candidate}"
+      return
+    fi
+  fi
+  if [[ -v HOME ]] && [[ -n "${HOME}" ]]; then
+    candidate="${HOME}/.codex/skills/gitrelease/scripts/release_helper.py"
+    if [[ -x "${candidate}" ]]; then
+      printf "%s\n" "${candidate}"
+      return
+    fi
+  fi
+}
+
+HELPER="$(resolve_release_helper)"
+[[ -n "${HELPER}" ]] || { echo "error: release helper not found; set RELEASE_HELPER=/path/to/release_helper.py or install the Git Release skill at ../agentSkills/gitrelease or ~/.codex/skills/gitrelease" >&2; exit 1; }
+[[ -x "${HELPER}" ]] || { echo "error: release helper is not executable: ${HELPER}" >&2; exit 1; }
 
 json_value() {
   local json_file="$1"
@@ -219,7 +269,11 @@ if [[ "${DRY_RUN}" == "true" ]]; then
   echo "release_dry_run=true"
   echo "default_branch=${default_branch}"
   echo "next_version=${next_version}"
-  echo "changelog_boundary=${boundary_tag:-<none>}"
+  if [[ -n "${boundary_tag}" ]]; then
+    echo "changelog_boundary=${boundary_tag}"
+  else
+    echo "changelog_boundary=<none>"
+  fi
   exit 0
 fi
 
@@ -234,7 +288,12 @@ timeout -k 1200s -s SIGKILL 1200s make ci
 
 next_version="$(select_version "${preflight_json}")"
 boundary_tag="$(select_changelog_boundary "${preflight_json}" "${next_version}")"
-echo "==> [release] Selected ${next_version} (boundary: ${boundary_tag:-none})"
+if [[ -n "${boundary_tag}" ]]; then
+  boundary_label="${boundary_tag}"
+else
+  boundary_label="none"
+fi
+echo "==> [release] Selected ${next_version} (boundary: ${boundary_label})"
 
 if [[ -n "${boundary_tag}" ]]; then
   timeout -k 120s -s SIGKILL 120s gix message changelog --since-tag "${boundary_tag}" --version "${next_version}" --release-date "${release_date}" | tee "${notes_file}"
