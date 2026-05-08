@@ -111,7 +111,7 @@
     if (!document || typeof document.querySelectorAll !== "function") {
       return;
     }
-    var authHosts = document.querySelectorAll("mpr-header, mpr-login-button");
+    var authHosts = document.querySelectorAll("mpr-header[google-site-id], mpr-header[site-id], mpr-login-button");
     for (var i = 0; i < authHosts.length; i += 1) {
       var authHost = authHosts[i];
       if (!authHost || typeof authHost.setAttribute !== "function" || typeof authHost.removeAttribute !== "function") {

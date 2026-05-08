@@ -20,6 +20,7 @@ Options:
   --branch <value>      Release branch to publish from. Default: $PUBLISH_BRANCH or master
   --no-latest           Do not push :latest
   --no-sha              Do not push :<commit-sha>
+  --dry-run             Run release-source checks and make ci without pushing images
   --username <value>    Registry username. Default: gh auth user login
   --token <value>       Registry token/password. Default: $GHCR_TOKEN or $GITHUB_TOKEN or $GH_TOKEN or gh auth token
   --help                Show this help text
@@ -31,6 +32,7 @@ PLATFORMS="${PUBLISH_PLATFORMS:-linux/amd64}"
 TAG="${PUBLISH_TAG:-}"
 PUSH_LATEST="true"
 PUSH_SHA="true"
+DRY_RUN="${PUBLISH_DRY_RUN:-false}"
 USERNAME="${GHCR_USERNAME:-}"
 TOKEN="${GHCR_TOKEN:-${GITHUB_TOKEN:-${GH_TOKEN:-}}}"
 PUBLISH_BRANCH="${PUBLISH_BRANCH:-master}"
@@ -69,6 +71,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-sha)
       PUSH_SHA="false"
+      shift
+      ;;
+    --dry-run)
+      DRY_RUN="true"
       shift
       ;;
     --username)
@@ -140,6 +146,26 @@ if [[ "${remote_tag_sha}" != "${head_sha}" ]]; then
   exit 1
 fi
 
+registry_host="$(printf '%s' "${IMAGE}" | cut -d'/' -f1)"
+[[ -n "${registry_host}" ]] || { echo "error: unable to determine registry host from image: ${IMAGE}" >&2; exit 1; }
+
+echo "==> [publish] Running make ci before publishing"
+timeout -k 1200s -s SIGKILL 1200s make ci
+
+if [[ "${DRY_RUN}" == "true" || "${DRY_RUN}" == "1" ]]; then
+  echo "publish_dry_run=true"
+  echo "release_branch=${PUBLISH_BRANCH}"
+  echo "release_tag=${TAG}"
+  echo "image=${IMAGE}:${TAG}"
+  if [[ "${PUSH_LATEST}" == "true" ]]; then
+    echo "image=${IMAGE}:latest"
+  fi
+  if [[ "${PUSH_SHA}" == "true" ]]; then
+    echo "image=${IMAGE}:${head_sha}"
+  fi
+  exit 0
+fi
+
 if [[ -z "${TOKEN}" ]]; then
   TOKEN="$(gh auth token 2>/dev/null || true)"
 fi
@@ -149,12 +175,6 @@ if [[ -z "${USERNAME}" ]]; then
   USERNAME="$(gh api user --jq '.login')"
 fi
 [[ -n "${USERNAME}" ]] || { echo "error: could not infer registry username; use --username or GHCR_USERNAME" >&2; exit 1; }
-
-registry_host="$(printf '%s' "${IMAGE}" | cut -d'/' -f1)"
-[[ -n "${registry_host}" ]] || { echo "error: unable to determine registry host from image: ${IMAGE}" >&2; exit 1; }
-
-echo "==> [publish] Running make ci before publishing"
-timeout -k 1200s -s SIGKILL 1200s make ci
 
 echo "==> [publish] Logging in to ${registry_host}"
 echo "${TOKEN}" | timeout -k 30s -s SIGKILL 30s docker login "${registry_host}" -u "${USERNAME}" --password-stdin

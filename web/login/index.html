@@ -145,6 +145,12 @@
         display: flex;
         flex-wrap: wrap;
         gap: 0.75rem;
+        align-items: center;
+      }
+      .landing-hero-actions mpr-login-button {
+        display: inline-flex;
+        min-height: 44px;
+        min-width: 220px;
       }
       .landing-quick-card {
         border: 1px solid var(--mpr-color-border);
@@ -219,17 +225,6 @@
         white-space: nowrap;
         overflow-x: auto;
       }
-      .btn-gold {
-        background: var(--landing-accent);
-        color: var(--landing-accent-contrast);
-        border: 0;
-        font-weight: 700;
-      }
-      .btn-gold:hover,
-      .btn-gold:focus-visible {
-        background: #b58f1b;
-        color: var(--landing-accent-contrast);
-      }
       .landing-steps ol {
         list-style: none;
         counter-reset: step;
@@ -278,17 +273,6 @@
         padding-left: 0.85rem;
         color: var(--bs-secondary-color);
       }
-      .landing-cta .btn-gold {
-        background: var(--landing-accent);
-        color: var(--landing-accent-contrast);
-        border: 0;
-        font-weight: 700;
-      }
-      .landing-cta .btn-gold:hover,
-      .landing-cta .btn-gold:focus-visible {
-        background: #b58f1b;
-        color: var(--landing-accent-contrast);
-      }
       body[data-bs-theme="dark"] .landing-header {
         --mpr-color-surface-primary: #0f172a;
         --mpr-color-text-primary: #f8fafc;
@@ -333,8 +317,10 @@
       @media (max-width: 767.98px) {
         .landing-hero-actions {
           flex-direction: column;
+          align-items: stretch;
         }
-        .landing-hero-actions .btn {
+        .landing-hero-actions .btn,
+        .landing-hero-actions mpr-login-button {
           width: 100%;
         }
         .landing-hero::before {
@@ -353,7 +339,7 @@
   </script>
   </head>
   <body class="landing-body d-flex flex-column min-vh-100 bg-body text-body" data-bs-theme="dark">
-    <mpr-header class="landing-header" google-site-id="281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com" tauth-tenant-id="loopaware" tauth-login-path="/auth/google" tauth-logout-path="/auth/logout" tauth-nonce-path="/auth/nonce" sign-in-label="Login" sign-out-label="Logout" settings="false" auth-transition='{"title":"Opening LoopAware","message":"Preparing your authenticated workspace."}' data-loopaware-auth-redirect="true">
+    <mpr-header class="landing-header" settings="false" data-loopaware-auth-redirect="true">
     <a slot="brand" class="landing-brand d-inline-flex align-items-center gap-3 text-decoration-none" href="#top" data-public-hero="true" data-scroll-to-top="true">
       <span class="landing-logo">
         <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij4KICA8cGF0aCBzdHJva2U9IiNENEFGMzciIGZpbGw9Im5vbmUiIHN0cm9rZS13aWR0aD0iMTAiIHN0cm9rZS1saW5lam9pbj0icm91bmQiCiAgICBkPSJNIDMyIDEyOCBDIDcyIDU2LCAxODQgNTYsIDIyNCAxMjggQyAxODQgMjAwLCA3MiAyMDAsIDMyIDEyOCBaIi8+CiAgPGNpcmNsZSBjeD0iMTI4IiBjeT0iMTI4IiByPSI0OCIgc3Ryb2tlPSIjRDRBRjM3IiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjgiLz4KICA8cGF0aCBzdHJva2U9IiNENEFGMzciIGZpbGw9Im5vbmUiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIgogICAgZD0iTSA5NiAxMjggQyA5NiAxMDgsIDEyOCAxMDgsIDEyOCAxMjgKICAgICAgIEMgMTI4IDE0OCwgMTYwIDE0OCwgMTYwIDEyOAogICAgICAgQyAxNjAgMTA4LCAxMjggMTA4LCAxMjggMTI4CiAgICAgICBDIDEyOCAxNDgsIDk2IDE0OCwgOTYgMTI4Ii8+Cjwvc3ZnPgo=" alt="LoopAware logo" class="landing-logo-image" />
@@ -387,7 +373,19 @@
                 <li><i class="bi bi-check2-circle text-warning"></i> Spot which pages attract attention and which ones need better follow-through.</li>
               </ul>
               <div class="landing-hero-actions">
-                <a href="/app" class="btn btn-lg btn-gold" data-loopaware-dashboard-login="true">Open dashboard</a>
+                <mpr-login-button
+                  class="landing-login-button"
+                  data-loopaware-landing-login="primary"
+                  site-id="281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com"
+                  tauth-tenant-id="loopaware"
+                  tauth-login-path="/auth/google"
+                  tauth-logout-path="/auth/logout"
+                  tauth-nonce-path="/auth/nonce"
+                  button-text="signin_with"
+                  button-theme="outline"
+                  button-size="large"
+                  button-shape="rectangular"
+                ></mpr-login-button>
                 <a href="/pricing" class="btn btn-lg btn-outline-secondary">View licensing</a>
               </div>
             </div>
@@ -496,7 +494,19 @@
             <h2 class="h3 fw-bold mb-3">Ready for the full loop?</h2>
             <p class="mb-3">Sign in, create your first site, and start collecting real user signal immediately.</p>
             <div class="landing-hero-actions">
-              <a href="/app" class="btn btn-lg btn-gold" data-loopaware-dashboard-login="true">Go to dashboard</a>
+              <mpr-login-button
+                class="landing-login-button"
+                data-loopaware-landing-login="secondary"
+                site-id="281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com"
+                tauth-tenant-id="loopaware"
+                tauth-login-path="/auth/google"
+                tauth-logout-path="/auth/logout"
+                tauth-nonce-path="/auth/nonce"
+                button-text="signin_with"
+                button-theme="outline"
+                button-size="large"
+                button-shape="rectangular"
+              ></mpr-login-button>
               <a href="/pricing" class="btn btn-lg btn-outline-secondary">Review pricing</a>
             </div>
           </div>

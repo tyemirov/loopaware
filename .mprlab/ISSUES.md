@@ -42,6 +42,17 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Resolution
   Replaced subscription token page brand `#top` links with auth-aware LoopAware home links, reused shared header auth state to update public-page brand destinations to `/login` or `/app`, added Playwright coverage for signed-out and signed-in public-page brand navigation, and verified `make ci` passes.
 
+- [x] [B004] (P0) Make production landing login use a real Google sign-in control.
+  ### Summary
+  The production `/login` dashboard CTAs intercept clicks and programmatically re-click the header Google sign-in target. Real Google sign-in is rendered inside a cross-origin iframe, so this delegated click path can lose the user's direct activation and leave the user on the landing page instead of opening the sign-in flow.
+
+  ### Deliverables
+  - Replace landing dashboard CTA triggers with first-class `mpr-login-button` controls.
+  - Remove the delegated dashboard-login click bridge that programmatically clicks the header Google sign-in target.
+  - Add black-box browser coverage that signs in from the landing-page control and reaches the loaded dashboard.
+  ### Resolution
+  Replaced the landing dashboard CTA anchors with real `mpr-login-button` controls, removed the programmatic dashboard-login click bridge from `web/header-auth.js`, scoped runtime auth bootstrap so the login-page header no longer creates a competing Google controller, updated the Google test stub to expose a clickable rendered sign-in button, added black-box landing-login coverage through the loaded dashboard, and verified `make ci` passes.
+
 ## Improvements
 
 - [ ] [I004] (P1) Consider a design of a current accordion design of different surfaces.
@@ -268,4 +279,3 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Planning
 *do not implement yet*
-

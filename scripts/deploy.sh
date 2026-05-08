@@ -10,11 +10,13 @@ Deploys the LoopAware backend through mprlab-gateway, then publishes GitHub Page
 after backend verification succeeds.
 
 Options:
-  --gateway-dir <path>       Gateway checkout. Default: $GATEWAY_DIR or /Users/tyemirov/Development/mprlab-gateway
+  --gateway-dir <path>       Gateway checkout. Default: $GATEWAY_DIR or sibling ../mprlab-gateway
   --manifest <path>          App deploy manifest. Default: $APP_MANIFEST or deploy/app.yml
+  --image <value>            Backend image repository. Default: $DOCKER_IMAGE or ghcr.io/tyemirov/loopaware
   --tag <value>              Release tag to deploy Pages from. Default: v* tag pointing at HEAD
   --pages-workflow <value>   GitHub Pages workflow file/name. Default: $PAGES_WORKFLOW or pages.yml
   --skip-ci                  Skip the local make ci deployment gate
+  --skip-image-verify        Skip release tag/latest image digest verification
   --skip-backend             Skip gateway backend deployment
   --skip-pages               Skip Pages workflow dispatch
   --skip-pages-verify        Skip public Pages URL verification
@@ -23,15 +25,37 @@ Options:
 USAGE
 }
 
-GATEWAY_DIR="${GATEWAY_DIR:-/Users/tyemirov/Development/mprlab-gateway}"
-APP_MANIFEST="${APP_MANIFEST:-deploy/app.yml}"
-PAGES_WORKFLOW="${PAGES_WORKFLOW:-pages.yml}"
-PAGES_URL="${PAGES_URL:-https://loopaware.mprlab.com/}"
-TAG="${DEPLOY_TAG:-}"
+env_or_default() {
+  local name="$1"
+  local fallback="$2"
+  local value=""
+  if [[ -v "${name}" ]]; then
+    value="${!name}"
+  fi
+  if [[ -n "${value}" ]]; then
+    printf "%s\n" "${value}"
+  else
+    printf "%s\n" "${fallback}"
+  fi
+}
+
+GATEWAY_DIR="$(env_or_default GATEWAY_DIR "")"
+APP_MANIFEST="$(env_or_default APP_MANIFEST deploy/app.yml)"
+IMAGE_REPOSITORY="$(env_or_default DOCKER_IMAGE ghcr.io/tyemirov/loopaware)"
+PAGES_WORKFLOW="$(env_or_default PAGES_WORKFLOW pages.yml)"
+PAGES_WORKFLOW_RUN_LOOKUP_LIMIT="$(env_or_default PAGES_WORKFLOW_RUN_LOOKUP_LIMIT 100)"
+PAGES_URL="$(env_or_default PAGES_URL https://loopaware.mprlab.com/)"
+TAG="$(env_or_default DEPLOY_TAG "")"
 SKIP_CI="false"
+SKIP_IMAGE_VERIFY="false"
 SKIP_BACKEND="false"
 SKIP_PAGES="false"
 SKIP_PAGES_VERIFY="false"
+
+image_digest() {
+  local image_ref="$1"
+  docker buildx imagetools inspect "$image_ref" | awk '/^Digest:/ { print $2; exit }'
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -43,6 +67,11 @@ while [[ $# -gt 0 ]]; do
     --manifest)
       [[ $# -ge 2 ]] || { echo "error: --manifest requires a value" >&2; exit 1; }
       APP_MANIFEST="$2"
+      shift 2
+      ;;
+    --image)
+      [[ $# -ge 2 ]] || { echo "error: --image requires a value" >&2; exit 1; }
+      IMAGE_REPOSITORY="$2"
       shift 2
       ;;
     --tag)
@@ -57,6 +86,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-ci)
       SKIP_CI="true"
+      shift
+      ;;
+    --skip-image-verify)
+      SKIP_IMAGE_VERIFY="true"
       shift
       ;;
     --skip-backend)
@@ -97,6 +130,22 @@ if [[ "${APP_MANIFEST}" != /* ]]; then
   APP_MANIFEST="${repo_root}/${APP_MANIFEST}"
 fi
 [[ -f "${APP_MANIFEST}" ]] || { echo "error: deploy manifest not found: ${APP_MANIFEST}" >&2; exit 1; }
+resolve_gateway_dir() {
+  local candidate
+  if [[ -n "${GATEWAY_DIR}" ]]; then
+    printf "%s\n" "${GATEWAY_DIR}"
+    return
+  fi
+  for candidate in "${repo_root}/../mprlab-gateway" "../mprlab-gateway"; do
+    if [[ -d "${candidate}" ]]; then
+      printf "%s\n" "${candidate}"
+      return
+    fi
+  done
+}
+
+GATEWAY_DIR="$(resolve_gateway_dir)"
+[[ -n "${GATEWAY_DIR}" ]] || { echo "error: gateway checkout not found; set GATEWAY_DIR=/path/to/mprlab-gateway or pass --gateway-dir" >&2; exit 1; }
 [[ -d "${GATEWAY_DIR}" ]] || { echo "error: gateway checkout not found: ${GATEWAY_DIR}" >&2; exit 1; }
 
 if [[ -z "${TAG}" ]]; then
@@ -125,9 +174,24 @@ if [[ "${SKIP_CI}" != "true" && ( "${SKIP_BACKEND}" != "true" || "${SKIP_PAGES}"
   timeout -k 1200s -s SIGKILL 1200s make ci
 fi
 
+if [[ "${SKIP_IMAGE_VERIFY}" != "true" && "${SKIP_BACKEND}" != "true" ]]; then
+  command -v docker >/dev/null 2>&1 || { echo "error: docker is required for image verification" >&2; exit 1; }
+  docker buildx version >/dev/null 2>&1 || { echo "error: docker buildx is required for image verification" >&2; exit 1; }
+  [[ -n "${TAG}" ]] || { echo "error: no v* release tag points at HEAD; pass --tag or deploy from a release commit" >&2; exit 1; }
+  echo "==> [deploy] Verifying ${IMAGE_REPOSITORY}:latest matches ${TAG}"
+  release_digest="$(image_digest "${IMAGE_REPOSITORY}:${TAG}")"
+  latest_digest="$(image_digest "${IMAGE_REPOSITORY}:latest")"
+  [[ -n "${release_digest}" ]] || { echo "error: could not resolve digest for ${IMAGE_REPOSITORY}:${TAG}" >&2; exit 1; }
+  [[ -n "${latest_digest}" ]] || { echo "error: could not resolve digest for ${IMAGE_REPOSITORY}:latest" >&2; exit 1; }
+  if [[ "${release_digest}" != "${latest_digest}" ]]; then
+    echo "error: ${IMAGE_REPOSITORY}:latest digest ${latest_digest} does not match ${TAG} digest ${release_digest}; run make publish first" >&2
+    exit 1
+  fi
+fi
+
 if [[ "${SKIP_BACKEND}" != "true" ]]; then
   echo "==> [deploy] Deploying LoopAware backend through mprlab-gateway"
-  timeout -k 1200s -s SIGKILL 1200s make -C "${GATEWAY_DIR}" MPRLAB_APP_MANIFEST="${APP_MANIFEST}" deploy-loopaware
+  timeout --foreground -k 1200s -s SIGKILL 1200s make -C "${GATEWAY_DIR}" MPRLAB_APP_MANIFEST="${APP_MANIFEST}" deploy TARGET=loopaware
 fi
 
 if [[ "${SKIP_PAGES}" != "true" ]]; then
@@ -141,6 +205,7 @@ if [[ "${SKIP_PAGES}" != "true" ]]; then
       gh run list \
         --workflow "${PAGES_WORKFLOW}" \
         --event workflow_dispatch \
+        --limit "${PAGES_WORKFLOW_RUN_LOOKUP_LIMIT}" \
         --json databaseId,headBranch,createdAt \
         --jq ".[] | select(.headBranch == \"${TAG}\" and .createdAt >= \"${trigger_started_at}\") | .databaseId" \
         | head -n 1

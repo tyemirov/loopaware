@@ -239,28 +239,11 @@ function buildLoginSessionCookieValue(user) {
  */
 async function beginHeaderLoginFlow(page) {
   await expect(page.locator('mpr-header [data-mpr-header="google-signin"]')).toHaveCount(1);
-  await page.evaluate(() => {
-    const signinContainer = document.querySelector('mpr-header [data-mpr-header="google-signin"]');
-    if (!signinContainer) {
-      throw new Error('google sign-in target not found');
-    }
-    const signinTarget = /** @type {HTMLElement} */ (
-      signinContainer.querySelector('button:not([data-mpr-google-wrapper="true"])') ||
-      signinContainer.querySelector('[role="button"]') ||
-      signinContainer.querySelector('[data-mpr-google-target="true"]') ||
-      signinContainer.querySelector('[data-mpr-google-wrapper="true"]') ||
-      signinContainer
-    );
-    if (typeof signinTarget.click === 'function') {
-      signinTarget.click();
-      return;
-    }
-    signinTarget.dispatchEvent(new MouseEvent('click', {
-      bubbles: true,
-      cancelable: true,
-      composed: true
-    }));
-  });
+  const signInButton = page
+    .locator('mpr-header button[data-test="google-signin"]:not([data-mpr-google-wrapper="true"])')
+    .first();
+  await expect(signInButton).toBeVisible();
+  await signInButton.click();
   await expect
     .poll(() =>
       page.evaluate(() => {
@@ -273,24 +256,34 @@ async function beginHeaderLoginFlow(page) {
 
 /**
  * @param {import('@playwright/test').Page} page
- * @param {{ waitForRedirectPending?: boolean }} [options]
  * @returns {Promise<void>}
  */
-async function beginLandingDashboardLoginFlow(page, options) {
-  const waitForRedirectPending = !options || options.waitForRedirectPending !== false;
-  await page.getByRole('link', { name: 'Open dashboard' }).click();
-  if (!waitForRedirectPending) {
-    return;
-  }
-  await expect(page).toHaveURL(/\/login\/?$/);
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const authStore = window['__loopawareHeaderAuthStore'];
-        return !!(authStore && authStore.loginRedirectPending === true);
-      })
-    )
-    .toBe(true);
+async function expectLandingLoginControls(page) {
+  await expect(page.locator('[data-loopaware-dashboard-login="true"]')).toHaveCount(0);
+  await expect(page.locator('mpr-login-button[data-loopaware-landing-login="primary"]')).toHaveCount(1);
+  await expect(page.locator('mpr-login-button[data-loopaware-landing-login="secondary"]')).toHaveCount(1);
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {import('@playwright/test').Locator}
+ */
+function primaryLandingGoogleSigninButton(page) {
+  return page
+    .locator('mpr-login-button[data-loopaware-landing-login="primary"]')
+    .locator('button[data-test="google-signin"]:not([data-mpr-google-wrapper="true"])')
+    .first();
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function beginLandingDashboardLoginFlow(page) {
+  await expectLandingLoginControls(page);
+  const signInButton = primaryLandingGoogleSigninButton(page);
+  await expect(signInButton).toBeVisible();
+  await signInButton.click();
 }
 
 /**
@@ -323,25 +316,18 @@ test('login page redirects authenticated users after silent session recovery', a
   await expect(page).toHaveURL(/\/app\/?$/);
 });
 
-test('login page shows the mpr-ui auth transition while sign-in is still pending', async ({ page }) => {
+test('login page landing sign-in reports authenticating while sign-in is still pending', async ({ page }) => {
   await openPageWithoutSession(page, '/login', { exchangeDelayMs: 1000 });
   await enableAutoGoogleCredentialOnClick(page);
-  await beginHeaderLoginFlow(page);
+  await beginLandingDashboardLoginFlow(page);
 
-  const transition = page.locator('mpr-header [data-mpr-header="auth-transition"]');
-  const transitionTitle = page.locator('mpr-header [data-mpr-header="auth-transition-title"]');
-  const transitionMessage = page.locator('mpr-header [data-mpr-header="auth-transition-message"]');
-
-  await expect(transition).toHaveAttribute('data-mpr-visible', 'true');
-  await expect(transitionTitle).toHaveText('Opening LoopAware');
-  await expect(transitionMessage).toHaveText('Preparing your authenticated workspace.');
+  await expect(page.locator('mpr-login-button[data-loopaware-landing-login][data-mpr-auth-status="authenticating"]').first()).toBeVisible();
 });
 
 test('login page keeps public content visible after a canceled sign-in click', async ({ page }) => {
   await openPageWithoutSession(page, '/login');
-  await beginHeaderLoginFlow(page);
+  await beginLandingDashboardLoginFlow(page);
 
-  await expect(page.locator('mpr-header [data-mpr-header="auth-transition"]')).toHaveAttribute('data-mpr-visible', 'false');
   await expect(
     page.getByRole('heading', {
       level: 1,
@@ -350,13 +336,13 @@ test('login page keeps public content visible after a canceled sign-in click', a
   ).toBeVisible();
 });
 
-test('login page dashboard CTA uses the mpr-ui auth transition before redirecting to the dashboard', async ({ page }) => {
+test('login page dashboard sign-in uses the landing Google control before redirecting to the dashboard', async ({ page }) => {
   await openPageWithoutSession(page, '/login', { exchangeDelayMs: 1000 });
   await enableAutoGoogleCredentialOnClick(page);
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
   await beginLandingDashboardLoginFlow(page);
 
-  await expect(page.locator('mpr-header [data-mpr-header="auth-transition"]')).toHaveAttribute('data-mpr-visible', 'true');
+  await expect(page.locator('mpr-login-button[data-loopaware-landing-login][data-mpr-auth-status="authenticating"]').first()).toBeVisible();
   await page.waitForURL(/\/app\/?$/);
 });
 
@@ -367,7 +353,7 @@ test('login page completed sign-in loads the authenticated dashboard', async ({ 
   await seedRuntimeExchangeUser(page, adminUser);
   await enableAutoGoogleCredentialOnClick(page);
 
-  await beginLandingDashboardLoginFlow(page, { waitForRedirectPending: false });
+  await beginLandingDashboardLoginFlow(page);
 
   await page.waitForURL(/\/app\/?$/);
   await waitForDashboardReady(page, { allowEmptySites: true });
@@ -583,10 +569,12 @@ test('dashboard bootstraps the site widget when runtime widget site is configure
   ).toHaveLength(0);
 });
 
-test('login page applies configured tauth origin to the header', async ({ page }) => {
+test('login page applies configured tauth origin to the landing login controls', async ({ page }) => {
   const tauthOrigin = 'https://tauth.example.test';
   await openPageWithoutSession(page, `/login?tauth_origin=${encodeURIComponent(tauthOrigin)}`);
-  await expect(page.locator('mpr-header')).toHaveAttribute('tauth-url', tauthOrigin);
+  await expect(page.locator('mpr-header')).not.toHaveAttribute('tauth-url', tauthOrigin);
+  await expect(page.locator('mpr-login-button[data-loopaware-landing-login="primary"]')).toHaveAttribute('tauth-url', tauthOrigin);
+  await expect(page.locator('mpr-login-button[data-loopaware-landing-login="secondary"]')).toHaveAttribute('tauth-url', tauthOrigin);
   expect(await page.evaluate(() => String(window['__LOOPAWARE_TAUTH_ORIGIN__'] || ''))).toBe(tauthOrigin);
 });
 
