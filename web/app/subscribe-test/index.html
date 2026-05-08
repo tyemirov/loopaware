@@ -17,10 +17,11 @@
       integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+"
       crossorigin="anonymous"
     />
-    <link id="mpr-ui-style" rel="stylesheet" />
-    <script id="tauth-script"></script>
-    <script id="mpr-ui-script"></script>
+    <link id="mpr-ui-style" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.9.3/mpr-ui.css" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.9.3/mpr-ui-config.js"></script>
+    <script id="mpr-ui-bundle" type="application/json" data-mpr-ui-bundle-src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@v3.9.3/mpr-ui.js"></script>
     <script src="/runtime-env.js"></script>
     <style>
       .dashboard-header .mpr-header__actions {
@@ -46,13 +47,8 @@
   </script>
   </head>
   <body class="d-flex flex-column min-vh-100 bg-body text-body">
-    <mpr-header
+    <mpr-header data-config-url="/config-ui.yaml"
       class="dashboard-header"
-      google-site-id="281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com"
-      tauth-tenant-id="loopaware"
-      tauth-login-path="/auth/google"
-      tauth-logout-path="/auth/logout"
-      tauth-nonce-path="/auth/nonce"
       sign-in-label="Login"
       sign-out-label="Logout"
       settings="false"
@@ -296,12 +292,12 @@
 
         var eventSource = null;
         var inlinePreview = null;
-
         function authFetch(resource, init) {
-          if (typeof window.apiFetch === "function") {
-            return window.apiFetch(resource, init);
+          var requestOptions = init || {};
+          if (!requestOptions.credentials) {
+            requestOptions.credentials = "include";
           }
-          return window.fetch(resource, init);
+          return window.fetch(resource, requestOptions);
         }
 
         function redirectToLogin() {

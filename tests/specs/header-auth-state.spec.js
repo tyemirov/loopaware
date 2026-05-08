@@ -7,9 +7,10 @@ import { buildAdminUser, openAuthenticatedPage, openPublicPage, waitForDashboard
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const MPR_UI_STYLE_URL = 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css';
-const MPR_UI_SCRIPT_URL = 'https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js';
-const TAUTH_SCRIPT_URL = 'https://cdn.jsdelivr.net/gh/tyemirov/TAuth@v1.0.1/web/tauth.js';
+const MPR_UI_VERSION = 'v3.9.3';
+const MPR_UI_STYLE_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@${MPR_UI_VERSION}/mpr-ui.css`;
+const MPR_UI_CONFIG_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@${MPR_UI_VERSION}/mpr-ui-config.js`;
+const MPR_UI_SCRIPT_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@${MPR_UI_VERSION}/mpr-ui.js`;
 const SITE_WIDGET_SITE_ID = 'a7ea8b8a-ff37-4a99-81fa-09a5952f83a9';
 const PUBLIC_LOGIN_ENTRY_CASES = Object.freeze([
   Object.freeze({ label: 'pricing page', path: '/pricing' }),
@@ -104,24 +105,25 @@ async function installSiteWidgetConfigStub(page) {
 async function expectLatestCdnAssets(page) {
   await expect
     .poll(() =>
-      page.evaluate(() => {
+      page.evaluate((expectedConfigUrl) => {
         const mprUiStyle = document.getElementById('mpr-ui-style');
-        const tauthScript = document.getElementById('tauth-script');
-        const mprUiScript = document.getElementById('mpr-ui-script');
+        const mprUiBundle = document.getElementById('mpr-ui-bundle');
         const browserAssetUrls = Array.from(document.querySelectorAll('script[src], link[rel="stylesheet"][href]'))
           .map((element) => element.getAttribute('src') || element.getAttribute('href') || '');
         return {
           styleHref: mprUiStyle ? mprUiStyle.getAttribute('href') || '' : '',
-          tauthSrc: tauthScript ? tauthScript.getAttribute('src') || '' : '',
-          mprUiSrc: mprUiScript ? mprUiScript.getAttribute('src') || '' : '',
+          configScriptPresent: browserAssetUrls.includes(expectedConfigUrl),
+          bundleSrc: mprUiBundle ? mprUiBundle.getAttribute('data-mpr-ui-bundle-src') || '' : '',
+          tauthScriptCount: document.querySelectorAll('script[src*="tauth.js"], #tauth-script').length,
           vendorUrls: browserAssetUrls.filter((url) => url.includes('/vendor/'))
         };
-      })
+      }, MPR_UI_CONFIG_URL)
     )
     .toEqual({
       styleHref: MPR_UI_STYLE_URL,
-      tauthSrc: TAUTH_SCRIPT_URL,
-      mprUiSrc: MPR_UI_SCRIPT_URL,
+      configScriptPresent: true,
+      bundleSrc: MPR_UI_SCRIPT_URL,
+      tauthScriptCount: 0,
       vendorUrls: []
     });
 }
@@ -174,50 +176,6 @@ async function expectFooterUtilityLinks(page) {
 }
 
 /**
- * @param {import('@playwright/test').Page} page
- * @param {{ email: string, displayName: string, avatarUrl: string, userId: string }} user
- * @returns {Promise<void>}
- */
-async function seedRuntimeAuthenticatedUser(page, user) {
-  await page.evaluate((resolvedUser) => {
-    const runtime = window['__loopawareTestTauthRuntime'];
-    if (!runtime || typeof runtime !== 'object') {
-      throw new Error('tauth runtime not found');
-    }
-    runtime.profile = {
-      user_id: String(resolvedUser.userId || ''),
-      user_email: String(resolvedUser.email || ''),
-      email: String(resolvedUser.email || ''),
-      display: String(resolvedUser.displayName || resolvedUser.email || ''),
-      avatar_url: String(resolvedUser.avatarUrl || ''),
-      roles: []
-    };
-  }, user);
-}
-
-/**
- * @param {import('@playwright/test').Page} page
- * @param {{ email: string, displayName: string, avatarUrl: string, userId: string }} user
- * @returns {Promise<void>}
- */
-async function seedRuntimeExchangeUser(page, user) {
-  await page.evaluate((resolvedUser) => {
-    const runtime = window['__loopawareTestTauthRuntime'];
-    if (!runtime || typeof runtime !== 'object') {
-      throw new Error('tauth runtime not found');
-    }
-    runtime.exchangeProfile = {
-      user_id: String(resolvedUser.userId || ''),
-      user_email: String(resolvedUser.email || ''),
-      email: String(resolvedUser.email || ''),
-      display: String(resolvedUser.displayName || resolvedUser.email || ''),
-      avatar_url: String(resolvedUser.avatarUrl || ''),
-      roles: []
-    };
-  }, user);
-}
-
-/**
  * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
  * @returns {string}
  */
@@ -244,14 +202,6 @@ async function beginHeaderLoginFlow(page) {
     .first();
   await expect(signInButton).toBeVisible();
   await signInButton.click();
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const authStore = window['__loopawareHeaderAuthStore'];
-        return !!(authStore && authStore.loginRedirectPending === true);
-      })
-    )
-    .toBe(true);
 }
 
 /**
@@ -260,8 +210,10 @@ async function beginHeaderLoginFlow(page) {
  */
 async function expectLandingLoginControls(page) {
   await expect(page.locator('[data-loopaware-dashboard-login="true"]')).toHaveCount(0);
+  await expect(page.locator('mpr-login-button')).toHaveCount(1);
   await expect(page.locator('mpr-login-button[data-loopaware-landing-login="primary"]')).toHaveCount(1);
-  await expect(page.locator('mpr-login-button[data-loopaware-landing-login="secondary"]')).toHaveCount(1);
+  await expect(page.locator('[data-loopaware-landing-login="secondary"]')).toHaveCount(1);
+  await expect(page.locator('mpr-header button[data-test="google-signin"]')).toHaveCount(0);
 }
 
 /**
@@ -317,11 +269,14 @@ test('login page redirects authenticated users after silent session recovery', a
 });
 
 test('login page landing sign-in reports authenticating while sign-in is still pending', async ({ page }) => {
-  await openPageWithoutSession(page, '/login', { exchangeDelayMs: 1000 });
+  await openPageWithoutSession(page, '/login', {
+    exchangeDelayMs: 1000,
+    sessionCookieValue: buildLoginSessionCookieValue(adminUser)
+  });
   await enableAutoGoogleCredentialOnClick(page);
   await beginLandingDashboardLoginFlow(page);
 
-  await expect(page.locator('mpr-login-button[data-loopaware-landing-login][data-mpr-auth-status="authenticating"]').first()).toBeVisible();
+  await expect(page.locator('mpr-login-button[data-loopaware-landing-login][data-mpr-auth-status="authenticating"]')).toBeVisible();
 });
 
 test('login page keeps public content visible after a canceled sign-in click', async ({ page }) => {
@@ -336,13 +291,16 @@ test('login page keeps public content visible after a canceled sign-in click', a
   ).toBeVisible();
 });
 
-test('login page dashboard sign-in uses the landing Google control before redirecting to the dashboard', async ({ page }) => {
-  await openPageWithoutSession(page, '/login', { exchangeDelayMs: 1000 });
+test('login page dashboard sign-in uses one mpr-ui Google control before redirecting to the dashboard', async ({ page }) => {
+  await openPageWithoutSession(page, '/login', {
+    exchangeDelayMs: 1000,
+    sessionCookieValue: buildLoginSessionCookieValue(adminUser)
+  });
   await enableAutoGoogleCredentialOnClick(page);
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
   await beginLandingDashboardLoginFlow(page);
 
-  await expect(page.locator('mpr-login-button[data-loopaware-landing-login][data-mpr-auth-status="authenticating"]').first()).toBeVisible();
+  await expect(page.locator('mpr-login-button[data-loopaware-landing-login][data-mpr-auth-status="authenticating"]')).toBeVisible();
   await page.waitForURL(/\/app\/?$/);
 });
 
@@ -350,7 +308,6 @@ test('login page completed sign-in loads the authenticated dashboard', async ({ 
   await openPageWithoutSession(page, '/login', {
     sessionCookieValue: buildLoginSessionCookieValue(adminUser)
   });
-  await seedRuntimeExchangeUser(page, adminUser);
   await enableAutoGoogleCredentialOnClick(page);
 
   await beginLandingDashboardLoginFlow(page);
@@ -435,18 +392,15 @@ for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
 }
 
 for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
-  test(`${label} redirects to the dashboard after login flow runtime recovery`, async ({ page }) => {
-    await openPageWithoutSession(page, path);
+  test(`${label} redirects to the dashboard after TAuth credential exchange`, async ({ page }) => {
+    await openPageWithoutSession(page, path, {
+      sessionCookieValue: buildLoginSessionCookieValue(adminUser)
+    });
+    await enableAutoGoogleCredentialOnClick(page);
     await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
     await beginHeaderLoginFlow(page);
-    await seedRuntimeAuthenticatedUser(page, adminUser);
 
-    await Promise.all([
-      page.waitForURL(/\/app\/?$/),
-      page.evaluate(() => {
-        window.dispatchEvent(new Event('focus'));
-      })
-    ]);
+    await page.waitForURL(/\/app\/?$/);
   });
 }
 
@@ -457,14 +411,14 @@ test('login page renders header while tauth session bootstrap is delayed', async
   await expect(page).toHaveURL(/\/login\/?$/);
 });
 
-test('dashboard preserves authenticated session state while tauth script load is delayed', async ({ page }) => {
+test('dashboard preserves authenticated session state while TAuth endpoint responses are delayed', async ({ page }) => {
   await openPageWithSession(page, '/app', { delayMs: 2500 });
   await expect(page).toHaveURL(/\/app\/?$/);
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
 });
 
 test('dashboard does not bounce to login while authenticated session recovery is still settling', async ({ page }) => {
-  await openPageWithSession(page, '/app', { silentBootstrap: true, currentUserDelayMs: 2500 });
+  await openPageWithSession(page, '/app', { currentUserDelayMs: 2500 });
   await expect(page).toHaveURL(/\/app\/?$/);
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated', { timeout: 5000 });
 });
@@ -569,13 +523,49 @@ test('dashboard bootstraps the site widget when runtime widget site is configure
   ).toHaveLength(0);
 });
 
-test('login page applies configured tauth origin to the landing login controls', async ({ page }) => {
+test('login page keeps TAuth origin query state out of mpr-ui auth controls', async ({ page }) => {
   const tauthOrigin = 'https://tauth.example.test';
   await openPageWithoutSession(page, `/login?tauth_origin=${encodeURIComponent(tauthOrigin)}`);
   await expect(page.locator('mpr-header')).not.toHaveAttribute('tauth-url', tauthOrigin);
-  await expect(page.locator('mpr-login-button[data-loopaware-landing-login="primary"]')).toHaveAttribute('tauth-url', tauthOrigin);
-  await expect(page.locator('mpr-login-button[data-loopaware-landing-login="secondary"]')).toHaveAttribute('tauth-url', tauthOrigin);
+  const primaryLogin = page.locator('mpr-login-button[data-loopaware-landing-login="primary"]');
+  await expect(primaryLogin).toHaveCount(1);
+  await expect(primaryLogin).not.toHaveAttribute('tauth-url', tauthOrigin);
+  await expect(primaryLogin).not.toHaveAttribute('tauth-url', /.+/);
+  await expect(primaryLogin).toHaveAttribute('tauth-tenant-id', 'loopaware');
+  await expect(primaryLogin).toHaveAttribute('tauth-login-path', '/auth/google');
+  await expect(page.locator('mpr-login-button[data-loopaware-landing-login="secondary"]')).toHaveCount(0);
   expect(await page.evaluate(() => String(window['__LOOPAWARE_TAUTH_ORIGIN__'] || ''))).toBe(tauthOrigin);
+});
+
+test('login page boots exactly one mpr-ui auth controller', async ({ page }) => {
+  /** @type {string[]} */
+  const authRequests = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === '/me' || url.pathname === '/auth/refresh') {
+      authRequests.push(url.pathname);
+    }
+  });
+
+  await openPageWithoutSession(page, '/login');
+  await expectLandingLoginControls(page);
+  await waitForExternalAssetStubsToSettle(page);
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = window['__loopawareGoogleIdentityState'];
+        if (!state || typeof state !== 'object') {
+          return 0;
+        }
+        const calls = state.initializeCalls;
+        return Array.isArray(calls) ? calls.length : 0;
+      })
+    )
+    .toBe(1);
+
+  expect(authRequests.filter((path) => path === '/me')).toHaveLength(1);
+  expect(authRequests.filter((path) => path === '/auth/refresh')).toHaveLength(1);
 });
 
 test('login page user menu does not emit tenant bootstrap errors', async ({ page }) => {

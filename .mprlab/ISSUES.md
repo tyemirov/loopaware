@@ -53,6 +53,17 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Resolution
   Replaced the landing dashboard CTA anchors with real `mpr-login-button` controls, removed the programmatic dashboard-login click bridge from `web/header-auth.js`, scoped runtime auth bootstrap so the login-page header no longer creates a competing Google controller, updated the Google test stub to expose a clickable rendered sign-in button, added black-box landing-login coverage through the loaded dashboard, and verified `make ci` passes.
 
+- [x] [B005] (P0) Use config-first mpr-ui/TAuth authentication.
+  ### Summary
+  LoopAware still bootstraps authentication with app-owned `tauth.js` loading, direct TAuth helper globals, manual `tauth-*` attributes, and multiple login controls on `/login`. This interferes with mpr-ui's shared auth lifecycle and can trigger duplicate `/me`/`/auth/refresh` probes plus repeated Google Identity initialization.
+  ### Deliverables
+  - Serve `/config-ui.yaml` and let `mpr-ui-config.js` apply auth attributes before loading the mpr-ui bundle.
+  - Remove direct `tauth.js` loading and app-owned Google/TAuth helper orchestration.
+  - Keep LoopAware code limited to public auth events, redirects, and product-specific overlays.
+  - Add black-box browser coverage that the login page has a single Google auth controller.
+  ### Resolution
+  Moved LoopAware auth configuration to `/config-ui.yaml`, switched served pages to the `mpr-ui-config.js` and bundle-marker flow pinned to `mpr-ui@v3.9.3`, removed direct `tauth.js`/TAuth helper globals, and kept app code to public mpr-ui auth events plus product redirects/overlays. Fixed the shared `mpr-ui` nonce lifecycle bug that mismatched GIS nonce tokens after unauthenticated `/me`/`/auth/refresh` bootstrap, published `mpr-ui` `v3.9.3`, updated black-box coverage for the single auth controller, TAuth credential exchange, and logout failure recovery, and verified `make ci` passes.
+
 ## Improvements
 
 - [ ] [I004] (P1) Consider a design of a current accordion design of different surfaces.

@@ -1,5 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { buildSessionToken } from '../helpers/auth.js';
 import { resolveTestConfig } from '../helpers/config.js';
 import {
   buildAdminUser,
@@ -10,8 +11,6 @@ import {
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const STALE_AUTH_AFTER_LOGOUT_FLAG = '__loopawareTestStaleAuthAfterLogout';
-const AUTH_TRANSITION_SEEN_FLAG = '__loopawareTestAuthTransitionSeen';
 const PUBLIC_PAGE_UNAUTH_CASES = Object.freeze([
   { name: 'login page', path: '/login' },
   { name: 'privacy page', path: '/privacy' },
@@ -27,6 +26,37 @@ const PUBLIC_PAGE_UNAUTH_CASES = Object.freeze([
  */
 async function openPublicPage(page, path, localStorageEntries) {
   await openSharedPublicPage(page, config, path, { localStorage: localStorageEntries });
+}
+
+/**
+ * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
+ * @returns {string}
+ */
+function buildLoginSessionCookieValue(user) {
+  return buildSessionToken({
+    signingKey: config.signingKey,
+    tenantId: config.tenantId,
+    email: user.email,
+    displayName: user.displayName,
+    avatarUrl: user.avatarUrl,
+    userId: user.userId,
+    issuer: user.issuer
+  });
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function enableAutoGoogleCredentialOnClick(page) {
+  await page.evaluate(() => {
+    const win = /** @type {any} */ (window);
+    const state = win.__loopawareGoogleIdentityState;
+    if (!state || typeof state !== 'object') {
+      throw new Error('loopaware.google_identity_state_missing');
+    }
+    state.autoCredentialOnClick = true;
+  });
 }
 
 test('privacy page initializes theme and auth scripts instead of rendering raw JavaScript', async ({ page }) => {
@@ -100,184 +130,44 @@ test('logout overlay appears and content hides on logout event', async ({ page }
   }
 });
 
-test('explicit logout does not reopen the auth transition modal on login', async ({ page }) => {
-  await page.addInitScript((resolvedUser) => {
-    try {
-      localStorage.removeItem('__loopawareTestStaleAuthAfterLogout');
-      localStorage.removeItem('__loopawareTestAuthTransitionSeen');
-    } catch (error) {}
-
-    /** @type {typeof Element.prototype.setAttribute & { __loopawareLogoutTransitionRecorder?: boolean }} */
-    var originalSetAttribute = Element.prototype.setAttribute;
-    if (originalSetAttribute && originalSetAttribute.__loopawareLogoutTransitionRecorder !== true) {
-      /** @type {typeof Element.prototype.setAttribute & { __loopawareLogoutTransitionRecorder?: boolean }} */
-      var wrappedSetAttribute = function(name, value) {
-        var result = originalSetAttribute.apply(this, arguments);
-        try {
-          if (
-            name === 'data-mpr-visible' &&
-            value === 'true' &&
-            this &&
-            typeof this.getAttribute === 'function' &&
-            this.getAttribute('data-mpr-header') === 'auth-transition'
-          ) {
-            localStorage.setItem('__loopawareTestAuthTransitionSeen', 'true');
-          }
-        } catch (error) {}
-        return result;
-      };
-      wrappedSetAttribute.__loopawareLogoutTransitionRecorder = true;
-      Element.prototype.setAttribute = wrappedSetAttribute;
-    }
-
-    Object.defineProperty(window, 'getCurrentUser', {
-      configurable: true,
-      enumerable: true,
-      get: function() {
-        return undefined;
-      },
-      set: function(value) {
-        if (typeof value !== 'function') {
-          Object.defineProperty(window, 'getCurrentUser', {
-            configurable: true,
-            enumerable: true,
-            writable: true,
-            value: value
-          });
-          return;
-        }
-        var wrappedGetCurrentUser = function() {
-          var normalizedPath = window.location && typeof window.location.pathname === 'string'
-            ? window.location.pathname.replace(/\/$/, '')
-            : '';
-          if (normalizedPath === '/login' && localStorage.getItem('__loopawareTestStaleAuthAfterLogout') === 'true') {
-            return Promise.resolve({
-              user_id: String(resolvedUser.userId || ''),
-              user_email: String(resolvedUser.email || ''),
-              email: String(resolvedUser.email || ''),
-              display: String(resolvedUser.displayName || resolvedUser.email || ''),
-              avatar_url: String(resolvedUser.avatarUrl || ''),
-              roles: []
-            });
-          }
-          return value.apply(this, arguments);
-        };
-        Object.defineProperty(window, 'getCurrentUser', {
-          configurable: true,
-          enumerable: true,
-          writable: true,
-          value: wrappedGetCurrentUser
-        });
-      }
-    });
-  }, adminUser);
-
+test('explicit logout event does not reopen the auth transition modal on login', async ({ page }) => {
   await openDashboardShell(page, config, adminUser);
 
   await page.evaluate(() => {
-    localStorage.setItem('__loopawareTestStaleAuthAfterLogout', 'true');
-    localStorage.removeItem('__loopawareTestAuthTransitionSeen');
     document.dispatchEvent(new CustomEvent('mpr-user:logout'));
-    Promise.resolve(typeof window.logout === 'function' ? window.logout() : undefined)
-      .catch(() => undefined)
-      .finally(() => {
-        window.location.href = '/login';
-      });
+    window.location.href = '/login';
   });
 
-  await page.waitForTimeout(1200);
   await expect(page).toHaveURL(/\/login\/?$/);
   await expect(page.locator('mpr-header [data-mpr-header="auth-transition"]')).toHaveAttribute('data-mpr-visible', 'false');
-  await expect
-    .poll(() =>
-      page.evaluate(() => localStorage.getItem('__loopawareTestAuthTransitionSeen'))
-    )
-    .not.toBe('true');
+  await expect(page.locator('main')).toBeVisible();
 });
 
-test('public auth can sign in again after sign-out without reloading the page', async ({ page }) => {
-  await openPublicPage(page, '/pricing', undefined);
+test('public auth signs in through mpr-ui without app-owned auth globals', async ({ page }) => {
+  await openSharedPublicPage(page, config, '/pricing', {
+    tauth: { sessionCookieValue: buildLoginSessionCookieValue(adminUser) }
+  });
+  await enableAutoGoogleCredentialOnClick(page);
 
-  await page.evaluate((resolvedUser) => {
-    const win = /** @type {any} */ (window);
-    const runtime = win.__loopawareTestTauthRuntime;
-    if (!runtime || typeof runtime !== 'object') {
-      throw new Error('tauth runtime not found');
-    }
-    runtime.exchangeProfile = {
-      user_id: String(resolvedUser.userId || ''),
-      user_email: String(resolvedUser.email || ''),
-      email: String(resolvedUser.email || ''),
-      display: String(resolvedUser.displayName || resolvedUser.email || ''),
-      avatar_url: String(resolvedUser.avatarUrl || ''),
-      roles: []
-    };
-  }, adminUser);
-
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const win = /** @type {any} */ (window);
-        const state = win.__loopawareGoogleIdentityState;
-        if (!state || !state.lastInitializeConfig) {
-          return '';
-        }
-        return String(state.lastInitializeConfig.nonce || '');
-      })
+  const signInButton = page
+    .locator('mpr-header button[data-test="google-signin"]:not([data-mpr-google-wrapper="true"])')
+    .first();
+  await expect(signInButton).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      ['apiFetch', 'exchangeGoogleCredential', 'getAuthEndpoints', 'getCurrentUser', 'initAuthClient', 'logout', 'requestNonce', 'setAuthTenantId']
+        .filter((key) => typeof window[key] === 'function')
     )
-    .not.toBe('');
+  ).toEqual([]);
+  await signInButton.click();
 
-  await page.evaluate(() => {
-    const win = /** @type {any} */ (window);
-    const state = win.__loopawareGoogleIdentityState;
-    if (!state || typeof state.emitCredential !== 'function') {
-      throw new Error('google identity state not found');
-    }
-    state.emitCredential();
-  });
-
-  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
-
-  const firstNonce = await page.evaluate(() => {
-    const win = /** @type {any} */ (window);
-    return String(win.__loopawareGoogleIdentityState.lastInitializeConfig.nonce || '');
-  });
-
-  await page.evaluate(async () => {
-    document.dispatchEvent(new CustomEvent('mpr-user:logout'));
-    const runtime = /** @type {any} */ (window).__loopawareTestTauthRuntime;
-    if (!runtime || typeof runtime !== 'object') {
-      throw new Error('tauth runtime not found');
-    }
-    runtime.profile = null;
-    const headerHost = document.querySelector('mpr-header');
-    const target = headerHost || document;
-    target.dispatchEvent(new CustomEvent('mpr-ui:auth:unauthenticated'));
-  });
-
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const win = /** @type {any} */ (window);
-        const state = win.__loopawareGoogleIdentityState;
-        if (!state || !state.lastInitializeConfig) {
-          return '';
-        }
-        return String(state.lastInitializeConfig.nonce || '');
-      })
+  await page.waitForURL(/\/app\/?$/);
+  expect(
+    await page.evaluate(() =>
+      ['apiFetch', 'exchangeGoogleCredential', 'getAuthEndpoints', 'getCurrentUser', 'initAuthClient', 'logout', 'requestNonce', 'setAuthTenantId']
+        .filter((key) => typeof window[key] === 'function')
     )
-    .not.toBe(firstNonce);
-
-  await page.evaluate(() => {
-    const win = /** @type {any} */ (window);
-    const state = win.__loopawareGoogleIdentityState;
-    if (!state || typeof state.emitCredential !== 'function') {
-      throw new Error('google identity state not found');
-    }
-    state.emitCredential();
-  });
-
-  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
+  ).toEqual([]);
 });
 
 test('logout overlay appears and content hides on unauthenticated event', async ({ page }) => {
@@ -346,35 +236,18 @@ test('logout overlay appears and content hides on session timeout confirm', asyn
   }
 });
 
-test('manual window.logout() call triggers overlay', async ({ page }) => {
+test('dashboard does not expose app-owned window.logout helper', async ({ page }) => {
   await openDashboardShell(page, config, adminUser);
 
-  await page.route('**/auth/logout', async route => {
-    await new Promise(resolve => setTimeout(resolve, 5000));
-  });
-
-  await page.evaluate(() => {
-    const win = /** @type {any} */ (window);
-    if (typeof win.logout === 'function') {
-      win.logout();
-    }
-  });
-
-  await expect(page.locator('#logout-overlay')).toBeVisible();
-  await page.waitForTimeout(500);
-  await expect(page.locator('#logout-overlay')).toBeVisible();
-  
-  const isMainHidden = await page.evaluate(() => {
-    const main = document.querySelector('main');
-    return main && window.getComputedStyle(main).display === 'none';
-  });
-  expect(isMainHidden).toBe(true);
+  expect(await page.evaluate(() => typeof window['logout'])).toBe('undefined');
 });
 
-test('logout failure clears overlay and restores dashboard content', async ({ page }) => {
+test('session timeout logout failure keeps the authenticated dashboard session', async ({ page }) => {
   await openDashboardShell(page, config, adminUser);
 
+  let logoutRequests = 0;
   await page.route('**/auth/logout', async (route) => {
+    logoutRequests += 1;
     await route.fulfill({
       status: 500,
       contentType: 'application/json; charset=utf-8',
@@ -382,14 +255,17 @@ test('logout failure clears overlay and restores dashboard content', async ({ pa
     });
   });
 
-  await page.evaluate(async () => {
+  await page.evaluate(() => {
     const win = /** @type {any} */ (window);
-    if (typeof win.logout === 'function') {
-      await Promise.resolve(win.logout()).catch(() => null);
+    if (win.__loopawareDashboardIdleTestHooks) {
+      win.__loopawareDashboardIdleTestHooks.forcePrompt();
     }
   });
+  await expect(page.locator('#session-timeout-notification')).toBeVisible();
+  await page.locator('#session-timeout-confirm-button').click();
 
-  await expect(page.locator('#logout-overlay')).toBeHidden();
-  await expect(page.locator('body')).not.toHaveClass(/logging-out/);
-  await expect(page.locator('main')).toBeVisible();
+  await expect.poll(() => logoutRequests).toBe(1);
+  await expect(page).toHaveURL(/\/app\/?$/);
+  await expect(page.locator('#user-name')).not.toHaveText('');
+  expect(await page.evaluate(() => typeof window['logout'])).toBe('undefined');
 });
