@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.7.2] - 2026-05-08
+
+### Features ✨
+- Replace landing page login CTAs with real Google sign-in controls to improve sign-in flow activation.
+- Added black-box browser coverage for landing page login and public page brand navigation.
+
+### Improvements ⚙️
+- Enhanced deployment script with flexible gateway directory resolution and backend image verification.
+- Added dry-run option to publish script for CI checks without pushing images.
+- Release and deployment scripts now have improved environment variable handling and helper resolution.
+- Simplified Google sign-in stub to render a clickable button instead of delegating clicks.
+- Updated test login flow to click the newly implemented Google sign-in button.
+- Refined Makefile defaults and deployment script argument parsing.
+
+### Bug Fixes 🐛
+- Removed legacy programmatic click bridge that interfered with Google sign-in.
+- Fixed runtime auth bootstrap scope to prevent competing Google sign-in controllers on login page.
+- Resolved flaky or broken header-auth-state tests by aligning with new sign-in button.
+
+### Testing 🧪
+- Updated Playwright tests to support new `mpr-login-button` Google sign-in interactions.
+- Added Playwright coverage for signed-out and signed-in public page brand navigation.
+- Verified `make ci` passes with all new changes.
+
+### Docs 📚
+- Updated ISSUE tracker with detailed summary of the production landing login fix and test coverage.
+
 ## [v0.7.1] - 2026-05-03
 
 ### Features ✨
