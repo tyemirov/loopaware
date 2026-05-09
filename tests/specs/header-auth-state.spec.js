@@ -7,7 +7,7 @@ import { buildAdminUser, openAuthenticatedPage, openPublicPage, waitForDashboard
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const MPR_UI_VERSION = 'v3.9.3';
+const MPR_UI_VERSION = 'latest';
 const MPR_UI_STYLE_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@${MPR_UI_VERSION}/mpr-ui.css`;
 const MPR_UI_CONFIG_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@${MPR_UI_VERSION}/mpr-ui-config.js`;
 const MPR_UI_SCRIPT_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@${MPR_UI_VERSION}/mpr-ui.js`;
