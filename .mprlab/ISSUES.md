@@ -64,6 +64,16 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Resolution
   Moved LoopAware auth configuration to `/config-ui.yaml`, switched served pages to the `mpr-ui-config.js` and bundle-marker flow using `mpr-ui@latest`, removed direct `tauth.js`/TAuth helper globals, and kept app code to public mpr-ui auth events plus product redirects/overlays. Fixed the shared `mpr-ui` nonce lifecycle bug that mismatched GIS nonce tokens after unauthenticated `/me`/`/auth/refresh` bootstrap, published the fix upstream, updated black-box coverage for the single auth controller, TAuth credential exchange, and logout failure recovery, and verified `make ci` passes.
 
+- [x] [B006] (P0) Keep the login page Google sign-in in the header actions.
+  ### Summary
+  The `/login` page needs the visible Google sign-in control in the right side of the header without making LoopAware own Google/TAuth bootstrap or creating a second mpr-ui auth controller.
+  ### Deliverables
+  - Render the login page Google sign-in as a shared `mpr-ui` control inside the header action area.
+  - Keep `/login` on the config-first `mpr-ui@latest` path with no app-owned TAuth bootstrap.
+  - Preserve single-controller coverage for `/me`, `/auth/refresh`, and Google Identity initialization.
+  ### Resolution
+  Kept `/login` on the canonical `<mpr-header data-config-url="/config-ui.yaml">` path so the built-in header Google button remains in the right-side header actions. Fixed and published `mpr-ui` so nested header user menus mirror header auth events/state instead of starting their own profile bootstrap, preserving a single mpr-ui auth owner for `/me`, `/auth/refresh`, and Google Identity initialization. Updated Playwright coverage for header-right placement, TAuth config ownership, credential exchange, and the single auth controller.
+
 ## Improvements
 
 - [ ] [I004] (P1) Consider a design of a current accordion design of different surfaces.

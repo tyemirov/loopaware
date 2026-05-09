@@ -187,25 +187,6 @@
     if (mprStatus === 'unauthenticated') {
       return createSnapshot(AUTH_STATE_VALUES.unauthenticated, source || 'mpr-status');
     }
-    if (
-      typeof headerHost.getAttribute === 'function' &&
-      headerHost.getAttribute('data-loopaware-auth-redirect') === 'true'
-    ) {
-      var loginControl = document.querySelector('mpr-login-button[data-loopaware-landing-login="primary"]');
-      var loginStatus = loginControl && typeof loginControl.getAttribute === 'function'
-        ? normalizeTextValue(loginControl.getAttribute('data-mpr-auth-status'))
-        : '';
-      if (loginStatus === 'authenticated') {
-        return createSnapshot(AUTH_STATE_VALUES.authenticated, source || 'login-control');
-      }
-      if (loginStatus === 'bootstrapping' || loginStatus === 'authenticating') {
-        return createSnapshot(AUTH_STATE_VALUES.syncing, source || 'login-control');
-      }
-      if (loginStatus === 'unauthenticated') {
-        return createSnapshot(AUTH_STATE_VALUES.unauthenticated, source || 'login-control');
-      }
-    }
-
     var headerRoot = typeof headerHost.querySelector === 'function'
       ? headerHost.querySelector('header.mpr-header')
       : null;
@@ -431,10 +412,7 @@
     if (!target || typeof target.closest !== 'function') {
       return;
     }
-    if (
-      !target.closest('[data-mpr-header="google-signin"]') &&
-      !target.closest('mpr-login-button[data-loopaware-landing-login]')
-    ) {
+    if (!target.closest('[data-mpr-header="google-signin"]')) {
       return;
     }
     clearExplicitLogoutState();
@@ -471,21 +449,6 @@
       attributeFilter: ['class', 'data-mpr-auth-status', 'data-mpr-user-status']
     });
     headerHost.__loopawareAuthObserver = observer;
-  }
-
-  function observeLoginControl(headerHost) {
-    var loginControl = document.querySelector('mpr-login-button[data-loopaware-landing-login="primary"]');
-    if (!loginControl || loginControl.__loopawareAuthObserver || typeof MutationObserver !== 'function') {
-      return;
-    }
-    var observer = new MutationObserver(function () {
-      syncFromObservedState(headerHost, 'login-control');
-    });
-    observer.observe(loginControl, {
-      attributes: true,
-      attributeFilter: ['data-mpr-auth-status', 'data-mpr-user-status']
-    });
-    loginControl.__loopawareAuthObserver = observer;
   }
 
   function attachUserMenuListeners() {
@@ -552,7 +515,6 @@
     }
     ensureAppAuthSettling(headerHost);
     observeHeaderState(headerHost);
-    observeLoginControl(headerHost);
     waitForMprUiAutoOrchestrationReady()
       .catch(function () {})
       .then(function () {
