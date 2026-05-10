@@ -17,6 +17,8 @@
   var LOGIN_PATHNAME = '/login';
   var INITIAL_APP_AUTH_SETTLE_TIMEOUT_MS = 3000;
   var EXPLICIT_LOGOUT_STORAGE_KEY = 'loopaware_explicit_logout';
+  var LOGOUT_MAIN_DISPLAY_BACKUP_ATTR = 'data-loopaware-logout-main-display';
+  var LOGOUT_MAIN_HIDDEN_ATTR = 'data-loopaware-logout-main-hidden';
   var store = window.__loopawareHeaderAuthStore;
   var authListenersAttached = false;
   var userMenuListenersAttached = false;
@@ -89,6 +91,40 @@
     return document.getElementById('logout-overlay');
   }
 
+  function setMainLogoutHiddenState(isHidden) {
+    var mainElement = document.querySelector('main');
+    if (!mainElement || !mainElement.style) {
+      return;
+    }
+    if (isHidden) {
+      if (mainElement.getAttribute(LOGOUT_MAIN_HIDDEN_ATTR) === 'true') {
+        return;
+      }
+      var currentDisplay = mainElement.style.display;
+      if (mainElement.getAttribute(LOGOUT_MAIN_DISPLAY_BACKUP_ATTR) === null) {
+        if (typeof currentDisplay === 'string') {
+          mainElement.setAttribute(LOGOUT_MAIN_DISPLAY_BACKUP_ATTR, currentDisplay);
+        } else {
+          mainElement.setAttribute(LOGOUT_MAIN_DISPLAY_BACKUP_ATTR, '');
+        }
+      }
+      mainElement.style.display = 'none';
+      mainElement.setAttribute(LOGOUT_MAIN_HIDDEN_ATTR, 'true');
+      return;
+    }
+    if (mainElement.getAttribute(LOGOUT_MAIN_HIDDEN_ATTR) !== 'true') {
+      return;
+    }
+    var restoredDisplay = mainElement.getAttribute(LOGOUT_MAIN_DISPLAY_BACKUP_ATTR);
+    if (restoredDisplay === null || restoredDisplay === '') {
+      mainElement.style.display = '';
+    } else {
+      mainElement.style.display = restoredDisplay;
+    }
+    mainElement.removeAttribute(LOGOUT_MAIN_HIDDEN_ATTR);
+    mainElement.removeAttribute(LOGOUT_MAIN_DISPLAY_BACKUP_ATTR);
+  }
+
   function setBodyLogoutState(isActive) {
     if (!document.body || !document.body.classList) {
       return;
@@ -99,29 +135,31 @@
   function showOverlay() {
     if (typeof window.showLogoutOverlay === 'function') {
       window.showLogoutOverlay();
-      return;
+    } else {
+      var overlay = resolveLogoutOverlay();
+      if (overlay) {
+        overlay.classList.remove('d-none');
+        overlay.classList.add('d-flex');
+        overlay.style.display = 'flex';
+      }
+      setBodyLogoutState(true);
     }
-    var overlay = resolveLogoutOverlay();
-    if (overlay) {
-      overlay.classList.remove('d-none');
-      overlay.classList.add('d-flex');
-      overlay.style.display = 'flex';
-    }
-    setBodyLogoutState(true);
+    setMainLogoutHiddenState(true);
   }
 
   function hideOverlay() {
     if (typeof window.hideLogoutOverlay === 'function') {
       window.hideLogoutOverlay();
-      return;
+    } else {
+      var overlay = resolveLogoutOverlay();
+      if (overlay) {
+        overlay.classList.add('d-none');
+        overlay.classList.remove('d-flex');
+        overlay.style.display = '';
+      }
+      setBodyLogoutState(false);
     }
-    var overlay = resolveLogoutOverlay();
-    if (overlay) {
-      overlay.classList.add('d-none');
-      overlay.classList.remove('d-flex');
-      overlay.style.display = '';
-    }
-    setBodyLogoutState(false);
+    setMainLogoutHiddenState(false);
   }
 
   function createSnapshot(status, source) {
