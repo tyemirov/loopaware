@@ -11,6 +11,8 @@
   });
   var AUTH_STATE_CHANGE_EVENT = 'loopaware:auth-state-change';
   var AUTH_HOME_LINK_SELECTOR = '[data-loopaware-auth-home-link="true"]';
+  var MPR_AUTH_STATUS_AUTHENTICATING = 'authenticating';
+  var MPR_HEADER_SIGNIN_CLICK_EVENT = 'mpr-ui:header:signin-click';
   var APP_PATHNAME = '/app';
   var LOGIN_PATHNAME = '/login';
   var INITIAL_APP_AUTH_SETTLE_TIMEOUT_MS = 3000;
@@ -18,7 +20,6 @@
   var store = window.__loopawareHeaderAuthStore;
   var authListenersAttached = false;
   var userMenuListenersAttached = false;
-  var signinIntentListenersAttached = false;
   var bindingInProgress = false;
 
   if (!store || typeof store !== 'object') {
@@ -407,16 +408,23 @@
     showOverlay();
   }
 
-  function handleSigninIntent(event) {
-    var target = event && event.target && event.target.nodeType === 1 ? event.target : null;
-    if (!target || typeof target.closest !== 'function') {
-      return;
-    }
-    if (!target.closest('[data-mpr-header="google-signin"]')) {
-      return;
-    }
+  function markSigninIntent() {
     clearExplicitLogoutState();
     store.loginRedirectPending = true;
+  }
+
+  function handleHeaderSigninClick() {
+    markSigninIntent();
+  }
+
+  function handleAuthStatusChange(event) {
+    var headerHost = resolveAuthHost(event);
+    if (event && event.detail && event.detail.status === MPR_AUTH_STATUS_AUTHENTICATING) {
+      markSigninIntent();
+    }
+    if (headerHost) {
+      syncFromObservedState(headerHost, 'status-change');
+    }
   }
 
   function handleAuthenticatedEvent(event) {
@@ -467,24 +475,12 @@
     }
     document.addEventListener('mpr-ui:auth:authenticated', handleAuthenticatedEvent);
     document.addEventListener('mpr-ui:auth:unauthenticated', handleUnauthenticatedEvent);
-    document.addEventListener('mpr-ui:auth:status-change', function (event) {
-      var headerHost = resolveAuthHost(event);
-      if (headerHost) {
-        syncFromObservedState(headerHost, 'status-change');
-      }
-    });
+    document.addEventListener('mpr-ui:auth:status-change', handleAuthStatusChange);
+    document.addEventListener(MPR_HEADER_SIGNIN_CLICK_EVENT, handleHeaderSigninClick);
     document.addEventListener('mpr-ui:orchestration:ready', function () {
       bindHeaderAuth();
     });
     authListenersAttached = true;
-  }
-
-  function attachSigninIntentListeners() {
-    if (signinIntentListenersAttached || !document || typeof document.addEventListener !== 'function') {
-      return;
-    }
-    document.addEventListener('click', handleSigninIntent, true);
-    signinIntentListenersAttached = true;
   }
 
   function waitForMprUiAutoOrchestrationReady() {
@@ -497,7 +493,6 @@
   function attachHeaderAuth(headerHost) {
     attachUserMenuListeners();
     attachAuthListeners();
-    attachSigninIntentListeners();
     if (!headerHost) {
       return;
     }
@@ -505,9 +500,8 @@
       headerHost.setAttribute('data-loopaware-auth-listeners', 'true');
       headerHost.addEventListener('mpr-ui:auth:authenticated', handleAuthenticatedEvent);
       headerHost.addEventListener('mpr-ui:auth:unauthenticated', handleUnauthenticatedEvent);
-      headerHost.addEventListener('mpr-ui:auth:status-change', function () {
-        syncFromObservedState(headerHost, 'status-change');
-      });
+      headerHost.addEventListener('mpr-ui:auth:status-change', handleAuthStatusChange);
+      headerHost.addEventListener(MPR_HEADER_SIGNIN_CLICK_EVENT, handleHeaderSigninClick);
     }
     syncExplicitLogoutState(headerHost);
     if (headerHost.getAttribute('data-loopaware-auth-bound') !== 'true') {
