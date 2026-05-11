@@ -266,7 +266,10 @@
     if (!headerHost || typeof headerHost.getAttribute !== 'function') {
       return snapshot;
     }
-    if (headerHost.getAttribute('data-loopaware-auth-redirect') !== 'true' || !hasExplicitLogoutState()) {
+    if (!hasExplicitLogoutState()) {
+      return snapshot;
+    }
+    if (headerHost.getAttribute('data-loopaware-auth-redirect') !== 'true' && !shouldRedirectToLogin(headerHost)) {
       return snapshot;
     }
     return createSnapshot(AUTH_STATE_VALUES.unauthenticated, snapshot.source || 'explicit-logout');

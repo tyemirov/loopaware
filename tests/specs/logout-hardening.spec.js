@@ -110,7 +110,16 @@ test('logout overlay appears and content hides on logout event', async ({ page }
   await expect(page.locator('#logout-overlay')).toBeHidden();
 
   await page.evaluate(() => {
+    const headerHost = document.querySelector('mpr-header');
+    if (!headerHost) {
+      throw new Error('loopaware.header_missing');
+    }
     document.dispatchEvent(new CustomEvent('mpr-user:logout'));
+    headerHost.setAttribute('data-mpr-auth-status', 'authenticated');
+    headerHost.dispatchEvent(new CustomEvent('mpr-ui:auth:status-change', {
+      bubbles: true,
+      detail: { status: 'authenticated' }
+    }));
   });
 
   const redirectedToLogin = await waitForLogoutOverlayOrRedirect(page);
