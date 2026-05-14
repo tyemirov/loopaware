@@ -34,7 +34,7 @@ Embed the feedback widget on any page:
 
 ## Highlights
 
-- Google Identity Services authentication via TAuth
+- Shared `mpr-ui` sign-in with TAuth-issued sessions and TAuth verifier-backed API protection
 - Role-aware dashboard (`/app`) with admin and creator/owner scopes
 - YAML configuration for privileged accounts (`configs/config.loopaware.yml`)
 - REST API to create, update, and inspect sites, feedback, subscribers, and traffic
@@ -140,7 +140,7 @@ Stop the local stack with:
 `scripts/up.sh` is the canonical startup path for Dockerized LoopAware. With no argument it opens an interactive selector.
 You can also call it explicitly as `./scripts/up.sh local` or `./scripts/up.sh computercat`.
 The local compose stack now includes a gHTTP proxy that serves `web/` at `http://localhost:8080` and forwards `/api`,
-`/auth`, `/public`, and `/tauth.js` to the backend services. That proxy is also responsible for the browser-facing
+`/auth`, and `/public` to the backend services. That proxy is also responsible for the browser-facing
 security headers on the static HTML and proxied API responses in the local stack.
 
 If you want to run only the API process without Docker, use:
@@ -159,27 +159,28 @@ When serving the static frontend directly from `web/`, no preparation step is re
 config in `web/config.yml` and serve `web/` from the frontend origin or reverse proxy that will answer `/config.yml`,
 `/api`, and `/auth`.
 
-Then open `/app` on that frontend origin to trigger Google Sign-In.
+Then open `/app` on that frontend origin to trigger the shared sign-in flow.
 Ensure the TAuth service is running at `TAUTH_BASE_URL` with a tenant that matches `TAUTH_TENANT_ID`.
 Administrators listed in `configs/config.loopaware.yml` can manage every site; other users see only the sites they own
-or originally created with their Google account.
+or originally created with their authenticated account.
 
-The static frontend pins `mpr-ui` and `tauth.js` through CDN URLs in `web/runtime-env.js`. Do not copy third-party
-browser bundles into `web/`; non-CDN frontend dependencies are forbidden by architecture.
+The static frontend pins `mpr-ui` through CDN URLs and lets `mpr-ui` own browser authentication scaffolding. Do not copy
+third-party browser bundles into `web/`; non-CDN frontend dependencies are forbidden by architecture.
 
 ## Authentication flow
 
 1. Users visit `/login` (automatic redirect from protected routes).
-2. TAuth issues the session cookie configured by `TAUTH_SESSION_COOKIE_NAME` (defaults to `app_session`) via Google Identity Services and keeps it refreshed.
-3. `api.AuthManager` validates the session JWT, injects user details into the request context, and enforces admin /
+2. `mpr-ui` drives the browser sign-in lifecycle against the configured TAuth tenant.
+3. TAuth issues and refreshes the session cookie configured by `TAUTH_SESSION_COOKIE_NAME` (defaults to `app_session`).
+4. `api.AuthManager` validates the session with TAuth's verifier, injects user details into the request context, and enforces admin /
    owner access.
-4. The dashboard and JSON APIs consume the authenticated context.
+5. The dashboard and JSON APIs consume the authenticated context.
 
 ## Static frontend
 
 LoopAware’s frontend lives in `web/` and is hosted separately (CDN or reverse proxy). It includes:
 
-- `/login` — landing page with TAuth-backed Google Sign-In.
+- `/login` — landing page with shared `mpr-ui`/TAuth sign-in.
 - `/privacy` — static privacy policy linked from the landing and dashboard footers.
 - `/app` — dashboard shell (data loaded via `/api/*`).
 - `/subscriptions/confirm` and `/subscriptions/unsubscribe` — email link pages.
@@ -275,7 +276,7 @@ The Bootstrap front end consumes the APIs above. Features include:
 - Subscriber deletion via a confirmation modal
 - Traffic card with visit and unique visitor counts, recent visits, and a copyable `pixel.js` snippet
 - Real-time favicon refresh notifications delivered through the SSE stream
-- Sign-out button wired to TAuth (`/auth/logout`)
+- Sign-out button provided by the shared `mpr-ui`/TAuth shell
 - Inactivity prompt appears after the configured delay (defaults to 60 seconds) and logs out automatically after the configured timeout (defaults to 120 seconds) if unanswered
 
 The dashboard automatically redirects unauthenticated visitors to `/login`.

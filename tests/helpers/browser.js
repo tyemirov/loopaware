@@ -64,9 +64,6 @@ export async function injectFetchInterceptor(page) {
     if (!intercept.originalFetch && typeof window.fetch === 'function') {
       intercept.originalFetch = window.fetch;
     }
-    if (!intercept.originalApiFetch && typeof window.apiFetch === 'function') {
-      intercept.originalApiFetch = window.apiFetch;
-    }
     intercept.requests = [];
     const storageKey = intercept.storageKey || '__loopawareFetchRequests';
     const persistRequests = () => {
@@ -133,9 +130,6 @@ export async function injectFetchInterceptor(page) {
     };
     if (typeof intercept.originalFetch === 'function') {
       window.fetch = wrapFetchLike(intercept.originalFetch);
-    }
-    if (typeof intercept.originalApiFetch === 'function') {
-      window.apiFetch = wrapFetchLike(intercept.originalApiFetch);
     }
   });
 }

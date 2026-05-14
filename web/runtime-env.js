@@ -6,11 +6,6 @@
     tauthOrigin: "",
     siteWidgetSiteId: ""
   };
-  var cdnAssetUrls = Object.freeze({
-    mprUiStyle: "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css",
-    mprUiScript: "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js",
-    tauthScript: "https://cdn.jsdelivr.net/gh/tyemirov/TAuth@v1.0.1/web/tauth.js"
-  });
 
   function renderFatalError(message) {
     var doc = document;
@@ -70,74 +65,6 @@
       return null;
     }
     return trimmed.replace(/\/+$/, "");
-  }
-
-  /**
-   * @param {Element | null} element
-   * @param {string} eventName
-   * @param {() => void} callback
-   */
-  function addOnceListener(element, eventName, callback) {
-    if (!element || typeof element.addEventListener !== "function") {
-      return;
-    }
-    element.addEventListener(eventName, callback, { once: true });
-  }
-
-  /**
-   * @param {Element | null} element
-   * @param {string} url
-   */
-  function setAssetUrl(element, url) {
-    if (!element || !url) {
-      return;
-    }
-    var tagName = String(element.tagName || "").toUpperCase();
-    if (tagName === "LINK") {
-      if (element.getAttribute("href") !== url) {
-        element.setAttribute("href", url);
-      }
-      return;
-    }
-    if (tagName === "SCRIPT" && element.getAttribute("src") !== url) {
-      element.setAttribute("src", url);
-    }
-  }
-
-  /**
-   * @param {string} tauthOrigin
-   */
-  function applyAuthBootstrapConfig(tauthOrigin) {
-    if (!document || typeof document.querySelectorAll !== "function") {
-      return;
-    }
-    var authHosts = document.querySelectorAll("mpr-header[google-site-id], mpr-header[site-id], mpr-login-button");
-    for (var i = 0; i < authHosts.length; i += 1) {
-      var authHost = authHosts[i];
-      if (!authHost || typeof authHost.setAttribute !== "function" || typeof authHost.removeAttribute !== "function") {
-        continue;
-      }
-      if (tauthOrigin) {
-        authHost.setAttribute("tauth-url", tauthOrigin);
-        continue;
-      }
-      authHost.removeAttribute("tauth-url");
-    }
-  }
-
-  /**
-   * @param {() => void} callback
-   */
-  function whenDocumentReady(callback) {
-    if (!document || typeof document.addEventListener !== "function") {
-      callback();
-      return;
-    }
-    if (document.readyState && document.readyState !== "loading") {
-      callback();
-      return;
-    }
-    document.addEventListener("DOMContentLoaded", callback, { once: true });
   }
 
   /**
@@ -387,39 +314,9 @@
     window.__LOOPAWARE_API_ORIGIN__ = resolved.apiOrigin;
     window.__LOOPAWARE_TAUTH_ORIGIN__ = resolved.tauthOrigin;
     window.__LOOPAWARE_SITE_WIDGET_SITE_ID__ = resolved.siteWidgetSiteId;
-    window.__LOOPAWARE_CDN_ASSET_URLS__ = cdnAssetUrls;
-
-    var mprUiStyle = document.getElementById("mpr-ui-style");
-    var tauthScript = document.getElementById("tauth-script");
-    var mprUiScript = document.getElementById("mpr-ui-script");
-    setAssetUrl(mprUiStyle, cdnAssetUrls.mprUiStyle);
-
-    function loadMprUiScript() {
-      applyAuthBootstrapConfig(resolved.tauthOrigin);
-      if (!mprUiScript) {
-        return;
-      }
-      setAssetUrl(mprUiScript, cdnAssetUrls.mprUiScript);
+    if (document && typeof document.dispatchEvent === "function" && typeof CustomEvent === "function") {
+      document.dispatchEvent(new CustomEvent("loopaware:runtime-env-ready", { detail: resolved }));
     }
-    function failScriptLoad(scriptName, url) {
-      throw new Error("runtime_env." + scriptName + "_load_failed: failed to load " + url);
-    }
-    function loadMprUiWhenReady() {
-      whenDocumentReady(loadMprUiScript);
-    }
-    if (!tauthScript) {
-      loadMprUiWhenReady();
-      return;
-    }
-    if (typeof window.initAuthClient === "function") {
-      loadMprUiWhenReady();
-      return;
-    }
-    addOnceListener(tauthScript, "load", loadMprUiWhenReady);
-    addOnceListener(tauthScript, "error", function () {
-      failScriptLoad("tauth_script", cdnAssetUrls.tauthScript);
-    });
-    setAssetUrl(tauthScript, cdnAssetUrls.tauthScript);
   } catch (error) {
     var err = error instanceof Error ? error : new Error(String(error));
     var message = "LoopAware frontend bootstrap failed.\n\n" + String(err && err.message ? err.message : err);

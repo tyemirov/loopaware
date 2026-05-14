@@ -53,6 +53,62 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Resolution
   Replaced the landing dashboard CTA anchors with real `mpr-login-button` controls, removed the programmatic dashboard-login click bridge from `web/header-auth.js`, scoped runtime auth bootstrap so the login-page header no longer creates a competing Google controller, updated the Google test stub to expose a clickable rendered sign-in button, added black-box landing-login coverage through the loaded dashboard, and verified `make ci` passes.
 
+- [x] [B005] (P0) Use config-first mpr-ui/TAuth authentication.
+  ### Summary
+  LoopAware still bootstraps authentication with app-owned `tauth.js` loading, direct TAuth helper globals, manual `tauth-*` attributes, and multiple login controls on `/login`. This interferes with mpr-ui's shared auth lifecycle and can trigger duplicate `/me`/`/auth/refresh` probes plus repeated Google Identity initialization.
+  ### Deliverables
+  - Serve `/config-ui.yaml` and let `mpr-ui-config.js` apply auth attributes before loading the mpr-ui bundle.
+  - Remove direct `tauth.js` loading and app-owned Google/TAuth helper orchestration.
+  - Keep LoopAware code limited to public auth events, redirects, and product-specific overlays.
+  - Add black-box browser coverage that the login page has a single Google auth controller.
+  ### Resolution
+  Moved LoopAware auth configuration to `/config-ui.yaml`, switched served pages to the `mpr-ui-config.js` and bundle-marker flow using `mpr-ui@latest`, removed direct `tauth.js`/TAuth helper globals, and kept app code to public mpr-ui auth events plus product redirects/overlays. Fixed the shared `mpr-ui` nonce lifecycle bug that mismatched GIS nonce tokens after unauthenticated `/me`/`/auth/refresh` bootstrap, published the fix upstream, updated black-box coverage for the single auth controller, TAuth credential exchange, and logout failure recovery, and verified `make ci` passes.
+
+- [x] [B006] (P0) Keep the login page Google sign-in in the header actions.
+  ### Summary
+  The `/login` page needs the visible Google sign-in control in the right side of the header without making LoopAware own Google/TAuth bootstrap or creating a second mpr-ui auth controller.
+  ### Deliverables
+  - Render the login page Google sign-in as a shared `mpr-ui` control inside the header action area.
+  - Keep `/login` on the config-first `mpr-ui@latest` path with no app-owned TAuth bootstrap.
+  - Preserve single-controller coverage for `/me`, `/auth/refresh`, and Google Identity initialization.
+  ### Resolution
+  Kept `/login` on the canonical `<mpr-header data-config-url="/config-ui.yaml">` path so the built-in header Google button remains in the right-side header actions. Fixed and published `mpr-ui` so nested header user menus mirror header auth events/state instead of starting their own profile bootstrap, preserving a single mpr-ui auth owner for `/me`, `/auth/refresh`, and Google Identity initialization. Updated Playwright coverage for header-right placement, TAuth config ownership, credential exchange, and the single auth controller.
+
+- [x] [B007] (P0) Remove LoopAware-owned Google auth scaffolding.
+  ### Summary
+  LoopAware must not load or inspect Google authentication plumbing directly. Browser authentication scaffolding belongs to `mpr-ui`; session verification belongs to TAuth's verifier. LoopAware should only consume public `mpr-ui` auth lifecycle events and perform product-specific redirects, overlays, and authorization.
+  ### Deliverables
+  - Remove explicit Google Identity Services script loading from LoopAware-authored HTML pages.
+  - Remove LoopAware JavaScript selectors that target the shared header's Google sign-in internals.
+  - Keep login redirects driven by documented `mpr-ui` auth lifecycle events.
+  - Add black-box coverage proving served LoopAware HTML does not include direct GIS script tags while the shared sign-in flow still works.
+  ### Resolution
+  Removed direct Google Identity Services script tags from LoopAware-authored auth pages and dashboard preview pages. Replaced the LoopAware header auth click probe against shared Google-control internals with documented `mpr-ui:auth:status-change` and `mpr-ui:header:signin-click` lifecycle handling. Updated README, architecture, PRD, marketing copy, privacy, and terms language so LoopAware describes the auth boundary as shared `mpr-ui`/TAuth sign-in plus TAuth verifier-backed session validation. Added black-box Playwright coverage that fetches each auth page over HTTP and verifies the served HTML does not load GIS directly while the shared sign-in flow still passes. Follow-up coverage now forces delayed authenticated mpr-ui reconciliation after explicit logout so the protected dashboard keeps the logout overlay active until redirect. `make ci` passed.
+  ### Changed Files
+  `ARCHITECTURE.md`, `PRD.md`, `README.md`, `docs/loopaware-marketing-blurb.md`, `tests/specs/header-auth-state.spec.js`, `tests/specs/logout-hardening.spec.js`, `web/header-auth.js`, shared auth HTML pages under `web/`.
+
+- [!] [B008] (P0) Gate timeout logout redirect on successful response.
+  ### Summary
+  The session-timeout logout flow redirects to `/login` after any resolved `/auth/logout` fetch response. HTTP 4xx/5xx responses still resolve, so a failed server logout can move users off `/app` while their server session remains valid.
+  ### Deliverables
+  - Redirect to the landing page only after `/auth/logout` returns a successful response.
+  - Keep failed timeout logout attempts on the authenticated dashboard with visible, recoverable UI state.
+  - Add black-box browser coverage for the failed logout response path.
+  ### Implementation Notes
+  Updated the dashboard timeout logout request to throw on non-OK `/auth/logout` responses, recover the dashboard overlay state on failure, and restart the idle manager when the session-timeout flow remains on `/app`.
+  ### Verification
+  - `timeout -k 60s -s SIGKILL 60s make lint-js` passed.
+  - `LOOPAWARE_BASE_URL=http://localhost:8090 timeout -k 180s -s SIGKILL 180s npx playwright test specs/logout-hardening.spec.js -g "session timeout logout failure keeps"` passed against a local Docker integration stack.
+  Blocked: full `make ci` does not currently pass. The pre-change baseline and post-change run both timed out at `specs/dashboard-allowed-origins.spec.js:88` (`widget allowed origins add persists`) before this issue can satisfy the repo completion gate.
+
+- [ ] [B009] (P0) Restore dashboard allowed-origin browser coverage stability.
+  ### Summary
+  Full `make ci` times out in the dashboard allowed-origin browser tests before the suite can complete. The failure appears before the B008 changed path and was reproduced in both the pre-change baseline and post-change CI attempt.
+  ### Deliverables
+  - Reproduce the `specs/dashboard-allowed-origins.spec.js:88` timeout in isolation.
+  - Identify whether the failure belongs to dashboard auth settling, the allowed-origin UI flow, or the Playwright harness setup.
+  - Restore the full `make ci` gate.
+
 ## Improvements
 
 - [ ] [I004] (P1) Consider a design of a current accordion design of different surfaces.

@@ -28,7 +28,7 @@ The static frontend has a strict delivery contract for browser dependencies:
 
 ## Components
 
-- **Auth**: the frontend uses TAuth to issue the `app_session` JWT cookie via Google Identity Services; `/api/*` validates it.
+- **Auth**: the frontend delegates browser sign-in scaffolding to `mpr-ui`, TAuth issues the session cookie, and `/api/*` validates it with TAuth's verifier.
 - **Dashboard**: a static HTML/JS application backed by JSON APIs and server-sent events (SSE) for live updates.
 - **Public assets**: `GET /widget.js`, `GET /subscribe.js`, and `GET /pixel.js` are served from the static frontend and
   call the public JSON endpoints at runtime.
@@ -42,17 +42,18 @@ The static frontend has a strict delivery contract for browser dependencies:
 The static frontend depends on a strict auth bootstrap order. Treat the following as architectural constraints, not
 implementation details:
 
-1. `web/runtime-env.js` resolves `window.__LOOPAWARE_TAUTH_ORIGIN__` and `window.__LOOPAWARE_API_ORIGIN__`, applies the
-   resolved auth attributes to the parsed auth hosts, and only then loads `mpr-ui` from its pinned CDN URL.
-2. `mpr-header` auth bootstrap must derive its TAuth base URL from either an explicit `tauth-url` attribute or the
-   resolved runtime global. If `tauth-url` is applied after initial render, the auth controller must treat the new
-   value as authoritative and rebind.
-3. Slotted `mpr-user` elements on static pages must include all required auth attributes in the page markup itself:
+1. LoopAware pages render the shared shell with `<mpr-header data-config-url="/config-ui.yaml">` and the pinned
+   `mpr-ui-config.js`/bundle-marker path. LoopAware pages do not load provider-specific browser auth scripts directly.
+2. `/config-ui.yaml` is the browser-facing auth configuration surface for `mpr-ui`; page markup must not hand-wire a
+   second auth path through `tauth.js` or manual helper globals.
+3. LoopAware frontend code may react to public `mpr-ui:auth:*` lifecycle events for redirects, overlays, and product
+   state, but it must not inspect provider-specific auth controls inside the shared shell.
+4. Slotted `mpr-user` elements on static pages must include all required auth attributes in the page markup itself:
    `tauth-tenant-id`, `logout-url`, and `logout-label`. Do not rely on a parent component to backfill required values
    after the child has already connected.
-4. Public static pages (`/login`, `/privacy`) must boot without logging `mpr-ui.tenant_id_required`, because that error
+5. Public static pages (`/login`, `/privacy`) must boot without logging `mpr-ui.tenant_id_required`, because that error
    means the user menu connected before receiving required auth configuration.
-5. Browser regression tests must cover both runtime-origin wiring and the “no tenant bootstrap error on public pages”
+6. Browser regression tests must cover both runtime-origin wiring and the “no tenant bootstrap error on public pages”
    contract before auth-related frontend changes can land.
 
 ## Key flows
@@ -106,8 +107,8 @@ implementation details:
 ## LA-77: Session Timeout Prompt
 
 - The dashboard surfaces an inactivity prompt after the configured delay (default 60 seconds) and signs the user out at
-  the configured timeout (default 120 seconds) if no action is taken. Confirm and dismiss buttons touch the existing
-  logout endpoint so the landing-page redirect remains unchanged.
+  the configured timeout (default 120 seconds) if no action is taken. Confirm and dismiss buttons keep the landing-page
+  redirect behavior unchanged.
 - The prompt applies the selected light or dark theme automatically. Ensure session lifetime settings on the server
   exceed the 120-second inactivity window to preserve a predictable experience.
 - Browser automation tests for this feature now rely on go-rod and store screenshots under `tests/<date>/<testname>/`; keep the directory if you need evidence of completed inactivity flows.

@@ -1,14 +1,41 @@
 // @ts-check
 
 /**
- * @param {string} sessionCookieName
- * @param {{ silentBootstrap?: boolean, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number, sessionCookieValue?: string }} [options]
- * @returns {string}
+ * @param {import('@playwright/test').Page} page
+ * @param {{ sessionCookieName?: string }} config
+ * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number, sessionCookieValue?: string }} [options]
+ * @returns {Promise<void>}
  */
-export function renderTauthStub(sessionCookieName, options) {
-  const resolvedCookieName = sessionCookieName || 'app_session';
+export async function installTauthStub(page, config, options) {
+  const browserPage = /** @type {any} */ (page);
   const resolvedOptions = options || {};
-  const silentBootstrap = resolvedOptions.silentBootstrap === true;
+  const sessionCookieName = config.sessionCookieName || 'app_session';
+  const sessionCookieValue = typeof resolvedOptions.sessionCookieValue === 'string'
+    ? resolvedOptions.sessionCookieValue.trim()
+    : '';
+  const signature = JSON.stringify({
+    sessionCookieName,
+    sessionCookieValue,
+    delayMs: resolvedOptions.delayMs || 0,
+    bootstrapDelayMs: resolvedOptions.bootstrapDelayMs || 0,
+    currentUserDelayMs: resolvedOptions.currentUserDelayMs || 0,
+    exchangeDelayMs: resolvedOptions.exchangeDelayMs || 0
+  });
+  if (browserPage.__loopawareTauthEndpointStubSignature === signature) {
+    return;
+  }
+  if (typeof browserPage.__loopawareTauthEndpointStubSignature === 'string') {
+    throw new Error('tauth_stub_already_installed_with_different_options');
+  }
+  browserPage.__loopawareTauthEndpointStubSignature = signature;
+  await page.addInitScript(() => {
+    const win = /** @type {any} */ (window);
+    if (!win.__loopawareTestTauthRuntime || typeof win.__loopawareTestTauthRuntime !== 'object') {
+      win.__loopawareTestTauthRuntime = { profile: null, exchangeProfile: null, nonceCounter: 0 };
+    }
+  });
+
+  const endpointDelayMs = Number.isFinite(resolvedOptions.delayMs) ? Math.max(0, Number(resolvedOptions.delayMs)) : 0;
   const bootstrapDelayMs = Number.isFinite(resolvedOptions.bootstrapDelayMs)
     ? Math.max(0, Number(resolvedOptions.bootstrapDelayMs))
     : 0;
@@ -18,353 +45,188 @@ export function renderTauthStub(sessionCookieName, options) {
   const exchangeDelayMs = Number.isFinite(resolvedOptions.exchangeDelayMs)
     ? Math.max(0, Number(resolvedOptions.exchangeDelayMs))
     : 0;
-  const sessionCookieValue = typeof resolvedOptions.sessionCookieValue === 'string'
-    ? resolvedOptions.sessionCookieValue.trim()
-    : '';
-  return `(() => {
-  if (typeof window === 'undefined') {
-    return;
+  let nonceCounter = 0;
+
+  function delay(milliseconds) {
+    const duration = Math.max(0, Number(milliseconds) || 0);
+    if (duration <= 0) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      setTimeout(resolve, duration);
+    });
   }
 
-  var runtimeKey = '__loopawareTestTauthRuntime';
-  var sessionCookieName = ${JSON.stringify(resolvedCookieName)};
-  var exchangeSessionCookieValue = ${JSON.stringify(sessionCookieValue)};
-  var silentBootstrap = ${silentBootstrap ? 'true' : 'false'};
-  var bootstrapDelayMs = ${bootstrapDelayMs};
-  var currentUserDelayMs = ${currentUserDelayMs};
-  var exchangeDelayMs = ${exchangeDelayMs};
-
-  var runtime = window[runtimeKey];
-  if (!runtime || typeof runtime !== 'object') {
-    runtime = { tenantId: '', profile: null, options: null, exchangeProfile: null, nonceCounter: 0 };
-    window[runtimeKey] = runtime;
-  }
-  if (!Object.prototype.hasOwnProperty.call(runtime, 'exchangeProfile')) {
-    runtime.exchangeProfile = null;
-  }
-  if (!Number.isFinite(runtime.nonceCounter)) {
-    runtime.nonceCounter = 0;
-  }
-
-  function readCookieValue(name) {
-    if (typeof document === 'undefined' || typeof document.cookie !== 'string') {
+  function decodeBase64Url(input) {
+    const normalized = String(input || '').replace(/-/g, '+').replace(/_/g, '/');
+    const padding = normalized.length % 4;
+    const padded = padding === 2 ? `${normalized}==` : padding === 3 ? `${normalized}=` : normalized;
+    if (padding === 1) {
       return '';
     }
-    var prefix = String(name || '').trim() + '=';
-    if (prefix === '=') {
+    try {
+      return Buffer.from(padded, 'base64').toString('utf8');
+    } catch (error) {
       return '';
     }
-    var parts = document.cookie.split(';');
-    for (var index = 0; index < parts.length; index += 1) {
-      var entry = parts[index];
-      if (!entry) {
-        continue;
+  }
+
+  function profileFromSessionCookieValue(cookieValue) {
+    const parts = String(cookieValue || '').split('.');
+    if (parts.length < 2) {
+      return null;
+    }
+    const payload = decodeBase64Url(parts[1]);
+    if (!payload) {
+      return null;
+    }
+    let claims = null;
+    try {
+      claims = JSON.parse(payload);
+    } catch (error) {
+      return null;
+    }
+    if (!claims || typeof claims !== 'object') {
+      return null;
+    }
+    const email = typeof claims.user_email === 'string' ? claims.user_email.trim() : '';
+    const display = typeof claims.user_display_name === 'string' ? claims.user_display_name.trim() : email;
+    const avatarUrl = typeof claims.user_avatar_url === 'string' ? claims.user_avatar_url.trim() : '';
+    const userId = typeof claims.user_id === 'string' ? claims.user_id.trim() : '';
+    const roles = Array.isArray(claims.user_roles) ? claims.user_roles.slice() : [];
+    if (!email && !display && !avatarUrl && !userId) {
+      return null;
+    }
+    return {
+      user_id: userId,
+      user_email: email,
+      email,
+      display,
+      avatar_url: avatarUrl,
+      roles
+    };
+  }
+
+  function cookieValueFromHeader(cookieHeader) {
+    const prefix = `${sessionCookieName}=`;
+    const parts = String(cookieHeader || '').split(';');
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (trimmed.startsWith(prefix)) {
+        return trimmed.slice(prefix.length);
       }
-      var trimmed = entry.trim();
-      if (trimmed.indexOf(prefix) !== 0) {
-        continue;
-      }
-      return trimmed.slice(prefix.length);
     }
     return '';
   }
 
-  function decodeBase64Url(input) {
-    if (!input || typeof input !== 'string' || typeof window.atob !== 'function') {
-      return '';
-    }
-    var normalized = input.replace(/-/g, '+').replace(/_/g, '/');
-    var padding = normalized.length % 4;
-    if (padding === 2) {
-      normalized += '==';
-    } else if (padding === 3) {
-      normalized += '=';
-    } else if (padding !== 0) {
-      return '';
-    }
-    try {
-      return window.atob(normalized);
-    } catch (error) {
-      return '';
-    }
+  function profileFromRequest(route) {
+    const cookieHeader = route.request().headers().cookie || '';
+    return profileFromSessionCookieValue(cookieValueFromHeader(cookieHeader));
   }
 
-  function parseSessionClaims() {
-    var token = readCookieValue(sessionCookieName);
-    if (!token) {
-      return null;
-    }
-    var parts = token.split('.');
-    if (!parts || parts.length < 2) {
-      return null;
-    }
-    var payload = decodeBase64Url(parts[1]);
-    if (!payload) {
-      return null;
-    }
-    try {
-      return JSON.parse(payload);
-    } catch (error) {
-      return null;
-    }
-  }
-
-  function resolveProfileFromClaims(claims) {
-    if (!claims || typeof claims !== 'object') {
-      return null;
-    }
-    var email = typeof claims.user_email === 'string' ? claims.user_email.trim() : '';
-    var display = typeof claims.user_display_name === 'string' ? claims.user_display_name.trim() : '';
-    var avatarUrl = typeof claims.user_avatar_url === 'string' ? claims.user_avatar_url.trim() : '';
-    var userId = typeof claims.user_id === 'string' ? claims.user_id.trim() : '';
-    var roles = Array.isArray(claims.user_roles) ? claims.user_roles.slice() : [];
-    if (!email && !display && !avatarUrl && !userId) {
-      return null;
-    }
-    if (!display) {
-      display = email;
-    }
-    return {
-      user_id: userId,
-      user_email: email,
-      email: email,
-      display: display,
-      avatar_url: avatarUrl,
-      roles: roles
+  function defaultExchangeProfile() {
+    return profileFromSessionCookieValue(sessionCookieValue) || {
+      user_id: 'test-user',
+      user_email: 'user@example.com',
+      email: 'user@example.com',
+      display: 'Test User',
+      avatar_url: '',
+      roles: []
     };
   }
 
-  function hydrateProfile() {
-    var claims = parseSessionClaims();
-    runtime.profile = resolveProfileFromClaims(claims);
-    return runtime.profile;
-  }
-
-  function normalizeRuntimeProfile(profile) {
-    if (!profile || typeof profile !== 'object') {
-      return null;
+  function sessionCookieHeader() {
+    if (!sessionCookieValue) {
+      return '';
     }
-    var email = typeof profile.user_email === 'string'
-      ? profile.user_email.trim()
-      : (typeof profile.email === 'string' ? profile.email.trim() : '');
-    var display = typeof profile.display === 'string'
-      ? profile.display.trim()
-      : (typeof profile.user_display_name === 'string' ? profile.user_display_name.trim() : '');
-    var avatarUrl = typeof profile.avatar_url === 'string'
-      ? profile.avatar_url.trim()
-      : (typeof profile.user_avatar_url === 'string' ? profile.user_avatar_url.trim() : '');
-    var userId = typeof profile.user_id === 'string' ? profile.user_id.trim() : '';
-    var roles = Array.isArray(profile.roles)
-      ? profile.roles.slice()
-      : (Array.isArray(profile.user_roles) ? profile.user_roles.slice() : []);
-    if (!display) {
-      display = email;
-    }
-    return {
-      user_id: userId,
-      user_email: email,
-      email: email,
-      display: display,
-      avatar_url: avatarUrl,
-      roles: roles
-    };
+    return `${sessionCookieName}=${sessionCookieValue}; Path=/; SameSite=Lax`;
   }
 
-  function resolveExchangeProfile() {
-    return normalizeRuntimeProfile(runtime.exchangeProfile) ||
-      normalizeRuntimeProfile(runtime.profile) ||
-      resolveProfileFromClaims(parseSessionClaims()) || {
-        user_id: 'test-user',
-        user_email: 'user@example.com',
-        email: 'user@example.com',
-        display: 'Test User',
-        avatar_url: '',
-        roles: []
-      };
+  async function fulfillJSON(route, status, body, headers) {
+    await route.fulfill({
+      status,
+      contentType: 'application/json; charset=utf-8',
+      headers: headers || {},
+      body: JSON.stringify(body)
+    });
   }
 
-  function persistExchangeSessionCookie() {
-    if (!exchangeSessionCookieValue || typeof document === 'undefined') {
+  await page.route('**/tauth.js', async (route) => {
+    await route.fulfill({
+      status: 410,
+      contentType: 'text/plain; charset=utf-8',
+      body: 'LoopAware tests must not load tauth.js'
+    });
+  });
+
+  await page.route('**/*', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (!['/me', '/auth/refresh', '/auth/nonce', '/auth/google', '/auth/logout'].includes(url.pathname)) {
+      await route.fallback();
       return;
     }
-    var secureDirective = window && window.location && window.location.protocol === 'https:' ? '; Secure' : '';
-    document.cookie = sessionCookieName + '=' + exchangeSessionCookieValue + '; Path=/; SameSite=Lax' + secureDirective;
-  }
 
-  function readCredentialNonce(credential) {
-    if (typeof credential !== 'string') {
-      return '';
+    await delay(endpointDelayMs);
+
+    if (url.pathname === '/auth/nonce') {
+      nonceCounter += 1;
+      await fulfillJSON(route, 200, { nonce: `test-nonce-${nonceCounter}` });
+      return;
     }
-    var prefix = 'stub-google-credential::';
-    if (credential.indexOf(prefix) !== 0) {
-      return '';
-    }
-    return credential.slice(prefix.length);
-  }
 
-  function setAuthTenantId(tenantId) {
-    runtime.tenantId = String(tenantId || '');
-  }
-
-  function getCurrentUser() {
-    if (currentUserDelayMs > 0) {
-      return new Promise(function(resolve) {
-        window.setTimeout(function() {
-          resolve(runtime.profile);
-        }, currentUserDelayMs);
-      });
-    }
-    return runtime.profile;
-  }
-
-  function initAuthClient(options) {
-    runtime.options = options || null;
-    var profile = hydrateProfile();
-    return new Promise(function (resolve) {
-      var finalize = function () {
-        if (silentBootstrap) {
-          resolve();
-          return;
-        }
-        try {
-          if (profile && options && typeof options.onAuthenticated === 'function') {
-            options.onAuthenticated(profile);
-          }
-          if (!profile && options && typeof options.onUnauthenticated === 'function') {
-            options.onUnauthenticated();
-          }
-        } catch (error) {}
-        resolve();
-      };
-      if (bootstrapDelayMs > 0) {
-        window.setTimeout(finalize, bootstrapDelayMs);
+    if (url.pathname === '/me') {
+      await delay(Math.max(bootstrapDelayMs, currentUserDelayMs));
+      const profile = profileFromRequest(route);
+      if (!profile) {
+        await fulfillJSON(route, 401, { error: 'unauthorized' });
         return;
       }
-      finalize();
-    });
-  }
-
-  function apiFetch(url, initOptions) {
-    var merged = Object.assign({}, initOptions || {});
-    merged.credentials = 'include';
-    return window.fetch(url, merged);
-  }
-
-  function getAuthEndpoints() {
-    return {
-      baseUrl: '',
-      meUrl: '/api/me',
-      nonceUrl: '/auth/nonce',
-      googleUrl: '/auth/google',
-      refreshUrl: '/auth/refresh',
-      logoutUrl: '/auth/logout'
-    };
-  }
-
-  function requestNonce() {
-    runtime.nonceCounter += 1;
-    return Promise.resolve('test-nonce-' + String(runtime.nonceCounter));
-  }
-
-  function exchangeGoogleCredential(input) {
-    var normalizedInput = input && typeof input === 'object' ? input : {};
-    var credential = typeof normalizedInput.credential === 'string' ? normalizedInput.credential : '';
-    var nonceToken = typeof normalizedInput.nonceToken === 'string' ? normalizedInput.nonceToken : '';
-    var credentialNonce = readCredentialNonce(credential);
-    if (!credentialNonce || !nonceToken || credentialNonce !== nonceToken) {
-      return Promise.reject(new Error('tauth.exchange_failed'));
-    }
-    var exchangeProfile = resolveExchangeProfile();
-    if (exchangeDelayMs > 0) {
-      return new Promise(function(resolve) {
-        window.setTimeout(function() {
-          runtime.profile = exchangeProfile;
-          persistExchangeSessionCookie();
-          resolve(runtime.profile);
-        }, exchangeDelayMs);
-      });
-    }
-    runtime.profile = exchangeProfile;
-    persistExchangeSessionCookie();
-    return Promise.resolve(runtime.profile);
-  }
-
-  function clearSessionCookie() {
-    if (typeof document === 'undefined') {
+      await fulfillJSON(route, 200, profile);
       return;
     }
-    var expireDirective = 'Max-Age=0; path=/';
-    var hostName = window && window.location && typeof window.location.hostname === 'string'
-      ? window.location.hostname
-      : '';
-    document.cookie = sessionCookieName + '=; ' + expireDirective;
-    if (hostName) {
-      document.cookie = sessionCookieName + '=; ' + expireDirective + '; domain=' + hostName;
+
+    if (url.pathname === '/auth/refresh') {
+      await delay(Math.max(bootstrapDelayMs, currentUserDelayMs));
+      const profile = profileFromRequest(route);
+      if (!profile) {
+        await fulfillJSON(route, 401, { error: 'unauthorized' });
+        return;
+      }
+      await fulfillJSON(route, 200, { ok: true });
+      return;
     }
-  }
 
-  function logout() {
-    runtime.profile = null;
-    clearSessionCookie();
-    return Promise.resolve();
-  }
-
-  hydrateProfile();
-
-  if (typeof window.setAuthTenantId !== 'function') {
-    window.setAuthTenantId = setAuthTenantId;
-  }
-  if (typeof window.getCurrentUser !== 'function') {
-    window.getCurrentUser = getCurrentUser;
-  }
-  if (typeof window.initAuthClient !== 'function') {
-    window.initAuthClient = initAuthClient;
-  }
-  if (typeof window.apiFetch !== 'function') {
-    window.apiFetch = apiFetch;
-  }
-  if (typeof window.getAuthEndpoints !== 'function') {
-    window.getAuthEndpoints = getAuthEndpoints;
-  }
-  if (typeof window.requestNonce !== 'function') {
-    window.requestNonce = requestNonce;
-  }
-  if (typeof window.exchangeGoogleCredential !== 'function') {
-    window.exchangeGoogleCredential = exchangeGoogleCredential;
-  }
-  if (typeof window.logout !== 'function') {
-    window.logout = logout;
-  }
-})();`;
-}
-
-/**
- * @param {import('@playwright/test').Page} page
- * @param {{ sessionCookieName?: string }} config
- * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number, sessionCookieValue?: string }} [options]
- * @returns {Promise<void>}
- */
-export async function installTauthStub(page, config, options) {
-  const scriptBody = renderTauthStub(config.sessionCookieName, options);
-  const browserPage = /** @type {any} */ (page);
-  if (browserPage.__loopawareTauthStubScriptBody === scriptBody) {
-    return;
-  }
-  if (typeof browserPage.__loopawareTauthStubScriptBody === 'string') {
-    throw new Error('tauth_stub_already_installed_with_different_options');
-  }
-  browserPage.__loopawareTauthStubScriptBody = scriptBody;
-  const delayMs = Number.isFinite(options?.delayMs) ? Math.max(0, Number(options.delayMs)) : 0;
-  await page.route('**/tauth.js', async (route) => {
-    if (delayMs > 0) {
-      await new Promise((resolve) => {
-        setTimeout(resolve, delayMs);
-      });
+    if (url.pathname === '/auth/google') {
+      await delay(exchangeDelayMs);
+      let payload = {};
+      try {
+        payload = JSON.parse(request.postData() || '{}');
+      } catch (error) {
+        await fulfillJSON(route, 400, { error: 'invalid_json' });
+        return;
+      }
+      const credential = typeof payload.google_id_token === 'string' ? payload.google_id_token : '';
+      const nonceToken = typeof payload.nonce_token === 'string' ? payload.nonce_token : '';
+      if (!credential || !nonceToken || credential !== `stub-google-credential::${nonceToken}`) {
+        await fulfillJSON(route, 400, { error: 'invalid_credential' });
+        return;
+      }
+      const headers = {};
+      const cookieHeader = sessionCookieHeader();
+      if (cookieHeader) {
+        headers['Set-Cookie'] = cookieHeader;
+      }
+      await fulfillJSON(route, 200, defaultExchangeProfile(), headers);
+      return;
     }
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/javascript; charset=utf-8',
-      body: scriptBody
-    });
+
+    if (url.pathname === '/auth/logout') {
+      const expireHeader = `${sessionCookieName}=; Path=/; Max-Age=0; SameSite=Lax`;
+      await fulfillJSON(route, 200, { ok: true }, { 'Set-Cookie': expireHeader });
+      return;
+    }
+
+    await route.fallback();
   });
 }
