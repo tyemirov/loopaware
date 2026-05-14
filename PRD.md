@@ -1,7 +1,7 @@
 # LoopAware PRD
 
 ## Summary
-LoopAware collects customer feedback through a lightweight widget, authenticates operators with Google, and offers a role-aware dashboard for managing sites and messages. It is designed for fast embed, strict origin controls, and a clean operator experience.
+LoopAware collects customer feedback through a lightweight widget, uses the shared `mpr-ui`/TAuth sign-in surface for operators, and offers a role-aware dashboard for managing sites and messages. It is designed for fast embed, strict origin controls, and a clean operator experience.
 
 ## Goals
 - Capture in-page feedback with minimal integration work.
@@ -11,7 +11,7 @@ LoopAware collects customer feedback through a lightweight widget, authenticates
 - Deliver real-time dashboard updates for feedback and favicon refreshes.
 
 ## Non-goals
-- Supporting non-Google identity providers.
+- Owning identity-provider-specific authentication scaffolding.
 - Building a full CRM or ticketing system.
 - Replacing customer support platforms.
 - Multi-service split of frontend and backend (separate planning item).
@@ -43,8 +43,8 @@ LoopAware collects customer feedback through a lightweight widget, authenticates
 
 ## Functional requirements
 ### Authentication and access
-- Google Identity Services via TAuth.
-- Session cookies validate /app and /api routes.
+- Shared `mpr-ui`/TAuth sign-in.
+- TAuth verifier-backed session cookies validate /app and /api routes.
 - Roles: admin and user (owner/creator scope).
 
 ### Site management
@@ -92,12 +92,12 @@ LoopAware collects customer feedback through a lightweight widget, authenticates
 - Dashboard load time and error-free API calls.
 
 ## Dependencies
-- TAuth for authentication and session validation.
-- Google Identity Services for sign-in UI.
+- `mpr-ui` for browser sign-in scaffolding.
+- TAuth for session issuance and verifier-backed session validation.
 - Pinguin gRPC service for notifications.
 - SQLite default storage (pluggable drivers).
 
 ## Risks
 - Misconfigured allowed origins leading to rejected widget traffic.
 - Cross-origin cookie restrictions in misconfigured deployments.
-- External dependencies (GIS, TAuth, Pinguin) impacting uptime.
+- External dependencies (`mpr-ui`, TAuth, Pinguin) impacting uptime.

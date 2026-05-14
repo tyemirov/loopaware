@@ -24,6 +24,13 @@ const DASHBOARD_PREVIEW_CASES = Object.freeze([
   Object.freeze({ label: 'subscribe test page', path: '/app/subscribe-test' }),
   Object.freeze({ label: 'traffic test page', path: '/app/traffic-test' })
 ]);
+const SHARED_AUTH_HTML_CASES = Object.freeze([
+  Object.freeze({ label: 'login page', path: '/login' }),
+  Object.freeze({ label: 'dashboard page', path: '/app' }),
+  ...PUBLIC_LOGIN_ENTRY_CASES,
+  ...DASHBOARD_PREVIEW_CASES
+]);
+const GOOGLE_IDENTITY_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 
 /**
  * @param {import('@playwright/test').Page} page
@@ -126,6 +133,18 @@ async function expectLatestCdnAssets(page) {
       tauthScriptCount: 0,
       vendorUrls: []
     });
+}
+
+/**
+ * @param {import('@playwright/test').APIRequestContext} request
+ * @param {string} path
+ * @returns {Promise<void>}
+ */
+async function expectServedHTMLDoesNotLoadGoogleIdentity(request, path) {
+  const response = await request.get(new URL(path, config.baseURL).toString());
+  expect(response.ok()).toBe(true);
+  const html = await response.text();
+  expect(html).not.toContain(GOOGLE_IDENTITY_SCRIPT_URL);
 }
 
 /**
@@ -401,7 +420,14 @@ for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
         if (!headerHost) {
           throw new Error('mpr-header not found');
         }
-        headerHost.dispatchEvent(new CustomEvent('mpr-ui:auth:authenticated'));
+        headerHost.dispatchEvent(new CustomEvent('mpr-ui:auth:status-change', {
+          detail: {
+            status: 'authenticating',
+            previousStatus: 'unauthenticated'
+          },
+          bubbles: true
+        }));
+        headerHost.dispatchEvent(new CustomEvent('mpr-ui:auth:authenticated', { bubbles: true }));
       })
     ]);
   });
@@ -443,6 +469,12 @@ test('login page loads latest CDN assets for auth UI', async ({ page }) => {
   await openPublicPageForAssetInspection(page, '/login');
   await expectLatestCdnAssets(page);
 });
+
+for (const { label, path } of SHARED_AUTH_HTML_CASES) {
+  test(`${label} delegates Google Identity script loading to mpr-ui`, async ({ request }) => {
+    await expectServedHTMLDoesNotLoadGoogleIdentity(request, path);
+  });
+}
 
 for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
   test(`${label} loads latest CDN assets for auth UI`, async ({ page }) => {
