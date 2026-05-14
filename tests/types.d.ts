@@ -19,6 +19,7 @@ declare global {
     __loopawareDashboardIdleTestHooks?: {
       forcePrompt: () => void;
       forceLogout: () => void;
+      started?: () => boolean;
     };
   }
 }

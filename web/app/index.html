@@ -3070,7 +3070,20 @@
             method: 'POST',
             credentials: 'include',
             headers: request.headers
+          }).then(function(response) {
+            if (!response.ok) {
+              throw new Error('loopaware.logout_failed: status ' + response.status);
+            }
+            return response;
           });
+        }
+
+        function handleLogoutFailure(error) {
+          console.error(error);
+          hideLogoutOverlay();
+          if (sessionTimeoutManager && sessionTimeoutStartRequested && typeof sessionTimeoutManager.start === 'function') {
+            sessionTimeoutManager.start();
+          }
         }
 
         function performLogout() {
@@ -3081,7 +3094,7 @@
           var redirectToLanding = function() {
             window.location.href = landingPath;
           };
-          performTauthLogout().then(redirectToLanding).catch(redirectToLanding);
+          performTauthLogout().then(redirectToLanding).catch(handleLogoutFailure);
         }
 
         function resolveAuthFetch() {

@@ -4,6 +4,7 @@ import { buildSessionToken } from '../helpers/auth.js';
 import { resolveTestConfig } from '../helpers/config.js';
 import {
   buildAdminUser,
+  openAuthenticatedPage,
   openDashboardShell,
   openPublicPage as openSharedPublicPage,
   waitForLogoutOverlayOrRedirect
@@ -57,6 +58,40 @@ async function enableAutoGoogleCredentialOnClick(page) {
     }
     state.autoCredentialOnClick = true;
   });
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function openDashboardForSessionTimeoutRecovery(page) {
+  await openAuthenticatedPage(page, config, adminUser, '/app', { waitForHeaderAuth: false });
+  await page.waitForFunction(() => {
+    const headerHost = document.querySelector('mpr-header');
+    return !!(headerHost && headerHost.getAttribute('data-loopaware-auth-bound') === 'true');
+  });
+  await page.evaluate(() => {
+    const headerHost = document.querySelector('mpr-header');
+    if (!headerHost) {
+      throw new Error('loopaware.header_missing');
+    }
+    headerHost.removeAttribute('data-loopaware-auth-redirect-on-logout');
+    headerHost.setAttribute('data-mpr-auth-status', 'authenticated');
+    headerHost.dispatchEvent(new CustomEvent('mpr-ui:auth:status-change', {
+      bubbles: true,
+      detail: { status: 'authenticated' }
+    }));
+  });
+  await page.locator('#user-name').waitFor();
+  await expect(page.locator('#user-name')).not.toHaveText('');
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const hooks = window.__loopawareDashboardIdleTestHooks;
+        return !!(hooks && typeof hooks.started === 'function' && hooks.started());
+      })
+    )
+    .toBe(true);
 }
 
 test('privacy page initializes theme and auth scripts instead of rendering raw JavaScript', async ({ page }) => {
@@ -252,7 +287,7 @@ test('dashboard does not expose app-owned window.logout helper', async ({ page }
 });
 
 test('session timeout logout failure keeps the authenticated dashboard session', async ({ page }) => {
-  await openDashboardShell(page, config, adminUser);
+  await openDashboardForSessionTimeoutRecovery(page);
 
   let logoutRequests = 0;
   await page.route('**/auth/logout', async (route) => {
@@ -275,6 +310,18 @@ test('session timeout logout failure keeps the authenticated dashboard session',
 
   await expect.poll(() => logoutRequests).toBe(1);
   await expect(page).toHaveURL(/\/app\/?$/);
+  await expect(page.locator('main')).toBeVisible();
+  await expect(page.locator('#logout-overlay')).toBeHidden();
+  await expect(page.locator('#session-timeout-notification')).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('body')).not.toHaveClass(/logging-out/);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const hooks = window.__loopawareDashboardIdleTestHooks;
+        return !!(hooks && typeof hooks.started === 'function' && hooks.started());
+      })
+    )
+    .toBe(true);
   await expect(page.locator('#user-name')).not.toHaveText('');
   expect(await page.evaluate(() => typeof window['logout'])).toBe('undefined');
 });
