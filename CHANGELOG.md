@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.7.3] - 2026-05-14
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Migrate LoopAware authentication to use shared `mpr-ui` sign-in scaffolding with TAuth session issuance and verifier-backed validation.
+- Remove direct Google Identity Services scripts and app-owned TAuth bootstrap from LoopAware pages, relying fully on `mpr-ui` for browser auth lifecycle.
+- Enforce logout overlay persistence during auth reconciliation and hide main content under logout overlay on dashboard.
+- Update CI and browser test coverage to verify single auth controller ownership, correct auth events handling, and session timeout logout behavior.
+- Remove local `tools/mpr-ui` code and enforce CDN-only shared UI assets, including mpr-ui scripts and helpers.
+- Strengthen session timeout logout flow to redirect only on successful `/auth/logout` responses, maintaining dashboard overlay on failures.
+- Fix timeout and stability issues in dashboard allowed-origin tests and autosave validation error visibility.
+- Update documentation, marketing, and architecture to reflect the new shared auth boundary and remove Google/TAuth internal handling.
+
+### Bug Fixes 🐛
+- Fix header-owned login auth handling and credential exchange bugs by adopting latest shared `mpr-ui` assets and auth scaffolding.
+- Address nonce lifecycle bug in `mpr-ui` related to unauthenticated `/me` and `/auth/refresh` probes.
+- Restore dashboard allowed-origin test stability and fix autosave race causing stale validation states to hide errors.
+
+### Testing 🧪
+- Add black-box browser tests ensuring no direct GIS scripts load while shared auth flow still works, validating single Google auth controller presence.
+- Add coverage for logout failure recovery with persistent overlays and session-timeout idle manager restarts.
+- Update Playwright tests to cover header auth state changes, logout overlay hardening, and allowed origin flows.
+
+### Docs 📚
+- Revise README, PRD, architecture, marketing blurb, and privacy/terms to document delegation of auth scaffolding to shared `mpr-ui`.
+- Update authentication flow docs to remove direct TAuth/Google Identity Services bootstrap, clarifying reliance on `mpr-ui` for sign-in lifecycle.
+- Add config audit rule blocking presence of local `tools/mpr-ui` symlink or code to enforce CDN-only usage.
+- Clarify handling of session cookie issuance via TAuth and role-aware sign-in in key architecture constraints and functional requirements.
+
 ## [v0.7.2] - 2026-05-08
 
 ### Features ✨
