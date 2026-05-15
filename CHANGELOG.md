@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.5] - 2026-05-15
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Deploy release tags are now automatically derived from the app repository `HEAD`, removing manual revision selection during deploy.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- _No changes._
+
+### Docs 📚
+- Updated documentation to reflect automatic release tag detection and the removal of manual tag input in deploy scripts.
+
 ## [v0.7.4] - 2026-05-15
 
 ### Features ✨
