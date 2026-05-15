@@ -118,6 +118,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Resolution
   Removed the `tools/mpr-ui` symlink, removed local mpr-ui reads and test-time asset patching from `tests/helpers/externalAssets.js`, and added a config-audit rule with coverage that rejects `tools/mpr-ui`. Published `mpr-ui` tag `v3.9.7` so `mpr-ui@latest` exposes `MPRUI.testing`, then verified the 27 dashboard/auth cases from the failed run pass against CDN-only assets.
 
+- [!] [B011] (P0) Restore production dashboard access after TAuth login.
+  ### Summary
+  The production dashboard remains unauthenticated after the shared TAuth login handoff because the LoopAware API runtime can drift from the TAuth tenant cookie-name contract.
+  ### Deliverables
+  - Verify the live production login/dashboard path and identify the failing layer.
+  - Align the deployed LoopAware API session cookie name with the TAuth `loopaware` tenant.
+  - Add gateway-side validation so future deploy config cannot mismatch the two values.
+  - Verify the local LoopAware suite and focused gateway config checks pass.
+  ### Progress
+  Identified the live production failure layer and patched `mprlab-gateway`: the LoopAware API env must read TAuth's `app_session_loopaware` cookie and configaudit now rejects future LoopAware/TAuth session-cookie drift. LoopAware `make ci` and gateway `make ci` passed locally.
+  Blocked: `make deploy-loopaware-backend` in `mprlab-gateway` stopped at the interactive `Gateway sudo password:` prompt before applying the corrected runtime config to production.
+
 ## Improvements
 
 - [ ] [I004] (P1) Consider a design of a current accordion design of different surfaces.
