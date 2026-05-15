@@ -10,6 +10,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Improvements ⚙️
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 
+## [v0.7.4] - 2026-05-15
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Updated deployment flow to manage GitHub Pages deployment through `deploy/app.yml`, enabling the gateway Ansible to handle backend and Pages deployment as one contract.
+- Simplified `make deploy` command by removing explicit GitHub Pages workflow parameters and URLs, enhancing deployment consistency.
+- Enhanced deployment script to enforce proper flag usage and streamlined backend and Pages deployment verification.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- _No changes._
+
+### Docs 📚
+- Updated README to clarify deployment process and the role of `deploy/app.yml` in managing GitHub Pages workflow through the gateway.
+- Cleaned up deployment script usage documentation to align with new deployment contract design.
+
 ## [v0.7.3] - 2026-05-14
 
 ### Features ✨
