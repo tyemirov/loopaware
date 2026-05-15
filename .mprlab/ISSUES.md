@@ -122,6 +122,11 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 - [ ] [I004] (P1) Consider a design of a current accordion design of different surfaces.
   We may want to have a better split out.
+- [x] [I005] (P1) Keep production deploy revision selection automatic.
+  ### Summary
+  The deploy flow should not ask operators to name or select a revision for Pages/backend deployment. The release workflow owns tagging; deploy consumes the release tag at repository `HEAD`.
+  ### Resolution
+  Removed the deploy wrapper's manual `--tag` option and `DEPLOY_TAG` override. `make deploy` now derives the v* release tag from `HEAD` when Pages or image verification needs it, and otherwise tells the operator to run the release flow before deploy. Gateway Ansible owns Pages dispatch from the app manifest. Validation passed with `bash -n scripts/deploy.sh`, the deploy no-op dry run, `git diff --check`, and `timeout -k 1200s -s SIGKILL 1200s make ci`.
 - [x] [I001] (P1) Advertise LA Sentry on the public landing page.
   ### Summary
   The public landing page currently presents feedback, subscriber capture, and traffic analytics, but omits LA Sentry even though it is now a first-class developer monitoring surface.

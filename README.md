@@ -402,7 +402,9 @@ It pushes:
 `mprlab-gateway`. Gateway Ansible deploys and verifies the backend first, then
 executes the app-owned GitHub Pages workflow resource from the manifest and
 verifies `https://loopaware.mprlab.com/`. This keeps Pages behind the backend
-version it depends on without splitting the deploy contract between repos.
+version it depends on without splitting the deploy contract between repos. The
+release tag is derived from the v* tag at the app repository `HEAD`; operators
+do not select a revision during deploy.
 
 The Docker image and Pages workflows are manual dispatch workflows. They do not publish
 automatically on tag push; the Makefile targets own the release-to-production ordering.

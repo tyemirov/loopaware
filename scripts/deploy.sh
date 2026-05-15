@@ -14,7 +14,6 @@ Options:
   --gateway-dir <path>       Gateway checkout. Default: $GATEWAY_DIR or sibling ../mprlab-gateway
   --manifest <path>          App deploy manifest. Default: $APP_MANIFEST or deploy/app.yml
   --image <value>            Backend image repository. Default: $DOCKER_IMAGE or ghcr.io/tyemirov/loopaware
-  --tag <value>              Release tag to deploy Pages from. Default: v* tag pointing at HEAD
   --skip-ci                  Skip the local make ci deployment gate
   --skip-image-verify        Skip release tag/latest image digest verification
   --skip-backend             Skip gateway backend deployment
@@ -41,7 +40,7 @@ env_or_default() {
 GATEWAY_DIR="$(env_or_default GATEWAY_DIR "")"
 APP_MANIFEST="$(env_or_default APP_MANIFEST deploy/app.yml)"
 IMAGE_REPOSITORY="$(env_or_default DOCKER_IMAGE ghcr.io/tyemirov/loopaware)"
-TAG="$(env_or_default DEPLOY_TAG "")"
+TAG=""
 SKIP_CI="false"
 SKIP_IMAGE_VERIFY="false"
 SKIP_BACKEND="false"
@@ -68,11 +67,6 @@ while [[ $# -gt 0 ]]; do
     --image)
       [[ $# -ge 2 ]] || { echo "error: --image requires a value" >&2; exit 1; }
       IMAGE_REPOSITORY="$2"
-      shift 2
-      ;;
-    --tag)
-      [[ $# -ge 2 ]] || { echo "error: --tag requires a value" >&2; exit 1; }
-      TAG="$2"
       shift 2
       ;;
     --skip-ci)
@@ -139,7 +133,7 @@ if [[ -z "${TAG}" ]]; then
 fi
 
 if [[ "${SKIP_PAGES}" != "true" ]]; then
-  [[ -n "${TAG}" ]] || { echo "error: no v* release tag points at HEAD; pass --tag or deploy from a release commit" >&2; exit 1; }
+  [[ -n "${TAG}" ]] || { echo "error: no v* release tag points at HEAD; run make release before deploy" >&2; exit 1; }
   if [[ ! "${TAG}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
     echo "error: release tag must match vMAJOR.MINOR.PATCH (got: ${TAG})" >&2
     exit 1
@@ -167,7 +161,7 @@ fi
 if [[ "${SKIP_IMAGE_VERIFY}" != "true" && "${SKIP_BACKEND}" != "true" ]]; then
   command -v docker >/dev/null 2>&1 || { echo "error: docker is required for image verification" >&2; exit 1; }
   docker buildx version >/dev/null 2>&1 || { echo "error: docker buildx is required for image verification" >&2; exit 1; }
-  [[ -n "${TAG}" ]] || { echo "error: no v* release tag points at HEAD; pass --tag or deploy from a release commit" >&2; exit 1; }
+  [[ -n "${TAG}" ]] || { echo "error: no v* release tag points at HEAD; run make release before deploy" >&2; exit 1; }
   echo "==> [deploy] Verifying ${IMAGE_REPOSITORY}:latest matches ${TAG}"
   release_digest="$(image_digest "${IMAGE_REPOSITORY}:${TAG}")"
   latest_digest="$(image_digest "${IMAGE_REPOSITORY}:latest")"
