@@ -87,27 +87,36 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `ARCHITECTURE.md`, `PRD.md`, `README.md`, `docs/loopaware-marketing-blurb.md`, `tests/specs/header-auth-state.spec.js`, `tests/specs/logout-hardening.spec.js`, `web/header-auth.js`, shared auth HTML pages under `web/`.
 
-- [!] [B008] (P0) Gate timeout logout redirect on successful response.
+- [x] [B008] (P0) Gate timeout logout redirect on successful response.
   ### Summary
   The session-timeout logout flow redirects to `/login` after any resolved `/auth/logout` fetch response. HTTP 4xx/5xx responses still resolve, so a failed server logout can move users off `/app` while their server session remains valid.
   ### Deliverables
   - Redirect to the landing page only after `/auth/logout` returns a successful response.
   - Keep failed timeout logout attempts on the authenticated dashboard with visible, recoverable UI state.
   - Add black-box browser coverage for the failed logout response path.
-  ### Implementation Notes
-  Updated the dashboard timeout logout request to throw on non-OK `/auth/logout` responses, recover the dashboard overlay state on failure, and restart the idle manager when the session-timeout flow remains on `/app`.
-  ### Verification
-  - `timeout -k 60s -s SIGKILL 60s make lint-js` passed.
-  - `LOOPAWARE_BASE_URL=http://localhost:8090 timeout -k 180s -s SIGKILL 180s npx playwright test specs/logout-hardening.spec.js -g "session timeout logout failure keeps"` passed against a local Docker integration stack.
-  Blocked: full `make ci` does not currently pass. The pre-change baseline and post-change run both timed out at `specs/dashboard-allowed-origins.spec.js:88` (`widget allowed origins add persists`) before this issue can satisfy the repo completion gate.
+  ### Resolution
+  Updated the dashboard timeout logout request to throw on non-OK `/auth/logout` responses, recover the dashboard overlay state on failure, and restart the idle manager when the session-timeout flow remains on `/app`. Added black-box browser coverage for a failed session-timeout logout response and verified the full `make ci` gate passes.
 
-- [ ] [B009] (P0) Restore dashboard allowed-origin browser coverage stability.
+- [x] [B009] (P0) Restore dashboard allowed-origin browser coverage stability.
   ### Summary
   Full `make ci` times out in the dashboard allowed-origin browser tests before the suite can complete. The failure appears before the B008 changed path and was reproduced in both the pre-change baseline and post-change CI attempt.
   ### Deliverables
   - Reproduce the `specs/dashboard-allowed-origins.spec.js:88` timeout in isolation.
   - Identify whether the failure belongs to dashboard auth settling, the allowed-origin UI flow, or the Playwright harness setup.
   - Restore the full `make ci` gate.
+  ### Resolution
+  Moved seeded browser-auth synchronization to the public `MPRUI.testing` helper exposed by the shared header package and released that helper through CDN-hosted mpr-ui. Updated the harness to match the current mpr-ui no-anonymous-probe contract. While restoring the full gate, fixed a follow-on dashboard autosave race so disabling both widget feedback controls shows the validation error immediately and stale autosave success responses no longer hide the invalid state. `make ci` passed.
+
+- [x] [B010] (P0) Enforce CDN-only shared UI assets.
+  ### Summary
+  LoopAware must never carry a local `tools/mpr-ui` checkout or test-time vendored shared UI bundle; all third-party and shared UI assets must come from CDN-hosted URLs.
+  ### Deliverables
+  - Remove the local `tools/mpr-ui` symlink from the workspace.
+  - Remove local/shared-asset fallback and test-time CDN patching from the Playwright asset harness.
+  - Add a CI guard that fails when `tools/mpr-ui` exists.
+  - Verify the failing dashboard/auth browser cases pass against CDN-hosted `mpr-ui@latest`.
+  ### Resolution
+  Removed the `tools/mpr-ui` symlink, removed local mpr-ui reads and test-time asset patching from `tests/helpers/externalAssets.js`, and added a config-audit rule with coverage that rejects `tools/mpr-ui`. Published `mpr-ui` tag `v3.9.7` so `mpr-ui@latest` exposes `MPRUI.testing`, then verified the 27 dashboard/auth cases from the failed run pass against CDN-only assets.
 
 ## Improvements
 

@@ -151,6 +151,22 @@ func TestCheckWebAssetLocalhostPortsScansWebRoot(testingT *testing.T) {
 	require.Empty(testingT, result.errors)
 }
 
+func TestCheckForbiddenLocalThirdPartyPathsRejectsMprUiCheckout(testingT *testing.T) {
+	tempDirectory := testingT.TempDir()
+	require.NoError(testingT, os.MkdirAll(filepath.Join(tempDirectory, "tools", "mpr-ui"), 0o755))
+
+	result := auditResult{}
+	checkForbiddenLocalThirdPartyPaths(tempDirectory, &result)
+	require.NotEmpty(testingT, result.errors)
+	require.Contains(testingT, result.errors[0], filepath.Join("tools", "mpr-ui"))
+}
+
+func TestCheckForbiddenLocalThirdPartyPathsAllowsMissingTools(testingT *testing.T) {
+	result := auditResult{}
+	checkForbiddenLocalThirdPartyPaths(testingT.TempDir(), &result)
+	require.Empty(testingT, result.errors)
+}
+
 func TestParseDotEnvReportsMissingFile(testingT *testing.T) {
 	missingPath := filepath.Join(testingT.TempDir(), "missing.env")
 	values, duplicates, parseErr := parseDotEnv(missingPath)

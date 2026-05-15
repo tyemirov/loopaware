@@ -129,6 +129,45 @@ export async function waitForHeaderAuthReady(page) {
 }
 
 /**
+ * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
+ * @returns {{ user_id: string, user_email: string, email: string, display: string, avatar_url: string, roles: string[] }}
+ */
+function mprUiTestingProfileFromUser(user) {
+  return {
+    user_id: user.userId,
+    user_email: user.email,
+    email: user.email,
+    display: user.displayName,
+    avatar_url: user.avatarUrl,
+    roles: []
+  };
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
+ * @returns {Promise<void>}
+ */
+async function authenticateSeededMprUiSession(page, user) {
+  await waitForHeaderAuthBound(page);
+  await page.waitForFunction(() => {
+    const testingApi = window.MPRUI && window.MPRUI.testing;
+    return !!(testingApi && typeof testingApi.authenticate === 'function');
+  });
+  await page.evaluate((profile) => {
+    const testingApi = window.MPRUI && window.MPRUI.testing;
+    const headerHost = document.querySelector('mpr-header');
+    if (!headerHost) {
+      throw new Error('loopaware.header_missing');
+    }
+    if (!testingApi || typeof testingApi.authenticate !== 'function') {
+      throw new Error('loopaware.mpr_ui_testing_auth_missing');
+    }
+    testingApi.authenticate(headerHost, profile);
+  }, mprUiTestingProfileFromUser(user));
+}
+
+/**
  * Wait until the dashboard auth-transition overlay stops intercepting input.
  *
  * @param {import('@playwright/test').Page} page
@@ -223,6 +262,7 @@ export async function openPublicPage(page, config, path, options) {
  *     sessionCookieValue?: string
  *   },
  *   waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle',
+ *   authenticateMprUiSession?: boolean,
  *   waitForHeaderAuth?: boolean
  * }} [options]
  * @returns {Promise<void>}
@@ -230,9 +270,12 @@ export async function openPublicPage(page, config, path, options) {
 export async function openAuthenticatedPage(page, config, user, path, options) {
   const resolvedOptions = options || {};
   const waitUntil = resolvedOptions.waitUntil || 'commit';
-  await prepareLoopAwarePage(page, config, resolvedOptions);
   await applySessionCookie(page.context(), config, user);
+  await prepareLoopAwarePage(page, config, resolvedOptions);
   await page.goto(path, { waitUntil });
+  if (resolvedOptions.authenticateMprUiSession !== false) {
+    await authenticateSeededMprUiSession(page, user);
+  }
   if (resolvedOptions.waitForHeaderAuth !== false) {
     await waitForHeaderAuthReady(page);
   }
