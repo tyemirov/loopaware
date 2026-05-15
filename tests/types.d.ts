@@ -21,5 +21,21 @@ declare global {
       forceLogout: () => void;
       started?: () => boolean;
     };
+    MPRUI?: {
+      testing?: {
+        authenticate?: (
+          host: Element,
+          profile: {
+            user_id: string;
+            user_email: string;
+            email: string;
+            display: string;
+            avatar_url: string;
+            roles: string[];
+          }
+        ) => unknown;
+        unauthenticate?: (host: Element) => unknown;
+      };
+    };
   }
 }

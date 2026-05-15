@@ -36,7 +36,7 @@ const GOOGLE_IDENTITY_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
  * @param {import('@playwright/test').Page} page
  * @param {string} path
  * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number, sessionCookieValue?: string }} [tauthOptions]
- * @param {{ waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
+ * @param {{ authenticateMprUiSession?: boolean, waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
  * @returns {Promise<void>}
  */
 async function openPageWithoutSession(page, path, tauthOptions, options) {
@@ -53,7 +53,7 @@ async function openPageWithoutSession(page, path, tauthOptions, options) {
  * @param {import('@playwright/test').Page} page
  * @param {string} path
  * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number, sessionCookieValue?: string }} [tauthOptions]
- * @param {{ waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
+ * @param {{ authenticateMprUiSession?: boolean, waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
  * @returns {Promise<void>}
  */
 async function openPageWithSession(page, path, tauthOptions, options) {
@@ -61,6 +61,7 @@ async function openPageWithSession(page, path, tauthOptions, options) {
   await installSiteWidgetConfigStub(page);
   await openAuthenticatedPage(page, config, adminUser, path, {
     tauth: tauthOptions,
+    authenticateMprUiSession: resolvedOptions.authenticateMprUiSession,
     waitForHeaderAuth: resolvedOptions.waitForHeaderAuth,
     waitUntil: resolvedOptions.waitUntil
   });
@@ -83,7 +84,10 @@ async function openPublicPageForAssetInspection(page, path) {
  */
 async function openAuthenticatedPageForAssetInspection(page, path) {
   await installAssetInspectionStubs(page);
-  await openPageWithSession(page, path, undefined, { waitForHeaderAuth: false });
+  await openPageWithSession(page, path, undefined, {
+    authenticateMprUiSession: false,
+    waitForHeaderAuth: false
+  });
 }
 
 /**
@@ -581,7 +585,7 @@ test('login page keeps TAuth origin query state out of mpr-ui auth controls', as
   expect(await page.evaluate(() => String(window['__LOOPAWARE_TAUTH_ORIGIN__'] || ''))).toBe(tauthOrigin);
 });
 
-test('login page boots exactly one mpr-ui auth controller', async ({ page }) => {
+test('login page boots one mpr-ui auth controller without anonymous session probes', async ({ page }) => {
   /** @type {string[]} */
   const authRequests = [];
   page.on('request', (request) => {
@@ -608,8 +612,8 @@ test('login page boots exactly one mpr-ui auth controller', async ({ page }) => 
     )
     .toBe(1);
 
-  expect(authRequests.filter((path) => path === '/me')).toHaveLength(1);
-  expect(authRequests.filter((path) => path === '/auth/refresh')).toHaveLength(1);
+  expect(authRequests.filter((path) => path === '/me')).toHaveLength(0);
+  expect(authRequests.filter((path) => path === '/auth/refresh')).toHaveLength(0);
 });
 
 test('login page user menu does not emit tenant bootstrap errors', async ({ page }) => {

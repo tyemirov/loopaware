@@ -2595,6 +2595,16 @@
           }
           return true;
         }
+        function handleWidgetFeedbackVisibilityChange() {
+          clearWidgetFeedbackVisibilityValidation();
+          clearFormStatus();
+          if (!isWidgetFeedbackVisibilityValid()) {
+            cancelAutoSave();
+            markWidgetFeedbackVisibilityInvalid(validationFocusModeSilent);
+            return;
+          }
+          scheduleAutoSave();
+        }
         function registerValidationHandlers() {
           siteFormValidationDescriptors.forEach(function(descriptor) {
             if (!descriptor.fieldElement) {
@@ -5390,13 +5400,18 @@
           },
           body: JSON.stringify(candidate.payload)
         }).then(function(payload) {
-          setFormStatus(statusMessages.site_saved || '', formStatusSuccessClass);
+          var shouldKeepValidationFeedback = saveMode === saveModeAuto && !isSiteFormValidForAutosave();
           var index = state.sites.findIndex(function(item) { return item.id === payload.id; });
           if (index >= 0) {
             state.sites[index] = payload;
           }
           var renderOptions = saveMode === saveModeAuto ? { skipFormPopulate: true, skipDataRefresh: true } : null;
           renderSites(renderOptions);
+          if (shouldKeepValidationFeedback) {
+            validateSiteForm(validationFocusModeSilent);
+          } else {
+            setFormStatus(statusMessages.site_saved || '', formStatusSuccessClass);
+          }
           finalizeAutoSave();
         }).catch(function(error) {
           setFormStatus(error.message || buttonLabels.save_failed || '', formStatusDangerClass);
@@ -5548,18 +5563,10 @@
           });
         }
         if (widgetShowMessageInputCheckbox) {
-          widgetShowMessageInputCheckbox.addEventListener('change', function() {
-            clearWidgetFeedbackVisibilityValidation();
-            clearFormStatus();
-            scheduleAutoSave();
-          });
+          widgetShowMessageInputCheckbox.addEventListener('change', handleWidgetFeedbackVisibilityChange);
         }
         if (widgetShowSentimentButtonsCheckbox) {
-          widgetShowSentimentButtonsCheckbox.addEventListener('change', function() {
-            clearWidgetFeedbackVisibilityValidation();
-            clearFormStatus();
-            scheduleAutoSave();
-          });
+          widgetShowSentimentButtonsCheckbox.addEventListener('change', handleWidgetFeedbackVisibilityChange);
         }
         if (widgetBottomOffsetInput) {
           widgetBottomOffsetInput.addEventListener('keydown', function(event) {

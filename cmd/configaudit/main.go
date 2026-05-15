@@ -39,6 +39,9 @@ var (
 		"tauth",
 		"la-tauth",
 	}
+	forbiddenLocalThirdPartyPaths = []string{
+		filepath.Join("tools", "mpr-ui"),
+	}
 )
 
 type stringList []string
@@ -256,6 +259,7 @@ func runAudit(composePath string) auditResult {
 
 	checkCrossServiceInvariants(environmentByService, &result)
 	checkLoopAwareRequiredEnvironment(environmentByService, &result)
+	checkForbiddenLocalThirdPartyPaths(composeDirectory, &result)
 	checkWebAssetLocalhostPorts(hostPortToService, &result)
 
 	return result
@@ -573,6 +577,18 @@ func checkWebAssetLocalhostPorts(hostPortToService map[string]string, result *au
 		}
 		if err := scanAssetRoot(root, allowedPorts, result); err != nil {
 			result.addError("asset scan: %v", err)
+		}
+	}
+}
+
+func checkForbiddenLocalThirdPartyPaths(root string, result *auditResult) {
+	for _, relativePath := range forbiddenLocalThirdPartyPaths {
+		fullPath := filepath.Join(root, relativePath)
+		if _, statErr := os.Lstat(fullPath); statErr == nil {
+			result.addError("third-party asset path %s must not exist; use CDN-hosted assets only", relativePath)
+			continue
+		} else if !os.IsNotExist(statErr) {
+			result.addError("third-party asset path %s could not be checked: %v", relativePath, statErr)
 		}
 	}
 }
