@@ -398,10 +398,11 @@ It pushes:
 - `ghcr.io/tyemirov/loopaware:<tag>`
 - `ghcr.io/tyemirov/loopaware:<sha>`
 
-`make deploy` reruns `make ci`, deploys the backend through `mprlab-gateway` using
-`deploy/app.yml`, waits for gateway backend verification, then dispatches the GitHub
-Pages workflow for the release tag and verifies `https://loopaware.mprlab.com/`. This
-keeps Pages behind the backend version it depends on.
+`make deploy` reruns `make ci`, then hands `deploy/app.yml` to
+`mprlab-gateway`. Gateway Ansible deploys and verifies the backend first, then
+executes the app-owned GitHub Pages workflow resource from the manifest and
+verifies `https://loopaware.mprlab.com/`. This keeps Pages behind the backend
+version it depends on without splitting the deploy contract between repos.
 
 The Docker image and Pages workflows are manual dispatch workflows. They do not publish
 automatically on tag push; the Makefile targets own the release-to-production ordering.

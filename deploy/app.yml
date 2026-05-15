@@ -16,5 +16,9 @@ caddy:
   read_timeout: 80s
 pages:
   enabled: true
-  publish_target: pages-workflow
-  verify_url: https://loopaware.mprlab.com/
+  resources:
+    - name: loopaware
+      type: github_pages_workflow
+      workflow: pages.yml
+      url: https://loopaware.mprlab.com/
+      run_lookup_limit: 100

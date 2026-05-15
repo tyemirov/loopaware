@@ -6,21 +6,20 @@ usage() {
 Usage:
   scripts/deploy.sh [options]
 
-Deploys the LoopAware backend through mprlab-gateway, then publishes GitHub Pages only
-after backend verification succeeds.
+Deploys LoopAware through mprlab-gateway. Gateway Ansible loads this repo's
+deploy/app.yml and publishes the app-owned GitHub Pages resource after backend
+verification succeeds.
 
 Options:
   --gateway-dir <path>       Gateway checkout. Default: $GATEWAY_DIR or sibling ../mprlab-gateway
   --manifest <path>          App deploy manifest. Default: $APP_MANIFEST or deploy/app.yml
   --image <value>            Backend image repository. Default: $DOCKER_IMAGE or ghcr.io/tyemirov/loopaware
   --tag <value>              Release tag to deploy Pages from. Default: v* tag pointing at HEAD
-  --pages-workflow <value>   GitHub Pages workflow file/name. Default: $PAGES_WORKFLOW or pages.yml
   --skip-ci                  Skip the local make ci deployment gate
   --skip-image-verify        Skip release tag/latest image digest verification
   --skip-backend             Skip gateway backend deployment
-  --skip-pages               Skip Pages workflow dispatch
+  --skip-pages               Skip app-owned Pages resources
   --skip-pages-verify        Skip public Pages URL verification
-  --pages-url <url>          Pages URL to verify. Default: $PAGES_URL or https://loopaware.mprlab.com/
   --help                     Show this help text
 USAGE
 }
@@ -42,9 +41,6 @@ env_or_default() {
 GATEWAY_DIR="$(env_or_default GATEWAY_DIR "")"
 APP_MANIFEST="$(env_or_default APP_MANIFEST deploy/app.yml)"
 IMAGE_REPOSITORY="$(env_or_default DOCKER_IMAGE ghcr.io/tyemirov/loopaware)"
-PAGES_WORKFLOW="$(env_or_default PAGES_WORKFLOW pages.yml)"
-PAGES_WORKFLOW_RUN_LOOKUP_LIMIT="$(env_or_default PAGES_WORKFLOW_RUN_LOOKUP_LIMIT 100)"
-PAGES_URL="$(env_or_default PAGES_URL https://loopaware.mprlab.com/)"
 TAG="$(env_or_default DEPLOY_TAG "")"
 SKIP_CI="false"
 SKIP_IMAGE_VERIFY="false"
@@ -79,11 +75,6 @@ while [[ $# -gt 0 ]]; do
       TAG="$2"
       shift 2
       ;;
-    --pages-workflow)
-      [[ $# -ge 2 ]] || { echo "error: --pages-workflow requires a value" >&2; exit 1; }
-      PAGES_WORKFLOW="$2"
-      shift 2
-      ;;
     --skip-ci)
       SKIP_CI="true"
       shift
@@ -103,11 +94,6 @@ while [[ $# -gt 0 ]]; do
     --skip-pages-verify)
       SKIP_PAGES_VERIFY="true"
       shift
-      ;;
-    --pages-url)
-      [[ $# -ge 2 ]] || { echo "error: --pages-url requires a value" >&2; exit 1; }
-      PAGES_URL="$2"
-      shift 2
       ;;
     --help|-h)
       usage
@@ -158,7 +144,6 @@ if [[ "${SKIP_PAGES}" != "true" ]]; then
     echo "error: release tag must match vMAJOR.MINOR.PATCH (got: ${TAG})" >&2
     exit 1
   fi
-  command -v gh >/dev/null 2>&1 || { echo "error: gh is required for Pages deployment" >&2; exit 1; }
   git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null || { echo "error: release tag ${TAG} does not exist locally" >&2; exit 1; }
   remote_tag_refs="$(git ls-remote --tags origin "refs/tags/${TAG}" "refs/tags/${TAG}^{}")"
   remote_tag_sha="$(awk '$2 ~ /\^\{\}$/ { peeled = $1 } $2 !~ /\^\{\}$/ { direct = $1 } END { if (peeled != "") print peeled; else print direct }' <<<"${remote_tag_refs}")"
@@ -167,6 +152,11 @@ if [[ "${SKIP_PAGES}" != "true" ]]; then
     echo "error: release tag ${TAG} is not pushed to origin" >&2
     exit 1
   fi
+fi
+
+if [[ "${SKIP_BACKEND}" == "true" && "${SKIP_PAGES}" != "true" ]]; then
+  echo "error: GitHub Pages is deployed through gateway Ansible; use --skip-backend only with --skip-pages" >&2
+  exit 1
 fi
 
 if [[ "${SKIP_CI}" != "true" && ( "${SKIP_BACKEND}" != "true" || "${SKIP_PAGES}" != "true" ) ]]; then
@@ -191,38 +181,15 @@ fi
 
 if [[ "${SKIP_BACKEND}" != "true" ]]; then
   echo "==> [deploy] Deploying LoopAware backend through mprlab-gateway"
-  timeout --foreground -k 1200s -s SIGKILL 1200s make -C "${GATEWAY_DIR}" MPRLAB_APP_MANIFEST="${APP_MANIFEST}" deploy TARGET=loopaware
-fi
-
-if [[ "${SKIP_PAGES}" != "true" ]]; then
-  echo "==> [deploy] Publishing GitHub Pages from ${TAG} after backend verification"
-  trigger_started_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-  timeout -k 60s -s SIGKILL 60s gh workflow run "${PAGES_WORKFLOW}" --ref "${TAG}"
-
-  run_id=""
-  for _ in $(seq 1 40); do
-    run_id="$(
-      gh run list \
-        --workflow "${PAGES_WORKFLOW}" \
-        --event workflow_dispatch \
-        --limit "${PAGES_WORKFLOW_RUN_LOOKUP_LIMIT}" \
-        --json databaseId,headBranch,createdAt \
-        --jq ".[] | select(.headBranch == \"${TAG}\" and .createdAt >= \"${trigger_started_at}\") | .databaseId" \
-        | head -n 1
-    )"
-    if [[ -n "${run_id}" ]]; then
-      break
-    fi
-    sleep 3
-  done
-  [[ -n "${run_id}" ]] || { echo "error: could not find dispatched Pages workflow run for ${TAG}" >&2; exit 1; }
-  timeout -k 1200s -s SIGKILL 1200s gh run watch "${run_id}" --exit-status
-fi
-
-if [[ "${SKIP_PAGES_VERIFY}" != "true" ]]; then
-  command -v curl >/dev/null 2>&1 || { echo "error: curl is required for Pages verification" >&2; exit 1; }
-  echo "==> [deploy] Verifying ${PAGES_URL}"
-  timeout -k 60s -s SIGKILL 60s curl --fail --silent --show-error --location --max-time 30 "${PAGES_URL}" >/dev/null
+  gateway_deploy_target="deploy-loopaware"
+  if [[ "${SKIP_PAGES}" == "true" ]]; then
+    gateway_deploy_target="deploy-loopaware-backend"
+  fi
+  gateway_pages_verify_enabled="true"
+  if [[ "${SKIP_PAGES_VERIFY}" == "true" ]]; then
+    gateway_pages_verify_enabled="false"
+  fi
+  timeout --foreground -k 1200s -s SIGKILL 1200s make -C "${GATEWAY_DIR}" MPRLAB_APP_MANIFEST="${APP_MANIFEST}" MPRLAB_GATEWAY_PAGES_VERIFY_ENABLED="${gateway_pages_verify_enabled}" "${gateway_deploy_target}"
 fi
 
 echo "LoopAware deploy complete"
