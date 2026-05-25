@@ -802,8 +802,14 @@
                   </div>
                 </div>
                 <div class="card-body">
-                  <label class="form-label" for="global-traffic-report-name">Report name</label>
+                  <label id="global-traffic-report-name-label" class="form-label" for="global-traffic-report-name">Report name</label>
                   <input id="global-traffic-report-name" class="form-control" type="text" autocomplete="off" value="All sites traffic" />
+                  <div id="global-traffic-report-readonly-name" class="d-none">
+                    <div class="form-control-plaintext border rounded px-3 py-2 mb-0" aria-labelledby="global-traffic-report-name-label">
+                      <span id="global-traffic-report-readonly-name-value">All sites traffic</span>
+                      <span class="badge bg-secondary ms-2">Default report</span>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="card shadow-sm mb-4">
@@ -1351,6 +1357,8 @@
         var globalTrafficReportCreateButton = document.getElementById('global-traffic-report-create-button');
         var globalTrafficReportTitle = document.getElementById('global-traffic-report-title');
         var globalTrafficReportNameInput = document.getElementById('global-traffic-report-name');
+        var globalTrafficReportReadonlyName = document.getElementById('global-traffic-report-readonly-name');
+        var globalTrafficReportReadonlyNameValue = document.getElementById('global-traffic-report-readonly-name-value');
         var globalTrafficReportTypeChip = document.getElementById('global-traffic-report-type-chip');
         var globalTrafficReportSitesChip = document.getElementById('global-traffic-report-sites-chip');
         var globalTrafficReportScheduleChip = document.getElementById('global-traffic-report-schedule-chip');
@@ -3341,6 +3349,7 @@
               return;
             }
             showAllSitesTrafficStatus(error.message || statusMessages.load_failed || '');
+            throw error;
           });
         }
 
@@ -3380,9 +3389,17 @@
           if (globalTrafficReportTitle) {
             globalTrafficReportTitle.textContent = globalTrafficReportDisplayName(selectedReport);
           }
+          var reportIsDefault = isDefaultGlobalTrafficReport(selectedReport);
           if (globalTrafficReportNameInput) {
             globalTrafficReportNameInput.value = selectedReport.name || '';
-            globalTrafficReportNameInput.disabled = isDefaultGlobalTrafficReport(selectedReport);
+            globalTrafficReportNameInput.disabled = reportIsDefault;
+            globalTrafficReportNameInput.classList.toggle('d-none', reportIsDefault);
+          }
+          if (globalTrafficReportReadonlyName) {
+            globalTrafficReportReadonlyName.classList.toggle('d-none', !reportIsDefault);
+          }
+          if (globalTrafficReportReadonlyNameValue) {
+            globalTrafficReportReadonlyNameValue.textContent = selectedReport.name || '';
           }
           if (globalTrafficReportTypeChip) {
             globalTrafficReportTypeChip.textContent = 'Traffic';
@@ -5432,6 +5449,8 @@
           loadGlobalTrafficReports().then(function() {
             loadAllSitesTrafficStats();
             loadAllSitesTrafficReportSchedule();
+          }).catch(function() {
+            return null;
           });
         }
 
@@ -5817,6 +5836,20 @@
           return 'UTC';
         }
 
+        function trafficReportScheduleTimezone(schedule) {
+          var normalizedSchedule = schedule || {};
+          var normalizedTimezone = typeof normalizedSchedule.timezone === 'string' ? normalizedSchedule.timezone.trim() : '';
+          if (normalizedSchedule.persisted === true) {
+            return normalizedTimezone || detectedTrafficReportTimezone();
+          }
+          return detectedTrafficReportTimezone();
+        }
+
+        function trafficReportInputTimezone(timezoneInput) {
+          var normalizedTimezone = timezoneInput && typeof timezoneInput.value === 'string' ? timezoneInput.value.trim() : '';
+          return normalizedTimezone || detectedTrafficReportTimezone();
+        }
+
         function setTrafficReportControlsDisabled(disabled) {
           var shouldDisable = Boolean(disabled);
           [
@@ -5860,7 +5893,7 @@
             trafficReportSendTimeInput.value = trafficReportTimeValue(normalizedSchedule.send_hour, normalizedSchedule.send_minute);
           }
           if (trafficReportTimezoneInput) {
-            trafficReportTimezoneInput.value = detectedTrafficReportTimezone() || normalizedSchedule.timezone || 'UTC';
+            trafficReportTimezoneInput.value = trafficReportScheduleTimezone(normalizedSchedule);
           }
           if (trafficReportWeekdayInput) {
             trafficReportWeekdayInput.value = String(typeof normalizedSchedule.weekday === 'number' ? normalizedSchedule.weekday : 1);
@@ -5904,7 +5937,7 @@
             enabled: trafficReportEnabledInput ? trafficReportEnabledInput.checked === true : false,
             frequency: selectedTrafficReportFrequency(),
             recipient_email: currentUserEmail(),
-            timezone: detectedTrafficReportTimezone(),
+            timezone: trafficReportInputTimezone(trafficReportTimezoneInput),
             send_hour: Number(timeParts[0]),
             send_minute: Number(timeParts[1]),
             weekday: trafficReportWeekdayInput ? Number(trafficReportWeekdayInput.value) : 1,
@@ -6125,7 +6158,7 @@
             allSitesTrafficReportSendTimeInput.value = trafficReportTimeValue(normalizedSchedule.send_hour, normalizedSchedule.send_minute);
           }
           if (allSitesTrafficReportTimezoneInput) {
-            allSitesTrafficReportTimezoneInput.value = detectedTrafficReportTimezone() || normalizedSchedule.timezone || 'UTC';
+            allSitesTrafficReportTimezoneInput.value = trafficReportScheduleTimezone(normalizedSchedule);
           }
           if (allSitesTrafficReportWeekdayInput) {
             allSitesTrafficReportWeekdayInput.value = String(typeof normalizedSchedule.weekday === 'number' ? normalizedSchedule.weekday : 1);
@@ -6169,7 +6202,7 @@
             enabled: allSitesTrafficReportEnabledInput ? allSitesTrafficReportEnabledInput.checked === true : false,
             frequency: selectedAllSitesTrafficReportFrequency(),
             recipient_email: currentUserEmail(),
-            timezone: detectedTrafficReportTimezone(),
+            timezone: trafficReportInputTimezone(allSitesTrafficReportTimezoneInput),
             send_hour: Number(timeParts[0]),
             send_minute: Number(timeParts[1]),
             weekday: allSitesTrafficReportWeekdayInput ? Number(allSitesTrafficReportWeekdayInput.value) : 1,

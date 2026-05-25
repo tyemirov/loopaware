@@ -240,12 +240,12 @@ func (handlers *TrafficReportHandlers) GetPortfolioSchedule(context *gin.Context
 		return
 	}
 	if !exists {
-		context.JSON(http.StatusOK, handlers.toPortfolioScheduleResponse(defaultPortfolioTrafficReportSchedule(currentUser.normalizedEmail(), reportID)))
+		context.JSON(http.StatusOK, handlers.toPortfolioScheduleResponse(defaultPortfolioTrafficReportSchedule(currentUser.normalizedEmail(), reportID), false))
 		return
 	}
 	schedule.RecipientEmail = currentUser.normalizedEmail()
 
-	context.JSON(http.StatusOK, handlers.toPortfolioScheduleResponse(schedule))
+	context.JSON(http.StatusOK, handlers.toPortfolioScheduleResponse(schedule, true))
 }
 
 func (handlers *TrafficReportHandlers) SavePortfolioSchedule(context *gin.Context) {
@@ -278,7 +278,7 @@ func (handlers *TrafficReportHandlers) SavePortfolioSchedule(context *gin.Contex
 		return
 	}
 
-	context.JSON(http.StatusOK, handlers.toPortfolioScheduleResponse(savedSchedule))
+	context.JSON(http.StatusOK, handlers.toPortfolioScheduleResponse(savedSchedule, true))
 }
 
 func (handlers *TrafficReportHandlers) SendPortfolioTestReport(context *gin.Context) {
@@ -630,7 +630,7 @@ func (handlers *TrafficReportHandlers) upsertPortfolioSchedule(ctx context.Conte
 	return existing, nil
 }
 
-func (handlers *TrafficReportHandlers) toPortfolioScheduleResponse(schedule model.PortfolioTrafficReportSchedule) trafficReportScheduleResponse {
+func (handlers *TrafficReportHandlers) toPortfolioScheduleResponse(schedule model.PortfolioTrafficReportSchedule, persisted bool) trafficReportScheduleResponse {
 	lastStatus := strings.TrimSpace(schedule.LastStatus)
 	if lastStatus == "" {
 		lastStatus = model.TrafficReportStatusPending
@@ -651,6 +651,7 @@ func (handlers *TrafficReportHandlers) toPortfolioScheduleResponse(schedule mode
 		LastStatus:     lastStatus,
 		LastError:      schedule.LastError,
 		EmailEnabled:   handlers.emailEnabled,
+		Persisted:      persisted,
 	}
 }
 

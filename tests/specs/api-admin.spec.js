@@ -857,6 +857,7 @@ test.describe("admin api visit stats", () => {
     expect(defaultResponse.status).toBe(200);
     expect(defaultPayload.frequency).toBe("weekly");
     expect(defaultPayload.recipient_email).toBe(nonAdminUser.email);
+    expect(defaultPayload.persisted).toBe(false);
 
     const { response, payload } = await nonAdminRequest({
       path: "/api/reports/traffic/portfolio/schedule",
@@ -881,6 +882,7 @@ test.describe("admin api visit stats", () => {
     expect(payload.send_minute).toBe(15);
     expect(payload.month_day).toBe(14);
     expect(payload.next_send_at).toBeGreaterThan(0);
+    expect(payload.persisted).toBe(true);
   });
 
   test("portfolio traffic report definitions scope data and schedules", async () => {

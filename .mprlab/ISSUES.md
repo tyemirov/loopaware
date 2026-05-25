@@ -153,6 +153,19 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `internal/api/site_stats.go`, `internal/api/traffic_report_schedule.go`, `internal/api/traffic_report_schedule_test.go`, `internal/api/admin_helpers_test.go`, `internal/api/admin_test.go`, `.mprlab/ISSUES.md`.
 
+- [x] [B014] (P1) Fix global traffic report review findings.
+  ### Summary
+  Review found that the global traffic report page can hide report-definition load failures, schedule edits can overwrite saved timezones with the browser timezone, and the locked default report name appears like a broken editable field.
+  ### Deliverables
+  - Preserve report-definition load errors without loading downstream report data that clears the visible failure.
+  - Preserve saved selected-site and all-sites schedule timezones when editing other schedule fields.
+  - Render the built-in all-sites report name as an explicit read-only default state while keeping custom reports nameable.
+  - Add black-box dashboard coverage for the corrected behaviors.
+  ### Resolution
+  Report-definition load failures now stop the all-sites reporting load chain so downstream stats cannot clear the visible error. Traffic report schedule responses expose whether they are persisted, letting the dashboard seed unsaved defaults from the browser timezone while preserving saved selected-site and all-sites timezones on later edits. The built-in all-sites report now renders as an explicit read-only default report while custom reports keep the editable name input. Added black-box API and dashboard coverage for these paths. `make ci` passed.
+  ### Changed Files
+  `internal/api/portfolio_traffic_report.go`, `internal/api/traffic_report_schedule.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`, `.mprlab/ISSUES.md`.
+
 ## Improvements
 
 - [x] [I006] (P1) Add graphical and portfolio traffic reporting.

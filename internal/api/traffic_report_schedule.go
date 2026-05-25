@@ -64,6 +64,7 @@ type trafficReportScheduleResponse struct {
 	LastStatus     string `json:"last_status"`
 	LastError      string `json:"last_error"`
 	EmailEnabled   bool   `json:"email_enabled"`
+	Persisted      bool   `json:"persisted"`
 }
 
 // TrafficReportHandlers owns authenticated traffic report schedule APIs.
@@ -107,12 +108,12 @@ func (handlers *TrafficReportHandlers) GetSchedule(context *gin.Context) {
 		return
 	}
 	if !exists {
-		context.JSON(http.StatusOK, handlers.toScheduleResponse(defaultTrafficReportSchedule(site, currentUser.normalizedEmail()), site.ID))
+		context.JSON(http.StatusOK, handlers.toScheduleResponse(defaultTrafficReportSchedule(site, currentUser.normalizedEmail()), site.ID, false))
 		return
 	}
 	schedule.RecipientEmail = currentUser.normalizedEmail()
 
-	context.JSON(http.StatusOK, handlers.toScheduleResponse(schedule, site.ID))
+	context.JSON(http.StatusOK, handlers.toScheduleResponse(schedule, site.ID, true))
 }
 
 // SaveSchedule validates and persists a traffic report schedule.
@@ -141,7 +142,7 @@ func (handlers *TrafficReportHandlers) SaveSchedule(context *gin.Context) {
 		return
 	}
 
-	context.JSON(http.StatusOK, handlers.toScheduleResponse(savedSchedule, site.ID))
+	context.JSON(http.StatusOK, handlers.toScheduleResponse(savedSchedule, site.ID, true))
 }
 
 // SendTestReport sends the saved traffic report immediately without changing the recurring cadence.
@@ -246,7 +247,7 @@ func (handlers *TrafficReportHandlers) upsertSchedule(ctx context.Context, sched
 	return existing, nil
 }
 
-func (handlers *TrafficReportHandlers) toScheduleResponse(schedule model.TrafficReportSchedule, siteID string) trafficReportScheduleResponse {
+func (handlers *TrafficReportHandlers) toScheduleResponse(schedule model.TrafficReportSchedule, siteID string, persisted bool) trafficReportScheduleResponse {
 	lastStatus := strings.TrimSpace(schedule.LastStatus)
 	if lastStatus == "" {
 		lastStatus = model.TrafficReportStatusPending
@@ -266,6 +267,7 @@ func (handlers *TrafficReportHandlers) toScheduleResponse(schedule model.Traffic
 		LastStatus:     lastStatus,
 		LastError:      schedule.LastError,
 		EmailEnabled:   handlers.emailEnabled,
+		Persisted:      persisted,
 	}
 }
 

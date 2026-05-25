@@ -4,7 +4,7 @@ import * as crypto from 'node:crypto';
 import { resolveTestConfig } from '../helpers/config.js';
 import { buildSessionCookie } from '../helpers/auth.js';
 import { buildAdminUser, buildUniqueEmail, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite } from '../helpers/fixtures.js';
-import { collectVisit, fetchPortfolioTrafficReport, fetchPortfolioTrafficReports, fetchPortfolioTrafficReportSchedule, fetchTrafficReportSchedule, fetchVisitStats } from '../helpers/api.js';
+import { collectVisit, fetchPortfolioTrafficReport, fetchPortfolioTrafficReports, fetchPortfolioTrafficReportSchedule, fetchTrafficReportSchedule, fetchVisitStats, savePortfolioTrafficReportSchedule, saveTrafficReportSchedule } from '../helpers/api.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
@@ -162,6 +162,41 @@ test('traffic report schedule can be configured from dashboard', async ({ page }
   expect(schedule.next_send_at).toBeGreaterThan(0);
 });
 
+test('traffic report schedule preserves saved timezone from dashboard edits', async ({ page }) => {
+  const site = await createTrafficSite();
+  const cookie = buildAdminCookie();
+  const savedTimezone = 'Pacific/Honolulu';
+  await saveTrafficReportSchedule(config, cookie, site.id, {
+    enabled: true,
+    frequency: 'daily',
+    recipient_email: config.adminEmail,
+    timezone: savedTimezone,
+    send_hour: 9,
+    send_minute: 0,
+    weekday: 1,
+    month_day: 1
+  });
+
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await page.locator('#dashboard-section-tab-traffic').click();
+  await expect(page.locator('#traffic-report-timezone')).toHaveValue(savedTimezone);
+  await page.locator('#traffic-report-send-time').fill('12:05');
+
+  await expect.poll(async () => {
+    const schedule = await fetchTrafficReportSchedule(config, cookie, site.id);
+    return {
+      timezone: schedule.timezone,
+      send_hour: schedule.send_hour,
+      send_minute: schedule.send_minute
+    };
+  }, { timeout: 10000 }).toEqual({
+    timezone: savedTimezone,
+    send_hour: 12,
+    send_minute: 5
+  });
+});
+
 test('settings entry opens all-sites traffic reporting', async ({ page }) => {
   const portfolioUser = buildAdminUser(config, {
     email: buildUniqueEmail('portfolio-dashboard'),
@@ -197,8 +232,10 @@ test('settings entry opens all-sites traffic reporting', async ({ page }) => {
   await expect(page.locator('#all-sites-traffic-view #site-form')).toHaveCount(0);
   await expect(page.locator('#all-sites-traffic-view h1')).toHaveText('Reports');
   await expect(page.locator('#global-traffic-reports-list')).toContainText('All sites traffic');
-  await expect(page.locator('#global-traffic-report-name')).toHaveValue('All sites traffic');
-  await expect(page.locator('#global-traffic-report-name')).toBeDisabled();
+  await expect(page.locator('#global-traffic-report-name')).toBeHidden();
+  await expect(page.locator('#global-traffic-report-readonly-name')).toBeVisible();
+  await expect(page.locator('#global-traffic-report-readonly-name')).toContainText('All sites traffic');
+  await expect(page.locator('#global-traffic-report-readonly-name')).toContainText('Default report');
   await expect(page.locator('#all-sites-traffic-sites-table-body')).toContainText(firstSite.name);
   await expect(page.locator('#all-sites-traffic-sites-table-body')).toContainText(secondSite.name);
   await expect(page.locator('#all-sites-top-pages-table-body')).toContainText('/portfolio-alpha');
@@ -236,6 +273,7 @@ test('settings entry opens all-sites traffic reporting', async ({ page }) => {
 
   await page.locator('#global-traffic-report-create-button').click();
   await expect(page.locator('#global-traffic-reports-list')).toContainText('Traffic report 2');
+  await expect(page.locator('#global-traffic-report-readonly-name')).toBeHidden();
   await expect(page.locator('#global-traffic-report-name')).toBeEnabled();
   await expect(page.locator('#global-traffic-report-name')).toHaveValue('Traffic report 2');
   const customReportId = await page.locator('#global-traffic-reports-list .active').getAttribute('data-global-traffic-report-id');
@@ -315,6 +353,81 @@ test('settings entry opens all-sites traffic reporting', async ({ page }) => {
   await expect(page.locator('#traffic-report-title')).toContainText('Traffic reports');
   await expect(page.locator('[data-widget-card="traffic"]')).toBeVisible();
   await expect(page.locator('#traffic-title')).toContainText('Traffic');
+});
+
+test('all-sites report definition load failure stays visible', async ({ page }) => {
+  const portfolioUser = buildAdminUser(config, {
+    email: buildUniqueEmail('portfolio-load-failure'),
+    displayName: 'Portfolio Load Failure'
+  });
+  const cookie = buildSessionCookie(config, portfolioUser);
+  const site = await createTestSite(config, cookie, {
+    name: buildUniqueName('Portfolio Failure Site'),
+    allowedOrigin: buildUniqueOrigin('portfolio-load-failure'),
+    ownerEmail: portfolioUser.email
+  });
+  await page.route('**/api/reports/traffic/portfolio/reports', async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'load_failed' })
+    });
+  });
+
+  await openDashboard(page, config, portfolioUser);
+  await selectSite(page, site.id);
+  await page.evaluate(() => {
+    document.dispatchEvent(new CustomEvent('mpr-user:menu-item', { detail: { action: 'account-settings' } }));
+  });
+  await page.locator('#settings-open-all-sites-traffic').click();
+  await expect(page.locator('#all-sites-traffic-status')).toHaveText('Failed to load data.');
+  await expect(page.locator('#all-sites-traffic-status')).toBeVisible();
+});
+
+test('all-sites traffic report schedule preserves saved timezone from dashboard edits', async ({ page }) => {
+  const portfolioUser = buildAdminUser(config, {
+    email: buildUniqueEmail('portfolio-timezone'),
+    displayName: 'Portfolio Timezone'
+  });
+  const cookie = buildSessionCookie(config, portfolioUser);
+  const site = await createTestSite(config, cookie, {
+    name: buildUniqueName('Portfolio Timezone Site'),
+    allowedOrigin: buildUniqueOrigin('portfolio-timezone'),
+    ownerEmail: portfolioUser.email
+  });
+  const savedTimezone = 'Pacific/Honolulu';
+  await savePortfolioTrafficReportSchedule(config, cookie, {
+    enabled: true,
+    frequency: 'daily',
+    recipient_email: portfolioUser.email,
+    timezone: savedTimezone,
+    send_hour: 7,
+    send_minute: 15,
+    weekday: 1,
+    month_day: 1
+  });
+
+  await openDashboard(page, config, portfolioUser);
+  await selectSite(page, site.id);
+  await page.evaluate(() => {
+    document.dispatchEvent(new CustomEvent('mpr-user:menu-item', { detail: { action: 'account-settings' } }));
+  });
+  await page.locator('#settings-open-all-sites-traffic').click();
+  await expect(page.locator('#all-sites-traffic-report-timezone')).toHaveValue(savedTimezone);
+  await page.locator('#all-sites-traffic-report-send-time').fill('13:25');
+
+  await expect.poll(async () => {
+    const schedule = await fetchPortfolioTrafficReportSchedule(config, cookie);
+    return {
+      timezone: schedule.timezone,
+      send_hour: schedule.send_hour,
+      send_minute: schedule.send_minute
+    };
+  }, { timeout: 10000 }).toEqual({
+    timezone: savedTimezone,
+    send_hour: 13,
+    send_minute: 25
+  });
 });
 
 test('device and timezone fetch failures show traffic error state', async ({ page }) => {
