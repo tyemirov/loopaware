@@ -61,7 +61,11 @@ type recordingTrafficReportStatsProvider struct {
 	topPagesDays  int
 	topPagesLimit int
 	devices       DeviceBreakdownStat
+	deviceDays    int
+	deviceLimit   int
 	timezones     []TimezoneDistributionStat
+	timezoneDays  int
+	timezoneLimit int
 }
 
 func (provider *recordingTrafficReportStatsProvider) FeedbackCount(context.Context, string) (int64, error) {
@@ -106,7 +110,19 @@ func (provider *recordingTrafficReportStatsProvider) DeviceBreakdown(context.Con
 	return provider.devices, nil
 }
 
+func (provider *recordingTrafficReportStatsProvider) DeviceBreakdownForDays(_ context.Context, _ string, days int, limit int) (DeviceBreakdownStat, error) {
+	provider.deviceDays = days
+	provider.deviceLimit = limit
+	return provider.devices, nil
+}
+
 func (provider *recordingTrafficReportStatsProvider) TimezoneDistribution(context.Context, string, int) ([]TimezoneDistributionStat, error) {
+	return provider.timezones, nil
+}
+
+func (provider *recordingTrafficReportStatsProvider) TimezoneDistributionForDays(_ context.Context, _ string, days int, limit int) ([]TimezoneDistributionStat, error) {
+	provider.timezoneDays = days
+	provider.timezoneLimit = limit
 	return provider.timezones, nil
 }
 
@@ -401,7 +417,7 @@ func TestBuildTrafficReportEmailRendersTemplateFallbackSections(testingT *testin
 	require.Contains(testingT, report.message, "- No timezone data recorded.")
 }
 
-func TestBuildTrafficReportEmailUsesReportWindowForTopPages(testingT *testing.T) {
+func TestBuildTrafficReportEmailUsesReportWindowForBreakdowns(testingT *testing.T) {
 	schedule, scheduleErr := model.NewTrafficReportSchedule(model.TrafficReportScheduleInput{
 		SiteID:         testTrafficReportSiteID,
 		Enabled:        true,
@@ -425,8 +441,80 @@ func TestBuildTrafficReportEmailUsesReportWindowForTopPages(testingT *testing.T)
 	require.NoError(testingT, reportErr)
 	require.Equal(testingT, 30, stats.topPagesDays)
 	require.Equal(testingT, trafficReportTopPagesLimit, stats.topPagesLimit)
+	require.Equal(testingT, 30, stats.deviceDays)
+	require.Equal(testingT, trafficReportTopPagesLimit, stats.deviceLimit)
+	require.Equal(testingT, 30, stats.timezoneDays)
+	require.Equal(testingT, trafficReportTopPagesLimit, stats.timezoneLimit)
 	require.Contains(testingT, report.message, "Window: last 30 days")
 	require.Contains(testingT, report.message, "/monthly: 4 views")
+}
+
+func TestBuildTrafficReportEmailScopesDimensionsToReportWindow(testingT *testing.T) {
+	harness := buildTrafficReportHarness(testingT, true)
+	insertTrafficReportSite(testingT, harness.database)
+	schedule, scheduleErr := model.NewTrafficReportSchedule(model.TrafficReportScheduleInput{
+		SiteID:         testTrafficReportSiteID,
+		Enabled:        true,
+		Frequency:      model.TrafficReportFrequencyWeekly,
+		RecipientEmail: testTrafficReportRecipient,
+		Timezone:       model.DefaultTrafficReportTimezone,
+		SendHour:       model.DefaultTrafficReportSendHour,
+		SendMinute:     model.DefaultTrafficReportSendMinute,
+		Weekday:        model.DefaultTrafficReportWeekday,
+		MonthDay:       model.DefaultTrafficReportMonthDay,
+	})
+	require.NoError(testingT, scheduleErr)
+
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	visits := []model.SiteVisitInput{
+		{
+			SiteID:    testTrafficReportSiteID,
+			URL:       testTrafficReportAllowedOrigin + "/recent-mobile",
+			VisitorID: "11111111-1111-1111-1111-111111111111",
+			Viewport:  "390x844",
+			Timezone:  "America/Los_Angeles",
+			Occurred:  today.Add(2 * time.Hour),
+		},
+		{
+			SiteID:    testTrafficReportSiteID,
+			URL:       testTrafficReportAllowedOrigin + "/recent-desktop",
+			VisitorID: "22222222-2222-2222-2222-222222222222",
+			Viewport:  "1440x900",
+			Timezone:  "America/New_York",
+			Occurred:  today.Add(3 * time.Hour),
+		},
+		{
+			SiteID:    testTrafficReportSiteID,
+			URL:       testTrafficReportAllowedOrigin + "/old-tablet",
+			VisitorID: "33333333-3333-3333-3333-333333333333",
+			Viewport:  "800x600",
+			Timezone:  "UTC",
+			Occurred:  today.AddDate(0, 0, -8).Add(4 * time.Hour),
+		},
+	}
+	for _, input := range visits {
+		visit, visitErr := model.NewSiteVisit(input)
+		require.NoError(testingT, visitErr)
+		require.NoError(testingT, harness.database.Create(&visit).Error)
+	}
+
+	report, reportErr := buildTrafficReportEmail(context.Background(), NewDatabaseSiteStatisticsProvider(harness.database), model.Site{
+		ID:   testTrafficReportSiteID,
+		Name: testTrafficReportSiteName,
+	}, schedule)
+	require.NoError(testingT, reportErr)
+	require.Contains(testingT, report.message, "Window: last 7 days")
+	require.Contains(testingT, report.message, "Page views: 2")
+	require.Contains(testingT, report.message, "Unique visitors: 2")
+	require.Contains(testingT, report.message, "- /recent-desktop: 1 view")
+	require.Contains(testingT, report.message, "- /recent-mobile: 1 view")
+	require.NotContains(testingT, report.message, "old-tablet")
+	require.Contains(testingT, report.message, "- desktop: 1 visit")
+	require.Contains(testingT, report.message, "- mobile: 1 visit")
+	require.NotContains(testingT, report.message, "tablet: 1 visit")
+	require.Contains(testingT, report.message, "- America/Los_Angeles: 1 visit")
+	require.Contains(testingT, report.message, "- America/New_York: 1 visit")
+	require.NotContains(testingT, report.message, "- UTC: 1 visit")
 }
 
 func TestTrafficReportSchedulerSendsDueSchedule(testingT *testing.T) {

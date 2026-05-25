@@ -130,7 +130,101 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Identified the live production failure layer and patched `mprlab-gateway`: the LoopAware API env must read TAuth's `app_session_loopaware` cookie and configaudit now rejects future LoopAware/TAuth session-cookie drift. LoopAware `make ci` and gateway `make ci` passed locally.
   Blocked: `make deploy-loopaware-backend` in `mprlab-gateway` stopped at the interactive `Gateway sudo password:` prompt before applying the corrected runtime config to production.
 
+- [x] [B012] (P0) Restore integration Pinguin startup after config schema drift.
+  ### Summary
+  Baseline `make ci` no longer reaches the API and browser integration suites because the Pinguin service in `tests/docker-compose.yml` rejects LoopAware's bundled Pinguin config. The runtime now treats TAuth identity metadata as a shared-shell concern and fails on the stale `tenants[].identity` shape.
+  ### Deliverables
+  - Update the LoopAware-owned Pinguin config fixture to match the current Pinguin runtime schema.
+  - Keep TAuth provider metadata in the TAuth/shared-shell config path, not inside Pinguin tenant config.
+  - Preserve email notification test wiring for the LoopAware tenant.
+  - Verify the API integration slice starts successfully before proceeding with reporting work.
+  ### Resolution
+  Removed stale Pinguin tenant identity metadata from the LoopAware Pinguin config, added the current disabled SMTP submission/forwarding section defaults to the tracked test and example envs, and removed the obsolete config-audit Google-provider invariant. Verified the API integration slice passes with 108 tests and the full `make ci` gate passes with 358 integration tests.
+
+- [x] [B013] (P0) Scope scheduled report device and timezone totals to the report window.
+  ### Summary
+  Weekly traffic report emails can show a seven-day page-view total while Devices and Timezones list larger all-time visit totals, making the report internally inconsistent.
+  ### Deliverables
+  - Use the same report-window filter for scheduled email Devices and Timezones as the headline counts and Top pages.
+  - Keep dashboard all-time device/timezone breakdown endpoints unchanged.
+  - Add regression coverage proving old visits do not inflate the weekly email breakdown sections.
+  ### Resolution
+  Added window-scoped device and timezone statistics methods that share the VisitTrend UTC day window. Scheduled traffic report emails now use those windowed breakdowns while dashboard device/timezone endpoints keep their existing all-time behavior. Added regression coverage proving old visits do not appear in weekly email Devices, Timezones, Top pages, or headline totals. `make ci` passed.
+  ### Changed Files
+  `internal/api/site_stats.go`, `internal/api/traffic_report_schedule.go`, `internal/api/traffic_report_schedule_test.go`, `internal/api/admin_helpers_test.go`, `internal/api/admin_test.go`, `.mprlab/ISSUES.md`.
+
 ## Improvements
+
+- [x] [I006] (P1) Add graphical and portfolio traffic reporting.
+  ### Summary
+  Traffic reporting currently exposes numeric per-site metrics. Operators need visual trend/breakdown graphics and an all-sites report that summarizes the sites they own.
+  ### Deliverables
+  - Add dashboard graphics for selected-site traffic trends, attribution, engagement, device, and timezone metrics using existing traffic reporting APIs.
+  - Add an authenticated all-sites traffic reporting API scoped to the current user's owned/created sites.
+  - Add an all-sites dashboard reporting mode that summarizes portfolio totals, trend, top pages, and per-site rows.
+  - Add portfolio traffic report scheduling and test-report endpoints without overloading per-site schedules.
+  - Add black-box API and dashboard coverage for the new reporting surfaces.
+  ### Resolution
+  Added native dashboard graphics for selected-site traffic trends, top pages, attribution, engagement, device, and timezone reporting. Added an authenticated all-sites traffic report API scoped to the current user's owned/created sites, portfolio dashboard mode, portfolio report scheduling, and portfolio test-report delivery. Added black-box API and browser coverage for the graphical and portfolio reporting surfaces, and verified `make ci` passes.
+  ### Changed Files
+  `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/templates/portfolio_traffic_report_email.txt`, `internal/api/traffic_report_schedule.go`, `internal/model/traffic_report_schedule.go`, `internal/storage/database.go`, `tests/helpers/api.js`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`.
+
+- [x] [I007] (P1) Move all-sites traffic reporting entry into settings.
+  ### Summary
+  The Traffic tab is scoped to the selected site, so placing an all-sites report toggle inside that tab makes the reporting scope ambiguous.
+  ### Deliverables
+  - Remove the selected-site/all-sites scope selector from the Traffic report card.
+  - Add a Settings entry point that opens all-sites traffic reporting as a distinct global surface.
+  - Keep direct Traffic tab navigation scoped to the selected site.
+  - Rename portfolio-facing copy from properties to sites.
+  - Add black-box dashboard coverage for the new entry point.
+  ### Resolution
+  Removed the selected-site/all-sites scope selector from the Traffic report card. Added a Reports section in Account Settings with an All sites traffic entry point that opens the portfolio reporting surface, while direct Traffic tab navigation resets to selected-site reporting. Updated portfolio UI and email copy to use sites instead of properties, added black-box dashboard coverage for the Settings entry point and selected-site return path, and verified `make ci` passes.
+  ### Changed Files
+  `web/app/index.html`, `internal/api/templates/portfolio_traffic_report_email.txt`, `internal/model/traffic_report_schedule.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
+
+- [x] [I008] (P1) Split all-sites traffic into a separate dashboard view.
+  ### Summary
+  The all-sites traffic surface is still rendered inside the selected-site dashboard column, so the user can see portfolio metrics while the page still appears to be scoped to one selected site.
+  ### Deliverables
+  - Add a distinct all-sites traffic screen outside the selected-site account/site layout.
+  - Keep the selected-site Traffic tab focused only on one site's widget, report schedule, and analytics.
+  - Move all-sites report scheduling, totals, trend, top pages, and site table into the separate screen.
+  - Preserve the Settings entry point and add a clear return path to the site dashboard.
+  - Add black-box dashboard coverage proving the selected-site workspace is hidden in the all-sites screen.
+  ### Resolution
+  Added a separate all-sites traffic dashboard view that hides the selected-site account/site workspace. Moved all-sites report scheduling, totals, trend chart, top pages, and per-site table into that screen with an independent back path to the selected-site Traffic tab. Removed the all-sites table and portfolio mode from the selected-site Traffic cards. Added dashboard coverage for the Settings entry point, hidden site workspace, all-sites schedule autosave, and return path. `make ci` passed.
+  ### Changed Files
+  `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `.mprlab/ISSUES.md`.
+
+- [x] [I009] (P1) Introduce global report-library visual language.
+  ### Summary
+  The global reporting page needs a durable visual model for multiple reports. Operators should be able to select or create report definitions and choose which sites belong to each report, without changing the selected-site Traffic tab.
+  ### Deliverables
+  - Rework the global reporting page into a report library with a saved-report list and selected-report detail.
+  - Add create-report controls on the global page.
+  - Add included-sites selection controls on the global page.
+  - Keep the selected-site Traffic tab unchanged and isolated from global reporting state.
+  - Add dashboard coverage for creating/selecting multiple global reports and changing included sites.
+  ### Resolution
+  Reworked the global all-sites traffic screen into a report-library surface with a saved-report rail, selected-report detail, editable custom report names, and included-site selection controls. Kept the selected-site Traffic tab isolated from global reporting state. The default all-sites report remains tied to the existing portfolio schedule, while custom report definitions can scope the preview table to selected sites. Added dashboard coverage for creating a custom report, renaming it, changing included sites, preserving the default all-sites schedule behavior, and returning to the selected-site Traffic tab. `make ci` passed.
+  ### Changed Files
+  `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `.mprlab/ISSUES.md`.
+
+- [x] [I010] (P1) Persist scoped global traffic report definitions.
+  ### Summary
+  The global reporting page can create and edit report definitions visually, but custom reports are still local UI state. Operators need saved report definitions whose included sites drive portfolio previews and scheduled/test report delivery.
+  ### Deliverables
+  - Add persisted custom global traffic report definitions scoped to the current user.
+  - Add persisted included-site membership for each custom report.
+  - Add authenticated APIs to list, create, and update custom global report definitions.
+  - Scope portfolio report data, schedules, and test report delivery by report definition.
+  - Keep the implicit all-sites report available as the default global report.
+  - Add API and dashboard coverage for persistence, site scoping, and report-specific schedules.
+  ### Resolution
+  Added persisted portfolio traffic report definitions and included-site membership. Added authenticated list/create/update APIs, scoped portfolio report previews by `report_id`, and made portfolio schedules and test-report delivery report-specific while keeping the implicit all-sites report as the default. Rewired the global reporting page to load and save report definitions through the API instead of local storage. Added black-box API and dashboard coverage for persistence, scoped site membership, and separate default/custom schedules. `make ci` passed.
+  ### Changed Files
+  `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/templates/portfolio_traffic_report_email.txt`, `internal/api/traffic_report_schedule.go`, `internal/model/portfolio_traffic_report.go`, `internal/model/traffic_report_schedule.go`, `internal/storage/database.go`, `tests/helpers/api.js`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`, `.mprlab/ISSUES.md`.
 
 - [ ] [I004] (P1) Consider a design of a current accordion design of different surfaces.
   We may want to have a better split out.

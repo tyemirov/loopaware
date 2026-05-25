@@ -55,9 +55,48 @@ type TrafficReportSchedule struct {
 	UpdatedAt         time.Time `gorm:"autoUpdateTime"`
 }
 
+// PortfolioTrafficReportSchedule captures recurring cross-site reports for one user.
+type PortfolioTrafficReportSchedule struct {
+	ID                string    `gorm:"primaryKey;size:36"`
+	UserEmail         string    `gorm:"not null;size:320;index;uniqueIndex:idx_portfolio_report_schedule_user_report,priority:1"`
+	ReportID          string    `gorm:"not null;size:36;default:all-sites-traffic;uniqueIndex:idx_portfolio_report_schedule_user_report,priority:2"`
+	Enabled           bool      `gorm:"not null;default:false;index"`
+	Frequency         string    `gorm:"not null;size:16"`
+	RecipientEmail    string    `gorm:"not null;size:320"`
+	Timezone          string    `gorm:"not null;size:100"`
+	SendHour          int       `gorm:"not null"`
+	SendMinute        int       `gorm:"not null"`
+	Weekday           int       `gorm:"not null"`
+	MonthDay          int       `gorm:"not null"`
+	NextSendAt        time.Time `gorm:"index"`
+	LastSentAt        time.Time
+	LastAttemptedAt   time.Time `gorm:"index"`
+	RetryCount        int       `gorm:"not null;default:0;index"`
+	LastStatus        string    `gorm:"not null;size:32;default:pending"`
+	LastError         string    `gorm:"size:500"`
+	ProviderMessageID string    `gorm:"size:120"`
+	CreatedAt         time.Time `gorm:"autoCreateTime"`
+	UpdatedAt         time.Time `gorm:"autoUpdateTime"`
+}
+
 // TrafficReportScheduleInput holds incoming schedule values from API/configuration edges.
 type TrafficReportScheduleInput struct {
 	SiteID         string
+	Enabled        bool
+	Frequency      string
+	RecipientEmail string
+	Timezone       string
+	SendHour       int
+	SendMinute     int
+	Weekday        int
+	MonthDay       int
+	ReferenceTime  time.Time
+}
+
+// PortfolioTrafficReportScheduleInput holds recurring all-sites schedule values.
+type PortfolioTrafficReportScheduleInput struct {
+	UserEmail      string
+	ReportID       string
 	Enabled        bool
 	Frequency      string
 	RecipientEmail string
@@ -130,6 +169,76 @@ func NewTrafficReportSchedule(input TrafficReportScheduleInput) (TrafficReportSc
 	return schedule, nil
 }
 
+// NewPortfolioTrafficReportSchedule constructs a validated portfolio report schedule.
+func NewPortfolioTrafficReportSchedule(input PortfolioTrafficReportScheduleInput) (PortfolioTrafficReportSchedule, error) {
+	userEmail, userEmailErr := normalizeTrafficReportRecipient(input.UserEmail)
+	if userEmailErr != nil {
+		return PortfolioTrafficReportSchedule{}, userEmailErr
+	}
+
+	frequency := normalizeTrafficReportFrequency(input.Frequency)
+	if frequency == "" {
+		return PortfolioTrafficReportSchedule{}, fmt.Errorf("%w: invalid frequency", ErrInvalidTrafficReportSchedule)
+	}
+
+	recipientEmail, recipientErr := normalizeTrafficReportRecipient(input.RecipientEmail)
+	if recipientErr != nil {
+		return PortfolioTrafficReportSchedule{}, recipientErr
+	}
+
+	timezoneName, _, timezoneErr := normalizeTrafficReportTimezone(input.Timezone)
+	if timezoneErr != nil {
+		return PortfolioTrafficReportSchedule{}, timezoneErr
+	}
+
+	if input.SendHour < 0 || input.SendHour > 23 {
+		return PortfolioTrafficReportSchedule{}, fmt.Errorf("%w: invalid send_hour", ErrInvalidTrafficReportSchedule)
+	}
+	if input.SendMinute < 0 || input.SendMinute > 59 {
+		return PortfolioTrafficReportSchedule{}, fmt.Errorf("%w: invalid send_minute", ErrInvalidTrafficReportSchedule)
+	}
+	if input.Weekday < int(time.Sunday) || input.Weekday > int(time.Saturday) {
+		return PortfolioTrafficReportSchedule{}, fmt.Errorf("%w: invalid weekday", ErrInvalidTrafficReportSchedule)
+	}
+	if input.MonthDay < 1 || input.MonthDay > 28 {
+		return PortfolioTrafficReportSchedule{}, fmt.Errorf("%w: invalid month_day", ErrInvalidTrafficReportSchedule)
+	}
+
+	referenceTime := input.ReferenceTime
+	if referenceTime.IsZero() {
+		referenceTime = time.Now().UTC()
+	}
+
+	schedule := PortfolioTrafficReportSchedule{
+		ID:             uuid.NewString(),
+		UserEmail:      userEmail,
+		ReportID:       normalizePortfolioTrafficReportID(input.ReportID),
+		Enabled:        input.Enabled,
+		Frequency:      frequency,
+		RecipientEmail: recipientEmail,
+		Timezone:       timezoneName,
+		SendHour:       input.SendHour,
+		SendMinute:     input.SendMinute,
+		Weekday:        input.Weekday,
+		MonthDay:       input.MonthDay,
+		LastStatus:     TrafficReportStatusPending,
+	}
+	nextSendAt, nextErr := schedule.NextAfter(referenceTime)
+	if nextErr != nil {
+		return PortfolioTrafficReportSchedule{}, nextErr
+	}
+	schedule.NextSendAt = nextSendAt
+	return schedule, nil
+}
+
+func normalizePortfolioTrafficReportID(rawReportID string) string {
+	reportID := strings.TrimSpace(rawReportID)
+	if reportID == "" {
+		return PortfolioTrafficReportDefaultID
+	}
+	return reportID
+}
+
 // NextAfter returns the next scheduled send time strictly after referenceTime.
 func (schedule TrafficReportSchedule) NextAfter(referenceTime time.Time) (time.Time, error) {
 	_, location, timezoneErr := normalizeTrafficReportTimezone(schedule.Timezone)
@@ -167,6 +276,19 @@ func (schedule TrafficReportSchedule) NextAfter(referenceTime time.Time) (time.T
 	return candidate.UTC(), nil
 }
 
+// NextAfter returns the next scheduled portfolio send time strictly after referenceTime.
+func (schedule PortfolioTrafficReportSchedule) NextAfter(referenceTime time.Time) (time.Time, error) {
+	siteSchedule := TrafficReportSchedule{
+		Frequency:  schedule.Frequency,
+		Timezone:   schedule.Timezone,
+		SendHour:   schedule.SendHour,
+		SendMinute: schedule.SendMinute,
+		Weekday:    schedule.Weekday,
+		MonthDay:   schedule.MonthDay,
+	}
+	return siteSchedule.NextAfter(referenceTime)
+}
+
 // ReportWindowDays returns the number of days summarized by the report frequency.
 func (schedule TrafficReportSchedule) ReportWindowDays() int {
 	switch schedule.Frequency {
@@ -179,6 +301,12 @@ func (schedule TrafficReportSchedule) ReportWindowDays() int {
 	default:
 		return 1
 	}
+}
+
+// ReportWindowDays returns the number of days summarized by the portfolio report frequency.
+func (schedule PortfolioTrafficReportSchedule) ReportWindowDays() int {
+	siteSchedule := TrafficReportSchedule{Frequency: schedule.Frequency}
+	return siteSchedule.ReportWindowDays()
 }
 
 func normalizeTrafficReportFrequency(rawFrequency string) string {

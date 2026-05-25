@@ -10,9 +10,6 @@ server:
   tauth:
     signingKey: ${TAUTH_SIGNING_KEY}
     cookieName: ${TAUTH_COOKIE_NAME}
-    googleClientId: ${TAUTH_GOOGLE_CLIENT_ID}
-    tauthBaseUrl: ${TAUTH_BASE_URL}
-    tauthTenantId: ${TAUTH_TENANT_ID}
 
 tenants:
   - id: loopaware-local
@@ -25,9 +22,6 @@ tenants:
     admins:
       - ${LOOPAWARE_LOCAL_ADMIN_EMAIL_1}
       - ${LOOPAWARE_LOCAL_ADMIN_EMAIL_2}
-    identity:
-      googleClientId: ${LOOPAWARE_LOCAL_GOOGLE_CLIENT_ID}
-      tauthBaseUrl: ${LOOPAWARE_LOCAL_TAUTH_BASE_URL}
     emailProfile:
       host: ${LOOPAWARE_LOCAL_SMTP_HOST}
       port: ${LOOPAWARE_LOCAL_SMTP_PORT}
@@ -46,3 +40,34 @@ web:
     - ${HTTP_ALLOWED_ORIGIN1}
     - ${HTTP_ALLOWED_ORIGIN2}
     - ${HTTP_ALLOWED_ORIGIN3}
+
+smtpSubmission:
+  enabled: ${SMTP_SUBMISSION_ENABLED}
+  hostname: ${SMTP_SUBMISSION_HOSTNAME}
+  listenAddr: ${SMTP_SUBMISSION_LISTEN_ADDR}
+  tlsListenAddr: ${SMTP_SUBMISSION_TLS_LISTEN_ADDR}
+  tlsCertPath: ${SMTP_SUBMISSION_TLS_CERT_PATH}
+  tlsKeyPath: ${SMTP_SUBMISSION_TLS_KEY_PATH}
+  publicPort: ${SMTP_SUBMISSION_PUBLIC_PORT}
+  publicSecurityMode: ${SMTP_SUBMISSION_PUBLIC_SECURITY_MODE}
+  deliveryMode: ${SMTP_SUBMISSION_DELIVERY_MODE}
+  maxMessageBytes: ${SMTP_SUBMISSION_MAX_MESSAGE_BYTES}
+  maxRecipients: ${SMTP_SUBMISSION_MAX_RECIPIENTS}
+  allowInsecureAuth: ${SMTP_SUBMISSION_ALLOW_INSECURE_AUTH}
+  relay:
+    host: ${SMTP_SUBMISSION_RELAY_HOST}
+    port: ${SMTP_SUBMISSION_RELAY_PORT}
+    username: ${SMTP_SUBMISSION_RELAY_USERNAME}
+    password: ${SMTP_SUBMISSION_RELAY_PASSWORD}
+
+smtpForwarding:
+  enabled: ${SMTP_FORWARDING_ENABLED}
+  hostname: ${SMTP_FORWARDING_HOSTNAME}
+  listenAddr: ${SMTP_FORWARDING_LISTEN_ADDR}
+  maxMessageBytes: ${SMTP_FORWARDING_MAX_MESSAGE_BYTES}
+  maxRecipients: ${SMTP_FORWARDING_MAX_RECIPIENTS}
+  relay:
+    host: ${SMTP_FORWARDING_RELAY_HOST}
+    port: ${SMTP_FORWARDING_RELAY_PORT}
+    username: ${SMTP_FORWARDING_RELAY_USERNAME}
+    password: ${SMTP_FORWARDING_RELAY_PASSWORD}

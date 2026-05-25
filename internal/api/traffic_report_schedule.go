@@ -50,6 +50,7 @@ type trafficReportScheduleRequest struct {
 
 type trafficReportScheduleResponse struct {
 	SiteID         string `json:"site_id"`
+	ReportID       string `json:"report_id"`
 	Enabled        bool   `json:"enabled"`
 	Frequency      string `json:"frequency"`
 	RecipientEmail string `json:"recipient_email"`
@@ -360,50 +361,79 @@ func (repository trafficReportRepository) PendingJobs(ctx context.Context, maxRe
 			Payload:         scheduleSnapshot,
 		})
 	}
+	var portfolioSchedules []model.PortfolioTrafficReportSchedule
+	err = repository.database.WithContext(ctx).
+		Where("enabled = ? AND next_send_at <= ? AND retry_count < ?", true, now.UTC(), maxRetries).
+		Order("next_send_at asc").
+		Find(&portfolioSchedules).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, schedule := range portfolioSchedules {
+		nextSendAt := schedule.NextSendAt.UTC()
+		scheduleSnapshot := schedule
+		jobs = append(jobs, scheduler.Job{
+			ID:              schedule.ID,
+			ScheduledFor:    &nextSendAt,
+			RetryCount:      schedule.RetryCount,
+			LastAttemptedAt: schedule.LastAttemptedAt,
+			Payload:         scheduleSnapshot,
+		})
+	}
 	return jobs, nil
 }
 
 func (repository trafficReportRepository) ClaimJobForAttempt(ctx context.Context, job scheduler.Job, attemptedAt time.Time) (bool, error) {
-	schedule, ok := job.Payload.(model.TrafficReportSchedule)
-	if !ok {
+	switch schedule := job.Payload.(type) {
+	case model.TrafficReportSchedule:
+		result := repository.database.WithContext(ctx).
+			Model(&model.TrafficReportSchedule{}).
+			Where("id = ? AND retry_count = ? AND next_send_at = ?", job.ID, schedule.RetryCount, schedule.NextSendAt).
+			Update("last_attempted_at", attemptedAt.UTC())
+		if result.Error != nil {
+			return false, result.Error
+		}
+		return result.RowsAffected > 0, nil
+	case model.PortfolioTrafficReportSchedule:
+		result := repository.database.WithContext(ctx).
+			Model(&model.PortfolioTrafficReportSchedule{}).
+			Where("id = ? AND retry_count = ? AND next_send_at = ?", job.ID, schedule.RetryCount, schedule.NextSendAt).
+			Update("last_attempted_at", attemptedAt.UTC())
+		if result.Error != nil {
+			return false, result.Error
+		}
+		return result.RowsAffected > 0, nil
+	default:
 		return false, nil
 	}
-	result := repository.database.WithContext(ctx).
-		Model(&model.TrafficReportSchedule{}).
-		Where("id = ? AND retry_count = ? AND next_send_at = ?", job.ID, schedule.RetryCount, schedule.NextSendAt).
-		Update("last_attempted_at", attemptedAt.UTC())
-	if result.Error != nil {
-		return false, result.Error
-	}
-	return result.RowsAffected > 0, nil
 }
 
 func (repository trafficReportRepository) ApplyAttemptResult(ctx context.Context, job scheduler.Job, update scheduler.AttemptUpdate) error {
-	var schedule model.TrafficReportSchedule
-	if err := repository.database.WithContext(ctx).First(&schedule, "id = ?", job.ID).Error; err != nil {
-		return err
-	}
-
-	updates := map[string]any{
-		"last_status":         update.Status,
-		"last_attempted_at":   update.LastAttemptedAt.UTC(),
-		"provider_message_id": update.ProviderMessageID,
-	}
-	if update.Status == model.TrafficReportStatusSent {
-		nextSendAt, nextErr := schedule.NextAfter(update.LastAttemptedAt.UTC())
-		if nextErr != nil {
-			return nextErr
+	switch job.Payload.(type) {
+	case model.TrafficReportSchedule:
+		var schedule model.TrafficReportSchedule
+		if err := repository.database.WithContext(ctx).First(&schedule, "id = ?", job.ID).Error; err != nil {
+			return err
 		}
-		updates["last_sent_at"] = update.LastAttemptedAt.UTC()
-		updates["next_send_at"] = nextSendAt
-		updates["retry_count"] = 0
-		updates["last_error"] = ""
-	} else {
-		updates["retry_count"] = update.RetryCount
-		updates["last_error"] = trafficReportStatusDispatchFailed
-	}
 
-	return repository.database.WithContext(ctx).Model(&model.TrafficReportSchedule{}).Where("id = ?", job.ID).Updates(updates).Error
+		updates, updatesErr := trafficReportAttemptUpdates(schedule, update)
+		if updatesErr != nil {
+			return updatesErr
+		}
+		return repository.database.WithContext(ctx).Model(&model.TrafficReportSchedule{}).Where("id = ?", job.ID).Updates(updates).Error
+	case model.PortfolioTrafficReportSchedule:
+		var schedule model.PortfolioTrafficReportSchedule
+		if err := repository.database.WithContext(ctx).First(&schedule, "id = ?", job.ID).Error; err != nil {
+			return err
+		}
+		updates, updatesErr := portfolioTrafficReportAttemptUpdates(schedule, update)
+		if updatesErr != nil {
+			return updatesErr
+		}
+		return repository.database.WithContext(ctx).Model(&model.PortfolioTrafficReportSchedule{}).Where("id = ?", job.ID).Updates(updates).Error
+	default:
+		return fmt.Errorf("traffic_report_dispatch: invalid payload")
+	}
 }
 
 type trafficReportDispatcher struct {
@@ -413,19 +443,24 @@ type trafficReportDispatcher struct {
 }
 
 func (dispatcher trafficReportDispatcher) Attempt(ctx context.Context, job scheduler.Job) (scheduler.DispatchResult, error) {
-	schedule, ok := job.Payload.(model.TrafficReportSchedule)
-	if !ok {
+	switch schedule := job.Payload.(type) {
+	case model.TrafficReportSchedule:
+		var site model.Site
+		if err := dispatcher.database.WithContext(ctx).First(&site, "id = ?", schedule.SiteID).Error; err != nil {
+			return scheduler.DispatchResult{Status: model.TrafficReportStatusFailed}, err
+		}
+		if sendErr := dispatcher.sendSchedule(ctx, site, schedule); sendErr != nil {
+			return scheduler.DispatchResult{Status: model.TrafficReportStatusFailed}, sendErr
+		}
+		return scheduler.DispatchResult{Status: model.TrafficReportStatusSent}, nil
+	case model.PortfolioTrafficReportSchedule:
+		if sendErr := dispatcher.sendPortfolioSchedule(ctx, schedule); sendErr != nil {
+			return scheduler.DispatchResult{Status: model.TrafficReportStatusFailed}, sendErr
+		}
+		return scheduler.DispatchResult{Status: model.TrafficReportStatusSent}, nil
+	default:
 		return scheduler.DispatchResult{Status: model.TrafficReportStatusFailed}, fmt.Errorf("traffic_report_dispatch: invalid payload")
 	}
-
-	var site model.Site
-	if err := dispatcher.database.WithContext(ctx).First(&site, "id = ?", schedule.SiteID).Error; err != nil {
-		return scheduler.DispatchResult{Status: model.TrafficReportStatusFailed}, err
-	}
-	if sendErr := dispatcher.sendSchedule(ctx, site, schedule); sendErr != nil {
-		return scheduler.DispatchResult{Status: model.TrafficReportStatusFailed}, sendErr
-	}
-	return scheduler.DispatchResult{Status: model.TrafficReportStatusSent}, nil
 }
 
 func (dispatcher trafficReportDispatcher) sendSchedule(ctx context.Context, site model.Site, schedule model.TrafficReportSchedule) error {
@@ -441,6 +476,61 @@ func (dispatcher trafficReportDispatcher) sendSchedule(ctx context.Context, site
 		return reportErr
 	}
 	return dispatcher.emailSender.SendEmail(ctx, schedule.RecipientEmail, report.subject, report.message)
+}
+
+func (dispatcher trafficReportDispatcher) sendPortfolioSchedule(ctx context.Context, schedule model.PortfolioTrafficReportSchedule) error {
+	if dispatcher.emailSender == nil {
+		return fmt.Errorf("traffic_report_dispatch: email sender is not configured")
+	}
+	report, reportErr := buildPortfolioTrafficReportEmail(ctx, dispatcher.database, schedule)
+	if reportErr != nil {
+		return reportErr
+	}
+	return dispatcher.emailSender.SendEmail(ctx, schedule.RecipientEmail, report.subject, report.message)
+}
+
+func trafficReportAttemptUpdates(schedule model.TrafficReportSchedule, update scheduler.AttemptUpdate) (map[string]any, error) {
+	updates := map[string]any{
+		"last_status":         update.Status,
+		"last_attempted_at":   update.LastAttemptedAt.UTC(),
+		"provider_message_id": update.ProviderMessageID,
+	}
+	if update.Status == model.TrafficReportStatusSent {
+		nextSendAt, nextErr := schedule.NextAfter(update.LastAttemptedAt.UTC())
+		if nextErr != nil {
+			return nil, nextErr
+		}
+		updates["last_sent_at"] = update.LastAttemptedAt.UTC()
+		updates["next_send_at"] = nextSendAt
+		updates["retry_count"] = 0
+		updates["last_error"] = ""
+	} else {
+		updates["retry_count"] = update.RetryCount
+		updates["last_error"] = trafficReportStatusDispatchFailed
+	}
+	return updates, nil
+}
+
+func portfolioTrafficReportAttemptUpdates(schedule model.PortfolioTrafficReportSchedule, update scheduler.AttemptUpdate) (map[string]any, error) {
+	updates := map[string]any{
+		"last_status":         update.Status,
+		"last_attempted_at":   update.LastAttemptedAt.UTC(),
+		"provider_message_id": update.ProviderMessageID,
+	}
+	if update.Status == model.TrafficReportStatusSent {
+		nextSendAt, nextErr := schedule.NextAfter(update.LastAttemptedAt.UTC())
+		if nextErr != nil {
+			return nil, nextErr
+		}
+		updates["last_sent_at"] = update.LastAttemptedAt.UTC()
+		updates["next_send_at"] = nextSendAt
+		updates["retry_count"] = 0
+		updates["last_error"] = ""
+	} else {
+		updates["retry_count"] = update.RetryCount
+		updates["last_error"] = trafficReportStatusDispatchFailed
+	}
+	return updates, nil
 }
 
 type trafficReportEmail struct {
@@ -469,11 +559,11 @@ func buildTrafficReportEmail(ctx context.Context, statsProvider SiteStatisticsPr
 	if topPagesErr != nil {
 		return trafficReportEmail{}, fmt.Errorf("traffic_report_email top_pages: %w", topPagesErr)
 	}
-	devices, devicesErr := statsProvider.DeviceBreakdown(ctx, site.ID, trafficReportTopPagesLimit)
+	devices, devicesErr := statsProvider.DeviceBreakdownForDays(ctx, site.ID, windowDays, trafficReportTopPagesLimit)
 	if devicesErr != nil {
 		return trafficReportEmail{}, fmt.Errorf("traffic_report_email devices: %w", devicesErr)
 	}
-	timezones, timezonesErr := statsProvider.TimezoneDistribution(ctx, site.ID, trafficReportTopPagesLimit)
+	timezones, timezonesErr := statsProvider.TimezoneDistributionForDays(ctx, site.ID, windowDays, trafficReportTopPagesLimit)
 	if timezonesErr != nil {
 		return trafficReportEmail{}, fmt.Errorf("traffic_report_email timezones: %w", timezonesErr)
 	}

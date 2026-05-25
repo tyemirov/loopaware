@@ -104,7 +104,15 @@ func (provider *failingStatsProvider) DeviceBreakdown(context.Context, string, i
 	return api.DeviceBreakdownStat{}, provider.deviceBreakdownError
 }
 
+func (provider *failingStatsProvider) DeviceBreakdownForDays(context.Context, string, int, int) (api.DeviceBreakdownStat, error) {
+	return api.DeviceBreakdownStat{}, provider.deviceBreakdownError
+}
+
 func (provider *failingStatsProvider) TimezoneDistribution(context.Context, string, int) ([]api.TimezoneDistributionStat, error) {
+	return nil, provider.timezoneDistributionError
+}
+
+func (provider *failingStatsProvider) TimezoneDistributionForDays(context.Context, string, int, int) ([]api.TimezoneDistributionStat, error) {
 	return nil, provider.timezoneDistributionError
 }
 

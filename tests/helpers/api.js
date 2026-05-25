@@ -323,6 +323,83 @@ export async function fetchTrafficReportSchedule(config, cookie, siteId) {
   return payload;
 }
 
+function portfolioTrafficReportQuery(reportId) {
+  const normalizedReportId = typeof reportId === 'string' ? reportId.trim() : '';
+  if (!normalizedReportId) {
+    return '';
+  }
+  const params = new URLSearchParams();
+  params.set('report_id', normalizedReportId);
+  return `?${params.toString()}`;
+}
+
+export async function fetchPortfolioTrafficReports(config, cookie) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: '/api/reports/traffic/portfolio/reports',
+    method: 'GET',
+    cookie
+  });
+  if (!response.ok) {
+    throw new Error(`portfolio_traffic_reports_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
+export async function createPortfolioTrafficReport(config, cookie, report) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: '/api/reports/traffic/portfolio/reports',
+    method: 'POST',
+    cookie,
+    body: report
+  });
+  if (!response.ok) {
+    throw new Error(`portfolio_traffic_report_create_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
+export async function updatePortfolioTrafficReport(config, cookie, reportId, report) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/reports/traffic/portfolio/reports/${encodeURIComponent(reportId)}`,
+    method: 'PUT',
+    cookie,
+    body: report
+  });
+  if (!response.ok) {
+    throw new Error(`portfolio_traffic_report_update_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
+export async function fetchPortfolioTrafficReport(config, cookie, reportId) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/reports/traffic/portfolio${portfolioTrafficReportQuery(reportId)}`,
+    method: 'GET',
+    cookie
+  });
+  if (!response.ok) {
+    throw new Error(`portfolio_traffic_report_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
+export async function fetchPortfolioTrafficReportSchedule(config, cookie, reportId) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/reports/traffic/portfolio/schedule${portfolioTrafficReportQuery(reportId)}`,
+    method: 'GET',
+    cookie
+  });
+  if (!response.ok) {
+    throw new Error(`portfolio_traffic_report_schedule_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
 export async function saveTrafficReportSchedule(config, cookie, siteId, schedule) {
   const { response, payload } = await apiRequest({
     baseURL: config.baseURL,
@@ -333,6 +410,20 @@ export async function saveTrafficReportSchedule(config, cookie, siteId, schedule
   });
   if (!response.ok) {
     throw new Error(`traffic_report_schedule_save_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
+export async function savePortfolioTrafficReportSchedule(config, cookie, schedule, reportId) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/reports/traffic/portfolio/schedule${portfolioTrafficReportQuery(reportId)}`,
+    method: 'PUT',
+    cookie,
+    body: schedule
+  });
+  if (!response.ok) {
+    throw new Error(`portfolio_traffic_report_schedule_save_failed:${response.status}:${JSON.stringify(payload)}`);
   }
   return payload;
 }

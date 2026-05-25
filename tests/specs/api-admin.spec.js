@@ -794,4 +794,246 @@ test.describe("admin api visit stats", () => {
     expect(response.status).toBe(400);
     expect(payload.error).toBe("invalid_limit");
   });
+
+  test("returns portfolio traffic report for sites owned by the current user", async () => {
+    const nonAdminCookie = buildNonAdminCookie();
+    const ownedSite = await createTestSite(config, nonAdminCookie, {
+      name: buildUniqueName("Portfolio Owned"),
+      allowedOrigin: buildUniqueOrigin("portfolio-owned"),
+      ownerEmail: nonAdminUser.email
+    });
+    const secondOwnedSite = await createTestSite(config, nonAdminCookie, {
+      name: buildUniqueName("Portfolio Second"),
+      allowedOrigin: buildUniqueOrigin("portfolio-second"),
+      ownerEmail: nonAdminUser.email
+    });
+    const foreignSite = await createAdminSite("Portfolio Foreign");
+
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(ownedSite.id)}&url=${encodeURIComponent(`${ownedSite.allowed_origin}/owned-a`)}&visitor_id=11111111-1111-1111-1111-111111111111`,
+      method: "GET",
+      headers: { Origin: ownedSite.allowed_origin }
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(secondOwnedSite.id)}&url=${encodeURIComponent(`${secondOwnedSite.allowed_origin}/owned-b`)}&visitor_id=22222222-2222-2222-2222-222222222222`,
+      method: "GET",
+      headers: { Origin: secondOwnedSite.allowed_origin }
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(foreignSite.id)}&url=${encodeURIComponent(`${foreignSite.allowed_origin}/foreign`)}&visitor_id=33333333-3333-3333-3333-333333333333`,
+      method: "GET",
+      headers: { Origin: foreignSite.allowed_origin }
+    });
+
+    const { response, payload } = await nonAdminRequest({
+      path: "/api/reports/traffic/portfolio",
+      method: "GET"
+    });
+    expect(response.status).toBe(200);
+    expect(payload.scope).toBe("owned");
+    expect(payload.site_count).toBe(2);
+    expect(payload.visit_count).toBe(2);
+    expect(payload.unique_visitor_count).toBe(2);
+    expect(payload.trend).toHaveLength(30);
+    const siteNames = (payload.sites || []).map((entry) => entry.site_name);
+    expect(siteNames).toContain(ownedSite.name);
+    expect(siteNames).toContain(secondOwnedSite.name);
+    expect(siteNames).not.toContain(foreignSite.name);
+    const topPagePaths = (payload.top_pages || []).map((entry) => entry.path);
+    expect(topPagePaths).toContain("/owned-a");
+    expect(topPagePaths).toContain("/owned-b");
+    expect(topPagePaths).not.toContain("/foreign");
+  });
+
+  test("portfolio traffic report schedule can be configured", async () => {
+    const detectedTimezone = "UTC";
+    const { response: defaultResponse, payload: defaultPayload } = await nonAdminRequest({
+      path: "/api/reports/traffic/portfolio/schedule",
+      method: "GET"
+    });
+    expect(defaultResponse.status).toBe(200);
+    expect(defaultPayload.frequency).toBe("weekly");
+    expect(defaultPayload.recipient_email).toBe(nonAdminUser.email);
+
+    const { response, payload } = await nonAdminRequest({
+      path: "/api/reports/traffic/portfolio/schedule",
+      method: "PUT",
+      body: {
+        enabled: true,
+        frequency: "monthly",
+        recipient_email: "ignored@example.com",
+        timezone: detectedTimezone,
+        send_hour: 13,
+        send_minute: 15,
+        weekday: 1,
+        month_day: 14
+      }
+    });
+    expect(response.status).toBe(200);
+    expect(payload.enabled).toBe(true);
+    expect(payload.frequency).toBe("monthly");
+    expect(payload.recipient_email).toBe(nonAdminUser.email);
+    expect(payload.timezone).toBe(detectedTimezone);
+    expect(payload.send_hour).toBe(13);
+    expect(payload.send_minute).toBe(15);
+    expect(payload.month_day).toBe(14);
+    expect(payload.next_send_at).toBeGreaterThan(0);
+  });
+
+  test("portfolio traffic report definitions scope data and schedules", async () => {
+    const nonAdminCookie = buildNonAdminCookie();
+    const ownedSite = await createTestSite(config, nonAdminCookie, {
+      name: buildUniqueName("Scoped Portfolio One"),
+      allowedOrigin: buildUniqueOrigin("scoped-portfolio-one"),
+      ownerEmail: nonAdminUser.email
+    });
+    const secondOwnedSite = await createTestSite(config, nonAdminCookie, {
+      name: buildUniqueName("Scoped Portfolio Two"),
+      allowedOrigin: buildUniqueOrigin("scoped-portfolio-two"),
+      ownerEmail: nonAdminUser.email
+    });
+    const foreignSite = await createAdminSite("Scoped Portfolio Foreign");
+
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(ownedSite.id)}&url=${encodeURIComponent(`${ownedSite.allowed_origin}/scoped-one`)}&visitor_id=44444444-4444-4444-4444-444444444444`,
+      method: "GET",
+      headers: { Origin: ownedSite.allowed_origin }
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(secondOwnedSite.id)}&url=${encodeURIComponent(`${secondOwnedSite.allowed_origin}/scoped-two`)}&visitor_id=55555555-5555-5555-5555-555555555555`,
+      method: "GET",
+      headers: { Origin: secondOwnedSite.allowed_origin }
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(foreignSite.id)}&url=${encodeURIComponent(`${foreignSite.allowed_origin}/scoped-foreign`)}&visitor_id=66666666-6666-6666-6666-666666666666`,
+      method: "GET",
+      headers: { Origin: foreignSite.allowed_origin }
+    });
+
+    const { response: listResponse, payload: listPayload } = await nonAdminRequest({
+      path: "/api/reports/traffic/portfolio/reports",
+      method: "GET"
+    });
+    expect(listResponse.status).toBe(200);
+    expect((listPayload.reports || [])[0]).toMatchObject({
+      id: "all-sites-traffic",
+      is_default: true
+    });
+    const availableSiteIds = (listPayload.available_sites || []).map((entry) => entry.site_id);
+    expect(availableSiteIds).toContain(ownedSite.id);
+    expect(availableSiteIds).toContain(secondOwnedSite.id);
+    expect(availableSiteIds).not.toContain(foreignSite.id);
+
+    const { response: createResponse, payload: createPayload } = await nonAdminRequest({
+      path: "/api/reports/traffic/portfolio/reports",
+      method: "POST",
+      body: {
+        name: "Executive traffic",
+        site_ids: [ownedSite.id]
+      }
+    });
+    expect(createResponse.status).toBe(201);
+    expect(createPayload.name).toBe("Executive traffic");
+    expect(createPayload.site_ids).toEqual([ownedSite.id]);
+
+    const customReportPath = `/api/reports/traffic/portfolio?report_id=${encodeURIComponent(createPayload.id)}`;
+    const { response: scopedResponse, payload: scopedPayload } = await nonAdminRequest({
+      path: customReportPath,
+      method: "GET"
+    });
+    expect(scopedResponse.status).toBe(200);
+    expect(scopedPayload.report_id).toBe(createPayload.id);
+    expect(scopedPayload.report_name).toBe("Executive traffic");
+    expect(scopedPayload.site_count).toBe(1);
+    expect((scopedPayload.sites || []).map((entry) => entry.site_name)).toEqual([ownedSite.name]);
+    expect((scopedPayload.top_pages || []).map((entry) => entry.path)).toContain("/scoped-one");
+    expect((scopedPayload.top_pages || []).map((entry) => entry.path)).not.toContain("/scoped-two");
+    expect((scopedPayload.top_pages || []).map((entry) => entry.path)).not.toContain("/scoped-foreign");
+
+    const { response: invalidUpdateResponse, payload: invalidUpdatePayload } = await nonAdminRequest({
+      path: `/api/reports/traffic/portfolio/reports/${encodeURIComponent(createPayload.id)}`,
+      method: "PUT",
+      body: {
+        name: "Executive traffic",
+        site_ids: [ownedSite.id, foreignSite.id]
+      }
+    });
+    expect(invalidUpdateResponse.status).toBe(400);
+    expect(invalidUpdatePayload.error).toBe("invalid_portfolio_traffic_report");
+
+    const { response: updateResponse, payload: updatePayload } = await nonAdminRequest({
+      path: `/api/reports/traffic/portfolio/reports/${encodeURIComponent(createPayload.id)}`,
+      method: "PUT",
+      body: {
+        name: "Executive and product traffic",
+        site_ids: [ownedSite.id, secondOwnedSite.id]
+      }
+    });
+    expect(updateResponse.status).toBe(200);
+    expect(updatePayload.name).toBe("Executive and product traffic");
+    expect(updatePayload.site_ids).toEqual([ownedSite.id, secondOwnedSite.id]);
+
+    const { response: updatedScopedResponse, payload: updatedScopedPayload } = await nonAdminRequest({
+      path: customReportPath,
+      method: "GET"
+    });
+    expect(updatedScopedResponse.status).toBe(200);
+    expect(updatedScopedPayload.site_count).toBe(2);
+    expect((updatedScopedPayload.top_pages || []).map((entry) => entry.path)).toContain("/scoped-one");
+    expect((updatedScopedPayload.top_pages || []).map((entry) => entry.path)).toContain("/scoped-two");
+
+    const defaultScheduleBody = {
+      enabled: true,
+      frequency: "monthly",
+      recipient_email: "ignored@example.com",
+      timezone: "UTC",
+      send_hour: 8,
+      send_minute: 30,
+      weekday: 1,
+      month_day: 7
+    };
+    const customScheduleBody = {
+      enabled: true,
+      frequency: "weekly",
+      recipient_email: "ignored@example.com",
+      timezone: "UTC",
+      send_hour: 10,
+      send_minute: 45,
+      weekday: 3,
+      month_day: 1
+    };
+    const { response: defaultScheduleResponse } = await nonAdminRequest({
+      path: "/api/reports/traffic/portfolio/schedule",
+      method: "PUT",
+      body: defaultScheduleBody
+    });
+    expect(defaultScheduleResponse.status).toBe(200);
+    const { response: customScheduleResponse } = await nonAdminRequest({
+      path: `/api/reports/traffic/portfolio/schedule?report_id=${encodeURIComponent(createPayload.id)}`,
+      method: "PUT",
+      body: customScheduleBody
+    });
+    expect(customScheduleResponse.status).toBe(200);
+
+    const { payload: loadedDefaultSchedule } = await nonAdminRequest({
+      path: "/api/reports/traffic/portfolio/schedule",
+      method: "GET"
+    });
+    const { payload: loadedCustomSchedule } = await nonAdminRequest({
+      path: `/api/reports/traffic/portfolio/schedule?report_id=${encodeURIComponent(createPayload.id)}`,
+      method: "GET"
+    });
+    expect(loadedDefaultSchedule.report_id).toBe("all-sites-traffic");
+    expect(loadedDefaultSchedule.frequency).toBe("monthly");
+    expect(loadedDefaultSchedule.send_hour).toBe(8);
+    expect(loadedCustomSchedule.report_id).toBe(createPayload.id);
+    expect(loadedCustomSchedule.frequency).toBe("weekly");
+    expect(loadedCustomSchedule.send_hour).toBe(10);
+  });
 });

@@ -86,7 +86,13 @@ func AutoMigrate(database *gorm.DB) error {
 	if err := dropLegacySubscriberUniqueIndex(database); err != nil {
 		return err
 	}
-	if err := database.AutoMigrate(&model.Site{}, &model.Feedback{}, &model.User{}, &model.Subscriber{}, &model.SiteVisit{}, &model.SiteVisitRollup{}, &model.TrafficReportSchedule{}, &model.SentryIssue{}, &model.SentryOccurrence{}); err != nil {
+	if err := dropLegacyPortfolioTrafficScheduleUserEmailIndex(database); err != nil {
+		return err
+	}
+	if err := database.AutoMigrate(&model.Site{}, &model.Feedback{}, &model.User{}, &model.Subscriber{}, &model.SiteVisit{}, &model.SiteVisitRollup{}, &model.TrafficReportSchedule{}, &model.PortfolioTrafficReportSchedule{}, &model.PortfolioTrafficReportDefinition{}, &model.PortfolioTrafficReportDefinitionSite{}, &model.SentryIssue{}, &model.SentryOccurrence{}); err != nil {
+		return err
+	}
+	if err := backfillPortfolioTrafficReportScheduleIDs(database); err != nil {
 		return err
 	}
 	if err := backfillSiteCreatorEmails(database); err != nil {
@@ -103,6 +109,30 @@ func dropLegacySubscriberUniqueIndex(database *gorm.DB) error {
 		return nil
 	}
 	return database.Migrator().DropIndex(&model.Subscriber{}, "idx_subscribers_site_email")
+}
+
+func dropLegacyPortfolioTrafficScheduleUserEmailIndex(database *gorm.DB) error {
+	indexNames := []string{
+		"idx_portfolio_traffic_report_schedules_user_email",
+		"idx_portfolio_traffic_report_schedule_user_email",
+	}
+	for _, indexName := range indexNames {
+		if database.Migrator().HasIndex(&model.PortfolioTrafficReportSchedule{}, indexName) {
+			if err := database.Migrator().DropIndex(&model.PortfolioTrafficReportSchedule{}, indexName); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func backfillPortfolioTrafficReportScheduleIDs(database *gorm.DB) error {
+	if !database.Migrator().HasColumn(&model.PortfolioTrafficReportSchedule{}, "report_id") {
+		return nil
+	}
+	return database.Model(&model.PortfolioTrafficReportSchedule{}).
+		Where("report_id = ? OR report_id IS NULL", "").
+		Update("report_id", model.PortfolioTrafficReportDefaultID).Error
 }
 
 func backfillSubscriberAudienceKeys(database *gorm.DB) error {
