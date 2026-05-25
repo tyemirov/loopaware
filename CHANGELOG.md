@@ -11,6 +11,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.7] - 2026-05-25
+
+### Features ✨
+- Added portfolio traffic report API with full CRUD and scheduling support.
+- Introduced portfolio traffic report email template.
+- Added separate all-sites traffic dashboard view with portfolio reporting mode.
+- Implemented global report-library visual language with saved report definitions and included-site selection.
+- Added persisted custom global traffic report definitions scoped to the current user.
+
+### Improvements ⚙️
+- Moved all-sites traffic reporting entry into Account Settings for clearer scope separation.
+- Split all-sites traffic into a distinct dashboard view, isolating selected-site workspace.
+- Updated dashboard graphics for selected-site traffic trends, attribution, engagement, device, and timezone metrics.
+- Enhanced scheduling and test-report endpoints to support portfolio reports without overloading per-site schedules.
+- Updated environment and configuration files to align with current Pinguin runtime schema and TAuth metadata handling.
+- Improved release script to use 'gix sync' instead of 'gix cd'.
+
+### Bug Fixes 🐛
+- Fixed global traffic report load failures to preserve error visibility and prevent downstream data clearing.
+- Corrected schedule edits to preserve saved selected-site and all-sites timezones.
+- Rendered built-in all-sites report name as explicit read-only default to avoid confusion.
+- Scoped scheduled report device and timezone totals to the report window for consistent weekly email reporting.
+- Restored integration Pinguin startup after config schema drift by updating tenant identity metadata.
+
+### Testing 🧪
+- Added black-box API and dashboard coverage for new portfolio reporting surfaces, scheduling, and test report delivery.
+- Added regression tests ensuring old visits do not inflate weekly email device/timezone breakdowns.
+- Expanded integration tests to cover global report-library creation, selection, and included-site membership changes.
+
+### Docs 📚
+- Updated documentation and example environment files to reflect new portfolio traffic report features and configuration changes.
+- Revised dashboard UI copy to use "sites" instead of "properties" for portfolio context.
+
 ## [v0.7.6] - 2026-05-15
 
 ### Features ✨
