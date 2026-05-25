@@ -117,6 +117,56 @@
       .session-timeout-banner {
         z-index: 1300;
       }
+      .traffic-chart {
+        min-height: 9rem;
+      }
+      .traffic-chart svg {
+        display: block;
+        width: 100%;
+        height: 9rem;
+      }
+      .traffic-bars {
+        display: grid;
+        gap: 0.5rem;
+      }
+      .traffic-bar {
+        display: grid;
+        grid-template-columns: minmax(7rem, 1fr) minmax(8rem, 2fr) auto;
+        align-items: center;
+        gap: 0.75rem;
+        min-height: 1.75rem;
+      }
+      .traffic-bar__label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .traffic-bar__track {
+        height: 0.5rem;
+        overflow: hidden;
+      }
+      .traffic-bar__fill {
+        display: block;
+        height: 100%;
+        min-width: 0.25rem;
+      }
+      .traffic-kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+        gap: 0.75rem;
+      }
+      .traffic-kpi {
+        border: var(--bs-border-width) solid var(--bs-border-color);
+        border-radius: var(--bs-border-radius);
+        padding: 0.75rem;
+      }
+      @media (max-width: 575.98px) {
+        .traffic-bar {
+          grid-template-columns: 1fr;
+          gap: 0.25rem;
+        }
+      }
       body.logging-out main,
       body.logging-out mpr-header,
       body.logging-out mpr-footer,
@@ -154,7 +204,7 @@
     <main class="flex-grow-1">
       <div class="container py-4">
         
-        <div class="row g-4">
+        <div id="site-dashboard-view" class="row g-4">
           <div class="col-lg-4">
             <div class="card shadow-sm mb-4">
               <div class="card-header">Account</div>
@@ -506,7 +556,7 @@
               <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                   <div class="d-flex align-items-center gap-2">
-                    <h5 class="mb-0">Traffic reports</h5>
+                    <h5 id="traffic-report-title" class="mb-0">Traffic reports</h5>
                     <span id="traffic-report-email-state" class="badge bg-secondary d-none"></span>
                   </div>
                   <div class="d-flex align-items-center flex-wrap gap-3">
@@ -581,7 +631,7 @@
               <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                   <div class="d-flex align-items-center gap-2">
-                    <h5 class="mb-0">Traffic</h5>
+                    <h5 id="traffic-title" class="mb-0">Traffic</h5>
                     <span id="visit-count" class="badge bg-secondary d-none"></span>
                     <span id="unique-visitor-count" class="badge bg-secondary d-none"></span>
                   </div>
@@ -589,7 +639,22 @@
                 </div>
               </div>
               <div class="card-body">
+                <div class="row g-3 mb-3">
+                  <div class="col-12">
+                    <p class="text-muted small mb-2">Visit trend</p>
+                    <div id="traffic-trend-chart" class="traffic-chart border rounded p-2"></div>
+                  </div>
+                  <div class="col-md-6" id="traffic-engagement-container">
+                    <p class="text-muted small mb-2">Engagement</p>
+                    <div id="traffic-engagement-summary" class="traffic-kpis"></div>
+                  </div>
+                  <div class="col-md-6" id="traffic-attribution-container">
+                    <p class="text-muted small mb-2">Sources</p>
+                    <div id="traffic-attribution-chart" class="traffic-bars"></div>
+                  </div>
+                </div>
                 <p class="text-muted small mb-2">Top pages</p>
+                <div id="top-pages-chart" class="traffic-bars mb-3"></div>
                 <div class="table-responsive">
                   <table class="table table-striped table-hover align-middle">
                     <thead class="table-light">
@@ -603,33 +668,39 @@
                     </tbody>
                   </table>
                 </div>
-                <p class="text-muted small mb-2 mt-3">Devices</p>
-                <div class="table-responsive">
-                  <table class="table table-striped table-hover align-middle">
-                    <thead class="table-light">
-                      <tr>
-                        <th scope="col">Device type</th>
-                        <th scope="col" class="text-end">Visits</th>
-                      </tr>
-                    </thead>
-                    <tbody id="device-types-table-body">
-                      <tr><td colspan="2" class="text-center text-muted">No device data yet.</td></tr>
-                    </tbody>
-                  </table>
+                <div id="traffic-device-container">
+                  <p class="text-muted small mb-2 mt-3">Devices</p>
+                  <div id="device-types-chart" class="traffic-bars mb-3"></div>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                      <thead class="table-light">
+                        <tr>
+                          <th scope="col">Device type</th>
+                          <th scope="col" class="text-end">Visits</th>
+                        </tr>
+                      </thead>
+                      <tbody id="device-types-table-body">
+                        <tr><td colspan="2" class="text-center text-muted">No device data yet.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-                <p class="text-muted small mb-2 mt-3">Timezones</p>
-                <div class="table-responsive">
-                  <table class="table table-striped table-hover align-middle">
-                    <thead class="table-light">
-                      <tr>
-                        <th scope="col">Timezone</th>
-                        <th scope="col" class="text-end">Visits</th>
-                      </tr>
-                    </thead>
-                    <tbody id="timezones-table-body">
-                      <tr><td colspan="2" class="text-center text-muted">No timezone data yet.</td></tr>
-                    </tbody>
-                  </table>
+                <div id="traffic-timezone-container">
+                  <p class="text-muted small mb-2 mt-3">Timezones</p>
+                  <div id="timezones-chart" class="traffic-bars mb-3"></div>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                      <thead class="table-light">
+                        <tr>
+                          <th scope="col">Timezone</th>
+                          <th scope="col" class="text-end">Visits</th>
+                        </tr>
+                      </thead>
+                      <tbody id="timezones-table-body">
+                        <tr><td colspan="2" class="text-center text-muted">No timezone data yet.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
@@ -695,6 +766,198 @@
             </div>
           </div>
         </div>
+        <section id="all-sites-traffic-view" class="d-none">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+            <div>
+              <h1 class="h3 mb-0">Reports</h1>
+            </div>
+            <button id="all-sites-traffic-back-button" type="button" class="btn btn-outline-secondary btn-sm">Back to site dashboard</button>
+          </div>
+          <div class="row g-4">
+            <div class="col-lg-4">
+              <div id="global-traffic-report-library" class="card shadow-sm">
+                <div class="card-header">
+                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h2 class="h5 mb-0">Report library</h2>
+                    <button id="global-traffic-report-create-button" type="button" class="btn btn-outline-primary btn-sm">New report</button>
+                  </div>
+                </div>
+                <div id="global-traffic-reports-list" class="list-group list-group-flush">
+                  <button type="button" class="list-group-item list-group-item-action active">All sites traffic</button>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-8">
+              <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                      <h2 id="global-traffic-report-title" class="h5 mb-1">All sites traffic</h2>
+                      <div class="d-flex align-items-center flex-wrap gap-2">
+                        <span id="global-traffic-report-type-chip" class="badge bg-secondary">Traffic</span>
+                        <span id="global-traffic-report-sites-chip" class="badge bg-secondary">0 sites</span>
+                        <span id="global-traffic-report-schedule-chip" class="badge bg-secondary">Schedule off</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <label id="global-traffic-report-name-label" class="form-label" for="global-traffic-report-name">Report name</label>
+                  <input id="global-traffic-report-name" class="form-control" type="text" autocomplete="off" value="All sites traffic" />
+                  <div id="global-traffic-report-readonly-name" class="d-none">
+                    <div class="form-control-plaintext border rounded px-3 py-2 mb-0" aria-labelledby="global-traffic-report-name-label">
+                      <span id="global-traffic-report-readonly-name-value">All sites traffic</span>
+                      <span class="badge bg-secondary ms-2">Default report</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                      <h2 class="h5 mb-1">Included sites</h2>
+                      <div id="global-traffic-report-sites-summary" class="text-muted small">0 of 0 sites</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                      <button id="global-traffic-report-select-all-sites" type="button" class="btn btn-outline-secondary btn-sm">Select all</button>
+                      <button id="global-traffic-report-clear-sites" type="button" class="btn btn-outline-secondary btn-sm">Clear</button>
+                    </div>
+                  </div>
+                </div>
+                <div id="global-traffic-report-sites-list" class="list-group list-group-flush">
+                  <div class="list-group-item text-muted">No sites available yet.</div>
+                </div>
+              </div>
+              <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                      <h2 class="h5 mb-0">Schedule</h2>
+                      <span id="all-sites-traffic-report-email-state" class="badge bg-secondary d-none"></span>
+                    </div>
+                    <div class="d-flex align-items-center flex-wrap gap-3">
+                      <div id="all-sites-traffic-report-status" class="d-none py-1 px-2 small"></div>
+                      <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="all-sites-traffic-report-enabled" />
+                        <label class="form-check-label" for="all-sites-traffic-report-enabled">Enable scheduled reports</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                      <span class="form-label d-block">Frequency</span>
+                      <div class="btn-group w-100" role="group" aria-label="All sites traffic report frequency">
+                        <input class="btn-check" type="radio" name="all-sites-traffic-report-frequency" id="all-sites-traffic-report-frequency-daily" value="daily" checked />
+                        <label class="btn btn-outline-secondary" for="all-sites-traffic-report-frequency-daily">Daily</label>
+                        <input class="btn-check" type="radio" name="all-sites-traffic-report-frequency" id="all-sites-traffic-report-frequency-weekly" value="weekly" />
+                        <label class="btn btn-outline-secondary" for="all-sites-traffic-report-frequency-weekly">Weekly</label>
+                        <input class="btn-check" type="radio" name="all-sites-traffic-report-frequency" id="all-sites-traffic-report-frequency-monthly" value="monthly" />
+                        <label class="btn btn-outline-secondary" for="all-sites-traffic-report-frequency-monthly">Monthly</label>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label" for="all-sites-traffic-report-send-time">Send at</label>
+                      <input class="form-control" type="time" id="all-sites-traffic-report-send-time" value="09:00" />
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label" for="all-sites-traffic-report-timezone">Timezone</label>
+                      <input class="form-control" type="text" id="all-sites-traffic-report-timezone" autocomplete="off" readonly />
+                    </div>
+                    <div class="col-md-4" id="all-sites-traffic-report-weekday-container">
+                      <label class="form-label" for="all-sites-traffic-report-weekday">Send on</label>
+                      <select class="form-select" id="all-sites-traffic-report-weekday">
+                        <option value="1">Monday</option>
+                        <option value="2">Tuesday</option>
+                        <option value="3">Wednesday</option>
+                        <option value="4">Thursday</option>
+                        <option value="5">Friday</option>
+                        <option value="6">Saturday</option>
+                        <option value="0">Sunday</option>
+                      </select>
+                    </div>
+                    <div class="col-md-4" id="all-sites-traffic-report-month-day-container">
+                      <label class="form-label" for="all-sites-traffic-report-month-day">Send on day</label>
+                      <select class="form-select" id="all-sites-traffic-report-month-day">
+                        <option value="1">1</option>
+                        <option value="7">7</option>
+                        <option value="14">14</option>
+                        <option value="21">21</option>
+                        <option value="28">28</option>
+                      </select>
+                    </div>
+                    <div class="col-md-8">
+                      <label class="form-label" for="all-sites-traffic-report-recipient">Recipient email</label>
+                      <input class="form-control" type="email" id="all-sites-traffic-report-recipient" autocomplete="off" readonly />
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mt-3">
+                    <div class="small text-muted">
+                      <div>Next email: <span id="all-sites-traffic-report-next-send">Not scheduled.</span></div>
+                      <div>Last sent: <span id="all-sites-traffic-report-last-sent">Never.</span></div>
+                    </div>
+                    <div class="d-flex gap-2">
+                      <button id="all-sites-traffic-report-test-button" class="btn btn-outline-secondary btn-sm" type="button">Send test report</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="card shadow-sm">
+                <div class="card-header">
+                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                      <h2 class="h5 mb-0">Report preview</h2>
+                      <span id="all-sites-visit-count" class="badge bg-secondary d-none"></span>
+                      <span id="all-sites-unique-visitor-count" class="badge bg-secondary d-none"></span>
+                      <span id="all-sites-site-count" class="badge bg-secondary d-none"></span>
+                    </div>
+                    <div id="all-sites-traffic-status" class="d-none py-1 px-2 small"></div>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div class="row g-3 mb-3">
+                    <div class="col-12">
+                      <p class="text-muted small mb-2">Visit trend</p>
+                      <div id="all-sites-traffic-trend-chart" class="traffic-chart border rounded p-2"></div>
+                    </div>
+                  </div>
+                  <p class="text-muted small mb-2">Top pages</p>
+                  <div id="all-sites-top-pages-chart" class="traffic-bars mb-3"></div>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                      <thead class="table-light">
+                        <tr>
+                          <th scope="col">Path</th>
+                          <th scope="col" class="text-end">Views</th>
+                        </tr>
+                      </thead>
+                      <tbody id="all-sites-top-pages-table-body">
+                        <tr><td colspan="2" class="text-center text-muted">No visits yet.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p class="text-muted small mb-2 mt-3">Sites</p>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                      <thead class="table-light">
+                        <tr>
+                          <th scope="col">Site</th>
+                          <th scope="col" class="text-end">Visits</th>
+                          <th scope="col" class="text-end">Unique</th>
+                        </tr>
+                      </thead>
+                      <tbody id="all-sites-traffic-sites-table-body">
+                        <tr><td colspan="3" class="text-center text-muted">No sites yet.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
     <div class="modal fade" id="settings-modal" tabindex="-1" aria-labelledby="settings-modal-title" aria-describedby="settings-modal-content" aria-hidden="true">
@@ -707,6 +970,10 @@
           <div class="modal-body">
             <p class="text-muted mb-4">Manage LoopAware account preferences.</p>
             <div id="settings-modal-content" class="d-flex flex-column gap-4">
+              <section>
+                <h2 class="h5 mb-2">Reports</h2>
+                <button id="settings-open-all-sites-traffic" type="button" class="btn btn-outline-primary btn-sm">All sites traffic</button>
+              </section>
               <section>
                 <h2 class="h5 mb-2">Auto logout</h2>
                 <p class="text-muted small mb-3">Control how the dashboard handles inactivity.</p>
@@ -799,7 +1066,7 @@
       </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-    <script type="application/json" id="dashboard-config">{"api_paths":{"feedback_events":"/api/sites/feedback/events","me":"/api/me","site_favicon_events":"/api/sites/favicons/events","site_messages_prefix":"/api/sites/","site_messages_suffix":"/messages","site_subscriber_update":"/subscribers/","site_subscribers_export":"/subscribers/export","site_subscribers_prefix":"/api/sites/","site_subscribers_suffix":"/subscribers","site_update_prefix":"/api/sites/","site_visit_stats":"/visits/stats","site_visit_devices":"/visits/devices","site_visit_timezones":"/visits/timezones","sites":"/api/sites"},"paths":{"landing":"/login","subscribe_test_prefix":"/app/subscribe-test?site_id=","subscribe_test_suffix":"","traffic_test_prefix":"/app/traffic-test?site_id=","traffic_test_suffix":"","widget_test_prefix":"/app/widget-test?site_id=","widget_test_suffix":""},"element_ids":{"allowed_origin_help_button":"allowed-origin-help-button","copy_subscribe_snippet_button":"copy-subscribe-widget-snippet","copy_traffic_snippet_button":"copy-traffic-widget-snippet","copy_widget_snippet_button":"copy-widget-snippet","dashboard_section_tab_feedback":"dashboard-section-tab-feedback","dashboard_section_tab_subscriptions":"dashboard-section-tab-subscriptions","dashboard_section_tab_traffic":"dashboard-section-tab-traffic","dashboard_section_tabs":"dashboard-section-tabs","delete_site_button":"delete-site-button","delete_site_confirm_button":"delete-site-confirm-button","delete_site_confirm_input":"delete-site-confirm-name","delete_site_modal":"delete-site-modal","delete_site_target_name":"delete-site-target-name","delete_subscriber_confirm_button":"delete-subscriber-confirm-button","delete_subscriber_confirm_input":"delete-subscriber-confirm-email","delete_subscriber_modal":"delete-subscriber-modal","delete_subscriber_target_email":"delete-subscriber-target-email","edit_site_name":"edit-site-name","edit_site_origin":"edit-site-origin","edit_site_owner":"edit-site-owner","edit_site_owner_container":"edit-site-owner-container","empty_sites_message":"empty-sites-message","export_subscribers_button":"export-subscribers-button","feedback_count":"feedback-count","feedback_table_body":"feedback-table-body","feedback_table_header":"feedback-table-header","footer":"dashboard-footer","footer_inner":"dashboard-footer-inner","form_status":"site-status","messages_search_container":"messages-search-container","messages_search_input":"messages-search-input","messages_search_toggle_button":"messages-search-toggle-button","new_site_button":"new-site-button","owner_email_help_button":"owner-email-help-button","refresh_messages_button":"refresh-messages-button","save_site_button":"save-site-button","session_timeout_confirm_button":"session-timeout-confirm-button","session_timeout_container":"session-timeout-notification","session_timeout_dismiss_button":"session-timeout-dismiss-button","session_timeout_message":"session-timeout-message","settings_auto_logout_fields":"settings-auto-logout-fields","settings_auto_logout_logout":"settings-auto-logout-logout-seconds","settings_auto_logout_logout_error":"settings-auto-logout-logout-error","settings_auto_logout_prompt":"settings-auto-logout-prompt-seconds","settings_auto_logout_prompt_error":"settings-auto-logout-prompt-error","settings_auto_logout_toggle":"settings-auto-logout-enabled","settings_button":"settings-button","settings_modal":"settings-modal","settings_modal_content":"settings-modal-content","settings_modal_title":"settings-modal-title","site_created_at":"site-created-at","site_created_at_container":"site-created-at-container","site_form":"site-form","site_name_help_button":"site-name-help-button","site_search_container":"site-search-container","site_search_input":"site-search-input","site_search_toggle_button":"site-search-toggle-button","sites_list":"sites-list","subscribe_allowed_origins_list":"subscribe-allowed-origins-list","subscribe_snippet_textarea":"subscribe-widget-snippet","subscribe_test_button":"subscribe-test-button","subscriber_count":"subscriber-count","subscribers_status":"subscribers-status","subscribers_table_body":"subscribers-table-body","device_types_table_body":"device-types-table-body","timezones_table_body":"timezones-table-body","top_pages_table_body":"top-pages-table-body","traffic_allowed_origins_list":"traffic-allowed-origins-list","traffic_snippet_textarea":"traffic-widget-snippet","traffic_status":"traffic-status","traffic_test_button":"traffic-test-button","unique_visitor_count":"unique-visitor-count","user_avatar":"user-avatar","user_email":"user-email","user_name":"user-name","user_role":"user-role","visit_count":"visit-count","widget_allowed_origins_list":"widget-allowed-origins-list","widget_bottom_offset":"widget-placement-bottom-offset","widget_bottom_offset_decrease":"widget-bottom-offset-decrease","widget_bottom_offset_increase":"widget-bottom-offset-increase","widget_side_left":"widget-placement-side-left","widget_side_right":"widget-placement-side-right","widget_snippet_textarea":"widget-snippet","widget_test_button":"widget-test-button"},"button_classes":{"copy_default":"btn btn-outline-secondary btn-sm","create":"btn btn-outline-primary btn-sm","delete_site_default":"btn btn-sm border-0 bg-transparent text-danger opacity-100","delete_site_disabled":"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled","new_site_active":"btn btn-primary btn-sm","new_site_default":"btn btn-outline-primary btn-sm","refresh_default":"btn btn-outline-secondary btn-sm","save_default":"btn btn-outline-success btn-sm","session_timeout_confirm":"btn btn-outline-danger btn-sm","session_timeout_dismiss":"btn btn-outline-secondary btn-sm","update":"btn btn-outline-success btn-sm"},"button_labels":{"copy_copied":"Copied","copy_default":"Copy","copy_failed":"Copy failed","create":"Create site","new_site":"New site","refresh_default":"Refresh feedback","refresh_failed":"Refresh failed.","refresh_loading":"Refreshing...","refresh_success":"Feedback refreshed.","save_created":"Site created.","save_failed":"Failed to save site.","save_saved":"Site updated.","save_saving":"Saving site...","update":"Update site"},"status_messages":{"creating_site":"Creating site...","delete_site_failed":"Failed to delete site.","deleting_site":"Deleting site...","load_failed":"Failed to load data.","loading_sites":"Loading sites...","loading_user":"Loading account information...","no_message_matches":"No feedback matches your search.","no_messages":"No feedback yet.","no_site_matches":"No sites match your search.","no_sites":"No sites available yet.","saving_site":"Saving site...","select_site":"Select a site to see details.","site_created":"Site created.","site_deleted":"Site deleted.","site_saved":"Site updated.","widget_copied":"Widget snippet copied.","widget_copy_failed":"Unable to copy widget snippet."},"role_labels":{"admin":"Administrator","user":"User"},"role_values":{"admin":"admin","user":"user"},"button_styles":{"danger":"btn btn-outline-danger btn-sm","primary":"btn btn-outline-primary btn-sm","secondary":"btn btn-outline-secondary btn-sm","success":"btn btn-outline-success btn-sm"},"component_classes":{"site_list_item":"list-group-item list-group-item-action","site_list_item_active":"active","site_list_item_favicon":"flex-shrink-0 rounded border bg-white","site_list_item_header":"d-flex align-items-center gap-2"},"widget_texts":{"unavailable":"Save the site to generate a widget snippet."},"theme_storage_key":"loopaware_dashboard_theme","option_values":{"new_site":"__new__"},"placeholders":{"device_types":"No device data yet.","subscribers":"No subscribers yet.","timezones":"No timezone data yet.","top_pages":"No visits yet."},"form_status_classes":{"base":"d-none py-1 px-2 small rounded","danger":"py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle","success":"py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"},"footer_theme_classes":{"dark":"bg-dark text-light border-light","light":"bg-body text-body-secondary"},"table_theme_classes":{"dark":"table-dark","light":"table-light"},"validation_messages":{"name_required":"Site name is required.","origin_invalid":"Allowed origins must include protocol and hostname, for example https://example.com.","owner_invalid":"Provide a valid owner email address.","widget_offset_invalid":"Provide a whole number between 0 and 240."},"error_messages":{"forbidden":"You are not allowed to manage that site.","invalid_json":"Submitted data could not be parsed.","invalid_owner":"Provide a valid owner email address.","invalid_widget_offset":"Provide a whole number between 0 and 240.","invalid_widget_side":"Choose left or right for the widget bubble.","missing_fields":"Provide site name and allowed origin.","not_authorized":"You are not allowed to manage that site.","save_failed":"Failed to save site.","site_exists":"A site for this allowed origin already exists."},"widget_placement":{"input_name":"widget-bubble-side","default_side":"right","default_bottom_offset":16,"sides":{"left":"Left","right":"Right"},"bottom_offset":{"min":0,"max":240}},"session_timeout":{"prompt_delay_ms":60000,"auto_logout_ms":120000,"texts":{"confirm":"Yes","dismiss":"No","prompt":"Log out due to inactivity?"},"component_classes":{"actions":"session-timeout-actions d-flex flex-shrink-0 gap-2","container":"session-timeout-banner position-fixed start-0 end-0 border-top py-3 w-100 d-none","container_hidden":"d-none","container_visible":"d-block","inner":"container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3","message":"session-timeout-message fw-semibold mb-0"},"theme_classes":{"dark":"bg-dark-subtle text-light border-secondary-subtle","light":"bg-body-secondary text-dark border-light-subtle"}},"auto_logout":{"storage_key":"loopaware_dashboard_auto_logout","min_prompt_seconds":10,"max_prompt_seconds":3600,"min_logout_seconds":20,"max_logout_seconds":7200,"minimum_gap_seconds":5}}</script>
+    <script type="application/json" id="dashboard-config">{"api_paths":{"feedback_events":"/api/sites/feedback/events","me":"/api/me","portfolio_traffic_report":"/api/reports/traffic/portfolio","portfolio_traffic_reports":"/api/reports/traffic/portfolio/reports","portfolio_traffic_schedule":"/api/reports/traffic/portfolio/schedule","portfolio_traffic_test":"/api/reports/traffic/portfolio/schedule/test","site_favicon_events":"/api/sites/favicons/events","site_messages_prefix":"/api/sites/","site_messages_suffix":"/messages","site_subscriber_update":"/subscribers/","site_subscribers_export":"/subscribers/export","site_subscribers_prefix":"/api/sites/","site_subscribers_suffix":"/subscribers","site_update_prefix":"/api/sites/","site_visit_stats":"/visits/stats","site_visit_trend":"/visits/trend","site_visit_attribution":"/visits/attribution","site_visit_engagement":"/visits/engagement","site_visit_devices":"/visits/devices","site_visit_timezones":"/visits/timezones","sites":"/api/sites"},"paths":{"landing":"/login","subscribe_test_prefix":"/app/subscribe-test?site_id=","subscribe_test_suffix":"","traffic_test_prefix":"/app/traffic-test?site_id=","traffic_test_suffix":"","widget_test_prefix":"/app/widget-test?site_id=","widget_test_suffix":""},"element_ids":{"allowed_origin_help_button":"allowed-origin-help-button","copy_subscribe_snippet_button":"copy-subscribe-widget-snippet","copy_traffic_snippet_button":"copy-traffic-widget-snippet","copy_widget_snippet_button":"copy-widget-snippet","dashboard_section_tab_feedback":"dashboard-section-tab-feedback","dashboard_section_tab_subscriptions":"dashboard-section-tab-subscriptions","dashboard_section_tab_traffic":"dashboard-section-tab-traffic","dashboard_section_tabs":"dashboard-section-tabs","delete_site_button":"delete-site-button","delete_site_confirm_button":"delete-site-confirm-button","delete_site_confirm_input":"delete-site-confirm-name","delete_site_modal":"delete-site-modal","delete_site_target_name":"delete-site-target-name","delete_subscriber_confirm_button":"delete-subscriber-confirm-button","delete_subscriber_confirm_input":"delete-subscriber-confirm-email","delete_subscriber_modal":"delete-subscriber-modal","delete_subscriber_target_email":"delete-subscriber-target-email","edit_site_name":"edit-site-name","edit_site_origin":"edit-site-origin","edit_site_owner":"edit-site-owner","edit_site_owner_container":"edit-site-owner-container","empty_sites_message":"empty-sites-message","export_subscribers_button":"export-subscribers-button","feedback_count":"feedback-count","feedback_table_body":"feedback-table-body","feedback_table_header":"feedback-table-header","footer":"dashboard-footer","footer_inner":"dashboard-footer-inner","form_status":"site-status","messages_search_container":"messages-search-container","messages_search_input":"messages-search-input","messages_search_toggle_button":"messages-search-toggle-button","new_site_button":"new-site-button","owner_email_help_button":"owner-email-help-button","refresh_messages_button":"refresh-messages-button","save_site_button":"save-site-button","session_timeout_confirm_button":"session-timeout-confirm-button","session_timeout_container":"session-timeout-notification","session_timeout_dismiss_button":"session-timeout-dismiss-button","session_timeout_message":"session-timeout-message","settings_auto_logout_fields":"settings-auto-logout-fields","settings_auto_logout_logout":"settings-auto-logout-logout-seconds","settings_auto_logout_logout_error":"settings-auto-logout-logout-error","settings_auto_logout_prompt":"settings-auto-logout-prompt-seconds","settings_auto_logout_prompt_error":"settings-auto-logout-prompt-error","settings_auto_logout_toggle":"settings-auto-logout-enabled","settings_button":"settings-button","settings_modal":"settings-modal","settings_modal_content":"settings-modal-content","settings_modal_title":"settings-modal-title","site_created_at":"site-created-at","site_created_at_container":"site-created-at-container","site_form":"site-form","site_name_help_button":"site-name-help-button","site_search_container":"site-search-container","site_search_input":"site-search-input","site_search_toggle_button":"site-search-toggle-button","sites_list":"sites-list","subscribe_allowed_origins_list":"subscribe-allowed-origins-list","subscribe_snippet_textarea":"subscribe-widget-snippet","subscribe_test_button":"subscribe-test-button","subscriber_count":"subscriber-count","subscribers_status":"subscribers-status","subscribers_table_body":"subscribers-table-body","device_types_table_body":"device-types-table-body","timezones_table_body":"timezones-table-body","top_pages_table_body":"top-pages-table-body","traffic_allowed_origins_list":"traffic-allowed-origins-list","traffic_snippet_textarea":"traffic-widget-snippet","traffic_status":"traffic-status","traffic_test_button":"traffic-test-button","unique_visitor_count":"unique-visitor-count","user_avatar":"user-avatar","user_email":"user-email","user_name":"user-name","user_role":"user-role","visit_count":"visit-count","widget_allowed_origins_list":"widget-allowed-origins-list","widget_bottom_offset":"widget-placement-bottom-offset","widget_bottom_offset_decrease":"widget-bottom-offset-decrease","widget_bottom_offset_increase":"widget-bottom-offset-increase","widget_side_left":"widget-placement-side-left","widget_side_right":"widget-placement-side-right","widget_snippet_textarea":"widget-snippet","widget_test_button":"widget-test-button"},"button_classes":{"copy_default":"btn btn-outline-secondary btn-sm","create":"btn btn-outline-primary btn-sm","delete_site_default":"btn btn-sm border-0 bg-transparent text-danger opacity-100","delete_site_disabled":"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled","new_site_active":"btn btn-primary btn-sm","new_site_default":"btn btn-outline-primary btn-sm","refresh_default":"btn btn-outline-secondary btn-sm","save_default":"btn btn-outline-success btn-sm","session_timeout_confirm":"btn btn-outline-danger btn-sm","session_timeout_dismiss":"btn btn-outline-secondary btn-sm","update":"btn btn-outline-success btn-sm"},"button_labels":{"copy_copied":"Copied","copy_default":"Copy","copy_failed":"Copy failed","create":"Create site","new_site":"New site","refresh_default":"Refresh feedback","refresh_failed":"Refresh failed.","refresh_loading":"Refreshing...","refresh_success":"Feedback refreshed.","save_created":"Site created.","save_failed":"Failed to save site.","save_saved":"Site updated.","save_saving":"Saving site...","update":"Update site"},"status_messages":{"creating_site":"Creating site...","delete_site_failed":"Failed to delete site.","deleting_site":"Deleting site...","load_failed":"Failed to load data.","loading_sites":"Loading sites...","loading_user":"Loading account information...","no_message_matches":"No feedback matches your search.","no_messages":"No feedback yet.","no_site_matches":"No sites match your search.","no_sites":"No sites available yet.","saving_site":"Saving site...","select_site":"Select a site to see details.","site_created":"Site created.","site_deleted":"Site deleted.","site_saved":"Site updated.","widget_copied":"Widget snippet copied.","widget_copy_failed":"Unable to copy widget snippet."},"role_labels":{"admin":"Administrator","user":"User"},"role_values":{"admin":"admin","user":"user"},"button_styles":{"danger":"btn btn-outline-danger btn-sm","primary":"btn btn-outline-primary btn-sm","secondary":"btn btn-outline-secondary btn-sm","success":"btn btn-outline-success btn-sm"},"component_classes":{"site_list_item":"list-group-item list-group-item-action","site_list_item_active":"active","site_list_item_favicon":"flex-shrink-0 rounded border bg-white","site_list_item_header":"d-flex align-items-center gap-2"},"widget_texts":{"unavailable":"Save the site to generate a widget snippet."},"theme_storage_key":"loopaware_dashboard_theme","option_values":{"new_site":"__new__"},"placeholders":{"device_types":"No device data yet.","subscribers":"No subscribers yet.","timezones":"No timezone data yet.","top_pages":"No visits yet."},"form_status_classes":{"base":"d-none py-1 px-2 small rounded","danger":"py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle","success":"py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"},"footer_theme_classes":{"dark":"bg-dark text-light border-light","light":"bg-body text-body-secondary"},"table_theme_classes":{"dark":"table-dark","light":"table-light"},"validation_messages":{"name_required":"Site name is required.","origin_invalid":"Allowed origins must include protocol and hostname, for example https://example.com.","owner_invalid":"Provide a valid owner email address.","widget_offset_invalid":"Provide a whole number between 0 and 240."},"error_messages":{"forbidden":"You are not allowed to manage that site.","invalid_json":"Submitted data could not be parsed.","invalid_owner":"Provide a valid owner email address.","invalid_portfolio_traffic_report":"Provide a report name and valid sites.","invalid_widget_offset":"Provide a whole number between 0 and 240.","invalid_widget_side":"Choose left or right for the widget bubble.","missing_fields":"Provide site name and allowed origin.","not_authorized":"You are not allowed to manage that site.","save_failed":"Failed to save site.","site_exists":"A site for this allowed origin already exists.","unknown_portfolio_traffic_report":"Traffic report not found."},"widget_placement":{"input_name":"widget-bubble-side","default_side":"right","default_bottom_offset":16,"sides":{"left":"Left","right":"Right"},"bottom_offset":{"min":0,"max":240}},"session_timeout":{"prompt_delay_ms":60000,"auto_logout_ms":120000,"texts":{"confirm":"Yes","dismiss":"No","prompt":"Log out due to inactivity?"},"component_classes":{"actions":"session-timeout-actions d-flex flex-shrink-0 gap-2","container":"session-timeout-banner position-fixed start-0 end-0 border-top py-3 w-100 d-none","container_hidden":"d-none","container_visible":"d-block","inner":"container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3","message":"session-timeout-message fw-semibold mb-0"},"theme_classes":{"dark":"bg-dark-subtle text-light border-secondary-subtle","light":"bg-body-secondary text-dark border-light-subtle"}},"auto_logout":{"storage_key":"loopaware_dashboard_auto_logout","min_prompt_seconds":10,"max_prompt_seconds":3600,"min_logout_seconds":20,"max_logout_seconds":7200,"minimum_gap_seconds":5}}</script>
     <script>
       function showLogoutOverlay() {
         var overlay = document.getElementById('logout-overlay');
@@ -1082,6 +1349,23 @@
         var feedbackReconnectDelayMilliseconds = 5000;
         var settingsButton = document.getElementById(elementIds.settings_button);
         var settingsModalElement = document.getElementById(elementIds.settings_modal);
+        var settingsOpenAllSitesTrafficButton = document.getElementById('settings-open-all-sites-traffic');
+        var siteDashboardView = document.getElementById('site-dashboard-view');
+        var allSitesTrafficView = document.getElementById('all-sites-traffic-view');
+        var allSitesTrafficBackButton = document.getElementById('all-sites-traffic-back-button');
+        var globalTrafficReportsList = document.getElementById('global-traffic-reports-list');
+        var globalTrafficReportCreateButton = document.getElementById('global-traffic-report-create-button');
+        var globalTrafficReportTitle = document.getElementById('global-traffic-report-title');
+        var globalTrafficReportNameInput = document.getElementById('global-traffic-report-name');
+        var globalTrafficReportReadonlyName = document.getElementById('global-traffic-report-readonly-name');
+        var globalTrafficReportReadonlyNameValue = document.getElementById('global-traffic-report-readonly-name-value');
+        var globalTrafficReportTypeChip = document.getElementById('global-traffic-report-type-chip');
+        var globalTrafficReportSitesChip = document.getElementById('global-traffic-report-sites-chip');
+        var globalTrafficReportScheduleChip = document.getElementById('global-traffic-report-schedule-chip');
+        var globalTrafficReportSitesSummary = document.getElementById('global-traffic-report-sites-summary');
+        var globalTrafficReportSelectAllSitesButton = document.getElementById('global-traffic-report-select-all-sites');
+        var globalTrafficReportClearSitesButton = document.getElementById('global-traffic-report-clear-sites');
+        var globalTrafficReportSitesList = document.getElementById('global-traffic-report-sites-list');
         var siteNameHelpButton = document.getElementById(elementIds.site_name_help_button);
         var allowedOriginHelpButton = document.getElementById(elementIds.allowed_origin_help_button);
         var ownerEmailHelpButton = document.getElementById(elementIds.owner_email_help_button);
@@ -1128,6 +1412,12 @@
         var topPagesTableBody = document.getElementById(elementIds.top_pages_table_body);
         var deviceTypesTableBody = document.getElementById(elementIds.device_types_table_body);
         var timezonesTableBody = document.getElementById(elementIds.timezones_table_body);
+        var trafficTrendChart = document.getElementById('traffic-trend-chart');
+        var trafficEngagementSummary = document.getElementById('traffic-engagement-summary');
+        var trafficAttributionChart = document.getElementById('traffic-attribution-chart');
+        var topPagesChart = document.getElementById('top-pages-chart');
+        var deviceTypesChart = document.getElementById('device-types-chart');
+        var timezonesChart = document.getElementById('timezones-chart');
         var trafficReportEnabledInput = document.getElementById('traffic-report-enabled');
         var trafficReportFrequencyDailyInput = document.getElementById('traffic-report-frequency-daily');
         var trafficReportFrequencyWeeklyInput = document.getElementById('traffic-report-frequency-weekly');
@@ -1144,6 +1434,30 @@
         var trafficReportNextSendElement = document.getElementById('traffic-report-next-send');
         var trafficReportLastSentElement = document.getElementById('traffic-report-last-sent');
         var trafficReportTestButton = document.getElementById('traffic-report-test-button');
+        var allSitesVisitCountElement = document.getElementById('all-sites-visit-count');
+        var allSitesUniqueVisitorCountElement = document.getElementById('all-sites-unique-visitor-count');
+        var allSitesSiteCountElement = document.getElementById('all-sites-site-count');
+        var allSitesTrafficStatusElement = document.getElementById('all-sites-traffic-status');
+        var allSitesTrafficTrendChart = document.getElementById('all-sites-traffic-trend-chart');
+        var allSitesTopPagesChart = document.getElementById('all-sites-top-pages-chart');
+        var allSitesTopPagesTableBody = document.getElementById('all-sites-top-pages-table-body');
+        var allSitesTrafficSitesTableBody = document.getElementById('all-sites-traffic-sites-table-body');
+        var allSitesTrafficReportEnabledInput = document.getElementById('all-sites-traffic-report-enabled');
+        var allSitesTrafficReportFrequencyDailyInput = document.getElementById('all-sites-traffic-report-frequency-daily');
+        var allSitesTrafficReportFrequencyWeeklyInput = document.getElementById('all-sites-traffic-report-frequency-weekly');
+        var allSitesTrafficReportFrequencyMonthlyInput = document.getElementById('all-sites-traffic-report-frequency-monthly');
+        var allSitesTrafficReportSendTimeInput = document.getElementById('all-sites-traffic-report-send-time');
+        var allSitesTrafficReportTimezoneInput = document.getElementById('all-sites-traffic-report-timezone');
+        var allSitesTrafficReportWeekdayInput = document.getElementById('all-sites-traffic-report-weekday');
+        var allSitesTrafficReportMonthDayInput = document.getElementById('all-sites-traffic-report-month-day');
+        var allSitesTrafficReportRecipientInput = document.getElementById('all-sites-traffic-report-recipient');
+        var allSitesTrafficReportWeekdayContainer = document.getElementById('all-sites-traffic-report-weekday-container');
+        var allSitesTrafficReportMonthDayContainer = document.getElementById('all-sites-traffic-report-month-day-container');
+        var allSitesTrafficReportStatusElement = document.getElementById('all-sites-traffic-report-status');
+        var allSitesTrafficReportEmailStateElement = document.getElementById('all-sites-traffic-report-email-state');
+        var allSitesTrafficReportNextSendElement = document.getElementById('all-sites-traffic-report-next-send');
+        var allSitesTrafficReportLastSentElement = document.getElementById('all-sites-traffic-report-last-sent');
+        var allSitesTrafficReportTestButton = document.getElementById('all-sites-traffic-report-test-button');
         var sessionTimeoutContainer = document.getElementById(elementIds.session_timeout_container);
         var sessionTimeoutMessage = document.getElementById(elementIds.session_timeout_message);
         var sessionTimeoutConfirmButton = document.getElementById(elementIds.session_timeout_confirm_button);
@@ -1245,11 +1559,18 @@
           var apiSiteMessagesSuffix = apiPaths.site_messages_suffix || '';
           var apiSiteSubscribersPrefix = apiUrl(apiPaths.site_subscribers_prefix || '');
           var apiSiteSubscribersSuffix = apiPaths.site_subscribers_suffix || '';
-          var apiSiteSubscribersExportSuffix = apiPaths.site_subscribers_export || '';
-          var apiSiteSubscriberUpdateSuffix = apiPaths.site_subscriber_update || '';
+        var apiSiteSubscribersExportSuffix = apiPaths.site_subscribers_export || '';
+        var apiSiteSubscriberUpdateSuffix = apiPaths.site_subscriber_update || '';
         var apiSiteVisitStatsSuffix = apiPaths.site_visit_stats || '';
+        var apiSiteVisitTrendSuffix = apiPaths.site_visit_trend || '';
+        var apiSiteVisitAttributionSuffix = apiPaths.site_visit_attribution || '';
+        var apiSiteVisitEngagementSuffix = apiPaths.site_visit_engagement || '';
         var apiSiteVisitDevicesSuffix = apiPaths.site_visit_devices || '';
         var apiSiteVisitTimezonesSuffix = apiPaths.site_visit_timezones || '';
+        var apiPortfolioTrafficReportEndpoint = apiUrl(apiPaths.portfolio_traffic_report || '');
+        var apiPortfolioTrafficReportsEndpoint = apiUrl(apiPaths.portfolio_traffic_reports || '');
+        var apiPortfolioTrafficScheduleEndpoint = apiUrl(apiPaths.portfolio_traffic_schedule || '');
+        var apiPortfolioTrafficTestEndpoint = apiUrl(apiPaths.portfolio_traffic_test || '');
         var apiSiteTrafficReportScheduleSuffix = '/traffic-report-schedule';
         var apiSiteTrafficReportTestSuffix = '/traffic-report-schedule/test';
         var apiSiteSentryIssuesSuffix = '/sentry/issues';
@@ -1270,6 +1591,12 @@
           siteMessages: {},
           siteSubscribers: {},
           trafficReportSchedules: {},
+          portfolioTrafficReportSchedule: null,
+          portfolioTrafficReport: null,
+          globalTrafficAvailableSites: [],
+          globalTrafficReports: [],
+          globalTrafficReportsLoaded: false,
+          selectedGlobalTrafficReportId: '',
           siteSentryIssues: {},
           siteSentryDetails: {},
           selectedSentryIssueId: ''
@@ -1282,6 +1609,13 @@
         var trafficReportAutosaveTimerId = null;
         var trafficReportAutosavePending = false;
         var trafficReportAutosaveInFlight = false;
+        var allSitesTrafficReportAutosaveTimerId = null;
+        var allSitesTrafficReportAutosavePending = false;
+        var allSitesTrafficReportAutosaveInFlight = false;
+        var defaultGlobalTrafficReportId = 'all-sites-traffic';
+        var dashboardViewSite = 'site';
+        var dashboardViewAllSitesTraffic = 'all-sites-traffic';
+        var dashboardViewCurrentKey = dashboardViewSite;
         var sessionTimeoutManager = null;
         var siteSearchQuery = '';
         var messagesSearchQuery = '';
@@ -2750,6 +3084,577 @@
             }
           }
         }
+        function setAllSitesTrafficCounts(total, unique, siteCount) {
+          if (allSitesVisitCountElement) {
+            var normalizedTotal = typeof total === 'number' && total > 0 ? total : 0;
+            if (normalizedTotal === 0) {
+              allSitesVisitCountElement.classList.add('d-none');
+              allSitesVisitCountElement.textContent = '';
+            } else {
+              allSitesVisitCountElement.classList.remove('d-none');
+              allSitesVisitCountElement.textContent = normalizedTotal + ' visits';
+            }
+          }
+          if (allSitesUniqueVisitorCountElement) {
+            var normalizedUnique = typeof unique === 'number' && unique > 0 ? unique : 0;
+            if (normalizedUnique === 0) {
+              allSitesUniqueVisitorCountElement.classList.add('d-none');
+              allSitesUniqueVisitorCountElement.textContent = '';
+            } else {
+              allSitesUniqueVisitorCountElement.classList.remove('d-none');
+              allSitesUniqueVisitorCountElement.textContent = normalizedUnique + ' unique';
+            }
+          }
+          if (allSitesSiteCountElement) {
+            var normalizedSiteCount = typeof siteCount === 'number' && siteCount > 0 ? siteCount : 0;
+            if (normalizedSiteCount === 0) {
+              allSitesSiteCountElement.classList.add('d-none');
+              allSitesSiteCountElement.textContent = '';
+            } else {
+              allSitesSiteCountElement.classList.remove('d-none');
+              allSitesSiteCountElement.textContent = normalizedSiteCount + (normalizedSiteCount === 1 ? ' site' : ' sites');
+            }
+          }
+        }
+
+        function getGlobalTrafficAvailableSites() {
+          if (Array.isArray(state.globalTrafficAvailableSites) && state.globalTrafficAvailableSites.length > 0) {
+            return state.globalTrafficAvailableSites.map(function(site) {
+              return {
+                site_id: site.site_id || '',
+                site_name: site.site_name || site.site_id || '',
+                visit_count: Number(site.visit_count) || 0,
+                unique_visitor_count: Number(site.unique_visitor_count) || 0
+              };
+            }).filter(function(site) {
+              return site.site_id;
+            });
+          }
+          return state.sites.map(function(site) {
+            return {
+              site_id: site.id || '',
+              site_name: site.name || site.id || '',
+              visit_count: Number(site.visit_count) || 0,
+              unique_visitor_count: Number(site.unique_visitor_count) || 0
+            };
+          }).filter(function(site) {
+            return site.site_id;
+          });
+        }
+
+        function normalizeGlobalTrafficAvailableSites(rawSites) {
+          return (Array.isArray(rawSites) ? rawSites : []).map(function(site) {
+            return {
+              site_id: site && typeof site.site_id === 'string' ? site.site_id : '',
+              site_name: site && typeof site.site_name === 'string' ? site.site_name : '',
+              visit_count: site && typeof site.visit_count === 'number' ? site.visit_count : 0,
+              unique_visitor_count: site && typeof site.unique_visitor_count === 'number' ? site.unique_visitor_count : 0
+            };
+          }).filter(function(site) {
+            return site.site_id;
+          });
+        }
+
+        function getGlobalTrafficAvailableSiteIds() {
+          return getGlobalTrafficAvailableSites().map(function(site) {
+            return site.site_id;
+          });
+        }
+
+        function normalizeGlobalTrafficReportSiteIds(siteIds, availableIds) {
+          var allowedIds = {};
+          availableIds.forEach(function(siteId) {
+            allowedIds[siteId] = true;
+          });
+          var selectedIds = [];
+          (Array.isArray(siteIds) ? siteIds : []).forEach(function(siteId) {
+            if (typeof siteId === 'string' && allowedIds[siteId] && selectedIds.indexOf(siteId) === -1) {
+              selectedIds.push(siteId);
+            }
+          });
+          return selectedIds;
+        }
+
+        function buildDefaultGlobalTrafficReport() {
+          return {
+            id: defaultGlobalTrafficReportId,
+            name: 'All sites traffic',
+            site_ids: getGlobalTrafficAvailableSiteIds(),
+            locked: true,
+            is_default: true
+          };
+        }
+
+        function normalizeGlobalTrafficReportDefinition(rawReport, index, availableIds) {
+          if (!rawReport || typeof rawReport !== 'object') {
+            return null;
+          }
+          var rawId = typeof rawReport.id === 'string' ? rawReport.id.trim() : '';
+          var isDefaultReport = rawReport.is_default === true || rawId === defaultGlobalTrafficReportId;
+          var reportId = isDefaultReport ? defaultGlobalTrafficReportId : rawId;
+          if (!reportId) {
+            return null;
+          }
+          var rawName = typeof rawReport.name === 'string' ? rawReport.name.trim() : '';
+          return {
+            id: reportId,
+            name: rawName || (isDefaultReport ? 'All sites traffic' : 'Traffic report ' + String(index + 1)),
+            site_ids: isDefaultReport ? availableIds.slice() : normalizeGlobalTrafficReportSiteIds(rawReport.site_ids, availableIds),
+            locked: isDefaultReport,
+            is_default: isDefaultReport
+          };
+        }
+
+        function syncGlobalTrafficReports() {
+          var availableIds = getGlobalTrafficAvailableSiteIds();
+          var sourceReports = state.globalTrafficReportsLoaded ? state.globalTrafficReports : [];
+          var reports = [];
+          var seenReportIds = {};
+          sourceReports.forEach(function(report, index) {
+            var normalized = normalizeGlobalTrafficReportDefinition(report, index, availableIds);
+            if (!normalized || seenReportIds[normalized.id]) {
+              return;
+            }
+            seenReportIds[normalized.id] = true;
+            reports.push(normalized);
+          });
+          if (!seenReportIds[defaultGlobalTrafficReportId]) {
+            reports.unshift(buildDefaultGlobalTrafficReport());
+            seenReportIds[defaultGlobalTrafficReportId] = true;
+          }
+          state.globalTrafficReports = reports;
+          var selectedExists = state.globalTrafficReports.some(function(report) {
+            return report.id === state.selectedGlobalTrafficReportId;
+          });
+          if (!selectedExists) {
+            state.selectedGlobalTrafficReportId = defaultGlobalTrafficReportId;
+          }
+        }
+
+        function selectedGlobalTrafficReport() {
+          syncGlobalTrafficReports();
+          return state.globalTrafficReports.find(function(report) {
+            return report.id === state.selectedGlobalTrafficReportId;
+          }) || state.globalTrafficReports[0] || buildDefaultGlobalTrafficReport();
+        }
+
+        function isDefaultGlobalTrafficReport(report) {
+          return report && report.id === defaultGlobalTrafficReportId;
+        }
+
+        function globalTrafficReportDisplayName(report) {
+          var rawName = report && typeof report.name === 'string' ? report.name.trim() : '';
+          return rawName || 'Untitled report';
+        }
+
+        function globalTrafficReportSiteIds(report) {
+          if (isDefaultGlobalTrafficReport(report)) {
+            return getGlobalTrafficAvailableSiteIds();
+          }
+          return normalizeGlobalTrafficReportSiteIds(report ? report.site_ids : [], getGlobalTrafficAvailableSiteIds());
+        }
+
+        function globalTrafficReportSiteCountLabel(count) {
+          return count + (count === 1 ? ' site' : ' sites');
+        }
+
+        function defaultGlobalTrafficReportSchedule() {
+          return {
+            enabled: false,
+            frequency: 'daily',
+            recipient_email: currentUserEmail(),
+            timezone: detectedTrafficReportTimezone(),
+            send_hour: 9,
+            send_minute: 0,
+            weekday: 1,
+            month_day: 1,
+            email_enabled: true,
+            report_id: selectedGlobalTrafficReport().id || defaultGlobalTrafficReportId
+          };
+        }
+
+        function globalTrafficReportScopedEndpoint(endpoint, reportId) {
+          var trimmedEndpoint = typeof endpoint === 'string' ? endpoint.trim() : '';
+          if (!trimmedEndpoint) {
+            return '';
+          }
+          var normalizedReportId = typeof reportId === 'string' && reportId.trim() ? reportId.trim() : defaultGlobalTrafficReportId;
+          var separator = trimmedEndpoint.indexOf('?') === -1 ? '?' : '&';
+          return trimmedEndpoint + separator + 'report_id=' + encodeURIComponent(normalizedReportId);
+        }
+
+        function applyGlobalTrafficReportsPayload(payload) {
+          state.globalTrafficAvailableSites = normalizeGlobalTrafficAvailableSites(payload && payload.available_sites);
+          var availableIds = getGlobalTrafficAvailableSiteIds();
+          var reports = [];
+          var seenReportIds = {};
+          (payload && Array.isArray(payload.reports) ? payload.reports : []).forEach(function(report, index) {
+            var normalized = normalizeGlobalTrafficReportDefinition(report, index, availableIds);
+            if (!normalized || seenReportIds[normalized.id]) {
+              return;
+            }
+            reports.push(normalized);
+            seenReportIds[normalized.id] = true;
+          });
+          if (!seenReportIds[defaultGlobalTrafficReportId]) {
+            reports.unshift(buildDefaultGlobalTrafficReport());
+          }
+          state.globalTrafficReports = reports;
+          state.globalTrafficReportsLoaded = true;
+          var selectedExists = state.globalTrafficReports.some(function(report) {
+            return report.id === state.selectedGlobalTrafficReportId;
+          });
+          if (!selectedExists) {
+            state.selectedGlobalTrafficReportId = defaultGlobalTrafficReportId;
+          }
+        }
+
+        function replaceGlobalTrafficReport(report) {
+          var availableIds = getGlobalTrafficAvailableSiteIds();
+          var normalized = normalizeGlobalTrafficReportDefinition(report, state.globalTrafficReports.length, availableIds);
+          if (!normalized) {
+            return null;
+          }
+          var replaced = false;
+          state.globalTrafficReports = state.globalTrafficReports.map(function(existingReport) {
+            if (existingReport.id === normalized.id) {
+              replaced = true;
+              return normalized;
+            }
+            return existingReport;
+          });
+          if (!replaced) {
+            state.globalTrafficReports.push(normalized);
+          }
+          state.globalTrafficReportsLoaded = true;
+          return normalized;
+        }
+
+        function loadGlobalTrafficReports() {
+          if (!apiPortfolioTrafficReportsEndpoint) {
+            state.globalTrafficReportsLoaded = true;
+            syncGlobalTrafficReports();
+            renderGlobalTrafficReportSurface();
+            return Promise.resolve();
+          }
+          return fetchJSON(apiPortfolioTrafficReportsEndpoint).then(function(payload) {
+            if (!isAllSitesTrafficView()) {
+              return;
+            }
+            applyGlobalTrafficReportsPayload(payload);
+            renderGlobalTrafficReportSurface();
+            clearAllSitesTrafficStatus();
+          }).catch(function(error) {
+            if (!isAllSitesTrafficView()) {
+              return;
+            }
+            showAllSitesTrafficStatus(error.message || statusMessages.load_failed || '');
+            throw error;
+          });
+        }
+
+        function renderGlobalTrafficReportList() {
+          if (!globalTrafficReportsList) {
+            return;
+          }
+          syncGlobalTrafficReports();
+          globalTrafficReportsList.innerHTML = '';
+          state.globalTrafficReports.forEach(function(report) {
+            var reportButton = document.createElement('button');
+            reportButton.type = 'button';
+            reportButton.className = 'list-group-item list-group-item-action';
+            if (report.id === state.selectedGlobalTrafficReportId) {
+              reportButton.className += ' active';
+              reportButton.setAttribute('aria-current', 'true');
+            }
+            reportButton.dataset.globalTrafficReportId = report.id;
+
+            var nameElement = document.createElement('div');
+            nameElement.className = 'fw-semibold text-truncate';
+            nameElement.textContent = globalTrafficReportDisplayName(report);
+            reportButton.appendChild(nameElement);
+
+            var metaElement = document.createElement('div');
+            metaElement.className = report.id === state.selectedGlobalTrafficReportId ? 'small text-white-50' : 'small text-muted';
+            metaElement.textContent = globalTrafficReportSiteCountLabel(globalTrafficReportSiteIds(report).length);
+            reportButton.appendChild(metaElement);
+
+            globalTrafficReportsList.appendChild(reportButton);
+          });
+        }
+
+        function renderGlobalTrafficReportHeader(report) {
+          var selectedReport = report || selectedGlobalTrafficReport();
+          var selectedSiteCount = globalTrafficReportSiteIds(selectedReport).length;
+          if (globalTrafficReportTitle) {
+            globalTrafficReportTitle.textContent = globalTrafficReportDisplayName(selectedReport);
+          }
+          var reportIsDefault = isDefaultGlobalTrafficReport(selectedReport);
+          if (globalTrafficReportNameInput) {
+            globalTrafficReportNameInput.value = selectedReport.name || '';
+            globalTrafficReportNameInput.disabled = reportIsDefault;
+            globalTrafficReportNameInput.classList.toggle('d-none', reportIsDefault);
+          }
+          if (globalTrafficReportReadonlyName) {
+            globalTrafficReportReadonlyName.classList.toggle('d-none', !reportIsDefault);
+          }
+          if (globalTrafficReportReadonlyNameValue) {
+            globalTrafficReportReadonlyNameValue.textContent = selectedReport.name || '';
+          }
+          if (globalTrafficReportTypeChip) {
+            globalTrafficReportTypeChip.textContent = 'Traffic';
+          }
+          if (globalTrafficReportSitesChip) {
+            globalTrafficReportSitesChip.textContent = globalTrafficReportSiteCountLabel(selectedSiteCount);
+          }
+          if (globalTrafficReportScheduleChip) {
+            if (state.portfolioTrafficReportSchedule && state.portfolioTrafficReportSchedule.enabled === true) {
+              globalTrafficReportScheduleChip.textContent = 'Schedule on';
+            } else {
+              globalTrafficReportScheduleChip.textContent = 'Schedule off';
+            }
+          }
+        }
+
+        function renderGlobalTrafficReportSites() {
+          if (!globalTrafficReportSitesList) {
+            return;
+          }
+          var report = selectedGlobalTrafficReport();
+          var availableSites = getGlobalTrafficAvailableSites();
+          var selectedIds = globalTrafficReportSiteIds(report);
+          var selectedLookup = {};
+          selectedIds.forEach(function(siteId) {
+            selectedLookup[siteId] = true;
+          });
+          var isLocked = isDefaultGlobalTrafficReport(report);
+
+          if (globalTrafficReportSitesSummary) {
+            globalTrafficReportSitesSummary.textContent = selectedIds.length + ' of ' + availableSites.length + ' sites';
+          }
+          if (globalTrafficReportSelectAllSitesButton) {
+            globalTrafficReportSelectAllSitesButton.disabled = isLocked || availableSites.length === 0;
+          }
+          if (globalTrafficReportClearSitesButton) {
+            globalTrafficReportClearSitesButton.disabled = isLocked || availableSites.length === 0;
+          }
+
+          globalTrafficReportSitesList.innerHTML = '';
+          if (availableSites.length === 0) {
+            var emptyItem = document.createElement('div');
+            emptyItem.className = 'list-group-item text-muted';
+            emptyItem.textContent = 'No sites available yet.';
+            globalTrafficReportSitesList.appendChild(emptyItem);
+            return;
+          }
+
+          availableSites.forEach(function(site) {
+            var item = document.createElement('label');
+            item.className = 'list-group-item d-flex justify-content-between align-items-center gap-3';
+
+            var leftSide = document.createElement('span');
+            leftSide.className = 'd-flex align-items-center gap-2 text-truncate';
+
+            var checkbox = document.createElement('input');
+            checkbox.className = 'form-check-input flex-shrink-0 m-0';
+            checkbox.type = 'checkbox';
+            checkbox.dataset.globalTrafficSiteId = site.site_id;
+            checkbox.checked = selectedLookup[site.site_id] === true;
+            checkbox.disabled = isLocked;
+            leftSide.appendChild(checkbox);
+
+            var nameElement = document.createElement('span');
+            nameElement.className = 'text-truncate';
+            nameElement.textContent = site.site_name || site.site_id;
+            leftSide.appendChild(nameElement);
+            item.appendChild(leftSide);
+
+            var countElement = document.createElement('span');
+            countElement.className = 'badge bg-secondary flex-shrink-0';
+            countElement.textContent = String(Number(site.visit_count) || 0);
+            item.appendChild(countElement);
+
+            globalTrafficReportSitesList.appendChild(item);
+          });
+        }
+
+        function renderSelectedGlobalTrafficReportPreview() {
+          var report = selectedGlobalTrafficReport();
+          var loadedReport = state.portfolioTrafficReport && state.portfolioTrafficReport.report_id === report.id ? state.portfolioTrafficReport : null;
+          if (loadedReport) {
+            setAllSitesTrafficCounts(loadedReport.visit_count, loadedReport.unique_visitor_count, loadedReport.site_count);
+            renderAllSitesTrafficSites(loadedReport.sites || []);
+            renderAllSitesTrendChart(loadedReport.trend || []);
+            renderAllSitesTopPages(loadedReport.top_pages || []);
+            return;
+          }
+          var availableSites = getGlobalTrafficAvailableSites();
+          var selectedIds = globalTrafficReportSiteIds(report);
+          var selectedLookup = {};
+          selectedIds.forEach(function(siteId) {
+            selectedLookup[siteId] = true;
+          });
+          var selectedSites = availableSites.filter(function(site) {
+            return selectedLookup[site.site_id] === true;
+          });
+          var totalVisits = selectedSites.reduce(function(total, site) {
+            return total + (Number(site.visit_count) || 0);
+          }, 0);
+          var uniqueVisitors = selectedSites.reduce(function(total, site) {
+            return total + (Number(site.unique_visitor_count) || 0);
+          }, 0);
+          setAllSitesTrafficCounts(totalVisits, uniqueVisitors, selectedSites.length);
+          renderAllSitesTrafficSites(selectedSites);
+          renderAllSitesTrendChart([]);
+          renderAllSitesTopPages([]);
+        }
+
+        function updateGlobalTrafficReportSchedulePanel() {
+          setAllSitesTrafficReportControlsDisabled(!apiPortfolioTrafficScheduleEndpoint);
+          setAllSitesTrafficReportScheduleControls(state.portfolioTrafficReportSchedule || defaultGlobalTrafficReportSchedule());
+        }
+
+        function renderGlobalTrafficReportSurface() {
+          syncGlobalTrafficReports();
+          renderGlobalTrafficReportList();
+          var report = selectedGlobalTrafficReport();
+          renderGlobalTrafficReportHeader(report);
+          renderGlobalTrafficReportSites();
+          renderSelectedGlobalTrafficReportPreview();
+          updateGlobalTrafficReportSchedulePanel();
+        }
+
+        function createGlobalTrafficReport() {
+          syncGlobalTrafficReports();
+          if (!apiPortfolioTrafficReportsEndpoint) {
+            return;
+          }
+          var availableIds = getGlobalTrafficAvailableSiteIds();
+          var reportNumber = state.globalTrafficReports.length + 1;
+          var payload = {
+            name: 'Traffic report ' + String(reportNumber),
+            site_ids: availableIds.slice()
+          };
+          fetchJSON(apiPortfolioTrafficReportsEndpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          }).then(function(responsePayload) {
+            var report = replaceGlobalTrafficReport(responsePayload);
+            if (!report) {
+              return;
+            }
+            state.selectedGlobalTrafficReportId = report.id;
+            state.portfolioTrafficReport = null;
+            state.portfolioTrafficReportSchedule = null;
+            renderGlobalTrafficReportSurface();
+            loadAllSitesTrafficStats();
+            loadAllSitesTrafficReportSchedule();
+          }).catch(function(error) {
+            showAllSitesTrafficStatus(error.message || buttonLabels.save_failed || '');
+          });
+        }
+
+        function selectGlobalTrafficReport(reportId) {
+          syncGlobalTrafficReports();
+          var exists = state.globalTrafficReports.some(function(report) {
+            return report.id === reportId;
+          });
+          if (!exists) {
+            return;
+          }
+          state.selectedGlobalTrafficReportId = reportId;
+          cancelAllSitesTrafficReportAutosave();
+          clearAllSitesTrafficReportStatus();
+          state.portfolioTrafficReport = null;
+          state.portfolioTrafficReportSchedule = null;
+          renderGlobalTrafficReportSurface();
+          loadAllSitesTrafficStats();
+          loadAllSitesTrafficReportSchedule();
+        }
+
+        function saveSelectedGlobalTrafficReportDefinition() {
+          var report = selectedGlobalTrafficReport();
+          if (isDefaultGlobalTrafficReport(report)) {
+            return Promise.resolve(null);
+          }
+          if (!apiPortfolioTrafficReportsEndpoint) {
+            return Promise.resolve(null);
+          }
+          var endpoint = apiPortfolioTrafficReportsEndpoint.replace(/\/+$/, '') + '/' + encodeURIComponent(report.id);
+          var payload = {
+            name: globalTrafficReportDisplayName(report),
+            site_ids: globalTrafficReportSiteIds(report)
+          };
+          return fetchJSON(endpoint, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          }).then(function(responsePayload) {
+            var savedReport = replaceGlobalTrafficReport(responsePayload);
+            if (savedReport) {
+              state.selectedGlobalTrafficReportId = savedReport.id;
+            }
+            renderGlobalTrafficReportSurface();
+            return savedReport;
+          }).catch(function(error) {
+            showAllSitesTrafficStatus(error.message || buttonLabels.save_failed || '');
+            throw error;
+          });
+        }
+
+        function updateSelectedGlobalTrafficReportName(value, persist) {
+          var report = selectedGlobalTrafficReport();
+          if (isDefaultGlobalTrafficReport(report)) {
+            renderGlobalTrafficReportHeader(report);
+            return;
+          }
+          report.name = value;
+          renderGlobalTrafficReportList();
+          renderGlobalTrafficReportHeader(report);
+          if (persist === true) {
+            saveSelectedGlobalTrafficReportDefinition().catch(function() {
+              return null;
+            });
+          }
+        }
+
+        function setSelectedGlobalTrafficReportSites(siteIds) {
+          var report = selectedGlobalTrafficReport();
+          if (isDefaultGlobalTrafficReport(report)) {
+            return;
+          }
+          report.site_ids = normalizeGlobalTrafficReportSiteIds(siteIds, getGlobalTrafficAvailableSiteIds());
+          state.portfolioTrafficReport = null;
+          renderGlobalTrafficReportSurface();
+          saveSelectedGlobalTrafficReportDefinition().then(function() {
+            loadAllSitesTrafficStats();
+          }).catch(function() {
+            return null;
+          });
+        }
+
+        function handleGlobalTrafficReportSiteToggle(siteId, checked) {
+          var report = selectedGlobalTrafficReport();
+          if (isDefaultGlobalTrafficReport(report)) {
+            renderGlobalTrafficReportSites();
+            return;
+          }
+          var selectedIds = globalTrafficReportSiteIds(report);
+          if (checked && selectedIds.indexOf(siteId) === -1) {
+            selectedIds.push(siteId);
+          }
+          if (!checked) {
+            selectedIds = selectedIds.filter(function(selectedSiteId) {
+              return selectedSiteId !== siteId;
+            });
+          }
+          setSelectedGlobalTrafficReportSites(selectedIds);
+        }
         function updateSelectedSiteSummary(site) {
           if (!site) {
             setSiteCreatedAt(null);
@@ -3402,6 +4307,30 @@
           setCardVisible('[data-dashboard-card=\"traffic\"]', showTraffic);
           setCardVisible('[data-widget-card=\"sentry\"]', showSentry);
           setCardVisible('[data-dashboard-card=\"sentry\"]', showSentry);
+        }
+
+        function isAllSitesTrafficView() {
+          return dashboardViewCurrentKey === dashboardViewAllSitesTraffic;
+        }
+
+        function applyDashboardViewVisibility() {
+          var showAllSitesTraffic = isAllSitesTrafficView();
+          if (siteDashboardView) {
+            siteDashboardView.classList.toggle('d-none', showAllSitesTraffic);
+          }
+          if (allSitesTrafficView) {
+            allSitesTrafficView.classList.toggle('d-none', !showAllSitesTraffic);
+          }
+        }
+
+        function setDashboardView(nextView) {
+          var normalizedView = nextView === dashboardViewAllSitesTraffic ? dashboardViewAllSitesTraffic : dashboardViewSite;
+          if (dashboardViewCurrentKey === normalizedView) {
+            applyDashboardViewVisibility();
+            return;
+          }
+          dashboardViewCurrentKey = normalizedView;
+          applyDashboardViewVisibility();
         }
 
         function resolveErrorMessage(errorCode, fallbackMessage) {
@@ -4168,12 +5097,17 @@
           });
         }
 
-        function renderTopPages(pages) {
-          if (!topPagesTableBody) {
+        function renderTopPagesInto(tableBody, chart, pages) {
+          if (!tableBody) {
             return;
           }
           var items = Array.isArray(pages) ? pages : [];
-          topPagesTableBody.innerHTML = '';
+          renderBarChart(chart, items, {
+            labelKey: 'path',
+            countKey: 'visit_count',
+            emptyMessage: topPagesPlaceholder
+          });
+          tableBody.innerHTML = '';
           if (items.length === 0) {
             var placeholderRow = document.createElement('tr');
             var placeholderCell = document.createElement('td');
@@ -4181,7 +5115,7 @@
             placeholderCell.className = 'text-center text-muted';
             placeholderCell.textContent = topPagesPlaceholder;
             placeholderRow.appendChild(placeholderCell);
-            topPagesTableBody.appendChild(placeholderRow);
+            tableBody.appendChild(placeholderRow);
             return;
           }
           items.forEach(function(entry) {
@@ -4193,18 +5127,26 @@
             countCell.textContent = (entry.visit_count || 0).toString();
             row.appendChild(pathCell);
             row.appendChild(countCell);
-            topPagesTableBody.appendChild(row);
+            tableBody.appendChild(row);
           });
         }
 
-        function renderTrafficTableMessage(tableBody, message) {
+        function renderTopPages(pages) {
+          renderTopPagesInto(topPagesTableBody, topPagesChart, pages);
+        }
+
+        function renderAllSitesTopPages(pages) {
+          renderTopPagesInto(allSitesTopPagesTableBody, allSitesTopPagesChart, pages);
+        }
+
+        function renderTrafficTableMessage(tableBody, message, columnCount) {
           if (!tableBody) {
             return;
           }
           tableBody.innerHTML = '';
           var placeholderRow = document.createElement('tr');
           var placeholderCell = document.createElement('td');
-          placeholderCell.colSpan = 2;
+          placeholderCell.colSpan = columnCount || 2;
           placeholderCell.className = 'text-center text-muted';
           placeholderCell.textContent = message || statusMessages.load_failed || '';
           placeholderRow.appendChild(placeholderCell);
@@ -4227,11 +5169,32 @@
           trafficStatusElement.classList.remove('d-none');
         }
 
+        function clearAllSitesTrafficStatus() {
+          if (!allSitesTrafficStatusElement) {
+            return;
+          }
+          allSitesTrafficStatusElement.textContent = '';
+          allSitesTrafficStatusElement.classList.add('d-none');
+        }
+
+        function showAllSitesTrafficStatus(message) {
+          if (!allSitesTrafficStatusElement) {
+            return;
+          }
+          allSitesTrafficStatusElement.textContent = message || statusMessages.load_failed || '';
+          allSitesTrafficStatusElement.classList.remove('d-none');
+        }
+
         function renderDeviceTypes(deviceTypes) {
           if (!deviceTypesTableBody) {
             return;
           }
           var items = Array.isArray(deviceTypes) ? deviceTypes : [];
+          renderBarChart(deviceTypesChart, items, {
+            labelKey: 'device_type',
+            countKey: 'visit_count',
+            emptyMessage: deviceTypesPlaceholder
+          });
           if (items.length === 0) {
             renderTrafficTableMessage(deviceTypesTableBody, deviceTypesPlaceholder);
             return;
@@ -4255,6 +5218,11 @@
             return;
           }
           var items = Array.isArray(timezones) ? timezones : [];
+          renderBarChart(timezonesChart, items, {
+            labelKey: 'timezone',
+            countKey: 'visit_count',
+            emptyMessage: timezonesPlaceholder
+          });
           if (items.length === 0) {
             renderTrafficTableMessage(timezonesTableBody, timezonesPlaceholder);
             return;
@@ -4271,6 +5239,226 @@
             row.appendChild(countCell);
             timezonesTableBody.appendChild(row);
           });
+        }
+
+        function renderChartMessage(container, message) {
+          if (!container) {
+            return;
+          }
+          container.innerHTML = '';
+          var messageElement = document.createElement('div');
+          messageElement.className = 'text-center text-muted small py-3';
+          messageElement.textContent = message || statusMessages.load_failed || '';
+          container.appendChild(messageElement);
+        }
+
+        function renderBarChart(container, entries, options) {
+          if (!container) {
+            return;
+          }
+          var items = Array.isArray(entries) ? entries : [];
+          var resolvedOptions = options || {};
+          var labelKey = resolvedOptions.labelKey || 'value';
+          var countKey = resolvedOptions.countKey || 'visit_count';
+          var emptyMessage = resolvedOptions.emptyMessage || 'No data yet.';
+          container.innerHTML = '';
+          if (items.length === 0) {
+            renderChartMessage(container, emptyMessage);
+            return;
+          }
+          var maximum = items.reduce(function(currentMaximum, entry) {
+            var value = Number(entry && entry[countKey]);
+            return Math.max(currentMaximum, Number.isFinite(value) ? value : 0);
+          }, 0);
+          if (maximum <= 0) {
+            renderChartMessage(container, emptyMessage);
+            return;
+          }
+          items.slice(0, 8).forEach(function(entry) {
+            var count = Number(entry && entry[countKey]);
+            if (!Number.isFinite(count) || count < 0) {
+              count = 0;
+            }
+            var label = entry && entry[labelKey] ? String(entry[labelKey]) : '/';
+            var row = document.createElement('div');
+            row.className = 'traffic-bar';
+            var labelElement = document.createElement('div');
+            labelElement.className = 'traffic-bar__label small';
+            labelElement.textContent = label;
+            var trackElement = document.createElement('div');
+            trackElement.className = 'traffic-bar__track bg-body-tertiary rounded-pill';
+            var fillElement = document.createElement('span');
+            fillElement.className = 'traffic-bar__fill bg-primary rounded-pill';
+            fillElement.style.width = Math.max(4, Math.round((count / maximum) * 100)) + '%';
+            trackElement.appendChild(fillElement);
+            var valueElement = document.createElement('div');
+            valueElement.className = 'small text-muted text-end';
+            valueElement.textContent = count.toString();
+            row.appendChild(labelElement);
+            row.appendChild(trackElement);
+            row.appendChild(valueElement);
+            container.appendChild(row);
+          });
+        }
+
+        function renderTrendChartInto(container, points) {
+          if (!container) {
+            return;
+          }
+          var entries = Array.isArray(points) ? points : [];
+          var maximum = entries.reduce(function(currentMaximum, point) {
+            return Math.max(currentMaximum, Number(point && point.page_views) || 0, Number(point && point.unique_visitors) || 0);
+          }, 0);
+          container.innerHTML = '';
+          if (entries.length === 0 || maximum <= 0) {
+            renderChartMessage(container, 'No trend data yet.');
+            return;
+          }
+          var namespace = 'http://www.w3.org/2000/svg';
+          var svg = document.createElementNS(namespace, 'svg');
+          svg.setAttribute('viewBox', '0 0 640 160');
+          svg.setAttribute('role', 'img');
+          svg.setAttribute('aria-label', 'Traffic trend');
+          var paddingX = 24;
+          var topPadding = 16;
+          var bottomPadding = 24;
+          var usableWidth = 640 - paddingX * 2;
+          var usableHeight = 160 - topPadding - bottomPadding;
+
+          function pointPath(valueKey) {
+            return entries.map(function(point, index) {
+              var denominator = Math.max(entries.length - 1, 1);
+              var x = paddingX + (usableWidth * index / denominator);
+              var value = Number(point && point[valueKey]) || 0;
+              var y = topPadding + usableHeight - (usableHeight * value / maximum);
+              return (index === 0 ? 'M ' : 'L ') + x.toFixed(1) + ' ' + y.toFixed(1);
+            }).join(' ');
+          }
+
+          var axis = document.createElementNS(namespace, 'line');
+          axis.setAttribute('x1', String(paddingX));
+          axis.setAttribute('x2', String(640 - paddingX));
+          axis.setAttribute('y1', String(topPadding + usableHeight));
+          axis.setAttribute('y2', String(topPadding + usableHeight));
+          axis.setAttribute('stroke', 'currentColor');
+          axis.setAttribute('opacity', '0.2');
+          svg.appendChild(axis);
+
+          var pageViewsPath = document.createElementNS(namespace, 'path');
+          pageViewsPath.setAttribute('d', pointPath('page_views'));
+          pageViewsPath.setAttribute('fill', 'none');
+          pageViewsPath.setAttribute('stroke', 'var(--bs-primary)');
+          pageViewsPath.setAttribute('stroke-width', '3');
+          pageViewsPath.setAttribute('stroke-linecap', 'round');
+          pageViewsPath.setAttribute('stroke-linejoin', 'round');
+          svg.appendChild(pageViewsPath);
+
+          var uniqueVisitorsPath = document.createElementNS(namespace, 'path');
+          uniqueVisitorsPath.setAttribute('d', pointPath('unique_visitors'));
+          uniqueVisitorsPath.setAttribute('fill', 'none');
+          uniqueVisitorsPath.setAttribute('stroke', 'var(--bs-success)');
+          uniqueVisitorsPath.setAttribute('stroke-width', '3');
+          uniqueVisitorsPath.setAttribute('stroke-linecap', 'round');
+          uniqueVisitorsPath.setAttribute('stroke-linejoin', 'round');
+          svg.appendChild(uniqueVisitorsPath);
+          container.appendChild(svg);
+
+          var legend = document.createElement('div');
+          legend.className = 'd-flex gap-3 small text-muted mt-2';
+          legend.innerHTML = '<span><span class="badge bg-primary me-1">&nbsp;</span>Visits</span><span><span class="badge bg-success me-1">&nbsp;</span>Unique</span>';
+          container.appendChild(legend);
+        }
+
+        function renderTrendChart(points) {
+          renderTrendChartInto(trafficTrendChart, points);
+        }
+
+        function renderAllSitesTrendChart(points) {
+          renderTrendChartInto(allSitesTrafficTrendChart, points);
+        }
+
+        function renderEngagementSummary(engagement) {
+          if (!trafficEngagementSummary) {
+            return;
+          }
+          var payload = engagement || {};
+          trafficEngagementSummary.innerHTML = '';
+          var cards = [
+            { label: 'Tracked visitors', value: String(Number(payload.tracked_visitor_count) || 0) },
+            { label: 'Returning rate', value: Math.round((Number(payload.returning_visitor_rate) || 0) * 100) + '%' },
+            { label: 'Avg pages', value: (Number(payload.average_pages_per_visitor) || 0).toFixed(1) }
+          ];
+          cards.forEach(function(card) {
+            var item = document.createElement('div');
+            item.className = 'traffic-kpi';
+            var value = document.createElement('div');
+            value.className = 'fw-semibold';
+            value.textContent = card.value;
+            var label = document.createElement('div');
+            label.className = 'small text-muted';
+            label.textContent = card.label;
+            item.appendChild(value);
+            item.appendChild(label);
+            trafficEngagementSummary.appendChild(item);
+          });
+        }
+
+        function renderAllSitesTrafficSites(sites) {
+          var items = Array.isArray(sites) ? sites : [];
+          if (!allSitesTrafficSitesTableBody) {
+            return;
+          }
+          allSitesTrafficSitesTableBody.innerHTML = '';
+          if (items.length === 0) {
+            renderTrafficTableMessage(allSitesTrafficSitesTableBody, 'No sites yet.', 3);
+            return;
+          }
+          items.forEach(function(site) {
+            var row = document.createElement('tr');
+            var nameCell = document.createElement('td');
+            nameCell.textContent = site.site_name || site.site_id || '';
+            var visitCell = document.createElement('td');
+            visitCell.className = 'text-end';
+            visitCell.textContent = String(Number(site.visit_count) || 0);
+            var uniqueCell = document.createElement('td');
+            uniqueCell.className = 'text-end';
+            uniqueCell.textContent = String(Number(site.unique_visitor_count) || 0);
+            row.appendChild(nameCell);
+            row.appendChild(visitCell);
+            row.appendChild(uniqueCell);
+            allSitesTrafficSitesTableBody.appendChild(row);
+          });
+        }
+
+        function closeSettingsModal() {
+          if (!settingsModalElement || !window.bootstrap || !window.bootstrap.Modal) {
+            return;
+          }
+          var modalInstance = window.bootstrap.Modal.getOrCreateInstance(settingsModalElement);
+          if (modalInstance && typeof modalInstance.hide === 'function') {
+            modalInstance.hide();
+          }
+        }
+
+        function openAllSitesTrafficReports() {
+          closeSettingsModal();
+          setDashboardView(dashboardViewAllSitesTraffic);
+          state.portfolioTrafficReport = null;
+          state.portfolioTrafficReportSchedule = null;
+          renderGlobalTrafficReportSurface();
+          loadGlobalTrafficReports().then(function() {
+            loadAllSitesTrafficStats();
+            loadAllSitesTrafficReportSchedule();
+          }).catch(function() {
+            return null;
+          });
+        }
+
+        function openSelectedSiteTrafficReports() {
+          setDashboardView(dashboardViewSite);
+          setDashboardSection('traffic');
+          loadVisitStats();
+          loadTrafficReportSchedule();
         }
 
         function setSentryIssueCount(total) {
@@ -4648,6 +5836,20 @@
           return 'UTC';
         }
 
+        function trafficReportScheduleTimezone(schedule) {
+          var normalizedSchedule = schedule || {};
+          var normalizedTimezone = typeof normalizedSchedule.timezone === 'string' ? normalizedSchedule.timezone.trim() : '';
+          if (normalizedSchedule.persisted === true) {
+            return normalizedTimezone || detectedTrafficReportTimezone();
+          }
+          return detectedTrafficReportTimezone();
+        }
+
+        function trafficReportInputTimezone(timezoneInput) {
+          var normalizedTimezone = timezoneInput && typeof timezoneInput.value === 'string' ? timezoneInput.value.trim() : '';
+          return normalizedTimezone || detectedTrafficReportTimezone();
+        }
+
         function setTrafficReportControlsDisabled(disabled) {
           var shouldDisable = Boolean(disabled);
           [
@@ -4691,7 +5893,7 @@
             trafficReportSendTimeInput.value = trafficReportTimeValue(normalizedSchedule.send_hour, normalizedSchedule.send_minute);
           }
           if (trafficReportTimezoneInput) {
-            trafficReportTimezoneInput.value = detectedTrafficReportTimezone() || normalizedSchedule.timezone || 'UTC';
+            trafficReportTimezoneInput.value = trafficReportScheduleTimezone(normalizedSchedule);
           }
           if (trafficReportWeekdayInput) {
             trafficReportWeekdayInput.value = String(typeof normalizedSchedule.weekday === 'number' ? normalizedSchedule.weekday : 1);
@@ -4735,12 +5937,26 @@
             enabled: trafficReportEnabledInput ? trafficReportEnabledInput.checked === true : false,
             frequency: selectedTrafficReportFrequency(),
             recipient_email: currentUserEmail(),
-            timezone: detectedTrafficReportTimezone(),
+            timezone: trafficReportInputTimezone(trafficReportTimezoneInput),
             send_hour: Number(timeParts[0]),
             send_minute: Number(timeParts[1]),
             weekday: trafficReportWeekdayInput ? Number(trafficReportWeekdayInput.value) : 1,
             month_day: trafficReportMonthDayInput ? Number(trafficReportMonthDayInput.value) : 1
           };
+        }
+
+        function trafficReportScheduleEndpoint() {
+          if (!state.selectedSiteId || isNewSiteSelected()) {
+            return '';
+          }
+          return apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteTrafficReportScheduleSuffix;
+        }
+
+        function trafficReportTestEndpoint() {
+          if (!state.selectedSiteId || isNewSiteSelected()) {
+            return '';
+          }
+          return apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteTrafficReportTestSuffix;
         }
 
         function loadTrafficReportSchedule() {
@@ -4762,7 +5978,7 @@
             return;
           }
           setTrafficReportControlsDisabled(false);
-          var endpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteTrafficReportScheduleSuffix;
+          var endpoint = trafficReportScheduleEndpoint();
           fetchJSON(endpoint).then(function(payload) {
             if (state.selectedSiteId !== selectedSiteId) {
               return;
@@ -4782,7 +5998,7 @@
           if (!state.selectedSiteId || isNewSiteSelected()) {
             return Promise.resolve(null);
           }
-          var endpoint = apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteTrafficReportScheduleSuffix;
+          var endpoint = trafficReportScheduleEndpoint();
           var payload = readTrafficReportSchedulePayload();
           clearTrafficReportStatus();
           return fetchJSON(endpoint, {
@@ -4849,15 +6065,260 @@
         function sendTrafficReportTest() {
           cancelTrafficReportAutosave();
           saveTrafficReportSchedule('').then(function() {
-            if (!state.selectedSiteId || isNewSiteSelected()) {
+            var endpoint = trafficReportTestEndpoint();
+            if (!endpoint) {
               return;
             }
-            var endpoint = apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteTrafficReportTestSuffix;
             return fetchJSON(endpoint, { method: 'POST' });
           }).then(function() {
             showTrafficReportStatus('Test report sent.', false);
           }).catch(function(error) {
             showTrafficReportStatus(error.message || 'Unable to send test report.', true);
+          });
+        }
+
+        function clearAllSitesTrafficReportStatus() {
+          if (!allSitesTrafficReportStatusElement) {
+            return;
+          }
+          allSitesTrafficReportStatusElement.textContent = '';
+          allSitesTrafficReportStatusElement.classList.add('d-none');
+        }
+
+        function showAllSitesTrafficReportStatus(message, isError) {
+          if (!allSitesTrafficReportStatusElement) {
+            return;
+          }
+          allSitesTrafficReportStatusElement.textContent = message || '';
+          allSitesTrafficReportStatusElement.classList.remove('d-none');
+          allSitesTrafficReportStatusElement.classList.toggle('text-danger-emphasis', isError === true);
+          allSitesTrafficReportStatusElement.classList.toggle('bg-danger-subtle', isError === true);
+          allSitesTrafficReportStatusElement.classList.toggle('text-success-emphasis', isError !== true);
+          allSitesTrafficReportStatusElement.classList.toggle('bg-success-subtle', isError !== true);
+        }
+
+        function selectedAllSitesTrafficReportFrequency() {
+          var selected = document.querySelector('input[name="all-sites-traffic-report-frequency"]:checked');
+          if (selected && typeof selected.value === 'string') {
+            return selected.value;
+          }
+          return 'daily';
+        }
+
+        function updateAllSitesTrafficReportFrequencyVisibility() {
+          var frequency = selectedAllSitesTrafficReportFrequency();
+          if (allSitesTrafficReportWeekdayContainer) {
+            allSitesTrafficReportWeekdayContainer.classList.toggle('d-none', frequency !== 'weekly');
+          }
+          if (allSitesTrafficReportMonthDayContainer) {
+            allSitesTrafficReportMonthDayContainer.classList.toggle('d-none', frequency !== 'monthly');
+          }
+        }
+
+        function setAllSitesTrafficReportControlsDisabled(disabled) {
+          var shouldDisable = Boolean(disabled);
+          [
+            allSitesTrafficReportEnabledInput,
+            allSitesTrafficReportFrequencyDailyInput,
+            allSitesTrafficReportFrequencyWeeklyInput,
+            allSitesTrafficReportFrequencyMonthlyInput,
+            allSitesTrafficReportSendTimeInput,
+            allSitesTrafficReportWeekdayInput,
+            allSitesTrafficReportMonthDayInput,
+            allSitesTrafficReportTestButton
+          ].forEach(function(element) {
+            if (element) {
+              element.disabled = shouldDisable;
+            }
+          });
+          [allSitesTrafficReportTimezoneInput, allSitesTrafficReportRecipientInput].forEach(function(element) {
+            if (element) {
+              element.disabled = shouldDisable;
+              element.readOnly = true;
+            }
+          });
+        }
+
+        function setAllSitesTrafficReportScheduleControls(schedule) {
+          var normalizedSchedule = schedule || {};
+          if (allSitesTrafficReportEnabledInput) {
+            allSitesTrafficReportEnabledInput.checked = normalizedSchedule.enabled === true;
+          }
+          var frequency = normalizedSchedule.frequency || 'daily';
+          if (allSitesTrafficReportFrequencyDailyInput) {
+            allSitesTrafficReportFrequencyDailyInput.checked = frequency === 'daily';
+          }
+          if (allSitesTrafficReportFrequencyWeeklyInput) {
+            allSitesTrafficReportFrequencyWeeklyInput.checked = frequency === 'weekly';
+          }
+          if (allSitesTrafficReportFrequencyMonthlyInput) {
+            allSitesTrafficReportFrequencyMonthlyInput.checked = frequency === 'monthly';
+          }
+          if (allSitesTrafficReportSendTimeInput) {
+            allSitesTrafficReportSendTimeInput.value = trafficReportTimeValue(normalizedSchedule.send_hour, normalizedSchedule.send_minute);
+          }
+          if (allSitesTrafficReportTimezoneInput) {
+            allSitesTrafficReportTimezoneInput.value = trafficReportScheduleTimezone(normalizedSchedule);
+          }
+          if (allSitesTrafficReportWeekdayInput) {
+            allSitesTrafficReportWeekdayInput.value = String(typeof normalizedSchedule.weekday === 'number' ? normalizedSchedule.weekday : 1);
+          }
+          if (allSitesTrafficReportMonthDayInput) {
+            allSitesTrafficReportMonthDayInput.value = String(typeof normalizedSchedule.month_day === 'number' ? normalizedSchedule.month_day : 1);
+          }
+          if (allSitesTrafficReportRecipientInput) {
+            allSitesTrafficReportRecipientInput.value = currentUserEmail() || normalizedSchedule.recipient_email || '';
+          }
+          if (allSitesTrafficReportEmailStateElement) {
+            if (normalizedSchedule.email_enabled === false) {
+              allSitesTrafficReportEmailStateElement.textContent = 'Email disabled';
+              allSitesTrafficReportEmailStateElement.classList.remove('d-none');
+            } else {
+              allSitesTrafficReportEmailStateElement.textContent = '';
+              allSitesTrafficReportEmailStateElement.classList.add('d-none');
+            }
+          }
+          if (allSitesTrafficReportTestButton && normalizedSchedule.email_enabled === false) {
+            allSitesTrafficReportTestButton.disabled = true;
+          }
+          renderAllSitesTrafficReportScheduleSummary(normalizedSchedule);
+          updateAllSitesTrafficReportFrequencyVisibility();
+        }
+
+        function renderAllSitesTrafficReportScheduleSummary(schedule) {
+          var normalizedSchedule = schedule || {};
+          if (allSitesTrafficReportNextSendElement) {
+            allSitesTrafficReportNextSendElement.textContent = normalizedSchedule.enabled === true ? (formatDateTime(normalizedSchedule.next_send_at) || 'Not scheduled.') : 'Not scheduled.';
+          }
+          if (allSitesTrafficReportLastSentElement) {
+            allSitesTrafficReportLastSentElement.textContent = formatDateTime(normalizedSchedule.last_sent_at) || 'Never.';
+          }
+        }
+
+        function readAllSitesTrafficReportSchedulePayload() {
+          var timeValue = allSitesTrafficReportSendTimeInput && allSitesTrafficReportSendTimeInput.value ? allSitesTrafficReportSendTimeInput.value : '09:00';
+          var timeParts = timeValue.split(':');
+          return {
+            enabled: allSitesTrafficReportEnabledInput ? allSitesTrafficReportEnabledInput.checked === true : false,
+            frequency: selectedAllSitesTrafficReportFrequency(),
+            recipient_email: currentUserEmail(),
+            timezone: trafficReportInputTimezone(allSitesTrafficReportTimezoneInput),
+            send_hour: Number(timeParts[0]),
+            send_minute: Number(timeParts[1]),
+            weekday: allSitesTrafficReportWeekdayInput ? Number(allSitesTrafficReportWeekdayInput.value) : 1,
+            month_day: allSitesTrafficReportMonthDayInput ? Number(allSitesTrafficReportMonthDayInput.value) : 1
+          };
+        }
+
+        function loadAllSitesTrafficReportSchedule() {
+          cancelAllSitesTrafficReportAutosave();
+          if (!apiPortfolioTrafficScheduleEndpoint) {
+            setAllSitesTrafficReportControlsDisabled(true);
+            showAllSitesTrafficReportStatus(statusMessages.load_failed || '', true);
+            return;
+          }
+          setAllSitesTrafficReportControlsDisabled(false);
+          var reportId = selectedGlobalTrafficReport().id || defaultGlobalTrafficReportId;
+          fetchJSON(globalTrafficReportScopedEndpoint(apiPortfolioTrafficScheduleEndpoint, reportId)).then(function(payload) {
+            if (!isAllSitesTrafficView() || selectedGlobalTrafficReport().id !== reportId) {
+              return;
+            }
+            state.portfolioTrafficReportSchedule = payload;
+            updateGlobalTrafficReportSchedulePanel();
+            renderGlobalTrafficReportHeader(selectedGlobalTrafficReport());
+            clearAllSitesTrafficReportStatus();
+          }).catch(function(error) {
+            if (!isAllSitesTrafficView() || selectedGlobalTrafficReport().id !== reportId) {
+              return;
+            }
+            showAllSitesTrafficReportStatus(error.message || statusMessages.load_failed || '', true);
+          });
+        }
+
+        function saveAllSitesTrafficReportSchedule(successMessage) {
+          if (!apiPortfolioTrafficScheduleEndpoint) {
+            return Promise.resolve(null);
+          }
+          var reportId = selectedGlobalTrafficReport().id || defaultGlobalTrafficReportId;
+          var payload = readAllSitesTrafficReportSchedulePayload();
+          clearAllSitesTrafficReportStatus();
+          return fetchJSON(globalTrafficReportScopedEndpoint(apiPortfolioTrafficScheduleEndpoint, reportId), {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          }).then(function(responsePayload) {
+            if (selectedGlobalTrafficReport().id !== reportId) {
+              return responsePayload;
+            }
+            state.portfolioTrafficReportSchedule = responsePayload;
+            setAllSitesTrafficReportScheduleControls(responsePayload);
+            renderGlobalTrafficReportHeader(selectedGlobalTrafficReport());
+            if (successMessage) {
+              showAllSitesTrafficReportStatus(successMessage, false);
+            }
+            return responsePayload;
+          }).catch(function(error) {
+            showAllSitesTrafficReportStatus(error.message || buttonLabels.save_failed || '', true);
+            throw error;
+          });
+        }
+
+        function cancelAllSitesTrafficReportAutosave() {
+          if (allSitesTrafficReportAutosaveTimerId) {
+            clearTimeout(allSitesTrafficReportAutosaveTimerId);
+            allSitesTrafficReportAutosaveTimerId = null;
+          }
+          allSitesTrafficReportAutosavePending = false;
+        }
+
+        function scheduleAllSitesTrafficReportAutosave() {
+          if (!isAllSitesTrafficView()) {
+            return;
+          }
+          if (allSitesTrafficReportAutosaveTimerId) {
+            clearTimeout(allSitesTrafficReportAutosaveTimerId);
+          }
+          allSitesTrafficReportAutosaveTimerId = window.setTimeout(function() {
+            triggerAllSitesTrafficReportAutosave();
+          }, trafficReportAutosaveDelayMilliseconds);
+        }
+
+        function triggerAllSitesTrafficReportAutosave() {
+          if (allSitesTrafficReportAutosaveTimerId) {
+            clearTimeout(allSitesTrafficReportAutosaveTimerId);
+            allSitesTrafficReportAutosaveTimerId = null;
+          }
+          if (allSitesTrafficReportAutosaveInFlight) {
+            allSitesTrafficReportAutosavePending = true;
+            return;
+          }
+          allSitesTrafficReportAutosaveInFlight = true;
+          showAllSitesTrafficReportStatus('Saving...', false);
+          saveAllSitesTrafficReportSchedule('Traffic report schedule saved.').catch(function() {
+            return null;
+          }).finally(function() {
+            allSitesTrafficReportAutosaveInFlight = false;
+            if (allSitesTrafficReportAutosavePending) {
+              allSitesTrafficReportAutosavePending = false;
+              scheduleAllSitesTrafficReportAutosave();
+            }
+          });
+        }
+
+        function sendAllSitesTrafficReportTest() {
+          var reportId = selectedGlobalTrafficReport().id || defaultGlobalTrafficReportId;
+          cancelAllSitesTrafficReportAutosave();
+          saveAllSitesTrafficReportSchedule('').then(function() {
+            if (!apiPortfolioTrafficTestEndpoint) {
+              return;
+            }
+            return fetchJSON(globalTrafficReportScopedEndpoint(apiPortfolioTrafficTestEndpoint, reportId), { method: 'POST' });
+          }).then(function() {
+            showAllSitesTrafficReportStatus('Test report sent.', false);
+          }).catch(function(error) {
+            showAllSitesTrafficReportStatus(error.message || 'Unable to send test report.', true);
           });
         }
 
@@ -4990,6 +6451,33 @@
         });
       }
 
+      function loadAllSitesTrafficStats() {
+        clearAllSitesTrafficStatus();
+        state.portfolioTrafficReport = null;
+        renderGlobalTrafficReportSurface();
+        if (!apiPortfolioTrafficReportEndpoint) {
+          showAllSitesTrafficStatus(statusMessages.load_failed || '');
+          return;
+        }
+        var viewSnapshot = dashboardViewCurrentKey;
+        var reportId = selectedGlobalTrafficReport().id || defaultGlobalTrafficReportId;
+        fetchJSON(globalTrafficReportScopedEndpoint(apiPortfolioTrafficReportEndpoint, reportId)).then(function(payload) {
+          if (dashboardViewCurrentKey !== viewSnapshot || !isAllSitesTrafficView() || selectedGlobalTrafficReport().id !== reportId) {
+            return;
+          }
+          state.portfolioTrafficReport = payload;
+          renderGlobalTrafficReportSurface();
+          clearAllSitesTrafficStatus();
+        }).catch(function(error) {
+          if (dashboardViewCurrentKey !== viewSnapshot || !isAllSitesTrafficView() || selectedGlobalTrafficReport().id !== reportId) {
+            return;
+          }
+          state.portfolioTrafficReport = null;
+          renderGlobalTrafficReportSurface();
+          showAllSitesTrafficStatus(error.message || statusMessages.load_failed || '');
+        });
+      }
+
       function loadVisitStats() {
         var selectedSiteId = state.selectedSiteId;
         var isSelectedNewSite = selectedSiteId === newSiteOptionValue;
@@ -4999,6 +6487,9 @@
           renderTopPages([]);
           renderDeviceTypes([]);
           renderTimezones([]);
+          renderTrendChart([]);
+          renderEngagementSummary({});
+          renderBarChart(trafficAttributionChart, [], { emptyMessage: 'No source data yet.' });
           return;
         }
         clearTrafficStatus();
@@ -5016,6 +6507,52 @@
             return;
           }
           showTrafficStatus(error.message || statusMessages.load_failed || '');
+        });
+
+        var trendEndpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteVisitTrendSuffix;
+        fetchJSON(trendEndpoint).then(function(payload) {
+          if (state.selectedSiteId !== selectedSiteId) {
+            return;
+          }
+          renderTrendChart(payload.trend || []);
+        }).catch(function(error) {
+          if (state.selectedSiteId !== selectedSiteId) {
+            return;
+          }
+          showTrafficStatus(error.message || statusMessages.load_failed || '');
+          renderTrendChart([]);
+        });
+
+        var attributionEndpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteVisitAttributionSuffix;
+        fetchJSON(attributionEndpoint).then(function(payload) {
+          if (state.selectedSiteId !== selectedSiteId) {
+            return;
+          }
+          renderBarChart(trafficAttributionChart, payload.sources || [], {
+            labelKey: 'value',
+            countKey: 'visit_count',
+            emptyMessage: 'No source data yet.'
+          });
+        }).catch(function(error) {
+          if (state.selectedSiteId !== selectedSiteId) {
+            return;
+          }
+          showTrafficStatus(error.message || statusMessages.load_failed || '');
+          renderChartMessage(trafficAttributionChart, error.message || statusMessages.load_failed || '');
+        });
+
+        var engagementEndpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteVisitEngagementSuffix;
+        fetchJSON(engagementEndpoint).then(function(payload) {
+          if (state.selectedSiteId !== selectedSiteId) {
+            return;
+          }
+          renderEngagementSummary(payload || {});
+        }).catch(function(error) {
+          if (state.selectedSiteId !== selectedSiteId) {
+            return;
+          }
+          showTrafficStatus(error.message || statusMessages.load_failed || '');
+          renderChartMessage(trafficEngagementSummary, error.message || statusMessages.load_failed || '');
         });
 
         var devicesEndpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteVisitDevicesSuffix;
@@ -5542,6 +7079,12 @@
             clearAutoLogoutValidation();
           });
         }
+        if (settingsOpenAllSitesTrafficButton) {
+          settingsOpenAllSitesTrafficButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            openAllSitesTrafficReports();
+          });
+        }
         if (widgetBottomOffsetDecreaseButton) {
           widgetBottomOffsetDecreaseButton.addEventListener('click', function() {
             adjustWidgetBottomOffset(-widgetBottomOffsetStep);
@@ -5684,9 +7227,9 @@
               var trafficURL = appendOriginParams((trafficTestPagePrefix || '') + trafficSiteId + (trafficTestPageSuffix || ''));
               if (trafficURL) {
                 window.open(trafficURL, '_blank', 'noopener');
-              }
-            });
-          }
+            }
+          });
+        }
         [trafficReportFrequencyDailyInput, trafficReportFrequencyWeeklyInput, trafficReportFrequencyMonthlyInput].forEach(function(input) {
           if (input) {
             input.addEventListener('change', function() {
@@ -5708,6 +7251,82 @@
               return;
             }
             sendTrafficReportTest();
+          });
+        }
+        if (allSitesTrafficBackButton) {
+          allSitesTrafficBackButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            openSelectedSiteTrafficReports();
+          });
+        }
+        if (globalTrafficReportCreateButton) {
+          globalTrafficReportCreateButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            createGlobalTrafficReport();
+          });
+        }
+        if (globalTrafficReportsList) {
+          globalTrafficReportsList.addEventListener('click', function(event) {
+            var target = event.target;
+            while (target && target !== globalTrafficReportsList && !target.dataset.globalTrafficReportId) {
+              target = target.parentElement;
+            }
+            if (!target || target === globalTrafficReportsList) {
+              return;
+            }
+            selectGlobalTrafficReport(target.dataset.globalTrafficReportId || '');
+          });
+        }
+        if (globalTrafficReportNameInput) {
+          globalTrafficReportNameInput.addEventListener('input', function() {
+            updateSelectedGlobalTrafficReportName(globalTrafficReportNameInput.value, false);
+          });
+          globalTrafficReportNameInput.addEventListener('blur', function() {
+            updateSelectedGlobalTrafficReportName(globalTrafficReportNameInput.value.trim(), true);
+          });
+        }
+        if (globalTrafficReportSelectAllSitesButton) {
+          globalTrafficReportSelectAllSitesButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            setSelectedGlobalTrafficReportSites(getGlobalTrafficAvailableSiteIds());
+          });
+        }
+        if (globalTrafficReportClearSitesButton) {
+          globalTrafficReportClearSitesButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            setSelectedGlobalTrafficReportSites([]);
+          });
+        }
+        if (globalTrafficReportSitesList) {
+          globalTrafficReportSitesList.addEventListener('change', function(event) {
+            var target = event.target;
+            if (!target || !target.dataset || !target.dataset.globalTrafficSiteId) {
+              return;
+            }
+            handleGlobalTrafficReportSiteToggle(target.dataset.globalTrafficSiteId || '', target.checked === true);
+          });
+        }
+        [allSitesTrafficReportFrequencyDailyInput, allSitesTrafficReportFrequencyWeeklyInput, allSitesTrafficReportFrequencyMonthlyInput].forEach(function(input) {
+          if (input) {
+            input.addEventListener('change', function() {
+              updateAllSitesTrafficReportFrequencyVisibility();
+              scheduleAllSitesTrafficReportAutosave();
+            });
+          }
+        });
+        [allSitesTrafficReportEnabledInput, allSitesTrafficReportSendTimeInput, allSitesTrafficReportWeekdayInput, allSitesTrafficReportMonthDayInput].forEach(function(input) {
+          if (input) {
+            input.addEventListener('change', scheduleAllSitesTrafficReportAutosave);
+            input.addEventListener('input', scheduleAllSitesTrafficReportAutosave);
+          }
+        });
+        if (allSitesTrafficReportTestButton) {
+          allSitesTrafficReportTestButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            if (allSitesTrafficReportTestButton.disabled) {
+              return;
+            }
+            sendAllSitesTrafficReportTest();
           });
         }
         if (rotateSentryTokenButton) {
@@ -5805,8 +7424,10 @@
         });
 
         loadThemePreference();
+        applyDashboardViewVisibility();
         applyDashboardSectionSelection();
         applyDashboardSectionVisibility();
+        updateAllSitesTrafficReportFrequencyVisibility();
         loadUser().then(function() {
           requestSessionTimeoutStart();
           openFaviconEventStream();

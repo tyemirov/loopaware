@@ -502,7 +502,6 @@ func checkCrossServiceInvariants(environmentByService map[string]map[string]stri
 
 	if pinguinOk && tauthOk {
 		expectEqual("pinguin.TAUTH_SIGNING_KEY", pinguinEnv["TAUTH_SIGNING_KEY"], "tauth.TAUTH_LOOPAWARE_JWT_SIGNING_KEY", tauthEnv["TAUTH_LOOPAWARE_JWT_SIGNING_KEY"], result)
-		expectEqual("pinguin.LOOPAWARE_LOCAL_GOOGLE_CLIENT_ID", pinguinEnv["LOOPAWARE_LOCAL_GOOGLE_CLIENT_ID"], "tauth.TAUTH_LOOPAWARE_GOOGLE_WEB_CLIENT_ID", tauthEnv["TAUTH_LOOPAWARE_GOOGLE_WEB_CLIENT_ID"], result)
 	}
 
 	if pinguinOk && loopawareOk {

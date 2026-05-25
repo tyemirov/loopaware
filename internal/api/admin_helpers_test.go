@@ -84,7 +84,15 @@ func (provider *stubStatsProvider) DeviceBreakdown(context.Context, string, int)
 	return DeviceBreakdownStat{}, nil
 }
 
+func (provider *stubStatsProvider) DeviceBreakdownForDays(context.Context, string, int, int) (DeviceBreakdownStat, error) {
+	return DeviceBreakdownStat{}, nil
+}
+
 func (provider *stubStatsProvider) TimezoneDistribution(context.Context, string, int) ([]TimezoneDistributionStat, error) {
+	return nil, nil
+}
+
+func (provider *stubStatsProvider) TimezoneDistributionForDays(context.Context, string, int, int) ([]TimezoneDistributionStat, error) {
 	return nil, nil
 }
 

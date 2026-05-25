@@ -77,7 +77,9 @@ type SiteStatisticsProvider interface {
 	VisitAttribution(ctx context.Context, siteID string, limit int) (VisitAttributionBreakdown, error)
 	VisitEngagement(ctx context.Context, siteID string, days int) (VisitEngagementStat, error)
 	DeviceBreakdown(ctx context.Context, siteID string, limit int) (DeviceBreakdownStat, error)
+	DeviceBreakdownForDays(ctx context.Context, siteID string, days int, limit int) (DeviceBreakdownStat, error)
 	TimezoneDistribution(ctx context.Context, siteID string, limit int) ([]TimezoneDistributionStat, error)
+	TimezoneDistributionForDays(ctx context.Context, siteID string, days int, limit int) ([]TimezoneDistributionStat, error)
 }
 
 // DatabaseSiteStatisticsProvider implements SiteStatisticsProvider using GORM.
@@ -602,17 +604,27 @@ type viewportCountRow struct {
 }
 
 func (provider *DatabaseSiteStatisticsProvider) DeviceBreakdown(ctx context.Context, siteID string, limit int) (DeviceBreakdownStat, error) {
+	return provider.deviceBreakdown(ctx, siteID, limit, time.Time{})
+}
+
+// DeviceBreakdownForDays returns device breakdowns within the same UTC day window used by VisitTrend.
+func (provider *DatabaseSiteStatisticsProvider) DeviceBreakdownForDays(ctx context.Context, siteID string, days int, limit int) (DeviceBreakdownStat, error) {
+	normalizedDays := normalizeVisitTrendDays(days)
+	return provider.deviceBreakdown(ctx, siteID, limit, visitWindowStartDay(normalizedDays))
+}
+
+func (provider *DatabaseSiteStatisticsProvider) deviceBreakdown(ctx context.Context, siteID string, limit int, startDay time.Time) (DeviceBreakdownStat, error) {
 	if strings.TrimSpace(siteID) == "" {
 		return DeviceBreakdownStat{}, nil
 	}
 	normalizedLimit := normalizeDeviceBreakdownLimit(limit)
 
-	resolutionStats, err := provider.topScreenResolutionStats(ctx, siteID, normalizedLimit)
+	resolutionStats, err := provider.topScreenResolutionStats(ctx, siteID, normalizedLimit, startDay)
 	if err != nil {
 		return DeviceBreakdownStat{}, err
 	}
 
-	viewportRows, err := provider.viewportCounts(ctx, siteID)
+	viewportRows, err := provider.viewportCounts(ctx, siteID, startDay)
 	if err != nil {
 		return DeviceBreakdownStat{}, err
 	}
@@ -644,13 +656,16 @@ func (provider *DatabaseSiteStatisticsProvider) DeviceBreakdown(ctx context.Cont
 	}, nil
 }
 
-func (provider *DatabaseSiteStatisticsProvider) topScreenResolutionStats(ctx context.Context, siteID string, limit int) ([]AttributionStat, error) {
+func (provider *DatabaseSiteStatisticsProvider) topScreenResolutionStats(ctx context.Context, siteID string, limit int, startDay time.Time) ([]AttributionStat, error) {
 	var rows []visitDimensionCountRow
-	err := provider.database.WithContext(ctx).
+	query := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
 		Select("screen_resolution as value, COUNT(*) as visit_count").
-		Where("site_id = ? AND is_bot = ? AND screen_resolution <> ''", siteID, false).
-		Group("screen_resolution").
+		Where("site_id = ? AND is_bot = ? AND screen_resolution <> ''", siteID, false)
+	if !startDay.IsZero() {
+		query = query.Where("occurred_at >= ?", startDay)
+	}
+	err := query.Group("screen_resolution").
 		Order("visit_count desc, screen_resolution asc").
 		Limit(limit).
 		Scan(&rows).Error
@@ -660,13 +675,16 @@ func (provider *DatabaseSiteStatisticsProvider) topScreenResolutionStats(ctx con
 	return attributionStatsFromDimensionRows(rows), nil
 }
 
-func (provider *DatabaseSiteStatisticsProvider) viewportCounts(ctx context.Context, siteID string) ([]viewportCountRow, error) {
+func (provider *DatabaseSiteStatisticsProvider) viewportCounts(ctx context.Context, siteID string, startDay time.Time) ([]viewportCountRow, error) {
 	var rows []viewportCountRow
-	err := provider.database.WithContext(ctx).
+	query := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
 		Select("viewport, COUNT(*) as visit_count").
-		Where("site_id = ? AND is_bot = ? AND viewport <> ''", siteID, false).
-		Group("viewport").
+		Where("site_id = ? AND is_bot = ? AND viewport <> ''", siteID, false)
+	if !startDay.IsZero() {
+		query = query.Where("occurred_at >= ?", startDay)
+	}
+	err := query.Group("viewport").
 		Order("visit_count desc, viewport asc").
 		Scan(&rows).Error
 	if err != nil {
@@ -743,6 +761,16 @@ func topDeviceTypeStats(counts map[string]int64) []DeviceTypeStat {
 }
 
 func (provider *DatabaseSiteStatisticsProvider) TimezoneDistribution(ctx context.Context, siteID string, limit int) ([]TimezoneDistributionStat, error) {
+	return provider.timezoneDistribution(ctx, siteID, limit, time.Time{})
+}
+
+// TimezoneDistributionForDays returns timezone counts within the same UTC day window used by VisitTrend.
+func (provider *DatabaseSiteStatisticsProvider) TimezoneDistributionForDays(ctx context.Context, siteID string, days int, limit int) ([]TimezoneDistributionStat, error) {
+	normalizedDays := normalizeVisitTrendDays(days)
+	return provider.timezoneDistribution(ctx, siteID, limit, visitWindowStartDay(normalizedDays))
+}
+
+func (provider *DatabaseSiteStatisticsProvider) timezoneDistribution(ctx context.Context, siteID string, limit int, startDay time.Time) ([]TimezoneDistributionStat, error) {
 	if strings.TrimSpace(siteID) == "" {
 		return nil, nil
 	}
@@ -753,11 +781,14 @@ func (provider *DatabaseSiteStatisticsProvider) TimezoneDistribution(ctx context
 		VisitCount int64
 	}
 	var rows []timezoneRow
-	err := provider.database.WithContext(ctx).
+	query := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
 		Select("timezone, COUNT(*) as visit_count").
-		Where("site_id = ? AND is_bot = ? AND timezone <> ''", siteID, false).
-		Group("timezone").
+		Where("site_id = ? AND is_bot = ? AND timezone <> ''", siteID, false)
+	if !startDay.IsZero() {
+		query = query.Where("occurred_at >= ?", startDay)
+	}
+	err := query.Group("timezone").
 		Order("visit_count desc, timezone asc").
 		Limit(normalizedLimit).
 		Scan(&rows).Error
