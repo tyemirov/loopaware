@@ -129,6 +129,20 @@ export async function waitForHeaderAuthReady(page) {
 }
 
 /**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+export async function waitForDashboardAccountHydrated(page) {
+  await page.waitForFunction(() => {
+    const nameElement = document.getElementById('user-name');
+    const emailElement = document.getElementById('user-email');
+    const nameText = nameElement && nameElement.textContent ? nameElement.textContent.trim() : '';
+    const emailText = emailElement && emailElement.textContent ? emailElement.textContent.trim() : '';
+    return nameText.length > 0 && emailText.length > 0;
+  });
+}
+
+/**
  * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
  * @returns {{ user_id: string, user_email: string, email: string, display: string, avatar_url: string, roles: string[] }}
  */
@@ -198,7 +212,7 @@ async function waitForDashboardAuthTransitionToHide(page) {
 export async function waitForDashboardReady(page, options) {
   const resolvedOptions = options || {};
   await waitForHeaderAuthReady(page);
-  await page.locator('#user-name').waitFor();
+  await waitForDashboardAccountHydrated(page);
   const allowEmpty = resolvedOptions.allowEmptySites === true;
   await page.waitForFunction((expectEmpty) => {
     const list = document.getElementById('sites-list');
@@ -293,7 +307,7 @@ export async function openDashboard(page, config, user, options) {
     return;
   }
   await waitForHeaderAuthReady(page);
-  await page.locator('#user-name').waitFor();
+  await waitForDashboardAccountHydrated(page);
   await waitForDashboardAuthTransitionToHide(page);
 }
 

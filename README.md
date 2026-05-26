@@ -266,7 +266,7 @@ store the authenticated creator separately from the configured owner mailbox.
 
 The Bootstrap front end consumes the APIs above. Features include:
 
-- Account card with avatar, email, and role badge
+- Account Settings modal with avatar, email, role badge, reports, and inactivity controls
 - Site creation and owner reassignment available to every authenticated user; administrators additionally see all sites
 - Owner/admin editor for site metadata
 - Widget placement controls that persist the bubble’s side (left/right) and bottom offset without code changes

@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 import * as crypto from 'node:crypto';
 import { resolveTestConfig } from '../helpers/config.js';
 import { buildSessionCookie } from '../helpers/auth.js';
-import { buildAdminUser, buildUniqueEmail, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite } from '../helpers/fixtures.js';
+import { buildAdminUser, buildUniqueEmail, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite, waitForDashboardReady } from '../helpers/fixtures.js';
 import { collectVisit, fetchPortfolioTrafficReport, fetchPortfolioTrafficReports, fetchPortfolioTrafficReportSchedule, fetchTrafficReportSchedule, fetchVisitStats, savePortfolioTrafficReportSchedule, saveTrafficReportSchedule } from '../helpers/api.js';
 
 const config = resolveTestConfig();
@@ -461,7 +461,7 @@ test('traffic stats refresh after reload', async ({ page }) => {
   await expect(page.locator('#visit-count')).toHaveText('1 visits');
   await collectVisit(config, site, { url: `${site.allowed_origin}/beta`, visitorId: buildVisitorId() });
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.locator('#user-name').waitFor();
+  await waitForDashboardReady(page);
   await selectSite(page, site.id);
   await expect(page.locator('#visit-count')).toHaveText('2 visits');
 });

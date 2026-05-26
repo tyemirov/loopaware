@@ -7,6 +7,7 @@ import {
   openAuthenticatedPage,
   openDashboardShell,
   openPublicPage as openSharedPublicPage,
+  waitForDashboardAccountHydrated,
   waitForLogoutOverlayOrRedirect
 } from '../helpers/fixtures.js';
 
@@ -82,7 +83,7 @@ async function openDashboardForSessionTimeoutRecovery(page) {
       detail: { status: 'authenticated' }
     }));
   });
-  await page.locator('#user-name').waitFor();
+  await waitForDashboardAccountHydrated(page);
   await expect(page.locator('#user-name')).not.toHaveText('');
   await expect
     .poll(() =>

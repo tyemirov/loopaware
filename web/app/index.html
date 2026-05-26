@@ -206,20 +206,7 @@
         
         <div id="site-dashboard-view" class="row g-4">
           <div class="col-lg-4">
-            <div class="card shadow-sm mb-4">
-              <div class="card-header">Account</div>
-              <div class="card-body">
-                <div class="d-flex align-items-center">
-                  <img id="user-avatar" src="" alt="Avatar" class="rounded-circle me-3 d-none" width="64" height="64" />
-                  <div>
-                    <div id="user-name" class="fw-semibold"></div>
-                    <div id="user-email" class="text-muted small"></div>
-                    <span id="user-role" class="badge bg-secondary mt-2"></span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="card shadow-sm mt-4">
+            <div class="card shadow-sm">
               <div class="card-header">
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                   <div class="d-flex align-items-center gap-2">
@@ -970,6 +957,21 @@
           <div class="modal-body">
             <p class="text-muted mb-4">Manage LoopAware account preferences.</p>
             <div id="settings-modal-content" class="d-flex flex-column gap-4">
+              <section aria-labelledby="settings-account-heading">
+                <div class="card shadow-sm">
+                  <div class="card-header" id="settings-account-heading">Account</div>
+                  <div class="card-body">
+                    <div class="d-flex align-items-center">
+                      <img id="user-avatar" src="" alt="Avatar" class="rounded-circle me-3 d-none" width="64" height="64" />
+                      <div>
+                        <div id="user-name" class="fw-semibold"></div>
+                        <div id="user-email" class="text-muted small"></div>
+                        <span id="user-role" class="badge bg-secondary mt-2"></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
               <section>
                 <h2 class="h5 mb-2">Reports</h2>
                 <button id="settings-open-all-sites-traffic" type="button" class="btn btn-outline-primary btn-sm">All sites traffic</button>

@@ -32,7 +32,7 @@ const labelCases = [
   { selector: 'label[for="sentry-ingest-endpoint"]', text: 'Ingest endpoint' },
   { selector: 'label[for="sentry-ingest-token"]', text: 'Ingest token' },
   { selector: 'label[for="sentry-browser-snippet"]', text: 'Browser snippet' },
-  { selector: '.card-header:has-text("Account")', text: 'Account' },
+  { selector: '#settings-modal .card-header:has-text("Account")', text: 'Account' },
   { selector: '#site-dashboard-view .card-header:has(#new-site-button)', text: 'Sites' },
   { selector: '#settings-modal-title', text: 'Account Settings' },
   { selector: '#settings-modal h2:has-text("Reports")', text: 'Reports' },

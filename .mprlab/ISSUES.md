@@ -239,6 +239,19 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/templates/portfolio_traffic_report_email.txt`, `internal/api/traffic_report_schedule.go`, `internal/model/portfolio_traffic_report.go`, `internal/model/traffic_report_schedule.go`, `internal/storage/database.go`, `tests/helpers/api.js`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`, `.mprlab/ISSUES.md`.
 
+- [x] [I011] (P1) Move the account card into Account Settings.
+  ### Summary
+  The dashboard side column should stay focused on site selection. Account identity belongs in the existing Account Settings modal.
+  ### Deliverables
+  - Move the avatar, email, and role card into Account Settings.
+  - Remove the account card from the dashboard side column so only Sites remains there.
+  - Preserve the existing account hydration path from `/api/me`.
+  - Add black-box dashboard coverage for the new placement.
+  ### Resolution
+  Moved the account card into Account Settings while preserving the existing `/api/me` hydration IDs. Removed the account card from the dashboard side column so the side column contains only Sites. Updated dashboard readiness helpers for hidden modal account fields, added black-box coverage for the modal account card and side-column layout, and verified `make ci` passes.
+  ### Changed Files
+  `web/app/index.html`, `tests/helpers/fixtures.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-layout.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `tests/specs/dashboard-user-menu.spec.js`, `tests/specs/logout-hardening.spec.js`, `README.md`, `.mprlab/ISSUES.md`.
+
 - [ ] [I004] (P1) Consider a design of a current accordion design of different surfaces.
   We may want to have a better split out.
 - [x] [I005] (P1) Keep production deploy revision selection automatic.

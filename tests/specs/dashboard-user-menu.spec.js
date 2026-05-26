@@ -27,6 +27,20 @@ test('account settings menu event opens modal', async ({ page }) => {
   await expect(page.locator('#settings-modal')).toBeVisible();
 });
 
+test('account settings modal shows the account card', async ({ page }) => {
+  await openDashboardShell(page, config, adminUser);
+  await page.evaluate(() => {
+    document.dispatchEvent(new CustomEvent('mpr-user:menu-item', { detail: { action: 'account-settings' } }));
+  });
+  const modal = page.locator('#settings-modal');
+  await expect(modal).toBeVisible();
+  await expect(modal.locator('.card-header:has-text("Account")')).toBeVisible();
+  await expect(modal.locator('#user-name')).toHaveText(adminUser.displayName);
+  await expect(modal.locator('#user-email')).toHaveText(adminUser.email);
+  await expect(modal.locator('#user-role')).toContainText('Administrator');
+  await expect(modal.locator('#user-avatar')).toBeVisible();
+});
+
 test('header settings click opens modal', async ({ page }) => {
   await openDashboardShell(page, config, adminUser);
   await page.evaluate(() => {
