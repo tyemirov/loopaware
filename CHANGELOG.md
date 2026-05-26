@@ -11,6 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.8] - 2026-05-25
+
+### Features ✨
+- Moved the account card from the dashboard side column into the Account Settings modal to keep the dashboard side column focused on site selection.
+- Added black-box test coverage for the new account card placement in the Account Settings modal.
+
+### Improvements ⚙️
+- Updated dashboard readiness helpers to support hidden modal account fields.
+- Enhanced test fixtures and specs for dashboard and logout features to reflect UI changes.
+- Updated README to describe the Account Settings modal replacing the previous account card.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- Added tests verifying the account card appears in the Account Settings modal.
+- Added tests ensuring the dashboard side column contains only the Sites card.
+- Updated existing dashboard tests to wait for account hydration in the new modal location.
+
+### Docs 📚
+- Updated README to reflect the Account Settings modal with avatar, email, role badge, reports, and inactivity controls.
+
 ## [v0.7.7] - 2026-05-25
 
 ### Features ✨
