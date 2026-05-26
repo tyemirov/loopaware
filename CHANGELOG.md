@@ -11,6 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.9] - 2026-05-25
+
+### Features ✨
+- Remove aggregate Top pages sections from all-sites traffic reports to reduce noise and improve report clarity.
+
+### Improvements ⚙️
+- Updated portfolio traffic report API, dashboard, and email templates to omit aggregate Top pages data for all-sites reports while retaining individual-site Top pages.
+- Added regression tests covering the absence of aggregate Top pages in all-sites reports.
+- Cleaned up dashboard and frontend code by removing all-sites Top pages UI elements.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- Added tests verifying that all-sites traffic report emails exclude aggregate Top pages.
+- Updated API and dashboard tests to confirm removal of Top pages from all-sites reports.
+
+### Docs 📚
+- Updated issue tracking documentation to reflect removal of aggregate Top pages from all-sites reports.
+
 ## [v0.7.8] - 2026-05-25
 
 ### Features ✨
