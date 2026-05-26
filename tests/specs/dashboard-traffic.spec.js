@@ -238,7 +238,7 @@ test('settings entry opens all-sites traffic reporting', async ({ page }) => {
   await expect(page.locator('#global-traffic-report-readonly-name')).toContainText('Default report');
   await expect(page.locator('#all-sites-traffic-sites-table-body')).toContainText(firstSite.name);
   await expect(page.locator('#all-sites-traffic-sites-table-body')).toContainText(secondSite.name);
-  await expect(page.locator('#all-sites-top-pages-table-body')).toContainText('/portfolio-alpha');
+  await expect(page.locator('#all-sites-traffic-view')).not.toContainText('Top pages');
   await expect(page.locator('#all-sites-traffic-trend-chart svg')).toBeVisible();
   await expect(page.locator('#all-sites-site-count')).toHaveText('2 sites');
   await expect(page.locator('#global-traffic-report-sites-chip')).toHaveText('2 sites');

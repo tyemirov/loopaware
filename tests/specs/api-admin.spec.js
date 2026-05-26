@@ -842,10 +842,7 @@ test.describe("admin api visit stats", () => {
     expect(siteNames).toContain(ownedSite.name);
     expect(siteNames).toContain(secondOwnedSite.name);
     expect(siteNames).not.toContain(foreignSite.name);
-    const topPagePaths = (payload.top_pages || []).map((entry) => entry.path);
-    expect(topPagePaths).toContain("/owned-a");
-    expect(topPagePaths).toContain("/owned-b");
-    expect(topPagePaths).not.toContain("/foreign");
+    expect(payload).not.toHaveProperty("top_pages");
   });
 
   test("portfolio traffic report schedule can be configured", async () => {
@@ -954,9 +951,7 @@ test.describe("admin api visit stats", () => {
     expect(scopedPayload.report_name).toBe("Executive traffic");
     expect(scopedPayload.site_count).toBe(1);
     expect((scopedPayload.sites || []).map((entry) => entry.site_name)).toEqual([ownedSite.name]);
-    expect((scopedPayload.top_pages || []).map((entry) => entry.path)).toContain("/scoped-one");
-    expect((scopedPayload.top_pages || []).map((entry) => entry.path)).not.toContain("/scoped-two");
-    expect((scopedPayload.top_pages || []).map((entry) => entry.path)).not.toContain("/scoped-foreign");
+    expect(scopedPayload).not.toHaveProperty("top_pages");
 
     const { response: invalidUpdateResponse, payload: invalidUpdatePayload } = await nonAdminRequest({
       path: `/api/reports/traffic/portfolio/reports/${encodeURIComponent(createPayload.id)}`,
@@ -987,8 +982,9 @@ test.describe("admin api visit stats", () => {
     });
     expect(updatedScopedResponse.status).toBe(200);
     expect(updatedScopedPayload.site_count).toBe(2);
-    expect((updatedScopedPayload.top_pages || []).map((entry) => entry.path)).toContain("/scoped-one");
-    expect((updatedScopedPayload.top_pages || []).map((entry) => entry.path)).toContain("/scoped-two");
+    expect((updatedScopedPayload.sites || []).map((entry) => entry.site_name)).toContain(ownedSite.name);
+    expect((updatedScopedPayload.sites || []).map((entry) => entry.site_name)).toContain(secondOwnedSite.name);
+    expect(updatedScopedPayload).not.toHaveProperty("top_pages");
 
     const defaultScheduleBody = {
       enabled: true,

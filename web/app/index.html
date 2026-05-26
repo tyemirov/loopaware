@@ -910,22 +910,7 @@
                       <div id="all-sites-traffic-trend-chart" class="traffic-chart border rounded p-2"></div>
                     </div>
                   </div>
-                  <p class="text-muted small mb-2">Top pages</p>
-                  <div id="all-sites-top-pages-chart" class="traffic-bars mb-3"></div>
-                  <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                      <thead class="table-light">
-                        <tr>
-                          <th scope="col">Path</th>
-                          <th scope="col" class="text-end">Views</th>
-                        </tr>
-                      </thead>
-                      <tbody id="all-sites-top-pages-table-body">
-                        <tr><td colspan="2" class="text-center text-muted">No visits yet.</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  <p class="text-muted small mb-2 mt-3">Sites</p>
+                  <p class="text-muted small mb-2">Sites</p>
                   <div class="table-responsive">
                     <table class="table table-striped table-hover align-middle">
                       <thead class="table-light">
@@ -1441,8 +1426,6 @@
         var allSitesSiteCountElement = document.getElementById('all-sites-site-count');
         var allSitesTrafficStatusElement = document.getElementById('all-sites-traffic-status');
         var allSitesTrafficTrendChart = document.getElementById('all-sites-traffic-trend-chart');
-        var allSitesTopPagesChart = document.getElementById('all-sites-top-pages-chart');
-        var allSitesTopPagesTableBody = document.getElementById('all-sites-top-pages-table-body');
         var allSitesTrafficSitesTableBody = document.getElementById('all-sites-traffic-sites-table-body');
         var allSitesTrafficReportEnabledInput = document.getElementById('all-sites-traffic-report-enabled');
         var allSitesTrafficReportFrequencyDailyInput = document.getElementById('all-sites-traffic-report-frequency-daily');
@@ -3487,7 +3470,6 @@
             setAllSitesTrafficCounts(loadedReport.visit_count, loadedReport.unique_visitor_count, loadedReport.site_count);
             renderAllSitesTrafficSites(loadedReport.sites || []);
             renderAllSitesTrendChart(loadedReport.trend || []);
-            renderAllSitesTopPages(loadedReport.top_pages || []);
             return;
           }
           var availableSites = getGlobalTrafficAvailableSites();
@@ -3508,7 +3490,6 @@
           setAllSitesTrafficCounts(totalVisits, uniqueVisitors, selectedSites.length);
           renderAllSitesTrafficSites(selectedSites);
           renderAllSitesTrendChart([]);
-          renderAllSitesTopPages([]);
         }
 
         function updateGlobalTrafficReportSchedulePanel() {
@@ -5135,10 +5116,6 @@
 
         function renderTopPages(pages) {
           renderTopPagesInto(topPagesTableBody, topPagesChart, pages);
-        }
-
-        function renderAllSitesTopPages(pages) {
-          renderTopPagesInto(allSitesTopPagesTableBody, allSitesTopPagesChart, pages);
         }
 
         function renderTrafficTableMessage(tableBody, message, columnCount) {

@@ -166,6 +166,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `internal/api/portfolio_traffic_report.go`, `internal/api/traffic_report_schedule.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`, `.mprlab/ISSUES.md`.
 
+- [x] [B015] (P1) Remove aggregate top-pages sections from all-sites traffic reports.
+  ### Summary
+  All-sites traffic reports rank bare URL paths across unrelated properties, which makes the Top pages section noisy and misleading for aggregate reports even though it remains useful for individual-site reports.
+  ### Deliverables
+  - Remove top-pages data and sections from all-sites report API/dashboard/email output.
+  - Keep individual-site traffic report Top pages unchanged.
+  - Add regression coverage proving all-sites reports summarize sites without aggregate top-pages output.
+  ### Resolution
+  Removed aggregate Top pages output from portfolio traffic report API responses, dashboard rendering, and scheduled email templates while keeping selected-site Top pages unchanged. Added API, dashboard, element, and email-template regression coverage proving all-sites reports omit aggregate top-pages output. `make ci` passed.
+  ### Changed Files
+  `internal/api/portfolio_traffic_report.go`, `internal/api/templates/portfolio_traffic_report_email.txt`, `internal/api/portfolio_traffic_report_test.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`, `.mprlab/ISSUES.md`.
+
 ## Improvements
 
 - [x] [I006] (P1) Add graphical and portfolio traffic reporting.

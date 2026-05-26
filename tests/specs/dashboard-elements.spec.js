@@ -75,7 +75,6 @@ const elementIds = Object.freeze([
   'all-sites-site-count',
   'all-sites-traffic-status',
   'all-sites-traffic-trend-chart',
-  'all-sites-top-pages-table-body',
   'all-sites-traffic-sites-table-body',
   'sentry-ingest-endpoint',
   'sentry-ingest-token',

@@ -43,7 +43,6 @@ type PortfolioTrafficReportResponse struct {
 	VisitCount         int64                        `json:"visit_count"`
 	UniqueVisitorCount int64                        `json:"unique_visitor_count"`
 	Trend              []VisitTrendPoint            `json:"trend"`
-	TopPages           []TopPageEntry               `json:"top_pages"`
 	Sites              []PortfolioTrafficSiteRecord `json:"sites"`
 }
 
@@ -77,7 +76,6 @@ type portfolioTrafficReportData struct {
 	PageViews      int64
 	UniqueVisitors int64
 	Trend          []VisitTrendPoint
-	TopPages       []TopPageEntry
 	Sites          []PortfolioTrafficSiteRecord
 }
 
@@ -88,7 +86,6 @@ type portfolioTrafficReportEmailTemplateData struct {
 	SiteCount      int
 	PageViews      int64
 	UniqueVisitors int64
-	TopPages       []TopPageEntry
 	Sites          []PortfolioTrafficSiteRecord
 }
 
@@ -142,7 +139,6 @@ func (handlers *TrafficReportHandlers) GetPortfolioReport(context *gin.Context) 
 		VisitCount:         report.PageViews,
 		UniqueVisitorCount: report.UniqueVisitors,
 		Trend:              report.Trend,
-		TopPages:           report.TopPages,
 		Sites:              report.Sites,
 	})
 }
@@ -739,10 +735,6 @@ func buildPortfolioTrafficReportData(ctx context.Context, database *gorm.DB, sit
 	if trendErr != nil {
 		return portfolioTrafficReportData{}, trendErr
 	}
-	topPages, topPagesErr := portfolioTopPages(ctx, database, siteIDs, normalizedDays, trafficReportTopPagesLimit)
-	if topPagesErr != nil {
-		return portfolioTrafficReportData{}, topPagesErr
-	}
 	siteRows, siteRowsErr := portfolioSiteRows(ctx, database, sites, normalizedDays)
 	if siteRowsErr != nil {
 		return portfolioTrafficReportData{}, siteRowsErr
@@ -757,7 +749,6 @@ func buildPortfolioTrafficReportData(ctx context.Context, database *gorm.DB, sit
 		PageViews:      pageViews,
 		UniqueVisitors: uniqueVisitors,
 		Trend:          trend,
-		TopPages:       topPages,
 		Sites:          siteRows,
 	}, nil
 }
@@ -809,30 +800,6 @@ func portfolioVisitTrend(ctx context.Context, database *gorm.DB, siteIDs []strin
 		})
 	}
 	return trend, nil
-}
-
-func portfolioTopPages(ctx context.Context, database *gorm.DB, siteIDs []string, days int, limit int) ([]TopPageEntry, error) {
-	if len(siteIDs) == 0 {
-		return nil, nil
-	}
-	startDay := visitWindowStartDay(days)
-	var rows []TopPageStat
-	err := database.WithContext(ctx).
-		Model(&model.SiteVisit{}).
-		Select(topPagesSelectStatement).
-		Where("site_id IN ? AND path <> '' AND is_bot = ? AND occurred_at >= ?", siteIDs, false, startDay).
-		Group(topPagesCanonicalPathExpression).
-		Order("visit_count desc, path asc").
-		Limit(limit).
-		Scan(&rows).Error
-	if err != nil {
-		return nil, err
-	}
-	entries := make([]TopPageEntry, 0, len(rows))
-	for _, row := range rows {
-		entries = append(entries, TopPageEntry(row))
-	}
-	return entries, nil
 }
 
 func portfolioTotals(ctx context.Context, database *gorm.DB, siteIDs []string, days int) (int64, int64, error) {
@@ -911,7 +878,6 @@ func buildPortfolioTrafficReportEmail(ctx context.Context, database *gorm.DB, sc
 		SiteCount:      report.SiteCount,
 		PageViews:      report.PageViews,
 		UniqueVisitors: report.UniqueVisitors,
-		TopPages:       report.TopPages,
 		Sites:          report.Sites,
 	}
 

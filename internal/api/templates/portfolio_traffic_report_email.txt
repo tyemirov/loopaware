@@ -7,10 +7,6 @@ Sites: {{ .SiteCount }}
 Page views: {{ .PageViews }}
 Unique site visitors: {{ .UniqueVisitors }}
 
-Top pages:
-{{ if .TopPages }}{{ range .TopPages }}- {{ .Path }}: {{ .VisitCount }} view{{ if ne .VisitCount 1 }}s{{ end }}
-{{ end }}{{ else }}- No page views recorded.
-{{ end }}
 Sites:
 {{ if .Sites }}{{ range .Sites }}- {{ .SiteName }}: {{ .VisitCount }} view{{ if ne .VisitCount 1 }}s{{ end }}, {{ .UniqueVisitorCount }} unique
 {{ end }}{{ else }}- No owned sites yet.
