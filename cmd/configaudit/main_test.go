@@ -256,6 +256,9 @@ func TestRunAuditUsesTrackedExampleEnvFilesWhenRuntimeEnvFilesAreMissing(testing
 		"      - " + testPinguinEnvFile,
 		"  " + testTauthService + ":",
 		"    environment:",
+		"      TAUTH_TENANT_ID_LOOPAWARE: " + testTenantValue,
+		"      TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE: " + testSigningKeyValue,
+		"      TAUTH_TENANT_SESSION_COOKIE_NAME_LOOPAWARE: " + testCookieNameValue,
 		"      TAUTH_LOOPAWARE_JWT_SIGNING_KEY: " + testSigningKeyValue,
 		"      TAUTH_LOOPAWARE_GOOGLE_WEB_CLIENT_ID: " + testGoogleClientValue,
 		"",
@@ -266,6 +269,55 @@ func TestRunAuditUsesTrackedExampleEnvFilesWhenRuntimeEnvFilesAreMissing(testing
 	require.True(testingT, result.ok())
 	require.Empty(testingT, result.warnings)
 	require.Empty(testingT, result.errors)
+}
+
+func TestRunAuditReportsLoopAwareTauthCookieMismatch(testingT *testing.T) {
+	tempDirectory := testingT.TempDir()
+
+	loopAwareEnvPath := filepath.Join(tempDirectory, testLoopAwareEnvFile)
+	loopAwareEnv := strings.Join([]string{
+		"SESSION_SECRET=" + testSessionSecretValue,
+		"TAUTH_BASE_URL=" + testTauthBaseURLValue,
+		"TAUTH_TENANT_ID=loopaware",
+		"TAUTH_JWT_SIGNING_KEY=" + testSigningKeyValue,
+		"TAUTH_SESSION_COOKIE_NAME=app_session_loopaware",
+		"PUBLIC_BASE_URL=" + testPublicBaseURLValue,
+		"PINGUIN_ADDR=" + testPinguinAddressValue,
+		"PINGUIN_AUTH_TOKEN=" + testAuthTokenValue,
+		"PINGUIN_TENANT_ID=" + testTenantValue,
+		"",
+	}, "\n")
+	require.NoError(testingT, os.WriteFile(loopAwareEnvPath, []byte(loopAwareEnv), 0o600))
+
+	tauthEnvPath := filepath.Join(tempDirectory, testTauthService+".env")
+	tauthEnv := strings.Join([]string{
+		"TAUTH_TENANT_ID_LOOPAWARE=loopaware",
+		"TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE=" + testSigningKeyValue,
+		"TAUTH_TENANT_SESSION_COOKIE_NAME_LOOPAWARE=legacy_app_session",
+		"",
+	}, "\n")
+	require.NoError(testingT, os.WriteFile(tauthEnvPath, []byte(tauthEnv), 0o600))
+
+	composePath := filepath.Join(tempDirectory, testComposeFileName)
+	composeContent := strings.Join([]string{
+		"services:",
+		"  " + testLoopAwareService + ":",
+		"    env_file:",
+		"      - " + testLoopAwareEnvFile,
+		"  " + testTauthService + ":",
+		"    env_file:",
+		"      - " + testTauthService + ".env",
+		"",
+	}, "\n")
+	require.NoError(testingT, os.WriteFile(composePath, []byte(composeContent), 0o600))
+
+	result := runAudit(composePath)
+	require.False(testingT, result.ok())
+	require.Contains(
+		testingT,
+		strings.Join(result.errors, " "),
+		"loopaware.TAUTH_SESSION_COOKIE_NAME must match tauth.TAUTH_TENANT_SESSION_COOKIE_NAME_LOOPAWARE",
+	)
 }
 
 func TestRunAuditCommandSuccess(testingT *testing.T) {

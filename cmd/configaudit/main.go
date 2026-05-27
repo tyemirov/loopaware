@@ -507,6 +507,73 @@ func checkCrossServiceInvariants(environmentByService map[string]map[string]stri
 	if pinguinOk && loopawareOk {
 		expectEqual("loopaware.PINGUIN_AUTH_TOKEN", loopawareEnv["PINGUIN_AUTH_TOKEN"], "pinguin.GRPC_AUTH_TOKEN", pinguinEnv["GRPC_AUTH_TOKEN"], result)
 	}
+
+	if loopawareOk && tauthOk {
+		checkLoopAwareTauthTenantInvariants(loopawareEnv, tauthEnv, result)
+	}
+}
+
+func checkLoopAwareTauthTenantInvariants(loopawareEnv map[string]string, tauthEnv map[string]string, result *auditResult) {
+	tenantID := strings.TrimSpace(loopawareEnv["TAUTH_TENANT_ID"])
+	if tenantID == "" {
+		result.addWarning("invariant check: loopaware.TAUTH_TENANT_ID is empty")
+		return
+	}
+
+	suffix, ok := resolveTauthTenantSuffix(tauthEnv, tenantID)
+	if !ok {
+		result.addWarning("invariant check: no tauth.TAUTH_TENANT_ID_* value matches loopaware.TAUTH_TENANT_ID")
+		return
+	}
+
+	tenantIDKey := "TAUTH_TENANT_ID_" + suffix
+	expectEqual("loopaware.TAUTH_TENANT_ID", tenantID, "tauth."+tenantIDKey, tauthEnv[tenantIDKey], result)
+
+	signingKeyName, signingKeyValue, signingKeyOK := resolveFirstEnvValue(tauthEnv,
+		"TAUTH_TENANT_JWT_SIGNING_KEY_"+suffix,
+		"TAUTH_JWT_SIGNING_KEY_"+suffix,
+	)
+	if signingKeyOK {
+		expectEqual("loopaware.TAUTH_JWT_SIGNING_KEY", loopawareEnv["TAUTH_JWT_SIGNING_KEY"], "tauth."+signingKeyName, signingKeyValue, result)
+	} else {
+		result.addWarning("invariant check: tauth tenant %s has no JWT signing key env", suffix)
+	}
+
+	sessionCookieName, sessionCookieValue, sessionCookieOK := resolveFirstEnvValue(tauthEnv,
+		"TAUTH_TENANT_SESSION_COOKIE_NAME_"+suffix,
+		"TAUTH_SESSION_COOKIE_NAME_"+suffix,
+	)
+	if sessionCookieOK {
+		expectEqual("loopaware.TAUTH_SESSION_COOKIE_NAME", loopawareEnv["TAUTH_SESSION_COOKIE_NAME"], "tauth."+sessionCookieName, sessionCookieValue, result)
+	} else {
+		result.addWarning("invariant check: tauth tenant %s has no session cookie name env", suffix)
+	}
+}
+
+func resolveTauthTenantSuffix(tauthEnv map[string]string, tenantID string) (string, bool) {
+	keys := make([]string, 0, len(tauthEnv))
+	for key := range tauthEnv {
+		if strings.HasPrefix(key, "TAUTH_TENANT_ID_") {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if strings.EqualFold(strings.TrimSpace(tauthEnv[key]), tenantID) {
+			return strings.TrimPrefix(key, "TAUTH_TENANT_ID_"), true
+		}
+	}
+	return "", false
+}
+
+func resolveFirstEnvValue(environment map[string]string, keys ...string) (string, string, bool) {
+	for _, key := range keys {
+		value, ok := environment[key]
+		if ok {
+			return key, value, true
+		}
+	}
+	return "", "", false
 }
 
 func expectEqual(leftLabel string, leftValue string, rightLabel string, rightValue string, result *auditResult) {

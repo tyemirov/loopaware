@@ -3941,25 +3941,33 @@
           return trimmed ? trimmed.replace(/\/+$/, '') : '';
         }
 
-        function resolveAuthLogoutRequest() {
+        function resolveTauthRequest(defaultPath, pathAttributeName) {
           var headerHost = document.querySelector('mpr-header');
-          var logoutPath = '/auth/logout';
+          var requestPath = defaultPath;
           var tauthBaseURL = '';
           var tenantId = '';
           if (headerHost && typeof headerHost.getAttribute === 'function') {
             tauthBaseURL = normalizeAuthBaseURL(headerHost.getAttribute('tauth-url'));
             tenantId = String(headerHost.getAttribute('tauth-tenant-id') || '').trim();
-            logoutPath = String(headerHost.getAttribute('tauth-logout-path') || logoutPath).trim() || logoutPath;
+            requestPath = String(headerHost.getAttribute(pathAttributeName) || requestPath).trim() || requestPath;
           }
-          var logoutURL = logoutPath;
-          if (logoutPath.indexOf('http://') !== 0 && logoutPath.indexOf('https://') !== 0 && tauthBaseURL) {
-            logoutURL = logoutPath.charAt(0) === '/' ? tauthBaseURL + logoutPath : tauthBaseURL + '/' + logoutPath;
+          var requestURL = requestPath;
+          if (requestPath.indexOf('http://') !== 0 && requestPath.indexOf('https://') !== 0 && tauthBaseURL) {
+            requestURL = requestPath.charAt(0) === '/' ? tauthBaseURL + requestPath : tauthBaseURL + '/' + requestPath;
           }
           var headers = { 'X-Requested-With': 'XMLHttpRequest' };
           if (tenantId) {
             headers['X-TAuth-Tenant'] = tenantId;
           }
-          return { url: logoutURL, headers: headers };
+          return { url: requestURL, headers: headers };
+        }
+
+        function resolveAuthLogoutRequest() {
+          return resolveTauthRequest('/auth/logout', 'tauth-logout-path');
+        }
+
+        function resolveAuthRefreshRequest() {
+          return resolveTauthRequest('/auth/refresh', 'tauth-refresh-path');
         }
 
         function performTauthLogout() {
@@ -3999,15 +4007,58 @@
           return window.fetch.bind(window);
         }
 
-          function fetchJSON(url, options) {
-            var requestOptions = options || {};
-            if (!requestOptions.credentials) {
-              requestOptions.credentials = apiBaseURL ? 'include' : 'same-origin';
+        var apiAuthenticationRecoveryPromise = null;
+
+        function redirectAfterUnauthorizedAPIResponse() {
+          window.location.href = landingPath;
+          return Promise.reject(new Error('unauthorized'));
+        }
+
+        function refreshTauthSession(request, method) {
+          return window.fetch(request.url, {
+            method: method,
+            credentials: 'include',
+            headers: request.headers
+          }).then(function(response) {
+            return response.ok;
+          }).catch(function() {
+            return false;
+          });
+        }
+
+        function recoverAPIAuthentication() {
+          if (apiAuthenticationRecoveryPromise) {
+            return apiAuthenticationRecoveryPromise;
+          }
+          var request = resolveAuthRefreshRequest();
+          apiAuthenticationRecoveryPromise = refreshTauthSession(request, 'POST').then(function(refreshed) {
+            if (refreshed) {
+              return true;
             }
-            return resolveAuthFetch()(url, requestOptions).then(function(response) {
-              if (response.status === 401) {
-                window.location.href = landingPath;
-                return Promise.reject(new Error('unauthorized'));
+            return refreshTauthSession(request, 'GET');
+          }).finally(function() {
+            apiAuthenticationRecoveryPromise = null;
+          });
+          return apiAuthenticationRecoveryPromise;
+        }
+
+        function fetchJSON(url, options, context) {
+          var requestOptions = Object.assign({}, options || {});
+          var requestContext = context || {};
+          if (!requestOptions.credentials) {
+            requestOptions.credentials = apiBaseURL ? 'include' : 'same-origin';
+          }
+          return resolveAuthFetch()(url, requestOptions).then(function(response) {
+            if (response.status === 401) {
+              if (requestContext.authenticationRecoveryAttempted === true) {
+                return redirectAfterUnauthorizedAPIResponse();
+              }
+              return recoverAPIAuthentication().then(function(recovered) {
+                if (!recovered) {
+                  return redirectAfterUnauthorizedAPIResponse();
+                }
+                return fetchJSON(url, options, { authenticationRecoveryAttempted: true });
+              });
             }
             var forbiddenResponse = response.status === 403;
             if (!response.ok) {

@@ -357,6 +357,48 @@ test('login page completed sign-in loads the authenticated dashboard', async ({ 
   await expect(page.locator('#user-email')).toHaveText(adminUser.email);
 });
 
+test('login page completed sign-in retries a transient dashboard API unauthorized response', async ({ page }) => {
+  let apiMeRequests = 0;
+  let authRefreshRequests = 0;
+
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === '/auth/refresh') {
+      authRefreshRequests += 1;
+    }
+  });
+
+  await page.route(/\/api\/me(?:\?.*)?$/, async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback();
+      return;
+    }
+    apiMeRequests += 1;
+    if (apiMeRequests === 1) {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({ error: 'unauthorized' })
+      });
+      return;
+    }
+    await route.fallback();
+  });
+
+  await openPageWithoutSession(page, '/login', {
+    sessionCookieValue: buildLoginSessionCookieValue(adminUser)
+  });
+  await enableAutoGoogleCredentialOnClick(page);
+
+  await beginLoginPageHeaderLoginFlow(page);
+
+  await page.waitForURL(/\/app\/?$/);
+  await waitForDashboardReady(page, { allowEmptySites: true });
+  await expect(page.locator('#user-email')).toHaveText(adminUser.email);
+  expect(apiMeRequests).toBeGreaterThanOrEqual(2);
+  expect(authRefreshRequests).toBeGreaterThanOrEqual(1);
+});
+
 test('dashboard keeps the auth transition visible until the authenticated UI finishes loading', async ({ page }) => {
   /** @type {(value?: unknown) => void} */
   let releaseSitesResponse = () => {};

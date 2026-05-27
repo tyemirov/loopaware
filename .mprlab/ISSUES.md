@@ -120,15 +120,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 - [!] [B011] (P0) Restore production dashboard access after TAuth login.
   ### Summary
-  The production dashboard remains unauthenticated after the shared TAuth login handoff because the LoopAware API runtime can drift from the TAuth tenant cookie-name contract.
+  The production dashboard can remain unauthenticated after the shared TAuth login handoff when the LoopAware API runtime drifts from the TAuth tenant cookie-name/signing-key contract or when the first dashboard API request observes a transient stale auth state before a full page refresh.
   ### Deliverables
   - Verify the live production login/dashboard path and identify the failing layer.
   - Align the deployed LoopAware API session cookie name with the TAuth `loopaware` tenant.
   - Add gateway-side validation so future deploy config cannot mismatch the two values.
   - Verify the local LoopAware suite and focused gateway config checks pass.
   ### Progress
-  Identified the live production failure layer and patched `mprlab-gateway`: the LoopAware API env must read TAuth's `app_session_loopaware` cookie and configaudit now rejects future LoopAware/TAuth session-cookie drift. LoopAware `make ci` and gateway `make ci` passed locally.
-  Blocked: `make deploy-loopaware-backend` in `mprlab-gateway` stopped at the interactive `Gateway sudo password:` prompt before applying the corrected runtime config to production.
+  Identified the live production cookie contract on 2026-05-27: TAuth's `loopaware` tenant clears `app_session_loopaware` and `app_refresh_loopaware` with `Domain=mprlab.com`, `SameSite=None`, and `Secure`, while LoopAware static production config still points dashboard API traffic at `https://loopaware-api.mprlab.com` and TAuth traffic at `https://tauth-api.mprlab.com`.
+  Added LoopAware-side auth recovery so a post-login dashboard API 401 calls TAuth `/auth/refresh` with the configured tenant and retries the API request once before redirecting to `/login`. Added black-box Playwright coverage for the stale-first-`/api/me` path that previously required a manual full page refresh. Extended `cmd/configaudit` so LoopAware `TAUTH_TENANT_ID`, `TAUTH_JWT_SIGNING_KEY`, and `TAUTH_SESSION_COOKIE_NAME` must match the matching TAuth tenant env values, and aligned the example env placeholders that the new audit exposed as drift. `make ci` passed.
+  Blocked: applying and verifying the corrected production runtime config still requires the `mprlab-gateway` deploy step that previously stopped at the interactive `Gateway sudo password:` prompt.
+  ### Changed Files
+  `cmd/configaudit/main.go`, `cmd/configaudit/main_test.go`, `configs/.env.loopaware.example`, `configs/.env.loopaware.computercat.example`, `tests/specs/header-auth-state.spec.js`, `web/app/index.html`, `.mprlab/ISSUES.md`.
 
 - [x] [B012] (P0) Restore integration Pinguin startup after config schema drift.
   ### Summary
