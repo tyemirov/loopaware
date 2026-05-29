@@ -11,6 +11,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.10] - 2026-05-29
+
+### Features ✨
+- Added LoopAware-side auth recovery to retry dashboard API requests once after a 401 response by calling TAuth `/auth/refresh` before redirecting to login.
+- Extended `cmd/configaudit` to enforce matching LoopAware and TAuth tenant environment variables for session cookie name, JWT signing key, and tenant ID.
+- Added Playwright test coverage for stale-first `/api/me` unauthorized response and automatic auth recovery flow.
+
+### Improvements ⚙️
+- Updated example environment files to align TAuth JWT signing key placeholders.
+- Refined frontend auth request handling to support configurable TAuth logout and refresh paths.
+- Improved audit command to detect and warn about LoopAware/TAuth session cookie name mismatches.
+
+### Bug Fixes 🐛
+- Fixed production dashboard authentication issue caused by LoopAware API runtime drifting from TAuth tenant cookie-name/signing-key contract.
+- Patched `mprlab-gateway` to validate and reject future LoopAware/TAuth session-cookie drift in deployment config.
+
+### Testing 🧪
+- Added unit tests for config audit checks on LoopAware and TAuth tenant environment variable consistency.
+- Added Playwright tests for login flow retry on transient dashboard API unauthorized responses.
+
+### Docs 📚
+- Updated `.mprlab/ISSUES.md` with detailed summary and progress on production dashboard auth recovery and config audit enhancements.
+- Improved inline comments and documentation in `cmd/configaudit` for tenant invariant checks.
+
 ## [v0.7.9] - 2026-05-25
 
 ### Features ✨
