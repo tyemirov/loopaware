@@ -181,16 +181,16 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `internal/api/portfolio_traffic_report.go`, `internal/api/templates/portfolio_traffic_report_email.txt`, `internal/api/portfolio_traffic_report_test.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`, `.mprlab/ISSUES.md`.
 
-- [!] [B017] (P1) Keep dashboard SSE streams alive through gateway read timeouts.
+- [x] [B017] (P1) Keep dashboard SSE streams alive through gateway read timeouts.
   ### Summary
   Production dashboard SSE streams for favicon and feedback updates can sit idle longer than the gateway upstream read timeout, causing Chrome to report `ERR_HTTP2_PROTOCOL_ERROR` when the proxy closes the stream.
   ### Deliverables
   - Emit backend SSE comment heartbeats more frequently than the gateway 80s read timeout.
   - Cover favicon, feedback, and subscription test SSE streams with handler tests that prove heartbeat frames are written.
   - Verify backend stream coverage without relying on slow production-duration timers.
-  ### Progress
+  ### Resolution
   Added 30s `: heartbeat` comment frames to the favicon, feedback, and subscription test SSE loops, with focused handler coverage using shortened test intervals. `go test ./internal/api` and `go test ./...` pass.
-  Blocked: full `make ci` certification is blocked by pre-existing baseline browser failures: `dashboard-auto-logout.spec.js` and `dashboard-elements.spec.js` lost `localhost:8090`, while two `dashboard-traffic.spec.js` assertions from the existing local I012 edits expect SVG text that the current rendered SVG does not expose.
+  The I012 chart-scale assertion blocker was removed by targeting the rendered SVG text labels directly; focused `dashboard-traffic.spec.js` coverage passed. Full `make ci` now passes with 383 Playwright/API tests.
   ### Changed Files
   `internal/api/admin.go`, `internal/api/site_subscribe_test_handlers.go`, `internal/api/stream_handlers_test.go`, `.mprlab/ISSUES.md`.
 
@@ -204,7 +204,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Keep selected-site and all-sites traffic trend charts visually consistent.
   - Add black-box dashboard coverage proving the rendered charts expose the count scale.
   ### Resolution
-  Added visible y-axis count labels, grid lines, and the `Visits / visitors` unit label to the shared trend chart SVG renderer used by selected-site and all-sites traffic views. Updated black-box dashboard traffic coverage to assert the rendered SVG exposes the scale labels. Baseline and post-change `make ci` passed.
+  Added visible y-axis count labels, grid lines, and the `Visits / visitors` unit label to the shared trend chart SVG renderer used by selected-site and all-sites traffic views. Updated black-box dashboard traffic coverage to assert the rendered SVG exposes the scale labels through the SVG text nodes. Focused `dashboard-traffic.spec.js` coverage and full `make ci` passed after the SVG text assertion fix.
   ### Changed Files
   `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
 
