@@ -11,6 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.12] - 2026-06-02
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Added Playwright test coverage to recover login after long-idle Google nonce expiry, ensuring fresh nonce preparation and successful sign-in flow.
+
+### Bug Fixes 🐛
+- Fixed login recovery issue caused by expired Google nonce callback preventing authentication exchange.
+- Updated shared `mpr-ui` auth controller to reject expired GIS callback nonces and emit stale nonce events.
+- Published `mpr-ui` v3.10.1 with nonce timestamping and improved auth flow robustness.
+
+### Testing 🧪
+- Added end-to-end Playwright test simulating long-idle login recovery with nonce expiration and refresh.
+- Enhanced black-box browser coverage for header authentication state and login flows.
+
+### Docs 📚
+- Documented B019 bug fix and recovery steps in `.mprlab/ISSUES.md`.
+
 ## [v0.7.11] - 2026-06-02
 
 ### Features ✨
