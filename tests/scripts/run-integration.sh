@@ -131,7 +131,7 @@ fi
 
 npm --prefix "${repo_root}/tests" install
 if ! (cd "${repo_root}/tests" && node --input-type=module -e "import { chromium } from '@playwright/test'; import fs from 'fs'; const path = chromium.executablePath(); if (!fs.existsSync(path)) process.exit(1);"); then
-  npm --prefix "${repo_root}/tests" exec -- playwright install
+  npm --prefix "${repo_root}/tests" exec -- playwright install chromium
 fi
 integration_suite=${LOOPAWARE_TEST_SUITE:-test:all}
 npm --prefix "${repo_root}/tests" run "${integration_suite}"

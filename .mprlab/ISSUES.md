@@ -11,6 +11,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B018] (P0) Restore GitHub Actions browser setup before CI timeout.
+  ### Summary
+  The GitHub Actions `test` job cancels before `make ci` starts because `npm --prefix tests run install:browsers` spends the 15-minute job budget installing every Playwright browser and Linux dependency even though the suite runs Chromium-only.
+  ### Deliverables
+  - Install only Chromium for Playwright browser coverage.
+  - Keep CI dependency installation locked to the tracked package lockfile.
+  - Preserve the local `make ci` gate and verify the full suite still passes.
+  ### Resolution
+  Changed GitHub Actions to install test dependencies with `npm ci`, narrowed Playwright setup to `chromium` only, increased the job timeout to 30 minutes, and kept the integration-script fallback aligned with the Chromium-only browser contract. Verified `npm --prefix tests ci`, `npm --prefix tests run install:browsers`, and full local `make ci` with 383 Playwright/API tests passing.
+  ### Changed Files
+  `.github/workflows/ci.yml`, `tests/package.json`, `tests/scripts/run-integration.sh`, `.mprlab/ISSUES.md`.
+
 - [x] [B001] (P0) Verify successful login lands on a loaded dashboard.
   ### Summary
   Add black-box browser coverage for the full login completion path: an unauthenticated user starts from `/login`, completes Google/TAuth sign-in, receives a usable session, reaches `/app`, and sees the authenticated dashboard loaded.
