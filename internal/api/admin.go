@@ -80,15 +80,18 @@ const (
 	deviceBreakdownMaxLimit          = 50
 	timezoneDistributionDefaultLimit = 10
 	timezoneDistributionMaxLimit     = 50
+	defaultSSEHeartbeatInterval      = 30 * time.Second
+	sseHeartbeatFrame                = ": heartbeat\n\n"
 )
 
 type SiteHandlers struct {
-	database            *gorm.DB
-	logger              *zap.Logger
-	widgetBaseURL       string
-	faviconManager      *SiteFaviconManager
-	statsProvider       SiteStatisticsProvider
-	feedbackBroadcaster *FeedbackEventBroadcaster
+	database             *gorm.DB
+	logger               *zap.Logger
+	widgetBaseURL        string
+	faviconManager       *SiteFaviconManager
+	statsProvider        SiteStatisticsProvider
+	feedbackBroadcaster  *FeedbackEventBroadcaster
+	sseHeartbeatInterval time.Duration
 }
 
 type siteSummaryCounts struct {
@@ -108,12 +111,13 @@ func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string
 		statsProvider = NewDatabaseSiteStatisticsProvider(database)
 	}
 	return &SiteHandlers{
-		database:            database,
-		logger:              logger,
-		widgetBaseURL:       normalizeWidgetBaseURL(widgetBaseURL),
-		faviconManager:      faviconManager,
-		statsProvider:       statsProvider,
-		feedbackBroadcaster: feedbackBroadcaster,
+		database:             database,
+		logger:               logger,
+		widgetBaseURL:        normalizeWidgetBaseURL(widgetBaseURL),
+		faviconManager:       faviconManager,
+		statsProvider:        statsProvider,
+		feedbackBroadcaster:  feedbackBroadcaster,
+		sseHeartbeatInterval: defaultSSEHeartbeatInterval,
 	}
 }
 
@@ -529,6 +533,14 @@ func (handlers *SiteHandlers) SiteFavicon(context *gin.Context) {
 	context.Data(http.StatusOK, contentType, site.FaviconData)
 }
 
+func writeSSEHeartbeat(writer http.ResponseWriter, flusher http.Flusher) bool {
+	if _, writeErr := writer.Write([]byte(sseHeartbeatFrame)); writeErr != nil {
+		return false
+	}
+	flusher.Flush()
+	return true
+}
+
 func (handlers *SiteHandlers) StreamFaviconUpdates(ginContext *gin.Context) {
 	currentUser, ok := CurrentUserFromContext(ginContext)
 	if !ok {
@@ -560,11 +572,17 @@ func (handlers *SiteHandlers) StreamFaviconUpdates(ginContext *gin.Context) {
 	flusher.Flush()
 
 	requestContext := ginContext.Request.Context()
+	heartbeatTicker := time.NewTicker(handlers.sseHeartbeatInterval)
+	defer heartbeatTicker.Stop()
 
 	for {
 		select {
 		case <-requestContext.Done():
 			return
+		case <-heartbeatTicker.C:
+			if !writeSSEHeartbeat(ginContext.Writer, flusher) {
+				return
+			}
 		case event, ok := <-subscription.Events():
 			if !ok {
 				return
@@ -639,11 +657,17 @@ func (handlers *SiteHandlers) StreamFeedbackUpdates(ginContext *gin.Context) {
 	flusher.Flush()
 
 	requestContext := ginContext.Request.Context()
+	heartbeatTicker := time.NewTicker(handlers.sseHeartbeatInterval)
+	defer heartbeatTicker.Stop()
 
 	for {
 		select {
 		case <-requestContext.Done():
 			return
+		case <-heartbeatTicker.C:
+			if !writeSSEHeartbeat(ginContext.Writer, flusher) {
+				return
+			}
 		case event, ok := <-subscription.Events():
 			if !ok {
 				return

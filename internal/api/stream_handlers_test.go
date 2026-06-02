@@ -230,6 +230,45 @@ func TestStreamFaviconUpdatesWritesEvent(testingT *testing.T) {
 	require.Contains(testingT, body, testStreamFaviconURL)
 }
 
+func TestStreamFaviconUpdatesWritesHeartbeat(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	database := openStreamDatabase(testingT)
+
+	siteFaviconManager := NewSiteFaviconManager(database, favicon.NewService(&staticResolver{}), zap.NewNop())
+	handlers := NewSiteHandlers(database, zap.NewNop(), testStreamPublicBaseURL, siteFaviconManager, nil, nil)
+	handlers.sseHeartbeatInterval = 5 * time.Millisecond
+
+	recorder := newNotifyingRecorder()
+	ginContext, _ := gin.CreateTestContext(recorder)
+	requestContext, cancel := context.WithCancel(context.Background())
+	testingT.Cleanup(cancel)
+	ginContext.Request = httptest.NewRequest(http.MethodGet, testStreamFaviconEventsPath, nil).WithContext(requestContext)
+	ginContext.Set(contextKeyCurrentUser, &CurrentUser{Email: testStreamOwnerEmail, Role: RoleAdmin})
+
+	streamDone := make(chan struct{})
+	go func() {
+		handlers.StreamFaviconUpdates(ginContext)
+		close(streamDone)
+	}()
+
+	waitForFaviconSubscriber(testingT, siteFaviconManager)
+
+	select {
+	case <-recorder.writeNotification:
+	case <-time.After(testStreamTimeout):
+		testingT.Fatal("timeout waiting for favicon stream heartbeat")
+	}
+
+	cancel()
+	select {
+	case <-streamDone:
+	case <-time.After(testStreamTimeout):
+		testingT.Fatal(testStreamFaviconShutdownMessage)
+	}
+
+	require.Contains(testingT, recorder.BodyString(), string(sseHeartbeatFrame))
+}
+
 func TestStreamFaviconUpdatesStopsOnWriteError(testingT *testing.T) {
 	gin.SetMode(gin.TestMode)
 	database := openStreamDatabase(testingT)
@@ -317,6 +356,45 @@ func TestStreamFeedbackUpdatesWritesEvent(testingT *testing.T) {
 	require.Contains(testingT, body, feedbackCreatedEventName)
 	require.Contains(testingT, body, site.ID)
 	require.Contains(testingT, body, testStreamFeedbackID)
+}
+
+func TestStreamFeedbackUpdatesWritesHeartbeat(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	database := openStreamDatabase(testingT)
+
+	feedbackBroadcaster := NewFeedbackEventBroadcaster()
+	handlers := NewSiteHandlers(database, zap.NewNop(), testStreamPublicBaseURL, nil, nil, feedbackBroadcaster)
+	handlers.sseHeartbeatInterval = 5 * time.Millisecond
+
+	recorder := newNotifyingRecorder()
+	ginContext, _ := gin.CreateTestContext(recorder)
+	requestContext, cancel := context.WithCancel(context.Background())
+	testingT.Cleanup(cancel)
+	ginContext.Request = httptest.NewRequest(http.MethodGet, testStreamFeedbackEventsPath, nil).WithContext(requestContext)
+	ginContext.Set(contextKeyCurrentUser, &CurrentUser{Email: testStreamOwnerEmail, Role: RoleAdmin})
+
+	streamDone := make(chan struct{})
+	go func() {
+		handlers.StreamFeedbackUpdates(ginContext)
+		close(streamDone)
+	}()
+
+	waitForFeedbackSubscriber(testingT, feedbackBroadcaster)
+
+	select {
+	case <-recorder.writeNotification:
+	case <-time.After(testStreamTimeout):
+		testingT.Fatal("timeout waiting for feedback stream heartbeat")
+	}
+
+	cancel()
+	select {
+	case <-streamDone:
+	case <-time.After(testStreamTimeout):
+		testingT.Fatal(testStreamFeedbackShutdownMessage)
+	}
+
+	require.Contains(testingT, recorder.BodyString(), string(sseHeartbeatFrame))
 }
 
 func TestStreamFeedbackUpdatesStopsOnWriteError(testingT *testing.T) {
@@ -426,6 +504,47 @@ func TestStreamSubscriptionTestEventsWritesEvent(testingT *testing.T) {
 	require.Contains(testingT, body, testStreamSubscriberID)
 	require.Contains(testingT, body, testStreamSubscriberEmail)
 	require.Contains(testingT, body, strings.ToLower(subscriptionEventTypeSubmission))
+}
+
+func TestStreamSubscriptionTestEventsWritesHeartbeat(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	database := openStreamDatabase(testingT)
+	site := createStreamSite(testingT, database)
+
+	eventBroadcaster := NewSubscriptionTestEventBroadcaster()
+	handlers := NewSiteSubscribeTestHandlers(database, zap.NewNop(), eventBroadcaster, nil, true, testStreamPublicBaseURL, testStreamSubscriptionSecret, nil)
+	handlers.sseHeartbeatInterval = 5 * time.Millisecond
+
+	recorder := newNotifyingRecorder()
+	ginContext, _ := gin.CreateTestContext(recorder)
+	requestContext, cancel := context.WithCancel(context.Background())
+	testingT.Cleanup(cancel)
+	ginContext.Request = httptest.NewRequest(http.MethodGet, "/app/sites/"+site.ID+"/subscribe-test/events", nil).WithContext(requestContext)
+	ginContext.Params = gin.Params{{Key: "id", Value: site.ID}}
+	ginContext.Set(contextKeyCurrentUser, &CurrentUser{Email: testStreamOwnerEmail, Role: RoleAdmin})
+
+	streamDone := make(chan struct{})
+	go func() {
+		handlers.StreamSubscriptionTestEvents(ginContext)
+		close(streamDone)
+	}()
+
+	waitForSubscriptionSubscriber(testingT, eventBroadcaster)
+
+	select {
+	case <-recorder.writeNotification:
+	case <-time.After(testStreamTimeout):
+		testingT.Fatal("timeout waiting for subscription stream heartbeat")
+	}
+
+	cancel()
+	select {
+	case <-streamDone:
+	case <-time.After(testStreamTimeout):
+		testingT.Fatal("timeout waiting for subscription stream shutdown")
+	}
+
+	require.Contains(testingT, recorder.BodyString(), string(sseHeartbeatFrame))
 }
 
 func TestStreamFaviconUpdatesSkipsUnauthorizedSite(testingT *testing.T) {

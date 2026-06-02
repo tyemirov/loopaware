@@ -107,6 +107,9 @@ test('traffic graphics render selected-site trends and breakdowns', async ({ pag
   await page.locator('#dashboard-section-tab-traffic').click();
 
   await expect(page.locator('#traffic-trend-chart svg')).toBeVisible();
+  await expect(page.locator('#traffic-trend-chart svg')).toContainText('Visits / visitors');
+  await expect(page.locator('#traffic-trend-chart svg')).toContainText('2');
+  await expect(page.locator('#traffic-trend-chart svg')).toContainText('0');
   await expect(page.locator('#top-pages-chart')).toContainText('/alpha');
   await expect(page.locator('#traffic-attribution-chart')).toContainText('google');
   await expect(page.locator('#traffic-engagement-summary')).toContainText('Returning rate');
@@ -240,6 +243,9 @@ test('settings entry opens all-sites traffic reporting', async ({ page }) => {
   await expect(page.locator('#all-sites-traffic-sites-table-body')).toContainText(secondSite.name);
   await expect(page.locator('#all-sites-traffic-view')).not.toContainText('Top pages');
   await expect(page.locator('#all-sites-traffic-trend-chart svg')).toBeVisible();
+  await expect(page.locator('#all-sites-traffic-trend-chart svg')).toContainText('Visits / visitors');
+  await expect(page.locator('#all-sites-traffic-trend-chart svg')).toContainText('2');
+  await expect(page.locator('#all-sites-traffic-trend-chart svg')).toContainText('0');
   await expect(page.locator('#all-sites-site-count')).toHaveText('2 sites');
   await expect(page.locator('#global-traffic-report-sites-chip')).toHaveText('2 sites');
   await expect(page.locator('#global-traffic-report-sites-summary')).toHaveText('2 of 2 sites');

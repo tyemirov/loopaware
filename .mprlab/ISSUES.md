@@ -181,7 +181,32 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `internal/api/portfolio_traffic_report.go`, `internal/api/templates/portfolio_traffic_report_email.txt`, `internal/api/portfolio_traffic_report_test.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`, `.mprlab/ISSUES.md`.
 
+- [!] [B017] (P1) Keep dashboard SSE streams alive through gateway read timeouts.
+  ### Summary
+  Production dashboard SSE streams for favicon and feedback updates can sit idle longer than the gateway upstream read timeout, causing Chrome to report `ERR_HTTP2_PROTOCOL_ERROR` when the proxy closes the stream.
+  ### Deliverables
+  - Emit backend SSE comment heartbeats more frequently than the gateway 80s read timeout.
+  - Cover favicon, feedback, and subscription test SSE streams with handler tests that prove heartbeat frames are written.
+  - Verify backend stream coverage without relying on slow production-duration timers.
+  ### Progress
+  Added 30s `: heartbeat` comment frames to the favicon, feedback, and subscription test SSE loops, with focused handler coverage using shortened test intervals. `go test ./internal/api` and `go test ./...` pass.
+  Blocked: full `make ci` certification is blocked by pre-existing baseline browser failures: `dashboard-auto-logout.spec.js` and `dashboard-elements.spec.js` lost `localhost:8090`, while two `dashboard-traffic.spec.js` assertions from the existing local I012 edits expect SVG text that the current rendered SVG does not expose.
+  ### Changed Files
+  `internal/api/admin.go`, `internal/api/site_subscribe_test_handlers.go`, `internal/api/stream_handlers_test.go`, `.mprlab/ISSUES.md`.
+
 ## Improvements
+
+- [x] [I012] (P1) Show count scales on traffic trend charts.
+  ### Summary
+  Traffic trend charts currently show only line shape, so operators cannot read the visit-count scale from the graph itself.
+  ### Deliverables
+  - Add visible count-scale labels and grid references to the shared trend chart renderer.
+  - Keep selected-site and all-sites traffic trend charts visually consistent.
+  - Add black-box dashboard coverage proving the rendered charts expose the count scale.
+  ### Resolution
+  Added visible y-axis count labels, grid lines, and the `Visits / visitors` unit label to the shared trend chart SVG renderer used by selected-site and all-sites traffic views. Updated black-box dashboard traffic coverage to assert the rendered SVG exposes the scale labels. Baseline and post-change `make ci` passed.
+  ### Changed Files
+  `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
 
 - [x] [I006] (P1) Add graphical and portfolio traffic reporting.
   ### Summary

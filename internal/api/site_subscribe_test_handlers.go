@@ -26,6 +26,7 @@ type SiteSubscribeTestHandlers struct {
 	subscriptionTokenSecret   string
 	subscriptionTokenTTL      time.Duration
 	confirmationEmailSender   EmailSender
+	sseHeartbeatInterval      time.Duration
 }
 
 // NewSiteSubscribeTestHandlers constructs handlers for subscription test APIs.
@@ -45,6 +46,7 @@ func NewSiteSubscribeTestHandlers(database *gorm.DB, logger *zap.Logger, broadca
 		subscriptionTokenSecret:   normalizedTokenSecret,
 		subscriptionTokenTTL:      defaultSubscriptionConfirmationTokenTTL,
 		confirmationEmailSender:   confirmationEmailSender,
+		sseHeartbeatInterval:      defaultSSEHeartbeatInterval,
 	}
 }
 
@@ -96,10 +98,17 @@ func (handlers *SiteSubscribeTestHandlers) StreamSubscriptionTestEvents(context 
 	context.Status(http.StatusOK)
 	flusher.Flush()
 
+	heartbeatTicker := time.NewTicker(handlers.sseHeartbeatInterval)
+	defer heartbeatTicker.Stop()
+
 	for {
 		select {
 		case <-context.Request.Context().Done():
 			return
+		case <-heartbeatTicker.C:
+			if !writeSSEHeartbeat(writer, flusher) {
+				return
+			}
 		case event, open := <-subscription.Events():
 			if !open {
 				return
