@@ -19,9 +19,9 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Keep CI dependency installation locked to the tracked package lockfile.
   - Preserve the local `make ci` gate and verify the full suite still passes.
   ### Resolution
-  Changed GitHub Actions to install test dependencies with `npm ci`, narrowed Playwright setup to `chromium` only, increased the job timeout to 30 minutes, and kept the integration-script fallback aligned with the Chromium-only browser contract. Verified `npm --prefix tests ci`, `npm --prefix tests run install:browsers`, and full local `make ci` with 383 Playwright/API tests passing.
+  Changed GitHub Actions to install test dependencies with `npm ci`, run Playwright against the runner's system Chrome instead of downloading bundled Chromium, increased the job timeout to 30 minutes, and kept the integration-script fallback aligned with the configured browser channel. Verified `npm --prefix tests ci`, the system-Chrome Playwright configuration, and full local `make ci` with 383 Playwright/API tests passing.
   ### Changed Files
-  `.github/workflows/ci.yml`, `tests/package.json`, `tests/scripts/run-integration.sh`, `.mprlab/ISSUES.md`.
+  `.github/workflows/ci.yml`, `tests/playwright.config.js`, `tests/package.json`, `tests/scripts/run-integration.sh`, `.mprlab/ISSUES.md`.
 
 - [x] [B001] (P0) Verify successful login lands on a loaded dashboard.
   ### Summary

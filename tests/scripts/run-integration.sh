@@ -130,7 +130,9 @@ if [[ "${ready}" != "true" ]]; then
 fi
 
 npm --prefix "${repo_root}/tests" install
-if ! (cd "${repo_root}/tests" && node --input-type=module -e "import { chromium } from '@playwright/test'; import fs from 'fs'; const path = chromium.executablePath(); if (!fs.existsSync(path)) process.exit(1);"); then
+if [[ -n "${LOOPAWARE_PLAYWRIGHT_CHANNEL:-}" ]]; then
+  echo "Using Playwright browser channel ${LOOPAWARE_PLAYWRIGHT_CHANNEL}; skipping bundled browser install."
+elif ! (cd "${repo_root}/tests" && node --input-type=module -e "import { chromium } from '@playwright/test'; import fs from 'fs'; const path = chromium.executablePath(); if (!fs.existsSync(path)) process.exit(1);"); then
   npm --prefix "${repo_root}/tests" exec -- playwright install chromium
 fi
 integration_suite=${LOOPAWARE_TEST_SUITE:-test:all}
