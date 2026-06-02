@@ -7,7 +7,7 @@
     "test:headed": "playwright test -c playwright.ui.config.js --headed",
     "test:ui": "playwright test -c playwright.ui.config.js --ui",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "install:browsers": "playwright install --with-deps",
+    "install:browsers": "playwright install --with-deps chromium",
     "capture:visual": "node scripts/capture-visual.mjs",
     "test:api": "playwright test -c playwright.api.config.js",
     "test:all": "playwright test"

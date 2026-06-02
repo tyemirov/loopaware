@@ -35,7 +35,10 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+    env:
+      LOOPAWARE_PLAYWRIGHT_CHANNEL: chrome
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
     steps:
       - name: Checkout
@@ -57,8 +60,8 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          npm --prefix tests install
-          npm --prefix tests run install:browsers
+          npm --prefix tests ci
+          google-chrome --version
 
       - name: Make CI
         run: make ci

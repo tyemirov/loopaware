@@ -11,6 +11,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B018] (P0) Restore GitHub Actions browser setup before CI timeout.
+  ### Summary
+  The GitHub Actions `test` job cancels before `make ci` starts because `npm --prefix tests run install:browsers` spends the 15-minute job budget installing every Playwright browser and Linux dependency even though the suite runs Chromium-only.
+  ### Deliverables
+  - Install only Chromium for Playwright browser coverage.
+  - Keep CI dependency installation locked to the tracked package lockfile.
+  - Preserve the local `make ci` gate and verify the full suite still passes.
+  ### Resolution
+  Changed GitHub Actions to install test dependencies with `npm ci`, run Playwright against the runner's system Chrome instead of downloading bundled Chromium, disable Playwright video capture when a system browser channel is selected so cached Playwright ffmpeg is not required, increased the job timeout to 30 minutes, and kept the integration-script fallback aligned with the configured browser channel. Verified `npm --prefix tests ci`, the system-Chrome Playwright configuration, and full local `make ci` with 383 Playwright/API tests passing.
+  ### Changed Files
+  `.github/workflows/ci.yml`, `tests/playwright.config.js`, `tests/package.json`, `tests/scripts/run-integration.sh`, `.mprlab/ISSUES.md`.
+
 - [x] [B001] (P0) Verify successful login lands on a loaded dashboard.
   ### Summary
   Add black-box browser coverage for the full login completion path: an unauthenticated user starts from `/login`, completes Google/TAuth sign-in, receives a usable session, reaches `/app`, and sees the authenticated dashboard loaded.
@@ -181,7 +193,32 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `internal/api/portfolio_traffic_report.go`, `internal/api/templates/portfolio_traffic_report_email.txt`, `internal/api/portfolio_traffic_report_test.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`, `.mprlab/ISSUES.md`.
 
+- [x] [B017] (P1) Keep dashboard SSE streams alive through gateway read timeouts.
+  ### Summary
+  Production dashboard SSE streams for favicon and feedback updates can sit idle longer than the gateway upstream read timeout, causing Chrome to report `ERR_HTTP2_PROTOCOL_ERROR` when the proxy closes the stream.
+  ### Deliverables
+  - Emit backend SSE comment heartbeats more frequently than the gateway 80s read timeout.
+  - Cover favicon, feedback, and subscription test SSE streams with handler tests that prove heartbeat frames are written.
+  - Verify backend stream coverage without relying on slow production-duration timers.
+  ### Resolution
+  Added 30s `: heartbeat` comment frames to the favicon, feedback, and subscription test SSE loops, with focused handler coverage using shortened test intervals. `go test ./internal/api` and `go test ./...` pass.
+  The I012 chart-scale assertion blocker was removed by targeting the rendered SVG text labels directly; focused `dashboard-traffic.spec.js` coverage passed. Full `make ci` now passes with 383 Playwright/API tests.
+  ### Changed Files
+  `internal/api/admin.go`, `internal/api/site_subscribe_test_handlers.go`, `internal/api/stream_handlers_test.go`, `.mprlab/ISSUES.md`.
+
 ## Improvements
+
+- [x] [I012] (P1) Show count scales on traffic trend charts.
+  ### Summary
+  Traffic trend charts currently show only line shape, so operators cannot read the visit-count scale from the graph itself.
+  ### Deliverables
+  - Add visible count-scale labels and grid references to the shared trend chart renderer.
+  - Keep selected-site and all-sites traffic trend charts visually consistent.
+  - Add black-box dashboard coverage proving the rendered charts expose the count scale.
+  ### Resolution
+  Added visible y-axis count labels, grid lines, and the `Visits / visitors` unit label to the shared trend chart SVG renderer used by selected-site and all-sites traffic views. Updated black-box dashboard traffic coverage to assert the rendered SVG exposes the scale labels through the SVG text nodes. Focused `dashboard-traffic.spec.js` coverage and full `make ci` passed after the SVG text assertion fix.
+  ### Changed Files
+  `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
 
 - [x] [I006] (P1) Add graphical and portfolio traffic reporting.
   ### Summary

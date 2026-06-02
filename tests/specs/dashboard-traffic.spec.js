@@ -17,6 +17,18 @@ function buildVisitorId() {
   return crypto.randomUUID();
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {string} chartSelector
+ * @returns {Promise<void>}
+ */
+async function expectTrendScaleLabels(page, chartSelector) {
+  const scaleLabels = page.locator(`${chartSelector} svg text`);
+  await expect(scaleLabels.filter({ hasText: 'Visits / visitors' }).first()).toBeVisible();
+  await expect(scaleLabels.filter({ hasText: /^2$/ }).first()).toBeVisible();
+  await expect(scaleLabels.filter({ hasText: /^0$/ }).first()).toBeVisible();
+}
+
 async function createTrafficSite() {
   return createTestSite(config, buildAdminCookie(), {
     name: buildUniqueName('Traffic Site'),
@@ -107,6 +119,7 @@ test('traffic graphics render selected-site trends and breakdowns', async ({ pag
   await page.locator('#dashboard-section-tab-traffic').click();
 
   await expect(page.locator('#traffic-trend-chart svg')).toBeVisible();
+  await expectTrendScaleLabels(page, '#traffic-trend-chart');
   await expect(page.locator('#top-pages-chart')).toContainText('/alpha');
   await expect(page.locator('#traffic-attribution-chart')).toContainText('google');
   await expect(page.locator('#traffic-engagement-summary')).toContainText('Returning rate');
@@ -240,6 +253,7 @@ test('settings entry opens all-sites traffic reporting', async ({ page }) => {
   await expect(page.locator('#all-sites-traffic-sites-table-body')).toContainText(secondSite.name);
   await expect(page.locator('#all-sites-traffic-view')).not.toContainText('Top pages');
   await expect(page.locator('#all-sites-traffic-trend-chart svg')).toBeVisible();
+  await expectTrendScaleLabels(page, '#all-sites-traffic-trend-chart');
   await expect(page.locator('#all-sites-site-count')).toHaveText('2 sites');
   await expect(page.locator('#global-traffic-report-sites-chip')).toHaveText('2 sites');
   await expect(page.locator('#global-traffic-report-sites-summary')).toHaveText('2 of 2 sites');

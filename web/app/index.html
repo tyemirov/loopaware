@@ -5345,29 +5345,93 @@
             return;
           }
           var namespace = 'http://www.w3.org/2000/svg';
+          var chartWidth = 640;
+          var chartHeight = 180;
+          var leftPadding = 84;
+          var rightPadding = 24;
+          var topPadding = 32;
+          var bottomPadding = 28;
+          var usableWidth = chartWidth - leftPadding - rightPadding;
+          var usableHeight = chartHeight - topPadding - bottomPadding;
+          var axisUnitLabel = 'Visits / visitors';
           var svg = document.createElementNS(namespace, 'svg');
-          svg.setAttribute('viewBox', '0 0 640 160');
+          svg.setAttribute('viewBox', '0 0 ' + chartWidth + ' ' + chartHeight);
           svg.setAttribute('role', 'img');
-          svg.setAttribute('aria-label', 'Traffic trend');
-          var paddingX = 24;
-          var topPadding = 16;
-          var bottomPadding = 24;
-          var usableWidth = 640 - paddingX * 2;
-          var usableHeight = 160 - topPadding - bottomPadding;
+          svg.setAttribute('aria-label', 'Traffic trend, scale 0 to ' + formatTrendScaleValue(maximum) + ' visits and unique visitors');
+
+          function formatTrendScaleValue(value) {
+            var roundedValue = Math.round(Number(value) || 0);
+            if (roundedValue >= 1000000) {
+              return (roundedValue / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            }
+            if (roundedValue >= 1000) {
+              return (roundedValue / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+            }
+            return String(roundedValue);
+          }
+
+          function createSvgText(text, xPosition, yPosition, textAnchor) {
+            var textElement = document.createElementNS(namespace, 'text');
+            textElement.setAttribute('x', xPosition.toFixed(1));
+            textElement.setAttribute('y', yPosition.toFixed(1));
+            textElement.setAttribute('fill', 'currentColor');
+            textElement.setAttribute('font-size', '12');
+            textElement.setAttribute('text-anchor', textAnchor);
+            textElement.setAttribute('dominant-baseline', 'middle');
+            textElement.setAttribute('opacity', '0.72');
+            textElement.textContent = text;
+            return textElement;
+          }
+
+          function trendScaleTicks() {
+            var rawTicks = [maximum, maximum / 2, 0];
+            var ticks = [];
+            rawTicks.forEach(function(rawTick) {
+              var roundedTick = Math.round(rawTick);
+              if (ticks.indexOf(roundedTick) === -1) {
+                ticks.push(roundedTick);
+              }
+            });
+            return ticks;
+          }
 
           function pointPath(valueKey) {
             return entries.map(function(point, index) {
               var denominator = Math.max(entries.length - 1, 1);
-              var x = paddingX + (usableWidth * index / denominator);
+              var x = leftPadding + (usableWidth * index / denominator);
               var value = Number(point && point[valueKey]) || 0;
               var y = topPadding + usableHeight - (usableHeight * value / maximum);
               return (index === 0 ? 'M ' : 'L ') + x.toFixed(1) + ' ' + y.toFixed(1);
             }).join(' ');
           }
 
+          svg.appendChild(createSvgText(axisUnitLabel, leftPadding, 16, 'start'));
+
+          trendScaleTicks().forEach(function(tickValue) {
+            var yPosition = topPadding + usableHeight - (usableHeight * tickValue / maximum);
+            var gridLine = document.createElementNS(namespace, 'line');
+            gridLine.setAttribute('x1', String(leftPadding));
+            gridLine.setAttribute('x2', String(chartWidth - rightPadding));
+            gridLine.setAttribute('y1', yPosition.toFixed(1));
+            gridLine.setAttribute('y2', yPosition.toFixed(1));
+            gridLine.setAttribute('stroke', 'currentColor');
+            gridLine.setAttribute('opacity', tickValue === 0 ? '0.28' : '0.12');
+            svg.appendChild(gridLine);
+            svg.appendChild(createSvgText(formatTrendScaleValue(tickValue), leftPadding - 12, yPosition, 'end'));
+          });
+
+          var yAxis = document.createElementNS(namespace, 'line');
+          yAxis.setAttribute('x1', String(leftPadding));
+          yAxis.setAttribute('x2', String(leftPadding));
+          yAxis.setAttribute('y1', String(topPadding));
+          yAxis.setAttribute('y2', String(topPadding + usableHeight));
+          yAxis.setAttribute('stroke', 'currentColor');
+          yAxis.setAttribute('opacity', '0.2');
+          svg.appendChild(yAxis);
+
           var axis = document.createElementNS(namespace, 'line');
-          axis.setAttribute('x1', String(paddingX));
-          axis.setAttribute('x2', String(640 - paddingX));
+          axis.setAttribute('x1', String(leftPadding));
+          axis.setAttribute('x2', String(chartWidth - rightPadding));
           axis.setAttribute('y1', String(topPadding + usableHeight));
           axis.setAttribute('y2', String(topPadding + usableHeight));
           axis.setAttribute('stroke', 'currentColor');
