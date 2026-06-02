@@ -292,6 +292,24 @@ async function enableAutoGoogleCredentialOnClick(page) {
   });
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function installPageClockControl(page) {
+  await page.addInitScript(() => {
+    const win = /** @type {any} */ (window);
+    let currentTimeMilliseconds = 1_000_000;
+    Date.now = function now() {
+      return currentTimeMilliseconds;
+    };
+    win.__loopawareAdvanceClock = function advanceClock(milliseconds) {
+      currentTimeMilliseconds += Number(milliseconds) || 0;
+      return currentTimeMilliseconds;
+    };
+  });
+}
+
 test('dashboard requires authentication and redirects unauthenticated users to login', async ({ page }) => {
   await openPageWithoutSession(page, '/app');
   await expect(page).toHaveURL(/\/login\/?$/);
@@ -354,6 +372,71 @@ test('login page completed sign-in loads the authenticated dashboard', async ({ 
   await page.waitForURL(/\/app\/?$/);
   await waitForDashboardReady(page, { allowEmptySites: true });
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
+  await expect(page.locator('#user-email')).toHaveText(adminUser.email);
+});
+
+test('login page recovers after a long-idle Google nonce expires', async ({ page }) => {
+  const authGooglePayloads = [];
+  await installPageClockControl(page);
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.pathname !== '/auth/google') {
+      return;
+    }
+    try {
+      authGooglePayloads.push(JSON.parse(request.postData() || '{}'));
+    } catch (error) {
+      authGooglePayloads.push({});
+    }
+  });
+
+  await openPageWithoutSession(page, '/login', {
+    sessionCookieValue: buildLoginSessionCookieValue(adminUser)
+  });
+  await enableAutoGoogleCredentialOnClick(page);
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
+  const staleNonce = await page.evaluate(() => {
+    const state = window['__loopawareGoogleIdentityState'];
+    return state && state.lastInitializeConfig ? String(state.lastInitializeConfig.nonce || '') : '';
+  });
+  expect(staleNonce).not.toBe('');
+  await page.evaluate(() => {
+    const win = /** @type {any} */ (window);
+    if (typeof win.__loopawareAdvanceClock !== 'function') {
+      throw new Error('loopaware.clock_control_missing');
+    }
+    win.__loopawareAdvanceClock(6 * 60 * 1000);
+  });
+
+  await beginLoginPageHeaderLoginFlow(page);
+  await expect
+    .poll(() =>
+      page.evaluate((previousNonce) => {
+        const state = window['__loopawareGoogleIdentityState'];
+        return state && state.lastInitializeConfig
+          ? String(state.lastInitializeConfig.nonce || '') !== String(previousNonce || '')
+          : false;
+      }, staleNonce)
+    )
+    .toBe(true);
+  expect(authGooglePayloads).toEqual([]);
+  const freshNonce = await page.evaluate(() => {
+    const state = window['__loopawareGoogleIdentityState'];
+    return state && state.lastInitializeConfig ? String(state.lastInitializeConfig.nonce || '') : '';
+  });
+  expect(freshNonce).not.toBe('');
+  expect(freshNonce).not.toBe(staleNonce);
+
+  await beginLoginPageHeaderLoginFlow(page);
+
+  await page.waitForURL(/\/app\/?$/);
+  await waitForDashboardReady(page, { allowEmptySites: true });
+  expect(authGooglePayloads).toEqual([
+    {
+      google_id_token: `stub-google-credential::${freshNonce}`,
+      nonce_token: freshNonce
+    }
+  ]);
   await expect(page.locator('#user-email')).toHaveText(adminUser.email);
 });
 
