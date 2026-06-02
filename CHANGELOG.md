@@ -11,6 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.11] - 2026-06-02
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Added visible count scales and grid lines to traffic trend charts for better readability.
+- Updated Playwright tests to use system Chrome in CI, reducing browser installation overhead.
+- Added SSE heartbeat frames every 30 seconds to keep dashboard streams alive through gateway read timeouts.
+
+### Bug Fixes 🐛
+- Fixed Playwright CI browser setup to prevent premature GitHub Actions job cancellation by installing only Chromium and disabling video capture.
+- Resolved dashboard SSE stream closures by emitting periodic heartbeat comments to prevent HTTP/2 protocol errors.
+
+### Testing 🧪
+- Added tests verifying SSE heartbeat frames are sent on favicon, feedback, and subscription event streams.
+- Updated multiple test files and API handlers for consistency and improved coverage.
+- Updated dashboard traffic spec to assert visible count scales on charts.
+
+### Docs 📚
+- Updated ISSUES documentation with detailed summaries and resolutions for recent bug fixes and improvements.
+
 ## [v0.7.10] - 2026-05-29
 
 ### Features ✨
