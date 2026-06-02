@@ -3,6 +3,7 @@ import { defineConfig } from '@playwright/test';
 
 const baseURL = process.env.LOOPAWARE_BASE_URL || 'http://localhost:8090';
 const browserChannel = process.env.LOOPAWARE_PLAYWRIGHT_CHANNEL?.trim();
+const videoMode = browserChannel ? 'off' : 'retain-on-failure';
 /** @type {NonNullable<import('@playwright/test').PlaywrightTestConfig['use']>} */
 const browserOptions = {
   baseURL,
@@ -11,7 +12,7 @@ const browserOptions = {
   ignoreHTTPSErrors: true,
   screenshot: 'only-on-failure',
   trace: 'retain-on-failure',
-  video: 'retain-on-failure'
+  video: videoMode
 };
 
 if (browserChannel) {
