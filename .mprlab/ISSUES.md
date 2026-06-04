@@ -221,6 +221,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [x] [I013] (P1) Mark X-axis time labels on traffic trend charts.
+  ### Summary
+  Traffic trend charts expose the count scale, but the horizontal axis is still unlabeled, so operators cannot tell which days the plotted points represent.
+  ### Deliverables
+  - Add visible time labels to the shared trend chart renderer.
+  - Keep selected-site and all-sites traffic trend charts visually consistent.
+  - Add black-box dashboard coverage proving rendered trend charts expose the X-axis time labels.
+  ### Resolution
+  Added first/middle/last date tick marks and UTC-formatted date labels to the shared traffic trend SVG renderer used by selected-site and all-sites traffic charts. Updated dashboard traffic browser coverage to assert the visible X-axis labels for the selected-site 7-day trend and the all-sites 30-day report trend. `make ci` passed with 384 integration tests.
+  ### Changed Files
+  `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
+
 - [x] [I012] (P1) Show count scales on traffic trend charts.
   ### Summary
   Traffic trend charts currently show only line shape, so operators cannot read the visit-count scale from the graph itself.
