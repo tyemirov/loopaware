@@ -18,15 +18,38 @@ function buildVisitorId() {
 }
 
 /**
+ * @param {number} daysBeforeToday
+ * @returns {string}
+ */
+function buildTrendDateLabel(daysBeforeToday) {
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCDate(date.getUTCDate() - daysBeforeToday);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC'
+  });
+}
+
+/**
  * @param {import('@playwright/test').Page} page
  * @param {string} chartSelector
+ * @param {number} trendWindowDays
  * @returns {Promise<void>}
  */
-async function expectTrendScaleLabels(page, chartSelector) {
+async function expectTrendAxisLabels(page, chartSelector, trendWindowDays) {
   const scaleLabels = page.locator(`${chartSelector} svg text`);
+  const lastPointDayOffset = trendWindowDays - 1;
+  const middlePointIndex = Math.round(lastPointDayOffset / 2);
+  const middlePointDayOffset = lastPointDayOffset - middlePointIndex;
+  const dateLabelOffsets = Array.from(new Set([lastPointDayOffset, middlePointDayOffset, 0]));
   await expect(scaleLabels.filter({ hasText: 'Visits / visitors' }).first()).toBeVisible();
   await expect(scaleLabels.filter({ hasText: /^2$/ }).first()).toBeVisible();
   await expect(scaleLabels.filter({ hasText: /^0$/ }).first()).toBeVisible();
+  for (const dayOffset of dateLabelOffsets) {
+    await expect(scaleLabels.filter({ hasText: buildTrendDateLabel(dayOffset) }).first()).toBeVisible();
+  }
 }
 
 async function createTrafficSite() {
@@ -119,7 +142,7 @@ test('traffic graphics render selected-site trends and breakdowns', async ({ pag
   await page.locator('#dashboard-section-tab-traffic').click();
 
   await expect(page.locator('#traffic-trend-chart svg')).toBeVisible();
-  await expectTrendScaleLabels(page, '#traffic-trend-chart');
+  await expectTrendAxisLabels(page, '#traffic-trend-chart', 7);
   await expect(page.locator('#top-pages-chart')).toContainText('/alpha');
   await expect(page.locator('#traffic-attribution-chart')).toContainText('google');
   await expect(page.locator('#traffic-engagement-summary')).toContainText('Returning rate');
@@ -253,7 +276,7 @@ test('settings entry opens all-sites traffic reporting', async ({ page }) => {
   await expect(page.locator('#all-sites-traffic-sites-table-body')).toContainText(secondSite.name);
   await expect(page.locator('#all-sites-traffic-view')).not.toContainText('Top pages');
   await expect(page.locator('#all-sites-traffic-trend-chart svg')).toBeVisible();
-  await expectTrendScaleLabels(page, '#all-sites-traffic-trend-chart');
+  await expectTrendAxisLabels(page, '#all-sites-traffic-trend-chart', 30);
   await expect(page.locator('#all-sites-site-count')).toHaveText('2 sites');
   await expect(page.locator('#global-traffic-report-sites-chip')).toHaveText('2 sites');
   await expect(page.locator('#global-traffic-report-sites-summary')).toHaveText('2 of 2 sites');
