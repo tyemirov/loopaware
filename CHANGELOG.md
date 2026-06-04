@@ -11,6 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.13] - 2026-06-04
+
+### Features ✨
+- Add date labels and tick marks to the X-axis of traffic trend charts for better time context.
+- Display first, middle, and last date ticks with UTC-formatted labels on selected-site and all-sites traffic trend charts.
+
+### Improvements ⚙️
+- Enhance dashboard traffic chart tests to dynamically verify X-axis date labels for 7-day and 30-day trend windows.
+- Update SVG renderer to include accessible aria-label describing time axis range and visit scale.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- Improve traffic trend chart axis label checks with dynamic date calculations.
+
+### Docs 📚
+- Update issue tracker with detailed summary and resolution of adding X-axis time labels on traffic trend charts.
+
 ## [v0.7.12] - 2026-06-02
 
 ### Features ✨
