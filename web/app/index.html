@@ -5351,13 +5351,14 @@
           var rightPadding = 24;
           var topPadding = 32;
           var bottomPadding = 28;
+          var xAxisLabelOffset = 18;
+          var xAxisTickLength = 5;
           var usableWidth = chartWidth - leftPadding - rightPadding;
           var usableHeight = chartHeight - topPadding - bottomPadding;
           var axisUnitLabel = 'Visits / visitors';
           var svg = document.createElementNS(namespace, 'svg');
           svg.setAttribute('viewBox', '0 0 ' + chartWidth + ' ' + chartHeight);
           svg.setAttribute('role', 'img');
-          svg.setAttribute('aria-label', 'Traffic trend, scale 0 to ' + formatTrendScaleValue(maximum) + ' visits and unique visitors');
 
           function formatTrendScaleValue(value) {
             var roundedValue = Math.round(Number(value) || 0);
@@ -5368,6 +5369,21 @@
               return (roundedValue / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
             }
             return String(roundedValue);
+          }
+
+          function formatTrendDateLabel(rawDate) {
+            var dateParts = String(rawDate || '').slice(0, 10).split('-');
+            if (dateParts.length !== 3) {
+              return String(rawDate || '');
+            }
+            var year = Number(dateParts[0]);
+            var monthIndex = Number(dateParts[1]) - 1;
+            var dayOfMonth = Number(dateParts[2]);
+            return new Date(Date.UTC(year, monthIndex, dayOfMonth)).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              timeZone: 'UTC'
+            });
           }
 
           function createSvgText(text, xPosition, yPosition, textAnchor) {
@@ -5395,16 +5411,38 @@
             return ticks;
           }
 
+          function xPositionForPointIndex(pointIndex) {
+            var denominator = Math.max(entries.length - 1, 1);
+            return leftPadding + (usableWidth * pointIndex / denominator);
+          }
+
+          function trendDateTicks() {
+            var lastPointIndex = entries.length - 1;
+            var candidateIndexes = [0, Math.round(lastPointIndex / 2), lastPointIndex];
+            var ticks = [];
+            candidateIndexes.forEach(function(candidateIndex) {
+              if (ticks.indexOf(candidateIndex) === -1) {
+                ticks.push(candidateIndex);
+              }
+            });
+            return ticks.map(function(tickIndex) {
+              return {
+                label: formatTrendDateLabel(entries[tickIndex].date),
+                xPosition: xPositionForPointIndex(tickIndex)
+              };
+            });
+          }
+
           function pointPath(valueKey) {
             return entries.map(function(point, index) {
-              var denominator = Math.max(entries.length - 1, 1);
-              var x = leftPadding + (usableWidth * index / denominator);
+              var x = xPositionForPointIndex(index);
               var value = Number(point && point[valueKey]) || 0;
               var y = topPadding + usableHeight - (usableHeight * value / maximum);
               return (index === 0 ? 'M ' : 'L ') + x.toFixed(1) + ' ' + y.toFixed(1);
             }).join(' ');
           }
 
+          svg.setAttribute('aria-label', 'Traffic trend, time axis ' + formatTrendDateLabel(entries[0].date) + ' to ' + formatTrendDateLabel(entries[entries.length - 1].date) + ', scale 0 to ' + formatTrendScaleValue(maximum) + ' visits and unique visitors');
           svg.appendChild(createSvgText(axisUnitLabel, leftPadding, 16, 'start'));
 
           trendScaleTicks().forEach(function(tickValue) {
@@ -5437,6 +5475,18 @@
           axis.setAttribute('stroke', 'currentColor');
           axis.setAttribute('opacity', '0.2');
           svg.appendChild(axis);
+
+          trendDateTicks().forEach(function(tick) {
+            var tickLine = document.createElementNS(namespace, 'line');
+            tickLine.setAttribute('x1', tick.xPosition.toFixed(1));
+            tickLine.setAttribute('x2', tick.xPosition.toFixed(1));
+            tickLine.setAttribute('y1', String(topPadding + usableHeight));
+            tickLine.setAttribute('y2', String(topPadding + usableHeight + xAxisTickLength));
+            tickLine.setAttribute('stroke', 'currentColor');
+            tickLine.setAttribute('opacity', '0.2');
+            svg.appendChild(tickLine);
+            svg.appendChild(createSvgText(tick.label, tick.xPosition, topPadding + usableHeight + xAxisLabelOffset, 'middle'));
+          });
 
           var pageViewsPath = document.createElementNS(namespace, 'path');
           pageViewsPath.setAttribute('d', pointPath('page_views'));
