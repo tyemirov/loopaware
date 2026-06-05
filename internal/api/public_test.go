@@ -212,6 +212,7 @@ func TestWidgetConfigHonorsCustomPlacement(testingT *testing.T) {
 		Updates(map[string]any{
 			"widget_bubble_side":             "left",
 			"widget_bubble_bottom_offset_px": 48,
+			"widget_accent_color":            "#ff5500",
 			"widget_show_message_input":      false,
 			"widget_show_sentiment_buttons":  true,
 		}).Error)
@@ -224,6 +225,7 @@ func TestWidgetConfigHonorsCustomPlacement(testingT *testing.T) {
 		SiteID                   string `json:"site_id"`
 		WidgetBubbleSide         string `json:"widget_bubble_side"`
 		WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
+		WidgetAccentColor        string `json:"widget_accent_color"`
 		WidgetShowMessageInput   bool   `json:"widget_show_message_input"`
 		WidgetShowSentiment      bool   `json:"widget_show_sentiment_buttons"`
 	}
@@ -231,6 +233,7 @@ func TestWidgetConfigHonorsCustomPlacement(testingT *testing.T) {
 	require.Equal(testingT, site.ID, widgetConfigPayload.SiteID)
 	require.Equal(testingT, "left", widgetConfigPayload.WidgetBubbleSide)
 	require.Equal(testingT, 48, widgetConfigPayload.WidgetBubbleBottomOffset)
+	require.Equal(testingT, "#ff5500", widgetConfigPayload.WidgetAccentColor)
 	require.False(testingT, widgetConfigPayload.WidgetShowMessageInput)
 	require.True(testingT, widgetConfigPayload.WidgetShowSentiment)
 }

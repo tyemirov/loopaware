@@ -140,6 +140,31 @@ func TestAutoMigrateBackfillsWidgetFeedbackVisibility(t *testing.T) {
 	require.True(t, refreshedSite.WidgetShowSentimentButtons)
 }
 
+func TestAutoMigrateBackfillsWidgetAccentColor(t *testing.T) {
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
+
+	database, openErr := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(t, openErr)
+	database = testutil.ConfigureDatabaseLogger(t, database)
+
+	require.NoError(t, storage.AutoMigrate(database))
+
+	site := model.Site{
+		ID:            storage.NewID(),
+		Name:          "Missing Accent",
+		AllowedOrigin: testSiteAllowedOriginValue,
+		OwnerEmail:    testOwnerEmailValue,
+	}
+	require.NoError(t, database.Create(&site).Error)
+	require.NoError(t, database.Model(&model.Site{}).Where("id = ?", site.ID).Update("widget_accent_color", "").Error)
+
+	require.NoError(t, storage.AutoMigrate(database))
+
+	var refreshedSite model.Site
+	require.NoError(t, database.First(&refreshedSite, "id = ?", site.ID).Error)
+	require.Equal(t, "#0d6efd", refreshedSite.WidgetAccentColor)
+}
+
 func TestOpenDatabaseValidation(t *testing.T) {
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(t)
 

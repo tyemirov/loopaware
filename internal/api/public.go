@@ -134,6 +134,7 @@ type widgetConfigResponse struct {
 	SiteID                   string `json:"site_id"`
 	WidgetBubbleSide         string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
+	WidgetAccentColor        string `json:"widget_accent_color"`
 	WidgetShowMessageInput   bool   `json:"widget_show_message_input"`
 	WidgetShowSentiment      bool   `json:"widget_show_sentiment_buttons"`
 }
@@ -358,6 +359,7 @@ func (h *PublicHandlers) WidgetConfig(context *gin.Context) {
 			Name:                       demoWidgetSiteName,
 			WidgetBubbleSide:           widgetBubbleSideLeft,
 			WidgetBubbleBottomOffsetPx: defaultWidgetBubbleBottomOffset,
+			WidgetAccentColor:          defaultWidgetAccentColor,
 			WidgetShowMessageInput:     defaultWidgetShowMessageInput,
 			WidgetShowSentimentButtons: defaultWidgetShowSentiment,
 		}
@@ -377,11 +379,13 @@ func (h *PublicHandlers) WidgetConfig(context *gin.Context) {
 	}
 
 	ensureWidgetBubblePlacementDefaults(&site)
+	ensureWidgetAccentColorDefault(&site)
 	ensureWidgetFeedbackVisibilityDefaults(&site)
 	context.JSON(http.StatusOK, widgetConfigResponse{
 		SiteID:                   site.ID,
 		WidgetBubbleSide:         site.WidgetBubbleSide,
 		WidgetBubbleBottomOffset: site.WidgetBubbleBottomOffsetPx,
+		WidgetAccentColor:        site.WidgetAccentColor,
 		WidgetShowMessageInput:   site.WidgetShowMessageInput,
 		WidgetShowSentiment:      site.WidgetShowSentimentButtons,
 	})

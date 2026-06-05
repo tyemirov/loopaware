@@ -31,6 +31,7 @@ const (
 	jsonKeyAvatarURL          = "url"
 	jsonKeyWidgetBubbleSide   = "widget_bubble_side"
 	jsonKeyWidgetBubbleOffset = "widget_bubble_bottom_offset"
+	jsonKeyWidgetAccentColor  = "widget_accent_color"
 
 	errorValueInvalidJSON             = "invalid_json"
 	errorValueMissingFields           = "missing_fields"
@@ -42,6 +43,7 @@ const (
 	errorValueInvalidOwner            = "invalid_owner"
 	errorValueInvalidWidgetSide       = "invalid_widget_side"
 	errorValueInvalidWidgetOffset     = "invalid_widget_offset"
+	errorValueInvalidWidgetAccent     = "invalid_widget_accent_color"
 	errorValueInvalidWidgetVisibility = "invalid_widget_feedback_visibility"
 	errorValueInvalidSubscriberStatus = "invalid_subscriber_status"
 	errorValueNothingToUpdate         = "nothing_to_update"
@@ -64,6 +66,7 @@ const (
 	widgetBubbleSideLeft             = "left"
 	defaultWidgetBubbleSide          = widgetBubbleSideRight
 	defaultWidgetBubbleBottomOffset  = 16
+	defaultWidgetAccentColor         = "#0d6efd"
 	defaultWidgetShowMessageInput    = true
 	defaultWidgetShowSentiment       = true
 	minWidgetBubbleBottomOffset      = 0
@@ -130,6 +133,7 @@ type createSiteRequest struct {
 	OwnerEmail               string `json:"owner_email"`
 	WidgetBubbleSide         string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset *int   `json:"widget_bubble_bottom_offset"`
+	WidgetAccentColor        string `json:"widget_accent_color"`
 	WidgetShowMessageInput   *bool  `json:"widget_show_message_input"`
 	WidgetShowSentiment      *bool  `json:"widget_show_sentiment_buttons"`
 }
@@ -143,6 +147,7 @@ type updateSiteRequest struct {
 	OwnerEmail               *string `json:"owner_email"`
 	WidgetBubbleSide         *string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset *int    `json:"widget_bubble_bottom_offset"`
+	WidgetAccentColor        *string `json:"widget_accent_color"`
 	WidgetShowMessageInput   *bool   `json:"widget_show_message_input"`
 	WidgetShowSentiment      *bool   `json:"widget_show_sentiment_buttons"`
 }
@@ -165,6 +170,7 @@ type siteResponse struct {
 	SentryTokenConfigured    bool   `json:"sentry_token_configured"`
 	WidgetBubbleSide         string `json:"widget_bubble_side"`
 	WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
+	WidgetAccentColor        string `json:"widget_accent_color"`
 	WidgetShowMessageInput   bool   `json:"widget_show_message_input"`
 	WidgetShowSentiment      bool   `json:"widget_show_sentiment_buttons"`
 }
@@ -365,6 +371,11 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidWidgetOffset})
 		return
 	}
+	widgetAccentColor, widgetAccentColorErr := sanitizeWidgetAccentColor(payload.WidgetAccentColor)
+	if widgetAccentColorErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidWidgetAccent})
+		return
+	}
 	widgetShowMessageInput, widgetShowSentiment, widgetVisibilityErr := resolveWidgetFeedbackVisibility(
 		payload.WidgetShowMessageInput,
 		defaultWidgetShowMessageInput,
@@ -399,6 +410,7 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		FaviconOrigin:              primaryAllowedOrigin(payload.AllowedOrigin),
 		WidgetBubbleSide:           widgetBubbleSide,
 		WidgetBubbleBottomOffsetPx: widgetBubbleBottomOffset,
+		WidgetAccentColor:          widgetAccentColor,
 		WidgetShowMessageInput:     widgetShowMessageInput,
 		WidgetShowSentimentButtons: widgetShowSentiment,
 	}
@@ -741,7 +753,7 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		return
 	}
 
-	if payload.Name == nil && payload.AllowedOrigin == nil && payload.SubscribeAllowedOrigins == nil && payload.WidgetAllowedOrigins == nil && payload.TrafficAllowedOrigins == nil && payload.OwnerEmail == nil && payload.WidgetBubbleSide == nil && payload.WidgetBubbleBottomOffset == nil && payload.WidgetShowMessageInput == nil && payload.WidgetShowSentiment == nil {
+	if payload.Name == nil && payload.AllowedOrigin == nil && payload.SubscribeAllowedOrigins == nil && payload.WidgetAllowedOrigins == nil && payload.TrafficAllowedOrigins == nil && payload.OwnerEmail == nil && payload.WidgetBubbleSide == nil && payload.WidgetBubbleBottomOffset == nil && payload.WidgetAccentColor == nil && payload.WidgetShowMessageInput == nil && payload.WidgetShowSentiment == nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueNothingToUpdate})
 		return
 	}
@@ -825,6 +837,14 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 			return
 		}
 		site.WidgetBubbleBottomOffsetPx = offset
+	}
+	if payload.WidgetAccentColor != nil {
+		normalizedAccentColor, accentColorErr := sanitizeWidgetAccentColor(*payload.WidgetAccentColor)
+		if accentColorErr != nil {
+			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidWidgetAccent})
+			return
+		}
+		site.WidgetAccentColor = normalizedAccentColor
 	}
 	if payload.WidgetShowMessageInput != nil || payload.WidgetShowSentiment != nil {
 		resolvedShowMessageInput, resolvedShowSentiment, widgetVisibilityErr := resolveWidgetFeedbackVisibility(
@@ -1407,6 +1427,7 @@ func (handlers *SiteHandlers) toSiteResponseWithCounts(site model.Site, counts s
 		widgetBase = normalizeWidgetBaseURL(widgetBaseOrigin)
 	}
 	ensureWidgetBubblePlacementDefaults(&site)
+	ensureWidgetAccentColorDefault(&site)
 	ensureWidgetFeedbackVisibilityDefaults(&site)
 
 	faviconURL := ""
@@ -1432,6 +1453,7 @@ func (handlers *SiteHandlers) toSiteResponseWithCounts(site model.Site, counts s
 		SentryTokenConfigured:    strings.TrimSpace(site.SentryIngestTokenHash) != "",
 		WidgetBubbleSide:         site.WidgetBubbleSide,
 		WidgetBubbleBottomOffset: site.WidgetBubbleBottomOffsetPx,
+		WidgetAccentColor:        site.WidgetAccentColor,
 		WidgetShowMessageInput:   site.WidgetShowMessageInput,
 		WidgetShowSentiment:      site.WidgetShowSentimentButtons,
 	}
@@ -1785,6 +1807,31 @@ func sanitizeWidgetBubbleBottomOffset(value *int) (int, error) {
 	return offset, nil
 }
 
+func sanitizeWidgetAccentColor(raw string) (string, error) {
+	normalized, ok := normalizeWidgetAccentColor(raw)
+	if !ok {
+		return "", errors.New("invalid widget accent color")
+	}
+	return normalized, nil
+}
+
+func normalizeWidgetAccentColor(raw string) (string, bool) {
+	normalized := strings.ToLower(strings.TrimSpace(raw))
+	if normalized == "" {
+		return defaultWidgetAccentColor, true
+	}
+	if len(normalized) != len(defaultWidgetAccentColor) || normalized[0] != '#' {
+		return "", false
+	}
+	for _, character := range normalized[1:] {
+		if (character >= '0' && character <= '9') || (character >= 'a' && character <= 'f') {
+			continue
+		}
+		return "", false
+	}
+	return normalized, true
+}
+
 func resolveWidgetFeedbackVisibility(showMessageInput *bool, fallbackShowMessageInput bool, showSentiment *bool, fallbackShowSentiment bool) (bool, bool, error) {
 	resolvedShowMessageInput := fallbackShowMessageInput
 	if showMessageInput != nil {
@@ -1812,6 +1859,17 @@ func ensureWidgetBubblePlacementDefaults(site *model.Site) {
 	if site.WidgetBubbleBottomOffsetPx < minWidgetBubbleBottomOffset || site.WidgetBubbleBottomOffsetPx > maxWidgetBubbleBottomOffset {
 		site.WidgetBubbleBottomOffsetPx = defaultWidgetBubbleBottomOffset
 	}
+}
+
+func ensureWidgetAccentColorDefault(site *model.Site) {
+	if site == nil {
+		return
+	}
+	normalizedAccentColor, ok := normalizeWidgetAccentColor(site.WidgetAccentColor)
+	if !ok {
+		normalizedAccentColor = defaultWidgetAccentColor
+	}
+	site.WidgetAccentColor = normalizedAccentColor
 }
 
 func ensureWidgetFeedbackVisibilityDefaults(site *model.Site) {

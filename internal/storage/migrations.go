@@ -41,3 +41,13 @@ func backfillSiteWidgetFeedbackVisibility(database *gorm.DB) error {
 		).
 		Updates(assignments).Error
 }
+
+func backfillSiteWidgetAccentColors(database *gorm.DB) error {
+	assignments := map[string]any{
+		"widget_accent_color": "#0d6efd",
+	}
+
+	return database.Model(&model.Site{}).
+		Where("widget_accent_color IS NULL OR TRIM(widget_accent_color) = ''").
+		Updates(assignments).Error
+}
