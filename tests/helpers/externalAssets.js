@@ -104,6 +104,26 @@ const GOOGLE_IDENTITY_STUB = `(() => {
   state.emitCredential = emitCredential;
 
   window.google.accounts.id = {
+    __mprUiTesting: {
+      isInitialized: function() {
+        var config = state.lastInitializeConfig;
+        return !!(config && String(config.nonce || '').length > 0);
+      },
+      getInitializedNonce: function() {
+        var config = state.lastInitializeConfig;
+        return config ? String(config.nonce || '') : '';
+      },
+      getInitializeCallCount: function() {
+        return state.initializeCalls.length;
+      },
+      enableAutoCredentialOnClick: function() {
+        var config = state.lastInitializeConfig;
+        if (!config || !String(config.nonce || '')) {
+          throw new Error('loopaware.google_stub_not_initialized');
+        }
+        state.autoCredentialOnClick = true;
+      }
+    },
     initialize: function(config) {
       state.lastInitializeConfig = config || null;
       state.initializeCalls.push({
@@ -204,6 +224,70 @@ export async function waitForExternalAssetStubsToSettle(page, options) {
     });
   }
   throw new Error('loopaware_external_asset_stubs_not_settled');
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+export async function waitForGoogleIdentityStubInitialized(page) {
+  await page.waitForFunction(() => {
+    const win = /** @type {any} */ (window);
+    const testingApi = win.MPRUI && win.MPRUI.testing && win.MPRUI.testing.googleIdentity;
+    return !!(
+      testingApi &&
+      typeof testingApi.isInitialized === 'function' &&
+      testingApi.isInitialized() === true
+    );
+  });
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+export async function enableAutoGoogleCredentialOnClick(page) {
+  await waitForGoogleIdentityStubInitialized(page);
+  await page.evaluate(() => {
+    const win = /** @type {any} */ (window);
+    const testingApi = win.MPRUI && win.MPRUI.testing && win.MPRUI.testing.googleIdentity;
+    if (!testingApi || typeof testingApi.enableAutoCredentialOnClick !== 'function') {
+      throw new Error('loopaware.mpr_ui_google_identity_testing_missing');
+    }
+    testingApi.enableAutoCredentialOnClick();
+  });
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<string>}
+ */
+export async function getGoogleIdentityInitializedNonce(page) {
+  await waitForGoogleIdentityStubInitialized(page);
+  return page.evaluate(() => {
+    const win = /** @type {any} */ (window);
+    const testingApi = win.MPRUI && win.MPRUI.testing && win.MPRUI.testing.googleIdentity;
+    if (!testingApi || typeof testingApi.getInitializedNonce !== 'function') {
+      throw new Error('loopaware.mpr_ui_google_identity_testing_missing');
+    }
+    return String(testingApi.getInitializedNonce() || '');
+  });
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<number>}
+ */
+export async function getGoogleIdentityInitializeCallCount(page) {
+  await waitForGoogleIdentityStubInitialized(page);
+  return page.evaluate(() => {
+    const win = /** @type {any} */ (window);
+    const testingApi = win.MPRUI && win.MPRUI.testing && win.MPRUI.testing.googleIdentity;
+    if (!testingApi || typeof testingApi.getInitializeCallCount !== 'function') {
+      throw new Error('loopaware.mpr_ui_google_identity_testing_missing');
+    }
+    return Number(testingApi.getInitializeCallCount());
+  });
 }
 
 /**

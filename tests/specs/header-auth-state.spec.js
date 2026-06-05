@@ -2,7 +2,14 @@
 import { test, expect } from '@playwright/test';
 import { buildSessionToken } from '../helpers/auth.js';
 import { resolveTestConfig } from '../helpers/config.js';
-import { installAssetInspectionStubs, waitForExternalAssetStubsToSettle } from '../helpers/externalAssets.js';
+import {
+  enableAutoGoogleCredentialOnClick,
+  getGoogleIdentityInitializedNonce,
+  getGoogleIdentityInitializeCallCount,
+  installAssetInspectionStubs,
+  waitForExternalAssetStubsToSettle,
+  waitForGoogleIdentityStubInitialized
+} from '../helpers/externalAssets.js';
 import { buildAdminUser, openAuthenticatedPage, openPublicPage, waitForDashboardReady } from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
@@ -281,37 +288,6 @@ async function beginLoginPageHeaderLoginFlow(page) {
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<void>}
  */
-async function waitForGoogleIdentityInitializeConfig(page) {
-  await page.waitForFunction(() => {
-    const win = /** @type {any} */ (window);
-    const state = win.__loopawareGoogleIdentityState;
-    const nonce = state && typeof state === 'object' && state.lastInitializeConfig
-      ? String(state.lastInitializeConfig.nonce || '')
-      : '';
-    return nonce.length > 0;
-  });
-}
-
-/**
- * @param {import('@playwright/test').Page} page
- * @returns {Promise<void>}
- */
-async function enableAutoGoogleCredentialOnClick(page) {
-  await waitForGoogleIdentityInitializeConfig(page);
-  await page.evaluate(() => {
-    const win = /** @type {any} */ (window);
-    const state = win.__loopawareGoogleIdentityState;
-    if (!state || typeof state !== 'object') {
-      throw new Error('loopaware.google_identity_state_missing');
-    }
-    state.autoCredentialOnClick = true;
-  });
-}
-
-/**
- * @param {import('@playwright/test').Page} page
- * @returns {Promise<void>}
- */
 async function installPageClockControl(page) {
   await page.addInitScript(() => {
     const win = /** @type {any} */ (window);
@@ -411,11 +387,8 @@ test('login page recovers after a long-idle Google nonce expires', async ({ page
   });
   await enableAutoGoogleCredentialOnClick(page);
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
-  await waitForGoogleIdentityInitializeConfig(page);
-  const staleNonce = await page.evaluate(() => {
-    const state = window['__loopawareGoogleIdentityState'];
-    return state && state.lastInitializeConfig ? String(state.lastInitializeConfig.nonce || '') : '';
-  });
+  await waitForGoogleIdentityStubInitialized(page);
+  const staleNonce = await getGoogleIdentityInitializedNonce(page);
   expect(staleNonce).not.toBe('');
   await page.evaluate(() => {
     const win = /** @type {any} */ (window);
@@ -428,19 +401,12 @@ test('login page recovers after a long-idle Google nonce expires', async ({ page
   await beginLoginPageHeaderLoginFlow(page);
   await expect
     .poll(() =>
-      page.evaluate((previousNonce) => {
-        const state = window['__loopawareGoogleIdentityState'];
-        return state && state.lastInitializeConfig
-          ? String(state.lastInitializeConfig.nonce || '') !== String(previousNonce || '')
-          : false;
-      }, staleNonce)
+      getGoogleIdentityInitializedNonce(page)
+        .then((currentNonce) => currentNonce !== staleNonce)
     )
     .toBe(true);
   expect(authGooglePayloads).toEqual([]);
-  const freshNonce = await page.evaluate(() => {
-    const state = window['__loopawareGoogleIdentityState'];
-    return state && state.lastInitializeConfig ? String(state.lastInitializeConfig.nonce || '') : '';
-  });
+  const freshNonce = await getGoogleIdentityInitializedNonce(page);
   expect(freshNonce).not.toBe('');
   expect(freshNonce).not.toBe(staleNonce);
 
@@ -743,14 +709,7 @@ test('login page boots one mpr-ui auth controller without anonymous session prob
 
   await expect
     .poll(() =>
-      page.evaluate(() => {
-        const state = window['__loopawareGoogleIdentityState'];
-        if (!state || typeof state !== 'object') {
-          return 0;
-        }
-        const calls = state.initializeCalls;
-        return Array.isArray(calls) ? calls.length : 0;
-      })
+      getGoogleIdentityInitializeCallCount(page)
     )
     .toBe(1);
 
