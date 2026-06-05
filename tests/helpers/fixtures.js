@@ -6,6 +6,8 @@ import { installTauthStub } from './tauthStub.js';
 
 const DEFAULT_AVATAR_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=';
 const DEFAULT_LOGOUT_REDIRECT_PATTERN = /\/login(?:\/)?(?:[?#].*)?$/;
+const SEEDED_MPR_UI_AUTH_ATTEMPTS = 3;
+const SEEDED_MPR_UI_AUTH_RETRY_DELAY_MS = 50;
 
 function randomSuffix() {
   return `${Date.now().toString(36)}${Math.random().toString(16).slice(2, 8)}`;
@@ -158,27 +160,58 @@ function mprUiTestingProfileFromUser(user) {
 }
 
 /**
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+function isTransientNavigationEvaluationError(error) {
+  const message = error instanceof Error ? error.message : String(error || '');
+  return message.includes('Execution context was destroyed') || message.includes('Cannot find context with specified id');
+}
+
+/**
+ * @param {number} milliseconds
+ * @returns {Promise<void>}
+ */
+async function waitForMilliseconds(milliseconds) {
+  await new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
+/**
  * @param {import('@playwright/test').Page} page
  * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
  * @returns {Promise<void>}
  */
 async function authenticateSeededMprUiSession(page, user) {
-  await waitForHeaderAuthBound(page);
-  await page.waitForFunction(() => {
-    const testingApi = window.MPRUI && window.MPRUI.testing;
-    return !!(testingApi && typeof testingApi.authenticate === 'function');
-  });
-  await page.evaluate((profile) => {
-    const testingApi = window.MPRUI && window.MPRUI.testing;
-    const headerHost = document.querySelector('mpr-header');
-    if (!headerHost) {
-      throw new Error('loopaware.header_missing');
+  const profile = mprUiTestingProfileFromUser(user);
+  for (let attempt = 1; attempt <= SEEDED_MPR_UI_AUTH_ATTEMPTS; attempt += 1) {
+    await waitForHeaderAuthBound(page);
+    await page.waitForFunction(() => {
+      const testingApi = window.MPRUI && window.MPRUI.testing;
+      const headerHost = document.querySelector('mpr-header');
+      return !!(headerHost && testingApi && typeof testingApi.authenticate === 'function');
+    });
+    try {
+      await page.evaluate((currentProfile) => {
+        const testingApi = window.MPRUI && window.MPRUI.testing;
+        const headerHost = document.querySelector('mpr-header');
+        if (!headerHost) {
+          throw new Error('loopaware.header_missing');
+        }
+        if (!testingApi || typeof testingApi.authenticate !== 'function') {
+          throw new Error('loopaware.mpr_ui_testing_auth_missing');
+        }
+        testingApi.authenticate(headerHost, currentProfile);
+      }, profile);
+      return;
+    } catch (error) {
+      if (!isTransientNavigationEvaluationError(error) || attempt === SEEDED_MPR_UI_AUTH_ATTEMPTS) {
+        throw error;
+      }
+      await waitForMilliseconds(SEEDED_MPR_UI_AUTH_RETRY_DELAY_MS);
     }
-    if (!testingApi || typeof testingApi.authenticate !== 'function') {
-      throw new Error('loopaware.mpr_ui_testing_auth_missing');
-    }
-    testingApi.authenticate(headerHost, profile);
-  }, mprUiTestingProfileFromUser(user));
+  }
 }
 
 /**
