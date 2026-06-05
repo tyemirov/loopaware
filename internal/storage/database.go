@@ -101,7 +101,10 @@ func AutoMigrate(database *gorm.DB) error {
 	if err := backfillSubscriberAudienceKeys(database); err != nil {
 		return err
 	}
-	return backfillSiteWidgetFeedbackVisibility(database)
+	if err := backfillSiteWidgetFeedbackVisibility(database); err != nil {
+		return err
+	}
+	return backfillSiteWidgetAccentColors(database)
 }
 
 func dropLegacySubscriberUniqueIndex(database *gorm.DB) error {

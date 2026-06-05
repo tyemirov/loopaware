@@ -38,6 +38,7 @@ test.beforeEach(async () => {
   await updateSite(config, buildAdminCookie(), site.id, {
     widget_bubble_side: 'right',
     widget_bubble_bottom_offset: 16,
+    widget_accent_color: '#0d6efd',
     widget_show_message_input: true,
     widget_show_sentiment_buttons: true
   });
@@ -191,10 +192,22 @@ test('widget uses light theme bubble color', async ({ page }) => {
   expect(parseRgb(bubbleColor)).toEqual({ red: 13, green: 110, blue: 253 });
 });
 
-test('widget uses dark theme bubble color', async ({ page }) => {
+test('widget uses configured accent color on dark pages', async ({ page }) => {
   await openWidgetPage(page, site.id, { dark: true });
   const bubbleColor = await page.locator('#mp-feedback-bubble').evaluate((element) => getComputedStyle(element).backgroundColor);
-  expect(parseRgb(bubbleColor)).toEqual({ red: 77, green: 171, blue: 247 });
+  expect(parseRgb(bubbleColor)).toEqual({ red: 13, green: 110, blue: 253 });
+});
+
+test('widget applies custom accent color to bubble and send button', async ({ page }) => {
+  await updateSite(config, buildAdminCookie(), site.id, {
+    widget_accent_color: '#ff5500'
+  });
+  await openWidgetPage(page, site.id);
+  const bubbleColor = await page.locator('#mp-feedback-bubble').evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(parseRgb(bubbleColor)).toEqual({ red: 255, green: 85, blue: 0 });
+  await page.locator('#mp-feedback-bubble').click();
+  const sendButtonColor = await page.locator('#mp-feedback-panel button:has-text("Send")').evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(parseRgb(sendButtonColor)).toEqual({ red: 255, green: 85, blue: 0 });
 });
 
 test('widget placement honors left side', async ({ page }) => {

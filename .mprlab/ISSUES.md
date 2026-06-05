@@ -11,6 +11,55 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B023] (P1) Use `mpr-ui` Google Identity testing helper instead of stub globals.
+  ### Summary
+  LoopAware auth specs still mutate and inspect the local Google Identity stub global directly, even though this behavior belongs behind `mpr-ui`'s public test-only integration contract.
+  ### Deliverables
+  - Implement the `google.accounts.id.__mprUiTesting` adapter in the LoopAware GIS route stub.
+  - Route all auto-credential, initialized nonce, and initialize-count test access through `MPRUI.testing.googleIdentity`.
+  - Verify focused auth coverage and the full `make ci` gate after the supporting `mpr-ui` helper is available from CDN.
+  ### Resolution
+  Released `mpr-ui` `v3.10.2` with the `MPRUI.testing.googleIdentity` adapter for test-only Google Identity drivers, verified jsDelivr `mpr-ui@latest` resolves to `x-jsd-version: 3.10.2`, and routed LoopAware's GIS route stub plus auth specs through that public helper instead of app-owned stub globals. Focused auth coverage passed with 83 specs, then final `make ci` passed with 393 Playwright/API specs.
+  ### Changed Files
+  `.mprlab/ISSUES.md`, `PLAN.md`, `tests/helpers/externalAssets.js`, `tests/specs/header-auth-state.spec.js`, `tests/specs/logout-hardening.spec.js`.
+
+- [x] [B022] (P1) Share Google Identity stub readiness across auth specs.
+  ### Summary
+  GitHub Actions still fails in `logout-hardening.spec.js` because that spec has a second local `enableAutoGoogleCredentialOnClick` helper that mutates the Google Identity stub before the stub has installed its initialized nonce state.
+  ### Deliverables
+  - Move the Google Identity initialized-nonce wait into a shared test asset helper.
+  - Use the shared wait in both header auth and logout hardening sign-in helpers before mutating stub state.
+  - Verify focused logout hardening coverage plus the full `make ci` gate.
+  ### Resolution
+  Added shared `waitForGoogleIdentityStubInitialized` coverage support in the external asset helper, then reused it from both header auth and logout hardening credential helpers before setting `autoCredentialOnClick`. Focused `logout-hardening` plus `header-auth-state` coverage passed, and final `make ci` passed with 393 Playwright/API specs.
+  ### Changed Files
+  `.mprlab/ISSUES.md`, `PLAN.md`, `tests/helpers/externalAssets.js`, `tests/specs/header-auth-state.spec.js`, `tests/specs/logout-hardening.spec.js`.
+
+- [x] [B021] (P1) Stabilize auth browser harness readiness in CI.
+  ### Summary
+  GitHub Actions intermittently fails while opening authenticated dashboard pages because seeded `mpr-ui` test authentication can evaluate during a transient navigation, and the long-idle Google nonce regression can mutate the Google Identity stub before the stub state has been installed.
+  ### Deliverables
+  - Retry seeded `mpr-ui` browser-session authentication only across transient navigation/context swaps.
+  - Wait for the Google Identity stub and initialized nonce config before long-idle login tests mutate or read stub state.
+  - Verify focused dashboard allowed-origin and header-auth coverage plus the full `make ci` gate.
+  ### Resolution
+  Made the seeded `mpr-ui` browser authentication helper retry only transient Playwright navigation/context-loss errors between readiness and `page.evaluate`, and made header auth tests wait for the Google Identity stub's initialized nonce config before toggling auto credential behavior or reading nonce state. Focused coverage for `dashboard-allowed-origins` and `header-auth-state` passed, then final `make ci` passed with 393 Playwright/API specs.
+  ### Changed Files
+  `.mprlab/ISSUES.md`, `PLAN.md`, `tests/helpers/fixtures.js`, `tests/specs/header-auth-state.spec.js`.
+
+- [x] [B020] (P1) Restore feedback bubble color customization.
+  ### Summary
+  Operators can still adjust feedback bubble placement and feedback input visibility, but the dashboard and widget test page no longer expose a way to customize the feedback bubble color.
+  ### Deliverables
+  - Add a persisted widget accent color setting with edge validation.
+  - Expose the color control in the dashboard Feedback widget card and widget test page.
+  - Return the saved accent through public widget configuration and apply it to the rendered bubble.
+  - Add black-box API, dashboard, and widget coverage.
+  ### Resolution
+  Added `widget_accent_color` as a persisted site setting with lowercase `#rrggbb` edge validation, migration backfill, admin/public API exposure, dashboard autosave support, widget-test page editing and preview, and runtime widget application to the feedback bubble and Send button. Added API, dashboard, widget runtime, and widget-test page coverage. Baseline and final `make ci` passed.
+  ### Changed Files
+  `.mprlab/ISSUES.md`, `README.md`, `internal/api/admin.go`, `internal/api/public.go`, `internal/api/public_additional_test.go`, `internal/api/public_test.go`, `internal/model/models.go`, `internal/storage/database.go`, `internal/storage/database_test.go`, `internal/storage/migrations.go`, `tests/specs/api-admin.spec.js`, `tests/specs/api-public.spec.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-site-actions.spec.js`, `tests/specs/widget-integration.spec.js`, `tests/specs/widget-test-page.spec.js`, `web/app/index.html`, `web/app/widget-test/index.html`, `web/widget.js`.
+
 - [x] [B019] (P0) Recover login after long-idle Google nonce expiry.
   ### Summary
   Leaving a public LoopAware page open long enough for the prepared Google/TAuth nonce to expire can make the next header sign-in popup complete visually while the credential exchange stays unauthenticated.

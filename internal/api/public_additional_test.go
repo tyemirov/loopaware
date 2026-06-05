@@ -18,6 +18,7 @@ const (
 	testDemoWidgetSiteID       = "__loopaware_widget_demo__"
 	testDemoWidgetBubbleSide   = "left"
 	testDemoWidgetBubbleOffset = 16
+	testDemoWidgetAccentColor  = "#0d6efd"
 	testSubscriberTableName    = "subscribers"
 	testSubscriberQueryHook    = "force_subscriber_query_error"
 	testSubscriberUpdateHook   = "force_subscriber_update_error"
@@ -47,6 +48,7 @@ func TestWidgetConfigReturnsDemoDefaults(testingT *testing.T) {
 		SiteID                   string `json:"site_id"`
 		WidgetBubbleSide         string `json:"widget_bubble_side"`
 		WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
+		WidgetAccentColor        string `json:"widget_accent_color"`
 		WidgetShowMessageInput   bool   `json:"widget_show_message_input"`
 		WidgetShowSentiment      bool   `json:"widget_show_sentiment_buttons"`
 	}
@@ -54,6 +56,7 @@ func TestWidgetConfigReturnsDemoDefaults(testingT *testing.T) {
 	require.Equal(testingT, testDemoWidgetSiteID, payload.SiteID)
 	require.Equal(testingT, testDemoWidgetBubbleSide, payload.WidgetBubbleSide)
 	require.Equal(testingT, testDemoWidgetBubbleOffset, payload.WidgetBubbleBottomOffset)
+	require.Equal(testingT, testDemoWidgetAccentColor, payload.WidgetAccentColor)
 	require.True(testingT, payload.WidgetShowMessageInput)
 	require.True(testingT, payload.WidgetShowSentiment)
 }

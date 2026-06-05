@@ -2,6 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { buildSessionToken } from '../helpers/auth.js';
 import { resolveTestConfig } from '../helpers/config.js';
+import { enableAutoGoogleCredentialOnClick } from '../helpers/externalAssets.js';
 import {
   buildAdminUser,
   openAuthenticatedPage,
@@ -43,21 +44,6 @@ function buildLoginSessionCookieValue(user) {
     avatarUrl: user.avatarUrl,
     userId: user.userId,
     issuer: user.issuer
-  });
-}
-
-/**
- * @param {import('@playwright/test').Page} page
- * @returns {Promise<void>}
- */
-async function enableAutoGoogleCredentialOnClick(page) {
-  await page.evaluate(() => {
-    const win = /** @type {any} */ (window);
-    const state = win.__loopawareGoogleIdentityState;
-    if (!state || typeof state !== 'object') {
-      throw new Error('loopaware.google_identity_state_missing');
-    }
-    state.autoCredentialOnClick = true;
   });
 }
 

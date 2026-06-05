@@ -269,7 +269,7 @@ The Bootstrap front end consumes the APIs above. Features include:
 - Account Settings modal with avatar, email, role badge, reports, and inactivity controls
 - Site creation and owner reassignment available to every authenticated user; administrators additionally see all sites
 - Owner/admin editor for site metadata
-- Widget placement controls that persist the bubble’s side (left/right) and bottom offset without code changes
+- Widget appearance controls that persist the bubble’s accent color, side (left/right), and bottom offset without code changes
 - Feedback table with human-readable timestamps
 - Subscribers panel with per-site subscriber counts, table, CSV export, and a copyable `subscribe.js` snippet
 - Section selector tabs to switch between Feedback, Subscriptions, and Traffic

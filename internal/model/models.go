@@ -19,6 +19,7 @@ type Site struct {
 	CreatorEmail               string `gorm:"size:320"`
 	WidgetBubbleSide           string `gorm:"not null;size:16;default:right"`
 	WidgetBubbleBottomOffsetPx int    `gorm:"not null;default:16"`
+	WidgetAccentColor          string `gorm:"not null;size:7;default:#0d6efd"`
 	WidgetShowMessageInput     bool   `gorm:"not null;default:true"`
 	WidgetShowSentimentButtons bool   `gorm:"not null;default:true"`
 	SentryIngestTokenHash      string `gorm:"size:64"`
