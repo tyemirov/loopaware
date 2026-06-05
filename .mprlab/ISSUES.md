@@ -11,6 +11,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B024] (P0) Cover landing-page login after four idle hours.
+  ### Summary
+  A user can leave the `/login` landing page open for hours, return, and find that the visible Google sign-in no longer completes login.
+  ### Deliverables
+  - Add black-box browser coverage that loads `/login`, emulates four hours passing after page load, then attempts the visible header Google sign-in.
+  - Keep this change test-only; do not edit production application code.
+  - Verify focused header auth coverage and report whether the scenario passes or reproduces the bug.
+  ### Resolution
+  Added `tests/specs/header-auth-state.spec.js` coverage for a single visible header sign-in attempt after `/login` has stayed loaded for four emulated hours. The test initially reproduced the bug against the previously released shared auth library. The systemic fix shipped in `mpr-ui` `v3.10.3`, jsDelivr `mpr-ui@latest` now resolves to `x-jsd-version: 3.10.3`, and the LoopAware scenario advances the Playwright browser clock so the shared prepared-nonce refresh timers execute before the single sign-in click. Production LoopAware code remains untouched. Tests: `make lint-js`; `make test-integration-all` (394 passed); `make ci` (394 integration tests passed).
+  ### Changed Files
+  `.mprlab/ISSUES.md`, `PLAN.md`, `tests/specs/header-auth-state.spec.js`.
+
 - [x] [B023] (P1) Use `mpr-ui` Google Identity testing helper instead of stub globals.
   ### Summary
   LoopAware auth specs still mutate and inspect the local Google Identity stub global directly, even though this behavior belongs behind `mpr-ui`'s public test-only integration contract.
