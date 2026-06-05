@@ -11,6 +11,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.14] - 2026-06-05
+
+### Features ✨
+- Add customizable accent color for feedback bubble widget.
+- Add widget accent color support in site configuration API.
+- Add widget accent color validation and UI integration tests.
+
+### Improvements ⚙️
+- Improve authentication retry and Google identity nonce handling.
+- Refactor tests to use Google Identity stub testing API from `mpr-ui`.
+- Update widget controls description in README to include accent color.
+
+### Bug Fixes 🐛
+- Stabilize browser harness readiness in CI for authentication tests.
+- Restore feedback bubble color customization with full support.
+
+### Testing 🧪
+- Add Google Identity stub testing API and refactor auth tests.
+- Add widget accent color validation and UI integration tests.
+
+### Docs 📚
+- Update ISSUES.md with Google Identity stub test improvements.
+- Update README.md with widget accent color control description.
+
 ## [v0.7.13] - 2026-06-04
 
 ### Features ✨
