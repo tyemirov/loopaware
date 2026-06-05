@@ -38,6 +38,7 @@ const SHARED_AUTH_HTML_CASES = Object.freeze([
   ...DASHBOARD_PREVIEW_CASES
 ]);
 const GOOGLE_IDENTITY_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
+const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 
 /**
  * @param {import('@playwright/test').Page} page
@@ -364,6 +365,45 @@ test('login page completed sign-in loads the authenticated dashboard', async ({ 
   await page.waitForURL(/\/app\/?$/);
   await waitForDashboardReady(page, { allowEmptySites: true });
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
+  await expect(page.locator('#user-email')).toHaveText(adminUser.email);
+});
+
+test('login page signs in after staying loaded for four hours', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-06-05T12:00:00.000Z') });
+  await openPageWithoutSession(page, '/login', {
+    sessionCookieValue: buildLoginSessionCookieValue(adminUser)
+  });
+  await enableAutoGoogleCredentialOnClick(page);
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
+  await waitForGoogleIdentityStubInitialized(page);
+  const loadedPageNonce = await getGoogleIdentityInitializedNonce(page);
+  expect(loadedPageNonce).not.toBe('');
+
+  await page.route(/\/auth\/google(?:\?.*)?$/, async (route) => {
+    const payload = JSON.parse(route.request().postData() || '{}');
+    if (payload && payload.nonce_token === loadedPageNonce) {
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({ error: 'stale_nonce' })
+      });
+      return;
+    }
+    await route.fallback();
+  });
+
+  await page.clock.runFor(FOUR_HOURS_MS);
+  await expect
+    .poll(() =>
+      getGoogleIdentityInitializedNonce(page)
+        .then((currentNonce) => currentNonce !== '' && currentNonce !== loadedPageNonce)
+    )
+    .toBe(true);
+
+  await beginLoginPageHeaderLoginFlow(page);
+
+  await page.waitForURL(/\/app\/?$/);
+  await waitForDashboardReady(page, { allowEmptySites: true });
   await expect(page.locator('#user-email')).toHaveText(adminUser.email);
 });
 
