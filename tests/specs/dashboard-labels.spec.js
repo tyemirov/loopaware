@@ -52,6 +52,7 @@ const labelCases = [
   { selector: 'h2:has-text("Auto logout")', text: 'Auto logout' },
   { selector: 'label[for="edit-site-origin"]', text: 'Allowed origins' },
   { selector: 'label[for="widget-placement-bottom-offset"]', text: 'Bottom offset' },
+  { selector: 'label[for="widget-accent-color"]', text: 'Accent color' },
   { selector: 'label[for="settings-auto-logout-prompt-seconds"]', text: 'Show reminder after' },
   { selector: 'label[for="settings-auto-logout-logout-seconds"]', text: 'Sign out after' }
 ];

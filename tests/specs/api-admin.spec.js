@@ -162,6 +162,20 @@ test.describe("admin api sites", () => {
     expect(payload.error).toBe("invalid_widget_offset");
   });
 
+  test("create site rejects invalid widget accent color", async () => {
+    const { response, payload } = await adminRequest({
+      path: "/api/sites",
+      method: "POST",
+      body: {
+        name: "Widget Accent",
+        allowed_origin: buildUniqueOrigin("widget-accent"),
+        widget_accent_color: "blue"
+      }
+    });
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("invalid_widget_accent_color");
+  });
+
   test("create site rejects disabling both widget feedback inputs", async () => {
     const { response, payload } = await adminRequest({
       path: "/api/sites",
@@ -191,6 +205,20 @@ test.describe("admin api sites", () => {
     expect(response.status).toBe(200);
     expect(payload.widget_show_message_input).toBe(false);
     expect(payload.widget_show_sentiment_buttons).toBe(true);
+  });
+
+  test("create site accepts widget accent color", async () => {
+    const { response, payload } = await adminRequest({
+      path: "/api/sites",
+      method: "POST",
+      body: {
+        name: "Widget Accent Valid",
+        allowed_origin: buildUniqueOrigin("widget-accent-valid"),
+        widget_accent_color: "#FF5500"
+      }
+    });
+    expect(response.status).toBe(200);
+    expect(payload.widget_accent_color).toBe("#ff5500");
   });
 
   test("create site rejects duplicate origin", async () => {
@@ -287,6 +315,17 @@ test.describe("admin api sites", () => {
     expect(payload.error).toBe("invalid_widget_offset");
   });
 
+  test("update site rejects invalid widget accent color", async () => {
+    const site = await createAdminSite("Update Widget Accent Invalid");
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}`,
+      method: "PATCH",
+      body: { widget_accent_color: "#12zz99" }
+    });
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("invalid_widget_accent_color");
+  });
+
   test("update site rejects disabling both widget feedback inputs", async () => {
     const site = await createAdminSite("Update Widget Visibility Invalid");
     const { response, payload } = await adminRequest({
@@ -314,6 +353,17 @@ test.describe("admin api sites", () => {
     expect(response.status).toBe(200);
     expect(payload.widget_show_message_input).toBe(true);
     expect(payload.widget_show_sentiment_buttons).toBe(false);
+  });
+
+  test("update site accepts widget accent color", async () => {
+    const site = await createAdminSite("Update Widget Accent");
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}`,
+      method: "PATCH",
+      body: { widget_accent_color: "#22AA77" }
+    });
+    expect(response.status).toBe(200);
+    expect(payload.widget_accent_color).toBe("#22aa77");
   });
 
   test("update site rejects conflicting origin", async () => {

@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
 import { buildSessionCookie } from '../helpers/auth.js';
 import { buildAdminUser, buildBaseOrigin, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite } from '../helpers/fixtures.js';
+import { listSites, updateSite } from '../helpers/api.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config, { displayName: 'Admin Example' });
@@ -128,4 +129,20 @@ test('validation rejects hiding both widget feedback inputs', async ({ page }) =
   await page.locator('#widget-show-message-input').uncheck();
   await page.locator('#widget-show-sentiment-buttons').uncheck();
   await expect(page.locator('#site-status')).toContainText('Enable the message input, sentiment buttons, or both');
+});
+
+test('feedback widget accent color persists', async ({ page }) => {
+  await updateSite(config, buildAdminCookie(), primarySite.id, { widget_accent_color: '#0d6efd' });
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, primarySite.id);
+  await page.locator('#widget-accent-color').fill('#22aa77');
+  await expect.poll(async () => {
+    const payload = await listSites(config, buildAdminCookie());
+    const refreshedSite = Array.isArray(payload.sites) ? payload.sites.find((entry) => entry.id === primarySite.id) : null;
+    return refreshedSite ? refreshedSite.widget_accent_color : '';
+  }).toBe('#22aa77');
+
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, primarySite.id);
+  await expect(page.locator('#widget-accent-color')).toHaveValue('#22aa77');
 });

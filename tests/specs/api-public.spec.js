@@ -9,7 +9,7 @@ import {
   buildUniqueOrigin,
   createTestSite
 } from "../helpers/fixtures.js";
-import { apiRequest } from "../helpers/api.js";
+import { apiRequest, updateSite } from "../helpers/api.js";
 import { buildSubscriptionConfirmationToken } from "../helpers/subscriptionToken.js";
 
 const config = resolveTestConfig();
@@ -542,6 +542,20 @@ test.describe("widget config endpoint", () => {
     expect(payload.widget_bubble_side).toBeTruthy();
     expect(payload.widget_show_message_input).toBe(true);
     expect(payload.widget_show_sentiment_buttons).toBe(true);
+  });
+
+  test("returns configured widget accent color", async () => {
+    await updateSite(config, buildAdminCookie(), site.id, {
+      widget_accent_color: "#6B21A8"
+    });
+    const { response, payload } = await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/widget-config?site_id=${encodeURIComponent(site.id)}`,
+      method: "GET",
+      origin: site.allowed_origin
+    });
+    expect(response.status).toBe(200);
+    expect(payload.widget_accent_color).toBe("#6b21a8");
   });
 
   test("returns demo widget config", async () => {
