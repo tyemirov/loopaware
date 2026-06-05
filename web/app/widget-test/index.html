@@ -86,7 +86,9 @@
                   Bubble side
                   <strong id="widget-test-summary-side">Right</strong>,
                   bottom offset
-                  <strong><span id="widget-test-summary-offset">16</span>px</strong>.
+                  <strong><span id="widget-test-summary-offset">16</span>px</strong>,
+                  accent color
+                  <strong id="widget-test-summary-accent">#0d6efd</strong>.
                 </p>
 
                 <form id="widget-test-form" class="border rounded p-3 bg-body-secondary">
@@ -115,8 +117,14 @@
                       </div>
                     </div>
                   </div>
+                  <div class="row g-3 align-items-end mb-3">
+                    <div class="col-12 col-lg-6">
+                      <label class="form-label" for="widget-test-accent-color">Accent color</label>
+                      <input type="color" class="form-control form-control-color w-100" id="widget-test-accent-color" value="#0d6efd" title="Choose accent color" />
+                    </div>
+                  </div>
                   <div class="d-flex align-items-center gap-3">
-                    <button id="widget-test-save" type="submit" class="btn btn-primary">Save placement</button>
+                    <button id="widget-test-save" type="submit" class="btn btn-primary">Save widget settings</button>
                     <span class="small text-muted" id="widget-test-status"></span>
                   </div>
                 </form>
@@ -200,10 +208,12 @@
         var sideLeftInput = /** @type {HTMLInputElement|null} */ (document.getElementById("widget-test-side-left"));
         var sideRightInput = /** @type {HTMLInputElement|null} */ (document.getElementById("widget-test-side-right"));
         var offsetInput = /** @type {HTMLInputElement|null} */ (document.getElementById("widget-test-bottom-offset"));
+        var accentColorInput = /** @type {HTMLInputElement|null} */ (document.getElementById("widget-test-accent-color"));
         var offsetDecreaseButton = document.getElementById("widget-test-offset-decrease");
         var offsetIncreaseButton = document.getElementById("widget-test-offset-increase");
         var summarySide = document.getElementById("widget-test-summary-side");
         var summaryOffset = document.getElementById("widget-test-summary-offset");
+        var summaryAccent = document.getElementById("widget-test-summary-accent");
         var saveButton = /** @type {HTMLButtonElement|null} */ (document.getElementById("widget-test-save"));
         var form = /** @type {HTMLFormElement|null} */ (document.getElementById("widget-test-form"));
 
@@ -212,6 +222,7 @@
         var offsetStep = 10;
         var horizontalOffset = "16px";
         var panelSpacing = 64;
+        var defaultAccentColor = "#0d6efd";
         var saving = false;
         function authFetch(resource, init) {
           var requestOptions = init || {};
@@ -244,6 +255,14 @@
           return numeric;
         }
 
+        function normalizeAccentColor(value) {
+          var normalized = String(value || "").trim().toLowerCase();
+          if (!/^#[0-9a-f]{6}$/.test(normalized)) {
+            return defaultAccentColor;
+          }
+          return normalized;
+        }
+
         function currentSide() {
           if (sideLeftInput && sideLeftInput.checked) return "left";
           return "right";
@@ -254,22 +273,28 @@
           return normalizeOffset(offsetInput.value);
         }
 
+        function currentAccentColor() {
+          if (!accentColorInput) return defaultAccentColor;
+          return normalizeAccentColor(accentColorInput.value);
+        }
+
         function setStatus(message) {
           if (!statusElement) return;
           statusElement.textContent = message || "";
         }
 
-        function updateSummary(side, offset) {
+        function updateSummary(side, offset, accentColor) {
           if (summarySide) summarySide.textContent = side === "left" ? "Left" : "Right";
           if (summaryOffset) summaryOffset.textContent = String(offset);
+          if (summaryAccent) summaryAccent.textContent = accentColor;
         }
 
-        function updateWidgetPreview(side, offset) {
+        function updateWidgetPreview(side, offset, accentColor) {
           var bubble = document.getElementById("mp-feedback-bubble");
           var panel = document.getElementById("mp-feedback-panel");
           if (!bubble || !panel) {
             window.setTimeout(function () {
-              updateWidgetPreview(normalizeSide(currentSide()), normalizeOffset(currentOffset()));
+              updateWidgetPreview(normalizeSide(currentSide()), normalizeOffset(currentOffset()), currentAccentColor());
             }, 50);
             return;
           }
@@ -286,16 +311,19 @@
           }
           bubble.style.bottom = offset + "px";
           panel.style.bottom = offset + panelSpacing + "px";
+          bubble.style.background = accentColor;
         }
 
-        function applyFormState(side, offset) {
+        function applyFormState(side, offset, accentColor) {
           var normalizedSide = normalizeSide(side);
           var normalizedOffset = normalizeOffset(offset);
+          var normalizedAccentColor = normalizeAccentColor(accentColor);
           if (sideLeftInput) sideLeftInput.checked = normalizedSide === "left";
           if (sideRightInput) sideRightInput.checked = normalizedSide !== "left";
           if (offsetInput) offsetInput.value = String(normalizedOffset);
-          updateSummary(normalizedSide, normalizedOffset);
-          updateWidgetPreview(normalizedSide, normalizedOffset);
+          if (accentColorInput) accentColorInput.value = normalizedAccentColor;
+          updateSummary(normalizedSide, normalizedOffset, normalizedAccentColor);
+          updateWidgetPreview(normalizedSide, normalizedOffset, normalizedAccentColor);
         }
 
         function adjustOffset(delta) {
@@ -306,7 +334,7 @@
         }
 
         function handleControlChange() {
-          applyFormState(currentSide(), currentOffset());
+          applyFormState(currentSide(), currentOffset(), currentAccentColor());
         }
 
         function hydrateFromSite() {
@@ -337,7 +365,8 @@
                 }
                 var side = typeof site.widget_bubble_side === "string" ? site.widget_bubble_side.trim().toLowerCase() : "";
                 var offset = typeof site.widget_bubble_bottom_offset === "number" ? site.widget_bubble_bottom_offset : NaN;
-                applyFormState(side || currentSide(), Number.isFinite(offset) ? offset : currentOffset());
+                var accentColor = typeof site.widget_accent_color === "string" ? site.widget_accent_color.trim().toLowerCase() : "";
+                applyFormState(side || currentSide(), Number.isFinite(offset) ? offset : currentOffset(), accentColor || currentAccentColor());
                 return;
               }
             })
@@ -362,13 +391,14 @@
         window.LOOPAWARE_WIDGET_TEST_ENDPOINT = apiUrl("/api/sites/" + encodeURIComponent(siteId) + "/widget-test/feedback");
 
         var updateEndpoint = apiUrl("/api/sites/" + encodeURIComponent(siteId));
-        applyFormState("right", 16);
+        applyFormState("right", 16, defaultAccentColor);
         hydrateFromSite();
         loadWidgetScript();
 
         if (sideLeftInput) sideLeftInput.addEventListener("change", handleControlChange);
         if (sideRightInput) sideRightInput.addEventListener("change", handleControlChange);
         if (offsetInput) offsetInput.addEventListener("input", handleControlChange);
+        if (accentColorInput) accentColorInput.addEventListener("input", handleControlChange);
         if (offsetDecreaseButton) offsetDecreaseButton.addEventListener("click", function () { adjustOffset(-offsetStep); });
         if (offsetIncreaseButton) offsetIncreaseButton.addEventListener("click", function () { adjustOffset(offsetStep); });
 
@@ -382,6 +412,7 @@
             var payload = {
               widget_bubble_side: currentSide(),
               widget_bubble_bottom_offset: currentOffset(),
+              widget_accent_color: currentAccentColor(),
             };
             authFetch(updateEndpoint, {
               method: "PATCH",

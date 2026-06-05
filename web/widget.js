@@ -92,6 +92,7 @@
   var widgetPlacementSideValue = widgetDefaults.placementSide;
   var widgetPlacementBottomOffsetValue = widgetDefaults.placementBottomOffset;
   var widgetPlacementHorizontalOffsetValue = widgetDefaults.horizontalOffset;
+  var widgetAccentColorValue = "";
   var widgetShowMessageInputValue = true;
   var widgetShowSentimentButtonsValue = true;
 
@@ -334,6 +335,40 @@
     return rawValue;
   }
 
+  function normalizeWidgetAccentColor(rawValue) {
+    var normalized = typeof rawValue === "string" ? rawValue.trim().toLowerCase() : "";
+    if (!normalized) {
+      return null;
+    }
+    if (!/^#[0-9a-f]{6}$/.test(normalized)) {
+      return null;
+    }
+    return normalized;
+  }
+
+  function selectAccentTextColor(accentColor) {
+    var red = parseInt(accentColor.slice(1, 3), 16);
+    var green = parseInt(accentColor.slice(3, 5), 16);
+    var blue = parseInt(accentColor.slice(5, 7), 16);
+    var luminance = ((red * 0.299) + (green * 0.587) + (blue * 0.114)) / 255;
+    return luminance > luminanceLightThreshold ? "#0b1526" : "#ffffff";
+  }
+
+  function applyAccentColorToPalette(palette) {
+    var normalizedAccentColor = normalizeWidgetAccentColor(widgetAccentColorValue);
+    if (!normalizedAccentColor) {
+      return palette;
+    }
+    var accentTextColor = selectAccentTextColor(normalizedAccentColor);
+    return Object.assign({}, palette, {
+      bubbleBackground: normalizedAccentColor,
+      bubbleTextColor: accentTextColor,
+      buttonBackground: normalizedAccentColor,
+      buttonTextColor: accentTextColor,
+      statusPendingColor: normalizedAccentColor
+    });
+  }
+
   function applyWidgetPlacementConfig(config) {
     if (!config) {
       return;
@@ -353,6 +388,10 @@
     }
     if (typeof showSentimentButtons === "boolean") {
       widgetShowSentimentButtonsValue = showSentimentButtons;
+    }
+    var accentColor = normalizeWidgetAccentColor(config.accentColor);
+    if (accentColor) {
+      widgetAccentColorValue = accentColor;
     }
   }
 
@@ -399,6 +438,7 @@
         return {
           side: payload.widget_bubble_side,
           bottomOffset: payload.widget_bubble_bottom_offset,
+          accentColor: payload.widget_accent_color,
           showMessageInput: payload.widget_show_message_input,
           showSentimentButtons: payload.widget_show_sentiment_buttons,
         };
@@ -444,6 +484,7 @@
           return {
             side: site.widget_bubble_side,
             bottomOffset: site.widget_bubble_bottom_offset,
+            accentColor: site.widget_accent_color,
             showMessageInput: site.widget_show_message_input,
             showSentimentButtons: site.widget_show_sentiment_buttons,
           };
@@ -1057,9 +1098,9 @@
     var detectedTheme = detectPageTheme(bodyElement);
     var palette = widgetThemePalettes[detectedTheme];
     if (!palette) {
-      return widgetThemePalettes[themeNameLight];
+      return applyAccentColorToPalette(widgetThemePalettes[themeNameLight]);
     }
-    return palette;
+    return applyAccentColorToPalette(palette);
   }
 
   function detectPageTheme(bodyElement) {

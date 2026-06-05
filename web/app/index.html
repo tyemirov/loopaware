@@ -336,6 +336,13 @@
                     <div class="form-text" id="widget-placement-bottom-offset-help">Keeps the bubble above sticky footers.</div>
                   </div>
                 </div>
+                <h6 class="fw-semibold mb-2">Bubble appearance</h6>
+                <div class="row g-3 align-items-end mb-3">
+                  <div class="col-md-6">
+                    <label class="form-label" for="widget-accent-color">Accent color</label>
+                    <input type="color" class="form-control form-control-color w-100" id="widget-accent-color" value="#0d6efd" title="Choose accent color" />
+                  </div>
+                </div>
                 <h6 class="fw-semibold mb-2">Feedback inputs</h6>
                 <div class="row g-3 mb-3">
                   <div class="col-md-6">
@@ -1322,6 +1329,7 @@
         if (!Number.isFinite(widgetBottomOffsetMaximum)) {
           widgetBottomOffsetMaximum = 240;
         }
+        var widgetDefaultAccentColor = '#0d6efd';
         var formStatusClasses = parsedConfig.form_status_classes || {};
         var validationMessages = parsedConfig.validation_messages || {};
         var themePreferenceStorageKey = parsedConfig.theme_storage_key || '';
@@ -1495,9 +1503,13 @@
         var widgetBottomOffsetInput = document.getElementById(elementIds.widget_bottom_offset);
         var widgetBottomOffsetDecreaseButton = document.getElementById(elementIds.widget_bottom_offset_decrease);
         var widgetBottomOffsetIncreaseButton = document.getElementById(elementIds.widget_bottom_offset_increase);
+        var widgetAccentColorInput = document.getElementById('widget-accent-color');
         var widgetShowMessageInputCheckbox = document.getElementById('widget-show-message-input');
         var widgetShowSentimentButtonsCheckbox = document.getElementById('widget-show-sentiment-buttons');
+        var widgetAccentColorInvalidMessage = 'Provide a hex color like #0d6efd.';
         var widgetFeedbackVisibilityInvalidMessage = 'Enable the message input, sentiment buttons, or both.';
+        validationMessages.widget_accent_color_invalid = validationMessages.widget_accent_color_invalid || widgetAccentColorInvalidMessage;
+        errorMessages.invalid_widget_accent_color = errorMessages.invalid_widget_accent_color || widgetAccentColorInvalidMessage;
         errorMessages.invalid_widget_feedback_visibility = errorMessages.invalid_widget_feedback_visibility || widgetFeedbackVisibilityInvalidMessage;
         var widgetBottomOffsetStep =  10 ;
         if (widgetBottomOffsetInput) {
@@ -1614,6 +1626,7 @@
         var validationMessageKeyOriginInvalid = 'origin_invalid';
         var validationMessageKeyOwnerInvalid = 'owner_invalid';
         var validationMessageKeyWidgetOffsetInvalid = 'widget_offset_invalid';
+        var validationMessageKeyWidgetAccentColorInvalid = 'widget_accent_color_invalid';
         var invalidFieldClassName = 'is-invalid';
         var currentThemeMode = document.documentElement.getAttribute('data-bs-theme') || 'light';
         var sessionTimeoutStartRequested = false;
@@ -1654,6 +1667,18 @@
 
         function normalizeWidgetFeedbackVisibilityValue(value) {
           return value !== false;
+        }
+
+        function isWidgetAccentColorValid(value) {
+          return /^#[0-9a-fA-F]{6}$/.test(String(value || '').trim());
+        }
+
+        function normalizeWidgetAccentColorValue(value) {
+          var normalized = String(value || '').trim().toLowerCase();
+          if (!isWidgetAccentColorValid(normalized)) {
+            normalized = widgetDefaultAccentColor;
+          }
+          return normalized;
         }
 
         function adjustWidgetBottomOffset(delta) {
@@ -1698,6 +1723,12 @@
           }
         }
 
+        function setWidgetAppearanceControls(accentColor) {
+          if (widgetAccentColorInput) {
+            widgetAccentColorInput.value = normalizeWidgetAccentColorValue(accentColor);
+          }
+        }
+
         function determineWidgetPlacementPayload() {
           var sideValue = resolveWidgetSideSelection();
           var offsetValue = widgetBottomOffsetInput ? normalizeWidgetBottomOffsetValue(widgetBottomOffsetInput.value) : widgetDefaultBottomOffset;
@@ -1711,6 +1742,12 @@
           return {
             widget_show_message_input: widgetShowMessageInputCheckbox ? widgetShowMessageInputCheckbox.checked === true : true,
             widget_show_sentiment_buttons: widgetShowSentimentButtonsCheckbox ? widgetShowSentimentButtonsCheckbox.checked === true : true
+          };
+        }
+
+        function determineWidgetAppearancePayload() {
+          return {
+            widget_accent_color: widgetAccentColorInput ? normalizeWidgetAccentColorValue(widgetAccentColorInput.value) : widgetDefaultAccentColor
           };
         }
 
@@ -2828,6 +2865,12 @@
             messageKey: validationMessageKeyWidgetOffsetInvalid,
             shouldValidate: shouldAlwaysValidate,
             validateValue: isWidgetBottomOffsetValid
+          },
+          {
+            fieldElement: widgetAccentColorInput,
+            messageKey: validationMessageKeyWidgetAccentColorInvalid,
+            shouldValidate: shouldAlwaysValidate,
+            validateValue: isWidgetAccentColorValid
           }
         ];
         function clearValidationFeedback() {
@@ -2937,7 +2980,7 @@
           });
         }
         function registerSiteFormTabCycle() {
-          var tabOrderedFields = [editSiteNameInput, editSiteOriginInput, editSiteOwnerInput, widgetShowMessageInputCheckbox, widgetShowSentimentButtonsCheckbox, widgetBottomOffsetInput].filter(function(element) {
+          var tabOrderedFields = [editSiteNameInput, editSiteOriginInput, editSiteOwnerInput, widgetBottomOffsetInput, widgetAccentColorInput, widgetShowMessageInputCheckbox, widgetShowSentimentButtonsCheckbox].filter(function(element) {
             return element;
           });
           if (tabOrderedFields.length === 0) {
@@ -4915,6 +4958,7 @@
           editSiteOriginInput.value = '';
           editSiteOwnerInput.value = '';
           setWidgetPlacementControls(widgetDefaultSide, widgetDefaultBottomOffset);
+          setWidgetAppearanceControls(widgetDefaultAccentColor);
           setWidgetFeedbackVisibilityControls(true, true);
           renderWidgetAllowedOrigins('');
           setWidgetAllowedOriginsDisabled(true);
@@ -4984,6 +5028,7 @@
           editSiteOriginInput.value = site.allowed_origin || '';
           editSiteOwnerInput.value = site.owner_email || '';
           setWidgetPlacementControls(site.widget_bubble_side, site.widget_bubble_bottom_offset);
+          setWidgetAppearanceControls(site.widget_accent_color);
           setWidgetFeedbackVisibilityControls(site.widget_show_message_input, site.widget_show_sentiment_buttons);
           renderWidgetAllowedOrigins(site.widget_allowed_origins || '');
           setWidgetAllowedOriginsDisabled(false);
@@ -6930,6 +6975,9 @@
         if (payload.widget_bubble_bottom_offset !== normalizeWidgetBottomOffsetValue(site.widget_bubble_bottom_offset)) {
           return true;
         }
+        if (payload.widget_accent_color !== normalizeWidgetAccentColorValue(site.widget_accent_color)) {
+          return true;
+        }
         if (payload.widget_show_message_input !== normalizeWidgetFeedbackVisibilityValue(site.widget_show_message_input)) {
           return true;
         }
@@ -6946,6 +6994,7 @@
         var selectedSite = resolveSelectedSite();
         var ownerEmailValue = getTrimmedValue(editSiteOwnerInput);
         var placementPayload = determineWidgetPlacementPayload();
+        var appearancePayload = determineWidgetAppearancePayload();
         var visibilityPayload = determineWidgetFeedbackVisibilityPayload();
         var payload = {
           name: getTrimmedValue(editSiteNameInput),
@@ -6955,6 +7004,7 @@
           traffic_allowed_origins: readTrafficAllowedOrigins(),
           widget_bubble_side: placementPayload.widget_bubble_side,
           widget_bubble_bottom_offset: placementPayload.widget_bubble_bottom_offset,
+          widget_accent_color: appearancePayload.widget_accent_color,
           widget_show_message_input: visibilityPayload.widget_show_message_input,
           widget_show_sentiment_buttons: visibilityPayload.widget_show_sentiment_buttons
         };
