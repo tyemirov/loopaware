@@ -11,6 +11,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B021] (P1) Stabilize auth browser harness readiness in CI.
+  ### Summary
+  GitHub Actions intermittently fails while opening authenticated dashboard pages because seeded `mpr-ui` test authentication can evaluate during a transient navigation, and the long-idle Google nonce regression can mutate the Google Identity stub before the stub state has been installed.
+  ### Deliverables
+  - Retry seeded `mpr-ui` browser-session authentication only across transient navigation/context swaps.
+  - Wait for the Google Identity stub and initialized nonce config before long-idle login tests mutate or read stub state.
+  - Verify focused dashboard allowed-origin and header-auth coverage plus the full `make ci` gate.
+  ### Resolution
+  Made the seeded `mpr-ui` browser authentication helper retry only transient Playwright navigation/context-loss errors between readiness and `page.evaluate`, and made header auth tests wait for the Google Identity stub's initialized nonce config before toggling auto credential behavior or reading nonce state. Focused coverage for `dashboard-allowed-origins` and `header-auth-state` passed, then final `make ci` passed with 393 Playwright/API specs.
+  ### Changed Files
+  `.mprlab/ISSUES.md`, `PLAN.md`, `tests/helpers/fixtures.js`, `tests/specs/header-auth-state.spec.js`.
+
 - [x] [B020] (P1) Restore feedback bubble color customization.
   ### Summary
   Operators can still adjust feedback bubble placement and feedback input visibility, but the dashboard and widget test page no longer expose a way to customize the feedback bubble color.
