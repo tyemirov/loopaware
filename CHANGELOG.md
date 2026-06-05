@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.15] - 2026-06-05
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Added Playwright test coverage for login page sign-in after four hours idle to catch stale nonce issues without modifying production code.
+
+### Bug Fixes 🐛
+- Fixed login failure after four hours idle on the landing page by verifying nonce refresh and sign-in flow in tests.
+
+### Testing 🧪
+- Introduced new integration test simulating four-hour idle on `/login` page to ensure Google sign-in completes successfully.
+- Enhanced auth state tests with time manipulation and Google Identity stub validation.
+
+### Docs 📚
+- Updated issue tracking documentation with detailed description and resolution of the four-hour login idle bug.
+
 ## [v0.7.14] - 2026-06-05
 
 ### Features ✨
