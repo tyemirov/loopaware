@@ -11,6 +11,19 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B020] (P1) Restore feedback bubble color customization.
+  ### Summary
+  Operators can still adjust feedback bubble placement and feedback input visibility, but the dashboard and widget test page no longer expose a way to customize the feedback bubble color.
+  ### Deliverables
+  - Add a persisted widget accent color setting with edge validation.
+  - Expose the color control in the dashboard Feedback widget card and widget test page.
+  - Return the saved accent through public widget configuration and apply it to the rendered bubble.
+  - Add black-box API, dashboard, and widget coverage.
+  ### Resolution
+  Added `widget_accent_color` as a persisted site setting with lowercase `#rrggbb` edge validation, migration backfill, admin/public API exposure, dashboard autosave support, widget-test page editing and preview, and runtime widget application to the feedback bubble and Send button. Added API, dashboard, widget runtime, and widget-test page coverage. Baseline and final `make ci` passed.
+  ### Changed Files
+  `.mprlab/ISSUES.md`, `README.md`, `internal/api/admin.go`, `internal/api/public.go`, `internal/api/public_additional_test.go`, `internal/api/public_test.go`, `internal/model/models.go`, `internal/storage/database.go`, `internal/storage/database_test.go`, `internal/storage/migrations.go`, `tests/specs/api-admin.spec.js`, `tests/specs/api-public.spec.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-site-actions.spec.js`, `tests/specs/widget-integration.spec.js`, `tests/specs/widget-test-page.spec.js`, `web/app/index.html`, `web/app/widget-test/index.html`, `web/widget.js`.
+
 - [x] [B019] (P0) Recover login after long-idle Google nonce expiry.
   ### Summary
   Leaving a public LoopAware page open long enough for the prepared Google/TAuth nonce to expire can make the next header sign-in popup complete visually while the credential exchange stays unauthenticated.
