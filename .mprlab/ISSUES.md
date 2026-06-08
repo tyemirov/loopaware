@@ -363,6 +363,72 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-elements.spec.js`, `.mprlab/ISSUES.md`.
 
+- [x] [I018] (P1) Clean up the selected-site timezone map visual treatment.
+  ### Summary
+  The first timezone map used crude land shapes and oversized labels, making the selected-site Timezones section look unpolished.
+  ### Deliverables
+  - Remove the fake continent shapes from the timezone map.
+  - Use a cleaner map surface with smaller proportional bubbles.
+  - Move timezone labels into readable pills with connector lines.
+  - Add black-box coverage for the cleaned-up map contract.
+  ### Resolution
+  Reworked the timezone map into a restrained coordinate map with subtle grid lines, capped bubbles, connector lines, and label pills. Removed the faux land paths entirely and updated dashboard traffic coverage to assert the cleaner map structure and bubble sizing. Validation passed with `make lint-js`, `npm --prefix tests run test -- specs/dashboard-traffic.spec.js`, and `make ci` with 396 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
+
+- [x] [I020] (P1) Render the Timezones bubble graph on a real world map.
+  ### Summary
+  The cleaned timezone map was visually restrained but no longer looked like a real map, so the Timezones section lost the geographic context required for a map-based bubble graph.
+  ### Deliverables
+  - Add a recognizable world land outline behind the timezone bubbles.
+  - Keep the proportional visit bubbles and readable labels on top of the map.
+  - Align timezone coordinates to the same projection used by the land outline.
+  - Add dashboard coverage requiring the world land layer.
+  ### Resolution
+  Added a static simplified Natural Earth world land outline behind the Timezones bubbles, aligned the timezone projection to the same centered equirectangular map, and kept the capped visit bubbles plus readable label pills on top. Updated dashboard traffic coverage to require the world land layer. Validation passed with `make lint-js`, `npm --prefix tests run test -- specs/dashboard-traffic.spec.js`, and `make ci` with 396 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
+
+- [x] [I021] (P1) Prove Timezones bubbles use real geographic placement.
+  ### Summary
+  The Timezones bubble graph must be an actual world map, with circles placed from each timezone's latitude and longitude rather than arbitrary dashboard layout positions.
+  ### Deliverables
+  - Expose the world-map source and projection on the rendered SVG.
+  - Store each bubble's source latitude and longitude in the rendered circle.
+  - Add black-box dashboard coverage asserting known timezone bubbles render at their expected projected coordinates.
+  ### Resolution
+  Exposed the Timezones SVG as a Natural Earth 110m equirectangular world map, stored each rendered bubble's source latitude and longitude, and expanded dashboard coverage to assert New York and London bubbles land at their expected projected coordinates. Validation passed with `make lint-js`, `npm --prefix tests run test -- specs/dashboard-traffic.spec.js`, and `make ci` with 396 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
+
+- [x] [I022] (P1) Back the Timezones world map with supported geo tooling.
+  ### Summary
+  The Timezones map should not rely on an opaque hand-edited SVG path. The land outline needs a reproducible source using maintained geospatial packages while keeping the dashboard runtime simple.
+  ### Deliverables
+  - Generate the Natural Earth world land path from `world-atlas` through `topojson-client` and D3's equirectangular projection.
+  - Keep the generated path embedded in the dashboard HTML so the browser does not need a runtime map library or bundler.
+  - Add a CI-enforced check that fails when the embedded path drifts from the generator output.
+  - Preserve black-box dashboard coverage for the rendered map source, projection, bubbles, and geographic coordinates.
+  ### Resolution
+  Added `tests/scripts/generate-timezone-world-map.mjs`, which converts `world-atlas` Natural Earth `land-110m` TopoJSON to the dashboard SVG path through `topojson-client` and D3's equirectangular projection. The embedded land path is now marked as generated, and `make lint-js` runs `npm --prefix tests run check:timezone-map` so CI fails if the checked-in path drifts from the generator. Dashboard coverage still asserts the rendered map source, projection, bubble sizes, and projected New York/London coordinates. Validation passed with `make lint-js`, `env LOOPAWARE_BASE_URL=http://localhost:8090 npm --prefix tests run test -- specs/dashboard-traffic.spec.js`, and `make ci` with 396 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `Makefile`, `tests/package.json`, `tests/package-lock.json`, `tests/scripts/generate-timezone-world-map.mjs`, `web/app/index.html`, `.mprlab/ISSUES.md`.
+
+- [!] [I019] (P1) Differentiate tablet and mobile device icons in the Devices row graph.
+  ### Summary
+  The Devices row graph uses tablet and mobile icons with similar narrow outlines, so operators cannot quickly distinguish the two rows.
+  ### Deliverables
+  - Render tablet as a clearly wider slate icon.
+  - Render mobile as a narrow phone icon with distinct phone details.
+  - Keep desktop as a monitor icon.
+  - Add dashboard coverage proving all three device icon shapes are distinct.
+  ### Resolution
+  Rendered mobile as a narrow phone, tablet as a landscape slate, and desktop as a monitor. Expanded the dashboard traffic spec to seed mobile, tablet, and desktop visits and assert each rendered icon frame has distinct dimensions. Focused validation passed with `make lint-js` and `env LOOPAWARE_BASE_URL=http://localhost:8090 npm --prefix tests run test -- specs/dashboard-traffic.spec.js`.
+  ### Blocked
+  Full completion-gate validation is blocked by repeated `make ci` integration failures outside the device icon assertion: both full runs failed after the integration server reset connections during unrelated dashboard navigation (`route.fetch: read ECONNRESET` / `fetch failed`), while the new device icon browser test passed.
+  ### Changed Files
+  `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
+
 - [x] [I013] (P1) Mark X-axis time labels on traffic trend charts.
   ### Summary
   Traffic trend charts expose the count scale, but the horizontal axis is still unlabeled, so operators cannot tell which days the plotted points represent.
