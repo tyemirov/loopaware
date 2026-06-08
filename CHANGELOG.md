@@ -11,6 +11,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.16] - 2026-06-08
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Redesigned traffic report tables as grid-based row graphs and maps for Pages, Devices, and Timezones sections.
+- Replaced duplicate timezone views with a visit-density map showing bubble sizes proportional to visits.
+- Replaced duplicate device views with an icon row graph showing device icons and visit counts.
+- Replaced duplicate top-pages views with a ranked path row graph including rank, icon, and visit count.
+- Renamed selected-site traffic breakdown section headings to Pages, Devices, and Timezones for clarity.
+- Added black-box dashboard test coverage for new traffic report visualizations and labels.
+
+### Bug Fixes 🐛
+- Added `Cross-Origin-Opener-Policy: same-origin-allow-popups` header to local, computercat, and test proxy configurations to fix Google Identity popup auth compatibility with edge opener policy.
+- Fixed stale four-hour login test by replacing it with black-box browser coverage that simulates idle login and asserts no errors or failed auth responses.
+- Enhanced Google Identity stub to seed auto-credential behavior before GIS script request, ensuring zero pre-click initialization and stricter nonce-bound credential validation.
+
+### Testing 🧪
+- Improved traffic dashboard tests to cover new map and row graph renderings.
+- Enhanced Google Identity stub for more accurate auth flow simulation and testing.
+- Added regression coverage for security headers including COOP policy.
+- Validated changes with 393 Playwright/API integration specs and `make ci`.
+
+### Docs 📚
+- Updated ISSUE.md with recent bugfixes and improvements summaries related to auth flows, traffic report redesign, and security headers.
+
 ## [v0.7.15] - 2026-06-05
 
 ### Features ✨
