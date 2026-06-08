@@ -151,6 +151,115 @@
         height: 100%;
         min-width: 0.25rem;
       }
+      .path-row-graph {
+        display: grid;
+        gap: 0.625rem;
+      }
+      .path-row {
+        display: grid;
+        grid-template-columns: minmax(12rem, 1.5fr) minmax(8rem, 2fr) auto;
+        align-items: center;
+        gap: 0.75rem;
+        min-height: 2.25rem;
+      }
+      .path-row__identity {
+        display: grid;
+        grid-template-columns: auto auto minmax(0, 1fr);
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 0;
+      }
+      .path-row__rank {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        border: var(--bs-border-width) solid var(--bs-border-color);
+        border-radius: 999px;
+        font-variant-numeric: tabular-nums;
+      }
+      .path-row__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        color: var(--bs-primary);
+        flex: 0 0 auto;
+      }
+      .path-row__icon svg {
+        display: block;
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+      .path-row__label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .path-row__track {
+        height: 0.5rem;
+        overflow: hidden;
+      }
+      .path-row__fill {
+        display: block;
+        height: 100%;
+        min-width: 0.25rem;
+      }
+      .path-row__count {
+        min-width: 2rem;
+      }
+      .device-row-graph {
+        display: grid;
+        gap: 0.625rem;
+      }
+      .device-row {
+        display: grid;
+        grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 2fr) auto;
+        align-items: center;
+        gap: 0.75rem;
+        min-height: 2.25rem;
+      }
+      .device-row__identity {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 0;
+      }
+      .device-row__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        color: var(--bs-primary);
+        flex: 0 0 auto;
+      }
+      .device-row__icon svg {
+        display: block;
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+      .device-row__label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .device-row__track {
+        height: 0.5rem;
+        overflow: hidden;
+      }
+      .device-row__fill {
+        display: block;
+        height: 100%;
+        min-width: 0.25rem;
+      }
+      .device-row__count {
+        min-width: 2rem;
+      }
       .traffic-kpis {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
@@ -161,10 +270,57 @@
         border-radius: var(--bs-border-radius);
         padding: 0.75rem;
       }
+      .traffic-map {
+        min-height: 18rem;
+        overflow: hidden;
+        background: rgba(var(--bs-body-color-rgb), 0.03);
+      }
+      .traffic-map svg {
+        display: block;
+        width: 100%;
+        height: 18rem;
+      }
+      .traffic-map__ocean {
+        fill: rgba(var(--bs-primary-rgb), 0.07);
+      }
+      .traffic-map__grid {
+        stroke: rgba(var(--bs-body-color-rgb), 0.12);
+        stroke-width: 1;
+      }
+      .traffic-map__land {
+        fill: rgba(var(--bs-body-color-rgb), 0.1);
+        stroke: rgba(var(--bs-body-color-rgb), 0.18);
+        stroke-width: 1.5;
+      }
+      .traffic-map__bubble {
+        fill: rgba(var(--bs-primary-rgb), 0.82);
+        stroke: var(--bs-body-bg);
+        stroke-width: 3;
+      }
+      .traffic-map__bubble-label {
+        fill: var(--bs-body-color);
+        font-size: 0.78rem;
+        font-weight: 600;
+        paint-order: stroke;
+        stroke: var(--bs-body-bg);
+        stroke-linejoin: round;
+        stroke-width: 4;
+      }
       @media (max-width: 575.98px) {
         .traffic-bar {
           grid-template-columns: 1fr;
           gap: 0.25rem;
+        }
+        .path-row {
+          grid-template-columns: 1fr;
+          gap: 0.25rem;
+        }
+        .device-row {
+          grid-template-columns: 1fr;
+          gap: 0.25rem;
+        }
+        .traffic-map svg {
+          height: 15rem;
         }
       }
       body.logging-out main,
@@ -647,54 +803,15 @@
                     <div id="traffic-attribution-chart" class="traffic-bars"></div>
                   </div>
                 </div>
-                <p class="text-muted small mb-2">Top pages</p>
-                <div id="top-pages-chart" class="traffic-bars mb-3"></div>
-                <div class="table-responsive">
-                  <table class="table table-striped table-hover align-middle">
-                    <thead class="table-light">
-                      <tr>
-                        <th scope="col">Path</th>
-                        <th scope="col" class="text-end">Views</th>
-                      </tr>
-                    </thead>
-                    <tbody id="top-pages-table-body">
-                      <tr><td colspan="2" class="text-center text-muted">No visits yet.</td></tr>
-                    </tbody>
-                  </table>
-                </div>
+                <p id="traffic-pages-heading" class="text-muted small mb-2">Pages</p>
+                <div id="top-pages-chart" class="path-row-graph mb-3"></div>
                 <div id="traffic-device-container">
-                  <p class="text-muted small mb-2 mt-3">Devices</p>
-                  <div id="device-types-chart" class="traffic-bars mb-3"></div>
-                  <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                      <thead class="table-light">
-                        <tr>
-                          <th scope="col">Device type</th>
-                          <th scope="col" class="text-end">Visits</th>
-                        </tr>
-                      </thead>
-                      <tbody id="device-types-table-body">
-                        <tr><td colspan="2" class="text-center text-muted">No device data yet.</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
+                  <p id="traffic-devices-heading" class="text-muted small mb-2 mt-3">Devices</p>
+                  <div id="device-types-chart" class="device-row-graph mb-3"></div>
                 </div>
                 <div id="traffic-timezone-container">
-                  <p class="text-muted small mb-2 mt-3">Timezones</p>
-                  <div id="timezones-chart" class="traffic-bars mb-3"></div>
-                  <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                      <thead class="table-light">
-                        <tr>
-                          <th scope="col">Timezone</th>
-                          <th scope="col" class="text-end">Visits</th>
-                        </tr>
-                      </thead>
-                      <tbody id="timezones-table-body">
-                        <tr><td colspan="2" class="text-center text-muted">No timezone data yet.</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
+                  <p id="traffic-timezones-heading" class="text-muted small mb-2 mt-3">Timezones</p>
+                  <div id="timezones-map" class="traffic-map border rounded mb-3"></div>
                 </div>
               </div>
             </div>
@@ -1060,7 +1177,7 @@
       </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-    <script type="application/json" id="dashboard-config">{"api_paths":{"feedback_events":"/api/sites/feedback/events","me":"/api/me","portfolio_traffic_report":"/api/reports/traffic/portfolio","portfolio_traffic_reports":"/api/reports/traffic/portfolio/reports","portfolio_traffic_schedule":"/api/reports/traffic/portfolio/schedule","portfolio_traffic_test":"/api/reports/traffic/portfolio/schedule/test","site_favicon_events":"/api/sites/favicons/events","site_messages_prefix":"/api/sites/","site_messages_suffix":"/messages","site_subscriber_update":"/subscribers/","site_subscribers_export":"/subscribers/export","site_subscribers_prefix":"/api/sites/","site_subscribers_suffix":"/subscribers","site_update_prefix":"/api/sites/","site_visit_stats":"/visits/stats","site_visit_trend":"/visits/trend","site_visit_attribution":"/visits/attribution","site_visit_engagement":"/visits/engagement","site_visit_devices":"/visits/devices","site_visit_timezones":"/visits/timezones","sites":"/api/sites"},"paths":{"landing":"/login","subscribe_test_prefix":"/app/subscribe-test?site_id=","subscribe_test_suffix":"","traffic_test_prefix":"/app/traffic-test?site_id=","traffic_test_suffix":"","widget_test_prefix":"/app/widget-test?site_id=","widget_test_suffix":""},"element_ids":{"allowed_origin_help_button":"allowed-origin-help-button","copy_subscribe_snippet_button":"copy-subscribe-widget-snippet","copy_traffic_snippet_button":"copy-traffic-widget-snippet","copy_widget_snippet_button":"copy-widget-snippet","dashboard_section_tab_feedback":"dashboard-section-tab-feedback","dashboard_section_tab_subscriptions":"dashboard-section-tab-subscriptions","dashboard_section_tab_traffic":"dashboard-section-tab-traffic","dashboard_section_tabs":"dashboard-section-tabs","delete_site_button":"delete-site-button","delete_site_confirm_button":"delete-site-confirm-button","delete_site_confirm_input":"delete-site-confirm-name","delete_site_modal":"delete-site-modal","delete_site_target_name":"delete-site-target-name","delete_subscriber_confirm_button":"delete-subscriber-confirm-button","delete_subscriber_confirm_input":"delete-subscriber-confirm-email","delete_subscriber_modal":"delete-subscriber-modal","delete_subscriber_target_email":"delete-subscriber-target-email","edit_site_name":"edit-site-name","edit_site_origin":"edit-site-origin","edit_site_owner":"edit-site-owner","edit_site_owner_container":"edit-site-owner-container","empty_sites_message":"empty-sites-message","export_subscribers_button":"export-subscribers-button","feedback_count":"feedback-count","feedback_table_body":"feedback-table-body","feedback_table_header":"feedback-table-header","footer":"dashboard-footer","footer_inner":"dashboard-footer-inner","form_status":"site-status","messages_search_container":"messages-search-container","messages_search_input":"messages-search-input","messages_search_toggle_button":"messages-search-toggle-button","new_site_button":"new-site-button","owner_email_help_button":"owner-email-help-button","refresh_messages_button":"refresh-messages-button","save_site_button":"save-site-button","session_timeout_confirm_button":"session-timeout-confirm-button","session_timeout_container":"session-timeout-notification","session_timeout_dismiss_button":"session-timeout-dismiss-button","session_timeout_message":"session-timeout-message","settings_auto_logout_fields":"settings-auto-logout-fields","settings_auto_logout_logout":"settings-auto-logout-logout-seconds","settings_auto_logout_logout_error":"settings-auto-logout-logout-error","settings_auto_logout_prompt":"settings-auto-logout-prompt-seconds","settings_auto_logout_prompt_error":"settings-auto-logout-prompt-error","settings_auto_logout_toggle":"settings-auto-logout-enabled","settings_button":"settings-button","settings_modal":"settings-modal","settings_modal_content":"settings-modal-content","settings_modal_title":"settings-modal-title","site_created_at":"site-created-at","site_created_at_container":"site-created-at-container","site_form":"site-form","site_name_help_button":"site-name-help-button","site_search_container":"site-search-container","site_search_input":"site-search-input","site_search_toggle_button":"site-search-toggle-button","sites_list":"sites-list","subscribe_allowed_origins_list":"subscribe-allowed-origins-list","subscribe_snippet_textarea":"subscribe-widget-snippet","subscribe_test_button":"subscribe-test-button","subscriber_count":"subscriber-count","subscribers_status":"subscribers-status","subscribers_table_body":"subscribers-table-body","device_types_table_body":"device-types-table-body","timezones_table_body":"timezones-table-body","top_pages_table_body":"top-pages-table-body","traffic_allowed_origins_list":"traffic-allowed-origins-list","traffic_snippet_textarea":"traffic-widget-snippet","traffic_status":"traffic-status","traffic_test_button":"traffic-test-button","unique_visitor_count":"unique-visitor-count","user_avatar":"user-avatar","user_email":"user-email","user_name":"user-name","user_role":"user-role","visit_count":"visit-count","widget_allowed_origins_list":"widget-allowed-origins-list","widget_bottom_offset":"widget-placement-bottom-offset","widget_bottom_offset_decrease":"widget-bottom-offset-decrease","widget_bottom_offset_increase":"widget-bottom-offset-increase","widget_side_left":"widget-placement-side-left","widget_side_right":"widget-placement-side-right","widget_snippet_textarea":"widget-snippet","widget_test_button":"widget-test-button"},"button_classes":{"copy_default":"btn btn-outline-secondary btn-sm","create":"btn btn-outline-primary btn-sm","delete_site_default":"btn btn-sm border-0 bg-transparent text-danger opacity-100","delete_site_disabled":"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled","new_site_active":"btn btn-primary btn-sm","new_site_default":"btn btn-outline-primary btn-sm","refresh_default":"btn btn-outline-secondary btn-sm","save_default":"btn btn-outline-success btn-sm","session_timeout_confirm":"btn btn-outline-danger btn-sm","session_timeout_dismiss":"btn btn-outline-secondary btn-sm","update":"btn btn-outline-success btn-sm"},"button_labels":{"copy_copied":"Copied","copy_default":"Copy","copy_failed":"Copy failed","create":"Create site","new_site":"New site","refresh_default":"Refresh feedback","refresh_failed":"Refresh failed.","refresh_loading":"Refreshing...","refresh_success":"Feedback refreshed.","save_created":"Site created.","save_failed":"Failed to save site.","save_saved":"Site updated.","save_saving":"Saving site...","update":"Update site"},"status_messages":{"creating_site":"Creating site...","delete_site_failed":"Failed to delete site.","deleting_site":"Deleting site...","load_failed":"Failed to load data.","loading_sites":"Loading sites...","loading_user":"Loading account information...","no_message_matches":"No feedback matches your search.","no_messages":"No feedback yet.","no_site_matches":"No sites match your search.","no_sites":"No sites available yet.","saving_site":"Saving site...","select_site":"Select a site to see details.","site_created":"Site created.","site_deleted":"Site deleted.","site_saved":"Site updated.","widget_copied":"Widget snippet copied.","widget_copy_failed":"Unable to copy widget snippet."},"role_labels":{"admin":"Administrator","user":"User"},"role_values":{"admin":"admin","user":"user"},"button_styles":{"danger":"btn btn-outline-danger btn-sm","primary":"btn btn-outline-primary btn-sm","secondary":"btn btn-outline-secondary btn-sm","success":"btn btn-outline-success btn-sm"},"component_classes":{"site_list_item":"list-group-item list-group-item-action","site_list_item_active":"active","site_list_item_favicon":"flex-shrink-0 rounded border bg-white","site_list_item_header":"d-flex align-items-center gap-2"},"widget_texts":{"unavailable":"Save the site to generate a widget snippet."},"theme_storage_key":"loopaware_dashboard_theme","option_values":{"new_site":"__new__"},"placeholders":{"device_types":"No device data yet.","subscribers":"No subscribers yet.","timezones":"No timezone data yet.","top_pages":"No visits yet."},"form_status_classes":{"base":"d-none py-1 px-2 small rounded","danger":"py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle","success":"py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"},"footer_theme_classes":{"dark":"bg-dark text-light border-light","light":"bg-body text-body-secondary"},"table_theme_classes":{"dark":"table-dark","light":"table-light"},"validation_messages":{"name_required":"Site name is required.","origin_invalid":"Allowed origins must include protocol and hostname, for example https://example.com.","owner_invalid":"Provide a valid owner email address.","widget_offset_invalid":"Provide a whole number between 0 and 240."},"error_messages":{"forbidden":"You are not allowed to manage that site.","invalid_json":"Submitted data could not be parsed.","invalid_owner":"Provide a valid owner email address.","invalid_portfolio_traffic_report":"Provide a report name and valid sites.","invalid_widget_offset":"Provide a whole number between 0 and 240.","invalid_widget_side":"Choose left or right for the widget bubble.","missing_fields":"Provide site name and allowed origin.","not_authorized":"You are not allowed to manage that site.","save_failed":"Failed to save site.","site_exists":"A site for this allowed origin already exists.","unknown_portfolio_traffic_report":"Traffic report not found."},"widget_placement":{"input_name":"widget-bubble-side","default_side":"right","default_bottom_offset":16,"sides":{"left":"Left","right":"Right"},"bottom_offset":{"min":0,"max":240}},"session_timeout":{"prompt_delay_ms":60000,"auto_logout_ms":120000,"texts":{"confirm":"Yes","dismiss":"No","prompt":"Log out due to inactivity?"},"component_classes":{"actions":"session-timeout-actions d-flex flex-shrink-0 gap-2","container":"session-timeout-banner position-fixed start-0 end-0 border-top py-3 w-100 d-none","container_hidden":"d-none","container_visible":"d-block","inner":"container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3","message":"session-timeout-message fw-semibold mb-0"},"theme_classes":{"dark":"bg-dark-subtle text-light border-secondary-subtle","light":"bg-body-secondary text-dark border-light-subtle"}},"auto_logout":{"storage_key":"loopaware_dashboard_auto_logout","min_prompt_seconds":10,"max_prompt_seconds":3600,"min_logout_seconds":20,"max_logout_seconds":7200,"minimum_gap_seconds":5}}</script>
+    <script type="application/json" id="dashboard-config">{"api_paths":{"feedback_events":"/api/sites/feedback/events","me":"/api/me","portfolio_traffic_report":"/api/reports/traffic/portfolio","portfolio_traffic_reports":"/api/reports/traffic/portfolio/reports","portfolio_traffic_schedule":"/api/reports/traffic/portfolio/schedule","portfolio_traffic_test":"/api/reports/traffic/portfolio/schedule/test","site_favicon_events":"/api/sites/favicons/events","site_messages_prefix":"/api/sites/","site_messages_suffix":"/messages","site_subscriber_update":"/subscribers/","site_subscribers_export":"/subscribers/export","site_subscribers_prefix":"/api/sites/","site_subscribers_suffix":"/subscribers","site_update_prefix":"/api/sites/","site_visit_stats":"/visits/stats","site_visit_trend":"/visits/trend","site_visit_attribution":"/visits/attribution","site_visit_engagement":"/visits/engagement","site_visit_devices":"/visits/devices","site_visit_timezones":"/visits/timezones","sites":"/api/sites"},"paths":{"landing":"/login","subscribe_test_prefix":"/app/subscribe-test?site_id=","subscribe_test_suffix":"","traffic_test_prefix":"/app/traffic-test?site_id=","traffic_test_suffix":"","widget_test_prefix":"/app/widget-test?site_id=","widget_test_suffix":""},"element_ids":{"allowed_origin_help_button":"allowed-origin-help-button","copy_subscribe_snippet_button":"copy-subscribe-widget-snippet","copy_traffic_snippet_button":"copy-traffic-widget-snippet","copy_widget_snippet_button":"copy-widget-snippet","dashboard_section_tab_feedback":"dashboard-section-tab-feedback","dashboard_section_tab_subscriptions":"dashboard-section-tab-subscriptions","dashboard_section_tab_traffic":"dashboard-section-tab-traffic","dashboard_section_tabs":"dashboard-section-tabs","delete_site_button":"delete-site-button","delete_site_confirm_button":"delete-site-confirm-button","delete_site_confirm_input":"delete-site-confirm-name","delete_site_modal":"delete-site-modal","delete_site_target_name":"delete-site-target-name","delete_subscriber_confirm_button":"delete-subscriber-confirm-button","delete_subscriber_confirm_input":"delete-subscriber-confirm-email","delete_subscriber_modal":"delete-subscriber-modal","delete_subscriber_target_email":"delete-subscriber-target-email","edit_site_name":"edit-site-name","edit_site_origin":"edit-site-origin","edit_site_owner":"edit-site-owner","edit_site_owner_container":"edit-site-owner-container","empty_sites_message":"empty-sites-message","export_subscribers_button":"export-subscribers-button","feedback_count":"feedback-count","feedback_table_body":"feedback-table-body","feedback_table_header":"feedback-table-header","footer":"dashboard-footer","footer_inner":"dashboard-footer-inner","form_status":"site-status","messages_search_container":"messages-search-container","messages_search_input":"messages-search-input","messages_search_toggle_button":"messages-search-toggle-button","new_site_button":"new-site-button","owner_email_help_button":"owner-email-help-button","refresh_messages_button":"refresh-messages-button","save_site_button":"save-site-button","session_timeout_confirm_button":"session-timeout-confirm-button","session_timeout_container":"session-timeout-notification","session_timeout_dismiss_button":"session-timeout-dismiss-button","session_timeout_message":"session-timeout-message","settings_auto_logout_fields":"settings-auto-logout-fields","settings_auto_logout_logout":"settings-auto-logout-logout-seconds","settings_auto_logout_logout_error":"settings-auto-logout-logout-error","settings_auto_logout_prompt":"settings-auto-logout-prompt-seconds","settings_auto_logout_prompt_error":"settings-auto-logout-prompt-error","settings_auto_logout_toggle":"settings-auto-logout-enabled","settings_button":"settings-button","settings_modal":"settings-modal","settings_modal_content":"settings-modal-content","settings_modal_title":"settings-modal-title","site_created_at":"site-created-at","site_created_at_container":"site-created-at-container","site_form":"site-form","site_name_help_button":"site-name-help-button","site_search_container":"site-search-container","site_search_input":"site-search-input","site_search_toggle_button":"site-search-toggle-button","sites_list":"sites-list","subscribe_allowed_origins_list":"subscribe-allowed-origins-list","subscribe_snippet_textarea":"subscribe-widget-snippet","subscribe_test_button":"subscribe-test-button","subscriber_count":"subscriber-count","subscribers_status":"subscribers-status","subscribers_table_body":"subscribers-table-body","timezones_map":"timezones-map","traffic_allowed_origins_list":"traffic-allowed-origins-list","traffic_snippet_textarea":"traffic-widget-snippet","traffic_status":"traffic-status","traffic_test_button":"traffic-test-button","unique_visitor_count":"unique-visitor-count","user_avatar":"user-avatar","user_email":"user-email","user_name":"user-name","user_role":"user-role","visit_count":"visit-count","widget_allowed_origins_list":"widget-allowed-origins-list","widget_bottom_offset":"widget-placement-bottom-offset","widget_bottom_offset_decrease":"widget-bottom-offset-decrease","widget_bottom_offset_increase":"widget-bottom-offset-increase","widget_side_left":"widget-placement-side-left","widget_side_right":"widget-placement-side-right","widget_snippet_textarea":"widget-snippet","widget_test_button":"widget-test-button"},"button_classes":{"copy_default":"btn btn-outline-secondary btn-sm","create":"btn btn-outline-primary btn-sm","delete_site_default":"btn btn-sm border-0 bg-transparent text-danger opacity-100","delete_site_disabled":"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled","new_site_active":"btn btn-primary btn-sm","new_site_default":"btn btn-outline-primary btn-sm","refresh_default":"btn btn-outline-secondary btn-sm","save_default":"btn btn-outline-success btn-sm","session_timeout_confirm":"btn btn-outline-danger btn-sm","session_timeout_dismiss":"btn btn-outline-secondary btn-sm","update":"btn btn-outline-success btn-sm"},"button_labels":{"copy_copied":"Copied","copy_default":"Copy","copy_failed":"Copy failed","create":"Create site","new_site":"New site","refresh_default":"Refresh feedback","refresh_failed":"Refresh failed.","refresh_loading":"Refreshing...","refresh_success":"Feedback refreshed.","save_created":"Site created.","save_failed":"Failed to save site.","save_saved":"Site updated.","save_saving":"Saving site...","update":"Update site"},"status_messages":{"creating_site":"Creating site...","delete_site_failed":"Failed to delete site.","deleting_site":"Deleting site...","load_failed":"Failed to load data.","loading_sites":"Loading sites...","loading_user":"Loading account information...","no_message_matches":"No feedback matches your search.","no_messages":"No feedback yet.","no_site_matches":"No sites match your search.","no_sites":"No sites available yet.","saving_site":"Saving site...","select_site":"Select a site to see details.","site_created":"Site created.","site_deleted":"Site deleted.","site_saved":"Site updated.","widget_copied":"Widget snippet copied.","widget_copy_failed":"Unable to copy widget snippet."},"role_labels":{"admin":"Administrator","user":"User"},"role_values":{"admin":"admin","user":"user"},"button_styles":{"danger":"btn btn-outline-danger btn-sm","primary":"btn btn-outline-primary btn-sm","secondary":"btn btn-outline-secondary btn-sm","success":"btn btn-outline-success btn-sm"},"component_classes":{"site_list_item":"list-group-item list-group-item-action","site_list_item_active":"active","site_list_item_favicon":"flex-shrink-0 rounded border bg-white","site_list_item_header":"d-flex align-items-center gap-2"},"widget_texts":{"unavailable":"Save the site to generate a widget snippet."},"theme_storage_key":"loopaware_dashboard_theme","option_values":{"new_site":"__new__"},"placeholders":{"device_types":"No device data yet.","subscribers":"No subscribers yet.","timezones":"No timezone data yet.","top_pages":"No visits yet."},"form_status_classes":{"base":"d-none py-1 px-2 small rounded","danger":"py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle","success":"py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"},"footer_theme_classes":{"dark":"bg-dark text-light border-light","light":"bg-body text-body-secondary"},"table_theme_classes":{"dark":"table-dark","light":"table-light"},"validation_messages":{"name_required":"Site name is required.","origin_invalid":"Allowed origins must include protocol and hostname, for example https://example.com.","owner_invalid":"Provide a valid owner email address.","widget_offset_invalid":"Provide a whole number between 0 and 240."},"error_messages":{"forbidden":"You are not allowed to manage that site.","invalid_json":"Submitted data could not be parsed.","invalid_owner":"Provide a valid owner email address.","invalid_portfolio_traffic_report":"Provide a report name and valid sites.","invalid_widget_offset":"Provide a whole number between 0 and 240.","invalid_widget_side":"Choose left or right for the widget bubble.","missing_fields":"Provide site name and allowed origin.","not_authorized":"You are not allowed to manage that site.","save_failed":"Failed to save site.","site_exists":"A site for this allowed origin already exists.","unknown_portfolio_traffic_report":"Traffic report not found."},"widget_placement":{"input_name":"widget-bubble-side","default_side":"right","default_bottom_offset":16,"sides":{"left":"Left","right":"Right"},"bottom_offset":{"min":0,"max":240}},"session_timeout":{"prompt_delay_ms":60000,"auto_logout_ms":120000,"texts":{"confirm":"Yes","dismiss":"No","prompt":"Log out due to inactivity?"},"component_classes":{"actions":"session-timeout-actions d-flex flex-shrink-0 gap-2","container":"session-timeout-banner position-fixed start-0 end-0 border-top py-3 w-100 d-none","container_hidden":"d-none","container_visible":"d-block","inner":"container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3","message":"session-timeout-message fw-semibold mb-0"},"theme_classes":{"dark":"bg-dark-subtle text-light border-secondary-subtle","light":"bg-body-secondary text-dark border-light-subtle"}},"auto_logout":{"storage_key":"loopaware_dashboard_auto_logout","min_prompt_seconds":10,"max_prompt_seconds":3600,"min_logout_seconds":20,"max_logout_seconds":7200,"minimum_gap_seconds":5}}</script>
     <script>
       function showLogoutOverlay() {
         var overlay = document.getElementById('logout-overlay');
@@ -1404,15 +1521,12 @@
         var visitCountElement = document.getElementById(elementIds.visit_count);
         var uniqueVisitorCountElement = document.getElementById(elementIds.unique_visitor_count);
         var trafficStatusElement = document.getElementById(elementIds.traffic_status);
-        var topPagesTableBody = document.getElementById(elementIds.top_pages_table_body);
-        var deviceTypesTableBody = document.getElementById(elementIds.device_types_table_body);
-        var timezonesTableBody = document.getElementById(elementIds.timezones_table_body);
+        var timezonesMap = document.getElementById(elementIds.timezones_map);
         var trafficTrendChart = document.getElementById('traffic-trend-chart');
         var trafficEngagementSummary = document.getElementById('traffic-engagement-summary');
         var trafficAttributionChart = document.getElementById('traffic-attribution-chart');
         var topPagesChart = document.getElementById('top-pages-chart');
         var deviceTypesChart = document.getElementById('device-types-chart');
-        var timezonesChart = document.getElementById('timezones-chart');
         var trafficReportEnabledInput = document.getElementById('traffic-report-enabled');
         var trafficReportFrequencyDailyInput = document.getElementById('traffic-report-frequency-daily');
         var trafficReportFrequencyWeeklyInput = document.getElementById('traffic-report-frequency-weekly');
@@ -5176,42 +5290,98 @@
           });
         }
 
-        function renderTopPagesInto(tableBody, chart, pages) {
-          if (!tableBody) {
-            return;
-          }
-          var items = Array.isArray(pages) ? pages : [];
-          renderBarChart(chart, items, {
-            labelKey: 'path',
-            countKey: 'visit_count',
-            emptyMessage: topPagesPlaceholder
-          });
-          tableBody.innerHTML = '';
-          if (items.length === 0) {
-            var placeholderRow = document.createElement('tr');
-            var placeholderCell = document.createElement('td');
-            placeholderCell.colSpan = 2;
-            placeholderCell.className = 'text-center text-muted';
-            placeholderCell.textContent = topPagesPlaceholder;
-            placeholderRow.appendChild(placeholderCell);
-            tableBody.appendChild(placeholderRow);
-            return;
-          }
-          items.forEach(function(entry) {
-            var row = document.createElement('tr');
-            var pathCell = document.createElement('td');
-            pathCell.textContent = entry.path || '/';
-            var countCell = document.createElement('td');
-            countCell.className = 'text-end';
-            countCell.textContent = (entry.visit_count || 0).toString();
-            row.appendChild(pathCell);
-            row.appendChild(countCell);
-            tableBody.appendChild(row);
-          });
+        function renderPathIcon() {
+          var namespace = 'http://www.w3.org/2000/svg';
+          var icon = document.createElement('span');
+          var svg = document.createElementNS(namespace, 'svg');
+          var outlineElement = document.createElementNS(namespace, 'path');
+          var foldedCornerElement = document.createElementNS(namespace, 'path');
+          var firstLineElement = document.createElementNS(namespace, 'line');
+          var secondLineElement = document.createElementNS(namespace, 'line');
+          icon.className = 'path-row__icon';
+          icon.setAttribute('aria-hidden', 'true');
+          svg.setAttribute('viewBox', '0 0 24 24');
+          svg.setAttribute('fill', 'none');
+          svg.setAttribute('stroke', 'currentColor');
+          svg.setAttribute('stroke-width', '2');
+          svg.setAttribute('stroke-linecap', 'round');
+          svg.setAttribute('stroke-linejoin', 'round');
+          outlineElement.setAttribute('d', 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z');
+          foldedCornerElement.setAttribute('d', 'M14 2v6h6');
+          firstLineElement.setAttribute('x1', '8');
+          firstLineElement.setAttribute('y1', '13');
+          firstLineElement.setAttribute('x2', '16');
+          firstLineElement.setAttribute('y2', '13');
+          secondLineElement.setAttribute('x1', '8');
+          secondLineElement.setAttribute('y1', '17');
+          secondLineElement.setAttribute('x2', '14');
+          secondLineElement.setAttribute('y2', '17');
+          svg.appendChild(outlineElement);
+          svg.appendChild(foldedCornerElement);
+          svg.appendChild(firstLineElement);
+          svg.appendChild(secondLineElement);
+          icon.appendChild(svg);
+          return icon;
         }
 
         function renderTopPages(pages) {
-          renderTopPagesInto(topPagesTableBody, topPagesChart, pages);
+          if (!topPagesChart) {
+            return;
+          }
+          var items = Array.isArray(pages) ? pages : [];
+          topPagesChart.innerHTML = '';
+          if (items.length === 0) {
+            renderChartMessage(topPagesChart, topPagesPlaceholder);
+            return;
+          }
+          var maximum = items.reduce(function(currentMaximum, entry) {
+            var value = Number(entry && entry.visit_count);
+            return Math.max(currentMaximum, Number.isFinite(value) ? value : 0);
+          }, 0);
+          if (maximum <= 0) {
+            renderChartMessage(topPagesChart, topPagesPlaceholder);
+            return;
+          }
+          items.slice(0, 8).forEach(function(entry, index) {
+            var count = Number(entry && entry.visit_count);
+            if (!Number.isFinite(count) || count < 0) {
+              count = 0;
+            }
+            var path = entry && entry.path ? String(entry.path) : '/';
+            var row = document.createElement('div');
+            row.className = 'path-row';
+            row.setAttribute('aria-label', path + ' ' + count.toString() + ' visits');
+            row.title = path + ': ' + count.toString() + ' visits';
+
+            var identityElement = document.createElement('div');
+            identityElement.className = 'path-row__identity';
+            var rankElement = document.createElement('span');
+            rankElement.className = 'path-row__rank small text-muted';
+            rankElement.textContent = (index + 1).toString();
+            var labelElement = document.createElement('div');
+            labelElement.className = 'path-row__label small';
+            labelElement.textContent = path;
+            labelElement.title = path;
+            identityElement.appendChild(rankElement);
+            identityElement.appendChild(renderPathIcon());
+            identityElement.appendChild(labelElement);
+
+            var trackElement = document.createElement('div');
+            trackElement.className = 'path-row__track bg-body-tertiary rounded-pill';
+            var fillElement = document.createElement('span');
+            fillElement.className = 'path-row__fill bg-primary rounded-pill';
+            fillElement.style.width = Math.max(4, Math.round((count / maximum) * 100)) + '%';
+            trackElement.appendChild(fillElement);
+
+            var countElement = document.createElement('div');
+            countElement.className = 'path-row__count small text-muted text-end';
+            countElement.textContent = count.toString();
+
+            row.appendChild(identityElement);
+            row.appendChild(trackElement);
+            row.appendChild(countElement);
+            topPagesChart.appendChild(row);
+          });
         }
 
         function renderTrafficTableMessage(tableBody, message, columnCount) {
@@ -5260,60 +5430,314 @@
           allSitesTrafficStatusElement.classList.remove('d-none');
         }
 
+        function appendDeviceIconLine(svg, x1, y1, x2, y2) {
+          var namespace = 'http://www.w3.org/2000/svg';
+          var line = document.createElementNS(namespace, 'line');
+          line.setAttribute('x1', String(x1));
+          line.setAttribute('y1', String(y1));
+          line.setAttribute('x2', String(x2));
+          line.setAttribute('y2', String(y2));
+          svg.appendChild(line);
+        }
+
+        function appendDeviceIconRect(svg, x, y, width, height, radius) {
+          var namespace = 'http://www.w3.org/2000/svg';
+          var rect = document.createElementNS(namespace, 'rect');
+          rect.setAttribute('x', String(x));
+          rect.setAttribute('y', String(y));
+          rect.setAttribute('width', String(width));
+          rect.setAttribute('height', String(height));
+          rect.setAttribute('rx', String(radius));
+          svg.appendChild(rect);
+        }
+
+        function renderDeviceTypeIcon(deviceType) {
+          var namespace = 'http://www.w3.org/2000/svg';
+          var icon = document.createElement('span');
+          var normalizedType = String(deviceType || '').trim().toLowerCase();
+          var svg = document.createElementNS(namespace, 'svg');
+          icon.className = 'device-row__icon';
+          icon.setAttribute('aria-hidden', 'true');
+          svg.setAttribute('viewBox', '0 0 24 24');
+          svg.setAttribute('fill', 'none');
+          svg.setAttribute('stroke', 'currentColor');
+          svg.setAttribute('stroke-width', '2');
+          svg.setAttribute('stroke-linecap', 'round');
+          svg.setAttribute('stroke-linejoin', 'round');
+          if (normalizedType === 'mobile') {
+            appendDeviceIconRect(svg, 8, 2, 8, 20, 2);
+            appendDeviceIconLine(svg, 11, 18, 13, 18);
+          } else if (normalizedType === 'tablet') {
+            appendDeviceIconRect(svg, 6, 3, 12, 18, 2);
+            appendDeviceIconLine(svg, 11, 17, 13, 17);
+          } else {
+            appendDeviceIconRect(svg, 3, 4, 18, 12, 2);
+            appendDeviceIconLine(svg, 8, 20, 16, 20);
+            appendDeviceIconLine(svg, 12, 16, 12, 20);
+          }
+          icon.appendChild(svg);
+          return icon;
+        }
+
         function renderDeviceTypes(deviceTypes) {
-          if (!deviceTypesTableBody) {
+          if (!deviceTypesChart) {
             return;
           }
           var items = Array.isArray(deviceTypes) ? deviceTypes : [];
-          renderBarChart(deviceTypesChart, items, {
-            labelKey: 'device_type',
-            countKey: 'visit_count',
-            emptyMessage: deviceTypesPlaceholder
-          });
-          if (items.length === 0) {
-            renderTrafficTableMessage(deviceTypesTableBody, deviceTypesPlaceholder);
+          var maximum = items.reduce(function(currentMaximum, entry) {
+            var value = Number(entry && entry.visit_count);
+            return Math.max(currentMaximum, Number.isFinite(value) ? value : 0);
+          }, 0);
+          deviceTypesChart.innerHTML = '';
+          if (items.length === 0 || maximum <= 0) {
+            renderChartMessage(deviceTypesChart, deviceTypesPlaceholder);
             return;
           }
-          deviceTypesTableBody.innerHTML = '';
-          items.forEach(function(entry) {
-            var row = document.createElement('tr');
-            var typeCell = document.createElement('td');
-            typeCell.textContent = entry.device_type || '';
-            var countCell = document.createElement('td');
-            countCell.className = 'text-end';
-            countCell.textContent = (entry.visit_count || 0).toString();
-            row.appendChild(typeCell);
-            row.appendChild(countCell);
-            deviceTypesTableBody.appendChild(row);
+          items.slice(0, 8).forEach(function(entry) {
+            var count = Number(entry && entry.visit_count);
+            if (!Number.isFinite(count) || count < 0) {
+              count = 0;
+            }
+            var deviceType = String(entry && entry.device_type ? entry.device_type : 'unknown');
+            var row = document.createElement('div');
+            row.className = 'device-row';
+            row.setAttribute('aria-label', deviceType + ' ' + count.toString() + ' visits');
+
+            var identityElement = document.createElement('div');
+            identityElement.className = 'device-row__identity';
+            var labelElement = document.createElement('div');
+            labelElement.className = 'device-row__label small';
+            labelElement.textContent = deviceType;
+            identityElement.appendChild(renderDeviceTypeIcon(deviceType));
+            identityElement.appendChild(labelElement);
+
+            var trackElement = document.createElement('div');
+            trackElement.className = 'device-row__track bg-body-tertiary rounded-pill';
+            var fillElement = document.createElement('span');
+            fillElement.className = 'device-row__fill bg-primary rounded-pill';
+            fillElement.style.width = Math.max(4, Math.round((count / maximum) * 100)) + '%';
+            trackElement.appendChild(fillElement);
+
+            var countElement = document.createElement('div');
+            countElement.className = 'device-row__count small text-muted text-end';
+            countElement.textContent = count.toString();
+
+            row.appendChild(identityElement);
+            row.appendChild(trackElement);
+            row.appendChild(countElement);
+            deviceTypesChart.appendChild(row);
           });
         }
 
+        var timezoneMapCoordinates = Object.freeze({
+          'UTC': { latitude: 0, longitude: 0, label: 'UTC' },
+          'Etc/UTC': { latitude: 0, longitude: 0, label: 'UTC' },
+          'Etc/Unknown': { latitude: -53, longitude: 152, label: 'Unknown' },
+          'America/Los_Angeles': { latitude: 34.0522, longitude: -118.2437, label: 'Los Angeles' },
+          'America/Denver': { latitude: 39.7392, longitude: -104.9903, label: 'Denver' },
+          'America/Chicago': { latitude: 41.8781, longitude: -87.6298, label: 'Chicago' },
+          'America/New_York': { latitude: 40.7128, longitude: -74.006, label: 'New York' },
+          'America/Toronto': { latitude: 43.6532, longitude: -79.3832, label: 'Toronto' },
+          'America/Mexico_City': { latitude: 19.4326, longitude: -99.1332, label: 'Mexico City' },
+          'America/Sao_Paulo': { latitude: -23.5505, longitude: -46.6333, label: 'Sao Paulo' },
+          'America/Argentina/Buenos_Aires': { latitude: -34.6037, longitude: -58.3816, label: 'Buenos Aires' },
+          'Europe/London': { latitude: 51.5072, longitude: -0.1276, label: 'London' },
+          'Europe/Paris': { latitude: 48.8566, longitude: 2.3522, label: 'Paris' },
+          'Europe/Berlin': { latitude: 52.52, longitude: 13.405, label: 'Berlin' },
+          'Europe/Moscow': { latitude: 55.7558, longitude: 37.6173, label: 'Moscow' },
+          'Africa/Cairo': { latitude: 30.0444, longitude: 31.2357, label: 'Cairo' },
+          'Africa/Johannesburg': { latitude: -26.2041, longitude: 28.0473, label: 'Johannesburg' },
+          'Asia/Dubai': { latitude: 25.2048, longitude: 55.2708, label: 'Dubai' },
+          'Asia/Calcutta': { latitude: 22.5726, longitude: 88.3639, label: 'Calcutta' },
+          'Asia/Kolkata': { latitude: 22.5726, longitude: 88.3639, label: 'Kolkata' },
+          'Asia/Bangkok': { latitude: 13.7563, longitude: 100.5018, label: 'Bangkok' },
+          'Asia/Singapore': { latitude: 1.3521, longitude: 103.8198, label: 'Singapore' },
+          'Asia/Hong_Kong': { latitude: 22.3193, longitude: 114.1694, label: 'Hong Kong' },
+          'Asia/Shanghai': { latitude: 31.2304, longitude: 121.4737, label: 'Shanghai' },
+          'Asia/Tokyo': { latitude: 35.6762, longitude: 139.6503, label: 'Tokyo' },
+          'Australia/Sydney': { latitude: -33.8688, longitude: 151.2093, label: 'Sydney' },
+          'Pacific/Auckland': { latitude: -36.8509, longitude: 174.7645, label: 'Auckland' }
+        });
+
+        var timezoneRegionCoordinates = Object.freeze({
+          Africa: { latitude: 4, longitude: 21 },
+          America: { latitude: 28, longitude: -96 },
+          Antarctica: { latitude: -72, longitude: 35 },
+          Arctic: { latitude: 72, longitude: 0 },
+          Asia: { latitude: 29, longitude: 88 },
+          Atlantic: { latitude: 0, longitude: -30 },
+          Australia: { latitude: -25, longitude: 134 },
+          Europe: { latitude: 50, longitude: 14 },
+          Indian: { latitude: -15, longitude: 75 },
+          Pacific: { latitude: -12, longitude: -150 }
+        });
+
+        var timezoneMapLandPaths = Object.freeze([
+          'M72 132 C90 95 135 76 184 86 C226 95 255 121 250 150 C226 161 219 180 239 198 C205 214 171 199 150 181 C126 166 100 166 72 132 Z',
+          'M244 207 C273 225 289 258 280 294 C269 331 237 344 224 320 C214 298 226 270 215 242 C209 224 223 212 244 207 Z',
+          'M245 43 C282 27 327 34 340 60 C318 77 282 78 252 64 Z',
+          'M329 109 C350 87 384 83 405 101 C425 92 450 96 470 112 C449 132 410 134 392 120 C370 134 345 132 329 109 Z',
+          'M421 112 C479 84 565 91 635 125 C668 146 655 180 618 188 C575 199 536 181 494 189 C454 193 424 170 414 143 Z',
+          'M370 150 C410 143 448 168 447 210 C444 254 416 292 381 278 C352 265 342 223 352 190 C357 170 356 157 370 150 Z',
+          'M552 250 C584 232 632 242 650 269 C626 291 586 292 552 276 Z'
+        ]);
+
+        function clampNumber(value, minimum, maximum) {
+          return Math.max(minimum, Math.min(maximum, value));
+        }
+
+        function formatTimezoneMapLabel(timezone) {
+          var normalizedTimezone = String(timezone || '').trim();
+          if (!normalizedTimezone || normalizedTimezone === 'Etc/Unknown') {
+            return 'Unknown';
+          }
+          if (normalizedTimezone === 'UTC' || normalizedTimezone === 'Etc/UTC') {
+            return 'UTC';
+          }
+          var parts = normalizedTimezone.split('/');
+          return String(parts[parts.length - 1] || normalizedTimezone).replace(/_/g, ' ');
+        }
+
+        function hashTimezoneName(timezone) {
+          var hash = 0;
+          var normalizedTimezone = String(timezone || '');
+          for (var characterIndex = 0; characterIndex < normalizedTimezone.length; characterIndex += 1) {
+            hash = (hash * 31 + normalizedTimezone.charCodeAt(characterIndex)) % 9973;
+          }
+          return hash;
+        }
+
+        function resolveTimezoneCoordinates(timezone) {
+          var normalizedTimezone = String(timezone || '').trim();
+          var knownCoordinates = timezoneMapCoordinates[normalizedTimezone];
+          if (knownCoordinates) {
+            return knownCoordinates;
+          }
+          var region = normalizedTimezone.split('/')[0] || '';
+          var regionCoordinates = timezoneRegionCoordinates[region] || timezoneMapCoordinates['Etc/Unknown'];
+          var hash = hashTimezoneName(normalizedTimezone);
+          return {
+            latitude: clampNumber(regionCoordinates.latitude + ((hash % 13) - 6) * 1.4, -74, 74),
+            longitude: clampNumber(regionCoordinates.longitude + (((hash >> 3) % 17) - 8) * 2.2, -176, 176),
+            label: formatTimezoneMapLabel(normalizedTimezone)
+          };
+        }
+
+        function projectTimezoneCoordinates(coordinates, mapWidth, mapHeight) {
+          var longitude = clampNumber(Number(coordinates.longitude) || 0, -180, 180);
+          var latitude = clampNumber(Number(coordinates.latitude) || 0, -80, 84);
+          return {
+            x: ((longitude + 180) / 360) * mapWidth,
+            y: ((90 - latitude) / 180) * mapHeight
+          };
+        }
+
         function renderTimezones(timezones) {
-          if (!timezonesTableBody) {
+          if (!timezonesMap) {
             return;
           }
           var items = Array.isArray(timezones) ? timezones : [];
-          renderBarChart(timezonesChart, items, {
-            labelKey: 'timezone',
-            countKey: 'visit_count',
-            emptyMessage: timezonesPlaceholder
-          });
-          if (items.length === 0) {
-            renderTrafficTableMessage(timezonesTableBody, timezonesPlaceholder);
+          var maximum = items.reduce(function(currentMaximum, entry) {
+            var value = Number(entry && entry.visit_count);
+            return Math.max(currentMaximum, Number.isFinite(value) ? value : 0);
+          }, 0);
+          timezonesMap.innerHTML = '';
+          if (items.length === 0 || maximum <= 0) {
+            renderChartMessage(timezonesMap, timezonesPlaceholder);
             return;
           }
-          timezonesTableBody.innerHTML = '';
-          items.forEach(function(entry) {
-            var row = document.createElement('tr');
-            var tzCell = document.createElement('td');
-            tzCell.textContent = entry.timezone || '';
-            var countCell = document.createElement('td');
-            countCell.className = 'text-end';
-            countCell.textContent = (entry.visit_count || 0).toString();
-            row.appendChild(tzCell);
-            row.appendChild(countCell);
-            timezonesTableBody.appendChild(row);
+
+          var namespace = 'http://www.w3.org/2000/svg';
+          var mapWidth = 720;
+          var mapHeight = 360;
+          var bubbleMinimumRadius = 8;
+          var bubbleMaximumRadius = 34;
+          var bubbleMargin = 10;
+          var svg = document.createElementNS(namespace, 'svg');
+          var accessibleLabel = items.map(function(entry) {
+            return String(entry && entry.timezone ? entry.timezone : 'Etc/Unknown') + ' ' + String(Number(entry && entry.visit_count) || 0) + ' visits';
+          }).join(', ');
+          svg.setAttribute('viewBox', '0 0 ' + mapWidth + ' ' + mapHeight);
+          svg.setAttribute('role', 'img');
+          svg.setAttribute('aria-label', 'Timezone visit map: ' + accessibleLabel);
+
+          var ocean = document.createElementNS(namespace, 'rect');
+          ocean.setAttribute('class', 'traffic-map__ocean');
+          ocean.setAttribute('x', '0');
+          ocean.setAttribute('y', '0');
+          ocean.setAttribute('width', String(mapWidth));
+          ocean.setAttribute('height', String(mapHeight));
+          svg.appendChild(ocean);
+
+          [-120, -60, 0, 60, 120].forEach(function(longitude) {
+            var projected = projectTimezoneCoordinates({ latitude: 0, longitude: longitude }, mapWidth, mapHeight);
+            var line = document.createElementNS(namespace, 'line');
+            line.setAttribute('class', 'traffic-map__grid');
+            line.setAttribute('x1', projected.x.toFixed(2));
+            line.setAttribute('y1', '0');
+            line.setAttribute('x2', projected.x.toFixed(2));
+            line.setAttribute('y2', String(mapHeight));
+            svg.appendChild(line);
           });
+          [-45, 0, 45].forEach(function(latitude) {
+            var projected = projectTimezoneCoordinates({ latitude: latitude, longitude: 0 }, mapWidth, mapHeight);
+            var line = document.createElementNS(namespace, 'line');
+            line.setAttribute('class', 'traffic-map__grid');
+            line.setAttribute('x1', '0');
+            line.setAttribute('y1', projected.y.toFixed(2));
+            line.setAttribute('x2', String(mapWidth));
+            line.setAttribute('y2', projected.y.toFixed(2));
+            svg.appendChild(line);
+          });
+
+          timezoneMapLandPaths.forEach(function(pathDefinition) {
+            var land = document.createElementNS(namespace, 'path');
+            land.setAttribute('class', 'traffic-map__land');
+            land.setAttribute('d', pathDefinition);
+            svg.appendChild(land);
+          });
+
+          items.slice(0, 10).forEach(function(entry) {
+            var count = Number(entry && entry.visit_count);
+            if (!Number.isFinite(count) || count < 0) {
+              count = 0;
+            }
+            var timezone = String(entry && entry.timezone ? entry.timezone : 'Etc/Unknown');
+            var coordinates = resolveTimezoneCoordinates(timezone);
+            var projected = projectTimezoneCoordinates(coordinates, mapWidth, mapHeight);
+            var radius = bubbleMinimumRadius + Math.sqrt(count / maximum) * (bubbleMaximumRadius - bubbleMinimumRadius);
+            var bubbleX = clampNumber(projected.x, radius + bubbleMargin, mapWidth - radius - bubbleMargin);
+            var bubbleY = clampNumber(projected.y, radius + bubbleMargin, mapHeight - radius - bubbleMargin);
+            var labelOffset = radius + 7;
+            var labelAnchor = bubbleX > mapWidth - 180 ? 'end' : 'start';
+            var labelX = labelAnchor === 'end' ? bubbleX - labelOffset : bubbleX + labelOffset;
+            var labelY = clampNumber(bubbleY + 4, 18, mapHeight - 12);
+            var group = document.createElementNS(namespace, 'g');
+            var title = document.createElementNS(namespace, 'title');
+            title.textContent = timezone + ': ' + count.toString() + ' visits';
+            group.appendChild(title);
+
+            var circle = document.createElementNS(namespace, 'circle');
+            circle.setAttribute('class', 'traffic-map__bubble');
+            circle.setAttribute('cx', bubbleX.toFixed(2));
+            circle.setAttribute('cy', bubbleY.toFixed(2));
+            circle.setAttribute('r', radius.toFixed(2));
+            circle.setAttribute('data-timezone', timezone);
+            circle.setAttribute('data-visit-count', count.toString());
+            group.appendChild(circle);
+
+            var label = document.createElementNS(namespace, 'text');
+            label.setAttribute('class', 'traffic-map__bubble-label');
+            label.setAttribute('x', labelX.toFixed(2));
+            label.setAttribute('y', labelY.toFixed(2));
+            label.setAttribute('text-anchor', labelAnchor);
+            label.textContent = (coordinates.label || formatTimezoneMapLabel(timezone)) + ' ' + count.toString();
+            group.appendChild(label);
+
+            svg.appendChild(group);
+          });
+
+          timezonesMap.appendChild(svg);
         }
 
         function renderChartMessage(container, message) {
@@ -6695,7 +7119,9 @@
           if (state.selectedSiteId !== selectedSiteId) {
             return;
           }
-          showTrafficStatus(error.message || statusMessages.load_failed || '');
+          var message = error.message || statusMessages.load_failed || '';
+          showTrafficStatus(message);
+          renderChartMessage(topPagesChart, message);
         });
 
         var trendEndpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteVisitTrendSuffix;
@@ -6756,7 +7182,7 @@
           }
           var message = error.message || statusMessages.load_failed || '';
           showTrafficStatus(message);
-          renderTrafficTableMessage(deviceTypesTableBody, message);
+          renderChartMessage(deviceTypesChart, message);
         });
 
         var timezonesEndpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteVisitTimezonesSuffix;
@@ -6771,7 +7197,7 @@
           }
           var message = error.message || statusMessages.load_failed || '';
           showTrafficStatus(message);
-          renderTrafficTableMessage(timezonesTableBody, message);
+          renderChartMessage(timezonesMap, message);
         });
       }
 
