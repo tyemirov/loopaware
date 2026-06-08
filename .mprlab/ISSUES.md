@@ -11,6 +11,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B027] (P1) Ignore external-asset route fetches cancelled by test teardown.
+  ### Summary
+  The Playwright external asset stub can still be handling a same-origin document route when the final browser context closes, causing an otherwise-complete integration run to fail with `route.fetch: Target page, context or browser has been closed`.
+  ### Deliverables
+  - Treat route errors caused by Playwright page/context/browser teardown as non-actionable cleanup.
+  - Continue surfacing real route failures while the page is still active.
+  - Verify the formerly failing widget test page coverage and the full CI gate.
+  ### Resolution
+  Added a narrow teardown classifier around tracked external-asset route handling so Playwright page/context/browser closure during test cleanup no longer fails an otherwise complete run, while non-teardown route errors still propagate. Focused validation passed with `make lint-js` and `env LOOPAWARE_BASE_URL=http://localhost:8090 npm --prefix tests run test -- specs/widget-test-page.spec.js`. Full validation passed with `make ci`, including 396 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `tests/helpers/externalAssets.js`, `.mprlab/ISSUES.md`.
+
 - [x] [B026] (P0) Replace incorrect four-hour login test with console-clean stale-idle coverage.
   ### Summary
   The existing four-hour login regression asserts an internal prepared-nonce refresh strategy, so it can pass while the user still sees login failure after leaving `/login` open for several hours.
@@ -414,7 +426,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `PLAN.md`, `Makefile`, `tests/package.json`, `tests/package-lock.json`, `tests/scripts/generate-timezone-world-map.mjs`, `web/app/index.html`, `.mprlab/ISSUES.md`.
 
-- [!] [I019] (P1) Differentiate tablet and mobile device icons in the Devices row graph.
+- [x] [I019] (P1) Differentiate tablet and mobile device icons in the Devices row graph.
   ### Summary
   The Devices row graph uses tablet and mobile icons with similar narrow outlines, so operators cannot quickly distinguish the two rows.
   ### Deliverables
@@ -423,9 +435,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Keep desktop as a monitor icon.
   - Add dashboard coverage proving all three device icon shapes are distinct.
   ### Resolution
-  Rendered mobile as a narrow phone, tablet as a landscape slate, and desktop as a monitor. Expanded the dashboard traffic spec to seed mobile, tablet, and desktop visits and assert each rendered icon frame has distinct dimensions. Focused validation passed with `make lint-js` and `env LOOPAWARE_BASE_URL=http://localhost:8090 npm --prefix tests run test -- specs/dashboard-traffic.spec.js`.
-  ### Blocked
-  Full completion-gate validation is blocked by repeated `make ci` integration failures outside the device icon assertion: both full runs failed after the integration server reset connections during unrelated dashboard navigation (`route.fetch: read ECONNRESET` / `fetch failed`), while the new device icon browser test passed.
+  Rendered mobile as a narrow phone, tablet as a landscape slate, and desktop as a monitor. Expanded the dashboard traffic spec to seed mobile, tablet, and desktop visits and assert each rendered icon frame has distinct dimensions. Focused validation passed with `make lint-js` and `env LOOPAWARE_BASE_URL=http://localhost:8090 npm --prefix tests run test -- specs/dashboard-traffic.spec.js`. Full completion-gate validation later passed on the same branch with `make ci` and 396 Playwright/API integration specs, so the earlier transient integration blocker is no longer active.
   ### Changed Files
   `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
 
