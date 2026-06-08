@@ -151,6 +151,13 @@ export async function installTauthStub(page, config, options) {
     });
   }
 
+  async function fulfillNoContent(route) {
+    await route.fulfill({
+      status: 204,
+      body: ''
+    });
+  }
+
   await page.route('**/tauth.js', async (route) => {
     await route.fulfill({
       status: 410,
@@ -162,7 +169,7 @@ export async function installTauthStub(page, config, options) {
   await page.route('**/*', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
-    if (!['/me', '/auth/refresh', '/auth/nonce', '/auth/google', '/auth/logout'].includes(url.pathname)) {
+    if (!['/me', '/auth/session', '/auth/refresh', '/auth/nonce', '/auth/google', '/auth/logout'].includes(url.pathname)) {
       await route.fallback();
       return;
     }
@@ -180,6 +187,17 @@ export async function installTauthStub(page, config, options) {
       const profile = profileFromRequest(route);
       if (!profile) {
         await fulfillJSON(route, 401, { error: 'unauthorized' });
+        return;
+      }
+      await fulfillJSON(route, 200, profile);
+      return;
+    }
+
+    if (url.pathname === '/auth/session') {
+      await delay(Math.max(bootstrapDelayMs, currentUserDelayMs));
+      const profile = profileFromRequest(route);
+      if (!profile) {
+        await fulfillNoContent(route);
         return;
       }
       await fulfillJSON(route, 200, profile);
@@ -208,7 +226,8 @@ export async function installTauthStub(page, config, options) {
       }
       const credential = typeof payload.google_id_token === 'string' ? payload.google_id_token : '';
       const nonceToken = typeof payload.nonce_token === 'string' ? payload.nonce_token : '';
-      if (!credential || !nonceToken || credential !== `stub-google-credential::${nonceToken}`) {
+      const nonceBoundCredential = `stub-google-credential::${nonceToken}`;
+      if (!credential || !nonceToken || credential !== nonceBoundCredential) {
         await fulfillJSON(route, 400, { error: 'invalid_credential' });
         return;
       }
