@@ -60,6 +60,25 @@ async function timezoneBubbleRadius(page, timezone) {
   return Number(radius);
 }
 
+async function timezoneBubbleCoordinates(page, timezone) {
+  const circle = page.locator(`#timezones-map circle[data-timezone="${timezone}"]`);
+  const [x, y, latitude, longitude] = await Promise.all([
+    circle.getAttribute('cx'),
+    circle.getAttribute('cy'),
+    circle.getAttribute('data-latitude'),
+    circle.getAttribute('data-longitude')
+  ]);
+  if (!x || !y || !latitude || !longitude) {
+    throw new Error(`missing_timezone_coordinates:${timezone}`);
+  }
+  return {
+    x: Number(x),
+    y: Number(y),
+    latitude: Number(latitude),
+    longitude: Number(longitude)
+  };
+}
+
 async function createTrafficSite() {
   return createTestSite(config, buildAdminCookie(), {
     name: buildUniqueName('Traffic Site'),
@@ -555,6 +574,12 @@ test('device row graph shows breakdown by viewport width', async ({ page }) => {
     screenResolution: '750x1334'
   });
   await collectVisit(config, site, {
+    url: `${site.allowed_origin}/tablet`,
+    visitorId: buildVisitorId(),
+    viewport: '800x600',
+    screenResolution: '1024x768'
+  });
+  await collectVisit(config, site, {
     url: `${site.allowed_origin}/desktop`,
     visitorId: buildVisitorId(),
     viewport: '1440x900',
@@ -564,12 +589,22 @@ test('device row graph shows breakdown by viewport width', async ({ page }) => {
   await selectSite(page, site.id);
   await page.locator('#dashboard-section-tab-traffic').click();
   const mobileRow = page.locator('#device-types-chart .device-row[aria-label="mobile 1 visits"]');
+  const tabletRow = page.locator('#device-types-chart .device-row[aria-label="tablet 1 visits"]');
   const desktopRow = page.locator('#device-types-chart .device-row[aria-label="desktop 1 visits"]');
   await expect(mobileRow).toBeVisible();
   await expect(mobileRow.locator('.device-row__icon svg')).toBeVisible();
+  await expect(mobileRow.locator('.device-row__icon svg rect').first()).toHaveAttribute('width', '8');
+  await expect(mobileRow.locator('.device-row__icon svg rect').first()).toHaveAttribute('height', '18');
   await expect(mobileRow.locator('.device-row__count')).toHaveText('1');
+  await expect(tabletRow).toBeVisible();
+  await expect(tabletRow.locator('.device-row__icon svg')).toBeVisible();
+  await expect(tabletRow.locator('.device-row__icon svg rect').first()).toHaveAttribute('width', '18');
+  await expect(tabletRow.locator('.device-row__icon svg rect').first()).toHaveAttribute('height', '14');
+  await expect(tabletRow.locator('.device-row__count')).toHaveText('1');
   await expect(desktopRow).toBeVisible();
   await expect(desktopRow.locator('.device-row__icon svg')).toBeVisible();
+  await expect(desktopRow.locator('.device-row__icon svg rect').first()).toHaveAttribute('width', '18');
+  await expect(desktopRow.locator('.device-row__icon svg rect').first()).toHaveAttribute('height', '12');
   await expect(desktopRow.locator('.device-row__count')).toHaveText('1');
 });
 
@@ -601,13 +636,31 @@ test('timezone map shows visit distribution with proportional bubbles', async ({
   await selectSite(page, site.id);
   await page.locator('#dashboard-section-tab-traffic').click();
   await expect(page.locator('#timezones-map svg')).toBeVisible();
+  await expect(page.locator('#timezones-map svg')).toHaveAttribute('data-map-source', 'natural-earth-110m');
+  await expect(page.locator('#timezones-map svg')).toHaveAttribute('data-projection', 'equirectangular');
+  await expect(page.locator('#timezones-map .traffic-map__land')).toHaveCount(1);
+  await expect(page.locator('#timezones-map .traffic-map__land')).toHaveAttribute('data-map-source', 'natural-earth-110m');
+  await expect(page.locator('#timezones-map .traffic-map__label-box')).toHaveCount(2);
   await expect(page.locator('#timezones-map circle[data-timezone="America/New_York"]')).toBeVisible();
   await expect(page.locator('#timezones-map circle[data-timezone="Europe/London"]')).toBeVisible();
   await expect(page.locator('#timezones-map')).toContainText('New York 2');
   await expect(page.locator('#timezones-map')).toContainText('London 1');
   const newYorkRadius = await timezoneBubbleRadius(page, 'America/New_York');
   const londonRadius = await timezoneBubbleRadius(page, 'Europe/London');
+  const landPath = await page.locator('#timezones-map .traffic-map__land').getAttribute('d');
+  const newYorkCoordinates = await timezoneBubbleCoordinates(page, 'America/New_York');
+  const londonCoordinates = await timezoneBubbleCoordinates(page, 'Europe/London');
+  expect(landPath.length).toBeGreaterThan(1000);
+  expect(newYorkCoordinates.latitude).toBeCloseTo(40.7128, 4);
+  expect(newYorkCoordinates.longitude).toBeCloseTo(-74.006, 3);
+  expect(newYorkCoordinates.x).toBeCloseTo(236.66, 1);
+  expect(newYorkCoordinates.y).toBeCloseTo(82.15, 1);
+  expect(londonCoordinates.latitude).toBeCloseTo(51.5072, 4);
+  expect(londonCoordinates.longitude).toBeCloseTo(-0.1276, 4);
+  expect(londonCoordinates.x).toBeCloseTo(359.79, 1);
+  expect(londonCoordinates.y).toBeCloseTo(64.15, 1);
   expect(newYorkRadius).toBeGreaterThan(londonRadius);
+  expect(newYorkRadius).toBeLessThan(24);
 });
 
 test('timezone map shows placeholder for new sites', async ({ page }) => {

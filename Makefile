@@ -52,6 +52,7 @@ lint-js:
 		npm --prefix tests install; \
 	fi
 	npm --prefix tests run typecheck
+	npm --prefix tests run check:timezone-map
 
 test: test-integration
 
