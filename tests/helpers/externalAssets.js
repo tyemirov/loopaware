@@ -97,7 +97,9 @@ const GOOGLE_IDENTITY_STUB = `(() => {
     var nonce = typeof override.nonce === 'string' ? override.nonce : String(config.nonce || '');
     var credential = typeof override.credential === 'string'
       ? override.credential
-      : 'stub-google-credential::' + nonce;
+      : nonce
+        ? 'stub-google-credential::' + nonce
+        : 'stub-google-credential';
     config.callback({ credential: credential });
   }
 
@@ -107,7 +109,7 @@ const GOOGLE_IDENTITY_STUB = `(() => {
     __mprUiTesting: {
       isInitialized: function() {
         var config = state.lastInitializeConfig;
-        return !!(config && String(config.nonce || '').length > 0);
+        return !!(config && typeof config.callback === 'function');
       },
       getInitializedNonce: function() {
         var config = state.lastInitializeConfig;
@@ -117,14 +119,15 @@ const GOOGLE_IDENTITY_STUB = `(() => {
         return state.initializeCalls.length;
       },
       enableAutoCredentialOnClick: function() {
-        var config = state.lastInitializeConfig;
-        if (!config || !String(config.nonce || '')) {
-          throw new Error('loopaware.google_stub_not_initialized');
-        }
         state.autoCredentialOnClick = true;
       }
     },
     initialize: function(config) {
+      if (state.initializeCalls.length > 0 && window.console && typeof window.console.warn === 'function') {
+        window.console.warn(
+          '[GSI_LOGGER]: google.accounts.id.initialize() is called multiple times. Only the last configuration is used.'
+        );
+      }
       state.lastInitializeConfig = config || null;
       state.initializeCalls.push({
         nonce: String(config && config.nonce ? config.nonce : ''),
@@ -152,7 +155,11 @@ const GOOGLE_IDENTITY_STUB = `(() => {
         });
       }
     },
-    prompt: function() {},
+    prompt: function() {
+      if (state.autoCredentialOnClick === true) {
+        emitCredential();
+      }
+    },
     cancel: function() {},
     disableAutoSelect: function() {},
     revoke: function() {}
@@ -247,14 +254,25 @@ export async function waitForGoogleIdentityStubInitialized(page) {
  * @returns {Promise<void>}
  */
 export async function enableAutoGoogleCredentialOnClick(page) {
-  await waitForGoogleIdentityStubInitialized(page);
   await page.evaluate(() => {
     const win = /** @type {any} */ (window);
-    const testingApi = win.MPRUI && win.MPRUI.testing && win.MPRUI.testing.googleIdentity;
-    if (!testingApi || typeof testingApi.enableAutoCredentialOnClick !== 'function') {
-      throw new Error('loopaware.mpr_ui_google_identity_testing_missing');
+    const existingState = win.__loopawareGoogleIdentityState;
+    const state = existingState && typeof existingState === 'object'
+      ? existingState
+      : {
+          autoCredentialOnClick: false,
+          initializeCalls: [],
+          lastInitializeConfig: null,
+          renderCount: 0
+        };
+    state.autoCredentialOnClick = true;
+    win.__loopawareGoogleIdentityState = state;
+    const testingDriver = win.google && win.google.accounts && win.google.accounts.id
+      ? win.google.accounts.id.__mprUiTesting
+      : null;
+    if (testingDriver && typeof testingDriver.enableAutoCredentialOnClick === 'function') {
+      testingDriver.enableAutoCredentialOnClick();
     }
-    testingApi.enableAutoCredentialOnClick();
   });
 }
 
@@ -279,14 +297,23 @@ export async function getGoogleIdentityInitializedNonce(page) {
  * @returns {Promise<number>}
  */
 export async function getGoogleIdentityInitializeCallCount(page) {
-  await waitForGoogleIdentityStubInitialized(page);
   return page.evaluate(() => {
     const win = /** @type {any} */ (window);
-    const testingApi = win.MPRUI && win.MPRUI.testing && win.MPRUI.testing.googleIdentity;
-    if (!testingApi || typeof testingApi.getInitializeCallCount !== 'function') {
-      throw new Error('loopaware.mpr_ui_google_identity_testing_missing');
+    const state = win.__loopawareGoogleIdentityState;
+    if (state && Array.isArray(state.initializeCalls)) {
+      return state.initializeCalls.length;
     }
-    return Number(testingApi.getInitializeCallCount());
+    const testingDriver = win.google && win.google.accounts && win.google.accounts.id
+      ? win.google.accounts.id.__mprUiTesting
+      : null;
+    if (!testingDriver) {
+      return 0;
+    }
+    const testingApi = win.MPRUI && win.MPRUI.testing && win.MPRUI.testing.googleIdentity;
+    if (testingApi && typeof testingApi.getInitializeCallCount === 'function') {
+      return Number(testingApi.getInitializeCallCount());
+    }
+    return 0;
   });
 }
 

@@ -2,6 +2,7 @@
 import { test, expect } from '@playwright/test';
 
 const expectedEdgeHeaders = Object.freeze({
+  'cross-origin-opener-policy': 'same-origin-allow-popups',
   'permissions-policy': 'accelerometer=(), autoplay=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()',
   'referrer-policy': 'strict-origin-when-cross-origin',
   'x-content-type-options': 'nosniff',

@@ -52,6 +52,14 @@ async function expectTrendAxisLabels(page, chartSelector, trendWindowDays) {
   }
 }
 
+async function timezoneBubbleRadius(page, timezone) {
+  const radius = await page.locator(`#timezones-map circle[data-timezone="${timezone}"]`).getAttribute('r');
+  if (!radius) {
+    throw new Error(`missing_timezone_bubble:${timezone}`);
+  }
+  return Number(radius);
+}
+
 async function createTrafficSite() {
   return createTestSite(config, buildAdminCookie(), {
     name: buildUniqueName('Traffic Site'),
@@ -66,7 +74,7 @@ test('traffic counts show zero for new sites', async ({ page }) => {
   await selectSite(page, site.id);
   await expect(page.locator('#visit-count')).toHaveClass(/d-none/);
   await expect(page.locator('#unique-visitor-count')).toHaveClass(/d-none/);
-  await expect(page.locator('#top-pages-table-body')).toContainText('No visits yet');
+  await expect(page.locator('#top-pages-chart')).toContainText('No visits yet');
 });
 
 test('traffic counts update for distinct visitors', async ({ page }) => {
@@ -90,14 +98,20 @@ test('unique visitor count does not double count repeat visitor', async ({ page 
   await expect(page.locator('#unique-visitor-count')).toHaveText('1 unique');
 });
 
-test('top pages list includes visited paths', async ({ page }) => {
+test('top pages row graph includes visited paths', async ({ page }) => {
   const site = await createTrafficSite();
   await collectVisit(config, site, { url: `${site.allowed_origin}/alpha`, visitorId: buildVisitorId() });
   await collectVisit(config, site, { url: `${site.allowed_origin}/beta`, visitorId: buildVisitorId() });
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
-  await expect(page.locator('#top-pages-table-body')).toContainText('/alpha');
-  await expect(page.locator('#top-pages-table-body')).toContainText('/beta');
+  await page.locator('#dashboard-section-tab-traffic').click();
+  const alphaRow = page.locator('#top-pages-chart .path-row[aria-label="/alpha 1 visits"]');
+  const betaRow = page.locator('#top-pages-chart .path-row[aria-label="/beta 1 visits"]');
+  await expect(alphaRow).toBeVisible();
+  await expect(alphaRow.locator('.path-row__icon svg')).toBeVisible();
+  await expect(alphaRow.locator('.path-row__count')).toHaveText('1');
+  await expect(betaRow).toBeVisible();
+  await expect(betaRow.locator('.path-row__count')).toHaveText('1');
 });
 
 test('top pages are sorted by count', async ({ page }) => {
@@ -107,8 +121,11 @@ test('top pages are sorted by count', async ({ page }) => {
   await collectVisit(config, site, { url: `${site.allowed_origin}/beta`, visitorId: buildVisitorId() });
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
-  const firstRowPath = page.locator('#top-pages-table-body tr').first().locator('td').first();
-  await expect(firstRowPath).toHaveText('/alpha');
+  await page.locator('#dashboard-section-tab-traffic').click();
+  const firstRow = page.locator('#top-pages-chart .path-row').first();
+  await expect(firstRow.locator('.path-row__rank')).toHaveText('1');
+  await expect(firstRow.locator('.path-row__label')).toHaveText('/alpha');
+  await expect(firstRow.locator('.path-row__count')).toHaveText('2');
 });
 
 test('traffic status stays hidden on success', async ({ page }) => {
@@ -143,11 +160,17 @@ test('traffic graphics render selected-site trends and breakdowns', async ({ pag
 
   await expect(page.locator('#traffic-trend-chart svg')).toBeVisible();
   await expectTrendAxisLabels(page, '#traffic-trend-chart', 7);
-  await expect(page.locator('#top-pages-chart')).toContainText('/alpha');
+  const topPageRow = page.locator('#top-pages-chart .path-row[aria-label="/alpha 2 visits"]');
+  await expect(topPageRow).toBeVisible();
+  await expect(topPageRow.locator('.path-row__icon svg')).toBeVisible();
+  await expect(topPageRow.locator('.path-row__count')).toHaveText('2');
   await expect(page.locator('#traffic-attribution-chart')).toContainText('google');
   await expect(page.locator('#traffic-engagement-summary')).toContainText('Returning rate');
-  await expect(page.locator('#device-types-chart')).toContainText('mobile');
-  await expect(page.locator('#timezones-chart')).toContainText('America/New_York');
+  await expect(page.locator('#device-types-chart .device-row[aria-label="mobile 1 visits"]')).toBeVisible();
+  await expect(page.locator('#device-types-chart .device-row[aria-label="mobile 1 visits"] .device-row__icon svg')).toBeVisible();
+  await expect(page.locator('#timezones-map svg')).toBeVisible();
+  await expect(page.locator('#timezones-map circle[data-timezone="America/New_York"]')).toBeVisible();
+  await expect(page.locator('#timezones-map')).toContainText('New York 2');
 });
 
 test('traffic report schedule can be configured from dashboard', async ({ page }) => {
@@ -467,8 +490,15 @@ test('all-sites traffic report schedule preserves saved timezone from dashboard 
   });
 });
 
-test('device and timezone fetch failures show traffic error state', async ({ page }) => {
+test('path, device, and timezone fetch failures show traffic error state', async ({ page }) => {
   const site = await createTrafficSite();
+  await page.route(`**/api/sites/${site.id}/visits/stats`, async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'query_failed' })
+    });
+  });
   await page.route(`**/api/sites/${site.id}/visits/devices`, async (route) => {
     await route.fulfill({
       status: 500,
@@ -486,8 +516,9 @@ test('device and timezone fetch failures show traffic error state', async ({ pag
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
   await expect(page.locator('#traffic-status')).toHaveText('Failed to load data.');
-  await expect(page.locator('#device-types-table-body')).toContainText('Failed to load data.');
-  await expect(page.locator('#timezones-table-body')).toContainText('Failed to load data.');
+  await expect(page.locator('#top-pages-chart')).toContainText('Failed to load data.');
+  await expect(page.locator('#device-types-chart')).toContainText('Failed to load data.');
+  await expect(page.locator('#timezones-map')).toContainText('Failed to load data.');
 });
 
 test('traffic stats refresh after reload', async ({ page }) => {
@@ -515,7 +546,7 @@ test('dashboard counts match visit stats API', async ({ page }) => {
   await expect(page.locator('#unique-visitor-count')).toHaveText(`${stats.unique_visitor_count} unique`);
 });
 
-test('device types table shows breakdown by viewport width', async ({ page }) => {
+test('device row graph shows breakdown by viewport width', async ({ page }) => {
   const site = await createTrafficSite();
   await collectVisit(config, site, {
     url: `${site.allowed_origin}/mobile`,
@@ -531,18 +562,25 @@ test('device types table shows breakdown by viewport width', async ({ page }) =>
   });
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
-  await expect(page.locator('#device-types-table-body')).toContainText('mobile');
-  await expect(page.locator('#device-types-table-body')).toContainText('desktop');
+  await page.locator('#dashboard-section-tab-traffic').click();
+  const mobileRow = page.locator('#device-types-chart .device-row[aria-label="mobile 1 visits"]');
+  const desktopRow = page.locator('#device-types-chart .device-row[aria-label="desktop 1 visits"]');
+  await expect(mobileRow).toBeVisible();
+  await expect(mobileRow.locator('.device-row__icon svg')).toBeVisible();
+  await expect(mobileRow.locator('.device-row__count')).toHaveText('1');
+  await expect(desktopRow).toBeVisible();
+  await expect(desktopRow.locator('.device-row__icon svg')).toBeVisible();
+  await expect(desktopRow.locator('.device-row__count')).toHaveText('1');
 });
 
-test('device types table shows placeholder for new sites', async ({ page }) => {
+test('device row graph shows placeholder for new sites', async ({ page }) => {
   const site = await createTrafficSite();
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
-  await expect(page.locator('#device-types-table-body')).toContainText('No device data yet');
+  await expect(page.locator('#device-types-chart')).toContainText('No device data yet');
 });
 
-test('timezones table shows distribution', async ({ page }) => {
+test('timezone map shows visit distribution with proportional bubbles', async ({ page }) => {
   const site = await createTrafficSite();
   await collectVisit(config, site, {
     url: `${site.allowed_origin}/page1`,
@@ -552,17 +590,29 @@ test('timezones table shows distribution', async ({ page }) => {
   await collectVisit(config, site, {
     url: `${site.allowed_origin}/page2`,
     visitorId: buildVisitorId(),
+    timezone: 'America/New_York'
+  });
+  await collectVisit(config, site, {
+    url: `${site.allowed_origin}/page3`,
+    visitorId: buildVisitorId(),
     timezone: 'Europe/London'
   });
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
-  await expect(page.locator('#timezones-table-body')).toContainText('America/New_York');
-  await expect(page.locator('#timezones-table-body')).toContainText('Europe/London');
+  await page.locator('#dashboard-section-tab-traffic').click();
+  await expect(page.locator('#timezones-map svg')).toBeVisible();
+  await expect(page.locator('#timezones-map circle[data-timezone="America/New_York"]')).toBeVisible();
+  await expect(page.locator('#timezones-map circle[data-timezone="Europe/London"]')).toBeVisible();
+  await expect(page.locator('#timezones-map')).toContainText('New York 2');
+  await expect(page.locator('#timezones-map')).toContainText('London 1');
+  const newYorkRadius = await timezoneBubbleRadius(page, 'America/New_York');
+  const londonRadius = await timezoneBubbleRadius(page, 'Europe/London');
+  expect(newYorkRadius).toBeGreaterThan(londonRadius);
 });
 
-test('timezones table shows placeholder for new sites', async ({ page }) => {
+test('timezone map shows placeholder for new sites', async ({ page }) => {
   const site = await createTrafficSite();
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
-  await expect(page.locator('#timezones-table-body')).toContainText('No timezone data yet');
+  await expect(page.locator('#timezones-map')).toContainText('No timezone data yet');
 });

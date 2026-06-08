@@ -4,11 +4,9 @@ import { buildSessionToken } from '../helpers/auth.js';
 import { resolveTestConfig } from '../helpers/config.js';
 import {
   enableAutoGoogleCredentialOnClick,
-  getGoogleIdentityInitializedNonce,
   getGoogleIdentityInitializeCallCount,
   installAssetInspectionStubs,
-  waitForExternalAssetStubsToSettle,
-  waitForGoogleIdentityStubInitialized
+  waitForExternalAssetStubsToSettle
 } from '../helpers/externalAssets.js';
 import { buildAdminUser, openAuthenticatedPage, openPublicPage, waitForDashboardReady } from '../helpers/fixtures.js';
 
@@ -39,6 +37,24 @@ const SHARED_AUTH_HTML_CASES = Object.freeze([
 ]);
 const GOOGLE_IDENTITY_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+const AUTH_SETTLE_DELAY_MS = 250;
+const AUTH_RESTORE_HINT_PREFIX = 'tauth.restore.v1:';
+const AUTH_RESTORE_HINT_VALUE = '1';
+const AUTH_ERROR_EVENT_STORAGE_KEY = '__loopawareAuthErrorEvents';
+const AUTH_ERROR_EVENT_TYPES = Object.freeze([
+  'mpr-login:error',
+  'mpr-ui:auth:error',
+  'mpr-ui:header:error'
+]);
+const AUTH_BOUNDARY_PATHS = Object.freeze([
+  '/api/me',
+  '/auth/google',
+  '/auth/nonce',
+  '/auth/refresh',
+  '/auth/session',
+  '/me'
+]);
+const CONSOLE_PROBLEM_TYPES = Object.freeze(['error', 'warning']);
 
 /**
  * @param {import('@playwright/test').Page} page
@@ -223,6 +239,138 @@ function buildLoginSessionCookieValue(user) {
 }
 
 /**
+ * @returns {string}
+ */
+function buildAuthRestoreHintKey() {
+  const authOrigin = new URL(config.baseURL).origin;
+  return `${AUTH_RESTORE_HINT_PREFIX}${encodeURIComponent(authOrigin)}:${encodeURIComponent(config.tenantId)}`;
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function installSingleUseAuthRestoreHint(page) {
+  await page.addInitScript(({ restoreHintKey, restoreHintValue }) => {
+    const win = /** @type {any} */ (window);
+    const sentinelKey = `${restoreHintKey}:seeded`;
+    if (!win.localStorage || !win.sessionStorage || win.sessionStorage.getItem(sentinelKey) === 'true') {
+      return;
+    }
+    win.localStorage.setItem(restoreHintKey, restoreHintValue);
+    win.sessionStorage.setItem(sentinelKey, 'true');
+  }, {
+    restoreHintKey: buildAuthRestoreHintKey(),
+    restoreHintValue: AUTH_RESTORE_HINT_VALUE
+  });
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function installAuthErrorEventRecorder(page) {
+  await page.addInitScript(({ storageKey, eventTypes }) => {
+    const win = /** @type {any} */ (window);
+    if (!win.sessionStorage || typeof win.addEventListener !== 'function') {
+      return;
+    }
+    if (win.sessionStorage.getItem(storageKey) === null) {
+      win.sessionStorage.setItem(storageKey, '[]');
+    }
+    const readEntries = () => {
+      const parsed = JSON.parse(win.sessionStorage.getItem(storageKey) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    };
+    eventTypes.forEach((eventType) => {
+      win.addEventListener(
+        eventType,
+        (event) => {
+          const currentEvent = /** @type {any} */ (event);
+          const detail = currentEvent.detail && typeof currentEvent.detail === 'object'
+            ? currentEvent.detail
+            : {};
+          const entries = readEntries();
+          entries.push({
+            type: String(currentEvent.type || ''),
+            code: String(detail.code || ''),
+            message: String(detail.message || ''),
+            status: detail.status === null || typeof detail.status === 'undefined' ? null : Number(detail.status)
+          });
+          win.sessionStorage.setItem(storageKey, JSON.stringify(entries));
+        },
+        true
+      );
+    });
+  }, {
+    storageKey: AUTH_ERROR_EVENT_STORAGE_KEY,
+    eventTypes: AUTH_ERROR_EVENT_TYPES
+  });
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<Array<{ type: string, code: string, message: string, status: number | null }>>}
+ */
+async function readAuthErrorEvents(page) {
+  return page.evaluate((storageKey) => {
+    const parsed = JSON.parse(window.sessionStorage.getItem(storageKey) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  }, AUTH_ERROR_EVENT_STORAGE_KEY);
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {{ authBoundaryFailures: string[], authBoundaryRequests: string[], consoleProblems: string[] }}
+ */
+function collectLongIdleLoginDiagnostics(page) {
+  /** @type {string[]} */
+  const authBoundaryFailures = [];
+  /** @type {string[]} */
+  const authBoundaryRequests = [];
+  /** @type {string[]} */
+  const consoleProblems = [];
+
+  page.on('console', (message) => {
+    if (CONSOLE_PROBLEM_TYPES.includes(message.type())) {
+      consoleProblems.push(`${message.type()}: ${message.text()}`);
+    }
+  });
+  page.on('pageerror', (error) => {
+    consoleProblems.push(`pageerror: ${error.message}`);
+  });
+  page.on('request', (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (AUTH_BOUNDARY_PATHS.includes(pathname)) {
+      authBoundaryRequests.push(pathname);
+    }
+  });
+  page.on('response', (response) => {
+    const pathname = new URL(response.url()).pathname;
+    if (AUTH_BOUNDARY_PATHS.includes(pathname) && response.status() >= 400) {
+      authBoundaryFailures.push(`${response.status()} ${pathname}`);
+    }
+  });
+  page.on('requestfailed', (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (AUTH_BOUNDARY_PATHS.includes(pathname)) {
+      const failure = request.failure();
+      authBoundaryFailures.push(`failed ${pathname}: ${failure ? failure.errorText : 'unknown'}`);
+    }
+  });
+
+  return { authBoundaryFailures, authBoundaryRequests, consoleProblems };
+}
+
+/**
+ * @param {string} failure
+ * @returns {boolean}
+ */
+function isActionableAuthBoundaryFailure(failure) {
+  return failure !== 'failed /auth/session: net::ERR_ABORTED';
+}
+
+/**
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<void>}
  */
@@ -283,24 +431,6 @@ async function beginLoginPageHeaderLoginFlow(page) {
   const signInButton = headerGoogleSigninButton(page);
   await expect(signInButton).toBeVisible();
   await signInButton.click();
-}
-
-/**
- * @param {import('@playwright/test').Page} page
- * @returns {Promise<void>}
- */
-async function installPageClockControl(page) {
-  await page.addInitScript(() => {
-    const win = /** @type {any} */ (window);
-    let currentTimeMilliseconds = 1_000_000;
-    Date.now = function now() {
-      return currentTimeMilliseconds;
-    };
-    win.__loopawareAdvanceClock = function advanceClock(milliseconds) {
-      currentTimeMilliseconds += Number(milliseconds) || 0;
-      return currentTimeMilliseconds;
-    };
-  });
 }
 
 test('dashboard requires authentication and redirects unauthenticated users to login', async ({ page }) => {
@@ -368,99 +498,58 @@ test('login page completed sign-in loads the authenticated dashboard', async ({ 
   await expect(page.locator('#user-email')).toHaveText(adminUser.email);
 });
 
-test('login page signs in after staying loaded for four hours', async ({ page }) => {
+test('login page signs in cleanly after four idle hours with stale restore state', async ({ page }) => {
   await page.clock.install({ time: new Date('2026-06-05T12:00:00.000Z') });
+  await installSingleUseAuthRestoreHint(page);
+  await installAuthErrorEventRecorder(page);
+  const diagnostics = collectLongIdleLoginDiagnostics(page);
+  const initialSessionStatus = page.waitForResponse((response) => {
+    return new URL(response.url()).pathname === '/auth/session';
+  });
+
   await openPageWithoutSession(page, '/login', {
     sessionCookieValue: buildLoginSessionCookieValue(adminUser)
   });
+  await initialSessionStatus;
   await enableAutoGoogleCredentialOnClick(page);
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
-  await waitForGoogleIdentityStubInitialized(page);
-  const loadedPageNonce = await getGoogleIdentityInitializedNonce(page);
-  expect(loadedPageNonce).not.toBe('');
-
-  await page.route(/\/auth\/google(?:\?.*)?$/, async (route) => {
-    const payload = JSON.parse(route.request().postData() || '{}');
-    if (payload && payload.nonce_token === loadedPageNonce) {
-      await route.fulfill({
-        status: 400,
-        contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify({ error: 'stale_nonce' })
-      });
-      return;
-    }
-    await route.fallback();
-  });
 
   await page.clock.runFor(FOUR_HOURS_MS);
-  await expect
-    .poll(() =>
-      getGoogleIdentityInitializedNonce(page)
-        .then((currentNonce) => currentNonce !== '' && currentNonce !== loadedPageNonce)
-    )
-    .toBe(true);
-
-  await beginLoginPageHeaderLoginFlow(page);
-
-  await page.waitForURL(/\/app\/?$/);
-  await waitForDashboardReady(page, { allowEmptySites: true });
-  await expect(page.locator('#user-email')).toHaveText(adminUser.email);
-});
-
-test('login page recovers after a long-idle Google nonce expires', async ({ page }) => {
-  const authGooglePayloads = [];
-  await installPageClockControl(page);
-  page.on('request', (request) => {
-    const url = new URL(request.url());
-    if (url.pathname !== '/auth/google') {
-      return;
-    }
-    try {
-      authGooglePayloads.push(JSON.parse(request.postData() || '{}'));
-    } catch (error) {
-      authGooglePayloads.push({});
-    }
-  });
-
-  await openPageWithoutSession(page, '/login', {
-    sessionCookieValue: buildLoginSessionCookieValue(adminUser)
-  });
-  await enableAutoGoogleCredentialOnClick(page);
-  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
-  await waitForGoogleIdentityStubInitialized(page);
-  const staleNonce = await getGoogleIdentityInitializedNonce(page);
-  expect(staleNonce).not.toBe('');
   await page.evaluate(() => {
-    const win = /** @type {any} */ (window);
-    if (typeof win.__loopawareAdvanceClock !== 'function') {
-      throw new Error('loopaware.clock_control_missing');
-    }
-    win.__loopawareAdvanceClock(6 * 60 * 1000);
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
   });
-
-  await beginLoginPageHeaderLoginFlow(page);
-  await expect
-    .poll(() =>
-      getGoogleIdentityInitializedNonce(page)
-        .then((currentNonce) => currentNonce !== staleNonce)
-    )
-    .toBe(true);
-  expect(authGooglePayloads).toEqual([]);
-  const freshNonce = await getGoogleIdentityInitializedNonce(page);
-  expect(freshNonce).not.toBe('');
-  expect(freshNonce).not.toBe(staleNonce);
+  await page.waitForTimeout(AUTH_SETTLE_DELAY_MS);
+  const preClickAuthRequests = diagnostics.authBoundaryRequests.slice();
+  const preClickInitializeCallCount = await getGoogleIdentityInitializeCallCount(page);
 
   await beginLoginPageHeaderLoginFlow(page);
 
   await page.waitForURL(/\/app\/?$/);
   await waitForDashboardReady(page, { allowEmptySites: true });
-  expect(authGooglePayloads).toEqual([
-    {
-      google_id_token: `stub-google-credential::${freshNonce}`,
-      nonce_token: freshNonce
-    }
-  ]);
   await expect(page.locator('#user-email')).toHaveText(adminUser.email);
+
+  expect({
+    preClickAuthRequests,
+    preClickInitializeCallCount,
+    legacyProfileRequests: diagnostics.authBoundaryRequests.filter(
+      (path) => path === '/me' || path === '/auth/refresh'
+    ),
+    nonceRequests: diagnostics.authBoundaryRequests.filter((path) => path === '/auth/nonce'),
+    googleExchanges: diagnostics.authBoundaryRequests.filter((path) => path === '/auth/google'),
+    failedAuthResponses: diagnostics.authBoundaryFailures.filter(isActionableAuthBoundaryFailure),
+    hiddenAuthErrorEvents: await readAuthErrorEvents(page),
+    consoleProblems: diagnostics.consoleProblems
+  }).toEqual({
+    preClickAuthRequests: ['/auth/session'],
+    preClickInitializeCallCount: 0,
+    legacyProfileRequests: [],
+    nonceRequests: ['/auth/nonce'],
+    googleExchanges: ['/auth/google'],
+    failedAuthResponses: [],
+    hiddenAuthErrorEvents: [],
+    consoleProblems: []
+  });
 });
 
 test('login page completed sign-in retries a transient dashboard API unauthorized response', async ({ page }) => {
@@ -733,7 +822,7 @@ test('login page keeps TAuth origin query state out of mpr-ui auth controls', as
   expect(await page.evaluate(() => String(window['__LOOPAWARE_TAUTH_ORIGIN__'] || ''))).toBe(tauthOrigin);
 });
 
-test('login page boots one mpr-ui auth controller without anonymous session probes', async ({ page }) => {
+test('login page boots one mpr-ui auth controller without anonymous session probes or background GIS initialization', async ({ page }) => {
   /** @type {string[]} */
   const authRequests = [];
   page.on('request', (request) => {
@@ -751,7 +840,7 @@ test('login page boots one mpr-ui auth controller without anonymous session prob
     .poll(() =>
       getGoogleIdentityInitializeCallCount(page)
     )
-    .toBe(1);
+    .toBe(0);
 
   expect(authRequests.filter((path) => path === '/me')).toHaveLength(0);
   expect(authRequests.filter((path) => path === '/auth/refresh')).toHaveLength(0);

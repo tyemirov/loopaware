@@ -11,6 +11,34 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B026] (P0) Replace incorrect four-hour login test with console-clean stale-idle coverage.
+  ### Summary
+  The existing four-hour login regression asserts an internal prepared-nonce refresh strategy, so it can pass while the user still sees login failure after leaving `/login` open for several hours.
+  ### Deliverables
+  - Remove the implementation-specific four-hour login tests that inspect refreshed Google Identity nonces.
+  - Add black-box browser coverage that loads `/login` with stale auth-restore state, emulates four hours of page idleness, then signs in through the visible header control.
+  - Assert the flow produces no console warnings/errors, no hidden auth error events, and no failed auth boundary responses.
+  ### Resolution
+  Removed the nonce-refresh-specific four-hour login tests and replaced them with one browser scenario that seeds stale TAuth restore state, advances the page clock by four hours, signs in through the header Google control, and asserts the corrected session/nonce contract plus zero console warnings/errors.
+  Tightened the Google and TAuth test stubs so `/auth/google` succeeds only when the stub Google credential is bound to the submitted `nonce_token`, matching the stricter shared-auth/TAuth security contract.
+  After `mpr-ui@latest` resolved to `3.10.4`, the focused stale-idle regression and canonical auth-state suite passed: the stale restore path uses `/auth/session`, performs no legacy `/me` or `/auth/refresh` anonymous probes, performs no background nonce/GIS initialization work, and initializes GIS once with the click-time nonce.
+  The LoopAware Google Identity stub helper now seeds auto-credential behavior before the GIS script is requested so the test can assert zero pre-click initialization without forcing the old background-load contract. The diagnostic treats only navigation-cancelled `/auth/session` checks as non-actionable while still failing on console problems, 4xx auth responses, hidden auth error events, legacy probes, repeated nonces, or missing nonce-bound credential exchange.
+  Final validation passed with `make ci` on 2026-06-08, including the stale-idle auth coverage and 393 Playwright/API integration specs.
+  ### Changed Files
+  `.mprlab/ISSUES.md`, `PLAN.md`, `tests/helpers/externalAssets.js`, `tests/helpers/tauthStub.js`, `tests/specs/header-auth-state.spec.js`.
+
+- [x] [B025] (P0) Make Google popup auth compatible with edge opener policy.
+  ### Summary
+  The long-idle login console trace includes a Google Identity popup warning: `Cross-Origin-Opener-Policy policy would block the window.postMessage call`. LoopAware’s tracked proxy hardening headers do not pin a COOP policy, so a live edge that applies strict `same-origin` opener isolation can break or warn on the GIS popup’s opener communication.
+  ### Deliverables
+  - Set the LoopAware proxy COOP policy to `same-origin-allow-popups` across local, computercat, and test stacks.
+  - Add regression coverage proving static and proxied responses carry that popup-compatible policy.
+  - Keep the auth failure path visible through the shared auth events rather than relying on browser console noise.
+  ### Resolution
+  Added `Cross-Origin-Opener-Policy: same-origin-allow-popups` to the local, computercat, and test gHTTP proxy header configuration so GIS popup opener communication is explicitly allowed instead of inheriting a stricter edge default. Updated the security-header regression to assert the COOP value for both static frontend documents and proxied API responses. Tests: `make lint-js`; `LOOPAWARE_TEST_SUITE=test make test-integration` (278 passed); `make ci` (394 integration specs passed).
+  ### Changed Files
+  `.mprlab/ISSUES.md`, `PLAN.md`, `docker-compose.yml`, `docker-compose.computercat.yml`, `tests/docker-compose.yml`, `tests/specs/security-headers.spec.js`.
+
 - [x] [B024] (P0) Cover landing-page login after four idle hours.
   ### Summary
   A user can leave the `/login` landing page open for hours, return, and find that the visible Google sign-in no longer completes login.
@@ -281,6 +309,59 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `internal/api/admin.go`, `internal/api/site_subscribe_test_handlers.go`, `internal/api/stream_handlers_test.go`, `.mprlab/ISSUES.md`.
 
 ## Improvements
+
+- [x] [I014] (P1) Replace duplicate timezone views with a visit-density map.
+  ### Summary
+  The selected-site Traffic tab rendered timezone distribution twice as a bar chart and a table. Operators need one map view where higher visit counts appear as larger bubbles.
+  ### Deliverables
+  - Replace the timezone bar chart/table pair with a single map view.
+  - Render timezone visit counts as map bubbles whose radius scales with visits.
+  - Preserve empty and error states in the new map container.
+  - Add black-box dashboard coverage for map rendering and bubble sizing.
+  ### Resolution
+  Replaced the duplicate timezone chart/table surface with an SVG timezone map backed by the existing `/visits/timezones` API response. The renderer uses known IANA timezone anchors plus region-based placement for unsupported zones, labels each bubble, exposes accessible SVG titles, and scales bubble radius by visit count. Updated dashboard traffic coverage to assert visible map bubbles, proportional sizing, placeholder text, and fetch failure text. Validation passed with `make lint-js`, `npm --prefix tests run test -- specs/dashboard-traffic.spec.js`, and `npm --prefix tests run test -- specs/dashboard-elements.spec.js`.
+  Final validation passed with `make ci` on 2026-06-08, including 393 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `tests/specs/dashboard-elements.spec.js`, `.mprlab/ISSUES.md`.
+
+- [x] [I015] (P1) Replace duplicate device views with an icon row graph.
+  ### Summary
+  The selected-site Traffic tab rendered device distribution twice as a bar chart and a table. Operators need one device row graph where each row shows a device icon and the visit count.
+  ### Deliverables
+  - Remove the device distribution table so the Devices section has one view.
+  - Render each device row with a device icon, label, proportional bar, and visit count.
+  - Preserve empty and error states in the device row graph container.
+  - Add black-box dashboard coverage for the singular device row graph.
+  ### Resolution
+  Replaced the duplicate device chart/table surface with a single row graph in `#device-types-chart`. Each row now renders a desktop, tablet, or mobile SVG icon, a device label, a proportional bar, and the visible visit count. Updated dashboard traffic coverage to assert device rows, icons, counts, placeholder text, and fetch failure text. Validation passed with `make lint-js` and `npm --prefix tests run test -- specs/dashboard-traffic.spec.js specs/dashboard-elements.spec.js`.
+  Final validation passed with `make ci` on 2026-06-08, including 393 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
+
+- [x] [I016] (P1) Replace duplicate top-pages views with a ranked path row graph.
+  ### Summary
+  The selected-site Traffic tab rendered path data twice as a bar chart and a table. Operators need one path view that ranks pages and keeps the visit count visible.
+  ### Deliverables
+  - Remove the duplicate Top pages table so the section has one view.
+  - Render each path row with rank, a page icon, the path, a proportional bar, and the visit count.
+  - Preserve empty and error states in the path row graph container.
+  - Add black-box dashboard coverage for the singular path row graph.
+  ### Resolution
+  Replaced the duplicate Top pages chart/table surface with a single ranked row graph in `#top-pages-chart`. Each row now renders rank, an inline page SVG icon, a path label, a proportional bar, and the visible visit count. Updated dashboard traffic coverage to assert path rows, icons, ranks, counts, placeholder text, and stats failure text, and updated the shell element coverage for the removed table body. Validation passed with `make lint-js`, `npm --prefix tests run test -- specs/dashboard-traffic.spec.js specs/dashboard-elements.spec.js`, and `make ci` with 393 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `tests/specs/dashboard-elements.spec.js`, `.mprlab/ISSUES.md`.
+
+- [x] [I017] (P1) Rename selected-site traffic breakdown section headings.
+  ### Summary
+  The selected-site Traffic tab should use parallel section labels under the total visits graph: Pages, Devices, and Timezones.
+  ### Deliverables
+  - Rename the Top pages heading to Pages.
+  - Rename the Timezone map heading to Timezones.
+  - Preserve the Devices heading and add black-box coverage for all three section labels.
+  ### Resolution
+  Renamed the selected-site traffic breakdown headings to Pages, Devices, and Timezones, added stable heading IDs, and covered those labels in the dashboard shell and label specs. Validation passed with `make lint-js` and `make ci` with 396 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-elements.spec.js`, `.mprlab/ISSUES.md`.
 
 - [x] [I013] (P1) Mark X-axis time labels on traffic trend charts.
   ### Summary
