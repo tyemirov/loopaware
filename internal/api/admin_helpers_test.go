@@ -56,7 +56,15 @@ func (provider *stubStatsProvider) VisitCount(context.Context, string) (int64, e
 	return provider.visitCountValue, provider.visitCountError
 }
 
+func (provider *stubStatsProvider) VisitCountForDays(context.Context, string, int) (int64, error) {
+	return provider.visitCountValue, provider.visitCountError
+}
+
 func (provider *stubStatsProvider) UniqueVisitorCount(context.Context, string) (int64, error) {
+	return provider.uniqueVisitorCountValue, provider.uniqueVisitorCountError
+}
+
+func (provider *stubStatsProvider) UniqueVisitorCountForDays(context.Context, string, int) (int64, error) {
 	return provider.uniqueVisitorCountValue, provider.uniqueVisitorCountError
 }
 
@@ -72,11 +80,23 @@ func (provider *stubStatsProvider) VisitTrend(context.Context, string, int) ([]D
 	return nil, nil
 }
 
+func (provider *stubStatsProvider) VisitTrendAll(context.Context, string) ([]DailyVisitTrendStat, error) {
+	return nil, nil
+}
+
 func (provider *stubStatsProvider) VisitAttribution(context.Context, string, int) (VisitAttributionBreakdown, error) {
 	return VisitAttributionBreakdown{}, nil
 }
 
+func (provider *stubStatsProvider) VisitAttributionForDays(context.Context, string, int, int) (VisitAttributionBreakdown, error) {
+	return VisitAttributionBreakdown{}, nil
+}
+
 func (provider *stubStatsProvider) VisitEngagement(context.Context, string, int) (VisitEngagementStat, error) {
+	return VisitEngagementStat{}, nil
+}
+
+func (provider *stubStatsProvider) VisitEngagementAll(context.Context, string) (VisitEngagementStat, error) {
 	return VisitEngagementStat{}, nil
 }
 
@@ -246,6 +266,26 @@ func TestParseVisitAttributionLimit(testingT *testing.T) {
 	require.Error(testingT, err)
 
 	_, err = parseVisitAttributionLimit("invalid")
+	require.Error(testingT, err)
+}
+
+func TestParseTrafficInterval(testingT *testing.T) {
+	interval, err := parseTrafficInterval("")
+	require.NoError(testingT, err)
+	require.Equal(testingT, trafficIntervalAllValue, interval.Value())
+	require.True(testingT, interval.IsAll())
+
+	interval, err = parseTrafficInterval("1day")
+	require.NoError(testingT, err)
+	require.Equal(testingT, trafficIntervalOneDayValue, interval.Value())
+	require.Equal(testingT, 1, interval.Days())
+
+	interval, err = parseTrafficInterval("30days")
+	require.NoError(testingT, err)
+	require.Equal(testingT, trafficIntervalThirtyDaysValue, interval.Value())
+	require.Equal(testingT, 30, interval.Days())
+
+	_, err = parseTrafficInterval("7days")
 	require.Error(testingT, err)
 }
 

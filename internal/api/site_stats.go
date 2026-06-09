@@ -70,12 +70,17 @@ type SiteStatisticsProvider interface {
 	FeedbackCount(ctx context.Context, siteID string) (int64, error)
 	SubscriberCount(ctx context.Context, siteID string) (int64, error)
 	VisitCount(ctx context.Context, siteID string) (int64, error)
+	VisitCountForDays(ctx context.Context, siteID string, days int) (int64, error)
 	UniqueVisitorCount(ctx context.Context, siteID string) (int64, error)
+	UniqueVisitorCountForDays(ctx context.Context, siteID string, days int) (int64, error)
 	TopPages(ctx context.Context, siteID string, limit int) ([]TopPageStat, error)
 	TopPagesForDays(ctx context.Context, siteID string, days int, limit int) ([]TopPageStat, error)
 	VisitTrend(ctx context.Context, siteID string, days int) ([]DailyVisitTrendStat, error)
+	VisitTrendAll(ctx context.Context, siteID string) ([]DailyVisitTrendStat, error)
 	VisitAttribution(ctx context.Context, siteID string, limit int) (VisitAttributionBreakdown, error)
+	VisitAttributionForDays(ctx context.Context, siteID string, days int, limit int) (VisitAttributionBreakdown, error)
 	VisitEngagement(ctx context.Context, siteID string, days int) (VisitEngagementStat, error)
+	VisitEngagementAll(ctx context.Context, siteID string) (VisitEngagementStat, error)
 	DeviceBreakdown(ctx context.Context, siteID string, limit int) (DeviceBreakdownStat, error)
 	DeviceBreakdownForDays(ctx context.Context, siteID string, days int, limit int) (DeviceBreakdownStat, error)
 	TimezoneDistribution(ctx context.Context, siteID string, limit int) ([]TimezoneDistributionStat, error)
@@ -114,23 +119,53 @@ func (provider *DatabaseSiteStatisticsProvider) SubscriberCount(ctx context.Cont
 
 // VisitCount returns total page views for a site.
 func (provider *DatabaseSiteStatisticsProvider) VisitCount(ctx context.Context, siteID string) (int64, error) {
+	return provider.visitCount(ctx, siteID, time.Time{})
+}
+
+// VisitCountForDays returns page views within the same UTC day window used by VisitTrend.
+func (provider *DatabaseSiteStatisticsProvider) VisitCountForDays(ctx context.Context, siteID string, days int) (int64, error) {
+	normalizedDays := normalizeVisitTrendDays(days)
+	return provider.visitCount(ctx, siteID, visitWindowStartDay(normalizedDays))
+}
+
+func (provider *DatabaseSiteStatisticsProvider) visitCount(ctx context.Context, siteID string, startDay time.Time) (int64, error) {
 	if strings.TrimSpace(siteID) == "" {
 		return 0, nil
 	}
 	var count int64
-	err := provider.database.WithContext(ctx).Model(&model.SiteVisit{}).Where("site_id = ? AND is_bot = ?", siteID, false).Count(&count).Error
+	query := provider.database.WithContext(ctx).
+		Model(&model.SiteVisit{}).
+		Where("site_id = ? AND is_bot = ?", siteID, false)
+	if !startDay.IsZero() {
+		query = query.Where("occurred_at >= ?", startDay)
+	}
+	err := query.Count(&count).Error
 	return count, err
 }
 
 // UniqueVisitorCount returns distinct visitor ids for a site.
 func (provider *DatabaseSiteStatisticsProvider) UniqueVisitorCount(ctx context.Context, siteID string) (int64, error) {
+	return provider.uniqueVisitorCount(ctx, siteID, time.Time{})
+}
+
+// UniqueVisitorCountForDays returns distinct visitor ids within the same UTC day window used by VisitTrend.
+func (provider *DatabaseSiteStatisticsProvider) UniqueVisitorCountForDays(ctx context.Context, siteID string, days int) (int64, error) {
+	normalizedDays := normalizeVisitTrendDays(days)
+	return provider.uniqueVisitorCount(ctx, siteID, visitWindowStartDay(normalizedDays))
+}
+
+func (provider *DatabaseSiteStatisticsProvider) uniqueVisitorCount(ctx context.Context, siteID string, startDay time.Time) (int64, error) {
 	if strings.TrimSpace(siteID) == "" {
 		return 0, nil
 	}
 	var count int64
-	err := provider.database.WithContext(ctx).
+	query := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
-		Where("site_id = ? AND visitor_id <> '' AND is_bot = ?", siteID, false).
+		Where("site_id = ? AND visitor_id <> '' AND is_bot = ?", siteID, false)
+	if !startDay.IsZero() {
+		query = query.Where("occurred_at >= ?", startDay)
+	}
+	err := query.
 		Distinct("visitor_id").
 		Count(&count).Error
 	return count, err
@@ -245,18 +280,46 @@ func (provider *DatabaseSiteStatisticsProvider) VisitTrend(ctx context.Context, 
 		return nil, nil
 	}
 	normalizedDays := normalizeVisitTrendDays(days)
-	startDay := visitWindowStartDay(normalizedDays)
+	return provider.visitTrend(ctx, siteID, visitWindowStartDay(normalizedDays), normalizedDays)
+}
 
+// VisitTrendAll returns a day-filled trend from the first recorded human visit through today.
+func (provider *DatabaseSiteStatisticsProvider) VisitTrendAll(ctx context.Context, siteID string) ([]DailyVisitTrendStat, error) {
+	if strings.TrimSpace(siteID) == "" {
+		return nil, nil
+	}
+	return provider.visitTrend(ctx, siteID, time.Time{}, 0)
+}
+
+func (provider *DatabaseSiteStatisticsProvider) visitTrend(ctx context.Context, siteID string, startDay time.Time, days int) ([]DailyVisitTrendStat, error) {
 	var rows []dailyVisitTrendRow
-	err := provider.database.WithContext(ctx).
+	query := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
 		Select("DATE(occurred_at) as day, COUNT(*) as page_views, COUNT(DISTINCT CASE WHEN visitor_id <> '' THEN visitor_id END) as unique_visitors").
-		Where("site_id = ? AND occurred_at >= ? AND is_bot = ?", siteID, startDay, false).
-		Group("DATE(occurred_at)").
+		Where("site_id = ? AND is_bot = ?", siteID, false)
+	if !startDay.IsZero() {
+		query = query.Where("occurred_at >= ?", startDay)
+	}
+	err := query.Group("DATE(occurred_at)").
 		Order("day asc").
 		Scan(&rows).Error
 	if err != nil {
 		return nil, err
+	}
+	if startDay.IsZero() {
+		if len(rows) == 0 {
+			return nil, nil
+		}
+		_, firstDate, normalizeErr := normalizeVisitTrendMapKey(rows[0].Day)
+		if normalizeErr != nil {
+			return nil, normalizeErr
+		}
+		startDay = firstDate
+		today := time.Now().UTC().Truncate(24 * time.Hour)
+		if startDay.After(today) {
+			today = startDay
+		}
+		days = int(today.Sub(startDay).Hours()/24) + 1
 	}
 
 	entriesByDay := make(map[string]DailyVisitTrendStat, len(rows))
@@ -272,8 +335,8 @@ func (provider *DatabaseSiteStatisticsProvider) VisitTrend(ctx context.Context, 
 		}
 	}
 
-	trend := make([]DailyVisitTrendStat, 0, normalizedDays)
-	for dayIndex := 0; dayIndex < normalizedDays; dayIndex++ {
+	trend := make([]DailyVisitTrendStat, 0, days)
+	for dayIndex := 0; dayIndex < days; dayIndex++ {
 		dateValue := startDay.AddDate(0, 0, dayIndex)
 		dayKey := dateValue.Format(visitTrendDayLayout)
 		if existingEntry, ok := entriesByDay[dayKey]; ok {
@@ -333,17 +396,30 @@ type visitAttributionRow struct {
 }
 
 func (provider *DatabaseSiteStatisticsProvider) VisitAttribution(ctx context.Context, siteID string, limit int) (VisitAttributionBreakdown, error) {
+	return provider.visitAttribution(ctx, siteID, limit, time.Time{})
+}
+
+// VisitAttributionForDays returns attribution within the same UTC day window used by VisitTrend.
+func (provider *DatabaseSiteStatisticsProvider) VisitAttributionForDays(ctx context.Context, siteID string, days int, limit int) (VisitAttributionBreakdown, error) {
+	normalizedDays := normalizeVisitTrendDays(days)
+	return provider.visitAttribution(ctx, siteID, limit, visitWindowStartDay(normalizedDays))
+}
+
+func (provider *DatabaseSiteStatisticsProvider) visitAttribution(ctx context.Context, siteID string, limit int, startDay time.Time) (VisitAttributionBreakdown, error) {
 	if strings.TrimSpace(siteID) == "" {
 		return VisitAttributionBreakdown{}, nil
 	}
 
 	normalizedLimit := normalizeVisitAttributionLimit(limit)
 	var rows []visitAttributionRow
-	err := provider.database.WithContext(ctx).
+	query := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
 		Select("url, referrer").
-		Where("site_id = ? AND is_bot = ?", siteID, false).
-		Scan(&rows).Error
+		Where("site_id = ? AND is_bot = ?", siteID, false)
+	if !startDay.IsZero() {
+		query = query.Where("occurred_at >= ?", startDay)
+	}
+	err := query.Scan(&rows).Error
 	if err != nil {
 		return VisitAttributionBreakdown{}, err
 	}
@@ -474,18 +550,29 @@ type visitorEngagementAggregate struct {
 }
 
 func (provider *DatabaseSiteStatisticsProvider) VisitEngagement(ctx context.Context, siteID string, days int) (VisitEngagementStat, error) {
+	normalizedDays := normalizeVisitEngagementDays(days)
+	return provider.visitEngagement(ctx, siteID, visitWindowStartDay(normalizedDays))
+}
+
+// VisitEngagementAll returns engagement metrics across all recorded human visits.
+func (provider *DatabaseSiteStatisticsProvider) VisitEngagementAll(ctx context.Context, siteID string) (VisitEngagementStat, error) {
+	return provider.visitEngagement(ctx, siteID, time.Time{})
+}
+
+func (provider *DatabaseSiteStatisticsProvider) visitEngagement(ctx context.Context, siteID string, startDay time.Time) (VisitEngagementStat, error) {
 	if strings.TrimSpace(siteID) == "" {
 		return VisitEngagementStat{}, nil
 	}
 
-	normalizedDays := normalizeVisitEngagementDays(days)
-	startDay := time.Now().UTC().Truncate(24*time.Hour).AddDate(0, 0, -(normalizedDays - 1))
 	var rows []visitEngagementRow
-	err := provider.database.WithContext(ctx).
+	query := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
 		Select("visitor_id, occurred_at").
-		Where("site_id = ? AND is_bot = ? AND visitor_id <> '' AND occurred_at >= ?", siteID, false, startDay).
-		Scan(&rows).Error
+		Where("site_id = ? AND is_bot = ? AND visitor_id <> ''", siteID, false)
+	if !startDay.IsZero() {
+		query = query.Where("occurred_at >= ?", startDay)
+	}
+	err := query.Scan(&rows).Error
 	if err != nil {
 		return VisitEngagementStat{}, err
 	}

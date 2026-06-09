@@ -80,7 +80,15 @@ func (provider *recordingTrafficReportStatsProvider) VisitCount(context.Context,
 	return 0, nil
 }
 
+func (provider *recordingTrafficReportStatsProvider) VisitCountForDays(context.Context, string, int) (int64, error) {
+	return 0, nil
+}
+
 func (provider *recordingTrafficReportStatsProvider) UniqueVisitorCount(context.Context, string) (int64, error) {
+	return 0, nil
+}
+
+func (provider *recordingTrafficReportStatsProvider) UniqueVisitorCountForDays(context.Context, string, int) (int64, error) {
 	return 0, nil
 }
 
@@ -98,11 +106,23 @@ func (provider *recordingTrafficReportStatsProvider) VisitTrend(context.Context,
 	return provider.trend, nil
 }
 
+func (provider *recordingTrafficReportStatsProvider) VisitTrendAll(context.Context, string) ([]DailyVisitTrendStat, error) {
+	return provider.trend, nil
+}
+
 func (provider *recordingTrafficReportStatsProvider) VisitAttribution(context.Context, string, int) (VisitAttributionBreakdown, error) {
 	return VisitAttributionBreakdown{}, nil
 }
 
+func (provider *recordingTrafficReportStatsProvider) VisitAttributionForDays(context.Context, string, int, int) (VisitAttributionBreakdown, error) {
+	return VisitAttributionBreakdown{}, nil
+}
+
 func (provider *recordingTrafficReportStatsProvider) VisitEngagement(context.Context, string, int) (VisitEngagementStat, error) {
+	return VisitEngagementStat{}, nil
+}
+
+func (provider *recordingTrafficReportStatsProvider) VisitEngagementAll(context.Context, string) (VisitEngagementStat, error) {
 	return VisitEngagementStat{}, nil
 }
 
