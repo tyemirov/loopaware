@@ -11,6 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.18] - 2026-06-09
+
+### Features ✨
+- Add traffic interval selector (1 day, 30 days, All) and CSV export button to dashboard.
+- Add interval filtering to traffic-related API endpoints.
+- Add export endpoint for site visit traffic data.
+
+### Improvements ⚙️
+- Update API docs and architecture with interval query parameter for visits endpoints.
+- Enhance Timezones map label alignment and visit count display inside bubbles.
+- Mark selected-site Traffic intervals and CSV export as completed in ISSUES.md.
+
+### Bug Fixes 🐛
+- Sanitize CSV export fields to prevent formula injection.
+
+### Testing 🧪
+- Add traffic CSV export and interval selector tests with UI updates.
+
+### Docs 📚
+- Update API documentation with new traffic interval filtering and export features.
+- Add detailed issue B028 for Timezones label alignment and coverage.
+
 ## [v0.7.17] - 2026-06-08
 
 ### Features ✨
