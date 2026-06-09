@@ -334,7 +334,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
-- [ ] [I023] (P1) Add selected-site Traffic intervals and CSV export.
+- [x] [I023] (P1) Add selected-site Traffic intervals and CSV export.
   ### Summary
   The selected-site Traffic card always shows all-time totals and does not offer a direct export for the traffic data operators are reviewing.
   ### Deliverables
@@ -343,9 +343,9 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Add an authenticated selected-site Traffic CSV download using the selected interval.
   - Add black-box API and dashboard coverage for interval filtering and CSV export.
   ### Resolution
-  Pending.
+  Added selected-site Traffic interval controls for 1 day, 30 days, and All, applied the interval to selected-site traffic endpoints and dashboard refreshes, and added authenticated CSV export with formula-safe cells. Added black-box API and dashboard coverage for interval filtering, CSV export, and labels. `make test-unit` and `make ci` pass.
   ### Changed Files
-  Pending.
+  `PLAN.md`, `.mprlab/ISSUES.md`, `ARCHITECTURE.md`, `README.md`, `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/admin.go`, `internal/api/site_stats.go`, `internal/api/admin_helpers_test.go`, `internal/api/admin_test.go`, `internal/api/site_stats_additional_test.go`, `internal/api/traffic_report_schedule_test.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`.
 
 - [x] [I014] (P1) Replace duplicate timezone views with a visit-density map.
   ### Summary
