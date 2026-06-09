@@ -1481,22 +1481,35 @@ func (handlers *SiteHandlers) ExportTraffic(context *gin.Context) {
 	for _, visit := range visits {
 		record := []string{
 			visit.OccurredAt.UTC().Format(time.RFC3339),
-			visit.URL,
-			visit.Path,
-			visit.PageTitle,
-			visit.VisitorID,
-			visit.Referrer,
-			visit.IP,
-			classifyVisitCountry(visit.IP),
-			classifyVisitBrowser(visit.UserAgent),
-			visit.UserAgent,
-			visit.ScreenResolution,
-			visit.Viewport,
-			visit.Timezone,
+			sanitizeCSVCell(visit.URL),
+			sanitizeCSVCell(visit.Path),
+			sanitizeCSVCell(visit.PageTitle),
+			sanitizeCSVCell(visit.VisitorID),
+			sanitizeCSVCell(visit.Referrer),
+			sanitizeCSVCell(visit.IP),
+			sanitizeCSVCell(classifyVisitCountry(visit.IP)),
+			sanitizeCSVCell(classifyVisitBrowser(visit.UserAgent)),
+			sanitizeCSVCell(visit.UserAgent),
+			sanitizeCSVCell(visit.ScreenResolution),
+			sanitizeCSVCell(visit.Viewport),
+			sanitizeCSVCell(visit.Timezone),
 		}
 		_ = csvWriter.Write(record)
 	}
 	csvWriter.Flush()
+}
+
+func sanitizeCSVCell(value string) string {
+	trimmedValue := strings.TrimLeft(value, " \t\r\n")
+	if trimmedValue == "" {
+		return value
+	}
+	switch trimmedValue[0] {
+	case '=', '+', '-', '@':
+		return "'" + value
+	default:
+		return value
+	}
 }
 
 func (handlers *SiteHandlers) UpdateSubscriberStatus(context *gin.Context) {

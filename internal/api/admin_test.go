@@ -1981,12 +1981,12 @@ func TestExportTrafficReturnsIntervalCSV(testingT *testing.T) {
 		URL:              "http://traffic-csv.example/recent",
 		VisitorID:        storage.NewID(),
 		IP:               "127.0.0.1",
-		UserAgent:        "Mozilla/5.0 Firefox/125.0",
-		Referrer:         "http://referrer.example/",
+		UserAgent:        "-Mozilla/5.0 Firefox/125.0",
+		Referrer:         "+referrer",
 		ScreenResolution: "1920x1080",
 		Viewport:         "1440x900",
-		Timezone:         "America/Los_Angeles",
-		PageTitle:        "Recent",
+		Timezone:         "@timezone",
+		PageTitle:        "=Recent",
 		Occurred:         startOfToday.Add(2 * time.Hour),
 	})
 	require.NoError(testingT, visitErr)
@@ -2020,7 +2020,10 @@ func TestExportTrafficReturnsIntervalCSV(testingT *testing.T) {
 	require.Contains(testingT, body, "occurred_at,url,path,page_title,visitor_id,referrer,ip,country,browser,user_agent,screen_resolution,viewport,timezone")
 	require.Contains(testingT, body, "http://traffic-csv.example/recent")
 	require.Contains(testingT, body, "Firefox")
-	require.Contains(testingT, body, "America/Los_Angeles")
+	require.Contains(testingT, body, "'=Recent")
+	require.Contains(testingT, body, "'+referrer")
+	require.Contains(testingT, body, "'-Mozilla/5.0 Firefox/125.0")
+	require.Contains(testingT, body, "'@timezone")
 	require.NotContains(testingT, body, "http://traffic-csv.example/old")
 	require.NotContains(testingT, body, "http://traffic-csv.example/bot")
 }
