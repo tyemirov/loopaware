@@ -115,6 +115,7 @@ func registerBackendRoutes(
 	apiGroup.GET(apiRouteSiteVisitEngagement, siteHandlers.VisitEngagement)
 	apiGroup.GET(apiRouteSiteVisitDevices, siteHandlers.DeviceBreakdown)
 	apiGroup.GET(apiRouteSiteVisitTimezones, siteHandlers.TimezoneDistribution)
+	apiGroup.GET(apiRouteSiteVisitExport, siteHandlers.ExportTraffic)
 	apiGroup.GET(apiRouteSiteTrafficReportSchedule, trafficReportHandlers.GetSchedule)
 	apiGroup.PUT(apiRouteSiteTrafficReportSchedule, trafficReportHandlers.SaveSchedule)
 	apiGroup.POST(apiRouteSiteTrafficReportTest, trafficReportHandlers.SendTestReport)

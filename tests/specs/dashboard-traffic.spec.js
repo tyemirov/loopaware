@@ -60,6 +60,14 @@ async function timezoneBubbleRadius(page, timezone) {
   return Number(radius);
 }
 
+async function timezoneBubbleCount(page, timezone) {
+  const count = await page.locator(`#timezones-map .traffic-map__bubble-count[data-timezone="${timezone}"]`).textContent();
+  if (!count) {
+    throw new Error(`missing_timezone_bubble_count:${timezone}`);
+  }
+  return count.trim();
+}
+
 async function timezoneBubbleCoordinates(page, timezone) {
   const circle = page.locator(`#timezones-map circle[data-timezone="${timezone}"]`);
   const [x, y, latitude, longitude] = await Promise.all([
@@ -77,6 +85,18 @@ async function timezoneBubbleCoordinates(page, timezone) {
     latitude: Number(latitude),
     longitude: Number(longitude)
   };
+}
+
+async function timezoneLabelCenterX(page, timezone) {
+  const labelBox = page.locator(`#timezones-map .traffic-map__marker[data-timezone="${timezone}"] .traffic-map__label-box`);
+  const [x, width] = await Promise.all([
+    labelBox.getAttribute('x'),
+    labelBox.getAttribute('width')
+  ]);
+  if (!x || !width) {
+    throw new Error(`missing_timezone_label_box:${timezone}`);
+  }
+  return Number(x) + (Number(width) / 2);
 }
 
 async function createTrafficSite() {
@@ -178,7 +198,7 @@ test('traffic graphics render selected-site trends and breakdowns', async ({ pag
   await page.locator('#dashboard-section-tab-traffic').click();
 
   await expect(page.locator('#traffic-trend-chart svg')).toBeVisible();
-  await expectTrendAxisLabels(page, '#traffic-trend-chart', 7);
+  await expectTrendAxisLabels(page, '#traffic-trend-chart', 1);
   const topPageRow = page.locator('#top-pages-chart .path-row[aria-label="/alpha 2 visits"]');
   await expect(topPageRow).toBeVisible();
   await expect(topPageRow.locator('.path-row__icon svg')).toBeVisible();
@@ -189,7 +209,8 @@ test('traffic graphics render selected-site trends and breakdowns', async ({ pag
   await expect(page.locator('#device-types-chart .device-row[aria-label="mobile 1 visits"] .device-row__icon svg')).toBeVisible();
   await expect(page.locator('#timezones-map svg')).toBeVisible();
   await expect(page.locator('#timezones-map circle[data-timezone="America/New_York"]')).toBeVisible();
-  await expect(page.locator('#timezones-map')).toContainText('New York 2');
+  await expect(page.locator('#timezones-map .traffic-map__bubble-label[data-timezone="America/New_York"]')).toHaveText('New York');
+  expect(await timezoneBubbleCount(page, 'America/New_York')).toBe('2');
 });
 
 test('traffic report schedule can be configured from dashboard', async ({ page }) => {
@@ -511,21 +532,21 @@ test('all-sites traffic report schedule preserves saved timezone from dashboard 
 
 test('path, device, and timezone fetch failures show traffic error state', async ({ page }) => {
   const site = await createTrafficSite();
-  await page.route(`**/api/sites/${site.id}/visits/stats`, async (route) => {
+  await page.route(`**/api/sites/${site.id}/visits/stats*`, async (route) => {
     await route.fulfill({
       status: 500,
       contentType: 'application/json',
       body: JSON.stringify({ error: 'query_failed' })
     });
   });
-  await page.route(`**/api/sites/${site.id}/visits/devices`, async (route) => {
+  await page.route(`**/api/sites/${site.id}/visits/devices*`, async (route) => {
     await route.fulfill({
       status: 500,
       contentType: 'application/json',
       body: JSON.stringify({ error: 'query_failed' })
     });
   });
-  await page.route(`**/api/sites/${site.id}/visits/timezones`, async (route) => {
+  await page.route(`**/api/sites/${site.id}/visits/timezones*`, async (route) => {
     await route.fulfill({
       status: 500,
       contentType: 'application/json',
@@ -563,6 +584,71 @@ test('dashboard counts match visit stats API', async ({ page }) => {
   await selectSite(page, site.id);
   await expect(page.locator('#visit-count')).toHaveText(`${stats.visit_count} visits`);
   await expect(page.locator('#unique-visitor-count')).toHaveText(`${stats.unique_visitor_count} unique`);
+});
+
+test('traffic interval selector refreshes selected-site stats', async ({ page }) => {
+  const site = await createTrafficSite();
+  await collectVisit(config, site, { url: `${site.allowed_origin}/alpha`, visitorId: buildVisitorId() });
+  await collectVisit(config, site, { url: `${site.allowed_origin}/beta`, visitorId: buildVisitorId() });
+  /** @type {string[]} */
+  const requestedIntervals = [];
+  await page.route(`**/api/sites/${site.id}/visits/stats*`, async (route) => {
+    const url = new URL(route.request().url());
+    requestedIntervals.push(url.searchParams.get('interval') || '');
+    if (url.searchParams.get('interval') === '1day') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          site_id: site.id,
+          interval: '1day',
+          visit_count: 1,
+          unique_visitor_count: 1,
+          top_pages: [{ path: '/alpha', visit_count: 1 }],
+          recent_visits: []
+        })
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await page.locator('#dashboard-section-tab-traffic').click();
+  await expect(page.locator('#traffic-interval-all')).toBeChecked();
+  await expect(page.locator('#visit-count')).toHaveText('2 visits');
+  await expect.poll(() => requestedIntervals).toContain('all');
+
+  await page.locator('label[for="traffic-interval-1day"]').click();
+  await expect(page.locator('#traffic-interval-1day')).toBeChecked();
+  await expect(page.locator('#visit-count')).toHaveText('1 visits');
+  await expect(page.locator('#unique-visitor-count')).toHaveText('1 unique');
+  await expect(page.locator('#top-pages-chart .path-row__label').first()).toHaveText('/alpha');
+  await expect.poll(() => requestedIntervals).toContain('1day');
+});
+
+test('traffic CSV button opens the selected interval export', async ({ page }) => {
+  const site = await createTrafficSite();
+  await collectVisit(config, site, { url: `${site.allowed_origin}/alpha`, visitorId: buildVisitorId() });
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await page.locator('#dashboard-section-tab-traffic').click();
+  await page.locator('label[for="traffic-interval-30days"]').click();
+  await expect(page.locator('#traffic-interval-30days')).toBeChecked();
+  await page.evaluate(() => {
+    window.sessionStorage.setItem('loopaware-test-traffic-export-url', '');
+    window.open = function(url) {
+      window.sessionStorage.setItem('loopaware-test-traffic-export-url', String(url || ''));
+      return null;
+    };
+  });
+
+  await page.locator('#traffic-export-button').click();
+  const exportURL = await page.evaluate(() => window.sessionStorage.getItem('loopaware-test-traffic-export-url') || '');
+  const parsedURL = new URL(exportURL, config.baseURL);
+  expect(parsedURL.pathname).toBe(`/api/sites/${site.id}/visits/export`);
+  expect(parsedURL.searchParams.get('interval')).toBe('30days');
 });
 
 test('device row graph shows breakdown by viewport width', async ({ page }) => {
@@ -618,6 +704,21 @@ test('device row graph shows placeholder for new sites', async ({ page }) => {
 test('timezone map shows visit distribution with proportional bubbles', async ({ page }) => {
   const site = await createTrafficSite();
   await collectVisit(config, site, {
+    url: `${site.allowed_origin}/page0`,
+    visitorId: buildVisitorId(),
+    timezone: 'America/Los_Angeles'
+  });
+  await collectVisit(config, site, {
+    url: `${site.allowed_origin}/page0-repeat`,
+    visitorId: buildVisitorId(),
+    timezone: 'America/Los_Angeles'
+  });
+  await collectVisit(config, site, {
+    url: `${site.allowed_origin}/page0-third`,
+    visitorId: buildVisitorId(),
+    timezone: 'America/Los_Angeles'
+  });
+  await collectVisit(config, site, {
     url: `${site.allowed_origin}/page1`,
     visitorId: buildVisitorId(),
     timezone: 'America/New_York'
@@ -640,17 +741,32 @@ test('timezone map shows visit distribution with proportional bubbles', async ({
   await expect(page.locator('#timezones-map svg')).toHaveAttribute('data-projection', 'equirectangular');
   await expect(page.locator('#timezones-map .traffic-map__land')).toHaveCount(1);
   await expect(page.locator('#timezones-map .traffic-map__land')).toHaveAttribute('data-map-source', 'natural-earth-110m');
-  await expect(page.locator('#timezones-map .traffic-map__label-box')).toHaveCount(2);
+  await expect(page.locator('#timezones-map .traffic-map__label-box')).toHaveCount(3);
+  await expect(page.locator('#timezones-map circle[data-timezone="America/Los_Angeles"]')).toBeVisible();
   await expect(page.locator('#timezones-map circle[data-timezone="America/New_York"]')).toBeVisible();
   await expect(page.locator('#timezones-map circle[data-timezone="Europe/London"]')).toBeVisible();
-  await expect(page.locator('#timezones-map')).toContainText('New York 2');
-  await expect(page.locator('#timezones-map')).toContainText('London 1');
+  await expect(page.locator('#timezones-map .traffic-map__bubble-label[data-timezone="America/Los_Angeles"]')).toHaveText('Los Angeles');
+  await expect(page.locator('#timezones-map .traffic-map__bubble-label[data-timezone="America/New_York"]')).toHaveText('New York');
+  await expect(page.locator('#timezones-map .traffic-map__bubble-label[data-timezone="Europe/London"]')).toHaveText('London');
+  await expect(page.locator('#timezones-map .traffic-map__bubble-count[data-timezone="America/Los_Angeles"]')).toBeVisible();
+  expect(await timezoneBubbleCount(page, 'America/Los_Angeles')).toBe('3');
+  expect(await timezoneBubbleCount(page, 'America/New_York')).toBe('2');
+  expect(await timezoneBubbleCount(page, 'Europe/London')).toBe('1');
+  const losAngelesRadius = await timezoneBubbleRadius(page, 'America/Los_Angeles');
   const newYorkRadius = await timezoneBubbleRadius(page, 'America/New_York');
   const londonRadius = await timezoneBubbleRadius(page, 'Europe/London');
   const landPath = await page.locator('#timezones-map .traffic-map__land').getAttribute('d');
+  const losAngelesCoordinates = await timezoneBubbleCoordinates(page, 'America/Los_Angeles');
   const newYorkCoordinates = await timezoneBubbleCoordinates(page, 'America/New_York');
   const londonCoordinates = await timezoneBubbleCoordinates(page, 'Europe/London');
+  const losAngelesLabelCenterX = await timezoneLabelCenterX(page, 'America/Los_Angeles');
+  const newYorkLabelCenterX = await timezoneLabelCenterX(page, 'America/New_York');
+  const londonLabelCenterX = await timezoneLabelCenterX(page, 'Europe/London');
   expect(landPath.length).toBeGreaterThan(1000);
+  expect(losAngelesCoordinates.latitude).toBeCloseTo(34.0522, 4);
+  expect(losAngelesCoordinates.longitude).toBeCloseTo(-118.2437, 4);
+  expect(losAngelesCoordinates.x).toBeCloseTo(162.93, 1);
+  expect(losAngelesCoordinates.y).toBeCloseTo(93.25, 1);
   expect(newYorkCoordinates.latitude).toBeCloseTo(40.7128, 4);
   expect(newYorkCoordinates.longitude).toBeCloseTo(-74.006, 3);
   expect(newYorkCoordinates.x).toBeCloseTo(236.66, 1);
@@ -659,8 +775,12 @@ test('timezone map shows visit distribution with proportional bubbles', async ({
   expect(londonCoordinates.longitude).toBeCloseTo(-0.1276, 4);
   expect(londonCoordinates.x).toBeCloseTo(359.79, 1);
   expect(londonCoordinates.y).toBeCloseTo(64.15, 1);
+  expect(losAngelesLabelCenterX).toBeCloseTo(losAngelesCoordinates.x, 1);
+  expect(newYorkLabelCenterX).toBeCloseTo(newYorkCoordinates.x, 1);
+  expect(londonLabelCenterX).toBeCloseTo(londonCoordinates.x, 1);
+  expect(losAngelesRadius).toBeGreaterThan(newYorkRadius);
   expect(newYorkRadius).toBeGreaterThan(londonRadius);
-  expect(newYorkRadius).toBeLessThan(24);
+  expect(losAngelesRadius).toBeLessThan(24);
 });
 
 test('timezone map shows placeholder for new sites', async ({ page }) => {

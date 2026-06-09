@@ -52,6 +52,7 @@ const (
 	errorValueStreamUnavailable       = "stream_unavailable"
 	errorValueInvalidDays             = "invalid_days"
 	errorValueInvalidLimit            = "invalid_limit"
+	errorValueInvalidInterval         = "invalid_interval"
 
 	widgetScriptTemplate             = "<script defer src=\"%s\"></script>"
 	widgetScriptPath                 = "/widget.js"
@@ -75,6 +76,9 @@ const (
 	visitTrendDefaultDays            = 7
 	visitTrendMaxDays                = 30
 	visitTrendDateFormat             = "2006-01-02"
+	trafficIntervalAllValue          = "all"
+	trafficIntervalOneDayValue       = "1day"
+	trafficIntervalThirtyDaysValue   = "30days"
 	visitAttributionDefaultLimit     = 10
 	visitAttributionMaxLimit         = 50
 	visitEngagementDefaultDays       = 30
@@ -107,6 +111,30 @@ type siteSummaryCounts struct {
 type siteCountRow struct {
 	SiteID string
 	Count  int64
+}
+
+type trafficInterval struct {
+	value string
+	days  int
+}
+
+func (interval trafficInterval) Value() string {
+	return interval.value
+}
+
+func (interval trafficInterval) IsAll() bool {
+	return interval.value == trafficIntervalAllValue
+}
+
+func (interval trafficInterval) Days() int {
+	return interval.days
+}
+
+func (interval trafficInterval) StartDay() time.Time {
+	if interval.IsAll() {
+		return time.Time{}
+	}
+	return visitWindowStartDay(interval.days)
 }
 
 func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, faviconManager *SiteFaviconManager, statsProvider SiteStatisticsProvider, feedbackBroadcaster *FeedbackEventBroadcaster) *SiteHandlers {
@@ -212,6 +240,7 @@ type feedbackMessageResponse struct {
 
 type VisitStatsResponse struct {
 	SiteID             string          `json:"site_id"`
+	Interval           string          `json:"interval"`
 	VisitCount         int64           `json:"visit_count"`
 	UniqueVisitorCount int64           `json:"unique_visitor_count"`
 	TopPages           []TopPageEntry  `json:"top_pages"`
@@ -219,9 +248,10 @@ type VisitStatsResponse struct {
 }
 
 type VisitTrendResponse struct {
-	SiteID string            `json:"site_id"`
-	Days   int               `json:"days"`
-	Trend  []VisitTrendPoint `json:"trend"`
+	SiteID   string            `json:"site_id"`
+	Interval string            `json:"interval"`
+	Days     int               `json:"days"`
+	Trend    []VisitTrendPoint `json:"trend"`
 }
 
 type VisitTrendPoint struct {
@@ -232,6 +262,7 @@ type VisitTrendPoint struct {
 
 type VisitAttributionResponse struct {
 	SiteID    string             `json:"site_id"`
+	Interval  string             `json:"interval"`
 	Limit     int                `json:"limit"`
 	Sources   []AttributionPoint `json:"sources"`
 	Mediums   []AttributionPoint `json:"mediums"`
@@ -245,6 +276,7 @@ type AttributionPoint struct {
 
 type VisitEngagementResponse struct {
 	SiteID                   string                                `json:"site_id"`
+	Interval                 string                                `json:"interval"`
 	Days                     int                                   `json:"days"`
 	TrackedVisitorCount      int64                                 `json:"tracked_visitor_count"`
 	ReturningVisitorCount    int64                                 `json:"returning_visitor_count"`
@@ -270,6 +302,7 @@ type VisitObservedTimeDistributionResponse struct {
 
 type DeviceBreakdownResponse struct {
 	SiteID         string             `json:"site_id"`
+	Interval       string             `json:"interval"`
 	Limit          int                `json:"limit"`
 	DeviceTypes    []DeviceTypePoint  `json:"device_types"`
 	TopResolutions []AttributionPoint `json:"top_resolutions"`
@@ -283,6 +316,7 @@ type DeviceTypePoint struct {
 
 type TimezoneDistributionResponse struct {
 	SiteID    string          `json:"site_id"`
+	Interval  string          `json:"interval"`
 	Limit     int             `json:"limit"`
 	Timezones []TimezonePoint `json:"timezones"`
 }
@@ -992,17 +1026,39 @@ func (handlers *SiteHandlers) VisitStats(context *gin.Context) {
 		return
 	}
 
-	total, err := handlers.statsProvider.VisitCount(context.Request.Context(), site.ID)
+	interval, intervalErr := parseTrafficInterval(context.Query("interval"))
+	if intervalErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidInterval})
+		return
+	}
+
+	var total int64
+	var err error
+	if interval.IsAll() {
+		total, err = handlers.statsProvider.VisitCount(context.Request.Context(), site.ID)
+	} else {
+		total, err = handlers.statsProvider.VisitCountForDays(context.Request.Context(), site.ID, interval.Days())
+	}
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
 		return
 	}
-	unique, err := handlers.statsProvider.UniqueVisitorCount(context.Request.Context(), site.ID)
+	var unique int64
+	if interval.IsAll() {
+		unique, err = handlers.statsProvider.UniqueVisitorCount(context.Request.Context(), site.ID)
+	} else {
+		unique, err = handlers.statsProvider.UniqueVisitorCountForDays(context.Request.Context(), site.ID, interval.Days())
+	}
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
 		return
 	}
-	topPages, err := handlers.statsProvider.TopPages(context.Request.Context(), site.ID, 10)
+	var topPages []TopPageStat
+	if interval.IsAll() {
+		topPages, err = handlers.statsProvider.TopPages(context.Request.Context(), site.ID, 10)
+	} else {
+		topPages, err = handlers.statsProvider.TopPagesForDays(context.Request.Context(), site.ID, interval.Days(), 10)
+	}
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
 		return
@@ -1012,13 +1068,14 @@ func (handlers *SiteHandlers) VisitStats(context *gin.Context) {
 		entry := TopPageEntry(page)
 		entries = append(entries, entry)
 	}
-	recentVisits, err := handlers.recentVisits(context.Request.Context(), site.ID, 6)
+	recentVisits, err := handlers.recentVisits(context.Request.Context(), site.ID, 6, interval.StartDay())
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
 		return
 	}
 	context.JSON(http.StatusOK, VisitStatsResponse{
 		SiteID:             site.ID,
+		Interval:           interval.Value(),
 		VisitCount:         total,
 		UniqueVisitorCount: unique,
 		TopPages:           entries,
@@ -1032,13 +1089,35 @@ func (handlers *SiteHandlers) VisitTrend(context *gin.Context) {
 		return
 	}
 
-	days, parseErr := parseVisitTrendDays(context.Query("days"))
-	if parseErr != nil {
-		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidDays})
-		return
+	intervalRawValue := context.Query("interval")
+	var interval trafficInterval
+	days := 0
+	var trend []DailyVisitTrendStat
+	var err error
+	if hasTrafficInterval(intervalRawValue) {
+		parsedInterval, parseErr := parseTrafficInterval(intervalRawValue)
+		if parseErr != nil {
+			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidInterval})
+			return
+		}
+		interval = parsedInterval
+		if interval.IsAll() {
+			trend, err = handlers.statsProvider.VisitTrendAll(context.Request.Context(), site.ID)
+			days = len(trend)
+		} else {
+			days = interval.Days()
+			trend, err = handlers.statsProvider.VisitTrend(context.Request.Context(), site.ID, days)
+		}
+	} else {
+		parsedDays, parseErr := parseVisitTrendDays(context.Query("days"))
+		if parseErr != nil {
+			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidDays})
+			return
+		}
+		days = parsedDays
+		interval = trafficInterval{value: fmt.Sprintf("%ddays", days), days: days}
+		trend, err = handlers.statsProvider.VisitTrend(context.Request.Context(), site.ID, days)
 	}
-
-	trend, err := handlers.statsProvider.VisitTrend(context.Request.Context(), site.ID, days)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
 		return
@@ -1053,9 +1132,10 @@ func (handlers *SiteHandlers) VisitTrend(context *gin.Context) {
 	}
 
 	context.JSON(http.StatusOK, VisitTrendResponse{
-		SiteID: site.ID,
-		Days:   days,
-		Trend:  points,
+		SiteID:   site.ID,
+		Interval: interval.Value(),
+		Days:     days,
+		Trend:    points,
 	})
 }
 
@@ -1070,8 +1150,19 @@ func (handlers *SiteHandlers) VisitAttribution(context *gin.Context) {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidLimit})
 		return
 	}
+	interval, intervalErr := parseTrafficInterval(context.Query("interval"))
+	if intervalErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidInterval})
+		return
+	}
 
-	breakdown, err := handlers.statsProvider.VisitAttribution(context.Request.Context(), site.ID, limit)
+	var breakdown VisitAttributionBreakdown
+	var err error
+	if interval.IsAll() {
+		breakdown, err = handlers.statsProvider.VisitAttribution(context.Request.Context(), site.ID, limit)
+	} else {
+		breakdown, err = handlers.statsProvider.VisitAttributionForDays(context.Request.Context(), site.ID, interval.Days(), limit)
+	}
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
 		return
@@ -1079,6 +1170,7 @@ func (handlers *SiteHandlers) VisitAttribution(context *gin.Context) {
 
 	context.JSON(http.StatusOK, VisitAttributionResponse{
 		SiteID:    site.ID,
+		Interval:  interval.Value(),
 		Limit:     limit,
 		Sources:   toAttributionPoints(breakdown.Sources),
 		Mediums:   toAttributionPoints(breakdown.Mediums),
@@ -1092,13 +1184,34 @@ func (handlers *SiteHandlers) VisitEngagement(context *gin.Context) {
 		return
 	}
 
-	days, parseErr := parseVisitEngagementDays(context.Query("days"))
-	if parseErr != nil {
-		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidDays})
-		return
+	intervalRawValue := context.Query("interval")
+	var interval trafficInterval
+	days := 0
+	var engagement VisitEngagementStat
+	var err error
+	if hasTrafficInterval(intervalRawValue) {
+		parsedInterval, parseErr := parseTrafficInterval(intervalRawValue)
+		if parseErr != nil {
+			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidInterval})
+			return
+		}
+		interval = parsedInterval
+		if interval.IsAll() {
+			engagement, err = handlers.statsProvider.VisitEngagementAll(context.Request.Context(), site.ID)
+		} else {
+			days = interval.Days()
+			engagement, err = handlers.statsProvider.VisitEngagement(context.Request.Context(), site.ID, days)
+		}
+	} else {
+		parsedDays, parseErr := parseVisitEngagementDays(context.Query("days"))
+		if parseErr != nil {
+			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidDays})
+			return
+		}
+		days = parsedDays
+		interval = trafficInterval{value: fmt.Sprintf("%ddays", days), days: days}
+		engagement, err = handlers.statsProvider.VisitEngagement(context.Request.Context(), site.ID, days)
 	}
-
-	engagement, err := handlers.statsProvider.VisitEngagement(context.Request.Context(), site.ID, days)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
 		return
@@ -1106,6 +1219,7 @@ func (handlers *SiteHandlers) VisitEngagement(context *gin.Context) {
 
 	context.JSON(http.StatusOK, VisitEngagementResponse{
 		SiteID:                   site.ID,
+		Interval:                 interval.Value(),
 		Days:                     days,
 		TrackedVisitorCount:      engagement.TrackedVisitorCount,
 		ReturningVisitorCount:    engagement.ReturningVisitorCount,
@@ -1127,8 +1241,19 @@ func (handlers *SiteHandlers) DeviceBreakdown(context *gin.Context) {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidLimit})
 		return
 	}
+	interval, intervalErr := parseTrafficInterval(context.Query("interval"))
+	if intervalErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidInterval})
+		return
+	}
 
-	breakdown, err := handlers.statsProvider.DeviceBreakdown(context.Request.Context(), site.ID, limit)
+	var breakdown DeviceBreakdownStat
+	var err error
+	if interval.IsAll() {
+		breakdown, err = handlers.statsProvider.DeviceBreakdown(context.Request.Context(), site.ID, limit)
+	} else {
+		breakdown, err = handlers.statsProvider.DeviceBreakdownForDays(context.Request.Context(), site.ID, interval.Days(), limit)
+	}
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
 		return
@@ -1136,6 +1261,7 @@ func (handlers *SiteHandlers) DeviceBreakdown(context *gin.Context) {
 
 	context.JSON(http.StatusOK, DeviceBreakdownResponse{
 		SiteID:         site.ID,
+		Interval:       interval.Value(),
 		Limit:          limit,
 		DeviceTypes:    toDeviceTypePoints(breakdown.DeviceTypes),
 		TopResolutions: toAttributionPoints(breakdown.TopResolutions),
@@ -1154,8 +1280,19 @@ func (handlers *SiteHandlers) TimezoneDistribution(context *gin.Context) {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidLimit})
 		return
 	}
+	interval, intervalErr := parseTrafficInterval(context.Query("interval"))
+	if intervalErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidInterval})
+		return
+	}
 
-	timezones, err := handlers.statsProvider.TimezoneDistribution(context.Request.Context(), site.ID, limit)
+	var timezones []TimezoneDistributionStat
+	var err error
+	if interval.IsAll() {
+		timezones, err = handlers.statsProvider.TimezoneDistribution(context.Request.Context(), site.ID, limit)
+	} else {
+		timezones, err = handlers.statsProvider.TimezoneDistributionForDays(context.Request.Context(), site.ID, interval.Days(), limit)
+	}
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
 		return
@@ -1163,12 +1300,13 @@ func (handlers *SiteHandlers) TimezoneDistribution(context *gin.Context) {
 
 	context.JSON(http.StatusOK, TimezoneDistributionResponse{
 		SiteID:    site.ID,
+		Interval:  interval.Value(),
 		Limit:     limit,
 		Timezones: toTimezonePoints(timezones),
 	})
 }
 
-func (handlers *SiteHandlers) recentVisits(ctx context.Context, siteID string, limit int) ([]VisitLogEntry, error) {
+func (handlers *SiteHandlers) recentVisits(ctx context.Context, siteID string, limit int, startDay time.Time) ([]VisitLogEntry, error) {
 	if strings.TrimSpace(siteID) == "" || handlers.database == nil {
 		return nil, nil
 	}
@@ -1176,12 +1314,14 @@ func (handlers *SiteHandlers) recentVisits(ctx context.Context, siteID string, l
 		limit = 5
 	}
 	var visits []model.SiteVisit
-	if err := handlers.database.
+	query := handlers.database.
 		WithContext(ctx).
 		Where("site_id = ? AND is_bot = ?", siteID, false).
-		Order("occurred_at desc").
-		Limit(limit).
-		Find(&visits).Error; err != nil {
+		Order("occurred_at desc")
+	if !startDay.IsZero() {
+		query = query.Where("occurred_at >= ?", startDay)
+	}
+	if err := query.Limit(limit).Find(&visits).Error; err != nil {
 		return nil, err
 	}
 	entries := make([]VisitLogEntry, 0, len(visits))
@@ -1306,6 +1446,70 @@ func (handlers *SiteHandlers) ExportSubscribers(context *gin.Context) {
 		_ = csvWriter.Write(record)
 	}
 	csvWriter.Flush()
+}
+
+func (handlers *SiteHandlers) ExportTraffic(context *gin.Context) {
+	site, _, ok := handlers.resolveAuthorizedSite(context)
+	if !ok {
+		return
+	}
+
+	interval, intervalErr := parseTrafficInterval(context.Query("interval"))
+	if intervalErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidInterval})
+		return
+	}
+
+	var visits []model.SiteVisit
+	query := handlers.database.
+		WithContext(context.Request.Context()).
+		Where("site_id = ? AND is_bot = ?", site.ID, false).
+		Order("occurred_at desc")
+	if startDay := interval.StartDay(); !startDay.IsZero() {
+		query = query.Where("occurred_at >= ?", startDay)
+	}
+	if err := query.Find(&visits).Error; err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+
+	context.Header("Content-Type", "text/csv")
+	context.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="traffic-%s-%s.csv"`, site.ID, interval.Value()))
+
+	csvWriter := csv.NewWriter(context.Writer)
+	_ = csvWriter.Write([]string{"occurred_at", "url", "path", "page_title", "visitor_id", "referrer", "ip", "country", "browser", "user_agent", "screen_resolution", "viewport", "timezone"})
+	for _, visit := range visits {
+		record := []string{
+			visit.OccurredAt.UTC().Format(time.RFC3339),
+			sanitizeCSVCell(visit.URL),
+			sanitizeCSVCell(visit.Path),
+			sanitizeCSVCell(visit.PageTitle),
+			sanitizeCSVCell(visit.VisitorID),
+			sanitizeCSVCell(visit.Referrer),
+			sanitizeCSVCell(visit.IP),
+			sanitizeCSVCell(classifyVisitCountry(visit.IP)),
+			sanitizeCSVCell(classifyVisitBrowser(visit.UserAgent)),
+			sanitizeCSVCell(visit.UserAgent),
+			sanitizeCSVCell(visit.ScreenResolution),
+			sanitizeCSVCell(visit.Viewport),
+			sanitizeCSVCell(visit.Timezone),
+		}
+		_ = csvWriter.Write(record)
+	}
+	csvWriter.Flush()
+}
+
+func sanitizeCSVCell(value string) string {
+	trimmedValue := strings.TrimLeft(value, " \t\r\n")
+	if trimmedValue == "" {
+		return value
+	}
+	switch trimmedValue[0] {
+	case '=', '+', '-', '@':
+		return "'" + value
+	default:
+		return value
+	}
 }
 
 func (handlers *SiteHandlers) UpdateSubscriberStatus(context *gin.Context) {
@@ -1896,6 +2100,24 @@ func parseVisitTrendDays(rawValue string) (int, error) {
 		return 0, errors.New("visit trend days out of range")
 	}
 	return days, nil
+}
+
+func parseTrafficInterval(rawValue string) (trafficInterval, error) {
+	trimmedValue := strings.ToLower(strings.TrimSpace(rawValue))
+	switch trimmedValue {
+	case "", trafficIntervalAllValue:
+		return trafficInterval{value: trafficIntervalAllValue}, nil
+	case trafficIntervalOneDayValue:
+		return trafficInterval{value: trafficIntervalOneDayValue, days: 1}, nil
+	case trafficIntervalThirtyDaysValue:
+		return trafficInterval{value: trafficIntervalThirtyDaysValue, days: 30}, nil
+	default:
+		return trafficInterval{}, errors.New("traffic interval out of range")
+	}
+}
+
+func hasTrafficInterval(rawValue string) bool {
+	return strings.TrimSpace(rawValue) != ""
 }
 
 func parseVisitAttributionLimit(rawValue string) (int, error) {

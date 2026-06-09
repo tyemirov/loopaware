@@ -76,7 +76,15 @@ func (provider *failingStatsProvider) VisitCount(context.Context, string) (int64
 	return 0, provider.visitCountError
 }
 
+func (provider *failingStatsProvider) VisitCountForDays(context.Context, string, int) (int64, error) {
+	return 0, provider.visitCountError
+}
+
 func (provider *failingStatsProvider) UniqueVisitorCount(context.Context, string) (int64, error) {
+	return 0, provider.uniqueVisitorCountError
+}
+
+func (provider *failingStatsProvider) UniqueVisitorCountForDays(context.Context, string, int) (int64, error) {
 	return 0, provider.uniqueVisitorCountError
 }
 
@@ -92,11 +100,23 @@ func (provider *failingStatsProvider) VisitTrend(context.Context, string, int) (
 	return nil, provider.visitTrendError
 }
 
+func (provider *failingStatsProvider) VisitTrendAll(context.Context, string) ([]api.DailyVisitTrendStat, error) {
+	return nil, provider.visitTrendError
+}
+
 func (provider *failingStatsProvider) VisitAttribution(context.Context, string, int) (api.VisitAttributionBreakdown, error) {
 	return api.VisitAttributionBreakdown{}, provider.visitAttributionError
 }
 
+func (provider *failingStatsProvider) VisitAttributionForDays(context.Context, string, int, int) (api.VisitAttributionBreakdown, error) {
+	return api.VisitAttributionBreakdown{}, provider.visitAttributionError
+}
+
 func (provider *failingStatsProvider) VisitEngagement(context.Context, string, int) (api.VisitEngagementStat, error) {
+	return api.VisitEngagementStat{}, provider.visitEngagementError
+}
+
+func (provider *failingStatsProvider) VisitEngagementAll(context.Context, string) (api.VisitEngagementStat, error) {
 	return api.VisitEngagementStat{}, provider.visitEngagementError
 }
 
@@ -1937,6 +1957,77 @@ func TestExportSubscribersReturnsCSV(testingT *testing.T) {
 	require.Contains(testingT, recorder.Header().Get("Content-Type"), "text/csv")
 }
 
+func TestExportTrafficReturnsIntervalCSV(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
+	database, err := storage.OpenDatabase(sqliteDatabase.Configuration())
+	require.NoError(testingT, err)
+	require.NoError(testingT, storage.AutoMigrate(database))
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	feedbackBroadcaster := api.NewFeedbackEventBroadcaster()
+	siteHandlers := api.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
+	router.GET("/api/sites/:id/visits/export", func(context *gin.Context) {
+		context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+		siteHandlers.ExportTraffic(context)
+	})
+
+	site := model.Site{ID: storage.NewID(), Name: "Traffic CSV", AllowedOrigin: "http://traffic-csv.example", OwnerEmail: testAdminEmailAddress, CreatorEmail: testAdminEmailAddress}
+	require.NoError(testingT, database.Create(&site).Error)
+	startOfToday := time.Now().UTC().Truncate(24 * time.Hour)
+	recentVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:           site.ID,
+		URL:              "http://traffic-csv.example/recent",
+		VisitorID:        storage.NewID(),
+		IP:               "127.0.0.1",
+		UserAgent:        "-Mozilla/5.0 Firefox/125.0",
+		Referrer:         "+referrer",
+		ScreenResolution: "1920x1080",
+		Viewport:         "1440x900",
+		Timezone:         "@timezone",
+		PageTitle:        "=Recent",
+		Occurred:         startOfToday.Add(2 * time.Hour),
+	})
+	require.NoError(testingT, visitErr)
+	oldVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://traffic-csv.example/old",
+		VisitorID: storage.NewID(),
+		Occurred:  startOfToday.AddDate(0, 0, -31).Add(2 * time.Hour),
+	})
+	require.NoError(testingT, visitErr)
+	botVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://traffic-csv.example/bot",
+		VisitorID: storage.NewID(),
+		IsBot:     true,
+		Occurred:  startOfToday.Add(3 * time.Hour),
+	})
+	require.NoError(testingT, visitErr)
+	require.NoError(testingT, database.Create(&recentVisit).Error)
+	require.NoError(testingT, database.Create(&oldVisit).Error)
+	require.NoError(testingT, database.Create(&botVisit).Error)
+
+	request, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/sites/%s/visits/export?interval=1day", site.ID), nil)
+	require.NoError(testingT, err)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+	require.Contains(testingT, recorder.Header().Get("Content-Type"), "text/csv")
+	require.Contains(testingT, recorder.Header().Get("Content-Disposition"), "traffic-"+site.ID+"-1day.csv")
+	body := recorder.Body.String()
+	require.Contains(testingT, body, "occurred_at,url,path,page_title,visitor_id,referrer,ip,country,browser,user_agent,screen_resolution,viewport,timezone")
+	require.Contains(testingT, body, "http://traffic-csv.example/recent")
+	require.Contains(testingT, body, "Firefox")
+	require.Contains(testingT, body, "'=Recent")
+	require.Contains(testingT, body, "'+referrer")
+	require.Contains(testingT, body, "'-Mozilla/5.0 Firefox/125.0")
+	require.Contains(testingT, body, "'@timezone")
+	require.NotContains(testingT, body, "http://traffic-csv.example/old")
+	require.NotContains(testingT, body, "http://traffic-csv.example/bot")
+}
+
 func TestUpdateSubscriberStatus(testingT *testing.T) {
 	gin.SetMode(gin.TestMode)
 	sqliteDatabase := testutil.NewSQLiteTestDatabase(testingT)
@@ -2204,6 +2295,45 @@ func TestVisitStatsReturnsCounts(testingT *testing.T) {
 	require.Equal(testingT, visit.IP, payload.RecentVisits[0].IP)
 	require.Equal(testingT, "Local network", payload.RecentVisits[0].Country)
 	require.Equal(testingT, "Google Chrome", payload.RecentVisits[0].Browser)
+}
+
+func TestVisitStatsAppliesTrafficInterval(testingT *testing.T) {
+	harness := newSiteTestHarness(testingT)
+	site := model.Site{ID: storage.NewID(), Name: "Stats Interval", AllowedOrigin: "http://interval.example", OwnerEmail: testAdminEmailAddress, CreatorEmail: testAdminEmailAddress}
+	require.NoError(testingT, harness.database.Create(&site).Error)
+	startOfToday := time.Now().UTC().Truncate(24 * time.Hour)
+	recentVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://interval.example/recent",
+		VisitorID: storage.NewID(),
+		Occurred:  startOfToday.Add(2 * time.Hour),
+	})
+	require.NoError(testingT, visitErr)
+	oldVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    site.ID,
+		URL:       "http://interval.example/old",
+		VisitorID: storage.NewID(),
+		Occurred:  startOfToday.AddDate(0, 0, -31).Add(2 * time.Hour),
+	})
+	require.NoError(testingT, visitErr)
+	require.NoError(testingT, harness.database.Create(&recentVisit).Error)
+	require.NoError(testingT, harness.database.Create(&oldVisit).Error)
+
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/stats?interval=1day", nil)
+	context.Params = gin.Params{{Key: "id", Value: site.ID}}
+	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
+
+	harness.handlers.VisitStats(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+	var payload api.VisitStatsResponse
+	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &payload))
+	require.Equal(testingT, "1day", payload.Interval)
+	require.Equal(testingT, int64(1), payload.VisitCount)
+	require.Equal(testingT, int64(1), payload.UniqueVisitorCount)
+	require.Len(testingT, payload.TopPages, 1)
+	require.Equal(testingT, "/recent", payload.TopPages[0].Path)
+	require.Len(testingT, payload.RecentVisits, 1)
+	require.Equal(testingT, recentVisit.URL, payload.RecentVisits[0].URL)
 }
 
 func TestVisitStatsReturnsErrorOnVisitCount(testingT *testing.T) {

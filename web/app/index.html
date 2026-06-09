@@ -304,6 +304,13 @@
         stroke: rgba(255, 255, 255, 0.78);
         stroke-width: 2;
       }
+      .traffic-map__bubble-count {
+        dominant-baseline: middle;
+        fill: #fff;
+        font-weight: 700;
+        pointer-events: none;
+        text-anchor: middle;
+      }
       .traffic-map__connector {
         stroke: rgba(var(--bs-body-color-rgb), 0.34);
         stroke-width: 1;
@@ -798,7 +805,18 @@
                     <span id="visit-count" class="badge bg-secondary d-none"></span>
                     <span id="unique-visitor-count" class="badge bg-secondary d-none"></span>
                   </div>
-                  <div id="traffic-status" class="d-none py-1 px-2 small"></div>
+                  <div class="d-flex align-items-center flex-wrap gap-2">
+                    <div id="traffic-interval-selector" class="btn-group btn-group-sm" role="group" aria-label="Traffic interval">
+                      <input class="btn-check" type="radio" name="traffic-interval" id="traffic-interval-1day" value="1day" autocomplete="off" />
+                      <label class="btn btn-outline-secondary" for="traffic-interval-1day">1 day</label>
+                      <input class="btn-check" type="radio" name="traffic-interval" id="traffic-interval-30days" value="30days" autocomplete="off" />
+                      <label class="btn btn-outline-secondary" for="traffic-interval-30days">30 days</label>
+                      <input class="btn-check" type="radio" name="traffic-interval" id="traffic-interval-all" value="all" autocomplete="off" checked />
+                      <label class="btn btn-outline-secondary" for="traffic-interval-all">All</label>
+                    </div>
+                    <button id="traffic-export-button" class="btn btn-outline-secondary btn-sm" type="button">Download CSV</button>
+                    <div id="traffic-status" class="d-none py-1 px-2 small"></div>
+                  </div>
                 </div>
               </div>
               <div class="card-body">
@@ -1190,7 +1208,7 @@
       </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-    <script type="application/json" id="dashboard-config">{"api_paths":{"feedback_events":"/api/sites/feedback/events","me":"/api/me","portfolio_traffic_report":"/api/reports/traffic/portfolio","portfolio_traffic_reports":"/api/reports/traffic/portfolio/reports","portfolio_traffic_schedule":"/api/reports/traffic/portfolio/schedule","portfolio_traffic_test":"/api/reports/traffic/portfolio/schedule/test","site_favicon_events":"/api/sites/favicons/events","site_messages_prefix":"/api/sites/","site_messages_suffix":"/messages","site_subscriber_update":"/subscribers/","site_subscribers_export":"/subscribers/export","site_subscribers_prefix":"/api/sites/","site_subscribers_suffix":"/subscribers","site_update_prefix":"/api/sites/","site_visit_stats":"/visits/stats","site_visit_trend":"/visits/trend","site_visit_attribution":"/visits/attribution","site_visit_engagement":"/visits/engagement","site_visit_devices":"/visits/devices","site_visit_timezones":"/visits/timezones","sites":"/api/sites"},"paths":{"landing":"/login","subscribe_test_prefix":"/app/subscribe-test?site_id=","subscribe_test_suffix":"","traffic_test_prefix":"/app/traffic-test?site_id=","traffic_test_suffix":"","widget_test_prefix":"/app/widget-test?site_id=","widget_test_suffix":""},"element_ids":{"allowed_origin_help_button":"allowed-origin-help-button","copy_subscribe_snippet_button":"copy-subscribe-widget-snippet","copy_traffic_snippet_button":"copy-traffic-widget-snippet","copy_widget_snippet_button":"copy-widget-snippet","dashboard_section_tab_feedback":"dashboard-section-tab-feedback","dashboard_section_tab_subscriptions":"dashboard-section-tab-subscriptions","dashboard_section_tab_traffic":"dashboard-section-tab-traffic","dashboard_section_tabs":"dashboard-section-tabs","delete_site_button":"delete-site-button","delete_site_confirm_button":"delete-site-confirm-button","delete_site_confirm_input":"delete-site-confirm-name","delete_site_modal":"delete-site-modal","delete_site_target_name":"delete-site-target-name","delete_subscriber_confirm_button":"delete-subscriber-confirm-button","delete_subscriber_confirm_input":"delete-subscriber-confirm-email","delete_subscriber_modal":"delete-subscriber-modal","delete_subscriber_target_email":"delete-subscriber-target-email","edit_site_name":"edit-site-name","edit_site_origin":"edit-site-origin","edit_site_owner":"edit-site-owner","edit_site_owner_container":"edit-site-owner-container","empty_sites_message":"empty-sites-message","export_subscribers_button":"export-subscribers-button","feedback_count":"feedback-count","feedback_table_body":"feedback-table-body","feedback_table_header":"feedback-table-header","footer":"dashboard-footer","footer_inner":"dashboard-footer-inner","form_status":"site-status","messages_search_container":"messages-search-container","messages_search_input":"messages-search-input","messages_search_toggle_button":"messages-search-toggle-button","new_site_button":"new-site-button","owner_email_help_button":"owner-email-help-button","refresh_messages_button":"refresh-messages-button","save_site_button":"save-site-button","session_timeout_confirm_button":"session-timeout-confirm-button","session_timeout_container":"session-timeout-notification","session_timeout_dismiss_button":"session-timeout-dismiss-button","session_timeout_message":"session-timeout-message","settings_auto_logout_fields":"settings-auto-logout-fields","settings_auto_logout_logout":"settings-auto-logout-logout-seconds","settings_auto_logout_logout_error":"settings-auto-logout-logout-error","settings_auto_logout_prompt":"settings-auto-logout-prompt-seconds","settings_auto_logout_prompt_error":"settings-auto-logout-prompt-error","settings_auto_logout_toggle":"settings-auto-logout-enabled","settings_button":"settings-button","settings_modal":"settings-modal","settings_modal_content":"settings-modal-content","settings_modal_title":"settings-modal-title","site_created_at":"site-created-at","site_created_at_container":"site-created-at-container","site_form":"site-form","site_name_help_button":"site-name-help-button","site_search_container":"site-search-container","site_search_input":"site-search-input","site_search_toggle_button":"site-search-toggle-button","sites_list":"sites-list","subscribe_allowed_origins_list":"subscribe-allowed-origins-list","subscribe_snippet_textarea":"subscribe-widget-snippet","subscribe_test_button":"subscribe-test-button","subscriber_count":"subscriber-count","subscribers_status":"subscribers-status","subscribers_table_body":"subscribers-table-body","timezones_map":"timezones-map","traffic_allowed_origins_list":"traffic-allowed-origins-list","traffic_snippet_textarea":"traffic-widget-snippet","traffic_status":"traffic-status","traffic_test_button":"traffic-test-button","unique_visitor_count":"unique-visitor-count","user_avatar":"user-avatar","user_email":"user-email","user_name":"user-name","user_role":"user-role","visit_count":"visit-count","widget_allowed_origins_list":"widget-allowed-origins-list","widget_bottom_offset":"widget-placement-bottom-offset","widget_bottom_offset_decrease":"widget-bottom-offset-decrease","widget_bottom_offset_increase":"widget-bottom-offset-increase","widget_side_left":"widget-placement-side-left","widget_side_right":"widget-placement-side-right","widget_snippet_textarea":"widget-snippet","widget_test_button":"widget-test-button"},"button_classes":{"copy_default":"btn btn-outline-secondary btn-sm","create":"btn btn-outline-primary btn-sm","delete_site_default":"btn btn-sm border-0 bg-transparent text-danger opacity-100","delete_site_disabled":"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled","new_site_active":"btn btn-primary btn-sm","new_site_default":"btn btn-outline-primary btn-sm","refresh_default":"btn btn-outline-secondary btn-sm","save_default":"btn btn-outline-success btn-sm","session_timeout_confirm":"btn btn-outline-danger btn-sm","session_timeout_dismiss":"btn btn-outline-secondary btn-sm","update":"btn btn-outline-success btn-sm"},"button_labels":{"copy_copied":"Copied","copy_default":"Copy","copy_failed":"Copy failed","create":"Create site","new_site":"New site","refresh_default":"Refresh feedback","refresh_failed":"Refresh failed.","refresh_loading":"Refreshing...","refresh_success":"Feedback refreshed.","save_created":"Site created.","save_failed":"Failed to save site.","save_saved":"Site updated.","save_saving":"Saving site...","update":"Update site"},"status_messages":{"creating_site":"Creating site...","delete_site_failed":"Failed to delete site.","deleting_site":"Deleting site...","load_failed":"Failed to load data.","loading_sites":"Loading sites...","loading_user":"Loading account information...","no_message_matches":"No feedback matches your search.","no_messages":"No feedback yet.","no_site_matches":"No sites match your search.","no_sites":"No sites available yet.","saving_site":"Saving site...","select_site":"Select a site to see details.","site_created":"Site created.","site_deleted":"Site deleted.","site_saved":"Site updated.","widget_copied":"Widget snippet copied.","widget_copy_failed":"Unable to copy widget snippet."},"role_labels":{"admin":"Administrator","user":"User"},"role_values":{"admin":"admin","user":"user"},"button_styles":{"danger":"btn btn-outline-danger btn-sm","primary":"btn btn-outline-primary btn-sm","secondary":"btn btn-outline-secondary btn-sm","success":"btn btn-outline-success btn-sm"},"component_classes":{"site_list_item":"list-group-item list-group-item-action","site_list_item_active":"active","site_list_item_favicon":"flex-shrink-0 rounded border bg-white","site_list_item_header":"d-flex align-items-center gap-2"},"widget_texts":{"unavailable":"Save the site to generate a widget snippet."},"theme_storage_key":"loopaware_dashboard_theme","option_values":{"new_site":"__new__"},"placeholders":{"device_types":"No device data yet.","subscribers":"No subscribers yet.","timezones":"No timezone data yet.","top_pages":"No visits yet."},"form_status_classes":{"base":"d-none py-1 px-2 small rounded","danger":"py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle","success":"py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"},"footer_theme_classes":{"dark":"bg-dark text-light border-light","light":"bg-body text-body-secondary"},"table_theme_classes":{"dark":"table-dark","light":"table-light"},"validation_messages":{"name_required":"Site name is required.","origin_invalid":"Allowed origins must include protocol and hostname, for example https://example.com.","owner_invalid":"Provide a valid owner email address.","widget_offset_invalid":"Provide a whole number between 0 and 240."},"error_messages":{"forbidden":"You are not allowed to manage that site.","invalid_json":"Submitted data could not be parsed.","invalid_owner":"Provide a valid owner email address.","invalid_portfolio_traffic_report":"Provide a report name and valid sites.","invalid_widget_offset":"Provide a whole number between 0 and 240.","invalid_widget_side":"Choose left or right for the widget bubble.","missing_fields":"Provide site name and allowed origin.","not_authorized":"You are not allowed to manage that site.","save_failed":"Failed to save site.","site_exists":"A site for this allowed origin already exists.","unknown_portfolio_traffic_report":"Traffic report not found."},"widget_placement":{"input_name":"widget-bubble-side","default_side":"right","default_bottom_offset":16,"sides":{"left":"Left","right":"Right"},"bottom_offset":{"min":0,"max":240}},"session_timeout":{"prompt_delay_ms":60000,"auto_logout_ms":120000,"texts":{"confirm":"Yes","dismiss":"No","prompt":"Log out due to inactivity?"},"component_classes":{"actions":"session-timeout-actions d-flex flex-shrink-0 gap-2","container":"session-timeout-banner position-fixed start-0 end-0 border-top py-3 w-100 d-none","container_hidden":"d-none","container_visible":"d-block","inner":"container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3","message":"session-timeout-message fw-semibold mb-0"},"theme_classes":{"dark":"bg-dark-subtle text-light border-secondary-subtle","light":"bg-body-secondary text-dark border-light-subtle"}},"auto_logout":{"storage_key":"loopaware_dashboard_auto_logout","min_prompt_seconds":10,"max_prompt_seconds":3600,"min_logout_seconds":20,"max_logout_seconds":7200,"minimum_gap_seconds":5}}</script>
+    <script type="application/json" id="dashboard-config">{"api_paths":{"feedback_events":"/api/sites/feedback/events","me":"/api/me","portfolio_traffic_report":"/api/reports/traffic/portfolio","portfolio_traffic_reports":"/api/reports/traffic/portfolio/reports","portfolio_traffic_schedule":"/api/reports/traffic/portfolio/schedule","portfolio_traffic_test":"/api/reports/traffic/portfolio/schedule/test","site_favicon_events":"/api/sites/favicons/events","site_messages_prefix":"/api/sites/","site_messages_suffix":"/messages","site_subscriber_update":"/subscribers/","site_subscribers_export":"/subscribers/export","site_subscribers_prefix":"/api/sites/","site_subscribers_suffix":"/subscribers","site_update_prefix":"/api/sites/","site_visit_stats":"/visits/stats","site_visit_trend":"/visits/trend","site_visit_attribution":"/visits/attribution","site_visit_engagement":"/visits/engagement","site_visit_devices":"/visits/devices","site_visit_timezones":"/visits/timezones","site_visit_export":"/visits/export","sites":"/api/sites"},"paths":{"landing":"/login","subscribe_test_prefix":"/app/subscribe-test?site_id=","subscribe_test_suffix":"","traffic_test_prefix":"/app/traffic-test?site_id=","traffic_test_suffix":"","widget_test_prefix":"/app/widget-test?site_id=","widget_test_suffix":""},"element_ids":{"allowed_origin_help_button":"allowed-origin-help-button","copy_subscribe_snippet_button":"copy-subscribe-widget-snippet","copy_traffic_snippet_button":"copy-traffic-widget-snippet","copy_widget_snippet_button":"copy-widget-snippet","dashboard_section_tab_feedback":"dashboard-section-tab-feedback","dashboard_section_tab_subscriptions":"dashboard-section-tab-subscriptions","dashboard_section_tab_traffic":"dashboard-section-tab-traffic","dashboard_section_tabs":"dashboard-section-tabs","delete_site_button":"delete-site-button","delete_site_confirm_button":"delete-site-confirm-button","delete_site_confirm_input":"delete-site-confirm-name","delete_site_modal":"delete-site-modal","delete_site_target_name":"delete-site-target-name","delete_subscriber_confirm_button":"delete-subscriber-confirm-button","delete_subscriber_confirm_input":"delete-subscriber-confirm-email","delete_subscriber_modal":"delete-subscriber-modal","delete_subscriber_target_email":"delete-subscriber-target-email","edit_site_name":"edit-site-name","edit_site_origin":"edit-site-origin","edit_site_owner":"edit-site-owner","edit_site_owner_container":"edit-site-owner-container","empty_sites_message":"empty-sites-message","export_subscribers_button":"export-subscribers-button","feedback_count":"feedback-count","feedback_table_body":"feedback-table-body","feedback_table_header":"feedback-table-header","footer":"dashboard-footer","footer_inner":"dashboard-footer-inner","form_status":"site-status","messages_search_container":"messages-search-container","messages_search_input":"messages-search-input","messages_search_toggle_button":"messages-search-toggle-button","new_site_button":"new-site-button","owner_email_help_button":"owner-email-help-button","refresh_messages_button":"refresh-messages-button","save_site_button":"save-site-button","session_timeout_confirm_button":"session-timeout-confirm-button","session_timeout_container":"session-timeout-notification","session_timeout_dismiss_button":"session-timeout-dismiss-button","session_timeout_message":"session-timeout-message","settings_auto_logout_fields":"settings-auto-logout-fields","settings_auto_logout_logout":"settings-auto-logout-logout-seconds","settings_auto_logout_logout_error":"settings-auto-logout-logout-error","settings_auto_logout_prompt":"settings-auto-logout-prompt-seconds","settings_auto_logout_prompt_error":"settings-auto-logout-prompt-error","settings_auto_logout_toggle":"settings-auto-logout-enabled","settings_button":"settings-button","settings_modal":"settings-modal","settings_modal_content":"settings-modal-content","settings_modal_title":"settings-modal-title","site_created_at":"site-created-at","site_created_at_container":"site-created-at-container","site_form":"site-form","site_name_help_button":"site-name-help-button","site_search_container":"site-search-container","site_search_input":"site-search-input","site_search_toggle_button":"site-search-toggle-button","sites_list":"sites-list","subscribe_allowed_origins_list":"subscribe-allowed-origins-list","subscribe_snippet_textarea":"subscribe-widget-snippet","subscribe_test_button":"subscribe-test-button","subscriber_count":"subscriber-count","subscribers_status":"subscribers-status","subscribers_table_body":"subscribers-table-body","timezones_map":"timezones-map","traffic_allowed_origins_list":"traffic-allowed-origins-list","traffic_export_button":"traffic-export-button","traffic_interval_1day":"traffic-interval-1day","traffic_interval_30days":"traffic-interval-30days","traffic_interval_all":"traffic-interval-all","traffic_snippet_textarea":"traffic-widget-snippet","traffic_status":"traffic-status","traffic_test_button":"traffic-test-button","unique_visitor_count":"unique-visitor-count","user_avatar":"user-avatar","user_email":"user-email","user_name":"user-name","user_role":"user-role","visit_count":"visit-count","widget_allowed_origins_list":"widget-allowed-origins-list","widget_bottom_offset":"widget-placement-bottom-offset","widget_bottom_offset_decrease":"widget-bottom-offset-decrease","widget_bottom_offset_increase":"widget-bottom-offset-increase","widget_side_left":"widget-placement-side-left","widget_side_right":"widget-placement-side-right","widget_snippet_textarea":"widget-snippet","widget_test_button":"widget-test-button"},"button_classes":{"copy_default":"btn btn-outline-secondary btn-sm","create":"btn btn-outline-primary btn-sm","delete_site_default":"btn btn-sm border-0 bg-transparent text-danger opacity-100","delete_site_disabled":"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled","new_site_active":"btn btn-primary btn-sm","new_site_default":"btn btn-outline-primary btn-sm","refresh_default":"btn btn-outline-secondary btn-sm","save_default":"btn btn-outline-success btn-sm","session_timeout_confirm":"btn btn-outline-danger btn-sm","session_timeout_dismiss":"btn btn-outline-secondary btn-sm","update":"btn btn-outline-success btn-sm"},"button_labels":{"copy_copied":"Copied","copy_default":"Copy","copy_failed":"Copy failed","create":"Create site","new_site":"New site","refresh_default":"Refresh feedback","refresh_failed":"Refresh failed.","refresh_loading":"Refreshing...","refresh_success":"Feedback refreshed.","save_created":"Site created.","save_failed":"Failed to save site.","save_saved":"Site updated.","save_saving":"Saving site...","update":"Update site"},"status_messages":{"creating_site":"Creating site...","delete_site_failed":"Failed to delete site.","deleting_site":"Deleting site...","load_failed":"Failed to load data.","loading_sites":"Loading sites...","loading_user":"Loading account information...","no_message_matches":"No feedback matches your search.","no_messages":"No feedback yet.","no_site_matches":"No sites match your search.","no_sites":"No sites available yet.","saving_site":"Saving site...","select_site":"Select a site to see details.","site_created":"Site created.","site_deleted":"Site deleted.","site_saved":"Site updated.","widget_copied":"Widget snippet copied.","widget_copy_failed":"Unable to copy widget snippet."},"role_labels":{"admin":"Administrator","user":"User"},"role_values":{"admin":"admin","user":"user"},"button_styles":{"danger":"btn btn-outline-danger btn-sm","primary":"btn btn-outline-primary btn-sm","secondary":"btn btn-outline-secondary btn-sm","success":"btn btn-outline-success btn-sm"},"component_classes":{"site_list_item":"list-group-item list-group-item-action","site_list_item_active":"active","site_list_item_favicon":"flex-shrink-0 rounded border bg-white","site_list_item_header":"d-flex align-items-center gap-2"},"widget_texts":{"unavailable":"Save the site to generate a widget snippet."},"theme_storage_key":"loopaware_dashboard_theme","option_values":{"new_site":"__new__"},"placeholders":{"device_types":"No device data yet.","subscribers":"No subscribers yet.","timezones":"No timezone data yet.","top_pages":"No visits yet."},"form_status_classes":{"base":"d-none py-1 px-2 small rounded","danger":"py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle","success":"py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"},"footer_theme_classes":{"dark":"bg-dark text-light border-light","light":"bg-body text-body-secondary"},"table_theme_classes":{"dark":"table-dark","light":"table-light"},"validation_messages":{"name_required":"Site name is required.","origin_invalid":"Allowed origins must include protocol and hostname, for example https://example.com.","owner_invalid":"Provide a valid owner email address.","widget_offset_invalid":"Provide a whole number between 0 and 240."},"error_messages":{"forbidden":"You are not allowed to manage that site.","invalid_json":"Submitted data could not be parsed.","invalid_owner":"Provide a valid owner email address.","invalid_portfolio_traffic_report":"Provide a report name and valid sites.","invalid_widget_offset":"Provide a whole number between 0 and 240.","invalid_widget_side":"Choose left or right for the widget bubble.","missing_fields":"Provide site name and allowed origin.","not_authorized":"You are not allowed to manage that site.","save_failed":"Failed to save site.","site_exists":"A site for this allowed origin already exists.","unknown_portfolio_traffic_report":"Traffic report not found."},"widget_placement":{"input_name":"widget-bubble-side","default_side":"right","default_bottom_offset":16,"sides":{"left":"Left","right":"Right"},"bottom_offset":{"min":0,"max":240}},"session_timeout":{"prompt_delay_ms":60000,"auto_logout_ms":120000,"texts":{"confirm":"Yes","dismiss":"No","prompt":"Log out due to inactivity?"},"component_classes":{"actions":"session-timeout-actions d-flex flex-shrink-0 gap-2","container":"session-timeout-banner position-fixed start-0 end-0 border-top py-3 w-100 d-none","container_hidden":"d-none","container_visible":"d-block","inner":"container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3","message":"session-timeout-message fw-semibold mb-0"},"theme_classes":{"dark":"bg-dark-subtle text-light border-secondary-subtle","light":"bg-body-secondary text-dark border-light-subtle"}},"auto_logout":{"storage_key":"loopaware_dashboard_auto_logout","min_prompt_seconds":10,"max_prompt_seconds":3600,"min_logout_seconds":20,"max_logout_seconds":7200,"minimum_gap_seconds":5}}</script>
     <script>
       function showLogoutOverlay() {
         var overlay = document.getElementById('logout-overlay');
@@ -1534,6 +1552,12 @@
         var visitCountElement = document.getElementById(elementIds.visit_count);
         var uniqueVisitorCountElement = document.getElementById(elementIds.unique_visitor_count);
         var trafficStatusElement = document.getElementById(elementIds.traffic_status);
+        var trafficExportButton = document.getElementById(elementIds.traffic_export_button);
+        var trafficIntervalInputs = [
+          document.getElementById(elementIds.traffic_interval_1day),
+          document.getElementById(elementIds.traffic_interval_30days),
+          document.getElementById(elementIds.traffic_interval_all)
+        ].filter(function(input) { return input; });
         var timezonesMap = document.getElementById(elementIds.timezones_map);
         var trafficTrendChart = document.getElementById('traffic-trend-chart');
         var trafficEngagementSummary = document.getElementById('traffic-engagement-summary');
@@ -1691,6 +1715,7 @@
         var apiSiteVisitEngagementSuffix = apiPaths.site_visit_engagement || '';
         var apiSiteVisitDevicesSuffix = apiPaths.site_visit_devices || '';
         var apiSiteVisitTimezonesSuffix = apiPaths.site_visit_timezones || '';
+        var apiSiteVisitExportSuffix = apiPaths.site_visit_export || '';
         var apiPortfolioTrafficReportEndpoint = apiUrl(apiPaths.portfolio_traffic_report || '');
         var apiPortfolioTrafficReportsEndpoint = apiUrl(apiPaths.portfolio_traffic_reports || '');
         var apiPortfolioTrafficScheduleEndpoint = apiUrl(apiPaths.portfolio_traffic_schedule || '');
@@ -1704,11 +1729,16 @@
         var dashboardSectionTabTraffic = document.getElementById(elementIds.dashboard_section_tab_traffic);
         var dashboardSectionTabSentry = document.getElementById('dashboard-section-tab-sentry');
         var dashboardSectionCurrentKey = 'feedback';
+        var trafficIntervalAllValue = 'all';
+        var trafficIntervalOneDayValue = '1day';
+        var trafficIntervalThirtyDaysValue = '30days';
+        var trafficIntervalValues = [trafficIntervalOneDayValue, trafficIntervalThirtyDaysValue, trafficIntervalAllValue];
 
         var state = {
           user: null,
           sites: [],
           selectedSiteId: '',
+          trafficInterval: trafficIntervalAllValue,
           pendingDeletionSiteId: '',
           pendingDeletionSubscriberId: '',
           pendingDeletionSubscriberEmail: '',
@@ -5023,6 +5053,7 @@
 
           updateNewSiteButtonState();
           updateDeleteButtonState();
+          updateTrafficControls();
           updateSelectedSiteSummary(selectedSite);
           updateSentryClientConfiguration(selectedSite);
           if (!skipFormPopulate) {
@@ -5427,6 +5458,47 @@
           trafficStatusElement.classList.remove('d-none');
         }
 
+        function normalizeTrafficInterval(value) {
+          var normalizedValue = String(value || '').trim();
+          if (trafficIntervalValues.indexOf(normalizedValue) === -1) {
+            return trafficIntervalAllValue;
+          }
+          return normalizedValue;
+        }
+
+        function currentTrafficInterval() {
+          return normalizeTrafficInterval(state.trafficInterval);
+        }
+
+        function trafficEndpoint(siteId, suffix, interval) {
+          var params = new URLSearchParams();
+          params.set('interval', normalizeTrafficInterval(interval));
+          return apiSiteSubscribersPrefix + siteId + suffix + '?' + params.toString();
+        }
+
+        function updateTrafficControls() {
+          var interval = currentTrafficInterval();
+          var shouldDisable = !state.selectedSiteId || isNewSiteSelected();
+          trafficIntervalInputs.forEach(function(input) {
+            input.checked = input.value === interval;
+            input.disabled = shouldDisable;
+          });
+          if (trafficExportButton) {
+            trafficExportButton.disabled = shouldDisable;
+          }
+        }
+
+        function setTrafficInterval(value) {
+          var nextInterval = normalizeTrafficInterval(value);
+          if (state.trafficInterval === nextInterval) {
+            updateTrafficControls();
+            return;
+          }
+          state.trafficInterval = nextInterval;
+          updateTrafficControls();
+          loadVisitStats();
+        }
+
         function clearAllSitesTrafficStatus() {
           if (!allSitesTrafficStatusElement) {
             return;
@@ -5792,16 +5864,20 @@
             var radius = bubbleMinimumRadius + Math.sqrt(count / maximum) * (bubbleMaximumRadius - bubbleMinimumRadius);
             var bubbleX = clampNumber(projected.x, radius + bubbleMargin, mapWidth - radius - bubbleMargin);
             var bubbleY = clampNumber(projected.y, radius + bubbleMargin, mapHeight - radius - bubbleMargin);
-            var labelText = (coordinates.label || formatTimezoneMapLabel(timezone)) + ' ' + count.toString();
-            var labelWidth = clampNumber(labelText.length * 6.5 + 18, 58, 150);
-            var labelAnchor = bubbleX > mapWidth * 0.45 ? 'end' : 'start';
-            var labelLeft = labelAnchor === 'end' ? bubbleX - radius - labelGap - labelWidth : bubbleX + radius + labelGap;
-            labelLeft = clampNumber(labelLeft, 8, mapWidth - labelWidth - 8);
-            var labelTop = reserveTimezoneLabelBox(labelBoxes, labelLeft, bubbleY - (labelHeight / 2), labelWidth, labelHeight, mapHeight);
+            var labelText = coordinates.label || formatTimezoneMapLabel(timezone);
+            var labelWidth = clampNumber(labelText.length * 6.5 + 18, 58, 130);
+            var labelLeft = clampNumber(bubbleX - (labelWidth / 2), 8, mapWidth - labelWidth - 8);
+            var labelPreferredTop = bubbleY < mapHeight * 0.52 ? bubbleY + radius + labelGap : bubbleY - radius - labelHeight - labelGap;
+            var labelTop = reserveTimezoneLabelBox(labelBoxes, labelLeft, labelPreferredTop, labelWidth, labelHeight, mapHeight);
+            var labelCenterX = labelLeft + (labelWidth / 2);
             var labelCenterY = labelTop + (labelHeight / 2);
-            var labelTextX = labelLeft + 9;
-            var connectorEndX = labelAnchor === 'end' ? labelLeft + labelWidth : labelLeft;
+            var labelTextX = labelCenterX;
+            var connectorEndY = labelCenterY < bubbleY ? labelTop + labelHeight : labelTop;
+            var connectorStartY = labelCenterY < bubbleY ? bubbleY - radius : bubbleY + radius;
             var group = document.createElementNS(namespace, 'g');
+            group.setAttribute('class', 'traffic-map__marker');
+            group.setAttribute('data-timezone', timezone);
+            group.setAttribute('data-visit-count', count.toString());
             var title = document.createElementNS(namespace, 'title');
             title.textContent = timezone + ': ' + count.toString() + ' visits';
             group.appendChild(title);
@@ -5809,9 +5885,9 @@
             var connector = document.createElementNS(namespace, 'line');
             connector.setAttribute('class', 'traffic-map__connector');
             connector.setAttribute('x1', bubbleX.toFixed(2));
-            connector.setAttribute('y1', bubbleY.toFixed(2));
-            connector.setAttribute('x2', connectorEndX.toFixed(2));
-            connector.setAttribute('y2', labelCenterY.toFixed(2));
+            connector.setAttribute('y1', connectorStartY.toFixed(2));
+            connector.setAttribute('x2', labelCenterX.toFixed(2));
+            connector.setAttribute('y2', connectorEndY.toFixed(2));
             group.appendChild(connector);
 
             var circle = document.createElementNS(namespace, 'circle');
@@ -5825,6 +5901,16 @@
             circle.setAttribute('data-longitude', String(coordinates.longitude));
             group.appendChild(circle);
 
+            var countLabel = document.createElementNS(namespace, 'text');
+            countLabel.setAttribute('class', 'traffic-map__bubble-count');
+            countLabel.setAttribute('x', bubbleX.toFixed(2));
+            countLabel.setAttribute('y', bubbleY.toFixed(2));
+            countLabel.setAttribute('font-size', clampNumber(radius * (count >= 100 ? 0.58 : 0.72), 7, 14).toFixed(2));
+            countLabel.setAttribute('data-timezone', timezone);
+            countLabel.setAttribute('aria-hidden', 'true');
+            countLabel.textContent = count.toString();
+            group.appendChild(countLabel);
+
             var labelBox = document.createElementNS(namespace, 'rect');
             labelBox.setAttribute('class', 'traffic-map__label-box');
             labelBox.setAttribute('x', labelLeft.toFixed(2));
@@ -5832,12 +5918,15 @@
             labelBox.setAttribute('width', labelWidth.toFixed(2));
             labelBox.setAttribute('height', String(labelHeight));
             labelBox.setAttribute('rx', '11');
+            labelBox.setAttribute('data-timezone', timezone);
             group.appendChild(labelBox);
 
             var label = document.createElementNS(namespace, 'text');
             label.setAttribute('class', 'traffic-map__bubble-label');
             label.setAttribute('x', labelTextX.toFixed(2));
             label.setAttribute('y', labelCenterY.toFixed(2));
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('data-timezone', timezone);
             label.textContent = labelText;
             group.appendChild(label);
 
@@ -7201,6 +7290,8 @@
       function loadVisitStats() {
         var selectedSiteId = state.selectedSiteId;
         var isSelectedNewSite = selectedSiteId === newSiteOptionValue;
+        var intervalSnapshot = currentTrafficInterval();
+        updateTrafficControls();
         if (!selectedSiteId || isSelectedNewSite) {
           clearTrafficStatus();
           setVisitCounts(0, 0);
@@ -7213,9 +7304,9 @@
           return;
         }
         clearTrafficStatus();
-        var endpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteVisitStatsSuffix;
+        var endpoint = trafficEndpoint(selectedSiteId, apiSiteVisitStatsSuffix, intervalSnapshot);
         fetchJSON(endpoint).then(function(payload) {
-          if (state.selectedSiteId !== selectedSiteId) {
+          if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
           }
           var total = typeof payload.visit_count === 'number' ? payload.visit_count : 0;
@@ -7223,7 +7314,7 @@
           setVisitCounts(total, unique);
           renderTopPages(payload.top_pages || []);
         }).catch(function(error) {
-          if (state.selectedSiteId !== selectedSiteId) {
+          if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
           }
           var message = error.message || statusMessages.load_failed || '';
@@ -7231,23 +7322,23 @@
           renderChartMessage(topPagesChart, message);
         });
 
-        var trendEndpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteVisitTrendSuffix;
+        var trendEndpoint = trafficEndpoint(selectedSiteId, apiSiteVisitTrendSuffix, intervalSnapshot);
         fetchJSON(trendEndpoint).then(function(payload) {
-          if (state.selectedSiteId !== selectedSiteId) {
+          if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
           }
           renderTrendChart(payload.trend || []);
         }).catch(function(error) {
-          if (state.selectedSiteId !== selectedSiteId) {
+          if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
           }
           showTrafficStatus(error.message || statusMessages.load_failed || '');
           renderTrendChart([]);
         });
 
-        var attributionEndpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteVisitAttributionSuffix;
+        var attributionEndpoint = trafficEndpoint(selectedSiteId, apiSiteVisitAttributionSuffix, intervalSnapshot);
         fetchJSON(attributionEndpoint).then(function(payload) {
-          if (state.selectedSiteId !== selectedSiteId) {
+          if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
           }
           renderBarChart(trafficAttributionChart, payload.sources || [], {
@@ -7256,35 +7347,35 @@
             emptyMessage: 'No source data yet.'
           });
         }).catch(function(error) {
-          if (state.selectedSiteId !== selectedSiteId) {
+          if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
           }
           showTrafficStatus(error.message || statusMessages.load_failed || '');
           renderChartMessage(trafficAttributionChart, error.message || statusMessages.load_failed || '');
         });
 
-        var engagementEndpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteVisitEngagementSuffix;
+        var engagementEndpoint = trafficEndpoint(selectedSiteId, apiSiteVisitEngagementSuffix, intervalSnapshot);
         fetchJSON(engagementEndpoint).then(function(payload) {
-          if (state.selectedSiteId !== selectedSiteId) {
+          if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
           }
           renderEngagementSummary(payload || {});
         }).catch(function(error) {
-          if (state.selectedSiteId !== selectedSiteId) {
+          if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
           }
           showTrafficStatus(error.message || statusMessages.load_failed || '');
           renderChartMessage(trafficEngagementSummary, error.message || statusMessages.load_failed || '');
         });
 
-        var devicesEndpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteVisitDevicesSuffix;
+        var devicesEndpoint = trafficEndpoint(selectedSiteId, apiSiteVisitDevicesSuffix, intervalSnapshot);
         fetchJSON(devicesEndpoint).then(function(payload) {
-          if (state.selectedSiteId !== selectedSiteId) {
+          if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
           }
           renderDeviceTypes(payload.device_types || []);
         }).catch(function(error) {
-          if (state.selectedSiteId !== selectedSiteId) {
+          if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
           }
           var message = error.message || statusMessages.load_failed || '';
@@ -7292,14 +7383,14 @@
           renderChartMessage(deviceTypesChart, message);
         });
 
-        var timezonesEndpoint = apiSiteSubscribersPrefix + selectedSiteId + apiSiteVisitTimezonesSuffix;
+        var timezonesEndpoint = trafficEndpoint(selectedSiteId, apiSiteVisitTimezonesSuffix, intervalSnapshot);
         fetchJSON(timezonesEndpoint).then(function(payload) {
-          if (state.selectedSiteId !== selectedSiteId) {
+          if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
           }
           renderTimezones(payload.timezones || []);
         }).catch(function(error) {
-          if (state.selectedSiteId !== selectedSiteId) {
+          if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
           }
           var message = error.message || statusMessages.load_failed || '';
@@ -7313,6 +7404,14 @@
           return;
         }
         var endpoint = apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteSubscribersExportSuffix;
+        window.open(endpoint, '_blank', 'noopener');
+      }
+
+      function exportTraffic() {
+        if (!state.selectedSiteId || isNewSiteSelected()) {
+          return;
+        }
+        var endpoint = trafficEndpoint(state.selectedSiteId, apiSiteVisitExportSuffix, currentTrafficInterval());
         window.open(endpoint, '_blank', 'noopener');
       }
 
@@ -8116,6 +8215,20 @@
           exportSubscribersButton.addEventListener('click', function(event) {
             event.preventDefault();
             exportSubscribers();
+          });
+        }
+        trafficIntervalInputs.forEach(function(input) {
+          input.addEventListener('change', function(event) {
+            var target = event.target;
+            if (target && target.checked) {
+              setTrafficInterval(target.value);
+            }
+          });
+        });
+        if (trafficExportButton) {
+          trafficExportButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            exportTraffic();
           });
         }
         if (subscribersTableBody) {

@@ -198,7 +198,7 @@ func TestSiteHandlersRecentVisitsDefaultsLimit(testingT *testing.T) {
 	require.NoError(testingT, database.Create(&secondVisit).Error)
 
 	handlers := &SiteHandlers{database: database}
-	entries, err := handlers.recentVisits(context.Background(), siteID, 0)
+	entries, err := handlers.recentVisits(context.Background(), siteID, 0, time.Time{})
 	require.NoError(testingT, err)
 	require.NotEmpty(testingT, entries)
 	require.Equal(testingT, secondVisit.URL, entries[0].URL)
@@ -207,7 +207,7 @@ func TestSiteHandlersRecentVisitsDefaultsLimit(testingT *testing.T) {
 func TestSiteHandlersRecentVisitsSkipsBlankSite(testingT *testing.T) {
 	database := openSiteStatsDatabase(testingT)
 	handlers := &SiteHandlers{database: database}
-	entries, err := handlers.recentVisits(context.Background(), "   ", 1)
+	entries, err := handlers.recentVisits(context.Background(), "   ", 1, time.Time{})
 	require.NoError(testingT, err)
 	require.Nil(testingT, entries)
 }
