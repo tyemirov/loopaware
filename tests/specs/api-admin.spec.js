@@ -572,6 +572,28 @@ test.describe("admin api visit stats", () => {
     expect(payload.visit_count).toBeGreaterThanOrEqual(1);
   });
 
+  test("exports traffic as csv", async () => {
+    const site = await createAdminSite("Traffic Export");
+    const trafficURL = `${site.allowed_origin}/csv-visit`;
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(trafficURL)}&visitor_id=33333333-3333-3333-3333-333333333333&screen_resolution=1920x1080&viewport=1440x900&timezone=America%2FLos_Angeles`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin, "User-Agent": "Mozilla/5.0 Firefox/125.0" }
+    });
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}/visits/export?interval=all`,
+      method: "GET"
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type") || "").toContain("text/csv");
+    expect(response.headers.get("content-disposition") || "").toContain(`traffic-${site.id}-all.csv`);
+    const csvPayload = String(payload);
+    expect(csvPayload).toContain("occurred_at,url,path,page_title,visitor_id,referrer,ip,country,browser,user_agent,screen_resolution,viewport,timezone");
+    expect(csvPayload).toContain(trafficURL);
+    expect(csvPayload).toContain("America/Los_Angeles");
+  });
+
   test("rejects visit stats for unauthorized user", async () => {
     const site = await createAdminSite("Visit Stats Unauthorized");
     const { response, payload } = await nonAdminRequest({
