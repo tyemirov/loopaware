@@ -11,6 +11,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.17] - 2026-06-08
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Redesigned the Timezones map with a real world land outline and geographic coordinate placement for bubbles.
+- Improved device icons in the Devices row graph to clearly differentiate tablet and mobile.
+- Added a CI-enforced check for the generated timezone world map path to prevent drift.
+- Refined traffic map styles and updated device type icons for better clarity.
+
+### Bug Fixes 🐛
+- Ignored route teardown errors in the runTrackedRoute helper to prevent test failures during Playwright context/browser closure.
+- Fixed handling of external-asset route fetches cancelled by test teardown to avoid false failures.
+
+### Testing 🧪
+- Added timezone world map generation and enhanced traffic dashboard tests with geographic coordinate assertions.
+- Expanded dashboard traffic spec to cover device icon distinctions and timezone map layers.
+- Added lint-js target to run timezone map consistency checks.
+
+### Docs 📚
+- Added detailed issue records documenting timezone map and device icon improvements.
+
 ## [v0.7.16] - 2026-06-08
 
 ### Features ✨
