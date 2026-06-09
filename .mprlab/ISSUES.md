@@ -23,6 +23,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `PLAN.md`, `tests/helpers/externalAssets.js`, `.mprlab/ISSUES.md`.
 
+- [x] [B028] (P1) Keep Timezones labels aligned with geographic markers.
+  ### Summary
+  The selected-site Timezones map offsets labels far enough from their projected markers that Los Angeles can read as though it belongs around New York, and visit counts compete with the geographic label text instead of living inside the bubbles.
+  ### Deliverables
+  - Render visit counts inside the Timezones circles.
+  - Keep geographic labels centered on their projected marker positions while preserving readable label boxes.
+  - Add dashboard coverage for Los Angeles marker placement, bubble-count text, and label alignment.
+  ### Resolution
+  Updated the Timezones SVG renderer so each bubble renders its visit count centered inside the circle, while the geographic label box stays centered on the projected marker and only moves vertically for collision avoidance. Added dashboard coverage for Los Angeles projected placement, in-circle count text, and label-to-marker x-axis alignment. Validation passed with baseline `make ci`, `make lint-js`, final `make ci`, and a local visual dashboard check using Los Angeles 75 / New York 39 / Unknown 46 seeded traffic.
+  ### Changed Files
+  `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
+
 - [x] [B026] (P0) Replace incorrect four-hour login test with console-clean stale-idle coverage.
   ### Summary
   The existing four-hour login regression asserts an internal prepared-nonce refresh strategy, so it can pass while the user still sees login failure after leaving `/login` open for several hours.
@@ -321,6 +333,19 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `internal/api/admin.go`, `internal/api/site_subscribe_test_handlers.go`, `internal/api/stream_handlers_test.go`, `.mprlab/ISSUES.md`.
 
 ## Improvements
+
+- [ ] [I023] (P1) Add selected-site Traffic intervals and CSV export.
+  ### Summary
+  The selected-site Traffic card always shows all-time totals and does not offer a direct export for the traffic data operators are reviewing.
+  ### Deliverables
+  - Add a Traffic interval selector with 1 day, 30 days, and All options.
+  - Apply the selected interval to the selected-site traffic totals, trend, pages, sources, engagement, devices, and timezones.
+  - Add an authenticated selected-site Traffic CSV download using the selected interval.
+  - Add black-box API and dashboard coverage for interval filtering and CSV export.
+  ### Resolution
+  Pending.
+  ### Changed Files
+  Pending.
 
 - [x] [I014] (P1) Replace duplicate timezone views with a visit-density map.
   ### Summary
