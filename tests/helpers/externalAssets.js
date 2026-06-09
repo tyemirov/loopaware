@@ -191,6 +191,17 @@ function ensureAssetRouteTracker(browserPage) {
 }
 
 /**
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+function isRouteTeardownError(error) {
+  const message = error instanceof Error ? error.message : String(error || '');
+  return message.includes('Target page, context or browser has been closed') ||
+    message.includes('browserContext.close: Test ended') ||
+    message.includes('Target closed');
+}
+
+/**
  * @param {any} browserPage
  * @param {() => Promise<void>} callback
  * @returns {Promise<void>}
@@ -201,6 +212,11 @@ async function runTrackedRoute(browserPage, callback) {
   tracker.lastActivityAt = Date.now();
   try {
     await callback();
+  } catch (error) {
+    if (isRouteTeardownError(error)) {
+      return;
+    }
+    throw error;
   } finally {
     tracker.pending = Math.max(0, tracker.pending - 1);
     tracker.lastActivityAt = Date.now();
