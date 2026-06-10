@@ -257,13 +257,20 @@ export async function collectVisit(config, site, payload) {
   if (payload.timezone) {
     urlParams.set('timezone', payload.timezone);
   }
+  if (payload.locale) {
+    urlParams.set('locale', payload.locale);
+  }
+  const headers = Object.assign({}, payload.headers || {});
+  if (payload.userAgent) {
+    headers['User-Agent'] = payload.userAgent;
+  }
   const { response, payload: body } = await apiRequest({
     baseURL: config.baseURL,
     path: `/public/visits?${urlParams.toString()}`,
     method: 'GET',
     origin: resolveSiteOrigin(site),
     clientIP,
-    headers: payload.userAgent ? { 'User-Agent': payload.userAgent } : {}
+    headers
   });
   if (!response.ok) {
     throw new Error(`collect_visit_failed:${response.status}:${String(body)}`);
@@ -297,15 +304,15 @@ export async function fetchDeviceBreakdown(config, cookie, siteId) {
   return payload;
 }
 
-export async function fetchTimezoneDistribution(config, cookie, siteId) {
+export async function fetchLocationDistribution(config, cookie, siteId) {
   const { response, payload } = await apiRequest({
     baseURL: config.baseURL,
-    path: `/api/sites/${siteId}/visits/timezones`,
+    path: `/api/sites/${siteId}/visits/locations`,
     method: 'GET',
     cookie
   });
   if (!response.ok) {
-    throw new Error(`timezone_distribution_failed:${response.status}:${JSON.stringify(payload)}`);
+    throw new Error(`location_distribution_failed:${response.status}:${JSON.stringify(payload)}`);
   }
   return payload;
 }
