@@ -63,9 +63,9 @@ type recordingTrafficReportStatsProvider struct {
 	devices       DeviceBreakdownStat
 	deviceDays    int
 	deviceLimit   int
-	timezones     []TimezoneDistributionStat
-	timezoneDays  int
-	timezoneLimit int
+	locations     []LocationDistributionStat
+	locationDays  int
+	locationLimit int
 }
 
 func (provider *recordingTrafficReportStatsProvider) FeedbackCount(context.Context, string) (int64, error) {
@@ -136,14 +136,14 @@ func (provider *recordingTrafficReportStatsProvider) DeviceBreakdownForDays(_ co
 	return provider.devices, nil
 }
 
-func (provider *recordingTrafficReportStatsProvider) TimezoneDistribution(context.Context, string, int) ([]TimezoneDistributionStat, error) {
-	return provider.timezones, nil
+func (provider *recordingTrafficReportStatsProvider) LocationDistribution(context.Context, string, int) ([]LocationDistributionStat, error) {
+	return provider.locations, nil
 }
 
-func (provider *recordingTrafficReportStatsProvider) TimezoneDistributionForDays(_ context.Context, _ string, days int, limit int) ([]TimezoneDistributionStat, error) {
-	provider.timezoneDays = days
-	provider.timezoneLimit = limit
-	return provider.timezones, nil
+func (provider *recordingTrafficReportStatsProvider) LocationDistributionForDays(_ context.Context, _ string, days int, limit int) ([]LocationDistributionStat, error) {
+	provider.locationDays = days
+	provider.locationLimit = limit
+	return provider.locations, nil
 }
 
 func buildTrafficReportHarness(testingT *testing.T, emailEnabled bool) trafficReportHarness {
@@ -167,7 +167,7 @@ func buildTrafficReportHarness(testingT *testing.T, emailEnabled bool) trafficRe
 		devices: DeviceBreakdownStat{
 			DeviceTypes: []DeviceTypeStat{{DeviceType: "desktop", VisitCount: 8}},
 		},
-		timezones: []TimezoneDistributionStat{{Timezone: "America/Los_Angeles", VisitCount: 9}},
+		locations: []LocationDistributionStat{{Label: "Los Angeles", Source: locationSourceTimezone, Signal: "America/Los_Angeles", Country: "US", Confidence: locationConfidenceTimezone, VisitCount: 9}},
 	}
 	emailSender := &recordingTrafficReportEmailSender{}
 	handlers := NewTrafficReportHandlers(database, zap.NewNop(), stats, emailSender, emailEnabled)
@@ -434,7 +434,7 @@ func TestBuildTrafficReportEmailRendersTemplateFallbackSections(testingT *testin
 	require.Contains(testingT, report.message, "Page views: 0")
 	require.Contains(testingT, report.message, "- No page views recorded.")
 	require.Contains(testingT, report.message, "- No device data recorded.")
-	require.Contains(testingT, report.message, "- No timezone data recorded.")
+	require.Contains(testingT, report.message, "- No location data recorded.")
 }
 
 func TestBuildTrafficReportEmailUsesReportWindowForBreakdowns(testingT *testing.T) {
@@ -463,8 +463,8 @@ func TestBuildTrafficReportEmailUsesReportWindowForBreakdowns(testingT *testing.
 	require.Equal(testingT, trafficReportTopPagesLimit, stats.topPagesLimit)
 	require.Equal(testingT, 30, stats.deviceDays)
 	require.Equal(testingT, trafficReportTopPagesLimit, stats.deviceLimit)
-	require.Equal(testingT, 30, stats.timezoneDays)
-	require.Equal(testingT, trafficReportTopPagesLimit, stats.timezoneLimit)
+	require.Equal(testingT, 30, stats.locationDays)
+	require.Equal(testingT, trafficReportTopPagesLimit, stats.locationLimit)
 	require.Contains(testingT, report.message, "Window: last 30 days")
 	require.Contains(testingT, report.message, "/monthly: 4 views")
 }
@@ -532,9 +532,9 @@ func TestBuildTrafficReportEmailScopesDimensionsToReportWindow(testingT *testing
 	require.Contains(testingT, report.message, "- desktop: 1 visit")
 	require.Contains(testingT, report.message, "- mobile: 1 visit")
 	require.NotContains(testingT, report.message, "tablet: 1 visit")
-	require.Contains(testingT, report.message, "- America/Los_Angeles: 1 visit")
-	require.Contains(testingT, report.message, "- America/New_York: 1 visit")
-	require.NotContains(testingT, report.message, "- UTC: 1 visit")
+	require.Contains(testingT, report.message, "- Los Angeles (timezone: America/Los_Angeles, confidence 45): 1 visit")
+	require.Contains(testingT, report.message, "- New York (timezone: America/New_York, confidence 45): 1 visit")
+	require.NotContains(testingT, report.message, "- UTC (timezone: UTC, confidence 45): 1 visit")
 }
 
 func TestTrafficReportSchedulerSendsDueSchedule(testingT *testing.T) {

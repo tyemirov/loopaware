@@ -15,13 +15,20 @@ const (
 func TestNewSiteVisitValidatesAndNormalizes(testingT *testing.T) {
 	now := time.Now().UTC()
 	visit, err := NewSiteVisit(SiteVisitInput{
-		SiteID:    "site-1",
-		URL:       "https://example.com/welcome?utm=1#hash",
-		VisitorID: "12345678-1234-1234-1234-123456789abc",
-		IP:        "127.0.0.1",
-		UserAgent: "ua",
-		Referrer:  "https://ref.example.com/page",
-		Occurred:  now,
+		SiteID:       "site-1",
+		URL:          "https://example.com/welcome?utm=1#hash",
+		VisitorID:    "12345678-1234-1234-1234-123456789abc",
+		IP:           "127.0.0.1",
+		UserAgent:    "ua",
+		Referrer:     "https://ref.example.com/page",
+		Locale:       " en-US ",
+		GeoSource:    " cloudflare ",
+		GeoCountry:   " us ",
+		GeoRegion:    " CA ",
+		GeoCity:      " San Francisco ",
+		GeoLatitude:  37.7749,
+		GeoLongitude: -122.4194,
+		Occurred:     now,
 	})
 	require.NoError(testingT, err)
 	require.Equal(testingT, "site-1", visit.SiteID)
@@ -31,6 +38,13 @@ func TestNewSiteVisitValidatesAndNormalizes(testingT *testing.T) {
 	require.Equal(testingT, "127.0.0.1", visit.IP)
 	require.Equal(testingT, "ua", visit.UserAgent)
 	require.Equal(testingT, "https://ref.example.com/page", visit.Referrer)
+	require.Equal(testingT, "en-US", visit.Locale)
+	require.Equal(testingT, "cloudflare", visit.GeoSource)
+	require.Equal(testingT, "US", visit.GeoCountry)
+	require.Equal(testingT, "CA", visit.GeoRegion)
+	require.Equal(testingT, "San Francisco", visit.GeoCity)
+	require.Equal(testingT, 37.7749, visit.GeoLatitude)
+	require.Equal(testingT, -122.4194, visit.GeoLongitude)
 	require.False(testingT, visit.IsBot)
 	require.Equal(testingT, VisitStatusRecorded, visit.Status)
 	require.Equal(testingT, now, visit.OccurredAt)
