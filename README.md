@@ -230,6 +230,8 @@ include Unix timestamps in seconds.
 | `GET`   | `/api/sites/:id/visits/trend`         | owner/admin | Daily visit trend (default 7 days, optional `days` query param up to 30, or `interval=all\|1day\|30days`) |
 | `GET`   | `/api/sites/:id/visits/attribution`   | owner/admin | Source/medium/campaign attribution breakdown (optional `limit` query param up to 50; optional `interval=all\|1day\|30days`) |
 | `GET`   | `/api/sites/:id/visits/engagement`    | owner/admin | Visitor engagement metrics (default 30 days, optional `days` query param up to 90, or `interval=all\|1day\|30days`) |
+| `GET`   | `/api/sites/:id/visits/devices`       | owner/admin | Device, screen resolution, and viewport breakdowns (optional `limit` query param up to 50; optional `interval=all\|1day\|30days`) |
+| `GET`   | `/api/sites/:id/visits/locations`     | owner/admin | Inferred visitor locations from edge geo, timezone, locale, network, or unknown signals with confidence metadata (optional `limit` query param up to 50; optional `interval=all\|1day\|30days`) |
 | `GET`   | `/api/sites/favicons/events`          | any         | Server-sent events stream announcing refreshed site favicons                                            |
 | `GET`   | `/api/sites/feedback/events`          | any         | Server-sent events stream announcing new feedback                                                      |
 | `POST`  | `/public/feedback`                       | public      | Submit feedback (requires `site_id`, valid `contact` as email or phone, and at least one of `message` or `sentiment`) |
@@ -327,10 +329,12 @@ The traffic pixel records page visits per site and powers the dashboard Traffic 
    <script defer src="https://loopaware.mprlab.com/pixel.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"></script>
    ```
 
-3. On load, `pixel.js` sends a beacon to `/public/visits` with the site ID, current URL, referrer, and a stable visitor ID
-   stored in `localStorage`. Requests from origins outside the site’s `allowed_origin` list are rejected. Traffic from
-   known bot user-agent signatures is stored but excluded from default dashboard totals, top-page rankings, trends, and
-   attribution and engagement breakdowns.
+3. On load, `pixel.js` sends a beacon to `/public/visits` with the site ID, current URL, referrer, browser timezone,
+   browser locale, viewport, screen resolution, and a stable visitor ID stored in `localStorage`. The server also stores
+   supported edge geo headers from Cloudflare, Vercel, and CloudFront when the deployment provides them, then prefers
+   that location signal over browser timezone and locale hints. Requests from origins outside the site’s `allowed_origin`
+   list are rejected. Traffic from known bot user-agent signatures is stored but excluded from default dashboard totals,
+   top-page rankings, trends, attribution, engagement, devices, and locations.
 
 For non-JavaScript environments you can fall back to a plain image pixel:
 
