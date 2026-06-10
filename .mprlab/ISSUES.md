@@ -334,6 +334,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [x] [I026] (P1) Tighten visitor-location edge geo inference and aggregation.
+  ### Summary
+  Review found that country-only edge geo is dropped when the country is not in LoopAware's small country-anchor map, and the locations endpoint now scans every matching visit row before aggregating in Go.
+  ### Deliverables
+  - Preserve country-only edge geo as the strongest available signal even when the country lacks a local centroid.
+  - Group raw location signal tuples in SQL and apply inferred-location aggregation by grouped counts.
+  - Add focused regression coverage for unmapped country-only edge geo.
+  ### Resolution
+  Preserved country-only edge geo for unmapped ISO countries by keeping it as an edge_geo location with a shared unmapped-country anchor instead of falling back to timezone or locale. Changed the locations query to group raw signal tuples with COUNT(*) before inference, so aggregation no longer scans one inferred row per visit. Added regression coverage for unmapped country-only CloudFront geo. Validation passed with `go test ./internal/api -run 'TestDatabaseSiteStatisticsProviderLocationDistribution|TestLocationDistributionHelperFunctions'`, `make test-unit`, `make lint-js`, and `make ci` including 405 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `internal/api/site_stats.go`, `internal/api/site_stats_additional_test.go`.
+
 - [x] [I025] (P1) Improve visitor-location confidence with edge geo signals.
   ### Summary
   The Locations map now uses timezone, locale, network, and unknown signals, but timezone and locale alone are still weak location proxies. When LoopAware runs behind an edge or reverse proxy that supplies geo headers, the collector should preserve that signal and the analysis layer should report confidence.
