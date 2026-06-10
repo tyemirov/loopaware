@@ -976,6 +976,38 @@ func TestDatabaseSiteStatisticsProviderLocationDistributionPrefersEdgeGeoSignal(
 	require.Equal(testingT, int64(1), results[0].VisitCount)
 }
 
+func TestDatabaseSiteStatisticsProviderLocationDistributionKeepsUnmappedCountryOnlyEdgeGeoSignal(testingT *testing.T) {
+	database := openSiteStatsDatabase(testingT)
+	siteID := storage.NewID()
+
+	for index := 0; index < 2; index++ {
+		visit, err := model.NewSiteVisit(model.SiteVisitInput{
+			SiteID:     siteID,
+			URL:        "https://example.com/page",
+			Timezone:   "Europe/London",
+			Locale:     "en-GB",
+			GeoSource:  "cloudfront",
+			GeoCountry: "ES",
+			Occurred:   time.Date(2024, 1, 1, index, 0, 0, 0, time.UTC),
+		})
+		require.NoError(testingT, err)
+		require.NoError(testingT, database.Create(&visit).Error)
+	}
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	results, err := provider.LocationDistribution(context.Background(), siteID, 10)
+	require.NoError(testingT, err)
+	require.Len(testingT, results, 1)
+	require.Equal(testingT, "ES", results[0].Label)
+	require.Equal(testingT, locationSourceEdgeGeo, results[0].Source)
+	require.Equal(testingT, "cloudfront:ES", results[0].Signal)
+	require.Equal(testingT, "ES", results[0].Country)
+	require.Equal(testingT, locationUnmappedCountryAnchor.Latitude, results[0].Latitude)
+	require.Equal(testingT, locationUnmappedCountryAnchor.Longitude, results[0].Longitude)
+	require.Equal(testingT, locationConfidenceEdgeCountry, results[0].Confidence)
+	require.Equal(testingT, int64(2), results[0].VisitCount)
+}
+
 func TestDatabaseSiteStatisticsProviderLocationDistributionCountsUnknownSignal(testingT *testing.T) {
 	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()

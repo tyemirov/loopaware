@@ -147,6 +147,8 @@ var locationLocaleAnchors = map[string]locationAnchor{
 	"ZA": {Label: "South Africa", Latitude: -30.5595, Longitude: 22.9375},
 }
 
+var locationUnmappedCountryAnchor = locationAnchor{Latitude: -53, Longitude: 152}
+
 var visitTrendParseLayouts = [...]string{
 	visitTrendDayLayout,
 	time.RFC3339,
@@ -383,6 +385,33 @@ type visitLocationSignals struct {
 	GeoCity      string
 	GeoLatitude  float64
 	GeoLongitude float64
+}
+
+type visitLocationSignalCountRow struct {
+	Timezone     string
+	Locale       string
+	IP           string
+	GeoSource    string
+	GeoCountry   string
+	GeoRegion    string
+	GeoCity      string
+	GeoLatitude  float64
+	GeoLongitude float64
+	VisitCount   int64
+}
+
+func (row visitLocationSignalCountRow) signals() visitLocationSignals {
+	return visitLocationSignals{
+		Timezone:     row.Timezone,
+		Locale:       row.Locale,
+		IP:           row.IP,
+		GeoSource:    row.GeoSource,
+		GeoCountry:   row.GeoCountry,
+		GeoRegion:    row.GeoRegion,
+		GeoCity:      row.GeoCity,
+		GeoLatitude:  row.GeoLatitude,
+		GeoLongitude: row.GeoLongitude,
+	}
 }
 
 func (provider *DatabaseSiteStatisticsProvider) VisitTrend(ctx context.Context, siteID string, days int) ([]DailyVisitTrendStat, error) {
@@ -973,15 +1002,17 @@ func (provider *DatabaseSiteStatisticsProvider) locationDistribution(ctx context
 	}
 	normalizedLimit := normalizeLocationDistributionLimit(limit)
 
-	var rows []visitLocationSignals
+	var rows []visitLocationSignalCountRow
 	query := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
-		Select("timezone, locale, ip, geo_source, geo_country, geo_region, geo_city, geo_latitude, geo_longitude").
+		Select("timezone, locale, ip, geo_source, geo_country, geo_region, geo_city, geo_latitude, geo_longitude, COUNT(*) as visit_count").
 		Where("site_id = ? AND is_bot = ?", siteID, false)
 	if !startDay.IsZero() {
 		query = query.Where("occurred_at >= ?", startDay)
 	}
-	err := query.Scan(&rows).Error
+	err := query.
+		Group("timezone, locale, ip, geo_source, geo_country, geo_region, geo_city, geo_latitude, geo_longitude").
+		Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
@@ -992,14 +1023,17 @@ func (provider *DatabaseSiteStatisticsProvider) locationDistribution(ctx context
 	}
 	statsByKey := make(map[string]locationDistributionAggregate)
 	for _, row := range rows {
-		location := inferVisitLocation(row)
+		if row.VisitCount <= 0 {
+			continue
+		}
+		location := inferVisitLocation(row.signals())
 		key := location.Source + "\x00" + location.Signal + "\x00" + location.Label + "\x00" + location.Country + "\x00" + location.Region + "\x00" + location.City
 		current := statsByKey[key]
 		if current.stat.Label == "" {
 			current.stat = location
 		}
-		current.stat.VisitCount++
-		current.confidenceTotal += int64(location.Confidence)
+		current.stat.VisitCount += row.VisitCount
+		current.confidenceTotal += int64(location.Confidence) * row.VisitCount
 		statsByKey[key] = current
 	}
 
@@ -1087,14 +1121,19 @@ func inferEdgeGeoLocation(signals visitLocationSignals) (LocationDistributionSta
 	latitude := signals.GeoLatitude
 	longitude := signals.GeoLongitude
 	if !hasCoordinates {
-		if !hasCountryAnchor {
-			return LocationDistributionStat{}, false
+		if hasCountryAnchor {
+			latitude = anchor.Latitude
+			longitude = anchor.Longitude
+		} else {
+			latitude = locationUnmappedCountryAnchor.Latitude
+			longitude = locationUnmappedCountryAnchor.Longitude
 		}
-		latitude = anchor.Latitude
-		longitude = anchor.Longitude
 	}
 
 	label := edgeLocationLabel(country, region, city, anchor, hasCountryAnchor)
+	if label == "" && hasCoordinates {
+		label = "Edge coordinates"
+	}
 	if label == "" {
 		return LocationDistributionStat{}, false
 	}
