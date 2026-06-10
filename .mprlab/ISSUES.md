@@ -334,6 +334,31 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [x] [I025] (P1) Improve visitor-location confidence with edge geo signals.
+  ### Summary
+  The Locations map now uses timezone, locale, network, and unknown signals, but timezone and locale alone are still weak location proxies. When LoopAware runs behind an edge or reverse proxy that supplies geo headers, the collector should preserve that signal and the analysis layer should report confidence.
+  ### Deliverables
+  - Collect supported edge geo headers into visit records.
+  - Prefer edge geo over timezone/locale when inferring visitor location and expose country, region, city, and confidence metadata.
+  - Include the stronger location signal in API responses, dashboard map metadata, CSV export, traffic report emails, docs, and tests.
+  ### Resolution
+  Added trusted edge geo collection for Cloudflare, Vercel, and CloudFront visit requests, storing source, country, region, city, and coordinates on visit records. Location inference now prefers edge geo over timezone, locale, and local-network fallbacks, exposes country/region/city/confidence metadata in the locations API, dashboard map DOM, CSV export, and traffic report emails, and documents the stronger signal path. Validation passed with `make test-unit`, `make lint-js`, `make test-integration-api`, `make test-integration`, and final `make ci` including 405 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `ARCHITECTURE.md`, `README.md`, `internal/model/visit.go`, `internal/model/visit_test.go`, `internal/api/admin.go`, `internal/api/admin_test.go`, `internal/api/site_stats.go`, `internal/api/site_stats_additional_test.go`, `internal/api/templates/traffic_report_email.txt`, `internal/api/traffic_report_schedule_test.go`, `internal/api/visit_collector.go`, `internal/api/visit_collector_additional_test.go`, `tests/helpers/api.js`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`.
+
+- [x] [I024] (P1) Replace visitor timezone reporting with inferred locations.
+  ### Summary
+  The selected-site Traffic map currently presents browser timezones as the reporting dimension, but the useful operator question is visitor location. Timezones should become one signal among several, alongside browser locale and local-network/unknown fallbacks.
+  ### Deliverables
+  - Supersede the selected-site Timezones segment with Locations.
+  - Collect browser locale during traffic collection and infer one visitor-location point from timezone, locale, network, or unknown signals.
+  - Replace the `/visits/timezones` API contract with `/visits/locations`; no compatibility alias is required.
+  - Update dashboard, traffic report email, CSV export, docs, and black-box coverage for the location contract.
+  ### Resolution
+  Superseded the selected-site Timezones surface with Locations and replaced the traffic API contract with `/api/sites/:id/visits/locations`, with no old `/visits/timezones` route alias. The traffic pixel and public collector now store browser locale, location distribution infers one point per visit from timezone, locale, local network, or unknown signals, and the dashboard map exposes label/source/signal metadata. CSV export and traffic report emails now include inferred location details, docs describe the new endpoint and collection signals, and the active world-map generator/check was renamed to location terminology. Validation passed with baseline `make ci`, `make test-unit`, `make lint-js`, `make test-integration-api`, `make test-integration`, and final `make ci` with 404 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `ARCHITECTURE.md`, `README.md`, `Makefile`, `cmd/server/main.go`, `cmd/server/routes.go`, `internal/model/visit.go`, `internal/model/visit_test.go`, `internal/api/admin.go`, `internal/api/admin_helpers_test.go`, `internal/api/admin_test.go`, `internal/api/site_stats.go`, `internal/api/site_stats_additional_test.go`, `internal/api/templates/traffic_report_email.txt`, `internal/api/traffic_report_schedule.go`, `internal/api/traffic_report_schedule_test.go`, `internal/api/visit_collector.go`, `internal/api/visit_collector_additional_test.go`, `tests/helpers/api.js`, `tests/package.json`, `tests/scripts/generate-location-world-map.mjs`, `tests/scripts/generate-timezone-world-map.mjs`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`, `web/pixel.js`.
+
 - [x] [I023] (P1) Add selected-site Traffic intervals and CSV export.
   ### Summary
   The selected-site Traffic card always shows all-time totals and does not offer a direct export for the traffic data operators are reviewing.
