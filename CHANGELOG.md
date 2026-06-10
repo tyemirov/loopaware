@@ -11,6 +11,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.19] - 2026-06-09
+
+### Features ✨
+- Improve visitor location accuracy using edge geo signals and inferred locations.
+- Replace visitor timezone reporting with inferred locations combining timezone, locale, network, and edge geo signals.
+- Add inferred visitor locations API endpoint with confidence metadata.
+
+### Improvements ⚙️
+- Preserve country-only edge geo even for unmapped countries by using a shared unmapped-country anchor.
+- Optimize location aggregation by grouping raw location signal tuples in SQL before inference.
+- Rename all timezone-related routes, variables, tests, and exports to location to reflect new location inference.
+- Enhance CSV export and traffic report emails to include detailed inferred location data.
+- Update Makefile to run location map checks instead of timezone map checks.
+- Update documentation to describe new visits API endpoints, pixel data details, and traffic data architecture.
+
+### Bug Fixes 🐛
+- Fix location distribution to preserve country-only edge geo and optimize aggregation.
+- Rename dashboard traffic section from timezone to location for clarity and accuracy.
+
+### Testing 🧪
+- Rename and update tests to reflect location distribution instead of timezone distribution.
+- Add regression coverage for unmapped country-only edge geo and enhanced location inference.
+- Validate with extensive unit, integration, and Playwright/API integration tests.
+
+### Docs 📚
+- Update README with new visits API endpoints and pixel data details for location signals.
+- Update ARCHITECTURE.md with detailed traffic data flow including edge geo and inferred locations.
+- Document changes in dashboard, CSV export, and traffic report emails reflecting location inference.
+
 ## [v0.7.18] - 2026-06-09
 
 ### Features ✨
