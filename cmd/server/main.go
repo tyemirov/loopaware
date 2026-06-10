@@ -116,7 +116,7 @@ const (
 	apiRouteSiteVisitAttribution      = "/sites/:id/visits/attribution"
 	apiRouteSiteVisitEngagement       = "/sites/:id/visits/engagement"
 	apiRouteSiteVisitDevices          = "/sites/:id/visits/devices"
-	apiRouteSiteVisitTimezones        = "/sites/:id/visits/timezones"
+	apiRouteSiteVisitLocations        = "/sites/:id/visits/locations"
 	apiRouteSiteVisitExport           = "/sites/:id/visits/export"
 	apiRouteSiteTrafficReportSchedule = "/sites/:id/traffic-report-schedule"
 	apiRouteSiteTrafficReportTest     = "/sites/:id/traffic-report-schedule/test"
