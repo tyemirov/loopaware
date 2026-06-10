@@ -860,7 +860,7 @@ func TestDatabaseSiteStatisticsProviderDeviceBreakdownTopResolutions(testingT *t
 	require.Equal(testingT, int64(3), result.TopResolutions[0].VisitCount)
 }
 
-func TestDatabaseSiteStatisticsProviderTimezoneDistributionGroupsByTimezone(testingT *testing.T) {
+func TestDatabaseSiteStatisticsProviderLocationDistributionGroupsByTimezoneSignal(testingT *testing.T) {
 	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
@@ -884,16 +884,20 @@ func TestDatabaseSiteStatisticsProviderTimezoneDistributionGroupsByTimezone(test
 	require.NoError(testingT, database.Create(&visit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.TimezoneDistribution(context.Background(), siteID, 10)
+	results, err := provider.LocationDistribution(context.Background(), siteID, 10)
 	require.NoError(testingT, err)
 	require.Len(testingT, results, 2)
-	require.Equal(testingT, "America/New_York", results[0].Timezone)
+	require.Equal(testingT, "New York", results[0].Label)
+	require.Equal(testingT, locationSourceTimezone, results[0].Source)
+	require.Equal(testingT, "America/New_York", results[0].Signal)
 	require.Equal(testingT, int64(2), results[0].VisitCount)
-	require.Equal(testingT, "Europe/London", results[1].Timezone)
+	require.Equal(testingT, "London", results[1].Label)
+	require.Equal(testingT, locationSourceTimezone, results[1].Source)
+	require.Equal(testingT, "Europe/London", results[1].Signal)
 	require.Equal(testingT, int64(1), results[1].VisitCount)
 }
 
-func TestDatabaseSiteStatisticsProviderTimezoneDistributionExcludesBots(testingT *testing.T) {
+func TestDatabaseSiteStatisticsProviderLocationDistributionExcludesBots(testingT *testing.T) {
 	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
@@ -908,12 +912,103 @@ func TestDatabaseSiteStatisticsProviderTimezoneDistributionExcludesBots(testingT
 	require.NoError(testingT, database.Create(&botVisit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.TimezoneDistribution(context.Background(), siteID, 10)
+	results, err := provider.LocationDistribution(context.Background(), siteID, 10)
 	require.NoError(testingT, err)
 	require.Empty(testingT, results)
 }
 
-func TestDatabaseSiteStatisticsProviderTimezoneDistributionSkipsEmptyTimezone(testingT *testing.T) {
+func TestDatabaseSiteStatisticsProviderLocationDistributionFallsBackToLocaleSignal(testingT *testing.T) {
+	database := openSiteStatsDatabase(testingT)
+	siteID := storage.NewID()
+
+	visit, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/page",
+		Locale:   "en-US",
+		Occurred: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, err)
+	require.NoError(testingT, database.Create(&visit).Error)
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	results, err := provider.LocationDistribution(context.Background(), siteID, 10)
+	require.NoError(testingT, err)
+	require.Len(testingT, results, 1)
+	require.Equal(testingT, "United States", results[0].Label)
+	require.Equal(testingT, locationSourceLocale, results[0].Source)
+	require.Equal(testingT, "US", results[0].Signal)
+	require.Equal(testingT, int64(1), results[0].VisitCount)
+}
+
+func TestDatabaseSiteStatisticsProviderLocationDistributionPrefersEdgeGeoSignal(testingT *testing.T) {
+	database := openSiteStatsDatabase(testingT)
+	siteID := storage.NewID()
+
+	visit, err := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:       siteID,
+		URL:          "https://example.com/page",
+		Timezone:     "Europe/London",
+		Locale:       "en-GB",
+		GeoSource:    "cloudflare",
+		GeoCountry:   "US",
+		GeoRegion:    "CA",
+		GeoCity:      "San Francisco",
+		GeoLatitude:  37.7749,
+		GeoLongitude: -122.4194,
+		Occurred:     time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+	})
+	require.NoError(testingT, err)
+	require.NoError(testingT, database.Create(&visit).Error)
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	results, err := provider.LocationDistribution(context.Background(), siteID, 10)
+	require.NoError(testingT, err)
+	require.Len(testingT, results, 1)
+	require.Equal(testingT, "San Francisco, CA", results[0].Label)
+	require.Equal(testingT, locationSourceEdgeGeo, results[0].Source)
+	require.Equal(testingT, "cloudflare:US:CA:San Francisco", results[0].Signal)
+	require.Equal(testingT, "US", results[0].Country)
+	require.Equal(testingT, "CA", results[0].Region)
+	require.Equal(testingT, "San Francisco", results[0].City)
+	require.Equal(testingT, 37.7749, results[0].Latitude)
+	require.Equal(testingT, -122.4194, results[0].Longitude)
+	require.Equal(testingT, locationConfidenceEdgeExact, results[0].Confidence)
+	require.Equal(testingT, int64(1), results[0].VisitCount)
+}
+
+func TestDatabaseSiteStatisticsProviderLocationDistributionKeepsUnmappedCountryOnlyEdgeGeoSignal(testingT *testing.T) {
+	database := openSiteStatsDatabase(testingT)
+	siteID := storage.NewID()
+
+	for index := 0; index < 2; index++ {
+		visit, err := model.NewSiteVisit(model.SiteVisitInput{
+			SiteID:     siteID,
+			URL:        "https://example.com/page",
+			Timezone:   "Europe/London",
+			Locale:     "en-GB",
+			GeoSource:  "cloudfront",
+			GeoCountry: "ES",
+			Occurred:   time.Date(2024, 1, 1, index, 0, 0, 0, time.UTC),
+		})
+		require.NoError(testingT, err)
+		require.NoError(testingT, database.Create(&visit).Error)
+	}
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	results, err := provider.LocationDistribution(context.Background(), siteID, 10)
+	require.NoError(testingT, err)
+	require.Len(testingT, results, 1)
+	require.Equal(testingT, "ES", results[0].Label)
+	require.Equal(testingT, locationSourceEdgeGeo, results[0].Source)
+	require.Equal(testingT, "cloudfront:ES", results[0].Signal)
+	require.Equal(testingT, "ES", results[0].Country)
+	require.Equal(testingT, locationUnmappedCountryAnchor.Latitude, results[0].Latitude)
+	require.Equal(testingT, locationUnmappedCountryAnchor.Longitude, results[0].Longitude)
+	require.Equal(testingT, locationConfidenceEdgeCountry, results[0].Confidence)
+	require.Equal(testingT, int64(2), results[0].VisitCount)
+}
+
+func TestDatabaseSiteStatisticsProviderLocationDistributionCountsUnknownSignal(testingT *testing.T) {
 	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
 
@@ -926,15 +1021,19 @@ func TestDatabaseSiteStatisticsProviderTimezoneDistributionSkipsEmptyTimezone(te
 	require.NoError(testingT, database.Create(&visit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.TimezoneDistribution(context.Background(), siteID, 10)
+	results, err := provider.LocationDistribution(context.Background(), siteID, 10)
 	require.NoError(testingT, err)
-	require.Empty(testingT, results)
+	require.Len(testingT, results, 1)
+	require.Equal(testingT, locationUnknownLabel, results[0].Label)
+	require.Equal(testingT, locationSourceUnknown, results[0].Source)
+	require.Equal(testingT, locationUnknownSignal, results[0].Signal)
+	require.Equal(testingT, int64(1), results[0].VisitCount)
 }
 
-func TestDatabaseSiteStatisticsProviderTimezoneDistributionSkipsBlankSite(testingT *testing.T) {
+func TestDatabaseSiteStatisticsProviderLocationDistributionSkipsBlankSite(testingT *testing.T) {
 	database := openSiteStatsDatabase(testingT)
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.TimezoneDistribution(context.Background(), "   ", 10)
+	results, err := provider.LocationDistribution(context.Background(), "   ", 10)
 	require.NoError(testingT, err)
 	require.Nil(testingT, results)
 }
@@ -956,9 +1055,32 @@ func TestDeviceBreakdownHelperFunctions(testingT *testing.T) {
 	require.Equal(testingT, 25, normalizeDeviceBreakdownLimit(25))
 }
 
-func TestTimezoneDistributionHelperFunctions(testingT *testing.T) {
-	require.Equal(testingT, 10, normalizeTimezoneDistributionLimit(0))
-	require.Equal(testingT, 10, normalizeTimezoneDistributionLimit(-1))
-	require.Equal(testingT, 50, normalizeTimezoneDistributionLimit(100))
-	require.Equal(testingT, 25, normalizeTimezoneDistributionLimit(25))
+func TestLocationDistributionHelperFunctions(testingT *testing.T) {
+	require.Equal(testingT, 10, normalizeLocationDistributionLimit(0))
+	require.Equal(testingT, 10, normalizeLocationDistributionLimit(-1))
+	require.Equal(testingT, 50, normalizeLocationDistributionLimit(100))
+	require.Equal(testingT, 25, normalizeLocationDistributionLimit(25))
+	require.Equal(testingT, "US", normalizeLocaleRegion("en-US"))
+	require.Equal(testingT, "GB", normalizeLocaleRegion("en_GB"))
+	require.Empty(testingT, normalizeLocaleRegion("en"))
+
+	timezoneLocation := inferVisitLocation(visitLocationSignals{Timezone: "America/New_York", Locale: "en-US"})
+	require.Equal(testingT, "New York", timezoneLocation.Label)
+	require.Equal(testingT, locationSourceTimezone, timezoneLocation.Source)
+	require.Equal(testingT, "America/New_York", timezoneLocation.Signal)
+	require.Equal(testingT, "US", timezoneLocation.Country)
+	require.Equal(testingT, locationConfidenceTimezoneAgree, timezoneLocation.Confidence)
+
+	localeLocation := inferVisitLocation(visitLocationSignals{Locale: "en-US"})
+	require.Equal(testingT, "United States", localeLocation.Label)
+	require.Equal(testingT, locationSourceLocale, localeLocation.Source)
+	require.Equal(testingT, "US", localeLocation.Signal)
+	require.Equal(testingT, "US", localeLocation.Country)
+	require.Equal(testingT, locationConfidenceLocale, localeLocation.Confidence)
+
+	networkLocation := inferVisitLocation(visitLocationSignals{IP: "127.0.0.1"})
+	require.Equal(testingT, "Local network", networkLocation.Label)
+	require.Equal(testingT, locationSourceNetwork, networkLocation.Source)
+	require.Equal(testingT, locationNetworkLocalSignal, networkLocation.Signal)
+	require.Equal(testingT, locationConfidenceNetwork, networkLocation.Confidence)
 }

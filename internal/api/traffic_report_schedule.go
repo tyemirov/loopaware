@@ -548,7 +548,7 @@ type trafficReportEmailTemplateData struct {
 	UniqueVisitors int64
 	TopPages       []TopPageStat
 	Devices        []DeviceTypeStat
-	Timezones      []TimezoneDistributionStat
+	Locations      []LocationDistributionStat
 }
 
 func buildTrafficReportEmail(ctx context.Context, statsProvider SiteStatisticsProvider, site model.Site, schedule model.TrafficReportSchedule) (trafficReportEmail, error) {
@@ -565,9 +565,9 @@ func buildTrafficReportEmail(ctx context.Context, statsProvider SiteStatisticsPr
 	if devicesErr != nil {
 		return trafficReportEmail{}, fmt.Errorf("traffic_report_email devices: %w", devicesErr)
 	}
-	timezones, timezonesErr := statsProvider.TimezoneDistributionForDays(ctx, site.ID, windowDays, trafficReportTopPagesLimit)
-	if timezonesErr != nil {
-		return trafficReportEmail{}, fmt.Errorf("traffic_report_email timezones: %w", timezonesErr)
+	locations, locationsErr := statsProvider.LocationDistributionForDays(ctx, site.ID, windowDays, trafficReportTopPagesLimit)
+	if locationsErr != nil {
+		return trafficReportEmail{}, fmt.Errorf("traffic_report_email locations: %w", locationsErr)
 	}
 
 	var pageViews int64
@@ -585,7 +585,7 @@ func buildTrafficReportEmail(ctx context.Context, statsProvider SiteStatisticsPr
 		UniqueVisitors: uniqueVisitors,
 		TopPages:       topPages,
 		Devices:        devices.DeviceTypes,
-		Timezones:      timezones,
+		Locations:      locations,
 	}
 
 	subject, subjectErr := renderTrafficReportEmailTemplate("subject", templateData)

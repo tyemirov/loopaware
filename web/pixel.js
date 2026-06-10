@@ -222,6 +222,16 @@
       if (tz) queryString += "&timezone=" + encodeURIComponent(tz);
     } catch(e){}
 
+    try {
+      var locale = "";
+      if (navigator.languages && navigator.languages.length > 0) {
+        locale = navigator.languages[0];
+      } else if (navigator.language) {
+        locale = navigator.language;
+      }
+      if (locale) queryString += "&locale=" + encodeURIComponent(locale);
+    } catch(e){}
+
     // Page title
     try {
       var title = document.title;

@@ -840,9 +840,9 @@
                   <p id="traffic-devices-heading" class="text-muted small mb-2 mt-3">Devices</p>
                   <div id="device-types-chart" class="device-row-graph mb-3"></div>
                 </div>
-                <div id="traffic-timezone-container">
-                  <p id="traffic-timezones-heading" class="text-muted small mb-2 mt-3">Timezones</p>
-                  <div id="timezones-map" class="traffic-map border rounded mb-3"></div>
+                <div id="traffic-location-container">
+                  <p id="traffic-locations-heading" class="text-muted small mb-2 mt-3">Locations</p>
+                  <div id="locations-map" class="traffic-map border rounded mb-3"></div>
                 </div>
               </div>
             </div>
@@ -1208,7 +1208,7 @@
       </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-    <script type="application/json" id="dashboard-config">{"api_paths":{"feedback_events":"/api/sites/feedback/events","me":"/api/me","portfolio_traffic_report":"/api/reports/traffic/portfolio","portfolio_traffic_reports":"/api/reports/traffic/portfolio/reports","portfolio_traffic_schedule":"/api/reports/traffic/portfolio/schedule","portfolio_traffic_test":"/api/reports/traffic/portfolio/schedule/test","site_favicon_events":"/api/sites/favicons/events","site_messages_prefix":"/api/sites/","site_messages_suffix":"/messages","site_subscriber_update":"/subscribers/","site_subscribers_export":"/subscribers/export","site_subscribers_prefix":"/api/sites/","site_subscribers_suffix":"/subscribers","site_update_prefix":"/api/sites/","site_visit_stats":"/visits/stats","site_visit_trend":"/visits/trend","site_visit_attribution":"/visits/attribution","site_visit_engagement":"/visits/engagement","site_visit_devices":"/visits/devices","site_visit_timezones":"/visits/timezones","site_visit_export":"/visits/export","sites":"/api/sites"},"paths":{"landing":"/login","subscribe_test_prefix":"/app/subscribe-test?site_id=","subscribe_test_suffix":"","traffic_test_prefix":"/app/traffic-test?site_id=","traffic_test_suffix":"","widget_test_prefix":"/app/widget-test?site_id=","widget_test_suffix":""},"element_ids":{"allowed_origin_help_button":"allowed-origin-help-button","copy_subscribe_snippet_button":"copy-subscribe-widget-snippet","copy_traffic_snippet_button":"copy-traffic-widget-snippet","copy_widget_snippet_button":"copy-widget-snippet","dashboard_section_tab_feedback":"dashboard-section-tab-feedback","dashboard_section_tab_subscriptions":"dashboard-section-tab-subscriptions","dashboard_section_tab_traffic":"dashboard-section-tab-traffic","dashboard_section_tabs":"dashboard-section-tabs","delete_site_button":"delete-site-button","delete_site_confirm_button":"delete-site-confirm-button","delete_site_confirm_input":"delete-site-confirm-name","delete_site_modal":"delete-site-modal","delete_site_target_name":"delete-site-target-name","delete_subscriber_confirm_button":"delete-subscriber-confirm-button","delete_subscriber_confirm_input":"delete-subscriber-confirm-email","delete_subscriber_modal":"delete-subscriber-modal","delete_subscriber_target_email":"delete-subscriber-target-email","edit_site_name":"edit-site-name","edit_site_origin":"edit-site-origin","edit_site_owner":"edit-site-owner","edit_site_owner_container":"edit-site-owner-container","empty_sites_message":"empty-sites-message","export_subscribers_button":"export-subscribers-button","feedback_count":"feedback-count","feedback_table_body":"feedback-table-body","feedback_table_header":"feedback-table-header","footer":"dashboard-footer","footer_inner":"dashboard-footer-inner","form_status":"site-status","messages_search_container":"messages-search-container","messages_search_input":"messages-search-input","messages_search_toggle_button":"messages-search-toggle-button","new_site_button":"new-site-button","owner_email_help_button":"owner-email-help-button","refresh_messages_button":"refresh-messages-button","save_site_button":"save-site-button","session_timeout_confirm_button":"session-timeout-confirm-button","session_timeout_container":"session-timeout-notification","session_timeout_dismiss_button":"session-timeout-dismiss-button","session_timeout_message":"session-timeout-message","settings_auto_logout_fields":"settings-auto-logout-fields","settings_auto_logout_logout":"settings-auto-logout-logout-seconds","settings_auto_logout_logout_error":"settings-auto-logout-logout-error","settings_auto_logout_prompt":"settings-auto-logout-prompt-seconds","settings_auto_logout_prompt_error":"settings-auto-logout-prompt-error","settings_auto_logout_toggle":"settings-auto-logout-enabled","settings_button":"settings-button","settings_modal":"settings-modal","settings_modal_content":"settings-modal-content","settings_modal_title":"settings-modal-title","site_created_at":"site-created-at","site_created_at_container":"site-created-at-container","site_form":"site-form","site_name_help_button":"site-name-help-button","site_search_container":"site-search-container","site_search_input":"site-search-input","site_search_toggle_button":"site-search-toggle-button","sites_list":"sites-list","subscribe_allowed_origins_list":"subscribe-allowed-origins-list","subscribe_snippet_textarea":"subscribe-widget-snippet","subscribe_test_button":"subscribe-test-button","subscriber_count":"subscriber-count","subscribers_status":"subscribers-status","subscribers_table_body":"subscribers-table-body","timezones_map":"timezones-map","traffic_allowed_origins_list":"traffic-allowed-origins-list","traffic_export_button":"traffic-export-button","traffic_interval_1day":"traffic-interval-1day","traffic_interval_30days":"traffic-interval-30days","traffic_interval_all":"traffic-interval-all","traffic_snippet_textarea":"traffic-widget-snippet","traffic_status":"traffic-status","traffic_test_button":"traffic-test-button","unique_visitor_count":"unique-visitor-count","user_avatar":"user-avatar","user_email":"user-email","user_name":"user-name","user_role":"user-role","visit_count":"visit-count","widget_allowed_origins_list":"widget-allowed-origins-list","widget_bottom_offset":"widget-placement-bottom-offset","widget_bottom_offset_decrease":"widget-bottom-offset-decrease","widget_bottom_offset_increase":"widget-bottom-offset-increase","widget_side_left":"widget-placement-side-left","widget_side_right":"widget-placement-side-right","widget_snippet_textarea":"widget-snippet","widget_test_button":"widget-test-button"},"button_classes":{"copy_default":"btn btn-outline-secondary btn-sm","create":"btn btn-outline-primary btn-sm","delete_site_default":"btn btn-sm border-0 bg-transparent text-danger opacity-100","delete_site_disabled":"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled","new_site_active":"btn btn-primary btn-sm","new_site_default":"btn btn-outline-primary btn-sm","refresh_default":"btn btn-outline-secondary btn-sm","save_default":"btn btn-outline-success btn-sm","session_timeout_confirm":"btn btn-outline-danger btn-sm","session_timeout_dismiss":"btn btn-outline-secondary btn-sm","update":"btn btn-outline-success btn-sm"},"button_labels":{"copy_copied":"Copied","copy_default":"Copy","copy_failed":"Copy failed","create":"Create site","new_site":"New site","refresh_default":"Refresh feedback","refresh_failed":"Refresh failed.","refresh_loading":"Refreshing...","refresh_success":"Feedback refreshed.","save_created":"Site created.","save_failed":"Failed to save site.","save_saved":"Site updated.","save_saving":"Saving site...","update":"Update site"},"status_messages":{"creating_site":"Creating site...","delete_site_failed":"Failed to delete site.","deleting_site":"Deleting site...","load_failed":"Failed to load data.","loading_sites":"Loading sites...","loading_user":"Loading account information...","no_message_matches":"No feedback matches your search.","no_messages":"No feedback yet.","no_site_matches":"No sites match your search.","no_sites":"No sites available yet.","saving_site":"Saving site...","select_site":"Select a site to see details.","site_created":"Site created.","site_deleted":"Site deleted.","site_saved":"Site updated.","widget_copied":"Widget snippet copied.","widget_copy_failed":"Unable to copy widget snippet."},"role_labels":{"admin":"Administrator","user":"User"},"role_values":{"admin":"admin","user":"user"},"button_styles":{"danger":"btn btn-outline-danger btn-sm","primary":"btn btn-outline-primary btn-sm","secondary":"btn btn-outline-secondary btn-sm","success":"btn btn-outline-success btn-sm"},"component_classes":{"site_list_item":"list-group-item list-group-item-action","site_list_item_active":"active","site_list_item_favicon":"flex-shrink-0 rounded border bg-white","site_list_item_header":"d-flex align-items-center gap-2"},"widget_texts":{"unavailable":"Save the site to generate a widget snippet."},"theme_storage_key":"loopaware_dashboard_theme","option_values":{"new_site":"__new__"},"placeholders":{"device_types":"No device data yet.","subscribers":"No subscribers yet.","timezones":"No timezone data yet.","top_pages":"No visits yet."},"form_status_classes":{"base":"d-none py-1 px-2 small rounded","danger":"py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle","success":"py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"},"footer_theme_classes":{"dark":"bg-dark text-light border-light","light":"bg-body text-body-secondary"},"table_theme_classes":{"dark":"table-dark","light":"table-light"},"validation_messages":{"name_required":"Site name is required.","origin_invalid":"Allowed origins must include protocol and hostname, for example https://example.com.","owner_invalid":"Provide a valid owner email address.","widget_offset_invalid":"Provide a whole number between 0 and 240."},"error_messages":{"forbidden":"You are not allowed to manage that site.","invalid_json":"Submitted data could not be parsed.","invalid_owner":"Provide a valid owner email address.","invalid_portfolio_traffic_report":"Provide a report name and valid sites.","invalid_widget_offset":"Provide a whole number between 0 and 240.","invalid_widget_side":"Choose left or right for the widget bubble.","missing_fields":"Provide site name and allowed origin.","not_authorized":"You are not allowed to manage that site.","save_failed":"Failed to save site.","site_exists":"A site for this allowed origin already exists.","unknown_portfolio_traffic_report":"Traffic report not found."},"widget_placement":{"input_name":"widget-bubble-side","default_side":"right","default_bottom_offset":16,"sides":{"left":"Left","right":"Right"},"bottom_offset":{"min":0,"max":240}},"session_timeout":{"prompt_delay_ms":60000,"auto_logout_ms":120000,"texts":{"confirm":"Yes","dismiss":"No","prompt":"Log out due to inactivity?"},"component_classes":{"actions":"session-timeout-actions d-flex flex-shrink-0 gap-2","container":"session-timeout-banner position-fixed start-0 end-0 border-top py-3 w-100 d-none","container_hidden":"d-none","container_visible":"d-block","inner":"container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3","message":"session-timeout-message fw-semibold mb-0"},"theme_classes":{"dark":"bg-dark-subtle text-light border-secondary-subtle","light":"bg-body-secondary text-dark border-light-subtle"}},"auto_logout":{"storage_key":"loopaware_dashboard_auto_logout","min_prompt_seconds":10,"max_prompt_seconds":3600,"min_logout_seconds":20,"max_logout_seconds":7200,"minimum_gap_seconds":5}}</script>
+    <script type="application/json" id="dashboard-config">{"api_paths":{"feedback_events":"/api/sites/feedback/events","me":"/api/me","portfolio_traffic_report":"/api/reports/traffic/portfolio","portfolio_traffic_reports":"/api/reports/traffic/portfolio/reports","portfolio_traffic_schedule":"/api/reports/traffic/portfolio/schedule","portfolio_traffic_test":"/api/reports/traffic/portfolio/schedule/test","site_favicon_events":"/api/sites/favicons/events","site_messages_prefix":"/api/sites/","site_messages_suffix":"/messages","site_subscriber_update":"/subscribers/","site_subscribers_export":"/subscribers/export","site_subscribers_prefix":"/api/sites/","site_subscribers_suffix":"/subscribers","site_update_prefix":"/api/sites/","site_visit_stats":"/visits/stats","site_visit_trend":"/visits/trend","site_visit_attribution":"/visits/attribution","site_visit_engagement":"/visits/engagement","site_visit_devices":"/visits/devices","site_visit_locations":"/visits/locations","site_visit_export":"/visits/export","sites":"/api/sites"},"paths":{"landing":"/login","subscribe_test_prefix":"/app/subscribe-test?site_id=","subscribe_test_suffix":"","traffic_test_prefix":"/app/traffic-test?site_id=","traffic_test_suffix":"","widget_test_prefix":"/app/widget-test?site_id=","widget_test_suffix":""},"element_ids":{"allowed_origin_help_button":"allowed-origin-help-button","copy_subscribe_snippet_button":"copy-subscribe-widget-snippet","copy_traffic_snippet_button":"copy-traffic-widget-snippet","copy_widget_snippet_button":"copy-widget-snippet","dashboard_section_tab_feedback":"dashboard-section-tab-feedback","dashboard_section_tab_subscriptions":"dashboard-section-tab-subscriptions","dashboard_section_tab_traffic":"dashboard-section-tab-traffic","dashboard_section_tabs":"dashboard-section-tabs","delete_site_button":"delete-site-button","delete_site_confirm_button":"delete-site-confirm-button","delete_site_confirm_input":"delete-site-confirm-name","delete_site_modal":"delete-site-modal","delete_site_target_name":"delete-site-target-name","delete_subscriber_confirm_button":"delete-subscriber-confirm-button","delete_subscriber_confirm_input":"delete-subscriber-confirm-email","delete_subscriber_modal":"delete-subscriber-modal","delete_subscriber_target_email":"delete-subscriber-target-email","edit_site_name":"edit-site-name","edit_site_origin":"edit-site-origin","edit_site_owner":"edit-site-owner","edit_site_owner_container":"edit-site-owner-container","empty_sites_message":"empty-sites-message","export_subscribers_button":"export-subscribers-button","feedback_count":"feedback-count","feedback_table_body":"feedback-table-body","feedback_table_header":"feedback-table-header","footer":"dashboard-footer","footer_inner":"dashboard-footer-inner","form_status":"site-status","messages_search_container":"messages-search-container","messages_search_input":"messages-search-input","messages_search_toggle_button":"messages-search-toggle-button","new_site_button":"new-site-button","owner_email_help_button":"owner-email-help-button","refresh_messages_button":"refresh-messages-button","save_site_button":"save-site-button","session_timeout_confirm_button":"session-timeout-confirm-button","session_timeout_container":"session-timeout-notification","session_timeout_dismiss_button":"session-timeout-dismiss-button","session_timeout_message":"session-timeout-message","settings_auto_logout_fields":"settings-auto-logout-fields","settings_auto_logout_logout":"settings-auto-logout-logout-seconds","settings_auto_logout_logout_error":"settings-auto-logout-logout-error","settings_auto_logout_prompt":"settings-auto-logout-prompt-seconds","settings_auto_logout_prompt_error":"settings-auto-logout-prompt-error","settings_auto_logout_toggle":"settings-auto-logout-enabled","settings_button":"settings-button","settings_modal":"settings-modal","settings_modal_content":"settings-modal-content","settings_modal_title":"settings-modal-title","site_created_at":"site-created-at","site_created_at_container":"site-created-at-container","site_form":"site-form","site_name_help_button":"site-name-help-button","site_search_container":"site-search-container","site_search_input":"site-search-input","site_search_toggle_button":"site-search-toggle-button","sites_list":"sites-list","subscribe_allowed_origins_list":"subscribe-allowed-origins-list","subscribe_snippet_textarea":"subscribe-widget-snippet","subscribe_test_button":"subscribe-test-button","subscriber_count":"subscriber-count","subscribers_status":"subscribers-status","subscribers_table_body":"subscribers-table-body","locations_map":"locations-map","traffic_allowed_origins_list":"traffic-allowed-origins-list","traffic_export_button":"traffic-export-button","traffic_interval_1day":"traffic-interval-1day","traffic_interval_30days":"traffic-interval-30days","traffic_interval_all":"traffic-interval-all","traffic_snippet_textarea":"traffic-widget-snippet","traffic_status":"traffic-status","traffic_test_button":"traffic-test-button","unique_visitor_count":"unique-visitor-count","user_avatar":"user-avatar","user_email":"user-email","user_name":"user-name","user_role":"user-role","visit_count":"visit-count","widget_allowed_origins_list":"widget-allowed-origins-list","widget_bottom_offset":"widget-placement-bottom-offset","widget_bottom_offset_decrease":"widget-bottom-offset-decrease","widget_bottom_offset_increase":"widget-bottom-offset-increase","widget_side_left":"widget-placement-side-left","widget_side_right":"widget-placement-side-right","widget_snippet_textarea":"widget-snippet","widget_test_button":"widget-test-button"},"button_classes":{"copy_default":"btn btn-outline-secondary btn-sm","create":"btn btn-outline-primary btn-sm","delete_site_default":"btn btn-sm border-0 bg-transparent text-danger opacity-100","delete_site_disabled":"btn btn-sm border-0 bg-transparent text-danger opacity-100 disabled","new_site_active":"btn btn-primary btn-sm","new_site_default":"btn btn-outline-primary btn-sm","refresh_default":"btn btn-outline-secondary btn-sm","save_default":"btn btn-outline-success btn-sm","session_timeout_confirm":"btn btn-outline-danger btn-sm","session_timeout_dismiss":"btn btn-outline-secondary btn-sm","update":"btn btn-outline-success btn-sm"},"button_labels":{"copy_copied":"Copied","copy_default":"Copy","copy_failed":"Copy failed","create":"Create site","new_site":"New site","refresh_default":"Refresh feedback","refresh_failed":"Refresh failed.","refresh_loading":"Refreshing...","refresh_success":"Feedback refreshed.","save_created":"Site created.","save_failed":"Failed to save site.","save_saved":"Site updated.","save_saving":"Saving site...","update":"Update site"},"status_messages":{"creating_site":"Creating site...","delete_site_failed":"Failed to delete site.","deleting_site":"Deleting site...","load_failed":"Failed to load data.","loading_sites":"Loading sites...","loading_user":"Loading account information...","no_message_matches":"No feedback matches your search.","no_messages":"No feedback yet.","no_site_matches":"No sites match your search.","no_sites":"No sites available yet.","saving_site":"Saving site...","select_site":"Select a site to see details.","site_created":"Site created.","site_deleted":"Site deleted.","site_saved":"Site updated.","widget_copied":"Widget snippet copied.","widget_copy_failed":"Unable to copy widget snippet."},"role_labels":{"admin":"Administrator","user":"User"},"role_values":{"admin":"admin","user":"user"},"button_styles":{"danger":"btn btn-outline-danger btn-sm","primary":"btn btn-outline-primary btn-sm","secondary":"btn btn-outline-secondary btn-sm","success":"btn btn-outline-success btn-sm"},"component_classes":{"site_list_item":"list-group-item list-group-item-action","site_list_item_active":"active","site_list_item_favicon":"flex-shrink-0 rounded border bg-white","site_list_item_header":"d-flex align-items-center gap-2"},"widget_texts":{"unavailable":"Save the site to generate a widget snippet."},"theme_storage_key":"loopaware_dashboard_theme","option_values":{"new_site":"__new__"},"placeholders":{"device_types":"No device data yet.","subscribers":"No subscribers yet.","locations":"No location data yet.","top_pages":"No visits yet."},"form_status_classes":{"base":"d-none py-1 px-2 small rounded","danger":"py-1 px-2 small rounded border border-danger-subtle text-danger-emphasis bg-danger-subtle","success":"py-1 px-2 small rounded border border-success-subtle text-success-emphasis bg-success-subtle"},"footer_theme_classes":{"dark":"bg-dark text-light border-light","light":"bg-body text-body-secondary"},"table_theme_classes":{"dark":"table-dark","light":"table-light"},"validation_messages":{"name_required":"Site name is required.","origin_invalid":"Allowed origins must include protocol and hostname, for example https://example.com.","owner_invalid":"Provide a valid owner email address.","widget_offset_invalid":"Provide a whole number between 0 and 240."},"error_messages":{"forbidden":"You are not allowed to manage that site.","invalid_json":"Submitted data could not be parsed.","invalid_owner":"Provide a valid owner email address.","invalid_portfolio_traffic_report":"Provide a report name and valid sites.","invalid_widget_offset":"Provide a whole number between 0 and 240.","invalid_widget_side":"Choose left or right for the widget bubble.","missing_fields":"Provide site name and allowed origin.","not_authorized":"You are not allowed to manage that site.","save_failed":"Failed to save site.","site_exists":"A site for this allowed origin already exists.","unknown_portfolio_traffic_report":"Traffic report not found."},"widget_placement":{"input_name":"widget-bubble-side","default_side":"right","default_bottom_offset":16,"sides":{"left":"Left","right":"Right"},"bottom_offset":{"min":0,"max":240}},"session_timeout":{"prompt_delay_ms":60000,"auto_logout_ms":120000,"texts":{"confirm":"Yes","dismiss":"No","prompt":"Log out due to inactivity?"},"component_classes":{"actions":"session-timeout-actions d-flex flex-shrink-0 gap-2","container":"session-timeout-banner position-fixed start-0 end-0 border-top py-3 w-100 d-none","container_hidden":"d-none","container_visible":"d-block","inner":"container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3","message":"session-timeout-message fw-semibold mb-0"},"theme_classes":{"dark":"bg-dark-subtle text-light border-secondary-subtle","light":"bg-body-secondary text-dark border-light-subtle"}},"auto_logout":{"storage_key":"loopaware_dashboard_auto_logout","min_prompt_seconds":10,"max_prompt_seconds":3600,"min_logout_seconds":20,"max_logout_seconds":7200,"minimum_gap_seconds":5}}</script>
     <script>
       function showLogoutOverlay() {
         var overlay = document.getElementById('logout-overlay');
@@ -1558,7 +1558,7 @@
           document.getElementById(elementIds.traffic_interval_30days),
           document.getElementById(elementIds.traffic_interval_all)
         ].filter(function(input) { return input; });
-        var timezonesMap = document.getElementById(elementIds.timezones_map);
+        var locationsMap = document.getElementById(elementIds.locations_map);
         var trafficTrendChart = document.getElementById('traffic-trend-chart');
         var trafficEngagementSummary = document.getElementById('traffic-engagement-summary');
         var trafficAttributionChart = document.getElementById('traffic-attribution-chart');
@@ -1714,7 +1714,7 @@
         var apiSiteVisitAttributionSuffix = apiPaths.site_visit_attribution || '';
         var apiSiteVisitEngagementSuffix = apiPaths.site_visit_engagement || '';
         var apiSiteVisitDevicesSuffix = apiPaths.site_visit_devices || '';
-        var apiSiteVisitTimezonesSuffix = apiPaths.site_visit_timezones || '';
+        var apiSiteVisitLocationsSuffix = apiPaths.site_visit_locations || '';
         var apiSiteVisitExportSuffix = apiPaths.site_visit_export || '';
         var apiPortfolioTrafficReportEndpoint = apiUrl(apiPaths.portfolio_traffic_report || '');
         var apiPortfolioTrafficReportsEndpoint = apiUrl(apiPaths.portfolio_traffic_reports || '');
@@ -1776,7 +1776,7 @@
         var subscribersPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.subscribers ? parsedConfig.placeholders.subscribers : 'No subscribers yet.';
         var topPagesPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.top_pages ? parsedConfig.placeholders.top_pages : 'No visits yet.';
         var deviceTypesPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.device_types ? parsedConfig.placeholders.device_types : 'No device data yet.';
-        var timezonesPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.timezones ? parsedConfig.placeholders.timezones : 'No timezone data yet.';
+        var locationsPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.locations ? parsedConfig.placeholders.locations : 'No location data yet.';
         var sentryIssuesPlaceholder = 'No LA Sentry issues yet.';
         var sentrySelectIssueMessage = 'Select an issue to inspect the latest occurrence.';
         var validationMessageKeyNameRequired = 'name_required';
@@ -5624,8 +5624,8 @@
           });
         }
 
-        // Generated by tests/scripts/generate-timezone-world-map.mjs from world-atlas Natural Earth data.
-        var timezoneWorldLandPath = [
+        // Generated by tests/scripts/generate-location-world-map.mjs from world-atlas Natural Earth data.
+        var locationWorldLandPath = [
           'M261,283L260,284L260,285L256,285L253,285L250,284L250,284L250,284L253,284L257,284L258,283L259,283ZM95,282L91,283L89,282L88,282L88,281L87,281L88,280L91,281L93,281L94,282ZM285,280L287,281L288,282L288,283L288,283L285,284L282,284L279,285L276,285L272,285L270,284L270,284L274,283L275,283L276,282L277,281L278,281L279,280L280,280L282,280ZM158,273L160,273L162,272L161,273L160,273L157,273L156,273L156,272ZM151,272L153,273L152,273L150,273L148,272L149,272ZM195,270L197,270L199,270L200,271L198,271L196,271L194,271L192,271L190,271L189,270L190,270L193,270ZM246,268L246,269L246,270L245,270L243,271L242,271L239,271L240,270L238,270L236,271L235,270L235,269L237,269L238,269L240,269L240,268L240,267L240,266L241,265L243,265L244,265L244,266L245,267L245,268ZM60,291L60,291L60,291L60,291L62,290L65,291L65,291L65,291L66,290L66,290L67,290L67,290L67,290L69,291L71,290L72,290L77,290L78,290L79,290L82,291L86,291L90,292L97,292L101,292L108,292L112,293L117,292L121,292L122,291L115,291L110,290L1',
           '08,290L104,289L104,289L105,288L106,287L105,287L102,286L101,286L99,285L103,285L107,285L109,286L112,285L115,284L116,284L115,283L113,283L111,282L107,282L104,282L101,282L100,281L98,281L97,280L96,278L97,278L98,279L101,279L104,278L105,279L108,279L110,279L112,278L114,278L116,277L116,277L116,276L116,276L118,275L119,276L122,276L124,275L126,275L129,275L131,275L133,274L135,274L136,274L137,274L140,274L142,274L144,274L146,274L149,274L151,274L153,274L156,274L158,274L160,274L162,274L164,273L166,274L168,273L170,273L171,273L172,274L173,275L175,274L177,275L179,275L181,275L183,275L185,275L188,275L190,275L192,276L193,275L192,274L191,274L189,274L188,273L188,272L187,271L188,271L191,271L193,271L195,272L196,272L197,273L199,273L202,272L204,272L206,272L208,272L210,272L211,271L213,272L215,272L217,272L218,272L220,273L222,273L224,273L226,272L226,272L228,273L230,272L232,273L233,273L235,273L237,273L239,272L241,272L243,272L245,272L247,271L248,271L248,270L248,269L247,269L247,268',
           'L246,267L246,267L246,266L246,266L247,265L247,264L248,264L247,263L247,262L248,261L249,261L250,260L251,260L252,259L253,259L254,258L255,258L257,258L258,257L259,257L260,257L261,256L262,256L264,255L265,256L264,256L262,257L262,257L260,257L259,257L258,258L257,258L256,258L256,259L256,260L256,260L255,261L254,261L253,261L252,262L251,263L251,263L251,264L252,264L253,265L255,265L255,266L256,267L256,267L257,268L257,268L258,270L258,271L258,271L259,272L259,273L258,274L257,274L255,274L254,275L253,275L250,276L248,276L246,277L244,277L242,278L240,278L237,278L234,278L231,278L232,279L234,279L236,279L237,280L235,280L233,280L230,281L230,281L230,282L232,283L232,283L234,284L238,284L241,284L243,285L246,286L250,286L255,286L257,287L261,287L262,288L263,289L265,288L268,288L271,287L274,287L277,286L281,286L285,286L289,287L290,286L292,286L296,286L300,285L303,285L306,285L310,284L312,284L311,283L311,283L311,282L307,282L304,282L301,282L300,282L300,281L301,280L304,280L306,279L308,279',
@@ -5668,91 +5668,11 @@
           '6L289,47L289,48L288,50L285,50L283,49L280,49L278,48L277,46L274,44L273,43L273,41L271,40L271,39L270,38L272,36L274,35L275,35L275,33L273,34L272,34L271,35L269,34L269,33L269,32L271,32L274,32L271,31L270,31L268,31L267,31L269,29L268,28L266,27L264,25L262,25L262,24L258,23L254,23L250,23L246,23L244,23L241,22L245,21L249,21L242,21L238,20L238,19L244,18L250,18L251,17L247,16L248,16L254,15L256,14L256,14L260,13L265,13L270,13L272,14L276,13L280,13L282,13L286,14L282,13L282,12L288,11L294,11L296,11L302,11Z'
         ].join('');
 
-        var timezoneMapCoordinates = Object.freeze({
-          'UTC': { latitude: 0, longitude: 0, label: 'UTC' },
-          'Etc/UTC': { latitude: 0, longitude: 0, label: 'UTC' },
-          'Etc/Unknown': { latitude: -53, longitude: 152, label: 'Unknown' },
-          'America/Los_Angeles': { latitude: 34.0522, longitude: -118.2437, label: 'Los Angeles' },
-          'America/Denver': { latitude: 39.7392, longitude: -104.9903, label: 'Denver' },
-          'America/Chicago': { latitude: 41.8781, longitude: -87.6298, label: 'Chicago' },
-          'America/New_York': { latitude: 40.7128, longitude: -74.006, label: 'New York' },
-          'America/Toronto': { latitude: 43.6532, longitude: -79.3832, label: 'Toronto' },
-          'America/Mexico_City': { latitude: 19.4326, longitude: -99.1332, label: 'Mexico City' },
-          'America/Sao_Paulo': { latitude: -23.5505, longitude: -46.6333, label: 'Sao Paulo' },
-          'America/Argentina/Buenos_Aires': { latitude: -34.6037, longitude: -58.3816, label: 'Buenos Aires' },
-          'Europe/London': { latitude: 51.5072, longitude: -0.1276, label: 'London' },
-          'Europe/Paris': { latitude: 48.8566, longitude: 2.3522, label: 'Paris' },
-          'Europe/Berlin': { latitude: 52.52, longitude: 13.405, label: 'Berlin' },
-          'Europe/Moscow': { latitude: 55.7558, longitude: 37.6173, label: 'Moscow' },
-          'Africa/Cairo': { latitude: 30.0444, longitude: 31.2357, label: 'Cairo' },
-          'Africa/Johannesburg': { latitude: -26.2041, longitude: 28.0473, label: 'Johannesburg' },
-          'Asia/Dubai': { latitude: 25.2048, longitude: 55.2708, label: 'Dubai' },
-          'Asia/Calcutta': { latitude: 22.5726, longitude: 88.3639, label: 'Calcutta' },
-          'Asia/Kolkata': { latitude: 22.5726, longitude: 88.3639, label: 'Kolkata' },
-          'Asia/Bangkok': { latitude: 13.7563, longitude: 100.5018, label: 'Bangkok' },
-          'Asia/Singapore': { latitude: 1.3521, longitude: 103.8198, label: 'Singapore' },
-          'Asia/Hong_Kong': { latitude: 22.3193, longitude: 114.1694, label: 'Hong Kong' },
-          'Asia/Shanghai': { latitude: 31.2304, longitude: 121.4737, label: 'Shanghai' },
-          'Asia/Tokyo': { latitude: 35.6762, longitude: 139.6503, label: 'Tokyo' },
-          'Australia/Sydney': { latitude: -33.8688, longitude: 151.2093, label: 'Sydney' },
-          'Pacific/Auckland': { latitude: -36.8509, longitude: 174.7645, label: 'Auckland' }
-        });
-
-        var timezoneRegionCoordinates = Object.freeze({
-          Africa: { latitude: 4, longitude: 21 },
-          America: { latitude: 28, longitude: -96 },
-          Antarctica: { latitude: -72, longitude: 35 },
-          Arctic: { latitude: 72, longitude: 0 },
-          Asia: { latitude: 29, longitude: 88 },
-          Atlantic: { latitude: 0, longitude: -30 },
-          Australia: { latitude: -25, longitude: 134 },
-          Europe: { latitude: 50, longitude: 14 },
-          Indian: { latitude: -15, longitude: 75 },
-          Pacific: { latitude: -12, longitude: -150 }
-        });
-
         function clampNumber(value, minimum, maximum) {
           return Math.max(minimum, Math.min(maximum, value));
         }
 
-        function formatTimezoneMapLabel(timezone) {
-          var normalizedTimezone = String(timezone || '').trim();
-          if (!normalizedTimezone || normalizedTimezone === 'Etc/Unknown') {
-            return 'Unknown';
-          }
-          if (normalizedTimezone === 'UTC' || normalizedTimezone === 'Etc/UTC') {
-            return 'UTC';
-          }
-          var parts = normalizedTimezone.split('/');
-          return String(parts[parts.length - 1] || normalizedTimezone).replace(/_/g, ' ');
-        }
-
-        function hashTimezoneName(timezone) {
-          var hash = 0;
-          var normalizedTimezone = String(timezone || '');
-          for (var characterIndex = 0; characterIndex < normalizedTimezone.length; characterIndex += 1) {
-            hash = (hash * 31 + normalizedTimezone.charCodeAt(characterIndex)) % 9973;
-          }
-          return hash;
-        }
-
-        function resolveTimezoneCoordinates(timezone) {
-          var normalizedTimezone = String(timezone || '').trim();
-          var knownCoordinates = timezoneMapCoordinates[normalizedTimezone];
-          if (knownCoordinates) {
-            return knownCoordinates;
-          }
-          var region = normalizedTimezone.split('/')[0] || '';
-          var regionCoordinates = timezoneRegionCoordinates[region] || timezoneMapCoordinates['Etc/Unknown'];
-          var hash = hashTimezoneName(normalizedTimezone);
-          return {
-            latitude: clampNumber(regionCoordinates.latitude + ((hash % 13) - 6) * 1.4, -74, 74),
-            longitude: clampNumber(regionCoordinates.longitude + (((hash >> 3) % 17) - 8) * 2.2, -176, 176),
-            label: formatTimezoneMapLabel(normalizedTimezone)
-          };
-        }
-
-        function projectTimezoneCoordinates(coordinates, mapWidth, mapHeight) {
+        function projectLocationCoordinates(coordinates, mapWidth, mapHeight) {
           var longitude = clampNumber(Number(coordinates.longitude) || 0, -180, 180);
           var latitude = clampNumber(Number(coordinates.latitude) || 0, -80, 84);
           var projectedDegreeSize = mapHeight / 180;
@@ -5762,7 +5682,7 @@
           };
         }
 
-        function reserveTimezoneLabelBox(labelBoxes, labelLeft, preferredTop, labelWidth, labelHeight, mapHeight) {
+        function reserveLocationLabelBox(labelBoxes, labelLeft, preferredTop, labelWidth, labelHeight, mapHeight) {
           var labelTop = clampNumber(preferredTop, 10, mapHeight - labelHeight - 10);
           var labelBottom = labelTop + labelHeight;
           var labelRight = labelLeft + labelWidth;
@@ -5783,18 +5703,18 @@
           return labelTop;
         }
 
-        function renderTimezones(timezones) {
-          if (!timezonesMap) {
+        function renderLocations(locations) {
+          if (!locationsMap) {
             return;
           }
-          var items = Array.isArray(timezones) ? timezones : [];
+          var items = Array.isArray(locations) ? locations : [];
           var maximum = items.reduce(function(currentMaximum, entry) {
             var value = Number(entry && entry.visit_count);
             return Math.max(currentMaximum, Number.isFinite(value) ? value : 0);
           }, 0);
-          timezonesMap.innerHTML = '';
+          locationsMap.innerHTML = '';
           if (items.length === 0 || maximum <= 0) {
-            renderChartMessage(timezonesMap, timezonesPlaceholder);
+            renderChartMessage(locationsMap, locationsPlaceholder);
             return;
           }
 
@@ -5809,11 +5729,13 @@
           var labelBoxes = [];
           var svg = document.createElementNS(namespace, 'svg');
           var accessibleLabel = items.map(function(entry) {
-            return String(entry && entry.timezone ? entry.timezone : 'Etc/Unknown') + ' ' + String(Number(entry && entry.visit_count) || 0) + ' visits';
+            var confidenceValue = Number(entry && entry.confidence);
+            var confidenceText = Number.isFinite(confidenceValue) ? String(confidenceValue) : '0';
+            return String(entry && entry.label ? entry.label : 'Unknown location') + ' ' + String(Number(entry && entry.visit_count) || 0) + ' visits from ' + String(entry && entry.source ? entry.source : 'unknown') + ' confidence ' + confidenceText;
           }).join(', ');
           svg.setAttribute('viewBox', '0 0 ' + mapWidth + ' ' + mapHeight);
           svg.setAttribute('role', 'img');
-          svg.setAttribute('aria-label', 'Timezone visit map: ' + accessibleLabel);
+          svg.setAttribute('aria-label', 'Visitor location map: ' + accessibleLabel);
           svg.setAttribute('data-map-source', 'natural-earth-110m');
           svg.setAttribute('data-projection', 'equirectangular');
 
@@ -5827,13 +5749,13 @@
 
           var land = document.createElementNS(namespace, 'path');
           land.setAttribute('class', 'traffic-map__land');
-          land.setAttribute('d', timezoneWorldLandPath);
+          land.setAttribute('d', locationWorldLandPath);
           land.setAttribute('data-map-source', 'natural-earth-110m');
           land.setAttribute('aria-hidden', 'true');
           svg.appendChild(land);
 
           [-120, -60, 0, 60, 120].forEach(function(longitude) {
-            var projected = projectTimezoneCoordinates({ latitude: 0, longitude: longitude }, mapWidth, mapHeight);
+            var projected = projectLocationCoordinates({ latitude: 0, longitude: longitude }, mapWidth, mapHeight);
             var line = document.createElementNS(namespace, 'line');
             line.setAttribute('class', 'traffic-map__grid');
             line.setAttribute('x1', projected.x.toFixed(2));
@@ -5843,7 +5765,7 @@
             svg.appendChild(line);
           });
           [-45, 0, 45].forEach(function(latitude) {
-            var projected = projectTimezoneCoordinates({ latitude: latitude, longitude: 0 }, mapWidth, mapHeight);
+            var projected = projectLocationCoordinates({ latitude: latitude, longitude: 0 }, mapWidth, mapHeight);
             var line = document.createElementNS(namespace, 'line');
             line.setAttribute('class', latitude === 0 ? 'traffic-map__equator' : 'traffic-map__grid');
             line.setAttribute('x1', '0');
@@ -5858,17 +5780,28 @@
             if (!Number.isFinite(count) || count < 0) {
               count = 0;
             }
-            var timezone = String(entry && entry.timezone ? entry.timezone : 'Etc/Unknown');
-            var coordinates = resolveTimezoneCoordinates(timezone);
-            var projected = projectTimezoneCoordinates(coordinates, mapWidth, mapHeight);
+            var labelText = String(entry && entry.label ? entry.label : 'Unknown location');
+            var source = String(entry && entry.source ? entry.source : 'unknown');
+            var signal = String(entry && entry.signal ? entry.signal : 'missing_signal');
+            var confidence = Number(entry && entry.confidence);
+            if (!Number.isFinite(confidence)) {
+              confidence = 0;
+            }
+            var country = String(entry && entry.country ? entry.country : '');
+            var region = String(entry && entry.region ? entry.region : '');
+            var city = String(entry && entry.city ? entry.city : '');
+            var coordinates = {
+              latitude: Number(entry && entry.latitude),
+              longitude: Number(entry && entry.longitude)
+            };
+            var projected = projectLocationCoordinates(coordinates, mapWidth, mapHeight);
             var radius = bubbleMinimumRadius + Math.sqrt(count / maximum) * (bubbleMaximumRadius - bubbleMinimumRadius);
             var bubbleX = clampNumber(projected.x, radius + bubbleMargin, mapWidth - radius - bubbleMargin);
             var bubbleY = clampNumber(projected.y, radius + bubbleMargin, mapHeight - radius - bubbleMargin);
-            var labelText = coordinates.label || formatTimezoneMapLabel(timezone);
             var labelWidth = clampNumber(labelText.length * 6.5 + 18, 58, 130);
             var labelLeft = clampNumber(bubbleX - (labelWidth / 2), 8, mapWidth - labelWidth - 8);
             var labelPreferredTop = bubbleY < mapHeight * 0.52 ? bubbleY + radius + labelGap : bubbleY - radius - labelHeight - labelGap;
-            var labelTop = reserveTimezoneLabelBox(labelBoxes, labelLeft, labelPreferredTop, labelWidth, labelHeight, mapHeight);
+            var labelTop = reserveLocationLabelBox(labelBoxes, labelLeft, labelPreferredTop, labelWidth, labelHeight, mapHeight);
             var labelCenterX = labelLeft + (labelWidth / 2);
             var labelCenterY = labelTop + (labelHeight / 2);
             var labelTextX = labelCenterX;
@@ -5876,10 +5809,16 @@
             var connectorStartY = labelCenterY < bubbleY ? bubbleY - radius : bubbleY + radius;
             var group = document.createElementNS(namespace, 'g');
             group.setAttribute('class', 'traffic-map__marker');
-            group.setAttribute('data-timezone', timezone);
+            group.setAttribute('data-location', labelText);
+            group.setAttribute('data-location-source', source);
+            group.setAttribute('data-location-signal', signal);
+            group.setAttribute('data-location-country', country);
+            group.setAttribute('data-location-region', region);
+            group.setAttribute('data-location-city', city);
+            group.setAttribute('data-location-confidence', String(confidence));
             group.setAttribute('data-visit-count', count.toString());
             var title = document.createElementNS(namespace, 'title');
-            title.textContent = timezone + ': ' + count.toString() + ' visits';
+            title.textContent = labelText + ' from ' + source + ' signal ' + signal + ' with confidence ' + String(confidence) + ': ' + count.toString() + ' visits';
             group.appendChild(title);
 
             var connector = document.createElementNS(namespace, 'line');
@@ -5895,7 +5834,13 @@
             circle.setAttribute('cx', bubbleX.toFixed(2));
             circle.setAttribute('cy', bubbleY.toFixed(2));
             circle.setAttribute('r', radius.toFixed(2));
-            circle.setAttribute('data-timezone', timezone);
+            circle.setAttribute('data-location', labelText);
+            circle.setAttribute('data-location-source', source);
+            circle.setAttribute('data-location-signal', signal);
+            circle.setAttribute('data-location-country', country);
+            circle.setAttribute('data-location-region', region);
+            circle.setAttribute('data-location-city', city);
+            circle.setAttribute('data-location-confidence', String(confidence));
             circle.setAttribute('data-visit-count', count.toString());
             circle.setAttribute('data-latitude', String(coordinates.latitude));
             circle.setAttribute('data-longitude', String(coordinates.longitude));
@@ -5906,7 +5851,13 @@
             countLabel.setAttribute('x', bubbleX.toFixed(2));
             countLabel.setAttribute('y', bubbleY.toFixed(2));
             countLabel.setAttribute('font-size', clampNumber(radius * (count >= 100 ? 0.58 : 0.72), 7, 14).toFixed(2));
-            countLabel.setAttribute('data-timezone', timezone);
+            countLabel.setAttribute('data-location', labelText);
+            countLabel.setAttribute('data-location-source', source);
+            countLabel.setAttribute('data-location-signal', signal);
+            countLabel.setAttribute('data-location-country', country);
+            countLabel.setAttribute('data-location-region', region);
+            countLabel.setAttribute('data-location-city', city);
+            countLabel.setAttribute('data-location-confidence', String(confidence));
             countLabel.setAttribute('aria-hidden', 'true');
             countLabel.textContent = count.toString();
             group.appendChild(countLabel);
@@ -5918,7 +5869,13 @@
             labelBox.setAttribute('width', labelWidth.toFixed(2));
             labelBox.setAttribute('height', String(labelHeight));
             labelBox.setAttribute('rx', '11');
-            labelBox.setAttribute('data-timezone', timezone);
+            labelBox.setAttribute('data-location', labelText);
+            labelBox.setAttribute('data-location-source', source);
+            labelBox.setAttribute('data-location-signal', signal);
+            labelBox.setAttribute('data-location-country', country);
+            labelBox.setAttribute('data-location-region', region);
+            labelBox.setAttribute('data-location-city', city);
+            labelBox.setAttribute('data-location-confidence', String(confidence));
             group.appendChild(labelBox);
 
             var label = document.createElementNS(namespace, 'text');
@@ -5926,14 +5883,20 @@
             label.setAttribute('x', labelTextX.toFixed(2));
             label.setAttribute('y', labelCenterY.toFixed(2));
             label.setAttribute('text-anchor', 'middle');
-            label.setAttribute('data-timezone', timezone);
+            label.setAttribute('data-location', labelText);
+            label.setAttribute('data-location-source', source);
+            label.setAttribute('data-location-signal', signal);
+            label.setAttribute('data-location-country', country);
+            label.setAttribute('data-location-region', region);
+            label.setAttribute('data-location-city', city);
+            label.setAttribute('data-location-confidence', String(confidence));
             label.textContent = labelText;
             group.appendChild(label);
 
             svg.appendChild(group);
           });
 
-          timezonesMap.appendChild(svg);
+          locationsMap.appendChild(svg);
         }
 
         function renderChartMessage(container, message) {
@@ -7297,7 +7260,7 @@
           setVisitCounts(0, 0);
           renderTopPages([]);
           renderDeviceTypes([]);
-          renderTimezones([]);
+          renderLocations([]);
           renderTrendChart([]);
           renderEngagementSummary({});
           renderBarChart(trafficAttributionChart, [], { emptyMessage: 'No source data yet.' });
@@ -7383,19 +7346,19 @@
           renderChartMessage(deviceTypesChart, message);
         });
 
-        var timezonesEndpoint = trafficEndpoint(selectedSiteId, apiSiteVisitTimezonesSuffix, intervalSnapshot);
-        fetchJSON(timezonesEndpoint).then(function(payload) {
+        var locationsEndpoint = trafficEndpoint(selectedSiteId, apiSiteVisitLocationsSuffix, intervalSnapshot);
+        fetchJSON(locationsEndpoint).then(function(payload) {
           if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
           }
-          renderTimezones(payload.timezones || []);
+          renderLocations(payload.locations || []);
         }).catch(function(error) {
           if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
           }
           var message = error.message || statusMessages.load_failed || '';
           showTrafficStatus(message);
-          renderChartMessage(timezonesMap, message);
+          renderChartMessage(locationsMap, message);
         });
       }
 

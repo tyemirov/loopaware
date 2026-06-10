@@ -28,7 +28,7 @@ const labelCases = [
   { selector: '#dashboard-section-tab-traffic', text: 'Traffic' },
   { selector: '#traffic-pages-heading', text: 'Pages' },
   { selector: '#traffic-devices-heading', text: 'Devices' },
-  { selector: '#traffic-timezones-heading', text: 'Timezones' },
+  { selector: '#traffic-locations-heading', text: 'Locations' },
   { selector: 'label[for="traffic-interval-1day"]', text: '1 day' },
   { selector: 'label[for="traffic-interval-30days"]', text: '30 days' },
   { selector: 'label[for="traffic-interval-all"]', text: 'All' },

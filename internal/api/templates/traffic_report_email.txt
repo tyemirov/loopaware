@@ -14,7 +14,7 @@ Devices:
 {{ if .Devices }}{{ range .Devices }}- {{ .DeviceType }}: {{ .VisitCount }} visit{{ if ne .VisitCount 1 }}s{{ end }}
 {{ end }}{{ else }}- No device data recorded.
 {{ end }}
-Timezones:
-{{ if .Timezones }}{{ range .Timezones }}- {{ .Timezone }}: {{ .VisitCount }} visit{{ if ne .VisitCount 1 }}s{{ end }}
-{{ end }}{{ else }}- No timezone data recorded.
+Locations:
+{{ if .Locations }}{{ range .Locations }}- {{ .Label }} ({{ .Source }}: {{ .Signal }}, confidence {{ .Confidence }}): {{ .VisitCount }} visit{{ if ne .VisitCount 1 }}s{{ end }}
+{{ end }}{{ else }}- No location data recorded.
 {{ end }}{{ end }}

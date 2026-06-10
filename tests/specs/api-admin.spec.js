@@ -577,9 +577,17 @@ test.describe("admin api visit stats", () => {
     const trafficURL = `${site.allowed_origin}/csv-visit`;
     await apiRequest({
       baseURL: config.baseURL,
-      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(trafficURL)}&visitor_id=33333333-3333-3333-3333-333333333333&screen_resolution=1920x1080&viewport=1440x900&timezone=America%2FLos_Angeles`,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(trafficURL)}&visitor_id=33333333-3333-3333-3333-333333333333&screen_resolution=1920x1080&viewport=1440x900&timezone=America%2FLos_Angeles&locale=en-US`,
       method: "GET",
-      headers: { Origin: site.allowed_origin, "User-Agent": "Mozilla/5.0 Firefox/125.0" }
+      headers: {
+        Origin: site.allowed_origin,
+        "User-Agent": "Mozilla/5.0 Firefox/125.0",
+        "CF-IPCountry": "US",
+        "CF-Region-Code": "CA",
+        "CF-IPCity": "San Francisco",
+        "CF-IPLatitude": "37.7749",
+        "CF-IPLongitude": "-122.4194"
+      }
     });
     const { response, payload } = await adminRequest({
       path: `/api/sites/${site.id}/visits/export?interval=all`,
@@ -589,9 +597,13 @@ test.describe("admin api visit stats", () => {
     expect(response.headers.get("content-type") || "").toContain("text/csv");
     expect(response.headers.get("content-disposition") || "").toContain(`traffic-${site.id}-all.csv`);
     const csvPayload = String(payload);
-    expect(csvPayload).toContain("occurred_at,url,path,page_title,visitor_id,referrer,ip,country,browser,user_agent,screen_resolution,viewport,timezone");
+    expect(csvPayload).toContain("occurred_at,url,path,page_title,visitor_id,referrer,ip,country,browser,user_agent,screen_resolution,viewport,timezone_signal,locale_signal,edge_geo_source,edge_geo_country,edge_geo_region,edge_geo_city,edge_geo_latitude,edge_geo_longitude,inferred_location,location_country,location_region,location_city,location_source,location_signal,location_confidence");
     expect(csvPayload).toContain(trafficURL);
     expect(csvPayload).toContain("America/Los_Angeles");
+    expect(csvPayload).toContain("cloudflare");
+    expect(csvPayload).toContain("San Francisco");
+    expect(csvPayload).toContain("edge_geo");
+    expect(csvPayload).toContain("99");
   });
 
   test("rejects visit stats for unauthorized user", async () => {
@@ -803,8 +815,8 @@ test.describe("admin api visit stats", () => {
     expect(Array.isArray(payload.top_viewports)).toBe(true);
   });
 
-  test("returns timezone distribution", async () => {
-    const site = await createAdminSite("Timezone Distribution");
+  test("returns location distribution", async () => {
+    const site = await createAdminSite("Location Distribution");
 
     await apiRequest({
       baseURL: config.baseURL,
@@ -826,6 +838,25 @@ test.describe("admin api visit stats", () => {
     });
     await apiRequest({
       baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/locale`)}&locale=${encodeURIComponent("en-US")}`,
+      method: "GET",
+      headers: { Origin: site.allowed_origin },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/edge`)}&timezone=${encodeURIComponent("Europe/London")}&locale=${encodeURIComponent("en-GB")}`,
+      method: "GET",
+      headers: {
+        Origin: site.allowed_origin,
+        "CF-IPCountry": "US",
+        "CF-Region-Code": "CA",
+        "CF-IPCity": "San Francisco",
+        "CF-IPLatitude": "37.7749",
+        "CF-IPLongitude": "-122.4194"
+      },
+    });
+    await apiRequest({
+      baseURL: config.baseURL,
       path: `/public/visits?site_id=${encodeURIComponent(site.id)}&url=${encodeURIComponent(`${site.allowed_origin}/bot`)}&timezone=${encodeURIComponent("Asia/Tokyo")}`,
       method: "GET",
       headers: {
@@ -835,16 +866,25 @@ test.describe("admin api visit stats", () => {
     });
 
     const { response, payload } = await adminRequest({
-      path: `/api/sites/${site.id}/visits/timezones`,
+      path: `/api/sites/${site.id}/visits/locations`,
       method: "GET"
     });
     expect(response.status).toBe(200);
     expect(payload.limit).toBe(10);
 
-    const tzCounts = Object.fromEntries((payload.timezones || []).map((entry) => [entry.timezone, entry.visit_count]));
-    expect(tzCounts["America/New_York"]).toBe(2);
-    expect(tzCounts["Europe/London"]).toBe(1);
-    expect(tzCounts["Asia/Tokyo"]).toBeUndefined();
+    const locationCounts = Object.fromEntries((payload.locations || []).map((entry) => [`${entry.source}:${entry.signal}:${entry.label}`, entry.visit_count]));
+    expect(locationCounts["timezone:America/New_York:New York"]).toBe(2);
+    expect(locationCounts["timezone:Europe/London:London"]).toBe(1);
+    expect(locationCounts["locale:US:United States"]).toBe(1);
+    expect(locationCounts["edge_geo:cloudflare:US:CA:San Francisco:San Francisco, CA"]).toBe(1);
+    expect(locationCounts["timezone:Asia/Tokyo:Tokyo"]).toBeUndefined();
+    const edgeLocation = (payload.locations || []).find((entry) => entry.source === "edge_geo" && entry.signal === "cloudflare:US:CA:San Francisco");
+    expect(edgeLocation).toMatchObject({
+      country: "US",
+      region: "CA",
+      city: "San Francisco",
+      confidence: 95
+    });
   });
 
   test("rejects invalid device breakdown limit", async () => {
@@ -857,10 +897,10 @@ test.describe("admin api visit stats", () => {
     expect(payload.error).toBe("invalid_limit");
   });
 
-  test("rejects invalid timezone distribution limit", async () => {
-    const site = await createAdminSite("Timezone Distribution Invalid");
+  test("rejects invalid location distribution limit", async () => {
+    const site = await createAdminSite("Location Distribution Invalid");
     const { response, payload } = await adminRequest({
-      path: `/api/sites/${site.id}/visits/timezones?limit=0`,
+      path: `/api/sites/${site.id}/visits/locations?limit=0`,
       method: "GET"
     });
     expect(response.status).toBe(400);

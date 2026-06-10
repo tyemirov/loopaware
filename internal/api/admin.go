@@ -85,8 +85,8 @@ const (
 	visitEngagementMaxDays           = 90
 	deviceBreakdownDefaultLimit      = 10
 	deviceBreakdownMaxLimit          = 50
-	timezoneDistributionDefaultLimit = 10
-	timezoneDistributionMaxLimit     = 50
+	locationDistributionDefaultLimit = 10
+	locationDistributionMaxLimit     = 50
 	defaultSSEHeartbeatInterval      = 30 * time.Second
 	sseHeartbeatFrame                = ": heartbeat\n\n"
 )
@@ -314,16 +314,24 @@ type DeviceTypePoint struct {
 	VisitCount int64  `json:"visit_count"`
 }
 
-type TimezoneDistributionResponse struct {
+type LocationDistributionResponse struct {
 	SiteID    string          `json:"site_id"`
 	Interval  string          `json:"interval"`
 	Limit     int             `json:"limit"`
-	Timezones []TimezonePoint `json:"timezones"`
+	Locations []LocationPoint `json:"locations"`
 }
 
-type TimezonePoint struct {
-	Timezone   string `json:"timezone"`
-	VisitCount int64  `json:"visit_count"`
+type LocationPoint struct {
+	Label      string  `json:"label"`
+	Source     string  `json:"source"`
+	Signal     string  `json:"signal"`
+	Country    string  `json:"country"`
+	Region     string  `json:"region"`
+	City       string  `json:"city"`
+	Latitude   float64 `json:"latitude"`
+	Longitude  float64 `json:"longitude"`
+	Confidence int     `json:"confidence"`
+	VisitCount int64   `json:"visit_count"`
 }
 
 type TopPageEntry struct {
@@ -1269,13 +1277,13 @@ func (handlers *SiteHandlers) DeviceBreakdown(context *gin.Context) {
 	})
 }
 
-func (handlers *SiteHandlers) TimezoneDistribution(context *gin.Context) {
+func (handlers *SiteHandlers) LocationDistribution(context *gin.Context) {
 	site, _, ok := handlers.resolveAuthorizedSite(context)
 	if !ok {
 		return
 	}
 
-	limit, parseErr := parseTimezoneDistributionLimit(context.Query("limit"))
+	limit, parseErr := parseLocationDistributionLimit(context.Query("limit"))
 	if parseErr != nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidLimit})
 		return
@@ -1286,23 +1294,23 @@ func (handlers *SiteHandlers) TimezoneDistribution(context *gin.Context) {
 		return
 	}
 
-	var timezones []TimezoneDistributionStat
+	var locations []LocationDistributionStat
 	var err error
 	if interval.IsAll() {
-		timezones, err = handlers.statsProvider.TimezoneDistribution(context.Request.Context(), site.ID, limit)
+		locations, err = handlers.statsProvider.LocationDistribution(context.Request.Context(), site.ID, limit)
 	} else {
-		timezones, err = handlers.statsProvider.TimezoneDistributionForDays(context.Request.Context(), site.ID, interval.Days(), limit)
+		locations, err = handlers.statsProvider.LocationDistributionForDays(context.Request.Context(), site.ID, interval.Days(), limit)
 	}
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
 		return
 	}
 
-	context.JSON(http.StatusOK, TimezoneDistributionResponse{
+	context.JSON(http.StatusOK, LocationDistributionResponse{
 		SiteID:    site.ID,
 		Interval:  interval.Value(),
 		Limit:     limit,
-		Timezones: toTimezonePoints(timezones),
+		Locations: toLocationPoints(locations),
 	})
 }
 
@@ -1477,8 +1485,19 @@ func (handlers *SiteHandlers) ExportTraffic(context *gin.Context) {
 	context.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="traffic-%s-%s.csv"`, site.ID, interval.Value()))
 
 	csvWriter := csv.NewWriter(context.Writer)
-	_ = csvWriter.Write([]string{"occurred_at", "url", "path", "page_title", "visitor_id", "referrer", "ip", "country", "browser", "user_agent", "screen_resolution", "viewport", "timezone"})
+	_ = csvWriter.Write([]string{"occurred_at", "url", "path", "page_title", "visitor_id", "referrer", "ip", "country", "browser", "user_agent", "screen_resolution", "viewport", "timezone_signal", "locale_signal", "edge_geo_source", "edge_geo_country", "edge_geo_region", "edge_geo_city", "edge_geo_latitude", "edge_geo_longitude", "inferred_location", "location_country", "location_region", "location_city", "location_source", "location_signal", "location_confidence"})
 	for _, visit := range visits {
+		location := inferVisitLocation(visitLocationSignals{
+			Timezone:     visit.Timezone,
+			Locale:       visit.Locale,
+			IP:           visit.IP,
+			GeoSource:    visit.GeoSource,
+			GeoCountry:   visit.GeoCountry,
+			GeoRegion:    visit.GeoRegion,
+			GeoCity:      visit.GeoCity,
+			GeoLatitude:  visit.GeoLatitude,
+			GeoLongitude: visit.GeoLongitude,
+		})
 		record := []string{
 			visit.OccurredAt.UTC().Format(time.RFC3339),
 			sanitizeCSVCell(visit.URL),
@@ -1493,6 +1512,20 @@ func (handlers *SiteHandlers) ExportTraffic(context *gin.Context) {
 			sanitizeCSVCell(visit.ScreenResolution),
 			sanitizeCSVCell(visit.Viewport),
 			sanitizeCSVCell(visit.Timezone),
+			sanitizeCSVCell(visit.Locale),
+			sanitizeCSVCell(visit.GeoSource),
+			sanitizeCSVCell(visit.GeoCountry),
+			sanitizeCSVCell(visit.GeoRegion),
+			sanitizeCSVCell(visit.GeoCity),
+			strconv.FormatFloat(visit.GeoLatitude, 'f', -1, 64),
+			strconv.FormatFloat(visit.GeoLongitude, 'f', -1, 64),
+			sanitizeCSVCell(location.Label),
+			sanitizeCSVCell(location.Country),
+			sanitizeCSVCell(location.Region),
+			sanitizeCSVCell(location.City),
+			sanitizeCSVCell(location.Source),
+			sanitizeCSVCell(location.Signal),
+			strconv.Itoa(location.Confidence),
 		}
 		_ = csvWriter.Write(record)
 	}
@@ -2196,17 +2229,17 @@ func parseDeviceBreakdownLimit(rawValue string) (int, error) {
 	return limit, nil
 }
 
-func parseTimezoneDistributionLimit(rawValue string) (int, error) {
+func parseLocationDistributionLimit(rawValue string) (int, error) {
 	trimmedValue := strings.TrimSpace(rawValue)
 	if trimmedValue == "" {
-		return timezoneDistributionDefaultLimit, nil
+		return locationDistributionDefaultLimit, nil
 	}
 	limit, parseErr := strconv.Atoi(trimmedValue)
 	if parseErr != nil {
 		return 0, parseErr
 	}
-	if limit <= 0 || limit > timezoneDistributionMaxLimit {
-		return 0, errors.New("timezone distribution limit out of range")
+	if limit <= 0 || limit > locationDistributionMaxLimit {
+		return 0, errors.New("location distribution limit out of range")
 	}
 	return limit, nil
 }
@@ -2222,13 +2255,13 @@ func toDeviceTypePoints(stats []DeviceTypeStat) []DeviceTypePoint {
 	return points
 }
 
-func toTimezonePoints(stats []TimezoneDistributionStat) []TimezonePoint {
+func toLocationPoints(stats []LocationDistributionStat) []LocationPoint {
 	if len(stats) == 0 {
 		return nil
 	}
-	points := make([]TimezonePoint, 0, len(stats))
+	points := make([]LocationPoint, 0, len(stats))
 	for _, stat := range stats {
-		points = append(points, TimezonePoint(stat))
+		points = append(points, LocationPoint(stat))
 	}
 	return points
 }

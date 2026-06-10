@@ -120,6 +120,65 @@ func TestCollectVisitUsesQueryReferrerWhenHeaderMissing(testingT *testing.T) {
 	require.Equal(testingT, testVisitRefererQuery, stored.Referrer)
 }
 
+func TestCollectVisitStoresQueryLocale(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Visit Query Locale", testVisitOrigin, "owner@example.com")
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, testVisitQueryPrefix+site.ID+"&url="+testVisitOriginPage+"&locale=en-US", nil)
+	request.Header.Set("Origin", testVisitOrigin)
+	api.router.ServeHTTP(recorder, request)
+
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var stored model.SiteVisit
+	require.NoError(testingT, api.database.Order("occurred_at desc").First(&stored).Error)
+	require.Equal(testingT, "en-US", stored.Locale)
+}
+
+func TestCollectVisitFallsBackToPrimaryAcceptedLanguage(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Visit Accept Language", testVisitOrigin, "owner@example.com")
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, testVisitQueryPrefix+site.ID+"&url="+testVisitOriginPage, nil)
+	request.Header.Set("Origin", testVisitOrigin)
+	request.Header.Set("Accept-Language", "fr-CA,fr;q=0.8,en;q=0.6")
+	api.router.ServeHTTP(recorder, request)
+
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var stored model.SiteVisit
+	require.NoError(testingT, api.database.Order("occurred_at desc").First(&stored).Error)
+	require.Equal(testingT, "fr-CA", stored.Locale)
+}
+
+func TestCollectVisitStoresCloudflareGeoHeaders(testingT *testing.T) {
+	api := buildAPIHarness(testingT, nil, nil, nil)
+	site := insertSite(testingT, api.database, "Visit Cloudflare Geo", testVisitOrigin, "owner@example.com")
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, testVisitQueryPrefix+site.ID+"&url="+testVisitOriginPage, nil)
+	request.Header.Set("Origin", testVisitOrigin)
+	request.Header.Set("CF-IPCountry", "us")
+	request.Header.Set("CF-Region-Code", "CA")
+	request.Header.Set("CF-IPCity", "San Francisco")
+	request.Header.Set("CF-IPLatitude", "37.7749")
+	request.Header.Set("CF-IPLongitude", "-122.4194")
+	api.router.ServeHTTP(recorder, request)
+
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+
+	var stored model.SiteVisit
+	require.NoError(testingT, api.database.Order("occurred_at desc").First(&stored).Error)
+	require.Equal(testingT, "cloudflare", stored.GeoSource)
+	require.Equal(testingT, "US", stored.GeoCountry)
+	require.Equal(testingT, "CA", stored.GeoRegion)
+	require.Equal(testingT, "San Francisco", stored.GeoCity)
+	require.Equal(testingT, 37.7749, stored.GeoLatitude)
+	require.Equal(testingT, -122.4194, stored.GeoLongitude)
+}
+
 func TestCollectVisitMarksBotTraffic(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 	site := insertSite(testingT, api.database, "Visit Bot", testVisitOrigin, "owner@example.com")

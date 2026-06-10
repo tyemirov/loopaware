@@ -20,6 +20,11 @@ const (
 	visitScreenResolutionMaxLength = 20
 	visitViewportMaxLength         = 20
 	visitTimezoneMaxLength         = 60
+	visitLocaleMaxLength           = 35
+	visitGeoSourceMaxLength        = 30
+	visitGeoCountryMaxLength       = 3
+	visitGeoRegionMaxLength        = 80
+	visitGeoCityMaxLength          = 120
 	visitPageTitleMaxLength        = 200
 )
 
@@ -31,18 +36,25 @@ var (
 
 // SiteVisit captures a single page view.
 type SiteVisit struct {
-	ID               string    `gorm:"primaryKey;size:36"`
-	SiteID           string    `gorm:"not null;size:36;index;index:idx_site_visits_site_bot_occurred,priority:1;index:idx_site_visits_site_bot_path,priority:1;index:idx_site_visits_site_bot_visitor,priority:1;index:idx_site_visits_site_bot_resolution,priority:1;index:idx_site_visits_site_bot_viewport,priority:1;index:idx_site_visits_site_bot_timezone,priority:1"`
-	URL              string    `gorm:"size:500"`
-	Path             string    `gorm:"size:300;index;index:idx_site_visits_site_bot_path,priority:3"`
-	VisitorID        string    `gorm:"size:36;index;index:idx_site_visits_site_bot_visitor,priority:3"`
-	IP               string    `gorm:"size:64"`
-	UserAgent        string    `gorm:"size:400"`
-	Referrer         string    `gorm:"size:500"`
-	IsBot            bool      `gorm:"not null;default:false;index;index:idx_site_visits_site_bot_occurred,priority:2;index:idx_site_visits_site_bot_path,priority:2;index:idx_site_visits_site_bot_visitor,priority:2;index:idx_site_visits_site_bot_resolution,priority:2;index:idx_site_visits_site_bot_viewport,priority:2;index:idx_site_visits_site_bot_timezone,priority:2"`
-	ScreenResolution string    `gorm:"size:20;index:idx_site_visits_site_bot_resolution,priority:3"`
-	Viewport         string    `gorm:"size:20;index:idx_site_visits_site_bot_viewport,priority:3"`
-	Timezone         string    `gorm:"size:60;index:idx_site_visits_site_bot_timezone,priority:3"`
+	ID               string `gorm:"primaryKey;size:36"`
+	SiteID           string `gorm:"not null;size:36;index;index:idx_site_visits_site_bot_occurred,priority:1;index:idx_site_visits_site_bot_path,priority:1;index:idx_site_visits_site_bot_visitor,priority:1;index:idx_site_visits_site_bot_resolution,priority:1;index:idx_site_visits_site_bot_viewport,priority:1;index:idx_site_visits_site_bot_timezone,priority:1;index:idx_site_visits_site_bot_locale,priority:1;index:idx_site_visits_site_bot_geo_source,priority:1;index:idx_site_visits_site_bot_geo_country,priority:1"`
+	URL              string `gorm:"size:500"`
+	Path             string `gorm:"size:300;index;index:idx_site_visits_site_bot_path,priority:3"`
+	VisitorID        string `gorm:"size:36;index;index:idx_site_visits_site_bot_visitor,priority:3"`
+	IP               string `gorm:"size:64"`
+	UserAgent        string `gorm:"size:400"`
+	Referrer         string `gorm:"size:500"`
+	IsBot            bool   `gorm:"not null;default:false;index;index:idx_site_visits_site_bot_occurred,priority:2;index:idx_site_visits_site_bot_path,priority:2;index:idx_site_visits_site_bot_visitor,priority:2;index:idx_site_visits_site_bot_resolution,priority:2;index:idx_site_visits_site_bot_viewport,priority:2;index:idx_site_visits_site_bot_timezone,priority:2;index:idx_site_visits_site_bot_locale,priority:2;index:idx_site_visits_site_bot_geo_source,priority:2;index:idx_site_visits_site_bot_geo_country,priority:2"`
+	ScreenResolution string `gorm:"size:20;index:idx_site_visits_site_bot_resolution,priority:3"`
+	Viewport         string `gorm:"size:20;index:idx_site_visits_site_bot_viewport,priority:3"`
+	Timezone         string `gorm:"size:60;index:idx_site_visits_site_bot_timezone,priority:3"`
+	Locale           string `gorm:"size:35;index:idx_site_visits_site_bot_locale,priority:3"`
+	GeoSource        string `gorm:"size:30;index:idx_site_visits_site_bot_geo_source,priority:3"`
+	GeoCountry       string `gorm:"size:3;index:idx_site_visits_site_bot_geo_country,priority:3"`
+	GeoRegion        string `gorm:"size:80"`
+	GeoCity          string `gorm:"size:120"`
+	GeoLatitude      float64
+	GeoLongitude     float64
 	PageTitle        string    `gorm:"size:200"`
 	Status           string    `gorm:"size:20"`
 	OccurredAt       time.Time `gorm:"not null;index;index:idx_site_visits_site_bot_occurred,priority:3"`
@@ -60,6 +72,13 @@ type SiteVisitInput struct {
 	ScreenResolution string
 	Viewport         string
 	Timezone         string
+	Locale           string
+	GeoSource        string
+	GeoCountry       string
+	GeoRegion        string
+	GeoCity          string
+	GeoLatitude      float64
+	GeoLongitude     float64
 	PageTitle        string
 	Occurred         time.Time
 }
@@ -91,6 +110,11 @@ func NewSiteVisit(input SiteVisitInput) (SiteVisit, error) {
 	screenResolution := truncateString(strings.TrimSpace(input.ScreenResolution), visitScreenResolutionMaxLength)
 	viewport := truncateString(strings.TrimSpace(input.Viewport), visitViewportMaxLength)
 	timezone := truncateString(strings.TrimSpace(input.Timezone), visitTimezoneMaxLength)
+	locale := truncateString(strings.TrimSpace(input.Locale), visitLocaleMaxLength)
+	geoSource := truncateString(strings.TrimSpace(input.GeoSource), visitGeoSourceMaxLength)
+	geoCountry := truncateString(strings.ToUpper(strings.TrimSpace(input.GeoCountry)), visitGeoCountryMaxLength)
+	geoRegion := truncateString(strings.TrimSpace(input.GeoRegion), visitGeoRegionMaxLength)
+	geoCity := truncateString(strings.TrimSpace(input.GeoCity), visitGeoCityMaxLength)
 	pageTitle := truncateString(strings.TrimSpace(input.PageTitle), visitPageTitleMaxLength)
 
 	return SiteVisit{
@@ -106,6 +130,13 @@ func NewSiteVisit(input SiteVisitInput) (SiteVisit, error) {
 		ScreenResolution: screenResolution,
 		Viewport:         viewport,
 		Timezone:         timezone,
+		Locale:           locale,
+		GeoSource:        geoSource,
+		GeoCountry:       geoCountry,
+		GeoRegion:        geoRegion,
+		GeoCity:          geoCity,
+		GeoLatitude:      input.GeoLatitude,
+		GeoLongitude:     input.GeoLongitude,
 		PageTitle:        pageTitle,
 		Status:           VisitStatusRecorded,
 		OccurredAt:       occurred,

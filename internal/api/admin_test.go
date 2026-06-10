@@ -61,7 +61,7 @@ type failingStatsProvider struct {
 	visitAttributionError     error
 	visitEngagementError      error
 	deviceBreakdownError      error
-	timezoneDistributionError error
+	locationDistributionError error
 }
 
 func (provider *failingStatsProvider) FeedbackCount(context.Context, string) (int64, error) {
@@ -128,12 +128,12 @@ func (provider *failingStatsProvider) DeviceBreakdownForDays(context.Context, st
 	return api.DeviceBreakdownStat{}, provider.deviceBreakdownError
 }
 
-func (provider *failingStatsProvider) TimezoneDistribution(context.Context, string, int) ([]api.TimezoneDistributionStat, error) {
-	return nil, provider.timezoneDistributionError
+func (provider *failingStatsProvider) LocationDistribution(context.Context, string, int) ([]api.LocationDistributionStat, error) {
+	return nil, provider.locationDistributionError
 }
 
-func (provider *failingStatsProvider) TimezoneDistributionForDays(context.Context, string, int, int) ([]api.TimezoneDistributionStat, error) {
-	return nil, provider.timezoneDistributionError
+func (provider *failingStatsProvider) LocationDistributionForDays(context.Context, string, int, int) ([]api.LocationDistributionStat, error) {
+	return nil, provider.locationDistributionError
 }
 
 func newSiteTestHarness(testingT *testing.T) siteTestHarness {
@@ -1986,6 +1986,13 @@ func TestExportTrafficReturnsIntervalCSV(testingT *testing.T) {
 		ScreenResolution: "1920x1080",
 		Viewport:         "1440x900",
 		Timezone:         "@timezone",
+		Locale:           "en-US",
+		GeoSource:        "cloudflare",
+		GeoCountry:       "US",
+		GeoRegion:        "CA",
+		GeoCity:          "San Francisco",
+		GeoLatitude:      37.7749,
+		GeoLongitude:     -122.4194,
 		PageTitle:        "=Recent",
 		Occurred:         startOfToday.Add(2 * time.Hour),
 	})
@@ -2017,9 +2024,14 @@ func TestExportTrafficReturnsIntervalCSV(testingT *testing.T) {
 	require.Contains(testingT, recorder.Header().Get("Content-Type"), "text/csv")
 	require.Contains(testingT, recorder.Header().Get("Content-Disposition"), "traffic-"+site.ID+"-1day.csv")
 	body := recorder.Body.String()
-	require.Contains(testingT, body, "occurred_at,url,path,page_title,visitor_id,referrer,ip,country,browser,user_agent,screen_resolution,viewport,timezone")
+	require.Contains(testingT, body, "occurred_at,url,path,page_title,visitor_id,referrer,ip,country,browser,user_agent,screen_resolution,viewport,timezone_signal,locale_signal,edge_geo_source,edge_geo_country,edge_geo_region,edge_geo_city,edge_geo_latitude,edge_geo_longitude,inferred_location,location_country,location_region,location_city,location_source,location_signal,location_confidence")
 	require.Contains(testingT, body, "http://traffic-csv.example/recent")
 	require.Contains(testingT, body, "Firefox")
+	require.Contains(testingT, body, "en-US")
+	require.Contains(testingT, body, "San Francisco")
+	require.Contains(testingT, body, "cloudflare")
+	require.Contains(testingT, body, "edge_geo")
+	require.Contains(testingT, body, "97")
 	require.Contains(testingT, body, "'=Recent")
 	require.Contains(testingT, body, "'+referrer")
 	require.Contains(testingT, body, "'-Mozilla/5.0 Firefox/125.0")
@@ -2939,43 +2951,43 @@ func TestDeviceBreakdownReturnsErrorOnProviderFailure(testingT *testing.T) {
 	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
 }
 
-func TestTimezoneDistributionRequiresAuth(testingT *testing.T) {
+func TestLocationDistributionRequiresAuth(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 	site := model.Site{
 		ID:            storage.NewID(),
-		Name:          "Timezone Auth",
-		AllowedOrigin: "http://timezone-auth.example",
+		Name:          "Location Auth",
+		AllowedOrigin: "http://location-auth.example",
 		OwnerEmail:    testAdminEmailAddress,
 	}
 	require.NoError(testingT, harness.database.Create(&site).Error)
 
-	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/timezones", nil)
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/locations", nil)
 	context.Params = gin.Params{{Key: "id", Value: site.ID}}
 
-	harness.handlers.TimezoneDistribution(context)
+	harness.handlers.LocationDistribution(context)
 	require.Equal(testingT, http.StatusUnauthorized, recorder.Code)
 }
 
-func TestTimezoneDistributionReturnsTimezones(testingT *testing.T) {
+func TestLocationDistributionReturnsLocations(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 	site := model.Site{
 		ID:            storage.NewID(),
-		Name:          "Timezone Distribution",
-		AllowedOrigin: "http://timezone-dist.example",
+		Name:          "Location Distribution",
+		AllowedOrigin: "http://location-dist.example",
 		OwnerEmail:    testAdminEmailAddress,
 	}
 	require.NoError(testingT, harness.database.Create(&site).Error)
 
 	visitNY, err := model.NewSiteVisit(model.SiteVisitInput{
 		SiteID:   site.ID,
-		URL:      "https://timezone-dist.example/page",
+		URL:      "https://location-dist.example/page",
 		Timezone: "America/New_York",
 		Occurred: time.Now().UTC(),
 	})
 	require.NoError(testingT, err)
 	visitLondon, err := model.NewSiteVisit(model.SiteVisitInput{
 		SiteID:   site.ID,
-		URL:      "https://timezone-dist.example/other",
+		URL:      "https://location-dist.example/other",
 		Timezone: "Europe/London",
 		Occurred: time.Now().UTC(),
 	})
@@ -2983,57 +2995,63 @@ func TestTimezoneDistributionReturnsTimezones(testingT *testing.T) {
 	require.NoError(testingT, harness.database.Create(&visitNY).Error)
 	require.NoError(testingT, harness.database.Create(&visitLondon).Error)
 
-	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/timezones", nil)
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/locations", nil)
 	context.Params = gin.Params{{Key: "id", Value: site.ID}}
 	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
 
-	harness.handlers.TimezoneDistribution(context)
+	harness.handlers.LocationDistribution(context)
 	require.Equal(testingT, http.StatusOK, recorder.Code)
 
-	var response api.TimezoneDistributionResponse
+	var response api.LocationDistributionResponse
 	require.NoError(testingT, json.Unmarshal(recorder.Body.Bytes(), &response))
 	require.Equal(testingT, site.ID, response.SiteID)
 	require.Equal(testingT, 10, response.Limit)
-	require.Len(testingT, response.Timezones, 2)
+	require.Len(testingT, response.Locations, 2)
+	require.Equal(testingT, "London", response.Locations[0].Label)
+	require.Equal(testingT, "timezone", response.Locations[0].Source)
+	require.Equal(testingT, "Europe/London", response.Locations[0].Signal)
+	require.Equal(testingT, "New York", response.Locations[1].Label)
+	require.Equal(testingT, "timezone", response.Locations[1].Source)
+	require.Equal(testingT, "America/New_York", response.Locations[1].Signal)
 }
 
-func TestTimezoneDistributionRejectsInvalidLimit(testingT *testing.T) {
+func TestLocationDistributionRejectsInvalidLimit(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 	site := model.Site{
 		ID:            storage.NewID(),
-		Name:          "Timezone Limit",
-		AllowedOrigin: "http://timezone-limit.example",
+		Name:          "Location Limit",
+		AllowedOrigin: "http://location-limit.example",
 		OwnerEmail:    testAdminEmailAddress,
 	}
 	require.NoError(testingT, harness.database.Create(&site).Error)
 
-	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/timezones?limit=0", nil)
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/locations?limit=0", nil)
 	context.Params = gin.Params{{Key: "id", Value: site.ID}}
 	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
 
-	harness.handlers.TimezoneDistribution(context)
+	harness.handlers.LocationDistribution(context)
 	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
 	require.Contains(testingT, recorder.Body.String(), "invalid_limit")
 }
 
-func TestTimezoneDistributionReturnsErrorOnProviderFailure(testingT *testing.T) {
+func TestLocationDistributionReturnsErrorOnProviderFailure(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 	site := model.Site{
 		ID:            storage.NewID(),
-		Name:          "Timezone Error",
-		AllowedOrigin: "http://timezone-error.example",
+		Name:          "Location Error",
+		AllowedOrigin: "http://location-error.example",
 		OwnerEmail:    testAdminEmailAddress,
 	}
 	require.NoError(testingT, harness.database.Create(&site).Error)
 
-	statsProvider := &failingStatsProvider{timezoneDistributionError: errors.New(testStatsErrorMessage)}
+	statsProvider := &failingStatsProvider{locationDistributionError: errors.New(testStatsErrorMessage)}
 	handlers := api.NewSiteHandlers(harness.database, zap.NewNop(), testWidgetBaseURL, nil, statsProvider, nil)
 
-	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/timezones", nil)
+	recorder, context := newJSONContext(http.MethodGet, "/api/sites/"+site.ID+"/visits/locations", nil)
 	context.Params = gin.Params{{Key: "id", Value: site.ID}}
 	context.Set(testSessionContextKey, &api.CurrentUser{Email: testAdminEmailAddress, Role: api.RoleAdmin})
 
-	handlers.TimezoneDistribution(context)
+	handlers.LocationDistribution(context)
 	require.Equal(testingT, http.StatusInternalServerError, recorder.Code)
 }
 

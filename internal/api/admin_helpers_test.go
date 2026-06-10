@@ -108,11 +108,11 @@ func (provider *stubStatsProvider) DeviceBreakdownForDays(context.Context, strin
 	return DeviceBreakdownStat{}, nil
 }
 
-func (provider *stubStatsProvider) TimezoneDistribution(context.Context, string, int) ([]TimezoneDistributionStat, error) {
+func (provider *stubStatsProvider) LocationDistribution(context.Context, string, int) ([]LocationDistributionStat, error) {
 	return nil, nil
 }
 
-func (provider *stubStatsProvider) TimezoneDistributionForDays(context.Context, string, int, int) ([]TimezoneDistributionStat, error) {
+func (provider *stubStatsProvider) LocationDistributionForDays(context.Context, string, int, int) ([]LocationDistributionStat, error) {
 	return nil, nil
 }
 

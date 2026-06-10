@@ -74,13 +74,15 @@ implementation details:
 
 ### Traffic
 
-1. The pixel (`/pixel.js`) sends beacons to `GET /public/visits` with a stable visitor ID and the current URL.
-2. The server stores visits (including bot classification metadata) and serves aggregated stats to the dashboard (`GET /api/sites/:id/visits/stats`).
+1. The pixel (`/pixel.js`) sends beacons to `GET /public/visits` with a stable visitor ID, current URL, browser timezone, browser locale, viewport, and screen resolution.
+2. The server stores visits (including bot classification metadata, browser location hints, and supported edge geo headers) and serves aggregated stats to the dashboard (`GET /api/sites/:id/visits/stats`).
 3. Selected-site dashboard traffic endpoints accept `interval=all|1day|30days`; the dashboard defaults to `all`.
 4. Daily trend data is available at `GET /api/sites/:id/visits/trend` (default 7 days; optional `days` query parameter when no `interval` is supplied).
 5. Attribution breakdown data is available at `GET /api/sites/:id/visits/attribution` (default top 10 values per dimension; optional `limit` query parameter up to 50).
 6. Engagement data is available at `GET /api/sites/:id/visits/engagement` (default 30 days; optional `days` query parameter when no `interval` is supplied).
-7. Operators can download filtered selected-site traffic rows from `GET /api/sites/:id/visits/export`.
+7. Device breakdown data is available at `GET /api/sites/:id/visits/devices`.
+8. Inferred visitor locations are available at `GET /api/sites/:id/visits/locations`; edge geo is preferred when present, with timezone, locale, network, and unknown fallbacks plus confidence metadata.
+9. Operators can download filtered selected-site traffic rows from `GET /api/sites/:id/visits/export`.
 
 ## Migrations
 

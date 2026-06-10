@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net"
 	"net/url"
 	"sort"
 	"strconv"
@@ -53,9 +54,100 @@ const (
 	deviceTypeTablet            = "tablet"
 	deviceTypeDesktop           = "desktop"
 
-	defaultTimezoneDistributionLimit = 10
-	maxTimezoneDistributionLimit     = 50
+	defaultLocationDistributionLimit = 10
+	maxLocationDistributionLimit     = 50
+	locationSourceEdgeGeo            = "edge_geo"
+	locationSourceTimezone           = "timezone"
+	locationSourceLocale             = "locale"
+	locationSourceNetwork            = "network"
+	locationSourceUnknown            = "unknown"
+	locationUnknownLabel             = "Unknown location"
+	locationUnknownSignal            = "missing_signal"
+	locationTimezoneUnknownSignal    = "timezone_unknown"
+	locationNetworkLocalSignal       = "local_network"
+	locationConfidenceEdgeExact      = 95
+	locationConfidenceEdgeCoordinate = 88
+	locationConfidenceEdgeCountry    = 80
+	locationConfidenceTimezone       = 45
+	locationConfidenceTimezoneAgree  = 60
+	locationConfidenceLocale         = 35
+	locationConfidenceNetwork        = 20
+	locationConfidenceUnknown        = 0
 )
+
+type locationAnchor struct {
+	Label     string
+	Latitude  float64
+	Longitude float64
+}
+
+var locationTimezoneAnchors = map[string]locationAnchor{
+	"UTC":                            {Label: "UTC", Latitude: 0, Longitude: 0},
+	"Etc/UTC":                        {Label: "UTC", Latitude: 0, Longitude: 0},
+	"America/Los_Angeles":            {Label: "Los Angeles", Latitude: 34.0522, Longitude: -118.2437},
+	"America/Denver":                 {Label: "Denver", Latitude: 39.7392, Longitude: -104.9903},
+	"America/Chicago":                {Label: "Chicago", Latitude: 41.8781, Longitude: -87.6298},
+	"America/New_York":               {Label: "New York", Latitude: 40.7128, Longitude: -74.006},
+	"America/Toronto":                {Label: "Toronto", Latitude: 43.6532, Longitude: -79.3832},
+	"America/Mexico_City":            {Label: "Mexico City", Latitude: 19.4326, Longitude: -99.1332},
+	"America/Sao_Paulo":              {Label: "Sao Paulo", Latitude: -23.5505, Longitude: -46.6333},
+	"America/Argentina/Buenos_Aires": {Label: "Buenos Aires", Latitude: -34.6037, Longitude: -58.3816},
+	"Europe/London":                  {Label: "London", Latitude: 51.5072, Longitude: -0.1276},
+	"Europe/Paris":                   {Label: "Paris", Latitude: 48.8566, Longitude: 2.3522},
+	"Europe/Berlin":                  {Label: "Berlin", Latitude: 52.52, Longitude: 13.405},
+	"Europe/Moscow":                  {Label: "Moscow", Latitude: 55.7558, Longitude: 37.6173},
+	"Africa/Cairo":                   {Label: "Cairo", Latitude: 30.0444, Longitude: 31.2357},
+	"Africa/Johannesburg":            {Label: "Johannesburg", Latitude: -26.2041, Longitude: 28.0473},
+	"Asia/Dubai":                     {Label: "Dubai", Latitude: 25.2048, Longitude: 55.2708},
+	"Asia/Calcutta":                  {Label: "Calcutta", Latitude: 22.5726, Longitude: 88.3639},
+	"Asia/Kolkata":                   {Label: "Kolkata", Latitude: 22.5726, Longitude: 88.3639},
+	"Asia/Bangkok":                   {Label: "Bangkok", Latitude: 13.7563, Longitude: 100.5018},
+	"Asia/Singapore":                 {Label: "Singapore", Latitude: 1.3521, Longitude: 103.8198},
+	"Asia/Hong_Kong":                 {Label: "Hong Kong", Latitude: 22.3193, Longitude: 114.1694},
+	"Asia/Shanghai":                  {Label: "Shanghai", Latitude: 31.2304, Longitude: 121.4737},
+	"Asia/Tokyo":                     {Label: "Tokyo", Latitude: 35.6762, Longitude: 139.6503},
+	"Australia/Sydney":               {Label: "Sydney", Latitude: -33.8688, Longitude: 151.2093},
+	"Pacific/Auckland":               {Label: "Auckland", Latitude: -36.8509, Longitude: 174.7645},
+}
+
+var locationRegionAnchors = map[string]locationAnchor{
+	"Africa":     {Label: "Africa", Latitude: 4, Longitude: 21},
+	"America":    {Label: "Americas", Latitude: 28, Longitude: -96},
+	"Antarctica": {Label: "Antarctica", Latitude: -72, Longitude: 35},
+	"Arctic":     {Label: "Arctic", Latitude: 72, Longitude: 0},
+	"Asia":       {Label: "Asia", Latitude: 29, Longitude: 88},
+	"Atlantic":   {Label: "Atlantic", Latitude: 0, Longitude: -30},
+	"Australia":  {Label: "Australia", Latitude: -25, Longitude: 134},
+	"Europe":     {Label: "Europe", Latitude: 50, Longitude: 14},
+	"Indian":     {Label: "Indian Ocean", Latitude: -15, Longitude: 75},
+	"Pacific":    {Label: "Pacific", Latitude: -12, Longitude: -150},
+}
+
+var locationLocaleAnchors = map[string]locationAnchor{
+	"AE": {Label: "United Arab Emirates", Latitude: 23.4241, Longitude: 53.8478},
+	"AR": {Label: "Argentina", Latitude: -34.6037, Longitude: -58.3816},
+	"AU": {Label: "Australia", Latitude: -25.2744, Longitude: 133.7751},
+	"BR": {Label: "Brazil", Latitude: -14.235, Longitude: -51.9253},
+	"CA": {Label: "Canada", Latitude: 56.1304, Longitude: -106.3468},
+	"CN": {Label: "China", Latitude: 35.8617, Longitude: 104.1954},
+	"DE": {Label: "Germany", Latitude: 51.1657, Longitude: 10.4515},
+	"EG": {Label: "Egypt", Latitude: 26.8206, Longitude: 30.8025},
+	"FR": {Label: "France", Latitude: 46.2276, Longitude: 2.2137},
+	"GB": {Label: "United Kingdom", Latitude: 55.3781, Longitude: -3.436},
+	"HK": {Label: "Hong Kong", Latitude: 22.3193, Longitude: 114.1694},
+	"IN": {Label: "India", Latitude: 20.5937, Longitude: 78.9629},
+	"JP": {Label: "Japan", Latitude: 36.2048, Longitude: 138.2529},
+	"MX": {Label: "Mexico", Latitude: 23.6345, Longitude: -102.5528},
+	"NZ": {Label: "New Zealand", Latitude: -40.9006, Longitude: 174.886},
+	"RU": {Label: "Russia", Latitude: 61.524, Longitude: 105.3188},
+	"SG": {Label: "Singapore", Latitude: 1.3521, Longitude: 103.8198},
+	"TH": {Label: "Thailand", Latitude: 15.87, Longitude: 100.9925},
+	"UA": {Label: "Ukraine", Latitude: 48.3794, Longitude: 31.1656},
+	"US": {Label: "United States", Latitude: 39.8283, Longitude: -98.5795},
+	"ZA": {Label: "South Africa", Latitude: -30.5595, Longitude: 22.9375},
+}
+
+var locationUnmappedCountryAnchor = locationAnchor{Latitude: -53, Longitude: 152}
 
 var visitTrendParseLayouts = [...]string{
 	visitTrendDayLayout,
@@ -83,8 +175,8 @@ type SiteStatisticsProvider interface {
 	VisitEngagementAll(ctx context.Context, siteID string) (VisitEngagementStat, error)
 	DeviceBreakdown(ctx context.Context, siteID string, limit int) (DeviceBreakdownStat, error)
 	DeviceBreakdownForDays(ctx context.Context, siteID string, days int, limit int) (DeviceBreakdownStat, error)
-	TimezoneDistribution(ctx context.Context, siteID string, limit int) ([]TimezoneDistributionStat, error)
-	TimezoneDistributionForDays(ctx context.Context, siteID string, days int, limit int) ([]TimezoneDistributionStat, error)
+	LocationDistribution(ctx context.Context, siteID string, limit int) ([]LocationDistributionStat, error)
+	LocationDistributionForDays(ctx context.Context, siteID string, days int, limit int) ([]LocationDistributionStat, error)
 }
 
 // DatabaseSiteStatisticsProvider implements SiteStatisticsProvider using GORM.
@@ -269,10 +361,57 @@ type DeviceBreakdownStat struct {
 	TopViewports   []AttributionStat
 }
 
-// TimezoneDistributionStat captures visit counts per timezone.
-type TimezoneDistributionStat struct {
-	Timezone   string
+// LocationDistributionStat captures visit counts by inferred visitor location.
+type LocationDistributionStat struct {
+	Label      string
+	Source     string
+	Signal     string
+	Country    string
+	Region     string
+	City       string
+	Latitude   float64
+	Longitude  float64
+	Confidence int
 	VisitCount int64
+}
+
+type visitLocationSignals struct {
+	Timezone     string
+	Locale       string
+	IP           string
+	GeoSource    string
+	GeoCountry   string
+	GeoRegion    string
+	GeoCity      string
+	GeoLatitude  float64
+	GeoLongitude float64
+}
+
+type visitLocationSignalCountRow struct {
+	Timezone     string
+	Locale       string
+	IP           string
+	GeoSource    string
+	GeoCountry   string
+	GeoRegion    string
+	GeoCity      string
+	GeoLatitude  float64
+	GeoLongitude float64
+	VisitCount   int64
+}
+
+func (row visitLocationSignalCountRow) signals() visitLocationSignals {
+	return visitLocationSignals{
+		Timezone:     row.Timezone,
+		Locale:       row.Locale,
+		IP:           row.IP,
+		GeoSource:    row.GeoSource,
+		GeoCountry:   row.GeoCountry,
+		GeoRegion:    row.GeoRegion,
+		GeoCity:      row.GeoCity,
+		GeoLatitude:  row.GeoLatitude,
+		GeoLongitude: row.GeoLongitude,
+	}
 }
 
 func (provider *DatabaseSiteStatisticsProvider) VisitTrend(ctx context.Context, siteID string, days int) ([]DailyVisitTrendStat, error) {
@@ -847,57 +986,403 @@ func topDeviceTypeStats(counts map[string]int64) []DeviceTypeStat {
 	return entries
 }
 
-func (provider *DatabaseSiteStatisticsProvider) TimezoneDistribution(ctx context.Context, siteID string, limit int) ([]TimezoneDistributionStat, error) {
-	return provider.timezoneDistribution(ctx, siteID, limit, time.Time{})
+func (provider *DatabaseSiteStatisticsProvider) LocationDistribution(ctx context.Context, siteID string, limit int) ([]LocationDistributionStat, error) {
+	return provider.locationDistribution(ctx, siteID, limit, time.Time{})
 }
 
-// TimezoneDistributionForDays returns timezone counts within the same UTC day window used by VisitTrend.
-func (provider *DatabaseSiteStatisticsProvider) TimezoneDistributionForDays(ctx context.Context, siteID string, days int, limit int) ([]TimezoneDistributionStat, error) {
+// LocationDistributionForDays returns inferred visitor locations within the same UTC day window used by VisitTrend.
+func (provider *DatabaseSiteStatisticsProvider) LocationDistributionForDays(ctx context.Context, siteID string, days int, limit int) ([]LocationDistributionStat, error) {
 	normalizedDays := normalizeVisitTrendDays(days)
-	return provider.timezoneDistribution(ctx, siteID, limit, visitWindowStartDay(normalizedDays))
+	return provider.locationDistribution(ctx, siteID, limit, visitWindowStartDay(normalizedDays))
 }
 
-func (provider *DatabaseSiteStatisticsProvider) timezoneDistribution(ctx context.Context, siteID string, limit int, startDay time.Time) ([]TimezoneDistributionStat, error) {
+func (provider *DatabaseSiteStatisticsProvider) locationDistribution(ctx context.Context, siteID string, limit int, startDay time.Time) ([]LocationDistributionStat, error) {
 	if strings.TrimSpace(siteID) == "" {
 		return nil, nil
 	}
-	normalizedLimit := normalizeTimezoneDistributionLimit(limit)
+	normalizedLimit := normalizeLocationDistributionLimit(limit)
 
-	type timezoneRow struct {
-		Timezone   string
-		VisitCount int64
-	}
-	var rows []timezoneRow
+	var rows []visitLocationSignalCountRow
 	query := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
-		Select("timezone, COUNT(*) as visit_count").
-		Where("site_id = ? AND is_bot = ? AND timezone <> ''", siteID, false)
+		Select("timezone, locale, ip, geo_source, geo_country, geo_region, geo_city, geo_latitude, geo_longitude, COUNT(*) as visit_count").
+		Where("site_id = ? AND is_bot = ?", siteID, false)
 	if !startDay.IsZero() {
 		query = query.Where("occurred_at >= ?", startDay)
 	}
-	err := query.Group("timezone").
-		Order("visit_count desc, timezone asc").
-		Limit(normalizedLimit).
+	err := query.
+		Group("timezone, locale, ip, geo_source, geo_country, geo_region, geo_city, geo_latitude, geo_longitude").
 		Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
 
-	stats := make([]TimezoneDistributionStat, 0, len(rows))
+	type locationDistributionAggregate struct {
+		stat            LocationDistributionStat
+		confidenceTotal int64
+	}
+	statsByKey := make(map[string]locationDistributionAggregate)
 	for _, row := range rows {
-		stats = append(stats, TimezoneDistributionStat(row))
+		if row.VisitCount <= 0 {
+			continue
+		}
+		location := inferVisitLocation(row.signals())
+		key := location.Source + "\x00" + location.Signal + "\x00" + location.Label + "\x00" + location.Country + "\x00" + location.Region + "\x00" + location.City
+		current := statsByKey[key]
+		if current.stat.Label == "" {
+			current.stat = location
+		}
+		current.stat.VisitCount += row.VisitCount
+		current.confidenceTotal += int64(location.Confidence) * row.VisitCount
+		statsByKey[key] = current
+	}
+
+	stats := make([]LocationDistributionStat, 0, len(statsByKey))
+	for _, aggregate := range statsByKey {
+		stat := aggregate.stat
+		if stat.VisitCount > 0 {
+			stat.Confidence = int((aggregate.confidenceTotal + stat.VisitCount/2) / stat.VisitCount)
+		}
+		stats = append(stats, stat)
+	}
+	sort.Slice(stats, func(leftIndex int, rightIndex int) bool {
+		if stats[leftIndex].VisitCount == stats[rightIndex].VisitCount {
+			if stats[leftIndex].Confidence != stats[rightIndex].Confidence {
+				return stats[leftIndex].Confidence > stats[rightIndex].Confidence
+			}
+			if stats[leftIndex].Label == stats[rightIndex].Label {
+				return stats[leftIndex].Source < stats[rightIndex].Source
+			}
+			return stats[leftIndex].Label < stats[rightIndex].Label
+		}
+		return stats[leftIndex].VisitCount > stats[rightIndex].VisitCount
+	})
+	if len(stats) > normalizedLimit {
+		stats = stats[:normalizedLimit]
 	}
 	return stats, nil
 }
 
-func normalizeTimezoneDistributionLimit(limit int) int {
+func normalizeLocationDistributionLimit(limit int) int {
 	if limit <= 0 {
-		return defaultTimezoneDistributionLimit
+		return defaultLocationDistributionLimit
 	}
-	if limit > maxTimezoneDistributionLimit {
-		return maxTimezoneDistributionLimit
+	if limit > maxLocationDistributionLimit {
+		return maxLocationDistributionLimit
 	}
 	return limit
+}
+
+func inferVisitLocation(signals visitLocationSignals) LocationDistributionStat {
+	edgeGeoLocation, edgeGeoOK := inferEdgeGeoLocation(signals)
+	if edgeGeoOK {
+		return edgeGeoLocation
+	}
+	timezoneLocation, timezoneOK := inferTimezoneLocation(signals)
+	if timezoneOK {
+		return timezoneLocation
+	}
+	localeLocation, localeOK := inferLocaleLocation(signals.Locale)
+	if localeOK {
+		return localeLocation
+	}
+	networkLocation, networkOK := inferNetworkLocation(signals.IP)
+	if networkOK {
+		return networkLocation
+	}
+	unknownSignal := locationUnknownSignal
+	if strings.TrimSpace(signals.Timezone) != "" {
+		unknownSignal = locationTimezoneUnknownSignal
+	}
+	return LocationDistributionStat{
+		Label:      locationUnknownLabel,
+		Source:     locationSourceUnknown,
+		Signal:     unknownSignal,
+		Latitude:   -53,
+		Longitude:  152,
+		Confidence: locationConfidenceUnknown,
+	}
+}
+
+func inferEdgeGeoLocation(signals visitLocationSignals) (LocationDistributionStat, bool) {
+	country := normalizeLocationCountry(signals.GeoCountry)
+	region := normalizeLocationText(signals.GeoRegion)
+	city := normalizeLocationText(signals.GeoCity)
+	source := normalizeLocationText(signals.GeoSource)
+	if source == "" {
+		source = "edge"
+	}
+	hasCoordinates := edgeLocationHasCoordinates(signals.GeoLatitude, signals.GeoLongitude)
+	if country == "" && region == "" && city == "" && !hasCoordinates {
+		return LocationDistributionStat{}, false
+	}
+
+	anchor, hasCountryAnchor := locationLocaleAnchors[country]
+	latitude := signals.GeoLatitude
+	longitude := signals.GeoLongitude
+	if !hasCoordinates {
+		if hasCountryAnchor {
+			latitude = anchor.Latitude
+			longitude = anchor.Longitude
+		} else {
+			latitude = locationUnmappedCountryAnchor.Latitude
+			longitude = locationUnmappedCountryAnchor.Longitude
+		}
+	}
+
+	label := edgeLocationLabel(country, region, city, anchor, hasCountryAnchor)
+	if label == "" && hasCoordinates {
+		label = "Edge coordinates"
+	}
+	if label == "" {
+		return LocationDistributionStat{}, false
+	}
+
+	confidence := locationConfidenceEdgeCountry
+	if hasCoordinates {
+		confidence = locationConfidenceEdgeCoordinate
+	}
+	if hasCoordinates && city != "" {
+		confidence = locationConfidenceEdgeExact
+	}
+	if country != "" && country == normalizeLocaleRegion(signals.Locale) {
+		confidence += 2
+	}
+	if country != "" && country == locationTimezoneCountry(strings.TrimSpace(signals.Timezone)) {
+		confidence += 2
+	}
+	if confidence > 99 {
+		confidence = 99
+	}
+
+	return LocationDistributionStat{
+		Label:      label,
+		Source:     locationSourceEdgeGeo,
+		Signal:     edgeLocationSignal(source, country, region, city),
+		Country:    country,
+		Region:     region,
+		City:       city,
+		Latitude:   latitude,
+		Longitude:  longitude,
+		Confidence: confidence,
+	}, true
+}
+
+func inferTimezoneLocation(signals visitLocationSignals) (LocationDistributionStat, bool) {
+	normalizedTimezone := strings.TrimSpace(signals.Timezone)
+	if normalizedTimezone == "" || normalizedTimezone == "Etc/Unknown" || strings.EqualFold(normalizedTimezone, "unknown") {
+		return LocationDistributionStat{}, false
+	}
+	country := locationTimezoneCountry(normalizedTimezone)
+	confidence := locationConfidenceTimezone
+	if country != "" && country == normalizeLocaleRegion(signals.Locale) {
+		confidence = locationConfidenceTimezoneAgree
+	}
+	if anchor, ok := locationTimezoneAnchors[normalizedTimezone]; ok {
+		return locationStat(anchor, locationSourceTimezone, normalizedTimezone, country, confidence), true
+	}
+	parts := strings.Split(normalizedTimezone, "/")
+	region := ""
+	if len(parts) > 0 {
+		region = strings.TrimSpace(parts[0])
+	}
+	anchor, ok := locationRegionAnchors[region]
+	if !ok {
+		return LocationDistributionStat{}, false
+	}
+	hash := hashLocationSignal(normalizedTimezone)
+	label := normalizedTimezone
+	if len(parts) > 0 {
+		label = strings.ReplaceAll(strings.TrimSpace(parts[len(parts)-1]), "_", " ")
+	}
+	return LocationDistributionStat{
+		Label:      label,
+		Source:     locationSourceTimezone,
+		Signal:     normalizedTimezone,
+		Country:    country,
+		Latitude:   clampFloat(anchor.Latitude+float64((hash%13)-6)*1.4, -74, 74),
+		Longitude:  clampFloat(anchor.Longitude+float64(((hash>>3)%17)-8)*2.2, -176, 176),
+		Confidence: confidence,
+	}, true
+}
+
+func inferLocaleLocation(localeValue string) (LocationDistributionStat, bool) {
+	region := normalizeLocaleRegion(localeValue)
+	if region == "" {
+		return LocationDistributionStat{}, false
+	}
+	anchor, ok := locationLocaleAnchors[region]
+	if !ok {
+		return LocationDistributionStat{}, false
+	}
+	return locationStat(anchor, locationSourceLocale, region, region, locationConfidenceLocale), true
+}
+
+func inferNetworkLocation(ipValue string) (LocationDistributionStat, bool) {
+	parsedIP := net.ParseIP(strings.TrimSpace(ipValue))
+	if parsedIP == nil || (!parsedIP.IsLoopback() && !parsedIP.IsPrivate() && !parsedIP.IsLinkLocalUnicast() && !parsedIP.IsLinkLocalMulticast()) {
+		return LocationDistributionStat{}, false
+	}
+	return LocationDistributionStat{
+		Label:      "Local network",
+		Source:     locationSourceNetwork,
+		Signal:     locationNetworkLocalSignal,
+		Latitude:   0,
+		Longitude:  0,
+		Confidence: locationConfidenceNetwork,
+	}, true
+}
+
+func locationStat(anchor locationAnchor, source string, signal string, country string, confidence int) LocationDistributionStat {
+	return LocationDistributionStat{
+		Label:      anchor.Label,
+		Source:     source,
+		Signal:     signal,
+		Country:    country,
+		Latitude:   anchor.Latitude,
+		Longitude:  anchor.Longitude,
+		Confidence: confidence,
+	}
+}
+
+func edgeLocationHasCoordinates(latitude float64, longitude float64) bool {
+	return latitude != 0 || longitude != 0
+}
+
+func edgeLocationLabel(country string, region string, city string, anchor locationAnchor, hasCountryAnchor bool) string {
+	if city != "" && region != "" {
+		return city + ", " + region
+	}
+	if city != "" {
+		return city
+	}
+	if region != "" && country != "" {
+		return region + ", " + country
+	}
+	if region != "" {
+		return region
+	}
+	if hasCountryAnchor {
+		return anchor.Label
+	}
+	return country
+}
+
+func edgeLocationSignal(source string, country string, region string, city string) string {
+	parts := []string{source}
+	for _, value := range []string{country, region, city} {
+		normalizedValue := strings.TrimSpace(value)
+		if normalizedValue != "" {
+			parts = append(parts, normalizedValue)
+		}
+	}
+	return strings.Join(parts, ":")
+}
+
+func normalizeLocationCountry(rawCountry string) string {
+	country := strings.ToUpper(strings.TrimSpace(rawCountry))
+	if country == "" || country == "XX" || country == "T1" || country == "A1" || country == "A2" {
+		return ""
+	}
+	if len(country) != 2 && len(country) != 3 {
+		return ""
+	}
+	for _, character := range country {
+		if character < 'A' || character > 'Z' {
+			return ""
+		}
+	}
+	return country
+}
+
+func normalizeLocationText(rawValue string) string {
+	trimmedValue := strings.TrimSpace(rawValue)
+	if trimmedValue == "" {
+		return ""
+	}
+	return strings.Map(func(character rune) rune {
+		if character < 0x20 || character == 0x7f {
+			return -1
+		}
+		return character
+	}, trimmedValue)
+}
+
+func locationTimezoneCountry(timezoneValue string) string {
+	switch strings.TrimSpace(timezoneValue) {
+	case "America/Los_Angeles", "America/Denver", "America/Chicago", "America/New_York":
+		return "US"
+	case "America/Toronto":
+		return "CA"
+	case "America/Mexico_City":
+		return "MX"
+	case "America/Sao_Paulo":
+		return "BR"
+	case "America/Argentina/Buenos_Aires":
+		return "AR"
+	case "Europe/London":
+		return "GB"
+	case "Europe/Paris":
+		return "FR"
+	case "Europe/Berlin":
+		return "DE"
+	case "Europe/Moscow":
+		return "RU"
+	case "Africa/Cairo":
+		return "EG"
+	case "Africa/Johannesburg":
+		return "ZA"
+	case "Asia/Dubai":
+		return "AE"
+	case "Asia/Calcutta", "Asia/Kolkata":
+		return "IN"
+	case "Asia/Bangkok":
+		return "TH"
+	case "Asia/Singapore":
+		return "SG"
+	case "Asia/Hong_Kong":
+		return "HK"
+	case "Asia/Shanghai":
+		return "CN"
+	case "Asia/Tokyo":
+		return "JP"
+	case "Australia/Sydney":
+		return "AU"
+	case "Pacific/Auckland":
+		return "NZ"
+	default:
+		return ""
+	}
+}
+
+func normalizeLocaleRegion(localeValue string) string {
+	primaryTag := strings.TrimSpace(strings.Split(strings.TrimSpace(localeValue), ",")[0])
+	primaryTag = strings.TrimSpace(strings.Split(primaryTag, ";")[0])
+	if primaryTag == "" {
+		return ""
+	}
+	parts := strings.FieldsFunc(primaryTag, func(character rune) bool {
+		return character == '-' || character == '_'
+	})
+	for _, part := range parts[1:] {
+		normalizedPart := strings.ToUpper(strings.TrimSpace(part))
+		if len(normalizedPart) == 2 || len(normalizedPart) == 3 {
+			return normalizedPart
+		}
+	}
+	return ""
+}
+
+func hashLocationSignal(signal string) int {
+	hash := 0
+	for _, character := range signal {
+		hash = (hash*31 + int(character)) % 9973
+	}
+	return hash
+}
+
+func clampFloat(value float64, minimum float64, maximum float64) float64 {
+	return math.Max(minimum, math.Min(maximum, value))
 }
 
 func minInt(left int, right int) int {
