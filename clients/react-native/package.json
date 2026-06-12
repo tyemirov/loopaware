@@ -1,0 +1,12 @@
+{
+  "name": "@loopaware/react-native",
+  "version": "0.1.0",
+  "description": "React Native feedback widget client for LoopAware.",
+  "type": "module",
+  "main": "src/index.tsx",
+  "source": "src/index.tsx",
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-native": ">=0.72.0"
+  }
+}
