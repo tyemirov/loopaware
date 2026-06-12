@@ -5,6 +5,9 @@
   "type": "module",
   "main": "src/index.tsx",
   "source": "src/index.tsx",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
   "peerDependencies": {
     "react": ">=18.0.0",
     "react-native": ">=0.72.0"
