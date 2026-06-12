@@ -225,6 +225,34 @@ test.describe("public feedback api", () => {
     expect(mobileMessage.context).toEqual({ plan: "pro", step: "payment" });
   });
 
+  test("rejects mobile feedback from browser origins", async () => {
+    const { response, payload } = await apiRequest({
+      baseURL: config.baseURL,
+      path: "/public/mobile-feedback",
+      method: "POST",
+      origin: buildUniqueOrigin("mobile-browser-forbidden"),
+      clientIP: nextClientIP(),
+      body: {
+        site_id: site.id,
+        mobile_client_id: mobileApp.client_id,
+        contact: "mobile-browser@example.com",
+        message: "Browser forged feedback",
+        sentiment: "neutral",
+        screen: { name: "Checkout", path: "/checkout/payment" },
+        app: {
+          platform: "ios",
+          application_id: "com.example.feedback",
+          version: "1.2.3",
+          build: "44",
+          environment: "production"
+        },
+        context: { plan: "pro" }
+      }
+    });
+    expect(response.status).toBe(403);
+    expect(payload.error).toBe("origin_forbidden");
+  });
+
   test("rejects mobile feedback for unregistered app identity", async () => {
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
