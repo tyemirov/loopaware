@@ -835,6 +835,20 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Resolution
   Added `/sentry/browser-errors` with allowed-origin validation, rate limiting, JavaScript platform normalization, and minimized request metadata. Added `web/la-sentry.js`, a dashboard browser snippet, a browser integration page, docs, and black-box API/browser coverage. `make ci` passed.
 
+- [x] [F009] (P1) Add Expo-compatible mobile feedback widget support.
+  ### Summary
+  Mobile apps need a native feedback button equivalent to the web feedback widget, with screen and app context attached to each submission. This is separate from LA Sentry error capture and should not require native code for the first version.
+  ### Deliverables
+  - Add a public mobile feedback submission contract that validates a registered mobile app for the selected site.
+  - Persist and return mobile source, screen, app metadata, and bounded context with feedback messages.
+  - Display mobile feedback context in the dashboard Feedback tab without changing web widget behavior.
+  - Add an Expo-compatible React Native feedback client with explicit screen/context props.
+  - Document setup and add black-box API/dashboard coverage.
+  ### Resolution
+  Added registered mobile app records per site, authenticated mobile-app list/create endpoints, and `/public/mobile-feedback` for native app feedback submissions with registered client validation. Feedback records now preserve source kind, mobile client ID, screen, app metadata, and bounded JSON context, and the dashboard renders/searches mobile metadata inside the Feedback table without changing web widget submissions. Added an Expo-compatible React Native feedback button/provider client plus README/client docs. Validation passed with baseline `make ci`, focused `go test ./internal/api ./internal/model ./internal/storage`, `npm --prefix tests run typecheck`, `git diff --check`, and Docker-backed `LOOPAWARE_TEST_SUITE=test:all ./tests/scripts/run-integration.sh` with 409 specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `clients/README.md`, `clients/react-native/package.json`, `clients/react-native/README.md`, `clients/react-native/src/index.tsx`, `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/admin.go`, `internal/api/public.go`, `internal/model/models.go`, `internal/model/mobile_feedback.go`, `internal/storage/database.go`, `internal/storage/migrations.go`, `tests/helpers/api.js`, `tests/specs/api-public.spec.js`, `tests/specs/dashboard-feedback.spec.js`, `web/app/index.html`.
+
 
 ## Planning
 *do not implement yet*
