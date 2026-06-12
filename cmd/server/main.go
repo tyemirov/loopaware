@@ -98,6 +98,7 @@ const (
 	defaultTrafficReportEmails        = true
 	publicRoutePrefix                 = "/public"
 	publicRouteFeedback               = "/public/feedback"
+	publicRouteMobileFeedback         = "/public/mobile-feedback"
 	publicRouteSubscription           = "/public/subscriptions"
 	publicRouteSubscriptionStatus     = "/public/subscriptions/status"
 	publicRouteSubscriptionConfirm    = "/public/subscriptions/confirm"
@@ -110,6 +111,7 @@ const (
 	apiRouteMeAvatar                  = "/me/avatar"
 	apiRouteSites                     = "/sites"
 	apiRouteSiteUpdate                = "/sites/:id"
+	apiRouteSiteMobileApps            = "/sites/:id/mobile-apps"
 	apiRouteSiteMessages              = "/sites/:id/messages"
 	apiRouteSiteVisitStats            = "/sites/:id/visits/stats"
 	apiRouteSiteVisitTrend            = "/sites/:id/visits/trend"
