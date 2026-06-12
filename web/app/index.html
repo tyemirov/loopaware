@@ -3197,6 +3197,86 @@
           }
           return { emoji: emptyString, label: emptyString };
         }
+        function formatMobilePlatformLabel(value) {
+          var normalized = (value || emptyString).toLowerCase();
+          if (normalized === 'ios') {
+            return 'iOS';
+          }
+          if (normalized === 'android') {
+            return 'Android';
+          }
+          return value || emptyString;
+        }
+        function feedbackContextPairs(contextValue) {
+          if (!contextValue || typeof contextValue !== 'object' || Array.isArray(contextValue)) {
+            return [];
+          }
+          return Object.keys(contextValue).sort().slice(0, 6).map(function(key) {
+            var rawValue = contextValue[key];
+            var renderedValue = emptyString;
+            if (rawValue === null || typeof rawValue === 'undefined') {
+              renderedValue = 'null';
+            } else if (typeof rawValue === 'object') {
+              renderedValue = JSON.stringify(rawValue);
+            } else {
+              renderedValue = String(rawValue);
+            }
+            return key + '=' + renderedValue;
+          });
+        }
+        function feedbackMetadataLines(message) {
+          if ((message.source_kind || emptyString) !== 'mobile_app') {
+            return [];
+          }
+          var sourceParts = ['Mobile'];
+          var platformLabel = formatMobilePlatformLabel(message.app_platform || emptyString);
+          if (platformLabel) {
+            sourceParts.push(platformLabel);
+          }
+          if (message.screen_name) {
+            sourceParts.push(message.screen_name);
+          }
+          var lines = [sourceParts.join(' · ')];
+          var appParts = [];
+          if (message.app_identifier) {
+            appParts.push(message.app_identifier);
+          }
+          if (message.app_version) {
+            appParts.push('v' + message.app_version);
+          }
+          if (message.app_build) {
+            appParts.push('build ' + message.app_build);
+          }
+          if (message.app_environment) {
+            appParts.push(message.app_environment);
+          }
+          if (appParts.length) {
+            lines.push(appParts.join(' · '));
+          }
+          if (message.screen_path) {
+            lines.push(message.screen_path);
+          }
+          var contextPairs = feedbackContextPairs(message.context);
+          if (contextPairs.length) {
+            lines.push('Context: ' + contextPairs.join(', '));
+          }
+          return lines;
+        }
+        function feedbackMetadataSearchValue(message) {
+          return feedbackMetadataLines(message).join(' ').toLowerCase();
+        }
+        function renderFeedbackMessageCell(cell, message) {
+          cell.textContent = emptyString;
+          var body = document.createElement('div');
+          body.textContent = message.message || emptyString;
+          cell.appendChild(body);
+          feedbackMetadataLines(message).forEach(function(line) {
+            var metadata = document.createElement('div');
+            metadata.className = 'small text-body-secondary mt-1';
+            metadata.textContent = line;
+            cell.appendChild(metadata);
+          });
+        }
         function setSiteCreatedAt(unixSeconds) {
           if (!siteCreatedAtElement) {
             return;
@@ -5244,7 +5324,7 @@
             var sentimentMeta = resolveFeedbackSentimentMeta(message.sentiment);
             sentimentCell.textContent = sentimentMeta.label ? (sentimentMeta.emoji + ' ' + sentimentMeta.label) : emptyString;
             var bodyCell = document.createElement('td');
-            bodyCell.textContent = message.message || emptyString;
+            renderFeedbackMessageCell(bodyCell, message);
             var deliveryCell = document.createElement('td');
             deliveryCell.textContent = resolveDeliveryLabel(message.delivery);
             row.appendChild(createdCell);
@@ -5268,7 +5348,8 @@
             var sentimentMeta = resolveFeedbackSentimentMeta(message.sentiment);
             var sentimentValue = ((message.sentiment || emptyString) + ' ' + (sentimentMeta.label || emptyString)).toLowerCase();
             var deliveryValue = (message.delivery || emptyString).toLowerCase();
-            return contactValue.indexOf(query) !== -1 || sentimentValue.indexOf(query) !== -1 || bodyValue.indexOf(query) !== -1 || deliveryValue.indexOf(query) !== -1;
+            var metadataValue = feedbackMetadataSearchValue(message);
+            return contactValue.indexOf(query) !== -1 || sentimentValue.indexOf(query) !== -1 || bodyValue.indexOf(query) !== -1 || deliveryValue.indexOf(query) !== -1 || metadataValue.indexOf(query) !== -1;
           });
         }
 
