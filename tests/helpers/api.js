@@ -131,6 +131,38 @@ export async function listMessages(config, cookie, siteId) {
   return payload;
 }
 
+export async function listMobileApps(config, cookie, siteId) {
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/sites/${siteId}/mobile-apps`,
+    method: 'GET',
+    cookie
+  });
+  if (!response.ok) {
+    throw new Error(`list_mobile_apps_failed:${response.status}:${JSON.stringify(payload)}`);
+  }
+  return payload;
+}
+
+export async function createMobileApp(config, cookie, site, payload) {
+  const { response, payload: body } = await apiRequest({
+    baseURL: config.baseURL,
+    path: `/api/sites/${site.id}/mobile-apps`,
+    method: 'POST',
+    cookie,
+    body: {
+      client_id: payload.clientId || '',
+      platform: payload.platform,
+      app_identifier: payload.appIdentifier,
+      display_name: payload.displayName || ''
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`create_mobile_app_failed:${response.status}:${JSON.stringify(body)}`);
+  }
+  return body;
+}
+
 export async function listSubscribers(config, cookie, siteId) {
   const { response, payload } = await apiRequest({
     baseURL: config.baseURL,
@@ -161,6 +193,30 @@ export async function createFeedback(config, site, payload) {
   });
   if (!response.ok) {
     throw new Error(`create_feedback_failed:${response.status}:${JSON.stringify(body)}`);
+  }
+  return body;
+}
+
+export async function createMobileFeedback(config, site, mobileApp, payload) {
+  const clientIP = payload && payload.clientIP ? payload.clientIP : nextClientIP();
+  const { response, payload: body } = await apiRequest({
+    baseURL: config.baseURL,
+    path: '/public/mobile-feedback',
+    method: 'POST',
+    clientIP,
+    body: {
+      site_id: site.id,
+      mobile_client_id: mobileApp.client_id || mobileApp.clientId,
+      contact: payload.contact,
+      message: payload.message,
+      sentiment: payload.sentiment || '',
+      screen: payload.screen || {},
+      app: payload.app || {},
+      context: payload.context || {}
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`create_mobile_feedback_failed:${response.status}:${JSON.stringify(body)}`);
   }
   return body;
 }

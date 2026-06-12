@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
 import { buildSessionCookie } from '../helpers/auth.js';
 import { buildAdminUser, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite } from '../helpers/fixtures.js';
-import { createWidgetTestFeedback } from '../helpers/api.js';
+import { createMobileApp, createMobileFeedback, createWidgetTestFeedback } from '../helpers/api.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
@@ -57,6 +57,42 @@ test('feedback table lists sentiment for sentiment-only feedback', async ({ page
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
   await expect(page.locator('#feedback-table-body')).toContainText('Happy');
   await expect(page.locator('#feedback-table-body')).toContainText('🙂');
+});
+
+test('feedback table shows mobile screen context', async ({ page }) => {
+  const site = await createFeedbackSite();
+  const mobileApp = await createMobileApp(config, buildAdminCookie(), site, {
+    platform: 'android',
+    appIdentifier: 'com.example.loopaware',
+    displayName: 'LoopAware Android'
+  });
+  await createMobileFeedback(config, site, mobileApp, {
+    contact: 'android@example.com',
+    message: 'Payment form is unclear',
+    sentiment: 'neutral',
+    screen: {
+      name: 'Checkout',
+      path: '/checkout/payment'
+    },
+    app: {
+      platform: 'android',
+      application_id: 'com.example.loopaware',
+      version: '2.4.0',
+      build: '92',
+      environment: 'production'
+    },
+    context: {
+      plan: 'team',
+      step: 'payment'
+    }
+  });
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
+  await expect(page.locator('#feedback-table-body')).toContainText('Payment form is unclear');
+  await expect(page.locator('#feedback-table-body')).toContainText('Mobile · Android · Checkout');
+  await expect(page.locator('#feedback-table-body')).toContainText('com.example.loopaware · v2.4.0 · build 92 · production');
+  await expect(page.locator('#feedback-table-body')).toContainText('Context: plan=team, step=payment');
 });
 
 test('feedback count badge reflects totals', async ({ page }) => {
