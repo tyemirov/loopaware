@@ -354,7 +354,7 @@ func (handlers *SentryHandlers) IssueDetail(context *gin.Context) {
 
 // UpdateIssueStatus changes a grouped Sentry issue status.
 func (handlers *SentryHandlers) UpdateIssueStatus(context *gin.Context) {
-	site, ok := handlers.resolveAuthorizedSite(context)
+	site, ok := handlers.resolveManagedSite(context)
 	if !ok {
 		return
 	}
@@ -386,7 +386,7 @@ func (handlers *SentryHandlers) UpdateIssueStatus(context *gin.Context) {
 
 // RotateToken creates a new per-site Sentry ingest token and returns it once.
 func (handlers *SentryHandlers) RotateToken(context *gin.Context) {
-	site, ok := handlers.resolveAuthorizedSite(context)
+	site, ok := handlers.resolveManagedSite(context)
 	if !ok {
 		return
 	}
@@ -705,6 +705,29 @@ func (handlers *SentryHandlers) pruneBrowserRateCounters(now time.Time) {
 }
 
 func (handlers *SentryHandlers) resolveAuthorizedSite(context *gin.Context) (model.Site, bool) {
+	siteIdentifier := strings.TrimSpace(context.Param("id"))
+	if siteIdentifier == "" {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingSite})
+		return model.Site{}, false
+	}
+	currentUser, ok := CurrentUserFromContext(context)
+	if !ok {
+		context.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
+		return model.Site{}, false
+	}
+	var site model.Site
+	if err := handlers.database.First(&site, "id = ?", siteIdentifier).Error; err != nil {
+		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownSite})
+		return model.Site{}, false
+	}
+	if !currentUserCanViewSite(context.Request.Context(), handlers.database, currentUser, site) {
+		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
+		return model.Site{}, false
+	}
+	return site, true
+}
+
+func (handlers *SentryHandlers) resolveManagedSite(context *gin.Context) (model.Site, bool) {
 	siteIdentifier := strings.TrimSpace(context.Param("id"))
 	if siteIdentifier == "" {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingSite})

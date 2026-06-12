@@ -713,7 +713,7 @@ func TestToSiteResponseUsesWidgetBaseURL(testingT *testing.T) {
 		WidgetBubbleBottomOffsetPx: defaultWidgetBubbleBottomOffset,
 	}
 
-	response := handlers.toSiteResponse(context.Background(), site, 0, "")
+	response := handlers.toSiteResponse(context.Background(), site, 0, "", siteAccessRoleAdmin)
 	require.Contains(testingT, response.Widget, "https://widget.example.com")
 }
 
@@ -730,7 +730,7 @@ func TestToSiteResponseUsesAllowedOriginWhenWidgetBaseMissing(testingT *testing.
 		WidgetBubbleBottomOffsetPx: defaultWidgetBubbleBottomOffset,
 	}
 
-	response := handlers.toSiteResponse(context.Background(), site, 0, "")
+	response := handlers.toSiteResponse(context.Background(), site, 0, "", siteAccessRoleAdmin)
 	require.Contains(testingT, response.Widget, testAllowedOriginPrimary)
 }
 
@@ -749,6 +749,6 @@ func TestToSiteResponseAddsFaviconURL(testingT *testing.T) {
 		FaviconFetchedAt:           time.Now().UTC(),
 	}
 
-	response := handlers.toSiteResponse(context.Background(), site, 0, "")
+	response := handlers.toSiteResponse(context.Background(), site, 0, "", siteAccessRoleAdmin)
 	require.NotEmpty(testingT, response.FaviconURL)
 }
