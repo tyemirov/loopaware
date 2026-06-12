@@ -111,6 +111,8 @@ const (
 	apiRouteMeAvatar                  = "/me/avatar"
 	apiRouteSites                     = "/sites"
 	apiRouteSiteUpdate                = "/sites/:id"
+	apiRouteSiteTeamMembers           = "/sites/:id/team"
+	apiRouteSiteTeamMember            = "/sites/:id/team/:member_id"
 	apiRouteSiteMobileApps            = "/sites/:id/mobile-apps"
 	apiRouteSiteMessages              = "/sites/:id/messages"
 	apiRouteSiteVisitStats            = "/sites/:id/visits/stats"
