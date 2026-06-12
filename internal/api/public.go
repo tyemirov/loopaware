@@ -286,6 +286,10 @@ func (h *PublicHandlers) CreateMobileFeedback(context *gin.Context) {
 		context.JSON(429, gin.H{"error": "rate_limited"})
 		return
 	}
+	if hasBrowserOriginHeaders(context) {
+		context.JSON(http.StatusForbidden, gin.H{"error": errorValueOriginForbidden})
+		return
+	}
 
 	var payload createMobileFeedbackRequest
 	if bindErr := context.BindJSON(&payload); bindErr != nil {
@@ -415,6 +419,10 @@ func (h *PublicHandlers) storeFeedback(context *gin.Context, site model.Site, in
 
 	h.broadcastFeedbackCreated(context.Request.Context(), feedback)
 	context.JSON(200, gin.H{"status": "ok"})
+}
+
+func hasBrowserOriginHeaders(context *gin.Context) bool {
+	return strings.TrimSpace(context.GetHeader("Origin")) != "" || strings.TrimSpace(context.GetHeader("Referer")) != ""
 }
 
 func normalizeMobileFeedbackContext(rawContext json.RawMessage) (string, error) {
