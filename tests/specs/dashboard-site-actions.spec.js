@@ -2,8 +2,8 @@
 import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
 import { buildSessionCookie } from '../helpers/auth.js';
-import { buildAdminUser, buildBaseOrigin, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite } from '../helpers/fixtures.js';
-import { listSites, updateSite } from '../helpers/api.js';
+import { buildAdminUser, buildBaseOrigin, buildUniqueEmail, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite } from '../helpers/fixtures.js';
+import { apiRequest, listSites, updateSite } from '../helpers/api.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config, { displayName: 'Admin Example' });
@@ -59,6 +59,48 @@ test('delete site button enables after selection', async ({ page }) => {
   await expect(page.locator('#delete-site-button')).toBeDisabled();
   await selectSite(page, primarySite.id);
   await expect(page.locator('#delete-site-button')).toBeEnabled();
+});
+
+test('site team member can be added and removed from dashboard', async ({ page }) => {
+  const teamEmail = buildUniqueEmail('dashboard-team');
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, primarySite.id);
+  await page.locator('#team-member-email').fill(teamEmail);
+  await page.locator('#add-team-member-button').click();
+  await expect(page.locator('#team-members-table-body')).toContainText(teamEmail.toLowerCase());
+  await page.locator(`#team-members-table-body button[data-team-member-email="${teamEmail.toLowerCase()}"]`).click();
+  await expect(page.locator('#team-members-table-body')).not.toContainText(teamEmail.toLowerCase());
+});
+
+test('assigned team member sees site details as read-only', async ({ page }) => {
+  const site = await createTestSite(config, buildAdminCookie(), {
+    name: buildUniqueName('Team Read Only'),
+    allowedOrigin: buildUniqueOrigin('team-read-only'),
+    ownerEmail: config.adminEmail
+  });
+  const teamEmail = buildUniqueEmail('team-readonly');
+  const teamUser = buildAdminUser(config, {
+    email: teamEmail,
+    displayName: 'Team Read Only'
+  });
+  const { response, payload } = await apiRequest({
+    baseURL: config.baseURL,
+    cookie: buildAdminCookie(),
+    path: `/api/sites/${site.id}/team`,
+    method: 'POST',
+    body: { email: teamEmail }
+  });
+  expect(response.status, JSON.stringify(payload)).toBe(200);
+
+  await openDashboard(page, config, teamUser);
+  await selectSite(page, site.id);
+  await expect(page.locator(`#sites-list [data-site-id="${site.id}"]`)).toContainText(site.name);
+  await expect(page.locator('#edit-site-name')).toBeDisabled();
+  await expect(page.locator('#edit-site-origin')).toBeDisabled();
+  await expect(page.locator('#edit-site-owner')).toBeDisabled();
+  await expect(page.locator('#delete-site-button')).toBeDisabled();
+  await expect(page.locator('#team-member-email')).toBeDisabled();
+  await expect(page.locator('#add-team-member-button')).toBeDisabled();
 });
 
 test('site search filters matching entries', async ({ page }) => {

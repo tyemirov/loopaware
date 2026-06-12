@@ -20,12 +20,16 @@ const nonAdminUser = buildAdminUser(config, {
   displayName: "Regular User"
 });
 
+function buildCookieForUser(user) {
+  return buildSessionCookie(config, user);
+}
+
 function buildAdminCookie() {
-  return buildSessionCookie(config, adminUser);
+  return buildCookieForUser(adminUser);
 }
 
 function buildNonAdminCookie() {
-  return buildSessionCookie(config, nonAdminUser);
+  return buildCookieForUser(nonAdminUser);
 }
 
 async function adminRequest(options) {
@@ -40,6 +44,14 @@ async function nonAdminRequest(options) {
   return apiRequest({
     baseURL: config.baseURL,
     cookie: buildNonAdminCookie(),
+    ...options
+  });
+}
+
+async function userRequest(user, options) {
+  return apiRequest({
+    baseURL: config.baseURL,
+    cookie: buildCookieForUser(user),
     ...options
   });
 }
@@ -406,6 +418,131 @@ test.describe("admin api sites", () => {
       method: "DELETE"
     });
     expect(response.status).toBe(204);
+  });
+
+  test("site admins add a team member who can read the assigned site", async () => {
+    const site = await createAdminSite("Team Access");
+    const teamEmail = buildUniqueEmail("team-member");
+    const teamUser = buildAdminUser(config, {
+      email: teamEmail,
+      displayName: "Team Member"
+    });
+
+    const { response: createResponse, payload: createdMember } = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: teamEmail.toUpperCase() }
+    });
+    expect(createResponse.status).toBe(200);
+    expect(createdMember.email).toBe(teamEmail.toLowerCase());
+    expect(createdMember.added_by_email).toBe(config.adminEmail.toLowerCase());
+
+    const { response: teamResponse, payload: teamPayload } = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "GET"
+    });
+    expect(teamResponse.status).toBe(200);
+    const teamEmails = Array.isArray(teamPayload.team_members) ? teamPayload.team_members.map((member) => member.email) : [];
+    expect(teamEmails).toContain(teamEmail.toLowerCase());
+
+    const { response: listResponse, payload: listPayload } = await userRequest(teamUser, {
+      path: "/api/sites",
+      method: "GET"
+    });
+    expect(listResponse.status).toBe(200);
+    const assignedSite = Array.isArray(listPayload.sites) ? listPayload.sites.find((entry) => entry.id === site.id) : null;
+    expect(assignedSite).toBeTruthy();
+    expect(assignedSite.access_role).toBe("team_member");
+
+    const { response: statsResponse } = await userRequest(teamUser, {
+      path: `/api/sites/${site.id}/visits/stats`,
+      method: "GET"
+    });
+    expect(statsResponse.status).toBe(200);
+
+    const { response: updateResponse, payload: updatePayload } = await userRequest(teamUser, {
+      path: `/api/sites/${site.id}`,
+      method: "PATCH",
+      body: { name: "Team Member Edit" }
+    });
+    expect(updateResponse.status).toBe(403);
+    expect(updatePayload.error).toBe("not_authorized");
+
+    const { response: teamMutationResponse, payload: teamMutationPayload } = await userRequest(teamUser, {
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: buildUniqueEmail("nested-team") }
+    });
+    expect(teamMutationResponse.status).toBe(403);
+    expect(teamMutationPayload.error).toBe("not_authorized");
+
+    const { response: deleteMemberResponse } = await adminRequest({
+      path: `/api/sites/${site.id}/team/${createdMember.id}`,
+      method: "DELETE"
+    });
+    expect(deleteMemberResponse.status).toBe(200);
+
+    const { response: removedListResponse, payload: removedListPayload } = await userRequest(teamUser, {
+      path: "/api/sites",
+      method: "GET"
+    });
+    expect(removedListResponse.status).toBe(200);
+    const removedSiteIds = Array.isArray(removedListPayload.sites) ? removedListPayload.sites.map((entry) => entry.id) : [];
+    expect(removedSiteIds).not.toContain(site.id);
+  });
+
+  test("team member management validates email and duplicate membership", async () => {
+    const site = await createAdminSite("Team Validation");
+    const teamEmail = buildUniqueEmail("team-duplicate");
+
+    const invalid = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: "not-an-email" }
+    });
+    expect(invalid.response.status).toBe(400);
+    expect(invalid.payload.error).toBe("invalid_team_member");
+
+    const created = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: teamEmail }
+    });
+    expect(created.response.status).toBe(200);
+
+    const duplicate = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: teamEmail.toUpperCase() }
+    });
+    expect(duplicate.response.status).toBe(409);
+    expect(duplicate.payload.error).toBe("team_member_exists");
+
+    const missing = await adminRequest({
+      path: `/api/sites/${site.id}/team/missing-member`,
+      method: "DELETE"
+    });
+    expect(missing.response.status).toBe(404);
+    expect(missing.payload.error).toBe("unknown_team_member");
+  });
+
+  test("unrelated users cannot see or manage site team members", async () => {
+    const site = await createAdminSite("Team Unauthorized");
+
+    const listAttempt = await nonAdminRequest({
+      path: "/api/sites",
+      method: "GET"
+    });
+    expect(listAttempt.response.status).toBe(200);
+    const visibleSiteIds = Array.isArray(listAttempt.payload.sites) ? listAttempt.payload.sites.map((entry) => entry.id) : [];
+    expect(visibleSiteIds).not.toContain(site.id);
+
+    const teamAttempt = await nonAdminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "GET"
+    });
+    expect(teamAttempt.response.status).toBe(403);
+    expect(teamAttempt.payload.error).toBe("not_authorized");
   });
 });
 
