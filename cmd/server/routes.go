@@ -15,7 +15,7 @@ func isPublicAPIPath(path string) bool {
 	if path == "" {
 		return false
 	}
-	if path == publicRouteFeedback || path == "/public/widget-config" || path == publicRouteVisitPixel {
+	if path == publicRouteFeedback || path == publicRouteMobileFeedback || path == "/public/widget-config" || path == publicRouteVisitPixel {
 		return true
 	}
 	return strings.HasPrefix(path, publicRouteSubscription)
@@ -79,6 +79,7 @@ func registerBackendRoutes(
 	publicGroup := router.Group("/")
 	publicGroup.Use(publicCORS)
 	publicGroup.POST(publicRouteFeedback, publicHandlers.CreateFeedback)
+	publicGroup.POST(publicRouteMobileFeedback, publicHandlers.CreateMobileFeedback)
 	publicGroup.POST(publicRouteSubscription, publicHandlers.CreateSubscription)
 	publicGroup.POST(publicRouteSubscriptionStatus, publicHandlers.SubscriptionStatus)
 	publicGroup.POST(publicRouteSubscriptionConfirm, publicHandlers.ConfirmSubscription)
@@ -101,6 +102,8 @@ func registerBackendRoutes(
 	apiGroup.POST(apiRouteSites, siteHandlers.CreateSite)
 	apiGroup.PATCH(apiRouteSiteUpdate, siteHandlers.UpdateSite)
 	apiGroup.DELETE(apiRouteSiteUpdate, siteHandlers.DeleteSite)
+	apiGroup.GET(apiRouteSiteMobileApps, siteHandlers.ListMobileApps)
+	apiGroup.POST(apiRouteSiteMobileApps, siteHandlers.CreateMobileApp)
 	apiGroup.GET(apiRouteSiteMessages, siteHandlers.ListMessagesBySite)
 	apiGroup.GET(apiRouteSiteSubscribers, siteHandlers.ListSubscribers)
 	apiGroup.GET(apiRouteSiteSubscribersExport, siteHandlers.ExportSubscribers)

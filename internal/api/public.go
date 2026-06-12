@@ -1,7 +1,9 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -56,9 +58,12 @@ const (
 	errorValueInvalidSentiment     = "invalid_sentiment"
 	errorValueInvalidVisitorID     = "invalid_visitor"
 	errorValueInvalidURL           = "invalid_url"
+	errorValueInvalidMobileClient  = "invalid_mobile_client"
+	errorValueInvalidContext       = "invalid_context"
 
 	subscriptionIPMaxLength        = 64
 	subscriptionUserAgentMaxLength = 400
+	mobileFeedbackContextMaxDepth  = 4
 
 	subscriptionEventTypeSubmission   = "subscription"
 	subscriptionEventTypeNotification = "notification"
@@ -98,6 +103,30 @@ type createFeedbackRequest struct {
 	ContactInfo string `json:"contact"`
 	MessageBody string `json:"message"`
 	Sentiment   string `json:"sentiment"`
+}
+
+type createMobileFeedbackRequest struct {
+	SiteID         string                      `json:"site_id"`
+	MobileClientID string                      `json:"mobile_client_id"`
+	ContactInfo    string                      `json:"contact"`
+	MessageBody    string                      `json:"message"`
+	Sentiment      string                      `json:"sentiment"`
+	Screen         mobileFeedbackScreenRequest `json:"screen"`
+	App            mobileFeedbackAppRequest    `json:"app"`
+	Context        json.RawMessage             `json:"context"`
+}
+
+type mobileFeedbackScreenRequest struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
+type mobileFeedbackAppRequest struct {
+	Platform      string `json:"platform"`
+	ApplicationID string `json:"application_id"`
+	Version       string `json:"version"`
+	Build         string `json:"build"`
+	Environment   string `json:"environment"`
 }
 
 type createSubscriptionRequest struct {
@@ -145,6 +174,22 @@ type subscriptionLinkResponse struct {
 	OpenURL        string `json:"open_url"`
 	OpenLabel      string `json:"open_label"`
 	UnsubscribeURL string `json:"unsubscribe_url"`
+}
+
+type feedbackRecordInput struct {
+	Contact        string
+	Message        string
+	Sentiment      string
+	SourceKind     string
+	MobileClientID string
+	ScreenName     string
+	ScreenPath     string
+	AppPlatform    string
+	AppIdentifier  string
+	AppVersion     string
+	AppBuild       string
+	AppEnvironment string
+	ContextJSON    string
 }
 
 func buildSubscriptionLinkResponse(heading string, message string, site model.Site, subscriber model.Subscriber, confirmationToken string) subscriptionLinkResponse {
@@ -226,17 +271,144 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 		return
 	}
 
-	feedback := model.Feedback{
-		ID:        storage.NewID(),
-		SiteID:    site.ID,
-		Contact:   truncate(normalizedContact, 320),
-		Message:   truncate(payload.MessageBody, 4000),
-		Sentiment: truncate(normalizedSentiment, 16),
-		IP:        clientIP,
-		UserAgent: truncate(context.Request.UserAgent(), 400),
-		Delivery:  model.FeedbackDeliveryNone,
+	h.storeFeedback(context, site, feedbackRecordInput{
+		Contact:    normalizedContact,
+		Message:    payload.MessageBody,
+		Sentiment:  normalizedSentiment,
+		SourceKind: model.FeedbackSourceWebWidget,
+	})
+}
+
+// CreateMobileFeedback accepts feedback submissions from native mobile apps.
+func (h *PublicHandlers) CreateMobileFeedback(context *gin.Context) {
+	clientIP := context.ClientIP()
+	if h.isRateLimited(clientIP) {
+		context.JSON(429, gin.H{"error": "rate_limited"})
+		return
+	}
+	if hasBrowserOriginHeaders(context) {
+		context.JSON(http.StatusForbidden, gin.H{"error": errorValueOriginForbidden})
+		return
 	}
 
+	var payload createMobileFeedbackRequest
+	if bindErr := context.BindJSON(&payload); bindErr != nil {
+		context.JSON(400, gin.H{"error": "invalid_json"})
+		return
+	}
+
+	payload.SiteID = strings.TrimSpace(payload.SiteID)
+	payload.MobileClientID = strings.TrimSpace(payload.MobileClientID)
+	payload.ContactInfo = strings.TrimSpace(payload.ContactInfo)
+	payload.MessageBody = strings.TrimSpace(payload.MessageBody)
+	payload.Sentiment = strings.TrimSpace(payload.Sentiment)
+	payload.Screen.Name = strings.TrimSpace(payload.Screen.Name)
+	payload.Screen.Path = strings.TrimSpace(payload.Screen.Path)
+	payload.App.ApplicationID = strings.TrimSpace(payload.App.ApplicationID)
+	payload.App.Version = strings.TrimSpace(payload.App.Version)
+	payload.App.Build = strings.TrimSpace(payload.App.Build)
+	payload.App.Environment = strings.TrimSpace(payload.App.Environment)
+
+	if payload.SiteID == "" || payload.MobileClientID == "" || payload.ContactInfo == "" || payload.Screen.Name == "" || payload.App.ApplicationID == "" {
+		context.JSON(400, gin.H{"error": "missing_fields"})
+		return
+	}
+
+	normalizedContact, contactErr := normalizeFeedbackContact(payload.ContactInfo)
+	if contactErr != nil {
+		context.JSON(400, gin.H{"error": errorValueInvalidContact})
+		return
+	}
+
+	normalizedSentiment, sentimentErr := model.NormalizeFeedbackSentiment(payload.Sentiment)
+	if sentimentErr != nil {
+		context.JSON(400, gin.H{"error": errorValueInvalidSentiment})
+		return
+	}
+
+	if payload.MessageBody == "" && normalizedSentiment == "" {
+		context.JSON(400, gin.H{"error": "missing_fields"})
+		return
+	}
+
+	normalizedPlatform, platformErr := model.NormalizeMobilePlatform(payload.App.Platform)
+	if platformErr != nil {
+		context.JSON(400, gin.H{"error": errorValueInvalidMobileApp})
+		return
+	}
+
+	contextJSON, contextErr := normalizeMobileFeedbackContext(payload.Context)
+	if contextErr != nil {
+		context.JSON(400, gin.H{"error": errorValueInvalidContext})
+		return
+	}
+
+	var site model.Site
+	if err := h.database.First(&site, "id = ?", payload.SiteID).Error; err != nil {
+		context.JSON(404, gin.H{"error": "unknown_site"})
+		return
+	}
+
+	var mobileApp model.SiteMobileApp
+	if err := h.database.
+		Where("site_id = ? AND client_id = ? AND enabled = ?", site.ID, payload.MobileClientID, true).
+		First(&mobileApp).Error; err != nil {
+		context.JSON(403, gin.H{"error": errorValueInvalidMobileClient})
+		return
+	}
+	if mobileApp.Platform != normalizedPlatform || mobileApp.AppIdentifier != payload.App.ApplicationID {
+		context.JSON(403, gin.H{"error": errorValueInvalidMobileClient})
+		return
+	}
+
+	h.storeFeedback(context, site, feedbackRecordInput{
+		Contact:        normalizedContact,
+		Message:        payload.MessageBody,
+		Sentiment:      normalizedSentiment,
+		SourceKind:     model.FeedbackSourceMobileApp,
+		MobileClientID: payload.MobileClientID,
+		ScreenName:     payload.Screen.Name,
+		ScreenPath:     payload.Screen.Path,
+		AppPlatform:    normalizedPlatform,
+		AppIdentifier:  payload.App.ApplicationID,
+		AppVersion:     payload.App.Version,
+		AppBuild:       payload.App.Build,
+		AppEnvironment: payload.App.Environment,
+		ContextJSON:    contextJSON,
+	})
+}
+
+func (h *PublicHandlers) storeFeedback(context *gin.Context, site model.Site, input feedbackRecordInput) {
+	sourceKind, sourceErr := model.NormalizeFeedbackSource(input.SourceKind)
+	if sourceErr != nil {
+		context.JSON(400, gin.H{"error": errorValueInvalidMobileApp})
+		return
+	}
+	if contextErr := model.ValidateFeedbackContextJSON(input.ContextJSON); contextErr != nil {
+		context.JSON(400, gin.H{"error": errorValueInvalidContext})
+		return
+	}
+
+	feedback := model.Feedback{
+		ID:             storage.NewID(),
+		SiteID:         site.ID,
+		Contact:        truncate(input.Contact, 320),
+		Message:        truncate(input.Message, 4000),
+		Sentiment:      truncate(input.Sentiment, 16),
+		IP:             context.ClientIP(),
+		UserAgent:      truncate(context.Request.UserAgent(), 400),
+		Delivery:       model.FeedbackDeliveryNone,
+		SourceKind:     sourceKind,
+		MobileClientID: truncate(input.MobileClientID, 80),
+		ScreenName:     model.TruncateFeedbackScreenName(input.ScreenName),
+		ScreenPath:     model.TruncateFeedbackScreenPath(input.ScreenPath),
+		AppPlatform:    model.TruncateFeedbackAppPlatform(input.AppPlatform),
+		AppIdentifier:  model.TruncateFeedbackAppIdentifier(input.AppIdentifier),
+		AppVersion:     model.TruncateFeedbackAppVersion(input.AppVersion),
+		AppBuild:       model.TruncateFeedbackAppBuild(input.AppBuild),
+		AppEnvironment: model.TruncateFeedbackAppEnvironment(input.AppEnvironment),
+		ContextJSON:    input.ContextJSON,
+	}
 	if err := h.database.Create(&feedback).Error; err != nil {
 		h.logger.Warn("save_feedback", zap.Error(err))
 		context.JSON(500, gin.H{"error": "save_failed"})
@@ -247,6 +419,66 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 
 	h.broadcastFeedbackCreated(context.Request.Context(), feedback)
 	context.JSON(200, gin.H{"status": "ok"})
+}
+
+func hasBrowserOriginHeaders(context *gin.Context) bool {
+	return strings.TrimSpace(context.GetHeader("Origin")) != "" || strings.TrimSpace(context.GetHeader("Referer")) != ""
+}
+
+func normalizeMobileFeedbackContext(rawContext json.RawMessage) (string, error) {
+	trimmedContext := bytes.TrimSpace(rawContext)
+	if len(trimmedContext) == 0 || bytes.Equal(trimmedContext, []byte("null")) {
+		return "", nil
+	}
+	if len(trimmedContext) > 8192 {
+		return "", model.ErrInvalidFeedbackContext
+	}
+	if trimmedContext[0] != '{' {
+		return "", model.ErrInvalidFeedbackContext
+	}
+
+	var decodedContext any
+	decoder := json.NewDecoder(bytes.NewReader(trimmedContext))
+	decoder.UseNumber()
+	if decodeErr := decoder.Decode(&decodedContext); decodeErr != nil {
+		return "", decodeErr
+	}
+	if _, validObject := decodedContext.(map[string]any); !validObject {
+		return "", model.ErrInvalidFeedbackContext
+	}
+	if !mobileFeedbackContextWithinDepth(decodedContext, 0) {
+		return "", model.ErrInvalidFeedbackContext
+	}
+
+	normalizedContext, marshalErr := json.Marshal(decodedContext)
+	if marshalErr != nil {
+		return "", marshalErr
+	}
+	if len(normalizedContext) > 8192 {
+		return "", model.ErrInvalidFeedbackContext
+	}
+	return string(normalizedContext), nil
+}
+
+func mobileFeedbackContextWithinDepth(value any, depth int) bool {
+	if depth > mobileFeedbackContextMaxDepth {
+		return false
+	}
+	switch typedValue := value.(type) {
+	case map[string]any:
+		for _, nestedValue := range typedValue {
+			if !mobileFeedbackContextWithinDepth(nestedValue, depth+1) {
+				return false
+			}
+		}
+	case []any:
+		for _, nestedValue := range typedValue {
+			if !mobileFeedbackContextWithinDepth(nestedValue, depth+1) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (h *PublicHandlers) applyFeedbackNotification(ctx context.Context, site model.Site, feedback *model.Feedback) {

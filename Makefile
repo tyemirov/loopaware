@@ -52,6 +52,7 @@ lint-js:
 		npm --prefix tests install; \
 	fi
 	npm --prefix tests run typecheck
+	PATH="$(CURDIR)/tests/node_modules/.bin:$$PATH" npm --prefix clients/react-native run typecheck
 	npm --prefix tests run check:location-map
 
 test: test-integration

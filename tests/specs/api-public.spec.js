@@ -9,7 +9,7 @@ import {
   buildUniqueOrigin,
   createTestSite
 } from "../helpers/fixtures.js";
-import { apiRequest, updateSite } from "../helpers/api.js";
+import { apiRequest, createMobileApp, createMobileFeedback, listMessages, listMobileApps, updateSite } from "../helpers/api.js";
 import { buildSubscriptionConfirmationToken } from "../helpers/subscriptionToken.js";
 
 const config = resolveTestConfig();
@@ -99,9 +99,15 @@ async function postSubscriptionMutation(path, siteId, email, originOverride, cli
 
 test.describe("public feedback api", () => {
   let site;
+  let mobileApp;
 
   test.beforeAll(async () => {
     site = await createPublicSite("Feedback API");
+    mobileApp = await createMobileApp(config, buildAdminCookie(), site, {
+      platform: "ios",
+      appIdentifier: "com.example.feedback",
+      displayName: "Feedback iOS"
+    });
   });
 
   test("rejects missing site id", async () => {
@@ -176,6 +182,102 @@ test.describe("public feedback api", () => {
     const { response, payload } = await postFeedbackRequest(site.id, "person@example.com", "", site.allowed_origin, undefined, "happy");
     expect(response.status).toBe(200);
     expect(payload.status).toBe("ok");
+  });
+
+  test("registers and lists mobile feedback apps", async () => {
+    const payload = await listMobileApps(config, buildAdminCookie(), site.id);
+    expect(payload.site_id).toBe(site.id);
+    expect(payload.mobile_apps.some((app) => app.client_id === mobileApp.client_id && app.app_identifier === "com.example.feedback")).toBe(true);
+  });
+
+  test("accepts mobile feedback with screen context", async () => {
+    await createMobileFeedback(config, site, mobileApp, {
+      contact: "mobile@example.com",
+      message: "Checkout needs more context",
+      sentiment: "sad",
+      screen: {
+        name: "Checkout",
+        path: "/checkout/payment"
+      },
+      app: {
+        platform: "ios",
+        application_id: "com.example.feedback",
+        version: "1.2.3",
+        build: "44",
+        environment: "production"
+      },
+      context: {
+        plan: "pro",
+        step: "payment"
+      }
+    });
+
+    const messagesPayload = await listMessages(config, buildAdminCookie(), site.id);
+    const mobileMessage = messagesPayload.messages.find((message) => message.contact === "mobile@example.com");
+    expect(mobileMessage.source_kind).toBe("mobile_app");
+    expect(mobileMessage.screen_name).toBe("Checkout");
+    expect(mobileMessage.screen_path).toBe("/checkout/payment");
+    expect(mobileMessage.app_platform).toBe("ios");
+    expect(mobileMessage.app_identifier).toBe("com.example.feedback");
+    expect(mobileMessage.app_version).toBe("1.2.3");
+    expect(mobileMessage.app_build).toBe("44");
+    expect(mobileMessage.app_environment).toBe("production");
+    expect(mobileMessage.context).toEqual({ plan: "pro", step: "payment" });
+  });
+
+  test("rejects mobile feedback from browser origins", async () => {
+    const { response, payload } = await apiRequest({
+      baseURL: config.baseURL,
+      path: "/public/mobile-feedback",
+      method: "POST",
+      origin: buildUniqueOrigin("mobile-browser-forbidden"),
+      clientIP: nextClientIP(),
+      body: {
+        site_id: site.id,
+        mobile_client_id: mobileApp.client_id,
+        contact: "mobile-browser@example.com",
+        message: "Browser forged feedback",
+        sentiment: "neutral",
+        screen: { name: "Checkout", path: "/checkout/payment" },
+        app: {
+          platform: "ios",
+          application_id: "com.example.feedback",
+          version: "1.2.3",
+          build: "44",
+          environment: "production"
+        },
+        context: { plan: "pro" }
+      }
+    });
+    expect(response.status).toBe(403);
+    expect(payload.error).toBe("origin_forbidden");
+  });
+
+  test("rejects mobile feedback for unregistered app identity", async () => {
+    const { response, payload } = await apiRequest({
+      baseURL: config.baseURL,
+      path: "/public/mobile-feedback",
+      method: "POST",
+      clientIP: nextClientIP(),
+      body: {
+        site_id: site.id,
+        mobile_client_id: mobileApp.client_id,
+        contact: "mobile-forbidden@example.com",
+        message: "Wrong app",
+        sentiment: "neutral",
+        screen: { name: "Checkout", path: "/checkout/payment" },
+        app: {
+          platform: "ios",
+          application_id: "com.example.other",
+          version: "1.2.3",
+          build: "44",
+          environment: "production"
+        },
+        context: { plan: "pro" }
+      }
+    });
+    expect(response.status).toBe(403);
+    expect(payload.error).toBe("invalid_mobile_client");
   });
 
   test("rate limits repeated feedback requests", async () => {

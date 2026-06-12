@@ -89,7 +89,7 @@ func AutoMigrate(database *gorm.DB) error {
 	if err := dropLegacyPortfolioTrafficScheduleUserEmailIndex(database); err != nil {
 		return err
 	}
-	if err := database.AutoMigrate(&model.Site{}, &model.Feedback{}, &model.User{}, &model.Subscriber{}, &model.SiteVisit{}, &model.SiteVisitRollup{}, &model.TrafficReportSchedule{}, &model.PortfolioTrafficReportSchedule{}, &model.PortfolioTrafficReportDefinition{}, &model.PortfolioTrafficReportDefinitionSite{}, &model.SentryIssue{}, &model.SentryOccurrence{}); err != nil {
+	if err := database.AutoMigrate(&model.Site{}, &model.Feedback{}, &model.User{}, &model.Subscriber{}, &model.SiteVisit{}, &model.SiteVisitRollup{}, &model.TrafficReportSchedule{}, &model.PortfolioTrafficReportSchedule{}, &model.PortfolioTrafficReportDefinition{}, &model.PortfolioTrafficReportDefinitionSite{}, &model.SentryIssue{}, &model.SentryOccurrence{}, &model.SiteMobileApp{}); err != nil {
 		return err
 	}
 	if err := backfillPortfolioTrafficReportScheduleIDs(database); err != nil {
@@ -104,7 +104,10 @@ func AutoMigrate(database *gorm.DB) error {
 	if err := backfillSiteWidgetFeedbackVisibility(database); err != nil {
 		return err
 	}
-	return backfillSiteWidgetAccentColors(database)
+	if err := backfillSiteWidgetAccentColors(database); err != nil {
+		return err
+	}
+	return backfillFeedbackSourceKinds(database)
 }
 
 func dropLegacySubscriberUniqueIndex(database *gorm.DB) error {

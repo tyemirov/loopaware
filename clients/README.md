@@ -1,6 +1,12 @@
 # LoopAware Clients
 
-First-party clients for LoopAware live under this directory. LA Sentry currently has Go, Python, and browser client surfaces.
+First-party clients for LoopAware live under this directory.
+
+## Feedback
+
+| Runtime | Location | Ingest route | Notes |
+| --- | --- | --- | --- |
+| React Native / Expo | [`clients/react-native`](react-native) | `/public/mobile-feedback` | Native feedback button with explicit screen and app context. |
 
 ## LA Sentry
 

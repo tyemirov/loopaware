@@ -216,6 +216,8 @@ include Unix timestamps in seconds.
 | `POST`  | `/api/sites`                          | any         | Create a site (requires `name`, `allowed_origin`, `owner_email`)                                        |
 | `PATCH` | `/api/sites/:id`                      | owner/admin | Update name/origin; admins may reassign ownership                                                       |
 | `DELETE`| `/api/sites/:id`                      | owner/admin | Delete a site                                                                                            |
+| `GET`   | `/api/sites/:id/mobile-apps`          | owner/admin | List native mobile apps registered for feedback submissions                                             |
+| `POST`  | `/api/sites/:id/mobile-apps`          | owner/admin | Register a native mobile app for mobile feedback submissions                                            |
 | `GET`   | `/api/sites/:id/messages`             | owner/admin | List feedback messages (newest first)                                                                   |
 | `GET`   | `/api/sites/:id/subscribers`          | owner/admin | List subscribers for a site                                                                             |
 | `GET`   | `/api/sites/:id/subscribers/export`   | owner/admin | Download subscribers as CSV                                                                             |
@@ -235,6 +237,7 @@ include Unix timestamps in seconds.
 | `GET`   | `/api/sites/favicons/events`          | any         | Server-sent events stream announcing refreshed site favicons                                            |
 | `GET`   | `/api/sites/feedback/events`          | any         | Server-sent events stream announcing new feedback                                                      |
 | `POST`  | `/public/feedback`                       | public      | Submit feedback (requires `site_id`, valid `contact` as email or phone, and at least one of `message` or `sentiment`) |
+| `POST`  | `/public/mobile-feedback`                | public      | Submit feedback from a registered mobile app with screen/app context                                   |
 | `POST`  | `/public/subscriptions`                  | public      | Submit an email subscription (JSON body with `site_id`, `email`, optional `name` and `source_url`)      |
 | `POST`  | `/public/subscriptions/confirm`          | public      | Confirm a subscription for a given `site_id` and email                                                  |
 | `POST`  | `/public/subscriptions/unsubscribe`      | public      | Unsubscribe an email address for a given `site_id`                                                      |
@@ -296,6 +299,50 @@ Example snippet (replace the base URL with your LoopAware deployment and the sit
 ```html
 <script defer src="https://loopaware.mprlab.com/widget.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"></script>
 ```
+
+## Adding mobile feedback
+
+React Native and Expo apps can use the first-party client under `clients/react-native` to render a native feedback
+button on selected screens. Mobile feedback is separate from LA Sentry error capture.
+
+1. Register the native app for the site:
+
+   ```json
+   POST /api/sites/6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f/mobile-apps
+   {
+     "platform": "ios",
+     "app_identifier": "com.example.app",
+     "display_name": "Example iOS"
+   }
+   ```
+
+2. Store the returned public `client_id` in the app configuration.
+3. Render the feedback button on screens where users should be able to comment:
+
+   ```tsx
+   <LoopAwareProvider
+     siteId="6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"
+     mobileClientId="client-id-from-dashboard-api"
+     apiOrigin="https://loopaware.mprlab.com"
+     app={{
+       platform: "ios",
+       applicationId: "com.example.app",
+       version: "1.2.3",
+       build: "44",
+       environment: "production",
+     }}
+   >
+     <CheckoutScreen />
+     <LoopAwareFeedbackButton
+       screen={{ name: "Checkout", path: "/checkout/payment" }}
+       context={{ step: "payment", plan: "pro" }}
+     />
+   </LoopAwareProvider>
+   ```
+
+The public `client_id` identifies the app registration; it is not a secret. Mobile submissions validate that the client
+ID, platform, and application identifier match the registered site app, then store the supplied screen, app version, and
+bounded context with the feedback message.
 
 ## Embedding the subscribe form
 

@@ -51,3 +51,13 @@ func backfillSiteWidgetAccentColors(database *gorm.DB) error {
 		Where("widget_accent_color IS NULL OR TRIM(widget_accent_color) = ''").
 		Updates(assignments).Error
 }
+
+func backfillFeedbackSourceKinds(database *gorm.DB) error {
+	assignments := map[string]any{
+		"source_kind": model.FeedbackSourceWebWidget,
+	}
+
+	return database.Model(&model.Feedback{}).
+		Where("source_kind IS NULL OR TRIM(source_kind) = ''").
+		Updates(assignments).Error
+}
