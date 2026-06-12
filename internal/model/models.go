@@ -33,15 +33,25 @@ type Site struct {
 }
 
 type Feedback struct {
-	ID        string    `gorm:"primaryKey;size:36"`
-	SiteID    string    `gorm:"index;index:idx_feedbacks_site_created,priority:1;not null;size:36"`
-	Contact   string    `gorm:"not null;size:320"`
-	Message   string    `gorm:"not null;size:4000"`
-	Sentiment string    `gorm:"size:16"`
-	IP        string    `gorm:"size:64"`
-	UserAgent string    `gorm:"size:400"`
-	Delivery  string    `gorm:"not null;size:16;default:no"`
-	CreatedAt time.Time `gorm:"autoCreateTime;index:idx_feedbacks_site_created,priority:2"`
+	ID             string    `gorm:"primaryKey;size:36"`
+	SiteID         string    `gorm:"index;index:idx_feedbacks_site_created,priority:1;not null;size:36"`
+	Contact        string    `gorm:"not null;size:320"`
+	Message        string    `gorm:"not null;size:4000"`
+	Sentiment      string    `gorm:"size:16"`
+	IP             string    `gorm:"size:64"`
+	UserAgent      string    `gorm:"size:400"`
+	Delivery       string    `gorm:"not null;size:16;default:no"`
+	SourceKind     string    `gorm:"not null;size:20;default:web_widget;index"`
+	MobileClientID string    `gorm:"size:80"`
+	ScreenName     string    `gorm:"size:120"`
+	ScreenPath     string    `gorm:"size:300"`
+	AppPlatform    string    `gorm:"size:20"`
+	AppIdentifier  string    `gorm:"size:200"`
+	AppVersion     string    `gorm:"size:80"`
+	AppBuild       string    `gorm:"size:80"`
+	AppEnvironment string    `gorm:"size:80"`
+	ContextJSON    string    `gorm:"type:text"`
+	CreatedAt      time.Time `gorm:"autoCreateTime;index:idx_feedbacks_site_created,priority:2"`
 }
 
 type User struct {

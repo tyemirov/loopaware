@@ -45,6 +45,7 @@ const (
 	errorValueInvalidWidgetOffset     = "invalid_widget_offset"
 	errorValueInvalidWidgetAccent     = "invalid_widget_accent_color"
 	errorValueInvalidWidgetVisibility = "invalid_widget_feedback_visibility"
+	errorValueInvalidMobileApp        = "invalid_mobile_app"
 	errorValueInvalidSubscriberStatus = "invalid_subscriber_status"
 	errorValueNothingToUpdate         = "nothing_to_update"
 	errorValueDeleteFailed            = "delete_failed"
@@ -212,6 +213,29 @@ type siteMessagesResponse struct {
 	Messages []feedbackMessageResponse `json:"messages"`
 }
 
+type siteMobileAppsResponse struct {
+	SiteID     string              `json:"site_id"`
+	MobileApps []mobileAppResponse `json:"mobile_apps"`
+}
+
+type createMobileAppRequest struct {
+	ClientID      string `json:"client_id"`
+	Platform      string `json:"platform"`
+	AppIdentifier string `json:"app_identifier"`
+	DisplayName   string `json:"display_name"`
+}
+
+type mobileAppResponse struct {
+	ID            string `json:"id"`
+	ClientID      string `json:"client_id"`
+	Platform      string `json:"platform"`
+	AppIdentifier string `json:"app_identifier"`
+	DisplayName   string `json:"display_name"`
+	Enabled       bool   `json:"enabled"`
+	CreatedAt     int64  `json:"created_at"`
+	UpdatedAt     int64  `json:"updated_at"`
+}
+
 type SiteSubscribersResponse struct {
 	SiteID      string             `json:"site_id"`
 	Subscribers []SubscriberRecord `json:"subscribers"`
@@ -228,14 +252,24 @@ type SubscriberRecord struct {
 }
 
 type feedbackMessageResponse struct {
-	ID        string `json:"id"`
-	Contact   string `json:"contact"`
-	Message   string `json:"message"`
-	Sentiment string `json:"sentiment"`
-	IP        string `json:"ip"`
-	UserAgent string `json:"user_agent"`
-	CreatedAt int64  `json:"created_at"`
-	Delivery  string `json:"delivery"`
+	ID             string          `json:"id"`
+	Contact        string          `json:"contact"`
+	Message        string          `json:"message"`
+	Sentiment      string          `json:"sentiment"`
+	IP             string          `json:"ip"`
+	UserAgent      string          `json:"user_agent"`
+	CreatedAt      int64           `json:"created_at"`
+	Delivery       string          `json:"delivery"`
+	SourceKind     string          `json:"source_kind"`
+	MobileClientID string          `json:"mobile_client_id"`
+	ScreenName     string          `json:"screen_name"`
+	ScreenPath     string          `json:"screen_path"`
+	AppPlatform    string          `json:"app_platform"`
+	AppIdentifier  string          `json:"app_identifier"`
+	AppVersion     string          `json:"app_version"`
+	AppBuild       string          `json:"app_build"`
+	AppEnvironment string          `json:"app_environment"`
+	Context        json.RawMessage `json:"context,omitempty"`
 }
 
 type VisitStatsResponse struct {
@@ -957,6 +991,9 @@ func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
 		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.Feedback{}).Error; err != nil {
 			return err
 		}
+		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.SiteMobileApp{}).Error; err != nil {
+			return err
+		}
 		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.SentryOccurrence{}).Error; err != nil {
 			return err
 		}
@@ -976,6 +1013,62 @@ func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
 
 	context.Status(http.StatusNoContent)
 	context.Writer.WriteHeaderNow()
+}
+
+func (handlers *SiteHandlers) ListMobileApps(context *gin.Context) {
+	site, _, ok := handlers.resolveAuthorizedSite(context)
+	if !ok {
+		return
+	}
+
+	var mobileApps []model.SiteMobileApp
+	if err := handlers.database.
+		Where("site_id = ?", site.ID).
+		Order("created_at desc").
+		Find(&mobileApps).Error; err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+
+	responses := make([]mobileAppResponse, 0, len(mobileApps))
+	for _, mobileApp := range mobileApps {
+		responses = append(responses, mobileAppToResponse(mobileApp))
+	}
+
+	context.JSON(http.StatusOK, siteMobileAppsResponse{SiteID: site.ID, MobileApps: responses})
+}
+
+func (handlers *SiteHandlers) CreateMobileApp(context *gin.Context) {
+	site, _, ok := handlers.resolveAuthorizedSite(context)
+	if !ok {
+		return
+	}
+
+	var payload createMobileAppRequest
+	if bindErr := context.BindJSON(&payload); bindErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidJSON})
+		return
+	}
+
+	mobileApp, mobileAppErr := model.NewSiteMobileApp(model.SiteMobileAppInput{
+		SiteID:        site.ID,
+		ClientID:      payload.ClientID,
+		Platform:      payload.Platform,
+		AppIdentifier: payload.AppIdentifier,
+		DisplayName:   payload.DisplayName,
+	})
+	if mobileAppErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidMobileApp})
+		return
+	}
+
+	if err := handlers.database.Create(&mobileApp).Error; err != nil {
+		handlers.logger.Warn("create_mobile_app", zap.Error(err))
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
+		return
+	}
+
+	context.JSON(http.StatusOK, mobileAppToResponse(mobileApp))
 }
 
 func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
@@ -1013,19 +1106,50 @@ func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
 
 	messageResponses := make([]feedbackMessageResponse, 0, len(feedbacks))
 	for _, feedback := range feedbacks {
+		sourceKind, sourceErr := model.NormalizeFeedbackSource(feedback.SourceKind)
+		if sourceErr != nil {
+			sourceKind = model.FeedbackSourceWebWidget
+		}
+		var contextPayload json.RawMessage
+		if trimmedContext := strings.TrimSpace(feedback.ContextJSON); trimmedContext != "" && json.Valid([]byte(trimmedContext)) {
+			contextPayload = json.RawMessage(trimmedContext)
+		}
 		messageResponses = append(messageResponses, feedbackMessageResponse{
-			ID:        feedback.ID,
-			Contact:   feedback.Contact,
-			Message:   feedback.Message,
-			Sentiment: feedback.Sentiment,
-			IP:        feedback.IP,
-			UserAgent: feedback.UserAgent,
-			CreatedAt: feedback.CreatedAt.Unix(),
-			Delivery:  feedback.Delivery,
+			ID:             feedback.ID,
+			Contact:        feedback.Contact,
+			Message:        feedback.Message,
+			Sentiment:      feedback.Sentiment,
+			IP:             feedback.IP,
+			UserAgent:      feedback.UserAgent,
+			CreatedAt:      feedback.CreatedAt.Unix(),
+			Delivery:       feedback.Delivery,
+			SourceKind:     sourceKind,
+			MobileClientID: feedback.MobileClientID,
+			ScreenName:     feedback.ScreenName,
+			ScreenPath:     feedback.ScreenPath,
+			AppPlatform:    feedback.AppPlatform,
+			AppIdentifier:  feedback.AppIdentifier,
+			AppVersion:     feedback.AppVersion,
+			AppBuild:       feedback.AppBuild,
+			AppEnvironment: feedback.AppEnvironment,
+			Context:        contextPayload,
 		})
 	}
 
 	context.JSON(http.StatusOK, siteMessagesResponse{SiteID: site.ID, Messages: messageResponses})
+}
+
+func mobileAppToResponse(mobileApp model.SiteMobileApp) mobileAppResponse {
+	return mobileAppResponse{
+		ID:            mobileApp.ID,
+		ClientID:      mobileApp.ClientID,
+		Platform:      mobileApp.Platform,
+		AppIdentifier: mobileApp.AppIdentifier,
+		DisplayName:   mobileApp.DisplayName,
+		Enabled:       mobileApp.Enabled,
+		CreatedAt:     mobileApp.CreatedAt.Unix(),
+		UpdatedAt:     mobileApp.UpdatedAt.Unix(),
+	}
 }
 
 func (handlers *SiteHandlers) VisitStats(context *gin.Context) {
