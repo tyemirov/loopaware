@@ -11,6 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.20] - 2026-06-12
+
+### Features ✨
+- Add Expo-compatible mobile feedback widget support with native feedback button for React Native and Expo apps.
+- Introduce mobile app feedback endpoints and API routes for registered native apps.
+- Add React Native feedback client with TypeScript types and configuration for type checking.
+- Enhance mobile app feedback display and search in the dashboard.
+- Reject mobile feedback requests with browser origin headers to prevent invalid submissions.
+
+### Improvements ⚙️
+- Run typecheck for React Native client in lint-js target.
+- Post-review hardening to reject browser-origin mobile feedback submissions before client validation.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- Add rejection test for mobile feedback from browser origins.
+- Add tests for mobile app feedback endpoints.
+
+### Docs 📚
+- Add mobile feedback API and usage guide to README.md and clients/react-native README.
+- Update mobile feedback issue resolution with post-review hardening details.
+- Document mobile app registration and usage for feedback submission.
+
 ## [v0.7.19] - 2026-06-09
 
 ### Features ✨
