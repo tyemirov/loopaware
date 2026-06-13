@@ -503,6 +503,14 @@ test.describe("admin api sites", () => {
     expect(invalid.response.status).toBe(400);
     expect(invalid.payload.error).toBe("invalid_team_member");
 
+    const displayNameEmail = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: `Jane <${buildUniqueEmail("team-display-name")}>` }
+    });
+    expect(displayNameEmail.response.status).toBe(400);
+    expect(displayNameEmail.payload.error).toBe("invalid_team_member");
+
     const created = await adminRequest({
       path: `/api/sites/${site.id}/team`,
       method: "POST",
