@@ -42,7 +42,7 @@ Embed the feedback widget on any page:
 - Embeddable JavaScript widget with strict origin validation
 - Email subscription capture via an embeddable subscribe form
 - Privacy-safe traffic pixel with per-site visit and visitor counts
-- Daily, weekly, or monthly traffic report emails delivered through Pinguin
+- Daily, weekly, or monthly traffic report emails delivered through Pinguin to a manager, the whole site team, or selected members
 - First-class LA Sentry developer error monitoring with protected server-to-server ingest and origin-bound browser capture
 - SQLite-first storage with pluggable drivers
 - Public privacy policy and compliance endpoints for visibility
@@ -237,6 +237,9 @@ include Unix timestamps in seconds.
 | `GET`   | `/api/sites/:id/visits/engagement`    | owner/admin/team member | Visitor engagement metrics (default 30 days, optional `days` query param up to 90, or `interval=all\|1day\|30days`) |
 | `GET`   | `/api/sites/:id/visits/devices`       | owner/admin/team member | Device, screen resolution, and viewport breakdowns (optional `limit` query param up to 50; optional `interval=all\|1day\|30days`) |
 | `GET`   | `/api/sites/:id/visits/locations`     | owner/admin/team member | Inferred visitor locations from edge geo, timezone, locale, network, or unknown signals with confidence metadata (optional `limit` query param up to 50; optional `interval=all\|1day\|30days`) |
+| `GET`   | `/api/sites/:id/traffic-report-schedule` | owner/admin | Read the selected-site traffic report schedule, including `recipient_mode` (`manager`, `team`, or `selected`) and selected team member emails |
+| `PUT`   | `/api/sites/:id/traffic-report-schedule` | owner/admin | Save the selected-site traffic report schedule; `recipient_mode: "selected"` accepts only current per-site team member emails in `recipient_emails` |
+| `POST`  | `/api/sites/:id/traffic-report-schedule/test` | owner/admin | Send the selected-site traffic report immediately to the schedule's resolved recipients |
 | `GET`   | `/api/sites/favicons/events`          | any         | Server-sent events stream announcing refreshed site favicons                                            |
 | `GET`   | `/api/sites/feedback/events`          | any         | Server-sent events stream announcing new feedback                                                      |
 | `POST`  | `/public/feedback`                       | public      | Submit feedback (requires `site_id`, valid `contact` as email or phone, and at least one of `message` or `sentiment`) |
@@ -264,9 +267,10 @@ The `/api/me` response includes a `role` value of `admin` or `user` and an `avat
 profile image (served from `/api/me/avatar`). The dashboard uses this payload to render the account card and determine
 site scope.
 
-Authenticated users can create sites. Owners, creators, and global admins can update and delete sites, and can add
-per-site team member emails. Team members can read assigned site data after signing in with the matching Google email,
-but cannot manage site settings or memberships.
+Authenticated users can create sites. Owners, creators, and global admins can update and delete sites, can add
+per-site team member emails, and can choose whether selected-site traffic reports go only to the manager, the whole site
+team, or selected team members. Team members can read assigned site data after signing in with the matching Google email,
+but cannot manage site settings, memberships, or schedules.
 
 Deployments upgraded from versions prior to LA-57 should allow the server startup migration to run once; it backfills any
 sites missing a `creator_email` with `temirov@gmail.com` to preserve creator-based visibility rules. New site creations
@@ -278,11 +282,12 @@ The Bootstrap front end consumes the APIs above. Features include:
 
 - Account Settings modal with avatar, email, role badge, reports, and inactivity controls
 - Site creation and owner reassignment available to every authenticated user; administrators additionally see all sites
-- Owner/admin editor for site metadata and per-site team member emails
+- Owner/admin editor for site metadata, with per-site team member emails managed from the Admin dashboard section
+- Selected-site traffic report scheduling with recipient selection for only the manager, the whole site team, or checked team members
 - Widget appearance controls that persist the bubble’s accent color, side (left/right), and bottom offset without code changes
 - Feedback table with human-readable timestamps
 - Subscribers panel with per-site subscriber counts, table, CSV export, and a copyable `subscribe.js` snippet
-- Section selector tabs to switch between Feedback, Subscriptions, and Traffic
+- Section selector tabs to switch between Feedback, Subscriptions, Traffic, LA Sentry, and manager-only Admin tools
 - Subscriber deletion via a confirmation modal
 - Traffic card with visit and unique visitor counts, recent visits, and a copyable `pixel.js` snippet
 - Real-time favicon refresh notifications delivered through the SSE stream
