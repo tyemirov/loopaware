@@ -65,6 +65,9 @@ test('site team member can be added and removed from dashboard', async ({ page }
   const teamEmail = buildUniqueEmail('dashboard-team');
   await openDashboard(page, config, adminUser);
   await selectSite(page, primarySite.id);
+  await expect(page.locator('#dashboard-section-tab-admin')).toBeVisible();
+  await page.locator('#dashboard-section-tab-admin').click();
+  await expect(page.locator('#site-team-card')).toBeVisible();
   await page.locator('#team-member-email').fill(teamEmail);
   await page.locator('#add-team-member-button').click();
   await expect(page.locator('#team-members-table-body')).toContainText(teamEmail.toLowerCase());
@@ -99,8 +102,8 @@ test('assigned team member sees site details as read-only', async ({ page }) => 
   await expect(page.locator('#edit-site-origin')).toBeDisabled();
   await expect(page.locator('#edit-site-owner')).toBeDisabled();
   await expect(page.locator('#delete-site-button')).toBeDisabled();
-  await expect(page.locator('#team-member-email')).toBeDisabled();
-  await expect(page.locator('#add-team-member-button')).toBeDisabled();
+  await expect(page.locator('#dashboard-section-tab-admin')).toBeHidden();
+  await expect(page.locator('#site-team-card')).toBeHidden();
 });
 
 test('site search filters matching entries', async ({ page }) => {

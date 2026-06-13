@@ -526,6 +526,97 @@ test.describe("admin api sites", () => {
     expect(missing.payload.error).toBe("unknown_team_member");
   });
 
+  test("site traffic report schedule supports team recipient selection", async () => {
+    const site = await createAdminSite("Traffic Recipients");
+    const firstTeamEmail = buildUniqueEmail("traffic-recipient-first");
+    const secondTeamEmail = buildUniqueEmail("traffic-recipient-second");
+
+    const firstMember = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: firstTeamEmail }
+    });
+    expect(firstMember.response.status).toBe(200);
+    const secondMember = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: secondTeamEmail }
+    });
+    expect(secondMember.response.status).toBe(200);
+
+    const defaultSchedule = await adminRequest({
+      path: `/api/sites/${site.id}/traffic-report-schedule`,
+      method: "GET"
+    });
+    expect(defaultSchedule.response.status).toBe(200);
+    expect(defaultSchedule.payload.recipient_mode).toBe("manager");
+    expect(defaultSchedule.payload.recipient_emails).toEqual([]);
+
+    const teamSchedule = await adminRequest({
+      path: `/api/sites/${site.id}/traffic-report-schedule`,
+      method: "PUT",
+      body: {
+        enabled: true,
+        frequency: "weekly",
+        recipient_mode: "team",
+        recipient_emails: [firstTeamEmail],
+        timezone: "UTC",
+        send_hour: 9,
+        send_minute: 15,
+        weekday: 1,
+        month_day: 1
+      }
+    });
+    expect(teamSchedule.response.status).toBe(200);
+    expect(teamSchedule.payload.recipient_mode).toBe("team");
+    expect(teamSchedule.payload.recipient_emails).toEqual([]);
+
+    const selectedSchedule = await adminRequest({
+      path: `/api/sites/${site.id}/traffic-report-schedule`,
+      method: "PUT",
+      body: {
+        enabled: true,
+        frequency: "daily",
+        recipient_mode: "selected",
+        recipient_emails: [secondTeamEmail.toUpperCase(), secondTeamEmail],
+        timezone: "UTC",
+        send_hour: 10,
+        send_minute: 30,
+        weekday: 1,
+        month_day: 1
+      }
+    });
+    expect(selectedSchedule.response.status).toBe(200);
+    expect(selectedSchedule.payload.recipient_mode).toBe("selected");
+    expect(selectedSchedule.payload.recipient_emails).toEqual([secondTeamEmail.toLowerCase()]);
+
+    const loadedSchedule = await adminRequest({
+      path: `/api/sites/${site.id}/traffic-report-schedule`,
+      method: "GET"
+    });
+    expect(loadedSchedule.response.status).toBe(200);
+    expect(loadedSchedule.payload.recipient_mode).toBe("selected");
+    expect(loadedSchedule.payload.recipient_emails).toEqual([secondTeamEmail.toLowerCase()]);
+
+    const invalidSchedule = await adminRequest({
+      path: `/api/sites/${site.id}/traffic-report-schedule`,
+      method: "PUT",
+      body: {
+        enabled: true,
+        frequency: "daily",
+        recipient_mode: "selected",
+        recipient_emails: [buildUniqueEmail("not-on-team")],
+        timezone: "UTC",
+        send_hour: 10,
+        send_minute: 30,
+        weekday: 1,
+        month_day: 1
+      }
+    });
+    expect(invalidSchedule.response.status).toBe(400);
+    expect(invalidSchedule.payload.error).toBe("invalid_traffic_report_schedule");
+  });
+
   test("unrelated users cannot see or manage site team members", async () => {
     const site = await createAdminSite("Team Unauthorized");
 
@@ -654,6 +745,16 @@ test.describe("admin api messages and subscribers", () => {
     });
     expect(response.status).toBe(200);
     expect(payload.status).toBe("ok");
+  });
+
+  test("delete subscriber reports unknown subscription for missing subscriber", async () => {
+    const site = await createAdminSite("Subscribers Missing Delete");
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}/subscribers/missing-subscriber`,
+      method: "DELETE"
+    });
+    expect(response.status).toBe(404);
+    expect(payload.error).toBe("unknown_subscription");
   });
 
   test("exports subscribers as csv", async () => {

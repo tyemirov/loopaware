@@ -18,9 +18,6 @@ const labelCases = [
   { selector: '#session-timeout-dismiss-button', text: 'No' },
   { selector: '#session-timeout-message', text: 'Log out due to inactivity?' },
   { selector: 'h5:has-text("Site details")', text: 'Site details' },
-  { selector: 'h5:has-text("Team")', text: 'Team' },
-  { selector: 'label[for="team-member-email"]', text: 'Email' },
-  { selector: '#add-team-member-button', text: 'Add member' },
   { selector: 'h5:has-text("Feedback widget")', text: 'Feedback widget' },
   { selector: 'h5:has-text("Subscribers widget")', text: 'Subscribers widget' },
   { selector: 'h5:has-text("Traffic widget")', text: 'Traffic widget' },
@@ -29,6 +26,7 @@ const labelCases = [
   { selector: '#dashboard-section-tab-feedback', text: 'Feedback' },
   { selector: '#dashboard-section-tab-subscriptions', text: 'Subscriptions' },
   { selector: '#dashboard-section-tab-traffic', text: 'Traffic' },
+  { selector: '#dashboard-section-tab-admin', text: 'Admin' },
   { selector: '#traffic-pages-heading', text: 'Pages' },
   { selector: '#traffic-devices-heading', text: 'Devices' },
   { selector: '#traffic-locations-heading', text: 'Locations' },
@@ -36,6 +34,10 @@ const labelCases = [
   { selector: 'label[for="traffic-interval-30days"]', text: '30 days' },
   { selector: 'label[for="traffic-interval-all"]', text: 'All' },
   { selector: '#traffic-export-button', text: 'Download CSV' },
+  { selector: 'label[for="traffic-report-recipient"]', text: 'Manager email' },
+  { selector: 'label[for="traffic-report-recipient-mode-manager"]', text: 'Only me' },
+  { selector: 'label[for="traffic-report-recipient-mode-team"]', text: 'Whole team' },
+  { selector: 'label[for="traffic-report-recipient-mode-selected"]', text: 'Selected members' },
   { selector: '#dashboard-section-tab-sentry', text: 'LA Sentry' },
   { selector: 'h5:has-text("LA Sentry clients")', text: 'LA Sentry clients' },
   { selector: 'h5:has-text("LA Sentry issues")', text: 'LA Sentry issues' },
@@ -79,4 +81,13 @@ test('dashboard new site mode marks button active', async ({ page }) => {
   const newSiteButton = page.locator('#new-site-button');
   await newSiteButton.click();
   await expect(newSiteButton).toHaveClass(/btn-primary/);
+});
+
+test('dashboard admin section labels team management controls', async ({ page }) => {
+  await openDashboard(page, config, adminUser);
+  await page.locator('#dashboard-section-tab-admin').click();
+  await expect(page.locator('h5:has-text("Admin")')).toContainText('Admin');
+  await expect(page.locator('h6:has-text("Team members")')).toContainText('Team members');
+  await expect(page.locator('label[for="team-member-email"]')).toContainText('Email');
+  await expect(page.locator('#add-team-member-button')).toContainText('Add member');
 });
