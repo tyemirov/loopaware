@@ -4,7 +4,7 @@ import * as crypto from 'node:crypto';
 import { resolveTestConfig } from '../helpers/config.js';
 import { buildSessionCookie } from '../helpers/auth.js';
 import { buildAdminUser, buildUniqueEmail, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite, waitForDashboardReady } from '../helpers/fixtures.js';
-import { collectVisit, fetchPortfolioTrafficReport, fetchPortfolioTrafficReports, fetchPortfolioTrafficReportSchedule, fetchTrafficReportSchedule, fetchVisitStats, savePortfolioTrafficReportSchedule, saveTrafficReportSchedule } from '../helpers/api.js';
+import { apiRequest, collectVisit, fetchPortfolioTrafficReport, fetchPortfolioTrafficReports, fetchPortfolioTrafficReportSchedule, fetchTrafficReportSchedule, fetchVisitStats, savePortfolioTrafficReportSchedule, saveTrafficReportSchedule } from '../helpers/api.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
@@ -216,6 +216,15 @@ test('traffic graphics render selected-site trends and breakdowns', async ({ pag
 test('traffic report schedule can be configured from dashboard', async ({ page }) => {
   const site = await createTrafficSite();
   const cookie = buildAdminCookie();
+  const teamEmail = buildUniqueEmail('traffic-report-member');
+  const teamMember = await apiRequest({
+    baseURL: config.baseURL,
+    cookie,
+    path: `/api/sites/${site.id}/team`,
+    method: 'POST',
+    body: { email: teamEmail }
+  });
+  expect(teamMember.response.status, JSON.stringify(teamMember.payload)).toBe(200);
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
   await page.locator('#dashboard-section-tab-traffic').click();
@@ -224,6 +233,9 @@ test('traffic report schedule can be configured from dashboard', async ({ page }
   await expect(page.locator('#traffic-report-save-button')).toHaveCount(0);
   await expect(page.locator('#traffic-report-recipient')).toHaveValue(config.adminEmail);
   await expect(page.locator('#traffic-report-recipient')).toHaveAttribute('readonly', '');
+  await expect(page.locator('#traffic-report-recipient-mode-manager')).toBeChecked();
+  await expect(page.locator('label[for="traffic-report-recipient-mode-team"]')).toContainText('Whole team');
+  await expect(page.locator('label[for="traffic-report-recipient-mode-selected"]')).toContainText('Selected members');
   await expect(page.locator('#traffic-report-timezone')).toHaveAttribute('readonly', '');
   const detectedTimezone = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
   await expect(page.locator('#traffic-report-timezone')).toHaveValue(detectedTimezone);
@@ -233,6 +245,11 @@ test('traffic report schedule can be configured from dashboard', async ({ page }
   await expect(page.locator('#traffic-report-weekday-container')).toBeVisible();
   await page.locator('#traffic-report-send-time').fill('14:30');
   await page.locator('#traffic-report-weekday').selectOption('5');
+  await page.locator('label[for="traffic-report-recipient-mode-selected"]').click();
+  await expect(page.locator('#traffic-report-selected-members-container')).toBeVisible();
+  const selectedMemberCheckbox = page.locator(`#traffic-report-selected-members-list input[data-recipient-email="${teamEmail.toLowerCase()}"]`);
+  await expect(selectedMemberCheckbox).toBeVisible();
+  await selectedMemberCheckbox.check();
 
   await expect.poll(async () => {
     const schedule = await fetchTrafficReportSchedule(config, cookie, site.id);
@@ -240,6 +257,8 @@ test('traffic report schedule can be configured from dashboard', async ({ page }
       enabled: schedule.enabled,
       frequency: schedule.frequency,
       recipient_email: schedule.recipient_email,
+      recipient_mode: schedule.recipient_mode,
+      recipient_emails: schedule.recipient_emails,
       timezone: schedule.timezone,
       send_hour: schedule.send_hour,
       send_minute: schedule.send_minute,
@@ -249,6 +268,8 @@ test('traffic report schedule can be configured from dashboard', async ({ page }
     enabled: true,
     frequency: 'weekly',
     recipient_email: config.adminEmail,
+    recipient_mode: 'selected',
+    recipient_emails: [teamEmail.toLowerCase()],
     timezone: detectedTimezone,
     send_hour: 14,
     send_minute: 30,

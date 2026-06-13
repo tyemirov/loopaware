@@ -27,6 +27,7 @@ const (
 	testStreamSiteName                = "Stream Site"
 	testStreamAllowedOrigin           = "https://stream.example"
 	testStreamOwnerEmail              = "stream-owner@example.com"
+	testStreamTeamEmail               = "stream-team@example.com"
 	testStreamUnauthorizedEmail       = "unauthorized@example.com"
 	testStreamFaviconURL              = "https://stream.example/favicon.ico"
 	testStreamFeedbackID              = "feedback-stream"
@@ -151,6 +152,18 @@ func createStreamSite(testingT *testing.T, database *gorm.DB) model.Site {
 	}
 	require.NoError(testingT, database.Create(&site).Error)
 	return site
+}
+
+func createStreamTeamMember(testingT *testing.T, database *gorm.DB, site model.Site) model.SiteTeamMember {
+	testingT.Helper()
+	teamMember, teamMemberErr := model.NewSiteTeamMember(model.SiteTeamMemberInput{
+		SiteID:       site.ID,
+		Email:        testStreamTeamEmail,
+		AddedByEmail: testStreamOwnerEmail,
+	})
+	require.NoError(testingT, teamMemberErr)
+	require.NoError(testingT, database.Create(&teamMember).Error)
+	return teamMember
 }
 
 func waitForFaviconSubscriber(testingT *testing.T, manager *SiteFaviconManager) {
@@ -589,6 +602,53 @@ func TestStreamFaviconUpdatesSkipsUnauthorizedSite(testingT *testing.T) {
 	}
 }
 
+func TestStreamFaviconUpdatesAllowsTeamMemberSite(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	database := openStreamDatabase(testingT)
+	site := createStreamSite(testingT, database)
+	createStreamTeamMember(testingT, database, site)
+
+	siteFaviconManager := NewSiteFaviconManager(database, favicon.NewService(&staticResolver{}), zap.NewNop())
+	handlers := NewSiteHandlers(database, zap.NewNop(), testStreamPublicBaseURL, siteFaviconManager, nil, nil)
+
+	recorder := newNotifyingRecorder()
+	ginContext, _ := gin.CreateTestContext(recorder)
+	requestContext, cancel := context.WithCancel(context.Background())
+	testingT.Cleanup(cancel)
+	ginContext.Request = httptest.NewRequest(http.MethodGet, testStreamFaviconEventsPath, nil).WithContext(requestContext)
+	ginContext.Set(contextKeyCurrentUser, &CurrentUser{Email: testStreamTeamEmail, Role: RoleUser})
+
+	streamDone := make(chan struct{})
+	go func() {
+		handlers.StreamFaviconUpdates(ginContext)
+		close(streamDone)
+	}()
+
+	waitForFaviconSubscriber(testingT, siteFaviconManager)
+	siteFaviconManager.broadcast(SiteFaviconEvent{
+		SiteID:     site.ID,
+		FaviconURL: testStreamFaviconURL,
+		UpdatedAt:  time.Now().UTC(),
+	})
+
+	select {
+	case <-recorder.writeNotification:
+	case <-time.After(testStreamTimeout):
+		testingT.Fatal("timeout waiting for team-member favicon stream write")
+	}
+
+	cancel()
+	select {
+	case <-streamDone:
+	case <-time.After(testStreamTimeout):
+		testingT.Fatal(testStreamFaviconShutdownMessage)
+	}
+
+	body := recorder.BodyString()
+	require.Contains(testingT, body, "favicon_updated")
+	require.Contains(testingT, body, site.ID)
+}
+
 func TestStreamFeedbackUpdatesSkipsEmptySiteID(testingT *testing.T) {
 	gin.SetMode(gin.TestMode)
 	database := openStreamDatabase(testingT)
@@ -723,4 +783,52 @@ func TestStreamFeedbackUpdatesSkipsUnauthorizedSite(testingT *testing.T) {
 	case <-time.After(testStreamTimeout):
 		testingT.Fatal(testStreamFeedbackShutdownMessage)
 	}
+}
+
+func TestStreamFeedbackUpdatesAllowsTeamMemberSite(testingT *testing.T) {
+	gin.SetMode(gin.TestMode)
+	database := openStreamDatabase(testingT)
+	site := createStreamSite(testingT, database)
+	createStreamTeamMember(testingT, database, site)
+
+	feedbackBroadcaster := NewFeedbackEventBroadcaster()
+	handlers := NewSiteHandlers(database, zap.NewNop(), testStreamPublicBaseURL, nil, nil, feedbackBroadcaster)
+
+	recorder := newNotifyingRecorder()
+	ginContext, _ := gin.CreateTestContext(recorder)
+	requestContext, cancel := context.WithCancel(context.Background())
+	testingT.Cleanup(cancel)
+	ginContext.Request = httptest.NewRequest(http.MethodGet, testStreamFeedbackEventsPath, nil).WithContext(requestContext)
+	ginContext.Set(contextKeyCurrentUser, &CurrentUser{Email: testStreamTeamEmail, Role: RoleUser})
+
+	streamDone := make(chan struct{})
+	go func() {
+		handlers.StreamFeedbackUpdates(ginContext)
+		close(streamDone)
+	}()
+
+	waitForFeedbackSubscriber(testingT, feedbackBroadcaster)
+	feedbackBroadcaster.Broadcast(FeedbackEvent{
+		SiteID:        site.ID,
+		FeedbackID:    testStreamFeedbackID,
+		CreatedAt:     time.Now().UTC(),
+		FeedbackCount: 1,
+	})
+
+	select {
+	case <-recorder.writeNotification:
+	case <-time.After(testStreamTimeout):
+		testingT.Fatal(testStreamFeedbackWriteMessage)
+	}
+
+	cancel()
+	select {
+	case <-streamDone:
+	case <-time.After(testStreamTimeout):
+		testingT.Fatal(testStreamFeedbackShutdownMessage)
+	}
+
+	body := recorder.BodyString()
+	require.Contains(testingT, body, feedbackCreatedEventName)
+	require.Contains(testingT, body, site.ID)
 }

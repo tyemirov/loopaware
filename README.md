@@ -35,14 +35,14 @@ Embed the feedback widget on any page:
 ## Highlights
 
 - Shared `mpr-ui` sign-in with TAuth-issued sessions and TAuth verifier-backed API protection
-- Role-aware dashboard (`/app`) with admin and creator/owner scopes
+- Role-aware dashboard (`/app`) with admin, creator/owner, and per-site team-member scopes
 - YAML configuration for privileged accounts (`configs/config.loopaware.yml`)
 - REST API to create, update, and inspect sites, feedback, subscribers, and traffic
 - Background favicon refresh scheduler with live dashboard notifications
 - Embeddable JavaScript widget with strict origin validation
 - Email subscription capture via an embeddable subscribe form
 - Privacy-safe traffic pixel with per-site visit and visitor counts
-- Daily, weekly, or monthly traffic report emails delivered through Pinguin
+- Daily, weekly, or monthly traffic report emails delivered through Pinguin to a manager, the whole site team, or selected members
 - First-class LA Sentry developer error monitoring with protected server-to-server ingest and origin-bound browser capture
 - SQLite-first storage with pluggable drivers
 - Public privacy policy and compliance endpoints for visibility
@@ -161,8 +161,8 @@ config in `web/config.yml` and serve `web/` from the frontend origin or reverse 
 
 Then open `/app` on that frontend origin to trigger the shared sign-in flow.
 Ensure the TAuth service is running at `TAUTH_BASE_URL` with a tenant that matches `TAUTH_TENANT_ID`.
-Administrators listed in `configs/config.loopaware.yml` can manage every site; other users see only the sites they own
-or originally created with their authenticated account.
+Administrators listed in `configs/config.loopaware.yml` can manage every site; other users see sites they own, sites
+they originally created with their authenticated account, or sites where an admin added their email as a team member.
 
 The static frontend pins `mpr-ui` through CDN URLs and lets `mpr-ui` own browser authentication scaffolding. Do not copy
 third-party browser bundles into `web/`; non-CDN frontend dependencies are forbidden by architecture.
@@ -172,8 +172,8 @@ third-party browser bundles into `web/`; non-CDN frontend dependencies are forbi
 1. Users visit `/login` (automatic redirect from protected routes).
 2. `mpr-ui` drives the browser sign-in lifecycle against the configured TAuth tenant.
 3. TAuth issues and refreshes the session cookie configured by `TAUTH_SESSION_COOKIE_NAME` (defaults to `app_session`).
-4. `api.AuthManager` validates the session with TAuth's verifier, injects user details into the request context, and enforces admin /
-   owner access.
+4. `api.AuthManager` validates the session with TAuth's verifier, injects user details into the request context, and enforces admin,
+   owner, or team-member site access.
 5. The dashboard and JSON APIs consume the authenticated context.
 
 ## Static frontend
@@ -212,28 +212,34 @@ include Unix timestamps in seconds.
 | Method  | Path                                  | Role        | Description                                                                                             |
 |---------|---------------------------------------|-------------|---------------------------------------------------------------------------------------------------------|
 | `GET`   | `/api/me`                             | any         | Current account metadata (email, name, `role`, `avatar.url`)                                            |
-| `GET`   | `/api/sites`                          | any         | Sites visible to the caller (admin = all, user = owned)                                                 |
+| `GET`   | `/api/sites`                          | any         | Sites visible to the caller; each row includes `access_role` (`admin` or `team_member`)                  |
 | `POST`  | `/api/sites`                          | any         | Create a site (requires `name`, `allowed_origin`, `owner_email`)                                        |
 | `PATCH` | `/api/sites/:id`                      | owner/admin | Update name/origin; admins may reassign ownership                                                       |
 | `DELETE`| `/api/sites/:id`                      | owner/admin | Delete a site                                                                                            |
-| `GET`   | `/api/sites/:id/mobile-apps`          | owner/admin | List native mobile apps registered for feedback submissions                                             |
+| `GET`   | `/api/sites/:id/team`                 | owner/admin | List per-site team member email assignments                                                             |
+| `POST`  | `/api/sites/:id/team`                 | owner/admin | Add a per-site team member by email                                                                     |
+| `DELETE`| `/api/sites/:id/team/:member_id`      | owner/admin | Remove a per-site team member assignment                                                                |
+| `GET`   | `/api/sites/:id/mobile-apps`          | owner/admin/team member | List native mobile apps registered for feedback submissions                                    |
 | `POST`  | `/api/sites/:id/mobile-apps`          | owner/admin | Register a native mobile app for mobile feedback submissions                                            |
-| `GET`   | `/api/sites/:id/messages`             | owner/admin | List feedback messages (newest first)                                                                   |
-| `GET`   | `/api/sites/:id/subscribers`          | owner/admin | List subscribers for a site                                                                             |
-| `GET`   | `/api/sites/:id/subscribers/export`   | owner/admin | Download subscribers as CSV                                                                             |
+| `GET`   | `/api/sites/:id/messages`             | owner/admin/team member | List feedback messages (newest first)                                                         |
+| `GET`   | `/api/sites/:id/subscribers`          | owner/admin/team member | List subscribers for a site                                                                   |
+| `GET`   | `/api/sites/:id/subscribers/export`   | owner/admin/team member | Download subscribers as CSV                                                                   |
 | `PATCH` | `/api/sites/:id/subscribers/:subscriber_id` | owner/admin | Update a subscriber’s status (confirm or unsubscribe)                                             |
 | `DELETE`| `/api/sites/:id/subscribers/:subscriber_id` | owner/admin | Delete a subscriber                                                                                |
-| `GET`   | `/api/sites/:id/visits/stats`         | owner/admin | Aggregate visit and unique visitor counts plus recent visits and top pages (optional `interval=all\|1day\|30days`) |
-| `GET`   | `/api/sites/:id/visits/export`        | owner/admin | Download traffic visits as CSV (optional `interval=all\|1day\|30days`)                                |
-| `GET`   | `/api/sites/:id/sentry/issues`        | owner/admin | List grouped developer error issues for a site                                                          |
-| `GET`   | `/api/sites/:id/sentry/issues/:issue_id` | owner/admin | Inspect latest and recent LA Sentry error occurrences                                                |
+| `GET`   | `/api/sites/:id/visits/stats`         | owner/admin/team member | Aggregate visit and unique visitor counts plus recent visits and top pages (optional `interval=all\|1day\|30days`) |
+| `GET`   | `/api/sites/:id/visits/export`        | owner/admin/team member | Download traffic visits as CSV (optional `interval=all\|1day\|30days`)                      |
+| `GET`   | `/api/sites/:id/sentry/issues`        | owner/admin/team member | List grouped developer error issues for a site                                                |
+| `GET`   | `/api/sites/:id/sentry/issues/:issue_id` | owner/admin/team member | Inspect latest and recent LA Sentry error occurrences                                      |
 | `PATCH` | `/api/sites/:id/sentry/issues/:issue_id` | owner/admin | Update issue status (`unresolved`, `resolved`, or `ignored`)                                         |
 | `POST`  | `/api/sites/:id/sentry/token`         | owner/admin | Rotate and reveal a per-site LA Sentry ingest token                                                     |
-| `GET`   | `/api/sites/:id/visits/trend`         | owner/admin | Daily visit trend (default 7 days, optional `days` query param up to 30, or `interval=all\|1day\|30days`) |
-| `GET`   | `/api/sites/:id/visits/attribution`   | owner/admin | Source/medium/campaign attribution breakdown (optional `limit` query param up to 50; optional `interval=all\|1day\|30days`) |
-| `GET`   | `/api/sites/:id/visits/engagement`    | owner/admin | Visitor engagement metrics (default 30 days, optional `days` query param up to 90, or `interval=all\|1day\|30days`) |
-| `GET`   | `/api/sites/:id/visits/devices`       | owner/admin | Device, screen resolution, and viewport breakdowns (optional `limit` query param up to 50; optional `interval=all\|1day\|30days`) |
-| `GET`   | `/api/sites/:id/visits/locations`     | owner/admin | Inferred visitor locations from edge geo, timezone, locale, network, or unknown signals with confidence metadata (optional `limit` query param up to 50; optional `interval=all\|1day\|30days`) |
+| `GET`   | `/api/sites/:id/visits/trend`         | owner/admin/team member | Daily visit trend (default 7 days, optional `days` query param up to 30, or `interval=all\|1day\|30days`) |
+| `GET`   | `/api/sites/:id/visits/attribution`   | owner/admin/team member | Source/medium/campaign attribution breakdown (optional `limit` query param up to 50; optional `interval=all\|1day\|30days`) |
+| `GET`   | `/api/sites/:id/visits/engagement`    | owner/admin/team member | Visitor engagement metrics (default 30 days, optional `days` query param up to 90, or `interval=all\|1day\|30days`) |
+| `GET`   | `/api/sites/:id/visits/devices`       | owner/admin/team member | Device, screen resolution, and viewport breakdowns (optional `limit` query param up to 50; optional `interval=all\|1day\|30days`) |
+| `GET`   | `/api/sites/:id/visits/locations`     | owner/admin/team member | Inferred visitor locations from edge geo, timezone, locale, network, or unknown signals with confidence metadata (optional `limit` query param up to 50; optional `interval=all\|1day\|30days`) |
+| `GET`   | `/api/sites/:id/traffic-report-schedule` | owner/admin | Read the selected-site traffic report schedule, including `recipient_mode` (`manager`, `team`, or `selected`) and selected team member emails |
+| `PUT`   | `/api/sites/:id/traffic-report-schedule` | owner/admin | Save the selected-site traffic report schedule; `recipient_mode: "selected"` accepts only current per-site team member emails in `recipient_emails` |
+| `POST`  | `/api/sites/:id/traffic-report-schedule/test` | owner/admin | Send the selected-site traffic report immediately to the schedule's resolved recipients |
 | `GET`   | `/api/sites/favicons/events`          | any         | Server-sent events stream announcing refreshed site favicons                                            |
 | `GET`   | `/api/sites/feedback/events`          | any         | Server-sent events stream announcing new feedback                                                      |
 | `POST`  | `/public/feedback`                       | public      | Submit feedback (requires `site_id`, valid `contact` as email or phone, and at least one of `message` or `sentiment`) |
@@ -261,8 +267,10 @@ The `/api/me` response includes a `role` value of `admin` or `user` and an `avat
 profile image (served from `/api/me/avatar`). The dashboard uses this payload to render the account card and determine
 site scope.
 
-Both roles can create, update, and delete sites. Administrators additionally view every site in the system, while users
-see only the sites they own or originally created.
+Authenticated users can create sites. Owners, creators, and global admins can update and delete sites, can add
+per-site team member emails, and can choose whether selected-site traffic reports go only to the manager, the whole site
+team, or selected team members. Team members can read assigned site data after signing in with the matching Google email,
+but cannot manage site settings, memberships, or schedules.
 
 Deployments upgraded from versions prior to LA-57 should allow the server startup migration to run once; it backfills any
 sites missing a `creator_email` with `temirov@gmail.com` to preserve creator-based visibility rules. New site creations
@@ -274,11 +282,12 @@ The Bootstrap front end consumes the APIs above. Features include:
 
 - Account Settings modal with avatar, email, role badge, reports, and inactivity controls
 - Site creation and owner reassignment available to every authenticated user; administrators additionally see all sites
-- Owner/admin editor for site metadata
+- Owner/admin editor for site metadata, with per-site team member emails managed from the Admin dashboard section
+- Selected-site traffic report scheduling with recipient selection for only the manager, the whole site team, or checked team members
 - Widget appearance controls that persist the bubble’s accent color, side (left/right), and bottom offset without code changes
 - Feedback table with human-readable timestamps
 - Subscribers panel with per-site subscriber counts, table, CSV export, and a copyable `subscribe.js` snippet
-- Section selector tabs to switch between Feedback, Subscriptions, and Traffic
+- Section selector tabs to switch between Feedback, Subscriptions, Traffic, LA Sentry, and manager-only Admin tools
 - Subscriber deletion via a confirmation modal
 - Traffic card with visit and unique visitor counts, recent visits, and a copyable `pixel.js` snippet
 - Real-time favicon refresh notifications delivered through the SSE stream

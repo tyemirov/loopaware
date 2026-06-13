@@ -54,6 +54,9 @@ const (
 	errorValueInvalidDays             = "invalid_days"
 	errorValueInvalidLimit            = "invalid_limit"
 	errorValueInvalidInterval         = "invalid_interval"
+	errorValueInvalidTeamMember       = "invalid_team_member"
+	errorValueTeamMemberExists        = "team_member_exists"
+	errorValueUnknownTeamMember       = "unknown_team_member"
 
 	widgetScriptTemplate             = "<script defer src=\"%s\"></script>"
 	widgetScriptPath                 = "/widget.js"
@@ -90,6 +93,8 @@ const (
 	locationDistributionMaxLimit     = 50
 	defaultSSEHeartbeatInterval      = 30 * time.Second
 	sseHeartbeatFrame                = ": heartbeat\n\n"
+	siteAccessRoleAdmin              = "admin"
+	siteAccessRoleTeamMember         = "team_member"
 )
 
 type SiteHandlers struct {
@@ -112,6 +117,22 @@ type siteSummaryCounts struct {
 type siteCountRow struct {
 	SiteID string
 	Count  int64
+}
+
+type siteTeamMemberRequest struct {
+	Email string `json:"email"`
+}
+
+type siteTeamMembersResponse struct {
+	SiteID      string                   `json:"site_id"`
+	TeamMembers []siteTeamMemberResponse `json:"team_members"`
+}
+
+type siteTeamMemberResponse struct {
+	ID           string `json:"id"`
+	Email        string `json:"email"`
+	AddedByEmail string `json:"added_by_email"`
+	CreatedAt    int64  `json:"created_at"`
 }
 
 type trafficInterval struct {
@@ -202,6 +223,7 @@ type siteResponse struct {
 	WidgetAccentColor        string `json:"widget_accent_color"`
 	WidgetShowMessageInput   bool   `json:"widget_show_message_input"`
 	WidgetShowSentiment      bool   `json:"widget_show_sentiment_buttons"`
+	AccessRole               string `json:"access_role"`
 }
 
 type listSitesResponse struct {
@@ -512,7 +534,7 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 	handlers.scheduleFaviconFetch(site)
 
 	requestOrigin := resolveRequestOrigin(context, handlers.widgetBaseURL)
-	context.JSON(http.StatusOK, handlers.toSiteResponse(handlers.ginRequestContext(context), site, 0, requestOrigin))
+	context.JSON(http.StatusOK, handlers.toSiteResponse(handlers.ginRequestContext(context), site, 0, requestOrigin, siteAccessRoleAdmin))
 }
 
 func (handlers *SiteHandlers) ListSites(context *gin.Context) {
@@ -527,7 +549,8 @@ func (handlers *SiteHandlers) ListSites(context *gin.Context) {
 	query := handlers.database.Model(&model.Site{})
 	if !currentUser.hasRole(RoleAdmin) {
 		normalizedEmail := currentUser.normalizedEmail()
-		query = query.Where("(LOWER(owner_email) = ? OR LOWER(creator_email) = ?)", normalizedEmail, normalizedEmail)
+		teamMemberships := handlers.database.Model(&model.SiteTeamMember{}).Select("site_id").Where("email = ?", normalizedEmail)
+		query = query.Where("(LOWER(owner_email) = ? OR LOWER(creator_email) = ? OR id IN (?))", normalizedEmail, normalizedEmail, teamMemberships)
 	}
 
 	if err := query.Order("created_at desc").Find(&sites).Error; err != nil {
@@ -539,9 +562,10 @@ func (handlers *SiteHandlers) ListSites(context *gin.Context) {
 	requestContext := handlers.ginRequestContext(context)
 	requestOrigin := resolveRequestOrigin(context, handlers.widgetBaseURL)
 	countsBySiteID := handlers.listSiteSummaryCounts(requestContext, sites)
+	accessRolesBySiteID := handlers.siteAccessRolesForSites(requestContext, currentUser, sites)
 	for _, site := range sites {
 		handlers.scheduleFaviconFetch(site)
-		responses = append(responses, handlers.toSiteResponseWithCounts(site, countsBySiteID[site.ID], requestOrigin))
+		responses = append(responses, handlers.toSiteResponseWithCounts(site, countsBySiteID[site.ID], requestOrigin, accessRolesBySiteID[site.ID]))
 	}
 
 	context.JSON(http.StatusOK, listSitesResponse{Sites: responses})
@@ -603,7 +627,7 @@ func (handlers *SiteHandlers) SiteFavicon(context *gin.Context) {
 		return
 	}
 
-	if !currentUser.canManageSite(site) {
+	if !handlers.currentUserCanViewSite(context.Request.Context(), currentUser, site) {
 		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
 		return
 	}
@@ -960,7 +984,7 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 	requestOrigin := resolveRequestOrigin(context, handlers.widgetBaseURL)
 	feedbackCount := handlers.feedbackCount(ctx, site.ID)
 	handlers.scheduleFaviconFetch(site)
-	context.JSON(http.StatusOK, handlers.toSiteResponse(ctx, site, feedbackCount, requestOrigin))
+	context.JSON(http.StatusOK, handlers.toSiteResponse(ctx, site, feedbackCount, requestOrigin, siteAccessRoleAdmin))
 }
 
 func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
@@ -994,6 +1018,9 @@ func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
 		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.SiteMobileApp{}).Error; err != nil {
 			return err
 		}
+		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.SiteTeamMember{}).Error; err != nil {
+			return err
+		}
 		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.SentryOccurrence{}).Error; err != nil {
 			return err
 		}
@@ -1013,6 +1040,99 @@ func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
 
 	context.Status(http.StatusNoContent)
 	context.Writer.WriteHeaderNow()
+}
+
+func (handlers *SiteHandlers) ListTeamMembers(context *gin.Context) {
+	site, _, ok := handlers.resolveManagedSite(context)
+	if !ok {
+		return
+	}
+
+	var teamMembers []model.SiteTeamMember
+	if err := handlers.database.WithContext(context.Request.Context()).
+		Where("site_id = ?", site.ID).
+		Order("created_at asc").
+		Find(&teamMembers).Error; err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+
+	responses := make([]siteTeamMemberResponse, 0, len(teamMembers))
+	for _, teamMember := range teamMembers {
+		responses = append(responses, teamMemberToResponse(teamMember))
+	}
+	context.JSON(http.StatusOK, siteTeamMembersResponse{SiteID: site.ID, TeamMembers: responses})
+}
+
+func (handlers *SiteHandlers) CreateTeamMember(context *gin.Context) {
+	site, currentUser, ok := handlers.resolveManagedSite(context)
+	if !ok {
+		return
+	}
+
+	var payload siteTeamMemberRequest
+	if bindErr := context.BindJSON(&payload); bindErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidJSON})
+		return
+	}
+
+	teamMember, teamMemberErr := model.NewSiteTeamMember(model.SiteTeamMemberInput{
+		SiteID:       site.ID,
+		Email:        payload.Email,
+		AddedByEmail: currentUser.normalizedEmail(),
+	})
+	if teamMemberErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidTeamMember})
+		return
+	}
+
+	var existing model.SiteTeamMember
+	findErr := handlers.database.WithContext(context.Request.Context()).
+		Where("site_id = ? AND email = ?", site.ID, teamMember.Email).
+		First(&existing).Error
+	if findErr == nil {
+		context.JSON(http.StatusConflict, gin.H{jsonKeyError: errorValueTeamMemberExists})
+		return
+	}
+	if findErr != nil && !errors.Is(findErr, gorm.ErrRecordNotFound) {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+		return
+	}
+
+	if err := handlers.database.WithContext(context.Request.Context()).Create(&teamMember).Error; err != nil {
+		handlers.logger.Warn("create_team_member", zap.Error(err), zap.String("site_id", site.ID))
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
+		return
+	}
+
+	context.JSON(http.StatusOK, teamMemberToResponse(teamMember))
+}
+
+func (handlers *SiteHandlers) DeleteTeamMember(context *gin.Context) {
+	site, _, ok := handlers.resolveManagedSite(context)
+	if !ok {
+		return
+	}
+
+	teamMemberID := strings.TrimSpace(context.Param("member_id"))
+	if teamMemberID == "" {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueUnknownTeamMember})
+		return
+	}
+
+	deleteResult := handlers.database.WithContext(context.Request.Context()).
+		Where("id = ? AND site_id = ?", teamMemberID, site.ID).
+		Delete(&model.SiteTeamMember{})
+	if deleteResult.Error != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
+		return
+	}
+	if deleteResult.RowsAffected == 0 {
+		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownTeamMember})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
 func (handlers *SiteHandlers) ListMobileApps(context *gin.Context) {
@@ -1039,7 +1159,7 @@ func (handlers *SiteHandlers) ListMobileApps(context *gin.Context) {
 }
 
 func (handlers *SiteHandlers) CreateMobileApp(context *gin.Context) {
-	site, _, ok := handlers.resolveAuthorizedSite(context)
+	site, _, ok := handlers.resolveManagedSite(context)
 	if !ok {
 		return
 	}
@@ -1090,7 +1210,7 @@ func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
 		return
 	}
 
-	if !currentUser.canManageSite(site) {
+	if !handlers.currentUserCanViewSite(context.Request.Context(), currentUser, site) {
 		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
 		return
 	}
@@ -1149,6 +1269,15 @@ func mobileAppToResponse(mobileApp model.SiteMobileApp) mobileAppResponse {
 		Enabled:       mobileApp.Enabled,
 		CreatedAt:     mobileApp.CreatedAt.Unix(),
 		UpdatedAt:     mobileApp.UpdatedAt.Unix(),
+	}
+}
+
+func teamMemberToResponse(teamMember model.SiteTeamMember) siteTeamMemberResponse {
+	return siteTeamMemberResponse{
+		ID:           teamMember.ID,
+		Email:        teamMember.Email,
+		AddedByEmail: teamMember.AddedByEmail,
+		CreatedAt:    teamMember.CreatedAt.UTC().Unix(),
 	}
 }
 
@@ -1670,7 +1799,7 @@ func sanitizeCSVCell(value string) string {
 }
 
 func (handlers *SiteHandlers) UpdateSubscriberStatus(context *gin.Context) {
-	site, _, ok := handlers.resolveAuthorizedSite(context)
+	site, _, ok := handlers.resolveManagedSite(context)
 	if !ok {
 		return
 	}
@@ -1721,7 +1850,7 @@ func (handlers *SiteHandlers) UpdateSubscriberStatus(context *gin.Context) {
 }
 
 func (handlers *SiteHandlers) DeleteSubscriber(context *gin.Context) {
-	site, _, ok := handlers.resolveAuthorizedSite(context)
+	site, _, ok := handlers.resolveManagedSite(context)
 	if !ok {
 		return
 	}
@@ -1764,6 +1893,33 @@ func (handlers *SiteHandlers) resolveAuthorizedSite(context *gin.Context) (model
 		return model.Site{}, nil, false
 	}
 
+	if !handlers.currentUserCanViewSite(context.Request.Context(), currentUser, site) {
+		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
+		return model.Site{}, nil, false
+	}
+
+	return site, currentUser, true
+}
+
+func (handlers *SiteHandlers) resolveManagedSite(context *gin.Context) (model.Site, *CurrentUser, bool) {
+	siteIdentifier := strings.TrimSpace(context.Param("id"))
+	if siteIdentifier == "" {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueMissingSite})
+		return model.Site{}, nil, false
+	}
+
+	currentUser, ok := CurrentUserFromContext(context)
+	if !ok {
+		context.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: authErrorUnauthorized})
+		return model.Site{}, nil, false
+	}
+
+	var site model.Site
+	if err := handlers.database.First(&site, "id = ?", siteIdentifier).Error; err != nil {
+		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownSite})
+		return model.Site{}, nil, false
+	}
+
 	if !currentUser.canManageSite(site) {
 		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueNotAuthorized})
 		return model.Site{}, nil, false
@@ -1771,17 +1927,18 @@ func (handlers *SiteHandlers) resolveAuthorizedSite(context *gin.Context) (model
 
 	return site, currentUser, true
 }
-func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Site, feedbackCount int64, requestOrigin string) siteResponse {
+
+func (handlers *SiteHandlers) toSiteResponse(ctx context.Context, site model.Site, feedbackCount int64, requestOrigin string, accessRole string) siteResponse {
 	counts := siteSummaryCounts{
 		feedbackCount:      feedbackCount,
 		subscriberCount:    handlers.subscriberCount(ctx, site.ID),
 		visitCount:         handlers.visitCount(ctx, site.ID),
 		uniqueVisitorCount: handlers.uniqueVisitorCount(ctx, site.ID),
 	}
-	return handlers.toSiteResponseWithCounts(site, counts, requestOrigin)
+	return handlers.toSiteResponseWithCounts(site, counts, requestOrigin, accessRole)
 }
 
-func (handlers *SiteHandlers) toSiteResponseWithCounts(site model.Site, counts siteSummaryCounts, requestOrigin string) siteResponse {
+func (handlers *SiteHandlers) toSiteResponseWithCounts(site model.Site, counts siteSummaryCounts, requestOrigin string, accessRole string) siteResponse {
 	widgetBase := handlers.widgetBaseURL
 	if widgetBase == "" {
 		widgetBaseOrigin := primaryAllowedOrigin(site.AllowedOrigin)
@@ -1817,7 +1974,45 @@ func (handlers *SiteHandlers) toSiteResponseWithCounts(site model.Site, counts s
 		WidgetAccentColor:        site.WidgetAccentColor,
 		WidgetShowMessageInput:   site.WidgetShowMessageInput,
 		WidgetShowSentiment:      site.WidgetShowSentimentButtons,
+		AccessRole:               strings.TrimSpace(accessRole),
 	}
+}
+
+func (handlers *SiteHandlers) siteAccessRolesForSites(ctx context.Context, currentUser *CurrentUser, sites []model.Site) map[string]string {
+	rolesBySiteID := make(map[string]string, len(sites))
+	if currentUser == nil || len(sites) == 0 {
+		return rolesBySiteID
+	}
+	teamCandidateIDs := make([]string, 0, len(sites))
+	for _, site := range sites {
+		if currentUser.canManageSite(site) {
+			rolesBySiteID[site.ID] = siteAccessRoleAdmin
+			continue
+		}
+		teamCandidateIDs = append(teamCandidateIDs, site.ID)
+	}
+	if len(teamCandidateIDs) == 0 || handlers.database == nil {
+		return rolesBySiteID
+	}
+	normalizedEmail := currentUser.normalizedEmail()
+	if normalizedEmail == "" {
+		return rolesBySiteID
+	}
+	var memberships []model.SiteTeamMember
+	if err := handlers.database.WithContext(ctx).Select("site_id").Where("email = ? AND site_id IN ?", normalizedEmail, teamCandidateIDs).Find(&memberships).Error; err != nil {
+		if handlers.logger != nil {
+			handlers.logger.Debug("site_access_roles_failed", zap.Error(err))
+		}
+		return rolesBySiteID
+	}
+	for _, membership := range memberships {
+		rolesBySiteID[membership.SiteID] = siteAccessRoleTeamMember
+	}
+	return rolesBySiteID
+}
+
+func (handlers *SiteHandlers) currentUserCanViewSite(ctx context.Context, currentUser *CurrentUser, site model.Site) bool {
+	return currentUserCanViewSite(ctx, handlers.database, currentUser, site)
 }
 
 func (handlers *SiteHandlers) listSiteSummaryCounts(ctx context.Context, sites []model.Site) map[string]siteSummaryCounts {
@@ -1989,7 +2184,7 @@ func (handlers *SiteHandlers) userCanAccessSite(ctx context.Context, currentUser
 	if err := handlers.database.WithContext(ctx).Select("id", "owner_email", "creator_email").First(&site, "id = ?", siteID).Error; err != nil {
 		return false
 	}
-	return currentUser.canManageSite(site)
+	return handlers.currentUserCanViewSite(ctx, currentUser, site)
 }
 
 func (handlers *SiteHandlers) allowedOriginConflictExists(allowedOrigin string, excludeSiteID string) (bool, error) {

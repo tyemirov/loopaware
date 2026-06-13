@@ -850,6 +850,30 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `README.md`, `clients/README.md`, `clients/react-native/package.json`, `clients/react-native/README.md`, `clients/react-native/src/index.tsx`, `clients/react-native/tsconfig.json`, `clients/react-native/types/react.d.ts`, `clients/react-native/types/react-native.d.ts`, `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/admin.go`, `internal/api/public.go`, `internal/model/models.go`, `internal/model/mobile_feedback.go`, `internal/storage/database.go`, `internal/storage/migrations.go`, `tests/helpers/api.js`, `tests/specs/api-public.spec.js`, `tests/specs/dashboard-feedback.spec.js`, `web/app/index.html`.
 
+- [x] [F010] (P1) Add per-site team members.
+  ### Summary
+  Site admins need to add individual Google-authenticated email addresses to one site so those teammates can see that site's existing dashboard data after login.
+  ### Product Decisions
+  - Keep team membership attached directly to a site; do not introduce reusable teams or multi-site team management.
+  - Treat existing site owners, creators, and global admins as site admins for this narrow feature.
+  - Store normalized email addresses; Google authentication remains the only login path.
+  - Team members receive read-only site access and do not manage site settings, team membership, tokens, or schedules.
+  ### Deliverables
+  - Per-site team member model and migration.
+  - Authenticated API routes for site admins to list, add, and remove team members.
+  - Membership-aware site listing and read-only site data access.
+  - Dashboard controls for adding/removing team emails and read-only behavior when a team member views an assigned site.
+  - Black-box API/dashboard coverage.
+  ### Resolution
+  Added direct per-site team member assignments keyed by normalized email, migrated the new table, and made site listing plus read-only site data endpoints include matching team-member access. Site admins can list, add, and remove team emails through `/api/sites/:id/team`, while team members cannot mutate site settings, membership, subscribers, Sentry state, tokens, or traffic report schedules. The dashboard includes an Admin section for site managers and hides those team management controls when the selected site has `access_role: "team_member"`. README documents the new role contract and API endpoints. Validation passed with `go test ./internal/model ./internal/storage ./internal/api ./cmd/server`, `npm --prefix tests run typecheck`, `make test-integration-api`, and final `make ci` with 418 Playwright/API integration specs.
+  Post-review fix restored the missing-subscriber delete response to `unknown_subscription` and added API coverage for that contract. Final validation passed with `make test-integration-api` and `make ci` with 419 Playwright/API integration specs.
+  UI refinement moved team-member management into an Admin dashboard section that is visible only for sites the current user can manage; assigned read-only team members do not see the Admin section for those sites. Validation passed with `make test-integration` and final `make ci`, both with 418 Playwright/API integration specs.
+  Traffic report scheduling now supports manager-only, whole-team, and selected-team-member recipients for selected-site reports. Selected recipients are validated against current per-site team membership, whole-team sends resolve the owner/creator plus current team members at delivery time, and the dashboard Traffic card exposes the recipient selector for site managers. Validation passed with `go test ./internal/model ./internal/api`, `make lint-js`, `make test-integration-api`, `make test-integration`, and final `make ci` with 423 Playwright/API integration specs.
+  Review follow-up made scheduled multi-recipient report delivery non-retryable after partial success so already-delivered recipients are not emailed again, while test-report sends still surface partial failures. Favicon and feedback SSE streams now use the same team-member view-access filter as the read APIs. Validation passed with focused `go test ./internal/api -run 'TestTrafficReportSchedulerDoesNotRetryPartialTeamDelivery|TestTrafficReportSchedulerRecordsSendFailure|TestStreamFaviconUpdatesAllowsTeamMemberSite|TestStreamFeedbackUpdatesAllowsTeamMemberSite|TestStreamFaviconUpdatesSkipsUnauthorizedSite|TestStreamFeedbackUpdatesSkipsUnauthorizedSite'` and final `make ci` with 423 Playwright/API integration specs.
+  Review follow-up rejects RFC 5322 display-name forms for site team-member emails so invites store only the Google login addr-spec that access checks compare. Focused validation passed with `make test-unit` and `make test-integration-api`.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/admin.go`, `internal/api/admin_helpers_test.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/sentry.go`, `internal/api/site_access.go`, `internal/api/traffic_report_schedule.go`, `internal/api/traffic_report_schedule_test.go`, `internal/model/site_team.go`, `internal/model/traffic_report_schedule.go`, `internal/model/traffic_report_schedule_test.go`, `internal/storage/database.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-site-actions.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`.
+
 
 ## Planning
 *do not implement yet*

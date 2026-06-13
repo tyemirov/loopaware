@@ -475,7 +475,44 @@
                 <li class="nav-item" role="presentation">
                   <button class="nav-link w-100" id="dashboard-section-tab-sentry" type="button" role="tab" aria-selected="false">LA Sentry</button>
                 </li>
+                <li class="nav-item d-none" role="presentation">
+                  <button class="nav-link w-100" id="dashboard-section-tab-admin" type="button" role="tab" aria-selected="false">Admin</button>
+                </li>
               </ul>
+            </div>
+            <div class="card shadow-sm mb-4 d-none" id="site-team-card" data-dashboard-card="admin">
+              <div class="card-header">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <h5 class="mb-0">Admin</h5>
+                  <div id="team-status" class="d-none py-1 px-2 small rounded"></div>
+                </div>
+              </div>
+              <div class="card-body">
+                <h6 class="fw-semibold mb-3">Team members</h6>
+                <form id="team-form" class="row g-2 align-items-end">
+                  <div class="col-md-8">
+                    <label class="form-label" for="team-member-email">Email</label>
+                    <input id="team-member-email" type="email" class="form-control" autocomplete="off" />
+                  </div>
+                  <div class="col-md-4">
+                    <button id="add-team-member-button" type="submit" class="btn btn-outline-primary w-100">Add member</button>
+                  </div>
+                </form>
+                <div class="table-responsive mt-3">
+                  <table class="table table-striped table-hover align-middle mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Email</th>
+                        <th>Added by</th>
+                        <th class="text-end">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="team-members-table-body">
+                      <tr><td colspan="3" class="text-center text-muted">No team members yet.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
             <div class="card shadow-sm mb-4" data-widget-card="feedback">
               <div class="card-header">
@@ -781,9 +818,26 @@
                       <option value="28">28</option>
                     </select>
                   </div>
-                  <div class="col-md-8">
-                    <label class="form-label" for="traffic-report-recipient">Recipient email</label>
+                  <div class="col-md-4">
+                    <label class="form-label" for="traffic-report-recipient">Manager email</label>
                     <input class="form-control" type="email" id="traffic-report-recipient" autocomplete="off" readonly />
+                  </div>
+                  <div class="col-md-8">
+                    <span class="form-label d-block">Recipients</span>
+                    <div class="btn-group w-100" role="group" aria-label="Traffic report recipients">
+                      <input class="btn-check" type="radio" name="traffic-report-recipient-mode" id="traffic-report-recipient-mode-manager" value="manager" checked />
+                      <label class="btn btn-outline-secondary" for="traffic-report-recipient-mode-manager">Only me</label>
+                      <input class="btn-check" type="radio" name="traffic-report-recipient-mode" id="traffic-report-recipient-mode-team" value="team" />
+                      <label class="btn btn-outline-secondary" for="traffic-report-recipient-mode-team">Whole team</label>
+                      <input class="btn-check" type="radio" name="traffic-report-recipient-mode" id="traffic-report-recipient-mode-selected" value="selected" />
+                      <label class="btn btn-outline-secondary" for="traffic-report-recipient-mode-selected">Selected members</label>
+                    </div>
+                  </div>
+                  <div class="col-12 d-none" id="traffic-report-selected-members-container">
+                    <div class="border rounded p-3">
+                      <div class="fw-semibold small mb-2">Selected members</div>
+                      <div id="traffic-report-selected-members-list" class="d-flex flex-column gap-2"></div>
+                    </div>
                   </div>
                 </div>
                 <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mt-3">
@@ -1549,6 +1603,11 @@
         var subscribersTableBody = document.getElementById(elementIds.subscribers_table_body);
         var exportSubscribersButton = document.getElementById(elementIds.export_subscribers_button);
         var subscribersStatusElement = document.getElementById(elementIds.subscribers_status);
+        var teamForm = document.getElementById('team-form');
+        var teamMemberEmailInput = document.getElementById('team-member-email');
+        var addTeamMemberButton = document.getElementById('add-team-member-button');
+        var teamMembersTableBody = document.getElementById('team-members-table-body');
+        var teamStatusElement = document.getElementById('team-status');
         var visitCountElement = document.getElementById(elementIds.visit_count);
         var uniqueVisitorCountElement = document.getElementById(elementIds.unique_visitor_count);
         var trafficStatusElement = document.getElementById(elementIds.traffic_status);
@@ -1573,6 +1632,11 @@
         var trafficReportWeekdayInput = document.getElementById('traffic-report-weekday');
         var trafficReportMonthDayInput = document.getElementById('traffic-report-month-day');
         var trafficReportRecipientInput = document.getElementById('traffic-report-recipient');
+        var trafficReportRecipientModeManagerInput = document.getElementById('traffic-report-recipient-mode-manager');
+        var trafficReportRecipientModeTeamInput = document.getElementById('traffic-report-recipient-mode-team');
+        var trafficReportRecipientModeSelectedInput = document.getElementById('traffic-report-recipient-mode-selected');
+        var trafficReportSelectedMembersContainer = document.getElementById('traffic-report-selected-members-container');
+        var trafficReportSelectedMembersList = document.getElementById('traffic-report-selected-members-list');
         var trafficReportWeekdayContainer = document.getElementById('traffic-report-weekday-container');
         var trafficReportMonthDayContainer = document.getElementById('traffic-report-month-day-container');
         var trafficReportStatusElement = document.getElementById('traffic-report-status');
@@ -1707,6 +1771,7 @@
           var apiSiteMessagesSuffix = apiPaths.site_messages_suffix || '';
           var apiSiteSubscribersPrefix = apiUrl(apiPaths.site_subscribers_prefix || '');
           var apiSiteSubscribersSuffix = apiPaths.site_subscribers_suffix || '';
+        var apiSiteTeamSuffix = '/team';
         var apiSiteSubscribersExportSuffix = apiPaths.site_subscribers_export || '';
         var apiSiteSubscriberUpdateSuffix = apiPaths.site_subscriber_update || '';
         var apiSiteVisitStatsSuffix = apiPaths.site_visit_stats || '';
@@ -1728,6 +1793,7 @@
         var dashboardSectionTabSubscriptions = document.getElementById(elementIds.dashboard_section_tab_subscriptions);
         var dashboardSectionTabTraffic = document.getElementById(elementIds.dashboard_section_tab_traffic);
         var dashboardSectionTabSentry = document.getElementById('dashboard-section-tab-sentry');
+        var dashboardSectionTabAdmin = document.getElementById('dashboard-section-tab-admin');
         var dashboardSectionCurrentKey = 'feedback';
         var trafficIntervalAllValue = 'all';
         var trafficIntervalOneDayValue = '1day';
@@ -1744,6 +1810,7 @@
           pendingDeletionSubscriberEmail: '',
           siteMessages: {},
           siteSubscribers: {},
+          siteTeamMembers: {},
           trafficReportSchedules: {},
           portfolioTrafficReportSchedule: null,
           portfolioTrafficReport: null,
@@ -1763,6 +1830,10 @@
         var trafficReportAutosaveTimerId = null;
         var trafficReportAutosavePending = false;
         var trafficReportAutosaveInFlight = false;
+        var trafficReportRecipientModeManager = 'manager';
+        var trafficReportRecipientModeTeam = 'team';
+        var trafficReportRecipientModeSelected = 'selected';
+        var trafficReportSelectedMembersPlaceholder = 'No team members yet.';
         var allSitesTrafficReportAutosaveTimerId = null;
         var allSitesTrafficReportAutosavePending = false;
         var allSitesTrafficReportAutosaveInFlight = false;
@@ -1774,10 +1845,14 @@
         var siteSearchQuery = '';
         var messagesSearchQuery = '';
         var subscribersPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.subscribers ? parsedConfig.placeholders.subscribers : 'No subscribers yet.';
+        var teamMembersPlaceholder = 'No team members yet.';
+        var teamMembersReadOnlyPlaceholder = 'Only site admins can manage team members.';
+        var teamMemberInvalidMessage = 'Provide a valid team member email address.';
         var topPagesPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.top_pages ? parsedConfig.placeholders.top_pages : 'No visits yet.';
         var deviceTypesPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.device_types ? parsedConfig.placeholders.device_types : 'No device data yet.';
         var locationsPlaceholder = parsedConfig.placeholders && parsedConfig.placeholders.locations ? parsedConfig.placeholders.locations : 'No location data yet.';
         var sentryIssuesPlaceholder = 'No LA Sentry issues yet.';
+        var siteAccessRoleTeamMember = 'team_member';
         var sentrySelectIssueMessage = 'Select an issue to inspect the latest occurrence.';
         var validationMessageKeyNameRequired = 'name_required';
         var validationMessageKeyOriginInvalid = 'origin_invalid';
@@ -3528,6 +3603,8 @@
             enabled: false,
             frequency: 'daily',
             recipient_email: currentUserEmail(),
+            recipient_mode: trafficReportRecipientModeManager,
+            recipient_emails: [],
             timezone: detectedTrafficReportTimezone(),
             send_hour: 9,
             send_minute: 0,
@@ -4575,7 +4652,10 @@
 
         function setDashboardSection(sectionKey) {
           var key = (sectionKey || '').toLowerCase();
-          if (key !== 'feedback' && key !== 'subscriptions' && key !== 'traffic' && key !== 'sentry') {
+          if (key !== 'feedback' && key !== 'subscriptions' && key !== 'traffic' && key !== 'sentry' && key !== 'admin') {
+            key = 'feedback';
+          }
+          if (key === 'admin' && !selectedSiteHasAdminSection()) {
             key = 'feedback';
           }
           dashboardSectionCurrentKey = key;
@@ -4591,11 +4671,27 @@
           button.setAttribute('aria-selected', isActive ? 'true' : 'false');
         }
 
+        function setDashboardSectionTabVisible(button, isVisible) {
+          if (!button) {
+            return;
+          }
+          var item = button.closest('li');
+          if (item) {
+            item.classList.toggle('d-none', !isVisible);
+          }
+        }
+
         function applyDashboardSectionSelection() {
+          var showAdmin = selectedSiteHasAdminSection();
+          if (!showAdmin && dashboardSectionCurrentKey === 'admin') {
+            dashboardSectionCurrentKey = 'feedback';
+          }
+          setDashboardSectionTabVisible(dashboardSectionTabAdmin, showAdmin);
           setTabButtonState(dashboardSectionTabFeedback, dashboardSectionCurrentKey === 'feedback');
           setTabButtonState(dashboardSectionTabSubscriptions, dashboardSectionCurrentKey === 'subscriptions');
           setTabButtonState(dashboardSectionTabTraffic, dashboardSectionCurrentKey === 'traffic');
           setTabButtonState(dashboardSectionTabSentry, dashboardSectionCurrentKey === 'sentry');
+          setTabButtonState(dashboardSectionTabAdmin, dashboardSectionCurrentKey === 'admin');
         }
 
         function setCardVisible(selector, isVisible) {
@@ -4611,6 +4707,7 @@
           var showSubscriptions = dashboardSectionCurrentKey === 'subscriptions';
           var showTraffic = dashboardSectionCurrentKey === 'traffic';
           var showSentry = dashboardSectionCurrentKey === 'sentry';
+          var showAdmin = dashboardSectionCurrentKey === 'admin' && selectedSiteHasAdminSection();
 
           setCardVisible('[data-widget-card=\"feedback\"]', showFeedback);
           setCardVisible('[data-dashboard-card=\"feedback\"]', showFeedback);
@@ -4621,6 +4718,7 @@
           setCardVisible('[data-dashboard-card=\"traffic\"]', showTraffic);
           setCardVisible('[data-widget-card=\"sentry\"]', showSentry);
           setCardVisible('[data-dashboard-card=\"sentry\"]', showSentry);
+          setCardVisible('[data-dashboard-card=\"admin\"]', showAdmin);
         }
 
         function isAllSitesTrafficView() {
@@ -4688,11 +4786,27 @@
           }
         }
 
+        function selectedSiteCanManage() {
+          if (!state.selectedSiteId || isNewSiteSelected()) {
+            return true;
+          }
+          var site = resolveSelectedSite();
+          return !site || (site.access_role || '') !== siteAccessRoleTeamMember;
+        }
+
+        function selectedSiteHasAdminSection() {
+          if (!state.selectedSiteId || isNewSiteSelected()) {
+            return false;
+          }
+          var site = resolveSelectedSite();
+          return Boolean(site) && selectedSiteCanManage();
+        }
+
         function updateDeleteButtonState() {
           if (!deleteSiteButton) {
             return;
           }
-          var shouldDisable = state.sites.length === 0 || !state.selectedSiteId || isNewSiteSelected();
+          var shouldDisable = state.sites.length === 0 || !state.selectedSiteId || isNewSiteSelected() || !selectedSiteCanManage();
           deleteSiteButton.disabled = shouldDisable;
           deleteSiteButton.className = shouldDisable ? deleteSiteButtonDisabledClass : deleteSiteButtonDefaultClass;
         }
@@ -4809,6 +4923,9 @@
             if (state.siteMessages) {
               delete state.siteMessages[site.id];
             }
+            if (state.siteTeamMembers) {
+              delete state.siteTeamMembers[site.id];
+            }
             if (state.siteSentryIssues) {
               delete state.siteSentryIssues[site.id];
             }
@@ -4859,7 +4976,7 @@
         }
 
         function openDeleteSubscriberModal(subscriberId, subscriberEmail) {
-          if (!deleteSubscriberModal || !state.selectedSiteId || isNewSiteSelected()) {
+          if (!deleteSubscriberModal || !state.selectedSiteId || isNewSiteSelected() || !selectedSiteCanManage()) {
             return;
           }
           var trimmedSubscriberId = (subscriberId || '').trim();
@@ -4888,7 +5005,7 @@
         }
 
         function deleteSelectedSubscriber() {
-          if (!state.pendingDeletionSubscriberId || !state.selectedSiteId || isNewSiteSelected()) {
+          if (!state.pendingDeletionSubscriberId || !state.selectedSiteId || isNewSiteSelected() || !selectedSiteCanManage()) {
             return;
           }
           var endpoint = apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteSubscriberUpdateSuffix + state.pendingDeletionSubscriberId;
@@ -5136,6 +5253,8 @@
           updateTrafficControls();
           updateSelectedSiteSummary(selectedSite);
           updateSentryClientConfiguration(selectedSite);
+          applyDashboardSectionSelection();
+          applyDashboardSectionVisibility();
           if (!skipFormPopulate) {
             populateSiteForm();
           } else {
@@ -5147,12 +5266,16 @@
           }
           if (!state.selectedSiteId) {
             renderFeedbackPlaceholder(siteSearchQuery ? statusNoSiteMatches : statusMessages.select_site || '');
+            renderTeamMembers([]);
+            setTeamControlsDisabled(true);
             renderSentryIssuesPlaceholder(statusMessages.select_site || sentryIssuesPlaceholder);
             renderSentryIssueDetail(null);
             return;
           }
           if (isNewSiteSelected()) {
             renderFeedbackPlaceholder(statusMessages.select_site || '');
+            renderTeamMembers([]);
+            setTeamControlsDisabled(true);
             renderSentryIssuesPlaceholder(statusMessages.select_site || sentryIssuesPlaceholder);
             renderSentryIssueDetail(null);
             return;
@@ -5160,15 +5283,29 @@
           if (previousSelectedSiteId !== state.selectedSiteId || !state.siteMessages[state.selectedSiteId]) {
             loadMessages(false);
             loadSubscribers();
+            loadTeamMembers();
             loadVisitStats();
-            loadTrafficReportSchedule();
+            if (selectedSiteCanManage()) {
+              loadTrafficReportSchedule();
+            } else {
+              cancelTrafficReportAutosave();
+              setTrafficReportControlsDisabled(true);
+              clearTrafficReportStatus();
+            }
             loadSentryIssues();
             return;
           }
           renderMessages(state.siteMessages[state.selectedSiteId]);
           loadSubscribers();
+          loadTeamMembers();
           loadVisitStats();
-          loadTrafficReportSchedule();
+          if (selectedSiteCanManage()) {
+            loadTrafficReportSchedule();
+          } else {
+            cancelTrafficReportAutosave();
+            setTrafficReportControlsDisabled(true);
+            clearTrafficReportStatus();
+          }
           loadSentryIssues();
         }
 
@@ -5191,6 +5328,29 @@
           renderSites();
         }
 
+        function setSiteManagementControlsDisabled(disabled) {
+          [
+            editSiteNameInput,
+            editSiteOriginInput,
+            editSiteOwnerInput,
+            widgetSideLeftOption,
+            widgetSideRightOption,
+            widgetBottomOffsetInput,
+            widgetBottomOffsetDecreaseButton,
+            widgetBottomOffsetIncreaseButton,
+            widgetAccentColorInput,
+            widgetShowMessageInputCheckbox,
+            widgetShowSentimentButtonsCheckbox
+          ].forEach(function(element) {
+            if (element) {
+              element.disabled = disabled;
+            }
+          });
+          setWidgetAllowedOriginsDisabled(disabled);
+          setSubscribeAllowedOriginsDisabled(disabled);
+          setTrafficAllowedOriginsDisabled(disabled);
+        }
+
         function clearSiteForm() {
           editSiteNameInput.value = '';
           editSiteOriginInput.value = '';
@@ -5207,6 +5367,8 @@
           clearValidationFeedback();
           setSiteCreatedAt(null);
           setFeedbackCount(0, 0);
+          renderTeamMembers([]);
+          setTeamControlsDisabled(true);
           updateSentryClientConfiguration(null);
           setTrafficReportControlsDisabled(true);
           setTrafficReportScheduleControls({
@@ -5282,10 +5444,8 @@
           if (!state.user) {
             return;
           }
-          if (!editSiteOwnerInput) {
-            return;
-          }
-          editSiteOwnerInput.disabled = false;
+          var shouldDisable = !state.selectedSiteId || (!isNewSiteSelected() && !selectedSiteCanManage());
+          setSiteManagementControlsDisabled(shouldDisable);
         }
 
         function renderFeedbackPlaceholder(message) {
@@ -5372,6 +5532,7 @@
           }
 
           setSubscriberCount(items.length);
+          var canManageSite = selectedSiteCanManage();
           items.forEach(function(subscriber) {
             var row = document.createElement('tr');
 
@@ -5396,6 +5557,7 @@
             toggleButton.textContent = unsubscribed ? 'Resubscribe' : 'Unsubscribe';
             toggleButton.dataset.subscriberId = subscriber.id || '';
             toggleButton.dataset.targetStatus = unsubscribed ? 'confirmed' : 'unsubscribed';
+            toggleButton.disabled = !canManageSite;
             actionsCell.appendChild(toggleButton);
             var deleteButton = document.createElement('button');
             deleteButton.type = 'button';
@@ -5404,6 +5566,7 @@
             deleteButton.dataset.subscriberAction = 'delete';
             deleteButton.dataset.subscriberId = subscriber.id || '';
             deleteButton.dataset.subscriberEmail = subscriber.email || '';
+            deleteButton.disabled = !canManageSite;
             var deleteIcon = document.createElement('i');
             deleteIcon.className = 'bi bi-trash3-fill text-danger';
             deleteIcon.setAttribute('aria-hidden', 'true');
@@ -5413,6 +5576,234 @@
 
             subscribersTableBody.appendChild(row);
           });
+        }
+
+        function setTeamControlsDisabled(disabled) {
+          if (teamMemberEmailInput) {
+            teamMemberEmailInput.disabled = disabled;
+          }
+          if (addTeamMemberButton) {
+            addTeamMemberButton.disabled = disabled;
+          }
+          if (!teamMembersTableBody) {
+            return;
+          }
+          Array.prototype.slice.call(teamMembersTableBody.querySelectorAll('button[data-team-member-action="delete"]')).forEach(function(button) {
+            button.disabled = disabled;
+          });
+        }
+
+        function showTeamStatus(message, isError) {
+          if (!teamStatusElement) {
+            return;
+          }
+          teamStatusElement.textContent = message || '';
+          teamStatusElement.classList.remove('d-none');
+          teamStatusElement.classList.toggle('border', true);
+          teamStatusElement.classList.toggle('border-danger-subtle', isError === true);
+          teamStatusElement.classList.toggle('text-danger-emphasis', isError === true);
+          teamStatusElement.classList.toggle('bg-danger-subtle', isError === true);
+          teamStatusElement.classList.toggle('border-success-subtle', isError !== true);
+          teamStatusElement.classList.toggle('text-success-emphasis', isError !== true);
+          teamStatusElement.classList.toggle('bg-success-subtle', isError !== true);
+        }
+
+        function clearTeamStatus() {
+          if (!teamStatusElement) {
+            return;
+          }
+          teamStatusElement.textContent = '';
+          teamStatusElement.className = 'd-none py-1 px-2 small rounded';
+        }
+
+        function apiSiteTeamEndpoint(siteId) {
+          return apiSiteSubscribersPrefix + siteId + apiSiteTeamSuffix;
+        }
+
+        function normalizeTeamMemberEmailValue(value) {
+          if (typeof value !== 'string') {
+            return '';
+          }
+          return value.trim().toLowerCase();
+        }
+
+        function renderTeamMembers(members, placeholder) {
+          if (!teamMembersTableBody) {
+            return;
+          }
+          var items = Array.isArray(members) ? members : [];
+          teamMembersTableBody.innerHTML = '';
+          if (items.length === 0) {
+            var placeholderRow = document.createElement('tr');
+            var placeholderCell = document.createElement('td');
+            placeholderCell.colSpan = 3;
+            placeholderCell.className = 'text-center text-muted';
+            placeholderCell.textContent = placeholder || teamMembersPlaceholder;
+            placeholderRow.appendChild(placeholderCell);
+            teamMembersTableBody.appendChild(placeholderRow);
+            return;
+          }
+          var canManage = selectedSiteCanManage();
+          items.forEach(function(member) {
+            var row = document.createElement('tr');
+
+            var emailCell = document.createElement('td');
+            emailCell.textContent = member.email || '';
+            row.appendChild(emailCell);
+
+            var addedByCell = document.createElement('td');
+            addedByCell.textContent = member.added_by_email || '';
+            row.appendChild(addedByCell);
+
+            var actionsCell = document.createElement('td');
+            actionsCell.className = 'text-end';
+            var deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'btn btn-sm border-0 bg-transparent text-danger opacity-100';
+            deleteButton.setAttribute('aria-label', 'Remove team member');
+            deleteButton.dataset.teamMemberAction = 'delete';
+            deleteButton.dataset.teamMemberId = member.id || '';
+            deleteButton.dataset.teamMemberEmail = member.email || '';
+            deleteButton.disabled = !canManage;
+            var deleteIcon = document.createElement('i');
+            deleteIcon.className = 'bi bi-trash3-fill text-danger';
+            deleteIcon.setAttribute('aria-hidden', 'true');
+            deleteButton.appendChild(deleteIcon);
+            actionsCell.appendChild(deleteButton);
+            row.appendChild(actionsCell);
+
+            teamMembersTableBody.appendChild(row);
+          });
+        }
+
+        function loadTeamMembers() {
+          var selectedSiteId = state.selectedSiteId;
+          if (!selectedSiteId || isNewSiteSelected()) {
+            renderTeamMembers([]);
+            setTeamControlsDisabled(true);
+            clearTeamStatus();
+            return;
+          }
+          if (!selectedSiteCanManage()) {
+            renderTeamMembers([], teamMembersReadOnlyPlaceholder);
+            setTeamControlsDisabled(true);
+            clearTeamStatus();
+            return;
+          }
+          setTeamControlsDisabled(false);
+          renderTeamMembers(state.siteTeamMembers[selectedSiteId] || []);
+          refreshTrafficReportRecipientMembers();
+          fetchJSON(apiSiteTeamEndpoint(selectedSiteId)).then(function(payload) {
+            if (state.selectedSiteId !== selectedSiteId) {
+              return;
+            }
+            var members = Array.isArray(payload.team_members) ? payload.team_members : [];
+            state.siteTeamMembers[selectedSiteId] = members;
+            renderTeamMembers(members);
+            refreshTrafficReportRecipientMembers();
+            setTeamControlsDisabled(false);
+            clearTeamStatus();
+          }).catch(function(error) {
+            if (state.selectedSiteId !== selectedSiteId) {
+              return;
+            }
+            renderTeamMembers(state.siteTeamMembers[selectedSiteId] || []);
+            refreshTrafficReportRecipientMembers();
+            setTeamControlsDisabled(false);
+            showTeamStatus(error.message || statusMessages.load_failed || '', true);
+          });
+        }
+
+        function createTeamMember(event) {
+          if (event) {
+            event.preventDefault();
+          }
+          if (!state.selectedSiteId || isNewSiteSelected() || !selectedSiteCanManage()) {
+            return;
+          }
+          var email = teamMemberEmailInput ? teamMemberEmailInput.value.trim() : '';
+          if (!isOwnerEmailValid(email)) {
+            showTeamStatus(teamMemberInvalidMessage, true);
+            return;
+          }
+          var normalizedEmail = normalizeTeamMemberEmailValue(email);
+          var selectedSiteId = state.selectedSiteId;
+          var existingMembers = state.siteTeamMembers[selectedSiteId] || [];
+          var duplicate = existingMembers.some(function(member) {
+            return normalizeTeamMemberEmailValue(member.email || '') === normalizedEmail;
+          });
+          if (duplicate) {
+            showTeamStatus('Team member already exists.', true);
+            return;
+          }
+          setTeamControlsDisabled(true);
+          fetchJSON(apiSiteTeamEndpoint(selectedSiteId), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email: email })
+          }).then(function(member) {
+            if (state.selectedSiteId !== selectedSiteId) {
+              return;
+            }
+            if (!state.siteTeamMembers[selectedSiteId]) {
+              state.siteTeamMembers[selectedSiteId] = [];
+            }
+            state.siteTeamMembers[selectedSiteId].push(member);
+            renderTeamMembers(state.siteTeamMembers[selectedSiteId]);
+            refreshTrafficReportRecipientMembers();
+            setTeamControlsDisabled(false);
+            if (teamMemberEmailInput) {
+              teamMemberEmailInput.value = '';
+            }
+            showTeamStatus('Team member added.', false);
+          }).catch(function(error) {
+            setTeamControlsDisabled(false);
+            showTeamStatus(error.message || statusMessages.load_failed || '', true);
+          });
+        }
+
+        function deleteTeamMember(memberId) {
+          if (!memberId || !state.selectedSiteId || isNewSiteSelected() || !selectedSiteCanManage()) {
+            return;
+          }
+          var selectedSiteId = state.selectedSiteId;
+          setTeamControlsDisabled(true);
+          fetchJSON(apiSiteTeamEndpoint(selectedSiteId) + '/' + encodeURIComponent(memberId), { method: 'DELETE' }).then(function() {
+            if (state.selectedSiteId !== selectedSiteId) {
+              return;
+            }
+            var members = state.siteTeamMembers[selectedSiteId] || [];
+            state.siteTeamMembers[selectedSiteId] = members.filter(function(member) {
+              return member.id !== memberId;
+            });
+            renderTeamMembers(state.siteTeamMembers[selectedSiteId]);
+            refreshTrafficReportRecipientMembers();
+            setTeamControlsDisabled(false);
+            showTeamStatus('Team member removed.', false);
+          }).catch(function(error) {
+            if (state.selectedSiteId !== selectedSiteId) {
+              return;
+            }
+            setTeamControlsDisabled(false);
+            showTeamStatus(error.message || statusMessages.load_failed || '', true);
+          });
+        }
+
+        function handleTeamMembersTableClick(event) {
+          var rawTarget = event.target;
+          if (!rawTarget) {
+            return;
+          }
+          var target = rawTarget.closest && typeof rawTarget.closest === 'function' ? rawTarget.closest('button') : rawTarget;
+          if (!target || target.tagName !== 'BUTTON') {
+            return;
+          }
+          if ((target.dataset.teamMemberAction || '') !== 'delete') {
+            return;
+          }
+          deleteTeamMember(target.dataset.teamMemberId || '');
         }
 
         function renderPathIcon() {
@@ -6375,7 +6766,7 @@
             return;
           }
           if (rotateSentryTokenButton) {
-            rotateSentryTokenButton.disabled = false;
+            rotateSentryTokenButton.disabled = !selectedSiteCanManage();
           }
           if (sentryIngestTokenTextarea) {
             sentryIngestTokenTextarea.value = site.sentry_token_configured ? 'Token configured. Rotate to reveal a new secret.' : 'No token configured. Rotate to create one.';
@@ -6465,6 +6856,12 @@
           if (!sentryIssueDetailElement) {
             return;
           }
+          var canManageSite = selectedSiteCanManage();
+          [sentryIssueResolveButton, sentryIssueReopenButton, sentryIssueIgnoreButton].forEach(function(button) {
+            if (button) {
+              button.disabled = !canManageSite;
+            }
+          });
           if (!detail || !detail.issue) {
             sentryIssueDetailElement.classList.add('d-none');
             return;
@@ -6571,7 +6968,7 @@
         }
 
         function updateSentryIssueStatus(status) {
-          if (!state.selectedSiteId || isNewSiteSelected() || !state.selectedSentryIssueId) {
+          if (!state.selectedSiteId || isNewSiteSelected() || !state.selectedSentryIssueId || !selectedSiteCanManage()) {
             return;
           }
           var selectedSiteId = state.selectedSiteId;
@@ -6597,7 +6994,7 @@
         }
 
         function rotateSentryToken() {
-          if (!state.selectedSiteId || isNewSiteSelected()) {
+          if (!state.selectedSiteId || isNewSiteSelected() || !selectedSiteCanManage()) {
             return;
           }
           if (rotateSentryTokenButton) {
@@ -6620,7 +7017,7 @@
             showSentryStatus(sentryConfigStatusElement, error.message || statusMessages.load_failed || '', true);
           }).finally(function() {
             if (rotateSentryTokenButton && state.selectedSiteId && !isNewSiteSelected()) {
-              rotateSentryTokenButton.disabled = false;
+              rotateSentryTokenButton.disabled = !selectedSiteCanManage();
             }
           });
         }
@@ -6651,6 +7048,50 @@
             return selected.value;
           }
           return 'daily';
+        }
+
+        function normalizeTrafficReportRecipientModeValue(value) {
+          var normalizedValue = typeof value === 'string' ? value.trim().toLowerCase() : '';
+          if (normalizedValue === trafficReportRecipientModeTeam) {
+            return trafficReportRecipientModeTeam;
+          }
+          if (normalizedValue === trafficReportRecipientModeSelected) {
+            return trafficReportRecipientModeSelected;
+          }
+          return trafficReportRecipientModeManager;
+        }
+
+        function selectedTrafficReportRecipientMode() {
+          var selected = document.querySelector('input[name="traffic-report-recipient-mode"]:checked');
+          if (selected && typeof selected.value === 'string') {
+            return normalizeTrafficReportRecipientModeValue(selected.value);
+          }
+          return trafficReportRecipientModeManager;
+        }
+
+        function normalizeTrafficReportRecipientEmails(values) {
+          var normalizedEmails = [];
+          var seenEmails = {};
+          (Array.isArray(values) ? values : []).forEach(function(value) {
+            var email = normalizeTeamMemberEmailValue(value);
+            if (!email || seenEmails[email]) {
+              return;
+            }
+            seenEmails[email] = true;
+            normalizedEmails.push(email);
+          });
+          return normalizedEmails;
+        }
+
+        function currentTrafficReportSelectedRecipientEmails() {
+          if (!trafficReportSelectedMembersList) {
+            return [];
+          }
+          var selectedEmails = [];
+          Array.prototype.slice.call(trafficReportSelectedMembersList.querySelectorAll('input[type="checkbox"]:checked')).forEach(function(input) {
+            selectedEmails.push(input.dataset.recipientEmail || '');
+          });
+          return normalizeTrafficReportRecipientEmails(selectedEmails);
         }
 
         function updateTrafficReportFrequencyVisibility() {
@@ -6703,6 +7144,96 @@
           return normalizedTimezone || detectedTrafficReportTimezone();
         }
 
+        function setTrafficReportSelectedMemberInputsDisabled(disabled) {
+          if (!trafficReportSelectedMembersList) {
+            return;
+          }
+          var shouldDisable = Boolean(disabled) || selectedTrafficReportRecipientMode() !== trafficReportRecipientModeSelected;
+          Array.prototype.slice.call(trafficReportSelectedMembersList.querySelectorAll('input[type="checkbox"]')).forEach(function(input) {
+            input.disabled = shouldDisable;
+          });
+        }
+
+        function renderTrafficReportSelectedMembers(selectedEmails) {
+          if (!trafficReportSelectedMembersList) {
+            return;
+          }
+          var selectedSet = {};
+          normalizeTrafficReportRecipientEmails(selectedEmails).forEach(function(email) {
+            selectedSet[email] = true;
+          });
+          var selectedSiteId = state.selectedSiteId;
+          var members = selectedSiteId && state.siteTeamMembers ? state.siteTeamMembers[selectedSiteId] || [] : [];
+          trafficReportSelectedMembersList.innerHTML = '';
+          if (!members.length) {
+            var placeholder = document.createElement('div');
+            placeholder.className = 'text-muted small';
+            placeholder.textContent = trafficReportSelectedMembersPlaceholder;
+            trafficReportSelectedMembersList.appendChild(placeholder);
+            return;
+          }
+          members.forEach(function(member, index) {
+            var email = normalizeTeamMemberEmailValue(member.email || '');
+            if (!email) {
+              return;
+            }
+            var inputId = 'traffic-report-selected-member-' + index;
+            var wrapper = document.createElement('div');
+            wrapper.className = 'form-check';
+            var checkbox = document.createElement('input');
+            checkbox.className = 'form-check-input';
+            checkbox.type = 'checkbox';
+            checkbox.id = inputId;
+            checkbox.dataset.recipientEmail = email;
+            checkbox.checked = selectedSet[email] === true;
+            var label = document.createElement('label');
+            label.className = 'form-check-label';
+            label.setAttribute('for', inputId);
+            label.textContent = email;
+            wrapper.appendChild(checkbox);
+            wrapper.appendChild(label);
+            trafficReportSelectedMembersList.appendChild(wrapper);
+          });
+        }
+
+        function updateTrafficReportRecipientModeVisibility() {
+          var isSelectedMode = selectedTrafficReportRecipientMode() === trafficReportRecipientModeSelected;
+          if (trafficReportSelectedMembersContainer) {
+            trafficReportSelectedMembersContainer.classList.toggle('d-none', !isSelectedMode);
+          }
+          setTrafficReportSelectedMemberInputsDisabled(!selectedSiteCanManage());
+        }
+
+        function setTrafficReportRecipientModeControls(schedule) {
+          var normalizedSchedule = schedule || {};
+          var recipientMode = normalizeTrafficReportRecipientModeValue(normalizedSchedule.recipient_mode);
+          if (trafficReportRecipientModeManagerInput) {
+            trafficReportRecipientModeManagerInput.checked = recipientMode === trafficReportRecipientModeManager;
+          }
+          if (trafficReportRecipientModeTeamInput) {
+            trafficReportRecipientModeTeamInput.checked = recipientMode === trafficReportRecipientModeTeam;
+          }
+          if (trafficReportRecipientModeSelectedInput) {
+            trafficReportRecipientModeSelectedInput.checked = recipientMode === trafficReportRecipientModeSelected;
+          }
+          renderTrafficReportSelectedMembers(normalizedSchedule.recipient_emails || []);
+          updateTrafficReportRecipientModeVisibility();
+        }
+
+        function refreshTrafficReportRecipientMembers() {
+          if (!state.selectedSiteId) {
+            renderTrafficReportSelectedMembers([]);
+            updateTrafficReportRecipientModeVisibility();
+            return;
+          }
+          var selectedEmails = currentTrafficReportSelectedRecipientEmails();
+          var currentSchedule = state.trafficReportSchedules[state.selectedSiteId] || {};
+          setTrafficReportRecipientModeControls(Object.assign({}, currentSchedule, {
+            recipient_mode: selectedTrafficReportRecipientMode(),
+            recipient_emails: selectedEmails.length ? selectedEmails : currentSchedule.recipient_emails || []
+          }));
+        }
+
         function setTrafficReportControlsDisabled(disabled) {
           var shouldDisable = Boolean(disabled);
           [
@@ -6710,6 +7241,9 @@
             trafficReportFrequencyDailyInput,
             trafficReportFrequencyWeeklyInput,
             trafficReportFrequencyMonthlyInput,
+            trafficReportRecipientModeManagerInput,
+            trafficReportRecipientModeTeamInput,
+            trafficReportRecipientModeSelectedInput,
             trafficReportSendTimeInput,
             trafficReportWeekdayInput,
             trafficReportMonthDayInput,
@@ -6725,6 +7259,7 @@
               element.readOnly = true;
             }
           });
+          setTrafficReportSelectedMemberInputsDisabled(shouldDisable);
         }
 
         function setTrafficReportScheduleControls(schedule) {
@@ -6757,6 +7292,7 @@
           if (trafficReportRecipientInput) {
             trafficReportRecipientInput.value = currentUserEmail() || normalizedSchedule.recipient_email || '';
           }
+          setTrafficReportRecipientModeControls(normalizedSchedule);
           if (trafficReportEmailStateElement) {
             if (normalizedSchedule.email_enabled === false) {
               trafficReportEmailStateElement.textContent = 'Email disabled';
@@ -6790,6 +7326,8 @@
             enabled: trafficReportEnabledInput ? trafficReportEnabledInput.checked === true : false,
             frequency: selectedTrafficReportFrequency(),
             recipient_email: currentUserEmail(),
+            recipient_mode: selectedTrafficReportRecipientMode(),
+            recipient_emails: selectedTrafficReportRecipientMode() === trafficReportRecipientModeSelected ? currentTrafficReportSelectedRecipientEmails() : [],
             timezone: trafficReportInputTimezone(trafficReportTimezoneInput),
             send_hour: Number(timeParts[0]),
             send_minute: Number(timeParts[1]),
@@ -6799,14 +7337,14 @@
         }
 
         function trafficReportScheduleEndpoint() {
-          if (!state.selectedSiteId || isNewSiteSelected()) {
+          if (!state.selectedSiteId || isNewSiteSelected() || !selectedSiteCanManage()) {
             return '';
           }
           return apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteTrafficReportScheduleSuffix;
         }
 
         function trafficReportTestEndpoint() {
-          if (!state.selectedSiteId || isNewSiteSelected()) {
+          if (!state.selectedSiteId || isNewSiteSelected() || !selectedSiteCanManage()) {
             return '';
           }
           return apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteTrafficReportTestSuffix;
@@ -6815,12 +7353,14 @@
         function loadTrafficReportSchedule() {
           cancelTrafficReportAutosave();
           var selectedSiteId = state.selectedSiteId;
-          if (!selectedSiteId || isNewSiteSelected()) {
+          if (!selectedSiteId || isNewSiteSelected() || !selectedSiteCanManage()) {
             setTrafficReportControlsDisabled(true);
             setTrafficReportScheduleControls({
               enabled: false,
               frequency: 'daily',
               recipient_email: currentUserEmail(),
+              recipient_mode: trafficReportRecipientModeManager,
+              recipient_emails: [],
               timezone: detectedTrafficReportTimezone(),
               send_hour: 9,
               send_minute: 0,
@@ -6850,6 +7390,9 @@
         function saveTrafficReportSchedule(successMessage) {
           if (!state.selectedSiteId || isNewSiteSelected()) {
             return Promise.resolve(null);
+          }
+          if (!selectedSiteCanManage()) {
+            return Promise.reject(new Error(errorMessages.not_authorized || 'Not authorized.'));
           }
           var endpoint = trafficReportScheduleEndpoint();
           var payload = readTrafficReportSchedulePayload();
@@ -6882,7 +7425,7 @@
         }
 
         function scheduleTrafficReportAutosave() {
-          if (!state.selectedSiteId || isNewSiteSelected()) {
+          if (!state.selectedSiteId || isNewSiteSelected() || !selectedSiteCanManage()) {
             return;
           }
           if (trafficReportAutosaveTimerId) {
@@ -6916,6 +7459,9 @@
         }
 
         function sendTrafficReportTest() {
+          if (!selectedSiteCanManage()) {
+            return;
+          }
           cancelTrafficReportAutosave();
           saveTrafficReportSchedule('').then(function() {
             var endpoint = trafficReportTestEndpoint();
@@ -7215,6 +7761,7 @@
           return fetchJSON(apiSitesEndpoint).then(function(payload) {
             state.sites = payload.sites || [];
             state.siteMessages = {};
+            state.siteTeamMembers = {};
             state.siteSentryIssues = {};
             state.siteSentryDetails = {};
             state.selectedSentryIssueId = '';
@@ -7460,7 +8007,7 @@
       }
 
       function updateSubscriberStatus(subscriberId, targetStatus) {
-        if (!subscriberId || !targetStatus || !state.selectedSiteId || isNewSiteSelected()) {
+        if (!subscriberId || !targetStatus || !state.selectedSiteId || isNewSiteSelected() || !selectedSiteCanManage()) {
           return;
         }
         var endpoint = apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteSubscriberUpdateSuffix + subscriberId;
@@ -7492,6 +8039,9 @@
         }
         var subscriberAction = target.dataset.subscriberAction || '';
         if (subscriberAction === 'delete') {
+          if (!selectedSiteCanManage()) {
+            return;
+          }
           openDeleteSubscriberModal(target.dataset.subscriberId || '', target.dataset.subscriberEmail || '');
           return;
         }
@@ -7667,6 +8217,9 @@
         if (!state.selectedSiteId) {
           return null;
         }
+        if (!isNewSiteSelected() && !selectedSiteCanManage()) {
+          return null;
+        }
         var selectedSite = resolveSelectedSite();
         var ownerEmailValue = getTrimmedValue(editSiteOwnerInput);
         var placementPayload = determineWidgetPlacementPayload();
@@ -7783,6 +8336,10 @@
           setFormStatus(statusMessages.select_site || '', formStatusDangerClass);
           return;
         }
+        if (!isNewSiteSelected() && !selectedSiteCanManage()) {
+          setFormStatus(errorMessages.not_authorized || '', formStatusDangerClass);
+          return;
+        }
         var candidate = buildSiteSaveCandidate();
         if (!candidate) {
           return;
@@ -7840,6 +8397,10 @@
             state.siteMessages = {};
           }
           state.siteMessages[payload.id] = [];
+          if (!state.siteTeamMembers) {
+            state.siteTeamMembers = {};
+          }
+          state.siteTeamMembers[payload.id] = [];
           if (!state.siteSentryIssues) {
             state.siteSentryIssues = {};
           }
@@ -8024,6 +8585,12 @@
         if (siteForm) {
           siteForm.addEventListener('submit', submitSite);
         }
+        if (teamForm) {
+          teamForm.addEventListener('submit', createTeamMember);
+        }
+        if (teamMembersTableBody) {
+          teamMembersTableBody.addEventListener('click', handleTeamMembersTableClick);
+        }
         if (footerElement) {
           footerElement.addEventListener('mpr-footer:theme-change', function(event) {
             var mode = event && event.detail && event.detail.theme === 'dark' ? 'dark' : 'light';
@@ -8114,6 +8681,23 @@
             input.addEventListener('input', scheduleTrafficReportAutosave);
           }
         });
+        [trafficReportRecipientModeManagerInput, trafficReportRecipientModeTeamInput, trafficReportRecipientModeSelectedInput].forEach(function(input) {
+          if (input) {
+            input.addEventListener('change', function() {
+              updateTrafficReportRecipientModeVisibility();
+              scheduleTrafficReportAutosave();
+            });
+          }
+        });
+        if (trafficReportSelectedMembersList) {
+          trafficReportSelectedMembersList.addEventListener('change', function(event) {
+            var target = event.target;
+            if (!target || target.tagName !== 'INPUT' || target.type !== 'checkbox') {
+              return;
+            }
+            scheduleTrafficReportAutosave();
+          });
+        }
         if (trafficReportTestButton) {
           trafficReportTestButton.addEventListener('click', function(event) {
             event.preventDefault();
@@ -8300,6 +8884,12 @@
           dashboardSectionTabSentry.addEventListener('click', function(event) {
             event.preventDefault();
             setDashboardSection('sentry');
+          });
+        }
+        if (dashboardSectionTabAdmin) {
+          dashboardSectionTabAdmin.addEventListener('click', function(event) {
+            event.preventDefault();
+            setDashboardSection('admin');
           });
         }
         window.addEventListener('beforeunload', function() {

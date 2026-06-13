@@ -28,6 +28,12 @@ func TestNewTrafficReportScheduleValidatesInput(testingT *testing.T) {
 		{name: "missing site", mutate: func(input *TrafficReportScheduleInput) { input.SiteID = " " }},
 		{name: "invalid frequency", mutate: func(input *TrafficReportScheduleInput) { input.Frequency = "hourly" }},
 		{name: "invalid email", mutate: func(input *TrafficReportScheduleInput) { input.RecipientEmail = "invalid" }},
+		{name: "invalid recipient mode", mutate: func(input *TrafficReportScheduleInput) { input.RecipientMode = "everyone" }},
+		{name: "missing selected recipients", mutate: func(input *TrafficReportScheduleInput) { input.RecipientMode = TrafficReportRecipientModeSelected }},
+		{name: "invalid selected recipient", mutate: func(input *TrafficReportScheduleInput) {
+			input.RecipientMode = TrafficReportRecipientModeSelected
+			input.RecipientEmails = []string{"invalid"}
+		}},
 		{name: "invalid timezone", mutate: func(input *TrafficReportScheduleInput) { input.Timezone = "Mars/Olympus" }},
 		{name: "invalid hour", mutate: func(input *TrafficReportScheduleInput) { input.SendHour = 24 }},
 		{name: "invalid minute", mutate: func(input *TrafficReportScheduleInput) { input.SendMinute = 60 }},
@@ -44,6 +50,25 @@ func TestNewTrafficReportScheduleValidatesInput(testingT *testing.T) {
 			require.True(testingT, errors.Is(err, ErrInvalidTrafficReportSchedule))
 		})
 	}
+}
+
+func TestNewTrafficReportScheduleStoresSelectedRecipients(testingT *testing.T) {
+	schedule, err := NewTrafficReportSchedule(TrafficReportScheduleInput{
+		SiteID:          "site-id",
+		Enabled:         true,
+		Frequency:       TrafficReportFrequencyDaily,
+		RecipientEmail:  "owner@example.com",
+		RecipientMode:   TrafficReportRecipientModeSelected,
+		RecipientEmails: []string{"TEAM@example.com", "team@example.com"},
+		Timezone:        DefaultTrafficReportTimezone,
+		SendHour:        9,
+		SendMinute:      0,
+		Weekday:         DefaultTrafficReportWeekday,
+		MonthDay:        DefaultTrafficReportMonthDay,
+	})
+	require.NoError(testingT, err)
+	require.Equal(testingT, TrafficReportRecipientModeSelected, schedule.RecipientMode)
+	require.Equal(testingT, []string{"team@example.com"}, schedule.SelectedRecipientEmails())
 }
 
 func TestTrafficReportScheduleNextAfter(testingT *testing.T) {

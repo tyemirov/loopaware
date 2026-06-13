@@ -20,12 +20,16 @@ const nonAdminUser = buildAdminUser(config, {
   displayName: "Regular User"
 });
 
+function buildCookieForUser(user) {
+  return buildSessionCookie(config, user);
+}
+
 function buildAdminCookie() {
-  return buildSessionCookie(config, adminUser);
+  return buildCookieForUser(adminUser);
 }
 
 function buildNonAdminCookie() {
-  return buildSessionCookie(config, nonAdminUser);
+  return buildCookieForUser(nonAdminUser);
 }
 
 async function adminRequest(options) {
@@ -40,6 +44,14 @@ async function nonAdminRequest(options) {
   return apiRequest({
     baseURL: config.baseURL,
     cookie: buildNonAdminCookie(),
+    ...options
+  });
+}
+
+async function userRequest(user, options) {
+  return apiRequest({
+    baseURL: config.baseURL,
+    cookie: buildCookieForUser(user),
     ...options
   });
 }
@@ -407,6 +419,230 @@ test.describe("admin api sites", () => {
     });
     expect(response.status).toBe(204);
   });
+
+  test("site admins add a team member who can read the assigned site", async () => {
+    const site = await createAdminSite("Team Access");
+    const teamEmail = buildUniqueEmail("team-member");
+    const teamUser = buildAdminUser(config, {
+      email: teamEmail,
+      displayName: "Team Member"
+    });
+
+    const { response: createResponse, payload: createdMember } = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: teamEmail.toUpperCase() }
+    });
+    expect(createResponse.status).toBe(200);
+    expect(createdMember.email).toBe(teamEmail.toLowerCase());
+    expect(createdMember.added_by_email).toBe(config.adminEmail.toLowerCase());
+
+    const { response: teamResponse, payload: teamPayload } = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "GET"
+    });
+    expect(teamResponse.status).toBe(200);
+    const teamEmails = Array.isArray(teamPayload.team_members) ? teamPayload.team_members.map((member) => member.email) : [];
+    expect(teamEmails).toContain(teamEmail.toLowerCase());
+
+    const { response: listResponse, payload: listPayload } = await userRequest(teamUser, {
+      path: "/api/sites",
+      method: "GET"
+    });
+    expect(listResponse.status).toBe(200);
+    const assignedSite = Array.isArray(listPayload.sites) ? listPayload.sites.find((entry) => entry.id === site.id) : null;
+    expect(assignedSite).toBeTruthy();
+    expect(assignedSite.access_role).toBe("team_member");
+
+    const { response: statsResponse } = await userRequest(teamUser, {
+      path: `/api/sites/${site.id}/visits/stats`,
+      method: "GET"
+    });
+    expect(statsResponse.status).toBe(200);
+
+    const { response: updateResponse, payload: updatePayload } = await userRequest(teamUser, {
+      path: `/api/sites/${site.id}`,
+      method: "PATCH",
+      body: { name: "Team Member Edit" }
+    });
+    expect(updateResponse.status).toBe(403);
+    expect(updatePayload.error).toBe("not_authorized");
+
+    const { response: teamMutationResponse, payload: teamMutationPayload } = await userRequest(teamUser, {
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: buildUniqueEmail("nested-team") }
+    });
+    expect(teamMutationResponse.status).toBe(403);
+    expect(teamMutationPayload.error).toBe("not_authorized");
+
+    const { response: deleteMemberResponse } = await adminRequest({
+      path: `/api/sites/${site.id}/team/${createdMember.id}`,
+      method: "DELETE"
+    });
+    expect(deleteMemberResponse.status).toBe(200);
+
+    const { response: removedListResponse, payload: removedListPayload } = await userRequest(teamUser, {
+      path: "/api/sites",
+      method: "GET"
+    });
+    expect(removedListResponse.status).toBe(200);
+    const removedSiteIds = Array.isArray(removedListPayload.sites) ? removedListPayload.sites.map((entry) => entry.id) : [];
+    expect(removedSiteIds).not.toContain(site.id);
+  });
+
+  test("team member management validates email and duplicate membership", async () => {
+    const site = await createAdminSite("Team Validation");
+    const teamEmail = buildUniqueEmail("team-duplicate");
+
+    const invalid = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: "not-an-email" }
+    });
+    expect(invalid.response.status).toBe(400);
+    expect(invalid.payload.error).toBe("invalid_team_member");
+
+    const displayNameEmail = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: `Jane <${buildUniqueEmail("team-display-name")}>` }
+    });
+    expect(displayNameEmail.response.status).toBe(400);
+    expect(displayNameEmail.payload.error).toBe("invalid_team_member");
+
+    const created = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: teamEmail }
+    });
+    expect(created.response.status).toBe(200);
+
+    const duplicate = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: teamEmail.toUpperCase() }
+    });
+    expect(duplicate.response.status).toBe(409);
+    expect(duplicate.payload.error).toBe("team_member_exists");
+
+    const missing = await adminRequest({
+      path: `/api/sites/${site.id}/team/missing-member`,
+      method: "DELETE"
+    });
+    expect(missing.response.status).toBe(404);
+    expect(missing.payload.error).toBe("unknown_team_member");
+  });
+
+  test("site traffic report schedule supports team recipient selection", async () => {
+    const site = await createAdminSite("Traffic Recipients");
+    const firstTeamEmail = buildUniqueEmail("traffic-recipient-first");
+    const secondTeamEmail = buildUniqueEmail("traffic-recipient-second");
+
+    const firstMember = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: firstTeamEmail }
+    });
+    expect(firstMember.response.status).toBe(200);
+    const secondMember = await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: secondTeamEmail }
+    });
+    expect(secondMember.response.status).toBe(200);
+
+    const defaultSchedule = await adminRequest({
+      path: `/api/sites/${site.id}/traffic-report-schedule`,
+      method: "GET"
+    });
+    expect(defaultSchedule.response.status).toBe(200);
+    expect(defaultSchedule.payload.recipient_mode).toBe("manager");
+    expect(defaultSchedule.payload.recipient_emails).toEqual([]);
+
+    const teamSchedule = await adminRequest({
+      path: `/api/sites/${site.id}/traffic-report-schedule`,
+      method: "PUT",
+      body: {
+        enabled: true,
+        frequency: "weekly",
+        recipient_mode: "team",
+        recipient_emails: [firstTeamEmail],
+        timezone: "UTC",
+        send_hour: 9,
+        send_minute: 15,
+        weekday: 1,
+        month_day: 1
+      }
+    });
+    expect(teamSchedule.response.status).toBe(200);
+    expect(teamSchedule.payload.recipient_mode).toBe("team");
+    expect(teamSchedule.payload.recipient_emails).toEqual([]);
+
+    const selectedSchedule = await adminRequest({
+      path: `/api/sites/${site.id}/traffic-report-schedule`,
+      method: "PUT",
+      body: {
+        enabled: true,
+        frequency: "daily",
+        recipient_mode: "selected",
+        recipient_emails: [secondTeamEmail.toUpperCase(), secondTeamEmail],
+        timezone: "UTC",
+        send_hour: 10,
+        send_minute: 30,
+        weekday: 1,
+        month_day: 1
+      }
+    });
+    expect(selectedSchedule.response.status).toBe(200);
+    expect(selectedSchedule.payload.recipient_mode).toBe("selected");
+    expect(selectedSchedule.payload.recipient_emails).toEqual([secondTeamEmail.toLowerCase()]);
+
+    const loadedSchedule = await adminRequest({
+      path: `/api/sites/${site.id}/traffic-report-schedule`,
+      method: "GET"
+    });
+    expect(loadedSchedule.response.status).toBe(200);
+    expect(loadedSchedule.payload.recipient_mode).toBe("selected");
+    expect(loadedSchedule.payload.recipient_emails).toEqual([secondTeamEmail.toLowerCase()]);
+
+    const invalidSchedule = await adminRequest({
+      path: `/api/sites/${site.id}/traffic-report-schedule`,
+      method: "PUT",
+      body: {
+        enabled: true,
+        frequency: "daily",
+        recipient_mode: "selected",
+        recipient_emails: [buildUniqueEmail("not-on-team")],
+        timezone: "UTC",
+        send_hour: 10,
+        send_minute: 30,
+        weekday: 1,
+        month_day: 1
+      }
+    });
+    expect(invalidSchedule.response.status).toBe(400);
+    expect(invalidSchedule.payload.error).toBe("invalid_traffic_report_schedule");
+  });
+
+  test("unrelated users cannot see or manage site team members", async () => {
+    const site = await createAdminSite("Team Unauthorized");
+
+    const listAttempt = await nonAdminRequest({
+      path: "/api/sites",
+      method: "GET"
+    });
+    expect(listAttempt.response.status).toBe(200);
+    const visibleSiteIds = Array.isArray(listAttempt.payload.sites) ? listAttempt.payload.sites.map((entry) => entry.id) : [];
+    expect(visibleSiteIds).not.toContain(site.id);
+
+    const teamAttempt = await nonAdminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "GET"
+    });
+    expect(teamAttempt.response.status).toBe(403);
+    expect(teamAttempt.payload.error).toBe("not_authorized");
+  });
 });
 
 test.describe("admin api messages and subscribers", () => {
@@ -517,6 +753,16 @@ test.describe("admin api messages and subscribers", () => {
     });
     expect(response.status).toBe(200);
     expect(payload.status).toBe("ok");
+  });
+
+  test("delete subscriber reports unknown subscription for missing subscriber", async () => {
+    const site = await createAdminSite("Subscribers Missing Delete");
+    const { response, payload } = await adminRequest({
+      path: `/api/sites/${site.id}/subscribers/missing-subscriber`,
+      method: "DELETE"
+    });
+    expect(response.status).toBe(404);
+    expect(payload.error).toBe("unknown_subscription");
   });
 
   test("exports subscribers as csv", async () => {
