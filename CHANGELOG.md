@@ -11,6 +11,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.21] - 2026-06-13
+
+### Features ✨
+- Add per-site team member management with read-only dashboard access for assigned emails.
+- Introduce Admin dashboard section for site managers to handle team membership and traffic report recipients.
+- Support traffic report recipient modes: manager-only, whole team, and selected team members with validation and multi-recipient dispatch.
+- Add API routes for managing site team members and traffic report schedules.
+
+### Improvements ⚙️
+- Strengthen email validation to reject display names in team member emails.
+- Allow team members to access streams and handle partial traffic report deliveries.
+- Prevent retry of partial multi-recipient report deliveries to avoid duplicate emails.
+- Update README and issue log with new team member access, admin features, and traffic report scheduling.
+
+### Bug Fixes 🐛
+- Fix partial multi-recipient traffic report delivery retry behavior.
+- Restore missing-subscriber delete response to `unknown_subscription`.
+
+### Testing 🧪
+- Add coverage for traffic report schedule recipient modes.
+- Add team member management and read-only access tests for sites.
+- Validate email format restrictions for team member invitations.
+
+### Docs 📚
+- Update README with per-site team-member access, admin UI, API changes, and traffic report scheduling features.
+- Document role-aware dashboard scopes including per-site team-member access.
+
 ## [v0.7.20] - 2026-06-12
 
 ### Features ✨
