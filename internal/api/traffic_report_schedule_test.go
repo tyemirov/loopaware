@@ -42,8 +42,9 @@ type trafficReportHarness struct {
 }
 
 type recordingTrafficReportEmailSender struct {
-	calls []trafficReportEmailCall
-	err   error
+	calls             []trafficReportEmailCall
+	err               error
+	errorsByRecipient map[string]error
 }
 
 type trafficReportEmailCall struct {
@@ -54,6 +55,9 @@ type trafficReportEmailCall struct {
 
 func (sender *recordingTrafficReportEmailSender) SendEmail(_ context.Context, recipient string, subject string, message string) error {
 	sender.calls = append(sender.calls, trafficReportEmailCall{recipient: recipient, subject: subject, message: message})
+	if sendErr, exists := sender.errorsByRecipient[recipient]; exists {
+		return sendErr
+	}
 	return sender.err
 }
 
@@ -719,4 +723,51 @@ func TestTrafficReportSchedulerRecordsSendFailure(testingT *testing.T) {
 	require.Equal(testingT, 1, stored.RetryCount)
 	require.True(testingT, strings.Contains(stored.LastError, trafficReportStatusDispatchFailed))
 	require.True(testingT, stored.LastSentAt.IsZero())
+}
+
+func TestTrafficReportSchedulerDoesNotRetryPartialTeamDelivery(testingT *testing.T) {
+	harness := buildTrafficReportHarness(testingT, true)
+	insertTrafficReportSite(testingT, harness.database)
+	insertTrafficReportTeamMember(testingT, harness.database, testTrafficReportTeamEmail)
+	insertTrafficReportTeamMember(testingT, harness.database, testTrafficReportSecondTeamEmail)
+	harness.emailSender.errorsByRecipient = map[string]error{
+		testTrafficReportSecondTeamEmail: errors.New("smtp failed"),
+	}
+	schedule, scheduleErr := model.NewTrafficReportSchedule(model.TrafficReportScheduleInput{
+		SiteID:         testTrafficReportSiteID,
+		Enabled:        true,
+		Frequency:      model.TrafficReportFrequencyDaily,
+		RecipientEmail: testTrafficReportOwnerEmail,
+		RecipientMode:  model.TrafficReportRecipientModeTeam,
+		Timezone:       model.DefaultTrafficReportTimezone,
+		SendHour:       9,
+		SendMinute:     0,
+		Weekday:        model.DefaultTrafficReportWeekday,
+		MonthDay:       model.DefaultTrafficReportMonthDay,
+		ReferenceTime:  time.Now().UTC().Add(-48 * time.Hour),
+	})
+	require.NoError(testingT, scheduleErr)
+	schedule.NextSendAt = time.Now().UTC().Add(-time.Hour)
+	require.NoError(testingT, harness.database.Create(&schedule).Error)
+
+	trafficScheduler, schedulerErr := NewTrafficReportScheduler(harness.database, zap.NewNop(), harness.stats, harness.emailSender, time.Millisecond, 5)
+	require.NoError(testingT, schedulerErr)
+	trafficScheduler.RunOnce(context.Background())
+
+	require.Len(testingT, harness.emailSender.calls, 3)
+	recipients := make([]string, 0, len(harness.emailSender.calls))
+	for _, call := range harness.emailSender.calls {
+		recipients = append(recipients, call.recipient)
+	}
+	require.ElementsMatch(testingT, []string{testTrafficReportOwnerEmail, testTrafficReportTeamEmail, testTrafficReportSecondTeamEmail}, recipients)
+	var stored model.TrafficReportSchedule
+	require.NoError(testingT, harness.database.First(&stored, "id = ?", schedule.ID).Error)
+	require.Equal(testingT, model.TrafficReportStatusSent, stored.LastStatus)
+	require.Equal(testingT, 0, stored.RetryCount)
+	require.Empty(testingT, stored.LastError)
+	require.False(testingT, stored.LastSentAt.IsZero())
+	require.True(testingT, stored.NextSendAt.After(time.Now().UTC()))
+
+	trafficScheduler.RunOnce(context.Background())
+	require.Len(testingT, harness.emailSender.calls, 3)
 }

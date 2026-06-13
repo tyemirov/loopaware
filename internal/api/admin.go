@@ -2184,7 +2184,7 @@ func (handlers *SiteHandlers) userCanAccessSite(ctx context.Context, currentUser
 	if err := handlers.database.WithContext(ctx).Select("id", "owner_email", "creator_email").First(&site, "id = ?", siteID).Error; err != nil {
 		return false
 	}
-	return currentUser.canManageSite(site)
+	return handlers.currentUserCanViewSite(ctx, currentUser, site)
 }
 
 func (handlers *SiteHandlers) allowedOriginConflictExists(allowedOrigin string, excludeSiteID string) (bool, error) {

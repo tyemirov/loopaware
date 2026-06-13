@@ -483,6 +483,20 @@ type trafficReportDispatcher struct {
 	emailSender   EmailSender
 }
 
+type trafficReportDeliveryError struct {
+	deliveredCount int
+	failedCount    int
+	deliveryErr    error
+}
+
+func (deliveryErr trafficReportDeliveryError) Error() string {
+	return fmt.Sprintf("traffic_report_dispatch: %d delivered, %d failed: %v", deliveryErr.deliveredCount, deliveryErr.failedCount, deliveryErr.deliveryErr)
+}
+
+func (deliveryErr trafficReportDeliveryError) Unwrap() error {
+	return deliveryErr.deliveryErr
+}
+
 func (dispatcher trafficReportDispatcher) Attempt(ctx context.Context, job scheduler.Job) (scheduler.DispatchResult, error) {
 	switch schedule := job.Payload.(type) {
 	case model.TrafficReportSchedule:
@@ -491,6 +505,10 @@ func (dispatcher trafficReportDispatcher) Attempt(ctx context.Context, job sched
 			return scheduler.DispatchResult{Status: model.TrafficReportStatusFailed}, err
 		}
 		if sendErr := dispatcher.sendSchedule(ctx, site, schedule); sendErr != nil {
+			var deliveryErr trafficReportDeliveryError
+			if errors.As(sendErr, &deliveryErr) && deliveryErr.deliveredCount > 0 {
+				return scheduler.DispatchResult{Status: model.TrafficReportStatusSent}, sendErr
+			}
 			return scheduler.DispatchResult{Status: model.TrafficReportStatusFailed}, sendErr
 		}
 		return scheduler.DispatchResult{Status: model.TrafficReportStatusSent}, nil
@@ -520,10 +538,26 @@ func (dispatcher trafficReportDispatcher) sendSchedule(ctx context.Context, site
 	if recipientsErr != nil {
 		return recipientsErr
 	}
+	var deliveryErr error
+	deliveredCount := 0
+	failedCount := 0
 	for _, recipient := range recipients {
 		if sendErr := dispatcher.emailSender.SendEmail(ctx, recipient, report.subject, report.message); sendErr != nil {
-			return sendErr
+			failedCount += 1
+			deliveryErr = errors.Join(deliveryErr, sendErr)
+			continue
 		}
+		deliveredCount += 1
+	}
+	if deliveryErr != nil {
+		if deliveredCount > 0 {
+			return trafficReportDeliveryError{
+				deliveredCount: deliveredCount,
+				failedCount:    failedCount,
+				deliveryErr:    deliveryErr,
+			}
+		}
+		return deliveryErr
 	}
 	return nil
 }
