@@ -38,33 +38,37 @@ var trafficReportEmailTemplateText string
 var trafficReportEmailTemplate = template.Must(template.New("traffic_report_email").Option("missingkey=error").Parse(trafficReportEmailTemplateText))
 
 type trafficReportScheduleRequest struct {
-	Enabled        bool   `json:"enabled"`
-	Frequency      string `json:"frequency"`
-	RecipientEmail string `json:"recipient_email"`
-	Timezone       string `json:"timezone"`
-	SendHour       *int   `json:"send_hour"`
-	SendMinute     *int   `json:"send_minute"`
-	Weekday        *int   `json:"weekday"`
-	MonthDay       *int   `json:"month_day"`
+	Enabled         bool     `json:"enabled"`
+	Frequency       string   `json:"frequency"`
+	RecipientEmail  string   `json:"recipient_email"`
+	RecipientMode   string   `json:"recipient_mode"`
+	RecipientEmails []string `json:"recipient_emails"`
+	Timezone        string   `json:"timezone"`
+	SendHour        *int     `json:"send_hour"`
+	SendMinute      *int     `json:"send_minute"`
+	Weekday         *int     `json:"weekday"`
+	MonthDay        *int     `json:"month_day"`
 }
 
 type trafficReportScheduleResponse struct {
-	SiteID         string `json:"site_id"`
-	ReportID       string `json:"report_id"`
-	Enabled        bool   `json:"enabled"`
-	Frequency      string `json:"frequency"`
-	RecipientEmail string `json:"recipient_email"`
-	Timezone       string `json:"timezone"`
-	SendHour       int    `json:"send_hour"`
-	SendMinute     int    `json:"send_minute"`
-	Weekday        int    `json:"weekday"`
-	MonthDay       int    `json:"month_day"`
-	NextSendAt     int64  `json:"next_send_at"`
-	LastSentAt     int64  `json:"last_sent_at"`
-	LastStatus     string `json:"last_status"`
-	LastError      string `json:"last_error"`
-	EmailEnabled   bool   `json:"email_enabled"`
-	Persisted      bool   `json:"persisted"`
+	SiteID          string   `json:"site_id"`
+	ReportID        string   `json:"report_id"`
+	Enabled         bool     `json:"enabled"`
+	Frequency       string   `json:"frequency"`
+	RecipientEmail  string   `json:"recipient_email"`
+	RecipientMode   string   `json:"recipient_mode"`
+	RecipientEmails []string `json:"recipient_emails"`
+	Timezone        string   `json:"timezone"`
+	SendHour        int      `json:"send_hour"`
+	SendMinute      int      `json:"send_minute"`
+	Weekday         int      `json:"weekday"`
+	MonthDay        int      `json:"month_day"`
+	NextSendAt      int64    `json:"next_send_at"`
+	LastSentAt      int64    `json:"last_sent_at"`
+	LastStatus      string   `json:"last_status"`
+	LastError       string   `json:"last_error"`
+	EmailEnabled    bool     `json:"email_enabled"`
+	Persisted       bool     `json:"persisted"`
 }
 
 // TrafficReportHandlers owns authenticated traffic report schedule APIs.
@@ -111,7 +115,6 @@ func (handlers *TrafficReportHandlers) GetSchedule(context *gin.Context) {
 		context.JSON(http.StatusOK, handlers.toScheduleResponse(defaultTrafficReportSchedule(site, currentUser.normalizedEmail()), site.ID, false))
 		return
 	}
-	schedule.RecipientEmail = currentUser.normalizedEmail()
 
 	context.JSON(http.StatusOK, handlers.toScheduleResponse(schedule, site.ID, true))
 }
@@ -132,6 +135,14 @@ func (handlers *TrafficReportHandlers) SaveSchedule(context *gin.Context) {
 	schedule, scheduleErr := buildTrafficReportScheduleFromRequest(site, currentUser.normalizedEmail(), payload, handlers.now().UTC())
 	if scheduleErr != nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidTrafficReportSchedule})
+		return
+	}
+	if recipientErr := handlers.validateTrafficReportScheduleRecipients(context.Request.Context(), site, schedule); recipientErr != nil {
+		if errors.Is(recipientErr, model.ErrInvalidTrafficReportSchedule) {
+			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidTrafficReportSchedule})
+			return
+		}
+		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
 		return
 	}
 
@@ -230,6 +241,8 @@ func (handlers *TrafficReportHandlers) upsertSchedule(ctx context.Context, sched
 	existing.Enabled = schedule.Enabled
 	existing.Frequency = schedule.Frequency
 	existing.RecipientEmail = schedule.RecipientEmail
+	existing.RecipientMode = schedule.RecipientMode
+	existing.RecipientEmails = schedule.RecipientEmails
 	existing.Timezone = schedule.Timezone
 	existing.SendHour = schedule.SendHour
 	existing.SendMinute = schedule.SendMinute
@@ -253,21 +266,23 @@ func (handlers *TrafficReportHandlers) toScheduleResponse(schedule model.Traffic
 		lastStatus = model.TrafficReportStatusPending
 	}
 	return trafficReportScheduleResponse{
-		SiteID:         siteID,
-		Enabled:        schedule.Enabled,
-		Frequency:      schedule.Frequency,
-		RecipientEmail: schedule.RecipientEmail,
-		Timezone:       schedule.Timezone,
-		SendHour:       schedule.SendHour,
-		SendMinute:     schedule.SendMinute,
-		Weekday:        schedule.Weekday,
-		MonthDay:       schedule.MonthDay,
-		NextSendAt:     unixSeconds(schedule.NextSendAt),
-		LastSentAt:     unixSeconds(schedule.LastSentAt),
-		LastStatus:     lastStatus,
-		LastError:      schedule.LastError,
-		EmailEnabled:   handlers.emailEnabled,
-		Persisted:      persisted,
+		SiteID:          siteID,
+		Enabled:         schedule.Enabled,
+		Frequency:       schedule.Frequency,
+		RecipientEmail:  schedule.RecipientEmail,
+		RecipientMode:   schedule.RecipientModeValue(),
+		RecipientEmails: schedule.SelectedRecipientEmails(),
+		Timezone:        schedule.Timezone,
+		SendHour:        schedule.SendHour,
+		SendMinute:      schedule.SendMinute,
+		Weekday:         schedule.Weekday,
+		MonthDay:        schedule.MonthDay,
+		NextSendAt:      unixSeconds(schedule.NextSendAt),
+		LastSentAt:      unixSeconds(schedule.LastSentAt),
+		LastStatus:      lastStatus,
+		LastError:       schedule.LastError,
+		EmailEnabled:    handlers.emailEnabled,
+		Persisted:       persisted,
 	}
 }
 
@@ -286,16 +301,18 @@ func defaultTrafficReportSchedule(site model.Site, recipientEmail string) model.
 	})
 	if scheduleErr != nil {
 		return model.TrafficReportSchedule{
-			SiteID:         site.ID,
-			Enabled:        false,
-			Frequency:      model.TrafficReportFrequencyDaily,
-			RecipientEmail: strings.ToLower(strings.TrimSpace(recipientEmail)),
-			Timezone:       model.DefaultTrafficReportTimezone,
-			SendHour:       model.DefaultTrafficReportSendHour,
-			SendMinute:     model.DefaultTrafficReportSendMinute,
-			Weekday:        model.DefaultTrafficReportWeekday,
-			MonthDay:       model.DefaultTrafficReportMonthDay,
-			LastStatus:     model.TrafficReportStatusPending,
+			SiteID:          site.ID,
+			Enabled:         false,
+			Frequency:       model.TrafficReportFrequencyDaily,
+			RecipientEmail:  strings.ToLower(strings.TrimSpace(recipientEmail)),
+			RecipientMode:   model.TrafficReportRecipientModeManager,
+			RecipientEmails: "[]",
+			Timezone:        model.DefaultTrafficReportTimezone,
+			SendHour:        model.DefaultTrafficReportSendHour,
+			SendMinute:      model.DefaultTrafficReportSendMinute,
+			Weekday:         model.DefaultTrafficReportWeekday,
+			MonthDay:        model.DefaultTrafficReportMonthDay,
+			LastStatus:      model.TrafficReportStatusPending,
 		}
 	}
 	return schedule
@@ -311,17 +328,39 @@ func buildTrafficReportScheduleFromRequest(site model.Site, recipientEmail strin
 		timezoneName = model.DefaultTrafficReportTimezone
 	}
 	return model.NewTrafficReportSchedule(model.TrafficReportScheduleInput{
-		SiteID:         site.ID,
-		Enabled:        payload.Enabled,
-		Frequency:      frequency,
-		RecipientEmail: recipientEmail,
-		Timezone:       timezoneName,
-		SendHour:       intValueOrDefault(payload.SendHour, model.DefaultTrafficReportSendHour),
-		SendMinute:     intValueOrDefault(payload.SendMinute, model.DefaultTrafficReportSendMinute),
-		Weekday:        intValueOrDefault(payload.Weekday, model.DefaultTrafficReportWeekday),
-		MonthDay:       intValueOrDefault(payload.MonthDay, model.DefaultTrafficReportMonthDay),
-		ReferenceTime:  referenceTime,
+		SiteID:          site.ID,
+		Enabled:         payload.Enabled,
+		Frequency:       frequency,
+		RecipientEmail:  recipientEmail,
+		RecipientMode:   payload.RecipientMode,
+		RecipientEmails: payload.RecipientEmails,
+		Timezone:        timezoneName,
+		SendHour:        intValueOrDefault(payload.SendHour, model.DefaultTrafficReportSendHour),
+		SendMinute:      intValueOrDefault(payload.SendMinute, model.DefaultTrafficReportSendMinute),
+		Weekday:         intValueOrDefault(payload.Weekday, model.DefaultTrafficReportWeekday),
+		MonthDay:        intValueOrDefault(payload.MonthDay, model.DefaultTrafficReportMonthDay),
+		ReferenceTime:   referenceTime,
 	})
+}
+
+func (handlers *TrafficReportHandlers) validateTrafficReportScheduleRecipients(ctx context.Context, site model.Site, schedule model.TrafficReportSchedule) error {
+	if schedule.RecipientModeValue() != model.TrafficReportRecipientModeSelected {
+		return nil
+	}
+	selectedRecipients := schedule.SelectedRecipientEmails()
+	if len(selectedRecipients) == 0 {
+		return fmt.Errorf("%w: missing recipient_emails", model.ErrInvalidTrafficReportSchedule)
+	}
+	teamRecipientSet, teamRecipientErr := trafficReportTeamMemberRecipientSet(ctx, handlers.database, site.ID)
+	if teamRecipientErr != nil {
+		return teamRecipientErr
+	}
+	for _, recipientEmail := range selectedRecipients {
+		if _, exists := teamRecipientSet[recipientEmail]; !exists {
+			return fmt.Errorf("%w: unknown recipient_email", model.ErrInvalidTrafficReportSchedule)
+		}
+	}
+	return nil
 }
 
 func intValueOrDefault(value *int, defaultValue int) int {
@@ -477,7 +516,121 @@ func (dispatcher trafficReportDispatcher) sendSchedule(ctx context.Context, site
 	if reportErr != nil {
 		return reportErr
 	}
-	return dispatcher.emailSender.SendEmail(ctx, schedule.RecipientEmail, report.subject, report.message)
+	recipients, recipientsErr := trafficReportScheduleRecipients(ctx, dispatcher.database, site, schedule)
+	if recipientsErr != nil {
+		return recipientsErr
+	}
+	for _, recipient := range recipients {
+		if sendErr := dispatcher.emailSender.SendEmail(ctx, recipient, report.subject, report.message); sendErr != nil {
+			return sendErr
+		}
+	}
+	return nil
+}
+
+func trafficReportScheduleRecipients(ctx context.Context, database *gorm.DB, site model.Site, schedule model.TrafficReportSchedule) ([]string, error) {
+	switch schedule.RecipientModeValue() {
+	case model.TrafficReportRecipientModeManager:
+		return []string{schedule.RecipientEmail}, nil
+	case model.TrafficReportRecipientModeTeam:
+		return trafficReportTeamRecipients(ctx, database, site)
+	case model.TrafficReportRecipientModeSelected:
+		return trafficReportSelectedRecipients(ctx, database, site.ID, schedule.SelectedRecipientEmails())
+	default:
+		return nil, fmt.Errorf("%w: invalid recipient_mode", model.ErrInvalidTrafficReportSchedule)
+	}
+}
+
+func trafficReportTeamRecipients(ctx context.Context, database *gorm.DB, site model.Site) ([]string, error) {
+	recipients := []string{}
+	seenRecipients := map[string]struct{}{}
+	var appendErr error
+	recipients, appendErr = appendTrafficReportRecipient(recipients, seenRecipients, site.OwnerEmail)
+	if appendErr != nil {
+		return nil, appendErr
+	}
+	recipients, appendErr = appendTrafficReportRecipient(recipients, seenRecipients, site.CreatorEmail)
+	if appendErr != nil {
+		return nil, appendErr
+	}
+	teamMembers, teamMemberErr := trafficReportTeamMemberRecipients(ctx, database, site.ID)
+	if teamMemberErr != nil {
+		return nil, teamMemberErr
+	}
+	for _, teamMemberEmail := range teamMembers {
+		recipients, appendErr = appendTrafficReportRecipient(recipients, seenRecipients, teamMemberEmail)
+		if appendErr != nil {
+			return nil, appendErr
+		}
+	}
+	if len(recipients) == 0 {
+		return nil, fmt.Errorf("traffic_report_dispatch: no recipients")
+	}
+	return recipients, nil
+}
+
+func trafficReportSelectedRecipients(ctx context.Context, database *gorm.DB, siteID string, selectedRecipients []string) ([]string, error) {
+	teamRecipientSet, teamRecipientErr := trafficReportTeamMemberRecipientSet(ctx, database, siteID)
+	if teamRecipientErr != nil {
+		return nil, teamRecipientErr
+	}
+	recipients := []string{}
+	seenRecipients := map[string]struct{}{}
+	for _, selectedRecipient := range selectedRecipients {
+		if _, exists := teamRecipientSet[selectedRecipient]; !exists {
+			continue
+		}
+		var appendErr error
+		recipients, appendErr = appendTrafficReportRecipient(recipients, seenRecipients, selectedRecipient)
+		if appendErr != nil {
+			return nil, appendErr
+		}
+	}
+	if len(recipients) == 0 {
+		return nil, fmt.Errorf("traffic_report_dispatch: no selected recipients")
+	}
+	return recipients, nil
+}
+
+func trafficReportTeamMemberRecipientSet(ctx context.Context, database *gorm.DB, siteID string) (map[string]struct{}, error) {
+	teamMemberRecipients, teamMemberErr := trafficReportTeamMemberRecipients(ctx, database, siteID)
+	if teamMemberErr != nil {
+		return nil, teamMemberErr
+	}
+	recipientSet := make(map[string]struct{}, len(teamMemberRecipients))
+	for _, recipient := range teamMemberRecipients {
+		recipientSet[recipient] = struct{}{}
+	}
+	return recipientSet, nil
+}
+
+func trafficReportTeamMemberRecipients(ctx context.Context, database *gorm.DB, siteID string) ([]string, error) {
+	var teamMembers []model.SiteTeamMember
+	if queryErr := database.WithContext(ctx).Where("site_id = ?", siteID).Order("email asc").Find(&teamMembers).Error; queryErr != nil {
+		return nil, queryErr
+	}
+	recipients := make([]string, 0, len(teamMembers))
+	seenRecipients := map[string]struct{}{}
+	for _, teamMember := range teamMembers {
+		var appendErr error
+		recipients, appendErr = appendTrafficReportRecipient(recipients, seenRecipients, teamMember.Email)
+		if appendErr != nil {
+			return nil, appendErr
+		}
+	}
+	return recipients, nil
+}
+
+func appendTrafficReportRecipient(recipients []string, seenRecipients map[string]struct{}, rawRecipient string) ([]string, error) {
+	recipient, recipientErr := model.NormalizeSiteTeamMemberEmail(rawRecipient)
+	if recipientErr != nil {
+		return nil, recipientErr
+	}
+	if _, exists := seenRecipients[recipient]; exists {
+		return recipients, nil
+	}
+	seenRecipients[recipient] = struct{}{}
+	return append(recipients, recipient), nil
 }
 
 func (dispatcher trafficReportDispatcher) sendPortfolioSchedule(ctx context.Context, schedule model.PortfolioTrafficReportSchedule) error {

@@ -1867,7 +1867,7 @@ func (handlers *SiteHandlers) DeleteSubscriber(context *gin.Context) {
 		return
 	}
 	if deleteResult.RowsAffected == 0 {
-		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownTeamMember})
+		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownSubscription})
 		return
 	}
 

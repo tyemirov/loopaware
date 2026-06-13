@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/mail"
@@ -15,6 +16,10 @@ const (
 	TrafficReportFrequencyDaily   = "daily"
 	TrafficReportFrequencyWeekly  = "weekly"
 	TrafficReportFrequencyMonthly = "monthly"
+
+	TrafficReportRecipientModeManager  = "manager"
+	TrafficReportRecipientModeTeam     = "team"
+	TrafficReportRecipientModeSelected = "selected"
 
 	TrafficReportStatusPending = "pending"
 	TrafficReportStatusSent    = "sent"
@@ -39,6 +44,8 @@ type TrafficReportSchedule struct {
 	Enabled           bool      `gorm:"not null;default:false;index"`
 	Frequency         string    `gorm:"not null;size:16"`
 	RecipientEmail    string    `gorm:"not null;size:320"`
+	RecipientMode     string    `gorm:"not null;size:16;default:manager"`
+	RecipientEmails   string    `gorm:"type:text"`
 	Timezone          string    `gorm:"not null;size:100"`
 	SendHour          int       `gorm:"not null"`
 	SendMinute        int       `gorm:"not null"`
@@ -81,16 +88,18 @@ type PortfolioTrafficReportSchedule struct {
 
 // TrafficReportScheduleInput holds incoming schedule values from API/configuration edges.
 type TrafficReportScheduleInput struct {
-	SiteID         string
-	Enabled        bool
-	Frequency      string
-	RecipientEmail string
-	Timezone       string
-	SendHour       int
-	SendMinute     int
-	Weekday        int
-	MonthDay       int
-	ReferenceTime  time.Time
+	SiteID          string
+	Enabled         bool
+	Frequency       string
+	RecipientEmail  string
+	RecipientMode   string
+	RecipientEmails []string
+	Timezone        string
+	SendHour        int
+	SendMinute      int
+	Weekday         int
+	MonthDay        int
+	ReferenceTime   time.Time
 }
 
 // PortfolioTrafficReportScheduleInput holds recurring all-sites schedule values.
@@ -125,6 +134,25 @@ func NewTrafficReportSchedule(input TrafficReportScheduleInput) (TrafficReportSc
 		return TrafficReportSchedule{}, recipientErr
 	}
 
+	recipientMode, recipientModeErr := normalizeTrafficReportRecipientMode(input.RecipientMode)
+	if recipientModeErr != nil {
+		return TrafficReportSchedule{}, recipientModeErr
+	}
+	recipientEmails, recipientEmailsErr := normalizeTrafficReportRecipientList(input.RecipientEmails)
+	if recipientEmailsErr != nil {
+		return TrafficReportSchedule{}, recipientEmailsErr
+	}
+	if recipientMode == TrafficReportRecipientModeSelected && len(recipientEmails) == 0 {
+		return TrafficReportSchedule{}, fmt.Errorf("%w: missing recipient_emails", ErrInvalidTrafficReportSchedule)
+	}
+	if recipientMode != TrafficReportRecipientModeSelected {
+		recipientEmails = []string{}
+	}
+	encodedRecipientEmails, encodeRecipientEmailsErr := encodeTrafficReportRecipientEmails(recipientEmails)
+	if encodeRecipientEmailsErr != nil {
+		return TrafficReportSchedule{}, encodeRecipientEmailsErr
+	}
+
 	timezoneName, _, timezoneErr := normalizeTrafficReportTimezone(input.Timezone)
 	if timezoneErr != nil {
 		return TrafficReportSchedule{}, timezoneErr
@@ -149,17 +177,19 @@ func NewTrafficReportSchedule(input TrafficReportScheduleInput) (TrafficReportSc
 	}
 
 	schedule := TrafficReportSchedule{
-		ID:             uuid.NewString(),
-		SiteID:         siteID,
-		Enabled:        input.Enabled,
-		Frequency:      frequency,
-		RecipientEmail: recipientEmail,
-		Timezone:       timezoneName,
-		SendHour:       input.SendHour,
-		SendMinute:     input.SendMinute,
-		Weekday:        input.Weekday,
-		MonthDay:       input.MonthDay,
-		LastStatus:     TrafficReportStatusPending,
+		ID:              uuid.NewString(),
+		SiteID:          siteID,
+		Enabled:         input.Enabled,
+		Frequency:       frequency,
+		RecipientEmail:  recipientEmail,
+		RecipientMode:   recipientMode,
+		RecipientEmails: encodedRecipientEmails,
+		Timezone:        timezoneName,
+		SendHour:        input.SendHour,
+		SendMinute:      input.SendMinute,
+		Weekday:         input.Weekday,
+		MonthDay:        input.MonthDay,
+		LastStatus:      TrafficReportStatusPending,
 	}
 	nextSendAt, nextErr := schedule.NextAfter(referenceTime)
 	if nextErr != nil {
@@ -309,6 +339,31 @@ func (schedule PortfolioTrafficReportSchedule) ReportWindowDays() int {
 	return siteSchedule.ReportWindowDays()
 }
 
+// SelectedRecipientEmails returns the normalized selected-member recipient list.
+func (schedule TrafficReportSchedule) SelectedRecipientEmails() []string {
+	if strings.TrimSpace(schedule.RecipientEmails) == "" {
+		return []string{}
+	}
+	var recipientEmails []string
+	if unmarshalErr := json.Unmarshal([]byte(schedule.RecipientEmails), &recipientEmails); unmarshalErr != nil {
+		return []string{}
+	}
+	normalizedEmails, normalizeErr := normalizeTrafficReportRecipientList(recipientEmails)
+	if normalizeErr != nil {
+		return []string{}
+	}
+	return normalizedEmails
+}
+
+// RecipientModeValue returns the normalized schedule recipient mode.
+func (schedule TrafficReportSchedule) RecipientModeValue() string {
+	recipientMode, recipientModeErr := normalizeTrafficReportRecipientMode(schedule.RecipientMode)
+	if recipientModeErr != nil {
+		return TrafficReportRecipientModeManager
+	}
+	return recipientMode
+}
+
 func normalizeTrafficReportFrequency(rawFrequency string) string {
 	switch strings.ToLower(strings.TrimSpace(rawFrequency)) {
 	case TrafficReportFrequencyDaily:
@@ -319,6 +374,19 @@ func normalizeTrafficReportFrequency(rawFrequency string) string {
 		return TrafficReportFrequencyMonthly
 	default:
 		return ""
+	}
+}
+
+func normalizeTrafficReportRecipientMode(rawMode string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(rawMode)) {
+	case "", TrafficReportRecipientModeManager:
+		return TrafficReportRecipientModeManager, nil
+	case TrafficReportRecipientModeTeam:
+		return TrafficReportRecipientModeTeam, nil
+	case TrafficReportRecipientModeSelected:
+		return TrafficReportRecipientModeSelected, nil
+	default:
+		return "", fmt.Errorf("%w: invalid recipient_mode", ErrInvalidTrafficReportSchedule)
 	}
 }
 
@@ -335,6 +403,34 @@ func normalizeTrafficReportRecipient(rawRecipient string) (string, error) {
 		return "", fmt.Errorf("%w: recipient_email too long", ErrInvalidTrafficReportSchedule)
 	}
 	return trimmedRecipient, nil
+}
+
+func normalizeTrafficReportRecipientList(rawRecipients []string) ([]string, error) {
+	normalizedRecipients := make([]string, 0, len(rawRecipients))
+	seenRecipients := make(map[string]struct{}, len(rawRecipients))
+	for _, rawRecipient := range rawRecipients {
+		recipient, recipientErr := normalizeTrafficReportRecipient(rawRecipient)
+		if recipientErr != nil {
+			return nil, recipientErr
+		}
+		if _, exists := seenRecipients[recipient]; exists {
+			continue
+		}
+		seenRecipients[recipient] = struct{}{}
+		normalizedRecipients = append(normalizedRecipients, recipient)
+	}
+	return normalizedRecipients, nil
+}
+
+func encodeTrafficReportRecipientEmails(recipientEmails []string) (string, error) {
+	if len(recipientEmails) == 0 {
+		return "[]", nil
+	}
+	encoded, encodeErr := json.Marshal(recipientEmails)
+	if encodeErr != nil {
+		return "", fmt.Errorf("%w: invalid recipient_emails", ErrInvalidTrafficReportSchedule)
+	}
+	return string(encoded), nil
 }
 
 func normalizeTrafficReportTimezone(rawTimezone string) (string, *time.Location, error) {

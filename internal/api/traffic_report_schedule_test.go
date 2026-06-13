@@ -22,14 +22,16 @@ import (
 )
 
 const (
-	testTrafficReportSiteID        = "traffic-report-site-id"
-	testTrafficReportSiteName      = "Traffic Report Site"
-	testTrafficReportOwnerEmail    = "traffic-owner@example.com"
-	testTrafficReportOtherEmail    = "traffic-other@example.com"
-	testTrafficReportRecipient     = "reports@example.com"
-	testTrafficReportAllowedOrigin = "https://traffic-report.example.com"
-	testTrafficReportPath          = "/api/sites/" + testTrafficReportSiteID + "/traffic-report-schedule"
-	testTrafficReportTestPath      = "/api/sites/" + testTrafficReportSiteID + "/traffic-report-schedule/test"
+	testTrafficReportSiteID          = "traffic-report-site-id"
+	testTrafficReportSiteName        = "Traffic Report Site"
+	testTrafficReportOwnerEmail      = "traffic-owner@example.com"
+	testTrafficReportOtherEmail      = "traffic-other@example.com"
+	testTrafficReportRecipient       = "reports@example.com"
+	testTrafficReportTeamEmail       = "traffic-team@example.com"
+	testTrafficReportSecondTeamEmail = "traffic-team-two@example.com"
+	testTrafficReportAllowedOrigin   = "https://traffic-report.example.com"
+	testTrafficReportPath            = "/api/sites/" + testTrafficReportSiteID + "/traffic-report-schedule"
+	testTrafficReportTestPath        = "/api/sites/" + testTrafficReportSiteID + "/traffic-report-schedule/test"
 )
 
 type trafficReportHarness struct {
@@ -200,6 +202,18 @@ func insertTrafficReportSite(testingT *testing.T, database *gorm.DB) {
 	require.NoError(testingT, database.Create(&site).Error)
 }
 
+func insertTrafficReportTeamMember(testingT *testing.T, database *gorm.DB, email string) model.SiteTeamMember {
+	testingT.Helper()
+	teamMember, teamMemberErr := model.NewSiteTeamMember(model.SiteTeamMemberInput{
+		SiteID:       testTrafficReportSiteID,
+		Email:        email,
+		AddedByEmail: testTrafficReportOwnerEmail,
+	})
+	require.NoError(testingT, teamMemberErr)
+	require.NoError(testingT, database.Create(&teamMember).Error)
+	return teamMember
+}
+
 func setTrafficReportUser(context *gin.Context, email string) {
 	context.Set(contextKeyCurrentUser, &CurrentUser{Email: email, Role: RoleUser})
 	context.Params = gin.Params{{Key: "id", Value: testTrafficReportSiteID}}
@@ -274,6 +288,50 @@ func TestSaveTrafficReportSchedulePersistsValues(testingT *testing.T) {
 	require.True(testingT, stored.Enabled)
 	require.Equal(testingT, testTrafficReportOwnerEmail, stored.RecipientEmail)
 	require.False(testingT, stored.NextSendAt.IsZero())
+}
+
+func TestSaveTrafficReportSchedulePersistsSelectedTeamRecipients(testingT *testing.T) {
+	harness := buildTrafficReportHarness(testingT, true)
+	insertTrafficReportSite(testingT, harness.database)
+	insertTrafficReportTeamMember(testingT, harness.database, testTrafficReportTeamEmail)
+	payload := trafficReportScheduleRequest{
+		Enabled:         true,
+		Frequency:       model.TrafficReportFrequencyDaily,
+		RecipientMode:   model.TrafficReportRecipientModeSelected,
+		RecipientEmails: []string{strings.ToUpper(testTrafficReportTeamEmail), testTrafficReportTeamEmail},
+		Timezone:        model.DefaultTrafficReportTimezone,
+	}
+	context, recorder := buildTrafficReportContext(http.MethodPut, testTrafficReportPath, marshalTrafficReportSchedule(testingT, payload))
+	setTrafficReportUser(context, testTrafficReportOwnerEmail)
+
+	harness.handlers.SaveSchedule(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+	response := decodeTrafficReportSchedule(testingT, recorder)
+	require.Equal(testingT, model.TrafficReportRecipientModeSelected, response.RecipientMode)
+	require.Equal(testingT, []string{testTrafficReportTeamEmail}, response.RecipientEmails)
+
+	var stored model.TrafficReportSchedule
+	require.NoError(testingT, harness.database.First(&stored, "site_id = ?", testTrafficReportSiteID).Error)
+	require.Equal(testingT, model.TrafficReportRecipientModeSelected, stored.RecipientMode)
+	require.Equal(testingT, []string{testTrafficReportTeamEmail}, stored.SelectedRecipientEmails())
+}
+
+func TestSaveTrafficReportScheduleRejectsUnknownSelectedRecipient(testingT *testing.T) {
+	harness := buildTrafficReportHarness(testingT, true)
+	insertTrafficReportSite(testingT, harness.database)
+	payload := trafficReportScheduleRequest{
+		Enabled:         true,
+		Frequency:       model.TrafficReportFrequencyDaily,
+		RecipientMode:   model.TrafficReportRecipientModeSelected,
+		RecipientEmails: []string{testTrafficReportOtherEmail},
+		Timezone:        model.DefaultTrafficReportTimezone,
+	}
+	context, recorder := buildTrafficReportContext(http.MethodPut, testTrafficReportPath, marshalTrafficReportSchedule(testingT, payload))
+	setTrafficReportUser(context, testTrafficReportOwnerEmail)
+
+	harness.handlers.SaveSchedule(context)
+	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
+	require.Contains(testingT, recorder.Body.String(), errorValueInvalidTrafficReportSchedule)
 }
 
 func TestSaveTrafficReportScheduleResetsRetryState(testingT *testing.T) {
@@ -396,6 +454,66 @@ func TestSendTrafficReportTestUsesPinguinSender(testingT *testing.T) {
 	require.Contains(testingT, call.message, "Page views: 12")
 	require.Contains(testingT, call.message, "/pricing: 6 views")
 	require.Contains(testingT, call.message, "desktop: 8 visits")
+}
+
+func TestSendTrafficReportTestSendsToWholeTeam(testingT *testing.T) {
+	harness := buildTrafficReportHarness(testingT, true)
+	insertTrafficReportSite(testingT, harness.database)
+	insertTrafficReportTeamMember(testingT, harness.database, testTrafficReportSecondTeamEmail)
+	insertTrafficReportTeamMember(testingT, harness.database, testTrafficReportTeamEmail)
+	schedule, scheduleErr := model.NewTrafficReportSchedule(model.TrafficReportScheduleInput{
+		SiteID:         testTrafficReportSiteID,
+		Enabled:        true,
+		Frequency:      model.TrafficReportFrequencyDaily,
+		RecipientEmail: testTrafficReportOwnerEmail,
+		RecipientMode:  model.TrafficReportRecipientModeTeam,
+		Timezone:       model.DefaultTrafficReportTimezone,
+		SendHour:       model.DefaultTrafficReportSendHour,
+		SendMinute:     model.DefaultTrafficReportSendMinute,
+		Weekday:        model.DefaultTrafficReportWeekday,
+		MonthDay:       model.DefaultTrafficReportMonthDay,
+	})
+	require.NoError(testingT, scheduleErr)
+	require.NoError(testingT, harness.database.Create(&schedule).Error)
+	context, recorder := buildTrafficReportContext(http.MethodPost, testTrafficReportTestPath, nil)
+	setTrafficReportUser(context, testTrafficReportOwnerEmail)
+
+	harness.handlers.SendTestReport(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+	var recipients []string
+	for _, call := range harness.emailSender.calls {
+		recipients = append(recipients, call.recipient)
+	}
+	require.ElementsMatch(testingT, []string{testTrafficReportOwnerEmail, testTrafficReportTeamEmail, testTrafficReportSecondTeamEmail}, recipients)
+}
+
+func TestSendTrafficReportTestSendsToSelectedTeamMembers(testingT *testing.T) {
+	harness := buildTrafficReportHarness(testingT, true)
+	insertTrafficReportSite(testingT, harness.database)
+	insertTrafficReportTeamMember(testingT, harness.database, testTrafficReportTeamEmail)
+	insertTrafficReportTeamMember(testingT, harness.database, testTrafficReportSecondTeamEmail)
+	schedule, scheduleErr := model.NewTrafficReportSchedule(model.TrafficReportScheduleInput{
+		SiteID:          testTrafficReportSiteID,
+		Enabled:         true,
+		Frequency:       model.TrafficReportFrequencyDaily,
+		RecipientEmail:  testTrafficReportOwnerEmail,
+		RecipientMode:   model.TrafficReportRecipientModeSelected,
+		RecipientEmails: []string{testTrafficReportSecondTeamEmail},
+		Timezone:        model.DefaultTrafficReportTimezone,
+		SendHour:        model.DefaultTrafficReportSendHour,
+		SendMinute:      model.DefaultTrafficReportSendMinute,
+		Weekday:         model.DefaultTrafficReportWeekday,
+		MonthDay:        model.DefaultTrafficReportMonthDay,
+	})
+	require.NoError(testingT, scheduleErr)
+	require.NoError(testingT, harness.database.Create(&schedule).Error)
+	context, recorder := buildTrafficReportContext(http.MethodPost, testTrafficReportTestPath, nil)
+	setTrafficReportUser(context, testTrafficReportOwnerEmail)
+
+	harness.handlers.SendTestReport(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+	require.Len(testingT, harness.emailSender.calls, 1)
+	require.Equal(testingT, testTrafficReportSecondTeamEmail, harness.emailSender.calls[0].recipient)
 }
 
 func TestSendTrafficReportTestRequiresEmailEnabled(testingT *testing.T) {
