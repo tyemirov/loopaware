@@ -67,7 +67,8 @@ func NormalizeSiteTeamMemberEmail(rawInput string) (string, error) {
 	if email == "" || len(email) > siteTeamMemberEmailMaxLength {
 		return "", fmt.Errorf("%w: invalid email", ErrInvalidSiteTeamMember)
 	}
-	if _, parseErr := mail.ParseAddress(email); parseErr != nil {
+	parsedAddress, parseErr := mail.ParseAddress(email)
+	if parseErr != nil || parsedAddress.Address != email {
 		return "", fmt.Errorf("%w: invalid email", ErrInvalidSiteTeamMember)
 	}
 	return email, nil
