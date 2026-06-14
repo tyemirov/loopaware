@@ -9,6 +9,7 @@ on:
       - '**/*.go'
       - 'docker-compose*.yml'
       - 'configs/**'
+      - 'mobile/**'
       - 'tests/**'
       - 'web/**'
       - 'Makefile'
@@ -22,6 +23,7 @@ on:
       - '**/*.go'
       - 'docker-compose*.yml'
       - 'configs/**'
+      - 'mobile/**'
       - 'tests/**'
       - 'web/**'
       - 'Makefile'
@@ -56,7 +58,9 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: tests/package.json
+          cache-dependency-path: |
+            tests/package-lock.json
+            mobile/package-lock.json
 
       - name: Install test dependencies
         run: |
