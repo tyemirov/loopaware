@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import * as SecureStore from "expo-secure-store";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   type DimensionValue,
@@ -61,18 +61,29 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const dashboardLoadVersion = useRef(0);
 
   const loadSiteData = useCallback(
     async (site: Site, interval: TrafficInterval) => {
+      const requestVersion = dashboardLoadVersion.current + 1;
+      dashboardLoadVersion.current = requestVersion;
       setBusy(true);
       setErrorMessage(null);
       try {
         const dashboard = await apiClient.siteDashboard(site, interval);
+        if (requestVersion !== dashboardLoadVersion.current) {
+          return;
+        }
         setSiteDashboard(dashboard);
       } catch (error) {
+        if (requestVersion !== dashboardLoadVersion.current) {
+          return;
+        }
         setErrorMessage(errorToMessage(error));
       } finally {
-        setBusy(false);
+        if (requestVersion === dashboardLoadVersion.current) {
+          setBusy(false);
+        }
       }
     },
     [apiClient],
@@ -80,10 +91,15 @@ export default function App() {
 
   const loadAuthenticatedState = useCallback(
     async (mode: "restore" | "current", preferredSiteId: string | null, interval: TrafficInterval) => {
+      const requestVersion = dashboardLoadVersion.current + 1;
+      dashboardLoadVersion.current = requestVersion;
       setBusy(true);
       setErrorMessage(null);
       try {
         const currentAccount = mode === "restore" ? await authController.restore() : await apiClient.me();
+        if (requestVersion !== dashboardLoadVersion.current) {
+          return;
+        }
         if (!currentAccount) {
           setStatus("signedOut");
           setAccount(null);
@@ -103,6 +119,9 @@ export default function App() {
           selectedSite ? apiClient.siteDashboard(selectedSite, interval) : Promise.resolve(null),
           apiClient.portfolioDashboard(),
         ]);
+        if (requestVersion !== dashboardLoadVersion.current) {
+          return;
+        }
         setAccount(currentAccount);
         setSites(sitesResponse.sites);
         setSelectedSiteId(nextSelectedSiteId);
@@ -110,11 +129,15 @@ export default function App() {
         setPortfolioDashboard(nextPortfolioDashboard);
         setStatus("signedIn");
       } catch (error) {
-        setStatus((currentStatus) => (currentStatus === "checking" ? "signedOut" : currentStatus));
-        setErrorMessage(errorToMessage(error));
+        if (requestVersion === dashboardLoadVersion.current) {
+          setStatus((currentStatus) => (currentStatus === "checking" ? "signedOut" : currentStatus));
+          setErrorMessage(errorToMessage(error));
+        }
       } finally {
-        setBusy(false);
-        setRefreshing(false);
+        if (requestVersion === dashboardLoadVersion.current) {
+          setBusy(false);
+          setRefreshing(false);
+        }
       }
     },
     [apiClient, authController],
@@ -125,6 +148,12 @@ export default function App() {
   }, [loadAuthenticatedState]);
 
   const selectedSite = useMemo(() => sites.find((site) => site.id === selectedSiteId) || null, [selectedSiteId, sites]);
+  const selectedSiteDashboard = useMemo(() => {
+    if (!siteDashboard || siteDashboard.stats.site_id !== selectedSiteId || siteDashboard.stats.interval !== trafficInterval) {
+      return null;
+    }
+    return siteDashboard;
+  }, [selectedSiteId, siteDashboard, trafficInterval]);
 
   const handleSignIn = useCallback(async () => {
     setBusy(true);
@@ -139,23 +168,25 @@ export default function App() {
     } finally {
       setBusy(false);
     }
-  }, [authController, loadAuthenticatedState]);
+  }, [authController, loadAuthenticatedState, trafficInterval]);
 
   const handleSignOut = useCallback(async () => {
     setBusy(true);
     setErrorMessage(null);
+    dashboardLoadVersion.current += 1;
     try {
       await authController.signOut();
-    } catch (error) {
-      setErrorMessage(errorToMessage(error));
-    } finally {
       setAccount(null);
       setSites([]);
       setSelectedSiteId(null);
       setSiteDashboard(null);
       setPortfolioDashboard(null);
       setStatus("signedOut");
+    } catch (error) {
+      setErrorMessage(errorToMessage(error));
+    } finally {
       setBusy(false);
+      setRefreshing(false);
     }
   }, [authController]);
 
@@ -209,19 +240,27 @@ export default function App() {
             <Header account={account} busy={busy} onSignOut={handleSignOut} />
             {errorMessage ? <StatusBanner message={errorMessage} /> : null}
             <SitesRail sites={sites} selectedSiteId={selectedSiteId} onSelectSite={handleSelectSite} />
-            {selectedSite && siteDashboard ? (
+            {selectedSite ? (
               <>
                 <SelectedSiteHeader site={selectedSite} />
-                <TabBar activeTab={activeTab} onChange={setActiveTab} />
-                {busy ? <InlineLoading /> : null}
-                <DashboardTabContent
-                  activeTab={activeTab}
-                  interval={trafficInterval}
-                  onIntervalChange={handleSelectInterval}
-                  portfolioDashboard={portfolioDashboard}
-                  site={selectedSite}
-                  siteDashboard={siteDashboard}
-                />
+                {selectedSiteDashboard ? (
+                  <>
+                    <TabBar activeTab={activeTab} onChange={setActiveTab} />
+                    {busy ? <InlineLoading /> : null}
+                    <DashboardTabContent
+                      activeTab={activeTab}
+                      interval={trafficInterval}
+                      onIntervalChange={handleSelectInterval}
+                      portfolioDashboard={portfolioDashboard}
+                      site={selectedSite}
+                      siteDashboard={selectedSiteDashboard}
+                    />
+                  </>
+                ) : busy ? (
+                  <InlineLoading />
+                ) : (
+                  <EmptyState title="Site unavailable" detail="This site's dashboard data could not be loaded." />
+                )}
               </>
             ) : (
               <EmptyState title="No sites" detail="Visible sites will appear here after the web dashboard has data for this account." />

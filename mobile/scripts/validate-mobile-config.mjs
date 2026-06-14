@@ -45,6 +45,17 @@ assert(appConfigSource.includes("com.mprlab.loopaware"), "mobile_config_missing_
 assert(appConfigSource.includes("loopAware"), "mobile_config_missing_runtime_extra");
 assert(appConfigSource.includes("expo-web-browser"), "mobile_config_missing_web_browser_plugin");
 assert(appConfigSource.includes("expo-secure-store"), "mobile_config_missing_secure_store_plugin");
+assert(appConfigSource.includes("LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI"), "mobile_config_missing_ios_google_redirect_uri_env");
+assert(appConfigSource.includes("redirectUriScheme"), "mobile_config_missing_ios_google_redirect_scheme_registration");
+
+const easJSON = readJSON("mobile/eas.json");
+for (const profileName of ["development", "production"]) {
+  assert(
+    easJSON.build?.[profileName]?.env?.LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI,
+    `mobile_eas_missing_ios_google_redirect_uri: ${profileName}`,
+  );
+}
+assert(easJSON.build?.preview?.extends === "development", "mobile_eas_preview_missing_development_env");
 
 const apiSource = readText("mobile/src/api.ts");
 assert(apiSource.includes('credentials: "include"'), "mobile_api_missing_cookie_credentials");

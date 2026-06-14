@@ -2,9 +2,11 @@ const loopAwareScheme = "loopaware";
 const loopAwarePackageScheme = "com.mprlab.loopaware";
 const iosBundleIdentifier = process.env.LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER || "com.mprlab.loopaware";
 const androidPackage = process.env.LOOPAWARE_MOBILE_ANDROID_PACKAGE || "com.mprlab.loopaware";
-const googleIosClientId = process.env.LOOPAWARE_MOBILE_GOOGLE_IOS_CLIENT_ID || "";
-const googleIosRedirectScheme = reverseGoogleClientIdScheme(googleIosClientId);
-const iosUrlSchemes = [loopAwareScheme, loopAwarePackageScheme, googleIosRedirectScheme].filter(Boolean);
+const googleIosRedirectUri =
+  process.env.LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI || process.env.TAUTH_TENANT_GOOGLE_IOS_REDIRECT_URI_LOOPAWARE || "";
+const googleIosClientId = process.env.LOOPAWARE_MOBILE_GOOGLE_IOS_CLIENT_ID || process.env.TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE || "";
+const googleIosRedirectScheme = redirectUriScheme(googleIosRedirectUri) || reverseGoogleClientIdScheme(googleIosClientId);
+const iosRedirectSchemes = googleIosRedirectScheme ? [googleIosRedirectScheme] : [];
 
 module.exports = {
   expo: {
@@ -18,9 +20,7 @@ module.exports = {
     ios: {
       bundleIdentifier: iosBundleIdentifier,
       supportsTablet: true,
-      infoPlist: {
-        CFBundleURLTypes: iosUrlSchemes.map((scheme) => ({ CFBundleURLSchemes: [scheme] })),
-      },
+      ...(iosRedirectSchemes.length ? { scheme: iosRedirectSchemes } : {}),
     },
     android: {
       package: androidPackage,
@@ -61,4 +61,13 @@ function reverseGoogleClientIdScheme(clientId) {
     return "";
   }
   return `com.googleusercontent.apps.${normalizedClientId.replace(".apps.googleusercontent.com", "")}`;
+}
+
+function redirectUriScheme(redirectUri) {
+  const normalizedRedirectUri = String(redirectUri || "").trim();
+  const separatorIndex = normalizedRedirectUri.indexOf(":");
+  if (separatorIndex <= 0) {
+    return "";
+  }
+  return normalizedRedirectUri.slice(0, separatorIndex);
 }
