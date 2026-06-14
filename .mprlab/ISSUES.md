@@ -874,6 +874,22 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/admin.go`, `internal/api/admin_helpers_test.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/sentry.go`, `internal/api/site_access.go`, `internal/api/traffic_report_schedule.go`, `internal/api/traffic_report_schedule_test.go`, `internal/model/site_team.go`, `internal/model/traffic_report_schedule.go`, `internal/model/traffic_report_schedule_test.go`, `internal/storage/database.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-site-actions.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`.
 
+- [x] [F011] (P1) Add a native operator mobile app.
+  ### Summary
+  Operators need a downloadable iOS and Android client that logs in with the same Google/TAuth identity and shows the same sites, stats, feedback, subscribers, LA Sentry issues, traffic reports, and role-aware data available in the web dashboard.
+  ### Deliverables
+  - Replace the default Expo scaffold in `mobile/` with a LoopAware operator app.
+  - Use TAuth native Google sign-in with system-browser PKCE and standard TAuth cookies; do not add mobile bearer-token auth to the backend.
+  - Load authenticated data from the existing `/api` endpoints with the same site-access semantics as the web dashboard.
+  - Add iOS and Android bundle/package configuration, custom scheme, and EAS build profiles.
+  - Add Makefile targets for mobile validation, local iOS/Android runs, and EAS builds.
+  - Add CI/config validation that fails when the mobile app is out of the repo-native build contract.
+  - Document native TAuth client placeholders in the tracked TAuth env templates.
+  ### Resolution
+  Replaced the default Expo scaffold with a LoopAware operator app that signs in through TAuth native Google AuthSession/PKCE, reuses standard TAuth cookies, and reads the existing authenticated dashboard API surface for account data, visible sites, feedback, subscribers, traffic stats/trends/attribution/engagement/devices/locations, LA Sentry issues, mobile feedback app registrations, team metadata for site admins, selected-site traffic schedules, and all-sites traffic reporting. Added environment-aware Expo config for iOS and Android package IDs, custom schemes, EAS build profiles, native TAuth client placeholders, `mobile-check`, `run-ios`, `run-android`, `build-ios`, and `build-android` Make targets. CI now triggers/caches mobile changes and `make ci` runs mobile config validation and TypeScript checks. Validation passed with `make mobile-check`, `make config-audit`, `npx expo config --json`, and final `make ci` with 423 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `.github/workflows/ci.yml`, `Makefile`, `configs/config.tauth.yml`, `configs/.env.tauth.example`, `configs/.env.tauth.computercat.example`, `tests/configs/tauth.env`, `mobile/AGENTS.md`, `mobile/App.tsx`, `mobile/LICENSE`, `mobile/app.config.js`, `mobile/eas.json`, `mobile/index.ts`, `mobile/package.json`, `mobile/package-lock.json`, `mobile/tsconfig.json`, `mobile/assets/android-icon-background.png`, `mobile/assets/android-icon-foreground.png`, `mobile/assets/android-icon-monochrome.png`, `mobile/assets/favicon.png`, `mobile/assets/icon.png`, `mobile/assets/splash-icon.png`, `mobile/scripts/resolve-metro-port.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `mobile/src/api.ts`, `mobile/src/auth.ts`, `mobile/src/config.ts`, `mobile/src/format.ts`, `mobile/src/types.ts`.
+
 
 ## Planning
 *do not implement yet*
