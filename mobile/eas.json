@@ -1,0 +1,35 @@
+{
+  "cli": {
+    "version": ">= 16.24.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "LOOPAWARE_MOBILE_API_BASE_URL": "https://loopaware-api.mprlab.com",
+        "LOOPAWARE_MOBILE_TAUTH_BASE_URL": "https://tauth-api.mprlab.com",
+        "LOOPAWARE_MOBILE_TAUTH_TENANT_ID": "loopaware"
+      }
+    },
+    "ios-simulator": {
+      "extends": "development",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
