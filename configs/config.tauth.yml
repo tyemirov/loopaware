@@ -30,6 +30,15 @@ tenants:
       - ${TAUTH_TENANT_ORIGIN_LOOPAWARE}
       - ${TAUTH_TENANT_ORIGIN_LOOPAWARE_ALT}
     google_web_client_id: "${TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE}"
+    google_native_clients:
+      - platform: ios
+        client_id: "${TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE}"
+        redirect_uris:
+          - "${TAUTH_TENANT_GOOGLE_IOS_REDIRECT_URI_LOOPAWARE}"
+      - platform: android
+        client_id: "${TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE}"
+        redirect_uris:
+          - "${TAUTH_TENANT_GOOGLE_ANDROID_REDIRECT_URI_LOOPAWARE}"
     jwt_signing_key: "${TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE}"
     cookie_domain: "${TAUTH_COOKIE_DOMAIN}"
     session_cookie_name: ${TAUTH_TENANT_SESSION_COOKIE_NAME_LOOPAWARE}
