@@ -14,10 +14,27 @@ PUBLISH_REMOTE ?= origin
 PUBLISH_BRANCH ?= master
 GATEWAY_DIR ?=
 APP_MANIFEST ?= $(CURDIR)/deploy/app.yml
+MOBILE_DIR := mobile
+MOBILE_NPM ?= npm
+MOBILE_EAS ?= npx eas-cli
+MOBILE_ANDROID_PACKAGE := com.mprlab.loopaware
+MOBILE_IOS_BUNDLE_IDENTIFIER := com.mprlab.loopaware
+MOBILE_BUILD_PROFILE ?= production
+MOBILE_IOS_BUILD_PROFILE ?= $(MOBILE_BUILD_PROFILE)
+MOBILE_ANDROID_BUILD_PROFILE ?= $(MOBILE_BUILD_PROFILE)
+MOBILE_BUILD_ARGS ?=
+MOBILE_IOS_BUILD_ARGS ?=
+MOBILE_ANDROID_BUILD_ARGS ?=
+MOBILE_METRO_PORT_RESOLVER := $(MOBILE_DIR)/scripts/resolve-metro-port.mjs
+ANDROID_SDK_ROOT ?= $(HOME)/Library/Android/sdk
+ANDROID_HOME ?= $(ANDROID_SDK_ROOT)
+ANDROID_STUDIO_JAVA_HOME ?= /Applications/Android Studio.app/Contents/jbr/Contents/Home
+ANDROID_LOCAL_PROPERTIES := $(MOBILE_DIR)/android/local.properties
+ANDROID_TOOL_PATH := $(ANDROID_SDK_ROOT)/emulator:$(ANDROID_SDK_ROOT)/platform-tools:$(ANDROID_SDK_ROOT)/cmdline-tools/latest/bin:$(ANDROID_SDK_ROOT)/tools/bin
 
 export GOWORK := off
 
-.PHONY: format format-pinguin build lint lint-js config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
+.PHONY: format format-pinguin build lint lint-js mobile-install mobile-check mobile-start run-ios run-android build-ios build-android config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -54,6 +71,59 @@ lint-js:
 	npm --prefix tests run typecheck
 	PATH="$(CURDIR)/tests/node_modules/.bin:$$PATH" npm --prefix clients/react-native run typecheck
 	npm --prefix tests run check:location-map
+	@$(MAKE) mobile-check
+
+mobile-install:
+	@if [ ! -d "$(CURDIR)/$(MOBILE_DIR)/node_modules" ]; then \
+		$(MOBILE_NPM) --prefix $(MOBILE_DIR) ci; \
+	fi
+
+mobile-check: mobile-install
+	$(MOBILE_NPM) --prefix $(MOBILE_DIR) run validate-config
+	$(MOBILE_NPM) --prefix $(MOBILE_DIR) run typecheck
+
+mobile-start: mobile-install
+	$(MOBILE_NPM) --prefix $(MOBILE_DIR) run start
+
+run-ios: mobile-install
+	@echo "==> [run-ios] Starting LoopAware Mobile for iOS"
+	@metro_port="$${LOOPAWARE_MOBILE_METRO_PORT:-$$(node "$(MOBILE_METRO_PORT_RESOLVER)")}" ; \
+	echo "==> [run-ios] Using Metro port $${metro_port}"; \
+	if command -v xcrun >/dev/null 2>&1 && xcrun simctl get_app_container booted "$(MOBILE_IOS_BUNDLE_IDENTIFIER)" >/dev/null 2>&1; then \
+		:; \
+	else \
+		echo "==> [run-ios] Development build not installed; building and installing it first"; \
+		$(MOBILE_NPM) --prefix $(MOBILE_DIR) run ios:dev-build; \
+	fi; \
+	LOOPAWARE_MOBILE_METRO_PORT="$${metro_port}" $(MOBILE_NPM) --prefix $(MOBILE_DIR) run ios
+
+run-android: mobile-install
+	@echo "==> [run-android] Starting LoopAware Mobile for Android"
+	@mkdir -p "$(dir $(ANDROID_LOCAL_PROPERTIES))"
+	@printf "sdk.dir=%s\n" "$(ANDROID_SDK_ROOT)" > "$(ANDROID_LOCAL_PROPERTIES)"
+	@ANDROID_HOME="$(ANDROID_HOME)" ANDROID_SDK_ROOT="$(ANDROID_SDK_ROOT)" ANDROID_STUDIO_JAVA_HOME="$(ANDROID_STUDIO_JAVA_HOME)" PATH="$(ANDROID_TOOL_PATH):$$PATH" sh -c 'set -e; \
+		metro_port="$${LOOPAWARE_MOBILE_METRO_PORT:-$$(node "$(MOBILE_METRO_PORT_RESOLVER)")}"; \
+		echo "==> [run-android] Using Metro port $${metro_port}"; \
+		if [ -x "$$ANDROID_STUDIO_JAVA_HOME/bin/java" ]; then \
+			export JAVA_HOME="$$ANDROID_STUDIO_JAVA_HOME"; \
+			export PATH="$$JAVA_HOME/bin:$$PATH"; \
+		fi; \
+		adb reverse tcp:"$$metro_port" tcp:"$$metro_port" >/dev/null 2>&1 || true; \
+		if adb shell pm list packages "$(MOBILE_ANDROID_PACKAGE)" 2>/dev/null | grep -F "package:$(MOBILE_ANDROID_PACKAGE)" >/dev/null; then \
+			adb shell am force-stop "$(MOBILE_ANDROID_PACKAGE)" >/dev/null 2>&1 || true; \
+		else \
+			echo "==> [run-android] Development build not installed; building and installing it first"; \
+			$(MOBILE_NPM) --prefix $(MOBILE_DIR) run android:dev-build; \
+		fi; \
+		LOOPAWARE_MOBILE_METRO_PORT="$$metro_port" $(MOBILE_NPM) --prefix $(MOBILE_DIR) run android'
+
+build-ios: mobile-install
+	@echo "==> [build-ios] Building LoopAware Mobile iOS artifact"
+	@cd "$(MOBILE_DIR)" && EAS_BUILD_PROFILE="$(MOBILE_IOS_BUILD_PROFILE)" $(MOBILE_EAS) build --platform ios --profile "$(MOBILE_IOS_BUILD_PROFILE)" $(MOBILE_BUILD_ARGS) $(MOBILE_IOS_BUILD_ARGS)
+
+build-android: mobile-install
+	@echo "==> [build-android] Building LoopAware Mobile Android artifact"
+	@cd "$(MOBILE_DIR)" && EAS_BUILD_PROFILE="$(MOBILE_ANDROID_BUILD_PROFILE)" $(MOBILE_EAS) build --platform android --profile "$(MOBILE_ANDROID_BUILD_PROFILE)" $(MOBILE_BUILD_ARGS) $(MOBILE_ANDROID_BUILD_ARGS)
 
 test: test-integration
 
