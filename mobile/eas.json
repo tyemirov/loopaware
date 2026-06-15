@@ -11,7 +11,7 @@
         "LOOPAWARE_MOBILE_API_BASE_URL": "https://loopaware-api.mprlab.com",
         "LOOPAWARE_MOBILE_TAUTH_BASE_URL": "https://tauth-api.mprlab.com",
         "LOOPAWARE_MOBILE_TAUTH_TENANT_ID": "loopaware",
-        "LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI": "com.googleusercontent.apps.replace-with-ios-google-client-id:/oauth2redirect/google"
+        "LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI": "com.googleusercontent.apps.281540686395-8a90ldjnklddl0qpoc8ur6620lguv7mg:/oauth2redirect/google"
       }
     },
     "ios-simulator": {
@@ -30,7 +30,7 @@
         "LOOPAWARE_MOBILE_API_BASE_URL": "https://loopaware-api.mprlab.com",
         "LOOPAWARE_MOBILE_TAUTH_BASE_URL": "https://tauth-api.mprlab.com",
         "LOOPAWARE_MOBILE_TAUTH_TENANT_ID": "loopaware",
-        "LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI": "com.googleusercontent.apps.replace-with-ios-google-client-id:/oauth2redirect/google"
+        "LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI": "com.googleusercontent.apps.281540686395-8a90ldjnklddl0qpoc8ur6620lguv7mg:/oauth2redirect/google"
       },
       "android": {
         "buildType": "app-bundle"
