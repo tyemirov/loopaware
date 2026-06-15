@@ -15,7 +15,7 @@ const sharedNativeInputs = [
 ];
 const platformNativeInputs =
   platform === "android"
-    ? ["assets/android-icon-foreground.png", "assets/android-icon-monochrome.png"]
+    ? ["assets/android-icon-foreground.png", "assets/android-icon-monochrome.png", "scripts/prepare-android-project.mjs"]
     : ["scripts/fix-ios-project-warnings.mjs"];
 
 const hash = crypto.createHash("sha256");

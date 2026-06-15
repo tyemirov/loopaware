@@ -19,6 +19,7 @@ const requiredFiles = [
   "mobile/assets/icon.png",
   "mobile/scripts/fix-ios-project-warnings.mjs",
   "mobile/scripts/native-build-fingerprint.mjs",
+  "mobile/scripts/prepare-android-project.mjs",
   "mobile/scripts/resolve-metro-port.mjs",
 ];
 
@@ -38,6 +39,7 @@ const requiredDependencies = [
   "expo-crypto",
   "expo-dev-client",
   "expo-secure-store",
+  "expo-system-ui",
   "expo-web-browser",
   "react-native-safe-area-context",
 ];
@@ -45,10 +47,29 @@ for (const dependencyName of requiredDependencies) {
   assert(packageJSON.dependencies?.[dependencyName], `mobile_config_missing_dependency: ${dependencyName}`);
 }
 
-const requiredScripts = ["android", "android:dev-build", "ios", "ios:prepare-native", "ios:dev-build", "start", "typecheck", "validate-config"];
+const requiredScripts = [
+  "android",
+  "android:prepare-native",
+  "android:dev-build",
+  "ios",
+  "ios:prepare-native",
+  "ios:dev-build",
+  "start",
+  "typecheck",
+  "validate-config",
+];
 for (const scriptName of requiredScripts) {
   assert(packageJSON.scripts?.[scriptName], `mobile_config_missing_script: ${scriptName}`);
 }
+assert(
+  packageJSON.scripts?.["android:prepare-native"]?.includes("prepare-android-project.mjs"),
+  "mobile_config_missing_android_prepare_script",
+);
+assert(
+  packageJSON.scripts?.["android:dev-build"]?.includes("android:prepare-native") &&
+    packageJSON.scripts?.["android:dev-build"]?.includes("--no-install"),
+  "mobile_config_missing_android_dev_build_prepare_contract",
+);
 assert(
   packageJSON.scripts?.["ios:prepare-native"]?.includes("fix-ios-project-warnings.mjs"),
   "mobile_config_missing_ios_warning_fix_script",
@@ -59,10 +80,12 @@ assert(appConfigSource.includes("com.mprlab.loopaware"), "mobile_config_missing_
 assert(appConfigSource.includes("loopAware"), "mobile_config_missing_runtime_extra");
 assert(appConfigSource.includes("expo-web-browser"), "mobile_config_missing_web_browser_plugin");
 assert(appConfigSource.includes("expo-secure-store"), "mobile_config_missing_secure_store_plugin");
+assert(appConfigSource.includes("expo-system-ui"), "mobile_config_missing_system_ui_plugin");
 assert(appConfigSource.includes("LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI"), "mobile_config_missing_ios_google_redirect_uri_env");
 assert(appConfigSource.includes("redirectUriScheme"), "mobile_config_missing_ios_google_redirect_scheme_registration");
 assert(appConfigSource.includes("D4AF37"), "mobile_config_missing_loopaware_gold_brand_color");
 assert(!appConfigSource.includes("android-icon-background.png"), "mobile_config_legacy_adaptive_icon_background_image");
+assert(!appConfigSource.includes("edgeToEdgeEnabled"), "mobile_config_legacy_edge_to_edge_enabled");
 
 const expectedLoopAwareIconHash = "6a6a558580003e70cd75ba46f968bc22e40caa4064bd47b7d3fb7413b3eff49b";
 assert(fileHash("mobile/assets/icon.png") === expectedLoopAwareIconHash, "mobile_config_icon_not_loopaware_logo");
@@ -97,6 +120,7 @@ assert(makefile.includes("mobile-check"), "mobile_makefile_missing_ci_gate");
 assert(makefile.includes("MOBILE_NPM_COMMAND ?= env -u NO_COLOR $(MOBILE_NPM)"), "mobile_makefile_missing_no_color_warning_guard");
 assert(makefile.includes("MOBILE_NATIVE_BUILD_FINGERPRINT"), "mobile_makefile_missing_native_build_fingerprint");
 assert(makefile.includes("Development build missing or stale"), "mobile_makefile_missing_stale_native_build_guard");
+assert(!makefile.includes('@mkdir -p "$(dir $(ANDROID_LOCAL_PROPERTIES))"'), "mobile_makefile_creates_partial_android_project");
 assert(makefile.includes("MOBILE_GOOGLE_IOS_REDIRECT_URI"), "mobile_makefile_missing_ios_google_redirect_uri_variable");
 assert(
   makefile.includes('LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI="$(MOBILE_GOOGLE_IOS_REDIRECT_URI)"'),
@@ -115,6 +139,11 @@ const tauthConfig = readText("configs/config.tauth.yml");
 assert(tauthConfig.includes("google_native_clients"), "mobile_tauth_missing_native_clients");
 assert(tauthConfig.includes("TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE"), "mobile_tauth_missing_ios_client_placeholder");
 assert(tauthConfig.includes("TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE"), "mobile_tauth_missing_android_client_placeholder");
+
+const androidPrepareSource = readText("mobile/scripts/prepare-android-project.mjs");
+assert(androidPrepareSource.includes("expo"), "mobile_android_prepare_missing_expo_prebuild");
+assert(androidPrepareSource.includes("--platform") && androidPrepareSource.includes("android"), "mobile_android_prepare_missing_platform");
+assert(androidPrepareSource.includes("local.properties"), "mobile_android_prepare_missing_local_properties_write");
 
 for (const envFile of [
   "configs/.env.tauth.example",

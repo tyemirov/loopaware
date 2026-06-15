@@ -42,13 +42,12 @@ module.exports = {
           category: ["BROWSABLE", "DEFAULT"],
         },
       ],
-      edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
     },
     web: {
       favicon: "./assets/favicon.png",
     },
-    plugins: ["expo-web-browser", "expo-secure-store", "expo-dev-client"],
+    plugins: ["expo-web-browser", "expo-secure-store", "expo-system-ui", "expo-dev-client"],
     extra: {
       loopAware: {
         apiBaseUrl: process.env.LOOPAWARE_MOBILE_API_BASE_URL || "https://loopaware-api.mprlab.com",
