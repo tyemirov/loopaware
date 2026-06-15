@@ -9,6 +9,7 @@ bin/
 *.iml
 .env
 .env.*
+!configs/.env.*.example
 
 .DS_Store
 __pycache__/
