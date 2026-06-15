@@ -1,5 +1,9 @@
+// @ts-check
+/// <reference types="node" />
+
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const mobileRoot = path.resolve(repoRoot, "mobile");
@@ -12,6 +16,9 @@ const requiredFiles = [
   "mobile/src/auth.ts",
   "mobile/src/config.ts",
   "mobile/src/types.ts",
+  "mobile/assets/icon.png",
+  "mobile/scripts/fix-ios-project-warnings.mjs",
+  "mobile/scripts/native-build-fingerprint.mjs",
   "mobile/scripts/resolve-metro-port.mjs",
 ];
 
@@ -22,6 +29,9 @@ for (const requiredFile of requiredFiles) {
 assert(!fs.existsSync(path.join(mobileRoot, "app.json")), "mobile_config_legacy_app_json: use app.config.js");
 
 const packageJSON = readJSON("mobile/package.json");
+assert(packageJSON.dependencies?.expo === "~56.0.12", "mobile_config_expo_patch_version_outdated");
+assert(packageJSON.overrides?.uuid === "^11.1.1", "mobile_config_missing_uuid_audit_override");
+
 const requiredDependencies = [
   "expo-auth-session",
   "expo-constants",
@@ -35,10 +45,14 @@ for (const dependencyName of requiredDependencies) {
   assert(packageJSON.dependencies?.[dependencyName], `mobile_config_missing_dependency: ${dependencyName}`);
 }
 
-const requiredScripts = ["android", "android:dev-build", "ios", "ios:dev-build", "start", "typecheck", "validate-config"];
+const requiredScripts = ["android", "android:dev-build", "ios", "ios:prepare-native", "ios:dev-build", "start", "typecheck", "validate-config"];
 for (const scriptName of requiredScripts) {
   assert(packageJSON.scripts?.[scriptName], `mobile_config_missing_script: ${scriptName}`);
 }
+assert(
+  packageJSON.scripts?.["ios:prepare-native"]?.includes("fix-ios-project-warnings.mjs"),
+  "mobile_config_missing_ios_warning_fix_script",
+);
 
 const appConfigSource = readText("mobile/app.config.js");
 assert(appConfigSource.includes("com.mprlab.loopaware"), "mobile_config_missing_bundle_identifier");
@@ -47,6 +61,11 @@ assert(appConfigSource.includes("expo-web-browser"), "mobile_config_missing_web_
 assert(appConfigSource.includes("expo-secure-store"), "mobile_config_missing_secure_store_plugin");
 assert(appConfigSource.includes("LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI"), "mobile_config_missing_ios_google_redirect_uri_env");
 assert(appConfigSource.includes("redirectUriScheme"), "mobile_config_missing_ios_google_redirect_scheme_registration");
+assert(appConfigSource.includes("D4AF37"), "mobile_config_missing_loopaware_gold_brand_color");
+assert(!appConfigSource.includes("android-icon-background.png"), "mobile_config_legacy_adaptive_icon_background_image");
+
+const expectedLoopAwareIconHash = "6a6a558580003e70cd75ba46f968bc22e40caa4064bd47b7d3fb7413b3eff49b";
+assert(fileHash("mobile/assets/icon.png") === expectedLoopAwareIconHash, "mobile_config_icon_not_loopaware_logo");
 
 const easJSON = readJSON("mobile/eas.json");
 for (const profileName of ["development", "production"]) {
@@ -75,6 +94,18 @@ for (const target of ["mobile-install", "mobile-check", "run-ios", "run-android"
   assert(makefile.includes(`${target}:`), `mobile_makefile_missing_target: ${target}`);
 }
 assert(makefile.includes("mobile-check"), "mobile_makefile_missing_ci_gate");
+assert(makefile.includes("MOBILE_NPM_COMMAND ?= env -u NO_COLOR $(MOBILE_NPM)"), "mobile_makefile_missing_no_color_warning_guard");
+assert(makefile.includes("MOBILE_NATIVE_BUILD_FINGERPRINT"), "mobile_makefile_missing_native_build_fingerprint");
+assert(makefile.includes("Development build missing or stale"), "mobile_makefile_missing_stale_native_build_guard");
+assert(makefile.includes("MOBILE_GOOGLE_IOS_REDIRECT_URI"), "mobile_makefile_missing_ios_google_redirect_uri_variable");
+assert(
+  makefile.includes('LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI="$(MOBILE_GOOGLE_IOS_REDIRECT_URI)"'),
+  "mobile_makefile_missing_ios_google_redirect_uri_env",
+);
+assert(
+  makefile.includes('EXPO_PACKAGER_PROXY_URL="http://localhost:$${metro_port}"'),
+  "mobile_makefile_missing_ios_localhost_proxy_url",
+);
 
 const workflow = readText(".github/workflows/ci.yml");
 assert(workflow.includes("mobile/**"), "mobile_ci_missing_path_filter");
@@ -101,14 +132,34 @@ for (const envFile of [
   }
 }
 
+/**
+ * @param {string} relativePath
+ * @returns {string}
+ */
 function readText(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 }
 
+/**
+ * @param {string} relativePath
+ * @returns {any}
+ */
 function readJSON(relativePath) {
   return JSON.parse(readText(relativePath));
 }
 
+/**
+ * @param {string} relativePath
+ * @returns {string}
+ */
+function fileHash(relativePath) {
+  return crypto.createHash("sha256").update(fs.readFileSync(path.join(repoRoot, relativePath))).digest("hex");
+}
+
+/**
+ * @param {unknown} condition
+ * @param {string} message
+ */
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);

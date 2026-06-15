@@ -2,7 +2,7 @@ import * as AuthSession from "expo-auth-session";
 import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
-import type { LoopAwareApiClient } from "./api";
+import { LoopAwareApiError, type LoopAwareApiClient } from "./api";
 import type { Account, NativeGoogleConfig, NativeGooglePlatform } from "./types";
 
 const defaultGoogleScopes = Object.freeze(["openid", "email", "profile"]);
@@ -24,7 +24,7 @@ export class AuthController {
       await this.api.refreshSession();
       return await this.api.me();
     } catch (error) {
-      if (isUnauthorizedError(error)) {
+      if (isMissingSessionError(error)) {
         return null;
       }
       throw error;
@@ -98,5 +98,15 @@ function resolveNativeGoogleClient(nativeConfig: NativeGoogleConfig, platform: N
 }
 
 function isUnauthorizedError(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "status" in error && (error as { status?: unknown }).status === 401;
+  return error instanceof LoopAwareApiError && error.status === 401;
+}
+
+function isMissingSessionError(error: unknown): boolean {
+  if (!(error instanceof LoopAwareApiError)) {
+    return false;
+  }
+  if (error.status === 401) {
+    return true;
+  }
+  return error.status === 404 && error.code === "api_error";
 }

@@ -1,5 +1,9 @@
+// @ts-check
+
 const loopAwareScheme = "loopaware";
 const loopAwarePackageScheme = "com.mprlab.loopaware";
+const loopAwareGold = "#D4AF37";
+const loopAwareWhite = "#FFFFFF";
 const iosBundleIdentifier = process.env.LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER || "com.mprlab.loopaware";
 const androidPackage = process.env.LOOPAWARE_MOBILE_ANDROID_PACKAGE || "com.mprlab.loopaware";
 const googleIosRedirectUri =
@@ -17,6 +21,7 @@ module.exports = {
     icon: "./assets/icon.png",
     scheme: [loopAwareScheme, loopAwarePackageScheme],
     userInterfaceStyle: "light",
+    primaryColor: loopAwareGold,
     ios: {
       bundleIdentifier: iosBundleIdentifier,
       supportsTablet: true,
@@ -25,9 +30,8 @@ module.exports = {
     android: {
       package: androidPackage,
       adaptiveIcon: {
-        backgroundColor: "#E6F4FE",
+        backgroundColor: loopAwareWhite,
         foregroundImage: "./assets/android-icon-foreground.png",
-        backgroundImage: "./assets/android-icon-background.png",
         monochromeImage: "./assets/android-icon-monochrome.png",
       },
       intentFilters: [
@@ -55,6 +59,10 @@ module.exports = {
   },
 };
 
+/**
+ * @param {string | undefined | null} clientId
+ * @returns {string}
+ */
 function reverseGoogleClientIdScheme(clientId) {
   const normalizedClientId = String(clientId || "").trim();
   if (!normalizedClientId.endsWith(".apps.googleusercontent.com")) {
@@ -63,6 +71,10 @@ function reverseGoogleClientIdScheme(clientId) {
   return `com.googleusercontent.apps.${normalizedClientId.replace(".apps.googleusercontent.com", "")}`;
 }
 
+/**
+ * @param {string | undefined | null} redirectUri
+ * @returns {string}
+ */
 function redirectUriScheme(redirectUri) {
   const normalizedRedirectUri = String(redirectUri || "").trim();
   const separatorIndex = normalizedRedirectUri.indexOf(":");
