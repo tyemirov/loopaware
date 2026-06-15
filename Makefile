@@ -106,8 +106,6 @@ run-ios: mobile-install
 
 run-android: mobile-install
 	@echo "==> [run-android] Starting LoopAware Mobile for Android"
-	@mkdir -p "$(dir $(ANDROID_LOCAL_PROPERTIES))"
-	@printf "sdk.dir=%s\n" "$(ANDROID_SDK_ROOT)" > "$(ANDROID_LOCAL_PROPERTIES)"
 	@ANDROID_HOME="$(ANDROID_HOME)" ANDROID_SDK_ROOT="$(ANDROID_SDK_ROOT)" ANDROID_STUDIO_JAVA_HOME="$(ANDROID_STUDIO_JAVA_HOME)" PATH="$(ANDROID_TOOL_PATH):$$PATH" sh -c 'set -e; \
 		metro_port="$${LOOPAWARE_MOBILE_METRO_PORT:-$$(node "$(MOBILE_METRO_PORT_RESOLVER)")}"; \
 		native_fingerprint="$$(node "$(MOBILE_NATIVE_BUILD_FINGERPRINT)" android)"; \
