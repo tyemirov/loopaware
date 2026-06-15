@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { LoopAwareApiClient } from "./src/api";
+import { LoopAwareApiClient, LoopAwareApiError } from "./src/api";
 import { AuthController } from "./src/auth";
 import { loadRuntimeConfig } from "./src/config";
 import { compactText, formatCount, formatDate, formatDateTime, formatPercent, sentenceCase } from "./src/format";
@@ -750,6 +750,9 @@ function resolveSelectedSiteId(sites: Site[], preferredSiteId?: string | null, p
 }
 
 function errorToMessage(error: unknown): string {
+  if (error instanceof LoopAwareApiError && error.code === "native_google_platform_not_configured") {
+    return "Native Google sign-in is not configured for LoopAware in TAuth yet.";
+  }
   if (error instanceof Error) {
     return error.message;
   }

@@ -136,4 +136,4 @@ elif ! (cd "${repo_root}/tests" && node --input-type=module -e "import { chromiu
   npm --prefix "${repo_root}/tests" exec -- playwright install chromium
 fi
 integration_suite=${LOOPAWARE_TEST_SUITE:-test:all}
-npm --prefix "${repo_root}/tests" run "${integration_suite}"
+env -u NO_COLOR npm --prefix "${repo_root}/tests" run "${integration_suite}"

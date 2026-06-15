@@ -16,9 +16,11 @@ GATEWAY_DIR ?=
 APP_MANIFEST ?= $(CURDIR)/deploy/app.yml
 MOBILE_DIR := mobile
 MOBILE_NPM ?= npm
+MOBILE_NPM_COMMAND ?= env -u NO_COLOR $(MOBILE_NPM)
 MOBILE_EAS ?= npx eas-cli
 MOBILE_ANDROID_PACKAGE := com.mprlab.loopaware
 MOBILE_IOS_BUNDLE_IDENTIFIER := com.mprlab.loopaware
+MOBILE_GOOGLE_IOS_REDIRECT_URI ?= $(or $(LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI),com.googleusercontent.apps.281540686395-8a90ldjnklddl0qpoc8ur6620lguv7mg:/oauth2redirect/google)
 MOBILE_BUILD_PROFILE ?= production
 MOBILE_IOS_BUILD_PROFILE ?= $(MOBILE_BUILD_PROFILE)
 MOBILE_ANDROID_BUILD_PROFILE ?= $(MOBILE_BUILD_PROFILE)
@@ -26,6 +28,7 @@ MOBILE_BUILD_ARGS ?=
 MOBILE_IOS_BUILD_ARGS ?=
 MOBILE_ANDROID_BUILD_ARGS ?=
 MOBILE_METRO_PORT_RESOLVER := $(MOBILE_DIR)/scripts/resolve-metro-port.mjs
+MOBILE_NATIVE_BUILD_FINGERPRINT := $(MOBILE_DIR)/scripts/native-build-fingerprint.mjs
 ANDROID_SDK_ROOT ?= $(HOME)/Library/Android/sdk
 ANDROID_HOME ?= $(ANDROID_SDK_ROOT)
 ANDROID_STUDIO_JAVA_HOME ?= /Applications/Android Studio.app/Contents/jbr/Contents/Home
@@ -75,55 +78,61 @@ lint-js:
 
 mobile-install:
 	@if [ ! -d "$(CURDIR)/$(MOBILE_DIR)/node_modules" ]; then \
-		$(MOBILE_NPM) --prefix $(MOBILE_DIR) ci; \
+		$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) ci; \
 	fi
 
 mobile-check: mobile-install
-	$(MOBILE_NPM) --prefix $(MOBILE_DIR) run validate-config
-	$(MOBILE_NPM) --prefix $(MOBILE_DIR) run typecheck
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run validate-config
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run typecheck
 
 mobile-start: mobile-install
-	$(MOBILE_NPM) --prefix $(MOBILE_DIR) run start
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run start
 
 run-ios: mobile-install
 	@echo "==> [run-ios] Starting LoopAware Mobile for iOS"
 	@metro_port="$${LOOPAWARE_MOBILE_METRO_PORT:-$$(node "$(MOBILE_METRO_PORT_RESOLVER)")}" ; \
+	native_fingerprint="$$(LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER="$(MOBILE_IOS_BUNDLE_IDENTIFIER)" LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI="$(MOBILE_GOOGLE_IOS_REDIRECT_URI)" node "$(MOBILE_NATIVE_BUILD_FINGERPRINT)" ios)" ; \
+	native_stamp="$(MOBILE_DIR)/.expo/loopaware-ios-dev-build.sha256" ; \
 	echo "==> [run-ios] Using Metro port $${metro_port}"; \
-	if command -v xcrun >/dev/null 2>&1 && xcrun simctl get_app_container booted "$(MOBILE_IOS_BUNDLE_IDENTIFIER)" >/dev/null 2>&1; then \
+	if command -v xcrun >/dev/null 2>&1 && xcrun simctl get_app_container booted "$(MOBILE_IOS_BUNDLE_IDENTIFIER)" >/dev/null 2>&1 && [ -f "$${native_stamp}" ] && [ "$$(cat "$${native_stamp}")" = "$${native_fingerprint}" ]; then \
 		:; \
 	else \
-		echo "==> [run-ios] Development build not installed; building and installing it first"; \
-		$(MOBILE_NPM) --prefix $(MOBILE_DIR) run ios:dev-build; \
+		echo "==> [run-ios] Development build missing or stale; building and installing it first"; \
+		EXPO_PACKAGER_PROXY_URL="http://localhost:$${metro_port}" LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER="$(MOBILE_IOS_BUNDLE_IDENTIFIER)" LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI="$(MOBILE_GOOGLE_IOS_REDIRECT_URI)" LOOPAWARE_MOBILE_METRO_PORT="$${metro_port}" $(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run ios:dev-build; \
+		mkdir -p "$$(dirname "$${native_stamp}")"; \
+		printf "%s\n" "$${native_fingerprint}" > "$${native_stamp}"; \
 	fi; \
-	LOOPAWARE_MOBILE_METRO_PORT="$${metro_port}" $(MOBILE_NPM) --prefix $(MOBILE_DIR) run ios
+	EXPO_PACKAGER_PROXY_URL="http://localhost:$${metro_port}" LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER="$(MOBILE_IOS_BUNDLE_IDENTIFIER)" LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI="$(MOBILE_GOOGLE_IOS_REDIRECT_URI)" LOOPAWARE_MOBILE_METRO_PORT="$${metro_port}" $(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run ios
 
 run-android: mobile-install
 	@echo "==> [run-android] Starting LoopAware Mobile for Android"
-	@mkdir -p "$(dir $(ANDROID_LOCAL_PROPERTIES))"
-	@printf "sdk.dir=%s\n" "$(ANDROID_SDK_ROOT)" > "$(ANDROID_LOCAL_PROPERTIES)"
 	@ANDROID_HOME="$(ANDROID_HOME)" ANDROID_SDK_ROOT="$(ANDROID_SDK_ROOT)" ANDROID_STUDIO_JAVA_HOME="$(ANDROID_STUDIO_JAVA_HOME)" PATH="$(ANDROID_TOOL_PATH):$$PATH" sh -c 'set -e; \
 		metro_port="$${LOOPAWARE_MOBILE_METRO_PORT:-$$(node "$(MOBILE_METRO_PORT_RESOLVER)")}"; \
+		native_fingerprint="$$(LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)" node "$(MOBILE_NATIVE_BUILD_FINGERPRINT)" android)"; \
+		native_stamp="$(MOBILE_DIR)/.expo/loopaware-android-dev-build.sha256"; \
 		echo "==> [run-android] Using Metro port $${metro_port}"; \
 		if [ -x "$$ANDROID_STUDIO_JAVA_HOME/bin/java" ]; then \
 			export JAVA_HOME="$$ANDROID_STUDIO_JAVA_HOME"; \
 			export PATH="$$JAVA_HOME/bin:$$PATH"; \
 		fi; \
 		adb reverse tcp:"$$metro_port" tcp:"$$metro_port" >/dev/null 2>&1 || true; \
-		if adb shell pm list packages "$(MOBILE_ANDROID_PACKAGE)" 2>/dev/null | grep -F "package:$(MOBILE_ANDROID_PACKAGE)" >/dev/null; then \
+		if adb shell pm list packages "$(MOBILE_ANDROID_PACKAGE)" 2>/dev/null | grep -F "package:$(MOBILE_ANDROID_PACKAGE)" >/dev/null && [ -f "$$native_stamp" ] && [ "$$(cat "$$native_stamp")" = "$$native_fingerprint" ]; then \
 			adb shell am force-stop "$(MOBILE_ANDROID_PACKAGE)" >/dev/null 2>&1 || true; \
 		else \
-			echo "==> [run-android] Development build not installed; building and installing it first"; \
-			$(MOBILE_NPM) --prefix $(MOBILE_DIR) run android:dev-build; \
+			echo "==> [run-android] Development build missing or stale; building and installing it first"; \
+			LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)" $(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run android:dev-build; \
+			mkdir -p "$$(dirname "$$native_stamp")"; \
+			printf "%s\n" "$$native_fingerprint" > "$$native_stamp"; \
 		fi; \
-		LOOPAWARE_MOBILE_METRO_PORT="$$metro_port" $(MOBILE_NPM) --prefix $(MOBILE_DIR) run android'
+		LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)" LOOPAWARE_MOBILE_METRO_PORT="$$metro_port" $(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run android'
 
 build-ios: mobile-install
 	@echo "==> [build-ios] Building LoopAware Mobile iOS artifact"
-	@cd "$(MOBILE_DIR)" && EAS_BUILD_PROFILE="$(MOBILE_IOS_BUILD_PROFILE)" $(MOBILE_EAS) build --platform ios --profile "$(MOBILE_IOS_BUILD_PROFILE)" $(MOBILE_BUILD_ARGS) $(MOBILE_IOS_BUILD_ARGS)
+	@cd "$(MOBILE_DIR)" && EAS_BUILD_PROFILE="$(MOBILE_IOS_BUILD_PROFILE)" LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER="$(MOBILE_IOS_BUNDLE_IDENTIFIER)" LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI="$(MOBILE_GOOGLE_IOS_REDIRECT_URI)" $(MOBILE_EAS) build --platform ios --profile "$(MOBILE_IOS_BUILD_PROFILE)" $(MOBILE_BUILD_ARGS) $(MOBILE_IOS_BUILD_ARGS)
 
 build-android: mobile-install
 	@echo "==> [build-android] Building LoopAware Mobile Android artifact"
-	@cd "$(MOBILE_DIR)" && EAS_BUILD_PROFILE="$(MOBILE_ANDROID_BUILD_PROFILE)" $(MOBILE_EAS) build --platform android --profile "$(MOBILE_ANDROID_BUILD_PROFILE)" $(MOBILE_BUILD_ARGS) $(MOBILE_ANDROID_BUILD_ARGS)
+	@cd "$(MOBILE_DIR)" && EAS_BUILD_PROFILE="$(MOBILE_ANDROID_BUILD_PROFILE)" LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)" $(MOBILE_EAS) build --platform android --profile "$(MOBILE_ANDROID_BUILD_PROFILE)" $(MOBILE_BUILD_ARGS) $(MOBILE_ANDROID_BUILD_ARGS)
 
 test: test-integration
 
