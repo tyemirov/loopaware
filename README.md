@@ -181,6 +181,7 @@ third-party browser bundles into `web/`; non-CDN frontend dependencies are forbi
 LoopAware’s frontend lives in `web/` and is hosted separately (CDN or reverse proxy). It includes:
 
 - `/login` — landing page with shared `mpr-ui`/TAuth sign-in.
+- `/resources` — crawlable public resource index with focused product and use-case pages.
 - `/privacy` — static privacy policy linked from the landing and dashboard footers.
 - `/app` — dashboard shell (data loaded via `/api/*`).
 - `/subscriptions/confirm` and `/subscriptions/unsubscribe` — email link pages.
