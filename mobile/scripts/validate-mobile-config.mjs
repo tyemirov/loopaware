@@ -112,6 +112,18 @@ assert(authSource.includes("expo-auth-session"), "mobile_auth_missing_auth_sessi
 assert(authSource.includes("expo-web-browser"), "mobile_auth_missing_web_browser");
 assert(authSource.includes("/auth/google/native") || apiSource.includes("/auth/google/native"), "mobile_auth_missing_native_tauth_flow");
 
+const nativeBuildFingerprintSource = readText("mobile/scripts/native-build-fingerprint.mjs");
+for (const envName of [
+  "LOOPAWARE_MOBILE_ANDROID_PACKAGE",
+  "LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER",
+  "LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI",
+  "LOOPAWARE_MOBILE_GOOGLE_IOS_CLIENT_ID",
+  "TAUTH_TENANT_GOOGLE_IOS_REDIRECT_URI_LOOPAWARE",
+  "TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE",
+]) {
+  assert(nativeBuildFingerprintSource.includes(envName), `mobile_native_fingerprint_missing_env: ${envName}`);
+}
+
 const makefile = readText("Makefile");
 for (const target of ["mobile-install", "mobile-check", "run-ios", "run-android", "build-ios", "build-android"]) {
   assert(makefile.includes(`${target}:`), `mobile_makefile_missing_target: ${target}`);
@@ -122,6 +134,8 @@ assert(makefile.includes("MOBILE_NATIVE_BUILD_FINGERPRINT"), "mobile_makefile_mi
 assert(makefile.includes("Development build missing or stale"), "mobile_makefile_missing_stale_native_build_guard");
 assert(!makefile.includes('@mkdir -p "$(dir $(ANDROID_LOCAL_PROPERTIES))"'), "mobile_makefile_creates_partial_android_project");
 assert(makefile.includes("MOBILE_GOOGLE_IOS_REDIRECT_URI"), "mobile_makefile_missing_ios_google_redirect_uri_variable");
+assert(makefile.includes('LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER="$(MOBILE_IOS_BUNDLE_IDENTIFIER)"'), "mobile_makefile_missing_ios_bundle_env");
+assert(makefile.includes('LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)"'), "mobile_makefile_missing_android_package_env");
 assert(
   makefile.includes('LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI="$(MOBILE_GOOGLE_IOS_REDIRECT_URI)"'),
   "mobile_makefile_missing_ios_google_redirect_uri_env",
