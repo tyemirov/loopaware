@@ -10,7 +10,7 @@ Notes:
 - `configs/.env.*` files are intentionally gitignored. Create them locally.
 - `configs/.env.*.example` files are tracked templates; copy them into `configs/.env.*`.
 - Legacy repo-root `.env.*` files are unsupported duplicates. Move any remaining values into `configs/.env.*` and delete the root copies.
-- There is no supported plain `configs/.env.ghttp` file. Under `configs/`, the only supported gHTTP env file is `configs/.env.ghttp.computercat`; test-only proxy fixtures live under `tests/`.
+- The default local stack uses `configs/.env.ghttp`; the computercat TLS stack uses `configs/.env.ghttp.computercat`. Test-only proxy fixtures live under `tests/`.
 - `config-audit` validates tracked `.env.*.example` templates when local `.env.*` files are absent. Runtime still requires the real `.env.*` files.
 - `configs/config.loopaware.yml` is the tracked LoopAware admin-roster config used by the server `--config` flag.
 - Frontend runtime host mapping now lives in `web/config.yml`; it is served directly as `/config.yml` by the static site.
@@ -33,6 +33,7 @@ Create these env files:
 - `configs/.env.loopaware`
 - `configs/.env.tauth`
 - `configs/.env.pinguin`
+- `configs/.env.ghttp`
 
 Copy from the tracked templates:
 
@@ -40,6 +41,7 @@ Copy from the tracked templates:
 cp configs/.env.loopaware.example configs/.env.loopaware
 cp configs/.env.tauth.example configs/.env.tauth
 cp configs/.env.pinguin.example configs/.env.pinguin
+cp configs/.env.ghttp.example configs/.env.ghttp
 ```
 
 Required config file pointers:
