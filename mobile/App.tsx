@@ -45,6 +45,7 @@ const trafficIntervals: Array<{ key: TrafficInterval; label: string }> = [
   { key: "30days", label: "30d" },
   { key: "1day", label: "1d" },
 ];
+const mobileFeedbackSourceKind: FeedbackMessage["source_kind"] = "mobile_app";
 
 export default function App() {
   const runtimeConfig = useMemo(() => loadRuntimeConfig(), []);
@@ -477,7 +478,11 @@ function FeedbackSection(props: { messages: FeedbackMessage[] }) {
             key={message.id}
             title={compactText(message.message || message.sentiment, "No message")}
             meta={`${compactText(message.contact)} · ${formatDateTime(message.created_at)}`}
-            detail={message.source_kind === "mobile" ? `${compactText(message.app_platform)} · ${compactText(message.screen_name || message.screen_path)}` : "Web widget"}
+            detail={
+              message.source_kind === mobileFeedbackSourceKind
+                ? `${compactText(message.app_platform)} · ${compactText(message.screen_name || message.screen_path)}`
+                : "Web widget"
+            }
             right={sentenceCase(message.delivery)}
           />
         ))

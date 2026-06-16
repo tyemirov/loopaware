@@ -4,6 +4,8 @@ export type TrafficInterval = "all" | "30days" | "1day";
 
 export type DashboardTab = "overview" | "feedback" | "traffic" | "subscribers" | "sentry" | "reports";
 
+export type FeedbackSourceKind = "web_widget" | "mobile_app";
+
 export type RuntimeConfig = {
   apiBaseUrl: string;
   tauthBaseUrl: string;
@@ -56,7 +58,7 @@ export type FeedbackMessage = {
   user_agent: string;
   created_at: number;
   delivery: string;
-  source_kind: string;
+  source_kind: FeedbackSourceKind;
   mobile_client_id: string;
   screen_name: string;
   screen_path: string;
