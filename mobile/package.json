@@ -1,0 +1,40 @@
+{
+  "name": "loopaware-mobile",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "dependencies": {
+    "expo": "~56.0.12",
+    "expo-auth-session": "~56.0.14",
+    "expo-constants": "~56.0.18",
+    "expo-crypto": "~56.0.4",
+    "expo-dev-client": "~56.0.20",
+    "expo-secure-store": "~56.0.4",
+    "expo-status-bar": "~56.0.4",
+    "expo-system-ui": "~56.0.5",
+    "expo-web-browser": "~56.0.5",
+    "react": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-safe-area-context": "~5.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo start --android --dev-client --localhost --port ${LOOPAWARE_MOBILE_METRO_PORT:-8081}",
+    "android:prepare-native": "node scripts/prepare-android-project.mjs",
+    "android:dev-build": "npm run android:prepare-native && expo run:android --no-bundler --no-install",
+    "ios": "expo start --ios --dev-client --localhost --port ${LOOPAWARE_MOBILE_METRO_PORT:-8081}",
+    "ios:prepare-native": "expo prebuild --platform ios && node scripts/fix-ios-project-warnings.mjs",
+    "ios:dev-build": "npm run ios:prepare-native && expo run:ios --no-bundler --no-install",
+    "typecheck": "tsc --noEmit",
+    "validate-config": "node scripts/validate-mobile-config.mjs",
+    "web": "expo start --web"
+  },
+  "private": true,
+  "overrides": {
+    "uuid": "^11.1.1"
+  }
+}

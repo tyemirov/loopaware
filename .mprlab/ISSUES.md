@@ -35,6 +35,30 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
 
+- [x] [B029] (P2) Show native feedback context in the operator mobile app.
+  ### Summary
+  The operator mobile app checks feedback rows for `source_kind: "mobile"`, but the backend returns native feedback with the canonical `source_kind: "mobile_app"`, causing native feedback rows to appear as Web widget feedback.
+  ### Deliverables
+  - Align the operator app feedback display condition with the backend mobile feedback source kind.
+  - Keep the mobile feedback message type constrained to the backend source-kind contract.
+  - Verify the mobile TypeScript gate and full CI pass.
+  ### Resolution
+  Updated the operator mobile app feedback row detail condition to use the backend `mobile_app` source kind and narrowed `FeedbackMessage.source_kind` to the current backend source-kind union. Validation passed with baseline `make ci`, focused `make mobile-check`, and final `make ci` with 425 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `mobile/App.tsx`, `mobile/src/types.ts`.
+
+- [x] [B030] (P2) Proxy LA Sentry routes in the local gHTTP template.
+  ### Summary
+  The local gHTTP env template routes `/public/` and `/api/` to the LoopAware API but omits `/sentry/`, so copied local stacks send `/sentry/errors` and `/sentry/browser-errors` to the static server instead of the backend LA Sentry handlers.
+  ### Deliverables
+  - Add the `/sentry/` proxy route to `configs/.env.ghttp.example`.
+  - Keep the route target aligned with the local compose API service name.
+  - Verify config audit and the full CI gate pass.
+  ### Resolution
+  Added `/sentry/=http://loopaware:8080` to the local gHTTP env template so copied local stacks route LA Sentry server and browser ingest requests to the LoopAware API, matching the existing test and computercat proxy templates. Validation passed with `make config-audit` and final `make ci` with 425 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `configs/.env.ghttp.example`.
+
 - [x] [B026] (P0) Replace incorrect four-hour login test with console-clean stale-idle coverage.
   ### Summary
   The existing four-hour login regression asserts an internal prepared-nonce refresh strategy, so it can pass while the user still sees login failure after leaving `/login` open for several hours.
@@ -333,6 +357,19 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `internal/api/admin.go`, `internal/api/site_subscribe_test_handlers.go`, `internal/api/stream_handlers_test.go`, `.mprlab/ISSUES.md`.
 
 ## Improvements
+
+- [x] [I027] (P1) Add a public SEO resources cluster.
+  ### Summary
+  LoopAware needs a deliberate set of crawlable, internally linked public resource pages that advertise distinct product surfaces without creating hidden doorway pages or thin near-duplicate pages.
+  ### Deliverables
+  - Add a `/resources` index that links to focused public pages.
+  - Add focused pages for feedback, subscribers, analytics, LA Sentry, self-hosting, SaaS, agencies, and lightweight analytics use cases.
+  - Keep every crawlable page canonical, indexable, and linked from at least one other public resource page.
+  - Update `robots.txt`, `sitemap.xml`, README public-page docs, and black-box SEO coverage.
+  ### Resolution
+  Added a crawlable `/resources` hub and eight focused resource pages for feedback widgets, subscriber capture, privacy-first analytics, lightweight analytics, LA Sentry monitoring, self-hosted feedback, SaaS feedback, and agency client sites. Each page has crawl-friendly metadata, canonical URLs, structured data, and internal links within the resource cluster while leaving the main login surface unlinked. Updated `robots.txt`, `sitemap.xml`, README documentation, and black-box SEO coverage. Validation passed with `git diff --check`, `make test-integration-all`, Browser checks for `/resources` and `/resources/la-sentry-monitoring`, and final `make ci`.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `tests/specs/seo-public-pages.spec.js`, `web/robots.txt`, `web/sitemap.xml`, `web/resources/index.html`, `web/resources/styles.css`, `web/resources/feedback-widget/index.html`, `web/resources/subscriber-capture/index.html`, `web/resources/privacy-first-analytics/index.html`, `web/resources/lightweight-analytics/index.html`, `web/resources/la-sentry-monitoring/index.html`, `web/resources/self-hosted-feedback/index.html`, `web/resources/saas-feedback/index.html`, `web/resources/agency-client-sites/index.html`.
 
 - [x] [I026] (P1) Tighten visitor-location edge geo inference and aggregation.
   ### Summary
@@ -873,6 +910,30 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Review follow-up rejects RFC 5322 display-name forms for site team-member emails so invites store only the Google login addr-spec that access checks compare. Focused validation passed with `make test-unit` and `make test-integration-api`.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/admin.go`, `internal/api/admin_helpers_test.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/sentry.go`, `internal/api/site_access.go`, `internal/api/traffic_report_schedule.go`, `internal/api/traffic_report_schedule_test.go`, `internal/model/site_team.go`, `internal/model/traffic_report_schedule.go`, `internal/model/traffic_report_schedule_test.go`, `internal/storage/database.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-site-actions.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`.
+
+- [x] [F011] (P1) Add a native operator mobile app.
+  ### Summary
+  Operators need a downloadable iOS and Android client that logs in with the same Google/TAuth identity and shows the same sites, stats, feedback, subscribers, LA Sentry issues, traffic reports, and role-aware data available in the web dashboard.
+  ### Deliverables
+  - Replace the default Expo scaffold in `mobile/` with a LoopAware operator app.
+  - Use TAuth native Google sign-in with system-browser PKCE and standard TAuth cookies; do not add mobile bearer-token auth to the backend.
+  - Load authenticated data from the existing `/api` endpoints with the same site-access semantics as the web dashboard.
+  - Add iOS and Android bundle/package configuration, custom scheme, and EAS build profiles.
+  - Add Makefile targets for mobile validation, local iOS/Android runs, and EAS builds.
+  - Add CI/config validation that fails when the mobile app is out of the repo-native build contract.
+  - Document native TAuth client placeholders in the tracked TAuth env templates.
+  ### Resolution
+  Replaced the default Expo scaffold with a LoopAware operator app that signs in through TAuth native Google AuthSession/PKCE, reuses standard TAuth cookies, and reads the existing authenticated dashboard API surface for account data, visible sites, feedback, subscribers, traffic stats/trends/attribution/engagement/devices/locations, LA Sentry issues, mobile feedback app registrations, team metadata for site admins, selected-site traffic schedules, and all-sites traffic reporting. Added environment-aware Expo config for iOS and Android package IDs, custom schemes, EAS build profiles, native TAuth client placeholders, `mobile-check`, `run-ios`, `run-android`, `build-ios`, and `build-android` Make targets. CI now triggers/caches mobile changes and `make ci` runs mobile config validation and TypeScript checks. Validation passed with `make mobile-check`, `make config-audit`, `npx expo config --json`, and final `make ci` with 423 Playwright/API integration specs.
+  Review follow-up registers the iOS Google redirect scheme from the configured native redirect URI, adds EAS/profile validation for that required build-time scheme, restores the missing native Google placeholders to tracked TAuth env templates so config audit can validate every compose target, keeps the mobile dashboard signed in when server logout fails, and guards selected-site/interval dashboard loads against stale responses. Validation passed with `make config-audit`, `make mobile-check`, `git diff --check`, an Expo config probe for the TAuth-style iOS redirect URI, and final `make ci`.
+  Native OAuth setup follow-up applies the real iOS build-time redirect URI from the LoopAware iOS Google client plist to the EAS profiles, while the ignored local TAuth env carries the matching iOS client ID and redirect URI. Validation passed with `make config-audit`, `make mobile-check`, `git diff --check`, an Expo config probe showing the registered iOS scheme, and final `make ci`.
+  Final review fix restores the tracked TAuth native Google placeholders and exports the configured iOS Google redirect URI through `make run-ios` so local dev-client builds register the same reversed-client scheme as EAS builds. Validation passed with `make mobile-check`, `make config-audit`, `git diff --check`, and Expo config probes with and without the local Makefile redirect environment.
+  Local iOS run follow-up forces the Expo dev-client launch URL through `EXPO_PACKAGER_PROXY_URL=http://localhost:<metro_port>` so the simulator opens the same localhost-only Metro server that `expo start --localhost` serves instead of landing on the empty development-server launcher. Local validation confirmed Expo now emits `exp+loopaware-mobile://...url=http://localhost:8081` while `localhost:8081/status` is running and `127.0.0.1:8081/status` remains unreachable on this machine. Validation passed with `make mobile-check`, `make config-audit`, `git diff --check`, a local `make run-ios` deep-link/status probe, and final `make ci` with 425 Playwright/API integration specs.
+  Native polish follow-up replaces the Expo scaffold icon with the canonical LoopAware eye mark across mobile assets, updates Expo to `~56.0.12`, pins a safe `uuid` override for a clean mobile audit, removes default Metro cache clearing, unsets inherited `NO_COLOR` for mobile and integration-test npm commands, applies repeatable generated-iOS warning fixes before local dev builds, and fingerprints native-affecting inputs so stale installed dev builds are rebuilt automatically. The signed-out restore path now treats missing TAuth refresh sessions as signed out and native TAuth misconfiguration surfaces as a readable sign-in error instead of a generic 404. Local validation confirmed `make run-ios` rebuilds and starts with `0 warning(s)`, a `localhost:8081` dev-client URL, the real logo, and no startup error. Final validation passed with `make mobile-check`, `make config-audit`, `npm --prefix mobile audit --audit-level=moderate`, `npx expo install --check`, `git diff --check`, and `make ci` with 425 Playwright/API integration specs.
+  Android run follow-up makes `make run-android` self-heal malformed ignored Android native project directories by preparing native Android before `expo run:android`, moves `local.properties` creation into that preparation script, removes Expo SDK 56 Android config warnings by adding `expo-system-ui` and dropping `edgeToEdgeEnabled`, and restores native Google placeholders in tracked TAuth env examples so config audit passes. Validation passed with `make config-audit`, `npm --prefix mobile run validate-config`, `npm --prefix mobile run android:prepare-native`, `make mobile-check`, `npm --prefix mobile audit --audit-level=moderate`, `npx expo install --check`, `git diff --check`, and final `make ci` with 425 Playwright/API integration specs.
+  Native fingerprint review follow-up includes build-time bundle/package and iOS Google redirect/client environment values in the local dev-build fingerprint, and passes Makefile bundle/package overrides into native build/start commands so installed dev clients rebuild when callback schemes or app identifiers change. Validation passed with env-sensitive fingerprint probes for iOS redirect, iOS bundle identifier, and Android package changes, plus `make mobile-check`, `make config-audit`, `git diff --check`, and final `make ci`.
+  Config-audit CI follow-up adds the missing tracked default gHTTP env template, unignores tracked config env examples, and keeps native LoopAware Google placeholders present in both TAuth env templates so clean CI checkouts validate the same compose env set as local stacks. Validation passed with `go mod tidy && git diff --exit-code go.mod go.sum`, `make config-audit`, a clean-copy `make config-audit`, `make mobile-check`, `git diff --check`, and final `make ci`.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `.gitignore`, `.github/workflows/ci.yml`, `Makefile`, `configs/README.md`, `configs/config.tauth.yml`, `configs/.env.ghttp.example`, `configs/.env.tauth.example`, `configs/.env.tauth.computercat.example`, `tests/configs/tauth.env`, `tests/scripts/run-integration.sh`, `mobile/AGENTS.md`, `mobile/App.tsx`, `mobile/LICENSE`, `mobile/app.config.js`, `mobile/eas.json`, `mobile/index.ts`, `mobile/package.json`, `mobile/package-lock.json`, `mobile/tsconfig.json`, `mobile/assets/android-icon-background.png`, `mobile/assets/android-icon-foreground.png`, `mobile/assets/android-icon-monochrome.png`, `mobile/assets/favicon.png`, `mobile/assets/icon.png`, `mobile/assets/splash-icon.png`, `mobile/scripts/fix-ios-project-warnings.mjs`, `mobile/scripts/native-build-fingerprint.mjs`, `mobile/scripts/prepare-android-project.mjs`, `mobile/scripts/resolve-metro-port.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `mobile/src/api.ts`, `mobile/src/auth.ts`, `mobile/src/config.ts`, `mobile/src/format.ts`, `mobile/src/types.ts`.
 
 
 ## Planning
