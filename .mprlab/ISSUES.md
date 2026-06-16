@@ -35,6 +35,30 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
 
+- [x] [B029] (P2) Show native feedback context in the operator mobile app.
+  ### Summary
+  The operator mobile app checks feedback rows for `source_kind: "mobile"`, but the backend returns native feedback with the canonical `source_kind: "mobile_app"`, causing native feedback rows to appear as Web widget feedback.
+  ### Deliverables
+  - Align the operator app feedback display condition with the backend mobile feedback source kind.
+  - Keep the mobile feedback message type constrained to the backend source-kind contract.
+  - Verify the mobile TypeScript gate and full CI pass.
+  ### Resolution
+  Updated the operator mobile app feedback row detail condition to use the backend `mobile_app` source kind and narrowed `FeedbackMessage.source_kind` to the current backend source-kind union. Validation passed with baseline `make ci`, focused `make mobile-check`, and final `make ci` with 425 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `mobile/App.tsx`, `mobile/src/types.ts`.
+
+- [x] [B030] (P2) Proxy LA Sentry routes in the local gHTTP template.
+  ### Summary
+  The local gHTTP env template routes `/public/` and `/api/` to the LoopAware API but omits `/sentry/`, so copied local stacks send `/sentry/errors` and `/sentry/browser-errors` to the static server instead of the backend LA Sentry handlers.
+  ### Deliverables
+  - Add the `/sentry/` proxy route to `configs/.env.ghttp.example`.
+  - Keep the route target aligned with the local compose API service name.
+  - Verify config audit and the full CI gate pass.
+  ### Resolution
+  Added `/sentry/=http://loopaware:8080` to the local gHTTP env template so copied local stacks route LA Sentry server and browser ingest requests to the LoopAware API, matching the existing test and computercat proxy templates. Validation passed with `make config-audit` and final `make ci` with 425 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `configs/.env.ghttp.example`.
+
 - [x] [B026] (P0) Replace incorrect four-hour login test with console-clean stale-idle coverage.
   ### Summary
   The existing four-hour login regression asserts an internal prepared-nonce refresh strategy, so it can pass while the user still sees login failure after leaving `/login` open for several hours.
