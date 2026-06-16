@@ -6,7 +6,10 @@ import { installTauthStub } from './tauthStub.js';
 
 const DEFAULT_AVATAR_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=';
 const DEFAULT_LOGOUT_REDIRECT_PATTERN = /\/login(?:\/)?(?:[?#].*)?$/;
+const LOGIN_PATHNAME = '/login';
+const EXPLICIT_LOGOUT_STORAGE_KEY = 'loopaware_explicit_logout';
 const SEEDED_MPR_UI_AUTH_ATTEMPTS = 3;
+const SEEDED_MPR_UI_AUTH_NAVIGATION_ATTEMPTS = 2;
 const SEEDED_MPR_UI_AUTH_RETRY_DELAY_MS = 50;
 
 function randomSuffix() {
@@ -169,6 +172,73 @@ function isTransientNavigationEvaluationError(error) {
 }
 
 /**
+ * @param {string} path
+ * @returns {string}
+ */
+function normalizePathname(path) {
+  const rawPath = String(path || '').trim();
+  if (!rawPath) {
+    return '/';
+  }
+  let pathname = rawPath;
+  try {
+    pathname = new URL(rawPath, 'http://loopaware.test').pathname;
+  } catch (error) {}
+  const normalized = pathname.replace(/\/+$/g, '');
+  return normalized || '/';
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {string}
+ */
+function currentPagePathname(page) {
+  try {
+    return normalizePathname(new URL(page.url()).pathname);
+  } catch (error) {
+    return '';
+  }
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {string} targetPath
+ * @returns {boolean}
+ */
+function isLoginRedirectForTarget(page, targetPath) {
+  return normalizePathname(targetPath) !== LOGIN_PATHNAME && currentPagePathname(page) === LOGIN_PATHNAME;
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function clearExplicitLogoutRedirectState(page) {
+  await page.evaluate((storageKey) => {
+    const storages = [];
+    try {
+      if (window.sessionStorage) {
+        storages.push(window.sessionStorage);
+      }
+    } catch (error) {}
+    try {
+      if (window.localStorage) {
+        storages.push(window.localStorage);
+      }
+    } catch (error) {}
+    for (const storage of storages) {
+      try {
+        storage.removeItem(storageKey);
+      } catch (error) {}
+    }
+    const headerHost = document.querySelector('mpr-header');
+    if (headerHost && typeof headerHost.removeAttribute === 'function') {
+      headerHost.removeAttribute('data-loopaware-explicit-logout');
+    }
+  }, EXPLICIT_LOGOUT_STORAGE_KEY);
+}
+
+/**
  * @param {number} milliseconds
  * @returns {Promise<void>}
  */
@@ -212,6 +282,28 @@ async function authenticateSeededMprUiSession(page, user) {
       await waitForMilliseconds(SEEDED_MPR_UI_AUTH_RETRY_DELAY_MS);
     }
   }
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
+ * @param {string} path
+ * @param {'commit' | 'domcontentloaded' | 'load' | 'networkidle'} waitUntil
+ * @returns {Promise<void>}
+ */
+async function authenticateSeededMprUiSessionForPath(page, user, path, waitUntil) {
+  for (let attempt = 1; attempt <= SEEDED_MPR_UI_AUTH_NAVIGATION_ATTEMPTS; attempt += 1) {
+    await authenticateSeededMprUiSession(page, user);
+    if (!isLoginRedirectForTarget(page, path)) {
+      return;
+    }
+    if (attempt === SEEDED_MPR_UI_AUTH_NAVIGATION_ATTEMPTS) {
+      break;
+    }
+    await clearExplicitLogoutRedirectState(page);
+    await page.goto(path, { waitUntil });
+  }
+  throw new Error(`loopaware_seeded_auth_redirected_to_login:${path}`);
 }
 
 /**
@@ -321,7 +413,7 @@ export async function openAuthenticatedPage(page, config, user, path, options) {
   await prepareLoopAwarePage(page, config, resolvedOptions);
   await page.goto(path, { waitUntil });
   if (resolvedOptions.authenticateMprUiSession !== false) {
-    await authenticateSeededMprUiSession(page, user);
+    await authenticateSeededMprUiSessionForPath(page, user, path, waitUntil);
   }
   if (resolvedOptions.waitForHeaderAuth !== false) {
     await waitForHeaderAuthReady(page);

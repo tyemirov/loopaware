@@ -11,6 +11,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B031] (P1) Stabilize seeded dashboard auth after login redirects.
+  ### Summary
+  A release run timed out in `dashboard-allowed-origins.spec.js` because `openDashboard()` reached `/login` while waiting for the MPR UI testing auth helper, then waited for dashboard account fields that cannot exist on the landing page.
+  ### Deliverables
+  - Keep authenticated dashboard helpers on the requested protected page after seeded MPR UI auth succeeds.
+  - Preserve the existing MPR UI testing helper contract instead of using private auth globals.
+  - Verify the allowed-origins browser coverage and the relevant lint/typecheck gate.
+  ### Resolution
+  Updated `openAuthenticatedPage()` so seeded MPR UI auth recovers when a protected-page boot redirects to `/login` before the testing helper can authenticate the header. The helper now clears the app logout marker left by that test-only redirect, reopens the original authenticated path, and retries seeded MPR UI auth before dashboard readiness checks run. Validation passed with `make lint-js`, `make test-integration` with 425 Playwright/API integration specs, and final `make ci` with 425 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `tests/helpers/fixtures.js`.
+
 - [x] [B027] (P1) Ignore external-asset route fetches cancelled by test teardown.
   ### Summary
   The Playwright external asset stub can still be handling a same-origin document route when the final browser context closes, causing an otherwise-complete integration run to fail with `route.fetch: Target page, context or browser has been closed`.
