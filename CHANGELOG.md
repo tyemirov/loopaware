@@ -11,6 +11,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.22] - 2026-06-16
+
+### Features ✨
+- Add native LoopAware operator mobile app for iOS and Android with full dashboard and auth integration.
+- Add public /resources cluster with focused SEO pages for product surfaces.
+- Add Google native client configs for iOS and Android in tauth.yml.
+- Add mobile app build and run targets to Makefile.
+
+### Improvements ⚙️
+- Add native build fingerprint checks and environment variables to mobile build and run targets.
+- Tighten visitor-location edge geo inference and aggregation.
+- Add /sentry proxy to gHTTP example environment config.
+- Include mobile directory in CI workflow triggers and cache paths.
+- Update Expo to 56.0.12 and dependencies.
+- Improve run-android script and fix config warnings.
+- Add SEO integration tests for /resources pages and links.
+- Update ISSUES.md and README with new resources and native OAuth iOS redirect URI.
+
+### Bug Fixes 🐛
+- Fix operator mobile app to use typed source_kind "mobile_app" for native feedback messages.
+- Prevent race conditions in mobile dashboard data loading.
+- Allow tracking example env files in configs directory.
+- Update iOS Google redirect URI in eas.json configuration.
+- Stabilize seeded dashboard auth after login redirects.
+- Ignore external-asset route fetches cancelled by test teardown.
+
+### Testing 🧪
+- Add SEO integration tests for /resources pages and links.
+- Add iOS and Android Google client IDs and redirect URIs to tauth.env.
+- Add mobile config validation and TypeScript checks in CI.
+
+### Docs 📚
+- Update .mprlab/ISSUES.md with native OAuth iOS redirect URI follow-up and mobile app review follow-up.
+- Add new resource pages and styles for LoopAware website.
+- Update frontend overview README.md with /resources page.
+- Document native TAuth client placeholders in tracked TAuth env templates.
+- Update configs/README.md and config examples for mobile and gHTTP proxy.
+
 ## [v0.7.21] - 2026-06-13
 
 ### Features ✨
