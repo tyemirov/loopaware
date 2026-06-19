@@ -22,7 +22,20 @@ import type {
   VisitStats,
   VisitTrend,
   DeviceBreakdown,
+  AttributionPoint,
+  DeviceTypePoint,
+  FeedbackMessage,
+  LocationPoint,
+  MobileAppRegistration,
+  PortfolioReportDefinition,
+  PortfolioTrafficSite,
   LocationDistribution,
+  SentryIssue,
+  Subscriber,
+  TeamMember,
+  TopPage,
+  VisitLogEntry,
+  VisitTrendPoint,
 } from "./types";
 
 type RequestOptions = {
@@ -54,7 +67,11 @@ export class LoopAwareApiClient {
   }
 
   async sites(): Promise<SitesResponse> {
-    return this.apiRequest<SitesResponse>("/api/sites");
+    const sitesResponse = await this.apiRequest<SitesResponse>("/api/sites");
+    return {
+      ...sitesResponse,
+      sites: readCollection<Site>(sitesResponse, "sites"),
+    };
   }
 
   async siteDashboard(site: Site, interval: TrafficInterval): Promise<SiteDashboard> {
@@ -79,17 +96,37 @@ export class LoopAwareApiClient {
       ]);
 
     return {
-      messages: messages.messages,
-      subscribers: subscribers.subscribers,
-      stats,
-      trend,
-      attribution,
+      messages: readCollection<FeedbackMessage>(messages, "messages"),
+      subscribers: readCollection<Subscriber>(subscribers, "subscribers"),
+      stats: {
+        ...stats,
+        top_pages: readCollection<TopPage>(stats, "top_pages"),
+        recent_visits: readCollection<VisitLogEntry>(stats, "recent_visits"),
+      },
+      trend: {
+        ...trend,
+        trend: readCollection<VisitTrendPoint>(trend, "trend"),
+      },
+      attribution: {
+        ...attribution,
+        sources: readCollection<AttributionPoint>(attribution, "sources"),
+        mediums: readCollection<AttributionPoint>(attribution, "mediums"),
+        campaigns: readCollection<AttributionPoint>(attribution, "campaigns"),
+      },
       engagement,
-      devices,
-      locations,
-      sentryIssues: sentryIssues.issues,
-      mobileApps: mobileApps.mobile_apps,
-      teamMembers: teamMembers.team_members,
+      devices: {
+        ...devices,
+        device_types: readCollection<DeviceTypePoint>(devices, "device_types"),
+        top_resolutions: readCollection<AttributionPoint>(devices, "top_resolutions"),
+        top_viewports: readCollection<AttributionPoint>(devices, "top_viewports"),
+      },
+      locations: {
+        ...locations,
+        locations: readCollection<LocationPoint>(locations, "locations"),
+      },
+      sentryIssues: readCollection<SentryIssue>(sentryIssues, "issues"),
+      mobileApps: readCollection<MobileAppRegistration>(mobileApps, "mobile_apps"),
+      teamMembers: readCollection<TeamMember>(teamMembers, "team_members"),
       trafficReportSchedule,
     };
   }
@@ -101,9 +138,13 @@ export class LoopAwareApiClient {
       this.apiRequest<TrafficReportSchedule>("/api/reports/traffic/portfolio/schedule"),
     ]);
     return {
-      reports: reportsResponse.reports,
-      availableSites: reportsResponse.available_sites,
-      defaultReport,
+      reports: readCollection<PortfolioReportDefinition>(reportsResponse, "reports"),
+      availableSites: readCollection<PortfolioTrafficSite>(reportsResponse, "available_sites"),
+      defaultReport: {
+        ...defaultReport,
+        trend: readCollection<VisitTrendPoint>(defaultReport, "trend"),
+        sites: readCollection<PortfolioTrafficSite>(defaultReport, "sites"),
+      },
       schedule,
     };
   }
@@ -175,4 +216,15 @@ export class LoopAwareApiClient {
 
 function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
+}
+
+function readCollection<T>(payload: object, fieldName: string): T[] {
+  const value = (payload as Record<string, unknown>)[fieldName];
+  if (value === null) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new LoopAwareApiError(502, "mobile_api_invalid_collection", `LoopAware API returned invalid ${fieldName} payload.`);
+  }
+  return value as T[];
 }

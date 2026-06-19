@@ -29,6 +29,7 @@
     "ios": "expo start --ios --dev-client --localhost --port ${LOOPAWARE_MOBILE_METRO_PORT:-8081}",
     "ios:prepare-native": "expo prebuild --platform ios && node scripts/fix-ios-project-warnings.mjs",
     "ios:dev-build": "npm run ios:prepare-native && expo run:ios --no-bundler --no-install",
+    "test:api-boundaries": "node scripts/test-api-boundaries.mjs",
     "typecheck": "tsc --noEmit",
     "validate-config": "node scripts/validate-mobile-config.mjs",
     "web": "expo start --web"

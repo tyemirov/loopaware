@@ -646,6 +646,26 @@ test.describe("admin api sites", () => {
 });
 
 test.describe("admin api messages and subscribers", () => {
+  test("returns empty arrays for empty dashboard collections", async () => {
+    const site = await createAdminSite("Empty Dashboard Collections");
+    const collectionEndpoints = [
+      { path: `/api/sites/${site.id}/messages`, key: "messages" },
+      { path: `/api/sites/${site.id}/subscribers`, key: "subscribers" },
+      { path: `/api/sites/${site.id}/team`, key: "team_members" },
+      { path: `/api/sites/${site.id}/mobile-apps`, key: "mobile_apps" },
+      { path: `/api/sites/${site.id}/sentry/issues`, key: "issues" }
+    ];
+
+    for (const endpoint of collectionEndpoints) {
+      const { response, payload } = await adminRequest({
+        path: endpoint.path,
+        method: "GET"
+      });
+      expect(response.status).toBe(200);
+      expect(payload[endpoint.key]).toEqual([]);
+    }
+  });
+
   test("lists feedback messages", async () => {
     const site = await createAdminSite("Messages");
     await apiRequest({

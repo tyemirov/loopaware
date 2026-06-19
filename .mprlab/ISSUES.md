@@ -11,6 +11,43 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [!] [B032] (P0) Unblock Android native Google sign-in in Google Cloud.
+  ### Summary
+  The Android operator app opens the Google OAuth browser flow but Google rejects the request before account consent.
+  ### Evidence
+  The installed dev build resolves `com.mprlab.loopaware:/oauth2redirect/google` to `com.mprlab.loopaware/.MainActivity`, TAuth production returns the LoopAware Android native client, and Chrome opens `https://accounts.google.com/o/oauth2/v2/auth` with `client_id=281540686395-7lt9u98ir3oincpqhdrjur5169qel8n9.apps.googleusercontent.com` plus `redirect_uri=com.mprlab.loopaware:/oauth2redirect/google`.
+  The Google error details dialog reports `Error 400: invalid_request` and `Custom URI scheme is not enabled for your Android client.`
+  ### Deliverables
+  - Enable the matching Google Cloud Android OAuth client to accept the `com.mprlab.loopaware:/oauth2redirect/google` custom URI scheme, or replace the Android login implementation with Google's recommended Android identity flow.
+  - Confirm the Android OAuth client is bound to package `com.mprlab.loopaware` and the active debug/release SHA-1 fingerprint before re-testing.
+  - Re-run the Android dev-client login flow after Google Cloud propagation.
+  Blocked: Google Cloud OAuth client settings are external to the LoopAware repo and TAuth deployment.
+
+- [x] [B033] (P0) Keep empty API collections as arrays for mobile dashboard rendering.
+  ### Summary
+  The Android operator dashboard can hit a React render error after login because `/api/sites/:id/subscribers` returns `subscribers: null` for sites without subscribers, and the mobile dashboard treats the API collection contract as an array.
+  ### Deliverables
+  - Return `subscribers: []` from the site subscribers API when a site has no subscribers.
+  - Add black-box API coverage that empty dashboard collection endpoints return arrays instead of `null`.
+  - Verify focused API coverage and the full CI gate.
+  ### Resolution
+  Initialized the site subscribers API response slice so empty subscriber lists serialize as `[]` instead of `null`. Added a black-box API contract test that creates an empty site and asserts the mobile dashboard collection endpoints return arrays for `messages`, `subscribers`, `team_members`, `mobile_apps`, and Sentry `issues`. Validation passed with baseline `make ci`, focused `LOOPAWARE_TEST_SUITE=test:api ./tests/scripts/run-integration.sh`, and final `make ci` with 426 integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `internal/api/admin.go`, `tests/specs/api-admin.spec.js`.
+
+- [x] [B034] (P0) Prevent mobile dashboard render crashes from deployed null collections.
+  ### Summary
+  The Android dev client still crashes against the currently deployed API before the B033 backend fix is deployed because the mobile API client passes `null` collection payloads directly into React dashboard state.
+  ### Deliverables
+  - Normalize legacy deployed `null` empty collections at the mobile API boundary so React only receives arrays.
+  - Reject non-array collection payloads with a controlled API error instead of a render exception.
+  - Add a mobile API boundary regression check to `make mobile-check`.
+  - Verify focused mobile validation and the full CI gate.
+  ### Resolution
+  Normalized mobile dashboard API collection fields at the mobile API boundary so deployed `null` empty collections become `[]` before React renders, while non-array values raise `mobile_api_invalid_collection`. Added a mobile API-boundary regression script to `make mobile-check`, and extended the config validator to require that guard. Validation passed with focused `make mobile-check` and final `make ci` with 426 integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `mobile/package.json`, `mobile/scripts/test-api-boundaries.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `mobile/src/api.ts`.
+
 - [x] [B031] (P1) Stabilize seeded dashboard auth after login redirects.
   ### Summary
   A release run timed out in `dashboard-allowed-origins.spec.js` because `openDashboard()` reached `/login` while waiting for the MPR UI testing auth helper, then waited for dashboard account fields that cannot exist on the landing page.

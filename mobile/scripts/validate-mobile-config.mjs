@@ -21,6 +21,7 @@ const requiredFiles = [
   "mobile/scripts/native-build-fingerprint.mjs",
   "mobile/scripts/prepare-android-project.mjs",
   "mobile/scripts/resolve-metro-port.mjs",
+  "mobile/scripts/test-api-boundaries.mjs",
 ];
 
 for (const requiredFile of requiredFiles) {
@@ -55,6 +56,7 @@ const requiredScripts = [
   "ios:prepare-native",
   "ios:dev-build",
   "start",
+  "test:api-boundaries",
   "typecheck",
   "validate-config",
 ];
@@ -106,6 +108,8 @@ assert(apiSource.includes("/api/sites"), "mobile_api_missing_sites_endpoint");
 assert(apiSource.includes("/api/reports/traffic/portfolio"), "mobile_api_missing_portfolio_endpoint");
 assert(apiSource.includes("/visits/stats"), "mobile_api_missing_traffic_stats_endpoint");
 assert(apiSource.includes("/sentry/issues"), "mobile_api_missing_sentry_endpoint");
+assert(apiSource.includes("readCollection"), "mobile_api_missing_collection_boundary_normalizer");
+assert(apiSource.includes("mobile_api_invalid_collection"), "mobile_api_missing_invalid_collection_error");
 
 const authSource = readText("mobile/src/auth.ts");
 assert(authSource.includes("expo-auth-session"), "mobile_auth_missing_auth_session");
@@ -129,6 +133,7 @@ for (const target of ["mobile-install", "mobile-check", "run-ios", "run-android"
   assert(makefile.includes(`${target}:`), `mobile_makefile_missing_target: ${target}`);
 }
 assert(makefile.includes("mobile-check"), "mobile_makefile_missing_ci_gate");
+assert(makefile.includes("test:api-boundaries"), "mobile_makefile_missing_api_boundary_check");
 assert(makefile.includes("MOBILE_NPM_COMMAND ?= env -u NO_COLOR $(MOBILE_NPM)"), "mobile_makefile_missing_no_color_warning_guard");
 assert(makefile.includes("MOBILE_NATIVE_BUILD_FINGERPRINT"), "mobile_makefile_missing_native_build_fingerprint");
 assert(makefile.includes("Development build missing or stale"), "mobile_makefile_missing_stale_native_build_guard");
