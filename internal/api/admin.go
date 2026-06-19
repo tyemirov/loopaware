@@ -1661,7 +1661,10 @@ func (handlers *SiteHandlers) ListSubscribers(context *gin.Context) {
 		return
 	}
 
-	response := SiteSubscribersResponse{SiteID: site.ID}
+	response := SiteSubscribersResponse{
+		SiteID:      site.ID,
+		Subscribers: make([]SubscriberRecord, 0, len(subscribers)),
+	}
 	for _, subscriber := range subscribers {
 		response.Subscribers = append(response.Subscribers, SubscriberRecord{
 			ID:             subscriber.ID,
