@@ -16,7 +16,7 @@ module.exports = {
   expo: {
     name: "LoopAware",
     slug: "loopaware-mobile",
-    version: "1.0.0",
+    version: "2026.6.19",
     orientation: "portrait",
     icon: "./assets/icon.png",
     scheme: [loopAwareScheme, loopAwarePackageScheme],

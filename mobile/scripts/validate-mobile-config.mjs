@@ -17,6 +17,7 @@ const requiredFiles = [
   "mobile/src/config.ts",
   "mobile/src/types.ts",
   "mobile/assets/icon.png",
+  "mobile/scripts/build-android-bundle.mjs",
   "mobile/scripts/fix-ios-project-warnings.mjs",
   "mobile/scripts/native-build-fingerprint.mjs",
   "mobile/scripts/prepare-android-project.mjs",
@@ -129,10 +130,11 @@ for (const envName of [
 }
 
 const makefile = readText("Makefile");
-for (const target of ["mobile-install", "mobile-check", "run-ios", "run-android", "build-ios", "build-android"]) {
+for (const target of ["mobile-install", "mobile-check", "run-ios", "run-android", "build-ios", "build-android", "mobile-android-bundle"]) {
   assert(makefile.includes(`${target}:`), `mobile_makefile_missing_target: ${target}`);
 }
 assert(makefile.includes("mobile-check"), "mobile_makefile_missing_ci_gate");
+assert(makefile.includes('node "$(MOBILE_ANDROID_BUNDLE_SCRIPT)"'), "mobile_makefile_missing_android_bundle_script");
 assert(makefile.includes("test:api-boundaries"), "mobile_makefile_missing_api_boundary_check");
 assert(makefile.includes("MOBILE_NPM_COMMAND ?= env -u NO_COLOR $(MOBILE_NPM)"), "mobile_makefile_missing_no_color_warning_guard");
 assert(makefile.includes("MOBILE_NATIVE_BUILD_FINGERPRINT"), "mobile_makefile_missing_native_build_fingerprint");
@@ -149,6 +151,19 @@ assert(
   makefile.includes('EXPO_PACKAGER_PROXY_URL="http://localhost:$${metro_port}"'),
   "mobile_makefile_missing_ios_localhost_proxy_url",
 );
+
+const androidBundleSource = readText("mobile/scripts/build-android-bundle.mjs");
+assert(androidBundleSource.includes("signingConfig signingConfigs.release"), "mobile_android_bundle_missing_release_signing");
+assert(
+  androidBundleSource.includes("generated app bundle is signed with the Android debug certificate"),
+  "mobile_android_bundle_missing_debug_signing_rejection",
+);
+assert(
+  androidBundleSource.includes('"bundletool", "validate"'),
+  "mobile_android_bundle_missing_bundletool_validation",
+);
+assert(androidBundleSource.includes("LOOPAWARE_ANDROID_UPLOAD"), "mobile_android_bundle_missing_upload_key_env");
+assert(androidBundleSource.includes("loopaware-upload-key.jks"), "mobile_android_bundle_missing_default_upload_key");
 
 const workflow = readText(".github/workflows/ci.yml");
 assert(workflow.includes("mobile/**"), "mobile_ci_missing_path_filter");

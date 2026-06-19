@@ -129,6 +129,16 @@ await assert.rejects(() => invalidClient.siteDashboard(site, "30days"), (error) 
   return true;
 });
 
+const recoveringFetcher = createRecoveringFetcher(basePayloads);
+const recoveringClient = new LoopAwareApiClient(runtimeConfig(), recoveringFetcher.fetcher);
+const recoveredDashboard = await recoveringClient.siteDashboard(site, "30days");
+assert.deepEqual(recoveredDashboard.messages, []);
+assert.equal(recoveringFetcher.refreshCount(), 1);
+assert.equal(recoveringFetcher.refreshTenantId(), "loopaware");
+for (const requestPath of Object.keys(basePayloads)) {
+  assert.equal(recoveringFetcher.apiRequestCount(requestPath), 2, `expected ${requestPath} to retry once after refresh`);
+}
+
 console.log("mobile api boundary checks passed");
 
 function runtimeConfig() {
@@ -154,5 +164,82 @@ function createFetcher(payloadsByPath) {
       headers: { "Content-Type": "application/json" },
       status: 200,
     });
+  });
+}
+
+/**
+ * @param {Record<string, unknown>} payloadsByPath
+ * @returns {{
+ *   fetcher: typeof fetch,
+ *   refreshCount: () => number,
+ *   refreshTenantId: () => string,
+ *   apiRequestCount: (requestPath: string) => number
+ * }}
+ */
+function createRecoveringFetcher(payloadsByPath) {
+  const apiRequestCounts = new Map();
+  let refreshRequestCount = 0;
+  let refreshTenantId = "";
+  const fetcher = /** @type {typeof fetch} */ (async (input, init) => {
+    const requestUrl = new URL(input instanceof Request ? input.url : String(input));
+    if (requestUrl.pathname === "/auth/refresh") {
+      refreshRequestCount += 1;
+      refreshTenantId = readHeader(init?.headers, "X-TAuth-Tenant");
+      assert.equal(init?.credentials, "include");
+      await delay(5);
+      return new Response(null, { status: 204 });
+    }
+    if (!(requestUrl.pathname in payloadsByPath)) {
+      throw new Error(`unexpected_request: ${requestUrl.pathname}`);
+    }
+    assert.equal(init?.credentials, "include");
+    const requestCount = (apiRequestCounts.get(requestUrl.pathname) || 0) + 1;
+    apiRequestCounts.set(requestUrl.pathname, requestCount);
+    if (requestCount === 1) {
+      return new Response(JSON.stringify({ error: "expired_session" }), {
+        headers: { "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+    return new Response(JSON.stringify(payloadsByPath[requestUrl.pathname]), {
+      headers: { "Content-Type": "application/json" },
+      status: 200,
+    });
+  });
+  return {
+    fetcher,
+    refreshCount: () => refreshRequestCount,
+    refreshTenantId: () => refreshTenantId,
+    apiRequestCount: (requestPath) => apiRequestCounts.get(requestPath) || 0,
+  };
+}
+
+/**
+ * @param {HeadersInit | undefined} headers
+ * @param {string} name
+ * @returns {string}
+ */
+function readHeader(headers, name) {
+  if (!headers) {
+    return "";
+  }
+  if (headers instanceof Headers) {
+    return headers.get(name) || "";
+  }
+  if (Array.isArray(headers)) {
+    const entry = headers.find(([headerName]) => headerName.toLowerCase() === name.toLowerCase());
+    return entry ? entry[1] : "";
+  }
+  const record = /** @type {Record<string, string>} */ (headers);
+  return record[name] || "";
+}
+
+/**
+ * @param {number} milliseconds
+ * @returns {Promise<void>}
+ */
+function delay(milliseconds) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
   });
 }
