@@ -27,8 +27,10 @@ MOBILE_ANDROID_BUILD_PROFILE ?= $(MOBILE_BUILD_PROFILE)
 MOBILE_BUILD_ARGS ?=
 MOBILE_IOS_BUILD_ARGS ?=
 MOBILE_ANDROID_BUILD_ARGS ?=
+MOBILE_ANDROID_BUNDLE_ARGS ?=
 MOBILE_METRO_PORT_RESOLVER := $(MOBILE_DIR)/scripts/resolve-metro-port.mjs
 MOBILE_NATIVE_BUILD_FINGERPRINT := $(MOBILE_DIR)/scripts/native-build-fingerprint.mjs
+MOBILE_ANDROID_BUNDLE_SCRIPT := $(MOBILE_DIR)/scripts/build-android-bundle.mjs
 ANDROID_SDK_ROOT ?= $(HOME)/Library/Android/sdk
 ANDROID_HOME ?= $(ANDROID_SDK_ROOT)
 ANDROID_STUDIO_JAVA_HOME ?= /Applications/Android Studio.app/Contents/jbr/Contents/Home
@@ -37,7 +39,7 @@ ANDROID_TOOL_PATH := $(ANDROID_SDK_ROOT)/emulator:$(ANDROID_SDK_ROOT)/platform-t
 
 export GOWORK := off
 
-.PHONY: format format-pinguin build lint lint-js mobile-install mobile-check mobile-start run-ios run-android build-ios build-android config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
+.PHONY: format format-pinguin build lint lint-js mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -132,8 +134,11 @@ build-ios: mobile-install
 	@cd "$(MOBILE_DIR)" && EAS_BUILD_PROFILE="$(MOBILE_IOS_BUILD_PROFILE)" LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER="$(MOBILE_IOS_BUNDLE_IDENTIFIER)" LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI="$(MOBILE_GOOGLE_IOS_REDIRECT_URI)" $(MOBILE_EAS) build --platform ios --profile "$(MOBILE_IOS_BUILD_PROFILE)" $(MOBILE_BUILD_ARGS) $(MOBILE_IOS_BUILD_ARGS)
 
 build-android: mobile-install
-	@echo "==> [build-android] Building LoopAware Mobile Android artifact"
-	@cd "$(MOBILE_DIR)" && EAS_BUILD_PROFILE="$(MOBILE_ANDROID_BUILD_PROFILE)" LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)" $(MOBILE_EAS) build --platform android --profile "$(MOBILE_ANDROID_BUILD_PROFILE)" $(MOBILE_BUILD_ARGS) $(MOBILE_ANDROID_BUILD_ARGS)
+	@$(MAKE) --no-print-directory mobile-android-bundle
+
+mobile-android-bundle: mobile-check
+	@echo "==> [mobile-android-bundle] Building signed LoopAware Mobile Android App Bundle"
+	@ANDROID_HOME="$(ANDROID_HOME)" ANDROID_SDK_ROOT="$(ANDROID_SDK_ROOT)" ANDROID_STUDIO_JAVA_HOME="$(ANDROID_STUDIO_JAVA_HOME)" LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)" node "$(MOBILE_ANDROID_BUNDLE_SCRIPT)" --mobile-dir "$(MOBILE_DIR)" --android-sdk-root "$(ANDROID_SDK_ROOT)" $(MOBILE_ANDROID_BUNDLE_ARGS)
 
 test: test-integration
 
