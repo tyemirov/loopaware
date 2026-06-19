@@ -11,6 +11,19 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B035] (P0) Refresh mobile operator API sessions after access-cookie expiry.
+  ### Summary
+  The native operator app can remain visually signed in after the short-lived TAuth session cookie expires, but dashboard reloads and site switches surface `Request failed with 401` because ordinary mobile `/api/*` calls do not refresh the TAuth session before failing.
+  ### Deliverables
+  - Refresh the TAuth session once when authenticated mobile API calls receive a 401.
+  - Retry the original mobile API request after a successful refresh.
+  - Share one in-flight refresh across parallel dashboard API requests so TAuth refresh-token rotation does not race.
+  - Add mobile API boundary coverage and verify the focused mobile gate plus full CI.
+  ### Resolution
+  Added mobile API-boundary authentication recovery so authenticated `/api/*` requests refresh the TAuth session and retry once after a 401, while direct TAuth requests remain single-shot. Shared the in-flight refresh promise across parallel dashboard requests to avoid refresh-token rotation races, and reused the same missing-session classifier from restore. Extended the mobile API boundary check to force parallel dashboard 401s, assert one tenant-scoped `/auth/refresh`, and verify each dashboard request retries once. Validation passed with baseline `make ci`, focused `make mobile-check`, and final `make ci` with 426 integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `mobile/scripts/test-api-boundaries.mjs`, `mobile/src/api.ts`, `mobile/src/auth.ts`.
+
 - [!] [B032] (P0) Unblock Android native Google sign-in in Google Cloud.
   ### Summary
   The Android operator app opens the Google OAuth browser flow but Google rejects the request before account consent.
@@ -406,6 +419,31 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `internal/api/admin.go`, `internal/api/site_subscribe_test_handlers.go`, `internal/api/stream_handlers_test.go`, `.mprlab/ISSUES.md`.
 
 ## Improvements
+
+- [x] [I029] (P1) Use CalVer for the LoopAware Android internal-testing bundle.
+  ### Summary
+  The first generated LoopAware Android App Bundle used the default `1.0.0` app version, but the release should use a date-based version for the current internal-testing upload.
+  ### Deliverables
+  - Set the mobile app version metadata to CalVer `2026.6.19`.
+  - Rebuild the signed Android App Bundle from the repo-owned local bundle path.
+  - Verify the generated `.aab` reports versionName `2026.6.19` while preserving package `com.mprlab.loopaware` and release signing.
+  ### Resolution
+  Set the Expo and mobile package metadata to CalVer `2026.6.19`, rebuilt the signed Android App Bundle through `make build-android`, and verified the generated bundle reports package `com.mprlab.loopaware`, versionName `2026.6.19`, versionCode `1`, and the same LoopAware release upload signer. Validation passed with `make mobile-check`, bundle metadata/signing checks from the build, and final `make ci` with 426 integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `mobile/app.config.js`, `mobile/package.json`, `mobile/package-lock.json`.
+
+- [x] [I028] (P1) Build signed LoopAware Android App Bundles without EAS login.
+  ### Summary
+  Preparing the operator mobile app for Google Play internal testing required a signed `.aab`, but the repo's Android build path depended on EAS authentication and the generated native project only had debug signing.
+  ### Deliverables
+  - Add a repo-owned local Android App Bundle build path matching the Kamu release workflow.
+  - Force release signing with a LoopAware upload keystore and reject Android debug-signed bundles.
+  - Copy the `.aab` and deobfuscation mapping file into `mobile/dist/` with machine-readable metadata.
+  - Verify focused mobile validation, generated bundle metadata, signer identity, and the full CI gate.
+  ### Resolution
+  Added a local Android App Bundle builder under `mobile/scripts/build-android-bundle.mjs` and wired `make build-android` through `mobile-android-bundle` so LoopAware can produce a signed Play Console `.aab` without EAS login. The builder creates or reuses a local LoopAware upload keystore, patches the generated Expo Android project to force `signingConfig signingConfigs.release`, rejects Android debug-signed bundles, runs `bundletool validate`, and exports the R8 deobfuscation mapping file. Generated and verified `mobile/dist/loopaware-1.0.0-android-release.aab` for package `com.mprlab.loopaware`, versionCode `1`, versionName `1.0.0`, signed by `CN=LoopAware Android Upload, OU=MPRLab, O=MPRLab, L=San Francisco, ST=California, C=US`. Validation passed with focused `make mobile-check`, bundle metadata/signing checks, and final `make ci` with 426 integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `mobile/scripts/build-android-bundle.mjs`, `mobile/scripts/validate-mobile-config.mjs`.
 
 - [x] [I027] (P1) Add a public SEO resources cluster.
   ### Summary
