@@ -1,0 +1,33 @@
+---
+mprlab_resources:
+  schema_version: 1
+  repo:
+    id: loopaware
+    directory: loopaware
+    dispatch_target: loopaware
+  resources:
+    - type: make_workflow
+      name: loopaware
+      targets:
+        release: release
+        publish: publish
+        deploy: deploy
+    - type: container_service
+      name: loopaware-api
+      image: ghcr.io/tyemirov/loopaware:latest
+      container_port: 8080
+      compose_project: mprlab-gateway
+    - type: caddy_route
+      name: loopaware-api
+      host: loopaware-api.mprlab.com
+      upstream: loopaware-api:8080
+      snippet: loopaware-api.caddy
+    - type: health_check
+      name: loopaware-api
+      path: /api/me
+      url: https://loopaware-api.mprlab.com/api/me
+    - type: github_pages
+      name: loopaware
+      method: workflow
+      workflow: pages.yml
+      url: https://loopaware.mprlab.com/
