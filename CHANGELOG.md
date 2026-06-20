@@ -11,6 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.25] - 2026-06-19
+
+### Features ✨
+- Add script and Makefile target to build signed Android App Bundles locally without EAS login.
+- Add Ansible resource definitions for LoopAware deployment.
+
+### Improvements ⚙️
+- Use CalVer (2026.6.19) for the LoopAware Android internal-testing app version.
+- Update Android build process to produce signed app bundles with local keystore and validate signing.
+- Add mobile API boundary tests and enforce collection validation in mobile client.
+
+### Bug Fixes 🐛
+- Refresh TAuth session and retry API calls on 401 errors to prevent mobile dashboard sign-in issues.
+- Initialize Subscribers slice with capacity in ListSubscribers API response to ensure empty arrays.
+- Keep empty API collections as arrays (not null) to prevent mobile dashboard crashes.
+- Normalize legacy null collections at mobile API boundary to avoid React render exceptions.
+
+### Testing 🧪
+- Add tests for empty arrays in admin dashboard collections endpoints.
+- Add API boundary checks and enforce collection validation in mobile tests.
+- Run new API boundary tests in mobile-check target.
+
+### Docs 📚
+- _No changes._
+
 ## [v0.7.24] - 2026-06-16
 
 ### Features ✨
