@@ -57,6 +57,8 @@ export class LoopAwareApiError extends Error {
 }
 
 export class LoopAwareApiClient {
+  private authenticationRecoveryPromise: Promise<boolean> | null = null;
+
   constructor(
     private readonly config: RuntimeConfig,
     private readonly fetcher: typeof fetch = fetch,
@@ -178,8 +180,19 @@ export class LoopAwareApiClient {
     await this.tauthRequest<Record<string, unknown>>("/auth/logout", { method: "POST" });
   }
 
-  private apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>(this.config.apiBaseUrl, path, options);
+  private async apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    try {
+      return await this.request<T>(this.config.apiBaseUrl, path, options);
+    } catch (error) {
+      if (!isUnauthorizedApiError(error)) {
+        throw error;
+      }
+      const recovered = await this.recoverAPIAuthentication();
+      if (!recovered) {
+        throw error;
+      }
+      return this.request<T>(this.config.apiBaseUrl, path, options);
+    }
   }
 
   private tauthRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -212,6 +225,27 @@ export class LoopAwareApiClient {
     }
     return data as T;
   }
+
+  private recoverAPIAuthentication(): Promise<boolean> {
+    if (!this.authenticationRecoveryPromise) {
+      this.authenticationRecoveryPromise = this.refreshAPIAuthentication().finally(() => {
+        this.authenticationRecoveryPromise = null;
+      });
+    }
+    return this.authenticationRecoveryPromise;
+  }
+
+  private async refreshAPIAuthentication(): Promise<boolean> {
+    try {
+      await this.refreshSession();
+      return true;
+    } catch (error) {
+      if (isMissingSessionError(error)) {
+        return false;
+      }
+      throw error;
+    }
+  }
 }
 
 function joinUrl(baseUrl: string, path: string): string {
@@ -227,4 +261,18 @@ function readCollection<T>(payload: object, fieldName: string): T[] {
     throw new LoopAwareApiError(502, "mobile_api_invalid_collection", `LoopAware API returned invalid ${fieldName} payload.`);
   }
   return value as T[];
+}
+
+export function isMissingSessionError(error: unknown): boolean {
+  if (!(error instanceof LoopAwareApiError)) {
+    return false;
+  }
+  if (error.status === 401) {
+    return true;
+  }
+  return error.status === 404 && error.code === "api_error";
+}
+
+function isUnauthorizedApiError(error: unknown): boolean {
+  return error instanceof LoopAwareApiError && error.status === 401;
 }
