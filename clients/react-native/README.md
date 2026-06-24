@@ -2,6 +2,15 @@
 
 Native feedback button for Expo and React Native apps. This client submits customer feedback to `/public/mobile-feedback`; it is not part of LA Sentry error capture.
 
+## Installation
+
+```bash
+npm install @loopaware/react-native
+```
+
+The package ships built ESM JavaScript and TypeScript declarations from `dist/`. React and React Native are peer
+dependencies and must come from the host app.
+
 ## Expo setup
 
 Register the mobile app for a LoopAware site through the authenticated API:
@@ -84,3 +93,15 @@ await submitLoopAwareFeedback(
   }
 );
 ```
+
+## Non-React Native apps
+
+Swift, Kotlin, and other native clients should call the same `/public/mobile-feedback` REST endpoint directly. Register
+the app with `/api/sites/{site_id}/mobile-apps`, store the public `client_id`, and submit the same JSON shape used by
+`submitLoopAwareFeedback`.
+
+## Package validation
+
+Repository CI runs `make client-react-native-check`. That target typechecks the source, builds `dist/`, packs the npm
+tarball, verifies the package contents, installs the tarball into a temporary consumer project, and typechecks a real
+`@loopaware/react-native` import.

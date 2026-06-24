@@ -2,14 +2,49 @@
   "name": "@loopaware/react-native",
   "version": "0.1.0",
   "description": "React Native feedback widget client for LoopAware.",
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
-  "main": "src/index.tsx",
-  "source": "src/index.tsx",
+  "main": "./dist/index.js",
+  "react-native": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tyemirov/loopaware.git",
+    "directory": "clients/react-native"
+  },
+  "keywords": [
+    "loopaware",
+    "feedback",
+    "react-native",
+    "expo"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "verify-package": "node scripts/verify-package.mjs"
   },
   "peerDependencies": {
     "react": ">=18.0.0",
     "react-native": ">=0.72.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
   }
 }

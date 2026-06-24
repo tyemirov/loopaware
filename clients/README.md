@@ -6,7 +6,7 @@ First-party clients for LoopAware live under this directory.
 
 | Runtime | Location | Ingest route | Notes |
 | --- | --- | --- | --- |
-| React Native / Expo | [`clients/react-native`](react-native) | `/public/mobile-feedback` | Native feedback button with explicit screen and app context. |
+| React Native / Expo | [`clients/react-native`](react-native) | `/public/mobile-feedback` | npm package with a native feedback button and explicit screen/app context. |
 
 ## LA Sentry
 
