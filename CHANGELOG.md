@@ -19,6 +19,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Docs 📚
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
 
+## [v0.7.27] - 2026-06-24
+
+### Features ✨
+- Add React Native feedback client as a buildable and publish-ready npm package with CI validation.
+
+### Improvements ⚙️
+- Make `@loopaware/react-native` a buildable npm package with `dist` exports, package metadata, and trusted-publishing workflow.
+- Add CI path coverage for first-party clients including React Native.
+- Simplify npm publish step in React Native workflow.
+- Add React Native client install and check targets to Makefile.
+- Update documentation with React Native client installation and publishing instructions.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- Add React Native client package validation that builds, packs, installs the tarball into a temporary consumer, and typechecks a real import.
+
+### Docs 📚
+- Clarify ISSUES.md format with recurring entries and structured bodies.
+- Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
+- Clarify trusted-publishing workflow location for React Native client.
+- Update clients README to reflect npm package usage for React Native feedback client.
+
 ## [v0.7.26] - 2026-06-24
 
 ### Features ✨
