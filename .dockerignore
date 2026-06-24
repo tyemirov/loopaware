@@ -8,6 +8,10 @@ data/
 tests/
 tools/
 docs/
+node_modules/
+**/node_modules/
+clients/react-native/dist/
+mobile/dist/
 .cache/
 .github/
 *.db
