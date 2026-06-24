@@ -315,6 +315,12 @@ Example snippet (replace the base URL with your LoopAware deployment and the sit
 React Native and Expo apps can use the first-party client under `clients/react-native` to render a native feedback
 button on selected screens. Mobile feedback is separate from LA Sentry error capture.
 
+Install the package from npm:
+
+```bash
+npm install @loopaware/react-native
+```
+
 1. Register the native app for the site:
 
    ```json
@@ -353,6 +359,10 @@ button on selected screens. Mobile feedback is separate from LA Sentry error cap
 The public `client_id` identifies the app registration; it is not a secret. Mobile submissions validate that the client
 ID, platform, and application identifier match the registered site app, then store the supplied screen, app version, and
 bounded context with the feedback message.
+
+Swift, Kotlin, and other non-React Native apps should implement the same REST contract directly against
+`/public/mobile-feedback` after registering the app with `/api/sites/:id/mobile-apps`; the repository does not ship
+separate native iOS or Android SDKs.
 
 ## Embedding the subscribe form
 
@@ -470,6 +480,12 @@ do not select a revision during deploy.
 
 The Docker image and Pages workflows are manual dispatch workflows. They do not publish
 automatically on tag push; the Makefile targets own the release-to-production ordering.
+
+The React Native feedback client is published separately from the Docker and Pages release path. Bump
+`clients/react-native/package.json`, run `make client-react-native-check`, and dispatch the `Publish React Native Client`
+GitHub workflow from the package release ref. The npm package must have a trusted publisher configured for
+`tyemirov/loopaware` and `.github/workflows/npm-react-native.yml` before that workflow can publish
+`@loopaware/react-native`.
 
 ## Docker
 
