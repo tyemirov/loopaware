@@ -11,57 +11,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
-- [x] [B035] (P0) Refresh mobile operator API sessions after access-cookie expiry.
-  ### Summary
-  The native operator app can remain visually signed in after the short-lived TAuth session cookie expires, but dashboard reloads and site switches surface `Request failed with 401` because ordinary mobile `/api/*` calls do not refresh the TAuth session before failing.
-  ### Deliverables
-  - Refresh the TAuth session once when authenticated mobile API calls receive a 401.
-  - Retry the original mobile API request after a successful refresh.
-  - Share one in-flight refresh across parallel dashboard API requests so TAuth refresh-token rotation does not race.
-  - Add mobile API boundary coverage and verify the focused mobile gate plus full CI.
-  ### Resolution
-  Added mobile API-boundary authentication recovery so authenticated `/api/*` requests refresh the TAuth session and retry once after a 401, while direct TAuth requests remain single-shot. Shared the in-flight refresh promise across parallel dashboard requests to avoid refresh-token rotation races, and reused the same missing-session classifier from restore. Extended the mobile API boundary check to force parallel dashboard 401s, assert one tenant-scoped `/auth/refresh`, and verify each dashboard request retries once. Validation passed with baseline `make ci`, focused `make mobile-check`, and final `make ci` with 426 integration specs.
-  ### Changed Files
-  `PLAN.md`, `.mprlab/ISSUES.md`, `mobile/scripts/test-api-boundaries.mjs`, `mobile/src/api.ts`, `mobile/src/auth.ts`.
-
-- [!] [B032] (P0) Unblock Android native Google sign-in in Google Cloud.
-  ### Summary
-  The Android operator app opens the Google OAuth browser flow but Google rejects the request before account consent.
-  ### Evidence
-  The installed dev build resolves `com.mprlab.loopaware:/oauth2redirect/google` to `com.mprlab.loopaware/.MainActivity`, TAuth production returns the LoopAware Android native client, and Chrome opens `https://accounts.google.com/o/oauth2/v2/auth` with `client_id=281540686395-7lt9u98ir3oincpqhdrjur5169qel8n9.apps.googleusercontent.com` plus `redirect_uri=com.mprlab.loopaware:/oauth2redirect/google`.
-  The Google error details dialog reports `Error 400: invalid_request` and `Custom URI scheme is not enabled for your Android client.`
-  ### Deliverables
-  - Enable the matching Google Cloud Android OAuth client to accept the `com.mprlab.loopaware:/oauth2redirect/google` custom URI scheme, or replace the Android login implementation with Google's recommended Android identity flow.
-  - Confirm the Android OAuth client is bound to package `com.mprlab.loopaware` and the active debug/release SHA-1 fingerprint before re-testing.
-  - Re-run the Android dev-client login flow after Google Cloud propagation.
-  Blocked: Google Cloud OAuth client settings are external to the LoopAware repo and TAuth deployment.
-
-- [x] [B033] (P0) Keep empty API collections as arrays for mobile dashboard rendering.
-  ### Summary
-  The Android operator dashboard can hit a React render error after login because `/api/sites/:id/subscribers` returns `subscribers: null` for sites without subscribers, and the mobile dashboard treats the API collection contract as an array.
-  ### Deliverables
-  - Return `subscribers: []` from the site subscribers API when a site has no subscribers.
-  - Add black-box API coverage that empty dashboard collection endpoints return arrays instead of `null`.
-  - Verify focused API coverage and the full CI gate.
-  ### Resolution
-  Initialized the site subscribers API response slice so empty subscriber lists serialize as `[]` instead of `null`. Added a black-box API contract test that creates an empty site and asserts the mobile dashboard collection endpoints return arrays for `messages`, `subscribers`, `team_members`, `mobile_apps`, and Sentry `issues`. Validation passed with baseline `make ci`, focused `LOOPAWARE_TEST_SUITE=test:api ./tests/scripts/run-integration.sh`, and final `make ci` with 426 integration specs.
-  ### Changed Files
-  `PLAN.md`, `.mprlab/ISSUES.md`, `internal/api/admin.go`, `tests/specs/api-admin.spec.js`.
-
-- [x] [B034] (P0) Prevent mobile dashboard render crashes from deployed null collections.
-  ### Summary
-  The Android dev client still crashes against the currently deployed API before the B033 backend fix is deployed because the mobile API client passes `null` collection payloads directly into React dashboard state.
-  ### Deliverables
-  - Normalize legacy deployed `null` empty collections at the mobile API boundary so React only receives arrays.
-  - Reject non-array collection payloads with a controlled API error instead of a render exception.
-  - Add a mobile API boundary regression check to `make mobile-check`.
-  - Verify focused mobile validation and the full CI gate.
-  ### Resolution
-  Normalized mobile dashboard API collection fields at the mobile API boundary so deployed `null` empty collections become `[]` before React renders, while non-array values raise `mobile_api_invalid_collection`. Added a mobile API-boundary regression script to `make mobile-check`, and extended the config validator to require that guard. Validation passed with focused `make mobile-check` and final `make ci` with 426 integration specs.
-  ### Changed Files
-  `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `mobile/package.json`, `mobile/scripts/test-api-boundaries.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `mobile/src/api.ts`.
-
-- [x] [B031] (P1) Stabilize seeded dashboard auth after login redirects.
+- [x] [B001] (P1) Stabilize seeded dashboard auth after login redirects.
   ### Summary
   A release run timed out in `dashboard-allowed-origins.spec.js` because `openDashboard()` reached `/login` while waiting for the MPR UI testing auth helper, then waited for dashboard account fields that cannot exist on the landing page.
   ### Deliverables
@@ -72,8 +22,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Updated `openAuthenticatedPage()` so seeded MPR UI auth recovers when a protected-page boot redirects to `/login` before the testing helper can authenticate the header. The helper now clears the app logout marker left by that test-only redirect, reopens the original authenticated path, and retries seeded MPR UI auth before dashboard readiness checks run. Validation passed with `make lint-js`, `make test-integration` with 425 Playwright/API integration specs, and final `make ci` with 425 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `tests/helpers/fixtures.js`.
-
-- [x] [B027] (P1) Ignore external-asset route fetches cancelled by test teardown.
+- [x] [B002] (P1) Ignore external-asset route fetches cancelled by test teardown.
   ### Summary
   The Playwright external asset stub can still be handling a same-origin document route when the final browser context closes, causing an otherwise-complete integration run to fail with `route.fetch: Target page, context or browser has been closed`.
   ### Deliverables
@@ -84,8 +33,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added a narrow teardown classifier around tracked external-asset route handling so Playwright page/context/browser closure during test cleanup no longer fails an otherwise complete run, while non-teardown route errors still propagate. Focused validation passed with `make lint-js` and `env LOOPAWARE_BASE_URL=http://localhost:8090 npm --prefix tests run test -- specs/widget-test-page.spec.js`. Full validation passed with `make ci`, including 396 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `tests/helpers/externalAssets.js`, `.mprlab/ISSUES.md`.
-
-- [x] [B028] (P1) Keep Timezones labels aligned with geographic markers.
+- [x] [B003] (P1) Keep Timezones labels aligned with geographic markers.
   ### Summary
   The selected-site Timezones map offsets labels far enough from their projected markers that Los Angeles can read as though it belongs around New York, and visit counts compete with the geographic label text instead of living inside the bubbles.
   ### Deliverables
@@ -96,8 +44,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Updated the Timezones SVG renderer so each bubble renders its visit count centered inside the circle, while the geographic label box stays centered on the projected marker and only moves vertically for collision avoidance. Added dashboard coverage for Los Angeles projected placement, in-circle count text, and label-to-marker x-axis alignment. Validation passed with baseline `make ci`, `make lint-js`, final `make ci`, and a local visual dashboard check using Los Angeles 75 / New York 39 / Unknown 46 seeded traffic.
   ### Changed Files
   `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [B029] (P2) Show native feedback context in the operator mobile app.
+- [x] [B004] (P2) Show native feedback context in the operator mobile app.
   ### Summary
   The operator mobile app checks feedback rows for `source_kind: "mobile"`, but the backend returns native feedback with the canonical `source_kind: "mobile_app"`, causing native feedback rows to appear as Web widget feedback.
   ### Deliverables
@@ -108,8 +55,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Updated the operator mobile app feedback row detail condition to use the backend `mobile_app` source kind and narrowed `FeedbackMessage.source_kind` to the current backend source-kind union. Validation passed with baseline `make ci`, focused `make mobile-check`, and final `make ci` with 425 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `mobile/App.tsx`, `mobile/src/types.ts`.
-
-- [x] [B030] (P2) Proxy LA Sentry routes in the local gHTTP template.
+- [x] [B005] (P2) Proxy LA Sentry routes in the local gHTTP template.
   ### Summary
   The local gHTTP env template routes `/public/` and `/api/` to the LoopAware API but omits `/sentry/`, so copied local stacks send `/sentry/errors` and `/sentry/browser-errors` to the static server instead of the backend LA Sentry handlers.
   ### Deliverables
@@ -120,8 +66,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added `/sentry/=http://loopaware:8080` to the local gHTTP env template so copied local stacks route LA Sentry server and browser ingest requests to the LoopAware API, matching the existing test and computercat proxy templates. Validation passed with `make config-audit` and final `make ci` with 425 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `configs/.env.ghttp.example`.
-
-- [x] [B026] (P0) Replace incorrect four-hour login test with console-clean stale-idle coverage.
+- [x] [B006] (P0) Replace incorrect four-hour login test with console-clean stale-idle coverage.
   ### Summary
   The existing four-hour login regression asserts an internal prepared-nonce refresh strategy, so it can pass while the user still sees login failure after leaving `/login` open for several hours.
   ### Deliverables
@@ -136,8 +81,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Final validation passed with `make ci` on 2026-06-08, including the stale-idle auth coverage and 393 Playwright/API integration specs.
   ### Changed Files
   `.mprlab/ISSUES.md`, `PLAN.md`, `tests/helpers/externalAssets.js`, `tests/helpers/tauthStub.js`, `tests/specs/header-auth-state.spec.js`.
-
-- [x] [B025] (P0) Make Google popup auth compatible with edge opener policy.
+- [x] [B007] (P0) Make Google popup auth compatible with edge opener policy.
   ### Summary
   The long-idle login console trace includes a Google Identity popup warning: `Cross-Origin-Opener-Policy policy would block the window.postMessage call`. LoopAware’s tracked proxy hardening headers do not pin a COOP policy, so a live edge that applies strict `same-origin` opener isolation can break or warn on the GIS popup’s opener communication.
   ### Deliverables
@@ -148,8 +92,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added `Cross-Origin-Opener-Policy: same-origin-allow-popups` to the local, computercat, and test gHTTP proxy header configuration so GIS popup opener communication is explicitly allowed instead of inheriting a stricter edge default. Updated the security-header regression to assert the COOP value for both static frontend documents and proxied API responses. Tests: `make lint-js`; `LOOPAWARE_TEST_SUITE=test make test-integration` (278 passed); `make ci` (394 integration specs passed).
   ### Changed Files
   `.mprlab/ISSUES.md`, `PLAN.md`, `docker-compose.yml`, `docker-compose.computercat.yml`, `tests/docker-compose.yml`, `tests/specs/security-headers.spec.js`.
-
-- [x] [B024] (P0) Cover landing-page login after four idle hours.
+- [x] [B008] (P0) Cover landing-page login after four idle hours.
   ### Summary
   A user can leave the `/login` landing page open for hours, return, and find that the visible Google sign-in no longer completes login.
   ### Deliverables
@@ -160,8 +103,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added `tests/specs/header-auth-state.spec.js` coverage for a single visible header sign-in attempt after `/login` has stayed loaded for four emulated hours. The test initially reproduced the bug against the previously released shared auth library. The systemic fix shipped in `mpr-ui` `v3.10.3`, jsDelivr `mpr-ui@latest` now resolves to `x-jsd-version: 3.10.3`, and the LoopAware scenario advances the Playwright browser clock so the shared prepared-nonce refresh timers execute before the single sign-in click. Production LoopAware code remains untouched. Tests: `make lint-js`; `make test-integration-all` (394 passed); `make ci` (394 integration tests passed).
   ### Changed Files
   `.mprlab/ISSUES.md`, `PLAN.md`, `tests/specs/header-auth-state.spec.js`.
-
-- [x] [B023] (P1) Use `mpr-ui` Google Identity testing helper instead of stub globals.
+- [x] [B009] (P1) Use `mpr-ui` Google Identity testing helper instead of stub globals.
   ### Summary
   LoopAware auth specs still mutate and inspect the local Google Identity stub global directly, even though this behavior belongs behind `mpr-ui`'s public test-only integration contract.
   ### Deliverables
@@ -172,8 +114,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Released `mpr-ui` `v3.10.2` with the `MPRUI.testing.googleIdentity` adapter for test-only Google Identity drivers, verified jsDelivr `mpr-ui@latest` resolves to `x-jsd-version: 3.10.2`, and routed LoopAware's GIS route stub plus auth specs through that public helper instead of app-owned stub globals. Focused auth coverage passed with 83 specs, then final `make ci` passed with 393 Playwright/API specs.
   ### Changed Files
   `.mprlab/ISSUES.md`, `PLAN.md`, `tests/helpers/externalAssets.js`, `tests/specs/header-auth-state.spec.js`, `tests/specs/logout-hardening.spec.js`.
-
-- [x] [B022] (P1) Share Google Identity stub readiness across auth specs.
+- [x] [B010] (P1) Share Google Identity stub readiness across auth specs.
   ### Summary
   GitHub Actions still fails in `logout-hardening.spec.js` because that spec has a second local `enableAutoGoogleCredentialOnClick` helper that mutates the Google Identity stub before the stub has installed its initialized nonce state.
   ### Deliverables
@@ -184,8 +125,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added shared `waitForGoogleIdentityStubInitialized` coverage support in the external asset helper, then reused it from both header auth and logout hardening credential helpers before setting `autoCredentialOnClick`. Focused `logout-hardening` plus `header-auth-state` coverage passed, and final `make ci` passed with 393 Playwright/API specs.
   ### Changed Files
   `.mprlab/ISSUES.md`, `PLAN.md`, `tests/helpers/externalAssets.js`, `tests/specs/header-auth-state.spec.js`, `tests/specs/logout-hardening.spec.js`.
-
-- [x] [B021] (P1) Stabilize auth browser harness readiness in CI.
+- [x] [B011] (P1) Stabilize auth browser harness readiness in CI.
   ### Summary
   GitHub Actions intermittently fails while opening authenticated dashboard pages because seeded `mpr-ui` test authentication can evaluate during a transient navigation, and the long-idle Google nonce regression can mutate the Google Identity stub before the stub state has been installed.
   ### Deliverables
@@ -196,8 +136,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Made the seeded `mpr-ui` browser authentication helper retry only transient Playwright navigation/context-loss errors between readiness and `page.evaluate`, and made header auth tests wait for the Google Identity stub's initialized nonce config before toggling auto credential behavior or reading nonce state. Focused coverage for `dashboard-allowed-origins` and `header-auth-state` passed, then final `make ci` passed with 393 Playwright/API specs.
   ### Changed Files
   `.mprlab/ISSUES.md`, `PLAN.md`, `tests/helpers/fixtures.js`, `tests/specs/header-auth-state.spec.js`.
-
-- [x] [B020] (P1) Restore feedback bubble color customization.
+- [x] [B012] (P1) Restore feedback bubble color customization.
   ### Summary
   Operators can still adjust feedback bubble placement and feedback input visibility, but the dashboard and widget test page no longer expose a way to customize the feedback bubble color.
   ### Deliverables
@@ -209,8 +148,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added `widget_accent_color` as a persisted site setting with lowercase `#rrggbb` edge validation, migration backfill, admin/public API exposure, dashboard autosave support, widget-test page editing and preview, and runtime widget application to the feedback bubble and Send button. Added API, dashboard, widget runtime, and widget-test page coverage. Baseline and final `make ci` passed.
   ### Changed Files
   `.mprlab/ISSUES.md`, `README.md`, `internal/api/admin.go`, `internal/api/public.go`, `internal/api/public_additional_test.go`, `internal/api/public_test.go`, `internal/model/models.go`, `internal/storage/database.go`, `internal/storage/database_test.go`, `internal/storage/migrations.go`, `tests/specs/api-admin.spec.js`, `tests/specs/api-public.spec.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-site-actions.spec.js`, `tests/specs/widget-integration.spec.js`, `tests/specs/widget-test-page.spec.js`, `web/app/index.html`, `web/app/widget-test/index.html`, `web/widget.js`.
-
-- [x] [B019] (P0) Recover login after long-idle Google nonce expiry.
+- [x] [B013] (P0) Recover login after long-idle Google nonce expiry.
   ### Summary
   Leaving a public LoopAware page open long enough for the prepared Google/TAuth nonce to expire can make the next header sign-in popup complete visually while the credential exchange stays unauthenticated.
   ### Deliverables
@@ -221,8 +159,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Published `mpr-ui` `v3.10.1`, which timestamps prepared GIS nonces, rejects expired callback nonces before TAuth credential exchange, emits `mpr-ui.auth.stale_nonce`, and primes a fresh nonce for the next sign-in attempt. Added LoopAware Playwright coverage that advances the page clock past nonce freshness, verifies the stale click does not call `/auth/google`, then verifies the next click exchanges the refreshed nonce and reaches `/app`. Verified jsDelivr `mpr-ui@latest` resolves to `x-jsd-version: 3.10.1`, then ran `make test-integration-all` and `make ci`.
   ### Changed Files
   `tests/specs/header-auth-state.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [B018] (P0) Restore GitHub Actions browser setup before CI timeout.
+- [x] [B014] (P0) Restore GitHub Actions browser setup before CI timeout.
   ### Summary
   The GitHub Actions `test` job cancels before `make ci` starts because `npm --prefix tests run install:browsers` spends the 15-minute job budget installing every Playwright browser and Linux dependency even though the suite runs Chromium-only.
   ### Deliverables
@@ -233,8 +170,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed GitHub Actions to install test dependencies with `npm ci`, run Playwright against the runner's system Chrome instead of downloading bundled Chromium, disable Playwright video capture when a system browser channel is selected so cached Playwright ffmpeg is not required, increased the job timeout to 30 minutes, and kept the integration-script fallback aligned with the configured browser channel. Verified `npm --prefix tests ci`, the system-Chrome Playwright configuration, and full local `make ci` with 383 Playwright/API tests passing.
   ### Changed Files
   `.github/workflows/ci.yml`, `tests/playwright.config.js`, `tests/package.json`, `tests/scripts/run-integration.sh`, `.mprlab/ISSUES.md`.
-
-- [x] [B001] (P0) Verify successful login lands on a loaded dashboard.
+- [x] [B015] (P0) Verify successful login lands on a loaded dashboard.
   ### Summary
   Add black-box browser coverage for the full login completion path: an unauthenticated user starts from `/login`, completes Google/TAuth sign-in, receives a usable session, reaches `/app`, and sees the authenticated dashboard loaded.
   ### Deliverables
@@ -243,7 +179,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Fix any auth handoff regression exposed by the new coverage.
   ### Resolution
   Added black-box Playwright coverage for the login CTA completing TAuth exchange, receiving a session cookie, reaching `/app`, waiting for the loaded dashboard, and verifying authenticated header/user state. The TAuth test stub now writes the post-exchange session cookie so the browser test matches the real login handoff. `make ci` passed.
-- [x] [B002] (P0) Make IP rate limits independent of wall-clock bucket boundaries.
+- [x] [B016] (P0) Make IP rate limits independent of wall-clock bucket boundaries.
   ### Summary
   `make ci` exposed an intermittent LA Sentry browser rate-limit failure where requests started near the end of a 30-second wall-clock bucket could split across buckets and avoid the intended per-window limit.
   ### Deliverables
@@ -252,31 +188,25 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Verify the black-box integration suite no longer lets the boundary case through.
   ### Resolution
   Replaced wall-clock bucket counters with per-client windows for public API and LA Sentry browser rate limits, updated helper tests, and verified `make test-integration-api` plus `make ci` pass.
-
-- [x] [B003] (P1) Fix subscription confirmation brand navigation.
+- [x] [B017] (P1) Fix subscription confirmation brand navigation.
   ### Summary
   The LoopAware brand link on subscription token pages points to `#top`, so confirming a subscription leaves the user trapped on the confirmation page through the natural header flow.
-
   ### Deliverables
   - Make subscription token page brand links navigate to LoopAware instead of scrolling the current page.
   - Route unauthenticated users to `/login` and authenticated users to `/app`.
   - Add black-box browser coverage for the public-page brand navigation behavior.
-
   ### Resolution
   Replaced subscription token page brand `#top` links with auth-aware LoopAware home links, reused shared header auth state to update public-page brand destinations to `/login` or `/app`, added Playwright coverage for signed-out and signed-in public-page brand navigation, and verified `make ci` passes.
-
-- [x] [B004] (P0) Make production landing login use a real Google sign-in control.
+- [x] [B018] (P0) Make production landing login use a real Google sign-in control.
   ### Summary
   The production `/login` dashboard CTAs intercept clicks and programmatically re-click the header Google sign-in target. Real Google sign-in is rendered inside a cross-origin iframe, so this delegated click path can lose the user's direct activation and leave the user on the landing page instead of opening the sign-in flow.
-
   ### Deliverables
   - Replace landing dashboard CTA triggers with first-class `mpr-login-button` controls.
   - Remove the delegated dashboard-login click bridge that programmatically clicks the header Google sign-in target.
   - Add black-box browser coverage that signs in from the landing-page control and reaches the loaded dashboard.
   ### Resolution
   Replaced the landing dashboard CTA anchors with real `mpr-login-button` controls, removed the programmatic dashboard-login click bridge from `web/header-auth.js`, scoped runtime auth bootstrap so the login-page header no longer creates a competing Google controller, updated the Google test stub to expose a clickable rendered sign-in button, added black-box landing-login coverage through the loaded dashboard, and verified `make ci` passes.
-
-- [x] [B005] (P0) Use config-first mpr-ui/TAuth authentication.
+- [x] [B019] (P0) Use config-first mpr-ui/TAuth authentication.
   ### Summary
   LoopAware still bootstraps authentication with app-owned `tauth.js` loading, direct TAuth helper globals, manual `tauth-*` attributes, and multiple login controls on `/login`. This interferes with mpr-ui's shared auth lifecycle and can trigger duplicate `/me`/`/auth/refresh` probes plus repeated Google Identity initialization.
   ### Deliverables
@@ -286,8 +216,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Add black-box browser coverage that the login page has a single Google auth controller.
   ### Resolution
   Moved LoopAware auth configuration to `/config-ui.yaml`, switched served pages to the `mpr-ui-config.js` and bundle-marker flow using `mpr-ui@latest`, removed direct `tauth.js`/TAuth helper globals, and kept app code to public mpr-ui auth events plus product redirects/overlays. Fixed the shared `mpr-ui` nonce lifecycle bug that mismatched GIS nonce tokens after unauthenticated `/me`/`/auth/refresh` bootstrap, published the fix upstream, updated black-box coverage for the single auth controller, TAuth credential exchange, and logout failure recovery, and verified `make ci` passes.
-
-- [x] [B006] (P0) Keep the login page Google sign-in in the header actions.
+- [x] [B020] (P0) Keep the login page Google sign-in in the header actions.
   ### Summary
   The `/login` page needs the visible Google sign-in control in the right side of the header without making LoopAware own Google/TAuth bootstrap or creating a second mpr-ui auth controller.
   ### Deliverables
@@ -296,8 +225,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Preserve single-controller coverage for `/me`, `/auth/refresh`, and Google Identity initialization.
   ### Resolution
   Kept `/login` on the canonical `<mpr-header data-config-url="/config-ui.yaml">` path so the built-in header Google button remains in the right-side header actions. Fixed and published `mpr-ui` so nested header user menus mirror header auth events/state instead of starting their own profile bootstrap, preserving a single mpr-ui auth owner for `/me`, `/auth/refresh`, and Google Identity initialization. Updated Playwright coverage for header-right placement, TAuth config ownership, credential exchange, and the single auth controller.
-
-- [x] [B007] (P0) Remove LoopAware-owned Google auth scaffolding.
+- [x] [B021] (P0) Remove LoopAware-owned Google auth scaffolding.
   ### Summary
   LoopAware must not load or inspect Google authentication plumbing directly. Browser authentication scaffolding belongs to `mpr-ui`; session verification belongs to TAuth's verifier. LoopAware should only consume public `mpr-ui` auth lifecycle events and perform product-specific redirects, overlays, and authorization.
   ### Deliverables
@@ -309,8 +237,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Removed direct Google Identity Services script tags from LoopAware-authored auth pages and dashboard preview pages. Replaced the LoopAware header auth click probe against shared Google-control internals with documented `mpr-ui:auth:status-change` and `mpr-ui:header:signin-click` lifecycle handling. Updated README, architecture, PRD, marketing copy, privacy, and terms language so LoopAware describes the auth boundary as shared `mpr-ui`/TAuth sign-in plus TAuth verifier-backed session validation. Added black-box Playwright coverage that fetches each auth page over HTTP and verifies the served HTML does not load GIS directly while the shared sign-in flow still passes. Follow-up coverage now forces delayed authenticated mpr-ui reconciliation after explicit logout so the protected dashboard keeps the logout overlay active until redirect. `make ci` passed.
   ### Changed Files
   `ARCHITECTURE.md`, `PRD.md`, `README.md`, `docs/loopaware-marketing-blurb.md`, `tests/specs/header-auth-state.spec.js`, `tests/specs/logout-hardening.spec.js`, `web/header-auth.js`, shared auth HTML pages under `web/`.
-
-- [x] [B008] (P0) Gate timeout logout redirect on successful response.
+- [x] [B022] (P0) Gate timeout logout redirect on successful response.
   ### Summary
   The session-timeout logout flow redirects to `/login` after any resolved `/auth/logout` fetch response. HTTP 4xx/5xx responses still resolve, so a failed server logout can move users off `/app` while their server session remains valid.
   ### Deliverables
@@ -319,8 +246,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Add black-box browser coverage for the failed logout response path.
   ### Resolution
   Updated the dashboard timeout logout request to throw on non-OK `/auth/logout` responses, recover the dashboard overlay state on failure, and restart the idle manager when the session-timeout flow remains on `/app`. Added black-box browser coverage for a failed session-timeout logout response and verified the full `make ci` gate passes.
-
-- [x] [B009] (P0) Restore dashboard allowed-origin browser coverage stability.
+- [x] [B023] (P0) Restore dashboard allowed-origin browser coverage stability.
   ### Summary
   Full `make ci` times out in the dashboard allowed-origin browser tests before the suite can complete. The failure appears before the B008 changed path and was reproduced in both the pre-change baseline and post-change CI attempt.
   ### Deliverables
@@ -329,8 +255,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Restore the full `make ci` gate.
   ### Resolution
   Moved seeded browser-auth synchronization to the public `MPRUI.testing` helper exposed by the shared header package and released that helper through CDN-hosted mpr-ui. Updated the harness to match the current mpr-ui no-anonymous-probe contract. While restoring the full gate, fixed a follow-on dashboard autosave race so disabling both widget feedback controls shows the validation error immediately and stale autosave success responses no longer hide the invalid state. `make ci` passed.
-
-- [x] [B010] (P0) Enforce CDN-only shared UI assets.
+- [x] [B024] (P0) Enforce CDN-only shared UI assets.
   ### Summary
   LoopAware must never carry a local `tools/mpr-ui` checkout or test-time vendored shared UI bundle; all third-party and shared UI assets must come from CDN-hosted URLs.
   ### Deliverables
@@ -340,8 +265,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Verify the failing dashboard/auth browser cases pass against CDN-hosted `mpr-ui@latest`.
   ### Resolution
   Removed the `tools/mpr-ui` symlink, removed local mpr-ui reads and test-time asset patching from `tests/helpers/externalAssets.js`, and added a config-audit rule with coverage that rejects `tools/mpr-ui`. Published `mpr-ui` tag `v3.9.7` so `mpr-ui@latest` exposes `MPRUI.testing`, then verified the 27 dashboard/auth cases from the failed run pass against CDN-only assets.
-
-- [!] [B011] (P0) Restore production dashboard access after TAuth login.
+- [!] [B025] (P0) Restore production dashboard access after TAuth login.
   ### Summary
   The production dashboard can remain unauthenticated after the shared TAuth login handoff when the LoopAware API runtime drifts from the TAuth tenant cookie-name/signing-key contract or when the first dashboard API request observes a transient stale auth state before a full page refresh.
   ### Deliverables
@@ -356,8 +280,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Blocked: applying and verifying the corrected production runtime config still requires the `mprlab-gateway` deploy step that previously stopped at the interactive `Gateway sudo password:` prompt.
   ### Changed Files
   `cmd/configaudit/main.go`, `cmd/configaudit/main_test.go`, `configs/.env.loopaware.example`, `configs/.env.loopaware.computercat.example`, `tests/specs/header-auth-state.spec.js`, `web/app/index.html`, `.mprlab/ISSUES.md`.
-
-- [x] [B012] (P0) Restore integration Pinguin startup after config schema drift.
+- [x] [B026] (P0) Restore integration Pinguin startup after config schema drift.
   ### Summary
   Baseline `make ci` no longer reaches the API and browser integration suites because the Pinguin service in `tests/docker-compose.yml` rejects LoopAware's bundled Pinguin config. The runtime now treats TAuth identity metadata as a shared-shell concern and fails on the stale `tenants[].identity` shape.
   ### Deliverables
@@ -367,8 +290,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Verify the API integration slice starts successfully before proceeding with reporting work.
   ### Resolution
   Removed stale Pinguin tenant identity metadata from the LoopAware Pinguin config, added the current disabled SMTP submission/forwarding section defaults to the tracked test and example envs, and removed the obsolete config-audit Google-provider invariant. Verified the API integration slice passes with 108 tests and the full `make ci` gate passes with 358 integration tests.
-
-- [x] [B013] (P0) Scope scheduled report device and timezone totals to the report window.
+- [x] [B027] (P0) Scope scheduled report device and timezone totals to the report window.
   ### Summary
   Weekly traffic report emails can show a seven-day page-view total while Devices and Timezones list larger all-time visit totals, making the report internally inconsistent.
   ### Deliverables
@@ -379,8 +301,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added window-scoped device and timezone statistics methods that share the VisitTrend UTC day window. Scheduled traffic report emails now use those windowed breakdowns while dashboard device/timezone endpoints keep their existing all-time behavior. Added regression coverage proving old visits do not appear in weekly email Devices, Timezones, Top pages, or headline totals. `make ci` passed.
   ### Changed Files
   `internal/api/site_stats.go`, `internal/api/traffic_report_schedule.go`, `internal/api/traffic_report_schedule_test.go`, `internal/api/admin_helpers_test.go`, `internal/api/admin_test.go`, `.mprlab/ISSUES.md`.
-
-- [x] [B014] (P1) Fix global traffic report review findings.
+- [x] [B028] (P1) Fix global traffic report review findings.
   ### Summary
   Review found that the global traffic report page can hide report-definition load failures, schedule edits can overwrite saved timezones with the browser timezone, and the locked default report name appears like a broken editable field.
   ### Deliverables
@@ -392,8 +313,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Report-definition load failures now stop the all-sites reporting load chain so downstream stats cannot clear the visible error. Traffic report schedule responses expose whether they are persisted, letting the dashboard seed unsaved defaults from the browser timezone while preserving saved selected-site and all-sites timezones on later edits. The built-in all-sites report now renders as an explicit read-only default report while custom reports keep the editable name input. Added black-box API and dashboard coverage for these paths. `make ci` passed.
   ### Changed Files
   `internal/api/portfolio_traffic_report.go`, `internal/api/traffic_report_schedule.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`, `.mprlab/ISSUES.md`.
-
-- [x] [B015] (P1) Remove aggregate top-pages sections from all-sites traffic reports.
+- [x] [B029] (P1) Remove aggregate top-pages sections from all-sites traffic reports.
   ### Summary
   All-sites traffic reports rank bare URL paths across unrelated properties, which makes the Top pages section noisy and misleading for aggregate reports even though it remains useful for individual-site reports.
   ### Deliverables
@@ -404,8 +324,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Removed aggregate Top pages output from portfolio traffic report API responses, dashboard rendering, and scheduled email templates while keeping selected-site Top pages unchanged. Added API, dashboard, element, and email-template regression coverage proving all-sites reports omit aggregate top-pages output. `make ci` passed.
   ### Changed Files
   `internal/api/portfolio_traffic_report.go`, `internal/api/templates/portfolio_traffic_report_email.txt`, `internal/api/portfolio_traffic_report_test.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`, `.mprlab/ISSUES.md`.
-
-- [x] [B017] (P1) Keep dashboard SSE streams alive through gateway read timeouts.
+- [x] [B030] (P1) Keep dashboard SSE streams alive through gateway read timeouts.
   ### Summary
   Production dashboard SSE streams for favicon and feedback updates can sit idle longer than the gateway upstream read timeout, causing Chrome to report `ERR_HTTP2_PROTOCOL_ERROR` when the proxy closes the stream.
   ### Deliverables
@@ -418,47 +337,10 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `internal/api/admin.go`, `internal/api/site_subscribe_test_handlers.go`, `internal/api/stream_handlers_test.go`, `.mprlab/ISSUES.md`.
 
+
 ## Improvements
 
-- [x] [I030] (P1) Publish-ready React Native feedback client package.
-  ### Summary
-  Mobile feedback support was implemented as repo-local React Native source, but downstream apps could not install `@loopaware/react-native` from npm and CI did not prove package installability.
-  ### Deliverables
-  - Convert `clients/react-native` into a buildable npm package with `dist` JavaScript and TypeScript declarations.
-  - Add package metadata, license contents, public publish configuration, and a trusted-publishing GitHub workflow.
-  - Validate the packed tarball by installing it into a temporary downstream consumer and typechecking a real import.
-  - Trigger CI for `clients/**` changes and document npm install plus direct REST integration for non-React Native apps.
-  ### Resolution
-  Added build, pack, and downstream-consumer validation for `@loopaware/react-native`, including npm package metadata, self-contained license text, `dist` exports, a slim package lock, and a manual trusted-publishing workflow that publishes from `clients/react-native`. `make lint-js` now runs `make client-react-native-check`, and GitHub CI triggers on `clients/**` changes. README and client docs now describe npm installation for React Native/Expo apps and direct REST integration for Swift/Kotlin/native apps. Validation passed with baseline `make ci`, focused `make client-react-native-check`, `npm publish --dry-run --json` from `clients/react-native`, and final `make ci`.
-  ### Changed Files
-  `PLAN.md`, `.dockerignore`, `.github/workflows/ci.yml`, `.github/workflows/npm-react-native.yml`, `.gitignore`, `.mprlab/ISSUES.md`, `CHANGELOG.md`, `Makefile`, `README.md`, `clients/README.md`, `clients/react-native/LICENSE`, `clients/react-native/README.md`, `clients/react-native/package-lock.json`, `clients/react-native/package.json`, `clients/react-native/scripts/clean-dist.mjs`, `clients/react-native/scripts/verify-package.mjs`, `clients/react-native/tsconfig.build.json`.
-
-- [x] [I029] (P1) Use CalVer for the LoopAware Android internal-testing bundle.
-  ### Summary
-  The first generated LoopAware Android App Bundle used the default `1.0.0` app version, but the release should use a date-based version for the current internal-testing upload.
-  ### Deliverables
-  - Set the mobile app version metadata to CalVer `2026.6.19`.
-  - Rebuild the signed Android App Bundle from the repo-owned local bundle path.
-  - Verify the generated `.aab` reports versionName `2026.6.19` while preserving package `com.mprlab.loopaware` and release signing.
-  ### Resolution
-  Set the Expo and mobile package metadata to CalVer `2026.6.19`, rebuilt the signed Android App Bundle through `make build-android`, and verified the generated bundle reports package `com.mprlab.loopaware`, versionName `2026.6.19`, versionCode `1`, and the same LoopAware release upload signer. Validation passed with `make mobile-check`, bundle metadata/signing checks from the build, and final `make ci` with 426 integration specs.
-  ### Changed Files
-  `PLAN.md`, `.mprlab/ISSUES.md`, `mobile/app.config.js`, `mobile/package.json`, `mobile/package-lock.json`.
-
-- [x] [I028] (P1) Build signed LoopAware Android App Bundles without EAS login.
-  ### Summary
-  Preparing the operator mobile app for Google Play internal testing required a signed `.aab`, but the repo's Android build path depended on EAS authentication and the generated native project only had debug signing.
-  ### Deliverables
-  - Add a repo-owned local Android App Bundle build path matching the Kamu release workflow.
-  - Force release signing with a LoopAware upload keystore and reject Android debug-signed bundles.
-  - Copy the `.aab` and deobfuscation mapping file into `mobile/dist/` with machine-readable metadata.
-  - Verify focused mobile validation, generated bundle metadata, signer identity, and the full CI gate.
-  ### Resolution
-  Added a local Android App Bundle builder under `mobile/scripts/build-android-bundle.mjs` and wired `make build-android` through `mobile-android-bundle` so LoopAware can produce a signed Play Console `.aab` without EAS login. The builder creates or reuses a local LoopAware upload keystore, patches the generated Expo Android project to force `signingConfig signingConfigs.release`, rejects Android debug-signed bundles, runs `bundletool validate`, and exports the R8 deobfuscation mapping file. Generated and verified `mobile/dist/loopaware-1.0.0-android-release.aab` for package `com.mprlab.loopaware`, versionCode `1`, versionName `1.0.0`, signed by `CN=LoopAware Android Upload, OU=MPRLab, O=MPRLab, L=San Francisco, ST=California, C=US`. Validation passed with focused `make mobile-check`, bundle metadata/signing checks, and final `make ci` with 426 integration specs.
-  ### Changed Files
-  `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `mobile/scripts/build-android-bundle.mjs`, `mobile/scripts/validate-mobile-config.mjs`.
-
-- [x] [I027] (P1) Add a public SEO resources cluster.
+- [x] [I001] (P1) Add a public SEO resources cluster.
   ### Summary
   LoopAware needs a deliberate set of crawlable, internally linked public resource pages that advertise distinct product surfaces without creating hidden doorway pages or thin near-duplicate pages.
   ### Deliverables
@@ -470,8 +352,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added a crawlable `/resources` hub and eight focused resource pages for feedback widgets, subscriber capture, privacy-first analytics, lightweight analytics, LA Sentry monitoring, self-hosted feedback, SaaS feedback, and agency client sites. Each page has crawl-friendly metadata, canonical URLs, structured data, and internal links within the resource cluster while leaving the main login surface unlinked. Updated `robots.txt`, `sitemap.xml`, README documentation, and black-box SEO coverage. Validation passed with `git diff --check`, `make test-integration-all`, Browser checks for `/resources` and `/resources/la-sentry-monitoring`, and final `make ci`.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `tests/specs/seo-public-pages.spec.js`, `web/robots.txt`, `web/sitemap.xml`, `web/resources/index.html`, `web/resources/styles.css`, `web/resources/feedback-widget/index.html`, `web/resources/subscriber-capture/index.html`, `web/resources/privacy-first-analytics/index.html`, `web/resources/lightweight-analytics/index.html`, `web/resources/la-sentry-monitoring/index.html`, `web/resources/self-hosted-feedback/index.html`, `web/resources/saas-feedback/index.html`, `web/resources/agency-client-sites/index.html`.
-
-- [x] [I026] (P1) Tighten visitor-location edge geo inference and aggregation.
+- [x] [I002] (P1) Tighten visitor-location edge geo inference and aggregation.
   ### Summary
   Review found that country-only edge geo is dropped when the country is not in LoopAware's small country-anchor map, and the locations endpoint now scans every matching visit row before aggregating in Go.
   ### Deliverables
@@ -482,8 +363,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Preserved country-only edge geo for unmapped ISO countries by keeping it as an edge_geo location with a shared unmapped-country anchor instead of falling back to timezone or locale. Changed the locations query to group raw signal tuples with COUNT(*) before inference, so aggregation no longer scans one inferred row per visit. Added regression coverage for unmapped country-only CloudFront geo. Validation passed with `go test ./internal/api -run 'TestDatabaseSiteStatisticsProviderLocationDistribution|TestLocationDistributionHelperFunctions'`, `make test-unit`, `make lint-js`, and `make ci` including 405 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `internal/api/site_stats.go`, `internal/api/site_stats_additional_test.go`.
-
-- [x] [I025] (P1) Improve visitor-location confidence with edge geo signals.
+- [x] [I003] (P1) Improve visitor-location confidence with edge geo signals.
   ### Summary
   The Locations map now uses timezone, locale, network, and unknown signals, but timezone and locale alone are still weak location proxies. When LoopAware runs behind an edge or reverse proxy that supplies geo headers, the collector should preserve that signal and the analysis layer should report confidence.
   ### Deliverables
@@ -494,8 +374,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added trusted edge geo collection for Cloudflare, Vercel, and CloudFront visit requests, storing source, country, region, city, and coordinates on visit records. Location inference now prefers edge geo over timezone, locale, and local-network fallbacks, exposes country/region/city/confidence metadata in the locations API, dashboard map DOM, CSV export, and traffic report emails, and documents the stronger signal path. Validation passed with `make test-unit`, `make lint-js`, `make test-integration-api`, `make test-integration`, and final `make ci` including 405 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `ARCHITECTURE.md`, `README.md`, `internal/model/visit.go`, `internal/model/visit_test.go`, `internal/api/admin.go`, `internal/api/admin_test.go`, `internal/api/site_stats.go`, `internal/api/site_stats_additional_test.go`, `internal/api/templates/traffic_report_email.txt`, `internal/api/traffic_report_schedule_test.go`, `internal/api/visit_collector.go`, `internal/api/visit_collector_additional_test.go`, `tests/helpers/api.js`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`.
-
-- [x] [I024] (P1) Replace visitor timezone reporting with inferred locations.
+- [x] [I004] (P1) Replace visitor timezone reporting with inferred locations.
   ### Summary
   The selected-site Traffic map currently presents browser timezones as the reporting dimension, but the useful operator question is visitor location. Timezones should become one signal among several, alongside browser locale and local-network/unknown fallbacks.
   ### Deliverables
@@ -507,8 +386,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Superseded the selected-site Timezones surface with Locations and replaced the traffic API contract with `/api/sites/:id/visits/locations`, with no old `/visits/timezones` route alias. The traffic pixel and public collector now store browser locale, location distribution infers one point per visit from timezone, locale, local network, or unknown signals, and the dashboard map exposes label/source/signal metadata. CSV export and traffic report emails now include inferred location details, docs describe the new endpoint and collection signals, and the active world-map generator/check was renamed to location terminology. Validation passed with baseline `make ci`, `make test-unit`, `make lint-js`, `make test-integration-api`, `make test-integration`, and final `make ci` with 404 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `ARCHITECTURE.md`, `README.md`, `Makefile`, `cmd/server/main.go`, `cmd/server/routes.go`, `internal/model/visit.go`, `internal/model/visit_test.go`, `internal/api/admin.go`, `internal/api/admin_helpers_test.go`, `internal/api/admin_test.go`, `internal/api/site_stats.go`, `internal/api/site_stats_additional_test.go`, `internal/api/templates/traffic_report_email.txt`, `internal/api/traffic_report_schedule.go`, `internal/api/traffic_report_schedule_test.go`, `internal/api/visit_collector.go`, `internal/api/visit_collector_additional_test.go`, `tests/helpers/api.js`, `tests/package.json`, `tests/scripts/generate-location-world-map.mjs`, `tests/scripts/generate-timezone-world-map.mjs`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`, `web/pixel.js`.
-
-- [x] [I023] (P1) Add selected-site Traffic intervals and CSV export.
+- [x] [I005] (P1) Add selected-site Traffic intervals and CSV export.
   ### Summary
   The selected-site Traffic card always shows all-time totals and does not offer a direct export for the traffic data operators are reviewing.
   ### Deliverables
@@ -520,8 +398,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added selected-site Traffic interval controls for 1 day, 30 days, and All, applied the interval to selected-site traffic endpoints and dashboard refreshes, and added authenticated CSV export with formula-safe cells. Added black-box API and dashboard coverage for interval filtering, CSV export, and labels. `make test-unit` and `make ci` pass.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `ARCHITECTURE.md`, `README.md`, `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/admin.go`, `internal/api/site_stats.go`, `internal/api/admin_helpers_test.go`, `internal/api/admin_test.go`, `internal/api/site_stats_additional_test.go`, `internal/api/traffic_report_schedule_test.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`.
-
-- [x] [I014] (P1) Replace duplicate timezone views with a visit-density map.
+- [x] [I006] (P1) Replace duplicate timezone views with a visit-density map.
   ### Summary
   The selected-site Traffic tab rendered timezone distribution twice as a bar chart and a table. Operators need one map view where higher visit counts appear as larger bubbles.
   ### Deliverables
@@ -534,8 +411,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Final validation passed with `make ci` on 2026-06-08, including 393 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `tests/specs/dashboard-elements.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [I015] (P1) Replace duplicate device views with an icon row graph.
+- [x] [I007] (P1) Replace duplicate device views with an icon row graph.
   ### Summary
   The selected-site Traffic tab rendered device distribution twice as a bar chart and a table. Operators need one device row graph where each row shows a device icon and the visit count.
   ### Deliverables
@@ -548,8 +424,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Final validation passed with `make ci` on 2026-06-08, including 393 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [I016] (P1) Replace duplicate top-pages views with a ranked path row graph.
+- [x] [I008] (P1) Replace duplicate top-pages views with a ranked path row graph.
   ### Summary
   The selected-site Traffic tab rendered path data twice as a bar chart and a table. Operators need one path view that ranks pages and keeps the visit count visible.
   ### Deliverables
@@ -561,8 +436,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Replaced the duplicate Top pages chart/table surface with a single ranked row graph in `#top-pages-chart`. Each row now renders rank, an inline page SVG icon, a path label, a proportional bar, and the visible visit count. Updated dashboard traffic coverage to assert path rows, icons, ranks, counts, placeholder text, and stats failure text, and updated the shell element coverage for the removed table body. Validation passed with `make lint-js`, `npm --prefix tests run test -- specs/dashboard-traffic.spec.js specs/dashboard-elements.spec.js`, and `make ci` with 393 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `tests/specs/dashboard-elements.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [I017] (P1) Rename selected-site traffic breakdown section headings.
+- [x] [I009] (P1) Rename selected-site traffic breakdown section headings.
   ### Summary
   The selected-site Traffic tab should use parallel section labels under the total visits graph: Pages, Devices, and Timezones.
   ### Deliverables
@@ -573,8 +447,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Renamed the selected-site traffic breakdown headings to Pages, Devices, and Timezones, added stable heading IDs, and covered those labels in the dashboard shell and label specs. Validation passed with `make lint-js` and `make ci` with 396 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-elements.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [I018] (P1) Clean up the selected-site timezone map visual treatment.
+- [x] [I010] (P1) Clean up the selected-site timezone map visual treatment.
   ### Summary
   The first timezone map used crude land shapes and oversized labels, making the selected-site Timezones section look unpolished.
   ### Deliverables
@@ -586,8 +459,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Reworked the timezone map into a restrained coordinate map with subtle grid lines, capped bubbles, connector lines, and label pills. Removed the faux land paths entirely and updated dashboard traffic coverage to assert the cleaner map structure and bubble sizing. Validation passed with `make lint-js`, `npm --prefix tests run test -- specs/dashboard-traffic.spec.js`, and `make ci` with 396 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [I020] (P1) Render the Timezones bubble graph on a real world map.
+- [x] [I011] (P1) Render the Timezones bubble graph on a real world map.
   ### Summary
   The cleaned timezone map was visually restrained but no longer looked like a real map, so the Timezones section lost the geographic context required for a map-based bubble graph.
   ### Deliverables
@@ -599,8 +471,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added a static simplified Natural Earth world land outline behind the Timezones bubbles, aligned the timezone projection to the same centered equirectangular map, and kept the capped visit bubbles plus readable label pills on top. Updated dashboard traffic coverage to require the world land layer. Validation passed with `make lint-js`, `npm --prefix tests run test -- specs/dashboard-traffic.spec.js`, and `make ci` with 396 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [I021] (P1) Prove Timezones bubbles use real geographic placement.
+- [x] [I012] (P1) Prove Timezones bubbles use real geographic placement.
   ### Summary
   The Timezones bubble graph must be an actual world map, with circles placed from each timezone's latitude and longitude rather than arbitrary dashboard layout positions.
   ### Deliverables
@@ -611,8 +482,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Exposed the Timezones SVG as a Natural Earth 110m equirectangular world map, stored each rendered bubble's source latitude and longitude, and expanded dashboard coverage to assert New York and London bubbles land at their expected projected coordinates. Validation passed with `make lint-js`, `npm --prefix tests run test -- specs/dashboard-traffic.spec.js`, and `make ci` with 396 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [I022] (P1) Back the Timezones world map with supported geo tooling.
+- [x] [I013] (P1) Back the Timezones world map with supported geo tooling.
   ### Summary
   The Timezones map should not rely on an opaque hand-edited SVG path. The land outline needs a reproducible source using maintained geospatial packages while keeping the dashboard runtime simple.
   ### Deliverables
@@ -624,8 +494,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added `tests/scripts/generate-timezone-world-map.mjs`, which converts `world-atlas` Natural Earth `land-110m` TopoJSON to the dashboard SVG path through `topojson-client` and D3's equirectangular projection. The embedded land path is now marked as generated, and `make lint-js` runs `npm --prefix tests run check:timezone-map` so CI fails if the checked-in path drifts from the generator. Dashboard coverage still asserts the rendered map source, projection, bubble sizes, and projected New York/London coordinates. Validation passed with `make lint-js`, `env LOOPAWARE_BASE_URL=http://localhost:8090 npm --prefix tests run test -- specs/dashboard-traffic.spec.js`, and `make ci` with 396 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `Makefile`, `tests/package.json`, `tests/package-lock.json`, `tests/scripts/generate-timezone-world-map.mjs`, `web/app/index.html`, `.mprlab/ISSUES.md`.
-
-- [x] [I019] (P1) Differentiate tablet and mobile device icons in the Devices row graph.
+- [x] [I014] (P1) Differentiate tablet and mobile device icons in the Devices row graph.
   ### Summary
   The Devices row graph uses tablet and mobile icons with similar narrow outlines, so operators cannot quickly distinguish the two rows.
   ### Deliverables
@@ -637,8 +506,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Rendered mobile as a narrow phone, tablet as a landscape slate, and desktop as a monitor. Expanded the dashboard traffic spec to seed mobile, tablet, and desktop visits and assert each rendered icon frame has distinct dimensions. Focused validation passed with `make lint-js` and `env LOOPAWARE_BASE_URL=http://localhost:8090 npm --prefix tests run test -- specs/dashboard-traffic.spec.js`. Full completion-gate validation later passed on the same branch with `make ci` and 396 Playwright/API integration specs, so the earlier transient integration blocker is no longer active.
   ### Changed Files
   `PLAN.md`, `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [I013] (P1) Mark X-axis time labels on traffic trend charts.
+- [x] [I015] (P1) Mark X-axis time labels on traffic trend charts.
   ### Summary
   Traffic trend charts expose the count scale, but the horizontal axis is still unlabeled, so operators cannot tell which days the plotted points represent.
   ### Deliverables
@@ -649,8 +517,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added first/middle/last date tick marks and UTC-formatted date labels to the shared traffic trend SVG renderer used by selected-site and all-sites traffic charts. Updated dashboard traffic browser coverage to assert the visible X-axis labels for the selected-site 7-day trend and the all-sites 30-day report trend. `make ci` passed with 384 integration tests.
   ### Changed Files
   `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [I012] (P1) Show count scales on traffic trend charts.
+- [x] [I016] (P1) Show count scales on traffic trend charts.
   ### Summary
   Traffic trend charts currently show only line shape, so operators cannot read the visit-count scale from the graph itself.
   ### Deliverables
@@ -661,8 +528,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added visible y-axis count labels, grid lines, and the `Visits / visitors` unit label to the shared trend chart SVG renderer used by selected-site and all-sites traffic views. Updated black-box dashboard traffic coverage to assert the rendered SVG exposes the scale labels through the SVG text nodes. Focused `dashboard-traffic.spec.js` coverage and full `make ci` passed after the SVG text assertion fix.
   ### Changed Files
   `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [I006] (P1) Add graphical and portfolio traffic reporting.
+- [x] [I017] (P1) Add graphical and portfolio traffic reporting.
   ### Summary
   Traffic reporting currently exposes numeric per-site metrics. Operators need visual trend/breakdown graphics and an all-sites report that summarizes the sites they own.
   ### Deliverables
@@ -675,8 +541,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added native dashboard graphics for selected-site traffic trends, top pages, attribution, engagement, device, and timezone reporting. Added an authenticated all-sites traffic report API scoped to the current user's owned/created sites, portfolio dashboard mode, portfolio report scheduling, and portfolio test-report delivery. Added black-box API and browser coverage for the graphical and portfolio reporting surfaces, and verified `make ci` passes.
   ### Changed Files
   `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/templates/portfolio_traffic_report_email.txt`, `internal/api/traffic_report_schedule.go`, `internal/model/traffic_report_schedule.go`, `internal/storage/database.go`, `tests/helpers/api.js`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`.
-
-- [x] [I007] (P1) Move all-sites traffic reporting entry into settings.
+- [x] [I018] (P1) Move all-sites traffic reporting entry into settings.
   ### Summary
   The Traffic tab is scoped to the selected site, so placing an all-sites report toggle inside that tab makes the reporting scope ambiguous.
   ### Deliverables
@@ -689,8 +554,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Removed the selected-site/all-sites scope selector from the Traffic report card. Added a Reports section in Account Settings with an All sites traffic entry point that opens the portfolio reporting surface, while direct Traffic tab navigation resets to selected-site reporting. Updated portfolio UI and email copy to use sites instead of properties, added black-box dashboard coverage for the Settings entry point and selected-site return path, and verified `make ci` passes.
   ### Changed Files
   `web/app/index.html`, `internal/api/templates/portfolio_traffic_report_email.txt`, `internal/model/traffic_report_schedule.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [I008] (P1) Split all-sites traffic into a separate dashboard view.
+- [x] [I019] (P1) Split all-sites traffic into a separate dashboard view.
   ### Summary
   The all-sites traffic surface is still rendered inside the selected-site dashboard column, so the user can see portfolio metrics while the page still appears to be scoped to one selected site.
   ### Deliverables
@@ -703,8 +567,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added a separate all-sites traffic dashboard view that hides the selected-site account/site workspace. Moved all-sites report scheduling, totals, trend chart, top pages, and per-site table into that screen with an independent back path to the selected-site Traffic tab. Removed the all-sites table and portfolio mode from the selected-site Traffic cards. Added dashboard coverage for the Settings entry point, hidden site workspace, all-sites schedule autosave, and return path. `make ci` passed.
   ### Changed Files
   `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [I009] (P1) Introduce global report-library visual language.
+- [x] [I020] (P1) Introduce global report-library visual language.
   ### Summary
   The global reporting page needs a durable visual model for multiple reports. Operators should be able to select or create report definitions and choose which sites belong to each report, without changing the selected-site Traffic tab.
   ### Deliverables
@@ -717,8 +580,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Reworked the global all-sites traffic screen into a report-library surface with a saved-report rail, selected-report detail, editable custom report names, and included-site selection controls. Kept the selected-site Traffic tab isolated from global reporting state. The default all-sites report remains tied to the existing portfolio schedule, while custom report definitions can scope the preview table to selected sites. Added dashboard coverage for creating a custom report, renaming it, changing included sites, preserving the default all-sites schedule behavior, and returning to the selected-site Traffic tab. `make ci` passed.
   ### Changed Files
   `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `.mprlab/ISSUES.md`.
-
-- [x] [I010] (P1) Persist scoped global traffic report definitions.
+- [x] [I021] (P1) Persist scoped global traffic report definitions.
   ### Summary
   The global reporting page can create and edit report definitions visually, but custom reports are still local UI state. Operators need saved report definitions whose included sites drive portfolio previews and scheduled/test report delivery.
   ### Deliverables
@@ -732,8 +594,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added persisted portfolio traffic report definitions and included-site membership. Added authenticated list/create/update APIs, scoped portfolio report previews by `report_id`, and made portfolio schedules and test-report delivery report-specific while keeping the implicit all-sites report as the default. Rewired the global reporting page to load and save report definitions through the API instead of local storage. Added black-box API and dashboard coverage for persistence, scoped site membership, and separate default/custom schedules. `make ci` passed.
   ### Changed Files
   `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/templates/portfolio_traffic_report_email.txt`, `internal/api/traffic_report_schedule.go`, `internal/model/portfolio_traffic_report.go`, `internal/model/traffic_report_schedule.go`, `internal/storage/database.go`, `tests/helpers/api.js`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`, `.mprlab/ISSUES.md`.
-
-- [x] [I011] (P1) Move the account card into Account Settings.
+- [x] [I022] (P1) Move the account card into Account Settings.
   ### Summary
   The dashboard side column should stay focused on site selection. Account identity belongs in the existing Account Settings modal.
   ### Deliverables
@@ -745,29 +606,14 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Moved the account card into Account Settings while preserving the existing `/api/me` hydration IDs. Removed the account card from the dashboard side column so the side column contains only Sites. Updated dashboard readiness helpers for hidden modal account fields, added black-box coverage for the modal account card and side-column layout, and verified `make ci` passes.
   ### Changed Files
   `web/app/index.html`, `tests/helpers/fixtures.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-layout.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `tests/specs/dashboard-user-menu.spec.js`, `tests/specs/logout-hardening.spec.js`, `README.md`, `.mprlab/ISSUES.md`.
-
-- [x] [I012] (P1) Capture source pages for web widget feedback.
-  ### Summary
-  Operators need to identify the page where web widget feedback was submitted, so feedback records should store and display the validated page URL submitted by the browser widget.
-  ### Deliverables
-  - Store a `source_url` value for public web feedback submissions.
-  - Validate the source URL against the site widget origin contract at the public API edge.
-  - Have `web/widget.js` submit the current page URL with feedback.
-  - Expose and render the source page in the dashboard feedback table.
-  - Add black-box API, widget, and dashboard coverage.
-  ### Resolution
-  Added a feedback `source_url` storage/API field with edge validation for HTTP(S), length, credential-free URLs, and the site widget origin allowlist. The browser widget now submits `window.location.href`, admin feedback responses expose the source URL, dashboard feedback rows render it as `Page: ...` and include it in search, and feedback notifications include a `Source:` line. Updated README API docs and added public API, admin API, widget integration, dashboard feedback, and Pinguin notification coverage. Validation passed with baseline `make ci`, focused Go/API/browser gates, and final `make ci` with 430 integration specs.
-  ### Changed Files
-  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `internal/api/admin.go`, `internal/api/public.go`, `internal/model/mobile_feedback.go`, `internal/model/models.go`, `internal/notifications/pinguin.go`, `internal/notifications/pinguin_test.go`, `tests/specs/api-admin.spec.js`, `tests/specs/api-public.spec.js`, `tests/specs/dashboard-feedback.spec.js`, `tests/specs/widget-integration.spec.js`, `web/app/index.html`, `web/widget.js`.
-
-- [ ] [I004] (P1) Consider a design of a current accordion design of different surfaces.
+- [ ] [I023] (P1) Consider a design of a current accordion design of different surfaces.
   We may want to have a better split out.
-- [x] [I005] (P1) Keep production deploy revision selection automatic.
+- [x] [I024] (P1) Keep production deploy revision selection automatic.
   ### Summary
   The deploy flow should not ask operators to name or select a revision for Pages/backend deployment. The release workflow owns tagging; deploy consumes the release tag at repository `HEAD`.
   ### Resolution
   Removed the deploy wrapper's manual `--tag` option and `DEPLOY_TAG` override. `make deploy` now derives the v* release tag from `HEAD` when Pages or image verification needs it, and otherwise tells the operator to run the release flow before deploy. Gateway Ansible owns Pages dispatch from the app manifest. Validation passed with `bash -n scripts/deploy.sh`, the deploy no-op dry run, `git diff --check`, and `timeout -k 1200s -s SIGKILL 1200s make ci`.
-- [x] [I001] (P1) Advertise LA Sentry on the public landing page.
+- [x] [I025] (P1) Advertise LA Sentry on the public landing page.
   ### Summary
   The public landing page currently presents feedback, subscriber capture, and traffic analytics, but omits LA Sentry even though it is now a first-class developer monitoring surface.
   ### Deliverables
@@ -776,7 +622,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Update public-page tests that assert landing-page copy.
   ### Resolution
   Updated `/login` landing metadata, hero copy, feature grid, and setup copy to advertise LA Sentry as a first-class developer monitoring surface; updated public-page and auth-state tests; verified `make ci` passes.
-- [x] [I002] (P1) Consolidate LA Sentry client discovery under `clients/`.
+- [x] [I026] (P1) Consolidate LA Sentry client discovery under `clients/`.
   ### Summary
   Make the first-party LA Sentry clients discoverable from a dedicated `clients/` entrypoint instead of requiring readers to know that Go, Python, and browser surfaces live in different runtime-oriented folders.
   ### Deliverables
@@ -786,10 +632,9 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Update repo docs and integration fixtures to prefer the dedicated client locations.
   ### Resolution
   Added `clients/README.md` as the LA Sentry client index, moved the Go client implementation to `clients/go/lasentry`, removed the legacy `pkg/lasentry` package so SDKs are exposed only from `clients/`, added browser and Go client docs under `clients/`, updated README references and the Go integration fixture, and verified `make ci` passes.
-
-- [ ] [I001] (P1) Replace placeholder-only inputs with labeled fields in the static frontend.
+- [ ] [I027] (P1) Replace placeholder-only inputs with labeled fields in the static frontend.
   Added `clients/README.md` as the LA Sentry client index, moved the Go client implementation to `clients/go/lasentry` with a `pkg/lasentry` compatibility package, added browser and Go client docs under `clients/`, updated README references and the Go integration fixture, and verified `make ci` passes.
-- [ ] [I003] (P1) Replace placeholder-only inputs with labeled fields in the static frontend.
+- [ ] [I028] (P1) Replace placeholder-only inputs with labeled fields in the static frontend.
   ### Summary
   Remove placeholder-only UX in the dashboard, widget, and subscribe flows and use explicit labels with specific copy.
   ### Deliverables
@@ -985,7 +830,6 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - README docs for browser setup and the non-secret protection model.
   ### Resolution
   Added `/sentry/browser-errors` with allowed-origin validation, rate limiting, JavaScript platform normalization, and minimized request metadata. Added `web/la-sentry.js`, a dashboard browser snippet, a browser integration page, docs, and black-box API/browser coverage. `make ci` passed.
-
 - [x] [F009] (P1) Add Expo-compatible mobile feedback widget support.
   ### Summary
   Mobile apps need a native feedback button equivalent to the web feedback widget, with screen and app context attached to each submission. This is separate from LA Sentry error capture and should not require native code for the first version.
@@ -1000,7 +844,6 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Post-review hardening rejects browser-origin mobile feedback submissions before public app-client validation and wires the React Native client package into the Makefile-backed TypeScript check.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `README.md`, `clients/README.md`, `clients/react-native/package.json`, `clients/react-native/README.md`, `clients/react-native/src/index.tsx`, `clients/react-native/tsconfig.json`, `clients/react-native/types/react.d.ts`, `clients/react-native/types/react-native.d.ts`, `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/admin.go`, `internal/api/public.go`, `internal/model/models.go`, `internal/model/mobile_feedback.go`, `internal/storage/database.go`, `internal/storage/migrations.go`, `tests/helpers/api.js`, `tests/specs/api-public.spec.js`, `tests/specs/dashboard-feedback.spec.js`, `web/app/index.html`.
-
 - [x] [F010] (P1) Add per-site team members.
   ### Summary
   Site admins need to add individual Google-authenticated email addresses to one site so those teammates can see that site's existing dashboard data after login.
@@ -1024,7 +867,6 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Review follow-up rejects RFC 5322 display-name forms for site team-member emails so invites store only the Google login addr-spec that access checks compare. Focused validation passed with `make test-unit` and `make test-integration-api`.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/admin.go`, `internal/api/admin_helpers_test.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/sentry.go`, `internal/api/site_access.go`, `internal/api/traffic_report_schedule.go`, `internal/api/traffic_report_schedule_test.go`, `internal/model/site_team.go`, `internal/model/traffic_report_schedule.go`, `internal/model/traffic_report_schedule_test.go`, `internal/storage/database.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-site-actions.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `web/app/index.html`.
-
 - [x] [F011] (P1) Add a native operator mobile app.
   ### Summary
   Operators need a downloadable iOS and Android client that logs in with the same Google/TAuth identity and shows the same sites, stats, feedback, subscribers, LA Sentry issues, traffic reports, and role-aware data available in the web dashboard.
@@ -1052,3 +894,4 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Planning
 *do not implement yet*
+
