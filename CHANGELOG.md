@@ -8,8 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ### Improvements ⚙️
+- Make `@loopaware/react-native` a buildable npm package with `dist` exports, package metadata, and trusted-publishing workflow.
+- Add CI path coverage for first-party clients.
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
+
+### Testing 🧪
+- Add React Native client package validation that builds, packs, installs the tarball into a temporary consumer, and typechecks a real import.
+
+### Docs 📚
+- Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
 
 ## [v0.7.26] - 2026-06-24
 

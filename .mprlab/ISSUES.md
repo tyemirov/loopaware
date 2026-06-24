@@ -420,6 +420,19 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [x] [I030] (P1) Publish-ready React Native feedback client package.
+  ### Summary
+  Mobile feedback support was implemented as repo-local React Native source, but downstream apps could not install `@loopaware/react-native` from npm and CI did not prove package installability.
+  ### Deliverables
+  - Convert `clients/react-native` into a buildable npm package with `dist` JavaScript and TypeScript declarations.
+  - Add package metadata, license contents, public publish configuration, and a trusted-publishing GitHub workflow.
+  - Validate the packed tarball by installing it into a temporary downstream consumer and typechecking a real import.
+  - Trigger CI for `clients/**` changes and document npm install plus direct REST integration for non-React Native apps.
+  ### Resolution
+  Added build, pack, and downstream-consumer validation for `@loopaware/react-native`, including npm package metadata, self-contained license text, `dist` exports, a slim package lock, and a manual trusted-publishing workflow that publishes from `clients/react-native`. `make lint-js` now runs `make client-react-native-check`, and GitHub CI triggers on `clients/**` changes. README and client docs now describe npm installation for React Native/Expo apps and direct REST integration for Swift/Kotlin/native apps. Validation passed with baseline `make ci`, focused `make client-react-native-check`, `npm publish --dry-run --json` from `clients/react-native`, and final `make ci`.
+  ### Changed Files
+  `PLAN.md`, `.dockerignore`, `.github/workflows/ci.yml`, `.github/workflows/npm-react-native.yml`, `.gitignore`, `.mprlab/ISSUES.md`, `CHANGELOG.md`, `Makefile`, `README.md`, `clients/README.md`, `clients/react-native/LICENSE`, `clients/react-native/README.md`, `clients/react-native/package-lock.json`, `clients/react-native/package.json`, `clients/react-native/scripts/clean-dist.mjs`, `clients/react-native/scripts/verify-package.mjs`, `clients/react-native/tsconfig.build.json`.
+
 - [x] [I029] (P1) Use CalVer for the LoopAware Android internal-testing bundle.
   ### Summary
   The first generated LoopAware Android App Bundle used the default `1.0.0` app version, but the release should use a date-based version for the current internal-testing upload.
