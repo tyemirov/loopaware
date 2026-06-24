@@ -34,7 +34,7 @@ async function createPublicSite(label) {
   });
 }
 
-async function postFeedbackRequest(siteId, contact, message, originOverride, clientIP, sentiment) {
+async function postFeedbackRequest(siteId, contact, message, originOverride, clientIP, sentiment, sourceURL) {
   return apiRequest({
     baseURL: config.baseURL,
     path: "/public/feedback",
@@ -45,7 +45,8 @@ async function postFeedbackRequest(siteId, contact, message, originOverride, cli
       site_id: siteId,
       contact,
       message,
-      sentiment: sentiment || ""
+      sentiment: sentiment || "",
+      source_url: sourceURL || ""
     }
   });
 }
@@ -170,6 +171,31 @@ test.describe("public feedback api", () => {
     const { response, payload } = await postFeedbackRequest(site.id, "person@example.com", "Hello", site.allowed_origin);
     expect(response.status).toBe(200);
     expect(payload.status).toBe("ok");
+  });
+
+  test("stores source page URLs for valid web feedback", async () => {
+    const sourceURL = `${site.allowed_origin}/checkout/payment?plan=team#card`;
+    const contact = buildUniqueEmail("feedback-source-page");
+    const { response, payload } = await postFeedbackRequest(site.id, contact, "Source page feedback", site.allowed_origin, undefined, "", sourceURL);
+    expect(response.status).toBe(200);
+    expect(payload.status).toBe("ok");
+
+    const messagesPayload = await listMessages(config, buildAdminCookie(), site.id);
+    const sourceMessage = messagesPayload.messages.find((message) => message.contact === contact);
+    expect(sourceMessage.source_url).toBe(sourceURL);
+  });
+
+  test("rejects malformed source page URLs", async () => {
+    const { response, payload } = await postFeedbackRequest(site.id, "person@example.com", "Bad source", site.allowed_origin, undefined, "", "not-a-url");
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("invalid_url");
+  });
+
+  test("rejects source page URLs outside the widget origins", async () => {
+    const sourceURL = `${buildUniqueOrigin("feedback-source-forbidden")}/checkout`;
+    const { response, payload } = await postFeedbackRequest(site.id, "person@example.com", "Spoofed source", site.allowed_origin, undefined, "", sourceURL);
+    expect(response.status).toBe(403);
+    expect(payload.error).toBe("origin_forbidden");
   });
 
   test("accepts valid phone feedback", async () => {

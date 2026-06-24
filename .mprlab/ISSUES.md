@@ -733,6 +733,20 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `web/app/index.html`, `tests/helpers/fixtures.js`, `tests/specs/dashboard-labels.spec.js`, `tests/specs/dashboard-layout.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `tests/specs/dashboard-user-menu.spec.js`, `tests/specs/logout-hardening.spec.js`, `README.md`, `.mprlab/ISSUES.md`.
 
+- [x] [I012] (P1) Capture source pages for web widget feedback.
+  ### Summary
+  Operators need to identify the page where web widget feedback was submitted, so feedback records should store and display the validated page URL submitted by the browser widget.
+  ### Deliverables
+  - Store a `source_url` value for public web feedback submissions.
+  - Validate the source URL against the site widget origin contract at the public API edge.
+  - Have `web/widget.js` submit the current page URL with feedback.
+  - Expose and render the source page in the dashboard feedback table.
+  - Add black-box API, widget, and dashboard coverage.
+  ### Resolution
+  Added a feedback `source_url` storage/API field with edge validation for HTTP(S), length, credential-free URLs, and the site widget origin allowlist. The browser widget now submits `window.location.href`, admin feedback responses expose the source URL, dashboard feedback rows render it as `Page: ...` and include it in search, and feedback notifications include a `Source:` line. Updated README API docs and added public API, admin API, widget integration, dashboard feedback, and Pinguin notification coverage. Validation passed with baseline `make ci`, focused Go/API/browser gates, and final `make ci` with 430 integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `internal/api/admin.go`, `internal/api/public.go`, `internal/model/mobile_feedback.go`, `internal/model/models.go`, `internal/notifications/pinguin.go`, `internal/notifications/pinguin_test.go`, `tests/specs/api-admin.spec.js`, `tests/specs/api-public.spec.js`, `tests/specs/dashboard-feedback.spec.js`, `tests/specs/widget-integration.spec.js`, `web/app/index.html`, `web/widget.js`.
+
 - [ ] [I004] (P1) Consider a design of a current accordion design of different surfaces.
   We may want to have a better split out.
 - [x] [I005] (P1) Keep production deploy revision selection automatic.

@@ -283,6 +283,7 @@ type feedbackMessageResponse struct {
 	CreatedAt      int64           `json:"created_at"`
 	Delivery       string          `json:"delivery"`
 	SourceKind     string          `json:"source_kind"`
+	SourceURL      string          `json:"source_url"`
 	MobileClientID string          `json:"mobile_client_id"`
 	ScreenName     string          `json:"screen_name"`
 	ScreenPath     string          `json:"screen_path"`
@@ -1244,6 +1245,7 @@ func (handlers *SiteHandlers) ListMessagesBySite(context *gin.Context) {
 			CreatedAt:      feedback.CreatedAt.Unix(),
 			Delivery:       feedback.Delivery,
 			SourceKind:     sourceKind,
+			SourceURL:      feedback.SourceURL,
 			MobileClientID: feedback.MobileClientID,
 			ScreenName:     feedback.ScreenName,
 			ScreenPath:     feedback.ScreenPath,

@@ -2,8 +2,8 @@
 import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
 import { buildSessionCookie } from '../helpers/auth.js';
-import { buildAdminUser, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite } from '../helpers/fixtures.js';
-import { createMobileApp, createMobileFeedback, createWidgetTestFeedback } from '../helpers/api.js';
+import { buildAdminUser, buildUniqueEmail, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite } from '../helpers/fixtures.js';
+import { apiRequest, createMobileApp, createMobileFeedback, createWidgetTestFeedback } from '../helpers/api.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
@@ -22,6 +22,30 @@ async function createFeedbackSite() {
 
 async function createDashboardFeedback(site, payload) {
   return createWidgetTestFeedback(config, buildAdminCookie(), site, payload);
+}
+
+let publicFeedbackClientIPCounter = 1;
+async function createPublicFeedback(site, payload) {
+  const clientIP = `10.6.0.${publicFeedbackClientIPCounter}`;
+  publicFeedbackClientIPCounter += 1;
+  const { response, payload: body } = await apiRequest({
+    baseURL: config.baseURL,
+    path: '/public/feedback',
+    method: 'POST',
+    origin: site.allowed_origin,
+    clientIP,
+    body: {
+      site_id: site.id,
+      contact: payload.contact,
+      message: payload.message,
+      sentiment: payload.sentiment || '',
+      source_url: payload.sourceUrl || ''
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`create_public_feedback_failed:${response.status}:${JSON.stringify(body)}`);
+  }
+  return body;
 }
 
 test('feedback table prompts for site selection', async ({ page }) => {
@@ -93,6 +117,24 @@ test('feedback table shows mobile screen context', async ({ page }) => {
   await expect(page.locator('#feedback-table-body')).toContainText('Mobile · Android · Checkout');
   await expect(page.locator('#feedback-table-body')).toContainText('com.example.loopaware · v2.4.0 · build 92 · production');
   await expect(page.locator('#feedback-table-body')).toContainText('Context: plan=team, step=payment');
+});
+
+test('feedback table shows and searches web source pages', async ({ page }) => {
+  const site = await createFeedbackSite();
+  const sourceURL = `${site.allowed_origin}/checkout/payment?step=card`;
+  await createPublicFeedback(site, {
+    contact: buildUniqueEmail('source-page'),
+    message: 'The card form is confusing',
+    sourceUrl: sourceURL
+  });
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
+  await expect(page.locator('#feedback-table-body')).toContainText('The card form is confusing');
+  await expect(page.locator('#feedback-table-body')).toContainText(`Page: ${sourceURL}`);
+  await page.locator('#messages-search-toggle-button').click();
+  await page.locator('#messages-search-input').fill('step=card');
+  await expect(page.locator('#feedback-table-body')).toContainText(`Page: ${sourceURL}`);
 });
 
 test('feedback count badge reflects totals', async ({ page }) => {

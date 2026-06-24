@@ -118,6 +118,7 @@ test('widget submission shows success message', async ({ page }) => {
   await contactInput.fill('widget@example.com');
   await messageInput.clear();
   await messageInput.fill('Widget feedback');
+  const sourceURL = page.url();
   
   await expect(contactInput).toHaveValue('widget@example.com');
   await expect(messageInput).toHaveValue('Widget feedback');
@@ -126,7 +127,7 @@ test('widget submission shows success message', async ({ page }) => {
   await page.locator('#mp-feedback-panel button:has-text("Send")').click();
   const request = await feedbackRequest;
   await feedbackResponse;
-  expect(JSON.parse(request.postData() || '{}')).toMatchObject({ contact: 'widget@example.com', message: 'Widget feedback', sentiment: '' });
+  expect(JSON.parse(request.postData() || '{}')).toMatchObject({ contact: 'widget@example.com', message: 'Widget feedback', sentiment: '', source_url: sourceURL });
   await expect(page.locator('#mp-feedback-sentiment-happy')).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('#mp-feedback-panel')).toContainText('Thanks! Sent.');
 });

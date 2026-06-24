@@ -668,6 +668,7 @@ test.describe("admin api messages and subscribers", () => {
 
   test("lists feedback messages", async () => {
     const site = await createAdminSite("Messages");
+    const sourceURL = `${site.allowed_origin}/pricing?from=feedback`;
     await apiRequest({
       baseURL: config.baseURL,
       path: "/public/feedback",
@@ -678,7 +679,8 @@ test.describe("admin api messages and subscribers", () => {
         site_id: site.id,
         contact: "contact@example.com",
         message: "Feedback message",
-        sentiment: "happy"
+        sentiment: "happy",
+        source_url: sourceURL
       }
     });
     const { response, payload } = await adminRequest({
@@ -689,6 +691,7 @@ test.describe("admin api messages and subscribers", () => {
     const messages = Array.isArray(payload.messages) ? payload.messages : [];
     expect(messages.some((message) => message.message === "Feedback message")).toBe(true);
     expect(messages.some((message) => message.sentiment === "happy")).toBe(true);
+    expect(messages.some((message) => message.source_url === sourceURL)).toBe(true);
   });
 
   test("rejects messages for unauthorized user", async () => {

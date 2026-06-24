@@ -243,7 +243,7 @@ include Unix timestamps in seconds.
 | `POST`  | `/api/sites/:id/traffic-report-schedule/test` | owner/admin | Send the selected-site traffic report immediately to the schedule's resolved recipients |
 | `GET`   | `/api/sites/favicons/events`          | any         | Server-sent events stream announcing refreshed site favicons                                            |
 | `GET`   | `/api/sites/feedback/events`          | any         | Server-sent events stream announcing new feedback                                                      |
-| `POST`  | `/public/feedback`                       | public      | Submit feedback (requires `site_id`, valid `contact` as email or phone, and at least one of `message` or `sentiment`) |
+| `POST`  | `/public/feedback`                       | public      | Submit feedback (requires `site_id`, valid `contact` as email or phone, at least one of `message` or `sentiment`, and optional `source_url` for the submitting page) |
 | `POST`  | `/public/mobile-feedback`                | public      | Submit feedback from a registered mobile app with screen/app context                                   |
 | `POST`  | `/public/subscriptions`                  | public      | Submit an email subscription (JSON body with `site_id`, `email`, optional `name` and `source_url`)      |
 | `POST`  | `/public/subscriptions/confirm`          | public      | Confirm a subscription for a given `site_id` and email                                                  |

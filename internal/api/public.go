@@ -103,6 +103,7 @@ type createFeedbackRequest struct {
 	ContactInfo string `json:"contact"`
 	MessageBody string `json:"message"`
 	Sentiment   string `json:"sentiment"`
+	SourceURL   string `json:"source_url"`
 }
 
 type createMobileFeedbackRequest struct {
@@ -190,6 +191,7 @@ type feedbackRecordInput struct {
 	AppBuild       string
 	AppEnvironment string
 	ContextJSON    string
+	SourceURL      string
 }
 
 func buildSubscriptionLinkResponse(heading string, message string, site model.Site, subscriber model.Subscriber, confirmationToken string) subscriptionLinkResponse {
@@ -234,6 +236,7 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 	payload.ContactInfo = strings.TrimSpace(payload.ContactInfo)
 	payload.MessageBody = strings.TrimSpace(payload.MessageBody)
 	payload.Sentiment = strings.TrimSpace(payload.Sentiment)
+	payload.SourceURL = strings.TrimSpace(payload.SourceURL)
 
 	if payload.SiteID == "" || payload.ContactInfo == "" {
 		context.JSON(400, gin.H{"error": "missing_fields"})
@@ -257,6 +260,12 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 		return
 	}
 
+	sourceURL, sourceURLErr := model.NormalizeFeedbackSourceURL(payload.SourceURL)
+	if sourceURLErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": errorValueInvalidURL})
+		return
+	}
+
 	var site model.Site
 	if err := h.database.First(&site, "id = ?", payload.SiteID).Error; err != nil {
 		context.JSON(404, gin.H{"error": "unknown_site"})
@@ -270,12 +279,17 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 		context.JSON(403, gin.H{"error": "origin_forbidden"})
 		return
 	}
+	if sourceURL != "" && !isOriginAllowed(allowedOrigins, "", "", sourceURL) {
+		context.JSON(http.StatusForbidden, gin.H{"error": "origin_forbidden"})
+		return
+	}
 
 	h.storeFeedback(context, site, feedbackRecordInput{
 		Contact:    normalizedContact,
 		Message:    payload.MessageBody,
 		Sentiment:  normalizedSentiment,
 		SourceKind: model.FeedbackSourceWebWidget,
+		SourceURL:  sourceURL,
 	})
 }
 
@@ -399,6 +413,7 @@ func (h *PublicHandlers) storeFeedback(context *gin.Context, site model.Site, in
 		UserAgent:      truncate(context.Request.UserAgent(), 400),
 		Delivery:       model.FeedbackDeliveryNone,
 		SourceKind:     sourceKind,
+		SourceURL:      input.SourceURL,
 		MobileClientID: truncate(input.MobileClientID, 80),
 		ScreenName:     model.TruncateFeedbackScreenName(input.ScreenName),
 		ScreenPath:     model.TruncateFeedbackScreenPath(input.ScreenPath),
