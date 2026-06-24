@@ -35,4 +35,5 @@ jobs:
         run: make client-react-native-check
 
       - name: Publish package
-        run: npm --prefix clients/react-native publish
+        working-directory: clients/react-native
+        run: npm publish
