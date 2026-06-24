@@ -11,6 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
+## [v0.7.26] - 2026-06-24
+
+### Features ✨
+- Capture and display source page URL for web widget feedback submissions.
+- Add `source_url` field to feedback API and validate it on submission.
+- Submit current page URL from browser widget with feedback.
+
+### Improvements ⚙️
+- Update public feedback API docs to include optional `source_url` parameter.
+- Add forward-only contract discipline documentation in AGENTS.md.
+- Expose source URL in admin feedback responses and dashboard feedback table.
+- Include source URL in feedback notification messages.
+
+### Bug Fixes 🐛
+- Fix feedback metadata lines to include source URL.
+
+### Testing 🧪
+- Add tests validating `source_url` field in feedback submissions.
+- Cover source URL validation, origin allowlist enforcement, and dashboard rendering.
+- Add notification tests verifying source URL inclusion.
+
+### Docs 📚
+- Document optional `source_url` parameter in public feedback API.
+- Add forward-only contract discipline note to AGENTS.md.
+
 ## [v0.7.25] - 2026-06-19
 
 ### Features ✨
