@@ -1,0 +1,38 @@
+name: Publish React Native Client
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-react-native-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org/
+          cache: npm
+          cache-dependency-path: clients/react-native/package-lock.json
+
+      - name: Install npm with trusted-publishing support
+        run: npm install -g npm@latest
+
+      - name: Validate package
+        run: make client-react-native-check
+
+      - name: Publish package
+        run: npm --prefix clients/react-native publish
