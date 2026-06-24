@@ -1042,7 +1042,8 @@
           site_id: widgetSiteId,
           contact: valid.contact,
           message: valid.message,
-          sentiment: valid.sentiment
+          sentiment: valid.sentiment,
+          source_url: window.location ? window.location.href : ""
         });
 
         var endpoint = widgetApiOrigin

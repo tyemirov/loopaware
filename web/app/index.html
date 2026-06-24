@@ -3300,8 +3300,9 @@
           });
         }
         function feedbackMetadataLines(message) {
+          var sourceURL = typeof message.source_url === 'string' ? message.source_url.trim() : emptyString;
           if ((message.source_kind || emptyString) !== 'mobile_app') {
-            return [];
+            return sourceURL ? ['Page: ' + sourceURL] : [];
           }
           var sourceParts = ['Mobile'];
           var platformLabel = formatMobilePlatformLabel(message.app_platform || emptyString);
@@ -3330,6 +3331,9 @@
           }
           if (message.screen_path) {
             lines.push(message.screen_path);
+          }
+          if (sourceURL) {
+            lines.push('Page: ' + sourceURL);
           }
           var contextPairs = feedbackContextPairs(message.context);
           if (contextPairs.length) {
