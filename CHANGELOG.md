@@ -19,6 +19,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Docs 📚
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
 
+## [v0.7.28] - 2026-06-24
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Updated policy documentation to enforce no duplicated reusable literals and centralize constants across Go and JS codebases.
+- Added detailed guidelines on timeout and waiting policies to improve test and runtime reliability.
+- Refined frontend dependency guidelines to restrict third-party assets to CDN sources only.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- _No changes._
+
+### Docs 📚
+- Enhanced AGENTS.FRONTEND.md with updated dependency and versioning rules.
+- Expanded POLICY.md with new rules on constants centralization, timeout policies, and best practices for error handling and test strategies.
+
 ## [v0.7.27] - 2026-06-24
 
 ### Features ✨
