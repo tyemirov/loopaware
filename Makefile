@@ -14,6 +14,9 @@ PUBLISH_REMOTE ?= origin
 PUBLISH_BRANCH ?= master
 GATEWAY_DIR ?=
 APP_MANIFEST ?= $(CURDIR)/deploy/app.yml
+CLIENT_REACT_NATIVE_DIR := clients/react-native
+CLIENT_REACT_NATIVE_NPM ?= npm
+CLIENT_REACT_NATIVE_NPM_COMMAND ?= env -u NO_COLOR $(CLIENT_REACT_NATIVE_NPM)
 MOBILE_DIR := mobile
 MOBILE_NPM ?= npm
 MOBILE_NPM_COMMAND ?= env -u NO_COLOR $(MOBILE_NPM)
@@ -39,7 +42,7 @@ ANDROID_TOOL_PATH := $(ANDROID_SDK_ROOT)/emulator:$(ANDROID_SDK_ROOT)/platform-t
 
 export GOWORK := off
 
-.PHONY: format format-pinguin build lint lint-js mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
+.PHONY: format format-pinguin build lint lint-js client-react-native-install client-react-native-check mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -74,9 +77,19 @@ lint-js:
 		npm --prefix tests install; \
 	fi
 	npm --prefix tests run typecheck
-	PATH="$(CURDIR)/tests/node_modules/.bin:$$PATH" npm --prefix clients/react-native run typecheck
+	@$(MAKE) client-react-native-check
 	npm --prefix tests run check:location-map
 	@$(MAKE) mobile-check
+
+client-react-native-install:
+	@if [ ! -d "$(CURDIR)/$(CLIENT_REACT_NATIVE_DIR)/node_modules" ]; then \
+		$(CLIENT_REACT_NATIVE_NPM_COMMAND) --prefix $(CLIENT_REACT_NATIVE_DIR) ci --legacy-peer-deps; \
+	fi
+
+client-react-native-check: client-react-native-install
+	$(CLIENT_REACT_NATIVE_NPM_COMMAND) --prefix $(CLIENT_REACT_NATIVE_DIR) run typecheck
+	$(CLIENT_REACT_NATIVE_NPM_COMMAND) --prefix $(CLIENT_REACT_NATIVE_DIR) run build
+	$(CLIENT_REACT_NATIVE_NPM_COMMAND) --prefix $(CLIENT_REACT_NATIVE_DIR) run verify-package
 
 mobile-install:
 	@if [ ! -d "$(CURDIR)/$(MOBILE_DIR)/node_modules" ]; then \
