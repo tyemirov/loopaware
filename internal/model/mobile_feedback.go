@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ const (
 	mobileAppIdentifierMaxLength    = 200
 	mobileAppDisplayNameMaxLength   = 200
 	feedbackSourceKindMaxLength     = 20
+	feedbackSourceURLMaxLength      = 500
 	feedbackScreenNameMaxLength     = 120
 	feedbackScreenPathMaxLength     = 300
 	feedbackAppPlatformMaxLength    = 20
@@ -38,6 +40,7 @@ var (
 	ErrInvalidMobileAppIdentifier  = errors.New("invalid_mobile_app_identifier")
 	ErrInvalidMobileAppDisplayName = errors.New("invalid_mobile_app_display_name")
 	ErrInvalidFeedbackSource       = errors.New("invalid_feedback_source")
+	ErrInvalidFeedbackSourceURL    = errors.New("invalid_feedback_source_url")
 	ErrInvalidFeedbackContext      = errors.New("invalid_feedback_context")
 )
 
@@ -136,6 +139,32 @@ func NormalizeFeedbackSource(rawInput string) (string, error) {
 	default:
 		return "", fmt.Errorf("%w: %s", ErrInvalidFeedbackSource, normalized)
 	}
+}
+
+// NormalizeFeedbackSourceURL returns a canonical source page URL for web feedback.
+func NormalizeFeedbackSourceURL(rawInput string) (string, error) {
+	normalized := strings.TrimSpace(rawInput)
+	if normalized == "" {
+		return "", nil
+	}
+	if len(normalized) > feedbackSourceURLMaxLength {
+		return "", fmt.Errorf("%w: too long", ErrInvalidFeedbackSourceURL)
+	}
+	parsedURL, parseErr := url.Parse(normalized)
+	if parseErr != nil || parsedURL == nil {
+		return "", fmt.Errorf("%w: invalid", ErrInvalidFeedbackSourceURL)
+	}
+	scheme := strings.ToLower(strings.TrimSpace(parsedURL.Scheme))
+	if scheme != "http" && scheme != "https" {
+		return "", fmt.Errorf("%w: unsupported scheme", ErrInvalidFeedbackSourceURL)
+	}
+	if strings.TrimSpace(parsedURL.Host) == "" {
+		return "", fmt.Errorf("%w: missing host", ErrInvalidFeedbackSourceURL)
+	}
+	if parsedURL.User != nil {
+		return "", fmt.Errorf("%w: credentials not allowed", ErrInvalidFeedbackSourceURL)
+	}
+	return normalized, nil
 }
 
 // TruncateFeedbackScreenName limits screen names stored with feedback records.

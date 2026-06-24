@@ -113,6 +113,9 @@ func (notifier *PinguinNotifier) NotifyFeedback(ctx context.Context, site model.
 	if feedback.Sentiment != "" {
 		_, _ = fmt.Fprintf(messageBuilder, "Sentiment: %s\n", formatFeedbackSentimentLabel(feedback.Sentiment))
 	}
+	if strings.TrimSpace(feedback.SourceURL) != "" {
+		_, _ = fmt.Fprintf(messageBuilder, "Source: %s\n", strings.TrimSpace(feedback.SourceURL))
+	}
 	if strings.TrimSpace(feedback.Message) != "" {
 		_, _ = fmt.Fprintf(messageBuilder, "Message:\n%s\n", strings.TrimSpace(feedback.Message))
 	}

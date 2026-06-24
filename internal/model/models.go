@@ -42,6 +42,7 @@ type Feedback struct {
 	UserAgent      string    `gorm:"size:400"`
 	Delivery       string    `gorm:"not null;size:16;default:no"`
 	SourceKind     string    `gorm:"not null;size:20;default:web_widget;index"`
+	SourceURL      string    `gorm:"size:500"`
 	MobileClientID string    `gorm:"size:80"`
 	ScreenName     string    `gorm:"size:120"`
 	ScreenPath     string    `gorm:"size:300"`

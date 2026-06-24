@@ -29,6 +29,7 @@ const (
 	testFeedbackMessage      = "Hello"
 	testFeedbackContactEmail = "contact@example.com"
 	testFeedbackSentiment    = "happy"
+	testFeedbackSourceURL    = "https://example.com/pricing?plan=team"
 	testSubscriberID         = "subscriber-id"
 	testSubscriberEmail      = "subscriber@example.com"
 	testSubscriberName       = "Subscriber Name"
@@ -154,9 +155,10 @@ func TestNotifyFeedbackSendsEmailNotification(testingT *testing.T) {
 		OwnerEmail: testFeedbackOwnerEmail,
 	}
 	feedback := model.Feedback{
-		ID:      testFeedbackID,
-		Contact: testFeedbackContactEmail,
-		Message: testFeedbackMessage,
+		ID:        testFeedbackID,
+		Contact:   testFeedbackContactEmail,
+		Message:   testFeedbackMessage,
+		SourceURL: testFeedbackSourceURL,
 	}
 
 	delivery, notifyErr := notifier.NotifyFeedback(context.Background(), site, feedback)
@@ -168,6 +170,7 @@ func TestNotifyFeedbackSendsEmailNotification(testingT *testing.T) {
 	require.Equal(testingT, pinguinpb.NotificationType_EMAIL, recordedRequest.GetNotificationType())
 	require.Equal(testingT, testFeedbackOwnerEmail, recordedRequest.GetRecipient())
 	require.Contains(testingT, recordedRequest.GetSubject(), testNotificationSubject)
+	require.Contains(testingT, recordedRequest.GetMessage(), "Source: "+testFeedbackSourceURL)
 	require.Contains(testingT, recordedMetadata.Get(testNotificationAuthKey)[0], testPinguinAuthToken)
 	require.Contains(testingT, recordedMetadata.Get(testNotificationTenant)[0], testPinguinTenantID)
 }
