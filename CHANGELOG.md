@@ -19,6 +19,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Docs 📚
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
 
+## [v0.7.29] - 2026-06-24
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Updated ISSUES.md to reflect recent fixes and improvements.
+
+### Bug Fixes 🐛
+- Stabilized seeded dashboard authentication after login redirects to prevent test timeouts.
+- Ignored external-asset route fetches cancelled by test teardown to avoid false failures.
+- Kept Timezones labels aligned with geographic markers for accurate visualization.
+- Showed native feedback context correctly in the operator mobile app.
+- Proxied LA Sentry routes properly in the local gHTTP template to route errors correctly.
+- Replaced incorrect four-hour login test with console-clean stale-idle coverage for better reliability.
+- Made Google popup authentication compatible with edge opener policy to prevent communication errors.
+- Covered landing-page login after four idle hours to fix login completion issues.
+- Used `mpr-ui` Google Identity testing helper instead of stub globals for improved test integration.
+- Shared Google Identity stub readiness across auth specs to stabilize tests.
+- Stabilized auth browser harness readiness in CI to reduce intermittent failures.
+- Restored feedback bubble color customization with persisted site setting and validation.
+- Normalized empty API collections as arrays to prevent mobile dashboard render crashes.
+- Prevented mobile dashboard render crashes from deployed null collections by normalizing API responses.
+
+### Testing 🧪
+- Added black-box API coverage for empty dashboard collection endpoints returning arrays.
+- Added mobile API boundary regression checks to validate collection normalization.
+- Added coverage for Timezones map label alignment and visit count placement.
+- Added coverage for landing-page login after idle hours.
+- Added coverage for Google Identity stub readiness and authentication helpers.
+- Added coverage for feedback bubble color customization.
+- Validated fixes with focused and full CI runs including Playwright/API integration specs.
+
+### Docs 📚
+- Updated ISSUES.md to document recent bug fixes and improvements.
+
 ## [v0.7.28] - 2026-06-24
 
 ### Features ✨
