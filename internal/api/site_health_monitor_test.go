@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -30,6 +31,7 @@ const (
 	testSiteHealthTargetURL       = testSiteHealthAllowedOrigin + "/healthz"
 	testSiteHealthPath            = "/api/sites/" + testSiteHealthSiteID + "/health-monitor"
 	testSiteHealthCheckPath       = "/api/sites/" + testSiteHealthSiteID + "/health-monitor/check"
+	testSiteHealthEmailSendError  = "pinguin send failed"
 )
 
 type siteHealthHarness struct {
@@ -294,6 +296,147 @@ func TestSiteHealthMonitorManualCheckTransitionsAndAlerts(testingT *testing.T) {
 	require.Len(testingT, harness.prober.calls, 3)
 	require.Equal(testingT, testSiteHealthTargetURL, harness.prober.calls[0].targetURL)
 	require.Equal(testingT, 5*time.Second, harness.prober.calls[0].timeout)
+}
+
+func TestSiteHealthMonitorRetriesDownAlertAfterDeliveryFailure(testingT *testing.T) {
+	firstFailureAt := time.Date(2026, time.June, 25, 15, 4, 0, 0, time.UTC)
+	secondFailureAt := time.Date(2026, time.June, 25, 15, 5, 0, 0, time.UTC)
+	harness := buildSiteHealthHarness(testingT, true, []SiteHealthProbeResult{
+		{
+			TargetURL:    testSiteHealthTargetURL,
+			Success:      false,
+			StatusCode:   http.StatusServiceUnavailable,
+			ErrorCode:    model.SiteHealthErrorHTTP5xx,
+			ErrorMessage: "HTTP 503",
+			Duration:     120 * time.Millisecond,
+			CheckedAt:    firstFailureAt,
+		},
+		{
+			TargetURL:    testSiteHealthTargetURL,
+			Success:      false,
+			StatusCode:   http.StatusServiceUnavailable,
+			ErrorCode:    model.SiteHealthErrorHTTP5xx,
+			ErrorMessage: "HTTP 503",
+			Duration:     130 * time.Millisecond,
+			CheckedAt:    secondFailureAt,
+		},
+	})
+	insertSiteHealthSite(testingT, harness.database)
+	saveSiteHealthMonitor(testingT, harness, siteHealthMonitorRequest{
+		Enabled:          true,
+		TargetURL:        testSiteHealthTargetURL,
+		IntervalSeconds:  siteHealthIntPointer(model.DefaultSiteHealthIntervalSeconds),
+		TimeoutSeconds:   siteHealthIntPointer(model.DefaultSiteHealthTimeoutSeconds),
+		FailureThreshold: siteHealthIntPointer(1),
+		RecipientMode:    model.SiteRecipientModeManager,
+		RecipientEmails:  []string{},
+	})
+
+	harness.emailSender.err = errors.New(testSiteHealthEmailSendError)
+	context, recorder := buildSiteHealthContext(http.MethodPost, testSiteHealthCheckPath, nil)
+	setSiteHealthUser(context, testSiteHealthOwnerEmail)
+	harness.handlers.RunCheck(context)
+	require.Equal(testingT, http.StatusBadGateway, recorder.Code)
+	require.Contains(testingT, recorder.Body.String(), errorValueHealthMonitorCheckFailed)
+	require.Len(testingT, harness.emailSender.calls, 1)
+	require.Equal(testingT, "Site down: "+testSiteHealthSiteName, harness.emailSender.calls[0].subject)
+
+	var storedMonitor model.SiteHealthMonitor
+	require.NoError(testingT, harness.database.First(&storedMonitor, "site_id = ?", testSiteHealthSiteID).Error)
+	require.Equal(testingT, model.SiteHealthStatusDown, storedMonitor.Status)
+	require.Empty(testingT, storedMonitor.LastAlertedStatus)
+
+	harness.emailSender.err = nil
+	retryCheck := runSiteHealthManualCheck(testingT, harness)
+	require.Equal(testingT, model.SiteHealthStatusDown, retryCheck.Status)
+	require.Equal(testingT, 2, retryCheck.ConsecutiveFailures)
+	require.Len(testingT, harness.emailSender.calls, 2)
+	require.Equal(testingT, "Site down: "+testSiteHealthSiteName, harness.emailSender.calls[1].subject)
+
+	require.NoError(testingT, harness.database.First(&storedMonitor, "site_id = ?", testSiteHealthSiteID).Error)
+	require.Equal(testingT, model.SiteHealthStatusDown, storedMonitor.LastAlertedStatus)
+	require.WithinDuration(testingT, secondFailureAt, storedMonitor.LastAlertedAt, time.Second)
+
+	var events []model.SiteHealthEvent
+	require.NoError(testingT, harness.database.Order("created_at asc").Where("site_id = ?", testSiteHealthSiteID).Find(&events).Error)
+	require.Len(testingT, events, 1)
+	require.Equal(testingT, model.SiteHealthEventKindDown, events[0].Kind)
+}
+
+func TestSiteHealthMonitorRetriesRecoveredAlertAfterDeliveryFailure(testingT *testing.T) {
+	failureAt := time.Date(2026, time.June, 25, 15, 6, 0, 0, time.UTC)
+	recoveryFailureAt := time.Date(2026, time.June, 25, 15, 7, 0, 0, time.UTC)
+	recoveryRetryAt := time.Date(2026, time.June, 25, 15, 8, 0, 0, time.UTC)
+	harness := buildSiteHealthHarness(testingT, true, []SiteHealthProbeResult{
+		{
+			TargetURL:    testSiteHealthTargetURL,
+			Success:      false,
+			StatusCode:   http.StatusServiceUnavailable,
+			ErrorCode:    model.SiteHealthErrorHTTP5xx,
+			ErrorMessage: "HTTP 503",
+			Duration:     120 * time.Millisecond,
+			CheckedAt:    failureAt,
+		},
+		{
+			TargetURL:  testSiteHealthTargetURL,
+			Success:    true,
+			StatusCode: http.StatusNoContent,
+			Duration:   80 * time.Millisecond,
+			CheckedAt:  recoveryFailureAt,
+		},
+		{
+			TargetURL:  testSiteHealthTargetURL,
+			Success:    true,
+			StatusCode: http.StatusNoContent,
+			Duration:   70 * time.Millisecond,
+			CheckedAt:  recoveryRetryAt,
+		},
+	})
+	insertSiteHealthSite(testingT, harness.database)
+	saveSiteHealthMonitor(testingT, harness, siteHealthMonitorRequest{
+		Enabled:          true,
+		TargetURL:        testSiteHealthTargetURL,
+		IntervalSeconds:  siteHealthIntPointer(model.DefaultSiteHealthIntervalSeconds),
+		TimeoutSeconds:   siteHealthIntPointer(model.DefaultSiteHealthTimeoutSeconds),
+		FailureThreshold: siteHealthIntPointer(1),
+		RecipientMode:    model.SiteRecipientModeManager,
+		RecipientEmails:  []string{},
+	})
+
+	downCheck := runSiteHealthManualCheck(testingT, harness)
+	require.Equal(testingT, model.SiteHealthStatusDown, downCheck.Status)
+	require.Len(testingT, harness.emailSender.calls, 1)
+	require.Equal(testingT, "Site down: "+testSiteHealthSiteName, harness.emailSender.calls[0].subject)
+
+	harness.emailSender.err = errors.New(testSiteHealthEmailSendError)
+	context, recorder := buildSiteHealthContext(http.MethodPost, testSiteHealthCheckPath, nil)
+	setSiteHealthUser(context, testSiteHealthOwnerEmail)
+	harness.handlers.RunCheck(context)
+	require.Equal(testingT, http.StatusBadGateway, recorder.Code)
+	require.Contains(testingT, recorder.Body.String(), errorValueHealthMonitorCheckFailed)
+	require.Len(testingT, harness.emailSender.calls, 2)
+	require.Equal(testingT, "Site recovered: "+testSiteHealthSiteName, harness.emailSender.calls[1].subject)
+
+	var storedMonitor model.SiteHealthMonitor
+	require.NoError(testingT, harness.database.First(&storedMonitor, "site_id = ?", testSiteHealthSiteID).Error)
+	require.Equal(testingT, model.SiteHealthStatusUp, storedMonitor.Status)
+	require.Equal(testingT, model.SiteHealthStatusDown, storedMonitor.LastAlertedStatus)
+
+	harness.emailSender.err = nil
+	retryCheck := runSiteHealthManualCheck(testingT, harness)
+	require.Equal(testingT, model.SiteHealthStatusUp, retryCheck.Status)
+	require.Len(testingT, harness.emailSender.calls, 3)
+	require.Equal(testingT, "Site recovered: "+testSiteHealthSiteName, harness.emailSender.calls[2].subject)
+
+	require.NoError(testingT, harness.database.First(&storedMonitor, "site_id = ?", testSiteHealthSiteID).Error)
+	require.Equal(testingT, model.SiteHealthStatusUp, storedMonitor.LastAlertedStatus)
+	require.WithinDuration(testingT, recoveryRetryAt, storedMonitor.LastAlertedAt, time.Second)
+
+	var events []model.SiteHealthEvent
+	require.NoError(testingT, harness.database.Order("created_at asc").Where("site_id = ?", testSiteHealthSiteID).Find(&events).Error)
+	require.Len(testingT, events, 2)
+	require.Equal(testingT, model.SiteHealthEventKindDown, events[0].Kind)
+	require.Equal(testingT, model.SiteHealthEventKindRecovered, events[1].Kind)
 }
 
 func TestSiteHealthMonitorManualCheckUsesSelectedTeamRecipients(testingT *testing.T) {

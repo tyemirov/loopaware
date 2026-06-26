@@ -524,14 +524,29 @@ func (manager *SiteHealthManager) runCheck(ctx context.Context, site model.Site,
 	if saveErr := manager.persistCheckResult(ctx, updatedMonitor, result, eventKind); saveErr != nil {
 		return model.SiteHealthMonitor{}, saveErr
 	}
-	if eventKind == "" || !allowNotifications {
+	alertKind := pendingSiteHealthAlertKind(updatedMonitor)
+	if alertKind == "" || !allowNotifications {
 		return updatedMonitor, nil
 	}
-	alertedMonitor, notifyErr := manager.sendTransitionAlert(ctx, site, updatedMonitor, result, eventKind)
+	alertedMonitor, notifyErr := manager.sendTransitionAlert(ctx, site, updatedMonitor, result, alertKind)
 	if notifyErr != nil {
 		return updatedMonitor, notifyErr
 	}
 	return alertedMonitor, nil
+}
+
+func pendingSiteHealthAlertKind(monitor model.SiteHealthMonitor) string {
+	switch monitor.Status {
+	case model.SiteHealthStatusDown:
+		if monitor.LastAlertedStatus != model.SiteHealthStatusDown {
+			return model.SiteHealthEventKindDown
+		}
+	case model.SiteHealthStatusUp:
+		if monitor.LastAlertedStatus == model.SiteHealthStatusDown {
+			return model.SiteHealthEventKindRecovered
+		}
+	}
+	return ""
 }
 
 func applySiteHealthProbeResult(monitor model.SiteHealthMonitor, result SiteHealthProbeResult) (model.SiteHealthMonitor, string) {
