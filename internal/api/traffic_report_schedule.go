@@ -351,7 +351,7 @@ func (handlers *TrafficReportHandlers) validateTrafficReportScheduleRecipients(c
 	if len(selectedRecipients) == 0 {
 		return fmt.Errorf("%w: missing recipient_emails", model.ErrInvalidTrafficReportSchedule)
 	}
-	teamRecipientSet, teamRecipientErr := trafficReportTeamMemberRecipientSet(ctx, handlers.database, site.ID)
+	teamRecipientSet, teamRecipientErr := siteTeamMemberRecipientSet(ctx, handlers.database, site.ID)
 	if teamRecipientErr != nil {
 		return teamRecipientErr
 	}
@@ -563,108 +563,12 @@ func (dispatcher trafficReportDispatcher) sendSchedule(ctx context.Context, site
 }
 
 func trafficReportScheduleRecipients(ctx context.Context, database *gorm.DB, site model.Site, schedule model.TrafficReportSchedule) ([]string, error) {
-	switch schedule.RecipientModeValue() {
-	case model.TrafficReportRecipientModeManager:
-		return []string{schedule.RecipientEmail}, nil
-	case model.TrafficReportRecipientModeTeam:
-		return trafficReportTeamRecipients(ctx, database, site)
-	case model.TrafficReportRecipientModeSelected:
-		return trafficReportSelectedRecipients(ctx, database, site.ID, schedule.SelectedRecipientEmails())
-	default:
-		return nil, fmt.Errorf("%w: invalid recipient_mode", model.ErrInvalidTrafficReportSchedule)
-	}
-}
-
-func trafficReportTeamRecipients(ctx context.Context, database *gorm.DB, site model.Site) ([]string, error) {
-	recipients := []string{}
-	seenRecipients := map[string]struct{}{}
-	var appendErr error
-	recipients, appendErr = appendTrafficReportRecipient(recipients, seenRecipients, site.OwnerEmail)
-	if appendErr != nil {
-		return nil, appendErr
-	}
-	recipients, appendErr = appendTrafficReportRecipient(recipients, seenRecipients, site.CreatorEmail)
-	if appendErr != nil {
-		return nil, appendErr
-	}
-	teamMembers, teamMemberErr := trafficReportTeamMemberRecipients(ctx, database, site.ID)
-	if teamMemberErr != nil {
-		return nil, teamMemberErr
-	}
-	for _, teamMemberEmail := range teamMembers {
-		recipients, appendErr = appendTrafficReportRecipient(recipients, seenRecipients, teamMemberEmail)
-		if appendErr != nil {
-			return nil, appendErr
-		}
-	}
-	if len(recipients) == 0 {
-		return nil, fmt.Errorf("traffic_report_dispatch: no recipients")
-	}
-	return recipients, nil
-}
-
-func trafficReportSelectedRecipients(ctx context.Context, database *gorm.DB, siteID string, selectedRecipients []string) ([]string, error) {
-	teamRecipientSet, teamRecipientErr := trafficReportTeamMemberRecipientSet(ctx, database, siteID)
-	if teamRecipientErr != nil {
-		return nil, teamRecipientErr
-	}
-	recipients := []string{}
-	seenRecipients := map[string]struct{}{}
-	for _, selectedRecipient := range selectedRecipients {
-		if _, exists := teamRecipientSet[selectedRecipient]; !exists {
-			continue
-		}
-		var appendErr error
-		recipients, appendErr = appendTrafficReportRecipient(recipients, seenRecipients, selectedRecipient)
-		if appendErr != nil {
-			return nil, appendErr
-		}
-	}
-	if len(recipients) == 0 {
-		return nil, fmt.Errorf("traffic_report_dispatch: no selected recipients")
-	}
-	return recipients, nil
-}
-
-func trafficReportTeamMemberRecipientSet(ctx context.Context, database *gorm.DB, siteID string) (map[string]struct{}, error) {
-	teamMemberRecipients, teamMemberErr := trafficReportTeamMemberRecipients(ctx, database, siteID)
-	if teamMemberErr != nil {
-		return nil, teamMemberErr
-	}
-	recipientSet := make(map[string]struct{}, len(teamMemberRecipients))
-	for _, recipient := range teamMemberRecipients {
-		recipientSet[recipient] = struct{}{}
-	}
-	return recipientSet, nil
-}
-
-func trafficReportTeamMemberRecipients(ctx context.Context, database *gorm.DB, siteID string) ([]string, error) {
-	var teamMembers []model.SiteTeamMember
-	if queryErr := database.WithContext(ctx).Where("site_id = ?", siteID).Order("email asc").Find(&teamMembers).Error; queryErr != nil {
-		return nil, queryErr
-	}
-	recipients := make([]string, 0, len(teamMembers))
-	seenRecipients := map[string]struct{}{}
-	for _, teamMember := range teamMembers {
-		var appendErr error
-		recipients, appendErr = appendTrafficReportRecipient(recipients, seenRecipients, teamMember.Email)
-		if appendErr != nil {
-			return nil, appendErr
-		}
-	}
-	return recipients, nil
-}
-
-func appendTrafficReportRecipient(recipients []string, seenRecipients map[string]struct{}, rawRecipient string) ([]string, error) {
-	recipient, recipientErr := model.NormalizeSiteTeamMemberEmail(rawRecipient)
-	if recipientErr != nil {
-		return nil, recipientErr
-	}
-	if _, exists := seenRecipients[recipient]; exists {
-		return recipients, nil
-	}
-	seenRecipients[recipient] = struct{}{}
-	return append(recipients, recipient), nil
+	return siteNotificationRecipients(ctx, database, site, siteRecipientConfig{
+		recipientEmail:   schedule.RecipientEmail,
+		recipientMode:    schedule.RecipientModeValue(),
+		recipientEmails:  schedule.SelectedRecipientEmails(),
+		noRecipientError: "traffic_report_dispatch: no recipients",
+	})
 }
 
 func (dispatcher trafficReportDispatcher) sendPortfolioSchedule(ctx context.Context, schedule model.PortfolioTrafficReportSchedule) error {

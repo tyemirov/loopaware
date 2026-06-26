@@ -1,10 +1,8 @@
 package model
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/mail"
 	"strings"
 	"time"
 	_ "time/tzdata"
@@ -17,9 +15,9 @@ const (
 	TrafficReportFrequencyWeekly  = "weekly"
 	TrafficReportFrequencyMonthly = "monthly"
 
-	TrafficReportRecipientModeManager  = "manager"
-	TrafficReportRecipientModeTeam     = "team"
-	TrafficReportRecipientModeSelected = "selected"
+	TrafficReportRecipientModeManager  = SiteRecipientModeManager
+	TrafficReportRecipientModeTeam     = SiteRecipientModeTeam
+	TrafficReportRecipientModeSelected = SiteRecipientModeSelected
 
 	TrafficReportStatusPending = "pending"
 	TrafficReportStatusSent    = "sent"
@@ -31,8 +29,7 @@ const (
 	DefaultTrafficReportWeekday    = int(time.Monday)
 	DefaultTrafficReportMonthDay   = 1
 
-	trafficReportRecipientMaxLength = 320
-	trafficReportTimezoneMaxLength  = 100
+	trafficReportTimezoneMaxLength = 100
 )
 
 var ErrInvalidTrafficReportSchedule = errors.New("invalid_traffic_report_schedule")
@@ -341,18 +338,7 @@ func (schedule PortfolioTrafficReportSchedule) ReportWindowDays() int {
 
 // SelectedRecipientEmails returns the normalized selected-member recipient list.
 func (schedule TrafficReportSchedule) SelectedRecipientEmails() []string {
-	if strings.TrimSpace(schedule.RecipientEmails) == "" {
-		return []string{}
-	}
-	var recipientEmails []string
-	if unmarshalErr := json.Unmarshal([]byte(schedule.RecipientEmails), &recipientEmails); unmarshalErr != nil {
-		return []string{}
-	}
-	normalizedEmails, normalizeErr := normalizeTrafficReportRecipientList(recipientEmails)
-	if normalizeErr != nil {
-		return []string{}
-	}
-	return normalizedEmails
+	return DecodeSiteRecipientEmails(schedule.RecipientEmails)
 }
 
 // RecipientModeValue returns the normalized schedule recipient mode.
@@ -378,59 +364,35 @@ func normalizeTrafficReportFrequency(rawFrequency string) string {
 }
 
 func normalizeTrafficReportRecipientMode(rawMode string) (string, error) {
-	switch strings.ToLower(strings.TrimSpace(rawMode)) {
-	case "", TrafficReportRecipientModeManager:
-		return TrafficReportRecipientModeManager, nil
-	case TrafficReportRecipientModeTeam:
-		return TrafficReportRecipientModeTeam, nil
-	case TrafficReportRecipientModeSelected:
-		return TrafficReportRecipientModeSelected, nil
-	default:
+	recipientMode, recipientModeErr := NormalizeSiteRecipientMode(rawMode)
+	if recipientModeErr != nil {
 		return "", fmt.Errorf("%w: invalid recipient_mode", ErrInvalidTrafficReportSchedule)
 	}
+	return recipientMode, nil
 }
 
 func normalizeTrafficReportRecipient(rawRecipient string) (string, error) {
-	trimmedRecipient := strings.ToLower(strings.TrimSpace(rawRecipient))
-	if trimmedRecipient == "" {
-		return "", fmt.Errorf("%w: missing recipient_email", ErrInvalidTrafficReportSchedule)
+	recipient, recipientErr := NormalizeSiteRecipientEmail(rawRecipient)
+	if recipientErr != nil {
+		return "", fmt.Errorf("%w: %v", ErrInvalidTrafficReportSchedule, recipientErr)
 	}
-	parsedAddress, parseErr := mail.ParseAddress(trimmedRecipient)
-	if parseErr != nil || parsedAddress.Address != trimmedRecipient {
-		return "", fmt.Errorf("%w: invalid recipient_email", ErrInvalidTrafficReportSchedule)
-	}
-	if len(trimmedRecipient) > trafficReportRecipientMaxLength {
-		return "", fmt.Errorf("%w: recipient_email too long", ErrInvalidTrafficReportSchedule)
-	}
-	return trimmedRecipient, nil
+	return recipient, nil
 }
 
 func normalizeTrafficReportRecipientList(rawRecipients []string) ([]string, error) {
-	normalizedRecipients := make([]string, 0, len(rawRecipients))
-	seenRecipients := make(map[string]struct{}, len(rawRecipients))
-	for _, rawRecipient := range rawRecipients {
-		recipient, recipientErr := normalizeTrafficReportRecipient(rawRecipient)
-		if recipientErr != nil {
-			return nil, recipientErr
-		}
-		if _, exists := seenRecipients[recipient]; exists {
-			continue
-		}
-		seenRecipients[recipient] = struct{}{}
-		normalizedRecipients = append(normalizedRecipients, recipient)
+	recipients, recipientErr := NormalizeSiteRecipientEmailList(rawRecipients)
+	if recipientErr != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidTrafficReportSchedule, recipientErr)
 	}
-	return normalizedRecipients, nil
+	return recipients, nil
 }
 
 func encodeTrafficReportRecipientEmails(recipientEmails []string) (string, error) {
-	if len(recipientEmails) == 0 {
-		return "[]", nil
-	}
-	encoded, encodeErr := json.Marshal(recipientEmails)
+	encoded, encodeErr := EncodeSiteRecipientEmails(recipientEmails)
 	if encodeErr != nil {
 		return "", fmt.Errorf("%w: invalid recipient_emails", ErrInvalidTrafficReportSchedule)
 	}
-	return string(encoded), nil
+	return encoded, nil
 }
 
 func normalizeTrafficReportTimezone(rawTimezone string) (string, *time.Location, error) {
