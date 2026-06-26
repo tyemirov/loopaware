@@ -6,7 +6,7 @@ Read @AGENTS.md (Workflow section), @POLICY.md, and relevant stack guides before
 
 Format: `- [ ] [B042] (P1) {I007} Title`
 
-- `[ ]` open, `[!]` blocked, `[x]` closed.
+- `[ ]` open, `[-]` taken, `[!]` blocked, `[x]` closed.
 - Blocked issues (`[!]`) must include a `Blocked:` line in the body.
 
 ## BugFixes
@@ -336,17 +336,6 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   The I012 chart-scale assertion blocker was removed by targeting the rendered SVG text labels directly; focused `dashboard-traffic.spec.js` coverage passed. Full `make ci` now passes with 383 Playwright/API tests.
   ### Changed Files
   `internal/api/admin.go`, `internal/api/site_subscribe_test_handlers.go`, `internal/api/stream_handlers_test.go`, `.mprlab/ISSUES.md`.
-- [x] [B031] (P1) Ignore disposed external-asset responses during browser teardown.
-  ### Summary
-  Baseline `make ci` failed in the widget test page browser coverage after the spec completed because the external-asset route handler attempted to read a same-origin document response that Playwright had already disposed during page/context teardown.
-  ### Deliverables
-  - Treat disposed route responses caused by Playwright teardown as non-actionable cleanup.
-  - Continue surfacing real external-asset route failures while the page remains active.
-  - Verify the formerly failing widget test page coverage and the full CI gate.
-  ### Resolution
-  Extended the external asset route teardown classifier to include Playwright's disposed response error after baseline `make ci` failed in the completed widget test page cleanup path. Final validation passed with `make ci`, including 430 Playwright/API integration specs.
-  ### Changed Files
-  `PLAN.md`, `.mprlab/ISSUES.md`, `tests/helpers/externalAssets.js`.
 
 
 ## Improvements
@@ -659,176 +648,6 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Maintenance
 
-### Recurring
-
-- [ ] [M400R] (P2) Backlog hygiene and archive
-  Goal:
-  Keep the issue tracker reliable, readable, and focused on active work while preserving resolved history in the appropriate archive.
-
-  Requirements:
-  - Cadence: run weekly during active development and before each release cut.
-  - Validate section names, identifier prefixes, recurrence suffixes, priority markers, dependencies, and duplicate IDs against the current `issues-md-format.md`.
-  - Reconcile stale statuses, duplicate issues, broken references, obsolete instructions, and entries filed under the wrong section.
-  - Move completed non-recurring history to the repository issue archive or durable documentation when the active tracker becomes noisy.
-  - Keep active, blocked, planning, and recurring entries visible in `ISSUES.md`.
-
-  Deliverables:
-  - Normalized `ISSUES.md` structure and statuses.
-  - Updated issue archive or docs when completed entries are removed from the active tracker.
-  - A short `Last run:` note summarizing the cleanup and any follow-up issues filed.
-
-  Validation:
-  - Re-read `ISSUES.md` after edits and confirm every issue is under the right section with a unique section-aware ID.
-  - Confirm recurring entries remain open and keep the `R` suffix.
-  - Confirm no active, blocked, recurring, or planning work was archived.
-
-- [ ] [M401R] (P2) Polish open issues
-  Goal:
-  Keep unresolved work executable by making each open issue concrete, ordered, and testable.
-
-  Requirements:
-  - Cadence: run weekly during active development and before handing a repo to automated execution.
-  - Review every unresolved non-recurring issue for missing context, dependencies, repro steps, acceptance criteria, and validation expectations.
-  - Make priorities concrete and ensure each open issue has actionable deliverables.
-  - Merge duplicate open issues or add explicit dependency links when separate entries must remain.
-  - Do not close or implement issues as part of this polish pass unless that work is separately requested.
-
-  Deliverables:
-  - Open issues with enough detail for a person or agent to execute without rediscovery.
-  - New or updated dependency markers where ordering matters.
-  - A short `Last run:` note listing the number of issues polished and any blockers found.
-
-  Validation:
-  - Sample the open entries after the pass and confirm each has clear next actions and validation expectations.
-  - Confirm no recurring runbook was marked complete.
-  - Confirm duplicates were merged or explicitly cross-referenced.
-
-- [ ] [M402R] (P2) Architecture and policy review
-  Goal:
-  Catch architecture, policy, and workflow drift before it becomes hidden maintenance debt.
-
-  Requirements:
-  - Cadence: run monthly, before large refactors, and after major framework or runtime changes.
-  - Review the codebase, docs, and workflow against `AGENTS.md`, `POLICY.md`, stack guides, and the current architecture notes.
-  - Look for drift from forward-only contracts, edge-validation boundaries, smart-constructor usage, testing policy, and module ownership.
-  - Record findings as new Maintenance issues with concrete scope, priority, and validation.
-  - Close the pass with a no-action note only when the review finds no actionable drift.
-
-  Deliverables:
-  - New Maintenance issues for each actionable architecture or policy drift finding.
-  - Updated notes on areas reviewed and areas intentionally left unchanged.
-  - A short `Last run:` note with the review scope and outcome.
-
-  Validation:
-  - Confirm every finding is represented as an issue with owner-readable context and validation criteria.
-  - Confirm no implementation changes were mixed into the review runbook unless separately requested.
-  - Confirm all recurring runbooks remain open.
-
-- [ ] [M403R] (P1) Dependency and security audit
-  Goal:
-  Keep third-party dependencies, runtime versions, and security-sensitive configuration within the current supported contract.
-
-  Requirements:
-  - Cadence: run weekly for active apps and before each release cut.
-  - Inspect package managers, lockfiles, language toolchains, container bases, and generated clients for known vulnerabilities or stale direct dependencies.
-  - Review auth, secret, CORS, CSP, SQL, network, and permission-sensitive configuration for drift from the current contract.
-  - Prefer current supported dependencies; do not add compatibility shims for obsolete dependency behavior.
-  - File separate Maintenance or BugFix issues for each actionable vulnerability, unsupported runtime, or security-contract gap.
-
-  Deliverables:
-  - Documented audit commands or data sources used for the pass.
-  - Updated issues for each actionable dependency or security finding.
-  - A short `Last run:` note with clean result or follow-up issue IDs.
-
-  Validation:
-  - Rerun the repository-native audit, lint, or dependency checks used for the pass.
-  - Confirm every finding is either filed, fixed under a separate issue, or explicitly marked not applicable with evidence.
-  - Confirm no secrets or private payloads were written into the tracker.
-
-- [ ] [M404R] (P1) CI, release, and artifact health
-  Goal:
-  Keep the repository's validation, release, publication, and generated artifact surfaces trustworthy.
-
-  Requirements:
-  - Cadence: run before every release, publish, or deploy, and weekly for critical services.
-  - Verify repository-native CI, lint, format, coverage, release, publish, Docker image, Pages, and artifact workflows still match the documented contract.
-  - Check generated artifacts, release tags, published images, and Pages outputs for source-to-public drift.
-  - File concrete follow-up issues for failing gates, stale artifacts, missing release prerequisites, or undocumented workflow changes.
-  - Do not perform production deployment from this runbook unless the operator explicitly requests that deployment.
-
-  Deliverables:
-  - Recorded gate status and artifact surfaces inspected.
-  - Follow-up issues for each reproducible CI, release, publish, or artifact drift problem.
-  - A short `Last run:` note with commands run and any skipped surfaces.
-
-  Validation:
-  - Use repository-native `make` targets or documented release helpers for checks.
-  - Confirm release and deployment ownership boundaries remain separate.
-  - Confirm public or published artifacts match the intended source revision when that surface is inspected.
-
-- [ ] [M405R] (P1) Code contract and static hygiene
-  Goal:
-  Keep source contracts explicit, current, and statically guarded against policy drift.
-
-  Requirements:
-  - Cadence: run monthly and before large refactors.
-  - Scan for dead code, unused exports, duplicated literals, silent fallbacks, legacy aliases, compatibility reads, and zero-but-invalid domain states.
-  - Check static analysis, coverage, schema, and contract guards that are supposed to prevent drift.
-  - File focused Maintenance issues for each concrete violation instead of broad cleanup placeholders.
-  - Keep the current canonical contract only; do not preserve obsolete behavior unless a product requirement explicitly says so.
-
-  Deliverables:
-  - Issue entries for each actionable static hygiene or contract violation.
-  - Notes on static tools, searches, and contract guards used during the pass.
-  - A short `Last run:` note with clean result or follow-up issue IDs.
-
-  Validation:
-  - Rerun the relevant static checks, contract tests, or repository searches used to identify drift.
-  - Confirm every finding has a narrow follow-up issue and does not duplicate existing backlog work.
-  - Confirm no implementation changes were mixed into the audit unless separately requested.
-
-- [ ] [M406R] (P1) Production drift and health
-  Goal:
-  Detect when production, public, or scheduled runtime state has drifted from the intended repository contract.
-
-  Requirements:
-  - Cadence: run weekly for deployed services and after each publish or deploy.
-  - Compare current source, runtime configuration, published images, public routes, scheduled jobs, and health checks for drift.
-  - Inspect real operator-facing surfaces rather than assuming merged source is deployed.
-  - File follow-up issues for stale images, stale Pages output, missing routes, failed monitors, invalid production config, or undocumented runtime differences.
-  - Stop before production deploy or destructive operator actions unless the operator explicitly requests them.
-
-  Deliverables:
-  - Recorded source revision, public artifact, route, image, or health surfaces inspected.
-  - Follow-up issues for each source-to-runtime drift finding.
-  - A short `Last run:` note with evidence links or commands used.
-
-  Validation:
-  - Verify inspected production or public surfaces directly where access is available.
-  - Confirm any deploy-required finding is filed with the exact publish/deploy boundary and owner.
-  - Confirm no production state was changed by the audit unless explicitly requested.
-
-- [ ] [M407R] (P2) Documentation and runbook hygiene
-  Goal:
-  Keep durable documentation and runbooks aligned with the current behavior users and operators actually rely on.
-
-  Requirements:
-  - Cadence: run before release cuts and after merge bursts that change user-facing or operator-facing behavior.
-  - Review README, ARCHITECTURE, PRD, CHANGELOG, docs, runbooks, setup guides, and local workflow notes for stale behavior or missing new contracts.
-  - Update docs when closed issues changed durable behavior, public APIs, operator workflows, release semantics, or deployment expectations.
-  - Remove or rewrite stale instructions instead of preserving obsolete alternatives.
-  - File separate issues for documentation gaps that require product or implementation decisions.
-
-  Deliverables:
-  - Updated documentation or filed follow-up issues for each gap.
-  - A short `Last run:` note listing docs inspected and changes made.
-  - Cross-references from archived issue history to durable docs when useful.
-
-  Validation:
-  - Check links, command names, paths, and public contract descriptions touched by the pass.
-  - Confirm docs describe the current canonical path only.
-  - Confirm issue archive and active tracker references remain consistent.
-
 - [ ] [M001] (P0) Audit and harden SQL queries for security, correctness, and performance.
   ### Summary
   Review all database access paths in the Go backend and confirm SQL behavior is current, secure, and performant. This includes ORM-generated SQL (GORM) and any raw SQL paths used by repository/data-access layers.
@@ -871,6 +690,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Optimized: dashboard site listing now batches feedback, subscriber, visit, and unique-visitor counts for all listed sites instead of issuing four count queries per site.
   - Optimized: added composite indexes for the hot site/time/path/visitor/device/timezone visit aggregations, site-created feedback/subscriber lists, and LA Sentry issue/occurrence list paths.
   - Remaining before closing M001: decide pagination or rollup strategy for unbounded message/subscriber/Sentry issue lists and all-row attribution/device scans, then capture before/after `EXPLAIN` evidence for each additional query rewrite.
+
 
 ## Features
 
@@ -1070,32 +890,8 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Config-audit CI follow-up adds the missing tracked default gHTTP env template, unignores tracked config env examples, and keeps native LoopAware Google placeholders present in both TAuth env templates so clean CI checkouts validate the same compose env set as local stacks. Validation passed with `go mod tidy && git diff --exit-code go.mod go.sum`, `make config-audit`, a clean-copy `make config-audit`, `make mobile-check`, `git diff --check`, and final `make ci`.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `.gitignore`, `.github/workflows/ci.yml`, `Makefile`, `configs/README.md`, `configs/config.tauth.yml`, `configs/.env.ghttp.example`, `configs/.env.tauth.example`, `configs/.env.tauth.computercat.example`, `tests/configs/tauth.env`, `tests/scripts/run-integration.sh`, `mobile/AGENTS.md`, `mobile/App.tsx`, `mobile/LICENSE`, `mobile/app.config.js`, `mobile/eas.json`, `mobile/index.ts`, `mobile/package.json`, `mobile/package-lock.json`, `mobile/tsconfig.json`, `mobile/assets/android-icon-background.png`, `mobile/assets/android-icon-foreground.png`, `mobile/assets/android-icon-monochrome.png`, `mobile/assets/favicon.png`, `mobile/assets/icon.png`, `mobile/assets/splash-icon.png`, `mobile/scripts/fix-ios-project-warnings.mjs`, `mobile/scripts/native-build-fingerprint.mjs`, `mobile/scripts/prepare-android-project.mjs`, `mobile/scripts/resolve-metro-port.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `mobile/src/api.ts`, `mobile/src/auth.ts`, `mobile/src/config.ts`, `mobile/src/format.ts`, `mobile/src/types.ts`.
-- [x] [F012] (P1) Add per-site uptime health monitoring and outage notifications.
-  ### Summary
-  Site managers need LoopAware to notify them when a configured customer site is completely down and again when it recovers. The first version should use server-side synthetic HTTP checks owned by LoopAware, not customer-page heartbeat JavaScript, because a page heartbeat cannot report a fully unreachable site.
-  ### Product Decisions
-  - Add health monitoring as a first-class site feature rather than piggybacking on feedback, traffic, or LA Sentry.
-  - Use server-side public HTTP checks for MVP; do not require an embedded heartbeat script.
-  - Alert only on state transitions after a configured failure threshold so transient failures do not send repeated emails.
-  - Treat HTTP responses below 500 as reachable and HTTP 5xx, DNS, connect, TLS, redirect, or timeout failures as down.
-  - Resolve recipients through the existing site manager/team recipient modes used by scheduled traffic reports.
-  ### Deliverables
-  - Per-site health monitor model, current-state persistence, transition history, and deletion cleanup.
-  - Public-target validating HTTP prober with bounded timeout, redirect target checks, deterministic error codes, and no private-network probing.
-  - Background manager that runs due checks, updates monitor state, and sends down/recovered Pinguin notifications.
-  - Authenticated APIs for reading, configuring, and manually running a site's health monitor with team-member read access and manager-only mutation.
-  - Dashboard Health tab with status, settings, recipient controls, and manual check action.
-  - Operator mobile app read-only health status for the selected site.
-  - README documentation and black-box/focused coverage for the feature.
-  ### Resolution
-  Added first-class per-site health monitoring with a persisted current monitor, transition history, public-network-only HTTP probing, scheduled due checks, manual check execution, and down/recovered Pinguin alerts. Health targets are validated as public HTTP(S) URLs, redirects are revalidated during probing, HTTP responses below 500 count as reachable, and failures are classified with stable error codes for HTTP 5xx, DNS, TLS, redirect, timeout, network, and invalid-target cases.
-  Added authenticated health APIs for reading, saving, and manually checking a site monitor, preserving team-member read access and manager-only mutation. Alert recipients now share the canonical site-recipient contract used by traffic reports: manager, whole team, or selected team members. Site deletion removes health monitors and transition events.
-  Added the dashboard Health tab with status summary, enablement, target URL, interval, timeout, failure threshold, recipient controls, selected-member checkboxes, and manual check action. The operator mobile app now loads and displays read-only health status for the selected site.
-  Documented the server-side synthetic-check design in README, including that the health monitor does not require a customer-site heartbeat script. Validation passed with focused backend tests, API integration, UI integration, mobile checks, and final `make ci` with 444 Playwright/API integration specs.
-  Review follow-up makes failed down/recovered alert delivery retryable from the persisted monitor status versus `last_alerted_status`, so a transient Pinguin send failure no longer permanently suppresses the transition alert. Added handler-level regression coverage for down-alert and recovery-alert retry without duplicate transition events. Validation passed with baseline `make ci`, `make test-unit`, and final `make ci` with 444 Playwright/API integration specs.
-  ### Changed Files
-  `.mprlab/ISSUES.md`, `PLAN.md`, `README.md`, `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/admin.go`, `internal/api/origin_repro_test.go`, `internal/api/site_health_monitor.go`, `internal/api/site_health_monitor_test.go`, `internal/api/site_health_probe.go`, `internal/api/site_health_probe_test.go`, `internal/api/site_recipients.go`, `internal/api/traffic_report_schedule.go`, `internal/model/site_health_monitor.go`, `internal/model/site_health_monitor_test.go`, `internal/model/site_recipients.go`, `internal/model/traffic_report_schedule.go`, `internal/storage/database.go`, `mobile/App.tsx`, `mobile/scripts/test-api-boundaries.mjs`, `mobile/src/api.ts`, `mobile/src/types.ts`, `pkg/favicon/resolver.go`, `pkg/outbound/http.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `web/app/index.html`.
 
 
 ## Planning
 *do not implement yet*
+
