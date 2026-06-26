@@ -19,6 +19,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Docs 📚
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
 
+## [v0.7.30] - 2026-06-26
+
+### Features ✨
+- Add per-site uptime health monitoring with public-target validation, thresholded down/recovered transitions, and Pinguin email alerts.
+- Introduce site health monitoring API, data model, and manager integration with authenticated read and mutation access.
+- Add Health monitoring tab and controls to the dashboard and mobile app integration for read-only health status.
+- Implement backend synthetic HTTP checks for site health without requiring customer-site heartbeat scripts.
+
+### Improvements ⚙️
+- Refactor outbound HTTP safety checks into a dedicated package for reuse.
+- Enhance alert delivery to retry failed down/recovered notifications to prevent permanent suppression.
+- Update README to include detailed site health monitoring features and usage instructions.
+
+### Bug Fixes 🐛
+- Fix retry logic for alert notifications after delivery failures in site health monitoring.
+
+### Testing 🧪
+- Add comprehensive API and UI tests for health monitor feature covering validation, permissions, and alert retry scenarios.
+
+### Docs 📚
+- Update README with site health monitoring overview, API endpoints, and dashboard usage details.
+
 ## [v0.7.29] - 2026-06-24
 
 ### Features ✨
