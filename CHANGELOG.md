@@ -19,6 +19,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Docs 📚
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
 
+## [v0.7.31] - 2026-06-26
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- _No changes._
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- _No changes._
+
+### Docs 📚
+- Updated `.mprlab/ISSUES.md` with comprehensive maintenance runbooks for backlog hygiene, issue polishing, architecture review, dependency audits, CI/release health, code contract hygiene, production drift checks, and documentation hygiene.
+
 ## [v0.7.30] - 2026-06-26
 
 ### Features ✨
