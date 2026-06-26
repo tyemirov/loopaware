@@ -97,6 +97,30 @@ const basePayloads = {
   "/api/sites/site-1/mobile-apps": { site_id: site.id, mobile_apps: null },
   "/api/sites/site-1/team": { site_id: site.id, team_members: null },
   "/api/sites/site-1/traffic-report-schedule": null,
+  "/api/sites/site-1/health-monitor": {
+    site_id: site.id,
+    enabled: false,
+    target_url: "https://example.com",
+    interval_seconds: 300,
+    timeout_seconds: 10,
+    failure_threshold: 2,
+    recipient_email: "owner@example.com",
+    recipient_mode: "manager",
+    recipient_emails: [],
+    status: "unknown",
+    consecutive_failures: 0,
+    next_check_at: 0,
+    last_checked_at: 0,
+    last_success_at: 0,
+    last_failure_at: 0,
+    last_status_code: 0,
+    last_error_code: "",
+    last_error_message: "",
+    last_duration_ms: 0,
+    last_alerted_at: 0,
+    email_enabled: true,
+    persisted: false,
+  },
 };
 
 const client = new LoopAwareApiClient(runtimeConfig(), createFetcher(basePayloads));
@@ -116,6 +140,7 @@ assert.deepEqual(dashboard.locations.locations, []);
 assert.deepEqual(dashboard.sentryIssues, []);
 assert.deepEqual(dashboard.mobileApps, []);
 assert.deepEqual(dashboard.teamMembers, []);
+assert.equal(dashboard.healthMonitor?.status, "unknown");
 
 const invalidClient = new LoopAwareApiClient(runtimeConfig(), createFetcher({
   ...basePayloads,

@@ -5,7 +5,7 @@
 [![Go 1.26](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)](https://go.dev)
 [![Latest Release](https://img.shields.io/github/v/release/tyemirov/loopaware)](https://github.com/tyemirov/loopaware/releases)
 
-**Privacy-first feedback widget, traffic analytics, and developer monitoring.** Drop a single script tag on your site to collect customer feedback, capture email subscribers, track visits, and report browser errors -- all backed by a role-aware dashboard and a self-hosted SQLite backend.
+**Privacy-first feedback widget, traffic analytics, uptime checks, and developer monitoring.** Drop a single script tag on your site to collect customer feedback, capture email subscribers, track visits, and report browser errors -- all backed by a role-aware dashboard and a self-hosted SQLite backend.
 
 - **Free** for personal and non-revenue projects
 - **Commercial license** required for revenue-generating use
@@ -43,6 +43,7 @@ Embed the feedback widget on any page:
 - Email subscription capture via an embeddable subscribe form
 - Privacy-safe traffic pixel with per-site visit and visitor counts
 - Daily, weekly, or monthly traffic report emails delivered through Pinguin to a manager, the whole site team, or selected members
+- Backend site health monitoring with public-target validation, thresholded down/recovered transitions, and Pinguin email alerts
 - First-class LA Sentry developer error monitoring with protected server-to-server ingest and origin-bound browser capture
 - SQLite-first storage with pluggable drivers
 - Public privacy policy and compliance endpoints for visibility
@@ -241,6 +242,9 @@ include Unix timestamps in seconds.
 | `GET`   | `/api/sites/:id/traffic-report-schedule` | owner/admin | Read the selected-site traffic report schedule, including `recipient_mode` (`manager`, `team`, or `selected`) and selected team member emails |
 | `PUT`   | `/api/sites/:id/traffic-report-schedule` | owner/admin | Save the selected-site traffic report schedule; `recipient_mode: "selected"` accepts only current per-site team member emails in `recipient_emails` |
 | `POST`  | `/api/sites/:id/traffic-report-schedule/test` | owner/admin | Send the selected-site traffic report immediately to the schedule's resolved recipients |
+| `GET`   | `/api/sites/:id/health-monitor`       | owner/admin/team member | Read the selected-site uptime monitor configuration and current status                                      |
+| `PUT`   | `/api/sites/:id/health-monitor`       | owner/admin | Save the selected-site uptime monitor; `recipient_mode: "selected"` accepts only current per-site team member emails in `recipient_emails` |
+| `POST`  | `/api/sites/:id/health-monitor/check` | owner/admin | Run one immediate backend health check for the selected site monitor                                         |
 | `GET`   | `/api/sites/favicons/events`          | any         | Server-sent events stream announcing refreshed site favicons                                            |
 | `GET`   | `/api/sites/feedback/events`          | any         | Server-sent events stream announcing new feedback                                                      |
 | `POST`  | `/public/feedback`                       | public      | Submit feedback (requires `site_id`, valid `contact` as email or phone, at least one of `message` or `sentiment`, and optional `source_url` for the submitting page) |
@@ -269,9 +273,14 @@ profile image (served from `/api/me/avatar`). The dashboard uses this payload to
 site scope.
 
 Authenticated users can create sites. Owners, creators, and global admins can update and delete sites, can add
-per-site team member emails, and can choose whether selected-site traffic reports go only to the manager, the whole site
-team, or selected team members. Team members can read assigned site data after signing in with the matching Google email,
-but cannot manage site settings, memberships, or schedules.
+per-site team member emails, and can choose whether selected-site traffic reports and health alerts go only to the
+manager, the whole site team, or selected team members. Team members can read assigned site data after signing in with
+the matching Google email, but cannot manage site settings, memberships, schedules, or health monitors.
+
+Site health checks are backend synthetic GET probes against the configured public HTTP(S) target. They do not require a
+customer-site heartbeat script or any extra JavaScript beyond the existing widget/pixel/Sentry embeds. Direct private,
+loopback, link-local, and special-use addresses are rejected when a monitor is saved, redirects are revalidated during
+probing, and alerts are emitted only on status transitions after the configured consecutive-failure threshold.
 
 Deployments upgraded from versions prior to LA-57 should allow the server startup migration to run once; it backfills any
 sites missing a `creator_email` with `temirov@gmail.com` to preserve creator-based visibility rules. New site creations
@@ -285,10 +294,11 @@ The Bootstrap front end consumes the APIs above. Features include:
 - Site creation and owner reassignment available to every authenticated user; administrators additionally see all sites
 - Owner/admin editor for site metadata, with per-site team member emails managed from the Admin dashboard section
 - Selected-site traffic report scheduling with recipient selection for only the manager, the whole site team, or checked team members
+- Selected-site health monitoring with enablement, target URL, interval, timeout, failure threshold, manual check, and alert-recipient controls
 - Widget appearance controls that persist the bubble’s accent color, side (left/right), and bottom offset without code changes
 - Feedback table with human-readable timestamps
 - Subscribers panel with per-site subscriber counts, table, CSV export, and a copyable `subscribe.js` snippet
-- Section selector tabs to switch between Feedback, Subscriptions, Traffic, LA Sentry, and manager-only Admin tools
+- Section selector tabs to switch between Feedback, Subscriptions, Traffic, Health, LA Sentry, and manager-only Admin tools
 - Subscriber deletion via a confirmation modal
 - Traffic card with visit and unique visitor counts, recent visits, and a copyable `pixel.js` snippet
 - Real-time favicon refresh notifications delivered through the SSE stream

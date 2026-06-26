@@ -1022,6 +1022,12 @@ func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
 		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.SiteTeamMember{}).Error; err != nil {
 			return err
 		}
+		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.SiteHealthEvent{}).Error; err != nil {
+			return err
+		}
+		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.SiteHealthMonitor{}).Error; err != nil {
+			return err
+		}
 		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.SentryOccurrence{}).Error; err != nil {
 			return err
 		}

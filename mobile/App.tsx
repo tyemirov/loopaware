@@ -37,6 +37,7 @@ const dashboardTabs: Array<{ key: DashboardTab; label: string }> = [
   { key: "feedback", label: "Feedback" },
   { key: "traffic", label: "Traffic" },
   { key: "subscribers", label: "Subscribers" },
+  { key: "health", label: "Health" },
   { key: "sentry", label: "LA Sentry" },
   { key: "reports", label: "Reports" },
 ];
@@ -376,6 +377,8 @@ function DashboardTabContent(props: {
       return <TrafficSection dashboard={props.siteDashboard} interval={props.interval} onIntervalChange={props.onIntervalChange} />;
     case "subscribers":
       return <SubscribersSection subscribers={props.siteDashboard.subscribers} />;
+    case "health":
+      return <HealthSection monitor={props.siteDashboard.healthMonitor} />;
     case "sentry":
       return <SentrySection issues={props.siteDashboard.sentryIssues} site={props.site} />;
     case "reports":
@@ -394,6 +397,7 @@ function OverviewSection(props: { dashboard: SiteDashboard; site: Site }) {
           { label: "Feedback", value: formatCount(props.site.feedback_count), detail: `${formatCount(props.dashboard.messages.length)} loaded` },
           { label: "Subscribers", value: formatCount(props.site.subscriber_count), detail: `${formatCount(props.dashboard.subscribers.length)} loaded` },
           { label: "Visits", value: formatCount(props.dashboard.stats.visit_count), detail: `${formatCount(props.dashboard.stats.unique_visitor_count)} unique` },
+          { label: "Health", value: sentenceCase(props.dashboard.healthMonitor?.status || "unknown"), detail: props.dashboard.healthMonitor?.enabled ? "Checks enabled" : "Checks off" },
           { label: "Sentry", value: formatCount(props.dashboard.sentryIssues.length), detail: props.site.sentry_token_configured ? "Token configured" : "Token missing" },
         ]}
       />
@@ -510,6 +514,47 @@ function SubscribersSection(props: { subscribers: Subscriber[] }) {
       )}
     </Section>
   );
+}
+
+function HealthSection(props: { monitor: SiteDashboard["healthMonitor"] }) {
+  const monitor = props.monitor;
+  if (!monitor) {
+    return <EmptyInline text="Health monitor is not available." />;
+  }
+  return (
+    <View style={styles.sectionStack}>
+      <StatGrid
+        items={[
+          { label: "Status", value: sentenceCase(monitor.status), detail: monitor.enabled ? "Checks enabled" : "Checks off" },
+          { label: "Failures", value: formatCount(monitor.consecutive_failures), detail: `Threshold ${formatCount(monitor.failure_threshold)}` },
+          { label: "Response", value: monitor.last_duration_ms ? `${formatCount(monitor.last_duration_ms)} ms` : "No check", detail: monitor.last_status_code ? `HTTP ${monitor.last_status_code}` : "No status" },
+        ]}
+      />
+      <Section title="Monitor">
+        <InfoRow label="Target" value={compactText(monitor.target_url)} />
+        <InfoRow label="Interval" value={`${formatCount(monitor.interval_seconds)} seconds`} />
+        <InfoRow label="Timeout" value={`${formatCount(monitor.timeout_seconds)} seconds`} />
+        <InfoRow label="Recipients" value={healthRecipientLabel(monitor)} />
+      </Section>
+      <Section title="Checks">
+        <InfoRow label="Next check" value={formatDateTime(monitor.next_check_at)} />
+        <InfoRow label="Last checked" value={formatDateTime(monitor.last_checked_at)} />
+        <InfoRow label="Last up" value={formatDateTime(monitor.last_success_at)} />
+        <InfoRow label="Last failure" value={formatDateTime(monitor.last_failure_at)} />
+        <InfoRow label="Last error" value={compactText(monitor.last_error_message || monitor.last_error_code, "None")} />
+      </Section>
+    </View>
+  );
+}
+
+function healthRecipientLabel(monitor: SiteDashboard["healthMonitor"]): string {
+  if (!monitor) {
+    return "";
+  }
+  if (monitor.recipient_mode === "selected") {
+    return monitor.recipient_emails.join(", ");
+  }
+  return sentenceCase(monitor.recipient_mode);
 }
 
 function SentrySection(props: { issues: SentryIssue[]; site: Site }) {

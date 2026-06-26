@@ -473,6 +473,9 @@
                   <button class="nav-link w-100" id="dashboard-section-tab-traffic" type="button" role="tab" aria-selected="false">Traffic</button>
                 </li>
                 <li class="nav-item" role="presentation">
+                  <button class="nav-link w-100" id="dashboard-section-tab-health" type="button" role="tab" aria-selected="false">Health</button>
+                </li>
+                <li class="nav-item" role="presentation">
                   <button class="nav-link w-100" id="dashboard-section-tab-sentry" type="button" role="tab" aria-selected="false">LA Sentry</button>
                 </li>
                 <li class="nav-item d-none" role="presentation">
@@ -897,6 +900,81 @@
                 <div id="traffic-location-container">
                   <p id="traffic-locations-heading" class="text-muted small mb-2 mt-3">Locations</p>
                   <div id="locations-map" class="traffic-map border rounded mb-3"></div>
+                </div>
+              </div>
+            </div>
+            <div class="card shadow-sm mb-4" data-dashboard-card="health">
+              <div class="card-header">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <h5 id="health-monitor-title" class="mb-0">Health</h5>
+                    <span id="health-monitor-current-status" class="badge bg-secondary">Unknown</span>
+                    <span id="health-monitor-email-state" class="badge bg-secondary d-none"></span>
+                  </div>
+                  <div id="health-monitor-status" class="d-none py-1 px-2 small"></div>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="row g-3 align-items-end">
+                  <div class="col-md-4">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" role="switch" id="health-monitor-enabled" />
+                      <label class="form-check-label" for="health-monitor-enabled">Enable health checks</label>
+                    </div>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label" for="health-monitor-target-url">Target URL</label>
+                    <input id="health-monitor-target-url" class="form-control" type="url" autocomplete="off" />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label" for="health-monitor-interval">Check every</label>
+                    <div class="input-group">
+                      <input id="health-monitor-interval" class="form-control" type="number" min="60" max="86400" step="60" />
+                      <span class="input-group-text">sec</span>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label" for="health-monitor-timeout">Timeout</label>
+                    <div class="input-group">
+                      <input id="health-monitor-timeout" class="form-control" type="number" min="1" max="30" step="1" />
+                      <span class="input-group-text">sec</span>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label" for="health-monitor-threshold">Failure threshold</label>
+                    <input id="health-monitor-threshold" class="form-control" type="number" min="1" max="10" step="1" />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label" for="health-monitor-recipient">Manager email</label>
+                    <input class="form-control" type="email" id="health-monitor-recipient" autocomplete="off" readonly />
+                  </div>
+                  <div class="col-md-8">
+                    <span class="form-label d-block">Alert recipients</span>
+                    <div class="btn-group w-100" role="group" aria-label="Health alert recipients">
+                      <input class="btn-check" type="radio" name="health-monitor-recipient-mode" id="health-monitor-recipient-mode-manager" value="manager" checked />
+                      <label class="btn btn-outline-secondary" for="health-monitor-recipient-mode-manager">Only me</label>
+                      <input class="btn-check" type="radio" name="health-monitor-recipient-mode" id="health-monitor-recipient-mode-team" value="team" />
+                      <label class="btn btn-outline-secondary" for="health-monitor-recipient-mode-team">Whole team</label>
+                      <input class="btn-check" type="radio" name="health-monitor-recipient-mode" id="health-monitor-recipient-mode-selected" value="selected" />
+                      <label class="btn btn-outline-secondary" for="health-monitor-recipient-mode-selected">Selected members</label>
+                    </div>
+                  </div>
+                  <div class="col-12 d-none" id="health-monitor-selected-members-container">
+                    <div class="border rounded p-3">
+                      <div class="fw-semibold small mb-2">Selected members</div>
+                      <div id="health-monitor-selected-members-list" class="d-flex flex-column gap-2"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="d-flex flex-wrap gap-3 text-muted small mt-3">
+                  <div>Next check: <span id="health-monitor-next-check">Not scheduled.</span></div>
+                  <div>Last checked: <span id="health-monitor-last-checked">Never.</span></div>
+                  <div>Last up: <span id="health-monitor-last-success">Never.</span></div>
+                  <div>Last failure: <span id="health-monitor-last-failure">Never.</span></div>
+                  <div>Last error: <span id="health-monitor-last-error">None.</span></div>
+                </div>
+                <div class="d-flex justify-content-end mt-3">
+                  <button id="health-monitor-run-check-button" class="btn btn-outline-secondary btn-sm" type="button">Run check now</button>
                 </div>
               </div>
             </div>
@@ -1469,6 +1547,8 @@
         errorMessages.invalid_traffic_report_schedule = errorMessages.invalid_traffic_report_schedule || 'Check the report schedule fields.';
         errorMessages.traffic_report_email_disabled = errorMessages.traffic_report_email_disabled || 'Traffic report email delivery is disabled.';
         errorMessages.traffic_report_send_failed = errorMessages.traffic_report_send_failed || 'Unable to send test report.';
+        errorMessages.invalid_health_monitor = errorMessages.invalid_health_monitor || 'Check the health monitor fields.';
+        errorMessages.health_monitor_check_failed = errorMessages.health_monitor_check_failed || 'Unable to run health check.';
         var roleLabels = parsedConfig.role_labels || {};
         var roleValues = parsedConfig.role_values || {};
         var adminRoleValue = roleValues.admin || 'admin';
@@ -1644,6 +1724,26 @@
         var trafficReportNextSendElement = document.getElementById('traffic-report-next-send');
         var trafficReportLastSentElement = document.getElementById('traffic-report-last-sent');
         var trafficReportTestButton = document.getElementById('traffic-report-test-button');
+        var healthMonitorEnabledInput = document.getElementById('health-monitor-enabled');
+        var healthMonitorTargetURLInput = document.getElementById('health-monitor-target-url');
+        var healthMonitorIntervalInput = document.getElementById('health-monitor-interval');
+        var healthMonitorTimeoutInput = document.getElementById('health-monitor-timeout');
+        var healthMonitorThresholdInput = document.getElementById('health-monitor-threshold');
+        var healthMonitorRecipientInput = document.getElementById('health-monitor-recipient');
+        var healthMonitorRecipientModeManagerInput = document.getElementById('health-monitor-recipient-mode-manager');
+        var healthMonitorRecipientModeTeamInput = document.getElementById('health-monitor-recipient-mode-team');
+        var healthMonitorRecipientModeSelectedInput = document.getElementById('health-monitor-recipient-mode-selected');
+        var healthMonitorSelectedMembersContainer = document.getElementById('health-monitor-selected-members-container');
+        var healthMonitorSelectedMembersList = document.getElementById('health-monitor-selected-members-list');
+        var healthMonitorStatusElement = document.getElementById('health-monitor-status');
+        var healthMonitorCurrentStatusElement = document.getElementById('health-monitor-current-status');
+        var healthMonitorEmailStateElement = document.getElementById('health-monitor-email-state');
+        var healthMonitorNextCheckElement = document.getElementById('health-monitor-next-check');
+        var healthMonitorLastCheckedElement = document.getElementById('health-monitor-last-checked');
+        var healthMonitorLastSuccessElement = document.getElementById('health-monitor-last-success');
+        var healthMonitorLastFailureElement = document.getElementById('health-monitor-last-failure');
+        var healthMonitorLastErrorElement = document.getElementById('health-monitor-last-error');
+        var healthMonitorRunCheckButton = document.getElementById('health-monitor-run-check-button');
         var allSitesVisitCountElement = document.getElementById('all-sites-visit-count');
         var allSitesUniqueVisitorCountElement = document.getElementById('all-sites-unique-visitor-count');
         var allSitesSiteCountElement = document.getElementById('all-sites-site-count');
@@ -1787,11 +1887,14 @@
         var apiPortfolioTrafficTestEndpoint = apiUrl(apiPaths.portfolio_traffic_test || '');
         var apiSiteTrafficReportScheduleSuffix = '/traffic-report-schedule';
         var apiSiteTrafficReportTestSuffix = '/traffic-report-schedule/test';
+        var apiSiteHealthMonitorSuffix = '/health-monitor';
+        var apiSiteHealthMonitorCheckSuffix = '/health-monitor/check';
         var apiSiteSentryIssuesSuffix = '/sentry/issues';
         var apiSiteSentryTokenSuffix = '/sentry/token';
         var dashboardSectionTabFeedback = document.getElementById(elementIds.dashboard_section_tab_feedback);
         var dashboardSectionTabSubscriptions = document.getElementById(elementIds.dashboard_section_tab_subscriptions);
         var dashboardSectionTabTraffic = document.getElementById(elementIds.dashboard_section_tab_traffic);
+        var dashboardSectionTabHealth = document.getElementById('dashboard-section-tab-health');
         var dashboardSectionTabSentry = document.getElementById('dashboard-section-tab-sentry');
         var dashboardSectionTabAdmin = document.getElementById('dashboard-section-tab-admin');
         var dashboardSectionCurrentKey = 'feedback';
@@ -1812,6 +1915,7 @@
           siteSubscribers: {},
           siteTeamMembers: {},
           trafficReportSchedules: {},
+          siteHealthMonitors: {},
           portfolioTrafficReportSchedule: null,
           portfolioTrafficReport: null,
           globalTrafficAvailableSites: [],
@@ -1834,6 +1938,11 @@
         var trafficReportRecipientModeTeam = 'team';
         var trafficReportRecipientModeSelected = 'selected';
         var trafficReportSelectedMembersPlaceholder = 'No team members yet.';
+        var healthMonitorAutosaveDelayMilliseconds = 800;
+        var healthMonitorAutosaveTimerId = null;
+        var healthMonitorAutosavePending = false;
+        var healthMonitorAutosaveInFlight = false;
+        var healthMonitorSelectedMembersPlaceholder = 'No team members yet.';
         var allSitesTrafficReportAutosaveTimerId = null;
         var allSitesTrafficReportAutosavePending = false;
         var allSitesTrafficReportAutosaveInFlight = false;
@@ -4656,7 +4765,7 @@
 
         function setDashboardSection(sectionKey) {
           var key = (sectionKey || '').toLowerCase();
-          if (key !== 'feedback' && key !== 'subscriptions' && key !== 'traffic' && key !== 'sentry' && key !== 'admin') {
+          if (key !== 'feedback' && key !== 'subscriptions' && key !== 'traffic' && key !== 'health' && key !== 'sentry' && key !== 'admin') {
             key = 'feedback';
           }
           if (key === 'admin' && !selectedSiteHasAdminSection()) {
@@ -4694,6 +4803,7 @@
           setTabButtonState(dashboardSectionTabFeedback, dashboardSectionCurrentKey === 'feedback');
           setTabButtonState(dashboardSectionTabSubscriptions, dashboardSectionCurrentKey === 'subscriptions');
           setTabButtonState(dashboardSectionTabTraffic, dashboardSectionCurrentKey === 'traffic');
+          setTabButtonState(dashboardSectionTabHealth, dashboardSectionCurrentKey === 'health');
           setTabButtonState(dashboardSectionTabSentry, dashboardSectionCurrentKey === 'sentry');
           setTabButtonState(dashboardSectionTabAdmin, dashboardSectionCurrentKey === 'admin');
         }
@@ -4710,6 +4820,7 @@
           var showFeedback = dashboardSectionCurrentKey === 'feedback';
           var showSubscriptions = dashboardSectionCurrentKey === 'subscriptions';
           var showTraffic = dashboardSectionCurrentKey === 'traffic';
+          var showHealth = dashboardSectionCurrentKey === 'health';
           var showSentry = dashboardSectionCurrentKey === 'sentry';
           var showAdmin = dashboardSectionCurrentKey === 'admin' && selectedSiteHasAdminSection();
 
@@ -4720,6 +4831,7 @@
           setCardVisible('[data-widget-card=\"traffic\"]', showTraffic);
           setCardVisible('[data-dashboard-card=\"traffic-report\"]', showTraffic);
           setCardVisible('[data-dashboard-card=\"traffic\"]', showTraffic);
+          setCardVisible('[data-dashboard-card=\"health\"]', showHealth);
           setCardVisible('[data-widget-card=\"sentry\"]', showSentry);
           setCardVisible('[data-dashboard-card=\"sentry\"]', showSentry);
           setCardVisible('[data-dashboard-card=\"admin\"]', showAdmin);
@@ -5272,6 +5384,9 @@
             renderFeedbackPlaceholder(siteSearchQuery ? statusNoSiteMatches : statusMessages.select_site || '');
             renderTeamMembers([]);
             setTeamControlsDisabled(true);
+            setHealthMonitorControls(defaultHealthMonitor());
+            setHealthMonitorControlsDisabled(true);
+            clearHealthMonitorStatus();
             renderSentryIssuesPlaceholder(statusMessages.select_site || sentryIssuesPlaceholder);
             renderSentryIssueDetail(null);
             return;
@@ -5280,6 +5395,9 @@
             renderFeedbackPlaceholder(statusMessages.select_site || '');
             renderTeamMembers([]);
             setTeamControlsDisabled(true);
+            setHealthMonitorControls(defaultHealthMonitor());
+            setHealthMonitorControlsDisabled(true);
+            clearHealthMonitorStatus();
             renderSentryIssuesPlaceholder(statusMessages.select_site || sentryIssuesPlaceholder);
             renderSentryIssueDetail(null);
             return;
@@ -5296,6 +5414,7 @@
               setTrafficReportControlsDisabled(true);
               clearTrafficReportStatus();
             }
+            loadHealthMonitor();
             loadSentryIssues();
             return;
           }
@@ -5310,6 +5429,7 @@
             setTrafficReportControlsDisabled(true);
             clearTrafficReportStatus();
           }
+          loadHealthMonitor();
           loadSentryIssues();
         }
 
@@ -5697,6 +5817,7 @@
           setTeamControlsDisabled(false);
           renderTeamMembers(state.siteTeamMembers[selectedSiteId] || []);
           refreshTrafficReportRecipientMembers();
+          refreshHealthMonitorRecipientMembers();
           fetchJSON(apiSiteTeamEndpoint(selectedSiteId)).then(function(payload) {
             if (state.selectedSiteId !== selectedSiteId) {
               return;
@@ -5705,6 +5826,7 @@
             state.siteTeamMembers[selectedSiteId] = members;
             renderTeamMembers(members);
             refreshTrafficReportRecipientMembers();
+            refreshHealthMonitorRecipientMembers();
             setTeamControlsDisabled(false);
             clearTeamStatus();
           }).catch(function(error) {
@@ -5713,6 +5835,7 @@
             }
             renderTeamMembers(state.siteTeamMembers[selectedSiteId] || []);
             refreshTrafficReportRecipientMembers();
+            refreshHealthMonitorRecipientMembers();
             setTeamControlsDisabled(false);
             showTeamStatus(error.message || statusMessages.load_failed || '', true);
           });
@@ -5757,6 +5880,7 @@
             state.siteTeamMembers[selectedSiteId].push(member);
             renderTeamMembers(state.siteTeamMembers[selectedSiteId]);
             refreshTrafficReportRecipientMembers();
+            refreshHealthMonitorRecipientMembers();
             setTeamControlsDisabled(false);
             if (teamMemberEmailInput) {
               teamMemberEmailInput.value = '';
@@ -5784,6 +5908,7 @@
             });
             renderTeamMembers(state.siteTeamMembers[selectedSiteId]);
             refreshTrafficReportRecipientMembers();
+            refreshHealthMonitorRecipientMembers();
             setTeamControlsDisabled(false);
             showTeamStatus('Team member removed.', false);
           }).catch(function(error) {
@@ -7480,6 +7605,404 @@
           });
         }
 
+        function clearHealthMonitorStatus() {
+          if (!healthMonitorStatusElement) {
+            return;
+          }
+          healthMonitorStatusElement.textContent = '';
+          healthMonitorStatusElement.classList.add('d-none');
+        }
+
+        function showHealthMonitorStatus(message, isError) {
+          if (!healthMonitorStatusElement) {
+            return;
+          }
+          healthMonitorStatusElement.textContent = message || '';
+          healthMonitorStatusElement.classList.remove('d-none');
+          healthMonitorStatusElement.classList.toggle('text-danger-emphasis', isError === true);
+          healthMonitorStatusElement.classList.toggle('bg-danger-subtle', isError === true);
+          healthMonitorStatusElement.classList.toggle('text-success-emphasis', isError !== true);
+          healthMonitorStatusElement.classList.toggle('bg-success-subtle', isError !== true);
+        }
+
+        function selectedHealthMonitorRecipientMode() {
+          var selected = document.querySelector('input[name="health-monitor-recipient-mode"]:checked');
+          if (selected && typeof selected.value === 'string') {
+            return normalizeTrafficReportRecipientModeValue(selected.value);
+          }
+          return trafficReportRecipientModeManager;
+        }
+
+        function currentHealthMonitorSelectedRecipientEmails() {
+          if (!healthMonitorSelectedMembersList) {
+            return [];
+          }
+          var selectedEmails = [];
+          Array.prototype.slice.call(healthMonitorSelectedMembersList.querySelectorAll('input[type="checkbox"]:checked')).forEach(function(input) {
+            selectedEmails.push(input.dataset.recipientEmail || '');
+          });
+          return normalizeTrafficReportRecipientEmails(selectedEmails);
+        }
+
+        function setHealthMonitorSelectedMemberInputsDisabled(disabled) {
+          if (!healthMonitorSelectedMembersList) {
+            return;
+          }
+          var shouldDisable = Boolean(disabled) || selectedHealthMonitorRecipientMode() !== trafficReportRecipientModeSelected;
+          Array.prototype.slice.call(healthMonitorSelectedMembersList.querySelectorAll('input[type="checkbox"]')).forEach(function(input) {
+            input.disabled = shouldDisable;
+          });
+        }
+
+        function renderHealthMonitorSelectedMembers(selectedEmails) {
+          if (!healthMonitorSelectedMembersList) {
+            return;
+          }
+          var selectedSet = {};
+          normalizeTrafficReportRecipientEmails(selectedEmails).forEach(function(email) {
+            selectedSet[email] = true;
+          });
+          var selectedSiteId = state.selectedSiteId;
+          var members = selectedSiteId && state.siteTeamMembers ? state.siteTeamMembers[selectedSiteId] || [] : [];
+          healthMonitorSelectedMembersList.innerHTML = '';
+          if (!members.length) {
+            var placeholder = document.createElement('div');
+            placeholder.className = 'text-muted small';
+            placeholder.textContent = healthMonitorSelectedMembersPlaceholder;
+            healthMonitorSelectedMembersList.appendChild(placeholder);
+            return;
+          }
+          members.forEach(function(member, index) {
+            var email = normalizeTeamMemberEmailValue(member.email || '');
+            if (!email) {
+              return;
+            }
+            var inputId = 'health-monitor-selected-member-' + index;
+            var wrapper = document.createElement('div');
+            wrapper.className = 'form-check';
+            var checkbox = document.createElement('input');
+            checkbox.className = 'form-check-input';
+            checkbox.type = 'checkbox';
+            checkbox.id = inputId;
+            checkbox.dataset.recipientEmail = email;
+            checkbox.checked = selectedSet[email] === true;
+            var label = document.createElement('label');
+            label.className = 'form-check-label';
+            label.setAttribute('for', inputId);
+            label.textContent = email;
+            wrapper.appendChild(checkbox);
+            wrapper.appendChild(label);
+            healthMonitorSelectedMembersList.appendChild(wrapper);
+          });
+        }
+
+        function updateHealthMonitorRecipientModeVisibility() {
+          var isSelectedMode = selectedHealthMonitorRecipientMode() === trafficReportRecipientModeSelected;
+          if (healthMonitorSelectedMembersContainer) {
+            healthMonitorSelectedMembersContainer.classList.toggle('d-none', !isSelectedMode);
+          }
+          setHealthMonitorSelectedMemberInputsDisabled(!selectedSiteCanManage());
+        }
+
+        function setHealthMonitorRecipientModeControls(monitor) {
+          var normalizedMonitor = monitor || {};
+          var recipientMode = normalizeTrafficReportRecipientModeValue(normalizedMonitor.recipient_mode);
+          if (healthMonitorRecipientModeManagerInput) {
+            healthMonitorRecipientModeManagerInput.checked = recipientMode === trafficReportRecipientModeManager;
+          }
+          if (healthMonitorRecipientModeTeamInput) {
+            healthMonitorRecipientModeTeamInput.checked = recipientMode === trafficReportRecipientModeTeam;
+          }
+          if (healthMonitorRecipientModeSelectedInput) {
+            healthMonitorRecipientModeSelectedInput.checked = recipientMode === trafficReportRecipientModeSelected;
+          }
+          renderHealthMonitorSelectedMembers(normalizedMonitor.recipient_emails || []);
+          updateHealthMonitorRecipientModeVisibility();
+        }
+
+        function refreshHealthMonitorRecipientMembers() {
+          if (!state.selectedSiteId) {
+            renderHealthMonitorSelectedMembers([]);
+            updateHealthMonitorRecipientModeVisibility();
+            return;
+          }
+          var selectedEmails = currentHealthMonitorSelectedRecipientEmails();
+          var currentMonitor = state.siteHealthMonitors[state.selectedSiteId] || {};
+          setHealthMonitorRecipientModeControls(Object.assign({}, currentMonitor, {
+            recipient_mode: selectedHealthMonitorRecipientMode(),
+            recipient_emails: selectedEmails.length ? selectedEmails : currentMonitor.recipient_emails || []
+          }));
+        }
+
+        function setHealthMonitorControlsDisabled(disabled) {
+          var shouldDisable = Boolean(disabled);
+          [
+            healthMonitorEnabledInput,
+            healthMonitorTargetURLInput,
+            healthMonitorIntervalInput,
+            healthMonitorTimeoutInput,
+            healthMonitorThresholdInput,
+            healthMonitorRecipientModeManagerInput,
+            healthMonitorRecipientModeTeamInput,
+            healthMonitorRecipientModeSelectedInput,
+            healthMonitorRunCheckButton
+          ].forEach(function(element) {
+            if (element) {
+              element.disabled = shouldDisable;
+            }
+          });
+          if (healthMonitorRecipientInput) {
+            healthMonitorRecipientInput.disabled = shouldDisable;
+            healthMonitorRecipientInput.readOnly = true;
+          }
+          setHealthMonitorSelectedMemberInputsDisabled(shouldDisable);
+        }
+
+        function setHealthStatusBadge(status) {
+          if (!healthMonitorCurrentStatusElement) {
+            return;
+          }
+          var normalizedStatus = typeof status === 'string' ? status.trim().toLowerCase() : '';
+          if (!normalizedStatus) {
+            normalizedStatus = 'unknown';
+          }
+          healthMonitorCurrentStatusElement.textContent = normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1);
+          healthMonitorCurrentStatusElement.className = 'badge';
+          if (normalizedStatus === 'up') {
+            healthMonitorCurrentStatusElement.classList.add('bg-success');
+          } else if (normalizedStatus === 'down') {
+            healthMonitorCurrentStatusElement.classList.add('bg-danger');
+          } else {
+            healthMonitorCurrentStatusElement.classList.add('bg-secondary');
+          }
+        }
+
+        function setHealthMonitorControls(monitor) {
+          var normalizedMonitor = monitor || {};
+          if (healthMonitorEnabledInput) {
+            healthMonitorEnabledInput.checked = normalizedMonitor.enabled === true;
+          }
+          if (healthMonitorTargetURLInput) {
+            healthMonitorTargetURLInput.value = normalizedMonitor.target_url || selectedSiteAllowedOrigin();
+          }
+          if (healthMonitorIntervalInput) {
+            healthMonitorIntervalInput.value = String(Number(normalizedMonitor.interval_seconds) || 300);
+          }
+          if (healthMonitorTimeoutInput) {
+            healthMonitorTimeoutInput.value = String(Number(normalizedMonitor.timeout_seconds) || 10);
+          }
+          if (healthMonitorThresholdInput) {
+            healthMonitorThresholdInput.value = String(Number(normalizedMonitor.failure_threshold) || 2);
+          }
+          if (healthMonitorRecipientInput) {
+            healthMonitorRecipientInput.value = currentUserEmail() || normalizedMonitor.recipient_email || '';
+          }
+          setHealthMonitorRecipientModeControls(normalizedMonitor);
+          if (healthMonitorEmailStateElement) {
+            if (normalizedMonitor.email_enabled === false) {
+              healthMonitorEmailStateElement.textContent = 'Email disabled';
+              healthMonitorEmailStateElement.classList.remove('d-none');
+            } else {
+              healthMonitorEmailStateElement.textContent = '';
+              healthMonitorEmailStateElement.classList.add('d-none');
+            }
+          }
+          setHealthStatusBadge(normalizedMonitor.status || 'unknown');
+          renderHealthMonitorSummary(normalizedMonitor);
+        }
+
+        function renderHealthMonitorSummary(monitor) {
+          var normalizedMonitor = monitor || {};
+          if (healthMonitorNextCheckElement) {
+            healthMonitorNextCheckElement.textContent = normalizedMonitor.enabled === true ? (formatDateTime(normalizedMonitor.next_check_at) || 'Not scheduled.') : 'Not scheduled.';
+          }
+          if (healthMonitorLastCheckedElement) {
+            healthMonitorLastCheckedElement.textContent = formatDateTime(normalizedMonitor.last_checked_at) || 'Never.';
+          }
+          if (healthMonitorLastSuccessElement) {
+            healthMonitorLastSuccessElement.textContent = formatDateTime(normalizedMonitor.last_success_at) || 'Never.';
+          }
+          if (healthMonitorLastFailureElement) {
+            healthMonitorLastFailureElement.textContent = formatDateTime(normalizedMonitor.last_failure_at) || 'Never.';
+          }
+          if (healthMonitorLastErrorElement) {
+            var errorText = typeof normalizedMonitor.last_error_message === 'string' ? normalizedMonitor.last_error_message.trim() : '';
+            healthMonitorLastErrorElement.textContent = errorText || 'None.';
+          }
+        }
+
+        function selectedSiteAllowedOrigin() {
+          var site = resolveSelectedSite();
+          return site && typeof site.allowed_origin === 'string' ? site.allowed_origin.trim().split(/\s|,/)[0] || '' : '';
+        }
+
+        function readHealthMonitorPayload() {
+          return {
+            enabled: healthMonitorEnabledInput ? healthMonitorEnabledInput.checked === true : false,
+            target_url: healthMonitorTargetURLInput ? healthMonitorTargetURLInput.value.trim() : '',
+            interval_seconds: healthMonitorIntervalInput ? Number(healthMonitorIntervalInput.value) : 300,
+            timeout_seconds: healthMonitorTimeoutInput ? Number(healthMonitorTimeoutInput.value) : 10,
+            failure_threshold: healthMonitorThresholdInput ? Number(healthMonitorThresholdInput.value) : 2,
+            recipient_mode: selectedHealthMonitorRecipientMode(),
+            recipient_emails: selectedHealthMonitorRecipientMode() === trafficReportRecipientModeSelected ? currentHealthMonitorSelectedRecipientEmails() : []
+          };
+        }
+
+        function healthMonitorEndpoint(requireManage) {
+          if (!state.selectedSiteId || isNewSiteSelected()) {
+            return '';
+          }
+          if (requireManage && !selectedSiteCanManage()) {
+            return '';
+          }
+          return apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteHealthMonitorSuffix;
+        }
+
+        function healthMonitorCheckEndpoint() {
+          if (!state.selectedSiteId || isNewSiteSelected() || !selectedSiteCanManage()) {
+            return '';
+          }
+          return apiSiteSubscribersPrefix + state.selectedSiteId + apiSiteHealthMonitorCheckSuffix;
+        }
+
+        function defaultHealthMonitor() {
+          return {
+            enabled: false,
+            target_url: selectedSiteAllowedOrigin(),
+            interval_seconds: 300,
+            timeout_seconds: 10,
+            failure_threshold: 2,
+            recipient_email: currentUserEmail(),
+            recipient_mode: trafficReportRecipientModeManager,
+            recipient_emails: [],
+            status: 'unknown',
+            email_enabled: true
+          };
+        }
+
+        function loadHealthMonitor() {
+          cancelHealthMonitorAutosave();
+          var selectedSiteId = state.selectedSiteId;
+          if (!selectedSiteId || isNewSiteSelected()) {
+            setHealthMonitorControls(defaultHealthMonitor());
+            setHealthMonitorControlsDisabled(true);
+            clearHealthMonitorStatus();
+            return;
+          }
+          setHealthMonitorControlsDisabled(!selectedSiteCanManage());
+          var endpoint = healthMonitorEndpoint(false);
+          fetchJSON(endpoint).then(function(payload) {
+            if (state.selectedSiteId !== selectedSiteId) {
+              return;
+            }
+            state.siteHealthMonitors[selectedSiteId] = payload;
+            setHealthMonitorControls(payload);
+            setHealthMonitorControlsDisabled(!selectedSiteCanManage());
+            clearHealthMonitorStatus();
+          }).catch(function(error) {
+            if (state.selectedSiteId !== selectedSiteId) {
+              return;
+            }
+            showHealthMonitorStatus(error.message || statusMessages.load_failed || '', true);
+          });
+        }
+
+        function saveHealthMonitor(successMessage) {
+          if (!state.selectedSiteId || isNewSiteSelected()) {
+            return Promise.resolve(null);
+          }
+          if (!selectedSiteCanManage()) {
+            return Promise.reject(new Error(errorMessages.not_authorized || 'Not authorized.'));
+          }
+          var endpoint = healthMonitorEndpoint(true);
+          var payload = readHealthMonitorPayload();
+          clearHealthMonitorStatus();
+          return fetchJSON(endpoint, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          }).then(function(responsePayload) {
+            state.siteHealthMonitors[state.selectedSiteId] = responsePayload;
+            setHealthMonitorControls(responsePayload);
+            setHealthMonitorControlsDisabled(!selectedSiteCanManage());
+            if (successMessage) {
+              showHealthMonitorStatus(successMessage, false);
+            }
+            return responsePayload;
+          }).catch(function(error) {
+            showHealthMonitorStatus(error.message || buttonLabels.save_failed || '', true);
+            throw error;
+          });
+        }
+
+        function cancelHealthMonitorAutosave() {
+          if (healthMonitorAutosaveTimerId) {
+            clearTimeout(healthMonitorAutosaveTimerId);
+            healthMonitorAutosaveTimerId = null;
+          }
+          healthMonitorAutosavePending = false;
+        }
+
+        function scheduleHealthMonitorAutosave() {
+          if (!state.selectedSiteId || isNewSiteSelected() || !selectedSiteCanManage()) {
+            return;
+          }
+          if (healthMonitorAutosaveTimerId) {
+            clearTimeout(healthMonitorAutosaveTimerId);
+          }
+          healthMonitorAutosaveTimerId = window.setTimeout(function() {
+            triggerHealthMonitorAutosave();
+          }, healthMonitorAutosaveDelayMilliseconds);
+        }
+
+        function triggerHealthMonitorAutosave() {
+          if (healthMonitorAutosaveTimerId) {
+            clearTimeout(healthMonitorAutosaveTimerId);
+            healthMonitorAutosaveTimerId = null;
+          }
+          if (healthMonitorAutosaveInFlight) {
+            healthMonitorAutosavePending = true;
+            return;
+          }
+          healthMonitorAutosaveInFlight = true;
+          showHealthMonitorStatus('Saving...', false);
+          saveHealthMonitor('Health monitor saved.').catch(function() {
+            return null;
+          }).finally(function() {
+            healthMonitorAutosaveInFlight = false;
+            if (healthMonitorAutosavePending) {
+              healthMonitorAutosavePending = false;
+              scheduleHealthMonitorAutosave();
+            }
+          });
+        }
+
+        function runHealthMonitorCheck() {
+          if (!selectedSiteCanManage()) {
+            return;
+          }
+          cancelHealthMonitorAutosave();
+          saveHealthMonitor('').then(function() {
+            var endpoint = healthMonitorCheckEndpoint();
+            if (!endpoint) {
+              return null;
+            }
+            showHealthMonitorStatus('Checking...', false);
+            return fetchJSON(endpoint, { method: 'POST' });
+          }).then(function(payload) {
+            if (!payload) {
+              return;
+            }
+            state.siteHealthMonitors[state.selectedSiteId] = payload;
+            setHealthMonitorControls(payload);
+            showHealthMonitorStatus('Health check complete.', false);
+          }).catch(function(error) {
+            showHealthMonitorStatus(error.message || errorMessages.health_monitor_check_failed || 'Unable to run health check.', true);
+          });
+        }
+
         function clearAllSitesTrafficReportStatus() {
           if (!allSitesTrafficReportStatusElement) {
             return;
@@ -8711,6 +9234,38 @@
             sendTrafficReportTest();
           });
         }
+        [healthMonitorEnabledInput, healthMonitorTargetURLInput, healthMonitorIntervalInput, healthMonitorTimeoutInput, healthMonitorThresholdInput].forEach(function(input) {
+          if (input) {
+            input.addEventListener('change', scheduleHealthMonitorAutosave);
+            input.addEventListener('input', scheduleHealthMonitorAutosave);
+          }
+        });
+        [healthMonitorRecipientModeManagerInput, healthMonitorRecipientModeTeamInput, healthMonitorRecipientModeSelectedInput].forEach(function(input) {
+          if (input) {
+            input.addEventListener('change', function() {
+              updateHealthMonitorRecipientModeVisibility();
+              scheduleHealthMonitorAutosave();
+            });
+          }
+        });
+        if (healthMonitorSelectedMembersList) {
+          healthMonitorSelectedMembersList.addEventListener('change', function(event) {
+            var target = event.target;
+            if (!target || target.tagName !== 'INPUT' || target.type !== 'checkbox') {
+              return;
+            }
+            scheduleHealthMonitorAutosave();
+          });
+        }
+        if (healthMonitorRunCheckButton) {
+          healthMonitorRunCheckButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            if (healthMonitorRunCheckButton.disabled) {
+              return;
+            }
+            runHealthMonitorCheck();
+          });
+        }
         if (allSitesTrafficBackButton) {
           allSitesTrafficBackButton.addEventListener('click', function(event) {
             event.preventDefault();
@@ -8882,6 +9437,12 @@
           dashboardSectionTabTraffic.addEventListener('click', function(event) {
             event.preventDefault();
             setDashboardSection('traffic');
+          });
+        }
+        if (dashboardSectionTabHealth) {
+          dashboardSectionTabHealth.addEventListener('click', function(event) {
+            event.preventDefault();
+            setDashboardSection('health');
           });
         }
         if (dashboardSectionTabSentry) {

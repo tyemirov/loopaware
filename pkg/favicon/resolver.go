@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/netip"
 	"net/url"
 	"strings"
 	"sync"
@@ -16,6 +15,8 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/net/html"
+
+	"github.com/MarkoPoloResearchLab/loopaware/pkg/outbound"
 )
 
 const (
@@ -33,37 +34,6 @@ var (
 		"/index.html",
 		"/app",
 		"/login",
-	}
-	nonPublicIPPrefixes = []netip.Prefix{
-		netip.MustParsePrefix("0.0.0.0/8"),
-		netip.MustParsePrefix("10.0.0.0/8"),
-		netip.MustParsePrefix("100.64.0.0/10"),
-		netip.MustParsePrefix("127.0.0.0/8"),
-		netip.MustParsePrefix("169.254.0.0/16"),
-		netip.MustParsePrefix("172.16.0.0/12"),
-		netip.MustParsePrefix("192.0.0.0/24"),
-		netip.MustParsePrefix("192.0.2.0/24"),
-		netip.MustParsePrefix("192.88.99.0/24"),
-		netip.MustParsePrefix("192.168.0.0/16"),
-		netip.MustParsePrefix("198.18.0.0/15"),
-		netip.MustParsePrefix("198.51.100.0/24"),
-		netip.MustParsePrefix("203.0.113.0/24"),
-		netip.MustParsePrefix("224.0.0.0/4"),
-		netip.MustParsePrefix("240.0.0.0/4"),
-		netip.MustParsePrefix("255.255.255.255/32"),
-		netip.MustParsePrefix("::/128"),
-		netip.MustParsePrefix("::1/128"),
-		netip.MustParsePrefix("::ffff:0:0/96"),
-		netip.MustParsePrefix("64:ff9b::/96"),
-		netip.MustParsePrefix("64:ff9b:1::/48"),
-		netip.MustParsePrefix("100::/64"),
-		netip.MustParsePrefix("2001::/23"),
-		netip.MustParsePrefix("2001:20::/28"),
-		netip.MustParsePrefix("2001:db8::/32"),
-		netip.MustParsePrefix("2002::/16"),
-		netip.MustParsePrefix("fc00::/7"),
-		netip.MustParsePrefix("fe80::/10"),
-		netip.MustParsePrefix("ff00::/8"),
 	}
 )
 
@@ -594,101 +564,25 @@ func parseAllowedOrigin(raw string) (*url.URL, error) {
 }
 
 func newFaviconHTTPClient(httpClient *http.Client) *http.Client {
-	if httpClient == nil {
-		return &http.Client{
-			Timeout:   defaultHTTPTimeout,
-			Transport: newSafeFaviconTransport(),
-		}
-	}
-	clientCopy := *httpClient
-	if clientCopy.Timeout == 0 {
-		clientCopy.Timeout = defaultHTTPTimeout
-	}
-	if clientCopy.Transport == nil {
-		clientCopy.Transport = newSafeFaviconTransport()
-	}
-	return &clientCopy
+	return outbound.NewSafeHTTPClient(httpClient, defaultHTTPTimeout)
 }
 
 func newSafeFaviconTransport() http.RoundTripper {
-	baseTransport := http.DefaultTransport.(*http.Transport).Clone()
-	baseTransport.Proxy = nil
-	dialer := &net.Dialer{
-		Timeout:   defaultHTTPTimeout,
-		KeepAlive: 30 * time.Second,
-	}
-	baseTransport.DialContext = func(ctx context.Context, network string, address string) (net.Conn, error) {
-		host, port, splitErr := net.SplitHostPort(address)
-		if splitErr != nil {
-			return nil, splitErr
-		}
-		resolvedAddress, resolveErr := resolvePublicDialAddress(ctx, host, port)
-		if resolveErr != nil {
-			return nil, resolveErr
-		}
-		return dialer.DialContext(ctx, network, resolvedAddress)
-	}
-	return baseTransport
+	return outbound.NewSafeHTTPTransport(defaultHTTPTimeout)
 }
 
 func resolvePublicDialAddress(ctx context.Context, host string, port string) (string, error) {
-	normalizedHost := strings.TrimSpace(host)
-	if normalizedHost == "" {
-		return "", errors.New("empty favicon host")
-	}
-	if ip := net.ParseIP(normalizedHost); ip != nil {
-		if !isPublicIP(ip) {
-			return "", fmt.Errorf("favicon target resolves to non-public address %s", ip.String())
-		}
-		return net.JoinHostPort(ip.String(), port), nil
-	}
-
-	addresses, lookupErr := net.DefaultResolver.LookupIPAddr(ctx, normalizedHost)
-	if lookupErr != nil {
-		return "", lookupErr
-	}
-	for _, address := range addresses {
-		if isPublicIP(address.IP) {
-			return net.JoinHostPort(address.IP.String(), port), nil
-		}
-	}
-	return "", fmt.Errorf("favicon target has no public DNS address: %s", normalizedHost)
+	return outbound.ResolvePublicDialAddress(ctx, host, port)
 }
 
 func validateOutboundURL(target *url.URL) error {
-	if target == nil || target.Scheme == "" || target.Host == "" {
-		return errors.New("invalid favicon url")
-	}
-	if !isHTTPScheme(target.Scheme) {
-		return errors.New("unsupported favicon url scheme")
-	}
-	host := strings.TrimSpace(target.Hostname())
-	if host == "" {
-		return errors.New("empty favicon host")
-	}
-	if ip := net.ParseIP(host); ip != nil && !isPublicIP(ip) {
-		return fmt.Errorf("favicon target is non-public address %s", ip.String())
-	}
-	return nil
+	return outbound.ValidatePublicHTTPURL(target)
 }
 
 func isHTTPScheme(scheme string) bool {
-	return strings.EqualFold(scheme, "http") || strings.EqualFold(scheme, "https")
+	return outbound.IsHTTPScheme(scheme)
 }
 
 func isPublicIP(ip net.IP) bool {
-	address, ok := netip.AddrFromSlice(ip)
-	if !ok {
-		return false
-	}
-	address = address.Unmap()
-	if !address.IsValid() || !address.IsGlobalUnicast() {
-		return false
-	}
-	for _, prefix := range nonPublicIPPrefixes {
-		if prefix.Contains(address) {
-			return false
-		}
-	}
-	return true
+	return outbound.IsPublicIP(ip)
 }

@@ -12,7 +12,7 @@ import (
 
 func TestWidgetConfigMultipleAllowedOrigins(t *testing.T) {
 	apiHarness := buildAPIHarness(t, nil, nil, nil)
-	
+
 	// Create a site with a primary origin and an extra widget allowed origin
 	site := model.Site{
 		ID:                         storage.NewID(),
@@ -30,7 +30,7 @@ func TestWidgetConfigMultipleAllowedOrigins(t *testing.T) {
 			"Origin": "https://ps.mprlab.com",
 		})
 		require.Equal(t, http.StatusOK, resp.Code)
-		
+
 		var payload struct {
 			SiteID string `json:"site_id"`
 		}
@@ -43,7 +43,7 @@ func TestWidgetConfigMultipleAllowedOrigins(t *testing.T) {
 			"Origin": "https://poodlescanner.com",
 		})
 		require.Equal(t, http.StatusOK, resp.Code, "Secondary origin should be allowed")
-		
+
 		var payload struct {
 			SiteID string `json:"site_id"`
 		}
