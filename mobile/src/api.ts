@@ -12,6 +12,7 @@ import type {
   SentryIssuesResponse,
   Site,
   SiteDashboard,
+  SiteHealthMonitor,
   SitesResponse,
   SubscribersResponse,
   TeamMembersResponse,
@@ -79,7 +80,7 @@ export class LoopAwareApiClient {
   async siteDashboard(site: Site, interval: TrafficInterval): Promise<SiteDashboard> {
     const siteID = encodeURIComponent(site.id);
     const intervalQuery = `?interval=${encodeURIComponent(interval)}`;
-    const [messages, subscribers, stats, trend, attribution, engagement, devices, locations, sentryIssues, mobileApps, teamMembers, trafficReportSchedule] =
+    const [messages, subscribers, stats, trend, attribution, engagement, devices, locations, sentryIssues, mobileApps, teamMembers, trafficReportSchedule, healthMonitor] =
       await Promise.all([
         this.apiRequest<MessagesResponse>(`/api/sites/${siteID}/messages`),
         this.apiRequest<SubscribersResponse>(`/api/sites/${siteID}/subscribers`),
@@ -95,6 +96,7 @@ export class LoopAwareApiClient {
         site.access_role === "admin"
           ? this.apiRequest<TrafficReportSchedule>(`/api/sites/${siteID}/traffic-report-schedule`)
           : Promise.resolve(null),
+        this.apiRequest<SiteHealthMonitor>(`/api/sites/${siteID}/health-monitor`),
       ]);
 
     return {
@@ -130,6 +132,7 @@ export class LoopAwareApiClient {
       mobileApps: readCollection<MobileAppRegistration>(mobileApps, "mobile_apps"),
       teamMembers: readCollection<TeamMember>(teamMembers, "team_members"),
       trafficReportSchedule,
+      healthMonitor,
     };
   }
 

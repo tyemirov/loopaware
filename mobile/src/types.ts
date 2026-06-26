@@ -2,7 +2,7 @@ export type NativeGooglePlatform = "ios" | "android";
 
 export type TrafficInterval = "all" | "30days" | "1day";
 
-export type DashboardTab = "overview" | "feedback" | "traffic" | "subscribers" | "sentry" | "reports";
+export type DashboardTab = "overview" | "feedback" | "traffic" | "subscribers" | "health" | "sentry" | "reports";
 
 export type FeedbackSourceKind = "web_widget" | "mobile_app";
 
@@ -266,6 +266,31 @@ export type TrafficReportSchedule = {
   persisted: boolean;
 };
 
+export type SiteHealthMonitor = {
+  site_id: string;
+  enabled: boolean;
+  target_url: string;
+  interval_seconds: number;
+  timeout_seconds: number;
+  failure_threshold: number;
+  recipient_email: string;
+  recipient_mode: string;
+  recipient_emails: string[];
+  status: "unknown" | "up" | "down";
+  consecutive_failures: number;
+  next_check_at: number;
+  last_checked_at: number;
+  last_success_at: number;
+  last_failure_at: number;
+  last_status_code: number;
+  last_error_code: string;
+  last_error_message: string;
+  last_duration_ms: number;
+  last_alerted_at: number;
+  email_enabled: boolean;
+  persisted: boolean;
+};
+
 export type PortfolioReportDefinition = {
   id: string;
   name: string;
@@ -310,6 +335,7 @@ export type SiteDashboard = {
   mobileApps: MobileAppRegistration[];
   teamMembers: TeamMember[];
   trafficReportSchedule: TrafficReportSchedule | null;
+  healthMonitor: SiteHealthMonitor | null;
 };
 
 export type PortfolioDashboard = {
