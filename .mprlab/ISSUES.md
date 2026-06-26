@@ -336,6 +336,17 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   The I012 chart-scale assertion blocker was removed by targeting the rendered SVG text labels directly; focused `dashboard-traffic.spec.js` coverage passed. Full `make ci` now passes with 383 Playwright/API tests.
   ### Changed Files
   `internal/api/admin.go`, `internal/api/site_subscribe_test_handlers.go`, `internal/api/stream_handlers_test.go`, `.mprlab/ISSUES.md`.
+- [x] [B031] (P1) Ignore disposed external-asset responses during browser teardown.
+  ### Summary
+  Baseline `make ci` failed in the widget test page browser coverage after the spec completed because the external-asset route handler attempted to read a same-origin document response that Playwright had already disposed during page/context teardown.
+  ### Deliverables
+  - Treat disposed route responses caused by Playwright teardown as non-actionable cleanup.
+  - Continue surfacing real external-asset route failures while the page remains active.
+  - Verify the formerly failing widget test page coverage and the full CI gate.
+  ### Resolution
+  Extended the external asset route teardown classifier to include Playwright's disposed response error after baseline `make ci` failed in the completed widget test page cleanup path. Final validation passed with `make ci`, including 430 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `tests/helpers/externalAssets.js`.
 
 
 ## Improvements
@@ -890,8 +901,31 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Config-audit CI follow-up adds the missing tracked default gHTTP env template, unignores tracked config env examples, and keeps native LoopAware Google placeholders present in both TAuth env templates so clean CI checkouts validate the same compose env set as local stacks. Validation passed with `go mod tidy && git diff --exit-code go.mod go.sum`, `make config-audit`, a clean-copy `make config-audit`, `make mobile-check`, `git diff --check`, and final `make ci`.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `.gitignore`, `.github/workflows/ci.yml`, `Makefile`, `configs/README.md`, `configs/config.tauth.yml`, `configs/.env.ghttp.example`, `configs/.env.tauth.example`, `configs/.env.tauth.computercat.example`, `tests/configs/tauth.env`, `tests/scripts/run-integration.sh`, `mobile/AGENTS.md`, `mobile/App.tsx`, `mobile/LICENSE`, `mobile/app.config.js`, `mobile/eas.json`, `mobile/index.ts`, `mobile/package.json`, `mobile/package-lock.json`, `mobile/tsconfig.json`, `mobile/assets/android-icon-background.png`, `mobile/assets/android-icon-foreground.png`, `mobile/assets/android-icon-monochrome.png`, `mobile/assets/favicon.png`, `mobile/assets/icon.png`, `mobile/assets/splash-icon.png`, `mobile/scripts/fix-ios-project-warnings.mjs`, `mobile/scripts/native-build-fingerprint.mjs`, `mobile/scripts/prepare-android-project.mjs`, `mobile/scripts/resolve-metro-port.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `mobile/src/api.ts`, `mobile/src/auth.ts`, `mobile/src/config.ts`, `mobile/src/format.ts`, `mobile/src/types.ts`.
+- [x] [F012] (P1) Add per-site uptime health monitoring and outage notifications.
+  ### Summary
+  Site managers need LoopAware to notify them when a configured customer site is completely down and again when it recovers. The first version should use server-side synthetic HTTP checks owned by LoopAware, not customer-page heartbeat JavaScript, because a page heartbeat cannot report a fully unreachable site.
+  ### Product Decisions
+  - Add health monitoring as a first-class site feature rather than piggybacking on feedback, traffic, or LA Sentry.
+  - Use server-side public HTTP checks for MVP; do not require an embedded heartbeat script.
+  - Alert only on state transitions after a configured failure threshold so transient failures do not send repeated emails.
+  - Treat HTTP responses below 500 as reachable and HTTP 5xx, DNS, connect, TLS, redirect, or timeout failures as down.
+  - Resolve recipients through the existing site manager/team recipient modes used by scheduled traffic reports.
+  ### Deliverables
+  - Per-site health monitor model, current-state persistence, transition history, and deletion cleanup.
+  - Public-target validating HTTP prober with bounded timeout, redirect target checks, deterministic error codes, and no private-network probing.
+  - Background manager that runs due checks, updates monitor state, and sends down/recovered Pinguin notifications.
+  - Authenticated APIs for reading, configuring, and manually running a site's health monitor with team-member read access and manager-only mutation.
+  - Dashboard Health tab with status, settings, recipient controls, and manual check action.
+  - Operator mobile app read-only health status for the selected site.
+  - README documentation and black-box/focused coverage for the feature.
+  ### Resolution
+  Added first-class per-site health monitoring with a persisted current monitor, transition history, public-network-only HTTP probing, scheduled due checks, manual check execution, and down/recovered Pinguin alerts. Health targets are validated as public HTTP(S) URLs, redirects are revalidated during probing, HTTP responses below 500 count as reachable, and failures are classified with stable error codes for HTTP 5xx, DNS, TLS, redirect, timeout, network, and invalid-target cases.
+  Added authenticated health APIs for reading, saving, and manually checking a site monitor, preserving team-member read access and manager-only mutation. Alert recipients now share the canonical site-recipient contract used by traffic reports: manager, whole team, or selected team members. Site deletion removes health monitors and transition events.
+  Added the dashboard Health tab with status summary, enablement, target URL, interval, timeout, failure threshold, recipient controls, selected-member checkboxes, and manual check action. The operator mobile app now loads and displays read-only health status for the selected site.
+  Documented the server-side synthetic-check design in README, including that the health monitor does not require a customer-site heartbeat script. Validation passed with focused backend tests, API integration, UI integration, mobile checks, and final `make ci` with 444 Playwright/API integration specs.
+  ### Changed Files
+  `.mprlab/ISSUES.md`, `PLAN.md`, `README.md`, `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/admin.go`, `internal/api/origin_repro_test.go`, `internal/api/site_health_monitor.go`, `internal/api/site_health_monitor_test.go`, `internal/api/site_health_probe.go`, `internal/api/site_health_probe_test.go`, `internal/api/site_recipients.go`, `internal/api/traffic_report_schedule.go`, `internal/model/site_health_monitor.go`, `internal/model/site_health_monitor_test.go`, `internal/model/site_recipients.go`, `internal/model/traffic_report_schedule.go`, `internal/storage/database.go`, `mobile/App.tsx`, `mobile/scripts/test-api-boundaries.mjs`, `mobile/src/api.ts`, `mobile/src/types.ts`, `pkg/favicon/resolver.go`, `pkg/outbound/http.go`, `tests/specs/api-admin.spec.js`, `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `web/app/index.html`.
 
 
 ## Planning
 *do not implement yet*
-
