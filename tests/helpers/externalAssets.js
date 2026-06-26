@@ -198,7 +198,8 @@ function isRouteTeardownError(error) {
   const message = error instanceof Error ? error.message : String(error || '');
   return message.includes('Target page, context or browser has been closed') ||
     message.includes('browserContext.close: Test ended') ||
-    message.includes('Target closed');
+    message.includes('Target closed') ||
+    message.includes('Response has been disposed');
 }
 
 /**

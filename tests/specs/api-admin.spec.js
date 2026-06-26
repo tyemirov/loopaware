@@ -625,6 +625,143 @@ test.describe("admin api sites", () => {
     expect(invalidSchedule.payload.error).toBe("invalid_traffic_report_schedule");
   });
 
+  test("site health monitor supports defaults, validation, and team recipient selection", async () => {
+    const site = await createAdminSite("Health Monitor");
+    const firstTeamEmail = buildUniqueEmail("health-recipient-first");
+    const secondTeamEmail = buildUniqueEmail("health-recipient-second");
+
+    const defaultMonitor = await adminRequest({
+      path: `/api/sites/${site.id}/health-monitor`,
+      method: "GET"
+    });
+    expect(defaultMonitor.response.status).toBe(200);
+    expect(defaultMonitor.payload.persisted).toBe(false);
+    expect(defaultMonitor.payload.enabled).toBe(false);
+    expect(defaultMonitor.payload.target_url).toBe(site.allowed_origin);
+    expect(defaultMonitor.payload.interval_seconds).toBe(300);
+    expect(defaultMonitor.payload.timeout_seconds).toBe(10);
+    expect(defaultMonitor.payload.failure_threshold).toBe(2);
+    expect(defaultMonitor.payload.status).toBe("unknown");
+    expect(defaultMonitor.payload.recipient_mode).toBe("manager");
+    expect(defaultMonitor.payload.recipient_emails).toEqual([]);
+
+    const invalidTarget = await adminRequest({
+      path: `/api/sites/${site.id}/health-monitor`,
+      method: "PUT",
+      body: {
+        enabled: true,
+        target_url: "http://127.0.0.1",
+        interval_seconds: 300,
+        timeout_seconds: 10,
+        failure_threshold: 2,
+        recipient_mode: "manager",
+        recipient_emails: []
+      }
+    });
+    expect(invalidTarget.response.status).toBe(400);
+    expect(invalidTarget.payload.error).toBe("invalid_health_monitor");
+
+    await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: firstTeamEmail }
+    });
+    await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: secondTeamEmail }
+    });
+
+    const selectedMonitor = await adminRequest({
+      path: `/api/sites/${site.id}/health-monitor`,
+      method: "PUT",
+      body: {
+        enabled: true,
+        target_url: `${site.allowed_origin}/healthz`,
+        interval_seconds: 600,
+        timeout_seconds: 15,
+        failure_threshold: 3,
+        recipient_mode: "selected",
+        recipient_emails: [secondTeamEmail.toUpperCase(), secondTeamEmail]
+      }
+    });
+    expect(selectedMonitor.response.status).toBe(200);
+    expect(selectedMonitor.payload.persisted).toBe(true);
+    expect(selectedMonitor.payload.enabled).toBe(true);
+    expect(selectedMonitor.payload.target_url).toBe(`${site.allowed_origin}/healthz`);
+    expect(selectedMonitor.payload.interval_seconds).toBe(600);
+    expect(selectedMonitor.payload.timeout_seconds).toBe(15);
+    expect(selectedMonitor.payload.failure_threshold).toBe(3);
+    expect(selectedMonitor.payload.recipient_mode).toBe("selected");
+    expect(selectedMonitor.payload.recipient_emails).toEqual([secondTeamEmail.toLowerCase()]);
+
+    const loadedMonitor = await adminRequest({
+      path: `/api/sites/${site.id}/health-monitor`,
+      method: "GET"
+    });
+    expect(loadedMonitor.response.status).toBe(200);
+    expect(loadedMonitor.payload.recipient_mode).toBe("selected");
+    expect(loadedMonitor.payload.recipient_emails).toEqual([secondTeamEmail.toLowerCase()]);
+
+    const invalidRecipient = await adminRequest({
+      path: `/api/sites/${site.id}/health-monitor`,
+      method: "PUT",
+      body: {
+        enabled: true,
+        target_url: site.allowed_origin,
+        interval_seconds: 300,
+        timeout_seconds: 10,
+        failure_threshold: 2,
+        recipient_mode: "selected",
+        recipient_emails: [buildUniqueEmail("health-not-on-team")]
+      }
+    });
+    expect(invalidRecipient.response.status).toBe(400);
+    expect(invalidRecipient.payload.error).toBe("invalid_health_monitor");
+  });
+
+  test("site health monitor is read-only for assigned team members", async () => {
+    const site = await createAdminSite("Health Team Read");
+    const teamEmail = buildUniqueEmail("health-team-read");
+    const teamUser = buildAdminUser(config, { email: teamEmail, displayName: "Health Team Member" });
+
+    await adminRequest({
+      path: `/api/sites/${site.id}/team`,
+      method: "POST",
+      body: { email: teamEmail }
+    });
+
+    const readMonitor = await userRequest(teamUser, {
+      path: `/api/sites/${site.id}/health-monitor`,
+      method: "GET"
+    });
+    expect(readMonitor.response.status).toBe(200);
+    expect(readMonitor.payload.site_id).toBe(site.id);
+
+    const updateMonitor = await userRequest(teamUser, {
+      path: `/api/sites/${site.id}/health-monitor`,
+      method: "PUT",
+      body: {
+        enabled: true,
+        target_url: site.allowed_origin,
+        interval_seconds: 300,
+        timeout_seconds: 10,
+        failure_threshold: 2,
+        recipient_mode: "manager",
+        recipient_emails: []
+      }
+    });
+    expect(updateMonitor.response.status).toBe(403);
+    expect(updateMonitor.payload.error).toBe("not_authorized");
+
+    const manualCheck = await userRequest(teamUser, {
+      path: `/api/sites/${site.id}/health-monitor/check`,
+      method: "POST"
+    });
+    expect(manualCheck.response.status).toBe(403);
+    expect(manualCheck.payload.error).toBe("not_authorized");
+  });
+
   test("unrelated users cannot see or manage site team members", async () => {
     const site = await createAdminSite("Team Unauthorized");
 
