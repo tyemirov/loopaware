@@ -52,6 +52,7 @@ func registerBackendRoutes(
 	publicHandlers *api.PublicHandlers,
 	siteHandlers *api.SiteHandlers,
 	trafficReportHandlers *api.TrafficReportHandlers,
+	siteHealthHandlers *api.SiteHealthHandlers,
 	sentryHandlers *api.SentryHandlers,
 	widgetTestHandlers *api.SiteWidgetTestHandlers,
 	subscribeTestHandlers *api.SiteSubscribeTestHandlers,
@@ -125,6 +126,9 @@ func registerBackendRoutes(
 	apiGroup.GET(apiRouteSiteTrafficReportSchedule, trafficReportHandlers.GetSchedule)
 	apiGroup.PUT(apiRouteSiteTrafficReportSchedule, trafficReportHandlers.SaveSchedule)
 	apiGroup.POST(apiRouteSiteTrafficReportTest, trafficReportHandlers.SendTestReport)
+	apiGroup.GET(apiRouteSiteHealthMonitor, siteHealthHandlers.GetMonitor)
+	apiGroup.PUT(apiRouteSiteHealthMonitor, siteHealthHandlers.SaveMonitor)
+	apiGroup.POST(apiRouteSiteHealthMonitorCheck, siteHealthHandlers.RunCheck)
 	apiGroup.GET(apiRoutePortfolioTrafficReport, trafficReportHandlers.GetPortfolioReport)
 	apiGroup.GET(apiRoutePortfolioTrafficReports, trafficReportHandlers.ListPortfolioReports)
 	apiGroup.POST(apiRoutePortfolioTrafficReports, trafficReportHandlers.CreatePortfolioReport)

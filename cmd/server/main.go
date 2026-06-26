@@ -124,6 +124,8 @@ const (
 	apiRouteSiteVisitExport           = "/sites/:id/visits/export"
 	apiRouteSiteTrafficReportSchedule = "/sites/:id/traffic-report-schedule"
 	apiRouteSiteTrafficReportTest     = "/sites/:id/traffic-report-schedule/test"
+	apiRouteSiteHealthMonitor         = "/sites/:id/health-monitor"
+	apiRouteSiteHealthMonitorCheck    = "/sites/:id/health-monitor/check"
 	apiRoutePortfolioTrafficReport    = "/reports/traffic/portfolio"
 	apiRoutePortfolioTrafficReports   = "/reports/traffic/portfolio/reports"
 	apiRoutePortfolioTrafficReportDef = "/reports/traffic/portfolio/reports/:report_id"
@@ -476,6 +478,13 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	statsProvider := api.NewDatabaseSiteStatisticsProvider(database)
 	siteHandlers := api.NewSiteHandlers(database, logger, serverConfig.PublicBaseURL, faviconManager, statsProvider, feedbackBroadcaster)
 	trafficReportHandlers := api.NewTrafficReportHandlers(database, logger, statsProvider, trafficReportEmailSender, serverConfig.TrafficReportEmails)
+	siteHealthProber := api.NewHTTPHealthProber(nil)
+	siteHealthManager := api.NewSiteHealthManager(database, logger, siteHealthProber, pinguinNotifier, true)
+	siteHealthManagerContext, siteHealthManagerCancel := context.WithCancel(context.Background())
+	defer siteHealthManager.Stop()
+	defer siteHealthManagerCancel()
+	siteHealthManager.Start(siteHealthManagerContext)
+	siteHealthHandlers := api.NewSiteHealthHandlers(database, logger, siteHealthManager, true)
 	sentryHandlers := api.NewSentryHandlers(database, logger, pinguinNotifier, serverConfig.PublicBaseURL)
 	if serverConfig.TrafficReportEmails {
 		trafficReportScheduler, schedulerErr := api.NewTrafficReportScheduler(database, logger, statsProvider, trafficReportEmailSender, 0, 0)
@@ -493,7 +502,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	if originErr != nil {
 		logger.Fatal("cors_origin", zap.Error(originErr))
 	}
-	registerBackendRoutes(router, authManager, publicHandlers, siteHandlers, trafficReportHandlers, sentryHandlers, widgetTestHandlers, subscribeTestHandlers, authenticatedOrigin)
+	registerBackendRoutes(router, authManager, publicHandlers, siteHandlers, trafficReportHandlers, siteHealthHandlers, sentryHandlers, widgetTestHandlers, subscribeTestHandlers, authenticatedOrigin)
 
 	httpServer := &http.Server{
 		Addr:              serverConfig.ApplicationAddress,
