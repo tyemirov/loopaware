@@ -51,40 +51,64 @@ Embed the feedback widget on any page:
 
 ## Configuration
 
-### 1. Admin roster (`configs/config.loopaware.yml`)
+### 1. Backend runtime config (`configs/config.loopaware.yml`)
 
-Edit the tracked YAML file at `configs/config.loopaware.yml` with the email addresses that should receive administrator privileges (the file is optional if you prefer environment-only configuration):
+LoopAware reads one backend runtime YAML file through `github.com/tyemirov/utils/runtimeconfig`. The selected file is parsed strictly, shell placeholders are expanded during that parse, and the server consumes the populated typed config after validation. Runtime values are not read from environment variables or config flags after parsing.
 
 ```yaml
+server:
+  address: "${APP_ADDR}"
+  public_base_url: "${PUBLIC_BASE_URL}"
+
+database:
+  driver: "${DB_DRIVER}"
+  dsn: "${DB_DSN}"
+
+auth:
+  session_secret: "${SESSION_SECRET}"
+  tauth:
+    base_url: "${TAUTH_BASE_URL}"
+    tenant_id: "${TAUTH_TENANT_ID}"
+    jwt_signing_key: "${TAUTH_JWT_SIGNING_KEY}"
+    session_cookie_name: "${TAUTH_SESSION_COOKIE_NAME}"
+
+pinguin:
+  address: "${PINGUIN_ADDR}"
+  auth_token: "${PINGUIN_AUTH_TOKEN}"
+  tenant_id: "${PINGUIN_TENANT_ID}"
+  connection_timeout_seconds: 5
+  operation_timeout_seconds: 30
+
+notifications:
+  subscription_enabled: true
+  traffic_report_emails_enabled: true
+
 admins:
   - temirov@gmail.com
 ```
 
-LoopAware loads the file specified by `--config` (default `configs/config.loopaware.yml`) before starting the HTTP server.
-Set the `ADMINS` environment variable with a comma-separated list (for example `ADMINS=alice@example.com,bob@example.com`) to override the YAML roster without editing the file. When neither source is present the server starts without administrators and records a warning in the logs.
+LoopAware loads the file specified by `--config` (default `configs/config.loopaware.yml`) before starting the HTTP server. Administrator emails come from the YAML `admins` list. When the list is empty the server starts without administrators and records a warning in the logs.
 
-### 2. Environment variables
+### 2. Placeholder inputs
 
-Backend (`cmd/server`):
+The local Compose env files provide shell values for placeholders used by `configs/config.loopaware.yml`; they are not an alternate runtime config source.
 
 | Variable               | Required | Description                                                 |
 |------------------------|----------|-------------------------------------------------------------|
+| `APP_ADDR`             | ✅        | Listen address, for example `:8080`                         |
+| `PUBLIC_BASE_URL`      | ✅        | Frontend origin used for CORS and subscription links        |
+| `DB_DRIVER`            | ✅        | Storage driver (`sqlite`, etc.)                             |
+| `DB_DSN`               | ✅        | Driver-specific DSN                                         |
 | `SESSION_SECRET`       | ✅        | 32+ byte secret for subscription confirmation tokens        |
 | `TAUTH_BASE_URL`       | ✅        | Base URL for the TAuth API                                  |
 | `TAUTH_TENANT_ID`      | ✅        | Tenant identifier configured in TAuth                       |
 | `TAUTH_JWT_SIGNING_KEY`| ✅        | JWT signing key used to validate `app_session`              |
-| `TAUTH_SESSION_COOKIE_NAME` | ⚙️   | Session cookie name set by TAuth (defaults to `app_session`) |
+| `TAUTH_SESSION_COOKIE_NAME` | ✅   | Session cookie name set by TAuth                            |
 | `PINGUIN_ADDR`         | ✅        | Pinguin gRPC address                                        |
-| `PINGUIN_AUTH_TOKEN`¹  | ✅        | Bearer token passed to the Pinguin gRPC service             |
+| `PINGUIN_AUTH_TOKEN`   | ✅        | Bearer token passed to the Pinguin gRPC service             |
 | `PINGUIN_TENANT_ID`    | ✅        | Tenant identifier used when calling the Pinguin gRPC API     |
-| `TRAFFIC_REPORT_EMAILS_ENABLED` | ⚙️ | Enables scheduled/test traffic report emails (default `true`) |
-| `ADMINS`               | ⚙️       | Comma-separated admin emails; overrides the YAML roster     |
-| `PUBLIC_BASE_URL`      | ⚙️       | Frontend origin used for CORS and subscription links        |
-| `APP_ADDR`             | ⚙️       | Listen address (default `:8080`)                            |
-| `DB_DRIVER`            | ⚙️       | Storage driver (`sqlite`, etc.)                             |
-| `DB_DSN`               | ⚙️       | Driver-specific DSN                                         |
 
-Secrets must come from the environment; only non-sensitive settings belong in `configs/config.loopaware.yml`.
+Secrets can remain outside the tracked file by using placeholders. Non-secret settings can be literal YAML values when that is clearer for the environment.
 
 When running via Docker Compose, copy the tracked env templates under `configs/` and edit the local `.env.*` files:
 
@@ -95,34 +119,15 @@ cp configs/.env.pinguin.example configs/.env.pinguin
 $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin
 ```
 
-¹Pinguin and LoopAware must share the **exact same** bearer secret. Provide identical values for `GRPC_AUTH_TOKEN` and `PINGUIN_AUTH_TOKEN`, for example:
+Pinguin and LoopAware must share the same bearer secret. Set Pinguin's `GRPC_AUTH_TOKEN` and LoopAware's `PINGUIN_AUTH_TOKEN` to identical values in their respective service env files.
 
-```dotenv
-GRPC_AUTH_TOKEN=loopaware-local-secret
-PINGUIN_AUTH_TOKEN=loopaware-local-secret
-```
+### 3. Config selection
 
-LoopAware falls back to `GRPC_AUTH_TOKEN` when `PINGUIN_AUTH_TOKEN` is empty, so exporting the shared value once at runtime also works.
-
-### 3. Flags
-
-All configuration options are also exposed as Cobra flags:
+The server command keeps only the config-file selector:
 
 ```
-loopaware --config=configs/config.loopaware.yml \
-  --app-addr=:8080 \
-  --db-driver=sqlite \
-  --db-dsn="file:loopaware.sqlite?_foreign_keys=on" \
-  --session-secret=$SESSION_SECRET \
-  --tauth-base-url=$TAUTH_BASE_URL \
-  --tauth-tenant-id=$TAUTH_TENANT_ID \
-  --tauth-signing-key=$TAUTH_JWT_SIGNING_KEY \
-  --tauth-session-cookie-name=$TAUTH_SESSION_COOKIE_NAME \
-  --traffic-report-emails=true \
-  --public-base-url=https://feedback.example.com
+loopaware --config=configs/config.loopaware.yml
 ```
-
-Flags are optional when the equivalent environment variables are set.
 
 ## Running locally
 
@@ -147,12 +152,18 @@ security headers on the static HTML and proxied API responses in the local stack
 If you want to run only the API process without Docker, use:
 
 ```bash
+APP_ADDR=:8080 \
+DB_DRIVER=sqlite \
+DB_DSN="file:loopaware.sqlite?_foreign_keys=on" \
 SESSION_SECRET=$(openssl rand -hex 32) \
 TAUTH_BASE_URL=http://localhost:8081 \
 TAUTH_TENANT_ID=loopaware \
 TAUTH_JWT_SIGNING_KEY=replace-with-tauth-jwt-signing-key \
 TAUTH_SESSION_COOKIE_NAME=loopaware_development_session \
 PUBLIC_BASE_URL=http://localhost:8080 \
+PINGUIN_ADDR=localhost:50051 \
+PINGUIN_AUTH_TOKEN=replace-with-pinguin-token \
+PINGUIN_TENANT_ID=loopaware-local \
 go run ./cmd/server --config=configs/config.loopaware.yml
 ```
 
@@ -161,7 +172,7 @@ config in `web/config.yml` and serve `web/` from the frontend origin or reverse 
 `/api`, and `/auth`.
 
 Then open `/app` on that frontend origin to trigger the shared sign-in flow.
-Ensure the TAuth service is running at `TAUTH_BASE_URL` with a tenant that matches `TAUTH_TENANT_ID`.
+Ensure the TAuth service is running at the configured `auth.tauth.base_url` with a tenant that matches `auth.tauth.tenant_id`.
 Administrators listed in `configs/config.loopaware.yml` can manage every site; other users see sites they own, sites
 they originally created with their authenticated account, or sites where an admin added their email as a team member.
 
@@ -172,7 +183,7 @@ third-party browser bundles into `web/`; non-CDN frontend dependencies are forbi
 
 1. Users visit `/login` (automatic redirect from protected routes).
 2. `mpr-ui` drives the browser sign-in lifecycle against the configured TAuth tenant.
-3. TAuth issues and refreshes the session cookie configured by `TAUTH_SESSION_COOKIE_NAME` (defaults to `app_session`).
+3. TAuth issues and refreshes the session cookie configured by `auth.tauth.session_cookie_name`.
 4. `api.AuthManager` validates the session with TAuth's verifier, injects user details into the request context, and enforces admin,
    owner, or team-member site access.
 5. The dashboard and JSON APIs consume the authenticated context.
@@ -207,7 +218,7 @@ Each environment may also define `services.siteWidgetSiteId` there to bootstrap 
 
 ## REST API
 
-All authenticated endpoints live under `/api` and require the TAuth session cookie configured by `TAUTH_SESSION_COOKIE_NAME`. Public collection endpoints for
+All authenticated endpoints live under `/api` and require the configured TAuth session cookie. Public collection endpoints for
 feedback, subscriptions, and visits do not require a session but still enforce per-site origin rules. JSON responses
 include Unix timestamps in seconds.
 
@@ -499,8 +510,7 @@ GitHub workflow from the package release ref. The npm package must have a truste
 
 ## Docker
 
-The previous Docker and Compose files remain compatible. Ensure the container receives the OAuth environment variables
-and mounts `configs/config.loopaware.yml` containing the admin roster.
+Ensure the container receives the placeholder inputs used by `configs/config.loopaware.yml` and mounts that backend runtime config file.
 
 ```bash
 cp configs/.env.loopaware.example configs/.env.loopaware
@@ -511,7 +521,7 @@ $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin
 ```
 
 The compose file binds `configs/config.loopaware.yml` into the LoopAware container at `/app/configs/config.loopaware.yml`
-and loads per-service environment variables via `env_file` from `configs/.env.*`.
+and loads per-service placeholder values via `env_file` from `configs/.env.*`.
 The container now runs as root so the SQLite data volume remains writable; if you need to switch back to an unprivileged
 user, update the Docker image to chown the mounted directory before starting the binary.
 
