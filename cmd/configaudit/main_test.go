@@ -20,6 +20,7 @@ const (
 	testPinguinEnvFile         = "pinguin.env"
 	testConfigDirectory        = "config"
 	testConfigTemplateFile     = "config.yml"
+	testLoopAwareConfigFile    = "config.loopaware.yml"
 	testPlaceholderMissingKey  = "MISSING_VALUE"
 	testLoopAwareHostPort      = "8080"
 	testLoopAwareContainerPort = "8080"
@@ -37,6 +38,66 @@ const (
 	testTauthBaseURLValue      = "http://tauth:8080"
 	testNonNumericHostPortMap  = "80a0:3000"
 )
+
+func validLoopAwareRuntimeConfigYAML() string {
+	return strings.Join([]string{
+		"server:",
+		"  address: \"${APP_ADDR}\"",
+		"  public_base_url: \"${PUBLIC_BASE_URL}\"",
+		"database:",
+		"  driver: \"${DB_DRIVER}\"",
+		"  dsn: \"${DB_DSN}\"",
+		"auth:",
+		"  session_secret: \"${SESSION_SECRET}\"",
+		"  tauth:",
+		"    base_url: \"${TAUTH_BASE_URL}\"",
+		"    tenant_id: \"${TAUTH_TENANT_ID}\"",
+		"    jwt_signing_key: \"${TAUTH_JWT_SIGNING_KEY}\"",
+		"    session_cookie_name: \"${TAUTH_SESSION_COOKIE_NAME}\"",
+		"pinguin:",
+		"  address: \"${PINGUIN_ADDR}\"",
+		"  auth_token: \"${PINGUIN_AUTH_TOKEN}\"",
+		"  tenant_id: \"${PINGUIN_TENANT_ID}\"",
+		"  connection_timeout_seconds: 5",
+		"  operation_timeout_seconds: 30",
+		"notifications:",
+		"  subscription_enabled: true",
+		"  traffic_report_emails_enabled: true",
+		"admins:",
+		"  - admin@example.com",
+		"",
+	}, "\n")
+}
+
+func writeLoopAwareRuntimeConfig(testingT *testing.T, baseDirectory string) string {
+	configDirectory := filepath.Join(baseDirectory, testConfigDirectory)
+	require.NoError(testingT, os.MkdirAll(configDirectory, 0o755))
+	configPath := filepath.Join(configDirectory, testLoopAwareConfigFile)
+	require.NoError(testingT, os.WriteFile(configPath, []byte(validLoopAwareRuntimeConfigYAML()), 0o600))
+	return "./" + testConfigDirectory + "/" + testLoopAwareConfigFile
+}
+
+func loopAwareRuntimeConfigVolume(testingT *testing.T, baseDirectory string) string {
+	hostPath := writeLoopAwareRuntimeConfig(testingT, baseDirectory)
+	return hostPath + ":" + loopAwareRuntimeConfigContainerPath + ":ro"
+}
+
+func loopAwareRuntimeEnvironmentLines() []string {
+	return []string{
+		"APP_ADDR=:8080",
+		"DB_DRIVER=sqlite",
+		"DB_DSN=file:/app/data/loopaware.sqlite?_foreign_keys=on",
+		"SESSION_SECRET=" + testSessionSecretValue,
+		"TAUTH_BASE_URL=" + testTauthBaseURLValue,
+		"TAUTH_TENANT_ID=" + testTenantValue,
+		"TAUTH_JWT_SIGNING_KEY=" + testSigningKeyValue,
+		"TAUTH_SESSION_COOKIE_NAME=" + testCookieNameValue,
+		"PUBLIC_BASE_URL=" + testPublicBaseURLValue,
+		"PINGUIN_ADDR=" + testPinguinAddressValue,
+		"PINGUIN_AUTH_TOKEN=" + testAuthTokenValue,
+		"PINGUIN_TENANT_ID=" + testTenantValue,
+	}
+}
 
 func TestStringListUnmarshalYAML(testingT *testing.T) {
 	testCases := []struct {
@@ -158,18 +219,11 @@ func TestRunAuditReportsErrorsForMissingEnvironment(testingT *testing.T) {
 	require.NoError(testingT, os.WriteFile(templatePath, []byte(templateContent), 0o600))
 
 	loopAwareEnvPath := filepath.Join(tempDirectory, testLoopAwareEnvFile)
-	loopAwareEnv := strings.Join([]string{
-		"SESSION_SECRET=",
-		"TAUTH_BASE_URL=" + testTauthBaseURLValue,
-		"TAUTH_TENANT_ID=" + testTenantValue,
-		"TAUTH_JWT_SIGNING_KEY=" + testSigningKeyValue,
-		"TAUTH_SESSION_COOKIE_NAME=" + testCookieNameValue,
-		"PUBLIC_BASE_URL=http://localhost:8080",
-		"PINGUIN_ADDR=pinguin:50051",
-		"PINGUIN_ADDR=duplicate",
-		"PINGUIN_AUTH_TOKEN=" + testAuthTokenValue,
-		"",
-	}, "\n")
+	loopAwareEnvironmentLines := loopAwareRuntimeEnvironmentLines()
+	loopAwareEnvironmentLines[3] = "SESSION_SECRET="
+	loopAwareEnvironmentLines[9] = "PINGUIN_ADDR=pinguin:50051"
+	loopAwareEnvironmentLines = append(loopAwareEnvironmentLines, "PINGUIN_ADDR=duplicate", "")
+	loopAwareEnv := strings.Join(loopAwareEnvironmentLines, "\n")
 	require.NoError(testingT, os.WriteFile(loopAwareEnvPath, []byte(loopAwareEnv), 0o600))
 
 	pinguinEnvPath := filepath.Join(tempDirectory, testPinguinEnvFile)
@@ -183,6 +237,7 @@ func TestRunAuditReportsErrorsForMissingEnvironment(testingT *testing.T) {
 	require.NoError(testingT, os.WriteFile(pinguinEnvPath, []byte(pinguinEnv), 0o600))
 
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
+	loopAwareConfigVolume := loopAwareRuntimeConfigVolume(testingT, tempDirectory)
 	composeContent := strings.Join([]string{
 		"services:",
 		"  " + testLoopAwareService + ":",
@@ -192,6 +247,7 @@ func TestRunAuditReportsErrorsForMissingEnvironment(testingT *testing.T) {
 		"      PINGUIN_TENANT_ID: " + testTenantValue,
 		"    volumes:",
 		"      - ./config/" + testConfigTemplateFile + ":/config/config.yml",
+		"      - " + loopAwareConfigVolume,
 		"    ports:",
 		"      - \"" + testLoopAwareHostPort + ":" + testLoopAwareContainerPort + "\"",
 		"  " + testPinguinService + ":",
@@ -213,7 +269,7 @@ func TestRunAuditReportsErrorsForMissingEnvironment(testingT *testing.T) {
 	require.False(testingT, result.ok())
 	combinedErrors := strings.Join(result.errors, " ")
 	require.Contains(testingT, combinedErrors, "env_file "+testLoopAwareEnvFile+" defines PINGUIN_ADDR more than once")
-	require.Contains(testingT, combinedErrors, "required env SESSION_SECRET is missing or empty")
+	require.Contains(testingT, combinedErrors, "auth.session_secret")
 	require.Contains(testingT, combinedErrors, "references ${"+testPlaceholderMissingKey+"} but "+testPlaceholderMissingKey+" is not defined")
 	require.Contains(testingT, combinedErrors, "host port "+testLoopAwareHostPort+" is published by both")
 }
@@ -222,18 +278,7 @@ func TestRunAuditUsesTrackedExampleEnvFilesWhenRuntimeEnvFilesAreMissing(testing
 	tempDirectory := testingT.TempDir()
 
 	loopAwareExamplePath := filepath.Join(tempDirectory, testLoopAwareEnvFile+".example")
-	loopAwareExample := strings.Join([]string{
-		"SESSION_SECRET=" + testSessionSecretValue,
-		"TAUTH_BASE_URL=" + testTauthBaseURLValue,
-		"TAUTH_TENANT_ID=" + testTenantValue,
-		"TAUTH_JWT_SIGNING_KEY=" + testSigningKeyValue,
-		"TAUTH_SESSION_COOKIE_NAME=" + testCookieNameValue,
-		"PUBLIC_BASE_URL=" + testPublicBaseURLValue,
-		"PINGUIN_ADDR=" + testPinguinAddressValue,
-		"PINGUIN_AUTH_TOKEN=" + testAuthTokenValue,
-		"PINGUIN_TENANT_ID=" + testTenantValue,
-		"",
-	}, "\n")
+	loopAwareExample := strings.Join(append(loopAwareRuntimeEnvironmentLines(), ""), "\n")
 	require.NoError(testingT, os.WriteFile(loopAwareExamplePath, []byte(loopAwareExample), 0o600))
 
 	pinguinExamplePath := filepath.Join(tempDirectory, testPinguinEnvFile+".example")
@@ -246,11 +291,14 @@ func TestRunAuditUsesTrackedExampleEnvFilesWhenRuntimeEnvFilesAreMissing(testing
 	require.NoError(testingT, os.WriteFile(pinguinExamplePath, []byte(pinguinExample), 0o600))
 
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
+	loopAwareConfigVolume := loopAwareRuntimeConfigVolume(testingT, tempDirectory)
 	composeContent := strings.Join([]string{
 		"services:",
 		"  " + testLoopAwareService + ":",
 		"    env_file:",
 		"      - " + testLoopAwareEnvFile,
+		"    volumes:",
+		"      - " + loopAwareConfigVolume,
 		"  " + testPinguinService + ":",
 		"    env_file:",
 		"      - " + testPinguinEnvFile,
@@ -275,18 +323,10 @@ func TestRunAuditReportsLoopAwareTauthCookieMismatch(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 
 	loopAwareEnvPath := filepath.Join(tempDirectory, testLoopAwareEnvFile)
-	loopAwareEnv := strings.Join([]string{
-		"SESSION_SECRET=" + testSessionSecretValue,
-		"TAUTH_BASE_URL=" + testTauthBaseURLValue,
-		"TAUTH_TENANT_ID=loopaware",
-		"TAUTH_JWT_SIGNING_KEY=" + testSigningKeyValue,
-		"TAUTH_SESSION_COOKIE_NAME=app_session_loopaware",
-		"PUBLIC_BASE_URL=" + testPublicBaseURLValue,
-		"PINGUIN_ADDR=" + testPinguinAddressValue,
-		"PINGUIN_AUTH_TOKEN=" + testAuthTokenValue,
-		"PINGUIN_TENANT_ID=" + testTenantValue,
-		"",
-	}, "\n")
+	loopAwareEnvironmentLines := loopAwareRuntimeEnvironmentLines()
+	loopAwareEnvironmentLines[5] = "TAUTH_TENANT_ID=loopaware"
+	loopAwareEnvironmentLines[7] = "TAUTH_SESSION_COOKIE_NAME=app_session_loopaware"
+	loopAwareEnv := strings.Join(append(loopAwareEnvironmentLines, ""), "\n")
 	require.NoError(testingT, os.WriteFile(loopAwareEnvPath, []byte(loopAwareEnv), 0o600))
 
 	tauthEnvPath := filepath.Join(tempDirectory, testTauthService+".env")
@@ -299,11 +339,14 @@ func TestRunAuditReportsLoopAwareTauthCookieMismatch(testingT *testing.T) {
 	require.NoError(testingT, os.WriteFile(tauthEnvPath, []byte(tauthEnv), 0o600))
 
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
+	loopAwareConfigVolume := loopAwareRuntimeConfigVolume(testingT, tempDirectory)
 	composeContent := strings.Join([]string{
 		"services:",
 		"  " + testLoopAwareService + ":",
 		"    env_file:",
 		"      - " + testLoopAwareEnvFile,
+		"    volumes:",
+		"      - " + loopAwareConfigVolume,
 		"  " + testTauthService + ":",
 		"    env_file:",
 		"      - " + testTauthService + ".env",
@@ -316,28 +359,28 @@ func TestRunAuditReportsLoopAwareTauthCookieMismatch(testingT *testing.T) {
 	require.Contains(
 		testingT,
 		strings.Join(result.errors, " "),
-		"loopaware.TAUTH_SESSION_COOKIE_NAME must match tauth.TAUTH_TENANT_SESSION_COOKIE_NAME_LOOPAWARE",
+		"loopaware.auth.tauth.session_cookie_name must match tauth.TAUTH_TENANT_SESSION_COOKIE_NAME_LOOPAWARE",
 	)
 }
 
 func TestRunAuditCommandSuccess(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
-	composeContent := strings.Join([]string{
+	loopAwareConfigVolume := loopAwareRuntimeConfigVolume(testingT, tempDirectory)
+	composeLines := []string{
 		"services:",
 		"  " + testLoopAwareService + ":",
 		"    environment:",
-		"      SESSION_SECRET: " + testSessionSecretValue,
-		"      TAUTH_BASE_URL: " + testTauthBaseURLValue,
-		"      TAUTH_TENANT_ID: " + testTenantValue,
-		"      TAUTH_JWT_SIGNING_KEY: " + testSigningKeyValue,
-		"      TAUTH_SESSION_COOKIE_NAME: " + testCookieNameValue,
-		"      PUBLIC_BASE_URL: " + testPublicBaseURLValue,
-		"      PINGUIN_ADDR: " + testPinguinAddressValue,
-		"      PINGUIN_AUTH_TOKEN: " + testAuthTokenValue,
-		"      PINGUIN_TENANT_ID: " + testTenantValue,
+	}
+	for _, environmentLine := range loopAwareRuntimeEnvironmentLines() {
+		composeLines = append(composeLines, "      - "+environmentLine)
+	}
+	composeLines = append(composeLines,
+		"    volumes:",
+		"      - "+loopAwareConfigVolume,
 		"",
-	}, "\n")
+	)
+	composeContent := strings.Join(composeLines, "\n")
 	require.NoError(testingT, os.WriteFile(composePath, []byte(composeContent), 0o600))
 
 	var stdout bytes.Buffer

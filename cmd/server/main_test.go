@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
 
-	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -24,29 +24,28 @@ import (
 )
 
 const (
-	testAdminEmailsEnv         = "admin@example.com, owner@example.com"
-	testAuthTokenValue         = "test-auth-token"
-	testTenantValue            = "test-tenant"
-	testSessionSecretValue     = "test-session-secret"
-	testTauthBaseURLValue      = "http://tauth.test"
-	testTauthTenantIDValue     = "tenant-id"
-	testTauthSigningKeyValue   = "signing-key"
-	testTauthCookieNameValue   = "app_session"
-	testPublicBaseURLValue     = "http://localhost:8080"
-	testPinguinAddress         = "bufnet"
-	testDatabaseDriverValue    = storage.DriverNameSQLite
-	testDatabaseDSNValue       = "file:server-test?mode=memory&cache=shared&_foreign_keys=on"
-	testPinguinTimeoutSeconds  = "1"
-	testDatabaseOpenerMessage  = "database opener error"
-	testBufferSize             = 1024 * 1024
-	testInvalidTimeoutValue    = "invalid"
-	testServerAddress          = "127.0.0.1:0"
-	testBindFlagAddress        = "127.0.0.1:9999"
-	testResolveOriginEmpty     = "   "
-	testResolveOriginMalformed = "http://%zz"
-	testResolveOriginMissing   = "example.com"
-	testResolveOriginValid     = "https://example.com/path"
-	testInvalidConfigContents  = ": [}"
+	testAuthTokenValue              = "test-auth-token"
+	testTenantValue                 = "test-tenant"
+	testSessionSecretValue          = "test-session-secret"
+	testTauthBaseURLValue           = "http://tauth.test"
+	testTauthTenantIDValue          = "tenant-id"
+	testTauthSigningKeyValue        = "signing-key"
+	testTauthCookieNameValue        = "app_session"
+	testPublicBaseURLValue          = "http://localhost:8080"
+	testPinguinAddress              = "bufnet"
+	testDatabaseDSNValue            = "file:server-test?mode=memory&cache=shared&_foreign_keys=on"
+	testDatabaseOpenerMessage       = "database opener error"
+	testBufferSize                  = 1024 * 1024
+	testServerAddress               = "127.0.0.1:0"
+	testResolveOriginEmpty          = "   "
+	testResolveOriginMalformed      = "http://%zz"
+	testResolveOriginMissing        = "example.com"
+	testResolveOriginValid          = "https://example.com/path"
+	testInvalidConfigContents       = ": [}"
+	testEnvironmentSessionSecretKey = "LOOPAWARE_TEST_SESSION_SECRET"
+	testEnvironmentTrafficEmailsKey = "LOOPAWARE_TEST_TRAFFIC_REPORT_EMAILS"
+	testEnvironmentTimeoutKey       = "LOOPAWARE_TEST_PINGUIN_CONNECTION_TIMEOUT"
+	testEnvironmentMissingKey       = "LOOPAWARE_TEST_MISSING_CONFIG_VALUE"
 )
 
 type stubNotificationServer struct {
@@ -84,47 +83,45 @@ func createPinguinDialer(listener *bufconn.Listener) func(context.Context, strin
 	}
 }
 
-func setRequiredEnvironment(testingT *testing.T, pinguinAddress string) {
-	testingT.Setenv(environmentKeyApplicationAddress, "127.0.0.1:0")
-	testingT.Setenv(environmentKeyDatabaseDriverName, testDatabaseDriverValue)
-	testingT.Setenv(environmentKeyDatabaseDataSource, testDatabaseDSNValue)
-	testingT.Setenv(environmentKeySessionSecret, testSessionSecretValue)
-	testingT.Setenv(environmentKeyTauthBaseURL, testTauthBaseURLValue)
-	testingT.Setenv(environmentKeyTauthTenantID, testTauthTenantIDValue)
-	testingT.Setenv(environmentKeyTauthSigningKey, testTauthSigningKeyValue)
-	testingT.Setenv(environmentKeyTauthSessionCookie, testTauthCookieNameValue)
-	testingT.Setenv(environmentKeyPublicBaseURL, testPublicBaseURLValue)
-	testingT.Setenv(environmentKeyPinguinAddress, pinguinAddress)
-	testingT.Setenv(environmentKeyPinguinAuthToken, testAuthTokenValue)
-	testingT.Setenv(environmentKeyPinguinTenantID, testTenantValue)
-	testingT.Setenv(environmentKeyPinguinConnTimeout, testPinguinTimeoutSeconds)
-	testingT.Setenv(environmentKeyPinguinOpTimeout, testPinguinTimeoutSeconds)
-	testingT.Setenv(environmentKeySubscriptionNotify, "true")
+func validServerConfigYAML(pinguinAddress string) string {
+	return strings.Join([]string{
+		"server:",
+		"  address: \"127.0.0.1:0\"",
+		"  public_base_url: \"" + testPublicBaseURLValue + "\"",
+		"database:",
+		"  driver: \"" + storage.DriverNameSQLite + "\"",
+		"  dsn: \"" + testDatabaseDSNValue + "\"",
+		"auth:",
+		"  session_secret: \"" + testSessionSecretValue + "\"",
+		"  tauth:",
+		"    base_url: \"" + testTauthBaseURLValue + "\"",
+		"    tenant_id: \"" + testTauthTenantIDValue + "\"",
+		"    jwt_signing_key: \"" + testTauthSigningKeyValue + "\"",
+		"    session_cookie_name: \"" + testTauthCookieNameValue + "\"",
+		"pinguin:",
+		"  address: \"" + pinguinAddress + "\"",
+		"  auth_token: \"" + testAuthTokenValue + "\"",
+		"  tenant_id: \"" + testTenantValue + "\"",
+		"  connection_timeout_seconds: 1",
+		"  operation_timeout_seconds: 1",
+		"notifications:",
+		"  subscription_enabled: true",
+		"  traffic_report_emails_enabled: true",
+		"admins:",
+		"  - admin@example.com",
+		"  - owner@example.com",
+		"",
+	}, "\n")
 }
 
-func TestBindFlagReturnsErrorWhenMissing(testingT *testing.T) {
-	application := NewServerApplication()
-	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
-
-	bindErr := application.bindFlag(flagSet, environmentKeyApplicationAddress, "missing-flag")
-	require.Error(testingT, bindErr)
-}
-
-func TestBindFlagBindsValue(testingT *testing.T) {
-	application := NewServerApplication()
-	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	flagSet.String(flagNameApplicationAddress, defaultApplicationAddress, "")
-
-	bindErr := application.bindFlag(flagSet, environmentKeyApplicationAddress, flagNameApplicationAddress)
-	require.NoError(testingT, bindErr)
-
-	require.NoError(testingT, flagSet.Set(flagNameApplicationAddress, testBindFlagAddress))
-	require.Equal(testingT, testBindFlagAddress, application.configurationLoader.GetString(environmentKeyApplicationAddress))
+func writeServerConfig(testingT *testing.T, payload string) string {
+	configPath := filepath.Join(testingT.TempDir(), "config.loopaware.yml")
+	require.NoError(testingT, os.WriteFile(configPath, []byte(payload), 0o600))
+	return configPath
 }
 
 func TestNewServerApplicationHasDefaults(testingT *testing.T) {
 	application := NewServerApplication()
-	require.NotNil(testingT, application.configurationLoader)
 	require.NotNil(testingT, application.databaseOpener)
 	require.NotNil(testingT, application.serverRunner)
 	require.Nil(testingT, application.pinguinDialer)
@@ -162,53 +159,14 @@ func TestWithServerRunnerOverrides(testingT *testing.T) {
 	require.Equal(testingT, 1, runnerCalls)
 }
 
-func TestApplyEnvironmentConfigurationSetsFlag(testingT *testing.T) {
+func TestCommandExposesOnlyConfigFlag(testingT *testing.T) {
 	application := NewServerApplication()
-	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	flagSet.String(flagNameApplicationAddress, "", "")
+	command, commandErr := application.Command()
+	require.NoError(testingT, commandErr)
 
-	testingT.Setenv(environmentKeyApplicationAddress, "127.0.0.1:1234")
-	applyErr := application.applyEnvironmentConfiguration(flagSet, environmentKeyApplicationAddress, flagNameApplicationAddress)
-	require.NoError(testingT, applyErr)
-
-	value, valueErr := flagSet.GetString(flagNameApplicationAddress)
-	require.NoError(testingT, valueErr)
-	require.Equal(testingT, "127.0.0.1:1234", value)
-}
-
-func TestApplyEnvironmentConfigurationSkipsWhenMissing(testingT *testing.T) {
-	application := NewServerApplication()
-	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	flagSet.String(flagNameApplicationAddress, "default", "")
-
-	environmentKey := "LOOPAWARE_TEST_MISSING_ENV"
-	require.NoError(testingT, os.Unsetenv(environmentKey))
-	applyErr := application.applyEnvironmentConfiguration(flagSet, environmentKey, flagNameApplicationAddress)
-	require.NoError(testingT, applyErr)
-
-	value, valueErr := flagSet.GetString(flagNameApplicationAddress)
-	require.NoError(testingT, valueErr)
-	require.Equal(testingT, "default", value)
-}
-
-func TestApplyEnvironmentConfigurationReportsUnknownFlag(testingT *testing.T) {
-	application := NewServerApplication()
-	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
-
-	testingT.Setenv(environmentKeyApplicationAddress, "127.0.0.1:1234")
-	applyErr := application.applyEnvironmentConfiguration(flagSet, environmentKeyApplicationAddress, "missing-flag")
-	require.Error(testingT, applyErr)
-}
-
-func TestApplyEnvironmentConfigurationRejectsInvalidInt(testingT *testing.T) {
-	application := NewServerApplication()
-	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	flagSet.Int(flagNamePinguinConnectionTimeout, 0, "")
-
-	testingT.Setenv(environmentKeyPinguinConnTimeout, testInvalidTimeoutValue)
-	applyErr := application.applyEnvironmentConfiguration(flagSet, environmentKeyPinguinConnTimeout, flagNamePinguinConnectionTimeout)
-	require.Error(testingT, applyErr)
-	require.ErrorContains(testingT, applyErr, environmentConfigurationError)
+	require.NotNil(testingT, command.Flags().Lookup(flagNameConfigFile))
+	require.Nil(testingT, command.Flags().Lookup("app-addr"))
+	require.Nil(testingT, command.Flags().Lookup("pinguin-auth-token"))
 }
 
 func TestResolveOriginValidatesInput(testingT *testing.T) {
@@ -252,36 +210,87 @@ func TestResolveOriginValidatesInput(testingT *testing.T) {
 	}
 }
 
-func TestNormalizeEmailAddressesSkipsBlanks(testingT *testing.T) {
-	normalized := normalizeEmailAddresses([]string{" admin@example.com ", "", "owner@example.com"})
-	require.Equal(testingT, []string{"admin@example.com", "owner@example.com"}, normalized)
+func TestLoadServerConfigExpandsShellValuesOnlyDuringConfigParse(testingT *testing.T) {
+	application := NewServerApplication()
+	configPayload := strings.ReplaceAll(validServerConfigYAML(testPinguinAddress), testSessionSecretValue, "${"+testEnvironmentSessionSecretKey+"}")
+	configPayload = strings.ReplaceAll(configPayload, "connection_timeout_seconds: 1", "connection_timeout_seconds: ${"+testEnvironmentTimeoutKey+"}")
+	configPayload = strings.ReplaceAll(configPayload, "traffic_report_emails_enabled: true", "traffic_report_emails_enabled: ${"+testEnvironmentTrafficEmailsKey+"}")
+	configPath := writeServerConfig(testingT, configPayload)
+
+	testingT.Setenv(testEnvironmentSessionSecretKey, testSessionSecretValue)
+	testingT.Setenv(testEnvironmentTimeoutKey, "2")
+	testingT.Setenv(testEnvironmentTrafficEmailsKey, "false")
+
+	config, loadErr := application.loadServerConfig(configPath)
+	require.NoError(testingT, loadErr)
+	require.Equal(testingT, testSessionSecretValue, config.SessionSecret)
+	require.Equal(testingT, 2, config.PinguinConnTimeoutSec)
+	require.False(testingT, config.TrafficReportEmails)
 }
 
-func TestLoadServerConfigUsesDefaultsAndEnvironment(testingT *testing.T) {
+func TestLoadServerConfigReportsMissingInterpolation(testingT *testing.T) {
 	application := NewServerApplication()
-	_, commandErr := application.Command()
-	require.NoError(testingT, commandErr)
+	configPayload := strings.ReplaceAll(validServerConfigYAML(testPinguinAddress), testSessionSecretValue, "${"+testEnvironmentMissingKey+"}")
+	configPath := writeServerConfig(testingT, configPayload)
 
-	testingT.Setenv(environmentKeyAdmins, testAdminEmailsEnv)
-	testingT.Setenv(environmentKeyDatabaseDriverName, storage.DriverNameSQLite)
-	testingT.Setenv(environmentKeyDatabaseDataSource, "")
-	testingT.Setenv(environmentKeyPinguinSharedAuth, testAuthTokenValue)
+	_, loadErr := application.loadServerConfig(configPath)
+	require.Error(testingT, loadErr)
+	require.ErrorContains(testingT, loadErr, testEnvironmentMissingKey)
+}
 
-	config, loadErr := application.loadServerConfig("")
+func TestLoadServerConfigRejectsUnknownYAMLFields(testingT *testing.T) {
+	application := NewServerApplication()
+	configPayload := strings.Replace(validServerConfigYAML(testPinguinAddress), "server:\n", "server:\n  unknown: true\n", 1)
+	configPath := writeServerConfig(testingT, configPayload)
+
+	_, loadErr := application.loadServerConfig(configPath)
+	require.Error(testingT, loadErr)
+	require.ErrorContains(testingT, loadErr, "field unknown not found")
+}
+
+func TestLoadServerConfigRejectsMissingRequiredValues(testingT *testing.T) {
+	application := NewServerApplication()
+	configPayload := strings.ReplaceAll(validServerConfigYAML(testPinguinAddress), "auth_token: \""+testAuthTokenValue+"\"", "auth_token: \"\"")
+	configPath := writeServerConfig(testingT, configPayload)
+
+	_, loadErr := application.loadServerConfig(configPath)
+	require.Error(testingT, loadErr)
+	require.ErrorContains(testingT, loadErr, "pinguin.auth_token")
+}
+
+func TestLoadServerConfigDoesNotUseAdminEnvironmentOverride(testingT *testing.T) {
+	application := NewServerApplication()
+	configPath := writeServerConfig(testingT, validServerConfigYAML(testPinguinAddress))
+	testingT.Setenv("ADMINS", "env-admin@example.com")
+
+	config, loadErr := application.loadServerConfig(configPath)
 	require.NoError(testingT, loadErr)
 	require.Equal(testingT, []string{"admin@example.com", "owner@example.com"}, config.AdminEmailAddresses)
-	require.Equal(testingT, defaultSQLiteDataSourceName, config.DatabaseDataSourceName)
-	require.Equal(testingT, testAuthTokenValue, config.PinguinAuthToken)
+}
+
+func TestLoadServerConfigDoesNotUseSharedPinguinAuthAlias(testingT *testing.T) {
+	application := NewServerApplication()
+	configPayload := strings.ReplaceAll(validServerConfigYAML(testPinguinAddress), "auth_token: \""+testAuthTokenValue+"\"", "auth_token: \"\"")
+	configPath := writeServerConfig(testingT, configPayload)
+	testingT.Setenv("GRPC_AUTH_TOKEN", testAuthTokenValue)
+
+	_, loadErr := application.loadServerConfig(configPath)
+	require.Error(testingT, loadErr)
+	require.ErrorContains(testingT, loadErr, "pinguin.auth_token")
+}
+
+func TestLoadServerConfigRejectsBrowserRuntimeConfigShape(testingT *testing.T) {
+	application := NewServerApplication()
+	configPath := writeServerConfig(testingT, "services:\n  tauthOrigin: http://localhost:8082\n")
+
+	_, loadErr := application.loadServerConfig(configPath)
+	require.Error(testingT, loadErr)
+	require.ErrorContains(testingT, loadErr, "field services not found")
 }
 
 func TestLoadServerConfigReportsConfigurationFileError(testingT *testing.T) {
 	application := NewServerApplication()
-	_, commandErr := application.Command()
-	require.NoError(testingT, commandErr)
-
-	tempDirectory := testingT.TempDir()
-	configPath := filepath.Join(tempDirectory, "config.yaml")
-	require.NoError(testingT, os.WriteFile(configPath, []byte(": [}"), 0o600))
+	configPath := writeServerConfig(testingT, testInvalidConfigContents)
 
 	_, loadErr := application.loadServerConfig(configPath)
 	require.Error(testingT, loadErr)
@@ -293,49 +302,12 @@ func TestRunCommandReportsConfigurationFileError(testingT *testing.T) {
 	command, commandErr := application.Command()
 	require.NoError(testingT, commandErr)
 
-	configDirectory := testingT.TempDir()
-	configPath := filepath.Join(configDirectory, "config.yaml")
-	require.NoError(testingT, os.WriteFile(configPath, []byte(testInvalidConfigContents), 0o600))
+	configPath := writeServerConfig(testingT, testInvalidConfigContents)
 	require.NoError(testingT, command.Flags().Set(flagNameConfigFile, configPath))
 
 	runErr := application.runCommand(command, nil)
 	require.Error(testingT, runErr)
 	require.ErrorContains(testingT, runErr, configurationFileLoadError)
-}
-
-func TestLoadServerConfigDefaultsSQLiteDataSource(testingT *testing.T) {
-	application := NewServerApplication()
-	application.configurationLoader.Set(environmentKeyDatabaseDriverName, storage.DriverNameSQLite)
-	application.configurationLoader.Set(environmentKeyDatabaseDataSource, "")
-
-	missingConfigPath := filepath.Join(testingT.TempDir(), "missing-config.yaml")
-	config, loadErr := application.loadServerConfig(missingConfigPath)
-	require.NoError(testingT, loadErr)
-	require.Equal(testingT, defaultSQLiteDataSourceName, config.DatabaseDataSourceName)
-}
-
-func TestEnsureRequiredConfigurationReportsMissing(testingT *testing.T) {
-	application := NewServerApplication()
-	missingErr := application.ensureRequiredConfiguration(ServerConfig{})
-	require.Error(testingT, missingErr)
-
-	config := ServerConfig{
-		DatabaseDriverName:        storage.DriverNameSQLite,
-		DatabaseDataSourceName:    testDatabaseDSNValue,
-		SessionSecret:             testSessionSecretValue,
-		TauthBaseURL:              testTauthBaseURLValue,
-		TauthTenantID:             testTauthTenantIDValue,
-		TauthSigningKey:           testTauthSigningKeyValue,
-		TauthSessionCookieName:    testTauthCookieNameValue,
-		PublicBaseURL:             testPublicBaseURLValue,
-		PinguinAddress:            "127.0.0.1:50051",
-		PinguinAuthToken:          testAuthTokenValue,
-		PinguinTenantID:           testTenantValue,
-		PinguinConnTimeoutSec:     1,
-		PinguinOpTimeoutSec:       1,
-		SubscriptionNotifications: true,
-	}
-	require.NoError(testingT, application.ensureRequiredConfiguration(config))
 }
 
 func TestLogAdministratorWarningEmitsWhenMissing(testingT *testing.T) {
@@ -353,12 +325,13 @@ func TestLogAdministratorWarningEmitsWhenMissing(testingT *testing.T) {
 
 func TestRunCommandUsesServerRunner(testingT *testing.T) {
 	listener := startPinguinServer(testingT)
-	setRequiredEnvironment(testingT, testPinguinAddress)
+	configPath := writeServerConfig(testingT, validServerConfigYAML(testPinguinAddress))
 
 	application := NewServerApplication()
 	application.WithPinguinDialer(createPinguinDialer(listener))
 	command, commandErr := application.Command()
 	require.NoError(testingT, commandErr)
+	require.NoError(testingT, command.Flags().Set(flagNameConfigFile, configPath))
 
 	var runnerCalls int
 	application.WithServerRunner(func(*http.Server) error {
@@ -376,23 +349,13 @@ func TestRunCommandReportsMissingConfiguration(testingT *testing.T) {
 	command, commandErr := application.Command()
 	require.NoError(testingT, commandErr)
 
-	testingT.Setenv(environmentKeyApplicationAddress, "")
-	testingT.Setenv(environmentKeyDatabaseDriverName, "")
-	testingT.Setenv(environmentKeyDatabaseDataSource, "")
-	testingT.Setenv(environmentKeySessionSecret, "")
-	testingT.Setenv(environmentKeyTauthBaseURL, "")
-	testingT.Setenv(environmentKeyTauthTenantID, "")
-	testingT.Setenv(environmentKeyTauthSigningKey, "")
-	testingT.Setenv(environmentKeyPublicBaseURL, "")
-	testingT.Setenv(environmentKeyPinguinAddress, "")
-	testingT.Setenv(environmentKeyPinguinAuthToken, "")
-	testingT.Setenv(environmentKeyPinguinTenantID, "")
-	testingT.Setenv(environmentKeyPinguinConnTimeout, "0")
-	testingT.Setenv(environmentKeyPinguinOpTimeout, "0")
+	configPayload := strings.ReplaceAll(validServerConfigYAML(testPinguinAddress), "session_secret: \""+testSessionSecretValue+"\"", "session_secret: \"\"")
+	configPath := writeServerConfig(testingT, configPayload)
+	require.NoError(testingT, command.Flags().Set(flagNameConfigFile, configPath))
 
 	runErr := application.runCommand(command, nil)
 	require.Error(testingT, runErr)
-	require.ErrorContains(testingT, runErr, missingConfigurationMessage)
+	require.ErrorContains(testingT, runErr, "auth.session_secret")
 }
 
 func TestRunCommandRejectsArguments(testingT *testing.T) {
@@ -419,15 +382,6 @@ func TestServerRunnerCanBeOverridden(testingT *testing.T) {
 	runErr := application.serverRunner(server)
 	require.NoError(testingT, runErr)
 	require.Equal(testingT, 1, runnerCalls)
-}
-
-func TestCommandReportsInvalidEnvironmentConfiguration(testingT *testing.T) {
-	application := NewServerApplication()
-	testingT.Setenv(environmentKeyPinguinConnTimeout, testInvalidTimeoutValue)
-
-	command, commandErr := application.Command()
-	require.Error(testingT, commandErr)
-	require.Nil(testingT, command)
 }
 
 func TestDefaultServerRunnerHandlesServerClose(testingT *testing.T) {
