@@ -1,0 +1,29 @@
+server:
+  address: "${APP_ADDR}"
+  public_base_url: "${PUBLIC_BASE_URL}"
+
+database:
+  driver: "${DB_DRIVER}"
+  dsn: "${DB_DSN}"
+
+auth:
+  session_secret: "${SESSION_SECRET}"
+  tauth:
+    base_url: "${TAUTH_BASE_URL}"
+    tenant_id: "${TAUTH_TENANT_ID}"
+    jwt_signing_key: "${TAUTH_JWT_SIGNING_KEY}"
+    session_cookie_name: "${TAUTH_SESSION_COOKIE_NAME}"
+
+pinguin:
+  address: "${PINGUIN_ADDR}"
+  auth_token: "${PINGUIN_AUTH_TOKEN}"
+  tenant_id: "${PINGUIN_TENANT_ID}"
+  connection_timeout_seconds: 5
+  operation_timeout_seconds: 30
+
+notifications:
+  subscription_enabled: true
+  traffic_report_emails_enabled: true
+
+admins:
+  - admin@example.com

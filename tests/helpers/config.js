@@ -64,7 +64,7 @@ export function resolveTestConfig() {
     signingKey: loopawareEnv.TAUTH_JWT_SIGNING_KEY || '',
     tenantId: loopawareEnv.TAUTH_TENANT_ID || 'loopaware',
     subscriptionSecret: loopawareEnv.SESSION_SECRET || '',
-    adminEmail: (loopawareEnv.ADMINS || 'admin@example.com').split(',')[0].trim() || 'admin@example.com',
+    adminEmail: 'admin@example.com',
     adminDisplayName: 'Admin Example'
   };
 }

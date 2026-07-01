@@ -42,7 +42,7 @@ services:
       - "8080"
     volumes:
       - loopaware-data:/app/data
-      - ../configs/config.loopaware.yml:/app/configs/config.loopaware.yml:ro
+      - ./configs/config.loopaware.yml:/app/configs/config.loopaware.yml:ro
 
   loopaware-proxy:
     image: ghcr.io/tyemirov/ghttp:latest
