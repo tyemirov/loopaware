@@ -2,17 +2,17 @@
 
 This directory is the source of truth for tracked LoopAware configuration.
 
-It holds local `.env.*` files, service config templates, the LoopAware admin roster, and the frontend runtime config
+It holds local `.env.*` files, service config templates, the LoopAware backend runtime config, and the frontend runtime config
 source consumed by `docker compose` and deployment workflows.
 
 Notes:
 
-- `configs/.env.*` files are intentionally gitignored. Create them locally.
+- `configs/.env.*` files are intentionally gitignored. Create them locally; for LoopAware they provide placeholder inputs for the backend YAML file.
 - `configs/.env.*.example` files are tracked templates; copy them into `configs/.env.*`.
 - Legacy repo-root `.env.*` files are unsupported duplicates. Move any remaining values into `configs/.env.*` and delete the root copies.
 - The default local stack uses `configs/.env.ghttp`; the computercat TLS stack uses `configs/.env.ghttp.computercat`. Test-only proxy fixtures live under `tests/`.
 - `config-audit` validates tracked `.env.*.example` templates when local `.env.*` files are absent. Runtime still requires the real `.env.*` files.
-- `configs/config.loopaware.yml` is the tracked LoopAware admin-roster config used by the server `--config` flag.
+- `configs/config.loopaware.yml` is the tracked LoopAware backend runtime config used by the server `--config` flag. It is parsed strictly through `github.com/tyemirov/utils/runtimeconfig`.
 - Frontend runtime host mapping now lives in `web/config.yml`; it is served directly as `/config.yml` by the static site.
   It also carries per-environment frontend service settings such as `siteWidgetSiteId` for the first-party landing/dashboard widget.
 - Test-only compose files and env fixtures do not belong in `configs/`; keep them under `tests/`.
@@ -49,6 +49,7 @@ Required config file pointers:
 - `configs/.env.tauth` must set `TAUTH_CONFIG_FILE=/config/config.yml` (Compose mounts `configs/config.tauth.yml` at that path).
 - `configs/.env.pinguin` must set `PINGUIN_CONFIG_PATH=/config/config.yml` (Compose mounts `configs/config.pinguin.yml` at that path).
 - `docker-compose.yml` mounts `configs/config.loopaware.yml` into the LoopAware container at `/app/configs/config.loopaware.yml`.
+- `configs/.env.loopaware` must define every placeholder referenced by `configs/config.loopaware.yml`; those values are expanded only while parsing the YAML file.
 
 ## computercat TLS compose (`docker-compose.computercat.yml`)
 

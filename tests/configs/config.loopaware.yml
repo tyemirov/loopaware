@@ -26,4 +26,4 @@ notifications:
   traffic_report_emails_enabled: true
 
 admins:
-  - temirov@gmail.com
+  - admin@example.com

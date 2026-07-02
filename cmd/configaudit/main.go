@@ -13,14 +13,18 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/MarkoPoloResearchLab/loopaware/internal/serverconfig"
 	"gopkg.in/yaml.v3"
 )
 
-const assetScanMaxTokenBytes = 8 * 1024 * 1024
+const (
+	assetScanMaxTokenBytes              = 8 * 1024 * 1024
+	sharedConfigContainerPath           = "/config/config.yml"
+	loopAwareRuntimeConfigContainerPath = "/app/configs/config.loopaware.yml"
+)
 
 var (
 	placeholderPattern   = regexp.MustCompile(`\$\{([A-Z0-9_]+)\}`)
-	volumeMappingSuffix  = "/config/config.yml"
 	localURLPattern      = regexp.MustCompile(`https?://(?:localhost|127\.0\.0\.1)(?::([0-9]{2,5}))?`)
 	localHostPortPattern = regexp.MustCompile(`(?:^|[^a-zA-Z0-9_.-])(localhost|127\.0\.0\.1):([0-9]{2,5})`)
 	defaultComposePaths  = []string{
@@ -224,6 +228,7 @@ func runAudit(composePath string) auditResult {
 
 	composeDirectory := filepath.Dir(composePath)
 	environmentByService := make(map[string]map[string]string, len(compose.Services))
+	loopAwareRuntimeConfigByService := make(map[string]serverconfig.Config)
 	hostPortToService := make(map[string]string)
 
 	for serviceName, service := range compose.Services {
@@ -253,12 +258,29 @@ func runAudit(composePath string) auditResult {
 		} else if len(configTemplates) > 0 {
 			result.addWarning("service %s: skipped config template env audit because no tracked environment data is available", serviceName)
 		}
+		if isLoopAwareService(serviceName) {
+			loopAwareRuntimeConfigTemplates := resolveLoopAwareRuntimeConfigTemplates(composeDirectory, service.Volumes)
+			if len(loopAwareRuntimeConfigTemplates) == 0 {
+				result.addError("service %s: missing LoopAware runtime config volume %s", serviceName, loopAwareRuntimeConfigContainerPath)
+			}
+			if hasAuditableEnvironment {
+				for _, templatePath := range loopAwareRuntimeConfigTemplates {
+					loadedConfig, runtimeConfigErr := loadLoopAwareRuntimeConfig(templatePath, env)
+					if runtimeConfigErr != nil {
+						result.addError("service %s: %v", serviceName, runtimeConfigErr)
+						continue
+					}
+					loopAwareRuntimeConfigByService[serviceName] = loadedConfig
+				}
+			} else if len(loopAwareRuntimeConfigTemplates) > 0 {
+				result.addWarning("service %s: skipped LoopAware runtime config audit because no tracked environment data is available", serviceName)
+			}
+		}
 
 		checkHostPortCollisions(serviceName, service.Ports, hostPortToService, &result)
 	}
 
-	checkCrossServiceInvariants(environmentByService, &result)
-	checkLoopAwareRequiredEnvironment(environmentByService, &result)
+	checkCrossServiceInvariants(environmentByService, loopAwareRuntimeConfigByService, &result)
 	checkForbiddenLocalThirdPartyPaths(composeDirectory, &result)
 	checkWebAssetLocalhostPorts(hostPortToService, &result)
 
@@ -388,7 +410,24 @@ func resolveConfigTemplates(composeDirectory string, volumes []string) []string 
 		if !ok {
 			continue
 		}
-		if !strings.HasSuffix(containerPath, volumeMappingSuffix) {
+		if containerPath != sharedConfigContainerPath && containerPath != loopAwareRuntimeConfigContainerPath {
+			continue
+		}
+		resolvedHost := filepath.Clean(filepath.Join(composeDirectory, hostPath))
+		templates = append(templates, resolvedHost)
+	}
+	sort.Strings(templates)
+	return uniqueStrings(templates)
+}
+
+func resolveLoopAwareRuntimeConfigTemplates(composeDirectory string, volumes []string) []string {
+	var templates []string
+	for _, volume := range volumes {
+		hostPath, containerPath, ok := parseVolumeMapping(volume)
+		if !ok {
+			continue
+		}
+		if containerPath != loopAwareRuntimeConfigContainerPath {
 			continue
 		}
 		resolvedHost := filepath.Clean(filepath.Join(composeDirectory, hostPath))
@@ -495,46 +534,57 @@ func parseHostPort(portMapping string) (string, bool) {
 	return hostPort, true
 }
 
-func checkCrossServiceInvariants(environmentByService map[string]map[string]string, result *auditResult) {
+func loadLoopAwareRuntimeConfig(configPath string, environment map[string]string) (serverconfig.Config, error) {
+	loadedConfig, loadError := serverconfig.LoadWithLookup(configPath, func(name string) (string, bool) {
+		value, found := environment[name]
+		return value, found
+	})
+	if loadError != nil {
+		return serverconfig.Config{}, fmt.Errorf("load LoopAware runtime config %s: %w", configPath, loadError)
+	}
+	return loadedConfig, nil
+}
+
+func checkCrossServiceInvariants(environmentByService map[string]map[string]string, loopAwareRuntimeConfigByService map[string]serverconfig.Config, result *auditResult) {
 	pinguinEnv, pinguinOk := resolveServiceEnvironment(environmentByService, pinguinServiceAliases)
 	tauthEnv, tauthOk := resolveServiceEnvironment(environmentByService, tauthServiceAliases)
-	loopawareEnv, loopawareOk := resolveServiceEnvironment(environmentByService, loopAwareServiceAliases)
+	loopAwareConfig, loopAwareConfigOk := resolveLoopAwareRuntimeConfig(loopAwareRuntimeConfigByService)
 
 	if pinguinOk && tauthOk {
 		expectEqual("pinguin.TAUTH_SIGNING_KEY", pinguinEnv["TAUTH_SIGNING_KEY"], "tauth.TAUTH_LOOPAWARE_JWT_SIGNING_KEY", tauthEnv["TAUTH_LOOPAWARE_JWT_SIGNING_KEY"], result)
 	}
 
-	if pinguinOk && loopawareOk {
-		expectEqual("loopaware.PINGUIN_AUTH_TOKEN", loopawareEnv["PINGUIN_AUTH_TOKEN"], "pinguin.GRPC_AUTH_TOKEN", pinguinEnv["GRPC_AUTH_TOKEN"], result)
+	if pinguinOk && loopAwareConfigOk {
+		expectEqual("loopaware.pinguin.auth_token", loopAwareConfig.PinguinAuthToken, "pinguin.GRPC_AUTH_TOKEN", pinguinEnv["GRPC_AUTH_TOKEN"], result)
 	}
 
-	if loopawareOk && tauthOk {
-		checkLoopAwareTauthTenantInvariants(loopawareEnv, tauthEnv, result)
+	if loopAwareConfigOk && tauthOk {
+		checkLoopAwareTauthTenantInvariants(loopAwareConfig, tauthEnv, result)
 	}
 }
 
-func checkLoopAwareTauthTenantInvariants(loopawareEnv map[string]string, tauthEnv map[string]string, result *auditResult) {
-	tenantID := strings.TrimSpace(loopawareEnv["TAUTH_TENANT_ID"])
+func checkLoopAwareTauthTenantInvariants(loopAwareConfig serverconfig.Config, tauthEnv map[string]string, result *auditResult) {
+	tenantID := strings.TrimSpace(loopAwareConfig.TauthTenantID)
 	if tenantID == "" {
-		result.addWarning("invariant check: loopaware.TAUTH_TENANT_ID is empty")
+		result.addWarning("invariant check: loopaware.auth.tauth.tenant_id is empty")
 		return
 	}
 
 	suffix, ok := resolveTauthTenantSuffix(tauthEnv, tenantID)
 	if !ok {
-		result.addWarning("invariant check: no tauth.TAUTH_TENANT_ID_* value matches loopaware.TAUTH_TENANT_ID")
+		result.addWarning("invariant check: no tauth.TAUTH_TENANT_ID_* value matches loopaware.auth.tauth.tenant_id")
 		return
 	}
 
 	tenantIDKey := "TAUTH_TENANT_ID_" + suffix
-	expectEqual("loopaware.TAUTH_TENANT_ID", tenantID, "tauth."+tenantIDKey, tauthEnv[tenantIDKey], result)
+	expectEqual("loopaware.auth.tauth.tenant_id", tenantID, "tauth."+tenantIDKey, tauthEnv[tenantIDKey], result)
 
 	signingKeyName, signingKeyValue, signingKeyOK := resolveFirstEnvValue(tauthEnv,
 		"TAUTH_TENANT_JWT_SIGNING_KEY_"+suffix,
 		"TAUTH_JWT_SIGNING_KEY_"+suffix,
 	)
 	if signingKeyOK {
-		expectEqual("loopaware.TAUTH_JWT_SIGNING_KEY", loopawareEnv["TAUTH_JWT_SIGNING_KEY"], "tauth."+signingKeyName, signingKeyValue, result)
+		expectEqual("loopaware.auth.tauth.jwt_signing_key", loopAwareConfig.TauthSigningKey, "tauth."+signingKeyName, signingKeyValue, result)
 	} else {
 		result.addWarning("invariant check: tauth tenant %s has no JWT signing key env", suffix)
 	}
@@ -544,7 +594,7 @@ func checkLoopAwareTauthTenantInvariants(loopawareEnv map[string]string, tauthEn
 		"TAUTH_SESSION_COOKIE_NAME_"+suffix,
 	)
 	if sessionCookieOK {
-		expectEqual("loopaware.TAUTH_SESSION_COOKIE_NAME", loopawareEnv["TAUTH_SESSION_COOKIE_NAME"], "tauth."+sessionCookieName, sessionCookieValue, result)
+		expectEqual("loopaware.auth.tauth.session_cookie_name", loopAwareConfig.TauthSessionCookieName, "tauth."+sessionCookieName, sessionCookieValue, result)
 	} else {
 		result.addWarning("invariant check: tauth tenant %s has no session cookie name env", suffix)
 	}
@@ -588,28 +638,6 @@ func expectEqual(leftLabel string, leftValue string, rightLabel string, rightVal
 	}
 }
 
-func checkLoopAwareRequiredEnvironment(environmentByService map[string]map[string]string, result *auditResult) {
-	loopawareEnv, ok := resolveServiceEnvironment(environmentByService, loopAwareServiceAliases)
-	if !ok {
-		return
-	}
-	requiredKeys := []string{
-		"SESSION_SECRET",
-		"TAUTH_BASE_URL",
-		"TAUTH_TENANT_ID",
-		"TAUTH_JWT_SIGNING_KEY",
-		"TAUTH_SESSION_COOKIE_NAME",
-		"PUBLIC_BASE_URL",
-		"PINGUIN_ADDR",
-		"PINGUIN_AUTH_TOKEN",
-	}
-	for _, key := range requiredKeys {
-		if strings.TrimSpace(loopawareEnv[key]) == "" {
-			result.addError("service loopaware: required env %s is missing or empty", key)
-		}
-	}
-}
-
 func resolveServiceEnvironment(environmentByService map[string]map[string]string, aliases []string) (map[string]string, bool) {
 	for _, alias := range aliases {
 		if environment, ok := environmentByService[alias]; ok {
@@ -617,6 +645,25 @@ func resolveServiceEnvironment(environmentByService map[string]map[string]string
 		}
 	}
 	return nil, false
+}
+
+func resolveLoopAwareRuntimeConfig(loopAwareRuntimeConfigByService map[string]serverconfig.Config) (serverconfig.Config, bool) {
+	for _, alias := range loopAwareServiceAliases {
+		config, found := loopAwareRuntimeConfigByService[alias]
+		if found {
+			return config, true
+		}
+	}
+	return serverconfig.Config{}, false
+}
+
+func isLoopAwareService(serviceName string) bool {
+	for _, alias := range loopAwareServiceAliases {
+		if serviceName == alias {
+			return true
+		}
+	}
+	return false
 }
 
 func checkWebAssetLocalhostPorts(hostPortToService map[string]string, result *auditResult) {

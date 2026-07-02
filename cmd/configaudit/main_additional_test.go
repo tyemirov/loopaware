@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MarkoPoloResearchLab/loopaware/internal/serverconfig"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
@@ -225,27 +226,32 @@ func TestScanAssetRootRecordsLocalhostPorts(testingT *testing.T) {
 	require.Contains(testingT, combinedErrors, testTauthContainerPort)
 }
 
-func TestCheckLoopAwareRequiredEnvironmentSkipsMissingService(testingT *testing.T) {
-	result := auditResult{}
-	checkLoopAwareRequiredEnvironment(map[string]map[string]string{"other": {}}, &result)
-	require.Empty(testingT, result.errors)
+func TestLoadLoopAwareRuntimeConfigReportsMissingRequiredValue(testingT *testing.T) {
+	tempDirectory := testingT.TempDir()
+	configPath := filepath.Join(tempDirectory, testLoopAwareConfigFile)
+	require.NoError(testingT, os.WriteFile(configPath, []byte(validLoopAwareRuntimeConfigYAML()), 0o600))
+
+	environment := make(map[string]string)
+	for _, environmentLine := range loopAwareRuntimeEnvironmentLines() {
+		key, value, found := strings.Cut(environmentLine, "=")
+		require.True(testingT, found)
+		environment[key] = value
+	}
+	environment["SESSION_SECRET"] = ""
+
+	_, loadErr := loadLoopAwareRuntimeConfig(configPath, environment)
+	require.Error(testingT, loadErr)
+	require.Contains(testingT, loadErr.Error(), "auth.session_secret")
 }
 
-func TestCheckLoopAwareRequiredEnvironmentUsesComposeServiceAlias(testingT *testing.T) {
-	result := auditResult{}
-	checkLoopAwareRequiredEnvironment(map[string]map[string]string{
+func TestResolveLoopAwareRuntimeConfigUsesComposeServiceAlias(testingT *testing.T) {
+	resolvedConfig, found := resolveLoopAwareRuntimeConfig(map[string]serverconfig.Config{
 		"loopaware-api": {
-			"TAUTH_BASE_URL":            testTauthBaseURLValue,
-			"TAUTH_TENANT_ID":           testTenantValue,
-			"TAUTH_JWT_SIGNING_KEY":     testSigningKeyValue,
-			"TAUTH_SESSION_COOKIE_NAME": testCookieNameValue,
-			"PUBLIC_BASE_URL":           testPublicBaseURLValue,
-			"PINGUIN_ADDR":              testPinguinAddressValue,
-			"PINGUIN_AUTH_TOKEN":        testAuthTokenValue,
+			PinguinAuthToken: testAuthTokenValue,
 		},
-	}, &result)
-	require.NotEmpty(testingT, result.errors)
-	require.Contains(testingT, strings.Join(result.errors, " "), "required env SESSION_SECRET is missing or empty")
+	})
+	require.True(testingT, found)
+	require.Equal(testingT, testAuthTokenValue, resolvedConfig.PinguinAuthToken)
 }
 
 func TestCheckCrossServiceInvariantsUsesComposeServiceAliases(testingT *testing.T) {
@@ -260,8 +266,9 @@ func TestCheckCrossServiceInvariantsUsesComposeServiceAliases(testingT *testing.
 			testEnvKeyTauthSigning:      testSharedSigningKeyValue,
 			testEnvKeyTauthGoogleClient: testGoogleClientValue,
 		},
+	}, map[string]serverconfig.Config{
 		"loopaware-api": {
-			"PINGUIN_AUTH_TOKEN": testAuthTokenValue,
+			PinguinAuthToken: testAuthTokenValue,
 		},
 	}, &result)
 	require.NotEmpty(testingT, result.errors)
@@ -564,7 +571,7 @@ func TestCheckWebAssetLocalhostPortsReportsReadError(testingT *testing.T) {
 	require.NotEmpty(testingT, result.errors)
 }
 
-func TestRunAuditSkipsServiceWithoutEnvironmentData(testingT *testing.T) {
+func TestRunAuditReportsLoopAwareServiceWithoutRuntimeConfigVolume(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
 	compose := composeFile{
@@ -577,8 +584,8 @@ func TestRunAuditSkipsServiceWithoutEnvironmentData(testingT *testing.T) {
 	require.NoError(testingT, os.WriteFile(composePath, payload, 0o600))
 
 	result := runAudit(composePath)
-	require.True(testingT, result.ok())
-	require.Empty(testingT, result.errors)
+	require.False(testingT, result.ok())
+	require.Contains(testingT, strings.Join(result.errors, " "), "missing LoopAware runtime config volume")
 	require.Empty(testingT, result.warnings)
 }
 
@@ -641,21 +648,21 @@ func TestRunAuditCommandsSuccessAcrossMultipleComposeFiles(testingT *testing.T) 
 	tempDirectory := testingT.TempDir()
 	composeOnePath := filepath.Join(tempDirectory, "docker-compose.one.yml")
 	composeTwoPath := filepath.Join(tempDirectory, "docker-compose.two.yml")
-	composeContent := strings.Join([]string{
+	loopAwareConfigVolume := loopAwareRuntimeConfigVolume(testingT, tempDirectory)
+	composeLines := []string{
 		"services:",
 		"  loopaware:",
 		"    environment:",
-		"      SESSION_SECRET: " + testSessionSecretValue,
-		"      TAUTH_BASE_URL: " + testTauthBaseURLValue,
-		"      TAUTH_TENANT_ID: " + testTenantValue,
-		"      TAUTH_JWT_SIGNING_KEY: " + testSigningKeyValue,
-		"      TAUTH_SESSION_COOKIE_NAME: " + testCookieNameValue,
-		"      PUBLIC_BASE_URL: " + testPublicBaseURLValue,
-		"      PINGUIN_ADDR: " + testPinguinAddressValue,
-		"      PINGUIN_AUTH_TOKEN: " + testAuthTokenValue,
-		"      PINGUIN_TENANT_ID: " + testTenantValue,
+	}
+	for _, environmentLine := range loopAwareRuntimeEnvironmentLines() {
+		composeLines = append(composeLines, "      - "+environmentLine)
+	}
+	composeLines = append(composeLines,
+		"    volumes:",
+		"      - "+loopAwareConfigVolume,
 		"",
-	}, "\n")
+	)
+	composeContent := strings.Join(composeLines, "\n")
 	require.NoError(testingT, os.WriteFile(composeOnePath, []byte(composeContent), 0o600))
 	require.NoError(testingT, os.WriteFile(composeTwoPath, []byte(composeContent), 0o600))
 
@@ -670,21 +677,21 @@ func TestRunAuditCommandsSuccessAcrossMultipleComposeFiles(testingT *testing.T) 
 func TestRunAuditCommandsIgnoresLegacyRootEnvFiles(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
-	composeContent := strings.Join([]string{
+	loopAwareConfigVolume := loopAwareRuntimeConfigVolume(testingT, tempDirectory)
+	composeLines := []string{
 		"services:",
 		"  loopaware:",
 		"    environment:",
-		"      SESSION_SECRET: " + testSessionSecretValue,
-		"      TAUTH_BASE_URL: " + testTauthBaseURLValue,
-		"      TAUTH_TENANT_ID: " + testTenantValue,
-		"      TAUTH_JWT_SIGNING_KEY: " + testSigningKeyValue,
-		"      TAUTH_SESSION_COOKIE_NAME: " + testCookieNameValue,
-		"      PUBLIC_BASE_URL: " + testPublicBaseURLValue,
-		"      PINGUIN_ADDR: " + testPinguinAddressValue,
-		"      PINGUIN_AUTH_TOKEN: " + testAuthTokenValue,
-		"      PINGUIN_TENANT_ID: " + testTenantValue,
+	}
+	for _, environmentLine := range loopAwareRuntimeEnvironmentLines() {
+		composeLines = append(composeLines, "      - "+environmentLine)
+	}
+	composeLines = append(composeLines,
+		"    volumes:",
+		"      - "+loopAwareConfigVolume,
 		"",
-	}, "\n")
+	)
+	composeContent := strings.Join(composeLines, "\n")
 	require.NoError(testingT, os.WriteFile(composePath, []byte(composeContent), 0o600))
 	require.NoError(testingT, os.WriteFile(filepath.Join(tempDirectory, ".env.loopaware"), []byte("SESSION_SECRET=legacy"), 0o600))
 
@@ -699,21 +706,21 @@ func TestRunAuditCommandsIgnoresLegacyRootEnvFiles(testingT *testing.T) {
 func TestRunAuditCommandsIgnoresUnsupportedLocalConfigEnvFile(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
-	composeContent := strings.Join([]string{
+	loopAwareConfigVolume := loopAwareRuntimeConfigVolume(testingT, tempDirectory)
+	composeLines := []string{
 		"services:",
 		"  loopaware:",
 		"    environment:",
-		"      SESSION_SECRET: " + testSessionSecretValue,
-		"      TAUTH_BASE_URL: " + testTauthBaseURLValue,
-		"      TAUTH_TENANT_ID: " + testTenantValue,
-		"      TAUTH_JWT_SIGNING_KEY: " + testSigningKeyValue,
-		"      TAUTH_SESSION_COOKIE_NAME: " + testCookieNameValue,
-		"      PUBLIC_BASE_URL: " + testPublicBaseURLValue,
-		"      PINGUIN_ADDR: " + testPinguinAddressValue,
-		"      PINGUIN_AUTH_TOKEN: " + testAuthTokenValue,
-		"      PINGUIN_TENANT_ID: " + testTenantValue,
+	}
+	for _, environmentLine := range loopAwareRuntimeEnvironmentLines() {
+		composeLines = append(composeLines, "      - "+environmentLine)
+	}
+	composeLines = append(composeLines,
+		"    volumes:",
+		"      - "+loopAwareConfigVolume,
 		"",
-	}, "\n")
+	)
+	composeContent := strings.Join(composeLines, "\n")
 	require.NoError(testingT, os.WriteFile(composePath, []byte(composeContent), 0o600))
 	require.NoError(testingT, os.MkdirAll(filepath.Join(tempDirectory, "configs"), 0o755))
 	require.NoError(testingT, os.WriteFile(filepath.Join(tempDirectory, "configs", ".env.ghttp"), []byte("GHTTP_SERVE_PORT=4443"), 0o600))

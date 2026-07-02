@@ -36,6 +36,10 @@ The static frontend has a strict delivery contract for browser dependencies:
   domain structs and smart constructors.
 - **Notifications**: feedback and subscription notifications are sent to the Pinguin gRPC service; calls include the
   configured tenant metadata and shared auth token.
+- **Backend runtime config**: `cmd/server` selects one YAML file with `--config`; `internal/serverconfig` loads it through
+  `github.com/tyemirov/utils/runtimeconfig`, expands shell placeholders during parse, validates the populated contract,
+  and returns typed values to the server. LoopAware does not read runtime settings from Viper, config-value flags, or
+  direct environment lookups after that boundary.
 
 ## Auth Bootstrap Constraints
 

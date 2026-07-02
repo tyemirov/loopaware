@@ -8,15 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ### Improvements ⚙️
+- Load backend runtime configuration from one strict YAML contract through `github.com/tyemirov/utils/runtimeconfig`, leaving only `--config` as the server config flag.
 - Make `@loopaware/react-native` a buildable npm package with `dist` exports, package metadata, and trusted-publishing workflow.
 - Add CI path coverage for first-party clients.
 - Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 
 ### Testing 🧪
+- Cover backend runtime config interpolation, unknown-field rejection, missing required values, removed env overrides, and config-audit YAML loading.
 - Add React Native client package validation that builds, packs, installs the tarball into a temporary consumer, and typechecks a real import.
 
 ### Docs 📚
+- Document the backend YAML config contract and clarify that LoopAware env files are interpolation inputs, not a second runtime config source.
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
 
 ## [v0.7.32] - 2026-06-30
