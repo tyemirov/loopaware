@@ -22,6 +22,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the backend YAML config contract and clarify that LoopAware env files are interpolation inputs, not a second runtime config source.
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
 
+## [v0.7.33] - 2026-07-02
+
+### Features ✨
+- Add strict backend runtime config loader and validation based on a typed YAML contract.
+- Enforce LoopAware backend runtime config volume and validation in `configaudit`.
+
+### Improvements ⚙️
+- Remove all runtime config flags and Viper usage from backend; server now loads config from a single validated YAML file.
+- Integrate and require `github.com/tyemirov/utils/runtimeconfig` for backend config loading and shell environment interpolation.
+- Clean up Go module dependencies; update `tyemirov/utils` to v0.17.0.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- Simplify backend test configuration by introducing a test-specific YAML runtime config file.
+- Cover backend config YAML interpolation, validation, and error handling in config audit and server integration tests.
+
+### Docs 📚
+- Update docs and examples to clarify backend runtime config: YAML is now the sole runtime config source, with env files only for interpolation.
+- Remove documentation of old environment variable/flag overrides and clarify config handling in architecture docs.
+
 ## [v0.7.32] - 2026-06-30
 
 ### Features ✨
