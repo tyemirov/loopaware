@@ -491,7 +491,7 @@ It pushes:
 - `ghcr.io/tyemirov/loopaware:<tag>`
 - `ghcr.io/tyemirov/loopaware:<sha>`
 
-`make deploy` reruns `make ci`, then hands `deploy/app.yml` to
+`make deploy` reruns `make ci`, then hands `.mprlab/deploy/app.yml` to
 `mprlab-gateway`. Gateway Ansible deploys and verifies the backend first, then
 executes the app-owned GitHub Pages workflow resource from the manifest and
 verifies `https://loopaware.mprlab.com/`. This keeps Pages behind the backend
