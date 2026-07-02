@@ -277,6 +277,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Identified the live production cookie contract on 2026-05-27: TAuth's `loopaware` tenant clears `app_session_loopaware` and `app_refresh_loopaware` with `Domain=mprlab.com`, `SameSite=None`, and `Secure`, while LoopAware static production config still points dashboard API traffic at `https://loopaware-api.mprlab.com` and TAuth traffic at `https://tauth-api.mprlab.com`.
   Added LoopAware-side auth recovery so a post-login dashboard API 401 calls TAuth `/auth/refresh` with the configured tenant and retries the API request once before redirecting to `/login`. Added black-box Playwright coverage for the stale-first-`/api/me` path that previously required a manual full page refresh. Extended `cmd/configaudit` so LoopAware `TAUTH_TENANT_ID`, `TAUTH_JWT_SIGNING_KEY`, and `TAUTH_SESSION_COOKIE_NAME` must match the matching TAuth tenant env values, and aligned the example env placeholders that the new audit exposed as drift. `make ci` passed.
   Follow-up 2026-06-02: isolated the long-idle login button symptom to an expired GIS nonce callback in shared `mpr-ui` and resolved it in B019 by publishing `mpr-ui` `v3.10.1`; B011 remains blocked on the separate production runtime-config deploy/verification item below.
+  Follow-up 2026-07-02: B032 removed the exact configaudit value-matching rule. LoopAware configaudit now validates the runtime config schema, required keys, placeholder coverage, and required non-empty values, while concrete TAuth and Pinguin secret/cookie values remain operator-owned deployment inputs.
   Blocked: applying and verifying the corrected production runtime config still requires the `mprlab-gateway` deploy step that previously stopped at the interactive `Gateway sudo password:` prompt.
   ### Changed Files
   `cmd/configaudit/main.go`, `cmd/configaudit/main_test.go`, `configs/.env.loopaware.example`, `configs/.env.loopaware.computercat.example`, `tests/specs/header-auth-state.spec.js`, `web/app/index.html`, `.mprlab/ISSUES.md`.
@@ -347,6 +348,30 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Extended the external asset route teardown classifier to include Playwright's disposed response error after baseline `make ci` failed in the completed widget test page cleanup path. Final validation passed with `make ci`, including 430 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `tests/helpers/externalAssets.js`.
+- [x] [B032] (P0) Remove exact cross-service value checks from configaudit.
+  ### Summary
+  `make deploy` failed during its local `make ci` preflight because `cmd/configaudit` still enforced `loopaware.auth.tauth.jwt_signing_key must match tauth.TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE`, even though deployment config validation should verify schemas and required values without hardcoding the exact operator-owned TAuth/Pinguin values.
+  ### Deliverables
+  - Remove configaudit equality checks for LoopAware/TAuth JWT signing key, session cookie name, tenant ID, Pinguin auth token, and Pinguin/TAuth signing key values.
+  - Keep placeholder coverage, runtime YAML loading, schema checks, and required non-empty value validation.
+  - Add coverage proving cross-service operator value drift is accepted by configaudit.
+  - Verify the deploy-blocking configaudit command and the full LoopAware gate.
+  ### Resolution
+  Removed the cross-service invariant comparison pass from `cmd/configaudit`; the audit still renders and validates `configs/config.loopaware.yml` through `serverconfig.LoadWithLookup`, so missing placeholders and empty required runtime fields remain failures. Added configaudit coverage that intentionally gives LoopAware, TAuth, and Pinguin different concrete signing key, session cookie, and token values while expecting the audit to pass. Validation passed with focused configaudit tests, `go run ./cmd/configaudit`, and final `make ci`.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `CHANGELOG.md`, `cmd/configaudit/main.go`, `cmd/configaudit/main_test.go`, `cmd/configaudit/main_additional_test.go`.
+- [x] [B033] (P0) Align the deploy entrypoint with `.mprlab/deploy` artifacts.
+  ### Summary
+  The deploy metadata migration moved app-owned deployment resource artifacts under `.mprlab/deploy/`, but `make deploy`, `scripts/deploy.sh`, and README still defaulted to `deploy/app.yml`. That made the deployment entrypoint incompatible with the current governance path and left the old `deploy/ansible/resources.yml` location in the tracked tree.
+  ### Deliverables
+  - Move the app deploy manifest to `.mprlab/deploy/app.yml`.
+  - Keep the resource manifest under `.mprlab/deploy/resources.yml`.
+  - Update the Makefile, deploy wrapper, README, and changelog to describe the current deployment artifact path.
+  - Verify a non-deploying `make deploy` invocation resolves the `.mprlab/deploy/app.yml` manifest.
+  ### Resolution
+  Moved `deploy/app.yml` to `.mprlab/deploy/app.yml`, kept the app-owned resource manifest under `.mprlab/deploy/resources.yml`, and updated the default `APP_MANIFEST`, deploy script help/defaults, and README deploy docs to point at `.mprlab/deploy/app.yml`. Validation passed with `bash -n scripts/deploy.sh`, a non-deploying `make deploy DEPLOY_ARGS="--skip-ci --skip-image-verify --skip-backend --skip-pages"`, `make config-audit`, `git diff --check`, and final `make ci`.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `.mprlab/deploy/app.yml`, `.mprlab/deploy/resources.yml`, `CHANGELOG.md`, `Makefile`, `README.md`, `scripts/deploy.sh`, `deploy/app.yml`, `deploy/ansible/resources.yml`.
 
 
 ## Improvements
