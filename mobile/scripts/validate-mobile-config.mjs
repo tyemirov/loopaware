@@ -22,6 +22,7 @@ const requiredFiles = [
   "mobile/scripts/native-build-fingerprint.mjs",
   "mobile/scripts/prepare-android-project.mjs",
   "mobile/scripts/resolve-metro-port.mjs",
+  "mobile/scripts/submit-ios.mjs",
   "mobile/scripts/test-api-boundaries.mjs",
 ];
 
@@ -106,6 +107,9 @@ assert(easJSON.submit?.production?.android?.track === "internal", "mobile_eas_mi
 assert(easJSON.submit?.production?.android?.releaseStatus === "completed", "mobile_eas_missing_android_submit_release_status");
 assert(easJSON.submit?.production?.ios?.bundleIdentifier === "com.mprlab.loopaware", "mobile_eas_missing_ios_submit_bundle_identifier");
 assert(easJSON.submit?.production?.ios?.sku === "com.mprlab.loopaware", "mobile_eas_missing_ios_submit_sku");
+if (easJSON.submit?.production?.ios?.ascAppId !== undefined) {
+  assert(/^[1-9][0-9]*$/.test(String(easJSON.submit.production.ios.ascAppId)), "mobile_eas_invalid_ios_submit_asc_app_id");
+}
 
 const apiSource = readText("mobile/src/api.ts");
 assert(apiSource.includes('credentials: "include"'), "mobile_api_missing_cookie_credentials");
@@ -152,10 +156,11 @@ for (const target of [
 assert(makefile.includes("mobile-check"), "mobile_makefile_missing_ci_gate");
 assert(makefile.includes('node "$(MOBILE_ANDROID_BUNDLE_SCRIPT)"'), "mobile_makefile_missing_android_bundle_script");
 assert(makefile.includes("MOBILE_ANDROID_SUBMIT_AAB"), "mobile_makefile_missing_android_submit_aab");
-assert(makefile.includes('$(MOBILE_EAS) submit --platform ios'), "mobile_makefile_missing_ios_submit_command");
+assert(makefile.includes("MOBILE_IOS_ASC_APP_ID"), "mobile_makefile_missing_ios_asc_app_id");
+assert(makefile.includes("MOBILE_IOS_SUBMIT_SCRIPT"), "mobile_makefile_missing_ios_submit_script");
+assert(makefile.includes('node "$(MOBILE_IOS_SUBMIT_SCRIPT)"'), "mobile_makefile_missing_ios_submit_command");
 assert(makefile.includes('$(MOBILE_EAS) submit --platform android'), "mobile_makefile_missing_android_submit_command");
 assert(makefile.includes('--path "$(MOBILE_ANDROID_SUBMIT_AAB)"'), "mobile_makefile_missing_android_submit_path");
-assert(makefile.includes("--latest --non-interactive"), "mobile_makefile_missing_ios_noninteractive_submit");
 assert(
   makefile.includes('--non-interactive $(MOBILE_SUBMIT_ARGS) $(MOBILE_ANDROID_SUBMIT_ARGS)'),
   "mobile_makefile_missing_android_noninteractive_submit",
@@ -176,6 +181,13 @@ assert(
   makefile.includes('EXPO_PACKAGER_PROXY_URL="http://localhost:$${metro_port}"'),
   "mobile_makefile_missing_ios_localhost_proxy_url",
 );
+
+const iosSubmitSource = readText("mobile/scripts/submit-ios.mjs");
+assert(iosSubmitSource.includes("MOBILE_IOS_ASC_APP_ID"), "mobile_ios_submit_missing_asc_app_id_env");
+assert(iosSubmitSource.includes("LOOPAWARE_MOBILE_IOS_ASC_APP_ID"), "mobile_ios_submit_missing_loopaware_asc_app_id_env");
+assert(iosSubmitSource.includes("ascAppId"), "mobile_ios_submit_missing_eas_asc_app_id");
+assert(iosSubmitSource.includes("--latest") && iosSubmitSource.includes("--non-interactive"), "mobile_ios_submit_missing_noninteractive_latest_flags");
+assert(iosSubmitSource.includes("fs.copyFileSync(backupPath, easJSONPath)"), "mobile_ios_submit_missing_eas_json_restore");
 
 const androidBundleSource = readText("mobile/scripts/build-android-bundle.mjs");
 assert(androidBundleSource.includes("signingConfig signingConfigs.release"), "mobile_android_bundle_missing_release_signing");
