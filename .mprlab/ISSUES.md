@@ -1132,6 +1132,19 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added `internal/serverconfig` as the LoopAware-specific typed YAML contract backed by `github.com/tyemirov/utils/runtimeconfig`, reduced `cmd/server` to `--config` selection plus runtime wiring, removed Viper-backed runtime reads and runtime config flags, and removed the `ADMINS` override and `GRPC_AUTH_TOKEN` alias from the backend path. Updated LoopAware config templates so backend runtime values live in YAML, added a test-specific mounted backend config, taught `config-audit` to resolve the mounted YAML with compose env placeholders, and updated docs for the new one-parse config boundary. Validation passed with focused server/config-audit tests, `make config-audit`, `go test ./... -count=1`, `make lint`, and final `make ci` with 444 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `ARCHITECTURE.md`, `CHANGELOG.md`, `README.md`, `cmd/configaudit/main.go`, `cmd/configaudit/main_additional_test.go`, `cmd/configaudit/main_test.go`, `cmd/server/main.go`, `cmd/server/main_test.go`, `configs/.env.loopaware.computercat.example`, `configs/.env.loopaware.example`, `configs/README.md`, `configs/config.loopaware.yml`, `go.mod`, `go.sum`, `internal/serverconfig/config.go`, `tests/configs/config.loopaware.yml`, `tests/configs/loopaware.env`, `tests/docker-compose.yml`, `tests/helpers/config.js`.
+- [x] [F014] (P1) Publish operator mobile builds to Apple and Google.
+  ### Summary
+  The operator mobile app has build targets for iOS and Android, but LoopAware does not expose the store-submission targets needed to upload completed packages to App Store Connect/TestFlight and Google Play.
+  ### Deliverables
+  - Add Makefile targets for iOS, Android, and combined mobile package submission.
+  - Configure the production EAS Submit profile for the current LoopAware bundle/package identifiers and Android internal-track uploads.
+  - Keep Apple, Expo, and Google credentials outside the repository while documenting the required operator inputs.
+  - Extend mobile config validation so CI fails if the submission contract drifts.
+  - Document the mobile publishing runbook alongside the existing release/publish/deploy flow.
+  ### Resolution
+  Added LoopAware store submission targets for iOS, Android, and combined mobile publishing. iOS submission uploads the latest completed EAS production build to App Store Connect/TestFlight, while Android submission rebuilds the signed local release AAB and submits that exact artifact to the Google Play internal track through the production EAS Submit profile. Configured the production submit profile with the current LoopAware bundle and package identifiers, extended mobile config validation to guard the submit profile and Make targets, and documented the credential/runbook boundary in README. Validation passed with focused mobile config checks, submit target dry runs, `git diff --check`, and final `make ci` with 444 Playwright/API integration specs.
+  ### Changed Files
+  `.mprlab/ISSUES.md`, `PLAN.md`, `README.md`, `Makefile`, `mobile/eas.json`, `mobile/scripts/validate-mobile-config.mjs`.
 
 
 ## Planning
