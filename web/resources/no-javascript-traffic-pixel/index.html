@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>No-JavaScript Traffic Pixel | LoopAware</title>
+    <meta name="description" content="Use LoopAware's image pixel fallback to record basic traffic when JavaScript is unavailable or intentionally disabled." />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <link rel="canonical" href="https://loopaware.mprlab.com/resources/no-javascript-traffic-pixel" />
+    <link rel="stylesheet" href="/resources/styles.css" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <script type="application/ld+json">
+      { "@context": "https://schema.org", "@type": "Article", "headline": "No-JavaScript Traffic Pixel", "description": "Use LoopAware's image pixel fallback to record basic traffic when JavaScript is unavailable.", "mainEntityOfPage": "https://loopaware.mprlab.com/resources/no-javascript-traffic-pixel", "author": { "@type": "Organization", "name": "Marco Polo Research Lab" } }
+    </script>
+  </head>
+  <body>
+    <header class="resource-header"><nav class="resource-nav" aria-label="Primary"><a class="resource-brand" href="/login"><img src="/loopaware-logo-120x120.png" alt="" width="36" height="36" /><span>LoopAware</span></a><div class="resource-links"><a href="/resources">Resources</a><a href="/pricing">Pricing</a><a class="resource-cta" href="/login">Sign in</a></div></nav></header>
+    <main>
+      <section class="resource-hero">
+        <div class="resource-container resource-hero-grid">
+          <div>
+            <p class="resource-kicker">Fallback tracking</p>
+            <h1>No-JavaScript traffic pixel fallback</h1>
+            <p class="resource-lede">LoopAware includes an image pixel fallback for pages where JavaScript is unavailable, blocked, or intentionally minimized, while the JavaScript pixel still provides richer context when it can run.</p>
+            <div class="resource-actions"><a class="resource-cta" href="/login">Copy traffic snippet</a><a class="resource-secondary" href="/resources/lightweight-analytics">Traffic pixel guide</a></div>
+          </div>
+          <aside class="resource-proof" aria-label="No JavaScript pixel preview">
+            <div class="resource-proof-header"><span class="resource-dot"></span><span class="resource-dot"></span><span class="resource-dot"></span><span>pixel fallback</span></div>
+            <div class="resource-proof-body">
+              <div class="metric-row"><span class="metric-label">Fallback</span><span class="metric-value">image pixel</span></div>
+              <div class="metric-row"><span class="metric-label">Primary</span><span class="metric-value">traffic.js</span></div>
+              <div class="signal-bars"><div class="signal-bar"><span style="width: 66%"></span></div><div class="signal-bar"><span style="width: 43%"></span></div><div class="signal-bar"><span style="width: 22%"></span></div></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+      <section class="resource-section"><div class="resource-container resource-split"><div><h2>Why a fallback matters</h2><p class="resource-lede">Some sites intentionally keep scripts minimal, and some visitors block JavaScript. The fallback gives teams a basic visit signal without requiring a full client-side runtime on every page.</p></div><pre class="resource-code"><code>&lt;noscript&gt;&lt;img src="/public/visits/pixel?site_id=..." alt="" /&gt;&lt;/noscript&gt;</code></pre></div></section>
+      <section class="resource-section"><div class="resource-container"><h2>What changes without JavaScript</h2><div class="resource-grid"><article class="resource-card"><h3>Basic request context</h3><p>The image request can record the server-observable visit context.</p></article><article class="resource-card"><h3>Less browser detail</h3><p>Viewport, screen, and richer client-side fields require the JavaScript pixel.</p></article><article class="resource-card"><h3>Same site dashboard</h3><p>Fallback visits still support the same site-level traffic reporting surface.</p></article></div></div></section>
+      <section class="resource-section"><div class="resource-container resource-split"><div><h2>Limitations</h2><ul class="resource-list"><li>The image fallback cannot collect every browser detail that JavaScript can provide.</li><li>It is not a replacement for product event analytics.</li><li>Public endpoint origin and site configuration still matter.</li></ul></div><div class="resource-card"><h3>Best fit</h3><p>Use this when a site values minimal script usage but still wants a baseline traffic signal in LoopAware.</p></div></div></section>
+      <section class="resource-section resource-related"><div class="resource-container"><h2>Related pages</h2><div class="resource-grid"><article class="resource-card"><h3><a href="/resources/bot-filtered-analytics">Bot-filtered analytics</a></h3><p>Keep default reporting focused on meaningful visits.</p></article><article class="resource-card"><h3><a href="/resources/visitor-device-breakdown">Visitor device breakdown</a></h3><p>Review richer browser context when JavaScript runs.</p></article><article class="resource-card"><h3><a href="/resources/traffic-csv-export">Traffic CSV export</a></h3><p>Export visit rows for external analysis.</p></article></div></div></section>
+    </main>
+    <footer class="resource-footer"><div class="resource-footer-inner"><span>LoopAware no-JavaScript traffic pixel</span><div class="resource-footer-links"><a href="/resources">Resources</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div></footer>
+  </body>
+</html>

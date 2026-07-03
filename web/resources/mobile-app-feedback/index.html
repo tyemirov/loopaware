@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>React Native Feedback Button for Apps | LoopAware</title>
+    <meta name="description" content="Add LoopAware mobile feedback to React Native and Expo apps with a registered app client, screen context, bounded metadata, and dashboard review." />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <link rel="canonical" href="https://loopaware.mprlab.com/resources/mobile-app-feedback" />
+    <link rel="stylesheet" href="/resources/styles.css" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="LoopAware" />
+    <meta property="og:title" content="React Native Feedback Button for Apps" />
+    <meta property="og:description" content="Collect mobile app feedback with screen and app context, then review it beside web feedback in LoopAware." />
+    <meta property="og:url" content="https://loopaware.mprlab.com/resources/mobile-app-feedback" />
+    <meta property="og:image" content="https://loopaware.mprlab.com/loopaware-logo-512x512.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="React Native Feedback Button for Apps" />
+    <meta name="twitter:description" content="Use LoopAware's React Native client for mobile app feedback with explicit screen context." />
+    <meta name="twitter:image" content="https://loopaware.mprlab.com/loopaware-logo-512x512.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "React Native Feedback Button for Apps",
+        "description": "Add LoopAware mobile feedback to React Native and Expo apps with a registered app client, screen context, bounded metadata, and dashboard review.",
+        "mainEntityOfPage": "https://loopaware.mprlab.com/resources/mobile-app-feedback",
+        "author": { "@type": "Organization", "name": "Marco Polo Research Lab" }
+      }
+    </script>
+  </head>
+  <body>
+    <header class="resource-header">
+      <nav class="resource-nav" aria-label="Primary">
+        <a class="resource-brand" href="/login"><img src="/loopaware-logo-120x120.png" alt="" width="36" height="36" /><span>LoopAware</span></a>
+        <div class="resource-links"><a href="/resources">Resources</a><a href="/pricing">Pricing</a><a class="resource-cta" href="/login">Sign in</a></div>
+      </nav>
+    </header>
+    <main>
+      <section class="resource-hero">
+        <div class="resource-container resource-hero-grid">
+          <div>
+            <p class="resource-kicker">Mobile feedback</p>
+            <h1>Mobile feedback for React Native and Expo apps</h1>
+            <p class="resource-lede">LoopAware helps product teams collect feedback from native screens without mixing it up with browser widget messages. The React Native client submits feedback through a registered mobile app and stores screen, app version, build, environment, and bounded context with the message.</p>
+            <div class="resource-actions"><a class="resource-cta" href="/login">Register a mobile app</a><a class="resource-secondary" href="/resources/feedback-widget">Compare web feedback</a></div>
+          </div>
+          <aside class="resource-proof" aria-label="Mobile feedback setup preview">
+            <div class="resource-proof-header"><span class="resource-dot"></span><span class="resource-dot"></span><span class="resource-dot"></span><span>mobile feedback</span></div>
+            <div class="resource-proof-body">
+              <div class="metric-row"><span class="metric-label">Package</span><span class="metric-value">@loopaware/react-native</span></div>
+              <div class="metric-row"><span class="metric-label">Ingest route</span><span class="metric-value">/public/mobile-feedback</span></div>
+              <div class="signal-bars"><div class="signal-bar"><span style="width: 78%"></span></div><div class="signal-bar"><span style="width: 58%"></span></div><div class="signal-bar"><span style="width: 44%"></span></div></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container resource-split">
+          <div>
+            <h2>When mobile feedback needs its own path</h2>
+            <p class="resource-lede">A web feedback widget can explain what happened on a marketing page, but mobile teams usually need app identity, version, build, environment, and screen context. LoopAware keeps those native submissions separate from LA Sentry error capture while still showing them in the same operator dashboard.</p>
+          </div>
+          <pre class="resource-code"><code>npm install @loopaware/react-native</code></pre>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container">
+          <h2>How it works</h2>
+          <div class="resource-grid">
+            <article class="resource-card"><h3>Register the app</h3><p>Create a mobile app registration for the site with platform, application identifier, and display name.</p></article>
+            <article class="resource-card"><h3>Ship the client ID</h3><p>The returned public client ID identifies the app registration. It is not a secret, but it must match the registered app identity.</p></article>
+            <article class="resource-card"><h3>Render the button</h3><p>Use `LoopAwareFeedbackButton` on screens where users should be able to comment with screen and bounded product context.</p></article>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container">
+          <h2>Feature-to-benefit fit</h2>
+          <div class="resource-grid">
+            <article class="resource-card"><h3>Screen context</h3><p>Operators can see whether feedback came from checkout, onboarding, settings, or another native flow.</p></article>
+            <article class="resource-card"><h3>App metadata</h3><p>Version, build, platform, application ID, and environment make mobile feedback easier to reproduce.</p></article>
+            <article class="resource-card"><h3>Dashboard review</h3><p>Mobile feedback appears beside site messages so operators do not need a separate inbox for app comments.</p></article>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container">
+          <h2>Use-case examples</h2>
+          <div class="resource-grid">
+            <article class="resource-card"><h3>Checkout friction</h3><p>Add the feedback button to payment screens and include safe state such as checkout step or plan name.</p></article>
+            <article class="resource-card"><h3>Beta onboarding</h3><p>Let beta testers comment from the exact setup screen where they get stuck.</p></article>
+            <article class="resource-card"><h3>Manual native clients</h3><p>Swift, Kotlin, and other native apps can call the same REST contract after registering the mobile app.</p></article>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container resource-split">
+          <div>
+            <h2>Objections and limitations</h2>
+            <ul class="resource-list">
+              <li>This is customer feedback, not mobile crash reporting or LA Sentry error capture.</li>
+              <li>The repository ships a React Native and Expo client; separate Swift or Kotlin SDKs are not included.</li>
+              <li>Context should contain only safe product state, not passwords, payment data, tokens, or private free-form content.</li>
+            </ul>
+          </div>
+          <div class="resource-note"><p>For browser JavaScript errors, use <a href="/resources/la-sentry-monitoring">LA Sentry monitoring</a>. For web page comments, use the <a href="/resources/feedback-widget">feedback widget</a>.</p></div>
+        </div>
+      </section>
+      <section class="resource-section resource-related">
+        <div class="resource-container">
+          <h2>FAQ</h2>
+          <div class="resource-grid">
+            <article class="resource-card"><h3>Does the client ID need to be secret?</h3><p>No. The public client ID identifies the registered app and is validated with platform and application identifier.</p></article>
+            <article class="resource-card"><h3>Can non-React Native apps use it?</h3><p>Yes. Other native clients can call `/public/mobile-feedback` directly after app registration.</p></article>
+            <article class="resource-card"><h3>Where should feedback be reviewed?</h3><p>Operators review mobile submissions in the same LoopAware dashboard used for site feedback.</p></article>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container resource-split">
+          <div>
+            <h2>Start with the screen that needs feedback most</h2>
+            <p class="resource-lede">Register the app, add the provider, and place the feedback button where mobile users already feel the problem.</p>
+          </div>
+          <div class="resource-actions"><a class="resource-cta" href="/login">Open dashboard</a><a class="resource-secondary" href="/resources/saas-feedback">Plan SaaS feedback</a></div>
+        </div>
+      </section>
+    </main>
+    <footer class="resource-footer"><div class="resource-footer-inner"><span>LoopAware mobile app feedback</span><div class="resource-footer-links"><a href="/resources">Resources</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div></footer>
+  </body>
+</html>

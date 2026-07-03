@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Server-Side Error Monitoring for Go and Python | LoopAware</title>
+    <meta name="description" content="Capture Go and Python server errors with LoopAware LA Sentry clients, protected ingest tokens, middleware helpers, grouped issues, and dashboard review." />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <link rel="canonical" href="https://loopaware.mprlab.com/resources/server-side-error-capture" />
+    <link rel="stylesheet" href="/resources/styles.css" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="LoopAware" />
+    <meta property="og:title" content="Server-Side Error Monitoring for Go and Python" />
+    <meta property="og:description" content="Send protected Go and Python error events to LA Sentry and review grouped issues beside feedback and traffic." />
+    <meta property="og:url" content="https://loopaware.mprlab.com/resources/server-side-error-capture" />
+    <meta property="og:image" content="https://loopaware.mprlab.com/loopaware-logo-512x512.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Server-Side Error Monitoring for Go and Python" />
+    <meta name="twitter:description" content="Use protected LA Sentry ingest for Go and Python service errors with dashboard issue grouping." />
+    <meta name="twitter:image" content="https://loopaware.mprlab.com/loopaware-logo-512x512.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Server-Side Error Monitoring for Go and Python",
+        "description": "Capture Go and Python server errors with LoopAware LA Sentry clients, protected ingest tokens, middleware helpers, grouped issues, and dashboard review.",
+        "mainEntityOfPage": "https://loopaware.mprlab.com/resources/server-side-error-capture",
+        "author": { "@type": "Organization", "name": "Marco Polo Research Lab" }
+      }
+    </script>
+  </head>
+  <body>
+    <header class="resource-header">
+      <nav class="resource-nav" aria-label="Primary">
+        <a class="resource-brand" href="/login"><img src="/loopaware-logo-120x120.png" alt="" width="36" height="36" /><span>LoopAware</span></a>
+        <div class="resource-links"><a href="/resources">Resources</a><a href="/pricing">Pricing</a><a class="resource-cta" href="/login">Sign in</a></div>
+      </nav>
+    </header>
+    <main>
+      <section class="resource-hero">
+        <div class="resource-container resource-hero-grid">
+          <div>
+            <p class="resource-kicker">Server-side errors</p>
+            <h1>Server-side error capture for Go and Python services</h1>
+            <p class="resource-lede">LoopAware LA Sentry accepts protected server-side error events at `/sentry/errors`. The repository includes first-party Go and Python clients so backend services can send exceptions, tags, environment, release, and request context into grouped dashboard issues.</p>
+            <div class="resource-actions"><a class="resource-cta" href="/login">Rotate an ingest token</a><a class="resource-secondary" href="/resources/la-sentry-monitoring">See LA Sentry</a></div>
+          </div>
+          <aside class="resource-proof" aria-label="Server-side LA Sentry preview">
+            <div class="resource-proof-header"><span class="resource-dot"></span><span class="resource-dot"></span><span class="resource-dot"></span><span>server errors</span></div>
+            <div class="resource-proof-body">
+              <div class="metric-row"><span class="metric-label">Protected route</span><span class="metric-value">/sentry/errors</span></div>
+              <div class="metric-row"><span class="metric-label">Clients</span><span class="metric-value">Go/Python</span></div>
+              <div class="signal-bars"><div class="signal-bar"><span style="width: 70%"></span></div><div class="signal-bar"><span style="width: 63%"></span></div><div class="signal-bar"><span style="width: 48%"></span></div></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container resource-split">
+          <div>
+            <h2>The problem</h2>
+            <p class="resource-lede">Production failures are easier to prioritize when operators can compare them with feedback, traffic, and health state for the same site. Server-side LA Sentry events keep backend exceptions in that LoopAware context without exposing ingest tokens to browsers.</p>
+          </div>
+          <pre class="resource-code"><code>Authorization: Bearer YOUR_SERVER_SIDE_TOKEN
+POST /sentry/errors</code></pre>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container">
+          <h2>How it works</h2>
+          <div class="resource-grid">
+            <article class="resource-card"><h3>Rotate a token</h3><p>Owner/admin users rotate and reveal a per-site LA Sentry ingest token from the dashboard. Tokens are shown once and intended for server-side clients.</p></article>
+            <article class="resource-card"><h3>Install a client</h3><p>Use `clients/go/lasentry` or `clients/python/la_sentry` to send service errors to the protected ingest endpoint.</p></article>
+            <article class="resource-card"><h3>Review grouped issues</h3><p>Site teams inspect grouped issues with status, release, environment, latest occurrence, and recent occurrences.</p></article>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container">
+          <h2>Feature-to-benefit fit</h2>
+          <div class="resource-grid">
+            <article class="resource-card"><h3>Server-only token</h3><p>Keeps protected ingest credentials out of browser JavaScript and separates server capture from origin-bound browser capture.</p></article>
+            <article class="resource-card"><h3>Middleware helpers</h3><p>The Go client can wrap HTTP handlers, while the Python client includes WSGI and ASGI middleware helpers.</p></article>
+            <article class="resource-card"><h3>Issue status</h3><p>Operators can mark issues unresolved, resolved, or ignored as they triage production failures.</p></article>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container">
+          <h2>Use-case examples</h2>
+          <div class="resource-grid">
+            <article class="resource-card"><h3>Go API panic capture</h3><p>Wrap a Go HTTP handler so panics are captured before a 500 response is returned.</p></article>
+            <article class="resource-card"><h3>Python service exceptions</h3><p>Send caught exceptions with tags such as service name, queue, release, or environment.</p></article>
+            <article class="resource-card"><h3>Self-hosted operations</h3><p>Run feedback, traffic, health checks, and backend error capture in the same source-available deployment.</p></article>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container resource-split">
+          <div>
+            <h2>Objections and limitations</h2>
+            <ul class="resource-list">
+              <li>Server-side clients require an ingest token. Do not embed that token in browser JavaScript.</li>
+              <li>LoopAware currently documents first-party Go and Python clients plus the browser harness. Node.js, Ruby, PHP, Java/Kotlin, and .NET clients are not current shipped clients.</li>
+              <li>LA Sentry is LoopAware's developer monitoring surface; do not treat it as a full customer-support or ticketing workflow.</li>
+            </ul>
+          </div>
+          <div class="resource-note"><p>For browser JavaScript events without a server token, use the <a href="/resources/la-sentry-monitoring">LA Sentry browser capture</a> path.</p></div>
+        </div>
+      </section>
+      <section class="resource-section resource-related">
+        <div class="resource-container">
+          <h2>FAQ</h2>
+          <div class="resource-grid">
+            <article class="resource-card"><h3>Which route receives server errors?</h3><p>Server-side clients post to `/sentry/errors` with `Authorization: Bearer` or `X-LoopAware-Sentry-Token` credentials.</p></article>
+            <article class="resource-card"><h3>Can browsers use the same token?</h3><p>No. Browser capture uses `/sentry/browser-errors` without exposing the server-side ingest token.</p></article>
+            <article class="resource-card"><h3>What languages are documented?</h3><p>The current first-party server clients are Go and Python. The browser harness is served as `web/la-sentry.js`.</p></article>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container resource-split">
+          <div>
+            <h2>Keep backend failures in the site context</h2>
+            <p class="resource-lede">When production errors affect the same site that collects feedback and traffic, review them in the same LoopAware operator surface.</p>
+          </div>
+          <div class="resource-actions"><a class="resource-cta" href="/login">Open LA Sentry</a><a class="resource-secondary" href="/resources/self-hosted-feedback">Self-host it</a></div>
+        </div>
+      </section>
+    </main>
+    <footer class="resource-footer"><div class="resource-footer-inner"><span>LoopAware server-side error capture</span><div class="resource-footer-links"><a href="/resources">Resources</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div></footer>
+  </body>
+</html>

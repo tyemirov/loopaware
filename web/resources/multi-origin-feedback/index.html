@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Multi-Origin Feedback Setup | LoopAware</title>
+    <meta name="description" content="Configure LoopAware feedback across multiple approved domains with allowed-origin rules, widget snippets, and dashboard review for each site." />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <link rel="canonical" href="https://loopaware.mprlab.com/resources/multi-origin-feedback" />
+    <link rel="stylesheet" href="/resources/styles.css" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <script type="application/ld+json">
+      { "@context": "https://schema.org", "@type": "Article", "headline": "Multi-Origin Feedback Setup", "description": "Configure LoopAware feedback across multiple approved domains with allowed-origin rules, widget snippets, and dashboard review for each site.", "mainEntityOfPage": "https://loopaware.mprlab.com/resources/multi-origin-feedback", "author": { "@type": "Organization", "name": "Marco Polo Research Lab" } }
+    </script>
+  </head>
+  <body>
+    <header class="resource-header"><nav class="resource-nav" aria-label="Primary"><a class="resource-brand" href="/login"><img src="/loopaware-logo-120x120.png" alt="" width="36" height="36" /><span>LoopAware</span></a><div class="resource-links"><a href="/resources">Resources</a><a href="/pricing">Pricing</a><a class="resource-cta" href="/login">Sign in</a></div></nav></header>
+    <main>
+      <section class="resource-hero">
+        <div class="resource-container resource-hero-grid">
+          <div>
+            <p class="resource-kicker">Allowed origins</p>
+            <h1>Feedback across multiple approved origins</h1>
+            <p class="resource-lede">LoopAware sites can accept public feedback from more than one approved origin, which helps teams cover a production domain, a marketing microsite, or a canonical www/non-www pair without loosening the ingest boundary.</p>
+            <div class="resource-actions"><a class="resource-cta" href="/login">Open site settings</a><a class="resource-secondary" href="/resources/feedback-widget">Review widget setup</a></div>
+          </div>
+          <aside class="resource-proof" aria-label="Origin setup preview">
+            <div class="resource-proof-header"><span class="resource-dot"></span><span class="resource-dot"></span><span class="resource-dot"></span><span>origin policy</span></div>
+            <div class="resource-proof-body">
+              <div class="metric-row"><span class="metric-label">Boundary</span><span class="metric-value">allowed origins</span></div>
+              <div class="metric-row"><span class="metric-label">Public route</span><span class="metric-value">/public/feedback</span></div>
+              <div class="signal-bars"><div class="signal-bar"><span style="width: 78%"></span></div><div class="signal-bar"><span style="width: 50%"></span></div><div class="signal-bar"><span style="width: 36%"></span></div></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+      <section class="resource-section"><div class="resource-container resource-split"><div><h2>When this deserves its own setup</h2><p class="resource-lede">Multi-origin feedback is useful when one product experience spans several public hostnames. LoopAware keeps the check explicit so a copied snippet does not become a wildcard collector for unrelated domains.</p></div><div class="resource-note"><p>Allowed-origin rules protect public collection endpoints for feedback, subscriptions, traffic, and browser LA Sentry events.</p></div></div></section>
+      <section class="resource-section"><div class="resource-container"><h2>Operating workflow</h2><div class="resource-grid"><article class="resource-card"><h3>List real public origins</h3><p>Add only the exact domains that should send public widget events for the selected site.</p></article><article class="resource-card"><h3>Install the same site snippet</h3><p>Use the site ID on each approved host while keeping separate sites for truly separate customers or products.</p></article><article class="resource-card"><h3>Review messages together</h3><p>Operators can see feedback in one site dashboard while source URLs show where each submission came from.</p></article></div></div></section>
+      <section class="resource-section"><div class="resource-container resource-split"><div><h2>Limitations</h2><ul class="resource-list"><li>This is not a wildcard domain feature; unapproved origins should remain rejected.</li><li>Separate clients or brands should usually get separate LoopAware sites.</li><li>Origin approval does not replace safe handling of message content and visitor contact fields.</li></ul></div><div class="resource-card"><h3>Best fit</h3><p>Use this for controlled domain sets such as `example.com`, `www.example.com`, and a related campaign hostname that should share one feedback inbox.</p></div></div></section>
+      <section class="resource-section resource-related"><div class="resource-container"><h2>Related pages</h2><div class="resource-grid"><article class="resource-card"><h3><a href="/resources/feedback-source-context">Feedback source context</a></h3><p>Use source URLs to interpret which page produced the message.</p></article><article class="resource-card"><h3><a href="/resources/browser-error-capture">Browser error capture</a></h3><p>Browser LA Sentry uses the same origin-bound public protection model.</p></article><article class="resource-card"><h3><a href="/resources/agency-client-sites">Agency client sites</a></h3><p>Separate unrelated client domains into distinct managed sites.</p></article></div></div></section>
+    </main>
+    <footer class="resource-footer"><div class="resource-footer-inner"><span>LoopAware multi-origin feedback</span><div class="resource-footer-links"><a href="/resources">Resources</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div></footer>
+  </body>
+</html>

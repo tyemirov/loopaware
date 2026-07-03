@@ -680,6 +680,30 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Add or update black-box browser coverage for the changed static frontend flows.
   ### Legacy Ref
   - Migrated from `issues.md` issue `LA-426`.
+- [x] [I029] (P1) Add distinct SEO resource pages for supported LoopAware workflows.
+  ### Summary
+  The current public resource cluster covers core product surfaces but omits supported workflows that have distinct setup, objections, examples, and conversion paths: mobile feedback, uptime monitoring, traffic report emails, and server-side error capture.
+  ### Deliverables
+  - Add crawlable resource pages for the four supported workflows without unsupported proof claims or doorway variants.
+  - Link the new pages from `/resources` and related resource pages where relevant.
+  - Add the new canonical URLs to `web/sitemap.xml`.
+  - Update SEO integration coverage for the expanded resource cluster.
+  ### Resolution
+  Added four repo-grounded resource pages for mobile app feedback, uptime monitoring, traffic report emails, and server-side error capture. Updated `/resources` metadata, structured data, and cards, added internal links from adjacent resource pages, extended `web/sitemap.xml`, and expanded SEO public-page coverage to verify every canonical resource URL. Validation passed with `make lint` and `make ci` with 444 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `tests/specs/seo-public-pages.spec.js`, `web/resources/index.html`, `web/resources/mobile-app-feedback/index.html`, `web/resources/uptime-monitoring/index.html`, `web/resources/traffic-report-emails/index.html`, `web/resources/server-side-error-capture/index.html`, `web/resources/agency-client-sites/index.html`, `web/resources/feedback-widget/index.html`, `web/resources/la-sentry-monitoring/index.html`, `web/resources/lightweight-analytics/index.html`, `web/resources/privacy-first-analytics/index.html`, `web/resources/saas-feedback/index.html`, `web/resources/self-hosted-feedback/index.html`, `web/sitemap.xml`.
+- [x] [I030] (P1) Expand the SEO resource cluster with deeper supported use-case pages.
+  ### Summary
+  The resource cluster can cover more supported LoopAware workflows without creating doorway pages by drilling into concrete setup decisions, operator workflows, reporting views, team access, uptime safety, and LA Sentry triage surfaces that already exist in the product.
+  ### Deliverables
+  - Add at least 20 crawlable resource pages for distinct supported workflows, not keyword-only variants.
+  - Link the new pages from `/resources` and adjacent pages through useful internal paths.
+  - Add the new canonical URLs to `web/sitemap.xml`.
+  - Update SEO integration coverage for the expanded resource cluster.
+  ### Resolution
+  Added 20 repo-grounded resource pages covering multi-origin feedback, widget appearance, sentiment-only feedback, source context, subscriber confirmation and export, inline subscribe forms, traffic CSV export, top pages, attribution, device and location reporting, bot-filtered analytics, no-JavaScript traffic fallback, portfolio reports, team access, owner/admin site management, favicon refresh notifications, browser error capture, and LA Sentry issue triage. Updated the `/resources` index metadata, structured data, and cards, added all new canonical URLs to `web/sitemap.xml`, and expanded SEO public-page coverage. Validation passed with `git diff --check`, `make lint`, and `make ci` with 444 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `tests/specs/seo-public-pages.spec.js`, `web/resources/index.html`, `web/sitemap.xml`, `web/resources/multi-origin-feedback/index.html`, `web/resources/widget-appearance-controls/index.html`, `web/resources/sentiment-only-feedback/index.html`, `web/resources/feedback-source-context/index.html`, `web/resources/subscriber-confirmation-flow/index.html`, `web/resources/subscriber-csv-export/index.html`, `web/resources/inline-subscribe-forms/index.html`, `web/resources/traffic-csv-export/index.html`, `web/resources/top-pages-reporting/index.html`, `web/resources/traffic-attribution-breakdown/index.html`, `web/resources/visitor-device-breakdown/index.html`, `web/resources/visitor-location-signals/index.html`, `web/resources/bot-filtered-analytics/index.html`, `web/resources/no-javascript-traffic-pixel/index.html`, `web/resources/portfolio-traffic-reports/index.html`, `web/resources/team-member-site-access/index.html`, `web/resources/owner-admin-site-management/index.html`, `web/resources/favicon-refresh-notifications/index.html`, `web/resources/browser-error-capture/index.html`, `web/resources/sentry-issue-triage/index.html`.
 
 
 ## Maintenance
