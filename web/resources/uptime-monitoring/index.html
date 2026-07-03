@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Website Uptime Monitoring for Small Sites | LoopAware</title>
+    <meta name="description" content="Use LoopAware health checks to monitor public site targets with validation, thresholded down and recovered states, team recipients, and email alerts." />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <link rel="canonical" href="https://loopaware.mprlab.com/resources/uptime-monitoring" />
+    <link rel="stylesheet" href="/resources/styles.css" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="LoopAware" />
+    <meta property="og:title" content="Website Uptime Monitoring for Small Sites" />
+    <meta property="og:description" content="Monitor public site targets from the same dashboard that tracks feedback, subscribers, traffic, and errors." />
+    <meta property="og:url" content="https://loopaware.mprlab.com/resources/uptime-monitoring" />
+    <meta property="og:image" content="https://loopaware.mprlab.com/loopaware-logo-512x512.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Website Uptime Monitoring for Small Sites" />
+    <meta name="twitter:description" content="Run thresholded uptime checks and recovered alerts from the LoopAware site dashboard." />
+    <meta name="twitter:image" content="https://loopaware.mprlab.com/loopaware-logo-512x512.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Website Uptime Monitoring for Small Sites",
+        "description": "Use LoopAware health checks to monitor public site targets with validation, thresholded down and recovered states, team recipients, and email alerts.",
+        "mainEntityOfPage": "https://loopaware.mprlab.com/resources/uptime-monitoring",
+        "author": { "@type": "Organization", "name": "Marco Polo Research Lab" }
+      }
+    </script>
+  </head>
+  <body>
+    <header class="resource-header">
+      <nav class="resource-nav" aria-label="Primary">
+        <a class="resource-brand" href="/login"><img src="/loopaware-logo-120x120.png" alt="" width="36" height="36" /><span>LoopAware</span></a>
+        <div class="resource-links"><a href="/resources">Resources</a><a href="/pricing">Pricing</a><a class="resource-cta" href="/login">Sign in</a></div>
+      </nav>
+    </header>
+    <main>
+      <section class="resource-hero">
+        <div class="resource-container resource-hero-grid">
+          <div>
+            <p class="resource-kicker">Uptime monitoring</p>
+            <h1>Uptime checks beside feedback and traffic</h1>
+            <p class="resource-lede">LoopAware health monitoring runs backend synthetic GET probes against configured public HTTP(S) targets. Site operators can set interval, timeout, failure threshold, manual checks, and alert recipients without adding another monitoring surface to the workflow.</p>
+            <div class="resource-actions"><a class="resource-cta" href="/login">Configure health checks</a><a class="resource-secondary" href="/resources/la-sentry-monitoring">Review error monitoring</a></div>
+          </div>
+          <aside class="resource-proof" aria-label="Uptime monitor preview">
+            <div class="resource-proof-header"><span class="resource-dot"></span><span class="resource-dot"></span><span class="resource-dot"></span><span>health monitor</span></div>
+            <div class="resource-proof-body">
+              <div class="metric-row"><span class="metric-label">Probe type</span><span class="metric-value">GET</span></div>
+              <div class="metric-row"><span class="metric-label">Alert states</span><span class="metric-value">down/recovered</span></div>
+              <div class="signal-bars"><div class="signal-bar"><span style="width: 72%"></span></div><div class="signal-bar"><span style="width: 66%"></span></div><div class="signal-bar"><span style="width: 36%"></span></div></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container">
+          <h2>The problem</h2>
+          <p class="resource-lede">Small product sites often discover outages indirectly: a confused customer submits feedback, traffic drops, or an error report appears after the page is already unreachable. LoopAware adds a direct public-target check to the same site record that already holds feedback, subscribers, traffic, and LA Sentry issues.</p>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container">
+          <h2>How it works</h2>
+          <div class="resource-grid">
+            <article class="resource-card"><h3>Save a public target</h3><p>LoopAware validates the monitor target and rejects private, loopback, link-local, and special-use addresses.</p></article>
+            <article class="resource-card"><h3>Set thresholds</h3><p>Operators configure interval, timeout, and consecutive-failure threshold so one failed probe does not automatically become an outage alert.</p></article>
+            <article class="resource-card"><h3>Alert the right people</h3><p>Alerts can go to the manager, whole team, or selected site members through the configured Pinguin email path.</p></article>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container">
+          <h2>Feature-to-benefit fit</h2>
+          <div class="resource-grid">
+            <article class="resource-card"><h3>Public-target validation</h3><p>Prevents saving targets that should not be probed from a backend health checker.</p></article>
+            <article class="resource-card"><h3>Manual check</h3><p>Lets an owner confirm the current state from the dashboard after changing DNS, deploys, or site settings.</p></article>
+            <article class="resource-card"><h3>Recovered alerts</h3><p>Operators can see both failure and recovery transitions instead of only receiving the first down message.</p></article>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container">
+          <h2>Use-case examples</h2>
+          <div class="resource-grid">
+            <article class="resource-card"><h3>Marketing site uptime</h3><p>Monitor the public landing page that also hosts the feedback widget, subscribe form, and traffic pixel.</p></article>
+            <article class="resource-card"><h3>Agency client checks</h3><p>Configure one monitor per client site and keep recipients aligned with per-site team membership.</p></article>
+            <article class="resource-card"><h3>Post-deploy validation</h3><p>Run an immediate check after a release to confirm the target responds before traffic reports and feedback are reviewed.</p></article>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container resource-split">
+          <div>
+            <h2>Objections and limitations</h2>
+            <ul class="resource-list">
+              <li>LoopAware does not guarantee uptime or replace a full incident-management platform.</li>
+              <li>Health checks are backend synthetic GET probes, not a customer-site heartbeat script.</li>
+              <li>Alerts depend on configured Pinguin email delivery and are emitted on state transitions after the saved threshold.</li>
+            </ul>
+          </div>
+          <div class="resource-note"><p>Pair health checks with <a href="/resources/server-side-error-capture">server-side error capture</a> when you need both availability and application failure context.</p></div>
+        </div>
+      </section>
+      <section class="resource-section resource-related">
+        <div class="resource-container">
+          <h2>FAQ</h2>
+          <div class="resource-grid">
+            <article class="resource-card"><h3>Does this require JavaScript on my site?</h3><p>No. Site health checks are backend GET probes against the configured public target.</p></article>
+            <article class="resource-card"><h3>Can team members view monitor state?</h3><p>Assigned team members can read selected-site health monitor state, while owner/admin users manage settings.</p></article>
+            <article class="resource-card"><h3>Can redirects be abused?</h3><p>LoopAware revalidates redirects during probing so private or special-use destinations are rejected.</p></article>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section">
+        <div class="resource-container resource-split">
+          <div>
+            <h2>Add availability to the same site record</h2>
+            <p class="resource-lede">Use the Health tab when the question is not only what visitors said, but whether the page was reachable in the first place.</p>
+          </div>
+          <div class="resource-actions"><a class="resource-cta" href="/login">Open Health</a><a class="resource-secondary" href="/resources/agency-client-sites">See agency workflows</a></div>
+        </div>
+      </section>
+    </main>
+    <footer class="resource-footer"><div class="resource-footer-inner"><span>LoopAware uptime monitoring</span><div class="resource-footer-links"><a href="/resources">Resources</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div></footer>
+  </body>
+</html>

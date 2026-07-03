@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LA Sentry Issue Triage | LoopAware</title>
+    <meta name="description" content="Triage grouped LA Sentry issues in LoopAware with unresolved, resolved, and ignored status handling for production errors." />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <link rel="canonical" href="https://loopaware.mprlab.com/resources/sentry-issue-triage" />
+    <link rel="stylesheet" href="/resources/styles.css" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <script type="application/ld+json">
+      { "@context": "https://schema.org", "@type": "Article", "headline": "LA Sentry Issue Triage", "description": "Triage grouped LA Sentry issues in LoopAware with unresolved, resolved, and ignored status handling.", "mainEntityOfPage": "https://loopaware.mprlab.com/resources/sentry-issue-triage", "author": { "@type": "Organization", "name": "Marco Polo Research Lab" } }
+    </script>
+  </head>
+  <body>
+    <header class="resource-header"><nav class="resource-nav" aria-label="Primary"><a class="resource-brand" href="/login"><img src="/loopaware-logo-120x120.png" alt="" width="36" height="36" /><span>LoopAware</span></a><div class="resource-links"><a href="/resources">Resources</a><a href="/pricing">Pricing</a><a class="resource-cta" href="/login">Sign in</a></div></nav></header>
+    <main>
+      <section class="resource-hero">
+        <div class="resource-container resource-hero-grid">
+          <div>
+            <p class="resource-kicker">LA Sentry triage</p>
+            <h1>Grouped issue triage for production errors</h1>
+            <p class="resource-lede">LoopAware groups LA Sentry events into issues that operators can review, mark resolved, or ignore while keeping frontend and server errors tied to the same managed site.</p>
+            <div class="resource-actions"><a class="resource-cta" href="/login">Open issues</a><a class="resource-secondary" href="/resources/browser-error-capture">Browser error capture</a></div>
+          </div>
+          <aside class="resource-proof" aria-label="Sentry issue triage preview">
+            <div class="resource-proof-header"><span class="resource-dot"></span><span class="resource-dot"></span><span class="resource-dot"></span><span>issue status</span></div>
+            <div class="resource-proof-body">
+              <div class="metric-row"><span class="metric-label">Statuses</span><span class="metric-value">3 states</span></div>
+              <div class="metric-row"><span class="metric-label">Review</span><span class="metric-value">site dashboard</span></div>
+              <div class="signal-bars"><div class="signal-bar"><span style="width: 83%"></span></div><div class="signal-bar"><span style="width: 60%"></span></div><div class="signal-bar"><span style="width: 21%"></span></div></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+      <section class="resource-section"><div class="resource-container resource-split"><div><h2>Why grouping matters</h2><p class="resource-lede">Raw error events can overwhelm a small team. Grouped issues give operators a stable object to review, prioritize, and update after a fix or decision.</p></div><div class="resource-note"><p>LA Sentry is developer monitoring for production errors, not a replacement for customer support case management.</p></div></div></section>
+      <section class="resource-section"><div class="resource-container"><h2>Triage workflow</h2><div class="resource-grid"><article class="resource-card"><h3>Review unresolved issues</h3><p>Start with active production failures and inspect the grouped details.</p></article><article class="resource-card"><h3>Mark resolved</h3><p>Move fixed issues out of the unresolved queue after the team has addressed them.</p></article><article class="resource-card"><h3>Ignore noise</h3><p>Use ignored status for known non-actionable groups that should not compete with real failures.</p></article></div></div></section>
+      <section class="resource-section"><div class="resource-container resource-split"><div><h2>Limitations</h2><ul class="resource-list"><li>Issue status does not deploy code or verify a fix by itself.</li><li>Source maps and full observability traces are outside the current LA Sentry surface.</li><li>Teams should avoid sending sensitive request or user data as error attributes.</li></ul></div><div class="resource-card"><h3>Best fit</h3><p>Use grouped issue triage when a small team needs production error visibility inside the same site signal dashboard.</p></div></div></section>
+      <section class="resource-section resource-related"><div class="resource-container"><h2>Related pages</h2><div class="resource-grid"><article class="resource-card"><h3><a href="/resources/la-sentry-monitoring">LA Sentry monitoring</a></h3><p>Review the overall error monitoring surface.</p></article><article class="resource-card"><h3><a href="/resources/server-side-error-capture">Server-side error capture</a></h3><p>Send Go and Python service errors to LA Sentry.</p></article><article class="resource-card"><h3><a href="/resources/browser-error-capture">Browser error capture</a></h3><p>Capture frontend errors with origin-bound ingest.</p></article></div></div></section>
+    </main>
+    <footer class="resource-footer"><div class="resource-footer-inner"><span>LoopAware LA Sentry issue triage</span><div class="resource-footer-links"><a href="/resources">Resources</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div></footer>
+  </body>
+</html>
