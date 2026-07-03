@@ -26,6 +26,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the backend YAML config contract and clarify that LoopAware env files are interpolation inputs, not a second runtime config source.
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
 
+## [v0.7.35] - 2026-07-03
+
+### Features ✨
+- Added Makefile targets for automated iOS and Android app store submission (`submit-ios`, `submit-android`, `submit-mobile`).
+- Implemented EAS Submit automation with production profiles for App Store Connect (iOS) and Google Play (Android).
+- Expanded SEO resource cluster with 24 new crawlable resource pages for distinct supported LoopAware workflows.
+
+### Improvements ⚙️
+- Extended validation for mobile config profiles to guard submission contracts.
+- Updated mobile/README documentation with detailed mobile store publishing runbook and credential requirements.
+- Enhanced internal links, metadata, and structured data across `/resources` and new workflow pages.
+
+### Bug Fixes 🐛
+- Fixed the inline subscribe forms example to use the correct hosted script URL.
+- Corrected no-JavaScript traffic pixel example to use the canonical `/public/visits` endpoint.
+
+### Testing 🧪
+- Added integration tests covering all new SEO resource URLs.
+- Improved mobile config validation and dry run coverage for submission targets.
+
+### Docs 📚
+- Documented mobile app store publishing steps and requirements in README.
+- Clarified EAS Submit requirements and credential boundaries for operators.
+- Updated `.mprlab/ISSUES.md` and runbooks to reflect new resource pages and publishing process.
+
 ## [v0.7.34] - 2026-07-02
 
 ### Features ✨
