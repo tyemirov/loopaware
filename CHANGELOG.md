@@ -26,6 +26,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the backend YAML config contract and clarify that LoopAware env files are interpolation inputs, not a second runtime config source.
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
 
+## [v0.7.34] - 2026-07-02
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Deployment manifests are now relocated under `.mprlab/deploy/` for consistency and improved governance.
+- Makefile, deploy scripts, and README updated to reference `.mprlab/deploy/app.yml` as the default deployment manifest path.
+- Removed obsolete Ansible and legacy app config files, streamlining deployment resources.
+
+### Bug Fixes 🐛
+- Config-audit no longer enforces exact TAuth and Pinguin value matches, allowing operator-owned values to differ while maintaining schema and required value validation.
+
+### Testing 🧪
+- Added test coverage to ensure config-audit passes with differing concrete values for LoopAware, TAuth, and Pinguin, while maintaining required runtime config validation.
+
+### Docs 📚
+- Updated documentation to reflect new deployment manifest location (`.mprlab/deploy/app.yml`) and revised deploy instructions.
+
 ## [v0.7.33] - 2026-07-02
 
 ### Features ✨
