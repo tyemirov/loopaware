@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Subscriber Confirmation Flow | LoopAware</title>
+    <meta name="description" content="Use LoopAware subscriber confirmation and unsubscribe links to collect email interest without turning a landing page into a full marketing stack." />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <link rel="canonical" href="https://loopaware.mprlab.com/resources/subscriber-confirmation-flow" />
+    <link rel="stylesheet" href="/resources/styles.css" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <script type="application/ld+json">
+      { "@context": "https://schema.org", "@type": "Article", "headline": "Subscriber Confirmation Flow", "description": "Use LoopAware subscriber confirmation and unsubscribe links to collect email interest from public pages.", "mainEntityOfPage": "https://loopaware.mprlab.com/resources/subscriber-confirmation-flow", "author": { "@type": "Organization", "name": "Marco Polo Research Lab" } }
+    </script>
+  </head>
+  <body>
+    <header class="resource-header"><nav class="resource-nav" aria-label="Primary"><a class="resource-brand" href="/login"><img src="/loopaware-logo-120x120.png" alt="" width="36" height="36" /><span>LoopAware</span></a><div class="resource-links"><a href="/resources">Resources</a><a href="/pricing">Pricing</a><a class="resource-cta" href="/login">Sign in</a></div></nav></header>
+    <main>
+      <section class="resource-hero">
+        <div class="resource-container resource-hero-grid">
+          <div>
+            <p class="resource-kicker">Subscribers</p>
+            <h1>Subscriber confirmation flow</h1>
+            <p class="resource-lede">LoopAware's public subscribe endpoint creates subscriber records that can move through pending, confirmed, unsubscribed, or deleted states with token-backed confirmation and unsubscribe pages.</p>
+            <div class="resource-actions"><a class="resource-cta" href="/login">Review subscribers</a><a class="resource-secondary" href="/resources/subscriber-capture">Subscriber capture guide</a></div>
+          </div>
+          <aside class="resource-proof" aria-label="Subscriber confirmation preview">
+            <div class="resource-proof-header"><span class="resource-dot"></span><span class="resource-dot"></span><span class="resource-dot"></span><span>subscription state</span></div>
+            <div class="resource-proof-body">
+              <div class="metric-row"><span class="metric-label">Confirm route</span><span class="metric-value">confirm token</span></div>
+              <div class="metric-row"><span class="metric-label">Opt-out route</span><span class="metric-value">unsubscribe token</span></div>
+              <div class="signal-bars"><div class="signal-bar"><span style="width: 64%"></span></div><div class="signal-bar"><span style="width: 45%"></span></div><div class="signal-bar"><span style="width: 24%"></span></div></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+      <section class="resource-section"><div class="resource-container resource-split"><div><h2>Why confirmation belongs in the flow</h2><p class="resource-lede">Subscriber capture is most useful when the dashboard reflects real intent. Confirmation links help distinguish a submitted address from a subscriber who has completed the sign-up step.</p></div><div class="resource-note"><p>Token pages are public utility pages and remain noindex, while this resource page is the crawlable explanation.</p></div></div></section>
+      <section class="resource-section"><div class="resource-container"><h2>Operating workflow</h2><div class="resource-grid"><article class="resource-card"><h3>Collect the address</h3><p>Embed the subscribe form on a public page with a site ID and origin-bound public endpoint.</p></article><article class="resource-card"><h3>Send the confirmation</h3><p>LoopAware stores the subscriber and routes confirmation through the token-backed confirm page.</p></article><article class="resource-card"><h3>Respect unsubscribe</h3><p>Unsubscribe links let recipients opt out without requiring dashboard access.</p></article></div></div></section>
+      <section class="resource-section"><div class="resource-container resource-split"><div><h2>Limitations</h2><ul class="resource-list"><li>LoopAware captures subscriber interest; it is not a full newsletter delivery platform.</li><li>Confirmation and unsubscribe pages should not be indexed because they are token utilities.</li><li>Teams still need to decide what they send subscribers and when.</li></ul></div><div class="resource-card"><h3>Best fit</h3><p>Use this for waitlists, launch updates, and early product interest where the team needs clean subscriber state in the dashboard.</p></div></div></section>
+      <section class="resource-section resource-related"><div class="resource-container"><h2>Related pages</h2><div class="resource-grid"><article class="resource-card"><h3><a href="/resources/inline-subscribe-forms">Inline subscribe forms</a></h3><p>Embed the form directly into landing pages.</p></article><article class="resource-card"><h3><a href="/resources/subscriber-csv-export">Subscriber CSV export</a></h3><p>Export captured subscriber records when another tool needs the list.</p></article><article class="resource-card"><h3><a href="/resources/subscriber-capture">Subscriber capture</a></h3><p>Review the broader subscriber capture surface.</p></article></div></div></section>
+    </main>
+    <footer class="resource-footer"><div class="resource-footer-inner"><span>LoopAware subscriber confirmation flow</span><div class="resource-footer-links"><a href="/resources">Resources</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div></footer>
+  </body>
+</html>

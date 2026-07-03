@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Browser Error Capture | LoopAware</title>
+    <meta name="description" content="Capture browser JavaScript errors in LoopAware LA Sentry with allowed-origin protection instead of exposing a server-side ingest token." />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <link rel="canonical" href="https://loopaware.mprlab.com/resources/browser-error-capture" />
+    <link rel="stylesheet" href="/resources/styles.css" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <script type="application/ld+json">
+      { "@context": "https://schema.org", "@type": "Article", "headline": "Browser Error Capture", "description": "Capture browser JavaScript errors in LoopAware LA Sentry with allowed-origin protection.", "mainEntityOfPage": "https://loopaware.mprlab.com/resources/browser-error-capture", "author": { "@type": "Organization", "name": "Marco Polo Research Lab" } }
+    </script>
+  </head>
+  <body>
+    <header class="resource-header"><nav class="resource-nav" aria-label="Primary"><a class="resource-brand" href="/login"><img src="/loopaware-logo-120x120.png" alt="" width="36" height="36" /><span>LoopAware</span></a><div class="resource-links"><a href="/resources">Resources</a><a href="/pricing">Pricing</a><a class="resource-cta" href="/login">Sign in</a></div></nav></header>
+    <main>
+      <section class="resource-hero">
+        <div class="resource-container resource-hero-grid">
+          <div>
+            <p class="resource-kicker">LA Sentry browser</p>
+            <h1>Browser JavaScript error capture</h1>
+            <p class="resource-lede">LoopAware's browser LA Sentry harness captures unhandled errors and rejections through an origin-bound public endpoint so frontend failures can be reviewed beside site feedback and traffic.</p>
+            <div class="resource-actions"><a class="resource-cta" href="/login">Open LA Sentry</a><a class="resource-secondary" href="/resources/la-sentry-monitoring">LA Sentry overview</a></div>
+          </div>
+          <aside class="resource-proof" aria-label="Browser error capture preview">
+            <div class="resource-proof-header"><span class="resource-dot"></span><span class="resource-dot"></span><span class="resource-dot"></span><span>browser errors</span></div>
+            <div class="resource-proof-body">
+              <div class="metric-row"><span class="metric-label">Route</span><span class="metric-value">browser ingest</span></div>
+              <div class="metric-row"><span class="metric-label">Protection</span><span class="metric-value">allowed origin</span></div>
+              <div class="signal-bars"><div class="signal-bar"><span style="width: 85%"></span></div><div class="signal-bar"><span style="width: 59%"></span></div><div class="signal-bar"><span style="width: 44%"></span></div></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+      <section class="resource-section"><div class="resource-container resource-split"><div><h2>Why browser capture is separate</h2><p class="resource-lede">A browser script cannot safely hold a protected server-side token. LoopAware uses a dedicated browser ingest path that validates the configured site ID and allowed origin instead.</p></div><pre class="resource-code"><code>&lt;script src="https://loopaware.mprlab.com/la-sentry.js" data-site-id="..."&gt;&lt;/script&gt;</code></pre></div></section>
+      <section class="resource-section"><div class="resource-container"><h2>What it captures</h2><div class="resource-grid"><article class="resource-card"><h3>Unhandled errors</h3><p>Capture runtime JavaScript failures that users may hit in production browsers.</p></article><article class="resource-card"><h3>Unhandled rejections</h3><p>Record failed async paths that otherwise disappear into console noise.</p></article><article class="resource-card"><h3>Manual errors</h3><p>Use the browser harness for explicit `LASentry.captureError` calls when code has known failure boundaries.</p></article></div></div></section>
+      <section class="resource-section"><div class="resource-container resource-split"><div><h2>Limitations</h2><ul class="resource-list"><li>Browser capture does not expose the server-side LA Sentry ingest token.</li><li>Source map upload and source-map resolution are outside the current repository surface.</li><li>Private visitor data should not be added to browser error attributes.</li></ul></div><div class="resource-card"><h3>Best fit</h3><p>Use browser capture for public frontend errors that need to be triaged by the same team reviewing site signals.</p></div></div></section>
+      <section class="resource-section resource-related"><div class="resource-container"><h2>Related pages</h2><div class="resource-grid"><article class="resource-card"><h3><a href="/resources/server-side-error-capture">Server-side error capture</a></h3><p>Use protected tokens for Go and Python services.</p></article><article class="resource-card"><h3><a href="/resources/sentry-issue-triage">LA Sentry issue triage</a></h3><p>Review grouped issues and status changes.</p></article><article class="resource-card"><h3><a href="/resources/multi-origin-feedback">Multi-origin feedback setup</a></h3><p>Understand the allowed-origin protection model.</p></article></div></div></section>
+    </main>
+    <footer class="resource-footer"><div class="resource-footer-inner"><span>LoopAware browser error capture</span><div class="resource-footer-links"><a href="/resources">Resources</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div></footer>
+  </body>
+</html>

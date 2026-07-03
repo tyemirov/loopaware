@@ -47,6 +47,126 @@ const resourcePages = [
     canonical: 'https://loopaware.mprlab.com/resources/lightweight-analytics',
     title: 'Lightweight Analytics Pixel',
   },
+  {
+    path: '/resources/mobile-app-feedback',
+    canonical: 'https://loopaware.mprlab.com/resources/mobile-app-feedback',
+    title: 'React Native Feedback Button for Apps',
+  },
+  {
+    path: '/resources/uptime-monitoring',
+    canonical: 'https://loopaware.mprlab.com/resources/uptime-monitoring',
+    title: 'Website Uptime Monitoring for Small Sites',
+  },
+  {
+    path: '/resources/traffic-report-emails',
+    canonical: 'https://loopaware.mprlab.com/resources/traffic-report-emails',
+    title: 'Website Traffic Report Emails for Teams',
+  },
+  {
+    path: '/resources/server-side-error-capture',
+    canonical: 'https://loopaware.mprlab.com/resources/server-side-error-capture',
+    title: 'Server-Side Error Monitoring for Go and Python',
+  },
+  {
+    path: '/resources/multi-origin-feedback',
+    canonical: 'https://loopaware.mprlab.com/resources/multi-origin-feedback',
+    title: 'Multi-Origin Feedback Setup',
+  },
+  {
+    path: '/resources/widget-appearance-controls',
+    canonical: 'https://loopaware.mprlab.com/resources/widget-appearance-controls',
+    title: 'Widget Appearance Controls',
+  },
+  {
+    path: '/resources/sentiment-only-feedback',
+    canonical: 'https://loopaware.mprlab.com/resources/sentiment-only-feedback',
+    title: 'Sentiment-Only Feedback Collection',
+  },
+  {
+    path: '/resources/feedback-source-context',
+    canonical: 'https://loopaware.mprlab.com/resources/feedback-source-context',
+    title: 'Feedback Source Page Context',
+  },
+  {
+    path: '/resources/subscriber-confirmation-flow',
+    canonical: 'https://loopaware.mprlab.com/resources/subscriber-confirmation-flow',
+    title: 'Subscriber Confirmation Flow',
+  },
+  {
+    path: '/resources/subscriber-csv-export',
+    canonical: 'https://loopaware.mprlab.com/resources/subscriber-csv-export',
+    title: 'Subscriber CSV Export',
+  },
+  {
+    path: '/resources/inline-subscribe-forms',
+    canonical: 'https://loopaware.mprlab.com/resources/inline-subscribe-forms',
+    title: 'Inline Subscribe Forms',
+  },
+  {
+    path: '/resources/traffic-csv-export',
+    canonical: 'https://loopaware.mprlab.com/resources/traffic-csv-export',
+    title: 'Traffic CSV Export',
+  },
+  {
+    path: '/resources/top-pages-reporting',
+    canonical: 'https://loopaware.mprlab.com/resources/top-pages-reporting',
+    title: 'Top Pages Reporting',
+  },
+  {
+    path: '/resources/traffic-attribution-breakdown',
+    canonical: 'https://loopaware.mprlab.com/resources/traffic-attribution-breakdown',
+    title: 'Traffic Attribution Breakdown',
+  },
+  {
+    path: '/resources/visitor-device-breakdown',
+    canonical: 'https://loopaware.mprlab.com/resources/visitor-device-breakdown',
+    title: 'Visitor Device Breakdown',
+  },
+  {
+    path: '/resources/visitor-location-signals',
+    canonical: 'https://loopaware.mprlab.com/resources/visitor-location-signals',
+    title: 'Visitor Location Signals',
+  },
+  {
+    path: '/resources/bot-filtered-analytics',
+    canonical: 'https://loopaware.mprlab.com/resources/bot-filtered-analytics',
+    title: 'Bot-Filtered Website Analytics',
+  },
+  {
+    path: '/resources/no-javascript-traffic-pixel',
+    canonical: 'https://loopaware.mprlab.com/resources/no-javascript-traffic-pixel',
+    title: 'No-JavaScript Traffic Pixel',
+  },
+  {
+    path: '/resources/portfolio-traffic-reports',
+    canonical: 'https://loopaware.mprlab.com/resources/portfolio-traffic-reports',
+    title: 'Portfolio Traffic Reports',
+  },
+  {
+    path: '/resources/team-member-site-access',
+    canonical: 'https://loopaware.mprlab.com/resources/team-member-site-access',
+    title: 'Team Member Site Access',
+  },
+  {
+    path: '/resources/owner-admin-site-management',
+    canonical: 'https://loopaware.mprlab.com/resources/owner-admin-site-management',
+    title: 'Owner and Admin Site Management',
+  },
+  {
+    path: '/resources/favicon-refresh-notifications',
+    canonical: 'https://loopaware.mprlab.com/resources/favicon-refresh-notifications',
+    title: 'Favicon Refresh Notifications',
+  },
+  {
+    path: '/resources/browser-error-capture',
+    canonical: 'https://loopaware.mprlab.com/resources/browser-error-capture',
+    title: 'Browser Error Capture',
+  },
+  {
+    path: '/resources/sentry-issue-triage',
+    canonical: 'https://loopaware.mprlab.com/resources/sentry-issue-triage',
+    title: 'LA Sentry Issue Triage',
+  },
 ];
 
 test('login page exposes canonical SEO metadata', async ({ request }) => {
@@ -119,6 +239,26 @@ test('resource index links every focused resource page', async ({ request }) => 
   for (const page of resourcePages.filter((resourcePage) => resourcePage.path !== '/resources')) {
     expect(html).toContain(`href="${page.path}"`);
   }
+});
+
+test('no-javascript traffic pixel resource uses the real visit endpoint', async ({ request }) => {
+  const response = await request.get('/resources/no-javascript-traffic-pixel');
+  expect(response.status()).toBe(200);
+
+  const html = await response.text();
+  expect(html).toContain('https://loopaware.mprlab.com/public/visits?site_id=YOUR_SITE_ID&amp;amp;url=https%3A%2F%2Fexample.com%2F');
+  expect(html).not.toContain('/public/visits/pixel');
+  expect(html).not.toContain('src="/public/visits');
+});
+
+test('inline subscribe forms resource uses the hosted subscribe script', async ({ request }) => {
+  const response = await request.get('/resources/inline-subscribe-forms');
+  expect(response.status()).toBe(200);
+
+  const html = await response.text();
+  expect(html).toContain('https://loopaware.mprlab.com/subscribe.js?site_id=YOUR_SITE_ID&amp;amp;mode=inline');
+  expect(html).not.toContain('src="/subscribe.js"');
+  expect(html).not.toContain('data-site-id="..."');
 });
 
 test('private and token pages opt out of indexing', async ({ request }) => {
