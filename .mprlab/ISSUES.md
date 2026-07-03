@@ -1166,9 +1166,9 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Extend mobile config validation so CI fails if the submission contract drifts.
   - Document the mobile publishing runbook alongside the existing release/publish/deploy flow.
   ### Resolution
-  Added LoopAware store submission targets for iOS, Android, and combined mobile publishing. iOS submission uploads the latest completed EAS production build to App Store Connect/TestFlight, while Android submission rebuilds the signed local release AAB and submits that exact artifact to the Google Play internal track through the production EAS Submit profile. Configured the production submit profile with the current LoopAware bundle and package identifiers, extended mobile config validation to guard the submit profile and Make targets, and documented the credential/runbook boundary in README. Validation passed with focused mobile config checks, submit target dry runs, `git diff --check`, and final `make ci` with 444 Playwright/API integration specs.
+  Added LoopAware store submission targets for iOS, Android, and combined mobile publishing. iOS submission uploads the latest completed EAS production build to App Store Connect/TestFlight, while Android submission rebuilds the signed local release AAB and submits that exact artifact to the Google Play internal track through the production EAS Submit profile. Configured the production submit profile with the current LoopAware bundle and package identifiers, added an iOS non-interactive submit preflight for the required App Store Connect app id, extended mobile config validation to guard the submit profile and Make targets, and documented the credential/runbook boundary in README. Validation passed with focused mobile config checks, submit target dry runs, `git diff --check`, and final `make ci` with 446 Playwright/API integration specs.
   ### Changed Files
-  `.mprlab/ISSUES.md`, `PLAN.md`, `README.md`, `Makefile`, `mobile/eas.json`, `mobile/scripts/validate-mobile-config.mjs`.
+  `.mprlab/ISSUES.md`, `PLAN.md`, `README.md`, `Makefile`, `mobile/eas.json`, `mobile/scripts/submit-ios.mjs`, `mobile/scripts/validate-mobile-config.mjs`.
 
 
 ## Planning
