@@ -508,6 +508,27 @@ GitHub workflow from the package release ref. The npm package must have a truste
 `tyemirov/loopaware` and `.github/workflows/npm-react-native.yml` before that workflow can publish
 `@loopaware/react-native`.
 
+The native operator mobile app is published separately from Docker, Pages, and the React Native feedback client. Use
+the mobile store submission targets after `make ci` passes:
+
+```bash
+make build-ios
+make submit-ios
+make submit-android
+```
+
+`make submit-ios` uploads the latest completed EAS iOS `production` build to App Store Connect/TestFlight through EAS
+Submit. `make submit-android` rebuilds the signed local Android App Bundle with `make mobile-android-bundle`, then
+uploads that exact `.aab` to the Google Play `internal` track through the EAS Submit production profile. The combined
+`make submit-mobile` target runs the iOS submission first and then the Android submission.
+
+These targets run EAS Submit non-interactively. Operators must authenticate with Expo through `EXPO_TOKEN` or an EAS
+CLI login, link the mobile project to the correct EAS project, configure App Store Connect credentials for iOS, and
+configure a Google Play service account for Android in EAS credentials. Google Play still requires the first app upload
+to be performed manually before API-based submissions work. If EAS cannot resolve the App Store Connect app record from
+the bundle identifier, add the non-secret `ascAppId` to `mobile/eas.json`; do not commit Apple API keys, app-specific
+passwords, Google service-account JSON files, or upload keystore secrets.
+
 ## Docker
 
 Ensure the container receives the placeholder inputs used by `configs/config.loopaware.yml` and mounts that backend runtime config file.
