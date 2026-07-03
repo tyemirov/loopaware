@@ -34,6 +34,7 @@ MOBILE_ANDROID_BUNDLE_ARGS ?=
 MOBILE_SUBMIT_PROFILE ?= production
 MOBILE_IOS_SUBMIT_PROFILE ?= $(MOBILE_SUBMIT_PROFILE)
 MOBILE_ANDROID_SUBMIT_PROFILE ?= $(MOBILE_SUBMIT_PROFILE)
+MOBILE_IOS_ASC_APP_ID ?= $(LOOPAWARE_MOBILE_IOS_ASC_APP_ID)
 MOBILE_SUBMIT_ARGS ?=
 MOBILE_IOS_SUBMIT_ARGS ?=
 MOBILE_ANDROID_SUBMIT_ARGS ?=
@@ -41,6 +42,7 @@ MOBILE_ANDROID_SUBMIT_AAB ?= dist/loopaware-$(shell node -p "require('./$(MOBILE
 MOBILE_METRO_PORT_RESOLVER := $(MOBILE_DIR)/scripts/resolve-metro-port.mjs
 MOBILE_NATIVE_BUILD_FINGERPRINT := $(MOBILE_DIR)/scripts/native-build-fingerprint.mjs
 MOBILE_ANDROID_BUNDLE_SCRIPT := $(MOBILE_DIR)/scripts/build-android-bundle.mjs
+MOBILE_IOS_SUBMIT_SCRIPT := $(MOBILE_DIR)/scripts/submit-ios.mjs
 ANDROID_SDK_ROOT ?= $(HOME)/Library/Android/sdk
 ANDROID_HOME ?= $(ANDROID_SDK_ROOT)
 ANDROID_STUDIO_JAVA_HOME ?= /Applications/Android Studio.app/Contents/jbr/Contents/Home
@@ -162,7 +164,7 @@ mobile-android-bundle: mobile-check
 
 submit-ios: mobile-install
 	@echo "==> [submit-ios] Submitting latest completed LoopAware Mobile iOS build to App Store Connect"
-	@cd "$(MOBILE_DIR)" && $(MOBILE_EAS) submit --platform ios --profile "$(MOBILE_IOS_SUBMIT_PROFILE)" --latest --non-interactive $(MOBILE_SUBMIT_ARGS) $(MOBILE_IOS_SUBMIT_ARGS)
+	@MOBILE_EAS="$(MOBILE_EAS)" MOBILE_SUBMIT_PROFILE="$(MOBILE_SUBMIT_PROFILE)" MOBILE_IOS_SUBMIT_PROFILE="$(MOBILE_IOS_SUBMIT_PROFILE)" MOBILE_IOS_ASC_APP_ID="$(MOBILE_IOS_ASC_APP_ID)" MOBILE_SUBMIT_ARGS="$(MOBILE_SUBMIT_ARGS)" MOBILE_IOS_SUBMIT_ARGS="$(MOBILE_IOS_SUBMIT_ARGS)" node "$(MOBILE_IOS_SUBMIT_SCRIPT)"
 
 submit-android: mobile-android-bundle
 	@echo "==> [submit-android] Submitting LoopAware Mobile Android App Bundle to Google Play"
