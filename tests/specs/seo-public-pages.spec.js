@@ -241,6 +241,16 @@ test('resource index links every focused resource page', async ({ request }) => 
   }
 });
 
+test('no-javascript traffic pixel resource uses the real visit endpoint', async ({ request }) => {
+  const response = await request.get('/resources/no-javascript-traffic-pixel');
+  expect(response.status()).toBe(200);
+
+  const html = await response.text();
+  expect(html).toContain('https://loopaware.mprlab.com/public/visits?site_id=YOUR_SITE_ID&amp;amp;url=https%3A%2F%2Fexample.com%2F');
+  expect(html).not.toContain('/public/visits/pixel');
+  expect(html).not.toContain('src="/public/visits');
+});
+
 test('private and token pages opt out of indexing', async ({ request }) => {
   const dashboardHtml = await (await request.get('/app')).text();
   const confirmHtml = await (await request.get('/subscriptions/confirm')).text();
