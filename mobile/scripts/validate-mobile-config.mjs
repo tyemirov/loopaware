@@ -101,6 +101,11 @@ for (const profileName of ["development", "production"]) {
   );
 }
 assert(easJSON.build?.preview?.extends === "development", "mobile_eas_preview_missing_development_env");
+assert(easJSON.submit?.production?.android?.applicationId === "com.mprlab.loopaware", "mobile_eas_missing_android_submit_application_id");
+assert(easJSON.submit?.production?.android?.track === "internal", "mobile_eas_missing_android_submit_internal_track");
+assert(easJSON.submit?.production?.android?.releaseStatus === "completed", "mobile_eas_missing_android_submit_release_status");
+assert(easJSON.submit?.production?.ios?.bundleIdentifier === "com.mprlab.loopaware", "mobile_eas_missing_ios_submit_bundle_identifier");
+assert(easJSON.submit?.production?.ios?.sku === "com.mprlab.loopaware", "mobile_eas_missing_ios_submit_sku");
 
 const apiSource = readText("mobile/src/api.ts");
 assert(apiSource.includes('credentials: "include"'), "mobile_api_missing_cookie_credentials");
@@ -130,11 +135,31 @@ for (const envName of [
 }
 
 const makefile = readText("Makefile");
-for (const target of ["mobile-install", "mobile-check", "run-ios", "run-android", "build-ios", "build-android", "mobile-android-bundle"]) {
+for (const target of [
+  "mobile-install",
+  "mobile-check",
+  "run-ios",
+  "run-android",
+  "build-ios",
+  "build-android",
+  "mobile-android-bundle",
+  "submit-ios",
+  "submit-android",
+  "submit-mobile",
+]) {
   assert(makefile.includes(`${target}:`), `mobile_makefile_missing_target: ${target}`);
 }
 assert(makefile.includes("mobile-check"), "mobile_makefile_missing_ci_gate");
 assert(makefile.includes('node "$(MOBILE_ANDROID_BUNDLE_SCRIPT)"'), "mobile_makefile_missing_android_bundle_script");
+assert(makefile.includes("MOBILE_ANDROID_SUBMIT_AAB"), "mobile_makefile_missing_android_submit_aab");
+assert(makefile.includes('$(MOBILE_EAS) submit --platform ios'), "mobile_makefile_missing_ios_submit_command");
+assert(makefile.includes('$(MOBILE_EAS) submit --platform android'), "mobile_makefile_missing_android_submit_command");
+assert(makefile.includes('--path "$(MOBILE_ANDROID_SUBMIT_AAB)"'), "mobile_makefile_missing_android_submit_path");
+assert(makefile.includes("--latest --non-interactive"), "mobile_makefile_missing_ios_noninteractive_submit");
+assert(
+  makefile.includes('--non-interactive $(MOBILE_SUBMIT_ARGS) $(MOBILE_ANDROID_SUBMIT_ARGS)'),
+  "mobile_makefile_missing_android_noninteractive_submit",
+);
 assert(makefile.includes("test:api-boundaries"), "mobile_makefile_missing_api_boundary_check");
 assert(makefile.includes("MOBILE_NPM_COMMAND ?= env -u NO_COLOR $(MOBILE_NPM)"), "mobile_makefile_missing_no_color_warning_guard");
 assert(makefile.includes("MOBILE_NATIVE_BUILD_FINGERPRINT"), "mobile_makefile_missing_native_build_fingerprint");
