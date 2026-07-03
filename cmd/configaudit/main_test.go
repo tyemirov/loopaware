@@ -319,21 +319,33 @@ func TestRunAuditUsesTrackedExampleEnvFilesWhenRuntimeEnvFilesAreMissing(testing
 	require.Empty(testingT, result.errors)
 }
 
-func TestRunAuditReportsLoopAwareTauthCookieMismatch(testingT *testing.T) {
+func TestRunAuditAllowsCrossServiceOperatorValueDrift(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 
 	loopAwareEnvPath := filepath.Join(tempDirectory, testLoopAwareEnvFile)
 	loopAwareEnvironmentLines := loopAwareRuntimeEnvironmentLines()
 	loopAwareEnvironmentLines[5] = "TAUTH_TENANT_ID=loopaware"
-	loopAwareEnvironmentLines[7] = "TAUTH_SESSION_COOKIE_NAME=app_session_loopaware"
+	loopAwareEnvironmentLines[6] = "TAUTH_JWT_SIGNING_KEY=loopaware-owned-signing-key"
+	loopAwareEnvironmentLines[7] = "TAUTH_SESSION_COOKIE_NAME=loopaware-owned-session"
+	loopAwareEnvironmentLines[10] = "PINGUIN_AUTH_TOKEN=loopaware-owned-pinguin-token"
 	loopAwareEnv := strings.Join(append(loopAwareEnvironmentLines, ""), "\n")
 	require.NoError(testingT, os.WriteFile(loopAwareEnvPath, []byte(loopAwareEnv), 0o600))
+
+	pinguinEnvPath := filepath.Join(tempDirectory, testPinguinEnvFile)
+	pinguinEnv := strings.Join([]string{
+		"TAUTH_SIGNING_KEY=pinguin-owned-signing-key",
+		"LOOPAWARE_LOCAL_GOOGLE_CLIENT_ID=" + testGoogleClientValue,
+		"GRPC_AUTH_TOKEN=pinguin-owned-token",
+		"",
+	}, "\n")
+	require.NoError(testingT, os.WriteFile(pinguinEnvPath, []byte(pinguinEnv), 0o600))
 
 	tauthEnvPath := filepath.Join(tempDirectory, testTauthService+".env")
 	tauthEnv := strings.Join([]string{
 		"TAUTH_TENANT_ID_LOOPAWARE=loopaware",
-		"TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE=" + testSigningKeyValue,
-		"TAUTH_TENANT_SESSION_COOKIE_NAME_LOOPAWARE=legacy_app_session",
+		"TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE=tauth-owned-signing-key",
+		"TAUTH_TENANT_SESSION_COOKIE_NAME_LOOPAWARE=tauth-owned-session",
+		"TAUTH_LOOPAWARE_JWT_SIGNING_KEY=tauth-owned-pinguin-signing-key",
 		"",
 	}, "\n")
 	require.NoError(testingT, os.WriteFile(tauthEnvPath, []byte(tauthEnv), 0o600))
@@ -347,6 +359,9 @@ func TestRunAuditReportsLoopAwareTauthCookieMismatch(testingT *testing.T) {
 		"      - " + testLoopAwareEnvFile,
 		"    volumes:",
 		"      - " + loopAwareConfigVolume,
+		"  " + testPinguinService + ":",
+		"    env_file:",
+		"      - " + testPinguinEnvFile,
 		"  " + testTauthService + ":",
 		"    env_file:",
 		"      - " + testTauthService + ".env",
@@ -355,12 +370,9 @@ func TestRunAuditReportsLoopAwareTauthCookieMismatch(testingT *testing.T) {
 	require.NoError(testingT, os.WriteFile(composePath, []byte(composeContent), 0o600))
 
 	result := runAudit(composePath)
-	require.False(testingT, result.ok())
-	require.Contains(
-		testingT,
-		strings.Join(result.errors, " "),
-		"loopaware.auth.tauth.session_cookie_name must match tauth.TAUTH_TENANT_SESSION_COOKIE_NAME_LOOPAWARE",
-	)
+	require.True(testingT, result.ok())
+	require.Empty(testingT, result.warnings)
+	require.Empty(testingT, result.errors)
 }
 
 func TestRunAuditCommandSuccess(testingT *testing.T) {
@@ -400,16 +412,6 @@ func TestRunAuditCommandReportsMissingComposeFile(testingT *testing.T) {
 	require.Equal(testingT, 1, exitCode)
 	require.Contains(testingT, stderr.String(), "read compose file")
 	require.Contains(testingT, stderr.String(), "config-audit failed")
-}
-
-func TestExpectEqualReportsWarningAndError(testingT *testing.T) {
-	var result auditResult
-	expectEqual("left", "", "right", "", &result)
-	require.NotEmpty(testingT, result.warnings)
-
-	result = auditResult{}
-	expectEqual("left", "one", "right", "two", &result)
-	require.NotEmpty(testingT, result.errors)
 }
 
 func TestParseHostPort(testingT *testing.T) {

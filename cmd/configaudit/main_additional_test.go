@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MarkoPoloResearchLab/loopaware/internal/serverconfig"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
@@ -242,37 +241,6 @@ func TestLoadLoopAwareRuntimeConfigReportsMissingRequiredValue(testingT *testing
 	_, loadErr := loadLoopAwareRuntimeConfig(configPath, environment)
 	require.Error(testingT, loadErr)
 	require.Contains(testingT, loadErr.Error(), "auth.session_secret")
-}
-
-func TestResolveLoopAwareRuntimeConfigUsesComposeServiceAlias(testingT *testing.T) {
-	resolvedConfig, found := resolveLoopAwareRuntimeConfig(map[string]serverconfig.Config{
-		"loopaware-api": {
-			PinguinAuthToken: testAuthTokenValue,
-		},
-	})
-	require.True(testingT, found)
-	require.Equal(testingT, testAuthTokenValue, resolvedConfig.PinguinAuthToken)
-}
-
-func TestCheckCrossServiceInvariantsUsesComposeServiceAliases(testingT *testing.T) {
-	result := auditResult{}
-	checkCrossServiceInvariants(map[string]map[string]string{
-		"la-pinguin": {
-			testEnvKeyPinguinSigning:      "wrong-signing-key",
-			testEnvKeyPinguinGoogleClient: testGoogleClientValue,
-			testEnvKeyPinguinAuthToken:    testAuthTokenValue,
-		},
-		"la-tauth": {
-			testEnvKeyTauthSigning:      testSharedSigningKeyValue,
-			testEnvKeyTauthGoogleClient: testGoogleClientValue,
-		},
-	}, map[string]serverconfig.Config{
-		"loopaware-api": {
-			PinguinAuthToken: testAuthTokenValue,
-		},
-	}, &result)
-	require.NotEmpty(testingT, result.errors)
-	require.Contains(testingT, strings.Join(result.errors, " "), "invariant check failed")
 }
 
 func TestRunAuditReportsParseError(testingT *testing.T) {
@@ -617,17 +585,7 @@ func TestRunAuditCommandReportsWarnings(testingT *testing.T) {
 	compose := composeFile{
 		Services: map[string]composeService{
 			testPinguinService: {
-				Environment: environmentMap{
-					testEnvKeyPinguinSigning:      "",
-					testEnvKeyPinguinGoogleClient: "",
-					testEnvKeyPinguinAuthToken:    "",
-				},
-			},
-			testTauthService: {
-				Environment: environmentMap{
-					testEnvKeyTauthSigning:      "",
-					testEnvKeyTauthGoogleClient: "",
-				},
+				Volumes: stringList{testTemplateVolumeMapping},
 			},
 		},
 	}

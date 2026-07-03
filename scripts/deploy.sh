@@ -7,12 +7,12 @@ Usage:
   scripts/deploy.sh [options]
 
 Deploys LoopAware through mprlab-gateway. Gateway Ansible loads this repo's
-deploy/app.yml and publishes the app-owned GitHub Pages resource after backend
-verification succeeds.
+.mprlab/deploy/app.yml and publishes the app-owned GitHub Pages resource after
+backend verification succeeds.
 
 Options:
   --gateway-dir <path>       Gateway checkout. Default: $GATEWAY_DIR or sibling ../mprlab-gateway
-  --manifest <path>          App deploy manifest. Default: $APP_MANIFEST or deploy/app.yml
+  --manifest <path>          App deploy manifest. Default: $APP_MANIFEST or .mprlab/deploy/app.yml
   --image <value>            Backend image repository. Default: $DOCKER_IMAGE or ghcr.io/tyemirov/loopaware
   --skip-ci                  Skip the local make ci deployment gate
   --skip-image-verify        Skip release tag/latest image digest verification
@@ -38,7 +38,7 @@ env_or_default() {
 }
 
 GATEWAY_DIR="$(env_or_default GATEWAY_DIR "")"
-APP_MANIFEST="$(env_or_default APP_MANIFEST deploy/app.yml)"
+APP_MANIFEST="$(env_or_default APP_MANIFEST .mprlab/deploy/app.yml)"
 IMAGE_REPOSITORY="$(env_or_default DOCKER_IMAGE ghcr.io/tyemirov/loopaware)"
 TAG=""
 SKIP_CI="false"

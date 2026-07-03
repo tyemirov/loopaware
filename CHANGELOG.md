@@ -11,12 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Load backend runtime configuration from one strict YAML contract through `github.com/tyemirov/utils/runtimeconfig`, leaving only `--config` as the server config flag.
 - Make `@loopaware/react-native` a buildable npm package with `dist` exports, package metadata, and trusted-publishing workflow.
 - Add CI path coverage for first-party clients.
-- Move the GitHub Pages deploy resource into `deploy/app.yml` so gateway Ansible executes the app-owned frontend deployment contract.
+- Move app-owned deployment manifests under `.mprlab/deploy/` so gateway Ansible executes the app-owned frontend and resource deployment contracts from the current governance path.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
+
+### Bug Fixes 🐛
+- Remove exact cross-service TAuth/Pinguin value comparisons from config-audit so deploy preflight validates runtime config schema, placeholder coverage, and required values without hardcoding operator-owned deployment values.
 
 ### Testing 🧪
 - Cover backend runtime config interpolation, unknown-field rejection, missing required values, removed env overrides, and config-audit YAML loading.
 - Add React Native client package validation that builds, packs, installs the tarball into a temporary consumer, and typechecks a real import.
+- Cover config-audit accepting intentionally different concrete LoopAware, TAuth, and Pinguin operator values while retaining required runtime config validation.
 
 ### Docs 📚
 - Document the backend YAML config contract and clarify that LoopAware env files are interpolation inputs, not a second runtime config source.
