@@ -31,9 +31,18 @@ MOBILE_BUILD_ARGS ?=
 MOBILE_IOS_BUILD_ARGS ?=
 MOBILE_ANDROID_BUILD_ARGS ?=
 MOBILE_ANDROID_BUNDLE_ARGS ?=
+MOBILE_SUBMIT_PROFILE ?= production
+MOBILE_IOS_SUBMIT_PROFILE ?= $(MOBILE_SUBMIT_PROFILE)
+MOBILE_ANDROID_SUBMIT_PROFILE ?= $(MOBILE_SUBMIT_PROFILE)
+MOBILE_IOS_ASC_APP_ID ?= $(LOOPAWARE_MOBILE_IOS_ASC_APP_ID)
+MOBILE_SUBMIT_ARGS ?=
+MOBILE_IOS_SUBMIT_ARGS ?=
+MOBILE_ANDROID_SUBMIT_ARGS ?=
+MOBILE_ANDROID_SUBMIT_AAB ?= dist/loopaware-$(shell node -p "require('./$(MOBILE_DIR)/package.json').version")-android-release.aab
 MOBILE_METRO_PORT_RESOLVER := $(MOBILE_DIR)/scripts/resolve-metro-port.mjs
 MOBILE_NATIVE_BUILD_FINGERPRINT := $(MOBILE_DIR)/scripts/native-build-fingerprint.mjs
 MOBILE_ANDROID_BUNDLE_SCRIPT := $(MOBILE_DIR)/scripts/build-android-bundle.mjs
+MOBILE_IOS_SUBMIT_SCRIPT := $(MOBILE_DIR)/scripts/submit-ios.mjs
 ANDROID_SDK_ROOT ?= $(HOME)/Library/Android/sdk
 ANDROID_HOME ?= $(ANDROID_SDK_ROOT)
 ANDROID_STUDIO_JAVA_HOME ?= /Applications/Android Studio.app/Contents/jbr/Contents/Home
@@ -42,7 +51,7 @@ ANDROID_TOOL_PATH := $(ANDROID_SDK_ROOT)/emulator:$(ANDROID_SDK_ROOT)/platform-t
 
 export GOWORK := off
 
-.PHONY: format format-pinguin build lint lint-js client-react-native-install client-react-native-check mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
+.PHONY: format format-pinguin build lint lint-js client-react-native-install client-react-native-check mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle submit-ios submit-android submit-mobile config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -152,6 +161,18 @@ build-android: mobile-install
 mobile-android-bundle: mobile-check
 	@echo "==> [mobile-android-bundle] Building signed LoopAware Mobile Android App Bundle"
 	@ANDROID_HOME="$(ANDROID_HOME)" ANDROID_SDK_ROOT="$(ANDROID_SDK_ROOT)" ANDROID_STUDIO_JAVA_HOME="$(ANDROID_STUDIO_JAVA_HOME)" LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)" node "$(MOBILE_ANDROID_BUNDLE_SCRIPT)" --mobile-dir "$(MOBILE_DIR)" --android-sdk-root "$(ANDROID_SDK_ROOT)" $(MOBILE_ANDROID_BUNDLE_ARGS)
+
+submit-ios: mobile-install
+	@echo "==> [submit-ios] Submitting latest completed LoopAware Mobile iOS build to App Store Connect"
+	@MOBILE_EAS="$(MOBILE_EAS)" MOBILE_SUBMIT_PROFILE="$(MOBILE_SUBMIT_PROFILE)" MOBILE_IOS_SUBMIT_PROFILE="$(MOBILE_IOS_SUBMIT_PROFILE)" MOBILE_IOS_ASC_APP_ID="$(MOBILE_IOS_ASC_APP_ID)" MOBILE_SUBMIT_ARGS="$(MOBILE_SUBMIT_ARGS)" MOBILE_IOS_SUBMIT_ARGS="$(MOBILE_IOS_SUBMIT_ARGS)" node "$(MOBILE_IOS_SUBMIT_SCRIPT)"
+
+submit-android: mobile-android-bundle
+	@echo "==> [submit-android] Submitting LoopAware Mobile Android App Bundle to Google Play"
+	@cd "$(MOBILE_DIR)" && $(MOBILE_EAS) submit --platform android --profile "$(MOBILE_ANDROID_SUBMIT_PROFILE)" --path "$(MOBILE_ANDROID_SUBMIT_AAB)" --non-interactive $(MOBILE_SUBMIT_ARGS) $(MOBILE_ANDROID_SUBMIT_ARGS)
+
+submit-mobile:
+	@$(MAKE) --no-print-directory submit-ios
+	@$(MAKE) --no-print-directory submit-android
 
 test: test-integration
 

@@ -38,6 +38,16 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "applicationId": "com.mprlab.loopaware",
+        "track": "internal",
+        "releaseStatus": "completed"
+      },
+      "ios": {
+        "bundleIdentifier": "com.mprlab.loopaware",
+        "sku": "com.mprlab.loopaware"
+      }
+    }
   }
 }
