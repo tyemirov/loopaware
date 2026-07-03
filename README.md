@@ -524,10 +524,12 @@ uploads that exact `.aab` to the Google Play `internal` track through the EAS Su
 
 These targets run EAS Submit non-interactively. Operators must authenticate with Expo through `EXPO_TOKEN` or an EAS
 CLI login, link the mobile project to the correct EAS project, configure App Store Connect credentials for iOS, and
-configure a Google Play service account for Android in EAS credentials. Google Play still requires the first app upload
-to be performed manually before API-based submissions work. If EAS cannot resolve the App Store Connect app record from
-the bundle identifier, add the non-secret `ascAppId` to `mobile/eas.json`; do not commit Apple API keys, app-specific
-passwords, Google service-account JSON files, or upload keystore secrets.
+configure a Google Play service account for Android in EAS credentials. The iOS target also requires the numeric App
+Store Connect app id because EAS cannot resolve that app record in non-interactive mode; set `MOBILE_IOS_ASC_APP_ID` or
+`LOOPAWARE_MOBILE_IOS_ASC_APP_ID`, or commit the non-secret `ascAppId` to the iOS submit profile once the App Store
+Connect app has been created. Google Play still requires the first app upload to be performed manually before API-based
+submissions work. Do not commit Apple API keys, app-specific passwords, Google service-account JSON files, or upload
+keystore secrets.
 
 ## Docker
 
