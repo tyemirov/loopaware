@@ -251,6 +251,16 @@ test('no-javascript traffic pixel resource uses the real visit endpoint', async 
   expect(html).not.toContain('src="/public/visits');
 });
 
+test('inline subscribe forms resource uses the hosted subscribe script', async ({ request }) => {
+  const response = await request.get('/resources/inline-subscribe-forms');
+  expect(response.status()).toBe(200);
+
+  const html = await response.text();
+  expect(html).toContain('https://loopaware.mprlab.com/subscribe.js?site_id=YOUR_SITE_ID&amp;amp;mode=inline');
+  expect(html).not.toContain('src="/subscribe.js"');
+  expect(html).not.toContain('data-site-id="..."');
+});
+
 test('private and token pages opt out of indexing', async ({ request }) => {
   const dashboardHtml = await (await request.get('/app')).text();
   const confirmHtml = await (await request.get('/subscriptions/confirm')).text();
