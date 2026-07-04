@@ -372,6 +372,17 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Moved `deploy/app.yml` to `.mprlab/deploy/app.yml`, kept the app-owned resource manifest under `.mprlab/deploy/resources.yml`, and updated the default `APP_MANIFEST`, deploy script help/defaults, and README deploy docs to point at `.mprlab/deploy/app.yml`. Validation passed with `bash -n scripts/deploy.sh`, a non-deploying `make deploy DEPLOY_ARGS="--skip-ci --skip-image-verify --skip-backend --skip-pages"`, `make config-audit`, `git diff --check`, and final `make ci`.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `.mprlab/deploy/app.yml`, `.mprlab/deploy/resources.yml`, `CHANGELOG.md`, `Makefile`, `README.md`, `scripts/deploy.sh`, `deploy/app.yml`, `deploy/ansible/resources.yml`.
+- [x] [B034] (P1) Show trailing 24-hour traffic for the 1-day interval.
+  ### Summary
+  The dashboard 1-day traffic interval can show no trend, source, and engagement data even when visits occurred within the last 24 hours, because the interval is sourced from a day-bucket query instead of a rolling 24-hour window.
+  ### Deliverables
+  - Treat `interval=1day` as the past 24 hours across selected-site traffic endpoints and CSV export.
+  - Preserve the 30-day and all-time interval semantics.
+  - Add black-box API coverage proving visits inside the trailing 24-hour window appear and older visits do not.
+  ### Resolution
+  Replaced the selected-site and all-sites `1day` traffic window with a trailing 24-hour cutoff while preserving UTC day-bucket behavior for longer intervals and all-time reporting. Added API coverage for 23-hour versus 25-hour visits across dashboard stats, top pages, attribution, and trend output. Validation passed with focused `go test`, full `go test ./internal/api`, `git diff --check`, and final `make ci`.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `internal/api/admin.go`, `internal/api/admin_test.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/site_stats.go`, `internal/api/site_stats_additional_test.go`.
 
 
 ## Improvements
