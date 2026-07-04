@@ -152,11 +152,11 @@ func (interval trafficInterval) Days() int {
 	return interval.days
 }
 
-func (interval trafficInterval) StartDay() time.Time {
+func (interval trafficInterval) StartTime() time.Time {
 	if interval.IsAll() {
 		return time.Time{}
 	}
-	return visitWindowStartDay(interval.days)
+	return visitWindowStartTime(interval.days)
 }
 
 func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string, faviconManager *SiteFaviconManager, statsProvider SiteStatisticsProvider, feedbackBroadcaster *FeedbackEventBroadcaster) *SiteHandlers {
@@ -1337,7 +1337,7 @@ func (handlers *SiteHandlers) VisitStats(context *gin.Context) {
 		entry := TopPageEntry(page)
 		entries = append(entries, entry)
 	}
-	recentVisits, err := handlers.recentVisits(context.Request.Context(), site.ID, 6, interval.StartDay())
+	recentVisits, err := handlers.recentVisits(context.Request.Context(), site.ID, 6, interval.StartTime())
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
 		return
@@ -1575,7 +1575,7 @@ func (handlers *SiteHandlers) LocationDistribution(context *gin.Context) {
 	})
 }
 
-func (handlers *SiteHandlers) recentVisits(ctx context.Context, siteID string, limit int, startDay time.Time) ([]VisitLogEntry, error) {
+func (handlers *SiteHandlers) recentVisits(ctx context.Context, siteID string, limit int, startTime time.Time) ([]VisitLogEntry, error) {
 	if strings.TrimSpace(siteID) == "" || handlers.database == nil {
 		return nil, nil
 	}
@@ -1587,8 +1587,8 @@ func (handlers *SiteHandlers) recentVisits(ctx context.Context, siteID string, l
 		WithContext(ctx).
 		Where("site_id = ? AND is_bot = ?", siteID, false).
 		Order("occurred_at desc")
-	if !startDay.IsZero() {
-		query = query.Where("occurred_at >= ?", startDay)
+	if !startTime.IsZero() {
+		query = query.Where("occurred_at >= ?", startTime)
 	}
 	if err := query.Limit(limit).Find(&visits).Error; err != nil {
 		return nil, err
@@ -1737,8 +1737,8 @@ func (handlers *SiteHandlers) ExportTraffic(context *gin.Context) {
 		WithContext(context.Request.Context()).
 		Where("site_id = ? AND is_bot = ?", site.ID, false).
 		Order("occurred_at desc")
-	if startDay := interval.StartDay(); !startDay.IsZero() {
-		query = query.Where("occurred_at >= ?", startDay)
+	if startTime := interval.StartTime(); !startTime.IsZero() {
+		query = query.Where("occurred_at >= ?", startTime)
 	}
 	if err := query.Find(&visits).Error; err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})

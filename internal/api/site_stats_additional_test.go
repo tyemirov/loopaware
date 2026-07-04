@@ -58,24 +58,24 @@ func TestDatabaseSiteStatisticsProviderTopPagesSkipsBlankSite(testingT *testing.
 func TestDatabaseSiteStatisticsProviderTopPagesForDaysScopesToWindow(testingT *testing.T) {
 	database := openSiteStatsDatabase(testingT)
 	siteID := storage.NewID()
-	startOfToday := time.Now().UTC().Truncate(24 * time.Hour)
+	now := time.Now().UTC()
 	oldVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
 		SiteID:   siteID,
 		URL:      "https://example.com/lifetime-winner",
-		Occurred: startOfToday.AddDate(0, 0, -2),
+		Occurred: now.Add(-25 * time.Hour),
 	})
 	require.NoError(testingT, visitErr)
 	recentVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
 		SiteID:   siteID,
 		URL:      "https://example.com/window-winner",
-		Occurred: startOfToday.Add(2 * time.Hour),
+		Occurred: now.Add(-23 * time.Hour),
 	})
 	require.NoError(testingT, visitErr)
 	recentBotVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
 		SiteID:   siteID,
 		URL:      "https://example.com/window-winner",
 		IsBot:    true,
-		Occurred: startOfToday.Add(3 * time.Hour),
+		Occurred: now.Add(-22 * time.Hour),
 	})
 	require.NoError(testingT, visitErr)
 	require.NoError(testingT, database.Create(&oldVisit).Error)
@@ -88,6 +88,36 @@ func TestDatabaseSiteStatisticsProviderTopPagesForDaysScopesToWindow(testingT *t
 	require.Len(testingT, results, 1)
 	require.Equal(testingT, "/window-winner", results[0].Path)
 	require.Equal(testingT, int64(1), results[0].VisitCount)
+}
+
+func TestDatabaseSiteStatisticsProviderVisitTrendOneDayUsesTrailingTwentyFourHours(testingT *testing.T) {
+	database := openSiteStatsDatabase(testingT)
+	siteID := storage.NewID()
+	now := time.Now().UTC()
+	oldVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    siteID,
+		URL:       "https://example.com/old",
+		VisitorID: storage.NewID(),
+		Occurred:  now.Add(-25 * time.Hour),
+	})
+	require.NoError(testingT, visitErr)
+	recentVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:    siteID,
+		URL:       "https://example.com/recent",
+		VisitorID: storage.NewID(),
+		Occurred:  now.Add(-23 * time.Hour),
+	})
+	require.NoError(testingT, visitErr)
+	require.NoError(testingT, database.Create(&oldVisit).Error)
+	require.NoError(testingT, database.Create(&recentVisit).Error)
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	results, err := provider.VisitTrend(context.Background(), siteID, 1)
+	require.NoError(testingT, err)
+	require.Len(testingT, results, 1)
+	require.Equal(testingT, recentVisit.OccurredAt.UTC().Format(visitTrendDayLayout), results[0].Date.Format(visitTrendDayLayout))
+	require.Equal(testingT, int64(1), results[0].PageViews)
+	require.Equal(testingT, int64(1), results[0].UniqueVisitors)
 }
 
 func TestDatabaseSiteStatisticsProviderTopPagesMergesTrailingSlashVariants(testingT *testing.T) {
@@ -447,6 +477,33 @@ func TestDatabaseSiteStatisticsProviderVisitAttributionRespectsLimit(testingT *t
 	require.Len(testingT, breakdown.Sources, 1)
 	require.Len(testingT, breakdown.Mediums, 1)
 	require.Len(testingT, breakdown.Campaigns, 1)
+}
+
+func TestDatabaseSiteStatisticsProviderVisitAttributionOneDayUsesTrailingTwentyFourHours(testingT *testing.T) {
+	database := openSiteStatsDatabase(testingT)
+	siteID := storage.NewID()
+	now := time.Now().UTC()
+	oldVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/old?utm_source=stale",
+		Occurred: now.Add(-25 * time.Hour),
+	})
+	require.NoError(testingT, visitErr)
+	recentVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
+		SiteID:   siteID,
+		URL:      "https://example.com/recent?utm_source=fresh",
+		Occurred: now.Add(-23 * time.Hour),
+	})
+	require.NoError(testingT, visitErr)
+	require.NoError(testingT, database.Create(&oldVisit).Error)
+	require.NoError(testingT, database.Create(&recentVisit).Error)
+
+	provider := NewDatabaseSiteStatisticsProvider(database)
+	breakdown, breakdownErr := provider.VisitAttributionForDays(context.Background(), siteID, 1, 10)
+	require.NoError(testingT, breakdownErr)
+	require.Len(testingT, breakdown.Sources, 1)
+	require.Equal(testingT, "fresh", breakdown.Sources[0].Value)
+	require.Equal(testingT, int64(1), breakdown.Sources[0].VisitCount)
 }
 
 func TestDatabaseSiteStatisticsProviderVisitAggregationsSkipBlankSite(testingT *testing.T) {

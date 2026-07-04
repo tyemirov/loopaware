@@ -2313,19 +2313,19 @@ func TestVisitStatsAppliesTrafficInterval(testingT *testing.T) {
 	harness := newSiteTestHarness(testingT)
 	site := model.Site{ID: storage.NewID(), Name: "Stats Interval", AllowedOrigin: "http://interval.example", OwnerEmail: testAdminEmailAddress, CreatorEmail: testAdminEmailAddress}
 	require.NoError(testingT, harness.database.Create(&site).Error)
-	startOfToday := time.Now().UTC().Truncate(24 * time.Hour)
+	now := time.Now().UTC()
 	recentVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
 		SiteID:    site.ID,
 		URL:       "http://interval.example/recent",
 		VisitorID: storage.NewID(),
-		Occurred:  startOfToday.Add(2 * time.Hour),
+		Occurred:  now.Add(-23 * time.Hour),
 	})
 	require.NoError(testingT, visitErr)
 	oldVisit, visitErr := model.NewSiteVisit(model.SiteVisitInput{
 		SiteID:    site.ID,
 		URL:       "http://interval.example/old",
 		VisitorID: storage.NewID(),
-		Occurred:  startOfToday.AddDate(0, 0, -31).Add(2 * time.Hour),
+		Occurred:  now.Add(-25 * time.Hour),
 	})
 	require.NoError(testingT, visitErr)
 	require.NoError(testingT, harness.database.Create(&recentVisit).Error)
