@@ -181,6 +181,7 @@ test('login page exposes canonical SEO metadata', async ({ request }) => {
   expect(html).toContain('<link rel="canonical" href="https://loopaware.mprlab.com/login" />');
   expect(html).toContain('<meta property="og:url" content="https://loopaware.mprlab.com/login" />');
   expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
+  expect(html).toContain('<a slot="nav-right" href="/resources">Resources</a>');
   expect(html).toContain('"@type": "SoftwareApplication"');
 });
 
@@ -192,6 +193,7 @@ test('pricing page exposes pricing metadata and faq schema', async ({ request })
   expect(html).toContain('<link rel="canonical" href="https://loopaware.mprlab.com/pricing" />');
   expect(html).toContain('LoopAware Pricing | Free, Pro, and Business plans');
   expect(html).toContain('"@type": "FAQPage"');
+  expect(html).toContain('<a slot="nav-right" href="/resources">Resources</a>');
   expect(html).toContain('"name": "Pro"');
   expect(html).toContain('"price": "39"');
 });

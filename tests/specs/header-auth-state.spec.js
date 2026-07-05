@@ -177,11 +177,17 @@ async function expectServedHTMLDoesNotLoadGoogleIdentity(request, path) {
 
 /**
  * @param {import('@playwright/test').Page} page
+ * @param {string[]} expectedHorizontalLinkLabels
  * @returns {Promise<void>}
  */
-async function expectFooterUtilityLinks(page) {
+async function expectFooterUtilityLinks(
+  page,
+  expectedHorizontalLinkLabels = ['Terms of Service', 'Pricing']
+) {
   const footerLayout = page.locator('mpr-footer [data-mpr-footer="layout"]');
-  await expect(footerLayout.locator('[data-mpr-footer="horizontal-links"] a')).toHaveCount(2);
+  await expect(footerLayout.locator('[data-mpr-footer="horizontal-links"] a')).toHaveCount(
+    expectedHorizontalLinkLabels.length
+  );
   await expect(footerLayout.locator('[data-mpr-footer="menu"] a')).toHaveCount(10);
 
   const horizontalLinkLabels = await footerLayout
@@ -192,13 +198,13 @@ async function expectFooterUtilityLinks(page) {
     .allTextContents();
 
   await expect(footerLayout.locator('[data-mpr-footer="privacy-link"]')).toHaveText('Privacy');
-  await expect(footerLayout.locator('[data-mpr-footer="horizontal-links"] a')).toHaveText([
-    'Terms of Service',
-    'Pricing'
-  ]);
-  expect(horizontalLinkLabels).toEqual(['Terms of Service', 'Pricing']);
-  expect(menuLinkLabels).not.toContain('Terms of Service');
-  expect(menuLinkLabels).not.toContain('Pricing');
+  await expect(footerLayout.locator('[data-mpr-footer="horizontal-links"] a')).toHaveText(
+    expectedHorizontalLinkLabels
+  );
+  expect(horizontalLinkLabels).toEqual(expectedHorizontalLinkLabels);
+  for (const label of expectedHorizontalLinkLabels) {
+    expect(menuLinkLabels).not.toContain(label);
+  }
 
   const ordering = await footerLayout.evaluate((layoutElement) => {
     const privacyLink = layoutElement.querySelector('[data-mpr-footer="privacy-link"]');
@@ -725,12 +731,16 @@ for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
 }
 
 test('public pages render privacy separately and inline utility links before the toggle', async ({ page }) => {
+  const publicSiteUtilityLinks = ['Resources', 'Terms of Service', 'Pricing'];
   await openPageWithoutSession(page, '/login');
-  await expectFooterUtilityLinks(page);
+  await expectFooterUtilityLinks(page, publicSiteUtilityLinks);
 
   for (const { path } of PUBLIC_LOGIN_ENTRY_CASES) {
     await page.goto(path, { waitUntil: 'domcontentloaded' });
-    await expectFooterUtilityLinks(page);
+    const expectedLinks = path.startsWith('/subscriptions/')
+      ? ['Terms of Service', 'Pricing']
+      : publicSiteUtilityLinks;
+    await expectFooterUtilityLinks(page, expectedLinks);
   }
 });
 
