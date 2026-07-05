@@ -644,9 +644,13 @@ type trafficReportEmailTemplateData struct {
 
 func buildTrafficReportEmail(ctx context.Context, statsProvider SiteStatisticsProvider, site model.Site, schedule model.TrafficReportSchedule) (trafficReportEmail, error) {
 	windowDays := schedule.ReportWindowDays()
-	trend, trendErr := statsProvider.VisitTrend(ctx, site.ID, windowDays)
-	if trendErr != nil {
-		return trafficReportEmail{}, fmt.Errorf("traffic_report_email visit_trend: %w", trendErr)
+	pageViews, pageViewsErr := statsProvider.VisitCountForDays(ctx, site.ID, windowDays)
+	if pageViewsErr != nil {
+		return trafficReportEmail{}, fmt.Errorf("traffic_report_email page_views: %w", pageViewsErr)
+	}
+	uniqueVisitors, uniqueVisitorsErr := statsProvider.UniqueVisitorCountForDays(ctx, site.ID, windowDays)
+	if uniqueVisitorsErr != nil {
+		return trafficReportEmail{}, fmt.Errorf("traffic_report_email unique_visitors: %w", uniqueVisitorsErr)
 	}
 	topPages, topPagesErr := statsProvider.TopPagesForDays(ctx, site.ID, windowDays, trafficReportTopPagesLimit)
 	if topPagesErr != nil {
@@ -659,13 +663,6 @@ func buildTrafficReportEmail(ctx context.Context, statsProvider SiteStatisticsPr
 	locations, locationsErr := statsProvider.LocationDistributionForDays(ctx, site.ID, windowDays, trafficReportTopPagesLimit)
 	if locationsErr != nil {
 		return trafficReportEmail{}, fmt.Errorf("traffic_report_email locations: %w", locationsErr)
-	}
-
-	var pageViews int64
-	var uniqueVisitors int64
-	for _, point := range trend {
-		pageViews += point.PageViews
-		uniqueVisitors += point.UniqueVisitors
 	}
 
 	templateData := trafficReportEmailTemplateData{

@@ -62,16 +62,20 @@ func (sender *recordingTrafficReportEmailSender) SendEmail(_ context.Context, re
 }
 
 type recordingTrafficReportStatsProvider struct {
-	trend         []DailyVisitTrendStat
-	topPages      []TopPageStat
-	topPagesDays  int
-	topPagesLimit int
-	devices       DeviceBreakdownStat
-	deviceDays    int
-	deviceLimit   int
-	locations     []LocationDistributionStat
-	locationDays  int
-	locationLimit int
+	trend                  []DailyVisitTrendStat
+	visitCount             int64
+	visitCountDays         int
+	uniqueVisitorCount     int64
+	uniqueVisitorCountDays int
+	topPages               []TopPageStat
+	topPagesDays           int
+	topPagesLimit          int
+	devices                DeviceBreakdownStat
+	deviceDays             int
+	deviceLimit            int
+	locations              []LocationDistributionStat
+	locationDays           int
+	locationLimit          int
 }
 
 func (provider *recordingTrafficReportStatsProvider) FeedbackCount(context.Context, string) (int64, error) {
@@ -83,19 +87,21 @@ func (provider *recordingTrafficReportStatsProvider) SubscriberCount(context.Con
 }
 
 func (provider *recordingTrafficReportStatsProvider) VisitCount(context.Context, string) (int64, error) {
-	return 0, nil
+	return provider.visitCount, nil
 }
 
-func (provider *recordingTrafficReportStatsProvider) VisitCountForDays(context.Context, string, int) (int64, error) {
-	return 0, nil
+func (provider *recordingTrafficReportStatsProvider) VisitCountForDays(_ context.Context, _ string, days int) (int64, error) {
+	provider.visitCountDays = days
+	return provider.visitCount, nil
 }
 
 func (provider *recordingTrafficReportStatsProvider) UniqueVisitorCount(context.Context, string) (int64, error) {
-	return 0, nil
+	return provider.uniqueVisitorCount, nil
 }
 
-func (provider *recordingTrafficReportStatsProvider) UniqueVisitorCountForDays(context.Context, string, int) (int64, error) {
-	return 0, nil
+func (provider *recordingTrafficReportStatsProvider) UniqueVisitorCountForDays(_ context.Context, _ string, days int) (int64, error) {
+	provider.uniqueVisitorCountDays = days
+	return provider.uniqueVisitorCount, nil
 }
 
 func (provider *recordingTrafficReportStatsProvider) TopPages(context.Context, string, int) ([]TopPageStat, error) {
@@ -166,6 +172,8 @@ func buildTrafficReportHarness(testingT *testing.T, emailEnabled bool) trafficRe
 			{Date: time.Date(2026, time.April, 22, 0, 0, 0, 0, time.UTC), PageViews: 5, UniqueVisitors: 3},
 			{Date: time.Date(2026, time.April, 23, 0, 0, 0, 0, time.UTC), PageViews: 7, UniqueVisitors: 4},
 		},
+		visitCount:         12,
+		uniqueVisitorCount: 7,
 		topPages: []TopPageStat{
 			{Path: "/pricing", VisitCount: 6},
 			{Path: "/docs", VisitCount: 3},
@@ -460,6 +468,42 @@ func TestSendTrafficReportTestUsesPinguinSender(testingT *testing.T) {
 	require.Contains(testingT, call.message, "desktop: 8 visits")
 }
 
+func TestSendTrafficReportTestUsesAggregateTotalsForDailyWindow(testingT *testing.T) {
+	harness := buildTrafficReportHarness(testingT, true)
+	insertTrafficReportSite(testingT, harness.database)
+	harness.stats.trend = []DailyVisitTrendStat{
+		{Date: time.Date(2026, time.April, 22, 0, 0, 0, 0, time.UTC), PageViews: 1, UniqueVisitors: 1},
+		{Date: time.Date(2026, time.April, 23, 0, 0, 0, 0, time.UTC), PageViews: 1, UniqueVisitors: 1},
+	}
+	harness.stats.visitCount = 2
+	harness.stats.uniqueVisitorCount = 1
+	schedule, scheduleErr := model.NewTrafficReportSchedule(model.TrafficReportScheduleInput{
+		SiteID:         testTrafficReportSiteID,
+		Enabled:        true,
+		Frequency:      model.TrafficReportFrequencyDaily,
+		RecipientEmail: testTrafficReportRecipient,
+		Timezone:       model.DefaultTrafficReportTimezone,
+		SendHour:       model.DefaultTrafficReportSendHour,
+		SendMinute:     model.DefaultTrafficReportSendMinute,
+		Weekday:        model.DefaultTrafficReportWeekday,
+		MonthDay:       model.DefaultTrafficReportMonthDay,
+	})
+	require.NoError(testingT, scheduleErr)
+	require.NoError(testingT, harness.database.Create(&schedule).Error)
+	context, recorder := buildTrafficReportContext(http.MethodPost, testTrafficReportTestPath, nil)
+	setTrafficReportUser(context, testTrafficReportOwnerEmail)
+
+	harness.handlers.SendTestReport(context)
+	require.Equal(testingT, http.StatusOK, recorder.Code)
+	require.Len(testingT, harness.emailSender.calls, 1)
+	require.Equal(testingT, 1, harness.stats.visitCountDays)
+	require.Equal(testingT, 1, harness.stats.uniqueVisitorCountDays)
+	message := harness.emailSender.calls[0].message
+	require.Contains(testingT, message, "Page views: 2")
+	require.Contains(testingT, message, "Unique visitors: 1")
+	require.NotContains(testingT, message, "Unique visitors: 2")
+}
+
 func TestSendTrafficReportTestSendsToWholeTeam(testingT *testing.T) {
 	harness := buildTrafficReportHarness(testingT, true)
 	insertTrafficReportSite(testingT, harness.database)
@@ -581,6 +625,8 @@ func TestBuildTrafficReportEmailUsesReportWindowForBreakdowns(testingT *testing.
 		Name: testTrafficReportSiteName,
 	}, schedule)
 	require.NoError(testingT, reportErr)
+	require.Equal(testingT, 30, stats.visitCountDays)
+	require.Equal(testingT, 30, stats.uniqueVisitorCountDays)
 	require.Equal(testingT, 30, stats.topPagesDays)
 	require.Equal(testingT, trafficReportTopPagesLimit, stats.topPagesLimit)
 	require.Equal(testingT, 30, stats.deviceDays)

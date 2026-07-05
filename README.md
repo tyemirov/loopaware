@@ -222,6 +222,8 @@ All authenticated endpoints live under `/api` and require the configured TAuth s
 feedback, subscriptions, and visits do not require a session but still enforce per-site origin rules. JSON responses
 include Unix timestamps in seconds.
 
+Traffic endpoints with `interval=1day` report the trailing 24 hours. `interval=30days` uses the current 30-day UTC day window, and `interval=all` reports all recorded human visits.
+
 | Method  | Path                                  | Role        | Description                                                                                             |
 |---------|---------------------------------------|-------------|---------------------------------------------------------------------------------------------------------|
 | `GET`   | `/api/me`                             | any         | Current account metadata (email, name, `role`, `avatar.url`)                                            |

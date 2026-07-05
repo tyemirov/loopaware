@@ -767,14 +767,17 @@ func portfolioSiteIDs(sites []model.Site) []string {
 }
 
 func portfolioVisitTrend(ctx context.Context, database *gorm.DB, siteIDs []string, days int) ([]VisitTrendPoint, error) {
-	startDay := visitWindowStartDay(days)
+	startTime := visitWindowStartTime(days)
+	if days == 1 {
+		return portfolioVisitTrendWindow(ctx, database, siteIDs, startTime)
+	}
 	rowsByDay := make(map[string]portfolioTrendRow)
 	if len(siteIDs) > 0 {
 		var rows []portfolioTrendRow
 		err := database.WithContext(ctx).
 			Model(&model.SiteVisit{}).
 			Select("DATE(occurred_at) as day, COUNT(*) as page_views, COUNT(DISTINCT CASE WHEN visitor_id <> '' THEN site_id || ':' || visitor_id END) as unique_visitors").
-			Where("site_id IN ? AND occurred_at >= ? AND is_bot = ?", siteIDs, startDay, false).
+			Where("site_id IN ? AND occurred_at >= ? AND is_bot = ?", siteIDs, startTime, false).
 			Group("DATE(occurred_at)").
 			Order("day asc").
 			Scan(&rows).Error
@@ -792,9 +795,39 @@ func portfolioVisitTrend(ctx context.Context, database *gorm.DB, siteIDs []strin
 
 	trend := make([]VisitTrendPoint, 0, days)
 	for dayIndex := 0; dayIndex < days; dayIndex++ {
-		dateValue := startDay.AddDate(0, 0, dayIndex)
+		dateValue := startTime.AddDate(0, 0, dayIndex)
 		dayKey := dateValue.Format(visitTrendDayLayout)
 		row := rowsByDay[dayKey]
+		trend = append(trend, VisitTrendPoint{
+			Date:           dayKey,
+			PageViews:      row.PageViews,
+			UniqueVisitors: row.UniqueVisitors,
+		})
+	}
+	return trend, nil
+}
+
+func portfolioVisitTrendWindow(ctx context.Context, database *gorm.DB, siteIDs []string, startTime time.Time) ([]VisitTrendPoint, error) {
+	if len(siteIDs) == 0 {
+		return nil, nil
+	}
+	var rows []portfolioTrendRow
+	err := database.WithContext(ctx).
+		Model(&model.SiteVisit{}).
+		Select("DATE(occurred_at) as day, COUNT(*) as page_views, COUNT(DISTINCT CASE WHEN visitor_id <> '' THEN site_id || ':' || visitor_id END) as unique_visitors").
+		Where("site_id IN ? AND occurred_at >= ? AND is_bot = ?", siteIDs, startTime, false).
+		Group("DATE(occurred_at)").
+		Order("day asc").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	trend := make([]VisitTrendPoint, 0, len(rows))
+	for _, row := range rows {
+		dayKey, _, normalizeErr := normalizeVisitTrendMapKey(row.Day)
+		if normalizeErr != nil {
+			return nil, normalizeErr
+		}
 		trend = append(trend, VisitTrendPoint{
 			Date:           dayKey,
 			PageViews:      row.PageViews,
@@ -808,12 +841,12 @@ func portfolioTotals(ctx context.Context, database *gorm.DB, siteIDs []string, d
 	if len(siteIDs) == 0 {
 		return 0, 0, nil
 	}
-	startDay := visitWindowStartDay(days)
+	startTime := visitWindowStartTime(days)
 	var row portfolioCountRow
 	err := database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
 		Select("COUNT(*) as page_views, COUNT(DISTINCT CASE WHEN visitor_id <> '' THEN site_id || ':' || visitor_id END) as unique_visitors").
-		Where("site_id IN ? AND occurred_at >= ? AND is_bot = ?", siteIDs, startDay, false).
+		Where("site_id IN ? AND occurred_at >= ? AND is_bot = ?", siteIDs, startTime, false).
 		Scan(&row).Error
 	if err != nil {
 		return 0, 0, err
@@ -826,12 +859,12 @@ func portfolioSiteRows(ctx context.Context, database *gorm.DB, sites []model.Sit
 		return nil, nil
 	}
 	siteIDs := portfolioSiteIDs(sites)
-	startDay := visitWindowStartDay(days)
+	startTime := visitWindowStartTime(days)
 	var rows []portfolioSiteCountRow
 	err := database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
 		Select("site_id, COUNT(*) as page_views, COUNT(DISTINCT CASE WHEN visitor_id <> '' THEN visitor_id END) as unique_visitors").
-		Where("site_id IN ? AND occurred_at >= ? AND is_bot = ?", siteIDs, startDay, false).
+		Where("site_id IN ? AND occurred_at >= ? AND is_bot = ?", siteIDs, startTime, false).
 		Group("site_id").
 		Scan(&rows).Error
 	if err != nil {
