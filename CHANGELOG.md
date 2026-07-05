@@ -26,6 +26,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the backend YAML config contract and clarify that LoopAware env files are interpolation inputs, not a second runtime config source.
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
 
+## [v0.7.36] - 2026-07-04
+
+### Features ✨
+- Trailing 24-hour traffic window added for `interval=1day` on all relevant traffic endpoints and CSV export.
+
+### Improvements ⚙️
+- Refactored stats queries to use interval-based time windows for recent, trend, and top pages reporting.
+- Scheduled traffic report emails now display aggregate page-view and unique-visitor counts for more accurate reporting.
+
+### Bug Fixes 🐛
+- Corrected visitor and visit count aggregation for report totals to ensure accuracy across different time intervals.
+
+### Testing 🧪
+- Added API tests verifying only visits within the trailing 24-hour window appear in dashboard stats, top pages, attribution, and trend outputs.
+- Enhanced black-box coverage for 23-hour versus 25-hour visit handling and scheduled report correctness.
+
+### Docs 📚
+- Updated README and issue documentation to clarify interval semantics for traffic endpoints and 1-day interval behavior.
+- Documented the new 24-hour window logic and associated changes in issue resolutions.
+
 ## [v0.7.35] - 2026-07-03
 
 ### Features ✨
