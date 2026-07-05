@@ -26,6 +26,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the backend YAML config contract and clarify that LoopAware env files are interpolation inputs, not a second runtime config source.
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
 
+## [v0.7.37] - 2026-07-05
+
+### Features ✨
+- Added "Resources" navigation link to the public site header and footer.
+
+### Improvements ⚙️
+- Updated footer utility links across public pages to include "Resources" alongside existing links for consistent navigation.
+
+### Bug Fixes 🐛
+- _No changes._
+
+### Testing 🧪
+- Enhanced Playwright test coverage for utility links and verified the presence and correct labeling of the new "Resources" link in the header and footer on public pages.
+
+### Docs 📚
+- _No changes._
+
 ## [v0.7.36] - 2026-07-04
 
 ### Features ✨
