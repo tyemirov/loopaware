@@ -380,9 +380,9 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Preserve the 30-day and all-time interval semantics.
   - Add black-box API coverage proving visits inside the trailing 24-hour window appear and older visits do not.
   ### Resolution
-  Replaced the selected-site and all-sites `1day` traffic window with a trailing 24-hour cutoff while preserving UTC day-bucket behavior for longer intervals and all-time reporting. Added API coverage for 23-hour versus 25-hour visits across dashboard stats, top pages, attribution, and trend output. Validation passed with focused `go test`, full `go test ./internal/api`, `git diff --check`, and final `make ci`.
+  Replaced the selected-site and all-sites `1day` traffic window with a trailing 24-hour cutoff while preserving UTC day-bucket behavior for longer intervals and all-time reporting. Added API coverage for 23-hour versus 25-hour visits across dashboard stats, top pages, attribution, and trend output. Review follow-up removed the generated Playwright console log from the branch and changed scheduled traffic report email totals to read aggregate page-view and unique-visitor counts, with coverage for split daily trend buckets. Validation passed with focused `go test`, full `go test ./internal/api`, `git diff --check`, and final `make ci`.
   ### Changed Files
-  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `internal/api/admin.go`, `internal/api/admin_test.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/site_stats.go`, `internal/api/site_stats_additional_test.go`.
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `.playwright-cli/console-2026-07-03T21-41-36-761Z.log`, `internal/api/admin.go`, `internal/api/admin_test.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/site_stats.go`, `internal/api/site_stats_additional_test.go`, `internal/api/traffic_report_schedule.go`, `internal/api/traffic_report_schedule_test.go`.
 
 
 ## Improvements
