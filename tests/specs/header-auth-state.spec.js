@@ -18,6 +18,7 @@ const MPR_UI_CONFIG_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-
 const MPR_UI_SCRIPT_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@${MPR_UI_VERSION}/mpr-ui.js`;
 const SITE_WIDGET_SITE_ID = 'a7ea8b8a-ff37-4a99-81fa-09a5952f83a9';
 const PUBLIC_LOGIN_ENTRY_CASES = Object.freeze([
+  Object.freeze({ label: 'resources page', path: '/resources' }),
   Object.freeze({ label: 'pricing page', path: '/pricing' }),
   Object.freeze({ label: 'privacy page', path: '/privacy' }),
   Object.freeze({ label: 'terms page', path: '/terms' }),
@@ -731,7 +732,7 @@ for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
 }
 
 test('public pages render privacy separately and inline utility links before the toggle', async ({ page }) => {
-  const publicSiteUtilityLinks = ['Resources', 'Terms of Service', 'Pricing'];
+  const publicSiteUtilityLinks = ['Terms of Service', 'Resources', 'Pricing'];
   await openPageWithoutSession(page, '/login');
   await expectFooterUtilityLinks(page, publicSiteUtilityLinks);
 
