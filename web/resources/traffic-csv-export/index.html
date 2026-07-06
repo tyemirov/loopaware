@@ -6,7 +6,7 @@
     <title>Traffic CSV Export | LoopAware</title>
     <meta name="description" content="Export LoopAware traffic visits to CSV when site operators need raw visit rows for reporting, reconciliation, or analysis." />
     <meta name="robots" content="index,follow,max-image-preview:large" />
-    <link rel="canonical" href="https://loopaware.mprlab.com/resources/traffic-csv-export" />
+    <link rel="canonical" href="https://loopaware.mprlab.com/resources/traffic-csv-export/" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
     <link id="mpr-ui-style" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" />
@@ -18,7 +18,75 @@
     <script src="/runtime-env.js"></script>
     <link rel="manifest" href="/site.webmanifest" />
     <script type="application/ld+json">
-      { "@context": "https://schema.org", "@type": "Article", "headline": "Traffic CSV Export", "description": "Export LoopAware traffic visits to CSV when site operators need raw visit rows for reporting or analysis.", "mainEntityOfPage": "https://loopaware.mprlab.com/resources/traffic-csv-export", "author": { "@type": "Organization", "name": "Marco Polo Research Lab" } }
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Traffic CSV Export",
+        "description": "Export LoopAware traffic visits to CSV when site operators need raw visit rows for reporting or analysis.",
+        "mainEntityOfPage": "https://loopaware.mprlab.com/resources/traffic-csv-export/",
+        "author": {
+          "@type": "Organization",
+          "name": "Marco Polo Research Lab",
+          "url": "https://mprlab.com"
+        },
+        "datePublished": "2026-07-03",
+        "dateModified": "2026-07-06",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Marco Polo Research Lab",
+          "url": "https://mprlab.com"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://loopaware.mprlab.com/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Resources",
+            "item": "https://loopaware.mprlab.com/resources/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Traffic CSV Export",
+            "item": "https://loopaware.mprlab.com/resources/traffic-csv-export/"
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "When should teams use this traffic csv export guide?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Export LoopAware traffic visits to CSV when site operators need raw visit rows for reporting, reconciliation, or analysis. It is a fit when subscriber capture needs to live beside feedback, traffic, and team access instead of in a disconnected list tool."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What should teams verify after setup?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Confirm the workflow is tied to the correct LoopAware site, then check the first dashboard records with the people who will act on them."
+            }
+          }
+        ]
+      }
     </script>
   </head>
   <body class="landing-body resource-body d-flex flex-column min-vh-100 bg-body text-body" data-bs-theme="dark">
@@ -29,7 +97,7 @@
         </span>
         <span>LoopAware</span>
       </a>
-      <a slot="nav-right" href="/pricing">Pricing</a>
+      <a slot="nav-right" href="/pricing/">Pricing</a>
       <mpr-user
         slot="aux"
         data-loopaware-user-menu="true"
@@ -46,7 +114,7 @@
             <p class="resource-kicker">Traffic export</p>
             <h1>Traffic CSV export for visit data</h1>
             <p class="resource-lede">LoopAware shows traffic summaries in the dashboard, but operators can also export visit rows for external reporting or deeper analysis.</p>
-            <div class="resource-actions"><a class="resource-cta" href="/login">Export traffic</a><a class="resource-secondary" href="/resources/lightweight-analytics">Analytics guide</a></div>
+            <div class="resource-actions"><a class="resource-cta" href="/login">Export traffic</a><a class="resource-secondary" href="/resources/lightweight-analytics/">Analytics guide</a></div>
           </div>
           <aside class="resource-proof" aria-label="Traffic export preview">
             <div class="resource-proof-header"><span class="resource-dot"></span><span class="resource-dot"></span><span class="resource-dot"></span><span>traffic export</span></div>
@@ -61,9 +129,28 @@
       <section class="resource-section"><div class="resource-container resource-split"><div><h2>When raw rows help</h2><p class="resource-lede">Dashboards answer the everyday questions, while CSV export gives operators a portable record for finance reports, client updates, campaign reviews, or offline analysis.</p></div><div class="resource-note"><p>LoopAware keeps default dashboard analytics focused; export is the handoff when a spreadsheet or downstream tool is the right place to work.</p></div></div></section>
       <section class="resource-section"><div class="resource-container"><h2>Common export paths</h2><div class="resource-grid"><article class="resource-card"><h3>Client reports</h3><p>Give account managers a portable file for a specific site and interval.</p></article><article class="resource-card"><h3>Campaign checks</h3><p>Compare visit rows against external launch dates or campaign notes.</p></article><article class="resource-card"><h3>Internal analysis</h3><p>Inspect visit patterns without adding a heavyweight analytics vendor.</p></article></div></div></section>
       <section class="resource-section"><div class="resource-container resource-split"><div><h2>Limitations</h2><ul class="resource-list"><li>CSV export does not replace the dashboard's built-in traffic summaries.</li><li>Export access should remain limited to authorized site operators.</li><li>Exported files should be handled according to the team's data retention practices.</li></ul></div><div class="resource-card"><h3>Best fit</h3><p>Use this when dashboard summaries are enough most days but a portable traffic file is occasionally needed.</p></div></div></section>
-      <section class="resource-section resource-related"><div class="resource-container"><h2>Related pages</h2><div class="resource-grid"><article class="resource-card"><h3><a href="/resources/top-pages-reporting">Top pages reporting</a></h3><p>Review built-in page-level traffic summaries before exporting.</p></article><article class="resource-card"><h3><a href="/resources/traffic-attribution-breakdown">Traffic attribution breakdown</a></h3><p>Understand campaign and referrer dimensions.</p></article><article class="resource-card"><h3><a href="/resources/traffic-report-emails">Traffic report emails</a></h3><p>Send recurring summaries instead of manual exports.</p></article></div></div></section>
+      <section class="resource-section resource-depth">
+        <div class="resource-container resource-split">
+          <div>
+            <h2>Implementation checklist</h2>
+            <ul class="resource-list">
+              <li>Confirm the LoopAware site and public origin that will host the subscriber form or confirmation links.</li>
+              <li>Decide how pending, confirmed, unsubscribed, exported, and deleted subscriber records should be handled by the operator team.</li>
+              <li>Test one subscription path end to end before adding the form to every page that needs list growth.</li>
+            </ul>
+          </div>
+          <div class="resource-card resource-faq">
+            <h2>Common questions</h2>
+            <h3>When should teams use this traffic csv export guide?</h3>
+            <p>Export LoopAware traffic visits to CSV when site operators need raw visit rows for reporting, reconciliation, or analysis. It is a fit when subscriber capture needs to live beside feedback, traffic, and team access instead of in a disconnected list tool.</p>
+            <h3>What should teams verify after setup?</h3>
+            <p>Confirm the workflow is tied to the correct LoopAware site, then check the first dashboard records with the people who will act on them.</p>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section resource-related"><div class="resource-container"><h2>Related pages</h2><div class="resource-grid"><article class="resource-card"><h3><a href="/resources/top-pages-reporting/">Top pages reporting</a></h3><p>Review built-in page-level traffic summaries before exporting.</p></article><article class="resource-card"><h3><a href="/resources/traffic-attribution-breakdown/">Traffic attribution breakdown</a></h3><p>Understand campaign and referrer dimensions.</p></article><article class="resource-card"><h3><a href="/resources/traffic-report-emails/">Traffic report emails</a></h3><p>Send recurring summaries instead of manual exports.</p></article></div></div></section>
     </main>
-    <mpr-footer id="resource-footer" class="mt-auto" sticky="false" element-id="resource-footer-root" base-class="mpr-footer landing-footer border-top py-2" inner-element-id="resource-footer-inner" inner-class="mpr-footer__inner" wrapper-class="mpr-footer__layout" brand-wrapper-class="mpr-footer__brand" menu-wrapper-class="mpr-footer__menu-wrapper" prefix-class="mpr-footer__prefix" prefix-text="Built by Marco Polo Research Lab" toggle-button-id="" toggle-button-class="mpr-footer__menu-button" toggle-label="Built by Marco Polo Research Lab" menu-class="mpr-footer__menu" menu-item-class="mpr-footer__menu-item" privacy-link-class="mpr-footer__privacy" privacy-link-href="/privacy" privacy-link-label="Privacy" horizontal-links='{&quot;alignment&quot;:&quot;left&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Terms of Service&quot;,&quot;href&quot;:&quot;/terms&quot;},{&quot;label&quot;:&quot;Resources&quot;,&quot;href&quot;:&quot;/resources&quot;},{&quot;label&quot;:&quot;Pricing&quot;,&quot;href&quot;:&quot;/pricing&quot;}]}' links-collection='{&quot;style&quot;:&quot;drop-up&quot;,&quot;text&quot;:&quot;Built by Marco Polo Research Lab&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Marco Polo Research Lab&quot;,&quot;url&quot;:&quot;https://mprlab.com&quot;},{&quot;label&quot;:&quot;Gravity Notes&quot;,&quot;url&quot;:&quot;https://gravity.mprlab.com&quot;},{&quot;label&quot;:&quot;LoopAware&quot;,&quot;url&quot;:&quot;https://loopaware.mprlab.com&quot;},{&quot;label&quot;:&quot;Allergy Wheel&quot;,&quot;url&quot;:&quot;https://allergy.mprlab.com&quot;},{&quot;label&quot;:&quot;Social Threader&quot;,&quot;url&quot;:&quot;https://threader.mprlab.com&quot;},{&quot;label&quot;:&quot;RSVP&quot;,&quot;url&quot;:&quot;https://rsvp.mprlab.com&quot;},{&quot;label&quot;:&quot;Countdown Calendar&quot;,&quot;url&quot;:&quot;https://countdown.mprlab.com&quot;},{&quot;label&quot;:&quot;LLM Crossword&quot;,&quot;url&quot;:&quot;https://llm-crossword.mprlab.com&quot;},{&quot;label&quot;:&quot;Prompt Bubbles&quot;,&quot;url&quot;:&quot;https://prompts.mprlab.com&quot;},{&quot;label&quot;:&quot;Wallpapers&quot;,&quot;url&quot;:&quot;https://wallpapers.mprlab.com&quot;}]}' theme-switcher="toggle" theme-config='{&quot;attribute&quot;:&quot;data-bs-theme&quot;,&quot;ariaLabel&quot;:&quot;Toggle theme&quot;,&quot;modes&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;initialMode&quot;:&quot;dark&quot;}'></mpr-footer>
+    <mpr-footer id="resource-footer" class="mt-auto" sticky="false" element-id="resource-footer-root" base-class="mpr-footer landing-footer border-top py-2" inner-element-id="resource-footer-inner" inner-class="mpr-footer__inner" wrapper-class="mpr-footer__layout" brand-wrapper-class="mpr-footer__brand" menu-wrapper-class="mpr-footer__menu-wrapper" prefix-class="mpr-footer__prefix" prefix-text="Built by Marco Polo Research Lab" toggle-button-id="" toggle-button-class="mpr-footer__menu-button" toggle-label="Built by Marco Polo Research Lab" menu-class="mpr-footer__menu" menu-item-class="mpr-footer__menu-item" privacy-link-class="mpr-footer__privacy" privacy-link-href="/privacy/" privacy-link-label="Privacy" horizontal-links='{&quot;alignment&quot;:&quot;left&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Terms of Service&quot;,&quot;href&quot;:&quot;/terms/&quot;},{&quot;label&quot;:&quot;Resources&quot;,&quot;href&quot;:&quot;/resources/&quot;},{&quot;label&quot;:&quot;Pricing&quot;,&quot;href&quot;:&quot;/pricing/&quot;}]}' links-collection='{&quot;style&quot;:&quot;drop-up&quot;,&quot;text&quot;:&quot;Built by Marco Polo Research Lab&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Marco Polo Research Lab&quot;,&quot;url&quot;:&quot;https://mprlab.com&quot;},{&quot;label&quot;:&quot;Gravity Notes&quot;,&quot;url&quot;:&quot;https://gravity.mprlab.com&quot;},{&quot;label&quot;:&quot;LoopAware&quot;,&quot;url&quot;:&quot;https://loopaware.mprlab.com&quot;},{&quot;label&quot;:&quot;Allergy Wheel&quot;,&quot;url&quot;:&quot;https://allergy.mprlab.com&quot;},{&quot;label&quot;:&quot;Social Threader&quot;,&quot;url&quot;:&quot;https://threader.mprlab.com&quot;},{&quot;label&quot;:&quot;RSVP&quot;,&quot;url&quot;:&quot;https://rsvp.mprlab.com&quot;},{&quot;label&quot;:&quot;Countdown Calendar&quot;,&quot;url&quot;:&quot;https://countdown.mprlab.com&quot;},{&quot;label&quot;:&quot;LLM Crossword&quot;,&quot;url&quot;:&quot;https://llm-crossword.mprlab.com&quot;},{&quot;label&quot;:&quot;Prompt Bubbles&quot;,&quot;url&quot;:&quot;https://prompts.mprlab.com&quot;},{&quot;label&quot;:&quot;Wallpapers&quot;,&quot;url&quot;:&quot;https://wallpapers.mprlab.com&quot;}]}' theme-switcher="toggle" theme-config='{&quot;attribute&quot;:&quot;data-bs-theme&quot;,&quot;ariaLabel&quot;:&quot;Toggle theme&quot;,&quot;modes&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;initialMode&quot;:&quot;dark&quot;}'></mpr-footer>
     <div id="logout-overlay" class="d-none position-fixed top-0 start-0 w-100 h-100 bg-body d-flex align-items-center justify-content-center">
       <div class="text-center">
         <div class="spinner-border text-primary mb-3" role="status">

@@ -6,7 +6,7 @@
     <title>Sentiment-Only Feedback Collection | LoopAware</title>
     <meta name="description" content="Collect lightweight positive or negative sentiment in LoopAware when visitors do not need to write a full feedback message." />
     <meta name="robots" content="index,follow,max-image-preview:large" />
-    <link rel="canonical" href="https://loopaware.mprlab.com/resources/sentiment-only-feedback" />
+    <link rel="canonical" href="https://loopaware.mprlab.com/resources/sentiment-only-feedback/" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
     <link id="mpr-ui-style" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" />
@@ -18,7 +18,75 @@
     <script src="/runtime-env.js"></script>
     <link rel="manifest" href="/site.webmanifest" />
     <script type="application/ld+json">
-      { "@context": "https://schema.org", "@type": "Article", "headline": "Sentiment-Only Feedback Collection", "description": "Collect lightweight positive or negative sentiment in LoopAware when visitors do not need to write a full feedback message.", "mainEntityOfPage": "https://loopaware.mprlab.com/resources/sentiment-only-feedback", "author": { "@type": "Organization", "name": "Marco Polo Research Lab" } }
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Sentiment-Only Feedback Collection",
+        "description": "Collect lightweight positive or negative sentiment in LoopAware when visitors do not need to write a full feedback message.",
+        "mainEntityOfPage": "https://loopaware.mprlab.com/resources/sentiment-only-feedback/",
+        "author": {
+          "@type": "Organization",
+          "name": "Marco Polo Research Lab",
+          "url": "https://mprlab.com"
+        },
+        "datePublished": "2026-07-03",
+        "dateModified": "2026-07-06",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Marco Polo Research Lab",
+          "url": "https://mprlab.com"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://loopaware.mprlab.com/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Resources",
+            "item": "https://loopaware.mprlab.com/resources/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Sentiment-Only Feedback Collection",
+            "item": "https://loopaware.mprlab.com/resources/sentiment-only-feedback/"
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "When should teams use this sentiment only feedback guide?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Collect lightweight positive or negative sentiment in LoopAware when visitors do not need to write a full feedback message. It is most useful when product feedback should stay connected to the same site, team, and dashboard as the rest of the customer signals."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What should teams verify after setup?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Confirm the workflow is tied to the correct LoopAware site, then check the first dashboard records with the people who will act on them."
+            }
+          }
+        ]
+      }
     </script>
   </head>
   <body class="landing-body resource-body d-flex flex-column min-vh-100 bg-body text-body" data-bs-theme="dark">
@@ -29,7 +97,7 @@
         </span>
         <span>LoopAware</span>
       </a>
-      <a slot="nav-right" href="/pricing">Pricing</a>
+      <a slot="nav-right" href="/pricing/">Pricing</a>
       <mpr-user
         slot="aux"
         data-loopaware-user-menu="true"
@@ -46,7 +114,7 @@
             <p class="resource-kicker">Quick feedback</p>
             <h1>Sentiment-only feedback collection</h1>
             <p class="resource-lede">LoopAware accepts feedback submissions with a sentiment signal even when the visitor does not write a message. That keeps low-friction reactions available without inventing a separate survey product.</p>
-            <div class="resource-actions"><a class="resource-cta" href="/login">Review feedback</a><a class="resource-secondary" href="/resources/widget-appearance-controls">Tune the widget</a></div>
+            <div class="resource-actions"><a class="resource-cta" href="/login">Review feedback</a><a class="resource-secondary" href="/resources/widget-appearance-controls/">Tune the widget</a></div>
           </div>
           <aside class="resource-proof" aria-label="Sentiment feedback preview">
             <div class="resource-proof-header"><span class="resource-dot"></span><span class="resource-dot"></span><span class="resource-dot"></span><span>visitor signal</span></div>
@@ -61,9 +129,28 @@
       <section class="resource-section"><div class="resource-container resource-split"><div><h2>When a full message is too much</h2><p class="resource-lede">A visitor may want to say that a page helped, confused them, or felt broken without explaining the whole context. Sentiment-only feedback gives operators a directional signal that can be interpreted with the source URL and traffic context.</p></div><div class="resource-note"><p>LoopAware is still a feedback inbox, not an NPS suite or multi-step survey builder.</p></div></div></section>
       <section class="resource-section"><div class="resource-container"><h2>Useful patterns</h2><div class="resource-grid"><article class="resource-card"><h3>Documentation pages</h3><p>Let readers send a quick positive or negative signal when a guide answers their question or leaves a gap.</p></article><article class="resource-card"><h3>Beta onboarding</h3><p>Collect directional reactions on steps that may not deserve a full bug report.</p></article><article class="resource-card"><h3>Low-friction mobile flows</h3><p>Pair sentiment with mobile screen context when typing a long message is inconvenient.</p></article></div></div></section>
       <section class="resource-section"><div class="resource-container resource-split"><div><h2>Limitations</h2><ul class="resource-list"><li>Sentiment alone does not explain root cause, so source context matters.</li><li>It should not replace support ticket workflows that require replies and ownership.</li><li>For product decisions, treat sentiment as a signal to inspect rather than a final answer.</li></ul></div><div class="resource-card"><h3>Best fit</h3><p>Use sentiment-only capture when the team wants the lowest possible feedback action and can review it beside richer messages.</p></div></div></section>
-      <section class="resource-section resource-related"><div class="resource-container"><h2>Related pages</h2><div class="resource-grid"><article class="resource-card"><h3><a href="/resources/feedback-source-context">Feedback source context</a></h3><p>Use URLs and page context to understand quick reactions.</p></article><article class="resource-card"><h3><a href="/resources/mobile-app-feedback">Mobile app feedback</a></h3><p>Collect feedback from React Native and Expo screens.</p></article><article class="resource-card"><h3><a href="/resources/top-pages-reporting">Top pages reporting</a></h3><p>Prioritize feedback on pages with meaningful traffic.</p></article></div></div></section>
+      <section class="resource-section resource-depth">
+        <div class="resource-container resource-split">
+          <div>
+            <h2>Implementation checklist</h2>
+            <ul class="resource-list">
+              <li>Confirm the LoopAware site allows the production origin or registered app that will collect feedback.</li>
+              <li>Choose whether contact details, sentiment, page context, and widget appearance should be enabled for this workflow.</li>
+              <li>Review the first submissions in the dashboard with the owner or team members responsible for follow-up.</li>
+            </ul>
+          </div>
+          <div class="resource-card resource-faq">
+            <h2>Common questions</h2>
+            <h3>When should teams use this sentiment only feedback guide?</h3>
+            <p>Collect lightweight positive or negative sentiment in LoopAware when visitors do not need to write a full feedback message. It is most useful when product feedback should stay connected to the same site, team, and dashboard as the rest of the customer signals.</p>
+            <h3>What should teams verify after setup?</h3>
+            <p>Confirm the workflow is tied to the correct LoopAware site, then check the first dashboard records with the people who will act on them.</p>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section resource-related"><div class="resource-container"><h2>Related pages</h2><div class="resource-grid"><article class="resource-card"><h3><a href="/resources/feedback-source-context/">Feedback source context</a></h3><p>Use URLs and page context to understand quick reactions.</p></article><article class="resource-card"><h3><a href="/resources/mobile-app-feedback/">Mobile app feedback</a></h3><p>Collect feedback from React Native and Expo screens.</p></article><article class="resource-card"><h3><a href="/resources/top-pages-reporting/">Top pages reporting</a></h3><p>Prioritize feedback on pages with meaningful traffic.</p></article></div></div></section>
     </main>
-    <mpr-footer id="resource-footer" class="mt-auto" sticky="false" element-id="resource-footer-root" base-class="mpr-footer landing-footer border-top py-2" inner-element-id="resource-footer-inner" inner-class="mpr-footer__inner" wrapper-class="mpr-footer__layout" brand-wrapper-class="mpr-footer__brand" menu-wrapper-class="mpr-footer__menu-wrapper" prefix-class="mpr-footer__prefix" prefix-text="Built by Marco Polo Research Lab" toggle-button-id="" toggle-button-class="mpr-footer__menu-button" toggle-label="Built by Marco Polo Research Lab" menu-class="mpr-footer__menu" menu-item-class="mpr-footer__menu-item" privacy-link-class="mpr-footer__privacy" privacy-link-href="/privacy" privacy-link-label="Privacy" horizontal-links='{&quot;alignment&quot;:&quot;left&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Terms of Service&quot;,&quot;href&quot;:&quot;/terms&quot;},{&quot;label&quot;:&quot;Resources&quot;,&quot;href&quot;:&quot;/resources&quot;},{&quot;label&quot;:&quot;Pricing&quot;,&quot;href&quot;:&quot;/pricing&quot;}]}' links-collection='{&quot;style&quot;:&quot;drop-up&quot;,&quot;text&quot;:&quot;Built by Marco Polo Research Lab&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Marco Polo Research Lab&quot;,&quot;url&quot;:&quot;https://mprlab.com&quot;},{&quot;label&quot;:&quot;Gravity Notes&quot;,&quot;url&quot;:&quot;https://gravity.mprlab.com&quot;},{&quot;label&quot;:&quot;LoopAware&quot;,&quot;url&quot;:&quot;https://loopaware.mprlab.com&quot;},{&quot;label&quot;:&quot;Allergy Wheel&quot;,&quot;url&quot;:&quot;https://allergy.mprlab.com&quot;},{&quot;label&quot;:&quot;Social Threader&quot;,&quot;url&quot;:&quot;https://threader.mprlab.com&quot;},{&quot;label&quot;:&quot;RSVP&quot;,&quot;url&quot;:&quot;https://rsvp.mprlab.com&quot;},{&quot;label&quot;:&quot;Countdown Calendar&quot;,&quot;url&quot;:&quot;https://countdown.mprlab.com&quot;},{&quot;label&quot;:&quot;LLM Crossword&quot;,&quot;url&quot;:&quot;https://llm-crossword.mprlab.com&quot;},{&quot;label&quot;:&quot;Prompt Bubbles&quot;,&quot;url&quot;:&quot;https://prompts.mprlab.com&quot;},{&quot;label&quot;:&quot;Wallpapers&quot;,&quot;url&quot;:&quot;https://wallpapers.mprlab.com&quot;}]}' theme-switcher="toggle" theme-config='{&quot;attribute&quot;:&quot;data-bs-theme&quot;,&quot;ariaLabel&quot;:&quot;Toggle theme&quot;,&quot;modes&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;initialMode&quot;:&quot;dark&quot;}'></mpr-footer>
+    <mpr-footer id="resource-footer" class="mt-auto" sticky="false" element-id="resource-footer-root" base-class="mpr-footer landing-footer border-top py-2" inner-element-id="resource-footer-inner" inner-class="mpr-footer__inner" wrapper-class="mpr-footer__layout" brand-wrapper-class="mpr-footer__brand" menu-wrapper-class="mpr-footer__menu-wrapper" prefix-class="mpr-footer__prefix" prefix-text="Built by Marco Polo Research Lab" toggle-button-id="" toggle-button-class="mpr-footer__menu-button" toggle-label="Built by Marco Polo Research Lab" menu-class="mpr-footer__menu" menu-item-class="mpr-footer__menu-item" privacy-link-class="mpr-footer__privacy" privacy-link-href="/privacy/" privacy-link-label="Privacy" horizontal-links='{&quot;alignment&quot;:&quot;left&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Terms of Service&quot;,&quot;href&quot;:&quot;/terms/&quot;},{&quot;label&quot;:&quot;Resources&quot;,&quot;href&quot;:&quot;/resources/&quot;},{&quot;label&quot;:&quot;Pricing&quot;,&quot;href&quot;:&quot;/pricing/&quot;}]}' links-collection='{&quot;style&quot;:&quot;drop-up&quot;,&quot;text&quot;:&quot;Built by Marco Polo Research Lab&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Marco Polo Research Lab&quot;,&quot;url&quot;:&quot;https://mprlab.com&quot;},{&quot;label&quot;:&quot;Gravity Notes&quot;,&quot;url&quot;:&quot;https://gravity.mprlab.com&quot;},{&quot;label&quot;:&quot;LoopAware&quot;,&quot;url&quot;:&quot;https://loopaware.mprlab.com&quot;},{&quot;label&quot;:&quot;Allergy Wheel&quot;,&quot;url&quot;:&quot;https://allergy.mprlab.com&quot;},{&quot;label&quot;:&quot;Social Threader&quot;,&quot;url&quot;:&quot;https://threader.mprlab.com&quot;},{&quot;label&quot;:&quot;RSVP&quot;,&quot;url&quot;:&quot;https://rsvp.mprlab.com&quot;},{&quot;label&quot;:&quot;Countdown Calendar&quot;,&quot;url&quot;:&quot;https://countdown.mprlab.com&quot;},{&quot;label&quot;:&quot;LLM Crossword&quot;,&quot;url&quot;:&quot;https://llm-crossword.mprlab.com&quot;},{&quot;label&quot;:&quot;Prompt Bubbles&quot;,&quot;url&quot;:&quot;https://prompts.mprlab.com&quot;},{&quot;label&quot;:&quot;Wallpapers&quot;,&quot;url&quot;:&quot;https://wallpapers.mprlab.com&quot;}]}' theme-switcher="toggle" theme-config='{&quot;attribute&quot;:&quot;data-bs-theme&quot;,&quot;ariaLabel&quot;:&quot;Toggle theme&quot;,&quot;modes&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;initialMode&quot;:&quot;dark&quot;}'></mpr-footer>
     <div id="logout-overlay" class="d-none position-fixed top-0 start-0 w-100 h-100 bg-body d-flex align-items-center justify-content-center">
       <div class="text-center">
         <div class="spinner-border text-primary mb-3" role="status">

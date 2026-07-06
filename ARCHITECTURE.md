@@ -6,6 +6,8 @@ LoopAware is split into two parts:
 
 - **Backend API**: `cmd/server` serves JSON/SSE/CSV endpoints plus public collection routes under `/api/*`.
 - **Static frontend**: `web/` holds handwritten LoopAware-owned HTML/JS/CSS served by a CDN or reverse proxy (no generator).
+  The public crawl surface uses `https://loopaware.mprlab.com/` as the canonical root and
+  `https://loopaware.mprlab.com/resources/` as the crawlable resource hub.
 
 Deployments can preserve a single browser origin (for example via `ghttp`) so TAuth cookies remain same-origin; otherwise
 configure CORS on the API to allow the frontend origin.

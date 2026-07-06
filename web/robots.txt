@@ -1,7 +1,7 @@
 User-agent: *
-Allow: /login
-Allow: /pricing
-Allow: /resources
+Allow: /
+Allow: /pricing/
+Allow: /resources/
 Allow: /favicon.svg
 Allow: /loopaware-logo-120x120.png
 Allow: /loopaware-logo-256x256.png

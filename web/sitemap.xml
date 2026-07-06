@@ -1,178 +1,143 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://loopaware.mprlab.com/login</loc>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
+    <loc>https://loopaware.mprlab.com/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/pricing</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <loc>https://loopaware.mprlab.com/pricing/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <loc>https://loopaware.mprlab.com/resources/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/feedback-widget</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/agency-client-sites/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/subscriber-capture</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/bot-filtered-analytics/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/privacy-first-analytics</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/browser-error-capture/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/la-sentry-monitoring</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/favicon-refresh-notifications/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/self-hosted-feedback</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/feedback-source-context/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/saas-feedback</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/feedback-widget/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/agency-client-sites</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/inline-subscribe-forms/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/lightweight-analytics</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/la-sentry-monitoring/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/mobile-app-feedback</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/lightweight-analytics/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/uptime-monitoring</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/mobile-app-feedback/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/traffic-report-emails</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/multi-origin-feedback/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/server-side-error-capture</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/no-javascript-traffic-pixel/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/multi-origin-feedback</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/owner-admin-site-management/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/widget-appearance-controls</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/portfolio-traffic-reports/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/sentiment-only-feedback</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/privacy-first-analytics/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/feedback-source-context</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/saas-feedback/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/subscriber-confirmation-flow</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/self-hosted-feedback/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/subscriber-csv-export</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/sentiment-only-feedback/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/inline-subscribe-forms</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/sentry-issue-triage/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/traffic-csv-export</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/server-side-error-capture/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/top-pages-reporting</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/subscriber-capture/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/traffic-attribution-breakdown</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/subscriber-confirmation-flow/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/visitor-device-breakdown</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/subscriber-csv-export/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/visitor-location-signals</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/team-member-site-access/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/bot-filtered-analytics</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/top-pages-reporting/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/no-javascript-traffic-pixel</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/traffic-attribution-breakdown/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/portfolio-traffic-reports</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/traffic-csv-export/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/team-member-site-access</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/traffic-report-emails/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/owner-admin-site-management</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/uptime-monitoring/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/favicon-refresh-notifications</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/visitor-device-breakdown/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/browser-error-capture</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/visitor-location-signals/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
   <url>
-    <loc>https://loopaware.mprlab.com/resources/sentry-issue-triage</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://loopaware.mprlab.com/resources/widget-appearance-controls/</loc>
+    <lastmod>2026-07-06</lastmod>
   </url>
 </urlset>

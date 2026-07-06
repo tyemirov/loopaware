@@ -75,7 +75,9 @@ LoopAware collects customer feedback through a lightweight widget, uses the shar
 - Real-time favicon and feedback updates via SSE.
 
 ### Public pages
-- /login landing page with sign-in and product overview.
+- / root landing page with product overview, canonical SEO metadata, and links into the public resource hub.
+- /login landing page with shared sign-in and root-canonical product overview.
+- /resources crawlable public guides for feedback widgets, mobile feedback, subscribers, analytics, report emails, uptime, access control, LA Sentry, agencies, SaaS teams, and self-hosted deployments.
 - /privacy static policy page.
 - /sitemap.xml for search engine discovery.
 

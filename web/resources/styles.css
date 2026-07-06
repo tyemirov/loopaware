@@ -331,6 +331,23 @@ h1 {
   background: var(--resource-band);
 }
 
+.resource-depth .resource-card {
+  min-height: 100%;
+}
+
+.resource-faq h3 {
+  margin: 18px 0 8px;
+  font-size: 1rem;
+}
+
+.resource-faq h3:first-of-type {
+  margin-top: 0;
+}
+
+.resource-faq p + h3 {
+  padding-top: 4px;
+}
+
 .resource-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

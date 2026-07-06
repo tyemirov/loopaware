@@ -6,7 +6,7 @@
     <title>Browser Error Capture | LoopAware</title>
     <meta name="description" content="Capture browser JavaScript errors in LoopAware LA Sentry with allowed-origin protection instead of exposing a server-side ingest token." />
     <meta name="robots" content="index,follow,max-image-preview:large" />
-    <link rel="canonical" href="https://loopaware.mprlab.com/resources/browser-error-capture" />
+    <link rel="canonical" href="https://loopaware.mprlab.com/resources/browser-error-capture/" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
     <link id="mpr-ui-style" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" />
@@ -18,7 +18,75 @@
     <script src="/runtime-env.js"></script>
     <link rel="manifest" href="/site.webmanifest" />
     <script type="application/ld+json">
-      { "@context": "https://schema.org", "@type": "Article", "headline": "Browser Error Capture", "description": "Capture browser JavaScript errors in LoopAware LA Sentry with allowed-origin protection.", "mainEntityOfPage": "https://loopaware.mprlab.com/resources/browser-error-capture", "author": { "@type": "Organization", "name": "Marco Polo Research Lab" } }
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Browser Error Capture",
+        "description": "Capture browser JavaScript errors in LoopAware LA Sentry with allowed-origin protection.",
+        "mainEntityOfPage": "https://loopaware.mprlab.com/resources/browser-error-capture/",
+        "author": {
+          "@type": "Organization",
+          "name": "Marco Polo Research Lab",
+          "url": "https://mprlab.com"
+        },
+        "datePublished": "2026-07-03",
+        "dateModified": "2026-07-06",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Marco Polo Research Lab",
+          "url": "https://mprlab.com"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://loopaware.mprlab.com/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Resources",
+            "item": "https://loopaware.mprlab.com/resources/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Browser Error Capture",
+            "item": "https://loopaware.mprlab.com/resources/browser-error-capture/"
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "When should teams use this browser error capture guide?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Capture browser JavaScript errors in LoopAware LA Sentry with allowed-origin protection instead of exposing a server-side ingest token. It is useful when developer errors should be reviewed beside site feedback and traffic instead of in a separate monitoring view."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What should teams verify after setup?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Confirm the workflow is tied to the correct LoopAware site, then check the first dashboard records with the people who will act on them."
+            }
+          }
+        ]
+      }
     </script>
   </head>
   <body class="landing-body resource-body d-flex flex-column min-vh-100 bg-body text-body" data-bs-theme="dark">
@@ -29,7 +97,7 @@
         </span>
         <span>LoopAware</span>
       </a>
-      <a slot="nav-right" href="/pricing">Pricing</a>
+      <a slot="nav-right" href="/pricing/">Pricing</a>
       <mpr-user
         slot="aux"
         data-loopaware-user-menu="true"
@@ -46,7 +114,7 @@
             <p class="resource-kicker">LA Sentry browser</p>
             <h1>Browser JavaScript error capture</h1>
             <p class="resource-lede">LoopAware's browser LA Sentry harness captures unhandled errors and rejections through an origin-bound public endpoint so frontend failures can be reviewed beside site feedback and traffic.</p>
-            <div class="resource-actions"><a class="resource-cta" href="/login">Open LA Sentry</a><a class="resource-secondary" href="/resources/la-sentry-monitoring">LA Sentry overview</a></div>
+            <div class="resource-actions"><a class="resource-cta" href="/login">Open LA Sentry</a><a class="resource-secondary" href="/resources/la-sentry-monitoring/">LA Sentry overview</a></div>
           </div>
           <aside class="resource-proof" aria-label="Browser error capture preview">
             <div class="resource-proof-header"><span class="resource-dot"></span><span class="resource-dot"></span><span class="resource-dot"></span><span>browser errors</span></div>
@@ -61,9 +129,28 @@
       <section class="resource-section"><div class="resource-container resource-split"><div><h2>Why browser capture is separate</h2><p class="resource-lede">A browser script cannot safely hold a protected server-side token. LoopAware uses a dedicated browser ingest path that validates the configured site ID and allowed origin instead.</p></div><pre class="resource-code"><code>&lt;script src="https://loopaware.mprlab.com/la-sentry.js" data-site-id="..."&gt;&lt;/script&gt;</code></pre></div></section>
       <section class="resource-section"><div class="resource-container"><h2>What it captures</h2><div class="resource-grid"><article class="resource-card"><h3>Unhandled errors</h3><p>Capture runtime JavaScript failures that users may hit in production browsers.</p></article><article class="resource-card"><h3>Unhandled rejections</h3><p>Record failed async paths that otherwise disappear into console noise.</p></article><article class="resource-card"><h3>Manual errors</h3><p>Use the browser harness for explicit `LASentry.captureError` calls when code has known failure boundaries.</p></article></div></div></section>
       <section class="resource-section"><div class="resource-container resource-split"><div><h2>Limitations</h2><ul class="resource-list"><li>Browser capture does not expose the server-side LA Sentry ingest token.</li><li>Source map upload and source-map resolution are outside the current repository surface.</li><li>Private visitor data should not be added to browser error attributes.</li></ul></div><div class="resource-card"><h3>Best fit</h3><p>Use browser capture for public frontend errors that need to be triaged by the same team reviewing site signals.</p></div></div></section>
-      <section class="resource-section resource-related"><div class="resource-container"><h2>Related pages</h2><div class="resource-grid"><article class="resource-card"><h3><a href="/resources/server-side-error-capture">Server-side error capture</a></h3><p>Use protected tokens for Go and Python services.</p></article><article class="resource-card"><h3><a href="/resources/sentry-issue-triage">LA Sentry issue triage</a></h3><p>Review grouped issues and status changes.</p></article><article class="resource-card"><h3><a href="/resources/multi-origin-feedback">Multi-origin feedback setup</a></h3><p>Understand the allowed-origin protection model.</p></article></div></div></section>
+      <section class="resource-section resource-depth">
+        <div class="resource-container resource-split">
+          <div>
+            <h2>Implementation checklist</h2>
+            <ul class="resource-list">
+              <li>Confirm the LoopAware site, browser origin, or protected server ingest token before sending developer errors.</li>
+              <li>Capture one known error and verify the grouped issue includes enough context for triage.</li>
+              <li>Assign owners or team members who will review unresolved, resolved, and ignored issue states.</li>
+            </ul>
+          </div>
+          <div class="resource-card resource-faq">
+            <h2>Common questions</h2>
+            <h3>When should teams use this browser error capture guide?</h3>
+            <p>Capture browser JavaScript errors in LoopAware LA Sentry with allowed-origin protection instead of exposing a server-side ingest token. It is useful when developer errors should be reviewed beside site feedback and traffic instead of in a separate monitoring view.</p>
+            <h3>What should teams verify after setup?</h3>
+            <p>Confirm the workflow is tied to the correct LoopAware site, then check the first dashboard records with the people who will act on them.</p>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section resource-related"><div class="resource-container"><h2>Related pages</h2><div class="resource-grid"><article class="resource-card"><h3><a href="/resources/server-side-error-capture/">Server-side error capture</a></h3><p>Use protected tokens for Go and Python services.</p></article><article class="resource-card"><h3><a href="/resources/sentry-issue-triage/">LA Sentry issue triage</a></h3><p>Review grouped issues and status changes.</p></article><article class="resource-card"><h3><a href="/resources/multi-origin-feedback/">Multi-origin feedback setup</a></h3><p>Understand the allowed-origin protection model.</p></article></div></div></section>
     </main>
-    <mpr-footer id="resource-footer" class="mt-auto" sticky="false" element-id="resource-footer-root" base-class="mpr-footer landing-footer border-top py-2" inner-element-id="resource-footer-inner" inner-class="mpr-footer__inner" wrapper-class="mpr-footer__layout" brand-wrapper-class="mpr-footer__brand" menu-wrapper-class="mpr-footer__menu-wrapper" prefix-class="mpr-footer__prefix" prefix-text="Built by Marco Polo Research Lab" toggle-button-id="" toggle-button-class="mpr-footer__menu-button" toggle-label="Built by Marco Polo Research Lab" menu-class="mpr-footer__menu" menu-item-class="mpr-footer__menu-item" privacy-link-class="mpr-footer__privacy" privacy-link-href="/privacy" privacy-link-label="Privacy" horizontal-links='{&quot;alignment&quot;:&quot;left&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Terms of Service&quot;,&quot;href&quot;:&quot;/terms&quot;},{&quot;label&quot;:&quot;Resources&quot;,&quot;href&quot;:&quot;/resources&quot;},{&quot;label&quot;:&quot;Pricing&quot;,&quot;href&quot;:&quot;/pricing&quot;}]}' links-collection='{&quot;style&quot;:&quot;drop-up&quot;,&quot;text&quot;:&quot;Built by Marco Polo Research Lab&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Marco Polo Research Lab&quot;,&quot;url&quot;:&quot;https://mprlab.com&quot;},{&quot;label&quot;:&quot;Gravity Notes&quot;,&quot;url&quot;:&quot;https://gravity.mprlab.com&quot;},{&quot;label&quot;:&quot;LoopAware&quot;,&quot;url&quot;:&quot;https://loopaware.mprlab.com&quot;},{&quot;label&quot;:&quot;Allergy Wheel&quot;,&quot;url&quot;:&quot;https://allergy.mprlab.com&quot;},{&quot;label&quot;:&quot;Social Threader&quot;,&quot;url&quot;:&quot;https://threader.mprlab.com&quot;},{&quot;label&quot;:&quot;RSVP&quot;,&quot;url&quot;:&quot;https://rsvp.mprlab.com&quot;},{&quot;label&quot;:&quot;Countdown Calendar&quot;,&quot;url&quot;:&quot;https://countdown.mprlab.com&quot;},{&quot;label&quot;:&quot;LLM Crossword&quot;,&quot;url&quot;:&quot;https://llm-crossword.mprlab.com&quot;},{&quot;label&quot;:&quot;Prompt Bubbles&quot;,&quot;url&quot;:&quot;https://prompts.mprlab.com&quot;},{&quot;label&quot;:&quot;Wallpapers&quot;,&quot;url&quot;:&quot;https://wallpapers.mprlab.com&quot;}]}' theme-switcher="toggle" theme-config='{&quot;attribute&quot;:&quot;data-bs-theme&quot;,&quot;ariaLabel&quot;:&quot;Toggle theme&quot;,&quot;modes&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;initialMode&quot;:&quot;dark&quot;}'></mpr-footer>
+    <mpr-footer id="resource-footer" class="mt-auto" sticky="false" element-id="resource-footer-root" base-class="mpr-footer landing-footer border-top py-2" inner-element-id="resource-footer-inner" inner-class="mpr-footer__inner" wrapper-class="mpr-footer__layout" brand-wrapper-class="mpr-footer__brand" menu-wrapper-class="mpr-footer__menu-wrapper" prefix-class="mpr-footer__prefix" prefix-text="Built by Marco Polo Research Lab" toggle-button-id="" toggle-button-class="mpr-footer__menu-button" toggle-label="Built by Marco Polo Research Lab" menu-class="mpr-footer__menu" menu-item-class="mpr-footer__menu-item" privacy-link-class="mpr-footer__privacy" privacy-link-href="/privacy/" privacy-link-label="Privacy" horizontal-links='{&quot;alignment&quot;:&quot;left&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Terms of Service&quot;,&quot;href&quot;:&quot;/terms/&quot;},{&quot;label&quot;:&quot;Resources&quot;,&quot;href&quot;:&quot;/resources/&quot;},{&quot;label&quot;:&quot;Pricing&quot;,&quot;href&quot;:&quot;/pricing/&quot;}]}' links-collection='{&quot;style&quot;:&quot;drop-up&quot;,&quot;text&quot;:&quot;Built by Marco Polo Research Lab&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Marco Polo Research Lab&quot;,&quot;url&quot;:&quot;https://mprlab.com&quot;},{&quot;label&quot;:&quot;Gravity Notes&quot;,&quot;url&quot;:&quot;https://gravity.mprlab.com&quot;},{&quot;label&quot;:&quot;LoopAware&quot;,&quot;url&quot;:&quot;https://loopaware.mprlab.com&quot;},{&quot;label&quot;:&quot;Allergy Wheel&quot;,&quot;url&quot;:&quot;https://allergy.mprlab.com&quot;},{&quot;label&quot;:&quot;Social Threader&quot;,&quot;url&quot;:&quot;https://threader.mprlab.com&quot;},{&quot;label&quot;:&quot;RSVP&quot;,&quot;url&quot;:&quot;https://rsvp.mprlab.com&quot;},{&quot;label&quot;:&quot;Countdown Calendar&quot;,&quot;url&quot;:&quot;https://countdown.mprlab.com&quot;},{&quot;label&quot;:&quot;LLM Crossword&quot;,&quot;url&quot;:&quot;https://llm-crossword.mprlab.com&quot;},{&quot;label&quot;:&quot;Prompt Bubbles&quot;,&quot;url&quot;:&quot;https://prompts.mprlab.com&quot;},{&quot;label&quot;:&quot;Wallpapers&quot;,&quot;url&quot;:&quot;https://wallpapers.mprlab.com&quot;}]}' theme-switcher="toggle" theme-config='{&quot;attribute&quot;:&quot;data-bs-theme&quot;,&quot;ariaLabel&quot;:&quot;Toggle theme&quot;,&quot;modes&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;initialMode&quot;:&quot;dark&quot;}'></mpr-footer>
     <div id="logout-overlay" class="d-none position-fixed top-0 start-0 w-100 h-100 bg-body d-flex align-items-center justify-content-center">
       <div class="text-center">
         <div class="spinner-border text-primary mb-3" role="status">

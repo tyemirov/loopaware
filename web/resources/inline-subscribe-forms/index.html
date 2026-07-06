@@ -6,7 +6,7 @@
     <title>Inline Subscribe Forms | LoopAware</title>
     <meta name="description" content="Embed LoopAware inline subscribe forms with mode, accent, CTA, success, error, and name-field options for public landing pages." />
     <meta name="robots" content="index,follow,max-image-preview:large" />
-    <link rel="canonical" href="https://loopaware.mprlab.com/resources/inline-subscribe-forms" />
+    <link rel="canonical" href="https://loopaware.mprlab.com/resources/inline-subscribe-forms/" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
     <link id="mpr-ui-style" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" />
@@ -18,7 +18,75 @@
     <script src="/runtime-env.js"></script>
     <link rel="manifest" href="/site.webmanifest" />
     <script type="application/ld+json">
-      { "@context": "https://schema.org", "@type": "Article", "headline": "Inline Subscribe Forms", "description": "Embed LoopAware inline subscribe forms with mode, accent, CTA, success, error, and name-field options.", "mainEntityOfPage": "https://loopaware.mprlab.com/resources/inline-subscribe-forms", "author": { "@type": "Organization", "name": "Marco Polo Research Lab" } }
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Inline Subscribe Forms",
+        "description": "Embed LoopAware inline subscribe forms with mode, accent, CTA, success, error, and name-field options.",
+        "mainEntityOfPage": "https://loopaware.mprlab.com/resources/inline-subscribe-forms/",
+        "author": {
+          "@type": "Organization",
+          "name": "Marco Polo Research Lab",
+          "url": "https://mprlab.com"
+        },
+        "datePublished": "2026-07-03",
+        "dateModified": "2026-07-06",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Marco Polo Research Lab",
+          "url": "https://mprlab.com"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://loopaware.mprlab.com/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Resources",
+            "item": "https://loopaware.mprlab.com/resources/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Inline Subscribe Forms",
+            "item": "https://loopaware.mprlab.com/resources/inline-subscribe-forms/"
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "When should teams use this inline subscribe forms guide?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Embed LoopAware inline subscribe forms with mode, accent, CTA, success, error, and name-field options for public landing pages. It is a fit when subscriber capture needs to live beside feedback, traffic, and team access instead of in a disconnected list tool."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What should teams verify after setup?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Confirm the workflow is tied to the correct LoopAware site, then check the first dashboard records with the people who will act on them."
+            }
+          }
+        ]
+      }
     </script>
   </head>
   <body class="landing-body resource-body d-flex flex-column min-vh-100 bg-body text-body" data-bs-theme="dark">
@@ -29,7 +97,7 @@
         </span>
         <span>LoopAware</span>
       </a>
-      <a slot="nav-right" href="/pricing">Pricing</a>
+      <a slot="nav-right" href="/pricing/">Pricing</a>
       <mpr-user
         slot="aux"
         data-loopaware-user-menu="true"
@@ -46,7 +114,7 @@
             <p class="resource-kicker">Embeds</p>
             <h1>Inline subscribe forms for landing pages</h1>
             <p class="resource-lede">LoopAware's subscribe script can render an inline form with copy and display options, so a launch page can collect interest without building a custom backend endpoint.</p>
-            <div class="resource-actions"><a class="resource-cta" href="/login">Copy subscribe snippet</a><a class="resource-secondary" href="/resources/subscriber-capture">Subscriber capture guide</a></div>
+            <div class="resource-actions"><a class="resource-cta" href="/login">Copy subscribe snippet</a><a class="resource-secondary" href="/resources/subscriber-capture/">Subscriber capture guide</a></div>
           </div>
           <aside class="resource-proof" aria-label="Inline form preview">
             <div class="resource-proof-header"><span class="resource-dot"></span><span class="resource-dot"></span><span class="resource-dot"></span><span>subscribe.js</span></div>
@@ -61,9 +129,28 @@
       <section class="resource-section"><div class="resource-container resource-split"><div><h2>Why inline matters</h2><p class="resource-lede">Some pages need a subscriber form in the body, not a floating widget. Inline mode keeps the form where the offer appears while still using LoopAware's public subscription endpoint and subscriber dashboard.</p></div><pre class="resource-code"><code>&lt;script defer src="https://loopaware.mprlab.com/subscribe.js?site_id=YOUR_SITE_ID&amp;amp;mode=inline"&gt;&lt;/script&gt;</code></pre></div></section>
       <section class="resource-section"><div class="resource-container"><h2>Configurable form details</h2><div class="resource-grid"><article class="resource-card"><h3>Mode and accent</h3><p>Render inline and set an accent color that matches the surrounding section.</p></article><article class="resource-card"><h3>CTA and messages</h3><p>Customize button text plus success and error copy for the page context.</p></article><article class="resource-card"><h3>Name field choice</h3><p>Collect only email when speed matters, or include name when follow-up needs it.</p></article></div></div></section>
       <section class="resource-section"><div class="resource-container resource-split"><div><h2>Limitations</h2><ul class="resource-list"><li>The form captures subscriber interest; it does not send newsletter campaigns.</li><li>Allowed-origin validation still controls where public subscription requests can come from.</li><li>Embedded copy should match the page's privacy and communication expectations.</li></ul></div><div class="resource-card"><h3>Best fit</h3><p>Use this on launch pages, product waitlists, and documentation sign-up blocks where the form should live in the page flow.</p></div></div></section>
-      <section class="resource-section resource-related"><div class="resource-container"><h2>Related pages</h2><div class="resource-grid"><article class="resource-card"><h3><a href="/resources/subscriber-confirmation-flow">Subscriber confirmation flow</a></h3><p>See how submitted addresses move through confirmation.</p></article><article class="resource-card"><h3><a href="/resources/subscriber-csv-export">Subscriber CSV export</a></h3><p>Export captured subscriber records when another system needs them.</p></article><article class="resource-card"><h3><a href="/resources/multi-origin-feedback">Multi-origin public collection</a></h3><p>Understand the allowed-origin model shared by public embeds.</p></article></div></div></section>
+      <section class="resource-section resource-depth">
+        <div class="resource-container resource-split">
+          <div>
+            <h2>Implementation checklist</h2>
+            <ul class="resource-list">
+              <li>Confirm the LoopAware site and public origin that will host the subscriber form or confirmation links.</li>
+              <li>Decide how pending, confirmed, unsubscribed, exported, and deleted subscriber records should be handled by the operator team.</li>
+              <li>Test one subscription path end to end before adding the form to every page that needs list growth.</li>
+            </ul>
+          </div>
+          <div class="resource-card resource-faq">
+            <h2>Common questions</h2>
+            <h3>When should teams use this inline subscribe forms guide?</h3>
+            <p>Embed LoopAware inline subscribe forms with mode, accent, CTA, success, error, and name-field options for public landing pages. It is a fit when subscriber capture needs to live beside feedback, traffic, and team access instead of in a disconnected list tool.</p>
+            <h3>What should teams verify after setup?</h3>
+            <p>Confirm the workflow is tied to the correct LoopAware site, then check the first dashboard records with the people who will act on them.</p>
+          </div>
+        </div>
+      </section>
+      <section class="resource-section resource-related"><div class="resource-container"><h2>Related pages</h2><div class="resource-grid"><article class="resource-card"><h3><a href="/resources/subscriber-confirmation-flow/">Subscriber confirmation flow</a></h3><p>See how submitted addresses move through confirmation.</p></article><article class="resource-card"><h3><a href="/resources/subscriber-csv-export/">Subscriber CSV export</a></h3><p>Export captured subscriber records when another system needs them.</p></article><article class="resource-card"><h3><a href="/resources/multi-origin-feedback/">Multi-origin public collection</a></h3><p>Understand the allowed-origin model shared by public embeds.</p></article></div></div></section>
     </main>
-    <mpr-footer id="resource-footer" class="mt-auto" sticky="false" element-id="resource-footer-root" base-class="mpr-footer landing-footer border-top py-2" inner-element-id="resource-footer-inner" inner-class="mpr-footer__inner" wrapper-class="mpr-footer__layout" brand-wrapper-class="mpr-footer__brand" menu-wrapper-class="mpr-footer__menu-wrapper" prefix-class="mpr-footer__prefix" prefix-text="Built by Marco Polo Research Lab" toggle-button-id="" toggle-button-class="mpr-footer__menu-button" toggle-label="Built by Marco Polo Research Lab" menu-class="mpr-footer__menu" menu-item-class="mpr-footer__menu-item" privacy-link-class="mpr-footer__privacy" privacy-link-href="/privacy" privacy-link-label="Privacy" horizontal-links='{&quot;alignment&quot;:&quot;left&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Terms of Service&quot;,&quot;href&quot;:&quot;/terms&quot;},{&quot;label&quot;:&quot;Resources&quot;,&quot;href&quot;:&quot;/resources&quot;},{&quot;label&quot;:&quot;Pricing&quot;,&quot;href&quot;:&quot;/pricing&quot;}]}' links-collection='{&quot;style&quot;:&quot;drop-up&quot;,&quot;text&quot;:&quot;Built by Marco Polo Research Lab&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Marco Polo Research Lab&quot;,&quot;url&quot;:&quot;https://mprlab.com&quot;},{&quot;label&quot;:&quot;Gravity Notes&quot;,&quot;url&quot;:&quot;https://gravity.mprlab.com&quot;},{&quot;label&quot;:&quot;LoopAware&quot;,&quot;url&quot;:&quot;https://loopaware.mprlab.com&quot;},{&quot;label&quot;:&quot;Allergy Wheel&quot;,&quot;url&quot;:&quot;https://allergy.mprlab.com&quot;},{&quot;label&quot;:&quot;Social Threader&quot;,&quot;url&quot;:&quot;https://threader.mprlab.com&quot;},{&quot;label&quot;:&quot;RSVP&quot;,&quot;url&quot;:&quot;https://rsvp.mprlab.com&quot;},{&quot;label&quot;:&quot;Countdown Calendar&quot;,&quot;url&quot;:&quot;https://countdown.mprlab.com&quot;},{&quot;label&quot;:&quot;LLM Crossword&quot;,&quot;url&quot;:&quot;https://llm-crossword.mprlab.com&quot;},{&quot;label&quot;:&quot;Prompt Bubbles&quot;,&quot;url&quot;:&quot;https://prompts.mprlab.com&quot;},{&quot;label&quot;:&quot;Wallpapers&quot;,&quot;url&quot;:&quot;https://wallpapers.mprlab.com&quot;}]}' theme-switcher="toggle" theme-config='{&quot;attribute&quot;:&quot;data-bs-theme&quot;,&quot;ariaLabel&quot;:&quot;Toggle theme&quot;,&quot;modes&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;initialMode&quot;:&quot;dark&quot;}'></mpr-footer>
+    <mpr-footer id="resource-footer" class="mt-auto" sticky="false" element-id="resource-footer-root" base-class="mpr-footer landing-footer border-top py-2" inner-element-id="resource-footer-inner" inner-class="mpr-footer__inner" wrapper-class="mpr-footer__layout" brand-wrapper-class="mpr-footer__brand" menu-wrapper-class="mpr-footer__menu-wrapper" prefix-class="mpr-footer__prefix" prefix-text="Built by Marco Polo Research Lab" toggle-button-id="" toggle-button-class="mpr-footer__menu-button" toggle-label="Built by Marco Polo Research Lab" menu-class="mpr-footer__menu" menu-item-class="mpr-footer__menu-item" privacy-link-class="mpr-footer__privacy" privacy-link-href="/privacy/" privacy-link-label="Privacy" horizontal-links='{&quot;alignment&quot;:&quot;left&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Terms of Service&quot;,&quot;href&quot;:&quot;/terms/&quot;},{&quot;label&quot;:&quot;Resources&quot;,&quot;href&quot;:&quot;/resources/&quot;},{&quot;label&quot;:&quot;Pricing&quot;,&quot;href&quot;:&quot;/pricing/&quot;}]}' links-collection='{&quot;style&quot;:&quot;drop-up&quot;,&quot;text&quot;:&quot;Built by Marco Polo Research Lab&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Marco Polo Research Lab&quot;,&quot;url&quot;:&quot;https://mprlab.com&quot;},{&quot;label&quot;:&quot;Gravity Notes&quot;,&quot;url&quot;:&quot;https://gravity.mprlab.com&quot;},{&quot;label&quot;:&quot;LoopAware&quot;,&quot;url&quot;:&quot;https://loopaware.mprlab.com&quot;},{&quot;label&quot;:&quot;Allergy Wheel&quot;,&quot;url&quot;:&quot;https://allergy.mprlab.com&quot;},{&quot;label&quot;:&quot;Social Threader&quot;,&quot;url&quot;:&quot;https://threader.mprlab.com&quot;},{&quot;label&quot;:&quot;RSVP&quot;,&quot;url&quot;:&quot;https://rsvp.mprlab.com&quot;},{&quot;label&quot;:&quot;Countdown Calendar&quot;,&quot;url&quot;:&quot;https://countdown.mprlab.com&quot;},{&quot;label&quot;:&quot;LLM Crossword&quot;,&quot;url&quot;:&quot;https://llm-crossword.mprlab.com&quot;},{&quot;label&quot;:&quot;Prompt Bubbles&quot;,&quot;url&quot;:&quot;https://prompts.mprlab.com&quot;},{&quot;label&quot;:&quot;Wallpapers&quot;,&quot;url&quot;:&quot;https://wallpapers.mprlab.com&quot;}]}' theme-switcher="toggle" theme-config='{&quot;attribute&quot;:&quot;data-bs-theme&quot;,&quot;ariaLabel&quot;:&quot;Toggle theme&quot;,&quot;modes&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;initialMode&quot;:&quot;dark&quot;}'></mpr-footer>
     <div id="logout-overlay" class="d-none position-fixed top-0 start-0 w-100 h-100 bg-body d-flex align-items-center justify-content-center">
       <div class="text-center">
         <div class="spinner-border text-primary mb-3" role="status">

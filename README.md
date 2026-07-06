@@ -212,7 +212,9 @@ origin. The dashboard and login pages call `/api` and `/auth` relative to the fr
 deployments should use a reverse proxy or update the static HTML in `web/` to point at those services.
 The tracked runtime host mapping lives in `web/config.yml`, which `web/runtime-env.js` fetches directly at runtime.
 Canonical SEO metadata, Open Graph URLs, `robots.txt`, and `sitemap.xml` are fixed to the single public site
-`https://loopaware.mprlab.com` and are not environment-specific.
+`https://loopaware.mprlab.com` and are not environment-specific. The public resource hub lives at
+`https://loopaware.mprlab.com/resources/` and links focused guides for feedback, subscriber workflows, traffic analytics,
+uptime checks, access control, self-hosted deployments, and LA Sentry monitoring.
 Each environment may also define `services.siteWidgetSiteId` there to bootstrap the first-party feedback widget on
 `/login` and `/app` without hard-coding a site UUID into the static HTML.
 
