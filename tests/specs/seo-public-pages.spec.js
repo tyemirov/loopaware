@@ -196,7 +196,7 @@ test('login page exposes canonical SEO metadata', async ({ request }) => {
   expect(html).toContain('<meta property="og:url" content="https://loopaware.mprlab.com/" />');
   expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
   expect(html).toContain('href="/resources/"');
-  expect(html).not.toContain('<a slot="nav-right" href="/resources/">Resources</a>');
+  expect(html).not.toContain('<a slot="nav-right"');
   expect(html).toContain('"@type": "SoftwareApplication"');
 });
 
@@ -208,7 +208,7 @@ test('pricing page exposes pricing metadata and faq schema', async ({ request })
   expect(html).toContain('<link rel="canonical" href="https://loopaware.mprlab.com/pricing/" />');
   expect(html).toContain('LoopAware Pricing | Free, Pro, and Business plans');
   expect(html).toContain('"@type": "FAQPage"');
-  expect(html).not.toContain('<a slot="nav-right" href="/resources/">Resources</a>');
+  expect(html).not.toContain('<a slot="nav-right"');
   expect(html).toContain('"name": "Pro"');
   expect(html).toContain('"price": "39"');
 });
@@ -259,8 +259,7 @@ test('resource pages are crawlable and internally linked', async ({ request }) =
     expect(html).toContain('"@type": "BreadcrumbList"');
     expect(html).toContain('<mpr-footer id="resource-footer" class="mt-auto" sticky="false"');
     expect(html).toContain('horizontal-links=\'{&quot;alignment&quot;:&quot;left&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Terms of Service&quot;,&quot;href&quot;:&quot;/terms/&quot;},{&quot;label&quot;:&quot;Resources&quot;,&quot;href&quot;:&quot;/resources/&quot;},{&quot;label&quot;:&quot;Pricing&quot;,&quot;href&quot;:&quot;/pricing/&quot;}]}\'');
-    expect(html).not.toContain('<a slot="nav-right" href="/resources/">Resources</a>');
-    expect(html).toContain('href="/pricing/">Pricing</a>');
+    expect(html).not.toContain('<a slot="nav-right"');
     expect(html).toContain('<script type="module" src="/resources/public-theme.js"></script>');
     expect(html).toContain('<script src="/header-auth.js"></script>');
     expect(html).toContain('LoopAware');

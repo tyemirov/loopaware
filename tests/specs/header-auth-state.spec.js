@@ -230,6 +230,16 @@ async function expectFooterUtilityLinks(
 }
 
 /**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function expectPublicHeaderWithoutUtilityLinks(page) {
+  await expect(page.locator('mpr-header > header.mpr-header')).toBeVisible();
+  await expect(page.locator('mpr-header a[slot="nav-right"]')).toHaveCount(0);
+  await expect(page.locator('mpr-header .mpr-header__nav a')).toHaveCount(0);
+}
+
+/**
  * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
  * @returns {string}
  */
@@ -734,10 +744,12 @@ for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
 test('public pages render privacy separately and inline utility links before the toggle', async ({ page }) => {
   const publicSiteUtilityLinks = ['Terms of Service', 'Resources', 'Pricing'];
   await openPageWithoutSession(page, '/login');
+  await expectPublicHeaderWithoutUtilityLinks(page);
   await expectFooterUtilityLinks(page, publicSiteUtilityLinks);
 
   for (const { path } of PUBLIC_LOGIN_ENTRY_CASES) {
     await page.goto(path, { waitUntil: 'domcontentloaded' });
+    await expectPublicHeaderWithoutUtilityLinks(page);
     const expectedLinks = path.startsWith('/subscriptions/')
       ? ['Terms of Service', 'Pricing']
       : publicSiteUtilityLinks;
