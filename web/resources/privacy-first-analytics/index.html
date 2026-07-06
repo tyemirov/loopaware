@@ -6,14 +6,22 @@
     <title>Privacy-First Website Analytics | LoopAware</title>
     <meta name="description" content="LoopAware privacy-first analytics track visits, unique visitors, top pages, devices, locations, and attribution signals without forcing small teams into a heavy analytics suite." />
     <meta name="robots" content="index,follow,max-image-preview:large" />
-    <link rel="canonical" href="https://loopaware.mprlab.com/resources/privacy-first-analytics" />
+    <link rel="canonical" href="https://loopaware.mprlab.com/resources/privacy-first-analytics/" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
+    <link id="mpr-ui-style" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" />
     <link rel="stylesheet" href="/resources/styles.css" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20256%20256%22%3E%3Cpath%20stroke%3D%22%23D4AF37%22%20fill%3D%22none%22%20stroke-width%3D%2210%22%20stroke-linejoin%3D%22round%22%20d%3D%22M%2032%20128%20C%2072%2056%2C%20184%2056%2C%20224%20128%20C%20184%20200%2C%2072%20200%2C%2032%20128%20Z%22%2F%3E%3Ccircle%20cx%3D%22128%22%20cy%3D%22128%22%20r%3D%2248%22%20stroke%3D%22%23D4AF37%22%20fill%3D%22none%22%20stroke-width%3D%228%22%2F%3E%3Cpath%20stroke%3D%22%23D4AF37%22%20fill%3D%22none%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M%2096%20128%20C%2096%20108%2C%20128%20108%2C%20128%20128%20C%20128%20148%2C%20160%20148%2C%20160%20128%20C%20160%20108%2C%20128%20108%2C%20128%20128%20C%20128%20148%2C%2096%20148%2C%2096%20128%22%2F%3E%3C%2Fsvg%3E" />
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui-config.js"></script>
+    <script id="mpr-ui-bundle" type="application/json" data-mpr-ui-bundle-src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js"></script>
+    <script src="/runtime-env.js"></script>
     <link rel="manifest" href="/site.webmanifest" />
     <meta property="og:type" content="article" />
     <meta property="og:site_name" content="LoopAware" />
     <meta property="og:title" content="Privacy-First Website Analytics" />
     <meta property="og:description" content="Understand page visits and visitor context from a lightweight traffic pixel tied to your feedback dashboard." />
-    <meta property="og:url" content="https://loopaware.mprlab.com/resources/privacy-first-analytics" />
+    <meta property="og:url" content="https://loopaware.mprlab.com/resources/privacy-first-analytics/" />
     <meta property="og:image" content="https://loopaware.mprlab.com/loopaware-logo-512x512.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Privacy-First Website Analytics" />
@@ -25,26 +33,97 @@
         "@type": "Article",
         "headline": "Privacy-First Website Analytics",
         "description": "LoopAware privacy-first analytics track visits, unique visitors, top pages, devices, locations, and attribution signals without forcing small teams into a heavy analytics suite.",
-        "mainEntityOfPage": "https://loopaware.mprlab.com/resources/privacy-first-analytics",
-        "publisher": { "@type": "Organization", "name": "Marco Polo Research Lab", "url": "https://mprlab.com" }
+        "mainEntityOfPage": "https://loopaware.mprlab.com/resources/privacy-first-analytics/",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Marco Polo Research Lab",
+          "url": "https://mprlab.com"
+        },
+        "datePublished": "2026-07-03",
+        "dateModified": "2026-07-06",
+        "author": {
+          "@type": "Organization",
+          "name": "Marco Polo Research Lab",
+          "url": "https://mprlab.com"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://loopaware.mprlab.com/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Resources",
+            "item": "https://loopaware.mprlab.com/resources/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Privacy-First Website Analytics",
+            "item": "https://loopaware.mprlab.com/resources/privacy-first-analytics/"
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "When should teams use this privacy first analytics guide?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "LoopAware privacy-first analytics track visits, unique visitors, top pages, devices, locations, and attribution signals without forcing small teams into a heavy analytics suite. It works best when the team needs practical page-level traffic context inside the same LoopAware site workspace."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What should teams verify after setup?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Confirm the workflow is tied to the correct LoopAware site, then check the first dashboard records with the people who will act on them."
+            }
+          }
+        ]
       }
     </script>
   </head>
-  <body>
-    <header class="resource-header">
-      <nav class="resource-nav" aria-label="Primary">
-        <a class="resource-brand" href="/login"><img src="/loopaware-logo-120x120.png" alt="" width="36" height="36" /><span>LoopAware</span></a>
-        <div class="resource-links"><a href="/resources">Resources</a><a href="/pricing">Pricing</a><a class="resource-cta" href="/login">Sign in</a></div>
-      </nav>
-    </header>
-    <main>
+  <body class="landing-body resource-body d-flex flex-column min-vh-100 bg-body text-body" data-bs-theme="dark">
+    <mpr-header data-config-url="/config-ui.yaml" data-loopaware-auth-redirect="true" class="landing-header resource-site-header" sign-in-label="Login" sign-out-label="Logout" settings="false" auth-transition='{&quot;title&quot;:&quot;Opening LoopAware&quot;,&quot;message&quot;:&quot;Preparing your authenticated workspace.&quot;}'>
+      <a slot="brand" class="landing-brand d-inline-flex align-items-center gap-3 text-decoration-none" href="/login" data-public-hero="true" data-loopaware-auth-home-link="true">
+        <span class="landing-logo">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij4KICA8cGF0aCBzdHJva2U9IiNENEFGMzciIGZpbGw9Im5vbmUiIHN0cm9rZS13aWR0aD0iMTAiIHN0cm9rZS1saW5lam9pbj0icm91bmQiCiAgICBkPSJNIDMyIDEyOCBDIDcyIDU2LCAxODQgNTYsIDIyNCAxMjggQyAxODQgMjAwLCA3MiAyMDAsIDMyIDEyOCBaIi8+CiAgPGNpcmNsZSBjeD0iMTI4IiBjeT0iMTI4IiByPSI0OCIgc3Ryb2tlPSIjRDRBRjM3IiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjgiLz4KICA8cGF0aCBzdHJva2U9IiNENEFGMzciIGZpbGw9Im5vbmUiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIgogICAgZD0iTSA5NiAxMjggQyA5NiAxMDgsIDEyOCAxMDgsIDEyOCAxMjgKICAgICAgIEMgMTI4IDE0OCwgMTYwIDE0OCwgMTYwIDEyOAogICAgICAgQyAxNjAgMTA4LCAxMjggMTA4LCAxMjggMTI4CiAgICAgICBDIDEyOCAxNDgsIDk2IDE0OCwgOTYgMTI4Ii8+Cjwvc3ZnPgo=" alt="LoopAware logo" class="landing-logo-image" />
+        </span>
+        <span>LoopAware</span>
+      </a>
+      <mpr-user
+        slot="aux"
+        data-loopaware-user-menu="true"
+        display-mode="avatar"
+        logout-url="/login"
+        logout-label="Logout"
+        menu-items='[{&quot;label&quot;:&quot;Account Settings&quot;,&quot;href&quot;:&quot;/app&quot;}]'
+      ></mpr-user>
+    </mpr-header>
+    <main class="flex-grow-1">
       <section class="resource-hero">
         <div class="resource-container resource-hero-grid">
           <div>
             <p class="resource-kicker">Privacy-first analytics</p>
             <h1>Traffic context without analytics sprawl</h1>
             <p class="resource-lede">LoopAware analytics answer operational questions: which pages receive visits, which sources send traffic, which devices people use, and where visitor signals appear. The data stays tied to the same site that receives feedback and subscribers.</p>
-            <div class="resource-actions"><a class="resource-cta" href="/login">Review traffic</a><a class="resource-secondary" href="/resources/lightweight-analytics">See pixel setup</a></div>
+            <div class="resource-actions"><a class="resource-cta" href="/login">Review traffic</a><a class="resource-secondary" href="/resources/lightweight-analytics/">See pixel setup</a></div>
           </div>
           <aside class="resource-proof" aria-label="Traffic dashboard preview">
             <div class="resource-proof-header"><span class="resource-dot"></span><span class="resource-dot"></span><span class="resource-dot"></span><span>traffic analytics</span></div>
@@ -72,20 +151,50 @@
             <h2>Data minimization matters</h2>
             <p class="resource-lede">LoopAware is designed for site operators who need enough visibility to act. The traffic pixel records page visits and bounded browser context, while the dashboard keeps bot traffic out of default totals and makes CSV export explicit.</p>
           </div>
-          <div class="resource-note"><p>For teams that need a smaller setup surface, the <a href="/resources/lightweight-analytics">lightweight analytics page</a> focuses on the pixel install path.</p></div>
+          <div class="resource-note"><p>For teams that need a smaller setup surface, the <a href="/resources/lightweight-analytics/">lightweight analytics page</a> focuses on the pixel install path.</p></div>
+        </div>
+      </section>
+      <section class="resource-section resource-depth">
+        <div class="resource-container resource-split">
+          <div>
+            <h2>Implementation checklist</h2>
+            <ul class="resource-list">
+              <li>Install the traffic snippet or no-JavaScript fallback on one public page before expanding to the full site.</li>
+              <li>Confirm top pages, attribution, device, location, or export views show the context the team needs for decisions.</li>
+              <li>Use the dashboard summaries or scheduled emails to decide which pages deserve copy, feedback, or uptime follow-up.</li>
+            </ul>
+          </div>
+          <div class="resource-card resource-faq">
+            <h2>Common questions</h2>
+            <h3>When should teams use this privacy first analytics guide?</h3>
+            <p>LoopAware privacy-first analytics track visits, unique visitors, top pages, devices, locations, and attribution signals without forcing small teams into a heavy analytics suite. It works best when the team needs practical page-level traffic context inside the same LoopAware site workspace.</p>
+            <h3>What should teams verify after setup?</h3>
+            <p>Confirm the workflow is tied to the correct LoopAware site, then check the first dashboard records with the people who will act on them.</p>
+          </div>
         </div>
       </section>
       <section class="resource-section resource-related">
         <div class="resource-container">
           <h2>Useful next pages</h2>
           <div class="resource-grid">
-            <article class="resource-card"><h3><a href="/resources/traffic-report-emails">Traffic report emails</a></h3><p>Turn traffic context into scheduled summaries for site teams.</p></article>
-            <article class="resource-card"><h3><a href="/resources/subscriber-capture">Subscriber capture</a></h3><p>Connect page visits to the signups those pages produce.</p></article>
-            <article class="resource-card"><h3><a href="/resources/agency-client-sites">Agency client sites</a></h3><p>Report traffic across client sites without mixing customer ownership.</p></article>
+            <article class="resource-card"><h3><a href="/resources/traffic-report-emails/">Traffic report emails</a></h3><p>Turn traffic context into scheduled summaries for site teams.</p></article>
+            <article class="resource-card"><h3><a href="/resources/subscriber-capture/">Subscriber capture</a></h3><p>Connect page visits to the signups those pages produce.</p></article>
+            <article class="resource-card"><h3><a href="/resources/agency-client-sites/">Agency client sites</a></h3><p>Report traffic across client sites without mixing customer ownership.</p></article>
           </div>
         </div>
       </section>
     </main>
-    <footer class="resource-footer"><div class="resource-footer-inner"><span>LoopAware privacy-first analytics</span><div class="resource-footer-links"><a href="/resources">Resources</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div></footer>
+    <mpr-footer id="resource-footer" class="mt-auto" sticky="false" element-id="resource-footer-root" base-class="mpr-footer landing-footer border-top py-2" inner-element-id="resource-footer-inner" inner-class="mpr-footer__inner" wrapper-class="mpr-footer__layout" brand-wrapper-class="mpr-footer__brand" menu-wrapper-class="mpr-footer__menu-wrapper" prefix-class="mpr-footer__prefix" prefix-text="Built by Marco Polo Research Lab" toggle-button-id="" toggle-button-class="mpr-footer__menu-button" toggle-label="Built by Marco Polo Research Lab" menu-class="mpr-footer__menu" menu-item-class="mpr-footer__menu-item" privacy-link-class="mpr-footer__privacy" privacy-link-href="/privacy/" privacy-link-label="Privacy" horizontal-links='{&quot;alignment&quot;:&quot;left&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Terms of Service&quot;,&quot;href&quot;:&quot;/terms/&quot;},{&quot;label&quot;:&quot;Resources&quot;,&quot;href&quot;:&quot;/resources/&quot;},{&quot;label&quot;:&quot;Pricing&quot;,&quot;href&quot;:&quot;/pricing/&quot;}]}' links-collection='{&quot;style&quot;:&quot;drop-up&quot;,&quot;text&quot;:&quot;Built by Marco Polo Research Lab&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Marco Polo Research Lab&quot;,&quot;url&quot;:&quot;https://mprlab.com&quot;},{&quot;label&quot;:&quot;Gravity Notes&quot;,&quot;url&quot;:&quot;https://gravity.mprlab.com&quot;},{&quot;label&quot;:&quot;LoopAware&quot;,&quot;url&quot;:&quot;https://loopaware.mprlab.com&quot;},{&quot;label&quot;:&quot;Allergy Wheel&quot;,&quot;url&quot;:&quot;https://allergy.mprlab.com&quot;},{&quot;label&quot;:&quot;Social Threader&quot;,&quot;url&quot;:&quot;https://threader.mprlab.com&quot;},{&quot;label&quot;:&quot;RSVP&quot;,&quot;url&quot;:&quot;https://rsvp.mprlab.com&quot;},{&quot;label&quot;:&quot;Countdown Calendar&quot;,&quot;url&quot;:&quot;https://countdown.mprlab.com&quot;},{&quot;label&quot;:&quot;LLM Crossword&quot;,&quot;url&quot;:&quot;https://llm-crossword.mprlab.com&quot;},{&quot;label&quot;:&quot;Prompt Bubbles&quot;,&quot;url&quot;:&quot;https://prompts.mprlab.com&quot;},{&quot;label&quot;:&quot;Wallpapers&quot;,&quot;url&quot;:&quot;https://wallpapers.mprlab.com&quot;}]}' theme-switcher="toggle" theme-config='{&quot;attribute&quot;:&quot;data-bs-theme&quot;,&quot;ariaLabel&quot;:&quot;Toggle theme&quot;,&quot;modes&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;initialMode&quot;:&quot;dark&quot;}'></mpr-footer>
+    <div id="logout-overlay" class="d-none position-fixed top-0 start-0 w-100 h-100 bg-body d-flex align-items-center justify-content-center">
+      <div class="text-center">
+        <div class="spinner-border text-primary mb-3" role="status">
+          <span class="visually-hidden">Logging out...</span>
+        </div>
+        <h1 class="h4">Logging out...</h1>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script type="module" src="/resources/public-theme.js"></script>
+    <script src="/header-auth.js"></script>
   </body>
 </html>

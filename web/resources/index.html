@@ -6,8 +6,16 @@
     <title>LoopAware Resources | Feedback, analytics, subscribers, and LA Sentry</title>
     <meta name="description" content="Explore LoopAware resources for feedback widgets, mobile feedback, subscriber workflows, analytics, traffic reports, uptime checks, access control, and LA Sentry monitoring." />
     <meta name="robots" content="index,follow,max-image-preview:large" />
-    <link rel="canonical" href="https://loopaware.mprlab.com/resources" />
+    <link rel="canonical" href="https://loopaware.mprlab.com/resources/" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
+    <link id="mpr-ui-style" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" />
     <link rel="stylesheet" href="/resources/styles.css" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20256%20256%22%3E%3Cpath%20stroke%3D%22%23D4AF37%22%20fill%3D%22none%22%20stroke-width%3D%2210%22%20stroke-linejoin%3D%22round%22%20d%3D%22M%2032%20128%20C%2072%2056%2C%20184%2056%2C%20224%20128%20C%20184%20200%2C%2072%20200%2C%2032%20128%20Z%22%2F%3E%3Ccircle%20cx%3D%22128%22%20cy%3D%22128%22%20r%3D%2248%22%20stroke%3D%22%23D4AF37%22%20fill%3D%22none%22%20stroke-width%3D%228%22%2F%3E%3Cpath%20stroke%3D%22%23D4AF37%22%20fill%3D%22none%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M%2096%20128%20C%2096%20108%2C%20128%20108%2C%20128%20128%20C%20128%20148%2C%20160%20148%2C%20160%20128%20C%20160%20108%2C%20128%20108%2C%20128%20128%20C%20128%20148%2C%2096%20148%2C%2096%20128%22%2F%3E%3C%2Fsvg%3E" />
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui-config.js"></script>
+    <script id="mpr-ui-bundle" type="application/json" data-mpr-ui-bundle-src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@latest/mpr-ui.js"></script>
+    <script src="/runtime-env.js"></script>
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="apple-touch-icon" href="/loopaware-logo-120x120.png" />
     <meta property="og:locale" content="en_US" />
@@ -15,7 +23,7 @@
     <meta property="og:site_name" content="LoopAware" />
     <meta property="og:title" content="LoopAware Resources" />
     <meta property="og:description" content="Focused guides for turning customer feedback, subscriber workflows, traffic, uptime, access control, and developer errors into one LoopAware surface." />
-    <meta property="og:url" content="https://loopaware.mprlab.com/resources" />
+    <meta property="og:url" content="https://loopaware.mprlab.com/resources/" />
     <meta property="og:image" content="https://loopaware.mprlab.com/loopaware-logo-512x512.png" />
     <meta property="og:image:width" content="512" />
     <meta property="og:image:height" content="512" />
@@ -28,64 +36,221 @@
         "@context": "https://schema.org",
         "@type": "CollectionPage",
         "name": "LoopAware Resources",
-        "url": "https://loopaware.mprlab.com/resources",
+        "url": "https://loopaware.mprlab.com/resources/",
         "description": "Focused LoopAware resources for feedback widgets, mobile feedback, subscriber capture, analytics, traffic reports, uptime checks, access control, LA Sentry monitoring, SaaS teams, agencies, and self-hosted deployments.",
         "mainEntity": {
           "@type": "ItemList",
           "itemListElement": [
-            { "@type": "ListItem", "position": 1, "url": "https://loopaware.mprlab.com/resources/feedback-widget" },
-            { "@type": "ListItem", "position": 2, "url": "https://loopaware.mprlab.com/resources/subscriber-capture" },
-            { "@type": "ListItem", "position": 3, "url": "https://loopaware.mprlab.com/resources/privacy-first-analytics" },
-            { "@type": "ListItem", "position": 4, "url": "https://loopaware.mprlab.com/resources/la-sentry-monitoring" },
-            { "@type": "ListItem", "position": 5, "url": "https://loopaware.mprlab.com/resources/self-hosted-feedback" },
-            { "@type": "ListItem", "position": 6, "url": "https://loopaware.mprlab.com/resources/saas-feedback" },
-            { "@type": "ListItem", "position": 7, "url": "https://loopaware.mprlab.com/resources/agency-client-sites" },
-            { "@type": "ListItem", "position": 8, "url": "https://loopaware.mprlab.com/resources/lightweight-analytics" },
-            { "@type": "ListItem", "position": 9, "url": "https://loopaware.mprlab.com/resources/mobile-app-feedback" },
-            { "@type": "ListItem", "position": 10, "url": "https://loopaware.mprlab.com/resources/uptime-monitoring" },
-            { "@type": "ListItem", "position": 11, "url": "https://loopaware.mprlab.com/resources/traffic-report-emails" },
-            { "@type": "ListItem", "position": 12, "url": "https://loopaware.mprlab.com/resources/server-side-error-capture" },
-            { "@type": "ListItem", "position": 13, "url": "https://loopaware.mprlab.com/resources/multi-origin-feedback" },
-            { "@type": "ListItem", "position": 14, "url": "https://loopaware.mprlab.com/resources/widget-appearance-controls" },
-            { "@type": "ListItem", "position": 15, "url": "https://loopaware.mprlab.com/resources/sentiment-only-feedback" },
-            { "@type": "ListItem", "position": 16, "url": "https://loopaware.mprlab.com/resources/feedback-source-context" },
-            { "@type": "ListItem", "position": 17, "url": "https://loopaware.mprlab.com/resources/subscriber-confirmation-flow" },
-            { "@type": "ListItem", "position": 18, "url": "https://loopaware.mprlab.com/resources/subscriber-csv-export" },
-            { "@type": "ListItem", "position": 19, "url": "https://loopaware.mprlab.com/resources/inline-subscribe-forms" },
-            { "@type": "ListItem", "position": 20, "url": "https://loopaware.mprlab.com/resources/traffic-csv-export" },
-            { "@type": "ListItem", "position": 21, "url": "https://loopaware.mprlab.com/resources/top-pages-reporting" },
-            { "@type": "ListItem", "position": 22, "url": "https://loopaware.mprlab.com/resources/traffic-attribution-breakdown" },
-            { "@type": "ListItem", "position": 23, "url": "https://loopaware.mprlab.com/resources/visitor-device-breakdown" },
-            { "@type": "ListItem", "position": 24, "url": "https://loopaware.mprlab.com/resources/visitor-location-signals" },
-            { "@type": "ListItem", "position": 25, "url": "https://loopaware.mprlab.com/resources/bot-filtered-analytics" },
-            { "@type": "ListItem", "position": 26, "url": "https://loopaware.mprlab.com/resources/no-javascript-traffic-pixel" },
-            { "@type": "ListItem", "position": 27, "url": "https://loopaware.mprlab.com/resources/portfolio-traffic-reports" },
-            { "@type": "ListItem", "position": 28, "url": "https://loopaware.mprlab.com/resources/team-member-site-access" },
-            { "@type": "ListItem", "position": 29, "url": "https://loopaware.mprlab.com/resources/owner-admin-site-management" },
-            { "@type": "ListItem", "position": 30, "url": "https://loopaware.mprlab.com/resources/favicon-refresh-notifications" },
-            { "@type": "ListItem", "position": 31, "url": "https://loopaware.mprlab.com/resources/browser-error-capture" },
-            { "@type": "ListItem", "position": 32, "url": "https://loopaware.mprlab.com/resources/sentry-issue-triage" }
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "url": "https://loopaware.mprlab.com/resources/feedback-widget/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "url": "https://loopaware.mprlab.com/resources/subscriber-capture/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "url": "https://loopaware.mprlab.com/resources/privacy-first-analytics/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 4,
+              "url": "https://loopaware.mprlab.com/resources/la-sentry-monitoring/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 5,
+              "url": "https://loopaware.mprlab.com/resources/self-hosted-feedback/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 6,
+              "url": "https://loopaware.mprlab.com/resources/saas-feedback/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 7,
+              "url": "https://loopaware.mprlab.com/resources/agency-client-sites/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 8,
+              "url": "https://loopaware.mprlab.com/resources/lightweight-analytics/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 9,
+              "url": "https://loopaware.mprlab.com/resources/mobile-app-feedback/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 10,
+              "url": "https://loopaware.mprlab.com/resources/uptime-monitoring/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 11,
+              "url": "https://loopaware.mprlab.com/resources/traffic-report-emails/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 12,
+              "url": "https://loopaware.mprlab.com/resources/server-side-error-capture/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 13,
+              "url": "https://loopaware.mprlab.com/resources/multi-origin-feedback/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 14,
+              "url": "https://loopaware.mprlab.com/resources/widget-appearance-controls/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 15,
+              "url": "https://loopaware.mprlab.com/resources/sentiment-only-feedback/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 16,
+              "url": "https://loopaware.mprlab.com/resources/feedback-source-context/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 17,
+              "url": "https://loopaware.mprlab.com/resources/subscriber-confirmation-flow/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 18,
+              "url": "https://loopaware.mprlab.com/resources/subscriber-csv-export/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 19,
+              "url": "https://loopaware.mprlab.com/resources/inline-subscribe-forms/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 20,
+              "url": "https://loopaware.mprlab.com/resources/traffic-csv-export/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 21,
+              "url": "https://loopaware.mprlab.com/resources/top-pages-reporting/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 22,
+              "url": "https://loopaware.mprlab.com/resources/traffic-attribution-breakdown/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 23,
+              "url": "https://loopaware.mprlab.com/resources/visitor-device-breakdown/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 24,
+              "url": "https://loopaware.mprlab.com/resources/visitor-location-signals/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 25,
+              "url": "https://loopaware.mprlab.com/resources/bot-filtered-analytics/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 26,
+              "url": "https://loopaware.mprlab.com/resources/no-javascript-traffic-pixel/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 27,
+              "url": "https://loopaware.mprlab.com/resources/portfolio-traffic-reports/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 28,
+              "url": "https://loopaware.mprlab.com/resources/team-member-site-access/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 29,
+              "url": "https://loopaware.mprlab.com/resources/owner-admin-site-management/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 30,
+              "url": "https://loopaware.mprlab.com/resources/favicon-refresh-notifications/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 31,
+              "url": "https://loopaware.mprlab.com/resources/browser-error-capture/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 32,
+              "url": "https://loopaware.mprlab.com/resources/sentry-issue-triage/"
+            }
           ]
+        },
+        "dateModified": "2026-07-06",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Marco Polo Research Lab",
+          "url": "https://mprlab.com"
         }
       }
     </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://loopaware.mprlab.com/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Resources",
+            "item": "https://loopaware.mprlab.com/resources/"
+          }
+        ]
+      }
+    </script>
   </head>
-  <body>
-    <header class="resource-header">
-      <nav class="resource-nav" aria-label="Primary">
-        <a class="resource-brand" href="/login">
-          <img src="/loopaware-logo-120x120.png" alt="" width="36" height="36" />
-          <span>LoopAware</span>
-        </a>
-        <div class="resource-links">
-          <a href="/resources">Resources</a>
-          <a href="/pricing">Pricing</a>
-          <a class="resource-cta" href="/login">Sign in</a>
-        </div>
-      </nav>
-    </header>
+  <body class="landing-body resource-body d-flex flex-column min-vh-100 bg-body text-body" data-bs-theme="dark">
+    <mpr-header data-config-url="/config-ui.yaml" data-loopaware-auth-redirect="true" class="landing-header resource-site-header" sign-in-label="Login" sign-out-label="Logout" settings="false" auth-transition='{&quot;title&quot;:&quot;Opening LoopAware&quot;,&quot;message&quot;:&quot;Preparing your authenticated workspace.&quot;}'>
+      <a slot="brand" class="landing-brand d-inline-flex align-items-center gap-3 text-decoration-none" href="/login" data-public-hero="true" data-loopaware-auth-home-link="true">
+        <span class="landing-logo">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij4KICA8cGF0aCBzdHJva2U9IiNENEFGMzciIGZpbGw9Im5vbmUiIHN0cm9rZS13aWR0aD0iMTAiIHN0cm9rZS1saW5lam9pbj0icm91bmQiCiAgICBkPSJNIDMyIDEyOCBDIDcyIDU2LCAxODQgNTYsIDIyNCAxMjggQyAxODQgMjAwLCA3MiAyMDAsIDMyIDEyOCBaIi8+CiAgPGNpcmNsZSBjeD0iMTI4IiBjeT0iMTI4IiByPSI0OCIgc3Ryb2tlPSIjRDRBRjM3IiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjgiLz4KICA8cGF0aCBzdHJva2U9IiNENEFGMzciIGZpbGw9Im5vbmUiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIgogICAgZD0iTSA5NiAxMjggQyA5NiAxMDgsIDEyOCAxMDgsIDEyOCAxMjgKICAgICAgIEMgMTI4IDE0OCwgMTYwIDE0OCwgMTYwIDEyOAogICAgICAgQyAxNjAgMTA4LCAxMjggMTA4LCAxMjggMTI4CiAgICAgICBDIDEyOCAxNDgsIDk2IDE0OCwgOTYgMTI4Ii8+Cjwvc3ZnPgo=" alt="LoopAware logo" class="landing-logo-image" />
+        </span>
+        <span>LoopAware</span>
+      </a>
+      <mpr-user
+        slot="aux"
+        data-loopaware-user-menu="true"
+        display-mode="avatar"
+        logout-url="/login"
+        logout-label="Logout"
+        menu-items='[{&quot;label&quot;:&quot;Account Settings&quot;,&quot;href&quot;:&quot;/app&quot;}]'
+      ></mpr-user>
+    </mpr-header>
 
-    <main>
+    <main class="flex-grow-1">
       <section class="resource-hero">
         <div class="resource-container resource-hero-grid">
           <div>
@@ -93,8 +258,8 @@
             <h1>Customer signal guides for small teams</h1>
             <p class="resource-lede">LoopAware combines web and mobile feedback, subscriber capture, traffic analytics, report emails, uptime checks, and LA Sentry monitoring so teams can see what visitors do, what they ask for, and what breaks in production.</p>
             <div class="resource-actions">
-              <a class="resource-cta" href="/resources/feedback-widget">Explore feedback widgets</a>
-              <a class="resource-secondary" href="/pricing">See pricing</a>
+              <a class="resource-cta" href="/resources/feedback-widget/">Explore feedback widgets</a>
+              <a class="resource-secondary" href="/pricing/">See pricing</a>
             </div>
           </div>
           <aside class="resource-proof" aria-label="LoopAware signal dashboard preview">
@@ -123,136 +288,149 @@
         </div>
       </section>
 
+      <section class="resource-section resource-depth">
+        <div class="resource-container resource-split">
+          <div>
+            <h2>How to use these guides</h2>
+            <p class="resource-lede">Start with the LoopAware signal you want to collect first, then move into the adjacent setup guide when the dashboard shows useful records.</p>
+          </div>
+          <ul class="resource-list">
+            <li>Feedback guides cover web widgets, mobile apps, sentiment, source context, and multi-origin collection.</li>
+            <li>Subscriber guides cover capture forms, confirmation states, inline embeds, and CSV export.</li>
+            <li>Traffic and LA Sentry guides cover analytics, report emails, uptime checks, browser errors, server errors, and issue triage.</li>
+          </ul>
+        </div>
+      </section>
       <section class="resource-section">
         <div class="resource-container">
           <h2>Start with the signal you need</h2>
           <div class="resource-grid">
             <article class="resource-card">
-              <h3><a href="/resources/feedback-widget">Feedback widget</a></h3>
+              <h3><a href="/resources/feedback-widget/">Feedback widget</a></h3>
               <p>Add a lightweight on-page feedback bubble with origin validation, contact capture, sentiment buttons, and dashboard review.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/subscriber-capture">Subscriber capture</a></h3>
+              <h3><a href="/resources/subscriber-capture/">Subscriber capture</a></h3>
               <p>Collect email subscribers with embeddable forms, confirmation links, status management, and CSV export.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/privacy-first-analytics">Privacy-first analytics</a></h3>
+              <h3><a href="/resources/privacy-first-analytics/">Privacy-first analytics</a></h3>
               <p>Track page visits, devices, locations, and top pages without turning a simple site into an ad-tech project.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/la-sentry-monitoring">LA Sentry monitoring</a></h3>
+              <h3><a href="/resources/la-sentry-monitoring/">LA Sentry monitoring</a></h3>
               <p>Capture browser and server-side developer errors into grouped issues that stay tied to the same site dashboard.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/self-hosted-feedback">Self-hosted feedback</a></h3>
+              <h3><a href="/resources/self-hosted-feedback/">Self-hosted feedback</a></h3>
               <p>Run LoopAware with SQLite-first storage, TAuth sessions, Pinguin notifications, and source-available deployment control.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/saas-feedback">SaaS feedback</a></h3>
+              <h3><a href="/resources/saas-feedback/">SaaS feedback</a></h3>
               <p>Use one dashboard to connect product feedback, trial subscribers, traffic context, and production error reports.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/agency-client-sites">Agency client sites</a></h3>
+              <h3><a href="/resources/agency-client-sites/">Agency client sites</a></h3>
               <p>Manage multiple client sites, team members, traffic reports, and embeddable snippets from one operator account.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/lightweight-analytics">Lightweight analytics</a></h3>
+              <h3><a href="/resources/lightweight-analytics/">Lightweight analytics</a></h3>
               <p>Install a traffic pixel that records useful page-level signals while keeping implementation overhead small.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/mobile-app-feedback">Mobile app feedback</a></h3>
+              <h3><a href="/resources/mobile-app-feedback/">Mobile app feedback</a></h3>
               <p>Collect React Native and Expo feedback with registered app identity, screen context, and dashboard review.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/uptime-monitoring">Uptime monitoring</a></h3>
+              <h3><a href="/resources/uptime-monitoring/">Uptime monitoring</a></h3>
               <p>Run backend GET probes against public site targets with thresholds, manual checks, and recovered alerts.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/traffic-report-emails">Traffic report emails</a></h3>
+              <h3><a href="/resources/traffic-report-emails/">Traffic report emails</a></h3>
               <p>Schedule selected-site or portfolio traffic summaries for managers, teams, or selected members.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/server-side-error-capture">Server-side error capture</a></h3>
+              <h3><a href="/resources/server-side-error-capture/">Server-side error capture</a></h3>
               <p>Send protected Go and Python service errors to LA Sentry and review grouped issues beside site signals.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/multi-origin-feedback">Multi-origin feedback</a></h3>
+              <h3><a href="/resources/multi-origin-feedback/">Multi-origin feedback</a></h3>
               <p>Approve multiple public origins for one site without turning public feedback collection into a wildcard endpoint.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/widget-appearance-controls">Widget appearance controls</a></h3>
+              <h3><a href="/resources/widget-appearance-controls/">Widget appearance controls</a></h3>
               <p>Tune feedback bubble color, side, offset, and contact fields so the widget fits real production pages.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/sentiment-only-feedback">Sentiment-only feedback</a></h3>
+              <h3><a href="/resources/sentiment-only-feedback/">Sentiment-only feedback</a></h3>
               <p>Collect quick positive or negative reactions when visitors do not need to write a full message.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/feedback-source-context">Feedback source context</a></h3>
+              <h3><a href="/resources/feedback-source-context/">Feedback source context</a></h3>
               <p>Use source URLs and page context to make visitor comments easier to triage and reproduce.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/subscriber-confirmation-flow">Subscriber confirmation flow</a></h3>
+              <h3><a href="/resources/subscriber-confirmation-flow/">Subscriber confirmation flow</a></h3>
               <p>Track pending, confirmed, unsubscribed, and deleted subscriber states through token-backed public pages.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/subscriber-csv-export">Subscriber CSV export</a></h3>
+              <h3><a href="/resources/subscriber-csv-export/">Subscriber CSV export</a></h3>
               <p>Export subscriber records for handoff to spreadsheets, newsletters, or manual founder follow-up.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/inline-subscribe-forms">Inline subscribe forms</a></h3>
+              <h3><a href="/resources/inline-subscribe-forms/">Inline subscribe forms</a></h3>
               <p>Embed subscriber capture directly into landing pages with CTA, accent, status, and name-field options.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/traffic-csv-export">Traffic CSV export</a></h3>
+              <h3><a href="/resources/traffic-csv-export/">Traffic CSV export</a></h3>
               <p>Export visit rows when dashboard summaries need to move into external reporting or analysis.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/top-pages-reporting">Top pages reporting</a></h3>
+              <h3><a href="/resources/top-pages-reporting/">Top pages reporting</a></h3>
               <p>See which public pages receive traffic before prioritizing feedback, copy, or layout fixes.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/traffic-attribution-breakdown">Traffic attribution breakdown</a></h3>
+              <h3><a href="/resources/traffic-attribution-breakdown/">Traffic attribution breakdown</a></h3>
               <p>Review source, medium, and campaign context for public-site visits.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/visitor-device-breakdown">Visitor device breakdown</a></h3>
+              <h3><a href="/resources/visitor-device-breakdown/">Visitor device breakdown</a></h3>
               <p>Understand device, viewport, and screen context for pages that receive real traffic.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/visitor-location-signals">Visitor location signals</a></h3>
+              <h3><a href="/resources/visitor-location-signals/">Visitor location signals</a></h3>
               <p>Use edge geo, timezone, and locale context to interpret regional traffic patterns.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/bot-filtered-analytics">Bot-filtered analytics</a></h3>
+              <h3><a href="/resources/bot-filtered-analytics/">Bot-filtered analytics</a></h3>
               <p>Keep default traffic reporting focused on meaningful visits while preserving bot traffic as a signal.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/no-javascript-traffic-pixel">No-JavaScript traffic pixel</a></h3>
+              <h3><a href="/resources/no-javascript-traffic-pixel/">No-JavaScript traffic pixel</a></h3>
               <p>Use the image pixel fallback when JavaScript is unavailable or intentionally minimized.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/portfolio-traffic-reports">Portfolio traffic reports</a></h3>
+              <h3><a href="/resources/portfolio-traffic-reports/">Portfolio traffic reports</a></h3>
               <p>Summarize traffic across visible sites for owners, admins, and agency operators.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/team-member-site-access">Team member site access</a></h3>
+              <h3><a href="/resources/team-member-site-access/">Team member site access</a></h3>
               <p>Give Google-authenticated teammates read-only access to site signals without management controls.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/owner-admin-site-management">Owner and admin site management</a></h3>
+              <h3><a href="/resources/owner-admin-site-management/">Owner and admin site management</a></h3>
               <p>Manage sites, ownership, allowed origins, team members, settings, and role-aware dashboard access.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/favicon-refresh-notifications">Favicon refresh notifications</a></h3>
+              <h3><a href="/resources/favicon-refresh-notifications/">Favicon refresh notifications</a></h3>
               <p>Keep multi-site dashboards visually current when managed site icons change.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/browser-error-capture">Browser error capture</a></h3>
+              <h3><a href="/resources/browser-error-capture/">Browser error capture</a></h3>
               <p>Capture frontend JavaScript errors through origin-bound LA Sentry browser ingest.</p>
             </article>
             <article class="resource-card">
-              <h3><a href="/resources/sentry-issue-triage">LA Sentry issue triage</a></h3>
+              <h3><a href="/resources/sentry-issue-triage/">LA Sentry issue triage</a></h3>
               <p>Review grouped production errors and update unresolved, resolved, or ignored issue status.</p>
             </article>
           </div>
@@ -277,15 +455,17 @@
       </section>
     </main>
 
-    <footer class="resource-footer">
-      <div class="resource-footer-inner">
-        <span>LoopAware by Marco Polo Research Lab</span>
-        <div class="resource-footer-links">
-          <a href="/privacy">Privacy</a>
-          <a href="/terms">Terms</a>
-          <a href="/pricing">Pricing</a>
+    <mpr-footer id="resource-footer" class="mt-auto" sticky="false" element-id="resource-footer-root" base-class="mpr-footer landing-footer border-top py-2" inner-element-id="resource-footer-inner" inner-class="mpr-footer__inner" wrapper-class="mpr-footer__layout" brand-wrapper-class="mpr-footer__brand" menu-wrapper-class="mpr-footer__menu-wrapper" prefix-class="mpr-footer__prefix" prefix-text="Built by Marco Polo Research Lab" toggle-button-id="" toggle-button-class="mpr-footer__menu-button" toggle-label="Built by Marco Polo Research Lab" menu-class="mpr-footer__menu" menu-item-class="mpr-footer__menu-item" privacy-link-class="mpr-footer__privacy" privacy-link-href="/privacy/" privacy-link-label="Privacy" horizontal-links='{&quot;alignment&quot;:&quot;left&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Terms of Service&quot;,&quot;href&quot;:&quot;/terms/&quot;},{&quot;label&quot;:&quot;Resources&quot;,&quot;href&quot;:&quot;/resources/&quot;},{&quot;label&quot;:&quot;Pricing&quot;,&quot;href&quot;:&quot;/pricing/&quot;}]}' links-collection='{&quot;style&quot;:&quot;drop-up&quot;,&quot;text&quot;:&quot;Built by Marco Polo Research Lab&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Marco Polo Research Lab&quot;,&quot;url&quot;:&quot;https://mprlab.com&quot;},{&quot;label&quot;:&quot;Gravity Notes&quot;,&quot;url&quot;:&quot;https://gravity.mprlab.com&quot;},{&quot;label&quot;:&quot;LoopAware&quot;,&quot;url&quot;:&quot;https://loopaware.mprlab.com&quot;},{&quot;label&quot;:&quot;Allergy Wheel&quot;,&quot;url&quot;:&quot;https://allergy.mprlab.com&quot;},{&quot;label&quot;:&quot;Social Threader&quot;,&quot;url&quot;:&quot;https://threader.mprlab.com&quot;},{&quot;label&quot;:&quot;RSVP&quot;,&quot;url&quot;:&quot;https://rsvp.mprlab.com&quot;},{&quot;label&quot;:&quot;Countdown Calendar&quot;,&quot;url&quot;:&quot;https://countdown.mprlab.com&quot;},{&quot;label&quot;:&quot;LLM Crossword&quot;,&quot;url&quot;:&quot;https://llm-crossword.mprlab.com&quot;},{&quot;label&quot;:&quot;Prompt Bubbles&quot;,&quot;url&quot;:&quot;https://prompts.mprlab.com&quot;},{&quot;label&quot;:&quot;Wallpapers&quot;,&quot;url&quot;:&quot;https://wallpapers.mprlab.com&quot;}]}' theme-switcher="toggle" theme-config='{&quot;attribute&quot;:&quot;data-bs-theme&quot;,&quot;ariaLabel&quot;:&quot;Toggle theme&quot;,&quot;modes&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;initialMode&quot;:&quot;dark&quot;}'></mpr-footer>
+    <div id="logout-overlay" class="d-none position-fixed top-0 start-0 w-100 h-100 bg-body d-flex align-items-center justify-content-center">
+      <div class="text-center">
+        <div class="spinner-border text-primary mb-3" role="status">
+          <span class="visually-hidden">Logging out...</span>
         </div>
+        <h1 class="h4">Logging out...</h1>
       </div>
-    </footer>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script type="module" src="/resources/public-theme.js"></script>
+    <script src="/header-auth.js"></script>
   </body>
 </html>

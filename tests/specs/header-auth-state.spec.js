@@ -18,6 +18,7 @@ const MPR_UI_CONFIG_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-
 const MPR_UI_SCRIPT_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@${MPR_UI_VERSION}/mpr-ui.js`;
 const SITE_WIDGET_SITE_ID = 'a7ea8b8a-ff37-4a99-81fa-09a5952f83a9';
 const PUBLIC_LOGIN_ENTRY_CASES = Object.freeze([
+  Object.freeze({ label: 'resources page', path: '/resources' }),
   Object.freeze({ label: 'pricing page', path: '/pricing' }),
   Object.freeze({ label: 'privacy page', path: '/privacy' }),
   Object.freeze({ label: 'terms page', path: '/terms' }),
@@ -226,6 +227,16 @@ async function expectFooterUtilityLinks(
 
   expect(ordering.privacyBeforeHorizontal).toBe(true);
   expect(ordering.horizontalBeforeToggle).toBe(true);
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function expectPublicHeaderWithoutUtilityLinks(page) {
+  await expect(page.locator('mpr-header > header.mpr-header')).toBeVisible();
+  await expect(page.locator('mpr-header a[slot="nav-right"]')).toHaveCount(0);
+  await expect(page.locator('mpr-header .mpr-header__nav a')).toHaveCount(0);
 }
 
 /**
@@ -731,12 +742,14 @@ for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
 }
 
 test('public pages render privacy separately and inline utility links before the toggle', async ({ page }) => {
-  const publicSiteUtilityLinks = ['Resources', 'Terms of Service', 'Pricing'];
+  const publicSiteUtilityLinks = ['Terms of Service', 'Resources', 'Pricing'];
   await openPageWithoutSession(page, '/login');
+  await expectPublicHeaderWithoutUtilityLinks(page);
   await expectFooterUtilityLinks(page, publicSiteUtilityLinks);
 
   for (const { path } of PUBLIC_LOGIN_ENTRY_CASES) {
     await page.goto(path, { waitUntil: 'domcontentloaded' });
+    await expectPublicHeaderWithoutUtilityLinks(page);
     const expectedLinks = path.startsWith('/subscriptions/')
       ? ['Terms of Service', 'Pricing']
       : publicSiteUtilityLinks;
