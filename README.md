@@ -513,27 +513,28 @@ GitHub workflow from the package release ref. The npm package must have a truste
 `@loopaware/react-native`.
 
 The native operator mobile app is published separately from Docker, Pages, and the React Native feedback client. Use
-the mobile store submission targets after `make ci` passes:
+the local store build and submission targets after `make ci` passes:
 
 ```bash
-make build-ios
-make submit-ios
-make submit-android
+make build-ios MOBILE_IOS_BUILD_NUMBER=<next_ios_build> MOBILE_IOS_DEVELOPMENT_TEAM=<APPLE_TEAM_ID>
+make submit-ios MOBILE_IOS_BUILD_NUMBER=<next_ios_build> MOBILE_IOS_DEVELOPMENT_TEAM=<APPLE_TEAM_ID>
+make submit-android MOBILE_ANDROID_VERSION_CODE=<next_android_version_code>
 ```
 
-`make submit-ios` uploads the latest completed EAS iOS `production` build to App Store Connect/TestFlight through EAS
-Submit. `make submit-android` rebuilds the signed local Android App Bundle with `make mobile-android-bundle`, then
-uploads that exact `.aab` to the Google Play `internal` track through the EAS Submit production profile. The combined
-`make submit-mobile` target runs the iOS submission first and then the Android submission.
+`make build-ios` runs a local Expo prebuild, creates a signed Xcode archive, exports an App Store Connect IPA under
+`mobile/dist/`, and writes a build manifest beside it. `make submit-ios` depends on that local IPA build, verifies the
+manifest hash, and uploads the IPA with `xcrun altool`. Configure either App Store Connect API key inputs
+(`APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_API_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_PATH`) or
+`MOBILE_IOS_APPLE_ID`/`APPLE_ID` plus an app-specific password in `MOBILE_IOS_APP_SPECIFIC_PASSWORD`.
 
-These targets run EAS Submit non-interactively. Operators must authenticate with Expo through `EXPO_TOKEN` or an EAS
-CLI login, link the mobile project to the correct EAS project, configure App Store Connect credentials for iOS, and
-configure a Google Play service account for Android in EAS credentials. The iOS target also requires the numeric App
-Store Connect app id because EAS cannot resolve that app record in non-interactive mode; set `MOBILE_IOS_ASC_APP_ID` or
-`LOOPAWARE_MOBILE_IOS_ASC_APP_ID`, or commit the non-secret `ascAppId` to the iOS submit profile once the App Store
-Connect app has been created. Google Play still requires the first app upload to be performed manually before API-based
-submissions work. Do not commit Apple API keys, app-specific passwords, Google service-account JSON files, or upload
-keystore secrets.
+`make submit-android` rebuilds the signed local Android App Bundle with `make mobile-android-bundle`, verifies the
+generated `.aab`, sidecar manifest, and R8 deobfuscation mapping file, then uploads them through the Google Play Android
+Publisher API to the `internal` track. Configure Google Application Default Credentials with the
+`https://www.googleapis.com/auth/androidpublisher` scope, and set `GOOGLE_CLOUD_QUOTA_PROJECT` when quota billing
+requires it. Google Play still requires the first app upload to be performed manually before API-based submissions work.
+
+The combined `make submit-mobile` target builds/submits iOS first and then Android. Keep Apple API keys, app-specific
+passwords, Google service-account JSON files, and upload keystore secrets outside the repository.
 
 ## Docker
 
