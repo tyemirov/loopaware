@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add CI path coverage for first-party clients.
 - Move app-owned deployment manifests under `.mprlab/deploy/` so gateway Ansible executes the app-owned frontend and resource deployment contracts from the current governance path.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
+- Replace EAS mobile store submission with local Xcode IPA export, `xcrun altool` upload, and direct Google Play Android Publisher API upload.
 
 ### Bug Fixes 🐛
 - Remove exact cross-service TAuth/Pinguin value comparisons from config-audit so deploy preflight validates runtime config schema, placeholder coverage, and required values without hardcoding operator-owned deployment values.
@@ -25,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Docs 📚
 - Document the backend YAML config contract and clarify that LoopAware env files are interpolation inputs, not a second runtime config source.
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
+- Document the standard mobile store publishing inputs for local iOS IPA and Android AAB uploads.
 
 ## [v0.7.38] - 2026-07-05
 
