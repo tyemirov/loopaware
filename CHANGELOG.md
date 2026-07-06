@@ -26,6 +26,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the backend YAML config contract and clarify that LoopAware env files are interpolation inputs, not a second runtime config source.
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
 
+## [v0.7.38] - 2026-07-05
+
+### Features ✨
+- Resource hub now integrated into the main public site shell with shared header, footer, dark/light theme, and asset handling.
+- Each resource page enhanced with visible FAQ/checklist content and structured data for improved SEO.
+
+### Improvements ⚙️
+- Public pages standardized on trailing-slash canonical URLs and updated sitemap entries for better Google indexing.
+- Resource hub and detail pages now linked directly from the public landing page, docs, and product sections.
+- Footer utility links updated to include Resources in optimal order; navigation and links refactored for clarity.
+
+### Bug Fixes 🐛
+- Removed resource header utility links to match new shared public navigation contract.
+- Fixed footer and navigation link structure in resource and public pages to improve consistency.
+
+### Testing 🧪
+- Extended Playwright coverage for header/footer rendering, SEO shell checks, resource indexing, and structured data validation.
+- Updated and expanded integration tests to cover the new shared shell, canonical routing, and link presence/ordering.
+
+### Docs 📚
+- Updated README, PRD, and ARCHITECTURE docs to reference the canonical resource hub location and new SEO/page structure.
+- Added migration and implementation details for the resource pages public shell in project issue documentation.
+
 ## [v0.7.37] - 2026-07-05
 
 ### Features ✨
