@@ -6,6 +6,8 @@ const loopAwareGold = "#D4AF37";
 const loopAwareWhite = "#FFFFFF";
 const iosBundleIdentifier = process.env.LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER || "com.mprlab.loopaware";
 const androidPackage = process.env.LOOPAWARE_MOBILE_ANDROID_PACKAGE || "com.mprlab.loopaware";
+const iosBuildNumber = optionalPositiveIntegerString(process.env.LOOPAWARE_MOBILE_IOS_BUILD_NUMBER || "", "LOOPAWARE_MOBILE_IOS_BUILD_NUMBER");
+const androidVersionCode = optionalPositiveInteger(process.env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE || "", "LOOPAWARE_MOBILE_ANDROID_VERSION_CODE");
 const googleIosRedirectUri =
   process.env.LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI || process.env.TAUTH_TENANT_GOOGLE_IOS_REDIRECT_URI_LOOPAWARE || "";
 const googleIosClientId = process.env.LOOPAWARE_MOBILE_GOOGLE_IOS_CLIENT_ID || process.env.TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE || "";
@@ -25,10 +27,12 @@ module.exports = {
     ios: {
       bundleIdentifier: iosBundleIdentifier,
       supportsTablet: true,
+      ...(iosBuildNumber ? { buildNumber: iosBuildNumber } : {}),
       ...(iosRedirectSchemes.length ? { scheme: iosRedirectSchemes } : {}),
     },
     android: {
       package: androidPackage,
+      ...(androidVersionCode ? { versionCode: androidVersionCode } : {}),
       adaptiveIcon: {
         backgroundColor: loopAwareWhite,
         foregroundImage: "./assets/android-icon-foreground.png",
@@ -81,4 +85,30 @@ function redirectUriScheme(redirectUri) {
     return "";
   }
   return normalizedRedirectUri.slice(0, separatorIndex);
+}
+
+/**
+ * @param {string} value
+ * @param {string} label
+ * @returns {string}
+ */
+function optionalPositiveIntegerString(value, label) {
+  const normalizedValue = String(value || "").trim();
+  if (!normalizedValue) {
+    return "";
+  }
+  if (!/^[1-9][0-9]*$/.test(normalizedValue)) {
+    throw new Error(`${label} must be a positive integer`);
+  }
+  return normalizedValue;
+}
+
+/**
+ * @param {string} value
+ * @param {string} label
+ * @returns {number | undefined}
+ */
+function optionalPositiveInteger(value, label) {
+  const normalizedValue = optionalPositiveIntegerString(value, label);
+  return normalizedValue ? Number(normalizedValue) : undefined;
 }

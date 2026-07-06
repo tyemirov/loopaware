@@ -110,6 +110,10 @@ function parseArgs(argv) {
 function buildAndroidBundle(args) {
   requireFile(path.join(args.mobileDir, "package.json"), "mobile package.json");
   requireFile(path.join(args.mobileDir, "package-lock.json"), "mobile package-lock.json");
+  const androidVersionCode = requirePositiveInteger(
+    process.env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE || process.env.MOBILE_ANDROID_VERSION_CODE || "",
+    "LOOPAWARE_MOBILE_ANDROID_VERSION_CODE",
+  );
   requireDirectory(args.androidSdkRoot, "Android SDK root");
   requireExecutable(path.join(args.javaHome, "bin", "java"), "java");
   requireExecutable(path.join(args.javaHome, "bin", "jarsigner"), "jarsigner");
@@ -128,6 +132,7 @@ function buildAndroidBundle(args) {
   copyMobileProject(args.mobileDir, buildMobileDir);
 
   const env = buildEnvironment(args.javaHome, args.androidSdkRoot);
+  env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE = String(androidVersionCode);
   run(["npm", "ci"], { cwd: buildMobileDir, env });
   run(["npx", "expo", "prebuild", "--platform", "android", "--no-install"], { cwd: buildMobileDir, env });
   writeLocalProperties(path.join(buildMobileDir, "android", "local.properties"), args.androidSdkRoot);
@@ -156,12 +161,15 @@ function buildAndroidBundle(args) {
     fs.rmSync(args.buildDir, { recursive: true, force: true });
   }
 
-  return {
+  /** @type {Record<string, unknown>} */
+  const metadata = {
     schema: "loopaware.mobile-android-bundle.v1",
     status: "passed",
     androidPackage: manifest.packageName,
     versionName: manifest.versionName,
-    versionCode: manifest.versionCode,
+    versionCode: Number(manifest.versionCode),
+    sourceVersionCode: androidVersionCode,
+    versionCodeSource: "LOOPAWARE_MOBILE_ANDROID_VERSION_CODE",
     output: outputPath,
     sha256: sha256File(outputPath),
     sizeBytes: fs.statSync(outputPath).size,
@@ -176,6 +184,8 @@ function buildAndroidBundle(args) {
     r8Minification: "enabled",
     resourceShrinking: "disabled",
   };
+  metadata.buildManifest = writeBuildManifest(outputPath, metadata);
+  return metadata;
 }
 
 /**
@@ -534,6 +544,21 @@ function copyDeobfuscationFile(buildMobileDir, outputPath) {
 }
 
 /**
+ * @param {string} outputPath
+ * @param {Record<string, unknown>} metadata
+ * @returns {string}
+ */
+function writeBuildManifest(outputPath, metadata) {
+  const manifestPath = outputPath.replace(/\.aab$/, ".json");
+  const payload = {
+    ...metadata,
+    createdAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(manifestPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  return manifestPath;
+}
+
+/**
  * @param {string} bundlePath
  * @param {string} javaHome
  * @returns {{ signerOwner: string; bundletoolValidated: boolean }}
@@ -605,6 +630,19 @@ function sha256File(pathToHash) {
   const hash = crypto.createHash("sha256");
   hash.update(fs.readFileSync(pathToHash));
   return hash.digest("hex");
+}
+
+/**
+ * @param {string | number} value
+ * @param {string} label
+ * @returns {number}
+ */
+function requirePositiveInteger(value, label) {
+  const numberValue = Number(value);
+  if (!Number.isInteger(numberValue) || numberValue <= 0) {
+    throw new BuildError(`${label} must be a positive integer`);
+  }
+  return numberValue;
 }
 
 /**
