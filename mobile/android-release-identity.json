@@ -1,0 +1,21 @@
+{
+  "schema": "loopaware.mobile-android-release-identity.v1",
+  "googleCloudProjectId": "loopaware",
+  "googleCloudProjectNumber": "281540686395",
+  "packageName": "com.mprlab.loopaware",
+  "webClientId": "281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com",
+  "iosClientId": "281540686395-8a90ldjnklddl0qpoc8ur6620lguv7mg.apps.googleusercontent.com",
+  "androidClientId": "281540686395-7lt9u98ir3oincpqhdrjur5169qel8n9.apps.googleusercontent.com",
+  "playAppSigning": {
+    "sha1": "BB:61:DF:B2:05:AE:D2:DE:5E:8B:0A:54:78:31:B8:0A:0C:96:64:2E",
+    "sha256": "CE:E0:CF:75:5F:CC:61:E3:38:B4:B8:E3:68:F2:7C:05:59:A3:14:CA:A0:49:9D:88:2C:01:5B:A0:6B:9B:EB:2C"
+  },
+  "uploadKey": {
+    "sha1": "F1:10:DA:7A:47:A9:C5:CD:2E:BB:9E:13:32:0A:9E:85:E9:F4:6E:F5",
+    "sha256": "37:35:47:AD:E8:49:30:76:15:2C:36:03:02:46:97:97:0D:DE:5E:91:0A:27:54:7B:CA:E7:4E:25:51:DC:66:EE"
+  },
+  "debugKey": {
+    "sha1": "A6:37:D9:89:83:3C:C3:7B:7F:9C:21:25:49:BC:35:16:14:F9:5B:4C",
+    "sha256": "FD:E7:E3:2D:2F:C9:11:70:FD:16:C3:A5:DB:8E:4A:FA:C6:E1:D8:9A:93:07:06:A9:71:40:25:F0:48:5E:22:67"
+  }
+}

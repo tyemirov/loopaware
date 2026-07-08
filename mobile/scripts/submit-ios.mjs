@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { createMobileCalVerVersion } from "./mobile-calver-version.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const defaultMobileDir = path.join(repoRoot, "mobile");
@@ -46,6 +47,7 @@ try {
  *   appleId: string;
  *   appPasswordEnv: string;
  *   providerPublicId: string;
+ *   versioning: import("./mobile-calver-version.mjs").MobileCalVerVersion;
  *   dryRun: boolean;
  * }} IOSSubmitArgs
  */
@@ -81,9 +83,20 @@ function parseArgs(argv) {
   }
 
   const mobileDir = resolvePath(options.get("mobile-dir") || defaultMobileDir);
+  let versioning;
+  try {
+    versioning = createMobileCalVerVersion(
+      options.get("release-timestamp") ||
+        process.env.MOBILE_RELEASE_TIMESTAMP ||
+        process.env.LOOPAWARE_MOBILE_RELEASE_TIMESTAMP ||
+        "",
+    );
+  } catch (error) {
+    throw new SubmitError(error instanceof Error ? error.message : String(error));
+  }
   return {
     mobileDir,
-    manifest: resolvePath(options.get("manifest") || defaultManifestPath(mobileDir)),
+    manifest: resolvePath(options.get("manifest") || defaultManifestPath(mobileDir, versioning.releaseVersion)),
     ipa: resolvePath(options.get("ipa") || ""),
     ascApiKeyId: String(options.get("asc-api-key-id") || process.env.APP_STORE_CONNECT_API_KEY_ID || process.env.ASC_API_KEY_ID || "").trim(),
     ascApiIssuerId: String(
@@ -93,6 +106,7 @@ function parseArgs(argv) {
     appleId: String(options.get("apple-id") || process.env.MOBILE_IOS_APPLE_ID || process.env.APPLE_ID || "").trim(),
     appPasswordEnv: String(options.get("app-password-env") || defaultAppPasswordEnv),
     providerPublicId: String(options.get("provider-public-id") || process.env.MOBILE_IOS_PROVIDER_PUBLIC_ID || "").trim(),
+    versioning,
     dryRun: flags.has("dry-run"),
   };
 }
@@ -121,6 +135,7 @@ function submitIOSArchive(args) {
     buildManifest: args.manifest,
     ipa: ipaPath,
     ipaSha256,
+    versioning: manifest.versioning,
   };
   if (args.dryRun) {
     return plan;
@@ -144,7 +159,7 @@ function submitIOSArchive(args) {
 
 /**
  * @param {string} manifestPath
- * @returns {{ app: { bundleIdentifier: string; version: string; buildNumber: string }; ipa: { path: string; sha256: string; sizeBytes: number } }}
+ * @returns {{ app: { bundleIdentifier: string; version: string; buildNumber: string }; ipa: { path: string; sha256: string; sizeBytes: number }; versioning: Record<string, unknown> }}
  */
 function readArchiveManifest(manifestPath) {
   requireFile(manifestPath, "iOS archive build manifest");
@@ -163,17 +178,47 @@ function readArchiveManifest(manifestPath) {
   }
   const app = manifest.app;
   const ipa = manifest.ipa;
+  const appMetadata = {
+    bundleIdentifier: requireString(app.bundleIdentifier, "app.bundleIdentifier"),
+    version: requireString(app.version, "app.version"),
+    buildNumber: requirePositiveIntegerString(app.buildNumber, "app.buildNumber"),
+  };
   return {
-    app: {
-      bundleIdentifier: requireString(app.bundleIdentifier, "app.bundleIdentifier"),
-      version: requireString(app.version, "app.version"),
-      buildNumber: requirePositiveIntegerString(app.buildNumber, "app.buildNumber"),
-    },
+    app: appMetadata,
     ipa: {
       path: resolvePath(requireString(ipa.path, "ipa.path")),
       sha256: requireSHA256(ipa.sha256, "ipa.sha256"),
       sizeBytes: requirePositiveInteger(ipa.sizeBytes, "ipa.sizeBytes"),
     },
+    versioning: requireArchiveVersioning(manifest.versioning, appMetadata),
+  };
+}
+
+/**
+ * @param {unknown} value
+ * @param {{ version: string; buildNumber: string }} app
+ * @returns {Record<string, unknown>}
+ */
+function requireArchiveVersioning(value, app) {
+  if (!value || typeof value !== "object") {
+    throw new SubmitError("iOS archive build manifest is missing versioning metadata");
+  }
+  const versioning = /** @type {Record<string, unknown>} */ (value);
+  const releaseVersion = requireString(versioning.releaseVersion, "versioning.releaseVersion");
+  const iosBuildNumber = requirePositiveIntegerString(versioning.iosBuildNumber, "versioning.iosBuildNumber");
+  if (releaseVersion !== app.version) {
+    throw new SubmitError(`iOS archive manifest versioning.releaseVersion is ${releaseVersion}, expected ${app.version}`);
+  }
+  if (iosBuildNumber !== app.buildNumber) {
+    throw new SubmitError(`iOS archive manifest versioning.iosBuildNumber is ${iosBuildNumber}, expected ${app.buildNumber}`);
+  }
+  return {
+    releaseTimestamp: requireString(versioning.releaseTimestamp, "versioning.releaseTimestamp"),
+    releaseVersion,
+    buildCode: requirePositiveInteger(versioning.buildCode, "versioning.buildCode"),
+    iosBuildNumber,
+    androidVersionCode: requirePositiveInteger(versioning.androidVersionCode, "versioning.androidVersionCode"),
+    buildCodeSource: requireString(versioning.buildCodeSource, "versioning.buildCodeSource"),
   };
 }
 
@@ -201,10 +246,12 @@ function validateUploadInputs(args) {
 
 /**
  * @param {string} mobileDir
+ * @param {string} version
  * @returns {string}
  */
-function defaultManifestPath(mobileDir) {
-  return path.join(mobileDir, "dist", "loopaware-ios-app-store-connect.json");
+function defaultManifestPath(mobileDir, version) {
+  const safeVersion = version.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "release";
+  return path.join(mobileDir, "dist", `loopaware-${safeVersion}-ios-app-store-connect.json`);
 }
 
 /**

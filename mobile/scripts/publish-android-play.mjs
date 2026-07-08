@@ -7,11 +7,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
+import { createMobileCalVerVersion } from "./mobile-calver-version.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const defaultMobileDir = path.join(repoRoot, "mobile");
 const publishSchema = "loopaware.mobile-android-play-publish.v1";
 const bundleSchema = "loopaware.mobile-android-bundle.v1";
+const releaseIdentitySchema = "loopaware.mobile-android-release-identity.v1";
+const releaseIdentityFileName = "android-release-identity.json";
 const androidPublisherApiBase = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications";
 const androidPublisherUploadBase = "https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications";
 const androidPublisherScope = "https://www.googleapis.com/auth/androidpublisher";
@@ -51,6 +54,7 @@ try {
  *   track: string;
  *   status: string;
  *   releaseName: string;
+ *   versioning: import("./mobile-calver-version.mjs").MobileCalVerVersion;
  *   dryRun: boolean;
  * }} AndroidPublishArgs
  */
@@ -86,10 +90,25 @@ function parseArgs(argv) {
   }
 
   const mobileDir = resolvePath(options.get("mobile-dir") || defaultMobileDir);
-  const appConfig = readAndroidAppConfig(mobileDir);
-  const packageName = String(options.get("package-name") || appConfig.packageName);
+  const releaseIdentity = readAndroidReleaseIdentity(mobileDir);
+  let versioning;
+  try {
+    versioning = createMobileCalVerVersion(
+      options.get("release-timestamp") ||
+        process.env.MOBILE_RELEASE_TIMESTAMP ||
+        process.env.LOOPAWARE_MOBILE_RELEASE_TIMESTAMP ||
+        "",
+    );
+  } catch (error) {
+    throw new PublishError(error instanceof Error ? error.message : String(error));
+  }
+  const appConfig = readAndroidAppConfig(mobileDir, versioning);
+  const packageName = String(options.get("package-name") || releaseIdentity.packageName);
   if (packageName !== appConfig.packageName) {
     throw new PublishError(`package name mismatch: app.config.js has ${appConfig.packageName}, publish target is ${packageName}`);
+  }
+  if (packageName !== releaseIdentity.packageName) {
+    throw new PublishError(`package name mismatch: release identity has ${releaseIdentity.packageName}, publish target is ${packageName}`);
   }
   const aab = resolvePath(options.get("aab") || defaultAabPath(mobileDir, appConfig.version));
   const mapping = resolvePath(options.get("mapping") || matchingOutputPath(aab, "-mapping.txt"));
@@ -98,7 +117,10 @@ function parseArgs(argv) {
   const status = String(options.get("status") || process.env.MOBILE_ANDROID_PLAY_STATUS || defaultStatus);
   const releaseName = String(options.get("release-name") || appConfig.version);
   const quotaProject = String(
-    options.get("quota-project") || process.env.GOOGLE_CLOUD_QUOTA_PROJECT || process.env.GCLOUD_QUOTA_PROJECT || "",
+    options.get("quota-project") ||
+      process.env.GOOGLE_CLOUD_QUOTA_PROJECT ||
+      process.env.GCLOUD_QUOTA_PROJECT ||
+      releaseIdentity.googleCloudProjectId,
   );
   requireTrack(track);
   requireReleaseStatus(status);
@@ -113,6 +135,7 @@ function parseArgs(argv) {
     track,
     status,
     releaseName,
+    versioning,
     dryRun: flags.has("dry-run"),
   };
 }
@@ -122,7 +145,7 @@ function parseArgs(argv) {
  * @returns {Promise<Record<string, unknown>>}
  */
 async function publishAndroidBundle(args) {
-  const appConfig = readAndroidAppConfig(args.mobileDir);
+  const appConfig = readAndroidAppConfig(args.mobileDir, args.versioning);
   requireFile(args.aab, "Android App Bundle");
   requireFile(args.mapping, "R8 deobfuscation mapping file");
   const buildArtifact = readAndroidBuildManifest(args.buildManifest, args.aab, args.mapping, appConfig);
@@ -142,6 +165,7 @@ async function publishAndroidBundle(args) {
     track: args.track,
     releaseName: args.releaseName,
     releaseStatus: args.status,
+    versioning: args.versioning,
     aab: args.aab,
     aabSha256: sha256File(args.aab),
     deobfuscationFile: args.mapping,
@@ -221,19 +245,58 @@ async function publishAndroidBundle(args) {
 
 /**
  * @param {string} mobileDir
+ * @param {import("./mobile-calver-version.mjs").MobileCalVerVersion} versioning
  * @returns {{ version: string; packageName: string }}
  */
-function readAndroidAppConfig(mobileDir) {
+function readAndroidAppConfig(mobileDir, versioning) {
   const appConfigPath = path.join(mobileDir, "app.config.js");
   requireFile(appConfigPath, "Expo app config");
   const require = createRequire(import.meta.url);
+  const previousVersion = process.env.LOOPAWARE_MOBILE_VERSION;
+  const previousVersionCode = process.env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE;
+  process.env.LOOPAWARE_MOBILE_VERSION = versioning.releaseVersion;
+  process.env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE = String(versioning.androidVersionCode);
   delete require.cache[require.resolve(appConfigPath)];
-  const config = require(appConfigPath);
-  const expoConfig = config.expo || {};
-  const androidConfig = expoConfig.android || {};
+  try {
+    const config = require(appConfigPath);
+    const expoConfig = config.expo || {};
+    const androidConfig = expoConfig.android || {};
+    return {
+      version: requireString(expoConfig.version, `expo.version in ${appConfigPath}`),
+      packageName: requireString(androidConfig.package, `expo.android.package in ${appConfigPath}`),
+    };
+  } finally {
+    if (previousVersion === undefined) {
+      delete process.env.LOOPAWARE_MOBILE_VERSION;
+    } else {
+      process.env.LOOPAWARE_MOBILE_VERSION = previousVersion;
+    }
+    if (previousVersionCode === undefined) {
+      delete process.env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE;
+    } else {
+      process.env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE = previousVersionCode;
+    }
+  }
+}
+
+/**
+ * @param {string} mobileDir
+ * @returns {{ googleCloudProjectId: string; googleCloudProjectNumber: string; packageName: string; webClientId: string; iosClientId: string; androidClientId: string }}
+ */
+function readAndroidReleaseIdentity(mobileDir) {
+  const identityPath = path.join(mobileDir, releaseIdentityFileName);
+  requireFile(identityPath, "Android release identity");
+  const identity = JSON.parse(fs.readFileSync(identityPath, "utf8"));
+  if (identity.schema !== releaseIdentitySchema) {
+    throw new PublishError(`invalid Android release identity schema in ${identityPath}`);
+  }
   return {
-    version: requireString(expoConfig.version, `expo.version in ${appConfigPath}`),
-    packageName: requireString(androidConfig.package, `expo.android.package in ${appConfigPath}`),
+    googleCloudProjectId: requireString(identity.googleCloudProjectId, `googleCloudProjectId in ${identityPath}`),
+    googleCloudProjectNumber: requireString(identity.googleCloudProjectNumber, `googleCloudProjectNumber in ${identityPath}`),
+    packageName: requireString(identity.packageName, `packageName in ${identityPath}`),
+    webClientId: requireString(identity.webClientId, `webClientId in ${identityPath}`),
+    iosClientId: requireString(identity.iosClientId, `iosClientId in ${identityPath}`),
+    androidClientId: requireString(identity.androidClientId, `androidClientId in ${identityPath}`),
   };
 }
 

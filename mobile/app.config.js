@@ -4,6 +4,8 @@ const loopAwareScheme = "loopaware";
 const loopAwarePackageScheme = "com.mprlab.loopaware";
 const loopAwareGold = "#D4AF37";
 const loopAwareWhite = "#FFFFFF";
+const mobileVersion = optionalCalVerVersion(process.env.LOOPAWARE_MOBILE_VERSION || "2026.6.19", "LOOPAWARE_MOBILE_VERSION");
+const isProductionNativeBuild = process.env.NODE_ENV === "production";
 const iosBundleIdentifier = process.env.LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER || "com.mprlab.loopaware";
 const androidPackage = process.env.LOOPAWARE_MOBILE_ANDROID_PACKAGE || "com.mprlab.loopaware";
 const iosBuildNumber = optionalPositiveIntegerString(process.env.LOOPAWARE_MOBILE_IOS_BUILD_NUMBER || "", "LOOPAWARE_MOBILE_IOS_BUILD_NUMBER");
@@ -18,7 +20,7 @@ module.exports = {
   expo: {
     name: "LoopAware",
     slug: "loopaware-mobile",
-    version: "2026.6.19",
+    version: mobileVersion,
     orientation: "portrait",
     icon: "./assets/icon.png",
     scheme: [loopAwareScheme, loopAwarePackageScheme],
@@ -51,7 +53,7 @@ module.exports = {
     web: {
       favicon: "./assets/favicon.png",
     },
-    plugins: ["expo-web-browser", "expo-secure-store", "expo-system-ui", "expo-dev-client"],
+    plugins: mobilePlugins(isProductionNativeBuild),
     extra: {
       loopAware: {
         apiBaseUrl: process.env.LOOPAWARE_MOBILE_API_BASE_URL || "https://loopaware-api.mprlab.com",
@@ -111,4 +113,29 @@ function optionalPositiveIntegerString(value, label) {
 function optionalPositiveInteger(value, label) {
   const normalizedValue = optionalPositiveIntegerString(value, label);
   return normalizedValue ? Number(normalizedValue) : undefined;
+}
+
+/**
+ * @param {boolean} productionNativeBuild
+ * @returns {string[]}
+ */
+function mobilePlugins(productionNativeBuild) {
+  const plugins = ["expo-web-browser", "expo-secure-store", "expo-system-ui"];
+  if (!productionNativeBuild) {
+    plugins.push("expo-dev-client");
+  }
+  return plugins;
+}
+
+/**
+ * @param {string} value
+ * @param {string} label
+ * @returns {string}
+ */
+function optionalCalVerVersion(value, label) {
+  const normalizedValue = String(value || "").trim();
+  if (!/^[1-9][0-9]{3}\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12][0-9]|3[01])$/.test(normalizedValue)) {
+    throw new Error(`${label} must use YYYY.M.D CalVer`);
+  }
+  return normalizedValue;
 }

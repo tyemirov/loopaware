@@ -8,12 +8,16 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
+import { createMobileCalVerVersion } from "./mobile-calver-version.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const defaultMobileDir = path.join(repoRoot, "mobile");
 const defaultBuildDir = path.join(os.tmpdir(), "loopaware-mobile-ios-archive");
 const archiveSchema = "loopaware.mobile-ios-archive.v1";
 const defaultIosDistributionCertificate = "Apple Distribution";
+const defaultIosSigningKeychain = path.join(os.homedir(), ".local/share/kamu/ios-signing/kamu-ios-signing.keychain-db");
+const defaultIosSigningKeychainPasswordEnv = "MOBILE_IOS_SIGNING_KEYCHAIN_PASSWORD";
+const defaultIosSigningKeychainPasswordFile = path.join(os.homedir(), ".local/share/kamu/ios-signing/kamu-ios-signing.keychain.password");
 
 class BuildError extends Error {
   /**
@@ -49,11 +53,14 @@ try {
  *   signingStyle: "automatic" | "manual";
  *   provisioningProfile: string;
  *   signingCertificate: string;
+ *   signingKeychain: string;
+ *   signingKeychainPasswordEnv: string;
+ *   signingKeychainPasswordFile: string;
  *   allowProvisioningUpdates: boolean;
  *   ascApiKeyId: string;
  *   ascApiIssuerId: string;
  *   ascApiKeyPath: string;
- *   iosBuildNumber: string;
+ *   versioning: import("./mobile-calver-version.mjs").MobileCalVerVersion;
  *   preflightOnly: boolean;
  *   keepBuildDir: boolean;
  * }} IOSArchiveArgs
@@ -93,13 +100,17 @@ function parseArgs(argv) {
   if (signingStyle !== "automatic" && signingStyle !== "manual") {
     throw new BuildError("--signing-style must be automatic or manual");
   }
-  const iosBuildNumber = requirePositiveIntegerString(
-    options.get("ios-build-number") ||
-      process.env.MOBILE_IOS_BUILD_NUMBER ||
-      process.env.LOOPAWARE_MOBILE_IOS_BUILD_NUMBER ||
-      "",
-    "MOBILE_IOS_BUILD_NUMBER",
-  );
+  let versioning;
+  try {
+    versioning = createMobileCalVerVersion(
+      options.get("release-timestamp") ||
+        process.env.MOBILE_RELEASE_TIMESTAMP ||
+        process.env.LOOPAWARE_MOBILE_RELEASE_TIMESTAMP ||
+        "",
+    );
+  } catch (error) {
+    throw new BuildError(error instanceof Error ? error.message : String(error));
+  }
 
   return {
     mobileDir: resolvePath(options.get("mobile-dir") || defaultMobileDir),
@@ -118,6 +129,13 @@ function parseArgs(argv) {
     signingStyle,
     provisioningProfile: String(options.get("provisioning-profile") || process.env.MOBILE_IOS_PROVISIONING_PROFILE || "").trim(),
     signingCertificate: String(options.get("signing-certificate") || process.env.MOBILE_IOS_SIGNING_CERTIFICATE || "").trim(),
+    signingKeychain: resolvePath(options.get("signing-keychain") || process.env.MOBILE_IOS_SIGNING_KEYCHAIN || existingDefaultFile(defaultIosSigningKeychain)),
+    signingKeychainPasswordEnv: String(options.get("signing-keychain-password-env") || defaultIosSigningKeychainPasswordEnv).trim(),
+    signingKeychainPasswordFile: resolvePath(
+      options.get("signing-keychain-password-file") ||
+        process.env.MOBILE_IOS_SIGNING_KEYCHAIN_PASSWORD_FILE ||
+        existingDefaultFile(defaultIosSigningKeychainPasswordFile),
+    ),
     allowProvisioningUpdates:
       flags.has("no-allow-provisioning-updates")
         ? false
@@ -127,7 +145,7 @@ function parseArgs(argv) {
       options.get("asc-api-issuer-id") || process.env.APP_STORE_CONNECT_API_ISSUER_ID || process.env.ASC_API_ISSUER_ID || "",
     ).trim(),
     ascApiKeyPath: resolvePath(options.get("asc-api-key-path") || process.env.APP_STORE_CONNECT_API_KEY_PATH || process.env.ASC_API_KEY_PATH || ""),
-    iosBuildNumber,
+    versioning,
     preflightOnly: flags.has("preflight-only"),
     keepBuildDir: flags.has("keep-build-dir"),
   };
@@ -147,8 +165,9 @@ function buildIOSArchive(args) {
   requireExecutable(which("plutil"), "plutil");
   validateSigningInputs(args);
   validateAscKeyInputs(args);
+  prepareSigningKeychain(args);
 
-  const appConfig = readAppConfig(args.mobileDir, args.iosBuildNumber);
+  const appConfig = readAppConfig(args.mobileDir, args.versioning);
   const outputPath = args.output || defaultOutputPath(args.mobileDir, appConfig.version);
   const manifestPath = args.manifest || matchingOutputPath(outputPath, ".json");
 
@@ -158,7 +177,8 @@ function buildIOSArchive(args) {
       status: "preflight-passed",
       bundleIdentifier: appConfig.bundleIdentifier,
       version: appConfig.version,
-      buildNumber: args.iosBuildNumber,
+      buildNumber: args.versioning.iosBuildNumber,
+      versioning: args.versioning,
       output: outputPath,
       buildManifest: manifestPath,
     };
@@ -173,6 +193,7 @@ function buildIOSArchive(args) {
 
   const env = buildEnvironment(args, appConfig);
   run(["npm", "ci"], { cwd: buildMobileDir, env });
+  stripDevelopmentClientFromProductionArchive(buildMobileDir);
   run(["npx", "--no-install", "expo", "prebuild", "--platform", "ios", "--no-install"], { cwd: buildMobileDir, env });
   run(["node", "scripts/fix-ios-project-warnings.mjs"], { cwd: buildMobileDir, env });
   run(["npx", "--no-install", "pod-install", "ios"], { cwd: buildMobileDir, env });
@@ -225,15 +246,16 @@ function buildIOSArchive(args) {
 
   /** @type {Record<string, unknown>} */
   const metadata = {
-    ...validateIPA(outputPath, appConfig, args.iosBuildNumber),
+    ...validateIPA(outputPath, appConfig, args.versioning.iosBuildNumber),
     archivePath,
-    buildNumber: args.iosBuildNumber,
+    buildNumber: args.versioning.iosBuildNumber,
     bundleIdentifier: appConfig.bundleIdentifier,
     exportMethod: "app-store-connect",
     output: outputPath,
     sizeBytes: fs.statSync(outputPath).size,
     target: "app-store-connect",
     version: appConfig.version,
+    versioning: args.versioning,
   };
   metadata.buildManifest = writeBuildManifest(manifestPath, metadata);
 
@@ -245,15 +267,17 @@ function buildIOSArchive(args) {
 
 /**
  * @param {string} mobileDir
- * @param {string} iosBuildNumber
+ * @param {import("./mobile-calver-version.mjs").MobileCalVerVersion} versioning
  * @returns {{ name: string; version: string; bundleIdentifier: string }}
  */
-function readAppConfig(mobileDir, iosBuildNumber) {
+function readAppConfig(mobileDir, versioning) {
   const appConfigPath = path.join(mobileDir, "app.config.js");
   requireFile(appConfigPath, "Expo app config");
   const require = createRequire(import.meta.url);
+  const previousVersion = process.env.LOOPAWARE_MOBILE_VERSION;
   const previousBuildNumber = process.env.LOOPAWARE_MOBILE_IOS_BUILD_NUMBER;
-  process.env.LOOPAWARE_MOBILE_IOS_BUILD_NUMBER = iosBuildNumber;
+  process.env.LOOPAWARE_MOBILE_VERSION = versioning.releaseVersion;
+  process.env.LOOPAWARE_MOBILE_IOS_BUILD_NUMBER = versioning.iosBuildNumber;
   delete require.cache[require.resolve(appConfigPath)];
   try {
     const config = require(appConfigPath);
@@ -265,6 +289,11 @@ function readAppConfig(mobileDir, iosBuildNumber) {
       bundleIdentifier: requireString(iosConfig.bundleIdentifier, "expo.ios.bundleIdentifier"),
     };
   } finally {
+    if (previousVersion === undefined) {
+      delete process.env.LOOPAWARE_MOBILE_VERSION;
+    } else {
+      process.env.LOOPAWARE_MOBILE_VERSION = previousVersion;
+    }
     if (previousBuildNumber === undefined) {
       delete process.env.LOOPAWARE_MOBILE_IOS_BUILD_NUMBER;
     } else {
@@ -279,6 +308,9 @@ function readAppConfig(mobileDir, iosBuildNumber) {
 function validateSigningInputs(args) {
   if (!args.developmentTeam) {
     throw new BuildError("iOS archive requires MOBILE_IOS_DEVELOPMENT_TEAM or APPLE_TEAM_ID before xcodebuild signing");
+  }
+  if (args.signingStyle === "automatic" && args.signingCertificate) {
+    throw new BuildError("automatic iOS signing does not accept MOBILE_IOS_SIGNING_CERTIFICATE; use manual signing with MOBILE_IOS_PROVISIONING_PROFILE");
   }
   if (args.signingStyle === "manual" && !args.provisioningProfile) {
     throw new BuildError("manual iOS signing requires MOBILE_IOS_PROVISIONING_PROFILE or --provisioning-profile");
@@ -301,6 +333,41 @@ function validateAscKeyInputs(args) {
 
 /**
  * @param {IOSArchiveArgs} args
+ */
+function prepareSigningKeychain(args) {
+  if (!args.signingKeychain) {
+    return;
+  }
+  requireFile(args.signingKeychain, "iOS signing keychain");
+  requireExecutable(which("security"), "security");
+
+  let password = args.signingKeychainPasswordEnv ? String(process.env[args.signingKeychainPasswordEnv] || "") : "";
+  if (!password && args.signingKeychainPasswordFile) {
+    requireFile(args.signingKeychainPasswordFile, "iOS signing keychain password file");
+    password = fs.readFileSync(args.signingKeychainPasswordFile, "utf8").trim();
+  }
+  if (!password) {
+    throw new BuildError(
+      `iOS signing keychain is configured at ${args.signingKeychain}, but ${args.signingKeychainPasswordEnv || "the keychain password env var"} ` +
+        "is not set and no signing keychain password file is available. Set MOBILE_IOS_SIGNING_KEYCHAIN_PASSWORD_FILE so release can unlock " +
+        "the keychain and authorize codesign non-interactively.",
+    );
+  }
+
+  runSecurity(["security", "unlock-keychain", "-p", password, args.signingKeychain], "unlock iOS signing keychain");
+  runSecurity(
+    ["security", "set-key-partition-list", "-S", "apple-tool:,apple:,codesign:", "-s", "-k", password, args.signingKeychain],
+    "authorize codesign for iOS signing keychain",
+  );
+  const identities = runSecurity(["security", "find-identity", "-v", "-p", "codesigning", args.signingKeychain], "find iOS codesigning identity", true);
+  const expectedIdentity = args.signingCertificate || defaultIosDistributionCertificate;
+  if (expectedIdentity && !identities.includes(expectedIdentity)) {
+    throw new BuildError(`iOS signing keychain ${args.signingKeychain} does not contain a codesigning identity matching ${JSON.stringify(expectedIdentity)}`);
+  }
+}
+
+/**
+ * @param {IOSArchiveArgs} args
  * @param {{ version: string; bundleIdentifier: string }} appConfig
  * @returns {NodeJS.ProcessEnv}
  */
@@ -310,8 +377,9 @@ function buildEnvironment(args, appConfig) {
     CI: "1",
     EXPO_NO_TELEMETRY: "1",
     NODE_ENV: "production",
+    LOOPAWARE_MOBILE_VERSION: appConfig.version,
     LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER: appConfig.bundleIdentifier,
-    LOOPAWARE_MOBILE_IOS_BUILD_NUMBER: args.iosBuildNumber,
+    LOOPAWARE_MOBILE_IOS_BUILD_NUMBER: args.versioning.iosBuildNumber,
   };
 }
 
@@ -323,12 +391,15 @@ function buildEnvironment(args, appConfig) {
 function archiveBuildSettings(args, appConfig) {
   const settings = [
     `PRODUCT_BUNDLE_IDENTIFIER=${appConfig.bundleIdentifier}`,
-    `CURRENT_PROJECT_VERSION=${args.iosBuildNumber}`,
+    `CURRENT_PROJECT_VERSION=${args.versioning.iosBuildNumber}`,
     `MARKETING_VERSION=${appConfig.version}`,
     args.signingStyle === "automatic" ? "CODE_SIGN_STYLE=Automatic" : "CODE_SIGN_STYLE=Manual",
     `DEVELOPMENT_TEAM=${args.developmentTeam}`,
   ];
   const signingCertificate = args.signingCertificate || (args.signingStyle === "manual" ? defaultIosDistributionCertificate : "");
+  if (args.signingStyle === "automatic") {
+    settings.push("CODE_SIGN_IDENTITY=");
+  }
   if (args.signingStyle === "manual") {
     settings.push(`PROVISIONING_PROFILE_SPECIFIER=${args.provisioningProfile}`);
   }
@@ -469,7 +540,7 @@ function validateIPA(ipaPath, appConfig, iosBuildNumber) {
     throw new BuildError("IPA CFBundleShortVersionString does not match mobile/app.config.js expo.version");
   }
   if (String(plist.CFBundleVersion) !== iosBuildNumber) {
-    throw new BuildError("IPA CFBundleVersion does not match MOBILE_IOS_BUILD_NUMBER");
+    throw new BuildError("IPA CFBundleVersion does not match generated CalVer iOS build number");
   }
   return {
     schema: archiveSchema,
@@ -496,6 +567,7 @@ function writeBuildManifest(outputPath, metadata) {
       version: metadata.version,
       buildNumber: metadata.buildNumber,
     },
+    versioning: metadata.versioning,
     export: {
       method: metadata.exportMethod,
       target: metadata.target,
@@ -547,6 +619,21 @@ function copyMobileProject(source, destination) {
 }
 
 /**
+ * @param {string} mobileDir
+ */
+function stripDevelopmentClientFromProductionArchive(mobileDir) {
+  const packagePath = path.join(mobileDir, "package.json");
+  const packageJSON = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+  if (packageJSON.dependencies) {
+    delete packageJSON.dependencies["expo-dev-client"];
+  }
+  if (packageJSON.devDependencies) {
+    delete packageJSON.devDependencies["expo-dev-client"];
+  }
+  fs.writeFileSync(packagePath, `${JSON.stringify(packageJSON, null, 2)}\n`, "utf8");
+}
+
+/**
  * @param {string} value
  * @returns {string}
  */
@@ -564,6 +651,14 @@ function resolvePath(value) {
 }
 
 /**
+ * @param {string} filePath
+ * @returns {string}
+ */
+function existingDefaultFile(filePath) {
+  return fs.existsSync(filePath) ? filePath : "";
+}
+
+/**
  * @param {string | unknown} value
  * @param {string} label
  * @returns {string}
@@ -573,19 +668,6 @@ function requireString(value, label) {
     throw new BuildError(`missing ${label}`);
   }
   return value;
-}
-
-/**
- * @param {string | unknown} value
- * @param {string} label
- * @returns {string}
- */
-function requirePositiveIntegerString(value, label) {
-  const normalizedValue = String(value || "").trim();
-  if (!/^[1-9][0-9]*$/.test(normalizedValue)) {
-    throw new BuildError(`${label} must be a positive integer`);
-  }
-  return normalizedValue;
 }
 
 /**
@@ -707,4 +789,26 @@ function runAndBuffer(command) {
     throw new BuildError(`command failed with exit ${String(result.status ?? result.signal ?? "unknown")}: ${command.join(" ")}`);
   }
   return result.stdout;
+}
+
+/**
+ * @param {string[]} command
+ * @param {string} label
+ * @param {boolean} [capture]
+ * @returns {string}
+ */
+function runSecurity(command, label, capture = false) {
+  const result = spawnSync(command[0], command.slice(1), {
+    encoding: "utf8",
+    stdio: "pipe",
+    timeout: 30000,
+  });
+  if (result.error) {
+    throw new BuildError(`could not ${label}: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    const output = `${result.stdout || ""}${result.stderr || ""}`.trim();
+    throw new BuildError(`could not ${label}${output ? `: ${output}` : ""}`);
+  }
+  return capture ? result.stdout : "";
 }

@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { createMobileCalVerVersion } from "./mobile-calver-version.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const defaultMobileDir = path.join(repoRoot, "mobile");
@@ -48,6 +49,7 @@ try {
  *   keystore: string;
  *   javaHome: string;
  *   androidSdkRoot: string;
+ *   versioning: import("./mobile-calver-version.mjs").MobileCalVerVersion;
  *   keepBuildDir: boolean;
  * }} BundleArgs
  */
@@ -82,6 +84,18 @@ function parseArgs(argv) {
     index += 1;
   }
 
+  let versioning;
+  try {
+    versioning = createMobileCalVerVersion(
+      options.get("release-timestamp") ||
+        process.env.MOBILE_RELEASE_TIMESTAMP ||
+        process.env.LOOPAWARE_MOBILE_RELEASE_TIMESTAMP ||
+        "",
+    );
+  } catch (error) {
+    throw new BuildError(error instanceof Error ? error.message : String(error));
+  }
+
   return {
     mobileDir: resolvePath(options.get("mobile-dir") || defaultMobileDir),
     buildDir: resolvePath(options.get("build-dir") || defaultBuildDir),
@@ -99,6 +113,7 @@ function parseArgs(argv) {
         process.env.ANDROID_HOME ||
         defaultAndroidSdkRoot,
     ),
+    versioning,
     keepBuildDir: flags.has("keep-build-dir"),
   };
 }
@@ -110,10 +125,6 @@ function parseArgs(argv) {
 function buildAndroidBundle(args) {
   requireFile(path.join(args.mobileDir, "package.json"), "mobile package.json");
   requireFile(path.join(args.mobileDir, "package-lock.json"), "mobile package-lock.json");
-  const androidVersionCode = requirePositiveInteger(
-    process.env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE || process.env.MOBILE_ANDROID_VERSION_CODE || "",
-    "LOOPAWARE_MOBILE_ANDROID_VERSION_CODE",
-  );
   requireDirectory(args.androidSdkRoot, "Android SDK root");
   requireExecutable(path.join(args.javaHome, "bin", "java"), "java");
   requireExecutable(path.join(args.javaHome, "bin", "jarsigner"), "jarsigner");
@@ -132,7 +143,8 @@ function buildAndroidBundle(args) {
   copyMobileProject(args.mobileDir, buildMobileDir);
 
   const env = buildEnvironment(args.javaHome, args.androidSdkRoot);
-  env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE = String(androidVersionCode);
+  env.LOOPAWARE_MOBILE_VERSION = args.versioning.releaseVersion;
+  env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE = String(args.versioning.androidVersionCode);
   run(["npm", "ci"], { cwd: buildMobileDir, env });
   run(["npx", "expo", "prebuild", "--platform", "android", "--no-install"], { cwd: buildMobileDir, env });
   writeLocalProperties(path.join(buildMobileDir, "android", "local.properties"), args.androidSdkRoot);
@@ -151,6 +163,12 @@ function buildAndroidBundle(args) {
   const generatedBundle = path.join(buildMobileDir, "android", "app", "build", "outputs", "bundle", "release", "app-release.aab");
   requireFile(generatedBundle, "generated release app bundle");
   const manifest = readBundleManifest(generatedBundle);
+  if (manifest.versionName !== args.versioning.releaseVersion) {
+    throw new BuildError(`generated bundle versionName ${manifest.versionName} does not match CalVer ${args.versioning.releaseVersion}`);
+  }
+  if (Number(manifest.versionCode) !== args.versioning.androidVersionCode) {
+    throw new BuildError(`generated bundle versionCode ${manifest.versionCode} does not match CalVer build code ${args.versioning.androidVersionCode}`);
+  }
   const outputPath = args.output || defaultOutputPath(args.mobileDir, manifest.versionName);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.copyFileSync(generatedBundle, outputPath);
@@ -168,8 +186,10 @@ function buildAndroidBundle(args) {
     androidPackage: manifest.packageName,
     versionName: manifest.versionName,
     versionCode: Number(manifest.versionCode),
-    sourceVersionCode: androidVersionCode,
-    versionCodeSource: "LOOPAWARE_MOBILE_ANDROID_VERSION_CODE",
+    sourceVersionCode: args.versioning.androidVersionCode,
+    versionCodeSource: args.versioning.buildCodeSource,
+    versionCodePolicy: "CalVer UTC release timestamp seconds since 2020-01-01",
+    versioning: args.versioning,
     output: outputPath,
     sha256: sha256File(outputPath),
     sizeBytes: fs.statSync(outputPath).size,
@@ -630,19 +650,6 @@ function sha256File(pathToHash) {
   const hash = crypto.createHash("sha256");
   hash.update(fs.readFileSync(pathToHash));
   return hash.digest("hex");
-}
-
-/**
- * @param {string | number} value
- * @param {string} label
- * @returns {number}
- */
-function requirePositiveInteger(value, label) {
-  const numberValue = Number(value);
-  if (!Number.isInteger(numberValue) || numberValue <= 0) {
-    throw new BuildError(`${label} must be a positive integer`);
-  }
-  return numberValue;
 }
 
 /**
