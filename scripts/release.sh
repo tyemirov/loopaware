@@ -34,6 +34,7 @@ Environment:
   RELEASE_VERSION             Exact release version
   RELEASE_SCHEME              Versioning scheme override
   MOBILE_RELEASE_TIMESTAMP    Optional fixed UTC timestamp for both mobile stores
+  MOBILE_IOS_ASC_APP_ID       Numeric App Store Connect app Apple ID for altool upload
 USAGE
 }
 
