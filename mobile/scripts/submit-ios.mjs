@@ -44,6 +44,7 @@ try {
  *   ascApiKeyId: string;
  *   ascApiIssuerId: string;
  *   ascApiKeyPath: string;
+ *   ascAppId: string;
  *   appleId: string;
  *   appPasswordEnv: string;
  *   providerPublicId: string;
@@ -103,6 +104,7 @@ function parseArgs(argv) {
       options.get("asc-api-issuer-id") || process.env.APP_STORE_CONNECT_API_ISSUER_ID || process.env.ASC_API_ISSUER_ID || "",
     ).trim(),
     ascApiKeyPath: resolvePath(options.get("asc-api-key-path") || process.env.APP_STORE_CONNECT_API_KEY_PATH || process.env.ASC_API_KEY_PATH || ""),
+    ascAppId: String(options.get("asc-app-id") || process.env.MOBILE_IOS_ASC_APP_ID || process.env.LOOPAWARE_MOBILE_IOS_ASC_APP_ID || "").trim(),
     appleId: String(options.get("apple-id") || process.env.MOBILE_IOS_APPLE_ID || process.env.APPLE_ID || "").trim(),
     appPasswordEnv: String(options.get("app-password-env") || defaultAppPasswordEnv),
     providerPublicId: String(options.get("provider-public-id") || process.env.MOBILE_IOS_PROVIDER_PUBLIC_ID || "").trim(),
@@ -132,6 +134,8 @@ function submitIOSArchive(args) {
     bundleIdentifier: manifest.app.bundleIdentifier,
     version: manifest.app.version,
     buildNumber: manifest.app.buildNumber,
+    ascAppId: args.ascAppId,
+    platform: "ios",
     buildManifest: args.manifest,
     ipa: ipaPath,
     ipaSha256,
@@ -141,16 +145,31 @@ function submitIOSArchive(args) {
     return plan;
   }
 
-  const command = ["xcrun", "altool", "--upload-package", ipaPath];
+  const command = [
+    "xcrun",
+    "altool",
+    "--upload-package",
+    ipaPath,
+    "--platform",
+    "ios",
+    "--apple-id",
+    args.ascAppId,
+    "--bundle-id",
+    manifest.app.bundleIdentifier,
+    "--bundle-version",
+    manifest.app.buildNumber,
+    "--bundle-short-version-string",
+    manifest.app.version,
+  ];
   if (args.ascApiKeyId) {
-    command.push("--api-key", args.ascApiKeyId, "--api-issuer", args.ascApiIssuerId, "--p8-file-path", args.ascApiKeyPath);
+    command.push("--api-key", args.ascApiKeyId, "--api-issuer", args.ascApiIssuerId);
   } else {
     command.push("-u", args.appleId, "-p", `@env:${args.appPasswordEnv}`);
   }
   if (args.providerPublicId) {
     command.push("--provider-public-id", args.providerPublicId);
   }
-  run(command);
+  run(command, { env: uploadEnvironment(args) });
   return {
     ...plan,
     tool: "xcrun altool",
@@ -226,12 +245,19 @@ function requireArchiveVersioning(value, app) {
  * @param {IOSSubmitArgs} args
  */
 function validateUploadInputs(args) {
+  if (!/^[1-9][0-9]*$/.test(args.ascAppId)) {
+    throw new SubmitError("iOS upload requires MOBILE_IOS_ASC_APP_ID or LOOPAWARE_MOBILE_IOS_ASC_APP_ID with the numeric App Store Connect app Apple ID");
+  }
   const ascValues = [args.ascApiKeyId, args.ascApiIssuerId, args.ascApiKeyPath];
   if (ascValues.some(Boolean)) {
     if (!ascValues.every(Boolean)) {
       throw new SubmitError("App Store Connect API key upload requires APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_API_ISSUER_ID, and APP_STORE_CONNECT_API_KEY_PATH");
     }
     requireFile(args.ascApiKeyPath, "App Store Connect API private key");
+    const expectedKeyFileName = `AuthKey_${args.ascApiKeyId}.p8`;
+    if (path.basename(args.ascApiKeyPath) !== expectedKeyFileName) {
+      throw new SubmitError(`App Store Connect API private key must be named ${expectedKeyFileName} for altool`);
+    }
     return;
   }
   if (args.appleId && process.env[args.appPasswordEnv]) {
@@ -242,6 +268,20 @@ function validateUploadInputs(args) {
       "(APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_API_ISSUER_ID, APP_STORE_CONNECT_API_KEY_PATH) " +
       `or MOBILE_IOS_APPLE_ID/APPLE_ID plus an app-specific password in ${args.appPasswordEnv}`,
   );
+}
+
+/**
+ * @param {IOSSubmitArgs} args
+ * @returns {NodeJS.ProcessEnv}
+ */
+function uploadEnvironment(args) {
+  if (!args.ascApiKeyPath) {
+    return process.env;
+  }
+  return {
+    ...process.env,
+    API_PRIVATE_KEYS_DIR: path.dirname(args.ascApiKeyPath),
+  };
 }
 
 /**
@@ -366,11 +406,12 @@ function sha256File(pathToHash) {
 
 /**
  * @param {string[]} command
+ * @param {{ env?: NodeJS.ProcessEnv }} [options]
  */
-function run(command) {
+function run(command, options = {}) {
   process.stdout.write(`+ ${command.join(" ")}\n`);
   const result = spawnSync(command[0], command.slice(1), {
-    env: process.env,
+    env: options.env || process.env,
     stdio: "inherit",
     encoding: "utf8",
   });

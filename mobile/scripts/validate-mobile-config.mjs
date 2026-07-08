@@ -179,6 +179,19 @@ assert(!makefile.includes("MOBILE_IOS_BUILD_NUMBER"), "mobile_makefile_must_not_
 assert(!makefile.includes("MOBILE_ANDROID_VERSION_CODE"), "mobile_makefile_must_not_request_android_version_code");
 assert(makefile.includes("MOBILE_RELEASE_TIMESTAMP"), "mobile_makefile_missing_release_timestamp");
 assert(makefile.includes("MOBILE_RESOLVED_RELEASE_TIMESTAMP"), "mobile_makefile_missing_resolved_release_timestamp");
+assert(makefile.includes("MOBILE_IOS_ASC_APP_ID ?="), "mobile_makefile_missing_ios_asc_app_id_variable");
+assert(
+  makefile.includes('MOBILE_IOS_ASC_APP_ID="$(MOBILE_IOS_ASC_APP_ID)"'),
+  "mobile_makefile_missing_ios_asc_app_id_env",
+);
+assert(
+  makefile.includes('APP_STORE_CONNECT_API_KEY_ID="$(APP_STORE_CONNECT_API_KEY_ID)"'),
+  "mobile_makefile_submit_missing_app_store_key_id_env",
+);
+assert(
+  makefile.includes('APP_STORE_CONNECT_API_ISSUER_ID="$(APP_STORE_CONNECT_API_ISSUER_ID)"'),
+  "mobile_makefile_submit_missing_app_store_issuer_env",
+);
 assert(makefile.includes('MOBILE_RELEASE_TIMESTAMP="$(MOBILE_RELEASE_TIMESTAMP)"'), "mobile_makefile_release_missing_mobile_timestamp_env");
 assert(makefile.includes('APP_STORE_CONNECT_API_KEY_PATH="$(APP_STORE_CONNECT_API_KEY_PATH)"'), "mobile_makefile_release_missing_app_store_key_path_env");
 assert(makefile.includes('ANDROID_SDK_ROOT="$(ANDROID_SDK_ROOT)"'), "mobile_makefile_release_missing_android_sdk_env");
@@ -215,8 +228,16 @@ assert(releaseScriptSource.includes('MOBILE_RELEASE_TIMESTAMP="${mobile_release_
 const iosSubmitSource = readText("mobile/scripts/submit-ios.mjs");
 assert(iosSubmitSource.includes("xcrun") && iosSubmitSource.includes("altool"), "mobile_ios_submit_missing_altool_upload");
 assert(iosSubmitSource.includes("--upload-package"), "mobile_ios_submit_missing_package_upload");
+assert(iosSubmitSource.includes("--platform"), "mobile_ios_submit_missing_platform");
+assert(iosSubmitSource.includes("--apple-id"), "mobile_ios_submit_missing_asc_app_id_flag");
+assert(iosSubmitSource.includes("--bundle-id"), "mobile_ios_submit_missing_bundle_id");
+assert(iosSubmitSource.includes("--bundle-version"), "mobile_ios_submit_missing_bundle_version");
+assert(iosSubmitSource.includes("--bundle-short-version-string"), "mobile_ios_submit_missing_short_version");
+assert(iosSubmitSource.includes("MOBILE_IOS_ASC_APP_ID"), "mobile_ios_submit_missing_asc_app_id_env");
 assert(iosSubmitSource.includes("APP_STORE_CONNECT_API_KEY_ID"), "mobile_ios_submit_missing_api_key_env");
 assert(iosSubmitSource.includes("MOBILE_IOS_APP_SPECIFIC_PASSWORD"), "mobile_ios_submit_missing_app_password_env");
+assert(iosSubmitSource.includes("API_PRIVATE_KEYS_DIR"), "mobile_ios_submit_missing_api_private_keys_dir");
+assert(!iosSubmitSource.includes("--p8-file-path"), "mobile_ios_submit_must_not_pass_p8_file_path_to_upload");
 assert(iosSubmitSource.includes("iOS IPA hash changed since build manifest"), "mobile_ios_submit_missing_hash_drift_guard");
 assert(iosSubmitSource.includes("createMobileCalVerVersion"), "mobile_ios_submit_missing_calver_manifest_default");
 assert(iosSubmitSource.includes("requireArchiveVersioning"), "mobile_ios_submit_missing_manifest_versioning_validation");
@@ -245,6 +266,10 @@ assert(iosArchiveSource.includes("set-key-partition-list"), "mobile_ios_archive_
 
 const androidBundleSource = readText("mobile/scripts/build-android-bundle.mjs");
 assert(androidBundleSource.includes("signingConfig signingConfigs.release"), "mobile_android_bundle_missing_release_signing");
+assert(androidBundleSource.includes("android-release-identity.json"), "mobile_android_bundle_missing_release_identity");
+assert(androidBundleSource.includes("verifyUploadKeyFingerprint"), "mobile_android_bundle_missing_upload_key_fingerprint_check");
+assert(androidBundleSource.includes("uploadKey.sha256"), "mobile_android_bundle_missing_upload_key_sha256_contract");
+assert(!androidBundleSource.includes("-genkeypair"), "mobile_android_bundle_must_not_generate_upload_key");
 assert(
   androidBundleSource.includes("generated app bundle is signed with the Android debug certificate"),
   "mobile_android_bundle_missing_debug_signing_rejection",
