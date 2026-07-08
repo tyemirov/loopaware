@@ -12,6 +12,7 @@ bin/
 !configs/.env.*.example
 client*.plist
 client*.json
+configs/AuthKey_*.p8
 
 .DS_Store
 __pycache__/

@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { createMobileCalVerVersion } from "./mobile-calver-version.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const defaultMobileDir = path.join(repoRoot, "mobile");
@@ -15,6 +16,8 @@ const defaultCredentialDir = path.join(os.homedir(), ".local", "share", "loopawa
 const defaultKeystoreProperties = path.join(defaultCredentialDir, "keystore.properties");
 const defaultKeystore = path.join(defaultCredentialDir, "loopaware-upload-key.jks");
 const defaultAndroidSdkRoot = path.join(os.homedir(), "Library", "Android", "sdk");
+const releaseIdentityFileName = "android-release-identity.json";
+const releaseIdentitySchema = "loopaware.mobile-android-release-identity.v1";
 const signingEnvPrefix = "LOOPAWARE_ANDROID_UPLOAD";
 
 class BuildError extends Error {
@@ -48,6 +51,7 @@ try {
  *   keystore: string;
  *   javaHome: string;
  *   androidSdkRoot: string;
+ *   versioning: import("./mobile-calver-version.mjs").MobileCalVerVersion;
  *   keepBuildDir: boolean;
  * }} BundleArgs
  */
@@ -82,6 +86,18 @@ function parseArgs(argv) {
     index += 1;
   }
 
+  let versioning;
+  try {
+    versioning = createMobileCalVerVersion(
+      options.get("release-timestamp") ||
+        process.env.MOBILE_RELEASE_TIMESTAMP ||
+        process.env.LOOPAWARE_MOBILE_RELEASE_TIMESTAMP ||
+        "",
+    );
+  } catch (error) {
+    throw new BuildError(error instanceof Error ? error.message : String(error));
+  }
+
   return {
     mobileDir: resolvePath(options.get("mobile-dir") || defaultMobileDir),
     buildDir: resolvePath(options.get("build-dir") || defaultBuildDir),
@@ -99,6 +115,7 @@ function parseArgs(argv) {
         process.env.ANDROID_HOME ||
         defaultAndroidSdkRoot,
     ),
+    versioning,
     keepBuildDir: flags.has("keep-build-dir"),
   };
 }
@@ -118,7 +135,9 @@ function buildAndroidBundle(args) {
   requireExecutable(which("bundletool"), "bundletool");
   requireExecutable(which("unzip"), "unzip");
 
-  const signing = ensureSigningProperties(args.keystoreProperties, args.keystore, args.javaHome);
+  const signing = readSigningProperties(args.keystoreProperties, args.keystore);
+  const releaseIdentity = readAndroidReleaseIdentity(args.mobileDir);
+  const uploadKeySha256 = verifyUploadKeyFingerprint(signing, args.javaHome, releaseIdentity.uploadKeySha256);
   if (args.buildDir === "/" || args.buildDir === os.tmpdir()) {
     throw new BuildError(`unsafe build directory: ${args.buildDir}`);
   }
@@ -128,6 +147,8 @@ function buildAndroidBundle(args) {
   copyMobileProject(args.mobileDir, buildMobileDir);
 
   const env = buildEnvironment(args.javaHome, args.androidSdkRoot);
+  env.LOOPAWARE_MOBILE_VERSION = args.versioning.releaseVersion;
+  env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE = String(args.versioning.androidVersionCode);
   run(["npm", "ci"], { cwd: buildMobileDir, env });
   run(["npx", "expo", "prebuild", "--platform", "android", "--no-install"], { cwd: buildMobileDir, env });
   writeLocalProperties(path.join(buildMobileDir, "android", "local.properties"), args.androidSdkRoot);
@@ -146,29 +167,45 @@ function buildAndroidBundle(args) {
   const generatedBundle = path.join(buildMobileDir, "android", "app", "build", "outputs", "bundle", "release", "app-release.aab");
   requireFile(generatedBundle, "generated release app bundle");
   const manifest = readBundleManifest(generatedBundle);
+  if (manifest.packageName !== releaseIdentity.packageName) {
+    throw new BuildError(`generated bundle package ${manifest.packageName} does not match Android release identity ${releaseIdentity.packageName}`);
+  }
+  if (manifest.versionName !== args.versioning.releaseVersion) {
+    throw new BuildError(`generated bundle versionName ${manifest.versionName} does not match CalVer ${args.versioning.releaseVersion}`);
+  }
+  if (Number(manifest.versionCode) !== args.versioning.androidVersionCode) {
+    throw new BuildError(`generated bundle versionCode ${manifest.versionCode} does not match CalVer build code ${args.versioning.androidVersionCode}`);
+  }
   const outputPath = args.output || defaultOutputPath(args.mobileDir, manifest.versionName);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.copyFileSync(generatedBundle, outputPath);
   const mappingOutputPath = copyDeobfuscationFile(buildMobileDir, outputPath);
-  const validation = validateBundle(outputPath, args.javaHome);
+  const validation = validateBundle(outputPath, args.javaHome, uploadKeySha256);
 
   if (!args.keepBuildDir) {
     fs.rmSync(args.buildDir, { recursive: true, force: true });
   }
 
-  return {
+  /** @type {Record<string, unknown>} */
+  const metadata = {
     schema: "loopaware.mobile-android-bundle.v1",
     status: "passed",
     androidPackage: manifest.packageName,
     versionName: manifest.versionName,
-    versionCode: manifest.versionCode,
+    versionCode: Number(manifest.versionCode),
+    sourceVersionCode: args.versioning.androidVersionCode,
+    versionCodeSource: args.versioning.buildCodeSource,
+    versionCodePolicy: "CalVer UTC release timestamp seconds since 2020-01-01",
+    versioning: args.versioning,
     output: outputPath,
     sha256: sha256File(outputPath),
     sizeBytes: fs.statSync(outputPath).size,
     deobfuscationFile: mappingOutputPath,
     deobfuscationSha256: sha256File(mappingOutputPath),
     keystore: signing.storeFile,
+    uploadKeySha256,
     signerOwner: validation.signerOwner,
+    signerSha256: validation.signerSha256,
     zipIntegrity: "passed",
     jarSignature: "passed",
     releaseSigner: "passed",
@@ -176,6 +213,8 @@ function buildAndroidBundle(args) {
     r8Minification: "enabled",
     resourceShrinking: "disabled",
   };
+  metadata.buildManifest = writeBuildManifest(outputPath, metadata);
+  return metadata;
 }
 
 /**
@@ -228,72 +267,65 @@ function resolveJavaHome(explicitJavaHome) {
 /**
  * @param {string} propertiesPath
  * @param {string} keystorePath
- * @param {string} javaHome
  * @returns {{ storeFile: string; storePassword: string; keyAlias: string; keyPassword: string }}
  */
-function ensureSigningProperties(propertiesPath, keystorePath, javaHome) {
-  fs.mkdirSync(path.dirname(propertiesPath), { recursive: true, mode: 0o700 });
-  if (!fs.existsSync(propertiesPath)) {
-    const generated = {
-      storeFile: keystorePath,
-      keyAlias: "loopaware-upload",
-      storePassword: crypto.randomBytes(24).toString("base64url"),
-      keyPassword: crypto.randomBytes(24).toString("base64url"),
-    };
-    fs.writeFileSync(
-      propertiesPath,
-      [
-        `storeFile=${generated.storeFile}`,
-        `keyAlias=${generated.keyAlias}`,
-        `storePassword=${generated.storePassword}`,
-        `keyPassword=${generated.keyPassword}`,
-      ].join("\n") + "\n",
-      { encoding: "utf8", mode: 0o600 },
-    );
-  }
-
+function readSigningProperties(propertiesPath, keystorePath) {
+  requireFile(propertiesPath, "Android upload signing properties");
   const properties = readProperties(propertiesPath);
   const storeFile = resolveKeystorePath(properties.storeFile || keystorePath, propertiesPath);
   const keyAlias = requireProperty(properties, "keyAlias", propertiesPath);
   const storePassword = requireProperty(properties, "storePassword", propertiesPath);
   const keyPassword = requireProperty(properties, "keyPassword", propertiesPath);
 
-  if (!fs.existsSync(storeFile)) {
-    fs.mkdirSync(path.dirname(storeFile), { recursive: true, mode: 0o700 });
-    run(
-      [
-        path.join(javaHome, "bin", "keytool"),
-        "-genkeypair",
-        "-v",
-        "-storetype",
-        "JKS",
-        "-keystore",
-        storeFile,
-        "-storepass",
-        storePassword,
-        "-keypass",
-        keyPassword,
-        "-alias",
-        keyAlias,
-        "-keyalg",
-        "RSA",
-        "-keysize",
-        "2048",
-        "-validity",
-        "10000",
-        "-dname",
-        "CN=LoopAware Android Upload, OU=MPRLab, O=MPRLab, L=San Francisco, ST=California, C=US",
-      ],
-      {
-        quiet: true,
-        label: `${path.join(javaHome, "bin", "keytool")} -genkeypair -v -storetype JKS -keystore ${storeFile} -alias ${keyAlias} -keyalg RSA -keysize 2048 -validity 10000 -dname CN=LoopAware Android Upload,...`,
-      },
-    );
-    fs.chmodSync(storeFile, 0o600);
-  }
-
   requireFile(storeFile, "Android upload keystore");
   return { storeFile, storePassword, keyAlias, keyPassword };
+}
+
+/**
+ * @param {string} mobileDir
+ * @returns {{ packageName: string; uploadKeySha256: string }}
+ */
+function readAndroidReleaseIdentity(mobileDir) {
+  const identityPath = path.join(mobileDir, releaseIdentityFileName);
+  requireFile(identityPath, "Android release identity");
+  const identity = JSON.parse(fs.readFileSync(identityPath, "utf8"));
+  if (identity.schema !== releaseIdentitySchema) {
+    throw new BuildError(`invalid Android release identity schema in ${identityPath}`);
+  }
+  return {
+    packageName: requireString(identity.packageName, `packageName in ${identityPath}`),
+    uploadKeySha256: normalizeSHA256Fingerprint(requireString(identity.uploadKey?.sha256, `uploadKey.sha256 in ${identityPath}`)),
+  };
+}
+
+/**
+ * @param {{ storeFile: string; storePassword: string; keyAlias: string }} signing
+ * @param {string} javaHome
+ * @param {string} expectedSha256
+ * @returns {string}
+ */
+function verifyUploadKeyFingerprint(signing, javaHome, expectedSha256) {
+  const certificateOutput = runAndRead(
+    [
+      path.join(javaHome, "bin", "keytool"),
+      "-list",
+      "-v",
+      "-keystore",
+      signing.storeFile,
+      "-storepass",
+      signing.storePassword,
+      "-alias",
+      signing.keyAlias,
+    ],
+    {
+      label: `${path.join(javaHome, "bin", "keytool")} -list -v -keystore ${signing.storeFile} -alias ${signing.keyAlias}`,
+    },
+  );
+  const actualSha256 = certificateSHA256FromOutput(certificateOutput, "Android upload keystore certificate");
+  if (actualSha256 !== expectedSha256) {
+    throw new BuildError(`Android upload key SHA-256 ${actualSha256} does not match release identity ${expectedSha256}`);
+  }
+  return actualSha256;
 }
 
 /**
@@ -534,11 +566,27 @@ function copyDeobfuscationFile(buildMobileDir, outputPath) {
 }
 
 /**
+ * @param {string} outputPath
+ * @param {Record<string, unknown>} metadata
+ * @returns {string}
+ */
+function writeBuildManifest(outputPath, metadata) {
+  const manifestPath = outputPath.replace(/\.aab$/, ".json");
+  const payload = {
+    ...metadata,
+    createdAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(manifestPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  return manifestPath;
+}
+
+/**
  * @param {string} bundlePath
  * @param {string} javaHome
- * @returns {{ signerOwner: string; bundletoolValidated: boolean }}
+ * @param {string} expectedSignerSha256
+ * @returns {{ signerOwner: string; signerSha256: string; bundletoolValidated: boolean }}
  */
-function validateBundle(bundlePath, javaHome) {
+function validateBundle(bundlePath, javaHome, expectedSignerSha256) {
   run(["unzip", "-t", bundlePath], { quiet: true });
   run([path.join(javaHome, "bin", "jarsigner"), "-verify", bundlePath], { quiet: true });
   const certificateOutput = runAndRead([path.join(javaHome, "bin", "keytool"), "-printcert", "-jarfile", bundlePath]);
@@ -556,8 +604,49 @@ function validateBundle(bundlePath, javaHome) {
   if (!signerOwner) {
     throw new BuildError("could not find signer owner in generated app bundle");
   }
+  const signerSha256 = certificateSHA256FromOutput(certificateOutput, "generated app bundle certificate");
+  if (signerSha256 !== expectedSignerSha256) {
+    throw new BuildError(`generated app bundle signer SHA-256 ${signerSha256} does not match release identity ${expectedSignerSha256}`);
+  }
   run(["bundletool", "validate", `--bundle=${bundlePath}`], { quiet: true });
-  return { signerOwner, bundletoolValidated: true };
+  return { signerOwner, signerSha256, bundletoolValidated: true };
+}
+
+/**
+ * @param {string} certificateOutput
+ * @param {string} label
+ * @returns {string}
+ */
+function certificateSHA256FromOutput(certificateOutput, label) {
+  const match = certificateOutput.match(/SHA256:\s*([0-9A-Fa-f:]+)/);
+  if (!match) {
+    throw new BuildError(`could not find SHA-256 fingerprint in ${label}`);
+  }
+  return normalizeSHA256Fingerprint(match[1]);
+}
+
+/**
+ * @param {string} value
+ * @returns {string}
+ */
+function normalizeSHA256Fingerprint(value) {
+  const hex = value.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
+  if (!/^[0-9A-F]{64}$/.test(hex)) {
+    throw new BuildError(`invalid SHA-256 fingerprint: ${value}`);
+  }
+  return hex.match(/../g)?.join(":") || "";
+}
+
+/**
+ * @param {unknown} value
+ * @param {string} label
+ * @returns {string}
+ */
+function requireString(value, label) {
+  if (!value || typeof value !== "string") {
+    throw new BuildError(`missing ${label}`);
+  }
+  return value;
 }
 
 /**
@@ -637,9 +726,10 @@ function run(command, options = {}) {
 
 /**
  * @param {string[]} command
+ * @param {{ label?: string }} [options]
  * @returns {string}
  */
-function runAndRead(command) {
+function runAndRead(command, options = {}) {
   const result = spawnSync(command[0], command.slice(1), { encoding: "utf8", stdio: "pipe" });
   if (result.error) {
     throw new BuildError(`command failed: ${result.error.message}`);
@@ -651,7 +741,7 @@ function runAndRead(command) {
     if (result.stderr) {
       process.stderr.write(result.stderr);
     }
-    throw new BuildError(`command failed with exit ${String(result.status ?? result.signal ?? "unknown")}: ${command.join(" ")}`);
+    throw new BuildError(`command failed with exit ${String(result.status ?? result.signal ?? "unknown")}: ${options.label || command.join(" ")}`);
   }
   return result.stdout;
 }
