@@ -484,8 +484,11 @@ make deploy
 `make release` cuts a repository release from `master`: it preflights the default branch,
 rejects dirty worktrees and open PRs into `master`, runs `make ci`, updates
 `CHANGELOG.md`, pushes the release commit, creates the tag, publishes the GitHub Release
-object, and verifies remote release state. It does not publish Docker images, publish
-Pages, or deploy production.
+object, verifies remote release state, then uploads the native operator mobile app to
+App Store Connect/TestFlight and Google Play Internal testing. It does not publish Docker images,
+publish Pages, or deploy production. Use `RELEASE_ARGS="--skip-ios"`,
+`RELEASE_ARGS="--skip-android"`, or `RELEASE_ARGS="--skip-mobile"` only for an intentional
+partial release.
 
 `make publish` publishes the Docker runtime artifact from a clean `master` checkout after
 verifying that a pushed `vMAJOR.MINOR.PATCH` tag points at `HEAD` and rerunning `make ci`.
@@ -512,26 +515,44 @@ GitHub workflow from the package release ref. The npm package must have a truste
 `tyemirov/loopaware` and `.github/workflows/npm-react-native.yml` before that workflow can publish
 `@loopaware/react-native`.
 
-The native operator mobile app is published separately from Docker, Pages, and the React Native feedback client. Use
-the local store build and submission targets after `make ci` passes:
+The native operator mobile app is published by `make release` after the GitHub Release has been verified. Use the
+lower-level local store build and submission targets only when re-submitting one mobile store outside the normal release path:
 
 ```bash
-make build-ios MOBILE_IOS_BUILD_NUMBER=<next_ios_build> MOBILE_IOS_DEVELOPMENT_TEAM=<APPLE_TEAM_ID>
-make submit-ios MOBILE_IOS_BUILD_NUMBER=<next_ios_build> MOBILE_IOS_DEVELOPMENT_TEAM=<APPLE_TEAM_ID>
-make submit-android MOBILE_ANDROID_VERSION_CODE=<next_android_version_code>
+make build-ios
+make submit-ios
+make submit-android
+make submit-mobile
 ```
 
-`make build-ios` runs a local Expo prebuild, creates a signed Xcode archive, exports an App Store Connect IPA under
-`mobile/dist/`, and writes a build manifest beside it. `make submit-ios` depends on that local IPA build, verifies the
-manifest hash, and uploads the IPA with `xcrun altool`. Configure either App Store Connect API key inputs
+The native app uses UTC CalVer for release numbering. Each Makefile invocation resolves one release timestamp, derives the
+user-visible native version as `YYYY.M.D`, and derives the internal iOS build number and Android `versionCode` from the
+same timestamp as seconds since `2020-01-01T00:00:00Z`. This keeps mobile release identifiers monotonic without querying
+App Store Connect or Google Play for the current highest uploaded version. Pass `MOBILE_RELEASE_TIMESTAMP=<iso_or_epoch>`
+only when a deterministic rebuild needs to reuse a specific release timestamp.
+
+`make build-ios` runs a local Expo prebuild with the generated CalVer version and build number, creates a signed Xcode
+archive, exports an App Store Connect IPA under `mobile/dist/`, and writes a build manifest beside it. `make submit-ios`
+depends on that local IPA build, verifies the manifest hash, and uploads the IPA with `xcrun altool`. Configure either
+App Store Connect API key inputs
 (`APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_API_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_PATH`) or
 `MOBILE_IOS_APPLE_ID`/`APPLE_ID` plus an app-specific password in `MOBILE_IOS_APP_SPECIFIC_PASSWORD`.
+LoopAware defaults to team `Z9ZW6HDGML` and the ignored local App Store Connect API key
+`configs/AuthKey_82P4KZ86HM.p8`.
+Local App Store Connect `.p8` files may live under `configs/AuthKey_<KEY_ID>.p8`; `configs/AuthKey_*.p8` is ignored.
+For non-interactive Xcode export signing, set `MOBILE_IOS_SIGNING_KEYCHAIN` and either
+`MOBILE_IOS_SIGNING_KEYCHAIN_PASSWORD` or `MOBILE_IOS_SIGNING_KEYCHAIN_PASSWORD_FILE`. When the local Kamu signing
+keychain exists, the archive script uses that keychain and password sidecar by default, then unlocks it and authorizes
+`codesign` before running `xcodebuild`.
 
-`make submit-android` rebuilds the signed local Android App Bundle with `make mobile-android-bundle`, verifies the
-generated `.aab`, sidecar manifest, and R8 deobfuscation mapping file, then uploads them through the Google Play Android
-Publisher API to the `internal` track. Configure Google Application Default Credentials with the
-`https://www.googleapis.com/auth/androidpublisher` scope, and set `GOOGLE_CLOUD_QUOTA_PROJECT` when quota billing
-requires it. Google Play still requires the first app upload to be performed manually before API-based submissions work.
+`make submit-android` rebuilds the signed local Android App Bundle with the generated CalVer version and Play-safe
+`versionCode`, verifies the generated `.aab`, sidecar manifest, and R8 deobfuscation mapping file, then uploads them
+through the Google Play Android Publisher API to the `internal` track. Configure Google Application Default Credentials with the
+`https://www.googleapis.com/auth/androidpublisher` scope. The Android release identity in
+`mobile/android-release-identity.json` supplies the default Google Cloud quota project (`loopaware`), matching the
+Kamu Google Play publishing contract; pass `MOBILE_ANDROID_PUBLISH_ARGS="--quota-project <project-id>"` only when
+intentionally publishing through a different quota project. Google Play still requires the first app upload to be
+performed manually before API-based submissions work.
 
 The combined `make submit-mobile` target builds/submits iOS first and then Android. Keep Apple API keys, app-specific
 passwords, Google service-account JSON files, and upload keystore secrets outside the repository.
