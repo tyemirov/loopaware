@@ -536,7 +536,9 @@ archive, exports an App Store Connect IPA under `mobile/dist/`, and writes a bui
 depends on that local IPA build, verifies the manifest hash, and uploads the IPA with `xcrun altool`. Configure either
 App Store Connect API key inputs
 (`APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_API_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_PATH`) or
-`MOBILE_IOS_APPLE_ID`/`APPLE_ID` plus an app-specific password in `MOBILE_IOS_APP_SPECIFIC_PASSWORD`.
+`MOBILE_IOS_APPLE_ID`/`APPLE_ID` plus an app-specific password in `MOBILE_IOS_APP_SPECIFIC_PASSWORD`. Set
+`MOBILE_IOS_ASC_APP_ID` or `LOOPAWARE_MOBILE_IOS_ASC_APP_ID` to the numeric App Store Connect app Apple ID; this is the
+app record id passed to `altool --apple-id`, not the operator login email.
 LoopAware defaults to team `Z9ZW6HDGML` and the ignored local App Store Connect API key
 `configs/AuthKey_82P4KZ86HM.p8`.
 Local App Store Connect `.p8` files may live under `configs/AuthKey_<KEY_ID>.p8`; `configs/AuthKey_*.p8` is ignored.
@@ -549,10 +551,13 @@ keychain exists, the archive script uses that keychain and password sidecar by d
 `versionCode`, verifies the generated `.aab`, sidecar manifest, and R8 deobfuscation mapping file, then uploads them
 through the Google Play Android Publisher API to the `internal` track. Configure Google Application Default Credentials with the
 `https://www.googleapis.com/auth/androidpublisher` scope. The Android release identity in
-`mobile/android-release-identity.json` supplies the default Google Cloud quota project (`loopaware`), matching the
+`mobile/android-release-identity.json` supplies the default Google Cloud quota project (`loopaware`) and the expected
+Google Play upload-key certificate fingerprint, matching the
 Kamu Google Play publishing contract; pass `MOBILE_ANDROID_PUBLISH_ARGS="--quota-project <project-id>"` only when
-intentionally publishing through a different quota project. Google Play still requires the first app upload to be
-performed manually before API-based submissions work.
+intentionally publishing through a different quota project. Store the real upload keystore and `keystore.properties`
+outside the repository; `make submit-android` fails if the configured keystore is missing or its certificate fingerprint
+does not match the tracked release identity. Google Play still requires the first app upload to be performed manually
+before API-based submissions work.
 
 The combined `make submit-mobile` target builds/submits iOS first and then Android. Keep Apple API keys, app-specific
 passwords, Google service-account JSON files, and upload keystore secrets outside the repository.
