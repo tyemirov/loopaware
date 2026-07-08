@@ -270,6 +270,14 @@ select_changelog_boundary() {
   json_value "${preflight_json}" "version_info.latest_tag"
 }
 
+release_has_source_changes() {
+  local boundary_tag="$1"
+  if [[ -z "${boundary_tag}" ]]; then
+    return 0
+  fi
+  [[ -n "$(git log --format=%H "${boundary_tag}..HEAD" --)" ]]
+}
+
 release_timestamp="$(date +%Y-%m-%dT%H:%M:%S)"
 release_date="${release_timestamp%%T*}"
 if [[ -n "${MOBILE_RELEASE_TIMESTAMP:-}" ]]; then
@@ -332,11 +340,19 @@ timeout -k 120s -s SIGKILL 120s gix sync "${default_branch}"
 echo "==> [release] Re-running preflight after refresh"
 "${HELPER}" preflight --default-branch "${default_branch}" --release-timestamp "${release_timestamp}" | tee "${preflight_json}"
 
+next_version="$(select_version "${preflight_json}")"
+boundary_tag="$(select_changelog_boundary "${preflight_json}" "${next_version}")"
+if ! release_has_source_changes "${boundary_tag}"; then
+  echo "release_already_exists=true"
+  echo "release_tag=${boundary_tag}"
+  echo "==> [release] No commits after ${boundary_tag}; skipping release creation"
+  echo "Run make publish to publish or repair Docker images for ${boundary_tag}, then run make deploy."
+  exit 0
+fi
+
 echo "==> [release] Running make ci"
 timeout -k 1200s -s SIGKILL 1200s make ci
 
-next_version="$(select_version "${preflight_json}")"
-boundary_tag="$(select_changelog_boundary "${preflight_json}" "${next_version}")"
 if [[ -n "${boundary_tag}" ]]; then
   boundary_label="${boundary_tag}"
 else
