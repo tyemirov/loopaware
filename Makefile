@@ -50,7 +50,7 @@ ANDROID_TOOL_PATH := $(ANDROID_SDK_ROOT)/emulator:$(ANDROID_SDK_ROOT)/platform-t
 
 export GOWORK := off
 
-.PHONY: format format-pinguin build lint lint-js client-react-native-install client-react-native-check mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle submit-ios submit-android submit-mobile config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
+.PHONY: format format-pinguin build lint lint-js release-workflow-check client-react-native-install client-react-native-check mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle submit-ios submit-android submit-mobile config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -88,6 +88,10 @@ lint-js:
 	@$(MAKE) client-react-native-check
 	npm --prefix tests run check:location-map
 	@$(MAKE) mobile-check
+	@$(MAKE) release-workflow-check
+
+release-workflow-check:
+	node scripts/validate-release-workflow.mjs
 
 client-react-native-install:
 	@if [ ! -d "$(CURDIR)/$(CLIENT_REACT_NATIVE_DIR)/node_modules" ]; then \
