@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move app-owned deployment manifests under `.mprlab/deploy/` so gateway Ansible executes the app-owned frontend and resource deployment contracts from the current governance path.
 - Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
 - Replace EAS mobile store submission with local Xcode IPA export, `xcrun altool` upload, and direct Google Play Android Publisher API upload.
+- Generate native mobile release versions and internal store build identifiers from one UTC CalVer timestamp instead of requiring operators to look up next iOS or Android build numbers.
+- Publish iOS TestFlight and Google Play Internal testing builds from `make release`, with explicit skip flags for intentional partial mobile releases.
 
 ### Bug Fixes 🐛
 - Remove exact cross-service TAuth/Pinguin value comparisons from config-audit so deploy preflight validates runtime config schema, placeholder coverage, and required values without hardcoding operator-owned deployment values.
@@ -27,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the backend YAML config contract and clarify that LoopAware env files are interpolation inputs, not a second runtime config source.
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
 - Document the standard mobile store publishing inputs for local iOS IPA and Android AAB uploads.
+- Document the UTC CalVer mobile release-numbering contract and deterministic `MOBILE_RELEASE_TIMESTAMP` override.
 
 ## [v0.7.38] - 2026-07-05
 
