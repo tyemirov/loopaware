@@ -31,6 +31,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the standard mobile store publishing inputs for local iOS IPA and Android AAB uploads.
 - Document the UTC CalVer mobile release-numbering contract and deterministic `MOBILE_RELEASE_TIMESTAMP` override.
 
+## [v0.7.40] - 2026-07-08
+
+### Features ✨
+- _No changes._
+
+### Improvements ⚙️
+- Skipping release when no source changes are detected, allowing `make publish` to repair or re-publish Docker images for the current tag.
+- Release workflow validates idempotency and ensures deploy image verification occurs before expensive CI steps.
+- Added CI guard to validate release/publish/deploy workflow and contract.
+
+### Bug Fixes 🐛
+- Fixed deploy to detect and report missing Docker images, guiding operators to use `make publish` for recovery instead of requiring a new release.
+
+### Testing 🧪
+- Added automated validation script to enforce release workflow ordering and failure states.
+- Expanded Makefile lint-js target to cover release workflow validation logic.
+
+### Docs 📚
+- Updated README to clarify release, publish, and recovery processes for missing Docker images.
+- Documented explicit workflow and error scenarios in `.mprlab/ISSUES.md` for easier release recovery.
+
 ## [v0.7.39] - 2026-07-08
 
 ### Features ✨
