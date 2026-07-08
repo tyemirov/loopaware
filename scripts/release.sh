@@ -13,6 +13,7 @@ Cuts a repository release from the default branch:
   4. generates release notes with gix
   5. updates CHANGELOG.md, commits, pushes, tags, publishes GitHub Release
   6. verifies the remote tag, GitHub Release body, Pages reachability, and clean tree
+  7. uploads iOS and Android operator mobile builds to internal testing
 
 This command does not publish Docker images, publish Pages artifacts, or deploy production.
 
@@ -22,6 +23,9 @@ Options:
   --scheme <semver|calver>    Override detected versioning scheme
   --dry-run                   Run deterministic preflight and report the selected version only
   --skip-pages-verify         Skip GitHub Pages reachability during release verification
+  --skip-ios                  Skip App Store Connect/TestFlight upload
+  --skip-android              Skip Google Play Internal testing upload
+  --skip-mobile               Skip both native mobile store uploads
   --help                      Show this help text
 
 Environment:
@@ -29,6 +33,7 @@ Environment:
   RELEASE_BUMP                Default SemVer bump
   RELEASE_VERSION             Exact release version
   RELEASE_SCHEME              Versioning scheme override
+  MOBILE_RELEASE_TIMESTAMP    Optional fixed UTC timestamp for both mobile stores
 USAGE
 }
 
@@ -54,6 +59,8 @@ else
 fi
 DRY_RUN="false"
 SKIP_PAGES_VERIFY="false"
+SKIP_IOS="false"
+SKIP_ANDROID="false"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -78,6 +85,19 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-pages-verify)
       SKIP_PAGES_VERIFY="true"
+      shift
+      ;;
+    --skip-ios)
+      SKIP_IOS="true"
+      shift
+      ;;
+    --skip-android)
+      SKIP_ANDROID="true"
+      shift
+      ;;
+    --skip-mobile)
+      SKIP_IOS="true"
+      SKIP_ANDROID="true"
       shift
       ;;
     --help|-h)
@@ -251,12 +271,40 @@ select_changelog_boundary() {
 
 release_timestamp="$(date +%Y-%m-%dT%H:%M:%S)"
 release_date="${release_timestamp%%T*}"
+if [[ -n "${MOBILE_RELEASE_TIMESTAMP:-}" ]]; then
+  mobile_release_timestamp="${MOBILE_RELEASE_TIMESTAMP}"
+else
+  mobile_release_timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+fi
 preflight_json="$(mktemp)"
 notes_file="$(mktemp)"
 cleanup() {
   rm -f "${preflight_json}" "${notes_file}"
 }
 trap cleanup EXIT
+
+submit_mobile_stores() {
+  if [[ "${SKIP_IOS}" == "true" && "${SKIP_ANDROID}" == "true" ]]; then
+    echo "==> [release] Skipping native mobile store uploads"
+    return
+  fi
+
+  if [[ "${SKIP_IOS}" != "true" && "${SKIP_ANDROID}" != "true" ]]; then
+    echo "==> [release] Submitting native mobile builds to App Store Connect/TestFlight and Google Play"
+    timeout -k 3600s -s SIGKILL 3600s "${MAKE:-make}" --no-print-directory submit-mobile MOBILE_RELEASE_TIMESTAMP="${mobile_release_timestamp}"
+    return
+  fi
+
+  if [[ "${SKIP_IOS}" != "true" ]]; then
+    echo "==> [release] Submitting iOS native mobile build to App Store Connect/TestFlight"
+    timeout -k 3600s -s SIGKILL 3600s "${MAKE:-make}" --no-print-directory submit-ios MOBILE_RELEASE_TIMESTAMP="${mobile_release_timestamp}"
+  fi
+
+  if [[ "${SKIP_ANDROID}" != "true" ]]; then
+    echo "==> [release] Submitting Android native mobile build to Google Play Internal testing"
+    timeout -k 3600s -s SIGKILL 3600s "${MAKE:-make}" --no-print-directory submit-android MOBILE_RELEASE_TIMESTAMP="${mobile_release_timestamp}"
+  fi
+}
 
 echo "==> [release] Running preflight"
 "${HELPER}" preflight --release-timestamp "${release_timestamp}" | tee "${preflight_json}"
@@ -324,3 +372,5 @@ fi
 
 git fetch --tags origin
 echo "Released ${next_version} at ${release_commit}"
+
+submit_mobile_stores
