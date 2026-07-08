@@ -31,6 +31,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the standard mobile store publishing inputs for local iOS IPA and Android AAB uploads.
 - Document the UTC CalVer mobile release-numbering contract and deterministic `MOBILE_RELEASE_TIMESTAMP` override.
 
+## [v0.7.39] - 2026-07-08
+
+### Features ✨
+- Added local store publishing for iOS (App Store Connect/TestFlight) and Android (Google Play Internal) builds from Makefile targets.
+- Implemented UTC CalVer-based native versioning: user-visible version is `YYYY.M.D`, with internal build numbers/version codes auto-generated.
+- Automated mobile app uploads to both stores during `make release`, with options to skip specific platforms.
+
+### Improvements ⚙️
+- Replaced EAS CLI builds and submissions with custom node-based scripts for reproducible and transparent mobile releases.
+- Updated Makefile for explicit mobile release identity and keystore fingerprint verification on Android/iOS.
+- Mobile builds now require and validate tracked keystore and release identity; Android and iOS store credentials handled securely via environment.
+
+### Bug Fixes 🐛
+- Ensured Android signers use the correct, validated upload keystore for release publishing.
+- Prevented manual drift in iOS build numbers and Android version codes by deriving all values from a single timestamp.
+- Local build/signing and upload contracts are now guarded with stricter config validation.
+
+### Testing 🧪
+- Extended mobile config validation: CI and `make ci` ensure store contract and credential requirements are met.
+- Added dry-run and manifest integrity checks for local IPA and AAB artifacts before store submission.
+
+### Docs 📚
+- Clarified local mobile store upload process and CalVer versioning in README.
+- Added specific instructions and checklists for mobile operator inputs, App Store Connect API key, and Google Play credentials.
+- Documented new environment variables, store upload steps, and CI/release safeguards for mobile app publishing.
+
 ## [v0.7.38] - 2026-07-05
 
 ### Features ✨
