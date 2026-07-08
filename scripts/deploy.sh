@@ -49,7 +49,16 @@ SKIP_PAGES_VERIFY="false"
 
 image_digest() {
   local image_ref="$1"
-  docker buildx imagetools inspect "$image_ref" | awk '/^Digest:/ { print $2; exit }'
+  local inspect_output
+  if ! inspect_output="$(docker buildx imagetools inspect "$image_ref" 2>&1)"; then
+    echo "error: ${image_ref} is not published in the registry; run make publish from clean master to publish the release Docker image before deploy" >&2
+    echo "${inspect_output}" >&2
+    exit 1
+  fi
+  local digest
+  digest="$(awk '/^Digest:/ { print $2; exit }' <<<"${inspect_output}")"
+  [[ -n "${digest}" ]] || { echo "error: could not resolve digest for ${image_ref}; run make publish before deploy" >&2; exit 1; }
+  printf "%s\n" "${digest}"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -153,11 +162,6 @@ if [[ "${SKIP_BACKEND}" == "true" && "${SKIP_PAGES}" != "true" ]]; then
   exit 1
 fi
 
-if [[ "${SKIP_CI}" != "true" && ( "${SKIP_BACKEND}" != "true" || "${SKIP_PAGES}" != "true" ) ]]; then
-  echo "==> [deploy] Running make ci before deployment"
-  timeout -k 1200s -s SIGKILL 1200s make ci
-fi
-
 if [[ "${SKIP_IMAGE_VERIFY}" != "true" && "${SKIP_BACKEND}" != "true" ]]; then
   command -v docker >/dev/null 2>&1 || { echo "error: docker is required for image verification" >&2; exit 1; }
   docker buildx version >/dev/null 2>&1 || { echo "error: docker buildx is required for image verification" >&2; exit 1; }
@@ -165,12 +169,15 @@ if [[ "${SKIP_IMAGE_VERIFY}" != "true" && "${SKIP_BACKEND}" != "true" ]]; then
   echo "==> [deploy] Verifying ${IMAGE_REPOSITORY}:latest matches ${TAG}"
   release_digest="$(image_digest "${IMAGE_REPOSITORY}:${TAG}")"
   latest_digest="$(image_digest "${IMAGE_REPOSITORY}:latest")"
-  [[ -n "${release_digest}" ]] || { echo "error: could not resolve digest for ${IMAGE_REPOSITORY}:${TAG}" >&2; exit 1; }
-  [[ -n "${latest_digest}" ]] || { echo "error: could not resolve digest for ${IMAGE_REPOSITORY}:latest" >&2; exit 1; }
   if [[ "${release_digest}" != "${latest_digest}" ]]; then
     echo "error: ${IMAGE_REPOSITORY}:latest digest ${latest_digest} does not match ${TAG} digest ${release_digest}; run make publish first" >&2
     exit 1
   fi
+fi
+
+if [[ "${SKIP_CI}" != "true" && ( "${SKIP_BACKEND}" != "true" || "${SKIP_PAGES}" != "true" ) ]]; then
+  echo "==> [deploy] Running make ci before deployment"
+  timeout -k 1200s -s SIGKILL 1200s make ci
 fi
 
 if [[ "${SKIP_BACKEND}" != "true" ]]; then

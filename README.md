@@ -490,6 +490,11 @@ publish Pages, or deploy production. Use `RELEASE_ARGS="--skip-ios"`,
 `RELEASE_ARGS="--skip-android"`, or `RELEASE_ARGS="--skip-mobile"` only for an intentional
 partial release.
 
+If `make release` finds that `HEAD` is already covered by the current release tag, it exits
+successfully without creating another tag. Continue with `make publish` to publish or repair the
+Docker images for that existing release, then run `make deploy`. Do not create an empty release to
+repair a missing image.
+
 `make publish` publishes the Docker runtime artifact from a clean `master` checkout after
 verifying that a pushed `vMAJOR.MINOR.PATCH` tag points at `HEAD` and rerunning `make ci`.
 It pushes:
@@ -504,7 +509,9 @@ executes the app-owned GitHub Pages workflow resource from the manifest and
 verifies `https://loopaware.mprlab.com/`. This keeps Pages behind the backend
 version it depends on without splitting the deploy contract between repos. The
 release tag is derived from the v* tag at the app repository `HEAD`; operators
-do not select a revision during deploy.
+do not select a revision during deploy. Deploy verifies that `latest` and the
+current release tag resolve to the same published Docker image before rerunning
+CI; if the release image is missing, run `make publish`, not `make release`.
 
 The Docker image and Pages workflows are manual dispatch workflows. They do not publish
 automatically on tag push; the Makefile targets own the release-to-production ordering.

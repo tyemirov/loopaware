@@ -383,6 +383,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Replaced the selected-site and all-sites `1day` traffic window with a trailing 24-hour cutoff while preserving UTC day-bucket behavior for longer intervals and all-time reporting. Added API coverage for 23-hour versus 25-hour visits across dashboard stats, top pages, attribution, and trend output. Review follow-up removed the generated Playwright console log from the branch and changed scheduled traffic report email totals to read aggregate page-view and unique-visitor counts, with coverage for split daily trend buckets. Validation passed with focused `go test`, full `go test ./internal/api`, `git diff --check`, and final `make ci`.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `.playwright-cli/console-2026-07-03T21-41-36-761Z.log`, `internal/api/admin.go`, `internal/api/admin_test.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/site_stats.go`, `internal/api/site_stats_additional_test.go`, `internal/api/traffic_report_schedule.go`, `internal/api/traffic_report_schedule_test.go`.
+- [x] [B035] (P0) Recover release publishing when the current tag image is missing.
+  ### Summary
+  Running `make release && make publish` from a clean `master` already tagged as `v0.7.39` stops in release after the full CI gate because there are no changelog notes for `v0.7.40`, while `make deploy` later fails because `ghcr.io/tyemirov/loopaware:v0.7.39` is missing. The release cycle should make the existing-tag publish repair path explicit and fail deploy before expensive CI when the required image is absent.
+  ### Deliverables
+  - Make `make release` a successful no-op when `HEAD` is already covered by the current release tag, so chained `make release && make publish` can repair the image for that existing tag.
+  - Make deploy image verification report a stable `make publish` recovery message when the release image is not published.
+  - Verify deploy image presence before rerunning deployment CI.
+  - Add a CI guard for the release/publish/deploy workflow contract and update the README runbook.
+  ### Resolution
+  Made `make release` exit successfully before CI when `HEAD` is already covered by the current release tag, so `make release && make publish` can repair Docker images for that existing tag instead of attempting an empty release. Moved deploy image verification before the deployment CI gate and wrapped missing registry image inspection failures with an explicit `make publish` recovery message. Added `release-workflow-check` to the Makefile lint path to guard release idempotency, deploy image verification ordering, and README recovery documentation. Validation passed with baseline `make ci`, `bash -n scripts/release.sh scripts/publish.sh scripts/deploy.sh`, `make release-workflow-check`, a missing-image deploy probe using `make deploy DEPLOY_ARGS="--skip-ci --image ghcr.io/tyemirov/loopaware-nonexistent-b035"`, `git diff --check`, `make lint-js`, and final `make ci`.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `README.md`, `scripts/deploy.sh`, `scripts/release.sh`, `scripts/validate-release-workflow.mjs`.
 
 
 ## Improvements
