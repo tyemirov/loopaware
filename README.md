@@ -51,6 +51,12 @@ Embed the feedback widget on any page:
 
 ## Configuration
 
+All tracked LoopAware configuration lives under `configs/`. That directory holds the local `.env.*` templates, service
+config templates, and the LoopAware backend runtime config consumed by Docker Compose and release workflows. Local
+`configs/.env.*` files are intentionally ignored; create them from the tracked `configs/.env.*.example` templates.
+Legacy repo-root `.env.*` files are unsupported duplicates and should be moved into `configs/` and deleted. Test-only
+compose files and env fixtures belong under `tests/`, not `configs/`.
+
 ### 1. Backend runtime config (`configs/config.loopaware.yml`)
 
 LoopAware reads one backend runtime YAML file through `github.com/tyemirov/utils/runtimeconfig`. The selected file is parsed strictly, shell placeholders are expanded during that parse, and the server consumes the populated typed config after validation. Runtime values are not read from environment variables or config flags after parsing.
@@ -116,10 +122,22 @@ When running via Docker Compose, copy the tracked env templates under `configs/`
 cp configs/.env.loopaware.example configs/.env.loopaware
 cp configs/.env.tauth.example configs/.env.tauth
 cp configs/.env.pinguin.example configs/.env.pinguin
-$EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin
+cp configs/.env.ghttp.example configs/.env.ghttp
+$EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
 ```
 
 Pinguin and LoopAware must share the same bearer secret. Set Pinguin's `GRPC_AUTH_TOKEN` and LoopAware's `PINGUIN_AUTH_TOKEN` to identical values in their respective service env files.
+`configs/.env.tauth` must set `TAUTH_CONFIG_FILE=/config/config.yml`, and `configs/.env.pinguin` must set
+`PINGUIN_CONFIG_PATH=/config/config.yml`, matching the files mounted by Docker Compose. `configs/.env.loopaware` must
+define every placeholder referenced by `configs/config.loopaware.yml`. Those values are expanded only while parsing the
+YAML file; they are not a second runtime config source. `make release` also loads `configs/.env.loopaware` before native
+mobile store publishing so App Store Connect and Google Play inputs live in the same local LoopAware env surface.
+`config-audit` validates tracked `.env.*.example` templates when local `.env.*` files are absent, but runtime still
+requires the real local env files.
+
+Frontend runtime host mapping lives in `web/config.yml`, which is served directly as `/config.yml` by the static site.
+It also carries per-environment frontend service settings such as `siteWidgetSiteId` for the first-party landing and
+dashboard widget.
 
 ### 3. Config selection
 
@@ -482,10 +500,11 @@ make deploy
 ```
 
 `make release` cuts a repository release from `master`: it preflights the default branch,
-rejects dirty worktrees and open PRs into `master`, verifies mobile store upload inputs when
-mobile publishing is enabled, runs `make ci`, updates `CHANGELOG.md`, pushes the release commit,
-creates the tag, publishes the GitHub Release object, verifies remote release state, then uploads
-the native operator mobile app to App Store Connect/TestFlight and Google Play Internal testing.
+rejects dirty worktrees and open PRs into `master`, loads `configs/.env.loopaware` for native
+mobile store publishing, verifies mobile store upload inputs when mobile publishing is enabled,
+runs `make ci`, updates `CHANGELOG.md`, pushes the release commit, creates the tag, publishes the
+GitHub Release object, verifies remote release state, then uploads the native operator mobile app
+to App Store Connect/TestFlight and Google Play Internal testing.
 It does not publish Docker images, publish Pages, or deploy production. Use `RELEASE_ARGS="--skip-ios"`,
 `RELEASE_ARGS="--skip-android"`, or `RELEASE_ARGS="--skip-mobile"` only for an intentional
 partial release.
@@ -548,6 +567,8 @@ App Store Connect API key inputs
 `MOBILE_IOS_APPLE_ID`/`APPLE_ID` plus an app-specific password in `MOBILE_IOS_APP_SPECIFIC_PASSWORD`. Set
 `MOBILE_IOS_ASC_APP_ID` or `LOOPAWARE_MOBILE_IOS_ASC_APP_ID` to the numeric App Store Connect app Apple ID; this is the
 app record id passed to `altool --apple-id`, not the operator login email.
+For the normal release path, keep these values in `configs/.env.loopaware`; `make release` loads that file before the
+pre-release mobile store preflight and exports the values to the lower-level submit targets.
 LoopAware defaults to team `Z9ZW6HDGML` and the ignored local App Store Connect API key
 `configs/AuthKey_82P4KZ86HM.p8`.
 Local App Store Connect `.p8` files may live under `configs/AuthKey_<KEY_ID>.p8`; `configs/AuthKey_*.p8` is ignored.
@@ -579,7 +600,8 @@ Ensure the container receives the placeholder inputs used by `configs/config.loo
 cp configs/.env.loopaware.example configs/.env.loopaware
 cp configs/.env.tauth.example configs/.env.tauth
 cp configs/.env.pinguin.example configs/.env.pinguin
-$EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin
+cp configs/.env.ghttp.example configs/.env.ghttp
+$EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
 ./scripts/up.sh
 ```
 
@@ -588,8 +610,43 @@ and loads per-service placeholder values via `env_file` from `configs/.env.*`.
 The container now runs as root so the SQLite data volume remains writable; if you need to switch back to an unprivileged
 user, update the Docker image to chown the mounted directory before starting the binary.
 
+The default local stack uses `configs/.env.ghttp` for the gHTTP static proxy. Start and stop local Docker stacks only
+through the helper scripts:
+
+```bash
+./scripts/up.sh local
+./scripts/down.sh local
+```
+
 For the computercat TLS stack, use:
 
 ```bash
+cp configs/.env.loopaware.computercat.example configs/.env.loopaware.computercat
+cp configs/.env.tauth.computercat.example configs/.env.tauth.computercat
+cp configs/.env.pinguin.computercat.example configs/.env.pinguin.computercat
+cp configs/.env.ghttp.computercat.example configs/.env.ghttp.computercat
+$EDITOR configs/.env.loopaware.computercat configs/.env.tauth.computercat configs/.env.pinguin.computercat configs/.env.ghttp.computercat
 ./scripts/up.sh computercat
 ```
+
+The computercat stack exposes `https://computercat.tyemirov.net:4443` through gHTTP as the TLS terminator and reverse
+proxy. The proxy expects certificates at `/media/share/Drive/exchange/certs/computercat/computercat-cert.pem` and
+`/media/share/Drive/exchange/certs/computercat/computercat-key.pem`, mounted into the container at `/certs`.
+`configs/.env.ghttp.computercat` owns the TLS and proxy settings, including `GHTTP_SERVE_DIRECTORY=/data`,
+`GHTTP_SERVE_PORT=4443`, `GHTTP_SERVE_TLS_CERTIFICATE=/certs/computercat-cert.pem`,
+`GHTTP_SERVE_TLS_PRIVATE_KEY=/certs/computercat-key.pem`, and the reverse-proxy routes for TAuth, LoopAware public/API,
+and Sentry paths:
+
+```dotenv
+GHTTP_SERVE_DIRECTORY=/data
+GHTTP_SERVE_PORT=4443
+GHTTP_SERVE_LOGGING_TYPE=JSON
+GHTTP_SERVE_TLS_CERTIFICATE=/certs/computercat-cert.pem
+GHTTP_SERVE_TLS_PRIVATE_KEY=/certs/computercat-key.pem
+GHTTP_SERVE_PROXIES=/tauth.js=http://la-tauth:8082,/me=http://la-tauth:8082,/auth/=http://la-tauth:8082,/public/=http://loopaware-api:8080,/sentry/=http://loopaware-api:8080,/api/=http://loopaware-api:8080
+```
+
+The computercat templates default to the public origin `https://computercat.tyemirov.net:4443` so the
+browser uses the reverse proxy for both LoopAware and TAuth. TAuth requires HTTPS for secure cookies when
+`allow_insecure_http=false`; gHTTP’s reverse proxy does not currently set `X-Forwarded-Proto`, so keep
+`TAUTH_ALLOW_INSECURE_HTTP=true` unless a fronting proxy forwards `X-Forwarded-Proto=https`.
