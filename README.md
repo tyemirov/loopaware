@@ -482,11 +482,11 @@ make deploy
 ```
 
 `make release` cuts a repository release from `master`: it preflights the default branch,
-rejects dirty worktrees and open PRs into `master`, runs `make ci`, updates
-`CHANGELOG.md`, pushes the release commit, creates the tag, publishes the GitHub Release
-object, verifies remote release state, then uploads the native operator mobile app to
-App Store Connect/TestFlight and Google Play Internal testing. It does not publish Docker images,
-publish Pages, or deploy production. Use `RELEASE_ARGS="--skip-ios"`,
+rejects dirty worktrees and open PRs into `master`, verifies mobile store upload inputs when
+mobile publishing is enabled, runs `make ci`, updates `CHANGELOG.md`, pushes the release commit,
+creates the tag, publishes the GitHub Release object, verifies remote release state, then uploads
+the native operator mobile app to App Store Connect/TestFlight and Google Play Internal testing.
+It does not publish Docker images, publish Pages, or deploy production. Use `RELEASE_ARGS="--skip-ios"`,
 `RELEASE_ARGS="--skip-android"`, or `RELEASE_ARGS="--skip-mobile"` only for an intentional
 partial release.
 
@@ -540,7 +540,9 @@ only when a deterministic rebuild needs to reuse a specific release timestamp.
 
 `make build-ios` runs a local Expo prebuild with the generated CalVer version and build number, creates a signed Xcode
 archive, exports an App Store Connect IPA under `mobile/dist/`, and writes a build manifest beside it. `make submit-ios`
-depends on that local IPA build, verifies the manifest hash, and uploads the IPA with `xcrun altool`. Configure either
+verifies App Store Connect upload identity before building the archive, then verifies the manifest hash and uploads the IPA
+with `xcrun altool`. `make release` runs the same iOS upload preflight before cutting a repository release unless iOS
+upload is intentionally skipped. Configure either
 App Store Connect API key inputs
 (`APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_API_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_PATH`) or
 `MOBILE_IOS_APPLE_ID`/`APPLE_ID` plus an app-specific password in `MOBILE_IOS_APP_SPECIFIC_PASSWORD`. Set

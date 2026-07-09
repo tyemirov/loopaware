@@ -315,6 +315,13 @@ submit_mobile_stores() {
   fi
 }
 
+preflight_mobile_stores() {
+  if [[ "${SKIP_IOS}" != "true" ]]; then
+    echo "==> [release] Verifying iOS App Store Connect upload inputs"
+    timeout -k 300s -s SIGKILL 300s "${MAKE:-make}" --no-print-directory submit-ios-preflight MOBILE_RELEASE_TIMESTAMP="${mobile_release_timestamp}"
+  fi
+}
+
 echo "==> [release] Running preflight"
 "${HELPER}" preflight --release-timestamp "${release_timestamp}" | tee "${preflight_json}"
 default_branch="$(json_value "${preflight_json}" "default_branch")"
@@ -349,6 +356,8 @@ if ! release_has_source_changes "${boundary_tag}"; then
   echo "Run make publish to publish or repair Docker images for ${boundary_tag}, then run make deploy."
   exit 0
 fi
+
+preflight_mobile_stores
 
 echo "==> [release] Running make ci"
 timeout -k 1200s -s SIGKILL 1200s make ci

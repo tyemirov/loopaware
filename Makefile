@@ -50,7 +50,7 @@ ANDROID_TOOL_PATH := $(ANDROID_SDK_ROOT)/emulator:$(ANDROID_SDK_ROOT)/platform-t
 
 export GOWORK := off
 
-.PHONY: format format-pinguin build lint lint-js release-workflow-check client-react-native-install client-react-native-check mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle submit-ios submit-android submit-mobile config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
+.PHONY: format format-pinguin build lint lint-js release-workflow-check client-react-native-install client-react-native-check mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle submit-ios-preflight submit-ios submit-android submit-mobile config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -165,7 +165,12 @@ mobile-android-bundle: mobile-check
 	@echo "==> [mobile-android-bundle] Building signed LoopAware Mobile Android App Bundle"
 	@ANDROID_HOME="$(ANDROID_HOME)" ANDROID_SDK_ROOT="$(ANDROID_SDK_ROOT)" ANDROID_STUDIO_JAVA_HOME="$(ANDROID_STUDIO_JAVA_HOME)" LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)" LOOPAWARE_MOBILE_RELEASE_TIMESTAMP="$(MOBILE_RESOLVED_RELEASE_TIMESTAMP)" node "$(MOBILE_ANDROID_BUNDLE_SCRIPT)" --mobile-dir "$(MOBILE_DIR)" --android-sdk-root "$(ANDROID_SDK_ROOT)" $(MOBILE_ANDROID_BUNDLE_ARGS)
 
-submit-ios: build-ios
+submit-ios-preflight: mobile-check
+	@echo "==> [submit-ios] Verifying App Store Connect upload inputs"
+	@LOOPAWARE_MOBILE_RELEASE_TIMESTAMP="$(MOBILE_RESOLVED_RELEASE_TIMESTAMP)" MOBILE_IOS_ASC_APP_ID="$(MOBILE_IOS_ASC_APP_ID)" MOBILE_IOS_PROVIDER_PUBLIC_ID="$(MOBILE_IOS_PROVIDER_PUBLIC_ID)" APP_STORE_CONNECT_API_KEY_ID="$(APP_STORE_CONNECT_API_KEY_ID)" APP_STORE_CONNECT_API_ISSUER_ID="$(APP_STORE_CONNECT_API_ISSUER_ID)" APP_STORE_CONNECT_API_KEY_PATH="$(APP_STORE_CONNECT_API_KEY_PATH)" node "$(MOBILE_IOS_SUBMIT_SCRIPT)" --mobile-dir "$(MOBILE_DIR)" --preflight-only $(MOBILE_IOS_SUBMIT_ARGS)
+
+submit-ios: submit-ios-preflight
+	@$(MAKE) --no-print-directory build-ios MOBILE_RELEASE_TIMESTAMP="$(MOBILE_RESOLVED_RELEASE_TIMESTAMP)"
 	@echo "==> [submit-ios] Submitting LoopAware Mobile iOS IPA to App Store Connect"
 	@LOOPAWARE_MOBILE_RELEASE_TIMESTAMP="$(MOBILE_RESOLVED_RELEASE_TIMESTAMP)" MOBILE_IOS_ASC_APP_ID="$(MOBILE_IOS_ASC_APP_ID)" MOBILE_IOS_PROVIDER_PUBLIC_ID="$(MOBILE_IOS_PROVIDER_PUBLIC_ID)" APP_STORE_CONNECT_API_KEY_ID="$(APP_STORE_CONNECT_API_KEY_ID)" APP_STORE_CONNECT_API_ISSUER_ID="$(APP_STORE_CONNECT_API_ISSUER_ID)" APP_STORE_CONNECT_API_KEY_PATH="$(APP_STORE_CONNECT_API_KEY_PATH)" node "$(MOBILE_IOS_SUBMIT_SCRIPT)" --mobile-dir "$(MOBILE_DIR)" $(MOBILE_IOS_SUBMIT_ARGS)
 
