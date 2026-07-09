@@ -31,6 +31,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the standard mobile store publishing inputs for local iOS IPA and Android AAB uploads.
 - Document the UTC CalVer mobile release-numbering contract and deterministic `MOBILE_RELEASE_TIMESTAMP` override.
 
+## [v0.7.41] - 2026-07-08
+
+### Features ✨
+- Add a preflight (`submit-ios-preflight`) check to verify iOS App Store Connect inputs before submitting or releasing the app.
+- Support loading a dotenv file (`configs/.env.loopaware`) for mobile store publishing during release.
+
+### Improvements ⚙️
+- Update the Makefile and release workflow to load and export environment variables for mobile store submission.
+- Simplify configuration management by merging config documentation into the main README and clarifying the config layout.
+- Add example App Store Connect app ID to tracked env templates for clarity and validation.
+
+### Bug Fixes 🐛
+- Fix iOS release flow to fail early before archive work if App Store Connect app ID is missing.
+- Ensure the repository environment is loaded before running mobile store preflight checks in release scripts.
+
+### Testing 🧪
+- Add validation for the `RELEASE_ENV_FILE` presence and structure.
+- Add a validation step that checks for proper mobile configuration and example values.
+
+### Docs 📚
+- Clarify configuration directory layout and update guidance in the README, including details on gHTTP and computercat proxy setups.
+- Add and update runbook documentation for release and iOS upload preflight steps.
+- Remove obsolete `configs/README.md` and centralize config reference.
+
 ## [v0.7.40] - 2026-07-08
 
 ### Features ✨
