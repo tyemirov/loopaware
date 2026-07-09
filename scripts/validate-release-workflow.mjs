@@ -35,6 +35,12 @@ assert(
   releaseSource.includes("Run make publish to publish or repair Docker images"),
   "release_noop_missing_publish_recovery_message",
 );
+assert(releaseSource.includes("load_release_env_file"), "release_missing_env_loader");
+assert(releaseSource.includes("configs/.env.loopaware"), "release_missing_default_env_file");
+assert(releaseSource.includes("ensure_release_env_loaded"), "release_missing_env_loader_gate");
+assert(releaseSource.includes("Loaded release env"), "release_missing_env_load_log");
+assert(makefileSource.includes("RELEASE_ENV_FILE ?= $(CURDIR)/configs/.env.loopaware"), "release_makefile_missing_env_file_default");
+assert(makefileSource.includes('RELEASE_ENV_FILE="$(RELEASE_ENV_FILE)"'), "release_makefile_must_pass_env_file");
 
 const deployImageVerifyIndex = deploySource.indexOf('if [[ "${SKIP_IMAGE_VERIFY}" != "true"');
 const deployCiIndex = deploySource.indexOf('if [[ "${SKIP_CI}" != "true"');
