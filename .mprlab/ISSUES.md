@@ -408,6 +408,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added `submit-ios-preflight` to validate App Store Connect upload identity and credentials without requiring a built IPA, changed `submit-ios` to run that preflight before invoking `build-ios`, and made `make release` run the same iOS preflight before `make ci` and release creation when iOS upload is enabled. Kept `make build-ios` as a build-only artifact path. Updated mobile config validation and README release/mobile publishing docs to lock in the pre-archive and pre-release upload-input checks. Validation passed with baseline `make ci`, `bash -n scripts/release.sh scripts/publish.sh scripts/deploy.sh`, `node --check mobile/scripts/submit-ios.mjs`, `npm --prefix mobile run validate-config`, missing-id `make submit-ios` preflight proof that did not reach `build-ios`, positive `submit-ios.mjs --preflight-only` proof with a dummy numeric ASC app id, a fake-helper `scripts/release.sh` proof that stopped at `submit-ios-preflight` before `make ci`, `git diff --check`, `make lint-js`, and final `make ci`.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `README.md`, `scripts/release.sh`, `mobile/scripts/submit-ios.mjs`, `mobile/scripts/validate-mobile-config.mjs`.
+- [x] [B037] (P0) Load the repository env before release mobile store preflight.
+  ### Summary
+  After B036 moved iOS upload validation before archive work, `make release` still failed with a missing App Store Connect app id because the release path did not load the local `configs/.env.loopaware` file before running the mobile store preflight.
+  ### Deliverables
+  - Load the canonical local LoopAware env file before mobile store preflight and submit work in `make release`.
+  - Keep the already-tagged release no-op path ahead of store env requirements so `make release && make publish` still repairs existing release images.
+  - Export the loaded env to recursive `make submit-ios` and `make submit-android` invocations.
+  - Add guards and docs for the release env contract.
+  ### Resolution
+  Added `RELEASE_ENV_FILE` with the canonical default `configs/.env.loopaware`, changed `make release` to pass that env file to `scripts/release.sh`, and made the release script parse and export the dotenv entries before native mobile store preflight and submit work. The env load remains after the existing already-tagged no-op check, so `make release && make publish` can still repair existing release images without requiring store upload inputs. Added the LoopAware App Store Connect app id to the tracked LoopAware env templates, merged the config-directory README guidance into the root README, removed `configs/README.md`, and guarded the release env contract in both release workflow and mobile config validation. Also added the non-secret app id to the ignored local `configs/.env.loopaware` on this machine. Validation passed with baseline `make ci`, `bash -n scripts/release.sh scripts/publish.sh scripts/deploy.sh`, `make release-workflow-check`, `npm --prefix mobile run validate-config`, `git diff --check`, release env harness proofs for local and temporary `RELEASE_ENV_FILE` loading before iOS preflight, `make lint-js`, and final `make ci`.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `CHANGELOG.md`, `Makefile`, `README.md`, `docs/LA-116-split-frontend-backend.md`, `configs/README.md`, `configs/.env.loopaware.example`, `configs/.env.loopaware.computercat.example`, `scripts/release.sh`, `scripts/validate-release-workflow.mjs`, `mobile/scripts/validate-mobile-config.mjs`.
 
 
 ## Improvements
