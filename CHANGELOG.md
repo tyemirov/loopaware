@@ -460,7 +460,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add new resource pages and styles for LoopAware website.
 - Update frontend overview README.md with /resources page.
 - Document native TAuth client placeholders in tracked TAuth env templates.
-- Update configs/README.md and config examples for mobile and gHTTP proxy.
+- Update README.md and config examples for mobile and gHTTP proxy.
 
 ## [v0.7.21] - 2026-06-13
 
