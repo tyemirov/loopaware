@@ -50,6 +50,7 @@ try {
  *   providerPublicId: string;
  *   versioning: import("./mobile-calver-version.mjs").MobileCalVerVersion;
  *   dryRun: boolean;
+ *   preflightOnly: boolean;
  * }} IOSSubmitArgs
  */
 
@@ -62,8 +63,8 @@ function parseArgs(argv) {
   const flags = new Set();
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
-    if (token === "--dry-run") {
-      flags.add("dry-run");
+    if (token === "--dry-run" || token === "--preflight-only") {
+      flags.add(token.slice(2));
       continue;
     }
     if (!token.startsWith("--")) {
@@ -110,6 +111,7 @@ function parseArgs(argv) {
     providerPublicId: String(options.get("provider-public-id") || process.env.MOBILE_IOS_PROVIDER_PUBLIC_ID || "").trim(),
     versioning,
     dryRun: flags.has("dry-run"),
+    preflightOnly: flags.has("preflight-only"),
   };
 }
 
@@ -118,6 +120,9 @@ function parseArgs(argv) {
  * @returns {Record<string, unknown>}
  */
 function submitIOSArchive(args) {
+  if (args.preflightOnly) {
+    return preflightIOSUpload(args);
+  }
   requireExecutable(which("xcrun"), "xcrun");
   const manifest = readArchiveManifest(args.manifest);
   const ipaPath = args.ipa || String(manifest.ipa.path);
@@ -172,6 +177,24 @@ function submitIOSArchive(args) {
   run(command, { env: uploadEnvironment(args) });
   return {
     ...plan,
+    tool: "xcrun altool",
+  };
+}
+
+/**
+ * @param {IOSSubmitArgs} args
+ * @returns {Record<string, unknown>}
+ */
+function preflightIOSUpload(args) {
+  validateUploadInputs(args);
+  requireExecutable(which("xcrun"), "xcrun");
+  return {
+    schema: submitSchema,
+    status: "preflight-passed",
+    ascAppId: args.ascAppId,
+    credentialMode: args.ascApiKeyId ? "app-store-connect-api-key" : "apple-id-app-password",
+    providerPublicId: args.providerPublicId,
+    versioning: args.versioning,
     tool: "xcrun altool",
   };
 }

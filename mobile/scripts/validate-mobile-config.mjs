@@ -165,6 +165,7 @@ for (const target of [
   "build-ios",
   "build-android",
   "mobile-android-bundle",
+  "submit-ios-preflight",
   "submit-ios",
   "submit-android",
   "submit-mobile",
@@ -183,6 +184,13 @@ assert(makefile.includes("MOBILE_IOS_ASC_APP_ID ?="), "mobile_makefile_missing_i
 assert(
   makefile.includes('MOBILE_IOS_ASC_APP_ID="$(MOBILE_IOS_ASC_APP_ID)"'),
   "mobile_makefile_missing_ios_asc_app_id_env",
+);
+assert(makefile.includes("submit-ios-preflight: mobile-check"), "mobile_makefile_ios_submit_preflight_must_run_mobile_check");
+assert(makefile.includes("submit-ios: submit-ios-preflight"), "mobile_makefile_ios_submit_must_preflight_before_archive");
+assert(makefile.includes("--preflight-only"), "mobile_makefile_ios_submit_missing_preflight_only");
+assert(
+  makefile.includes('@$(MAKE) --no-print-directory build-ios MOBILE_RELEASE_TIMESTAMP="$(MOBILE_RESOLVED_RELEASE_TIMESTAMP)"'),
+  "mobile_makefile_ios_submit_must_build_after_preflight",
 );
 assert(
   makefile.includes('APP_STORE_CONNECT_API_KEY_ID="$(APP_STORE_CONNECT_API_KEY_ID)"'),
@@ -223,6 +231,7 @@ assert(releaseScriptSource.includes("submit-mobile"), "mobile_release_missing_co
 assert(releaseScriptSource.includes("--skip-ios"), "mobile_release_missing_skip_ios");
 assert(releaseScriptSource.includes("--skip-android"), "mobile_release_missing_skip_android");
 assert(releaseScriptSource.includes("--skip-mobile"), "mobile_release_missing_skip_mobile");
+assert(releaseScriptSource.includes("submit-ios-preflight"), "mobile_release_missing_ios_submit_preflight");
 assert(releaseScriptSource.includes('MOBILE_RELEASE_TIMESTAMP="${mobile_release_timestamp}"'), "mobile_release_missing_shared_store_timestamp");
 
 const iosSubmitSource = readText("mobile/scripts/submit-ios.mjs");
@@ -237,6 +246,8 @@ assert(iosSubmitSource.includes("MOBILE_IOS_ASC_APP_ID"), "mobile_ios_submit_mis
 assert(iosSubmitSource.includes("APP_STORE_CONNECT_API_KEY_ID"), "mobile_ios_submit_missing_api_key_env");
 assert(iosSubmitSource.includes("MOBILE_IOS_APP_SPECIFIC_PASSWORD"), "mobile_ios_submit_missing_app_password_env");
 assert(iosSubmitSource.includes("API_PRIVATE_KEYS_DIR"), "mobile_ios_submit_missing_api_private_keys_dir");
+assert(iosSubmitSource.includes("--preflight-only"), "mobile_ios_submit_missing_preflight_only");
+assert(iosSubmitSource.includes("preflightIOSUpload"), "mobile_ios_submit_missing_upload_preflight");
 assert(!iosSubmitSource.includes("--p8-file-path"), "mobile_ios_submit_must_not_pass_p8_file_path_to_upload");
 assert(iosSubmitSource.includes("iOS IPA hash changed since build manifest"), "mobile_ios_submit_missing_hash_drift_guard");
 assert(iosSubmitSource.includes("createMobileCalVerVersion"), "mobile_ios_submit_missing_calver_manifest_default");
