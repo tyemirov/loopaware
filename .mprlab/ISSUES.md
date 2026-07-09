@@ -395,6 +395,19 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Made `make release` exit successfully before CI when `HEAD` is already covered by the current release tag, so `make release && make publish` can repair Docker images for that existing tag instead of attempting an empty release. Moved deploy image verification before the deployment CI gate and wrapped missing registry image inspection failures with an explicit `make publish` recovery message. Added `release-workflow-check` to the Makefile lint path to guard release idempotency, deploy image verification ordering, and README recovery documentation. Validation passed with baseline `make ci`, `bash -n scripts/release.sh scripts/publish.sh scripts/deploy.sh`, `make release-workflow-check`, a missing-image deploy probe using `make deploy DEPLOY_ARGS="--skip-ci --image ghcr.io/tyemirov/loopaware-nonexistent-b035"`, `git diff --check`, `make lint-js`, and final `make ci`.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `README.md`, `scripts/deploy.sh`, `scripts/release.sh`, `scripts/validate-release-workflow.mjs`.
+- [x] [B036] (P0) Fail iOS store submit before archive when App Store Connect app id is missing.
+  ### Summary
+  `make release` can spend the full iOS archive/export path and only then fail in `submit-ios` with `iOS upload requires MOBILE_IOS_ASC_APP_ID or LOOPAWARE_MOBILE_IOS_ASC_APP_ID`, because the upload identity is validated after `build-ios` completes.
+  ### Deliverables
+  - Validate App Store Connect upload identity and credentials before `make submit-ios` builds the IPA.
+  - Validate the same iOS upload inputs before `make release` creates a repository release when iOS upload is enabled.
+  - Keep `make build-ios` usable as a build-only artifact command.
+  - Add a mobile config guard for the pre-archive submit preflight.
+  - Update the mobile publishing runbook and verify the missing-id path fails before archive work.
+  ### Resolution
+  Added `submit-ios-preflight` to validate App Store Connect upload identity and credentials without requiring a built IPA, changed `submit-ios` to run that preflight before invoking `build-ios`, and made `make release` run the same iOS preflight before `make ci` and release creation when iOS upload is enabled. Kept `make build-ios` as a build-only artifact path. Updated mobile config validation and README release/mobile publishing docs to lock in the pre-archive and pre-release upload-input checks. Validation passed with baseline `make ci`, `bash -n scripts/release.sh scripts/publish.sh scripts/deploy.sh`, `node --check mobile/scripts/submit-ios.mjs`, `npm --prefix mobile run validate-config`, missing-id `make submit-ios` preflight proof that did not reach `build-ios`, positive `submit-ios.mjs --preflight-only` proof with a dummy numeric ASC app id, a fake-helper `scripts/release.sh` proof that stopped at `submit-ios-preflight` before `make ci`, `git diff --check`, `make lint-js`, and final `make ci`.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `README.md`, `scripts/release.sh`, `mobile/scripts/submit-ios.mjs`, `mobile/scripts/validate-mobile-config.mjs`.
 
 
 ## Improvements
