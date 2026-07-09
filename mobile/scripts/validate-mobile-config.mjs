@@ -200,7 +200,11 @@ assert(
   makefile.includes('APP_STORE_CONNECT_API_ISSUER_ID="$(APP_STORE_CONNECT_API_ISSUER_ID)"'),
   "mobile_makefile_submit_missing_app_store_issuer_env",
 );
-assert(makefile.includes('MOBILE_RELEASE_TIMESTAMP="$(MOBILE_RELEASE_TIMESTAMP)"'), "mobile_makefile_release_missing_mobile_timestamp_env");
+assert(makefile.includes("RELEASE_ENV_FILE ?= $(CURDIR)/configs/.env.loopaware"), "mobile_makefile_missing_release_env_file");
+assert(makefile.includes('RELEASE_ENV_FILE="$(RELEASE_ENV_FILE)"'), "mobile_makefile_release_must_pass_env_file");
+assert(releaseScriptSource.includes("load_release_env_file"), "mobile_release_missing_env_loader");
+assert(releaseScriptSource.includes("configs/.env.loopaware"), "mobile_release_missing_default_env_file");
+assert(releaseScriptSource.includes("Loaded release env"), "mobile_release_missing_env_load_log");
 assert(makefile.includes('APP_STORE_CONNECT_API_KEY_PATH="$(APP_STORE_CONNECT_API_KEY_PATH)"'), "mobile_makefile_release_missing_app_store_key_path_env");
 assert(makefile.includes('ANDROID_SDK_ROOT="$(ANDROID_SDK_ROOT)"'), "mobile_makefile_release_missing_android_sdk_env");
 assert(makefile.includes("MOBILE_IOS_ARCHIVE_SCRIPT"), "mobile_makefile_missing_ios_archive_script");
@@ -233,6 +237,11 @@ assert(releaseScriptSource.includes("--skip-android"), "mobile_release_missing_s
 assert(releaseScriptSource.includes("--skip-mobile"), "mobile_release_missing_skip_mobile");
 assert(releaseScriptSource.includes("submit-ios-preflight"), "mobile_release_missing_ios_submit_preflight");
 assert(releaseScriptSource.includes('MOBILE_RELEASE_TIMESTAMP="${mobile_release_timestamp}"'), "mobile_release_missing_shared_store_timestamp");
+assert(readText("configs/.env.loopaware.example").includes("LOOPAWARE_MOBILE_IOS_ASC_APP_ID=6788555440"), "mobile_loopaware_env_example_missing_ios_asc_app_id");
+assert(
+  readText("configs/.env.loopaware.computercat.example").includes("LOOPAWARE_MOBILE_IOS_ASC_APP_ID=6788555440"),
+  "mobile_loopaware_computercat_env_example_missing_ios_asc_app_id",
+);
 
 const iosSubmitSource = readText("mobile/scripts/submit-ios.mjs");
 assert(iosSubmitSource.includes("xcrun") && iosSubmitSource.includes("altool"), "mobile_ios_submit_missing_altool_upload");

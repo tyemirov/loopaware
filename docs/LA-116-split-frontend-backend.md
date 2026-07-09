@@ -75,7 +75,7 @@ For the computercat orchestration, `ghttp`:
 - LoopAware frontend:
   - everything else is served from `./web` (no LoopAware web container)
 
-See `configs/README.md` and the `configs/.env.ghttp*.example` templates for the exact `GHTTP_SERVE_PROXIES` string.
+See the root `README.md` and the `configs/.env.ghttp*.example` templates for the exact `GHTTP_SERVE_PROXIES` string.
 
 ## Multi-Origin GitHub Pages Model
 

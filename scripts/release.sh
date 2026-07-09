@@ -33,6 +33,7 @@ Environment:
   RELEASE_BUMP                Default SemVer bump
   RELEASE_VERSION             Exact release version
   RELEASE_SCHEME              Versioning scheme override
+  RELEASE_ENV_FILE            Dotenv file loaded for mobile store publishing. Default: configs/.env.loopaware
   MOBILE_RELEASE_TIMESTAMP    Optional fixed UTC timestamp for both mobile stores
   MOBILE_IOS_ASC_APP_ID       Numeric App Store Connect app Apple ID for altool upload
 USAGE
@@ -130,6 +131,69 @@ command -v python3 >/dev/null 2>&1 || { echo "error: python3 is required" >&2; e
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "${repo_root}"
+release_env_file="${RELEASE_ENV_FILE:-configs/.env.loopaware}"
+release_env_loaded="false"
+
+trim_whitespace() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf "%s" "${value}"
+}
+
+mobile_store_uploads_enabled() {
+  [[ "${SKIP_IOS}" != "true" || "${SKIP_ANDROID}" != "true" ]]
+}
+
+load_release_env_file() {
+  local env_path="$1"
+  if [[ "${env_path}" != /* ]]; then
+    env_path="${repo_root}/${env_path}"
+  fi
+  [[ -f "${env_path}" ]] || { echo "error: release env file not found: ${env_path}" >&2; exit 1; }
+
+  local line line_number trimmed key value
+  line_number=0
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line_number=$((line_number + 1))
+    line="${line%$'\r'}"
+    trimmed="$(trim_whitespace "${line}")"
+    if [[ -z "${trimmed}" || "${trimmed}" == \#* ]]; then
+      continue
+    fi
+    if [[ "${trimmed}" == export[[:space:]]* ]]; then
+      trimmed="$(trim_whitespace "${trimmed#export}")"
+    fi
+    if [[ "${trimmed}" != *=* ]]; then
+      echo "error: ${env_path}:${line_number} is not a KEY=value release env entry" >&2
+      exit 1
+    fi
+    key="$(trim_whitespace "${trimmed%%=*}")"
+    value="$(trim_whitespace "${trimmed#*=}")"
+    if [[ ! "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+      echo "error: ${env_path}:${line_number} has invalid release env key: ${key}" >&2
+      exit 1
+    fi
+    if [[ "${value}" == \"*\" && "${value}" == *\" && ${#value} -ge 2 ]]; then
+      value="${value:1:${#value}-2}"
+    elif [[ "${value}" == \'*\' && "${value}" == *\' && ${#value} -ge 2 ]]; then
+      value="${value:1:${#value}-2}"
+    fi
+    export "${key}=${value}"
+  done < "${env_path}"
+  echo "==> [release] Loaded release env ${env_path}"
+}
+
+ensure_release_env_loaded() {
+  if [[ "${release_env_loaded}" == "true" || ! mobile_store_uploads_enabled ]]; then
+    return
+  fi
+  load_release_env_file "${release_env_file}"
+  release_env_loaded="true"
+  if [[ -n "${MOBILE_RELEASE_TIMESTAMP:-}" ]]; then
+    mobile_release_timestamp="${MOBILE_RELEASE_TIMESTAMP}"
+  fi
+}
 
 resolve_release_helper() {
   local candidate
@@ -297,6 +361,7 @@ submit_mobile_stores() {
     echo "==> [release] Skipping native mobile store uploads"
     return
   fi
+  ensure_release_env_loaded
 
   if [[ "${SKIP_IOS}" != "true" && "${SKIP_ANDROID}" != "true" ]]; then
     echo "==> [release] Submitting native mobile builds to App Store Connect/TestFlight and Google Play"
@@ -316,6 +381,7 @@ submit_mobile_stores() {
 }
 
 preflight_mobile_stores() {
+  ensure_release_env_loaded
   if [[ "${SKIP_IOS}" != "true" ]]; then
     echo "==> [release] Verifying iOS App Store Connect upload inputs"
     timeout -k 300s -s SIGKILL 300s "${MAKE:-make}" --no-print-directory submit-ios-preflight MOBILE_RELEASE_TIMESTAMP="${mobile_release_timestamp}"
