@@ -28,6 +28,6 @@ mprlab_resources:
       url: https://loopaware-api.mprlab.com/api/me
     - type: github_pages
       name: loopaware
-      method: workflow
-      workflow: pages.yml
+      target: pages-deploy
       url: https://loopaware.mprlab.com/
+      source_marker_path: /.mprlab-release.json
