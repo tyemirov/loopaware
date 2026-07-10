@@ -6,18 +6,24 @@ STATICCHECK := honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 INEFFASSIGN := github.com/gordonklaus/ineffassign@$(INEFFASSIGN_VERSION)
 RELEASE_ARGS ?=
 RELEASE_ENV_FILE ?= $(CURDIR)/configs/.env.loopaware
-PUBLISH_ARGS ?=
+RELEASE_ARTIFACT_TARGETS ?= mobile-release-artifacts client-react-native-artifact container-artifacts pages-artifact
+PUBLISH_RELEASE_ARGS ?=
 DEPLOY_ARGS ?=
 RELEASE_HELPER ?=
+RELEASE_TOOL_DIR ?= $(abspath $(CURDIR)/../agentSkills/gitrelease/scripts)
 DOCKER_IMAGE ?= ghcr.io/tyemirov/loopaware
 PUBLISH_PLATFORMS ?= linux/amd64
 PUBLISH_REMOTE ?= origin
 PUBLISH_BRANCH ?= master
 GATEWAY_DIR ?=
-APP_MANIFEST ?= $(CURDIR)/.mprlab/deploy/app.yml
+PAGES_URL ?= https://loopaware.mprlab.com/
+PAGES_BRANCH ?= gh-pages
+PAGES_VERSION ?=
+PAGES_DEPLOY_ARGS ?=
 CLIENT_REACT_NATIVE_DIR := clients/react-native
 CLIENT_REACT_NATIVE_NPM ?= npm
 CLIENT_REACT_NATIVE_NPM_COMMAND ?= env -u NO_COLOR $(CLIENT_REACT_NATIVE_NPM)
+CLIENT_REACT_NATIVE_PUBLISH_ARGS ?=
 MOBILE_DIR := mobile
 MOBILE_NPM ?= npm
 MOBILE_NPM_COMMAND ?= env -u NO_COLOR $(MOBILE_NPM)
@@ -51,7 +57,7 @@ ANDROID_TOOL_PATH := $(ANDROID_SDK_ROOT)/emulator:$(ANDROID_SDK_ROOT)/platform-t
 
 export GOWORK := off
 
-.PHONY: format format-pinguin build lint lint-js release-workflow-check client-react-native-install client-react-native-check mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle submit-ios-preflight submit-ios submit-android submit-mobile config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
+.PHONY: format format-pinguin build lint lint-js release-workflow-check client-react-native-install client-react-native-check client-react-native-artifact publish-react-native mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle mobile-release-artifacts container-artifacts pages-artifact pages-deploy submit-ios-preflight submit-ios submit-android submit-mobile publish-mobile config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish-release publish deploy
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -103,6 +109,15 @@ client-react-native-check: client-react-native-install
 	$(CLIENT_REACT_NATIVE_NPM_COMMAND) --prefix $(CLIENT_REACT_NATIVE_DIR) run typecheck
 	$(CLIENT_REACT_NATIVE_NPM_COMMAND) --prefix $(CLIENT_REACT_NATIVE_DIR) run build
 	$(CLIENT_REACT_NATIVE_NPM_COMMAND) --prefix $(CLIENT_REACT_NATIVE_DIR) run verify-package
+
+client-react-native-artifact: client-react-native-check
+	@test -n "$(RELEASE_ARTIFACT_DIR)" || { echo "error: RELEASE_ARTIFACT_DIR is required" >&2; exit 1; }
+	@asset_dir="$(RELEASE_ARTIFACT_DIR)/payloads/release-assets"; \
+	mkdir -p "$$asset_dir"; \
+	rm -f "$$asset_dir"/loopaware-react-native-*.tgz; \
+	(cd $(CLIENT_REACT_NATIVE_DIR) && $(CLIENT_REACT_NATIVE_NPM_COMMAND) pack --ignore-scripts --pack-destination "$$asset_dir"); \
+	artifact_count="$$(find "$$asset_dir" -maxdepth 1 -type f -name 'loopaware-react-native-*.tgz' | wc -l | tr -d ' ')"; \
+	[ "$$artifact_count" = "1" ] || { echo "error: expected exactly one prepared React Native package" >&2; exit 1; }
 
 mobile-install:
 	@if [ ! -d "$(CURDIR)/$(MOBILE_DIR)/node_modules" ]; then \
@@ -166,16 +181,30 @@ mobile-android-bundle: mobile-check
 	@echo "==> [mobile-android-bundle] Building signed LoopAware Mobile Android App Bundle"
 	@ANDROID_HOME="$(ANDROID_HOME)" ANDROID_SDK_ROOT="$(ANDROID_SDK_ROOT)" ANDROID_STUDIO_JAVA_HOME="$(ANDROID_STUDIO_JAVA_HOME)" LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)" LOOPAWARE_MOBILE_RELEASE_TIMESTAMP="$(MOBILE_RESOLVED_RELEASE_TIMESTAMP)" node "$(MOBILE_ANDROID_BUNDLE_SCRIPT)" --mobile-dir "$(MOBILE_DIR)" --android-sdk-root "$(ANDROID_SDK_ROOT)" $(MOBILE_ANDROID_BUNDLE_ARGS)
 
+mobile-release-artifacts:
+	@test -n "$(RELEASE_ARTIFACT_DIR)" || { echo "error: RELEASE_ARTIFACT_DIR is required" >&2; exit 1; }
+	@mkdir -p "$(RELEASE_ARTIFACT_DIR)/payloads/release-assets"
+	@$(MAKE) --no-print-directory build-ios MOBILE_RELEASE_TIMESTAMP="$(MOBILE_RESOLVED_RELEASE_TIMESTAMP)" MOBILE_IOS_ARCHIVE_ARGS="--output $(RELEASE_ARTIFACT_DIR)/payloads/release-assets/loopaware-ios.ipa --manifest $(RELEASE_ARTIFACT_DIR)/payloads/release-assets/loopaware-ios.json $(MOBILE_IOS_ARCHIVE_ARGS)"
+	@$(MAKE) --no-print-directory build-android MOBILE_RELEASE_TIMESTAMP="$(MOBILE_RESOLVED_RELEASE_TIMESTAMP)" MOBILE_ANDROID_BUNDLE_ARGS="--output $(RELEASE_ARTIFACT_DIR)/payloads/release-assets/loopaware-android.aab $(MOBILE_ANDROID_BUNDLE_ARGS)"
+
+container-artifacts:
+	@"$(RELEASE_TOOL_DIR)/prepare_container_artifact.sh" --name loopaware --image "$(DOCKER_IMAGE)" --file Dockerfile --context . --platforms "$(PUBLISH_PLATFORMS)"
+
+pages-artifact:
+	@"$(RELEASE_TOOL_DIR)/prepare_pages_artifact.sh" --source web --domain loopaware.mprlab.com --exclude tests --exclude node_modules
+
+pages-deploy:
+	@"$(RELEASE_TOOL_DIR)/deploy_pages_artifact.sh" --branch "$(PAGES_BRANCH)" --url "$(PAGES_URL)" $(if $(PAGES_VERSION),--version "$(PAGES_VERSION)") $(PAGES_DEPLOY_ARGS)
+
 submit-ios-preflight: mobile-check
 	@echo "==> [submit-ios] Verifying App Store Connect upload inputs"
 	@LOOPAWARE_MOBILE_RELEASE_TIMESTAMP="$(MOBILE_RESOLVED_RELEASE_TIMESTAMP)" MOBILE_IOS_ASC_APP_ID="$(MOBILE_IOS_ASC_APP_ID)" MOBILE_IOS_PROVIDER_PUBLIC_ID="$(MOBILE_IOS_PROVIDER_PUBLIC_ID)" APP_STORE_CONNECT_API_KEY_ID="$(APP_STORE_CONNECT_API_KEY_ID)" APP_STORE_CONNECT_API_ISSUER_ID="$(APP_STORE_CONNECT_API_ISSUER_ID)" APP_STORE_CONNECT_API_KEY_PATH="$(APP_STORE_CONNECT_API_KEY_PATH)" node "$(MOBILE_IOS_SUBMIT_SCRIPT)" --mobile-dir "$(MOBILE_DIR)" --preflight-only $(MOBILE_IOS_SUBMIT_ARGS)
 
 submit-ios: submit-ios-preflight
-	@$(MAKE) --no-print-directory build-ios MOBILE_RELEASE_TIMESTAMP="$(MOBILE_RESOLVED_RELEASE_TIMESTAMP)"
 	@echo "==> [submit-ios] Submitting LoopAware Mobile iOS IPA to App Store Connect"
 	@LOOPAWARE_MOBILE_RELEASE_TIMESTAMP="$(MOBILE_RESOLVED_RELEASE_TIMESTAMP)" MOBILE_IOS_ASC_APP_ID="$(MOBILE_IOS_ASC_APP_ID)" MOBILE_IOS_PROVIDER_PUBLIC_ID="$(MOBILE_IOS_PROVIDER_PUBLIC_ID)" APP_STORE_CONNECT_API_KEY_ID="$(APP_STORE_CONNECT_API_KEY_ID)" APP_STORE_CONNECT_API_ISSUER_ID="$(APP_STORE_CONNECT_API_ISSUER_ID)" APP_STORE_CONNECT_API_KEY_PATH="$(APP_STORE_CONNECT_API_KEY_PATH)" node "$(MOBILE_IOS_SUBMIT_SCRIPT)" --mobile-dir "$(MOBILE_DIR)" $(MOBILE_IOS_SUBMIT_ARGS)
 
-submit-android: mobile-android-bundle
+submit-android: mobile-check
 	@echo "==> [submit-android] Submitting LoopAware Mobile Android App Bundle to Google Play"
 	@LOOPAWARE_MOBILE_RELEASE_TIMESTAMP="$(MOBILE_RESOLVED_RELEASE_TIMESTAMP)" node "$(MOBILE_ANDROID_PUBLISH_SCRIPT)" --mobile-dir "$(MOBILE_DIR)" $(MOBILE_ANDROID_PUBLISH_ARGS)
 
@@ -236,10 +265,21 @@ docker-logs:
 ci: tidy-check config-audit build lint test-unit test-race test-integration-all
 
 release:
-	@RELEASE_ENV_FILE="$(RELEASE_ENV_FILE)" RELEASE_HELPER="$(RELEASE_HELPER)" ./scripts/release.sh $(RELEASE_ARGS)
+	@RELEASE_ENV_FILE="$(RELEASE_ENV_FILE)" RELEASE_ARTIFACT_TARGETS="$(RELEASE_ARTIFACT_TARGETS)" RELEASE_HELPER="$(RELEASE_HELPER)" ./scripts/release.sh $(RELEASE_ARGS)
 
-publish:
-	@DOCKER_IMAGE="$(DOCKER_IMAGE)" PUBLISH_PLATFORMS="$(PUBLISH_PLATFORMS)" PUBLISH_REMOTE="$(PUBLISH_REMOTE)" PUBLISH_BRANCH="$(PUBLISH_BRANCH)" ./scripts/publish.sh $(PUBLISH_ARGS)
+publish-release:
+	@RELEASE_HELPER="$(RELEASE_HELPER)" ./scripts/publish-release.sh $(PUBLISH_RELEASE_ARGS)
+
+publish: publish-release
+	@"$(RELEASE_TOOL_DIR)/publish_container_artifacts.sh"
+	@RELEASE_ENV_FILE="$(RELEASE_ENV_FILE)" ./scripts/publish-mobile.sh
+	@CLIENT_REACT_NATIVE_NPM="$(CLIENT_REACT_NATIVE_NPM)" CLIENT_REACT_NATIVE_PUBLISH_ARGS="$(CLIENT_REACT_NATIVE_PUBLISH_ARGS)" ./scripts/publish-react-native.sh
+
+publish-mobile:
+	@RELEASE_ENV_FILE="$(RELEASE_ENV_FILE)" ./scripts/publish-mobile.sh
+
+publish-react-native:
+	@CLIENT_REACT_NATIVE_NPM="$(CLIENT_REACT_NATIVE_NPM)" CLIENT_REACT_NATIVE_PUBLISH_ARGS="$(CLIENT_REACT_NATIVE_PUBLISH_ARGS)" ./scripts/publish-react-native.sh
 
 deploy:
-	@GATEWAY_DIR="$(GATEWAY_DIR)" APP_MANIFEST="$(APP_MANIFEST)" ./scripts/deploy.sh $(DEPLOY_ARGS)
+	@GATEWAY_DIR="$(GATEWAY_DIR)" PAGES_URL="$(PAGES_URL)" ./scripts/deploy.sh $(DEPLOY_ARGS)
