@@ -130,8 +130,8 @@ Pinguin and LoopAware must share the same bearer secret. Set Pinguin's `GRPC_AUT
 `configs/.env.tauth` must set `TAUTH_CONFIG_FILE=/config/config.yml`, and `configs/.env.pinguin` must set
 `PINGUIN_CONFIG_PATH=/config/config.yml`, matching the files mounted by Docker Compose. `configs/.env.loopaware` must
 define every placeholder referenced by `configs/config.loopaware.yml`. Those values are expanded only while parsing the
-YAML file; they are not a second runtime config source. `make release` also loads `configs/.env.loopaware` before native
-mobile store publishing so App Store Connect and Google Play inputs live in the same local LoopAware env surface.
+YAML file; they are not a second runtime config source. `make release` loads `configs/.env.loopaware` only to build the
+signed local mobile artifacts; store APIs are contacted later by `make publish`.
 `config-audit` validates tracked `.env.*.example` templates when local `.env.*` files are absent, but runtime still
 requires the real local env files.
 
@@ -499,50 +499,40 @@ make publish
 make deploy
 ```
 
-`make release` cuts a repository release from `master`: it preflights the default branch,
-rejects dirty worktrees and open PRs into `master`, loads `configs/.env.loopaware` for native
-mobile store publishing, verifies mobile store upload inputs when mobile publishing is enabled,
-runs `make ci`, updates `CHANGELOG.md`, pushes the release commit, creates the tag, publishes the
-GitHub Release object, verifies remote release state, then uploads the native operator mobile app
-to App Store Connect/TestFlight and Google Play Internal testing.
-It does not publish Docker images, publish Pages, or deploy production. Use `RELEASE_ARGS="--skip-ios"`,
-`RELEASE_ARGS="--skip-android"`, or `RELEASE_ARGS="--skip-mobile"` only for an intentional
-partial release.
+`make release` prepares the complete release from local state. It rejects a dirty or non-default
+branch, runs `make ci`, builds signed iOS and Android artifacts under `.git/mprlab-release`, writes their
+hash manifests, updates `CHANGELOG.md`, creates the local release commit and annotated tag, and
+writes `.git/mprlab-release/manifest.json`. It never fetches, pushes, calls GitHub, uploads a store
+build, publishes Pages, or deploys production.
 
-If `make release` finds that `HEAD` is already covered by the current release tag, it exits
-successfully without creating another tag. Continue with `make publish` to publish or repair the
-Docker images for that existing release, then run `make deploy`. Do not create an empty release to
-repair a missing image.
-
-`make publish` publishes the Docker runtime artifact from a clean `master` checkout after
-verifying that a pushed `vMAJOR.MINOR.PATCH` tag points at `HEAD` and rerunning `make ci`.
+`make publish` publishes that prepared release. It verifies that `origin/master` still matches the
+source commit recorded by `make release`, checks open pull requests, pushes the release commit and
+tag, creates or updates the GitHub Release object, publishes the Docker runtime image, and uploads
+the already-built mobile artifacts to App Store Connect/TestFlight and Google Play Internal testing.
 It pushes:
 
 - `ghcr.io/tyemirov/loopaware:latest`
 - `ghcr.io/tyemirov/loopaware:<tag>`
-- `ghcr.io/tyemirov/loopaware:<sha>`
 
-`make deploy` reruns `make ci`, then hands `.mprlab/deploy/app.yml` to
-`mprlab-gateway`. Gateway Ansible deploys and verifies the backend first, then
-executes the app-owned GitHub Pages workflow resource from the manifest and
-verifies `https://loopaware.mprlab.com/`. This keeps Pages behind the backend
-version it depends on without splitting the deploy contract between repos. The
-release tag is derived from the v* tag at the app repository `HEAD`; operators
-do not select a revision during deploy. Deploy verifies that `latest` and the
-current release tag resolve to the same published Docker image before rerunning
-CI; if the release image is missing, run `make publish`, not `make release`.
+`make deploy` reads the canonical `.mprlab/deploy/resources.yml` contract, verifies that `latest`
+and the current release tag resolve to the same published Docker image, deploys and verifies the
+backend through the `mprlab-gateway` backend-only target, then activates the published Pages archive
+through `pages-deploy`. It does not rerun CI, rebuild an artifact, or repair missing publication. The
+release tag is derived from the exact v* tag at the app repository `HEAD`; if an artifact is missing,
+run `make publish` before deploy.
 
-The Docker image and Pages workflows are manual dispatch workflows. They do not publish
-automatically on tag push; the Makefile targets own the release-to-production ordering.
+GitHub Actions does not own this production lifecycle. The Makefile targets own preparation,
+publication, and activation in that order.
 
-The React Native feedback client is published separately from the Docker and Pages release path. Bump
-`clients/react-native/package.json`, run `make client-react-native-check`, and dispatch the `Publish React Native Client`
-GitHub workflow from the package release ref. The npm package must have a trusted publisher configured for
-`tyemirov/loopaware` and `.github/workflows/npm-react-native.yml` before that workflow can publish
-`@loopaware/react-native`.
+The React Native feedback client uses the same artifact lifecycle. Bump
+`clients/react-native/package.json` and its lockfile before the repository release. `make release` builds and packs
+`@loopaware/react-native` into the prepared release, and `make publish` publishes that exact tarball to npm without
+rebuilding it. Configure local npm authentication with `npm login` or `NODE_AUTH_TOKEN` before publication. If the
+same package version is already present, publication succeeds only when its registry integrity matches the prepared
+tarball; npm version reuse with different content is rejected.
 
-The native operator mobile app is published by `make release` after the GitHub Release has been verified. Use the
-lower-level local store build and submission targets only when re-submitting one mobile store outside the normal release path:
+The native operator mobile app is built by `make release` and uploaded by `make publish`. The
+lower-level targets keep artifact creation and store upload separate:
 
 ```bash
 make build-ios
@@ -559,16 +549,15 @@ only when a deterministic rebuild needs to reuse a specific release timestamp.
 
 `make build-ios` runs a local Expo prebuild with the generated CalVer version and build number, creates a signed Xcode
 archive, exports an App Store Connect IPA under `mobile/dist/`, and writes a build manifest beside it. `make submit-ios`
-verifies App Store Connect upload identity before building the archive, then verifies the manifest hash and uploads the IPA
-with `xcrun altool`. `make release` runs the same iOS upload preflight before cutting a repository release unless iOS
-upload is intentionally skipped. Configure either
+verifies App Store Connect upload identity and the prepared manifest hash, then uploads that existing IPA with
+`xcrun altool`. Configure either
 App Store Connect API key inputs
 (`APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_API_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_PATH`) or
 `MOBILE_IOS_APPLE_ID`/`APPLE_ID` plus an app-specific password in `MOBILE_IOS_APP_SPECIFIC_PASSWORD`. Set
 `MOBILE_IOS_ASC_APP_ID` or `LOOPAWARE_MOBILE_IOS_ASC_APP_ID` to the numeric App Store Connect app Apple ID; this is the
 app record id passed to `altool --apple-id`, not the operator login email.
-For the normal release path, keep these values in `configs/.env.loopaware`; `make release` loads that file before the
-pre-release mobile store preflight and exports the values to the lower-level submit targets.
+For the normal lifecycle, keep these values in `configs/.env.loopaware`; release uses signing inputs locally and publish
+uses the store-upload inputs.
 LoopAware defaults to team `Z9ZW6HDGML` and the ignored local App Store Connect API key
 `configs/AuthKey_82P4KZ86HM.p8`.
 Local App Store Connect `.p8` files may live under `configs/AuthKey_<KEY_ID>.p8`; `configs/AuthKey_*.p8` is ignored.
@@ -577,8 +566,7 @@ For non-interactive Xcode export signing, set `MOBILE_IOS_SIGNING_KEYCHAIN` and 
 keychain exists, the archive script uses that keychain and password sidecar by default, then unlocks it and authorizes
 `codesign` before running `xcodebuild`.
 
-`make submit-android` rebuilds the signed local Android App Bundle with the generated CalVer version and Play-safe
-`versionCode`, verifies the generated `.aab`, sidecar manifest, and R8 deobfuscation mapping file, then uploads them
+`make submit-android` verifies the prepared signed Android App Bundle, sidecar manifest, and R8 deobfuscation mapping file, then uploads them
 through the Google Play Android Publisher API to the `internal` track. Configure Google Application Default Credentials with the
 `https://www.googleapis.com/auth/androidpublisher` scope. The Android release identity in
 `mobile/android-release-identity.json` supplies the default Google Cloud quota project (`loopaware`) and the expected
@@ -589,7 +577,7 @@ outside the repository; `make submit-android` fails if the configured keystore i
 does not match the tracked release identity. Google Play still requires the first app upload to be performed manually
 before API-based submissions work.
 
-The combined `make submit-mobile` target builds/submits iOS first and then Android. Keep Apple API keys, app-specific
+The combined `make submit-mobile` target uploads iOS first and then Android. Keep Apple API keys, app-specific
 passwords, Google service-account JSON files, and upload keystore secrets outside the repository.
 
 ## Docker
