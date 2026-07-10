@@ -420,6 +420,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Added `RELEASE_ENV_FILE` with the canonical default `configs/.env.loopaware`, changed `make release` to pass that env file to `scripts/release.sh`, and made the release script parse and export the dotenv entries before native mobile store preflight and submit work. The env load remains after the existing already-tagged no-op check, so `make release && make publish` can still repair existing release images without requiring store upload inputs. Added the LoopAware App Store Connect app id to the tracked LoopAware env templates, merged the config-directory README guidance into the root README, removed `configs/README.md`, and guarded the release env contract in both release workflow and mobile config validation. Also added the non-secret app id to the ignored local `configs/.env.loopaware` on this machine. Validation passed with baseline `make ci`, `bash -n scripts/release.sh scripts/publish.sh scripts/deploy.sh`, `make release-workflow-check`, `npm --prefix mobile run validate-config`, `git diff --check`, release env harness proofs for local and temporary `RELEASE_ENV_FILE` loading before iOS preflight, `make lint-js`, and final `make ci`.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `CHANGELOG.md`, `Makefile`, `README.md`, `docs/LA-116-split-frontend-backend.md`, `configs/README.md`, `configs/.env.loopaware.example`, `configs/.env.loopaware.computercat.example`, `scripts/release.sh`, `scripts/validate-release-workflow.mjs`, `mobile/scripts/validate-mobile-config.mjs`.
+- [x] [B038] (P0) Keep release workflow validation inside the repository checkout.
+  ### Summary
+  GitHub Actions fails in `release-workflow-check` because `scripts/validate-release-workflow.mjs` reads `../agentSkills/gitrelease/scripts/prepare_release.sh`, a machine-local sibling path that is absent from the LoopAware checkout.
+  ### Deliverables
+  - Remove direct reads of shared Git Release implementation files from LoopAware CI.
+  - Validate the tracked release and prepared-release publish adapter contracts at the repository boundary.
+  - Keep missing shared release tooling fail-fast at the operator entrypoints without adding fallbacks or CI-only skips.
+  - Verify the focused release workflow check, JavaScript lint path, and full CI gate.
+  ### Resolution
+  Removed the validator's direct read of the machine-local Git Release pipeline and replaced it with repository-owned contract checks for both `scripts/release.sh` and `scripts/publish-release.sh`. The checks now require each adapter's explicit pipeline override, canonical shared pipeline name, executable fail-fast gate, and argument-forwarding `exec`, while the shared Git Release package remains responsible for validating its own pipeline internals. No fallback, conditional skip, duplicate helper, or CI-only checkout was added. Validation passed with `bash -n scripts/release.sh scripts/publish-release.sh scripts/publish-mobile.sh scripts/publish-react-native.sh scripts/deploy.sh`, direct validator execution, `make release-workflow-check`, `git diff --check`, `make lint-js`, and final `make ci` with 454 Playwright/API integration specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/validate-release-workflow.mjs`.
 
 
 ## Improvements
