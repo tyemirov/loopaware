@@ -4,6 +4,32 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "${repo_root}"
 
+if [[ -v RELEASE_ENV_FILE ]] && [[ -n "${RELEASE_ENV_FILE}" ]]; then
+  env_file="${RELEASE_ENV_FILE}"
+else
+  env_file="${repo_root}/configs/.env.loopaware"
+fi
+if [[ "${env_file}" != /* ]]; then
+  env_file="${repo_root}/${env_file}"
+fi
+if [[ -f "${env_file}" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${env_file}"
+  set +a
+fi
+
+if [[ -v NPM_API_KEY ]] && [[ -n "${NPM_API_KEY}" ]]; then
+  export NODE_AUTH_TOKEN="${NPM_API_KEY}"
+  npmrc_dir="$(mktemp -d)"
+  cleanup() {
+    rm -rf "${npmrc_dir}"
+  }
+  trap cleanup EXIT
+  echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > "${npmrc_dir}/.npmrc"
+  export NPM_CONFIG_USERCONFIG="${npmrc_dir}/.npmrc"
+fi
+
 if [[ -v CLIENT_REACT_NATIVE_NPM ]] && [[ -n "${CLIENT_REACT_NATIVE_NPM}" ]]; then
   npm_command="${CLIENT_REACT_NATIVE_NPM}"
 else

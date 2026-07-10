@@ -10,7 +10,7 @@ const makefileSource = readText("Makefile");
 const readmeSource = readText("README.md");
 const normalizedReadmeSource = readmeSource.replace(/\s+/g, " ");
 const releaseSource = readText("scripts/release.sh");
-const releasePipelineSource = readText("../agentSkills/gitrelease/scripts/prepare_release.sh");
+const publishReleaseSource = readText("scripts/publish-release.sh");
 const deploySource = readText("scripts/deploy.sh");
 
 assert(
@@ -24,13 +24,25 @@ assert(
 );
 
 assert(
-  releasePipelineSource.includes('echo "==> [release] Running make ci"'),
-  "release_missing_local_ci_gate",
+  releaseSource.includes('if [[ -v RELEASE_PIPELINE ]] && [[ -n "${RELEASE_PIPELINE}" ]]'),
+  "release_missing_pipeline_override",
 );
 assert(
-  releasePipelineSource.includes("preflight --local"),
-  "release_missing_local_preflight",
+  releaseSource.includes('pipeline="${repo_root}/../agentSkills/gitrelease/scripts/prepare_release.sh"'),
+  "release_missing_prepare_pipeline",
 );
+assert(releaseSource.includes('[[ -x "${pipeline}" ]]'), "release_pipeline_must_fail_fast");
+assert(releaseSource.includes('exec "${pipeline}" "$@"'), "release_pipeline_must_forward_arguments");
+assert(
+  publishReleaseSource.includes('if [[ -v PUBLISH_RELEASE_PIPELINE ]] && [[ -n "${PUBLISH_RELEASE_PIPELINE}" ]]'),
+  "publish_release_missing_pipeline_override",
+);
+assert(
+  publishReleaseSource.includes('pipeline="${repo_root}/../agentSkills/gitrelease/scripts/publish_release.sh"'),
+  "publish_release_missing_pipeline",
+);
+assert(publishReleaseSource.includes('[[ -x "${pipeline}" ]]'), "publish_release_pipeline_must_fail_fast");
+assert(publishReleaseSource.includes('exec "${pipeline}" "$@"'), "publish_release_pipeline_must_forward_arguments");
 assert(releaseSource.includes("configs/.env.loopaware"), "release_missing_default_env_file");
 assert(makefileSource.includes("RELEASE_ENV_FILE ?= $(CURDIR)/configs/.env.loopaware"), "release_makefile_missing_env_file_default");
 assert(makefileSource.includes('RELEASE_ENV_FILE="$(RELEASE_ENV_FILE)"'), "release_makefile_must_pass_env_file");
@@ -42,8 +54,7 @@ assert(makefileSource.includes("./scripts/publish-mobile.sh"), "publish_missing_
 assert(makefileSource.includes("./scripts/publish-react-native.sh"), "publish_missing_react_native_package_upload");
 assert(!releaseSource.includes("git push"), "release_must_not_push_git_refs");
 assert(!releaseSource.includes("submit-mobile"), "release_must_not_upload_mobile_stores");
-assert(!releasePipelineSource.includes("git push"), "release_pipeline_must_not_push_git_refs");
-assert(!releasePipelineSource.includes("gh "), "release_pipeline_must_not_call_github");
+assert(!releaseSource.includes("gh "), "release_must_not_call_github");
 
 const submitIosBlock = makefileSource.slice(
   makefileSource.indexOf("submit-ios: submit-ios-preflight"),
