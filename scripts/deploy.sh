@@ -6,15 +6,13 @@ usage() {
 Usage:
   scripts/deploy.sh [options]
 
-Deploys LoopAware through mprlab-gateway. Gateway Ansible loads this repo's
-.mprlab/deploy/app.yml and publishes the app-owned GitHub Pages resource after
-backend verification succeeds.
+Deploys published LoopAware artifacts. The backend is deployed through
+mprlab-gateway, then the published Pages archive is activated locally.
 
 Options:
   --gateway-dir <path>       Gateway checkout. Default: $GATEWAY_DIR or sibling ../mprlab-gateway
-  --manifest <path>          App deploy manifest. Default: $APP_MANIFEST or .mprlab/deploy/app.yml
   --image <value>            Backend image repository. Default: $DOCKER_IMAGE or ghcr.io/tyemirov/loopaware
-  --skip-ci                  Skip the local make ci deployment gate
+  --tag <value>              Published release tag. Default: exact v* tag at HEAD
   --skip-image-verify        Skip release tag/latest image digest verification
   --skip-backend             Skip gateway backend deployment
   --skip-pages               Skip app-owned Pages resources
@@ -38,10 +36,8 @@ env_or_default() {
 }
 
 GATEWAY_DIR="$(env_or_default GATEWAY_DIR "")"
-APP_MANIFEST="$(env_or_default APP_MANIFEST .mprlab/deploy/app.yml)"
 IMAGE_REPOSITORY="$(env_or_default DOCKER_IMAGE ghcr.io/tyemirov/loopaware)"
-TAG=""
-SKIP_CI="false"
+TAG="$(env_or_default DEPLOY_TAG "")"
 SKIP_IMAGE_VERIFY="false"
 SKIP_BACKEND="false"
 SKIP_PAGES="false"
@@ -68,19 +64,15 @@ while [[ $# -gt 0 ]]; do
       GATEWAY_DIR="$2"
       shift 2
       ;;
-    --manifest)
-      [[ $# -ge 2 ]] || { echo "error: --manifest requires a value" >&2; exit 1; }
-      APP_MANIFEST="$2"
-      shift 2
-      ;;
     --image)
       [[ $# -ge 2 ]] || { echo "error: --image requires a value" >&2; exit 1; }
       IMAGE_REPOSITORY="$2"
       shift 2
       ;;
-    --skip-ci)
-      SKIP_CI="true"
-      shift
+    --tag)
+      [[ $# -ge 2 ]] || { echo "error: --tag requires a value" >&2; exit 1; }
+      TAG="$2"
+      shift 2
       ;;
     --skip-image-verify)
       SKIP_IMAGE_VERIFY="true"
@@ -115,22 +107,12 @@ command -v git >/dev/null 2>&1 || { echo "error: git is required" >&2; exit 1; }
 repo_root="$(git rev-parse --show-toplevel)"
 cd "${repo_root}"
 
-if [[ "${APP_MANIFEST}" != /* ]]; then
-  APP_MANIFEST="${repo_root}/${APP_MANIFEST}"
-fi
-[[ -f "${APP_MANIFEST}" ]] || { echo "error: deploy manifest not found: ${APP_MANIFEST}" >&2; exit 1; }
 resolve_gateway_dir() {
-  local candidate
   if [[ -n "${GATEWAY_DIR}" ]]; then
     printf "%s\n" "${GATEWAY_DIR}"
     return
   fi
-  for candidate in "${repo_root}/../mprlab-gateway" "../mprlab-gateway"; do
-    if [[ -d "${candidate}" ]]; then
-      printf "%s\n" "${candidate}"
-      return
-    fi
-  done
+  printf "%s\n" "${repo_root}/../mprlab-gateway"
 }
 
 GATEWAY_DIR="$(resolve_gateway_dir)"
@@ -141,8 +123,8 @@ if [[ -z "${TAG}" ]]; then
   TAG="$(git tag --points-at HEAD --list 'v*' --sort=-version:refname | head -n 1)"
 fi
 
-if [[ "${SKIP_PAGES}" != "true" ]]; then
-  [[ -n "${TAG}" ]] || { echo "error: no v* release tag points at HEAD; run make release before deploy" >&2; exit 1; }
+if [[ "${SKIP_BACKEND}" != "true" || "${SKIP_PAGES}" != "true" ]]; then
+  [[ -n "${TAG}" ]] || { echo "error: no v* release tag points at HEAD; run make publish before deploy" >&2; exit 1; }
   if [[ ! "${TAG}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
     echo "error: release tag must match vMAJOR.MINOR.PATCH (got: ${TAG})" >&2
     exit 1
@@ -157,15 +139,10 @@ if [[ "${SKIP_PAGES}" != "true" ]]; then
   fi
 fi
 
-if [[ "${SKIP_BACKEND}" == "true" && "${SKIP_PAGES}" != "true" ]]; then
-  echo "error: GitHub Pages is deployed through gateway Ansible; use --skip-backend only with --skip-pages" >&2
-  exit 1
-fi
-
 if [[ "${SKIP_IMAGE_VERIFY}" != "true" && "${SKIP_BACKEND}" != "true" ]]; then
   command -v docker >/dev/null 2>&1 || { echo "error: docker is required for image verification" >&2; exit 1; }
   docker buildx version >/dev/null 2>&1 || { echo "error: docker buildx is required for image verification" >&2; exit 1; }
-  [[ -n "${TAG}" ]] || { echo "error: no v* release tag points at HEAD; run make release before deploy" >&2; exit 1; }
+  [[ -n "${TAG}" ]] || { echo "error: no v* release tag points at HEAD; run make publish before deploy" >&2; exit 1; }
   echo "==> [deploy] Verifying ${IMAGE_REPOSITORY}:latest matches ${TAG}"
   release_digest="$(image_digest "${IMAGE_REPOSITORY}:${TAG}")"
   latest_digest="$(image_digest "${IMAGE_REPOSITORY}:latest")"
@@ -175,22 +152,16 @@ if [[ "${SKIP_IMAGE_VERIFY}" != "true" && "${SKIP_BACKEND}" != "true" ]]; then
   fi
 fi
 
-if [[ "${SKIP_CI}" != "true" && ( "${SKIP_BACKEND}" != "true" || "${SKIP_PAGES}" != "true" ) ]]; then
-  echo "==> [deploy] Running make ci before deployment"
-  timeout -k 1200s -s SIGKILL 1200s make ci
-fi
-
 if [[ "${SKIP_BACKEND}" != "true" ]]; then
   echo "==> [deploy] Deploying LoopAware backend through mprlab-gateway"
-  gateway_deploy_target="deploy-loopaware"
-  if [[ "${SKIP_PAGES}" == "true" ]]; then
-    gateway_deploy_target="deploy-loopaware-backend"
-  fi
-  gateway_pages_verify_enabled="true"
-  if [[ "${SKIP_PAGES_VERIFY}" == "true" ]]; then
-    gateway_pages_verify_enabled="false"
-  fi
-  timeout --foreground -k 1200s -s SIGKILL 1200s make -C "${GATEWAY_DIR}" MPRLAB_APP_MANIFEST="${APP_MANIFEST}" MPRLAB_GATEWAY_PAGES_VERIFY_ENABLED="${gateway_pages_verify_enabled}" "${gateway_deploy_target}"
+  timeout --foreground -k 1200s -s SIGKILL 1200s make -C "${GATEWAY_DIR}" deploy-loopaware-backend
+fi
+
+if [[ "${SKIP_PAGES}" != "true" ]]; then
+  pages_args=()
+  [[ "${SKIP_PAGES_VERIFY}" == "true" ]] && pages_args+=(--skip-verify)
+  echo "==> [deploy] Activating the published Pages artifact for ${TAG}"
+  PAGES_VERSION="${TAG}" PAGES_DEPLOY_ARGS="${pages_args[*]}" make --no-print-directory pages-deploy
 fi
 
 echo "LoopAware deploy complete"
