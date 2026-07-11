@@ -97,7 +97,9 @@ bash_function_marker="${temporary_directory}/bash-function-executed"
 clean_runner_output="$(/bin/sh "${repo_root}/scripts/release/run_lifecycle.sh" -c 'printf clean-runner')"
 [[ "${clean_runner_output}" == "clean-runner" ]]
 set +e
-bash_function_output="$(env "BASH_FUNC_git%%=() { touch ${bash_function_marker}; }" /bin/sh "${repo_root}/scripts/release/run_lifecycle.sh" -c 'git --version' 2>&1)"
+# Ubuntu's /bin/sh removes Bash's non-POSIX exported-function key before the
+# runner can inspect it, so use Bash to exercise the runner's rejection path.
+bash_function_output="$(env "BASH_FUNC_git%%=() { touch ${bash_function_marker}; }" bash --noprofile --norc "${repo_root}/scripts/release/run_lifecycle.sh" -c 'git --version' 2>&1)"
 bash_function_status=$?
 shell_options_output="$(env SHELLOPTS=xtrace /bin/sh "${repo_root}/scripts/release/run_lifecycle.sh" -c true 2>&1)"
 shell_options_status=$?
