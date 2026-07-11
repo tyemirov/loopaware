@@ -538,6 +538,20 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `PLAN.md`, `.github/workflows/ci.yml`, `.mprlab/ISSUES.md`, `scripts/publish-mobile.sh`, `scripts/publish-react-native.sh`, `scripts/release-preflight.sh`, `scripts/release/prepare_release.sh`, `scripts/release/publish_container_artifacts.sh`, `scripts/release/publish_release.sh`, `scripts/release/release_helper.py`, `scripts/test-release-tooling.sh`, `scripts/test-staged-release-artifacts.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B044] (P1) Make the lifecycle Bash-function rejection probe portable to Linux CI.
+  ### Summary
+  PR #277's `lifecycle-orchestration-contract-check` passes on macOS but fails silently on Ubuntu when it expects `/bin/sh` to preserve an injected `BASH_FUNC_git%%` environment entry. Ubuntu's `dash` removes that non-POSIX key before `run_lifecycle.sh` can inspect it; the injected function does not execute, but the test incorrectly requires the runner's rejection message.
+  ### Deliverables
+  - Deliver the hostile exported-function key to `run_lifecycle.sh` through a shell boundary that preserves it on both macOS and Ubuntu.
+  - Keep the production `/bin/sh` launcher probe and the exact rejection/no-execution assertions.
+  - Pass the focused lifecycle contract in Ubuntu and locally, the aggregate release workflow check, and final `make ci`.
+  ### Resolution
+  Kept the production `/bin/sh` execution probe intact and routed only the hostile exported-function rejection probe through Bash with startup files disabled. The injected `BASH_FUNC_git%%` key now reaches `run_lifecycle.sh` consistently on macOS and Ubuntu, so the test still requires the exact fail-closed diagnostic and proves the injected `git` function never executes instead of depending on whether the platform's `/bin/sh` silently removes the key first.
+  ### Validation
+  `make lifecycle-orchestration-contract-check` passed locally and the complete contract script passed in a clean Ubuntu 24.04 container. `make release-workflow-check`, `bash -n scripts/test-lifecycle-orchestration.sh`, `git diff --check`, and final `make ci` passed; the final integration run completed all 454 Playwright/API specs.
+  ### Changed Files
+  `PLAN.md`, `.mprlab/ISSUES.md`, and `scripts/test-lifecycle-orchestration.sh`.
+
 
 ## Improvements
 
