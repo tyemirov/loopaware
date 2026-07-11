@@ -9,8 +9,7 @@ RELEASE_ENV_FILE ?= $(CURDIR)/configs/.env.loopaware
 RELEASE_ARTIFACT_TARGETS ?= mobile-release-artifacts client-react-native-artifact container-artifacts pages-artifact
 PUBLISH_RELEASE_ARGS ?=
 DEPLOY_ARGS ?=
-RELEASE_HELPER ?=
-RELEASE_TOOL_DIR ?= $(abspath $(CURDIR)/../agentSkills/gitrelease/scripts)
+RELEASE_TOOL_DIR := $(abspath $(CURDIR)/scripts/release)
 DOCKER_IMAGE ?= ghcr.io/tyemirov/loopaware
 PUBLISH_PLATFORMS ?= linux/amd64
 PUBLISH_REMOTE ?= origin
@@ -57,7 +56,7 @@ ANDROID_TOOL_PATH := $(ANDROID_SDK_ROOT)/emulator:$(ANDROID_SDK_ROOT)/platform-t
 
 export GOWORK := off
 
-.PHONY: format format-pinguin build lint lint-js release-workflow-check client-react-native-install client-react-native-check client-react-native-artifact publish-react-native mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle mobile-release-artifacts container-artifacts pages-artifact pages-deploy submit-ios-preflight submit-ios submit-android submit-mobile publish-mobile config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish-release publish deploy
+.PHONY: format format-pinguin build lint lint-js release-workflow-check release-pages-contract-check client-react-native-install client-react-native-check client-react-native-artifact publish-react-native mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle mobile-release-artifacts container-artifacts pages-artifact pages-deploy submit-ios-preflight submit-ios submit-android submit-mobile publish-mobile config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish-release publish deploy
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -97,8 +96,11 @@ lint-js:
 	@$(MAKE) mobile-check
 	@$(MAKE) release-workflow-check
 
-release-workflow-check:
+release-workflow-check: release-pages-contract-check
 	node scripts/validate-release-workflow.mjs
+
+release-pages-contract-check:
+	bash scripts/test-release-tooling.sh
 
 client-react-native-install:
 	@if [ ! -d "$(CURDIR)/$(CLIENT_REACT_NATIVE_DIR)/node_modules" ]; then \
@@ -265,10 +267,10 @@ docker-logs:
 ci: tidy-check config-audit build lint test-unit test-race test-integration-all
 
 release:
-	@RELEASE_ENV_FILE="$(RELEASE_ENV_FILE)" RELEASE_ARTIFACT_TARGETS="$(RELEASE_ARTIFACT_TARGETS)" RELEASE_HELPER="$(RELEASE_HELPER)" ./scripts/release.sh $(RELEASE_ARGS)
+	@RELEASE_ENV_FILE="$(RELEASE_ENV_FILE)" RELEASE_ARTIFACT_TARGETS="$(RELEASE_ARTIFACT_TARGETS)" ./scripts/release.sh $(RELEASE_ARGS)
 
 publish-release:
-	@RELEASE_HELPER="$(RELEASE_HELPER)" ./scripts/publish-release.sh $(PUBLISH_RELEASE_ARGS)
+	@./scripts/publish-release.sh $(PUBLISH_RELEASE_ARGS)
 
 publish: publish-release
 	@"$(RELEASE_TOOL_DIR)/publish_container_artifacts.sh"
