@@ -27,7 +27,6 @@ done
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "${repo_root}"
-export UV_CACHE_DIR="${repo_root}/.cache/uv"
 
 if [[ -v RELEASE_ENV_FILE ]] && [[ -n "${RELEASE_ENV_FILE}" ]]; then
   env_file="${RELEASE_ENV_FILE}"

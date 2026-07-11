@@ -27,6 +27,14 @@ for tool in "${required_tools[@]}"; do
     exit 1
   }
 done
+[[ "$(sed -n '1p' "${release_tool_dir}/release_helper.py")" == '#!/usr/bin/env python3' ]] || {
+  echo "error: release helper must execute directly with Python 3" >&2
+  exit 1
+}
+if grep -Fq 'uv run --script' "${release_tool_dir}/release_helper.py"; then
+  echo "error: release helper must not depend on uv" >&2
+  exit 1
+fi
 if grep -F 'agentSkills/gitrelease/scripts' \
   "${repo_root}/Makefile" \
   "${repo_root}/scripts/release.sh" \
@@ -397,7 +405,6 @@ run_github_publication() {
   (
     cd "${source_repository}"
     PATH="${fake_bin}:${PATH}" \
-      UV_CACHE_DIR="${source_repository}/.git/uv-cache" \
       FAKE_GH_MODE="${mode}" \
       FAKE_GH_LOG="${github_log}" \
       FAKE_GH_STATE_FILE="${github_state_file}" \

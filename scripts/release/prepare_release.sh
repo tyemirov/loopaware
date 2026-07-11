@@ -73,7 +73,6 @@ command -v python3 >/dev/null 2>&1 || { echo "error: python3 is required" >&2; e
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "${repo_root}"
-export UV_CACHE_DIR="${repo_root}/.cache/uv"
 git var GIT_AUTHOR_IDENT >/dev/null 2>&1 || { echo "error: Git author identity is not configured for the release commit" >&2; exit 1; }
 git var GIT_COMMITTER_IDENT >/dev/null 2>&1 || { echo "error: Git committer identity is not configured for the release commit" >&2; exit 1; }
 

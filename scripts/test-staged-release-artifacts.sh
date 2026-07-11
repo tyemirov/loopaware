@@ -37,7 +37,6 @@ git -C "${fixture_repository}" symbolic-ref refs/remotes/origin/HEAD refs/remote
 set +e
 invalid_version_output="$(
   cd "${fixture_repository}"
-  UV_CACHE_DIR="${temporary_directory}/uv-cache" \
   RELEASE_ARTIFACT_TARGETS="mobile-release-artifacts client-react-native-artifact container-artifacts pages-artifact" \
     "${repo_root}/scripts/release/prepare_release.sh" --dry-run --version banana 2>&1
 )"
@@ -326,7 +325,7 @@ notes_file="${temporary_directory}/notes.md"
 printf '## v1.2.3\n\n- Fixture release.\n' >"${notes_file}"
 (
   cd "${fixture_repository}"
-  UV_CACHE_DIR="${temporary_directory}/uv-cache" "${repo_root}/scripts/release/release_helper.py" write-release-artifact \
+  "${repo_root}/scripts/release/release_helper.py" write-release-artifact \
     --version v1.2.3 \
     --source-commit "${source_commit}" \
     --release-commit "${release_commit}" \
@@ -343,7 +342,6 @@ mkdir -p "${prepared_artifact_directory}"
 cp -R "${artifact_directory}/." "${prepared_artifact_directory}/"
 prepared_output="$({
   cd "${fixture_repository}"
-  UV_CACHE_DIR="${temporary_directory}/uv-cache" \
   RELEASE_ARTIFACT_TARGETS="mobile-release-artifacts client-react-native-artifact container-artifacts pages-artifact" \
     "${repo_root}/scripts/release/prepare_release.sh" --dry-run
 })"
@@ -364,7 +362,6 @@ PY_NAIVE_TIMESTAMP
 set +e
 naive_timestamp_output="$({
   cd "${fixture_repository}"
-  UV_CACHE_DIR="${temporary_directory}/uv-cache" \
   RELEASE_ARTIFACT_TARGETS="mobile-release-artifacts client-react-native-artifact container-artifacts pages-artifact" \
     "${repo_root}/scripts/release/prepare_release.sh" --dry-run
 } 2>&1)"

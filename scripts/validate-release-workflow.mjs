@@ -7,6 +7,7 @@ import path from "node:path";
 const repoRoot = path.resolve(import.meta.dirname, "..");
 
 const makefileSource = readText("Makefile");
+const ciWorkflowSource = readText(".github/workflows/ci.yml");
 const dockerignoreSource = readText(".dockerignore");
 const readmeSource = readText("README.md");
 const normalizedReadmeSource = readmeSource.replace(/\s+/g, " ");
@@ -61,6 +62,28 @@ const releaseBoundarySources = [
   publishOrchestratorSource,
   publishReactNativeSource,
 ];
+const pythonReleaseHelperCallers = [
+  releasePreflightSource,
+  publishMobileSource,
+  publishReactNativeSource,
+  prepareReleaseSource,
+  containerPublishSource,
+  publishReleaseSource,
+];
+
+assert(
+  releaseHelperSource.startsWith("#!/usr/bin/env python3\n") &&
+    !releaseHelperSource.includes("uv run --script") &&
+    pythonReleaseHelperCallers.every((source) => !source.includes("UV_CACHE_DIR")),
+  "release_helper_must_use_the_standard_python_runtime_without_uv",
+);
+assert(
+  ciWorkflowSource.includes("PYTHON_VERSION: '3.11'") &&
+    ciWorkflowSource.includes("uses: actions/setup-python@v6") &&
+    ciWorkflowSource.includes("python-version: ${{ env.PYTHON_VERSION }}") &&
+    (ciWorkflowSource.match(/- 'scripts\/\*\*'/g) || []).length === 2,
+  "ci_must_pin_python_and_run_for_release_script_changes",
+);
 
 assert(
   makefileSource.includes("release-workflow-check:") &&

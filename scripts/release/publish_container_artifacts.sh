@@ -32,7 +32,6 @@ required_platforms="${PUBLISH_PLATFORMS:-}"
 [[ "${required_platforms}" == "linux/amd64" ]] || { echo "error: container publication requires PUBLISH_PLATFORMS=linux/amd64" >&2; exit 1; }
 
 repo_root="$(git rev-parse --show-toplevel)"
-export UV_CACHE_DIR="${repo_root}/.cache/uv"
 artifact_dir="$(git rev-parse --git-path mprlab-release)"
 [[ "${artifact_dir}" == /* ]] || artifact_dir="${repo_root}/${artifact_dir}"
 helper="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/release_helper.py"

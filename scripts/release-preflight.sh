@@ -64,7 +64,7 @@ fi
 echo "==> [release-preflight] Building disposable release artifacts"
 artifact_directory="$(mktemp -d)"
 release_timestamp="$(date +%Y-%m-%dT%H:%M:%S%z)"
-UV_CACHE_DIR="${repo_root}/.cache/uv" ./scripts/release/release_helper.py initialize-release-artifact \
+./scripts/release/release_helper.py initialize-release-artifact \
   --version "${next_version}" \
   --source-commit "${source_commit}" \
   --release-timestamp "${release_timestamp}" \
