@@ -646,52 +646,164 @@ def command_verify_release_artifact(args: argparse.Namespace) -> int:
 
 def release_asset_paths(artifact_path: Path, manifest: dict[str, Any]) -> list[Path]:
     prefix = "payloads/release-assets/"
+    container_descriptor = "payloads/containers/loopaware/container.json"
     assets = [artifact_path / "manifest.json"] + [
         artifact_path / entry["path"]
         for entry in manifest.get("payloads", [])
-        if entry["path"].startswith(prefix)
+        if entry["path"].startswith(prefix) or entry["path"] == container_descriptor
     ]
+    publication_attestation = artifact_path / "publication.json"
+    if publication_attestation.is_file():
+        assets.append(publication_attestation)
     names = [path.name for path in assets]
     if len(names) != len(set(names)):
         raise HelperError("GitHub Release asset names must be unique", {"asset_names": names})
     return assets
 
 
-def publish_release_assets(cwd: Path, version: str, assets: list[Path]) -> list[dict[str, Any]]:
+def github_release_is_missing(proc: subprocess.CompletedProcess[str]) -> bool:
+    if proc.returncode == 0:
+        return False
+    output = f"{proc.stdout}\n{proc.stderr}".lower()
+    return any(
+        marker in output
+        for marker in (
+            "release not found",
+            "http 404",
+            "404 not found",
+            "not found (http 404)",
+        )
+    )
+
+
+def require_github_release_lookup(proc: subprocess.CompletedProcess[str], version: str) -> None:
+    if proc.returncode == 0 or github_release_is_missing(proc):
+        return
+    raise HelperError(
+        "GitHub Release lookup failed",
+        {
+            "version": version,
+            "returncode": proc.returncode,
+            "stdout": proc.stdout.strip(),
+            "stderr": proc.stderr.strip(),
+        },
+    )
+
+
+def release_metadata_state(cwd: Path, version: str, notes_path: Path) -> str:
+    proc = run(
+        [
+            "gh",
+            "release",
+            "view",
+            version,
+            "--json",
+            "tagName,name,body,publishedAt,isDraft,isPrerelease,targetCommitish,url",
+        ],
+        cwd=cwd,
+        check=False,
+    )
+    require_github_release_lookup(proc, version)
+    if proc.returncode != 0:
+        return "missing"
+    release = json.loads(proc.stdout)
+    expected = {
+        "tagName": version,
+        "name": f"Release {version}",
+        "body": normalize_markdown(notes_path.read_text(encoding="utf-8")),
+        "isDraft": False,
+        "isPrerelease": False,
+        "isPublished": True,
+    }
+    actual = {
+        "tagName": release.get("tagName"),
+        "name": release.get("name"),
+        "body": normalize_markdown(release.get("body") or ""),
+        "isDraft": bool(release.get("isDraft")),
+        "isPrerelease": bool(release.get("isPrerelease")),
+        "isPublished": bool(release.get("publishedAt")),
+    }
+    if actual != expected:
+        raise HelperError(
+            "existing GitHub Release metadata is immutable and does not match the prepared release",
+            {"version": version, "expected": expected, "actual": actual},
+        )
+    return "existing"
+
+
+def release_asset_plan(cwd: Path, version: str, assets: list[Path]) -> list[Path]:
+    proc = run(["gh", "release", "view", version, "--json", "assets"], cwd=cwd, check=False)
+    require_github_release_lookup(proc, version)
+    if proc.returncode != 0:
+        return assets
+    payload = json.loads(proc.stdout)
+    existing_assets = payload.get("assets") or []
+    existing_names = [str(asset.get("name") or "") for asset in existing_assets]
+    if any(not name for name in existing_names) or len(existing_names) != len(set(existing_names)):
+        raise HelperError(
+            "existing GitHub Release asset inventory is invalid",
+            {"asset_names": existing_names},
+        )
+    existing_by_name = {name: asset for name, asset in zip(existing_names, existing_assets)}
+    expected_by_name = {asset.name: asset for asset in assets}
+    if set(existing_by_name) - set(expected_by_name):
+        raise HelperError(
+            "existing GitHub Release contains noncanonical assets",
+            {"unexpected_assets": sorted(set(existing_by_name) - set(expected_by_name))},
+        )
+
+    missing: list[Path] = []
+    with tempfile.TemporaryDirectory(prefix="mprlab-release-assets-preflight-") as temporary_directory:
+        download_root = Path(temporary_directory)
+        for name, expected_path in expected_by_name.items():
+            if name not in existing_by_name:
+                missing.append(expected_path)
+                continue
+            asset_dir = download_root / name
+            asset_dir.mkdir()
+            run(
+                ["gh", "release", "download", version, "--pattern", name, "--dir", str(asset_dir)],
+                cwd=cwd,
+            )
+            downloaded = asset_dir / name
+            expected_sha256 = sha256_file(expected_path)
+            actual_sha256 = sha256_file(downloaded)
+            if actual_sha256 != expected_sha256 or downloaded.stat().st_size != expected_path.stat().st_size:
+                raise HelperError(
+                    "existing GitHub Release asset is immutable and differs from the prepared release",
+                    {
+                        "asset": name,
+                        "expected_sha256": expected_sha256,
+                        "actual_sha256": actual_sha256,
+                        "expected_size": expected_path.stat().st_size,
+                        "actual_size": downloaded.stat().st_size,
+                    },
+                )
+    return missing
+
+
+def publish_release_assets(
+    cwd: Path, version: str, assets: list[Path], missing_assets: list[Path]
+) -> list[dict[str, Any]]:
     if not assets:
         return []
 
-    run(["gh", "release", "upload", version, *[str(path) for path in assets], "--clobber"], cwd=cwd)
-    published: list[dict[str, Any]] = []
-    with tempfile.TemporaryDirectory(prefix="mprlab-release-assets-") as temporary_directory:
-        download_root = Path(temporary_directory)
-        for asset in assets:
-            asset_dir = download_root / asset.name
-            asset_dir.mkdir()
-            run(
-                ["gh", "release", "download", version, "--pattern", asset.name, "--dir", str(asset_dir)],
-                cwd=cwd,
-            )
-            downloaded = asset_dir / asset.name
-            expected_sha256 = sha256_file(asset)
-            actual_sha256 = sha256_file(downloaded)
-            if actual_sha256 != expected_sha256:
-                raise HelperError(
-                    "published GitHub Release asset does not match the prepared payload",
-                    {
-                        "asset": asset.name,
-                        "expected_sha256": expected_sha256,
-                        "actual_sha256": actual_sha256,
-                    },
-                )
-            published.append(
-                {
-                    "name": asset.name,
-                    "sha256": actual_sha256,
-                    "size": downloaded.stat().st_size,
-                }
-            )
-    return published
+    if missing_assets:
+        run(["gh", "release", "upload", version, *[str(path) for path in missing_assets]], cwd=cwd)
+    remaining_missing = release_asset_plan(cwd, version, assets)
+    if remaining_missing:
+        raise HelperError(
+            "GitHub Release is missing prepared assets after upload",
+            {"missing_assets": [path.name for path in remaining_missing]},
+        )
+    return [
+        {
+            "name": asset.name,
+            "sha256": sha256_file(asset),
+            "size": asset.stat().st_size,
+        }
+        for asset in assets
+    ]
 
 
 def command_publish_prepared_release(args: argparse.Namespace) -> int:
@@ -724,6 +836,9 @@ def command_publish_prepared_release(args: argparse.Namespace) -> int:
         errors.append("local release tag does not match the prepared release commit")
     if errors:
         fail("prepared release is not publishable", {"errors": errors, "dirty_status": dirty_status})
+
+    if not re.fullmatch(r"v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)", version):
+        fail("prepared release version must be stable vMAJOR.MINOR.PATCH", {"version": version})
 
     remote_ref = f"refs/remotes/{args.remote}/{default_branch}"
     run(
@@ -761,11 +876,18 @@ def command_publish_prepared_release(args: argparse.Namespace) -> int:
             {"version": version, "remote_tag_commit": remote_tag_commit, "release_commit": release_commit},
         )
 
+    try:
+        github_release_state = release_metadata_state(cwd, version, notes_path)
+        missing_release_assets = release_asset_plan(cwd, version, release_assets)
+    except HelperError as error:
+        fail(str(error), error.details)
+
     plan = {
         "push_branch": remote_branch_commit != release_commit,
         "push_tag": not remote_tag_commit,
-        "publish_github_release": True,
+        "github_release": github_release_state,
         "release_assets": [path.name for path in release_assets],
+        "upload_release_assets": [path.name for path in missing_release_assets],
     }
     if args.dry_run:
         emit(
@@ -789,7 +911,7 @@ def command_publish_prepared_release(args: argparse.Namespace) -> int:
     publish_args = argparse.Namespace(version=version, notes_file=str(notes_path), title=None)
     if command_publish_release(publish_args) != 0:
         return 1
-    published_assets = publish_release_assets(cwd, version, release_assets)
+    published_assets = publish_release_assets(cwd, version, release_assets, missing_release_assets)
     verify_args = argparse.Namespace(
         version=version,
         release_commit=release_commit,
@@ -869,6 +991,10 @@ def command_publish_release(args: argparse.Namespace) -> int:
         "tagName,name,body,publishedAt,isDraft,isPrerelease,targetCommitish,url",
     ]
     existing_proc = run(view_command, cwd=cwd, check=False)
+    try:
+        require_github_release_lookup(existing_proc, args.version)
+    except HelperError as error:
+        fail(str(error), error.details)
     action = "none"
     command: list[str] | None = None
 
@@ -889,27 +1015,23 @@ def command_publish_release(args: argparse.Namespace) -> int:
     else:
         existing = json.loads(existing_proc.stdout)
         actual_notes = normalize_markdown(existing.get("body") or "")
-        needs_edit = (
+        mismatch = (
             existing.get("tagName") != args.version
             or existing.get("name") != title
             or existing.get("isDraft")
+            or existing.get("isPrerelease")
             or actual_notes != expected_notes
         )
-        if needs_edit:
-            action = "updated"
-            command = [
-                "gh",
-                "release",
-                "edit",
-                args.version,
-                "--verify-tag",
-                "--title",
-                title,
-                "--notes-file",
-                str(notes_path),
-                "--draft=false",
-                "--latest",
-            ]
+        if mismatch:
+            fail(
+                "existing GitHub Release metadata is immutable and does not match the prepared release",
+                {
+                    "version": args.version,
+                    "actual_name": existing.get("name"),
+                    "actual_is_draft": existing.get("isDraft"),
+                    "actual_is_prerelease": existing.get("isPrerelease"),
+                },
+            )
 
     if command:
         run(command, cwd=cwd)
@@ -920,6 +1042,8 @@ def command_publish_release(args: argparse.Namespace) -> int:
         errors.append("GitHub Release object has the wrong tagName")
     if refreshed.get("isDraft"):
         errors.append("GitHub Release object is still a draft")
+    if refreshed.get("isPrerelease"):
+        errors.append("GitHub Release object is a prerelease")
     if not refreshed.get("publishedAt"):
         errors.append("GitHub Release object has no publishedAt timestamp")
     if normalize_markdown(refreshed.get("body") or "") != expected_notes:

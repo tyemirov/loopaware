@@ -14,6 +14,9 @@ Options:
   --branch <name>       Pages branch. Default: gh-pages
   --version <tag>       Published release tag. Default: exact v* tag at HEAD
   --url <url>           Public Pages URL used for post-deploy verification
+  --expected-domain <d> Require the prepared Pages CNAME domain
+  --artifact-dir <path> Reuse/download verified release assets in this directory
+  --verify-only         Validate the published artifact without changing Pages
   --skip-configure      Do not create/update the Pages branch source setting
   --skip-verify         Do not verify the public release marker
   --help                Show this help text
@@ -26,12 +29,20 @@ version=""
 url=""
 configure="true"
 verify="true"
+verify_only="false"
+expected_domain=""
+artifact_directory=""
+attempts="${PAGES_VERIFY_ATTEMPTS:-12}"
+delay_seconds="${PAGES_VERIFY_DELAY_SECONDS:-5}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --remote) [[ $# -ge 2 ]] || { echo "error: --remote requires a value" >&2; exit 1; }; remote="$2"; shift 2 ;;
     --branch) [[ $# -ge 2 ]] || { echo "error: --branch requires a value" >&2; exit 1; }; branch="$2"; shift 2 ;;
     --version) [[ $# -ge 2 ]] || { echo "error: --version requires a value" >&2; exit 1; }; version="$2"; shift 2 ;;
     --url) [[ $# -ge 2 ]] || { echo "error: --url requires a value" >&2; exit 1; }; url="$2"; shift 2 ;;
+    --expected-domain) [[ $# -ge 2 ]] || { echo "error: --expected-domain requires a value" >&2; exit 1; }; expected_domain="$2"; shift 2 ;;
+    --artifact-dir) [[ $# -ge 2 ]] || { echo "error: --artifact-dir requires a value" >&2; exit 1; }; artifact_directory="$2"; shift 2 ;;
+    --verify-only) verify_only="true"; shift ;;
     --skip-configure) configure="false"; shift ;;
     --skip-verify) verify="false"; shift ;;
     --help|-h) usage; exit 0 ;;
@@ -39,8 +50,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "${url}" || "${verify}" == "false" ]] || { echo "error: --url is required unless --skip-verify is set" >&2; exit 1; }
-for command_name in git gh python3 tar; do command -v "${command_name}" >/dev/null 2>&1 || { echo "error: ${command_name} is required" >&2; exit 1; }; done
+[[ "${attempts}" =~ ^[1-9][0-9]*$ ]] && (( attempts <= 120 )) || {
+  echo "error: PAGES_VERIFY_ATTEMPTS must be an integer from 1 through 120" >&2
+  exit 1
+}
+[[ "${delay_seconds}" =~ ^(0|[1-9][0-9]*)$ ]] && (( delay_seconds <= 300 )) || {
+  echo "error: PAGES_VERIFY_DELAY_SECONDS must be an integer from 0 through 300" >&2
+  exit 1
+}
+
+[[ "${verify_only}" == "true" || -n "${url}" || "${verify}" == "false" ]] || { echo "error: --url is required unless --verify-only or --skip-verify is set" >&2; exit 1; }
+for command_name in cp curl diff find git gh mktemp python3 shasum sleep tar; do
+  command -v "${command_name}" >/dev/null 2>&1 || { echo "error: ${command_name} is required" >&2; exit 1; }
+done
 
 repo_root="$(git rev-parse --show-toplevel)"
 if [[ -z "${version}" ]]; then
@@ -50,13 +72,24 @@ fi
 
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf "${temporary_directory}"' EXIT
-download_directory="${temporary_directory}/download"
+if [[ -n "${artifact_directory}" ]]; then
+  mkdir -p "${artifact_directory}"
+  download_directory="$(cd "${artifact_directory}" && pwd)"
+else
+  download_directory="${temporary_directory}/download"
+fi
 site_directory="${temporary_directory}/site"
 checkout_directory="${temporary_directory}/checkout"
 mkdir -p "${download_directory}" "${site_directory}"
-gh release download "${version}" --pattern manifest.json --pattern pages.tar.gz --dir "${download_directory}"
+if [[ ! -f "${download_directory}/manifest.json" || ! -f "${download_directory}/pages.tar.gz" ]]; then
+  [[ ! -e "${download_directory}/manifest.json" && ! -e "${download_directory}/pages.tar.gz" ]] || {
+    echo "error: reusable Pages artifact directory is incomplete: ${download_directory}" >&2
+    exit 1
+  }
+  gh release download "${version}" --repo tyemirov/loopaware --pattern manifest.json --pattern pages.tar.gz --dir "${download_directory}"
+fi
 archive="${download_directory}/pages.tar.gz"
-readarray -t release_values < <(python3 - "${download_directory}/manifest.json" "${version}" <<'PY'
+release_values_output="$(python3 - "${download_directory}/manifest.json" "${version}" <<'PY'
 import json
 import sys
 
@@ -71,16 +104,22 @@ if asset is None:
 print(manifest["release_commit"])
 print(manifest["source_commit"])
 print(asset["sha256"])
+print(manifest["release_timestamp"])
 PY
-)
+)"
+readarray -t release_values <<<"${release_values_output}"
+[[ "${#release_values[@]}" -eq 4 ]] || { echo "error: published release manifest returned incomplete Pages values" >&2; exit 1; }
 release_commit="${release_values[0]}"
 source_commit="${release_values[1]}"
 expected_sha256="${release_values[2]}"
+release_timestamp="${release_values[3]}"
 remote_tag_commit="$(git ls-remote --tags "${remote}" "refs/tags/${version}^{}" | awk 'NR == 1 {print $1}')"
 if [[ -z "${remote_tag_commit}" ]]; then
   remote_tag_commit="$(git ls-remote --tags "${remote}" "refs/tags/${version}" | awk 'NR == 1 {print $1}')"
 fi
 [[ "${remote_tag_commit}" == "${release_commit}" ]] || { echo "error: published release manifest does not match remote tag ${version}" >&2; exit 1; }
+expected_source_commit="$(git rev-parse "${version}^{commit}^")"
+[[ "${source_commit}" == "${expected_source_commit}" ]] || { echo "error: published Pages source ${source_commit} does not match release parent ${expected_source_commit}" >&2; exit 1; }
 actual_sha256="$(shasum -a 256 "${archive}" | awk '{print $1}')"
 [[ "${actual_sha256}" == "${expected_sha256}" ]] || { echo "error: published Pages asset does not match make release" >&2; exit 1; }
 python3 - "${archive}" <<'PY'
@@ -112,6 +151,41 @@ if marker.get("source_commit") != source_commit:
     raise SystemExit(f"published Pages marker has the wrong source; expected source {source_commit}")
 PY
 
+expected_site_directory="${temporary_directory}/expected-site"
+mkdir -p "${expected_site_directory}"
+git archive "${source_commit}:web" | tar -xf - -C "${expected_site_directory}"
+rm -rf "${expected_site_directory}/tests" "${expected_site_directory}/node_modules"
+: >"${expected_site_directory}/.nojekyll"
+if [[ -n "${expected_domain}" ]]; then
+  printf '%s\n' "${expected_domain}" >"${expected_site_directory}/CNAME"
+fi
+python3 - "${expected_site_directory}/.mprlab-release.json" "${version}" "${source_commit}" "${release_timestamp}" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+path.write_text(
+    json.dumps(
+        {
+            "schema_version": 1,
+            "release_version": sys.argv[2],
+            "source_commit": sys.argv[3],
+            "release_timestamp": sys.argv[4],
+        },
+        indent=2,
+        sort_keys=True,
+    ) + "\n",
+    encoding="utf-8",
+)
+PY
+diff -r "${expected_site_directory}" "${site_directory}" >/dev/null || { echo "error: published Pages archive contents do not match source ${source_commit}" >&2; exit 1; }
+
+if [[ "${verify_only}" == "true" ]]; then
+  echo "Verified published Pages artifact ${version} at source ${source_commit}."
+  exit 0
+fi
+
 remote_url="$(git remote get-url "${remote}")"
 git clone --no-checkout "${remote_url}" "${checkout_directory}" >/dev/null
 if git -C "${checkout_directory}" show-ref --verify --quiet "refs/remotes/origin/${branch}"; then
@@ -130,18 +204,16 @@ else
 fi
 
 if [[ "${configure}" == "true" ]]; then
-  if gh api repos/{owner}/{repo}/pages >/dev/null 2>&1; then
-    gh api --method PUT repos/{owner}/{repo}/pages -f build_type=legacy -f "source[branch]=${branch}" -f 'source[path]=/' -F https_enforced=true >/dev/null
+  if gh api repos/tyemirov/loopaware/pages >/dev/null 2>&1; then
+    gh api --method PUT repos/tyemirov/loopaware/pages -f build_type=legacy -f "source[branch]=${branch}" -f 'source[path]=/' -F https_enforced=true >/dev/null
   else
-    gh api --method POST repos/{owner}/{repo}/pages -f build_type=legacy -f "source[branch]=${branch}" -f 'source[path]=/' -F https_enforced=true >/dev/null
+    gh api --method POST repos/tyemirov/loopaware/pages -f build_type=legacy -f "source[branch]=${branch}" -f 'source[path]=/' -F https_enforced=true >/dev/null
   fi
-  gh api --method POST repos/{owner}/{repo}/pages/builds >/dev/null
+  gh api --method POST repos/tyemirov/loopaware/pages/builds >/dev/null
 fi
 
 if [[ "${verify}" == "true" ]]; then
   marker_url="${url%/}/.mprlab-release.json"
-  attempts="${PAGES_VERIFY_ATTEMPTS:-12}"
-  delay_seconds="${PAGES_VERIFY_DELAY_SECONDS:-5}"
   for ((attempt = 1; attempt <= attempts; attempt += 1)); do
     marker="$(curl --fail --silent --show-error "${marker_url}" 2>/dev/null || true)"
     if python3 - "${version}" "${source_commit}" "${marker}" >/dev/null 2>&1 <<'PY'
