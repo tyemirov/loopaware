@@ -31,6 +31,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the standard mobile store publishing inputs for local iOS IPA and Android AAB uploads.
 - Document the UTC CalVer mobile release-numbering contract and deterministic `MOBILE_RELEASE_TIMESTAMP` override.
 
+## [v0.7.42] - 2026-07-10
+
+- Merge pull request #275 from tyemirov/gix/migrate-release-and-publish-automation-off-github
+- fix(scripts): ensure env and NPM API key support in publish-react-native
+- chore(config): add NPM_API_KEY example to env files for npm publication
+- docs(issues): log root-only release workflow validation and contract update
+- refactor(scripts): split publish.sh into granular release pipelines
+- test(mobile): check Makefile and script contract for separated store upload
+- docs: update release, publish, and deploy workflows in README
+- makefile: refactor release, artifact, and publish targets for modular workflows
+- chore(deploy): remove app.yml and update github_pages resource config
+- ci: remove deprecated GitHub Actions workflows for Docker, npm, and Pages
+
 ## [v0.7.41] - 2026-07-08
 
 ### Features ✨
