@@ -8,6 +8,7 @@ const repoRoot = path.resolve(import.meta.dirname, "..");
 
 const makefileSource = readText("Makefile");
 const ciWorkflowSource = readText(".github/workflows/ci.yml");
+const macosReleaseContractJobSource = workflowJob("release-contract-macos");
 const dockerignoreSource = readText(".dockerignore");
 const readmeSource = readText("README.md");
 const normalizedReadmeSource = readmeSource.replace(/\s+/g, " ");
@@ -83,6 +84,17 @@ assert(
     ciWorkflowSource.includes("python-version: ${{ env.PYTHON_VERSION }}") &&
     (ciWorkflowSource.match(/- 'scripts\/\*\*'/g) || []).length === 2,
   "ci_must_pin_python_and_run_for_release_script_changes",
+);
+assert(
+  macosReleaseContractJobSource.includes("name: Release contract (macOS)") &&
+    macosReleaseContractJobSource.includes("runs-on: macos-15") &&
+    macosReleaseContractJobSource.includes("uses: actions/setup-node@v6") &&
+    macosReleaseContractJobSource.includes("uses: actions/setup-python@v6") &&
+    macosReleaseContractJobSource.includes("brew install bash coreutils") &&
+    macosReleaseContractJobSource.includes('echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"') &&
+    macosReleaseContractJobSource.includes('echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"') &&
+    macosReleaseContractJobSource.includes("run: make release-workflow-check"),
+  "release_workflow_contract_must_run_on_the_production_macos_toolchain",
 );
 
 assert(
@@ -766,6 +778,22 @@ function makeRecipe(target) {
   }
   assert(recipeLines.length > 0, `make_recipe_missing:${target}`);
   return recipeLines.join("\n");
+}
+
+/**
+ * @param {string} jobName
+ * @returns {string}
+ */
+function workflowJob(jobName) {
+  const lines = ciWorkflowSource.split("\n");
+  const jobIndex = lines.findIndex((line) => line === `  ${jobName}:`);
+  assert(jobIndex >= 0, `workflow_job_missing:${jobName}`);
+  const jobLines = [];
+  for (let index = jobIndex; index < lines.length; index += 1) {
+    if (index > jobIndex && /^  [a-z0-9-]+:$/.test(lines[index])) break;
+    jobLines.push(lines[index]);
+  }
+  return jobLines.join("\n");
 }
 
 /**

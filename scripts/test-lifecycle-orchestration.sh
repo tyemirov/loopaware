@@ -191,8 +191,10 @@ git -C "${remote_fixture}" config user.email "remote-state@mprlab.invalid"
 printf 'source\n' >"${remote_fixture}/tracked.txt"
 git -C "${remote_fixture}" add tracked.txt
 git -C "${remote_fixture}" commit -m "Add remote state fixture" >/dev/null
+git -C "${remote_fixture}" tag -a v1.2.2 -m "Release v1.2.2"
 git -C "${remote_fixture}" remote add origin "${remote_origin}"
 git -C "${remote_fixture}" push -u origin master >/dev/null
+git -C "${remote_fixture}" push origin v1.2.2 >/dev/null
 git --git-dir="${remote_origin}" symbolic-ref HEAD refs/heads/master
 (
   source "${repo_root}/scripts/release/repository_identity.sh"
