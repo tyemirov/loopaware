@@ -432,6 +432,25 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Removed the validator's direct read of the machine-local Git Release pipeline and replaced it with repository-owned contract checks for both `scripts/release.sh` and `scripts/publish-release.sh`. The checks now require each adapter's explicit pipeline override, canonical shared pipeline name, executable fail-fast gate, and argument-forwarding `exec`, while the shared Git Release package remains responsible for validating its own pipeline internals. No fallback, conditional skip, duplicate helper, or CI-only checkout was added. Validation passed with `bash -n scripts/release.sh scripts/publish-release.sh scripts/publish-mobile.sh scripts/publish-react-native.sh scripts/deploy.sh`, direct validator execution, `make release-workflow-check`, `git diff --check`, `make lint-js`, and final `make ci` with 454 Playwright/API integration specs.
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/validate-release-workflow.mjs`.
+- [ ] [B039] (P1) Make release behavior reproducible from the LoopAware checkout.
+  Goal:
+  Remove the mutable sibling repository from every release, publication, and Pages artifact path.
+
+  Requirements:
+  Keep preparation, publication, mobile-package verification, Pages activation, and container publication on the current repository-owned Git Release contract without changing production deploy or store-upload ownership.
+
+  Deliverables:
+  - Vendor the current container-and-Pages Git Release executables under `scripts/release/`.
+  - Route the Makefile and every release wrapper exclusively through the owned directory.
+  - Reject the former sibling path in the release validator.
+  - Exercise the owned Pages builder and deployer with distinct source and release commits, an empty `.nojekyll`, source-marker acceptance, and release-commit-marker rejection.
+
+  Validation:
+  - `make release-pages-contract-check`
+  - `make release-workflow-check`
+  - `make test`
+  - `make lint`
+  - `make ci`
 
 
 ## Improvements

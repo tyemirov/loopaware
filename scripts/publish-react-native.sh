@@ -36,7 +36,7 @@ else
   npm_command="npm"
 fi
 
-helper="${repo_root}/../agentSkills/gitrelease/scripts/release_helper.py"
+helper="${repo_root}/scripts/release/release_helper.py"
 [[ -x "${helper}" ]] || { echo "error: release helper not found: ${helper}" >&2; exit 1; }
 "${helper}" verify-release-artifact >/dev/null
 

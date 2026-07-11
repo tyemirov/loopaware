@@ -11,7 +11,23 @@ const readmeSource = readText("README.md");
 const normalizedReadmeSource = readmeSource.replace(/\s+/g, " ");
 const releaseSource = readText("scripts/release.sh");
 const publishReleaseSource = readText("scripts/publish-release.sh");
+const publishReactNativeSource = readText("scripts/publish-react-native.sh");
 const deploySource = readText("scripts/deploy.sh");
+const releaseToolFiles = [
+  "prepare_release.sh",
+  "publish_release.sh",
+  "release_helper.py",
+  "prepare_pages_artifact.sh",
+  "deploy_pages_artifact.sh",
+  "prepare_container_artifact.sh",
+  "publish_container_artifacts.sh",
+];
+const releaseBoundarySources = [
+  makefileSource,
+  releaseSource,
+  publishReleaseSource,
+  publishReactNativeSource,
+];
 
 assert(
   makefileSource.includes("release-workflow-check:") &&
@@ -22,27 +38,41 @@ assert(
   makefileSource.includes("@$(MAKE) release-workflow-check"),
   "release_workflow_check_missing_ci_wiring",
 );
-
 assert(
-  releaseSource.includes('if [[ -v RELEASE_PIPELINE ]] && [[ -n "${RELEASE_PIPELINE}" ]]'),
-  "release_missing_pipeline_override",
+  makefileSource.includes("bash scripts/test-release-tooling.sh"),
+  "release_pages_contract_check_missing",
 );
 assert(
-  releaseSource.includes('pipeline="${repo_root}/../agentSkills/gitrelease/scripts/prepare_release.sh"'),
-  "release_missing_prepare_pipeline",
+  makefileSource.includes("RELEASE_TOOL_DIR := $(abspath $(CURDIR)/scripts/release)"),
+  "release_tool_directory_must_be_repository_owned",
+);
+for (const source of releaseBoundarySources) {
+  assert(!source.includes("agentSkills/gitrelease/scripts"), "release_sibling_tooling_path_forbidden");
+}
+for (const releaseToolFile of releaseToolFiles) {
+  assert(
+    fs.existsSync(path.join(repoRoot, "scripts/release", releaseToolFile)),
+    "release_owned_tool_missing:" + releaseToolFile,
+  );
+}
+assert(!releaseSource.includes("RELEASE_PIPELINE"), "release_pipeline_override_forbidden");
+assert(
+  releaseSource.includes('pipeline="${repo_root}/scripts/release/prepare_release.sh"'),
+  "release_missing_owned_prepare_pipeline",
 );
 assert(releaseSource.includes('[[ -x "${pipeline}" ]]'), "release_pipeline_must_fail_fast");
 assert(releaseSource.includes('exec "${pipeline}" "$@"'), "release_pipeline_must_forward_arguments");
+assert(!publishReleaseSource.includes("PUBLISH_RELEASE_PIPELINE"), "publish_release_pipeline_override_forbidden");
 assert(
-  publishReleaseSource.includes('if [[ -v PUBLISH_RELEASE_PIPELINE ]] && [[ -n "${PUBLISH_RELEASE_PIPELINE}" ]]'),
-  "publish_release_missing_pipeline_override",
-);
-assert(
-  publishReleaseSource.includes('pipeline="${repo_root}/../agentSkills/gitrelease/scripts/publish_release.sh"'),
-  "publish_release_missing_pipeline",
+  publishReleaseSource.includes('pipeline="${repo_root}/scripts/release/publish_release.sh"'),
+  "publish_release_missing_owned_pipeline",
 );
 assert(publishReleaseSource.includes('[[ -x "${pipeline}" ]]'), "publish_release_pipeline_must_fail_fast");
 assert(publishReleaseSource.includes('exec "${pipeline}" "$@"'), "publish_release_pipeline_must_forward_arguments");
+assert(
+  publishReactNativeSource.includes('helper="${repo_root}/scripts/release/release_helper.py"'),
+  "publish_react_native_missing_owned_release_helper",
+);
 assert(releaseSource.includes("configs/.env.loopaware"), "release_missing_default_env_file");
 assert(makefileSource.includes("RELEASE_ENV_FILE ?= $(CURDIR)/configs/.env.loopaware"), "release_makefile_missing_env_file_default");
 assert(makefileSource.includes('RELEASE_ENV_FILE="$(RELEASE_ENV_FILE)"'), "release_makefile_must_pass_env_file");
