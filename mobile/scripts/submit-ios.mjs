@@ -12,7 +12,8 @@ const repoRoot = path.resolve(import.meta.dirname, "../..");
 const defaultMobileDir = path.join(repoRoot, "mobile");
 const archiveSchema = "loopaware.mobile-ios-archive.v1";
 const submitSchema = "loopaware.mobile-ios-app-store-connect-submit.v1";
-const defaultAppPasswordEnv = "MOBILE_IOS_APP_SPECIFIC_PASSWORD";
+const canonicalAscAppId = "6788555440";
+const canonicalBundleIdentifier = "com.mprlab.loopaware";
 
 class SubmitError extends Error {
   /**
@@ -45,8 +46,6 @@ try {
  *   ascApiIssuerId: string;
  *   ascApiKeyPath: string;
  *   ascAppId: string;
- *   appleId: string;
- *   appPasswordEnv: string;
  *   providerPublicId: string;
  *   versioning: import("./mobile-calver-version.mjs").MobileCalVerVersion;
  *   dryRun: boolean;
@@ -83,6 +82,22 @@ function parseArgs(argv) {
     options.set(optionName, optionValue);
     index += 1;
   }
+  const allowedOptions = new Set([
+    "mobile-dir",
+    "manifest",
+    "ipa",
+    "release-timestamp",
+    "asc-api-key-id",
+    "asc-api-issuer-id",
+    "asc-api-key-path",
+    "asc-app-id",
+    "provider-public-id",
+  ]);
+  for (const optionName of options.keys()) {
+    if (!allowedOptions.has(optionName)) {
+      throw new SubmitError(`unknown option: --${optionName}`);
+    }
+  }
 
   const mobileDir = resolvePath(options.get("mobile-dir") || defaultMobileDir);
   let versioning;
@@ -100,14 +115,12 @@ function parseArgs(argv) {
     mobileDir,
     manifest: resolvePath(options.get("manifest") || defaultManifestPath(mobileDir, versioning.releaseVersion)),
     ipa: resolvePath(options.get("ipa") || ""),
-    ascApiKeyId: String(options.get("asc-api-key-id") || process.env.APP_STORE_CONNECT_API_KEY_ID || process.env.ASC_API_KEY_ID || "").trim(),
+    ascApiKeyId: String(options.get("asc-api-key-id") || process.env.APP_STORE_CONNECT_API_KEY_ID || "").trim(),
     ascApiIssuerId: String(
-      options.get("asc-api-issuer-id") || process.env.APP_STORE_CONNECT_API_ISSUER_ID || process.env.ASC_API_ISSUER_ID || "",
+      options.get("asc-api-issuer-id") || process.env.APP_STORE_CONNECT_API_ISSUER_ID || "",
     ).trim(),
-    ascApiKeyPath: resolvePath(options.get("asc-api-key-path") || process.env.APP_STORE_CONNECT_API_KEY_PATH || process.env.ASC_API_KEY_PATH || ""),
-    ascAppId: String(options.get("asc-app-id") || process.env.MOBILE_IOS_ASC_APP_ID || process.env.LOOPAWARE_MOBILE_IOS_ASC_APP_ID || "").trim(),
-    appleId: String(options.get("apple-id") || process.env.MOBILE_IOS_APPLE_ID || process.env.APPLE_ID || "").trim(),
-    appPasswordEnv: String(options.get("app-password-env") || defaultAppPasswordEnv),
+    ascApiKeyPath: resolvePath(options.get("asc-api-key-path") || process.env.APP_STORE_CONNECT_API_KEY_PATH || ""),
+    ascAppId: String(options.get("asc-app-id") || process.env.MOBILE_IOS_ASC_APP_ID || "").trim(),
     providerPublicId: String(options.get("provider-public-id") || process.env.MOBILE_IOS_PROVIDER_PUBLIC_ID || "").trim(),
     versioning,
     dryRun: flags.has("dry-run"),
@@ -125,6 +138,15 @@ function submitIOSArchive(args) {
   }
   requireExecutable(which("xcrun"), "xcrun");
   const manifest = readArchiveManifest(args.manifest);
+  const expectedVersioning = /** @type {Record<string, unknown>} */ (args.versioning);
+  for (const field of ["releaseTimestamp", "releaseVersion", "buildCode", "iosBuildNumber", "androidVersionCode", "buildCodeSource"]) {
+    if (manifest.versioning[field] !== expectedVersioning[field]) {
+      throw new SubmitError(`iOS archive versioning.${field} does not match the publication release identity`);
+    }
+  }
+  if (manifest.app.bundleIdentifier !== canonicalBundleIdentifier) {
+    throw new SubmitError(`iOS upload bundle identifier must be ${canonicalBundleIdentifier}`);
+  }
   const ipaPath = args.ipa || String(manifest.ipa.path);
   requireFile(ipaPath, "App Store Connect IPA");
   const ipaSha256 = sha256File(ipaPath);
@@ -147,13 +169,35 @@ function submitIOSArchive(args) {
     versioning: manifest.versioning,
   };
   if (args.dryRun) {
-    return plan;
+    const command = packageCommand("--validate-app", ipaPath, args, manifest);
+    run(command, { env: uploadEnvironment(args), quiet: true });
+    return {
+      ...plan,
+      credentialAccess: "verified",
+      appValidation: "passed",
+    };
   }
 
+  const command = packageCommand("--upload-package", ipaPath, args, manifest);
+  run(command, { env: uploadEnvironment(args) });
+  return {
+    ...plan,
+    tool: "xcrun altool",
+  };
+}
+
+/**
+ * @param {"--validate-app" | "--upload-package"} operation
+ * @param {string} ipaPath
+ * @param {IOSSubmitArgs} args
+ * @param {{ app: { bundleIdentifier: string; version: string; buildNumber: string } }} manifest
+ * @returns {string[]}
+ */
+function packageCommand(operation, ipaPath, args, manifest) {
   const command = [
     "xcrun",
     "altool",
-    "--upload-package",
+    operation,
     ipaPath,
     "--platform",
     "ios",
@@ -166,19 +210,11 @@ function submitIOSArchive(args) {
     "--bundle-short-version-string",
     manifest.app.version,
   ];
-  if (args.ascApiKeyId) {
-    command.push("--api-key", args.ascApiKeyId, "--api-issuer", args.ascApiIssuerId);
-  } else {
-    command.push("-u", args.appleId, "-p", `@env:${args.appPasswordEnv}`);
-  }
+  appendAuthentication(command, args);
   if (args.providerPublicId) {
     command.push("--provider-public-id", args.providerPublicId);
   }
-  run(command, { env: uploadEnvironment(args) });
-  return {
-    ...plan,
-    tool: "xcrun altool",
-  };
+  return command;
 }
 
 /**
@@ -188,15 +224,34 @@ function submitIOSArchive(args) {
 function preflightIOSUpload(args) {
   validateUploadInputs(args);
   requireExecutable(which("xcrun"), "xcrun");
+  verifyIOSCredentials(args);
   return {
     schema: submitSchema,
     status: "preflight-passed",
     ascAppId: args.ascAppId,
-    credentialMode: args.ascApiKeyId ? "app-store-connect-api-key" : "apple-id-app-password",
+    credentialMode: "app-store-connect-api-key",
     providerPublicId: args.providerPublicId,
+    credentialAccess: "verified",
     versioning: args.versioning,
     tool: "xcrun altool",
   };
+}
+
+/**
+ * @param {IOSSubmitArgs} args
+ */
+function verifyIOSCredentials(args) {
+  const command = ["xcrun", "altool", "--list-providers", "--output-format", "json"];
+  appendAuthentication(command, args);
+  run(command, { env: uploadEnvironment(args), quiet: true });
+}
+
+/**
+ * @param {string[]} command
+ * @param {IOSSubmitArgs} args
+ */
+function appendAuthentication(command, args) {
+  command.push("--api-key", args.ascApiKeyId, "--api-issuer", args.ascApiIssuerId);
 }
 
 /**
@@ -268,29 +323,18 @@ function requireArchiveVersioning(value, app) {
  * @param {IOSSubmitArgs} args
  */
 function validateUploadInputs(args) {
-  if (!/^[1-9][0-9]*$/.test(args.ascAppId)) {
-    throw new SubmitError("iOS upload requires MOBILE_IOS_ASC_APP_ID or LOOPAWARE_MOBILE_IOS_ASC_APP_ID with the numeric App Store Connect app Apple ID");
+  if (args.ascAppId !== canonicalAscAppId) {
+    throw new SubmitError(`iOS upload App Store Connect app Apple ID must be ${canonicalAscAppId}`);
   }
   const ascValues = [args.ascApiKeyId, args.ascApiIssuerId, args.ascApiKeyPath];
-  if (ascValues.some(Boolean)) {
-    if (!ascValues.every(Boolean)) {
-      throw new SubmitError("App Store Connect API key upload requires APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_API_ISSUER_ID, and APP_STORE_CONNECT_API_KEY_PATH");
-    }
-    requireFile(args.ascApiKeyPath, "App Store Connect API private key");
-    const expectedKeyFileName = `AuthKey_${args.ascApiKeyId}.p8`;
-    if (path.basename(args.ascApiKeyPath) !== expectedKeyFileName) {
-      throw new SubmitError(`App Store Connect API private key must be named ${expectedKeyFileName} for altool`);
-    }
-    return;
+  if (!ascValues.every(Boolean)) {
+    throw new SubmitError("App Store Connect API key upload requires APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_API_ISSUER_ID, and APP_STORE_CONNECT_API_KEY_PATH");
   }
-  if (args.appleId && process.env[args.appPasswordEnv]) {
-    return;
+  requireFile(args.ascApiKeyPath, "App Store Connect API private key");
+  const expectedKeyFileName = `AuthKey_${args.ascApiKeyId}.p8`;
+  if (path.basename(args.ascApiKeyPath) !== expectedKeyFileName) {
+    throw new SubmitError(`App Store Connect API private key must be named ${expectedKeyFileName} for altool`);
   }
-  throw new SubmitError(
-    "iOS upload requires either App Store Connect API key inputs " +
-      "(APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_API_ISSUER_ID, APP_STORE_CONNECT_API_KEY_PATH) " +
-      `or MOBILE_IOS_APPLE_ID/APPLE_ID plus an app-specific password in ${args.appPasswordEnv}`,
-  );
 }
 
 /**
@@ -429,19 +473,23 @@ function sha256File(pathToHash) {
 
 /**
  * @param {string[]} command
- * @param {{ env?: NodeJS.ProcessEnv }} [options]
+ * @param {{ env?: NodeJS.ProcessEnv; quiet?: boolean }} [options]
  */
 function run(command, options = {}) {
   process.stdout.write(`+ ${command.join(" ")}\n`);
   const result = spawnSync(command[0], command.slice(1), {
     env: options.env || process.env,
-    stdio: "inherit",
+    stdio: options.quiet ? ["ignore", "ignore", "pipe"] : "inherit",
     encoding: "utf8",
   });
   if (result.error) {
     throw new SubmitError(`command failed: ${result.error.message}`);
   }
   if (result.status !== 0) {
-    throw new SubmitError(`command failed with exit ${String(result.status ?? result.signal ?? "unknown")}: ${command.join(" ")}`);
+    const detail = options.quiet ? String(result.stderr || "").trim() : "";
+    throw new SubmitError(
+      `command failed with exit ${String(result.status ?? result.signal ?? "unknown")}: ${command.join(" ")}` +
+        (detail ? `: ${detail}` : ""),
+    );
   }
 }

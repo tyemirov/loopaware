@@ -88,6 +88,12 @@ function parseArgs(argv) {
     options.set(optionName, optionValue);
     index += 1;
   }
+  const allowedOptions = new Set(["mobile-dir", "aab", "mapping", "build-manifest", "release-timestamp"]);
+  for (const optionName of options.keys()) {
+    if (!allowedOptions.has(optionName)) {
+      throw new PublishError(`unknown option: --${optionName}`);
+    }
+  }
 
   const mobileDir = resolvePath(options.get("mobile-dir") || defaultMobileDir);
   const releaseIdentity = readAndroidReleaseIdentity(mobileDir);
@@ -103,7 +109,7 @@ function parseArgs(argv) {
     throw new PublishError(error instanceof Error ? error.message : String(error));
   }
   const appConfig = readAndroidAppConfig(mobileDir, versioning);
-  const packageName = String(options.get("package-name") || releaseIdentity.packageName);
+  const packageName = releaseIdentity.packageName;
   if (packageName !== appConfig.packageName) {
     throw new PublishError(`package name mismatch: app.config.js has ${appConfig.packageName}, publish target is ${packageName}`);
   }
@@ -113,15 +119,10 @@ function parseArgs(argv) {
   const aab = resolvePath(options.get("aab") || defaultAabPath(mobileDir, appConfig.version));
   const mapping = resolvePath(options.get("mapping") || matchingOutputPath(aab, "-mapping.txt"));
   const buildManifest = resolvePath(options.get("build-manifest") || matchingOutputPath(aab, ".json"));
-  const track = String(options.get("track") || process.env.MOBILE_ANDROID_PLAY_TRACK || defaultTrack);
-  const status = String(options.get("status") || process.env.MOBILE_ANDROID_PLAY_STATUS || defaultStatus);
-  const releaseName = String(options.get("release-name") || appConfig.version);
-  const quotaProject = String(
-    options.get("quota-project") ||
-      process.env.GOOGLE_CLOUD_QUOTA_PROJECT ||
-      process.env.GCLOUD_QUOTA_PROJECT ||
-      releaseIdentity.googleCloudProjectId,
-  );
+  const track = defaultTrack;
+  const status = defaultStatus;
+  const releaseName = appConfig.version;
+  const quotaProject = releaseIdentity.googleCloudProjectId;
   requireTrack(track);
   requireReleaseStatus(status);
 
@@ -148,7 +149,7 @@ async function publishAndroidBundle(args) {
   const appConfig = readAndroidAppConfig(args.mobileDir, args.versioning);
   requireFile(args.aab, "Android App Bundle");
   requireFile(args.mapping, "R8 deobfuscation mapping file");
-  const buildArtifact = readAndroidBuildManifest(args.buildManifest, args.aab, args.mapping, appConfig);
+  const buildArtifact = readAndroidBuildManifest(args.buildManifest, args.aab, args.mapping, appConfig, args.versioning);
   if (buildArtifact.androidPackage !== args.packageName) {
     throw new PublishError(`build manifest package mismatch: manifest has ${buildArtifact.androidPackage}, publish target is ${args.packageName}`);
   }
@@ -173,7 +174,11 @@ async function publishAndroidBundle(args) {
     quotaProject: args.quotaProject,
   };
   if (args.dryRun) {
-    return plan;
+    await verifyAndroidPublisherAccess(args);
+    return {
+      ...plan,
+      publisherAccess: "verified",
+    };
   }
 
   const token = accessTokenFromApplicationDefaultCredentials();
@@ -185,62 +190,326 @@ async function publishAndroidBundle(args) {
     label: "create Android Publisher edit",
   });
   const editId = requireResponseString(edit.id, "edit id");
+  let editCommitted = false;
+  try {
+    const existingBundles = await requestJson({
+      method: "GET",
+      url: publisherUrl(args.packageName, `edits/${encodeURIComponent(editId)}/bundles`),
+      headers: authHeaders,
+      label: "inspect existing Android Publisher bundles",
+    });
+    assertPublishableVersionCode(existingBundles, buildArtifact.versionCode);
+    const existingTrack = await requestJson({
+      method: "GET",
+      url: publisherUrl(args.packageName, `edits/${encodeURIComponent(editId)}/tracks/${encodeURIComponent(args.track)}`),
+      headers: authHeaders,
+      label: `inspect existing Android Publisher ${args.track} track`,
+    });
+    const existingTrackState = validatedTrackState(existingTrack);
+    const bundle = await requestJson({
+      method: "POST",
+      url: publisherUploadUrl(args.packageName, `edits/${encodeURIComponent(editId)}/bundles`, { uploadType: "media" }),
+      headers: { ...authHeaders, "Content-Type": "application/octet-stream" },
+      body: fs.readFileSync(args.aab),
+      label: "upload Android App Bundle",
+    });
+    const uploadedVersionCode = requirePositiveInteger(bundle.versionCode, "uploaded bundle versionCode");
+    if (uploadedVersionCode !== buildArtifact.versionCode) {
+      throw new PublishError(`uploaded bundle versionCode ${uploadedVersionCode} does not match build manifest ${buildArtifact.versionCode}`);
+    }
+    assertBundleSha256(bundle, plan.aabSha256, "uploaded Android App Bundle");
 
-  const bundle = await requestJson({
-    method: "POST",
-    url: publisherUploadUrl(args.packageName, `edits/${encodeURIComponent(editId)}/bundles`, { uploadType: "media" }),
-    headers: { ...authHeaders, "Content-Type": "application/octet-stream" },
-    body: fs.readFileSync(args.aab),
-    label: "upload Android App Bundle",
-  });
-  const uploadedVersionCode = requirePositiveInteger(bundle.versionCode, "uploaded bundle versionCode");
-  if (uploadedVersionCode !== buildArtifact.versionCode) {
-    throw new PublishError(`uploaded bundle versionCode ${uploadedVersionCode} does not match build manifest ${buildArtifact.versionCode}`);
-  }
+    await requestJson({
+      method: "POST",
+      url: publisherUploadUrl(
+        args.packageName,
+        `edits/${encodeURIComponent(editId)}/apks/${uploadedVersionCode}/deobfuscationFiles/proguard`,
+        { uploadType: "media" },
+      ),
+      headers: { ...authHeaders, "Content-Type": "application/octet-stream" },
+      body: fs.readFileSync(args.mapping),
+      label: "upload Android deobfuscation mapping",
+    });
 
-  await requestJson({
-    method: "POST",
-    url: publisherUploadUrl(
-      args.packageName,
-      `edits/${encodeURIComponent(editId)}/apks/${uploadedVersionCode}/deobfuscationFiles/proguard`,
-      { uploadType: "media" },
-    ),
-    headers: { ...authHeaders, "Content-Type": "application/octet-stream" },
-    body: fs.readFileSync(args.mapping),
-    label: "upload Android deobfuscation mapping",
-  });
+    await requestJson({
+      method: "PUT",
+      url: publisherUrl(args.packageName, `edits/${encodeURIComponent(editId)}/tracks/${encodeURIComponent(args.track)}`),
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: Buffer.from(
+        JSON.stringify({
+          releases: [
+            ...existingTrackState.releases,
+            {
+              name: args.releaseName,
+              versionCodes: [String(uploadedVersionCode)],
+              status: args.status,
+            },
+          ],
+        }),
+      ),
+      label: `update ${args.track} track`,
+    });
 
-  await requestJson({
-    method: "PUT",
-    url: publisherUrl(args.packageName, `edits/${encodeURIComponent(editId)}/tracks/${encodeURIComponent(args.track)}`),
-    headers: { ...authHeaders, "Content-Type": "application/json" },
-    body: Buffer.from(
-      JSON.stringify({
-        releases: [
-          {
-            name: args.releaseName,
-            versionCodes: [String(uploadedVersionCode)],
-            status: args.status,
-          },
-        ],
+    const commit = await requestJson({
+      method: "POST",
+      url: publisherUrl(args.packageName, `edits/${encodeURIComponent(editId)}:commit`, {
+        changesInReviewBehavior: "ERROR_IF_IN_REVIEW",
       }),
-    ),
-    label: `update ${args.track} track`,
-  });
+      headers: authHeaders,
+      label: "commit Android Publisher edit",
+    });
+    editCommitted = true;
+    await verifyCommittedAndroidPublication(
+      args,
+      uploadedVersionCode,
+      plan.aabSha256,
+      existingTrackState,
+      authHeaders,
+    );
 
-  const commit = await requestJson({
+    return {
+      ...plan,
+      editId,
+      committedEditId: commit.id || editId,
+      uploadedVersionCode,
+    };
+  } catch (error) {
+    if (editCommitted) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new PublishError(
+        `Android Publisher edit ${editId} was committed, but post-publication verification failed: ${message}; inspect Google Play before preparing another single-use versionCode`,
+      );
+    }
+    try {
+      await requestJson({
+        method: "DELETE",
+        url: publisherUrl(args.packageName, `edits/${encodeURIComponent(editId)}`),
+        headers: authHeaders,
+        label: "delete failed Android Publisher release edit",
+      });
+    } catch (cleanupError) {
+      const originalMessage = error instanceof Error ? error.message : String(error);
+      const cleanupMessage = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+      throw new PublishError(`${originalMessage}; failed edit cleanup: ${cleanupMessage}`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Creates and deletes an empty Play edit, writing the unchanged track inside
+ * that edit so the dry run proves exact track-update authority without
+ * uploading a bundle or committing a live-track change.
+ * @param {AndroidPublishArgs} args
+ */
+async function verifyAndroidPublisherAccess(args) {
+  const token = accessTokenFromApplicationDefaultCredentials();
+  const authHeaders = googleAuthHeaders(token, args.quotaProject);
+  const edit = await requestJson({
     method: "POST",
-    url: publisherUrl(args.packageName, `edits/${encodeURIComponent(editId)}:commit`),
+    url: publisherUrl(args.packageName, "edits"),
     headers: authHeaders,
-    label: "commit Android Publisher edit",
+    label: "verify Android Publisher edit creation",
   });
+  const editId = requireResponseString(edit.id, "preflight edit id");
+  /** @type {unknown} */
+  let verificationError;
+  try {
+    const track = await requestJson({
+      method: "GET",
+      url: publisherUrl(args.packageName, `edits/${encodeURIComponent(editId)}/tracks/${encodeURIComponent(args.track)}`),
+      headers: authHeaders,
+      label: `verify Android Publisher ${args.track} track access`,
+    });
+    const bundles = await requestJson({
+      method: "GET",
+      url: publisherUrl(args.packageName, `edits/${encodeURIComponent(editId)}/bundles`),
+      headers: authHeaders,
+      label: "verify Android Publisher bundle inventory access",
+    });
+    assertPublishableVersionCode(bundles, args.versioning.androidVersionCode);
+    validatedTrackState(track);
+    await requestJson({
+      method: "PUT",
+      url: publisherUrl(args.packageName, `edits/${encodeURIComponent(editId)}/tracks/${encodeURIComponent(args.track)}`),
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: Buffer.from(JSON.stringify(track)),
+      label: `verify Android Publisher ${args.track} track update authority`,
+    });
+  } catch (error) {
+    verificationError = error;
+  }
+  try {
+    await requestJson({
+      method: "DELETE",
+      url: publisherUrl(args.packageName, `edits/${encodeURIComponent(editId)}`),
+      headers: authHeaders,
+      label: "delete Android Publisher preflight edit",
+    });
+  } catch (cleanupError) {
+    if (verificationError) {
+      const originalMessage = verificationError instanceof Error ? verificationError.message : String(verificationError);
+      const cleanupMessage = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+      throw new PublishError(`${originalMessage}; failed edit cleanup: ${cleanupMessage}`);
+    }
+    throw cleanupError;
+  }
+  if (verificationError) {
+    throw verificationError;
+  }
+}
 
+/**
+ * @param {Record<string, unknown>} payload
+ * @param {number} preparedVersionCode
+ */
+function assertPublishableVersionCode(payload, preparedVersionCode) {
+  const bundles = Array.isArray(payload.bundles) ? payload.bundles : [];
+  const versionCodes = bundles.map((bundle) => requirePositiveInteger(bundle?.versionCode, "existing bundle versionCode"));
+  if (versionCodes.includes(preparedVersionCode)) {
+    throw new PublishError(`Android versionCode ${preparedVersionCode} is already present in Google Play`);
+  }
+  const maximumVersionCode = versionCodes.length ? Math.max(...versionCodes) : 0;
+  if (preparedVersionCode <= maximumVersionCode) {
+    throw new PublishError(
+      `Android versionCode ${preparedVersionCode} must be greater than existing Google Play maximum ${maximumVersionCode}`,
+    );
+  }
+}
+
+/**
+ * @param {Record<string, unknown>} track
+ * @returns {{ releases: Record<string, unknown>[]; versionCodes: string[] }}
+ */
+function validatedTrackState(track) {
+  const releases = track.releases === undefined ? [] : track.releases;
+  if (!Array.isArray(releases)) {
+    throw new PublishError("Android Publisher track releases are invalid");
+  }
+  const retained = new Set();
+  /** @type {Record<string, unknown>[]} */
+  const preservedReleases = [];
+  for (const release of releases) {
+    if (!release || typeof release !== "object") {
+      throw new PublishError("Android Publisher track contains an invalid release");
+    }
+    if (release.status !== "completed") {
+      throw new PublishError(
+        `Android Publisher track contains ${String(release.status || "unknown")} release state; refusing to replace an active/manual rollout`,
+      );
+    }
+    if (!Array.isArray(release.versionCodes)) {
+      throw new PublishError("Android Publisher track release has invalid versionCodes");
+    }
+    for (const rawVersionCode of release.versionCodes) {
+      const versionCode = String(requirePositiveInteger(rawVersionCode, "track versionCode"));
+      if (retained.has(versionCode)) {
+        throw new PublishError(`Android Publisher track repeats versionCode ${versionCode}`);
+      }
+      retained.add(versionCode);
+    }
+    preservedReleases.push(JSON.parse(JSON.stringify(release)));
+  }
   return {
-    ...plan,
-    editId,
-    committedEditId: commit.id || editId,
-    uploadedVersionCode,
+    releases: preservedReleases,
+    versionCodes: [...retained].sort((left, right) => Number(left) - Number(right)),
   };
+}
+
+/**
+ * @param {Record<string, unknown>} bundle
+ * @param {string} expectedSha256
+ * @param {string} label
+ */
+function assertBundleSha256(bundle, expectedSha256, label) {
+  const actualSha256 = String(bundle.sha256 || "").trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(actualSha256) || actualSha256 !== expectedSha256) {
+    throw new PublishError(`${label} SHA-256 ${actualSha256 || "<missing>"} does not match prepared ${expectedSha256}`);
+  }
+}
+
+/**
+ * @param {AndroidPublishArgs} args
+ * @param {number} versionCode
+ * @param {string} expectedSha256
+ * @param {{ releases: Record<string, unknown>[]; versionCodes: string[] }} existingTrackState
+ * @param {Record<string, string>} authHeaders
+ */
+async function verifyCommittedAndroidPublication(args, versionCode, expectedSha256, existingTrackState, authHeaders) {
+  const edit = await requestJson({
+    method: "POST",
+    url: publisherUrl(args.packageName, "edits"),
+    headers: authHeaders,
+    label: "create Android Publisher verification edit",
+  });
+  const editId = requireResponseString(edit.id, "verification edit id");
+  /** @type {unknown} */
+  let verificationError;
+  try {
+    const bundles = await requestJson({
+      method: "GET",
+      url: publisherUrl(args.packageName, `edits/${encodeURIComponent(editId)}/bundles`),
+      headers: authHeaders,
+      label: "verify committed Android bundle",
+    });
+    const matchingBundle = Array.isArray(bundles.bundles)
+      ? bundles.bundles.find((bundle) => Number(bundle?.versionCode) === versionCode)
+      : undefined;
+    if (!matchingBundle || typeof matchingBundle !== "object") {
+      throw new PublishError(`committed Android versionCode ${versionCode} is missing from Google Play`);
+    }
+    assertBundleSha256(matchingBundle, expectedSha256, "committed Android App Bundle");
+    const track = await requestJson({
+      method: "GET",
+      url: publisherUrl(args.packageName, `edits/${encodeURIComponent(editId)}/tracks/${encodeURIComponent(args.track)}`),
+      headers: authHeaders,
+      label: `verify committed Android Publisher ${args.track} track`,
+    });
+    const committedTrackState = validatedTrackState(track);
+    const committedVersionCodes = new Set(committedTrackState.versionCodes);
+    for (const requiredVersionCode of [...existingTrackState.versionCodes, String(versionCode)]) {
+      if (!committedVersionCodes.has(requiredVersionCode)) {
+        throw new PublishError(`committed Android track is missing retained versionCode ${requiredVersionCode}`);
+      }
+    }
+    const committedReleaseInventory = committedTrackState.releases.map(canonicalJson);
+    for (const existingRelease of existingTrackState.releases) {
+      const expectedRelease = canonicalJson(existingRelease);
+      const matchIndex = committedReleaseInventory.indexOf(expectedRelease);
+      if (matchIndex < 0) {
+        throw new PublishError("committed Android track changed metadata for an existing release");
+      }
+      committedReleaseInventory.splice(matchIndex, 1);
+    }
+    const expectedNewRelease = canonicalJson({
+      name: args.releaseName,
+      versionCodes: [String(versionCode)],
+      status: args.status,
+    });
+    if (committedReleaseInventory.length !== 1 || committedReleaseInventory[0] !== expectedNewRelease) {
+      throw new PublishError("committed Android track does not contain the exact new release without metadata loss");
+    }
+  } catch (error) {
+    verificationError = error;
+  }
+  try {
+    await requestJson({
+      method: "DELETE",
+      url: publisherUrl(args.packageName, `edits/${encodeURIComponent(editId)}`),
+      headers: authHeaders,
+      label: "delete Android Publisher verification edit",
+    });
+  } catch (cleanupError) {
+    if (verificationError) {
+      throw new PublishError(
+        `${verificationError instanceof Error ? verificationError.message : String(verificationError)}; failed verification edit cleanup: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+      );
+    }
+    throw cleanupError;
+  }
+  if (verificationError) {
+    throw verificationError;
+  }
 }
 
 /**
@@ -305,9 +574,10 @@ function readAndroidReleaseIdentity(mobileDir) {
  * @param {string} aabPath
  * @param {string} mappingPath
  * @param {{ version: string; packageName: string }} appConfig
+ * @param {import("./mobile-calver-version.mjs").MobileCalVerVersion} expectedVersioning
  * @returns {{ androidPackage: string; versionName: string; versionCode: number; sourceVersionCode: number; versionCodeSource: string }}
  */
-function readAndroidBuildManifest(manifestPath, aabPath, mappingPath, appConfig) {
+function readAndroidBuildManifest(manifestPath, aabPath, mappingPath, appConfig, expectedVersioning) {
   requireFile(manifestPath, "Android bundle build manifest");
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   if (manifest.schema !== bundleSchema) {
@@ -335,6 +605,15 @@ function readAndroidBuildManifest(manifestPath, aabPath, mappingPath, appConfig)
   const versionName = requireString(manifest.versionName, `versionName in ${manifestPath}`);
   if (versionName !== appConfig.version) {
     throw new PublishError(`build manifest versionName ${versionName} does not match app.config.js ${appConfig.version}`);
+  }
+  if (!manifest.versioning || typeof manifest.versioning !== "object") {
+    throw new PublishError(`Android bundle build manifest is missing versioning in ${manifestPath}`);
+  }
+  const canonicalVersioning = /** @type {Record<string, unknown>} */ (expectedVersioning);
+  for (const field of ["releaseTimestamp", "releaseVersion", "buildCode", "iosBuildNumber", "androidVersionCode", "buildCodeSource"]) {
+    if (manifest.versioning[field] !== canonicalVersioning[field]) {
+      throw new PublishError(`Android bundle versioning.${field} does not match the publication release identity`);
+    }
   }
   return {
     androidPackage: requireString(manifest.androidPackage, `androidPackage in ${manifestPath}`),
@@ -416,8 +695,35 @@ async function requestJson(request) {
  * @param {string} pathSuffix
  * @returns {string}
  */
-function publisherUrl(packageName, pathSuffix) {
-  return `${androidPublisherApiBase}/${encodeURIComponent(packageName)}/${pathSuffix}`;
+function publisherUrl(packageName, pathSuffix, query = {}) {
+  const base = `${androidPublisherApiBase}/${encodeURIComponent(packageName)}/${pathSuffix}`;
+  const encodedQuery = new URLSearchParams(query).toString();
+  return encodedQuery ? `${base}?${encodedQuery}` : base;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function canonicalJson(value) {
+  /**
+   * @param {unknown} input
+   * @returns {unknown}
+   */
+  function normalize(input) {
+    if (Array.isArray(input)) {
+      return input.map(normalize);
+    }
+    if (input && typeof input === "object") {
+      return Object.fromEntries(
+        Object.entries(input)
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([key, child]) => [key, normalize(child)]),
+      );
+    }
+    return input;
+  }
+  return JSON.stringify(normalize(value));
 }
 
 /**
