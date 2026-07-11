@@ -519,6 +519,25 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `PLAN.md`, `.dockerignore`, `.mprlab/ISSUES.md`, `Makefile`, `README.md`, `configs/.env.loopaware.computercat.example`, `configs/.env.loopaware.example`, `mobile/scripts/build-android-bundle.mjs`, `mobile/scripts/build-ios-archive.mjs`, `mobile/scripts/publish-android-play.mjs`, `mobile/scripts/submit-ios.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `scripts/deploy.sh`, `scripts/publish-mobile.sh`, `scripts/publish-preflight.sh`, `scripts/publish-react-native.sh`, `scripts/publish-release.sh`, `scripts/publish.sh`, `scripts/release.sh`, `scripts/release-preflight.sh`, `scripts/release/deploy_pages_artifact.sh`, `scripts/release/docker_identity.sh`, `scripts/release/load_release_env.sh`, `scripts/release/parse_release_env.py`, `scripts/release/prepare_container_artifact.sh`, `scripts/release/prepare_release.sh`, `scripts/release/publish_container_artifacts.sh`, `scripts/release/publish_release.sh`, `scripts/release/record_publication.sh`, `scripts/release/release_helper.py`, `scripts/release/repository_identity.sh`, `scripts/release/run_lifecycle.sh`, `scripts/release/verify_staged_artifacts.py`, `scripts/release/with_lifecycle_lock.sh`, `scripts/test-deploy-dry-run.sh`, `scripts/test-ios-npm-publication.sh`, `scripts/test-lifecycle-orchestration.sh`, `scripts/test-publish-preflight.sh`, `scripts/test-release-tooling.sh`, `scripts/test-staged-release-artifacts.sh`, `scripts/validate-release-workflow.mjs`, and `tests/scripts/run-integration.sh`.
 
+- [x] [B043] (P1) Remove the undeclared `uv` dependency from release workflow validation.
+  ### Summary
+  PR #277's `Go CI / test` job reaches `make release-pages-contract-check` and fails with `/usr/bin/env: 'uv': No such file or directory`. The repository-owned release helper declares no third-party Python dependencies but uses `uv run --script` as its executable boundary, while the canonical GitHub Actions job installs Python but not `uv`.
+  ### Deliverables
+  - Make the release helper execute directly with the available Python 3 runtime.
+  - Remove obsolete `UV_CACHE_DIR` plumbing from release, publish, preflight, and contract-test callers.
+  - Add a regression that rejects reintroducing a `uv` runtime dependency.
+  - Pin the GitHub Actions Python version and ensure changes under `scripts/**` trigger the workflow.
+  - Pass the exact failed Pages contract, the aggregate release workflow check, and final `make ci`.
+
+  ### Resolution
+  Replaced the dependency-free release helper's `uv run --script` boundary with direct Python 3 execution and removed every obsolete `UV_CACHE_DIR` assignment from lifecycle callers and contract fixtures. GitHub Actions now provisions Python 3.11 explicitly before `make ci`, and both push and pull-request filters include `scripts/**` so release-tool-only changes cannot bypass CI. The release tooling test and static workflow validator reject a restored `uv` boundary or missing Python/path-filter contract.
+
+  ### Validation
+  `make release-pages-contract-check` passed with a deliberately failing `uv` executable first in `PATH`. `make release-workflow-check`, Python/shell/Node syntax checks, workflow YAML parsing, `git diff --check`, and final `make ci` passed; the final integration run completed all 454 Playwright/API tests.
+
+  ### Changed Files
+  `PLAN.md`, `.github/workflows/ci.yml`, `.mprlab/ISSUES.md`, `scripts/publish-mobile.sh`, `scripts/publish-react-native.sh`, `scripts/release-preflight.sh`, `scripts/release/prepare_release.sh`, `scripts/release/publish_container_artifacts.sh`, `scripts/release/publish_release.sh`, `scripts/release/release_helper.py`, `scripts/test-release-tooling.sh`, `scripts/test-staged-release-artifacts.sh`, and `scripts/validate-release-workflow.mjs`.
+
 
 ## Improvements
 
