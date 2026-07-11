@@ -17,13 +17,9 @@ set -a
 source "${env_file}"
 set +a
 
-if [[ -v RELEASE_PIPELINE ]] && [[ -n "${RELEASE_PIPELINE}" ]]; then
-  pipeline="${RELEASE_PIPELINE}"
-else
-  pipeline="${repo_root}/../agentSkills/gitrelease/scripts/prepare_release.sh"
-fi
+pipeline="${repo_root}/scripts/release/prepare_release.sh"
 [[ -x "${pipeline}" ]] || {
-  echo "error: local release pipeline not found; set RELEASE_PIPELINE=/path/to/prepare_release.sh" >&2
+  echo "error: repository-owned release pipeline not found: ${pipeline}" >&2
   exit 1
 }
 
