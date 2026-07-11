@@ -10,6 +10,7 @@ const makefileSource = readText("Makefile");
 const readmeSource = readText("README.md");
 const normalizedReadmeSource = readmeSource.replace(/\s+/g, " ");
 const releaseSource = readText("scripts/release.sh");
+const publishReleaseSource = readText("scripts/publish-release.sh");
 const deploySource = readText("scripts/deploy.sh");
 
 assert(
@@ -22,45 +23,64 @@ assert(
   "release_workflow_check_missing_ci_wiring",
 );
 
-const releaseAlreadyExistsIndex = releaseSource.indexOf("release_already_exists=true");
-const releaseCiIndex = releaseSource.indexOf('echo "==> [release] Running make ci"');
-assert(releaseAlreadyExistsIndex >= 0, "release_missing_already_exists_noop");
-assert(releaseCiIndex >= 0, "release_missing_ci_gate");
-assert(releaseAlreadyExistsIndex < releaseCiIndex, "release_noop_must_precede_ci");
 assert(
-  releaseSource.includes('git log --format=%H "${boundary_tag}..HEAD" --'),
-  "release_missing_boundary_commit_check",
+  releaseSource.includes('if [[ -v RELEASE_PIPELINE ]] && [[ -n "${RELEASE_PIPELINE}" ]]'),
+  "release_missing_pipeline_override",
 );
 assert(
-  releaseSource.includes("Run make publish to publish or repair Docker images"),
-  "release_noop_missing_publish_recovery_message",
+  releaseSource.includes('pipeline="${repo_root}/../agentSkills/gitrelease/scripts/prepare_release.sh"'),
+  "release_missing_prepare_pipeline",
 );
-assert(releaseSource.includes("load_release_env_file"), "release_missing_env_loader");
+assert(releaseSource.includes('[[ -x "${pipeline}" ]]'), "release_pipeline_must_fail_fast");
+assert(releaseSource.includes('exec "${pipeline}" "$@"'), "release_pipeline_must_forward_arguments");
+assert(
+  publishReleaseSource.includes('if [[ -v PUBLISH_RELEASE_PIPELINE ]] && [[ -n "${PUBLISH_RELEASE_PIPELINE}" ]]'),
+  "publish_release_missing_pipeline_override",
+);
+assert(
+  publishReleaseSource.includes('pipeline="${repo_root}/../agentSkills/gitrelease/scripts/publish_release.sh"'),
+  "publish_release_missing_pipeline",
+);
+assert(publishReleaseSource.includes('[[ -x "${pipeline}" ]]'), "publish_release_pipeline_must_fail_fast");
+assert(publishReleaseSource.includes('exec "${pipeline}" "$@"'), "publish_release_pipeline_must_forward_arguments");
 assert(releaseSource.includes("configs/.env.loopaware"), "release_missing_default_env_file");
-assert(releaseSource.includes("ensure_release_env_loaded"), "release_missing_env_loader_gate");
-assert(releaseSource.includes("Loaded release env"), "release_missing_env_load_log");
 assert(makefileSource.includes("RELEASE_ENV_FILE ?= $(CURDIR)/configs/.env.loopaware"), "release_makefile_missing_env_file_default");
 assert(makefileSource.includes('RELEASE_ENV_FILE="$(RELEASE_ENV_FILE)"'), "release_makefile_must_pass_env_file");
+assert(makefileSource.includes("RELEASE_ARTIFACT_TARGETS ?= mobile-release-artifacts"), "release_missing_mobile_artifact_contract");
+assert(makefileSource.includes("mobile-release-artifacts:"), "release_missing_mobile_artifact_target");
+assert(makefileSource.includes("client-react-native-artifact"), "release_missing_react_native_package_artifact");
+assert(makefileSource.includes("publish: publish-release"), "publish_missing_prepared_release_dependency");
+assert(makefileSource.includes("./scripts/publish-mobile.sh"), "publish_missing_mobile_upload");
+assert(makefileSource.includes("./scripts/publish-react-native.sh"), "publish_missing_react_native_package_upload");
+assert(!releaseSource.includes("git push"), "release_must_not_push_git_refs");
+assert(!releaseSource.includes("submit-mobile"), "release_must_not_upload_mobile_stores");
+assert(!releaseSource.includes("gh "), "release_must_not_call_github");
+
+const submitIosBlock = makefileSource.slice(
+  makefileSource.indexOf("submit-ios: submit-ios-preflight"),
+  makefileSource.indexOf("submit-android: mobile-check"),
+);
+assert(!submitIosBlock.includes("build-ios"), "publish_ios_must_consume_prepared_artifact");
+const submitAndroidBlock = makefileSource.slice(
+  makefileSource.indexOf("submit-android: mobile-check"),
+  makefileSource.indexOf("submit-mobile:"),
+);
+assert(!submitAndroidBlock.includes("mobile-android-bundle"), "publish_android_must_consume_prepared_artifact");
 
 const deployImageVerifyIndex = deploySource.indexOf('if [[ "${SKIP_IMAGE_VERIFY}" != "true"');
-const deployCiIndex = deploySource.indexOf('if [[ "${SKIP_CI}" != "true"');
 assert(deployImageVerifyIndex >= 0, "deploy_missing_image_verification");
-assert(deployCiIndex >= 0, "deploy_missing_ci_gate");
-assert(deployImageVerifyIndex < deployCiIndex, "deploy_image_verification_must_precede_ci");
+assert(!deploySource.includes("make ci"), "deploy_must_not_run_ci_or_rebuild_artifacts");
+assert(!deploySource.includes("SKIP_CI"), "deploy_must_not_expose_legacy_ci_toggle");
+assert(!deploySource.includes("publish_container_artifacts"), "deploy_must_not_publish_containers");
+assert(deploySource.includes("make --no-print-directory pages-deploy"), "deploy_missing_pages_activation");
 assert(
   deploySource.includes("is not published in the registry; run make publish"),
   "deploy_missing_publish_recovery_message",
 );
 assert(deploySource.includes("2>&1"), "deploy_image_inspect_must_capture_errors");
 
-assert(
-  normalizedReadmeSource.includes("If `make release` finds that `HEAD` is already covered by the current release tag"),
-  "readme_missing_release_noop_contract",
-);
-assert(
-  normalizedReadmeSource.includes("Do not create an empty release to repair a missing image"),
-  "readme_missing_missing_image_recovery_contract",
-);
+assert(normalizedReadmeSource.includes("`make release` prepares"), "readme_missing_local_release_contract");
+assert(normalizedReadmeSource.includes("`make publish` publishes"), "readme_missing_publish_contract");
 
 console.log("release workflow validation passed");
 
