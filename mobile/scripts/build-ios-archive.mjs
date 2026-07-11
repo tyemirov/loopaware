@@ -140,11 +140,11 @@ function parseArgs(argv) {
       flags.has("no-allow-provisioning-updates")
         ? false
         : flags.has("allow-provisioning-updates") || envTruthy("MOBILE_IOS_ALLOW_PROVISIONING_UPDATES"),
-    ascApiKeyId: String(options.get("asc-api-key-id") || process.env.APP_STORE_CONNECT_API_KEY_ID || process.env.ASC_API_KEY_ID || "").trim(),
+    ascApiKeyId: String(options.get("asc-api-key-id") || process.env.APP_STORE_CONNECT_API_KEY_ID || "").trim(),
     ascApiIssuerId: String(
-      options.get("asc-api-issuer-id") || process.env.APP_STORE_CONNECT_API_ISSUER_ID || process.env.ASC_API_ISSUER_ID || "",
+      options.get("asc-api-issuer-id") || process.env.APP_STORE_CONNECT_API_ISSUER_ID || "",
     ).trim(),
-    ascApiKeyPath: resolvePath(options.get("asc-api-key-path") || process.env.APP_STORE_CONNECT_API_KEY_PATH || process.env.ASC_API_KEY_PATH || ""),
+    ascApiKeyPath: resolvePath(options.get("asc-api-key-path") || process.env.APP_STORE_CONNECT_API_KEY_PATH || ""),
     versioning,
     preflightOnly: flags.has("preflight-only"),
     keepBuildDir: flags.has("keep-build-dir"),
@@ -179,6 +179,8 @@ function buildIOSArchive(args) {
       version: appConfig.version,
       buildNumber: args.versioning.iosBuildNumber,
       versioning: args.versioning,
+      runtimeConfig: appConfig.runtimeConfig,
+      signing: { developmentTeam: args.developmentTeam, style: args.signingStyle },
       output: outputPath,
       buildManifest: manifestPath,
     };
@@ -256,6 +258,8 @@ function buildIOSArchive(args) {
     target: "app-store-connect",
     version: appConfig.version,
     versioning: args.versioning,
+    runtimeConfig: appConfig.runtimeConfig,
+    signing: { developmentTeam: args.developmentTeam, style: args.signingStyle },
   };
   metadata.buildManifest = writeBuildManifest(manifestPath, metadata);
 
@@ -268,7 +272,7 @@ function buildIOSArchive(args) {
 /**
  * @param {string} mobileDir
  * @param {import("./mobile-calver-version.mjs").MobileCalVerVersion} versioning
- * @returns {{ name: string; version: string; bundleIdentifier: string }}
+ * @returns {{ name: string; version: string; bundleIdentifier: string; runtimeConfig: { apiBaseUrl: string; tauthBaseUrl: string; tauthTenantId: string; iosRedirectSchemes: string[] } }}
  */
 function readAppConfig(mobileDir, versioning) {
   const appConfigPath = path.join(mobileDir, "app.config.js");
@@ -283,10 +287,26 @@ function readAppConfig(mobileDir, versioning) {
     const config = require(appConfigPath);
     const expoConfig = config.expo || {};
     const iosConfig = expoConfig.ios || {};
+    const loopAwareConfig = expoConfig.extra?.loopAware || {};
+    /** @type {string[]} */
+    const iosRedirectSchemes = [];
+    if (Array.isArray(iosConfig.scheme)) {
+      for (const value of /** @type {unknown[]} */ (iosConfig.scheme)) {
+        iosRedirectSchemes.push(requireString(value, "expo.ios.scheme"));
+      }
+    } else if (iosConfig.scheme) {
+      iosRedirectSchemes.push(requireString(iosConfig.scheme, "expo.ios.scheme"));
+    }
     return {
       name: requireString(expoConfig.name, "expo.name"),
       version: requireString(expoConfig.version, "expo.version"),
       bundleIdentifier: requireString(iosConfig.bundleIdentifier, "expo.ios.bundleIdentifier"),
+      runtimeConfig: {
+        apiBaseUrl: requireString(loopAwareConfig.apiBaseUrl, "expo.extra.loopAware.apiBaseUrl"),
+        tauthBaseUrl: requireString(loopAwareConfig.tauthBaseUrl, "expo.extra.loopAware.tauthBaseUrl"),
+        tauthTenantId: requireString(loopAwareConfig.tauthTenantId, "expo.extra.loopAware.tauthTenantId"),
+        iosRedirectSchemes,
+      },
     };
   } finally {
     if (previousVersion === undefined) {
@@ -372,8 +392,14 @@ function prepareSigningKeychain(args) {
  * @returns {NodeJS.ProcessEnv}
  */
 function buildEnvironment(args, appConfig) {
+  const inheritedEnvironment = { ...process.env };
+  for (const name of Object.keys(inheritedEnvironment)) {
+    if (name.startsWith("EXPO_PUBLIC_")) {
+      delete inheritedEnvironment[name];
+    }
+  }
   return {
-    ...process.env,
+    ...inheritedEnvironment,
     CI: "1",
     EXPO_NO_TELEMETRY: "1",
     NODE_ENV: "production",
@@ -568,6 +594,8 @@ function writeBuildManifest(outputPath, metadata) {
       buildNumber: metadata.buildNumber,
     },
     versioning: metadata.versioning,
+    runtimeConfig: metadata.runtimeConfig,
+    signing: metadata.signing,
     export: {
       method: metadata.exportMethod,
       target: metadata.target,

@@ -4,6 +4,10 @@
 .idea
 .vscode
 .env*
+**/.env*
+configs/AuthKey_*.p8
+configs/client_*.plist
+configs/client_secret_*.json
 data/
 tests/
 tools/
@@ -12,6 +16,9 @@ node_modules/
 **/node_modules/
 clients/react-native/dist/
 mobile/dist/
+mobile/.expo/
+mobile/android/
+mobile/ios/
 .cache/
 .github/
 *.db

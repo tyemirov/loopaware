@@ -11,6 +11,7 @@ on:
       - 'docker-compose*.yml'
       - 'configs/**'
       - 'mobile/**'
+      - 'scripts/**'
       - 'tests/**'
       - 'web/**'
       - 'Makefile'
@@ -26,6 +27,7 @@ on:
       - 'docker-compose*.yml'
       - 'configs/**'
       - 'mobile/**'
+      - 'scripts/**'
       - 'tests/**'
       - 'web/**'
       - 'Makefile'
@@ -43,6 +45,7 @@ jobs:
     env:
       LOOPAWARE_PLAYWRIGHT_CHANNEL: chrome
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      PYTHON_VERSION: '3.11'
 
     steps:
       - name: Checkout
@@ -64,6 +67,11 @@ jobs:
             tests/package-lock.json
             clients/react-native/package-lock.json
             mobile/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install test dependencies
         run: |

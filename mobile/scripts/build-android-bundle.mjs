@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { createMobileCalVerVersion } from "./mobile-calver-version.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
@@ -53,6 +54,7 @@ try {
  *   androidSdkRoot: string;
  *   versioning: import("./mobile-calver-version.mjs").MobileCalVerVersion;
  *   keepBuildDir: boolean;
+ *   preflightOnly: boolean;
  * }} BundleArgs
  */
 
@@ -65,8 +67,8 @@ function parseArgs(argv) {
   const flags = new Set();
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
-    if (token === "--keep-build-dir") {
-      flags.add("keep-build-dir");
+    if (token === "--keep-build-dir" || token === "--preflight-only") {
+      flags.add(token.slice(2));
       continue;
     }
     if (!token.startsWith("--")) {
@@ -117,6 +119,7 @@ function parseArgs(argv) {
     ),
     versioning,
     keepBuildDir: flags.has("keep-build-dir"),
+    preflightOnly: flags.has("preflight-only"),
   };
 }
 
@@ -137,7 +140,26 @@ function buildAndroidBundle(args) {
 
   const signing = readSigningProperties(args.keystoreProperties, args.keystore);
   const releaseIdentity = readAndroidReleaseIdentity(args.mobileDir);
+  const appConfig = readAndroidAppConfig(args.mobileDir, args.versioning);
+  if (appConfig.androidPackage !== releaseIdentity.packageName) {
+    throw new BuildError(
+      `Expo Android package ${appConfig.androidPackage} does not match release identity ${releaseIdentity.packageName}`,
+    );
+  }
   const uploadKeySha256 = verifyUploadKeyFingerprint(signing, args.javaHome, releaseIdentity.uploadKeySha256);
+  if (args.preflightOnly) {
+    return {
+      schema: "loopaware.mobile-android-bundle.v1",
+      status: "preflight-passed",
+      androidPackage: releaseIdentity.packageName,
+      versionName: args.versioning.releaseVersion,
+      versionCode: args.versioning.androidVersionCode,
+      versioning: args.versioning,
+      runtimeConfig: appConfig.runtimeConfig,
+      keystore: signing.storeFile,
+      uploadKeySha256,
+    };
+  }
   if (args.buildDir === "/" || args.buildDir === os.tmpdir()) {
     throw new BuildError(`unsafe build directory: ${args.buildDir}`);
   }
@@ -197,6 +219,7 @@ function buildAndroidBundle(args) {
     versionCodeSource: args.versioning.buildCodeSource,
     versionCodePolicy: "CalVer UTC release timestamp seconds since 2020-01-01",
     versioning: args.versioning,
+    runtimeConfig: appConfig.runtimeConfig,
     output: outputPath,
     sha256: sha256File(outputPath),
     sizeBytes: fs.statSync(outputPath).size,
@@ -299,6 +322,47 @@ function readAndroidReleaseIdentity(mobileDir) {
 }
 
 /**
+ * @param {string} mobileDir
+ * @param {import("./mobile-calver-version.mjs").MobileCalVerVersion} versioning
+ * @returns {{ androidPackage: string; runtimeConfig: { apiBaseUrl: string; tauthBaseUrl: string; tauthTenantId: string } }}
+ */
+function readAndroidAppConfig(mobileDir, versioning) {
+  const appConfigPath = path.join(mobileDir, "app.config.js");
+  requireFile(appConfigPath, "Expo app config");
+  const require = createRequire(import.meta.url);
+  const previousVersion = process.env.LOOPAWARE_MOBILE_VERSION;
+  const previousVersionCode = process.env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE;
+  process.env.LOOPAWARE_MOBILE_VERSION = versioning.releaseVersion;
+  process.env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE = String(versioning.androidVersionCode);
+  delete require.cache[require.resolve(appConfigPath)];
+  try {
+    const config = require(appConfigPath);
+    const expoConfig = config.expo || {};
+    const androidConfig = expoConfig.android || {};
+    const loopAwareConfig = expoConfig.extra?.loopAware || {};
+    return {
+      androidPackage: requireString(androidConfig.package, "expo.android.package"),
+      runtimeConfig: {
+        apiBaseUrl: requireString(loopAwareConfig.apiBaseUrl, "expo.extra.loopAware.apiBaseUrl"),
+        tauthBaseUrl: requireString(loopAwareConfig.tauthBaseUrl, "expo.extra.loopAware.tauthBaseUrl"),
+        tauthTenantId: requireString(loopAwareConfig.tauthTenantId, "expo.extra.loopAware.tauthTenantId"),
+      },
+    };
+  } finally {
+    if (previousVersion === undefined) {
+      delete process.env.LOOPAWARE_MOBILE_VERSION;
+    } else {
+      process.env.LOOPAWARE_MOBILE_VERSION = previousVersion;
+    }
+    if (previousVersionCode === undefined) {
+      delete process.env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE;
+    } else {
+      process.env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE = previousVersionCode;
+    }
+  }
+}
+
+/**
  * @param {{ storeFile: string; storePassword: string; keyAlias: string }} signing
  * @param {string} javaHome
  * @param {string} expectedSha256
@@ -378,8 +442,14 @@ function copyMobileProject(source, destination) {
  * @returns {NodeJS.ProcessEnv}
  */
 function buildEnvironment(javaHome, androidSdkRoot) {
+  const inheritedEnvironment = { ...process.env };
+  for (const name of Object.keys(inheritedEnvironment)) {
+    if (name.startsWith("EXPO_PUBLIC_")) {
+      delete inheritedEnvironment[name];
+    }
+  }
   return {
-    ...process.env,
+    ...inheritedEnvironment,
     JAVA_HOME: javaHome,
     ANDROID_HOME: androidSdkRoot,
     ANDROID_SDK_ROOT: androidSdkRoot,

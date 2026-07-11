@@ -508,13 +508,24 @@ export async function waitForLogoutOverlayOrRedirect(page, options) {
     ? Math.max(0, Number(resolvedOptions.redirectGraceMs))
     : Math.min(2_500, timeoutMs);
   const overlay = page.locator(overlaySelector);
+  if (redirectPattern.test(page.url())) {
+    await waitForHeaderAuthReady(page);
+    return true;
+  }
   let redirected = false;
-  await Promise.any([
-    page.waitForURL(redirectPattern, { timeout: timeoutMs }).then(() => {
-      redirected = true;
-    }),
-    overlay.waitFor({ state: 'visible', timeout: timeoutMs })
-  ]);
+  try {
+    await Promise.any([
+      page.waitForURL(redirectPattern, { timeout: timeoutMs }).then(() => {
+        redirected = true;
+      }),
+      overlay.waitFor({ state: 'visible', timeout: timeoutMs })
+    ]);
+  } catch (error) {
+    if (!redirectPattern.test(page.url())) {
+      throw error;
+    }
+    redirected = true;
+  }
   if (!redirected && redirectGraceMs > 0) {
     await page.waitForURL(redirectPattern, { timeout: redirectGraceMs }).then(() => {
       redirected = true;

@@ -12,7 +12,7 @@ server:
     cookieName: ${TAUTH_COOKIE_NAME}
 
 tenants:
-  - id: loopaware-local
+  - id: ${PINGUIN_TENANT_ID}
     displayName: Loopaware Sandbox
     supportEmail: support@mprlab.com
     enabled: true

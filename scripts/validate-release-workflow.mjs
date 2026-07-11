@@ -7,12 +7,37 @@ import path from "node:path";
 const repoRoot = path.resolve(import.meta.dirname, "..");
 
 const makefileSource = readText("Makefile");
+const ciWorkflowSource = readText(".github/workflows/ci.yml");
+const dockerignoreSource = readText(".dockerignore");
 const readmeSource = readText("README.md");
 const normalizedReadmeSource = readmeSource.replace(/\s+/g, " ");
 const releaseSource = readText("scripts/release.sh");
+const repositoryIdentitySource = readText("scripts/release/repository_identity.sh");
+const prepareReleaseSource = readText("scripts/release/prepare_release.sh");
 const publishReleaseSource = readText("scripts/publish-release.sh");
+const publishOrchestratorSource = readText("scripts/publish.sh");
+const releasePreflightSource = readText("scripts/release-preflight.sh");
+const publishPreflightSource = readText("scripts/publish-preflight.sh");
+const publishMobileSource = readText("scripts/publish-mobile.sh");
 const publishReactNativeSource = readText("scripts/publish-react-native.sh");
+const releaseEnvParserSource = readText("scripts/release/parse_release_env.py");
+const releaseEnvLoaderSource = readText("scripts/release/load_release_env.sh");
 const deploySource = readText("scripts/deploy.sh");
+const pagesDeploySource = readText("scripts/release/deploy_pages_artifact.sh");
+const containerPublishSource = readText("scripts/release/publish_container_artifacts.sh");
+const containerPrepareSource = readText("scripts/release/prepare_container_artifact.sh");
+const dockerIdentitySource = readText("scripts/release/docker_identity.sh");
+const stagedArtifactVerifierSource = readText("scripts/release/verify_staged_artifacts.py");
+const lifecycleLockSource = readText("scripts/release/with_lifecycle_lock.sh");
+const lifecycleRunnerSource = readText("scripts/release/run_lifecycle.sh");
+const publicationAttestationSource = readText("scripts/release/record_publication.sh");
+const releaseHelperSource = readText("scripts/release/release_helper.py");
+const integrationRunnerSource = readText("tests/scripts/run-integration.sh");
+const deployResourcesSource = readText(".mprlab/deploy/resources.yml");
+const androidPublishSource = readText("mobile/scripts/publish-android-play.mjs");
+const iosSubmitSource = readText("mobile/scripts/submit-ios.mjs");
+const iosBuildSource = readText("mobile/scripts/build-ios-archive.mjs");
+const androidBuildSource = readText("mobile/scripts/build-android-bundle.mjs");
 const releaseToolFiles = [
   "prepare_release.sh",
   "publish_release.sh",
@@ -21,13 +46,44 @@ const releaseToolFiles = [
   "deploy_pages_artifact.sh",
   "prepare_container_artifact.sh",
   "publish_container_artifacts.sh",
+  "docker_identity.sh",
+  "verify_staged_artifacts.py",
+  "with_lifecycle_lock.sh",
+  "parse_release_env.py",
+  "load_release_env.sh",
+  "repository_identity.sh",
+  "run_lifecycle.sh",
+  "record_publication.sh",
 ];
 const releaseBoundarySources = [
   makefileSource,
   releaseSource,
   publishReleaseSource,
+  publishOrchestratorSource,
   publishReactNativeSource,
 ];
+const pythonReleaseHelperCallers = [
+  releasePreflightSource,
+  publishMobileSource,
+  publishReactNativeSource,
+  prepareReleaseSource,
+  containerPublishSource,
+  publishReleaseSource,
+];
+
+assert(
+  releaseHelperSource.startsWith("#!/usr/bin/env python3\n") &&
+    !releaseHelperSource.includes("uv run --script") &&
+    pythonReleaseHelperCallers.every((source) => !source.includes("UV_CACHE_DIR")),
+  "release_helper_must_use_the_standard_python_runtime_without_uv",
+);
+assert(
+  ciWorkflowSource.includes("PYTHON_VERSION: '3.11'") &&
+    ciWorkflowSource.includes("uses: actions/setup-python@v6") &&
+    ciWorkflowSource.includes("python-version: ${{ env.PYTHON_VERSION }}") &&
+    (ciWorkflowSource.match(/- 'scripts\/\*\*'/g) || []).length === 2,
+  "ci_must_pin_python_and_run_for_release_script_changes",
+);
 
 assert(
   makefileSource.includes("release-workflow-check:") &&
@@ -35,7 +91,7 @@ assert(
   "release_workflow_check_missing_makefile_target",
 );
 assert(
-  makefileSource.includes("@$(MAKE) release-workflow-check"),
+  makefileSource.includes("lint-js: client-react-native-check mobile-check release-workflow-check"),
   "release_workflow_check_missing_ci_wiring",
 );
 assert(
@@ -43,7 +99,27 @@ assert(
   "release_pages_contract_check_missing",
 );
 assert(
-  makefileSource.includes("RELEASE_TOOL_DIR := $(abspath $(CURDIR)/scripts/release)"),
+  makefileSource.includes("bash scripts/test-deploy-dry-run.sh"),
+  "deploy_dry_run_contract_check_missing",
+);
+assert(
+  makefileSource.includes("bash scripts/test-publish-preflight.sh"),
+  "publish_preflight_contract_check_missing",
+);
+assert(
+  makefileSource.includes("bash scripts/test-staged-release-artifacts.sh"),
+  "staged_release_artifact_contract_check_missing",
+);
+assert(
+  makefileSource.includes("bash scripts/test-ios-npm-publication.sh"),
+  "ios_npm_publication_contract_check_missing",
+);
+assert(
+  makefileSource.includes("bash scripts/test-lifecycle-orchestration.sh"),
+  "lifecycle_orchestration_contract_check_missing",
+);
+assert(
+  makefileSource.includes("override RELEASE_TOOL_DIR := $(abspath $(CURDIR)/scripts/release)"),
   "release_tool_directory_must_be_repository_owned",
 );
 for (const source of releaseBoundarySources) {
@@ -56,6 +132,10 @@ for (const releaseToolFile of releaseToolFiles) {
   );
 }
 assert(!releaseSource.includes("RELEASE_PIPELINE"), "release_pipeline_override_forbidden");
+assert(!prepareReleaseSource.includes("RELEASE_HELPER"), "release_helper_override_forbidden");
+assert(!prepareReleaseSource.includes("RELEASE_BUMP") && !prepareReleaseSource.includes("RELEASE_SCHEME"), "release_selection_environment_overrides_forbidden");
+assert(!prepareReleaseSource.includes("    --scheme)"), "release_calver_scheme_override_forbidden");
+assert(!readText("scripts/release/publish_release.sh").includes("RELEASE_HELPER"), "publish_release_helper_override_forbidden");
 assert(
   releaseSource.includes('pipeline="${repo_root}/scripts/release/prepare_release.sh"'),
   "release_missing_owned_prepare_pipeline",
@@ -74,12 +154,269 @@ assert(
   "publish_react_native_missing_owned_release_helper",
 );
 assert(releaseSource.includes("configs/.env.loopaware"), "release_missing_default_env_file");
-assert(makefileSource.includes("RELEASE_ENV_FILE ?= $(CURDIR)/configs/.env.loopaware"), "release_makefile_missing_env_file_default");
-assert(makefileSource.includes('RELEASE_ENV_FILE="$(RELEASE_ENV_FILE)"'), "release_makefile_must_pass_env_file");
-assert(makefileSource.includes("RELEASE_ARTIFACT_TARGETS ?= mobile-release-artifacts"), "release_missing_mobile_artifact_contract");
+assert(
+  releaseSource.includes("assert_canonical_github_origin") &&
+    publishReleaseSource.includes("assert_canonical_github_origin") &&
+    repositoryIdentitySource.includes('"git@github.com:${repository}"|"git@github.com:${repository}.git"') &&
+    repositoryIdentitySource.includes('"https://github.com/${repository}"|"https://github.com/${repository}.git"'),
+  "release_and_publish_must_verify_the_canonical_repository_identity",
+);
+assert(
+  releaseSource.includes("assert_no_github_repository_override") &&
+    publishReleaseSource.includes("assert_no_github_repository_override") &&
+    deploySource.includes("assert_no_github_repository_override") &&
+    repositoryIdentitySource.includes("GH_REPO is not supported by the canonical lifecycle") &&
+    repositoryIdentitySource.includes("GH_HOST must be github.com") &&
+    repositoryIdentitySource.includes("origin pushurl overrides are not supported") &&
+    repositoryIdentitySource.includes("remote get-url --all origin") &&
+    repositoryIdentitySource.includes("remote get-url --push --all origin") &&
+    repositoryIdentitySource.includes("effective origin fetch URL") &&
+    repositoryIdentitySource.includes("effective origin push URL"),
+  "lifecycle_github_repository_must_be_explicit_and_non_overridable",
+);
+assert(
+  releaseSource.includes('assert_remote_default_and_release_tags "${repo_root}" LoopAware') &&
+    repositoryIdentitySource.includes("git -C \"${directory}\" ls-remote --symref origin") &&
+    repositoryIdentitySource.includes('[[ "${local_head}" == "${remote_default_sha}" ]]') &&
+    repositoryIdentitySource.includes("is missing remote release tag") &&
+    repositoryIdentitySource.includes('[[ "${local_tag_commit}" == "${remote_tag_commit}" ]]'),
+  "release_must_pin_the_remote_default_branch_and_release_tags_before_preparation",
+);
+assert(
+  makefileSource.includes("override RELEASE_ENV_FILE := $(CURDIR)/configs/.env.loopaware") &&
+    makefileSource.includes("override RELEASE_ENV_FILE := $(value RELEASE_ENV_FILE)"),
+  "release_makefile_missing_env_file_default",
+);
+assert(makefileSource.includes("export RELEASE_ENV_FILE"), "release_makefile_must_export_env_file_without_recipe_interpolation");
+assert(
+  makefileSource.includes(
+    "override RELEASE_ARTIFACT_TARGETS := mobile-release-artifacts client-react-native-artifact container-artifacts pages-artifact",
+  ),
+  "release_missing_canonical_artifact_contract",
+);
+assert(
+  releaseEnvParserSource.includes("EXPORTED_KEYS = {") &&
+    releaseEnvParserSource.includes("APPLICATION_KEYS = {") &&
+    releaseEnvParserSource.includes("key {key} is not part of the release env contract") &&
+    releaseEnvParserSource.includes("duplicate key") &&
+    releaseEnvParserSource.includes("shlex.quote(values[key])") &&
+    !releaseEnvParserSource.includes('"PATH",') &&
+    !releaseEnvParserSource.includes('"MAKEFLAGS",') &&
+    !releaseEnvParserSource.includes('"BASH_ENV",') &&
+    releaseEnvLoaderSource.includes('"${loader_directory}/parse_release_env.py" "${env_file}" >"${export_file}"') &&
+    releaseEnvLoaderSource.includes('source "${export_file}"'),
+  "release_env_must_be_parsed_as_allowlisted_data_before_export",
+);
+for (const source of [releaseSource, releasePreflightSource, publishMobileSource, publishReactNativeSource]) {
+  assert(source.includes("load_release_env_file"), "release_env_consumer_missing_strict_loader");
+  assert(!source.includes('source "${env_file}"'), "release_env_must_not_be_sourced_as_shell_code");
+}
+assert(makefileSource.includes("override DOCKER_IMAGE := ghcr.io/tyemirov/loopaware"), "release_missing_canonical_container_image");
+assert(makefileSource.includes("override PUBLISH_PLATFORMS := linux/amd64"), "release_missing_canonical_container_platform");
+assert(makefileSource.includes("override PAGES_URL := https://loopaware.mprlab.com/"), "release_missing_canonical_pages_url");
+assert(makefileSource.includes("override PAGES_BRANCH := gh-pages"), "release_missing_canonical_pages_branch");
+assert(makefileSource.includes("override PAGES_DOMAIN := loopaware.mprlab.com"), "release_missing_canonical_pages_domain");
+assert(makefileSource.includes("override MOBILE_RESOLVED_RELEASE_TIMESTAMP :="), "release_mobile_timestamp_must_not_be_overridable");
+assert(
+  makefileSource.includes("override MOBILE_GOOGLE_IOS_REDIRECT_URI := com.googleusercontent.apps.281540686395-8a90ldjnklddl0qpoc8ur6620lguv7mg:/oauth2redirect/google") &&
+    makefileSource.includes("override MOBILE_IOS_DEVELOPMENT_TEAM := Z9ZW6HDGML"),
+  "release_mobile_identity_must_be_canonical",
+);
+assert(
+  deployResourcesSource.includes("image: ghcr.io/tyemirov/loopaware:latest") &&
+    deployResourcesSource.includes("target: pages-deploy") &&
+    deployResourcesSource.includes("url: https://loopaware.mprlab.com/"),
+  "deploy_resource_inventory_drifted_from_lifecycle_contract",
+);
 assert(makefileSource.includes("mobile-release-artifacts:"), "release_missing_mobile_artifact_target");
 assert(makefileSource.includes("client-react-native-artifact"), "release_missing_react_native_package_artifact");
-assert(makefileSource.includes("publish: publish-release"), "publish_missing_prepared_release_dependency");
+assert(
+  makefileSource.includes("override CLIENT_REACT_NATIVE_NPM := npm") &&
+    makefileSource.includes("override CLIENT_REACT_NATIVE_NPM_COMMAND := env -u NO_COLOR npm") &&
+    makefileSource.includes("override MOBILE_NPM := npm") &&
+    makefileSource.includes("override MOBILE_NPM_COMMAND := env -u NO_COLOR npm") &&
+    publishReactNativeSource.includes('npm_command="npm"'),
+  "release_and_publish_package_managers_must_be_canonical",
+);
+assert(
+  makefileSource.includes("override NPM_CONFIG_CACHE := $(CURDIR)/.cache/npm") &&
+    makefileSource.includes("export NPM_CONFIG_CACHE") &&
+    makefileSource.includes("override GOCACHE := $(CURDIR)/.cache/go-build") &&
+    makefileSource.includes("export GOCACHE"),
+  "make_owned_build_commands_must_use_repository_caches",
+);
+assert(
+  makefileSource.includes('git archive --output "$$archive" "$$RELEASE_SOURCE_COMMIT:clients/react-native"') &&
+    makefileSource.includes('git archive --output "$$archive" "$$RELEASE_SOURCE_COMMIT:mobile"') &&
+    makefileSource.includes('git archive --output "$$archive" "$$RELEASE_SOURCE_COMMIT"') &&
+    makefileSource.includes('git archive --output "$$archive" "$$RELEASE_SOURCE_COMMIT:web"') &&
+    makefileSource.includes("--platforms linux/amd64 --pull"),
+  "release_artifacts_must_build_from_the_exact_source_commit",
+);
+assert(
+  makefileSource.includes("export LOOPAWARE_MOBILE_API_BASE_URL") &&
+    makefileSource.includes("export LOOPAWARE_MOBILE_TAUTH_BASE_URL") &&
+    makefileSource.includes("export LOOPAWARE_MOBILE_TAUTH_TENANT_ID") &&
+    makefileSource.includes("export LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI") &&
+    makefileSource.includes("export LOOPAWARE_MOBILE_RELEASE_TIMESTAMP") &&
+    iosBuildSource.includes('name.startsWith("EXPO_PUBLIC_")') &&
+    androidBuildSource.includes('name.startsWith("EXPO_PUBLIC_")') &&
+    iosBuildSource.includes("runtimeConfig: appConfig.runtimeConfig") &&
+    androidBuildSource.includes("runtimeConfig: appConfig.runtimeConfig") &&
+    stagedArtifactVerifierSource.includes("iOS build manifest has a noncanonical runtime configuration") &&
+    stagedArtifactVerifierSource.includes("Android build manifest has a noncanonical runtime configuration") &&
+    stagedArtifactVerifierSource.includes("iOS build manifest has a noncanonical signing configuration"),
+  "release_mobile_build_environment_must_be_canonical",
+);
+const reactNativeArtifactRecipe = makeRecipe("client-react-native-artifact");
+assert(
+  reactNativeArtifactRecipe.includes('source_dir="$$(mktemp -d)"') &&
+    reactNativeArtifactRecipe.includes('git archive --output "$$archive" "$$RELEASE_SOURCE_COMMIT:clients/react-native"') &&
+    reactNativeArtifactRecipe.includes('npm --prefix "$$source_dir" ci --legacy-peer-deps') &&
+    reactNativeArtifactRecipe.includes('npm --prefix "$$source_dir" run typecheck') &&
+    reactNativeArtifactRecipe.includes('npm --prefix "$$source_dir" run build') &&
+    reactNativeArtifactRecipe.includes('npm --prefix "$$source_dir" run verify-package') &&
+    reactNativeArtifactRecipe.includes('npm pack --ignore-scripts --pack-destination "$$asset_dir"'),
+  "react_native_release_package_must_be_built_in_a_clean_exact_commit_checkout",
+);
+assert(
+  !makefileSource.includes("loopaware-ios.json $(MOBILE_IOS_ARCHIVE_ARGS)") &&
+    !makefileSource.includes("loopaware-android.aab $(MOBILE_ANDROID_BUNDLE_ARGS)") &&
+    makefileSource.includes("MOBILE_IOS_ARCHIVE_ARGS is not supported") &&
+    makefileSource.includes("MOBILE_ANDROID_BUNDLE_ARGS is not supported") &&
+    makefileSource.includes("PAGES_DEPLOY_ARGS is not supported"),
+  "canonical_mobile_release_outputs_must_not_accept_appended_overrides",
+);
+for (const target of [
+  "build-ios",
+  "mobile-android-bundle",
+  "mobile-release-artifacts",
+  "submit-ios-preflight",
+  "submit-ios",
+  "submit-android",
+  "publish-mobile",
+]) {
+  assert(
+    !/\$\((?:APP_STORE_CONNECT|MOBILE|LOOPAWARE_MOBILE|ANDROID_(?:HOME|SDK_ROOT|STUDIO_JAVA_HOME))/.test(makeRecipe(target)),
+    `canonical_mobile_recipe_must_not_interpolate_sensitive_make_variables:${target}`,
+  );
+}
+assert(
+  dockerignoreSource.includes("configs/AuthKey_*.p8") &&
+    dockerignoreSource.includes("configs/client_secret_*.json") &&
+    dockerignoreSource.includes("mobile/android/") &&
+    dockerignoreSource.includes("mobile/ios/"),
+  "docker_context_secret_and_native_output_exclusions_missing",
+);
+assert(
+  prepareReleaseSource.includes('RELEASE_SOURCE_COMMIT="${source_commit}"') &&
+    makefileSource.includes('org.opencontainers.image.revision=$$RELEASE_SOURCE_COMMIT') &&
+    makefileSource.includes('org.opencontainers.image.version=$$RELEASE_VERSION') &&
+    makefileSource.includes("org.opencontainers.image.source=https://github.com/tyemirov/loopaware"),
+  "release_container_provenance_labels_missing",
+);
+assert(
+  prepareReleaseSource.includes("canonical_artifact_targets=") &&
+    prepareReleaseSource.includes("verify_staged_artifacts.py") &&
+    releasePreflightSource.includes("verify_staged_artifacts.py") &&
+    stagedArtifactVerifierSource.includes("exact canonical nine-file set") &&
+    stagedArtifactVerifierSource.includes("mobile artifacts do not use the staging release timestamp"),
+  "release_must_verify_the_exact_staged_artifact_contract",
+);
+assert(
+  prepareReleaseSource.includes('MOBILE_RELEASE_TIMESTAMP="${release_timestamp}"') &&
+    releasePreflightSource.includes('MOBILE_RELEASE_TIMESTAMP="${release_timestamp}"'),
+  "release_must_pass_the_owned_mobile_timestamp_as_a_recursive_make_assignment",
+);
+assert(
+  prepareReleaseSource.includes("LoopAware releases must use deployable stable vMAJOR.MINOR.PATCH versions"),
+  "release_must_select_only_deployable_stable_versions",
+);
+assert(
+  prepareReleaseSource.includes("head_release_tags=()") &&
+    prepareReleaseSource.includes("multiple stable release tags point at HEAD") &&
+    prepareReleaseSource.includes("prepared release commit must have exactly one source parent") &&
+    prepareReleaseSource.includes('[[ "${prepared_changed_files}" == "CHANGELOG.md" ]]') &&
+    prepareReleaseSource.includes('"${helper}" verify-release-artifact') &&
+    prepareReleaseSource.includes("prepared release manifest does not contain the exact canonical nine-file payload set") &&
+    prepareReleaseSource.includes('echo "release_already_prepared=true"') &&
+    releasePreflightSource.includes('grep -Fxq "release_already_prepared=true"'),
+  "release_rerun_must_recognize_only_an_exact_prepared_release",
+);
+assert(
+  !prepareReleaseSource.includes("RELEASE_CI_TIMEOUT") &&
+    prepareReleaseSource.includes('echo "==> [release] Running make ci"\nmake ci') &&
+    releasePreflightSource.includes('echo "==> [release-preflight] Running the release CI gate"\nmake ci') &&
+    prepareReleaseSource.includes("git var GIT_AUTHOR_IDENT") &&
+    prepareReleaseSource.includes("git var GIT_COMMITTER_IDENT") &&
+    prepareReleaseSource.includes('git commit --no-verify --no-gpg-sign -m "Release ${next_version}"') &&
+    prepareReleaseSource.includes('git tag --no-sign -a "${next_version}"'),
+  "release_dry_run_and_release_must_share_deterministic_ci_and_git_inputs",
+);
+assert(
+  makefileSource.includes("RELEASE_ARGS is not supported") &&
+    makefileSource.includes("PUBLISH_RELEASE_ARGS is not supported") &&
+    makefileSource.includes("DEPLOY_ARGS is not supported") &&
+    !makefileSource.includes("$(RELEASE_ARGS)") &&
+    !makefileSource.includes("$(PUBLISH_RELEASE_ARGS)") &&
+    !makefileSource.includes("$(DEPLOY_ARGS)"),
+  "lifecycle_targets_must_reject_raw_shell_arguments",
+);
+const publishPreflightIndex = publishOrchestratorSource.indexOf("./scripts/publish-preflight.sh");
+const publishReleaseIndex = publishOrchestratorSource.indexOf("./scripts/publish-release.sh");
+const publishContainerIndex = publishOrchestratorSource.indexOf("./scripts/release/publish_container_artifacts.sh");
+const publishMobileIndex = publishOrchestratorSource.indexOf("./scripts/publish-mobile.sh");
+const publishReactNativeIndex = publishOrchestratorSource.indexOf("./scripts/publish-react-native.sh");
+const publicationAttestationIndex = publishOrchestratorSource.lastIndexOf("./scripts/release/record_publication.sh");
+assert(publishPreflightIndex >= 0, "publish_missing_preflight");
+assert(publishReleaseIndex > publishPreflightIndex, "publish_must_preflight_before_github_mutation");
+assert(publishContainerIndex > publishReleaseIndex, "publish_container_order_invalid");
+assert(publishReactNativeIndex > publishContainerIndex, "publish_react_native_order_invalid");
+assert(publishMobileIndex > publishReactNativeIndex, "store_uploads_must_be_the_last_publication_stage");
+assert(publicationAttestationIndex > publishMobileIndex, "publication_attestation_must_follow_every_provider_stage");
+assert(
+  publishOrchestratorSource.includes("expected_manifest_sha256") &&
+    publishOrchestratorSource.includes("assert_manifest_unchanged") &&
+    publishOrchestratorSource.includes("prepared release manifest changed during publication"),
+  "publish_must_pin_one_release_manifest_across_all_stages",
+);
+const canonicalLifecycleRecipes = new Map([
+  ["release", "@/bin/sh ./scripts/release/run_lifecycle.sh ./scripts/release/with_lifecycle_lock.sh release ./scripts/release.sh"],
+  ["release-dry-run", "@/bin/sh ./scripts/release/run_lifecycle.sh ./scripts/release/with_lifecycle_lock.sh release-dry-run ./scripts/release-preflight.sh"],
+  ["publish-preflight", "@/bin/sh ./scripts/release/run_lifecycle.sh ./scripts/release/with_lifecycle_lock.sh publish-preflight ./scripts/publish-preflight.sh"],
+  ["publish-dry-run", "@/bin/sh ./scripts/release/run_lifecycle.sh ./scripts/release/with_lifecycle_lock.sh publish-dry-run ./scripts/publish-preflight.sh"],
+  ["publish", "@/bin/sh ./scripts/release/run_lifecycle.sh ./scripts/release/with_lifecycle_lock.sh publish ./scripts/publish.sh"],
+  ["deploy", "@/bin/sh ./scripts/release/run_lifecycle.sh ./scripts/release/with_lifecycle_lock.sh deploy ./scripts/deploy.sh"],
+  ["deploy-dry-run", "@/bin/sh ./scripts/release/run_lifecycle.sh ./scripts/release/with_lifecycle_lock.sh deploy-dry-run ./scripts/deploy.sh --dry-run"],
+]);
+assert(
+  lifecycleLockSource.includes('lock_dir="${git_common_dir}/mprlab-lifecycle.lock"') &&
+    lifecycleLockSource.includes('if ! mkdir "${lock_dir}"'),
+  "canonical_lifecycle_lock_missing",
+);
+assert(
+  deploySource.includes('fi\n\nassert_gateway_unchanged "${gateway_commit}"\nassert_loopaware_unchanged "${loopaware_remote_default_sha}"'),
+  "deploy_must_reassert_both_checkouts_after_gateway_handoff",
+);
+assert(
+  makefileSource.includes("override SHELL := /bin/sh") &&
+    makefileSource.includes("lifecycle targets reject Make's no-execute mode") &&
+    makefileSource.includes("lifecycle targets reject Make's ignore-errors mode") &&
+    makefileSource.includes("override MOBILE_RELEASE_TIMESTAMP := $(value MOBILE_RELEASE_TIMESTAMP)") &&
+    makefileSource.includes("override ANDROID_SDK_ROOT := $(value ANDROID_SDK_ROOT)") &&
+    lifecycleRunnerSource.includes("BASH_ENV ENV NODE_OPTIONS NODE_PATH PYTHONHOME PYTHONPATH DOCKER_HOST DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH") &&
+    lifecycleRunnerSource.includes("$1 ~ /^BASH_FUNC_/") &&
+    lifecycleRunnerSource.includes('$1 == "SHELLOPTS"') &&
+    lifecycleRunnerSource.includes('$1 == "BASHOPTS"') &&
+    lifecycleRunnerSource.includes("lifecycle requires Bash from a canonical system or Homebrew path") &&
+    lifecycleRunnerSource.includes("Bash 4 or newer"),
+  "lifecycle_must_reject_make_and_runtime_startup_bypasses",
+);
+for (const [target, expectedRecipe] of canonicalLifecycleRecipes) {
+  const recipe = makeRecipe(target);
+  assert(recipe.trim() === expectedRecipe, `canonical_lifecycle_recipe_drifted:${target}`);
+  assert(!recipe.includes("$("), `canonical_lifecycle_recipe_must_not_interpolate_make_variables:${target}`);
+}
 assert(makefileSource.includes("./scripts/publish-mobile.sh"), "publish_missing_mobile_upload");
 assert(makefileSource.includes("./scripts/publish-react-native.sh"), "publish_missing_react_native_package_upload");
 assert(!releaseSource.includes("git push"), "release_must_not_push_git_refs");
@@ -97,20 +434,313 @@ const submitAndroidBlock = makefileSource.slice(
 );
 assert(!submitAndroidBlock.includes("mobile-android-bundle"), "publish_android_must_consume_prepared_artifact");
 
-const deployImageVerifyIndex = deploySource.indexOf('if [[ "${SKIP_IMAGE_VERIFY}" != "true"');
+const deployImageVerifyIndex = deploySource.indexOf('release_digest="$(image_digest');
 assert(deployImageVerifyIndex >= 0, "deploy_missing_image_verification");
 assert(!deploySource.includes("make ci"), "deploy_must_not_run_ci_or_rebuild_artifacts");
 assert(!deploySource.includes("SKIP_CI"), "deploy_must_not_expose_legacy_ci_toggle");
 assert(!deploySource.includes("publish_container_artifacts"), "deploy_must_not_publish_containers");
-assert(deploySource.includes("make --no-print-directory pages-deploy"), "deploy_missing_pages_activation");
+assert(
+  deploySource.includes('"${repo_root}/scripts/release/deploy_pages_artifact.sh"'),
+  "deploy_missing_owned_pages_activation",
+);
 assert(
   deploySource.includes("is not published in the registry; run make publish"),
   "deploy_missing_publish_recovery_message",
 );
 assert(deploySource.includes("2>&1"), "deploy_image_inspect_must_capture_errors");
+assert(makefileSource.includes("deploy-dry-run:"), "deploy_dry_run_missing_makefile_target");
+assert(deploySource.includes("--dry-run"), "deploy_missing_dry_run_option");
+assert(
+  deploySource.includes("MPRLAB_DEPLOY_PREFLIGHT_ONLY is gateway-owned and cannot override the canonical lifecycle") &&
+    deploySource.includes("MPRLAB_LOOPAWARE_IMAGE_REF is derived from the published release and cannot be overridden") &&
+    deploySource.includes("MPRLAB_GATEWAY_EXPECTED_COMMIT is derived from the verified gateway checkout and cannot be overridden"),
+  "deploy_gateway_inputs_must_be_derived_and_non_overridable",
+);
+const pagesPreflightIndex = deploySource.indexOf('\n  --verify-only\n');
+const gatewayMutationIndex = deploySource.indexOf('echo "==> [deploy] Deploying LoopAware backend through mprlab-gateway"');
+const dryRunExitIndex = deploySource.indexOf('if [[ "${DRY_RUN}" == "true" ]]; then\n  echo "LoopAware deploy dry run passed');
+const pagesActivationIndex = deploySource.lastIndexOf('"${repo_root}/scripts/release/deploy_pages_artifact.sh"');
+assert(pagesPreflightIndex >= 0, "deploy_missing_pages_artifact_preflight");
+assert(gatewayMutationIndex > pagesPreflightIndex, "deploy_must_validate_pages_before_gateway_mutation");
+assert(dryRunExitIndex > gatewayMutationIndex, "deploy_dry_run_exit_missing_after_gateway_preflight");
+assert(pagesActivationIndex > dryRunExitIndex, "deploy_dry_run_must_exit_before_pages_activation");
+assert(
+  deploySource.includes("partial deploy flags are not supported by the canonical lifecycle"),
+  "canonical_deploy_must_reject_partial_flags",
+);
+assert(
+  deploySource.includes('[[ "${tag_sha}" == "${head_sha}" ]]'),
+  "deploy_must_require_release_tag_at_head",
+);
+assert(
+  deploySource.includes('[[ "${#head_release_tags[@]}" -eq 1 ]]'),
+  "deploy_must_require_exactly_one_release_tag_at_head",
+);
+assert(
+  deploySource.includes('assert_clean_default_branch "${repo_root}" LoopAware') &&
+    deploySource.includes('assert_clean_default_branch "${GATEWAY_DIR}" mprlab-gateway'),
+  "deploy_must_require_clean_default_branch_checkouts",
+);
+assert(
+  deploySource.includes('assert_canonical_github_origin "${repo_root}" LoopAware "tyemirov/loopaware"') &&
+    deploySource.includes('assert_canonical_github_origin "${GATEWAY_DIR}" mprlab-gateway "MarcoPoloResearchLab/mprlab-gateway"'),
+  "deploy_must_verify_canonical_repository_identities",
+);
+assert(!deploySource.includes("    --tag)"), "deploy_manual_tag_selection_forbidden");
+assert(deploySource.includes("DEPLOY_TAG is not supported"), "deploy_tag_environment_override_must_fail_closed");
+assert(
+  deploySource.includes("deploy-preflight-contract") &&
+    deploySource.includes("mprlab.loopaware-deploy.v2") &&
+    deploySource.includes("test-loopaware-deploy-preflight-contract") &&
+    deploySource.includes('MPRLAB_GATEWAY_EXPECTED_COMMIT="${gateway_commit}"') &&
+    deploySource.includes("deploy-loopaware-backend-preflight") &&
+    deploySource.includes("deploy-loopaware-backend"),
+  "deploy_missing_versioned_gateway_preflight_handshake",
+);
+assert(
+  deploySource.includes('candidate_lock_dir="${git_common_dir}/mprlab-loopaware-deploy.lock"') &&
+    deploySource.includes("acquire_gateway_lock") &&
+    deploySource.includes('gateway_lock_dir="${candidate_lock_dir}"') &&
+    deploySource.match(/assert_gateway_unchanged "\$\{gateway_commit\}"/g)?.length >= 3 &&
+    deploySource.match(/assert_loopaware_unchanged "\$\{loopaware_remote_default_sha\}"/g)?.length >= 4,
+  "deploy_must_lock_and_reassert_the_verified_gateway_commit",
+);
+assert(
+  deploySource.includes("verify_published_image_provenance") &&
+    deploySource.includes("verify_release_container_descriptor") &&
+    deploySource.includes('exact_image_ref="${IMAGE_REPOSITORY}@${release_digest}"') &&
+    deploySource.includes("published image must contain exactly one manifest") &&
+    deploySource.includes("does not match prepared descriptor"),
+  "deploy_missing_immutable_image_provenance_contract",
+);
+assert(
+  releaseHelperSource.includes('container_descriptor = "payloads/containers/loopaware/container.json"') &&
+    deploySource.includes("--pattern container.json") &&
+    deploySource.includes('"${release_artifact_directory}/container.json"'),
+  "github_release_must_publish_and_deploy_the_container_descriptor",
+);
+assert(
+  !deploySource.includes('make --no-print-directory pages-deploy'),
+  "deploy_must_call_owned_pages_deployer_without_make_variable_override",
+);
+assert(pagesDeploySource.includes("--verify-only"), "pages_deployer_missing_verify_only_option");
+assert(
+  pagesDeploySource.includes("--artifact-dir <path>") &&
+    pagesDeploySource.includes('gh release download "${version}" --repo tyemirov/loopaware') &&
+    pagesDeploySource.includes("gh api repos/tyemirov/loopaware/pages") &&
+    deploySource.match(/--artifact-dir "\$\{release_artifact_directory\}"/g)?.length === 2 &&
+    deploySource.includes('gh release download "${TAG}" --repo tyemirov/loopaware') &&
+    deploySource.includes("gh repo view tyemirov/loopaware"),
+  "deploy_must_download_release_assets_once_and_pin_explicit_github_repositories",
+);
+assert(
+  publishOrchestratorSource.includes("publication_attestation_path") &&
+    publishOrchestratorSource.includes("no provider upload was repeated") &&
+    publicationAttestationSource.includes("mprlab.loopaware-publication.v1") &&
+    publicationAttestationSource.includes("app-store-connect-upload-accepted") &&
+    publicationAttestationSource.includes("release_manifest_sha256") &&
+    publicationAttestationSource.includes("gh release upload") &&
+    releaseHelperSource.includes('publication_attestation = artifact_path / "publication.json"') &&
+    deploySource.includes("verify_publication_attestation") &&
+    deploySource.includes("--pattern publication.json"),
+  "deploy_must_require_a_complete_publication_attestation",
+);
+assert(
+  pagesDeploySource.indexOf('if [[ "${verify_only}" == "true" ]]') < pagesDeploySource.indexOf('git clone --no-checkout'),
+  "pages_verify_only_must_exit_before_clone_or_push",
+);
+assert(
+  !pagesDeploySource.includes("readarray -t release_values < <("),
+  "pages_manifest_read_must_not_use_hanging_process_substitution",
+);
+assert(
+  pagesDeploySource.includes('expected_source_commit="$(git rev-parse "${version}^{commit}^")"') &&
+    pagesDeploySource.includes('git archive "${source_commit}:web"') &&
+    pagesDeploySource.includes('diff -r "${expected_site_directory}" "${site_directory}"'),
+  "pages_verify_only_missing_exact_source_content_contract",
+);
+assert(makefileSource.includes("release-dry-run:"), "release_dry_run_missing");
+assert(
+    makefileSource.includes("publish-dry-run:") &&
+    makeRecipe("publish-dry-run").trim() ===
+      "@/bin/sh ./scripts/release/run_lifecycle.sh ./scripts/release/with_lifecycle_lock.sh publish-dry-run ./scripts/publish-preflight.sh",
+  "publish_dry_run_missing",
+);
+assert(
+  releasePreflightSource.includes("Building disposable release artifacts") &&
+    releasePreflightSource.includes("make --no-print-directory") &&
+    releasePreflightSource.includes('"${artifact_target_list[@]}"'),
+  "release_dry_run_must_build_disposable_artifacts",
+);
+assert(
+  publishPreflightSource.indexOf("./scripts/publish-release.sh --dry-run") <
+    publishPreflightSource.indexOf("publish_container_artifacts.sh --preflight-only") &&
+    publishPreflightSource.indexOf("publish_container_artifacts.sh --preflight-only") <
+      publishPreflightSource.indexOf("./scripts/publish-mobile.sh --preflight-only") &&
+    publishPreflightSource.indexOf("./scripts/publish-mobile.sh --preflight-only") <
+      publishPreflightSource.indexOf("./scripts/publish-react-native.sh --preflight-only"),
+  "publish_preflight_stage_order_invalid",
+);
+assert(
+  publishPreflightSource.includes("expected_manifest_sha256") &&
+    publishPreflightSource.includes("assert_manifest_unchanged") &&
+    publishPreflightSource.includes("prepared release manifest changed during publication preflight"),
+  "publish_preflight_must_pin_one_manifest_between_provider_checks",
+);
+assert(
+  publishPreflightSource.includes("gh repo view tyemirov/loopaware") &&
+    deploySource.includes("gh repo view tyemirov/loopaware"),
+  "github_permission_checks_must_name_the_canonical_repository",
+);
+assert(
+  publishMobileSource.indexOf("preflight_mobile_publication") < publishMobileSource.indexOf('echo "==> [publish] Uploading'),
+  "mobile_publish_must_preflight_both_stores_before_upload",
+);
+assert(
+  publishMobileSource.includes('node "${ios_submit_script}"') &&
+    publishMobileSource.includes('node "${android_publish_script}"') &&
+    !publishMobileSource.includes("make --no-print-directory submit-ios") &&
+    !publishMobileSource.includes("make --no-print-directory submit-android"),
+  "mobile_publication_must_invoke_fixed_scripts_without_make_recipe_interpolation",
+);
+assert(
+  androidPublishSource.includes("verifyAndroidPublisherAccess") &&
+    androidPublishSource.includes("track update authority") &&
+    androidPublishSource.includes("inspect existing Android Publisher bundles") &&
+    androidPublishSource.includes("assertPublishableVersionCode") &&
+    androidPublishSource.includes("validatedTrackState") &&
+    androidPublishSource.includes("existingTrackState.releases") &&
+    androidPublishSource.includes("changed metadata for an existing release") &&
+    androidPublishSource.includes("assertBundleSha256") &&
+    androidPublishSource.includes('method: "PUT"') &&
+    androidPublishSource.includes("verifyCommittedAndroidPublication") &&
+    androidPublishSource.includes("create Android Publisher verification edit") &&
+    androidPublishSource.includes("delete Android Publisher verification edit") &&
+    androidPublishSource.includes("committed Android track is missing retained versionCode") &&
+    androidPublishSource.includes("failed edit cleanup"),
+  "android_publication_must_preflight_inventory_preserve_track_and_postverify_commit",
+);
+assert(
+  androidPublishSource.includes('changesInReviewBehavior: "ERROR_IF_IN_REVIEW"') &&
+    androidPublishSource.includes("unknown option: --") &&
+    !androidPublishSource.includes('options.get("track")') &&
+    !androidPublishSource.includes('options.get("quota-project")'),
+  "android_publication_must_reject_unknown_destinations_and_pending_review_mutation",
+);
+assert(
+  iosSubmitSource.includes('packageCommand("--validate-app"') &&
+    iosSubmitSource.includes('packageCommand("--upload-package"'),
+  "ios_publish_preflight_must_validate_exact_app_before_upload",
+);
+assert(containerPublishSource.includes("--preflight-only"), "container_publish_preflight_missing");
+assert(
+  containerPublishSource.includes("blobs/uploads/") &&
+    containerPublishSource.includes('--request DELETE') &&
+    containerPublishSource.includes("GHCR preflight upload cleanup failed"),
+  "container_publish_preflight_must_prove_write_authority_and_cleanup",
+);
+assert(
+  containerPublishSource.includes("verify_prepared_container_archive") &&
+    containerPublishSource.includes("verify_container_archive_loadability") &&
+    containerPublishSource.includes("prepared container image id") &&
+    containerPublishSource.includes("https://github.com/tyemirov/loopaware"),
+  "container_publish_must_verify_archive_identity_and_labels_before_push",
+);
+assert(
+  containerPublishSource.includes('sources+=("${image}@${push_platform_digest}")') &&
+    containerPublishSource.includes("published_linux_amd64_digest") &&
+    containerPublishSource.includes("does not match pushed digest"),
+  "container_publish_must_pin_and_verify_the_registry_push_digest",
+);
+assert(
+  containerPrepareSource.includes("{{.Os}}/{{.Architecture}}") &&
+    containerPublishSource.includes("remote_version_platform_digest") &&
+    containerPublishSource.includes("existing version index must contain exactly one manifest") &&
+    containerPublishSource.includes("remote_single_platform_index_digest") &&
+    containerPublishSource.includes("existing mutable index must contain exactly one manifest") &&
+    containerPublishSource.includes("published image must contain exactly one manifest") &&
+    containerPublishSource.includes("Preserving immutable existing") &&
+    containerPublishSource.includes("loaded image platform") &&
+    stagedArtifactVerifierSource.includes("container archive image config is not linux/amd64"),
+  "container_version_and_platform_publication_must_be_immutable",
+);
+assert(
+  pagesDeploySource.includes("PAGES_VERIFY_ATTEMPTS must be an integer from 1 through 120") &&
+    pagesDeploySource.includes("PAGES_VERIFY_DELAY_SECONDS must be an integer from 0 through 300"),
+  "pages_verification_arithmetic_inputs_must_be_bounded_decimals",
+);
+assert(
+  containerPrepareSource.includes("assert_local_docker_endpoint") &&
+    containerPublishSource.includes("assert_local_docker_endpoint") &&
+    dockerIdentitySource.includes("DOCKER_HOST DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH") &&
+    dockerIdentitySource.includes("docker context inspect") &&
+    dockerIdentitySource.includes("unix://*|npipe://*") &&
+    dockerIdentitySource.includes("canonical lifecycle requires a local Docker endpoint"),
+  "container_lifecycle_must_reject_remote_docker_endpoints",
+);
+assert(
+  integrationRunnerSource.includes("rejects inherited ${variable_name}") &&
+    integrationRunnerSource.includes("docker context inspect") &&
+    integrationRunnerSource.includes("requires a local Docker context") &&
+    integrationRunnerSource.includes('export LOOPAWARE_BASE_URL=http://localhost:8090') &&
+    integrationRunnerSource.includes('export LOOPAWARE_ENV_FILE=${test_config_dir}/loopaware.env'),
+  "integration_runner_must_be_isolated_from_production_ambient_state",
+);
+assert(
+  releaseHelperSource.includes("existing GitHub Release metadata is immutable") &&
+    releaseHelperSource.includes("existing GitHub Release asset is immutable") &&
+    releaseHelperSource.includes("release_asset_plan") &&
+    !releaseHelperSource.includes('"--clobber"'),
+  "github_release_metadata_and_assets_must_be_immutable",
+);
+assert(
+  publishReactNativeSource.includes("npm registry lookup failed") &&
+    !publishReactNativeSource.includes('view "${package_spec}" dist.integrity --json 2>/dev/null || true'),
+  "npm_publication_lookup_must_fail_closed",
+);
+assert(
+  publishReactNativeSource.includes("must be bootstrapped once before the canonical lifecycle can prove write authority") &&
+    publishReactNativeSource.includes("access set status=public") &&
+    publishReactNativeSource.includes("verify_public_status") &&
+    publishReactNativeSource.includes("refusing to move latest backward") &&
+    publishReactNativeSource.includes("npm post-publication visibility verification") &&
+    publishReactNativeSource.includes("dist-tag add"),
+  "npm_preflight_must_prove_existing_package_write_authority_or_fail_closed",
+);
+assert(
+  publishReactNativeSource.includes("prepared React Native package name is not @loopaware/react-native") &&
+    publishReactNativeSource.includes('canonical_registry="https://registry.npmjs.org/"') &&
+    publishReactNativeSource.includes("React Native publication arguments are not part of the canonical lifecycle contract") &&
+    publishReactNativeSource.includes("--dry-run=false") &&
+    publishReactNativeSource.includes("--tag latest"),
+  "react_native_publication_destination_must_be_canonical",
+);
+assert(
+  publishMobileSource.includes("verify-release-artifact"),
+  "mobile_publication_must_reverify_the_outer_release_manifest",
+);
+assert(
+  publishMobileSource.includes("prepared mobile artifacts do not share one versioning identity") &&
+    publishMobileSource.includes("prepared mobile artifact timestamp does not match the outer release manifest") &&
+    publishMobileSource.includes("do not blindly retry") &&
+    iosSubmitSource.includes("does not match the publication release identity") &&
+    androidPublishSource.includes("does not match the publication release identity"),
+  "mobile_publication_must_pin_one_timestamp_and_report_partial_outcomes",
+);
+assert(
+  !androidPublishSource.includes("process.env.MOBILE_ANDROID_PLAY_TRACK") &&
+    !androidPublishSource.includes("process.env.MOBILE_ANDROID_PLAY_STATUS") &&
+    !androidPublishSource.includes("process.env.GOOGLE_CLOUD_QUOTA_PROJECT") &&
+    androidPublishSource.includes("delete failed Android Publisher release edit"),
+  "android_publication_destination_and_cleanup_contract_missing",
+);
+for (const source of [pagesDeploySource, publishMobileSource, publishReactNativeSource, containerPublishSource]) {
+  assert(!source.match(/(?:readarray|mapfile)[^\n]*< <\(/), "release_script_hanging_process_substitution_forbidden");
+}
 
 assert(normalizedReadmeSource.includes("`make release` prepares"), "readme_missing_local_release_contract");
 assert(normalizedReadmeSource.includes("`make publish` publishes"), "readme_missing_publish_contract");
+assert(normalizedReadmeSource.includes("`make deploy-dry-run`"), "readme_missing_deploy_dry_run_contract");
 
 console.log("release workflow validation passed");
 
@@ -120,6 +750,22 @@ console.log("release workflow validation passed");
  */
 function readText(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+}
+
+/**
+ * @param {string} target
+ * @returns {string}
+ */
+function makeRecipe(target) {
+  const lines = makefileSource.split("\n");
+  const targetIndex = lines.findIndex((line) => line.startsWith(`${target}:`));
+  assert(targetIndex >= 0, `make_target_missing:${target}`);
+  const recipeLines = [];
+  for (let index = targetIndex + 1; index < lines.length && lines[index].startsWith("\t"); index += 1) {
+    recipeLines.push(lines[index].slice(1));
+  }
+  assert(recipeLines.length > 0, `make_recipe_missing:${target}`);
+  return recipeLines.join("\n");
 }
 
 /**

@@ -181,7 +181,7 @@ TAUTH_SESSION_COOKIE_NAME=loopaware_development_session \
 PUBLIC_BASE_URL=http://localhost:8080 \
 PINGUIN_ADDR=localhost:50051 \
 PINGUIN_AUTH_TOKEN=replace-with-pinguin-token \
-PINGUIN_TENANT_ID=loopaware-local \
+PINGUIN_TENANT_ID=loopaware \
 go run ./cmd/server --config=configs/config.loopaware.yml
 ```
 
@@ -484,6 +484,9 @@ make test
 Use `make test-unit` for Go-only tests and `make test-integration-api` to focus on API specs. Playwright artifacts
 (traces, screenshots, videos) land under `tests/test-results/` on failure. The integration runner tears its compose
 project down on exit, including failures and signal exits.
+The runner rejects inherited `LOOPAWARE_BASE_URL`, `LOOPAWARE_ENV_FILE`, `COMPOSE_PROJECT_NAME`, `DOCKER_HOST`,
+`DOCKER_CONTEXT`, and Docker TLS inputs; requires a local `unix://` or `npipe://` Docker endpoint; and supplies its own
+localhost URL, test env file, and unique Compose project.
 
 Use `make test-live-favicons` when validating customer-site favicon collection against known public websites. That
 target performs live network requests and is intentionally outside `make ci` so third-party uptime does not gate normal
@@ -494,32 +497,141 @@ development.
 Use the deterministic release-to-production sequence:
 
 ```bash
+make release-dry-run
 make release
+make publish-dry-run
 make publish
+make deploy-dry-run
 make deploy
 ```
+
+The gates are phase-specific because publication and deployment inputs do not exist before their
+preceding phase. Do not collapse or reorder them.
+
+The presence of these targets is not an operational guarantee. One release is ready only when all
+three dry-run gates pass in order for the same source and release, with the gateway on its exact
+default branch and reporting the required versioned contract. A failed or unavailable gate means
+the lifecycle is not operationally proven.
+
+Lifecycle commands require Bash 4 or newer at a canonical system or Homebrew path. They reject
+Make's no-execute, ignore-errors, touch, and question modes; caller-selected shells; shell startup
+hooks; exported Bash functions and option sets; Python/Node startup-path overrides; raw argument
+fragments; and unsupported destination overrides. Supported Make values are consumed literally, so Make functions embedded in a value are
+not executed by the lifecycle. These checks protect the command contract; they do not make a dirty
+or unmerged implementation operational. On macOS, install Homebrew Bash and ensure Bash 4+ resolves
+before Apple's Bash 3 in `PATH`.
+
+`make release-dry-run` requires local `master` and every stable release tag to match `origin`, then runs the
+clean/default-branch release preflight, full `make ci`, and every
+artifact builder against a disposable staging directory. It performs the real iOS, Android,
+container, React Native, and Pages builds, verifies the exact nine-file artifact inventory and its
+schemas, hashes, identities, mobile API/TAuth/redirect/signing configuration, and source provenance,
+then deletes the disposable payloads without
+changing the changelog, creating a commit/tag, or publishing anything. Container and Pages inputs
+are reconstructed from the exact source commit; the mobile project is reconstructed from the same
+commit before the signed native builds. Ignored source files and inherited `EXPO_PUBLIC_*` values
+therefore cannot enter those artifacts. The real release runs the same unbounded `make ci` command
+as the dry run; machine-local Git hooks and signing preferences are not part of release commit/tag
+creation. The shared release env file is parsed as strict allowlisted data; it is never executed as
+shell code, and unknown or duplicate keys fail the gate. Docker-backed CI also rejects inherited
+base URLs, env files, Compose project names, and remote Docker endpoints before it starts the
+repository-owned local test stack. Release and publication container stages likewise reject Docker
+environment overrides and any selected context whose effective endpoint is not local `unix://` or
+`npipe://`.
 
 `make release` prepares the complete release from local state. It rejects a dirty or non-default
 branch, runs `make ci`, builds signed iOS and Android artifacts under `.git/mprlab-release`, writes their
 hash manifests, updates `CHANGELOG.md`, creates the local release commit and annotated tag, and
 writes `.git/mprlab-release/manifest.json`. It never fetches, pushes, calls GitHub, uploads a store
-build, publishes Pages, or deploys production.
+build, publishes Pages, or deploys production. Repeating the command against that exact prepared
+commit/tag verifies and reports the existing nine-payload release instead of selecting a new version;
+any other local divergence from `origin/master` fails closed.
 
-`make publish` publishes that prepared release. It verifies that `origin/master` still matches the
+`make publish-dry-run` requires the exact prepared release from `make release`. It verifies its
+payload hashes, GitHub release plan and repository write permission, required `linux/amd64`
+container artifact, archive loadability, embedded OCI labels, GHCR push authority, exact iOS archive through App Store Connect validation,
+and Google Play edit/track write authority. For npm it verifies matching integrity when the exact version already exists; for a new
+version it requires the canonical package to have been bootstrapped already, verifies the current identity's package ACL, writes the
+already-public visibility value back through the registry, and confirms that it remained public. A package that has never been
+published fails closed because npm exposes no non-publishing first-publication authority probe. The GHCR check creates an empty upload
+session; the Play check creates an empty edit and writes the unchanged `internal` track inside it. A successful preflight confirms
+deletion of both transient resources. No image tag, store build, live track, GitHub Release, or npm version is published, but
+interruption or cleanup failure is still a failed preflight and may require provider-side inspection.
+The Play probe also lists all existing bundles, rejects an already-used or non-monotonic prepared
+`versionCode`, and rejects an active/manual rollout that the canonical completed release would replace.
+Run Play publication with a dedicated automation identity: creating a new edit can invalidate another
+open edit for the same app and identity, even though this preflight deletes the edit it creates.
+
+`make publish` reruns that complete publication preflight before its first durable publication mutation, then publishes
+the prepared release. One repository-common lifecycle lock serializes release, publish, and deploy,
+and one manifest digest is held across every publication stage so concurrent or mixed release identities fail closed.
+Raw `RELEASE_ARGS`, `PUBLISH_RELEASE_ARGS`, and `DEPLOY_ARGS` shell fragments are rejected rather than appended to recipes.
+Publication verifies that `origin/master` still matches the
 source commit recorded by `make release`, checks open pull requests, pushes the release commit and
-tag, creates or updates the GitHub Release object, publishes the Docker runtime image, and uploads
-the already-built mobile artifacts to App Store Connect/TestFlight and Google Play Internal testing.
+tag, creates a missing GitHub Release object or verifies an existing exact object, publishes the Docker
+runtime image and React Native npm package, then uploads the already-built mobile artifacts to App
+Store Connect/TestFlight and Google Play Internal testing as the final publication stage. Existing
+GitHub operations require exactly one canonical `origin` URL, reject a separate
+`remote.origin.pushurl`, require both effective fetch and push URLs to remain canonical after Git
+`insteadOf`/`pushInsteadOf` processing, reject `GH_REPO`, and accept only an empty `GH_HOST` or `github.com`.
+Existing GitHub Release metadata and assets are immutable: exact files are preserved, missing files are added,
+and any metadata, extra-asset, or content mismatch aborts without `--clobber`. Existing versioned GHCR
+references must resolve to the prepared `linux/amd64` config and digest; exact reruns preserve them and
+only reconcile `latest`. Before reconciling `latest`, publication requires its existing index, when
+present, to contain exactly one `linux/amd64` platform and no foreign platform entries.
+The container descriptor is also an immutable GitHub Release asset. Google Play publication retains
+every existing completed release object and its metadata, verifies the uploaded AAB hash, refuses to
+cancel a change already in Play review, commits the edit, and opens a second read-only verification edit
+to prove the committed bundle hash and exact track state.
 It pushes:
 
 - `ghcr.io/tyemirov/loopaware:latest`
 - `ghcr.io/tyemirov/loopaware:<tag>`
+- `ghcr.io/tyemirov/loopaware:<tag>-linux-amd64` as the canonical platform manifest used by both pinned indexes
 
-`make deploy` reads the canonical `.mprlab/deploy/resources.yml` contract, verifies that `latest`
-and the current release tag resolve to the same published Docker image, deploys and verifies the
-backend through the `mprlab-gateway` backend-only target, then activates the published Pages archive
-through `pages-deploy`. It does not rerun CI, rebuild an artifact, or repair missing publication. The
-release tag is derived from the exact v* tag at the app repository `HEAD`; if an artifact is missing,
-run `make publish` before deploy.
+Only after GitHub, GHCR, npm, App Store Connect upload acceptance, and Google Play all succeed does
+publication upload an immutable `publication.json` completion attestation bound to the prepared
+manifest digest. `make publish` detects a local completion attestation before any provider stage and
+performs verification only, so it never blindly repeats single-use mobile uploads. If every provider
+stage succeeded but the final attestation upload failed, inspect the provider states and recover by
+running `scripts/release/record_publication.sh` explicitly with the pinned manifest digest; do not
+delete the local attestation or rerun the provider stages.
+
+`make deploy-dry-run` requires clean LoopAware and gateway checkouts on their exact remote default
+branches and verifies both canonical GitHub repository identities. It verifies the release tag,
+the exact complete-publication attestation,
+tagged/`latest` registry digest, `linux/amd64` OCI source and
+version labels, published Pages archive content against the tagged release source, GitHub Pages
+administration permission, and the exact versioned gateway handshake
+`mprlab.loopaware-deploy.v2`. The v2 contract requires the gateway's own executable contract test and
+a distinct `deploy-loopaware-backend-preflight` target; a caller-controlled mode flag is not accepted.
+The gate locks the verified gateway Git common directory, reasserts the exact gateway commit before
+and after handoff, and passes both that commit and the immutable registry digest—not `latest`—into the gateway
+preflight. It downloads the release manifest, complete-publication attestation, container descriptor,
+and Pages archive once, verifies the attestation and registry image config against those exact bytes,
+and reuses the same verified Pages payload. It contacts Git remotes, GitHub, and GHCR, but exits before a sudo prompt, SSH, remote
+Ansible execution, container changes, Pages branch pushes, or Pages configuration changes. It fails
+closed when the gateway default branch does not implement that contract.
+
+Only after `make deploy-dry-run` succeeds, `make deploy` reruns the release/image/Pages authorization checks, passes the immutable image digest
+to the gateway backend target, and only then enters the user-owned remote preflight/deploy/verify
+sequence. After backend verification it activates the already-validated Pages archive. It does not
+rerun CI, rebuild, redownload the Pages payload, or repair missing publication. The gateway v2 contract and real deploy must prove
+remote sudo/SSH, current host capacity, architecture, registry pull, DNS/TLS, container startup, and
+authenticated TAuth/Pinguin behavior. Branch-rule enforcement and provider availability remain
+remote/write-time state. The lifecycle remains blocked whenever those executable gateway checks are
+absent; a local target or mocked handshake is not a substitute.
+
+GitHub, GHCR, App Store Connect, Google Play, npm, backend deployment, and Pages activation do not
+share a transaction. The preflights check known missing-value, credential, API-enable, destination,
+and artifact-drift failure classes before durable publication or activation. A pass is a time-bound
+snapshot; provider and permission state can change immediately afterward. The checks cannot make the
+multi-provider workflow atomic or guarantee rollback after a provider outage or artifact-specific
+rejection. In particular, Apple build strings and Google Play `versionCode` values are single-use. If one mobile store accepts its
+build and the other store then fails, do not blindly rerun the same mobile publication; inspect both provider states and prepare a
+new release timestamp/build identity.
+An App Store Connect upload command succeeding proves synchronous upload acceptance only; Apple's
+subsequent build processing remains asynchronous provider state and is not claimed by this lifecycle.
 
 GitHub Actions does not own this production lifecycle. The Makefile targets own preparation,
 publication, and activation in that order.
@@ -527,9 +639,12 @@ publication, and activation in that order.
 The React Native feedback client uses the same artifact lifecycle. Bump
 `clients/react-native/package.json` and its lockfile before the repository release. `make release` builds and packs
 `@loopaware/react-native` into the prepared release, and `make publish` publishes that exact tarball to npm without
-rebuilding it. Configure local npm authentication with `npm login` or `NODE_AUTH_TOKEN` before publication. If the
+rebuilding it. Bootstrap the public `@loopaware/react-native` package once before using the canonical lifecycle, then configure local
+npm authentication with `npm login`, `NODE_AUTH_TOKEN`, or `NPM_API_KEY`. Publication preflight deliberately rejects an absent
+package because `npm publish --dry-run` validates only the local package and does not prove registry write authority. If the
 same package version is already present, publication succeeds only when its registry integrity matches the prepared
-tarball; npm version reuse with different content is rejected.
+tarball, the package remains public, and `latest` points at that version after publication. A prepared version older than
+the current `latest` is rejected, and npm version reuse with different content is rejected.
 
 The native operator mobile app is built by `make release` and uploaded by `make publish`. The
 lower-level targets keep artifact creation and store upload separate:
@@ -550,11 +665,9 @@ only when a deterministic rebuild needs to reuse a specific release timestamp.
 `make build-ios` runs a local Expo prebuild with the generated CalVer version and build number, creates a signed Xcode
 archive, exports an App Store Connect IPA under `mobile/dist/`, and writes a build manifest beside it. `make submit-ios`
 verifies App Store Connect upload identity and the prepared manifest hash, then uploads that existing IPA with
-`xcrun altool`. Configure either
-App Store Connect API key inputs
-(`APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_API_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_PATH`) or
-`MOBILE_IOS_APPLE_ID`/`APPLE_ID` plus an app-specific password in `MOBILE_IOS_APP_SPECIFIC_PASSWORD`. Set
-`MOBILE_IOS_ASC_APP_ID` or `LOOPAWARE_MOBILE_IOS_ASC_APP_ID` to the numeric App Store Connect app Apple ID; this is the
+`xcrun altool`. Configure the canonical App Store Connect API key inputs
+(`APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_API_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_PATH`) and set
+`MOBILE_IOS_ASC_APP_ID` to the numeric App Store Connect app Apple ID; this is the
 app record id passed to `altool --apple-id`, not the operator login email.
 For the normal lifecycle, keep these values in `configs/.env.loopaware`; release uses signing inputs locally and publish
 uses the store-upload inputs.
@@ -571,10 +684,12 @@ through the Google Play Android Publisher API to the `internal` track. Configure
 `https://www.googleapis.com/auth/androidpublisher` scope. The Android release identity in
 `mobile/android-release-identity.json` supplies the default Google Cloud quota project (`loopaware`) and the expected
 Google Play upload-key certificate fingerprint, matching the
-Kamu Google Play publishing contract; pass `MOBILE_ANDROID_PUBLISH_ARGS="--quota-project <project-id>"` only when
-intentionally publishing through a different quota project. Store the real upload keystore and `keystore.properties`
+Kamu Google Play publishing contract. The package, quota project, track, and completed status are fixed by that
+identity; publication argument overrides are rejected. Store the real upload keystore and `keystore.properties`
 outside the repository; `make submit-android` fails if the configured keystore is missing or its certificate fingerprint
-does not match the tracked release identity. Google Play still requires the first app upload to be performed manually
+does not match the tracked release identity. Submission preserves every existing completed release and its metadata,
+appends the new completed release, and fails rather than canceling a change already in Play review. Google Play still
+requires the first app upload to be performed manually
 before API-based submissions work.
 
 The combined `make submit-mobile` target uploads iOS first and then Android. Keep Apple API keys, app-specific
