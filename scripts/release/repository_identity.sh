@@ -106,7 +106,7 @@ assert_remote_default_and_release_tags() {
     remote_tag_commit="$(awk -v direct="${remote_tag_ref}" -v peeled="${remote_tag_ref}^{}" '
       $2 == peeled { peeled_sha=$1 }
       $2 == direct { direct_sha=$1 }
-      END { print peeled_sha != "" ? peeled_sha : direct_sha }
+      END { if (peeled_sha != "") print peeled_sha; else print direct_sha }
     ' <<<"${remote_refs}")"
     local_tag_commit="$(git -C "${directory}" rev-list -n 1 "${remote_tag_ref}")"
     [[ "${local_tag_commit}" == "${remote_tag_commit}" ]] || {

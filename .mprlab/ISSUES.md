@@ -552,6 +552,28 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, and `scripts/test-lifecycle-orchestration.sh`.
 
+- [x] [B045] (P0) Make remote release-tag verification portable to the production Mac.
+  Goal:
+  Prevent `make release` from failing before preparation when macOS BSD `awk` parses the remote annotated-tag resolver.
+
+  Requirements:
+  Keep remote default-branch and stable-tag identity verification fail-closed. Do not retry release or publication while repairing the non-mutating preflight path.
+
+  Deliverables:
+  - Replace the parser-ambiguous `awk` ternary with the repository's canonical explicit peeled-tag selection.
+  - Exercise a pushed annotated stable tag through the real repository identity boundary.
+  - Run the non-mutating release workflow contract on macOS CI with canonical Bash and core utilities so production-Mac portability cannot remain Ubuntu-only.
+  - Keep the workflow contract statically enforced by the repository validator.
+
+  Resolution:
+  Replaced the parser-ambiguous remote annotated-tag ternary with the repository's explicit peeled-tag `if/else` selection. The lifecycle fixture now pushes an annotated stable tag before repository identity validation, so macOS BSD `awk` executes the previously skipped path. GitHub Actions now has a separate non-mutating macOS 15 release-contract job with pinned Node and Python plus canonical Homebrew Bash/coreutils, and the repository validator scopes and enforces that complete job contract.
+
+  Validation:
+  The original expression reproduced the reported BSD `awk` syntax error while the prior lifecycle target and baseline `make ci` passed, proving the false-negative. After the fix, `make lifecycle-orchestration-contract-check` passed on macOS, the same script passed in a clean Ubuntu 24.04 container, workflow YAML parsing and shell syntax checks passed, `make release-workflow-check` passed all six focused suites plus static validation, and final `make ci` passed with all 454 Playwright/API specs. No release, publication, or deployment target was invoked.
+
+  Changed Files:
+  `PLAN.md`, `.github/workflows/ci.yml`, `.mprlab/ISSUES.md`, `scripts/release/repository_identity.sh`, `scripts/test-lifecycle-orchestration.sh`, and `scripts/validate-release-workflow.mjs`.
+
 
 ## Improvements
 
