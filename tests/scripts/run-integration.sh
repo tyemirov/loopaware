@@ -8,9 +8,22 @@ compose_file="${repo_root}/tests/docker-compose.yml"
 cleanup_guardian_pid=""
 cleanup_complete=0
 
-export LOOPAWARE_BASE_URL=${LOOPAWARE_BASE_URL:-http://localhost:8090}
-export LOOPAWARE_ENV_FILE=${LOOPAWARE_ENV_FILE:-${test_config_dir}/loopaware.env}
-export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-loopaware-integration-$(date +%s)}
+for variable_name in LOOPAWARE_BASE_URL LOOPAWARE_ENV_FILE COMPOSE_PROJECT_NAME DOCKER_HOST DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH; do
+  if [[ -n "${!variable_name:-}" ]]; then
+    echo "Integration runner rejects inherited ${variable_name}; canonical local test isolation is mandatory." >&2
+    exit 1
+  fi
+done
+docker_context="$(docker context show)"
+docker_endpoint="$(docker context inspect "${docker_context}" --format '{{.Endpoints.docker.Host}}')"
+[[ "${docker_endpoint}" == unix://* || "${docker_endpoint}" == npipe://* ]] || {
+  echo "Integration runner requires a local Docker context, got ${docker_context}: ${docker_endpoint}" >&2
+  exit 1
+}
+
+export LOOPAWARE_BASE_URL=http://localhost:8090
+export LOOPAWARE_ENV_FILE=${test_config_dir}/loopaware.env
+export COMPOSE_PROJECT_NAME=loopaware-integration-$(date +%s)-$$-${RANDOM}
 compose_project_name="${COMPOSE_PROJECT_NAME}"
 
 get_process_start_time() {
