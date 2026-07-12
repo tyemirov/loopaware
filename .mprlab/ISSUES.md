@@ -954,12 +954,16 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `ARCHITECTURE.md`, `PRD.md`, `README.md`, `tests/specs/seo-public-pages.spec.js`, public HTML pages under `web/`, all resource detail pages under `web/resources/`, `web/resources/index.html`, `web/resources/styles.css`, `web/robots.txt`, `web/sitemap.xml`.
 
-- [ ] [I033] (P1) Embed traffic pixel script in LoopAware core pages.
+- [x] [I033] (P1) Embed traffic pixel script in LoopAware core pages.
   ### Summary
   The LoopAware website does not load the traffic pixel (`pixel.js`), resulting in 0 tracked visits on its own dashboard.
   ### Deliverables
   - Add the traffic pixel script `<script defer src="https://loopaware.mprlab.com/pixel.js?site_id=a3222433-92ec-473a-9255-0797226c2273"></script>` to LoopAware's core HTML pages: `web/index.html`, `web/login/index.html`, `web/pricing/index.html`, `web/privacy/index.html`, `web/terms/index.html`, and `web/app/index.html`.
   - Fix pre-existing Go lint issues in the repository.
+  ### Resolution
+  Manually embedded the canonical traffic pixel script tag on all core HTML pages of the static frontend. Fixed pre-existing TypeScript index signature typing errors in the mobile scripts (`publish-android-play.mjs` and `submit-ios.mjs`). Verified all checks pass cleanly with `make lint` and the unit test suite.
+  ### Changed Files
+  `web/index.html`, `web/login/index.html`, `web/pricing/index.html`, `web/privacy/index.html`, `web/terms/index.html`, `web/app/index.html`, `mobile/scripts/publish-android-play.mjs`, `mobile/scripts/submit-ios.mjs`.
 
 ## Maintenance
 
