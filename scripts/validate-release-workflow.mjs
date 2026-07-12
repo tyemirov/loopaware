@@ -39,6 +39,8 @@ const androidPublishSource = readText("mobile/scripts/publish-android-play.mjs")
 const iosSubmitSource = readText("mobile/scripts/submit-ios.mjs");
 const iosBuildSource = readText("mobile/scripts/build-ios-archive.mjs");
 const androidBuildSource = readText("mobile/scripts/build-android-bundle.mjs");
+const mobilePackage = JSON.parse(readText("mobile/package.json"));
+const mobilePackageLock = JSON.parse(readText("mobile/package-lock.json"));
 const releaseToolFiles = [
   "prepare_release.sh",
   "publish_release.sh",
@@ -279,6 +281,20 @@ assert(
     stagedArtifactVerifierSource.includes("Android build manifest has a noncanonical runtime configuration") &&
     stagedArtifactVerifierSource.includes("iOS build manifest has a noncanonical signing configuration"),
   "release_mobile_build_environment_must_be_canonical",
+);
+assert(
+  mobilePackage.devDependencies?.["pod-install"] === "1.1.0" &&
+    mobilePackageLock.packages?.[""]?.devDependencies?.["pod-install"] === "1.1.0" &&
+    mobilePackageLock.packages?.["node_modules/pod-install"]?.version === "1.1.0" &&
+    iosBuildSource.includes('run(["npm", "ci", "--include=dev"]') &&
+    iosBuildSource.includes('run(["npx", "--no-install", "pod-install", "ios"]'),
+  "release_ios_archive_must_install_and_use_locked_pod_install",
+);
+const mobileArtifactRecipe = makeRecipe("mobile-release-artifacts");
+assert(
+  mobileArtifactRecipe.includes("set -e;") &&
+    mobileArtifactRecipe.indexOf("build-ios-archive.mjs") < mobileArtifactRecipe.indexOf("build-android-bundle.mjs"),
+  "release_mobile_artifact_builders_must_fail_fast_in_ios_then_android_order",
 );
 const reactNativeArtifactRecipe = makeRecipe("client-react-native-artifact");
 assert(

@@ -19,6 +19,55 @@ set -e
 [[ "${artifact_override_status}" -ne 0 ]]
 [[ "${artifact_override_output}" == *"release requires the canonical artifact target set"* ]]
 
+fail_fast_repository="${temporary_directory}/mobile-fail-fast-source"
+fail_fast_artifact_directory="${temporary_directory}/mobile-fail-fast-artifacts"
+fail_fast_bin="${temporary_directory}/mobile-fail-fast-bin"
+android_builder_sentinel="${temporary_directory}/android-builder-ran"
+mkdir -p "${fail_fast_repository}/mobile" "${fail_fast_artifact_directory}" "${fail_fast_bin}"
+printf '{"name":"mobile-fail-fast-fixture","private":true}\n' >"${fail_fast_repository}/mobile/package.json"
+git -C "${fail_fast_repository}" init -b master >/dev/null
+git -C "${fail_fast_repository}" config user.name "Mobile Artifact Contract"
+git -C "${fail_fast_repository}" config user.email "mobile-artifact@mprlab.invalid"
+git -C "${fail_fast_repository}" add mobile/package.json
+git -C "${fail_fast_repository}" commit -m "Add mobile artifact fixture" >/dev/null
+fail_fast_source_commit="$(git -C "${fail_fast_repository}" rev-parse HEAD)"
+cat >"${fail_fast_bin}/npm" <<'SH_NPM'
+#!/bin/sh
+exit 0
+SH_NPM
+cat >"${fail_fast_bin}/node" <<'SH_NODE'
+#!/bin/sh
+case "$1" in
+  mobile/scripts/build-ios-archive.mjs)
+    echo "fixture iOS artifact builder failed" >&2
+    exit 23
+    ;;
+  mobile/scripts/build-android-bundle.mjs)
+    : >"${ANDROID_BUILDER_SENTINEL:?}"
+    exit 0
+    ;;
+  *)
+    exit 0
+    ;;
+esac
+SH_NODE
+chmod +x "${fail_fast_bin}/npm" "${fail_fast_bin}/node"
+set +e
+fail_fast_output="$(
+  cd "${fail_fast_repository}"
+  PATH="${fail_fast_bin}:${PATH}" \
+    ANDROID_BUILDER_SENTINEL="${android_builder_sentinel}" \
+    make -f "${repo_root}/Makefile" --no-print-directory \
+      RELEASE_ARTIFACT_DIR="${fail_fast_artifact_directory}" \
+      RELEASE_SOURCE_COMMIT="${fail_fast_source_commit}" \
+      mobile-release-artifacts 2>&1
+)"
+fail_fast_status=$?
+set -e
+[[ "${fail_fast_status}" -ne 0 ]]
+[[ "${fail_fast_output}" == *"fixture iOS artifact builder failed"* ]]
+[[ ! -e "${android_builder_sentinel}" ]]
+
 fixture_repository="${temporary_directory}/source"
 artifact_directory="${temporary_directory}/artifact"
 mkdir -p "${fixture_repository}/web" "${artifact_directory}/payloads/release-assets" "${artifact_directory}/payloads/containers/loopaware"

@@ -61,8 +61,15 @@ assert(!fs.existsSync(path.join(mobileRoot, "app.json")), "mobile_config_legacy_
 assert(!fs.existsSync(path.join(mobileRoot, "eas.json")), "mobile_config_legacy_eas_json: use local store build and submit scripts");
 
 const packageJSON = readJSON("mobile/package.json");
+const packageLockJSON = readJSON("mobile/package-lock.json");
 assert(packageJSON.dependencies?.expo === "~56.0.12", "mobile_config_expo_patch_version_outdated");
 assert(packageJSON.overrides?.uuid === "^11.1.1", "mobile_config_missing_uuid_audit_override");
+assert(packageJSON.devDependencies?.["pod-install"] === "1.1.0", "mobile_config_missing_locked_pod_install");
+assert(
+  packageLockJSON.packages?.[""]?.devDependencies?.["pod-install"] === "1.1.0" &&
+    packageLockJSON.packages?.["node_modules/pod-install"]?.version === "1.1.0",
+  "mobile_config_lock_missing_pod_install",
+);
 
 const requiredDependencies = [
   "expo-auth-session",
@@ -308,7 +315,22 @@ assert(iosArchiveSource.includes("createMobileCalVerVersion"), "mobile_ios_archi
 assert(iosArchiveSource.includes("LOOPAWARE_MOBILE_VERSION"), "mobile_ios_archive_missing_calver_version_env");
 assert(iosArchiveSource.includes("LOOPAWARE_MOBILE_IOS_BUILD_NUMBER"), "mobile_ios_archive_missing_build_number_env");
 assert(iosArchiveSource.includes("expo\", \"prebuild\""), "mobile_ios_archive_missing_expo_prebuild");
-assert(iosArchiveSource.includes("pod-install"), "mobile_ios_archive_missing_pod_install");
+assert(
+  iosArchiveSource.includes('run(["npm", "ci", "--include=dev"]'),
+  "mobile_ios_archive_must_install_locked_development_tools",
+);
+assert(
+  iosArchiveSource.includes('run(["npx", "--no-install", "expo", "prebuild", "--platform", "ios", "--no-install"]'),
+  "mobile_ios_archive_must_use_locked_expo_cli",
+);
+assert(
+  iosArchiveSource.includes('run(["npx", "--no-install", "pod-install", "ios"]'),
+  "mobile_ios_archive_must_use_locked_pod_install",
+);
+assert(
+  iosArchiveSource.includes('["ignore", "inherit", "inherit"]'),
+  "mobile_ios_archive_subprocesses_must_not_inherit_interactive_stdin",
+);
 assert(iosArchiveSource.includes("stripDevelopmentClientFromProductionArchive"), "mobile_ios_archive_missing_dev_client_strip");
 assert(iosArchiveSource.includes('delete packageJSON.dependencies["expo-dev-client"]'), "mobile_ios_archive_must_strip_dev_client_dependency");
 assert(iosArchiveSource.includes('"CODE_SIGN_IDENTITY="'), "mobile_ios_archive_must_clear_automatic_development_identity");

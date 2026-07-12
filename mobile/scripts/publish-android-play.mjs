@@ -609,9 +609,10 @@ function readAndroidBuildManifest(manifestPath, aabPath, mappingPath, appConfig,
   if (!manifest.versioning || typeof manifest.versioning !== "object") {
     throw new PublishError(`Android bundle build manifest is missing versioning in ${manifestPath}`);
   }
+  const versioning = /** @type {Record<string, any>} */ (manifest.versioning);
   const canonicalVersioning = /** @type {Record<string, unknown>} */ (expectedVersioning);
   for (const field of ["releaseTimestamp", "releaseVersion", "buildCode", "iosBuildNumber", "androidVersionCode", "buildCodeSource"]) {
-    if (manifest.versioning[field] !== canonicalVersioning[field]) {
+    if (versioning[field] !== canonicalVersioning[field]) {
       throw new PublishError(`Android bundle versioning.${field} does not match the publication release identity`);
     }
   }

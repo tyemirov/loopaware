@@ -574,6 +574,29 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.github/workflows/ci.yml`, `.mprlab/ISSUES.md`, `scripts/release/repository_identity.sh`, `scripts/test-lifecycle-orchestration.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B046] (P0) Surface iOS artifact preparation failures at the failing builder.
+  Goal:
+  Prevent `make release` and `make release-dry-run` from masking a failed iOS archive step and reporting only a missing-payload inventory error after later artifact builders succeed.
+
+  Requirements:
+  Keep the exact canonical nine-file payload gate. Make CocoaPods preparation deterministic and noninteractive, and stop artifact preparation at the first failed builder. Do not allow npx to download undeclared tooling or add a yes/fallback path.
+
+  Deliverables:
+  - Lock `pod-install@1.1.0` in the mobile package contract.
+  - Include locked development tooling when the production-mode archive copy runs `npm ci`.
+  - Keep Expo prebuild and CocoaPods installation on local `npx --no-install` executables.
+  - Make `mobile-release-artifacts` stop immediately on an iOS failure without invoking Android.
+  - Extend mobile and release workflow validation so the missing-package contract cannot return.
+
+  Resolution:
+  Locked `pod-install@1.1.0` in the mobile package and lockfile contract, changed the disposable production-mode archive install to `npm ci --include=dev`, and kept Expo prebuild and CocoaPods installation on local `npx --no-install` executables with closed stdin. Made the mobile release-artifact recipe fail immediately when the iOS builder fails, before Android can run, and added package, lockfile, subprocess, and fail-fast regression checks to the mobile and release validators.
+
+  Validation:
+  A clean `NODE_ENV=production npm ci --include=dev` install exposed the locked local `pod-install@1.1.0` executable. `make build-ios` completed Expo prebuild, CocoaPods installation, signed Xcode archive, App Store export, and IPA validation without publishing. `make mobile-check`, `make staged-release-contract-check`, and `make release-workflow-check` passed. Final `make ci` passed with all 454 Playwright/API integration specs.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `mobile/package.json`, `mobile/package-lock.json`, `mobile/scripts/build-ios-archive.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `scripts/test-staged-release-artifacts.sh`, and `scripts/validate-release-workflow.mjs`.
+
 
 ## Improvements
 
@@ -931,12 +954,16 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   ### Changed Files
   `PLAN.md`, `.mprlab/ISSUES.md`, `ARCHITECTURE.md`, `PRD.md`, `README.md`, `tests/specs/seo-public-pages.spec.js`, public HTML pages under `web/`, all resource detail pages under `web/resources/`, `web/resources/index.html`, `web/resources/styles.css`, `web/robots.txt`, `web/sitemap.xml`.
 
-- [ ] [I033] (P1) Embed traffic pixel script in LoopAware core pages.
+- [x] [I033] (P1) Embed traffic pixel script in LoopAware core pages.
   ### Summary
   The LoopAware website does not load the traffic pixel (`pixel.js`), resulting in 0 tracked visits on its own dashboard.
   ### Deliverables
   - Add the traffic pixel script `<script defer src="https://loopaware.mprlab.com/pixel.js?site_id=a3222433-92ec-473a-9255-0797226c2273"></script>` to LoopAware's core HTML pages: `web/index.html`, `web/login/index.html`, `web/pricing/index.html`, `web/privacy/index.html`, `web/terms/index.html`, and `web/app/index.html`.
   - Fix pre-existing Go lint issues in the repository.
+  ### Resolution
+  Manually embedded the canonical traffic pixel script tag on all core HTML pages of the static frontend. Fixed pre-existing TypeScript index signature typing errors in the mobile scripts (`publish-android-play.mjs` and `submit-ios.mjs`). Verified all checks pass cleanly with `make lint` and the unit test suite.
+  ### Changed Files
+  `web/index.html`, `web/login/index.html`, `web/pricing/index.html`, `web/privacy/index.html`, `web/terms/index.html`, `web/app/index.html`, `mobile/scripts/publish-android-play.mjs`, `mobile/scripts/submit-ios.mjs`.
 
 ## Maintenance
 
