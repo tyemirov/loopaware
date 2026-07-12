@@ -138,9 +138,10 @@ function submitIOSArchive(args) {
   }
   requireExecutable(which("xcrun"), "xcrun");
   const manifest = readArchiveManifest(args.manifest);
-  const expectedVersioning = /** @type {Record<string, unknown>} */ (args.versioning);
+  const versioning = /** @type {Record<string, any>} */ (manifest.versioning);
+  const expected = /** @type {Record<string, any>} */ (args.versioning);
   for (const field of ["releaseTimestamp", "releaseVersion", "buildCode", "iosBuildNumber", "androidVersionCode", "buildCodeSource"]) {
-    if (manifest.versioning[field] !== expectedVersioning[field]) {
+    if (versioning[field] !== expected[field]) {
       throw new SubmitError(`iOS archive versioning.${field} does not match the publication release identity`);
     }
   }
