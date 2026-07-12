@@ -641,6 +641,30 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B049] (P0) Make seeded dashboard authentication atomic with header readiness.
+  Goal:
+  Prevent the black-box integration suite from intermittently failing with `loopaware.header_missing` when the dashboard redirects between the helper's header-readiness check and its seeded MPR UI authentication call.
+
+  Requirements:
+  Keep authentication at the browser boundary and preserve real navigation behavior. Perform readiness detection and seeded authentication in one browser evaluation so navigation cannot remove the header between those operations. Do not increase timeouts or add blind delays.
+
+  Deliverables:
+  - Replace the split readiness/evaluation sequence with one observable browser readiness operation that authenticates the current header.
+  - Remove retry constants and delay logic made obsolete by the atomic operation.
+  - Exercise the change through the black-box dashboard integration suite and final CI.
+
+  Validation:
+  Reproduce the baseline `loopaware.header_missing` failure, then run the dashboard integration surface and final `make ci`.
+
+  Resolution:
+  Replaced the split header-readiness wait and seeded authentication evaluation with one browser-side readiness operation that authenticates the currently bound MPR UI header. Removed the obsolete retry count, delay, and navigation-error string matching so dashboard redirects remain real while the test boundary no longer observes a stale header reference.
+
+  Validation Results:
+  Baseline `make ci` and a canonical integration rerun reproduced `loopaware.header_missing` in two different dashboard tests. After the fix, `make lint` passed and `make test-integration-all` passed all 454 Playwright/API integration specs.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, and `tests/helpers/fixtures.js`.
+
 
 ## Improvements
 
