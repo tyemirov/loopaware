@@ -194,7 +194,7 @@ function buildIOSArchive(args) {
   copyMobileProject(args.mobileDir, buildMobileDir);
 
   const env = buildEnvironment(args, appConfig);
-  run(["npm", "ci"], { cwd: buildMobileDir, env });
+  run(["npm", "ci", "--include=dev"], { cwd: buildMobileDir, env });
   stripDevelopmentClientFromProductionArchive(buildMobileDir);
   run(["npx", "--no-install", "expo", "prebuild", "--platform", "ios", "--no-install"], { cwd: buildMobileDir, env });
   run(["node", "scripts/fix-ios-project-warnings.mjs"], { cwd: buildMobileDir, env });
@@ -770,7 +770,7 @@ function run(command, options = {}) {
   const result = spawnSync(command[0], command.slice(1), {
     cwd: options.cwd,
     env: options.env,
-    stdio: options.quiet ? "pipe" : "inherit",
+    stdio: options.quiet ? ["ignore", "pipe", "pipe"] : ["ignore", "inherit", "inherit"],
     encoding: "utf8",
   });
   if (result.error) {
