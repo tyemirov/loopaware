@@ -693,7 +693,8 @@ assert(
     containerPublishSource.includes("remote_version_platform_digest") &&
     containerPublishSource.includes("existing version index must contain exactly one manifest") &&
     containerPublishSource.includes("remote_single_platform_index_digest") &&
-    containerPublishSource.includes("existing mutable index must contain exactly one manifest") &&
+    containerPublishSource.includes("attestation-manifest") &&
+    containerPublishSource.includes("existing mutable index must contain exactly one deployable manifest") &&
     containerPublishSource.includes("published image must contain exactly one manifest") &&
     containerPublishSource.includes("Preserving immutable existing") &&
     containerPublishSource.includes("loaded image platform") &&

@@ -946,6 +946,8 @@ if [[ "$1 $2 $3" == "buildx imagetools inspect" ]]; then
   if [[ "${5:-}" == "--raw" ]]; then
     if [[ "${inspected_ref}" == "${platform_ref}" ]]; then
       printf '{"schemaVersion":2,"config":{"digest":"%s"}}\n' "${state_config}"
+    elif [[ "${inspected_ref}" == "${latest_ref}" && "${FAKE_LATEST_ATTESTATION:-0}" == "1" ]]; then
+      printf '{"manifests":[{"digest":"%s","platform":{"os":"linux","architecture":"amd64"}},{"digest":"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","annotations":{"vnd.docker.reference.digest":"%s","vnd.docker.reference.type":"attestation-manifest"},"platform":{"os":"unknown","architecture":"unknown"}}]}\n' "${state_digest}" "${state_digest}"
     elif [[ "${inspected_ref}" == "${latest_ref}" && "${FAKE_LATEST_EXTRA_PLATFORM:-0}" == "1" ]]; then
       printf '{"manifests":[{"digest":"%s","platform":{"os":"linux","architecture":"amd64"}},{"digest":"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","platform":{"os":"linux","architecture":"arm64"}}]}\n' "${state_digest}"
     else
@@ -1121,6 +1123,18 @@ grep '^CREATE|' "${container_docker_log}" | grep -Fq -- '--tag ghcr.io/tyemirov/
 
 : >"${container_log}"
 : >"${container_docker_log}"
+container_latest_attestation_output="$(
+  cd "${container_repository}"
+  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_LATEST_ATTESTATION=1 PUBLISH_PLATFORMS="linux/amd64" \
+    ./scripts/release/publish_container_artifacts.sh --preflight-only
+)"
+[[ "${container_latest_attestation_output}" == *"Verified prepared container publication inputs for loopaware:v1.2.3."* ]]
+[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "2" ]]
+! grep -Fq 'PUSH|' "${container_docker_log}"
+! grep -Fq 'CREATE|' "${container_docker_log}"
+
+: >"${container_log}"
+: >"${container_docker_log}"
 set +e
 container_latest_extra_output="$(
   cd "${container_repository}"
@@ -1130,7 +1144,7 @@ container_latest_extra_output="$(
 container_latest_extra_status=$?
 set -e
 [[ "${container_latest_extra_status}" -ne 0 ]]
-[[ "${container_latest_extra_output}" == *"existing mutable index must contain exactly one manifest, got 2"* ]]
+[[ "${container_latest_extra_output}" == *"existing mutable index must contain exactly one deployable manifest, got 2"* ]]
 [[ ! -s "${container_log}" ]]
 ! grep -Fq 'PUSH|' "${container_docker_log}"
 ! grep -Fq 'CREATE|' "${container_docker_log}"

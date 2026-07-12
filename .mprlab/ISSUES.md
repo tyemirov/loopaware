@@ -619,6 +619,28 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/release/container_archive_image_id.py`, `scripts/release/prepare_container_artifact.sh`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, `scripts/test-release-tooling.sh`, `scripts/test-staged-release-artifacts.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B048] (P0) Allow attestation sidecars on the mutable container `latest` tag.
+  Goal:
+  Prevent `make publish` from failing preflight when the existing mutable `ghcr.io/tyemirov/loopaware:latest` index contains one deployable `linux/amd64` manifest plus Docker's `unknown/unknown` attestation sidecar.
+
+  Requirements:
+  Keep immutable version and versioned platform tags strict. Only relax the mutable `latest` preflight enough to accept attestations that point at the single deployable `linux/amd64` digest; do not accept multiple deployable platforms as the canonical publish state.
+
+  Deliverables:
+  - Treat Docker attestation manifests on `latest` as sidecars rather than deployable platform entries.
+  - Preserve the single `linux/amd64` deployable image invariant for existing mutable `latest`.
+  - Add publish preflight fixture coverage for the real registry shape.
+  - Verify focused release workflow checks and full CI.
+
+  Resolution:
+  Changed the mutable `latest` preflight parser so `unknown/unknown` Docker attestation manifests are accepted only when they declare `vnd.docker.reference.type=attestation-manifest` and point at the single deployable `linux/amd64` digest. Existing immutable version and versioned platform tag checks still require exact prepared image identity, and an extra deployable platform on `latest` still fails.
+
+  Validation:
+  Verified the live `ghcr.io/tyemirov/loopaware:latest` index contains one `linux/amd64` manifest plus one `unknown/unknown` attestation manifest. Added publish-preflight fixture coverage for that shape and retained the failure case for a real extra `linux/arm64` deployable manifest. `make publish-preflight-contract-check`, `make release-workflow-check`, and final `make ci` passed with all 454 Playwright/API integration specs.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
+
 
 ## Improvements
 
