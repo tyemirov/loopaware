@@ -324,7 +324,8 @@ mobile-android-bundle: mobile-check
 mobile-release-artifacts: mobile-check
 	@test -n "$$RELEASE_ARTIFACT_DIR" || { echo "error: RELEASE_ARTIFACT_DIR is required" >&2; exit 1; }
 	@test -n "$$RELEASE_SOURCE_COMMIT" || { echo "error: RELEASE_SOURCE_COMMIT is required" >&2; exit 1; }
-	@source_dir="$$(mktemp -d)"; \
+	@set -e; \
+	source_dir="$$(mktemp -d)"; \
 	archive="$$(mktemp)"; \
 	cleanup() { rm -rf "$$source_dir"; rm -f "$$archive"; }; \
 	trap cleanup EXIT; \
