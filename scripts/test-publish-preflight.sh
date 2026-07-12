@@ -722,6 +722,7 @@ export CONTAINER_LATEST_STATE="${container_latest_state}"
 mkdir -p "${container_repository}/scripts/release" "${container_bin}"
 cp "${repo_root}/scripts/release/publish_container_artifacts.sh" "${container_repository}/scripts/release/publish_container_artifacts.sh"
 cp "${repo_root}/scripts/release/docker_identity.sh" "${container_repository}/scripts/release/docker_identity.sh"
+cp "${repo_root}/scripts/release/container_archive_image_id.py" "${container_repository}/scripts/release/container_archive_image_id.py"
 cat >"${container_repository}/scripts/release/release_helper.py" <<'EOF_HELPER'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -733,6 +734,9 @@ container_artifact_directory="${container_repository}/.git/mprlab-release"
 container_payload_directory="${container_artifact_directory}/payloads/containers/loopaware"
 mkdir -p "${container_payload_directory}"
 container_archive="${container_payload_directory}/linux-amd64.tar"
+container_inspect_image_id='sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+export CONTAINER_ARCHIVE="${container_archive}"
+export CONTAINER_INSPECT_IMAGE_ID="${container_inspect_image_id}"
 container_source_commit="2222222222222222222222222222222222222222"
 container_image_id="$(python3 - "${container_archive}" "${container_source_commit}" <<'PY_CONTAINER_ARCHIVE'
 import hashlib
@@ -876,13 +880,18 @@ if [[ "$1 $2" == "image inspect" ]]; then
   fi
   exit 0
 fi
+if [[ "$1" == "save" && "$2" == "--output" ]]; then
+  printf 'SAVE|%s\n' "$4" >>"${CONTAINER_DOCKER_LOG}"
+  cp "${CONTAINER_ARCHIVE}" "$3"
+  exit 0
+fi
 if [[ "$1" == "load" && "$2" == "--input" ]]; then
   printf 'LOAD|%s\n' "$3" >>"${CONTAINER_DOCKER_LOG}"
   if [[ "${FAKE_DOCKER_LOAD_FAILURE:-0}" == "1" ]]; then
     printf 'fixture docker load failure\n' >&2
     exit 42
   fi
-  printf '%s\n' "${CONTAINER_EXPECTED_IMAGE_ID}" >"${CONTAINER_DOCKER_STATE}"
+  printf '%s\n' "${CONTAINER_INSPECT_IMAGE_ID}" >"${CONTAINER_DOCKER_STATE}"
   printf 'Loaded image: mprlab-release.local/loopaware:v1.2.3-linux-amd64\n'
   exit 0
 fi
@@ -1015,6 +1024,7 @@ container_output="$(
 sed -n '1p' "${container_log}" | grep -Fq 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/'
 sed -n '2p' "${container_log}" | grep -Fq 'DELETE|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/preflight-session'
 grep -Fq 'LOAD|' "${container_docker_log}"
+grep -Fq 'SAVE|mprlab-release.local/loopaware:v1.2.3-linux-amd64' "${container_docker_log}"
 grep -Fq 'REMOVE|mprlab-release.local/loopaware:v1.2.3-linux-amd64' "${container_docker_log}"
 [[ ! -f "${container_docker_state}" ]]
 
@@ -1074,6 +1084,7 @@ container_publish_output="$(
 [[ "${container_publish_output}" == *"Published ghcr.io/tyemirov/loopaware:v1.2.3 at sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd."* ]]
 [[ ! -s "${container_log}" ]]
 grep -Fq 'PUSH|push ghcr.io/tyemirov/loopaware:v1.2.3-linux-amd64' "${container_docker_log}"
+grep -Fq 'SAVE|mprlab-release.local/loopaware:v1.2.3-linux-amd64' "${container_docker_log}"
 [[ "$(grep -c '^CREATE|' "${container_docker_log}")" == "2" ]]
 grep '^CREATE|' "${container_docker_log}" | grep -Fq 'ghcr.io/tyemirov/loopaware@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
 [[ "$(grep '^CREATE|' "${container_docker_log}")" != *"v1.2.3-linux-amd64"* ]]

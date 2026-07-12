@@ -670,9 +670,17 @@ assert(
 assert(
   containerPublishSource.includes("verify_prepared_container_archive") &&
     containerPublishSource.includes("verify_container_archive_loadability") &&
+    containerPublishSource.includes("loaded_container_image_id") &&
+    containerPublishSource.includes("docker save --output") &&
     containerPublishSource.includes("prepared container image id") &&
     containerPublishSource.includes("https://github.com/tyemirov/loopaware"),
   "container_publish_must_verify_archive_identity_and_labels_before_push",
+);
+assert(
+  containerPrepareSource.includes("container_archive_image_id.py") &&
+    containerPublishSource.includes("container_archive_image_id.py") &&
+    !containerPrepareSource.includes("{{.Id}}"),
+  "container_descriptor_identity_must_use_saved_archive_config_digest",
 );
 assert(
   containerPublishSource.includes('sources+=("${image}@${push_platform_digest}")') &&

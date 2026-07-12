@@ -60,10 +60,13 @@ done
 [[ -f "${RELEASE_ARTIFACT_DIR}/staging.json" ]] || { echo "error: release staging area is not initialized" >&2; exit 1; }
 [[ -f "${dockerfile}" ]] || { echo "error: Dockerfile not found: ${dockerfile}" >&2; exit 1; }
 [[ -d "${context}" ]] || { echo "error: build context not found: ${context}" >&2; exit 1; }
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/docker_identity.sh"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${script_dir}/docker_identity.sh"
 assert_local_docker_endpoint
 command -v python3 >/dev/null 2>&1 || { echo "error: python3 is required" >&2; exit 1; }
 docker buildx version >/dev/null 2>&1 || { echo "error: docker buildx is required" >&2; exit 1; }
+archive_identity_helper="${script_dir}/container_archive_image_id.py"
+[[ -f "${archive_identity_helper}" ]] || { echo "error: container archive identity helper not found: ${archive_identity_helper}" >&2; exit 1; }
 build_timeout="${RELEASE_CONTAINER_BUILD_TIMEOUT_SECONDS:-1200}"
 save_timeout="${RELEASE_CONTAINER_SAVE_TIMEOUT_SECONDS:-350}"
 [[ "${build_timeout}" =~ ^[1-9][0-9]*$ && "${save_timeout}" =~ ^[1-9][0-9]*$ ]] || { echo "error: container timeouts must be positive integers" >&2; exit 1; }
@@ -94,10 +97,10 @@ for platform in "${platform_list[@]}"; do
 
   echo "==> [release] Building ${name} for ${platform}"
   timeout -k "${build_timeout}s" -s SIGKILL "${build_timeout}s" "${build_command[@]}"
-  image_id="$(docker image inspect "${local_ref}" --format '{{.Id}}')"
   image_platform="$(docker image inspect "${local_ref}" --format '{{.Os}}/{{.Architecture}}')"
   [[ "${image_platform}" == "${platform}" ]] || { echo "error: built ${local_ref} platform ${image_platform} does not match requested ${platform}" >&2; exit 1; }
   timeout -k "${save_timeout}s" -s SIGKILL "${save_timeout}s" docker save --output "${archive}" "${local_ref}"
+  image_id="$(python3 "${archive_identity_helper}" "${archive}")"
   archive_sha256="$(shasum -a 256 "${archive}" | awk '{print $1}')"
   printf '%s\t%s\t%s\t%s\t%s\n' "${platform}" "${platform_token}" "${local_ref}" "${image_id}" "${archive_sha256}" >>"${metadata_rows}"
 done

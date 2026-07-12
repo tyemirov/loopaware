@@ -23,11 +23,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/docker_identity.sh"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${script_dir}/docker_identity.sh"
 assert_local_docker_endpoint
 command -v gh >/dev/null 2>&1 || { echo "error: gh is required" >&2; exit 1; }
 command -v python3 >/dev/null 2>&1 || { echo "error: python3 is required" >&2; exit 1; }
 docker buildx version >/dev/null 2>&1 || { echo "error: docker buildx is required" >&2; exit 1; }
+archive_identity_helper="${script_dir}/container_archive_image_id.py"
+[[ -f "${archive_identity_helper}" ]] || { echo "error: container archive identity helper not found: ${archive_identity_helper}" >&2; exit 1; }
 required_platforms="${PUBLISH_PLATFORMS:-}"
 [[ "${required_platforms}" == "linux/amd64" ]] || { echo "error: container publication requires PUBLISH_PLATFORMS=linux/amd64" >&2; exit 1; }
 
@@ -152,6 +155,24 @@ for key, expected in expected_labels.items():
 PY
 }
 
+loaded_container_image_id() {
+  local local_ref="$1"
+  local saved_archive
+  saved_archive="$(mktemp)"
+  if ! timeout -k "${publish_timeout}s" -s SIGKILL "${publish_timeout}s" docker save --output "${saved_archive}" "${local_ref}" >/dev/null; then
+    rm -f "${saved_archive}"
+    echo "error: loaded container image cannot be saved for identity verification: ${local_ref}" >&2
+    return 1
+  fi
+  local image_id
+  if ! image_id="$(python3 "${archive_identity_helper}" "${saved_archive}")"; then
+    rm -f "${saved_archive}"
+    return 1
+  fi
+  rm -f "${saved_archive}"
+  printf '%s\n' "${image_id}"
+}
+
 verify_container_archive_loadability() {
   local archive="$1"
   local local_ref="$2"
@@ -176,7 +197,10 @@ verify_container_archive_loadability() {
     exit 1
   fi
   local loaded_image_id
-  loaded_image_id="$(docker image inspect "${local_ref}" --format '{{.Id}}')"
+  if ! loaded_image_id="$(loaded_container_image_id "${local_ref}")"; then
+    restore_local_ref
+    exit 1
+  fi
   if [[ "${loaded_image_id}" != "${expected_image_id}" ]]; then
     restore_local_ref
     echo "error: loaded preflight image does not match prepared container descriptor" >&2
@@ -501,8 +525,8 @@ PY
       continue
     fi
     timeout -k "${publish_timeout}s" -s SIGKILL "${publish_timeout}s" docker load --input "${archive}" >/dev/null
-    actual_image_id="$(docker image inspect "${local_ref}" --format '{{.Id}}')"
-    [[ "${actual_image_id}" == "${expected_image_id}" ]] || { echo "error: loaded image does not match prepared ${name} ${platform}" >&2; exit 1; }
+	    actual_image_id="$(loaded_container_image_id "${local_ref}")"
+	    [[ "${actual_image_id}" == "${expected_image_id}" ]] || { echo "error: loaded image does not match prepared ${name} ${platform}" >&2; exit 1; }
     actual_loaded_platform="$(docker image inspect "${local_ref}" --format '{{.Os}}/{{.Architecture}}')"
     [[ "${actual_loaded_platform}" == "${platform}" ]] || { echo "error: loaded image platform ${actual_loaded_platform} does not match prepared ${platform}" >&2; exit 1; }
     platform_ref="${image}:${version}-${token}"
