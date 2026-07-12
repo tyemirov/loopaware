@@ -384,16 +384,35 @@ import sys
 
 document = json.loads(sys.argv[1])
 manifests = document.get("manifests", [])
-if not isinstance(manifests, list) or len(manifests) != 1:
+if not isinstance(manifests, list) or len(manifests) == 0:
     raise SystemExit(
-        f"existing mutable index must contain exactly one manifest, got {len(manifests) if isinstance(manifests, list) else 'invalid'}"
+        f"existing mutable index must contain manifests, got {len(manifests) if isinstance(manifests, list) else 'invalid'}"
     )
-platform = manifests[0].get("platform", {})
+deployable = [
+    manifest
+    for manifest in manifests
+    if not (
+        (manifest.get("platform") or {}).get("os") == "unknown"
+        and (manifest.get("platform") or {}).get("architecture") == "unknown"
+    )
+]
+if len(deployable) != 1:
+    raise SystemExit(f"existing mutable index must contain exactly one deployable manifest, got {len(deployable)}")
+platform = deployable[0].get("platform", {})
 if platform.get("os") != "linux" or platform.get("architecture") != "amd64":
-    raise SystemExit("existing mutable index must contain exactly one linux/amd64 manifest")
-digest = manifests[0].get("digest")
+    raise SystemExit("existing mutable index deployable manifest must be linux/amd64")
+digest = deployable[0].get("digest")
 if not isinstance(digest, str):
     raise SystemExit("existing mutable index has no linux/amd64 digest")
+for manifest in manifests:
+    platform = manifest.get("platform") or {}
+    if platform.get("os") != "unknown" or platform.get("architecture") != "unknown":
+        continue
+    annotations = manifest.get("annotations") or {}
+    if annotations.get("vnd.docker.reference.type") != "attestation-manifest":
+        raise SystemExit("existing mutable index has a non-attestation unknown-platform manifest")
+    if annotations.get("vnd.docker.reference.digest") != digest:
+        raise SystemExit("existing mutable index attestation does not reference the linux/amd64 manifest")
 print(digest)
 PY
 }
