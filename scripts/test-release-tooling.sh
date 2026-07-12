@@ -14,6 +14,7 @@ required_tools=(
   deploy_pages_artifact.sh
   prepare_container_artifact.sh
   publish_container_artifacts.sh
+  container_archive_image_id.py
   docker_identity.sh
   verify_staged_artifacts.py
   run_lifecycle.sh

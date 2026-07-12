@@ -19,6 +19,112 @@ set -e
 [[ "${artifact_override_status}" -ne 0 ]]
 [[ "${artifact_override_output}" == *"release requires the canonical artifact target set"* ]]
 
+container_identity_repository="${temporary_directory}/container-identity-source"
+container_identity_artifact_directory="${temporary_directory}/container-identity-artifacts"
+container_identity_bin="${temporary_directory}/container-identity-bin"
+container_identity_inspect_id="sha256:1111111111111111111111111111111111111111111111111111111111111111"
+mkdir -p "${container_identity_repository}" "${container_identity_artifact_directory}" "${container_identity_bin}"
+printf 'FROM scratch\n' >"${container_identity_repository}/Dockerfile"
+printf '%s\n' '{"schema_version":1,"artifact_kind":"mprlab.release.staging","version":"v1.2.3","source_commit":"2222222222222222222222222222222222222222","release_timestamp":"2026-07-11T00:00:00+00:00"}' >"${container_identity_artifact_directory}/staging.json"
+cat >"${container_identity_bin}/docker" <<'SH_CONTAINER_IDENTITY_DOCKER'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == "context show" ]]; then
+  printf '%s\n' fixture
+  exit 0
+fi
+if [[ "$*" == "context inspect fixture --format {{.Endpoints.docker.Host}}" ]]; then
+  printf '%s\n' 'unix:///tmp/fixture-docker.sock'
+  exit 0
+fi
+if [[ "$*" == "buildx version" || "$1 $2" == "buildx build" ]]; then
+  exit 0
+fi
+if [[ "$1 $2" == "image inspect" ]]; then
+  if [[ "$*" == *"{{.Os}}/{{.Architecture}}"* ]]; then
+    printf '%s\n' linux/amd64
+  else
+    printf '%s\n' "${CONTAINER_IDENTITY_INSPECT_ID}"
+  fi
+  exit 0
+fi
+if [[ "$1" == "save" && "$2" == "--output" ]]; then
+  python3 - "$3" <<'PY_CONTAINER_IDENTITY_ARCHIVE'
+import hashlib
+import io
+import json
+import pathlib
+import tarfile
+import sys
+
+archive_path = pathlib.Path(sys.argv[1])
+config = {
+    "os": "linux",
+    "architecture": "amd64",
+    "config": {
+        "Labels": {
+            "org.opencontainers.image.revision": "2222222222222222222222222222222222222222",
+            "org.opencontainers.image.version": "v1.2.3",
+            "org.opencontainers.image.source": "https://github.com/tyemirov/loopaware",
+        }
+    },
+}
+config_bytes = json.dumps(config, sort_keys=True, separators=(",", ":")).encode()
+config_digest = hashlib.sha256(config_bytes).hexdigest()
+manifest_bytes = json.dumps(
+    [{"Config": f"{config_digest}.json", "RepoTags": ["mprlab-release.local/loopaware:v1.2.3-linux-amd64"], "Layers": []}]
+).encode()
+with tarfile.open(archive_path, "w") as archive:
+    for name, payload in (("manifest.json", manifest_bytes), (f"{config_digest}.json", config_bytes)):
+        info = tarfile.TarInfo(name)
+        info.size = len(payload)
+        archive.addfile(info, io.BytesIO(payload))
+PY_CONTAINER_IDENTITY_ARCHIVE
+  exit 0
+fi
+printf 'unexpected docker command: %s\n' "$*" >&2
+exit 97
+SH_CONTAINER_IDENTITY_DOCKER
+chmod +x "${container_identity_bin}/docker"
+container_identity_output="$(
+  cd "${container_identity_repository}"
+  PATH="${container_identity_bin}:${PATH}" CONTAINER_IDENTITY_INSPECT_ID="${container_identity_inspect_id}" \
+    RELEASE_VERSION="v1.2.3" RELEASE_ARTIFACT_DIR="${container_identity_artifact_directory}" \
+    "${repo_root}/scripts/release/prepare_container_artifact.sh" \
+      --name loopaware \
+      --image ghcr.io/tyemirov/loopaware \
+      --file Dockerfile \
+      --context . \
+      --platforms linux/amd64
+)"
+[[ "${container_identity_output}" == *"Prepared container artifact loopaware for linux/amd64."* ]]
+python3 - "${repo_root}" "${container_identity_artifact_directory}" "${container_identity_inspect_id}" <<'PY_CONTAINER_IDENTITY_CHECK'
+import json
+import pathlib
+import subprocess
+import sys
+
+repo_root = pathlib.Path(sys.argv[1])
+artifact_directory = pathlib.Path(sys.argv[2])
+inspect_id = sys.argv[3]
+descriptor = json.loads((artifact_directory / "payloads/containers/loopaware/container.json").read_text(encoding="utf-8"))
+descriptor_id = descriptor["platforms"][0]["image_id"]
+archive_id = subprocess.run(
+    [
+        sys.executable,
+        str(repo_root / "scripts/release/container_archive_image_id.py"),
+        str(artifact_directory / "payloads/containers/loopaware/linux-amd64.tar"),
+    ],
+    check=True,
+    stdout=subprocess.PIPE,
+    text=True,
+).stdout.strip()
+if descriptor_id != archive_id:
+    raise SystemExit(f"descriptor image_id {descriptor_id} does not match archive identity {archive_id}")
+if descriptor_id == inspect_id:
+    raise SystemExit("descriptor image_id incorrectly used Docker inspect identity")
+PY_CONTAINER_IDENTITY_CHECK
+
 fail_fast_repository="${temporary_directory}/mobile-fail-fast-source"
 fail_fast_artifact_directory="${temporary_directory}/mobile-fail-fast-artifacts"
 fail_fast_bin="${temporary_directory}/mobile-fail-fast-bin"

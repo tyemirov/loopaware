@@ -597,6 +597,28 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `mobile/package.json`, `mobile/package-lock.json`, `mobile/scripts/build-ios-archive.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `scripts/test-staged-release-artifacts.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B047] (P0) Keep container archive image identity aligned with the staged descriptor.
+  Goal:
+  Prevent `make release` from failing staged artifact verification when Docker reports an inspect image ID that differs from the saved archive config digest.
+
+  Requirements:
+  Keep one canonical container identity contract: the prepared descriptor, staged verifier, publish preflight, and registry checks must use the saved archive config digest. Do not add Docker-version fallbacks or compatibility aliases.
+
+  Deliverables:
+  - Write the staged container descriptor image ID from the saved archive config digest.
+  - Verify loaded publish images through the saved image archive identity rather than Docker's inspect-only ID.
+  - Add release fixture coverage for Docker inspect IDs that differ from saved archive config digests.
+  - Verify the focused release workflow gate and full CI.
+
+  Resolution:
+  Added a repository release helper that reads the canonical image identity from a Docker archive's config JSON digest, then changed container artifact preparation to write that saved-archive identity into `container.json`. Publish preflight and publish now verify loaded local images by saving the loaded tag back to an archive and comparing the same config digest, while retaining platform checks through Docker inspect.
+
+  Validation:
+  Reproduced the production-machine mismatch from the failed staged artifact: Docker inspect reported `sha256:8954...` while the saved archive config digest was `sha256:d220...`. Added fake-Docker release fixtures for both preparation and publish where inspect IDs intentionally differ from archive config digests. `make staged-release-contract-check`, `make publish-preflight-contract-check`, `make release-workflow-check`, and final `make ci` passed with all 454 Playwright/API integration specs.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/release/container_archive_image_id.py`, `scripts/release/prepare_container_artifact.sh`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, `scripts/test-release-tooling.sh`, `scripts/test-staged-release-artifacts.sh`, and `scripts/validate-release-workflow.mjs`.
+
 
 ## Improvements
 
