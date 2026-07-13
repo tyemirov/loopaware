@@ -174,6 +174,48 @@ set -e
 [[ "${fail_fast_output}" == *"fixture iOS artifact builder failed"* ]]
 [[ ! -e "${android_builder_sentinel}" ]]
 
+react_native_repository="${temporary_directory}/react-native-fail-fast-source"
+react_native_artifact_directory="${temporary_directory}/react-native-fail-fast-artifacts"
+react_native_bin="${temporary_directory}/react-native-fail-fast-bin"
+react_native_npm_log="${temporary_directory}/react-native-npm.log"
+mkdir -p "${react_native_repository}/clients/react-native" "${react_native_artifact_directory}" "${react_native_bin}"
+printf '%s\n' '{"name":"@loopaware/react-native","version":"0.1.0"}' >"${react_native_repository}/clients/react-native/package.json"
+printf '%s\n' '{"name":"@loopaware/react-native","version":"0.1.0","lockfileVersion":3,"requires":true,"packages":{"":{"name":"@loopaware/react-native","version":"0.1.0"}}}' >"${react_native_repository}/clients/react-native/package-lock.json"
+git -C "${react_native_repository}" init -b master >/dev/null
+git -C "${react_native_repository}" config user.name "React Native Artifact Contract"
+git -C "${react_native_repository}" config user.email "react-native-artifact@mprlab.invalid"
+git -C "${react_native_repository}" add clients/react-native/package.json clients/react-native/package-lock.json
+git -C "${react_native_repository}" commit -m "Add React Native artifact fixture" >/dev/null
+react_native_source_commit="$(git -C "${react_native_repository}" rev-parse HEAD)"
+cat >"${react_native_bin}/npm" <<'SH_REACT_NATIVE_NPM'
+#!/bin/sh
+set -eu
+printf '%s\t%s\n' "${PWD}" "$*" >>"${REACT_NATIVE_NPM_LOG:?}"
+if [ "${1:-}" = "ci" ]; then
+  echo "fixture React Native clean install failed" >&2
+  exit 29
+fi
+exit 0
+SH_REACT_NATIVE_NPM
+chmod +x "${react_native_bin}/npm"
+set +e
+react_native_fail_fast_output="$(
+  cd "${react_native_repository}"
+  PATH="${react_native_bin}:${PATH}" \
+    REACT_NATIVE_NPM_LOG="${react_native_npm_log}" \
+    make -f "${repo_root}/Makefile" --no-print-directory \
+      RELEASE_ARTIFACT_DIR="${react_native_artifact_directory}" \
+      RELEASE_SOURCE_COMMIT="${react_native_source_commit}" \
+      client-react-native-artifact 2>&1
+)"
+react_native_fail_fast_status=$?
+set -e
+[[ "${react_native_fail_fast_status}" -ne 0 ]]
+[[ "${react_native_fail_fast_output}" == *"fixture React Native clean install failed"* ]]
+[[ "$(wc -l <"${react_native_npm_log}" | tr -d ' ')" == "5" ]]
+[[ "$(tail -n 1 "${react_native_npm_log}")" == *$'\tci --legacy-peer-deps' ]]
+[[ -z "$(find "${react_native_artifact_directory}" -type f -print -quit)" ]]
+
 fixture_repository="${temporary_directory}/source"
 artifact_directory="${temporary_directory}/artifact"
 mkdir -p "${fixture_repository}/web" "${artifact_directory}/payloads/release-assets" "${artifact_directory}/payloads/containers/loopaware"

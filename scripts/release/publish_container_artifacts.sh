@@ -62,15 +62,95 @@ if [[ -n "${descriptor_output}" ]]; then
 fi
 [[ "${#descriptors[@]}" -gt 0 ]] || { echo "error: no prepared container artifacts found; run make release" >&2; exit 1; }
 
-verify_ghcr_push_access() {
+verify_ghcr_push_access() (
   local image="$1"
   local registry_username="$2"
   local registry_token="$3"
   local repository_path="${image#ghcr.io/}"
+  local challenge_scope="repository:${repository_path}:pull"
+  local registry_scope="repository:${repository_path}:pull,push"
   local response_headers
   local response_body
   response_headers="$(mktemp)"
   response_body="$(mktemp)"
+  trap 'rm -f "${response_headers}" "${response_body}"' EXIT
+
+  local challenge_status
+  challenge_status="$(curl --silent --show-error \
+    --dump-header "${response_headers}" \
+    --output "${response_body}" \
+    --request POST \
+    --write-out '%{http_code}' \
+    "https://ghcr.io/v2/${repository_path}/blobs/uploads/")"
+  if [[ "${challenge_status}" != "401" ]]; then
+    echo "error: GHCR push-authority preflight expected a Bearer challenge for ${image}, got HTTP ${challenge_status}: $(head -c 1024 "${response_body}")" >&2
+    return 1
+  fi
+  if ! python3 - "${response_headers}" "${challenge_scope}" <<'PY'
+import re
+import sys
+
+header_path, expected_scope = sys.argv[1:]
+challenges = []
+with open(header_path, encoding="iso-8859-1") as headers:
+    for line in headers:
+        name, separator, value = line.partition(":")
+        if separator and name.lower() == "www-authenticate":
+            challenges.append(value.strip())
+if len(challenges) != 1:
+    raise SystemExit(f"GHCR returned {len(challenges)} WWW-Authenticate challenges, expected exactly one")
+match = re.fullmatch(
+    r'Bearer realm="([^"]+)",service="([^"]+)",scope="([^"]+)"',
+    challenges[0],
+    flags=re.IGNORECASE,
+)
+if match is None:
+    raise SystemExit("GHCR returned a malformed Bearer challenge")
+realm, service, scope = match.groups()
+if realm != "https://ghcr.io/token":
+    raise SystemExit(f"GHCR returned unexpected Bearer realm {realm!r}")
+if service != "ghcr.io":
+    raise SystemExit(f"GHCR returned unexpected Bearer service {service!r}")
+if scope != expected_scope:
+    raise SystemExit(f"GHCR returned unexpected Bearer scope {scope!r}")
+PY
+  then
+    echo "error: GHCR push-authority preflight rejected the registry authentication challenge for ${image}" >&2
+    return 1
+  fi
+
+  local token_status
+  token_status="$(curl --silent --show-error --config - \
+    --output "${response_body}" \
+    --get \
+    --data-urlencode 'service=ghcr.io' \
+    --data-urlencode "scope=${registry_scope}" \
+    --write-out '%{http_code}' \
+    'https://ghcr.io/token' <<EOF_CURL
+user = "${registry_username}:${registry_token}"
+EOF_CURL
+)"
+  if [[ "${token_status}" != "200" ]]; then
+    echo "error: GHCR registry-token exchange failed for ${image} with HTTP ${token_status}: $(head -c 1024 "${response_body}")" >&2
+    return 1
+  fi
+  local registry_bearer_token
+  if ! registry_bearer_token="$(python3 - "${response_body}" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as response:
+    document = json.load(response)
+token = document.get("token")
+if not isinstance(token, str) or not token:
+    raise SystemExit("GHCR registry-token response has no token")
+print(token)
+PY
+)"; then
+    echo "error: GHCR registry-token exchange returned an invalid response for ${image}" >&2
+    return 1
+  fi
+
   local create_status
   create_status="$(curl --silent --show-error --config - \
     --dump-header "${response_headers}" \
@@ -78,32 +158,32 @@ verify_ghcr_push_access() {
     --request POST \
     --write-out '%{http_code}' \
     "https://ghcr.io/v2/${repository_path}/blobs/uploads/" <<EOF_CURL
-user = "${registry_username}:${registry_token}"
+header = "Authorization: Bearer ${registry_bearer_token}"
 EOF_CURL
 )"
   if [[ "${create_status}" != "202" ]]; then
     echo "error: GHCR push-authority preflight failed for ${image} with HTTP ${create_status}: $(head -c 1024 "${response_body}")" >&2
-    rm -f "${response_headers}" "${response_body}"
-    exit 1
+    return 1
   fi
   local upload_location
   upload_location="$(awk 'tolower($1) == "location:" { sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit }' "${response_headers}")"
-  [[ -n "${upload_location}" ]] || { echo "error: GHCR push-authority preflight returned no upload location for ${image}" >&2; rm -f "${response_headers}" "${response_body}"; exit 1; }
+  [[ -n "${upload_location}" ]] || { echo "error: GHCR push-authority preflight returned no upload location for ${image}" >&2; return 1; }
   if [[ "${upload_location}" == /* ]]; then
     upload_location="https://ghcr.io${upload_location}"
   fi
+  local expected_upload_prefix="https://ghcr.io/v2/${repository_path}/blobs/uploads/"
+  [[ "${upload_location}" == "${expected_upload_prefix}"* ]] || { echo "error: GHCR push-authority preflight returned an unexpected upload location for ${image}: ${upload_location}" >&2; return 1; }
   local delete_status
   delete_status="$(curl --silent --show-error --config - \
     --output "${response_body}" \
     --request DELETE \
     --write-out '%{http_code}' \
     "${upload_location}" <<EOF_CURL
-user = "${registry_username}:${registry_token}"
+header = "Authorization: Bearer ${registry_bearer_token}"
 EOF_CURL
 )"
-  rm -f "${response_headers}" "${response_body}"
-  [[ "${delete_status}" == "202" || "${delete_status}" == "204" ]] || { echo "error: GHCR preflight upload cleanup failed for ${image} with HTTP ${delete_status}" >&2; exit 1; }
-}
+  [[ "${delete_status}" == "202" || "${delete_status}" == "204" ]] || { echo "error: GHCR preflight upload cleanup failed for ${image} with HTTP ${delete_status}" >&2; return 1; }
+)
 
 verify_prepared_container_archive() {
   local archive="$1"
