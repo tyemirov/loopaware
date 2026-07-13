@@ -192,9 +192,11 @@ assert(
   releaseSource.includes('assert_remote_default_and_release_tags "${repo_root}" LoopAware') &&
     repositoryIdentitySource.includes("git -C \"${directory}\" ls-remote --symref origin") &&
     repositoryIdentitySource.includes('[[ "${local_head}" == "${remote_default_sha}" ]]') &&
-    repositoryIdentitySource.includes("is missing remote release tag") &&
+    repositoryIdentitySource.includes('pending_local_tag=""') &&
+    repositoryIdentitySource.includes('tag --delete "${local_tag}"') &&
+    repositoryIdentitySource.includes("fetch --force --no-tags --no-write-fetch-head") &&
     repositoryIdentitySource.includes('[[ "${local_tag_commit}" == "${remote_tag_commit}" ]]'),
-  "release_must_pin_the_remote_default_branch_and_release_tags_before_preparation",
+  "release_must_synchronize_and_pin_remote_release_state_before_preparation",
 );
 assert(
   makefileSource.includes("override RELEASE_ENV_FILE := $(CURDIR)/configs/.env.loopaware") &&
@@ -448,6 +450,12 @@ for (const [target, expectedRecipe] of canonicalLifecycleRecipes) {
 assert(makefileSource.includes("./scripts/publish-mobile.sh"), "publish_missing_mobile_upload");
 assert(makefileSource.includes("./scripts/publish-react-native.sh"), "publish_missing_react_native_package_upload");
 assert(!releaseSource.includes("git push"), "release_must_not_push_git_refs");
+assert(
+  releaseHelperSource.includes('["git", "push", "--atomic", args.remote, *push_refspecs]') &&
+    releaseHelperSource.includes('push_refspecs.append(f"HEAD:refs/heads/{default_branch}")') &&
+    releaseHelperSource.includes('push_refspecs.append(f"refs/tags/{version}:refs/tags/{version}")'),
+  "publication_must_push_the_release_branch_and_tag_atomically",
+);
 assert(!releaseSource.includes("submit-mobile"), "release_must_not_upload_mobile_stores");
 assert(!releaseSource.includes("gh "), "release_must_not_call_github");
 

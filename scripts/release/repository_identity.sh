@@ -92,15 +92,59 @@ assert_remote_default_and_release_tags() {
   }
   local remote_tag_names
   remote_tag_names="$(awk '$2 ~ /^refs\/tags\/v/ { name=$2; sub(/\^\{\}$/, "", name); print name }' <<<"${remote_refs}" | LC_ALL=C sort -u)"
+
+  local pending_local_tag=""
+  if [[ "${mode}" == "allow-prepared-release" && "${local_head}" != "${remote_default_sha}" ]]; then
+    local pending_parent_line
+    local pending_parent_values=()
+    pending_parent_line="$(git -C "${directory}" rev-list --parents -n 1 HEAD)"
+    read -r -a pending_parent_values <<<"${pending_parent_line}"
+    if [[ "${#pending_parent_values[@]}" -eq 2 && "${pending_parent_values[1]}" == "${remote_default_sha}" ]]; then
+      local pending_head_tags=()
+      local pending_head_tag
+      while IFS= read -r pending_head_tag; do
+        [[ -n "${pending_head_tag}" ]] || continue
+        if [[ "${pending_head_tag}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+          pending_head_tags+=("${pending_head_tag}")
+        fi
+      done < <(git -C "${directory}" tag --points-at HEAD --list 'v*' --sort=version:refname)
+      if [[ "${#pending_head_tags[@]}" -eq 1 ]] && ! grep -Fxq "refs/tags/${pending_head_tags[0]}" <<<"${remote_tag_names}"; then
+        pending_local_tag="${pending_head_tags[0]}"
+      fi
+    fi
+  fi
+
+  local local_tag
+  while IFS= read -r local_tag; do
+    [[ -n "${local_tag}" ]] || continue
+    [[ "${local_tag}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || continue
+    if ! grep -Fxq "refs/tags/${local_tag}" <<<"${remote_tag_names}" && [[ "${local_tag}" != "${pending_local_tag}" ]]; then
+      git -C "${directory}" tag --delete "${local_tag}" >/dev/null || {
+        echo "error: ${label} could not discard unpublished local release tag ${local_tag}" >&2
+        return 1
+      }
+    fi
+  done < <(git -C "${directory}" tag --list 'v*' --sort=version:refname)
+
+  local remote_tag_refspecs=()
   local remote_tag_ref
   while IFS= read -r remote_tag_ref; do
     [[ -n "${remote_tag_ref}" ]] || continue
     local tag_name="${remote_tag_ref#refs/tags/}"
     [[ "${tag_name}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || continue
-    git -C "${directory}" show-ref --verify --quiet "${remote_tag_ref}" || {
-      echo "error: ${label} is missing remote release tag ${tag_name}; synchronize tags before release" >&2
+    remote_tag_refspecs+=("+${remote_tag_ref}:${remote_tag_ref}")
+  done <<<"${remote_tag_names}"
+  if [[ "${#remote_tag_refspecs[@]}" -gt 0 ]]; then
+    git -C "${directory}" fetch --force --no-tags --no-write-fetch-head origin "${remote_tag_refspecs[@]}" >/dev/null 2>&1 || {
+      echo "error: ${label} could not synchronize remote release tags" >&2
       return 1
     }
+  fi
+
+  while IFS= read -r remote_tag_ref; do
+    [[ -n "${remote_tag_ref}" ]] || continue
+    local tag_name="${remote_tag_ref#refs/tags/}"
+    [[ "${tag_name}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || continue
     local remote_tag_commit
     local local_tag_commit
     remote_tag_commit="$(awk -v direct="${remote_tag_ref}" -v peeled="${remote_tag_ref}^{}" '
@@ -116,7 +160,6 @@ assert_remote_default_and_release_tags() {
   done <<<"${remote_tag_names}"
 
   local extra_local_tags=""
-  local local_tag
   while IFS= read -r local_tag; do
     [[ -n "${local_tag}" ]] || continue
     [[ "${local_tag}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || continue
