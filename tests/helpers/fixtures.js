@@ -8,9 +8,7 @@ const DEFAULT_AVATAR_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIABAP///wAAA
 const DEFAULT_LOGOUT_REDIRECT_PATTERN = /\/login(?:\/)?(?:[?#].*)?$/;
 const LOGIN_PATHNAME = '/login';
 const EXPLICIT_LOGOUT_STORAGE_KEY = 'loopaware_explicit_logout';
-const SEEDED_MPR_UI_AUTH_ATTEMPTS = 3;
 const SEEDED_MPR_UI_AUTH_NAVIGATION_ATTEMPTS = 2;
-const SEEDED_MPR_UI_AUTH_RETRY_DELAY_MS = 50;
 
 function randomSuffix() {
   return `${Date.now().toString(36)}${Math.random().toString(16).slice(2, 8)}`;
@@ -163,15 +161,6 @@ function mprUiTestingProfileFromUser(user) {
 }
 
 /**
- * @param {unknown} error
- * @returns {boolean}
- */
-function isTransientNavigationEvaluationError(error) {
-  const message = error instanceof Error ? error.message : String(error || '');
-  return message.includes('Execution context was destroyed') || message.includes('Cannot find context with specified id');
-}
-
-/**
  * @param {string} path
  * @returns {string}
  */
@@ -239,49 +228,24 @@ async function clearExplicitLogoutRedirectState(page) {
 }
 
 /**
- * @param {number} milliseconds
- * @returns {Promise<void>}
- */
-async function waitForMilliseconds(milliseconds) {
-  await new Promise((resolve) => {
-    setTimeout(resolve, milliseconds);
-  });
-}
-
-/**
  * @param {import('@playwright/test').Page} page
  * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
  * @returns {Promise<void>}
  */
 async function authenticateSeededMprUiSession(page, user) {
   const profile = mprUiTestingProfileFromUser(user);
-  for (let attempt = 1; attempt <= SEEDED_MPR_UI_AUTH_ATTEMPTS; attempt += 1) {
-    await waitForHeaderAuthBound(page);
-    await page.waitForFunction(() => {
-      const testingApi = window.MPRUI && window.MPRUI.testing;
-      const headerHost = document.querySelector('mpr-header');
-      return !!(headerHost && testingApi && typeof testingApi.authenticate === 'function');
-    });
-    try {
-      await page.evaluate((currentProfile) => {
-        const testingApi = window.MPRUI && window.MPRUI.testing;
-        const headerHost = document.querySelector('mpr-header');
-        if (!headerHost) {
-          throw new Error('loopaware.header_missing');
-        }
-        if (!testingApi || typeof testingApi.authenticate !== 'function') {
-          throw new Error('loopaware.mpr_ui_testing_auth_missing');
-        }
-        testingApi.authenticate(headerHost, currentProfile);
-      }, profile);
-      return;
-    } catch (error) {
-      if (!isTransientNavigationEvaluationError(error) || attempt === SEEDED_MPR_UI_AUTH_ATTEMPTS) {
-        throw error;
-      }
-      await waitForMilliseconds(SEEDED_MPR_UI_AUTH_RETRY_DELAY_MS);
+  await page.waitForFunction((currentProfile) => {
+    const testingApi = window.MPRUI && window.MPRUI.testing;
+    const headerHost = document.querySelector('mpr-header');
+    if (!headerHost || headerHost.getAttribute('data-loopaware-auth-bound') !== 'true') {
+      return false;
     }
-  }
+    if (!testingApi || typeof testingApi.authenticate !== 'function') {
+      return false;
+    }
+    testingApi.authenticate(headerHost, currentProfile);
+    return true;
+  }, profile);
 }
 
 /**

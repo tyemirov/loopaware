@@ -521,8 +521,8 @@ not executed by the lifecycle. These checks protect the command contract; they d
 or unmerged implementation operational. On macOS, install Homebrew Bash and ensure Bash 4+ resolves
 before Apple's Bash 3 in `PATH`.
 
-`make release-dry-run` requires local `master` and every stable release tag to match `origin`, then runs the
-clean/default-branch release preflight, full `make ci`, and every
+`make release-dry-run` requires local `master` to match `origin`, synchronizes stable local tag refs from
+the remote source of truth, then runs the clean/default-branch release preflight, full `make ci`, and every
 artifact builder against a disposable staging directory. It performs the real iOS, Android,
 container, React Native, and Pages builds, verifies the exact nine-file artifact inventory and its
 schemas, hashes, identities, mobile API/TAuth/redirect/signing configuration, and source provenance,
@@ -539,13 +539,16 @@ repository-owned local test stack. Release and publication container stages like
 environment overrides and any selected context whose effective endpoint is not local `unix://` or
 `npipe://`.
 
-`make release` prepares the complete release from local state. It rejects a dirty or non-default
+`make release` prepares the complete release from the remote-authoritative default branch. Before selection it
+force-synchronizes every stable local tag to `origin` and deletes unpublished local stable tags, except for the one
+exact pending release tag directly above the current remote default branch. It rejects a dirty or non-default
 branch, runs `make ci`, builds signed iOS and Android artifacts under `.git/mprlab-release`, writes their
 hash manifests, updates `CHANGELOG.md`, creates the local release commit and annotated tag, and
-writes `.git/mprlab-release/manifest.json`. It never fetches, pushes, calls GitHub, uploads a store
+writes `.git/mprlab-release/manifest.json`. That local tag and staging directory are transient pending state, not a
+published release. Preparation fetches only stable tag refs for synchronization; it never pushes, creates a GitHub Release, uploads a store
 build, publishes Pages, or deploys production. Repeating the command against that exact prepared
 commit/tag verifies and reports the existing nine-payload release instead of selecting a new version;
-any other local divergence from `origin/master` fails closed.
+any other local divergence from `origin/master` fails closed and stale local tag state is discarded.
 
 `make publish-dry-run` requires the exact prepared release from `make release`. It verifies its
 payload hashes, GitHub release plan and repository write permission, required `linux/amd64`
@@ -567,8 +570,9 @@ the prepared release. One repository-common lifecycle lock serializes release, p
 and one manifest digest is held across every publication stage so concurrent or mixed release identities fail closed.
 Raw `RELEASE_ARGS`, `PUBLISH_RELEASE_ARGS`, and `DEPLOY_ARGS` shell fragments are rejected rather than appended to recipes.
 Publication verifies that `origin/master` still matches the
-source commit recorded by `make release`, checks open pull requests, pushes the release commit and
-tag, creates a missing GitHub Release object or verifies an existing exact object, publishes the Docker
+source commit recorded by `make release`, checks open pull requests, then pushes the release commit and
+tag through one atomic Git transaction. If either ref is rejected, neither remote ref advances. Only a tag present
+on `origin` identifies a successful Git release. Publication then creates a missing GitHub Release object or verifies an existing exact object, publishes the Docker
 runtime image and React Native npm package, then uploads the already-built mobile artifacts to App
 Store Connect/TestFlight and Google Play Internal testing as the final publication stage. Existing
 GitHub operations require exactly one canonical `origin` URL, reject a separate

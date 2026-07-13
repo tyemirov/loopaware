@@ -6,12 +6,13 @@ usage() {
 Usage:
   prepare_release.sh [options]
 
-Prepares a release entirely from local repository state. The command validates
-the worktree, runs make ci, creates the changelog commit and annotated tag, and
-writes the release manifest and notes under .git/mprlab-release.
+Prepares a release from repository state after the lifecycle wrapper synchronizes
+stable tags from origin. The command validates the worktree, runs make ci, creates
+the changelog commit and pending annotated tag, and writes the release manifest
+and notes under .git/mprlab-release.
 
-It never fetches, pushes, calls GitHub, publishes an image/store build, updates
-GitHub Pages, or deploys production.
+It never pushes, calls GitHub, publishes an image/store build, updates GitHub
+Pages, or deploys production.
 
 Options:
   --bump <patch|minor|major>  SemVer bump when no exact version is supplied. Default: patch

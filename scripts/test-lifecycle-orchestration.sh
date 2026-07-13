@@ -200,6 +200,23 @@ git --git-dir="${remote_origin}" symbolic-ref HEAD refs/heads/master
   source "${repo_root}/scripts/release/repository_identity.sh"
   assert_remote_default_and_release_tags "${remote_fixture}" fixture
 )
+remote_release_commit="$(git --git-dir="${remote_origin}" rev-list -n 1 refs/tags/v1.2.2)"
+git -C "${remote_fixture}" tag -a v1.2.1 -m "Unpublished local release v1.2.1"
+git -C "${remote_fixture}" tag --delete v1.2.2 >/dev/null
+(
+  source "${repo_root}/scripts/release/repository_identity.sh"
+  assert_remote_default_and_release_tags "${remote_fixture}" fixture
+)
+! git -C "${remote_fixture}" show-ref --verify --quiet refs/tags/v1.2.1
+[[ "$(git -C "${remote_fixture}" rev-list -n 1 refs/tags/v1.2.2)" == "${remote_release_commit}" ]]
+fixture_tree="$(git -C "${remote_fixture}" write-tree)"
+wrong_tag_commit="$(printf 'wrong local tag target\n' | git -C "${remote_fixture}" commit-tree "${fixture_tree}")"
+git -C "${remote_fixture}" tag --force -a v1.2.2 -m "Wrong local release target" "${wrong_tag_commit}" >/dev/null
+(
+  source "${repo_root}/scripts/release/repository_identity.sh"
+  assert_remote_default_and_release_tags "${remote_fixture}" fixture
+)
+[[ "$(git -C "${remote_fixture}" rev-list -n 1 refs/tags/v1.2.2)" == "${remote_release_commit}" ]]
 printf 'unpublished\n' >>"${remote_fixture}/tracked.txt"
 git -C "${remote_fixture}" add tracked.txt
 git -C "${remote_fixture}" commit -m "Add unpublished non-release commit" >/dev/null
@@ -225,6 +242,7 @@ git -C "${prepared_remote_fixture}" tag -a v1.2.3 -m "Release v1.2.3"
   source "${repo_root}/scripts/release/repository_identity.sh"
   assert_remote_default_and_release_tags "${prepared_remote_fixture}" fixture allow-prepared-release
 )
+git -C "${prepared_remote_fixture}" show-ref --verify --quiet refs/tags/v1.2.3
 set +e
 strict_prepared_output="$({
   source "${repo_root}/scripts/release/repository_identity.sh"
@@ -234,6 +252,7 @@ strict_prepared_status=$?
 set -e
 [[ "${strict_prepared_status}" -ne 0 ]]
 [[ "${strict_prepared_output}" == *"does not match origin/master"* ]]
+! git -C "${prepared_remote_fixture}" show-ref --verify --quiet refs/tags/v1.2.3
 
 attestation_repository="${temporary_directory}/attestation-repository"
 attestation_remote_assets="${temporary_directory}/attestation-assets"

@@ -460,8 +460,47 @@ set -e
 
 rm -f "${github_state_file}" "${github_asset_directory}"/*
 : >"${github_log}"
+atomic_hook_log="${temporary_directory}/atomic-push.log"
+git --git-dir="${remote_repository}" update-ref refs/heads/master "${source_commit}"
+git --git-dir="${remote_repository}" update-ref -d "refs/tags/${release_version}"
+cat >"${remote_repository}/hooks/pre-receive" <<EOF_REJECT_ATOMIC_PUSH
+#!/bin/sh
+set -eu
+updates="\$(cat)"
+printf '%s\n' "\${updates}" >>"${atomic_hook_log}"
+if printf '%s\n' "\${updates}" | grep -Fq ' refs/tags/${release_version}'; then
+  exit 41
+fi
+EOF_REJECT_ATOMIC_PUSH
+chmod +x "${remote_repository}/hooks/pre-receive"
+set +e
+atomic_rejected_output="$(run_github_publication stateful 2>&1)"
+atomic_rejected_status=$?
+set -e
+[[ "${atomic_rejected_status}" -ne 0 ]]
+[[ "$(git --git-dir="${remote_repository}" rev-parse refs/heads/master)" == "${source_commit}" ]]
+! git --git-dir="${remote_repository}" show-ref --verify --quiet "refs/tags/${release_version}"
+[[ ! -f "${github_state_file}" ]]
+[[ "$(<"${github_log}")" != *"release create"* ]]
+
+: >"${github_log}"
+: >"${atomic_hook_log}"
+cat >"${remote_repository}/hooks/pre-receive" <<EOF_REQUIRE_ATOMIC_PUSH
+#!/bin/sh
+set -eu
+updates="\$(cat)"
+printf '%s\n' "\${updates}" >>"${atomic_hook_log}"
+update_count="\$(printf '%s\n' "\${updates}" | sed '/^$/d' | wc -l | tr -d ' ')"
+[ "\${update_count}" = '2' ]
+printf '%s\n' "\${updates}" | grep -Fq ' refs/heads/master'
+printf '%s\n' "\${updates}" | grep -Fq ' refs/tags/${release_version}'
+EOF_REQUIRE_ATOMIC_PUSH
+chmod +x "${remote_repository}/hooks/pre-receive"
 github_publish_output="$(run_github_publication stateful)"
 [[ "${github_publish_output}" == *'"published_release_assets"'* ]]
+[[ "$(wc -l <"${atomic_hook_log}" | tr -d ' ')" == "2" ]]
+[[ "$(git --git-dir="${remote_repository}" rev-parse refs/heads/master)" == "${release_commit}" ]]
+[[ "$(git --git-dir="${remote_repository}" rev-list -n 1 "refs/tags/${release_version}")" == "${release_commit}" ]]
 grep -Fq "release create ${release_version}" "${github_log}"
 github_upload_command="$(grep "^release upload ${release_version}" "${github_log}")"
 [[ "${github_upload_command}" == *"${artifact_directory}/manifest.json"* ]]
@@ -471,8 +510,10 @@ cmp "${artifact_directory}/manifest.json" "${github_asset_directory}/manifest.js
 cmp "${archive}" "${github_asset_directory}/pages.tar.gz"
 
 : >"${github_log}"
+: >"${atomic_hook_log}"
 github_rerun_output="$(run_github_publication stateful)"
 [[ "${github_rerun_output}" == *'"published_release_assets"'* ]]
+[[ ! -s "${atomic_hook_log}" ]]
 [[ "$(<"${github_log}")" != *"release upload"* ]]
 [[ "$(<"${github_log}")" != *"release create"* ]]
 

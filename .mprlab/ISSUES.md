@@ -641,6 +641,57 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B049] (P0) Make seeded dashboard authentication atomic with header readiness.
+  Goal:
+  Prevent the black-box integration suite from intermittently failing with `loopaware.header_missing` when the dashboard redirects between the helper's header-readiness check and its seeded MPR UI authentication call.
+
+  Requirements:
+  Keep authentication at the browser boundary and preserve real navigation behavior. Perform readiness detection and seeded authentication in one browser evaluation so navigation cannot remove the header between those operations. Do not increase timeouts or add blind delays.
+
+  Deliverables:
+  - Replace the split readiness/evaluation sequence with one observable browser readiness operation that authenticates the current header.
+  - Remove retry constants and delay logic made obsolete by the atomic operation.
+  - Exercise the change through the black-box dashboard integration suite and final CI.
+
+  Validation:
+  Reproduce the baseline `loopaware.header_missing` failure, then run the dashboard integration surface and final `make ci`.
+
+  Resolution:
+  Replaced the split header-readiness wait and seeded authentication evaluation with one browser-side readiness operation that authenticates the currently bound MPR UI header. Removed the obsolete retry count, delay, and navigation-error string matching so dashboard redirects remain real while the test boundary no longer observes a stale header reference.
+
+  Validation Results:
+  Baseline `make ci` and a canonical integration rerun reproduced `loopaware.header_missing` in two different dashboard tests. After the fix, `make lint` passed and `make test-integration-all` passed all 454 Playwright/API integration specs.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, and `tests/helpers/fixtures.js`.
+
+- [x] [B050] (P0) Make remote release refs authoritative and transactional.
+  Goal:
+  Prevent a local-only or replayed release tag from blocking preparation, and prevent publication from advancing `origin/master` without publishing the matching release tag.
+
+  Requirements:
+  Treat remote stable tags as the durable release source of truth. Local tags and `.git/mprlab-release` state are transient preparation state. Preserve only the one exact pending local release tag directly above the current remote default branch; discard other unpublished local stable tags and force local stable tags to the remote targets. Publish the release commit and tag in one atomic Git transaction. Do not add compatibility reads or preserve the aborted untagged release shape.
+
+  Deliverables:
+  - Synchronize stable local tags from `origin` before release-state validation.
+  - Delete stale or unpublished local stable tags except the exact pending prepared release at `HEAD`.
+  - Push the default branch and release tag through one `git push --atomic` operation.
+  - Add contract coverage proving a tag rejection cannot advance the remote default branch.
+  - Remove the aborted untagged `v0.7.44` CHANGELOG section as a bounded forward migration.
+  - Document the remote-authoritative transactional contract.
+
+  Validation:
+  Run lifecycle orchestration, release tooling, static release workflow validation, and final `make ci`.
+
+  Resolution:
+  Release-state validation now reads the remote default branch and stable tags first, deletes unpublished local stable tags except the one exact pending prepared release directly above the remote default branch, and force-synchronizes all remote stable tags in one fetch. Prepared local tags and `.git/mprlab-release` remain transient inputs. Publication now sends every required default-branch and tag refspec through one `git push --atomic`, so a rejected tag cannot leave the remote branch advanced. Removed the aborted untagged `v0.7.44` CHANGELOG section so the next release rebuilds that version from the current remote source.
+
+  Validation Results:
+  Added lifecycle fixtures for missing, stale, wrong-target, and exact-pending local tags. Added a bare-repository pre-receive rejection that proves the default branch remains unchanged when the tag is rejected, plus a success fixture requiring both refs in one receive transaction. `make lifecycle-orchestration-contract-check`, `make release-pages-contract-check`, and `make release-workflow-check` passed. After restarting Docker Desktop to recover its containerd metadata store, final `make ci` passed all release contracts, Go race checks, and 454 Playwright/API integration specs.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `CHANGELOG.md`, `README.md`, `scripts/release/prepare_release.sh`, `scripts/release/release_helper.py`, `scripts/release/repository_identity.sh`, `scripts/test-lifecycle-orchestration.sh`, `scripts/test-release-tooling.sh`, and `scripts/validate-release-workflow.mjs`.
+
 
 ## Improvements
 

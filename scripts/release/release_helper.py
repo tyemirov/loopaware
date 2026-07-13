@@ -899,10 +899,13 @@ def command_publish_prepared_release(args: argparse.Namespace) -> int:
         )
         return 0
 
+    push_refspecs: list[str] = []
     if plan["push_branch"]:
-        run(["git", "push", args.remote, f"HEAD:refs/heads/{default_branch}"], cwd=cwd)
+        push_refspecs.append(f"HEAD:refs/heads/{default_branch}")
     if plan["push_tag"]:
-        run(["git", "push", args.remote, f"refs/tags/{version}:refs/tags/{version}"], cwd=cwd)
+        push_refspecs.append(f"refs/tags/{version}:refs/tags/{version}")
+    if push_refspecs:
+        run(["git", "push", "--atomic", args.remote, *push_refspecs], cwd=cwd)
 
     publish_args = argparse.Namespace(version=version, notes_file=str(notes_path), title=None)
     if command_publish_release(publish_args) != 0:
