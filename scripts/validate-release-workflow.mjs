@@ -300,14 +300,16 @@ assert(
 );
 const reactNativeArtifactRecipe = makeRecipe("client-react-native-artifact");
 assert(
-  reactNativeArtifactRecipe.includes('source_dir="$$(mktemp -d)"') &&
+  reactNativeArtifactRecipe.includes("set -e;") &&
+    reactNativeArtifactRecipe.includes('source_dir="$$(mktemp -d)"') &&
     reactNativeArtifactRecipe.includes('git archive --output "$$archive" "$$RELEASE_SOURCE_COMMIT:clients/react-native"') &&
-    reactNativeArtifactRecipe.includes('npm --prefix "$$source_dir" ci --legacy-peer-deps') &&
-    reactNativeArtifactRecipe.includes('npm --prefix "$$source_dir" run typecheck') &&
-    reactNativeArtifactRecipe.includes('npm --prefix "$$source_dir" run build') &&
-    reactNativeArtifactRecipe.includes('npm --prefix "$$source_dir" run verify-package') &&
+    reactNativeArtifactRecipe.includes('(cd "$$source_dir" && env -u NO_COLOR npm ci --legacy-peer-deps)') &&
+    reactNativeArtifactRecipe.includes('(cd "$$source_dir" && env -u NO_COLOR npm run typecheck)') &&
+    reactNativeArtifactRecipe.includes('(cd "$$source_dir" && env -u NO_COLOR npm run build)') &&
+    reactNativeArtifactRecipe.includes('(cd "$$source_dir" && env -u NO_COLOR npm run verify-package)') &&
+    !reactNativeArtifactRecipe.includes('npm --prefix "$$source_dir"') &&
     reactNativeArtifactRecipe.includes('npm pack --ignore-scripts --pack-destination "$$asset_dir"'),
-  "react_native_release_package_must_be_built_in_a_clean_exact_commit_checkout",
+  "react_native_release_package_must_fail_fast_in_clean_exact_commit_checkout",
 );
 assert(
   !makefileSource.includes("loopaware-ios.json $(MOBILE_IOS_ARCHIVE_ARGS)") &&
@@ -671,9 +673,22 @@ assert(
 assert(containerPublishSource.includes("--preflight-only"), "container_publish_preflight_missing");
 assert(
   containerPublishSource.includes("blobs/uploads/") &&
+    containerPublishSource.includes("challenge_status") &&
+    containerPublishSource.includes('"${challenge_status}" != "401"') &&
+    containerPublishSource.includes("WWW-Authenticate") &&
+    containerPublishSource.includes('realm != "https://ghcr.io/token"') &&
+    containerPublishSource.includes('service != "ghcr.io"') &&
+    containerPublishSource.includes("scope != expected_scope") &&
+    containerPublishSource.includes('challenge_scope="repository:${repository_path}:pull"') &&
+    containerPublishSource.includes('registry_scope="repository:${repository_path}:pull,push"') &&
+    containerPublishSource.includes("--data-urlencode 'service=ghcr.io'") &&
+    containerPublishSource.includes('--data-urlencode "scope=${registry_scope}"') &&
+    containerPublishSource.split('user = "${registry_username}:${registry_token}"').length - 1 === 1 &&
+    containerPublishSource.split('header = "Authorization: Bearer ${registry_bearer_token}"').length - 1 === 2 &&
     containerPublishSource.includes('--request DELETE') &&
+    containerPublishSource.includes("unexpected upload location") &&
     containerPublishSource.includes("GHCR preflight upload cleanup failed"),
-  "container_publish_preflight_must_prove_write_authority_and_cleanup",
+  "container_publish_preflight_must_exchange_the_ghcr_challenge_and_use_bearer_authorization",
 );
 assert(
   containerPublishSource.includes("verify_prepared_container_archive") &&

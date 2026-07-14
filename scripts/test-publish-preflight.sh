@@ -984,35 +984,77 @@ method="GET"
 header_file=""
 body_file=""
 url=""
+read_config="false"
+get_request="false"
+data_service=""
+data_scope=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --request) method="$2"; shift 2 ;;
     --dump-header) header_file="$2"; shift 2 ;;
     --output) body_file="$2"; shift 2 ;;
-    --config|--write-out) shift 2 ;;
+    --config) [[ "$2" == "-" ]]; read_config="true"; shift 2 ;;
+    --get) get_request="true"; shift ;;
+    --data-urlencode)
+      case "$2" in
+        service=*) data_service="$2" ;;
+        scope=*) data_scope="$2" ;;
+        *) printf 'unexpected curl data: %s\n' "$2" >&2; exit 97 ;;
+      esac
+      shift 2
+      ;;
+    --write-out) shift 2 ;;
     --silent|--show-error) shift ;;
     http*) url="$1"; shift ;;
     *) printf 'unexpected curl argument: %s\n' "$1" >&2; exit 97 ;;
   esac
 done
-cat >/dev/null
-printf '%s|%s\n' "${method}" "${url}" >>"${CONTAINER_LOG}"
-case "${method}" in
-  POST)
+config=""
+if [[ "${read_config}" == "true" ]]; then
+  config="$(cat)"
+fi
+auth_kind="none"
+if [[ "${config}" == *'user = "fixture-user:fixture-token"'* ]]; then
+  auth_kind="basic"
+elif [[ "${config}" == *'header = "Authorization: Bearer fixture-registry-token"'* ]]; then
+  auth_kind="bearer"
+elif [[ -n "${config}" ]]; then
+  printf 'unexpected curl config\n' >&2
+  exit 97
+fi
+printf '%s|%s|%s|%s|%s\n' "${method}" "${url}" "${auth_kind}" "${data_service}" "${data_scope}" >>"${CONTAINER_LOG}"
+if [[ "${method}" == "POST" && "${url}" == "https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/" && "${auth_kind}" == "none" ]]; then
+  if [[ "${FAKE_GHCR_CHALLENGE_FAILURE:-0}" == "1" ]]; then
+    printf 'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Bearer realm="https://registry.invalid/token",service="ghcr.io",scope="repository:tyemirov/loopaware:pull"\r\n\r\n' >"${header_file}"
+  else
+    printf 'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:tyemirov/loopaware:pull"\r\n\r\n' >"${header_file}"
+  fi
+  printf '%s' '{"errors":[{"code":"UNAUTHORIZED","message":"authentication required"}]}' >"${body_file}"
+  printf '401'
+elif [[ "${method}" == "GET" && "${get_request}" == "true" && "${url}" == "https://ghcr.io/token" && "${auth_kind}" == "basic" ]]; then
+  [[ "${data_service}" == "service=ghcr.io" ]]
+  [[ "${data_scope}" == "scope=repository:tyemirov/loopaware:pull,push" ]]
+  printf '%s' '{"token":"fixture-registry-token"}' >"${body_file}"
+  printf '200'
+elif [[ "${method}" == "POST" && "${url}" == "https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/" && "${auth_kind}" == "bearer" ]]; then
+  if [[ "${FAKE_GHCR_UPLOAD_LOCATION_FAILURE:-0}" == "1" ]]; then
+    printf 'HTTP/1.1 202 Accepted\r\nLocation: https://registry.invalid/v2/tyemirov/loopaware/blobs/uploads/preflight-session\r\n\r\n' >"${header_file}"
+  else
     printf 'HTTP/1.1 202 Accepted\r\nLocation: /v2/tyemirov/loopaware/blobs/uploads/preflight-session\r\n\r\n' >"${header_file}"
-    : >"${body_file}"
-    printf '202'
-    ;;
-  DELETE)
-    : >"${body_file}"
-    if [[ "${FAKE_GHCR_DELETE_FAILURE:-0}" == "1" ]]; then
-      printf '500'
-    else
-      printf '204'
-    fi
-    ;;
-  *) printf 'unexpected curl method: %s\n' "${method}" >&2; exit 97 ;;
-esac
+  fi
+  : >"${body_file}"
+  printf '202'
+elif [[ "${method}" == "DELETE" && "${url}" == "https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/preflight-session" && "${auth_kind}" == "bearer" ]]; then
+  : >"${body_file}"
+  if [[ "${FAKE_GHCR_DELETE_FAILURE:-0}" == "1" ]]; then
+    printf '500'
+  else
+    printf '204'
+  fi
+else
+  printf 'unexpected curl request: %s %s (%s)\n' "${method}" "${url}" "${auth_kind}" >&2
+  exit 97
+fi
 EOF_CONTAINER_CURL
 chmod +x "${container_bin}/docker" "${container_bin}/gh" "${container_bin}/curl"
 
@@ -1022,9 +1064,13 @@ container_output="$(
     ./scripts/release/publish_container_artifacts.sh --preflight-only
 )"
 [[ "${container_output}" == *"prepared archive loaded with its exact image id"* ]]
-[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "2" ]]
-sed -n '1p' "${container_log}" | grep -Fq 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/'
-sed -n '2p' "${container_log}" | grep -Fq 'DELETE|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/preflight-session'
+[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "4" ]]
+sed -n '1p' "${container_log}" | grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|none||'
+sed -n '2p' "${container_log}" | grep -Fqx 'GET|https://ghcr.io/token|basic|service=ghcr.io|scope=repository:tyemirov/loopaware:pull,push'
+sed -n '3p' "${container_log}" | grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|bearer||'
+sed -n '4p' "${container_log}" | grep -Fqx 'DELETE|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/preflight-session|bearer||'
+! grep -Fq 'fixture-token' "${container_log}"
+! grep -Fq 'fixture-registry-token' "${container_log}"
 grep -Fq 'LOAD|' "${container_docker_log}"
 grep -Fq 'SAVE|mprlab-release.local/loopaware:v1.2.3-linux-amd64' "${container_docker_log}"
 grep -Fq 'REMOVE|mprlab-release.local/loopaware:v1.2.3-linux-amd64' "${container_docker_log}"
@@ -1064,6 +1110,37 @@ set -e
 : >"${container_log}"
 : >"${container_docker_log}"
 set +e
+container_challenge_output="$(
+  cd "${container_repository}"
+  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_GHCR_CHALLENGE_FAILURE=1 PUBLISH_PLATFORMS="linux/amd64" \
+    ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
+)"
+container_challenge_status=$?
+set -e
+[[ "${container_challenge_status}" -ne 0 ]]
+[[ "${container_challenge_output}" == *"unexpected Bearer realm"* ]]
+[[ "${container_challenge_output}" == *"rejected the registry authentication challenge"* ]]
+[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "1" ]]
+grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|none||' "${container_log}"
+
+: >"${container_log}"
+: >"${container_docker_log}"
+set +e
+container_location_output="$(
+  cd "${container_repository}"
+  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_GHCR_UPLOAD_LOCATION_FAILURE=1 PUBLISH_PLATFORMS="linux/amd64" \
+    ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
+)"
+container_location_status=$?
+set -e
+[[ "${container_location_status}" -ne 0 ]]
+[[ "${container_location_output}" == *"unexpected upload location"* ]]
+[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "3" ]]
+sed -n '3p' "${container_log}" | grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|bearer||'
+
+: >"${container_log}"
+: >"${container_docker_log}"
+set +e
 container_cleanup_output="$(
   cd "${container_repository}"
   PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_GHCR_DELETE_FAILURE=1 PUBLISH_PLATFORMS="linux/amd64" \
@@ -1073,7 +1150,7 @@ container_cleanup_status=$?
 set -e
 [[ "${container_cleanup_status}" -ne 0 ]]
 [[ "${container_cleanup_output}" == *"GHCR preflight upload cleanup failed"* ]]
-[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "2" ]]
+[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "4" ]]
 
 : >"${container_log}"
 : >"${container_docker_log}"
@@ -1129,7 +1206,7 @@ container_latest_attestation_output="$(
     ./scripts/release/publish_container_artifacts.sh --preflight-only
 )"
 [[ "${container_latest_attestation_output}" == *"Verified prepared container publication inputs for loopaware:v1.2.3."* ]]
-[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "2" ]]
+[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "4" ]]
 ! grep -Fq 'PUSH|' "${container_docker_log}"
 ! grep -Fq 'CREATE|' "${container_docker_log}"
 

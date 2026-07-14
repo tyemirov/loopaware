@@ -31,6 +31,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the standard mobile store publishing inputs for local iOS IPA and Android AAB uploads.
 - Document the UTC CalVer mobile release-numbering contract and deterministic `MOBILE_RELEASE_TIMESTAMP` override.
 
+## [v0.7.44] - 2026-07-13
+
+- Merge pull request #282 from tyemirov/bugfix/B049-dashboard-auth-navigation-race
+- Merge pull request #283 from tyemirov/bugfix/B050-transactional-remote-release-state
+- fix(release): make remote tags authoritative and publish via atomic git push
+- Fix B049 dashboard auth navigation race
+- Release v0.7.44
+- Merge pull request #281 from tyemirov/bugfix/B048-allow-latest-attestation-index
+- Fix B048 latest attestation publish preflight
+- Merge pull request #280 from tyemirov/bugfix/B047-container-archive-image-id
+- Fix B047 container archive image identity
+- Merge pull request #279 from tyemirov/bugfix/B046-ios-release-artifact-failure
+- feat(web): add site analytics pixel to all main HTML pages
+- fix(mobile): ensure versioning type consistency in publish/submit scripts
+- docs: mark traffic pixel embed issue as resolved with detailed resolution
+- test: verify mobile artifact builders fail fast in iOS then Android order
+- fix(mobile): lock pod-install as dev dep and enforce in config validation
+- fix(makefile): ensure mobile-release-artifacts exits on command failure
+- docs(issues): add [B046] surface iOS archive failures at failing builder
+- Merge pull request #278 from tyemirov/bugfix/B045-portable-remote-tag-awk
+- test: improve macOS release contract validation and fixture setup
+- docs(issues): add B045 describing portable remote release-tag verification on macOS
+- ci: add macOS release contract workflow to GitHub Actions
+- Merge pull request #277 from tyemirov/gix/add-preflight-and-dry-run-validations-for-release
+- test: run bash_function test with Bash to cover function export rejection
+- docs(issues): document Linux CI portability fix for hostile function probe
+- chore(release): remove uv dependency and use direct python3 invocation
+- docs(issues): document removal of undeclared `uv` dependency from release workflow
+- ci: add scripts directory to workflow triggers and setup Python 3.11 in CI
+- test: enforce local Docker isolation and update integration test configs
+- refactor(scripts): rewrite deploy.sh for canonical contract and strict lifecycle
+- feat(mobile): enrich build artifacts with runtimeConfig and stricter CI inputs
+- fix(configs): update environment templates for unified tenant and var names
+- docs: expand README with complete dry-run, publish, and deploy contract
+- refactor: rework Makefile for canonical release/publish lifecycles
+- docs(issues): record release/publish/deploy contract, readiness, and audit fixes
+- chore(dockerignore): expand ignore patterns for env, secrets, and mobile dirs
+
 ## [v0.7.43] - 2026-07-10
 
 - Merge pull request #276 from tyemirov/gix/vendor-git-release-pipelines-and-remove-sibling

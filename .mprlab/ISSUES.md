@@ -692,6 +692,56 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `CHANGELOG.md`, `README.md`, `scripts/release/prepare_release.sh`, `scripts/release/release_helper.py`, `scripts/release/repository_identity.sh`, `scripts/test-lifecycle-orchestration.sh`, `scripts/test-release-tooling.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B051] (P0) Fail closed while building the React Native release artifact.
+  Goal:
+  Prevent the exact-commit React Native artifact builder from reporting success and staging a package without compiled outputs after its clean dependency install fails.
+
+  Requirements:
+  Run package commands from inside the disposable exact-commit checkout and stop at the first failed command. Keep the canonical scoped package identity and lockfile; do not add aliases, fallbacks, or compatibility handling for temporary directory names.
+
+  Deliverables:
+  - Run the clean install, typecheck, build, verification, and final pack from the disposable package checkout.
+  - Make the artifact recipe fail immediately when any package command fails.
+  - Add black-box contract coverage proving a failed clean install cannot invoke later package stages or create a tarball.
+  - Strengthen static release validation for the fail-fast working-directory contract.
+
+  Validation:
+  Reproduce the original false-success boundary, run the real exact-commit package artifact target, focused staged/release workflow checks, and final `make ci`.
+
+  Resolution:
+  Made the exact-commit React Native artifact recipe fail immediately and run its clean install, typecheck, build, verification, and pack commands from inside the disposable package checkout. The static release validator now enforces that fail-fast working-directory contract and rejects the broken temporary-directory `npm --prefix` form. Added a black-box staged-artifact fixture that fails the disposable clean install and proves no later npm command runs and no package is created.
+
+  Validation Results:
+  Reproduced the original target returning success while staging a three-file package without `dist/`. The new regression failed against that behavior and passed after the repair. A real exact-commit artifact build produced the canonical five-file package with `dist/index.js` and `dist/index.d.ts`. `make staged-release-contract-check`, `make release-workflow-check`, `git diff --check`, and final `make ci` passed; the final integration run completed all 454 Playwright/API specs.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `scripts/test-staged-release-artifacts.sh`, and `scripts/validate-release-workflow.mjs`.
+
+- [x] [B052] (P0) Follow the GHCR Bearer challenge during push-authority preflight.
+  Goal:
+  Let `make publish` prove GHCR write authority with valid GitHub Package credentials instead of failing when the registry correctly returns its initial authentication challenge.
+
+  Requirements:
+  Require the canonical GHCR Registry v2 Bearer challenge, exchange the configured GitHub credentials for the exact repository `pull,push` scope, and use only that scoped Bearer token for the temporary upload session and cleanup. Reject unexpected realms, services, scopes, redirects, or direct Basic upload authorization; do not add alternate authentication paths.
+
+  Deliverables:
+  - Parse and validate the GHCR `WWW-Authenticate` challenge returned by the upload endpoint.
+  - Exchange the GitHub username and token for a repository-scoped registry Bearer token.
+  - Create and delete the preflight upload session with Bearer authorization while keeping credentials out of command arguments and logs.
+  - Add black-box and static contract coverage for the challenge, token exchange, authenticated upload creation, cleanup, and rejection boundaries.
+
+  Validation:
+  Reproduce the original HTTP 401 boundary, run the focused publish-preflight and release workflow checks, and run final `make ci`.
+
+  Resolution:
+  Changed the GHCR write-authority preflight to start without credentials, require the registry's canonical Bearer challenge, and validate its trusted realm, service, and repository `pull` scope. The preflight now exchanges GitHub credentials for the explicit repository `pull,push` scope, uses only the returned Bearer token to create and delete the temporary upload session, and rejects upload locations outside the exact GHCR repository path. GitHub credentials and the scoped registry token stay in curl configuration input instead of command arguments or logs.
+
+  Validation Results:
+  Reproduced GHCR's live HTTP 401 challenge and confirmed it advertises `https://ghcr.io/token`, service `ghcr.io`, and repository `pull` scope. Added a four-request black-box contract for the unauthenticated challenge, authenticated token exchange, Bearer upload creation, and Bearer cleanup, plus rejection coverage for an untrusted realm and off-registry upload location. `make publish-preflight-contract-check`, `make release-workflow-check`, `git diff --check`, and final `make ci` passed; the final integration run completed all 454 Playwright/API specs. An earlier final-CI attempt was invalidated by an aborted Docker Desktop VM filesystem journal; after restarting Docker Desktop and removing that failed run's isolated stack, the clean rerun passed.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
+
 
 ## Improvements
 

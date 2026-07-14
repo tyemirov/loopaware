@@ -243,16 +243,17 @@ client-react-native-check: client-react-native-install
 client-react-native-artifact: client-react-native-check
 	@test -n "$$RELEASE_ARTIFACT_DIR" || { echo "error: RELEASE_ARTIFACT_DIR is required" >&2; exit 1; }
 	@test -n "$$RELEASE_SOURCE_COMMIT" || { echo "error: RELEASE_SOURCE_COMMIT is required" >&2; exit 1; }
-	@source_dir="$$(mktemp -d)"; \
+	@set -e; \
+	source_dir="$$(mktemp -d)"; \
 	archive="$$(mktemp)"; \
 	cleanup() { rm -rf "$$source_dir"; rm -f "$$archive"; }; \
 	trap cleanup EXIT; \
 	git archive --output "$$archive" "$$RELEASE_SOURCE_COMMIT:clients/react-native"; \
 	tar -xf "$$archive" -C "$$source_dir"; \
-	env -u NO_COLOR npm --prefix "$$source_dir" ci --legacy-peer-deps; \
-	env -u NO_COLOR npm --prefix "$$source_dir" run typecheck; \
-	env -u NO_COLOR npm --prefix "$$source_dir" run build; \
-	env -u NO_COLOR npm --prefix "$$source_dir" run verify-package; \
+	(cd "$$source_dir" && env -u NO_COLOR npm ci --legacy-peer-deps); \
+	(cd "$$source_dir" && env -u NO_COLOR npm run typecheck); \
+	(cd "$$source_dir" && env -u NO_COLOR npm run build); \
+	(cd "$$source_dir" && env -u NO_COLOR npm run verify-package); \
 	asset_dir="$$RELEASE_ARTIFACT_DIR/payloads/release-assets"; \
 	mkdir -p "$$asset_dir"; \
 	rm -f "$$asset_dir"/loopaware-react-native-*.tgz; \
