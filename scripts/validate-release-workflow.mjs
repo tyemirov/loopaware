@@ -676,6 +676,12 @@ assert(
     containerPublishSource.includes("challenge_status") &&
     containerPublishSource.includes('"${challenge_status}" != "401"') &&
     containerPublishSource.includes("WWW-Authenticate") &&
+    containerPublishSource.includes('for raw_parameter in challenge.group(1).split(",")') &&
+    containerPublishSource.includes('required_parameters = {"realm", "service", "scope"}') &&
+    containerPublishSource.includes("duplicate Bearer parameter") &&
+    containerPublishSource.includes("missing parameters") &&
+    containerPublishSource.includes("unknown parameters") &&
+    containerPublishSource.includes('realm = parameters["realm"]') &&
     containerPublishSource.includes('realm != "https://ghcr.io/token"') &&
     containerPublishSource.includes('service != "ghcr.io"') &&
     containerPublishSource.includes("scope != expected_scope") &&

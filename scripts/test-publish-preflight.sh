@@ -1024,11 +1024,31 @@ elif [[ -n "${config}" ]]; then
 fi
 printf '%s|%s|%s|%s|%s\n' "${method}" "${url}" "${auth_kind}" "${data_service}" "${data_scope}" >>"${CONTAINER_LOG}"
 if [[ "${method}" == "POST" && "${url}" == "https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/" && "${auth_kind}" == "none" ]]; then
-  if [[ "${FAKE_GHCR_CHALLENGE_FAILURE:-0}" == "1" ]]; then
-    printf 'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Bearer realm="https://registry.invalid/token",service="ghcr.io",scope="repository:tyemirov/loopaware:pull"\r\n\r\n' >"${header_file}"
-  else
-    printf 'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:tyemirov/loopaware:pull"\r\n\r\n' >"${header_file}"
-  fi
+  case "${FAKE_GHCR_CHALLENGE_MODE:-canonical}" in
+    canonical)
+      challenge='Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:tyemirov/loopaware:pull"'
+      ;;
+    reordered)
+      challenge='Bearer scope = "repository:tyemirov/loopaware:pull" , realm = "https://ghcr.io/token" , service = "ghcr.io"'
+      ;;
+    untrusted-realm)
+      challenge='Bearer realm="https://registry.invalid/token",service="ghcr.io",scope="repository:tyemirov/loopaware:pull"'
+      ;;
+    duplicate)
+      challenge='Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:tyemirov/loopaware:pull",service="ghcr.io"'
+      ;;
+    missing)
+      challenge='Bearer realm="https://ghcr.io/token",service="ghcr.io"'
+      ;;
+    unknown)
+      challenge='Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:tyemirov/loopaware:pull",tenant="tyemirov"'
+      ;;
+    *)
+      printf 'unexpected GHCR challenge mode: %s\n' "${FAKE_GHCR_CHALLENGE_MODE}" >&2
+      exit 97
+      ;;
+  esac
+  printf 'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: %s\r\n\r\n' "${challenge}" >"${header_file}"
   printf '%s' '{"errors":[{"code":"UNAUTHORIZED","message":"authentication required"}]}' >"${body_file}"
   printf '401'
 elif [[ "${method}" == "GET" && "${get_request}" == "true" && "${url}" == "https://ghcr.io/token" && "${auth_kind}" == "basic" ]]; then
@@ -1078,6 +1098,18 @@ grep -Fq 'REMOVE|mprlab-release.local/loopaware:v1.2.3-linux-amd64' "${container
 
 : >"${container_log}"
 : >"${container_docker_log}"
+container_reordered_challenge_output="$(
+  cd "${container_repository}"
+  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_GHCR_CHALLENGE_MODE=reordered PUBLISH_PLATFORMS="linux/amd64" \
+    ./scripts/release/publish_container_artifacts.sh --preflight-only
+)"
+[[ "${container_reordered_challenge_output}" == *"prepared archive loaded with its exact image id"* ]]
+[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "4" ]]
+sed -n '2p' "${container_log}" | grep -Fqx 'GET|https://ghcr.io/token|basic|service=ghcr.io|scope=repository:tyemirov/loopaware:pull,push'
+[[ ! -f "${container_docker_state}" ]]
+
+: >"${container_log}"
+: >"${container_docker_log}"
 set +e
 container_load_output="$(
   cd "${container_repository}"
@@ -1107,21 +1139,28 @@ set -e
 [[ "${container_platform_output}" == *"loaded preflight image platform linux/arm64 does not match prepared linux/amd64"* ]]
 [[ ! -s "${container_log}" ]]
 
-: >"${container_log}"
-: >"${container_docker_log}"
-set +e
-container_challenge_output="$(
-  cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_GHCR_CHALLENGE_FAILURE=1 PUBLISH_PLATFORMS="linux/amd64" \
-    ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
-)"
-container_challenge_status=$?
-set -e
-[[ "${container_challenge_status}" -ne 0 ]]
-[[ "${container_challenge_output}" == *"unexpected Bearer realm"* ]]
-[[ "${container_challenge_output}" == *"rejected the registry authentication challenge"* ]]
-[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "1" ]]
-grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|none||' "${container_log}"
+for challenge_case in \
+  'untrusted-realm|unexpected Bearer realm' \
+  'duplicate|duplicate Bearer parameter' \
+  'missing|missing parameters' \
+  'unknown|unknown parameters'; do
+  IFS='|' read -r challenge_mode expected_challenge_error <<<"${challenge_case}"
+  : >"${container_log}"
+  : >"${container_docker_log}"
+  set +e
+  container_challenge_output="$(
+    cd "${container_repository}"
+    PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_GHCR_CHALLENGE_MODE="${challenge_mode}" PUBLISH_PLATFORMS="linux/amd64" \
+      ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
+  )"
+  container_challenge_status=$?
+  set -e
+  [[ "${container_challenge_status}" -ne 0 ]]
+  [[ "${container_challenge_output}" == *"${expected_challenge_error}"* ]]
+  [[ "${container_challenge_output}" == *"rejected the registry authentication challenge"* ]]
+  [[ "$(wc -l <"${container_log}" | tr -d ' ')" == "1" ]]
+  grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|none||' "${container_log}"
+done
 
 : >"${container_log}"
 : >"${container_docker_log}"

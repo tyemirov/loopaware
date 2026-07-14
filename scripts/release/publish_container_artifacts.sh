@@ -99,14 +99,40 @@ with open(header_path, encoding="iso-8859-1") as headers:
             challenges.append(value.strip())
 if len(challenges) != 1:
     raise SystemExit(f"GHCR returned {len(challenges)} WWW-Authenticate challenges, expected exactly one")
-match = re.fullmatch(
-    r'Bearer realm="([^"]+)",service="([^"]+)",scope="([^"]+)"',
-    challenges[0],
-    flags=re.IGNORECASE,
-)
-if match is None:
+challenge = re.fullmatch(r"Bearer\s+(.+)", challenges[0], flags=re.IGNORECASE)
+if challenge is None:
     raise SystemExit("GHCR returned a malformed Bearer challenge")
-realm, service, scope = match.groups()
+
+parameters = {}
+for raw_parameter in challenge.group(1).split(","):
+    parameter = re.fullmatch(
+        r'([A-Za-z][A-Za-z0-9_-]*)\s*=\s*"([^"\\]*)"',
+        raw_parameter.strip(),
+    )
+    if parameter is None:
+        raise SystemExit("GHCR returned a malformed Bearer challenge parameter")
+    name, value = parameter.groups()
+    name = name.lower()
+    if name in parameters:
+        raise SystemExit(f"GHCR returned duplicate Bearer parameter {name!r}")
+    parameters[name] = value
+
+required_parameters = {"realm", "service", "scope"}
+parameter_names = set(parameters)
+missing_parameters = required_parameters - parameter_names
+if missing_parameters:
+    raise SystemExit(
+        f"GHCR Bearer challenge is missing parameters {sorted(missing_parameters)!r}"
+    )
+unknown_parameters = parameter_names - required_parameters
+if unknown_parameters:
+    raise SystemExit(
+        f"GHCR Bearer challenge has unknown parameters {sorted(unknown_parameters)!r}"
+    )
+
+realm = parameters["realm"]
+service = parameters["service"]
+scope = parameters["scope"]
 if realm != "https://ghcr.io/token":
     raise SystemExit(f"GHCR returned unexpected Bearer realm {realm!r}")
 if service != "ghcr.io":

@@ -742,6 +742,32 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B053] (P0) Rebuild the release-preflight fixes on clean history and parse GHCR challenges semantically.
+  Goal:
+  Keep the aborted local `v0.7.44` release commit out of the proposed change while accepting valid GHCR Bearer challenges regardless of authentication-parameter order or optional whitespace.
+
+  Requirements:
+  Build the replacement branch directly from `origin/master` without rewriting history. Parse exactly one Bearer challenge into the canonical `realm`, `service`, and `scope` parameters, reject missing, duplicate, or unknown parameters, and keep exact value validation. Do not preserve the positional parser or the aborted changelog entry.
+
+  Deliverables:
+  - Reapply the B051 and B052 implementation without the aborted release commit or `v0.7.44` changelog section.
+  - Parse Bearer authentication parameters independently of their order and optional whitespace.
+  - Reject malformed challenges and challenges with missing, duplicate, or unknown parameters.
+  - Add black-box coverage for reordered valid parameters and duplicate-parameter rejection.
+  - Update static release validation for the semantic parsing contract.
+
+  Validation:
+  Run the focused staged-artifact, publish-preflight, and release-workflow contracts, verify the branch ancestry/diff excludes `CHANGELOG.md`, and run final `make ci`.
+
+  Resolution:
+  Rebuilt the release-preflight changes on `bugfix/B053-rebuild-release-preflight` directly from `origin/master`, leaving the aborted local `v0.7.44` release commit and changelog section outside the proposed history. Reapplied the fail-fast exact-commit React Native package build and the GHCR Bearer token exchange. Replaced the positional GHCR challenge regex with strict authentication-parameter parsing that accepts canonical parameters in any order with optional whitespace, requires exactly `realm`, `service`, and `scope`, rejects missing, duplicate, unknown, or malformed parameters, and preserves exact trusted-value validation.
+
+  Validation Results:
+  Baseline `make ci` passed before implementation. `make staged-release-contract-check publish-preflight-contract-check release-workflow-check` passed with black-box coverage for canonical and reordered challenges plus untrusted, missing, duplicate, and unknown parameter rejection. The ancestry audit reported `aborted-release-ancestor=no`, the diff audit reported `changelog-diff=no`, and `git diff --check` passed. Final `make ci` passed all release contracts, Go race checks, and 454 Playwright/API integration specs.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, `scripts/test-staged-release-artifacts.sh`, and `scripts/validate-release-workflow.mjs`.
+
 
 ## Improvements
 
