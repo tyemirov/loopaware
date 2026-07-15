@@ -1,0 +1,26 @@
+name: mprlab-nginx-gateway
+
+services:
+  loopaware-api:
+    image: ${LOOPAWARE_DEPLOY_IMAGE_REF:?Set LOOPAWARE_DEPLOY_IMAGE_REF to the verified immutable digest}
+    container_name: loopaware-api
+    restart: unless-stopped
+    env_file:
+      - ../configs/.env.loopaware
+    expose:
+      - "8080"
+    volumes:
+      - loopaware-data:/app/data
+      - ../configs/config.loopaware.yml:/app/configs/config.loopaware.yml:ro
+    networks:
+      - gateway
+
+networks:
+  gateway:
+    name: mprlab-nginx-gateway_default
+    external: true
+
+volumes:
+  loopaware-data:
+    name: mprlab-nginx-gateway_loopaware-data
+    external: true

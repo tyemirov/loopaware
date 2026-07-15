@@ -1,0 +1,12 @@
+---
+- name: Validate the exact LoopAware deployment inputs locally
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    mprlab_app_resource_repo_path: "{{ playbook_dir | dirname | dirname | dirname }}"
+    mprlab_app_resource_source_repo_path: "{{ playbook_dir | dirname | dirname | dirname }}"
+  tasks:
+    - name: Run the app-owned validation entrypoint
+      ansible.builtin.include_tasks: ../tasks/validate.yml

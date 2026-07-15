@@ -1,0 +1,39 @@
+---
+- name: Load the immutable LoopAware deployment image contract
+  ansible.builtin.include_tasks: resolve-image.yml
+
+- name: Inspect the deployed LoopAware backend
+  ansible.builtin.command:
+    argv:
+      - "{{ loopaware_docker_cli }}"
+      - inspect
+      - loopaware-api
+  register: loopaware_backend_inspect
+  changed_when: false
+
+- name: Resolve the deployed LoopAware backend state
+  ansible.builtin.set_fact:
+    loopaware_backend_state: "{{ (loopaware_backend_inspect.stdout | from_json | first) }}"
+
+- name: Require the exact running LoopAware backend
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - loopaware_backend_state.State.Running
+      - loopaware_backend_state.Config.Image == loopaware_deploy_image_ref_effective
+      - loopaware_gateway_network in loopaware_backend_state.NetworkSettings.Networks
+    fail_msg: "LoopAware must be running the exact verified image digest on the shared gateway network."
+
+- name: Verify LoopAware can reach Pinguin over gRPC
+  ansible.builtin.command:
+    argv:
+      - "{{ loopaware_docker_cli }}"
+      - exec
+      - loopaware-api
+      - nc
+      - -z
+      - -w
+      - '5'
+      - pinguin-api
+      - '50051'
+  changed_when: false
