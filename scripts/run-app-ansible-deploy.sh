@@ -38,13 +38,13 @@ done
 command -v uvx >/dev/null 2>&1 || { echo 'error: uvx is required for the pinned LoopAware Ansible controller' >&2; exit 1; }
 
 repo_root="$(git rev-parse --show-toplevel)"
-inventory_path="${LOOPAWARE_ANSIBLE_INVENTORY:-${repo_root}/deploy/ansible/inventory/hosts.yml}"
+inventory_path="${LOOPAWARE_ANSIBLE_INVENTORY:-${repo_root}/.mprlab/deploy/ansible/inventory/hosts.yml}"
 [[ -f "${inventory_path}" && ! -L "${inventory_path}" ]] || {
-  echo "error: LoopAware deployment inventory not found: ${inventory_path}; create it from deploy/ansible/inventory/hosts.yml.example" >&2
+  echo "error: LoopAware deployment inventory not found: ${inventory_path}; create it from .mprlab/deploy/ansible/inventory/hosts.yml.example" >&2
   exit 1
 }
 
-ansible_config="${repo_root}/deploy/ansible/ansible.cfg"
+ansible_config="${repo_root}/.mprlab/deploy/ansible/ansible.cfg"
 ansible_local_temp="${repo_root}/.cache/ansible-local"
 mkdir -p "${ansible_local_temp}"
 export ANSIBLE_CONFIG="${ansible_config}"
@@ -54,7 +54,7 @@ export LOOPAWARE_DEPLOY_REPO_ROOT="${repo_root}"
 
 ansible_tool=(uvx --python 3.13 --from ansible-core==2.19.8)
 timeout --foreground -k 1200s -s SIGKILL 1200s "${ansible_tool[@]}" ansible-inventory --inventory "${inventory_path}" --list >/dev/null
-timeout --foreground -k 1200s -s SIGKILL 1200s "${ansible_tool[@]}" ansible-playbook --inventory localhost, "${repo_root}/deploy/ansible/playbooks/preflight-local.yml"
+timeout --foreground -k 1200s -s SIGKILL 1200s "${ansible_tool[@]}" ansible-playbook --inventory localhost, "${repo_root}/.mprlab/deploy/ansible/playbooks/preflight-local.yml"
 
 if [[ "${mode}" == 'dry-run' ]]; then
   echo 'LoopAware app-owned backend preflight passed; production hosts were not contacted and production state was not changed.'
@@ -71,4 +71,4 @@ if [[ -n "${LOOPAWARE_ANSIBLE_BECOME_PASSWORD_FILE:-}" ]]; then
 else
   become_flags+=(--ask-become-pass)
 fi
-timeout --foreground -k 1200s -s SIGKILL 1200s "${ansible_tool[@]}" ansible-playbook "${become_flags[@]}" --inventory "${inventory_path}" "${repo_root}/deploy/ansible/playbooks/deploy.yml"
+timeout --foreground -k 1200s -s SIGKILL 1200s "${ansible_tool[@]}" ansible-playbook "${become_flags[@]}" --inventory "${inventory_path}" "${repo_root}/.mprlab/deploy/ansible/playbooks/deploy.yml"

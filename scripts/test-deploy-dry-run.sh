@@ -14,8 +14,8 @@ release_asset_source="${temporary_directory}/release-assets"
 real_make="$(command -v make)"
 mkdir -p \
   "${fixture_repository}/scripts/release" \
-  "${fixture_repository}/deploy/ansible/inventory" \
-  "${fixture_repository}/deploy/ansible/playbooks" \
+  "${fixture_repository}/.mprlab/deploy/ansible/inventory" \
+  "${fixture_repository}/.mprlab/deploy/ansible/playbooks" \
   "${fake_bin}" \
   "${release_asset_source}"
 cp "${repo_root}/scripts/deploy.sh" "${fixture_repository}/scripts/deploy.sh"
@@ -23,10 +23,10 @@ cp "${repo_root}/scripts/run-app-ansible-deploy.sh" "${fixture_repository}/scrip
 cp "${repo_root}/scripts/release/repository_identity.sh" "${fixture_repository}/scripts/release/repository_identity.sh"
 cp "${repo_root}/scripts/release/with_lifecycle_lock.sh" "${fixture_repository}/scripts/release/with_lifecycle_lock.sh"
 cp "${repo_root}/scripts/release/run_lifecycle.sh" "${fixture_repository}/scripts/release/run_lifecycle.sh"
-cp "${repo_root}/deploy/ansible/ansible.cfg" "${fixture_repository}/deploy/ansible/ansible.cfg"
+cp "${repo_root}/.mprlab/deploy/ansible/ansible.cfg" "${fixture_repository}/.mprlab/deploy/ansible/ansible.cfg"
 cp "${repo_root}/Makefile" "${fixture_repository}/Makefile"
 
-cat >"${fixture_repository}/deploy/ansible/inventory/hosts.yml" <<'YAML_INVENTORY'
+cat >"${fixture_repository}/.mprlab/deploy/ansible/inventory/hosts.yml" <<'YAML_INVENTORY'
 ---
 all:
   children:
@@ -35,8 +35,8 @@ all:
         production-fixture:
           ansible_connection: local
 YAML_INVENTORY
-printf '%s\n' '---' >"${fixture_repository}/deploy/ansible/playbooks/preflight-local.yml"
-printf '%s\n' '---' >"${fixture_repository}/deploy/ansible/playbooks/deploy.yml"
+printf '%s\n' '---' >"${fixture_repository}/.mprlab/deploy/ansible/playbooks/preflight-local.yml"
+printf '%s\n' '---' >"${fixture_repository}/.mprlab/deploy/ansible/playbooks/deploy.yml"
 
 cat >"${fixture_repository}/scripts/release/deploy_pages_artifact.sh" <<'EOF_PAGES'
 #!/usr/bin/env bash
@@ -53,7 +53,7 @@ git init --bare "${remote_repository}" >/dev/null
 git -C "${fixture_repository}" init -b master >/dev/null
 git -C "${fixture_repository}" config user.name "Deploy Dry Run Contract"
 git -C "${fixture_repository}" config user.email "deploy-dry-run@mprlab.invalid"
-git -C "${fixture_repository}" add Makefile scripts deploy
+git -C "${fixture_repository}" add Makefile scripts .mprlab
 git -C "${fixture_repository}" commit -m "Add app-owned deploy fixture" >/dev/null
 git -C "${fixture_repository}" commit --allow-empty -m "Release fixture" >/dev/null
 git -C "${fixture_repository}" remote add origin "git@github.com:tyemirov/loopaware.git"
@@ -237,7 +237,7 @@ sed -n '1p' "${command_log}" | grep -Fq -- '--verify-only'
 sed -n '2p' "${command_log}" | grep -Fq 'uvx|image=ghcr.io/tyemirov/loopaware@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|--python 3.13 --from ansible-core==2.19.8 ansible-inventory'
 sed -n '3p' "${command_log}" | grep -Fq 'ansible-playbook --inventory localhost,'
 sed -n '3p' "${command_log}" | grep -Fq 'preflight-local.yml'
-! grep -Fq '/deploy/ansible/playbooks/deploy.yml' "${command_log}"
+! grep -Fq '/.mprlab/deploy/ansible/playbooks/deploy.yml' "${command_log}"
 [[ "$(wc -l <"${gh_command_log}" | tr -d ' ')" == "1" ]]
 
 : >"${command_log}"
@@ -247,7 +247,7 @@ deploy_output="$(run_fixture_lifecycle deploy)"
 [[ "$(wc -l <"${command_log}" | tr -d ' ')" == "5" ]]
 sed -n '1p' "${command_log}" | grep -Fq -- '--verify-only'
 sed -n '4p' "${command_log}" | grep -Fq 'ansible-playbook --ask-become-pass --inventory '
-sed -n '4p' "${command_log}" | grep -Fq '/deploy/ansible/playbooks/deploy.yml'
+sed -n '4p' "${command_log}" | grep -Fq '/.mprlab/deploy/ansible/playbooks/deploy.yml'
 sed -n '5p' "${command_log}" | grep -Fq 'pages|--branch gh-pages --url https://loopaware.mprlab.com/ --expected-domain loopaware.mprlab.com --version v1.2.3 --artifact-dir '
 [[ "$(sed -n '5p' "${command_log}")" != *"--verify-only"* ]]
 

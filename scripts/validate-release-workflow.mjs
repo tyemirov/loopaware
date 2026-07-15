@@ -25,12 +25,12 @@ const releaseEnvParserSource = readText("scripts/release/parse_release_env.py");
 const releaseEnvLoaderSource = readText("scripts/release/load_release_env.sh");
 const deploySource = readText("scripts/deploy.sh");
 const appAnsibleRunnerSource = readText("scripts/run-app-ansible-deploy.sh");
-const appDeployComposeSource = readText("deploy/docker-compose.yml");
-const appDeployPlaybookSource = readText("deploy/ansible/playbooks/deploy.yml");
-const appDeployValidateSource = readText("deploy/ansible/tasks/validate.yml");
-const appDeployPreflightSource = readText("deploy/ansible/tasks/preflight.yml");
-const appDeployTaskSource = readText("deploy/ansible/tasks/deploy.yml");
-const appDeployVerifySource = readText("deploy/ansible/tasks/verify.yml");
+const appDeployComposeSource = readText(".mprlab/deploy/docker-compose.yml");
+const appDeployPlaybookSource = readText(".mprlab/deploy/ansible/playbooks/deploy.yml");
+const appDeployValidateSource = readText(".mprlab/deploy/ansible/tasks/validate.yml");
+const appDeployPreflightSource = readText(".mprlab/deploy/ansible/tasks/preflight.yml");
+const appDeployTaskSource = readText(".mprlab/deploy/ansible/tasks/deploy.yml");
+const appDeployVerifySource = readText(".mprlab/deploy/ansible/tasks/verify.yml");
 const pagesDeploySource = readText("scripts/release/deploy_pages_artifact.sh");
 const containerPublishSource = readText("scripts/release/publish_container_artifacts.sh");
 const containerPrepareSource = readText("scripts/release/prepare_container_artifact.sh");
@@ -534,17 +534,18 @@ assert(!deploySource.includes("    --tag)"), "deploy_manual_tag_selection_forbid
 assert(deploySource.includes("DEPLOY_TAG is not supported"), "deploy_tag_environment_override_must_fail_closed");
 assert(
   deployResourcesSource.includes("type: ansible_task_bundle") &&
-    deployResourcesSource.includes("validate: deploy/ansible/tasks/validate.yml") &&
-    deployResourcesSource.includes("preflight: deploy/ansible/tasks/preflight.yml") &&
-    deployResourcesSource.includes("deploy: deploy/ansible/tasks/deploy.yml") &&
-    deployResourcesSource.includes("verify: deploy/ansible/tasks/verify.yml") &&
+    deployResourcesSource.includes("validate: .mprlab/deploy/ansible/tasks/validate.yml") &&
+    deployResourcesSource.includes("preflight: .mprlab/deploy/ansible/tasks/preflight.yml") &&
+    deployResourcesSource.includes("deploy: .mprlab/deploy/ansible/tasks/deploy.yml") &&
+    deployResourcesSource.includes("verify: .mprlab/deploy/ansible/tasks/verify.yml") &&
     appAnsibleRunnerSource.includes("ansible-core==2.19.8") &&
-    appAnsibleRunnerSource.includes('ansible-playbook --inventory localhost, "${repo_root}/deploy/ansible/playbooks/preflight-local.yml"') &&
-    appAnsibleRunnerSource.includes('ansible-playbook "${become_flags[@]}" --inventory "${inventory_path}" "${repo_root}/deploy/ansible/playbooks/deploy.yml"'),
+    appAnsibleRunnerSource.includes('ansible-playbook --inventory localhost, "${repo_root}/.mprlab/deploy/ansible/playbooks/preflight-local.yml"') &&
+    appAnsibleRunnerSource.includes('ansible-playbook "${become_flags[@]}" --inventory "${inventory_path}" "${repo_root}/.mprlab/deploy/ansible/playbooks/deploy.yml"'),
   "deploy_missing_app_owned_ansible_task_bundle",
 );
 assert(
   !makefileSource.includes("GATEWAY_DIR") &&
+    !fs.existsSync(path.join(repoRoot, "deploy")) &&
     !deploySource.includes("mprlab-gateway") &&
     !deploySource.includes("GATEWAY_DIR") &&
     !appAnsibleRunnerSource.includes("mprlab-gateway") &&
