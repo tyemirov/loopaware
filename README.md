@@ -607,10 +607,12 @@ verifies the release tag, exact complete-publication attestation, tagged/`latest
 administration permission, operator inventory shape, private runtime env, app-owned production
 Compose render, and the repository config audit. The pinned Ansible controller is supplied by
 `uvx` from `ansible-core==2.19.8`; the inventory defaults to the ignored
-`deploy/ansible/inventory/hosts.yml`, created from the tracked `.example`. The gate downloads the
+`.mprlab/deploy/ansible/inventory/hosts.yml`, created from the tracked `.example`. The gate downloads the
 release manifest, attestation, container descriptor, and Pages archive once and reuses those exact
 bytes. It contacts Git remotes, GitHub, and GHCR, but never prompts for sudo, opens SSH, runs a remote
-play, changes containers, pushes Pages, or reads a sibling gateway checkout.
+play, changes containers, pushes Pages, or reads a sibling gateway checkout. All app-owned deployment
+manifests, Compose assets, Ansible configuration, playbooks, tasks, and inventory live under the single
+`.mprlab/deploy/` governance boundary; a root `deploy/` tree is invalid.
 
 Only after `make deploy-dry-run` succeeds, `make deploy` repeats the release/image/Pages authorization
 checks and passes the immutable image digest—not `latest`—to the app-owned Ansible controller. The
