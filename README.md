@@ -509,8 +509,8 @@ The gates are phase-specific because publication and deployment inputs do not ex
 preceding phase. Do not collapse or reorder them.
 
 The presence of these targets is not an operational guarantee. One release is ready only when all
-three dry-run gates pass in order for the same source and release, with the gateway on its exact
-default branch and reporting the required versioned contract. A failed or unavailable gate means
+three dry-run gates pass in order for the same source and release, with the app-owned deployment
+inventory and runtime resources validating as one exact contract. A failed or unavailable gate means
 the lifecycle is not operationally proven.
 
 Lifecycle commands require Bash 4 or newer at a canonical system or Homebrew path. They reject
@@ -601,30 +601,28 @@ stage succeeded but the final attestation upload failed, inspect the provider st
 running `scripts/release/record_publication.sh` explicitly with the pinned manifest digest; do not
 delete the local attestation or rerun the provider stages.
 
-`make deploy-dry-run` requires clean LoopAware and gateway checkouts on their exact remote default
-branches and verifies both canonical GitHub repository identities. It verifies the release tag,
-the exact complete-publication attestation,
-tagged/`latest` registry digest, `linux/amd64` OCI source and
-version labels, published Pages archive content against the tagged release source, GitHub Pages
-administration permission, and the exact versioned gateway handshake
-`mprlab.loopaware-deploy.v2`. The v2 contract requires the gateway's own executable contract test and
-a distinct `deploy-loopaware-backend-preflight` target; a caller-controlled mode flag is not accepted.
-The gate locks the verified gateway Git common directory, reasserts the exact gateway commit before
-and after handoff, and passes both that commit and the immutable registry digest—not `latest`—into the gateway
-preflight. It downloads the release manifest, complete-publication attestation, container descriptor,
-and Pages archive once, verifies the attestation and registry image config against those exact bytes,
-and reuses the same verified Pages payload. It contacts Git remotes, GitHub, and GHCR, but exits before a sudo prompt, SSH, remote
-Ansible execution, container changes, Pages branch pushes, or Pages configuration changes. It fails
-closed when the gateway default branch does not implement that contract.
+`make deploy-dry-run` requires the clean LoopAware default branch to match its canonical remote. It
+verifies the release tag, exact complete-publication attestation, tagged/`latest` registry digest,
+`linux/amd64` OCI source and version labels, published Pages archive content, GitHub Pages
+administration permission, operator inventory shape, private runtime env, app-owned production
+Compose render, and the repository config audit. The pinned Ansible controller is supplied by
+`uvx` from `ansible-core==2.19.8`; the inventory defaults to the ignored
+`deploy/ansible/inventory/hosts.yml`, created from the tracked `.example`. The gate downloads the
+release manifest, attestation, container descriptor, and Pages archive once and reuses those exact
+bytes. It contacts Git remotes, GitHub, and GHCR, but never prompts for sudo, opens SSH, runs a remote
+play, changes containers, pushes Pages, or reads a sibling gateway checkout.
 
-Only after `make deploy-dry-run` succeeds, `make deploy` reruns the release/image/Pages authorization checks, passes the immutable image digest
-to the gateway backend target, and only then enters the user-owned remote preflight/deploy/verify
-sequence. After backend verification it activates the already-validated Pages archive. It does not
-rerun CI, rebuild, redownload the Pages payload, or repair missing publication. The gateway v2 contract and real deploy must prove
-remote sudo/SSH, current host capacity, architecture, registry pull, DNS/TLS, container startup, and
-authenticated TAuth/Pinguin behavior. Branch-rule enforcement and provider availability remain
-remote/write-time state. The lifecycle remains blocked whenever those executable gateway checks are
-absent; a local target or mocked handshake is not a substitute.
+Only after `make deploy-dry-run` succeeds, `make deploy` repeats the release/image/Pages authorization
+checks and passes the immutable image digest—not `latest`—to the app-owned Ansible controller. The
+controller reruns local validation before requesting become credentials. Its remote preflight proves
+SSH/Python, x86_64 architecture, free memory and disk, Docker, the shared gateway network and
+persistent LoopAware volume, running Caddy/Pinguin dependencies, exact LoopAware-to-TAuth/Pinguin
+credential identities, and authenticated read-only TAuth/Pinguin canaries. The deploy phase stages
+only LoopAware-owned Compose/config/env assets, pulls the exact image digest, and recreates only
+`loopaware-api`. Verification requires the exact image on the shared network, Pinguin gRPC
+connectivity, and the public `/healthz` response before the already-validated Pages archive is
+activated. The MPR gateway remains able to aggregate this same four-phase task bundle from
+`.mprlab/deploy/resources.yml`, but LoopAware deployment does not locate or execute gateway source.
 
 GitHub, GHCR, App Store Connect, Google Play, npm, backend deployment, and Pages activation do not
 share a transaction. The preflights check known missing-value, credential, API-enable, destination,
