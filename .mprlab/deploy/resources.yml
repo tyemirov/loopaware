@@ -17,10 +17,10 @@ mprlab_resources:
       host_group: gateway
       timeout_seconds: 1200
       entrypoints:
-        validate: deploy/ansible/tasks/validate.yml
-        preflight: deploy/ansible/tasks/preflight.yml
-        deploy: deploy/ansible/tasks/deploy.yml
-        verify: deploy/ansible/tasks/verify.yml
+        validate: .mprlab/deploy/ansible/tasks/validate.yml
+        preflight: .mprlab/deploy/ansible/tasks/preflight.yml
+        deploy: .mprlab/deploy/ansible/tasks/deploy.yml
+        verify: .mprlab/deploy/ansible/tasks/verify.yml
     - type: container_service
       name: loopaware-api
       image: ghcr.io/tyemirov/loopaware:latest

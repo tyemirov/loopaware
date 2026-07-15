@@ -1,0 +1,76 @@
+---
+- name: Load the immutable LoopAware deployment image contract
+  ansible.builtin.include_tasks: resolve-image.yml
+
+- name: Create the app-owned remote runtime directory
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    mode: '0750'
+  loop:
+    - "{{ loopaware_remote_project_root }}/configs"
+    - "{{ loopaware_remote_project_root }}/.mprlab/deploy"
+
+- name: Stage the app-owned production Compose file
+  ansible.builtin.copy:
+    src: "{{ mprlab_app_resource_repo_path }}/.mprlab/deploy/docker-compose.yml"
+    dest: "{{ loopaware_remote_project_root }}/.mprlab/deploy/docker-compose.yml"
+    owner: "{{ ansible_user }}"
+    mode: '0644'
+
+- name: Stage the LoopAware runtime config
+  ansible.builtin.copy:
+    src: "{{ mprlab_app_resource_repo_path }}/configs/config.loopaware.yml"
+    dest: "{{ loopaware_remote_project_root }}/configs/config.loopaware.yml"
+    owner: "{{ ansible_user }}"
+    mode: '0644'
+
+- name: Stage the private LoopAware runtime environment
+  ansible.builtin.copy:
+    src: "{{ mprlab_app_resource_source_repo_path }}/configs/.env.loopaware"
+    dest: "{{ loopaware_remote_project_root }}/configs/.env.loopaware"
+    owner: "{{ ansible_user }}"
+    mode: '0600'
+
+- name: Pull the exact LoopAware image digest
+  ansible.builtin.command:
+    argv:
+      - "{{ loopaware_docker_cli }}"
+      - pull
+      - "{{ loopaware_deploy_image_ref_effective }}"
+  register: loopaware_image_pull
+  changed_when: "'Downloaded newer image' in loopaware_image_pull.stdout"
+
+- name: Render the staged production Compose contract
+  ansible.builtin.command:
+    argv:
+      - "{{ loopaware_docker_cli }}"
+      - compose
+      - --project-name
+      - "{{ loopaware_compose_project_name }}"
+      - --file
+      - "{{ loopaware_remote_project_root }}/.mprlab/deploy/docker-compose.yml"
+      - config
+      - --quiet
+  environment:
+    LOOPAWARE_DEPLOY_IMAGE_REF: "{{ loopaware_deploy_image_ref_effective }}"
+  changed_when: false
+
+- name: Activate the exact LoopAware backend release
+  ansible.builtin.command:
+    argv:
+      - "{{ loopaware_docker_cli }}"
+      - compose
+      - --project-name
+      - "{{ loopaware_compose_project_name }}"
+      - --file
+      - "{{ loopaware_remote_project_root }}/.mprlab/deploy/docker-compose.yml"
+      - up
+      - --detach
+      - --no-deps
+      - --force-recreate
+      - loopaware-api
+  environment:
+    LOOPAWARE_DEPLOY_IMAGE_REF: "{{ loopaware_deploy_image_ref_effective }}"
+  changed_when: true
