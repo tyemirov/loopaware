@@ -770,6 +770,30 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, `scripts/test-staged-release-artifacts.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B054] (P0) Accept GHCR's current repository-scoped upload session location.
+  Goal:
+  Let `make publish` complete its non-pushing GHCR authority check when the registry returns its current singular `blobs/upload/<session>` location after creating the temporary upload session.
+
+  Requirements:
+  Treat the returned location as a security boundary: require HTTPS on `ghcr.io`, the exact target repository, the current singular upload namespace, and one opaque session path segment. Reject cross-origin, wrong-repository, malformed, query-bearing, or obsolete plural locations. Keep the upload-creation request on the Registry v2 `blobs/uploads/` endpoint and use the validated returned location verbatim for cleanup.
+
+  Deliverables:
+  - Parse and validate the upload-session location semantically instead of comparing it with the obsolete plural response prefix.
+  - Add black-box coverage for GHCR's live absolute location shape and rejection of untrusted and obsolete locations.
+  - Update the static release-workflow contract for the singular returned-location namespace.
+
+  Validation:
+  Reproduce the reported absolute GHCR location in the publish-preflight fixture, run the focused publish-preflight and release-workflow checks, and run final `make ci`.
+
+  Resolution:
+  Replaced the obsolete plural-prefix comparison with strict semantic validation of GHCR's current absolute upload-session location. The preflight now requires HTTPS on the exact `ghcr.io` authority, the target repository's singular `blobs/upload/` namespace, and one safe opaque session segment, then sends the cleanup DELETE to that validated URL. Relative, cross-origin, wrong-repository, query-bearing, and obsolete plural response locations are rejected; the Registry v2 upload-creation request remains on `blobs/uploads/`.
+
+  Validation Results:
+  Reproduced the reported `https://ghcr.io/v2/tyemirov/loopaware/blobs/upload/16.<uuid>` response in the black-box fixture and verified exact-URL cleanup plus rejection of untrusted-origin, wrong-repository, obsolete-plural, and query-bearing locations. `bash -n`, `git diff --check`, `node scripts/validate-release-workflow.mjs`, and `make publish-preflight-contract-check release-workflow-check` passed. The initial clean baseline completed 454 specs and hit a transient browser-context teardown timeout on the final spec; final `make ci` passed all release contracts, Go race checks, and all 455 Playwright/API integration specs.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
+
 
 ## Improvements
 

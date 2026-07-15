@@ -707,6 +707,11 @@ assert(
     containerPublishSource.includes('--data-urlencode "scope=${registry_scope}"') &&
     containerPublishSource.split('user = "${registry_username}:${registry_token}"').length - 1 === 1 &&
     containerPublishSource.split('header = "Authorization: Bearer ${registry_bearer_token}"').length - 1 === 2 &&
+    containerPublishSource.includes("from urllib.parse import urlsplit") &&
+    containerPublishSource.includes('expected_path_prefix = f"/v2/{repository_path}/blobs/upload/"') &&
+    containerPublishSource.includes('parsed.netloc != "ghcr.io"') &&
+    containerPublishSource.includes('re.fullmatch(r"[A-Za-z0-9._~-]+", session)') &&
+    !containerPublishSource.includes('upload_location="https://ghcr.io${upload_location}"') &&
     containerPublishSource.includes('--request DELETE') &&
     containerPublishSource.includes("unexpected upload location") &&
     containerPublishSource.includes("GHCR preflight upload cleanup failed"),

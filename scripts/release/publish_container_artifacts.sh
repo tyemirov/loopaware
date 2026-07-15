@@ -191,14 +191,35 @@ EOF_CURL
     echo "error: GHCR push-authority preflight failed for ${image} with HTTP ${create_status}: $(head -c 1024 "${response_body}")" >&2
     return 1
   fi
+  local raw_upload_location
+  raw_upload_location="$(awk 'tolower($1) == "location:" { sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit }' "${response_headers}")"
+  [[ -n "${raw_upload_location}" ]] || { echo "error: GHCR push-authority preflight returned no upload location for ${image}" >&2; return 1; }
   local upload_location
-  upload_location="$(awk 'tolower($1) == "location:" { sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit }' "${response_headers}")"
-  [[ -n "${upload_location}" ]] || { echo "error: GHCR push-authority preflight returned no upload location for ${image}" >&2; return 1; }
-  if [[ "${upload_location}" == /* ]]; then
-    upload_location="https://ghcr.io${upload_location}"
+  if ! upload_location="$(python3 - "${raw_upload_location}" "${repository_path}" <<'PY'
+import re
+import sys
+from urllib.parse import urlsplit
+
+location, repository_path = sys.argv[1:]
+parsed = urlsplit(location)
+expected_path_prefix = f"/v2/{repository_path}/blobs/upload/"
+session = parsed.path.removeprefix(expected_path_prefix)
+if (
+    parsed.geturl() != location
+    or parsed.scheme != "https"
+    or parsed.netloc != "ghcr.io"
+    or parsed.query
+    or parsed.fragment
+    or not parsed.path.startswith(expected_path_prefix)
+    or re.fullmatch(r"[A-Za-z0-9._~-]+", session) is None
+):
+    raise SystemExit(f"GHCR returned an invalid upload location {location!r}")
+print(location)
+PY
+)"; then
+    echo "error: GHCR push-authority preflight returned an unexpected upload location for ${image}: ${raw_upload_location}" >&2
+    return 1
   fi
-  local expected_upload_prefix="https://ghcr.io/v2/${repository_path}/blobs/uploads/"
-  [[ "${upload_location}" == "${expected_upload_prefix}"* ]] || { echo "error: GHCR push-authority preflight returned an unexpected upload location for ${image}: ${upload_location}" >&2; return 1; }
   local delete_status
   delete_status="$(curl --silent --show-error --config - \
     --output "${response_body}" \
