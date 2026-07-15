@@ -24,6 +24,13 @@ const publishReactNativeSource = readText("scripts/publish-react-native.sh");
 const releaseEnvParserSource = readText("scripts/release/parse_release_env.py");
 const releaseEnvLoaderSource = readText("scripts/release/load_release_env.sh");
 const deploySource = readText("scripts/deploy.sh");
+const appAnsibleRunnerSource = readText("scripts/run-app-ansible-deploy.sh");
+const appDeployComposeSource = readText("deploy/docker-compose.yml");
+const appDeployPlaybookSource = readText("deploy/ansible/playbooks/deploy.yml");
+const appDeployValidateSource = readText("deploy/ansible/tasks/validate.yml");
+const appDeployPreflightSource = readText("deploy/ansible/tasks/preflight.yml");
+const appDeployTaskSource = readText("deploy/ansible/tasks/deploy.yml");
+const appDeployVerifySource = readText("deploy/ansible/tasks/verify.yml");
 const pagesDeploySource = readText("scripts/release/deploy_pages_artifact.sh");
 const containerPublishSource = readText("scripts/release/publish_container_artifacts.sh");
 const containerPrepareSource = readText("scripts/release/prepare_container_artifact.sh");
@@ -427,8 +434,9 @@ assert(
   "canonical_lifecycle_lock_missing",
 );
 assert(
-  deploySource.includes('fi\n\nassert_gateway_unchanged "${gateway_commit}"\nassert_loopaware_unchanged "${loopaware_remote_default_sha}"'),
-  "deploy_must_reassert_both_checkouts_after_gateway_handoff",
+  deploySource.includes('fi\n\nassert_loopaware_unchanged "${loopaware_remote_default_sha}"') &&
+    deploySource.match(/assert_loopaware_unchanged "\$\{loopaware_remote_default_sha\}"/g)?.length >= 5,
+  "deploy_must_reassert_loopaware_after_the_app_owned_backend_handoff",
 );
 assert(
   makefileSource.includes("override SHELL := /bin/sh") &&
@@ -489,18 +497,18 @@ assert(deploySource.includes("2>&1"), "deploy_image_inspect_must_capture_errors"
 assert(makefileSource.includes("deploy-dry-run:"), "deploy_dry_run_missing_makefile_target");
 assert(deploySource.includes("--dry-run"), "deploy_missing_dry_run_option");
 assert(
-  deploySource.includes("MPRLAB_DEPLOY_PREFLIGHT_ONLY is gateway-owned and cannot override the canonical lifecycle") &&
-    deploySource.includes("MPRLAB_LOOPAWARE_IMAGE_REF is derived from the published release and cannot be overridden") &&
-    deploySource.includes("MPRLAB_GATEWAY_EXPECTED_COMMIT is derived from the verified gateway checkout and cannot be overridden"),
-  "deploy_gateway_inputs_must_be_derived_and_non_overridable",
+  deploySource.includes("LOOPAWARE_DEPLOY_IMAGE_REF is derived from the published release and cannot be overridden") &&
+    appAnsibleRunnerSource.includes("ANSIBLE_CONFIG is owned by the LoopAware deployment controller") &&
+    appAnsibleRunnerSource.includes("use LOOPAWARE_ANSIBLE_INVENTORY for the canonical app deployment inventory"),
+  "deploy_app_owned_inputs_must_be_derived_and_non_overridable",
 );
 const pagesPreflightIndex = deploySource.indexOf('\n  --verify-only\n');
-const gatewayMutationIndex = deploySource.indexOf('echo "==> [deploy] Deploying LoopAware backend through mprlab-gateway"');
+const appBackendHandoffIndex = deploySource.indexOf('"${repo_root}/scripts/run-app-ansible-deploy.sh"');
 const dryRunExitIndex = deploySource.indexOf('if [[ "${DRY_RUN}" == "true" ]]; then\n  echo "LoopAware deploy dry run passed');
 const pagesActivationIndex = deploySource.lastIndexOf('"${repo_root}/scripts/release/deploy_pages_artifact.sh"');
 assert(pagesPreflightIndex >= 0, "deploy_missing_pages_artifact_preflight");
-assert(gatewayMutationIndex > pagesPreflightIndex, "deploy_must_validate_pages_before_gateway_mutation");
-assert(dryRunExitIndex > gatewayMutationIndex, "deploy_dry_run_exit_missing_after_gateway_preflight");
+assert(appBackendHandoffIndex > pagesPreflightIndex, "deploy_must_validate_pages_before_backend_mutation");
+assert(dryRunExitIndex > appBackendHandoffIndex, "deploy_dry_run_exit_missing_after_app_owned_preflight");
 assert(pagesActivationIndex > dryRunExitIndex, "deploy_dry_run_must_exit_before_pages_activation");
 assert(
   deploySource.includes("partial deploy flags are not supported by the canonical lifecycle"),
@@ -515,33 +523,40 @@ assert(
   "deploy_must_require_exactly_one_release_tag_at_head",
 );
 assert(
-  deploySource.includes('assert_clean_default_branch "${repo_root}" LoopAware') &&
-    deploySource.includes('assert_clean_default_branch "${GATEWAY_DIR}" mprlab-gateway'),
-  "deploy_must_require_clean_default_branch_checkouts",
+  deploySource.includes('assert_clean_default_branch "${repo_root}" LoopAware'),
+  "deploy_must_require_the_clean_loopaware_default_branch_checkout",
 );
 assert(
-  deploySource.includes('assert_canonical_github_origin "${repo_root}" LoopAware "tyemirov/loopaware"') &&
-    deploySource.includes('assert_canonical_github_origin "${GATEWAY_DIR}" mprlab-gateway "MarcoPoloResearchLab/mprlab-gateway"'),
-  "deploy_must_verify_canonical_repository_identities",
+  deploySource.includes('assert_canonical_github_origin "${repo_root}" LoopAware "tyemirov/loopaware"'),
+  "deploy_must_verify_the_canonical_loopaware_repository_identity",
 );
 assert(!deploySource.includes("    --tag)"), "deploy_manual_tag_selection_forbidden");
 assert(deploySource.includes("DEPLOY_TAG is not supported"), "deploy_tag_environment_override_must_fail_closed");
 assert(
-  deploySource.includes("deploy-preflight-contract") &&
-    deploySource.includes("mprlab.loopaware-deploy.v2") &&
-    deploySource.includes("test-loopaware-deploy-preflight-contract") &&
-    deploySource.includes('MPRLAB_GATEWAY_EXPECTED_COMMIT="${gateway_commit}"') &&
-    deploySource.includes("deploy-loopaware-backend-preflight") &&
-    deploySource.includes("deploy-loopaware-backend"),
-  "deploy_missing_versioned_gateway_preflight_handshake",
+  deployResourcesSource.includes("type: ansible_task_bundle") &&
+    deployResourcesSource.includes("validate: deploy/ansible/tasks/validate.yml") &&
+    deployResourcesSource.includes("preflight: deploy/ansible/tasks/preflight.yml") &&
+    deployResourcesSource.includes("deploy: deploy/ansible/tasks/deploy.yml") &&
+    deployResourcesSource.includes("verify: deploy/ansible/tasks/verify.yml") &&
+    appAnsibleRunnerSource.includes("ansible-core==2.19.8") &&
+    appAnsibleRunnerSource.includes('ansible-playbook --inventory localhost, "${repo_root}/deploy/ansible/playbooks/preflight-local.yml"') &&
+    appAnsibleRunnerSource.includes('ansible-playbook "${become_flags[@]}" --inventory "${inventory_path}" "${repo_root}/deploy/ansible/playbooks/deploy.yml"'),
+  "deploy_missing_app_owned_ansible_task_bundle",
 );
 assert(
-  deploySource.includes('candidate_lock_dir="${git_common_dir}/mprlab-loopaware-deploy.lock"') &&
-    deploySource.includes("acquire_gateway_lock") &&
-    deploySource.includes('gateway_lock_dir="${candidate_lock_dir}"') &&
-    deploySource.match(/assert_gateway_unchanged "\$\{gateway_commit\}"/g)?.length >= 3 &&
-    deploySource.match(/assert_loopaware_unchanged "\$\{loopaware_remote_default_sha\}"/g)?.length >= 4,
-  "deploy_must_lock_and_reassert_the_verified_gateway_commit",
+  !makefileSource.includes("GATEWAY_DIR") &&
+    !deploySource.includes("mprlab-gateway") &&
+    !deploySource.includes("GATEWAY_DIR") &&
+    !appAnsibleRunnerSource.includes("mprlab-gateway") &&
+    appDeployComposeSource.includes("${LOOPAWARE_DEPLOY_IMAGE_REF:?") &&
+    appDeployPlaybookSource.includes("Run the app-owned preflight entrypoint") &&
+    appDeployPlaybookSource.includes("Run the app-owned deploy entrypoint") &&
+    appDeployPlaybookSource.includes("Run the app-owned verify entrypoint") &&
+    appDeployValidateSource.includes("go\n      - run\n      - ./cmd/configaudit") &&
+    appDeployPreflightSource.includes("Verify LoopAware, TAuth, and Pinguin identities and authenticated canaries") &&
+    appDeployTaskSource.includes("Activate the exact LoopAware backend release") &&
+    appDeployVerifySource.includes("Require the exact running LoopAware backend"),
+  "deploy_must_be_owned_and_executable_from_the_loopaware_checkout",
 );
 assert(
   deploySource.includes("verify_published_image_provenance") &&

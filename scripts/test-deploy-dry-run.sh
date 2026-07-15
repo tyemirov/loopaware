@@ -7,20 +7,36 @@ trap 'rm -rf "${temporary_directory}"' EXIT
 
 fixture_repository="${temporary_directory}/loopaware"
 remote_repository="${temporary_directory}/origin.git"
-gateway_directory="${temporary_directory}/gateway"
-gateway_remote_repository="${temporary_directory}/gateway-origin.git"
 fake_bin="${temporary_directory}/bin"
 command_log="${temporary_directory}/commands.log"
 gh_command_log="${temporary_directory}/gh-commands.log"
-gateway_contract_log="${temporary_directory}/gateway-contract.log"
 release_asset_source="${temporary_directory}/release-assets"
 real_make="$(command -v make)"
-mkdir -p "${fixture_repository}/scripts/release" "${gateway_directory}" "${fake_bin}" "${release_asset_source}"
+mkdir -p \
+  "${fixture_repository}/scripts/release" \
+  "${fixture_repository}/deploy/ansible/inventory" \
+  "${fixture_repository}/deploy/ansible/playbooks" \
+  "${fake_bin}" \
+  "${release_asset_source}"
 cp "${repo_root}/scripts/deploy.sh" "${fixture_repository}/scripts/deploy.sh"
+cp "${repo_root}/scripts/run-app-ansible-deploy.sh" "${fixture_repository}/scripts/run-app-ansible-deploy.sh"
 cp "${repo_root}/scripts/release/repository_identity.sh" "${fixture_repository}/scripts/release/repository_identity.sh"
 cp "${repo_root}/scripts/release/with_lifecycle_lock.sh" "${fixture_repository}/scripts/release/with_lifecycle_lock.sh"
 cp "${repo_root}/scripts/release/run_lifecycle.sh" "${fixture_repository}/scripts/release/run_lifecycle.sh"
+cp "${repo_root}/deploy/ansible/ansible.cfg" "${fixture_repository}/deploy/ansible/ansible.cfg"
 cp "${repo_root}/Makefile" "${fixture_repository}/Makefile"
+
+cat >"${fixture_repository}/deploy/ansible/inventory/hosts.yml" <<'YAML_INVENTORY'
+---
+all:
+  children:
+    gateway:
+      hosts:
+        production-fixture:
+          ansible_connection: local
+YAML_INVENTORY
+printf '%s\n' '---' >"${fixture_repository}/deploy/ansible/playbooks/preflight-local.yml"
+printf '%s\n' '---' >"${fixture_repository}/deploy/ansible/playbooks/deploy.yml"
 
 cat >"${fixture_repository}/scripts/release/deploy_pages_artifact.sh" <<'EOF_PAGES'
 #!/usr/bin/env bash
@@ -37,8 +53,8 @@ git init --bare "${remote_repository}" >/dev/null
 git -C "${fixture_repository}" init -b master >/dev/null
 git -C "${fixture_repository}" config user.name "Deploy Dry Run Contract"
 git -C "${fixture_repository}" config user.email "deploy-dry-run@mprlab.invalid"
-git -C "${fixture_repository}" add Makefile scripts
-git -C "${fixture_repository}" commit -m "Add deploy source fixture" >/dev/null
+git -C "${fixture_repository}" add Makefile scripts deploy
+git -C "${fixture_repository}" commit -m "Add app-owned deploy fixture" >/dev/null
 git -C "${fixture_repository}" commit --allow-empty -m "Release fixture" >/dev/null
 git -C "${fixture_repository}" remote add origin "git@github.com:tyemirov/loopaware.git"
 git -C "${fixture_repository}" tag -a v1.2.3 -m "Release v1.2.3"
@@ -110,26 +126,6 @@ publication = {
 (manifest_path.parent / "publication.json").write_text(json.dumps(publication), encoding="utf-8")
 PY_RELEASE_MANIFEST
 
-git init --bare "${gateway_remote_repository}" >/dev/null
-git -C "${gateway_directory}" init -b master >/dev/null
-git -C "${gateway_directory}" config user.name "Gateway Deploy Dry Run Contract"
-git -C "${gateway_directory}" config user.email "gateway-deploy-dry-run@mprlab.invalid"
-cat >"${gateway_directory}/Makefile" <<'EOF_GATEWAY_MAKE'
-deploy-preflight-contract:
-	@printf '%s\n' 'mprlab.loopaware-deploy.v2'
-test-loopaware-deploy-preflight-contract:
-	@true
-deploy-loopaware-backend-preflight:
-	@true
-deploy-loopaware-backend:
-	@true
-EOF_GATEWAY_MAKE
-git -C "${gateway_directory}" add Makefile
-git -C "${gateway_directory}" commit -m "Add gateway fixture" >/dev/null
-git -C "${gateway_directory}" remote add origin "git@github.com:MarcoPoloResearchLab/mprlab-gateway.git"
-git -C "${gateway_directory}" push "${gateway_remote_repository}" master >/dev/null
-git --git-dir="${gateway_remote_repository}" symbolic-ref HEAD refs/heads/master
-
 cat >"${fake_bin}/docker" <<'EOF_DOCKER'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -161,32 +157,6 @@ printf 'unexpected docker command: %s\n' "$*" >&2
 exit 97
 EOF_DOCKER
 
-cat >"${fake_bin}/make" <<'EOF_MAKE'
-#!/usr/bin/env bash
-set -euo pipefail
-if [[ "$*" == *"test-loopaware-deploy-preflight-contract"* ]]; then
-  printf '%s\n' 'test-loopaware-deploy-preflight-contract' >>"${GATEWAY_CONTRACT_LOG}"
-  exec /usr/bin/make "$@"
-fi
-if [[ "$*" == *"deploy-preflight-contract"* ]]; then
-  printf '%s\n' 'deploy-preflight-contract' >>"${GATEWAY_CONTRACT_LOG}"
-  exec /usr/bin/make "$@"
-fi
-printf 'make|%s\n' "$*" >>"${COMMAND_LOG}"
-expected_commit="$(git -C "${GATEWAY_FIXTURE_DIR}" rev-parse HEAD)"
-if [[ "$*" == *"MPRLAB_GATEWAY_EXPECTED_COMMIT=${expected_commit}"* && "$*" == *"MPRLAB_LOOPAWARE_IMAGE_REF=ghcr.io/tyemirov/loopaware@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"* && "$*" == *"deploy-loopaware-backend-preflight"* ]]; then
-  if [[ "${FAKE_MUTATE_LOOPAWARE:-0}" == "1" ]]; then touch "${LOOPAWARE_FIXTURE_DIR}/concurrent-change"; fi
-  if [[ "${FAKE_MUTATE_GATEWAY:-0}" == "1" ]]; then touch "${GATEWAY_FIXTURE_DIR}/concurrent-change"; fi
-  exit 0
-fi
-if [[ "$*" == *"MPRLAB_GATEWAY_EXPECTED_COMMIT=${expected_commit}"* && "$*" == *"MPRLAB_LOOPAWARE_IMAGE_REF=ghcr.io/tyemirov/loopaware@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"* && "$*" == *"deploy-loopaware-backend"* && "$*" != *"deploy-loopaware-backend-preflight"* ]]; then
-  if [[ "${FAKE_MUTATE_LOOPAWARE:-0}" == "1" ]]; then touch "${LOOPAWARE_FIXTURE_DIR}/concurrent-change"; fi
-  if [[ "${FAKE_MUTATE_GATEWAY:-0}" == "1" ]]; then touch "${GATEWAY_FIXTURE_DIR}/concurrent-change"; fi
-  exit 0
-fi
-printf 'unexpected make command: %s\n' "$*" >&2
-exit 97
-EOF_MAKE
 cat >"${fake_bin}/gh" <<'EOF_GH'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -215,166 +185,99 @@ fi
 printf 'unexpected gh command: %s\n' "$*" >&2
 exit 97
 EOF_GH
+
 cat >"${fake_bin}/git" <<'EOF_GIT'
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ "${1:-}" == "-C" && "${3:-}" == "ls-remote" && "${4:-}" == "--symref" && "${5:-}" == "origin" && "${6:-}" == "HEAD" ]]; then
-  case "$2" in
-    "${LOOPAWARE_FIXTURE_DIR}") exec /usr/bin/git ls-remote --symref "${LOOPAWARE_REMOTE_REPOSITORY}" HEAD ;;
-    "${GATEWAY_FIXTURE_DIR}") exec /usr/bin/git ls-remote --symref "${GATEWAY_REMOTE_REPOSITORY}" HEAD ;;
-  esac
+if [[ "${1:-}" == "-C" && "${3:-}" == "ls-remote" && "${4:-}" == "--symref" && "${5:-}" == "origin" && "${6:-}" == "HEAD" && "$2" == "${LOOPAWARE_FIXTURE_DIR}" ]]; then
+  exec /usr/bin/git ls-remote --symref "${LOOPAWARE_REMOTE_REPOSITORY}" HEAD
 fi
 if [[ "${1:-}" == "ls-remote" && "${2:-}" == "--tags" && "${3:-}" == "origin" && "${PWD}" == "${LOOPAWARE_FIXTURE_DIR}" ]]; then
   exec /usr/bin/git ls-remote --tags "${LOOPAWARE_REMOTE_REPOSITORY}" "${@:4}"
 fi
 exec /usr/bin/git "$@"
 EOF_GIT
-chmod +x "${fake_bin}/docker" "${fake_bin}/make" "${fake_bin}/gh" "${fake_bin}/git"
+
+cat >"${fake_bin}/uvx" <<'EOF_UVX'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'uvx|image=%s|%s\n' "${LOOPAWARE_DEPLOY_IMAGE_REF:-}" "$*" >>"${COMMAND_LOG}"
+if [[ "$*" == *"ansible-playbook"* && "$*" == *"preflight-local.yml"* && "${FAKE_MUTATE_LOOPAWARE:-0}" == "1" ]]; then
+  touch "${LOOPAWARE_FIXTURE_DIR}/concurrent-change"
+fi
+if [[ "$*" == *"ansible-inventory"* || "$*" == *"ansible-playbook"* ]]; then
+  exit 0
+fi
+printf 'unexpected uvx command: %s\n' "$*" >&2
+exit 97
+EOF_UVX
+
+chmod +x "${fake_bin}/docker" "${fake_bin}/gh" "${fake_bin}/git" "${fake_bin}/uvx"
 fixture_repository="$(git -C "${fixture_repository}" rev-parse --show-toplevel)"
-gateway_directory="$(git -C "${gateway_directory}" rev-parse --show-toplevel)"
 export FAKE_RELEASE_ASSETS="${release_asset_source}"
-export GATEWAY_FIXTURE_DIR="${gateway_directory}"
 export LOOPAWARE_FIXTURE_DIR="${fixture_repository}"
-export GATEWAY_REMOTE_REPOSITORY="${gateway_remote_repository}"
 export LOOPAWARE_REMOTE_REPOSITORY="${remote_repository}"
 export GH_COMMAND_LOG="${gh_command_log}"
-export GATEWAY_CONTRACT_LOG="${gateway_contract_log}"
 
-dry_run_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    deploy-dry-run
-)"
-[[ "${dry_run_output}" == *"LoopAware deploy dry run passed; production hosts were not contacted and production state was not changed."* ]]
-[[ "$(wc -l <"${command_log}" | tr -d ' ')" == "2" ]]
-[[ "$(wc -l <"${gh_command_log}" | tr -d ' ')" == "1" ]]
-[[ "$(sed -n '1p' "${gateway_contract_log}")" == "deploy-preflight-contract" ]]
-[[ "$(sed -n '2p' "${gateway_contract_log}")" == "test-loopaware-deploy-preflight-contract" ]]
-grep -Fq 'release-download|release download v1.2.3 --repo tyemirov/loopaware --pattern manifest.json --pattern container.json --pattern publication.json --pattern pages.tar.gz --dir ' "${gh_command_log}"
-sed -n '1p' "${command_log}" | grep -Fq 'pages|--branch gh-pages --url https://loopaware.mprlab.com/ --expected-domain loopaware.mprlab.com --version v1.2.3 --artifact-dir '
-sed -n '1p' "${command_log}" | grep -Fq -- '--verify-only'
-sed -n '2p' "${command_log}" | grep -Fq 'make|-C'
-gateway_commit="$(git -C "${gateway_directory}" rev-parse HEAD)"
-sed -n '2p' "${command_log}" | grep -Fq "MPRLAB_GATEWAY_EXPECTED_COMMIT=${gateway_commit}"
-sed -n '2p' "${command_log}" | grep -Fq 'MPRLAB_LOOPAWARE_IMAGE_REF=ghcr.io/tyemirov/loopaware@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-sed -n '2p' "${command_log}" | grep -Fq 'deploy-loopaware-backend-preflight'
-[[ "$(sed -n '2p' "${command_log}")" != *"MPRLAB_DEPLOY_PREFLIGHT_ONLY="* ]]
-
-: >"${command_log}"
-set +e
-pages_args_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    PAGES_DEPLOY_ARGS="--skip-verify" \
-    deploy-dry-run 2>&1
-)"
-pages_args_status=$?
-set -e
-[[ "${pages_args_status}" -ne 0 ]]
-[[ "${pages_args_output}" == *"PAGES_DEPLOY_ARGS is not supported"* ]]
-[[ ! -s "${command_log}" ]]
-
-gateway_git_common_dir="$(git -C "${gateway_directory}" rev-parse --git-common-dir)"
-if [[ "${gateway_git_common_dir}" != /* ]]; then gateway_git_common_dir="${gateway_directory}/${gateway_git_common_dir}"; fi
-contending_gateway_lock="${gateway_git_common_dir}/mprlab-loopaware-deploy.lock"
-mkdir "${contending_gateway_lock}"
-printf '%s\n' 'pid=other' >"${contending_gateway_lock}/owner"
-set +e
-contending_lock_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    deploy-dry-run 2>&1
-)"
-contending_lock_status=$?
-set -e
-[[ "${contending_lock_status}" -ne 0 ]]
-[[ "${contending_lock_output}" == *"gateway LoopAware deployment is already locked"* ]]
-[[ -f "${contending_gateway_lock}/owner" ]]
-[[ "$(<"${contending_gateway_lock}/owner")" == "pid=other" ]]
-rm "${contending_gateway_lock}/owner"
-rmdir "${contending_gateway_lock}"
-
-git -C "${fixture_repository}" config remote.origin.pushurl https://example.invalid/not-loopaware.git
-set +e
-pushurl_output="$(
+run_fixture_lifecycle() {
+  local target="$1"
+  shift
   PATH="${fake_bin}:${PATH}" COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory GATEWAY_DIR="${gateway_directory}" deploy-dry-run 2>&1
-)"
-pushurl_status=$?
-set -e
-[[ "${pushurl_status}" -ne 0 ]]
-[[ "${pushurl_output}" == *"origin pushurl overrides are not supported"* ]]
-git -C "${fixture_repository}" config --unset-all remote.origin.pushurl
-
-set +e
-gh_host_output="$(
-  PATH="${fake_bin}:${PATH}" COMMAND_LOG="${command_log}" GH_HOST=example.invalid \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory GATEWAY_DIR="${gateway_directory}" deploy-dry-run 2>&1
-)"
-gh_host_status=$?
-set -e
-[[ "${gh_host_status}" -ne 0 ]]
-[[ "${gh_host_output}" == *"GH_HOST must be github.com"* ]]
-
-: >"${command_log}"
-set +e
-loopaware_drift_output="$(
-  PATH="${fake_bin}:${PATH}" COMMAND_LOG="${command_log}" FAKE_MUTATE_LOOPAWARE=1 \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory GATEWAY_DIR="${gateway_directory}" deploy-dry-run 2>&1
-)"
-loopaware_drift_status=$?
-set -e
-[[ "${loopaware_drift_status}" -ne 0 ]]
-[[ "${loopaware_drift_output}" == *"LoopAware checkout changed after deploy preflight began"* ]]
-grep -Fq 'deploy-loopaware-backend-preflight' "${command_log}"
-rm "${fixture_repository}/concurrent-change"
-
-: >"${command_log}"
-set +e
-gateway_drift_output="$(
-  PATH="${fake_bin}:${PATH}" COMMAND_LOG="${command_log}" FAKE_MUTATE_GATEWAY=1 \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory GATEWAY_DIR="${gateway_directory}" deploy-dry-run 2>&1
-)"
-gateway_drift_status=$?
-set -e
-[[ "${gateway_drift_status}" -ne 0 ]]
-[[ "${gateway_drift_output}" == *"gateway checkout changed after deploy preflight began"* ]]
-grep -Fq 'deploy-loopaware-backend-preflight' "${command_log}"
-rm "${gateway_directory}/concurrent-change"
+    "${real_make}" -C "${fixture_repository}" --no-print-directory "$@" "${target}"
+}
 
 : >"${command_log}"
 : >"${gh_command_log}"
-: >"${gateway_contract_log}"
-deploy_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    deploy
-)"
-[[ "${deploy_output}" == *"LoopAware deploy complete"* ]]
+dry_run_output="$(run_fixture_lifecycle deploy-dry-run)"
+[[ "${dry_run_output}" == *"LoopAware app-owned backend preflight passed; production hosts were not contacted and production state was not changed."* ]]
+[[ "${dry_run_output}" == *"LoopAware deploy dry run passed; production hosts were not contacted and production state was not changed."* ]]
 [[ "$(wc -l <"${command_log}" | tr -d ' ')" == "3" ]]
-[[ "$(wc -l <"${gh_command_log}" | tr -d ' ')" == "1" ]]
-[[ "$(sed -n '1p' "${gateway_contract_log}")" == "deploy-preflight-contract" ]]
-[[ "$(sed -n '2p' "${gateway_contract_log}")" == "test-loopaware-deploy-preflight-contract" ]]
 sed -n '1p' "${command_log}" | grep -Fq 'pages|--branch gh-pages --url https://loopaware.mprlab.com/ --expected-domain loopaware.mprlab.com --version v1.2.3 --artifact-dir '
 sed -n '1p' "${command_log}" | grep -Fq -- '--verify-only'
-sed -n '2p' "${command_log}" | grep -Fq "MPRLAB_GATEWAY_EXPECTED_COMMIT=${gateway_commit}"
-sed -n '2p' "${command_log}" | grep -Fq 'MPRLAB_LOOPAWARE_IMAGE_REF=ghcr.io/tyemirov/loopaware@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-sed -n '2p' "${command_log}" | grep -Fq 'deploy-loopaware-backend'
-[[ "$(sed -n '2p' "${command_log}")" != *"deploy-loopaware-backend-preflight"* ]]
-[[ "$(sed -n '2p' "${command_log}")" != *"MPRLAB_DEPLOY_PREFLIGHT_ONLY="* ]]
-sed -n '3p' "${command_log}" | grep -Fq 'pages|--branch gh-pages --url https://loopaware.mprlab.com/ --expected-domain loopaware.mprlab.com --version v1.2.3 --artifact-dir '
-[[ "$(sed -n '3p' "${command_log}")" != *"--verify-only"* ]]
-verified_artifact_dir="$(sed -n '1p' "${command_log}" | sed -E 's/.*--artifact-dir ([^ ]+).*/\1/')"
-activated_artifact_dir="$(sed -n '3p' "${command_log}" | sed -E 's/.*--artifact-dir ([^ ]+).*/\1/')"
-[[ -n "${verified_artifact_dir}" && "${verified_artifact_dir}" == "${activated_artifact_dir}" ]]
+sed -n '2p' "${command_log}" | grep -Fq 'uvx|image=ghcr.io/tyemirov/loopaware@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|--python 3.13 --from ansible-core==2.19.8 ansible-inventory'
+sed -n '3p' "${command_log}" | grep -Fq 'ansible-playbook --inventory localhost,'
+sed -n '3p' "${command_log}" | grep -Fq 'preflight-local.yml'
+! grep -Fq '/deploy/ansible/playbooks/deploy.yml' "${command_log}"
+[[ "$(wc -l <"${gh_command_log}" | tr -d ' ')" == "1" ]]
+
+: >"${command_log}"
+: >"${gh_command_log}"
+deploy_output="$(run_fixture_lifecycle deploy)"
+[[ "${deploy_output}" == *"LoopAware deploy complete"* ]]
+[[ "$(wc -l <"${command_log}" | tr -d ' ')" == "5" ]]
+sed -n '1p' "${command_log}" | grep -Fq -- '--verify-only'
+sed -n '4p' "${command_log}" | grep -Fq 'ansible-playbook --ask-become-pass --inventory '
+sed -n '4p' "${command_log}" | grep -Fq '/deploy/ansible/playbooks/deploy.yml'
+sed -n '5p' "${command_log}" | grep -Fq 'pages|--branch gh-pages --url https://loopaware.mprlab.com/ --expected-domain loopaware.mprlab.com --version v1.2.3 --artifact-dir '
+[[ "$(sed -n '5p' "${command_log}")" != *"--verify-only"* ]]
+
+: >"${command_log}"
+set +e
+image_override_output="$(LOOPAWARE_DEPLOY_IMAGE_REF=ghcr.io/example/override@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee run_fixture_lifecycle deploy-dry-run 2>&1)"
+image_override_status=$?
+set -e
+[[ "${image_override_status}" -ne 0 ]]
+[[ "${image_override_output}" == *"LOOPAWARE_DEPLOY_IMAGE_REF is derived from the published release and cannot be overridden"* ]]
+[[ ! -s "${command_log}" ]]
+
+: >"${command_log}"
+set +e
+partial_output="$(cd "${fixture_repository}" && PATH="${fake_bin}:${PATH}" bash scripts/deploy.sh --skip-backend 2>&1)"
+partial_status=$?
+set -e
+[[ "${partial_status}" -ne 0 ]]
+[[ "${partial_output}" == *"partial deploy flags are not supported by the canonical lifecycle"* ]]
+[[ ! -s "${command_log}" ]]
+
+: >"${command_log}"
+: >"${gh_command_log}"
+set +e
+pages_failure_output="$(FAKE_PAGES_FAIL=1 run_fixture_lifecycle deploy-dry-run 2>&1)"
+pages_failure_status=$?
+set -e
+[[ "${pages_failure_status}" -ne 0 ]]
+[[ "$(wc -l <"${command_log}" | tr -d ' ')" == "1" ]]
+[[ "$(wc -l <"${gh_command_log}" | tr -d ' ')" == "1" ]]
 
 cp "${release_asset_source}/publication.json" "${release_asset_source}/publication.json.valid"
 python3 - "${release_asset_source}/publication.json" <<'PY_TAMPER_PUBLICATION'
@@ -390,10 +293,7 @@ PY_TAMPER_PUBLICATION
 : >"${command_log}"
 : >"${gh_command_log}"
 set +e
-partial_publication_output="$(
-  PATH="${fake_bin}:${PATH}" COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory GATEWAY_DIR="${gateway_directory}" deploy-dry-run 2>&1
-)"
+partial_publication_output="$(run_fixture_lifecycle deploy-dry-run 2>&1)"
 partial_publication_status=$?
 set -e
 mv "${release_asset_source}/publication.json.valid" "${release_asset_source}/publication.json"
@@ -402,279 +302,28 @@ mv "${release_asset_source}/publication.json.valid" "${release_asset_source}/pub
 [[ ! -s "${command_log}" ]]
 [[ "$(wc -l <"${gh_command_log}" | tr -d ' ')" == "1" ]]
 
-cp "${release_asset_source}/container.json" "${release_asset_source}/container.json.valid"
-cp "${release_asset_source}/manifest.json" "${release_asset_source}/manifest.json.valid"
-cp "${release_asset_source}/publication.json" "${release_asset_source}/publication.json.valid"
-python3 - "${release_asset_source}/container.json" "${release_asset_source}/manifest.json" <<'PY_TAMPER_DESCRIPTOR'
-import hashlib
-import json
-import pathlib
-import sys
-
-descriptor_path = pathlib.Path(sys.argv[1])
-manifest_path = pathlib.Path(sys.argv[2])
-descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
-descriptor["platforms"][0]["image_id"] = "sha256:" + ("e" * 64)
-descriptor_payload = json.dumps(descriptor).encode()
-descriptor_path.write_bytes(descriptor_payload)
-manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-entry = next(
-    item
-    for item in manifest["payloads"]
-    if item["path"] == "payloads/containers/loopaware/container.json"
-)
-entry["size"] = len(descriptor_payload)
-entry["sha256"] = hashlib.sha256(descriptor_payload).hexdigest()
-manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-publication_path = manifest_path.parent / "publication.json"
-publication = json.loads(publication_path.read_text(encoding="utf-8"))
-publication["release_manifest_sha256"] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
-publication_path.write_text(json.dumps(publication), encoding="utf-8")
-PY_TAMPER_DESCRIPTOR
 : >"${command_log}"
-: >"${gh_command_log}"
 set +e
-descriptor_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    deploy-dry-run 2>&1
-)"
-descriptor_status=$?
+checkout_drift_output="$(FAKE_MUTATE_LOOPAWARE=1 run_fixture_lifecycle deploy-dry-run 2>&1)"
+checkout_drift_status=$?
 set -e
-mv "${release_asset_source}/container.json.valid" "${release_asset_source}/container.json"
-mv "${release_asset_source}/manifest.json.valid" "${release_asset_source}/manifest.json"
-mv "${release_asset_source}/publication.json.valid" "${release_asset_source}/publication.json"
-[[ "${descriptor_status}" -ne 0 ]]
-[[ "${descriptor_output}" == *"does not match prepared descriptor"* ]]
-[[ ! -s "${command_log}" ]]
-[[ "$(wc -l <"${gh_command_log}" | tr -d ' ')" == "1" ]]
-
-assert_rejected_gateway_override() {
-  local variable_name="$1"
-  local variable_value="$2"
-  local expected_message="$3"
-  local override_output
-  local override_status
-  : >"${command_log}"
-  : >"${gh_command_log}"
-  set +e
-  override_output="$(
-    env \
-      PATH="${fake_bin}:${PATH}" \
-      COMMAND_LOG="${command_log}" \
-      "${variable_name}=${variable_value}" \
-      "${real_make}" -C "${fixture_repository}" --no-print-directory \
-        GATEWAY_DIR="${gateway_directory}" \
-        deploy-dry-run 2>&1
-  )"
-  override_status=$?
-  set -e
-  [[ "${override_status}" -ne 0 ]]
-  [[ "${override_output}" == *"${expected_message}"* ]]
-  [[ ! -s "${command_log}" ]]
-  [[ ! -s "${gh_command_log}" ]]
-}
-
-assert_rejected_gateway_override \
-  MPRLAB_DEPLOY_PREFLIGHT_ONLY \
-  1 \
-  "MPRLAB_DEPLOY_PREFLIGHT_ONLY is gateway-owned and cannot override the canonical lifecycle"
-assert_rejected_gateway_override \
-  MPRLAB_LOOPAWARE_IMAGE_REF \
-  ghcr.io/example/override@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee \
-  "MPRLAB_LOOPAWARE_IMAGE_REF is derived from the published release and cannot be overridden"
-assert_rejected_gateway_override \
-  MPRLAB_GATEWAY_EXPECTED_COMMIT \
-  ffffffffffffffffffffffffffffffffffffffff \
-  "MPRLAB_GATEWAY_EXPECTED_COMMIT is derived from the verified gateway checkout and cannot be overridden"
+[[ "${checkout_drift_status}" -ne 0 ]]
+[[ "${checkout_drift_output}" == *"LoopAware checkout changed after deploy preflight began"* ]]
+grep -Fq 'preflight-local.yml' "${command_log}"
+rm "${fixture_repository}/concurrent-change"
 
 : >"${command_log}"
 set +e
-help_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    DEPLOY_ARGS="--help" \
-    deploy-dry-run 2>&1
-)"
-help_status=$?
+ansible_override_output="$(cd "${fixture_repository}" && PATH="${fake_bin}:${PATH}" COMMAND_LOG="${command_log}" ANSIBLE_CONFIG=/tmp/override scripts/run-app-ansible-deploy.sh --mode dry-run --image-ref ghcr.io/tyemirov/loopaware@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 2>&1)"
+ansible_override_status=$?
 set -e
-[[ "${help_status}" -ne 0 ]]
-[[ "${help_output}" == *"DEPLOY_ARGS is not supported; the canonical deploy lifecycle accepts no raw shell arguments"* ]]
+[[ "${ansible_override_status}" -ne 0 ]]
+[[ "${ansible_override_output}" == *"ANSIBLE_CONFIG is owned by the LoopAware deployment controller"* ]]
 [[ ! -s "${command_log}" ]]
 
-set +e
-mutating_dry_run_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    DEPLOY_ARGS="--dry-run" \
-    deploy 2>&1
-)"
-mutating_dry_run_status=$?
-set -e
-[[ "${mutating_dry_run_status}" -ne 0 ]]
-[[ "${mutating_dry_run_output}" == *"DEPLOY_ARGS is not supported; the canonical deploy lifecycle accepts no raw shell arguments"* ]]
-[[ ! -s "${command_log}" ]]
-
-: >"${command_log}"
-set +e
-pages_permission_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  FAKE_GH_PERMISSION="WRITE" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    deploy-dry-run 2>&1
-)"
-pages_permission_status=$?
-set -e
-[[ "${pages_permission_status}" -ne 0 ]]
-[[ "${pages_permission_output}" == *"requires repository ADMIN permission"* ]]
-[[ "$(wc -l <"${command_log}" | tr -d ' ')" == "1" ]]
-
-: >"${command_log}"
-touch "${gateway_directory}/untracked-deploy-input"
-set +e
-dirty_gateway_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    deploy-dry-run 2>&1
-)"
-dirty_gateway_status=$?
-set -e
-rm "${gateway_directory}/untracked-deploy-input"
-[[ "${dirty_gateway_status}" -ne 0 ]]
-[[ "${dirty_gateway_output}" == *"mprlab-gateway deployment checkout is dirty"* ]]
-[[ ! -s "${command_log}" ]]
-
-git -C "${gateway_directory}" config remote.origin.url "git@github.com:example/not-the-gateway.git"
-set +e
-wrong_gateway_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    deploy-dry-run 2>&1
-)"
-wrong_gateway_status=$?
-set -e
-[[ "${wrong_gateway_status}" -ne 0 ]]
-[[ "${wrong_gateway_output}" == *"origin fetch URL must resolve to the canonical GitHub repository MarcoPoloResearchLab/mprlab-gateway"* ]]
-[[ ! -s "${command_log}" ]]
-git -C "${gateway_directory}" config remote.origin.url "git@github.com:MarcoPoloResearchLab/mprlab-gateway.git"
-
-cat >"${gateway_directory}/Makefile" <<'EOF_GATEWAY_UNSAFE'
-deploy-loopaware-backend:
-	@echo unsafe deploy
-EOF_GATEWAY_UNSAFE
-git -C "${gateway_directory}" add Makefile
-git -C "${gateway_directory}" commit -m "Remove preflight-only contract" >/dev/null
-git -C "${gateway_directory}" push "${gateway_remote_repository}" master >/dev/null
-: >"${command_log}"
-set +e
-unsafe_gateway_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    deploy-dry-run 2>&1
-)"
-unsafe_gateway_status=$?
-set -e
-[[ "${unsafe_gateway_status}" -ne 0 ]]
-[[ "${unsafe_gateway_output}" == *"does not implement the required non-deploying preflight handshake"* ]]
-[[ ! -s "${command_log}" ]]
-cat >"${gateway_directory}/Makefile" <<'EOF_GATEWAY_SAFE'
-deploy-preflight-contract:
-	@printf '%s\n' 'mprlab.loopaware-deploy.v2'
-test-loopaware-deploy-preflight-contract:
-	@true
-deploy-loopaware-backend-preflight:
-	@true
-deploy-loopaware-backend:
-	@true
-EOF_GATEWAY_SAFE
-git -C "${gateway_directory}" add Makefile
-git -C "${gateway_directory}" commit -m "Restore preflight-only contract" >/dev/null
-git -C "${gateway_directory}" push "${gateway_remote_repository}" master >/dev/null
-
-: >"${command_log}"
-set +e
-failure_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  FAKE_PAGES_FAIL=1 \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    deploy-dry-run 2>&1
-)"
-failure_status=$?
-set -e
-[[ "${failure_status}" -ne 0 ]]
-[[ "$(wc -l <"${command_log}" | tr -d ' ')" == "1" ]]
-grep -Fq 'pages|--branch gh-pages --url https://loopaware.mprlab.com/ --expected-domain loopaware.mprlab.com --version v1.2.3 --artifact-dir ' "${command_log}"
-grep -Fq -- '--verify-only' "${command_log}"
-[[ "${failure_output}" != *"Validating the exact LoopAware gateway backend target"* ]]
-
-: >"${command_log}"
-set +e
-skip_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    DEPLOY_ARGS="--skip-backend; true" \
-    deploy 2>&1
-)"
-skip_status=$?
-set -e
-[[ "${skip_status}" -ne 0 ]]
-[[ "${skip_output}" == *"DEPLOY_ARGS is not supported; the canonical deploy lifecycle accepts no raw shell arguments"* ]]
-[[ ! -s "${command_log}" ]]
-
-git -C "${fixture_repository}" tag -a v1.2.4 -m "Ambiguous release tag"
-git -C "${fixture_repository}" push "${remote_repository}" refs/tags/v1.2.4 >/dev/null
-: >"${command_log}"
-: >"${gh_command_log}"
-set +e
-ambiguous_tag_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    deploy-dry-run 2>&1
-)"
-ambiguous_tag_status=$?
-set -e
-[[ "${ambiguous_tag_status}" -ne 0 ]]
-[[ "${ambiguous_tag_output}" == *"expected exactly one v* release tag at HEAD, got 2"* ]]
-[[ ! -s "${command_log}" ]]
-[[ ! -s "${gh_command_log}" ]]
-git -C "${fixture_repository}" push "${remote_repository}" :refs/tags/v1.2.4 >/dev/null
-git -C "${fixture_repository}" tag -d v1.2.4 >/dev/null
-
-git -C "${fixture_repository}" commit --allow-empty -m "Move past release tag" >/dev/null
-git -C "${fixture_repository}" push "${remote_repository}" master >/dev/null
-: >"${command_log}"
-set +e
-stale_output="$(
-  PATH="${fake_bin}:${PATH}" \
-  COMMAND_LOG="${command_log}" \
-  "${real_make}" -C "${fixture_repository}" --no-print-directory \
-    GATEWAY_DIR="${gateway_directory}" \
-    deploy-dry-run 2>&1
-)"
-stale_status=$?
-set -e
-[[ "${stale_status}" -ne 0 ]]
-[[ "${stale_output}" == *"no v* release tag points at HEAD"* ]]
-[[ ! -s "${command_log}" ]]
+if rg -n '(\.\./mprlab-gateway|GATEWAY_DIR|make[[:space:]]+-C[[:space:]].*mprlab-gateway)' "${repo_root}/Makefile" "${repo_root}/scripts/deploy.sh"; then
+  echo 'app deploy still depends on mutable gateway source' >&2
+  exit 1
+fi
 
 echo "deploy dry-run contract checks passed"

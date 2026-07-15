@@ -6,11 +6,10 @@ usage() {
 Usage:
   scripts/deploy.sh [options]
 
-Deploys published LoopAware artifacts. The backend is deployed through
-mprlab-gateway, then the published Pages archive is activated locally.
+Deploys published LoopAware artifacts. The backend is deployed from the
+app-owned Ansible task bundle, then the published Pages archive is activated.
 
 Options:
-  --gateway-dir <path>       Gateway checkout. Default: $GATEWAY_DIR or sibling ../mprlab-gateway
   --dry-run                  Validate the exact deploy inputs without production changes
   --help                     Show this help text
 USAGE
@@ -30,22 +29,16 @@ env_or_default() {
   fi
 }
 
-GATEWAY_DIR="$(env_or_default GATEWAY_DIR "")"
 IMAGE_REPOSITORY="ghcr.io/tyemirov/loopaware"
 TAG=""
 PAGES_BRANCH="$(env_or_default PAGES_BRANCH gh-pages)"
 PAGES_URL="$(env_or_default PAGES_URL https://loopaware.mprlab.com/)"
 DRY_RUN="false"
 release_artifact_directory=""
-gateway_lock_dir=""
 
 cleanup() {
   if [[ -n "${release_artifact_directory}" ]]; then
     rm -rf "${release_artifact_directory}"
-  fi
-  if [[ -n "${gateway_lock_dir}" ]]; then
-    rm -f "${gateway_lock_dir}/owner"
-    rmdir "${gateway_lock_dir}"
   fi
 }
 trap cleanup EXIT
@@ -242,40 +235,6 @@ assert_clean_default_branch() {
   printf '%s\n' "${remote_default_sha}"
 }
 
-acquire_gateway_lock() {
-  local git_common_dir
-  local candidate_lock_dir
-  git_common_dir="$(git -C "${GATEWAY_DIR}" rev-parse --git-common-dir)"
-  if [[ "${git_common_dir}" != /* ]]; then
-    git_common_dir="${GATEWAY_DIR}/${git_common_dir}"
-  fi
-  candidate_lock_dir="${git_common_dir}/mprlab-loopaware-deploy.lock"
-  if ! mkdir "${candidate_lock_dir}" 2>/dev/null; then
-    if [[ -d "${candidate_lock_dir}" ]]; then
-      echo "error: gateway LoopAware deployment is already locked: ${candidate_lock_dir}" >&2
-    else
-      echo "error: cannot create gateway deployment lock: ${candidate_lock_dir}" >&2
-    fi
-    exit 1
-  fi
-  gateway_lock_dir="${candidate_lock_dir}"
-  printf '%s\n' "pid=$$" >"${gateway_lock_dir}/owner"
-}
-
-assert_gateway_unchanged() {
-  local expected_sha="$1"
-  local current_sha
-  local current_branch
-  local dirty_status
-  current_sha="$(git -C "${GATEWAY_DIR}" rev-parse HEAD)"
-  current_branch="$(git -C "${GATEWAY_DIR}" branch --show-current)"
-  dirty_status="$(git -C "${GATEWAY_DIR}" status --short --untracked-files=all)"
-  [[ "${current_sha}" == "${expected_sha}" && "${current_branch}" == "master" && -z "${dirty_status}" ]] || {
-    echo "error: gateway checkout changed after deploy preflight began" >&2
-    exit 1
-  }
-}
-
 assert_loopaware_unchanged() {
   local expected_sha="$1"
   local current_sha
@@ -291,9 +250,7 @@ assert_loopaware_unchanged() {
 }
 
 [[ -z "${DEPLOY_TAG:-}" ]] || { echo "error: DEPLOY_TAG is not supported; deploy uses the exact release tag at default-branch HEAD" >&2; exit 1; }
-[[ -z "${MPRLAB_DEPLOY_PREFLIGHT_ONLY:-}" ]] || { echo "error: MPRLAB_DEPLOY_PREFLIGHT_ONLY is gateway-owned and cannot override the canonical lifecycle" >&2; exit 1; }
-[[ -z "${MPRLAB_LOOPAWARE_IMAGE_REF:-}" ]] || { echo "error: MPRLAB_LOOPAWARE_IMAGE_REF is derived from the published release and cannot be overridden" >&2; exit 1; }
-[[ -z "${MPRLAB_GATEWAY_EXPECTED_COMMIT:-}" ]] || { echo "error: MPRLAB_GATEWAY_EXPECTED_COMMIT is derived from the verified gateway checkout and cannot be overridden" >&2; exit 1; }
+[[ -z "${LOOPAWARE_DEPLOY_IMAGE_REF:-}" ]] || { echo "error: LOOPAWARE_DEPLOY_IMAGE_REF is derived from the published release and cannot be overridden" >&2; exit 1; }
 requested_dry_run="false"
 requested_help="false"
 for argument in "$@"; do
@@ -307,11 +264,6 @@ done
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --gateway-dir)
-      [[ $# -ge 2 ]] || { echo "error: --gateway-dir requires a value" >&2; exit 1; }
-      GATEWAY_DIR="$2"
-      shift 2
-      ;;
     --dry-run)
       DRY_RUN="true"
       shift
@@ -340,34 +292,6 @@ source "${repo_root}/scripts/release/repository_identity.sh"
 assert_no_github_repository_override
 assert_canonical_github_origin "${repo_root}" LoopAware "tyemirov/loopaware"
 loopaware_remote_default_sha="$(assert_clean_default_branch "${repo_root}" LoopAware)"
-
-resolve_gateway_dir() {
-  if [[ -n "${GATEWAY_DIR}" ]]; then
-    printf "%s\n" "${GATEWAY_DIR}"
-    return
-  fi
-  printf "%s\n" "${repo_root}/../mprlab-gateway"
-}
-
-GATEWAY_DIR="$(resolve_gateway_dir)"
-[[ -n "${GATEWAY_DIR}" ]] || { echo "error: gateway checkout not found; set GATEWAY_DIR=/path/to/mprlab-gateway or pass --gateway-dir" >&2; exit 1; }
-[[ -d "${GATEWAY_DIR}" ]] || { echo "error: gateway checkout not found: ${GATEWAY_DIR}" >&2; exit 1; }
-git -C "${GATEWAY_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "error: gateway checkout is not a Git worktree: ${GATEWAY_DIR}" >&2; exit 1; }
-assert_canonical_github_origin "${GATEWAY_DIR}" mprlab-gateway "MarcoPoloResearchLab/mprlab-gateway"
-gateway_commit="$(assert_clean_default_branch "${GATEWAY_DIR}" mprlab-gateway)"
-acquire_gateway_lock
-assert_gateway_unchanged "${gateway_commit}"
-gateway_preflight_contract="$(make -C "${GATEWAY_DIR}" --no-print-directory deploy-preflight-contract 2>/dev/null)" || {
-  echo "error: gateway default branch does not implement the required non-deploying preflight handshake" >&2
-  exit 1
-}
-[[ "${gateway_preflight_contract}" == "mprlab.loopaware-deploy.v2" ]] || {
-  echo "error: gateway returned an unsupported non-deploying preflight contract: ${gateway_preflight_contract:-<empty>}" >&2
-  exit 1
-}
-make -C "${GATEWAY_DIR}" --no-print-directory test-loopaware-deploy-preflight-contract
-assert_gateway_unchanged "${gateway_commit}"
-assert_loopaware_unchanged "${loopaware_remote_default_sha}"
 
 head_release_tags=()
 while IFS= read -r head_release_tag; do
@@ -444,18 +368,15 @@ pages_repository_permission="$(gh repo view tyemirov/loopaware --json viewerPerm
 [[ "${pages_repository_permission}" == "ADMIN" ]] || { echo "error: GitHub identity requires repository ADMIN permission for Pages branch and configuration updates" >&2; exit 1; }
 
 if [[ "${DRY_RUN}" == "true" ]]; then
-  echo "==> [deploy-dry-run] Validating the exact LoopAware gateway backend target"
+  echo "==> [deploy-dry-run] Validating the exact app-owned LoopAware backend target"
   assert_loopaware_unchanged "${loopaware_remote_default_sha}"
-  assert_gateway_unchanged "${gateway_commit}"
-  timeout --foreground -k 1200s -s SIGKILL 1200s make -C "${GATEWAY_DIR}" MPRLAB_GATEWAY_EXPECTED_COMMIT="${gateway_commit}" MPRLAB_LOOPAWARE_IMAGE_REF="${exact_image_ref}" deploy-loopaware-backend-preflight
+  "${repo_root}/scripts/run-app-ansible-deploy.sh" --mode dry-run --image-ref "${exact_image_ref}"
 else
-  echo "==> [deploy] Deploying LoopAware backend through mprlab-gateway"
+  echo "==> [deploy] Deploying the app-owned LoopAware backend"
   assert_loopaware_unchanged "${loopaware_remote_default_sha}"
-  assert_gateway_unchanged "${gateway_commit}"
-  timeout --foreground -k 1200s -s SIGKILL 1200s make -C "${GATEWAY_DIR}" MPRLAB_GATEWAY_EXPECTED_COMMIT="${gateway_commit}" MPRLAB_LOOPAWARE_IMAGE_REF="${exact_image_ref}" deploy-loopaware-backend
+  "${repo_root}/scripts/run-app-ansible-deploy.sh" --mode deploy --image-ref "${exact_image_ref}"
 fi
 
-assert_gateway_unchanged "${gateway_commit}"
 assert_loopaware_unchanged "${loopaware_remote_default_sha}"
 
 if [[ "${DRY_RUN}" == "true" ]]; then
