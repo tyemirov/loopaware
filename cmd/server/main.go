@@ -67,6 +67,7 @@ const (
 	apiRoutePortfolioTrafficReportDef = "/reports/traffic/portfolio/reports/:report_id"
 	apiRoutePortfolioTrafficSchedule  = "/reports/traffic/portfolio/schedule"
 	apiRoutePortfolioTrafficTest      = "/reports/traffic/portfolio/schedule/test"
+	healthRoute                       = "/healthz"
 	apiRouteSiteSubscribers           = "/sites/:id/subscribers"
 	apiRouteSiteSubscriberUpdate      = "/sites/:id/subscribers/:subscriber_id"
 	apiRouteSiteSubscribersExport     = "/sites/:id/subscribers/export"

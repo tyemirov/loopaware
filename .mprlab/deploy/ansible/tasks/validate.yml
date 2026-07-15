@@ -1,0 +1,60 @@
+---
+- name: Load the immutable LoopAware deployment image contract
+  ansible.builtin.include_tasks: resolve-image.yml
+
+- name: Inspect app-owned deployment inputs
+  ansible.builtin.stat:
+    path: "{{ loopaware_input.path }}"
+    follow: false
+  loop:
+    - name: production Compose file
+      path: "{{ mprlab_app_resource_repo_path }}/.mprlab/deploy/docker-compose.yml"
+      private: false
+    - name: runtime config
+      path: "{{ mprlab_app_resource_repo_path }}/configs/config.loopaware.yml"
+      private: false
+    - name: runtime environment
+      path: "{{ mprlab_app_resource_source_repo_path }}/configs/.env.loopaware"
+      private: true
+  loop_control:
+    loop_var: loopaware_input
+    label: "{{ loopaware_input.name }}"
+  register: loopaware_deploy_input_stats
+
+- name: Require canonical immutable deployment inputs
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - loopaware_input_stat.stat.exists
+      - loopaware_input_stat.stat.isreg
+      - not loopaware_input_stat.stat.islnk
+      - not loopaware_input_stat.loopaware_input.private or loopaware_input_stat.stat.mode == '0600'
+    fail_msg: >-
+      Invalid LoopAware deployment input {{ loopaware_input_stat.loopaware_input.name }}. Tracked
+      assets must be regular files and the runtime env must be a private 0600 regular file.
+  loop: "{{ loopaware_deploy_input_stats.results }}"
+  loop_control:
+    loop_var: loopaware_input_stat
+    label: "{{ loopaware_input_stat.loopaware_input.name }}"
+
+- name: Audit the app-owned runtime configuration
+  ansible.builtin.command:
+    argv:
+      - go
+      - run
+      - ./cmd/configaudit
+    chdir: "{{ mprlab_app_resource_repo_path }}"
+  changed_when: false
+
+- name: Render the app-owned production Compose contract
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --file
+      - "{{ mprlab_app_resource_repo_path }}/.mprlab/deploy/docker-compose.yml"
+      - config
+      - --quiet
+  environment:
+    LOOPAWARE_DEPLOY_IMAGE_REF: "{{ loopaware_deploy_image_ref_effective }}"
+  changed_when: false

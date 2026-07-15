@@ -19,6 +19,12 @@ function buildAdminCookie() {
   return buildSessionCookie(config, adminUser);
 }
 
+test("health endpoint reports the running backend", async ({ request }) => {
+  const response = await request.get(`${config.baseURL}/healthz`);
+  expect(response.status()).toBe(200);
+  expect(await response.json()).toEqual({ status: "ok" });
+});
+
 let clientIPCounter = 1;
 function nextClientIP() {
   const suffix = clientIPCounter % 250;

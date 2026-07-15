@@ -20,6 +20,7 @@ __pycache__/
 
 PLAN.md
 MARKETING-READINESS.md
+.mprlab/deploy/ansible/inventory/hosts.yml
 node_modules/
 clients/react-native/dist/
 playwright-report/

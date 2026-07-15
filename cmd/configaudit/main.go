@@ -30,6 +30,7 @@ var (
 	defaultComposePaths  = []string{
 		"docker-compose.yml",
 		"docker-compose.computercat.yml",
+		".mprlab/deploy/docker-compose.yml",
 	}
 	loopAwareServiceAliases = []string{
 		"loopaware",

@@ -21,11 +21,8 @@ export GOCACHE
 export RELEASE_ENV_FILE
 export RELEASE_ARTIFACT_TARGETS
 export PUBLISH_PLATFORMS
-export GATEWAY_DIR
 override DOCKER_IMAGE := ghcr.io/tyemirov/loopaware
 override PUBLISH_PLATFORMS := linux/amd64
-GATEWAY_DIR ?=
-override GATEWAY_DIR := $(value GATEWAY_DIR)
 override PAGES_URL := https://loopaware.mprlab.com/
 override PAGES_BRANCH := gh-pages
 override PAGES_DOMAIN := loopaware.mprlab.com
