@@ -1057,14 +1057,31 @@ elif [[ "${method}" == "GET" && "${get_request}" == "true" && "${url}" == "https
   printf '%s' '{"token":"fixture-registry-token"}' >"${body_file}"
   printf '200'
 elif [[ "${method}" == "POST" && "${url}" == "https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/" && "${auth_kind}" == "bearer" ]]; then
-  if [[ "${FAKE_GHCR_UPLOAD_LOCATION_FAILURE:-0}" == "1" ]]; then
-    printf 'HTTP/1.1 202 Accepted\r\nLocation: https://registry.invalid/v2/tyemirov/loopaware/blobs/uploads/preflight-session\r\n\r\n' >"${header_file}"
-  else
-    printf 'HTTP/1.1 202 Accepted\r\nLocation: /v2/tyemirov/loopaware/blobs/uploads/preflight-session\r\n\r\n' >"${header_file}"
-  fi
+  case "${FAKE_GHCR_UPLOAD_LOCATION_MODE:-canonical}" in
+    canonical)
+      upload_location='https://ghcr.io/v2/tyemirov/loopaware/blobs/upload/16.c15906d1-f702-49cf-bd43-6b8f25c0ad68'
+      ;;
+    untrusted-origin)
+      upload_location='https://registry.invalid/v2/tyemirov/loopaware/blobs/upload/16.c15906d1-f702-49cf-bd43-6b8f25c0ad68'
+      ;;
+    wrong-repository)
+      upload_location='https://ghcr.io/v2/tyemirov/not-loopaware/blobs/upload/16.c15906d1-f702-49cf-bd43-6b8f25c0ad68'
+      ;;
+    obsolete-plural)
+      upload_location='https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/16.c15906d1-f702-49cf-bd43-6b8f25c0ad68'
+      ;;
+    query)
+      upload_location='https://ghcr.io/v2/tyemirov/loopaware/blobs/upload/16.c15906d1-f702-49cf-bd43-6b8f25c0ad68?state=fixture'
+      ;;
+    *)
+      printf 'unexpected GHCR upload location mode: %s\n' "${FAKE_GHCR_UPLOAD_LOCATION_MODE}" >&2
+      exit 97
+      ;;
+  esac
+  printf 'HTTP/1.1 202 Accepted\r\nLocation: %s\r\n\r\n' "${upload_location}" >"${header_file}"
   : >"${body_file}"
   printf '202'
-elif [[ "${method}" == "DELETE" && "${url}" == "https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/preflight-session" && "${auth_kind}" == "bearer" ]]; then
+elif [[ "${method}" == "DELETE" && "${url}" == "https://ghcr.io/v2/tyemirov/loopaware/blobs/upload/16.c15906d1-f702-49cf-bd43-6b8f25c0ad68" && "${auth_kind}" == "bearer" ]]; then
   : >"${body_file}"
   if [[ "${FAKE_GHCR_DELETE_FAILURE:-0}" == "1" ]]; then
     printf '500'
@@ -1088,7 +1105,7 @@ container_output="$(
 sed -n '1p' "${container_log}" | grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|none||'
 sed -n '2p' "${container_log}" | grep -Fqx 'GET|https://ghcr.io/token|basic|service=ghcr.io|scope=repository:tyemirov/loopaware:pull,push'
 sed -n '3p' "${container_log}" | grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|bearer||'
-sed -n '4p' "${container_log}" | grep -Fqx 'DELETE|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/preflight-session|bearer||'
+sed -n '4p' "${container_log}" | grep -Fqx 'DELETE|https://ghcr.io/v2/tyemirov/loopaware/blobs/upload/16.c15906d1-f702-49cf-bd43-6b8f25c0ad68|bearer||'
 ! grep -Fq 'fixture-token' "${container_log}"
 ! grep -Fq 'fixture-registry-token' "${container_log}"
 grep -Fq 'LOAD|' "${container_docker_log}"
@@ -1162,20 +1179,22 @@ for challenge_case in \
   grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|none||' "${container_log}"
 done
 
-: >"${container_log}"
-: >"${container_docker_log}"
-set +e
-container_location_output="$(
-  cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_GHCR_UPLOAD_LOCATION_FAILURE=1 PUBLISH_PLATFORMS="linux/amd64" \
-    ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
-)"
-container_location_status=$?
-set -e
-[[ "${container_location_status}" -ne 0 ]]
-[[ "${container_location_output}" == *"unexpected upload location"* ]]
-[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "3" ]]
-sed -n '3p' "${container_log}" | grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|bearer||'
+for upload_location_mode in untrusted-origin wrong-repository obsolete-plural query; do
+  : >"${container_log}"
+  : >"${container_docker_log}"
+  set +e
+  container_location_output="$(
+    cd "${container_repository}"
+    PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_GHCR_UPLOAD_LOCATION_MODE="${upload_location_mode}" PUBLISH_PLATFORMS="linux/amd64" \
+      ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
+  )"
+  container_location_status=$?
+  set -e
+  [[ "${container_location_status}" -ne 0 ]]
+  [[ "${container_location_output}" == *"unexpected upload location"* ]]
+  [[ "$(wc -l <"${container_log}" | tr -d ' ')" == "3" ]]
+  sed -n '3p' "${container_log}" | grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|bearer||'
+done
 
 : >"${container_log}"
 : >"${container_docker_log}"
