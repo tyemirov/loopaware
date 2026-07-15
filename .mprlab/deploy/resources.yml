@@ -12,11 +12,20 @@ mprlab_resources:
         release: release
         publish: publish
         deploy: deploy
+    - type: ansible_task_bundle
+      name: production
+      host_group: gateway
+      timeout_seconds: 1200
+      entrypoints:
+        validate: deploy/ansible/tasks/validate.yml
+        preflight: deploy/ansible/tasks/preflight.yml
+        deploy: deploy/ansible/tasks/deploy.yml
+        verify: deploy/ansible/tasks/verify.yml
     - type: container_service
       name: loopaware-api
       image: ghcr.io/tyemirov/loopaware:latest
       container_port: 8080
-      compose_project: mprlab-gateway
+      compose_project: mprlab-nginx-gateway
     - type: caddy_route
       name: loopaware-api
       host: loopaware-api.mprlab.com
@@ -24,8 +33,8 @@ mprlab_resources:
       snippet: loopaware-api.caddy
     - type: health_check
       name: loopaware-api
-      path: /api/me
-      url: https://loopaware-api.mprlab.com/api/me
+      path: /healthz
+      url: https://loopaware-api.mprlab.com/healthz
     - type: github_pages
       name: loopaware
       target: pages-deploy
