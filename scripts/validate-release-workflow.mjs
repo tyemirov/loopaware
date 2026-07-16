@@ -330,7 +330,6 @@ for (const target of [
   "build-ios",
   "mobile-android-bundle",
   "mobile-release-artifacts",
-  "submit-ios-preflight",
   "submit-ios",
   "submit-android",
   "publish-mobile",
@@ -478,10 +477,15 @@ assert(!releaseSource.includes("submit-mobile"), "release_must_not_upload_mobile
 assert(!releaseSource.includes("gh "), "release_must_not_call_github");
 
 const submitIosBlock = makefileSource.slice(
-  makefileSource.indexOf("submit-ios: submit-ios-preflight"),
+  makefileSource.indexOf("submit-ios: mobile-check"),
   makefileSource.indexOf("submit-android: mobile-check"),
 );
 assert(!submitIosBlock.includes("build-ios"), "publish_ios_must_consume_prepared_artifact");
+assert(
+  submitIosBlock.indexOf("submit-ios.mjs --mobile-dir mobile --dry-run") <
+    submitIosBlock.lastIndexOf("submit-ios.mjs --mobile-dir mobile"),
+  "publish_ios_must_validate_exact_artifact_before_upload",
+);
 const submitAndroidBlock = makefileSource.slice(
   makefileSource.indexOf("submit-android: mobile-check"),
   makefileSource.indexOf("submit-mobile:"),
@@ -691,7 +695,9 @@ assert(
 );
 assert(
   iosSubmitSource.includes('packageCommand("--validate-app"') &&
-    iosSubmitSource.includes('packageCommand("--upload-package"'),
+    iosSubmitSource.includes('packageCommand("--upload-package"') &&
+    !iosSubmitSource.includes("--preflight-only") &&
+    !iosSubmitSource.includes("--list-providers"),
   "ios_publish_preflight_must_validate_exact_app_before_upload",
 );
 assert(containerPublishSource.includes("--preflight-only"), "container_publish_preflight_missing");

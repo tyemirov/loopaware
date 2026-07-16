@@ -846,6 +846,25 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [ ] [B057] (P0) Validate the exact iOS artifact with App Store Connect API-key authentication.
+  Goal:
+  Restore `make publish` by removing the unsupported App Store Connect provider-list operation from the iOS publication preflight.
+
+  Requirements:
+  Use one canonical API-key-authenticated `altool --validate-app` operation against the prepared IPA before upload. Delete the partial credential-only preflight and its `--preflight-only` mode instead of preserving an alias, fallback, or compatibility path.
+
+  Deliverables:
+  - Make mobile publication preflight validate the exact prepared IPA without calling `altool --list-providers`.
+  - Make the lower-level iOS submission target validate the exact artifact before uploading it.
+  - Add black-box and static release-contract coverage that rejects provider listing and requires exact IPA validation.
+  - Document the canonical App Store Connect preflight boundary.
+
+  Validation:
+  Run the focused iOS/npm publication contract, mobile config checks, aggregate release workflow checks, a live non-uploading App Store Connect validation against the prepared IPA, and final `make ci`.
+
+  Progress:
+  Removed the credential-only iOS preflight and its `altool --list-providers` call. Mobile publication and the lower-level `make submit-ios` path now use the existing hash-verified exact-IPA `altool --validate-app` operation before upload. Updated the black-box fixtures and static validators to require that canonical operation and reject restoration of provider listing or the partial iOS `--preflight-only` mode. Focused iOS/npm publication, mobile, publish-preflight, and aggregate release-workflow checks passed; final `make ci` passed all release contracts, Go race checks, and 455 Playwright/API integration specs. Live `make release && make publish` verification remains pending until this fix lands on canonical `master`.
+
 
 ## Improvements
 

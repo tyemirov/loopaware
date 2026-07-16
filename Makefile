@@ -170,7 +170,7 @@ $(error lifecycle targets reject Make's question mode)
 endif
 endif
 
-.PHONY: format format-pinguin build lint lint-js release-workflow-check release-pages-contract-check staged-release-contract-check deploy-dry-run-contract-check publish-preflight-contract-check ios-npm-publication-contract-check lifecycle-orchestration-contract-check client-react-native-install client-react-native-check client-react-native-artifact publish-react-native mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle mobile-release-artifacts container-artifacts pages-artifact pages-deploy submit-ios-preflight submit-ios submit-android submit-mobile publish-mobile config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release release-dry-run publish-release publish-preflight publish-dry-run publish deploy deploy-dry-run
+.PHONY: format format-pinguin build lint lint-js release-workflow-check release-pages-contract-check staged-release-contract-check deploy-dry-run-contract-check publish-preflight-contract-check ios-npm-publication-contract-check lifecycle-orchestration-contract-check client-react-native-install client-react-native-check client-react-native-artifact publish-react-native mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle mobile-release-artifacts container-artifacts pages-artifact pages-deploy submit-ios submit-android submit-mobile publish-mobile config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release release-dry-run publish-release publish-preflight publish-dry-run publish deploy deploy-dry-run
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -359,11 +359,9 @@ pages-deploy:
 	if [ -n "$$PAGES_VERSION" ]; then set -- "$$@" --version "$$PAGES_VERSION"; fi; \
 	exec ./scripts/release/deploy_pages_artifact.sh "$$@"
 
-submit-ios-preflight: mobile-check
-	@echo "==> [submit-ios] Verifying App Store Connect upload inputs"
-	@node mobile/scripts/submit-ios.mjs --mobile-dir mobile --preflight-only
-
-submit-ios: submit-ios-preflight
+submit-ios: mobile-check
+	@echo "==> [submit-ios] Validating LoopAware Mobile iOS IPA with App Store Connect"
+	@node mobile/scripts/submit-ios.mjs --mobile-dir mobile --dry-run
 	@echo "==> [submit-ios] Submitting LoopAware Mobile iOS IPA to App Store Connect"
 	@node mobile/scripts/submit-ios.mjs --mobile-dir mobile
 
