@@ -61,14 +61,26 @@ if [[ "${mode}" == 'dry-run' ]]; then
   exit 0
 fi
 
-become_flags=()
-if [[ -n "${LOOPAWARE_ANSIBLE_BECOME_PASSWORD_FILE:-}" ]]; then
-  [[ -f "${LOOPAWARE_ANSIBLE_BECOME_PASSWORD_FILE}" && ! -L "${LOOPAWARE_ANSIBLE_BECOME_PASSWORD_FILE}" ]] || {
+become_password_file="${LOOPAWARE_ANSIBLE_BECOME_PASSWORD_FILE:-}"
+become_password_cleanup_file=""
+cleanup() {
+  if [[ -n "${become_password_cleanup_file}" ]]; then
+    rm -f -- "${become_password_cleanup_file}"
+  fi
+}
+trap cleanup EXIT
+
+if [[ -n "${become_password_file}" ]]; then
+  [[ -f "${become_password_file}" && ! -L "${become_password_file}" && -r "${become_password_file}" ]] || {
     echo 'error: LOOPAWARE_ANSIBLE_BECOME_PASSWORD_FILE must name a regular file' >&2
     exit 1
   }
-  become_flags+=(--become-password-file "${LOOPAWARE_ANSIBLE_BECOME_PASSWORD_FILE}")
 else
-  become_flags+=(--ask-become-pass)
+  command -v python3 >/dev/null 2>&1 || { echo 'error: python3 is required to read the gateway sudo password' >&2; exit 1; }
+  become_password_file="$(mktemp "${TMPDIR:-/tmp}/loopaware-become.XXXXXX")"
+  become_password_cleanup_file="${become_password_file}"
+  password="$(python3 -c 'import getpass; print(getpass.getpass("Gateway sudo password: "))')"
+  printf '%s\n' "${password}" >"${become_password_file}"
+  unset password
 fi
-timeout --foreground -k 1200s -s SIGKILL 1200s "${ansible_tool[@]}" ansible-playbook "${become_flags[@]}" --inventory "${inventory_path}" "${repo_root}/.mprlab/deploy/ansible/playbooks/deploy.yml"
+timeout --foreground -k 1200s -s SIGKILL 1200s "${ansible_tool[@]}" ansible-playbook --become-password-file "${become_password_file}" --inventory "${inventory_path}" "${repo_root}/.mprlab/deploy/ansible/playbooks/deploy.yml"
