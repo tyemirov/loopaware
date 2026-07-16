@@ -645,8 +645,10 @@ The React Native feedback client uses the same artifact lifecycle. Bump
 `@loopaware/react-native` into the prepared release, and `make publish` publishes that exact tarball to npm without
 rebuilding it. Bootstrap the public `@loopaware/react-native` package once before using the canonical lifecycle, then configure local
 npm authentication with `npm login`, `NODE_AUTH_TOKEN`, or `NPM_API_KEY`. Publication preflight deliberately rejects an absent
-package because `npm publish --dry-run` validates only the local package and does not prove registry write authority. If the
-same package version is already present, publication succeeds only when its registry integrity matches the prepared
+package because `npm publish --dry-run` validates only the local package and does not prove registry write authority. For an
+existing package, preflight proves authority with an idempotent package-scoped public-status write; it does not query the
+authenticated user's broader package or organization access. If the same package version is already present, publication
+succeeds only when its registry integrity matches the prepared
 tarball, the package remains public, and `latest` points at that version after publication. A prepared version older than
 the current `latest` is rejected, and npm version reuse with different content is rejected.
 

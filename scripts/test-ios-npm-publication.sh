@@ -242,12 +242,6 @@ set -euo pipefail
 printf '%s|NPM_CONFIG_DRY_RUN=%s|npm_config_dry_run=%s\n' \
   "$*" "${NPM_CONFIG_DRY_RUN:-<unset>}" "${npm_config_dry_run:-<unset>}" >>"${NPM_LOG}"
 case "$*" in
-  "whoami --registry https://registry.npmjs.org/")
-    printf '%s\n' 'fixture-user'
-    ;;
-  "access list packages fixture-user --json --registry https://registry.npmjs.org/")
-    printf '{"@loopaware/react-native":"%s"}\n' "${FAKE_NPM_PERMISSION:-read-write}"
-    ;;
   "access get status @loopaware/react-native --json --registry https://registry.npmjs.org/")
     printf '%s\n' '{"@loopaware/react-native":"public"}'
     ;;
@@ -335,17 +329,6 @@ run_npm_publication() {
 
 : >"${npm_log}"
 set +e
-npm_permission_output="$(
-  FAKE_NPM_PERMISSION=read-only run_npm_publication --preflight-only 2>&1
-)"
-npm_permission_status=$?
-set -e
-[[ "${npm_permission_status}" -ne 0 ]]
-[[ "${npm_permission_output}" == *"does not have read-write access"* ]]
-[[ "$(wc -l <"${npm_log}" | tr -d ' ')" == "4" ]]
-
-: >"${npm_log}"
-set +e
 npm_bootstrap_output="$(
   FAKE_NPM_VIEW_MODE=missing \
   FAKE_NPM_PACKAGE_MODE=missing \
@@ -362,7 +345,7 @@ npm_preflight_output="$(
   FAKE_NPM_VIEW_MODE=missing run_npm_publication --preflight-only
 )"
 [[ "${npm_preflight_output}" == *"existing package remained public and no npm version was published"* ]]
-[[ "$(wc -l <"${npm_log}" | tr -d ' ')" == "9" ]]
+[[ "$(wc -l <"${npm_log}" | tr -d ' ')" == "7" ]]
 npm_preflight_publish_command="$(tail -n 1 "${npm_log}")"
 [[ "${npm_preflight_publish_command}" == "publish ${npm_tarball_argument} --dry-run --registry https://registry.npmjs.org/ --access public --tag latest|NPM_CONFIG_DRY_RUN=<unset>|npm_config_dry_run=<unset>" ]]
 
@@ -377,7 +360,7 @@ npm_write_status=$?
 set -e
 [[ "${npm_write_status}" -ne 0 ]]
 [[ "${npm_write_output}" == *"fixture npm write denial"* ]]
-[[ "$(wc -l <"${npm_log}" | tr -d ' ')" == "7" ]]
+[[ "$(wc -l <"${npm_log}" | tr -d ' ')" == "5" ]]
 [[ "$(<"${npm_log}")" != *"publish ${npm_tarball_argument}"* ]]
 
 : >"${npm_log}"
@@ -401,7 +384,7 @@ npm_existing_output="$(
 )"
 [[ "${npm_existing_output}" == *"has the prepared integrity"* ]]
 [[ "${npm_existing_output}" == *"latest already points to 0.1.0"* ]]
-[[ "$(wc -l <"${npm_log}" | tr -d ' ')" == "8" ]]
+[[ "$(wc -l <"${npm_log}" | tr -d ' ')" == "6" ]]
 
 : >"${npm_log}"
 set +e
@@ -415,7 +398,7 @@ npm_downgrade_status=$?
 set -e
 [[ "${npm_downgrade_status}" -ne 0 ]]
 [[ "${npm_downgrade_output}" == *"refusing to move latest backward"* ]]
-[[ "$(wc -l <"${npm_log}" | tr -d ' ')" == "5" ]]
+[[ "$(wc -l <"${npm_log}" | tr -d ' ')" == "3" ]]
 [[ "$(<"${npm_log}")" != *"access set status=public"* ]]
 
 : >"${npm_log}"
@@ -438,7 +421,7 @@ npm_publish_output="$(
 )"
 [[ "${npm_publish_output}" == *"Publishing prepared @loopaware/react-native@0.1.0"* ]]
 [[ "${npm_publish_output}" == *"Published @loopaware/react-native@0.1.0 with matching integrity, public visibility, and latest dist-tag."* ]]
-[[ "$(wc -l <"${npm_log}" | tr -d ' ')" == "12" ]]
+[[ "$(wc -l <"${npm_log}" | tr -d ' ')" == "10" ]]
 npm_actual_publish_command="$(grep '^publish ' "${npm_log}")"
 [[ "${npm_actual_publish_command}" == "publish ${npm_tarball_argument} --dry-run=false --registry https://registry.npmjs.org/ --access public --tag latest|NPM_CONFIG_DRY_RUN=<unset>|npm_config_dry_run=<unset>" ]]
 

@@ -192,21 +192,6 @@ PY
   exit 1
 }
 
-npm_username="$(npm_registry whoami --registry "${canonical_registry}")"
-npm_access_json="$(npm_registry access list packages "${npm_username}" --json --registry "${canonical_registry}")"
-npm_package_permission="$(python3 - "${npm_access_json}" "${package_name}" <<'PY'
-import json
-import sys
-
-payload = json.loads(sys.argv[1])
-print(payload.get(sys.argv[2], "") if isinstance(payload, dict) else "")
-PY
-)"
-[[ "${npm_package_permission}" == "read-write" ]] || {
-  echo "error: npm identity ${npm_username} does not have read-write access to ${package_name}" >&2
-  exit 1
-}
-
 verify_public_status() {
   local status_json="$1"
   local label="$2"

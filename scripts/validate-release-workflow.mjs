@@ -784,6 +784,8 @@ assert(
 assert(
   publishReactNativeSource.includes("must be bootstrapped once before the canonical lifecycle can prove write authority") &&
     publishReactNativeSource.includes("access set status=public") &&
+    !publishReactNativeSource.includes("access list packages") &&
+    !publishReactNativeSource.includes("npm_registry whoami") &&
     publishReactNativeSource.includes("verify_public_status") &&
     publishReactNativeSource.includes("refusing to move latest backward") &&
     publishReactNativeSource.includes("npm post-publication visibility verification") &&
