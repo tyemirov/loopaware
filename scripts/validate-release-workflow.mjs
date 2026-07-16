@@ -704,7 +704,7 @@ assert(containerPublishSource.includes("--preflight-only"), "container_publish_p
 assert(
   containerPublishSource.split("docker login ghcr.io").length - 1 === 1 &&
     containerPublishSource.includes('--username "${registry_username}" --password-stdin') &&
-    containerPublishSource.split('docker push "${platform_ref}"').length - 1 === 1 &&
+    containerPublishSource.split('docker push --platform "${platform}" "${platform_ref}"').length - 1 === 1 &&
     !containerPublishSource.includes("verify_ghcr_push_access") &&
     !containerPublishSource.includes("WWW-Authenticate") &&
     !containerPublishSource.includes("blobs/uploads/") &&

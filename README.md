@@ -552,13 +552,13 @@ any other local divergence from `origin/master` fails closed and stale local tag
 
 `make publish-dry-run` requires the exact prepared release from `make release`. It verifies its
 payload hashes, GitHub release plan and repository write permission, required `linux/amd64`
-container artifact, archive loadability, embedded OCI labels, GHCR push authority, exact iOS archive through App Store Connect validation,
+container artifact, archive loadability, embedded OCI labels, GHCR authentication, exact iOS archive through App Store Connect validation,
 and Google Play edit/track write authority. For npm it verifies matching integrity when the exact version already exists; for a new
-version it requires the canonical package to have been bootstrapped already, verifies the current identity's package ACL, writes the
-already-public visibility value back through the registry, and confirms that it remained public. A package that has never been
-published fails closed because npm exposes no non-publishing first-publication authority probe. The GHCR check creates an empty upload
-session; the Play check creates an empty edit and writes the unchanged `internal` track inside it. A successful preflight confirms
-deletion of both transient resources. No image tag, store build, live track, GitHub Release, or npm version is published, but
+version it requires the canonical package to have been bootstrapped already, writes the already-public visibility value back through
+the registry as a package-scoped authority proof, and confirms that it remained public. A package that has never been
+published fails closed because npm exposes no non-publishing first-publication authority probe. The Play check creates an empty edit
+and writes the unchanged `internal` track inside it. A successful preflight confirms deletion of that transient edit. No image tag,
+store build, live track, GitHub Release, or npm version is published, but
 interruption or cleanup failure is still a failed preflight and may require provider-side inspection.
 The Play probe also lists all existing bundles, rejects an already-used or non-monotonic prepared
 `versionCode`, and rejects an active/manual rollout that the canonical completed release would replace.
@@ -583,6 +583,8 @@ and any metadata, extra-asset, or content mismatch aborts without `--clobber`. E
 references must resolve to the prepared `linux/amd64` config and digest; exact reruns preserve them and
 only reconcile `latest`. Before reconciling `latest`, publication requires its existing index, when
 present, to contain exactly one `linux/amd64` platform and no foreign platform entries.
+The versioned platform tag is pushed with explicit `--platform linux/amd64` selection so it contains the
+deployable image manifest, not BuildKit's enclosing image index and attestation sidecars.
 The container descriptor is also an immutable GitHub Release asset. Google Play publication retains
 every existing completed release object and its metadata, verifies the uploaded AAB hash, refuses to
 cancel a change already in Play review, commits the edit, and opens a second read-only verification edit
