@@ -205,7 +205,7 @@ async function publishAndroidBundle(args) {
       headers: authHeaders,
       label: `inspect existing Android Publisher ${args.track} track`,
     });
-    const existingTrackState = validatedTrackState(existingTrack);
+    validatedTrackState(existingTrack);
     const bundle = await requestJson({
       method: "POST",
       url: publisherUploadUrl(args.packageName, `edits/${encodeURIComponent(editId)}/bundles`, { uploadType: "media" }),
@@ -237,14 +237,7 @@ async function publishAndroidBundle(args) {
       headers: { ...authHeaders, "Content-Type": "application/json" },
       body: Buffer.from(
         JSON.stringify({
-          releases: [
-            ...existingTrackState.releases,
-            {
-              name: args.releaseName,
-              versionCodes: [String(uploadedVersionCode)],
-              status: args.status,
-            },
-          ],
+          releases: [completedTrackRelease(args, uploadedVersionCode)],
         }),
       ),
       label: `update ${args.track} track`,
@@ -263,7 +256,6 @@ async function publishAndroidBundle(args) {
       args,
       uploadedVersionCode,
       plan.aabSha256,
-      existingTrackState,
       authHeaders,
     );
 
@@ -379,16 +371,16 @@ function assertPublishableVersionCode(payload, preparedVersionCode) {
 
 /**
  * @param {Record<string, unknown>} track
- * @returns {{ releases: Record<string, unknown>[]; versionCodes: string[] }}
+ * @returns {{ releases: Record<string, unknown>[] }}
  */
 function validatedTrackState(track) {
   const releases = track.releases === undefined ? [] : track.releases;
   if (!Array.isArray(releases)) {
     throw new PublishError("Android Publisher track releases are invalid");
   }
-  const retained = new Set();
+  const seenVersionCodes = new Set();
   /** @type {Record<string, unknown>[]} */
-  const preservedReleases = [];
+  const completedReleases = [];
   for (const release of releases) {
     if (!release || typeof release !== "object") {
       throw new PublishError("Android Publisher track contains an invalid release");
@@ -403,16 +395,28 @@ function validatedTrackState(track) {
     }
     for (const rawVersionCode of release.versionCodes) {
       const versionCode = String(requirePositiveInteger(rawVersionCode, "track versionCode"));
-      if (retained.has(versionCode)) {
+      if (seenVersionCodes.has(versionCode)) {
         throw new PublishError(`Android Publisher track repeats versionCode ${versionCode}`);
       }
-      retained.add(versionCode);
+      seenVersionCodes.add(versionCode);
     }
-    preservedReleases.push(JSON.parse(JSON.stringify(release)));
+    completedReleases.push(JSON.parse(JSON.stringify(release)));
   }
   return {
-    releases: preservedReleases,
-    versionCodes: [...retained].sort((left, right) => Number(left) - Number(right)),
+    releases: completedReleases,
+  };
+}
+
+/**
+ * @param {AndroidPublishArgs} args
+ * @param {number} versionCode
+ * @returns {{ name: string; versionCodes: string[]; status: string }}
+ */
+function completedTrackRelease(args, versionCode) {
+  return {
+    name: args.releaseName,
+    versionCodes: [String(versionCode)],
+    status: args.status,
   };
 }
 
@@ -432,10 +436,9 @@ function assertBundleSha256(bundle, expectedSha256, label) {
  * @param {AndroidPublishArgs} args
  * @param {number} versionCode
  * @param {string} expectedSha256
- * @param {{ releases: Record<string, unknown>[]; versionCodes: string[] }} existingTrackState
  * @param {Record<string, string>} authHeaders
  */
-async function verifyCommittedAndroidPublication(args, versionCode, expectedSha256, existingTrackState, authHeaders) {
+async function verifyCommittedAndroidPublication(args, versionCode, expectedSha256, authHeaders) {
   const edit = await requestJson({
     method: "POST",
     url: publisherUrl(args.packageName, "edits"),
@@ -466,28 +469,10 @@ async function verifyCommittedAndroidPublication(args, versionCode, expectedSha2
       label: `verify committed Android Publisher ${args.track} track`,
     });
     const committedTrackState = validatedTrackState(track);
-    const committedVersionCodes = new Set(committedTrackState.versionCodes);
-    for (const requiredVersionCode of [...existingTrackState.versionCodes, String(versionCode)]) {
-      if (!committedVersionCodes.has(requiredVersionCode)) {
-        throw new PublishError(`committed Android track is missing retained versionCode ${requiredVersionCode}`);
-      }
-    }
     const committedReleaseInventory = committedTrackState.releases.map(canonicalJson);
-    for (const existingRelease of existingTrackState.releases) {
-      const expectedRelease = canonicalJson(existingRelease);
-      const matchIndex = committedReleaseInventory.indexOf(expectedRelease);
-      if (matchIndex < 0) {
-        throw new PublishError("committed Android track changed metadata for an existing release");
-      }
-      committedReleaseInventory.splice(matchIndex, 1);
-    }
-    const expectedNewRelease = canonicalJson({
-      name: args.releaseName,
-      versionCodes: [String(versionCode)],
-      status: args.status,
-    });
+    const expectedNewRelease = canonicalJson(completedTrackRelease(args, versionCode));
     if (committedReleaseInventory.length !== 1 || committedReleaseInventory[0] !== expectedNewRelease) {
-      throw new PublishError("committed Android track does not contain the exact new release without metadata loss");
+      throw new PublishError("committed Android track does not contain exactly the new completed release");
     }
   } catch (error) {
     verificationError = error;

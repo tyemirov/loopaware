@@ -585,10 +585,10 @@ only reconcile `latest`. Before reconciling `latest`, publication requires its e
 present, to contain exactly one `linux/amd64` platform and no foreign platform entries.
 The versioned platform tag is pushed with explicit `--platform linux/amd64` selection so it contains the
 deployable image manifest, not BuildKit's enclosing image index and attestation sidecars.
-The container descriptor is also an immutable GitHub Release asset. Google Play publication retains
-every existing completed release object and its metadata, verifies the uploaded AAB hash, refuses to
-cancel a change already in Play review, commits the edit, and opens a second read-only verification edit
-to prove the committed bundle hash and exact track state.
+The container descriptor is also an immutable GitHub Release asset. Google Play publication replaces
+the internal track with one completed release containing the new version code, verifies the uploaded
+AAB hash, refuses to cancel a change already in Play review, commits the edit, and opens a second
+read-only verification edit to prove the committed bundle hash and exact single-release track state.
 It pushes:
 
 - `ghcr.io/tyemirov/loopaware:latest`
@@ -695,8 +695,8 @@ Google Play upload-key certificate fingerprint, matching the
 Kamu Google Play publishing contract. The package, quota project, track, and completed status are fixed by that
 identity; publication argument overrides are rejected. Store the real upload keystore and `keystore.properties`
 outside the repository; `make submit-android` fails if the configured keystore is missing or its certificate fingerprint
-does not match the tracked release identity. Submission preserves every existing completed release and its metadata,
-appends the new completed release, and fails rather than canceling a change already in Play review. Google Play still
+does not match the tracked release identity. Submission replaces the internal track with one completed release for
+the new version code and fails rather than canceling a change already in Play review. Google Play still
 requires the first app upload to be performed manually
 before API-based submissions work.
 

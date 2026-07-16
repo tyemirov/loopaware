@@ -391,7 +391,10 @@ globalThis.fetch = async (input, options = {}) => {
     return jsonResponse(existingTrack());
   }
   if (method === "GET" && url.includes("/edits/verification-edit/tracks/internal")) {
-    const releases = [existingTrack().releases[0]];
+    const releases = [];
+    if (process.env.FAKE_ANDROID_POSTVERIFY_RETAINS_OLD === "1") {
+      releases.push(existingTrack().releases[0]);
+    }
     if (process.env.FAKE_ANDROID_POSTVERIFY_TRACK_MISSING !== "1") {
       releases.push({
         name: "2026.7.11",
@@ -421,11 +424,10 @@ globalThis.fetch = async (input, options = {}) => {
       }
     } else if (
       !Array.isArray(payload.releases) ||
-      payload.releases.length !== 2 ||
-      JSON.stringify(payload.releases[0]) !== JSON.stringify(existingTrack().releases[0]) ||
-      payload.releases[1].name !== "2026.7.11" ||
-      payload.releases[1].status !== "completed" ||
-      JSON.stringify(payload.releases[1].versionCodes) !== JSON.stringify([String(preparedVersionCode())])
+      payload.releases.length !== 1 ||
+      payload.releases[0].name !== "2026.7.11" ||
+      payload.releases[0].status !== "completed" ||
+      JSON.stringify(payload.releases[0].versionCodes) !== JSON.stringify([String(preparedVersionCode())])
     ) {
       return jsonResponse({ error: { code: 400, message: "publication track payload drifted" } }, 400);
     }
@@ -675,8 +677,8 @@ grep -Fq "\"uploadedVersionCode\": ${android_version_code}" "${android_fixture}/
 sed -n '4p' "${android_log}" | grep -Fq '/edits/publish-edit/bundles?uploadType=media'
 sed -n '5p' "${android_log}" | grep -Fq "/edits/publish-edit/apks/${android_version_code}/deobfuscationFiles/proguard?uploadType=media"
 sed -n '6p' "${android_log}" | grep -Fq 'PUT|https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.mprlab.loopaware/edits/publish-edit/tracks/internal'
-sed -n '6p' "${android_log}" | grep -Fq '"name":"existing-release","status":"completed","versionCodes":["123"]'
-sed -n '6p' "${android_log}" | grep -Fq "\"name\":\"2026.7.11\",\"versionCodes\":[\"${android_version_code}\"]"
+! sed -n '6p' "${android_log}" | grep -Fq 'existing-release'
+sed -n '6p' "${android_log}" | grep -Fq "\"releases\":[{\"name\":\"2026.7.11\",\"versionCodes\":[\"${android_version_code}\"],\"status\":\"completed\"}]"
 sed -n '7p' "${android_log}" | grep -Fq 'POST|https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.mprlab.loopaware/edits/publish-edit:commit?changesInReviewBehavior=ERROR_IF_IN_REVIEW'
 sed -n '8p' "${android_log}" | grep -Fq 'POST|https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.mprlab.loopaware/edits'
 sed -n '9p' "${android_log}" | grep -Fq '/edits/verification-edit/bundles'
@@ -705,6 +707,27 @@ set -e
 sed -n '7p' "${android_log}" | grep -Fq '/edits/publish-edit:commit'
 sed -n '9p' "${android_log}" | grep -Fq '/edits/verification-edit/bundles'
 sed -n '10p' "${android_log}" | grep -Fq 'DELETE|https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.mprlab.loopaware/edits/verification-edit'
+! grep -Fq 'DELETE|https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.mprlab.loopaware/edits/publish-edit' "${android_log}"
+
+: >"${android_log}"
+set +e
+postverification_retained_release_output="$(
+  env "${android_fixture_env[@]}" FAKE_ANDROID_ACTUAL=1 FAKE_ANDROID_POSTVERIFY_RETAINS_OLD=1 \
+    node "${repo_root}/mobile/scripts/publish-android-play.mjs" \
+      --mobile-dir "${repo_root}/mobile" \
+      --release-timestamp "${release_timestamp}" \
+      --aab "${android_aab}" \
+      --mapping "${android_mapping}" \
+      --build-manifest "${android_manifest}" 2>&1
+)"
+postverification_retained_release_status=$?
+set -e
+[[ "${postverification_retained_release_status}" -eq 2 ]]
+[[ "${postverification_retained_release_output}" == *"committed Android track does not contain exactly the new completed release"* ]]
+[[ "${postverification_retained_release_output}" == *"inspect Google Play before preparing another single-use versionCode"* ]]
+[[ "$(wc -l <"${android_log}" | tr -d ' ')" == "11" ]]
+sed -n '10p' "${android_log}" | grep -Fq '/edits/verification-edit/tracks/internal'
+sed -n '11p' "${android_log}" | grep -Fq 'DELETE|https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.mprlab.loopaware/edits/verification-edit'
 ! grep -Fq 'DELETE|https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.mprlab.loopaware/edits/publish-edit' "${android_log}"
 
 container_repository="${temporary_directory}/container-fixture"
