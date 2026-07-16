@@ -272,11 +272,14 @@ sed -n '5p' "${command_log}" | grep -Fq 'pages|--branch gh-pages --url https://l
 
 : >"${command_log}"
 : >"${prompt_log}"
-env -u LOOPAWARE_ANSIBLE_BECOME_PASSWORD_FILE \
-  PATH="${fake_bin}:${PATH}" COMMAND_LOG="${command_log}" \
-  "${fixture_repository}/scripts/run-app-ansible-deploy.sh" \
-  --mode deploy \
-  --image-ref ghcr.io/tyemirov/loopaware@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+(
+  cd "${fixture_repository}"
+  env -u LOOPAWARE_ANSIBLE_BECOME_PASSWORD_FILE \
+    PATH="${fake_bin}:${PATH}" COMMAND_LOG="${command_log}" \
+    scripts/run-app-ansible-deploy.sh \
+    --mode deploy \
+    --image-ref ghcr.io/tyemirov/loopaware@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+)
 [[ "$(cat "${prompt_log}")" == 'prompt|Gateway sudo password:' ]]
 [[ "$(wc -l <"${command_log}" | tr -d ' ')" == "3" ]]
 sed -n '3p' "${command_log}" | grep -Fq 'ansible-playbook --become-password-file '
