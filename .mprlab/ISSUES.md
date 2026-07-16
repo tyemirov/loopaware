@@ -820,6 +820,32 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/release/prepare_release.sh`, `scripts/release/release_helper.py`, `scripts/test-release-tooling.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B056] (P0) Use the standard Docker flow for GHCR publication.
+  Goal:
+  Publish LoopAware containers through GHCR's supported Docker client path without maintaining a parallel Registry v2 implementation.
+
+  Requirements:
+  Authenticate with `docker login ghcr.io --username ... --password-stdin` during container publication preflight and publication. Let the existing `docker push` perform the real push-authority check during publication. Delete the manual Bearer challenge, token exchange, upload-session creation, upload-location parsing, and cleanup logic without preserving a compatibility path.
+
+  Deliverables:
+  - Remove all direct GHCR Registry API calls from container publication.
+  - Use one standard Docker login path for preflight and publication.
+  - Keep preflight non-publishing while validating prepared archive loadability and Docker authentication.
+  - Cover successful login, rejected login, non-pushing preflight, and normal Docker push in the black-box publication fixture.
+  - Update the static release-workflow contract to reject manual Registry API logic.
+
+  Validation:
+  Run the focused publish-preflight and release-workflow checks, verify the obsolete Registry API strings are absent, and run final `make ci`.
+
+  Resolution:
+  Deleted the custom GHCR Registry v2 implementation in full. Container preflight and publication now share one canonical `docker login ghcr.io --username ... --password-stdin` path; preflight stops after artifact, remote-state, and authentication checks, while publication proves push authority through the existing `docker push`. The fixture no longer simulates Bearer challenges, token exchange, upload sessions, response locations, or cleanup.
+
+  Validation Results:
+  Baseline `make ci` passed all release contracts, Go race checks, and 455 Playwright/API integration specs. The focused black-box fixture passed successful Docker login, rejected Docker login, non-pushing preflight, prepared archive loadability, and normal Docker push coverage. `bash -n`, `git diff --check`, `node scripts/validate-release-workflow.mjs`, and `make publish-preflight-contract-check release-workflow-check` passed. Final `make ci` passed all release contracts, Go race checks, and all 455 integration specs. No real registry login or publication was run.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
+
 
 ## Improvements
 
