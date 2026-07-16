@@ -18,6 +18,8 @@ from typing import Any
 
 
 SEMVER_TAG_RE = re.compile(r"^v?(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:[-+][0-9A-Za-z.-]+)?$")
+STABLE_RELEASE_VERSION_RE = re.compile(r"^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$")
+RELEASE_COMMIT_SUBJECT_RE = re.compile(r"^Release v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$")
 CALVER_TAG_RE = re.compile(
     r"^v?(?P<year>[1-9]\d)\.(?P<month_day>(?:0|[1-9]\d*))\.(?P<hhmmss>(?:0|[1-9]\d*))$"
 )
@@ -430,9 +432,13 @@ def command_generate_notes(args: argparse.Namespace) -> int:
         revision = f"{args.since_tag}..HEAD"
 
     log_result = run(["git", "log", "--format=%s", revision], cwd=cwd)
-    subjects = [line.strip() for line in log_result.stdout.splitlines() if line.strip()]
+    subjects = [
+        subject
+        for line in log_result.stdout.splitlines()
+        if (subject := line.strip()) and RELEASE_COMMIT_SUBJECT_RE.fullmatch(subject) is None
+    ]
     if not subjects:
-        fail("no local commits are available for release notes", {"revision": revision})
+        fail("no non-release commits are available for release notes", {"revision": revision})
 
     print(f"## [{args.version}] - {release_date}")
     print()
@@ -932,23 +938,39 @@ def normalize_markdown(text: str) -> str:
 
 def command_insert_changelog(args: argparse.Namespace) -> int:
     cwd = repo_root()
+    version = args.version
+    if STABLE_RELEASE_VERSION_RE.fullmatch(version) is None:
+        fail("selected changelog version must be stable vMAJOR.MINOR.PATCH", {"version": version})
     notes_path = Path(args.notes_file)
     notes = notes_path.read_text(encoding="utf-8").strip()
     if not notes:
         fail("release notes file is empty", {"notes_file": str(notes_path)})
+
+    first_heading = next((line.strip() for line in notes.splitlines() if line.startswith("## ")), None)
+    expected_heading = re.compile(rf"^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}$")
+    if first_heading is None or expected_heading.fullmatch(first_heading) is None:
+        fail(
+            "release notes heading does not match the selected changelog version",
+            {"version": version, "heading": first_heading},
+        )
 
     changelog = cwd / args.changelog
     if changelog.exists():
         existing = changelog.read_text(encoding="utf-8")
     else:
         existing = "# Changelog\n\n"
+    original = existing
 
-    first_heading = next((line.strip() for line in notes.splitlines() if line.startswith("## ")), None)
-    if first_heading and re.search(rf"^{re.escape(first_heading)}$", existing, re.MULTILINE):
-        if normalize_markdown(notes) in normalize_markdown(existing):
-            emit({"ok": True, "changed": False, "changelog": str(changelog), "reason": "release notes already present"})
-            return 0
-        fail("changelog already contains a matching release heading with different content", {"heading": first_heading})
+    release_headings = list(RELEASE_HEADING_RE.finditer(existing))
+    selected_heading = re.compile(rf"^## \[{re.escape(version)}\](?:[^\n]*)$")
+    stale_sections = []
+    for index, heading in enumerate(release_headings):
+        if selected_heading.fullmatch(heading.group(0)) is None:
+            continue
+        section_end = release_headings[index + 1].start() if index + 1 < len(release_headings) else len(existing)
+        stale_sections.append((heading.start(), section_end))
+    for section_start, section_end in reversed(stale_sections):
+        existing = existing[:section_start] + existing[section_end:]
 
     section = notes.rstrip() + "\n\n"
     match = RELEASE_HEADING_RE.search(existing)
@@ -965,7 +987,15 @@ def command_insert_changelog(args: argparse.Namespace) -> int:
             updated = section + existing.lstrip()
 
     changelog.write_text(updated, encoding="utf-8")
-    emit({"ok": True, "changed": updated != existing, "changelog": str(changelog)})
+    emit(
+        {
+            "ok": True,
+            "changed": updated != original,
+            "changelog": str(changelog),
+            "replaced_sections": len(stale_sections),
+            "version": version,
+        }
+    )
     return 0
 
 
@@ -1292,6 +1322,7 @@ def build_parser() -> argparse.ArgumentParser:
     notes.set_defaults(func=command_generate_notes)
 
     changelog = subparsers.add_parser("insert-changelog", help="Insert generated release notes into CHANGELOG.md.")
+    changelog.add_argument("--version", required=True)
     changelog.add_argument("--notes-file", required=True)
     changelog.add_argument("--changelog", default="CHANGELOG.md")
     changelog.set_defaults(func=command_insert_changelog)

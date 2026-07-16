@@ -340,7 +340,7 @@ if [[ -n "${boundary_tag}" ]]; then
   notes_args+=(--since-tag "${boundary_tag}")
 fi
 "${helper}" "${notes_args[@]}" | tee "${notes_file}"
-"${helper}" insert-changelog --notes-file "${notes_file}"
+"${helper}" insert-changelog --version "${next_version}" --notes-file "${notes_file}"
 
 git add CHANGELOG.md
 if git diff --cached --quiet -- CHANGELOG.md; then

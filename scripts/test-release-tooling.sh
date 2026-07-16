@@ -59,6 +59,75 @@ site_directory="${temporary_directory}/site"
 fake_bin="${temporary_directory}/bin"
 mkdir -p "${source_repository}" "${site_directory}" "${fake_bin}"
 
+changelog_repository="${temporary_directory}/changelog-recovery"
+changelog_notes="${temporary_directory}/changelog-notes.md"
+git -C "${temporary_directory}" init -b master "${changelog_repository}" >/dev/null
+git -C "${changelog_repository}" config user.name "Changelog Recovery Contract"
+git -C "${changelog_repository}" config user.email "changelog-recovery@mprlab.invalid"
+printf 'published\n' >"${changelog_repository}/tracked.txt"
+git -C "${changelog_repository}" add tracked.txt
+git -C "${changelog_repository}" commit -m "Add published baseline" >/dev/null
+git -C "${changelog_repository}" tag -a v1.2.2 -m "Release v1.2.2"
+cat >"${changelog_repository}/CHANGELOG.md" <<'EOF_CHANGELOG'
+# Changelog
+
+## Unreleased
+
+- Pending work remains visible.
+
+## [v1.2.3] - 2026-07-15
+
+- Stale retry content.
+
+## [v1.2.3] - 2026-07-13
+
+- Earlier stale content.
+
+## [v1.2.2] - 2026-07-10
+
+- Published content remains immutable.
+EOF_CHANGELOG
+git -C "${changelog_repository}" add CHANGELOG.md
+git -C "${changelog_repository}" commit -m "Release v1.2.3" >/dev/null
+printf 'recovered\n' >>"${changelog_repository}/tracked.txt"
+git -C "${changelog_repository}" add tracked.txt
+git -C "${changelog_repository}" commit -m "Fix release recovery" >/dev/null
+(
+  cd "${changelog_repository}"
+  "${release_tool_dir}/release_helper.py" generate-notes \
+    --version v1.2.3 \
+    --release-date 2026-07-15 \
+    --since-tag v1.2.2 >"${changelog_notes}"
+)
+grep -Fqx '## [v1.2.3] - 2026-07-15' "${changelog_notes}"
+grep -Fqx -- '- Fix release recovery' "${changelog_notes}"
+! grep -Fqx -- '- Release v1.2.3' "${changelog_notes}"
+(
+  cd "${changelog_repository}"
+  "${release_tool_dir}/release_helper.py" insert-changelog \
+    --version v1.2.3 \
+    --notes-file "${changelog_notes}" >/dev/null
+)
+[[ "$(grep -Fxc '## [v1.2.3] - 2026-07-15' "${changelog_repository}/CHANGELOG.md")" == "1" ]]
+[[ "$(grep -Fc '## [v1.2.3]' "${changelog_repository}/CHANGELOG.md")" == "1" ]]
+grep -Fqx -- '- Fix release recovery' "${changelog_repository}/CHANGELOG.md"
+grep -Fqx -- '- Pending work remains visible.' "${changelog_repository}/CHANGELOG.md"
+grep -Fqx '## [v1.2.2] - 2026-07-10' "${changelog_repository}/CHANGELOG.md"
+grep -Fqx -- '- Published content remains immutable.' "${changelog_repository}/CHANGELOG.md"
+! grep -Fq 'Stale retry content' "${changelog_repository}/CHANGELOG.md"
+! grep -Fq 'Earlier stale content' "${changelog_repository}/CHANGELOG.md"
+set +e
+changelog_mismatch_output="$(
+  cd "${changelog_repository}"
+  "${release_tool_dir}/release_helper.py" insert-changelog \
+    --version v1.2.4 \
+    --notes-file "${changelog_notes}" 2>&1
+)"
+changelog_mismatch_status=$?
+set -e
+[[ "${changelog_mismatch_status}" -ne 0 ]]
+[[ "${changelog_mismatch_output}" == *"release notes heading does not match the selected changelog version"* ]]
+
 git init --bare "${remote_repository}" >/dev/null
 git -C "${source_repository}" init -b master >/dev/null
 git -C "${source_repository}" config user.name "Release Contract"
