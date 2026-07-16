@@ -119,10 +119,6 @@ android_publish_script="${repo_root}/mobile/scripts/publish-android-play.mjs"
 preflight_mobile_publication() {
   echo "==> [publish-preflight] Validating prepared LoopAware mobile artifacts and store authority"
   MOBILE_RELEASE_TIMESTAMP="${release_timestamp}" node "${ios_submit_script}" \
-    --preflight-only \
-    --manifest "${ios_manifest}" \
-    --ipa "${ios_ipa}"
-  MOBILE_RELEASE_TIMESTAMP="${release_timestamp}" node "${ios_submit_script}" \
     --dry-run \
     --manifest "${ios_manifest}" \
     --ipa "${ios_ipa}"

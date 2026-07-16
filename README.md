@@ -668,8 +668,8 @@ only when a deterministic rebuild needs to reuse a specific release timestamp.
 
 `make build-ios` runs a local Expo prebuild with the generated CalVer version and build number, creates a signed Xcode
 archive, exports an App Store Connect IPA under `mobile/dist/`, and writes a build manifest beside it. `make submit-ios`
-verifies App Store Connect upload identity and the prepared manifest hash, then uploads that existing IPA with
-`xcrun altool`. Configure the canonical App Store Connect API key inputs
+verifies the prepared manifest hash, validates that exact IPA through App Store Connect with API-key authentication, then
+uploads the same IPA with `xcrun altool`. Configure the canonical App Store Connect API key inputs
 (`APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_API_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_PATH`) and set
 `MOBILE_IOS_ASC_APP_ID` to the numeric App Store Connect app Apple ID; this is the
 app record id passed to `altool --apple-id`, not the operator login email.

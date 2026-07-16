@@ -180,7 +180,7 @@ script_name="$(basename "${script}")"
 printf 'node|%s|%s|MOBILE_RELEASE_TIMESTAMP=%s\n' "${script_name}" "$*" "${MOBILE_RELEASE_TIMESTAMP:-<unset>}" >>"${MOBILE_LOG}"
 case "${script_name}" in
   submit-ios.mjs)
-    if [[ "${FAKE_MOBILE_IOS_UPLOAD_FAILURE:-0}" == "1" && "$*" != *"--preflight-only"* && "$*" != *"--dry-run"* ]]; then
+    if [[ "${FAKE_MOBILE_IOS_UPLOAD_FAILURE:-0}" == "1" && "$*" != *"--dry-run"* ]]; then
       exit 41
     fi
     ;;
@@ -211,15 +211,14 @@ chmod +x "${mobile_repository}/bin/make" "${mobile_repository}/bin/node" "${mobi
   PATH="${mobile_repository}/bin:${PATH}" MOBILE_LOG="${mobile_log}" MOBILE_REPO="${mobile_repository}" MOBILE_ARTIFACT_DIR="${manifest_directory}" RELEASE_ENV_FILE="${mobile_repository}/configs/.env.loopaware" \
     ./scripts/publish-mobile.sh --preflight-only >/dev/null
 )
-[[ "$(wc -l <"${mobile_log}" | tr -d ' ')" == "5" ]]
+[[ "$(wc -l <"${mobile_log}" | tr -d ' ')" == "4" ]]
 [[ "$(sed -n '1p' "${mobile_log}")" == 'release-helper|verify-release-artifact' ]]
 [[ "$(sed -n '2p' "${mobile_log}")" == 'make|--no-print-directory mobile-check' ]]
-sed -n '3p' "${mobile_log}" | grep -Fq 'node|submit-ios.mjs|--preflight-only'
-sed -n '4p' "${mobile_log}" | grep -Fq 'node|submit-ios.mjs|--dry-run'
-sed -n '5p' "${mobile_log}" | grep -Fq 'node|publish-android-play.mjs|--dry-run'
-sed -n '3,5p' "${mobile_log}" | grep -Fq 'MOBILE_RELEASE_TIMESTAMP=2026-07-11T00:00:00-0700'
-sed -n '3,5p' "${mobile_log}" | grep -Fq -- "--manifest ${payload_directory}/loopaware-ios.json"
-sed -n '3,5p' "${mobile_log}" | grep -Fq -- "--build-manifest ${payload_directory}/loopaware-android.json"
+sed -n '3p' "${mobile_log}" | grep -Fq 'node|submit-ios.mjs|--dry-run'
+sed -n '4p' "${mobile_log}" | grep -Fq 'node|publish-android-play.mjs|--dry-run'
+sed -n '3,4p' "${mobile_log}" | grep -Fq 'MOBILE_RELEASE_TIMESTAMP=2026-07-11T00:00:00-0700'
+sed -n '3,4p' "${mobile_log}" | grep -Fq -- "--manifest ${payload_directory}/loopaware-ios.json"
+sed -n '3,4p' "${mobile_log}" | grep -Fq -- "--build-manifest ${payload_directory}/loopaware-android.json"
 
 cp "${manifest_directory}/manifest.json" "${manifest_directory}/manifest.json.original"
 python3 - "${manifest_directory}/manifest.json" <<'PY_OUTER_TIMESTAMP_DRIFT'
@@ -252,15 +251,15 @@ mv "${manifest_directory}/manifest.json.original" "${manifest_directory}/manifes
   PATH="${mobile_repository}/bin:${PATH}" MOBILE_LOG="${mobile_log}" MOBILE_REPO="${mobile_repository}" MOBILE_ARTIFACT_DIR="${manifest_directory}" RELEASE_ENV_FILE="${mobile_repository}/configs/.env.loopaware" \
     ./scripts/publish-mobile.sh >/dev/null
 )
-[[ "$(wc -l <"${mobile_log}" | tr -d ' ')" == "7" ]]
+[[ "$(wc -l <"${mobile_log}" | tr -d ' ')" == "6" ]]
 [[ "$(sed -n '1p' "${mobile_log}")" == 'release-helper|verify-release-artifact' ]]
 [[ "$(sed -n '2p' "${mobile_log}")" == 'make|--no-print-directory mobile-check' ]]
-sed -n '4p' "${mobile_log}" | grep -Fq 'node|submit-ios.mjs|--dry-run'
-sed -n '5p' "${mobile_log}" | grep -Fq 'node|publish-android-play.mjs|--dry-run'
-sed -n '6p' "${mobile_log}" | grep -Fq 'node|submit-ios.mjs|--manifest'
-sed -n '7p' "${mobile_log}" | grep -Fq 'node|publish-android-play.mjs|--aab'
+sed -n '3p' "${mobile_log}" | grep -Fq 'node|submit-ios.mjs|--dry-run'
+sed -n '4p' "${mobile_log}" | grep -Fq 'node|publish-android-play.mjs|--dry-run'
+sed -n '5p' "${mobile_log}" | grep -Fq 'node|submit-ios.mjs|--manifest'
+sed -n '6p' "${mobile_log}" | grep -Fq 'node|publish-android-play.mjs|--aab'
+[[ "$(sed -n '5p' "${mobile_log}")" != *"--dry-run"* ]]
 [[ "$(sed -n '6p' "${mobile_log}")" != *"--dry-run"* ]]
-[[ "$(sed -n '7p' "${mobile_log}")" != *"--dry-run"* ]]
 
 : >"${mobile_log}"
 set +e
@@ -274,8 +273,8 @@ set -e
 [[ "${uncertain_ios_status}" -eq 41 ]]
 [[ "${uncertain_ios_output}" == *"the iOS upload outcome is unknown"* ]]
 [[ "${uncertain_ios_output}" == *"do not blindly retry"* ]]
-[[ "$(wc -l <"${mobile_log}" | tr -d ' ')" == "6" ]]
-[[ "$({ sed -n '6p' "${mobile_log}"; })" == node\|submit-ios.mjs\|* ]]
+[[ "$(wc -l <"${mobile_log}" | tr -d ' ')" == "5" ]]
+[[ "$({ sed -n '5p' "${mobile_log}"; })" == node\|submit-ios.mjs\|* ]]
 
 : >"${mobile_log}"
 set +e
@@ -289,8 +288,8 @@ set -e
 [[ "${partial_mobile_status}" -eq 42 ]]
 [[ "${partial_mobile_output}" == *"the iOS build was accepted before Android failed"* ]]
 [[ "${partial_mobile_output}" == *"prepare a new release timestamp instead of blindly retrying"* ]]
-[[ "$(wc -l <"${mobile_log}" | tr -d ' ')" == "7" ]]
-[[ "$({ sed -n '7p' "${mobile_log}"; })" == node\|publish-android-play.mjs\|* ]]
+[[ "$(wc -l <"${mobile_log}" | tr -d ' ')" == "6" ]]
+[[ "$({ sed -n '6p' "${mobile_log}"; })" == node\|publish-android-play.mjs\|* ]]
 
 android_fixture="${temporary_directory}/android-publisher"
 android_log="${temporary_directory}/android-publisher.log"

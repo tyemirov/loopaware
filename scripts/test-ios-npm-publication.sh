@@ -59,9 +59,6 @@ cat >"${fake_bin}/xcrun" <<'EOF_XCRUN'
 set -euo pipefail
 printf '%s|API_PRIVATE_KEYS_DIR=%s\n' "$*" "${API_PRIVATE_KEYS_DIR:-<unset>}" >>"${IOS_LOG}"
 case "$*" in
-  "altool --list-providers --output-format json --api-key TESTKEY --api-issuer fixture-issuer")
-    printf '%s\n' '{"providers":[]}'
-    ;;
   "altool --validate-app "*)
     if [[ "${FAKE_IOS_VALIDATION_FAILURE:-0}" == "1" ]]; then
       printf '%s\n' 'fixture altool validation failed' >&2
@@ -95,10 +92,14 @@ ios_common_args=(
 PATH="${fake_bin}:${PATH}" IOS_LOG="${ios_log}" \
   node "${repo_root}/mobile/scripts/submit-ios.mjs" \
     "${ios_common_args[@]}" \
-    --preflight-only >"${ios_directory}/credentials.json"
-grep -Fq '"credentialAccess": "verified"' "${ios_directory}/credentials.json"
-expected_provider_command="altool --list-providers --output-format json --api-key TESTKEY --api-issuer fixture-issuer|API_PRIVATE_KEYS_DIR=${ios_directory}"
-[[ "$(<"${ios_log}")" == "${expected_provider_command}" ]]
+    --manifest "${ios_manifest}" \
+    --ipa "${ios_ipa}" \
+    --dry-run >"${ios_directory}/validation-without-provider.json"
+grep -Fq '"credentialAccess": "verified"' "${ios_directory}/validation-without-provider.json"
+grep -Fq '"appValidation": "passed"' "${ios_directory}/validation-without-provider.json"
+expected_validation_without_provider="altool --validate-app ${ios_ipa} --platform ios --apple-id 6788555440 --bundle-id com.mprlab.loopaware --bundle-version 205891200 --bundle-short-version-string 2026.7.11 --api-key TESTKEY --api-issuer fixture-issuer|API_PRIVATE_KEYS_DIR=${ios_directory}"
+[[ "$(<"${ios_log}")" == "${expected_validation_without_provider}" ]]
+[[ "$(<"${ios_log}")" != *"--upload-package"* ]]
 
 : >"${ios_log}"
 PATH="${fake_bin}:${PATH}" IOS_LOG="${ios_log}" \
@@ -167,7 +168,7 @@ ios_legacy_output="$({
     node "${repo_root}/mobile/scripts/submit-ios.mjs" \
       "${ios_common_args[@]}" \
       --apple-id legacy@example.com \
-      --preflight-only
+      --dry-run
 } 2>&1)"
 ios_legacy_status=$?
 set -e

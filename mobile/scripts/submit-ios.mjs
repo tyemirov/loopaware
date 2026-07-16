@@ -49,7 +49,6 @@ try {
  *   providerPublicId: string;
  *   versioning: import("./mobile-calver-version.mjs").MobileCalVerVersion;
  *   dryRun: boolean;
- *   preflightOnly: boolean;
  * }} IOSSubmitArgs
  */
 
@@ -62,7 +61,7 @@ function parseArgs(argv) {
   const flags = new Set();
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
-    if (token === "--dry-run" || token === "--preflight-only") {
+    if (token === "--dry-run") {
       flags.add(token.slice(2));
       continue;
     }
@@ -124,7 +123,6 @@ function parseArgs(argv) {
     providerPublicId: String(options.get("provider-public-id") || process.env.MOBILE_IOS_PROVIDER_PUBLIC_ID || "").trim(),
     versioning,
     dryRun: flags.has("dry-run"),
-    preflightOnly: flags.has("preflight-only"),
   };
 }
 
@@ -133,9 +131,6 @@ function parseArgs(argv) {
  * @returns {Record<string, unknown>}
  */
 function submitIOSArchive(args) {
-  if (args.preflightOnly) {
-    return preflightIOSUpload(args);
-  }
   requireExecutable(which("xcrun"), "xcrun");
   const manifest = readArchiveManifest(args.manifest);
   const versioning = /** @type {Record<string, any>} */ (manifest.versioning);
@@ -216,35 +211,6 @@ function packageCommand(operation, ipaPath, args, manifest) {
     command.push("--provider-public-id", args.providerPublicId);
   }
   return command;
-}
-
-/**
- * @param {IOSSubmitArgs} args
- * @returns {Record<string, unknown>}
- */
-function preflightIOSUpload(args) {
-  validateUploadInputs(args);
-  requireExecutable(which("xcrun"), "xcrun");
-  verifyIOSCredentials(args);
-  return {
-    schema: submitSchema,
-    status: "preflight-passed",
-    ascAppId: args.ascAppId,
-    credentialMode: "app-store-connect-api-key",
-    providerPublicId: args.providerPublicId,
-    credentialAccess: "verified",
-    versioning: args.versioning,
-    tool: "xcrun altool",
-  };
-}
-
-/**
- * @param {IOSSubmitArgs} args
- */
-function verifyIOSCredentials(args) {
-  const command = ["xcrun", "altool", "--list-providers", "--output-format", "json"];
-  appendAuthentication(command, args);
-  run(command, { env: uploadEnvironment(args), quiet: true });
 }
 
 /**

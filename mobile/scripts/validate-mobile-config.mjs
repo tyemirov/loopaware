@@ -175,7 +175,6 @@ for (const target of [
   "mobile-android-bundle",
   "mobile-release-artifacts",
   "publish-mobile",
-  "submit-ios-preflight",
   "submit-ios",
   "submit-android",
   "submit-mobile",
@@ -195,10 +194,14 @@ assert(
   makefile.includes("export MOBILE_IOS_ASC_APP_ID"),
   "mobile_makefile_missing_ios_asc_app_id_env",
 );
-assert(makefile.includes("submit-ios-preflight: mobile-check"), "mobile_makefile_ios_submit_preflight_must_run_mobile_check");
-assert(makefile.includes("submit-ios: submit-ios-preflight"), "mobile_makefile_ios_submit_must_preflight_before_archive");
-assert(makefile.includes("--preflight-only"), "mobile_makefile_ios_submit_missing_preflight_only");
-const submitIosTarget = makefile.slice(makefile.indexOf("submit-ios: submit-ios-preflight"), makefile.indexOf("submit-android: mobile-check"));
+assert(makefile.includes("submit-ios: mobile-check"), "mobile_makefile_ios_submit_must_run_mobile_check");
+const submitIosTarget = makefile.slice(makefile.indexOf("submit-ios: mobile-check"), makefile.indexOf("submit-android: mobile-check"));
+assert(
+  submitIosTarget.indexOf("submit-ios.mjs --mobile-dir mobile --dry-run") <
+    submitIosTarget.lastIndexOf("submit-ios.mjs --mobile-dir mobile"),
+  "mobile_makefile_ios_submit_must_validate_exact_archive_before_upload",
+);
+assert(!makefile.includes("submit-ios-preflight:"), "mobile_makefile_must_not_keep_partial_ios_credential_preflight");
 assert(!submitIosTarget.includes("build-ios"), "mobile_makefile_ios_submit_must_consume_prepared_artifact");
 const submitAndroidTarget = makefile.slice(makefile.indexOf("submit-android: mobile-check"), makefile.indexOf("submit-mobile:"));
 assert(!submitAndroidTarget.includes("mobile-android-bundle"), "mobile_makefile_android_submit_must_consume_prepared_artifact");
@@ -295,10 +298,9 @@ assert(!iosSubmitSource.includes("ASC_API_KEY_"), "mobile_ios_submit_must_not_ac
 assert(!iosSubmitSource.includes("LOOPAWARE_MOBILE_IOS_ASC_APP_ID"), "mobile_ios_submit_must_not_accept_legacy_app_id_alias");
 assert(!iosSubmitSource.includes("MOBILE_IOS_APPLE_ID") && !iosSubmitSource.includes("APPLE_ID"), "mobile_ios_submit_must_use_api_key_authentication_only");
 assert(iosSubmitSource.includes("API_PRIVATE_KEYS_DIR"), "mobile_ios_submit_missing_api_private_keys_dir");
-assert(iosSubmitSource.includes("--preflight-only"), "mobile_ios_submit_missing_preflight_only");
-assert(iosSubmitSource.includes("preflightIOSUpload"), "mobile_ios_submit_missing_upload_preflight");
 assert(iosSubmitSource.includes('packageCommand("--validate-app"'), "mobile_ios_submit_missing_exact_app_validation");
-assert(iosSubmitSource.includes('"--list-providers"'), "mobile_ios_submit_missing_remote_credential_preflight");
+assert(!iosSubmitSource.includes("--preflight-only"), "mobile_ios_submit_must_not_keep_partial_credential_preflight");
+assert(!iosSubmitSource.includes("--list-providers"), "mobile_ios_submit_must_not_use_api_key_incompatible_provider_listing");
 assert(!iosSubmitSource.includes("--p8-file-path"), "mobile_ios_submit_must_not_pass_p8_file_path_to_upload");
 assert(iosSubmitSource.includes("iOS IPA hash changed since build manifest"), "mobile_ios_submit_missing_hash_drift_guard");
 assert(iosSubmitSource.includes("createMobileCalVerVersion"), "mobile_ios_submit_missing_calver_manifest_default");
