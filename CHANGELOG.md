@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the standard mobile store publishing inputs for local iOS IPA and Android AAB uploads.
 - Document the UTC CalVer mobile release-numbering contract and deterministic `MOBILE_RELEASE_TIMESTAMP` override.
 
+## [v0.7.46] - 2026-07-16
+
+- Merge pull request #292 from tyemirov/bugfix/B060-single-completed-play-release
+- fix(android-play): replace Play internal track with single completed release
+
 ## [v0.7.45] - 2026-07-16
 
 - Merge pull request #291 from tyemirov/bugfix/B059-platform-specific-container-push
