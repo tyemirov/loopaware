@@ -846,7 +846,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
 
-- [ ] [B057] (P0) Validate the exact iOS artifact with App Store Connect API-key authentication.
+- [x] [B057] (P0) Validate the exact iOS artifact with App Store Connect API-key authentication.
   Goal:
   Restore `make publish` by removing the unsupported App Store Connect provider-list operation from the iOS publication preflight.
 
@@ -862,8 +862,33 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Validation:
   Run the focused iOS/npm publication contract, mobile config checks, aggregate release workflow checks, a live non-uploading App Store Connect validation against the prepared IPA, and final `make ci`.
 
+  Resolution:
+  Removed the credential-only iOS preflight and its `altool --list-providers` call. Mobile publication and the lower-level `make submit-ios` path now use the existing hash-verified exact-IPA `altool --validate-app` operation before upload. Updated the black-box fixtures and static validators to require that canonical operation and reject restoration of provider listing or the partial iOS `--preflight-only` mode.
+
+  Validation Results:
+  Focused iOS/npm publication, mobile, publish-preflight, and aggregate release-workflow checks passed; final `make ci` passed all release contracts, Go race checks, and 455 Playwright/API integration specs. PR #289 passed both required GitHub checks and merged to `master`. A clean `make release && make publish` run prepared the signed `v0.7.44` IPA, and the live API-key-authenticated `altool --validate-app` operation passed with verified App Store Connect authority. Publication then stopped at the subsequent npm authority preflight recorded as B058; no store artifact was uploaded.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `README.md`, `mobile/scripts/submit-ios.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `scripts/publish-mobile.sh`, `scripts/test-ios-npm-publication.sh`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
+
+- [ ] [B058] (P0) Prove npm publication authority at the prepared package boundary.
+  Goal:
+  Restore `make publish` after iOS validation by replacing the broad npm user-package listing with a package-scoped write-authority check for `@loopaware/react-native`.
+
+  Requirements:
+  Use the existing idempotent `npm access set status=public @loopaware/react-native` operation as the canonical package-scoped authority proof. Delete the `npm whoami` plus `npm access list packages <user>` path instead of preserving a fallback, alias, or second authority check.
+
+  Deliverables:
+  - Remove the broad npm identity package-list query from publication preflight.
+  - Keep the existing package existence, visibility, exact integrity, monotonic version, dry-run, and post-publication checks.
+  - Add black-box and static contract coverage that rejects restoration of user package listing and proves write denial fails before publication.
+  - Document the package-scoped npm authority boundary.
+
+  Validation:
+  Run the focused iOS/npm publication and release-workflow checks, verify the live package-scoped authority command with the configured token, run final `make ci`, and successfully run `make release && make publish` from clean canonical `master`.
+
   Progress:
-  Removed the credential-only iOS preflight and its `altool --list-providers` call. Mobile publication and the lower-level `make submit-ios` path now use the existing hash-verified exact-IPA `altool --validate-app` operation before upload. Updated the black-box fixtures and static validators to require that canonical operation and reject restoration of provider listing or the partial iOS `--preflight-only` mode. Focused iOS/npm publication, mobile, publish-preflight, and aggregate release-workflow checks passed; final `make ci` passed all release contracts, Go race checks, and 455 Playwright/API integration specs. Live `make release && make publish` verification remains pending until this fix lands on canonical `master`.
+  The live package-scoped `npm access set status=public @loopaware/react-native` command succeeded with the configured granular token and returned the canonical public package status. Removed the broad `npm whoami` plus `npm access list packages <user>` sequence; the existing package-scoped public-status write is now the single authority proof. Updated the black-box fixture to fail before publication when that write is denied, and updated the static contract to reject restoration of either broad identity operation. Focused iOS/npm publication, publish-preflight, and aggregate release-workflow checks passed. Final `make ci` passed all release contracts, Go race checks, and all 455 Playwright/API integration specs. Landing on `master`, live publication, and final resolution evidence remain pending.
 
 
 ## Improvements
