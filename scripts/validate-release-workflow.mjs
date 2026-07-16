@@ -675,16 +675,16 @@ assert(
     androidPublishSource.includes("inspect existing Android Publisher bundles") &&
     androidPublishSource.includes("assertPublishableVersionCode") &&
     androidPublishSource.includes("validatedTrackState") &&
-    androidPublishSource.includes("existingTrackState.releases") &&
-    androidPublishSource.includes("changed metadata for an existing release") &&
+    androidPublishSource.includes("releases: [completedTrackRelease(args, uploadedVersionCode)]") &&
+    !androidPublishSource.includes("...existingTrackState.releases") &&
     androidPublishSource.includes("assertBundleSha256") &&
     androidPublishSource.includes('method: "PUT"') &&
     androidPublishSource.includes("verifyCommittedAndroidPublication") &&
     androidPublishSource.includes("create Android Publisher verification edit") &&
     androidPublishSource.includes("delete Android Publisher verification edit") &&
-    androidPublishSource.includes("committed Android track is missing retained versionCode") &&
+    androidPublishSource.includes("committed Android track does not contain exactly the new completed release") &&
     androidPublishSource.includes("failed edit cleanup"),
-  "android_publication_must_preflight_inventory_preserve_track_and_postverify_commit",
+  "android_publication_must_preflight_inventory_replace_track_and_postverify_commit",
 );
 assert(
   androidPublishSource.includes('changesInReviewBehavior: "ERROR_IF_IN_REVIEW"') &&
