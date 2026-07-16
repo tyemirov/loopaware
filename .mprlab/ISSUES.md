@@ -871,7 +871,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `README.md`, `mobile/scripts/submit-ios.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `scripts/publish-mobile.sh`, `scripts/test-ios-npm-publication.sh`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
 
-- [ ] [B058] (P0) Prove npm publication authority at the prepared package boundary.
+- [x] [B058] (P0) Prove npm publication authority at the prepared package boundary.
   Goal:
   Restore `make publish` after iOS validation by replacing the broad npm user-package listing with a package-scoped write-authority check for `@loopaware/react-native`.
 
@@ -887,8 +887,33 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Validation:
   Run the focused iOS/npm publication and release-workflow checks, verify the live package-scoped authority command with the configured token, run final `make ci`, and successfully run `make release && make publish` from clean canonical `master`.
 
+  Resolution:
+  Removed the broad `npm whoami` plus `npm access list packages <user>` sequence. The existing idempotent package-scoped public-status write is now the single authority proof, while the existing package existence, visibility, exact integrity, monotonic version, dry-run, and post-publication checks remain in place. Updated the black-box fixture to fail before publication when that write is denied, and updated the static contract to reject restoration of either broad identity operation.
+
+  Validation Results:
+  The live package-scoped `npm access set status=public @loopaware/react-native` command succeeded with the configured granular token and returned the canonical public package status. Focused iOS/npm publication, publish-preflight, and aggregate release-workflow checks passed. Final `make ci` passed all release contracts, Go race checks, and all 455 Playwright/API integration specs. PR #290 passed both required GitHub checks and merged to `master`. A clean `make release && make publish` run passed the live npm authority preflight; the existing `@loopaware/react-native@0.1.0` registry integrity matched the prepared tarball, the package was public, and `latest` already pointed to `0.1.0`. Publication then stopped at the subsequent GHCR manifest-shape verifier recorded as B059; no npm or mobile store upload was required or performed.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `scripts/publish-react-native.sh`, `scripts/test-ios-npm-publication.sh`, and `scripts/validate-release-workflow.mjs`.
+
+- [ ] [B059] (P0) Push the canonical single-platform manifest to GHCR.
+  Goal:
+  Restore container publication by ensuring the versioned `linux/amd64` tag contains the deployable image manifest that the immutable registry verifier expects, not BuildKit's enclosing OCI index and attestation sidecar.
+
+  Requirements:
+  Use the standard Docker platform-specific push operation for the prepared `linux/amd64` image. Keep one strict registry shape and delete any need to accept an OCI index at the versioned platform tag; do not add a fallback or dual-shape verifier.
+
+  Deliverables:
+  - Push the versioned platform tag with explicit `--platform linux/amd64` selection.
+  - Preserve exact prepared config-digest verification before and after the push.
+  - Add black-box and static release-contract coverage that requires the platform-specific Docker push.
+  - Document why the platform tag excludes the enclosing BuildKit index and attestations.
+
+  Validation:
+  Run focused publish-preflight and release-workflow checks, run final `make ci`, inspect the live GHCR platform tag shape after publication, and successfully run `make release && make publish` with a fresh release identity.
+
   Progress:
-  The live package-scoped `npm access set status=public @loopaware/react-native` command succeeded with the configured granular token and returned the canonical public package status. Removed the broad `npm whoami` plus `npm access list packages <user>` sequence; the existing package-scoped public-status write is now the single authority proof. Updated the black-box fixture to fail before publication when that write is denied, and updated the static contract to reject restoration of either broad identity operation. Focused iOS/npm publication, publish-preflight, and aggregate release-workflow checks passed. Final `make ci` passed all release contracts, Go race checks, and all 455 Playwright/API integration specs. Landing on `master`, live publication, and final resolution evidence remain pending.
+  Live `v0.7.44` publication reproduced the failure after its Git refs, GitHub Release, nine immutable assets, and `ghcr.io/tyemirov/loopaware:v0.7.44-linux-amd64` were published. The pushed tag is an OCI index with one `linux/amd64` deployable manifest and one `unknown/unknown` attestation; its root therefore has no `config` field. The registry verifier correctly rejected that noncanonical platform-tag shape before creating version or `latest` indexes. No npm or mobile store artifact was uploaded. Changed the standard Docker push to select the prepared platform explicitly, so current Docker publishes the single deployable manifest and the existing strict config-digest verifier remains the only accepted registry contract. The black-box fixture now rejects a push without `--platform linux/amd64`, and the static validator requires the same operation. Focused publish-preflight and aggregate release-workflow checks passed; final `make ci` passed all release contracts, Go race checks, and all 455 Playwright/API integration specs. Landing, live GHCR verification, and fresh release publication remain pending.
 
 
 ## Improvements

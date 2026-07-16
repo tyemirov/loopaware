@@ -175,11 +175,12 @@ verify_container_archive_loadability() {
 
 push_platform_digest=""
 push_platform_image() {
-  local platform_ref="$1"
+  local platform="$1"
+  local platform_ref="$2"
   local push_output
   local push_status
   set +e
-  push_output="$(timeout -k "${publish_timeout}s" -s SIGKILL "${publish_timeout}s" docker push "${platform_ref}" 2>&1)"
+  push_output="$(timeout -k "${publish_timeout}s" -s SIGKILL "${publish_timeout}s" docker push --platform "${platform}" "${platform_ref}" 2>&1)"
   push_status=$?
   set -e
   printf '%s\n' "${push_output}"
@@ -503,7 +504,7 @@ PY
     platform_ref="${image}:${version}-${token}"
     docker tag "${local_ref}" "${platform_ref}"
     echo "==> [publish] Pushing ${platform_ref}"
-    push_platform_image "${platform_ref}"
+    push_platform_image "${platform}" "${platform_ref}"
     sources+=("${image}@${push_platform_digest}")
     if [[ "${platform}" == "linux/amd64" ]]; then
       pushed_linux_amd64_digest="${push_platform_digest}"

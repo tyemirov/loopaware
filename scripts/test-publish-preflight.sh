@@ -908,7 +908,10 @@ if [[ "$1" == "tag" ]]; then
 fi
 if [[ "$1" == "push" ]]; then
   printf 'PUSH|%s\n' "$*" >>"${CONTAINER_DOCKER_LOG}"
-  [[ "$2" == "${platform_ref}" ]] || { printf 'unexpected pushed ref: %s\n' "$2" >&2; exit 97; }
+  [[ "$2" == "--platform" && "$3" == "linux/amd64" && "$4" == "${platform_ref}" ]] || {
+    printf 'unexpected platform-specific push: %s\n' "$*" >&2
+    exit 97
+  }
   printf '%s|%s\n' "${published_platform_digest}" "${CONTAINER_EXPECTED_IMAGE_ID}" >"${CONTAINER_PLATFORM_STATE}"
   printf '%s\n' 'fixture: pushed' "digest: ${published_platform_digest} size: 1234"
   exit 0
@@ -1046,7 +1049,7 @@ container_publish_output="$(
 )"
 [[ "${container_publish_output}" == *"Published ghcr.io/tyemirov/loopaware:v1.2.3 at sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd."* ]]
 grep -Fqx 'LOGIN|login ghcr.io --username fixture-user --password-stdin' "${container_docker_log}"
-grep -Fq 'PUSH|push ghcr.io/tyemirov/loopaware:v1.2.3-linux-amd64' "${container_docker_log}"
+grep -Fq 'PUSH|push --platform linux/amd64 ghcr.io/tyemirov/loopaware:v1.2.3-linux-amd64' "${container_docker_log}"
 grep -Fq 'SAVE|mprlab-release.local/loopaware:v1.2.3-linux-amd64' "${container_docker_log}"
 [[ "$(grep -c '^CREATE|' "${container_docker_log}")" == "2" ]]
 grep '^CREATE|' "${container_docker_log}" | grep -Fq 'ghcr.io/tyemirov/loopaware@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
