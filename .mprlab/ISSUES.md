@@ -794,6 +794,32 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B055] (P0) Recover release preparation from stale unpublished changelog sections.
+  Goal:
+  Let `make release` reuse the next remote-authoritative version when an earlier failed publication left release commits and duplicate changelog sections on the default branch without publishing the corresponding remote tag.
+
+  Requirements:
+  Keep remote stable tags authoritative for version selection. For the one selected unpublished version, require generated notes to identify that exact version, delete every stale changelog section for it, and insert one regenerated canonical section. Do not preserve conflicting sections, bump around unpublished state, or add alternate compatibility paths. Exclude release-bookkeeping commits from generated release notes.
+
+  Deliverables:
+  - Require `insert-changelog` to receive and validate the selected version.
+  - Replace all stale sections for that exact version while preserving other release sections.
+  - Omit `Release vMAJOR.MINOR.PATCH` bookkeeping subjects from generated notes.
+  - Add black-box coverage reproducing multiple stale headings with different dates and content.
+  - Update the static release-workflow contract for the canonical recovery path.
+
+  Validation:
+  Reproduce the duplicate unpublished-version headings in a repository fixture, run the focused release workflow checks, and run final `make ci`.
+
+  Resolution:
+  Kept remote stable tags authoritative, so the unpublished `v0.7.44` version remains the next release instead of being skipped. The release workflow now passes that exact selected version into changelog insertion, requires the generated notes heading to match it, removes every existing canonical section for that unpublished version, and inserts one regenerated section while preserving `Unreleased` and all other releases. Release-bookkeeping commit subjects are excluded from generated notes.
+
+  Validation Results:
+  Baseline `make ci` passed all 455 Playwright/API integration specs. The black-box release fixture reproduced two stale `v1.2.3` headings with different dates and content, replaced them with one canonical section, preserved `Unreleased` and `v1.2.2`, omitted the stale text and `Release v1.2.3` commit subject, and rejected a mismatched requested version. Applying the helper to a disposable clone of the actual repository replaced both stale `v0.7.44` sections with one and produced zero release-bookkeeping bullets. `make release-workflow-check`, `git diff --check`, and final `make ci` passed; final CI included all release contracts, Go race checks, and all 455 integration specs.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `scripts/release/prepare_release.sh`, `scripts/release/release_helper.py`, `scripts/test-release-tooling.sh`, and `scripts/validate-release-workflow.mjs`.
+
 
 ## Improvements
 
