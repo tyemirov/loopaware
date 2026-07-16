@@ -946,6 +946,31 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `mobile/scripts/publish-android-play.mjs`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B061] (P0) Replace the raw Ansible become prompt with the gateway credential boundary.
+  Goal:
+  Keep `make deploy` on the canonical app-owned deployment controller while removing the unexplained LoopAware-only `BECOME password:` prompt.
+
+  Requirements:
+  Prompt explicitly for `Gateway sudo password:` only when the operator has not supplied the canonical local password file. Pass the credential through a temporary private file, remove it after Ansible exits, and never restore `--ask-become-pass`.
+
+  Deliverables:
+  - Replace Ansible's raw interactive become flag with the same explicit gateway sudo-password boundary used by the aggregate controller.
+  - Preserve the non-interactive `LOOPAWARE_ANSIBLE_BECOME_PASSWORD_FILE` contract.
+  - Add black-box coverage for prompt text, password-file handoff, cleanup, and the absence of `--ask-become-pass`.
+  - Add a static release-contract rejection for the raw prompt path and document the operator-facing credential name.
+
+  Validation:
+  Run the focused deploy dry-run contract, aggregate release-workflow check, shell syntax and diff checks, then final `make ci`. Do not run production deployment.
+
+  Resolution:
+  Removed LoopAware's explicit `--ask-become-pass` handoff, which exposed Ansible's unexplained `BECOME password:` text. The app-owned controller now reads an interactive credential through the explicit `Gateway sudo password:` boundary, passes it through a private temporary password file, deletes that file on exit, and preserves the canonical non-interactive password-file input. Black-box coverage proves the exact prompt, password-file handoff and cleanup, while the static workflow contract rejects restoration of the raw Ansible prompt path.
+
+  Validation Results:
+  `bash -n scripts/run-app-ansible-deploy.sh scripts/test-deploy-dry-run.sh`, `git diff --check`, `make deploy-dry-run-contract-check`, and `make release-workflow-check` passed. Final `make ci` passed config audit, builds, mobile and package checks, release and deployment contracts, Go tests and race tests, and all 455 Playwright/API integration specs. No production deployment or Pages activation was executed.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `scripts/run-app-ansible-deploy.sh`, `scripts/test-deploy-dry-run.sh`, and `scripts/validate-release-workflow.mjs`.
+
 
 ## Improvements
 

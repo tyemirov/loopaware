@@ -12,12 +12,17 @@ command_log="${temporary_directory}/commands.log"
 gh_command_log="${temporary_directory}/gh-commands.log"
 release_asset_source="${temporary_directory}/release-assets"
 real_make="$(command -v make)"
+real_python3="$(command -v python3)"
+become_password_file="${temporary_directory}/gateway-sudo-password"
+prompt_log="${temporary_directory}/prompts.log"
 mkdir -p \
   "${fixture_repository}/scripts/release" \
   "${fixture_repository}/.mprlab/deploy/ansible/inventory" \
   "${fixture_repository}/.mprlab/deploy/ansible/playbooks" \
   "${fake_bin}" \
   "${release_asset_source}"
+printf '%s\n' 'fixture-password' >"${become_password_file}"
+chmod 0600 "${become_password_file}"
 cp "${repo_root}/scripts/deploy.sh" "${fixture_repository}/scripts/deploy.sh"
 cp "${repo_root}/scripts/run-app-ansible-deploy.sh" "${fixture_repository}/scripts/run-app-ansible-deploy.sh"
 cp "${repo_root}/scripts/release/repository_identity.sh" "${fixture_repository}/scripts/release/repository_identity.sh"
@@ -212,17 +217,30 @@ printf 'unexpected uvx command: %s\n' "$*" >&2
 exit 97
 EOF_UVX
 
-chmod +x "${fake_bin}/docker" "${fake_bin}/gh" "${fake_bin}/git" "${fake_bin}/uvx"
+cat >"${fake_bin}/python3" <<'EOF_PYTHON3'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *'getpass.getpass("Gateway sudo password: ")'* ]]; then
+  printf '%s\n' 'prompt|Gateway sudo password:' >>"${PROMPT_LOG}"
+  printf '%s\n' 'fixture-password'
+  exit 0
+fi
+exec "${REAL_PYTHON3}" "$@"
+EOF_PYTHON3
+
+chmod +x "${fake_bin}/docker" "${fake_bin}/gh" "${fake_bin}/git" "${fake_bin}/python3" "${fake_bin}/uvx"
 fixture_repository="$(git -C "${fixture_repository}" rev-parse --show-toplevel)"
 export FAKE_RELEASE_ASSETS="${release_asset_source}"
 export LOOPAWARE_FIXTURE_DIR="${fixture_repository}"
 export LOOPAWARE_REMOTE_REPOSITORY="${remote_repository}"
 export GH_COMMAND_LOG="${gh_command_log}"
+export PROMPT_LOG="${prompt_log}"
+export REAL_PYTHON3="${real_python3}"
 
 run_fixture_lifecycle() {
   local target="$1"
   shift
-  PATH="${fake_bin}:${PATH}" COMMAND_LOG="${command_log}" \
+  PATH="${fake_bin}:${PATH}" COMMAND_LOG="${command_log}" LOOPAWARE_ANSIBLE_BECOME_PASSWORD_FILE="${become_password_file}" \
     "${real_make}" -C "${fixture_repository}" --no-print-directory "$@" "${target}"
 }
 
@@ -246,10 +264,26 @@ deploy_output="$(run_fixture_lifecycle deploy)"
 [[ "${deploy_output}" == *"LoopAware deploy complete"* ]]
 [[ "$(wc -l <"${command_log}" | tr -d ' ')" == "5" ]]
 sed -n '1p' "${command_log}" | grep -Fq -- '--verify-only'
-sed -n '4p' "${command_log}" | grep -Fq 'ansible-playbook --ask-become-pass --inventory '
+sed -n '4p' "${command_log}" | grep -Fq "ansible-playbook --become-password-file ${become_password_file} --inventory "
+! sed -n '4p' "${command_log}" | grep -Fq -- '--ask-become-pass'
 sed -n '4p' "${command_log}" | grep -Fq '/.mprlab/deploy/ansible/playbooks/deploy.yml'
 sed -n '5p' "${command_log}" | grep -Fq 'pages|--branch gh-pages --url https://loopaware.mprlab.com/ --expected-domain loopaware.mprlab.com --version v1.2.3 --artifact-dir '
 [[ "$(sed -n '5p' "${command_log}")" != *"--verify-only"* ]]
+
+: >"${command_log}"
+: >"${prompt_log}"
+env -u LOOPAWARE_ANSIBLE_BECOME_PASSWORD_FILE \
+  PATH="${fake_bin}:${PATH}" COMMAND_LOG="${command_log}" \
+  "${fixture_repository}/scripts/run-app-ansible-deploy.sh" \
+  --mode deploy \
+  --image-ref ghcr.io/tyemirov/loopaware@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+[[ "$(cat "${prompt_log}")" == 'prompt|Gateway sudo password:' ]]
+[[ "$(wc -l <"${command_log}" | tr -d ' ')" == "3" ]]
+sed -n '3p' "${command_log}" | grep -Fq 'ansible-playbook --become-password-file '
+! sed -n '3p' "${command_log}" | grep -Fq -- '--ask-become-pass'
+interactive_password_file="$(sed -n '3p' "${command_log}" | sed -n 's/.*--become-password-file \([^ ]*\) --inventory.*/\1/p')"
+[[ -n "${interactive_password_file}" ]]
+[[ ! -e "${interactive_password_file}" ]]
 
 : >"${command_log}"
 set +e

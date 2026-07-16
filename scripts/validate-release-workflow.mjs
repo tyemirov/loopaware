@@ -552,7 +552,9 @@ assert(
     deployResourcesSource.includes("verify: .mprlab/deploy/ansible/tasks/verify.yml") &&
     appAnsibleRunnerSource.includes("ansible-core==2.19.8") &&
     appAnsibleRunnerSource.includes('ansible-playbook --inventory localhost, "${repo_root}/.mprlab/deploy/ansible/playbooks/preflight-local.yml"') &&
-    appAnsibleRunnerSource.includes('ansible-playbook "${become_flags[@]}" --inventory "${inventory_path}" "${repo_root}/.mprlab/deploy/ansible/playbooks/deploy.yml"'),
+    appAnsibleRunnerSource.includes('getpass.getpass("Gateway sudo password: ")') &&
+    appAnsibleRunnerSource.includes('ansible-playbook --become-password-file "${become_password_file}" --inventory "${inventory_path}" "${repo_root}/.mprlab/deploy/ansible/playbooks/deploy.yml"') &&
+    !appAnsibleRunnerSource.includes("--ask-become-pass"),
   "deploy_missing_app_owned_ansible_task_bundle",
 );
 assert(
