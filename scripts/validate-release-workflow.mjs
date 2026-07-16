@@ -696,34 +696,16 @@ assert(
 );
 assert(containerPublishSource.includes("--preflight-only"), "container_publish_preflight_missing");
 assert(
-  containerPublishSource.includes("blobs/uploads/") &&
-    containerPublishSource.includes("challenge_status") &&
-    containerPublishSource.includes('"${challenge_status}" != "401"') &&
-    containerPublishSource.includes("WWW-Authenticate") &&
-    containerPublishSource.includes('for raw_parameter in challenge.group(1).split(",")') &&
-    containerPublishSource.includes('required_parameters = {"realm", "service", "scope"}') &&
-    containerPublishSource.includes("duplicate Bearer parameter") &&
-    containerPublishSource.includes("missing parameters") &&
-    containerPublishSource.includes("unknown parameters") &&
-    containerPublishSource.includes('realm = parameters["realm"]') &&
-    containerPublishSource.includes('realm != "https://ghcr.io/token"') &&
-    containerPublishSource.includes('service != "ghcr.io"') &&
-    containerPublishSource.includes("scope != expected_scope") &&
-    containerPublishSource.includes('challenge_scope="repository:${repository_path}:pull"') &&
-    containerPublishSource.includes('registry_scope="repository:${repository_path}:pull,push"') &&
-    containerPublishSource.includes("--data-urlencode 'service=ghcr.io'") &&
-    containerPublishSource.includes('--data-urlencode "scope=${registry_scope}"') &&
-    containerPublishSource.split('user = "${registry_username}:${registry_token}"').length - 1 === 1 &&
-    containerPublishSource.split('header = "Authorization: Bearer ${registry_bearer_token}"').length - 1 === 2 &&
-    containerPublishSource.includes("from urllib.parse import urlsplit") &&
-    containerPublishSource.includes('expected_path_prefix = f"/v2/{repository_path}/blobs/upload/"') &&
-    containerPublishSource.includes('parsed.netloc != "ghcr.io"') &&
-    containerPublishSource.includes('re.fullmatch(r"[A-Za-z0-9._~-]+", session)') &&
-    !containerPublishSource.includes('upload_location="https://ghcr.io${upload_location}"') &&
-    containerPublishSource.includes('--request DELETE') &&
-    containerPublishSource.includes("unexpected upload location") &&
-    containerPublishSource.includes("GHCR preflight upload cleanup failed"),
-  "container_publish_preflight_must_exchange_the_ghcr_challenge_and_use_bearer_authorization",
+  containerPublishSource.split("docker login ghcr.io").length - 1 === 1 &&
+    containerPublishSource.includes('--username "${registry_username}" --password-stdin') &&
+    containerPublishSource.split('docker push "${platform_ref}"').length - 1 === 1 &&
+    !containerPublishSource.includes("verify_ghcr_push_access") &&
+    !containerPublishSource.includes("WWW-Authenticate") &&
+    !containerPublishSource.includes("blobs/uploads/") &&
+    !containerPublishSource.includes("ghcr.io/token") &&
+    !containerPublishSource.includes("Authorization: Bearer") &&
+    !containerPublishSource.includes("curl "),
+  "container_publication_must_use_standard_docker_login_and_push",
 );
 assert(
   containerPublishSource.includes("verify_prepared_container_archive") &&

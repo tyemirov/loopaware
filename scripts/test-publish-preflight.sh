@@ -709,7 +709,6 @@ sed -n '10p' "${android_log}" | grep -Fq 'DELETE|https://androidpublisher.google
 ! grep -Fq 'DELETE|https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.mprlab.loopaware/edits/publish-edit' "${android_log}"
 
 container_repository="${temporary_directory}/container-fixture"
-container_log="${temporary_directory}/container.log"
 container_docker_log="${temporary_directory}/container-docker.log"
 container_docker_state="${temporary_directory}/container-docker.state"
 container_platform_state="${temporary_directory}/container-platform.state"
@@ -867,6 +866,10 @@ if [[ "$1" == "login" ]]; then
     printf 'unexpected docker login: %s\n' "$*" >&2
     exit 97
   }
+  if [[ "${FAKE_DOCKER_LOGIN_FAILURE:-0}" == "1" ]]; then
+    printf 'fixture docker login failure\n' >&2
+    exit 41
+  fi
   printf 'LOGIN|%s\n' "$*" >>"${CONTAINER_DOCKER_LOG}"
   exit 0
 fi
@@ -977,160 +980,28 @@ case "$*" in
   *) printf 'unexpected gh command: %s\n' "$*" >&2; exit 97 ;;
 esac
 EOF_CONTAINER_GH
-cat >"${container_bin}/curl" <<'EOF_CONTAINER_CURL'
-#!/usr/bin/env bash
-set -euo pipefail
-method="GET"
-header_file=""
-body_file=""
-url=""
-read_config="false"
-get_request="false"
-data_service=""
-data_scope=""
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --request) method="$2"; shift 2 ;;
-    --dump-header) header_file="$2"; shift 2 ;;
-    --output) body_file="$2"; shift 2 ;;
-    --config) [[ "$2" == "-" ]]; read_config="true"; shift 2 ;;
-    --get) get_request="true"; shift ;;
-    --data-urlencode)
-      case "$2" in
-        service=*) data_service="$2" ;;
-        scope=*) data_scope="$2" ;;
-        *) printf 'unexpected curl data: %s\n' "$2" >&2; exit 97 ;;
-      esac
-      shift 2
-      ;;
-    --write-out) shift 2 ;;
-    --silent|--show-error) shift ;;
-    http*) url="$1"; shift ;;
-    *) printf 'unexpected curl argument: %s\n' "$1" >&2; exit 97 ;;
-  esac
-done
-config=""
-if [[ "${read_config}" == "true" ]]; then
-  config="$(cat)"
-fi
-auth_kind="none"
-if [[ "${config}" == *'user = "fixture-user:fixture-token"'* ]]; then
-  auth_kind="basic"
-elif [[ "${config}" == *'header = "Authorization: Bearer fixture-registry-token"'* ]]; then
-  auth_kind="bearer"
-elif [[ -n "${config}" ]]; then
-  printf 'unexpected curl config\n' >&2
-  exit 97
-fi
-printf '%s|%s|%s|%s|%s\n' "${method}" "${url}" "${auth_kind}" "${data_service}" "${data_scope}" >>"${CONTAINER_LOG}"
-if [[ "${method}" == "POST" && "${url}" == "https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/" && "${auth_kind}" == "none" ]]; then
-  case "${FAKE_GHCR_CHALLENGE_MODE:-canonical}" in
-    canonical)
-      challenge='Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:tyemirov/loopaware:pull"'
-      ;;
-    reordered)
-      challenge='Bearer scope = "repository:tyemirov/loopaware:pull" , realm = "https://ghcr.io/token" , service = "ghcr.io"'
-      ;;
-    untrusted-realm)
-      challenge='Bearer realm="https://registry.invalid/token",service="ghcr.io",scope="repository:tyemirov/loopaware:pull"'
-      ;;
-    duplicate)
-      challenge='Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:tyemirov/loopaware:pull",service="ghcr.io"'
-      ;;
-    missing)
-      challenge='Bearer realm="https://ghcr.io/token",service="ghcr.io"'
-      ;;
-    unknown)
-      challenge='Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:tyemirov/loopaware:pull",tenant="tyemirov"'
-      ;;
-    *)
-      printf 'unexpected GHCR challenge mode: %s\n' "${FAKE_GHCR_CHALLENGE_MODE}" >&2
-      exit 97
-      ;;
-  esac
-  printf 'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: %s\r\n\r\n' "${challenge}" >"${header_file}"
-  printf '%s' '{"errors":[{"code":"UNAUTHORIZED","message":"authentication required"}]}' >"${body_file}"
-  printf '401'
-elif [[ "${method}" == "GET" && "${get_request}" == "true" && "${url}" == "https://ghcr.io/token" && "${auth_kind}" == "basic" ]]; then
-  [[ "${data_service}" == "service=ghcr.io" ]]
-  [[ "${data_scope}" == "scope=repository:tyemirov/loopaware:pull,push" ]]
-  printf '%s' '{"token":"fixture-registry-token"}' >"${body_file}"
-  printf '200'
-elif [[ "${method}" == "POST" && "${url}" == "https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/" && "${auth_kind}" == "bearer" ]]; then
-  case "${FAKE_GHCR_UPLOAD_LOCATION_MODE:-canonical}" in
-    canonical)
-      upload_location='https://ghcr.io/v2/tyemirov/loopaware/blobs/upload/16.c15906d1-f702-49cf-bd43-6b8f25c0ad68'
-      ;;
-    untrusted-origin)
-      upload_location='https://registry.invalid/v2/tyemirov/loopaware/blobs/upload/16.c15906d1-f702-49cf-bd43-6b8f25c0ad68'
-      ;;
-    wrong-repository)
-      upload_location='https://ghcr.io/v2/tyemirov/not-loopaware/blobs/upload/16.c15906d1-f702-49cf-bd43-6b8f25c0ad68'
-      ;;
-    obsolete-plural)
-      upload_location='https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/16.c15906d1-f702-49cf-bd43-6b8f25c0ad68'
-      ;;
-    query)
-      upload_location='https://ghcr.io/v2/tyemirov/loopaware/blobs/upload/16.c15906d1-f702-49cf-bd43-6b8f25c0ad68?state=fixture'
-      ;;
-    *)
-      printf 'unexpected GHCR upload location mode: %s\n' "${FAKE_GHCR_UPLOAD_LOCATION_MODE}" >&2
-      exit 97
-      ;;
-  esac
-  printf 'HTTP/1.1 202 Accepted\r\nLocation: %s\r\n\r\n' "${upload_location}" >"${header_file}"
-  : >"${body_file}"
-  printf '202'
-elif [[ "${method}" == "DELETE" && "${url}" == "https://ghcr.io/v2/tyemirov/loopaware/blobs/upload/16.c15906d1-f702-49cf-bd43-6b8f25c0ad68" && "${auth_kind}" == "bearer" ]]; then
-  : >"${body_file}"
-  if [[ "${FAKE_GHCR_DELETE_FAILURE:-0}" == "1" ]]; then
-    printf '500'
-  else
-    printf '204'
-  fi
-else
-  printf 'unexpected curl request: %s %s (%s)\n' "${method}" "${url}" "${auth_kind}" >&2
-  exit 97
-fi
-EOF_CONTAINER_CURL
-chmod +x "${container_bin}/docker" "${container_bin}/gh" "${container_bin}/curl"
+chmod +x "${container_bin}/docker" "${container_bin}/gh"
 
 container_output="$(
   cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" PUBLISH_PLATFORMS="linux/amd64" \
+  PATH="${container_bin}:${PATH}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" PUBLISH_PLATFORMS="linux/amd64" \
     ./scripts/release/publish_container_artifacts.sh --preflight-only
 )"
 [[ "${container_output}" == *"prepared archive loaded with its exact image id"* ]]
-[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "4" ]]
-sed -n '1p' "${container_log}" | grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|none||'
-sed -n '2p' "${container_log}" | grep -Fqx 'GET|https://ghcr.io/token|basic|service=ghcr.io|scope=repository:tyemirov/loopaware:pull,push'
-sed -n '3p' "${container_log}" | grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|bearer||'
-sed -n '4p' "${container_log}" | grep -Fqx 'DELETE|https://ghcr.io/v2/tyemirov/loopaware/blobs/upload/16.c15906d1-f702-49cf-bd43-6b8f25c0ad68|bearer||'
-! grep -Fq 'fixture-token' "${container_log}"
-! grep -Fq 'fixture-registry-token' "${container_log}"
+grep -Fqx 'LOGIN|login ghcr.io --username fixture-user --password-stdin' "${container_docker_log}"
+! grep -Fq 'fixture-token' "${container_docker_log}"
+! grep -Fq 'PUSH|' "${container_docker_log}"
+! grep -Fq 'CREATE|' "${container_docker_log}"
 grep -Fq 'LOAD|' "${container_docker_log}"
 grep -Fq 'SAVE|mprlab-release.local/loopaware:v1.2.3-linux-amd64' "${container_docker_log}"
 grep -Fq 'REMOVE|mprlab-release.local/loopaware:v1.2.3-linux-amd64' "${container_docker_log}"
 [[ ! -f "${container_docker_state}" ]]
 
-: >"${container_log}"
-: >"${container_docker_log}"
-container_reordered_challenge_output="$(
-  cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_GHCR_CHALLENGE_MODE=reordered PUBLISH_PLATFORMS="linux/amd64" \
-    ./scripts/release/publish_container_artifacts.sh --preflight-only
-)"
-[[ "${container_reordered_challenge_output}" == *"prepared archive loaded with its exact image id"* ]]
-[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "4" ]]
-sed -n '2p' "${container_log}" | grep -Fqx 'GET|https://ghcr.io/token|basic|service=ghcr.io|scope=repository:tyemirov/loopaware:pull,push'
-[[ ! -f "${container_docker_state}" ]]
-
-: >"${container_log}"
 : >"${container_docker_log}"
 set +e
 container_load_output="$(
   cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_DOCKER_LOAD_FAILURE=1 PUBLISH_PLATFORMS="linux/amd64" \
+  PATH="${container_bin}:${PATH}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_DOCKER_LOAD_FAILURE=1 PUBLISH_PLATFORMS="linux/amd64" \
     ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
 )"
 container_load_status=$?
@@ -1138,88 +1009,44 @@ set -e
 [[ "${container_load_status}" -ne 0 ]]
 [[ "${container_load_output}" == *"prepared container archive cannot be loaded"* ]]
 [[ "${container_load_output}" == *"fixture docker load failure"* ]]
-[[ ! -s "${container_log}" ]]
 grep -Fq 'LOAD|' "${container_docker_log}"
 
-: >"${container_log}"
 : >"${container_docker_log}"
 rm -f "${container_docker_state}"
 set +e
 container_platform_output="$(
   cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_DOCKER_PLATFORM=linux/arm64 PUBLISH_PLATFORMS="linux/amd64" \
+  PATH="${container_bin}:${PATH}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_DOCKER_PLATFORM=linux/arm64 PUBLISH_PLATFORMS="linux/amd64" \
     ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
 )"
 container_platform_status=$?
 set -e
 [[ "${container_platform_status}" -ne 0 ]]
 [[ "${container_platform_output}" == *"loaded preflight image platform linux/arm64 does not match prepared linux/amd64"* ]]
-[[ ! -s "${container_log}" ]]
 
-for challenge_case in \
-  'untrusted-realm|unexpected Bearer realm' \
-  'duplicate|duplicate Bearer parameter' \
-  'missing|missing parameters' \
-  'unknown|unknown parameters'; do
-  IFS='|' read -r challenge_mode expected_challenge_error <<<"${challenge_case}"
-  : >"${container_log}"
-  : >"${container_docker_log}"
-  set +e
-  container_challenge_output="$(
-    cd "${container_repository}"
-    PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_GHCR_CHALLENGE_MODE="${challenge_mode}" PUBLISH_PLATFORMS="linux/amd64" \
-      ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
-  )"
-  container_challenge_status=$?
-  set -e
-  [[ "${container_challenge_status}" -ne 0 ]]
-  [[ "${container_challenge_output}" == *"${expected_challenge_error}"* ]]
-  [[ "${container_challenge_output}" == *"rejected the registry authentication challenge"* ]]
-  [[ "$(wc -l <"${container_log}" | tr -d ' ')" == "1" ]]
-  grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|none||' "${container_log}"
-done
-
-for upload_location_mode in untrusted-origin wrong-repository obsolete-plural query; do
-  : >"${container_log}"
-  : >"${container_docker_log}"
-  set +e
-  container_location_output="$(
-    cd "${container_repository}"
-    PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_GHCR_UPLOAD_LOCATION_MODE="${upload_location_mode}" PUBLISH_PLATFORMS="linux/amd64" \
-      ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
-  )"
-  container_location_status=$?
-  set -e
-  [[ "${container_location_status}" -ne 0 ]]
-  [[ "${container_location_output}" == *"unexpected upload location"* ]]
-  [[ "$(wc -l <"${container_log}" | tr -d ' ')" == "3" ]]
-  sed -n '3p' "${container_log}" | grep -Fqx 'POST|https://ghcr.io/v2/tyemirov/loopaware/blobs/uploads/|bearer||'
-done
-
-: >"${container_log}"
 : >"${container_docker_log}"
 set +e
-container_cleanup_output="$(
+container_login_output="$(
   cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_GHCR_DELETE_FAILURE=1 PUBLISH_PLATFORMS="linux/amd64" \
+  PATH="${container_bin}:${PATH}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_DOCKER_LOGIN_FAILURE=1 PUBLISH_PLATFORMS="linux/amd64" \
     ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
 )"
-container_cleanup_status=$?
+container_login_status=$?
 set -e
-[[ "${container_cleanup_status}" -ne 0 ]]
-[[ "${container_cleanup_output}" == *"GHCR preflight upload cleanup failed"* ]]
-[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "4" ]]
+[[ "${container_login_status}" -ne 0 ]]
+[[ "${container_login_output}" == *"fixture docker login failure"* ]]
+! grep -Fq 'PUSH|' "${container_docker_log}"
+! grep -Fq 'CREATE|' "${container_docker_log}"
 
-: >"${container_log}"
 : >"${container_docker_log}"
 rm -f "${container_docker_state}"
 container_publish_output="$(
   cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" PUBLISH_PLATFORMS="linux/amd64" \
+  PATH="${container_bin}:${PATH}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" PUBLISH_PLATFORMS="linux/amd64" \
     ./scripts/release/publish_container_artifacts.sh
 )"
 [[ "${container_publish_output}" == *"Published ghcr.io/tyemirov/loopaware:v1.2.3 at sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd."* ]]
-[[ ! -s "${container_log}" ]]
+grep -Fqx 'LOGIN|login ghcr.io --username fixture-user --password-stdin' "${container_docker_log}"
 grep -Fq 'PUSH|push ghcr.io/tyemirov/loopaware:v1.2.3-linux-amd64' "${container_docker_log}"
 grep -Fq 'SAVE|mprlab-release.local/loopaware:v1.2.3-linux-amd64' "${container_docker_log}"
 [[ "$(grep -c '^CREATE|' "${container_docker_log}")" == "2" ]]
@@ -1227,115 +1054,102 @@ grep '^CREATE|' "${container_docker_log}" | grep -Fq 'ghcr.io/tyemirov/loopaware
 [[ "$(grep '^CREATE|' "${container_docker_log}")" != *"v1.2.3-linux-amd64"* ]]
 
 rm -f "${container_version_state}"
-: >"${container_log}"
 : >"${container_docker_log}"
 container_missing_version_output="$(
   cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" PUBLISH_PLATFORMS="linux/amd64" \
+  PATH="${container_bin}:${PATH}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" PUBLISH_PLATFORMS="linux/amd64" \
     ./scripts/release/publish_container_artifacts.sh
 )"
 [[ "${container_missing_version_output}" == *"Creating ghcr.io/tyemirov/loopaware:v1.2.3"* ]]
-[[ ! -s "${container_log}" ]]
 ! grep -Fq 'PUSH|' "${container_docker_log}"
 ! grep -Fq 'LOAD|' "${container_docker_log}"
 [[ "$(grep -c '^CREATE|' "${container_docker_log}")" == "2" ]]
 grep '^CREATE|' "${container_docker_log}" | grep -Fq -- '--tag ghcr.io/tyemirov/loopaware:v1.2.3 ghcr.io/tyemirov/loopaware@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
 
-: >"${container_log}"
 : >"${container_docker_log}"
 container_rerun_output="$(
   cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" PUBLISH_PLATFORMS="linux/amd64" \
+  PATH="${container_bin}:${PATH}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" PUBLISH_PLATFORMS="linux/amd64" \
     ./scripts/release/publish_container_artifacts.sh
 )"
 [[ "${container_rerun_output}" == *"Preserving immutable existing ghcr.io/tyemirov/loopaware:v1.2.3"* ]]
 [[ "${container_rerun_output}" == *"Published ghcr.io/tyemirov/loopaware:v1.2.3 at sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd."* ]]
-[[ ! -s "${container_log}" ]]
 ! grep -Fq 'PUSH|' "${container_docker_log}"
 ! grep -Fq 'LOAD|' "${container_docker_log}"
 [[ "$(grep -c '^CREATE|' "${container_docker_log}")" == "1" ]]
 grep '^CREATE|' "${container_docker_log}" | grep -Fq -- '--tag ghcr.io/tyemirov/loopaware:latest ghcr.io/tyemirov/loopaware@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
 
-: >"${container_log}"
 : >"${container_docker_log}"
 container_latest_attestation_output="$(
   cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_LATEST_ATTESTATION=1 PUBLISH_PLATFORMS="linux/amd64" \
+  PATH="${container_bin}:${PATH}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_LATEST_ATTESTATION=1 PUBLISH_PLATFORMS="linux/amd64" \
     ./scripts/release/publish_container_artifacts.sh --preflight-only
 )"
 [[ "${container_latest_attestation_output}" == *"Verified prepared container publication inputs for loopaware:v1.2.3."* ]]
-[[ "$(wc -l <"${container_log}" | tr -d ' ')" == "4" ]]
+grep -Fqx 'LOGIN|login ghcr.io --username fixture-user --password-stdin' "${container_docker_log}"
 ! grep -Fq 'PUSH|' "${container_docker_log}"
 ! grep -Fq 'CREATE|' "${container_docker_log}"
 
-: >"${container_log}"
 : >"${container_docker_log}"
 set +e
 container_latest_extra_output="$(
   cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_LATEST_EXTRA_PLATFORM=1 PUBLISH_PLATFORMS="linux/amd64" \
+  PATH="${container_bin}:${PATH}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" FAKE_LATEST_EXTRA_PLATFORM=1 PUBLISH_PLATFORMS="linux/amd64" \
     ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
 )"
 container_latest_extra_status=$?
 set -e
 [[ "${container_latest_extra_status}" -ne 0 ]]
 [[ "${container_latest_extra_output}" == *"existing mutable index must contain exactly one deployable manifest, got 2"* ]]
-[[ ! -s "${container_log}" ]]
 ! grep -Fq 'PUSH|' "${container_docker_log}"
 ! grep -Fq 'CREATE|' "${container_docker_log}"
 
 bad_platform_digest='sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
 bad_config_digest='sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
 printf '%s|%s\n' "${bad_platform_digest}" "${bad_config_digest}" >"${container_platform_state}"
-: >"${container_log}"
 : >"${container_docker_log}"
 set +e
 container_platform_immutability_output="$(
   cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" PUBLISH_PLATFORMS="linux/amd64" \
+  PATH="${container_bin}:${PATH}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" PUBLISH_PLATFORMS="linux/amd64" \
     ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
 )"
 container_platform_immutability_status=$?
 set -e
 [[ "${container_platform_immutability_status}" -ne 0 ]]
 [[ "${container_platform_immutability_output}" == *"existing platform tag config"*"differs from prepared image"* ]]
-[[ ! -s "${container_log}" ]]
 ! grep -Fq 'PUSH|' "${container_docker_log}"
 ! grep -Fq 'CREATE|' "${container_docker_log}"
 printf '%s|%s\n' 'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc' "${container_image_id}" >"${container_platform_state}"
 
 printf '%s|%s\n' "${bad_platform_digest}" "${bad_config_digest}" >"${container_version_state}"
-: >"${container_log}"
 : >"${container_docker_log}"
 set +e
 container_version_immutability_output="$(
   cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" PUBLISH_PLATFORMS="linux/amd64" \
+  PATH="${container_bin}:${PATH}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" PUBLISH_PLATFORMS="linux/amd64" \
     ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
 )"
 container_version_immutability_status=$?
 set -e
 [[ "${container_version_immutability_status}" -ne 0 ]]
 [[ "${container_version_immutability_output}" == *"existing version config"*"differs from prepared image"* ]]
-[[ ! -s "${container_log}" ]]
 ! grep -Fq 'PUSH|' "${container_docker_log}"
 ! grep -Fq 'CREATE|' "${container_docker_log}"
 printf '%s|%s\n' 'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc' "${container_image_id}" >"${container_version_state}"
 
 rm -f "${container_platform_state}"
-: >"${container_log}"
 : >"${container_docker_log}"
 set +e
 container_missing_platform_output="$(
   cd "${container_repository}"
-  PATH="${container_bin}:${PATH}" CONTAINER_LOG="${container_log}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" PUBLISH_PLATFORMS="linux/amd64" \
+  PATH="${container_bin}:${PATH}" CONTAINER_DOCKER_LOG="${container_docker_log}" CONTAINER_DOCKER_STATE="${container_docker_state}" CONTAINER_EXPECTED_IMAGE_ID="${container_image_id}" PUBLISH_PLATFORMS="linux/amd64" \
     ./scripts/release/publish_container_artifacts.sh --preflight-only 2>&1
 )"
 container_missing_platform_status=$?
 set -e
 [[ "${container_missing_platform_status}" -ne 0 ]]
 [[ "${container_missing_platform_output}" == *"immutable version ghcr.io/tyemirov/loopaware:v1.2.3 exists but its versioned linux/amd64 tag is missing"* ]]
-[[ ! -s "${container_log}" ]]
 ! grep -Fq 'PUSH|' "${container_docker_log}"
 ! grep -Fq 'CREATE|' "${container_docker_log}"
 
