@@ -896,7 +896,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `scripts/publish-react-native.sh`, `scripts/test-ios-npm-publication.sh`, and `scripts/validate-release-workflow.mjs`.
 
-- [ ] [B059] (P0) Push the canonical single-platform manifest to GHCR.
+- [x] [B059] (P0) Push the canonical single-platform manifest to GHCR.
   Goal:
   Restore container publication by ensuring the versioned `linux/amd64` tag contains the deployable image manifest that the immutable registry verifier expects, not BuildKit's enclosing OCI index and attestation sidecar.
 
@@ -912,10 +912,16 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Validation:
   Run focused publish-preflight and release-workflow checks, run final `make ci`, inspect the live GHCR platform tag shape after publication, and successfully run `make release && make publish` with a fresh release identity.
 
-  Progress:
-  Live `v0.7.44` publication reproduced the failure after its Git refs, GitHub Release, nine immutable assets, and `ghcr.io/tyemirov/loopaware:v0.7.44-linux-amd64` were published. The pushed tag is an OCI index with one `linux/amd64` deployable manifest and one `unknown/unknown` attestation; its root therefore has no `config` field. The registry verifier correctly rejected that noncanonical platform-tag shape before creating version or `latest` indexes. No npm or mobile store artifact was uploaded. Changed the standard Docker push to select the prepared platform explicitly, so current Docker publishes the single deployable manifest and the existing strict config-digest verifier remains the only accepted registry contract. The black-box fixture now rejects a push without `--platform linux/amd64`, and the static validator requires the same operation. Focused publish-preflight and aggregate release-workflow checks passed; final `make ci` passed all release contracts, Go race checks, and all 455 Playwright/API integration specs. PR #291 passed both required GitHub checks and merged to `master`. Live `v0.7.45` publication pushed the platform tag as the exact deployable manifest, created verified version and `latest` indexes from that digest, and passed npm publication. The command then exposed the subsequent Google Play track-update bug recorded as B060 after App Store Connect accepted the iOS build.
+  Resolution:
+  Replaced the ordinary versioned platform push with `docker push --platform linux/amd64`, so GHCR receives the prepared deployable image manifest instead of BuildKit's enclosing OCI index and attestation sidecar. Kept the existing strict single-manifest config-digest verifier as the only accepted platform-tag contract. The black-box fixture rejects a push without the exact platform selection, and the static workflow validator requires it.
 
-- [ ] [B060] (P0) Replace the Google Play internal track with one completed release.
+  Validation Results:
+  Live `v0.7.44` publication reproduced the noncanonical index failure before the fix. Focused publish-preflight and aggregate release-workflow checks passed, followed by `make ci` with all release contracts, Go race checks, and 455 Playwright/API integration specs. PR #291 passed both required GitHub checks and merged to `master`. Live `v0.7.45` proved the corrected platform push and index creation. The final `make release && make publish` command completed successfully for `v0.7.46`; live GHCR inspection confirmed `v0.7.46-linux-amd64` is one OCI image manifest with prepared config `sha256:e54ec04cbe53414365cd0ba8d4be62fc1048a7073516ad7f4da9a40405a53b0c`, while `v0.7.46` and `latest` each contain exactly one `linux/amd64` entry at deployable digest `sha256:8ea85bdda40ef7160aff6e1c307ec8e510d3e8df9f423cd06219187f48e69bfe`.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `scripts/release/publish_container_artifacts.sh`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
+
+- [x] [B060] (P0) Replace the Google Play internal track with one completed release.
   Goal:
   Complete mobile publication by sending the canonical Google Play track shape instead of appending a second completed release that the Android Publisher API rejects.
 
@@ -931,8 +937,14 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Validation:
   Run the focused publish-preflight and mobile configuration checks, run final `make ci`, inspect the live Play internal track, and successfully run `make release && make publish` with a fresh release identity because iOS build `206389225` was already accepted before the `v0.7.45` Android failure.
 
-  Progress:
-  Live `v0.7.45` publication passed all preflights, published Git refs, nine GitHub assets, the corrected GHCR manifests, and npm, then App Store Connect accepted iOS build `206389225` with delivery UUID `e7f96cbe-6a06-425c-ad83-f0fbb718a1c6`. Google Play rejected the internal-track `PUT` with `Only one completed release is allowed.` A transient read-only edit confirmed the live track is unchanged with one completed `2026.7.11` release at version code `205912845`, and the failed new bundle was not committed. Publication now replaces the track with one canonical completed release for the prepared version code, and post-verification requires exactly that one release. Black-box coverage proves the outgoing payload omits the old release and rejects a provider response that retains it; the static workflow validator rejects restoration of append behavior. Focused publish-preflight, mobile config, and aggregate release-workflow checks passed. Final `make ci` passed every release contract, Go race checks, and all 455 Playwright/API integration specs. Landing and a fresh end-to-end release remain pending.
+  Resolution:
+  Replaced the internal-track update payload with one canonical completed release containing only the prepared version code. Existing completed release objects are validated but not retained; active or manual rollouts still fail before upload. Post-publication verification now requires the committed track to contain exactly the new completed release. Black-box coverage proves the outgoing payload omits the old release and rejects a provider response that retains it, while the static workflow validator rejects restoration of append behavior.
+
+  Validation Results:
+  Live `v0.7.45` publication reproduced `Only one completed release is allowed` after App Store Connect accepted build `206389225`; a transient inspection confirmed Google Play remained unchanged at version code `205912845`. Focused publish-preflight, mobile config, and aggregate release-workflow checks passed, followed by `make ci` with all release contracts, Go race checks, and all 455 Playwright/API integration specs. PR #292 passed the macOS release-contract and full test checks and merged to `master`. The exact `make release && make publish` command then completed successfully for `v0.7.46`: App Store Connect accepted fresh build `206391477` with delivery UUID `d3eba9e4-842b-48e0-b01d-7e9a4f2147b4`, Google Play committed edit `06256342907665238563`, and a new transient inspection confirmed the internal track contains exactly one completed `2026.7.16` release at version code `206391477` with AAB hash `9d5bede44a267eeba0c6f8afc2d245bb58b5a474662c773704b3e453e710f25c`. The immutable `publication.json` attestation records every provider stage complete.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `mobile/scripts/publish-android-play.mjs`, `scripts/test-publish-preflight.sh`, and `scripts/validate-release-workflow.mjs`.
 
 
 ## Improvements
