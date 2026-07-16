@@ -383,6 +383,14 @@ assert(
   "release_rerun_must_recognize_only_an_exact_prepared_release",
 );
 assert(
+  prepareReleaseSource.includes('insert-changelog --version "${next_version}" --notes-file "${notes_file}"') &&
+    releaseHelperSource.includes("RELEASE_COMMIT_SUBJECT_RE.fullmatch(subject) is None") &&
+    releaseHelperSource.includes("release notes heading does not match the selected changelog version") &&
+    releaseHelperSource.includes("for section_start, section_end in reversed(stale_sections)") &&
+    releaseHelperSource.includes('changelog.add_argument("--version", required=True)'),
+  "release_changelog_must_replace_the_selected_unpublished_version_canonically",
+);
+assert(
   !prepareReleaseSource.includes("RELEASE_CI_TIMEOUT") &&
     prepareReleaseSource.includes('echo "==> [release] Running make ci"\nmake ci') &&
     releasePreflightSource.includes('echo "==> [release-preflight] Running the release CI gate"\nmake ci') &&
