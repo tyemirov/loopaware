@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the standard mobile store publishing inputs for local iOS IPA and Android AAB uploads.
 - Document the UTC CalVer mobile release-numbering contract and deterministic `MOBILE_RELEASE_TIMESTAMP` override.
 
+## [v0.7.49] - 2026-07-17
+
+- feat(deploy): add tauth tenant config for loopaware authentication
+
 ## [v0.7.48] - 2026-07-16
 
 - Merge pull request #294 from tyemirov/bugfix/B061-explicit-gateway-sudo-prompt
