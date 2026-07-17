@@ -12,6 +12,31 @@ mprlab_resources:
         release: release
         publish: publish
         deploy: deploy
+    - type: tauth_tenant
+      name: loopaware-authentication
+      tenant:
+        id: loopaware
+        display_name: LoopAware
+        tenant_origins:
+          - https://loopaware.mprlab.com
+        google_web_client_id: "${TAUTH_GOOGLE_WEB_CLIENT_ID_LOOPAWARE}"
+        google_native_clients:
+          - platform: ios
+            client_id: "${TAUTH_GOOGLE_NATIVE_IOS_CLIENT_ID_LOOPAWARE}"
+            redirect_uris:
+              - "${TAUTH_GOOGLE_NATIVE_IOS_REDIRECT_URI_LOOPAWARE}"
+          - platform: android
+            client_id: "${TAUTH_GOOGLE_NATIVE_ANDROID_CLIENT_ID_LOOPAWARE}"
+            redirect_uris:
+              - com.mprlab.loopaware:/oauth2redirect/google
+        jwt_signing_key: "${TAUTH_JWT_SIGNING_KEY_LOOPAWARE}"
+        cookie_domain: .mprlab.com
+        session_cookie_name: app_session_loopaware
+        refresh_cookie_name: app_refresh_loopaware
+        session_ttl: "${TAUTH_SESSION_TTL}"
+        refresh_ttl: "${TAUTH_REFRESH_TTL}"
+        nonce_ttl: "${TAUTH_NONCE_TTL}"
+        allow_insecure_http: "${TAUTH_ALLOW_INSECURE_HTTP}"
     - type: ansible_task_bundle
       name: production
       host_group: gateway
