@@ -11,11 +11,13 @@
   });
   var AUTH_STATE_CHANGE_EVENT = 'loopaware:auth-state-change';
   var AUTH_HOME_LINK_SELECTOR = '[data-loopaware-auth-home-link="true"]';
+  var MPR_AUTH_STATUS_AUTHENTICATED = 'authenticated';
   var MPR_AUTH_STATUS_AUTHENTICATING = 'authenticating';
+  var MPR_AUTH_STATUS_BOOTSTRAPPING = 'bootstrapping';
+  var MPR_AUTH_STATUS_UNAUTHENTICATED = 'unauthenticated';
   var MPR_HEADER_SIGNIN_CLICK_EVENT = 'mpr-ui:header:signin-click';
   var APP_PATHNAME = '/app';
   var LOGIN_PATHNAME = '/login';
-  var INITIAL_APP_AUTH_SETTLE_TIMEOUT_MS = 3000;
   var EXPLICIT_LOGOUT_STORAGE_KEY = 'loopaware_explicit_logout';
   var LOGOUT_MAIN_DISPLAY_BACKUP_ATTR = 'data-loopaware-logout-main-display';
   var LOGOUT_MAIN_HIDDEN_ATTR = 'data-loopaware-logout-main-hidden';
@@ -195,17 +197,6 @@
     );
   }
 
-  function ensureAppAuthSettling(headerHost) {
-    if (!shouldRedirectToLogin(headerHost) || headerHost.__loopawareAuthSettleStarted === true) {
-      return;
-    }
-    headerHost.__loopawareAuthSettleStarted = true;
-    window.setTimeout(function () {
-      headerHost.__loopawareAuthSettled = true;
-      syncFromObservedState(headerHost, 'settle-timeout');
-    }, INITIAL_APP_AUTH_SETTLE_TIMEOUT_MS);
-  }
-
   function markAppAuthSettled(headerHost) {
     if (headerHost) {
       headerHost.__loopawareAuthSettled = true;
@@ -217,13 +208,13 @@
       return createSnapshot(AUTH_STATE_VALUES.syncing, source || 'missing-header');
     }
     var mprStatus = normalizeTextValue(headerHost.getAttribute('data-mpr-auth-status'));
-    if (mprStatus === 'authenticated') {
+    if (mprStatus === MPR_AUTH_STATUS_AUTHENTICATED) {
       return createSnapshot(AUTH_STATE_VALUES.authenticated, source || 'mpr-status');
     }
-    if (mprStatus === 'bootstrapping' || mprStatus === 'authenticating') {
+    if (mprStatus === MPR_AUTH_STATUS_BOOTSTRAPPING || mprStatus === MPR_AUTH_STATUS_AUTHENTICATING) {
       return createSnapshot(AUTH_STATE_VALUES.syncing, source || 'mpr-status');
     }
-    if (mprStatus === 'unauthenticated') {
+    if (mprStatus === MPR_AUTH_STATUS_UNAUTHENTICATED) {
       return createSnapshot(AUTH_STATE_VALUES.unauthenticated, source || 'mpr-status');
     }
     var headerRoot = typeof headerHost.querySelector === 'function'
@@ -251,10 +242,9 @@
     if (!shouldRedirectToLogin(headerHost) || snapshot.status !== AUTH_STATE_VALUES.unauthenticated) {
       return snapshot;
     }
-    if (headerHost.__loopawareAuthSettled === true || snapshot.source === 'event' || snapshot.source === 'settle-timeout') {
+    if (headerHost.__loopawareAuthSettled === true || snapshot.source === 'event') {
       return snapshot;
     }
-    ensureAppAuthSettling(headerHost);
     return createSnapshot(AUTH_STATE_VALUES.syncing, 'protected-boot');
   }
 
@@ -460,10 +450,18 @@
 
   function handleAuthStatusChange(event) {
     var headerHost = resolveAuthHost(event);
-    if (event && event.detail && event.detail.status === MPR_AUTH_STATUS_AUTHENTICATING) {
+    var status = event && event.detail ? event.detail.status : '';
+    var previousStatus = event && event.detail ? event.detail.previousStatus : '';
+    if (status === MPR_AUTH_STATUS_AUTHENTICATING) {
       markSigninIntent();
     }
     if (headerHost) {
+      if (
+        status === MPR_AUTH_STATUS_UNAUTHENTICATED &&
+        previousStatus === MPR_AUTH_STATUS_BOOTSTRAPPING
+      ) {
+        markAppAuthSettled(headerHost);
+      }
       syncFromObservedState(headerHost, 'status-change');
     }
   }
@@ -548,7 +546,6 @@
     if (headerHost.getAttribute('data-loopaware-auth-bound') !== 'true') {
       headerHost.setAttribute('data-loopaware-auth-bound', 'true');
     }
-    ensureAppAuthSettling(headerHost);
     observeHeaderState(headerHost);
     waitForMprUiAutoOrchestrationReady()
       .catch(function () {})

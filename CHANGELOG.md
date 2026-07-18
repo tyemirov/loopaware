@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ### Improvements ⚙️
+- Declare LoopAware's web and native TAuth tenant requirements in the app-owned deployment manifest for gateway assembly.
 - Load backend runtime configuration from one strict YAML contract through `github.com/tyemirov/utils/runtimeconfig`, leaving only `--config` as the server config flag.
 - Make `@loopaware/react-native` a buildable npm package with `dist` exports, package metadata, and trusted-publishing workflow.
 - Add CI path coverage for first-party clients.
