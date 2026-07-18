@@ -971,6 +971,59 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `scripts/run-app-ansible-deploy.sh`, `scripts/test-deploy-dry-run.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B062] (P0) Recover an untagged release commit idempotently.
+  Goal:
+  Let `make release && make publish` converge when the remote default branch already contains the exact canonical release commit but the matching stable tag and prepared manifest were never created.
+
+  Requirements:
+  Treat the one exact `Release vMAJOR.MINOR.PATCH` commit as pending release state only when it directly follows the source commit, changes only `CHANGELOG.md`, and its changelog is the canonical transformation for the remotely selected next version. Rebuild artifacts from the source parent, create the missing local tag and manifest without creating a second release commit, and reject every conflicting shape. Keep remote stable tags authoritative and add no fallback or compatibility path.
+
+  Deliverables:
+  - Recognize and validate the exact untagged release-commit state before artifact preparation.
+  - Preserve source-parent provenance in real and dry-run artifact builds.
+  - Reuse the existing release commit and create only the missing pending tag and manifest.
+  - Add black-box coverage for recovery, source provenance, and a second idempotent invocation.
+  - Update the static release contract and operator documentation.
+
+  Validation:
+  Reproduce a remote default branch containing `Release v1.2.3` with only remote tag `v1.2.2`, run the real release preparation boundary twice, run focused release workflow checks, and run final `make ci`. Do not publish providers or deploy production.
+
+  Resolution:
+  Release preparation now recognizes only the exact untagged commit for the remotely selected next version: it must have one source parent, change only `CHANGELOG.md`, and equal the canonical changelog transformation generated from that parent. Recovery rebuilds all payloads from the source parent, reuses the existing release commit, and creates the missing annotated tag and manifest without a second release commit. Release dry-run carries the same source provenance, remote-tag synchronization preserves an exact pending local tag even when its commit already reached the remote default branch, and deploy now directs an untagged operator through both release and publish phases.
+
+  Validation Results:
+  The pre-change `make ci` baseline passed all lifecycle gates and 455 integration specs. The black-box release fixture reproduced remote `master` at untagged `Release v1.2.3` with remote tag `v1.2.2`, proved dry-run selected the source parent, rejected conflicting changelog state, recovered the tag and nine-payload manifest without moving `HEAD`, and made the second invocation verification-only. The lifecycle fixture proved an exact pending local tag survives when its commit is pushed separately. Shell syntax checks, `git diff --check`, static release validation, focused `make staged-release-contract-check`, `make lifecycle-orchestration-contract-check`, aggregate `make release-workflow-check`, and final `make ci` passed; final CI included Go race checks and all 455 Playwright/API integration specs. No provider publication, Pages activation, or production deployment was run.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `scripts/deploy.sh`, `scripts/release-preflight.sh`, `scripts/release/prepare_release.sh`, `scripts/release/repository_identity.sh`, `scripts/test-lifecycle-orchestration.sh`, `scripts/test-staged-release-artifacts.sh`, and `scripts/validate-release-workflow.mjs`.
+
+- [x] [B063] (P0) Make protected dashboard authentication readiness event-driven.
+  Goal:
+  Prevent a cold or delayed initial `mpr-ui` load from redirecting an authenticated dashboard test to `/login` and leaving dashboard hydration waiting on elements that cannot appear there.
+
+  Requirements:
+  Drive protected-page authentication settling from the public `mpr-ui` bootstrap status transition. Remove the fixed three-second settle timer and the test harness's two-attempt login recovery. Do not increase timeouts, add blind delays, or add a fallback path.
+
+  Deliverables:
+  - Add black-box browser coverage that delays the initial `mpr-ui` bundle beyond the former settle interval and still reaches a hydrated authenticated dashboard.
+  - Treat the terminal `mpr-ui` bootstrap status as the protected-page readiness signal.
+  - Require seeded dashboard authentication to complete on the requested path before dashboard hydration begins.
+  - Delete the obsolete login-redirect retry and explicit-logout cleanup from the shared fixture.
+
+  Validation:
+  Reproduce the cold-load boundary through the new browser scenario, run the focused browser integration gate, and run final `make ci` without changing the Playwright timeout.
+
+  Resolution:
+  Removed the fixed protected-page authentication settle timer and made the terminal public `mpr-ui` bootstrap status the redirect decision boundary. Authenticated browser fixtures now seed the canonical TAuth restore hint and require the authenticated requested route before dashboard hydration; the obsolete login retry and explicit-logout cleanup paths were deleted. Reload coverage now waits for the current dashboard bootstrap instead of starting a competing navigation.
+
+  Validation Results:
+  - Before the fix, the new cold-bootstrap regression reproduced the 90-second dashboard account hydration timeout while the other 455 browser scenarios passed.
+  - `make test-integration`: 456 passed in 4.3 minutes.
+  - `make ci`: passed, including 456 browser scenarios in 3.4 minutes.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `web/header-auth.js`, `tests/helpers/fixtures.js`, `tests/specs/header-auth-state.spec.js`, and `tests/specs/dashboard-auto-logout.spec.js`.
+
 
 ## Improvements
 

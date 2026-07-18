@@ -39,6 +39,7 @@ const SHARED_AUTH_HTML_CASES = Object.freeze([
 const GOOGLE_IDENTITY_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 const AUTH_SETTLE_DELAY_MS = 250;
+const COLD_MPR_UI_CONFIG_DELAY_MS = 3500;
 const AUTH_RESTORE_HINT_PREFIX = 'tauth.restore.v1:';
 const AUTH_RESTORE_HINT_VALUE = '1';
 const AUTH_ERROR_EVENT_STORAGE_KEY = '__loopawareAuthErrorEvents';
@@ -61,7 +62,7 @@ const CONSOLE_PROBLEM_TYPES = Object.freeze(['error', 'warning']);
  * @param {import('@playwright/test').Page} page
  * @param {string} path
  * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number, sessionCookieValue?: string }} [tauthOptions]
- * @param {{ authenticateMprUiSession?: boolean, waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
+ * @param {{ restoreMprUiSession?: boolean, waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
  * @returns {Promise<void>}
  */
 async function openPageWithoutSession(page, path, tauthOptions, options) {
@@ -78,7 +79,7 @@ async function openPageWithoutSession(page, path, tauthOptions, options) {
  * @param {import('@playwright/test').Page} page
  * @param {string} path
  * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number, sessionCookieValue?: string }} [tauthOptions]
- * @param {{ authenticateMprUiSession?: boolean, waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
+ * @param {{ restoreMprUiSession?: boolean, waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
  * @returns {Promise<void>}
  */
 async function openPageWithSession(page, path, tauthOptions, options) {
@@ -86,7 +87,7 @@ async function openPageWithSession(page, path, tauthOptions, options) {
   await installSiteWidgetConfigStub(page);
   await openAuthenticatedPage(page, config, adminUser, path, {
     tauth: tauthOptions,
-    authenticateMprUiSession: resolvedOptions.authenticateMprUiSession,
+    restoreMprUiSession: resolvedOptions.restoreMprUiSession,
     waitForHeaderAuth: resolvedOptions.waitForHeaderAuth,
     waitUntil: resolvedOptions.waitUntil
   });
@@ -110,7 +111,7 @@ async function openPublicPageForAssetInspection(page, path) {
 async function openAuthenticatedPageForAssetInspection(page, path) {
   await installAssetInspectionStubs(page);
   await openPageWithSession(page, path, undefined, {
-    authenticateMprUiSession: false,
+    restoreMprUiSession: false,
     waitForHeaderAuth: false
   });
 }
@@ -721,6 +722,37 @@ test('dashboard does not bounce to login while authenticated session recovery is
   await openPageWithSession(page, '/app', { currentUserDelayMs: 2500 });
   await expect(page).toHaveURL(/\/app\/?$/);
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated', { timeout: 5000 });
+});
+
+test('dashboard waits for cold mpr-ui configuration before resolving protected auth', async ({ page }) => {
+  const loginDocumentRequests = [];
+  let delayInitialConfigRequest = true;
+
+  page.on('request', (request) => {
+    if (request.resourceType() !== 'document') {
+      return;
+    }
+    if (new URL(request.url()).pathname === '/login') {
+      loginDocumentRequests.push(request.url());
+    }
+  });
+  await page.route(MPR_UI_CONFIG_URL, async (route) => {
+    if (delayInitialConfigRequest) {
+      delayInitialConfigRequest = false;
+      await new Promise((resolve) => {
+        setTimeout(resolve, COLD_MPR_UI_CONFIG_DELAY_MS);
+      });
+    }
+    await route.fallback();
+  });
+
+  await openPageWithSession(page, '/app');
+  await waitForDashboardReady(page, { allowEmptySites: true });
+
+  expect(loginDocumentRequests).toEqual([]);
+  await expect(page).toHaveURL(/\/app\/?$/);
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
+  await expect(page.locator('#user-email')).toHaveText(adminUser.email);
 });
 
 test('login page loads latest CDN assets for auth UI', async ({ page }) => {

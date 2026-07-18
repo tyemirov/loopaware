@@ -242,6 +242,186 @@ set -e
 [[ "${invalid_version_status}" -ne 0 ]]
 [[ "${invalid_version_output}" == *"must use deployable stable vMAJOR.MINOR.PATCH versions"* ]]
 
+recovery_repository="${temporary_directory}/release-recovery-source"
+recovery_remote="${temporary_directory}/release-recovery-origin.git"
+recovery_tool_directory="${temporary_directory}/release-recovery-tools"
+recovery_bin="${temporary_directory}/release-recovery-bin"
+recovery_make_log="${temporary_directory}/release-recovery-make.log"
+recovery_notes="${temporary_directory}/release-recovery-notes.md"
+mkdir -p "${recovery_repository}" "${recovery_tool_directory}" "${recovery_bin}"
+git init --bare --initial-branch=master "${recovery_remote}" >/dev/null
+git -C "${recovery_repository}" init -b master >/dev/null
+git -C "${recovery_repository}" config user.name "Release Recovery Contract"
+git -C "${recovery_repository}" config user.email "release-recovery@mprlab.invalid"
+cat >"${recovery_repository}/CHANGELOG.md" <<'EOF_RECOVERY_CHANGELOG'
+# Changelog
+
+## Unreleased
+
+## [v1.2.2] - 2026-06-30
+
+- Published fixture release.
+EOF_RECOVERY_CHANGELOG
+printf 'published\n' >"${recovery_repository}/tracked.txt"
+git -C "${recovery_repository}" add CHANGELOG.md tracked.txt
+git -C "${recovery_repository}" commit -m "Add published recovery baseline" >/dev/null
+git -C "${recovery_repository}" tag -a v1.2.2 -m "Release v1.2.2"
+git -C "${recovery_repository}" remote add origin "${recovery_remote}"
+git -C "${recovery_repository}" push -u origin master v1.2.2 >/dev/null
+git -C "${recovery_repository}" symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/master
+printf 'pending release source\n' >>"${recovery_repository}/tracked.txt"
+git -C "${recovery_repository}" add tracked.txt
+git -C "${recovery_repository}" commit -m "Add pending release source" >/dev/null
+recovery_source_commit="$(git -C "${recovery_repository}" rev-parse HEAD)"
+(
+  cd "${recovery_repository}"
+  "${repo_root}/scripts/release/release_helper.py" generate-notes \
+    --version v1.2.3 \
+    --release-date 2026-07-01 \
+    --since-tag v1.2.2 >"${recovery_notes}"
+  "${repo_root}/scripts/release/release_helper.py" insert-changelog \
+    --version v1.2.3 \
+    --notes-file "${recovery_notes}" >/dev/null
+)
+git -C "${recovery_repository}" add CHANGELOG.md
+git -C "${recovery_repository}" commit -m "Release v1.2.3" >/dev/null
+recovery_release_commit="$(git -C "${recovery_repository}" rev-parse HEAD)"
+git -C "${recovery_repository}" push origin master >/dev/null
+! git --git-dir="${recovery_remote}" show-ref --verify --quiet refs/tags/v1.2.3
+
+cp "${repo_root}/scripts/release/prepare_release.sh" "${recovery_tool_directory}/prepare_release.sh"
+cp "${repo_root}/scripts/release/release_helper.py" "${recovery_tool_directory}/release_helper.py"
+cat >"${recovery_tool_directory}/verify_staged_artifacts.py" <<'PY_RECOVERY_VERIFY'
+#!/usr/bin/env python3
+"""Accept fixture payloads after the release entrypoint passes their exact provenance arguments."""
+
+import argparse
+import pathlib
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--artifact-dir", required=True)
+parser.add_argument("--repo-root", required=True)
+parser.add_argument("--version", required=True)
+parser.add_argument("--source-commit", required=True)
+arguments = parser.parse_args()
+if arguments.version != "v1.2.3":
+    raise SystemExit("fixture received the wrong release version")
+if not pathlib.Path(arguments.artifact_dir, "staging.json").is_file():
+    raise SystemExit("fixture release staging manifest is missing")
+if pathlib.Path(arguments.repo_root).resolve() != pathlib.Path.cwd().resolve():
+    raise SystemExit("fixture received the wrong repository root")
+if len(arguments.source_commit) != 40:
+    raise SystemExit("fixture received an invalid source commit")
+PY_RECOVERY_VERIFY
+cat >"${recovery_bin}/make" <<'SH_RECOVERY_MAKE'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"${RECOVERY_MAKE_LOG:?}"
+if [[ "$*" == "ci" ]]; then
+  exit 0
+fi
+artifact_directory=""
+release_source_commit=""
+for argument in "$@"; do
+  case "${argument}" in
+    RELEASE_ARTIFACT_DIR=*) artifact_directory="${argument#RELEASE_ARTIFACT_DIR=}" ;;
+    RELEASE_SOURCE_COMMIT=*) release_source_commit="${argument#RELEASE_SOURCE_COMMIT=}" ;;
+  esac
+done
+[[ -n "${artifact_directory}" && "${release_source_commit}" == "${RECOVERY_SOURCE_COMMIT:?}" ]]
+assets="${artifact_directory}/payloads/release-assets"
+containers="${artifact_directory}/payloads/containers/loopaware"
+mkdir -p "${assets}" "${containers}"
+printf 'container descriptor\n' >"${containers}/container.json"
+printf 'container archive\n' >"${containers}/linux-amd64.tar"
+printf 'mapping\n' >"${assets}/loopaware-android-mapping.txt"
+printf 'android\n' >"${assets}/loopaware-android.aab"
+printf 'android manifest\n' >"${assets}/loopaware-android.json"
+printf 'ios\n' >"${assets}/loopaware-ios.ipa"
+printf 'ios manifest\n' >"${assets}/loopaware-ios.json"
+printf 'pages\n' >"${assets}/pages.tar.gz"
+printf 'react native\n' >"${assets}/loopaware-react-native-0.1.0.tgz"
+SH_RECOVERY_MAKE
+chmod +x \
+  "${recovery_tool_directory}/prepare_release.sh" \
+  "${recovery_tool_directory}/release_helper.py" \
+  "${recovery_tool_directory}/verify_staged_artifacts.py" \
+  "${recovery_bin}/make"
+
+recovery_dry_run_output="$({
+  cd "${recovery_repository}"
+  PATH="${recovery_bin}:${PATH}" \
+    RECOVERY_MAKE_LOG="${recovery_make_log}" \
+    RECOVERY_SOURCE_COMMIT="${recovery_source_commit}" \
+    RELEASE_ARTIFACT_TARGETS="mobile-release-artifacts client-react-native-artifact container-artifacts pages-artifact" \
+    "${recovery_tool_directory}/prepare_release.sh" --dry-run
+})"
+[[ "${recovery_dry_run_output}" == *"next_version=v1.2.3"* ]]
+[[ "${recovery_dry_run_output}" == *"source_commit=${recovery_source_commit}"* ]]
+[[ "${recovery_dry_run_output}" == *"release_commit_reuse=true"* ]]
+! git -C "${recovery_repository}" show-ref --verify --quiet refs/tags/v1.2.3
+
+conflicting_recovery_repository="${temporary_directory}/release-recovery-conflict"
+git clone "${recovery_remote}" "${conflicting_recovery_repository}" >/dev/null
+git -C "${conflicting_recovery_repository}" config user.name "Release Recovery Contract"
+git -C "${conflicting_recovery_repository}" config user.email "release-recovery@mprlab.invalid"
+printf '\n- Conflicting release content.\n' >>"${conflicting_recovery_repository}/CHANGELOG.md"
+git -C "${conflicting_recovery_repository}" add CHANGELOG.md
+git -C "${conflicting_recovery_repository}" commit -m "Release v1.2.3" >/dev/null
+set +e
+conflicting_recovery_output="$({
+  cd "${conflicting_recovery_repository}"
+  PATH="${recovery_bin}:${PATH}" \
+    RECOVERY_MAKE_LOG="${recovery_make_log}" \
+    RECOVERY_SOURCE_COMMIT="${recovery_source_commit}" \
+    RELEASE_ARTIFACT_TARGETS="mobile-release-artifacts client-react-native-artifact container-artifacts pages-artifact" \
+    "${recovery_tool_directory}/prepare_release.sh" --dry-run
+} 2>&1)"
+conflicting_recovery_status=$?
+set -e
+[[ "${conflicting_recovery_status}" -ne 0 ]]
+[[ "${conflicting_recovery_output}" == *"does not contain the canonical changelog transformation"* ]]
+
+recovery_output="$({
+  cd "${recovery_repository}"
+  PATH="${recovery_bin}:${PATH}" \
+    RECOVERY_MAKE_LOG="${recovery_make_log}" \
+    RECOVERY_SOURCE_COMMIT="${recovery_source_commit}" \
+    RELEASE_ARTIFACT_TARGETS="mobile-release-artifacts client-react-native-artifact container-artifacts pages-artifact" \
+    "${recovery_tool_directory}/prepare_release.sh"
+})"
+[[ "${recovery_output}" == *"Recovered pending v1.2.3 at ${recovery_release_commit} without creating another release commit."* ]]
+[[ "$(git -C "${recovery_repository}" rev-parse HEAD)" == "${recovery_release_commit}" ]]
+[[ "$(git -C "${recovery_repository}" rev-list -n 1 v1.2.3)" == "${recovery_release_commit}" ]]
+[[ "$(git -C "${recovery_repository}" cat-file -t refs/tags/v1.2.3)" == "tag" ]]
+recovery_manifest="${recovery_repository}/.git/mprlab-release/manifest.json"
+python3 - "${recovery_manifest}" "${recovery_source_commit}" "${recovery_release_commit}" <<'PY_RECOVERY_MANIFEST'
+import json
+import sys
+
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+if manifest["version"] != "v1.2.3":
+    raise SystemExit("recovered manifest has the wrong version")
+if manifest["source_commit"] != sys.argv[2]:
+    raise SystemExit("recovered manifest used the release commit as its source")
+if manifest["release_commit"] != sys.argv[3]:
+    raise SystemExit("recovered manifest did not reuse the existing release commit")
+if len(manifest["payloads"]) != 9:
+    raise SystemExit("recovered manifest does not contain nine payloads")
+PY_RECOVERY_MANIFEST
+recovery_make_count="$(wc -l <"${recovery_make_log}" | tr -d ' ')"
+recovery_repeat_output="$({
+  cd "${recovery_repository}"
+  PATH="${recovery_bin}:${PATH}" \
+    RECOVERY_MAKE_LOG="${recovery_make_log}" \
+    RECOVERY_SOURCE_COMMIT="${recovery_source_commit}" \
+    RELEASE_ARTIFACT_TARGETS="mobile-release-artifacts client-react-native-artifact container-artifacts pages-artifact" \
+    "${recovery_tool_directory}/prepare_release.sh"
+})"
+[[ "${recovery_repeat_output}" == *"release_already_prepared=true"* ]]
+[[ "$(wc -l <"${recovery_make_log}" | tr -d ' ')" == "${recovery_make_count}" ]]
+[[ -z "$(git -C "${recovery_repository}" status --short)" ]]
+
 python3 - "${fixture_repository}" "${artifact_directory}" "${source_commit}" <<'PY_FIXTURE'
 import hashlib
 import io

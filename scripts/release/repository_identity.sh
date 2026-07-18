@@ -94,12 +94,13 @@ assert_remote_default_and_release_tags() {
   remote_tag_names="$(awk '$2 ~ /^refs\/tags\/v/ { name=$2; sub(/\^\{\}$/, "", name); print name }' <<<"${remote_refs}" | LC_ALL=C sort -u)"
 
   local pending_local_tag=""
-  if [[ "${mode}" == "allow-prepared-release" && "${local_head}" != "${remote_default_sha}" ]]; then
+  if [[ "${mode}" == "allow-prepared-release" ]]; then
     local pending_parent_line
     local pending_parent_values=()
     pending_parent_line="$(git -C "${directory}" rev-list --parents -n 1 HEAD)"
     read -r -a pending_parent_values <<<"${pending_parent_line}"
-    if [[ "${#pending_parent_values[@]}" -eq 2 && "${pending_parent_values[1]}" == "${remote_default_sha}" ]]; then
+    if [[ "${local_head}" == "${remote_default_sha}" \
+      || ( "${#pending_parent_values[@]}" -eq 2 && "${pending_parent_values[1]}" == "${remote_default_sha}" ) ]]; then
       local pending_head_tags=()
       local pending_head_tag
       while IFS= read -r pending_head_tag; do
@@ -109,7 +110,15 @@ assert_remote_default_and_release_tags() {
         fi
       done < <(git -C "${directory}" tag --points-at HEAD --list 'v*' --sort=version:refname)
       if [[ "${#pending_head_tags[@]}" -eq 1 ]] && ! grep -Fxq "refs/tags/${pending_head_tags[0]}" <<<"${remote_tag_names}"; then
-        pending_local_tag="${pending_head_tags[0]}"
+        local pending_subject
+        local pending_changed_files
+        pending_subject="$(git -C "${directory}" log -1 --format=%s HEAD)"
+        pending_changed_files="$(git -C "${directory}" diff-tree --no-commit-id --name-only -r HEAD)"
+        if [[ "${pending_subject}" == "Release ${pending_head_tags[0]}" \
+          && "${pending_changed_files}" == "CHANGELOG.md" \
+          && "$(git -C "${directory}" cat-file -t "refs/tags/${pending_head_tags[0]}")" == "tag" ]]; then
+          pending_local_tag="${pending_head_tags[0]}"
+        fi
       fi
     fi
   fi
@@ -169,12 +178,14 @@ assert_remote_default_and_release_tags() {
   done < <(git -C "${directory}" tag --list 'v*' --sort=version:refname)
 
   if [[ "${local_head}" == "${remote_default_sha}" ]]; then
-    [[ -z "${extra_local_tags}" ]] || {
+    if [[ -z "${extra_local_tags}" || "${extra_local_tags}" == "${pending_local_tag}"$'\n' ]]; then
+      return 0
+    fi
+    {
       echo "error: ${label} has local release tags that are not published on origin" >&2
       printf '%s' "${extra_local_tags}" >&2
       return 1
     }
-    return 0
   fi
 
   if [[ "${mode}" == "allow-prepared-release" ]]; then

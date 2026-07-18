@@ -151,8 +151,12 @@ print(effective_scheme)
 
 preflight_json="$(mktemp)"
 notes_file="$(mktemp)"
+recovered_changelog=""
 cleanup() {
   rm -f "${preflight_json}" "${notes_file}"
+  if [[ -n "${recovered_changelog}" ]]; then
+    rm -f "${recovered_changelog}"
+  fi
 }
 trap cleanup EXIT
 
@@ -171,7 +175,9 @@ run_local_preflight() {
 echo "==> [release] Checking local release state"
 run_local_preflight
 default_branch="$(json_value "${preflight_json}" "default_branch")"
-source_commit="$(git rev-parse HEAD)"
+release_head_commit="$(git rev-parse HEAD)"
+source_commit="${release_head_commit}"
+reuse_release_commit="false"
 
 head_release_tags=()
 head_tag_output="$(git tag --points-at HEAD --list 'v*' --sort=-version:refname)"
@@ -213,7 +219,7 @@ if [[ "${#head_release_tags[@]}" -eq 1 ]]; then
     exit 1
   fi
   prepared_manifest_path="$(git rev-parse --git-path mprlab-release)/manifest.json"
-  python3 - "${prepared_manifest_path}" "${prepared_version}" "${source_commit}" "${prepared_source_commit}" "${default_branch}" <<'PY_PREPARED_RELEASE'
+  python3 - "${prepared_manifest_path}" "${prepared_version}" "${release_head_commit}" "${prepared_source_commit}" "${default_branch}" <<'PY_PREPARED_RELEASE'
 import datetime as dt
 import json
 import pathlib
@@ -261,7 +267,7 @@ PY_PREPARED_RELEASE
   echo "default_branch=${default_branch}"
   echo "version=${prepared_version}"
   echo "source_commit=${prepared_source_commit}"
-  echo "release_commit=${source_commit}"
+  echo "release_commit=${release_head_commit}"
   echo "Release ${prepared_version} is already prepared with its exact payloads; run make publish-dry-run."
   exit 0
 fi
@@ -278,6 +284,68 @@ selected_version="${next_version}"
 selected_boundary_tag="${boundary_tag}"
 selected_scheme="${effective_scheme}"
 
+generate_release_notes() {
+  local notes_args=(generate-notes --version "${next_version}" --release-date "${release_date}")
+  if [[ -n "${boundary_tag}" ]]; then
+    notes_args+=(--since-tag "${boundary_tag}")
+  fi
+  "${helper}" "${notes_args[@]}" | tee "${notes_file}"
+}
+
+head_subject="$(git log -1 --format=%s HEAD)"
+if [[ "${head_subject}" =~ ^Release\ v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+  [[ "${head_subject}" == "Release ${next_version}" ]] || {
+    echo "error: untagged release commit ${head_subject} does not match remotely selected ${next_version}" >&2
+    exit 1
+  }
+  release_parent_line="$(git rev-list --parents -n 1 HEAD)"
+  read -r -a release_parent_values <<<"${release_parent_line}"
+  [[ "${#release_parent_values[@]}" -eq 2 ]] || {
+    echo "error: untagged release commit must have exactly one source parent" >&2
+    exit 1
+  }
+  source_commit="${release_parent_values[1]}"
+  recovered_changed_files="$(git diff-tree --no-commit-id --name-only -r HEAD)"
+  [[ "${recovered_changed_files}" == "CHANGELOG.md" ]] || {
+    echo "error: untagged release commit must contain only CHANGELOG.md" >&2
+    exit 1
+  }
+  release_date="$(python3 - "${next_version}" CHANGELOG.md <<'PY_RECOVERED_DATE'
+import datetime as dt
+import pathlib
+import re
+import sys
+
+version = sys.argv[1]
+changelog = pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")
+heading = re.compile(rf"^## \[{re.escape(version)}\] - (\d{{4}}-\d{{2}}-\d{{2}})$", re.MULTILINE)
+matches = heading.findall(changelog)
+if len(matches) != 1:
+    raise SystemExit(f"error: untagged release commit must contain exactly one canonical {version} changelog heading")
+try:
+    dt.date.fromisoformat(matches[0])
+except ValueError as error:
+    raise SystemExit(f"error: untagged release commit has an invalid {version} changelog date") from error
+print(matches[0])
+PY_RECOVERED_DATE
+)"
+  generate_release_notes
+  recovered_changelog="$(mktemp)"
+  git show "${source_commit}:CHANGELOG.md" >"${recovered_changelog}" || {
+    echo "error: untagged release source commit must contain CHANGELOG.md" >&2
+    exit 1
+  }
+  "${helper}" insert-changelog \
+    --version "${next_version}" \
+    --notes-file "${notes_file}" \
+    --changelog "${recovered_changelog}" >/dev/null
+  cmp -s "${recovered_changelog}" CHANGELOG.md || {
+    echo "error: untagged Release ${next_version} commit does not contain the canonical changelog transformation from ${source_commit}" >&2
+    exit 1
+  }
+  reuse_release_commit="true"
+fi
+
 if [[ "${dry_run}" == "true" ]]; then
   echo "release_dry_run=true"
   echo "release_scope=local"
@@ -285,6 +353,8 @@ if [[ "${dry_run}" == "true" ]]; then
   echo "version_scheme=${effective_scheme}"
   echo "next_version=${next_version}"
   echo "changelog_boundary=${boundary_tag:-<none>}"
+  echo "source_commit=${source_commit}"
+  echo "release_commit_reuse=${reuse_release_commit}"
   exit 0
 fi
 
@@ -293,7 +363,7 @@ make ci
 
 echo "==> [release] Rechecking local state after CI"
 run_local_preflight
-[[ "$(git rev-parse HEAD)" == "${source_commit}" ]] || { echo "error: HEAD changed while make ci was running" >&2; exit 1; }
+[[ "$(git rev-parse HEAD)" == "${release_head_commit}" ]] || { echo "error: HEAD changed while make ci was running" >&2; exit 1; }
 selection="$(select_release "${preflight_json}")"
 next_version="$(sed -n '1p' <<<"${selection}")"
 boundary_tag="$(sed -n '2p' <<<"${selection}")"
@@ -328,34 +398,42 @@ make --no-print-directory \
   --source-commit "${source_commit}"
 echo "==> [release] Rechecking local state after artifact preparation"
 run_local_preflight
-[[ "$(git rev-parse HEAD)" == "${source_commit}" ]] || { echo "error: HEAD changed while preparing release artifacts" >&2; exit 1; }
+[[ "$(git rev-parse HEAD)" == "${release_head_commit}" ]] || { echo "error: HEAD changed while preparing release artifacts" >&2; exit 1; }
 post_artifact_selection="$(select_release "${preflight_json}")"
 [[ "$(sed -n '1p' <<<"${post_artifact_selection}")" == "${selected_version}" ]] || { echo "error: release version changed while preparing artifacts" >&2; exit 1; }
 [[ "$(sed -n '2p' <<<"${post_artifact_selection}")" == "${selected_boundary_tag}" ]] || { echo "error: changelog boundary changed while preparing artifacts" >&2; exit 1; }
 [[ "$(sed -n '3p' <<<"${post_artifact_selection}")" == "${selected_scheme}" ]] || { echo "error: release version scheme changed while preparing artifacts" >&2; exit 1; }
 
 echo "==> [release] Preparing ${next_version} from local Git history"
-notes_args=(generate-notes --version "${next_version}" --release-date "${release_date}")
-if [[ -n "${boundary_tag}" ]]; then
-  notes_args+=(--since-tag "${boundary_tag}")
-fi
-"${helper}" "${notes_args[@]}" | tee "${notes_file}"
-"${helper}" insert-changelog --version "${next_version}" --notes-file "${notes_file}"
+if [[ "${reuse_release_commit}" == "true" ]]; then
+  cmp -s "${recovered_changelog}" CHANGELOG.md || {
+    echo "error: CHANGELOG.md changed after untagged release recovery validation" >&2
+    exit 1
+  }
+  git diff --quiet && git diff --cached --quiet || {
+    echo "error: repository changed while recovering untagged Release ${next_version}" >&2
+    exit 1
+  }
+  release_commit="${release_head_commit}"
+else
+  generate_release_notes
+  "${helper}" insert-changelog --version "${next_version}" --notes-file "${notes_file}"
 
-git add CHANGELOG.md
-if git diff --cached --quiet -- CHANGELOG.md; then
-  echo "error: CHANGELOG.md has no staged release changes" >&2
-  exit 1
-fi
-staged_files="$(git diff --cached --name-only)"
-if [[ "${staged_files}" != "CHANGELOG.md" ]]; then
-  echo "error: release commit may contain only CHANGELOG.md" >&2
-  printf '%s\n' "${staged_files}" >&2
-  exit 1
-fi
+  git add CHANGELOG.md
+  if git diff --cached --quiet -- CHANGELOG.md; then
+    echo "error: CHANGELOG.md has no staged release changes and HEAD is not the exact reusable Release ${next_version} commit" >&2
+    exit 1
+  fi
+  staged_files="$(git diff --cached --name-only)"
+  if [[ "${staged_files}" != "CHANGELOG.md" ]]; then
+    echo "error: release commit may contain only CHANGELOG.md" >&2
+    printf '%s\n' "${staged_files}" >&2
+    exit 1
+  fi
 
-git commit --no-verify --no-gpg-sign -m "Release ${next_version}"
-release_commit="$(git rev-parse HEAD)"
+  git commit --no-verify --no-gpg-sign -m "Release ${next_version}"
+  release_commit="$(git rev-parse HEAD)"
+fi
 git tag --no-sign -a "${next_version}" -m "Release ${next_version}" "${release_commit}"
 "${helper}" write-release-artifact \
   --version "${next_version}" \
@@ -365,4 +443,8 @@ git tag --no-sign -a "${next_version}" -m "Release ${next_version}" "${release_c
   --default-branch "${default_branch}" \
   --release-timestamp "${release_timestamp}"
 
-echo "Prepared ${next_version} at ${release_commit}. Run make publish to publish it."
+if [[ "${reuse_release_commit}" == "true" ]]; then
+  echo "Recovered pending ${next_version} at ${release_commit} without creating another release commit. Run make publish to publish it."
+else
+  echo "Prepared ${next_version} at ${release_commit}. Run make publish to publish it."
+fi

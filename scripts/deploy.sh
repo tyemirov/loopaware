@@ -298,7 +298,7 @@ while IFS= read -r head_release_tag; do
   [[ -n "${head_release_tag}" ]] || continue
   head_release_tags+=("${head_release_tag}")
 done < <(git tag --points-at HEAD --list 'v*' --sort=version:refname)
-[[ "${#head_release_tags[@]}" -gt 0 ]] || { echo "error: no v* release tag points at HEAD; run make publish before deploy" >&2; exit 1; }
+[[ "${#head_release_tags[@]}" -gt 0 ]] || { echo "error: no v* release tag points at HEAD; run make release && make publish before deploy" >&2; exit 1; }
 [[ "${#head_release_tags[@]}" -eq 1 ]] || {
   echo "error: expected exactly one v* release tag at HEAD, got ${#head_release_tags[@]}: ${head_release_tags[*]}" >&2
   exit 1
