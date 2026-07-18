@@ -548,6 +548,9 @@ writes `.git/mprlab-release/manifest.json`. That local tag and staging directory
 published release. Preparation fetches only stable tag refs for synchronization; it never pushes, creates a GitHub Release, uploads a store
 build, publishes Pages, or deploys production. Repeating the command against that exact prepared
 commit/tag verifies and reports the existing nine-payload release instead of selecting a new version;
+if the remote default branch already contains the exact untagged `Release <next-version>` commit, the rerun verifies
+that its changelog is the canonical transformation of its single source parent, rebuilds all payloads from that parent,
+and creates the missing local tag and manifest without creating a second release commit;
 any other local divergence from `origin/master` fails closed and stale local tag state is discarded.
 
 `make publish-dry-run` requires the exact prepared release from `make release`. It verifies its
