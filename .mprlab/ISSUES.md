@@ -1051,6 +1051,20 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `tests/helpers/fixtures.js`, and `tests/specs/header-auth-state.spec.js`.
 
+- [x] [B065] (P1) Make lifecycle targets safe to inspect with Make dry-run mode.
+  ### Summary
+  The aggregate gateway workflow verifier uses Make's no-execute mode to inspect app-owned release, publish, and deploy recipes without activating them, but LoopAware rejects that standard planning mode before emitting its lifecycle plan.
+  ### Deliverables
+  - Accept Make's `-n`/`--dry-run` planning mode for lifecycle targets.
+  - Continue rejecting ignore-errors, touch, and question modes.
+  - Prove release, publish, and deploy planning succeeds without executing lifecycle scripts.
+
+  ### Resolution
+  Lifecycle targets now accept Make's standard no-execute modes while continuing to reject ignore-errors, touch, and question modes. The black-box lifecycle contract proves `make -n release`, `make -n publish`, and `make -n deploy` emit the canonical scripts without executing them. `make lifecycle-orchestration-contract-check`, `make release-workflow-check`, each exact dry-run target, and the complete `make ci` passed; the full gate included all release contracts, Go race coverage, the real containerized stack, and 456 browser scenarios in 3.6 minutes.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `CHANGELOG.md`, `Makefile`, `scripts/test-lifecycle-orchestration.sh`, and `scripts/validate-release-workflow.mjs`.
+
 
 ## Improvements
 
