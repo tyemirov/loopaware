@@ -8,7 +8,13 @@ import {
   installAssetInspectionStubs,
   waitForExternalAssetStubsToSettle
 } from '../helpers/externalAssets.js';
-import { buildAdminUser, openAuthenticatedPage, openPublicPage, waitForDashboardReady } from '../helpers/fixtures.js';
+import {
+  buildAdminUser,
+  openAuthenticatedPage,
+  openMprUiAuthenticatedPage,
+  openPublicPage,
+  waitForDashboardReady
+} from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
@@ -62,7 +68,7 @@ const CONSOLE_PROBLEM_TYPES = Object.freeze(['error', 'warning']);
  * @param {import('@playwright/test').Page} page
  * @param {string} path
  * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number, sessionCookieValue?: string }} [tauthOptions]
- * @param {{ restoreMprUiSession?: boolean, waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
+ * @param {{ waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
  * @returns {Promise<void>}
  */
 async function openPageWithoutSession(page, path, tauthOptions, options) {
@@ -79,7 +85,7 @@ async function openPageWithoutSession(page, path, tauthOptions, options) {
  * @param {import('@playwright/test').Page} page
  * @param {string} path
  * @param {{ silentBootstrap?: boolean, delayMs?: number, bootstrapDelayMs?: number, currentUserDelayMs?: number, exchangeDelayMs?: number, sessionCookieValue?: string }} [tauthOptions]
- * @param {{ restoreMprUiSession?: boolean, waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
+ * @param {{ waitForHeaderAuth?: boolean, waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle' }} [options]
  * @returns {Promise<void>}
  */
 async function openPageWithSession(page, path, tauthOptions, options) {
@@ -87,10 +93,19 @@ async function openPageWithSession(page, path, tauthOptions, options) {
   await installSiteWidgetConfigStub(page);
   await openAuthenticatedPage(page, config, adminUser, path, {
     tauth: tauthOptions,
-    restoreMprUiSession: resolvedOptions.restoreMprUiSession,
     waitForHeaderAuth: resolvedOptions.waitForHeaderAuth,
     waitUntil: resolvedOptions.waitUntil
   });
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {string} path
+ * @returns {Promise<void>}
+ */
+async function openMprUiPageWithSession(page, path) {
+  await installSiteWidgetConfigStub(page);
+  await openMprUiAuthenticatedPage(page, config, adminUser, path);
 }
 
 /**
@@ -110,10 +125,7 @@ async function openPublicPageForAssetInspection(page, path) {
  */
 async function openAuthenticatedPageForAssetInspection(page, path) {
   await installAssetInspectionStubs(page);
-  await openPageWithSession(page, path, undefined, {
-    restoreMprUiSession: false,
-    waitForHeaderAuth: false
-  });
+  await openMprUiPageWithSession(page, path);
 }
 
 /**
@@ -163,6 +175,21 @@ async function expectLatestCdnAssets(page) {
       tauthScriptCount: 0,
       vendorUrls: []
     });
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {string} path
+ * @returns {Promise<void>}
+ */
+async function expectAuthenticatedCdnAssets(page, path) {
+  const expectedPathname = new URL(path, config.baseURL).pathname.replace(/\/+$/g, '') || '/';
+  await expect(page.locator('mpr-header')).toHaveAttribute('data-mpr-auth-status', 'authenticated');
+  await expect(page).toHaveURL((currentUrl) => {
+    const currentPathname = currentUrl.pathname.replace(/\/+$/g, '') || '/';
+    return currentPathname === expectedPathname;
+  });
+  await expectLatestCdnAssets(page);
 }
 
 /**
@@ -973,13 +1000,13 @@ test('privacy page shows logout overlay for static-page sign-out', async ({ page
 
 test('dashboard loads latest CDN assets for auth UI', async ({ page }) => {
   await openAuthenticatedPageForAssetInspection(page, '/app');
-  await expectLatestCdnAssets(page);
+  await expectAuthenticatedCdnAssets(page, '/app');
 });
 
 for (const { label, path } of DASHBOARD_PREVIEW_CASES) {
   test(`${label} loads latest CDN assets for auth UI`, async ({ page }) => {
     await openAuthenticatedPageForAssetInspection(page, path);
-    await expectLatestCdnAssets(page);
+    await expectAuthenticatedCdnAssets(page, path);
   });
 }
 
