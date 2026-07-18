@@ -6,9 +6,10 @@ import { installTauthStub } from './tauthStub.js';
 
 const DEFAULT_AVATAR_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=';
 const DEFAULT_LOGOUT_REDIRECT_PATTERN = /\/login(?:\/)?(?:[?#].*)?$/;
+const APP_PATHNAME = '/app';
+const AUTH_RESTORE_HINT_PREFIX = 'tauth.restore.v1:';
+const AUTH_RESTORE_HINT_VALUE = '1';
 const LOGIN_PATHNAME = '/login';
-const EXPLICIT_LOGOUT_STORAGE_KEY = 'loopaware_explicit_logout';
-const SEEDED_MPR_UI_AUTH_NAVIGATION_ATTEMPTS = 2;
 
 function randomSuffix() {
   return `${Date.now().toString(36)}${Math.random().toString(16).slice(2, 8)}`;
@@ -76,7 +77,7 @@ export async function ensureSiteForOrigin(config, cookie, overrides) {
 
 /**
  * @param {import('@playwright/test').Page} page
- * @param {{ sessionCookieName?: string }} config
+ * @param {{ baseOrigin?: string, baseURL?: string, sessionCookieName?: string }} config
  * @param {{
  *   clipboard?: boolean,
  *   localStorage?: Record<string, string | number | boolean | null | undefined>,
@@ -146,128 +147,47 @@ export async function waitForDashboardAccountHydrated(page) {
 }
 
 /**
- * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
- * @returns {{ user_id: string, user_email: string, email: string, display: string, avatar_url: string, roles: string[] }}
+ * @param {import('@playwright/test').Page} page
+ * @param {{ baseOrigin?: string, baseURL: string, tenantId: string }} config
+ * @returns {Promise<void>}
  */
-function mprUiTestingProfileFromUser(user) {
-  return {
-    user_id: user.userId,
-    user_email: user.email,
-    email: user.email,
-    display: user.displayName,
-    avatar_url: user.avatarUrl,
-    roles: []
-  };
+async function seedMprUiAuthRestoreHint(page, config) {
+  const authOrigin = config.baseOrigin || new URL(config.baseURL).origin;
+  const storageKey = `${AUTH_RESTORE_HINT_PREFIX}${encodeURIComponent(authOrigin)}:${encodeURIComponent(config.tenantId)}`;
+  await setLocalStorage(page, { [storageKey]: AUTH_RESTORE_HINT_VALUE });
+  if (new URL(page.url()).origin === authOrigin) {
+    await page.evaluate(({ key, value }) => {
+      window.localStorage.setItem(key, value);
+    }, { key: storageKey, value: AUTH_RESTORE_HINT_VALUE });
+  }
 }
 
 /**
+ * @param {import('@playwright/test').Page} page
  * @param {string} path
- * @returns {string}
- */
-function normalizePathname(path) {
-  const rawPath = String(path || '').trim();
-  if (!rawPath) {
-    return '/';
-  }
-  let pathname = rawPath;
-  try {
-    pathname = new URL(rawPath, 'http://loopaware.test').pathname;
-  } catch (error) {}
-  const normalized = pathname.replace(/\/+$/g, '');
-  return normalized || '/';
-}
-
-/**
- * @param {import('@playwright/test').Page} page
- * @returns {string}
- */
-function currentPagePathname(page) {
-  try {
-    return normalizePathname(new URL(page.url()).pathname);
-  } catch (error) {
-    return '';
-  }
-}
-
-/**
- * @param {import('@playwright/test').Page} page
- * @param {string} targetPath
- * @returns {boolean}
- */
-function isLoginRedirectForTarget(page, targetPath) {
-  return normalizePathname(targetPath) !== LOGIN_PATHNAME && currentPagePathname(page) === LOGIN_PATHNAME;
-}
-
-/**
- * @param {import('@playwright/test').Page} page
  * @returns {Promise<void>}
  */
-async function clearExplicitLogoutRedirectState(page) {
-  await page.evaluate((storageKey) => {
-    const storages = [];
-    try {
-      if (window.sessionStorage) {
-        storages.push(window.sessionStorage);
-      }
-    } catch (error) {}
-    try {
-      if (window.localStorage) {
-        storages.push(window.localStorage);
-      }
-    } catch (error) {}
-    for (const storage of storages) {
-      try {
-        storage.removeItem(storageKey);
-      } catch (error) {}
+async function waitForRestoredMprUiSession(page, path) {
+  const requestedPathname = new URL(path, 'http://loopaware.test').pathname.replace(/\/+$/g, '') || '/';
+  const expectedPath = requestedPathname === LOGIN_PATHNAME ? APP_PATHNAME : path;
+  await page.waitForFunction((targetPath) => {
+    const normalizePathname = (value) => {
+      const pathname = new URL(value, window.location.origin).pathname.replace(/\/+$/g, '');
+      return pathname || '/';
+    };
+    if (normalizePathname(window.location.pathname) !== normalizePathname(targetPath)) {
+      return false;
     }
-    const headerHost = document.querySelector('mpr-header');
-    if (headerHost && typeof headerHost.removeAttribute === 'function') {
-      headerHost.removeAttribute('data-loopaware-explicit-logout');
-    }
-  }, EXPLICIT_LOGOUT_STORAGE_KEY);
-}
-
-/**
- * @param {import('@playwright/test').Page} page
- * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
- * @returns {Promise<void>}
- */
-async function authenticateSeededMprUiSession(page, user) {
-  const profile = mprUiTestingProfileFromUser(user);
-  await page.waitForFunction((currentProfile) => {
-    const testingApi = window.MPRUI && window.MPRUI.testing;
     const headerHost = document.querySelector('mpr-header');
     if (!headerHost || headerHost.getAttribute('data-loopaware-auth-bound') !== 'true') {
       return false;
     }
-    if (!testingApi || typeof testingApi.authenticate !== 'function') {
-      return false;
-    }
-    testingApi.authenticate(headerHost, currentProfile);
-    return true;
-  }, profile);
-}
-
-/**
- * @param {import('@playwright/test').Page} page
- * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
- * @param {string} path
- * @param {'commit' | 'domcontentloaded' | 'load' | 'networkidle'} waitUntil
- * @returns {Promise<void>}
- */
-async function authenticateSeededMprUiSessionForPath(page, user, path, waitUntil) {
-  for (let attempt = 1; attempt <= SEEDED_MPR_UI_AUTH_NAVIGATION_ATTEMPTS; attempt += 1) {
-    await authenticateSeededMprUiSession(page, user);
-    if (!isLoginRedirectForTarget(page, path)) {
-      return;
-    }
-    if (attempt === SEEDED_MPR_UI_AUTH_NAVIGATION_ATTEMPTS) {
-      break;
-    }
-    await clearExplicitLogoutRedirectState(page);
-    await page.goto(path, { waitUntil });
-  }
-  throw new Error(`loopaware_seeded_auth_redirected_to_login:${path}`);
+    return (
+      normalizePathname(window.location.pathname) === normalizePathname(targetPath) &&
+      headerHost.getAttribute('data-loopaware-auth-state') === 'authenticated' &&
+      headerHost.getAttribute('data-mpr-auth-status') === 'authenticated'
+    );
+  }, expectedPath);
 }
 
 /**
@@ -350,7 +270,7 @@ export async function openPublicPage(page, config, path, options) {
 
 /**
  * @param {import('@playwright/test').Page} page
- * @param {{ sessionCookieName?: string }} config
+ * @param {{ baseOrigin?: string, baseURL: string, sessionCookieName?: string, tenantId: string }} config
  * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
  * @param {string} path
  * @param {{
@@ -365,7 +285,7 @@ export async function openPublicPage(page, config, path, options) {
  *     sessionCookieValue?: string
  *   },
  *   waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle',
- *   authenticateMprUiSession?: boolean,
+ *   restoreMprUiSession?: boolean,
  *   waitForHeaderAuth?: boolean
  * }} [options]
  * @returns {Promise<void>}
@@ -375,9 +295,12 @@ export async function openAuthenticatedPage(page, config, user, path, options) {
   const waitUntil = resolvedOptions.waitUntil || 'commit';
   await applySessionCookie(page.context(), config, user);
   await prepareLoopAwarePage(page, config, resolvedOptions);
+  if (resolvedOptions.restoreMprUiSession !== false) {
+    await seedMprUiAuthRestoreHint(page, config);
+  }
   await page.goto(path, { waitUntil });
-  if (resolvedOptions.authenticateMprUiSession !== false) {
-    await authenticateSeededMprUiSessionForPath(page, user, path, waitUntil);
+  if (resolvedOptions.restoreMprUiSession !== false) {
+    await waitForRestoredMprUiSession(page, path);
   }
   if (resolvedOptions.waitForHeaderAuth !== false) {
     await waitForHeaderAuthReady(page);

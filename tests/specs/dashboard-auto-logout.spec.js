@@ -1,7 +1,7 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
-import { buildAdminUser, openDashboardShell } from '../helpers/fixtures.js';
+import { buildAdminUser, openDashboardShell, waitForDashboardReady } from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
@@ -11,12 +11,16 @@ const secondaryUser = buildAdminUser(config, {
   userId: `secondary-user-${Date.now()}`
 });
 
-async function openSettingsModal(page, user) {
-  await openDashboardShell(page, config, user);
+async function showSettingsModal(page) {
   await page.evaluate(() => {
     document.dispatchEvent(new CustomEvent('mpr-user:menu-item', { detail: { action: 'account-settings' } }));
   });
   await expect(page.locator('#settings-modal')).toBeVisible();
+}
+
+async function openSettingsModal(page, user) {
+  await openDashboardShell(page, config, user);
+  await showSettingsModal(page);
 }
 
 async function readAutoLogoutHooks(page) {
@@ -120,7 +124,8 @@ test('auto logout restores values on reload', async ({ page }) => {
   await page.locator('#settings-auto-logout-logout-seconds').fill('360');
   await page.locator('#settings-auto-logout-logout-seconds').blur();
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await openSettingsModal(page, adminUser);
+  await waitForDashboardReady(page, { allowEmptySites: true });
+  await showSettingsModal(page);
   await expect(page.locator('#settings-auto-logout-prompt-seconds')).toHaveValue('180');
   await expect(page.locator('#settings-auto-logout-logout-seconds')).toHaveValue('360');
 });

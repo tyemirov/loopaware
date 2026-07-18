@@ -997,6 +997,33 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `scripts/deploy.sh`, `scripts/release-preflight.sh`, `scripts/release/prepare_release.sh`, `scripts/release/repository_identity.sh`, `scripts/test-lifecycle-orchestration.sh`, `scripts/test-staged-release-artifacts.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B063] (P0) Make protected dashboard authentication readiness event-driven.
+  Goal:
+  Prevent a cold or delayed initial `mpr-ui` load from redirecting an authenticated dashboard test to `/login` and leaving dashboard hydration waiting on elements that cannot appear there.
+
+  Requirements:
+  Drive protected-page authentication settling from the public `mpr-ui` bootstrap status transition. Remove the fixed three-second settle timer and the test harness's two-attempt login recovery. Do not increase timeouts, add blind delays, or add a fallback path.
+
+  Deliverables:
+  - Add black-box browser coverage that delays the initial `mpr-ui` bundle beyond the former settle interval and still reaches a hydrated authenticated dashboard.
+  - Treat the terminal `mpr-ui` bootstrap status as the protected-page readiness signal.
+  - Require seeded dashboard authentication to complete on the requested path before dashboard hydration begins.
+  - Delete the obsolete login-redirect retry and explicit-logout cleanup from the shared fixture.
+
+  Validation:
+  Reproduce the cold-load boundary through the new browser scenario, run the focused browser integration gate, and run final `make ci` without changing the Playwright timeout.
+
+  Resolution:
+  Removed the fixed protected-page authentication settle timer and made the terminal public `mpr-ui` bootstrap status the redirect decision boundary. Authenticated browser fixtures now seed the canonical TAuth restore hint and require the authenticated requested route before dashboard hydration; the obsolete login retry and explicit-logout cleanup paths were deleted. Reload coverage now waits for the current dashboard bootstrap instead of starting a competing navigation.
+
+  Validation Results:
+  - Before the fix, the new cold-bootstrap regression reproduced the 90-second dashboard account hydration timeout while the other 455 browser scenarios passed.
+  - `make test-integration`: 456 passed in 4.3 minutes.
+  - `make ci`: passed, including 456 browser scenarios in 3.4 minutes.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `web/header-auth.js`, `tests/helpers/fixtures.js`, `tests/specs/header-auth-state.spec.js`, and `tests/specs/dashboard-auto-logout.spec.js`.
+
 
 ## Improvements
 
