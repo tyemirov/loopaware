@@ -246,7 +246,8 @@ assert(
   "release_mobile_identity_must_be_canonical",
 );
 assert(
-  deployResourcesSource.includes("image: ghcr.io/tyemirov/loopaware:latest") &&
+  deployResourcesSource.includes("image_variable: MPRLAB_LOOPAWARE_IMAGE_REF") &&
+    !deployResourcesSource.includes("image: ghcr.io/tyemirov/loopaware:latest") &&
     deployResourcesSource.includes("target: pages-deploy") &&
     deployResourcesSource.includes("url: https://loopaware.mprlab.com/"),
   "deploy_resource_inventory_drifted_from_lifecycle_contract",
