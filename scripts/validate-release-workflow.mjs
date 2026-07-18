@@ -200,6 +200,9 @@ assert(
     repositoryIdentitySource.includes("git -C \"${directory}\" ls-remote --symref origin") &&
     repositoryIdentitySource.includes('[[ "${local_head}" == "${remote_default_sha}" ]]') &&
     repositoryIdentitySource.includes('pending_local_tag=""') &&
+    repositoryIdentitySource.includes('"${pending_subject}" == "Release ${pending_head_tags[0]}"') &&
+    repositoryIdentitySource.includes('"${pending_changed_files}" == "CHANGELOG.md"') &&
+    repositoryIdentitySource.includes('"${extra_local_tags}" == "${pending_local_tag}"') &&
     repositoryIdentitySource.includes('tag --delete "${local_tag}"') &&
     repositoryIdentitySource.includes("fetch --force --no-tags --no-write-fetch-head") &&
     repositoryIdentitySource.includes('[[ "${local_tag_commit}" == "${remote_tag_commit}" ]]'),
@@ -380,6 +383,18 @@ assert(
     prepareReleaseSource.includes('echo "release_already_prepared=true"') &&
     releasePreflightSource.includes('grep -Fxq "release_already_prepared=true"'),
   "release_rerun_must_recognize_only_an_exact_prepared_release",
+);
+assert(
+  prepareReleaseSource.includes('[[ "${head_subject}" == "Release ${next_version}" ]]') &&
+    prepareReleaseSource.includes("untagged release commit must have exactly one source parent") &&
+    prepareReleaseSource.includes('[[ "${recovered_changed_files}" == "CHANGELOG.md" ]]') &&
+    prepareReleaseSource.includes('git show "${source_commit}:CHANGELOG.md"') &&
+    prepareReleaseSource.includes('cmp -s "${recovered_changelog}" CHANGELOG.md') &&
+    prepareReleaseSource.includes('release_commit="${release_head_commit}"') &&
+    prepareReleaseSource.includes("without creating another release commit") &&
+    releasePreflightSource.includes("release preflight did not select a valid source commit") &&
+    releasePreflightSource.includes('--source-commit "${source_commit}"'),
+  "untagged_release_commit_recovery_must_be_exact_and_preserve_source_provenance",
 );
 assert(
   prepareReleaseSource.includes('insert-changelog --version "${next_version}" --notes-file "${notes_file}"') &&
@@ -826,8 +841,17 @@ for (const source of [pagesDeploySource, publishMobileSource, publishReactNative
 }
 
 assert(normalizedReadmeSource.includes("`make release` prepares"), "readme_missing_local_release_contract");
+assert(
+  normalizedReadmeSource.includes("exact untagged `Release <next-version>` commit") &&
+    normalizedReadmeSource.includes("without creating a second release commit"),
+  "readme_missing_untagged_release_recovery_contract",
+);
 assert(normalizedReadmeSource.includes("`make publish` publishes"), "readme_missing_publish_contract");
 assert(normalizedReadmeSource.includes("`make deploy-dry-run`"), "readme_missing_deploy_dry_run_contract");
+assert(
+  deploySource.includes("no v* release tag points at HEAD; run make release && make publish before deploy"),
+  "deploy_missing_phase_correct_untagged_head_diagnostic",
+);
 
 console.log("release workflow validation passed");
 

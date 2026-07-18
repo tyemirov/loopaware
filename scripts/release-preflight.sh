@@ -43,7 +43,14 @@ if grep -Fxq "release_already_prepared=true" "${selection_file}"; then
 fi
 next_version="$(sed -n 's/^next_version=//p' "${selection_file}")"
 [[ -n "${next_version}" ]] || { echo "error: release preflight did not select a version" >&2; exit 1; }
-source_commit="$(git rev-parse HEAD)"
+source_commit="$(sed -n 's/^source_commit=//p' "${selection_file}")"
+[[ "${source_commit}" =~ ^[0-9a-f]{40}$ ]] || { echo "error: release preflight did not select a valid source commit" >&2; exit 1; }
+release_head_commit="$(git rev-parse HEAD)"
+release_commit_reuse="$(sed -n 's/^release_commit_reuse=//p' "${selection_file}")"
+[[ "${release_commit_reuse}" == "true" || "${release_commit_reuse}" == "false" ]] || {
+  echo "error: release preflight did not report release-commit reuse state" >&2
+  exit 1
+}
 
 required_artifact_targets="mobile-release-artifacts client-react-native-artifact container-artifacts pages-artifact"
 [[ "${RELEASE_ARTIFACT_TARGETS:-}" == "${required_artifact_targets}" ]] || {
@@ -58,8 +65,10 @@ if ! RELEASE_ENV_FILE="${env_file}" ./scripts/release.sh --dry-run "$@" >"${sele
   cat "${selection_file}"
   exit 1
 fi
-[[ "$(git rev-parse HEAD)" == "${source_commit}" ]] || { echo "error: HEAD changed while release preflight CI was running" >&2; exit 1; }
+[[ "$(git rev-parse HEAD)" == "${release_head_commit}" ]] || { echo "error: HEAD changed while release preflight CI was running" >&2; exit 1; }
 [[ "$(sed -n 's/^next_version=//p' "${selection_file}")" == "${next_version}" ]] || { echo "error: release version selection changed after CI" >&2; exit 1; }
+[[ "$(sed -n 's/^source_commit=//p' "${selection_file}")" == "${source_commit}" ]] || { echo "error: release source commit changed after CI" >&2; exit 1; }
+[[ "$(sed -n 's/^release_commit_reuse=//p' "${selection_file}")" == "${release_commit_reuse}" ]] || { echo "error: release-commit reuse state changed after CI" >&2; exit 1; }
 
 echo "==> [release-preflight] Building disposable release artifacts"
 artifact_directory="$(mktemp -d)"
@@ -90,7 +99,9 @@ if ! RELEASE_ENV_FILE="${env_file}" ./scripts/release.sh --dry-run "$@" >"${sele
   cat "${selection_file}"
   exit 1
 fi
-[[ "$(git rev-parse HEAD)" == "${source_commit}" ]] || { echo "error: HEAD changed while release preflight artifacts were built" >&2; exit 1; }
+[[ "$(git rev-parse HEAD)" == "${release_head_commit}" ]] || { echo "error: HEAD changed while release preflight artifacts were built" >&2; exit 1; }
 [[ "$(sed -n 's/^next_version=//p' "${selection_file}")" == "${next_version}" ]] || { echo "error: release version selection changed after artifact build" >&2; exit 1; }
+[[ "$(sed -n 's/^source_commit=//p' "${selection_file}")" == "${source_commit}" ]] || { echo "error: release source commit changed after artifact build" >&2; exit 1; }
+[[ "$(sed -n 's/^release_commit_reuse=//p' "${selection_file}")" == "${release_commit_reuse}" ]] || { echo "error: release-commit reuse state changed after artifact build" >&2; exit 1; }
 
 echo "Release preflight passed with ${payload_count} disposable payloads; no changelog, commit, tag, publication, or production service was changed."

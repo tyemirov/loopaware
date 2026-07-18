@@ -253,6 +253,14 @@ set -e
 [[ "${strict_prepared_status}" -ne 0 ]]
 [[ "${strict_prepared_output}" == *"does not match origin/master"* ]]
 ! git -C "${prepared_remote_fixture}" show-ref --verify --quiet refs/tags/v1.2.3
+git -C "${prepared_remote_fixture}" tag -a v1.2.3 -m "Release v1.2.3"
+git -C "${prepared_remote_fixture}" push origin master >/dev/null
+(
+  source "${repo_root}/scripts/release/repository_identity.sh"
+  assert_remote_default_and_release_tags "${prepared_remote_fixture}" fixture allow-prepared-release
+)
+git -C "${prepared_remote_fixture}" show-ref --verify --quiet refs/tags/v1.2.3
+! git --git-dir="${remote_origin}" show-ref --verify --quiet refs/tags/v1.2.3
 
 attestation_repository="${temporary_directory}/attestation-repository"
 attestation_remote_assets="${temporary_directory}/attestation-assets"
