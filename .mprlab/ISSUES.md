@@ -974,6 +974,14 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [x] [I034] (P1) Declare LoopAware's TAuth tenant requirements in the app-owned deployment manifest.
+  ### Summary
+  Keep stable tenant identity, hosted origin, native redirect metadata, cookie names, and provider references in .mprlab/deploy/resources.yml; credential values, shared TTLs, and server policy remain gateway-owned.
+  ### Deliverables
+  - Add one canonical tauth_tenant resource.
+  - Prove gateway fleet assembly and generic TAuth doctor validation succeed.
+  ### Resolution
+  Added the canonical app-owned `tauth_tenant` declaration. The gateway assembled the 13-tenant fleet, the generic TAuth doctor accepted it with zero errors, and—after removing the stale Compose stack left by an earlier timeout-killed test run—`make ci` passed all 455 browser scenarios plus the full Go, mobile, integration, and release-contract suite.
 - [x] [I001] (P1) Add a public SEO resources cluster.
   ### Summary
   LoopAware needs a deliberate set of crawlable, internally linked public resource pages that advertise distinct product surfaces without creating hidden doorway pages or thin near-duplicate pages.
