@@ -163,29 +163,53 @@ async function seedMprUiAuthRestoreHint(page, config) {
 }
 
 /**
+ * @param {string} path
+ * @returns {string}
+ */
+function restoredSessionPath(path) {
+  const requestedPathname = new URL(path, 'http://loopaware.test').pathname.replace(/\/+$/g, '') || '/';
+  return requestedPathname === LOGIN_PATHNAME ? APP_PATHNAME : path;
+}
+
+/**
  * @param {import('@playwright/test').Page} page
  * @param {string} path
  * @returns {Promise<void>}
  */
-async function waitForRestoredMprUiSession(page, path) {
-  const requestedPathname = new URL(path, 'http://loopaware.test').pathname.replace(/\/+$/g, '') || '/';
-  const expectedPath = requestedPathname === LOGIN_PATHNAME ? APP_PATHNAME : path;
+async function waitForMprUiSessionRestored(page, path) {
+  const expectedPath = restoredSessionPath(path);
   await page.waitForFunction((targetPath) => {
     const normalizePathname = (value) => {
       const pathname = new URL(value, window.location.origin).pathname.replace(/\/+$/g, '');
       return pathname || '/';
     };
-    if (normalizePathname(window.location.pathname) !== normalizePathname(targetPath)) {
-      return false;
-    }
     const headerHost = document.querySelector('mpr-header');
-    if (!headerHost || headerHost.getAttribute('data-loopaware-auth-bound') !== 'true') {
-      return false;
-    }
     return (
       normalizePathname(window.location.pathname) === normalizePathname(targetPath) &&
-      headerHost.getAttribute('data-loopaware-auth-state') === 'authenticated' &&
+      headerHost &&
       headerHost.getAttribute('data-mpr-auth-status') === 'authenticated'
+    );
+  }, expectedPath);
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {string} path
+ * @returns {Promise<void>}
+ */
+async function waitForLoopAwareSessionRestored(page, path) {
+  const expectedPath = restoredSessionPath(path);
+  await page.waitForFunction((targetPath) => {
+    const normalizePathname = (value) => {
+      const pathname = new URL(value, window.location.origin).pathname.replace(/\/+$/g, '');
+      return pathname || '/';
+    };
+    const headerHost = document.querySelector('mpr-header');
+    return (
+      normalizePathname(window.location.pathname) === normalizePathname(targetPath) &&
+      headerHost &&
+      headerHost.getAttribute('data-loopaware-auth-bound') === 'true' &&
+      headerHost.getAttribute('data-loopaware-auth-state') === 'authenticated'
     );
   }, expectedPath);
 }
@@ -284,24 +308,45 @@ export async function openPublicPage(page, config, path, options) {
  *     exchangeDelayMs?: number,
  *     sessionCookieValue?: string
  *   },
+ *   waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle'
+ * }} [options]
+ * @returns {Promise<void>}
+ */
+export async function openMprUiAuthenticatedPage(page, config, user, path, options) {
+  const resolvedOptions = options || {};
+  const waitUntil = resolvedOptions.waitUntil || 'commit';
+  await applySessionCookie(page.context(), config, user);
+  await prepareLoopAwarePage(page, config, resolvedOptions);
+  await seedMprUiAuthRestoreHint(page, config);
+  await page.goto(path, { waitUntil });
+  await waitForMprUiSessionRestored(page, path);
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {{ baseOrigin?: string, baseURL: string, sessionCookieName?: string, tenantId: string }} config
+ * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
+ * @param {string} path
+ * @param {{
+ *   clipboard?: boolean,
+ *   localStorage?: Record<string, string | number | boolean | null | undefined>,
+ *   tauth?: {
+ *     silentBootstrap?: boolean,
+ *     delayMs?: number,
+ *     bootstrapDelayMs?: number,
+ *     currentUserDelayMs?: number,
+ *     exchangeDelayMs?: number,
+ *     sessionCookieValue?: string
+ *   },
  *   waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle',
- *   restoreMprUiSession?: boolean,
  *   waitForHeaderAuth?: boolean
  * }} [options]
  * @returns {Promise<void>}
  */
 export async function openAuthenticatedPage(page, config, user, path, options) {
   const resolvedOptions = options || {};
-  const waitUntil = resolvedOptions.waitUntil || 'commit';
-  await applySessionCookie(page.context(), config, user);
-  await prepareLoopAwarePage(page, config, resolvedOptions);
-  if (resolvedOptions.restoreMprUiSession !== false) {
-    await seedMprUiAuthRestoreHint(page, config);
-  }
-  await page.goto(path, { waitUntil });
-  if (resolvedOptions.restoreMprUiSession !== false) {
-    await waitForRestoredMprUiSession(page, path);
-  }
+  await openMprUiAuthenticatedPage(page, config, user, path, resolvedOptions);
+  await waitForLoopAwareSessionRestored(page, path);
   if (resolvedOptions.waitForHeaderAuth !== false) {
     await waitForHeaderAuthReady(page);
   }

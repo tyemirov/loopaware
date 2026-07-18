@@ -1024,6 +1024,33 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `web/header-auth.js`, `tests/helpers/fixtures.js`, `tests/specs/header-auth-state.spec.js`, and `tests/specs/dashboard-auto-logout.spec.js`.
 
+- [x] [B064] (P1) Restore authentication before inspecting protected-page assets.
+  Goal:
+  Ensure dashboard and dashboard-preview asset checks validate the requested protected page instead of racing an authentication redirect to `/login`.
+
+  Requirements:
+  Protected asset inspection must restore the seeded TAuth session and reach the authenticated requested route before asserting CDN assets. Do not add retries, blind waits, fallback inspection paths, or timeout increases.
+
+  Deliverables:
+  - Make the protected asset helper use the canonical authenticated-page restoration contract.
+  - Add black-box assertions that the dashboard and each protected preview remain on their requested routes while assets are inspected.
+  - Reproduce the pre-fix redirect race deterministically and prove the corrected helper cannot validate `/login` by mistake.
+
+  Validation:
+  Run the focused protected asset scenarios, the full browser integration gate, and final `make ci`.
+
+  Resolution:
+  Split seeded authentication readiness into the mpr-ui session boundary and the LoopAware dashboard binding. Protected asset inspection now always restores the seeded TAuth session, waits for authenticated mpr-ui state on the exact requested route, and only then inspects CDN assets. Removed the obsolete session-restoration opt-out.
+
+  Validation Results:
+  - The deterministic pre-fix regression failed all four protected asset cases: `/app` redirected to `/login`, while the three preview pages remained unauthenticated; the other 452 browser scenarios passed.
+  - `make lint-js`: passed.
+  - `make test-integration`: passed all 456 browser scenarios in 3.9 minutes.
+  - `make ci`: passed all release and lifecycle contracts, Go tests with race detection, and 456 browser scenarios in 3.6 minutes; the four protected asset cases completed in 285–372 milliseconds.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `tests/helpers/fixtures.js`, and `tests/specs/header-auth-state.spec.js`.
+
 
 ## Improvements
 
