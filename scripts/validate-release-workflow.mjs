@@ -463,8 +463,11 @@ assert(
 );
 assert(
   makefileSource.includes("override SHELL := /bin/sh") &&
-    makefileSource.includes("lifecycle targets reject Make's no-execute mode") &&
+    makefileSource.includes("override LIFECYCLE_LONG_MAKEFLAGS := $(filter --ignore-errors --touch --question") &&
+    !makefileSource.includes("lifecycle targets reject Make's no-execute mode") &&
     makefileSource.includes("lifecycle targets reject Make's ignore-errors mode") &&
+    makefileSource.includes("lifecycle targets reject Make's touch mode") &&
+    makefileSource.includes("lifecycle targets reject Make's question mode") &&
     makefileSource.includes("override MOBILE_RELEASE_TIMESTAMP := $(value MOBILE_RELEASE_TIMESTAMP)") &&
     makefileSource.includes("override ANDROID_SDK_ROOT := $(value ANDROID_SDK_ROOT)") &&
     lifecycleRunnerSource.includes("BASH_ENV ENV NODE_OPTIONS NODE_PATH PYTHONHOME PYTHONPATH DOCKER_HOST DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH") &&
@@ -473,7 +476,7 @@ assert(
     lifecycleRunnerSource.includes('$1 == "BASHOPTS"') &&
     lifecycleRunnerSource.includes("lifecycle requires Bash from a canonical system or Homebrew path") &&
     lifecycleRunnerSource.includes("Bash 4 or newer"),
-  "lifecycle_must_reject_make_and_runtime_startup_bypasses",
+  "lifecycle_must_allow_planning_and_reject_runtime_startup_bypasses",
 );
 for (const [target, expectedRecipe] of canonicalLifecycleRecipes) {
   const recipe = makeRecipe(target);

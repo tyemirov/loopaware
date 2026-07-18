@@ -73,8 +73,16 @@ make_function_output="$(make -C "${make_fixture}" --no-print-directory 'MOBILE_R
 make_function_status=$?
 make_flags_output="$(MAKEFLAGS=-i make -C "${make_fixture}" --no-print-directory release-dry-run 2>&1)"
 make_flags_status=$?
-make_no_execute_output="$(make -n -C "${make_fixture}" --no-print-directory release-dry-run 2>&1)"
-make_no_execute_status=$?
+make_release_plan_output="$(make -n -C "${make_fixture}" --no-print-directory release 2>&1)"
+make_release_plan_status=$?
+make_publish_plan_output="$(make -n -C "${make_fixture}" --no-print-directory publish 2>&1)"
+make_publish_plan_status=$?
+make_deploy_plan_output="$(make -n -C "${make_fixture}" --no-print-directory deploy 2>&1)"
+make_deploy_plan_status=$?
+make_touch_output="$(make -t -C "${make_fixture}" --no-print-directory release-dry-run 2>&1)"
+make_touch_status=$?
+make_question_output="$(make -q -C "${make_fixture}" --no-print-directory release-dry-run 2>&1)"
+make_question_status=$?
 bash_env_output="$(BASH_ENV="${temporary_directory}/untrusted-bash-env" make -C "${make_fixture}" --no-print-directory release-dry-run 2>&1)"
 bash_env_status=$?
 node_options_output="$(NODE_OPTIONS=--require=untrusted make -C "${make_fixture}" --no-print-directory publish-dry-run 2>&1)"
@@ -87,7 +95,11 @@ set -e
 [[ "${make_function_status}" -ne 0 && ! -e "${make_function_marker}" ]]
 [[ "${make_function_output}" == *"Error 41"* ]]
 [[ "${make_flags_status}" -ne 0 && "${make_flags_output}" == *"reject Make's ignore-errors mode"* ]]
-[[ "${make_no_execute_status}" -ne 0 && "${make_no_execute_output}" == *"reject Make's no-execute mode"* ]]
+[[ "${make_release_plan_status}" -eq 0 && "${make_release_plan_output}" == *"./scripts/release.sh"* ]]
+[[ "${make_publish_plan_status}" -eq 0 && "${make_publish_plan_output}" == *"./scripts/publish.sh"* ]]
+[[ "${make_deploy_plan_status}" -eq 0 && "${make_deploy_plan_output}" == *"./scripts/deploy.sh"* ]]
+[[ "${make_touch_status}" -ne 0 && "${make_touch_output}" == *"reject Make's touch mode"* ]]
+[[ "${make_question_status}" -ne 0 && "${make_question_output}" == *"reject Make's question mode"* ]]
 [[ "${bash_env_status}" -ne 0 && "${bash_env_output}" == *"BASH_ENV is not supported"* ]]
 [[ "${node_options_status}" -ne 0 && "${node_options_output}" == *"NODE_OPTIONS is not supported"* ]]
 [[ "${docker_host_status}" -ne 0 && "${docker_host_output}" == *"DOCKER_HOST is not supported"* ]]
