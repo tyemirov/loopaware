@@ -130,4 +130,15 @@
         | to_json
       }}
   changed_when: false
+  failed_when: false
+  register: loopaware_dependency_contract
   no_log: true
+
+- name: Require LoopAware, TAuth, and Pinguin identities and authenticated canaries
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - loopaware_dependency_contract.rc == 0
+    fail_msg: >-
+      LoopAware dependency preflight failed:
+      {{ loopaware_dependency_contract.stderr | trim }}
