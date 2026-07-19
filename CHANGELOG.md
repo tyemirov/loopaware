@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the standard mobile store publishing inputs for local iOS IPA and Android AAB uploads.
 - Document the UTC CalVer mobile release-numbering contract and deterministic `MOBILE_RELEASE_TIMESTAMP` override.
 
+## [v0.7.51] - 2026-07-19
+
+- Merge pull request #301 from tyemirov/bugfix/B067-use-tauth-tenant-contract
+- fix(preflight): use app-owned TAuth tenant contract and add dependency contract test
+
 ## [v0.7.50] - 2026-07-18
 
 - Merge pull request #300 from tyemirov/bugfix/B066-deploy-available-memory
