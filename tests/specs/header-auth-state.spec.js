@@ -9,6 +9,7 @@ import {
   waitForExternalAssetStubsToSettle
 } from '../helpers/externalAssets.js';
 import {
+  authenticateMprUiTestingSession,
   buildAdminUser,
   openAuthenticatedPage,
   openMprUiAuthenticatedPage,
@@ -46,9 +47,8 @@ const GOOGLE_IDENTITY_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 const AUTH_SETTLE_DELAY_MS = 250;
 const COLD_MPR_UI_CONFIG_DELAY_MS = 3500;
-const AUTH_RESTORE_HINT_PREFIX = 'tauth.restore.v1:';
-const AUTH_RESTORE_HINT_VALUE = '1';
 const AUTH_ERROR_EVENT_STORAGE_KEY = '__loopawareAuthErrorEvents';
+const AUTHENTICATED_EVENT_PATHS_STORAGE_KEY = '__loopawareMprUiAuthenticatedEventPaths';
 const AUTH_ERROR_EVENT_TYPES = Object.freeze([
   'mpr-login:error',
   'mpr-ui:auth:error',
@@ -284,33 +284,6 @@ function buildLoginSessionCookieValue(user) {
 }
 
 /**
- * @returns {string}
- */
-function buildAuthRestoreHintKey() {
-  const authOrigin = new URL(config.baseURL).origin;
-  return `${AUTH_RESTORE_HINT_PREFIX}${encodeURIComponent(authOrigin)}:${encodeURIComponent(config.tenantId)}`;
-}
-
-/**
- * @param {import('@playwright/test').Page} page
- * @returns {Promise<void>}
- */
-async function installSingleUseAuthRestoreHint(page) {
-  await page.addInitScript(({ restoreHintKey, restoreHintValue }) => {
-    const win = /** @type {any} */ (window);
-    const sentinelKey = `${restoreHintKey}:seeded`;
-    if (!win.localStorage || !win.sessionStorage || win.sessionStorage.getItem(sentinelKey) === 'true') {
-      return;
-    }
-    win.localStorage.setItem(restoreHintKey, restoreHintValue);
-    win.sessionStorage.setItem(sentinelKey, 'true');
-  }, {
-    restoreHintKey: buildAuthRestoreHintKey(),
-    restoreHintValue: AUTH_RESTORE_HINT_VALUE
-  });
-}
-
-/**
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<void>}
  */
@@ -351,6 +324,37 @@ async function installAuthErrorEventRecorder(page) {
     storageKey: AUTH_ERROR_EVENT_STORAGE_KEY,
     eventTypes: AUTH_ERROR_EVENT_TYPES
   });
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function installAuthenticatedEventPathRecorder(page) {
+  await page.context().addInitScript((storageKey) => {
+    const win = /** @type {any} */ (window);
+    if (!win.localStorage || typeof document.addEventListener !== 'function') {
+      return;
+    }
+    if (win.localStorage.getItem(storageKey) === null) {
+      win.localStorage.setItem(storageKey, '[]');
+    }
+    document.addEventListener('mpr-ui:auth:authenticated', () => {
+      const paths = JSON.parse(win.localStorage.getItem(storageKey) || '[]');
+      paths.push(win.location.pathname);
+      win.localStorage.setItem(storageKey, JSON.stringify(paths));
+    });
+  }, AUTHENTICATED_EVENT_PATHS_STORAGE_KEY);
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<string[]>}
+ */
+async function readAuthenticatedEventPaths(page) {
+  return page.evaluate((storageKey) => {
+    return JSON.parse(window.localStorage.getItem(storageKey) || '[]');
+  }, AUTHENTICATED_EVENT_PATHS_STORAGE_KEY);
 }
 
 /**
@@ -545,15 +549,19 @@ test('login page completed sign-in loads the authenticated dashboard', async ({ 
 
 test('login page signs in cleanly after four idle hours with stale restore state', async ({ page }) => {
   await page.clock.install({ time: new Date('2026-06-05T12:00:00.000Z') });
-  await installSingleUseAuthRestoreHint(page);
   await installAuthErrorEventRecorder(page);
   const diagnostics = collectLongIdleLoginDiagnostics(page);
+  const loginSessionCookieValue = buildLoginSessionCookieValue(adminUser);
+  await openPageWithoutSession(page, '/privacy', {
+    sessionCookieValue: loginSessionCookieValue
+  });
+  await authenticateMprUiTestingSession(page, adminUser);
   const initialSessionStatus = page.waitForResponse((response) => {
     return new URL(response.url()).pathname === '/auth/session';
   });
 
   await openPageWithoutSession(page, '/login', {
-    sessionCookieValue: buildLoginSessionCookieValue(adminUser)
+    sessionCookieValue: loginSessionCookieValue
   });
   await initialSessionStatus;
   await enableAutoGoogleCredentialOnClick(page);
@@ -780,6 +788,16 @@ test('dashboard waits for cold mpr-ui configuration before resolving protected a
   await expect(page).toHaveURL(/\/app\/?$/);
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
   await expect(page.locator('#user-email')).toHaveText(adminUser.email);
+});
+
+test('authenticated page fixture drives mpr-ui testing before protected navigation', async ({ page }) => {
+  await installAuthenticatedEventPathRecorder(page);
+
+  await openMprUiPageWithSession(page, '/app');
+
+  const authenticatedEventPaths = await readAuthenticatedEventPaths(page);
+  expect(authenticatedEventPaths).toContain('/privacy');
+  expect(authenticatedEventPaths.at(-1)).toBe('/app');
 });
 
 test('login page loads latest CDN assets for auth UI', async ({ page }) => {
