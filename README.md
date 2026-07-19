@@ -623,7 +623,7 @@ Only after `make deploy-dry-run` succeeds, `make deploy` repeats the release/ima
 checks and passes the immutable image digest—not `latest`—to the app-owned Ansible controller. The
 controller reruns local validation before requesting the explicit `Gateway sudo password:` credential. The raw
 Ansible `BECOME password:` prompt is not part of the LoopAware deployment contract. Its remote preflight proves
-SSH/Python, x86_64 architecture, free memory and disk, Docker, the shared gateway network and
+SSH/Python, x86_64 architecture, available memory and disk, Docker, the shared gateway network and
 persistent LoopAware volume, running Caddy/Pinguin dependencies, exact LoopAware-to-TAuth/Pinguin
 credential identities, and authenticated read-only TAuth/Pinguin canaries. The deploy phase stages
 only LoopAware-owned Compose/config/env assets, pulls the exact image digest, and recreates only

@@ -593,6 +593,15 @@ assert(
   "deploy_must_be_owned_and_executable_from_the_loopaware_checkout",
 );
 assert(
+  appDeployPreflightSource.includes("MemAvailable:") &&
+    appDeployPreflightSource.includes("loopaware_available_memory_mb") &&
+    appDeployPreflightSource.includes("if (!found) exit 1") &&
+    appDeployPreflightSource.includes("(loopaware_available_memory_mb.stdout | int) >= 512") &&
+    appDeployPreflightSource.includes("detected {{ loopaware_available_memory_mb.stdout }} MiB") &&
+    !appDeployPreflightSource.includes("ansible_memfree_mb"),
+  "deploy_preflight_must_measure_linux_available_memory",
+);
+assert(
   deploySource.includes("verify_published_image_provenance") &&
     deploySource.includes("verify_release_container_descriptor") &&
     deploySource.includes('exact_image_ref="${IMAGE_REPOSITORY}@${release_digest}"') &&

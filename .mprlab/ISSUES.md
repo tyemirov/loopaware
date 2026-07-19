@@ -1086,6 +1086,22 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `CHANGELOG.md`, `Makefile`, `scripts/test-lifecycle-orchestration.sh`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B066] (P1) Measure deployable Linux memory instead of unused pages.
+  ### Summary
+  Production preflight rejected `tutosh` because Ansible reported 447 MiB of completely unused memory, even though Linux reported 3,808 MiB available to start a deployment without swapping. The preflight must measure deployable capacity rather than requiring the page cache to be empty.
+
+  ### Deliverables
+  - Read the canonical Linux `/proc/meminfo` `MemAvailable` value and require at least 512 MiB.
+  - Fail closed when `MemAvailable` is absent or malformed; do not fall back to `MemFree`.
+  - Keep the architecture and memory assertions distinct and report the detected capacity on failure.
+  - Cover the app-owned preflight contract without invoking a production deployment.
+
+  ### Resolution
+  Replaced Ansible's `ansible_memfree_mb` assertion with a fail-closed parser for the Linux `MemAvailable` contract, kept architecture validation separate, and made low-capacity failures report the detected available MiB. A read-only host probe confirmed the rejected gateway had 447 MiB `MemFree` but 3,808 MiB `MemAvailable`, so no cache purge or gateway resize was warranted. The regression first failed with `deploy_preflight_must_measure_linux_available_memory`; `make release-workflow-check`, the pinned Ansible 2.19.8 production-playbook syntax check, and final `make ci` then passed, including Go race detection and all 457 browser scenarios in 4.3 minutes. No production deployment was attempted.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `.mprlab/deploy/ansible/tasks/preflight.yml`, `README.md`, and `scripts/validate-release-workflow.mjs`.
+
 
 ## Improvements
 
