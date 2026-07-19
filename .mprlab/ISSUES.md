@@ -1067,6 +1067,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - `make lint-js`: passed after asserting the public `data-mpr-auth-status` host state instead of assuming an internal helper return shape.
   - `make test-integration`: passed all 457 browser scenarios in 4.0 minutes.
   - `make ci`: passed all release and lifecycle contracts, JavaScript type checks, Go tests with race detection, and all 457 browser scenarios in 4.2 minutes.
+  - After merging current `master` with B065, `make ci` passed the updated release and lifecycle contracts, JavaScript type checks, Go tests with race detection, and all 457 browser scenarios in 4.3 minutes.
 
   Follow-up Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `tests/helpers/fixtures.js`, and `tests/specs/header-auth-state.spec.js`.
