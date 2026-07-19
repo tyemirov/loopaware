@@ -1051,6 +1051,26 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `tests/helpers/fixtures.js`, and `tests/specs/header-auth-state.spec.js`.
 
+  Follow-up Review (2026-07-18):
+  The first resolution restored correct protected-route behavior but constructed mpr-ui's private `tauth.restore.v1:*` storage key directly. mpr-ui v3.11.1 already publishes `MPRUI.testing.authenticate(host, profile)` for browser suites that seed backend sessions; that helper drives the mounted controller, emits the normal auth lifecycle, and owns restore-hint persistence.
+
+  Follow-up Requirements:
+  - Seed authenticated browser state exclusively through `MPRUI.testing.authenticate()`.
+  - Delete LoopAware's restore-key prefix, value, and local-storage construction.
+  - Preserve exact requested-route and authenticated-state assertions so protected asset checks cannot inspect `/login`.
+
+  Follow-up Resolution:
+  Replaced LoopAware's private restore-key construction with the public `MPRUI.testing.authenticate()` browser fixture. The helper mounts mpr-ui on a stable `/privacy` page in the target browser context, lets mpr-ui own its normal authenticated lifecycle and restore-hint persistence, then closes that fixture page before navigating the still-cold target page. Protected checks continue to require authenticated mpr-ui state on the exact requested route. The long-idle login scenario now seeds its stale restore state through the same public fixture.
+
+  Follow-up Validation Results:
+  - Before the follow-up fix, the new lifecycle regression received authenticated event paths `['/app']` instead of an mpr-ui fixture event on `/privacy`; the other 456 browser scenarios passed.
+  - `make lint-js`: passed after asserting the public `data-mpr-auth-status` host state instead of assuming an internal helper return shape.
+  - `make test-integration`: passed all 457 browser scenarios in 4.0 minutes.
+  - `make ci`: passed all release and lifecycle contracts, JavaScript type checks, Go tests with race detection, and all 457 browser scenarios in 4.2 minutes.
+
+  Follow-up Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `tests/helpers/fixtures.js`, and `tests/specs/header-auth-state.spec.js`.
+
 
 ## Improvements
 

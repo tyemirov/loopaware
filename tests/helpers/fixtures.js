@@ -7,9 +7,8 @@ import { installTauthStub } from './tauthStub.js';
 const DEFAULT_AVATAR_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=';
 const DEFAULT_LOGOUT_REDIRECT_PATTERN = /\/login(?:\/)?(?:[?#].*)?$/;
 const APP_PATHNAME = '/app';
-const AUTH_RESTORE_HINT_PREFIX = 'tauth.restore.v1:';
-const AUTH_RESTORE_HINT_VALUE = '1';
 const LOGIN_PATHNAME = '/login';
+const MPR_UI_TESTING_FIXTURE_PATH = '/privacy';
 
 function randomSuffix() {
   return `${Date.now().toString(36)}${Math.random().toString(16).slice(2, 8)}`;
@@ -147,18 +146,66 @@ export async function waitForDashboardAccountHydrated(page) {
 }
 
 /**
+ * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
+ * @returns {{ user_id: string, user_email: string, email: string, display: string, avatar_url: string, roles: string[] }}
+ */
+function mprUiTestingProfileFromUser(user) {
+  return {
+    user_id: user.userId,
+    user_email: user.email,
+    email: user.email,
+    display: user.displayName,
+    avatar_url: user.avatarUrl,
+    roles: []
+  };
+}
+
+/**
  * @param {import('@playwright/test').Page} page
- * @param {{ baseOrigin?: string, baseURL: string, tenantId: string }} config
+ * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
  * @returns {Promise<void>}
  */
-async function seedMprUiAuthRestoreHint(page, config) {
-  const authOrigin = config.baseOrigin || new URL(config.baseURL).origin;
-  const storageKey = `${AUTH_RESTORE_HINT_PREFIX}${encodeURIComponent(authOrigin)}:${encodeURIComponent(config.tenantId)}`;
-  await setLocalStorage(page, { [storageKey]: AUTH_RESTORE_HINT_VALUE });
-  if (new URL(page.url()).origin === authOrigin) {
-    await page.evaluate(({ key, value }) => {
-      window.localStorage.setItem(key, value);
-    }, { key: storageKey, value: AUTH_RESTORE_HINT_VALUE });
+export async function authenticateMprUiTestingSession(page, user) {
+  const profile = mprUiTestingProfileFromUser(user);
+  await page.waitForFunction((currentProfile) => {
+    const testingApi = window.MPRUI && window.MPRUI.testing;
+    const headerHost = document.querySelector('mpr-header');
+    if (!headerHost || headerHost.getAttribute('data-mpr-auth-status') === null) {
+      return false;
+    }
+    if (!testingApi || typeof testingApi.authenticate !== 'function') {
+      return false;
+    }
+    testingApi.authenticate(headerHost, currentProfile);
+    return headerHost.getAttribute('data-mpr-auth-status') === 'authenticated';
+  }, profile);
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {{ baseOrigin?: string, baseURL: string, sessionCookieName?: string }} config
+ * @param {{ email: string, displayName: string, avatarUrl: string, userId: string, issuer?: string }} user
+ * @param {{
+ *   localStorage?: Record<string, string | number | boolean | null | undefined>,
+ *   tauth?: {
+ *     silentBootstrap?: boolean,
+ *     delayMs?: number,
+ *     bootstrapDelayMs?: number,
+ *     currentUserDelayMs?: number,
+ *     exchangeDelayMs?: number,
+ *     sessionCookieValue?: string
+ *   }
+ * }} options
+ * @returns {Promise<void>}
+ */
+async function authenticateMprUiTestingContext(page, config, user, options) {
+  const fixturePage = await page.context().newPage();
+  try {
+    await prepareLoopAwarePage(fixturePage, config, options);
+    await fixturePage.goto(MPR_UI_TESTING_FIXTURE_PATH, { waitUntil: 'commit' });
+    await authenticateMprUiTestingSession(fixturePage, user);
+  } finally {
+    await fixturePage.close();
   }
 }
 
@@ -317,7 +364,7 @@ export async function openMprUiAuthenticatedPage(page, config, user, path, optio
   const waitUntil = resolvedOptions.waitUntil || 'commit';
   await applySessionCookie(page.context(), config, user);
   await prepareLoopAwarePage(page, config, resolvedOptions);
-  await seedMprUiAuthRestoreHint(page, config);
+  await authenticateMprUiTestingContext(page, config, user, resolvedOptions);
   await page.goto(path, { waitUntil });
   await waitForMprUiSessionRestored(page, path);
 }
