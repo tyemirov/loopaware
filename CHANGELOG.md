@@ -33,9 +33,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document the standard mobile store publishing inputs for local iOS IPA and Android AAB uploads.
 - Document the UTC CalVer mobile release-numbering contract and deterministic `MOBILE_RELEASE_TIMESTAMP` override.
 
-## [v0.7.49] - 2026-07-17
+## [v0.7.49] - 2026-07-18
 
+- Merge pull request #299 from tyemirov/bugfix/B064-use-mpr-ui-auth-fixture
+- docs(issues): record B065 merge and ci success in ISSUES.md
+- Merge remote-tracking branch 'origin/master' into bugfix/B064-use-mpr-ui-auth-fixture
+- test: replace private restore-key logic with MPRUI.testing.authenticate fixture
+- Merge pull request #298 from tyemirov/bugfix/B065-make-dry-run-lifecycle
+- test: validate planning acceptance and enforce stricter Make by-bypass rejection
+- fix(makefile): allow no-execute mode for lifecycle targets
+- docs(changelog): add Make dry-run planning bug fix entry for release targets
+- docs(issues): document acceptance of Make dry-run mode for lifecycle targets
+- Merge pull request #297 from tyemirov/bugfix/B064-protected-asset-auth
+- Fix B064 protected asset authentication
+- Merge remote-tracking branch 'origin/master'
+- fix(validate-release-workflow): require image var in deploy resource check
+- chore(deploy): update loopaware-api service with assets and compose support
+- Merge pull request #296 from tyemirov/bugfix/B062-idempotent-release-recovery
+- Fix B063 protected dashboard auth readiness
+- Merge pull request #295 from tyemirov/improvement/I034-declare-tauth-tenant
+- fix(scripts/release): support reuse of untagged, canonical release commits
+- docs: clarify rerun behavior for untagged release commits in preflight
+- docs(issues): record P0 recovery workflow for untagged release commit
 - feat(deploy): add tauth tenant config for loopaware authentication
+- improvement(I034): declare app-owned TAuth tenant
 
 ## [v0.7.48] - 2026-07-16
 
