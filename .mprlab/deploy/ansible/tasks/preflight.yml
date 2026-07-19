@@ -21,13 +21,28 @@
       - '!all'
       - hardware
 
-- name: Require the production gateway architecture and memory
+- name: Require the production gateway architecture
   ansible.builtin.assert:
     quiet: true
     that:
       - ansible_architecture == 'x86_64'
-      - (ansible_memfree_mb | int) >= 512
-    fail_msg: "LoopAware deployment requires x86_64 and at least 512 MiB free memory."
+    fail_msg: "LoopAware deployment requires x86_64; detected {{ ansible_architecture }}."
+
+- name: Measure available gateway memory
+  ansible.builtin.command:
+    argv:
+      - awk
+      - '$1 == "MemAvailable:" && $2 ~ /^[0-9]+$/ && $3 == "kB" { print int($2 / 1024); found = 1 } END { if (!found) exit 1 }'
+      - /proc/meminfo
+  register: loopaware_available_memory_mb
+  changed_when: false
+
+- name: Require available gateway memory
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - (loopaware_available_memory_mb.stdout | int) >= 512
+    fail_msg: "LoopAware deployment requires at least 512 MiB available memory; detected {{ loopaware_available_memory_mb.stdout }} MiB."
 
 - name: Measure available deployment disk bytes
   ansible.builtin.shell:
