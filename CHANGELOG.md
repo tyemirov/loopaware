@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Publish iOS TestFlight and Google Play Internal testing builds from `make release`, with explicit skip flags for intentional partial mobile releases.
 
 ### Bug Fixes 🐛
+- Allow standard Make dry-run planning for release, publish, and deploy while continuing to reject lifecycle modes that alter error handling or target state.
 - Remove exact cross-service TAuth/Pinguin value comparisons from config-audit so deploy preflight validates runtime config schema, placeholder coverage, and required values without hardcoding operator-owned deployment values.
 
 ### Testing 🧪

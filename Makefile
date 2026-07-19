@@ -150,7 +150,7 @@ $(error PAGES_DEPLOY_ARGS is not supported; use the canonical Pages deployment c
 endif
 
 override LIFECYCLE_GOALS := $(filter release release-dry-run publish publish-dry-run publish-preflight deploy deploy-dry-run,$(MAKECMDGOALS))
-override LIFECYCLE_LONG_MAKEFLAGS := $(filter --ignore-errors --just-print --dry-run --recon --touch --question,$(value MAKEFLAGS))
+override LIFECYCLE_LONG_MAKEFLAGS := $(filter --ignore-errors --touch --question,$(value MAKEFLAGS))
 override LIFECYCLE_SHORT_MAKEFLAGS := $(subst -,,$(filter-out --% %=%, $(value MAKEFLAGS)))
 ifneq ($(strip $(LIFECYCLE_GOALS)),)
 ifneq ($(strip $(LIFECYCLE_LONG_MAKEFLAGS)),)
@@ -158,9 +158,6 @@ $(error lifecycle targets reject non-executing or error-ignoring Make flags: $(L
 endif
 ifneq ($(findstring i,$(LIFECYCLE_SHORT_MAKEFLAGS)),)
 $(error lifecycle targets reject Make's ignore-errors mode)
-endif
-ifneq ($(findstring n,$(LIFECYCLE_SHORT_MAKEFLAGS)),)
-$(error lifecycle targets reject Make's no-execute mode)
 endif
 ifneq ($(findstring t,$(LIFECYCLE_SHORT_MAKEFLAGS)),)
 $(error lifecycle targets reject Make's touch mode)
