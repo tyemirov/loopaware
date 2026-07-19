@@ -31,6 +31,7 @@ const appDeployValidateSource = readText(".mprlab/deploy/ansible/tasks/validate.
 const appDeployPreflightSource = readText(".mprlab/deploy/ansible/tasks/preflight.yml");
 const appDeployTaskSource = readText(".mprlab/deploy/ansible/tasks/deploy.yml");
 const appDeployVerifySource = readText(".mprlab/deploy/ansible/tasks/verify.yml");
+const dependencyVerifierSource = readText("scripts/verify-loopaware-dependency-contract.py");
 const pagesDeploySource = readText("scripts/release/deploy_pages_artifact.sh");
 const containerPublishSource = readText("scripts/release/publish_container_artifacts.sh");
 const containerPrepareSource = readText("scripts/release/prepare_container_artifact.sh");
@@ -600,6 +601,22 @@ assert(
     appDeployPreflightSource.includes("detected {{ loopaware_available_memory_mb.stdout }} MiB") &&
     !appDeployPreflightSource.includes("ansible_memfree_mb"),
   "deploy_preflight_must_measure_linux_available_memory",
+);
+assert(
+  dependencyVerifierSource.includes('require(loopaware, "TAUTH_TENANT_ID", "loopaware")') &&
+    dependencyVerifierSource.includes('require(loopaware, "TAUTH_SESSION_COOKIE_NAME", "loopaware")') &&
+    dependencyVerifierSource.includes('require(tauth, "TAUTH_JWT_SIGNING_KEY_LOOPAWARE", "tauth")') &&
+    !dependencyVerifierSource.includes("TAUTH_TENANT_ID_LOOPAWARE") &&
+    !dependencyVerifierSource.includes("TAUTH_SESSION_COOKIE_NAME_LOOPAWARE"),
+  "deploy_dependency_verifier_must_use_the_app_owned_tauth_tenant_contract",
+);
+assert(
+  appDeployPreflightSource.includes("register: loopaware_dependency_contract") &&
+    appDeployPreflightSource.includes("failed_when: false") &&
+    appDeployPreflightSource.includes("loopaware_dependency_contract.rc == 0") &&
+    appDeployPreflightSource.includes("loopaware_dependency_contract.stderr | trim") &&
+    appDeployPreflightSource.includes("no_log: true"),
+  "deploy_dependency_preflight_must_report_only_the_sanitized_verifier_failure",
 );
 assert(
   deploySource.includes("verify_published_image_provenance") &&

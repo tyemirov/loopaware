@@ -1102,6 +1102,24 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `.mprlab/deploy/ansible/tasks/preflight.yml`, `README.md`, and `scripts/validate-release-workflow.mjs`.
 
+- [x] [B067] (P1) Verify the app-owned TAuth tenant contract without obsolete dotenv metadata.
+  ### Summary
+  Production preflight fails before deployment because the dependency verifier still requires `TAUTH_TENANT_ID_LOOPAWARE` and `TAUTH_SESSION_COOKIE_NAME_LOOPAWARE` in the shared TAuth dotenv. The app-owned `tauth_tenant` resource now owns those stable values, and the active gateway environment intentionally contains only the LoopAware signing secret.
+
+  ### Deliverables
+  - Read the LoopAware tenant ID and session cookie name from LoopAware's canonical environment while retaining the shared signing-key identity check.
+  - Reject missing canonical LoopAware metadata and dependency secret mismatches without restoring obsolete shared TAuth dotenv keys.
+  - Surface the verifier's sanitized failure reason from Ansible while keeping all dependency environment documents censored.
+  - Cover the public dependency-verifier CLI and app-owned preflight contract without invoking a production deployment.
+
+  ### Resolution
+  Removed the verifier's obsolete reads of shared TAuth tenant ID and cookie metadata. The verifier now requires those stable values from LoopAware's canonical environment, continues to compare the LoopAware signing key with TAuth's active tenant signing key, and uses the canonical LoopAware values for the authenticated TAuth canary. The protected Ansible command records a non-fatal result under `no_log`, then a separate assertion reports only the verifier's sanitized stderr when the contract fails. Added black-box CLI coverage for the canonical environment shape, secret mismatch redaction, and missing app-owned metadata.
+
+  The regression first failed with `tauth: missing required TAUTH_TENANT_ID_LOOPAWARE`. The focused dependency contract, aggregate release workflow contract, Python and shell syntax checks, Git diff check, and pinned Ansible 2.19.8 production-playbook syntax check passed. A live read-only invocation against the active LoopAware, TAuth, and Pinguin environments passed both authenticated canaries. Baseline `make ci` passed all 457 browser scenarios in 4.1 minutes, and final `make ci` passed all release and deployment contracts, Go race checks, and all 457 browser scenarios in 4.3 minutes. No production deployment or publication was attempted.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `.mprlab/deploy/ansible/tasks/preflight.yml`, `Makefile`, `scripts/test-loopaware-dependency-contract.sh`, `scripts/validate-release-workflow.mjs`, and `scripts/verify-loopaware-dependency-contract.py`.
+
 
 ## Improvements
 

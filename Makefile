@@ -167,7 +167,7 @@ $(error lifecycle targets reject Make's question mode)
 endif
 endif
 
-.PHONY: format format-pinguin build lint lint-js release-workflow-check release-pages-contract-check staged-release-contract-check deploy-dry-run-contract-check publish-preflight-contract-check ios-npm-publication-contract-check lifecycle-orchestration-contract-check client-react-native-install client-react-native-check client-react-native-artifact publish-react-native mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle mobile-release-artifacts container-artifacts pages-artifact pages-deploy submit-ios submit-android submit-mobile publish-mobile config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release release-dry-run publish-release publish-preflight publish-dry-run publish deploy deploy-dry-run
+.PHONY: format format-pinguin build lint lint-js release-workflow-check release-pages-contract-check staged-release-contract-check deploy-dry-run-contract-check publish-preflight-contract-check ios-npm-publication-contract-check lifecycle-orchestration-contract-check dependency-contract-check client-react-native-install client-react-native-check client-react-native-artifact publish-react-native mobile-install mobile-check mobile-start run-ios run-android build-ios build-android mobile-android-bundle mobile-release-artifacts container-artifacts pages-artifact pages-deploy submit-ios submit-android submit-mobile publish-mobile config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release release-dry-run publish-release publish-preflight publish-dry-run publish deploy deploy-dry-run
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -203,7 +203,7 @@ lint-js: client-react-native-check mobile-check release-workflow-check
 	npm --prefix tests run typecheck
 	npm --prefix tests run check:location-map
 
-release-workflow-check: release-pages-contract-check staged-release-contract-check deploy-dry-run-contract-check publish-preflight-contract-check ios-npm-publication-contract-check lifecycle-orchestration-contract-check
+release-workflow-check: release-pages-contract-check staged-release-contract-check deploy-dry-run-contract-check publish-preflight-contract-check ios-npm-publication-contract-check lifecycle-orchestration-contract-check dependency-contract-check
 	node scripts/validate-release-workflow.mjs
 
 release-pages-contract-check:
@@ -223,6 +223,9 @@ ios-npm-publication-contract-check:
 
 lifecycle-orchestration-contract-check:
 	bash scripts/test-lifecycle-orchestration.sh
+
+dependency-contract-check:
+	bash scripts/test-loopaware-dependency-contract.sh
 
 client-react-native-install:
 	@if [ ! -d "$(CURDIR)/$(CLIENT_REACT_NATIVE_DIR)/node_modules" ]; then \

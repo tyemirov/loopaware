@@ -126,9 +126,9 @@ def main() -> None:
     loopaware = read_dotenv("loopaware", payload["loopaware"])
     tauth = read_dotenv("tauth", payload["tauth"])
     pinguin = read_dotenv("pinguin", payload["pinguin"])
-    require_equal(loopaware, "TAUTH_TENANT_ID", "loopaware", tauth, "TAUTH_TENANT_ID_LOOPAWARE", "tauth")
+    loopaware_tenant_id = require(loopaware, "TAUTH_TENANT_ID", "loopaware")
+    loopaware_session_cookie_name = require(loopaware, "TAUTH_SESSION_COOKIE_NAME", "loopaware")
     require_equal(loopaware, "TAUTH_JWT_SIGNING_KEY", "loopaware", tauth, "TAUTH_JWT_SIGNING_KEY_LOOPAWARE", "tauth")
-    require_equal(loopaware, "TAUTH_SESSION_COOKIE_NAME", "loopaware", tauth, "TAUTH_SESSION_COOKIE_NAME_LOOPAWARE", "tauth")
     require_equal(loopaware, "PINGUIN_AUTH_TOKEN", "loopaware", pinguin, "GRPC_AUTH_TOKEN", "pinguin")
     require_equal(loopaware, "PINGUIN_TENANT_ID", "loopaware", pinguin, "PINGUIN_TENANT_ID_LA", "pinguin")
 
@@ -139,10 +139,10 @@ def main() -> None:
     verify_authenticated_get(
         "https://tauth-api.mprlab.com/me",
         "https://loopaware.mprlab.com",
-        require(tauth, "TAUTH_SESSION_COOKIE_NAME_LOOPAWARE", "tauth"),
+        loopaware_session_cookie_name,
         session_token(
             require(tauth, "TAUTH_JWT_SIGNING_KEY_LOOPAWARE", "tauth"),
-            "loopaware",
+            loopaware_tenant_id,
             "loopaware-deploy-tauth-canary",
         ),
         "TAuth LoopAware tenant",
