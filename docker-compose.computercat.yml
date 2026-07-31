@@ -6,6 +6,7 @@ services:
     pull_policy: always
     env_file:
       - ./configs/.env.tauth.computercat
+    x-config-audit-env-file: ./tests/configs/tauth.env
     expose:
       - "8082"
     volumes:
@@ -21,6 +22,7 @@ services:
     pull_policy: always
     env_file:
       - ./configs/.env.pinguin.computercat
+    x-config-audit-env-file: ./tests/configs/pinguin.env
     expose:
       - "8081"
     volumes:
@@ -36,6 +38,7 @@ services:
     pull_policy: build
     env_file:
       - ./configs/.env.loopaware.computercat
+    x-config-audit-env-file: ./tests/configs/loopaware.env
     depends_on:
       la-pinguin:
         condition: service_started
@@ -73,6 +76,7 @@ services:
       - "4443:4443"
     env_file:
       - ./configs/.env.ghttp.computercat
+    x-config-audit-env-file: ./tests/configs/ghttp.env
     volumes:
       - ./web:/data:ro
       - /media/share/Drive/exchange/certs/computercat:/certs:ro
