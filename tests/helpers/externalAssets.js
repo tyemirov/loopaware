@@ -21,12 +21,8 @@ const JS_YAML_STUB = `window.jsyaml = {
               tenantId: 'loopaware',
               loginPath: '/auth/google',
               logoutPath: '/auth/logout',
-              noncePath: '/auth/nonce'
-            },
-            authButton: {
-              text: 'signin_with',
-              size: 'large',
-              theme: 'outline'
+              noncePath: '/auth/nonce',
+              sessionPath: '/auth/session'
             }
           },
           {
@@ -38,12 +34,8 @@ const JS_YAML_STUB = `window.jsyaml = {
               tenantId: 'loopaware',
               loginPath: '/auth/google',
               logoutPath: '/auth/logout',
-              noncePath: '/auth/nonce'
-            },
-            authButton: {
-              text: 'signin_with',
-              size: 'large',
-              theme: 'outline'
+              noncePath: '/auth/nonce',
+              sessionPath: '/auth/session'
             }
           }
         ]

@@ -44,6 +44,7 @@ const SHARED_AUTH_HTML_CASES = Object.freeze([
   ...DASHBOARD_PREVIEW_CASES
 ]);
 const GOOGLE_IDENTITY_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
+const CURRENT_TAUTH_SESSION_PATH = '/auth/session';
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 const AUTH_SETTLE_DELAY_MS = 250;
 const COLD_MPR_UI_CONFIG_DELAY_MS = 3500;
@@ -485,6 +486,36 @@ async function beginLoginPageHeaderLoginFlow(page) {
 test('dashboard requires authentication and redirects unauthenticated users to login', async ({ page }) => {
   await openPageWithoutSession(page, '/app');
   await expect(page).toHaveURL(/\/login\/?$/);
+});
+
+test('login page applies the current mpr-ui auth config and renders its static header login control', async ({ page }) => {
+  /** @type {string[]} */
+  const orchestrationProblems = [];
+  page.on('console', (message) => {
+    if (message.text().includes('[mpr-ui-config]')) {
+      orchestrationProblems.push(`${message.type()}: ${message.text()}`);
+    }
+  });
+  page.on('pageerror', (error) => {
+    if (error.message.includes('config-ui.yaml')) {
+      orchestrationProblems.push(`pageerror: ${error.message}`);
+    }
+  });
+
+  const configResponse = await page.request.get(new URL('/config-ui.yaml', config.baseURL).toString());
+  expect(configResponse.ok()).toBe(true);
+  const configText = await configResponse.text();
+  const environmentCount = configText.match(/^  - description:/gm)?.length || 0;
+  const sessionPathCount = configText.match(/^      sessionPath: "\/auth\/session"$/gm)?.length || 0;
+  expect(environmentCount).toBeGreaterThan(0);
+  expect(sessionPathCount).toBe(environmentCount);
+  expect(configText).not.toMatch(/^    authButton:/m);
+
+  await openPageWithoutSession(page, '/login');
+
+  await expect(page.locator('mpr-header')).toHaveAttribute('tauth-session-path', CURRENT_TAUTH_SESSION_PATH);
+  await expectLandingLoginControls(page);
+  expect(orchestrationProblems).toEqual([]);
 });
 
 test('login page redirects authenticated users to the dashboard', async ({ page }) => {
