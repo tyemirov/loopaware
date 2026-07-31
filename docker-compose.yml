@@ -6,6 +6,7 @@ services:
     pull_policy: always
     env_file:
       - ./configs/.env.tauth
+    x-config-audit-env-file: ./tests/configs/tauth.env
     ports:
       - "8082:8082"
     volumes:
@@ -23,6 +24,7 @@ services:
       - "8081:8081"
     env_file:
       - ./configs/.env.pinguin
+    x-config-audit-env-file: ./tests/configs/pinguin.env
     volumes:
       - pinguin-data:/app/data
       - ./configs/config.pinguin.yml:/config/config.yml:ro
@@ -32,6 +34,7 @@ services:
     container_name: loopaware
     env_file:
       - ./configs/.env.loopaware
+    x-config-audit-env-file: ./tests/configs/loopaware.env
     depends_on:
       la-pinguin:
         condition: service_started
@@ -72,6 +75,7 @@ services:
       - "/=X-Permitted-Cross-Domain-Policies:none"
     env_file:
       - ./configs/.env.ghttp
+    x-config-audit-env-file: ./tests/configs/ghttp.env
     depends_on:
       - loopaware
       - la-tauth
