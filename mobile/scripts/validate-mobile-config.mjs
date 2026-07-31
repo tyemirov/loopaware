@@ -276,10 +276,13 @@ assert(
   makefile.includes("submit-mobile: publish-mobile"),
   "mobile_combined_submit_must_use_safe_preflighted_publication_path",
 );
-assert(readText("configs/.env.loopaware.example").includes("MOBILE_IOS_ASC_APP_ID=6788555440"), "mobile_loopaware_env_example_missing_ios_asc_app_id");
 assert(
-  readText("configs/.env.loopaware.computercat.example").includes("MOBILE_IOS_ASC_APP_ID=6788555440"),
-  "mobile_loopaware_computercat_env_example_missing_ios_asc_app_id",
+  readText("configs/.env.loopaware.example").includes("MOBILE_IOS_ASC_APP_ID=42"),
+  "mobile_loopaware_env_example_missing_fake_ios_asc_app_id",
+);
+assert(
+  readText("configs/.env.loopaware.computercat.example").includes("MOBILE_IOS_ASC_APP_ID=42"),
+  "mobile_loopaware_computercat_env_example_missing_fake_ios_asc_app_id",
 );
 
 const iosSubmitSource = readText("mobile/scripts/submit-ios.mjs");
