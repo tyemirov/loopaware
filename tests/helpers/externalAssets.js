@@ -1,70 +1,10 @@
 // @ts-check
 
-const JS_YAML_URL = 'https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js';
 const GOOGLE_IDENTITY_URL = 'https://accounts.google.com/gsi/client';
 const GOOGLE_IDENTITY_STYLE_URL = 'https://accounts.google.com/gsi/style';
 const GOOGLE_IDENTITY_BUTTON_URL_PATTERN = /^https:\/\/accounts\.google\.com\/gsi\/button(?:\?.*)?$/;
 const BOOTSTRAP_CSS_URL = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css';
 const BOOTSTRAP_ICONS_CSS_URL = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
-const JS_YAML_STUB = `window.jsyaml = {
-  load: function(source) {
-    var text = String(source || '');
-    if (text.indexOf('origins:') !== -1 && text.indexOf('googleClientId:') !== -1) {
-      return {
-        environments: [
-          {
-            description: 'Production',
-            origins: ['https://loopaware.mprlab.com', 'https://tyemirov.github.io'],
-            auth: {
-              tauthUrl: 'https://tauth-api.mprlab.com',
-              googleClientId: '281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com',
-              tenantId: 'loopaware',
-              loginPath: '/auth/google',
-              logoutPath: '/auth/logout',
-              noncePath: '/auth/nonce',
-              sessionPath: '/auth/session'
-            }
-          },
-          {
-            description: 'development',
-            origins: ['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:8090', 'http://127.0.0.1:8090', 'https://computercat.tyemirov.net:4443'],
-            auth: {
-              tauthUrl: '',
-              googleClientId: '281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com',
-              tenantId: 'loopaware',
-              loginPath: '/auth/google',
-              logoutPath: '/auth/logout',
-              noncePath: '/auth/nonce',
-              sessionPath: '/auth/session'
-            }
-          }
-        ]
-      };
-    }
-    return {
-      environments: [
-        {
-          name: 'production',
-          hostnames: ['loopaware.mprlab.com', 'tyemirov.github.io'],
-          services: {
-            apiOrigin: 'https://loopaware-api.mprlab.com',
-            tauthOrigin: 'https://tauth-api.mprlab.com',
-            siteWidgetSiteId: 'a3222433-92ec-473a-9255-0797226c2273'
-          }
-        },
-        {
-          name: 'development',
-          hostnames: ['computercat.tyemirov.net', 'localhost', '127.0.0.1'],
-          services: {
-            apiOrigin: '',
-            tauthOrigin: '',
-            siteWidgetSiteId: ''
-          }
-        }
-      ]
-    };
-  }
-};`;
 const GOOGLE_IDENTITY_STUB = `(() => {
   window.google = window.google || {};
   window.google.accounts = window.google.accounts || {};
@@ -340,15 +280,6 @@ export async function installExternalAssetStubs(page, config) {
   ensureAssetRouteTracker(browserPage);
   const appOrigin = config?.baseOrigin || (config?.baseURL ? new URL(config.baseURL).origin : '');
 
-  await page.route(JS_YAML_URL, async (route) => {
-    await runTrackedRoute(browserPage, async () => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/javascript; charset=utf-8',
-        body: JS_YAML_STUB
-      });
-    });
-  });
   await page.route(GOOGLE_IDENTITY_URL, async (route) => {
     await runTrackedRoute(browserPage, async () => {
       await route.fulfill({

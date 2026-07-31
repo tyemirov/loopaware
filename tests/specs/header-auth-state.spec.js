@@ -505,14 +505,24 @@ test('login page applies the current mpr-ui auth config and renders its static h
   const configResponse = await page.request.get(new URL('/config-ui.yaml', config.baseURL).toString());
   expect(configResponse.ok()).toBe(true);
   const configText = await configResponse.text();
-  const environmentCount = configText.match(/^  - description:/gm)?.length || 0;
-  const sessionPathCount = configText.match(/^      sessionPath: "\/auth\/session"$/gm)?.length || 0;
-  expect(environmentCount).toBeGreaterThan(0);
-  expect(sessionPathCount).toBe(environmentCount);
-  expect(configText).not.toMatch(/^    authButton:/m);
 
   await openPageWithoutSession(page, '/login');
 
+  const parsedConfig = await page.evaluate((source) => {
+    const yamlParser = /** @type {{ load?: (yamlSource: string) => unknown }} */ (/** @type {any} */ (window).jsyaml);
+    if (!yamlParser || typeof yamlParser.load !== 'function') {
+      throw new Error('loopaware.test_yaml_parser_unavailable');
+    }
+    return yamlParser.load(source);
+  }, configText);
+  const environments = /** @type {Array<{ auth?: Record<string, unknown>, authButton?: unknown }>} */ (
+    /** @type {{ environments?: unknown[] }} */ (parsedConfig).environments || []
+  );
+  expect(environments.length).toBeGreaterThan(0);
+  for (const environment of environments) {
+    expect(environment.auth).toMatchObject({ sessionPath: CURRENT_TAUTH_SESSION_PATH });
+    expect(environment).not.toHaveProperty('authButton');
+  }
   await expect(page.locator('mpr-header')).toHaveAttribute('tauth-session-path', CURRENT_TAUTH_SESSION_PATH);
   await expectLandingLoginControls(page);
   expect(orchestrationProblems).toEqual([]);
