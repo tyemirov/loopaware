@@ -116,13 +116,13 @@ The local Compose env files provide shell values for placeholders used by `confi
 
 Secrets can remain outside the tracked file by using placeholders. Non-secret settings can be literal YAML values when that is clearer for the environment.
 
-When running via Docker Compose, copy the tracked env templates under `configs/` and edit the local `.env.*` files:
+When running via Docker Compose, create private local `.env.*` files explicitly. The tracked examples document variable names only; their values are intentionally unusable and must never be copied, sourced, or passed to Compose.
 
 ```bash
-cp configs/.env.loopaware.example configs/.env.loopaware
-cp configs/.env.tauth.example configs/.env.tauth
-cp configs/.env.pinguin.example configs/.env.pinguin
-cp configs/.env.ghttp.example configs/.env.ghttp
+install -m 0600 /dev/null configs/.env.loopaware
+install -m 0600 /dev/null configs/.env.tauth
+install -m 0600 /dev/null configs/.env.pinguin
+install -m 0600 /dev/null configs/.env.ghttp
 $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
 ```
 
@@ -712,10 +712,10 @@ passwords, Google service-account JSON files, and upload keystore secrets outsid
 Ensure the container receives the placeholder inputs used by `configs/config.loopaware.yml` and mounts that backend runtime config file.
 
 ```bash
-cp configs/.env.loopaware.example configs/.env.loopaware
-cp configs/.env.tauth.example configs/.env.tauth
-cp configs/.env.pinguin.example configs/.env.pinguin
-cp configs/.env.ghttp.example configs/.env.ghttp
+install -m 0600 /dev/null configs/.env.loopaware
+install -m 0600 /dev/null configs/.env.tauth
+install -m 0600 /dev/null configs/.env.pinguin
+install -m 0600 /dev/null configs/.env.ghttp
 $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
 ./scripts/up.sh
 ```
@@ -736,10 +736,10 @@ through the helper scripts:
 For the computercat TLS stack, use:
 
 ```bash
-cp configs/.env.loopaware.computercat.example configs/.env.loopaware.computercat
-cp configs/.env.tauth.computercat.example configs/.env.tauth.computercat
-cp configs/.env.pinguin.computercat.example configs/.env.pinguin.computercat
-cp configs/.env.ghttp.computercat.example configs/.env.ghttp.computercat
+install -m 0600 /dev/null configs/.env.loopaware.computercat
+install -m 0600 /dev/null configs/.env.tauth.computercat
+install -m 0600 /dev/null configs/.env.pinguin.computercat
+install -m 0600 /dev/null configs/.env.ghttp.computercat
 $EDITOR configs/.env.loopaware.computercat configs/.env.tauth.computercat configs/.env.pinguin.computercat configs/.env.ghttp.computercat
 ./scripts/up.sh computercat
 ```
