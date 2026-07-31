@@ -1141,8 +1141,11 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Validation Results:
   Live read-only inspection reproduced the production `config-ui.yaml does not allow authButton` failure and confirmed the static header presentation was already present. `make lint-js` passed. `make test-integration` passed all 458 browser/API scenarios in 4.3 minutes. Final `make ci` passed config audit, builds, release and deployment contracts, JavaScript type checks, Go tests with race detection, and all 458 browser/API scenarios in 4.4 minutes. No release, publication, or production deployment was run.
 
+  Review follow-up 2026-07-31:
+  Made config audit fail closed when production environment inputs are absent and gave each production Compose service an explicit tracked `x-config-audit-env-file`; documentation-only `.env.*.example` and `.sample` paths are rejected. Removed the hard-coded test YAML parser so the browser regression now loads LoopAware's configured CDN parser and applies the actual served `/config-ui.yaml`. Aligned README environment guidance with those runtime and audit boundaries. `make config-audit`, `make lint-js`, and `make test-unit` passed; a clean archived copy with no private environment files passed config audit without warnings; final `make ci` passed all build, release, deployment-contract, type, Go race, and 458 browser/API scenarios in 4.5 minutes. No release, publication, or production deployment was run.
+
   Changed Files:
-  `PLAN.md`, `.mprlab/ISSUES.md`, `web/config-ui.yaml`, `tests/helpers/externalAssets.js`, and `tests/specs/header-auth-state.spec.js`.
+  `PLAN.md`, `.mprlab/ISSUES.md`, `.mprlab/deploy/docker-compose.yml`, `README.md`, `cmd/configaudit/main.go`, `cmd/configaudit/main_additional_test.go`, `cmd/configaudit/main_test.go`, `docker-compose.yml`, `docker-compose.computercat.yml`, `web/config-ui.yaml`, `tests/helpers/externalAssets.js`, and `tests/specs/header-auth-state.spec.js`.
 
 
 ## Improvements

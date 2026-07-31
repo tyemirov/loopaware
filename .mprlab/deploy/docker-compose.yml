@@ -7,6 +7,7 @@ services:
     restart: unless-stopped
     env_file:
       - ../../configs/.env.loopaware
+    x-config-audit-env-file: ../../tests/configs/loopaware.env
     expose:
       - "8080"
     volumes:
