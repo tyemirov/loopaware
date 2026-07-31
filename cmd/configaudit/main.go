@@ -129,19 +129,20 @@ type composeFile struct {
 }
 
 type composeService struct {
-	EnvFile     stringList     `yaml:"env_file"`
-	Environment environmentMap `yaml:"environment"`
-	Volumes     stringList     `yaml:"volumes"`
-	Ports       stringList     `yaml:"ports"`
-	DependsOn   yaml.Node      `yaml:"depends_on"`
-	PullPolicy  string         `yaml:"pull_policy"`
-	Restart     string         `yaml:"restart"`
-	Image       string         `yaml:"image"`
-	Build       interface{}    `yaml:"build"`
-	Develop     interface{}    `yaml:"develop"`
-	Container   string         `yaml:"container_name"`
-	OtherKeys   map[string]any `yaml:",inline"`
-	OtherFields map[string]any `yaml:"-"`
+	EnvFile      stringList     `yaml:"env_file"`
+	AuditEnvFile string         `yaml:"x-config-audit-env-file"`
+	Environment  environmentMap `yaml:"environment"`
+	Volumes      stringList     `yaml:"volumes"`
+	Ports        stringList     `yaml:"ports"`
+	DependsOn    yaml.Node      `yaml:"depends_on"`
+	PullPolicy   string         `yaml:"pull_policy"`
+	Restart      string         `yaml:"restart"`
+	Image        string         `yaml:"image"`
+	Build        interface{}    `yaml:"build"`
+	Develop      interface{}    `yaml:"develop"`
+	Container    string         `yaml:"container_name"`
+	OtherKeys    map[string]any `yaml:",inline"`
+	OtherFields  map[string]any `yaml:"-"`
 }
 
 type auditResult struct {
@@ -223,7 +224,7 @@ func runAudit(composePath string) auditResult {
 	hostPortToService := make(map[string]string)
 
 	for serviceName, service := range compose.Services {
-		env, hasAuditableEnvironment, envErr := loadServiceEnvironment(composeDirectory, serviceName, service.EnvFile, service.Environment, &result)
+		env, hasAuditableEnvironment, envErr := loadServiceEnvironment(composeDirectory, serviceName, service.EnvFile, service.AuditEnvFile, service.Environment, &result)
 		if envErr != nil {
 			result.addError("service %s: %v", serviceName, envErr)
 			continue
@@ -243,7 +244,7 @@ func runAudit(composePath string) auditResult {
 				}
 			}
 		} else if configTemplates := resolveConfigTemplates(composeDirectory, service.Volumes); len(configTemplates) > 0 {
-			result.addWarning("service %s: skipped config template env audit because no tracked environment data is available", serviceName)
+			result.addError("service %s: config template audit requires environment data", serviceName)
 		}
 		if isLoopAwareService(serviceName) {
 			loopAwareRuntimeConfigTemplates := resolveLoopAwareRuntimeConfigTemplates(composeDirectory, service.Volumes)
@@ -259,7 +260,7 @@ func runAudit(composePath string) auditResult {
 					}
 				}
 			} else if len(loopAwareRuntimeConfigTemplates) > 0 {
-				result.addWarning("service %s: skipped LoopAware runtime config audit because no tracked environment data is available", serviceName)
+				result.addError("service %s: LoopAware runtime config audit requires environment data", serviceName)
 			}
 		}
 
@@ -272,28 +273,45 @@ func runAudit(composePath string) auditResult {
 	return result
 }
 
-func loadServiceEnvironment(composeDirectory string, serviceName string, envFiles []string, environment environmentMap, result *auditResult) (map[string]string, bool, error) {
+func loadServiceEnvironment(composeDirectory string, serviceName string, envFiles []string, auditEnvFile string, environment environmentMap, result *auditResult) (map[string]string, bool, error) {
 	merged := make(map[string]string)
 	hasAuditableEnvironment := false
+	missingRuntimeEnvFiles := make([]string, 0, len(envFiles))
 
 	for _, envFile := range envFiles {
-		auditPath, displayPath, _, found, resolveErr := resolveAuditEnvFile(composeDirectory, envFile)
+		auditPath, displayPath, found, resolveErr := resolveAuditEnvFile(composeDirectory, envFile)
 		if resolveErr != nil {
 			return nil, false, fmt.Errorf("resolve env_file %s: %w", envFile, resolveErr)
 		}
 		if !found {
-			result.addWarning("service %s: env_file %s is absent and no tracked template exists; skipping env audit for this file", serviceName, envFile)
+			missingRuntimeEnvFiles = append(missingRuntimeEnvFiles, envFile)
 			continue
 		}
-		values, duplicates, parseErr := parseDotEnv(auditPath)
-		if parseErr != nil {
-			return nil, false, fmt.Errorf("parse env_file %s: %w", displayPath, parseErr)
+		if mergeErr := mergeEnvironmentFile(auditPath, "env_file "+displayPath, serviceName, merged, result); mergeErr != nil {
+			return nil, false, mergeErr
 		}
-		for _, duplicate := range duplicates {
-			result.addError("service %s: env_file %s defines %s more than once", serviceName, displayPath, duplicate)
+		hasAuditableEnvironment = true
+	}
+	if len(missingRuntimeEnvFiles) > 0 {
+		if len(missingRuntimeEnvFiles) != len(envFiles) {
+			return nil, false, fmt.Errorf("runtime env files are partially present; missing %s", strings.Join(missingRuntimeEnvFiles, ", "))
 		}
-		for key, value := range values {
-			merged[key] = value
+		trimmedAuditEnvFile := strings.TrimSpace(auditEnvFile)
+		if trimmedAuditEnvFile == "" {
+			return nil, false, fmt.Errorf("env_file %s is absent and service does not declare x-config-audit-env-file", strings.Join(missingRuntimeEnvFiles, ", "))
+		}
+		if strings.HasSuffix(trimmedAuditEnvFile, ".example") || strings.HasSuffix(trimmedAuditEnvFile, ".sample") {
+			return nil, false, fmt.Errorf("x-config-audit-env-file %s must be a tracked test fixture, not an environment example", trimmedAuditEnvFile)
+		}
+		auditPath, displayPath, found, resolveErr := resolveAuditEnvFile(composeDirectory, trimmedAuditEnvFile)
+		if resolveErr != nil {
+			return nil, false, fmt.Errorf("resolve x-config-audit-env-file %s: %w", trimmedAuditEnvFile, resolveErr)
+		}
+		if !found {
+			return nil, false, fmt.Errorf("x-config-audit-env-file %s is absent", trimmedAuditEnvFile)
+		}
+		if mergeErr := mergeEnvironmentFile(auditPath, "x-config-audit-env-file "+displayPath, serviceName, merged, result); mergeErr != nil {
+			return nil, false, mergeErr
 		}
 		hasAuditableEnvironment = true
 	}
@@ -309,26 +327,31 @@ func loadServiceEnvironment(composeDirectory string, serviceName string, envFile
 	return merged, hasAuditableEnvironment, nil
 }
 
-func resolveAuditEnvFile(composeDirectory string, envFile string) (string, string, bool, bool, error) {
+func mergeEnvironmentFile(path string, displayPath string, serviceName string, merged map[string]string, result *auditResult) error {
+	values, duplicates, parseErr := parseDotEnv(path)
+	if parseErr != nil {
+		return fmt.Errorf("parse %s: %w", displayPath, parseErr)
+	}
+	for _, duplicate := range duplicates {
+		result.addError("service %s: %s defines %s more than once", serviceName, displayPath, duplicate)
+	}
+	for key, value := range values {
+		merged[key] = value
+	}
+	return nil
+}
+
+func resolveAuditEnvFile(composeDirectory string, envFile string) (string, string, bool, error) {
 	resolvedPath := filepath.Clean(filepath.Join(composeDirectory, envFile))
 	foundPath, found, resolveErr := findExistingAuditFile(resolvedPath)
 	if resolveErr != nil {
-		return "", "", false, false, resolveErr
+		return "", "", false, resolveErr
 	}
 	if found {
-		return foundPath, envFile, false, true, nil
+		return foundPath, envFile, true, nil
 	}
 
-	examplePath := resolvedPath + ".example"
-	foundExamplePath, foundExample, exampleErr := findExistingAuditFile(examplePath)
-	if exampleErr != nil {
-		return "", "", false, false, exampleErr
-	}
-	if foundExample {
-		return foundExamplePath, envFile + ".example", true, true, nil
-	}
-
-	return "", "", false, false, nil
+	return "", "", false, nil
 }
 
 func findExistingAuditFile(path string) (string, bool, error) {

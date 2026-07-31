@@ -11,10 +11,7 @@ environments:
       loginPath: "/auth/google"
       logoutPath: "/auth/logout"
       noncePath: "/auth/nonce"
-    authButton:
-      text: "signin_with"
-      size: "large"
-      theme: "outline"
+      sessionPath: "/auth/session"
 
   - description: "Local Docker"
     origins:
@@ -30,7 +27,4 @@ environments:
       loginPath: "/auth/google"
       logoutPath: "/auth/logout"
       noncePath: "/auth/nonce"
-    authButton:
-      text: "signin_with"
-      size: "large"
-      theme: "outline"
+      sessionPath: "/auth/session"

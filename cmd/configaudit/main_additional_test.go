@@ -78,30 +78,33 @@ func TestEnvironmentMapUnmarshalYAMLHandlesNilAndSequence(testingT *testing.T) {
 	}, map[string]string(environment))
 }
 
-func TestLoadServiceEnvironmentUsesExampleEnvFileWhenRuntimeEnvIsMissing(testingT *testing.T) {
+func TestLoadServiceEnvironmentRejectsExampleEnvFileWhenRuntimeEnvIsMissing(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	result := auditResult{}
 	examplePath := filepath.Join(tempDirectory, testMissingEnvFileName+".example")
 	require.NoError(testingT, os.WriteFile(examplePath, []byte("KEY=value\n"), 0o600))
 
-	environment, hasAuditableEnvironment, loadErr := loadServiceEnvironment(tempDirectory, "app", []string{testMissingEnvFileName}, environmentMap{}, &result)
+	environment, hasAuditableEnvironment, loadErr := loadServiceEnvironment(tempDirectory, "app", []string{testMissingEnvFileName}, "", environmentMap{}, &result)
+	require.Error(testingT, loadErr)
+	require.Contains(testingT, loadErr.Error(), "does not declare x-config-audit-env-file")
+	require.False(testingT, hasAuditableEnvironment)
+	require.Empty(testingT, environment)
+	require.Empty(testingT, result.errors)
+	require.Empty(testingT, result.warnings)
+}
+
+func TestLoadServiceEnvironmentUsesDeclaredAuditFixtureWhenRuntimeEnvIsMissing(testingT *testing.T) {
+	tempDirectory := testingT.TempDir()
+	result := auditResult{}
+	auditEnvFile := "audit.env"
+	require.NoError(testingT, os.WriteFile(filepath.Join(tempDirectory, auditEnvFile), []byte("KEY=value\n"), 0o600))
+
+	environment, hasAuditableEnvironment, loadErr := loadServiceEnvironment(tempDirectory, "app", []string{testMissingEnvFileName}, auditEnvFile, environmentMap{}, &result)
 	require.NoError(testingT, loadErr)
 	require.True(testingT, hasAuditableEnvironment)
 	require.Equal(testingT, "value", environment["KEY"])
 	require.Empty(testingT, result.errors)
 	require.Empty(testingT, result.warnings)
-}
-
-func TestLoadServiceEnvironmentSkipsMissingEnvFileWithoutTrackedTemplate(testingT *testing.T) {
-	tempDirectory := testingT.TempDir()
-	result := auditResult{}
-
-	environment, hasAuditableEnvironment, loadErr := loadServiceEnvironment(tempDirectory, "app", []string{testMissingEnvFileName}, environmentMap{}, &result)
-	require.NoError(testingT, loadErr)
-	require.False(testingT, hasAuditableEnvironment)
-	require.Empty(testingT, environment)
-	require.Empty(testingT, result.errors)
-	require.NotEmpty(testingT, result.warnings)
 }
 
 func TestRunAuditReportsNoServices(testingT *testing.T) {
@@ -320,19 +323,21 @@ func TestScanAssetRootSkipsSymlinkAndUnsupportedExtensions(testingT *testing.T) 
 	require.Empty(testingT, result.warnings)
 }
 
-func TestLoadServiceEnvironmentUsesInlineValuesWhenEnvFileMissing(testingT *testing.T) {
+func TestLoadServiceEnvironmentUsesInlineValuesWithDeclaredAuditFixture(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	result := auditResult{}
+	auditEnvFile := "audit.env"
+	require.NoError(testingT, os.WriteFile(filepath.Join(tempDirectory, auditEnvFile), []byte(testInlineEnvironmentKey+"=audit:50051\n"), 0o600))
 
 	environment := environmentMap{
 		testInlineEnvironmentKey: testPinguinAddressValue,
 	}
 
-	environmentValues, hasAuditableEnvironment, loadErr := loadServiceEnvironment(tempDirectory, "app", []string{testMissingEnvFileName}, environment, &result)
+	environmentValues, hasAuditableEnvironment, loadErr := loadServiceEnvironment(tempDirectory, "app", []string{testMissingEnvFileName}, auditEnvFile, environment, &result)
 	require.NoError(testingT, loadErr)
 	require.True(testingT, hasAuditableEnvironment)
 	require.Empty(testingT, result.errors)
-	require.NotEmpty(testingT, result.warnings)
+	require.Empty(testingT, result.warnings)
 	require.Equal(testingT, testPinguinAddressValue, environmentValues[testInlineEnvironmentKey])
 }
 
@@ -443,7 +448,7 @@ func TestLoadServiceEnvironmentReportsParseError(testingT *testing.T) {
 	require.NoError(testingT, os.WriteFile(envPath, []byte(longLine), 0o600))
 
 	result := auditResult{}
-	_, _, loadErr := loadServiceEnvironment(tempDirectory, testLoopAwareService, []string{testLoopAwareEnvFile}, environmentMap{}, &result)
+	_, _, loadErr := loadServiceEnvironment(tempDirectory, testLoopAwareService, []string{testLoopAwareEnvFile}, "", environmentMap{}, &result)
 	require.Error(testingT, loadErr)
 	require.Contains(testingT, loadErr.Error(), "parse env_file")
 }
@@ -456,7 +461,7 @@ func TestLoadServiceEnvironmentSkipsBlankKeys(testingT *testing.T) {
 		testInlineEnvironmentKey: testPinguinAddressValue,
 	}
 
-	values, hasAuditableEnvironment, loadErr := loadServiceEnvironment(tempDirectory, testLoopAwareService, nil, environment, &result)
+	values, hasAuditableEnvironment, loadErr := loadServiceEnvironment(tempDirectory, testLoopAwareService, nil, "", environment, &result)
 	require.NoError(testingT, loadErr)
 	require.True(testingT, hasAuditableEnvironment)
 	require.Equal(testingT, testPinguinAddressValue, values[testInlineEnvironmentKey])
@@ -579,7 +584,7 @@ func TestRunAuditReportsTemplateReadError(testingT *testing.T) {
 	require.Contains(testingT, strings.Join(result.errors, " "), "read config template")
 }
 
-func TestRunAuditCommandReportsWarnings(testingT *testing.T) {
+func TestRunAuditCommandRejectsMissingEnvironmentData(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
 	compose := composeFile{
@@ -596,10 +601,10 @@ func TestRunAuditCommandReportsWarnings(testingT *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := runAuditCommand(composePath, &stdout, &stderr)
-	require.Equal(testingT, 0, exitCode)
-	require.Contains(testingT, stdout.String(), "WARN [")
-	require.Contains(testingT, stdout.String(), "config-audit OK")
-	require.Empty(testingT, stderr.String())
+	require.Equal(testingT, 1, exitCode)
+	require.Empty(testingT, stdout.String())
+	require.Contains(testingT, stderr.String(), "config template audit requires environment data")
+	require.Contains(testingT, stderr.String(), "config-audit failed")
 }
 
 func TestRunAuditCommandsSuccessAcrossMultipleComposeFiles(testingT *testing.T) {

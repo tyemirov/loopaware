@@ -274,21 +274,26 @@ func TestRunAuditReportsErrorsForMissingEnvironment(testingT *testing.T) {
 	require.Contains(testingT, combinedErrors, "host port "+testLoopAwareHostPort+" is published by both")
 }
 
-func TestRunAuditUsesTrackedExampleEnvFilesWhenRuntimeEnvFilesAreMissing(testingT *testing.T) {
+func TestRunAuditUsesDeclaredAuditFixturesWhenRuntimeEnvFilesAreMissing(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 
 	loopAwareExamplePath := filepath.Join(tempDirectory, testLoopAwareEnvFile+".example")
-	loopAwareExample := strings.Join(append(loopAwareRuntimeEnvironmentLines(), ""), "\n")
+	loopAwareExample := "EXAMPLE_MUST_NOT_BE_LOADED=true\n"
 	require.NoError(testingT, os.WriteFile(loopAwareExamplePath, []byte(loopAwareExample), 0o600))
+	loopAwareAuditFile := "loopaware.audit.env"
+	loopAwareAudit := strings.Join(append(loopAwareRuntimeEnvironmentLines(), ""), "\n")
+	require.NoError(testingT, os.WriteFile(filepath.Join(tempDirectory, loopAwareAuditFile), []byte(loopAwareAudit), 0o600))
 
 	pinguinExamplePath := filepath.Join(tempDirectory, testPinguinEnvFile+".example")
-	pinguinExample := strings.Join([]string{
+	require.NoError(testingT, os.WriteFile(pinguinExamplePath, []byte("EXAMPLE_MUST_NOT_BE_LOADED=true\n"), 0o600))
+	pinguinAuditFile := "pinguin.audit.env"
+	pinguinAudit := strings.Join([]string{
 		"TAUTH_SIGNING_KEY=" + testSigningKeyValue,
 		"LOOPAWARE_LOCAL_GOOGLE_CLIENT_ID=" + testGoogleClientValue,
 		"GRPC_AUTH_TOKEN=" + testAuthTokenValue,
 		"",
 	}, "\n")
-	require.NoError(testingT, os.WriteFile(pinguinExamplePath, []byte(pinguinExample), 0o600))
+	require.NoError(testingT, os.WriteFile(filepath.Join(tempDirectory, pinguinAuditFile), []byte(pinguinAudit), 0o600))
 
 	composePath := filepath.Join(tempDirectory, testComposeFileName)
 	loopAwareConfigVolume := loopAwareRuntimeConfigVolume(testingT, tempDirectory)
@@ -297,11 +302,13 @@ func TestRunAuditUsesTrackedExampleEnvFilesWhenRuntimeEnvFilesAreMissing(testing
 		"  " + testLoopAwareService + ":",
 		"    env_file:",
 		"      - " + testLoopAwareEnvFile,
+		"    x-config-audit-env-file: " + loopAwareAuditFile,
 		"    volumes:",
 		"      - " + loopAwareConfigVolume,
 		"  " + testPinguinService + ":",
 		"    env_file:",
 		"      - " + testPinguinEnvFile,
+		"    x-config-audit-env-file: " + pinguinAuditFile,
 		"  " + testTauthService + ":",
 		"    environment:",
 		"      TAUTH_TENANT_ID_LOOPAWARE: " + testTenantValue,

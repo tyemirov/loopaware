@@ -51,11 +51,12 @@ Embed the feedback widget on any page:
 
 ## Configuration
 
-All tracked LoopAware configuration lives under `configs/`. That directory holds the local `.env.*` templates, service
-config templates, and the LoopAware backend runtime config consumed by Docker Compose and release workflows. Local
-`configs/.env.*` files are intentionally ignored; create them from the tracked `configs/.env.*.example` templates.
-Legacy repo-root `.env.*` files are unsupported duplicates and should be moved into `configs/` and deleted. Test-only
-compose files and env fixtures belong under `tests/`, not `configs/`.
+Tracked LoopAware product configuration lives under `configs/`. Its `.env.*.example` files document variable names with
+intentionally unusable values; they are not templates or runtime inputs. The directory also holds service config templates
+and the LoopAware backend runtime config consumed by Docker Compose and release workflows. Real local `configs/.env.*`
+files are intentionally ignored and must be created explicitly, never copied or sourced from the examples. Legacy repo-root
+`.env.*` files are unsupported duplicates and should be moved into `configs/` and deleted. Test-only Compose files and the
+canonical config-audit environment fixtures belong under `tests/`, not `configs/`.
 
 ### 1. Backend runtime config (`configs/config.loopaware.yml`)
 
@@ -116,13 +117,13 @@ The local Compose env files provide shell values for placeholders used by `confi
 
 Secrets can remain outside the tracked file by using placeholders. Non-secret settings can be literal YAML values when that is clearer for the environment.
 
-When running via Docker Compose, copy the tracked env templates under `configs/` and edit the local `.env.*` files:
+When running via Docker Compose, create private local `.env.*` files explicitly. The tracked examples document variable names only; their values are intentionally unusable and must never be copied, sourced, or passed to Compose.
 
 ```bash
-cp configs/.env.loopaware.example configs/.env.loopaware
-cp configs/.env.tauth.example configs/.env.tauth
-cp configs/.env.pinguin.example configs/.env.pinguin
-cp configs/.env.ghttp.example configs/.env.ghttp
+install -m 0600 /dev/null configs/.env.loopaware
+install -m 0600 /dev/null configs/.env.tauth
+install -m 0600 /dev/null configs/.env.pinguin
+install -m 0600 /dev/null configs/.env.ghttp
 $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
 ```
 
@@ -132,8 +133,9 @@ Pinguin and LoopAware must share the same bearer secret. Set Pinguin's `GRPC_AUT
 define every placeholder referenced by `configs/config.loopaware.yml`. Those values are expanded only while parsing the
 YAML file; they are not a second runtime config source. `make release` loads `configs/.env.loopaware` only to build the
 signed local mobile artifacts; store APIs are contacted later by `make publish`.
-`config-audit` validates tracked `.env.*.example` templates when local `.env.*` files are absent, but runtime still
-requires the real local env files.
+`config-audit` validates real local env files when they are present. When they are absent, each production Compose service
+declares a tracked audit-only fixture under `tests/configs/` with `x-config-audit-env-file`; `.env.*.example` files are never
+loaded. Runtime still requires the real local env files.
 
 Frontend runtime host mapping lives in `web/config.yml`, which is served directly as `/config.yml` by the static site.
 It also carries per-environment frontend service settings such as `siteWidgetSiteId` for the first-party landing and
@@ -712,10 +714,10 @@ passwords, Google service-account JSON files, and upload keystore secrets outsid
 Ensure the container receives the placeholder inputs used by `configs/config.loopaware.yml` and mounts that backend runtime config file.
 
 ```bash
-cp configs/.env.loopaware.example configs/.env.loopaware
-cp configs/.env.tauth.example configs/.env.tauth
-cp configs/.env.pinguin.example configs/.env.pinguin
-cp configs/.env.ghttp.example configs/.env.ghttp
+install -m 0600 /dev/null configs/.env.loopaware
+install -m 0600 /dev/null configs/.env.tauth
+install -m 0600 /dev/null configs/.env.pinguin
+install -m 0600 /dev/null configs/.env.ghttp
 $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
 ./scripts/up.sh
 ```
@@ -736,10 +738,10 @@ through the helper scripts:
 For the computercat TLS stack, use:
 
 ```bash
-cp configs/.env.loopaware.computercat.example configs/.env.loopaware.computercat
-cp configs/.env.tauth.computercat.example configs/.env.tauth.computercat
-cp configs/.env.pinguin.computercat.example configs/.env.pinguin.computercat
-cp configs/.env.ghttp.computercat.example configs/.env.ghttp.computercat
+install -m 0600 /dev/null configs/.env.loopaware.computercat
+install -m 0600 /dev/null configs/.env.tauth.computercat
+install -m 0600 /dev/null configs/.env.pinguin.computercat
+install -m 0600 /dev/null configs/.env.ghttp.computercat
 $EDITOR configs/.env.loopaware.computercat configs/.env.tauth.computercat configs/.env.pinguin.computercat configs/.env.ghttp.computercat
 ./scripts/up.sh computercat
 ```
@@ -761,7 +763,8 @@ GHTTP_SERVE_TLS_PRIVATE_KEY=/certs/computercat-key.pem
 GHTTP_SERVE_PROXIES=/tauth.js=http://la-tauth:8082,/me=http://la-tauth:8082,/auth/=http://la-tauth:8082,/public/=http://loopaware-api:8080,/sentry/=http://loopaware-api:8080,/api/=http://loopaware-api:8080
 ```
 
-The computercat templates default to the public origin `https://computercat.tyemirov.net:4443` so the
-browser uses the reverse proxy for both LoopAware and TAuth. TAuth requires HTTPS for secure cookies when
+Set the private computercat env files to the public origin `https://computercat.tyemirov.net:4443` so the browser uses the
+reverse proxy for both LoopAware and TAuth; the documentation-only examples intentionally do not provide runnable defaults.
+TAuth requires HTTPS for secure cookies when
 `allow_insecure_http=false`; gHTTP’s reverse proxy does not currently set `X-Forwarded-Proto`, so keep
 `TAUTH_ALLOW_INSECURE_HTTP=true` unless a fronting proxy forwards `X-Forwarded-Proto=https`.

@@ -1120,6 +1120,33 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `.mprlab/deploy/ansible/tasks/preflight.yml`, `Makefile`, `scripts/test-loopaware-dependency-contract.sh`, `scripts/validate-release-workflow.mjs`, and `scripts/verify-loopaware-dependency-contract.py`.
 
+- [x] [B068] (P0) Restore the production login control after mpr-ui config rejection.
+  Goal:
+  Restore the visible Google login control on the production landing page by bringing LoopAware's browser auth configuration onto the current shared `mpr-ui` contract.
+
+  Requirements:
+  Remove the retired `authButton` key from every environment, declare the canonical `/auth/session` path in each environment's auth config, and keep login presentation owned by the existing static `mpr-header` markup. Add no compatibility path or app-owned Google authentication scaffolding.
+
+  Deliverables:
+  - Update the served browser auth configuration and its external-asset test fixture.
+  - Add black-box coverage that the served config applies the current session boundary, produces one visible header login control, and emits no orchestration error.
+  - Verify the focused browser path and final repository CI gate.
+
+  Validation:
+  Reproduce the current production `config-ui.yaml does not allow authButton` console error, run the focused login browser scenarios, and run final `make ci` without deploying production.
+
+  Resolution:
+  Removed the retired `authButton` presentation object from both served browser environments and declared `/auth/session` as their canonical TAuth session boundary. Preserved the existing static `mpr-header sign-in-label="Login"` presentation owner, updated the CDN asset fixture to the current schema, and added a black-box browser regression that inspects the served YAML, verifies the applied session attribute and single visible header Google control, and rejects `mpr-ui-config` orchestration errors.
+
+  Validation Results:
+  Live read-only inspection reproduced the production `config-ui.yaml does not allow authButton` failure and confirmed the static header presentation was already present. `make lint-js` passed. `make test-integration` passed all 458 browser/API scenarios in 4.3 minutes. Final `make ci` passed config audit, builds, release and deployment contracts, JavaScript type checks, Go tests with race detection, and all 458 browser/API scenarios in 4.4 minutes. No release, publication, or production deployment was run.
+
+  Review follow-up 2026-07-31:
+  Made config audit fail closed when production environment inputs are absent and gave each production Compose service an explicit tracked `x-config-audit-env-file`; documentation-only `.env.*.example` and `.sample` paths are rejected. Removed the hard-coded test YAML parser so the browser regression now loads LoopAware's configured CDN parser and applies the actual served `/config-ui.yaml`. Aligned README environment guidance with those runtime and audit boundaries. `make config-audit`, `make lint-js`, and `make test-unit` passed; a clean archived copy with no private environment files passed config audit without warnings; final `make ci` passed all build, release, deployment-contract, type, Go race, and 458 browser/API scenarios in 4.5 minutes. No release, publication, or production deployment was run.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `.mprlab/deploy/docker-compose.yml`, `README.md`, `cmd/configaudit/main.go`, `cmd/configaudit/main_additional_test.go`, `cmd/configaudit/main_test.go`, `docker-compose.yml`, `docker-compose.computercat.yml`, `web/config-ui.yaml`, `tests/helpers/externalAssets.js`, and `tests/specs/header-auth-state.spec.js`.
+
 
 ## Improvements
 
