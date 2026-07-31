@@ -274,7 +274,7 @@ func TestRunAuditReportsErrorsForMissingEnvironment(testingT *testing.T) {
 	require.Contains(testingT, combinedErrors, "host port "+testLoopAwareHostPort+" is published by both")
 }
 
-func TestRunAuditUsesTrackedExampleEnvFilesWhenRuntimeEnvFilesAreMissing(testingT *testing.T) {
+func TestRunAuditDoesNotUseTrackedExampleEnvFilesWhenRuntimeEnvFilesAreMissing(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 
 	loopAwareExamplePath := filepath.Join(tempDirectory, testLoopAwareEnvFile+".example")
@@ -315,7 +315,8 @@ func TestRunAuditUsesTrackedExampleEnvFilesWhenRuntimeEnvFilesAreMissing(testing
 
 	result := runAudit(composePath)
 	require.True(testingT, result.ok())
-	require.Empty(testingT, result.warnings)
+	combinedWarnings := strings.Join(result.warnings, " ")
+	require.Contains(testingT, combinedWarnings, "environment examples are documentation only and are not loaded")
 	require.Empty(testingT, result.errors)
 }
 

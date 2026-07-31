@@ -277,12 +277,12 @@ func loadServiceEnvironment(composeDirectory string, serviceName string, envFile
 	hasAuditableEnvironment := false
 
 	for _, envFile := range envFiles {
-		auditPath, displayPath, _, found, resolveErr := resolveAuditEnvFile(composeDirectory, envFile)
+		auditPath, displayPath, found, resolveErr := resolveAuditEnvFile(composeDirectory, envFile)
 		if resolveErr != nil {
 			return nil, false, fmt.Errorf("resolve env_file %s: %w", envFile, resolveErr)
 		}
 		if !found {
-			result.addWarning("service %s: env_file %s is absent and no tracked template exists; skipping env audit for this file", serviceName, envFile)
+			result.addWarning("service %s: env_file %s is absent; environment examples are documentation only and are not loaded, so env audit is skipped for this file", serviceName, envFile)
 			continue
 		}
 		values, duplicates, parseErr := parseDotEnv(auditPath)
@@ -309,26 +309,17 @@ func loadServiceEnvironment(composeDirectory string, serviceName string, envFile
 	return merged, hasAuditableEnvironment, nil
 }
 
-func resolveAuditEnvFile(composeDirectory string, envFile string) (string, string, bool, bool, error) {
+func resolveAuditEnvFile(composeDirectory string, envFile string) (string, string, bool, error) {
 	resolvedPath := filepath.Clean(filepath.Join(composeDirectory, envFile))
 	foundPath, found, resolveErr := findExistingAuditFile(resolvedPath)
 	if resolveErr != nil {
-		return "", "", false, false, resolveErr
+		return "", "", false, resolveErr
 	}
 	if found {
-		return foundPath, envFile, false, true, nil
+		return foundPath, envFile, true, nil
 	}
 
-	examplePath := resolvedPath + ".example"
-	foundExamplePath, foundExample, exampleErr := findExistingAuditFile(examplePath)
-	if exampleErr != nil {
-		return "", "", false, false, exampleErr
-	}
-	if foundExample {
-		return foundExamplePath, envFile + ".example", true, true, nil
-	}
-
-	return "", "", false, false, nil
+	return "", "", false, nil
 }
 
 func findExistingAuditFile(path string) (string, bool, error) {

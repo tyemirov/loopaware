@@ -78,7 +78,7 @@ func TestEnvironmentMapUnmarshalYAMLHandlesNilAndSequence(testingT *testing.T) {
 	}, map[string]string(environment))
 }
 
-func TestLoadServiceEnvironmentUsesExampleEnvFileWhenRuntimeEnvIsMissing(testingT *testing.T) {
+func TestLoadServiceEnvironmentDoesNotUseExampleEnvFileWhenRuntimeEnvIsMissing(testingT *testing.T) {
 	tempDirectory := testingT.TempDir()
 	result := auditResult{}
 	examplePath := filepath.Join(tempDirectory, testMissingEnvFileName+".example")
@@ -86,10 +86,10 @@ func TestLoadServiceEnvironmentUsesExampleEnvFileWhenRuntimeEnvIsMissing(testing
 
 	environment, hasAuditableEnvironment, loadErr := loadServiceEnvironment(tempDirectory, "app", []string{testMissingEnvFileName}, environmentMap{}, &result)
 	require.NoError(testingT, loadErr)
-	require.True(testingT, hasAuditableEnvironment)
-	require.Equal(testingT, "value", environment["KEY"])
+	require.False(testingT, hasAuditableEnvironment)
+	require.Empty(testingT, environment)
 	require.Empty(testingT, result.errors)
-	require.Empty(testingT, result.warnings)
+	require.Contains(testingT, strings.Join(result.warnings, " "), "environment examples are documentation only and are not loaded")
 }
 
 func TestLoadServiceEnvironmentSkipsMissingEnvFileWithoutTrackedTemplate(testingT *testing.T) {
