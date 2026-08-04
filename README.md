@@ -513,6 +513,8 @@ Deployment-only private values belong in the ignored `.mprlab/deploy/.env` file 
 
 The mobile resource uses the pinned `eas-cli` version and production build/submit profiles in `mobile/eas.json`. The React Native package version in `clients/react-native/package.json` must equal the release version selected by the gateway.
 
+Before the first gateway release, an operator must authenticate the pinned EAS CLI, initialize the `loopaware-mobile` EAS project, and complete one interactive production build for each declared platform. Commit the generated EAS project linkage before retrying the lifecycle. The gateway release is deliberately non-interactive and does not create Expo projects or bootstrap Apple and Google build credentials.
+
 There are no app-owned dry-run lifecycle aliases. For a non-mutating inspection, run the gateway's `plan-app-release`, `plan-app-publish`, or `plan-app-deploy` target with `MPRLAB_APP_ROOT` set to this repository. Production activation remains an operator action.
 
 ## Docker

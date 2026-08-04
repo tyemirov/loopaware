@@ -1150,7 +1150,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
-- [x] [I035] (P1) Adopt the schema-v3 sibling-gateway lifecycle.
+- [!] [I035] (P1) Adopt the schema-v3 sibling-gateway lifecycle.
   Goal:
   Make `.mprlab/deploy/resources.yml` the only production lifecycle declaration for LoopAware.
 
@@ -1168,6 +1168,8 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
   Validation Results:
   The clean pre-change `make ci` baseline passed all 458 Playwright/API scenarios. Focused `make mobile-check`, `make config-audit`, and `go test ./cmd/configaudit` passed. Sealed gateway `plan-app-release`, `plan-app-publish`, and `plan-app-deploy` validation passed against the candidate committed bytes and a secret-free private-input fixture. Final `make ci` passed all Go, JavaScript, mobile, package, race, config-audit, and 458 Playwright/API scenarios after restoring the still-current local mobile invariants. Prepared the ignored mode-`0600` deployment input from the existing private LoopAware and TAuth values, verified the six exact nonempty bindings, and did not log secret bytes. No release, publication, or production deployment was run.
+
+  Blocked: the pinned EAS CLI has no authenticated Expo account or linked `loopaware-mobile` project in this checkout. An operator must authenticate, initialize the EAS project, complete one interactive production build for iOS and Android so Expo and store credentials are configured, and commit the generated project linkage before the gateway's non-interactive release can succeed.
 
   Changed Files:
   `.dockerignore`, `.github/workflows/ci.yml`, `.gitignore`, `.mprlab/ISSUES.md`, `.mprlab/deploy/resources.yml`, `.mprlab/deploy/ansible/**`, `.mprlab/deploy/docker-compose.yml`, `CHANGELOG.md`, `Makefile`, `README.md`, `clients/react-native/package.json`, `clients/react-native/package-lock.json`, `cmd/configaudit/main.go`, `configs/.env.loopaware.example`, `configs/.env.loopaware.computercat.example`, `mobile/eas.json`, `mobile/package.json`, `mobile/package-lock.json`, `mobile/scripts/validate-mobile-config.mjs`, removed mobile production build/publish scripts, and removed app-owned lifecycle scripts under `scripts/` and `scripts/release/`.
