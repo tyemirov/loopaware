@@ -1387,10 +1387,13 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Validation Results:
   Focused React Native package, mobile tool, Go HTTP, and browser-security gates passed, including a poisoned dashboard redirect, bounded request-log values, iOS patcher idempotence, and symlink rejection. The exact GitHub analyzer version, CodeQL 2.26.2 with the security-extended suites, reported zero Go findings and zero Actions findings. JavaScript reported only two paths in which the non-secret `TAUTH_SESSION_COOKIE_NAME` test fixture is placed into a Cookie header sent to the runner-owned loopback stack; GitHub alerts 9 and 10 were dismissed as false positives with that specific runtime justification. The remaining 11 live alerts still describe the old `10ad3f511c49c6dedebb03ed3514e754e03e2c69` master source and must close through a default-setup rerun after the corrected source reaches GitHub. No commit or push was performed without operator authorization.
 
+  Follow-up (2026-08-04):
+  Removed the direct file-derived Cookie request header from the slow-body/SSE regression instead of retaining its false-positive disposition. The regression now installs the signed test session as Playwright browser state and verifies the SSE response through a same-origin browser fetch, preserving the authenticated resource-boundary contract without an explicit outbound header data flow.
+
   Final `make ci` passed the configuration, browser, container, and workflow audits; Go and npm vulnerability scans; builds; lint and type checks; Go tests and race tests; and all 452 browser/API scenarios in 4.4 minutes. The authenticated live-repository audit also reconfirmed least-privilege Actions, extended CodeQL default setup, protected production branches, zero open Dependabot alerts, and zero open secret-scanning alerts. The integration project shut down cleanly, and no release, publication, or production deployment was run.
 
   Changed Files:
-  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `clients/react-native/src/index.tsx`, `internal/api/middleware.go`, `internal/api/middleware_test.go`, `mobile/scripts/fix-ios-project-warnings.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `tests/README.md`, `tests/helpers/config.js`, `tests/helpers/fixtures.js`, `tests/specs/header-auth-state.spec.js`, and `web/app/index.html`; GitHub alerts 9 and 10 also received evidence-specific false-positive dispositions.
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `clients/react-native/src/index.tsx`, `internal/api/middleware.go`, `internal/api/middleware_test.go`, `mobile/scripts/fix-ios-project-warnings.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `tests/README.md`, `tests/helpers/config.js`, `tests/helpers/fixtures.js`, `tests/specs/api-public.spec.js`, `tests/specs/header-auth-state.spec.js`, and `web/app/index.html`; GitHub alerts 9 and 10 also received evidence-specific false-positive dispositions before the direct test request-header flow was removed.
 
 
 ## Improvements
