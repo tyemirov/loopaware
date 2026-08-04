@@ -8,30 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ### Improvements ⚙️
-- Declare LoopAware's web and native TAuth tenant requirements in the app-owned deployment manifest for gateway assembly.
+- Declare LoopAware's complete production shape through the current schema-v3 resource manifest and sibling-gateway lifecycle.
 - Load backend runtime configuration from one strict YAML contract through `github.com/tyemirov/utils/runtimeconfig`, leaving only `--config` as the server config flag.
 - Make `@loopaware/react-native` a buildable npm package with `dist` exports, package metadata, and trusted-publishing workflow.
 - Add CI path coverage for first-party clients.
-- Move app-owned deployment manifests under `.mprlab/deploy/` so gateway Ansible executes the app-owned frontend and resource deployment contracts from the current governance path.
-- Derive deploy release tags from the app repository `HEAD` automatically instead of accepting operator-supplied deploy revisions.
-- Replace EAS mobile store submission with local Xcode IPA export, `xcrun altool` upload, and direct Google Play Android Publisher API upload.
-- Generate native mobile release versions and internal store build identifiers from one UTC CalVer timestamp instead of requiring operators to look up next iOS or Android build numbers.
-- Publish iOS TestFlight and Google Play Internal testing builds from `make release`, with explicit skip flags for intentional partial mobile releases.
+- Keep `.mprlab/deploy/resources.yml` as the only tracked production lifecycle declaration and remove the superseded app-owned Ansible, Compose, release, publication, and deployment controllers.
+- Delegate the exact zero-argument `make release`, `make publish`, and `make deploy` phases to the required sibling `mprlab-gateway`.
+- Pin `eas-cli` and production EAS build/submit profiles for the declared iOS TestFlight and Google Play Internal application.
+- Advance `@loopaware/react-native` to the next release version required by the gateway npm-package contract.
 
 ### Bug Fixes 🐛
-- Allow standard Make dry-run planning for release, publish, and deploy while continuing to reject lifecycle modes that alter error handling or target state.
+- Remove obsolete app-owned lifecycle dry-run aliases; non-mutating lifecycle plans now use the gateway's canonical plan targets.
 - Remove exact cross-service TAuth/Pinguin value comparisons from config-audit so deploy preflight validates runtime config schema, placeholder coverage, and required values without hardcoding operator-owned deployment values.
 
 ### Testing 🧪
 - Cover backend runtime config interpolation, unknown-field rejection, missing required values, removed env overrides, and config-audit YAML loading.
 - Add React Native client package validation that builds, packs, installs the tarball into a temporary consumer, and typechecks a real import.
 - Cover config-audit accepting intentionally different concrete LoopAware, TAuth, and Pinguin operator values while retaining required runtime config validation.
+- Validate the schema-v3 manifest through non-mutating gateway release, publish, and deploy plans.
 
 ### Docs 📚
 - Document the backend YAML config contract and clarify that LoopAware env files are interpolation inputs, not a second runtime config source.
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
-- Document the standard mobile store publishing inputs for local iOS IPA and Android AAB uploads.
-- Document the UTC CalVer mobile release-numbering contract and deterministic `MOBILE_RELEASE_TIMESTAMP` override.
+- Document gateway-owned production lifecycle phases, deployment-only private values, and the pinned EAS mobile contract.
 
 ## [v0.7.51] - 2026-07-19
 

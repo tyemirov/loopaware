@@ -1,77 +1,194 @@
 ---
 mprlab_resources:
-  schema_version: 1
-  repo:
-    id: loopaware
-    directory: loopaware
-    dispatch_target: loopaware
+  schema_version: 3
+  owner: loopaware
   resources:
-    - type: make_workflow
-      name: loopaware
-      targets:
-        release: release
-        publish: publish
-        deploy: deploy
-    - type: tauth_tenant
-      name: loopaware-authentication
+    - kind: private_values
+      id: private
+      bindings:
+        google-native-android-client-id: TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE
+        google-native-ios-client-id: TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE
+        google-web-client-id: TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE
+        pinguin-auth-token: PINGUIN_AUTH_TOKEN
+        session-secret: SESSION_SECRET
+        tauth-jwt-signing-key: TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE
+    - kind: compose_project
+      id: runtime
+      retired_services:
+        - project: mprlab-nginx-gateway
+          service: loopaware-api
+      images:
+        - id: backend-image
+          repository: ghcr.io/tyemirov/loopaware
+          visibility: public
+          build:
+            context: .
+            dockerfile: Dockerfile
+            platforms:
+              - linux/amd64
+      services:
+        - id: loopaware-api
+          image: backend-image
+          placement:
+            group: gateway
+            cardinality: one
+          environment:
+            APP_ADDR:
+              value: ":8080"
+            DB_DRIVER:
+              value: sqlite
+            DB_DSN:
+              value: file:/app/data/loopaware.sqlite?_foreign_keys=on
+            PINGUIN_ADDR:
+              capability: pinguin.grpc
+              component: address
+            PINGUIN_AUTH_TOKEN:
+              resource: private
+              output: pinguin-auth-token
+            PINGUIN_TENANT_ID:
+              value: loopaware
+            PUBLIC_BASE_URL:
+              resource: website
+              output: origin
+            SESSION_SECRET:
+              resource: private
+              output: session-secret
+            TAUTH_BASE_URL:
+              capability: tauth.http
+              component: url
+            TAUTH_JWT_SIGNING_KEY:
+              resource: authentication
+              output: jwt-signing-key
+            TAUTH_SESSION_COOKIE_NAME:
+              resource: authentication
+              output: session-cookie-name
+            TAUTH_TENANT_ID:
+              resource: authentication
+              output: tenant-id
+          assets:
+            - source: configs/config.loopaware.yml
+              target: /app/configs/config.loopaware.yml
+              mode: "0444"
+          mounts:
+            - volume: data
+              target: /app/data
+              read_only: false
+          ports:
+            - container_port: 8080
+          readiness:
+            protocol: http
+            port: 8080
+            path: /healthz
+            expected_status: 200
+      volumes:
+        - id: data
+          name: mprlab-nginx-gateway_loopaware-data
+          retention: retain
+    - kind: runtime_capability
+      id: http
+      name: loopaware.http
+      version: 1
+      project: runtime
+      service: loopaware-api
+      endpoint:
+        scope: same_host
+        scheme: http
+        alias: loopaware-api
+        port: 8080
+      health:
+        protocol: http
+        path: /healthz
+        expected_status: 200
+    - kind: caddy_route
+      id: public-api
+      hostname: loopaware-api.mprlab.com
+      listener: https
+      handlers:
+        - id: default
+          path_prefix: /
+          upstream: loopaware.http
+          transport:
+            protocol: http
+            dial_timeout_seconds: 10
+            response_header_timeout_seconds: 30
+            read_timeout_seconds: 80
+      tls:
+        mode: automatic
+      access:
+        trusted_networks:
+          - 127.0.0.1/32
+          - 172.19.0.0/16
+          - 192.168.1.158/32
+        rate_limit:
+          events: 300
+          window_seconds: 10
+    - kind: health_check
+      id: public-health
+      protocol: http
+      url: https://loopaware-api.mprlab.com/healthz
+      expected_status: 200
+    - kind: github_pages
+      id: website
+      repository: tyemirov/loopaware
+      branch: gh-pages
+      domain: loopaware.mprlab.com
+      url: https://loopaware.mprlab.com/
+      source:
+        kind: directory
+        path: web
+      verification:
+        path: /.mprlab-release.json
+    - kind: npm_package
+      id: react-native-client
+      source: clients/react-native
+      package: "@loopaware/react-native"
+      registry: https://registry.npmjs.org/
+      access: public
+      tag: latest
+    - kind: mobile_application
+      id: mobile
+      source: mobile
+      build_system: expo
+      ios:
+        bundle_identifier: com.mprlab.loopaware
+        app_store_id: "6788555440"
+        destination: testflight
+        track: internal
+        profile: production
+      android:
+        package_name: com.mprlab.loopaware
+        destination: google_play
+        track: internal
+        profile: production
+    - kind: tauth_tenant
+      id: authentication
+      capability: tauth.tenants
+      version: 1
       tenant:
         id: loopaware
         display_name: LoopAware
-        tenant_origins:
+        origins:
           - https://loopaware.mprlab.com
-        google_web_client_id: "${TAUTH_GOOGLE_WEB_CLIENT_ID_LOOPAWARE}"
+        google_web_client_id:
+          resource: private
+          output: google-web-client-id
         google_native_clients:
-          - platform: ios
-            client_id: "${TAUTH_GOOGLE_NATIVE_IOS_CLIENT_ID_LOOPAWARE}"
-            redirect_uris:
-              - "${TAUTH_GOOGLE_NATIVE_IOS_REDIRECT_URI_LOOPAWARE}"
           - platform: android
-            client_id: "${TAUTH_GOOGLE_NATIVE_ANDROID_CLIENT_ID_LOOPAWARE}"
+            client_id:
+              resource: private
+              output: google-native-android-client-id
             redirect_uris:
               - com.mprlab.loopaware:/oauth2redirect/google
-        jwt_signing_key: "${TAUTH_JWT_SIGNING_KEY_LOOPAWARE}"
-        cookie_domain: .mprlab.com
-        session_cookie_name: app_session_loopaware
-        refresh_cookie_name: app_refresh_loopaware
-        session_ttl: "${TAUTH_SESSION_TTL}"
-        refresh_ttl: "${TAUTH_REFRESH_TTL}"
-        nonce_ttl: "${TAUTH_NONCE_TTL}"
-        allow_insecure_http: "${TAUTH_ALLOW_INSECURE_HTTP}"
-    - type: ansible_task_bundle
-      name: production
-      host_group: gateway
-      timeout_seconds: 1200
-      entrypoints:
-        validate: .mprlab/deploy/ansible/tasks/validate.yml
-        preflight: .mprlab/deploy/ansible/tasks/preflight.yml
-        deploy: .mprlab/deploy/ansible/tasks/deploy.yml
-        verify: .mprlab/deploy/ansible/tasks/verify.yml
-    - type: container_service
-      name: loopaware-api
-      host_group: gateway
-      image_variable: MPRLAB_LOOPAWARE_IMAGE_REF
-      ports:
-        - container_port: 8080
-      compose_file: docker-compose.yml
-      compose_project: mprlab-nginx-gateway
-      runtime_assets:
-        - path: configs/.env.loopaware
-          example_path: configs/.env.loopaware.example
-          destination: configs/.env.loopaware
-          mode: "0600"
-        - path: configs/config.loopaware.yml
-          destination: configs/config.loopaware.yml
-    - type: caddy_route
-      name: loopaware-api
-      host: loopaware-api.mprlab.com
-      upstream: loopaware-api:8080
-      snippet: loopaware-api.caddy
-    - type: health_check
-      name: loopaware-api
-      path: /healthz
-      url: https://loopaware-api.mprlab.com/healthz
-    - type: github_pages
-      name: loopaware
-      target: pages-deploy
-      url: https://loopaware.mprlab.com/
-      source_marker_path: /.mprlab-release.json
+          - platform: ios
+            client_id:
+              resource: private
+              output: google-native-ios-client-id
+            redirect_uris:
+              - com.googleusercontent.apps.281540686395-8a90ldjnklddl0qpoc8ur6620lguv7mg:/oauth2redirect/google
+        jwt_signing_key:
+          resource: private
+          output: tauth-jwt-signing-key
+        cookie:
+          domain: .mprlab.com
+          session_name: app_session_loopaware
+          refresh_name: app_refresh_loopaware

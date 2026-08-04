@@ -25,3 +25,4 @@ mobile/ios/
 *.sqlite
 Makefile
 issues.md/
+.mprlab/deploy/.env

@@ -6,29 +6,23 @@ import path from "node:path";
 import crypto from "node:crypto";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
-const mobileRoot = path.resolve(repoRoot, "mobile");
 
-const requiredFiles = [
+for (const requiredFile of [
   "mobile/App.tsx",
   "mobile/app.config.js",
+  "mobile/eas.json",
   "mobile/src/api.ts",
   "mobile/src/auth.ts",
   "mobile/src/config.ts",
   "mobile/src/types.ts",
   "mobile/assets/icon.png",
-  "mobile/scripts/build-android-bundle.mjs",
-  "mobile/scripts/build-ios-archive.mjs",
+  "mobile/android-release-identity.json",
   "mobile/scripts/fix-ios-project-warnings.mjs",
-  "mobile/scripts/mobile-calver-version.mjs",
   "mobile/scripts/native-build-fingerprint.mjs",
-  "mobile/scripts/publish-android-play.mjs",
   "mobile/scripts/prepare-android-project.mjs",
   "mobile/scripts/resolve-metro-port.mjs",
-  "mobile/scripts/submit-ios.mjs",
   "mobile/scripts/test-api-boundaries.mjs",
-];
-
-for (const requiredFile of requiredFiles) {
+]) {
   assert(fs.existsSync(path.join(repoRoot, requiredFile)), `mobile_config_missing_file: ${requiredFile}`);
 }
 
@@ -57,21 +51,35 @@ assert(
   "mobile_android_release_identity_invalid_debug_sha1",
 );
 
-assert(!fs.existsSync(path.join(mobileRoot, "app.json")), "mobile_config_legacy_app_json: use app.config.js");
-assert(!fs.existsSync(path.join(mobileRoot, "eas.json")), "mobile_config_legacy_eas_json: use local store build and submit scripts");
+for (const obsoleteFile of [
+  "mobile/app.json",
+  "mobile/scripts/build-android-bundle.mjs",
+  "mobile/scripts/build-ios-archive.mjs",
+  "mobile/scripts/mobile-calver-version.mjs",
+  "mobile/scripts/publish-android-play.mjs",
+  "mobile/scripts/submit-ios.mjs",
+]) {
+  assert(!fs.existsSync(path.join(repoRoot, obsoleteFile)), `mobile_config_obsolete_file: ${obsoleteFile}`);
+}
 
 const packageJSON = readJSON("mobile/package.json");
 const packageLockJSON = readJSON("mobile/package-lock.json");
 assert(packageJSON.dependencies?.expo === "~56.0.12", "mobile_config_expo_patch_version_outdated");
 assert(packageJSON.overrides?.uuid === "^11.1.1", "mobile_config_missing_uuid_audit_override");
+assert(packageJSON.devDependencies?.["eas-cli"] === "21.4.0", "mobile_config_eas_cli_must_be_pinned");
 assert(packageJSON.devDependencies?.["pod-install"] === "1.1.0", "mobile_config_missing_locked_pod_install");
+assert(
+  packageLockJSON.packages?.[""]?.devDependencies?.["eas-cli"] === "21.4.0" &&
+    packageLockJSON.packages?.["node_modules/eas-cli"]?.version === "21.4.0",
+  "mobile_config_lock_missing_eas_cli",
+);
 assert(
   packageLockJSON.packages?.[""]?.devDependencies?.["pod-install"] === "1.1.0" &&
     packageLockJSON.packages?.["node_modules/pod-install"]?.version === "1.1.0",
   "mobile_config_lock_missing_pod_install",
 );
 
-const requiredDependencies = [
+for (const dependencyName of [
   "expo-auth-session",
   "expo-constants",
   "expo-crypto",
@@ -80,12 +88,11 @@ const requiredDependencies = [
   "expo-system-ui",
   "expo-web-browser",
   "react-native-safe-area-context",
-];
-for (const dependencyName of requiredDependencies) {
+]) {
   assert(packageJSON.dependencies?.[dependencyName], `mobile_config_missing_dependency: ${dependencyName}`);
 }
 
-const requiredScripts = [
+for (const scriptName of [
   "android",
   "android:prepare-native",
   "android:dev-build",
@@ -96,8 +103,7 @@ const requiredScripts = [
   "test:api-boundaries",
   "typecheck",
   "validate-config",
-];
-for (const scriptName of requiredScripts) {
+]) {
   assert(packageJSON.scripts?.[scriptName], `mobile_config_missing_script: ${scriptName}`);
 }
 assert(
@@ -114,21 +120,32 @@ assert(
   "mobile_config_missing_ios_warning_fix_script",
 );
 
+const easJSON = readJSON("mobile/eas.json");
+assert(easJSON.cli?.version === "21.4.0", "mobile_config_eas_json_cli_must_match_package");
+assert(easJSON.build?.production?.android?.buildType === "app-bundle", "mobile_config_eas_android_bundle_missing");
+assert(easJSON.submit?.production?.ios?.ascAppId === "6788555440", "mobile_config_eas_ios_app_id_invalid");
+assert(easJSON.submit?.production?.android?.track === "internal", "mobile_config_eas_android_track_invalid");
+
 const appConfigSource = readText("mobile/app.config.js");
-assert(appConfigSource.includes("com.mprlab.loopaware"), "mobile_config_missing_bundle_identifier");
-assert(appConfigSource.includes("loopAware"), "mobile_config_missing_runtime_extra");
-assert(appConfigSource.includes("expo-web-browser"), "mobile_config_missing_web_browser_plugin");
-assert(appConfigSource.includes("expo-secure-store"), "mobile_config_missing_secure_store_plugin");
-assert(appConfigSource.includes("expo-system-ui"), "mobile_config_missing_system_ui_plugin");
-assert(appConfigSource.includes("LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI"), "mobile_config_missing_ios_google_redirect_uri_env");
-assert(appConfigSource.includes("LOOPAWARE_MOBILE_VERSION"), "mobile_config_missing_calver_version_env");
-assert(appConfigSource.includes("NODE_ENV") && appConfigSource.includes("mobilePlugins"), "mobile_config_missing_production_plugin_gate");
-assert(appConfigSource.includes("LOOPAWARE_MOBILE_IOS_BUILD_NUMBER"), "mobile_config_missing_ios_build_number_env");
-assert(appConfigSource.includes("LOOPAWARE_MOBILE_ANDROID_VERSION_CODE"), "mobile_config_missing_android_version_code_env");
-assert(appConfigSource.includes("redirectUriScheme"), "mobile_config_missing_ios_google_redirect_scheme_registration");
-assert(appConfigSource.includes("optionalPositiveInteger"), "mobile_config_missing_store_version_validation");
-assert(appConfigSource.includes("optionalCalVerVersion"), "mobile_config_missing_calver_validation");
-assert(appConfigSource.includes("D4AF37"), "mobile_config_missing_loopaware_gold_brand_color");
+for (const expectedText of [
+  "com.mprlab.loopaware",
+  "loopAware",
+  "expo-web-browser",
+  "expo-secure-store",
+  "expo-system-ui",
+  "LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI",
+  "LOOPAWARE_MOBILE_VERSION",
+  "NODE_ENV",
+  "mobilePlugins",
+  "LOOPAWARE_MOBILE_IOS_BUILD_NUMBER",
+  "LOOPAWARE_MOBILE_ANDROID_VERSION_CODE",
+  "redirectUriScheme",
+  "optionalPositiveInteger",
+  "optionalCalVerVersion",
+  "D4AF37",
+]) {
+  assert(appConfigSource.includes(expectedText), `mobile_config_missing_app_config_contract: ${expectedText}`);
+}
 assert(!appConfigSource.includes("android-icon-background.png"), "mobile_config_legacy_adaptive_icon_background_image");
 assert(!appConfigSource.includes("edgeToEdgeEnabled"), "mobile_config_legacy_edge_to_edge_enabled");
 
@@ -163,71 +180,12 @@ for (const envName of [
 }
 
 const makefile = readText("Makefile");
-const releaseScriptSource = readText("scripts/release.sh");
-const publishMobileScriptSource = readText("scripts/publish-mobile.sh");
-for (const target of [
-  "mobile-install",
-  "mobile-check",
-  "run-ios",
-  "run-android",
-  "build-ios",
-  "build-android",
-  "mobile-android-bundle",
-  "mobile-release-artifacts",
-  "publish-mobile",
-  "submit-ios",
-  "submit-android",
-  "submit-mobile",
-]) {
+for (const target of ["mobile-install", "mobile-check", "mobile-start", "run-ios", "run-android", "release publish deploy"]) {
   assert(makefile.includes(`${target}:`), `mobile_makefile_missing_target: ${target}`);
 }
+assert(makefile.includes('gateway_root="$$(dirname "$${application_root}")/mprlab-gateway"'), "lifecycle_gateway_wrapper_missing");
+assert(makefile.includes('"app-$@"'), "lifecycle_gateway_phase_forwarding_missing");
 assert(makefile.includes("mobile-check"), "mobile_makefile_missing_ci_gate");
-assert(!makefile.includes("MOBILE_EAS"), "mobile_makefile_must_not_use_eas");
-assert(!makefile.includes("eas submit"), "mobile_makefile_must_not_use_eas_submit");
-assert(!makefile.includes("eas build"), "mobile_makefile_must_not_use_eas_build");
-assert(!makefile.includes("MOBILE_IOS_BUILD_NUMBER"), "mobile_makefile_must_not_request_ios_build_number");
-assert(!makefile.includes("MOBILE_ANDROID_VERSION_CODE"), "mobile_makefile_must_not_request_android_version_code");
-assert(makefile.includes("MOBILE_RELEASE_TIMESTAMP"), "mobile_makefile_missing_release_timestamp");
-assert(makefile.includes("MOBILE_RESOLVED_RELEASE_TIMESTAMP"), "mobile_makefile_missing_resolved_release_timestamp");
-assert(makefile.includes("MOBILE_IOS_ASC_APP_ID ?="), "mobile_makefile_missing_ios_asc_app_id_variable");
-assert(
-  makefile.includes("export MOBILE_IOS_ASC_APP_ID"),
-  "mobile_makefile_missing_ios_asc_app_id_env",
-);
-assert(makefile.includes("submit-ios: mobile-check"), "mobile_makefile_ios_submit_must_run_mobile_check");
-const submitIosTarget = makefile.slice(makefile.indexOf("submit-ios: mobile-check"), makefile.indexOf("submit-android: mobile-check"));
-assert(
-  submitIosTarget.indexOf("submit-ios.mjs --mobile-dir mobile --dry-run") <
-    submitIosTarget.lastIndexOf("submit-ios.mjs --mobile-dir mobile"),
-  "mobile_makefile_ios_submit_must_validate_exact_archive_before_upload",
-);
-assert(!makefile.includes("submit-ios-preflight:"), "mobile_makefile_must_not_keep_partial_ios_credential_preflight");
-assert(!submitIosTarget.includes("build-ios"), "mobile_makefile_ios_submit_must_consume_prepared_artifact");
-const submitAndroidTarget = makefile.slice(makefile.indexOf("submit-android: mobile-check"), makefile.indexOf("submit-mobile:"));
-assert(!submitAndroidTarget.includes("mobile-android-bundle"), "mobile_makefile_android_submit_must_consume_prepared_artifact");
-assert(
-  makefile.includes("export APP_STORE_CONNECT_API_KEY_ID"),
-  "mobile_makefile_submit_missing_app_store_key_id_env",
-);
-assert(
-  makefile.includes("export APP_STORE_CONNECT_API_ISSUER_ID"),
-  "mobile_makefile_submit_missing_app_store_issuer_env",
-);
-assert(
-  makefile.includes("override RELEASE_ENV_FILE := $(CURDIR)/configs/.env.loopaware") &&
-    makefile.includes("override RELEASE_ENV_FILE := $(value RELEASE_ENV_FILE)"),
-  "mobile_makefile_missing_release_env_file",
-);
-assert(makefile.includes("export RELEASE_ENV_FILE"), "mobile_makefile_release_must_pass_env_file");
-assert(releaseScriptSource.includes("configs/.env.loopaware"), "mobile_release_missing_default_env_file");
-assert(releaseScriptSource.includes("load_release_env_file"), "mobile_release_missing_env_loader");
-assert(!releaseScriptSource.includes('source "${env_file}"'), "mobile_release_must_not_execute_env_file");
-assert(makefile.includes("export APP_STORE_CONNECT_API_KEY_PATH"), "mobile_makefile_release_missing_app_store_key_path_env");
-assert(makefile.includes("export ANDROID_SDK_ROOT"), "mobile_makefile_release_missing_android_sdk_env");
-assert(makefile.includes("node mobile/scripts/build-ios-archive.mjs"), "mobile_makefile_missing_ios_archive_command");
-assert(makefile.includes("node mobile/scripts/build-android-bundle.mjs"), "mobile_makefile_missing_android_bundle_script");
-assert(makefile.includes("node mobile/scripts/submit-ios.mjs"), "mobile_makefile_missing_ios_submit_command");
-assert(makefile.includes("node mobile/scripts/publish-android-play.mjs"), "mobile_makefile_missing_android_publish_command");
 assert(makefile.includes("test:api-boundaries"), "mobile_makefile_missing_api_boundary_check");
 assert(makefile.includes("override MOBILE_NPM_COMMAND := env -u NO_COLOR npm"), "mobile_makefile_missing_canonical_no_color_command");
 assert(makefile.includes("MOBILE_NATIVE_BUILD_FINGERPRINT"), "mobile_makefile_missing_native_build_fingerprint");
@@ -236,7 +194,6 @@ assert(!makefile.includes('@mkdir -p "$(dir $(ANDROID_LOCAL_PROPERTIES))"'), "mo
 assert(makefile.includes("MOBILE_GOOGLE_IOS_REDIRECT_URI"), "mobile_makefile_missing_ios_google_redirect_uri_variable");
 assert(makefile.includes('LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER="$(MOBILE_IOS_BUNDLE_IDENTIFIER)"'), "mobile_makefile_missing_ios_bundle_env");
 assert(makefile.includes('LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)"'), "mobile_makefile_missing_android_package_env");
-assert(makefile.includes("export LOOPAWARE_MOBILE_RELEASE_TIMESTAMP"), "mobile_makefile_missing_release_timestamp_env");
 assert(
   makefile.includes('LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI="$(MOBILE_GOOGLE_IOS_REDIRECT_URI)"'),
   "mobile_makefile_missing_ios_google_redirect_uri_env",
@@ -245,149 +202,9 @@ assert(
   makefile.includes('EXPO_PACKAGER_PROXY_URL="http://localhost:$${metro_port}"'),
   "mobile_makefile_missing_ios_localhost_proxy_url",
 );
-assert(!releaseScriptSource.includes("submit-mobile"), "mobile_release_must_not_upload_store_artifacts");
-assert(
-  makefile.includes(
-    "override RELEASE_ARTIFACT_TARGETS := mobile-release-artifacts client-react-native-artifact container-artifacts pages-artifact",
-  ),
-  "mobile_release_missing_canonical_artifact_contract",
-);
-assert(publishMobileScriptSource.includes("release_timestamp"), "mobile_publish_missing_shared_store_timestamp");
-assert(publishMobileScriptSource.includes("loopaware-ios.ipa"), "mobile_publish_missing_prepared_ios_artifact");
-assert(publishMobileScriptSource.includes("loopaware-android.aab"), "mobile_publish_missing_prepared_android_artifact");
-assert(publishMobileScriptSource.includes("mobile/scripts/submit-ios.mjs"), "mobile_publish_missing_ios_upload");
-assert(
-  publishMobileScriptSource.includes("mobile/scripts/publish-android-play.mjs"),
-  "mobile_publish_missing_android_upload",
-);
-assert(publishMobileScriptSource.includes("load_release_env_file"), "mobile_publish_missing_strict_env_loader");
-assert(!publishMobileScriptSource.includes('source "${env_file}"'), "mobile_publish_must_not_execute_env_file");
-assert(!publishMobileScriptSource.includes("make --no-print-directory submit-"), "mobile_publish_must_invoke_fixed_store_scripts");
-assert(
-  publishMobileScriptSource.indexOf("preflight_mobile_publication") <
-    publishMobileScriptSource.indexOf('echo "==> [publish] Uploading'),
-  "mobile_publish_must_preflight_both_stores_before_upload",
-);
-assert(
-  publishMobileScriptSource.includes("prepared mobile publication does not accept argument overrides"),
-  "mobile_publish_must_reject_artifact_path_overrides",
-);
-assert(
-  makefile.includes("submit-mobile: publish-mobile"),
-  "mobile_combined_submit_must_use_safe_preflighted_publication_path",
-);
-assert(
-  readText("configs/.env.loopaware.example").includes("MOBILE_IOS_ASC_APP_ID=42"),
-  "mobile_loopaware_env_example_missing_fake_ios_asc_app_id",
-);
-assert(
-  readText("configs/.env.loopaware.computercat.example").includes("MOBILE_IOS_ASC_APP_ID=42"),
-  "mobile_loopaware_computercat_env_example_missing_fake_ios_asc_app_id",
-);
-
-const iosSubmitSource = readText("mobile/scripts/submit-ios.mjs");
-assert(iosSubmitSource.includes("xcrun") && iosSubmitSource.includes("altool"), "mobile_ios_submit_missing_altool_upload");
-assert(iosSubmitSource.includes("--upload-package"), "mobile_ios_submit_missing_package_upload");
-assert(iosSubmitSource.includes("--platform"), "mobile_ios_submit_missing_platform");
-assert(iosSubmitSource.includes("--apple-id"), "mobile_ios_submit_missing_asc_app_id_flag");
-assert(iosSubmitSource.includes("--bundle-id"), "mobile_ios_submit_missing_bundle_id");
-assert(iosSubmitSource.includes("--bundle-version"), "mobile_ios_submit_missing_bundle_version");
-assert(iosSubmitSource.includes("--bundle-short-version-string"), "mobile_ios_submit_missing_short_version");
-assert(iosSubmitSource.includes("MOBILE_IOS_ASC_APP_ID"), "mobile_ios_submit_missing_asc_app_id_env");
-assert(iosSubmitSource.includes('const canonicalAscAppId = "6788555440"'), "mobile_ios_submit_missing_canonical_asc_app_id");
-assert(iosSubmitSource.includes('const canonicalBundleIdentifier = "com.mprlab.loopaware"'), "mobile_ios_submit_missing_canonical_bundle_identifier");
-assert(iosSubmitSource.includes("APP_STORE_CONNECT_API_KEY_ID"), "mobile_ios_submit_missing_api_key_env");
-assert(!iosSubmitSource.includes("ASC_API_KEY_"), "mobile_ios_submit_must_not_accept_legacy_api_key_aliases");
-assert(!iosSubmitSource.includes("LOOPAWARE_MOBILE_IOS_ASC_APP_ID"), "mobile_ios_submit_must_not_accept_legacy_app_id_alias");
-assert(!iosSubmitSource.includes("MOBILE_IOS_APPLE_ID") && !iosSubmitSource.includes("APPLE_ID"), "mobile_ios_submit_must_use_api_key_authentication_only");
-assert(iosSubmitSource.includes("API_PRIVATE_KEYS_DIR"), "mobile_ios_submit_missing_api_private_keys_dir");
-assert(iosSubmitSource.includes('packageCommand("--validate-app"'), "mobile_ios_submit_missing_exact_app_validation");
-assert(!iosSubmitSource.includes("--preflight-only"), "mobile_ios_submit_must_not_keep_partial_credential_preflight");
-assert(!iosSubmitSource.includes("--list-providers"), "mobile_ios_submit_must_not_use_api_key_incompatible_provider_listing");
-assert(!iosSubmitSource.includes("--p8-file-path"), "mobile_ios_submit_must_not_pass_p8_file_path_to_upload");
-assert(iosSubmitSource.includes("iOS IPA hash changed since build manifest"), "mobile_ios_submit_missing_hash_drift_guard");
-assert(iosSubmitSource.includes("createMobileCalVerVersion"), "mobile_ios_submit_missing_calver_manifest_default");
-assert(iosSubmitSource.includes("requireArchiveVersioning"), "mobile_ios_submit_missing_manifest_versioning_validation");
-assert(iosSubmitSource.includes("versioning: manifest.versioning"), "mobile_ios_submit_must_report_manifest_versioning");
-
-const iosArchiveSource = readText("mobile/scripts/build-ios-archive.mjs");
-assert(!iosArchiveSource.includes("ASC_API_KEY_"), "mobile_ios_archive_must_not_accept_legacy_api_key_aliases");
-assert(iosArchiveSource.includes("xcodebuild"), "mobile_ios_archive_missing_xcodebuild");
-assert(iosArchiveSource.includes("-exportArchive"), "mobile_ios_archive_missing_export_archive");
-assert(iosArchiveSource.includes("app-store-connect"), "mobile_ios_archive_missing_app_store_connect_export");
-assert(!iosArchiveSource.includes("process.env.MOBILE_IOS_BUILD_NUMBER"), "mobile_ios_archive_must_not_read_manual_build_number");
-assert(iosArchiveSource.includes("createMobileCalVerVersion"), "mobile_ios_archive_missing_calver_versioning");
-assert(iosArchiveSource.includes("LOOPAWARE_MOBILE_VERSION"), "mobile_ios_archive_missing_calver_version_env");
-assert(iosArchiveSource.includes("LOOPAWARE_MOBILE_IOS_BUILD_NUMBER"), "mobile_ios_archive_missing_build_number_env");
-assert(iosArchiveSource.includes("expo\", \"prebuild\""), "mobile_ios_archive_missing_expo_prebuild");
-assert(
-  iosArchiveSource.includes('run(["npm", "ci", "--include=dev"]'),
-  "mobile_ios_archive_must_install_locked_development_tools",
-);
-assert(
-  iosArchiveSource.includes('run(["npx", "--no-install", "expo", "prebuild", "--platform", "ios", "--no-install"]'),
-  "mobile_ios_archive_must_use_locked_expo_cli",
-);
-assert(
-  iosArchiveSource.includes('run(["npx", "--no-install", "pod-install", "ios"]'),
-  "mobile_ios_archive_must_use_locked_pod_install",
-);
-assert(
-  iosArchiveSource.includes('["ignore", "inherit", "inherit"]'),
-  "mobile_ios_archive_subprocesses_must_not_inherit_interactive_stdin",
-);
-assert(iosArchiveSource.includes("stripDevelopmentClientFromProductionArchive"), "mobile_ios_archive_missing_dev_client_strip");
-assert(iosArchiveSource.includes('delete packageJSON.dependencies["expo-dev-client"]'), "mobile_ios_archive_must_strip_dev_client_dependency");
-assert(iosArchiveSource.includes('"CODE_SIGN_IDENTITY="'), "mobile_ios_archive_must_clear_automatic_development_identity");
-assert(
-  iosArchiveSource.includes("automatic iOS signing does not accept MOBILE_IOS_SIGNING_CERTIFICATE"),
-  "mobile_ios_archive_must_reject_automatic_signing_certificate",
-);
-assert(iosArchiveSource.includes("prepareSigningKeychain"), "mobile_ios_archive_missing_signing_keychain_prepare");
-assert(iosArchiveSource.includes("MOBILE_IOS_SIGNING_KEYCHAIN_PASSWORD_FILE"), "mobile_ios_archive_missing_signing_keychain_password_file");
-assert(iosArchiveSource.includes("set-key-partition-list"), "mobile_ios_archive_missing_codesign_partition_authorization");
-
-const androidBundleSource = readText("mobile/scripts/build-android-bundle.mjs");
-assert(androidBundleSource.includes("signingConfig signingConfigs.release"), "mobile_android_bundle_missing_release_signing");
-assert(androidBundleSource.includes("android-release-identity.json"), "mobile_android_bundle_missing_release_identity");
-assert(androidBundleSource.includes("verifyUploadKeyFingerprint"), "mobile_android_bundle_missing_upload_key_fingerprint_check");
-assert(androidBundleSource.includes("uploadKey.sha256"), "mobile_android_bundle_missing_upload_key_sha256_contract");
-assert(!androidBundleSource.includes("-genkeypair"), "mobile_android_bundle_must_not_generate_upload_key");
-assert(
-  androidBundleSource.includes("generated app bundle is signed with the Android debug certificate"),
-  "mobile_android_bundle_missing_debug_signing_rejection",
-);
-assert(
-  androidBundleSource.includes('"bundletool", "validate"'),
-  "mobile_android_bundle_missing_bundletool_validation",
-);
-assert(androidBundleSource.includes("LOOPAWARE_ANDROID_UPLOAD"), "mobile_android_bundle_missing_upload_key_env");
-assert(androidBundleSource.includes("loopaware-upload-key.jks"), "mobile_android_bundle_missing_default_upload_key");
-assert(androidBundleSource.includes("LOOPAWARE_MOBILE_ANDROID_VERSION_CODE"), "mobile_android_bundle_missing_version_code_env");
-assert(!androidBundleSource.includes("process.env.MOBILE_ANDROID_VERSION_CODE"), "mobile_android_bundle_must_not_read_manual_version_code");
-assert(androidBundleSource.includes("createMobileCalVerVersion"), "mobile_android_bundle_missing_calver_versioning");
-assert(androidBundleSource.includes("LOOPAWARE_MOBILE_VERSION"), "mobile_android_bundle_missing_calver_version_env");
-assert(androidBundleSource.includes("writeBuildManifest"), "mobile_android_bundle_missing_build_manifest");
-assert(androidBundleSource.includes("--preflight-only"), "mobile_android_bundle_missing_signing_preflight");
-
-const mobileCalVerSource = readText("mobile/scripts/mobile-calver-version.mjs");
-assert(mobileCalVerSource.includes("2100000000"), "mobile_calver_missing_google_play_version_code_maximum");
-assert(mobileCalVerSource.includes("Date.UTC(2020, 0, 1"), "mobile_calver_missing_utc_epoch");
-assert(mobileCalVerSource.includes("releaseVersion"), "mobile_calver_missing_release_version");
-
-const androidPublishSource = readText("mobile/scripts/publish-android-play.mjs");
-assert(androidPublishSource.includes("android-release-identity.json"), "mobile_android_publish_missing_release_identity");
-assert(androidPublishSource.includes("releaseIdentity.googleCloudProjectId"), "mobile_android_publish_missing_release_identity_quota_project");
-assert(androidPublishSource.includes("androidpublisher.googleapis.com/upload/androidpublisher/v3/applications"), "mobile_android_publish_missing_upload_api");
-assert(androidPublishSource.includes("deobfuscationFiles/proguard"), "mobile_android_publish_missing_mapping_upload");
-assert(androidPublishSource.includes("gcloud") && androidPublishSource.includes("application-default"), "mobile_android_publish_missing_adc_auth");
-assert(androidPublishSource.includes("create Android Publisher edit"), "mobile_android_publish_missing_edit_create");
-assert(androidPublishSource.includes("commit Android Publisher edit"), "mobile_android_publish_missing_edit_commit");
-assert(androidPublishSource.includes("verifyAndroidPublisherAccess"), "mobile_android_publish_missing_exact_authority_preflight");
-assert(androidPublishSource.includes("delete Android Publisher preflight edit"), "mobile_android_publish_preflight_missing_cleanup");
-assert(androidPublishSource.includes("verify Android Publisher") && androidPublishSource.includes("track access"), "mobile_android_publish_preflight_missing_track_probe");
-assert(androidPublishSource.includes("createMobileCalVerVersion"), "mobile_android_publish_missing_calver_artifact_default");
-assert(androidPublishSource.includes("LOOPAWARE_MOBILE_VERSION"), "mobile_android_publish_missing_calver_app_config_env");
+for (const obsoleteTarget of ["release-dry-run:", "publish-dry-run:", "deploy-dry-run:", "build-ios:", "build-android:", "submit-ios:", "submit-android:"]) {
+  assert(!makefile.includes(obsoleteTarget), `mobile_makefile_obsolete_target: ${obsoleteTarget}`);
+}
 
 const workflow = readText(".github/workflows/ci.yml");
 assert(workflow.includes("mobile/**"), "mobile_ci_missing_path_filter");
@@ -403,11 +220,7 @@ assert(androidPrepareSource.includes("expo"), "mobile_android_prepare_missing_ex
 assert(androidPrepareSource.includes("--platform") && androidPrepareSource.includes("android"), "mobile_android_prepare_missing_platform");
 assert(androidPrepareSource.includes("local.properties"), "mobile_android_prepare_missing_local_properties_write");
 
-for (const envFile of [
-  "configs/.env.tauth.example",
-  "configs/.env.tauth.computercat.example",
-  "tests/configs/tauth.env",
-]) {
+for (const envFile of ["configs/.env.tauth.example", "configs/.env.tauth.computercat.example", "tests/configs/tauth.env"]) {
   const envSource = readText(envFile);
   for (const envName of [
     "TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE",

@@ -1150,6 +1150,30 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [!] [I035] (P1) Adopt the schema-v3 sibling-gateway lifecycle.
+  Goal:
+  Make `.mprlab/deploy/resources.yml` the only production lifecycle declaration for LoopAware.
+
+  Requirements:
+  - Declare the backend, retained data, runtime capability, public route, health check, Pages site, npm package, mobile application, and TAuth tenant through current typed resources.
+  - Keep private bytes in the ignored `.mprlab/deploy/.env` input and bind them only through `private_values`.
+  - Remove app-owned Ansible, production Compose, release, publication, Pages activation, and deployment implementations.
+  - Delegate the exact zero-argument `make release`, `make publish`, and `make deploy` phases to `../mprlab-gateway`.
+
+  Validation:
+  Run the full LoopAware CI gate and non-mutating gateway plans for all three lifecycle phases.
+
+  Resolution:
+  Replaced the schema-1 dispatch stub with the complete schema-v3 resource graph for LoopAware's backend, retained data, exported HTTP capability, Caddy route, public health check, Pages site, React Native package, native app, TAuth tenant, and deployment-only private values. Removed the obsolete app-owned production Ansible, Compose, artifact, publication, store, and deployment controllers; the three production lifecycle targets now delegate to the exact sibling gateway. Added the pinned EAS contract, advanced the npm client to `0.7.52`, excluded the private deployment input from Git and Docker contexts, and preserved local Compose plus mobile development, native identity, API-boundary, and config validation.
+
+  Validation Results:
+  The clean pre-change `make ci` baseline passed all 458 Playwright/API scenarios. Focused `make mobile-check`, `make config-audit`, and `go test ./cmd/configaudit` passed. Sealed gateway `plan-app-release`, `plan-app-publish`, and `plan-app-deploy` validation passed against the candidate committed bytes and a secret-free private-input fixture. Final `make ci` passed all Go, JavaScript, mobile, package, race, config-audit, and 458 Playwright/API scenarios after restoring the still-current local mobile invariants. Prepared the ignored mode-`0600` deployment input from the existing private LoopAware and TAuth values, verified the six exact nonempty bindings, and did not log secret bytes. No release, publication, or production deployment was run.
+
+  Blocked: the pinned EAS CLI has no authenticated Expo account or linked `loopaware-mobile` project in this checkout. An operator must authenticate, initialize the EAS project, complete one interactive production build for iOS and Android so Expo and store credentials are configured, and commit the generated project linkage before the gateway's non-interactive release can succeed.
+
+  Changed Files:
+  `.dockerignore`, `.github/workflows/ci.yml`, `.gitignore`, `.mprlab/ISSUES.md`, `.mprlab/deploy/resources.yml`, `.mprlab/deploy/ansible/**`, `.mprlab/deploy/docker-compose.yml`, `CHANGELOG.md`, `Makefile`, `README.md`, `clients/react-native/package.json`, `clients/react-native/package-lock.json`, `cmd/configaudit/main.go`, `configs/.env.loopaware.example`, `configs/.env.loopaware.computercat.example`, `mobile/eas.json`, `mobile/package.json`, `mobile/package-lock.json`, `mobile/scripts/validate-mobile-config.mjs`, removed mobile production build/publish scripts, and removed app-owned lifecycle scripts under `scripts/` and `scripts/release/`.
+
 - [x] [I034] (P1) Declare LoopAware's TAuth tenant requirements in the app-owned deployment manifest.
   ### Summary
   Keep stable tenant identity, hosted origin, native redirect metadata, cookie names, and provider references in .mprlab/deploy/resources.yml; credential values, shared TTLs, and server policy remain gateway-owned.
