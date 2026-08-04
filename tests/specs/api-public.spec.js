@@ -2,7 +2,7 @@
 import * as net from "node:net";
 import { test, expect } from "@playwright/test";
 import { resolveTestConfig } from "../helpers/config.js";
-import { buildCookieHeader, buildSessionCookie } from "../helpers/auth.js";
+import { buildSessionCookie } from "../helpers/auth.js";
 import {
   buildAdminUser,
   buildUniqueEmail,
@@ -95,20 +95,31 @@ test("health endpoint reports the running backend", async ({ request }) => {
   expect(await response.json()).toEqual({ status: "ok" });
 });
 
-test("bounds slow request bodies while keeping authenticated SSE available", async () => {
+test("bounds slow request bodies while keeping authenticated SSE available", async ({ browser }) => {
   const slowResult = await sendSlowPublicRequestBody();
   expect(slowResult.elapsedMilliseconds).toBeGreaterThanOrEqual(9_000);
   expect(slowResult.elapsedMilliseconds).toBeLessThan(11_000);
   expect(slowResult.bodyCompleted).toBe(false);
   expect(slowResult.responseText).not.toMatch(/^HTTP\/1\.1 2\d\d/m);
 
-  const streamResponse = await fetch(`${config.apiBaseURL}/api/sites/feedback/events`, {
-    headers: { Cookie: buildCookieHeader(buildAdminCookie()) }
+  const context = await browser.newContext();
+  await context.addCookies([buildAdminCookie()]);
+  const page = await context.newPage();
+  await page.goto(`${config.baseURL}/healthz`);
+  const streamMetadata = await page.evaluate(async () => {
+    const response = await fetch("/api/sites/feedback/events", { credentials: "include" });
+    const metadata = {
+      status: response.status,
+      contentType: response.headers.get("content-type") || "",
+      hasBody: response.body !== null
+    };
+    await response.body?.cancel();
+    return metadata;
   });
-  expect(streamResponse.status).toBe(200);
-  expect(streamResponse.headers.get("content-type") || "").toContain("text/event-stream");
-  expect(streamResponse.body).not.toBeNull();
-  await streamResponse.body?.cancel();
+  await context.close();
+  expect(streamMetadata.status).toBe(200);
+  expect(streamMetadata.contentType).toContain("text/event-stream");
+  expect(streamMetadata.hasBody).toBe(true);
 });
 
 let clientIPCounter = 1;
