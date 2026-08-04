@@ -66,6 +66,9 @@ LoopAware reads one backend runtime YAML file through `github.com/tyemirov/utils
 server:
   address: "${APP_ADDR}"
   public_base_url: "${PUBLIC_BASE_URL}"
+  trusted_proxy_cidrs:
+    - "${TRUSTED_PROXY_CIDR}"
+  trusted_edge_geo_proxy_cidrs: []
 
 database:
   driver: "${DB_DRIVER}"
@@ -104,6 +107,7 @@ The local Compose env files provide shell values for placeholders used by `confi
 |------------------------|----------|-------------------------------------------------------------|
 | `APP_ADDR`             | ✅        | Listen address, for example `:8080`                         |
 | `PUBLIC_BASE_URL`      | ✅        | Frontend origin used for CORS and subscription links        |
+| `TRUSTED_PROXY_CIDR`   | ✅        | Canonical CIDR of the reverse proxy allowed to set client forwarding headers |
 | `DB_DRIVER`            | ✅        | Storage driver (`sqlite`, etc.)                             |
 | `DB_DSN`               | ✅        | Driver-specific DSN                                         |
 | `SESSION_SECRET`       | ✅        | 32+ byte secret for subscription confirmation tokens        |
@@ -116,6 +120,13 @@ The local Compose env files provide shell values for placeholders used by `confi
 | `PINGUIN_TENANT_ID`    | ✅        | Tenant identifier used when calling the Pinguin gRPC API     |
 
 Secrets can remain outside the tracked file by using placeholders. Non-secret settings can be literal YAML values when that is clearer for the environment.
+
+`server.trusted_proxy_cidrs` must contain canonical CIDRs and cannot contain a catch-all network. Gin accepts
+`X-Forwarded-For` only when the immediate peer is inside that boundary; forwarding headers from every other peer are
+removed before logging, HTTPS detection, storage, or rate limiting. `server.trusted_edge_geo_proxy_cidrs` is a separate
+subset of the proxy boundary. Keep it empty unless the named owned proxy overwrites caller geo headers with canonical
+values. The tracked local, test, and ComputerCat stacks give gHTTP a fixed address and trust only that address. The
+production manifest trusts the gateway-owned internal network because Caddy is the only public path to the API service.
 
 When running via Docker Compose, create private local `.env.*` files explicitly. The tracked examples document variable names only; their values are intentionally unusable and must never be copied, sourced, or passed to Compose.
 
@@ -136,7 +147,9 @@ YAML file; they are not a second runtime config source. Production deployment va
 deployment; release and publication do not read it.
 `config-audit` validates real local env files when they are present. When they are absent, each production Compose service
 declares a tracked audit-only fixture under `tests/configs/` with `x-config-audit-env-file`; `.env.*.example` files are never
-loaded. Runtime still requires the real local env files.
+loaded. Runtime still requires the real local env files. Every existing repo-root or `configs/` dotenv input,
+`.mprlab/deploy/.env`, and mounted private-key file must be a regular file with mode `0600`; tracked examples and audit
+fixtures are not private runtime inputs, and absent private inputs remain valid for source-only checkouts.
 
 Frontend runtime host mapping lives in `web/config.yml`, which is served directly as `/config.yml` by the static site.
 It also carries per-environment frontend service settings such as `siteWidgetSiteId` for the first-party landing and
@@ -182,6 +195,7 @@ TAUTH_TENANT_ID=loopaware \
 TAUTH_JWT_SIGNING_KEY=replace-with-tauth-jwt-signing-key \
 TAUTH_SESSION_COOKIE_NAME=loopaware_development_session \
 PUBLIC_BASE_URL=http://localhost:8080 \
+TRUSTED_PROXY_CIDR=192.0.2.1/32 \
 PINGUIN_ADDR=localhost:50051 \
 PINGUIN_AUTH_TOKEN=replace-with-pinguin-token \
 PINGUIN_TENANT_ID=loopaware \
@@ -197,8 +211,13 @@ Ensure the TAuth service is running at the configured `auth.tauth.base_url` with
 Administrators listed in `configs/config.loopaware.yml` can manage every site; other users see sites they own, sites
 they originally created with their authenticated account, or sites where an admin added their email as a team member.
 
-The static frontend pins `mpr-ui` through CDN URLs and lets `mpr-ui` own browser authentication scaffolding. Do not copy
-third-party browser bundles into `web/`; non-CDN frontend dependencies are forbidden by architecture.
+The static frontend pins `mpr-ui` to its full release commit through CDN URLs and lets `mpr-ui` own browser
+authentication scaffolding. Direct jsDelivr JavaScript and CSS declarations carry SHA-384 subresource integrity;
+the mpr-ui bundle is loaded by the upstream mpr-ui configurator from that immutable commit URL. Every HTML entry point
+declares the canonical `configs/content-security-policy.txt` static-hosting CSP before executable or styled content. The local proxies enforce the same policy
+as a response header and add `frame-ancestors 'none'`, which CSP metadata cannot enforce. Run
+`make browser-security-audit` to detect dependency, integrity, CSP, or proxy-policy drift. Do not copy third-party
+browser bundles into `web/`; non-CDN frontend dependencies are forbidden by architecture.
 
 ## Authentication flow
 
@@ -286,15 +305,20 @@ Traffic endpoints with `interval=1day` report the trailing 24 hours. `interval=3
 | `POST`  | `/public/feedback`                       | public      | Submit feedback (requires `site_id`, valid `contact` as email or phone, at least one of `message` or `sentiment`, and optional `source_url` for the submitting page) |
 | `POST`  | `/public/mobile-feedback`                | public      | Submit feedback from a registered mobile app with screen/app context                                   |
 | `POST`  | `/public/subscriptions`                  | public      | Submit an email subscription (JSON body with `site_id`, `email`, optional `name` and `source_url`)      |
-| `POST`  | `/public/subscriptions/confirm`          | public      | Confirm a subscription for a given `site_id` and email                                                  |
-| `POST`  | `/public/subscriptions/unsubscribe`      | public      | Unsubscribe an email address for a given `site_id`                                                      |
 | `GET`   | `/public/visits`                         | public      | Record a page visit for a site (returns a 1×1 GIF for use as a tracking pixel)                          |
 | `POST`  | `/sentry/errors`                         | ingest token | Submit developer error events with `Authorization: Bearer <token>` or `X-LoopAware-Sentry-Token`       |
 | `POST`  | `/sentry/browser-errors`                 | site origin | Submit browser JavaScript error events from configured site origins                                     |
 
-Subscriptions use confirmation and unsubscribe links sent via email: the static frontend pages at
-`/subscriptions/confirm?token=...` and `/subscriptions/unsubscribe?token=...` call the API without requiring browser
-origin headers.
+Subscriptions use signed confirmation and unsubscribe links sent via email. The static frontend pages at
+`/subscriptions/confirm?token=...` and `/subscriptions/unsubscribe?token=...` call the matching signed-token API
+endpoints without requiring browser origin headers. Public callers cannot inspect or mutate subscription state by email.
+
+The HTTP edge accepts at most 64 KiB for standard JSON mutations and 1 MiB for protected LA Sentry event ingestion;
+pixel-style visit requests accept no body. Oversized requests return `413` with `{"error":"request_too_large"}` before
+route dispatch. The server bounds header reads to 5 seconds, complete request reads to 10 seconds, idle connections to 60
+seconds, and headers to 64 KiB. It intentionally has no response write deadline so authenticated server-sent event
+streams remain open. Public visit collection separately allows 120 requests per 30 seconds for each site and verified
+client address, then returns `429`; forwarding-header spoofing cannot create a new window.
 
 LA Sentry ingest accepts JSON with `site_id`, `event_id`, `timestamp`, `platform`, `environment`, `release`, `level`,
 `message`, `exception_type`, `stacktrace`, `request`, `user_hash`, `tags`, and `extra`. Rotate the per-site token from
@@ -333,7 +357,7 @@ The Bootstrap front end consumes the APIs above. Features include:
 - Selected-site health monitoring with enablement, target URL, interval, timeout, failure threshold, manual check, and alert-recipient controls
 - Widget appearance controls that persist the bubble’s accent color, side (left/right), and bottom offset without code changes
 - Feedback table with human-readable timestamps
-- Subscribers panel with per-site subscriber counts, table, CSV export, and a copyable `subscribe.js` snippet
+- Subscribers panel with per-site subscriber counts, table, spreadsheet-formula-safe CSV export, and a copyable `subscribe.js` snippet
 - Section selector tabs to switch between Feedback, Subscriptions, Traffic, Health, LA Sentry, and manager-only Admin tools
 - Subscriber deletion via a confirmation modal
 - Traffic card with visit and unique visitor counts, recent visits, and a copyable `pixel.js` snippet
@@ -444,8 +468,9 @@ The traffic pixel records page visits per site and powers the dashboard Traffic 
 
 3. On load, `pixel.js` sends a beacon to `/public/visits` with the site ID, current URL, referrer, browser timezone,
    browser locale, viewport, screen resolution, and a stable visitor ID stored in `localStorage`. The server also stores
-   supported edge geo headers from Cloudflare, Vercel, and CloudFront when the deployment provides them, then prefers
-   that location signal over browser timezone and locale hints. Requests from origins outside the site’s `allowed_origin`
+   supported edge geo headers from Cloudflare, Vercel, and CloudFront only when an explicitly trusted owned proxy
+   overwrites them, then prefers that location signal over browser timezone and locale hints. The tracked deployments
+   reject caller-supplied edge geo metadata and use browser timezone or locale instead. Requests from origins outside the site’s `allowed_origin`
    list are rejected. Traffic from known bot user-agent signatures is stored but excluded from default dashboard totals,
    top-page rankings, trends, attribution, engagement, devices, and locations.
 
@@ -487,13 +512,22 @@ make test
 Use `make test-unit` for Go-only tests and `make test-integration-api` to focus on API specs. Playwright artifacts
 (traces, screenshots, videos) land under `tests/test-results/` on failure. The integration runner tears its compose
 project down on exit, including failures and signal exits.
-The runner rejects inherited `LOOPAWARE_BASE_URL`, `LOOPAWARE_ENV_FILE`, `COMPOSE_PROJECT_NAME`, `DOCKER_HOST`,
-`DOCKER_CONTEXT`, and Docker TLS inputs; requires a local `unix://` or `npipe://` Docker endpoint; and supplies its own
-localhost URL, test env file, and unique Compose project.
+The runner rejects inherited `LOOPAWARE_BASE_URL`, `LOOPAWARE_API_BASE_URL`, `LOOPAWARE_ENV_FILE`,
+`COMPOSE_PROJECT_NAME`, `DOCKER_HOST`, `DOCKER_CONTEXT`, and Docker TLS inputs; requires a local `unix://` or `npipe://`
+Docker endpoint; and supplies its own localhost frontend, random loopback-only backend port, test env file, and unique
+Compose project. The test helper independently rejects any non-loopback frontend or backend target.
 
 Use `make test-live-favicons` when validating customer-site favicon collection against known public websites. That
 target performs live network requests and is intentionally outside `make ci` so third-party uptime does not gate normal
 development.
+
+Run `make security-audit` to execute the pinned Go vulnerability analyzer, full dependency audits for every npm
+project, and the immutable supported-container-base contract. This audit is part of `make ci`; it requires network access
+to the Go vulnerability database and npm advisory service. To validate the complete shipped image after a base or Go
+dependency update, build it with `docker build --pull -t loopaware:security-audit .` and inspect it with
+`docker scout cves --only-severity critical,high --exit-code local://loopaware:security-audit`.
+Repository administrators can run the read-only `make github-security-audit` gate to verify the live Actions, branch
+protection, Dependabot, secret-scanning, CodeQL, and gateway-owned Pages controls against the tracked security contract.
 
 ## Release, Publish, Deploy
 
@@ -532,6 +566,8 @@ $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.
 
 The compose file binds `configs/config.loopaware.yml` into the LoopAware container at `/app/configs/config.loopaware.yml`
 and loads per-service placeholder values via `env_file` from `configs/.env.*`.
+The production Dockerfile pins the multi-architecture Go 1.26.5/Alpine 3.24 build image and Alpine 3.24 runtime image by
+their manifest-list digests; update the human-readable tag and digest together when intentionally advancing either base.
 The container now runs as root so the SQLite data volume remains writable; if you need to switch back to an unprivileged
 user, update the Docker image to chown the mounted directory before starting the binary.
 
@@ -556,7 +592,8 @@ $EDITOR configs/.env.loopaware.computercat configs/.env.tauth.computercat config
 
 The computercat stack exposes `https://computercat.tyemirov.net:4443` through gHTTP as the TLS terminator and reverse
 proxy. The proxy expects certificates at `/media/share/Drive/exchange/certs/computercat/computercat-cert.pem` and
-`/media/share/Drive/exchange/certs/computercat/computercat-key.pem`, mounted into the container at `/certs`.
+`/media/share/Drive/exchange/certs/computercat/computercat-key.pem`; Compose mounts only those two files into `/certs`,
+and `config-audit` requires the private key to use mode `0600` whenever it exists.
 `configs/.env.ghttp.computercat` owns the TLS and proxy settings, including `GHTTP_SERVE_DIRECTORY=/data`,
 `GHTTP_SERVE_PORT=4443`, `GHTTP_SERVE_TLS_CERTIFICATE=/certs/computercat-cert.pem`,
 `GHTTP_SERVE_TLS_PRIVATE_KEY=/certs/computercat-key.pem`, and the reverse-proxy routes for TAuth, LoopAware public/API,

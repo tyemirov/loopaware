@@ -127,9 +127,9 @@ func TestSubscriptionConfirmationOpenURLRejectsInvalidOrigin(testingT *testing.T
 
 func TestPublicHandlersIsRateLimitedCountsRequests(testingT *testing.T) {
 	handlers := &PublicHandlers{
-		rateWindow:                time.Hour,
-		maxRequestsPerIPPerWindow: 1,
-		rateCountersByIP:          make(map[string]publicRateCounter),
+		rateWindow:                 time.Hour,
+		maxRequestsPerKeyPerWindow: 1,
+		rateCountersByKey:          make(map[string]publicRateCounter),
 	}
 	require.False(testingT, handlers.isRateLimited("127.0.0.1"))
 	require.True(testingT, handlers.isRateLimited("127.0.0.1"))
@@ -138,28 +138,28 @@ func TestPublicHandlersIsRateLimitedCountsRequests(testingT *testing.T) {
 func TestPublicHandlersIsRateLimitedPrunesExpiredWindows(testingT *testing.T) {
 	now := time.Now()
 	handlers := &PublicHandlers{
-		rateWindow:                time.Hour,
-		maxRequestsPerIPPerWindow: 1,
-		rateCountersByIP: map[string]publicRateCounter{
+		rateWindow:                 time.Hour,
+		maxRequestsPerKeyPerWindow: 1,
+		rateCountersByKey: map[string]publicRateCounter{
 			"192.0.2.10": {windowStartedAt: now.Add(-time.Hour), count: 1},
 			"192.0.2.11": {windowStartedAt: now.Add(-time.Minute), count: 1},
 		},
 	}
 
 	handlers.pruneRateCounters(now)
-	require.NotContains(testingT, handlers.rateCountersByIP, "192.0.2.10")
-	require.Contains(testingT, handlers.rateCountersByIP, "192.0.2.11")
+	require.NotContains(testingT, handlers.rateCountersByKey, "192.0.2.10")
+	require.Contains(testingT, handlers.rateCountersByKey, "192.0.2.11")
 }
 
 func TestPublicHandlersIsRateLimitedCapsNewClientWindows(testingT *testing.T) {
 	handlers := &PublicHandlers{
-		rateWindow:                time.Hour,
-		maxRequestsPerIPPerWindow: 1,
-		rateCountersByIP:          make(map[string]publicRateCounter, publicMaxRateCounterEntries),
+		rateWindow:                 time.Hour,
+		maxRequestsPerKeyPerWindow: 1,
+		rateCountersByKey:          make(map[string]publicRateCounter, publicMaxRateCounterEntries),
 	}
 	now := time.Now()
 	for index := 0; index < publicMaxRateCounterEntries; index++ {
-		handlers.rateCountersByIP[fmt.Sprintf("192.0.2.%d", index)] = publicRateCounter{windowStartedAt: now, count: 1}
+		handlers.rateCountersByKey[fmt.Sprintf("192.0.2.%d", index)] = publicRateCounter{windowStartedAt: now, count: 1}
 	}
 
 	require.True(testingT, handlers.isRateLimited("198.51.100.1"))

@@ -50,8 +50,6 @@ All backend routes live under `/api/*`:
 - Public endpoints:
   - `POST /public/feedback`
   - `POST /public/subscriptions`
-  - `POST /public/subscriptions/confirm`
-  - `POST /public/subscriptions/unsubscribe`
   - `GET /public/visits`
   - `GET /public/widget-config`
   - `GET /public/subscriptions/confirm-link`

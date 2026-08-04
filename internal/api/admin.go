@@ -1708,9 +1708,9 @@ func (handlers *SiteHandlers) ExportSubscribers(context *gin.Context) {
 	_ = csvWriter.Write([]string{"email", "name", "status", "created_at", "confirmed_at", "unsubscribed_at"})
 	for _, subscriber := range subscribers {
 		record := []string{
-			subscriber.Email,
-			subscriber.Name,
-			subscriber.Status,
+			sanitizeCSVCell(subscriber.Email),
+			sanitizeCSVCell(subscriber.Name),
+			sanitizeCSVCell(subscriber.Status),
 			fmt.Sprintf("%d", subscriber.CreatedAt.Unix()),
 			fmt.Sprintf("%d", subscriber.ConfirmedAt.Unix()),
 			fmt.Sprintf("%d", subscriber.UnsubscribedAt.Unix()),

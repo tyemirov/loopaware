@@ -1,4 +1,5 @@
 // @ts-check
+import { randomBytes } from 'node:crypto';
 import { createSite, listSites } from './api.js';
 import { applySessionCookie, setLocalStorage } from './browser.js';
 import { installExternalAssetStubs, waitForExternalAssetStubsToSettle } from './externalAssets.js';
@@ -11,7 +12,7 @@ const LOGIN_PATHNAME = '/login';
 const MPR_UI_TESTING_FIXTURE_PATH = '/privacy';
 
 function randomSuffix() {
-  return `${Date.now().toString(36)}${Math.random().toString(16).slice(2, 8)}`;
+  return randomBytes(12).toString('hex');
 }
 
 export function buildUniqueName(prefix) {

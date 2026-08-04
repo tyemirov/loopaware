@@ -297,15 +297,14 @@ test.describe("LA Sentry developer monitoring api", () => {
     expect(payload.error).toBe("origin_forbidden");
   });
 
-  test("rate limits repeated browser errors from one client IP", async () => {
+  test("rate limits repeated browser errors despite spoofed forwarding headers", async () => {
     const site = await createSentrySite("LA Sentry Browser Rate Limit");
-    const clientIP = "203.0.113.24";
     const captureCount = 60;
 
     for (let captureIndex = 0; captureIndex < captureCount; captureIndex += 1) {
       await captureBrowserSentryError(config, sentryEvent(site, {
         eventId: `browser-rate-limit-${Date.now()}-${captureIndex}`
-      }), site.allowed_origin, clientIP);
+      }), site.allowed_origin, `203.0.113.${captureIndex + 1}`);
     }
 
     const { response, payload } = await apiRequest({
@@ -313,7 +312,7 @@ test.describe("LA Sentry developer monitoring api", () => {
       path: "/sentry/browser-errors",
       method: "POST",
       origin: site.allowed_origin,
-      clientIP,
+      clientIP: "198.51.100.200",
       body: sentryEvent(site, { eventId: `browser-rate-limit-blocked-${Date.now()}` })
     });
 

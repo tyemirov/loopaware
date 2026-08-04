@@ -1,7 +1,8 @@
 // @ts-check
+import * as net from "node:net";
 import { test, expect } from "@playwright/test";
 import { resolveTestConfig } from "../helpers/config.js";
-import { buildSessionCookie } from "../helpers/auth.js";
+import { buildCookieHeader, buildSessionCookie } from "../helpers/auth.js";
 import {
   buildAdminUser,
   buildUniqueEmail,
@@ -19,10 +20,95 @@ function buildAdminCookie() {
   return buildSessionCookie(config, adminUser);
 }
 
+/**
+ * Opens a request body directly against the backend and leaves it incomplete beyond the read deadline.
+ * @returns {Promise<{bodyCompleted: boolean, elapsedMilliseconds: number, responseText: string}>}
+ */
+function sendSlowPublicRequestBody() {
+  const apiURL = new URL(config.apiBaseURL);
+  const port = Number(apiURL.port || (apiURL.protocol === "https:" ? 443 : 80));
+  return new Promise((resolve, reject) => {
+    const startedAt = Date.now();
+    const socket = net.createConnection({ host: apiURL.hostname, port });
+    let bodyCompleted = false;
+    let responseText = "";
+    let settled = false;
+    /** @type {NodeJS.Timeout | undefined} */
+    let bodyTimer;
+
+    /** @param {Error=} error */
+    const settle = (error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (bodyTimer) {
+        clearTimeout(bodyTimer);
+      }
+      socket.destroy();
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve({
+        bodyCompleted,
+        elapsedMilliseconds: Date.now() - startedAt,
+        responseText
+      });
+    };
+
+    socket.setNoDelay(true);
+    socket.setTimeout(14_000, () => settle(new Error("slow_request_socket_timeout")));
+    socket.on("connect", () => {
+      socket.write([
+        "POST /public/feedback HTTP/1.1",
+        `Host: ${apiURL.host}`,
+        "Content-Type: application/json",
+        "Content-Length: 2",
+        "Connection: close",
+        "",
+        "{"
+      ].join("\r\n"));
+      bodyTimer = setTimeout(() => {
+        bodyCompleted = true;
+        socket.end("}");
+      }, 11_000);
+    });
+    socket.on("data", (chunk) => {
+      responseText += chunk.toString("utf8");
+    });
+    socket.on("end", () => settle());
+    socket.on("close", () => settle());
+    socket.on("error", (error) => {
+      if (Date.now() - startedAt >= 9_000) {
+        settle();
+        return;
+      }
+      settle(error);
+    });
+  });
+}
+
 test("health endpoint reports the running backend", async ({ request }) => {
   const response = await request.get(`${config.baseURL}/healthz`);
   expect(response.status()).toBe(200);
   expect(await response.json()).toEqual({ status: "ok" });
+});
+
+test("bounds slow request bodies while keeping authenticated SSE available", async () => {
+  const slowResult = await sendSlowPublicRequestBody();
+  expect(slowResult.elapsedMilliseconds).toBeGreaterThanOrEqual(9_000);
+  expect(slowResult.elapsedMilliseconds).toBeLessThan(11_000);
+  expect(slowResult.bodyCompleted).toBe(false);
+  expect(slowResult.responseText).not.toMatch(/^HTTP\/1\.1 2\d\d/m);
+
+  const streamResponse = await fetch(`${config.apiBaseURL}/api/sites/feedback/events`, {
+    headers: { Cookie: buildCookieHeader(buildAdminCookie()) }
+  });
+  expect(streamResponse.status).toBe(200);
+  expect(streamResponse.headers.get("content-type") || "").toContain("text/event-stream");
+  expect(streamResponse.body).not.toBeNull();
+  await streamResponse.body?.cancel();
 });
 
 let clientIPCounter = 1;
@@ -69,36 +155,6 @@ async function postSubscriptionRequest(siteId, email, originOverride, clientIP, 
       email,
       name: "",
       source_url: "",
-      audience_key: audienceKey || ""
-    }
-  });
-}
-
-async function postSubscriptionStatusRequest(siteId, email, audienceKeys, originOverride, clientIP) {
-  return apiRequest({
-    baseURL: config.baseURL,
-    path: "/public/subscriptions/status",
-    method: "POST",
-    origin: originOverride,
-    clientIP: clientIP || nextClientIP(),
-    body: {
-      site_id: siteId,
-      email,
-      audience_keys: audienceKeys
-    }
-  });
-}
-
-async function postSubscriptionMutation(path, siteId, email, originOverride, clientIP, audienceKey) {
-  return apiRequest({
-    baseURL: config.baseURL,
-    path,
-    method: "POST",
-    origin: originOverride,
-    clientIP: clientIP || nextClientIP(),
-    body: {
-      site_id: siteId,
-      email,
       audience_key: audienceKey || ""
     }
   });
@@ -158,6 +214,23 @@ test.describe("public feedback api", () => {
       contentType: "application/json"
     });
     expect(response.status).toBe(400);
+  });
+
+  test("rejects oversized request bodies with a stable response", async () => {
+    const { response, payload } = await apiRequest({
+      baseURL: config.baseURL,
+      path: "/public/feedback",
+      method: "POST",
+      origin: site.allowed_origin,
+      clientIP: nextClientIP(),
+      rawBody: JSON.stringify({
+        site_id: site.id,
+        contact: "oversized@example.com",
+        message: "x".repeat(64 * 1024)
+      })
+    });
+    expect(response.status).toBe(413);
+    expect(payload.error).toBe("request_too_large");
   });
 
   test("rejects unknown site", async () => {
@@ -312,11 +385,17 @@ test.describe("public feedback api", () => {
     expect(payload.error).toBe("invalid_mobile_client");
   });
 
-  test("rate limits repeated feedback requests", async () => {
-    const clientIP = nextClientIP();
+  test("rate limits repeated feedback requests despite spoofed forwarding headers", async () => {
+    const rateLimitSite = await createPublicSite("Feedback Rate Limit");
     let lastResult;
     for (let attemptIndex = 0; attemptIndex < 7; attemptIndex += 1) {
-      lastResult = await postFeedbackRequest(site.id, "person@example.com", "Hello", site.allowed_origin, clientIP);
+      lastResult = await postFeedbackRequest(
+        rateLimitSite.id,
+        "person@example.com",
+        "Hello",
+        rateLimitSite.allowed_origin,
+        `10.20.0.${attemptIndex + 1}`
+      );
     }
     expect(lastResult.response.status).toBe(429);
     expect(lastResult.payload.error).toBe("rate_limited");
@@ -385,135 +464,35 @@ test.describe("public subscription api", () => {
     expect(walmart.response.status).toBe(200);
   });
 
-  test("reports subscription status per audience", async () => {
-    const email = buildUniqueEmail("status");
-    await postSubscriptionRequest(site.id, email, site.allowed_origin, undefined, "EBAY");
-    await postSubscriptionRequest(site.id, email, site.allowed_origin, undefined, "WLMT");
-    await postSubscriptionMutation("/public/subscriptions/unsubscribe", site.id, email, site.allowed_origin, undefined, "WLMT");
-
-    const { response, payload } = await postSubscriptionStatusRequest(site.id, email, ["EBAY", "WLMT", "APPL"], site.allowed_origin);
-    expect(response.status).toBe(200);
-    expect(payload.status).toBe("ok");
-    expect(payload.subscriptions).toEqual([
-      { audience_key: "EBAY", subscribed: true },
-      { audience_key: "WLMT", subscribed: false },
-      { audience_key: "APPL", subscribed: false }
-    ]);
-  });
-
-  test("validates subscription status probes", async () => {
-    const missingAudience = await postSubscriptionStatusRequest(site.id, "user@example.com", [], site.allowed_origin);
-    expect(missingAudience.response.status).toBe(400);
-    expect(missingAudience.payload.error).toBe("missing_fields");
-
-    const invalidEmail = await postSubscriptionStatusRequest(site.id, "not-an-email", ["EBAY"], site.allowed_origin);
-    expect(invalidEmail.response.status).toBe(400);
-    expect(invalidEmail.payload.error).toBe("invalid_email");
-
-    const unknownSite = await postSubscriptionStatusRequest("missing-site", "user@example.com", ["EBAY"], site.allowed_origin);
-    expect(unknownSite.response.status).toBe(404);
-    expect(unknownSite.payload.error).toBe("unknown_site");
-
-    const forbiddenOrigin = await postSubscriptionStatusRequest(site.id, "user@example.com", ["EBAY"], buildUniqueOrigin("status-forbidden"));
-    expect(forbiddenOrigin.response.status).toBe(403);
-    expect(forbiddenOrigin.payload.error).toBe("origin_forbidden");
-  });
-
-  test("rate limits repeated subscription requests", async () => {
-    const clientIP = nextClientIP();
-    let lastResult;
-    for (let attemptIndex = 0; attemptIndex < 7; attemptIndex += 1) {
-      lastResult = await postSubscriptionRequest(site.id, "", site.allowed_origin, clientIP);
+  test("does not expose tokenless subscription state routes", async () => {
+    const obsoletePaths = [
+      "/public/subscriptions/status",
+      "/public/subscriptions/confirm",
+      "/public/subscriptions/unsubscribe"
+    ];
+    for (const path of obsoletePaths) {
+      const { response } = await apiRequest({
+        baseURL: config.baseURL,
+        path,
+        method: "POST",
+        origin: site.allowed_origin,
+        clientIP: nextClientIP(),
+        body: { site_id: site.id, email: "probe@example.com" }
+      });
+      expect(response.status).toBe(404);
     }
-    expect(lastResult.response.status).toBe(429);
-    expect(lastResult.payload.error).toBe("rate_limited");
-  });
-});
-
-test.describe("subscription confirmation flows", () => {
-  let site;
-
-  test.beforeAll(async () => {
-    site = await createPublicSite("Confirm API");
   });
 
-  test("confirm rejects missing fields", async () => {
-    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/confirm", "", "", site.allowed_origin);
-    expect(response.status).toBe(400);
-    expect(payload.error).toBe("missing_fields");
-  });
-
-  test("confirm rejects unknown site", async () => {
-    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/confirm", "missing-site", "user@example.com", site.allowed_origin);
-    expect(response.status).toBe(404);
-    expect(payload.error).toBe("unknown_site");
-  });
-
-  test("confirm rejects forbidden origin", async () => {
-    const email = buildUniqueEmail("forbidden-confirm");
-    const forbiddenOrigin = buildUniqueOrigin("confirm-forbidden");
-    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/confirm", site.id, email, forbiddenOrigin);
-    expect(response.status).toBe(403);
-    expect(payload.error).toBe("origin_forbidden");
-  });
-
-  test("confirm rejects unknown subscription", async () => {
-    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/confirm", site.id, buildUniqueEmail("missing"), site.allowed_origin);
-    expect(response.status).toBe(404);
-    expect(payload.error).toBe("unknown_subscription");
-  });
-
-  test("confirm succeeds for pending subscriber", async () => {
-    const email = buildUniqueEmail("confirm");
-    await postSubscriptionRequest(site.id, email, site.allowed_origin);
-    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/confirm", site.id, email, site.allowed_origin);
-    expect(response.status).toBe(200);
-    expect(payload.status).toBe("ok");
-  });
-
-  test("confirm rejects unsubscribed subscriber", async () => {
-    const email = buildUniqueEmail("unsubscribed-confirm");
-    await postSubscriptionRequest(site.id, email, site.allowed_origin);
-    await postSubscriptionMutation("/public/subscriptions/unsubscribe", site.id, email, site.allowed_origin);
-    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/confirm", site.id, email, site.allowed_origin);
-    expect(response.status).toBe(409);
-    expect(payload.error).toBe("unsubscribed");
-  });
-
-  test("unsubscribe succeeds", async () => {
-    const email = buildUniqueEmail("unsubscribe");
-    await postSubscriptionRequest(site.id, email, site.allowed_origin);
-    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/unsubscribe", site.id, email, site.allowed_origin);
-    expect(response.status).toBe(200);
-    expect(payload.status).toBe("ok");
-  });
-
-  test("confirm returns ok for already confirmed", async () => {
-    const email = buildUniqueEmail("already-confirmed");
-    await postSubscriptionRequest(site.id, email, site.allowed_origin);
-    await postSubscriptionMutation("/public/subscriptions/confirm", site.id, email, site.allowed_origin);
-    const { response, payload } = await postSubscriptionMutation("/public/subscriptions/confirm", site.id, email, site.allowed_origin);
-    expect(response.status).toBe(200);
-    expect(payload.status).toBe("ok");
-  });
-
-  test("rate limits confirmation requests", async () => {
-    const clientIP = nextClientIP();
-    const email = buildUniqueEmail("rate-confirm");
+  test("rate limits repeated subscription requests despite spoofed forwarding headers", async () => {
+    const rateLimitSite = await createPublicSite("Subscription Rate Limit");
     let lastResult;
     for (let attemptIndex = 0; attemptIndex < 7; attemptIndex += 1) {
-      lastResult = await postSubscriptionMutation("/public/subscriptions/confirm", site.id, email, site.allowed_origin, clientIP);
-    }
-    expect(lastResult.response.status).toBe(429);
-    expect(lastResult.payload.error).toBe("rate_limited");
-  });
-
-  test("rate limits unsubscribe requests", async () => {
-    const clientIP = nextClientIP();
-    const email = buildUniqueEmail("rate-unsubscribe");
-    let lastResult;
-    for (let attemptIndex = 0; attemptIndex < 7; attemptIndex += 1) {
-      lastResult = await postSubscriptionMutation("/public/subscriptions/unsubscribe", site.id, email, site.allowed_origin, clientIP);
+      lastResult = await postSubscriptionRequest(
+        rateLimitSite.id,
+        buildUniqueEmail(`subscription-rate-${attemptIndex}`),
+        rateLimitSite.allowed_origin,
+        `10.21.0.${attemptIndex + 1}`
+      );
     }
     expect(lastResult.response.status).toBe(429);
     expect(lastResult.payload.error).toBe("rate_limited");
@@ -564,8 +543,13 @@ test.describe("subscription link endpoints", () => {
   test("confirm link reports already unsubscribed", async () => {
     const email = buildUniqueEmail("confirm-link-unsubscribed");
     const { payload: createPayload } = await postSubscriptionRequest(site.id, email, site.allowed_origin);
-    await postSubscriptionMutation("/public/subscriptions/unsubscribe", site.id, email, site.allowed_origin);
     const token = buildSubscriptionConfirmationToken(config.subscriptionSecret, createPayload.subscriber_id, site.id, email, 60);
+    const { response: unsubscribeResponse } = await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/subscriptions/unsubscribe-link?token=${encodeURIComponent(token)}`,
+      method: "GET"
+    });
+    expect(unsubscribeResponse.status).toBe(200);
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
       path: `/public/subscriptions/confirm-link?token=${encodeURIComponent(token)}`,
@@ -611,8 +595,13 @@ test.describe("subscription link endpoints", () => {
   test("unsubscribe link confirms already unsubscribed", async () => {
     const email = buildUniqueEmail("unsubscribe-link-already");
     const { payload: createPayload } = await postSubscriptionRequest(site.id, email, site.allowed_origin);
-    await postSubscriptionMutation("/public/subscriptions/unsubscribe", site.id, email, site.allowed_origin);
     const token = buildSubscriptionConfirmationToken(config.subscriptionSecret, createPayload.subscriber_id, site.id, email, 60);
+    const { response: firstResponse } = await apiRequest({
+      baseURL: config.baseURL,
+      path: `/public/subscriptions/unsubscribe-link?token=${encodeURIComponent(token)}`,
+      method: "GET"
+    });
+    expect(firstResponse.status).toBe(200);
     const { response, payload } = await apiRequest({
       baseURL: config.baseURL,
       path: `/public/subscriptions/unsubscribe-link?token=${encodeURIComponent(token)}`,
@@ -795,5 +784,29 @@ test.describe("visit collection endpoint", () => {
     });
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type") || "").toContain("image/gif");
+  });
+
+  test("rate limits visit bursts despite spoofed forwarding headers", async () => {
+    const burstSite = await createPublicSite("Visit Rate Limit");
+    let lastAcceptedResponse;
+    let limitedResult;
+    for (let attemptIndex = 0; attemptIndex < 121; attemptIndex += 1) {
+      const result = await apiRequest({
+        baseURL: config.baseURL,
+        path: `/public/visits?site_id=${encodeURIComponent(burstSite.id)}&url=${encodeURIComponent(`${burstSite.allowed_origin}/burst/${attemptIndex}`)}`,
+        method: "GET",
+        origin: burstSite.allowed_origin,
+        clientIP: `10.22.0.${attemptIndex + 1}`
+      });
+      if (attemptIndex === 119) {
+        lastAcceptedResponse = result.response;
+      }
+      if (attemptIndex === 120) {
+        limitedResult = result;
+      }
+    }
+    expect(lastAcceptedResponse?.status).toBe(200);
+    expect(limitedResult?.response.status).toBe(429);
+    expect(String(limitedResult?.payload)).toContain("rate_limited");
   });
 });

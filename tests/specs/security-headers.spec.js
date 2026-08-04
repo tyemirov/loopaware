@@ -1,7 +1,14 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+
+const staticContentSecurityPolicy = readFileSync(
+  new URL('../../configs/content-security-policy.txt', import.meta.url),
+  'utf8'
+).trim();
 
 const expectedEdgeHeaders = Object.freeze({
+  'content-security-policy': `${staticContentSecurityPolicy}; frame-ancestors 'none'`,
   'cross-origin-opener-policy': 'same-origin-allow-popups',
   'permissions-policy': 'accelerometer=(), autoplay=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()',
   'referrer-policy': 'strict-origin-when-cross-origin',

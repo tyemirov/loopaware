@@ -21,21 +21,25 @@ import (
 
 // PublicHandlers serves unauthenticated public API endpoints.
 type PublicHandlers struct {
-	database                  *gorm.DB
-	logger                    *zap.Logger
-	rateWindow                time.Duration
-	maxRequestsPerIPPerWindow int
-	rateCountersByIP          map[string]publicRateCounter
-	rateCountersMutex         sync.Mutex
-	feedbackBroadcaster       *FeedbackEventBroadcaster
-	subscriptionEvents        *SubscriptionTestEventBroadcaster
-	feedbackNotifier          FeedbackNotifier
-	subscriptionNotifier      SubscriptionNotifier
-	subscriptionNotifications bool
-	publicBaseURL             string
-	subscriptionTokenSecret   string
-	subscriptionTokenTTL      time.Duration
-	confirmationEmailSender   EmailSender
+	database                   *gorm.DB
+	logger                     *zap.Logger
+	rateWindow                 time.Duration
+	maxRequestsPerKeyPerWindow int
+	rateCountersByKey          map[string]publicRateCounter
+	rateCountersMutex          sync.Mutex
+	visitRateWindow            time.Duration
+	visitMaxRequestsPerWindow  int
+	visitRateCountersByKey     map[string]publicRateCounter
+	visitRateCountersMutex     sync.Mutex
+	feedbackBroadcaster        *FeedbackEventBroadcaster
+	subscriptionEvents         *SubscriptionTestEventBroadcaster
+	feedbackNotifier           FeedbackNotifier
+	subscriptionNotifier       SubscriptionNotifier
+	subscriptionNotifications  bool
+	publicBaseURL              string
+	subscriptionTokenSecret    string
+	subscriptionTokenTTL       time.Duration
+	confirmationEmailSender    EmailSender
 }
 
 type publicRateCounter struct {
@@ -51,7 +55,6 @@ const (
 	errorValueInvalidContact       = "invalid_contact"
 	errorValueUnknownSubscription  = "unknown_subscription"
 	errorValueDuplicateSubscriber  = "duplicate_subscription"
-	errorValueUnsubscribedAccount  = "unsubscribed"
 	errorValueSaveSubscriberFailed = "save_failed"
 	errorValueInvalidAudience      = "invalid_audience"
 	errorValueInvalidSite          = "unknown_site"
@@ -74,6 +77,12 @@ const (
 
 	defaultSubscriptionConfirmationTokenTTL = 48 * time.Hour
 	publicMaxRateCounterEntries             = 4096
+	publicRateScopeFeedback                 = "feedback"
+	publicRateScopeMobileFeedback           = "mobile-feedback"
+	publicRateScopeSubscription             = "subscription"
+	publicRateScopeVisit                    = "visit"
+	publicVisitMaxRequestsPerWindow         = 120
+	publicVisitRateWindow                   = 30 * time.Second
 )
 
 // NewPublicHandlers constructs a PublicHandlers instance with the provided dependencies.
@@ -81,20 +90,23 @@ func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaste
 	normalizedPublicBaseURL := strings.TrimSpace(publicBaseURL)
 	normalizedTokenSecret := strings.TrimSpace(subscriptionTokenSecret)
 	return &PublicHandlers{
-		database:                  database,
-		logger:                    logger,
-		rateWindow:                30 * time.Second,
-		maxRequestsPerIPPerWindow: 6,
-		rateCountersByIP:          make(map[string]publicRateCounter),
-		feedbackBroadcaster:       feedbackBroadcaster,
-		subscriptionEvents:        subscriptionEvents,
-		feedbackNotifier:          resolveFeedbackNotifier(notifier),
-		subscriptionNotifier:      resolveSubscriptionNotifier(subscriptionNotifier),
-		subscriptionNotifications: subscriptionNotificationsEnabled,
-		publicBaseURL:             normalizedPublicBaseURL,
-		subscriptionTokenSecret:   normalizedTokenSecret,
-		subscriptionTokenTTL:      defaultSubscriptionConfirmationTokenTTL,
-		confirmationEmailSender:   confirmationEmailSender,
+		database:                   database,
+		logger:                     logger,
+		rateWindow:                 30 * time.Second,
+		maxRequestsPerKeyPerWindow: 6,
+		rateCountersByKey:          make(map[string]publicRateCounter),
+		visitRateWindow:            publicVisitRateWindow,
+		visitMaxRequestsPerWindow:  publicVisitMaxRequestsPerWindow,
+		visitRateCountersByKey:     make(map[string]publicRateCounter),
+		feedbackBroadcaster:        feedbackBroadcaster,
+		subscriptionEvents:         subscriptionEvents,
+		feedbackNotifier:           resolveFeedbackNotifier(notifier),
+		subscriptionNotifier:       resolveSubscriptionNotifier(subscriptionNotifier),
+		subscriptionNotifications:  subscriptionNotificationsEnabled,
+		publicBaseURL:              normalizedPublicBaseURL,
+		subscriptionTokenSecret:    normalizedTokenSecret,
+		subscriptionTokenTTL:       defaultSubscriptionConfirmationTokenTTL,
+		confirmationEmailSender:    confirmationEmailSender,
 	}
 }
 
@@ -136,28 +148,6 @@ type createSubscriptionRequest struct {
 	Name        string `json:"name"`
 	SourceURL   string `json:"source_url"`
 	AudienceKey string `json:"audience_key"`
-}
-
-type subscriptionMutationRequest struct {
-	SiteID      string `json:"site_id"`
-	Email       string `json:"email"`
-	AudienceKey string `json:"audience_key"`
-}
-
-type subscriptionStatusRequest struct {
-	SiteID       string   `json:"site_id"`
-	Email        string   `json:"email"`
-	AudienceKeys []string `json:"audience_keys"`
-}
-
-type subscriptionStatusEntry struct {
-	AudienceKey string `json:"audience_key"`
-	Subscribed  bool   `json:"subscribed"`
-}
-
-type subscriptionStatusResponse struct {
-	Status        string                    `json:"status"`
-	Subscriptions []subscriptionStatusEntry `json:"subscriptions"`
 }
 
 type widgetConfigResponse struct {
@@ -220,12 +210,6 @@ func buildSubscriptionLinkResponse(heading string, message string, site model.Si
 
 // CreateFeedback accepts feedback submissions from the public widget.
 func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
-	clientIP := context.ClientIP()
-	if h.isRateLimited(clientIP) {
-		context.JSON(429, gin.H{"error": "rate_limited"})
-		return
-	}
-
 	var payload createFeedbackRequest
 	if bindErr := context.BindJSON(&payload); bindErr != nil {
 		context.JSON(400, gin.H{"error": "invalid_json"})
@@ -283,6 +267,10 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 		context.JSON(http.StatusForbidden, gin.H{"error": "origin_forbidden"})
 		return
 	}
+	if h.isRateLimited(publicRateKey(publicRateScopeFeedback, site.ID, context.ClientIP())) {
+		context.JSON(http.StatusTooManyRequests, gin.H{"error": "rate_limited"})
+		return
+	}
 
 	h.storeFeedback(context, site, feedbackRecordInput{
 		Contact:    normalizedContact,
@@ -295,11 +283,6 @@ func (h *PublicHandlers) CreateFeedback(context *gin.Context) {
 
 // CreateMobileFeedback accepts feedback submissions from native mobile apps.
 func (h *PublicHandlers) CreateMobileFeedback(context *gin.Context) {
-	clientIP := context.ClientIP()
-	if h.isRateLimited(clientIP) {
-		context.JSON(429, gin.H{"error": "rate_limited"})
-		return
-	}
 	if hasBrowserOriginHeaders(context) {
 		context.JSON(http.StatusForbidden, gin.H{"error": errorValueOriginForbidden})
 		return
@@ -372,6 +355,10 @@ func (h *PublicHandlers) CreateMobileFeedback(context *gin.Context) {
 	}
 	if mobileApp.Platform != normalizedPlatform || mobileApp.AppIdentifier != payload.App.ApplicationID {
 		context.JSON(403, gin.H{"error": errorValueInvalidMobileClient})
+		return
+	}
+	if h.isRateLimited(publicRateKey(publicRateScopeMobileFeedback, site.ID, context.ClientIP())) {
+		context.JSON(http.StatusTooManyRequests, gin.H{"error": "rate_limited"})
 		return
 	}
 
@@ -561,31 +548,62 @@ func (h *PublicHandlers) sendSubscriptionConfirmation(ctx context.Context, site 
 	sendSubscriptionConfirmationEmail(ctx, h.logger, h.recordSubscriptionTestEvent, h.confirmationEmailSender, h.publicBaseURL, h.subscriptionTokenSecret, h.subscriptionTokenTTL, site, subscriber)
 }
 
-func (h *PublicHandlers) isRateLimited(ip string) bool {
+func (h *PublicHandlers) isRateLimited(key string) bool {
 	now := time.Now()
 
 	h.rateCountersMutex.Lock()
 	defer h.rateCountersMutex.Unlock()
 
 	h.pruneRateCounters(now)
-	rateCounter, exists := h.rateCountersByIP[ip]
-	if !exists && len(h.rateCountersByIP) >= publicMaxRateCounterEntries {
+	rateCounter, exists := h.rateCountersByKey[key]
+	if !exists && len(h.rateCountersByKey) >= publicMaxRateCounterEntries {
 		return true
 	}
 	if !exists || now.Sub(rateCounter.windowStartedAt) >= h.rateWindow {
 		rateCounter = publicRateCounter{windowStartedAt: now}
 	}
 	rateCounter.count++
-	h.rateCountersByIP[ip] = rateCounter
-	return rateCounter.count > h.maxRequestsPerIPPerWindow
+	h.rateCountersByKey[key] = rateCounter
+	return rateCounter.count > h.maxRequestsPerKeyPerWindow
 }
 
 func (h *PublicHandlers) pruneRateCounters(now time.Time) {
-	for clientIP, rateCounter := range h.rateCountersByIP {
+	for key, rateCounter := range h.rateCountersByKey {
 		if now.Sub(rateCounter.windowStartedAt) >= h.rateWindow {
-			delete(h.rateCountersByIP, clientIP)
+			delete(h.rateCountersByKey, key)
 		}
 	}
+}
+
+func (h *PublicHandlers) isVisitRateLimited(key string) bool {
+	now := time.Now()
+
+	h.visitRateCountersMutex.Lock()
+	defer h.visitRateCountersMutex.Unlock()
+
+	h.pruneVisitRateCounters(now)
+	rateCounter, exists := h.visitRateCountersByKey[key]
+	if !exists && len(h.visitRateCountersByKey) >= publicMaxRateCounterEntries {
+		return true
+	}
+	if !exists || now.Sub(rateCounter.windowStartedAt) >= h.visitRateWindow {
+		rateCounter = publicRateCounter{windowStartedAt: now}
+	}
+	rateCounter.count++
+	h.visitRateCountersByKey[key] = rateCounter
+	return rateCounter.count > h.visitMaxRequestsPerWindow
+}
+
+func (h *PublicHandlers) pruneVisitRateCounters(now time.Time) {
+	for key, rateCounter := range h.visitRateCountersByKey {
+		if now.Sub(rateCounter.windowStartedAt) >= h.visitRateWindow {
+			delete(h.visitRateCountersByKey, key)
+		}
+	}
+}
+
+func publicRateKey(scope string, siteID string, clientIP string) string {
+	return scope + "\x00" + siteID + "\x00" + clientIP
 }
 
 // WidgetConfig returns the widget configuration for a site.
@@ -640,12 +658,6 @@ func (h *PublicHandlers) WidgetConfig(context *gin.Context) {
 
 // CreateSubscription registers a new subscriber.
 func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
-	clientIP := context.ClientIP()
-	if h.isRateLimited(clientIP) {
-		context.JSON(http.StatusTooManyRequests, gin.H{"error": "rate_limited"})
-		return
-	}
-
 	var payload createSubscriptionRequest
 	if bindErr := context.BindJSON(&payload); bindErr != nil {
 		context.JSON(http.StatusBadRequest, gin.H{"error": "invalid_json"})
@@ -679,6 +691,11 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 	allowedOrigins := mergedAllowedOrigins(site.AllowedOrigin, site.SubscribeAllowedOrigins)
 	if !isOriginAllowed(allowedOrigins, originHeader, refererHeader, "") {
 		context.JSON(http.StatusForbidden, gin.H{"error": "origin_forbidden"})
+		return
+	}
+	clientIP := context.ClientIP()
+	if h.isRateLimited(publicRateKey(publicRateScopeSubscription, site.ID, clientIP)) {
+		context.JSON(http.StatusTooManyRequests, gin.H{"error": "rate_limited"})
 		return
 	}
 
@@ -754,99 +771,6 @@ func (h *PublicHandlers) CreateSubscription(context *gin.Context) {
 	h.recordSubscriptionTestEvent(site, subscriber, subscriptionEventTypeSubmission, subscriptionEventStatusSuccess, "")
 	h.sendSubscriptionConfirmation(context.Request.Context(), site, subscriber)
 	context.JSON(http.StatusOK, gin.H{"status": "ok", "subscriber_id": subscriber.ID})
-}
-
-// SubscriptionStatus reports whether an email is subscribed to requested audiences.
-func (h *PublicHandlers) SubscriptionStatus(context *gin.Context) {
-	clientIP := context.ClientIP()
-	if h.isRateLimited(clientIP) {
-		context.JSON(http.StatusTooManyRequests, gin.H{"error": "rate_limited"})
-		return
-	}
-
-	var payload subscriptionStatusRequest
-	if bindErr := context.BindJSON(&payload); bindErr != nil {
-		context.JSON(http.StatusBadRequest, gin.H{"error": "invalid_json"})
-		return
-	}
-
-	payload.SiteID = strings.TrimSpace(payload.SiteID)
-	payload.Email = strings.TrimSpace(payload.Email)
-	if payload.SiteID == "" || payload.Email == "" || len(payload.AudienceKeys) == 0 {
-		context.JSON(http.StatusBadRequest, gin.H{"error": "missing_fields"})
-		return
-	}
-
-	var site model.Site
-	if err := h.database.First(&site, "id = ?", payload.SiteID).Error; err != nil {
-		context.JSON(http.StatusNotFound, gin.H{"error": errorValueInvalidSite})
-		return
-	}
-
-	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
-	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
-	allowedOrigins := mergedAllowedOrigins(site.AllowedOrigin, site.SubscribeAllowedOrigins)
-	if !isOriginAllowed(allowedOrigins, originHeader, refererHeader, "") {
-		context.JSON(http.StatusForbidden, gin.H{"error": "origin_forbidden"})
-		return
-	}
-
-	probeSubscriber, subscriberErr := model.NewSubscriber(model.SubscriberInput{
-		SiteID: site.ID,
-		Email:  payload.Email,
-		Status: model.SubscriberStatusPending,
-	})
-	if subscriberErr != nil {
-		context.JSON(http.StatusBadRequest, gin.H{"error": errorValueInvalidEmail})
-		return
-	}
-
-	audienceKeys := make([]string, 0, len(payload.AudienceKeys))
-	for _, rawAudienceKey := range payload.AudienceKeys {
-		audienceKey, audienceKeyErr := model.NormalizeSubscriberAudienceKey(rawAudienceKey)
-		if audienceKeyErr != nil {
-			context.JSON(http.StatusBadRequest, gin.H{"error": errorValueInvalidAudience})
-			return
-		}
-		audienceKeys = append(audienceKeys, audienceKey)
-	}
-
-	var subscribers []model.Subscriber
-	if err := h.database.WithContext(context.Request.Context()).
-		Where("site_id = ? AND email = ? AND audience_key IN ?", site.ID, probeSubscriber.Email, audienceKeys).
-		Find(&subscribers).Error; err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
-		return
-	}
-
-	subscribedByAudienceKey := make(map[string]bool, len(subscribers))
-	for _, subscriber := range subscribers {
-		if subscriber.Status != model.SubscriberStatusUnsubscribed {
-			subscribedByAudienceKey[subscriber.AudienceKey] = true
-		}
-	}
-
-	response := subscriptionStatusResponse{
-		Status:        "ok",
-		Subscriptions: make([]subscriptionStatusEntry, 0, len(audienceKeys)),
-	}
-	for _, audienceKey := range audienceKeys {
-		response.Subscriptions = append(response.Subscriptions, subscriptionStatusEntry{
-			AudienceKey: audienceKey,
-			Subscribed:  subscribedByAudienceKey[audienceKey],
-		})
-	}
-	context.JSON(http.StatusOK, response)
-}
-
-// ConfirmSubscription confirms a pending subscription.
-func (h *PublicHandlers) ConfirmSubscription(context *gin.Context) {
-	h.updateSubscriptionStatus(context, model.SubscriberStatusConfirmed)
-}
-
-// Unsubscribe marks a subscriber as unsubscribed.
-func (h *PublicHandlers) Unsubscribe(context *gin.Context) {
-	h.updateSubscriptionStatus(context, model.SubscriberStatusUnsubscribed)
 }
 
 // ConfirmSubscriptionLinkJSON returns confirmation link metadata.
@@ -1000,92 +924,6 @@ func subscriptionConfirmationOpenURL(site model.Site, subscriber model.Subscribe
 		return ""
 	}
 	return originCandidate
-}
-
-func (h *PublicHandlers) updateSubscriptionStatus(context *gin.Context, targetStatus string) {
-	clientIP := context.ClientIP()
-	if h.isRateLimited(clientIP) {
-		context.JSON(http.StatusTooManyRequests, gin.H{"error": "rate_limited"})
-		return
-	}
-
-	var payload subscriptionMutationRequest
-	if bindErr := context.BindJSON(&payload); bindErr != nil {
-		context.JSON(http.StatusBadRequest, gin.H{"error": "invalid_json"})
-		return
-	}
-
-	payload.SiteID = strings.TrimSpace(payload.SiteID)
-	payload.Email = strings.TrimSpace(strings.ToLower(payload.Email))
-	payload.AudienceKey = strings.TrimSpace(payload.AudienceKey)
-	if payload.SiteID == "" || payload.Email == "" {
-		context.JSON(http.StatusBadRequest, gin.H{"error": "missing_fields"})
-		return
-	}
-	audienceKey, audienceKeyErr := model.NormalizeSubscriberAudienceKey(payload.AudienceKey)
-	if audienceKeyErr != nil {
-		context.JSON(http.StatusBadRequest, gin.H{"error": errorValueInvalidAudience})
-		return
-	}
-
-	var site model.Site
-	if err := h.database.First(&site, "id = ?", payload.SiteID).Error; err != nil {
-		context.JSON(http.StatusNotFound, gin.H{"error": errorValueInvalidSite})
-		return
-	}
-
-	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
-	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
-	allowedOrigins := mergedAllowedOrigins(site.AllowedOrigin, site.SubscribeAllowedOrigins)
-	if !isOriginAllowed(allowedOrigins, originHeader, refererHeader, "") {
-		context.JSON(http.StatusForbidden, gin.H{"error": "origin_forbidden"})
-		return
-	}
-
-	subscriber, findErr := findSubscriber(context.Request.Context(), h.database, site.ID, audienceKey, payload.Email)
-	if findErr != nil {
-		if errors.Is(findErr, gorm.ErrRecordNotFound) {
-			context.JSON(http.StatusNotFound, gin.H{"error": errorValueUnknownSubscription})
-			return
-		}
-		context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
-		return
-	}
-
-	if targetStatus == model.SubscriberStatusConfirmed && subscriber.Status == model.SubscriberStatusUnsubscribed {
-		context.JSON(http.StatusConflict, gin.H{"error": errorValueUnsubscribedAccount})
-		return
-	}
-	if subscriber.Status == targetStatus {
-		context.JSON(http.StatusOK, gin.H{"status": "ok"})
-		return
-	}
-
-	updateFields := map[string]any{
-		"status": targetStatus,
-	}
-	now := time.Now().UTC()
-	if targetStatus == model.SubscriberStatusConfirmed {
-		updateFields["confirmed_at"] = now
-		updateFields["unsubscribed_at"] = time.Time{}
-	}
-	if targetStatus == model.SubscriberStatusUnsubscribed {
-		updateFields["unsubscribed_at"] = now
-	}
-
-	if err := h.database.Model(&subscriber).Updates(updateFields).Error; err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{"error": errorValueSaveSubscriberFailed})
-		return
-	}
-
-	if targetStatus == model.SubscriberStatusConfirmed {
-		subscriber.Status = model.SubscriberStatusConfirmed
-		subscriber.ConfirmedAt = now
-		subscriber.UnsubscribedAt = time.Time{}
-		h.applySubscriptionNotification(context.Request.Context(), site, subscriber)
-	}
-
-	context.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
 func parseAllowedOrigins(rawAllowedOrigin string) []string {

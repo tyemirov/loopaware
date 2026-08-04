@@ -21,6 +21,8 @@ const (
 	assetScanMaxTokenBytes              = 8 * 1024 * 1024
 	sharedConfigContainerPath           = "/config/config.yml"
 	loopAwareRuntimeConfigContainerPath = "/app/configs/config.loopaware.yml"
+	privateInputFileMode                = 0o600
+	deploymentPrivateInputPath          = ".mprlab/deploy/.env"
 )
 
 var (
@@ -266,10 +268,109 @@ func runAudit(composePath string) auditResult {
 		checkHostPortCollisions(serviceName, service.Ports, hostPortToService, &result)
 	}
 
+	checkPrivateInputModes(composeDirectory, compose.Services, &result)
 	checkForbiddenLocalThirdPartyPaths(composeDirectory, &result)
 	checkWebAssetLocalhostPorts(hostPortToService, &result)
 
 	return result
+}
+
+func checkPrivateInputModes(composeDirectory string, services map[string]composeService, result *auditResult) {
+	privateInputPaths := make(map[string]struct{})
+	addPrivateInputPath := func(path string) {
+		privateInputPaths[filepath.Clean(path)] = struct{}{}
+	}
+
+	for _, service := range services {
+		for _, envFile := range service.EnvFile {
+			addPrivateInputPath(resolveHostInputPath(composeDirectory, envFile))
+		}
+		for _, volume := range service.Volumes {
+			hostPath, containerPath, ok := parseVolumeMapping(volume)
+			if !ok || (!isPrivateKeyPath(hostPath) && !isPrivateKeyPath(containerPath)) {
+				continue
+			}
+			addPrivateInputPath(resolveHostInputPath(composeDirectory, hostPath))
+		}
+	}
+
+	for _, directory := range []string{composeDirectory, filepath.Join(composeDirectory, "configs")} {
+		entries, readError := os.ReadDir(directory)
+		if readError != nil {
+			if errors.Is(readError, os.ErrNotExist) {
+				continue
+			}
+			result.addError("private input scan: read %s: %v", directory, readError)
+			continue
+		}
+		for _, entry := range entries {
+			if isPrivateDotEnvironmentName(entry.Name()) {
+				addPrivateInputPath(filepath.Join(directory, entry.Name()))
+			}
+		}
+	}
+
+	addPrivateInputPath(filepath.Join(composeDirectory, deploymentPrivateInputPath))
+	paths := make([]string, 0, len(privateInputPaths))
+	for path := range privateInputPaths {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	for _, path := range paths {
+		checkPrivateInputMode(composeDirectory, path, result)
+	}
+}
+
+func resolveHostInputPath(composeDirectory string, path string) string {
+	trimmedPath := strings.TrimSpace(path)
+	if filepath.IsAbs(trimmedPath) {
+		return filepath.Clean(trimmedPath)
+	}
+	return filepath.Clean(filepath.Join(composeDirectory, trimmedPath))
+}
+
+func isPrivateDotEnvironmentName(name string) bool {
+	lowerName := strings.ToLower(strings.TrimSpace(name))
+	if lowerName != ".env" && !strings.HasPrefix(lowerName, ".env.") {
+		return false
+	}
+	return !strings.HasSuffix(lowerName, ".example") && !strings.HasSuffix(lowerName, ".sample")
+}
+
+func isPrivateKeyPath(path string) bool {
+	baseName := strings.ToLower(filepath.Base(strings.TrimSpace(path)))
+	return strings.HasSuffix(baseName, ".key") ||
+		strings.HasSuffix(baseName, "-key.pem") ||
+		strings.HasSuffix(baseName, "_key.pem") ||
+		strings.Contains(baseName, "private-key") ||
+		strings.Contains(baseName, "private_key")
+}
+
+func checkPrivateInputMode(composeDirectory string, path string, result *auditResult) {
+	fileInfo, statError := os.Lstat(path)
+	if statError != nil {
+		if errors.Is(statError, os.ErrNotExist) {
+			return
+		}
+		result.addError("private input %s could not be checked: %v", privateInputDisplayPath(composeDirectory, path), statError)
+		return
+	}
+	displayPath := privateInputDisplayPath(composeDirectory, path)
+	if !fileInfo.Mode().IsRegular() {
+		result.addError("private input %s must be a regular file", displayPath)
+		return
+	}
+	if fileInfo.Mode().Perm() != fs.FileMode(privateInputFileMode) || fileInfo.Mode()&(os.ModeSetuid|os.ModeSetgid|os.ModeSticky) != 0 {
+		result.addError("private input %s must use mode 0600; got %04o", displayPath, fileInfo.Mode().Perm())
+	}
+}
+
+func privateInputDisplayPath(composeDirectory string, path string) string {
+	relativePath, relativeError := filepath.Rel(composeDirectory, path)
+	if relativeError == nil && relativePath != ".." && !strings.HasPrefix(relativePath, ".."+string(filepath.Separator)) {
+		return relativePath
+	}
+	return path
 }
 
 func loadServiceEnvironment(composeDirectory string, serviceName string, envFiles []string, auditEnvFile string, environment environmentMap, result *auditResult) (map[string]string, bool, error) {

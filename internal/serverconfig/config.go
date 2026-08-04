@@ -3,6 +3,7 @@ package serverconfig
 import (
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"strings"
 
@@ -17,6 +18,10 @@ const (
 var (
 	// ErrMissingRequired reports an incomplete backend runtime config document.
 	ErrMissingRequired = errors.New("serverconfig.missing_required")
+	// ErrInvalidTrustedProxyCIDR reports a non-canonical or invalid trusted proxy network.
+	ErrInvalidTrustedProxyCIDR = errors.New("serverconfig.invalid_trusted_proxy_cidr")
+	// ErrUntrustedEdgeGeoProxyCIDR reports an edge metadata source outside the trusted proxy boundary.
+	ErrUntrustedEdgeGeoProxyCIDR = errors.New("serverconfig.untrusted_edge_geo_proxy_cidr")
 )
 
 // Config captures the populated backend runtime configuration.
@@ -31,6 +36,8 @@ type Config struct {
 	TauthSigningKey           string
 	TauthSessionCookieName    string
 	PublicBaseURL             string
+	TrustedProxyCIDRs         []netip.Prefix
+	TrustedEdgeGeoProxyCIDRs  []netip.Prefix
 	ConfigFilePath            string
 	PinguinAddress            string
 	PinguinAuthToken          string
@@ -53,8 +60,10 @@ type Document struct {
 
 // Server holds HTTP runtime settings.
 type Server struct {
-	Address       string `yaml:"address"`
-	PublicBaseURL string `yaml:"public_base_url"`
+	Address                  string   `yaml:"address"`
+	PublicBaseURL            string   `yaml:"public_base_url"`
+	TrustedProxyCIDRs        []string `yaml:"trusted_proxy_cidrs"`
+	TrustedEdgeGeoProxyCIDRs []string `yaml:"trusted_edge_geo_proxy_cidrs"`
 }
 
 // Database holds storage runtime settings.
@@ -143,7 +152,50 @@ func NewConfig(configFilePath string, document Document) (Config, error) {
 	if len(missingFields) > 0 {
 		return Config{}, fmt.Errorf("%w: %s", ErrMissingRequired, strings.Join(missingFields, ", "))
 	}
+	trustedProxyCIDRs, trustedProxyError := parseCanonicalCIDRs("server.trusted_proxy_cidrs", document.Server.TrustedProxyCIDRs)
+	if trustedProxyError != nil {
+		return Config{}, trustedProxyError
+	}
+	trustedEdgeGeoProxyCIDRs, trustedEdgeGeoProxyError := parseCanonicalCIDRs("server.trusted_edge_geo_proxy_cidrs", document.Server.TrustedEdgeGeoProxyCIDRs)
+	if trustedEdgeGeoProxyError != nil {
+		return Config{}, trustedEdgeGeoProxyError
+	}
+	for _, edgeGeoProxyCIDR := range trustedEdgeGeoProxyCIDRs {
+		if !prefixWithinAny(edgeGeoProxyCIDR, trustedProxyCIDRs) {
+			return Config{}, fmt.Errorf("%w: server.trusted_edge_geo_proxy_cidrs: %s", ErrUntrustedEdgeGeoProxyCIDR, edgeGeoProxyCIDR)
+		}
+	}
+	config.TrustedProxyCIDRs = trustedProxyCIDRs
+	config.TrustedEdgeGeoProxyCIDRs = trustedEdgeGeoProxyCIDRs
 	return config, nil
+}
+
+func parseCanonicalCIDRs(fieldPath string, rawCIDRs []string) ([]netip.Prefix, error) {
+	prefixes := make([]netip.Prefix, 0, len(rawCIDRs))
+	seen := make(map[netip.Prefix]struct{}, len(rawCIDRs))
+	for _, rawCIDR := range rawCIDRs {
+		trimmedCIDR := strings.TrimSpace(rawCIDR)
+		prefix, parseError := netip.ParsePrefix(trimmedCIDR)
+		if parseError != nil || prefix.Bits() == 0 || prefix.Masked().String() != trimmedCIDR {
+			return nil, fmt.Errorf("%w: %s: %q", ErrInvalidTrustedProxyCIDR, fieldPath, trimmedCIDR)
+		}
+		prefix = prefix.Masked()
+		if _, exists := seen[prefix]; exists {
+			return nil, fmt.Errorf("%w: %s: duplicate %s", ErrInvalidTrustedProxyCIDR, fieldPath, prefix)
+		}
+		seen[prefix] = struct{}{}
+		prefixes = append(prefixes, prefix)
+	}
+	return prefixes, nil
+}
+
+func prefixWithinAny(candidate netip.Prefix, boundaries []netip.Prefix) bool {
+	for _, boundary := range boundaries {
+		if candidate.Addr().BitLen() == boundary.Addr().BitLen() && candidate.Bits() >= boundary.Bits() && boundary.Contains(candidate.Addr()) {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeEmailAddresses(rawEmailAddresses []string) []string {
@@ -175,6 +227,12 @@ func missingRequiredFields(config Config, document Document) []string {
 
 	appendBlankField("server.address", config.ApplicationAddress)
 	appendBlankField("server.public_base_url", config.PublicBaseURL)
+	if len(document.Server.TrustedProxyCIDRs) == 0 {
+		missingFields = append(missingFields, "server.trusted_proxy_cidrs")
+	}
+	if document.Server.TrustedEdgeGeoProxyCIDRs == nil {
+		missingFields = append(missingFields, "server.trusted_edge_geo_proxy_cidrs")
+	}
 	appendBlankField("database.driver", config.DatabaseDriverName)
 	appendBlankField("database.dsn", config.DatabaseDataSourceName)
 	appendBlankField("auth.session_secret", config.SessionSecret)

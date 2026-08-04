@@ -5,10 +5,11 @@ on:
     branches:
       - master
     paths:
-      - '.github/workflows/**'
+      - '.github/**'
       - '.mprlab/deploy/**'
       - '**/*.go'
       - 'clients/**'
+      - 'Dockerfile'
       - 'docker-compose*.yml'
       - 'configs/**'
       - 'mobile/**'
@@ -22,10 +23,11 @@ on:
     branches:
       - master
     paths:
-      - '.github/workflows/**'
+      - '.github/**'
       - '.mprlab/deploy/**'
       - '**/*.go'
       - 'clients/**'
+      - 'Dockerfile'
       - 'docker-compose*.yml'
       - 'configs/**'
       - 'mobile/**'
@@ -40,6 +42,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -51,17 +56,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
           check-latest: true
           cache: true
 
       - name: Set up Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24'
           cache: 'npm'
@@ -71,7 +76,7 @@ jobs:
             mobile/package-lock.json
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 

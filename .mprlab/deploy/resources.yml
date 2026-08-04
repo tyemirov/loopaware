@@ -65,6 +65,8 @@ mprlab_resources:
             TAUTH_TENANT_ID:
               resource: authentication
               output: tenant-id
+            TRUSTED_PROXY_CIDR:
+              value: 172.19.0.0/16
           assets:
             - source: configs/config.loopaware.yml
               target: /app/configs/config.loopaware.yml

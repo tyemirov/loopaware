@@ -819,7 +819,7 @@ test('location map uses locale signal when timezone is missing', async ({ page }
   expect(await locationBubbleCount(page, 'locale', 'US')).toBe('1');
 });
 
-test('location map prefers edge geo signal with confidence metadata', async ({ page }) => {
+test('location map ignores caller-supplied edge geo metadata', async ({ page }) => {
   const site = await createTrafficSite();
   await collectVisit(config, site, {
     url: `${site.allowed_origin}/edge-geo`,
@@ -838,15 +838,14 @@ test('location map prefers edge geo signal with confidence metadata', async ({ p
   await selectSite(page, site.id);
   await page.locator('#dashboard-section-tab-traffic').click();
 
-  const signal = 'cloudflare:US:CA:San Francisco';
-  const edgeBubble = page.locator(`#locations-map circle[data-location-source="edge_geo"][data-location-signal="${signal}"]`);
-  await expect(edgeBubble).toBeVisible();
-  await expect(edgeBubble).toHaveAttribute('data-location-country', 'US');
-  await expect(edgeBubble).toHaveAttribute('data-location-region', 'CA');
-  await expect(edgeBubble).toHaveAttribute('data-location-city', 'San Francisco');
-  await expect(edgeBubble).toHaveAttribute('data-location-confidence', '95');
-  await expect(page.locator(`#locations-map .traffic-map__bubble-label[data-location-source="edge_geo"][data-location-signal="${signal}"]`)).toHaveText('San Francisco, CA');
-  expect(await locationBubbleCount(page, 'edge_geo', signal)).toBe('1');
+  const timezoneBubble = page.locator('#locations-map circle[data-location-source="timezone"][data-location-signal="Europe/London"]');
+  await expect(timezoneBubble).toBeVisible();
+  await expect(timezoneBubble).toHaveAttribute('data-location-country', 'GB');
+  await expect(timezoneBubble).toHaveAttribute('data-location-city', '');
+  await expect(timezoneBubble).toHaveAttribute('data-location-confidence', '60');
+  await expect(page.locator('#locations-map .traffic-map__bubble-label[data-location-source="timezone"][data-location-signal="Europe/London"]')).toHaveText('London');
+  expect(await locationBubbleCount(page, 'timezone', 'Europe/London')).toBe('1');
+  await expect(page.locator('#locations-map circle[data-location-source="edge_geo"]')).toHaveCount(0);
 });
 
 test('location map shows placeholder for new sites', async ({ page }) => {

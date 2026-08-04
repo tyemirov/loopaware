@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/testutil"
 )
@@ -39,22 +38,4 @@ func TestConfirmSubscriptionLinkJSONReturnsBadRequestWhenSubscriberMissing(testi
 
 	handlers.ConfirmSubscriptionLinkJSON(ginContext)
 	require.Equal(testingT, http.StatusBadRequest, recorder.Code)
-}
-
-func TestUpdateSubscriptionStatusRateLimited(testingT *testing.T) {
-	gin.SetMode(gin.TestMode)
-	responseRecorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/public/subscriptions/confirm", nil)
-	request.RemoteAddr = "127.0.0.1:1234"
-	ginContext, _ := gin.CreateTestContext(responseRecorder)
-	ginContext.Request = request
-
-	handlers := &PublicHandlers{
-		rateWindow:                time.Minute,
-		maxRequestsPerIPPerWindow: 0,
-		rateCountersByIP:          make(map[string]publicRateCounter),
-	}
-
-	handlers.updateSubscriptionStatus(ginContext, model.SubscriberStatusConfirmed)
-	require.Equal(testingT, http.StatusTooManyRequests, responseRecorder.Code)
 }

@@ -8,7 +8,7 @@ compose_file="${repo_root}/tests/docker-compose.yml"
 cleanup_guardian_pid=""
 cleanup_complete=0
 
-for variable_name in LOOPAWARE_BASE_URL LOOPAWARE_ENV_FILE COMPOSE_PROJECT_NAME DOCKER_HOST DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH; do
+for variable_name in LOOPAWARE_BASE_URL LOOPAWARE_API_BASE_URL LOOPAWARE_ENV_FILE COMPOSE_PROJECT_NAME DOCKER_HOST DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH; do
   if [[ -n "${!variable_name:-}" ]]; then
     echo "Integration runner rejects inherited ${variable_name}; canonical local test isolation is mandatory." >&2
     exit 1
@@ -127,6 +127,13 @@ start_cleanup_guardian
 down_stack
 
 docker compose -f "${compose_file}" -p "${compose_project_name}" up --build -d
+
+api_host_address="$(docker compose -f "${compose_file}" -p "${compose_project_name}" port loopaware-api 8080)"
+[[ "${api_host_address}" == 127.0.0.1:* ]] || {
+  echo "Integration backend did not publish an isolated loopback port: ${api_host_address}" >&2
+  exit 1
+}
+export LOOPAWARE_API_BASE_URL="http://${api_host_address}"
 
 ready=false
 for _ in $(seq 1 60); do

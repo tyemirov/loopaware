@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,6 +89,9 @@ func validServerConfigYAML(pinguinAddress string) string {
 		"server:",
 		"  address: \"127.0.0.1:0\"",
 		"  public_base_url: \"" + testPublicBaseURLValue + "\"",
+		"  trusted_proxy_cidrs:",
+		"    - \"192.0.2.10/32\"",
+		"  trusted_edge_geo_proxy_cidrs: []",
 		"database:",
 		"  driver: \"" + storage.DriverNameSQLite + "\"",
 		"  dsn: \"" + testDatabaseDSNValue + "\"",
@@ -210,6 +214,28 @@ func TestResolveOriginValidatesInput(testingT *testing.T) {
 	}
 }
 
+func TestRequestBodyLimitUsesRouteSpecificBounds(testingT *testing.T) {
+	testCases := []struct {
+		name          string
+		method        string
+		path          string
+		expectedBytes int64
+	}{
+		{name: "standard public json", method: http.MethodPost, path: publicRouteFeedback, expectedBytes: standardRequestBodyBytes},
+		{name: "standard authenticated json", method: http.MethodPatch, path: apiRoutePrefix + apiRouteSiteUpdate, expectedBytes: standardRequestBodyBytes},
+		{name: "developer error telemetry", method: http.MethodPost, path: sentryRouteErrors, expectedBytes: sentryRequestBodyBytes},
+		{name: "bodyless visit post", method: http.MethodPost, path: publicRouteVisitPixel, expectedBytes: 0},
+		{name: "bodyless get", method: http.MethodGet, path: healthRoute, expectedBytes: 0},
+	}
+
+	for _, testCase := range testCases {
+		testingT.Run(testCase.name, func(testingT *testing.T) {
+			request := httptest.NewRequest(testCase.method, testCase.path, nil)
+			require.Equal(testingT, testCase.expectedBytes, requestBodyLimit(request))
+		})
+	}
+}
+
 func TestLoadServerConfigExpandsShellValuesOnlyDuringConfigParse(testingT *testing.T) {
 	application := NewServerApplication()
 	configPayload := strings.ReplaceAll(validServerConfigYAML(testPinguinAddress), testSessionSecretValue, "${"+testEnvironmentSessionSecretKey+"}")
@@ -256,6 +282,84 @@ func TestLoadServerConfigRejectsMissingRequiredValues(testingT *testing.T) {
 	_, loadErr := application.loadServerConfig(configPath)
 	require.Error(testingT, loadErr)
 	require.ErrorContains(testingT, loadErr, "pinguin.auth_token")
+}
+
+func TestLoadServerConfigValidatesTrustedProxyBoundaries(testingT *testing.T) {
+	testCases := []struct {
+		name            string
+		transform       func(string) string
+		expectedError   string
+		expectedProxy   string
+		expectedEdgeGeo string
+	}{
+		{
+			name:          "canonical proxy",
+			transform:     func(payload string) string { return payload },
+			expectedProxy: "192.0.2.10/32",
+		},
+		{
+			name: "canonical edge proxy within boundary",
+			transform: func(payload string) string {
+				return strings.Replace(payload, "trusted_edge_geo_proxy_cidrs: []", "trusted_edge_geo_proxy_cidrs:\n    - \"192.0.2.10/32\"", 1)
+			},
+			expectedProxy:   "192.0.2.10/32",
+			expectedEdgeGeo: "192.0.2.10/32",
+		},
+		{
+			name: "missing edge boundary",
+			transform: func(payload string) string {
+				return strings.Replace(payload, "  trusted_edge_geo_proxy_cidrs: []\n", "", 1)
+			},
+			expectedError: "server.trusted_edge_geo_proxy_cidrs",
+		},
+		{
+			name: "non-canonical proxy network",
+			transform: func(payload string) string {
+				return strings.Replace(payload, "192.0.2.10/32", "192.0.2.10/24", 1)
+			},
+			expectedError: "serverconfig.invalid_trusted_proxy_cidr",
+		},
+		{
+			name: "catch-all proxy network",
+			transform: func(payload string) string {
+				return strings.Replace(payload, "192.0.2.10/32", "0.0.0.0/0", 1)
+			},
+			expectedError: "serverconfig.invalid_trusted_proxy_cidr",
+		},
+		{
+			name: "duplicate proxy network",
+			transform: func(payload string) string {
+				return strings.Replace(payload, "    - \"192.0.2.10/32\"", "    - \"192.0.2.10/32\"\n    - \"192.0.2.10/32\"", 1)
+			},
+			expectedError: "serverconfig.invalid_trusted_proxy_cidr",
+		},
+		{
+			name: "edge proxy outside trusted boundary",
+			transform: func(payload string) string {
+				return strings.Replace(payload, "trusted_edge_geo_proxy_cidrs: []", "trusted_edge_geo_proxy_cidrs:\n    - \"198.51.100.10/32\"", 1)
+			},
+			expectedError: "serverconfig.untrusted_edge_geo_proxy_cidr",
+		},
+	}
+
+	for _, testCase := range testCases {
+		testingT.Run(testCase.name, func(testingT *testing.T) {
+			application := NewServerApplication()
+			configPath := writeServerConfig(testingT, testCase.transform(validServerConfigYAML(testPinguinAddress)))
+			config, loadError := application.loadServerConfig(configPath)
+			if testCase.expectedError != "" {
+				require.ErrorContains(testingT, loadError, testCase.expectedError)
+				return
+			}
+			require.NoError(testingT, loadError)
+			require.Equal(testingT, testCase.expectedProxy, config.TrustedProxyCIDRs[0].String())
+			if testCase.expectedEdgeGeo == "" {
+				require.Empty(testingT, config.TrustedEdgeGeoProxyCIDRs)
+				return
+			}
+			require.Equal(testingT, testCase.expectedEdgeGeo, config.TrustedEdgeGeoProxyCIDRs[0].String())
+		})
+	}
 }
 
 func TestLoadServerConfigDoesNotUseAdminEnvironmentOverride(testingT *testing.T) {
@@ -334,14 +438,22 @@ func TestRunCommandUsesServerRunner(testingT *testing.T) {
 	require.NoError(testingT, command.Flags().Set(flagNameConfigFile, configPath))
 
 	var runnerCalls int
-	application.WithServerRunner(func(*http.Server) error {
+	var capturedServer *http.Server
+	application.WithServerRunner(func(server *http.Server) error {
 		runnerCalls++
+		capturedServer = server
 		return http.ErrServerClosed
 	})
 
 	runErr := application.runCommand(command, nil)
 	require.NoError(testingT, runErr)
 	require.Equal(testingT, 1, runnerCalls)
+	require.NotNil(testingT, capturedServer)
+	require.Equal(testingT, readHeaderTimeoutSeconds*time.Second, capturedServer.ReadHeaderTimeout)
+	require.Equal(testingT, readTimeoutSeconds*time.Second, capturedServer.ReadTimeout)
+	require.Zero(testingT, capturedServer.WriteTimeout)
+	require.Equal(testingT, idleTimeoutSeconds*time.Second, capturedServer.IdleTimeout)
+	require.Equal(testingT, maximumHeaderBytes, capturedServer.MaxHeaderBytes)
 }
 
 func TestRunCommandReportsMissingConfiguration(testingT *testing.T) {

@@ -3,15 +3,15 @@
   "version": "2026.6.19",
   "main": "index.ts",
   "dependencies": {
-    "expo": "~56.0.12",
-    "expo-auth-session": "~56.0.14",
-    "expo-constants": "~56.0.18",
+    "expo": "~56.0.18",
+    "expo-auth-session": "~56.0.16",
+    "expo-constants": "~56.0.22",
     "expo-crypto": "~56.0.4",
-    "expo-dev-client": "~56.0.20",
+    "expo-dev-client": "~56.0.24",
     "expo-secure-store": "~56.0.4",
     "expo-status-bar": "~56.0.4",
     "expo-system-ui": "~56.0.5",
-    "expo-web-browser": "~56.0.5",
+    "expo-web-browser": "~56.0.6",
     "react": "19.2.3",
     "react-native": "0.85.3",
     "react-native-safe-area-context": "~5.7.0"
@@ -19,7 +19,7 @@
   "devDependencies": {
     "@types/node": "^25.9.3",
     "@types/react": "~19.2.2",
-    "eas-cli": "21.4.0",
+    "eas-cli": "21.5.0",
     "pod-install": "1.1.0",
     "typescript": "~6.0.3"
   },
@@ -38,6 +38,17 @@
   },
   "private": true,
   "overrides": {
+    "ajv@8.11.0": "8.20.0",
+    "brace-expansion": "5.0.9",
+    "diff@7.0.0": "8.0.4",
+    "js-yaml": "4.3.0",
+    "joi@17.11.0": "17.13.4",
+    "minimatch@5.1.2": "5.1.9",
+    "postcss": "8.5.25",
+    "shell-quote": "1.10.0",
+    "tar@7.5.19": "7.5.22",
+    "ts-deepmerge@6.2.0": "8.0.0",
+    "yaml@2.6.0": "2.9.0",
     "uuid": "^11.1.1"
   }
 }
