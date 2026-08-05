@@ -36,9 +36,6 @@ const (
 	publicRouteFeedback               = "/public/feedback"
 	publicRouteMobileFeedback         = "/public/mobile-feedback"
 	publicRouteSubscription           = "/public/subscriptions"
-	publicRouteSubscriptionStatus     = "/public/subscriptions/status"
-	publicRouteSubscriptionConfirm    = "/public/subscriptions/confirm"
-	publicRouteSubscriptionOptOut     = "/public/subscriptions/unsubscribe"
 	publicRouteVisitPixel             = "/public/visits"
 	sentryRouteErrors                 = "/sentry/errors"
 	sentryRouteBrowserErrors          = "/sentry/browser-errors"
@@ -92,10 +89,16 @@ const (
 	loggerContextServer               = "server"
 	loggerContextAuthService          = "auth_service"
 	readHeaderTimeoutSeconds          = 5
+	readTimeoutSeconds                = 10
+	idleTimeoutSeconds                = 60
+	maximumHeaderBytes                = 64 * 1024
+	standardRequestBodyBytes          = 64 * 1024
+	sentryRequestBodyBytes            = 1024 * 1024
 	unexpectedArgumentsMessage        = "unexpected command arguments"
 	commandInitializationFailure      = "failed to configure command"
 	configurationFileLoadError        = "failed to load configuration file"
 	logMessageMissingAdministrators   = "running without administrators"
+	trustedProxyConfigurationFailure  = "failed to configure trusted proxies"
 )
 
 var (
@@ -192,9 +195,19 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	application.logAdministratorWarning(logger, serverConfig)
 
 	router := gin.New()
+	trustedProxyCIDRs := make([]string, 0, len(serverConfig.TrustedProxyCIDRs))
+	for _, trustedProxyCIDR := range serverConfig.TrustedProxyCIDRs {
+		trustedProxyCIDRs = append(trustedProxyCIDRs, trustedProxyCIDR.String())
+	}
+	if trustedProxyErr := router.SetTrustedProxies(trustedProxyCIDRs); trustedProxyErr != nil {
+		return fmt.Errorf("%s: %w", trustedProxyConfigurationFailure, trustedProxyErr)
+	}
+	router.RemoteIPHeaders = []string{"X-Forwarded-For"}
 	router.Use(gin.Recovery())
+	router.Use(api.TrustedProxyHeaders(serverConfig.TrustedProxyCIDRs, serverConfig.TrustedEdgeGeoProxyCIDRs))
 	router.Use(api.SecurityHeaders())
 	router.Use(api.RequestLogger(logger))
+	router.Use(api.RequestBodyLimit(requestBodyLimit))
 
 	sharedHTTPClient := &http.Client{Timeout: 5 * time.Second}
 	database, databaseErr := application.databaseOpener(storage.Config{
@@ -284,6 +297,10 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		Addr:              serverConfig.ApplicationAddress,
 		Handler:           router,
 		ReadHeaderTimeout: readHeaderTimeoutSeconds * time.Second,
+		ReadTimeout:       readTimeoutSeconds * time.Second,
+		WriteTimeout:      0,
+		IdleTimeout:       idleTimeoutSeconds * time.Second,
+		MaxHeaderBytes:    maximumHeaderBytes,
 	}
 
 	logger.Info(logEventListening, zap.String(logFieldAddress, serverConfig.ApplicationAddress))
@@ -292,6 +309,21 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	}
 
 	return nil
+}
+
+func requestBodyLimit(request *http.Request) int64 {
+	if request.Method == http.MethodPost && request.URL.Path == sentryRouteErrors {
+		return sentryRequestBodyBytes
+	}
+	if request.URL.Path == publicRouteVisitPixel {
+		return 0
+	}
+	switch request.Method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch:
+		return standardRequestBodyBytes
+	default:
+		return 0
+	}
 }
 
 func resolveOrigin(rawURL string) (string, error) {

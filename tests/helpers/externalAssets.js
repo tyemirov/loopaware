@@ -3,7 +3,6 @@
 const GOOGLE_IDENTITY_URL = 'https://accounts.google.com/gsi/client';
 const GOOGLE_IDENTITY_STYLE_URL = 'https://accounts.google.com/gsi/style';
 const GOOGLE_IDENTITY_BUTTON_URL_PATTERN = /^https:\/\/accounts\.google\.com\/gsi\/button(?:\?.*)?$/;
-const BOOTSTRAP_CSS_URL = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css';
 const BOOTSTRAP_ICONS_CSS_URL = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
 const GOOGLE_IDENTITY_STUB = `(() => {
   window.google = window.google || {};
@@ -342,37 +341,6 @@ export async function installExternalAssetStubs(page, config) {
         response,
         body: stripIntegrityAttributes(body)
       });
-    });
-  });
-}
-
-/**
- * Asset-inspection tests only need the page to finish parsing so they can verify
- * the configured CDN URLs. These stubs prevent third-party CSS from blocking
- * parser progress when the network is slow.
- *
- * @param {import('@playwright/test').Page} page
- * @returns {Promise<void>}
- */
-export async function installAssetInspectionStubs(page) {
-  const browserPage = /** @type {any} */ (page);
-  if (browserPage.__loopawareAssetInspectionStubsInstalled === true) {
-    return;
-  }
-  browserPage.__loopawareAssetInspectionStubsInstalled = true;
-
-  await page.route(BOOTSTRAP_CSS_URL, async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'text/css; charset=utf-8',
-      body: EMPTY_CSS_STUB
-    });
-  });
-  await page.route(BOOTSTRAP_ICONS_CSS_URL, async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'text/css; charset=utf-8',
-      body: EMPTY_CSS_STUB
     });
   });
 }

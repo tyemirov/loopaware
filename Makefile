@@ -3,8 +3,10 @@ override GO_SOURCES := $(shell find . -name '*.go' -not -path "./vendor/*" -not 
 override PINGUIN_DIR := tools/pinguin
 override STATICCHECK_VERSION := v0.6.1
 override INEFFASSIGN_VERSION := v0.2.0
+override GOVULNCHECK_VERSION := v1.6.0
 override STATICCHECK := honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 override INEFFASSIGN := github.com/gordonklaus/ineffassign@$(INEFFASSIGN_VERSION)
+override GOVULNCHECK := golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 override NPM_CONFIG_CACHE := $(CURDIR)/.cache/npm
 override GOCACHE := $(CURDIR)/.cache/go-build
 override CLIENT_REACT_NATIVE_DIR := clients/react-native
@@ -57,7 +59,7 @@ export LOOPAWARE_MOBILE_TAUTH_TENANT_ID
 export LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI
 export NPM_CONFIG_CACHE
 
-.PHONY: format format-pinguin build lint lint-js client-react-native-install client-react-native-check mobile-install mobile-check mobile-start run-ios run-android config-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
+.PHONY: format format-pinguin build lint lint-js client-react-native-install client-react-native-check mobile-install mobile-check mobile-start run-ios run-android config-audit security-audit browser-security-audit container-base-audit github-security-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-browser-security test-integration-proxy-security test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -168,6 +170,12 @@ test-integration:
 test-integration-api:
 	LOOPAWARE_TEST_SUITE=test:api ./tests/scripts/run-integration.sh
 
+test-integration-browser-security:
+	LOOPAWARE_TEST_SUITE=test:browser-security ./tests/scripts/run-integration.sh
+
+test-integration-proxy-security:
+	LOOPAWARE_TEST_SUITE=test:proxy-security ./tests/scripts/run-integration.sh
+
 test-integration-all:
 	LOOPAWARE_TEST_SUITE=test:all ./tests/scripts/run-integration.sh
 
@@ -183,11 +191,26 @@ tidy:
 	go mod tidy
 
 tidy-check:
-	go mod tidy
-	git diff --exit-code go.mod go.sum
+	go mod tidy -diff
 
 config-audit:
 	go run ./cmd/configaudit
+
+container-base-audit:
+	./scripts/audit-container-bases.sh
+
+browser-security-audit:
+	python3 scripts/audit-browser-assets.py
+
+security-audit: browser-security-audit container-base-audit
+	python3 scripts/audit-github-workflow.py
+	go run $(GOVULNCHECK) ./...
+	npm --prefix tests audit --audit-level=low
+	$(CLIENT_REACT_NATIVE_NPM_COMMAND) --prefix $(CLIENT_REACT_NATIVE_DIR) audit --audit-level=low
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) audit --audit-level=low
+
+github-security-audit:
+	./scripts/audit-github-repository.sh
 
 up:
 	./scripts/up.sh
@@ -204,7 +227,7 @@ docker-down:
 docker-logs:
 	docker compose logs -f
 
-ci: tidy-check config-audit build lint test-unit test-race test-integration-all
+ci: tidy-check config-audit security-audit build lint test-unit test-race test-integration-all
 
 release publish deploy:
 	@application_root="$$(git rev-parse --show-toplevel)"; \

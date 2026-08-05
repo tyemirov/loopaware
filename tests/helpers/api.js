@@ -260,25 +260,6 @@ export async function createSubscription(config, site, payload) {
   return body;
 }
 
-export async function confirmSubscription(config, site, payload) {
-  const clientIP = payload && payload.clientIP ? payload.clientIP : nextClientIP();
-  const { response, payload: body } = await apiRequest({
-    baseURL: config.baseURL,
-    path: '/public/subscriptions/confirm',
-    method: 'POST',
-    origin: resolveSiteOrigin(site),
-    clientIP,
-    body: {
-      site_id: site.id,
-      email: payload.email
-    }
-  });
-  if (!response.ok) {
-    throw new Error(`confirm_subscription_failed:${response.status}:${JSON.stringify(body)}`);
-  }
-  return body;
-}
-
 export async function confirmSubscriptionLink(config, token) {
   const { response, payload } = await apiRequest({
     baseURL: config.baseURL,

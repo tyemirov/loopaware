@@ -62,6 +62,18 @@ export type LoopAwareFeedbackButtonProps = {
 };
 
 const LoopAwareContext = createContext<LoopAwareConfig | null>(null);
+const maximumAPIOriginLength = 2048;
+
+function withoutTrailingSlashes(value: string) {
+  if (value.length > maximumAPIOriginLength) {
+    throw new Error("loopaware_api_origin_too_long");
+  }
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+  return value.slice(0, end);
+}
 
 export function LoopAwareProvider({
   children,
@@ -75,7 +87,7 @@ export function LoopAwareProvider({
     () => ({
       siteId,
       mobileClientId,
-      apiOrigin: apiOrigin.replace(/\/+$/, ""),
+      apiOrigin: withoutTrailingSlashes(apiOrigin),
       app,
       defaultContext,
     }),
@@ -99,7 +111,7 @@ export async function submitLoopAwareFeedback(config: LoopAwareConfig, input: Lo
     ...(input.context ?? {}),
   };
   const platform = config.app.platform ?? (Platform.OS === "ios" || Platform.OS === "android" ? Platform.OS : "ios");
-  const response = await fetch(`${config.apiOrigin.replace(/\/+$/, "")}/public/mobile-feedback`, {
+  const response = await fetch(`${withoutTrailingSlashes(config.apiOrigin)}/public/mobile-feedback`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

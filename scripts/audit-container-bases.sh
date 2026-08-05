@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+repository_root=$(CDPATH= cd -- "${script_dir}/.." && pwd)
+dockerfile="${repository_root}/Dockerfile"
+
+build_base='FROM golang:1.26.5-alpine3.24@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS build'
+runtime_base='FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b'
+
+if ! grep -Fqx "${build_base}" "${dockerfile}"; then
+  echo "container_base_audit_failed: Dockerfile build base must use the approved multi-architecture Go 1.26.5/Alpine 3.24 digest" >&2
+  exit 1
+fi
+
+if ! grep -Fqx "${runtime_base}" "${dockerfile}"; then
+  echo "container_base_audit_failed: Dockerfile runtime base must use the approved multi-architecture Alpine 3.24 digest" >&2
+  exit 1
+fi
+
+from_count=$(grep -Ec '^FROM ' "${dockerfile}")
+pinned_count=$(grep -Ec '^FROM [^ ]+@sha256:[0-9a-f]{64}([[:space:]]|$)' "${dockerfile}")
+if [ "${from_count}" -ne 2 ] || [ "${pinned_count}" -ne "${from_count}" ]; then
+  echo "container_base_audit_failed: every Dockerfile stage must use an immutable sha256 manifest-list digest" >&2
+  exit 1
+fi

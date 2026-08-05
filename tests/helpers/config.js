@@ -6,6 +6,29 @@ import { fileURLToPath } from 'node:url';
 const helperDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(helperDirectory, '..', '..');
 const testConfigDirectory = path.join(repositoryRoot, 'tests', 'configs');
+const defaultLoopbackBaseURL = 'http://localhost:8090';
+const loopbackHostnames = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * @param {string} value
+ * @param {string} variableName
+ * @returns {string}
+ */
+function requireLoopbackURL(value, variableName) {
+  const parsed = new URL(String(value || '').trim());
+  if (
+    !['http:', 'https:'].includes(parsed.protocol) ||
+    !loopbackHostnames.has(parsed.hostname) ||
+    parsed.username ||
+    parsed.password ||
+    parsed.pathname !== '/' ||
+    parsed.search ||
+    parsed.hash
+  ) {
+    throw new Error(`integration_target_must_be_loopback:${variableName}`);
+  }
+  return parsed.origin;
+}
 
 function resolveEnvFilePath() {
   const override = String(process.env.LOOPAWARE_ENV_FILE || '').trim();
@@ -54,11 +77,13 @@ function loadEnvFile(filePath) {
 
 export function resolveTestConfig() {
   const loopawareEnv = loadEnvFile(resolveEnvFilePath());
-  const baseURL = process.env.LOOPAWARE_BASE_URL || loopawareEnv.PUBLIC_BASE_URL || 'http://localhost:8090';
+  const baseURL = requireLoopbackURL(process.env.LOOPAWARE_BASE_URL || defaultLoopbackBaseURL, 'LOOPAWARE_BASE_URL');
+  const apiBaseURL = requireLoopbackURL(process.env.LOOPAWARE_API_BASE_URL || baseURL, 'LOOPAWARE_API_BASE_URL');
   const baseOrigin = new URL(baseURL).origin;
   return {
     repositoryRoot,
     baseURL,
+    apiBaseURL,
     baseOrigin,
     sessionCookieName: loopawareEnv.TAUTH_SESSION_COOKIE_NAME || 'app_session',
     signingKey: loopawareEnv.TAUTH_JWT_SIGNING_KEY || '',

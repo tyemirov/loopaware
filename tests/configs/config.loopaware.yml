@@ -1,6 +1,9 @@
 server:
   address: "${APP_ADDR}"
   public_base_url: "${PUBLIC_BASE_URL}"
+  trusted_proxy_cidrs:
+    - "${TRUSTED_PROXY_CIDR}"
+  trusted_edge_geo_proxy_cidrs: []
 
 database:
   driver: "${DB_DRIVER}"

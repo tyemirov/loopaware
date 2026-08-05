@@ -17,8 +17,8 @@
   var MPR_AUTH_STATUS_UNAUTHENTICATED = 'unauthenticated';
   var MPR_HEADER_SIGNIN_CLICK_EVENT = 'mpr-ui:header:signin-click';
   var APP_PATHNAME = '/app';
+  var LANDING_PATHNAME = '/';
   var LOGIN_PATHNAME = '/login';
-  var EXPLICIT_LOGOUT_STORAGE_KEY = 'loopaware_explicit_logout';
   var LOGOUT_MAIN_DISPLAY_BACKUP_ATTR = 'data-loopaware-logout-main-display';
   var LOGOUT_MAIN_HIDDEN_ATTR = 'data-loopaware-logout-main-hidden';
   var store = window.__loopawareHeaderAuthStore;
@@ -34,59 +34,6 @@
       redirectTarget: ''
     };
     window.__loopawareHeaderAuthStore = store;
-  }
-
-  function resolveExplicitLogoutStorage() {
-    try {
-      if (window.sessionStorage) {
-        return window.sessionStorage;
-      }
-    } catch (error) {}
-    try {
-      if (window.localStorage) {
-        return window.localStorage;
-      }
-    } catch (error) {}
-    return null;
-  }
-
-  function hasExplicitLogoutState() {
-    var storage = resolveExplicitLogoutStorage();
-    if (!storage || typeof storage.getItem !== 'function') {
-      return false;
-    }
-    try {
-      return storage.getItem(EXPLICIT_LOGOUT_STORAGE_KEY) === 'true';
-    } catch (error) {
-      return false;
-    }
-  }
-
-  function markExplicitLogoutState() {
-    var storage = resolveExplicitLogoutStorage();
-    if (storage && typeof storage.setItem === 'function') {
-      try {
-        storage.setItem(EXPLICIT_LOGOUT_STORAGE_KEY, 'true');
-      } catch (error) {}
-    }
-    syncExplicitLogoutState(document.querySelector('mpr-header'));
-  }
-
-  function clearExplicitLogoutState() {
-    var storage = resolveExplicitLogoutStorage();
-    if (storage && typeof storage.removeItem === 'function') {
-      try {
-        storage.removeItem(EXPLICIT_LOGOUT_STORAGE_KEY);
-      } catch (error) {}
-    }
-    syncExplicitLogoutState(document.querySelector('mpr-header'));
-  }
-
-  function syncExplicitLogoutState(headerHost) {
-    if (!headerHost || typeof headerHost.toggleAttribute !== 'function') {
-      return;
-    }
-    headerHost.toggleAttribute('data-loopaware-explicit-logout', hasExplicitLogoutState());
   }
 
   function resolveLogoutOverlay() {
@@ -248,23 +195,6 @@
     return createSnapshot(AUTH_STATE_VALUES.syncing, 'protected-boot');
   }
 
-  function normalizeSnapshotForExplicitLogout(headerHost, snapshot) {
-    syncExplicitLogoutState(headerHost);
-    if (!snapshot || snapshot.status !== AUTH_STATE_VALUES.authenticated) {
-      return snapshot;
-    }
-    if (!headerHost || typeof headerHost.getAttribute !== 'function') {
-      return snapshot;
-    }
-    if (!hasExplicitLogoutState()) {
-      return snapshot;
-    }
-    if (headerHost.getAttribute('data-loopaware-auth-redirect') !== 'true' && !shouldRedirectToLogin(headerHost)) {
-      return snapshot;
-    }
-    return createSnapshot(AUTH_STATE_VALUES.unauthenticated, snapshot.source || 'explicit-logout');
-  }
-
   function setHeaderAuthStateAttribute(headerHost, stateValue) {
     if (!headerHost || typeof headerHost.setAttribute !== 'function') {
       return;
@@ -296,16 +226,17 @@
     if (!headerHost || !snapshot || snapshot.status !== AUTH_STATE_VALUES.authenticated) {
       return false;
     }
-    if (hasExplicitLogoutState() && headerHost.getAttribute('data-loopaware-auth-redirect') === 'true') {
-      return false;
-    }
     if (headerHost.getAttribute('data-loopaware-auth-redirect') !== 'true') {
       return false;
     }
     if (!window.location || typeof window.location.pathname !== 'string') {
       return true;
     }
-    if (window.location.pathname === LOGIN_PATHNAME || window.location.pathname === LOGIN_PATHNAME + '/') {
+    if (
+      window.location.pathname === LANDING_PATHNAME ||
+      window.location.pathname === LOGIN_PATHNAME ||
+      window.location.pathname === LOGIN_PATHNAME + '/'
+    ) {
       return true;
     }
     return (
@@ -325,7 +256,6 @@
     store.redirectTarget = pathname;
     if (pathname === APP_PATHNAME) {
       store.loginRedirectPending = false;
-      clearExplicitLogoutState();
     }
     window.location.assign(pathname);
   }
@@ -350,6 +280,10 @@
     setHeaderAuthStateAttribute(headerHost, snapshot.status);
     syncAuthHomeLinks(headerHost, snapshot);
     if (snapshot.status === AUTH_STATE_VALUES.authenticated) {
+      if (store.logoutPending === true) {
+        showOverlay();
+        return;
+      }
       markAppAuthSettled(headerHost);
       store.logoutPending = false;
       hideOverlay();
@@ -361,7 +295,6 @@
     if (snapshot.status === AUTH_STATE_VALUES.unauthenticated) {
       store.logoutPending = false;
       if (shouldRedirectToLogin(headerHost)) {
-        markExplicitLogoutState();
         showOverlay();
         redirectTo(LOGIN_PATHNAME);
         return;
@@ -376,7 +309,6 @@
 
   function commitSnapshot(headerHost, snapshot) {
     snapshot = normalizeSnapshotForProtectedBoot(headerHost, snapshot);
-    snapshot = normalizeSnapshotForExplicitLogout(headerHost, snapshot);
     var previousSnapshot = store.snapshot;
     store.snapshot = snapshot;
     applySnapshot(headerHost, snapshot);
@@ -433,14 +365,12 @@
   }
 
   function handleUserMenuLogout() {
-    markExplicitLogoutState();
     store.loginRedirectPending = false;
     store.logoutPending = true;
     showOverlay();
   }
 
   function markSigninIntent() {
-    clearExplicitLogoutState();
     store.loginRedirectPending = true;
   }
 
@@ -542,7 +472,6 @@
       headerHost.addEventListener('mpr-ui:auth:status-change', handleAuthStatusChange);
       headerHost.addEventListener(MPR_HEADER_SIGNIN_CLICK_EVENT, handleHeaderSigninClick);
     }
-    syncExplicitLogoutState(headerHost);
     if (headerHost.getAttribute('data-loopaware-auth-bound') !== 'true') {
       headerHost.setAttribute('data-loopaware-auth-bound', 'true');
     }

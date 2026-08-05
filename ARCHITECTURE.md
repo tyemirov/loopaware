@@ -75,8 +75,9 @@ implementation details:
 1. The subscribe form (`/subscribe.js`) posts JSON to `POST /public/subscriptions`, which records a pending subscriber.
 2. A confirmation email is sent containing `GET /subscriptions/confirm?token=...`.
 3. Visiting the link confirms the subscriber and (when enabled) notifies the site owner.
-4. Unsubscribe is available either via the origin-validated JSON endpoint (`POST /public/subscriptions/unsubscribe`) or the
-   token-based link (`GET /subscriptions/unsubscribe?token=...`) from the confirmation UI.
+4. Confirmation and unsubscribe mutations are available only through signed email-link tokens. The static confirmation and
+   unsubscribe pages call `GET /public/subscriptions/confirm-link?token=...` and
+   `GET /public/subscriptions/unsubscribe-link?token=...`; there is no email-address-based public mutation or status API.
 
 ### Traffic
 

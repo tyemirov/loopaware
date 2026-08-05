@@ -79,6 +79,10 @@ func (h *PublicHandlers) CollectVisit(context *gin.Context) {
 	if rawURL == "" && referrerValue != "" {
 		rawURL = referrerValue
 	}
+	if h.isVisitRateLimited(publicRateKey(publicRateScopeVisit, site.ID, context.ClientIP())) {
+		context.String(http.StatusTooManyRequests, "/* rate_limited */")
+		return
+	}
 
 	visitorID := strings.TrimSpace(context.Query(visitQueryVisitorID))
 	if visitorID == "" {

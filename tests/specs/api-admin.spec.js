@@ -927,27 +927,49 @@ test.describe("admin api messages and subscribers", () => {
 
   test("exports subscribers as csv", async () => {
     const site = await createAdminSite("Subscribers Export");
-    const email = buildUniqueEmail("subscriber-export");
-    await apiRequest({
-      baseURL: config.baseURL,
-      path: "/public/subscriptions",
-      method: "POST",
-      origin: site.allowed_origin,
-      clientIP: "10.2.2.4",
-      body: {
-        site_id: site.id,
-        email,
-        name: "Subscriber",
-        source_url: ""
-      }
-    });
+    const subscribers = [
+      { email: buildUniqueEmail("subscriber-export-equals"), name: "=1+1" },
+      { email: buildUniqueEmail("subscriber-export-plus"), name: "+1+1" },
+      { email: buildUniqueEmail("subscriber-export-minus"), name: "-1+1" },
+      { email: buildUniqueEmail("subscriber-export-at"), name: "@SUM(1)" },
+      { email: buildUniqueEmail("subscriber-export-unicode"), name: "Zoë, 東京" }
+    ];
+    for (const subscriber of subscribers) {
+      const { response } = await apiRequest({
+        baseURL: config.baseURL,
+        path: "/public/subscriptions",
+        method: "POST",
+        origin: site.allowed_origin,
+        clientIP: "10.2.2.4",
+        body: {
+          site_id: site.id,
+          email: subscriber.email,
+          name: subscriber.name,
+          source_url: ""
+        }
+      });
+      expect(response.status).toBe(200);
+    }
     const { response, payload } = await adminRequest({
       path: `/api/sites/${site.id}/subscribers/export`,
       method: "GET"
     });
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type") || "").toContain("text/csv");
-    expect(String(payload)).toContain(email);
+    const csv = String(payload);
+    expect(csv).toContain("email,name,status,created_at,confirmed_at,unsubscribed_at");
+    for (const subscriber of subscribers) {
+      expect(csv).toContain(subscriber.email);
+    }
+    expect(csv).toContain(",'=1+1,pending,");
+    expect(csv).toContain(",'+1+1,pending,");
+    expect(csv).toContain(",'-1+1,pending,");
+    expect(csv).toContain(",'@SUM(1),pending,");
+    expect(csv).toContain('"Zoë, 東京",pending,');
+    expect(csv).not.toContain(",=1+1,pending,");
+    expect(csv).not.toContain(",+1+1,pending,");
+    expect(csv).not.toContain(",-1+1,pending,");
+    expect(csv).not.toContain(",@SUM(1),pending,");
   });
 
   test("rejects subscribers for unauthorized user", async () => {
@@ -1006,10 +1028,9 @@ test.describe("admin api visit stats", () => {
     expect(csvPayload).toContain("occurred_at,url,path,page_title,visitor_id,referrer,ip,country,browser,user_agent,screen_resolution,viewport,timezone_signal,locale_signal,edge_geo_source,edge_geo_country,edge_geo_region,edge_geo_city,edge_geo_latitude,edge_geo_longitude,inferred_location,location_country,location_region,location_city,location_source,location_signal,location_confidence");
     expect(csvPayload).toContain(trafficURL);
     expect(csvPayload).toContain("America/Los_Angeles");
-    expect(csvPayload).toContain("cloudflare");
-    expect(csvPayload).toContain("San Francisco");
-    expect(csvPayload).toContain("edge_geo");
-    expect(csvPayload).toContain("99");
+    expect(csvPayload).toContain("timezone");
+    expect(csvPayload).not.toContain("cloudflare");
+    expect(csvPayload).not.toContain("San Francisco");
   });
 
   test("rejects visit stats for unauthorized user", async () => {
@@ -1280,17 +1301,12 @@ test.describe("admin api visit stats", () => {
 
     const locationCounts = Object.fromEntries((payload.locations || []).map((entry) => [`${entry.source}:${entry.signal}:${entry.label}`, entry.visit_count]));
     expect(locationCounts["timezone:America/New_York:New York"]).toBe(2);
-    expect(locationCounts["timezone:Europe/London:London"]).toBe(1);
+    expect(locationCounts["timezone:Europe/London:London"]).toBe(2);
     expect(locationCounts["locale:US:United States"]).toBe(1);
-    expect(locationCounts["edge_geo:cloudflare:US:CA:San Francisco:San Francisco, CA"]).toBe(1);
+    expect(locationCounts["edge_geo:cloudflare:US:CA:San Francisco:San Francisco, CA"]).toBeUndefined();
     expect(locationCounts["timezone:Asia/Tokyo:Tokyo"]).toBeUndefined();
     const edgeLocation = (payload.locations || []).find((entry) => entry.source === "edge_geo" && entry.signal === "cloudflare:US:CA:San Francisco");
-    expect(edgeLocation).toMatchObject({
-      country: "US",
-      region: "CA",
-      city: "San Francisco",
-      confidence: 95
-    });
+    expect(edgeLocation).toBeUndefined();
   });
 
   test("rejects invalid device breakdown limit", async () => {

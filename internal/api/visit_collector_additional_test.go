@@ -153,7 +153,7 @@ func TestCollectVisitFallsBackToPrimaryAcceptedLanguage(testingT *testing.T) {
 	require.Equal(testingT, "fr-CA", stored.Locale)
 }
 
-func TestCollectVisitStoresCloudflareGeoHeaders(testingT *testing.T) {
+func TestCollectVisitIgnoresCallerSuppliedCloudflareGeoHeaders(testingT *testing.T) {
 	api := buildAPIHarness(testingT, nil, nil, nil)
 	site := insertSite(testingT, api.database, "Visit Cloudflare Geo", testVisitOrigin, "owner@example.com")
 
@@ -171,12 +171,12 @@ func TestCollectVisitStoresCloudflareGeoHeaders(testingT *testing.T) {
 
 	var stored model.SiteVisit
 	require.NoError(testingT, api.database.Order("occurred_at desc").First(&stored).Error)
-	require.Equal(testingT, "cloudflare", stored.GeoSource)
-	require.Equal(testingT, "US", stored.GeoCountry)
-	require.Equal(testingT, "CA", stored.GeoRegion)
-	require.Equal(testingT, "San Francisco", stored.GeoCity)
-	require.Equal(testingT, 37.7749, stored.GeoLatitude)
-	require.Equal(testingT, -122.4194, stored.GeoLongitude)
+	require.Empty(testingT, stored.GeoSource)
+	require.Empty(testingT, stored.GeoCountry)
+	require.Empty(testingT, stored.GeoRegion)
+	require.Empty(testingT, stored.GeoCity)
+	require.Zero(testingT, stored.GeoLatitude)
+	require.Zero(testingT, stored.GeoLongitude)
 }
 
 func TestCollectVisitMarksBotTraffic(testingT *testing.T) {

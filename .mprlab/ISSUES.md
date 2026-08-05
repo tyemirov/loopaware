@@ -1147,6 +1147,283 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `.mprlab/deploy/docker-compose.yml`, `README.md`, `cmd/configaudit/main.go`, `cmd/configaudit/main_additional_test.go`, `cmd/configaudit/main_test.go`, `docker-compose.yml`, `docker-compose.computercat.yml`, `web/config-ui.yaml`, `tests/helpers/externalAssets.js`, and `tests/specs/header-auth-state.spec.js`.
 
+- [x] [B069] (P0) Require signed tokens for public subscription state changes.
+  Goal:
+  Prevent unauthenticated callers from discovering or changing subscription state with only a site ID and email address.
+
+  Requirements:
+  - Keep public subscription creation and signed confirmation/unsubscribe email links.
+  - Delete the tokenless status, confirmation, and unsubscribe contracts without aliases, compatibility responses, or origin-based authorization.
+  - Preserve authenticated operator subscription management.
+
+  Deliverables:
+  - Remove the obsolete routes, handlers, payload types, helpers, and public documentation.
+  - Add black-box API coverage that obsolete routes do not exist and signed link mutations still enforce valid tokens.
+
+  Validation:
+  - Run the focused public API integration suite and final `make ci`.
+
+  Resolution:
+  Deleted the public tokenless status, confirmation, and unsubscribe routes together with their handlers, payload types, helpers, tests, and API documentation. Subscription creation remains origin-bound, authenticated operators retain subscriber management, and recipient state changes now exist only behind signed confirmation and unsubscribe link tokens. Added black-box API coverage proving all three obsolete routes return 404 while valid, missing, invalid, already-used, confirmation, and unsubscribe token paths retain their current behavior.
+
+  Validation Results:
+  `make test-unit` passed. `make lint-js` passed. `make test-integration-api` passed all 122 API scenarios. The completion audit found and removed stale tokenless endpoint references from the tracked architecture and design documents. The exact final `make ci` passed configuration, browser, container, and workflow audits; vulnerability scans; builds; lint and type checks; Go tests and race tests; and all 452 browser/API scenarios in 4.4 minutes. The test-owned Compose projects cleaned up on exit; no production lifecycle action was run.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `ARCHITECTURE.md`, `README.md`, `docs/LA-100-email-subscriptions.md`, `docs/LA-116-split-frontend-backend.md`, `cmd/server/main.go`, `cmd/server/routes.go`, `internal/api/public.go`, `internal/api/public_handlers_additional_test.go`, `internal/api/public_subscription_errors_test.go`, `internal/api/public_test.go`, `tests/helpers/api.js`, and `tests/specs/api-public.spec.js`.
+
+- [x] [B070] (P0) Prevent stored script execution in traffic path rendering.
+  Goal:
+  Render attacker-controlled visit paths as inert text on the authenticated traffic test page.
+
+  Requirements:
+  - Build traffic table rows with safe DOM APIs and text nodes; do not use HTML interpolation for stored visit fields.
+  - Preserve the existing traffic data and display contract.
+
+  Deliverables:
+  - Replace the vulnerable row renderer.
+  - Add a browser regression that records a poisoned path through the public collector, opens the authenticated page, and proves the payload renders as text without executing or creating attacker markup.
+
+  Validation:
+  - Run the focused traffic browser coverage and final `make ci`.
+
+  Resolution:
+  Replaced the authenticated traffic utility's stored-path HTML interpolation with explicit table-row and table-cell construction that assigns the path through `textContent`. Added a black-box browser regression that submits an image-event payload through the public visit collector, opens the authenticated traffic utility, and proves the exact payload remains visible as text without creating an image element or executing its handler.
+
+  Validation Results:
+  The focused Playwright scenario passed. Final `make ci` passed config audit, builds, release/deployment contracts, type checks, Go race checks, and all 448 browser/API scenarios in 4.4 minutes. The first focused harness invocation used a dashboard-only authentication wait on the standalone utility page; the corrected fixture uses the utility page's existing session-cookie contract. The test-owned Compose project was removed, and no production lifecycle action was run.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `web/app/traffic-test/index.html`, and `tests/specs/traffic-test-page.spec.js`.
+
+- [x] [B071] (P0) Remove known vulnerable dependencies and unsupported container bases.
+  Goal:
+  Make shipped Go, JavaScript, mobile, and container artifacts use current supported dependency contracts with repeatable vulnerability checks.
+
+  Requirements:
+  - Upgrade reachable vulnerable Go modules and vulnerable production npm dependency paths.
+  - Move build and runtime images to supported, immutable bases while preserving multi-architecture builds.
+  - Add repository-native audit gates that fail on actionable vulnerabilities without introducing compatibility shims.
+
+  Deliverables:
+  - Updated manifests, lockfiles, Dockerfile bases, Make targets, and CI coverage.
+  - Documented audit commands and zero-actionable-finding results for shipped artifacts.
+
+  Validation:
+  - Run Go vulnerability analysis, production npm audits, image inspection, the focused build gates, and final `make ci`.
+
+  Resolution:
+  Upgraded the four reachable vulnerable Go module families to current fixed releases, advanced Expo SDK 56 packages and the pinned EAS CLI to their supported patch contracts, and replaced vulnerable production and EAS-tool transitive npm paths with exact secure versions. Replaced the end-of-life Alpine 3.20 runtime and floating Go builder with supported Go 1.26.5/Alpine 3.24 multi-architecture manifest-list digests. Added a pinned `govulncheck` plus full npm audit and immutable container-base contract to `make security-audit` and `make ci`. Updated `tidy-check` to Go 1.26's non-mutating `go mod tidy -diff` so intentional module upgrades can pass while actual tidy drift still fails.
+
+  Validation Results:
+  Expo's dependency compatibility check reported all packages current. A clean `npm ci`, all three full npm audits, mobile configuration/API-boundary/type checks, and EAS CLI 21.5.0 startup passed with zero npm vulnerabilities. `govulncheck` reported zero affected symbols and zero vulnerable imported packages; its verbose module-only notice is the unfixed, unimported `x/crypto/openpgp` package. The pinned manifests resolved for amd64 and arm64, `docker build --pull` succeeded, and Docker Scout reported 0 critical, 0 high, 0 medium, and 0 low findings across the 64-package runtime image. Final `make ci` passed the new security gate, config audit, builds, release/deployment contracts, type checks, Go race checks, and all 448 browser/API scenarios in 4.3 minutes. The audit-only image and test-owned Compose project were removed; no production lifecycle action was run.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `Dockerfile`, `Makefile`, `README.md`, `go.mod`, `go.sum`, `mobile/eas.json`, `mobile/package.json`, `mobile/package-lock.json`, `mobile/scripts/validate-mobile-config.mjs`, and `scripts/audit-container-bases.sh`.
+
+- [x] [B072] (P0) Enforce least-privilege GitHub repository controls.
+  Goal:
+  Protect production branches and automation from mutable actions, writable default tokens, unreviewed changes, and disabled security scanning.
+
+  Requirements:
+  - Pin workflow actions to immutable commits and declare least-privilege workflow permissions.
+  - Protect `master` and the gateway-owned Pages branch without breaking the declared publication owner.
+  - Restrict Actions and enable supported dependency, secret, and code scanning controls.
+
+  Deliverables:
+  - Hardened workflow source plus verified repository, branch, and scanning settings.
+  - Black-box/static workflow contract coverage for immutable action references and required paths.
+
+  Validation:
+  - Validate workflow syntax and policy checks, query the applied GitHub settings, and run final `make ci`.
+
+  Resolution:
+  Pinned every CI action to its resolved 40-character GitHub commit, limited the workflow token to `contents: read`, added the Dockerfile and all GitHub control files to both event filters, and added weekly grouped Dependabot coverage for Go, Docker, Actions, and all three npm roots. Added tracked static workflow and authenticated live-repository audit commands. Restricted live Actions execution to full-SHA GitHub-owned actions, made default workflow tokens read-only and unable to approve pull requests, enabled Dependabot security updates, secret scanning, push protection, and extended CodeQL default setup. Protected `master` with the current `test` status, one stale-dismissing last-push-independent approval, linear history, resolved conversations, and no force pushes or deletion. Protected `gh-pages` from deletion while retaining the exact gateway-required force-with-lease activation contract.
+
+  Validation Results:
+  Workflow and Dependabot YAML parsing plus the static workflow policy gate passed. `make github-security-audit` verified all applied Actions, scanning, branch, and Pages settings. CodeQL setup run 30874488083 completed successfully for Actions, Go, JavaScript/TypeScript, and Python. Dependabot and secret scanning reported zero open alerts; CodeQL exposed 13 existing source findings that are tracked separately as B078 instead of being silently dismissed. Final `make ci` passed the new workflow policy check, vulnerability gates, config audit, builds, release/deployment contracts, type checks, Go race checks, and all 448 browser/API scenarios in 4.2 minutes. GitHub did not enable the optional non-provider secret patterns or validity checks for this public personal-account repository; the supported provider scanning and push-protection controls are enabled. No release, publication, or production deployment was run.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `.github/workflows/ci.yml`, `.github/dependabot.yml`, `Makefile`, `README.md`, `scripts/audit-github-workflow.py`, and `scripts/audit-github-repository.sh`; live GitHub repository settings were also updated.
+
+- [x] [B073] (P1) Pin browser dependencies and enforce a static-hosting CSP.
+  Goal:
+  Make browser dependency delivery reproducible and constrain executable content on the GitHub Pages frontend.
+
+  Requirements:
+  - Replace mutable CDN selectors with one canonical immutable mpr-ui release and integrity-checked third-party assets.
+  - Add a static-hosting-compatible CSP to every HTML entry point while preserving mpr-ui and TAuth ownership of authentication.
+  - Keep third-party browser dependencies on the approved CDN path; do not vendor them or create app-owned auth scaffolding.
+
+  Deliverables:
+  - Pinned asset declarations, CSP policy, local proxy alignment, documentation, and automated drift guards.
+
+  Validation:
+  - Run browser auth, security-header, and static dependency policy scenarios plus final `make ci`.
+
+  Resolution:
+  Pinned mpr-ui v3.11.5 to its full release commit and added verified SHA-384 integrity to every directly fetched jsDelivr dependency, including the supported js-yaml 4.3.0 release. Added one canonical static CSP source, placed the matching policy before active content in all 49 HTML entry points, and aligned local, test, and ComputerCat proxy headers with the same policy plus edge-only `frame-ancestors 'none'`. Preserved mpr-ui/TAuth authentication ownership and the approved CDN-only dependency path. Added a static drift audit and a focused browser-security Make target; served-document assertions now verify pinned declarations without depending on third-party network timing.
+
+  Validation Results:
+  Re-fetched all four pinned assets and independently verified their SHA-384 digests. `make browser-security-audit` confirmed 49 protected HTML entry points, 44 immutable mpr-ui declarations, and three aligned proxy policies. `make lint-js` passed. The focused proxy/browser gate passed all 81 authentication, immutable-asset, CSP, and security-header scenarios in 59.7 seconds. Final `make ci` passed vulnerability scans, dependency audits, build, lint, type checks, Go tests, race tests, and all 448 browser/API scenarios in 4.0 minutes. No publication, release, or production deployment was run.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, `README.md`, `configs/content-security-policy.txt`, `docker-compose.yml`, `docker-compose.computercat.yml`, `tests/docker-compose.yml`, `tests/package.json`, `tests/helpers/externalAssets.js`, `tests/specs/header-auth-state.spec.js`, `tests/specs/security-headers.spec.js`, `scripts/audit-browser-assets.py`, and every `web/**/*.html` entry point.
+
+- [x] [B074] (P1) Define trusted proxy and edge metadata boundaries.
+  Goal:
+  Ensure client identity, rate limiting, and location analytics cannot be influenced by untrusted forwarding or edge-geo headers.
+
+  Requirements:
+  - Require and validate the canonical trusted proxy CIDR configuration at startup.
+  - Configure Gin's proxy trust explicitly and accept forwarded client metadata only across that boundary.
+  - Reject or strip caller-supplied edge location metadata unless an owned proxy supplies the canonical value.
+
+  Deliverables:
+  - Typed runtime config, proxy middleware, deployment/local configuration, documentation, and black-box spoofing regressions.
+
+  Validation:
+  - Prove direct and proxied client-IP behavior, rate-limit resistance to spoofed headers, geo-header rejection, and final `make ci`.
+
+  Resolution:
+  Added a required typed proxy contract that accepts only canonical non-catch-all CIDRs, rejects duplicates, and requires every edge-geo proxy to be a subset of the general proxy boundary. The server now configures Gin's trusted proxies explicitly, uses only the owned `X-Forwarded-For` chain for client identity, and removes forwarding headers from direct or otherwise untrusted peers before HTTPS detection, logging, storage, and rate limiting. Edge location headers are independently stripped unless the immediate peer is in the explicit edge-geo boundary; every tracked environment keeps that boundary empty, so caller-supplied Cloudflare, Vercel, and CloudFront metadata is rejected. Local, test, and ComputerCat Compose stacks assign gHTTP a fixed address and trust only that address; the production resource declaration trusts the gateway-owned internal network. Public feedback, mobile feedback, subscriptions, and browser error limits are scoped by operation, site, and verified client IP so one site's traffic does not consume another site's window.
+
+  Validation Results:
+  Config-loading regressions proved missing, non-canonical, duplicate, catch-all, and out-of-bound edge proxy declarations fail closed. Middleware HTTP regressions proved direct spoof headers are removed and configured proxy metadata is accepted. The focused proxy stack passed five API cases and the dashboard geo-fallback case; its feedback, subscription, and browser-error tests rotated spoofed client headers on every request and still reached `429`. The exact final `make ci` passed config and browser policy audits, vulnerability scans, dependency audits, builds, lint and type checks, Go tests and race tests, and all 448 browser/API scenarios in 4.3 minutes. No release, publication, or production deployment was run.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `.mprlab/deploy/resources.yml`, `Makefile`, `README.md`, `cmd/configaudit/main_test.go`, `cmd/server/main.go`, `cmd/server/main_test.go`, `configs/.env.loopaware.example`, `configs/.env.loopaware.computercat.example`, `configs/config.loopaware.yml`, `docker-compose.yml`, `docker-compose.computercat.yml`, `internal/api/middleware.go`, `internal/api/middleware_test.go`, `internal/api/public.go`, `internal/api/public_helpers_test.go`, `internal/api/public_test.go`, `internal/api/sentry.go`, `internal/api/visit_collector_additional_test.go`, `internal/serverconfig/config.go`, `tests/configs/config.loopaware.yml`, `tests/configs/loopaware.env`, `tests/docker-compose.yml`, `tests/package.json`, `tests/specs/api-admin.spec.js`, `tests/specs/api-la-sentry.spec.js`, `tests/specs/api-public.spec.js`, and `tests/specs/dashboard-traffic.spec.js`.
+
+- [x] [B075] (P1) Neutralize spreadsheet formulas in subscriber CSV exports.
+  Goal:
+  Prevent exported subscriber-controlled fields from executing as spreadsheet formulas.
+
+  Requirements:
+  - Apply the existing CSV cell neutralization contract to every subscriber-controlled string field.
+  - Preserve CSV structure, Unicode data, and ordinary email/name values.
+
+  Deliverables:
+  - Hardened authenticated subscriber export and black-box formula-payload coverage.
+
+  Validation:
+  - Create malicious subscriber values through the public API, export them through the authenticated API, and run final `make ci`.
+
+  Resolution:
+  Applied the existing spreadsheet-formula neutralization contract to every string column in authenticated subscriber CSV exports. The black-box API flow now creates subscribers whose names begin with `=`, `+`, `-`, and `@`, plus an ordinary quoted Unicode name, then verifies that export prefixes formula-bearing cells while preserving email values, Unicode, and CSV quoting.
+
+  Validation Results:
+  `make test-unit`, `make lint-js`, and `make test-integration-api` passed; the focused API stack ran 122 scenarios including public subscriber creation and authenticated CSV export. The exact final `make ci` passed configuration and browser policy audits, vulnerability and dependency scans, builds, lint and type checks, Go tests and race tests, and all 448 browser/API integration scenarios in 4.4 minutes.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `internal/api/admin.go`, and `tests/specs/api-admin.spec.js`.
+
+- [x] [B076] (P1) Bound HTTP request resources and public visit ingestion.
+  Goal:
+  Prevent oversized or slow requests and unbounded public visit bursts from consuming server resources.
+
+  Requirements:
+  - Enforce route-appropriate body limits at the HTTP edge with a stable 413 response.
+  - Configure read and idle server timeouts and a bounded header size without breaking server-sent events.
+  - Add a dedicated public visit ingestion limit that preserves normal tracking traffic.
+
+  Deliverables:
+  - Central request-limit middleware, server resource settings, visit limiter, documentation, and black-box limit coverage.
+
+  Validation:
+  - Exercise oversized, slow-boundary, SSE, and visit-burst behavior through public HTTP routes and run final `make ci`.
+
+  Resolution:
+  Added a central route-aware body boundary that reads request content before dispatch, permits 64 KiB for standard mutations and 1 MiB for protected LA Sentry ingestion, rejects bodies on pixel visits and bodyless methods, and returns the stable `413 request_too_large` response for oversized content. The HTTP server now bounds header reads, complete request reads, idle connections, and header bytes while explicitly retaining a zero write timeout for server-sent events. Public visits use a separate bounded 120-request/30-second window per site and verified client address with bounded counter storage.
+
+  Validation Results:
+  Server-construction coverage verified the read, idle, header, and zero-write-timeout contract. The black-box API stack used a random loopback-only backend port to prove an incomplete body is cut off at the 10-second read boundary while authenticated SSE remains available, oversized JSON returns `413`, and the 120th visit succeeds while the 121st returns `429` despite rotating spoofed forwarding headers. `make test-unit`, `make lint`, and `make test-integration-api` passed. The exact final `make ci` passed configuration and browser policy audits, vulnerability and dependency scans, builds, lint and type checks, Go tests and race tests, and all 451 browser/API scenarios in 4.5 minutes.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `cmd/server/main.go`, `cmd/server/main_test.go`, `internal/api/middleware.go`, `internal/api/public.go`, `internal/api/visit_collector.go`, `tests/docker-compose.yml`, `tests/helpers/config.js`, `tests/scripts/run-integration.sh`, and `tests/specs/api-public.spec.js`.
+
+- [x] [B077] (P1) Enforce private modes for local secret inputs.
+  Goal:
+  Prevent local dotenv and private-key inputs from being group- or world-readable.
+
+  Requirements:
+  - Fail configuration audit when an existing private input is not mode `0600`.
+  - Repair current ignored local secret/key modes without reading or exposing their contents.
+  - Keep absent local inputs compatible with the tracked audit-fixture contract.
+
+  Deliverables:
+  - Config-audit enforcement, CLI-level regression coverage, corrected local modes, and documentation alignment.
+
+  Validation:
+  - Exercise secure, insecure, and absent inputs through the public config-audit command and run final `make ci`.
+
+  Resolution:
+  Extended `config-audit` to collect actual Compose env files, repo-root and canonical `configs/` dotenv inputs, `.mprlab/deploy/.env`, and explicitly mounted private-key files, then require every existing private input to be a non-symlink regular mode-`0600` file. Documentation examples and tracked audit fixtures remain outside the private runtime-input set, and missing runtime env/key files remain valid for source-only audits. The ComputerCat Compose contract now mounts only the exact certificate and private-key files instead of the containing certificate directory. Without reading their contents, narrowed `configs/.env.ghttp` and the four ignored `configs/.env.*.integration` files from `0644` to `0600`; all other discovered local private inputs were already `0600`, and the documented external ComputerCat key was absent.
+
+  Validation Results:
+  CLI-level regressions exercised absent runtime inputs with a tracked audit fixture, secure dotenv/key/deployment inputs, separate insecure dotenv, private-key, and deployment modes, and rejection of a mode-`0600` symlink to a regular private-key target. `make config-audit` and `make test-unit` passed. The exact final `make ci` passed the enforced mode audit, browser and workflow policy audits, vulnerability and dependency scans, builds, lint and type checks, Go tests and race tests, and all 452 browser/API scenarios in 4.4 minutes.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `cmd/configaudit/main.go`, `cmd/configaudit/main_test.go`, and `docker-compose.computercat.yml`; local permission-only changes were applied to five ignored `configs/.env.*` files.
+
+- [ ] [B078] (P0) Resolve the CodeQL security findings exposed by default setup.
+  Goal:
+  Eliminate actionable CodeQL security paths and leave every non-production or tool-only detection with an evidence-backed disposition.
+
+  Requirements:
+  - Replace any attacker-influenced DOM-to-HTML reinterpretation and polynomial regular-expression paths with bounded, text-safe contracts.
+  - Remove exploitable filesystem race or log-injection behavior without weakening existing functionality.
+  - Treat test-fixture detections as findings until source and runtime evidence prove they are non-production false positives; dismiss only with a specific recorded justification.
+  - Keep the immutable workflow-permissions fix that addresses the remote master alert already corrected by B072.
+
+  Deliverables:
+  - Production fixes, focused black-box regressions, explicit false-positive dispositions, and a zero-unreviewed-alert CodeQL result after the corrected source reaches GitHub.
+
+  Validation:
+  - Run focused browser/client/tool coverage, local CodeQL analysis when available, inspect the resulting GitHub alerts without exposing secrets, and run final `make ci`.
+
+  Implementation Status (2026-08-03):
+  Replaced the DOM-configured unauthorized redirect with the canonical `/login` path and removed the obsolete redirect field, replaced both React Native slash-trimming expressions with a length-bounded linear scan, replaced test fixture `Math.random` identifiers with `crypto.randomBytes`, and changed the iOS project patcher to open one no-follow file descriptor for validation, reading, writing, truncation, and sync. Request logging now removes carriage returns and line feeds, repairs invalid UTF-8, and caps every request-derived field before structured logging. The test harness now accepts only HTTP(S) loopback frontend and backend origins.
+
+  Validation Results:
+  Focused React Native package, mobile tool, Go HTTP, and browser-security gates passed, including a poisoned dashboard redirect, bounded request-log values, iOS patcher idempotence, and symlink rejection. The exact GitHub analyzer version, CodeQL 2.26.2 with the security-extended suites, reported zero Go findings and zero Actions findings. JavaScript reported only two paths in which the non-secret `TAUTH_SESSION_COOKIE_NAME` test fixture is placed into a Cookie header sent to the runner-owned loopback stack; GitHub alerts 9 and 10 were dismissed as false positives with that specific runtime justification. The remaining 11 live alerts still describe the old `10ad3f511c49c6dedebb03ed3514e754e03e2c69` master source and must close through a default-setup rerun after the corrected source reaches GitHub. No commit or push was performed without operator authorization.
+
+  Follow-up (2026-08-04):
+  Removed the direct file-derived Cookie request header from the slow-body/SSE regression instead of retaining its false-positive disposition. The regression now installs the signed test session as Playwright browser state and verifies the SSE response through a same-origin browser fetch, preserving the authenticated resource-boundary contract without an explicit outbound header data flow.
+
+  Final `make ci` passed the configuration, browser, container, and workflow audits; Go and npm vulnerability scans; builds; lint and type checks; Go tests and race tests; and all 452 browser/API scenarios in 4.4 minutes. The authenticated live-repository audit also reconfirmed least-privilege Actions, extended CodeQL default setup, protected production branches, zero open Dependabot alerts, and zero open secret-scanning alerts. The integration project shut down cleanly, and no release, publication, or production deployment was run.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `clients/react-native/src/index.tsx`, `internal/api/middleware.go`, `internal/api/middleware_test.go`, `mobile/scripts/fix-ios-project-warnings.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `tests/README.md`, `tests/helpers/config.js`, `tests/helpers/fixtures.js`, `tests/specs/api-public.spec.js`, `tests/specs/header-auth-state.spec.js`, and `web/app/index.html`; GitHub alerts 9 and 10 also received evidence-specific false-positive dispositions before the direct test request-header flow was removed.
+
+- [x] [B079] (P1) Restore authenticated landing redirects and permit trusted browser asset connections.
+  Goal:
+  Make authenticated landing states resolve to the dashboard and eliminate CSP violations caused by trusted immutable browser assets.
+
+  Requirements:
+  - Redirect authenticated `/` and `/login` visits to `/app`, including silent session restoration, so landing content cannot remain paired with an authenticated header.
+  - Preserve the visible Google sign-in control for anonymous sessions and retain mpr-ui ownership of Google authentication.
+  - Keep authenticated resource, pricing, policy, and subscription pages on their current public-page contract unless the user starts a login flow.
+  - Allow browser connections to the already trusted jsDelivr asset origin without widening the policy to unrelated origins.
+  - Keep every HTML meta policy and proxy response-header policy aligned with the canonical CSP.
+
+  Deliverables:
+  - Authenticated landing redirects, canonical CSP alignment, black-box session-restoration coverage, and browser-boundary verification.
+
+  Validation:
+  - Run the browser asset/security gates, authenticated landing regression, final `make ci`, and a Chrome reload against the owned local stack.
+
+  Resolution (2026-08-04):
+  Restored the header-auth state machine so authoritative authenticated snapshots on `/` and `/login` navigate to `/app`, including silent session restoration, while anonymous root sessions retain the mpr-ui-owned Google sign-in control and supported authenticated public pages remain in place. Removed the persisted explicit-logout override that could downgrade a newly restored authenticated session after navigation. Added jsDelivr only to the canonical `connect-src` allowlist and propagated the aligned policy to every HTML entry point and proxy configuration.
+
+  Hosted CI Follow-up (2026-08-04):
+  The first hosted correction run passed CodeQL and 455 of 456 full integration scenarios, then exposed one same-document transition gap: an authenticated DOM snapshot could clear the in-memory logout-pending overlay immediately after mpr-ui emitted its server-confirmed logout event. The follow-up keeps that transient state for the lifetime of the current document while leaving the removed cross-navigation persistence deleted, so a newly loaded authenticated document still redirects to `/app`. The focused browser-security target now includes the logout-hardening scenarios that exposed this boundary.
+
+  Validation Results:
+  The clean pre-change `make ci` baseline passed all 452 browser/API scenarios. The initial corrected focused `make test-integration-browser-security` gate passed all 86 scenarios, including anonymous Google sign-in, normal and silent authenticated root redirects, and the jsDelivr response-policy assertion; after the hosted logout-transition finding, the expanded focused gate passed all 100 auth, logout, CSP, and security-header scenarios. A cache-bypassing Chrome reload reached a hydrated `/app` with both auth layers authenticated, successful `/auth/session` and `/api/me` responses, and no CSP violation after the ignored local verifier input was aligned with the active TAuth tenant. After that browser session expired during hosted validation, the final cache-bypassing reload correctly remained on anonymous `/` with exactly one visible Google sign-in control and no fresh JavaScript or CSP errors. The local full gate passed every pre-integration audit, vulnerability scan, build, lint/type check, Go test, and race test; three unchanged 456-scenario integration attempts were terminated only by the binding 350-second outer watchdog after 400, 400, and 371 passing scenarios on a Docker host shared with unrelated active workloads. The first hosted full run passed 455 scenarios and exposed the corrected logout transition above. The follow-up commit `bdcedf6` passed all CodeQL analyzers and the canonical hosted `make ci`, including all 456 browser/API scenarios.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `configs/content-security-policy.txt`, `docker-compose.yml`, `docker-compose.computercat.yml`, `tests/docker-compose.yml`, `tests/helpers/fixtures.js`, `tests/package.json`, `tests/specs/header-auth-state.spec.js`, `tests/specs/logout-hardening.spec.js`, `tests/specs/security-headers.spec.js`, `web/header-auth.js`, `web/index.html`, `web/login/index.html`, and the other 47 `web/**/*.html` entry points whose CSP meta declaration mirrors the canonical policy.
+
 
 ## Improvements
 
@@ -1634,6 +1911,8 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Rerun the repository-native audit, lint, or dependency checks used for the pass.
   - Confirm every finding is either filed, fixed under a separate issue, or explicitly marked not applicable with evidence.
   - Confirm no secrets or private payloads were written into the tracker.
+
+  Last run: 2026-08-03. Baseline and final `make ci` runs passed; the final gate included vulnerability scans, policy audits, race coverage, and all 452 browser/API scenarios. Source review, live-safe exploit reproduction, exact-version extended CodeQL analysis, released-image inspection, and authenticated GitHub control queries produced BugFixes B069-B078. B069-B077 are resolved. B078's local fixes and evidence dispositions are complete, while 11 live alerts against the unchanged remote `master` commit remain open until the corrected source is pushed and default setup reruns. Dependabot and secret scanning report zero open alerts. No secret values were written into the tracker, and no release, publication, or production deployment was run.
 
 - [ ] [M404R] (P1) CI, release, and artifact health
   Goal:

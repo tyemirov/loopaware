@@ -60,7 +60,7 @@ type SentryHandlers struct {
 	emailSender       EmailSender
 	publicBaseURL     string
 	rateWindow        time.Duration
-	rateCountersByIP  map[string]sentryBrowserRateCounter
+	rateCountersByKey map[string]sentryBrowserRateCounter
 	rateCountersMutex sync.Mutex
 }
 
@@ -162,12 +162,12 @@ func NewSentryHandlers(database *gorm.DB, logger *zap.Logger, emailSender EmailS
 		logger = zap.NewNop()
 	}
 	return &SentryHandlers{
-		database:         database,
-		logger:           logger,
-		emailSender:      emailSender,
-		publicBaseURL:    strings.TrimRight(strings.TrimSpace(publicBaseURL), "/"),
-		rateWindow:       sentryBrowserRateWindowSeconds * time.Second,
-		rateCountersByIP: make(map[string]sentryBrowserRateCounter),
+		database:          database,
+		logger:            logger,
+		emailSender:       emailSender,
+		publicBaseURL:     strings.TrimRight(strings.TrimSpace(publicBaseURL), "/"),
+		rateWindow:        sentryBrowserRateWindowSeconds * time.Second,
+		rateCountersByKey: make(map[string]sentryBrowserRateCounter),
 	}
 }
 
@@ -201,12 +201,6 @@ func (handlers *SentryHandlers) CaptureError(context *gin.Context) {
 
 // CaptureBrowserError accepts browser developer error events from configured site origins.
 func (handlers *SentryHandlers) CaptureBrowserError(context *gin.Context) {
-	clientIP := context.ClientIP()
-	if handlers.isBrowserRateLimited(clientIP) {
-		context.JSON(http.StatusTooManyRequests, gin.H{jsonKeyError: errorValueRateLimited})
-		return
-	}
-
 	var payload sentryErrorRequest
 	if bindErr := context.BindJSON(&payload); bindErr != nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidJSON})
@@ -228,6 +222,10 @@ func (handlers *SentryHandlers) CaptureBrowserError(context *gin.Context) {
 	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
 	if !isOriginAllowed(site.AllowedOrigin, originHeader, refererHeader, "") {
 		context.JSON(http.StatusForbidden, gin.H{jsonKeyError: errorValueOriginForbidden})
+		return
+	}
+	if handlers.isBrowserRateLimited(publicRateKey(sentryRouteBrowserErrors, site.ID, context.ClientIP())) {
+		context.JSON(http.StatusTooManyRequests, gin.H{jsonKeyError: errorValueRateLimited})
 		return
 	}
 
@@ -677,29 +675,29 @@ func sanitizeBrowserSentryURL(rawValue string) string {
 	return (&url.URL{Scheme: scheme, Host: parsedURL.Host, Path: parsedURL.Path}).String()
 }
 
-func (handlers *SentryHandlers) isBrowserRateLimited(ip string) bool {
+func (handlers *SentryHandlers) isBrowserRateLimited(key string) bool {
 	now := time.Now()
 
 	handlers.rateCountersMutex.Lock()
 	defer handlers.rateCountersMutex.Unlock()
 
 	handlers.pruneBrowserRateCounters(now)
-	rateCounter, exists := handlers.rateCountersByIP[ip]
-	if !exists && len(handlers.rateCountersByIP) >= sentryBrowserMaxRateCounterEntries {
+	rateCounter, exists := handlers.rateCountersByKey[key]
+	if !exists && len(handlers.rateCountersByKey) >= sentryBrowserMaxRateCounterEntries {
 		return true
 	}
 	if !exists || now.Sub(rateCounter.windowStartedAt) >= handlers.rateWindow {
 		rateCounter = sentryBrowserRateCounter{windowStartedAt: now}
 	}
 	rateCounter.count += 1
-	handlers.rateCountersByIP[ip] = rateCounter
+	handlers.rateCountersByKey[key] = rateCounter
 	return rateCounter.count > sentryBrowserMaxRequestsPerWindow
 }
 
 func (handlers *SentryHandlers) pruneBrowserRateCounters(now time.Time) {
-	for clientIP, rateCounter := range handlers.rateCountersByIP {
+	for key, rateCounter := range handlers.rateCountersByKey {
 		if now.Sub(rateCounter.windowStartedAt) >= handlers.rateWindow {
-			delete(handlers.rateCountersByIP, clientIP)
+			delete(handlers.rateCountersByKey, key)
 		}
 	}
 }

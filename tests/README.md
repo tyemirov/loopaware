@@ -21,7 +21,7 @@ Use visual captures when you need a quick UI record while debugging widget, subs
 
 ### Requirements
 
-The target app must already be running and reachable at `LOOPAWARE_BASE_URL` or the default `http://localhost:8090`.
+The target app must already be running on loopback and reachable at `LOOPAWARE_BASE_URL` or the default `http://localhost:8090`; the harness rejects remote targets.
 
 Examples:
 

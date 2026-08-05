@@ -5,7 +5,6 @@ import { resolveTestConfig } from '../helpers/config.js';
 import {
   enableAutoGoogleCredentialOnClick,
   getGoogleIdentityInitializeCallCount,
-  installAssetInspectionStubs,
   waitForExternalAssetStubsToSettle
 } from '../helpers/externalAssets.js';
 import {
@@ -19,10 +18,14 @@ import {
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const MPR_UI_VERSION = 'latest';
+const MPR_UI_VERSION = '97ebeb2df518f91af78aafcb6e14b9691fb20694';
 const MPR_UI_STYLE_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@${MPR_UI_VERSION}/mpr-ui.css`;
 const MPR_UI_CONFIG_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@${MPR_UI_VERSION}/mpr-ui-config.js`;
 const MPR_UI_SCRIPT_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@${MPR_UI_VERSION}/mpr-ui.js`;
+const MPR_UI_STYLE_INTEGRITY = 'sha384-WWDM4bNAbnG6m8Lda3m59qcrh8OkdoLPBMl+1LDA+IvCrjszwBgdt3CizK3ayn75';
+const MPR_UI_CONFIG_INTEGRITY = 'sha384-pl32+7hu3Trs6rwm8vbTkVbjEWI7C8+MbeHGwFZA+OpU4qiA2RmZArBA3wRhMak7';
+const JS_YAML_URL = 'https://cdn.jsdelivr.net/npm/js-yaml@4.3.0/dist/js-yaml.min.js';
+const JS_YAML_INTEGRITY = 'sha384-0zxS50HhMqXyT0WdkhYMK1yK+EpwgVEIHYc1RW1+JgesjsL7Rwqh0WfQSwEDyDH9';
 const SITE_WIDGET_SITE_ID = 'a7ea8b8a-ff37-4a99-81fa-09a5952f83a9';
 const PUBLIC_LOGIN_ENTRY_CASES = Object.freeze([
   Object.freeze({ label: 'resources page', path: '/resources' }),
@@ -111,26 +114,6 @@ async function openMprUiPageWithSession(page, path) {
 
 /**
  * @param {import('@playwright/test').Page} page
- * @param {string} path
- * @returns {Promise<void>}
- */
-async function openPublicPageForAssetInspection(page, path) {
-  await installAssetInspectionStubs(page);
-  await openPageWithoutSession(page, path, undefined, { waitForHeaderAuth: false });
-}
-
-/**
- * @param {import('@playwright/test').Page} page
- * @param {string} path
- * @returns {Promise<void>}
- */
-async function openAuthenticatedPageForAssetInspection(page, path) {
-  await installAssetInspectionStubs(page);
-  await openMprUiPageWithSession(page, path);
-}
-
-/**
- * @param {import('@playwright/test').Page} page
  * @returns {Promise<void>}
  */
 async function installSiteWidgetConfigStub(page) {
@@ -149,48 +132,29 @@ async function installSiteWidgetConfigStub(page) {
 }
 
 /**
- * @param {import('@playwright/test').Page} page
- * @returns {Promise<void>}
- */
-async function expectLatestCdnAssets(page) {
-  await expect
-    .poll(() =>
-      page.evaluate((expectedConfigUrl) => {
-        const mprUiStyle = document.getElementById('mpr-ui-style');
-        const mprUiBundle = document.getElementById('mpr-ui-bundle');
-        const browserAssetUrls = Array.from(document.querySelectorAll('script[src], link[rel="stylesheet"][href]'))
-          .map((element) => element.getAttribute('src') || element.getAttribute('href') || '');
-        return {
-          styleHref: mprUiStyle ? mprUiStyle.getAttribute('href') || '' : '',
-          configScriptPresent: browserAssetUrls.includes(expectedConfigUrl),
-          bundleSrc: mprUiBundle ? mprUiBundle.getAttribute('data-mpr-ui-bundle-src') || '' : '',
-          tauthScriptCount: document.querySelectorAll('script[src*="tauth.js"], #tauth-script').length,
-          vendorUrls: browserAssetUrls.filter((url) => url.includes('/vendor/'))
-        };
-      }, MPR_UI_CONFIG_URL)
-    )
-    .toEqual({
-      styleHref: MPR_UI_STYLE_URL,
-      configScriptPresent: true,
-      bundleSrc: MPR_UI_SCRIPT_URL,
-      tauthScriptCount: 0,
-      vendorUrls: []
-    });
-}
-
-/**
- * @param {import('@playwright/test').Page} page
+ * @param {import('@playwright/test').APIRequestContext} request
  * @param {string} path
  * @returns {Promise<void>}
  */
-async function expectAuthenticatedCdnAssets(page, path) {
-  const expectedPathname = new URL(path, config.baseURL).pathname.replace(/\/+$/g, '') || '/';
-  await expect(page.locator('mpr-header')).toHaveAttribute('data-mpr-auth-status', 'authenticated');
-  await expect(page).toHaveURL((currentUrl) => {
-    const currentPathname = currentUrl.pathname.replace(/\/+$/g, '') || '/';
-    return currentPathname === expectedPathname;
-  });
-  await expectLatestCdnAssets(page);
+async function expectServedPinnedCdnAssets(request, path) {
+  const response = await request.get(new URL(path, config.baseURL).toString());
+  expect(response.ok()).toBe(true);
+  const html = await response.text();
+  expect(html).toContain(
+    `<link id="mpr-ui-style" rel="stylesheet" href="${MPR_UI_STYLE_URL}" integrity="${MPR_UI_STYLE_INTEGRITY}" crossorigin="anonymous" />`
+  );
+  expect(html).toContain(
+    `<script src="${JS_YAML_URL}" integrity="${JS_YAML_INTEGRITY}" crossorigin="anonymous"></script>`
+  );
+  expect(html).toContain(
+    `<script defer src="${MPR_UI_CONFIG_URL}" integrity="${MPR_UI_CONFIG_INTEGRITY}" crossorigin="anonymous"></script>`
+  );
+  expect(html).toContain(
+    `<script id="mpr-ui-bundle" type="application/json" data-mpr-ui-bundle-src="${MPR_UI_SCRIPT_URL}"></script>`
+  );
+  expect(html).not.toContain('@latest');
+  expect(html).not.toContain('/vendor/');
+  expect(html).not.toContain('tauth.js');
 }
 
 /**
@@ -538,6 +502,29 @@ test('login page redirects authenticated users after silent session recovery', a
   await expect(page).toHaveURL(/\/app\/?$/);
 });
 
+test('landing page shows Google sign-in to unauthenticated users', async ({ page }) => {
+  await openPageWithoutSession(page, '/');
+
+  await expectLandingLoginControls(page);
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test('landing page redirects authenticated users to the dashboard', async ({ page }) => {
+  await openPageWithSession(page, '/');
+
+  await expect(page).toHaveURL(/\/app\/?$/);
+  await waitForDashboardReady(page, { allowEmptySites: true });
+  await expect(page.locator('#user-email')).toHaveText(adminUser.email);
+});
+
+test('landing page redirects authenticated users after silent session recovery', async ({ page }) => {
+  await openPageWithSession(page, '/', { silentBootstrap: true });
+
+  await expect(page).toHaveURL(/\/app\/?$/);
+  await waitForDashboardReady(page, { allowEmptySites: true });
+  await expect(page.locator('#user-email')).toHaveText(adminUser.email);
+});
+
 test('login page header sign-in reports authenticating while sign-in is still pending', async ({ page }) => {
   await openPageWithoutSession(page, '/login', {
     exchangeDelayMs: 1000,
@@ -686,6 +673,44 @@ test('login page completed sign-in retries a transient dashboard API unauthorize
   await expect(page.locator('#user-email')).toHaveText(adminUser.email);
   expect(apiMeRequests).toBeGreaterThanOrEqual(2);
   expect(authRefreshRequests).toBeGreaterThanOrEqual(1);
+});
+
+test('dashboard ignores a poisoned landing path from mutable DOM configuration', async ({ page }) => {
+  const poisonedLanding = 'javascript:window.__loopawarePoisonedLandingExecuted=true';
+  let dashboardAPIMeRequests = 0;
+
+  await page.addInitScript(() => {
+    window['__loopawarePoisonedLandingExecuted'] = false;
+  });
+  await page.route(/\/app\/?(?:\?.*)?$/, async (route) => {
+    const response = await route.fetch();
+    const originalBody = await response.text();
+    const poisonedBody = originalBody.replace(
+      '"paths":{',
+      `"paths":{"landing":${JSON.stringify(poisonedLanding)},`
+    );
+    if (poisonedBody === originalBody) {
+      throw new Error('dashboard_config_paths_missing');
+    }
+    await route.fulfill({ response, body: poisonedBody });
+  });
+  await page.route(/\/api\/me(?:\?.*)?$/, async (route) => {
+    dashboardAPIMeRequests += 1;
+    await route.fulfill({
+      status: 401,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify({ error: 'unauthorized' })
+    });
+  });
+
+  await openPageWithoutSession(page, '/app', undefined, {
+    waitForHeaderAuth: false,
+    waitUntil: 'commit'
+  });
+  await page.waitForURL(/\/login\/?$/);
+
+  expect(dashboardAPIMeRequests).toBeGreaterThanOrEqual(1);
+  expect(await page.evaluate(() => window['__loopawarePoisonedLandingExecuted'])).toBe(false);
 });
 
 test('dashboard keeps the auth transition visible until the authenticated UI finishes loading', async ({ page }) => {
@@ -841,9 +866,8 @@ test('authenticated page fixture drives mpr-ui testing before protected navigati
   expect(authenticatedEventPaths.at(-1)).toBe('/app');
 });
 
-test('login page loads latest CDN assets for auth UI', async ({ page }) => {
-  await openPublicPageForAssetInspection(page, '/login');
-  await expectLatestCdnAssets(page);
+test('login page serves immutable CDN assets for auth UI', async ({ request }) => {
+  await expectServedPinnedCdnAssets(request, '/login');
 });
 
 for (const { label, path } of SHARED_AUTH_HTML_CASES) {
@@ -853,9 +877,8 @@ for (const { label, path } of SHARED_AUTH_HTML_CASES) {
 }
 
 for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
-  test(`${label} loads latest CDN assets for auth UI`, async ({ page }) => {
-    await openPublicPageForAssetInspection(page, path);
-    await expectLatestCdnAssets(page);
+  test(`${label} serves immutable CDN assets for auth UI`, async ({ request }) => {
+    await expectServedPinnedCdnAssets(request, path);
   });
 }
 
@@ -1057,15 +1080,13 @@ test('privacy page shows logout overlay for static-page sign-out', async ({ page
   await expect(page.locator('body')).toHaveClass(/logging-out/);
 });
 
-test('dashboard loads latest CDN assets for auth UI', async ({ page }) => {
-  await openAuthenticatedPageForAssetInspection(page, '/app');
-  await expectAuthenticatedCdnAssets(page, '/app');
+test('dashboard serves immutable CDN assets for auth UI', async ({ request }) => {
+  await expectServedPinnedCdnAssets(request, '/app');
 });
 
 for (const { label, path } of DASHBOARD_PREVIEW_CASES) {
-  test(`${label} loads latest CDN assets for auth UI`, async ({ page }) => {
-    await openAuthenticatedPageForAssetInspection(page, path);
-    await expectAuthenticatedCdnAssets(page, path);
+  test(`${label} serves immutable CDN assets for auth UI`, async ({ request }) => {
+    await expectServedPinnedCdnAssets(request, path);
   });
 }
 

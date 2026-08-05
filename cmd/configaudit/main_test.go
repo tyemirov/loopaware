@@ -44,6 +44,9 @@ func validLoopAwareRuntimeConfigYAML() string {
 		"server:",
 		"  address: \"${APP_ADDR}\"",
 		"  public_base_url: \"${PUBLIC_BASE_URL}\"",
+		"  trusted_proxy_cidrs:",
+		"    - \"${TRUSTED_PROXY_CIDR}\"",
+		"  trusted_edge_geo_proxy_cidrs: []",
 		"database:",
 		"  driver: \"${DB_DRIVER}\"",
 		"  dsn: \"${DB_DSN}\"",
@@ -93,6 +96,7 @@ func loopAwareRuntimeEnvironmentLines() []string {
 		"TAUTH_JWT_SIGNING_KEY=" + testSigningKeyValue,
 		"TAUTH_SESSION_COOKIE_NAME=" + testCookieNameValue,
 		"PUBLIC_BASE_URL=" + testPublicBaseURLValue,
+		"TRUSTED_PROXY_CIDR=192.0.2.10/32",
 		"PINGUIN_ADDR=" + testPinguinAddressValue,
 		"PINGUIN_AUTH_TOKEN=" + testAuthTokenValue,
 		"PINGUIN_TENANT_ID=" + testTenantValue,
@@ -221,7 +225,7 @@ func TestRunAuditReportsErrorsForMissingEnvironment(testingT *testing.T) {
 	loopAwareEnvPath := filepath.Join(tempDirectory, testLoopAwareEnvFile)
 	loopAwareEnvironmentLines := loopAwareRuntimeEnvironmentLines()
 	loopAwareEnvironmentLines[3] = "SESSION_SECRET="
-	loopAwareEnvironmentLines[9] = "PINGUIN_ADDR=pinguin:50051"
+	loopAwareEnvironmentLines[10] = "PINGUIN_ADDR=pinguin:50051"
 	loopAwareEnvironmentLines = append(loopAwareEnvironmentLines, "PINGUIN_ADDR=duplicate", "")
 	loopAwareEnv := strings.Join(loopAwareEnvironmentLines, "\n")
 	require.NoError(testingT, os.WriteFile(loopAwareEnvPath, []byte(loopAwareEnv), 0o600))
@@ -334,7 +338,7 @@ func TestRunAuditAllowsCrossServiceOperatorValueDrift(testingT *testing.T) {
 	loopAwareEnvironmentLines[5] = "TAUTH_TENANT_ID=loopaware"
 	loopAwareEnvironmentLines[6] = "TAUTH_JWT_SIGNING_KEY=loopaware-owned-signing-key"
 	loopAwareEnvironmentLines[7] = "TAUTH_SESSION_COOKIE_NAME=loopaware-owned-session"
-	loopAwareEnvironmentLines[10] = "PINGUIN_AUTH_TOKEN=loopaware-owned-pinguin-token"
+	loopAwareEnvironmentLines[11] = "PINGUIN_AUTH_TOKEN=loopaware-owned-pinguin-token"
 	loopAwareEnv := strings.Join(append(loopAwareEnvironmentLines, ""), "\n")
 	require.NoError(testingT, os.WriteFile(loopAwareEnvPath, []byte(loopAwareEnv), 0o600))
 
@@ -408,6 +412,114 @@ func TestRunAuditCommandSuccess(testingT *testing.T) {
 	require.Equal(testingT, 0, exitCode)
 	require.Contains(testingT, stdout.String(), "config-audit OK")
 	require.Empty(testingT, stderr.String())
+}
+
+func TestRunAuditCommandEnforcesPrivateInputModes(testingT *testing.T) {
+	testCases := []struct {
+		name              string
+		runtimeMode       os.FileMode
+		privateKeyMode    os.FileMode
+		privateKeySymlink bool
+		deploymentMode    os.FileMode
+		expectedError     string
+		expectedExitCode  int
+	}{
+		{
+			name:             "absent runtime inputs use tracked audit fixture",
+			expectedExitCode: 0,
+		},
+		{
+			name:             "secure runtime inputs",
+			runtimeMode:      0o600,
+			privateKeyMode:   0o600,
+			deploymentMode:   0o600,
+			expectedExitCode: 0,
+		},
+		{
+			name:             "insecure dotenv",
+			runtimeMode:      0o644,
+			expectedError:    "configs/.env.loopaware must use mode 0600",
+			expectedExitCode: 1,
+		},
+		{
+			name:             "insecure private key",
+			privateKeyMode:   0o640,
+			expectedError:    "certs/server-key.pem must use mode 0600",
+			expectedExitCode: 1,
+		},
+		{
+			name:              "symlinked private key",
+			privateKeySymlink: true,
+			expectedError:     "certs/server-key.pem must be a regular file",
+			expectedExitCode:  1,
+		},
+		{
+			name:             "insecure deployment input",
+			deploymentMode:   0o666,
+			expectedError:    ".mprlab/deploy/.env must use mode 0600",
+			expectedExitCode: 1,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testingT.Run(testCase.name, func(testingT *testing.T) {
+			tempDirectory := testingT.TempDir()
+			for _, directory := range []string{"configs", "tests", "certs", filepath.Join(".mprlab", "deploy")} {
+				require.NoError(testingT, os.MkdirAll(filepath.Join(tempDirectory, directory), 0o755))
+			}
+
+			auditEnvironment := strings.Join(append(loopAwareRuntimeEnvironmentLines(), ""), "\n")
+			auditEnvironmentPath := filepath.Join(tempDirectory, "tests", "loopaware.env")
+			require.NoError(testingT, os.WriteFile(auditEnvironmentPath, []byte(auditEnvironment), 0o644))
+			if testCase.runtimeMode != 0 {
+				runtimePath := filepath.Join(tempDirectory, "configs", ".env.loopaware")
+				require.NoError(testingT, os.WriteFile(runtimePath, []byte(auditEnvironment), testCase.runtimeMode))
+				require.NoError(testingT, os.Chmod(runtimePath, testCase.runtimeMode))
+			}
+			if testCase.privateKeyMode != 0 {
+				privateKeyPath := filepath.Join(tempDirectory, "certs", "server-key.pem")
+				require.NoError(testingT, os.WriteFile(privateKeyPath, []byte("test-private-key"), testCase.privateKeyMode))
+				require.NoError(testingT, os.Chmod(privateKeyPath, testCase.privateKeyMode))
+			}
+			if testCase.privateKeySymlink {
+				privateKeyTargetPath := filepath.Join(tempDirectory, "certs", "server-key-target.pem")
+				require.NoError(testingT, os.WriteFile(privateKeyTargetPath, []byte("test-private-key"), 0o600))
+				require.NoError(testingT, os.Symlink(filepath.Base(privateKeyTargetPath), filepath.Join(tempDirectory, "certs", "server-key.pem")))
+			}
+			if testCase.deploymentMode != 0 {
+				deploymentPath := filepath.Join(tempDirectory, deploymentPrivateInputPath)
+				require.NoError(testingT, os.WriteFile(deploymentPath, []byte("TEST_SECRET=test"), testCase.deploymentMode))
+				require.NoError(testingT, os.Chmod(deploymentPath, testCase.deploymentMode))
+			}
+
+			loopAwareConfigVolume := loopAwareRuntimeConfigVolume(testingT, tempDirectory)
+			composeContent := strings.Join([]string{
+				"services:",
+				"  loopaware:",
+				"    env_file:",
+				"      - ./configs/.env.loopaware",
+				"    x-config-audit-env-file: ./tests/loopaware.env",
+				"    volumes:",
+				"      - " + loopAwareConfigVolume,
+				"      - ./certs/server-key.pem:/certs/server-key.pem:ro",
+				"",
+			}, "\n")
+			composePath := filepath.Join(tempDirectory, testComposeFileName)
+			require.NoError(testingT, os.WriteFile(composePath, []byte(composeContent), 0o600))
+
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			exitCode := runAuditCommand(composePath, &stdout, &stderr)
+			require.Equal(testingT, testCase.expectedExitCode, exitCode)
+			if testCase.expectedError == "" {
+				require.Contains(testingT, stdout.String(), "config-audit OK")
+				require.Empty(testingT, stderr.String())
+				return
+			}
+			require.Contains(testingT, stderr.String(), testCase.expectedError)
+			require.Contains(testingT, stderr.String(), "config-audit failed")
+		})
+	}
 }
 
 func TestRunAuditCommandReportsMissingComposeFile(testingT *testing.T) {
