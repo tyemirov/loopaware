@@ -6,7 +6,7 @@
     "test": "playwright test -c playwright.ui.config.js",
     "test:headed": "playwright test -c playwright.ui.config.js --headed",
     "test:ui": "playwright test -c playwright.ui.config.js --ui",
-    "test:browser-security": "playwright test -c playwright.ui.config.js specs/header-auth-state.spec.js specs/security-headers.spec.js",
+    "test:browser-security": "playwright test -c playwright.ui.config.js specs/header-auth-state.spec.js specs/logout-hardening.spec.js specs/security-headers.spec.js",
     "test:proxy-security": "playwright test -c playwright.api.config.js --grep 'despite spoofed forwarding headers|returns location distribution|exports traffic as csv' && playwright test -c playwright.ui.config.js specs/dashboard-traffic.spec.js --grep 'ignores caller-supplied edge geo metadata'",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "generate:location-map": "node scripts/generate-location-world-map.mjs",

@@ -1365,7 +1365,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `cmd/configaudit/main.go`, `cmd/configaudit/main_test.go`, and `docker-compose.computercat.yml`; local permission-only changes were applied to five ignored `configs/.env.*` files.
 
-- [ ] [B078] (P0) Resolve the CodeQL security findings exposed by default setup.
+- [x] [B078] (P0) Resolve the CodeQL security findings exposed by default setup.
   Goal:
   Eliminate actionable CodeQL security paths and leave every non-production or tool-only detection with an evidence-backed disposition.
 
@@ -1392,8 +1392,40 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
   Final `make ci` passed the configuration, browser, container, and workflow audits; Go and npm vulnerability scans; builds; lint and type checks; Go tests and race tests; and all 452 browser/API scenarios in 4.4 minutes. The authenticated live-repository audit also reconfirmed least-privilege Actions, extended CodeQL default setup, protected production branches, zero open Dependabot alerts, and zero open secret-scanning alerts. The integration project shut down cleanly, and no release, publication, or production deployment was run.
 
+  PR Chain Recovery (2026-08-05):
+  PR #305 was incorrectly opened against `master` even though its B079 branch descended from B078, then squash-merged as `96b3f2a`. The merged `master` tree exactly matches the B079 branch tip, and B078 is an ancestor of that tip, proving the complete B078 implementation reached the default branch. The default-branch CodeQL rerun passed with zero open code-scanning alerts; Dependabot and secret scanning also report zero open alerts. Merged current `master` forward into the B078 branch so PR #304 retains only this completion record instead of conflicting with the already merged implementation. The exact pre-recovery `master` tree also passed local `make ci`, including all 456 browser/API scenarios.
+
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `clients/react-native/src/index.tsx`, `internal/api/middleware.go`, `internal/api/middleware_test.go`, `mobile/scripts/fix-ios-project-warnings.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `tests/README.md`, `tests/helpers/config.js`, `tests/helpers/fixtures.js`, `tests/specs/api-public.spec.js`, `tests/specs/header-auth-state.spec.js`, and `web/app/index.html`; GitHub alerts 9 and 10 also received evidence-specific false-positive dispositions before the direct test request-header flow was removed.
+
+- [x] [B079] (P1) Restore authenticated landing redirects and permit trusted browser asset connections.
+  Goal:
+  Make authenticated landing states resolve to the dashboard and eliminate CSP violations caused by trusted immutable browser assets.
+
+  Requirements:
+  - Redirect authenticated `/` and `/login` visits to `/app`, including silent session restoration, so landing content cannot remain paired with an authenticated header.
+  - Preserve the visible Google sign-in control for anonymous sessions and retain mpr-ui ownership of Google authentication.
+  - Keep authenticated resource, pricing, policy, and subscription pages on their current public-page contract unless the user starts a login flow.
+  - Allow browser connections to the already trusted jsDelivr asset origin without widening the policy to unrelated origins.
+  - Keep every HTML meta policy and proxy response-header policy aligned with the canonical CSP.
+
+  Deliverables:
+  - Authenticated landing redirects, canonical CSP alignment, black-box session-restoration coverage, and browser-boundary verification.
+
+  Validation:
+  - Run the browser asset/security gates, authenticated landing regression, final `make ci`, and a Chrome reload against the owned local stack.
+
+  Resolution (2026-08-04):
+  Restored the header-auth state machine so authoritative authenticated snapshots on `/` and `/login` navigate to `/app`, including silent session restoration, while anonymous root sessions retain the mpr-ui-owned Google sign-in control and supported authenticated public pages remain in place. Removed the persisted explicit-logout override that could downgrade a newly restored authenticated session after navigation. Added jsDelivr only to the canonical `connect-src` allowlist and propagated the aligned policy to every HTML entry point and proxy configuration.
+
+  Hosted CI Follow-up (2026-08-04):
+  The first hosted correction run passed CodeQL and 455 of 456 full integration scenarios, then exposed one same-document transition gap: an authenticated DOM snapshot could clear the in-memory logout-pending overlay immediately after mpr-ui emitted its server-confirmed logout event. The follow-up keeps that transient state for the lifetime of the current document while leaving the removed cross-navigation persistence deleted, so a newly loaded authenticated document still redirects to `/app`. The focused browser-security target now includes the logout-hardening scenarios that exposed this boundary.
+
+  Validation Results:
+  The clean pre-change `make ci` baseline passed all 452 browser/API scenarios. The initial corrected focused `make test-integration-browser-security` gate passed all 86 scenarios, including anonymous Google sign-in, normal and silent authenticated root redirects, and the jsDelivr response-policy assertion; after the hosted logout-transition finding, the expanded focused gate passed all 100 auth, logout, CSP, and security-header scenarios. A cache-bypassing Chrome reload reached a hydrated `/app` with both auth layers authenticated, successful `/auth/session` and `/api/me` responses, and no CSP violation after the ignored local verifier input was aligned with the active TAuth tenant. After that browser session expired during hosted validation, the final cache-bypassing reload correctly remained on anonymous `/` with exactly one visible Google sign-in control and no fresh JavaScript or CSP errors. The local full gate passed every pre-integration audit, vulnerability scan, build, lint/type check, Go test, and race test; three unchanged 456-scenario integration attempts were terminated only by the binding 350-second outer watchdog after 400, 400, and 371 passing scenarios on a Docker host shared with unrelated active workloads. The first hosted full run passed 455 scenarios and exposed the corrected logout transition above. The follow-up commit `bdcedf6` passed all CodeQL analyzers and the canonical hosted `make ci`, including all 456 browser/API scenarios.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `configs/content-security-policy.txt`, `docker-compose.yml`, `docker-compose.computercat.yml`, `tests/docker-compose.yml`, `tests/helpers/fixtures.js`, `tests/package.json`, `tests/specs/header-auth-state.spec.js`, `tests/specs/logout-hardening.spec.js`, `tests/specs/security-headers.spec.js`, `web/header-auth.js`, `web/index.html`, `web/login/index.html`, and the other 47 `web/**/*.html` entry points whose CSP meta declaration mirrors the canonical policy.
 
 
 ## Improvements

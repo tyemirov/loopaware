@@ -9,6 +9,7 @@ import {
   openDashboardShell,
   openPublicPage as openSharedPublicPage,
   waitForDashboardAccountHydrated,
+  waitForDashboardReady,
   waitForLogoutOverlayOrRedirect
 } from '../helpers/fixtures.js';
 
@@ -161,7 +162,7 @@ test('logout overlay appears and content hides on logout event', async ({ page }
   }
 });
 
-test('explicit logout event does not reopen the auth transition modal on login', async ({ page }) => {
+test('authenticated session wins over stale logout navigation', async ({ page }) => {
   await openDashboardShell(page, config, adminUser);
 
   await page.evaluate(() => {
@@ -169,9 +170,9 @@ test('explicit logout event does not reopen the auth transition modal on login',
     window.location.href = '/login';
   });
 
-  await expect(page).toHaveURL(/\/login\/?$/);
-  await expect(page.locator('mpr-header [data-mpr-header="auth-transition"]')).toHaveAttribute('data-mpr-visible', 'false');
-  await expect(page.locator('main')).toBeVisible();
+  await expect(page).toHaveURL(/\/app\/?$/);
+  await waitForDashboardReady(page, { allowEmptySites: true });
+  await expect(page.locator('#user-email')).toHaveText(adminUser.email);
 });
 
 test('public auth signs in through mpr-ui without app-owned auth globals', async ({ page }) => {

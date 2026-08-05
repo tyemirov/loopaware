@@ -502,6 +502,29 @@ test('login page redirects authenticated users after silent session recovery', a
   await expect(page).toHaveURL(/\/app\/?$/);
 });
 
+test('landing page shows Google sign-in to unauthenticated users', async ({ page }) => {
+  await openPageWithoutSession(page, '/');
+
+  await expectLandingLoginControls(page);
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test('landing page redirects authenticated users to the dashboard', async ({ page }) => {
+  await openPageWithSession(page, '/');
+
+  await expect(page).toHaveURL(/\/app\/?$/);
+  await waitForDashboardReady(page, { allowEmptySites: true });
+  await expect(page.locator('#user-email')).toHaveText(adminUser.email);
+});
+
+test('landing page redirects authenticated users after silent session recovery', async ({ page }) => {
+  await openPageWithSession(page, '/', { silentBootstrap: true });
+
+  await expect(page).toHaveURL(/\/app\/?$/);
+  await waitForDashboardReady(page, { allowEmptySites: true });
+  await expect(page.locator('#user-email')).toHaveText(adminUser.email);
+});
+
 test('login page header sign-in reports authenticating while sign-in is still pending', async ({ page }) => {
   await openPageWithoutSession(page, '/login', {
     exchangeDelayMs: 1000,

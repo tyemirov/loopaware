@@ -41,3 +41,14 @@ test('proxy serves hardening headers on proxied api responses', async ({ request
 
   expectHardeningHeaders(response.headers());
 });
+
+test('proxy permits browser connections to the trusted jsDelivr asset origin', async ({ request }) => {
+  const response = await request.get('/');
+  expect(response.status()).toBe(200);
+
+  const connectSourceDirective = response
+    .headers()['content-security-policy']
+    .split('; ')
+    .find((directive) => directive.startsWith('connect-src '));
+  expect(connectSourceDirective?.split(' ')).toContain('https://cdn.jsdelivr.net');
+});
