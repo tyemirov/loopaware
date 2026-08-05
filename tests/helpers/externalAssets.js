@@ -4,6 +4,8 @@ const GOOGLE_IDENTITY_URL = 'https://accounts.google.com/gsi/client';
 const GOOGLE_IDENTITY_STYLE_URL = 'https://accounts.google.com/gsi/style';
 const GOOGLE_IDENTITY_BUTTON_URL_PATTERN = /^https:\/\/accounts\.google\.com\/gsi\/button(?:\?.*)?$/;
 const BOOTSTRAP_ICONS_CSS_URL = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
+const LOOPAWARE_ANALYTICS_VISIT_URL_PATTERN = /^https:\/\/loopaware-api\.mprlab\.com\/public\/visits(?:\?.*)?$/;
+const TRANSPARENT_GIF_STUB = Buffer.from('R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64');
 const GOOGLE_IDENTITY_STUB = `(() => {
   window.google = window.google || {};
   window.google.accounts = window.google.accounts || {};
@@ -312,6 +314,15 @@ export async function installExternalAssetStubs(page, config) {
         status: 200,
         contentType: 'text/css; charset=utf-8',
         body: EMPTY_CSS_STUB
+      });
+    });
+  });
+  await page.route(LOOPAWARE_ANALYTICS_VISIT_URL_PATTERN, async (route) => {
+    await runTrackedRoute(browserPage, async () => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/gif',
+        body: TRANSPARENT_GIF_STUB
       });
     });
   });
