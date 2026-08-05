@@ -1365,7 +1365,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `cmd/configaudit/main.go`, `cmd/configaudit/main_test.go`, and `docker-compose.computercat.yml`; local permission-only changes were applied to five ignored `configs/.env.*` files.
 
-- [ ] [B078] (P0) Resolve the CodeQL security findings exposed by default setup.
+- [x] [B078] (P0) Resolve the CodeQL security findings exposed by default setup.
   Goal:
   Eliminate actionable CodeQL security paths and leave every non-production or tool-only detection with an evidence-backed disposition.
 
@@ -1391,6 +1391,9 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Removed the direct file-derived Cookie request header from the slow-body/SSE regression instead of retaining its false-positive disposition. The regression now installs the signed test session as Playwright browser state and verifies the SSE response through a same-origin browser fetch, preserving the authenticated resource-boundary contract without an explicit outbound header data flow.
 
   Final `make ci` passed the configuration, browser, container, and workflow audits; Go and npm vulnerability scans; builds; lint and type checks; Go tests and race tests; and all 452 browser/API scenarios in 4.4 minutes. The authenticated live-repository audit also reconfirmed least-privilege Actions, extended CodeQL default setup, protected production branches, zero open Dependabot alerts, and zero open secret-scanning alerts. The integration project shut down cleanly, and no release, publication, or production deployment was run.
+
+  PR Chain Recovery (2026-08-05):
+  PR #305 was incorrectly opened against `master` even though its B079 branch descended from B078, then squash-merged as `96b3f2a`. The merged `master` tree exactly matches the B079 branch tip, and B078 is an ancestor of that tip, proving the complete B078 implementation reached the default branch. The default-branch CodeQL rerun passed with zero open code-scanning alerts; Dependabot and secret scanning also report zero open alerts. Merged current `master` forward into the B078 branch so PR #304 retains only this completion record instead of conflicting with the already merged implementation. The exact pre-recovery `master` tree also passed local `make ci`, including all 456 browser/API scenarios.
 
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `clients/react-native/src/index.tsx`, `internal/api/middleware.go`, `internal/api/middleware_test.go`, `mobile/scripts/fix-ios-project-warnings.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `tests/README.md`, `tests/helpers/config.js`, `tests/helpers/fixtures.js`, `tests/specs/api-public.spec.js`, `tests/specs/header-auth-state.spec.js`, and `web/app/index.html`; GitHub alerts 9 and 10 also received evidence-specific false-positive dispositions before the direct test request-header flow was removed.
