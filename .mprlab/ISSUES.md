@@ -1395,6 +1395,32 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `README.md`, `clients/react-native/src/index.tsx`, `internal/api/middleware.go`, `internal/api/middleware_test.go`, `mobile/scripts/fix-ios-project-warnings.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `tests/README.md`, `tests/helpers/config.js`, `tests/helpers/fixtures.js`, `tests/specs/api-public.spec.js`, `tests/specs/header-auth-state.spec.js`, and `web/app/index.html`; GitHub alerts 9 and 10 also received evidence-specific false-positive dispositions before the direct test request-header flow was removed.
 
+- [ ] [B079] (P1) Restore authenticated landing redirects and permit trusted browser asset connections.
+  Goal:
+  Make authenticated landing states resolve to the dashboard and eliminate CSP violations caused by trusted immutable browser assets.
+
+  Requirements:
+  - Redirect authenticated `/` and `/login` visits to `/app`, including silent session restoration, so landing content cannot remain paired with an authenticated header.
+  - Preserve the visible Google sign-in control for anonymous sessions and retain mpr-ui ownership of Google authentication.
+  - Keep authenticated resource, pricing, policy, and subscription pages on their current public-page contract unless the user starts a login flow.
+  - Allow browser connections to the already trusted jsDelivr asset origin without widening the policy to unrelated origins.
+  - Keep every HTML meta policy and proxy response-header policy aligned with the canonical CSP.
+
+  Deliverables:
+  - Authenticated landing redirects, canonical CSP alignment, black-box session-restoration coverage, and browser-boundary verification.
+
+  Validation:
+  - Run the browser asset/security gates, authenticated landing regression, final `make ci`, and a Chrome reload against the owned local stack.
+
+  Correction in Progress (2026-08-04):
+  The first B079 implementation incorrectly made authenticated landing content a supported state by adding an account menu and asserting that `/` remained visible after session restoration. The required contract is the inverse: authenticated `/` and `/login` states must navigate to `/app`. B079 was reopened to remove that menu, restore the redirect invariant, and replace the incorrect regression. The correction also removed the persisted explicit-logout override that could downgrade a newly restored authenticated session after navigation; the current mpr-ui contract emits its logout event only after TAuth accepts the logout request.
+
+  Validation Results:
+  The clean pre-change `make ci` baseline passed all 452 browser/API scenarios. The corrected focused `make test-integration-browser-security` gate passed all 86 scenarios, including anonymous Google sign-in, normal and silent authenticated root redirects, and the jsDelivr response-policy assertion. A cache-bypassing Chrome reload reached a hydrated `/app` with both auth layers authenticated, successful `/auth/session` and `/api/me` responses, and no CSP violation after the ignored local verifier input was aligned with the active TAuth tenant. The local full gate passed every pre-integration audit, vulnerability scan, build, lint/type check, Go test, and race test; three unchanged 456-scenario integration attempts were terminated only by the binding 350-second outer watchdog after 400, 400, and 371 passing scenarios on a Docker host shared with unrelated active workloads. Hosted GitHub CI remains the completion boundary.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `configs/content-security-policy.txt`, `docker-compose.yml`, `docker-compose.computercat.yml`, `tests/docker-compose.yml`, `tests/helpers/fixtures.js`, `tests/specs/header-auth-state.spec.js`, `tests/specs/logout-hardening.spec.js`, `tests/specs/security-headers.spec.js`, `web/header-auth.js`, `web/index.html`, `web/login/index.html`, and the other 47 `web/**/*.html` entry points whose CSP meta declaration mirrors the canonical policy.
+
 
 ## Improvements
 

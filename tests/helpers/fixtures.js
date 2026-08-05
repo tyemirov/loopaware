@@ -8,6 +8,7 @@ import { installTauthStub } from './tauthStub.js';
 const DEFAULT_AVATAR_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=';
 const DEFAULT_LOGOUT_REDIRECT_PATTERN = /\/login(?:\/)?(?:[?#].*)?$/;
 const APP_PATHNAME = '/app';
+const LANDING_PATHNAME = '/';
 const LOGIN_PATHNAME = '/login';
 const MPR_UI_TESTING_FIXTURE_PATH = '/privacy';
 
@@ -216,7 +217,9 @@ async function authenticateMprUiTestingContext(page, config, user, options) {
  */
 function restoredSessionPath(path) {
   const requestedPathname = new URL(path, 'http://loopaware.test').pathname.replace(/\/+$/g, '') || '/';
-  return requestedPathname === LOGIN_PATHNAME ? APP_PATHNAME : path;
+  return requestedPathname === LANDING_PATHNAME || requestedPathname === LOGIN_PATHNAME
+    ? APP_PATHNAME
+    : path;
 }
 
 /**
