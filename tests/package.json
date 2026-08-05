@@ -17,12 +17,12 @@
     "test:all": "playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "^1.50.1",
-    "@types/node": "^22.13.5",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.1.2",
     "d3-geo": "^3.1.1",
     "jsonwebtoken": "^9.0.2",
     "topojson-client": "^3.1.0",
-    "typescript": "^5.4.5",
+    "typescript": "^7.0.2",
     "world-atlas": "^2.0.2"
   },
   "engines": {
