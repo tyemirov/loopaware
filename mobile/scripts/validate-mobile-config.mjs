@@ -66,11 +66,11 @@ for (const obsoleteFile of [
 
 const packageJSON = readJSON("mobile/package.json");
 const packageLockJSON = readJSON("mobile/package-lock.json");
-assert(packageJSON.dependencies?.expo === "~56.0.18", "mobile_config_expo_patch_version_outdated");
-assert(packageJSON.dependencies?.["expo-auth-session"] === "~56.0.16", "mobile_config_auth_session_patch_version_outdated");
-assert(packageJSON.dependencies?.["expo-constants"] === "~56.0.22", "mobile_config_constants_patch_version_outdated");
-assert(packageJSON.dependencies?.["expo-dev-client"] === "~56.0.24", "mobile_config_dev_client_patch_version_outdated");
-assert(packageJSON.dependencies?.["expo-web-browser"] === "~56.0.6", "mobile_config_web_browser_patch_version_outdated");
+assert(packageJSON.dependencies?.expo === "~57.0.9", "mobile_config_expo_patch_version_outdated");
+assert(packageJSON.dependencies?.["expo-auth-session"] === "~57.0.5", "mobile_config_auth_session_patch_version_outdated");
+assert(packageJSON.dependencies?.["expo-constants"] === "~57.0.8", "mobile_config_constants_patch_version_outdated");
+assert(packageJSON.dependencies?.["expo-dev-client"] === "~57.0.10", "mobile_config_dev_client_patch_version_outdated");
+assert(packageJSON.dependencies?.["expo-web-browser"] === "~57.0.2", "mobile_config_web_browser_patch_version_outdated");
 assert(packageJSON.overrides?.uuid === "^11.1.1", "mobile_config_missing_uuid_audit_override");
 for (const [dependencyName, secureVersion] of Object.entries({
   "ajv@8.11.0": "8.20.0",
