@@ -280,6 +280,10 @@
     setHeaderAuthStateAttribute(headerHost, snapshot.status);
     syncAuthHomeLinks(headerHost, snapshot);
     if (snapshot.status === AUTH_STATE_VALUES.authenticated) {
+      if (store.logoutPending === true) {
+        showOverlay();
+        return;
+      }
       markAppAuthSettled(headerHost);
       store.logoutPending = false;
       hideOverlay();
