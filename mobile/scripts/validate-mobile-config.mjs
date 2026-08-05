@@ -71,6 +71,11 @@ assert(packageJSON.dependencies?.["expo-auth-session"] === "~57.0.5", "mobile_co
 assert(packageJSON.dependencies?.["expo-constants"] === "~57.0.8", "mobile_config_constants_patch_version_outdated");
 assert(packageJSON.dependencies?.["expo-dev-client"] === "~57.0.10", "mobile_config_dev_client_patch_version_outdated");
 assert(packageJSON.dependencies?.["expo-web-browser"] === "~57.0.2", "mobile_config_web_browser_patch_version_outdated");
+assert(packageJSON.devDependencies?.typescript === "~7.0.2", "mobile_config_typescript_version_outdated");
+assert(
+  packageJSON.devDependencies?.["@typescript/typescript6"] === "6.0.2",
+  "mobile_config_typescript_compiler_api_version_outdated",
+);
 assert(packageJSON.overrides?.uuid === "^11.1.1", "mobile_config_missing_uuid_audit_override");
 for (const [dependencyName, secureVersion] of Object.entries({
   "ajv@8.11.0": "8.20.0",
@@ -98,6 +103,16 @@ assert(
   packageLockJSON.packages?.[""]?.devDependencies?.["pod-install"] === "1.1.0" &&
     packageLockJSON.packages?.["node_modules/pod-install"]?.version === "1.1.0",
   "mobile_config_lock_missing_pod_install",
+);
+assert(
+  packageLockJSON.packages?.[""]?.devDependencies?.typescript === "~7.0.2" &&
+    packageLockJSON.packages?.["node_modules/typescript"]?.version === "7.0.2",
+  "mobile_config_lock_missing_typescript",
+);
+assert(
+  packageLockJSON.packages?.[""]?.devDependencies?.["@typescript/typescript6"] === "6.0.2" &&
+    packageLockJSON.packages?.["node_modules/@typescript/typescript6"]?.version === "6.0.2",
+  "mobile_config_lock_missing_typescript_compiler_api",
 );
 
 for (const dependencyName of [
