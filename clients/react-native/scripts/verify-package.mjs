@@ -102,7 +102,7 @@ function consumerTSConfig() {
         jsx: "react",
         lib: ["ES2022", "DOM"],
         module: "ES2022",
-        moduleResolution: "node",
+        moduleResolution: "Bundler",
         strict: true,
         target: "ES2022",
         typeRoots: ["./types"],
