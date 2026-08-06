@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Advance `@loopaware/react-native` to the next release version required by the gateway npm-package contract.
 
 ### Bug Fixes 🐛
+- Allow the Google Play client to publish a sealed AAB after lifecycle assembly moves it from its temporary build directory, while retaining exact filename, size, digest, release, package, and signing validation.
 - Remove the obsolete app-owned GitHub Pages `CNAME`; the schema-v3 gateway is
   the sole authority for Pages domain metadata and the generated release marker.
 - Remove obsolete app-owned lifecycle dry-run aliases; non-mutating lifecycle plans now use the gateway's canonical plan targets.

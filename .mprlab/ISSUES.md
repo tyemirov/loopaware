@@ -1456,7 +1456,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   built the exact Pages artifact, and reached the independent mobile release
   boundary without any app-owned Pages metadata exception.
 
-- [ ] [B081] (P0) Build and publish native store artifacts locally.
+- [x] [B081] (P0) Build and publish native store artifacts locally.
   Goal:
   Make LoopAware release produce signed iOS and Android store artifacts on the
   operator machine without Expo Application Services.
@@ -1468,8 +1468,10 @@ Format: `- [ ] [B042] (P1) {I007} Title`
     release timestamp.
   - Publish the sealed IPA directly to App Store Connect and the sealed AAB
     directly to Google Play using the repository-owned provider clients.
-  - Keep `make release`, `make publish`, and `make deploy` as the only operator
-    lifecycle entrypoints through the schema-v3 sibling gateway.
+  - Treat the schema-v3 `mobile_application` resource as the authority for the
+    four repository-owned build and publication commands.
+  - Keep native build and store-publication acceptance inside LoopAware; it
+    must not depend on a sibling gateway checkout or gateway test fixture.
   - Reuse one real build per platform as acceptance and do not add fixture or
     unit-test matrices for native publication.
 
@@ -1479,8 +1481,22 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
   Validation:
   - Run the canonical CI once for the changed source commit.
-  - Run `make release`, `make publish`, `make deploy`, and one exact deploy
-    retry against the disposable ordered-deployment host.
+  - Invoke the manifest-selected builders to produce one real signed AAB and
+    IPA locally, then run the manifest-selected provider clients against those
+    exact artifacts in Google Play and App Store Connect preflight mode.
+
+  Resolution (2026-08-06):
+  The exact manifest-selected builders produced a signed AAB and IPA directly
+  from the LoopAware checkout. The AAB passed ZIP, JAR-signature, upload-key,
+  and `bundletool` validation; Google Play verified live publisher authority.
+  The IPA passed archive, export, ZIP, signing, and live App Store Connect app
+  validation. This direct acceptance exposed and fixed the Android publisher's
+  rejection of an artifact moved from its temporary assembly directory: the
+  provider client now binds the selected artifact by filename, byte size,
+  SHA-256 digest, release identity, package, and signing identity instead of
+  requiring the obsolete absolute assembly path. No store artifact was
+  uploaded during acceptance. Canonical `make ci` passed, including all 456
+  real Docker-backed browser and API scenarios.
 
 ## Improvements
 

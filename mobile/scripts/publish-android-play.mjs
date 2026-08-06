@@ -571,18 +571,23 @@ function readAndroidBuildManifest(manifestPath, aabPath, mappingPath, appConfig,
   if (manifest.status !== "passed") {
     throw new PublishError(`Android bundle build manifest is not passed: ${manifestPath}`);
   }
-  const manifestAab = resolvePath(requireString(manifest.output, `output in ${manifestPath}`));
-  const manifestMapping = resolvePath(requireString(manifest.deobfuscationFile, `deobfuscationFile in ${manifestPath}`));
-  if (manifestAab !== aabPath) {
-    throw new PublishError(`Android bundle build manifest output mismatch: ${manifestAab} != ${aabPath}`);
+  const manifestAabName = path.basename(requireString(manifest.output, `output in ${manifestPath}`));
+  const manifestMappingName = path.basename(requireString(manifest.deobfuscationFile, `deobfuscationFile in ${manifestPath}`));
+  if (manifestAabName !== path.basename(aabPath)) {
+    throw new PublishError(`Android bundle build manifest filename mismatch: ${manifestAabName} != ${path.basename(aabPath)}`);
   }
-  if (manifestMapping !== mappingPath) {
-    throw new PublishError(`Android bundle build manifest mapping mismatch: ${manifestMapping} != ${mappingPath}`);
+  if (manifestMappingName !== path.basename(mappingPath)) {
+    throw new PublishError(
+      `Android bundle build manifest mapping filename mismatch: ${manifestMappingName} != ${path.basename(mappingPath)}`,
+    );
   }
   const aabSha256 = sha256File(aabPath);
   const mappingSha256 = sha256File(mappingPath);
   if (manifest.sha256 !== aabSha256) {
     throw new PublishError(`Android App Bundle hash changed since build manifest: ${aabPath}`);
+  }
+  if (requirePositiveInteger(manifest.sizeBytes, `sizeBytes in ${manifestPath}`) !== fs.statSync(aabPath).size) {
+    throw new PublishError(`Android App Bundle size changed since build manifest: ${aabPath}`);
   }
   if (manifest.deobfuscationSha256 !== mappingSha256) {
     throw new PublishError(`R8 deobfuscation mapping hash changed since build manifest: ${mappingPath}`);
