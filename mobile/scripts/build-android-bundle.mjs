@@ -90,6 +90,20 @@ function parseArgs(argv) {
   if (options.has("build-dir")) {
     throw new BuildError("--build-dir is not part of the native build contract; the builder creates a private workspace");
   }
+  const allowedOptions = new Set([
+    "android-sdk-root",
+    "java-home",
+    "keystore",
+    "keystore-properties",
+    "mobile-dir",
+    "output",
+    "release-timestamp",
+  ]);
+  for (const optionName of options.keys()) {
+    if (!allowedOptions.has(optionName)) {
+      throw new BuildError(`unknown option: --${optionName}`);
+    }
+  }
 
   let versioning;
   try {
@@ -163,82 +177,84 @@ function buildAndroidBundle(args) {
     };
   }
   const buildDir = fs.mkdtempSync(defaultBuildDirPrefix);
-  const buildMobileDir = path.join(buildDir, "mobile");
-  copyMobileProject(args.mobileDir, buildMobileDir);
+  try {
+    const buildMobileDir = path.join(buildDir, "mobile");
+    copyMobileProject(args.mobileDir, buildMobileDir);
 
-  const env = buildEnvironment(args.javaHome, args.androidSdkRoot);
-  env.LOOPAWARE_MOBILE_VERSION = args.versioning.releaseVersion;
-  env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE = String(args.versioning.androidVersionCode);
-  run(["npm", "ci"], { cwd: buildMobileDir, env });
-  run(["npx", "expo", "prebuild", "--platform", "android", "--no-install"], { cwd: buildMobileDir, env });
-  writeLocalProperties(path.join(buildMobileDir, "android", "local.properties"), args.androidSdkRoot);
-  enableReleaseMinification(path.join(buildMobileDir, "android", "gradle.properties"));
-  patchReleaseSigning(path.join(buildMobileDir, "android", "app", "build.gradle"));
+    const env = buildEnvironment(args.javaHome, args.androidSdkRoot);
+    env.LOOPAWARE_MOBILE_VERSION = args.versioning.releaseVersion;
+    env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE = String(args.versioning.androidVersionCode);
+    run(["npm", "ci"], { cwd: buildMobileDir, env });
+    run(["npx", "expo", "prebuild", "--platform", "android", "--no-install"], { cwd: buildMobileDir, env });
+    writeLocalProperties(path.join(buildMobileDir, "android", "local.properties"), args.androidSdkRoot);
+    enableReleaseMinification(path.join(buildMobileDir, "android", "gradle.properties"));
+    patchReleaseSigning(path.join(buildMobileDir, "android", "app", "build.gradle"));
 
-  /** @type {NodeJS.ProcessEnv} */
-  const gradleEnv = { ...env };
-  gradleEnv.NODE_ENV = "production";
-  gradleEnv[`${signingEnvPrefix}_STORE_FILE`] = signing.storeFile;
-  gradleEnv[`${signingEnvPrefix}_STORE_PASSWORD`] = signing.storePassword;
-  gradleEnv[`${signingEnvPrefix}_KEY_ALIAS`] = signing.keyAlias;
-  gradleEnv[`${signingEnvPrefix}_KEY_PASSWORD`] = signing.keyPassword;
-  run(["./gradlew", "--no-daemon", "bundleRelease"], { cwd: path.join(buildMobileDir, "android"), env: gradleEnv });
+    /** @type {NodeJS.ProcessEnv} */
+    const gradleEnv = { ...env };
+    gradleEnv.NODE_ENV = "production";
+    gradleEnv[`${signingEnvPrefix}_STORE_FILE`] = signing.storeFile;
+    gradleEnv[`${signingEnvPrefix}_STORE_PASSWORD`] = signing.storePassword;
+    gradleEnv[`${signingEnvPrefix}_KEY_ALIAS`] = signing.keyAlias;
+    gradleEnv[`${signingEnvPrefix}_KEY_PASSWORD`] = signing.keyPassword;
+    run(["./gradlew", "--no-daemon", "bundleRelease"], { cwd: path.join(buildMobileDir, "android"), env: gradleEnv });
 
-  const generatedBundle = path.join(buildMobileDir, "android", "app", "build", "outputs", "bundle", "release", "app-release.aab");
-  requireFile(generatedBundle, "generated release app bundle");
-  const manifest = readBundleManifest(generatedBundle);
-  if (manifest.packageName !== releaseIdentity.packageName) {
-    throw new BuildError(`generated bundle package ${manifest.packageName} does not match Android release identity ${releaseIdentity.packageName}`);
-  }
-  if (manifest.versionName !== args.versioning.releaseVersion) {
-    throw new BuildError(`generated bundle versionName ${manifest.versionName} does not match CalVer ${args.versioning.releaseVersion}`);
-  }
-  if (Number(manifest.versionCode) !== args.versioning.androidVersionCode) {
-    throw new BuildError(`generated bundle versionCode ${manifest.versionCode} does not match CalVer build code ${args.versioning.androidVersionCode}`);
-  }
-  const outputPath = args.output || defaultOutputPath(args.mobileDir, manifest.versionName);
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.copyFileSync(generatedBundle, outputPath);
-  const mappingOutputPath = copyDeobfuscationFile(buildMobileDir, outputPath);
-  const validation = validateBundle(outputPath, args.javaHome, uploadKeySha256);
+    const generatedBundle = path.join(buildMobileDir, "android", "app", "build", "outputs", "bundle", "release", "app-release.aab");
+    requireFile(generatedBundle, "generated release app bundle");
+    const manifest = readBundleManifest(generatedBundle);
+    if (manifest.packageName !== releaseIdentity.packageName) {
+      throw new BuildError(`generated bundle package ${manifest.packageName} does not match Android release identity ${releaseIdentity.packageName}`);
+    }
+    if (manifest.versionName !== args.versioning.releaseVersion) {
+      throw new BuildError(`generated bundle versionName ${manifest.versionName} does not match CalVer ${args.versioning.releaseVersion}`);
+    }
+    if (Number(manifest.versionCode) !== args.versioning.androidVersionCode) {
+      throw new BuildError(`generated bundle versionCode ${manifest.versionCode} does not match CalVer build code ${args.versioning.androidVersionCode}`);
+    }
+    const outputPath = args.output || defaultOutputPath(args.mobileDir, manifest.versionName);
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    fs.copyFileSync(generatedBundle, outputPath);
+    const mappingOutputPath = copyDeobfuscationFile(buildMobileDir, outputPath);
+    const validation = validateBundle(outputPath, args.javaHome, uploadKeySha256);
 
-  if (!args.keepBuildDir) {
-    fs.rmSync(buildDir, { recursive: true, force: true });
+    /** @type {Record<string, unknown>} */
+    const metadata = {
+      schema: "loopaware.mobile-android-bundle.v1",
+      status: "passed",
+      androidPackage: manifest.packageName,
+      versionName: manifest.versionName,
+      versionCode: Number(manifest.versionCode),
+      sourceVersionCode: args.versioning.androidVersionCode,
+      versionCodeSource: args.versioning.buildCodeSource,
+      versionCodePolicy: "CalVer UTC release timestamp seconds since 2020-01-01",
+      versioning: args.versioning,
+      runtimeConfig: appConfig.runtimeConfig,
+      output: outputPath,
+      sha256: sha256File(outputPath),
+      sizeBytes: fs.statSync(outputPath).size,
+      deobfuscationFile: mappingOutputPath,
+      deobfuscationSha256: sha256File(mappingOutputPath),
+      keystore: signing.storeFile,
+      uploadKeySha256,
+      signerOwner: validation.signerOwner,
+      signerSha256: validation.signerSha256,
+      zipIntegrity: "passed",
+      jarSignature: "passed",
+      releaseSigner: "passed",
+      bundletoolValidated: validation.bundletoolValidated,
+      r8Minification: "enabled",
+      resourceShrinking: "disabled",
+    };
+    if (args.keepBuildDir) {
+      metadata.buildDirectory = buildDir;
+    }
+    metadata.buildManifest = writeBuildManifest(outputPath, metadata);
+    return metadata;
+  } finally {
+    if (!args.keepBuildDir) {
+      fs.rmSync(buildDir, { recursive: true, force: true });
+    }
   }
-
-  /** @type {Record<string, unknown>} */
-  const metadata = {
-    schema: "loopaware.mobile-android-bundle.v1",
-    status: "passed",
-    androidPackage: manifest.packageName,
-    versionName: manifest.versionName,
-    versionCode: Number(manifest.versionCode),
-    sourceVersionCode: args.versioning.androidVersionCode,
-    versionCodeSource: args.versioning.buildCodeSource,
-    versionCodePolicy: "CalVer UTC release timestamp seconds since 2020-01-01",
-    versioning: args.versioning,
-    runtimeConfig: appConfig.runtimeConfig,
-    output: outputPath,
-    sha256: sha256File(outputPath),
-    sizeBytes: fs.statSync(outputPath).size,
-    deobfuscationFile: mappingOutputPath,
-    deobfuscationSha256: sha256File(mappingOutputPath),
-    keystore: signing.storeFile,
-    uploadKeySha256,
-    signerOwner: validation.signerOwner,
-    signerSha256: validation.signerSha256,
-    zipIntegrity: "passed",
-    jarSignature: "passed",
-    releaseSigner: "passed",
-    bundletoolValidated: validation.bundletoolValidated,
-    r8Minification: "enabled",
-    resourceShrinking: "disabled",
-  };
-  if (args.keepBuildDir) {
-    metadata.buildDirectory = buildDir;
-  }
-  metadata.buildManifest = writeBuildManifest(outputPath, metadata);
-  return metadata;
 }
 
 /**

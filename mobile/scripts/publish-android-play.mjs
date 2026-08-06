@@ -51,6 +51,7 @@ try {
  *   buildManifest: string;
  *   packageName: string;
  *   quotaProject: string;
+ *   uploadKeySha256: string;
  *   track: string;
  *   status: string;
  *   releaseName: string;
@@ -133,6 +134,7 @@ function parseArgs(argv) {
     buildManifest,
     packageName,
     quotaProject,
+    uploadKeySha256: releaseIdentity.uploadKeySha256,
     track,
     status,
     releaseName,
@@ -149,7 +151,14 @@ async function publishAndroidBundle(args) {
   const appConfig = readAndroidAppConfig(args.mobileDir, args.versioning);
   requireFile(args.aab, "Android App Bundle");
   requireFile(args.mapping, "R8 deobfuscation mapping file");
-  const buildArtifact = readAndroidBuildManifest(args.buildManifest, args.aab, args.mapping, appConfig, args.versioning);
+  const buildArtifact = readAndroidBuildManifest(
+    args.buildManifest,
+    args.aab,
+    args.mapping,
+    appConfig,
+    args.versioning,
+    args.uploadKeySha256,
+  );
   if (buildArtifact.androidPackage !== args.packageName) {
     throw new PublishError(`build manifest package mismatch: manifest has ${buildArtifact.androidPackage}, publish target is ${args.packageName}`);
   }
@@ -171,6 +180,7 @@ async function publishAndroidBundle(args) {
     aabSha256: sha256File(args.aab),
     deobfuscationFile: args.mapping,
     deobfuscationSha256: sha256File(args.mapping),
+    signerSha256: buildArtifact.signerSha256,
     quotaProject: args.quotaProject,
   };
   if (args.dryRun) {
@@ -535,7 +545,7 @@ function readAndroidAppConfig(mobileDir, versioning) {
 
 /**
  * @param {string} mobileDir
- * @returns {{ googleCloudProjectId: string; googleCloudProjectNumber: string; packageName: string; webClientId: string; iosClientId: string; androidClientId: string }}
+ * @returns {{ googleCloudProjectId: string; googleCloudProjectNumber: string; packageName: string; webClientId: string; iosClientId: string; androidClientId: string; uploadKeySha256: string }}
  */
 function readAndroidReleaseIdentity(mobileDir) {
   const identityPath = path.join(mobileDir, releaseIdentityFileName);
@@ -551,6 +561,10 @@ function readAndroidReleaseIdentity(mobileDir) {
     webClientId: requireString(identity.webClientId, `webClientId in ${identityPath}`),
     iosClientId: requireString(identity.iosClientId, `iosClientId in ${identityPath}`),
     androidClientId: requireString(identity.androidClientId, `androidClientId in ${identityPath}`),
+    uploadKeySha256: normalizeSHA256Fingerprint(
+      requireString(identity.uploadKey?.sha256, `uploadKey.sha256 in ${identityPath}`),
+      `uploadKey.sha256 in ${identityPath}`,
+    ),
   };
 }
 
@@ -560,9 +574,10 @@ function readAndroidReleaseIdentity(mobileDir) {
  * @param {string} mappingPath
  * @param {{ version: string; packageName: string }} appConfig
  * @param {import("./mobile-calver-version.mjs").MobileCalVerVersion} expectedVersioning
- * @returns {{ androidPackage: string; versionName: string; versionCode: number; sourceVersionCode: number; versionCodeSource: string }}
+ * @param {string} expectedSignerSha256
+ * @returns {{ androidPackage: string; versionName: string; versionCode: number; sourceVersionCode: number; versionCodeSource: string; signerSha256: string }}
  */
-function readAndroidBuildManifest(manifestPath, aabPath, mappingPath, appConfig, expectedVersioning) {
+function readAndroidBuildManifest(manifestPath, aabPath, mappingPath, appConfig, expectedVersioning, expectedSignerSha256) {
   requireFile(manifestPath, "Android bundle build manifest");
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   if (manifest.schema !== bundleSchema) {
@@ -592,6 +607,25 @@ function readAndroidBuildManifest(manifestPath, aabPath, mappingPath, appConfig,
   if (manifest.deobfuscationSha256 !== mappingSha256) {
     throw new PublishError(`R8 deobfuscation mapping hash changed since build manifest: ${mappingPath}`);
   }
+  const manifestUploadKeySha256 = normalizeSHA256Fingerprint(
+    requireString(manifest.uploadKeySha256, `uploadKeySha256 in ${manifestPath}`),
+    `uploadKeySha256 in ${manifestPath}`,
+  );
+  const manifestSignerSha256 = normalizeSHA256Fingerprint(
+    requireString(manifest.signerSha256, `signerSha256 in ${manifestPath}`),
+    `signerSha256 in ${manifestPath}`,
+  );
+  if (manifestUploadKeySha256 !== expectedSignerSha256 || manifestSignerSha256 !== expectedSignerSha256) {
+    throw new PublishError(`Android bundle signer does not match the canonical upload key in ${manifestPath}`);
+  }
+  for (const validation of ["zipIntegrity", "jarSignature", "releaseSigner"]) {
+    if (manifest[validation] !== "passed") {
+      throw new PublishError(`Android bundle build manifest ${validation} is not passed: ${manifestPath}`);
+    }
+  }
+  if (manifest.bundletoolValidated !== true) {
+    throw new PublishError(`Android bundle build manifest bundletoolValidated is not true: ${manifestPath}`);
+  }
   const versionName = requireString(manifest.versionName, `versionName in ${manifestPath}`);
   if (versionName !== appConfig.version) {
     throw new PublishError(`build manifest versionName ${versionName} does not match app.config.js ${appConfig.version}`);
@@ -612,6 +646,7 @@ function readAndroidBuildManifest(manifestPath, aabPath, mappingPath, appConfig,
     versionCode: requirePositiveInteger(manifest.versionCode, `versionCode in ${manifestPath}`),
     sourceVersionCode: requirePositiveInteger(manifest.sourceVersionCode, `sourceVersionCode in ${manifestPath}`),
     versionCodeSource: requireString(manifest.versionCodeSource, `versionCodeSource in ${manifestPath}`),
+    signerSha256: manifestSignerSha256,
   };
 }
 
@@ -776,6 +811,19 @@ function requireString(value, label) {
     throw new PublishError(`missing ${label}`);
   }
   return value;
+}
+
+/**
+ * @param {string} value
+ * @param {string} label
+ * @returns {string}
+ */
+function normalizeSHA256Fingerprint(value, label) {
+  const hex = value.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
+  if (!/^[0-9A-F]{64}$/.test(hex)) {
+    throw new PublishError(`invalid SHA-256 fingerprint for ${label}`);
+  }
+  return hex.match(/../g)?.join(":") || "";
 }
 
 /**

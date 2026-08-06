@@ -102,6 +102,29 @@ function parseArgs(argv) {
   if (options.has("build-dir")) {
     throw new BuildError("--build-dir is not part of the native build contract; the builder creates a private workspace");
   }
+  const allowedOptions = new Set([
+    "asc-api-issuer-id",
+    "asc-api-key-id",
+    "asc-api-key-path",
+    "configuration",
+    "development-team",
+    "manifest",
+    "mobile-dir",
+    "output",
+    "provisioning-profile",
+    "release-timestamp",
+    "scheme",
+    "signing-certificate",
+    "signing-keychain",
+    "signing-keychain-password-env",
+    "signing-keychain-password-file",
+    "signing-style",
+  ]);
+  for (const optionName of options.keys()) {
+    if (!allowedOptions.has(optionName)) {
+      throw new BuildError(`unknown option: --${optionName}`);
+    }
+  }
 
   const signingStyle = String(options.get("signing-style") || process.env.MOBILE_IOS_SIGNING_STYLE || "automatic");
   if (signingStyle !== "automatic" && signingStyle !== "manual") {
@@ -199,86 +222,88 @@ function buildIOSArchive(args) {
   }
 
   const buildDir = fs.mkdtempSync(defaultBuildDirPrefix);
-  const buildMobileDir = path.join(buildDir, "mobile");
-  copyMobileProject(args.mobileDir, buildMobileDir);
+  try {
+    const buildMobileDir = path.join(buildDir, "mobile");
+    copyMobileProject(args.mobileDir, buildMobileDir);
 
-  const env = buildEnvironment(args, appConfig);
-  run(["npm", "ci", "--include=dev"], { cwd: buildMobileDir, env });
-  stripDevelopmentClientFromProductionArchive(buildMobileDir);
-  run(["npx", "--no-install", "expo", "prebuild", "--platform", "ios", "--no-install"], { cwd: buildMobileDir, env });
-  run(["node", "scripts/fix-ios-project-warnings.mjs"], { cwd: buildMobileDir, env });
-  run(["npx", "--no-install", "pod-install", "ios"], { cwd: buildMobileDir, env });
+    const env = buildEnvironment(args, appConfig);
+    run(["npm", "ci", "--include=dev"], { cwd: buildMobileDir, env });
+    stripDevelopmentClientFromProductionArchive(buildMobileDir);
+    run(["npx", "--no-install", "expo", "prebuild", "--platform", "ios", "--no-install"], { cwd: buildMobileDir, env });
+    run(["node", "scripts/fix-ios-project-warnings.mjs"], { cwd: buildMobileDir, env });
+    run(["npx", "--no-install", "pod-install", "ios"], { cwd: buildMobileDir, env });
 
-  const workspace = findWorkspace(path.join(buildMobileDir, "ios"));
-  const scheme = args.scheme || appWorkspaceScheme(workspace, appConfig.name);
-  const archivePath = path.join(buildDir, "archive", `${scheme}.xcarchive`);
-  const exportDir = path.join(buildDir, "export");
-  const derivedDataPath = path.join(buildDir, "derived-data");
-  const exportOptionsPath = path.join(buildDir, "export-options.plist");
-  writeExportOptions(exportOptionsPath, args, appConfig);
+    const workspace = findWorkspace(path.join(buildMobileDir, "ios"));
+    const scheme = args.scheme || appWorkspaceScheme(workspace, appConfig.name);
+    const archivePath = path.join(buildDir, "archive", `${scheme}.xcarchive`);
+    const exportDir = path.join(buildDir, "export");
+    const derivedDataPath = path.join(buildDir, "derived-data");
+    const exportOptionsPath = path.join(buildDir, "export-options.plist");
+    writeExportOptions(exportOptionsPath, args, appConfig);
 
-  const archiveCommand = [
-    "xcodebuild",
-    "-workspace",
-    workspace,
-    "-scheme",
-    scheme,
-    "-configuration",
-    args.configuration,
-    "-sdk",
-    "iphoneos",
-    "-destination",
-    "generic/platform=iOS",
-    "-archivePath",
-    archivePath,
-    "-derivedDataPath",
-    derivedDataPath,
-  ];
-  appendXcodeAuthArgs(archiveCommand, args);
-  archiveCommand.push("clean", "archive", ...archiveBuildSettings(args, appConfig));
-  run(archiveCommand, { cwd: buildMobileDir, env });
+    const archiveCommand = [
+      "xcodebuild",
+      "-workspace",
+      workspace,
+      "-scheme",
+      scheme,
+      "-configuration",
+      args.configuration,
+      "-sdk",
+      "iphoneos",
+      "-destination",
+      "generic/platform=iOS",
+      "-archivePath",
+      archivePath,
+      "-derivedDataPath",
+      derivedDataPath,
+    ];
+    appendXcodeAuthArgs(archiveCommand, args);
+    archiveCommand.push("clean", "archive", ...archiveBuildSettings(args, appConfig));
+    run(archiveCommand, { cwd: buildMobileDir, env });
 
-  const exportCommand = [
-    "xcodebuild",
-    "-exportArchive",
-    "-archivePath",
-    archivePath,
-    "-exportPath",
-    exportDir,
-    "-exportOptionsPlist",
-    exportOptionsPath,
-  ];
-  appendXcodeAuthArgs(exportCommand, args);
-  run(exportCommand, { cwd: buildMobileDir, env });
+    const exportCommand = [
+      "xcodebuild",
+      "-exportArchive",
+      "-archivePath",
+      archivePath,
+      "-exportPath",
+      exportDir,
+      "-exportOptionsPlist",
+      exportOptionsPath,
+    ];
+    appendXcodeAuthArgs(exportCommand, args);
+    run(exportCommand, { cwd: buildMobileDir, env });
 
-  const generatedIPA = findIPA(exportDir);
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.copyFileSync(generatedIPA, outputPath);
+    const generatedIPA = findIPA(exportDir);
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    fs.copyFileSync(generatedIPA, outputPath);
 
-  /** @type {Record<string, unknown>} */
-  const metadata = {
-    ...validateIPA(outputPath, appConfig, args.versioning.iosBuildNumber),
-    archivePath,
-    buildNumber: args.versioning.iosBuildNumber,
-    bundleIdentifier: appConfig.bundleIdentifier,
-    exportMethod: "app-store-connect",
-    output: outputPath,
-    sizeBytes: fs.statSync(outputPath).size,
-    target: "app-store-connect",
-    version: appConfig.version,
-    versioning: args.versioning,
-    runtimeConfig: appConfig.runtimeConfig,
-    signing: { developmentTeam: args.developmentTeam, style: args.signingStyle },
-  };
-  if (args.keepBuildDir) {
-    metadata.buildDirectory = buildDir;
+    /** @type {Record<string, unknown>} */
+    const metadata = {
+      ...validateIPA(outputPath, appConfig, args.versioning.iosBuildNumber),
+      archivePath,
+      buildNumber: args.versioning.iosBuildNumber,
+      bundleIdentifier: appConfig.bundleIdentifier,
+      exportMethod: "app-store-connect",
+      output: outputPath,
+      sizeBytes: fs.statSync(outputPath).size,
+      target: "app-store-connect",
+      version: appConfig.version,
+      versioning: args.versioning,
+      runtimeConfig: appConfig.runtimeConfig,
+      signing: { developmentTeam: args.developmentTeam, style: args.signingStyle },
+    };
+    if (args.keepBuildDir) {
+      metadata.buildDirectory = buildDir;
+    }
+    metadata.buildManifest = writeBuildManifest(manifestPath, metadata);
+    return metadata;
+  } finally {
+    if (!args.keepBuildDir) {
+      fs.rmSync(buildDir, { recursive: true, force: true });
+    }
   }
-  metadata.buildManifest = writeBuildManifest(manifestPath, metadata);
-
-  if (!args.keepBuildDir) {
-    fs.rmSync(buildDir, { recursive: true, force: true });
-  }
-  return metadata;
 }
 
 /**
