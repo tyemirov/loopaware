@@ -1498,6 +1498,26 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   uploaded during acceptance. Canonical `make ci` passed, including all 456
   real Docker-backed browser and API scenarios.
 
+  Review Follow-up (2026-08-06):
+  The Google Play client now requires both sealed build-manifest fingerprints
+  to match the canonical upload key and requires ZIP, JAR-signature,
+  release-signer, and `bundletool` validation before publisher preflight.
+  Both native builders reject unknown options and remove their unique private
+  workspaces after success or failure unless the operator explicitly retains
+  the workspace. The mobile dependency override now uses patched `js-yaml`
+  4.3.1. Focused boundary probes rejected unknown builder options and an
+  Android manifest without sealed signer metadata before network access.
+  Config validation, mobile typechecking, the dependency audit, and
+  `make lint` passed. Canonical `make ci` also passed, including all 456 real
+  Docker-backed browser and API scenarios.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `CHANGELOG.md`, `mobile/package.json`,
+  `mobile/package-lock.json`, `mobile/scripts/build-android-bundle.mjs`,
+  `mobile/scripts/build-ios-archive.mjs`,
+  `mobile/scripts/publish-android-play.mjs`, and
+  `mobile/scripts/validate-mobile-config.mjs`.
+
 ## Improvements
 
 - [!] [I035] (P1) Adopt the schema-v3 sibling-gateway lifecycle.
