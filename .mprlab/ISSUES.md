@@ -1430,7 +1430,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `configs/content-security-policy.txt`, `docker-compose.yml`, `docker-compose.computercat.yml`, `tests/docker-compose.yml`, `tests/helpers/fixtures.js`, `tests/package.json`, `tests/specs/header-auth-state.spec.js`, `tests/specs/logout-hardening.spec.js`, `tests/specs/security-headers.spec.js`, `web/header-auth.js`, `web/index.html`, `web/login/index.html`, and the other 47 `web/**/*.html` entry points whose CSP meta declaration mirrors the canonical policy.
 
-- [ ] [B080] (P0) Remove app-owned GitHub Pages domain metadata.
+- [x] [B080] (P0) Remove app-owned GitHub Pages domain metadata.
   Goal:
   Let the schema-v3 gateway remain the sole authority for LoopAware's GitHub
   Pages domain and generated release marker.
@@ -1451,6 +1451,37 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Run `make release` once for the corrected commit, then publish, deploy, and
     retry that immutable release on the ordered disposable-host chain.
 
+  Resolution (2026-08-06):
+  Removed `web/CNAME`. The real gateway release accepted the Pages source,
+  built the exact Pages artifact, and reached the independent mobile release
+  boundary without any app-owned Pages metadata exception.
+
+- [ ] [B081] (P0) Build and publish native store artifacts locally.
+  Goal:
+  Make LoopAware release produce signed iOS and Android store artifacts on the
+  operator machine without Expo Application Services.
+
+  Requirements:
+  - Keep Expo only as the application framework and local native-project
+    generator; remove EAS CLI, `eas.json`, hosted builds, and hosted submits.
+  - Build one signed IPA and one signed AAB from the exact sealed source and
+    release timestamp.
+  - Publish the sealed IPA directly to App Store Connect and the sealed AAB
+    directly to Google Play using the repository-owned provider clients.
+  - Keep `make release`, `make publish`, and `make deploy` as the only operator
+    lifecycle entrypoints through the schema-v3 sibling gateway.
+  - Reuse one real build per platform as acceptance and do not add fixture or
+    unit-test matrices for native publication.
+
+  Deliverables:
+  - Local mobile build and publication scripts, a local-artifact manifest
+    declaration, and removal of every EAS deployment dependency.
+
+  Validation:
+  - Run the canonical CI once for the changed source commit.
+  - Run `make release`, `make publish`, `make deploy`, and one exact deploy
+    retry against the disposable ordered-deployment host.
+
 ## Improvements
 
 - [!] [I035] (P1) Adopt the schema-v3 sibling-gateway lifecycle.
@@ -1466,13 +1497,21 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Validation:
   Run the full LoopAware CI gate and non-mutating gateway plans for all three lifecycle phases.
 
-  Resolution:
-  Replaced the schema-1 dispatch stub with the complete schema-v3 resource graph for LoopAware's backend, retained data, exported HTTP capability, Caddy route, public health check, Pages site, React Native package, native app, TAuth tenant, and deployment-only private values. Removed the obsolete app-owned production Ansible, Compose, artifact, publication, store, and deployment controllers; the three production lifecycle targets now delegate to the exact sibling gateway. Added the pinned EAS contract, advanced the npm client to `0.7.52`, excluded the private deployment input from Git and Docker contexts, and preserved local Compose plus mobile development, native identity, API-boundary, and config validation.
+  Historical Resolution:
+  Replaced the schema-1 dispatch stub with the complete schema-v3 resource graph
+  and delegated the three production lifecycle targets to the exact sibling
+  gateway. The original schema-v3 implementation introduced an EAS contract,
+  advanced the npm client to `0.7.52`, excluded the private deployment input
+  from Git and Docker contexts, and preserved local Compose plus mobile
+  development, native identity, API-boundary, and config validation.
 
   Validation Results:
   The clean pre-change `make ci` baseline passed all 458 Playwright/API scenarios. Focused `make mobile-check`, `make config-audit`, and `go test ./cmd/configaudit` passed. Sealed gateway `plan-app-release`, `plan-app-publish`, and `plan-app-deploy` validation passed against the candidate committed bytes and a secret-free private-input fixture. Final `make ci` passed all Go, JavaScript, mobile, package, race, config-audit, and 458 Playwright/API scenarios after restoring the still-current local mobile invariants. Prepared the ignored mode-`0600` deployment input from the existing private LoopAware and TAuth values, verified the six exact nonempty bindings, and did not log secret bytes. No release, publication, or production deployment was run.
 
-  Blocked: the pinned EAS CLI has no authenticated Expo account or linked `loopaware-mobile` project in this checkout. An operator must authenticate, initialize the EAS project, complete one interactive production build for iOS and Android so Expo and store credentials are configured, and commit the generated project linkage before the gateway's non-interactive release can succeed.
+  Current Contract:
+  B081 removes the EAS dependency introduced by the original schema-v3 change.
+  Expo remains the local native-project generator; signed IPA/AAB construction
+  and direct store publication are repository-owned local operations.
 
   Changed Files:
   `.dockerignore`, `.github/workflows/ci.yml`, `.gitignore`, `.mprlab/ISSUES.md`, `.mprlab/deploy/resources.yml`, `.mprlab/deploy/ansible/**`, `.mprlab/deploy/docker-compose.yml`, `CHANGELOG.md`, `Makefile`, `README.md`, `clients/react-native/package.json`, `clients/react-native/package-lock.json`, `cmd/configaudit/main.go`, `configs/.env.loopaware.example`, `configs/.env.loopaware.computercat.example`, `mobile/eas.json`, `mobile/package.json`, `mobile/package-lock.json`, `mobile/scripts/validate-mobile-config.mjs`, removed mobile production build/publish scripts, and removed app-owned lifecycle scripts under `scripts/` and `scripts/release/`.

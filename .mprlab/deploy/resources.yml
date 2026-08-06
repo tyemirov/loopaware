@@ -150,18 +150,22 @@ mprlab_resources:
     - kind: mobile_application
       id: mobile
       source: mobile
-      build_system: expo
+      build_system: local
+      build:
+        android: mobile/scripts/build-android-bundle.mjs
+        ios: mobile/scripts/build-ios-archive.mjs
+      publish:
+        android: mobile/scripts/publish-android-play.mjs
+        ios: mobile/scripts/submit-ios.mjs
       ios:
         bundle_identifier: com.mprlab.loopaware
         app_store_id: "6788555440"
         destination: testflight
         track: internal
-        profile: production
       android:
         package_name: com.mprlab.loopaware
         destination: google_play
         track: internal
-        profile: production
     - kind: tauth_tenant
       id: authentication
       capability: tauth.tenants

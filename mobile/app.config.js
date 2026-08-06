@@ -11,7 +11,9 @@ const androidPackage = process.env.LOOPAWARE_MOBILE_ANDROID_PACKAGE || "com.mprl
 const iosBuildNumber = optionalPositiveIntegerString(process.env.LOOPAWARE_MOBILE_IOS_BUILD_NUMBER || "", "LOOPAWARE_MOBILE_IOS_BUILD_NUMBER");
 const androidVersionCode = optionalPositiveInteger(process.env.LOOPAWARE_MOBILE_ANDROID_VERSION_CODE || "", "LOOPAWARE_MOBILE_ANDROID_VERSION_CODE");
 const googleIosRedirectUri =
-  process.env.LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI || process.env.TAUTH_TENANT_GOOGLE_IOS_REDIRECT_URI_LOOPAWARE || "";
+  process.env.LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI ||
+  process.env.TAUTH_TENANT_GOOGLE_IOS_REDIRECT_URI_LOOPAWARE ||
+  "com.googleusercontent.apps.281540686395-8a90ldjnklddl0qpoc8ur6620lguv7mg:/oauth2redirect/google";
 const googleIosClientId = process.env.LOOPAWARE_MOBILE_GOOGLE_IOS_CLIENT_ID || process.env.TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE || "";
 const googleIosRedirectScheme = redirectUriScheme(googleIosRedirectUri) || reverseGoogleClientIdScheme(googleIosClientId);
 const iosRedirectSchemes = googleIosRedirectScheme ? [googleIosRedirectScheme] : [];
