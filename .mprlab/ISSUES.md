@@ -1430,6 +1430,26 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Changed Files:
   `PLAN.md`, `.mprlab/ISSUES.md`, `configs/content-security-policy.txt`, `docker-compose.yml`, `docker-compose.computercat.yml`, `tests/docker-compose.yml`, `tests/helpers/fixtures.js`, `tests/package.json`, `tests/specs/header-auth-state.spec.js`, `tests/specs/logout-hardening.spec.js`, `tests/specs/security-headers.spec.js`, `web/header-auth.js`, `web/index.html`, `web/login/index.html`, and the other 47 `web/**/*.html` entry points whose CSP meta declaration mirrors the canonical policy.
 
+- [ ] [B080] (P0) Remove app-owned GitHub Pages domain metadata.
+  Goal:
+  Let the schema-v3 gateway remain the sole authority for LoopAware's GitHub
+  Pages domain and generated release marker.
+
+  Requirements:
+  - Remove the committed `web/CNAME` file instead of adding a compatibility
+    exception to release assembly.
+  - Keep the manifest's `github_pages.domain` declaration as the only tracked
+    Pages domain intent.
+  - Reuse the real gateway release boundary as acceptance; do not add a
+    duplicate fixture or unit-test matrix for one obsolete source file.
+
+  Deliverables:
+  - A Pages source tree without gateway-owned metadata and an exact releasable
+    source commit.
+
+  Validation:
+  - Run `make release` once for the corrected commit, then publish, deploy, and
+    retry that immutable release on the ordered disposable-host chain.
 
 ## Improvements
 

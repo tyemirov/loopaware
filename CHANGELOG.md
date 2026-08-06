@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Advance `@loopaware/react-native` to the next release version required by the gateway npm-package contract.
 
 ### Bug Fixes 🐛
+- Remove the obsolete app-owned GitHub Pages `CNAME`; the schema-v3 gateway is
+  the sole authority for Pages domain metadata and the generated release marker.
 - Remove obsolete app-owned lifecycle dry-run aliases; non-mutating lifecycle plans now use the gateway's canonical plan targets.
 - Remove exact cross-service TAuth/Pinguin value comparisons from config-audit so deploy preflight validates runtime config schema, placeholder coverage, and required values without hardcoding operator-owned deployment values.
 
