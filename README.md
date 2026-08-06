@@ -541,13 +541,15 @@ make publish
 make deploy
 ```
 
-Each target is a zero-argument wrapper around the exact sibling `../mprlab-gateway` checkout. The gateway owns lifecycle validation, artifact preparation, provider publication, host assembly, and verification. LoopAware does not carry separate production Compose, Ansible, Pages, package, mobile-store, or release controllers.
+Each target is a zero-argument wrapper around the exact sibling `../mprlab-gateway` checkout. The gateway owns lifecycle validation, sealed artifact assembly, provider publication, host assembly, and verification. LoopAware owns only the local native builders and provider clients selected by its manifest; it does not carry a parallel lifecycle controller.
 
 Deployment-only private values belong in the ignored `.mprlab/deploy/.env` file with mode `0600`. The manifest binds those values through its `private_values` resource; secret bytes never belong in the manifest. Release and publish do not read this deployment input.
 
-The mobile resource uses the pinned `eas-cli` version and production build/submit profiles in `mobile/eas.json`. The React Native package version in `clients/react-native/package.json` must equal the release version selected by the gateway.
+The mobile resource builds locally. Release runs Expo prebuild only as the native-project generator, then creates one signed App Store Connect IPA with Xcode and one signed Google Play AAB with Gradle. Publish validates and uploads those exact sealed files through `xcrun altool` and the Google Play Android Publisher API. No Expo account, EAS project, hosted build, or EAS submit is part of the lifecycle.
 
-Before the first gateway release, an operator must authenticate the pinned EAS CLI, initialize the `loopaware-mobile` EAS project, and complete one interactive production build for each declared platform. Commit the generated EAS project linkage before retrying the lifecycle. The gateway release is deliberately non-interactive and does not create Expo projects or bootstrap Apple and Google build credentials.
+The `mobile_application` entry is the native lifecycle authority: its four build and publish paths are executable directly from this repository. Native build and store-provider acceptance therefore uses LoopAware's real scripts and credentials and does not depend on a gateway checkout. Gateway involvement is limited to coordinating the complete application lifecycle, including the backend service and Caddy route.
+
+The local machine must have the canonical Apple distribution signing identity and Android upload key described by `mobile/android-release-identity.json`. App Store Connect uses the ignored `configs/AuthKey_82P4KZ86HM.p8`; Google Play uses Application Default Credentials and the ignored LoopAware upload-keystore files under `~/.local/share/loopaware/android-upload/`. These provider credentials remain outside Git and are checked before their platform build or publication begins.
 
 There are no app-owned dry-run lifecycle aliases. For a non-mutating inspection, run the gateway's `plan-app-release`, `plan-app-publish`, or `plan-app-deploy` target with `MPRLAB_APP_ROOT` set to this repository. Production activation remains an operator action.
 

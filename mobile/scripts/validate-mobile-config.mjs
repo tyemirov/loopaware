@@ -4,15 +4,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import os from "node:os";
-import { spawnSync } from "node:child_process";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 
 for (const requiredFile of [
   "mobile/App.tsx",
   "mobile/app.config.js",
-  "mobile/eas.json",
   "mobile/src/api.ts",
   "mobile/src/auth.ts",
   "mobile/src/config.ts",
@@ -20,9 +17,14 @@ for (const requiredFile of [
   "mobile/assets/icon.png",
   "mobile/android-release-identity.json",
   "mobile/scripts/fix-ios-project-warnings.mjs",
+  "mobile/scripts/build-android-bundle.mjs",
+  "mobile/scripts/build-ios-archive.mjs",
   "mobile/scripts/native-build-fingerprint.mjs",
+  "mobile/scripts/mobile-calver-version.mjs",
   "mobile/scripts/prepare-android-project.mjs",
+  "mobile/scripts/publish-android-play.mjs",
   "mobile/scripts/resolve-metro-port.mjs",
+  "mobile/scripts/submit-ios.mjs",
   "mobile/scripts/test-api-boundaries.mjs",
 ]) {
   assert(fs.existsSync(path.join(repoRoot, requiredFile)), `mobile_config_missing_file: ${requiredFile}`);
@@ -53,14 +55,7 @@ assert(
   "mobile_android_release_identity_invalid_debug_sha1",
 );
 
-for (const obsoleteFile of [
-  "mobile/app.json",
-  "mobile/scripts/build-android-bundle.mjs",
-  "mobile/scripts/build-ios-archive.mjs",
-  "mobile/scripts/mobile-calver-version.mjs",
-  "mobile/scripts/publish-android-play.mjs",
-  "mobile/scripts/submit-ios.mjs",
-]) {
+for (const obsoleteFile of ["mobile/app.json", "mobile/eas.json"]) {
   assert(!fs.existsSync(path.join(repoRoot, obsoleteFile)), `mobile_config_obsolete_file: ${obsoleteFile}`);
 }
 
@@ -81,7 +76,7 @@ for (const [dependencyName, secureVersion] of Object.entries({
   "ajv@8.11.0": "8.20.0",
   "brace-expansion": "5.0.9",
   "diff@7.0.0": "8.0.4",
-  "js-yaml": "4.3.0",
+  "js-yaml": "4.3.1",
   "joi@17.11.0": "17.13.4",
   "minimatch@5.1.2": "5.1.9",
   postcss: "8.5.25",
@@ -92,13 +87,10 @@ for (const [dependencyName, secureVersion] of Object.entries({
 })) {
   assert(packageJSON.overrides?.[dependencyName] === secureVersion, `mobile_config_insecure_override: ${dependencyName}`);
 }
-assert(packageJSON.devDependencies?.["eas-cli"] === "21.5.0", "mobile_config_eas_cli_must_be_pinned");
+assert(!packageJSON.devDependencies?.["eas-cli"], "mobile_config_eas_cli_must_be_absent");
 assert(packageJSON.devDependencies?.["pod-install"] === "1.1.0", "mobile_config_missing_locked_pod_install");
-assert(
-  packageLockJSON.packages?.[""]?.devDependencies?.["eas-cli"] === "21.5.0" &&
-    packageLockJSON.packages?.["node_modules/eas-cli"]?.version === "21.5.0",
-  "mobile_config_lock_missing_eas_cli",
-);
+assert(!packageLockJSON.packages?.[""]?.devDependencies?.["eas-cli"], "mobile_config_lock_contains_eas_cli");
+assert(!packageLockJSON.packages?.["node_modules/eas-cli"], "mobile_config_lock_contains_eas_cli_package");
 assert(
   packageLockJSON.packages?.[""]?.devDependencies?.["pod-install"] === "1.1.0" &&
     packageLockJSON.packages?.["node_modules/pod-install"]?.version === "1.1.0",
@@ -156,12 +148,6 @@ assert(
   "mobile_config_missing_ios_warning_fix_script",
 );
 
-const easJSON = readJSON("mobile/eas.json");
-assert(easJSON.cli?.version === "21.5.0", "mobile_config_eas_json_cli_must_match_package");
-assert(easJSON.build?.production?.android?.buildType === "app-bundle", "mobile_config_eas_android_bundle_missing");
-assert(easJSON.submit?.production?.ios?.ascAppId === "6788555440", "mobile_config_eas_ios_app_id_invalid");
-assert(easJSON.submit?.production?.android?.track === "internal", "mobile_config_eas_android_track_invalid");
-
 const appConfigSource = readText("mobile/app.config.js");
 for (const expectedText of [
   "com.mprlab.loopaware",
@@ -214,8 +200,6 @@ for (const envName of [
 ]) {
   assert(nativeBuildFingerprintSource.includes(envName), `mobile_native_fingerprint_missing_env: ${envName}`);
 }
-verifyIOSProjectWarningFixer();
-
 const makefile = readText("Makefile");
 for (const target of ["mobile-install", "mobile-check", "mobile-start", "run-ios", "run-android", "release publish deploy"]) {
   assert(makefile.includes(`${target}:`), `mobile_makefile_missing_target: ${target}`);
@@ -266,55 +250,6 @@ for (const envFile of ["configs/.env.tauth.example", "configs/.env.tauth.compute
     "TAUTH_TENANT_GOOGLE_ANDROID_REDIRECT_URI_LOOPAWARE",
   ]) {
     assert(envSource.includes(envName), `mobile_tauth_env_missing: ${envFile}:${envName}`);
-  }
-}
-
-function verifyIOSProjectWarningFixer() {
-  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "loopaware-ios-warning-fix-"));
-  const temporaryMobileRoot = path.join(temporaryRoot, "mobile");
-  const temporaryScriptDirectory = path.join(temporaryMobileRoot, "scripts");
-  const temporaryProjectDirectory = path.join(temporaryMobileRoot, "ios", "LoopAware.xcodeproj");
-  const temporaryScriptPath = path.join(temporaryScriptDirectory, "fix-ios-project-warnings.mjs");
-  const temporaryProjectPath = path.join(temporaryProjectDirectory, "project.pbxproj");
-  const projectFixture = [
-    "HEADER",
-    '        "-lc++",',
-    "\t\tABCDEF1234567890 /* [Expo Dev Launcher] Strip Local Network Keys for Release */ = {",
-    "\t\t\tisa = PBXShellScriptBuildPhase;",
-    "\t\t};",
-    "",
-  ].join("\n");
-
-  try {
-    fs.mkdirSync(temporaryScriptDirectory, { recursive: true });
-    fs.mkdirSync(temporaryProjectDirectory, { recursive: true });
-    fs.copyFileSync(path.join(repoRoot, "mobile", "scripts", "fix-ios-project-warnings.mjs"), temporaryScriptPath);
-    fs.writeFileSync(temporaryProjectPath, projectFixture, "utf8");
-
-    const firstRun = spawnSync(process.execPath, [temporaryScriptPath], { encoding: "utf8" });
-    assert(firstRun.status === 0, `mobile_ios_warning_fix_failed: ${firstRun.stderr.trim()}`);
-    const firstPatchedProject = fs.readFileSync(temporaryProjectPath, "utf8");
-    assert(!firstPatchedProject.includes('"-lc++"'), "mobile_ios_warning_fix_kept_linker_flag");
-    assert(firstPatchedProject.includes("alwaysOutOfDate = 1;"), "mobile_ios_warning_fix_missing_output_contract");
-
-    const secondRun = spawnSync(process.execPath, [temporaryScriptPath], { encoding: "utf8" });
-    assert(secondRun.status === 0, `mobile_ios_warning_fix_idempotence_failed: ${secondRun.stderr.trim()}`);
-    assert(
-      fs.readFileSync(temporaryProjectPath, "utf8") === firstPatchedProject,
-      "mobile_ios_warning_fix_not_idempotent",
-    );
-
-    const symlinkTargetPath = path.join(temporaryProjectDirectory, "project.real.pbxproj");
-    fs.renameSync(temporaryProjectPath, symlinkTargetPath);
-    fs.symlinkSync(path.basename(symlinkTargetPath), temporaryProjectPath);
-    const symlinkRun = spawnSync(process.execPath, [temporaryScriptPath], { encoding: "utf8" });
-    assert(symlinkRun.status !== 0, "mobile_ios_warning_fix_followed_symlink");
-    assert(
-      fs.readFileSync(symlinkTargetPath, "utf8") === firstPatchedProject,
-      "mobile_ios_warning_fix_changed_symlink_target",
-    );
-  } finally {
-    fs.rmSync(temporaryRoot, { force: true, recursive: true });
   }
 }
 

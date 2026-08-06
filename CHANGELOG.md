@@ -14,10 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add CI path coverage for first-party clients.
 - Keep `.mprlab/deploy/resources.yml` as the only tracked production lifecycle declaration and remove the superseded app-owned Ansible, Compose, release, publication, and deployment controllers.
 - Delegate the exact zero-argument `make release`, `make publish`, and `make deploy` phases to the required sibling `mprlab-gateway`.
-- Pin `eas-cli` and production EAS build/submit profiles for the declared iOS TestFlight and Google Play Internal application.
+- Build signed iOS and Android store artifacts locally and publish them directly through App Store Connect and Google Play without EAS.
 - Advance `@loopaware/react-native` to the next release version required by the gateway npm-package contract.
 
 ### Bug Fixes 🐛
+- Allow the Google Play client to publish a sealed AAB after lifecycle assembly moves it from its temporary build directory, while requiring the sealed signer and upload-key fingerprints to match the canonical Android release identity.
+- Create every local Android and iOS native build in a unique private workspace, reject unknown builder options, clean failed workspaces unless explicitly retained, and identify the validated Google Play artifact upload boundary.
 - Remove the obsolete app-owned GitHub Pages `CNAME`; the schema-v3 gateway is
   the sole authority for Pages domain metadata and the generated release marker.
 - Remove obsolete app-owned lifecycle dry-run aliases; non-mutating lifecycle plans now use the gateway's canonical plan targets.
@@ -28,11 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add React Native client package validation that builds, packs, installs the tarball into a temporary consumer, and typechecks a real import.
 - Cover config-audit accepting intentionally different concrete LoopAware, TAuth, and Pinguin operator values while retaining required runtime config validation.
 - Validate the schema-v3 manifest through non-mutating gateway release, publish, and deploy plans.
+- Keep the mobile dependency audit clean with the patched `js-yaml` v4 release.
 
 ### Docs 📚
 - Document the backend YAML config contract and clarify that LoopAware env files are interpolation inputs, not a second runtime config source.
 - Document npm installation for the React Native feedback client and direct REST integration for non-React Native mobile apps.
-- Document gateway-owned production lifecycle phases, deployment-only private values, and the pinned EAS mobile contract.
+- Document gateway-owned production lifecycle phases, deployment-only private values, and the local native store-artifact contract.
 
 ## [v0.7.51] - 2026-07-19
 
