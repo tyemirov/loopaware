@@ -12,7 +12,7 @@ import { createMobileCalVerVersion } from "./mobile-calver-version.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const defaultMobileDir = path.join(repoRoot, "mobile");
-const defaultBuildDir = path.join(os.tmpdir(), "loopaware-mobile-ios-archive");
+const defaultBuildDirPrefix = path.join(os.tmpdir(), "loopaware-mobile-ios-archive-");
 const archiveSchema = "loopaware.mobile-ios-archive.v1";
 const defaultAppStoreConnectApiIssuerId = "94ecd239-946c-478c-8fe5-5c7f50816959";
 const defaultAppStoreConnectApiKeyId = "82P4KZ86HM";
@@ -48,7 +48,6 @@ try {
 /**
  * @typedef {{
  *   mobileDir: string;
- *   buildDir: string;
  *   output: string;
  *   manifest: string;
  *   scheme: string;
@@ -100,6 +99,10 @@ function parseArgs(argv) {
     index += 1;
   }
 
+  if (options.has("build-dir")) {
+    throw new BuildError("--build-dir is not part of the native build contract; the builder creates a private workspace");
+  }
+
   const signingStyle = String(options.get("signing-style") || process.env.MOBILE_IOS_SIGNING_STYLE || "automatic");
   if (signingStyle !== "automatic" && signingStyle !== "manual") {
     throw new BuildError("--signing-style must be automatic or manual");
@@ -118,7 +121,6 @@ function parseArgs(argv) {
 
   return {
     mobileDir: resolvePath(options.get("mobile-dir") || defaultMobileDir),
-    buildDir: resolvePath(options.get("build-dir") || defaultBuildDir),
     output: options.has("output") ? resolvePath(options.get("output") || "") : "",
     manifest: options.has("manifest") ? resolvePath(options.get("manifest") || "") : "",
     scheme: String(options.get("scheme") || ""),
@@ -196,11 +198,8 @@ function buildIOSArchive(args) {
     };
   }
 
-  if (args.buildDir === "/" || args.buildDir === os.tmpdir()) {
-    throw new BuildError(`unsafe build directory: ${args.buildDir}`);
-  }
-  fs.rmSync(args.buildDir, { recursive: true, force: true });
-  const buildMobileDir = path.join(args.buildDir, "mobile");
+  const buildDir = fs.mkdtempSync(defaultBuildDirPrefix);
+  const buildMobileDir = path.join(buildDir, "mobile");
   copyMobileProject(args.mobileDir, buildMobileDir);
 
   const env = buildEnvironment(args, appConfig);
@@ -212,10 +211,10 @@ function buildIOSArchive(args) {
 
   const workspace = findWorkspace(path.join(buildMobileDir, "ios"));
   const scheme = args.scheme || appWorkspaceScheme(workspace, appConfig.name);
-  const archivePath = path.join(args.buildDir, "archive", `${scheme}.xcarchive`);
-  const exportDir = path.join(args.buildDir, "export");
-  const derivedDataPath = path.join(args.buildDir, "derived-data");
-  const exportOptionsPath = path.join(args.buildDir, "export-options.plist");
+  const archivePath = path.join(buildDir, "archive", `${scheme}.xcarchive`);
+  const exportDir = path.join(buildDir, "export");
+  const derivedDataPath = path.join(buildDir, "derived-data");
+  const exportOptionsPath = path.join(buildDir, "export-options.plist");
   writeExportOptions(exportOptionsPath, args, appConfig);
 
   const archiveCommand = [
@@ -271,10 +270,13 @@ function buildIOSArchive(args) {
     runtimeConfig: appConfig.runtimeConfig,
     signing: { developmentTeam: args.developmentTeam, style: args.signingStyle },
   };
+  if (args.keepBuildDir) {
+    metadata.buildDirectory = buildDir;
+  }
   metadata.buildManifest = writeBuildManifest(manifestPath, metadata);
 
   if (!args.keepBuildDir) {
-    fs.rmSync(args.buildDir, { recursive: true, force: true });
+    fs.rmSync(buildDir, { recursive: true, force: true });
   }
   return metadata;
 }

@@ -662,6 +662,8 @@ function googleAuthHeaders(token, quotaProject) {
  * @returns {Promise<Record<string, unknown>>}
  */
 async function requestJson(request) {
+  // Publication sends only manifest-validated AAB and mapping bytes to the fixed Google Play API origin.
+  // codeql[js/file-access-to-http]
   const response = await fetch(request.url, {
     method: request.method,
     headers: request.headers,

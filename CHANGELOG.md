@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Bug Fixes 🐛
 - Allow the Google Play client to publish a sealed AAB after lifecycle assembly moves it from its temporary build directory, while retaining exact filename, size, digest, release, package, and signing validation.
+- Create every local Android and iOS native build in a unique private workspace and explicitly identify the validated Google Play artifact upload boundary.
 - Remove the obsolete app-owned GitHub Pages `CNAME`; the schema-v3 gateway is
   the sole authority for Pages domain metadata and the generated release marker.
 - Remove obsolete app-owned lifecycle dry-run aliases; non-mutating lifecycle plans now use the gateway's canonical plan targets.

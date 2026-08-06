@@ -12,7 +12,7 @@ import { createMobileCalVerVersion } from "./mobile-calver-version.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const defaultMobileDir = path.join(repoRoot, "mobile");
-const defaultBuildDir = path.join(os.tmpdir(), "loopaware-mobile-android-aab");
+const defaultBuildDirPrefix = path.join(os.tmpdir(), "loopaware-mobile-android-aab-");
 const defaultCredentialDir = path.join(os.homedir(), ".local", "share", "loopaware", "android-upload");
 const defaultKeystoreProperties = path.join(defaultCredentialDir, "keystore.properties");
 const defaultKeystore = path.join(defaultCredentialDir, "loopaware-upload-key.jks");
@@ -46,7 +46,6 @@ try {
 /**
  * @typedef {{
  *   mobileDir: string;
- *   buildDir: string;
  *   output: string;
  *   keystoreProperties: string;
  *   keystore: string;
@@ -88,6 +87,10 @@ function parseArgs(argv) {
     index += 1;
   }
 
+  if (options.has("build-dir")) {
+    throw new BuildError("--build-dir is not part of the native build contract; the builder creates a private workspace");
+  }
+
   let versioning;
   try {
     versioning = createMobileCalVerVersion(
@@ -102,7 +105,6 @@ function parseArgs(argv) {
 
   return {
     mobileDir: resolvePath(options.get("mobile-dir") || defaultMobileDir),
-    buildDir: resolvePath(options.get("build-dir") || defaultBuildDir),
     output: options.has("output") ? resolvePath(options.get("output") || "") : "",
     keystoreProperties: resolvePath(
       options.get("keystore-properties") ||
@@ -160,12 +162,8 @@ function buildAndroidBundle(args) {
       uploadKeySha256,
     };
   }
-  if (args.buildDir === "/" || args.buildDir === os.tmpdir()) {
-    throw new BuildError(`unsafe build directory: ${args.buildDir}`);
-  }
-
-  fs.rmSync(args.buildDir, { recursive: true, force: true });
-  const buildMobileDir = path.join(args.buildDir, "mobile");
+  const buildDir = fs.mkdtempSync(defaultBuildDirPrefix);
+  const buildMobileDir = path.join(buildDir, "mobile");
   copyMobileProject(args.mobileDir, buildMobileDir);
 
   const env = buildEnvironment(args.javaHome, args.androidSdkRoot);
@@ -205,7 +203,7 @@ function buildAndroidBundle(args) {
   const validation = validateBundle(outputPath, args.javaHome, uploadKeySha256);
 
   if (!args.keepBuildDir) {
-    fs.rmSync(args.buildDir, { recursive: true, force: true });
+    fs.rmSync(buildDir, { recursive: true, force: true });
   }
 
   /** @type {Record<string, unknown>} */
@@ -236,6 +234,9 @@ function buildAndroidBundle(args) {
     r8Minification: "enabled",
     resourceShrinking: "disabled",
   };
+  if (args.keepBuildDir) {
+    metadata.buildDirectory = buildDir;
+  }
   metadata.buildManifest = writeBuildManifest(outputPath, metadata);
   return metadata;
 }
