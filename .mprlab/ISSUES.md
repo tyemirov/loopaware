@@ -1660,8 +1660,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
     regression coverage.
 
   Validation:
-  - Run the image-size security audit, mobile check, CodeQL, and final
-    `make ci`.
+  - Run the image-size security audit, mobile check, and final `make ci`.
 
   Resolution (2026-08-09):
   Replaced the TIFF path-stat/open sequence with one descriptor-owned
@@ -1681,6 +1680,38 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `PLAN.md`, `.mprlab/ISSUES.md`,
   `mobile/scripts/audit-image-size-security.mjs`, and
   `mobile/vendor/image-size/dist/types/tiff.js`.
+
+- [x] [B086] (P1) Make the unauthenticated dashboard redirect assertion deterministic.
+  Goal:
+  Keep the poisoned landing-path browser scenario synchronized with the
+  observable login destination across chained browser navigations.
+
+  Requirements:
+  - Assert the final login URL through the established retrying browser
+    assertion instead of subscribing after the initial dashboard commit.
+  - Preserve the poisoned DOM configuration and unauthorized API probes.
+  - Preserve the assertion that the executable landing payload never runs.
+
+  Deliverables:
+  - A deterministic public-browser assertion for the dashboard-to-login
+    redirect.
+
+  Validation:
+  - Run the focused browser-security integration target and final `make ci`.
+
+  Resolution (2026-08-09):
+  Replaced the post-commit navigation subscription with the suite's retrying
+  URL assertion so the scenario observes the final login destination across
+  the dashboard redirect without racing the intermediate browser commit.
+
+  Validation Results:
+  The focused browser-security target passed all 100 scenarios. Final
+  `make ci` passed every build, audit, lint, Go test, race, and release contract
+  gate plus all 456 Docker-backed browser and API integration scenarios.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, and
+  `tests/specs/header-auth-state.spec.js`.
 
 ## Improvements
 
