@@ -1608,6 +1608,42 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, and
   `clients/react-native/.npmrc`.
 
+- [x] [B084] (P0) Ship the vendored image-size runtime.
+  Goal:
+  Make clean checkouts install a complete repository-owned image-size package
+  for Metro and the executable security audit.
+
+  Requirements:
+  - Track the vendored package's declared `dist/index.js` entry point and its
+    complete runtime module graph.
+  - Keep unrelated mobile build output ignored.
+  - Preserve the patched ICNS and ISO base media rejection behavior.
+
+  Deliverables:
+  - A narrowly scoped ignore exception for the vendored runtime distribution.
+
+  Validation:
+  - Install mobile dependencies from Git-tracked inputs, run the image-size
+    security audit and mobile check, and run final `make ci`.
+
+  Resolution (2026-08-09):
+  Narrowed the mobile ignore contract so the repository-owned image-size
+  package includes its declared distribution and complete runtime module graph
+  while all other mobile `dist` output remains ignored. A fresh installation
+  from the staged Git index now loads the patched package without relying on
+  stale local dependencies.
+
+  Validation Results:
+  A clean staged-index checkout installed all 482 mobile dependencies, ran the
+  malformed ICNS and JPEG XL security probes, and passed mobile configuration,
+  API-boundary, and TypeScript checks with zero npm vulnerabilities. Final
+  `make ci` passed every build, audit, lint, Go test, race, and release contract
+  gate plus all 456 Docker-backed browser and API integration scenarios.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `mobile/.gitignore`, and
+  `mobile/vendor/image-size/dist/**`.
+
 ## Improvements
 
 - [!] [I035] (P1) Adopt the schema-v3 sibling-gateway lifecycle.
