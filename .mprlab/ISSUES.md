@@ -1644,6 +1644,44 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `PLAN.md`, `.mprlab/ISSUES.md`, `mobile/.gitignore`, and
   `mobile/vendor/image-size/dist/**`.
 
+- [x] [B085] (P0) Close the vendored TIFF descriptor race.
+  Goal:
+  Read TIFF metadata from one opened file identity so an attacker cannot swap
+  the path between size inspection and byte access.
+
+  Requirements:
+  - Open the TIFF once and derive both size and bytes from that descriptor.
+  - Close the descriptor after successful reads and every read failure.
+  - Preserve the current TIFF parsing API and the existing ICNS and ISO base
+    media security corrections.
+
+  Deliverables:
+  - A descriptor-owned TIFF read transaction and executable descriptor-lifetime
+    regression coverage.
+
+  Validation:
+  - Run the image-size security audit, mobile check, CodeQL, and final
+    `make ci`.
+
+  Resolution (2026-08-09):
+  Replaced the TIFF path-stat/open sequence with one descriptor-owned
+  open, fstat, read, and finally-close transaction. Extended the executable
+  image-size security audit to reject path inspection after open and to prove
+  every descriptor closes after both a successful TIFF parse and an injected
+  TIFF read failure.
+
+  Validation Results:
+  A fresh mobile dependency install passed with zero npm vulnerabilities. The
+  expanded image-size security audit, mobile configuration, API-boundary, and
+  TypeScript checks passed. Final `make ci` passed every build, audit, lint, Go
+  test, race, and release contract gate plus all 456 Docker-backed browser and
+  API integration scenarios.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`,
+  `mobile/scripts/audit-image-size-security.mjs`, and
+  `mobile/vendor/image-size/dist/types/tiff.js`.
+
 ## Improvements
 
 - [!] [I035] (P1) Adopt the schema-v3 sibling-gateway lifecycle.
