@@ -111,6 +111,7 @@ mobile-install:
 	fi
 
 mobile-check: mobile-install
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run audit:image-size
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run validate-config
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run test:api-boundaries
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run typecheck
