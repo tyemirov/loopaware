@@ -57,12 +57,12 @@ Operational playbook for working in this repository. Use it to coordinate planni
 
 ### Workflow Overview
 
-1. Run `make ci` before any code changes to establish a clean baseline. Fix any pre-existing failures before proceeding.
-2. Read `AGENTS.md` (plus relevant stack guides in `.mprlab/`) before touching code.
-3. Review the backlog in `.mprlab/ISSUES.md`; work sequentially through BugFixes, Improvements, Maintenance, then Features. Planning is reserved for future work; do not implement Planning items.
-4. For the active issue, create `PLAN.md` (ignored by git) with bullet steps. Keep it updated and delete/rewrite it for the next issue.
-5. Implement the requested change, keeping to stack-specific standards. Limit edits to necessary files plus issue-document updates when required.
-6. Run `make ci` to verify all tests, linting, and formatting pass.
+1. Read `AGENTS.md` and the relevant stack guides in `.mprlab/`.
+2. Review the backlog in `.mprlab/ISSUES.md`. Work through BugFixes, Improvements, Maintenance, and Features in this order. Planning contains future work. Do not implement Planning items.
+3. For the active issue, create `PLAN.md` (ignored by Git) with bullet steps. Keep it updated and replace it for the next issue.
+4. For application changes, use the initial validation result from `.mprlab/POLICY.md`.
+5. Implement the requested change. Limit edits to necessary files plus required issue-document updates. Use the smallest applicable target during the change.
+6. Complete the applicable validation after the last change.
 7. Report what changed and any blockers.
 
 ### Completion Gate (Non-negotiable)
@@ -70,7 +70,7 @@ Operational playbook for working in this repository. Use it to coordinate planni
 1. Requested file/documentation changes are implemented.
 2. Any required issue status/notes updates are made in `.mprlab/ISSUES.md`.
 3. Blockers are reported clearly when present.
-4. `make ci` passes.
+4. The applicable validation after the last change passes.
 
 ### Testing & Tooling
 
