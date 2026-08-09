@@ -1684,6 +1684,31 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [x] [I036] (P1) Remove CodeQL from repository validation.
+  Goal:
+  Stop hosted CodeQL analysis so repository work is governed by the tracked
+  issue queue and the canonical `test` check.
+
+  Requirements:
+  - Disable GitHub code-scanning default setup for this repository.
+  - Keep `test` as the only required `master` status check.
+  - Make the authenticated repository audit reject re-enabled CodeQL setup.
+  - Preserve Dependabot, secret scanning, push protection, and the existing
+    branch-protection contract.
+
+  Deliverables:
+  - Disabled hosted CodeQL and an aligned repository-owned audit and README.
+
+  Validation:
+  - Verify the live default-setup state, run `make github-security-audit`, and
+    run document and shell checks.
+
+  Resolution:
+  - Disabled GitHub CodeQL default setup, made the authenticated repository
+    audit reject re-enabled setup, and removed current CodeQL documentation and
+    analyzer directives. Verified the live repository contract with
+    `make github-security-audit`, shell syntax validation, and diff checks.
+
 - [!] [I035] (P1) Adopt the schema-v3 sibling-gateway lifecycle.
   Goal:
   Make `.mprlab/deploy/resources.yml` the only production lifecycle declaration for LoopAware.

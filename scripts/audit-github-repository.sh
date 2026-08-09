@@ -34,8 +34,7 @@ automated_fixes="$(gh api -H "X-GitHub-Api-Version: ${api_version}" "${repositor
 assert_json "${automated_fixes}" '.enabled == true and .paused == false' "Dependabot automated security fixes must be enabled and active"
 
 codeql="$(gh api -H "X-GitHub-Api-Version: ${api_version}" "${repository_api}/code-scanning/default-setup")"
-assert_json "${codeql}" '.state == "configured" and .query_suite == "extended" and .threat_model == "remote"' "CodeQL extended default setup must be configured for the remote threat model"
-assert_json "${codeql}" '([.languages[]] | sort) == (["actions", "go", "javascript-typescript", "python"] | sort)' "CodeQL must analyze Actions, Go, JavaScript/TypeScript, and Python"
+assert_json "${codeql}" '.state == "not-configured"' "CodeQL default setup must remain disabled"
 
 master_protection="$(gh api -H "X-GitHub-Api-Version: ${api_version}" "${repository_api}/branches/master/protection")"
 assert_json "${master_protection}" '.required_status_checks.strict == true and .required_status_checks.contexts == ["test"] and .required_pull_request_reviews.required_approving_review_count == 1 and .required_pull_request_reviews.dismiss_stale_reviews == true and .required_pull_request_reviews.require_last_push_approval == true and .required_linear_history.enabled == true and .required_conversation_resolution.enabled == true and .allow_force_pushes.enabled == false and .allow_deletions.enabled == false' "master protection must require current CI, review, linear history, resolved conversations, and safe updates"
