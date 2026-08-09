@@ -707,7 +707,7 @@ test('dashboard ignores a poisoned landing path from mutable DOM configuration',
     waitForHeaderAuth: false,
     waitUntil: 'commit'
   });
-  await page.waitForURL(/\/login\/?$/);
+  await expect(page).toHaveURL(/\/login\/?$/);
 
   expect(dashboardAPIMeRequests).toBeGreaterThanOrEqual(1);
   expect(await page.evaluate(() => window['__loopawarePoisonedLandingExecuted'])).toBe(false);

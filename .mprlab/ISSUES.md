@@ -1569,7 +1569,176 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `mobile/scripts/audit-image-size-security.mjs`, and
   `mobile/vendor/image-size/**`.
 
+- [x] [B083] (P0) Restore sealed React Native package installation.
+  Goal:
+  Make the release assembler install the intentionally peer-free React Native
+  client lockfile without resolving consumer-owned React Native and Metro
+  packages.
+
+  Requirements:
+  - Commit the npm peer-dependency policy used to generate the lockfile beside
+    the React Native package manifest.
+  - Make the local client install consume that source-owned policy instead of
+    supplying a separate Makefile flag.
+  - Preserve the generic gateway lifecycle, the peer dependency declarations,
+    and the zero-vulnerability release input.
+
+  Deliverables:
+  - One package-local npm policy and a local install command aligned with the
+    sealed release boundary.
+
+  Validation:
+  - Run the exact sealed npm install command, the React Native package check,
+    both affected npm audits, and final `make ci`.
+
+  Resolution (2026-08-09):
+  Added the React Native package's canonical `legacy-peer-deps=true` npm policy
+  beside its manifest and removed the duplicate Makefile flag. Local CI and
+  the sealed release snapshot now consume the same package-owned policy while
+  the generic gateway continues to omit consumer-owned peer packages.
+
+  Validation Results:
+  The exact release install command, React Native typecheck, build, packed
+  consumer verification, and both affected npm audits passed with zero
+  vulnerabilities. Final `make ci` passed all build, security, lint, Go test,
+  race, and release contract gates plus all 456 Docker-backed browser and API
+  integration scenarios.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, and
+  `clients/react-native/.npmrc`.
+
+- [x] [B084] (P0) Ship the vendored image-size runtime.
+  Goal:
+  Make clean checkouts install a complete repository-owned image-size package
+  for Metro and the executable security audit.
+
+  Requirements:
+  - Track the vendored package's declared `dist/index.js` entry point and its
+    complete runtime module graph.
+  - Keep unrelated mobile build output ignored.
+  - Preserve the patched ICNS and ISO base media rejection behavior.
+
+  Deliverables:
+  - A narrowly scoped ignore exception for the vendored runtime distribution.
+
+  Validation:
+  - Install mobile dependencies from Git-tracked inputs, run the image-size
+    security audit and mobile check, and run final `make ci`.
+
+  Resolution (2026-08-09):
+  Narrowed the mobile ignore contract so the repository-owned image-size
+  package includes its declared distribution and complete runtime module graph
+  while all other mobile `dist` output remains ignored. A fresh installation
+  from the staged Git index now loads the patched package without relying on
+  stale local dependencies.
+
+  Validation Results:
+  A clean staged-index checkout installed all 482 mobile dependencies, ran the
+  malformed ICNS and JPEG XL security probes, and passed mobile configuration,
+  API-boundary, and TypeScript checks with zero npm vulnerabilities. Final
+  `make ci` passed every build, audit, lint, Go test, race, and release contract
+  gate plus all 456 Docker-backed browser and API integration scenarios.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `mobile/.gitignore`, and
+  `mobile/vendor/image-size/dist/**`.
+
+- [x] [B085] (P0) Close the vendored TIFF descriptor race.
+  Goal:
+  Read TIFF metadata from one opened file identity so an attacker cannot swap
+  the path between size inspection and byte access.
+
+  Requirements:
+  - Open the TIFF once and derive both size and bytes from that descriptor.
+  - Close the descriptor after successful reads and every read failure.
+  - Preserve the current TIFF parsing API and the existing ICNS and ISO base
+    media security corrections.
+
+  Deliverables:
+  - A descriptor-owned TIFF read transaction and executable descriptor-lifetime
+    regression coverage.
+
+  Validation:
+  - Run the image-size security audit, mobile check, and final `make ci`.
+
+  Resolution (2026-08-09):
+  Replaced the TIFF path-stat/open sequence with one descriptor-owned
+  open, fstat, read, and finally-close transaction. Extended the executable
+  image-size security audit to reject path inspection after open and to prove
+  every descriptor closes after both a successful TIFF parse and an injected
+  TIFF read failure.
+
+  Validation Results:
+  A fresh mobile dependency install passed with zero npm vulnerabilities. The
+  expanded image-size security audit, mobile configuration, API-boundary, and
+  TypeScript checks passed. Final `make ci` passed every build, audit, lint, Go
+  test, race, and release contract gate plus all 456 Docker-backed browser and
+  API integration scenarios.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`,
+  `mobile/scripts/audit-image-size-security.mjs`, and
+  `mobile/vendor/image-size/dist/types/tiff.js`.
+
+- [x] [B086] (P1) Make the unauthenticated dashboard redirect assertion deterministic.
+  Goal:
+  Keep the poisoned landing-path browser scenario synchronized with the
+  observable login destination across chained browser navigations.
+
+  Requirements:
+  - Assert the final login URL through the established retrying browser
+    assertion instead of subscribing after the initial dashboard commit.
+  - Preserve the poisoned DOM configuration and unauthorized API probes.
+  - Preserve the assertion that the executable landing payload never runs.
+
+  Deliverables:
+  - A deterministic public-browser assertion for the dashboard-to-login
+    redirect.
+
+  Validation:
+  - Run the focused browser-security integration target and final `make ci`.
+
+  Resolution (2026-08-09):
+  Replaced the post-commit navigation subscription with the suite's retrying
+  URL assertion so the scenario observes the final login destination across
+  the dashboard redirect without racing the intermediate browser commit.
+
+  Validation Results:
+  The focused browser-security target passed all 100 scenarios. Final
+  `make ci` passed every build, audit, lint, Go test, race, and release contract
+  gate plus all 456 Docker-backed browser and API integration scenarios.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, and
+  `tests/specs/header-auth-state.spec.js`.
+
 ## Improvements
+
+- [x] [I036] (P1) Remove CodeQL from repository validation.
+  Goal:
+  Stop hosted CodeQL analysis so repository work is governed by the tracked
+  issue queue and the canonical `test` check.
+
+  Requirements:
+  - Disable GitHub code-scanning default setup for this repository.
+  - Keep `test` as the only required `master` status check.
+  - Make the authenticated repository audit reject re-enabled CodeQL setup.
+  - Preserve Dependabot, secret scanning, push protection, and the existing
+    branch-protection contract.
+
+  Deliverables:
+  - Disabled hosted CodeQL and an aligned repository-owned audit and README.
+
+  Validation:
+  - Verify the live default-setup state, run `make github-security-audit`, and
+    run document and shell checks.
+
+  Resolution:
+  - Disabled GitHub CodeQL default setup, made the authenticated repository
+    audit reject re-enabled setup, and removed current CodeQL documentation and
+    analyzer directives. Verified the live repository contract with
+    `make github-security-audit`, shell syntax validation, and diff checks.
 
 - [!] [I035] (P1) Adopt the schema-v3 sibling-gateway lifecycle.
   Goal:

@@ -527,7 +527,7 @@ to the Go vulnerability database and npm advisory service. To validate the compl
 dependency update, build it with `docker build --pull -t loopaware:security-audit .` and inspect it with
 `docker scout cves --only-severity critical,high --exit-code local://loopaware:security-audit`.
 Repository administrators can run the read-only `make github-security-audit` gate to verify the live Actions, branch
-protection, Dependabot, secret-scanning, CodeQL, and gateway-owned Pages controls against the tracked security contract.
+protection, Dependabot, secret-scanning, and gateway-owned Pages controls against the tracked security contract.
 
 ## Release, Publish, Deploy
 

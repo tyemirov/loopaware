@@ -97,7 +97,7 @@ lint-js: client-react-native-check mobile-check
 
 client-react-native-install:
 	@if [ ! -d "$(CURDIR)/$(CLIENT_REACT_NATIVE_DIR)/node_modules" ]; then \
-		$(CLIENT_REACT_NATIVE_NPM_COMMAND) --prefix $(CLIENT_REACT_NATIVE_DIR) ci --legacy-peer-deps; \
+		$(CLIENT_REACT_NATIVE_NPM_COMMAND) --prefix $(CLIENT_REACT_NATIVE_DIR) ci; \
 	fi
 
 client-react-native-check: client-react-native-install
