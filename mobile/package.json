@@ -12,6 +12,7 @@
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.2",
     "expo-web-browser": "~57.0.2",
+    "image-size": "file:vendor/image-size",
     "react": "19.2.8",
     "react-native": "0.86.2",
     "react-native-safe-area-context": "~5.8.0"
@@ -24,6 +25,7 @@
     "typescript": "~7.0.2"
   },
   "scripts": {
+    "audit:image-size": "node scripts/audit-image-size-security.mjs",
     "start": "expo start --dev-client",
     "android": "expo start --android --dev-client --localhost --port ${LOOPAWARE_MOBILE_METRO_PORT:-8081}",
     "android:prepare-native": "node scripts/prepare-android-project.mjs",
@@ -41,6 +43,7 @@
     "ajv@8.11.0": "8.20.0",
     "brace-expansion": "5.0.9",
     "diff@7.0.0": "8.0.4",
+    "image-size": "$image-size",
     "js-yaml": "4.3.1",
     "joi@17.11.0": "17.13.4",
     "minimatch@5.1.2": "5.1.9",
