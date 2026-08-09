@@ -1569,6 +1569,45 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `mobile/scripts/audit-image-size-security.mjs`, and
   `mobile/vendor/image-size/**`.
 
+- [x] [B083] (P0) Restore sealed React Native package installation.
+  Goal:
+  Make the release assembler install the intentionally peer-free React Native
+  client lockfile without resolving consumer-owned React Native and Metro
+  packages.
+
+  Requirements:
+  - Commit the npm peer-dependency policy used to generate the lockfile beside
+    the React Native package manifest.
+  - Make the local client install consume that source-owned policy instead of
+    supplying a separate Makefile flag.
+  - Preserve the generic gateway lifecycle, the peer dependency declarations,
+    and the zero-vulnerability release input.
+
+  Deliverables:
+  - One package-local npm policy and a local install command aligned with the
+    sealed release boundary.
+
+  Validation:
+  - Run the exact sealed npm install command, the React Native package check,
+    both affected npm audits, and final `make ci`.
+
+  Resolution (2026-08-09):
+  Added the React Native package's canonical `legacy-peer-deps=true` npm policy
+  beside its manifest and removed the duplicate Makefile flag. Local CI and
+  the sealed release snapshot now consume the same package-owned policy while
+  the generic gateway continues to omit consumer-owned peer packages.
+
+  Validation Results:
+  The exact release install command, React Native typecheck, build, packed
+  consumer verification, and both affected npm audits passed with zero
+  vulnerabilities. Final `make ci` passed all build, security, lint, Go test,
+  race, and release contract gates plus all 456 Docker-backed browser and API
+  integration scenarios.
+
+  Changed Files:
+  `PLAN.md`, `.mprlab/ISSUES.md`, `Makefile`, and
+  `clients/react-native/.npmrc`.
+
 ## Improvements
 
 - [!] [I035] (P1) Adopt the schema-v3 sibling-gateway lifecycle.
