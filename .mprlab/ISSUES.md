@@ -1518,6 +1518,57 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `mobile/scripts/publish-android-play.mjs`, and
   `mobile/scripts/validate-mobile-config.mjs`.
 
+- [x] [B082] (P0) Restore release CI after the image-size advisories.
+  Goal:
+  Remove the vulnerable `image-size` parser from every LoopAware-owned release
+  input so the canonical security gate can pass without an advisory exemption.
+
+  Requirements:
+  - Keep React and React Native as consumer-owned peer dependencies.
+  - Align the committed lockfile with the existing `--legacy-peer-deps`
+    installation and package-verification contract.
+  - Remove the uninstalled Metro peer tree that carries the vulnerable
+    `image-size` dependency from the React Native client release input.
+  - Replace the mobile application's installed vulnerable package with a
+    repository-owned patched fork until an upstream patched release exists.
+  - Reject malformed ICNS and ISO base media boxes instead of allowing parser
+    offsets to remain unchanged.
+  - Preserve the security audit threshold and deployment lifecycle unchanged.
+
+  Deliverables:
+  - A canonical React Native client lockfile, patched mobile dependency, and
+    executable regression audit for the published denial-of-service inputs.
+
+  Validation:
+  - Run both affected npm audits, the React Native client package check, the
+    mobile check, and final `make ci`.
+
+  Resolution (2026-08-08):
+  Regenerated the React Native library lockfile with its existing
+  `--legacy-peer-deps` install contract so consumer-owned React Native and Metro
+  packages are no longer captured as release inputs. Replaced the mobile
+  application's vulnerable `image-size` 1.2.1 package with the repository-owned
+  `@loopaware/image-size` 1.2.2 fork, preserving Metro's callable CommonJS API
+  while rejecting ICNS entries and ISO base media boxes whose lengths cannot
+  advance the parser. Added a clean local-package installation contract and an
+  executable audit that proves malformed ICNS and JPEG XL inputs terminate and
+  are rejected.
+
+  Validation Results:
+  Both affected npm audits reported zero vulnerabilities. The React Native
+  client typecheck, build, and packed-consumer verification passed. A clean
+  mobile `npm ci`, the malformed-input security audit, mobile config and API
+  boundary checks, and mobile TypeScript check passed. Final `make ci` passed,
+  including Go build, vet, tests, race tests, and all 456 Docker-backed browser
+  and API integration scenarios.
+
+  Changed Files:
+  `PLAN.md`, `.gitignore`, `.mprlab/ISSUES.md`, `Makefile`,
+  `clients/react-native/package-lock.json`, `mobile/.npmrc`,
+  `mobile/package.json`, `mobile/package-lock.json`,
+  `mobile/scripts/audit-image-size-security.mjs`, and
+  `mobile/vendor/image-size/**`.
+
 ## Improvements
 
 - [!] [I035] (P1) Adopt the schema-v3 sibling-gateway lifecycle.
