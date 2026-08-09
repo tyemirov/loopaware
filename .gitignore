@@ -5,6 +5,8 @@ tools/
 .idea/
 .vscode/
 vendor/
+!mobile/vendor/
+!mobile/vendor/**
 bin/
 *.iml
 .env
