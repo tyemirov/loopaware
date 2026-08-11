@@ -11,6 +11,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B087] (P0) Keep the deployment manifest on the canonical schema-v4 contract.
+  ### Summary
+  The application still declared schema v3, kept release policy in `.mprlab/release.yml`, and declared image visibility after the gateway moved those concerns into one schema-v4 `resources.yml` contract.
+  ### Deliverables
+  - Embed the SemVer release scheme in `.mprlab/deploy/resources.yml`.
+  - Remove image visibility and the obsolete standalone release manifest.
+  - Pass the complete canonical CI boundary.
+  ### Resolution
+  Migrated the manifest to schema v4, embedded `release.scheme: semver`, removed image visibility, and deleted `.mprlab/release.yml`. The complete `make ci` gate passed, including dependency security, Go race coverage, mobile checks, and 456 Playwright/API integration scenarios.
+  ### Changed Files
+  `.mprlab/deploy/resources.yml`, `.mprlab/release.yml`, `.mprlab/ISSUES.md`.
+
 - [x] [B001] (P1) Stabilize seeded dashboard auth after login redirects.
   ### Summary
   A release run timed out in `dashboard-allowed-origins.spec.js` because `openDashboard()` reached `/login` while waiting for the MPR UI testing auth helper, then waited for dashboard account fields that cannot exist on the landing page.
