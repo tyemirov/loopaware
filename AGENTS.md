@@ -17,7 +17,7 @@ role-aware dashboard for managing sites and messages. See README.md for details
 
 - AGENTS.md: Read-only workflow + behavior playbook maintained by leads. Agents never edit it during implementation cycles.
 - ISSUES.md: Log of newly discovered requests and changes. Each entry records what changed or what was discovered. Located at `.mprlab/ISSUES.md`.
-- PLAN.md: Working plan for one concrete change/issue; ephemeral and replaced per change.
+- `.mprlab/<PLAN-ID>-PLAN.md`: Temporary execution plan. Use `.mprlab/PLANNING.md` for the plan ID.
 
 ### Document Precedence
 
@@ -59,7 +59,7 @@ Operational playbook for working in this repository. Use it to coordinate planni
 
 1. Read `AGENTS.md` and the relevant stack guides in `.mprlab/`.
 2. Review the backlog in `.mprlab/ISSUES.md`. Work through BugFixes, Improvements, Maintenance, and Features in this order. Planning contains future work. Do not implement Planning items.
-3. For the active issue, create `PLAN.md` (ignored by Git) with bullet steps. Keep it updated and replace it for the next issue.
+3. For the active issue, read `.mprlab/PLANNING.md`. Make the execution plan that this contract specifies.
 4. For application changes, use the initial validation result from `.mprlab/POLICY.md`.
 5. Implement the requested change. Limit edits to necessary files plus required issue-document updates. Use the smallest applicable target during the change.
 6. Complete the applicable validation after the last change.
@@ -85,15 +85,15 @@ Operational playbook for working in this repository. Use it to coordinate planni
 ### Output Requirements
 
 - Always follow AGENTS* rules; do not restate them in PRs.
-- Begin every implementation with an up-to-date `PLAN.md`.
+- Begin every implementation with the execution plan that `.mprlab/PLANNING.md` specifies.
 - Do not touch `AGENTS.md` during normal work; treat it as read-only guidance.
 - `.mprlab/ISSUES.md` tracks issue status; mark items `[x]` with a concise resolution note once tests pass.
-- `PLAN.md` must remain untracked. If it enters git history, remove it via `git filter-repo --path PLAN.md --invert-paths` before continuing.
+- Keep each execution plan untracked. If Git tracks a plan, remove it with `git filter-repo --path-glob '.mprlab/*-PLAN.md' --invert-paths`.
 - Summaries at the end of each issue should list changed files.
 
 ### Pre-Finish Checklist
 
-1. `PLAN.md` reflects the final state for the active issue.
+1. The execution plan for the active issue shows the final execution state.
 2. `.mprlab/ISSUES.md` entry is marked `[x]` with the resolution note.
 3. Requested implementation and documentation updates are complete.
 4. Any blockers are documented with concrete failure context.
@@ -134,3 +134,29 @@ ISSUES.md manages this repository through the current application contract.
 - Use `.mprlab/runtime.yml` as the repository execution contract.
 - Keep these required documents current through the ISSUES.md onboarding pull request.
 <!-- END ISSUES.MD MANAGED ONBOARDING -->
+
+<!-- BEGIN MPRLAB-GOVERNANCE -->
+## MPR Lab Governance
+
+Most workflow context files live under `.mprlab/`. The root `AGENTS.md` remains the repository entrypoint for agents.
+
+Read these files before editing:
+
+- `.mprlab/POLICY.md`: binding validation and confident-programming rules.
+- `.mprlab/PLANNING.md`: durable planning contract.
+- `.mprlab/AGENTS.DOCS.md`: ASD-STE100 documentation rules.
+- `.mprlab/TERMINOLOGY.md`: approved repository technical terms.
+- `.mprlab/issues-md-format.md`: issue tracker format and recurring identifier rules.
+- `.mprlab/ISSUES.md`: active issue tracker.
+- `.mprlab/AGENTS.GIT.md`: Git and pull request workflow.
+- `.mprlab/AGENTS.API.md`: RESTful HTTP and gRPC API guidance.
+- `.mprlab/AGENTS.GO.md`: Go guidance.
+- `.mprlab/AGENTS.PY.md`: Python guidance.
+- `.mprlab/AGENTS.MOBILE.md`: mobile client guidance.
+- `.mprlab/AGENTS.MOBILE.EXPO.md`: Expo and React Native guidance.
+- `.mprlab/AGENTS.FRONTEND.md`: browser frontend guidance.
+- `.mprlab/AGENTS.DOCKER.md`: Docker and container guidance.
+
+Do not create `.mprlab/AGENTS.md`. Scoped guidance belongs in `.mprlab/AGENTS.*.md` files.
+If guidance conflicts, follow `.mprlab/POLICY.md` first, then root `AGENTS.md`, then the relevant scoped guide.
+<!-- END MPRLAB-GOVERNANCE -->
