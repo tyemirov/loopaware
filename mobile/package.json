@@ -3,8 +3,8 @@
   "version": "2026.6.19",
   "main": "index.ts",
   "dependencies": {
-    "expo": "~57.0.9",
-    "expo-auth-session": "~57.0.5",
+    "expo": "~57.0.11",
+    "expo-auth-session": "~57.0.6",
     "expo-constants": "~57.0.8",
     "expo-crypto": "~57.0.1",
     "expo-dev-client": "~57.0.10",
@@ -15,10 +15,10 @@
     "image-size": "file:vendor/image-size",
     "react": "19.2.8",
     "react-native": "0.86.2",
-    "react-native-safe-area-context": "~5.8.0"
+    "react-native-safe-area-context": "~5.8.1"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "@types/react": "~19.2.18",
     "@typescript/typescript6": "6.0.2",
     "pod-install": "1.1.0",
