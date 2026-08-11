@@ -20,7 +20,6 @@ configs/AuthKey_*.p8
 __pycache__/
 *.pyc
 
-PLAN.md
 MARKETING-READINESS.md
 .mprlab/deploy/ansible/inventory/hosts.yml
 .mprlab/deploy/.env
@@ -33,3 +32,7 @@ test-results/
 tests/artifacts/
 tests/.runtime-web.*/
 .runtime-web.*/
+
+# BEGIN MPRLAB-GOVERNANCE
+/.mprlab/*-PLAN.md
+# END MPRLAB-GOVERNANCE
