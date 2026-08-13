@@ -11,7 +11,27 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
-- [!] [B088] (P0) {I035,B087} Align the React Native package version with the application release.
+- [x] [B089] (P0) Use the patched mobile Nano ID package.
+  Goal:
+  The mobile audit rejects `nanoid` version `3.3.17` under advisory
+  `GHSA-2v37-7h3g-55p8`. Expo Metro resolves this version through PostCSS.
+  The dependency graph now resolves `nanoid` version `3.3.18`.
+
+  Requirements:
+  - Resolve the mobile dependency graph to `nanoid` version `3.3.18`.
+  - Keep the current Expo and PostCSS contracts.
+  - Keep the security audit threshold unchanged.
+
+  Deliverables:
+  - Added the Nano ID override to `mobile/package.json`.
+  - Updated `mobile/package-lock.json` with the patched package.
+
+  Validation:
+  - `make security-audit` passed.
+  - `make mobile-check` passed.
+  - `make ci` passed with 456 integration scenarios.
+
+- [-] [B088] (P0) {I035,B087} Align the React Native package version with the application release.
   Goal:
   The gateway can prepare the next LoopAware release with the specified React
   Native package. LoopAware source commit
@@ -29,10 +49,6 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Complete the React Native package check successfully.
   - Complete the gateway release, publication, deployment, and exact deployment
     retry for LoopAware.
-
-  Blocked:
-  - B089 must merge into `master` before `make ci` can complete successfully on this branch.
-  - The mobile audit rejects `nanoid` version `3.3.17`.
 
 - [x] [B087] (P0) Keep the deployment manifest on the canonical schema-v4 contract.
   ### Summary
