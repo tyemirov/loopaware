@@ -11,6 +11,26 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B090] (P0) Use Go 1.26.6 for repository builds.
+  Goal:
+  GitHub Actions uses Go 1.26.5. The security audit finds five reachable
+  standard-library vulnerabilities that Go 1.26.6 corrects.
+
+  Requirements:
+  - Require Go 1.26.6 for repository builds and GitHub Actions.
+  - Pin the container build stage to the Go 1.26.6 Alpine 3.24 image.
+  - Keep the Alpine 3.24 runtime image unchanged.
+  - Keep the container base audit aligned with the approved image.
+
+  Deliverables:
+  - Updated the Go version contract and the container build image.
+  - Updated the container audit and the Docker documentation.
+
+  Validation:
+  - `make security-audit` passed with zero reachable vulnerabilities.
+  - `make config-audit` passed.
+  - `make ci` passed with 456 integration scenarios.
+
 - [x] [B089] (P0) Use the patched mobile Nano ID package.
   Goal:
   The mobile audit rejects `nanoid` version `3.3.17` under advisory
