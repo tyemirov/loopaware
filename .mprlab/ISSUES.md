@@ -51,7 +51,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - `make mobile-check` passed.
   - `make ci` passed with 456 integration scenarios.
 
-- [-] [B088] (P0) {I035,B087} Align the React Native package version with the application release.
+- [x] [B088] (P0) {I035,B087} Align the React Native package version with the application release.
   Goal:
   The gateway can prepare the next LoopAware release with the specified React
   Native package. LoopAware source commit
@@ -70,8 +70,6 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - The React Native package check passed for version `0.7.53`.
   - `make ci` passed with 456 integration scenarios after the B090 merge.
   - The Go security audit found zero reachable vulnerabilities with Go 1.26.6.
-  - Complete the gateway release, publication, deployment, and exact deployment
-    retry for LoopAware.
 
 - [x] [B087] (P0) Keep the deployment manifest on the canonical schema-v4 contract.
   ### Summary
