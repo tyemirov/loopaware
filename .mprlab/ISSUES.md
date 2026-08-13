@@ -68,7 +68,8 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
   Validation:
   - The React Native package check passed for version `0.7.53`.
-  - `make ci` passed with 456 integration scenarios after the B089 merge.
+  - `make ci` passed with 456 integration scenarios after the B090 merge.
+  - The Go security audit found zero reachable vulnerabilities with Go 1.26.6.
   - Complete the gateway release, publication, deployment, and exact deployment
     retry for LoopAware.
 
