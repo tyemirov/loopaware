@@ -568,10 +568,10 @@ $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.
 
 The compose file binds `configs/config.loopaware.yml` into the LoopAware container at `/app/configs/config.loopaware.yml`
 and loads per-service placeholder values via `env_file` from `configs/.env.*`.
-The production Dockerfile pins the multi-architecture Go 1.26.5/Alpine 3.24 build image and Alpine 3.24 runtime image by
-their manifest-list digests; update the human-readable tag and digest together when intentionally advancing either base.
-The container now runs as root so the SQLite data volume remains writable; if you need to switch back to an unprivileged
-user, update the Docker image to chown the mounted directory before starting the binary.
+The production Dockerfile pins the Go 1.26.6/Alpine 3.24 build image and Alpine 3.24 runtime image by multi-architecture manifest-list digests.
+When you advance a base, update its human-readable tag and digest together.
+The container runs as root so the SQLite data volume remains writable.
+To use an unprivileged user, configure the Docker image to change the mounted directory owner before it starts the binary.
 
 The default local stack uses `configs/.env.ghttp` for the gHTTP static proxy. Start and stop local Docker stacks only
 through the helper scripts:
