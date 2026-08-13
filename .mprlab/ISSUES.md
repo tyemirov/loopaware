@@ -11,6 +11,26 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B090] (P0) Use Go 1.26.6 for repository builds.
+  Goal:
+  GitHub Actions uses Go 1.26.5. The security audit finds five reachable
+  standard-library vulnerabilities that Go 1.26.6 corrects.
+
+  Requirements:
+  - Require Go 1.26.6 for repository builds and GitHub Actions.
+  - Pin the container build stage to the Go 1.26.6 Alpine 3.24 image.
+  - Keep the Alpine 3.24 runtime image unchanged.
+  - Keep the container base audit aligned with the approved image.
+
+  Deliverables:
+  - Updated the Go version contract and the container build image.
+  - Updated the container audit and the Docker documentation.
+
+  Validation:
+  - `make security-audit` passed with zero reachable vulnerabilities.
+  - `make config-audit` passed.
+  - `make ci` passed with 456 integration scenarios.
+
 - [x] [B089] (P0) Use the patched mobile Nano ID package.
   Goal:
   The mobile audit rejects `nanoid` version `3.3.17` under advisory
@@ -30,6 +50,28 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - `make security-audit` passed.
   - `make mobile-check` passed.
   - `make ci` passed with 456 integration scenarios.
+
+- [-] [B088] (P0) {I035,B087} Align the React Native package version with the application release.
+  Goal:
+  The gateway can prepare the next LoopAware release with the specified React
+  Native package. LoopAware source commit
+  `6b6bd2ac22b3b5a833c1da562a95ebabd0e06277` has release tag `v0.7.53`.
+  The React Native package and its lockfile used version `0.7.52`.
+  They now use version `0.7.53`.
+  For the successor release, the source package version must be the same as the
+  previous application release version. The gateway rejected the npm artifact before publication.
+
+  Requirements:
+  - Set the source package and lockfile root version to `0.7.53`.
+  - Keep gateway ownership of the staged successor package version.
+  - Keep the package files and public behavior unchanged.
+
+  Validation:
+  - The React Native package check passed for version `0.7.53`.
+  - `make ci` passed with 456 integration scenarios after the B090 merge.
+  - The Go security audit found zero reachable vulnerabilities with Go 1.26.6.
+  - Complete the gateway release, publication, deployment, and exact deployment
+    retry for LoopAware.
 
 - [x] [B087] (P0) Keep the deployment manifest on the canonical schema-v4 contract.
   ### Summary
