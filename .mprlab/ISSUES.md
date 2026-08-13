@@ -36,7 +36,8 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   The gateway can prepare the next LoopAware release with the specified React
   Native package. LoopAware source commit
   `6b6bd2ac22b3b5a833c1da562a95ebabd0e06277` has release tag `v0.7.53`.
-  The React Native package and its lockfile use version `0.7.52`.
+  The React Native package and its lockfile used version `0.7.52`.
+  They now use version `0.7.53`.
   For the successor release, the source package version must be the same as the
   previous application release version. The gateway rejected the npm artifact before publication.
 
@@ -46,7 +47,8 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Keep the package files and public behavior unchanged.
 
   Validation:
-  - Complete the React Native package check successfully.
+  - The React Native package check passed for version `0.7.53`.
+  - `make ci` passed with 456 integration scenarios after the B089 merge.
   - Complete the gateway release, publication, deployment, and exact deployment
     retry for LoopAware.
 
