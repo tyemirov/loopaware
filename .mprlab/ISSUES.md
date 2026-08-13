@@ -11,41 +11,14 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
-- [-] [B089] (P0) {B088} Remove the vulnerable mobile Nano ID package.
+- [!] [B088] (P0) {I035,B087} Align the React Native package version with the application release.
   Goal:
-  Restore the mobile dependency security gate with the current patched Nano ID
-  package.
-
-  Evidence:
-  - The hosted B088 test failed before source tests.
-  - The mobile dependency audit reports advisory
-    `GHSA-2v37-7h3g-55p8` for `nanoid` versions before `3.3.18`.
-  - Expo Metro configuration resolves `nanoid` version `3.3.17` through
-    PostCSS.
-  - The B088 source change does not change the mobile dependency graph.
-
-  Requirements:
-  - Resolve the mobile dependency graph to `nanoid` version `3.3.18`.
-  - Keep the current Expo and PostCSS contracts.
-  - Keep the security audit threshold unchanged.
-
-  Validation:
-  - Pass the mobile dependency audit.
-  - Pass the mobile check.
-  - Pass the hosted repository test.
-
-- [-] [B088] (P0) {I035,B087} Align the React Native package version with the application release.
-  Goal:
-  Let the gateway prepare the next LoopAware release with the declared React
-  Native package.
-
-  Evidence:
-  - LoopAware source commit `6b6bd2ac22b3b5a833c1da562a95ebabd0e06277`
-    has release tag `v0.7.53`.
-  - The React Native package and its lockfile declare version `0.7.52`.
-  - The gateway successor release requires the source package version to equal
-    the previous application release version.
-  - The gateway rejected the npm artifact before publication.
+  The gateway can prepare the next LoopAware release with the specified React
+  Native package. LoopAware source commit
+  `6b6bd2ac22b3b5a833c1da562a95ebabd0e06277` has release tag `v0.7.53`.
+  The React Native package and its lockfile use version `0.7.52`.
+  For the successor release, the source package version must be the same as the
+  previous application release version. The gateway rejected the npm artifact before publication.
 
   Requirements:
   - Set the source package and lockfile root version to `0.7.53`.
@@ -53,9 +26,13 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Keep the package files and public behavior unchanged.
 
   Validation:
-  - Pass the React Native package check.
+  - Complete the React Native package check successfully.
   - Complete the gateway release, publication, deployment, and exact deployment
     retry for LoopAware.
+
+  Blocked:
+  - B089 must merge into `master` before `make ci` can complete successfully on this branch.
+  - The mobile audit rejects `nanoid` version `3.3.17`.
 
 - [x] [B087] (P0) Keep the deployment manifest on the canonical schema-v4 contract.
   ### Summary
