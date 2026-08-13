@@ -11,6 +11,26 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B089] (P0) Use the patched mobile Nano ID package.
+  Goal:
+  The mobile audit rejects `nanoid` version `3.3.17` under advisory
+  `GHSA-2v37-7h3g-55p8`. Expo Metro resolves this version through PostCSS.
+  The dependency graph now resolves `nanoid` version `3.3.18`.
+
+  Requirements:
+  - Resolve the mobile dependency graph to `nanoid` version `3.3.18`.
+  - Keep the current Expo and PostCSS contracts.
+  - Keep the security audit threshold unchanged.
+
+  Deliverables:
+  - Added the Nano ID override to `mobile/package.json`.
+  - Updated `mobile/package-lock.json` with the patched package.
+
+  Validation:
+  - `make security-audit` passed.
+  - `make mobile-check` passed.
+  - `make ci` passed with 456 integration scenarios.
+
 - [x] [B087] (P0) Keep the deployment manifest on the canonical schema-v4 contract.
   ### Summary
   The application still declared schema v3, kept release policy in `.mprlab/release.yml`, and declared image visibility after the gateway moved those concerns into one schema-v4 `resources.yml` contract.
