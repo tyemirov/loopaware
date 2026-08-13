@@ -11,6 +11,29 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [-] [B089] (P0) {B088} Remove the vulnerable mobile Nano ID package.
+  Goal:
+  Restore the mobile dependency security gate with the current patched Nano ID
+  package.
+
+  Evidence:
+  - The hosted B088 test failed before source tests.
+  - The mobile dependency audit reports advisory
+    `GHSA-2v37-7h3g-55p8` for `nanoid` versions before `3.3.18`.
+  - Expo Metro configuration resolves `nanoid` version `3.3.17` through
+    PostCSS.
+  - The B088 source change does not change the mobile dependency graph.
+
+  Requirements:
+  - Resolve the mobile dependency graph to `nanoid` version `3.3.18`.
+  - Keep the current Expo and PostCSS contracts.
+  - Keep the security audit threshold unchanged.
+
+  Validation:
+  - Pass the mobile dependency audit.
+  - Pass the mobile check.
+  - Pass the hosted repository test.
+
 - [-] [B088] (P0) {I035,B087} Align the React Native package version with the application release.
   Goal:
   Let the gateway prepare the next LoopAware release with the declared React
