@@ -51,6 +51,26 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - `make mobile-check` passed.
   - `make ci` passed with 456 integration scenarios.
 
+- [x] [B088] (P0) {I035,B087} Align the React Native package version with the application release.
+  Goal:
+  The gateway can prepare the next LoopAware release with the specified React
+  Native package. LoopAware source commit
+  `6b6bd2ac22b3b5a833c1da562a95ebabd0e06277` has release tag `v0.7.53`.
+  The React Native package and its lockfile used version `0.7.52`.
+  They now use version `0.7.53`.
+  For the successor release, the source package version must be the same as the
+  previous application release version. The gateway rejected the npm artifact before publication.
+
+  Requirements:
+  - Set the source package and lockfile root version to `0.7.53`.
+  - Keep gateway ownership of the staged successor package version.
+  - Keep the package files and public behavior unchanged.
+
+  Validation:
+  - The React Native package check passed for version `0.7.53`.
+  - `make ci` passed with 456 integration scenarios after the B090 merge.
+  - The Go security audit found zero reachable vulnerabilities with Go 1.26.6.
+
 - [x] [B087] (P0) Keep the deployment manifest on the canonical schema-v4 contract.
   ### Summary
   The application still declared schema v3, kept release policy in `.mprlab/release.yml`, and declared image visibility after the gateway moved those concerns into one schema-v4 `resources.yml` contract.
