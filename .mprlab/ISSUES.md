@@ -11,6 +11,29 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [-] [B088] (P0) {I035,B087} Align the React Native package version with the application release.
+  Goal:
+  Let the gateway prepare the next LoopAware release with the declared React
+  Native package.
+
+  Evidence:
+  - LoopAware source commit `6b6bd2ac22b3b5a833c1da562a95ebabd0e06277`
+    has release tag `v0.7.53`.
+  - The React Native package and its lockfile declare version `0.7.52`.
+  - The gateway successor release requires the source package version to equal
+    the previous application release version.
+  - The gateway rejected the npm artifact before publication.
+
+  Requirements:
+  - Set the source package and lockfile root version to `0.7.53`.
+  - Keep gateway ownership of the staged successor package version.
+  - Keep the package files and public behavior unchanged.
+
+  Validation:
+  - Pass the React Native package check.
+  - Complete the gateway release, publication, deployment, and exact deployment
+    retry for LoopAware.
+
 - [x] [B087] (P0) Keep the deployment manifest on the canonical schema-v4 contract.
   ### Summary
   The application still declared schema v3, kept release policy in `.mprlab/release.yml`, and declared image visibility after the gateway moved those concerns into one schema-v4 `resources.yml` contract.
