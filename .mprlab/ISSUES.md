@@ -2459,6 +2459,26 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Features
 
+- [x] [F015] (P1) Publish the LoopAware refund policy.
+  Goal:
+  LoopAware offers an unconditional full refund for each LoopAware charge when
+  the customer requests the refund within 14 calendar days.
+
+  Requirements:
+  - Apply the policy to sales-assisted purchases, initial payments, and renewals.
+  - Define eligibility by a LoopAware charge and not by the checkout channel.
+  - Do not require a reason for the refund request.
+  - Link the pricing refund answer to the Terms of Service.
+
+  Deliverables:
+  - Updated `web/terms/index.html` and `web/pricing/index.html`.
+  - Added browser coverage for the public refund terms.
+
+  Validation:
+  - `make test-integration` passed with 457 integration scenarios.
+  - `make test-integration-browser-security` passed with 100 browser-security scenarios.
+  - `make ci` passed with 457 integration scenarios.
+
 - [x] [F001] (P0) Add a developer LA Sentry client type and protected monitoring surface.
   ### Summary
   Extend LoopAware with a Sentry-inspired developer monitoring surface owned by LoopAware. Treat `LA Sentry` as a first-class client type for developers, distinct from the existing feedback widget, subscribe form, and traffic pixel clients. This is not a generic public event endpoint and should not add Sentry as a commercial dependency.
