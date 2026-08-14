@@ -11,6 +11,29 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B092] (P0) {B088} Set the React Native package version to `0.8.0`.
+  Goal:
+  The gateway rejects the LoopAware release because the React Native package
+  declares version `0.7.53`. The release artifact version is `0.8.0`.
+
+  Requirements:
+  - Set the package and lockfile root version to `0.8.0`.
+  - Keep the package content and public behavior unchanged.
+  - Pass the React Native package check and repository CI gate.
+
+  Deliverables:
+  - Set the package and lockfile root version to `0.8.0`.
+  - Kept the package content and public behavior unchanged.
+
+  Validation:
+  - `make client-react-native-check` passed.
+  - `make ci` passed with 457 integration scenarios.
+
+  Changed Files:
+  - `.mprlab/ISSUES.md`
+  - `clients/react-native/package.json`
+  - `clients/react-native/package-lock.json`
+
 - [x] [B091] (P1) Align the mobile dependency validator with the package contract.
   Goal:
   The mobile dependency update changes the supported package versions. The
