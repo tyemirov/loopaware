@@ -1787,6 +1787,29 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [x] [I037] (P1) Define the issue tracker scope.
+  Goal:
+  `AGENTS.md` and `.mprlab/POLICY.md` define `.mprlab/ISSUES.md` as the tracker
+  for repository changes.
+
+  Requirements:
+  - Define the tracker scope in `AGENTS.md` and `.mprlab/POLICY.md`.
+  - Close issues after requested repository changes are completed and
+    applicable validation passes.
+  - Keep release, publication, deployment, and production availability outside
+    issue completion conditions.
+  - File a dependent issue when an operation finds necessary repository work.
+  - Keep `.mprlab/issues-md-format.md` limited to format rules.
+
+  Deliverables:
+  - Updated the agent guide and policy for issue completion.
+
+  Validation:
+  - The scoped STE checks found no errors in the changed prose.
+  - `git diff --check` passed.
+  - The Governor check identified the explicit repository policy difference
+    from its generic policy template.
+
 - [x] [I036] (P1) Remove CodeQL from repository validation.
   Goal:
   Stop hosted CodeQL analysis so repository work is governed by the tracked

@@ -16,7 +16,7 @@ role-aware dashboard for managing sites and messages. See README.md for details
 ## Document Roles
 
 - AGENTS.md: Read-only workflow + behavior playbook maintained by leads. Agents never edit it during implementation cycles.
-- ISSUES.md: Log of newly discovered requests and changes. Each entry records what changed or what was discovered. Located at `.mprlab/ISSUES.md`.
+- ISSUES.md: Tracker for repository changes. Each entry records requested or completed repository work. Located at `.mprlab/ISSUES.md`.
 - `.mprlab/<PLAN-ID>-PLAN.md`: Temporary execution plan. Use `.mprlab/PLANNING.md` for the plan ID.
 
 ### Document Precedence
@@ -30,6 +30,13 @@ role-aware dashboard for managing sites and messages. See README.md for details
 - Resolved: Completed and verified; no further action (`[x]`).
 - Unresolved: Needs decision and/or implementation (`[ ]`).
 - Blocked: Requires an external dependency or policy decision (`[!]`); must include a `Blocked:` explanation in the issue body.
+
+### Issue Tracker Scope
+
+- `.mprlab/ISSUES.md` tracks changes to source code, tests, config, and technical documentation.
+- Close an issue after its requested repository changes are completed and applicable validation passes.
+- Do not use release, publication, deployment, or production availability as issue completion conditions.
+- If one of these operations finds a necessary repository change, file a dependent issue.
 
 ### Validation & Confidence Policy
 
