@@ -211,6 +211,20 @@ test('pricing page exposes pricing metadata and faq schema', async ({ request })
   expect(html).not.toContain('<a slot="nav-right"');
   expect(html).toContain('"name": "Pro"');
   expect(html).toContain('"price": "39"');
+  expect(html).toContain('unconditional full refund within 14 calendar days');
+  expect(html).toContain('href="/terms/#refund-policy"');
+});
+
+test('terms page publishes the unconditional 14-day refund policy', async ({ request }) => {
+  const response = await request.get('/terms');
+  expect(response.status()).toBe(200);
+
+  const html = await response.text();
+  expect(html).toContain('id="refund-policy"');
+  expect(html).toContain('Each charge from LoopAware');
+  expect(html).toContain('unconditional full refund');
+  expect(html).toContain('within 14 calendar days of the charge');
+  expect(html).toContain('You do not need to provide a reason.');
 });
 
 test('robots and sitemap publish the public crawl surface', async ({ request }) => {

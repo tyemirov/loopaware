@@ -11,6 +11,28 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B091] (P1) Align the mobile dependency validator with the package contract.
+  Goal:
+  The mobile dependency update changes the supported package versions. The
+  mobile config validator rejects these current versions.
+
+  Requirements:
+  - Require the current Expo package versions in the mobile config validator.
+  - Keep the package metadata and lockfile values aligned.
+  - Pass the mobile validation and repository CI gate.
+
+  Deliverables:
+  - Updated three exact Expo package checks in the mobile config validator.
+  - Kept the package metadata and lockfile values aligned.
+
+  Validation:
+  - `make mobile-check` passed.
+  - `make ci` passed with 457 integration scenarios.
+
+  Changed Files:
+  - `.mprlab/ISSUES.md`
+  - `mobile/scripts/validate-mobile-config.mjs`
+
 - [x] [B090] (P0) Use Go 1.26.6 for repository builds.
   Goal:
   GitHub Actions uses Go 1.26.5. The security audit finds five reachable
@@ -1787,6 +1809,29 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [x] [I037] (P1) Define the issue tracker scope.
+  Goal:
+  `AGENTS.md` and `.mprlab/POLICY.md` define `.mprlab/ISSUES.md` as the tracker
+  for repository changes.
+
+  Requirements:
+  - Define the tracker scope in `AGENTS.md` and `.mprlab/POLICY.md`.
+  - Close issues after requested repository changes are completed and
+    applicable validation passes.
+  - Keep release, publication, deployment, and production availability outside
+    issue completion conditions.
+  - File a dependent issue when an operation finds necessary repository work.
+  - Keep `.mprlab/issues-md-format.md` limited to format rules.
+
+  Deliverables:
+  - Updated the agent guide and policy for issue completion.
+
+  Validation:
+  - The scoped STE checks found no errors in the changed prose.
+  - `git diff --check` passed.
+  - The Governor check identified the explicit repository policy difference
+    from its generic policy template.
+
 - [x] [I036] (P1) Remove CodeQL from repository validation.
   Goal:
   Stop hosted CodeQL analysis so repository work is governed by the tracked
@@ -2435,6 +2480,26 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Remaining before closing M001: decide pagination or rollup strategy for unbounded message/subscriber/Sentry issue lists and all-row attribution/device scans, then capture before/after `EXPLAIN` evidence for each additional query rewrite.
 
 ## Features
+
+- [x] [F015] (P1) Publish the LoopAware refund policy.
+  Goal:
+  LoopAware offers an unconditional full refund for each LoopAware charge when
+  the customer requests the refund within 14 calendar days.
+
+  Requirements:
+  - Apply the policy to sales-assisted purchases, initial payments, and renewals.
+  - Define eligibility by a LoopAware charge and not by the checkout channel.
+  - Do not require a reason for the refund request.
+  - Link the pricing refund answer to the Terms of Service.
+
+  Deliverables:
+  - Updated `web/terms/index.html` and `web/pricing/index.html`.
+  - Added browser coverage for the public refund terms.
+
+  Validation:
+  - `make test-integration` passed with 457 integration scenarios.
+  - `make test-integration-browser-security` passed with 100 browser-security scenarios.
+  - `make ci` passed with 457 integration scenarios.
 
 - [x] [F001] (P0) Add a developer LA Sentry client type and protected monitoring surface.
   ### Summary

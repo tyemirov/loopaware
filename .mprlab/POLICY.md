@@ -30,6 +30,9 @@ This policy controls all agent work in this repository.
 ## Validation
 
 - Use repository-native `make` targets when available.
+- Mark an issue as closed after its requested repository changes are completed and applicable validation passes.
+- Do not use release, publication, deployment, or production availability as issue completion conditions.
+- If one of these operations finds a necessary repository change, file a dependent issue.
 - Use a satisfactory CI result only when the source code, tests, config, dependencies, and build files stay the same.
 - If there is no applicable satisfactory result, run `make ci` once before you change files.
 - During the change, run the smallest repository target that validates the changed contract.
