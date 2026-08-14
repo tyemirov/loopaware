@@ -11,6 +11,28 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B091] (P1) Align the mobile dependency validator with the package contract.
+  Goal:
+  The mobile dependency update changes the supported package versions. The
+  mobile config validator rejects these current versions.
+
+  Requirements:
+  - Require the current Expo package versions in the mobile config validator.
+  - Keep the package metadata and lockfile values aligned.
+  - Pass the mobile validation and repository CI gate.
+
+  Deliverables:
+  - Updated three exact Expo package checks in the mobile config validator.
+  - Kept the package metadata and lockfile values aligned.
+
+  Validation:
+  - `make mobile-check` passed.
+  - `make ci` passed with 457 integration scenarios.
+
+  Changed Files:
+  - `.mprlab/ISSUES.md`
+  - `mobile/scripts/validate-mobile-config.mjs`
+
 - [x] [B090] (P0) Use Go 1.26.6 for repository builds.
   Goal:
   GitHub Actions uses Go 1.26.5. The security audit finds five reachable
