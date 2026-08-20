@@ -1849,6 +1849,11 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - The compiled config-audit test rejects a `schema_version` field.
   - Gateway-owned store publication consumes sealed native artifacts without
     app-owned publication handlers in the selected manifest.
+  - Final `make ci` passed all security, Go, mobile, client, race, and 457
+    browser and API integration scenarios.
+  - Gateway commit `753c72737cf44bdd526afca71570fc900d7e4ba9`
+    planned app commit `1276dd63082b806627df4c637ef7ac54ed27f657` from
+    disposable normal clones with 255 ok, 4 changed, and 0 failed tasks.
 
 - [x] [I037] (P1) Define the issue tracker scope.
   Goal:
