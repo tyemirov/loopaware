@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 - Remove schema versioning from the selected application manifest while preserving the explicit SemVer release policy.
+- Remove the obsolete mobile publication handler mapping from the selected manifest so the gateway owns store-provider publication.
 
 ### Improvements ⚙️
 - Declare LoopAware's complete production shape through the current resource manifest and sibling-gateway lifecycle.

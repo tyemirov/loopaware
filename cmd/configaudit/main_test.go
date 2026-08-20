@@ -28,6 +28,19 @@ func TestSelectedApplicationManifestUsesVersionlessContract(testingT *testing.T)
 	slices.Sort(manifestKeys)
 	require.Equal(testingT, []string{"owner", "release", "resources"}, manifestKeys)
 	require.NotContains(testingT, string(manifestDocument), "schema_version:")
+
+	resources, resourcesAvailable := manifest["resources"].([]any)
+	require.True(testingT, resourcesAvailable)
+	var mobileResource map[string]any
+	for _, resourceValue := range resources {
+		resource, resourceAvailable := resourceValue.(map[string]any)
+		require.True(testingT, resourceAvailable)
+		if resource["kind"] == "mobile_application" {
+			mobileResource = resource
+		}
+	}
+	require.NotNil(testingT, mobileResource)
+	require.NotContains(testingT, mobileResource, "publish")
 }
 
 const (

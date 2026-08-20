@@ -1839,6 +1839,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Remove `schema_version` from `.mprlab/deploy/resources.yml`.
   - Require only `owner`, `release`, and `resources` at the manifest root.
   - Reject each numbered selected application manifest form.
+  - Remove the obsolete app-owned mobile publication handler mapping.
   - Preserve independent schema contracts.
   Validation:
   - Run `make ci` after the last repository change.
@@ -1846,6 +1847,8 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Resolution:
   - The manifest preserves the SemVer release scheme without a schema number.
   - The compiled config-audit test rejects a `schema_version` field.
+  - Gateway-owned store publication consumes sealed native artifacts without
+    app-owned publication handlers in the selected manifest.
 
 - [x] [I037] (P1) Define the issue tracker scope.
   Goal:

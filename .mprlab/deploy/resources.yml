@@ -154,9 +154,6 @@ mprlab_resources:
       build:
         android: mobile/scripts/build-android-bundle.mjs
         ios: mobile/scripts/build-ios-archive.mjs
-      publish:
-        android: mobile/scripts/publish-android-play.mjs
-        ios: mobile/scripts/submit-ios.mjs
       ios:
         bundle_identifier: com.mprlab.loopaware
         app_store_id: "6788555440"
