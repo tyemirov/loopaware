@@ -531,7 +531,7 @@ protection, Dependabot, secret-scanning, and gateway-owned Pages controls agains
 
 ## Release, Publish, Deploy
 
-LoopAware declares its complete production shape in `.mprlab/deploy/resources.yml`. That schema-v3 manifest is the only tracked production lifecycle declaration. It owns the backend image and service, retained data, runtime capability, public route, health check, Pages site, React Native npm package, native mobile app, TAuth tenant, and private-value bindings.
+LoopAware declares its complete production shape in `.mprlab/deploy/resources.yml`. That permanent versionless manifest is the only tracked production lifecycle declaration. It owns the backend image and service, retained data, runtime capability, public route, health check, Pages site, React Native npm package, native mobile app, TAuth tenant, and private-value bindings.
 
 Run the three phases in order from this repository:
 

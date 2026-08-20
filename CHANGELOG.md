@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Remove schema versioning from the selected application manifest while preserving the explicit SemVer release policy.
+
 ### Improvements ⚙️
-- Declare LoopAware's complete production shape through the current schema-v3 resource manifest and sibling-gateway lifecycle.
+- Declare LoopAware's complete production shape through the current resource manifest and sibling-gateway lifecycle.
 - Load backend runtime configuration from one strict YAML contract through `github.com/tyemirov/utils/runtimeconfig`, leaving only `--config` as the server config flag.
 - Make `@loopaware/react-native` a buildable npm package with `dist` exports, package metadata, and trusted-publishing workflow.
 - Add CI path coverage for first-party clients.
@@ -20,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Bug Fixes 🐛
 - Allow the Google Play client to publish a sealed AAB after lifecycle assembly moves it from its temporary build directory, while requiring the sealed signer and upload-key fingerprints to match the canonical Android release identity.
 - Create every local Android and iOS native build in a unique private workspace, reject unknown builder options, clean failed workspaces unless explicitly retained, and identify the validated Google Play artifact upload boundary.
-- Remove the obsolete app-owned GitHub Pages `CNAME`; the schema-v3 gateway is
+- Remove the obsolete app-owned GitHub Pages `CNAME`; the gateway is
   the sole authority for Pages domain metadata and the generated release marker.
 - Remove obsolete app-owned lifecycle dry-run aliases; non-mutating lifecycle plans now use the gateway's canonical plan targets.
 - Remove exact cross-service TAuth/Pinguin value comparisons from config-audit so deploy preflight validates runtime config schema, placeholder coverage, and required values without hardcoding operator-owned deployment values.
@@ -29,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cover backend runtime config interpolation, unknown-field rejection, missing required values, removed env overrides, and config-audit YAML loading.
 - Add React Native client package validation that builds, packs, installs the tarball into a temporary consumer, and typechecks a real import.
 - Cover config-audit accepting intentionally different concrete LoopAware, TAuth, and Pinguin operator values while retaining required runtime config validation.
-- Validate the schema-v3 manifest through non-mutating gateway release, publish, and deploy plans.
+- Validate the selected manifest through non-mutating gateway release, publish, and deploy plans.
 - Keep the mobile dependency audit clean with the patched `js-yaml` v4 release.
 
 ### Docs 📚
