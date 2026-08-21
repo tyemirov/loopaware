@@ -4,12 +4,44 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
+
+func TestSelectedApplicationManifestUsesVersionlessContract(testingT *testing.T) {
+	manifestPath := filepath.Join("..", "..", ".mprlab", "deploy", "resources.yml")
+	manifestDocument, readErr := os.ReadFile(manifestPath)
+	require.NoError(testingT, readErr)
+
+	var document map[string]map[string]any
+	require.NoError(testingT, yaml.Unmarshal(manifestDocument, &document))
+	manifest, available := document["mprlab_resources"]
+	require.True(testingT, available)
+	manifestKeys := make([]string, 0, len(manifest))
+	for manifestKey := range manifest {
+		manifestKeys = append(manifestKeys, manifestKey)
+	}
+	slices.Sort(manifestKeys)
+	require.Equal(testingT, []string{"owner", "release", "resources"}, manifestKeys)
+	require.NotContains(testingT, string(manifestDocument), "schema_version:")
+
+	resources, resourcesAvailable := manifest["resources"].([]any)
+	require.True(testingT, resourcesAvailable)
+	var mobileResource map[string]any
+	for _, resourceValue := range resources {
+		resource, resourceAvailable := resourceValue.(map[string]any)
+		require.True(testingT, resourceAvailable)
+		if resource["kind"] == "mobile_application" {
+			mobileResource = resource
+		}
+	}
+	require.NotNil(testingT, mobileResource)
+	require.NotContains(testingT, mobileResource, "publish")
+}
 
 const (
 	testComposeFileName        = "docker-compose.yml"

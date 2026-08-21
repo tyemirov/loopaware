@@ -531,7 +531,7 @@ protection, Dependabot, secret-scanning, and gateway-owned Pages controls agains
 
 ## Release, Publish, Deploy
 
-LoopAware declares its complete production shape in `.mprlab/deploy/resources.yml`. That schema-v3 manifest is the only tracked production lifecycle declaration. It owns the backend image and service, retained data, runtime capability, public route, health check, Pages site, React Native npm package, native mobile app, TAuth tenant, and private-value bindings.
+LoopAware declares its complete production shape in `.mprlab/deploy/resources.yml`. That permanent versionless manifest is the only tracked production lifecycle declaration. It owns the backend image and service, retained data, runtime capability, public route, health check, Pages site, React Native npm package, native mobile app, TAuth tenant, and private-value bindings.
 
 Run the three phases in order from this repository:
 
@@ -547,7 +547,11 @@ Deployment-only private values belong in the ignored `.mprlab/deploy/.env` file 
 
 The mobile resource builds locally. Release runs Expo prebuild only as the native-project generator, then creates one signed App Store Connect IPA with Xcode and one signed Google Play AAB with Gradle. Publish validates and uploads those exact sealed files through `xcrun altool` and the Google Play Android Publisher API. No Expo account, EAS project, hosted build, or EAS submit is part of the lifecycle.
 
-The `mobile_application` entry is the native lifecycle authority: its four build and publish paths are executable directly from this repository. Native build and store-provider acceptance therefore uses LoopAware's real scripts and credentials and does not depend on a gateway checkout. Gateway involvement is limited to coordinating the complete application lifecycle, including the backend service and Caddy route.
+The `mobile_application` entry declares the two repository-owned native build
+paths. The gateway seals those build outputs and owns store-provider
+publication as part of the complete application lifecycle. Native build
+acceptance uses LoopAware's real scripts. The selected manifest does not
+declare app-owned publication handlers.
 
 The local machine must have the canonical Apple distribution signing identity and Android upload key described by `mobile/android-release-identity.json`. App Store Connect uses the ignored `configs/AuthKey_82P4KZ86HM.p8`; Google Play uses Application Default Credentials and the ignored LoopAware upload-keystore files under `~/.local/share/loopaware/android-upload/`. These provider credentials remain outside Git and are checked before their platform build or publication begins.
 
