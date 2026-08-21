@@ -11,6 +11,34 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B094] (P1) Keep the mobile dependency update on the Expo 57 contract.
+  Goal:
+  Dependabot selects React Native 0.87.0 for Expo 57. The mobile validator also rejects the selected Expo patch set.
+
+  Requirements:
+  - Keep Expo 57 with React Native 0.86.2.
+  - Use the current Expo 57 patch releases for the accepted Expo packages.
+  - Keep the current safe-area package until an update has native acceptance.
+  - Require the Expo and React Native version contract in the mobile validator.
+  - Pass the mobile validation and repository CI gate.
+
+  Deliverables:
+  - Selected one supported Expo 57 dependency set.
+  - Rejected the incompatible React Native and safe-area updates.
+  - Aligned the mobile validator with the selected dependency set.
+
+  Validation:
+  - `npm --prefix mobile ci` passed with zero vulnerabilities.
+  - `make mobile-check` passed.
+  - The Android and iOS native project preparation checks passed.
+  - `make ci` passed with 457 integration scenarios.
+
+  Changed Files:
+  - `.mprlab/ISSUES.md`
+  - `mobile/package.json`
+  - `mobile/package-lock.json`
+  - `mobile/scripts/validate-mobile-config.mjs`
+
 - [x] [B092] (P0) {B088} Set the React Native package version to `0.8.0`.
   Goal:
   The gateway rejects the LoopAware release because the React Native package
