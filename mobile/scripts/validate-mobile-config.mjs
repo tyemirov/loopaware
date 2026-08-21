@@ -61,11 +61,16 @@ for (const obsoleteFile of ["mobile/app.json", "mobile/eas.json"]) {
 
 const packageJSON = readJSON("mobile/package.json");
 const packageLockJSON = readJSON("mobile/package-lock.json");
-assert(packageJSON.dependencies?.expo === "~57.0.12", "mobile_config_expo_patch_version_outdated");
-assert(packageJSON.dependencies?.["expo-auth-session"] === "~57.0.6", "mobile_config_auth_session_patch_version_outdated");
-assert(packageJSON.dependencies?.["expo-constants"] === "~57.0.8", "mobile_config_constants_patch_version_outdated");
-assert(packageJSON.dependencies?.["expo-dev-client"] === "~57.0.11", "mobile_config_dev_client_patch_version_outdated");
+assert(packageJSON.dependencies?.expo === "~57.0.15", "mobile_config_expo_patch_version_outdated");
+assert(packageJSON.dependencies?.["expo-auth-session"] === "~57.0.8", "mobile_config_auth_session_patch_version_outdated");
+assert(packageJSON.dependencies?.["expo-constants"] === "~57.0.13", "mobile_config_constants_patch_version_outdated");
+assert(packageJSON.dependencies?.["expo-dev-client"] === "~57.0.14", "mobile_config_dev_client_patch_version_outdated");
 assert(packageJSON.dependencies?.["expo-web-browser"] === "~57.0.2", "mobile_config_web_browser_patch_version_outdated");
+assert(packageJSON.dependencies?.["react-native"] === "0.86.2", "mobile_config_react_native_sdk_version_incompatible");
+assert(
+  packageJSON.dependencies?.["react-native-safe-area-context"] === "~5.8.1",
+  "mobile_config_safe_area_version_unapproved",
+);
 assert(packageJSON.devDependencies?.typescript === "~7.0.2", "mobile_config_typescript_version_outdated");
 assert(
   packageJSON.devDependencies?.["@typescript/typescript6"] === "6.0.2",
