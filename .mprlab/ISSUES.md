@@ -11,6 +11,28 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B093] (P1) Align the container audit with the approved Go image.
+  Goal:
+  The container audit rejects the approved Go build image after Dependabot updates the image digest.
+
+  Requirements:
+  - Require the approved Go image digest in the container audit.
+  - Keep Go 1.26.6 and Alpine 3.24 unchanged.
+  - Pass the container audit, image build, and repository CI gate.
+
+  Deliverables:
+  - Aligned the container audit with the approved image digest.
+  - Kept the immutable multi-architecture image contract.
+
+  Validation:
+  - `make container-base-audit` passed.
+  - `docker build --pull --tag loopaware:pr337 .` passed.
+  - `make ci` passed with 457 integration scenarios.
+
+  Changed Files:
+  - `.mprlab/ISSUES.md`
+  - `scripts/audit-container-bases.sh`
+
 - [x] [B092] (P0) {B088} Set the React Native package version to `0.8.0`.
   Goal:
   The gateway rejects the LoopAware release because the React Native package
