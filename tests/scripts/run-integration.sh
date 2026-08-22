@@ -21,9 +21,16 @@ docker_endpoint="$(docker context inspect "${docker_context}" --format '{{.Endpo
   exit 1
 }
 
+mkdir -p "${repo_root}/.cache"
+integration_lock_dir="${repo_root}/.cache/loopaware-integration.lock"
+if ! mkdir "${integration_lock_dir}" 2>/dev/null; then
+  echo "Integration test topology is already owned by another process." >&2
+  exit 75
+fi
+
 export LOOPAWARE_BASE_URL=http://localhost:8090
 export LOOPAWARE_ENV_FILE=${test_config_dir}/loopaware.env
-export COMPOSE_PROJECT_NAME=loopaware-integration-$(date +%s)-$$-${RANDOM}
+export COMPOSE_PROJECT_NAME=loopaware-integration
 compose_project_name="${COMPOSE_PROJECT_NAME}"
 
 get_process_start_time() {
@@ -42,11 +49,12 @@ cleanup() {
   cleanup_complete=1
   trap - EXIT INT TERM HUP QUIT
 
-  down_stack
-
-  if [[ -n "${cleanup_guardian_pid}" ]]; then
+  if [[ -n "${cleanup_guardian_pid}" ]] && kill -0 "${cleanup_guardian_pid}" >/dev/null 2>&1; then
     kill "${cleanup_guardian_pid}" >/dev/null 2>&1 || true
     wait "${cleanup_guardian_pid}" >/dev/null 2>&1 || true
+  else
+    down_stack
+    rmdir "${integration_lock_dir}" >/dev/null 2>&1 || true
   fi
 }
 
@@ -62,57 +70,39 @@ start_cleanup_guardian() {
 
   parent_start_time="$(get_process_start_time "${parent_pid}")"
 
-  if command -v setsid >/dev/null 2>&1; then
-    setsid nohup bash -c '
-      parent_pid="$1"
-      parent_start_time="$2"
-      compose_file="$3"
-      compose_project_name="$4"
+  nohup bash -c '
+    parent_pid="$1"
+    parent_start_time="$2"
+    compose_file="$3"
+    compose_project_name="$4"
+    integration_lock_dir="$5"
 
-      get_process_start_time() {
-        ps -o lstart= -p "$1" 2>/dev/null | sed "s/^[[:space:]]*//"
-      }
+    get_process_start_time() {
+      ps -o lstart= -p "$1" 2>/dev/null | sed "s/^[[:space:]]*//"
+    }
 
-      while true; do
-        if [[ -n "${parent_start_time}" ]]; then
-          current_parent_start_time="$(get_process_start_time "${parent_pid}")"
-          if [[ -z "${current_parent_start_time}" || "${current_parent_start_time}" != "${parent_start_time}" ]]; then
-            break
-          fi
-        elif ! kill -0 "${parent_pid}" >/dev/null 2>&1; then
+    cleanup_topology() {
+      trap - EXIT INT TERM HUP QUIT
+      docker compose -f "${compose_file}" -p "${compose_project_name}" down -v --remove-orphans >/dev/null 2>&1 || true
+      rmdir "${integration_lock_dir}" >/dev/null 2>&1 || true
+      exit 0
+    }
+    trap cleanup_topology EXIT INT TERM HUP QUIT
+
+    while true; do
+      if [[ -n "${parent_start_time}" ]]; then
+        current_parent_start_time="$(get_process_start_time "${parent_pid}")"
+        if [[ -z "${current_parent_start_time}" || "${current_parent_start_time}" != "${parent_start_time}" ]]; then
           break
         fi
-        sleep 1
-      done
+      elif ! kill -0 "${parent_pid}" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
 
-      docker compose -f "${compose_file}" -p "${compose_project_name}" down -v --remove-orphans >/dev/null 2>&1 || true
-    ' bash "${parent_pid}" "${parent_start_time}" "${compose_file}" "${compose_project_name}" >/dev/null 2>&1 </dev/null &
-  else
-    nohup bash -c '
-      parent_pid="$1"
-      parent_start_time="$2"
-      compose_file="$3"
-      compose_project_name="$4"
-
-      get_process_start_time() {
-        ps -o lstart= -p "$1" 2>/dev/null | sed "s/^[[:space:]]*//"
-      }
-
-      while true; do
-        if [[ -n "${parent_start_time}" ]]; then
-          current_parent_start_time="$(get_process_start_time "${parent_pid}")"
-          if [[ -z "${current_parent_start_time}" || "${current_parent_start_time}" != "${parent_start_time}" ]]; then
-            break
-          fi
-        elif ! kill -0 "${parent_pid}" >/dev/null 2>&1; then
-          break
-        fi
-        sleep 1
-      done
-
-      docker compose -f "${compose_file}" -p "${compose_project_name}" down -v --remove-orphans >/dev/null 2>&1 || true
-    ' bash "${parent_pid}" "${parent_start_time}" "${compose_file}" "${compose_project_name}" >/dev/null 2>&1 </dev/null &
-  fi
+    cleanup_topology
+  ' bash "${parent_pid}" "${parent_start_time}" "${compose_file}" "${compose_project_name}" "${integration_lock_dir}" >/dev/null 2>&1 </dev/null &
 
   cleanup_guardian_pid=$!
 }

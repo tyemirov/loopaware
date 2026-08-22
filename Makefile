@@ -59,7 +59,7 @@ export LOOPAWARE_MOBILE_TAUTH_TENANT_ID
 export LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI
 export NPM_CONFIG_CACHE
 
-.PHONY: format format-pinguin build lint lint-js client-react-native-install client-react-native-check mobile-install mobile-check mobile-start run-ios run-android config-audit security-audit browser-security-audit container-base-audit github-security-audit test test-unit test-live-favicons test-integration test-integration-api test-integration-browser-security test-integration-proxy-security test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
+.PHONY: format format-pinguin build lint lint-js client-react-native-install client-react-native-check mobile-install mobile-check mobile-start run-ios run-android config-audit security-audit browser-security-audit container-base-audit github-security-audit test test-unit test-live-favicons test-integration-runner test-integration test-integration-api test-integration-browser-security test-integration-proxy-security test-integration-all test-race coverage tidy tidy-check up down docker-up docker-down docker-logs ci release publish deploy
 
 format:
 	gofmt -w $(GO_SOURCES)
@@ -165,6 +165,9 @@ test-unit:
 test-live-favicons:
 	LOOPAWARE_LIVE_FAVICON_TESTS=1 go test ./pkg/favicon -run TestHTTPResolverLiveKnownSitesReturnFavicons -count=1
 
+test-integration-runner:
+	./tests/scripts/test-integration-runner.sh
+
 test-integration:
 	./tests/scripts/run-integration.sh
 
@@ -228,7 +231,7 @@ docker-down:
 docker-logs:
 	docker compose logs -f
 
-ci: tidy-check config-audit security-audit build lint test-unit test-race test-integration-all
+ci: tidy-check config-audit security-audit build lint test-unit test-race test-integration-runner test-integration-all
 
 release publish deploy:
 	@application_root="$$(git rev-parse --show-toplevel)"; \

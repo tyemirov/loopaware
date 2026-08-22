@@ -11,6 +11,32 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B095] (P0) Keep one owner for the integration test topology.
+  Goal:
+  The integration runner uses unique project names with one fixed port and subnet. A stale stack prevents the canonical CI boundary.
+
+  Requirements:
+  - Give one process exclusive ownership of the integration test topology.
+  - Use one canonical Compose project for all integration test runs.
+  - Remove the canonical stale stack before a new run starts.
+  - Reject a concurrent run before Docker changes the topology.
+
+  Deliverables:
+  - Added public runner coverage for concurrent ownership rejection and sequential runs.
+  - Set one canonical Compose project for the fixed test topology.
+  - Added one cleanup guardian that releases the topology after normal exit or a signal.
+
+  Validation:
+  - `make test-integration-runner` passed.
+  - `make test-integration-proxy-security` passed with seven scenarios.
+  - `make ci` passed with 457 integration scenarios.
+
+  Changed Files:
+  - `.mprlab/ISSUES.md`
+  - `Makefile`
+  - `tests/scripts/run-integration.sh`
+  - `tests/scripts/test-integration-runner.sh`
+
 - [x] [B093] (P1) Align the container audit with the approved Go image.
   Goal:
   The container audit rejects the approved Go build image after Dependabot updates the image digest.
