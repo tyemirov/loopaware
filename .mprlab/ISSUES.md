@@ -11,6 +11,29 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B097] (P0) Align the React Native package with the release version.
+  Goal:
+  The gateway selects `v1.0.0`, but the React Native package declares version `0.8.0`.
+
+  Requirements:
+  - Set the package and lockfile root version to `1.0.0`.
+  - Keep the package content and public behavior unchanged.
+  - Use the real gateway release boundary as acceptance.
+
+  Deliverables:
+  - Set the package and lockfile root version to `1.0.0`.
+  - Kept the package content and public behavior unchanged.
+
+  Validation:
+  - `make release` rejected the `0.8.0` package metadata for the selected `v1.0.0` release.
+  - `make client-react-native-check` passed.
+  - `make ci` passed with 457 integration scenarios.
+
+  Changed Files:
+  - `.mprlab/ISSUES.md`
+  - `clients/react-native/package-lock.json`
+  - `clients/react-native/package.json`
+
 - [x] [B096] (P0) {B080} Remove the remaining app-owned Pages metadata.
   Goal:
   The gateway release rejects `web/.nojekyll` because the gateway owns each generated Pages metadata file.
