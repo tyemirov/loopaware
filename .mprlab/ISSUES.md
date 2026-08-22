@@ -11,6 +11,27 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B096] (P0) {B080} Remove the remaining app-owned Pages metadata.
+  Goal:
+  The gateway release rejects `web/.nojekyll` because the gateway owns each generated Pages metadata file.
+
+  Requirements:
+  - Remove the committed `web/.nojekyll` file.
+  - Keep the gateway as the sole owner of Pages metadata.
+  - Use the real gateway release boundary as acceptance.
+
+  Deliverables:
+  - Removed the last reserved gateway metadata file from the Pages source tree.
+
+  Validation:
+  - `make release` rejected the committed `web/.nojekyll` file.
+  - `make browser-security-audit` passed.
+  - `make ci` passed with 457 integration scenarios.
+
+  Changed Files:
+  - `.mprlab/ISSUES.md`
+  - `web/.nojekyll` (removed)
+
 - [x] [B095] (P0) Keep one owner for the integration test topology.
   Goal:
   The integration runner uses unique project names with one fixed port and subnet. A stale stack prevents the canonical CI boundary.
