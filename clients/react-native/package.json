@@ -1,6 +1,6 @@
 {
   "name": "@loopaware/react-native",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "React Native feedback widget client for LoopAware.",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",

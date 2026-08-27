@@ -11,6 +11,34 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B098] (P0) Align the React Native package with release `v1.0.1`.
+  Goal:
+  The React Native source package must identify the release that the gateway selects.
+
+  Evidence:
+  - The gateway selected release `v1.0.1` for the current source commit.
+  - The React Native package and lockfile declared version `1.0.0`.
+  - Expected result: the package source identifies version `1.0.1`.
+  - Actual result: `make release` rejected the npm source identity.
+
+  Requirements:
+  - Set the package and lockfile root version to `1.0.1`.
+  - Keep the package content and public behavior unchanged.
+  - Use the real gateway release boundary as acceptance.
+
+  Validation:
+  - Verify the red `make release` result for source version `1.0.0`.
+  - Run `make client-react-native-check`.
+  - Run `make ci`.
+  - Run the release, publication, and deployment operations separately.
+
+  Resolution:
+  - The package and lockfile root now identify version `1.0.1`.
+  - The package content and public behavior did not change.
+  - The red `make release` run rejected source version `1.0.0`.
+  - `make client-react-native-check` passed for version `1.0.1`.
+  - The final `make ci` run passed all 457 integration scenarios.
+
 - [x] [B097] (P0) Align the React Native package with the release version.
   Goal:
   The gateway selects `v1.0.0`, but the React Native package declares version `0.8.0`.
