@@ -11,6 +11,62 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B099] (P0) Remove the integration lock after each normal test run.
+  Goal:
+  The integration runner must remove its topology lock before a sequential test run starts.
+
+  Evidence:
+  - Hosted CI completed one fake integration run successfully.
+  - The next sequential run stopped because the topology lock still existed.
+  - Expected result: normal process cleanup removes the lock deterministically.
+  - Actual result: normal process cleanup delegates lock removal to a background guardian.
+
+  Requirements:
+  - Make the parent process remove the stack and lock after each normal exit.
+  - Keep the cleanup guardian for abrupt parent process loss.
+  - Keep concurrent topology rejection unchanged.
+  - Verify lock removal after each sequential runner test.
+
+  Validation:
+  - Use hosted Go CI run `33044946178` as the red test.
+  - Run `make test-integration-runner`.
+  - Run `make ci`.
+
+  Resolution:
+  - The parent process now removes the stack and lock after normal exit.
+  - The cleanup guardian still removes the topology after abrupt parent process loss.
+  - The runner test verifies lock removal after each sequential run.
+  - `make test-integration-runner` passed.
+  - The final `make ci` run passed all 457 integration scenarios.
+
+- [x] [B098] (P0) Align the React Native package with release `v1.0.1`.
+  Goal:
+  The React Native source package must identify the release that the gateway selects.
+
+  Evidence:
+  - The gateway selected release `v1.0.1` for the current source commit.
+  - The React Native package and lockfile declared version `1.0.0`.
+  - Expected result: the package source identifies version `1.0.1`.
+  - Actual result: `make release` rejected the npm source identity.
+
+  Requirements:
+  - Set the package and lockfile root version to `1.0.1`.
+  - Keep the package content and public behavior unchanged.
+  - Use the real gateway release boundary as acceptance.
+
+  Validation:
+  - Verify the red `make release` result for source version `1.0.0`.
+  - Run `make client-react-native-check`.
+  - Run `make ci`.
+  - Run the release, publication, and deployment operations separately.
+
+  Resolution:
+  - The package and lockfile root now identify version `1.0.1`.
+  - The package content and public behavior did not change.
+  - The red `make release` run rejected source version `1.0.0`.
+  - `make client-react-native-check` passed for version `1.0.1`.
+  - The final `make ci` run passed all 457 integration scenarios.
+
 - [x] [B097] (P0) Align the React Native package with the release version.
   Goal:
   The gateway selects `v1.0.0`, but the React Native package declares version `0.8.0`.
