@@ -1,0 +1,30 @@
+# Browser-facing mpr-ui authentication configuration.
+environments:
+  - description: "Production"
+    origins:
+      - "https://loopaware.mprlab.com"
+      - "https://tyemirov.github.io"
+    auth:
+      tauthUrl: "https://tauth-api.mprlab.com"
+      googleClientId: "281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com"
+      tenantId: "loopaware"
+      loginPath: "/auth/google"
+      logoutPath: "/auth/logout"
+      noncePath: "/auth/nonce"
+      sessionPath: "/auth/session"
+
+  - description: "Local Docker"
+    origins:
+      - "http://localhost:8080"
+      - "http://127.0.0.1:8080"
+      - "http://localhost:8090"
+      - "http://127.0.0.1:8090"
+      - "https://computercat.tyemirov.net:4443"
+    auth:
+      tauthUrl: ""
+      googleClientId: "281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com"
+      tenantId: "loopaware"
+      loginPath: "/auth/google"
+      logoutPath: "/auth/logout"
+      noncePath: "/auth/nonce"
+      sessionPath: "/auth/session"
