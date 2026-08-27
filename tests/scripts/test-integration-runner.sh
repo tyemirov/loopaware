@@ -71,11 +71,19 @@ LOOPAWARE_FAKE_DOCKER_LOG="${docker_log}" \
   LOOPAWARE_PLAYWRIGHT_CHANNEL=chrome \
   PATH="${fake_bin}:${PATH}" \
   "${script_dir}/run-integration.sh"
+if [[ -e "${lock_dir}" ]]; then
+  echo "First sequential integration run kept the topology lock." >&2
+  exit 1
+fi
 
 LOOPAWARE_FAKE_DOCKER_LOG="${docker_log}" \
   LOOPAWARE_PLAYWRIGHT_CHANNEL=chrome \
   PATH="${fake_bin}:${PATH}" \
   "${script_dir}/run-integration.sh"
+if [[ -e "${lock_dir}" ]]; then
+  echo "Second sequential integration run kept the topology lock." >&2
+  exit 1
+fi
 
 if ! grep -F -- "-p loopaware-integration up --build -d" "${docker_log}" >/dev/null; then
   echo "Expected the canonical integration Compose project." >&2

@@ -52,10 +52,10 @@ cleanup() {
   if [[ -n "${cleanup_guardian_pid}" ]] && kill -0 "${cleanup_guardian_pid}" >/dev/null 2>&1; then
     kill "${cleanup_guardian_pid}" >/dev/null 2>&1 || true
     wait "${cleanup_guardian_pid}" >/dev/null 2>&1 || true
-  else
-    down_stack
-    rmdir "${integration_lock_dir}" >/dev/null 2>&1 || true
   fi
+
+  down_stack
+  rmdir "${integration_lock_dir}" >/dev/null 2>&1 || true
 }
 
 on_signal() {
