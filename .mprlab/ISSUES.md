@@ -11,6 +11,38 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B100] (P0) Align the React Native package with release `v1.0.2`.
+  Goal:
+  The React Native source package must identify the release that the gateway selects.
+
+  Evidence:
+  - The gateway selected release `v1.0.2` for the current source commit.
+  - The React Native package and lockfile declare version `1.0.1`.
+  - Expected result: the package source identifies version `1.0.2`.
+  - Actual result: `make release` rejects the npm source identity.
+
+  Requirements:
+  - Set the package and lockfile root version to `1.0.2`.
+  - Keep the package content and public behavior unchanged.
+  - Use the real gateway release boundary as acceptance.
+
+  Validation:
+  - Verify the red `make release` result for source version `1.0.1`.
+  - Run `make client-react-native-check`.
+  - Run `make ci`.
+  - Run the release, publication, and deployment operations separately.
+
+  Resolution:
+  - The package and lockfile root now identify version `1.0.2`.
+  - The package content and public behavior did not change.
+  - The red `make release` run rejected source version `1.0.1`.
+  - `make client-react-native-check` passed for version `1.0.2`.
+  - The final `make ci` run passed all 457 integration scenarios.
+
+  Changed Files:
+  `.mprlab/ISSUES.md`, `clients/react-native/package.json`, and
+  `clients/react-native/package-lock.json`.
+
 - [x] [B099] (P0) Remove the integration lock after each normal test run.
   Goal:
   The integration runner must remove its topology lock before a sequential test run starts.
