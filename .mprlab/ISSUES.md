@@ -2006,6 +2006,37 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `PLAN.md`, `.mprlab/ISSUES.md`, and
   `tests/specs/header-auth-state.spec.js`.
 
+- [x] [B087] (P0) Use the current production site identifier.
+  Goal:
+  Send LoopAware traffic and feedback data to the current production site.
+
+  Requirements:
+  - Replace the retired production site identifier in the runtime configuration.
+  - Replace the retired production site identifier in each core public page.
+  - Keep the documented example site identifier unchanged.
+
+  Deliverables:
+  - One current production site identifier for LoopAware browser integrations.
+
+  Validation:
+  - Verify the current identifier in the runtime configuration and core pages.
+  - Run final `make ci`.
+
+  Resolution (2026-08-28):
+  Replaced the retired site identifier with the current production identifier
+  in the runtime configuration and the six core page traffic scripts. Kept the
+  documented example identifier unchanged.
+
+  Validation Results:
+  The configuration audit passed. Final `make ci` passed all build, audit,
+  lint, Go test, race, and release contract gates and all 457 browser and API
+  integration scenarios.
+
+  Changed Files:
+  `.mprlab/ISSUES.md`, `web/config.yml`, `web/index.html`,
+  `web/login/index.html`, `web/pricing/index.html`, `web/privacy/index.html`,
+  `web/terms/index.html`, and `web/app/index.html`.
+
 ## Improvements
 
 - [x] [I038] (P0) Use the permanent versionless selected application manifest.
