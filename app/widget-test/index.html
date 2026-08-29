@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://loopaware.mprlab.com https://accounts.google.com https://www.googletagmanager.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://accounts.google.com https://fonts.googleapis.com; font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: blob: https://cdn.jsdelivr.net https://loopaware.mprlab.com https://loopaware-api.mprlab.com https://accounts.google.com https://*.googleusercontent.com https://*.google-analytics.com https://*.googletagmanager.com https://*.doubleclick.net; connect-src 'self' https://cdn.jsdelivr.net http://localhost:* http://127.0.0.1:* https://loopaware-api.mprlab.com https://tauth-api.mprlab.com https://accounts.google.com https://www.google.com https://*.google-analytics.com https://*.googletagmanager.com https://*.doubleclick.net; frame-src https://accounts.google.com; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'" />
+    <title>Widget Test • LoopAware</title>
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+"
+      crossorigin="anonymous"
+    />
+    <link id="mpr-ui-style" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@97ebeb2df518f91af78aafcb6e14b9691fb20694/mpr-ui.css" integrity="sha384-WWDM4bNAbnG6m8Lda3m59qcrh8OkdoLPBMl+1LDA+IvCrjszwBgdt3CizK3ayn75" crossorigin="anonymous" />
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.3.0/dist/js-yaml.min.js" integrity="sha384-0zxS50HhMqXyT0WdkhYMK1yK+EpwgVEIHYc1RW1+JgesjsL7Rwqh0WfQSwEDyDH9" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@97ebeb2df518f91af78aafcb6e14b9691fb20694/mpr-ui-config.js" integrity="sha384-pl32+7hu3Trs6rwm8vbTkVbjEWI7C8+MbeHGwFZA+OpU4qiA2RmZArBA3wRhMak7" crossorigin="anonymous"></script>
+    <script id="mpr-ui-bundle" type="application/json" data-mpr-ui-bundle-src="https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@97ebeb2df518f91af78aafcb6e14b9691fb20694/mpr-ui.js"></script>
+    <script src="/runtime-env.js"></script>
+    <style>
+      .dashboard-header .mpr-header__actions {
+        margin-left: auto;
+      }
+      .dashboard-header .mpr-header__nav {
+        margin-left: 0;
+      }
+      .dashboard-header mpr-user[data-mpr-header="user-menu"]:not([data-loopaware-user-menu="true"]) {
+        display: none !important;
+      }
+    </style>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-7SBVN6YRV9"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag("js", new Date());
+
+    gtag("config", "G-7SBVN6YRV9");
+  </script>
+  </head>
+  <body class="d-flex flex-column min-vh-100 bg-body text-body">
+    <mpr-header data-config-url="/config-ui.yaml"
+      class="dashboard-header"
+      sign-in-label="Login"
+      sign-out-label="Logout"
+      settings="false"
+    >
+      <a slot="brand" class="fw-semibold text-decoration-none text-reset" href="/app">LoopAware</a>
+      <mpr-user
+        slot="aux"
+        data-loopaware-user-menu="true"
+        display-mode="avatar"
+        logout-url="/login"
+        menu-items='[{"label":"Account Settings","href":"/app"}]'
+      ></mpr-user>
+    </mpr-header>
+    <main class="flex-grow-1 pt-5 mt-4">
+      <div class="container py-4">
+        <div class="row justify-content-center">
+          <div class="col-lg-9 col-xl-8">
+            <div class="card shadow-sm border-0">
+              <div class="card-body p-4">
+                <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+                  <div>
+                    <h1 class="h4 mb-1">
+                      Widget Test
+                      <span class="text-muted">•</span>
+                      <span id="widget-test-site-name">Loading…</span>
+                    </h1>
+                    <p class="text-muted small mb-0">
+                      Site ID:
+                      <code id="widget-test-site-id"></code>
+                    </p>
+                  </div>
+                  <a class="btn btn-outline-secondary btn-sm" href="/app">Back to dashboard</a>
+                </div>
+
+                <hr class="my-4" />
+
+                <p class="mb-3">
+                  Bubble side
+                  <strong id="widget-test-summary-side">Right</strong>,
+                  bottom offset
+                  <strong><span id="widget-test-summary-offset">16</span>px</strong>,
+                  accent color
+                  <strong id="widget-test-summary-accent">#0d6efd</strong>.
+                </p>
+
+                <form id="widget-test-form" class="border rounded p-3 bg-body-secondary">
+                  <div class="row g-3 align-items-start mb-3">
+                    <div class="col-12 col-lg-6">
+                      <fieldset class="mb-0">
+                        <legend class="fs-6 mb-2">Bubble placement</legend>
+                        <div class="form-check">
+                          <input class="form-check-input" type="radio" name="widget-side" id="widget-test-side-left" value="left" />
+                          <label class="form-check-label" for="widget-test-side-left">Left</label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="radio" name="widget-side" id="widget-test-side-right" value="right" />
+                          <label class="form-check-label" for="widget-test-side-right">Right</label>
+                        </div>
+                      </fieldset>
+                    </div>
+                    <div class="col-12 col-lg-6">
+                      <div class="d-flex flex-column gap-2">
+                        <label class="form-label mb-0" for="widget-test-bottom-offset">Bottom offset (0-240 px)</label>
+                        <div class="input-group">
+                          <button id="widget-test-offset-decrease" type="button" class="btn btn-outline-secondary" aria-label="Decrease bottom offset by 10 pixels">-10 px</button>
+                          <input class="form-control text-end" type="number" id="widget-test-bottom-offset" min="0" max="240" step="1" required />
+                          <button id="widget-test-offset-increase" type="button" class="btn btn-outline-secondary" aria-label="Increase bottom offset by 10 pixels">+10 px</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="row g-3 align-items-end mb-3">
+                    <div class="col-12 col-lg-6">
+                      <label class="form-label" for="widget-test-accent-color">Accent color</label>
+                      <input type="color" class="form-control form-control-color w-100" id="widget-test-accent-color" value="#0d6efd" title="Choose accent color" />
+                    </div>
+                  </div>
+                  <div class="d-flex align-items-center gap-3">
+                    <button id="widget-test-save" type="submit" class="btn btn-primary">Save widget settings</button>
+                    <span class="small text-muted" id="widget-test-status"></span>
+                  </div>
+                </form>
+
+                <p class="text-muted small mt-3 mb-0">
+                  This page loads the real <code>/widget.js</code> with a test feedback endpoint.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+      crossorigin="anonymous"
+    ></script>
+
+    <script>
+      // @ts-check
+      (function () {
+        function getQueryParam(search, name) {
+          if (!search || !name) {
+            return null;
+          }
+          var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+          if (!query) {
+            return null;
+          }
+          var pairs = query.split("&");
+          for (var i = 0; i < pairs.length; i++) {
+            var pair = pairs[i].split("=");
+            if (decodeURIComponent(pair[0].replace(/\+/g, " ")) === name) {
+              return decodeURIComponent((pair[1] || "").replace(/\+/g, " "));
+            }
+          }
+          return null;
+        }
+        var search = window.location.search || "";
+        var siteId = getQueryParam(search, "site_id");
+        if (!siteId) {
+          throw new Error("widget_test.init_failed: missing site_id query parameter");
+        }
+        siteId = siteId.trim();
+        if (!siteId) {
+          throw new Error("widget_test.init_failed: empty site_id query parameter");
+        }
+
+        var apiOrigin = "";
+        try {
+          apiOrigin = String(window.__LOOPAWARE_API_ORIGIN__ || "").trim();
+        } catch (error) {}
+
+        function normalizeOrigin(value) {
+          var trimmed = String(value || "").trim();
+          if (!trimmed) return "";
+          if (trimmed.indexOf("http://") !== 0 && trimmed.indexOf("https://") !== 0) return "";
+          return trimmed.replace(/\/+$/, "");
+        }
+
+        var apiBaseURL = normalizeOrigin(apiOrigin);
+        if (!apiBaseURL) {
+          if (window.location && window.location.origin) {
+            apiBaseURL = normalizeOrigin(window.location.origin);
+          }
+        }
+        if (!apiBaseURL) {
+          throw new Error("widget_test.init_failed: api_origin is required and cannot be resolved");
+        }
+
+        function apiUrl(path) {
+          if (String(path || "").indexOf("/") === 0) return apiBaseURL + path;
+          return apiBaseURL + "/" + path;
+        }
+
+        var siteIdElement = document.getElementById("widget-test-site-id");
+        var siteNameElement = document.getElementById("widget-test-site-name");
+        var statusElement = document.getElementById("widget-test-status");
+        var sideLeftInput = /** @type {HTMLInputElement|null} */ (document.getElementById("widget-test-side-left"));
+        var sideRightInput = /** @type {HTMLInputElement|null} */ (document.getElementById("widget-test-side-right"));
+        var offsetInput = /** @type {HTMLInputElement|null} */ (document.getElementById("widget-test-bottom-offset"));
+        var accentColorInput = /** @type {HTMLInputElement|null} */ (document.getElementById("widget-test-accent-color"));
+        var offsetDecreaseButton = document.getElementById("widget-test-offset-decrease");
+        var offsetIncreaseButton = document.getElementById("widget-test-offset-increase");
+        var summarySide = document.getElementById("widget-test-summary-side");
+        var summaryOffset = document.getElementById("widget-test-summary-offset");
+        var summaryAccent = document.getElementById("widget-test-summary-accent");
+        var saveButton = /** @type {HTMLButtonElement|null} */ (document.getElementById("widget-test-save"));
+        var form = /** @type {HTMLFormElement|null} */ (document.getElementById("widget-test-form"));
+
+        var minimumOffset = 0;
+        var maximumOffset = 240;
+        var offsetStep = 10;
+        var horizontalOffset = "16px";
+        var panelSpacing = 64;
+        var defaultAccentColor = "#0d6efd";
+        var saving = false;
+        function authFetch(resource, init) {
+          var requestOptions = init || {};
+          if (!requestOptions.credentials) {
+            requestOptions.credentials = "include";
+          }
+          return window.fetch(resource, requestOptions);
+        }
+
+        function redirectToLogin() {
+          window.location.assign("/login");
+        }
+
+        function normalizeSide(value) {
+          var normalized = String(value || "").toLowerCase();
+          if (normalized !== "left" && normalized !== "right") {
+            return "right";
+          }
+          return normalized;
+        }
+
+        function normalizeOffset(value) {
+          var numeric = Number(value);
+          if (!Number.isFinite(numeric)) {
+            numeric = 16;
+          }
+          numeric = Math.round(numeric);
+          if (numeric < minimumOffset) numeric = minimumOffset;
+          if (numeric > maximumOffset) numeric = maximumOffset;
+          return numeric;
+        }
+
+        function normalizeAccentColor(value) {
+          var normalized = String(value || "").trim().toLowerCase();
+          if (!/^#[0-9a-f]{6}$/.test(normalized)) {
+            return defaultAccentColor;
+          }
+          return normalized;
+        }
+
+        function currentSide() {
+          if (sideLeftInput && sideLeftInput.checked) return "left";
+          return "right";
+        }
+
+        function currentOffset() {
+          if (!offsetInput) return 16;
+          return normalizeOffset(offsetInput.value);
+        }
+
+        function currentAccentColor() {
+          if (!accentColorInput) return defaultAccentColor;
+          return normalizeAccentColor(accentColorInput.value);
+        }
+
+        function setStatus(message) {
+          if (!statusElement) return;
+          statusElement.textContent = message || "";
+        }
+
+        function updateSummary(side, offset, accentColor) {
+          if (summarySide) summarySide.textContent = side === "left" ? "Left" : "Right";
+          if (summaryOffset) summaryOffset.textContent = String(offset);
+          if (summaryAccent) summaryAccent.textContent = accentColor;
+        }
+
+        function updateWidgetPreview(side, offset, accentColor) {
+          var bubble = document.getElementById("mp-feedback-bubble");
+          var panel = document.getElementById("mp-feedback-panel");
+          if (!bubble || !panel) {
+            window.setTimeout(function () {
+              updateWidgetPreview(normalizeSide(currentSide()), normalizeOffset(currentOffset()), currentAccentColor());
+            }, 50);
+            return;
+          }
+          bubble.style.left = "";
+          bubble.style.right = "";
+          panel.style.left = "";
+          panel.style.right = "";
+          if (side === "left") {
+            bubble.style.left = horizontalOffset;
+            panel.style.left = horizontalOffset;
+          } else {
+            bubble.style.right = horizontalOffset;
+            panel.style.right = horizontalOffset;
+          }
+          bubble.style.bottom = offset + "px";
+          panel.style.bottom = offset + panelSpacing + "px";
+          bubble.style.background = accentColor;
+        }
+
+        function applyFormState(side, offset, accentColor) {
+          var normalizedSide = normalizeSide(side);
+          var normalizedOffset = normalizeOffset(offset);
+          var normalizedAccentColor = normalizeAccentColor(accentColor);
+          if (sideLeftInput) sideLeftInput.checked = normalizedSide === "left";
+          if (sideRightInput) sideRightInput.checked = normalizedSide !== "left";
+          if (offsetInput) offsetInput.value = String(normalizedOffset);
+          if (accentColorInput) accentColorInput.value = normalizedAccentColor;
+          updateSummary(normalizedSide, normalizedOffset, normalizedAccentColor);
+          updateWidgetPreview(normalizedSide, normalizedOffset, normalizedAccentColor);
+        }
+
+        function adjustOffset(delta) {
+          if (!offsetInput) return;
+          var next = normalizeOffset(currentOffset() + delta);
+          offsetInput.value = String(next);
+          handleControlChange();
+        }
+
+        function handleControlChange() {
+          applyFormState(currentSide(), currentOffset(), currentAccentColor());
+        }
+
+        function hydrateFromSite() {
+          authFetch(apiUrl("/api/sites"), {
+            method: "GET",
+            credentials: "include",
+            headers: { Accept: "application/json" },
+          })
+            .then(function (response) {
+              if (response.status === 401) {
+                redirectToLogin();
+                throw new Error("unauthorized");
+              }
+              if (!response.ok) {
+                throw new Error("load_failed");
+              }
+              return response.json();
+            })
+            .then(function (payload) {
+              if (!payload || !Array.isArray(payload.sites)) return;
+              for (var index = 0; index < payload.sites.length; index += 1) {
+                var site = payload.sites[index];
+                if (!site || site.id !== siteId) continue;
+                if (siteNameElement && typeof site.name === "string" && site.name.trim()) {
+                  var name = site.name.trim();
+                  siteNameElement.textContent = name;
+                  document.title = "Widget Test • " + name;
+                }
+                var side = typeof site.widget_bubble_side === "string" ? site.widget_bubble_side.trim().toLowerCase() : "";
+                var offset = typeof site.widget_bubble_bottom_offset === "number" ? site.widget_bubble_bottom_offset : NaN;
+                var accentColor = typeof site.widget_accent_color === "string" ? site.widget_accent_color.trim().toLowerCase() : "";
+                applyFormState(side || currentSide(), Number.isFinite(offset) ? offset : currentOffset(), accentColor || currentAccentColor());
+                return;
+              }
+            })
+            .catch(function (error) {
+              if (error && error.message === "unauthorized") return;
+            });
+        }
+
+        function loadWidgetScript() {
+          var script = document.createElement("script");
+          script.defer = true;
+          script.src = "/widget.js?site_id=" + encodeURIComponent(siteId);
+          if (apiBaseURL) {
+            script.src += "&api_origin=" + encodeURIComponent(apiBaseURL);
+          }
+          document.head.appendChild(script);
+        }
+
+        if (siteIdElement) siteIdElement.textContent = siteId;
+
+        window.LOOPAWARE_WIDGET_TEST_MODE = true;
+        window.LOOPAWARE_WIDGET_TEST_ENDPOINT = apiUrl("/api/sites/" + encodeURIComponent(siteId) + "/widget-test/feedback");
+
+        var updateEndpoint = apiUrl("/api/sites/" + encodeURIComponent(siteId));
+        applyFormState("right", 16, defaultAccentColor);
+        hydrateFromSite();
+        loadWidgetScript();
+
+        if (sideLeftInput) sideLeftInput.addEventListener("change", handleControlChange);
+        if (sideRightInput) sideRightInput.addEventListener("change", handleControlChange);
+        if (offsetInput) offsetInput.addEventListener("input", handleControlChange);
+        if (accentColorInput) accentColorInput.addEventListener("input", handleControlChange);
+        if (offsetDecreaseButton) offsetDecreaseButton.addEventListener("click", function () { adjustOffset(-offsetStep); });
+        if (offsetIncreaseButton) offsetIncreaseButton.addEventListener("click", function () { adjustOffset(offsetStep); });
+
+        if (form && saveButton) {
+          form.addEventListener("submit", function (event) {
+            event.preventDefault();
+            if (saving) return;
+            saving = true;
+            saveButton.disabled = true;
+            setStatus("Saving…");
+            var payload = {
+              widget_bubble_side: currentSide(),
+              widget_bubble_bottom_offset: currentOffset(),
+              widget_accent_color: currentAccentColor(),
+            };
+            authFetch(updateEndpoint, {
+              method: "PATCH",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            })
+              .then(function (response) {
+                if (response.status === 401) {
+                  redirectToLogin();
+                  throw new Error("unauthorized");
+                }
+                if (!response.ok) {
+                  throw new Error("save_failed");
+                }
+                return response.json().catch(function () { return {}; });
+              })
+              .then(function () {
+                setStatus("Saved.");
+                window.location.assign("/app");
+              })
+              .catch(function (error) {
+                if (error && error.message === "unauthorized") return;
+                setStatus("Save failed.");
+              })
+              .finally(function () {
+                saving = false;
+                saveButton.disabled = false;
+              });
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

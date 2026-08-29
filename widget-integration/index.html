@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://loopaware.mprlab.com https://accounts.google.com https://www.googletagmanager.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://accounts.google.com https://fonts.googleapis.com; font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: blob: https://cdn.jsdelivr.net https://loopaware.mprlab.com https://loopaware-api.mprlab.com https://accounts.google.com https://*.googleusercontent.com https://*.google-analytics.com https://*.googletagmanager.com https://*.doubleclick.net; connect-src 'self' https://cdn.jsdelivr.net http://localhost:* http://127.0.0.1:* https://loopaware-api.mprlab.com https://tauth-api.mprlab.com https://accounts.google.com https://www.google.com https://*.google-analytics.com https://*.googletagmanager.com https://*.doubleclick.net; frame-src https://accounts.google.com; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'" />
+    <title>Widget Integration</title>
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <style>
+      body {
+        margin: 0;
+        padding: 48px 24px;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      .page {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      code {
+        background: rgba(15, 23, 42, 0.08);
+        padding: 0.1rem 0.25rem;
+        border-radius: 0.25rem;
+      }
+    </style>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-7SBVN6YRV9"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag("js", new Date());
+
+    gtag("config", "G-7SBVN6YRV9");
+  </script>
+  </head>
+  <body data-theme="light">
+    <main class="page">
+      <h1>Widget Integration</h1>
+      <p>Provide <code>site_id</code> in the query string to load the widget.</p>
+      <p id="widget-integration-status"></p>
+    </main>
+    <script>
+      // @ts-check
+      (function () {
+        function getQueryParam(search, name) {
+          if (!search || !name) {
+            return null;
+          }
+          var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+          if (!query) {
+            return null;
+          }
+          var pairs = query.split("&");
+          for (var i = 0; i < pairs.length; i++) {
+            var pair = pairs[i].split("=");
+            if (decodeURIComponent(pair[0].replace(/\+/g, " ")) === name) {
+              return decodeURIComponent((pair[1] || "").replace(/\+/g, " "));
+            }
+          }
+          return null;
+        }
+        var search = window.location.search || "";
+        var siteId = getQueryParam(search, "site_id");
+        if (!siteId) {
+          throw new Error("widget_integration.init_failed: missing site_id query parameter");
+        }
+        siteId = siteId.trim();
+        if (!siteId) {
+          throw new Error("widget_integration.init_failed: empty site_id query parameter");
+        }
+
+        var apiOrigin = (getQueryParam(search, "api_origin") || "").trim();
+        var status = document.getElementById("widget-integration-status");
+        var scriptUrl = "/widget.js?site_id=" + encodeURIComponent(siteId);
+        if (apiOrigin) {
+          scriptUrl += "&api_origin=" + encodeURIComponent(apiOrigin);
+        }
+        if (status) {
+          status.textContent = "Loading " + scriptUrl;
+        }
+        var script = document.createElement("script");
+        script.defer = true;
+        script.src = scriptUrl;
+        script.onload = function() {
+          if (status) {
+            status.textContent = "Loaded " + scriptUrl;
+          }
+        };
+        script.onerror = function() {
+          if (status) {
+            status.textContent = "Error loading " + scriptUrl;
+          }
+        };
+        document.head.appendChild(script);
+      })();
+    </script>
+  </body>
+</html>
