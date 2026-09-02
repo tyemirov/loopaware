@@ -14,7 +14,7 @@ require (
 	github.com/tyemirov/utils v0.17.1
 	go.uber.org/zap v1.28.0
 	golang.org/x/net v0.58.0
-	google.golang.org/grpc v1.83.0
+	google.golang.org/grpc v1.83.1
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/gorm v1.31.2
