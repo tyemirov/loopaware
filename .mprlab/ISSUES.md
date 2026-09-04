@@ -2071,6 +2071,45 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [!] [I039] (P1) Standardize HTTP health at `/healthz`.
+  Goal:
+  Make `/healthz` the canonical health endpoint for the LoopAware API and
+  static web origins. Use the endpoint for readiness without application requests.
+
+  Requirements:
+  - Keep unauthenticated `GET /healthz` on the API origin.
+  - Publish a static `/healthz` resource for the GitHub Pages origin.
+  - Return `200` only when each origin can serve its current application contract.
+  - Return a non-success status when a required runtime dependency prevents API service.
+  - Send `Cache-Control: no-store` on every health response.
+  - Keep each response free from credentials and internal state.
+  - Do not call a paid provider or mutate application state during a probe.
+  - Do not record a probe as application usage or an audit event.
+  - Do not emit routine information-level request events for successful probes.
+  - Keep failed probe evidence in container and deployment diagnostics.
+  - Use `/healthz` for local Compose, runtime capability, and public health checks.
+  - Set `start_interval: 1s` and `interval: 30s` for Docker probes.
+  - Set a bounded `start_period` for the API startup contract.
+  - Keep the selected manifest contract unchanged.
+
+  Deliverables:
+  - Update the API, static artifact, orchestration, manifest, documentation, and black-box tests.
+
+  Validation:
+  - Verify unauthenticated `GET /healthz` returns `200` and `Cache-Control: no-store` on each origin.
+  - Verify a required dependency failure returns a non-success API status without a provider call.
+  - Verify the static publication artifact contains `/healthz`.
+  - Verify Docker probes use the required startup and steady intervals.
+  - Verify successful probes create no routine request events.
+  - Verify failed probes retain diagnostic evidence.
+  - Run `make ci`.
+
+  Blocked:
+  GitHub Pages cannot set the required cache response header. I039 needs a
+  hosting decision. Full CI also stops at the existing npm security audit.
+  Go tests, lint, and all 125 Docker-backed API tests passed.
+
+
 - [x] [I038] (P0) Use the permanent versionless selected application manifest.
   Goal:
   Use one selected application manifest contract without a schema number.

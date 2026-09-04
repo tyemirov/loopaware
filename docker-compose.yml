@@ -31,6 +31,13 @@ services:
 
   loopaware:
     build: .
+    healthcheck:
+      test: ["CMD", "wget", "-O-", "http://localhost:8080/healthz"]
+      start_interval: 1s
+      interval: 30s
+      start_period: 30s
+      timeout: 2s
+      retries: 6
     container_name: loopaware
     env_file:
       - ./configs/.env.loopaware
@@ -61,6 +68,8 @@ services:
     container_name: loopaware-proxy
     pull_policy: always
     command:
+      - --response-header
+      - "/healthz=Cache-Control:no-store"
       - --response-header
       - "/=Content-Security-Policy:default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://loopaware.mprlab.com https://accounts.google.com https://www.googletagmanager.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://accounts.google.com https://fonts.googleapis.com; font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: blob: https://cdn.jsdelivr.net https://loopaware.mprlab.com https://loopaware-api.mprlab.com https://accounts.google.com https://*.googleusercontent.com https://*.google-analytics.com https://*.googletagmanager.com https://*.doubleclick.net; connect-src 'self' https://cdn.jsdelivr.net http://localhost:* http://127.0.0.1:* https://loopaware-api.mprlab.com https://tauth-api.mprlab.com https://accounts.google.com https://www.google.com https://*.google-analytics.com https://*.googletagmanager.com https://*.doubleclick.net; frame-src https://accounts.google.com; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'"
       - --response-header
