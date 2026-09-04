@@ -12,5 +12,7 @@ error event and retain the request event.
 Docker probes keep failure output. They use a one-second startup interval,
 a 30-second steady interval, and a 30-second startup period.
 The website publishes `web/healthz`. Local web servers add the no-store header.
-GitHub Pages controls production cache headers. I039 keeps that requirement
-open until a hosting decision is made.
+GitHub Pages uses its production cache policy for the static health resource.
+The operator approved this exception on 2026-09-04. API and local health
+responses still require `Cache-Control: no-store`.
+A cached Pages response proves artifact availability, not current API readiness.
