@@ -129,6 +129,11 @@ mprlab_resources:
       protocol: http
       url: https://loopaware-api.mprlab.com/healthz
       expected_status: 200
+    - kind: health_check
+      id: website-health
+      protocol: http
+      url: https://loopaware.mprlab.com/healthz
+      expected_status: 200
     - kind: github_pages
       id: website
       repository: tyemirov/loopaware

@@ -58,9 +58,7 @@ func registerBackendRoutes(
 	subscribeTestHandlers *api.SiteSubscribeTestHandlers,
 	authenticatedOrigin string,
 ) {
-	router.GET(healthRoute, func(context *gin.Context) {
-		context.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
+	router.GET(healthRoute, publicHandlers.Health)
 
 	publicCORS := cors.New(cors.Config{
 		AllowOrigins:     []string{corsOriginWildcard},
