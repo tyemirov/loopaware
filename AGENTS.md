@@ -120,7 +120,8 @@ If any checklist item is incomplete, do not claim completion. Complete the missi
 - We **strive for (approximately) 100% test coverage**, with CI enforcing an agreed threshold. If coverage drops, add scenarios at the public entry points; do not chase coverage with isolated unit tests.
 - For the Go backend, tests run the real HTTP server and call real endpoints, capturing responses and asserting observable results — not internal functions.
 - For the frontend, tests run the app and backing web server, drive flows through the browser or JSDOM, and assert against the rendered page, DOM state, events, and other user-visible behavior.
-- Unit tests are generally discouraged and may be prohibited by your stack guide. Only use unit tests when the relevant stack guide explicitly allows them, and never use them as a substitute for black-box coverage.
+- Use focused unit tests for complex algorithms, calculations, and isolated logic when useful.
+- Require integration coverage of public behavior for product acceptance.
 
 ## Tech Stack Guides
 
@@ -163,6 +164,12 @@ Read these files before editing:
 - `.mprlab/AGENTS.MOBILE.EXPO.md`: Expo and React Native guidance.
 - `.mprlab/AGENTS.FRONTEND.md`: browser frontend guidance.
 - `.mprlab/AGENTS.DOCKER.md`: Docker and container guidance.
+
+File permission modes are outside agent scope.
+Never examine, validate, compare, require, change, or record a file permission mode.
+Never use a file permission mode in acceptance, security, credential, execution, publication, deployment, or failure analysis.
+The values `0600` and `7777` have no governance meaning.
+This rule does not change service authorization or operation authority.
 
 Do not create `.mprlab/AGENTS.md`. Scoped guidance belongs in `.mprlab/AGENTS.*.md` files.
 If guidance conflicts, follow `.mprlab/POLICY.md` first, then root `AGENTS.md`, then the relevant scoped guide.
