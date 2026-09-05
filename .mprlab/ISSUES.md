@@ -2118,7 +2118,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
-- [ ] [I039] (P1) Standardize HTTP health at `/healthz`.
+- [x] [I039] (P1) Standardize HTTP health at `/healthz`.
   Goal:
   Make `/healthz` the canonical health endpoint for the LoopAware API and
   static web origins. Use the endpoint for readiness without application requests.
@@ -2128,7 +2128,8 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Publish a static `/healthz` resource for the GitHub Pages origin.
   - Return `200` only when each origin can serve its current application contract.
   - Return a non-success status when a required runtime dependency prevents API service.
-  - Send `Cache-Control: no-store` on every health response.
+  - Send `Cache-Control: no-store` on API and local health responses.
+  - Use the GitHub Pages cache policy for production static health responses.
   - Keep each response free from credentials and internal state.
   - Do not call a paid provider or mutate application state during a probe.
   - Do not record a probe as application usage or an audit event.
@@ -2143,13 +2144,25 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Update the API, static artifact, orchestration, manifest, documentation, and black-box tests.
 
   Validation:
-  - Verify unauthenticated `GET /healthz` returns `200` and `Cache-Control: no-store` on each origin.
+  - Verify unauthenticated `GET /healthz` returns `200` on each origin.
+  - Verify API and local health responses use `Cache-Control: no-store`.
   - Verify a required dependency failure returns a non-success API status without a provider call.
   - Verify the static publication artifact contains `/healthz`.
   - Verify Docker probes use the required startup and steady intervals.
   - Verify successful probes create no routine request events.
   - Verify failed probes retain diagnostic evidence.
   - Run `make ci`.
+
+  Cache policy:
+  The operator approved the GitHub Pages cache-policy exception on 2026-09-04.
+  This exception applies only to production static health responses.
+  API and local health responses still require `Cache-Control: no-store`.
+
+  Resolution:
+  Full `make ci` passed, including the security audit and 457 integration scenarios.
+  Updated both vulnerable XML dependency resolutions within their declared ranges.
+  The approved Pages cache exception removes the remaining contract blocker.
+
 
 - [x] [I038] (P0) Use the permanent versionless selected application manifest.
   Goal:
