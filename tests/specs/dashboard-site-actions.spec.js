@@ -16,6 +16,18 @@ function buildAdminCookie() {
   return buildSessionCookie(config, adminUser);
 }
 
+async function createScrollableSiteOwner() {
+  const owner = buildAdminUser(config, { email: buildUniqueEmail('scroll-owner') });
+  for (let index = 0; index < 12; index += 1) {
+    await createTestSite(config, buildAdminCookie(), {
+      name: buildUniqueName(`Scroll Site ${index}`),
+      allowedOrigin: buildUniqueOrigin('scroll-site'),
+      ownerEmail: owner.email
+    });
+  }
+  return owner;
+}
+
 test.beforeAll(async () => {
   const primaryOrigin = buildUniqueOrigin('primary');
   const searchOrigin = buildUniqueOrigin('search');
@@ -51,6 +63,119 @@ test('site created timestamp renders when selected', async ({ page }) => {
   await openDashboard(page, config, adminUser);
   await selectSite(page, primarySite.id);
   await expect(page.locator('#site-created-at')).not.toHaveText('');
+});
+
+test('site selection and automatic save preserve the scrolled list position', async ({ page }) => {
+  const owner = await createScrollableSiteOwner();
+  await openDashboard(page, config, owner);
+  const list = page.locator('#sites-list');
+  const rows = list.locator('[data-site-id]');
+  await expect(rows).toHaveCount(12);
+  await list.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  const scrollTop = await list.evaluate((element) => element.scrollTop);
+  expect(scrollTop).toBeGreaterThan(0);
+
+  for (const index of [11, 10]) {
+    const row = rows.nth(index);
+    const siteName = await row.locator('span').innerText();
+    await row.click();
+    await expect(page.locator('#edit-site-name')).toHaveValue(siteName);
+    await expect(row).toHaveClass(/\bactive\b/);
+    await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBe(scrollTop);
+    await expect(row).toBeInViewport({ ratio: 1 });
+  }
+
+  const updatedName = buildUniqueName('Updated Scroll Site');
+  await page.locator('#edit-site-name').fill(updatedName);
+  await expect(rows.nth(10)).toContainText(updatedName);
+  await expect(rows.nth(10)).toHaveClass(/\bactive\b/);
+  await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBe(scrollTop);
+  await expect(rows.nth(10)).toBeInViewport({ ratio: 1 });
+});
+
+test('creating a site reveals its selected row from a scrolled list', async ({ page }) => {
+  const owner = await createScrollableSiteOwner();
+  await openDashboard(page, config, owner);
+  const list = page.locator('#sites-list');
+  await expect(list.locator('[data-site-id]')).toHaveCount(12);
+  await list.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  expect(await list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+
+  await page.locator('#new-site-button').click();
+  const name = buildUniqueName('Created From Scrolled List');
+  await page.locator('#edit-site-name').fill(name);
+  await page.locator('#edit-site-origin').fill(buildUniqueOrigin('created-scroll-site'));
+  await page.locator('#edit-site-owner').fill(owner.email);
+  const selectedRow = list.locator('[data-site-id].active');
+  await expect(selectedRow).toContainText(name);
+  await expect(page.locator('#edit-site-name')).toHaveValue(name);
+  await expect(selectedRow).toBeInViewport({ ratio: 1 });
+});
+
+test('filtering a scrolled list reveals the replacement selection', async ({ page }) => {
+  const owner = await createScrollableSiteOwner();
+  await openDashboard(page, config, owner);
+  const list = page.locator('#sites-list');
+  const rows = list.locator('[data-site-id]');
+  await expect(rows).toHaveCount(12);
+  await rows.last().click();
+  const excludedName = buildUniqueName('Excluded Site');
+  await page.locator('#edit-site-name').fill(excludedName);
+  await expect(rows.last()).toContainText(excludedName);
+  expect(await list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+
+  await page.locator('#site-search-toggle-button').click();
+  await page.locator('#site-search-input').fill('Scroll Site');
+  await expect(rows).toHaveCount(11);
+  await expect(rows.first()).toHaveClass(/\bactive\b/);
+  await expect(page.locator('#edit-site-name')).toHaveValue(await rows.first().locator('span').innerText());
+  await expect(rows.first()).toBeInViewport({ ratio: 1 });
+});
+
+test('clearing or hiding search reveals the selection in the full list', async ({ page }) => {
+  const owner = await createScrollableSiteOwner();
+  await openDashboard(page, config, owner);
+  const list = page.locator('#sites-list');
+  const rows = list.locator('[data-site-id]');
+  await expect(rows).toHaveCount(12);
+  await rows.last().click();
+  const selectedName = await page.locator('#edit-site-name').inputValue();
+  await page.locator('#site-search-toggle-button').click();
+  const search = page.locator('#site-search-input');
+
+  for (const action of ['clear', 'hide']) {
+    await search.fill(selectedName);
+    await expect(rows).toHaveCount(1);
+    if (action === 'clear') {
+      await search.fill('');
+    } else {
+      await search.press('Escape');
+    }
+    await expect(rows).toHaveCount(12);
+    await expect(page.locator('#edit-site-name')).toHaveValue(selectedName);
+    await expect(rows.last()).toHaveClass(/\bactive\b/);
+    await expect(rows.last()).toBeInViewport({ ratio: 1 });
+  }
+});
+
+test('deleting a site reveals the replacement selection from a scrolled list', async ({ page }) => {
+  const owner = await createScrollableSiteOwner();
+  await openDashboard(page, config, owner);
+  const list = page.locator('#sites-list');
+  const rows = list.locator('[data-site-id]');
+  await expect(rows).toHaveCount(12);
+  await rows.last().click();
+  const siteName = await page.locator('#edit-site-name').inputValue();
+  expect(await list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+
+  await page.locator('#delete-site-button').click();
+  await page.locator('#delete-site-confirm-name').fill(siteName);
+  await page.locator('#delete-site-confirm-button').click();
+  await expect(page.locator('#delete-site-modal')).toBeHidden();
+  await expect(rows).toHaveCount(11);
+  await expect(rows.first()).toHaveClass(/\bactive\b/);
+  await expect(page.locator('#edit-site-name')).toHaveValue(await rows.first().locator('span').innerText());
+  await expect(rows.first()).toBeInViewport({ ratio: 1 });
 });
 
 test('delete site button enables after selection', async ({ page }) => {
