@@ -11,6 +11,53 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [!] [B101] (P1) {B102} Keep the site list position after site selection.
+  Goal:
+  The selected site stays visible when the user selects a site near the end of the list.
+
+  Requirements:
+  - Preserve the list position after site selection and automatic save.
+  - Keep the selected row and site details consistent.
+  - Reveal the selected row after site creation, site deletion, and search changes.
+  - Verify the behavior through the real dashboard and API.
+
+  Validation:
+  - Run the browser integration test before and after the source change.
+  - Run `make ci` after the final source change.
+  - Initial `make ci` failed in the mobile dependency audit for `@xmldom/xmldom` advisory `GHSA-6gmq-8vp8-gcm6`.
+
+  Deliverables:
+  - The dashboard retains the list position when it replaces the site rows.
+  - A browser integration test checks repeated site selection, selected row visibility, site details, and automatic save.
+  - Browser tests check selected row visibility after site creation, site deletion, search filtering, and search removal.
+  - These transitions reveal the selected row through the renderer.
+  - The package script `test:site-actions` selects the applicable browser tests through the integration runner.
+
+  Validation results:
+  - Before the source change, the new test failed because `scrollTop` changed from `423` to `0`.
+  - Review tests reproduced invisible selected rows after site creation, site deletion, search filtering, and search removal.
+  - `LOOPAWARE_TEST_SUITE=test:site-actions make test-integration` passed all 20 tests after the final review correction.
+  - `make lint-js` and `git diff --check` passed.
+  - Final `make ci` failed at the same mobile dependency audit as the initial run.
+
+  Blocked: B102 prevents the required full CI result. The site list change passed its browser and frontend checks.
+
+  Changed Files:
+  `.mprlab/ISSUES.md`, `web/app/index.html`, `tests/specs/dashboard-site-actions.spec.js`, and `tests/package.json`.
+
+- [ ] [B102] (P1) Correct the mobile XML dependency audit failure.
+  Goal:
+  The mobile dependency set passes the required security audit.
+
+  Requirements:
+  - Update the affected mobile XML dependency to a version that passes the current security audit.
+  - Keep the current mobile public contract.
+
+  Validation:
+  - Initial and final B101 CI runs failed for `@xmldom/xmldom` advisory `GHSA-6gmq-8vp8-gcm6`.
+  - The audit reported one moderate vulnerability in the mobile dependency set.
+  - Run `make mobile-check` and `make ci` after the dependency correction.
+
 - [x] [B100] (P0) Align the React Native package with release `v1.0.2`.
   Goal:
   The React Native source package must identify the release that the gateway selects.
@@ -2070,6 +2117,39 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `web/terms/index.html`, and `web/app/index.html`.
 
 ## Improvements
+
+- [ ] [I039] (P1) Standardize HTTP health at `/healthz`.
+  Goal:
+  Make `/healthz` the canonical health endpoint for the LoopAware API and
+  static web origins. Use the endpoint for readiness without application requests.
+
+  Requirements:
+  - Keep unauthenticated `GET /healthz` on the API origin.
+  - Publish a static `/healthz` resource for the GitHub Pages origin.
+  - Return `200` only when each origin can serve its current application contract.
+  - Return a non-success status when a required runtime dependency prevents API service.
+  - Send `Cache-Control: no-store` on every health response.
+  - Keep each response free from credentials and internal state.
+  - Do not call a paid provider or mutate application state during a probe.
+  - Do not record a probe as application usage or an audit event.
+  - Do not emit routine information-level request events for successful probes.
+  - Keep failed probe evidence in container and deployment diagnostics.
+  - Use `/healthz` for local Compose, runtime capability, and public health checks.
+  - Set `start_interval: 1s` and `interval: 30s` for Docker probes.
+  - Set a bounded `start_period` for the API startup contract.
+  - Keep the selected manifest contract unchanged.
+
+  Deliverables:
+  - Update the API, static artifact, orchestration, manifest, documentation, and black-box tests.
+
+  Validation:
+  - Verify unauthenticated `GET /healthz` returns `200` and `Cache-Control: no-store` on each origin.
+  - Verify a required dependency failure returns a non-success API status without a provider call.
+  - Verify the static publication artifact contains `/healthz`.
+  - Verify Docker probes use the required startup and steady intervals.
+  - Verify successful probes create no routine request events.
+  - Verify failed probes retain diagnostic evidence.
+  - Run `make ci`.
 
 - [x] [I038] (P0) Use the permanent versionless selected application manifest.
   Goal:
