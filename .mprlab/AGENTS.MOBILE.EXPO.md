@@ -53,7 +53,7 @@ Obey root `AGENTS.md`, `.mprlab/POLICY.md`, and `.mprlab/AGENTS.MOBILE.md`.
 
 ## Testing And Validation
 
-- Start coding work with an integration test through the real Expo app flow or public adapter entry point.
+- For a behavior change, start with an integration test through the real Expo app flow or public adapter entry point.
 - Use dependency injection for integration scenarios that are difficult to reproduce.
 - Keep the product logic under test real.
 - Use `.mprlab/POLICY.md` for validation.

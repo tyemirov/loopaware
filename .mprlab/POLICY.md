@@ -23,7 +23,7 @@ This policy controls all agent work in this repository.
 - Use focused unit tests for complex algorithms, calculations, and isolated logic when useful.
 - Require integration coverage of public behavior for product acceptance.
 - An integration test must use a real public entry point.
-- Start coding work with the integration test that represents the required public behavior.
+- For a behavior change, start with the integration test that represents the required public behavior.
 - Run the new or changed integration test before you change production code.
 - Confirm that the integration test fails because the required behavior is absent or incorrect.
 - After this failure, use focused unit tests to guide complex internal implementation when useful.
@@ -66,6 +66,8 @@ This policy controls all agent work in this repository.
 
 ## Static Website Hosting
 
+Apply this section to deployment or publication work for a browser frontend.
+
 - Use GitHub Pages as the production host for each deployable browser frontend.
 - Declare the browser frontend with a `github_pages` resource in `.mprlab/deploy/resources.yml`.
 - Use `gh-pages` as the publication branch.
@@ -94,7 +96,7 @@ This policy controls all agent work in this repository.
 - Run a component target when `make ci` does not include the necessary check.
 - For documentation-only work, run the applicable document and repository checks.
 - For `.mprlab/`-only work, run the Governor check and `git diff --check`.
-- These checks are the full validation for `.mprlab/`-only work.
+- These are the repository checks for `.mprlab/`-only work. Changed prose also requires the documentation-language review.
 - For read-only work, use source facts and run only the necessary checks.
 - For frontend behavior, verify through a browser test when the behavior is user-visible.
 - For services and CLIs, verify through HTTP, CLI, or public API entry points.

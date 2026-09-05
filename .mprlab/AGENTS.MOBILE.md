@@ -68,7 +68,7 @@ After validation, core mobile state and UI code must use domain values, not raw 
 
 ## Testing And Validation
 
-- Start coding work with an integration test through the real mobile entry point or app-flow harness.
+- For a behavior change, start with an integration test through the real mobile entry point or app-flow harness.
 - Use dependency injection for integration scenarios that are difficult to reproduce.
 - Keep the product logic under test real.
 - Prefer tests through mobile entrypoints, mobile backend clients, config validators, and app-flow harnesses.
