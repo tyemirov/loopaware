@@ -132,7 +132,7 @@ mobile-container-check:
 mobile-cloud-check:
 	node tests/mobile/apple-cloud.mjs
 
-mobile-cloud-native-check:
+mobile-cloud-native-check: mobile-install
 	node tests/mobile/apple-native.mjs
 
 mobile-release-check: mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-cloud-check mobile-cloud-native-check
