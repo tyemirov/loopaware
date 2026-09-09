@@ -633,7 +633,10 @@ The private configuration supplies these inputs:
 
 Run `make mobile-release-check` to validate prepared inputs, cloud forwarding, and Android signing behavior.
 The local provider tests use controlled dependencies.
-Apple account setup and a successful hosted build remain separate provider acceptance steps.
+Apple account setup and source authorization succeeded.
+The `Release` workflow uses Xcode 26.6 and macOS Tahoe 26.6.2 with manual branch starts.
+Its archive action uses the declared LoopAware workspace and scheme with internal TestFlight distribution.
+A successful hosted build remains required for provider acceptance.
 
 There are no app-owned dry-run lifecycle aliases. For a non-mutating inspection, run the gateway's `plan-app-release`, `plan-app-publish`, or `plan-app-deploy` target with `MPRLAB_APP_ROOT` set to this repository. Production activation remains an operator action.
 
