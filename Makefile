@@ -107,7 +107,7 @@ mobile-check: mobile-install
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run test:api-boundaries
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run typecheck
 
-.PHONY: mobile-cloud-native-check mobile-cloud-check mobile-release-check mobile-prepare-store mobile-container-check mobile-bundle-check mobile-prepared-tracking-check
+.PHONY: mobile-cloud-native-check mobile-cloud-check mobile-release-check mobile-prepare-store mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-android-config-check
 mobile-prepare-store: mobile-install
 	node mobile/scripts/prepare-store.mjs
 	$(MAKE) --no-print-directory mobile-podfile-config-check mobile-release-metadata-check
@@ -127,7 +127,10 @@ mobile-cloud-check:
 mobile-cloud-native-check: mobile-install
 	node tests/mobile/apple-native.mjs
 
-mobile-release-check: mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-cloud-check mobile-cloud-native-check mobile-release-metadata-check
+mobile-android-config-check:
+	node --test tests/mobile/android-config.mjs
+
+mobile-release-check: mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-cloud-check mobile-cloud-native-check mobile-release-metadata-check mobile-android-config-check
 	node tests/mobile/preparation.mjs
 	cd mobile/prepared && node scripts/verify-store-preparation.mjs
 
