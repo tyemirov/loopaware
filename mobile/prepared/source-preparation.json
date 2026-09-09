@@ -2,7 +2,7 @@
   "schema_version": 1,
   "files": {
     ".mprlab/deploy/resources.yml": "642fa10baeae78b2a1611e47764935f2b167488cd4bc26ac73d221bc6ffd8fe8",
-    "Makefile": "0870b4426ca1d3e8d60bcddbc203f40e219401966f4bbc24fcf26ade213a8071",
+    "Makefile": "f6dfb1648831491589d7a5b099596bae67e7ae93a1e6ede094fe4488870ef74a",
     "mobile/.gitignore": "45c3b9060a5b801e77f9b43052c5203b2e91357a481e91afc57890481a18af17",
     "mobile/.npmrc": "0ed44e7d606cd7a9eba915a10f13a13a09ea85e4b2bb4415bb0c481dbdcded51",
     "mobile/AGENTS.md": "2f9031bc78a538066adaee47e212d2f5f2fd5727c1f35f0a463eb21837037039",
@@ -21,7 +21,7 @@
     "mobile/metro.config.js": "a9ced0177449712b456519f2e942ae976d767f14b3748882464ce15b5b4732b4",
     "mobile/package-lock.json": "9c3a756c0829f5b92fd15878ba19b90c8ba3e1ac7eef3d14fa1517495d2831d1",
     "mobile/package.json": "150af5dc3e4e92f5a723ae11158851603229ca2b7650f7a829638e1336233fa7",
-    "mobile/plugins/withStoreBuild.cjs": "f43bf993bf09584a7e472e128a720ffb3f3374bc6bca421d76d556248867ecb9",
+    "mobile/plugins/withStoreBuild.cjs": "4e6c2a6444ac90fe1d2c93dbb58e49a4ece65a28ce54d28535ac7fd1d47718c9",
     "mobile/scripts/android-signing.mjs": "2186c9b4d8ba0da72a4bd7b4d7ad32e0c2af196db9bdb8ad2722f8947a020de4",
     "mobile/scripts/audit-image-size-security.mjs": "5da1687ad18426c6e346421239e1904c74b61b98d9fe164706360c70d0194526",
     "mobile/scripts/build-ios.sh": "d0050d1a595c65cbc584555eb33a30da40fbdddfeabb8c87b3934ac18c27612e",

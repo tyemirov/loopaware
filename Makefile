@@ -110,6 +110,7 @@ mobile-check: mobile-install
 .PHONY: mobile-cloud-native-check mobile-cloud-check mobile-release-check mobile-prepare-store mobile-container-check mobile-bundle-check mobile-prepared-tracking-check
 mobile-prepare-store: mobile-install
 	node mobile/scripts/prepare-store.mjs
+	$(MAKE) --no-print-directory mobile-podfile-config-check
 
 mobile-prepared-tracking-check:
 	node tests/mobile/prepared-tracking.mjs
@@ -259,3 +260,7 @@ release publish deploy:
 	set -a; . "$${application_root}/configs/.env.loopaware"; set +a; \
 	$(MAKE) --no-print-directory -C "$${gateway_root}" "app-$@" \
 		MPRLAB_APP_ROOT="$${application_root}"
+
+.PHONY: mobile-podfile-config-check
+mobile-podfile-config-check:
+	node --test tests/mobile/podfile-config.mjs

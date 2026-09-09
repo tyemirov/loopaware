@@ -1,10 +1,29 @@
 // @ts-check
-const { withAppBuildGradle, withMainApplication, withXcodeProject } = require('expo/config-plugins');
+const { readFile, writeFile } = require('node:fs/promises');
+const { join } = require('node:path');
+const { withAppBuildGradle, withMainApplication, withPodfile, withPodfileProperties, withXcodeProject } = require('expo/config-plugins');
 
 /** Generate store projects with embedded JavaScript bundles.
  * @param {import("expo/config").ExpoConfig} config
  */
 module.exports = function withStoreBuild(config) {
+    config = withPodfileProperties(config, (project) => {
+        project.modResults['ios.buildReactNativeFromSource'] = 'true';
+        project.modResults.EXPO_USE_PRECOMPILED_MODULES = 'false';
+        return project;
+    });
+    config = withPodfile(config, (project) => {
+        const propertiesRead = "podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json')))";
+        const generatedRead = `${propertiesRead} rescue {}`;
+        if (!project.modResults.contents.includes(generatedRead)) throw new Error('iOS Podfile property read template changed.');
+        project.modResults.contents = project.modResults.contents.replace(generatedRead, propertiesRead);
+        for (const name of ['RCT_USE_RN_DEP', 'RCT_USE_PREBUILT_RNCORE']) {
+            const generatedAssignment = `ENV['${name}'] ||=`;
+            if (!project.modResults.contents.includes(generatedAssignment)) throw new Error(`iOS dependency assignment template changed: ${name}`);
+            project.modResults.contents = project.modResults.contents.replace(generatedAssignment, `ENV['${name}'] =`);
+        }
+        return project;
+    });
     config = withAppBuildGradle(config, (project) => {
         const source = project.modResults.contents;
         const expoCli = /cliFile = new File\([^\n]+\n\s*bundleCommand = "export:embed"/;
@@ -31,7 +50,10 @@ module.exports = function withStoreBuild(config) {
         project.modResults.contents = project.modResults.contents.replace(contextArgument, `${contextArgument}\n      useDevSupport = false,`);
         return project;
     });
-    return withXcodeProject(config, (project) => {
+    return withXcodeProject(config, async (project) => {
+        const schemePath = join(project.modRequest.platformProjectRoot, 'LoopAware.xcodeproj/xcshareddata/xcschemes/LoopAware.xcscheme');
+        const scheme = await readFile(schemePath, 'utf8');
+        await writeFile(schemePath, scheme.replace(/[ \t]*<TestableReference\b[\s\S]*?<\/TestableReference>\n?/g, ''));
         const configurations = Object.entries(project.modResults.pbxXCBuildConfigurationSection())
             .filter(([id, value]) => !id.endsWith('_comment') && String(value.buildSettings?.PRODUCT_BUNDLE_IDENTIFIER).replace(/^"|"$/g, '') === config.ios?.bundleIdentifier);
         if (configurations.length === 0) throw new Error('The Apple application build configurations are missing.');

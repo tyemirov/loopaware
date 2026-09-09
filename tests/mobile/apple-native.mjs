@@ -7,6 +7,14 @@ import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 const prepared = "mobile/prepared/ios";
 const project = readFileSync(`${prepared}/LoopAware.xcodeproj/project.pbxproj`, "utf8");
+const nativeRequire = createRequire(resolve("mobile/package.json"));
+const parsedProject = nativeRequire("xcode").project(`${prepared}/LoopAware.xcodeproj/project.pbxproj`);
+parsedProject.parseSync();
+const targets = parsedProject.pbxNativeTargetSection();
+const scheme = readFileSync(`${prepared}/LoopAware.xcodeproj/xcshareddata/xcschemes/LoopAware.xcscheme`, "utf8");
+for (const reference of scheme.matchAll(/BlueprintIdentifier\s*=\s*"([^"]+)"/g)) {
+    assert.ok(targets[reference[1]], `Shared scheme references absent native target ${reference[1]}`);
+}
 assert.ok(project.includes("CODE_SIGN_STYLE = Automatic;"), "The prepared Apple target must use automatic signing.");
 assert.equal(readFileSync(`${prepared}/ci_scripts/ci_post_clone.sh`, "utf8"), readFileSync("mobile/cloud/ci_post_clone.sh", "utf8"));
 assert.ok(project.includes(".xcode.env.local"), "The bundle phase must load its declared cloud Node environment.");
