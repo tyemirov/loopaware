@@ -2,12 +2,12 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { X509Certificate } from "node:crypto";
-import { repositorySigningFile, executeSigningTool } from "./apple-signing.mjs";
+import { repositorySigningFile, executeSigningTool } from "./signing-inputs.mjs";
 
 /** Require the existing upload identity from private repository inputs.
  * @param {string} repositoryRoot
  * @param {NodeJS.ProcessEnv} [environment]
- * @param {import('./apple-signing.mjs').SigningTool} [execute]
+ * @param {import('./signing-inputs.mjs').SigningTool} [execute]
  */
 export async function androidSigningEnvironment(repositoryRoot, environment = process.env, execute = executeSigningTool) {
   const keystore = await repositorySigningFile(repositoryRoot, environment.LOOPAWARE_ANDROID_KEYSTORE, "LOOPAWARE_ANDROID_KEYSTORE");
@@ -22,6 +22,6 @@ export async function androidSigningEnvironment(repositoryRoot, environment = pr
   if (new X509Certificate(certificate.stdout).fingerprint256 !== identity.uploadKey.sha256) throw new Error("Android signing certificate differs from the registered upload identity.");
   /** @type {NodeJS.ProcessEnv} */
   const result = { ...environment, LOOPAWARE_ANDROID_KEYSTORE: keystore, JAVA_HOME: javaHome, PATH: `${join(javaHome, "bin")}:${environment.PATH || ""}` };
-  for (const name of ["LOOPAWARE_APPLE_CERTIFICATE_PATH", "LOOPAWARE_APPLE_CERTIFICATE_PASSWORD", "LOOPAWARE_APPLE_PROFILE_PATH", "GH_TOKEN", "GITHUB_TOKEN", "NPM_API_KEY", "NPM_TOKEN", "APP_STORE_CONNECT_API_KEY_PATH", "APP_STORE_CONNECT_API_KEY_ID", "APP_STORE_CONNECT_API_ISSUER_ID", "GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH"]) delete result[name];
+  for (const name of ["GH_TOKEN", "GITHUB_TOKEN", "NPM_API_KEY", "NPM_TOKEN", "APP_STORE_CONNECT_API_KEY_PATH", "APP_STORE_CONNECT_API_KEY_ID", "APP_STORE_CONNECT_API_ISSUER_ID", "GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH"]) delete result[name];
   return result;
 }

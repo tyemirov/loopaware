@@ -32,12 +32,16 @@ module.exports = function withStoreBuild(config) {
         return project;
     });
     return withXcodeProject(config, (project) => {
+        const configurations = Object.entries(project.modResults.pbxXCBuildConfigurationSection())
+            .filter(([id, value]) => !id.endsWith('_comment') && String(value.buildSettings?.PRODUCT_BUNDLE_IDENTIFIER).replace(/^"|"$/g, '') === config.ios?.bundleIdentifier);
+        if (configurations.length === 0) throw new Error('The Apple application build configurations are missing.');
+        for (const [, value] of configurations) value.buildSettings.CODE_SIGN_STYLE = 'Automatic';
         const phases = project.modResults.hash.project.objects.PBXShellScriptBuildPhase;
         let updatedPhase = false;
         for (const phase of Object.values(phases)) {
             if (typeof phase !== 'object' || !phase.shellScript?.includes('react-native-xcode.sh')) continue;
             // Use the native React Native bundler for artifacts; Expo remains the source-config generator.
-            const script = 'set -e\nPROJECT_ROOT="$(cd "$PROJECT_DIR/.." && pwd -P)"\nexport PROJECT_ROOT\nexport ENTRY_FILE="$PROJECT_ROOT/index.ts"\nexport CLI_PATH="$PROJECT_ROOT/node_modules/react-native/scripts/bundle.js"\nexport BUNDLE_COMMAND=bundle\nexport FORCE_BUNDLING=1\nexport NODE_BINARY="$(command -v node)"\n/bin/sh "$PROJECT_DIR/../node_modules/react-native/scripts/react-native-xcode.sh"\n';
+            const script = 'set -e\nPROJECT_ROOT="$(cd "$PROJECT_DIR/.." && pwd -P)"\nexport PROJECT_ROOT\nexport ENTRY_FILE="$PROJECT_ROOT/index.ts"\nexport CLI_PATH="$PROJECT_ROOT/node_modules/react-native/scripts/bundle.js"\nexport BUNDLE_COMMAND=bundle\nexport FORCE_BUNDLING=1\nexport NODE_BINARY="$(command -v node)"\nif [ -f "$PROJECT_DIR/.xcode.env.local" ]; then\n  . "$PROJECT_DIR/.xcode.env.local"\nfi\n/bin/sh "$PROJECT_DIR/../node_modules/react-native/scripts/react-native-xcode.sh"\n';
             phase.shellScript = JSON.stringify(script);
             updatedPhase = true;
         }

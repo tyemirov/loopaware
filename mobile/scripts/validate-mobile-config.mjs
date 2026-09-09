@@ -18,6 +18,7 @@ for (const requiredFile of [
   "mobile/android-release-identity.json",
   "mobile/scripts/fix-ios-project-warnings.mjs",
   "mobile/scripts/build-store-artifact.mjs",
+  "mobile/scripts/build-ios.sh",
   "mobile/scripts/prepare-store.mjs",
   "mobile/scripts/record-store-preparation.mjs",
   "mobile/scripts/verify-store-preparation.mjs",
