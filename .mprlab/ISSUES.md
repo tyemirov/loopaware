@@ -2839,6 +2839,51 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Maintenance
 
+- [x] [M408] (P1) Combine the reviewed Dependabot updates.
+  Goal:
+  Replace five Dependabot pull requests with one validated dependency update.
+
+  Requirements:
+  - Review PRs #346, #360, #361, #362, and #366.
+  - Combine the Go, container, browser test, and mobile dependency updates.
+  - Keep React Native and Metro aligned with Expo SDK 57.
+  - Regenerate the prepared mobile projects through `make mobile-prepare-store`.
+  - Complete applicable local checks and full GitHub CI before closing the replaced pull requests.
+
+  Review:
+  - PR #360 duplicates the gRPC update in PR #361.
+  - The Go PR failures came from B103, which is resolved on the current base.
+  - PR #346 requires the Go 1.27.1 image digest and its audit declaration to agree.
+  - PR #362 updates Playwright and Node.js types. Its latest GitHub CI passed.
+  - PR #366 requires current Expo declarations and regenerated native projects.
+  - Expo 57.0.20 declares React Native 0.86.3. Use that version and matching Metro instead of the proposed 0.87.1.
+  - Keep the reviewed safe-area-context 5.9.1 update. Its peer dependencies permit the selected React Native version.
+
+  Validation:
+  Baseline commit `38b28711b2d6687c2f078a36bfa1a586b4fe0bad` passed GitHub CI run `34333786058`.
+  The combined changes reproduced the old container digest and Expo version audit failures.
+  Local audit, build, lint, and mobile configuration checks passed.
+  Go tests and race detection passed after native preparation completed.
+  Native preparation completed with 165 recorded files.
+
+  Full local `make ci` reached the container checks and failed at the Docker metadata write.
+  The initial Go 1.27 lint run failed because the installed Staticcheck could not read its export data.
+  Staticcheck 0.8.1 and the declared Go lint tools passed in local and GitHub CI.
+  Local Docker writes fail with `meta.db: read-only file system`.
+
+  Full GitHub CI run `34394734866` passed for implementation commit `4a5a777512b3f804601df1b8704999d91a06f56d`.
+  This run completed the Docker and browser acceptance checks.
+
+  Resolution:
+  PR #369 contains the reviewed dependency updates and required validation corrections.
+  PRs #346, #360, #361, #362, and #366 are closed and replaced by PR #369.
+
+  Changed Files:
+  `Dockerfile`, `Makefile`, `README.md`, `go.mod`, `go.sum`, and `.mprlab/ISSUES.md`.
+  `scripts/audit-container-bases.sh`, both test package files, and both mobile package files.
+  `mobile/scripts/validate-mobile-config.mjs` and the generated dependency, project, and digest files under `mobile/prepared/`.
+
+
 ### Recurring
 
 - [ ] [M400R] (P2) Backlog hygiene and archive

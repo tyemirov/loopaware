@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/tyemirov/loopaware/actions/workflows/ci.yml/badge.svg)](https://github.com/tyemirov/loopaware/actions/workflows/ci.yml)
 [![License: Source Available](https://img.shields.io/badge/License-Source%20Available-blue)](./LICENSE)
-[![Go 1.26](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)](https://go.dev)
+[![Go 1.27](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go)](https://go.dev)
 [![Latest Release](https://img.shields.io/github/v/release/tyemirov/loopaware)](https://github.com/tyemirov/loopaware/releases)
 
 **Privacy-first feedback widget, traffic analytics, uptime checks, and developer monitoring.** Drop a single script tag on your site to collect customer feedback, capture email subscribers, track visits, and report browser errors -- all backed by a role-aware dashboard and a self-hosted SQLite backend.
@@ -655,7 +655,7 @@ $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.
 
 The compose file binds `configs/config.loopaware.yml` into the LoopAware container at `/app/configs/config.loopaware.yml`
 and loads per-service placeholder values via `env_file` from `configs/.env.*`.
-The production Dockerfile pins the Go 1.26.6/Alpine 3.24 build image and Alpine 3.24 runtime image by multi-architecture manifest-list digests.
+The production Dockerfile pins the Go 1.27.1/Alpine 3.24 build image and Alpine 3.24 runtime image by multi-architecture manifest-list digests.
 When you advance a base, update its human-readable tag and digest together.
 The container runs as root so the SQLite data volume remains writable.
 To use an unprivileged user, configure the Docker image to change the mounted directory owner before it starts the binary.
