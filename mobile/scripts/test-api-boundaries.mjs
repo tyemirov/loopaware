@@ -142,6 +142,17 @@ assert.deepEqual(dashboard.mobileApps, []);
 assert.deepEqual(dashboard.teamMembers, []);
 assert.equal(dashboard.healthMonitor?.status, "unknown");
 
+/** @type {Record<string, unknown>} */
+const aggregatePayloads = Object.fromEntries(Object.entries(basePayloads).filter(([requestPath]) => !/\/(attribution|engagement|devices|locations)$/.test(requestPath)));
+aggregatePayloads["/api/sites/site-1/visits/stats"] = { ...basePayloads["/api/sites/site-1/visits/stats"], traffic_profile: "aggregate", unique_visitor_count: null };
+const aggregateClient = new LoopAwareApiClient(runtimeConfig(), createFetcher(aggregatePayloads));
+const aggregateDashboard = await aggregateClient.siteDashboard({ ...site, traffic_profile: "aggregate" }, "30days");
+assert.equal(aggregateDashboard.stats.unique_visitor_count, null);
+assert.equal(aggregateDashboard.attribution, null);
+assert.equal(aggregateDashboard.engagement, null);
+assert.equal(aggregateDashboard.devices, null);
+assert.equal(aggregateDashboard.locations, null);
+
 const invalidClient = new LoopAwareApiClient(runtimeConfig(), createFetcher({
   ...basePayloads,
   "/api/sites/site-1/subscribers": { site_id: site.id, subscribers: "invalid" },

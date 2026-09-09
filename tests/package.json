@@ -15,7 +15,8 @@
     "install:browsers": "playwright install --with-deps chromium",
     "capture:visual": "node scripts/capture-visual.mjs",
     "test:api": "playwright test -c playwright.api.config.js",
-    "test:all": "playwright test"
+    "test:all": "playwright test",
+    "test:aggregate": "playwright test -c playwright.ui.config.js specs/dashboard-aggregate.spec.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

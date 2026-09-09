@@ -35,6 +35,7 @@ var portfolioTrafficReportEmailTemplateText string
 var portfolioTrafficReportEmailTemplate = template.Must(template.New("portfolio_traffic_report_email").Option("missingkey=error").Parse(portfolioTrafficReportEmailTemplateText))
 
 type PortfolioTrafficReportResponse struct {
+	CountsOnly         bool                         `json:"counts_only"`
 	ReportID           string                       `json:"report_id"`
 	ReportName         string                       `json:"report_name"`
 	Scope              string                       `json:"scope"`
@@ -47,6 +48,7 @@ type PortfolioTrafficReportResponse struct {
 }
 
 type PortfolioTrafficSiteRecord struct {
+	CountsOnly         bool   `json:"counts_only"`
 	SiteID             string `json:"site_id"`
 	SiteName           string `json:"site_name"`
 	VisitCount         int64  `json:"visit_count"`
@@ -71,6 +73,7 @@ type portfolioTrafficReportDefinitionRequest struct {
 }
 
 type portfolioTrafficReportData struct {
+	CountsOnly     bool `json:"counts_only"`
 	WindowDays     int
 	SiteCount      int
 	PageViews      int64
@@ -80,6 +83,7 @@ type portfolioTrafficReportData struct {
 }
 
 type portfolioTrafficReportEmailTemplateData struct {
+	CountsOnly     bool `json:"counts_only"`
 	FrequencyLabel string
 	ReportName     string
 	WindowDays     int
@@ -131,6 +135,7 @@ func (handlers *TrafficReportHandlers) GetPortfolioReport(context *gin.Context) 
 	}
 
 	context.JSON(http.StatusOK, PortfolioTrafficReportResponse{
+		CountsOnly:         report.CountsOnly,
 		ReportID:           reportDefinition.ID,
 		ReportName:         reportDefinition.Name,
 		Scope:              portfolioTrafficReportScopeOwned,
@@ -732,6 +737,9 @@ func buildPortfolioTrafficReportData(ctx context.Context, database *gorm.DB, sit
 	if normalizedDays <= 0 {
 		normalizedDays = portfolioTrafficReportDefaultDays
 	}
+	if hasAggregateSite(sites) {
+		return buildAggregatePortfolio(ctx, database, sites, normalizedDays)
+	}
 	siteIDs := portfolioSiteIDs(sites)
 	trend, trendErr := portfolioVisitTrend(ctx, database, siteIDs, normalizedDays)
 	if trendErr != nil {
@@ -855,6 +863,10 @@ func portfolioTotals(ctx context.Context, database *gorm.DB, siteIDs []string, d
 }
 
 func portfolioSiteRows(ctx context.Context, database *gorm.DB, sites []model.Site, days int) ([]PortfolioTrafficSiteRecord, error) {
+	if hasAggregateSite(sites) {
+		report, err := buildAggregatePortfolio(ctx, database, sites, days)
+		return report.Sites, err
+	}
 	if len(sites) == 0 {
 		return nil, nil
 	}
@@ -907,6 +919,7 @@ func buildPortfolioTrafficReportEmail(ctx context.Context, database *gorm.DB, sc
 		return trafficReportEmail{}, reportErr
 	}
 	templateData := portfolioTrafficReportEmailTemplateData{
+		CountsOnly:     report.CountsOnly,
 		FrequencyLabel: trafficReportFrequencyLabel(schedule.Frequency),
 		ReportName:     reportName,
 		WindowDays:     report.WindowDays,

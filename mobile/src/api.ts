@@ -86,10 +86,10 @@ export class LoopAwareApiClient {
         this.apiRequest<SubscribersResponse>(`/api/sites/${siteID}/subscribers`),
         this.apiRequest<VisitStats>(`/api/sites/${siteID}/visits/stats${intervalQuery}`),
         this.apiRequest<VisitTrend>(`/api/sites/${siteID}/visits/trend${intervalQuery}`),
-        this.apiRequest<VisitAttribution>(`/api/sites/${siteID}/visits/attribution${intervalQuery}`),
-        this.apiRequest<VisitEngagement>(`/api/sites/${siteID}/visits/engagement${intervalQuery}`),
-        this.apiRequest<DeviceBreakdown>(`/api/sites/${siteID}/visits/devices${intervalQuery}`),
-        this.apiRequest<LocationDistribution>(`/api/sites/${siteID}/visits/locations${intervalQuery}`),
+        site.traffic_profile === "aggregate" ? Promise.resolve(null) : this.apiRequest<VisitAttribution>(`/api/sites/${siteID}/visits/attribution${intervalQuery}`),
+        site.traffic_profile === "aggregate" ? Promise.resolve(null) : this.apiRequest<VisitEngagement>(`/api/sites/${siteID}/visits/engagement${intervalQuery}`),
+        site.traffic_profile === "aggregate" ? Promise.resolve(null) : this.apiRequest<DeviceBreakdown>(`/api/sites/${siteID}/visits/devices${intervalQuery}`),
+        site.traffic_profile === "aggregate" ? Promise.resolve(null) : this.apiRequest<LocationDistribution>(`/api/sites/${siteID}/visits/locations${intervalQuery}`),
         this.apiRequest<SentryIssuesResponse>(`/api/sites/${siteID}/sentry/issues`),
         this.apiRequest<MobileAppsResponse>(`/api/sites/${siteID}/mobile-apps`),
         site.access_role === "admin" ? this.apiRequest<TeamMembersResponse>(`/api/sites/${siteID}/team`) : Promise.resolve({ site_id: site.id, team_members: [] }),
@@ -111,20 +111,20 @@ export class LoopAwareApiClient {
         ...trend,
         trend: readCollection<VisitTrendPoint>(trend, "trend"),
       },
-      attribution: {
+      attribution: attribution === null ? null : {
         ...attribution,
         sources: readCollection<AttributionPoint>(attribution, "sources"),
         mediums: readCollection<AttributionPoint>(attribution, "mediums"),
         campaigns: readCollection<AttributionPoint>(attribution, "campaigns"),
       },
       engagement,
-      devices: {
+      devices: devices === null ? null : {
         ...devices,
         device_types: readCollection<DeviceTypePoint>(devices, "device_types"),
         top_resolutions: readCollection<AttributionPoint>(devices, "top_resolutions"),
         top_viewports: readCollection<AttributionPoint>(devices, "top_viewports"),
       },
-      locations: {
+      locations: locations === null ? null : {
         ...locations,
         locations: readCollection<LocationPoint>(locations, "locations"),
       },

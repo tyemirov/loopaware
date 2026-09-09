@@ -11,6 +11,24 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B103] (P1) Update the mobile YAML parser dependency.
+  Goal:
+  Pass the mobile dependency audit with the current parser.
+
+  Evidence:
+  - The F016 initial CI run failed for `js-yaml` 4.3.1.
+  - Advisory `GHSA-2883-xcg3-v3hh` identifies excessive CPU use when parsing repeated empty merge sources.
+  - The package maintainer supplies the correction in 4.3.2.
+
+  Requirements:
+  - Set the mobile override and lockfile to 4.3.2.
+  - Pass `make mobile-check`, `make security-audit`, and final `make ci`.
+
+  Resolution:
+  - The override, lockfile, and configuration validator use `js-yaml` 4.3.2.
+  - `make mobile-check`, `make security-audit`, and final `make ci` passed on September 8, 2026.
+
+
 - [!] [B101] (P1) {B102} Keep the site list position after site selection.
   Goal:
   The selected site stays visible when the user selects a site near the end of the list.
@@ -2860,6 +2878,37 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Features
 
+- [x] [F016] (P1) {P001} Add restricted aggregate analytics for selected sites.
+  Goal:
+  Supply automatic daily usage counts without persistent visitor records.
+
+  Requirements:
+  - Implement the complete contract in `.mprlab/CHILD-AUDIENCE-ANALYTICS.md`.
+  - Select an immutable traffic profile at site creation and enforce it at collection boundaries.
+  - Use a separate aggregate site for the native game. Keep existing sites in their current profile.
+  - Keep identifying request fields outside persistent analytics data and collector logs.
+  - Supply accurate dashboard, export, and scheduled report behavior for aggregate sites.
+  - Connect bounded retention and verify site-data removal through the production entry points.
+  - Keep parent feedback and its data declaration separate from automatic analytics.
+  - Update service documentation from the verified implementation.
+
+  Validation:
+  - Confirm the expected failure through real HTTP and client integration cases before implementation.
+  - Verify concurrent counts, rejected requests, unavailable metrics, log redaction, retention, and removal.
+  - Pass the focused repository targets and final `make ci`.
+  - Record deployed behavior and store acceptance separately from repository completion.
+
+  Resolution:
+  - The aggregate collector stores only the site ID, UTC date, and atomic request total.
+  - Profiles are fixed at creation. Detailed collection rejects aggregate sites.
+  - Dashboards, exports, and reports mark unavailable visitor metrics explicitly.
+  - Collector logs exclude request identities. Startup and daily cleanup enforce the configured retention window.
+  - HTTP tests verify concurrent requests, rejected inputs, database failures, panic logs, retention, reports, and site removal.
+  - Native client boundary tests and all 465 browser integration tests passed.
+  - Final `make ci` passed on September 8, 2026, including dependency audits and race tests.
+  - Gateway B539 passed its real Caddy proxy log test. Its final CI and production activation remain separate gates.
+  - Production site creation, deployment, and Allergy Wheel store acceptance remain pending.
+
 - [x] [F015] (P1) Publish the LoopAware refund policy.
   Goal:
   LoopAware offers an unconditional full refund for each LoopAware charge when
@@ -3132,3 +3181,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Planning
 *do not implement yet*
+
+- [x] [P001] (P1) Define restricted analytics for child-audience applications.
+  Goal:
+  Identify the LoopAware changes required by Allergy Wheel's selected audience and automatic analytics.
+
+  Deliverables:
+  - Reviewed the pixel, collector, request logger, persistent models, reports, and retention code.
+  - Recorded the proposed contract in `.mprlab/CHILD-AUDIENCE-ANALYTICS.md`.
+  - Filed F016 for the complete restricted analytics capability.
+  - Separated LoopAware implementation from Google Analytics, fonts, parent feedback, and native verification.
+
+  Validation:
+  - Verified source evidence against commit `11c4b6fda3f4a24a3be54870edefa451ff478d9e`.
+  - Reviewed current official Google, Apple, and FTC requirements on September 8, 2026.
+  - The plan does not establish implemented behavior, legal compliance, or store approval.

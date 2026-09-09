@@ -648,6 +648,12 @@ func buildTrafficReportEmail(ctx context.Context, statsProvider SiteStatisticsPr
 	if pageViewsErr != nil {
 		return trafficReportEmail{}, fmt.Errorf("traffic_report_email page_views: %w", pageViewsErr)
 	}
+	if site.TrafficProfile == model.TrafficProfileAggregate {
+		return trafficReportEmail{
+			subject: fmt.Sprintf("%s traffic report for %s", trafficReportFrequencyLabel(schedule.Frequency), site.Name),
+			message: fmt.Sprintf("Accepted requests: %d\nWindow: %d UTC calendar days\nUnique visitors: unavailable\nPages, devices, locations, and individual visits: unavailable\n", pageViews, windowDays),
+		}, nil
+	}
 	uniqueVisitors, uniqueVisitorsErr := statsProvider.UniqueVisitorCountForDays(ctx, site.ID, windowDays)
 	if uniqueVisitorsErr != nil {
 		return trafficReportEmail{}, fmt.Errorf("traffic_report_email unique_visitors: %w", uniqueVisitorsErr)

@@ -175,55 +175,58 @@ func NewSiteHandlers(database *gorm.DB, logger *zap.Logger, widgetBaseURL string
 }
 
 type createSiteRequest struct {
-	Name                     string `json:"name"`
-	AllowedOrigin            string `json:"allowed_origin"`
-	SubscribeAllowedOrigins  string `json:"subscribe_allowed_origins"`
-	WidgetAllowedOrigins     string `json:"widget_allowed_origins"`
-	TrafficAllowedOrigins    string `json:"traffic_allowed_origins"`
-	OwnerEmail               string `json:"owner_email"`
-	WidgetBubbleSide         string `json:"widget_bubble_side"`
-	WidgetBubbleBottomOffset *int   `json:"widget_bubble_bottom_offset"`
-	WidgetAccentColor        string `json:"widget_accent_color"`
-	WidgetShowMessageInput   *bool  `json:"widget_show_message_input"`
-	WidgetShowSentiment      *bool  `json:"widget_show_sentiment_buttons"`
+	TrafficProfile           *model.TrafficProfile `json:"traffic_profile"`
+	Name                     string                `json:"name"`
+	AllowedOrigin            string                `json:"allowed_origin"`
+	SubscribeAllowedOrigins  string                `json:"subscribe_allowed_origins"`
+	WidgetAllowedOrigins     string                `json:"widget_allowed_origins"`
+	TrafficAllowedOrigins    string                `json:"traffic_allowed_origins"`
+	OwnerEmail               string                `json:"owner_email"`
+	WidgetBubbleSide         string                `json:"widget_bubble_side"`
+	WidgetBubbleBottomOffset *int                  `json:"widget_bubble_bottom_offset"`
+	WidgetAccentColor        string                `json:"widget_accent_color"`
+	WidgetShowMessageInput   *bool                 `json:"widget_show_message_input"`
+	WidgetShowSentiment      *bool                 `json:"widget_show_sentiment_buttons"`
 }
 
 type updateSiteRequest struct {
-	Name                     *string `json:"name"`
-	AllowedOrigin            *string `json:"allowed_origin"`
-	SubscribeAllowedOrigins  *string `json:"subscribe_allowed_origins"`
-	WidgetAllowedOrigins     *string `json:"widget_allowed_origins"`
-	TrafficAllowedOrigins    *string `json:"traffic_allowed_origins"`
-	OwnerEmail               *string `json:"owner_email"`
-	WidgetBubbleSide         *string `json:"widget_bubble_side"`
-	WidgetBubbleBottomOffset *int    `json:"widget_bubble_bottom_offset"`
-	WidgetAccentColor        *string `json:"widget_accent_color"`
-	WidgetShowMessageInput   *bool   `json:"widget_show_message_input"`
-	WidgetShowSentiment      *bool   `json:"widget_show_sentiment_buttons"`
+	TrafficProfile           *model.TrafficProfile `json:"traffic_profile"`
+	Name                     *string               `json:"name"`
+	AllowedOrigin            *string               `json:"allowed_origin"`
+	SubscribeAllowedOrigins  *string               `json:"subscribe_allowed_origins"`
+	WidgetAllowedOrigins     *string               `json:"widget_allowed_origins"`
+	TrafficAllowedOrigins    *string               `json:"traffic_allowed_origins"`
+	OwnerEmail               *string               `json:"owner_email"`
+	WidgetBubbleSide         *string               `json:"widget_bubble_side"`
+	WidgetBubbleBottomOffset *int                  `json:"widget_bubble_bottom_offset"`
+	WidgetAccentColor        *string               `json:"widget_accent_color"`
+	WidgetShowMessageInput   *bool                 `json:"widget_show_message_input"`
+	WidgetShowSentiment      *bool                 `json:"widget_show_sentiment_buttons"`
 }
 
 type siteResponse struct {
-	ID                       string `json:"id"`
-	Name                     string `json:"name"`
-	AllowedOrigin            string `json:"allowed_origin"`
-	SubscribeAllowedOrigins  string `json:"subscribe_allowed_origins"`
-	WidgetAllowedOrigins     string `json:"widget_allowed_origins"`
-	TrafficAllowedOrigins    string `json:"traffic_allowed_origins"`
-	OwnerEmail               string `json:"owner_email"`
-	FaviconURL               string `json:"favicon_url"`
-	Widget                   string `json:"widget"`
-	CreatedAt                int64  `json:"created_at"`
-	FeedbackCount            int64  `json:"feedback_count"`
-	SubscriberCount          int64  `json:"subscriber_count"`
-	VisitCount               int64  `json:"visit_count"`
-	UniqueVisitorCount       int64  `json:"unique_visitor_count"`
-	SentryTokenConfigured    bool   `json:"sentry_token_configured"`
-	WidgetBubbleSide         string `json:"widget_bubble_side"`
-	WidgetBubbleBottomOffset int    `json:"widget_bubble_bottom_offset"`
-	WidgetAccentColor        string `json:"widget_accent_color"`
-	WidgetShowMessageInput   bool   `json:"widget_show_message_input"`
-	WidgetShowSentiment      bool   `json:"widget_show_sentiment_buttons"`
-	AccessRole               string `json:"access_role"`
+	TrafficProfile           model.TrafficProfile `json:"traffic_profile"`
+	ID                       string               `json:"id"`
+	Name                     string               `json:"name"`
+	AllowedOrigin            string               `json:"allowed_origin"`
+	SubscribeAllowedOrigins  string               `json:"subscribe_allowed_origins"`
+	WidgetAllowedOrigins     string               `json:"widget_allowed_origins"`
+	TrafficAllowedOrigins    string               `json:"traffic_allowed_origins"`
+	OwnerEmail               string               `json:"owner_email"`
+	FaviconURL               string               `json:"favicon_url"`
+	Widget                   string               `json:"widget"`
+	CreatedAt                int64                `json:"created_at"`
+	FeedbackCount            int64                `json:"feedback_count"`
+	SubscriberCount          int64                `json:"subscriber_count"`
+	VisitCount               int64                `json:"visit_count"`
+	UniqueVisitorCount       int64                `json:"unique_visitor_count"`
+	SentryTokenConfigured    bool                 `json:"sentry_token_configured"`
+	WidgetBubbleSide         string               `json:"widget_bubble_side"`
+	WidgetBubbleBottomOffset int                  `json:"widget_bubble_bottom_offset"`
+	WidgetAccentColor        string               `json:"widget_accent_color"`
+	WidgetShowMessageInput   bool                 `json:"widget_show_message_input"`
+	WidgetShowSentiment      bool                 `json:"widget_show_sentiment_buttons"`
+	AccessRole               string               `json:"access_role"`
 }
 
 type listSitesResponse struct {
@@ -512,6 +515,15 @@ func (handlers *SiteHandlers) CreateSite(context *gin.Context) {
 		WidgetAccentColor:          widgetAccentColor,
 		WidgetShowMessageInput:     widgetShowMessageInput,
 		WidgetShowSentimentButtons: widgetShowSentiment,
+	}
+
+	site.TrafficProfile = model.TrafficProfileDetailed
+	if payload.TrafficProfile != nil {
+		if !validTrafficProfile(*payload.TrafficProfile) {
+			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidTrafficProfile})
+			return
+		}
+		site.TrafficProfile = *payload.TrafficProfile
 	}
 
 	if err := handlers.database.Create(&site).Error; err != nil {
@@ -854,7 +866,7 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		return
 	}
 
-	if payload.Name == nil && payload.AllowedOrigin == nil && payload.SubscribeAllowedOrigins == nil && payload.WidgetAllowedOrigins == nil && payload.TrafficAllowedOrigins == nil && payload.OwnerEmail == nil && payload.WidgetBubbleSide == nil && payload.WidgetBubbleBottomOffset == nil && payload.WidgetAccentColor == nil && payload.WidgetShowMessageInput == nil && payload.WidgetShowSentiment == nil {
+	if payload.TrafficProfile == nil && payload.Name == nil && payload.AllowedOrigin == nil && payload.SubscribeAllowedOrigins == nil && payload.WidgetAllowedOrigins == nil && payload.TrafficAllowedOrigins == nil && payload.OwnerEmail == nil && payload.WidgetBubbleSide == nil && payload.WidgetBubbleBottomOffset == nil && payload.WidgetAccentColor == nil && payload.WidgetShowMessageInput == nil && payload.WidgetShowSentiment == nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueNothingToUpdate})
 		return
 	}
@@ -975,7 +987,17 @@ func (handlers *SiteHandlers) UpdateSite(context *gin.Context) {
 		site.FaviconOrigin = normalizedPrimaryOrigin
 	}
 
-	if err := handlers.database.Save(&site).Error; err != nil {
+	if payload.TrafficProfile != nil {
+		if !validTrafficProfile(*payload.TrafficProfile) {
+			context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidTrafficProfile})
+			return
+		}
+		if site.TrafficProfile != *payload.TrafficProfile {
+			context.JSON(http.StatusConflict, gin.H{jsonKeyError: errorValueTrafficProfileConflict})
+			return
+		}
+	}
+	if err := handlers.database.WithContext(context.Request.Context()).Save(&site).Error; err != nil {
 		handlers.logger.Warn("update_site", zap.Error(err))
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueSaveFailed})
 		return
@@ -1013,6 +1035,11 @@ func (handlers *SiteHandlers) DeleteSite(context *gin.Context) {
 	}
 
 	deleteErr := handlers.database.Transaction(func(transaction *gorm.DB) error {
+		for _, record := range []any{&model.SiteVisit{}, &model.SiteVisitRollup{}, &model.SiteVisitCount{}, &model.Subscriber{}, &model.TrafficReportSchedule{}, &model.PortfolioTrafficReportDefinitionSite{}} {
+			if err := transaction.Where("site_id = ?", site.ID).Delete(record).Error; err != nil {
+				return err
+			}
+		}
 		if err := transaction.Where("site_id = ?", site.ID).Delete(&model.Feedback{}).Error; err != nil {
 			return err
 		}
@@ -1301,6 +1328,10 @@ func (handlers *SiteHandlers) VisitStats(context *gin.Context) {
 		return
 	}
 
+	if site.TrafficProfile == model.TrafficProfileAggregate {
+		handlers.aggregateStats(context, site, interval)
+		return
+	}
 	var total int64
 	var err error
 	if interval.IsAll() {
@@ -1355,6 +1386,10 @@ func (handlers *SiteHandlers) VisitStats(context *gin.Context) {
 func (handlers *SiteHandlers) VisitTrend(context *gin.Context) {
 	site, _, ok := handlers.resolveAuthorizedSite(context)
 	if !ok {
+		return
+	}
+	if site.TrafficProfile == model.TrafficProfileAggregate {
+		handlers.aggregateTrend(context, site)
 		return
 	}
 
@@ -1413,6 +1448,9 @@ func (handlers *SiteHandlers) VisitAttribution(context *gin.Context) {
 	if !ok {
 		return
 	}
+	if !requireDetailedTraffic(context, site) {
+		return
+	}
 
 	limit, parseErr := parseVisitAttributionLimit(context.Query("limit"))
 	if parseErr != nil {
@@ -1450,6 +1488,9 @@ func (handlers *SiteHandlers) VisitAttribution(context *gin.Context) {
 func (handlers *SiteHandlers) VisitEngagement(context *gin.Context) {
 	site, _, ok := handlers.resolveAuthorizedSite(context)
 	if !ok {
+		return
+	}
+	if !requireDetailedTraffic(context, site) {
 		return
 	}
 
@@ -1504,6 +1545,9 @@ func (handlers *SiteHandlers) DeviceBreakdown(context *gin.Context) {
 	if !ok {
 		return
 	}
+	if !requireDetailedTraffic(context, site) {
+		return
+	}
 
 	limit, parseErr := parseDeviceBreakdownLimit(context.Query("limit"))
 	if parseErr != nil {
@@ -1541,6 +1585,9 @@ func (handlers *SiteHandlers) DeviceBreakdown(context *gin.Context) {
 func (handlers *SiteHandlers) LocationDistribution(context *gin.Context) {
 	site, _, ok := handlers.resolveAuthorizedSite(context)
 	if !ok {
+		return
+	}
+	if !requireDetailedTraffic(context, site) {
 		return
 	}
 
@@ -1723,6 +1770,10 @@ func (handlers *SiteHandlers) ExportSubscribers(context *gin.Context) {
 func (handlers *SiteHandlers) ExportTraffic(context *gin.Context) {
 	site, _, ok := handlers.resolveAuthorizedSite(context)
 	if !ok {
+		return
+	}
+	if site.TrafficProfile == model.TrafficProfileAggregate {
+		handlers.aggregateExport(context, site)
 		return
 	}
 
@@ -1965,7 +2016,7 @@ func (handlers *SiteHandlers) toSiteResponseWithCounts(site model.Site, counts s
 	}
 
 	return siteResponse{
-		ID:                       site.ID,
+		TrafficProfile: site.TrafficProfile, ID: site.ID,
 		Name:                     site.Name,
 		AllowedOrigin:            site.AllowedOrigin,
 		SubscribeAllowedOrigins:  site.SubscribeAllowedOrigins,
@@ -2100,8 +2151,18 @@ func (handlers *SiteHandlers) applyVisitCounts(ctx context.Context, siteIDs []st
 		counts.visitCount = row.Count
 		countsBySiteID[row.SiteID] = counts
 	}
-}
 
+	var aggregateRows []siteCountRow
+	if err := handlers.database.WithContext(ctx).Model(&model.SiteVisitCount{}).Select("site_id, SUM(count) as count").Where("site_id IN ?", siteIDs).Group("site_id").Scan(&aggregateRows).Error; err != nil {
+		handlers.logSiteSummaryCountFailure("site_daily_counts_failed", err)
+		return
+	}
+	for _, row := range aggregateRows {
+		counts := countsBySiteID[row.SiteID]
+		counts.visitCount += row.Count
+		countsBySiteID[row.SiteID] = counts
+	}
+}
 func (handlers *SiteHandlers) applyUniqueVisitorCounts(ctx context.Context, siteIDs []string, countsBySiteID map[string]siteSummaryCounts) {
 	var rows []siteCountRow
 	err := handlers.database.WithContext(ctx).

@@ -91,11 +91,18 @@ Give each term one meaning. Use the same term for the same concept in all docume
 
 ## Repository Technical Nouns
 
-Add repository-specific technical nouns below this line.
-
-```text
-- `term`: Definition with one meaning.
-```
+- `aggregate analytics`: Analytics that retain combined counts without individual visit records.
+- `traffic profile`: A site setting that selects the permitted analytics collection behavior.
+- `visitor identifier`: A value that associates requests with one visitor or device.
+- `request log`: A persistent record of an HTTP request and its result.
+- `retention period`: The maximum time that a specified data class remains in storage.
+- `parental gate`: An application control that restricts access to a parent area.
+- `data declaration`: A store statement about the application's actual data collection and use.
+- `raw analytics record`: A stored record that describes one individual analytics request.
+- `metric`: A measured quantity with one specified meaning.
+- `reverse proxy`: A service that receives network requests and forwards them to an application.
+- `atomic increment`: A database operation that adds to a counter without a lost concurrent update.
+- `backup restore`: An operation that returns stored backup data to an active data store.
 
 ## MPR Lab Technical Verbs
 

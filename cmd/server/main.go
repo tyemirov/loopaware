@@ -203,7 +203,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 		return fmt.Errorf("%s: %w", trustedProxyConfigurationFailure, trustedProxyErr)
 	}
 	router.RemoteIPHeaders = []string{"X-Forwarded-For"}
-	router.Use(gin.Recovery())
+	router.Use(api.RequestRecovery(logger))
 	router.Use(api.TrustedProxyHeaders(serverConfig.TrustedProxyCIDRs, serverConfig.TrustedEdgeGeoProxyCIDRs))
 	router.Use(api.SecurityHeaders())
 	router.Use(api.RequestLogger(logger))
@@ -221,6 +221,12 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	if migrateErr := storage.AutoMigrate(database); migrateErr != nil {
 		logger.Fatal(loggerContextAutoMigrate, zap.Error(migrateErr))
 	}
+
+	stopVisitRetention, retentionErr := startVisitCountRetention(database, logger, serverConfig.AggregateRetentionDays, time.Now)
+	if retentionErr != nil {
+		return retentionErr
+	}
+	defer stopVisitRetention()
 
 	authManager, authManagerErr := api.NewAuthManager(database, logger, serverConfig.AdminEmailAddresses, sharedHTTPClient, api.AuthConfig{
 		SigningKey: serverConfig.TauthSigningKey,

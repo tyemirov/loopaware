@@ -1,4 +1,5 @@
-export function formatCount(value: number | undefined): string {
+export function formatCount(value: number | null | undefined): string {
+  if (value === null) return "Unavailable";
   return new Intl.NumberFormat("en-US").format(value || 0);
 }
 

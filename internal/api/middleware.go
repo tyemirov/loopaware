@@ -167,6 +167,11 @@ func RequestLogger(logger *zap.Logger) gin.HandlerFunc {
 		if context.Request.URL.Path == HealthPath && context.Writer.Status() == http.StatusOK {
 			return
 		}
+		if path, restricted := analyticsLogPath(context.Request.URL.Path); restricted {
+			logger.Info("http", zap.String("method", sanitizeRequestLogValue(context.Request.Method)),
+				zap.String("path", path), zap.Int("status", context.Writer.Status()))
+			return
+		}
 		logger.Info("http",
 			zap.String("method", sanitizeRequestLogValue(context.Request.Method)),
 			zap.String("path", sanitizeRequestLogValue(context.Request.URL.Path)),
@@ -204,4 +209,31 @@ func requestUsesHTTPS(context *gin.Context) bool {
 		return parseForwardedProtoHeaderValue(strings.TrimSpace(context.GetHeader(headerForwarded))) == urlSchemeHTTPS
 	}
 	return strings.EqualFold(strings.TrimSpace(strings.Split(forwardedProto, ",")[0]), "https")
+}
+
+func analyticsLogPath(path string) (string, bool) {
+	if strings.HasPrefix(path, "/public/sites/") {
+		return VisitCountsPath, true
+	}
+	if path == visitCollectionPath {
+		return visitCollectionPath, true
+	}
+	return "", false
+}
+
+// RequestRecovery records collector failures without request headers or panic payloads.
+func RequestRecovery(logger *zap.Logger) gin.HandlerFunc {
+	standard := gin.Recovery()
+	restricted := gin.CustomRecoveryWithWriter(io.Discard, func(context *gin.Context, _ any) {
+		path, _ := analyticsLogPath(context.Request.URL.Path)
+		logger.Error("collector_panic", zap.String("path", path))
+		context.AbortWithStatus(http.StatusInternalServerError)
+	})
+	return func(context *gin.Context) {
+		if _, private := analyticsLogPath(context.Request.URL.Path); private {
+			restricted(context)
+			return
+		}
+		standard(context)
+	}
 }

@@ -436,6 +436,17 @@ function OverviewSection(props: { dashboard: SiteDashboard; site: Site }) {
 }
 
 function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInterval; onIntervalChange: (interval: TrafficInterval) => void }) {
+  const { engagement, attribution, devices, locations } = props.dashboard;
+  if (engagement === null || attribution === null || devices === null || locations === null) {
+    return (
+      <View style={styles.sectionStack}>
+        <SegmentedControl items={trafficIntervals} selectedKey={props.interval} onChange={props.onIntervalChange} />
+        <StatGrid items={[{ label: "Accepted requests", value: formatCount(props.dashboard.stats.visit_count), detail: "Daily totals in UTC" }]} />
+        <Section title="Daily counts"><TrendRows trend={props.dashboard.trend.trend} /></Section>
+        <EmptyInline text="Unique visitors, individual visits, pages, devices, and locations are unavailable for daily counts." />
+      </View>
+    );
+  }
   return (
     <View style={styles.sectionStack}>
       <SegmentedControl items={trafficIntervals} selectedKey={props.interval} onChange={props.onIntervalChange} />
@@ -443,8 +454,8 @@ function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInte
         items={[
           { label: "Page views", value: formatCount(props.dashboard.stats.visit_count), detail: `${props.dashboard.stats.interval} window` },
           { label: "Visitors", value: formatCount(props.dashboard.stats.unique_visitor_count), detail: "Unique visitors" },
-          { label: "Returning", value: formatPercent(props.dashboard.engagement.returning_visitor_rate), detail: `${formatCount(props.dashboard.engagement.returning_visitor_count)} visitors` },
-          { label: "Pages/visitor", value: props.dashboard.engagement.average_pages_per_visitor.toFixed(1), detail: `${formatCount(props.dashboard.engagement.tracked_visitor_count)} tracked` },
+          { label: "Returning", value: formatPercent(engagement.returning_visitor_rate), detail: `${formatCount(engagement.returning_visitor_count)} visitors` },
+          { label: "Pages/visitor", value: engagement.average_pages_per_visitor.toFixed(1), detail: `${formatCount(engagement.tracked_visitor_count)} tracked` },
         ]}
       />
       <Section title="Trend">
@@ -454,13 +465,13 @@ function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInte
         <Bars items={props.dashboard.stats.top_pages} labelFor={(item) => item.path || "/"} valueFor={(item) => item.visit_count} />
       </Section>
       <Section title="Attribution">
-        <Bars items={props.dashboard.attribution.sources} labelFor={(item) => item.value || "Direct"} valueFor={(item) => item.visit_count} />
+        <Bars items={attribution.sources} labelFor={(item) => item.value || "Direct"} valueFor={(item) => item.visit_count} />
       </Section>
       <Section title="Devices">
-        <Bars items={props.dashboard.devices.device_types} labelFor={(item) => sentenceCase(item.device_type)} valueFor={(item) => item.visit_count} />
+        <Bars items={devices.device_types} labelFor={(item) => sentenceCase(item.device_type)} valueFor={(item) => item.visit_count} />
       </Section>
       <Section title="Locations">
-        <Bars items={props.dashboard.locations.locations} labelFor={(item) => item.label} valueFor={(item) => item.visit_count} />
+        <Bars items={locations.locations} labelFor={(item) => item.label} valueFor={(item) => item.visit_count} />
       </Section>
       <Section title="Recent visits">
         {props.dashboard.stats.recent_visits.length ? (

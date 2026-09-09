@@ -137,7 +137,7 @@ body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0
           <p>When you use LoopAware, you may create site configurations, receive feedback submissions from your website visitors, collect email subscriber lists, and view traffic analytics. This data is created by you or by visitors to your websites through the LoopAware widget, subscribe form, or traffic pixel.</p>
 
           <h2 class="h5 fw-semibold mt-4 mb-2">3. How We Store Your Data</h2>
-          <p>Your data is stored in a SQLite database on servers operated by MPRLAB. Session credentials are stored in encrypted, HTTP-only cookies. We do not store Google access tokens or passwords. Data is retained for as long as your account is active. We use TLS encryption for all data in transit between your browser and our servers.</p>
+          <p>Your data is stored in a SQLite database on servers operated by MPRLAB. Session credentials are stored in encrypted, HTTP-only cookies. We do not store Google access tokens or passwords. Account and feedback data are retained while your account is active. Daily aggregate counts have the shorter retention period below. We use TLS encryption for all data in transit between your browser and our servers.</p>
 
           <h2 class="h5 fw-semibold mt-4 mb-2">4. How We Use Your Data</h2>
           <p>We use your data exclusively to operate the LoopAware service: authenticating your sessions, displaying your dashboard, delivering feedback and analytics, and sending email subscription confirmations on your behalf. We do not use your data for advertising, profiling, or any purpose unrelated to the service.</p>
@@ -151,14 +151,18 @@ body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0
           <h2 class="h5 fw-semibold mt-4 mb-2">7. End-User Data</h2>
           <p>If you embed the LoopAware widget, subscribe form, or traffic pixel on your website, data from your visitors (feedback messages, email addresses, page visits) is collected and stored by LoopAware on your behalf. You are the data controller for this information. We act as a data processor and do not use end-user data for any purpose other than providing the service to you.</p>
 
+          <h2 class="h5 fw-semibold mt-4 mb-2">Aggregate Analytics</h2>
+          <p>A site can use daily aggregate counts. This collector stores only the site identifier, UTC date, and accepted request count. It does not store individual visits, visitor identifiers, device records, page addresses, or IP addresses. Network transport processes an IP address to deliver the request. The count client sends no cookies or referrer.</p>
+          <p>Daily counts do not identify unique people or installations. The collection profile is fixed when the site is created. Feedback and operator accounts have separate data records.</p>
+
           <h2 class="h5 fw-semibold mt-4 mb-2">8. Data Retention and Deletion</h2>
-          <p>Your data is retained for as long as your account is active. You may request deletion of your account and all associated data at any time by contacting us. Upon receiving a deletion request, we will remove your data within 30 days.</p>
+          <p>Daily aggregate counts use a retention window of up to 90 UTC calendar days in the active database. Cleanup runs at service startup and each day. Site deletion removes its daily counts. Account and feedback data are retained while your account is active. You may request deletion of your account and all associated data at any time by contacting us. Upon receiving a deletion request, we will remove your data within 30 days.</p>
 
           <h2 class="h5 fw-semibold mt-4 mb-2">9. Your Rights</h2>
           <p>You have the right to access, correct, export, or delete your personal data. If you are located in the European Economic Area, you have additional rights under the GDPR, including the right to object to processing and the right to data portability. If you are a California resident, you have rights under the CCPA, including the right to know what data we collect and the right to request deletion.</p>
 
           <h2 class="h5 fw-semibold mt-4 mb-2">10. Children's Privacy</h2>
-          <p>LoopAware is not directed at children under the age of 13. We do not knowingly collect personal information from children. If you believe a child has provided us with personal data, contact us and we will delete it.</p>
+          <p>The LoopAware operator dashboard is intended for adults. An application can use aggregate counts without persistent visitor records. Its owner must separately address its audience, consent requirements, feedback, and other services. We do not knowingly collect personal information from children through operator accounts or feedback. If you believe a child has provided us with personal data, contact us and we will delete it.</p>
 
           <h2 class="h5 fw-semibold mt-4 mb-2">11. Changes to This Policy</h2>
           <p>We may update this Privacy Policy from time to time. We will post the revised policy on this page with an updated effective date. Continued use of LoopAware after changes constitutes acceptance.</p>

@@ -211,16 +211,16 @@ func (provider *DatabaseSiteStatisticsProvider) SubscriberCount(ctx context.Cont
 
 // VisitCount returns total page views for a site.
 func (provider *DatabaseSiteStatisticsProvider) VisitCount(ctx context.Context, siteID string) (int64, error) {
-	return provider.visitCount(ctx, siteID, time.Time{})
+	return provider.visitCount(ctx, siteID, time.Time{}, time.Time{})
 }
 
 // VisitCountForDays returns page views within the selected traffic interval window.
 func (provider *DatabaseSiteStatisticsProvider) VisitCountForDays(ctx context.Context, siteID string, days int) (int64, error) {
 	normalizedDays := normalizeVisitTrendDays(days)
-	return provider.visitCount(ctx, siteID, visitWindowStartTime(normalizedDays))
+	return provider.visitCount(ctx, siteID, visitWindowStartTime(normalizedDays), aggregateCalendarStart(normalizedDays))
 }
 
-func (provider *DatabaseSiteStatisticsProvider) visitCount(ctx context.Context, siteID string, startTime time.Time) (int64, error) {
+func (provider *DatabaseSiteStatisticsProvider) visitCount(ctx context.Context, siteID string, startTime time.Time, aggregateStartTime time.Time) (int64, error) {
 	if strings.TrimSpace(siteID) == "" {
 		return 0, nil
 	}
@@ -232,7 +232,17 @@ func (provider *DatabaseSiteStatisticsProvider) visitCount(ctx context.Context, 
 		query = query.Where("occurred_at >= ?", startTime)
 	}
 	err := query.Count(&count).Error
-	return count, err
+	if err != nil {
+		return 0, err
+	}
+	rows, err := aggregateVisitRows(provider.database.WithContext(ctx), siteID, aggregateStartTime)
+	if err != nil {
+		return 0, err
+	}
+	for _, row := range rows {
+		count += row.Count
+	}
+	return count, nil
 }
 
 // UniqueVisitorCount returns distinct visitor ids for a site.

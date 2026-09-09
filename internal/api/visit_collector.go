@@ -63,6 +63,11 @@ func (h *PublicHandlers) CollectVisit(context *gin.Context) {
 		return
 	}
 
+	if site.TrafficProfile != model.TrafficProfileDetailed {
+		context.JSON(http.StatusConflict, gin.H{jsonKeyError: errorValueTrafficProfileConflict})
+		return
+	}
+
 	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
 	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
 	queryReferrer := strings.TrimSpace(context.Query(visitQueryReferrer))

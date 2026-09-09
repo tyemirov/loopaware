@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -71,6 +72,7 @@ func buildAPIHarness(testingT *testing.T, notifier api.FeedbackNotifier, subscri
 	router.GET("/public/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
 	router.GET("/public/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
 	router.GET("/public/visits", publicHandlers.CollectVisit)
+	router.POST(api.VisitCountsPath, api.NewVisitCountHandler(database, time.Now))
 
 	testingT.Cleanup(feedbackBroadcaster.Close)
 	testingT.Cleanup(subscriptionEvents.Close)
