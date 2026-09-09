@@ -2160,6 +2160,39 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [-] [I041] (P1) Use the shared Xcode Cloud release flow
+  Goal:
+  Build Apple release artifacts through the single MPR Lab Xcode Cloud flow.
+
+  Requirements:
+  - Apply the shared Apple guide from MPR Governor.
+  - Declare each native project and shared scheme in `.mprlab/apple-build.json`.
+  - Use the shared Gateway cloud operation and its recorded Apple build number.
+  - Use the App Store Connect build that Xcode Cloud submits.
+  - Remove local Apple release signing during the migration.
+  - Keep public store release under operator control.
+
+  Implementation:
+  The shared Apple guide and related mobile rules are installed.
+  Gateway F010 supplies the shared operation.
+  The POSIX shell adapter invokes the compiled Gateway executable directly.
+  The adapter passed its public command test with an empty tool search path.
+  The Apple adapter uses the shared Gateway cloud operation.
+  The Android adapter retains its registered upload identity and native builder.
+  The regenerated Apple project includes automatic signing and its cloud dependency hook.
+  The local Apple signing helper is removed from source and prepared output.
+  Apple account setup and a hosted build remain required provider acceptance steps.
+
+  Validation:
+  The shared Apple and mobile guide checks passed.
+  The full Governor check retains unrelated differences observed before this migration.
+  The declaration JSON, native container, and named shared scheme checks passed.
+  Initial `make ci` passed, including 465 browser tests.
+  Native preparation recorded 165 files.
+  Cloud forwarding, Android signing, native settings, mobile config, API, and type checks passed.
+  Final `make ci` passed, including 465 browser tests.
+  Release-version alignment and hosted Apple acceptance remain open.
+
 - [x] [I040] (P1) {P002} Make LoopAware mobile releases portable.
   Goal:
   Build the same signed store artifacts from a repository copy and its ignored private inputs.
