@@ -92,6 +92,7 @@ function sendSlowPublicRequestBody() {
 test("health endpoint reports the running backend", async ({ request }) => {
   const response = await request.get(`${config.baseURL}/healthz`);
   expect(response.status()).toBe(200);
+  expect(response.headers()["cache-control"]).toBe("no-store");
   expect(await response.json()).toEqual({ status: "ok" });
 });
 

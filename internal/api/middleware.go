@@ -164,6 +164,9 @@ func RequestLogger(logger *zap.Logger) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		start := time.Now()
 		context.Next()
+		if context.Request.URL.Path == HealthPath && context.Writer.Status() == http.StatusOK {
+			return
+		}
 		logger.Info("http",
 			zap.String("method", sanitizeRequestLogValue(context.Request.Method)),
 			zap.String("path", sanitizeRequestLogValue(context.Request.URL.Path)),
