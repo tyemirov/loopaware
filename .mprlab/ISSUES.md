@@ -11,6 +11,49 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B105] (P1) Save the production environment for Xcode phases
+  Goal:
+  Use the production Expo config in each Xcode build phase.
+
+  Requirements:
+  - Save `NODE_ENV=production` with `NODE_BINARY` in `ios/.xcode.env.local`.
+  - Regenerate the prepared cloud hook.
+  - Verify the cloud hook and Expo config in separate processes without an inherited `NODE_ENV`.
+
+  Validation:
+  The initial regression test failed because Expo could not resolve `expo-dev-client`.
+  The corrected hook passed the Expo config export in a separate process.
+  Native preparation and focused release checks passed.
+  Final `make ci` passed, including 465 browser and API scenarios.
+
+  Resolution:
+  The cloud hook saves `NODE_ENV=production` with `NODE_BINARY` for subsequent Xcode phases.
+
+  Changed Files:
+  `Makefile`, `mobile/cloud/ci_post_clone.sh`, `tests/mobile/apple-native.mjs`, `README.md`, and the prepared native output.
+
+- [x] [B106] (P1) Align the Apple version with the release decision
+  Goal:
+  Use the allocated release version in the prepared Apple project.
+
+  Requirements:
+  - Keep the committed Apple version and release allocation equal.
+  - Verify the prepared Apple version through the release config contract.
+
+  Validation:
+  `gix release next semver --format json` selected `v1.1.0` for the current source commit.
+  The initial regression test rejected the prepared Apple config without an explicit version.
+  `ios.version` and the regenerated `Info.plist` now contain `1.1.0`.
+  The version check and focused release checks passed.
+  Final `make ci` passed, including 465 browser and API scenarios.
+
+  Resolution:
+  The Apple source config declares `1.1.0`, which matches the current release allocation.
+  The README gives the required version steps before future Apple releases.
+
+  Changed Files:
+  `mobile/app.config.js`, `tests/mobile/apple-native.mjs`, `README.md`, and the prepared native output.
+
 - [x] [B104] (P1) Start CI for every pull request to master.
   Goal:
   Start the required `test` check for all pull requests to `master`.
@@ -2160,7 +2203,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
-- [-] [I041] (P1) Use the shared Xcode Cloud release flow
+- [x] [I041] (P1) {B105,B106} Use the shared Xcode Cloud release flow
   Goal:
   Build Apple release artifacts through the single MPR Lab Xcode Cloud flow.
 
@@ -2191,7 +2234,11 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Native preparation recorded 165 files.
   Cloud forwarding, Android signing, native settings, mobile config, API, and type checks passed.
   Final `make ci` passed, including 465 browser tests.
-  Release-version alignment and hosted Apple acceptance remain open.
+  B105 supplies the production environment for Xcode phases.
+  B106 aligns the Apple version with the current release allocation.
+  Final review validation passed `make ci`, including 465 browser and API scenarios.
+  The source changes are complete.
+  Apple account setup and a hosted build remain separate provider acceptance steps.
 
 - [x] [I040] (P1) {P002} Make LoopAware mobile releases portable.
   Goal:
