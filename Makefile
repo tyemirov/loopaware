@@ -110,7 +110,7 @@ mobile-check: mobile-install
 .PHONY: mobile-cloud-native-check mobile-cloud-check mobile-release-check mobile-prepare-store mobile-container-check mobile-bundle-check mobile-prepared-tracking-check
 mobile-prepare-store: mobile-install
 	node mobile/scripts/prepare-store.mjs
-	$(MAKE) --no-print-directory mobile-podfile-config-check
+	$(MAKE) --no-print-directory mobile-podfile-config-check mobile-release-metadata-check
 
 mobile-prepared-tracking-check:
 	node tests/mobile/prepared-tracking.mjs
@@ -127,7 +127,7 @@ mobile-cloud-check:
 mobile-cloud-native-check: mobile-install
 	node tests/mobile/apple-native.mjs
 
-mobile-release-check: mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-cloud-check mobile-cloud-native-check
+mobile-release-check: mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-cloud-check mobile-cloud-native-check mobile-release-metadata-check
 	node tests/mobile/preparation.mjs
 	cd mobile/prepared && node scripts/verify-store-preparation.mjs
 
@@ -264,3 +264,7 @@ release publish deploy:
 .PHONY: mobile-podfile-config-check
 mobile-podfile-config-check:
 	node --test tests/mobile/podfile-config.mjs
+
+.PHONY: mobile-release-metadata-check
+mobile-release-metadata-check: mobile-install
+	node --test mobile/scripts/release-metadata.test.mjs

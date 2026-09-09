@@ -16,7 +16,7 @@ const sharedNativeInputs = [
 const platformNativeInputs =
   platform === "android"
     ? ["assets/android-icon-foreground.png", "assets/android-icon-monochrome.png", "scripts/prepare-android-project.mjs"]
-    : ["scripts/fix-ios-project-warnings.mjs"];
+    : ["scripts/fix-ios-project-warnings.mjs", "scripts/strip-release-metadata.swift"];
 const nativeEnvironmentInputs =
   platform === "android"
     ? [["LOOPAWARE_MOBILE_ANDROID_PACKAGE", environmentValue("LOOPAWARE_MOBILE_ANDROID_PACKAGE", "com.mprlab.loopaware")]]

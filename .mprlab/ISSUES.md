@@ -11,6 +11,26 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B110] (P1) Preserve valid metadata and reject release cleanup errors
+  Goal:
+  The release phase must reject invalid metadata and preserve custom app values.
+
+  Evidence:
+  The generated phase suppresses property-list errors and matches custom values by substring.
+
+  Requirements:
+  - Exercise the generated Xcode phase with valid, missing, malformed, and binary property lists.
+  - Replace the phase through the repository preparation script.
+  - Use Apple Foundation without additional package dependencies.
+  - Preserve custom values and remove only the exact development entries.
+
+  Validation:
+  Five initial integration cases failed against the original generated phase.
+  Fresh preparation passed four CocoaPods cases and seven metadata checks after correction.
+  Final `make ci` passed, including 472 browser and API scenarios, backend and race tests, audits, and native bundles.
+  The logs are `/tmp/loopaware-b110-preparation-corrected.log` and `/tmp/loopaware-b110-final-ci.log`.
+  Existing package versions, dependency lockfiles, and app metadata stayed unchanged at Apple version 1.1.0.
+
 - [x] [B109] (P1) Select native source dependencies explicitly
   Goal:
   Native dependency selection must remain unchanged when a prebuilt service is unavailable.
