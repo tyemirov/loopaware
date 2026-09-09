@@ -11,6 +11,53 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [!] [B101] (P1) {B102} Keep the site list position after site selection.
+  Goal:
+  The selected site stays visible when the user selects a site near the end of the list.
+
+  Requirements:
+  - Preserve the list position after site selection and automatic save.
+  - Keep the selected row and site details consistent.
+  - Reveal the selected row after site creation, site deletion, and search changes.
+  - Verify the behavior through the real dashboard and API.
+
+  Validation:
+  - Run the browser integration test before and after the source change.
+  - Run `make ci` after the final source change.
+  - Initial `make ci` failed in the mobile dependency audit for `@xmldom/xmldom` advisory `GHSA-6gmq-8vp8-gcm6`.
+
+  Deliverables:
+  - The dashboard retains the list position when it replaces the site rows.
+  - A browser integration test checks repeated site selection, selected row visibility, site details, and automatic save.
+  - Browser tests check selected row visibility after site creation, site deletion, search filtering, and search removal.
+  - These transitions reveal the selected row through the renderer.
+  - The package script `test:site-actions` selects the applicable browser tests through the integration runner.
+
+  Validation results:
+  - Before the source change, the new test failed because `scrollTop` changed from `423` to `0`.
+  - Review tests reproduced invisible selected rows after site creation, site deletion, search filtering, and search removal.
+  - `LOOPAWARE_TEST_SUITE=test:site-actions make test-integration` passed all 20 tests after the final review correction.
+  - `make lint-js` and `git diff --check` passed.
+  - Final `make ci` failed at the same mobile dependency audit as the initial run.
+
+  Blocked: B102 prevents the required full CI result. The site list change passed its browser and frontend checks.
+
+  Changed Files:
+  `.mprlab/ISSUES.md`, `web/app/index.html`, `tests/specs/dashboard-site-actions.spec.js`, and `tests/package.json`.
+
+- [ ] [B102] (P1) Correct the mobile XML dependency audit failure.
+  Goal:
+  The mobile dependency set passes the required security audit.
+
+  Requirements:
+  - Update the affected mobile XML dependency to a version that passes the current security audit.
+  - Keep the current mobile public contract.
+
+  Validation:
+  - Initial and final B101 CI runs failed for `@xmldom/xmldom` advisory `GHSA-6gmq-8vp8-gcm6`.
+  - The audit reported one moderate vulnerability in the mobile dependency set.
+  - Run `make mobile-check` and `make ci` after the dependency correction.
+
 - [x] [B100] (P0) Align the React Native package with release `v1.0.2`.
   Goal:
   The React Native source package must identify the release that the gateway selects.
@@ -2605,12 +2652,13 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Cadence: run weekly during active development and before each release cut.
   - Validate section names, identifier prefixes, recurrence suffixes, priority markers, dependencies, and duplicate IDs against the current `issues-md-format.md`.
   - Reconcile stale statuses, duplicate issues, broken references, obsolete instructions, and entries filed under the wrong section.
-  - Move completed non-recurring history to the repository issue archive or durable documentation when the active tracker becomes noisy.
+  - Before archival, update source documents with durable results from each resolved non-recurring issue.
+  - Preserve the complete issue entry and its ID in the repository archive.
   - Keep active, blocked, planning, and recurring entries visible in `ISSUES.md`.
 
   Deliverables:
   - Normalized `ISSUES.md` structure and statuses.
-  - Updated issue archive or docs when completed entries are removed from the active tracker.
+  - Updated archive with complete entries removed from the active tracker.
   - A short `Last run:` note summarizing the cleanup and any follow-up issues filed.
 
   Validation:
@@ -2647,11 +2695,11 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Cadence: run monthly, before large refactors, and after major framework or runtime changes.
   - Review the codebase, docs, and workflow against `AGENTS.md`, `POLICY.md`, stack guides, and the current architecture notes.
   - Look for drift from forward-only contracts, edge-validation boundaries, smart-constructor usage, testing policy, and module ownership.
-  - Record findings as new Maintenance issues with concrete scope, priority, and validation.
+  - Classify each finding by its requested outcome. Record concrete scope, priority, and validation.
   - Close the pass with a no-action note only when the review finds no actionable drift.
 
   Deliverables:
-  - New Maintenance issues for each actionable architecture or policy drift finding.
+  - Correctly classified issues for each actionable architecture or policy drift finding.
   - Updated notes on areas reviewed and areas intentionally left unchanged.
   - A short `Last run:` note with the review scope and outcome.
 
@@ -2667,9 +2715,9 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Requirements:
   - Cadence: run weekly for active apps and before each release cut.
   - Inspect package managers, lockfiles, language toolchains, container bases, and generated clients for known vulnerabilities or stale direct dependencies.
-  - Review auth, secret, CORS, CSP, SQL, network, and permission-sensitive configuration for drift from the current contract.
+  - Review auth, secret, CORS, CSP, SQL, network, and service-authorization configuration for drift from the current contract.
   - Prefer current supported dependencies; do not add compatibility shims for obsolete dependency behavior.
-  - File separate Maintenance or BugFix issues for each actionable vulnerability, unsupported runtime, or security-contract gap.
+  - File each actionable vulnerability, unsupported runtime, or security-contract gap under its outcome-based issue section.
 
   Deliverables:
   - Documented audit commands or data sources used for the pass.
@@ -2712,7 +2760,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Cadence: run monthly and before large refactors.
   - Scan for dead code, unused exports, duplicated literals, silent fallbacks, legacy aliases, compatibility reads, and zero-but-invalid domain states.
   - Check static analysis, coverage, schema, and contract guards that are supposed to prevent drift.
-  - File focused Maintenance issues for each concrete violation instead of broad cleanup placeholders.
+  - File each concrete violation under its outcome-based issue section.
   - Keep the current canonical contract only; do not preserve obsolete behavior unless a product requirement explicitly says so.
 
   Deliverables:

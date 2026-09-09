@@ -4139,7 +4139,7 @@
             return;
           }
           siteSearchQuery = normalized;
-          renderSites();
+          renderSites({ revealSelection: true });
         }
         function applyMessagesSearchQuery(value) {
           var normalized = normalizeSearchQuery(value);
@@ -4192,7 +4192,7 @@
           }
           if (siteSearchQuery !== '') {
             siteSearchQuery = '';
-            renderSites();
+            renderSites({ revealSelection: true });
           }
         }
         function toggleSiteSearchVisibility() {
@@ -5061,7 +5061,7 @@
               deleteSiteModal.hide();
             }
             clearDeleteConfirmationInput();
-            renderSites();
+            renderSites({ revealSelection: true });
             setFormStatus(statusMessages.site_deleted || '', formStatusSuccessClass);
           }).catch(function(error) {
             if (error && error.message === 'unauthorized') {
@@ -5263,6 +5263,7 @@
           var renderOptions = options || {};
           var skipFormPopulate = renderOptions.skipFormPopulate === true;
           var skipDataRefresh = renderOptions.skipDataRefresh === true;
+          var previousScrollTop = sitesList.scrollTop;
           while (sitesList.firstChild) {
             sitesList.removeChild(sitesList.firstChild);
           }
@@ -5290,6 +5291,7 @@
           }
 
           var selectedSite = null;
+          var selectedListItem = null;
           filteredSites.forEach(function(site) {
             var listItem = document.createElement('button');
             listItem.type = 'button';
@@ -5298,6 +5300,7 @@
 
             if (site.id === state.selectedSiteId) {
               selectedSite = site;
+              selectedListItem = listItem;
             }
 
             var headerElement = document.createElement('div');
@@ -5358,6 +5361,10 @@
 
             sitesList.appendChild(listItem);
           });
+          sitesList.scrollTop = previousScrollTop;
+          if (renderOptions.revealSelection === true && selectedListItem) {
+            selectedListItem.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          }
 
           if (hasSites) {
             emptySitesMessage.classList.add('d-none');
@@ -8936,7 +8943,7 @@
           state.siteSentryIssues[payload.id] = [];
           state.selectedSiteId = payload.id;
           state.selectedSentryIssueId = '';
-          renderSites();
+          renderSites({ revealSelection: true });
           finalizeAutoSave();
         }).catch(function(error) {
           setFormStatus(error.message || buttonLabels.save_failed || '', formStatusDangerClass);
