@@ -116,9 +116,12 @@ mobile-check: mobile-install
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run test:api-boundaries
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run typecheck
 
-.PHONY: mobile-release-check mobile-prepare-store mobile-container-check mobile-bundle-check
+.PHONY: mobile-release-check mobile-prepare-store mobile-container-check mobile-bundle-check mobile-prepared-tracking-check
 mobile-prepare-store: mobile-install
 	node mobile/scripts/prepare-store.mjs
+
+mobile-prepared-tracking-check:
+	node tests/mobile/prepared-tracking.mjs
 
 mobile-bundle-check:
 	node tests/mobile/store-bundles.mjs
@@ -126,7 +129,7 @@ mobile-bundle-check:
 mobile-container-check:
 	node tests/mobile/container-inputs.mjs
 
-mobile-release-check: mobile-container-check mobile-bundle-check
+mobile-release-check: mobile-container-check mobile-bundle-check mobile-prepared-tracking-check
 	node tests/mobile/portable-signing.mjs
 	node tests/mobile/preparation.mjs
 	cd mobile/prepared && node scripts/verify-store-preparation.mjs

@@ -2136,7 +2136,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
-- [-] [I040] (P1) {P002} Make LoopAware mobile releases portable.
+- [x] [I040] (P1) {P002} Make LoopAware mobile releases portable.
   Goal:
   Build the same signed store artifacts from a repository copy and its ignored private inputs.
 
@@ -2153,10 +2153,9 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Start with failing release-boundary tests.
   - Verify missing inputs, stale preparation, interruption cleanup, and a relocated repository.
   - Run the native preparation targets, focused checks, and final CI.
-  - Build signed Android and iOS artifacts through the canonical lifecycle.
 
   Implementation:
-  - Added tracked production native inputs and source digest verification.
+  - Added tracked production native inputs, Git selection checks, and source digest verification.
   - Added native JavaScript bundle checks and Docker context exclusions for private inputs.
   - Replaced the platform builders with the generic Gateway adapter.
   - Removed the obsolete application store publishers.
@@ -2169,7 +2168,17 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   The actual Android key matched the registered upload certificate.
   The actual Apple certificate matched the selected App Store profile.
   Final CI passed, including 465 browser integration scenarios.
-  Canonical signed builds remain pending Gateway checkout coordination.
+  Both source and native digest records matched an exported Git tree.
+
+  Resolution:
+  Completed the portable release source and its repository validation.
+  Canonical signed builds, publication, and deployment remain separate operation checks.
+
+  Changed files:
+  `.gitattributes`, `.dockerignore`, `.gitignore`, `Makefile`, `README.md`,
+  `.mprlab/deploy/resources.yml`, `clients/react-native/package*.json`,
+  `mobile/app.config.js`, `mobile/metro.config.js`, `mobile/package*.json`,
+  `mobile/plugins/withStoreBuild.cjs`, `mobile/scripts/`, `mobile/prepared/`, and `tests/mobile/`.
 
 
 - [x] [I039] (P1) Standardize HTTP health at `/healthz`.

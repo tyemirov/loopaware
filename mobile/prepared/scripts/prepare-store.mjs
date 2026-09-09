@@ -20,7 +20,7 @@ function run(command, argumentsList) {
   if (result.status !== 0) throw new Error(`Native preparation ${command} failed with status ${result.status}.`);
 }
 
-const sources = preparationSources(repository).filter(name => name.startsWith("mobile/"));
+const sources = preparationSources(repository).filter(name => name.startsWith("mobile/") && name !== "mobile/.gitignore");
 await rm(prepared, { recursive: true, force: true });
 await mkdir(prepared, { recursive: true });
 for (const source of sources) {
@@ -35,6 +35,12 @@ await writeFile(packagePath, `${JSON.stringify(packageJSON, null, 2)}\n`);
 run("npm", ["install", "--package-lock-only", "--ignore-scripts", "--include=dev"]);
 run("npm", ["ci", "--include=dev"]);
 run("npx", ["--no-install", "expo", "prebuild", "--platform", "all", "--no-install"]);
+// Preserve the same generated text bytes in Git and in the preparation record.
+for (const name of ["android/gradlew.bat", "android/settings.gradle"]) {
+  const path = join(prepared, name);
+  const text = await readFile(path, "utf8");
+  await writeFile(path, text.replaceAll("\r\n", "\n").replace(/[ \t]+$/gm, ""));
+}
 run("node", ["scripts/fix-ios-project-warnings.mjs"]);
 run("npx", ["--no-install", "pod-install", "ios"]);
 run("node", ["--input-type=commonjs", "-e", "require('node:fs').writeFileSync('app.config.snapshot.json', JSON.stringify(require('./app.config.js'), null, 2)+'\\n')"]);

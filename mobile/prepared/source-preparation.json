@@ -2,7 +2,7 @@
   "schema_version": 1,
   "files": {
     ".mprlab/deploy/resources.yml": "e49f1a634b9c51805cf20a1dfb005070f1635e5f2f82ccb7d0f5e160bfd7821a",
-    "Makefile": "9b185e4d4d89d209d47f0bc7960af229afdffb84efbfd264f444d89a47867a96",
+    "Makefile": "ca4a86339040869fca8e6bec8002c11fd80a0a0c3e407a6dc90aec497479ccee",
     "mobile/.gitignore": "45c3b9060a5b801e77f9b43052c5203b2e91357a481e91afc57890481a18af17",
     "mobile/.npmrc": "0ed44e7d606cd7a9eba915a10f13a13a09ea85e4b2bb4415bb0c481dbdcded51",
     "mobile/AGENTS.md": "2f9031bc78a538066adaee47e212d2f5f2fd5727c1f35f0a463eb21837037039",
@@ -31,7 +31,7 @@
     "mobile/scripts/native-build-process.mjs": "423d2055b48905b5848f9a89f53813642464f70b93633e740b1d4926d23bdb3d",
     "mobile/scripts/preparation-sources.mjs": "8b1cecbcf672af6c606c4d3b594c905823101914c4ddf1b671e66b3eed995efd",
     "mobile/scripts/prepare-android-project.mjs": "407a2809f5e150bf646f23338df88bc5c9a8ddabf5019b3e7c760ef9c129a766",
-    "mobile/scripts/prepare-store.mjs": "05c3b14c122149c88b67720674a69db1304cf689a76ce9447aaae84c4c1cc780",
+    "mobile/scripts/prepare-store.mjs": "5f80aeb729a7bf839f4138df1c6e5c5140dad5839b0c49a926876728f42e9f3a",
     "mobile/scripts/record-store-preparation.mjs": "272f7d1a89b58936a49f35f50c3614ab7aeba5ba546c783553a712633e4b1389",
     "mobile/scripts/resolve-metro-port.mjs": "28a76877cccd303b2c0e32682b0932a14e6eede9328b749ba6490d11893fd479",
     "mobile/scripts/test-api-boundaries.mjs": "774e108de8ab71b4db706b4ec19d3151aab4133660575a33ced8fbc78afa2a5e",
