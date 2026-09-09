@@ -2839,7 +2839,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Maintenance
 
-- [!] [M408] (P1) Combine the reviewed Dependabot updates.
+- [x] [M408] (P1) Combine the reviewed Dependabot updates.
   Goal:
   Replace five Dependabot pull requests with one validated dependency update.
 
@@ -2848,7 +2848,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Combine the Go, container, browser test, and mobile dependency updates.
   - Keep React Native and Metro aligned with Expo SDK 57.
   - Regenerate the prepared mobile projects through `make mobile-prepare-store`.
-  - Complete local CI and GitHub CI before closing the replaced pull requests.
+  - Complete applicable local checks and full GitHub CI before closing the replaced pull requests.
 
   Review:
   - PR #360 duplicates the gRPC update in PR #361.
@@ -2865,12 +2865,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Local audit, build, lint, and mobile configuration checks passed.
   Go tests and race detection passed after native preparation completed.
   Native preparation completed with 165 recorded files.
+
   Full local `make ci` reached the container checks and failed at the Docker metadata write.
   The initial Go 1.27 lint run failed because the installed Staticcheck could not read its export data.
-  Pin Staticcheck 0.8.1 and use the declared Go lint tools in both local and GitHub CI.
-  Local Docker writes fail with `meta.db: read-only file system`. Use GitHub CI for the container acceptance checks.
+  Staticcheck 0.8.1 and the declared Go lint tools passed in local and GitHub CI.
+  Local Docker writes fail with `meta.db: read-only file system`.
 
-  Blocked: Local Docker cannot write its metadata database. Full GitHub CI must complete for this dependency set.
+  Full GitHub CI run `34394734866` passed for implementation commit `4a5a777512b3f804601df1b8704999d91a06f56d`.
+  This run completed the Docker and browser acceptance checks.
+
+  Resolution:
+  PR #369 contains the reviewed dependency updates and required validation corrections.
+  PRs #346, #360, #361, #362, and #366 are closed and replaced by PR #369.
 
   Changed Files:
   `Dockerfile`, `Makefile`, `README.md`, `go.mod`, `go.sum`, and `.mprlab/ISSUES.md`.
