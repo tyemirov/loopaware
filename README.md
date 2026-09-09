@@ -596,11 +596,16 @@ Apple release builds use the shared Gateway Xcode Cloud operation.
 The declaration in `.mprlab/apple-build.json` selects the LoopAware workflow and internal TestFlight distribution.
 Xcode Cloud owns automatic signing and the Apple build number.
 Gateway retains the cloud receipt and verifies the existing App Store Connect build.
+After source changes are committed, run `gix release next semver --format json` to inspect the release allocation.
+Set `ios.version` in `mobile/app.config.js` to `next_version` without the `v` prefix.
+Regenerate and commit the prepared project before the cloud build.
+If the release allocation changes, repeat these steps before release.
 The Android adapter retains its native AAB builder and UTC version contract.
 Expo CLI runs during preparation and local development only.
 
 The prepared Apple project contains automatic signing and the repository cloud hook.
 The hook installs Node.js 24 and the locked npm and CocoaPods dependencies.
+It saves `NODE_ENV=production` and `NODE_BINARY` in `ios/.xcode.env.local` for subsequent Xcode phases.
 It verifies the source and native preparation records before dependency installation.
 `mobile/plugins/withStoreBuild.cjs` owns the native bundle phase and its cloud Node environment input.
 
@@ -618,7 +623,7 @@ The private configuration supplies these inputs:
 
 Run `make mobile-release-check` to validate prepared inputs, cloud forwarding, and Android signing behavior.
 The local provider tests use controlled dependencies.
-I041 retains release-version alignment, Apple account setup, and hosted build acceptance.
+Apple account setup and a successful hosted build remain separate provider acceptance steps.
 
 There are no app-owned dry-run lifecycle aliases. For a non-mutating inspection, run the gateway's `plan-app-release`, `plan-app-publish`, or `plan-app-deploy` target with `MPRLAB_APP_ROOT` set to this repository. Production activation remains an operator action.
 
