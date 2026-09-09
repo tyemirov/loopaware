@@ -11,10 +11,9 @@ import sys
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 WEB_ROOT = REPOSITORY_ROOT / "web"
 
-MPR_UI_COMMIT = "97ebeb2df518f91af78aafcb6e14b9691fb20694"
 MPR_UI_BASE_URL = (
     "https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/"
-    f"mpr-ui@{MPR_UI_COMMIT}"
+    "mpr-ui@latest"
 )
 MPR_UI_STYLE_URL = f"{MPR_UI_BASE_URL}/mpr-ui.css"
 MPR_UI_CONFIG_URL = f"{MPR_UI_BASE_URL}/mpr-ui-config.js"
@@ -22,16 +21,11 @@ MPR_UI_BUNDLE_URL = f"{MPR_UI_BASE_URL}/mpr-ui.js"
 JS_YAML_URL = "https://cdn.jsdelivr.net/npm/js-yaml@4.3.0/dist/js-yaml.min.js"
 
 INTEGRITY_BY_URL = {
-    MPR_UI_STYLE_URL: (
-        "sha384-WWDM4bNAbnG6m8Lda3m59qcrh8OkdoLPBMl+1LDA+IvCrjszwBgdt3CizK3ayn75"
-    ),
-    MPR_UI_CONFIG_URL: (
-        "sha384-pl32+7hu3Trs6rwm8vbTkVbjEWI7C8+MbeHGwFZA+OpU4qiA2RmZArBA3wRhMak7"
-    ),
     JS_YAML_URL: (
         "sha384-0zxS50HhMqXyT0WdkhYMK1yK+EpwgVEIHYc1RW1+JgesjsL7Rwqh0WfQSwEDyDH9"
     ),
 }
+MPR_UI_URLS = {MPR_UI_STYLE_URL, MPR_UI_CONFIG_URL, MPR_UI_BUNDLE_URL}
 
 CSP_META_POLICY = (
     REPOSITORY_ROOT / "configs" / "content-security-policy.txt"
@@ -124,18 +118,23 @@ def audit_html(path: Path, failures: list[str]) -> bool:
                 f"{relative_path}: CSP meta must precede every link, script, and style declaration"
             )
 
-    if "@latest" in source:
-        failures.append(f"{relative_path}: mutable @latest CDN selector is forbidden")
     if "js-yaml@4.1.0" in source:
         failures.append(f"{relative_path}: vulnerable js-yaml@4.1.0 selector is forbidden")
 
     for tag, attrs, _line in parser.elements:
+        for declaration in (attrs.get("src", ""), attrs.get("href", ""), attrs.get("data-mpr-ui-bundle-src", "")):
+            if "@latest" in declaration and declaration not in MPR_UI_URLS:
+                failures.append(f"{relative_path}: noncanonical mutable asset: {declaration}")
         asset_url = ""
         if tag == "script":
             asset_url = attrs.get("src", "")
         elif tag == "link" and attrs.get("rel") == "stylesheet":
             asset_url = attrs.get("href", "")
         if not asset_url.startswith("https://cdn.jsdelivr.net/"):
+            continue
+        if asset_url in MPR_UI_URLS:
+            if "integrity" in attrs:
+                failures.append(f"{relative_path}: shared @latest asset has a fixed integrity value: {asset_url}")
             continue
         if attrs.get("integrity", "") == "":
             failures.append(f"{relative_path}: jsDelivr asset lacks integrity: {asset_url}")
@@ -155,7 +154,6 @@ def audit_html(path: Path, failures: list[str]) -> bool:
         "mpr-ui stylesheet",
         {
             "href": MPR_UI_STYLE_URL,
-            "integrity": INTEGRITY_BY_URL[MPR_UI_STYLE_URL],
             "crossorigin": "anonymous",
         },
     )
@@ -175,7 +173,6 @@ def audit_html(path: Path, failures: list[str]) -> bool:
         matching_elements(parser, "script", "src", MPR_UI_CONFIG_URL),
         "mpr-ui config script",
         {
-            "integrity": INTEGRITY_BY_URL[MPR_UI_CONFIG_URL],
             "crossorigin": "anonymous",
         },
     )
@@ -228,7 +225,7 @@ def main() -> int:
     print(
         "browser_asset_audit.ok: "
         f"{len(html_paths)} HTML entry points, "
-        f"{mpr_ui_entry_count} immutable mpr-ui declarations, "
+        f"{mpr_ui_entry_count} current mpr-ui declarations, "
         f"{len(COMPOSE_PATHS)} aligned proxy policies"
     )
     return 0

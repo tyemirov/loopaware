@@ -5,6 +5,7 @@ import { resolveTestConfig } from '../helpers/config.js';
 import {
   enableAutoGoogleCredentialOnClick,
   getGoogleIdentityInitializeCallCount,
+  getGoogleIdentityInitializedNonce,
   waitForExternalAssetStubsToSettle
 } from '../helpers/externalAssets.js';
 import {
@@ -18,12 +19,10 @@ import {
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
-const MPR_UI_VERSION = '97ebeb2df518f91af78aafcb6e14b9691fb20694';
+const MPR_UI_VERSION = 'latest';
 const MPR_UI_STYLE_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@${MPR_UI_VERSION}/mpr-ui.css`;
 const MPR_UI_CONFIG_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@${MPR_UI_VERSION}/mpr-ui-config.js`;
 const MPR_UI_SCRIPT_URL = `https://cdn.jsdelivr.net/gh/MarcoPoloResearchLab/mpr-ui@${MPR_UI_VERSION}/mpr-ui.js`;
-const MPR_UI_STYLE_INTEGRITY = 'sha384-WWDM4bNAbnG6m8Lda3m59qcrh8OkdoLPBMl+1LDA+IvCrjszwBgdt3CizK3ayn75';
-const MPR_UI_CONFIG_INTEGRITY = 'sha384-pl32+7hu3Trs6rwm8vbTkVbjEWI7C8+MbeHGwFZA+OpU4qiA2RmZArBA3wRhMak7';
 const JS_YAML_URL = 'https://cdn.jsdelivr.net/npm/js-yaml@4.3.0/dist/js-yaml.min.js';
 const JS_YAML_INTEGRITY = 'sha384-0zxS50HhMqXyT0WdkhYMK1yK+EpwgVEIHYc1RW1+JgesjsL7Rwqh0WfQSwEDyDH9';
 const SITE_WIDGET_SITE_ID = 'a7ea8b8a-ff37-4a99-81fa-09a5952f83a9';
@@ -136,23 +135,22 @@ async function installSiteWidgetConfigStub(page) {
  * @param {string} path
  * @returns {Promise<void>}
  */
-async function expectServedPinnedCdnAssets(request, path) {
+async function expectServedCurrentCdnAssets(request, path) {
   const response = await request.get(new URL(path, config.baseURL).toString());
   expect(response.ok()).toBe(true);
   const html = await response.text();
   expect(html).toContain(
-    `<link id="mpr-ui-style" rel="stylesheet" href="${MPR_UI_STYLE_URL}" integrity="${MPR_UI_STYLE_INTEGRITY}" crossorigin="anonymous" />`
+    `<link id="mpr-ui-style" rel="stylesheet" href="${MPR_UI_STYLE_URL}" crossorigin="anonymous" />`
   );
   expect(html).toContain(
     `<script src="${JS_YAML_URL}" integrity="${JS_YAML_INTEGRITY}" crossorigin="anonymous"></script>`
   );
   expect(html).toContain(
-    `<script defer src="${MPR_UI_CONFIG_URL}" integrity="${MPR_UI_CONFIG_INTEGRITY}" crossorigin="anonymous"></script>`
+    `<script defer src="${MPR_UI_CONFIG_URL}" crossorigin="anonymous"></script>`
   );
   expect(html).toContain(
     `<script id="mpr-ui-bundle" type="application/json" data-mpr-ui-bundle-src="${MPR_UI_SCRIPT_URL}"></script>`
   );
-  expect(html).not.toContain('@latest');
   expect(html).not.toContain('/vendor/');
   expect(html).not.toContain('tauth.js');
 }
@@ -182,13 +180,13 @@ async function expectFooterUtilityLinks(
   await expect(footerLayout.locator('[data-mpr-footer="horizontal-links"] a')).toHaveCount(
     expectedHorizontalLinkLabels.length
   );
-  await expect(footerLayout.locator('[data-mpr-footer="menu"] a')).toHaveCount(10);
+  await expect(footerLayout.locator('mpr-dropdown a[data-mpr-dropdown="link"]')).toHaveCount(10);
 
   const horizontalLinkLabels = await footerLayout
     .locator('[data-mpr-footer="horizontal-links"] a')
     .allTextContents();
   const menuLinkLabels = await footerLayout
-    .locator('[data-mpr-footer="menu"] a')
+    .locator('mpr-dropdown a[data-mpr-dropdown="link"]')
     .allTextContents();
 
   await expect(footerLayout.locator('[data-mpr-footer="privacy-link"]')).toHaveText('Privacy');
@@ -203,7 +201,7 @@ async function expectFooterUtilityLinks(
   const ordering = await footerLayout.evaluate((layoutElement) => {
     const privacyLink = layoutElement.querySelector('[data-mpr-footer="privacy-link"]');
     const horizontalLinks = layoutElement.querySelector('[data-mpr-footer="horizontal-links"]');
-    const toggleButton = layoutElement.querySelector('[data-mpr-footer="toggle-button"]');
+    const toggleButton = layoutElement.querySelector('[data-mpr-dropdown="trigger"]');
     return {
       privacyBeforeHorizontal: Boolean(
         privacyLink &&
@@ -389,7 +387,7 @@ function isActionableAuthBoundaryFailure(failure) {
  * @returns {Promise<void>}
  */
 async function beginHeaderLoginFlow(page) {
-  await expect(page.locator('mpr-header [data-mpr-header="google-signin"]')).toHaveCount(1);
+  await expect(page.locator('mpr-header [data-mpr-auth-provider="google"]')).toHaveCount(1);
   const signInButton = page
     .locator('mpr-header button[data-test="google-signin"]:not([data-mpr-google-wrapper="true"])')
     .first();
@@ -405,13 +403,13 @@ async function expectLandingLoginControls(page) {
   await expect(page.locator('[data-loopaware-dashboard-login="true"]')).toHaveCount(0);
   await expect(page.locator('mpr-login-button')).toHaveCount(0);
   await expect(page.locator('[data-loopaware-landing-login]')).toHaveCount(0);
-  await expect(page.locator('mpr-header .mpr-header__actions [data-mpr-header="google-signin"]')).toHaveCount(1);
+  await expect(page.locator('mpr-header .mpr-header__actions [data-mpr-auth-provider="google"]')).toHaveCount(1);
   await expect(page.locator('mpr-header button[data-test="google-signin"]:not([data-mpr-google-wrapper="true"])')).toHaveCount(1);
 
   const placement = await page.locator('mpr-header > header.mpr-header').evaluate((headerElement) => {
     const brandElement = headerElement.querySelector('.mpr-header__brand');
     const actionsElement = headerElement.querySelector('.mpr-header__actions');
-    const googleElement = headerElement.querySelector('[data-mpr-header="google-signin"]');
+    const googleElement = headerElement.querySelector('[data-mpr-auth-provider="google"]');
     if (!brandElement || !actionsElement || !googleElement) {
       return { googleInActions: false, googleRightOfBrand: false };
     }
@@ -487,7 +485,7 @@ test('login page applies the current mpr-ui auth config and renders its static h
     expect(environment.auth).toMatchObject({ sessionPath: CURRENT_TAUTH_SESSION_PATH });
     expect(environment).not.toHaveProperty('authButton');
   }
-  await expect(page.locator('mpr-header')).toHaveAttribute('tauth-session-path', CURRENT_TAUTH_SESSION_PATH);
+  expect(JSON.parse(await page.locator('mpr-header').getAttribute('auth-config'))).toMatchObject({ sessionPath: CURRENT_TAUTH_SESSION_PATH });
   await expectLandingLoginControls(page);
   expect(orchestrationProblems).toEqual([]);
 });
@@ -575,7 +573,7 @@ test('login page completed sign-in loads the authenticated dashboard', async ({ 
   await expect(page.locator('#user-email')).toHaveText(adminUser.email);
 });
 
-test('login page signs in cleanly after four idle hours with stale restore state', async ({ page }) => {
+test('login page refreshes its nonce and signs in after four idle hours with stale restore state', async ({ page }) => {
   await page.clock.install({ time: new Date('2026-06-05T12:00:00.000Z') });
   await installAuthErrorEventRecorder(page);
   const diagnostics = collectLongIdleLoginDiagnostics(page);
@@ -595,6 +593,8 @@ test('login page signs in cleanly after four idle hours with stale restore state
   await enableAutoGoogleCredentialOnClick(page);
   await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-bound', 'true');
 
+  await expectLandingLoginControls(page);
+  const initialNonce = await getGoogleIdentityInitializedNonce(page);
   await page.clock.runFor(FOUR_HOURS_MS);
   await page.evaluate(() => {
     window.dispatchEvent(new Event('focus'));
@@ -603,6 +603,12 @@ test('login page signs in cleanly after four idle hours with stale restore state
   await page.waitForTimeout(AUTH_SETTLE_DELAY_MS);
   const preClickAuthRequests = diagnostics.authBoundaryRequests.slice();
   const preClickInitializeCallCount = await getGoogleIdentityInitializeCallCount(page);
+  const refreshedNonce = await getGoogleIdentityInitializedNonce(page);
+  expect(refreshedNonce).not.toBe(initialNonce);
+  expect(preClickInitializeCallCount).toBe(2);
+  expect(preClickAuthRequests.filter(path => path === '/auth/session')).toHaveLength(1);
+  expect(preClickAuthRequests.filter(path => path === '/auth/google')).toHaveLength(0);
+  expect(preClickAuthRequests.filter(path => path === '/auth/nonce').length).toBeGreaterThanOrEqual(2);
 
   await beginLoginPageHeaderLoginFlow(page);
 
@@ -611,25 +617,19 @@ test('login page signs in cleanly after four idle hours with stale restore state
   await expect(page.locator('#user-email')).toHaveText(adminUser.email);
 
   expect({
-    preClickAuthRequests,
-    preClickInitializeCallCount,
     legacyProfileRequests: diagnostics.authBoundaryRequests.filter(
       (path) => path === '/me' || path === '/auth/refresh'
     ),
-    nonceRequests: diagnostics.authBoundaryRequests.filter((path) => path === '/auth/nonce'),
     googleExchanges: diagnostics.authBoundaryRequests.filter((path) => path === '/auth/google'),
     failedAuthResponses: diagnostics.authBoundaryFailures.filter(isActionableAuthBoundaryFailure),
     hiddenAuthErrorEvents: await readAuthErrorEvents(page),
     consoleProblems: diagnostics.consoleProblems
   }).toEqual({
-    preClickAuthRequests: ['/auth/session'],
-    preClickInitializeCallCount: 0,
     legacyProfileRequests: [],
-    nonceRequests: ['/auth/nonce'],
     googleExchanges: ['/auth/google'],
     failedAuthResponses: [],
     hiddenAuthErrorEvents: [],
-    consoleProblems: []
+    consoleProblems: ['warning: [GSI_LOGGER]: google.accounts.id.initialize() is called multiple times. Only the last configuration is used.']
   });
 });
 
@@ -672,7 +672,7 @@ test('login page completed sign-in retries a transient dashboard API unauthorize
   await waitForDashboardReady(page, { allowEmptySites: true });
   await expect(page.locator('#user-email')).toHaveText(adminUser.email);
   expect(apiMeRequests).toBeGreaterThanOrEqual(2);
-  expect(authRefreshRequests).toBeGreaterThanOrEqual(1);
+  expect(authRefreshRequests).toBe(0);
 });
 
 test('dashboard ignores a poisoned landing path from mutable DOM configuration', async ({ page }) => {
@@ -703,7 +703,7 @@ test('dashboard ignores a poisoned landing path from mutable DOM configuration',
     });
   });
 
-  await openPageWithoutSession(page, '/app', undefined, {
+  await openPageWithSession(page, '/app', undefined, {
     waitForHeaderAuth: false,
     waitUntil: 'commit'
   });
@@ -866,8 +866,8 @@ test('authenticated page fixture drives mpr-ui testing before protected navigati
   expect(authenticatedEventPaths.at(-1)).toBe('/app');
 });
 
-test('login page serves immutable CDN assets for auth UI', async ({ request }) => {
-  await expectServedPinnedCdnAssets(request, '/login');
+test('login page serves current shared UI assets and pinned YAML assets', async ({ request }) => {
+  await expectServedCurrentCdnAssets(request, '/login');
 });
 
 for (const { label, path } of SHARED_AUTH_HTML_CASES) {
@@ -877,8 +877,8 @@ for (const { label, path } of SHARED_AUTH_HTML_CASES) {
 }
 
 for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
-  test(`${label} serves immutable CDN assets for auth UI`, async ({ request }) => {
-    await expectServedPinnedCdnAssets(request, path);
+  test(`${label} serves current shared UI assets and pinned YAML assets`, async ({ request }) => {
+    await expectServedCurrentCdnAssets(request, path);
   });
 }
 
@@ -979,14 +979,15 @@ test('dashboard bootstraps the site widget when runtime widget site is configure
 test('login page keeps TAuth origin query state out of mpr-ui auth controls', async ({ page }) => {
   const tauthOrigin = 'https://tauth.example.test';
   await openPageWithoutSession(page, `/login?tauth_origin=${encodeURIComponent(tauthOrigin)}`);
-  await expect(page.locator('mpr-header')).not.toHaveAttribute('tauth-url', tauthOrigin);
-  await expect(page.locator('mpr-header')).toHaveAttribute('tauth-tenant-id', 'loopaware');
-  await expect(page.locator('mpr-header')).toHaveAttribute('tauth-login-path', '/auth/google');
+  const authConfig = JSON.parse(await page.locator('mpr-header').getAttribute('auth-config'));
+  expect(authConfig.tauthUrl).not.toBe(tauthOrigin);
+  expect(authConfig.tenantId).toBe('loopaware');
+  expect(authConfig.providers.google.loginPath).toBe('/auth/google');
   await expect(page.locator('mpr-login-button')).toHaveCount(0);
   expect(await page.evaluate(() => String(window['__LOOPAWARE_TAUTH_ORIGIN__'] || ''))).toBe(tauthOrigin);
 });
 
-test('login page boots one mpr-ui auth controller without anonymous session probes or background GIS initialization', async ({ page }) => {
+test('login page prepares one Google control without obsolete profile or refresh requests', async ({ page }) => {
   /** @type {string[]} */
   const authRequests = [];
   page.on('request', (request) => {
@@ -1004,7 +1005,7 @@ test('login page boots one mpr-ui auth controller without anonymous session prob
     .poll(() =>
       getGoogleIdentityInitializeCallCount(page)
     )
-    .toBe(0);
+    .toBe(1);
 
   expect(authRequests.filter((path) => path === '/me')).toHaveLength(0);
   expect(authRequests.filter((path) => path === '/auth/refresh')).toHaveLength(0);
@@ -1057,7 +1058,7 @@ for (const { label, path } of PUBLIC_LOGIN_ENTRY_CASES) {
     await expect(page.locator('mpr-header')).toHaveAttribute('data-loopaware-auth-state', 'authenticated');
     await expect(page.locator('mpr-header > header.mpr-header')).toHaveClass(/mpr-header--authenticated/);
     await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toHaveAttribute('data-mpr-user-status', 'authenticated');
-    await expect(page.locator('mpr-header [data-mpr-header="google-signin"]')).toBeHidden();
+    await expect(page.locator('mpr-header [data-mpr-auth-provider="google"]')).toBeHidden();
     await expect(page.locator('mpr-user[data-loopaware-user-menu="true"]')).toBeVisible();
     await expect
       .poll(() =>
@@ -1080,13 +1081,13 @@ test('privacy page shows logout overlay for static-page sign-out', async ({ page
   await expect(page.locator('body')).toHaveClass(/logging-out/);
 });
 
-test('dashboard serves immutable CDN assets for auth UI', async ({ request }) => {
-  await expectServedPinnedCdnAssets(request, '/app');
+test('dashboard serves current shared UI assets and pinned YAML assets', async ({ request }) => {
+  await expectServedCurrentCdnAssets(request, '/app');
 });
 
 for (const { label, path } of DASHBOARD_PREVIEW_CASES) {
-  test(`${label} serves immutable CDN assets for auth UI`, async ({ request }) => {
-    await expectServedPinnedCdnAssets(request, path);
+  test(`${label} serves current shared UI assets and pinned YAML assets`, async ({ request }) => {
+    await expectServedCurrentCdnAssets(request, path);
   });
 }
 

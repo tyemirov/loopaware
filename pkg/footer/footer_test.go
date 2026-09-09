@@ -1,12 +1,37 @@
 package footer
 
 import (
+	"encoding/json"
+	"html"
 	"html/template"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestRenderCurrentSharedMenu(testingT *testing.T) {
+	config := baseFooterConfig()
+	config.MenuLabel = testFooterMenuLabel
+	rendered, err := Render(config)
+	require.NoError(testingT, err)
+	match := regexp.MustCompile(`\smenu='([^']*)'`).FindStringSubmatch(string(rendered))
+	require.Len(testingT, match, 2, "footer must emit the current menu attribute")
+	var menu map[string]any
+	require.NoError(testingT, json.Unmarshal([]byte(html.UnescapeString(match[1])), &menu))
+	require.Equal(testingT, map[string]any{
+		"label":     testFooterMenuLabel,
+		"placement": "top",
+		"sections": []any{map[string]any{
+			"id": "mpr-projects", "label": "Projects", "mode": "static",
+			"links": []any{map[string]any{"label": testFooterExampleLinkName, "href": testFooterExampleLinkURL}},
+		}},
+	}, menu)
+	for _, obsolete := range []string{"links-collection=", "toggle-button-id=", "toggle-button-class=", "toggle-label=", "menu-wrapper-class=", "menu-class=", "menu-item-class="} {
+		require.NotContains(testingT, string(rendered), obsolete)
+	}
+}
 
 const (
 	testFooterHostID          = "footer-host"
@@ -16,24 +41,19 @@ const (
 	testFooterInnerClass      = "footer-inner"
 	testFooterWrapperClass    = "footer-wrapper"
 	testFooterBrandClass      = "footer-brand"
-	testFooterMenuWrapper     = "footer-menu-wrapper"
 	testFooterPrefixClass     = "footer-prefix"
 	testFooterPrefixText      = "LoopAware"
-	testFooterToggleButtonID  = "footer-toggle"
-	testFooterToggleClass     = "footer-toggle-class"
-	testFooterMenuClass       = "footer-menu"
-	testFooterMenuItemClass   = "footer-menu-item"
 	testFooterPrivacyClass    = "footer-privacy"
 	testFooterPrivacyHref     = "/privacy"
 	testFooterPrivacyLabel    = "Privacy"
 	testFooterPrivacyModal    = "<div>Privacy</div>"
-	testFooterToggleLabel     = "More"
+	testFooterMenuLabel       = "More"
 	testFooterThemeAttribute  = "data-theme"
 	testFooterThemeAriaLabel  = "Theme"
 	testFooterThemeLightMode  = "light"
 	testFooterThemeDarkMode   = "dark"
-	testFooterSmallSize       = "sm"
-	testFooterThemeSwitcher   = "custom-switcher"
+	testFooterSmallSize       = "small"
+	testFooterThemeSwitcher   = "square"
 	testFooterExampleLinkName = "Docs"
 	testFooterExampleLinkURL  = "/docs"
 	testFooterTemplateName    = "footer"
@@ -50,20 +70,16 @@ func baseFooterConfig() Config {
 		InnerClass:        testFooterInnerClass,
 		WrapperClass:      testFooterWrapperClass,
 		BrandWrapperClass: testFooterBrandClass,
-		MenuWrapperClass:  testFooterMenuWrapper,
 		PrefixClass:       testFooterPrefixClass,
 		PrefixText:        testFooterPrefixText,
-		ToggleButtonID:    testFooterToggleButtonID,
-		ToggleButtonClass: testFooterToggleClass,
-		MenuClass:         testFooterMenuClass,
-		MenuItemClass:     testFooterMenuItemClass,
+		MenuLabel:         testFooterMenuLabel,
 		PrivacyLinkClass:  testFooterPrivacyClass,
 		PrivacyLinkHref:   testFooterPrivacyHref,
 		PrivacyLinkLabel:  testFooterPrivacyLabel,
 		Links: []Link{
 			{
 				Label: testFooterExampleLinkName,
-				URL:   testFooterExampleLinkURL,
+				Href:  testFooterExampleLinkURL,
 			},
 		},
 	}
@@ -93,9 +109,9 @@ func TestRenderFooterWithThemeToggle(testingT *testing.T) {
 	require.Contains(testingT, renderedText, "privacy-modal-content")
 }
 
-func TestRenderFooterWithoutThemeToggleUsesToggleLabel(testingT *testing.T) {
+func TestRenderFooterWithoutThemeToggleUsesMenuLabel(testingT *testing.T) {
 	footerConfig := baseFooterConfig()
-	footerConfig.ToggleLabel = testFooterToggleLabel
+	footerConfig.MenuLabel = testFooterMenuLabel
 	footerConfig.Sticky = false
 	footerConfig.ThemeToggleEnabled = false
 
@@ -103,7 +119,7 @@ func TestRenderFooterWithoutThemeToggleUsesToggleLabel(testingT *testing.T) {
 	require.NoError(testingT, renderErr)
 
 	renderedText := string(rendered)
-	require.Contains(testingT, renderedText, testFooterToggleLabel)
+	require.Contains(testingT, renderedText, testFooterMenuLabel)
 	require.Contains(testingT, renderedText, `sticky="false"`)
 	require.False(testingT, strings.Contains(renderedText, "theme-switcher="))
 }
