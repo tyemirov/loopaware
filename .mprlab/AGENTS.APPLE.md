@@ -29,6 +29,9 @@ Each application owns its product identifiers, native project, shared scheme, de
 - Use Gateway's `apple-cloud-operation` command and its documented configuration flags.
 - Keep the application adapter limited to command forwarding and exit-status propagation.
 - Use the POSIX shell adapter template supplied with MPR Governor.
+- Declare iOS store releases with `mobile_application` and its `build.ios` shell adapter.
+- Declare direct macOS releases with `macos_application` and its `build.macos` shell adapter.
+- Publish the notarized macOS ZIP through the shared Gateway release and publication lifecycle.
 - Run the adapter through `/bin/sh` and invoke the compiled Gateway executable directly.
 - Keep Node.js dependencies in the cloud build environment.
 - Let Gateway read the selected repository's `configs/.env.<owner>` for cloud API credentials.

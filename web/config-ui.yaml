@@ -6,12 +6,19 @@ environments:
       - "https://tyemirov.github.io"
     auth:
       tauthUrl: "https://tauth-api.mprlab.com"
-      googleClientId: "281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com"
       tenantId: "loopaware"
-      loginPath: "/auth/google"
       logoutPath: "/auth/logout"
-      noncePath: "/auth/nonce"
       sessionPath: "/auth/session"
+      providers:
+        google:
+          enabled: true
+          clientId: "281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com"
+          loginPath: "/auth/google"
+          noncePath: "/auth/nonce"
+        apple:
+          enabled: false
+        password:
+          enabled: false
 
   - description: "Local Docker"
     origins:
@@ -22,9 +29,16 @@ environments:
       - "https://computercat.tyemirov.net:4443"
     auth:
       tauthUrl: ""
-      googleClientId: "281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com"
       tenantId: "loopaware"
-      loginPath: "/auth/google"
       logoutPath: "/auth/logout"
-      noncePath: "/auth/nonce"
       sessionPath: "/auth/session"
+      providers:
+        google:
+          enabled: true
+          clientId: "281540686395-b0ndglao5r6u6qih2etrtqudf6t0qbt0.apps.googleusercontent.com"
+          loginPath: "/auth/google"
+          noncePath: "/auth/nonce"
+        apple:
+          enabled: false
+        password:
+          enabled: false

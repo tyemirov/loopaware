@@ -1,4 +1,5 @@
 // @ts-check
+import { installSharedUIAssets } from './sharedUIAssets.mjs';
 
 const GOOGLE_IDENTITY_URL = 'https://accounts.google.com/gsi/client';
 const GOOGLE_IDENTITY_STYLE_URL = 'https://accounts.google.com/gsi/style';
@@ -33,7 +34,7 @@ const GOOGLE_IDENTITY_STUB = `(() => {
       : nonce
         ? 'stub-google-credential::' + nonce
         : 'stub-google-credential';
-    config.callback({ credential: credential });
+    config.callback({ credential: credential, state: state.lastButtonOptions.state });
   }
 
   state.emitCredential = emitCredential;
@@ -67,7 +68,8 @@ const GOOGLE_IDENTITY_STUB = `(() => {
         clientId: String(config && (config.client_id || config.clientId) ? (config.client_id || config.clientId) : '')
       });
     },
-    renderButton: function(target) {
+    renderButton: function(target, options) {
+      state.lastButtonOptions = options;
       state.renderCount += 1;
       if (target && typeof target.setAttribute === 'function') {
         target.setAttribute('data-google-stubbed', 'true');
@@ -80,10 +82,9 @@ const GOOGLE_IDENTITY_STUB = `(() => {
         button.textContent = 'Sign in with Google';
         target.appendChild(button);
         button.addEventListener('click', function() {
+          options.click_listener();
           if (state.autoCredentialOnClick === true) {
-            try {
-              emitCredential();
-            } catch (error) {}
+            emitCredential();
           }
         });
       }
@@ -278,6 +279,7 @@ export async function installExternalAssetStubs(page, config) {
     return;
   }
   browserPage.__loopawareExternalAssetStubsInstalled = true;
+  await installSharedUIAssets(page);
   ensureAssetRouteTracker(browserPage);
   const appOrigin = config?.baseOrigin || (config?.baseURL ? new URL(config.baseURL).origin : '');
 

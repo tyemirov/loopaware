@@ -2203,6 +2203,36 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [x] [I042] (P1) Prepare the current shared UI migration.
+  Goal:
+  Use the current shared authentication config, footer menu, and protected request transport in the browser application.
+  Requirements:
+  - Convert each browser config environment to `auth.providers` with its current identity and endpoints.
+  - Convert the footer generator, source pages, and generated resource pages together.
+  - Use literal `@latest` for all MPR UI assets.
+  - Update the browser asset audit for the selected shared contract.
+  - Preserve strict checks for other external assets.
+  - Use shared session recovery for protected requests with authorization before domain work.
+  - Preserve unrelated Apple guide changes.
+  Deliverables:
+  - Update production sources, fixtures, generated pages, and current documentation together.
+  - Record candidate digests, native CI, public observations, and the central I009 dependency.
+  Validation:
+  - Use successful hosted run `34321419996` at `7bbad2db68c4bd314bd520b875b9eb4b014f870e` as the initial native CI result.
+  - Record failed real config and browser regressions before production changes.
+  - Verify login, restoration, recovery, one persisted mutation, logout, and footer use against the shared candidate.
+  - Run final native CI after the last application change.
+  - Keep shared publication and production acceptance in the central I009 record.
+  Resolution:
+  - Converted both auth environments, the Go renderer, and 41 static footers.
+  - Preserved labels, destinations, utility links, and theme config across all 41 footers.
+  - Added shared protected transport and explicit authenticated dashboard startup.
+  - Passed seven candidate browser checks and 100 authentication, logout, and browser-security checks.
+  - Final `make ci` passed, including all 472 integration scenarios and the mobile preparation checks.
+  - Used `LOOPAWARE_TEST_SUITE=test:shared-ui make test-integration` for the focused suite.
+  - Retained candidate digests and seven public HTTP observations in the migration document.
+  - Preserved the unrelated Apple guide change.
+
 - [x] [I041] (P1) {B105,B106} Use the shared Xcode Cloud release flow
   Goal:
   Build Apple release artifacts through the single MPR Lab Xcode Cloud flow.

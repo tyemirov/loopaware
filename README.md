@@ -211,9 +211,19 @@ Ensure the TAuth service is running at the configured `auth.tauth.base_url` with
 Administrators listed in `configs/config.loopaware.yml` can manage every site; other users see sites they own, sites
 they originally created with their authenticated account, or sites where an admin added their email as a team member.
 
-The static frontend pins `mpr-ui` to its full release commit through CDN URLs and lets `mpr-ui` own browser
-authentication scaffolding. Direct jsDelivr JavaScript and CSS declarations carry SHA-384 subresource integrity;
-the mpr-ui bundle is loaded by the upstream mpr-ui configurator from that immutable commit URL. Every HTML entry point
+The static frontend uses literal `@latest` CDN URLs for the three MPR UI assets.
+MPR UI owns browser authentication and protected management requests.
+The provider config uses `auth.providers` in each environment.
+The application waits for the shared bundle and authentication before it requests account data.
+The shared transport recovers the session after an unauthorized response.
+The API authorizes each protected request before domain work, which permits one mutation replay.
+
+The inactivity logout flow reads the current header `auth-config` for its TAuth request.
+Other external JavaScript and CSS declarations retain pinned versions and SHA-384 subresource integrity.
+The MPR UI declarations omit fixed integrity values because their URLs select the current shared release.
+See [shared UI migration](docs/mpr-ui-migration.md) for candidate evidence and the central I009 dependency.
+
+Every HTML entry point
 declares the canonical `configs/content-security-policy.txt` static-hosting CSP before executable or styled content. The local proxies enforce the same policy
 as a response header and add `frame-ancestors 'none'`, which CSP metadata cannot enforce. Run
 `make browser-security-audit` to detect dependency, integrity, CSP, or proxy-policy drift. Do not copy third-party

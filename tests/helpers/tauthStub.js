@@ -142,11 +142,22 @@ export async function installTauthStub(page, config, options) {
     return `${sessionCookieName}=${sessionCookieValue}; Path=/; SameSite=Lax`;
   }
 
+  function corsHeaders(route) {
+    const origin = route.request().headers().origin;
+    return origin ? {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, X-TAuth-Tenant, X-Requested-With',
+      'Vary': 'Origin'
+    } : {};
+  }
+
   async function fulfillJSON(route, status, body, headers) {
     await route.fulfill({
       status,
       contentType: 'application/json; charset=utf-8',
-      headers: headers || {},
+      headers: { ...corsHeaders(route), ...headers },
       body: JSON.stringify(body)
     });
   }
@@ -154,6 +165,7 @@ export async function installTauthStub(page, config, options) {
   async function fulfillNoContent(route) {
     await route.fulfill({
       status: 204,
+      headers: corsHeaders(route),
       body: ''
     });
   }
@@ -171,6 +183,11 @@ export async function installTauthStub(page, config, options) {
     const url = new URL(request.url());
     if (!['/me', '/auth/session', '/auth/refresh', '/auth/nonce', '/auth/google', '/auth/logout'].includes(url.pathname)) {
       await route.fallback();
+      return;
+    }
+
+    if (request.method() === 'OPTIONS') {
+      await fulfillNoContent(route);
       return;
     }
 
