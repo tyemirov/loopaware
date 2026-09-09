@@ -1,7 +1,7 @@
 override SHELL := /bin/sh
 override GO_SOURCES := $(shell find . -name '*.go' -not -path "./vendor/*" -not -path "./tests/*" -not -path "./tools/pinguin/vendor/*" -not -path "./.cache/*" -not -path "./tools/pinguin/.cache/*")
 override PINGUIN_DIR := tools/pinguin
-override STATICCHECK_VERSION := v0.6.1
+override STATICCHECK_VERSION := v0.8.1
 override INEFFASSIGN_VERSION := v0.2.0
 override GOVULNCHECK_VERSION := v1.6.0
 override STATICCHECK := honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
@@ -76,17 +76,8 @@ build:
 
 lint: lint-js
 	go vet ./...
-	@mkdir -p $(CURDIR)/.cache/home
-	@if command -v staticcheck >/dev/null 2>&1; then \
-		HOME=$(CURDIR)/.cache/home XDG_CACHE_HOME=$(CURDIR)/.cache staticcheck -checks=all,-SA1019,-ST1000 ./...; \
-	else \
-		go run $(STATICCHECK) -checks=all,-SA1019,-ST1000 ./...; \
-	fi
-	@if command -v ineffassign >/dev/null 2>&1; then \
-		XDG_CACHE_HOME=$(CURDIR)/.cache ineffassign ./...; \
-	else \
-		go run $(INEFFASSIGN) ./...; \
-	fi
+	go run $(STATICCHECK) -checks=all,-SA1019,-ST1000 ./...
+	go run $(INEFFASSIGN) ./...
 
 lint-js: client-react-native-check mobile-check
 	@if [ ! -d "$(CURDIR)/tests/node_modules" ]; then \
