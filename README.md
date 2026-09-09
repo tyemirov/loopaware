@@ -618,6 +618,18 @@ The hook installs Node.js 24 and the locked npm and CocoaPods dependencies.
 It saves `NODE_ENV=production` and `NODE_BINARY` in `ios/.xcode.env.local` for subsequent Xcode phases.
 It verifies the source and native preparation records before dependency installation.
 `mobile/plugins/withStoreBuild.cjs` owns the native bundle phase and its cloud Node environment input.
+The plugin removes absent test targets from the shared scheme and generates strict Podfile property parsing.
+It explicitly selects React Native and Expo source dependencies, including when the process inherits prebuilt flags.
+`make mobile-prepare-store` runs `make mobile-podfile-config-check` after native preparation.
+This check uses actual CocoaPods for valid, missing, and malformed properties, plus an unavailable prebuilt service.
+Use `pod install --deployment` from `mobile/prepared/ios` to verify the retained dependency lock before hosted acceptance.
+The preparation script configures the release metadata phase through `mobile/scripts/fix-ios-project-warnings.mjs`.
+The phase uses Apple Foundation through `mobile/scripts/strip-release-metadata.swift` and the declared Xcode toolchain.
+It rejects missing or invalid property lists and preserves custom app values and the original file format.
+It removes only the exact Expo development service entries and default description.
+`make mobile-release-metadata-check` executes the generated phase against seven cases on macOS.
+Other platforms check the declared input dependency and skip the six macOS execution cases.
+Native preparation and release validation include this target.
 
 Keep the Android signing files under the ignored `configs/signing/` directory.
 Set their paths and passwords in `configs/.env.loopaware`.

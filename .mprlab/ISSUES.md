@@ -11,6 +11,84 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B110] (P1) Preserve valid metadata and reject release cleanup errors
+  Goal:
+  The release phase must reject invalid metadata and preserve custom app values.
+
+  Evidence:
+  The generated phase suppresses property-list errors and matches custom values by substring.
+
+  Requirements:
+  - Exercise the generated Xcode phase with valid, missing, malformed, and binary property lists.
+  - Replace the phase through the repository preparation script.
+  - Use Apple Foundation without additional package dependencies.
+  - Preserve custom values and remove only the exact development entries.
+
+  Validation:
+  Five initial integration cases failed against the original generated phase.
+  Fresh preparation passed four CocoaPods cases and seven metadata checks after correction.
+  Final `make ci` passed, including 472 browser and API scenarios, backend and race tests, audits, and native bundles.
+  The logs are `/tmp/loopaware-b110-preparation-corrected.log` and `/tmp/loopaware-b110-final-ci.log`.
+  Existing package versions, dependency lockfiles, and app metadata stayed unchanged at Apple version 1.1.0.
+
+- [x] [B109] (P1) Select native source dependencies explicitly
+  Goal:
+  Native dependency selection must remain unchanged when a prebuilt service is unavailable.
+
+  Evidence:
+  The generated properties select neither React Native nor Expo source dependencies.
+  Inherited prebuilt flags can change the selected dependency graph.
+
+  Requirements:
+  - Exercise an unavailable prebuilt service through actual CocoaPods.
+  - Declare source dependencies and override inherited prebuilt flags through the source plugin.
+  - Regenerate native output and verify the deployment install preserves its lock.
+
+  Validation:
+  The unavailable-service case first failed during actual CocoaPods evaluation.
+  Native preparation passed all four cases after the source plugin correction.
+  The deployment install preserved the dependency lock. Existing package versions and app metadata stayed unchanged.
+  Generated privacy reasons match the installed Expo FileSystem manifest.
+  The preparation log is `/tmp/loopaware-native-review-preparation.log`.
+  Final `make ci` passed, including 472 browser and API scenarios.
+  The final log is `/tmp/loopaware-native-review-final-ci.log`.
+
+- [x] [B108] (P1) Reject native dependency property errors
+  Goal:
+  CocoaPods must reject absent or malformed dependency properties.
+
+  Evidence:
+  The generated Podfile replaces property read and parse errors with an empty object.
+
+  Requirements:
+  - Exercise valid, missing, and malformed properties through actual CocoaPods.
+  - Remove the recovery from the source plugin output and regenerate the project.
+
+  Validation:
+  Actual CocoaPods first accepted missing and malformed property files.
+  All three cases passed after the source plugin correction and native regeneration.
+  The focused logs are `/tmp/loopaware-b108-initial.log` and `/tmp/loopaware-b108-fixed.log`.
+  Final `make ci` passed, including 472 browser and API scenarios.
+  The final log is `/tmp/loopaware-native-review-final-ci.log`.
+
+- [x] [B107] (P1) Remove the missing native test target from the shared scheme
+  Goal:
+  The shared scheme must reference only targets in the prepared Xcode project.
+
+  Evidence:
+  The prepared scheme references LoopAwareTests, but that target is absent from its project.
+
+  Requirements:
+  - Verify each scheme target through the prepared project parser.
+  - Correct the source plugin and regenerate the retained native project.
+
+  Validation:
+  The new scheme check first failed on the absent target.
+  It passed after the source plugin correction and native regeneration.
+  The focused logs are `/tmp/loopaware-b107-initial.log` and `/tmp/loopaware-b107-fixed.log`.
+  Final `make ci` passed, including 472 browser and API scenarios.
+  The final log is `/tmp/loopaware-native-review-final-ci.log`.
+
 - [x] [B105] (P1) Save the production environment for Xcode phases
   Goal:
   Use the production Expo config in each Xcode build phase.
@@ -2269,6 +2347,13 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   Final review validation passed `make ci`, including 465 browser and API scenarios.
   The source changes are complete.
   Apple account setup and a hosted build remain separate provider acceptance steps.
+
+  B107 through B109 correct the native scheme and dependency generation through the source plugin.
+  Actual CocoaPods passed valid, missing, malformed, and unavailable-service cases.
+  The deployment install preserved the dependency lock. Existing package versions and app metadata remained unchanged.
+  The generated privacy reasons match the installed Expo FileSystem manifest.
+  Final `make ci` passed, including 472 browser and API scenarios, native bundles, and prepared source verification.
+  Hosted Apple compilation and signing remain separate acceptance steps.
 
 - [x] [I040] (P1) {P002} Make LoopAware mobile releases portable.
   Goal:
