@@ -11,6 +11,39 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B111] (P1) Use an integer for the Android version code
+  Goal:
+  Gradle must use the supplied Android version code as an integer.
+
+  Evidence:
+  The Android release fails during Gradle configuration with `Value is null`.
+  The generated expression calls `toInteger()` on the result of `versionCode(...)`.
+
+  Requirements:
+  - Exercise the prepared project through actual Gradle configuration.
+  - Change the supplied version code to an integer before assignment.
+  - Reject absent or invalid version codes without a default value.
+  - Correct the source plugin and regenerate the prepared project.
+
+  Validation:
+  The retained `make ci` result applies to source commit `864e72bc99a47c61e226023f0d387cc495910375` before this change.
+  Both valid-code cases first failed during actual Gradle configuration with `Value is null`.
+  After correction, both supplied versions passed. Gradle rejected absent and nonnumeric version codes.
+  Native preparation passed four CocoaPods cases and seven metadata checks.
+  The logs are `/tmp/loopaware-b111-initial.log`, `/tmp/loopaware-b111-fixed.log`, and `/tmp/loopaware-b111-preparation.log`.
+  Final `make ci` passed, including the Gradle cases, backend and race tests, and 472 browser and API scenarios.
+  The final log is `/tmp/loopaware-b111-final-ci.log`.
+  The language review found no errors in this entry. The Governor check found existing differences in six unchanged files.
+
+  Resolution:
+  The source plugin changes the environment value to an integer before assignment to `versionCode`.
+  The prepared project has no default Android version code.
+  `make ci` includes the actual Gradle configuration checks.
+
+  Changed Files:
+  `Makefile`, `tests/mobile/android-config.mjs`, `mobile/plugins/withStoreBuild.cjs`, and `.mprlab/ISSUES.md`.
+  Prepared output: `android/app/build.gradle`, `plugins/withStoreBuild.cjs`, `native-preparation.json`, and `source-preparation.json` under `mobile/prepared/`.
+
 - [x] [B110] (P1) Preserve valid metadata and reject release cleanup errors
   Goal:
   The release phase must reject invalid metadata and preserve custom app values.
