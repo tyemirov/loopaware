@@ -11,6 +11,30 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B104] (P1) Start CI for every pull request to master.
+  Goal:
+  Start the required `test` check for all pull requests to `master`.
+
+  Evidence:
+  PR #353 changes only license files. CI does not start because of the path filter, but `master` requires the `test` check.
+
+  Requirements:
+  - Remove the `pull_request.paths` filter from `.github/workflows/ci.yml`.
+  - Make the workflow audit require all pull requests to `master`.
+
+  Validation:
+  The initial `make ci` passed with 465 browser and API tests.
+  The updated audit rejected the original workflow. After the workflow change, `make security-audit` passed.
+  Final `make ci` passed in the primary checkout with 465 browser and API tests.
+  The language check found no errors in this entry.
+  The Governor check found existing template differences in six unrelated files.
+
+  Resolution:
+  Removed the pull request path filter. The workflow audit requires the unrestricted pull request trigger for `master`.
+
+  Changed Files:
+  `.github/workflows/ci.yml`, `scripts/audit-github-workflow.py`, and `.mprlab/ISSUES.md`.
+
 - [x] [B103] (P1) Update the mobile YAML parser dependency.
   Goal:
   Pass the mobile dependency audit with the current parser.

@@ -24,12 +24,19 @@ try:
         "github_workflow_audit_failed: workflow must not grant write permissions",
     )
     require(
-        workflow_source.count("      - '.github/**'") == 2,
-        "github_workflow_audit_failed: every CI event must include all GitHub control files",
+        re.search(
+            r"(?m)^  pull_request:\n    branches:\n      - master\n(?=\n\S|\Z)",
+            workflow_source,
+        ) is not None,
+        "github_workflow_audit_failed: required CI must run for every pull request to master without path or event filters",
     )
     require(
-        workflow_source.count("      - 'Dockerfile'") == 2,
-        "github_workflow_audit_failed: every CI event must include the production Dockerfile",
+        workflow_source.count("      - '.github/**'") == 1,
+        "github_workflow_audit_failed: push CI must include all GitHub control files",
+    )
+    require(
+        workflow_source.count("      - 'Dockerfile'") == 1,
+        "github_workflow_audit_failed: push CI must include the production Dockerfile",
     )
 
     action_uses = re.findall(r"(?m)^\s+uses:\s+([^@\s]+)@([^\s#]+)", workflow_source)

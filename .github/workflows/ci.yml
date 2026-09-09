@@ -22,21 +22,6 @@ on:
   pull_request:
     branches:
       - master
-    paths:
-      - '.github/**'
-      - '.mprlab/deploy/**'
-      - '**/*.go'
-      - 'clients/**'
-      - 'Dockerfile'
-      - 'docker-compose*.yml'
-      - 'configs/**'
-      - 'mobile/**'
-      - 'scripts/**'
-      - 'tests/**'
-      - 'web/**'
-      - 'Makefile'
-      - 'go.mod'
-      - 'go.sum'
 
 concurrency:
   group: ci-${{ github.ref }}
