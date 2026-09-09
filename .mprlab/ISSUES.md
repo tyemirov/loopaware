@@ -2136,6 +2136,26 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [-] [I040] (P1) {P002} Make LoopAware mobile releases portable.
+  Goal:
+  Build the same signed store artifacts from a repository copy and its ignored private inputs.
+
+  Requirements:
+  - Implement the P002 release plan.
+  - Keep all persistent signing inputs in ignored repository files.
+  - Supply secrets from the canonical private environment file.
+  - Prepare native projects before release and verify their source identity.
+  - Use the generic Gateway native build adapter for release artifacts.
+  - Preserve mobile CalVer, build-number allocation, store identities, and native authentication configuration.
+  - Keep local development commands available.
+
+  Validation:
+  - Start with failing release-boundary tests.
+  - Verify missing inputs, stale preparation, interruption cleanup, and a relocated repository.
+  - Run the native preparation targets, focused checks, and final CI.
+  - Build signed Android and iOS artifacts through the canonical lifecycle.
+
+
 - [x] [I039] (P1) Standardize HTTP health at `/healthz`.
   Goal:
   Make `/healthz` the canonical health endpoint for the LoopAware API and
@@ -3180,6 +3200,32 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 
 ## Planning
+
+- [x] [P002] (P1) Select the portable LoopAware mobile release scope.
+  Goal:
+  Release the aggregate collector through the canonical lifecycle without dependence on machine-local signing credentials.
+
+  Evidence:
+  - The selected manifest includes the backend, website, React Native package, and LoopAware mobile applications.
+  - The Android builder reads upload credentials from a default path below the operator home directory.
+  - The iOS builder reads a default keychain and password file below that directory.
+  - The private deployment environment has no mobile signing assignments.
+  - The iOS release builder invokes Expo prebuild. The current Expo guide requires native preparation before release.
+  - The release decision for F016 selects `v1.1.0`. The React Native package still declares `1.0.2`.
+
+  Proposed implementation:
+  - Keep private signing inputs in ignored repository files and the canonical environment file.
+  - Preserve the Android upload identity and Apple application identity.
+  - Construct a temporary signing session from the repository inputs.
+  - Prepare native projects before release and record the source identity.
+  - Build those inputs through the generic Gateway mobile build adapter.
+  - Align the package version with the authoritative release decision.
+  - Verify portability in an isolated repository copy before store artifact production.
+
+  Decision:
+  - On September 8, 2026, the owner selected the portable mobile migration for the current LoopAware rollout.
+  - I040 owns implementation and validation. F016 source validation is complete.
+
 *do not implement yet*
 
 - [x] [P001] (P1) Define restricted analytics for child-audience applications.
