@@ -76,7 +76,8 @@ export async function createSite(config, cookie, site) {
   const payload = {
     name: site.name,
     allowed_origin: origin || site.allowedOrigin,
-    owner_email: site.ownerEmail
+    owner_email: site.ownerEmail,
+    traffic_profile: site.trafficProfile || "detailed"
   };
   const { response, payload: body } = await apiRequest({
     baseURL: config.baseURL,

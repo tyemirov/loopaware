@@ -26,3 +26,5 @@ mobile/ios/
 Makefile
 issues.md/
 .mprlab/deploy/.env
+configs/signing/
+mobile/prepared/

@@ -480,6 +480,47 @@ For non-JavaScript environments you can fall back to a plain image pixel:
 <img src="https://loopaware.mprlab.com/public/visits?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f&url=https%3A%2F%2Fexample.com%2F" alt="" width="1" height="1" />
 ```
 
+## Daily counts
+
+Choose **Daily counts only** when you create a site.
+The traffic profile is fixed after creation.
+Existing sites keep individual visits.
+Use a separate aggregate site for native analytics.
+
+The public browser client is `count.js?site_id=SITE_ID`.
+It sends one request when the script starts.
+The native client uses this HTTP contract:
+
+```http
+POST /public/sites/SITE_ID/visit-counts
+Content-Type: application/json
+Origin: CONFIGURED_ORIGIN
+
+{}
+```
+
+Send the request to the LoopAware API hostname.
+Omit cookies and referrers. Keep the body empty except for the JSON object delimiters.
+Do not retry an uncertain response.
+A `204` response confirms the increment.
+An incorrect traffic profile returns `409`.
+Invalid fields or query data return `400`. A disallowed origin returns `403`.
+
+The database stores only the site ID, UTC date, and accepted request count.
+Reports cannot determine unique visitors, individual visits, pages, devices, or locations for aggregate sites.
+These metrics are unavailable in the API and dashboards.
+A mixed portfolio reports totals by UTC calendar day and marks visitor metrics unavailable.
+
+`analytics.aggregate_retention_days` specifies the retention window, from 1 to 90 calendar days.
+The canonical configuration uses 90 days, including the current UTC date.
+Cleanup runs before the server accepts requests and each day afterward.
+A restored database passes the same startup check.
+Site deletion also removes the daily totals.
+
+Collector request logs and crash logs exclude identifying request fields.
+Verify proxy logs separately before production activation.
+See [the application contract](.mprlab/CHILD-AUDIENCE-ANALYTICS.md) for the required deployment evidence.
+
 ## Capturing developer errors
 
 Server-side clients should use the protected `/sentry/errors` endpoint with a per-site ingest token. The repository
@@ -545,15 +586,38 @@ Each target is a zero-argument wrapper around the exact sibling `../mprlab-gatew
 
 Deployment-only private values belong in the ignored `.mprlab/deploy/.env` file with mode `0600`. The manifest binds those values through its `private_values` resource; secret bytes never belong in the manifest. Release and publish do not read this deployment input.
 
-The mobile resource builds locally. Release runs Expo prebuild only as the native-project generator, then creates one signed App Store Connect IPA with Xcode and one signed Google Play AAB with Gradle. Publish validates and uploads those exact sealed files through `xcrun altool` and the Google Play Android Publisher API. No Expo account, EAS project, hosted build, or EAS submit is part of the lifecycle.
+Run `make mobile-prepare-store` after a mobile source or build configuration change.
+This command generates the production native projects under `mobile/prepared/`.
+Commit the prepared files with their source changes.
+Release verifies the recorded file digests before the native build.
+A source change requires preparation again.
 
-The `mobile_application` entry declares the two repository-owned native build
-paths. The gateway seals those build outputs and owns store-provider
-publication as part of the complete application lifecycle. Native build
-acceptance uses LoopAware's real scripts. The selected manifest does not
-declare app-owned publication handlers.
+Release uses the generic Gateway native builder to create signed IPA and AAB files.
+Publication submits those sealed files through the Gateway store publishers.
+Expo CLI runs during preparation and local development only.
+Mobile versions retain the UTC `YYYY.M.D` format.
+The build number remains the number of seconds since `2020-01-01T00:00:00Z`.
 
-The local machine must have the canonical Apple distribution signing identity and Android upload key described by `mobile/android-release-identity.json`. App Store Connect uses the ignored `configs/AuthKey_82P4KZ86HM.p8`; Google Play uses Application Default Credentials and the ignored LoopAware upload-keystore files under `~/.local/share/loopaware/android-upload/`. These provider credentials remain outside Git and are checked before their platform build or publication begins.
+Keep persistent signing files under the ignored `configs/signing/` directory.
+Set their paths and passwords in the ignored `configs/.env.loopaware` file.
+The Android key must match `mobile/android-release-identity.json`.
+Apple signing uses a distribution certificate archive and an App Store profile for `com.mprlab.loopaware`.
+The builder imports these inputs into a temporary keychain and removes its temporary state after the build.
+
+The private configuration supplies these inputs:
+
+- `LOOPAWARE_ANDROID_KEYSTORE`, `LOOPAWARE_ANDROID_STORE_PASSWORD`, `LOOPAWARE_ANDROID_KEY_ALIAS`, and `LOOPAWARE_ANDROID_KEY_PASSWORD`.
+- `LOOPAWARE_APPLE_CERTIFICATE_PATH`, `LOOPAWARE_APPLE_CERTIFICATE_PASSWORD`, and `LOOPAWARE_APPLE_PROFILE_PATH`.
+- `APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_API_ISSUER_ID`, and `APP_STORE_CONNECT_API_KEY_PATH`.
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH`, `NPM_API_KEY`, and `GH_TOKEN`.
+- `JAVA_HOME` and `ANDROID_HOME` for the installed Android toolchain.
+
+Copy the repository and its ignored private files to relocate the build inputs.
+Update toolchain paths and absolute publication key paths in `configs/.env.loopaware` on the new computer.
+Install Node, the Android toolchain, and Xcode with CocoaPods on that computer.
+Run `make mobile-release-check` to verify preparation and temporary signing behavior.
+The signing tests use a local tool protocol.
+Native builds and store publication remain separate checks.
 
 There are no app-owned dry-run lifecycle aliases. For a non-mutating inspection, run the gateway's `plan-app-release`, `plan-app-publish`, or `plan-app-deploy` target with `MPRLAB_APP_ROOT` set to this repository. Production activation remains an operator action.
 

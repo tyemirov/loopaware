@@ -432,6 +432,12 @@
                       </button>
                     </div>
                     <input id="edit-site-name" type="text" class="form-control" autocomplete="off" />
+                    <label for="site-traffic-profile" class="form-label mt-2">Traffic collection</label>
+                    <select id="site-traffic-profile" class="form-select" disabled>
+                      <option value="detailed">Individual visits</option>
+                      <option value="aggregate">Daily counts only</option>
+                    </select>
+                    <p class="form-text">Collection is fixed when the site is created. Daily counts have no visitor or device records.</p>
                   </div>
                   <div class="col-md-6">
                     <div class="d-flex align-items-center justify-content-between">
@@ -1787,6 +1793,7 @@
         var subscribeAllowedOriginsList = document.getElementById(elementIds.subscribe_allowed_origins_list);
         var trafficSnippetTextarea = document.getElementById(elementIds.traffic_snippet_textarea);
         var copyTrafficSnippetButton = document.getElementById(elementIds.copy_traffic_snippet_button);
+        var trafficProfileInput = document.getElementById('site-traffic-profile');
         var trafficAllowedOriginsList = document.getElementById(elementIds.traffic_allowed_origins_list);
         var sentryIngestEndpointInput = document.getElementById('sentry-ingest-endpoint');
         var sentryIngestTokenTextarea = document.getElementById('sentry-ingest-token');
@@ -3517,7 +3524,29 @@
           subscriberCountElement.classList.remove('d-none');
           subscriberCountElement.textContent = normalizedTotal.toString();
         }
+        var aggregateTrafficText = Object.freeze({ unavailable: 'Unavailable for daily counts', unique: 'Unique visitors unavailable' });
+        function selectedTrafficIsAggregate() {
+          return state.sites.some(function(site) { return site.id === state.selectedSiteId && site.traffic_profile === 'aggregate'; });
+        }
+        function renderAggregateUnavailable() {
+          [topPagesChart, deviceTypesChart, locationsMap, trafficEngagementSummary, trafficAttributionChart].forEach(function(element) {
+            renderChartMessage(element, aggregateTrafficText.unavailable);
+          });
+        }
         function setVisitCounts(total, unique) {
+          if (selectedTrafficIsAggregate()) {
+            if (visitCountElement) {
+              visitCountElement.classList.remove('d-none');
+              visitCountElement.textContent = total + (total === 1 ? ' request' : ' requests');
+            }
+            if (uniqueVisitorCountElement) {
+              uniqueVisitorCountElement.classList.remove('d-none');
+              uniqueVisitorCountElement.textContent = aggregateTrafficText.unique;
+            }
+            renderAggregateUnavailable();
+            return;
+          }
+
           if (visitCountElement) {
             var normalizedTotal = typeof total === 'number' && total > 0 ? total : 0;
             if (normalizedTotal === 0) {
@@ -3560,6 +3589,10 @@
               allSitesUniqueVisitorCountElement.textContent = normalizedUnique + ' unique';
             }
           }
+          if (unique === null) {
+            if (allSitesUniqueVisitorCountElement) { allSitesUniqueVisitorCountElement.classList.remove('d-none'); allSitesUniqueVisitorCountElement.textContent = aggregateTrafficText.unique; }
+            if (allSitesVisitCountElement) { allSitesVisitCountElement.classList.remove('d-none'); allSitesVisitCountElement.textContent = total + ' recorded requests'; }
+          }
           if (allSitesSiteCountElement) {
             var normalizedSiteCount = typeof siteCount === 'number' && siteCount > 0 ? siteCount : 0;
             if (normalizedSiteCount === 0) {
@@ -3579,7 +3612,7 @@
                 site_id: site.site_id || '',
                 site_name: site.site_name || site.site_id || '',
                 visit_count: Number(site.visit_count) || 0,
-                unique_visitor_count: Number(site.unique_visitor_count) || 0
+                unique_visitor_count: site.unique_visitor_count === null ? null : Number(site.unique_visitor_count) || 0
               };
             }).filter(function(site) {
               return site.site_id;
@@ -3590,7 +3623,7 @@
               site_id: site.id || '',
               site_name: site.name || site.id || '',
               visit_count: Number(site.visit_count) || 0,
-              unique_visitor_count: Number(site.unique_visitor_count) || 0
+              unique_visitor_count: site.unique_visitor_count === null ? null : Number(site.unique_visitor_count) || 0
             };
           }).filter(function(site) {
             return site.site_id;
@@ -3956,7 +3989,7 @@
           var totalVisits = selectedSites.reduce(function(total, site) {
             return total + (Number(site.visit_count) || 0);
           }, 0);
-          var uniqueVisitors = selectedSites.reduce(function(total, site) {
+          var uniqueVisitors = selectedSites.some(function(site) { return site.unique_visitor_count === null; }) ? null : selectedSites.reduce(function(total, site) {
             return total + (Number(site.unique_visitor_count) || 0);
           }, 0);
           setAllSitesTrafficCounts(totalVisits, uniqueVisitors, selectedSites.length);
@@ -4607,7 +4640,7 @@
           }
 
           function buildTrafficSnippet(siteId) {
-            var scriptURL = widgetBaseURL + '/pixel.js?site_id=' + siteId;
+            var scriptURL = widgetBaseURL + (selectedTrafficIsAggregate() ? '/count.js?site_id=' : '/pixel.js?site_id=') + siteId;
             return '\x3Cscript defer src="' + scriptURL + '">\x3C/script>';
           }
 
@@ -5462,6 +5495,7 @@
         }
 
         function setSiteManagementControlsDisabled(disabled) {
+          trafficProfileInput.disabled = disabled || !isNewSiteSelected();
           [
             editSiteNameInput,
             editSiteOriginInput,
@@ -5485,6 +5519,7 @@
         }
 
         function clearSiteForm() {
+          trafficProfileInput.value = "detailed";
           editSiteNameInput.value = '';
           editSiteOriginInput.value = '';
           editSiteOwnerInput.value = '';
@@ -5556,6 +5591,7 @@
           }
 
           updateSelectedSiteSummary(site);
+          trafficProfileInput.value = site.traffic_profile;
           updateSentryClientConfiguration(site);
           editSiteNameInput.value = site.name || '';
           editSiteOriginInput.value = site.allowed_origin || '';
@@ -6574,6 +6610,10 @@
             return;
           }
           var entries = Array.isArray(points) ? points : [];
+          if (entries.some(function(point) { return point.unique_visitors === null; })) {
+            renderBarChart(container, entries, { labelKey: 'date', countKey: 'page_views', emptyMessage: 'No daily counts yet.' });
+            return;
+          }
           var maximum = entries.reduce(function(currentMaximum, point) {
             return Math.max(currentMaximum, Number(point && point.page_views) || 0, Number(point && point.unique_visitors) || 0);
           }, 0);
@@ -6804,7 +6844,7 @@
             visitCell.textContent = String(Number(site.visit_count) || 0);
             var uniqueCell = document.createElement('td');
             uniqueCell.className = 'text-end';
-            uniqueCell.textContent = String(Number(site.unique_visitor_count) || 0);
+            uniqueCell.textContent = site.unique_visitor_count === null ? 'Unavailable' : String(Number(site.unique_visitor_count) || 0);
             row.appendChild(nameCell);
             row.appendChild(visitCell);
             row.appendChild(uniqueCell);
@@ -8439,7 +8479,7 @@
           var total = typeof payload.visit_count === 'number' ? payload.visit_count : 0;
           var unique = typeof payload.unique_visitor_count === 'number' ? payload.unique_visitor_count : 0;
           setVisitCounts(total, unique);
-          renderTopPages(payload.top_pages || []);
+          if (selectedTrafficIsAggregate()) { renderAggregateUnavailable(); } else { renderTopPages(payload.top_pages || []); }
         }).catch(function(error) {
           if (state.selectedSiteId !== selectedSiteId || currentTrafficInterval() !== intervalSnapshot) {
             return;
@@ -8462,6 +8502,8 @@
           showTrafficStatus(error.message || statusMessages.load_failed || '');
           renderTrendChart([]);
         });
+
+        if (selectedTrafficIsAggregate()) { renderAggregateUnavailable(); return; }
 
         var attributionEndpoint = trafficEndpoint(selectedSiteId, apiSiteVisitAttributionSuffix, intervalSnapshot);
         fetchJSON(attributionEndpoint).then(function(payload) {
@@ -8775,6 +8817,7 @@
         };
         if (isNewSiteSelected()) {
           payload.owner_email = ownerEmailValue;
+          payload.traffic_profile = trafficProfileInput.value;
         } else if (ownerEmailValue && ownerEmailValue !== (selectedSite ? selectedSite.owner_email || '' : '')) {
           payload.owner_email = ownerEmailValue;
         }

@@ -36,3 +36,16 @@ tests/.runtime-web.*/
 # BEGIN MPRLAB-GOVERNANCE
 /.mprlab/*-PLAN.md
 # END MPRLAB-GOVERNANCE
+
+/configs/signing/
+/mobile/prepared/android/.gradle/
+/mobile/prepared/android/.kotlin/
+/mobile/prepared/android/.cxx/
+/mobile/prepared/android/**/build/
+/mobile/prepared/android/local.properties
+/mobile/prepared/android/**/*.keystore
+/mobile/prepared/ios/Pods/
+/mobile/prepared/ios/build/
+/mobile/prepared/ios/.xcode.env.local
+!mobile/prepared/vendor/
+!mobile/prepared/vendor/**

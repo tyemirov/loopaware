@@ -73,6 +73,8 @@ const (
 
 func validLoopAwareRuntimeConfigYAML() string {
 	return strings.Join([]string{
+		"analytics:",
+		"  aggregate_retention_days: 90",
 		"server:",
 		"  address: \"${APP_ADDR}\"",
 		"  public_base_url: \"${PUBLIC_BASE_URL}\"",

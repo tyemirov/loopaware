@@ -26,6 +26,7 @@ var (
 
 // Config captures the populated backend runtime configuration.
 type Config struct {
+	AggregateRetentionDays    int
 	ApplicationAddress        string
 	DatabaseDriverName        string
 	DatabaseDataSourceName    string
@@ -50,12 +51,18 @@ type Config struct {
 
 // Document is the strict YAML shape for the backend runtime config file.
 type Document struct {
+	Analytics     Analytics     `yaml:"analytics"`
 	Server        Server        `yaml:"server"`
 	Database      Database      `yaml:"database"`
 	Auth          Auth          `yaml:"auth"`
 	Pinguin       Pinguin       `yaml:"pinguin"`
 	Notifications Notifications `yaml:"notifications"`
 	Admins        []string      `yaml:"admins"`
+}
+
+// Analytics declares the aggregate data retention window.
+type Analytics struct {
+	RetentionDays int `yaml:"aggregate_retention_days"`
 }
 
 // Server holds HTTP runtime settings.
@@ -129,6 +136,7 @@ func LoadWithLookup(configFilePath string, expansionLookup sharedruntimeconfig.E
 // NewConfig converts a strict YAML document into the populated runtime config.
 func NewConfig(configFilePath string, document Document) (Config, error) {
 	config := Config{
+		AggregateRetentionDays:    document.Analytics.RetentionDays,
 		ApplicationAddress:        strings.TrimSpace(document.Server.Address),
 		DatabaseDriverName:        strings.TrimSpace(document.Database.Driver),
 		DatabaseDataSourceName:    strings.TrimSpace(document.Database.DSN),
@@ -147,6 +155,9 @@ func NewConfig(configFilePath string, document Document) (Config, error) {
 		PinguinOpTimeoutSec:       document.Pinguin.OperationTimeoutSeconds,
 		SubscriptionNotifications: boolValue(document.Notifications.SubscriptionEnabled),
 		TrafficReportEmails:       boolValue(document.Notifications.TrafficReportEmailsEnabled),
+	}
+	if config.AggregateRetentionDays < 1 || config.AggregateRetentionDays > 90 {
+		return Config{}, fmt.Errorf("analytics.aggregate_retention_days must be between 1 and 90")
 	}
 	missingFields := missingRequiredFields(config, document)
 	if len(missingFields) > 0 {
