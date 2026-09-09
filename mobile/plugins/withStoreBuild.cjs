@@ -40,7 +40,7 @@ module.exports = function withStoreBuild(config) {
             keyAlias System.getenv("LOOPAWARE_ANDROID_KEY_ALIAS") ?: ""
             keyPassword System.getenv("LOOPAWARE_ANDROID_KEY_PASSWORD") ?: ""
         }`);
-        project.modResults.contents = project.modResults.contents.replace(/versionCode \d+/, 'versionCode (System.getenv("MPRLAB_MOBILE_VERSION_CODE") ?: "1").toInteger()').replace(/versionName "[^"]+"/, 'versionName System.getenv("MPRLAB_MOBILE_VERSION_NAME") ?: "2026.6.19"');
+        project.modResults.contents = project.modResults.contents.replace(/versionCode \d+/, 'versionCode = System.getenv("MPRLAB_MOBILE_VERSION_CODE").toInteger()').replace(/versionName "[^"]+"/, 'versionName System.getenv("MPRLAB_MOBILE_VERSION_NAME") ?: "2026.6.19"');
         project.modResults.contents = project.modResults.contents.replace(/def enableMinifyInReleaseBuilds = [^\n]+/, 'def enableMinifyInReleaseBuilds = true');
         return project;
     });
