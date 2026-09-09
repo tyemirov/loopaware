@@ -12,6 +12,7 @@
     "userInterfaceStyle": "light",
     "primaryColor": "#D4AF37",
     "ios": {
+      "version": "1.1.0",
       "bundleIdentifier": "com.mprlab.loopaware",
       "supportsTablet": true,
       "scheme": [

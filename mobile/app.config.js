@@ -29,6 +29,7 @@ module.exports = {
     userInterfaceStyle: "light",
     primaryColor: loopAwareGold,
     ios: {
+      version: "1.1.0",
       bundleIdentifier: iosBundleIdentifier,
       supportsTablet: true,
       ...(iosBuildNumber ? { buildNumber: iosBuildNumber } : {}),

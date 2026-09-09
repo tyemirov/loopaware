@@ -159,6 +159,7 @@ Read each selected guide in full before its first applicable action.
 - For issue work: the selected issue and its dependencies in `.mprlab/ISSUES.md`.
 - For tracker edits: `.mprlab/issues-md-format.md`.
 - For Git operations: `.mprlab/AGENTS.GIT.md`.
+- For Apple application builds and distribution: `.mprlab/AGENTS.APPLE.md`.
 - For HTTP or gRPC API changes: `.mprlab/AGENTS.API.md`.
 - For Go changes: `.mprlab/AGENTS.GO.md`.
 - For Python changes: `.mprlab/AGENTS.PY.md`.

@@ -116,7 +116,7 @@ mobile-check: mobile-install
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run test:api-boundaries
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run typecheck
 
-.PHONY: mobile-release-check mobile-prepare-store mobile-container-check mobile-bundle-check mobile-prepared-tracking-check
+.PHONY: mobile-cloud-native-check mobile-cloud-check mobile-release-check mobile-prepare-store mobile-container-check mobile-bundle-check mobile-prepared-tracking-check
 mobile-prepare-store: mobile-install
 	node mobile/scripts/prepare-store.mjs
 
@@ -129,8 +129,13 @@ mobile-bundle-check:
 mobile-container-check:
 	node tests/mobile/container-inputs.mjs
 
-mobile-release-check: mobile-container-check mobile-bundle-check mobile-prepared-tracking-check
-	node tests/mobile/portable-signing.mjs
+mobile-cloud-check:
+	node tests/mobile/apple-cloud.mjs
+
+mobile-cloud-native-check: mobile-install
+	node tests/mobile/apple-native.mjs
+
+mobile-release-check: mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-cloud-check mobile-cloud-native-check
 	node tests/mobile/preparation.mjs
 	cd mobile/prepared && node scripts/verify-store-preparation.mjs
 
@@ -259,7 +264,7 @@ release publish deploy:
 			"$${gateway_root}" "$${gateway_root}" >&2; \
 		exit 2; \
 	fi; \
-	for private_name in GH_TOKEN GITHUB_TOKEN NPM_TOKEN LOOPAWARE_ANDROID_KEYSTORE LOOPAWARE_ANDROID_STORE_PASSWORD LOOPAWARE_ANDROID_KEY_ALIAS LOOPAWARE_ANDROID_KEY_PASSWORD LOOPAWARE_APPLE_CERTIFICATE_PATH LOOPAWARE_APPLE_CERTIFICATE_PASSWORD LOOPAWARE_APPLE_PROFILE_PATH; do unset "$${private_name}"; done; \
+	for private_name in GH_TOKEN GITHUB_TOKEN NPM_TOKEN LOOPAWARE_ANDROID_KEYSTORE LOOPAWARE_ANDROID_STORE_PASSWORD LOOPAWARE_ANDROID_KEY_ALIAS LOOPAWARE_ANDROID_KEY_PASSWORD APP_STORE_CONNECT_API_KEY_ID APP_STORE_CONNECT_API_ISSUER_ID APP_STORE_CONNECT_API_KEY_PATH; do unset "$${private_name}"; done; \
 	set -a; . "$${application_root}/configs/.env.loopaware"; set +a; \
 	$(MAKE) --no-print-directory -C "$${gateway_root}" "app-$@" \
 		MPRLAB_APP_ROOT="$${application_root}"

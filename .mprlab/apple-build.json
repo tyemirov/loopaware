@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "products": {
+    "ios": {
+      "bundle_identifier": "com.mprlab.loopaware",
+      "platform": "IOS",
+      "workflow": "Release",
+      "container_file": "mobile/prepared/ios/LoopAware.xcworkspace",
+      "scheme": "LoopAware",
+      "distribution": "INTERNAL_ONLY"
+    }
+  }
+}

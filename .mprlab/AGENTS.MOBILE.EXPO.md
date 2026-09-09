@@ -12,7 +12,8 @@ Obey root `AGENTS.md`, `.mprlab/POLICY.md`, and `.mprlab/AGENTS.MOBILE.md`.
 - Use Expo CLI only for local development and native project generation.
 - The release, publication, and deployment paths must not invoke Expo CLI.
 - The release, publication, and deployment paths must not invoke EAS Build, EAS Submit, or EAS Update.
-- The store publisher must submit the signed prebuilt artifact directly to its store.
+- Use `.mprlab/AGENTS.APPLE.md` for Apple release builds and distribution.
+- The Android store publisher must submit the signed prebuilt artifact directly to Google Play.
 - A production lifecycle must not require an Expo account or an Expo-hosted service.
 - Treat Expo configuration as a source contract. Keep `app.json`, `app.config.*`, native project settings, URL schemes, bundle identifiers, package names, plugins, and runtime config aligned.
 - Prefer Expo-managed APIs and config plugins when the repo already uses Expo.
@@ -67,7 +68,7 @@ Obey root `AGENTS.md`, `.mprlab/POLICY.md`, and `.mprlab/AGENTS.MOBILE.md`.
 ## Review Checklist
 
 - [ ] Expo config and native identifiers are aligned.
-- [ ] Release and publication use signed prebuilt artifacts and direct store publishers.
+- [ ] Apple release builds use Xcode Cloud, and Android publication uses the signed prebuilt artifact.
 - [ ] The production lifecycle does not invoke Expo CLI or EAS.
 - [ ] Native generated files were updated through source config or documented scripts.
 - [ ] API, auth, storage, purchase, and native-module payloads are validated at adapters.

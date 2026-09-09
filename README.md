@@ -592,32 +592,38 @@ Commit the prepared files with their source changes.
 Release verifies the recorded file digests before the native build.
 A source change requires preparation again.
 
-Release uses the generic Gateway native builder to create signed IPA and AAB files.
-Publication submits those sealed files through the Gateway store publishers.
+Apple release builds use the shared Gateway Xcode Cloud operation.
+The declaration in `.mprlab/apple-build.json` selects the LoopAware workflow and internal TestFlight distribution.
+Xcode Cloud owns automatic signing and the Apple build number.
+Gateway retains the cloud receipt and verifies the existing App Store Connect build.
+After source changes are committed, run `gix release next semver --format json` to inspect the release allocation.
+Set `ios.version` in `mobile/app.config.js` to `next_version` without the `v` prefix.
+Regenerate and commit the prepared project before the cloud build.
+If the release allocation changes, repeat these steps before release.
+The Android adapter retains its native AAB builder and UTC version contract.
 Expo CLI runs during preparation and local development only.
-Mobile versions retain the UTC `YYYY.M.D` format.
-The build number remains the number of seconds since `2020-01-01T00:00:00Z`.
 
-Keep persistent signing files under the ignored `configs/signing/` directory.
-Set their paths and passwords in the ignored `configs/.env.loopaware` file.
+The prepared Apple project contains automatic signing and the repository cloud hook.
+The hook installs Node.js 24 and the locked npm and CocoaPods dependencies.
+It saves `NODE_ENV=production` and `NODE_BINARY` in `ios/.xcode.env.local` for subsequent Xcode phases.
+It verifies the source and native preparation records before dependency installation.
+`mobile/plugins/withStoreBuild.cjs` owns the native bundle phase and its cloud Node environment input.
+
+Keep the Android signing files under the ignored `configs/signing/` directory.
+Set their paths and passwords in `configs/.env.loopaware`.
 The Android key must match `mobile/android-release-identity.json`.
-Apple signing uses a distribution certificate archive and an App Store profile for `com.mprlab.loopaware`.
-The builder imports these inputs into a temporary keychain and removes its temporary state after the build.
+Gateway reads the selected repository input for cloud provider authentication.
 
 The private configuration supplies these inputs:
 
 - `LOOPAWARE_ANDROID_KEYSTORE`, `LOOPAWARE_ANDROID_STORE_PASSWORD`, `LOOPAWARE_ANDROID_KEY_ALIAS`, and `LOOPAWARE_ANDROID_KEY_PASSWORD`.
-- `LOOPAWARE_APPLE_CERTIFICATE_PATH`, `LOOPAWARE_APPLE_CERTIFICATE_PASSWORD`, and `LOOPAWARE_APPLE_PROFILE_PATH`.
 - `APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_API_ISSUER_ID`, and `APP_STORE_CONNECT_API_KEY_PATH`.
 - `GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH`, `NPM_API_KEY`, and `GH_TOKEN`.
-- `JAVA_HOME` and `ANDROID_HOME` for the installed Android toolchain.
+- `JAVA_HOME` and `ANDROID_HOME` for the Android toolchain.
 
-Copy the repository and its ignored private files to relocate the build inputs.
-Update toolchain paths and absolute publication key paths in `configs/.env.loopaware` on the new computer.
-Install Node, the Android toolchain, and Xcode with CocoaPods on that computer.
-Run `make mobile-release-check` to verify preparation and temporary signing behavior.
-The signing tests use a local tool protocol.
-Native builds and store publication remain separate checks.
+Run `make mobile-release-check` to validate prepared inputs, cloud forwarding, and Android signing behavior.
+The local provider tests use controlled dependencies.
+Apple account setup and a successful hosted build remain separate provider acceptance steps.
 
 There are no app-owned dry-run lifecycle aliases. For a non-mutating inspection, run the gateway's `plan-app-release`, `plan-app-publish`, or `plan-app-deploy` target with `MPRLAB_APP_ROOT` set to this repository. Production activation remains an operator action.
 
