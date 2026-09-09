@@ -586,15 +586,38 @@ Each target is a zero-argument wrapper around the exact sibling `../mprlab-gatew
 
 Deployment-only private values belong in the ignored `.mprlab/deploy/.env` file with mode `0600`. The manifest binds those values through its `private_values` resource; secret bytes never belong in the manifest. Release and publish do not read this deployment input.
 
-The mobile resource builds locally. Release runs Expo prebuild only as the native-project generator, then creates one signed App Store Connect IPA with Xcode and one signed Google Play AAB with Gradle. Publish validates and uploads those exact sealed files through `xcrun altool` and the Google Play Android Publisher API. No Expo account, EAS project, hosted build, or EAS submit is part of the lifecycle.
+Run `make mobile-prepare-store` after a mobile source or build configuration change.
+This command generates the production native projects under `mobile/prepared/`.
+Commit the prepared files with their source changes.
+Release verifies the recorded file digests before the native build.
+A source change requires preparation again.
 
-The `mobile_application` entry declares the two repository-owned native build
-paths. The gateway seals those build outputs and owns store-provider
-publication as part of the complete application lifecycle. Native build
-acceptance uses LoopAware's real scripts. The selected manifest does not
-declare app-owned publication handlers.
+Release uses the generic Gateway native builder to create signed IPA and AAB files.
+Publication submits those sealed files through the Gateway store publishers.
+Expo CLI runs during preparation and local development only.
+Mobile versions retain the UTC `YYYY.M.D` format.
+The build number remains the number of seconds since `2020-01-01T00:00:00Z`.
 
-The local machine must have the canonical Apple distribution signing identity and Android upload key described by `mobile/android-release-identity.json`. App Store Connect uses the ignored `configs/AuthKey_82P4KZ86HM.p8`; Google Play uses Application Default Credentials and the ignored LoopAware upload-keystore files under `~/.local/share/loopaware/android-upload/`. These provider credentials remain outside Git and are checked before their platform build or publication begins.
+Keep persistent signing files under the ignored `configs/signing/` directory.
+Set their paths and passwords in the ignored `configs/.env.loopaware` file.
+The Android key must match `mobile/android-release-identity.json`.
+Apple signing uses a distribution certificate archive and an App Store profile for `com.mprlab.loopaware`.
+The builder imports these inputs into a temporary keychain and removes its temporary state after the build.
+
+The private configuration supplies these inputs:
+
+- `LOOPAWARE_ANDROID_KEYSTORE`, `LOOPAWARE_ANDROID_STORE_PASSWORD`, `LOOPAWARE_ANDROID_KEY_ALIAS`, and `LOOPAWARE_ANDROID_KEY_PASSWORD`.
+- `LOOPAWARE_APPLE_CERTIFICATE_PATH`, `LOOPAWARE_APPLE_CERTIFICATE_PASSWORD`, and `LOOPAWARE_APPLE_PROFILE_PATH`.
+- `APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_API_ISSUER_ID`, and `APP_STORE_CONNECT_API_KEY_PATH`.
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH`, `NPM_API_KEY`, and `GH_TOKEN`.
+- `JAVA_HOME` and `ANDROID_HOME` for the installed Android toolchain.
+
+Copy the repository and its ignored private files to relocate the build inputs.
+Update toolchain paths and absolute publication key paths in `configs/.env.loopaware` on the new computer.
+Install Node, the Android toolchain, and Xcode with CocoaPods on that computer.
+Run `make mobile-release-check` to verify preparation and temporary signing behavior.
+The signing tests use a local tool protocol.
+Native builds and store publication remain separate checks.
 
 There are no app-owned dry-run lifecycle aliases. For a non-mutating inspection, run the gateway's `plan-app-release`, `plan-app-publish`, or `plan-app-deploy` target with `MPRLAB_APP_ROOT` set to this repository. Production activation remains an operator action.
 

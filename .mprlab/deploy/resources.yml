@@ -154,11 +154,11 @@ mprlab_resources:
       tag: latest
     - kind: mobile_application
       id: mobile
-      source: mobile
+      source: mobile/prepared
       build_system: local
       build:
-        android: mobile/scripts/build-android-bundle.mjs
-        ios: mobile/scripts/build-ios-archive.mjs
+        android: mobile/scripts/build-store-artifact.mjs
+        ios: mobile/scripts/build-store-artifact.mjs
       ios:
         bundle_identifier: com.mprlab.loopaware
         app_store_id: "6788555440"
