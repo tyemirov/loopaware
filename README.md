@@ -480,6 +480,47 @@ For non-JavaScript environments you can fall back to a plain image pixel:
 <img src="https://loopaware.mprlab.com/public/visits?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f&url=https%3A%2F%2Fexample.com%2F" alt="" width="1" height="1" />
 ```
 
+## Daily counts
+
+Choose **Daily counts only** when you create a site.
+The traffic profile is fixed after creation.
+Existing sites keep individual visits.
+Use a separate aggregate site for native analytics.
+
+The public browser client is `count.js?site_id=SITE_ID`.
+It sends one request when the script starts.
+The native client uses this HTTP contract:
+
+```http
+POST /public/sites/SITE_ID/visit-counts
+Content-Type: application/json
+Origin: CONFIGURED_ORIGIN
+
+{}
+```
+
+Send the request to the LoopAware API hostname.
+Omit cookies and referrers. Keep the body empty except for the JSON object delimiters.
+Do not retry an uncertain response.
+A `204` response confirms the increment.
+An incorrect traffic profile returns `409`.
+Invalid fields or query data return `400`. A disallowed origin returns `403`.
+
+The database stores only the site ID, UTC date, and accepted request count.
+Reports cannot determine unique visitors, individual visits, pages, devices, or locations for aggregate sites.
+These metrics are unavailable in the API and dashboards.
+A mixed portfolio reports totals by UTC calendar day and marks visitor metrics unavailable.
+
+`analytics.aggregate_retention_days` specifies the retention window, from 1 to 90 calendar days.
+The canonical configuration uses 90 days, including the current UTC date.
+Cleanup runs before the server accepts requests and each day afterward.
+A restored database passes the same startup check.
+Site deletion also removes the daily totals.
+
+Collector request logs and crash logs exclude identifying request fields.
+Verify proxy logs separately before production activation.
+See [the application contract](.mprlab/CHILD-AUDIENCE-ANALYTICS.md) for the required deployment evidence.
+
 ## Capturing developer errors
 
 Server-side clients should use the protected `/sentry/errors` endpoint with a per-site ingest token. The repository

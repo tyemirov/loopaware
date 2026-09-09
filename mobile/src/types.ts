@@ -22,6 +22,7 @@ export type Account = {
 };
 
 export type Site = {
+  traffic_profile: "detailed" | "aggregate";
   id: string;
   name: string;
   allowed_origin: string;
@@ -35,7 +36,7 @@ export type Site = {
   feedback_count: number;
   subscriber_count: number;
   visit_count: number;
-  unique_visitor_count: number;
+  unique_visitor_count: number | null;
   sentry_token_configured: boolean;
   widget_bubble_side: string;
   widget_bubble_bottom_offset: number;
@@ -111,7 +112,7 @@ export type VisitStats = {
   site_id: string;
   interval: TrafficInterval;
   visit_count: number;
-  unique_visitor_count: number;
+  unique_visitor_count: number | null;
   top_pages: TopPage[];
   recent_visits: VisitLogEntry[];
 };
@@ -119,7 +120,7 @@ export type VisitStats = {
 export type VisitTrendPoint = {
   date: string;
   page_views: number;
-  unique_visitors: number;
+  unique_visitors: number | null;
 };
 
 export type VisitTrend = {
@@ -302,7 +303,7 @@ export type PortfolioTrafficSite = {
   site_id: string;
   site_name: string;
   visit_count: number;
-  unique_visitor_count: number;
+  unique_visitor_count: number | null;
 };
 
 export type PortfolioReportsResponse = {
@@ -317,7 +318,7 @@ export type PortfolioTrafficReport = {
   days: number;
   site_count: number;
   visit_count: number;
-  unique_visitor_count: number;
+  unique_visitor_count: number | null;
   trend: VisitTrendPoint[];
   sites: PortfolioTrafficSite[];
 };
@@ -327,10 +328,10 @@ export type SiteDashboard = {
   subscribers: Subscriber[];
   stats: VisitStats;
   trend: VisitTrend;
-  attribution: VisitAttribution;
-  engagement: VisitEngagement;
-  devices: DeviceBreakdown;
-  locations: LocationDistribution;
+  attribution: VisitAttribution | null;
+  engagement: VisitEngagement | null;
+  devices: DeviceBreakdown | null;
+  locations: LocationDistribution | null;
   sentryIssues: SentryIssue[];
   mobileApps: MobileAppRegistration[];
   teamMembers: TeamMember[];

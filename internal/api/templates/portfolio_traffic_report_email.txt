@@ -4,10 +4,12 @@
 
 Window: last {{ .WindowDays }} day{{ if ne .WindowDays 1 }}s{{ end }}
 Sites: {{ .SiteCount }}
-Page views: {{ .PageViews }}
-Unique site visitors: {{ .UniqueVisitors }}
+{{ if .CountsOnly }}Recorded page views and accepted requests: {{ .PageViews }}
+Time resolution: UTC calendar days
+Unique site visitors: unavailable for this report{{ else }}Page views: {{ .PageViews }}
+Unique site visitors: {{ .UniqueVisitors }}{{ end }}
 
 Sites:
-{{ if .Sites }}{{ range .Sites }}- {{ .SiteName }}: {{ .VisitCount }} view{{ if ne .VisitCount 1 }}s{{ end }}, {{ .UniqueVisitorCount }} unique
+{{ if .Sites }}{{ range .Sites }}- {{ .SiteName }}: {{ .VisitCount }}{{ if .CountsOnly }} recorded requests; unique visitors unavailable{{ else }} view{{ if ne .VisitCount 1 }}s{{ end }}, {{ .UniqueVisitorCount }} unique{{ end }}
 {{ end }}{{ else }}- No owned sites yet.
 {{ end }}{{ end }}

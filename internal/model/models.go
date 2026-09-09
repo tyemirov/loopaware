@@ -9,22 +9,23 @@ const (
 )
 
 type Site struct {
-	ID                         string `gorm:"primaryKey;size:36"`
-	Name                       string `gorm:"not null;size:200"`
-	AllowedOrigin              string `gorm:"not null;size:500"`
-	SubscribeAllowedOrigins    string `gorm:"size:500"`
-	WidgetAllowedOrigins       string `gorm:"size:500"`
-	TrafficAllowedOrigins      string `gorm:"size:500"`
-	OwnerEmail                 string `gorm:"size:320"`
-	CreatorEmail               string `gorm:"size:320"`
-	WidgetBubbleSide           string `gorm:"not null;size:16;default:right"`
-	WidgetBubbleBottomOffsetPx int    `gorm:"not null;default:16"`
-	WidgetAccentColor          string `gorm:"not null;size:7;default:#0d6efd"`
-	WidgetShowMessageInput     bool   `gorm:"not null;default:true"`
-	WidgetShowSentimentButtons bool   `gorm:"not null;default:true"`
-	SentryIngestTokenHash      string `gorm:"size:64"`
-	FaviconData                []byte `gorm:"type:blob"`
-	FaviconContentType         string `gorm:"size:100"`
+	TrafficProfile             TrafficProfile `gorm:"not null;size:16;default:detailed;check:traffic_profile IN ('detailed', 'aggregate')"`
+	ID                         string         `gorm:"primaryKey;size:36"`
+	Name                       string         `gorm:"not null;size:200"`
+	AllowedOrigin              string         `gorm:"not null;size:500"`
+	SubscribeAllowedOrigins    string         `gorm:"size:500"`
+	WidgetAllowedOrigins       string         `gorm:"size:500"`
+	TrafficAllowedOrigins      string         `gorm:"size:500"`
+	OwnerEmail                 string         `gorm:"size:320"`
+	CreatorEmail               string         `gorm:"size:320"`
+	WidgetBubbleSide           string         `gorm:"not null;size:16;default:right"`
+	WidgetBubbleBottomOffsetPx int            `gorm:"not null;default:16"`
+	WidgetAccentColor          string         `gorm:"not null;size:7;default:#0d6efd"`
+	WidgetShowMessageInput     bool           `gorm:"not null;default:true"`
+	WidgetShowSentimentButtons bool           `gorm:"not null;default:true"`
+	SentryIngestTokenHash      string         `gorm:"size:64"`
+	FaviconData                []byte         `gorm:"type:blob"`
+	FaviconContentType         string         `gorm:"size:100"`
 	FaviconFetchedAt           time.Time
 	FaviconLastAttemptAt       time.Time
 	FaviconOrigin              string    `gorm:"size:500"`

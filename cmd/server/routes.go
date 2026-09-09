@@ -18,7 +18,7 @@ func isPublicAPIPath(path string) bool {
 	if path == publicRouteFeedback || path == publicRouteMobileFeedback || path == "/public/widget-config" || path == publicRouteVisitPixel {
 		return true
 	}
-	return strings.HasPrefix(path, publicRouteSubscription)
+	return strings.HasPrefix(path, publicRouteSubscription) || strings.HasPrefix(path, "/public/sites/")
 }
 
 func registerAPIPreflightRoutes(router *gin.Engine, publicCORS gin.HandlerFunc, authenticatedCORS gin.HandlerFunc) {
@@ -89,6 +89,7 @@ func registerBackendRoutes(
 	publicGroup.GET("/public/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
 	publicGroup.GET(publicRouteVisitPixel, publicHandlers.CollectVisit)
 	publicGroup.POST(publicRouteVisitPixel, publicHandlers.CollectVisit)
+	publicGroup.POST(api.VisitCountsPath, publicHandlers.VisitCountHandler())
 	publicGroup.POST(sentryRouteBrowserErrors, sentryHandlers.CaptureBrowserError)
 
 	router.POST(sentryRouteErrors, sentryHandlers.CaptureError)

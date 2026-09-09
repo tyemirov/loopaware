@@ -60,7 +60,8 @@ export async function createTestSite(config, cookie, overrides) {
   return createSite(config, cookie, {
     name,
     allowedOrigin: origin,
-    ownerEmail
+    ownerEmail,
+    trafficProfile: resolvedOverrides.trafficProfile || "detailed"
   });
 }
 
