@@ -2155,6 +2155,22 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Run the native preparation targets, focused checks, and final CI.
   - Build signed Android and iOS artifacts through the canonical lifecycle.
 
+  Implementation:
+  - Added tracked production native inputs and source digest verification.
+  - Added native JavaScript bundle checks and Docker context exclusions for private inputs.
+  - Replaced the platform builders with the generic Gateway adapter.
+  - Removed the obsolete application store publishers.
+  - Kept mobile CalVer and the registered Android upload identity.
+  - Added temporary Apple signing with cleanup after success, failure, and interruption.
+  - Moved private signing and publication inputs into ignored repository files.
+
+  Validation status:
+  Native preparation, mobile checks, relocation tests, and signing cleanup tests passed.
+  The actual Android key matched the registered upload certificate.
+  The actual Apple certificate matched the selected App Store profile.
+  Final CI passed, including 465 browser integration scenarios.
+  Canonical signed builds remain pending Gateway checkout coordination.
+
 
 - [x] [I039] (P1) Standardize HTTP health at `/healthz`.
   Goal:

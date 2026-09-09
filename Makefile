@@ -116,6 +116,21 @@ mobile-check: mobile-install
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run test:api-boundaries
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run typecheck
 
+.PHONY: mobile-release-check mobile-prepare-store mobile-container-check mobile-bundle-check
+mobile-prepare-store: mobile-install
+	node mobile/scripts/prepare-store.mjs
+
+mobile-bundle-check:
+	node tests/mobile/store-bundles.mjs
+
+mobile-container-check:
+	node tests/mobile/container-inputs.mjs
+
+mobile-release-check: mobile-container-check mobile-bundle-check
+	node tests/mobile/portable-signing.mjs
+	node tests/mobile/preparation.mjs
+	cd mobile/prepared && node scripts/verify-store-preparation.mjs
+
 mobile-start: mobile-install
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run start
 
@@ -231,15 +246,17 @@ docker-down:
 docker-logs:
 	docker compose logs -f
 
-ci: tidy-check config-audit security-audit build lint test-unit test-race test-integration-runner test-integration-all
+ci: tidy-check config-audit security-audit build lint mobile-release-check test-unit test-race test-integration-runner test-integration-all
 
 release publish deploy:
-	@application_root="$$(git rev-parse --show-toplevel)"; \
+	@set -eu; application_root="$$(git rev-parse --show-toplevel)"; \
 	gateway_root="$$(dirname "$${application_root}")/mprlab-gateway"; \
 	if [ ! -d "$${gateway_root}" ]; then \
 		printf "required sibling gateway is missing: %s; clone mprlab-gateway at exactly %s\n" \
 			"$${gateway_root}" "$${gateway_root}" >&2; \
 		exit 2; \
 	fi; \
+	for private_name in GH_TOKEN GITHUB_TOKEN NPM_TOKEN LOOPAWARE_ANDROID_KEYSTORE LOOPAWARE_ANDROID_STORE_PASSWORD LOOPAWARE_ANDROID_KEY_ALIAS LOOPAWARE_ANDROID_KEY_PASSWORD LOOPAWARE_APPLE_CERTIFICATE_PATH LOOPAWARE_APPLE_CERTIFICATE_PASSWORD LOOPAWARE_APPLE_PROFILE_PATH; do unset "$${private_name}"; done; \
+	set -a; . "$${application_root}/configs/.env.loopaware"; set +a; \
 	$(MAKE) --no-print-directory -C "$${gateway_root}" "app-$@" \
 		MPRLAB_APP_ROOT="$${application_root}"

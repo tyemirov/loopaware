@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "LoopAware",
+    "slug": "loopaware-mobile",
+    "version": "2026.6.19",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": [
+      "loopaware",
+      "com.mprlab.loopaware"
+    ],
+    "userInterfaceStyle": "light",
+    "primaryColor": "#D4AF37",
+    "ios": {
+      "bundleIdentifier": "com.mprlab.loopaware",
+      "supportsTablet": true,
+      "scheme": [
+        "com.googleusercontent.apps.281540686395-8a90ldjnklddl0qpoc8ur6620lguv7mg"
+      ]
+    },
+    "android": {
+      "package": "com.mprlab.loopaware",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "loopaware"
+            },
+            {
+              "scheme": "com.mprlab.loopaware"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-web-browser",
+      "expo-secure-store",
+      "expo-system-ui",
+      "./plugins/withStoreBuild.cjs"
+    ],
+    "extra": {
+      "loopAware": {
+        "apiBaseUrl": "https://loopaware-api.mprlab.com",
+        "tauthBaseUrl": "https://tauth-api.mprlab.com",
+        "tauthTenantId": "loopaware"
+      }
+    }
+  }
+}
