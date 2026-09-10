@@ -10,7 +10,7 @@ const fixture = realpathSync(mkdtempSync(join(tmpdir(), 'loopaware signing sourc
 const checkout = join(fixture, 'working checkout');
 const snapshot = join(fixture, 'source snapshot');
 const prepared = join(snapshot, 'mobile/prepared');
-const javaHome = process.env.ANDROID_STUDIO_JAVA_HOME;
+const javaHome = process.env.JAVA_HOME;
 assert.ok(javaHome, 'Run the signing source checks through the repository Make target.');
 const signing = {
     LOOPAWARE_ANDROID_KEYSTORE: 'configs/signing/upload.jks',
@@ -60,7 +60,7 @@ process.exit(29);
 
     for (const scenario of ['relative file', 'absolute file', 'absent root', 'relative root', 'outside file', 'symlink escape', 'empty file', 'wrong identity']) {
         /** @type {NodeJS.ProcessEnv} */
-        const environment = { ...process.env, ...signing, MPRLAB_APP_ROOT: checkout, MPRLAB_ARTIFACT_VERSION: '1.2.3',
+        const environment = { ...process.env, ...signing, ANDROID_STUDIO_JAVA_HOME: javaHome, MPRLAB_APP_ROOT: checkout, MPRLAB_ARTIFACT_VERSION: '1.2.3',
             MPRLAB_GATEWAY_EXECUTABLE: process.execPath, GH_TOKEN: 'fixture-token', GITHUB_TOKEN: 'fixture-token', NPM_API_KEY: 'fixture-token' };
         if (scenario === 'absolute file') environment.LOOPAWARE_ANDROID_KEYSTORE = keystore;
         if (scenario === 'absent root') delete environment.MPRLAB_APP_ROOT;

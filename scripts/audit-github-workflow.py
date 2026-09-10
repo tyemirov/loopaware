@@ -40,12 +40,13 @@ try:
     )
 
     action_uses = re.findall(r"(?m)^\s+uses:\s+([^@\s]+)@([^\s#]+)", workflow_source)
-    require(len(action_uses) == 4, "github_workflow_audit_failed: expected four declared actions")
+    require(len(action_uses) == 5, "github_workflow_audit_failed: expected five declared actions")
     approved_actions = {
         "actions/checkout",
         "actions/setup-go",
         "actions/setup-node",
         "actions/setup-python",
+        "actions/setup-java",
     }
     require(
         {action for action, _ in action_uses} == approved_actions,

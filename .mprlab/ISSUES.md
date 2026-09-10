@@ -11,6 +11,40 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [ ] [B114] (P1) Configure a portable JDK for signing tests
+  Goal:
+  Signing integration tests must use the configured JDK on macOS and Ubuntu.
+
+  Evidence:
+  GitHub Actions run `34450755662` failed because the test used the macOS Android Studio path on Ubuntu.
+  The focused target reproduced the failure with a valid `JAVA_HOME` and an absent Android Studio path.
+
+  Requirements:
+  - Supply the test JDK through the Make target.
+  - Install an explicit JDK in the Ubuntu workflow.
+  - Keep the actual keytool certificate verification.
+  - Verify focused tests, local CI, and hosted CI.
+
+  Validation:
+  The existing local CI result applies to the unchanged source before this correction.
+  `make mobile-cloud-check` first failed with a valid `JAVA_HOME` and an absent Android Studio path.
+  The same command passed all eight signing cases after correction.
+  The logs are `/tmp/loopaware-b114-red.log` and `/tmp/loopaware-b114-green.log`.
+  `make mobile-prepare-store` regenerated the recorded Makefile digest and passed its validation.
+  The generated Xcode configuration did not change. Only object identifiers and object order changed.
+  Final local `make ci` passed, including native validation, backend tests, race tests, and 472 browser and API scenarios.
+  The final log is `/tmp/loopaware-b114-final-ci.log`.
+  Hosted CI remains pending before merge.
+  The language review found no errors in the changed prose. The Governor check found existing differences in nine unchanged files.
+
+  Resolution:
+  The Make target supplies `JAVA_HOME` to the signing tests. The Ubuntu workflow installs Temurin 21 through a pinned GitHub action.
+  The test supplies that JDK to the release adapter and keeps actual certificate verification.
+
+  Changed Files:
+  `Makefile`, `.github/workflows/ci.yml`, `scripts/audit-github-workflow.py`, `tests/mobile/android-signing-source.mjs`, and `.mprlab/ISSUES.md`.
+  Prepared output: `source-preparation.json`, `native-preparation.json`, and `ios/LoopAware.xcodeproj/project.pbxproj` under `mobile/prepared/`.
+
 - [x] [B113] (P1) Resolve Android signing files from the selected checkout
   Goal:
   The Android release adapter must read private files from the selected checkout.

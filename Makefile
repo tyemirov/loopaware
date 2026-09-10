@@ -38,6 +38,7 @@ else
 override ANDROID_STUDIO_JAVA_HOME := $(value ANDROID_STUDIO_JAVA_HOME)
 endif
 override ANDROID_TOOL_PATH := $(ANDROID_SDK_ROOT)/emulator:$(ANDROID_SDK_ROOT)/platform-tools:$(ANDROID_SDK_ROOT)/cmdline-tools/latest/bin:$(ANDROID_SDK_ROOT)/tools/bin
+JAVA_HOME ?= $(ANDROID_STUDIO_JAVA_HOME)
 
 override LOOPAWARE_MOBILE_ANDROID_PACKAGE := $(MOBILE_ANDROID_PACKAGE)
 override LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER := $(MOBILE_IOS_BUNDLE_IDENTIFIER)
@@ -122,7 +123,7 @@ mobile-container-check:
 	node tests/mobile/container-inputs.mjs
 
 mobile-cloud-check:
-	node tests/mobile/apple-cloud.mjs
+	JAVA_HOME="$(JAVA_HOME)" node tests/mobile/apple-cloud.mjs
 
 mobile-cloud-native-check: mobile-install
 	node tests/mobile/apple-native.mjs
