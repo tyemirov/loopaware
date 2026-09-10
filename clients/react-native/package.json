@@ -38,7 +38,7 @@
     "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.build.json",
     "prepack": "npm run build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "verify-package": "node scripts/verify-package.mjs"
+    "verify-package": "node scripts/verify-package.mjs && node --test scripts/verify-package.test.mjs"
   },
   "peerDependencies": {
     "react": ">=18.0.0",

@@ -9,21 +9,20 @@ const packageDirectory = path.resolve(scriptDirectory, "..");
 const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "loopaware-react-native-"));
 
 try {
-  const packOutput = run("npm", ["pack", "--json", "--pack-destination", temporaryRoot], packageDirectory);
-  const packResults = JSON.parse(packOutput);
-  const packageResult = packResults[0];
-  if (!packageResult) {
-    throw new Error("package_verify_failed: npm pack returned no package metadata");
+  run("npm", ["pack", "--pack-destination", temporaryRoot], packageDirectory);
+  const packedArtifacts = fs.readdirSync(temporaryRoot);
+  if (packedArtifacts.length !== 1 || !packedArtifacts[0].endsWith(".tgz")) {
+    throw new Error("package_verify_failed: npm pack must create exactly one .tgz artifact");
   }
 
-  const packageFiles = new Set(packageResult.files.map((fileEntry) => fileEntry.path));
+  const tarballPath = path.join(temporaryRoot, packedArtifacts[0]);
+  const packageFiles = new Set(run("tar", ["-tzf", tarballPath], packageDirectory).trim().split(/\r?\n/));
   requirePackedFile(packageFiles, "dist/index.js");
   requirePackedFile(packageFiles, "dist/index.d.ts");
   requirePackedFile(packageFiles, "README.md");
   requirePackedFile(packageFiles, "LICENSE");
   rejectPackedFile(packageFiles, "src/index.tsx");
 
-  const tarballPath = path.join(temporaryRoot, packageResult.filename);
   const consumerDirectory = path.join(temporaryRoot, "consumer");
   fs.mkdirSync(path.join(consumerDirectory, "types"), { recursive: true });
   fs.writeFileSync(path.join(consumerDirectory, "package.json"), consumerPackageJSON());
@@ -40,13 +39,13 @@ try {
 }
 
 function requirePackedFile(packageFiles, filePath) {
-  if (!packageFiles.has(filePath)) {
+  if (!packageFiles.has(`package/${filePath}`)) {
     throw new Error(`package_verify_failed: missing ${filePath}`);
   }
 }
 
 function rejectPackedFile(packageFiles, filePath) {
-  if (packageFiles.has(filePath)) {
+  if (packageFiles.has(`package/${filePath}`)) {
     throw new Error(`package_verify_failed: unexpected ${filePath}`);
   }
 }
