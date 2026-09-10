@@ -11,6 +11,43 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B113] (P1) Resolve Android signing files from the selected checkout
+  Goal:
+  The Android release adapter must read private files from the selected checkout.
+
+  Evidence:
+  The configured keystore exists under the checkout signing directory.
+  The adapter uses its source snapshot as the root for private file validation.
+  The release stops with `Signing input LOOPAWARE_ANDROID_KEYSTORE must identify a nonempty file under configs/signing/.`.
+
+  Requirements:
+  - Use `MPRLAB_APP_ROOT` for private file resolution.
+  - Keep the registered certificate identity in the source snapshot.
+  - Reject absent or relative checkout roots and invalid signing files.
+  - Verify the release adapter with a separate checkout and source snapshot.
+  - Regenerate prepared output from the corrected source.
+
+  Validation:
+  The successful CI receipt applies to source commit `e488a0346e79df90df0a5e04f072206a55d5fd7d` before this change.
+  Before correction, the new adapter test reproduced the reported signing error.
+  After correction, `make mobile-cloud-check` passed all eight signing cases and the existing cloud adapter checks.
+  A read-only operation with the actual JDK keytool verified the configured keystore against the registered certificate identity.
+  `make mobile-prepare-store` passed and regenerated the prepared project.
+  The generated Xcode project changed only its object identifiers and object order.
+  The logs are `/tmp/loopaware-b113-red.log`, `/tmp/loopaware-b113-green.log`, and `/tmp/loopaware-b113-preparation.log`.
+  Final `make ci` passed, including native validation, backend tests, race tests, and 472 browser and API scenarios.
+  The final log is `/tmp/loopaware-b113-ci.log`.
+  The language review found no errors in the changed prose. The Governor check found existing differences in nine unchanged files.
+
+  Resolution:
+  The adapter uses the absolute `MPRLAB_APP_ROOT` for private signing files and the source snapshot for the registered certificate identity.
+  Separate-root integration tests exercise the adapter with the actual JDK keytool and an injected native builder.
+  Private configuration and signing files did not change. The release was not rerun.
+
+  Changed Files:
+  `mobile/scripts/android-signing.mjs`, `mobile/scripts/build-store-artifact.mjs`, `tests/mobile/apple-cloud.mjs`, `tests/mobile/android-signing-source.mjs`, `README.md`, and `.mprlab/ISSUES.md`.
+  Prepared output: `scripts/android-signing.mjs`, `scripts/build-store-artifact.mjs`, `source-preparation.json`, `native-preparation.json`, and `ios/LoopAware.xcodeproj/project.pbxproj` under `mobile/prepared/`.
+
 - [x] [B112] (P1) Correct package verification with npm 12
   Goal:
   The package verifier must verify the generated artifact and its installation.
