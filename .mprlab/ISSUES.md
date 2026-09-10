@@ -11,6 +11,36 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B112] (P1) Correct package verification with npm 12
+  Goal:
+  The package verifier must verify the generated artifact and its installation.
+
+  Evidence:
+  `make ci` stops with `package_verify_failed: npm pack returned no package metadata` on npm 12.0.2.
+  The verifier reads the output from `npm pack --json` as an array, but npm returns an object.
+
+  Requirements:
+  - Verify the generated artifact directly.
+  - Reject packages without required files and packages that contain excluded source code.
+  - Keep the installation and TypeScript checks.
+
+  Validation:
+  Initial `make ci` returned the reported error.
+  The log is `/tmp/loopaware-package-initial-ci.log`.
+  Before the correction, both new integration tests stopped at the metadata error instead of the required artifact errors.
+  The log is `/tmp/loopaware-package-regression-before.log`.
+  After the correction, `make client-react-native-check` passed the installation, TypeScript, and two artifact rejection checks.
+  Final `make ci` passed, including native validation, backend tests, race tests, and 472 browser and API scenarios.
+  The final log is `/tmp/loopaware-package-final-ci-corrected.log`.
+  The language review found no errors in this entry. The Governor check found existing differences in six unchanged files.
+
+  Resolution:
+  The verifier reads the generated tarball contents directly and installs that artifact for the consumer TypeScript check.
+  The package script includes integration tests for a missing README and excluded source code.
+
+  Changed Files:
+  `clients/react-native/package.json`, `clients/react-native/scripts/verify-package.mjs`, `clients/react-native/scripts/verify-package.test.mjs`, and `.mprlab/ISSUES.md`.
+
 - [x] [B111] (P1) Use an integer for the Android version code
   Goal:
   Gradle must use the supplied Android version code as an integer.
