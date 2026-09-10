@@ -11,7 +11,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
-- [ ] [B114] (P1) Configure a portable JDK for signing tests
+- [x] [B114] (P1) Configure a portable JDK for signing tests
   Goal:
   Signing integration tests must use the configured JDK on macOS and Ubuntu.
 
@@ -34,7 +34,8 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   The generated Xcode configuration did not change. Only object identifiers and object order changed.
   Final local `make ci` passed, including native validation, backend tests, race tests, and 472 browser and API scenarios.
   The final log is `/tmp/loopaware-b114-final-ci.log`.
-  Hosted CI remains pending before merge.
+  GitHub Actions run `34455263165` passed on Ubuntu with Temurin 21. All eight signing cases and 472 browser and API scenarios passed.
+  The hosted log is `/tmp/loopaware-b114-hosted-success.log`.
   The language review found no errors in the changed prose. The Governor check found existing differences in nine unchanged files.
 
   Resolution:
