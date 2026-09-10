@@ -11,6 +11,78 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B114] (P1) Configure a portable JDK for signing tests
+  Goal:
+  Signing integration tests must use the configured JDK on macOS and Ubuntu.
+
+  Evidence:
+  GitHub Actions run `34450755662` failed because the test used the macOS Android Studio path on Ubuntu.
+  The focused target reproduced the failure with a valid `JAVA_HOME` and an absent Android Studio path.
+
+  Requirements:
+  - Supply the test JDK through the Make target.
+  - Install an explicit JDK in the Ubuntu workflow.
+  - Keep the actual keytool certificate verification.
+  - Verify focused tests, local CI, and hosted CI.
+
+  Validation:
+  The existing local CI result applies to the unchanged source before this correction.
+  `make mobile-cloud-check` first failed with a valid `JAVA_HOME` and an absent Android Studio path.
+  The same command passed all eight signing cases after correction.
+  The logs are `/tmp/loopaware-b114-red.log` and `/tmp/loopaware-b114-green.log`.
+  `make mobile-prepare-store` regenerated the recorded Makefile digest and passed its validation.
+  The generated Xcode configuration did not change. Only object identifiers and object order changed.
+  Final local `make ci` passed, including native validation, backend tests, race tests, and 472 browser and API scenarios.
+  The final log is `/tmp/loopaware-b114-final-ci.log`.
+  GitHub Actions run `34455263165` passed on Ubuntu with Temurin 21. All eight signing cases and 472 browser and API scenarios passed.
+  The hosted log is `/tmp/loopaware-b114-hosted-success.log`.
+  The language review found no errors in the changed prose. The Governor check found existing differences in nine unchanged files.
+
+  Resolution:
+  The Make target supplies `JAVA_HOME` to the signing tests. The Ubuntu workflow installs Temurin 21 through a pinned GitHub action.
+  The test supplies that JDK to the release adapter and keeps actual certificate verification.
+
+  Changed Files:
+  `Makefile`, `.github/workflows/ci.yml`, `scripts/audit-github-workflow.py`, `tests/mobile/android-signing-source.mjs`, and `.mprlab/ISSUES.md`.
+  Prepared output: `source-preparation.json`, `native-preparation.json`, and `ios/LoopAware.xcodeproj/project.pbxproj` under `mobile/prepared/`.
+
+- [x] [B113] (P1) Resolve Android signing files from the selected checkout
+  Goal:
+  The Android release adapter must read private files from the selected checkout.
+
+  Evidence:
+  The configured keystore exists under the checkout signing directory.
+  The adapter uses its source snapshot as the root for private file validation.
+  The release stops with `Signing input LOOPAWARE_ANDROID_KEYSTORE must identify a nonempty file under configs/signing/.`.
+
+  Requirements:
+  - Use `MPRLAB_APP_ROOT` for private file resolution.
+  - Keep the registered certificate identity in the source snapshot.
+  - Reject absent or relative checkout roots and invalid signing files.
+  - Verify the release adapter with a separate checkout and source snapshot.
+  - Regenerate prepared output from the corrected source.
+
+  Validation:
+  The successful CI receipt applies to source commit `e488a0346e79df90df0a5e04f072206a55d5fd7d` before this change.
+  Before correction, the new adapter test reproduced the reported signing error.
+  After correction, `make mobile-cloud-check` passed all eight signing cases and the existing cloud adapter checks.
+  A read-only operation with the actual JDK keytool verified the configured keystore against the registered certificate identity.
+  `make mobile-prepare-store` passed and regenerated the prepared project.
+  The generated Xcode project changed only its object identifiers and object order.
+  The logs are `/tmp/loopaware-b113-red.log`, `/tmp/loopaware-b113-green.log`, and `/tmp/loopaware-b113-preparation.log`.
+  Final `make ci` passed, including native validation, backend tests, race tests, and 472 browser and API scenarios.
+  The final log is `/tmp/loopaware-b113-ci.log`.
+  The language review found no errors in the changed prose. The Governor check found existing differences in nine unchanged files.
+
+  Resolution:
+  The adapter uses the absolute `MPRLAB_APP_ROOT` for private signing files and the source snapshot for the registered certificate identity.
+  Separate-root integration tests exercise the adapter with the actual JDK keytool and an injected native builder.
+  Private configuration and signing files did not change. The release was not rerun.
+
+  Changed Files:
+  `mobile/scripts/android-signing.mjs`, `mobile/scripts/build-store-artifact.mjs`, `tests/mobile/apple-cloud.mjs`, `tests/mobile/android-signing-source.mjs`, `README.md`, and `.mprlab/ISSUES.md`.
+  Prepared output: `scripts/android-signing.mjs`, `scripts/build-store-artifact.mjs`, `source-preparation.json`, `native-preparation.json`, and `ios/LoopAware.xcodeproj/project.pbxproj` under `mobile/prepared/`.
+
 - [x] [B112] (P1) Correct package verification with npm 12
   Goal:
   The package verifier must verify the generated artifact and its installation.

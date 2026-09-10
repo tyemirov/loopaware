@@ -40,14 +40,16 @@ const request = {
     signing_environment: ["LOOPAWARE_ANDROID_KEYSTORE", "LOOPAWARE_ANDROID_STORE_PASSWORD", "LOOPAWARE_ANDROID_KEY_ALIAS", "LOOPAWARE_ANDROID_KEY_PASSWORD"]
   }
 };
-const repositoryRoot = resolve(import.meta.dirname, "../..");
+const sourceRepositoryRoot = resolve(import.meta.dirname, "../..");
 const controller = new AbortController();
 const interrupt = () => controller.abort("SIGINT");
 const terminate = () => controller.abort("SIGTERM");
 process.on("SIGINT", interrupt);
 process.on("SIGTERM", terminate);
 try {
-  const environment = await androidSigningEnvironment(repositoryRoot);
+  const privateRepositoryRoot = process.env.MPRLAB_APP_ROOT;
+  if (!privateRepositoryRoot || !isAbsolute(privateRepositoryRoot)) throw new Error("Android release requires the absolute MPRLAB_APP_ROOT.");
+  const environment = await androidSigningEnvironment(sourceRepositoryRoot, privateRepositoryRoot);
   process.exitCode = await runNativeBuild(gateway, request, environment, controller.signal);
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

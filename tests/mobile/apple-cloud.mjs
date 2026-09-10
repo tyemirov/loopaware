@@ -40,7 +40,7 @@ try {
     const certificate = rootCertificates[0];
     writeFileSync(resolve(androidFixture, 'mobile/android-release-identity.json'), JSON.stringify({ uploadKey: { sha256: new X509Certificate(certificate).fingerprint256 } }));
     const environment = { LOOPAWARE_ANDROID_KEYSTORE: 'configs/signing/upload.jks', LOOPAWARE_ANDROID_STORE_PASSWORD: 'fixture', LOOPAWARE_ANDROID_KEY_ALIAS: 'upload', LOOPAWARE_ANDROID_KEY_PASSWORD: 'fixture', JAVA_HOME: '/fixture/jdk', GH_TOKEN: 'private fixture', APP_STORE_CONNECT_API_KEY_ID: 'private fixture' };
-    const result = await androidSigningEnvironment(androidFixture, environment, async (name, args, supplied) => {
+    const result = await androidSigningEnvironment(androidFixture, androidFixture, environment, async (name, args, supplied) => {
         assert.equal(name, '/fixture/jdk/bin/keytool');
         assert.ok(args.includes('-storepass:env'));
         assert.equal(supplied.LOOPAWARE_ANDROID_STORE_PASSWORD, 'fixture');
@@ -55,3 +55,5 @@ try {
 } finally {
     rmSync(androidFixture, { recursive: true, force: true });
 }
+
+await import('./android-signing-source.mjs');
