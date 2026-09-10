@@ -634,6 +634,8 @@ Native preparation and release validation include this target.
 Keep the Android signing files under the ignored `configs/signing/` directory.
 Set their paths and passwords in `configs/.env.loopaware`.
 The Android key must match `mobile/android-release-identity.json`.
+The release adapter uses `MPRLAB_APP_ROOT` to resolve private signing files from the selected checkout.
+It reads the registered certificate identity from the captured source snapshot.
 Gateway reads the selected repository input for cloud provider authentication.
 
 The private configuration supplies these inputs:
