@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, mkdtempSync, mkdirSync, cpSync, writeFileSync, symlinkSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { resolve, join, dirname } from "node:path";
+import { resolve, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 const prepared = "mobile/prepared/ios";
@@ -16,9 +16,8 @@ for (const reference of scheme.matchAll(/BlueprintIdentifier\s*=\s*"([^"]+)"/g))
     assert.ok(targets[reference[1]], `Shared scheme references absent native target ${reference[1]}`);
 }
 assert.ok(project.includes("CODE_SIGN_STYLE = Automatic;"), "The prepared Apple target must use automatic signing.");
-assert.equal(readFileSync(`${prepared}/ci_scripts/ci_post_clone.sh`, "utf8"), readFileSync("mobile/cloud/ci_post_clone.sh", "utf8"));
-assert.ok(project.includes(".xcode.env.local"), "The bundle phase must load its declared cloud Node environment.");
-console.info("Prepared Apple inputs contain automatic signing and the cloud dependency hook.");
+assert.ok(project.includes(".xcode.env.local"), "The bundle phase must load its declared Node environment.");
+console.info("Prepared Apple inputs contain a valid shared scheme and Node environment input.");
 
 const require = createRequire(import.meta.url);
 const releaseVersion = require("../../mobile/app.config.js").expo.ios.version;
@@ -27,10 +26,15 @@ assert.match(releaseVersion, /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/);
 const snapshot = JSON.parse(readFileSync("mobile/prepared/app.config.snapshot.json", "utf8")).expo;
 assert.equal(snapshot.ios.version, releaseVersion, "The prepared Apple config must match the committed release version.");
 const infoPlist = readFileSync(`${prepared}/LoopAware/Info.plist`, "utf8");
-assert.equal(/<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/.exec(infoPlist)?.[1], releaseVersion);
-console.info("The prepared Apple version matches the committed release version.");
+assert.equal(/<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/.exec(infoPlist)?.[1], '$(MARKETING_VERSION)');
+assert.equal(/<key>CFBundleVersion<\/key>\s*<string>([^<]+)<\/string>/.exec(infoPlist)?.[1], '$(CURRENT_PROJECT_VERSION)');
+const configurations = Object.entries(parsedProject.pbxXCBuildConfigurationSection())
+    .filter(([id, value]) => !id.endsWith('_comment') && String(value.buildSettings?.PRODUCT_BUNDLE_IDENTIFIER).replace(/^"|"$/g, '') === snapshot.ios.bundleIdentifier);
+assert.ok(configurations.length > 0);
+for (const [, value] of configurations) assert.equal(String(value.buildSettings.MARKETING_VERSION).replace(/^"|"$/g, ''), releaseVersion);
+console.info("The prepared Apple metadata uses the native version and build number settings.");
 
-const fixture = mkdtempSync(join(tmpdir(), "loopaware cloud environment "));
+const fixture = mkdtempSync(join(tmpdir(), "loopaware native environment "));
 try {
     const mobile = join(fixture, "mobile/prepared");
     mkdirSync(join(mobile, "ios/Pods"), { recursive: true });
@@ -44,17 +48,9 @@ try {
         if (name === "expo-dev-client") continue;
         symlinkSync(resolve("mobile/node_modules", name), join(mobile, "node_modules", name));
     }
-    const env = { ...process.env, CI_PRIMARY_REPOSITORY_PATH: fixture, TEST_NODE_PREFIX: dirname(dirname(process.execPath)) };
-    delete env.NODE_ENV;
-    const hook = spawnSync("/bin/sh", ["-c", `
-        brew() { if [ "$1" = --prefix ]; then printf '%s\\n' "$TEST_NODE_PREFIX"; fi; }
-        npm() { :; }
-        pod() { :; }
-        . "$1"
-    `, "cloud-hook-test", resolve("mobile/cloud/ci_post_clone.sh")], { env, encoding: "utf8" });
-    assert.equal(hook.status, 0, hook.stderr);
-    const config = spawnSync("/bin/sh", ["-c", '. "$1"; exec "$NODE_BINARY" "$2" "$3" "$3"', "archive-phase-test",
-        join(mobile, "ios/.xcode.env.local"), resolve("mobile/node_modules/expo-constants/scripts/getAppConfig.js"), mobile],
+    const env = { ...process.env, NODE_ENV: "production" };
+    const config = spawnSync(process.execPath, [
+        resolve("mobile/node_modules/expo-constants/scripts/getAppConfig.js"), mobile, mobile],
         { cwd: mobile, env, encoding: "utf8" });
     assert.equal(config.status, 0, config.stderr);
     const exported = JSON.parse(readFileSync(join(mobile, "app.config"), "utf8"));

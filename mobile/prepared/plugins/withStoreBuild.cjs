@@ -1,12 +1,17 @@
 // @ts-check
 const { readFile, writeFile } = require('node:fs/promises');
 const { join } = require('node:path');
-const { withAppBuildGradle, withMainApplication, withPodfile, withPodfileProperties, withXcodeProject } = require('expo/config-plugins');
+const { withAppBuildGradle, withInfoPlist, withMainApplication, withPodfile, withPodfileProperties, withXcodeProject } = require('expo/config-plugins');
 
 /** Generate store projects with embedded JavaScript bundles.
  * @param {import("expo/config").ExpoConfig} config
  */
 module.exports = function withStoreBuild(config) {
+    config = withInfoPlist(config, (project) => {
+        project.modResults.CFBundleShortVersionString = '$(MARKETING_VERSION)';
+        project.modResults.CFBundleVersion = '$(CURRENT_PROJECT_VERSION)';
+        return project;
+    });
     config = withPodfileProperties(config, (project) => {
         project.modResults['ios.buildReactNativeFromSource'] = 'true';
         project.modResults.EXPO_USE_PRECOMPILED_MODULES = 'false';
@@ -51,13 +56,18 @@ module.exports = function withStoreBuild(config) {
         return project;
     });
     return withXcodeProject(config, async (project) => {
+        const iosVersion = config.ios?.version;
+        if (typeof iosVersion !== 'string') throw new Error('The Apple application version is required.');
         const schemePath = join(project.modRequest.platformProjectRoot, 'LoopAware.xcodeproj/xcshareddata/xcschemes/LoopAware.xcscheme');
         const scheme = await readFile(schemePath, 'utf8');
         await writeFile(schemePath, scheme.replace(/[ \t]*<TestableReference\b[\s\S]*?<\/TestableReference>\n?/g, ''));
         const configurations = Object.entries(project.modResults.pbxXCBuildConfigurationSection())
             .filter(([id, value]) => !id.endsWith('_comment') && String(value.buildSettings?.PRODUCT_BUNDLE_IDENTIFIER).replace(/^"|"$/g, '') === config.ios?.bundleIdentifier);
         if (configurations.length === 0) throw new Error('The Apple application build configurations are missing.');
-        for (const [, value] of configurations) value.buildSettings.CODE_SIGN_STYLE = 'Automatic';
+        for (const [, value] of configurations) {
+            value.buildSettings.CODE_SIGN_STYLE = 'Automatic';
+            value.buildSettings.MARKETING_VERSION = iosVersion;
+        }
         const phases = project.modResults.hash.project.objects.PBXShellScriptBuildPhase;
         let updatedPhase = false;
         for (const phase of Object.values(phases)) {

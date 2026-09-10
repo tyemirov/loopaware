@@ -158,7 +158,7 @@ mprlab_resources:
       build_system: local
       build:
         android: mobile/scripts/build-store-artifact.mjs
-        ios: mobile/scripts/build-ios.sh
+        ios: mobile/scripts/build-store-artifact.mjs
       ios:
         bundle_identifier: com.mprlab.loopaware
         app_store_id: "6788555440"

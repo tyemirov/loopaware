@@ -2416,6 +2416,31 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [x] [I043] (P1) Use the shared native iOS release flow.
+  Goal:
+  Build and sign the iOS release locally, then publish the sealed IPA through Gateway.
+  Requirements:
+  - Replace the cloud adapter with a native build request.
+  - Preserve internal TestFlight distribution and the application version policy.
+  - Read the signing identity through the canonical private input contract.
+  - Remove cloud hooks, declarations, and instructions.
+  - Verify the adapter, prepared source, and canonical CI.
+  Deliverables:
+  - Updated `.mprlab/deploy/resources.yml`, `Makefile`, and `README.md`.
+  - Updated `mobile/scripts/build-store-artifact.mjs`, `prepare-store.mjs`, and `validate-mobile-config.mjs`.
+  - Updated `mobile/plugins/withStoreBuild.cjs` and regenerated `mobile/prepared/`.
+  - Updated `tests/mobile/apple-native.mjs` and added `ios-release.mjs` and `android-signing.mjs` in that directory.
+  - Updated the Apple and mobile guides and `.mprlab/TERMINOLOGY.md`.
+  - Removed `.mprlab/apple-build.json`, `mobile/scripts/build-ios.sh`, and `mobile/cloud/ci_post_clone.sh`.
+  - Removed `tests/mobile/apple-cloud.mjs` and generated cloud copies.
+  Validation:
+  - The adapter regression failed before the change and passed afterward.
+  - The native version regression failed before the plugin change and passed after preparation.
+  - Native preparation and the mobile release checks passed.
+  - Final `make ci` passed, including all 472 browser and API tests.
+  Resolution:
+  The native adapter and prepared source now use App Store Connect export. Cloud source and instructions were removed.
+
 - [x] [I042] (P1) Prepare the current shared UI migration.
   Goal:
   Use the current shared authentication config, footer menu, and protected request transport in the browser application.
