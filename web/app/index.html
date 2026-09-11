@@ -1932,6 +1932,7 @@
           siteSentryDetails: {},
           selectedSentryIssueId: ''
         };
+        var globalTrafficReportSaves = new Map();
         var siteAutosaveDelayMilliseconds = 800;
         var siteAutosaveTimerId = null;
         var siteAutosavePending = false;
@@ -4073,22 +4074,35 @@
             name: globalTrafficReportDisplayName(report),
             site_ids: globalTrafficReportSiteIds(report)
           };
-          return fetchJSON(endpoint, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-          }).then(function(responsePayload) {
-            var savedReport = replaceGlobalTrafficReport(responsePayload);
-            if (savedReport) {
-              state.selectedGlobalTrafficReportId = savedReport.id;
+          var body = JSON.stringify(payload);
+          var previousSave = globalTrafficReportSaves.get(report.id) || Promise.resolve();
+          function sendDefinition() {
+            return fetchJSON(endpoint, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: body
+            });
+          }
+          var save = previousSave.then(sendDefinition, sendDefinition).then(function(responsePayload) {
+            if (globalTrafficReportSaves.get(report.id) !== save) {
+              return null;
             }
-            renderGlobalTrafficReportSurface();
+            var savedReport = replaceGlobalTrafficReport(responsePayload);
+            if (state.selectedGlobalTrafficReportId === report.id) {
+              renderGlobalTrafficReportSurface();
+            }
             return savedReport;
           }).catch(function(error) {
             showAllSitesTrafficStatus(error.message || buttonLabels.save_failed || '');
             throw error;
+          });
+          globalTrafficReportSaves.set(report.id, save);
+          return save.finally(function() {
+            if (globalTrafficReportSaves.get(report.id) === save) {
+              globalTrafficReportSaves.delete(report.id);
+            }
           });
         }
 
@@ -4116,8 +4130,10 @@
           report.site_ids = normalizeGlobalTrafficReportSiteIds(siteIds, getGlobalTrafficAvailableSiteIds());
           state.portfolioTrafficReport = null;
           renderGlobalTrafficReportSurface();
-          saveSelectedGlobalTrafficReportDefinition().then(function() {
-            loadAllSitesTrafficStats();
+          saveSelectedGlobalTrafficReportDefinition().then(function(savedReport) {
+            if (savedReport && state.selectedGlobalTrafficReportId === savedReport.id) {
+              loadAllSitesTrafficStats();
+            }
           }).catch(function() {
             return null;
           });
