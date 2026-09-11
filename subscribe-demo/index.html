@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Subscribe Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://loopaware.mprlab.com https://accounts.google.com https://www.googletagmanager.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://accounts.google.com https://fonts.googleapis.com; font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: blob: https://cdn.jsdelivr.net https://loopaware.mprlab.com https://loopaware-api.mprlab.com https://accounts.google.com https://*.googleusercontent.com https://*.google-analytics.com https://*.googletagmanager.com https://*.doubleclick.net; connect-src 'self' https://cdn.jsdelivr.net http://localhost:* http://127.0.0.1:* https://loopaware-api.mprlab.com https://tauth-api.mprlab.com https://accounts.google.com https://www.google.com https://*.google-analytics.com https://*.googletagmanager.com https://*.doubleclick.net; frame-src https://accounts.google.com; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'" />
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <style>
+      body {
+        margin: 0;
+        padding: 48px 24px;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans,
+          sans-serif;
+        background: #f9fafb;
+        color: #111827;
+      }
+      .page {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      h1 {
+        margin-top: 0;
+      }
+      code {
+        background: rgba(15, 23, 42, 0.08);
+        padding: 0.1rem 0.25rem;
+        border-radius: 0.25rem;
+      }
+    </style>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-7SBVN6YRV9"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag("js", new Date());
+
+    gtag("config", "G-7SBVN6YRV9");
+  </script>
+  </head>
+  <body>
+    <main class="page">
+      <h1>Subscribe Demo</h1>
+      <p>
+        Provide <code>site_id</code> and optional customization params in the query string.
+      </p>
+      <p id="subscribe-demo-status"></p>
+      <div id="subscribe-demo"></div>
+    </main>
+    <script>
+      // @ts-check
+      (function () {
+        function getQueryParam(search, name) {
+          if (!search || !name) {
+            return null;
+          }
+          var query = search.indexOf("?") === 0 ? search.substring(1) : search;
+          if (!query) {
+            return null;
+          }
+          var pairs = query.split("&");
+          for (var i = 0; i < pairs.length; i++) {
+            var rawPair = pairs[i];
+            var separatorIndex = rawPair.indexOf("=");
+            var rawKey = separatorIndex === -1 ? rawPair : rawPair.slice(0, separatorIndex);
+            var rawValue = separatorIndex === -1 ? "" : rawPair.slice(separatorIndex + 1);
+            var decodedKey = null;
+            try {
+              decodedKey = decodeURIComponent(rawKey.replace(/\+/g, " "));
+            } catch (decodeError) {
+              continue;
+            }
+            if (decodedKey === name) {
+              try {
+                return decodeURIComponent(rawValue.replace(/\+/g, " "));
+              } catch (decodeError) {
+                return rawValue.replace(/\+/g, " ");
+              }
+            }
+          }
+          return null;
+        }
+        var search = window.location.search || "";
+        var siteId = getQueryParam(search, "site_id");
+        if (!siteId) {
+          throw new Error("subscribe_demo.init_failed: missing site_id query parameter");
+        }
+        siteId = siteId.trim();
+        if (!siteId) {
+          throw new Error("subscribe_demo.init_failed: empty site_id query parameter");
+        }
+
+        var status = document.getElementById("subscribe-demo-status");
+
+        var allowed = ["mode", "accent", "cta", "success", "error", "name_field", "target", "api_origin"];
+        var extraParts = [];
+        for (var index = 0; index < allowed.length; index += 1) {
+          var key = allowed[index];
+          var value = (getQueryParam(search, key) || "").trim();
+          if (value) {
+            extraParts.push(encodeURIComponent(key) + "=" + encodeURIComponent(value));
+          }
+        }
+
+        var scriptUrl = "/subscribe.js?site_id=" + encodeURIComponent(siteId);
+        var extraEncoded = extraParts.join("&");
+        if (extraEncoded) {
+          scriptUrl += "&" + extraEncoded;
+        }
+
+        if (status) {
+          status.textContent = "Loading " + scriptUrl;
+        }
+        var script = document.createElement("script");
+        script.defer = true;
+        script.src = scriptUrl;
+        script.onload = function() {
+          if (status) {
+            status.textContent = "Loaded " + scriptUrl;
+          }
+        };
+        script.onerror = function() {
+          if (status) {
+            status.textContent = "Error loading " + scriptUrl;
+          }
+        };
+        document.head.appendChild(script);
+      })();
+    </script>
+  </body>
+</html>
