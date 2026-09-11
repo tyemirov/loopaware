@@ -4,7 +4,7 @@ import * as crypto from 'node:crypto';
 import { resolveTestConfig } from '../helpers/config.js';
 import { buildSessionCookie } from '../helpers/auth.js';
 import { buildAdminUser, buildUniqueEmail, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite, waitForDashboardReady } from '../helpers/fixtures.js';
-import { apiRequest, collectVisit, fetchPortfolioTrafficReport, fetchPortfolioTrafficReports, fetchPortfolioTrafficReportSchedule, fetchTrafficReportSchedule, fetchVisitStats, savePortfolioTrafficReportSchedule, saveTrafficReportSchedule } from '../helpers/api.js';
+import { apiRequest, collectVisit, createPortfolioTrafficReport, fetchPortfolioTrafficReport, fetchPortfolioTrafficReports, fetchPortfolioTrafficReportSchedule, fetchTrafficReportSchedule, fetchVisitStats, savePortfolioTrafficReportSchedule, saveTrafficReportSchedule } from '../helpers/api.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
@@ -474,6 +474,53 @@ test('settings entry opens all-sites traffic reporting', async ({ page }) => {
   await expect(page.locator('#traffic-report-title')).toContainText('Traffic reports');
   await expect(page.locator('[data-widget-card="traffic"]')).toBeVisible();
   await expect(page.locator('#traffic-title')).toContainText('Traffic');
+});
+
+test('consecutive report site changes preserve the last selection during a delayed save', async ({ page }) => {
+  const user = buildAdminUser(config, { email: buildUniqueEmail('ordered-report') });
+  const cookie = buildSessionCookie(config, user);
+  const sites = await Promise.all(['alpha', 'beta'].map((name) => createTestSite(config, cookie, {
+    name: buildUniqueName(name), allowedOrigin: buildUniqueOrigin(name), ownerEmail: user.email
+  })));
+  const report = await createPortfolioTrafficReport(config, cookie, {
+    name: 'Ordered report', site_ids: sites.map((site) => site.id)
+  });
+  await page.addInitScript(({ reportId }) => {
+    const originalFetch = window.fetch.bind(window);
+    let writesStarted = 0;
+    window.fetch = async (input, options) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (options?.method === 'PUT' && new URL(url, location.href).pathname.endsWith('/reports/' + reportId)) {
+        writesStarted += 1;
+        document.documentElement.dataset.reportWritesStarted = String(writesStarted);
+        if (writesStarted === 1) {
+          await new Promise((release) => document.addEventListener('release-test-report-write', release, { once: true }));
+        }
+      }
+      return originalFetch(input, options);
+    };
+  }, { reportId: report.id });
+  await openDashboard(page, config, user);
+  await selectSite(page, sites[0].id);
+  await page.evaluate(() => document.dispatchEvent(new CustomEvent('mpr-user:menu-item', { detail: { action: 'account-settings' } })));
+  await page.locator('#settings-open-all-sites-traffic').click();
+  await page.locator('#global-traffic-reports-list button').filter({ hasText: 'Ordered report' }).click();
+  const lastSave = page.waitForResponse((response) => response.request().method() === 'PUT'
+    && new URL(response.url()).pathname.endsWith('/reports/' + report.id)
+    && response.request().postDataJSON().site_ids.length === 2);
+  await page.locator('#global-traffic-report-clear-sites').click();
+  await expect(page.locator('html')).toHaveAttribute('data-report-writes-started', '1');
+  try {
+    await page.locator('#global-traffic-report-select-all-sites').click();
+    await expect(page.locator('#global-traffic-report-sites-summary')).toHaveText('2 of 2 sites');
+    await expect(page.locator('html')).toHaveAttribute('data-report-writes-started', '1');
+  } finally {
+    await page.evaluate(() => document.dispatchEvent(new Event('release-test-report-write')));
+  }
+  expect((await lastSave).status()).toBe(200);
+  await expect.poll(async () => (await fetchPortfolioTrafficReport(config, cookie, report.id)).site_count).toBe(2);
+  await expect(page.locator('html')).toHaveAttribute('data-report-writes-started', '2');
+  await expect(page.locator('#global-traffic-report-sites-summary')).toHaveText('2 of 2 sites');
 });
 
 test('all-sites report definition load failure stays visible', async ({ page }) => {

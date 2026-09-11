@@ -11,6 +11,21 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B115] (P1) Preserve the order of traffic report saves.
+  Goal:
+  Keep the last selected sites after consecutive report changes.
+  Requirements:
+  - Serialize report writes and prevent old responses from replacing new edits.
+  - Verify delayed requests through the real browser and API.
+  Deliverables:
+  - Updated `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, and `tests/package.json`.
+  Validation:
+  Hosted run `34544340737` saved zero sites after Clear and Select all. The other 471 browser and API tests passed.
+  The delayed-save regression failed with two overlapping writes. Both focused browser cases passed after the correction.
+  Final `make ci` passed, including all 473 browser and API tests.
+  Resolution:
+  Report writes now run in order. Old responses cannot replace newer edits.
+
 - [x] [B114] (P1) Configure a portable JDK for signing tests
   Goal:
   Signing integration tests must use the configured JDK on macOS and Ubuntu.
