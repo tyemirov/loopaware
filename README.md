@@ -602,27 +602,26 @@ Commit the prepared files with their source changes.
 Release verifies the recorded file digests before the native build.
 A source change requires preparation again.
 
-Apple release builds use the shared Gateway Xcode Cloud operation.
-The declaration in `.mprlab/apple-build.json` selects the LoopAware workflow and internal TestFlight distribution.
-Xcode Cloud owns automatic signing and the Apple build number.
-Gateway retains the cloud receipt and verifies the existing App Store Connect build.
-After source changes are committed, run `gix release next semver --format json` to inspect the release allocation.
-Set `ios.version` in `mobile/app.config.js` to `next_version` without the `v` prefix.
-Regenerate and commit the prepared project before the cloud build.
-If the release allocation changes, repeat these steps before release.
-The Android adapter retains its native AAB builder and UTC version contract.
+iOS releases use the shared Gateway native builder on a Mac.
+The selected manifest uses `mobile/scripts/build-store-artifact.mjs` for Android and iOS.
+Gateway exports the signed IPA only for App Store Connect and preserves the internal TestFlight restriction.
+No physical iOS device or registered test device is required.
+Use Xcode 26.6, CocoaPods 1.17, and Node.js 24 or later on the build Mac.
+The iOS app version comes from `ios.version` in `mobile/app.config.js`.
+The generated plist reads `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` from the native build settings.
+The release timestamp allocates its integer build number as UTC seconds since January 1, 2020.
+The Android adapter retains its native AAB builder and UTC CalVer contract.
+Application versions can differ from the repository release version.
 Expo CLI runs during preparation and local development only.
 
-The prepared Apple project contains automatic signing and the repository cloud hook.
-The hook installs Node.js 24 and the locked npm and CocoaPods dependencies.
-It saves `NODE_ENV=production` and `NODE_BINARY` in `ios/.xcode.env.local` for subsequent Xcode phases.
-It verifies the source and native preparation records before dependency installation.
-`mobile/plugins/withStoreBuild.cjs` owns the native bundle phase and its cloud Node environment input.
+The prepared Apple project contains the shared scheme and native dependency inputs.
+Gateway installs the locked dependencies and supplies `NODE_ENV=production` to each native phase.
+`mobile/plugins/withStoreBuild.cjs` owns the native bundle phase and its Node environment input.
 The plugin removes absent test targets from the shared scheme and generates strict Podfile property parsing.
 It explicitly selects React Native and Expo source dependencies, including when the process inherits prebuilt flags.
 `make mobile-prepare-store` runs `make mobile-podfile-config-check` after native preparation.
 This check uses actual CocoaPods for valid, missing, and malformed properties, plus an unavailable prebuilt service.
-Use `pod install --deployment` from `mobile/prepared/ios` to verify the retained dependency lock before hosted acceptance.
+Use `pod install --deployment` from `mobile/prepared/ios` to verify the retained dependency lock before native acceptance.
 The preparation script configures the release metadata phase through `mobile/scripts/fix-ios-project-warnings.mjs`.
 The phase uses Apple Foundation through `mobile/scripts/strip-release-metadata.swift` and the declared Xcode toolchain.
 It rejects missing or invalid property lists and preserves custom app values and the original file format.
@@ -636,21 +635,26 @@ Set their paths and passwords in `configs/.env.loopaware`.
 The Android key must match `mobile/android-release-identity.json`.
 The release adapter uses `MPRLAB_APP_ROOT` to resolve private signing files from the selected checkout.
 It reads the registered certificate identity from the captured source snapshot.
-Gateway reads the selected repository input for cloud provider authentication.
+Gateway reads the selected repository input for iOS signing and store API authentication.
 
 The private configuration supplies these inputs:
 
 - `LOOPAWARE_ANDROID_KEYSTORE`, `LOOPAWARE_ANDROID_STORE_PASSWORD`, `LOOPAWARE_ANDROID_KEY_ALIAS`, and `LOOPAWARE_ANDROID_KEY_PASSWORD`.
+- `LOOPAWARE_APPLE_TEAM`, `LOOPAWARE_APPLE_PROFILE`, and `LOOPAWARE_APPLE_IDENTITY`.
+- `LOOPAWARE_APPLE_CERTIFICATE_BASE64` and `LOOPAWARE_APPLE_CERTIFICATE_PASSWORD`.
 - `APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_API_ISSUER_ID`, and `APP_STORE_CONNECT_API_KEY_PATH`.
 - `GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH`, `NPM_API_KEY`, and `GH_TOKEN`.
 - `JAVA_HOME` and `ANDROID_HOME` for the Android toolchain.
 
-Run `make mobile-release-check` to validate prepared inputs, cloud forwarding, and Android signing behavior.
+The Apple certificate value contains the base64 PKCS#12 identity, including its private key.
+The profile and certificate identifier must match that identity and the selected application.
+The profile must permit App Store distribution.
+Gateway creates a temporary keychain, imports the identity, and removes its temporary state after the build.
+Authorized build operators must receive these private inputs separately from the Git clone.
+
+Run `make mobile-release-check` to validate prepared inputs, native adapter forwarding, and Android signing behavior.
 The local provider tests use controlled dependencies.
-Apple account setup and source authorization succeeded.
-The `Release` workflow uses Xcode 26.6 and macOS Tahoe 26.6.2 with manual branch starts.
-Its archive action uses the declared LoopAware workspace and scheme with internal TestFlight distribution.
-A successful hosted build remains required for provider acceptance.
+Actual native signing and store submission remain separate acceptance results.
 
 There are no app-owned dry-run lifecycle aliases. For a non-mutating inspection, run the gateway's `plan-app-release`, `plan-app-publish`, or `plan-app-deploy` target with `MPRLAB_APP_ROOT` set to this repository. Production activation remains an operator action.
 

@@ -11,6 +11,21 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B115] (P1) Preserve the order of traffic report saves.
+  Goal:
+  Keep the last selected sites after consecutive report changes.
+  Requirements:
+  - Serialize report writes and prevent old responses from replacing new edits.
+  - Verify delayed requests through the real browser and API.
+  Deliverables:
+  - Updated `web/app/index.html`, `tests/specs/dashboard-traffic.spec.js`, and `tests/package.json`.
+  Validation:
+  Hosted run `34544340737` saved zero sites after Clear and Select all. The other 471 browser and API tests passed.
+  The delayed-save regression failed with two overlapping writes. Both focused browser cases passed after the correction.
+  Final `make ci` passed, including all 473 browser and API tests.
+  Resolution:
+  Report writes now run in order. Old responses cannot replace newer edits.
+
 - [x] [B114] (P1) Configure a portable JDK for signing tests
   Goal:
   Signing integration tests must use the configured JDK on macOS and Ubuntu.
@@ -2415,6 +2430,31 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `web/terms/index.html`, and `web/app/index.html`.
 
 ## Improvements
+
+- [x] [I043] (P1) Use the shared native iOS release flow.
+  Goal:
+  Build and sign the iOS release locally, then publish the sealed IPA through Gateway.
+  Requirements:
+  - Replace the cloud adapter with a native build request.
+  - Preserve internal TestFlight distribution and the application version policy.
+  - Read the signing identity through the canonical private input contract.
+  - Remove cloud hooks, declarations, and instructions.
+  - Verify the adapter, prepared source, and canonical CI.
+  Deliverables:
+  - Updated `.mprlab/deploy/resources.yml`, `Makefile`, and `README.md`.
+  - Updated `mobile/scripts/build-store-artifact.mjs`, `prepare-store.mjs`, and `validate-mobile-config.mjs`.
+  - Updated `mobile/plugins/withStoreBuild.cjs` and regenerated `mobile/prepared/`.
+  - Updated `tests/mobile/apple-native.mjs` and added `ios-release.mjs` and `android-signing.mjs` in that directory.
+  - Updated the Apple and mobile guides and `.mprlab/TERMINOLOGY.md`.
+  - Removed `.mprlab/apple-build.json`, `mobile/scripts/build-ios.sh`, and `mobile/cloud/ci_post_clone.sh`.
+  - Removed `tests/mobile/apple-cloud.mjs` and generated cloud copies.
+  Validation:
+  - The adapter regression failed before the change and passed afterward.
+  - The native version regression failed before the plugin change and passed after preparation.
+  - Native preparation and the mobile release checks passed.
+  - Final `make ci` passed, including all 472 browser and API tests.
+  Resolution:
+  The native adapter and prepared source now use App Store Connect export. Cloud source and instructions were removed.
 
 - [x] [I042] (P1) Prepare the current shared UI migration.
   Goal:

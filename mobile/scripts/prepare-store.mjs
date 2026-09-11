@@ -44,6 +44,4 @@ for (const name of ["android/gradlew.bat", "android/settings.gradle"]) {
 run("node", ["scripts/fix-ios-project-warnings.mjs"]);
 run("npx", ["--no-install", "pod-install", "ios"]);
 run("node", ["--input-type=commonjs", "-e", "require('node:fs').writeFileSync('app.config.snapshot.json', JSON.stringify(require('./app.config.js'), null, 2)+'\\n')"]);
-await mkdir(join(prepared, "ios/ci_scripts"), { recursive: true });
-await cp(join(prepared, "cloud/ci_post_clone.sh"), join(prepared, "ios/ci_scripts/ci_post_clone.sh"));
 run("node", [join(mobile, "scripts/record-store-preparation.mjs"), repository]);

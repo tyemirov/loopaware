@@ -91,6 +91,12 @@ Give each term one meaning. Use the same term for the same concept in all docume
 
 ## Repository Technical Nouns
 
+- `signing identity`: A certificate and its corresponding private key for code signing.
+- `PKCS#12 file`: A file that contains a certificate and its private key.
+- `provisioning profile`: An Apple record that connects an application identifier to a certificate and distribution method.
+- `keychain`: The operating-system store that supplies a private signing identity to native tools.
+- `build intent`: A record that binds a native build to its source, request, and allocated build number.
+
 - `aggregate analytics`: Analytics that retain combined counts without individual visit records.
 - `traffic profile`: A site setting that selects the permitted analytics collection behavior.
 - `visitor identifier`: A value that associates requests with one visitor or device.

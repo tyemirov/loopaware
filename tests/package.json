@@ -17,6 +17,7 @@
     "capture:visual": "node scripts/capture-visual.mjs",
     "test:api": "playwright test -c playwright.api.config.js",
     "test:all": "playwright test",
+    "test:report-save": "playwright test -c playwright.ui.config.js specs/dashboard-traffic.spec.js --grep \"consecutive report site changes|settings entry opens all-sites\"",
     "test:aggregate": "playwright test -c playwright.ui.config.js specs/dashboard-aggregate.spec.js"
   },
   "devDependencies": {
