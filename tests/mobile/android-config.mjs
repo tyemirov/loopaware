@@ -11,9 +11,6 @@ const mobile = resolve(import.meta.dirname, "../../mobile/prepared");
 test("Gradle evaluates the prepared Android release version", async (t) => {
   const fixture = mkdtempSync(resolve(tmpdir(), "loopaware-android-config-"));
   try {
-    const install = spawnSync("npm", ["ci", "--include=dev"], { cwd: mobile, encoding: "utf8" });
-    assert.ifError(install.error);
-    assert.equal(install.status, 0, `${install.stdout}\n${install.stderr}`);
     const record = JSON.parse(readFileSync(resolve(mobile, "native-preparation.json"), "utf8"));
     for (const name of Object.keys(record.files)) {
       mkdirSync(dirname(resolve(fixture, name)), { recursive: true });
