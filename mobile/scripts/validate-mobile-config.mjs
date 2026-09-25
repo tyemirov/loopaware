@@ -180,7 +180,7 @@ for (const expectedText of [
 assert(!appConfigSource.includes("android-icon-background.png"), "mobile_config_legacy_adaptive_icon_background_image");
 assert(!appConfigSource.includes("edgeToEdgeEnabled"), "mobile_config_legacy_edge_to_edge_enabled");
 
-const expectedLoopAwareIconHash = "6a6a558580003e70cd75ba46f968bc22e40caa4064bd47b7d3fb7413b3eff49b";
+const expectedLoopAwareIconHash = "50b608957076efde2b75850f73068ba5fb779f978c6c0515f6e41c17d9474913";
 assert(fileHash("mobile/assets/icon.png") === expectedLoopAwareIconHash, "mobile_config_icon_not_loopaware_logo");
 
 const apiSource = readText("mobile/src/api.ts");

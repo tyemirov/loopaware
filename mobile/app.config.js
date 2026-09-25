@@ -3,7 +3,7 @@
 const loopAwareScheme = "loopaware";
 const loopAwarePackageScheme = "com.mprlab.loopaware";
 const loopAwareGold = "#D4AF37";
-const loopAwareWhite = "#FFFFFF";
+const loopAwareBlue = "#0063b9";
 const mobileVersion = optionalCalVerVersion(process.env.LOOPAWARE_MOBILE_VERSION || "2026.6.19", "LOOPAWARE_MOBILE_VERSION");
 const isProductionNativeBuild = process.env.NODE_ENV === "production";
 const iosBundleIdentifier = process.env.LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER || "com.mprlab.loopaware";
@@ -39,7 +39,7 @@ module.exports = {
       package: androidPackage,
       ...(androidVersionCode ? { versionCode: androidVersionCode } : {}),
       adaptiveIcon: {
-        backgroundColor: loopAwareWhite,
+        backgroundColor: loopAwareBlue,
         foregroundImage: "./assets/android-icon-foreground.png",
         monochromeImage: "./assets/android-icon-monochrome.png",
       },
