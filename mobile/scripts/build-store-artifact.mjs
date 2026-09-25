@@ -31,7 +31,7 @@ const gateway = process.env.MPRLAB_GATEWAY_EXECUTABLE;
 if (!gateway || !isAbsolute(gateway)) throw new Error("Release requires the authoritative gateway executable.");
 const config = JSON.parse(await readFile(join(sourceRoot, "app.config.snapshot.json"), "utf8")).expo;
 const request = {
-  schema_version: 1, source_root: sourceRoot, platform, output,
+  schema_version: 2, source_root: sourceRoot, platform, output,
   application_identifier: platform === "ios" ? config.ios.bundleIdentifier : config.android.package,
   version: platform === "ios" ? config.ios.version : versioning.releaseVersion, build_number: String(versioning.buildCode), release_timestamp: timestamp,
   preparation_manifest: "native-preparation.json", verify_script: "scripts/verify-store-preparation.mjs",

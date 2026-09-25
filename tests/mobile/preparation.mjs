@@ -30,8 +30,9 @@ try {
   const record = spawnSync(process.execPath, [resolve("mobile/scripts/record-store-preparation.mjs"), repository], { encoding: "utf8" });
   assert.equal(record.status, 0, record.stderr);
   const manifest = JSON.parse(await readFile(join(prepared, "native-preparation.json"), "utf8"));
+  assert.equal(manifest.schema_version, 2);
   assert.ok(manifest.files["android/app/build.gradle"]);
-  assert.ok(manifest.files["source-preparation.json"]);
+  assert.ok(!manifest.files["source-preparation.json"]);
   const destination = join(temporary, "relocated checkout");
   await rename(repository, destination);
   repository = destination;
