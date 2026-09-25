@@ -1,6 +1,5 @@
 server:
   databasePath: ${DATABASE_PATH}
-  grpcAuthToken: ${GRPC_AUTH_TOKEN}
   logLevel: ${LOG_LEVEL}
   maxRetries: ${MAX_RETRIES}
   retryIntervalSec: ${RETRY_INTERVAL_SEC}
@@ -10,28 +9,6 @@ server:
   tauth:
     signingKey: ${TAUTH_SIGNING_KEY}
     cookieName: ${TAUTH_COOKIE_NAME}
-
-tenants:
-  - id: ${PINGUIN_TENANT_ID}
-    displayName: Loopaware Sandbox
-    supportEmail: support@mprlab.com
-    enabled: true
-    domains:
-      - ${LOOPAWARE_LOCAL_DOMAIN_PRIMARY}
-      - ${LOOPAWARE_LOCAL_DOMAIN_SECONDARY}
-    admins:
-      - ${LOOPAWARE_LOCAL_ADMIN_EMAIL_1}
-      - ${LOOPAWARE_LOCAL_ADMIN_EMAIL_2}
-    emailProfile:
-      host: ${LOOPAWARE_LOCAL_SMTP_HOST}
-      port: ${LOOPAWARE_LOCAL_SMTP_PORT}
-      username: ${LOOPAWARE_LOCAL_SMTP_USERNAME}
-      password: ${LOOPAWARE_LOCAL_SMTP_PASSWORD}
-      fromAddress: ${LOOPAWARE_LOCAL_FROM_EMAIL}
-    smsProfile:
-      accountSid: ${LOOPAWARE_TWILIO_ACCOUNT_SID}
-      authToken: ${LOOPAWARE_TWILIO_AUTH_TOKEN}
-      fromNumber: ${LOOPAWARE_TWILIO_FROM_NUMBER}
 
 web:
   enabled: true
