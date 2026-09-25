@@ -11,16 +11,28 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
-- [ ] [B117] (P1) Correct the Pinguin test configuration
+- [x] [B117] (P1) Correct the Pinguin test configuration
   Goal:
   Start the notification service for the integration suite.
   Requirements:
-  - Replace the rejected `grpcAuthToken` and `tenants` config fields with the current Pinguin contract.
-  - Verify API startup before browser tests start.
+  - Remove the rejected `grpcAuthToken` and `tenants` config fields.
+  - Remove their unused environment variables from the examples and test fixture.
+  - Verify API health before browser tests start.
+  - Show service logs when startup fails.
   Validation:
-  The initial and final CI runs fail because Pinguin rejects these fields. The API then exits after a connection timeout.
+  GitHub run `36172557403` stopped after repeated browser timeouts.
+  The local API run reproduced the Pinguin config rejection and API connection failure.
+  The initial CI run stopped because the concurrent diagnostic run held the integration lock.
+  The runner regression failed before the correction. After the correction, the runner checks and all 125 API tests passed.
+  Final `make ci` passed, including all 473 browser and API scenarios.
+  The final log is `/tmp/loopaware-b117-final-ci.log`.
+  Resolution:
+  The config uses the current Pinguin schema. The runner waits for API health and shows service logs when startup fails.
+  Changed Files:
+  `configs/config.pinguin.yml`, `configs/.env.pinguin.example`, `configs/.env.pinguin.computercat.example`, `tests/configs/pinguin.env`,
+  `tests/scripts/run-integration.sh`, `tests/scripts/test-integration-runner.sh`, and `.mprlab/ISSUES.md`.
 
-- [!] [B116] (P1) {B117} Preserve the reported traffic source.
+- [x] [B116] (P1) {B117} Preserve the reported traffic source.
   Goal:
   Use the page referrer for traffic attribution.
   Requirements:
@@ -31,7 +43,9 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Verify external and direct visits through the HTTP collector and database.
   - Verify the request header cannot replace the page referrer.
   The focused HTTP tests pass after the correction.
-  Blocked: B117 prevents the required full CI result.
+  Final `make ci` passed after B117, including all 473 browser and API scenarios.
+  Resolution:
+  The collector preserves the reported traffic source. B117 removed the CI blocker.
 
 - [x] [B115] (P1) Preserve the order of traffic report saves.
   Goal:
