@@ -82,7 +82,7 @@ lint: lint-js
 
 lint-js: client-react-native-check mobile-check
 	@if [ ! -d "$(CURDIR)/tests/node_modules" ]; then \
-		npm --prefix tests install; \
+		npm --prefix tests ci; \
 	fi
 	npm --prefix tests run typecheck
 	npm --prefix tests run check:location-map
@@ -108,7 +108,7 @@ mobile-check: mobile-install
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run test:api-boundaries
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run typecheck
 
-.PHONY: mobile-native-check mobile-adapter-check mobile-release-check mobile-prepare-store mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-android-config-check
+.PHONY: mobile-prepared-install mobile-native-check mobile-adapter-check mobile-release-check mobile-prepare-store mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-android-config-check
 mobile-prepare-store: mobile-install
 	node mobile/scripts/prepare-store.mjs
 	$(MAKE) --no-print-directory mobile-podfile-config-check mobile-release-metadata-check
@@ -116,7 +116,10 @@ mobile-prepare-store: mobile-install
 mobile-prepared-tracking-check:
 	node tests/mobile/prepared-tracking.mjs
 
-mobile-bundle-check:
+mobile-prepared-install:
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR)/prepared ci --include=dev
+
+mobile-bundle-check: mobile-prepared-install
 	node tests/mobile/store-bundles.mjs
 
 mobile-container-check:
@@ -129,7 +132,7 @@ mobile-adapter-check:
 mobile-native-check: mobile-install
 	node tests/mobile/apple-native.mjs
 
-mobile-android-config-check:
+mobile-android-config-check: mobile-prepared-install
 	node --test tests/mobile/android-config.mjs
 
 mobile-release-check: mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-adapter-check mobile-native-check mobile-release-metadata-check mobile-android-config-check
@@ -251,7 +254,16 @@ docker-down:
 docker-logs:
 	docker compose logs -f
 
-ci: tidy-check config-audit security-audit build lint mobile-release-check test-unit test-race test-integration-runner test-integration-all
+.PHONY: ci-checks ci-backend ci-mobile ci-integration
+ci-checks: tidy-check config-audit security-audit build lint
+
+ci-backend: test-unit test-race
+
+ci-mobile: mobile-release-check
+
+ci-integration: test-integration-runner test-integration-all
+
+ci: ci-checks ci-backend ci-mobile ci-integration
 
 release publish deploy:
 	@set -eu; application_root="$$(git rev-parse --show-toplevel)"; \
