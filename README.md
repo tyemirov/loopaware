@@ -484,6 +484,10 @@ The traffic pixel records page visits per site and powers the dashboard Traffic 
    list are rejected. Traffic from known bot user-agent signatures is stored but excluded from default dashboard totals,
    top-page rankings, trends, attribution, engagement, devices, and locations.
 
+The collector stores the `referrer` query value as the page referrer. An empty value means no reported referral.
+The HTTP `Referer` header identifies the page that sends the pixel request. It does not identify the visitor source.
+Campaign parameters in the page URL supply source, medium, and campaign attribution.
+
 For non-JavaScript environments you can fall back to a plain image pixel:
 
 ```html

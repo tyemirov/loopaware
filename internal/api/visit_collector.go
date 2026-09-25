@@ -71,18 +71,18 @@ func (h *PublicHandlers) CollectVisit(context *gin.Context) {
 	originHeader := strings.TrimSpace(context.GetHeader("Origin"))
 	refererHeader := strings.TrimSpace(context.GetHeader("Referer"))
 	queryReferrer := strings.TrimSpace(context.Query(visitQueryReferrer))
-	referrerValue := refererHeader
-	if referrerValue == "" {
-		referrerValue = queryReferrer
-	}
+	referrerValue := queryReferrer
 	rawURL := strings.TrimSpace(context.Query(visitQueryURL))
 	allowedOrigins := mergedAllowedOrigins(site.AllowedOrigin, site.TrafficAllowedOrigins)
 	if !isOriginAllowed(allowedOrigins, originHeader, refererHeader, rawURL) {
 		context.String(http.StatusForbidden, "/* origin_forbidden */")
 		return
 	}
-	if rawURL == "" && referrerValue != "" {
-		rawURL = referrerValue
+	if rawURL == "" {
+		rawURL = refererHeader
+	}
+	if rawURL == "" {
+		rawURL = queryReferrer
 	}
 	if h.isVisitRateLimited(publicRateKey(publicRateScopeVisit, site.ID, context.ClientIP())) {
 		context.String(http.StatusTooManyRequests, "/* rate_limited */")
