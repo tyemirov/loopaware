@@ -116,7 +116,11 @@ start_cleanup_guardian
 
 down_stack
 
-docker compose -f "${compose_file}" -p "${compose_project_name}" up --build -d
+if ! docker compose -f "${compose_file}" -p "${compose_project_name}" up --build --wait --wait-timeout 60; then
+  echo "Integration stack startup failed; service logs follow." >&2
+  docker compose -f "${compose_file}" -p "${compose_project_name}" logs --no-color --tail 100 >&2
+  exit 1
+fi
 
 api_host_address="$(docker compose -f "${compose_file}" -p "${compose_project_name}" port loopaware-api 8080)"
 [[ "${api_host_address}" == 127.0.0.1:* ]] || {

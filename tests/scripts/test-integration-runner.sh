@@ -27,6 +27,10 @@ if [[ "$1 $2" == "context inspect" ]]; then
 fi
 
 echo "$*" >> "${LOOPAWARE_FAKE_DOCKER_LOG}"
+if [[ "$*" == *" up "* && "${LOOPAWARE_FAKE_STARTUP_FAILURE:-0}" == 1 ]]; then
+  echo "API health check failed" >&2
+  exit 1
+fi
 if [[ "$*" == *" port loopaware-api 8080" ]]; then
   echo 127.0.0.1:55000
 fi
@@ -41,6 +45,7 @@ chmod +x "${fake_bin}/curl"
 
 cat > "${fake_bin}/npm" <<'NPM'
 #!/usr/bin/env bash
+echo "npm $*" >> "${LOOPAWARE_FAKE_DOCKER_LOG}"
 exit 0
 NPM
 chmod +x "${fake_bin}/npm"
@@ -85,9 +90,36 @@ if [[ -e "${lock_dir}" ]]; then
   exit 1
 fi
 
-if ! grep -F -- "-p loopaware-integration up --build -d" "${docker_log}" >/dev/null; then
-  echo "Expected the canonical integration Compose project." >&2
+if ! grep -F -- "-p loopaware-integration up --build --wait --wait-timeout 60" "${docker_log}" >/dev/null; then
+  echo "Expected the integration runner to wait for API health." >&2
   cat "${docker_log}" >&2
+  exit 1
+fi
+
+: > "${docker_log}"
+set +e
+runner_output="$(LOOPAWARE_FAKE_DOCKER_LOG="${docker_log}" \
+  LOOPAWARE_FAKE_STARTUP_FAILURE=1 \
+  LOOPAWARE_PLAYWRIGHT_CHANNEL=chrome \
+  PATH="${fake_bin}:${PATH}" \
+  "${script_dir}/run-integration.sh" 2>&1)"
+runner_status=$?
+set -e
+if [[ "${runner_status}" -eq 0 || "${runner_output}" != *"Integration stack startup failed"* ]]; then
+  echo "Expected the integration runner to report API startup failure." >&2
+  echo "${runner_output}" >&2
+  exit 1
+fi
+if ! grep -F -- "-p loopaware-integration logs --no-color --tail 100" "${docker_log}" >/dev/null; then
+  echo "Expected service logs after integration startup failure." >&2
+  exit 1
+fi
+if [[ -e "${lock_dir}" ]]; then
+  echo "Failed integration startup kept the topology lock." >&2
+  exit 1
+fi
+if grep -F -- "npm " "${docker_log}" >/dev/null; then
+  echo "Failed integration startup must not start the test suite." >&2
   exit 1
 fi
 
