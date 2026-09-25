@@ -73,6 +73,7 @@ fi
 
 rmdir "${lock_dir}"
 LOOPAWARE_FAKE_DOCKER_LOG="${docker_log}" \
+  LOOPAWARE_TEST_SHARD=2/3 \
   LOOPAWARE_PLAYWRIGHT_CHANNEL=chrome \
   PATH="${fake_bin}:${PATH}" \
   "${script_dir}/run-integration.sh"
@@ -93,6 +94,10 @@ fi
 if ! grep -F -- "-p loopaware-integration up --build --wait --wait-timeout 60" "${docker_log}" >/dev/null; then
   echo "Expected the integration runner to wait for API health." >&2
   cat "${docker_log}" >&2
+  exit 1
+fi
+if ! grep -F -- "run test:all -- --shard=2/3" "${docker_log}" >/dev/null; then
+  echo "Expected the integration runner to pass the selected shard to Playwright." >&2
   exit 1
 fi
 

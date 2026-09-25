@@ -7,6 +7,7 @@ import sys
 repository_root = Path(__file__).resolve().parent.parent
 workflow_source = (repository_root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 dependabot_source = (repository_root / ".github/dependabot.yml").read_text(encoding="utf-8")
+makefile_source = (repository_root / "Makefile").read_text(encoding="utf-8")
 
 
 def require(condition: bool, message: str) -> None:
@@ -15,6 +16,30 @@ def require(condition: bool, message: str) -> None:
 
 
 try:
+    ci_target = re.search(r"(?m)^ci: (.+)$", makefile_source)
+    if ci_target is None:
+        raise ValueError("github_workflow_audit_failed: missing canonical CI target")
+    require(
+        set(re.findall(r"(?m)^\s+target: (ci-[a-z-]+)$", workflow_source)) == set(ci_target[1].split()),
+        "github_workflow_audit_failed: matrix must cover every canonical CI target",
+    )
+    require(
+        re.findall(r"(?m)^\s+shard: (\d+/\d+)$", workflow_source) == ["1/3", "2/3", "3/3"],
+        "github_workflow_audit_failed: integration shards must cover all three partitions",
+    )
+    for contract in (
+        "fail-fast: false",
+        "LOOPAWARE_TEST_SHARD: ${{ matrix.shard }}",
+        "run: make ${{ matrix.target }}",
+        "  test:\n    if: always()\n    needs: checks\n",
+        "CHECKS_RESULT: ${{ needs.checks.result }}",
+        'run: test "$CHECKS_RESULT" = success',
+        "GOCACHE: ${{ github.workspace }}/.cache/go-build",
+        "NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm",
+        "cache: gradle",
+        "mobile/prepared/package-lock.json",
+    ):
+        require(contract in workflow_source, f"github_workflow_audit_failed: missing CI contract {contract}")
     require(
         re.search(r"(?m)^permissions:\n  contents: read$", workflow_source) is not None,
         "github_workflow_audit_failed: top-level permissions must grant only contents read",

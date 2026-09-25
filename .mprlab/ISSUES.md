@@ -2467,6 +2467,35 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [x] [I044] (P1) Reduce CI execution time.
+  Goal:
+  Complete independent CI checks concurrently without reduced test coverage.
+  Requirements:
+  - Separate static checks, backend tests, mobile checks, and three integration shards.
+  - Give each integration shard a separate runner and database.
+  - Keep the required `test` result dependent on all checks.
+  - Align Go and npm caches with the Makefile paths.
+  - Cache Gradle dependencies and install prepared mobile dependencies once per Make invocation.
+  Validation:
+  The unchanged local CI result from B117 applies before this change.
+  GitHub run `36180983246` passed in approximately 20 minutes, including 10.5 minutes for 473 integration tests.
+  The shard regression failed before the correction and passed after it.
+  Shard 2 passed all 155 tests through the real integration runner in 3.1 minutes.
+  Workflow syntax, security checks, and native preparation passed.
+  The Make execution plan installs prepared dependencies once for both mobile checks.
+  Final `make ci` passed, including all 473 browser and API tests.
+  The final log is `/tmp/loopaware-i044-final-ci.log`.
+  Resolution:
+  GitHub runs independent checks and three integration shards concurrently. The required `test` result includes every matrix job.
+  Go and npm use the repository cache paths. Java setup caches Gradle dependencies.
+  The Makefile installs prepared mobile dependencies once. Native preparation refreshed its records and generated Xcode project.
+  The changed prose passed the language review. Existing language findings remain outside this issue.
+  Hosted duration after this change is not yet measured.
+  Changed Files:
+  `.github/workflows/ci.yml`, `Makefile`, `scripts/audit-github-workflow.py`, and `.mprlab/ISSUES.md`.
+  `tests/scripts/run-integration.sh`, `tests/scripts/test-integration-runner.sh`, `tests/mobile/store-bundles.mjs`, and `tests/mobile/android-config.mjs`.
+  `mobile/prepared/source-preparation.json`, `mobile/prepared/native-preparation.json`, and `mobile/prepared/ios/LoopAware.xcodeproj/project.pbxproj`.
+
 - [x] [I043] (P1) Use the shared native iOS release flow.
   Goal:
   Build and sign the iOS release locally, then publish the sealed IPA through Gateway.

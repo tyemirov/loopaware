@@ -7,8 +7,6 @@ import { spawnSync } from 'node:child_process';
 const source = resolve('mobile/prepared');
 const temporary = await mkdtemp(join(tmpdir(), 'loopaware-store-bundles-'));
 try {
-  const install = spawnSync('npm', ['ci', '--include=dev'], { cwd: source, encoding: 'utf8' });
-  assert.equal(install.status, 0, install.stderr);
   for (const platform of ['android', 'ios']) {
     const output = join(temporary, platform + '.bundle');
     const command = platform === 'android' ? 'node_modules/@react-native-community/cli/build/bin.js' : 'node_modules/react-native/scripts/bundle.js';
