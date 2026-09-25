@@ -11,6 +11,28 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [ ] [B117] (P1) Correct the Pinguin test configuration
+  Goal:
+  Start the notification service for the integration suite.
+  Requirements:
+  - Replace the rejected `grpcAuthToken` and `tenants` config fields with the current Pinguin contract.
+  - Verify API startup before browser tests start.
+  Validation:
+  The initial and final CI runs fail because Pinguin rejects these fields. The API then exits after a connection timeout.
+
+- [!] [B116] (P1) {B117} Preserve the reported traffic source.
+  Goal:
+  Use the page referrer for traffic attribution.
+  Requirements:
+  - Store the explicit `referrer` query value, including an empty value.
+  - Use the `Referer` header for origin checks and the page URL only.
+  - Keep campaign parameters in the stored page URL.
+  Validation:
+  - Verify external and direct visits through the HTTP collector and database.
+  - Verify the request header cannot replace the page referrer.
+  The focused HTTP tests pass after the correction.
+  Blocked: B117 prevents the required full CI result.
+
 - [x] [B115] (P1) Preserve the order of traffic report saves.
   Goal:
   Keep the last selected sites after consecutive report changes.
