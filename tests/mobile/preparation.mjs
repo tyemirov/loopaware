@@ -17,6 +17,7 @@ try {
   await writeFile(deletedSource, "obsolete\n");
   assert.equal(spawnSync("git", ["add", "mobile/obsolete.mjs"], { cwd: repository }).status, 0);
   await rm(deletedSource);
+  await writeFile(join(repository, "mobile/AGENTS.md"), "Original agent instructions.\n");
   const prepared = join(repository, "mobile/prepared");
   for (const name of ["package.json", "package-lock.json", "app.config.snapshot.json", "android/gradlew", "android/app/build.gradle", "ios/Podfile", "ios/Podfile.lock", "ios/LoopAware.xcworkspace/contents.xcworkspacedata"]) {
     await mkdir(resolve(prepared, name, ".."), { recursive: true });
@@ -38,6 +39,9 @@ try {
   repository = destination;
   const verify = () => spawnSync(process.execPath, ["scripts/verify-store-preparation.mjs"], { cwd: join(repository, "mobile/prepared"), encoding: "utf8" });
   let result = verify();
+  assert.equal(result.status, 0, result.stderr);
+  await writeFile(join(repository, "mobile/AGENTS.md"), "Changed agent instructions.\n");
+  result = verify();
   assert.equal(result.status, 0, result.stderr);
   await writeFile(join(repository, "mobile/App.tsx"), "export const application = 'changed';\n");
   result = verify();

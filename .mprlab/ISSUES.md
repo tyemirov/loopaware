@@ -11,6 +11,20 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B118] (P0) Validate the current Gateway manifest and native preparation.
+  Goal: Pass CI after the Gateway resource-map migration.
+  Requirements:
+  - Use resource maps in the manifest test.
+  - Exclude agent guides from native source inputs.
+  - Preserve checks for changed application and native files.
+  - Update the vulnerable dependency overrides and their validator.
+  - Regenerate native preparation through the repository target.
+  Validation: The original manifest test rejected resource maps.
+  The new preparation test failed when an agent guide changed.
+  The corrected tests passed. Final `make ci` passed all 473 browser and API scenarios.
+  Resolution: The manifest test uses maps. The preparation records contain current build inputs.
+  The dependency audits pass with the corrected joi and brace-expansion versions.
+
 - [x] [B117] (P1) Correct the Pinguin test configuration
   Goal:
   Start the notification service for the integration suite.

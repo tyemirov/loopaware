@@ -83,10 +83,10 @@ assert(
 assert(packageJSON.overrides?.uuid === "^11.1.1", "mobile_config_missing_uuid_audit_override");
 for (const [dependencyName, secureVersion] of Object.entries({
   "ajv@8.11.0": "8.20.0",
-  "brace-expansion": "5.0.9",
+  "brace-expansion": "5.0.12",
   "diff@7.0.0": "8.0.4",
   "js-yaml": "4.3.2",
-  "joi": "17.13.6",
+  "joi": "17.13.7",
   "minimatch@5.1.2": "5.1.9",
   postcss: "8.5.25",
   "shell-quote": "1.10.0",
