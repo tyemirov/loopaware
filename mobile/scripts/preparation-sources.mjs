@@ -13,5 +13,5 @@ export function preparationSources(repository) {
     return result.stdout.split("\0").filter(Boolean);
   };
   const deleted = new Set(select(["--deleted"]));
-  return [...new Set(select(["--cached", "--others", "--exclude-standard"]))].filter(name => !deleted.has(name) && !["mobile/prepared/", "mobile/android/", "mobile/ios/"].some(prefix => name.startsWith(prefix)));
+  return [...new Set(select(["--cached", "--others", "--exclude-standard"]))].filter(name => !deleted.has(name) && !name.endsWith("/AGENTS.md") && !["mobile/prepared/", "mobile/android/", "mobile/ios/"].some(prefix => name.startsWith(prefix)));
 }

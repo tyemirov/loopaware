@@ -102,6 +102,11 @@ mobile-install:
 		$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) ci; \
 	fi
 
+.PHONY: mobile-update-dependencies
+mobile-update-dependencies:
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) install --package-lock-only --ignore-scripts
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) ci
+
 mobile-check: mobile-install
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run audit:image-size
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run validate-config
@@ -134,6 +139,10 @@ mobile-native-check: mobile-install
 
 mobile-android-config-check: mobile-prepared-install
 	node --test tests/mobile/android-config.mjs
+
+.PHONY: mobile-preparation-check
+mobile-preparation-check:
+	node tests/mobile/preparation.mjs
 
 mobile-release-check: mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-adapter-check mobile-native-check mobile-release-metadata-check mobile-android-config-check
 	node tests/mobile/preparation.mjs
