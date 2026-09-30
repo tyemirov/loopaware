@@ -4,8 +4,8 @@ mprlab_resources:
   release:
     scheme: semver
   resources:
-    - kind: private_values
-      id: private
+    private:
+      kind: private_values
       bindings:
         google-native-android-client-id: TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE
         google-native-ios-client-id: TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE
@@ -13,28 +13,27 @@ mprlab_resources:
         pinguin-auth-token: PINGUIN_AUTH_TOKEN
         session-secret: SESSION_SECRET
         tauth-jwt-signing-key: TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE
-    - kind: compose_project
-      id: runtime
+    runtime:
+      kind: compose_project
       retired_services:
-        - project: mprlab-nginx-gateway
-          service: loopaware-api
+        mprlab-nginx-gateway/loopaware-api: {}
       images:
-        - id: backend-image
+        backend-image:
           repository: ghcr.io/tyemirov/loopaware
           build:
             context: .
             dockerfile: Dockerfile
             platforms:
-              - linux/amd64
+            - linux/amd64
       services:
-        - id: loopaware-api
+        loopaware-api:
           image: backend-image
           placement:
             group: gateway
             cardinality: one
           environment:
             APP_ADDR:
-              value: ":8080"
+              value: :8080
             DB_DRIVER:
               value: sqlite
             DB_DSN:
@@ -68,26 +67,26 @@ mprlab_resources:
             TRUSTED_PROXY_CIDR:
               value: 172.19.0.0/16
           assets:
-            - source: configs/config.loopaware.yml
-              target: /app/configs/config.loopaware.yml
-              mode: "0444"
+            /app/configs/config.loopaware.yml:
+              source: configs/config.loopaware.yml
+              mode: '0444'
           mounts:
-            - volume: data
-              target: /app/data
+            /app/data:
+              volume: data
               read_only: false
           ports:
-            - container_port: 8080
+            '8080': {}
           readiness:
             protocol: http
             port: 8080
             path: /healthz
             expected_status: 200
       volumes:
-        - id: data
+        data:
           name: mprlab-nginx-gateway_loopaware-data
           retention: retain
-    - kind: runtime_capability
-      id: http
+    http:
+      kind: runtime_capability
       name: loopaware.http
       version: 1
       project: runtime
@@ -101,12 +100,12 @@ mprlab_resources:
         protocol: http
         path: /healthz
         expected_status: 200
-    - kind: caddy_route
-      id: public-api
+    public-api:
+      kind: caddy_route
       hostname: loopaware-api.mprlab.com
       listener: https
       handlers:
-        - id: default
+        default:
           path_prefix: /
           upstream: loopaware.http
           transport:
@@ -118,24 +117,24 @@ mprlab_resources:
         mode: automatic
       access:
         trusted_networks:
-          - 127.0.0.1/32
-          - 172.19.0.0/16
-          - 192.168.1.158/32
+        - 127.0.0.1/32
+        - 172.19.0.0/16
+        - 192.168.1.158/32
         rate_limit:
           events: 300
           window_seconds: 10
-    - kind: health_check
-      id: public-health
+    public-health:
+      kind: health_check
       protocol: http
       url: https://loopaware-api.mprlab.com/healthz
       expected_status: 200
-    - kind: health_check
-      id: website-health
+    website-health:
+      kind: health_check
       protocol: http
       url: https://loopaware.mprlab.com/healthz
       expected_status: 200
-    - kind: github_pages
-      id: website
+    website:
+      kind: github_pages
       repository: tyemirov/loopaware
       branch: gh-pages
       domain: loopaware.mprlab.com
@@ -145,15 +144,15 @@ mprlab_resources:
         path: web
       verification:
         path: /.mprlab-release.json
-    - kind: npm_package
-      id: react-native-client
+    react-native-client:
+      kind: npm_package
       source: clients/react-native
-      package: "@loopaware/react-native"
+      package: '@loopaware/react-native'
       registry: https://registry.npmjs.org/
       access: public
       tag: latest
-    - kind: mobile_application
-      id: mobile
+    mobile:
+      kind: mobile_application
       source: mobile/prepared
       build_system: local
       build:
@@ -161,38 +160,38 @@ mprlab_resources:
         ios: mobile/scripts/build-store-artifact.mjs
       ios:
         bundle_identifier: com.mprlab.loopaware
-        app_store_id: "6788555440"
+        app_store_id: '6788555440'
         destination: testflight
         track: internal
       android:
         package_name: com.mprlab.loopaware
         destination: google_play
         track: internal
-    - kind: tauth_tenant
-      id: authentication
+    authentication:
+      kind: tauth_tenant
       capability: tauth.tenants
       version: 1
       tenant:
         id: loopaware
         display_name: LoopAware
         origins:
-          - https://loopaware.mprlab.com
+        - https://loopaware.mprlab.com
         google_web_client_id:
           resource: private
           output: google-web-client-id
         google_native_clients:
-          - platform: android
+          android:
             client_id:
               resource: private
               output: google-native-android-client-id
             redirect_uris:
-              - com.mprlab.loopaware:/oauth2redirect/google
-          - platform: ios
+            - com.mprlab.loopaware:/oauth2redirect/google
+          ios:
             client_id:
               resource: private
               output: google-native-ios-client-id
             redirect_uris:
-              - com.googleusercontent.apps.281540686395-8a90ldjnklddl0qpoc8ur6620lguv7mg:/oauth2redirect/google
+            - com.googleusercontent.apps.281540686395-8a90ldjnklddl0qpoc8ur6620lguv7mg:/oauth2redirect/google
         jwt_signing_key:
           resource: private
           output: tauth-jwt-signing-key
