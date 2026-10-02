@@ -113,6 +113,10 @@ mobile-check: mobile-install
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run test:api-boundaries
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run typecheck
 
+.PHONY: mobile-forge-security-check
+mobile-forge-security-check: mobile-install
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run audit:node-forge
+
 .PHONY: mobile-prepared-install mobile-native-check mobile-adapter-check mobile-release-check mobile-prepare-store mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-android-config-check
 mobile-prepare-store: mobile-install
 	node mobile/scripts/prepare-store.mjs
@@ -125,6 +129,7 @@ mobile-prepared-install:
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR)/prepared ci --include=dev
 
 mobile-bundle-check: mobile-prepared-install
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR)/prepared run audit:node-forge
 	node tests/mobile/store-bundles.mjs
 
 mobile-container-check:
@@ -238,7 +243,7 @@ container-base-audit:
 browser-security-audit:
 	python3 scripts/audit-browser-assets.py
 
-security-audit: browser-security-audit container-base-audit
+security-audit: browser-security-audit container-base-audit mobile-forge-security-check
 	python3 scripts/audit-github-workflow.py
 	go run $(GOVULNCHECK) ./...
 	npm --prefix tests audit --audit-level=low

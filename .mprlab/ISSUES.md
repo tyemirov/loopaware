@@ -11,6 +11,27 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B119] (P0) Reject malformed RSA signature metadata in the Expo dependency.
+  Goal: Pass the security audit with corrected RSA signature verification.
+  Requirements:
+  - Reject extra elements and invalid NULL parameters in the nested DigestAlgorithm sequence.
+  - Preserve valid signature verification and Expo certificate operations.
+  - Resolve both Expo dependency paths to the corrected package.
+  - Verify the correction through the public verifier and the repository CI targets.
+  - Regenerate native preparation from the current dependency sources.
+  Validation: Initial `make ci` reproduced four high-severity findings from `node-forge@1.4.0`.
+  The upstream advisory has no published correction. Upstream PR #1152 contains a proposed nested element-count check.
+  The public verifier regression failed because Expo accepted an extra nested element.
+  After the correction, both Expo consumers reject malformed signatures and preserve valid certificate operations.
+  `make security-audit` and `make mobile-check` passed. All three npm audits report zero vulnerabilities.
+  `make mobile-prepare-store` passed and regenerated the native preparation records.
+  Final `make ci` passed, including all 473 browser and API scenarios. The independent architect review found no remaining issues.
+  Resolution: Both Expo consumers use the local Forge correction. Expo remains at SDK 57.
+  The security gate tests the source and prepared dependency trees.
+  Changed Files:
+  `Makefile`, `mobile/package.json`, `mobile/package-lock.json`, `mobile/scripts/audit-node-forge-security.mjs`,
+  `mobile/vendor/node-forge/`, their prepared copies, the prepared iOS project, both preparation records, and `.mprlab/ISSUES.md`.
+
 - [x] [B118] (P0) Validate the current Gateway manifest and native preparation.
   Goal: Pass CI after the Gateway resource-map migration.
   Requirements:
