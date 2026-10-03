@@ -11,6 +11,30 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B121] (P1) Send the current mobile build request to Gateway.
+  Goal: Start the selected native build with the current request contract.
+  Requirements:
+  - Send schema version 3 for Android and iOS.
+  - Remove the obsolete `preparation_manifest` field.
+  - Preserve the source verification script and native exit status.
+  - Regenerate the prepared source and verify both public adapter paths.
+  Validation: Gateway v5.0.2 rejected the selected Android request with an unknown-field error.
+  The adapter sent schema version 2 and the obsolete field.
+  The successful PR #393 CI result applies to the unchanged initial source.
+  The public adapter regression failed because the emitted schema version was 2.
+  Both public platform checks passed after the correction.
+  Installed Gateway v5.0.2 accepted the emitted Android and iOS requests before the intentional build intent rejection.
+  This check stopped before signing inputs and native tools.
+  `make mobile-prepare-store` passed. Both preparation records match current build inputs.
+  The generated Xcode project changed only object identifiers and order.
+  Final `make ci` passed, including all 473 browser and API scenarios.
+  The independent architect review found no remaining issues.
+  Resolution: Both platform requests use schema version 3 without the obsolete field.
+  The source verification script and native exit status remain unchanged.
+  Changed Files:
+  `mobile/scripts/build-store-artifact.mjs`, `tests/mobile/ios-release.mjs`, `tests/mobile/android-signing-source.mjs`,
+  the prepared adapter, the prepared iOS project, both preparation records, and `.mprlab/ISSUES.md`.
+
 - [x] [B120] (P0) Bound recursive pattern processing in the mobile dependency.
   Goal: Pass the security audit with corrected braces depth limits.
   Requirements:
