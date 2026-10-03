@@ -31,10 +31,10 @@ const gateway = process.env.MPRLAB_GATEWAY_EXECUTABLE;
 if (!gateway || !isAbsolute(gateway)) throw new Error("Release requires the authoritative gateway executable.");
 const config = JSON.parse(await readFile(join(sourceRoot, "app.config.snapshot.json"), "utf8")).expo;
 const request = {
-  schema_version: 2, source_root: sourceRoot, platform, output,
+  schema_version: 3, source_root: sourceRoot, platform, output,
   application_identifier: platform === "ios" ? config.ios.bundleIdentifier : config.android.package,
   version: platform === "ios" ? config.ios.version : versioning.releaseVersion, build_number: String(versioning.buildCode), release_timestamp: timestamp,
-  preparation_manifest: "native-preparation.json", verify_script: "scripts/verify-store-preparation.mjs",
+  verify_script: "scripts/verify-store-preparation.mjs",
   ...(platform === "android" ? { android: {
     module: "app", version_name_environment: "MPRLAB_MOBILE_VERSION_NAME", version_code_environment: "MPRLAB_MOBILE_VERSION_CODE",
     signing_environment: ["LOOPAWARE_ANDROID_KEYSTORE", "LOOPAWARE_ANDROID_STORE_PASSWORD", "LOOPAWARE_ANDROID_KEY_ALIAS", "LOOPAWARE_ANDROID_KEY_PASSWORD"]

@@ -30,6 +30,9 @@ try {
   assert.equal(result.status, 17, result.stderr);
   assert.match(result.stderr, /native build diagnostic/);
   const request = JSON.parse(result.stdout);
+  assert.equal(request.schema_version, 3);
+  assert.equal(Object.hasOwn(request, 'preparation_manifest'), false);
+  assert.equal(request.verify_script, 'scripts/verify-store-preparation.mjs');
   assert.equal(request.platform, 'ios');
   assert.equal(request.application_identifier, 'com.mprlab.loopaware');
   assert.equal(request.version, '1.1.0');
