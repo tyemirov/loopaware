@@ -15,7 +15,8 @@
     "react": "19.2.8",
     "react-native": "0.86.3",
     "react-native-safe-area-context": "~5.9.1",
-    "node-forge": "file:vendor/node-forge"
+    "node-forge": "file:vendor/node-forge",
+    "braces": "file:vendor/braces"
   },
   "devDependencies": {
     "@react-native-community/cli": "20.2.0",
@@ -27,6 +28,7 @@
     "typescript": "~7.0.2"
   },
   "scripts": {
+    "audit:braces": "node scripts/audit-braces-security.mjs",
     "audit:node-forge": "node scripts/audit-node-forge-security.mjs",
     "audit:image-size": "node scripts/audit-image-size-security.mjs",
     "start": "expo start --dev-client",
@@ -57,6 +59,7 @@
     "ts-deepmerge@6.2.0": "8.0.0",
     "yaml@2.6.0": "2.9.0",
     "uuid": "^11.1.1",
-    "node-forge": "$node-forge"
+    "node-forge": "$node-forge",
+    "braces": "$braces"
   }
 }

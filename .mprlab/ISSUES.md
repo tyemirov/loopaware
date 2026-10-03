@@ -11,6 +11,27 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B120] (P0) Bound recursive pattern processing in the mobile dependency.
+  Goal: Pass the security audit with corrected braces depth limits.
+  Requirements:
+  - Preserve Expo SDK 57 and React Native 0.86.
+  - Reject excessive nesting in patterns and caller-supplied AST inputs.
+  - Bound the parent traversal used for AST expansion.
+  - Preserve valid pattern compilation and expansion through the actual dependency paths.
+  - Verify both the source and prepared dependency trees.
+  Validation: Initial `make ci` reproduced 25 high-severity findings from `braces@3.0.3`.
+  The upstream advisory has no published correction. Upstream PR #72 proposes limits in the parser and recursive walkers.
+  The public compile regression exhausted the call stack with an 8001-character pattern before the correction.
+  A second regression detected the upstream proposal's change to stringify escaping. The local correction preserves the original behavior.
+  The focused security and mobile checks passed. All three npm audits report zero vulnerabilities.
+  `make mobile-prepare-store` passed and regenerated native preparation.
+  Final `make ci` passed, including all 473 browser and API scenarios. The independent architect review found no remaining issues.
+  Resolution: Each Metro and CLI dependency path uses the local Braces correction.
+  The public gate verifies depth limits, AST cycles, valid patterns, and both prepared and source dependency trees.
+  Changed Files:
+  `Makefile`, `mobile/package.json`, `mobile/package-lock.json`, `mobile/scripts/audit-braces-security.mjs`,
+  `mobile/vendor/braces/`, their prepared copies, the prepared iOS project, both preparation records, and `.mprlab/ISSUES.md`.
+
 - [x] [B119] (P0) Reject malformed RSA signature metadata in the Expo dependency.
   Goal: Pass the security audit with corrected RSA signature verification.
   Requirements:
