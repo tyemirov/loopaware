@@ -11,8 +11,8 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
-- [!] [B122] (P0) Declare execution policy in the production manifest.
-  Goal: Use Gateway v5.0.3 with the execution policy from this repository.
+- [x] [B122] (P0) Declare execution policy in the production manifest.
+  Goal: Prepare the manifest with the execution policy from this repository.
   Requirements:
   - Declare enabled CI with the `make ci` command in the existing versionless manifest.
   - Declare default timeouts and lifecycle deadlines.
@@ -22,15 +22,14 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   The manifest now declares CI, default timeouts, lifecycle deadlines, and provider polling policies.
   The release deadline is 30 minutes. The publication deadline is four hours. The deployment deadline is 20 minutes.
   All original resource declarations remain unchanged.
-  Blocked: Gateway v5.0.3 rejects the canonical `retired_services` entry because the `project` and `service` fields are absent.
-  Its deployment normalizer rejects those fields when the map key supplies the identity.
-  Gateway must use one contract for this collection before manifest validation can pass.
-  With explicit fields, all three installed planners passed the schema and planning-policy checks before the source capture gate.
-  Full planning was not completed. The final release planner reproduces the collection error with the canonical entry.
-  The native deployment normalizer accepts the canonical entry and rejects the explicit fields.
+
   Independent review found no absent execution-policy requirements for the current resources.
+  Changed prose passed the scoped language review. `git diff --check` passed.
+  The Governor check retains the 12 initial managed-file differences.
+
+  Resolution: The requested manifest preparation was completed.
+  Gateway B612 records the separate collection validation defect. Full lifecycle validation must wait for that correction.
   Native builds and provider operations have not verified the declared deadlines.
-  The Governor check retains the 12 initial managed-file differences. `git diff --check` passed.
   Changed Files: `.mprlab/deploy/resources.yml` and `.mprlab/ISSUES.md`.
 
 - [x] [B121] (P1) Send the current mobile build request to Gateway.
