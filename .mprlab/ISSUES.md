@@ -11,6 +11,57 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B125] (P0) Preserve the selected widget input after the panel opens.
+  Goal: Keep message text in the message field during widget submission.
+  Requirements:
+  - Focus the contact field once when the panel opens.
+  - Preserve later user focus changes.
+  - Remove delayed focus attempts that can move text to another field.
+  - Verify delayed focus through the real widget page with controlled `requestAnimationFrame` calls.
+  Validation: Full CI passed 472 scenarios and failed the widget submission success scenario.
+  The contact field contained `widget@example.comWidget feedback` after the test filled the message field.
+  All 19 scenarios passed in the unchanged widget recheck.
+  The deterministic regression then failed because the queued call moved focus from the message field to the contact field.
+
+  After the correction, the regression and all 19 selected widget scenarios passed.
+  Final `make ci` passed, including all 474 browser and API scenarios.
+  Independent review found no correctness issues.
+  Resolution: The widget uses one immediate focus call and preserves later input selection.
+  Changed Files: `web/widget.js`, `tests/specs/widget-integration.spec.js`, and `.mprlab/ISSUES.md`.
+
+- [x] [B124] (P0) Regenerate native preparation after the manifest change.
+  Goal: Use the current production manifest in the prepared source record.
+  Requirements:
+  - Regenerate the prepared inputs through `make mobile-prepare-store`.
+  - Keep the current build adapters, application identifiers, and store destinations.
+  - Verify the prepared source and native files through the mobile release gate.
+  Validation: CI rejected the prepared source record with `Stale native preparation: .mprlab/deploy/resources.yml`.
+  B122 changed the manifest after the recorded preparation.
+  `make mobile-prepare-store` and `make mobile-release-check` passed after regeneration.
+  The generated Xcode project changed only object identifiers and order.
+  The source record changed only for the production manifest. The native record changed only for the Xcode project.
+
+  Final `make ci` passed, including all 474 browser and API scenarios.
+  Independent review confirmed equivalent project objects and references.
+  Resolution: Both preparation records match the current inputs.
+  Changed Files: `mobile/prepared/ios/LoopAware.xcodeproj/project.pbxproj`,
+  `mobile/prepared/source-preparation.json`, `mobile/prepared/native-preparation.json`, and `.mprlab/ISSUES.md`.
+
+- [x] [B123] (P0) {B124} Check the current manifest fields in the config-audit test.
+  Goal: Accept the current versionless manifest in the repository CI gate.
+  Requirements:
+  - Include `ci`, `defaults`, and `operations` in the expected manifest keys.
+  - Keep the checks that reject `schema_version`, resource identity fields, and the obsolete mobile publication field.
+  - Keep the production manifest unchanged.
+  Validation: Initial `make ci` failed in `TestSelectedApplicationManifestUsesVersionlessContract`.
+  The test expected three fields. The current manifest contains six fields after B122.
+  `make test-unit` passed after the correction.
+  Final `make ci` passed, including all 474 browser and API scenarios.
+  Independent review found no correctness issues.
+
+  Resolution: The assertion uses the six current manifest fields and preserves the obsolete-contract checks.
+  Changed Files: `cmd/configaudit/main_test.go` and `.mprlab/ISSUES.md`.
+
 - [x] [B122] (P0) Declare execution policy in the production manifest.
   Goal: Prepare the manifest with the execution policy from this repository.
   Requirements:
