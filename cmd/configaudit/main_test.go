@@ -26,7 +26,7 @@ func TestSelectedApplicationManifestUsesVersionlessContract(testingT *testing.T)
 		manifestKeys = append(manifestKeys, manifestKey)
 	}
 	slices.Sort(manifestKeys)
-	require.Equal(testingT, []string{"owner", "release", "resources"}, manifestKeys)
+	require.Equal(testingT, []string{"ci", "defaults", "operations", "owner", "release", "resources"}, manifestKeys)
 	require.NotContains(testingT, string(manifestDocument), "schema_version:")
 
 	resources, resourcesAvailable := manifest["resources"].(map[string]any)
