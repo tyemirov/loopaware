@@ -3,6 +3,118 @@ mprlab_resources:
   owner: loopaware
   release:
     scheme: semver
+  ci:
+    enabled: true
+    command:
+      '0': make
+      '1': ci
+  defaults:
+    timeouts:
+      startup: 30s
+      completion: 2m
+      readiness: 30s
+      request: 15s
+      shutdown: 5s
+  operations:
+    app-plan-release:
+      timeouts:
+        completion: 2m
+      polling:
+        initial: 2s
+        maximum: 10s
+        increment: 1s
+        multiplier: 2
+        attempt_limit: 4
+    app-plan-publish:
+      timeouts:
+        completion: 2m
+      polling:
+        initial: 2s
+        maximum: 10s
+        increment: 1s
+        multiplier: 2
+        attempt_limit: 4
+    app-plan-deploy:
+      timeouts:
+        completion: 2m
+      polling:
+        initial: 2s
+        maximum: 10s
+        increment: 1s
+        multiplier: 2
+        attempt_limit: 4
+    app-release:
+      timeouts:
+        completion: 30m
+      polling:
+        initial: 2s
+        maximum: 10s
+        increment: 1s
+        multiplier: 2
+        attempt_limit: 4
+    app-publish:
+      timeouts:
+        completion: 4h
+      polling:
+        initial: 2s
+        maximum: 10s
+        increment: 1s
+        multiplier: 2
+        attempt_limit: 4
+    app-deploy:
+      timeouts:
+        completion: 20m
+      polling:
+        initial: 2s
+        maximum: 10s
+        increment: 1s
+        multiplier: 2
+        attempt_limit: 4
+    ci:
+      timeouts:
+        completion: 30m
+    mobile.publication:
+      polling:
+        initial: 1s
+        maximum: 30s
+        increment: 0s
+        multiplier: 2
+        attempt_limit: 120
+    mobile.publication.google:
+      polling:
+        initial: 1s
+        maximum: 30s
+        increment: 0s
+        multiplier: 2
+        attempt_limit: 12
+    deployment.resource.recovery:
+      polling:
+        initial: 1s
+        maximum: 1s
+        increment: 0s
+        multiplier: 1
+        attempt_limit: 3
+    deployment.http-health:
+      polling:
+        initial: 1s
+        maximum: 1s
+        increment: 0s
+        multiplier: 1
+        attempt_limit: 3
+    app_deploy.health.same_host:
+      polling:
+        initial: 15s
+        maximum: 30s
+        increment: 0s
+        multiplier: 2
+        attempt_limit: 3
+    app_deploy.pages.deployment_status_poll:
+      polling:
+        initial: 1s
+        maximum: 10s
+        increment: 0s
+        multiplier: 2
+        attempt_limit: 120
   resources:
     private:
       kind: private_values
