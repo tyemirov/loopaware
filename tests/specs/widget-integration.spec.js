@@ -55,6 +55,33 @@ test('widget panel opens on bubble click', async ({ page }) => {
   await expect(page.locator('#mp-feedback-panel')).toBeVisible();
 });
 
+test('widget panel opening preserves a later message focus change', async ({ page }) => {
+  await openWidgetPage(page, site.id);
+  const focusResult = await page.evaluate(() => {
+    const bubble = /** @type {HTMLElement} */ (document.getElementById('mp-feedback-bubble'));
+    const message = /** @type {HTMLTextAreaElement} */ (document.getElementById('mp-feedback-message'));
+    /** @type {FrameRequestCallback[]} */
+    const pendingFrames = [];
+    const requestAnimationFrame = window.requestAnimationFrame;
+    window.requestAnimationFrame = (callback) => {
+      pendingFrames.push(callback);
+      return pendingFrames.length;
+    };
+    try {
+      bubble.click();
+      message.focus();
+      const selectedInput = document.activeElement?.id;
+      for (const callback of pendingFrames) {
+        callback(performance.now());
+      }
+      return { selectedInput, finalInput: document.activeElement?.id };
+    } finally {
+      window.requestAnimationFrame = requestAnimationFrame;
+    }
+  });
+  expect(focusResult).toEqual({ selectedInput: 'mp-feedback-message', finalInput: 'mp-feedback-message' });
+});
+
 test('widget sentiment buttons render as circular icon controls', async ({ page }) => {
   await openWidgetPage(page, site.id);
   await page.locator('#mp-feedback-bubble').click();
