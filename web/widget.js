@@ -824,28 +824,7 @@
 
       /** @param {HTMLElement} targetElement */
       function focusInputElement(targetElement) {
-        if (!targetElement || typeof targetElement.focus !== "function") {
-          return;
-        }
-        try {
-          targetElement.focus();
-        } catch(focusImmediateError){}
-        if (typeof window === "undefined") {
-          return;
-        }
-        if (typeof window.requestAnimationFrame === "function") {
-          window.requestAnimationFrame(function(){
-            try {
-              targetElement.focus();
-            } catch(focusAnimationFrameError){}
-          });
-          return;
-        }
-        window.setTimeout(function(){
-          try {
-            targetElement.focus();
-          } catch(focusTimeoutError){}
-        }, 0);
+        targetElement.focus();
       }
 
       function selectStatusColor(palette, statusState) {
