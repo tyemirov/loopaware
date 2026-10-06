@@ -3579,6 +3579,28 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Features
 
+- [ ] [F017] (P1) {P003} Add read-only MCP access through the shared utils package.
+  Goal:
+  Expose authorized LoopAware reads through released `utils/mcpauth` and the official MCP SDK.
+  Requirements:
+  - Implement the contract in `.mprlab/MCP-ADOPTION.md`.
+  - Associate verified TAuth subjects with existing accounts through transactional identity links.
+  - Share query services and resource authorization between REST and MCP.
+  - Add the six bounded read-only tools and preserve aggregate analytics restrictions.
+  - Declare the OAuth resource and public MCP routes without removing REST network restrictions.
+  - Keep LLM Proxy, ISSUES.md, and TAuth migrations outside this change.
+  Deliverables:
+  - MCP endpoint, resource metadata, typed tools, configuration, and public integration tests.
+  - Updated package dependencies, Make targets, architecture, and operator documentation.
+  Validation:
+  - Preserve the initial CI result and expected failing public MCP test.
+  - Verify real TAuth subject correspondence, scope checks, site isolation, and identity transactions.
+  - Verify strict protocol policy, limits, cancellation, safe errors, and absence of tool side effects.
+  - Require 100 percent statement coverage for new packages and passing race tests.
+  - Run final `make ci` and independent architecture review.
+  Status:
+  P003 records the detailed plan. Source implementation has not started.
+
 - [x] [F016] (P1) {P001} Add restricted aggregate analytics for selected sites.
   Goal:
   Supply automatic daily usage counts without persistent visitor records.
@@ -3881,6 +3903,27 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 
 ## Planning
+
+- [x] [P003] (P1) Define LoopAware adoption of shared MCP authorization.
+  Goal:
+  Convert the shared MCP outline into a LoopAware-specific implementation contract.
+  Requirements:
+  - Inspect released utils, current authentication, resource access, and deployment declarations.
+  - Define identity links, tool schemas, scopes, protocol policy, and sequential implementation steps.
+  - Exclude migrations of previously implemented repositories.
+  Deliverables:
+  - Durable contract in `.mprlab/MCP-ADOPTION.md` and implementation issue F017.
+  Validation:
+  - Verify source evidence and package availability without changing application dependencies.
+  - Obtain independent architecture review and complete changed-document checks.
+  Resolution:
+  The detailed contract defines identity links, six read-only tools, OAuth policy, routing, and source acceptance.
+  The package manager confirmed released utils v0.19.1 contains `mcpauth`.
+  Independent architecture review found no remaining plan blockers.
+  Changed prose and issue entries passed scoped document checks. `git diff --check` passed.
+  Governor retained twelve existing template differences. This task added no differences.
+  F017 owns implementation. Application code and dependencies remain unchanged.
+  Changed files: `.mprlab/MCP-ADOPTION.md`, `.mprlab/TERMINOLOGY.md`, and `.mprlab/ISSUES.md`.
 
 - [x] [P002] (P1) Select the portable LoopAware mobile release scope.
   Goal:

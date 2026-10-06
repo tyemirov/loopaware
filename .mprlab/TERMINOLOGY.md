@@ -95,6 +95,25 @@ Give each term one meaning. Use the same term for the same concept in all docume
 
 ## Repository Technical Nouns
 
+- `MCP`: Model Context Protocol, which connects clients to application tools and data.
+- `MCP tool`: A named application operation available through MCP.
+- `Streamable HTTP`: The MCP transport that sends protocol requests through HTTP.
+- `JSON-RPC`: The request and response format that the MCP SDK processes.
+- `OAuth`: The authorization protocol that supplies access tokens for protected resources.
+- `access token`: An OAuth credential that permits access to a protected resource.
+- `authorization grant`: The approved relation between an account, client, resource, and scopes.
+- `scope`: A named permission in an authorization grant.
+- `PKCE`: Proof Key for Code Exchange, which binds an authorization code to its requesting client.
+- `JWKS`: A JSON Web Key Set that supplies public token verification keys.
+- `principal`: The verified identity and application role used for resource authorization.
+- `identity link`: A stored association between a verified TAuth subject and a LoopAware account.
+- `subject`: The tenant-specific TAuth account identifier in a verified token.
+- `session binding`: An identifier for one authorized account, client, and grant relation.
+- `cursor`: A bounded pagination value that identifies the next query position.
+- `keyset pagination`: A query method that selects records after a specified ordered position.
+- `query service`: Application code that authorizes and reads data independently of its transport.
+- `read-only tool`: An MCP operation that reads application data without a domain mutation or external operation.
+
 - `signing identity`: A certificate and its corresponding private key for code signing.
 - `PKCS#12 file`: A file that contains a certificate and its private key.
 - `provisioning profile`: An Apple record that connects an application identifier to a certificate and distribution method.
