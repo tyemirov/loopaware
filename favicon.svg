@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs>
+<linearGradient id="brand-field" x2="0" y2="1"><stop stop-color="#0063b9"/><stop offset="1" stop-color="#009bd5"/></linearGradient>
+<filter id="brand-ink" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB"><feFlood flood-color="#ffd369"/><feComposite in2="SourceGraphic" operator="in"/></filter>
+</defs>
+<rect width="512" height="512" fill="url(#brand-field)"/>
+<g filter="url(#brand-ink)"><svg width="512" height="512" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <path stroke="#D4AF37" fill="none" stroke-width="10" stroke-linejoin="round" d="M 32 128 C 72 56, 184 56, 224 128 C 184 200, 72 200, 32 128 Z" />
+  <circle cx="128" cy="128" r="48" stroke="#D4AF37" fill="none" stroke-width="8" />
+  <path stroke="#D4AF37" fill="none" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" d="M 96 128 C 96 108, 128 108, 128 128        C 128 148, 160 148, 160 128        C 160 108, 128 108, 128 128        C 128 148, 96 148, 96 128" />
+</svg></g>
+</svg>

@@ -1,0 +1,20 @@
+# LoopAware frontend runtime configuration source (published as `/config.yml` for static hosting).
+version: 1
+environments:
+  - name: production
+    hostnames:
+      - loopaware.mprlab.com
+      - tyemirov.github.io
+    services:
+      apiOrigin: https://loopaware-api.mprlab.com
+      tauthOrigin: https://tauth-api.mprlab.com
+      siteWidgetSiteId: c4fa39f7-4690-4bae-93d1-9401bdf98dbf
+  - name: development
+    hostnames:
+      - computercat.tyemirov.net
+      - localhost
+      - 127.0.0.1
+    services:
+      apiOrigin: ""
+      tauthOrigin: ""
+      siteWidgetSiteId: ""
