@@ -11,6 +11,30 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [!] [B126] (P0) Correct the mobile dependencies that block release CI.
+  Goal: Pass the mobile security audit with corrected dependency versions.
+  Requirements:
+  - Update compression, joi, shell-quote, and source-map-js to corrected releases.
+  - Preserve the current Expo and React Native versions.
+  - Regenerate the prepared mobile project through `make mobile-prepare-store`.
+  - Pass the security audit and full CI.
+  Validation: Initial `make ci` reproduced four mobile dependency findings at commit `02c9ca9b54e902e4e0b5aac97c492aadf2c1b776`.
+  The findings affect compression 1.8.1, joi 17.13.7, shell-quote 1.10.0, and source-map-js 1.2.1.
+  Release stopped before publication and deployment.
+
+  The source and prepared projects now resolve compression 1.8.2, joi 17.13.8, shell-quote 1.11.0, and source-map-js 1.2.2.
+  `make mobile-update-dependencies mobile-check mobile-prepare-store` and `make security-audit` passed.
+  All npm audits report zero vulnerabilities.
+  Final local `make ci` passed build, lint, Go tests, and race detection.
+  The Docker container check then failed with `meta.db: read-only file system`.
+  Independent review confirmed equivalent Xcode project objects and matching preparation records.
+
+  Local mobile bundle, preparation, adapter, native, metadata, and Android config checks passed.
+
+  Blocked: The local Docker metadata database rejects writes. Full GitHub CI must complete the container and integration checks.
+  Changed Files: The mobile package declarations, dependency locks, and override validators in both source and prepared projects.
+  The prepared Xcode project, both preparation records, and `.mprlab/ISSUES.md` also changed.
+
 - [x] [B125] (P0) Preserve the selected widget input after the panel opens.
   Goal: Keep message text in the message field during widget submission.
   Requirements:
