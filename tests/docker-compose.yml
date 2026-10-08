@@ -1,16 +1,41 @@
 services:
+  tauth-bootstrap:
+    image: ghcr.io/tyemirov/tauth:latest
+    platform: ${LOOPAWARE_TEST_IMAGE_PLATFORM:-linux/amd64}
+    restart: "no"
+    pull_policy: always
+    command: ["console-bootstrap", "--tenant-file", "/config/console.yml"]
+    env_file:
+      - ./configs/tauth-service.env
+    volumes:
+      - tauth-data:/data
+      - ./configs/tauth-service.yml:/config/service.yml:ro
+      - ./configs/tauth-console.yml:/config/console.yml:ro
+    healthcheck:
+      disable: true
+
   la-tauth:
     image: ghcr.io/tyemirov/tauth:latest
     platform: ${LOOPAWARE_TEST_IMAGE_PLATFORM:-linux/amd64}
     restart: unless-stopped
     pull_policy: always
     env_file:
-      - ./configs/tauth.env
+      - ./configs/tauth-service.env
+    depends_on:
+      tauth-bootstrap:
+        condition: service_completed_successfully
     expose:
       - "8082"
     volumes:
       - tauth-data:/data
-      - ../configs/config.tauth.yml:/config/config.yml:ro
+      - ./configs/tauth-service.yml:/config/service.yml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-O-", "http://localhost:8082/health"]
+      start_interval: 1s
+      interval: 30s
+      start_period: 30s
+      timeout: 2s
+      retries: 6
 
   la-pinguin:
     image: ghcr.io/tyemirov/pinguin:latest

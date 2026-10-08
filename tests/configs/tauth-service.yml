@@ -1,0 +1,10 @@
+server:
+  listen_addr: ":8082"
+  database_url: "sqlite:///data/tauth.db"
+  tenant_encryption_key: "${TAUTH_TENANT_ENCRYPTION_KEY}"
+  enable_cors: true
+  cors_allowed_origins:
+    - http://localhost:8090
+  cors_allowed_origin_exceptions:
+    - https://accounts.google.com
+  enable_tenant_header_override: false
