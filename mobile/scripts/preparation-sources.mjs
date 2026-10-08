@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 export function preparationSources(repository) {
   /** @param {string[]} options */
   const select = (options) => {
-    const result = spawnSync("git", ["ls-files", ...options, "-z", "--", "mobile", "Makefile", ".mprlab/deploy/resources.yml"], { cwd: repository, encoding: "utf8" });
+    const result = spawnSync("git", ["ls-files", ...options, "-z", "--", "mobile", "Makefile"], { cwd: repository, encoding: "utf8" });
     if (result.status !== 0) throw new Error("Cannot select native preparation source inputs.");
     return result.stdout.split("\0").filter(Boolean);
   };
