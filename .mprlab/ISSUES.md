@@ -11,6 +11,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [ ] [B127] (P0) Start the integration TAuth service with its current database contract.
+  Goal: Complete integration startup with the published TAuth image.
+  Requirements:
+  - Use a dedicated service config and synthetic console fixture for integration tests.
+  - Complete console bootstrap before TAuth startup with the same database, encryption key, and image.
+  - Verify TAuth health before browser and API scenarios start.
+  - Preserve the isolated database cleanup and existing application authentication tests.
+  Validation: GitHub CI run `37720360859` failed in integration shard 3 before the browser tests started.
+  TAuth rejected the shared `tenants` YAML field with `config.invalid_config_file`.
+  The published TAuth contract requires a database encryption key and console bootstrap.
+  Independent review confirmed that the existing tests need no application tenants in TAuth.
+
 - [!] [B126] (P0) Correct the mobile dependencies that block release CI.
   Goal: Pass the mobile security audit with corrected dependency versions.
   Requirements:

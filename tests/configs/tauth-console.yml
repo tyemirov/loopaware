@@ -1,0 +1,22 @@
+id: tauth-console
+display_name: LoopAware integration console
+tenant_origins:
+  - http://localhost:8090
+  - http://127.0.0.1:8090
+google_web_client_id: integration-console.apps.googleusercontent.com
+jwt_signing_key: "${TAUTH_CONSOLE_SESSION_KEY}"
+session_cookie_name: loopaware_test_console_session
+refresh_cookie_name: loopaware_test_console_refresh
+session_ttl: 15m
+refresh_ttl: 720h
+allow_insecure_http: true
+account_management:
+  enabled: true
+  email_delivery:
+    server_address: la-pinguin:50051
+    api_key: integration-console-pinguin-key
+    connection_timeout_seconds: 3
+    operation_timeout_seconds: 5
+    email_verification_url: http://localhost:8090/app/verify
+    password_reset_url: http://localhost:8090/app/reset
+    password_link_url: http://localhost:8090/app/link
