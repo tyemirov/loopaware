@@ -11,6 +11,34 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B128] (P0) Exclude the deployment manifest from mobile preparation inputs.
+  Goal: Accept the release copy when Gateway serializes the deployment manifest without changes to its values.
+  Requirements:
+  - Record only the source inputs for mobile preparation.
+  - Preserve byte validation for mobile source files and native files.
+  - Regenerate the prepared files through `make mobile-prepare-store`.
+  - Verify the release copy behavior through the preparation integration test.
+  Validation: Release `v1.1.6` failed with `Stale native preparation: .mprlab/deploy/resources.yml` before Android compilation.
+  The committed manifest matches the source record. GitHub CI run `37723851487` passed for the unchanged source.
+  Gateway replaced the manifest YAML with equivalent JSON in the retained release copy.
+  Only the deployment manifest differs from the 163 recorded source inputs.
+  Native project generation does not use this manifest.
+
+  The new integration test reproduced the stale-manifest error before the source selection change.
+  After the correction, manifest serialization and repository relocation passed.
+  The verifier still rejected changes to application code, app config, the Makefile, and native Gradle files.
+  `make mobile-preparation-check` and `make mobile-prepare-store` passed.
+  Independent review confirmed that all 162 source files and 226 native files match their records.
+  The generated Xcode project contains equivalent objects and settings.
+  Governor reported twelve existing template differences in unchanged files. The changed issue text passed the language checker.
+  Final `make ci` passed, including all 474 browser and API integration scenarios.
+  Independent code review found no defects.
+  Resolution: Mobile preparation excludes the deployment manifest and preserves byte validation for its actual source inputs.
+  The retained `v1.1.6` release inputs remain unchanged. The correction requires a release copy of the updated source.
+  Changed Files: `mobile/scripts/preparation-sources.mjs`, `mobile/prepared/scripts/preparation-sources.mjs`,
+  `mobile/prepared/source-preparation.json`, `mobile/prepared/native-preparation.json`,
+  `mobile/prepared/ios/LoopAware.xcodeproj/project.pbxproj`, `tests/mobile/preparation.mjs`, and `.mprlab/ISSUES.md`.
+
 - [x] [B127] (P0) Start the integration TAuth service with its current database contract.
   Goal: Complete integration startup with the published TAuth image.
   Requirements:
