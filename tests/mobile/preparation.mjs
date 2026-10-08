@@ -12,7 +12,10 @@ try {
   const initialization = spawnSync("git", ["init", "--quiet", repository], { encoding: "utf8" });
   assert.equal(initialization.status, 0, initialization.stderr);
   await writeFile(join(repository, "mobile/App.tsx"), "export const application = 'fixture';\n");
+  await writeFile(join(repository, "mobile/app.config.js"), "module.exports = { name: 'fixture' };\n");
   await writeFile(join(repository, "Makefile"), "fixture:\n\ttrue\n");
+  await mkdir(join(repository, ".mprlab/deploy"), { recursive: true });
+  await writeFile(join(repository, ".mprlab/deploy/resources.yml"), "mprlab_resources:\n  owner: fixture\n  resources: {}\n");
   const deletedSource = join(repository, "mobile/obsolete.mjs");
   await writeFile(deletedSource, "obsolete\n");
   assert.equal(spawnSync("git", ["add", "mobile/obsolete.mjs"], { cwd: repository }).status, 0);
@@ -40,6 +43,10 @@ try {
   const verify = () => spawnSync(process.execPath, ["scripts/verify-store-preparation.mjs"], { cwd: join(repository, "mobile/prepared"), encoding: "utf8" });
   let result = verify();
   assert.equal(result.status, 0, result.stderr);
+  // Gateway serializes the deployment manifest in its release source copy.
+  await writeFile(join(repository, ".mprlab/deploy/resources.yml"), JSON.stringify({ mprlab_resources: { owner: "fixture", resources: {} } }));
+  result = verify();
+  assert.equal(result.status, 0, result.stderr);
   await writeFile(join(repository, "mobile/AGENTS.md"), "Changed agent instructions.\n");
   result = verify();
   assert.equal(result.status, 0, result.stderr);
@@ -48,11 +55,21 @@ try {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Stale native preparation: mobile\/App.tsx/);
   await writeFile(join(repository, "mobile/App.tsx"), "export const application = 'fixture';\n");
+  await writeFile(join(repository, "mobile/app.config.js"), "module.exports = { name: 'changed' };\n");
+  result = verify();
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Stale native preparation: mobile\/app.config.js/);
+  await writeFile(join(repository, "mobile/app.config.js"), "module.exports = { name: 'fixture' };\n");
+  await writeFile(join(repository, "Makefile"), "fixture:\n\tfalse\n");
+  result = verify();
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Stale native preparation: Makefile/);
+  await writeFile(join(repository, "Makefile"), "fixture:\n\ttrue\n");
   await writeFile(join(repository, "mobile/prepared/android/app/build.gradle"), "changed native build\n");
   result = verify();
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Stale native preparation: android\/app\/build.gradle/);
-  console.info("Prepared inputs survive relocation and reject changed source or native files.");
+  console.info("Prepared inputs survive release manifest serialization and relocation, and reject changed mobile source, config, or native files.");
 } finally {
   await rm(temporary, { recursive: true, force: true });
 }
