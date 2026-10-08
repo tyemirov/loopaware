@@ -30,7 +30,7 @@ services:
       - tauth-data:/data
       - ./configs/tauth-service.yml:/config/service.yml:ro
     healthcheck:
-      test: ["CMD", "wget", "-O-", "http://localhost:8082/healthz"]
+      test: ["CMD", "wget", "-O-", "http://localhost:8082/health"]
       start_interval: 1s
       interval: 30s
       start_period: 30s
