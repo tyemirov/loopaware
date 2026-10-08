@@ -11,7 +11,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
-- [ ] [B127] (P0) Start the integration TAuth service with its current database contract.
+- [x] [B127] (P0) Start the integration TAuth service with its current database contract.
   Goal: Complete integration startup with the published TAuth image.
   Requirements:
   - Use a dedicated service config and synthetic console fixture for integration tests.
@@ -23,7 +23,18 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   The published TAuth contract requires a database encryption key and console bootstrap.
   Independent review confirmed that the existing tests need no application tenants in TAuth.
 
-- [!] [B126] (P0) Correct the mobile dependencies that block release CI.
+  The first bootstrap fixture used two origins and different console cookie names. TAuth rejected that fixture.
+  The corrected fixture uses one origin and the reserved console cookie names.
+  Service startup then rejected the unused CORS origin. The service and console now use `http://localhost:8090`.
+  Compose validation, config audit, and integration runner checks passed.
+
+  GitHub CI run `37722071639` passed for commit `f0f793ba9c14d7b7201a4258bf86ef1eaf313ca5`.
+  All three shards confirmed successful bootstrap and healthy TAuth before the scenarios started.
+  All 474 browser and API scenarios passed.
+  Resolution: The integration stack uses the current TAuth bootstrap contract and its `/health` endpoint.
+  Changed Files: `tests/docker-compose.yml`, `tests/configs/tauth-service.yml`, `tests/configs/tauth-service.env`, `tests/configs/tauth-console.yml`, and `.mprlab/ISSUES.md`.
+
+- [x] [B126] (P0) Correct the mobile dependencies that block release CI.
   Goal: Pass the mobile security audit with corrected dependency versions.
   Requirements:
   - Update compression, joi, shell-quote, and source-map-js to corrected releases.
@@ -43,7 +54,10 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
   Local mobile bundle, preparation, adapter, native, metadata, and Android config checks passed.
 
-  Blocked: The local Docker metadata database rejects writes. Full GitHub CI must complete the container and integration checks.
+  GitHub CI run `37722071639` passed after the separate B127 integration correction.
+  The run completed all container, mobile, backend, and integration checks.
+  Resolution: Both mobile dependency locks contain the four corrected releases. All npm audits pass.
+  The local Docker metadata database still rejects writes. That host requires recovery before local release CI can finish.
   Changed Files: The mobile package declarations, dependency locks, and override validators in both source and prepared projects.
   The prepared Xcode project, both preparation records, and `.mprlab/ISSUES.md` also changed.
 
