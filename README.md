@@ -131,10 +131,7 @@ production manifest trusts the gateway-owned internal network because Caddy is t
 When running via Docker Compose, create private local `.env.*` files explicitly. The tracked examples document variable names only; their values are intentionally unusable and must never be copied, sourced, or passed to Compose.
 
 ```bash
-install -m 0600 /dev/null configs/.env.loopaware
-install -m 0600 /dev/null configs/.env.tauth
-install -m 0600 /dev/null configs/.env.pinguin
-install -m 0600 /dev/null configs/.env.ghttp
+touch configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
 $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
 ```
 
@@ -598,6 +595,12 @@ make deploy
 
 Each target is a zero-argument wrapper around the exact sibling `../mprlab-gateway` checkout. The gateway owns lifecycle validation, sealed artifact assembly, provider publication, host assembly, and verification. LoopAware owns only the local native builders and provider clients selected by its manifest; it does not carry a parallel lifecycle controller.
 
+The npm publication credential is `NPM_API_KEY` in the ignored `configs/.env.loopaware` file.
+The setup commands preserve existing private file contents.
+Gateway reads this assignment directly and supplies it to npm through standard input.
+An exported `NPM_TOKEN` or an `npm login` session does not select this credential.
+See [npm publication credentials](docs/npm-publication.md) for the input contract and authentication diagnosis.
+
 Deployment-only private values belong in the ignored `.mprlab/deploy/.env` file with mode `0600`. The manifest binds those values through its `private_values` resource; secret bytes never belong in the manifest. Release and publish do not read this deployment input.
 
 Run `make mobile-prepare-store` after a mobile source or build configuration change.
@@ -667,10 +670,7 @@ There are no app-owned dry-run lifecycle aliases. For a non-mutating inspection,
 Ensure the container receives the placeholder inputs used by `configs/config.loopaware.yml` and mounts that backend runtime config file.
 
 ```bash
-install -m 0600 /dev/null configs/.env.loopaware
-install -m 0600 /dev/null configs/.env.tauth
-install -m 0600 /dev/null configs/.env.pinguin
-install -m 0600 /dev/null configs/.env.ghttp
+touch configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
 $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
 ./scripts/up.sh
 ```
@@ -693,10 +693,7 @@ through the helper scripts:
 For the computercat TLS stack, use:
 
 ```bash
-install -m 0600 /dev/null configs/.env.loopaware.computercat
-install -m 0600 /dev/null configs/.env.tauth.computercat
-install -m 0600 /dev/null configs/.env.pinguin.computercat
-install -m 0600 /dev/null configs/.env.ghttp.computercat
+touch configs/.env.loopaware.computercat configs/.env.tauth.computercat configs/.env.pinguin.computercat configs/.env.ghttp.computercat
 $EDITOR configs/.env.loopaware.computercat configs/.env.tauth.computercat configs/.env.pinguin.computercat configs/.env.ghttp.computercat
 ./scripts/up.sh computercat
 ```
