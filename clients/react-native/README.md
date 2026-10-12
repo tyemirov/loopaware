@@ -2,6 +2,12 @@
 
 Native feedback button for Expo and React Native apps. This client submits customer feedback to `/public/mobile-feedback`; it is not part of LA Sentry error capture.
 
+## Maintainer Publication
+
+The repository lifecycle publishes this package from its prepared artifact.
+Gateway reads `NPM_API_KEY` from the ignored `configs/.env.loopaware` file at the repository root.
+See [npm publication credentials](../../docs/npm-publication.md) for the loading contract and authentication diagnosis.
+
 ## Installation
 
 ```bash

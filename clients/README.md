@@ -2,6 +2,9 @@
 
 First-party clients for LoopAware live under this directory.
 
+For package publication, use the repository lifecycle and the
+[canonical npm credential input](../docs/npm-publication.md).
+
 ## Feedback
 
 | Runtime | Location | Ingest route | Notes |
