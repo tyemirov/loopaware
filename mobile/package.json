@@ -24,6 +24,8 @@
     "@react-native/metro-config": "0.86.3",
     "@types/node": "^26.4.1",
     "@types/react": "~19.2.18",
+    "@types/react-test-renderer": "^19.1.0",
+    "react-test-renderer": "19.2.8",
     "@typescript/typescript6": "6.0.2",
     "pod-install": "1.1.0",
     "typescript": "~7.0.2"
@@ -40,6 +42,7 @@
     "ios:prepare-native": "expo prebuild --platform ios && node scripts/fix-ios-project-warnings.mjs",
     "ios:dev-build": "npm run ios:prepare-native && expo run:ios --no-bundler --no-install",
     "test:api-boundaries": "node scripts/test-api-boundaries.mjs",
+    "test:app-flow": "node scripts/test-app-flow.mjs",
     "typecheck": "tsc --noEmit",
     "validate-config": "node scripts/validate-mobile-config.mjs",
     "web": "expo start --web"

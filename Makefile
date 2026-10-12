@@ -1,7 +1,7 @@
 override SHELL := /bin/sh
 override GO_SOURCES := $(shell find . -name '*.go' -not -path "./vendor/*" -not -path "./tests/*" -not -path "./tools/pinguin/vendor/*" -not -path "./.cache/*" -not -path "./tools/pinguin/.cache/*")
 override PINGUIN_DIR := tools/pinguin
-override STATICCHECK_VERSION := v0.8.1
+override STATICCHECK_VERSION := v0.8.2
 override INEFFASSIGN_VERSION := v0.2.0
 override GOVULNCHECK_VERSION := v1.6.0
 override STATICCHECK := honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
@@ -111,6 +111,7 @@ mobile-check: mobile-install
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run audit:image-size
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run validate-config
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run test:api-boundaries
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run test:app-flow
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run typecheck
 
 .PHONY: mobile-forge-security-check

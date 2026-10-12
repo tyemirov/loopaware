@@ -54,7 +54,7 @@ export default function App() {
   const authController = useMemo(() => new AuthController(apiClient), [apiClient]);
   const [status, setStatus] = useState<"checking" | "signedOut" | "signedIn">("checking");
   const [account, setAccount] = useState<Account | null>(null);
-  const [sites, setSites] = useState<Site[]>([]);
+  const [sites, setSites] = useState<Site[] | null>(null);
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [siteDashboard, setSiteDashboard] = useState<SiteDashboard | null>(null);
   const [portfolioDashboard, setPortfolioDashboard] = useState<PortfolioDashboard | null>(null);
@@ -64,6 +64,8 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const dashboardLoadVersion = useRef(0);
+  const authenticatedLoadVersion = useRef(0);
+  const signInAttemptVersion = useRef(0);
 
   const loadSiteData = useCallback(
     async (site: Site, interval: TrafficInterval) => {
@@ -95,49 +97,77 @@ export default function App() {
     async (mode: "restore" | "current", preferredSiteId: string | null, interval: TrafficInterval) => {
       const requestVersion = dashboardLoadVersion.current + 1;
       dashboardLoadVersion.current = requestVersion;
+      const accountRequestVersion = authenticatedLoadVersion.current + 1;
+      authenticatedLoadVersion.current = accountRequestVersion;
       setBusy(true);
       setErrorMessage(null);
       try {
         const currentAccount = mode === "restore" ? await authController.restore() : await apiClient.me();
-        if (requestVersion !== dashboardLoadVersion.current) {
+        if (accountRequestVersion !== authenticatedLoadVersion.current) {
           return;
         }
         if (!currentAccount) {
           setStatus("signedOut");
           setAccount(null);
-          setSites([]);
+          setSites(null);
           setSelectedSiteId(null);
           setSiteDashboard(null);
           setPortfolioDashboard(null);
           return;
         }
-        const [sitesResponse, persistedSiteId] = await Promise.all([
-          apiClient.sites(),
-          SecureStore.getItemAsync(selectedSiteStorageKey).catch(() => null),
-        ]);
-        const nextSelectedSiteId = resolveSelectedSiteId(sitesResponse.sites, preferredSiteId, persistedSiteId);
-        const selectedSite = sitesResponse.sites.find((site) => site.id === nextSelectedSiteId) || null;
-        const [nextSiteDashboard, nextPortfolioDashboard] = await Promise.all([
-          selectedSite ? apiClient.siteDashboard(selectedSite, interval) : Promise.resolve(null),
-          apiClient.portfolioDashboard(),
-        ]);
-        if (requestVersion !== dashboardLoadVersion.current) {
-          return;
-        }
         setAccount(currentAccount);
-        setSites(sitesResponse.sites);
-        setSelectedSiteId(nextSelectedSiteId);
-        setSiteDashboard(nextSiteDashboard);
-        setPortfolioDashboard(nextPortfolioDashboard);
         setStatus("signedIn");
+        setPortfolioDashboard(null);
+
+        async function loadSites() {
+          try {
+            const [sitesResponse, persistedSiteId] = await Promise.all([
+              apiClient.sites(),
+              SecureStore.getItemAsync(selectedSiteStorageKey).catch(() => null),
+            ]);
+            if (requestVersion !== dashboardLoadVersion.current) {
+              return;
+            }
+            const nextSelectedSiteId = resolveSelectedSiteId(sitesResponse.sites, preferredSiteId, persistedSiteId);
+            const selectedSite = sitesResponse.sites.find((site) => site.id === nextSelectedSiteId) || null;
+            setSites(sitesResponse.sites);
+            setSelectedSiteId(nextSelectedSiteId);
+            setSiteDashboard(null);
+            const nextSiteDashboard = selectedSite ? await apiClient.siteDashboard(selectedSite, interval) : null;
+            if (requestVersion === dashboardLoadVersion.current) {
+              setSiteDashboard(nextSiteDashboard);
+            }
+          } catch (error) {
+            if (requestVersion === dashboardLoadVersion.current) {
+              setErrorMessage(errorToMessage(error));
+            }
+          }
+        }
+
+        async function loadPortfolio() {
+          try {
+            const nextPortfolioDashboard = await apiClient.portfolioDashboard();
+            if (accountRequestVersion === authenticatedLoadVersion.current) {
+              setPortfolioDashboard(nextPortfolioDashboard);
+            }
+          } catch (error) {
+            if (accountRequestVersion === authenticatedLoadVersion.current) {
+              setErrorMessage(errorToMessage(error));
+            }
+          }
+        }
+
+        await Promise.all([loadSites(), loadPortfolio()]);
       } catch (error) {
-        if (requestVersion === dashboardLoadVersion.current) {
+        if (accountRequestVersion === authenticatedLoadVersion.current) {
           setStatus((currentStatus) => (currentStatus === "checking" ? "signedOut" : currentStatus));
           setErrorMessage(errorToMessage(error));
         }
       } finally {
         if (requestVersion === dashboardLoadVersion.current) {
           setBusy(false);
+        }
+        if (accountRequestVersion === authenticatedLoadVersion.current) {
           setRefreshing(false);
         }
       }
@@ -149,7 +179,7 @@ export default function App() {
     void loadAuthenticatedState("restore", null, "30days");
   }, [loadAuthenticatedState]);
 
-  const selectedSite = useMemo(() => sites.find((site) => site.id === selectedSiteId) || null, [selectedSiteId, sites]);
+  const selectedSite = useMemo(() => sites?.find((site) => site.id === selectedSiteId) || null, [selectedSiteId, sites]);
   const selectedSiteDashboard = useMemo(() => {
     if (!siteDashboard || siteDashboard.stats.site_id !== selectedSiteId || siteDashboard.stats.interval !== trafficInterval) {
       return null;
@@ -158,17 +188,26 @@ export default function App() {
   }, [selectedSiteId, siteDashboard, trafficInterval]);
 
   const handleSignIn = useCallback(async () => {
+    const attemptVersion = ++signInAttemptVersion.current;
     setBusy(true);
     setErrorMessage(null);
     try {
       const currentAccount = await authController.signIn();
+      if (attemptVersion !== signInAttemptVersion.current) {
+        return;
+      }
       setAccount(currentAccount);
+      setStatus("signedIn");
       await loadAuthenticatedState("current", null, trafficInterval);
     } catch (error) {
-      setStatus("signedOut");
-      setErrorMessage(errorToMessage(error));
+      if (attemptVersion === signInAttemptVersion.current) {
+        setStatus("signedOut");
+        setErrorMessage(errorToMessage(error));
+      }
     } finally {
-      setBusy(false);
+      if (attemptVersion === signInAttemptVersion.current) {
+        setBusy(false);
+      }
     }
   }, [authController, loadAuthenticatedState, trafficInterval]);
 
@@ -176,10 +215,12 @@ export default function App() {
     setBusy(true);
     setErrorMessage(null);
     dashboardLoadVersion.current += 1;
+    authenticatedLoadVersion.current += 1;
+    signInAttemptVersion.current += 1;
     try {
       await authController.signOut();
       setAccount(null);
-      setSites([]);
+      setSites(null);
       setSelectedSiteId(null);
       setSiteDashboard(null);
       setPortfolioDashboard(null);
@@ -241,7 +282,7 @@ export default function App() {
           >
             <Header account={account} busy={busy} onSignOut={handleSignOut} />
             {errorMessage ? <StatusBanner message={errorMessage} /> : null}
-            <SitesRail sites={sites} selectedSiteId={selectedSiteId} onSelectSite={handleSelectSite} />
+            {sites ? <SitesRail sites={sites} selectedSiteId={selectedSiteId} onSelectSite={handleSelectSite} /> : null}
             {selectedSite ? (
               <>
                 <SelectedSiteHeader site={selectedSite} />
@@ -264,6 +305,8 @@ export default function App() {
                   <EmptyState title="Site unavailable" detail="This site's dashboard data could not be loaded." />
                 )}
               </>
+            ) : sites === null ? (
+              busy ? <InlineLoading /> : <EmptyState title="Sites unavailable" detail="Your sites could not be loaded." />
             ) : (
               <EmptyState title="No sites" detail="Visible sites will appear here after the web dashboard has data for this account." />
             )}
