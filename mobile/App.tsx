@@ -65,6 +65,7 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const dashboardLoadVersion = useRef(0);
   const authenticatedLoadVersion = useRef(0);
+  const signInAttemptVersion = useRef(0);
 
   const loadSiteData = useCallback(
     async (site: Site, interval: TrafficInterval) => {
@@ -187,18 +188,26 @@ export default function App() {
   }, [selectedSiteId, siteDashboard, trafficInterval]);
 
   const handleSignIn = useCallback(async () => {
+    const attemptVersion = ++signInAttemptVersion.current;
     setBusy(true);
     setErrorMessage(null);
     try {
       const currentAccount = await authController.signIn();
+      if (attemptVersion !== signInAttemptVersion.current) {
+        return;
+      }
       setAccount(currentAccount);
       setStatus("signedIn");
       await loadAuthenticatedState("current", null, trafficInterval);
     } catch (error) {
-      setStatus("signedOut");
-      setErrorMessage(errorToMessage(error));
+      if (attemptVersion === signInAttemptVersion.current) {
+        setStatus("signedOut");
+        setErrorMessage(errorToMessage(error));
+      }
     } finally {
-      setBusy(false);
+      if (attemptVersion === signInAttemptVersion.current) {
+        setBusy(false);
+      }
     }
   }, [authController, loadAuthenticatedState, trafficInterval]);
 
@@ -207,6 +216,7 @@ export default function App() {
     setErrorMessage(null);
     dashboardLoadVersion.current += 1;
     authenticatedLoadVersion.current += 1;
+    signInAttemptVersion.current += 1;
     try {
       await authController.signOut();
       setAccount(null);

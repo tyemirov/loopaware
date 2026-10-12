@@ -96,13 +96,29 @@ await scenario("late portfolio data cannot replace a new session's reports", { i
   assert.match(app.text(), /Visits 58/);
   assert.doesNotMatch(app.text(), /Visits 35/);
 });
+await scenario("fresh login cleanup cannot enable sign-in during a newer Google prompt", { initialSession: false, deferPortfolio: true }, async (app) => {
+  await app.signIn("heldResponse");
+  app.expectSignedIn();
+  await app.press("Other site");
+  assert.match(app.text(), /Visits 23/);
+  await app.press("Sign out");
+  await app.startPendingSignIn();
+  app.expectSignInPending();
+  await app.release();
+  app.expectSignInPending();
+  await app.completeSignIn();
+  app.expectSignedIn();
+  await app.press("Reports");
+  assert.match(app.text(), /Visits 58/);
+  assert.doesNotMatch(app.text(), /Visits 35/);
+});
 
 console.log("mobile app flow checks passed");
 
 /**
  * @param {string} name
  * @param {{ initialSession: boolean, dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
- * @param {(app: { signIn: () => Promise<void>, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[] }) => Promise<void>} check
+ * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[] }) => Promise<void>} check
  */
 async function scenario(name, options, check) {
   let authenticated = options.initialSession;
@@ -180,7 +196,10 @@ async function scenario(name, options, check) {
   const address = server.address();
   assert(address && typeof address === "object");
   const origin = `http://127.0.0.1:${address.port}`;
-  const { App, assetLoads } = loadApp(origin, fetcher);
+  /** @type {() => Promise<unknown>} */
+  let prompt = async () => undefined;
+  let completePrompt = () => {};
+  const { App, assetLoads } = loadApp(origin, fetcher, () => prompt());
   /** @type {import("react-test-renderer").ReactTestRenderer | undefined} */
   let renderer;
   function tree() { assert(renderer); return renderer; }
@@ -189,9 +208,13 @@ async function scenario(name, options, check) {
     await settle();
     const text = () => textContent(tree().toJSON());
     /** @param {string} label */
-    async function press(label) {
-      deferred = false;
-      const button = tree().root.findAll(node => String(node.type) === "Pressable" && textContent(node.props.children).includes(label))[0];
+    function findButton(label) {
+      return tree().root.findAll(node => String(node.type) === "Pressable" && textContent(node.props.children).includes(label))[0];
+    }
+    /** @param {string} label @param {"idle" | "heldResponse"} waitFor */
+    async function press(label, waitFor = "idle") {
+      deferred = waitFor === "heldResponse";
+      const button = findButton(label);
       assert(button, `${name}: ${label}`);
       assert.notEqual(button.props.disabled, true, `${name}: ${label} is disabled`);
       // Site selection events start an asynchronous load without returning its promise.
@@ -214,7 +237,24 @@ async function scenario(name, options, check) {
         await settle();
       },
       expectSignedIn() { assert.match(text(), /Sign out/, name); assert.doesNotMatch(text(), /Sign in with Google/, name); },
-      async signIn() { await press("Sign in with Google"); },
+      expectSignInPending() {
+        const button = findButton("Opening Google") || findButton("Sign in with Google");
+        assert(button, `${name}: sign-in screen is visible`);
+        assert.equal(button.props.disabled, true, `${name}: pending Google login keeps sign-in disabled`);
+      },
+      async signIn(waitFor = "idle") { await press("Sign in with Google", waitFor); },
+      async startPendingSignIn() {
+        let promptStarted = () => {};
+        const started = new Promise(resolve => { promptStarted = () => resolve(undefined); });
+        const pending = new Promise(resolve => { completePrompt = () => resolve(undefined); });
+        prompt = () => { promptStarted(); return pending; };
+        await press("Sign in with Google");
+        await act(async () => { await started; });
+      },
+      async completeSignIn() {
+        await act(async () => { completePrompt(); });
+        await settle();
+      },
     });
     assert(assetLoads() > 0, `${name}: real screen components rendered`);
   } finally {
@@ -243,8 +283,8 @@ function textContent(node) {
   return textContent(element.children ?? element.props?.children);
 }
 
-/** @param {string} origin @param {typeof fetch} fetcher */
-function loadApp(origin, fetcher) {
+/** @param {string} origin @param {typeof fetch} fetcher @param {() => Promise<unknown>} prompt */
+function loadApp(origin, fetcher, prompt) {
   let assetLoadCount = 0;
   const nativeComponents = ["ActivityIndicator", "Image", "Pressable", "RefreshControl", "ScrollView", "Text", "View"];
   /** @type {Record<string, unknown>} */
@@ -261,7 +301,7 @@ function loadApp(origin, fetcher) {
       ResponseType: { Code: "code" },
       AuthRequest: class {
         codeVerifier = "pkce-verifier";
-        async promptAsync() { return { type: "success", params: { code: "authorization-code" } }; }
+        async promptAsync() { await prompt(); return { type: "success", params: { code: "authorization-code" } }; }
       },
       exchangeCodeAsync: async () => ({ idToken: "google-id-token" }),
     },
