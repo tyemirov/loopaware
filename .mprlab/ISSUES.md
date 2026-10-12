@@ -11,7 +11,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
-- [!] [B129] (P1) {B130} Keep successful mobile login separate from dashboard errors.
+- [x] [B129] (P1) {B130} Keep successful mobile login separate from dashboard errors.
   Goal: Show the authenticated dashboard after successful Google login, even when a data request fails.
   Requirements:
   - Set authenticated state before dashboard data requests.
@@ -26,31 +26,54 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
   The app-flow test reproduced the login screen after successful authentication and a dashboard HTTP 409 response.
   The correction sets authenticated state before data requests and preserves the site selection after a dashboard error.
-  Seven app-flow scenarios passed through real React components and a local HTTP server with injected native provider boundaries.
+  Nine app-flow scenarios passed through real React components and a local HTTP server with injected native provider boundaries.
   The scenarios include aggregate analytics, session restoration, rejected authentication, and delayed dashboard and site-list responses.
+  The delayed-dashboard test also reproduced unavailable account-wide report data after early site selection.
+  The correction separates account-wide report requests from selected-site requests.
+  Report errors preserve loaded site data. A delayed report cannot replace data from a newer session.
   The delayed site-list scenario failed when its stale-response guard was removed.
   Mobile API checks and TypeScript validation passed.
 
   `make mobile-prepare-store` and `make mobile-release-check` passed.
   The iOS and Android production JavaScript bundles compile. The prepared source and native file records match.
-  Independent review found no remaining defects.
+  Review found no defects after the report correction.
   Governor reported twelve existing template differences in unchanged files.
   The changed prose passed the mechanical language checks and the scoped language review.
 
-  Blocked: B130 prevents the required final CI result. The Go security audit reports eleven vulnerabilities.
+  B130 removed the Go security blocker. Full CI passed with 474 browser and API scenarios.
+  Final `make ci` passed after the report correction and native preparation.
+  Resolution: Successful login remains authenticated after data errors, and site selection preserves account-wide report results.
   Store publication remains separate. The installed app requires an updated build.
 
   Changed Files: `Makefile`, `mobile/App.tsx`, `mobile/package.json`, `mobile/package-lock.json`, and `mobile/scripts/test-app-flow.mjs`.
   The corresponding prepared files, native preparation records, generated Xcode project, and `.mprlab/ISSUES.md` also changed.
 
-- [ ] [B130] (P1) Update Go dependencies that block CI.
+- [x] [B130] (P1) Update Go dependencies that block CI.
   Goal: Pass the repository security audit with corrected Go versions.
   Requirements:
   - Update the Go toolchain and container build input to a corrected version.
   - Update the affected Go module versions.
+  - Keep the Go analyzer versions compatible with the selected toolchain.
   - Pass `make security-audit` and `make ci`.
   Validation: The B129 CI run reports eleven reachable vulnerabilities in Go 1.27.1 and `golang.org/x/net` v0.58.0.
   The audit identifies Go 1.27.2 and `golang.org/x/net` v0.60.0 as corrected versions.
+
+  The initial `make ci` run reproduced all eleven vulnerabilities.
+  Go 1.27.2 and `golang.org/x/net` v0.60.0 remove these reachable vulnerabilities.
+  The container uses the official Go 1.27.2/Alpine 3.24 digest. Its build and CLI smoke test passed.
+  The first final CI run stopped because Staticcheck v0.8.1 could not read the new compiler data.
+  Staticcheck v0.8.2 can read this data format. The Makefile keeps all selected checks.
+
+  `make security-audit`, `make lint`, `make mobile-prepare-store`, and final `make ci` passed.
+  Full CI includes Go tests, race checks, mobile checks, and 474 browser and API scenarios.
+  The Go audit reports zero reachable vulnerabilities. All three npm audits report zero vulnerabilities.
+  Review found no defects in the B130 changes. The preparation records match the current files.
+  Governor reported twelve existing template differences in unchanged files.
+  The changed prose passed the mechanical language checks and the scoped language review.
+
+  Resolution: Corrected Go dependencies and the compatible analyzer remove the CI failures.
+  Changed Files: `go.mod`, `go.sum`, `Dockerfile`, `scripts/audit-container-bases.sh`, `Makefile`, `README.md`, and `.mprlab/ISSUES.md`.
+  `mobile/prepared/source-preparation.json`, `mobile/prepared/native-preparation.json`, and the generated Xcode project also changed.
 
 - [x] [B128] (P0) Exclude the deployment manifest from mobile preparation inputs.
   Goal: Accept the release copy when Gateway serializes the deployment manifest without changes to its values.
