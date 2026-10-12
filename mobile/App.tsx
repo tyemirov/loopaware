@@ -64,6 +64,7 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const dashboardLoadVersion = useRef(0);
+  const authenticatedLoadVersion = useRef(0);
 
   const loadSiteData = useCallback(
     async (site: Site, interval: TrafficInterval) => {
@@ -95,11 +96,13 @@ export default function App() {
     async (mode: "restore" | "current", preferredSiteId: string | null, interval: TrafficInterval) => {
       const requestVersion = dashboardLoadVersion.current + 1;
       dashboardLoadVersion.current = requestVersion;
+      const accountRequestVersion = authenticatedLoadVersion.current + 1;
+      authenticatedLoadVersion.current = accountRequestVersion;
       setBusy(true);
       setErrorMessage(null);
       try {
         const currentAccount = mode === "restore" ? await authController.restore() : await apiClient.me();
-        if (requestVersion !== dashboardLoadVersion.current) {
+        if (accountRequestVersion !== authenticatedLoadVersion.current) {
           return;
         }
         if (!currentAccount) {
@@ -113,36 +116,57 @@ export default function App() {
         }
         setAccount(currentAccount);
         setStatus("signedIn");
-        const [sitesResponse, persistedSiteId] = await Promise.all([
-          apiClient.sites(),
-          SecureStore.getItemAsync(selectedSiteStorageKey).catch(() => null),
-        ]);
-        if (requestVersion !== dashboardLoadVersion.current) {
-          return;
-        }
-        const nextSelectedSiteId = resolveSelectedSiteId(sitesResponse.sites, preferredSiteId, persistedSiteId);
-        const selectedSite = sitesResponse.sites.find((site) => site.id === nextSelectedSiteId) || null;
-        setSites(sitesResponse.sites);
-        setSelectedSiteId(nextSelectedSiteId);
-        setSiteDashboard(null);
         setPortfolioDashboard(null);
-        const [nextSiteDashboard, nextPortfolioDashboard] = await Promise.all([
-          selectedSite ? apiClient.siteDashboard(selectedSite, interval) : Promise.resolve(null),
-          apiClient.portfolioDashboard(),
-        ]);
-        if (requestVersion !== dashboardLoadVersion.current) {
-          return;
+
+        async function loadSites() {
+          try {
+            const [sitesResponse, persistedSiteId] = await Promise.all([
+              apiClient.sites(),
+              SecureStore.getItemAsync(selectedSiteStorageKey).catch(() => null),
+            ]);
+            if (requestVersion !== dashboardLoadVersion.current) {
+              return;
+            }
+            const nextSelectedSiteId = resolveSelectedSiteId(sitesResponse.sites, preferredSiteId, persistedSiteId);
+            const selectedSite = sitesResponse.sites.find((site) => site.id === nextSelectedSiteId) || null;
+            setSites(sitesResponse.sites);
+            setSelectedSiteId(nextSelectedSiteId);
+            setSiteDashboard(null);
+            const nextSiteDashboard = selectedSite ? await apiClient.siteDashboard(selectedSite, interval) : null;
+            if (requestVersion === dashboardLoadVersion.current) {
+              setSiteDashboard(nextSiteDashboard);
+            }
+          } catch (error) {
+            if (requestVersion === dashboardLoadVersion.current) {
+              setErrorMessage(errorToMessage(error));
+            }
+          }
         }
-        setSiteDashboard(nextSiteDashboard);
-        setPortfolioDashboard(nextPortfolioDashboard);
+
+        async function loadPortfolio() {
+          try {
+            const nextPortfolioDashboard = await apiClient.portfolioDashboard();
+            if (accountRequestVersion === authenticatedLoadVersion.current) {
+              setPortfolioDashboard(nextPortfolioDashboard);
+            }
+          } catch (error) {
+            if (accountRequestVersion === authenticatedLoadVersion.current) {
+              setErrorMessage(errorToMessage(error));
+            }
+          }
+        }
+
+        await Promise.all([loadSites(), loadPortfolio()]);
       } catch (error) {
-        if (requestVersion === dashboardLoadVersion.current) {
+        if (accountRequestVersion === authenticatedLoadVersion.current) {
           setStatus((currentStatus) => (currentStatus === "checking" ? "signedOut" : currentStatus));
           setErrorMessage(errorToMessage(error));
         }
       } finally {
         if (requestVersion === dashboardLoadVersion.current) {
           setBusy(false);
+        }
+        if (accountRequestVersion === authenticatedLoadVersion.current) {
           setRefreshing(false);
         }
       }
@@ -182,6 +206,7 @@ export default function App() {
     setBusy(true);
     setErrorMessage(null);
     dashboardLoadVersion.current += 1;
+    authenticatedLoadVersion.current += 1;
     try {
       await authController.signOut();
       setAccount(null);

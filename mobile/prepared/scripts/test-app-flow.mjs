@@ -55,7 +55,12 @@ await scenario("late dashboard data cannot replace another selected site", { ini
   app.expectSignedIn();
   await app.press("Other site");
   assert.match(app.text(), /Visits 23/);
+  await app.press("Reports");
+  assert.match(app.text(), /Visits 35/);
+  assert.doesNotMatch(app.text(), /All-sites report data unavailable/);
   await app.release();
+  assert.match(app.text(), /Visits 35/);
+  await app.press("Overview");
   assert.match(app.text(), /Visits 23/);
   assert.doesNotMatch(app.text(), /Visits 12/);
 });
@@ -64,16 +69,39 @@ await scenario("late site discovery cannot replace another selected site", { ini
   await app.refresh();
   await app.press("Other site");
   assert.match(app.text(), /Visits 23/);
+  await app.press("Reports");
+  assert.match(app.text(), /Visits 58/);
   await app.release();
+  assert.match(app.text(), /Visits 58/);
+  await app.press("Overview");
   assert.match(app.text(), /Visits 23/);
   assert.doesNotMatch(app.text(), /Visits 12/);
+});
+await scenario("portfolio failure preserves the selected-site dashboard", { initialSession: true, portfolioFailure: true }, async (app) => {
+  app.expectSignedIn();
+  assert.match(app.text(), /Visits 12/);
+  assert.match(app.text(), /Request failed with 500/);
+  await app.press("Reports");
+  assert.match(app.text(), /All-sites report data unavailable/);
+});
+await scenario("late portfolio data cannot replace a new session's reports", { initialSession: true, deferPortfolio: true }, async (app) => {
+  await app.press("Other site");
+  assert.match(app.text(), /Visits 23/);
+  await app.press("Sign out");
+  assert.match(app.text(), /Sign in with Google/);
+  await app.signIn();
+  await app.press("Reports");
+  assert.match(app.text(), /Visits 58/);
+  await app.release();
+  assert.match(app.text(), /Visits 58/);
+  assert.doesNotMatch(app.text(), /Visits 35/);
 });
 
 console.log("mobile app flow checks passed");
 
 /**
  * @param {string} name
- * @param {{ initialSession: boolean, dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean }} options
+ * @param {{ initialSession: boolean, dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
  * @param {(app: { signIn: () => Promise<void>, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[] }) => Promise<void>} check
  */
 async function scenario(name, options, check) {
@@ -81,15 +109,18 @@ async function scenario(name, options, check) {
   /** @type {string[]} */
   const requests = [];
   let releaseResponse = () => {};
-  let deferred = options.deferDashboard;
+  let deferred = options.deferDashboard || options.deferPortfolio;
   let responseHeld = false;
   let responseConsumed = () => {};
   const consumed = new Promise(resolve => { responseConsumed = () => resolve(undefined); });
   /** @type {typeof fetch} */
   const fetcher = async (input, init) => {
-    const response = await fetch(input, init);
     const path = new URL(String(input)).pathname;
-    if ((options.deferSites && path === "/api/sites" && responseHeld) || (options.deferDashboard && path === `/api/sites/${site.id}/visits/stats`)) {
+    const deferredRequest = (options.deferSites && path === "/api/sites" && requests.filter(value => value === path).length === 1)
+      || (options.deferDashboard && path === `/api/sites/${site.id}/visits/stats`)
+      || (options.deferPortfolio && path === "/api/reports/traffic/portfolio" && !requests.includes(path));
+    const response = await fetch(input, init);
+    if (deferredRequest) {
       const readJSON = response.json.bind(response);
       response.json = async () => {
         const data = await readJSON();
@@ -116,9 +147,11 @@ async function scenario(name, options, check) {
         authenticated = !options.rejectLogin;
         status = authenticated ? 200 : 401; payload = authenticated ? account : { error: "invalid_google_token" }; break;
       case "/auth/logout": authenticated = false; payload = {}; break;
-      case "/api/sites": status = options.sitesFailure ? 500 : 200; payload = options.sitesFailure ? { error: "query_failed" } : { sites: options.deferDashboard || options.deferSites ? [site, { ...site, id: "other-site", name: "Other site" }] : [site] }; break;
+      case "/api/sites": status = options.sitesFailure ? 500 : 200; payload = options.sitesFailure ? { error: "query_failed" } : { sites: options.deferDashboard || options.deferSites || options.deferPortfolio ? [site, { ...site, id: "other-site", name: "Other site" }] : [site] }; break;
       case "/api/reports/traffic/portfolio/reports": payload = { reports: [], available_sites: [] }; break;
-      case "/api/reports/traffic/portfolio": payload = { trend: [], sites: [] }; break;
+      case "/api/reports/traffic/portfolio":
+        status = options.portfolioFailure ? 500 : 200;
+        payload = options.portfolioFailure ? { error: "query_failed" } : { site_count: 2, visit_count: requests.filter(value => value === path).length === 1 ? 35 : 58, unique_visitor_count: null, trend: [], sites: [] }; break;
       case "/api/reports/traffic/portfolio/schedule": payload = null; break;
       default:
         if (/\/visits\/(attribution|engagement|devices|locations)$/.test(path) || (options.dashboardFailure && path.endsWith("/visits/stats"))) {
@@ -136,7 +169,9 @@ async function scenario(name, options, check) {
       response.writeHead(status, { "Content-Type": "application/json" });
       response.end(JSON.stringify(payload));
     };
-    if ((options.deferSites && path === "/api/sites" && requests.filter(value => value === path).length === 2) || (options.deferDashboard && path === `/api/sites/${site.id}/visits/stats`)) {
+    if ((options.deferSites && path === "/api/sites" && requests.filter(value => value === path).length === 2)
+      || (options.deferDashboard && path === `/api/sites/${site.id}/visits/stats`)
+      || (options.deferPortfolio && path === "/api/reports/traffic/portfolio" && requests.filter(value => value === path).length === 1)) {
       responseHeld = true;
       releaseResponse = send;
     } else send();
