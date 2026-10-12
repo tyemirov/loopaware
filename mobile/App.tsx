@@ -54,7 +54,7 @@ export default function App() {
   const authController = useMemo(() => new AuthController(apiClient), [apiClient]);
   const [status, setStatus] = useState<"checking" | "signedOut" | "signedIn">("checking");
   const [account, setAccount] = useState<Account | null>(null);
-  const [sites, setSites] = useState<Site[]>([]);
+  const [sites, setSites] = useState<Site[] | null>(null);
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [siteDashboard, setSiteDashboard] = useState<SiteDashboard | null>(null);
   const [portfolioDashboard, setPortfolioDashboard] = useState<PortfolioDashboard | null>(null);
@@ -105,18 +105,27 @@ export default function App() {
         if (!currentAccount) {
           setStatus("signedOut");
           setAccount(null);
-          setSites([]);
+          setSites(null);
           setSelectedSiteId(null);
           setSiteDashboard(null);
           setPortfolioDashboard(null);
           return;
         }
+        setAccount(currentAccount);
+        setStatus("signedIn");
         const [sitesResponse, persistedSiteId] = await Promise.all([
           apiClient.sites(),
           SecureStore.getItemAsync(selectedSiteStorageKey).catch(() => null),
         ]);
+        if (requestVersion !== dashboardLoadVersion.current) {
+          return;
+        }
         const nextSelectedSiteId = resolveSelectedSiteId(sitesResponse.sites, preferredSiteId, persistedSiteId);
         const selectedSite = sitesResponse.sites.find((site) => site.id === nextSelectedSiteId) || null;
+        setSites(sitesResponse.sites);
+        setSelectedSiteId(nextSelectedSiteId);
+        setSiteDashboard(null);
+        setPortfolioDashboard(null);
         const [nextSiteDashboard, nextPortfolioDashboard] = await Promise.all([
           selectedSite ? apiClient.siteDashboard(selectedSite, interval) : Promise.resolve(null),
           apiClient.portfolioDashboard(),
@@ -124,12 +133,8 @@ export default function App() {
         if (requestVersion !== dashboardLoadVersion.current) {
           return;
         }
-        setAccount(currentAccount);
-        setSites(sitesResponse.sites);
-        setSelectedSiteId(nextSelectedSiteId);
         setSiteDashboard(nextSiteDashboard);
         setPortfolioDashboard(nextPortfolioDashboard);
-        setStatus("signedIn");
       } catch (error) {
         if (requestVersion === dashboardLoadVersion.current) {
           setStatus((currentStatus) => (currentStatus === "checking" ? "signedOut" : currentStatus));
@@ -149,7 +154,7 @@ export default function App() {
     void loadAuthenticatedState("restore", null, "30days");
   }, [loadAuthenticatedState]);
 
-  const selectedSite = useMemo(() => sites.find((site) => site.id === selectedSiteId) || null, [selectedSiteId, sites]);
+  const selectedSite = useMemo(() => sites?.find((site) => site.id === selectedSiteId) || null, [selectedSiteId, sites]);
   const selectedSiteDashboard = useMemo(() => {
     if (!siteDashboard || siteDashboard.stats.site_id !== selectedSiteId || siteDashboard.stats.interval !== trafficInterval) {
       return null;
@@ -163,6 +168,7 @@ export default function App() {
     try {
       const currentAccount = await authController.signIn();
       setAccount(currentAccount);
+      setStatus("signedIn");
       await loadAuthenticatedState("current", null, trafficInterval);
     } catch (error) {
       setStatus("signedOut");
@@ -179,7 +185,7 @@ export default function App() {
     try {
       await authController.signOut();
       setAccount(null);
-      setSites([]);
+      setSites(null);
       setSelectedSiteId(null);
       setSiteDashboard(null);
       setPortfolioDashboard(null);
@@ -241,7 +247,7 @@ export default function App() {
           >
             <Header account={account} busy={busy} onSignOut={handleSignOut} />
             {errorMessage ? <StatusBanner message={errorMessage} /> : null}
-            <SitesRail sites={sites} selectedSiteId={selectedSiteId} onSelectSite={handleSelectSite} />
+            {sites ? <SitesRail sites={sites} selectedSiteId={selectedSiteId} onSelectSite={handleSelectSite} /> : null}
             {selectedSite ? (
               <>
                 <SelectedSiteHeader site={selectedSite} />
@@ -264,6 +270,8 @@ export default function App() {
                   <EmptyState title="Site unavailable" detail="This site's dashboard data could not be loaded." />
                 )}
               </>
+            ) : sites === null ? (
+              busy ? <InlineLoading /> : <EmptyState title="Sites unavailable" detail="Your sites could not be loaded." />
             ) : (
               <EmptyState title="No sites" detail="Visible sites will appear here after the web dashboard has data for this account." />
             )}
