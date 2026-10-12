@@ -11,6 +11,29 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B131] (P2) Keep the sign-in button disabled until the new login completes.
+  Goal: Keep the sign-in button disabled until the current Google login completes.
+  Requirements:
+  - Prevent an older sign-in attempt from changing the current authentication state.
+  - Do a test of fresh login, delayed report data, site selection, sign-out, and a second Google login.
+  - Update the prepared mobile files and pass `make ci`.
+  Validation: Review found that an older sign-in handler can clear the busy state during a newer login.
+  The existing delayed-report test starts from session restoration and does not test this handler.
+  The new app-flow test reproduced the enabled sign-in button while the second Google prompt remained open.
+  Each sign-in attempt now has a version. Sign-out increases this version.
+  Only the current attempt can set its result, error, or busy state.
+  Ten app-flow scenarios, mobile API checks, and TypeScript validation passed.
+  The app-flow tests use real React components and a local HTTP server with an injected Google prompt.
+  `make mobile-prepare-store` and final `make ci` passed.
+  CI includes Go tests, race checks, both mobile JavaScript bundles, and 474 browser and API scenarios.
+  The prepared source and native file records match the current files.
+  Review found no defects in the correction.
+  Governor reported twelve existing template differences in unchanged files.
+  The changed prose passed the mechanical language checks and the scoped language review.
+  Resolution: An old login cannot enable the sign-in button during a newer Google login.
+  Changed Files: `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`, and their prepared copies.
+  The preparation records, generated Xcode project, and `.mprlab/ISSUES.md` also changed.
+
 - [x] [B129] (P1) {B130} Keep successful mobile login separate from dashboard errors.
   Goal: Show the authenticated dashboard after successful Google login, even when a data request fails.
   Requirements:
