@@ -2784,6 +2784,30 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [x] [I045] (P1) Document and verify the canonical npm publication input.
+  Goal: Prevent confusion about the stored npm credential and its loading path.
+  Requirements:
+  - Find the existing value without output of the secret.
+  - Verify the selected Gateway input contract and the npm response.
+  - Update the relevant READMEs, publication guide, and config examples.
+  - Preserve existing private files in the setup instructions.
+  - Keep loading, authentication, and publication authority as separate results.
+  Validation: The private `configs/.env.loopaware` file contains a nonempty `NPM_API_KEY`.
+  Gateway v6.0.0 reads this assignment directly and supplies it to npm through standard input.
+  A diagnostic with the stored value reproduced HTTP 401 from `npm whoami`.
+  `npm ping` also accepted a deliberately invalid diagnostic token, so its success does not prove authentication.
+  The existing credential and installed Gateway runtime remained unchanged during the diagnostic.
+  `make config-audit` passed. All three README setup commands preserved existing contents on repeat execution.
+  The README guide links resolve. The changed prose passed the mechanical checks and the scoped language review.
+  Governor reported twelve existing template differences in unchanged files.
+  Independent review found no defects.
+  Resolution: The documentation identifies the stored credential and its verified loading path.
+  The installed runtime still rejects the identity check. The cause of that endpoint rejection remains unconfirmed.
+  Gateway B650 removes account probes and reports local input validation without a registry authorization claim.
+  Public CLI and Ansible regressions passed with controlled providers. The corrected runtime is not installed, and live publication remains incomplete.
+  Changed Files: `README.md`, `clients/README.md`, `clients/react-native/README.md`, and `docs/npm-publication.md`.
+  `configs/.env.loopaware.example`, `configs/.env.loopaware.computercat.example`, and `.mprlab/ISSUES.md` also changed.
+
 - [x] [I044] (P1) Reduce CI execution time.
   Goal:
   Complete independent CI checks concurrently without reduced test coverage.
