@@ -11,6 +11,47 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [!] [B129] (P1) {B130} Keep successful mobile login separate from dashboard errors.
+  Goal: Show the authenticated dashboard after successful Google login, even when a data request fails.
+  Requirements:
+  - Set authenticated state before dashboard data requests.
+  - Show dashboard errors inside the authenticated screen.
+  - Preserve the selected site when its data request fails.
+  - Verify login, session restoration, authentication rejection, and aggregate analytics through app-flow tests.
+  Validation: The reported iOS flow completed native Google login and two `/api/me` requests with HTTP 200.
+  Four detailed analytics requests then returned HTTP 409 for an aggregate site.
+  The installed app remained on the login screen after these errors.
+  Current source already excludes these requests for aggregate sites.
+  Initial `make ci` stopped because the Go vulnerability source returned HTTP 503.
+
+  The app-flow test reproduced the login screen after successful authentication and a dashboard HTTP 409 response.
+  The correction sets authenticated state before data requests and preserves the site selection after a dashboard error.
+  Seven app-flow scenarios passed through real React components and a local HTTP server with injected native provider boundaries.
+  The scenarios include aggregate analytics, session restoration, rejected authentication, and delayed dashboard and site-list responses.
+  The delayed site-list scenario failed when its stale-response guard was removed.
+  Mobile API checks and TypeScript validation passed.
+
+  `make mobile-prepare-store` and `make mobile-release-check` passed.
+  The iOS and Android production JavaScript bundles compile. The prepared source and native file records match.
+  Independent review found no remaining defects.
+  Governor reported twelve existing template differences in unchanged files.
+  The changed prose passed the mechanical language checks and the scoped language review.
+
+  Blocked: B130 prevents the required final CI result. The Go security audit reports eleven vulnerabilities.
+  Store publication remains separate. The installed app requires an updated build.
+
+  Changed Files: `Makefile`, `mobile/App.tsx`, `mobile/package.json`, `mobile/package-lock.json`, and `mobile/scripts/test-app-flow.mjs`.
+  The corresponding prepared files, native preparation records, generated Xcode project, and `.mprlab/ISSUES.md` also changed.
+
+- [ ] [B130] (P1) Update Go dependencies that block CI.
+  Goal: Pass the repository security audit with corrected Go versions.
+  Requirements:
+  - Update the Go toolchain and container build input to a corrected version.
+  - Update the affected Go module versions.
+  - Pass `make security-audit` and `make ci`.
+  Validation: The B129 CI run reports eleven reachable vulnerabilities in Go 1.27.1 and `golang.org/x/net` v0.58.0.
+  The audit identifies Go 1.27.2 and `golang.org/x/net` v0.60.0 as corrected versions.
+
 - [x] [B128] (P0) Exclude the deployment manifest from mobile preparation inputs.
   Goal: Accept the release copy when Gateway serializes the deployment manifest without changes to its values.
   Requirements:
