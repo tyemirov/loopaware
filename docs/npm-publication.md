@@ -89,3 +89,39 @@ make release && make publish && make deploy
 Release prepares the artifacts. Publication exposes the prepared artifacts. Deployment activates the published version.
 Credential repair does not authorize publication or deployment.
 Keep the existing release record when you diagnose a publication failure.
+
+## npm Version Verification
+
+npm can accept an archive with HTTP 202 before its version becomes available to `npm view`.
+During this interval, the version read can return `E404`.
+An accepted upload does not prove that publication is completed.
+
+LoopAware declares a separate policy for `app_publish.npm.version_verify` in `.mprlab/deploy/resources.yml`.
+Its `attempt_limit: 0` removes the attempt count limit for that read operation.
+Gateway continues until the version becomes available or the remaining four-hour publication time limit ends.
+A shorter parent time limit stops the read operation earlier.
+The intervals remain 2, 5, and then 10 seconds between attempts.
+Terminal errors, including `E401` and `E403`, stop the operation immediately.
+
+This policy does not change the upload operation or other publication operations.
+The other operations retain their existing attempt limits.
+Successful publication still requires the exact version, tag, and archive checks.
+
+On October 13, 2026, npm accepted version `1.1.8`, but four verification attempts stopped at 23:26:38 PDT.
+npm made the version available at 23:27:36 PDT.
+The public archive matched the submitted archive.
+
+To do a test of the deployment policy with an installed Gateway, run this command from the repository root:
+
+```bash
+make -f .mprlab/deploy/tests/Makefile test
+```
+
+The test uses the active runtime under `~/.local/share/mprlab-gateway/active/runtime`.
+For another installation, set `GATEWAY_RUNTIME` to its runtime directory in the command.
+The test requires `uv`. It installs isolated Python test dependencies.
+It uses the installed Gateway action, policy resolver, and retry CLI with a controlled clock and provider responses.
+It verifies delayed success, time limits, terminal errors, and the attempt limits for other operations.
+It does not read credentials, upload packages, or contact npm.
+
+This deployment integration test is separate from application CI because it requires an installed Gateway runtime.
