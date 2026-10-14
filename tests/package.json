@@ -21,8 +21,8 @@
     "test:aggregate": "playwright test -c playwright.ui.config.js specs/dashboard-aggregate.spec.js"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0",
-    "@types/node": "^26.4.1",
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^26.6.5",
     "d3-geo": "^3.1.1",
     "jsonwebtoken": "^9.0.2",
     "topojson-client": "^3.1.0",
