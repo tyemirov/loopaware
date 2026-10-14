@@ -11,6 +11,37 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B132] (P1) Wait for the accepted npm version until the publication time limit.
+  Goal: Verify the npm version after the registry completes publication.
+  Requirements:
+  - Remove the four-attempt limit only for `app_publish.npm.version_verify`.
+  - Preserve the existing intervals and publication time limit.
+  - Stop on terminal errors and the earlier operation or parent time limit.
+  - Verify the behavior with the installed Gateway and controlled provider responses.
+  Validation: npm accepted version `1.1.8` with HTTP 202 on October 13, 2026.
+  Verification stopped after four attempts at 23:26:38 PDT.
+  npm made the version available at 23:27:36 PDT. Its archive matches the submitted archive.
+  The manifest supplied only four attempts within its four-hour publication time limit.
+
+  The deployment integration test reproduced the four-attempt failure before the manifest correction.
+  The exact version-read operation now uses `attempt_limit: 0` and the remaining four-hour publication time limit.
+  The existing intervals and other operation limits remain unchanged.
+  All seven deployment checks passed with installed Gateway v6.0.3.
+  These checks use the actual Gateway action, policy resolver, and retry CLI with controlled provider responses and time.
+  They verify delayed success, both time limits, terminal authentication errors, and the other operation limits.
+
+  Initial `make ci` passed 473 browser and API scenarios.
+  One existing test timed out on `GET /config-ui.yaml` at `shared-ui-migration.spec.js:18`.
+  Final `make ci` passed, including all 474 browser and API scenarios.
+  The earlier timeout did not recur. No browser test or application source changed.
+  The installed Gateway schema accepted the selected manifest and its operation policies.
+  Independent review found no defects. The changed prose passed the language checks and scoped review.
+  Governor reported the same twelve existing template differences, with no new differences or warnings.
+  Resolution: npm version verification continues until the version becomes available or the existing time limit ends.
+  No release, publication, or deployment operation was run for this correction.
+  Changed Files: `.mprlab/deploy/resources.yml`, `.mprlab/deploy/tests/Makefile`, and `.mprlab/deploy/tests/test_npm_visibility.py`.
+  `docs/npm-publication.md` and `.mprlab/ISSUES.md` also changed.
+
 - [x] [B131] (P2) Keep the sign-in button disabled until the new login completes.
   Goal: Keep the sign-in button disabled until the current Google login completes.
   Requirements:
