@@ -97,11 +97,17 @@ During this interval, the version read can return `E404`.
 An accepted upload does not prove that publication is completed.
 
 LoopAware declares a separate policy for `app_publish.npm.version_verify` in `.mprlab/deploy/resources.yml`.
-Its `attempt_limit: 0` removes the attempt count limit for that read operation.
+Its finite `attempt_limit: 1443` covers the four-hour publication time limit with the declared intervals.
+Gateway rejects `attempt_limit: 0` at the lifecycle manifest boundary.
+
 Gateway continues until the version becomes available or the remaining four-hour publication time limit ends.
 A shorter parent time limit stops the read operation earlier.
 The intervals remain 2, 5, and then 10 seconds between attempts.
 Terminal errors, including `E401` and `E403`, stop the operation immediately.
+
+With immediate responses, attempt 1442 occurs at 14,397 seconds and attempt 1443 would occur at 14,407 seconds.
+The four-hour time limit stops observation before attempt 1443.
+Slower responses can cause the time limit to stop observation earlier.
 
 This policy does not change the upload operation or other publication operations.
 The other operations retain their existing attempt limits.
@@ -120,8 +126,15 @@ make -f .mprlab/deploy/tests/Makefile test
 The test uses the active runtime under `~/.local/share/mprlab-gateway/active/runtime`.
 For another installation, set `GATEWAY_RUNTIME` to its runtime directory in the command.
 The test requires `uv`. It installs isolated Python test dependencies.
-It uses the installed Gateway action, policy resolver, and retry CLI with a controlled clock and provider responses.
-It verifies delayed success, time limits, terminal errors, and the attempt limits for other operations.
-It does not read credentials, upload packages, or contact npm.
+It first calls `app-plan-release` on an independent Git fixture with the unchanged application manifest and a local origin.
+The controller must accept the manifest and capture the source before the injected Ansible child starts.
+The child reports its arguments instead of executing the Ansible plan.
+This check proves controller acceptance, not execution of the full plan.
+The negative case requires rejection of a zero attempt limit before child execution.
+
+The behavior tests use the installed Gateway action, policy resolver, and retry CLI with a controlled clock and provider responses.
+They verify delayed success, time limits, terminal errors, and the attempt limits for other operations.
+They do not read credentials, upload packages, or contact npm.
+All test commands use `CI=1` and closed standard input.
 
 This deployment integration test is separate from application CI because it requires an installed Gateway runtime.
