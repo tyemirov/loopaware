@@ -11,6 +11,32 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B133] (P1) {B132} Use a finite attempt limit for npm version verification.
+  Goal: Accept the npm verification policy at the lifecycle manifest boundary.
+  Requirements:
+  - Replace the zero attempt limit with a finite count that covers the existing four-hour time limit.
+  - Verify the manifest through the installed lifecycle entry point.
+  - Preserve delayed success, time limits, and terminal authentication errors.
+  - Run commands without terminal input or interactive prompts.
+  Validation: Gateway v6.0.4 rejected `app_publish.npm.version_verify` before release on October 15, 2026.
+  Its manifest validator requires a finite attempt limit.
+  The seven B132 tests still pass because their prepared policy input omits this validation boundary.
+  The new controller check reproduced the exact rejection before the manifest correction.
+  The correction uses `attempt_limit: 1443` with the existing intervals and time limits.
+  Attempt 1443 would occur after four hours, so the time limit stops observation first.
+  All eight deployment tests passed with Gateway v6.0.4.
+  The controller accepted the unchanged application manifest in an independent Git fixture with a local origin.
+  The injected Ansible child reported its arguments without executing the plan.
+  The zero-limit case failed before child execution.
+  Initial and final `CI=1 make ci` passed, including all 474 browser and API scenarios.
+  Independent review found no actionable defects.
+  Governor reported the same twelve existing template differences, with no new differences or warnings.
+  The changed prose passed the language checks and scoped review.
+  Resolution: The manifest now passes controller validation and preserves the four-hour verification time limit.
+  No release, publication, or deployment operation was run.
+  Changed Files: `.mprlab/deploy/resources.yml`, `.mprlab/deploy/tests/Makefile`, and `.mprlab/deploy/tests/test_npm_visibility.py`.
+  `docs/npm-publication.md` and `.mprlab/ISSUES.md` also changed.
+
 - [x] [B132] (P1) Wait for the accepted npm version until the publication time limit.
   Goal: Verify the npm version after the registry completes publication.
   Requirements:
@@ -24,7 +50,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   The manifest supplied only four attempts within its four-hour publication time limit.
 
   The deployment integration test reproduced the four-attempt failure before the manifest correction.
-  The exact version-read operation now uses `attempt_limit: 0` and the remaining four-hour publication time limit.
+  The initial correction used `attempt_limit: 0` and the remaining four-hour publication time limit.
   The existing intervals and other operation limits remain unchanged.
   All seven deployment checks passed with installed Gateway v6.0.3.
   These checks use the actual Gateway action, policy resolver, and retry CLI with controlled provider responses and time.
@@ -34,10 +60,11 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   One existing test timed out on `GET /config-ui.yaml` at `shared-ui-migration.spec.js:18`.
   Final `make ci` passed, including all 474 browser and API scenarios.
   The earlier timeout did not recur. No browser test or application source changed.
-  The installed Gateway schema accepted the selected manifest and its operation policies.
+  The Ansible argument checks accepted the field types but omitted the controller manifest validator.
   Independent review found no defects. The changed prose passed the language checks and scoped review.
   Governor reported the same twelve existing template differences, with no new differences or warnings.
-  Resolution: npm version verification continues until the version becomes available or the existing time limit ends.
+  Resolution: The initial change passed downstream tests but failed controller validation during release.
+  B133 supplies a finite attempt limit and adds controller coverage.
   No release, publication, or deployment operation was run for this correction.
   Changed Files: `.mprlab/deploy/resources.yml`, `.mprlab/deploy/tests/Makefile`, and `.mprlab/deploy/tests/test_npm_visibility.py`.
   `docs/npm-publication.md` and `.mprlab/ISSUES.md` also changed.

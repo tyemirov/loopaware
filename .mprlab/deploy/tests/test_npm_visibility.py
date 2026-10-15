@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shutil
+import subprocess
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -38,16 +40,75 @@ class Clock:
         self.elapsed += seconds
 
 
+def controller_plan(executable: Path, directory: Path, manifest: bytes) -> subprocess.CompletedProcess[str]:
+    """Validate real source capture and manifest input before the injected Ansible boundary."""
+    directory = directory.resolve()
+    repository = directory / "app"
+    manifest_path = repository / ".mprlab/deploy/resources.yml"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_bytes(manifest)
+    origin = directory / "origin.git"
+    operator = directory / "operator"
+    inventory = operator / "inventory/hosts.yml"
+    inventory.parent.mkdir(parents=True)
+    inventory.write_text("all:\n  hosts:\n    localhost:\n      ansible_connection: local\n")
+    environment = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
+    environment.update(CI="1", GIT_TERMINAL_PROMPT="0")
+
+    def git(*arguments: str) -> None:
+        subprocess.run(
+            ["git", "-C", str(repository), "-c", "core.hooksPath=/dev/null", *arguments],
+            stdin=subprocess.DEVNULL, env=environment, capture_output=True, text=True, timeout=30, check=True,
+        )
+
+    git("init", "--bare", "-b", "master", str(origin))
+    git("init", "-b", "master")
+    git("add", ".mprlab/deploy/resources.yml")
+    git("-c", "user.name=Policy fixture", "-c", "user.email=fixture@example.invalid",
+        "-c", "commit.gpgsign=false", "commit", "-m", "Publication policy fixture")
+    git("remote", "add", "origin", str(origin))
+    git("push", "-u", "origin", "master")
+    git("remote", "set-head", "origin", "master")
+
+    # Echo the child argv instead of executing the Ansible plan or contacting providers.
+    echo = shutil.which("echo")
+    assert echo is not None, "The deployment test requires the echo executable"
+    return subprocess.run(
+        [str(executable), "app-plan-release", "--app-root", str(repository),
+         "--operator-root", str(operator), "--ansible-inventory", str(inventory), "--ansible-playbook", echo],
+        stdin=subprocess.DEVNULL,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+
 @pytest.fixture(scope="module")
-def gateway() -> tuple[ModuleType, Path]:
+def gateway(tmp_path_factory: pytest.TempPathFactory) -> tuple[ModuleType, Path]:
     executable = Path(os.environ["MPRLAB_GATEWAY_EXECUTABLE"]).resolve(strict=True)
     ansible_root = executable.parents[1] / "deploy/ansible"
+    validation = controller_plan(executable, tmp_path_factory.mktemp("valid-controller-plan"), MANIFEST_PATH.read_bytes())
+    assert validation.returncode == 0, validation.stderr
+    assert str(ansible_root / "playbooks/app-lifecycle-plan.yml") in validation.stdout
     spec = importlib.util.spec_from_file_location(
         "npm_visibility_action", ansible_root / "action_plugins/mprlab_network_operation.py"
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module, ansible_root
+
+
+def test_controller_rejects_unbounded_attempts(gateway: tuple[ModuleType, Path], tmp_path: Path) -> None:
+    _, ansible_root = gateway
+    executable = ansible_root.parents[1] / "bin/mprlab-gateway"
+    document = yaml.safe_load(MANIFEST_PATH.read_text())
+    document["mprlab_resources"]["operations"][VERIFY_OPERATION]["polling"]["attempt_limit"] = 0
+    validation = controller_plan(executable, tmp_path, yaml.safe_dump(document).encode())
+    assert validation.returncode == 2
+    assert f"operation {VERIFY_OPERATION}: polling requires positive intervals and a finite attempt limit" in validation.stderr
+    assert str(ansible_root / "playbooks/app-lifecycle-plan.yml") not in validation.stdout
 
 
 def normalized_policy(raw: dict, contract: ModuleType) -> dict:
