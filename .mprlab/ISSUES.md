@@ -11,6 +11,27 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B134] (P1) {B133} Keep deployment tests outside the manifest directory.
+  Goal: Satisfy the selected application manifest envelope.
+  Requirements:
+  - Move the deployment tests to `tests/deployment`.
+  - Execute the installed envelope assertion against the actual tracked paths.
+  - Verify rejection of an additional tracked deployment file.
+  - Correct the documented test command.
+  Validation: Gateway v6.0.4 rejected both test files beneath `.mprlab/deploy` during release.
+  B133 checked controller acceptance but did not execute the Ansible envelope assertion.
+  The new Ansible test reproduced the exact envelope rejection before the file moves.
+  All ten deployment tests passed after the moves.
+  The actual Git index now contains only `.mprlab/deploy/resources.yml` beneath `.mprlab/deploy`.
+  Final `CI=1 make ci` passed, including all 474 browser and API scenarios.
+  Independent review found no actionable defects.
+  Governor reported the same twelve existing template differences.
+  The changed prose passed the language checks and scoped review.
+  Resolution: Deployment tests now reside outside the reserved manifest directory.
+  No release, publication, or deployment operation was run.
+  Changed Files: `tests/deployment/Makefile`, `tests/deployment/test_npm_visibility.py`, `docs/npm-publication.md`, and `.mprlab/ISSUES.md`.
+  The two test files moved from `.mprlab/deploy/tests`.
+
 - [x] [B133] (P1) {B132} Use a finite attempt limit for npm version verification.
   Goal: Accept the npm verification policy at the lifecycle manifest boundary.
   Requirements:
