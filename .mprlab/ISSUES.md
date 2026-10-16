@@ -2863,6 +2863,24 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [x] [I046] (P1) Stop Dependabot pull requests.
+  Goal: Stop Dependabot version updates and automated security fixes.
+  Requirements:
+  - Set `open-pull-requests-limit: 0` for all six dependency roots.
+  - Require disabled automated security fixes in the repository audit.
+  - Keep secret scanning and push protection enabled.
+  Validation: Final `CI=1 make ci` passed, including all 474 browser and API scenarios.
+  YAML parsing confirmed zero pull-request limits for all six dependency roots.
+  The workflow audit, shell syntax check, changed-prose check, and `git diff --check` passed.
+  The GitHub API confirmed disabled automated security fixes, enabled secret scanning, and enabled push protection.
+  The live repository audit passed both changed assertions, then stopped at existing branch-protection differences.
+  The audit expects one approval and last-push approval. GitHub requires zero approvals and disables last-push approval.
+  Governor retained twelve existing template differences.
+  Independent review found no blocking code defects.
+  Resolution: The config stops version-update pull requests after merge to `master`.
+  The repository audit requires disabled automated security fixes.
+  Changed files: `.github/dependabot.yml`, `scripts/audit-github-repository.sh`, and `.mprlab/ISSUES.md`.
+
 - [x] [I045] (P1) Document and verify the canonical npm publication input.
   Goal: Prevent confusion about the stored npm credential and its loading path.
   Requirements:

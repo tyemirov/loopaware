@@ -27,11 +27,11 @@ workflow_permissions="$(gh api -H "X-GitHub-Api-Version: ${api_version}" "${repo
 assert_json "${workflow_permissions}" '.default_workflow_permissions == "read" and .can_approve_pull_request_reviews == false' "workflow tokens must default to read-only and may not approve pull requests"
 
 repository_settings="$(gh api -H "X-GitHub-Api-Version: ${api_version}" "${repository_api}")"
-assert_json "${repository_settings}" '.security_and_analysis.dependabot_security_updates.status == "enabled" and .security_and_analysis.secret_scanning.status == "enabled" and .security_and_analysis.secret_scanning_push_protection.status == "enabled"' "Dependabot security updates, secret scanning, and push protection must be enabled"
+assert_json "${repository_settings}" '.security_and_analysis.dependabot_security_updates.status == "disabled" and .security_and_analysis.secret_scanning.status == "enabled" and .security_and_analysis.secret_scanning_push_protection.status == "enabled"' "Dependabot security updates must be disabled; secret scanning and push protection must be enabled"
 
 gh api -H "X-GitHub-Api-Version: ${api_version}" "${repository_api}/vulnerability-alerts" >/dev/null
 automated_fixes="$(gh api -H "X-GitHub-Api-Version: ${api_version}" "${repository_api}/automated-security-fixes")"
-assert_json "${automated_fixes}" '.enabled == true and .paused == false' "Dependabot automated security fixes must be enabled and active"
+assert_json "${automated_fixes}" '.enabled == false' "Dependabot automated security fixes must be disabled"
 
 codeql="$(gh api -H "X-GitHub-Api-Version: ${api_version}" "${repository_api}/code-scanning/default-setup")"
 assert_json "${codeql}" '.state == "not-configured"' "CodeQL default setup must remain disabled"
