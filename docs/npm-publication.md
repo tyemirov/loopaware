@@ -120,7 +120,7 @@ The public archive matched the submitted archive.
 To do a test of the deployment policy with an installed Gateway, run this command from the repository root:
 
 ```bash
-make -f .mprlab/deploy/tests/Makefile test
+make -f tests/deployment/Makefile test
 ```
 
 The test uses the active runtime under `~/.local/share/mprlab-gateway/active/runtime`.
@@ -136,5 +136,13 @@ The behavior tests use the installed Gateway action, policy resolver, and retry 
 They verify delayed success, time limits, terminal errors, and the attempt limits for other operations.
 They do not read credentials, upload packages, or contact npm.
 All test commands use `CI=1` and closed standard input.
+
+The tests belong in `tests/deployment`.
+Gateway permits only the tracked `resources.yml` beneath `.mprlab/deploy`.
+Do not put tests, scripts, or other tracked files in that reserved directory.
+The envelope tests execute the installed surface reader and assertion through real Ansible.
+They check the actual Git index and reject an additional tracked file in an independent fixture.
+Stage file moves before this check because Gateway reads tracked paths from the Git index.
+These checks prove envelope validation, not execution of the full lifecycle.
 
 This deployment integration test is separate from application CI because it requires an installed Gateway runtime.
