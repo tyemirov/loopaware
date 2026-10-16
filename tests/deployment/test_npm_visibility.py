@@ -21,7 +21,7 @@ from ansible.playbook.task import Task
 from ansible.template import Templar
 
 
-MANIFEST_PATH = Path(__file__).resolve().parents[1] / "resources.yml"
+MANIFEST_PATH = Path(__file__).resolve().parents[2] / ".mprlab/deploy/resources.yml"
 RESOURCE = "react-native-client"
 VERIFY_OPERATION = "app_publish.npm.version_verify"
 CAPTURE_VARIABLE = "MPRLAB_LISTENER_EXECUTION_POLICY"
@@ -109,6 +109,56 @@ def test_controller_rejects_unbounded_attempts(gateway: tuple[ModuleType, Path],
     assert validation.returncode == 2
     assert f"operation {VERIFY_OPERATION}: polling requires positive intervals and a finite attempt limit" in validation.stderr
     assert str(ansible_root / "playbooks/app-lifecycle-plan.yml") not in validation.stdout
+
+
+def run_manifest_envelope(repository: Path, directory: Path, ansible_root: Path) -> subprocess.CompletedProcess[str]:
+    """Run the installed surface reader and envelope assertion through real Ansible."""
+    lifecycle = yaml.safe_load((ansible_root / "playbooks/app-lifecycle-plan.yml").read_text())
+    read_surface = next(task for task in lifecycle[0]["tasks"]
+                        if task.get("name") == "Read selected application deployment surface")
+    validation = yaml.safe_load((ansible_root / "playbooks/tasks/validate-selected-app-manifest.yml").read_text())
+    envelope = next(task for task in validation
+                    if task.get("name") == "Assert selected application manifest envelope")
+    playbook = directory / "envelope.yml"
+    playbook.write_text(yaml.safe_dump([{
+        "hosts": "localhost", "connection": "local", "gather_facts": False,
+        "vars": {
+            "mprlab_application_root_raw": str(repository),
+            "mprlab_application_manifest_relative_path": ".mprlab/deploy/resources.yml",
+            "mprlab_selected_manifest_document": yaml.safe_load(MANIFEST_PATH.read_text()),
+        },
+        "tasks": [read_surface, envelope],
+    }]))
+    environment = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
+    environment.update(CI="1", GIT_TERMINAL_PROMPT="0", ANSIBLE_NOCOLOR="1")
+    return subprocess.run(
+        ["ansible-playbook", "-i", "localhost,", str(playbook)],
+        env=environment, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30, check=False,
+    )
+
+
+def test_tracked_application_manifest_envelope(gateway: tuple[ModuleType, Path], tmp_path: Path) -> None:
+    _, ansible_root = gateway
+    result = run_manifest_envelope(MANIFEST_PATH.parents[2], tmp_path, ansible_root)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_manifest_envelope_rejects_extra_tracked_file(gateway: tuple[ModuleType, Path], tmp_path: Path) -> None:
+    _, ansible_root = gateway
+    repository = tmp_path / "app"
+    forbidden = repository / ".mprlab/deploy/tests/extra.txt"
+    forbidden.parent.mkdir(parents=True)
+    forbidden.write_text("Forbidden deployment surface fixture\n")
+    manifest = repository / ".mprlab/deploy/resources.yml"
+    manifest.write_bytes(MANIFEST_PATH.read_bytes())
+    environment = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
+    environment.update(CI="1", GIT_TERMINAL_PROMPT="0")
+    for arguments in (("init",), ("add", ".mprlab/deploy")):
+        subprocess.run(["git", "-C", str(repository), *arguments], env=environment,
+                       stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30, check=True)
+    result = run_manifest_envelope(repository, tmp_path, ansible_root)
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "app_lifecycle.invalid_manifest: selected application must track the single manifest" in result.stdout
 
 
 def normalized_policy(raw: dict, contract: ModuleType) -> dict:
