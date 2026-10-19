@@ -80,12 +80,15 @@ lint: lint-js
 	go run $(STATICCHECK) -checks=all,-SA1019,-ST1000 ./...
 	go run $(INEFFASSIGN) ./...
 
-lint-js: client-react-native-check mobile-check
+lint-js: tests-install client-react-native-check mobile-check
+	npm --prefix tests run typecheck
+	npm --prefix tests run check:location-map
+
+.PHONY: tests-install
+tests-install:
 	@if [ ! -d "$(CURDIR)/tests/node_modules" ]; then \
 		npm --prefix tests ci; \
 	fi
-	npm --prefix tests run typecheck
-	npm --prefix tests run check:location-map
 
 client-react-native-install:
 	@if [ ! -d "$(CURDIR)/$(CLIENT_REACT_NATIVE_DIR)/node_modules" ]; then \
@@ -209,6 +212,7 @@ test-live-favicons:
 	LOOPAWARE_LIVE_FAVICON_TESTS=1 go test ./pkg/favicon -run TestHTTPResolverLiveKnownSitesReturnFavicons -count=1
 
 test-integration-runner:
+	node --test tests/resource-theme-command.test.mjs
 	./tests/scripts/test-integration-runner.sh
 
 test-integration:
@@ -281,7 +285,7 @@ ci-backend: test-unit test-race
 
 ci-mobile: mobile-release-check
 
-ci-integration: test-integration-runner test-integration-all
+ci-integration: test-resource-theme test-integration-runner test-integration-all
 
 ci: ci-checks ci-backend ci-mobile ci-integration
 
@@ -305,3 +309,12 @@ mobile-podfile-config-check:
 .PHONY: mobile-release-metadata-check
 mobile-release-metadata-check: mobile-install
 	node --test mobile/scripts/release-metadata.test.mjs
+
+.PHONY: test-resource-theme
+test-resource-theme: tests-install
+	npm --prefix tests exec -- playwright install chromium --only-shell
+	node --test tests/resource-theme.test.js
+
+.PHONY: test-resource-page-integration
+test-resource-page-integration:
+	LOOPAWARE_TEST_SUITE=test:resource-pages ./tests/scripts/run-integration.sh

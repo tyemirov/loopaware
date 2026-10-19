@@ -128,4 +128,29 @@ if grep -F -- "npm " "${docker_log}" >/dev/null; then
   exit 1
 fi
 
+network_config="${runtime_dir}/compose.json"
+LOOPAWARE_TEST_NETWORK_PREFIX=10.212.34 docker compose -f "${repo_root}/tests/docker-compose.yml" config --format json > "${network_config}"
+python3 - "${network_config}" <<'PYTHON'
+import json
+import sys
+with open(sys.argv[1]) as config_file:
+    config = json.load(config_file)
+assert config["networks"]["default"]["ipam"]["config"][0]["subnet"] == "10.212.34.0/24"
+assert config["services"]["loopaware-proxy"]["networks"]["default"]["ipv4_address"] == "10.212.34.10"
+assert config["services"]["loopaware-api"]["environment"]["TRUSTED_PROXY_CIDR"] == "10.212.34.10/32"
+PYTHON
+for invalid_prefix in '' 172.30.242 10.256.2 10.2.3.4 10.02.3 garbage; do
+  set +e
+  runner_output="$(LOOPAWARE_FAKE_DOCKER_LOG="${docker_log}" \
+    LOOPAWARE_TEST_NETWORK_PREFIX="${invalid_prefix}" \
+    PATH="${fake_bin}:${PATH}" "${script_dir}/run-integration.sh" 2>&1)"
+  runner_status=$?
+  set -e
+  if [[ "${runner_status}" -eq 0 || "${runner_output}" != *"LOOPAWARE_TEST_NETWORK_PREFIX must use 10.<octet>.<octet>"* ]]; then
+    echo "Expected invalid network prefix rejection: ${invalid_prefix}." >&2
+    echo "${runner_output}" >&2
+    exit 1
+  fi
+done
+
 echo "Integration runner ownership checks passed."

@@ -148,6 +148,12 @@ loaded. Runtime still requires the real local env files. Every existing repo-roo
 `.mprlab/deploy/.env`, and mounted private-key file must be a regular file with mode `0600`; tracked examples and audit
 fixtures are not private runtime inputs, and absent private inputs remain valid for source-only checkouts.
 
+The local configuration audit uses `tests/configs/loopaware.local.env` only for `config-audit`.
+The runtime input remains `configs/.env.loopaware`.
+The computercat audit uses `tests/configs/loopaware.computercat.env` only for `config-audit`.
+Its `192.0.2.10/32` trusted proxy is a documentation address.
+The production runtime input remains `configs/.env.loopaware.computercat`.
+
 Frontend runtime host mapping lives in `web/config.yml`, which is served directly as `/config.yml` by the static site.
 It also carries per-environment frontend service settings such as `siteWidgetSiteId` for the first-party landing and
 dashboard widget.
@@ -561,6 +567,16 @@ make test
 
 `make test` runs the Playwright integration suite against `tests/docker-compose.yml`, with test-owned env fixtures under
 `tests/configs/`. That stack builds the API image, serves `web/` via gHTTP, and exercises both UI and `/api/*` flows.
+Use `make test-resource-theme` to verify theme storage on a resource page through the browser.
+This target installs the locked test dependencies when `tests/node_modules` is absent.
+Use `make test-resource-page-integration` to verify resource page contracts through the integration stack.
+
+The integration network uses `10.203.242.0/24` by default.
+Set `LOOPAWARE_TEST_NETWORK_PREFIX=10.212.34` to select another private test subnet before a test command.
+The runner validates this single prefix and uses it for the subnet, proxy address, and trusted proxy.
+An invalid prefix stops the runner before Docker operations.
+The runner does not select another subnet after a collision.
+
 Use `make test-unit` for Go-only tests and `make test-integration-api` to focus on API specs. Playwright artifacts
 (traces, screenshots, videos) land under `tests/test-results/` on failure. The integration runner tears its compose
 project down on exit, including failures and signal exits.

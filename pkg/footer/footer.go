@@ -48,7 +48,7 @@ type Config struct {
 	Size              string
 
 	ThemeToggleEnabled bool
-	ThemeSwitcher      string
+	ThemeControl       string
 	ThemeMode          string
 	ThemeAttribute     string
 	ThemeAriaLabel     string
@@ -56,13 +56,14 @@ type Config struct {
 }
 
 type footerThemeConfig struct {
+	StorageKey  string   `json:"storageKey"`
 	Attribute   string   `json:"attribute,omitempty"`
 	AriaLabel   string   `json:"ariaLabel,omitempty"`
 	Modes       []string `json:"modes,omitempty"`
 	InitialMode string   `json:"initialMode,omitempty"`
 }
 
-var footerTemplate = template.Must(template.New("footer").Parse(`<mpr-footer id="{{.HostID}}" element-id="{{.ElementID}}" base-class="{{.BaseClass}}" inner-element-id="{{.InnerElementID}}" inner-class="{{.InnerClass}}" wrapper-class="{{.WrapperClass}}" brand-wrapper-class="{{.BrandWrapperClass}}" prefix-class="{{.PrefixClass}}" prefix-text="{{.PrefixText}}" privacy-link-class="{{.PrivacyLinkClass}}" privacy-link-href="{{.PrivacyLinkHref}}" privacy-link-label="{{.PrivacyLinkLabel}}" menu='{{.MenuJSON}}' sticky="{{.StickyValue}}"{{if .Size}} size="{{.Size}}"{{end}}{{if .PrivacyModalHTML}} privacy-modal-content="{{.PrivacyModalHTML}}"{{end}}{{if .ThemeToggleEnabled}} theme-switcher="{{.ThemeSwitcher}}" theme-config='{{.ThemeConfigJSON}}'{{end}}></mpr-footer>`))
+var footerTemplate = template.Must(template.New("footer").Parse(`<mpr-footer id="{{.HostID}}" element-id="{{.ElementID}}" base-class="{{.BaseClass}}" inner-element-id="{{.InnerElementID}}" inner-class="{{.InnerClass}}" wrapper-class="{{.WrapperClass}}" brand-wrapper-class="{{.BrandWrapperClass}}" prefix-class="{{.PrefixClass}}" prefix-text="{{.PrefixText}}" privacy-link-class="{{.PrivacyLinkClass}}" privacy-link-href="{{.PrivacyLinkHref}}" privacy-link-label="{{.PrivacyLinkLabel}}" menu='{{.MenuJSON}}' sticky="{{.StickyValue}}"{{if .Size}} size="{{.Size}}"{{end}}{{if .PrivacyModalHTML}} privacy-modal-content="{{.PrivacyModalHTML}}"{{end}}{{if .ThemeToggleEnabled}} theme-control='{{.ThemeControl}}' theme-config='{{.ThemeConfigJSON}}'{{end}}></mpr-footer>`))
 
 // Render returns the footer HTML for the provided configuration.
 func Render(config Config) (template.HTML, error) {
@@ -80,14 +81,10 @@ func Render(config Config) (template.HTML, error) {
 		stickyValue = "false"
 	}
 
-	themeSwitcher := config.ThemeSwitcher
-	if config.ThemeToggleEnabled && themeSwitcher == "" {
-		themeSwitcher = "toggle"
-	}
-
 	themeConfigJSON := "{}"
 	if config.ThemeToggleEnabled {
 		themeConfig, jsonErr := json.Marshal(footerThemeConfig{
+			StorageKey:  "loopaware_public_theme",
 			Attribute:   config.ThemeAttribute,
 			AriaLabel:   config.ThemeAriaLabel,
 			Modes:       config.ThemeModes,
@@ -117,7 +114,7 @@ func Render(config Config) (template.HTML, error) {
 		StickyValue        string
 		Size               string
 		ThemeToggleEnabled bool
-		ThemeSwitcher      string
+		ThemeControl       string
 		ThemeConfigJSON    string
 	}{
 		HostID:             config.HostElementID,
@@ -137,7 +134,7 @@ func Render(config Config) (template.HTML, error) {
 		StickyValue:        stickyValue,
 		Size:               config.Size,
 		ThemeToggleEnabled: config.ThemeToggleEnabled,
-		ThemeSwitcher:      themeSwitcher,
+		ThemeControl:       config.ThemeControl,
 		ThemeConfigJSON:    themeConfigJSON,
 	}
 

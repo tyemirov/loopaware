@@ -41,7 +41,7 @@ services:
     container_name: loopaware
     env_file:
       - ./configs/.env.loopaware
-    x-config-audit-env-file: ./tests/configs/loopaware.env
+    x-config-audit-env-file: ./tests/configs/loopaware.local.env
     depends_on:
       la-pinguin:
         condition: service_started

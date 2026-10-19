@@ -95,6 +95,10 @@ Give each term one meaning. Use the same term for the same concept in all docume
 
 ## Repository Technical Nouns
 
+- `network prefix`: The first three decimal octets of the private IPv4 network for integration tests.
+- `subnet`: The isolated IPv4 network that contains the integration services.
+- `trusted proxy`: A proxy address whose forwarding metadata the server accepts.
+
 - `MCP`: Model Context Protocol, which connects clients to application tools and data.
 - `MCP tool`: A named application operation available through MCP.
 - `Streamable HTTP`: The MCP transport that sends protocol requests through HTTP.
