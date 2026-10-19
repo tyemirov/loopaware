@@ -140,7 +140,7 @@ Pinguin and LoopAware must share the same bearer secret. Set Pinguin's `GRPC_AUT
 `PINGUIN_CONFIG_PATH=/config/config.yml`, matching the files mounted by Docker Compose. `configs/.env.loopaware` must
 define every placeholder referenced by `configs/config.loopaware.yml`. Those values are expanded only while parsing the
 YAML file; they are not a second runtime config source. Production deployment values use the separate ignored
-`.mprlab/deploy/.env` input and the manifest's `private_values` bindings. The sibling gateway reads that file only during
+`.mprlab/deploy/.env` input and the manifest's `private_values` bindings. The installed Gateway reads that file only during
 deployment; release and publication do not read it.
 `config-audit` validates real local env files when they are present. When they are absent, each production Compose service
 declares a tracked audit-only fixture under `tests/configs/` with `x-config-audit-env-file`; `.env.*.example` files are never
@@ -609,7 +609,13 @@ make publish
 make deploy
 ```
 
-Each target is a zero-argument wrapper around the exact sibling `../mprlab-gateway` checkout. The gateway owns lifecycle validation, sealed artifact assembly, provider publication, host assembly, and verification. LoopAware owns only the local native builders and provider clients selected by its manifest; it does not carry a parallel lifecycle controller.
+Each target calls the installed `mprlab-gateway` command with `app-release`, `app-publish`, or `app-deploy`.
+The wrapper passes the exact application Git root through `--app-root`.
+Set `MPRLAB_GATEWAY_EXECUTABLE` to select an explicit installed executable.
+The wrapper clears its owned private variables, then reads `configs/.env.loopaware`.
+Each Gateway call uses `CI=1` and closed standard input.
+Gateway owns lifecycle validation, artifact preparation, publication, deployment, and verification.
+LoopAware retains its native builders and application inputs.
 
 The npm publication credential is `NPM_API_KEY` in the ignored `configs/.env.loopaware` file.
 The setup commands preserve existing private file contents.
@@ -679,7 +685,9 @@ Run `make mobile-release-check` to validate prepared inputs, native adapter forw
 The local provider tests use controlled dependencies.
 Actual native signing and store submission remain separate acceptance results.
 
-There are no app-owned dry-run lifecycle aliases. For a non-mutating inspection, run the gateway's `plan-app-release`, `plan-app-publish`, or `plan-app-deploy` target with `MPRLAB_APP_ROOT` set to this repository. Production activation remains an operator action.
+For a non-mutating inspection, use the installed Gateway's `app-plan-release`, `app-plan-publish`, or `app-plan-deploy` command.
+Pass this repository's Git root through `--app-root`.
+Production activation remains an operator action.
 
 ## Docker
 

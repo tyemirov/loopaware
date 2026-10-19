@@ -2,6 +2,19 @@
 
 This policy controls all agent work in this repository.
 
+## Temporary Task Files
+
+- Put temporary diagnostic files in `_scratch/<task-id>/`.
+- Use a unique task identifier for each directory.
+- Keep `/_scratch/` in the repository `.gitignore`.
+- Record the directory and its task in the task plan before use.
+- Keep files from an interrupted task until that task resumes or its owner authorizes removal.
+- Before task completion, preserve useful results in maintained tests, tools, or documentation.
+- Remove only the temporary directory owned by the completed task.
+- Verify that this directory is absent before reporting task completion.
+- Preserve directories owned by other tasks.
+- If removal fails, report the remaining path and keep task completion pending.
+
 ## Operator Rules
 
 - Validate only at edges: I/O, HTTP, CLI, DB adapters, browser bootstrap, imported files, and other external boundaries.
@@ -15,6 +28,21 @@ This policy controls all agent work in this repository.
 - Centralize reusable literals: paths, operation names, event names, config keys, status values, and shared messages.
 - Tests target public contracts and invariants, not defensive branches.
 - Prefer black-box integration and end-to-end tests through real entry points.
+
+## Automatic Data Updates And Persistence
+
+This is a binding product principle for every user interface.
+
+- Load current data automatically when a view opens and when its relevant data changes.
+- Update stale data automatically after reconnection and when the user returns to the view.
+- Never require or expose refresh or reload controls for data synchronization.
+- Persist valid user edits automatically. Never require or expose save controls for data persistence.
+- Show pending, saved, validation, conflict, and failure states without requiring a manual refresh or save.
+- Preserve unsaved edits during background updates, request failures, and concurrent changes.
+- Serialize writes and retain newer edits when an earlier write completes.
+- Keep explicit controls for user intent, such as creation, deletion, activation, and confirmation of consequential actions.
+- Do not use an explicit action as a substitute for automatic data persistence.
+- Verify automatic updates, persistence, error recovery, and account isolation through public interface tests.
 
 ## Test-Driven Development
 
@@ -75,6 +103,35 @@ This policy controls all agent work in this repository.
 - The values `0600` and `7777` have no governance meaning.
 - This rule does not change service authorization or operation authority.
 
+## Selected Manifest Contract
+
+Apply this section when the task changes or validates a selected application manifest.
+
+- Keep the selected application manifest versionless.
+- Keep `owner`, `release`, and `resources` as the current baseline fields.
+- Apply the current iOS baseline below before the manifest preservation rules.
+- For other manifest contracts, accept each manifest that an earlier versionless gateway accepted.
+- For those contracts, keep each accepted field name, type, requirement, and function.
+- A field added to an existing shape must be optional.
+- A field added to an existing shape must have one canonical default.
+- Normalize that default before manifest identity calculation.
+- Add a resource kind only with one closed shape.
+- Reject unknown fields and `schema_version`.
+
+### Current iOS Baseline
+
+The operator selected a fresh iOS contract on September 10, 2026.
+Previous iOS adapter acceptance does not constrain this contract.
+
+- Require `build_system: local` and a repository-relative `.mjs` path in `build.ios`.
+- Build and sign iOS artifacts locally through the shared native builder.
+- Publish the sealed IPA through the shared App Store Connect adapter.
+- Reject iOS `.sh` adapters, Xcode Cloud requests, and cloud publication receipts.
+- Do not add compatibility dispatch, obsolete aliases, or migration requirements for the removed iOS contract.
+- Preserve the declared TestFlight or App Store destination and its export restriction.
+
+This baseline does not authorize removal of stored releases, credentials, or deployment state.
+
 ## Static Website Hosting
 
 Apply this section to deployment or publication work for a browser frontend.
@@ -89,19 +146,61 @@ Apply this section to deployment or publication work for a browser frontend.
 - Verify publication through the public website and `/.mprlab-release.json`.
 - Run the Governor check after each selected manifest change and before each release, publish, or deploy operation.
 
+## Gateway Lifecycle Execution
+
+Apply this section when the repository uses the selected-manifest lifecycle or owns Gateway infrastructure operations.
+
+- Use the installed `mprlab-gateway` runtime for application and infrastructure operations.
+- Preserve `make release && make publish && make deploy` as the application operator command.
+- Pass the selected application Git root through `--app-root`.
+- Use `MPRLAB_GATEWAY_EXECUTABLE` for an explicit installed command.
+- Preserve application source validation, release policy, resource ownership, private inputs, and sealed receipts.
+- Keep each operation and its child calls on one captured runtime package and dependency environment.
+- Keep Gateway inventory and private config under `MPRLAB_GATEWAY_OPERATOR_ROOT`.
+- Use `$HOME/.config/mprlab-gateway` as the default operator root.
+- Select an explicit version with `mprlab-gateway install --version <version>` to change the active runtime.
+- Use Gateway source for repository CI, release preparation, and Gateway publication.
+- Keep installation, application operations, and operator-controlled production activation as separate gates.
+
+## Credential Discovery
+
+Apply this gate when the selected task requires credentials.
+
+- Identify each required environment variable from the active command and repository contract.
+- Inspect the process environment before you request a login.
+- Inspect repository private environment files before you report a credential blocker.
+- Include ignored `.env`, `.env.*`, and `*.env` files in the authorized repository roots.
+- Treat tracked example and sample environment files as documentation only.
+- Search only for exact variable names. Do not print, copy, or record secret values.
+- When a command declares one repository environment file as its input, clear
+  its owned process variables and source only that file.
+- Use the command's standard environment lookup. Do not add a credential parser
+  or another input channel.
+- When available, use a non-mutating authentication command to verify the discovered value.
+- Request new credentials only after each authorized existing input fails verification.
+- Report a credential blocker only after you complete this gate.
+
+## Issue Closure
+
+- Close an issue when its required implementation, documentation, and code validation are completed.
+- Keep release, publication, deployment, production DNS/TLS, and live acceptance outside implementation issue acceptance criteria.
+- Do not keep an implementation issue open or blocked because production operations are not completed.
+- Record pending production operations in a runbook or separate operational record.
+- Validate deployment tooling and infrastructure configuration through the required isolated integration tests.
+
+Failed or missing required code validation prevents closure.
+Production operations outside the task do not remove code validation requirements.
+
 ## Validation
 
+- Use repository-native `make` targets.
+- Do not run a pre-edit or per-issue `make ci` baseline.
 - Preserve the expected failing integration-test result as implementation evidence.
-- Use repository-native `make` targets when available.
-- Mark an issue as closed after its requested repository changes are completed and applicable validation passes.
-- Do not use release, publication, deployment, or production availability as issue completion conditions.
-- If one of these operations finds a necessary repository change, file a dependent issue.
-- Use a satisfactory CI result only when the source code, tests, config, dependencies, and build files stay the same.
-- If there is no applicable satisfactory result, run `make ci` once before you change files.
-- During the change, run the smallest repository target that validates the changed contract.
-- After the last source, test, config, dependency, or build change, run `make ci` once.
+- During the change, run the smallest public-entrypoint target that validates the changed contract.
+- After the last stack change, run `make ci` once at the documented stack completion checkpoint.
 - If this run reports an error, run the target that reports the error during the correction.
 - After the last correction, run `make ci` once.
+- Run `make verify` only when the operator explicitly selects the complete qualification lane.
 - When `make ci` includes `make fmt`, `make lint`, and `make test`, use its result for those targets.
 - During the change or error diagnosis, run the necessary component target.
 - Run a component target when `make ci` does not include the necessary check.
@@ -139,9 +238,7 @@ Apply this section to deployment or publication work for a browser frontend.
 - Use `@dataclass(frozen=True)` or Pydantic when already in use.
 - Validate in constructors or edge adapters.
 - Use type hints throughout.
-- Prefer pytest scenarios through public entry points.
-- Use focused unit tests for complex algorithms, calculations, and isolated logic when useful.
-- Require integration coverage of public behavior for product acceptance.
+- Use pytest for integration, end-to-end, and focused unit tests under the shared test-driven development rules.
 
 ### JavaScript And Frontend
 

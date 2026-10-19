@@ -51,11 +51,11 @@ After validation, core mobile state and UI code must use domain values, not raw 
 
 ## Build And Store Publication
 
-- For Apple release builds, use the native build contract in `.mprlab/AGENTS.APPLE.md`.
+- For iOS release builds, use the native iOS contract in `.mprlab/AGENTS.APPLE.md`.
 - Build each Android store artifact with the native toolchain on an operator-controlled build host.
 - Seal each Android artifact before publication to Google Play.
 - Keep release and publication commands in repository Make targets or package scripts.
-- Use sealed artifacts for Apple and Android store publication.
+- Publish only the sealed IPA to App Store Connect.
 
 ## UI And UX
 

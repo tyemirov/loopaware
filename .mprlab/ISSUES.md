@@ -11,6 +11,17 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B138] (P1) Use the installed Gateway lifecycle command
+  Goal: Run the lifecycle wrappers without a sibling Gateway checkout.
+  Requirements: Preserve private input preparation. Pass the exact Git root and close standard input.
+  Validation: The isolated public Make tests reproduced the missing sibling error before the correction.
+  Installed command, exact root, private input, closed input, and failure status checks passed for all three phases.
+  The mobile config check rejected its obsolete sibling requirement. The corrected installed command check then passed.
+  Canonical preparation passed. Final `CI=1 make ci` passed all 474 browser and API scenarios, Go race checks, and mobile checks.
+  Resolution: The wrappers select the installed Gateway and preserve application private input preparation.
+  Changed files: `Makefile`, `tests/lifecycle-entrypoint.test.mjs`, `mobile/scripts/validate-mobile-config.mjs`, `README.md`, and this tracker.
+  Generated files: The canonical mobile preparation records, prepared config validator, and Xcode project.
+
 - [x] [B137] (P1) Declare complete local configuration audit inputs
   Goal: Run static checks without private runtime inputs.
   Requirements: Declare a separate local audit fixture with an explicit trusted proxy.
@@ -2891,6 +2902,15 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `web/terms/index.html`, and `web/app/index.html`.
 
 ## Improvements
+
+- [x] [I048] (P1) Update the approved managed governance files
+  Goal: Satisfy the reviewed production preflight prerequisite.
+  Requirements: Use the frozen Governor inputs. Preserve local rules, issue history, and private inputs.
+  Validation: All twelve managed differences matched the approved preflight record. The frozen Governor check passed.
+  The issue format has the approved SHA-256. The root retains the local classification and archive rules.
+  The document check found no new findings outside preserved text and the exact deployed issue format.
+  Resolution: Updated the managed guides and policy. Preserved application records and private inputs.
+  Changed files: `.gitignore`, `AGENTS.md`, the ten managed guide documents, and this issue tracker.
 
 - [x] [I047] (P1) {B135,B136,B137} Use the explicit shared theme control contract
   Goal: Complete the repository part of shared I010.

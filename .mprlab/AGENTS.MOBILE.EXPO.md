@@ -68,7 +68,7 @@ Obey root `AGENTS.md`, `.mprlab/POLICY.md`, and `.mprlab/AGENTS.MOBILE.md`.
 ## Review Checklist
 
 - [ ] Expo config and native identifiers are aligned.
-- [ ] Apple release builds use Xcode Cloud, and Android publication uses the signed prebuilt artifact.
+- [ ] iOS release builds use the native iOS contract. Android publication uses the signed prebuilt artifact.
 - [ ] The production lifecycle does not invoke Expo CLI or EAS.
 - [ ] Native generated files were updated through source config or documented scripts.
 - [ ] API, auth, storage, purchase, and native-module payloads are validated at adapters.

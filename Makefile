@@ -1,4 +1,6 @@
 override SHELL := /bin/sh
+MPRLAB_GATEWAY_EXECUTABLE ?= mprlab-gateway
+export MPRLAB_GATEWAY_EXECUTABLE
 override GO_SOURCES := $(shell find . -name '*.go' -not -path "./vendor/*" -not -path "./tests/*" -not -path "./tools/pinguin/vendor/*" -not -path "./.cache/*" -not -path "./tools/pinguin/.cache/*")
 override PINGUIN_DIR := tools/pinguin
 override STATICCHECK_VERSION := v0.8.2
@@ -212,7 +214,7 @@ test-live-favicons:
 	LOOPAWARE_LIVE_FAVICON_TESTS=1 go test ./pkg/favicon -run TestHTTPResolverLiveKnownSitesReturnFavicons -count=1
 
 test-integration-runner:
-	node --test tests/resource-theme-command.test.mjs
+	node --test tests/lifecycle-entrypoint.test.mjs tests/resource-theme-command.test.mjs
 	./tests/scripts/test-integration-runner.sh
 
 test-integration:
@@ -290,17 +292,16 @@ ci-integration: test-resource-theme test-integration-runner test-integration-all
 ci: ci-checks ci-backend ci-mobile ci-integration
 
 release publish deploy:
-	@set -eu; application_root="$$(git rev-parse --show-toplevel)"; \
-	gateway_root="$$(dirname "$${application_root}")/mprlab-gateway"; \
-	if [ ! -d "$${gateway_root}" ]; then \
-		printf "required sibling gateway is missing: %s; clone mprlab-gateway at exactly %s\n" \
-			"$${gateway_root}" "$${gateway_root}" >&2; \
+	@set -eu; application_root="$$(git rev-parse --show-toplevel </dev/null)"; \
+	gateway_executable="$${MPRLAB_GATEWAY_EXECUTABLE}"; \
+	if ! command -v "$${gateway_executable}" >/dev/null 2>&1; then \
+		printf 'required installed Gateway executable is missing: %s\n' "$${gateway_executable}" >&2; \
 		exit 2; \
 	fi; \
 	for private_name in GH_TOKEN GITHUB_TOKEN NPM_TOKEN LOOPAWARE_ANDROID_KEYSTORE LOOPAWARE_ANDROID_STORE_PASSWORD LOOPAWARE_ANDROID_KEY_ALIAS LOOPAWARE_ANDROID_KEY_PASSWORD APP_STORE_CONNECT_API_KEY_ID APP_STORE_CONNECT_API_ISSUER_ID APP_STORE_CONNECT_API_KEY_PATH; do unset "$${private_name}"; done; \
 	set -a; . "$${application_root}/configs/.env.loopaware"; set +a; \
-	$(MAKE) --no-print-directory -C "$${gateway_root}" "app-$@" \
-		MPRLAB_APP_ROOT="$${application_root}"
+	export CI=1; \
+	exec "$${gateway_executable}" "app-$@" --app-root "$${application_root}" </dev/null
 
 .PHONY: mobile-podfile-config-check
 mobile-podfile-config-check:
