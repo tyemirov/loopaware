@@ -65,6 +65,8 @@ services:
     pull_policy: build
     env_file:
       - ./configs/loopaware.env
+    environment:
+      TRUSTED_PROXY_CIDR: ${LOOPAWARE_TEST_NETWORK_PREFIX-10.203.242}.10/32
     depends_on:
       la-pinguin:
         condition: service_started
@@ -110,7 +112,7 @@ services:
       - "8090:8090"
     networks:
       default:
-        ipv4_address: 172.30.242.10
+        ipv4_address: ${LOOPAWARE_TEST_NETWORK_PREFIX-10.203.242}.10
     restart: unless-stopped
 
 volumes:
@@ -122,4 +124,4 @@ networks:
   default:
     ipam:
       config:
-        - subnet: 172.30.242.0/24
+        - subnet: ${LOOPAWARE_TEST_NETWORK_PREFIX-10.203.242}.0/24

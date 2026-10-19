@@ -274,7 +274,9 @@ test('resource pages are crawlable and internally linked', async ({ request }) =
     expect(html).toContain('<mpr-footer id="resource-footer" class="mt-auto" sticky="false"');
     expect(html).toContain('horizontal-links=\'{&quot;alignment&quot;:&quot;left&quot;,&quot;links&quot;:[{&quot;label&quot;:&quot;Terms of Service&quot;,&quot;href&quot;:&quot;/terms/&quot;},{&quot;label&quot;:&quot;Resources&quot;,&quot;href&quot;:&quot;/resources/&quot;},{&quot;label&quot;:&quot;Pricing&quot;,&quot;href&quot;:&quot;/pricing/&quot;}]}\'');
     expect(html).not.toContain('<a slot="nav-right"');
-    expect(html).toContain('<script type="module" src="/resources/public-theme.js"></script>');
+    expect(html).toContain('theme-control=\'{"kind":"switch","choices":{"off":"light","on":"dark"}}\'');
+    expect(html).toContain('"storageKey":"loopaware_public_theme"');
+    expect(html).not.toContain('/resources/public-theme.js');
     expect(html).toContain('<script src="/header-auth.js"></script>');
     expect(html).toContain('LoopAware');
     expect(html).not.toContain('class="resource-header"');

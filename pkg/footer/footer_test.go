@@ -53,7 +53,7 @@ const (
 	testFooterThemeLightMode  = "light"
 	testFooterThemeDarkMode   = "dark"
 	testFooterSmallSize       = "small"
-	testFooterThemeSwitcher   = "square"
+	testFooterThemeControl    = `{"kind":"cycle","choices":["light","dark"]}`
 	testFooterExampleLinkName = "Docs"
 	testFooterExampleLinkURL  = "/docs"
 	testFooterTemplateName    = "footer"
@@ -91,6 +91,7 @@ func TestRenderFooterWithThemeToggle(testingT *testing.T) {
 	footerConfig.Sticky = true
 	footerConfig.Size = testFooterSmallSize
 	footerConfig.ThemeToggleEnabled = true
+	footerConfig.ThemeControl = `{"kind":"switch","choices":{"off":"light","on":"dark"}}`
 	footerConfig.ThemeMode = testFooterThemeLightMode
 	footerConfig.ThemeAttribute = testFooterThemeAttribute
 	footerConfig.ThemeAriaLabel = testFooterThemeAriaLabel
@@ -103,7 +104,7 @@ func TestRenderFooterWithThemeToggle(testingT *testing.T) {
 	require.Contains(testingT, renderedText, testFooterPrefixText)
 	require.Contains(testingT, renderedText, `sticky="true"`)
 	require.Contains(testingT, renderedText, `size="`+testFooterSmallSize+`"`)
-	require.Contains(testingT, renderedText, `theme-switcher="toggle"`)
+	require.Contains(testingT, renderedText, `theme-control=`)
 	require.Contains(testingT, renderedText, testFooterThemeAttribute)
 	require.Contains(testingT, renderedText, testFooterThemeLightMode)
 	require.Contains(testingT, renderedText, "privacy-modal-content")
@@ -121,7 +122,7 @@ func TestRenderFooterWithoutThemeToggleUsesMenuLabel(testingT *testing.T) {
 	renderedText := string(rendered)
 	require.Contains(testingT, renderedText, testFooterMenuLabel)
 	require.Contains(testingT, renderedText, `sticky="false"`)
-	require.False(testingT, strings.Contains(renderedText, "theme-switcher="))
+	require.False(testingT, strings.Contains(renderedText, "theme-control="))
 }
 
 func TestRenderFooterReportsTemplateError(testingT *testing.T) {
@@ -136,10 +137,11 @@ func TestRenderFooterReportsTemplateError(testingT *testing.T) {
 	require.Error(testingT, renderErr)
 }
 
-func TestRenderFooterUsesCustomThemeSwitcher(testingT *testing.T) {
+func TestRenderFooterUsesExplicitThemeControl(testingT *testing.T) {
 	footerConfig := baseFooterConfig()
 	footerConfig.ThemeToggleEnabled = true
-	footerConfig.ThemeSwitcher = testFooterThemeSwitcher
+	footerConfig.ThemeControl = `{"kind":"switch","choices":{"off":"light","on":"dark"}}`
+	footerConfig.ThemeControl = testFooterThemeControl
 	footerConfig.ThemeMode = testFooterThemeLightMode
 	footerConfig.ThemeModes = []string{testFooterThemeLightMode, testFooterThemeDarkMode}
 
@@ -147,5 +149,5 @@ func TestRenderFooterUsesCustomThemeSwitcher(testingT *testing.T) {
 	require.NoError(testingT, renderErr)
 
 	renderedText := string(rendered)
-	require.Contains(testingT, renderedText, `theme-switcher="`+testFooterThemeSwitcher+`"`)
+	require.Contains(testingT, renderedText, "theme-control='"+html.EscapeString(testFooterThemeControl)+"'")
 }

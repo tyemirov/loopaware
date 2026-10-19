@@ -45,7 +45,7 @@ services:
     pull_policy: build
     env_file:
       - ./configs/.env.loopaware.computercat
-    x-config-audit-env-file: ./tests/configs/loopaware.env
+    x-config-audit-env-file: ./tests/configs/loopaware.computercat.env
     depends_on:
       la-pinguin:
         condition: service_started

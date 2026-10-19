@@ -11,6 +11,25 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B136] (P1) Install test dependencies before the resource theme test
+  Goal: Run the resource theme test from a clean integration shard.
+  Requirements: Install the locked test dependencies before browser installation and the Node test.
+  Validation: The public Make target failed in a temporary directory without installed dependencies.
+  Automatic package installation was disabled. The test passed after the dependency prerequisite was added.
+  The existing runner checks and real resource page browser test passed.
+  Final `CI=1 make ci` passed all 474 browser and API scenarios, Go race checks, and mobile checks.
+  Resolution: `tests-install` supplies locked dependencies before the resource theme test and JavaScript checks.
+  Canonical mobile preparation updated the Makefile receipt. The migration document identifies current assets and historical evidence.
+  Changed files: `Makefile`, `tests/resource-theme-command.test.mjs`, `README.md`, `docs/mpr-ui-migration.md`, and this issue tracker.
+  Generated files: `mobile/prepared/source-preparation.json`, `mobile/prepared/native-preparation.json`, and `mobile/prepared/ios/LoopAware.xcodeproj/project.pbxproj`.
+
+- [x] [B135] (P1) Keep the integration network separate from existing services
+  Goal: Start the isolated integration stack without a subnet collision.
+  Requirements: Use one validated private network prefix for the subnet, proxy address, and trusted proxy.
+  Validation: Reproduced the conflict with an existing `172.30.0.0/16` Docker network. Public runner and compose checks passed.
+  Resolution: One validated prefix drives the test subnet and proxy trust. The production audit uses a separate fixture.
+  Final `CI=1 make ci` passed, including all 474 browser and API scenarios.
+
 - [x] [B134] (P1) {B133} Keep deployment tests outside the manifest directory.
   Goal: Satisfy the selected application manifest envelope.
   Requirements:
@@ -2862,6 +2881,15 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   `web/terms/index.html`, and `web/app/index.html`.
 
 ## Improvements
+
+- [x] [I047] (P1) {B135,B136} Use the explicit shared theme control contract
+  Goal: Complete the repository part of shared I010.
+  Requirements: The switch defines light and dark choices. The shared manager owns cross-page theme storage.
+  Deliverables: Replace obsolete selectors and declare `loopaware_public_theme` as the application storage key.
+  Validation: Browser checks verified pointer selection, keyboard selection, and reload for every mode.
+  The real resource page rejects alias access and uses one canonical write for each selection.
+  Resolution: Removed the obsolete storage bridges and all resource script references. The manager owns the canonical key.
+  Canonical mobile preparation refreshed the changed Makefile receipt. Final `CI=1 make ci` passed, including all 474 browser and API scenarios.
 
 - [x] [I046] (P1) Stop Dependabot pull requests.
   Goal: Stop Dependabot version updates and automated security fixes.

@@ -8,6 +8,14 @@ compose_file="${repo_root}/tests/docker-compose.yml"
 cleanup_guardian_pid=""
 cleanup_complete=0
 
+export LOOPAWARE_TEST_NETWORK_PREFIX="${LOOPAWARE_TEST_NETWORK_PREFIX-10.203.242}"
+network_octet='(0|[1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-5])'
+network_prefix_pattern="^10\.${network_octet}\.${network_octet}$"
+if [[ ! "${LOOPAWARE_TEST_NETWORK_PREFIX}" =~ ${network_prefix_pattern} ]]; then
+  echo "LOOPAWARE_TEST_NETWORK_PREFIX must use 10.<octet>.<octet> with decimal octets from 0 through 255." >&2
+  exit 2
+fi
+
 for variable_name in LOOPAWARE_BASE_URL LOOPAWARE_API_BASE_URL LOOPAWARE_ENV_FILE COMPOSE_PROJECT_NAME DOCKER_HOST DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH; do
   if [[ -n "${!variable_name:-}" ]]; then
     echo "Integration runner rejects inherited ${variable_name}; canonical local test isolation is mandatory." >&2
