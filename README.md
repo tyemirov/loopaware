@@ -148,6 +148,8 @@ loaded. Runtime still requires the real local env files. Every existing repo-roo
 `.mprlab/deploy/.env`, and mounted private-key file must be a regular file with mode `0600`; tracked examples and audit
 fixtures are not private runtime inputs, and absent private inputs remain valid for source-only checkouts.
 
+The local configuration audit uses `tests/configs/loopaware.local.env` only for `config-audit`.
+The runtime input remains `configs/.env.loopaware`.
 The computercat audit uses `tests/configs/loopaware.computercat.env` only for `config-audit`.
 Its `192.0.2.10/32` trusted proxy is a documentation address.
 The production runtime input remains `configs/.env.loopaware.computercat`.

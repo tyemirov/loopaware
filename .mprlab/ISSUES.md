@@ -11,6 +11,16 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B137] (P1) Declare complete local configuration audit inputs
+  Goal: Run static checks without private runtime inputs.
+  Requirements: Declare a separate local audit fixture with an explicit trusted proxy.
+  Validation: The clean public Make command reproduced the hosted missing-proxy error before the correction.
+  Both root Compose audits passed after the correction. The command rejects absent proxy trust despite a process environment value.
+  Final `CI=1 make ci` passed all 474 browser and API scenarios, Go race checks, and mobile checks.
+  Resolution: Root Compose declares `tests/configs/loopaware.local.env` with a documentation-only proxy address.
+  The private runtime input and dynamic integration proxy trust remain separate.
+  Changed files: `docker-compose.yml`, `tests/configs/loopaware.local.env`, `cmd/configaudit/clean_checkout_test.go`, `README.md`, and this issue tracker.
+
 - [x] [B136] (P1) Install test dependencies before the resource theme test
   Goal: Run the resource theme test from a clean integration shard.
   Requirements: Install the locked test dependencies before browser installation and the Node test.
@@ -2882,7 +2892,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
-- [x] [I047] (P1) {B135,B136} Use the explicit shared theme control contract
+- [x] [I047] (P1) {B135,B136,B137} Use the explicit shared theme control contract
   Goal: Complete the repository part of shared I010.
   Requirements: The switch defines light and dark choices. The shared manager owns cross-page theme storage.
   Deliverables: Replace obsolete selectors and declare `loopaware_public_theme` as the application storage key.
