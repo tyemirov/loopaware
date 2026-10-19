@@ -213,7 +213,8 @@ const makefile = readText("Makefile");
 for (const target of ["mobile-install", "mobile-check", "mobile-start", "run-ios", "run-android", "release publish deploy"]) {
   assert(makefile.includes(`${target}:`), `mobile_makefile_missing_target: ${target}`);
 }
-assert(makefile.includes('gateway_root="$$(dirname "$${application_root}")/mprlab-gateway"'), "lifecycle_gateway_wrapper_missing");
+assert(makefile.includes("MPRLAB_GATEWAY_EXECUTABLE ?= mprlab-gateway"), "lifecycle_installed_gateway_selection_missing");
+assert(makefile.includes('exec "$${gateway_executable}" "app-$@" --app-root "$${application_root}" </dev/null'), "lifecycle_installed_gateway_forwarding_missing");
 assert(makefile.includes('"app-$@"'), "lifecycle_gateway_phase_forwarding_missing");
 assert(makefile.includes("mobile-check"), "mobile_makefile_missing_ci_gate");
 assert(makefile.includes("test:api-boundaries"), "mobile_makefile_missing_api_boundary_check");

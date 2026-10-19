@@ -33,9 +33,6 @@ tests/artifacts/
 tests/.runtime-web.*/
 .runtime-web.*/
 
-# BEGIN MPRLAB-GOVERNANCE
-/.mprlab/*-PLAN.md
-# END MPRLAB-GOVERNANCE
 
 /configs/signing/
 /mobile/prepared/android/.gradle/
@@ -49,3 +46,8 @@ tests/.runtime-web.*/
 /mobile/prepared/ios/.xcode.env.local
 !mobile/prepared/vendor/
 !mobile/prepared/vendor/**
+
+# BEGIN MPRLAB-GOVERNANCE
+/.mprlab/*-PLAN.md
+/_scratch/
+# END MPRLAB-GOVERNANCE
