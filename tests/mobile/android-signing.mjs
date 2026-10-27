@@ -34,3 +34,5 @@ try {
 }
 
 await import('./android-signing-source.mjs');
+
+await import('./android-signing-context.mjs');

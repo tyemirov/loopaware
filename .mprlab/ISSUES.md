@@ -11,6 +11,27 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B144] (P1) Resolve the captured Android signing file from its original root
+  Goal:
+  Use the qualified upload key after the native SDK restores captured signing inputs.
+
+  Observed Failure:
+  The SDK restores the captured relative path after the application qualifies an absolute path.
+  Gradle then selects a path under the temporary Android project and cannot find the key.
+
+  Requirements:
+  - Resolve relative captured paths against `MPRLAB_APP_ROOT` in generated Gradle configuration.
+  - Preserve absolute paths and existing containment and certificate checks.
+  - Verify the real SDK environment boundary and generated signing expression through public commands.
+
+  Validation:
+  The real SDK and generated Gradle regression failed before the correction.
+  Relative and absolute captured paths passed after the correction.
+  The canonical adapter, preparation, and tracking checks passed.
+  The semantic preparation verifier passed after canonical generation.
+  Final CI passed all 475 browser cases, backend and race tests, and native checks.
+  Native store builds and publication remain separate operations.
+
 - [x] [B143] (P1) Keep native build source outside VCS metadata
   Goal:
   Let Metro discover the current public source during a selected native build.
