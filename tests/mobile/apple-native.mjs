@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
+import { verifyPreparation } from "../../mobile/scripts/record-store-preparation.mjs";
+verifyPreparation(resolve("mobile/prepared"));
 const prepared = "mobile/prepared/ios";
 const project = readFileSync(`${prepared}/LoopAware.xcodeproj/project.pbxproj`, "utf8");
 const nativeRequire = createRequire(resolve("mobile/package.json"));

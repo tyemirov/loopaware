@@ -22,7 +22,6 @@ override MOBILE_TAUTH_BASE_URL := https://tauth-api.mprlab.com
 override MOBILE_TAUTH_TENANT_ID := loopaware
 override MOBILE_GOOGLE_IOS_REDIRECT_URI := com.googleusercontent.apps.281540686395-8a90ldjnklddl0qpoc8ur6620lguv7mg:/oauth2redirect/google
 override MOBILE_METRO_PORT_RESOLVER := $(MOBILE_DIR)/scripts/resolve-metro-port.mjs
-override MOBILE_NATIVE_BUILD_FINGERPRINT := $(MOBILE_DIR)/scripts/native-build-fingerprint.mjs
 
 ifeq ($(origin ANDROID_SDK_ROOT),undefined)
 override ANDROID_SDK_ROOT := $(value HOME)/Library/Android/sdk
@@ -102,10 +101,18 @@ client-react-native-check: client-react-native-install
 	$(CLIENT_REACT_NATIVE_NPM_COMMAND) --prefix $(CLIENT_REACT_NATIVE_DIR) run build
 	$(CLIENT_REACT_NATIVE_NPM_COMMAND) --prefix $(CLIENT_REACT_NATIVE_DIR) run verify-package
 
+.PHONY: mobile-development-command-check mobile-source-staging-check mobile-signing-source-check
+mobile-development-command-check:
+	node --test tests/mobile/development-commands.mjs
+
+mobile-source-staging-check:
+	node --test tests/mobile/store-source.mjs
+
+mobile-signing-source-check:
+	JAVA_HOME="$(JAVA_HOME)" node tests/mobile/android-signing-source.mjs
+
 mobile-install:
-	@if [ ! -d "$(CURDIR)/$(MOBILE_DIR)/node_modules" ]; then \
-		$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) ci; \
-	fi
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) ci
 
 .PHONY: mobile-update-dependencies
 mobile-update-dependencies:
@@ -127,10 +134,13 @@ mobile-forge-security-check: mobile-install
 mobile-braces-security-check: mobile-install
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run audit:braces
 
-.PHONY: mobile-prepared-install mobile-native-check mobile-adapter-check mobile-release-check mobile-prepare-store mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-android-config-check
+.PHONY: mobile-normalize-prepared-text mobile-prepared-install mobile-native-check mobile-adapter-check mobile-release-check mobile-prepare-store mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-android-config-check
 mobile-prepare-store: mobile-install
 	node mobile/scripts/prepare-store.mjs
 	$(MAKE) --no-print-directory mobile-podfile-config-check mobile-release-metadata-check
+
+mobile-normalize-prepared-text:
+	cd mobile/prepared && node ../scripts/normalize-native-text.mjs
 
 mobile-prepared-tracking-check:
 	node tests/mobile/prepared-tracking.mjs
@@ -168,42 +178,22 @@ mobile-start: mobile-install
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run start
 
 run-ios: mobile-install
-	@echo "==> [run-ios] Starting LoopAware Mobile for iOS"
-	@metro_port="$${LOOPAWARE_MOBILE_METRO_PORT:-$$(node "$(MOBILE_METRO_PORT_RESOLVER)")}"; \
-	native_fingerprint="$$(LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER="$(MOBILE_IOS_BUNDLE_IDENTIFIER)" LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI="$(MOBILE_GOOGLE_IOS_REDIRECT_URI)" node "$(MOBILE_NATIVE_BUILD_FINGERPRINT)" ios)"; \
-	native_stamp="$(MOBILE_DIR)/.expo/loopaware-ios-dev-build.sha256"; \
-	echo "==> [run-ios] Using Metro port $${metro_port}"; \
-	if command -v xcrun >/dev/null 2>&1 && xcrun simctl get_app_container booted "$(MOBILE_IOS_BUNDLE_IDENTIFIER)" >/dev/null 2>&1 && [ -f "$${native_stamp}" ] && [ "$$(cat "$${native_stamp}")" = "$${native_fingerprint}" ]; then \
-		:; \
-	else \
-		echo "==> [run-ios] Development build missing or stale; building and installing it first"; \
-		EXPO_PACKAGER_PROXY_URL="http://localhost:$${metro_port}" LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER="$(MOBILE_IOS_BUNDLE_IDENTIFIER)" LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI="$(MOBILE_GOOGLE_IOS_REDIRECT_URI)" LOOPAWARE_MOBILE_METRO_PORT="$${metro_port}" $(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run ios:dev-build; \
-		mkdir -p "$$(dirname "$${native_stamp}")"; \
-		printf "%s\n" "$${native_fingerprint}" > "$${native_stamp}"; \
-	fi; \
-	EXPO_PACKAGER_PROXY_URL="http://localhost:$${metro_port}" LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER="$(MOBILE_IOS_BUNDLE_IDENTIFIER)" LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI="$(MOBILE_GOOGLE_IOS_REDIRECT_URI)" LOOPAWARE_MOBILE_METRO_PORT="$${metro_port}" $(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run ios
+	@set -eu; \
+	metro_port="$${LOOPAWARE_MOBILE_METRO_PORT:-$$(node "$(MOBILE_METRO_PORT_RESOLVER)")}"; \
+	export EXPO_PACKAGER_PROXY_URL="http://localhost:$${metro_port}"; \
+	export LOOPAWARE_MOBILE_METRO_PORT="$${metro_port}"; \
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run ios:dev-build; \
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run ios
 
 run-android: mobile-install
-	@echo "==> [run-android] Starting LoopAware Mobile for Android"
-	@ANDROID_HOME="$(ANDROID_HOME)" ANDROID_SDK_ROOT="$(ANDROID_SDK_ROOT)" ANDROID_STUDIO_JAVA_HOME="$(ANDROID_STUDIO_JAVA_HOME)" PATH="$(ANDROID_TOOL_PATH):$$PATH" sh -c 'set -e; \
-		metro_port="$${LOOPAWARE_MOBILE_METRO_PORT:-$$(node "$(MOBILE_METRO_PORT_RESOLVER)")}"; \
-		native_fingerprint="$$(LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)" node "$(MOBILE_NATIVE_BUILD_FINGERPRINT)" android)"; \
-		native_stamp="$(MOBILE_DIR)/.expo/loopaware-android-dev-build.sha256"; \
-		echo "==> [run-android] Using Metro port $${metro_port}"; \
-		if [ -x "$$ANDROID_STUDIO_JAVA_HOME/bin/java" ]; then \
-			export JAVA_HOME="$$ANDROID_STUDIO_JAVA_HOME"; \
-			export PATH="$$JAVA_HOME/bin:$$PATH"; \
-		fi; \
-		adb reverse tcp:"$$metro_port" tcp:"$$metro_port" >/dev/null 2>&1 || true; \
-		if adb shell pm list packages "$(MOBILE_ANDROID_PACKAGE)" 2>/dev/null | grep -F "package:$(MOBILE_ANDROID_PACKAGE)" >/dev/null && [ -f "$$native_stamp" ] && [ "$$(cat "$$native_stamp")" = "$$native_fingerprint" ]; then \
-			adb shell am force-stop "$(MOBILE_ANDROID_PACKAGE)" >/dev/null 2>&1 || true; \
-		else \
-			echo "==> [run-android] Development build missing or stale; building and installing it first"; \
-			LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)" $(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run android:dev-build; \
-			mkdir -p "$$(dirname "$$native_stamp")"; \
-			printf "%s\n" "$$native_fingerprint" > "$$native_stamp"; \
-		fi; \
-		LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)" LOOPAWARE_MOBILE_METRO_PORT="$$metro_port" $(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run android'
+	@set -eu; \
+	metro_port="$${LOOPAWARE_MOBILE_METRO_PORT:-$$(node "$(MOBILE_METRO_PORT_RESOLVER)")}"; \
+	export JAVA_HOME="$(JAVA_HOME)"; \
+	export PATH="$$JAVA_HOME/bin:$(ANDROID_TOOL_PATH):$$PATH"; \
+	export LOOPAWARE_MOBILE_METRO_PORT="$${metro_port}"; \
+	adb reverse tcp:"$$metro_port" tcp:"$$metro_port" >/dev/null 2>&1 || true; \
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run android:dev-build; \
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run android
 
 test: test-integration
 

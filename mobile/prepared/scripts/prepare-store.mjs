@@ -17,7 +17,10 @@ const environment = { ...process.env, CI: "1", NODE_ENV: "production" };
 function run(command, argumentsList) {
   const result = spawnSync(command, argumentsList, { cwd: prepared, env: environment, stdio: "inherit" });
   if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`Native preparation ${command} failed with status ${result.status}.`);
+  if (result.status !== 0) {
+    process.stderr.write(`Native preparation ${command} failed with status ${result.status}.\n`);
+    process.exit(result.status ?? 2);
+  }
 }
 
 const sources = preparationSources(repository).filter(name => name.startsWith("mobile/") && name !== "mobile/.gitignore");
@@ -35,12 +38,7 @@ await writeFile(packagePath, `${JSON.stringify(packageJSON, null, 2)}\n`);
 run("npm", ["install", "--package-lock-only", "--ignore-scripts", "--include=dev"]);
 run("npm", ["ci", "--include=dev"]);
 run("npx", ["--no-install", "expo", "prebuild", "--platform", "all", "--no-install"]);
-// Preserve the same generated text bytes in Git and in the preparation record.
-for (const name of ["android/gradlew.bat", "android/settings.gradle"]) {
-  const path = join(prepared, name);
-  const text = await readFile(path, "utf8");
-  await writeFile(path, text.replaceAll("\r\n", "\n").replace(/[ \t]+$/gm, ""));
-}
+run("node", ["scripts/normalize-native-text.mjs"]);
 run("node", ["scripts/fix-ios-project-warnings.mjs"]);
 run("npx", ["--no-install", "pod-install", "ios"]);
 run("node", ["--input-type=commonjs", "-e", "require('node:fs').writeFileSync('app.config.snapshot.json', JSON.stringify(require('./app.config.js'), null, 2)+'\\n')"]);

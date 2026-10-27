@@ -26,8 +26,26 @@ func TestSelectedApplicationManifestUsesVersionlessContract(testingT *testing.T)
 		manifestKeys = append(manifestKeys, manifestKey)
 	}
 	slices.Sort(manifestKeys)
-	require.Equal(testingT, []string{"ci", "defaults", "operations", "owner", "release", "resources"}, manifestKeys)
+	require.Equal(testingT, []string{"ci", "defaults", "environment_file", "hosts", "inputs", "operations", "owner", "release", "resources"}, manifestKeys)
 	require.NotContains(testingT, string(manifestDocument), "schema_version:")
+	require.Equal(testingT, ".mprlab/deploy/.env", manifest["environment_file"])
+	expectedInputs := map[string]any{}
+	for _, name := range []string{
+		"APP_STORE_CONNECT_API_ISSUER_ID", "APP_STORE_CONNECT_API_KEY_ID", "APP_STORE_CONNECT_API_KEY_PATH",
+		"GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH", "LOOPAWARE_ANDROID_KEYSTORE", "LOOPAWARE_ANDROID_KEY_ALIAS",
+		"LOOPAWARE_ANDROID_KEY_PASSWORD", "LOOPAWARE_ANDROID_STORE_PASSWORD", "LOOPAWARE_APPLE_CERTIFICATE_BASE64",
+		"LOOPAWARE_APPLE_CERTIFICATE_PASSWORD", "LOOPAWARE_APPLE_IDENTITY", "LOOPAWARE_APPLE_PROFILE", "LOOPAWARE_APPLE_TEAM",
+		"NPM_API_KEY", "PINGUIN_AUTH_TOKEN", "SESSION_SECRET", "TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE",
+		"TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE", "TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE",
+		"TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE", "DEPLOY_SUDO_PASSWORD_TUTOSH",
+		"MPRLAB_TAUTH_MANAGEMENT_URL", "MPRLAB_TAUTH_PROVISIONING_CREDENTIALS",
+	} {
+		expectedInputs[name] = "${" + name + "}"
+	}
+	require.Equal(testingT, expectedInputs, manifest["inputs"])
+	require.Equal(testingT, map[string]any{
+		"tutosh": map[string]any{"ansible_become_password": "DEPLOY_SUDO_PASSWORD_TUTOSH"},
+	}, manifest["hosts"])
 
 	resources, resourcesAvailable := manifest["resources"].(map[string]any)
 	require.True(testingT, resourcesAvailable)

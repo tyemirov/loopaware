@@ -1,9 +1,10 @@
 // @ts-check
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { resolve, dirname, join, isAbsolute } from "node:path";
-import { androidSigningEnvironment } from "./android-signing.mjs";
+import { androidSigningEnvironment, capturedAndroidSigningEnvironment } from "./android-signing.mjs";
 import { runNativeBuild } from "./native-build-process.mjs";
 import { createMobileCalVerVersion } from "./mobile-calver-version.mjs";
+import { stageStoreSource } from "./record-store-preparation.mjs";
 
 const acceptedOptions = new Set(["--mobile-dir", "--output", "--release-timestamp", "--manifest"]);
 const options = new Map();
@@ -55,17 +56,27 @@ const interrupt = () => controller.abort("SIGINT");
 const terminate = () => controller.abort("SIGTERM");
 process.on("SIGINT", interrupt);
 process.on("SIGTERM", terminate);
+let stagedSource;
 try {
+  stagedSource = stageStoreSource(sourceRepositoryRoot, sourceRoot, dirname(output));
+  request.source_root = stagedSource;
   const privateRepositoryRoot = process.env.MPRLAB_APP_ROOT;
   if (!privateRepositoryRoot || !isAbsolute(privateRepositoryRoot)) throw new Error("Mobile release requires the absolute MPRLAB_APP_ROOT.");
   const environment = platform === "android"
-    ? await androidSigningEnvironment(sourceRepositoryRoot, privateRepositoryRoot)
+    ? await androidSigningEnvironment(sourceRepositoryRoot, privateRepositoryRoot, capturedAndroidSigningEnvironment(gateway, privateRepositoryRoot))
     : process.env;
   process.exitCode = await runNativeBuild(gateway, request, environment, controller.signal);
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
   process.exitCode = controller.signal.aborted ? (controller.signal.reason === "SIGINT" ? 130 : 143) : 2;
 } finally {
+  if (stagedSource) {
+    try { await rm(stagedSource, { recursive: true, force: true }); }
+    catch (error) {
+      process.stderr.write("Could not remove owned native build source: " + (error instanceof Error ? error.message : String(error)) + "\n");
+      if (!process.exitCode) process.exitCode = 2;
+    }
+  }
   process.removeListener("SIGINT", interrupt);
   process.removeListener("SIGTERM", terminate);
 }

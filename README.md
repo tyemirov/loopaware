@@ -617,19 +617,21 @@ Each Gateway call uses `CI=1` and closed standard input.
 Gateway owns lifecycle validation, artifact preparation, publication, deployment, and verification.
 LoopAware retains its native builders and application inputs.
 
-The npm publication credential is `NPM_API_KEY` in the ignored `configs/.env.loopaware` file.
-The setup commands preserve existing private file contents.
-Gateway reads this assignment directly and supplies it to npm through standard input.
-An exported `NPM_TOKEN` or an `npm login` session does not select this credential.
+The selected manifest binds the npm publication credential as `NPM_API_KEY`.
+Gateway supplies this captured value to npm through standard input.
 See [npm publication credentials](docs/npm-publication.md) for the input contract and authentication diagnosis.
 
-Deployment-only private values belong in the ignored `.mprlab/deploy/.env` file with mode `0600`. The manifest binds those values through its `private_values` resource; secret bytes never belong in the manifest. Release and publish do not read this deployment input.
+The selected manifest declares `.mprlab/deploy/.env` through `environment_file`.
+Gateway resolves that file and process values during manifest processing for release, publication, and deployment.
+Each operation uses its captured inputs.
+The `private_values` resource binds private deployment values.
+Keep secret values outside the manifest and public artifacts.
 
-Run `make mobile-prepare-store` after a mobile source or build configuration change.
+Run `make mobile-prepare-store` after a native configuration or dependency change.
 This command generates the production native projects under `mobile/prepared/`.
 Commit the prepared files with their source changes.
-Release verifies the recorded file digests before the native build.
-A source change requires preparation again.
+Release verifies application identity, native configuration, and dependency versions before the native build.
+The adapter stages the current captured product source with the prepared native inputs.
 
 iOS releases use the shared Gateway native builder on a Mac.
 The selected manifest uses `mobile/scripts/build-store-artifact.mjs` for Android and iOS.
@@ -650,7 +652,8 @@ The plugin removes absent test targets from the shared scheme and generates stri
 It explicitly selects React Native and Expo source dependencies, including when the process inherits prebuilt flags.
 `make mobile-prepare-store` runs `make mobile-podfile-config-check` after native preparation.
 This check uses actual CocoaPods for valid, missing, and malformed properties, plus an unavailable prebuilt service.
-Use `pod install --deployment` from `mobile/prepared/ios` to verify the retained dependency lock before native acceptance.
+Use `pod install` from `mobile/prepared/ios` for native dependency preparation.
+CocoaPods owns the generated dependency metadata.
 The preparation script configures the release metadata phase through `mobile/scripts/fix-ios-project-warnings.mjs`.
 The phase uses Apple Foundation through `mobile/scripts/strip-release-metadata.swift` and the declared Xcode toolchain.
 It rejects missing or invalid property lists and preserves custom app values and the original file format.
@@ -701,7 +704,7 @@ $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.
 
 The compose file binds `configs/config.loopaware.yml` into the LoopAware container at `/app/configs/config.loopaware.yml`
 and loads per-service placeholder values via `env_file` from `configs/.env.*`.
-The production Dockerfile pins the Go 1.27.2/Alpine 3.24 build image and Alpine 3.24 runtime image by multi-architecture manifest-list digests.
+The production Dockerfile pins the Go 1.27.3/Alpine 3.24 build image and Alpine 3.24 runtime image by multi-architecture manifest-list digests.
 When you advance a base, update its human-readable tag and digest together.
 The container runs as root so the SQLite data volume remains writable.
 To use an unprivileged user, configure the Docker image to change the mounted directory owner before it starts the binary.
