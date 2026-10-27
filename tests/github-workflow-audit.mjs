@@ -11,6 +11,12 @@ const fixture = mkdtempSync(join(tmpdir(), 'loopaware-workflow-audit-'));
 const scenarios = [
   ['current six declarations', source => source, true],
   ['missing second Python setup', source => source.replace(/      - name: Set up Python for Gateway installation\n[\s\S]*?(?=      - name: Install Gateway for Mobile checks)/, ''), false],
+  ['missing bundletool setup', source => source.replace(/      - name: Install bundletool for Mobile checks\n[\s\S]*?(?=      - name: Check browser)/, ''), false],
+  ['bundletool before Java', source => {
+    const step = /      - name: Install bundletool for Mobile checks\n[\s\S]*?(?=      - name: Check browser)/.exec(source)?.[0];
+    assert.ok(step);
+    return source.replace(step, '').replace('      - name: Set up Java', step + '      - name: Set up Java');
+  }, false],
   ['extra approved action', source => source.replace('      - name: Set up Go', '      - name: Extra checkout\n        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\n\n      - name: Set up Go'), false],
   ['wrong approved action counts', source => source.replace('uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97', 'uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'), false],
   ['unapproved pinned action', source => source.replace('uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020', 'uses: unknown/setup-node@820762786026740c76f36085b0efc47a31fe5020'), false],

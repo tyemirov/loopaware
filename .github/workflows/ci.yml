@@ -128,6 +128,10 @@ jobs:
             mobile/prepared/android/gradle.properties
             mobile/prepared/android/gradle/wrapper/gradle-wrapper.properties
 
+      - name: Install bundletool for Mobile checks
+        if: matrix.target == 'ci-mobile'
+        run: make mobile-ci-bundletool
+
       - name: Check browser
         if: matrix.target == 'ci-integration'
         run: google-chrome --version

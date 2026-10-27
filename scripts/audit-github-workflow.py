@@ -65,6 +65,21 @@ try:
         "github_workflow_audit_failed: push CI must include the production Dockerfile",
     )
 
+    bundletool_step = (
+        "      - name: Install bundletool for Mobile checks\n"
+        "        if: matrix.target == 'ci-mobile'\n"
+        "        run: make mobile-ci-bundletool\n"
+    )
+    require(
+        workflow_source.count(bundletool_step) == 1,
+        "github_workflow_audit_failed: install bundletool for the Mobile job",
+    )
+    require(
+        workflow_source.index("      - name: Set up Java") < workflow_source.index(bundletool_step)
+        < workflow_source.index("      - name: Run checks"),
+        "github_workflow_audit_failed: qualify bundletool after Java and before checks",
+    )
+
     action_uses = re.findall(r"(?m)^\s+uses:\s+([^@\s]+)@([^\s#]+)", workflow_source)
     require(len(action_uses) == 6, "github_workflow_audit_failed: expected six declared actions")
     approved_actions = {

@@ -156,6 +156,13 @@ mobile-bundle-check: mobile-prepared-install
 mobile-container-check:
 	node tests/mobile/container-inputs.mjs
 
+.PHONY: mobile-ci-bundletool mobile-ci-bundletool-check
+mobile-ci-bundletool:
+	node scripts/setup-mobile-ci-bundletool.mjs
+
+mobile-ci-bundletool-check:
+	node tests/mobile/bundletool-setup.mjs
+
 .PHONY: mobile-ci-gateway mobile-ci-gateway-check
 mobile-ci-gateway:
 	node scripts/setup-mobile-ci-gateway.mjs
@@ -163,7 +170,7 @@ mobile-ci-gateway:
 mobile-ci-gateway-check:
 	node tests/mobile/gateway-runtime-setup.mjs
 
-mobile-adapter-check: mobile-ci-gateway-check
+mobile-adapter-check: mobile-ci-gateway-check mobile-ci-bundletool-check
 	node tests/mobile/ios-release.mjs
 	JAVA_HOME="$(JAVA_HOME)" node tests/mobile/android-signing.mjs
 

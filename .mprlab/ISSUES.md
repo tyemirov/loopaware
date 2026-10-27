@@ -11,13 +11,13 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
-- [!] [B145] (P1) Declare the hosted signing regression prerequisites
+- [ ] [B145] (P1) Declare the hosted signing regression prerequisites
   Goal:
   Run the real SDK signing regression from a clean hosted Mobile job.
 
   Evidence:
   The regression reads YAML through an undeclared transitive dependency.
-  The hosted Mobile job installs Java but does not install the Gateway runtime or its Python prerequisite.
+  The hosted job now installs Gateway and Java successfully. The real SDK fixture then fails because bundletool is absent.
 
   Requirements:
   - Use a self-contained synthetic manifest for the signing regression.
@@ -32,10 +32,11 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   All nine public audit scenarios passed.
   The first canonical CI run stopped at the obsolete action count before the correction.
   The corrected canonical CI passed all 475 browser cases, backend and race tests, and native checks.
-  Credential provisioning and actual hosted installation remain pending.
-
-  Blocked: Configure `MPRLAB_GATEWAY_READ_TOKEN` for the private Gateway release.
-  Then verify the hosted runtime installation.
+  The configured read credential installed Gateway successfully in the hosted job.
+  Bundletool setup failure checks and the real official JAR qualification passed locally.
+  The workflow installs bundletool 1.18.3 after Java setup and exports its managed launcher path.
+  Full CI and the next automatic hosted run remain pending.
+  The next source push triggers that hosted verification. Failed jobs are not manually rerun.
 
 - [x] [B144] (P1) Resolve the captured Android signing file from its original root
   Goal:
