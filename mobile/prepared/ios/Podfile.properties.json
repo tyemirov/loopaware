@@ -4,5 +4,7 @@
   "expo.inlineModules.watchedDirectories": "[]",
   "expo.inlineModules.xcodeProjectTargets": "{\"mainTarget\":\"LoopAware\",\"targets\":[]}",
   "ios.buildReactNativeFromSource": "true",
-  "EXPO_USE_PRECOMPILED_MODULES": "false"
+  "EXPO_USE_PRECOMPILED_MODULES": "false",
+  "ios.forceStaticLinking": "[]",
+  "apple.privacyManifestAggregationEnabled": "true"
 }

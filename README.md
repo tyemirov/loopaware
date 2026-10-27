@@ -650,6 +650,15 @@ Gateway installs the locked dependencies and supplies `NODE_ENV=production` to e
 `mobile/plugins/withStoreBuild.cjs` owns the native bundle phase and its Node environment input.
 The plugin removes absent test targets from the shared scheme and generates strict Podfile property parsing.
 It explicitly selects React Native and Expo source dependencies, including when the process inherits prebuilt flags.
+The current Expo 57 source config enables the iOS scene lifecycle.
+`expo-build-properties` generates `EXExpoAppSceneDelegate` and `ExpoReactNativeFactoryProvider`.
+The native source dependency flags remain explicit.
+`make mobile-scene-check` verifies this contract through the real Expo generator.
+Android preparation runs `mobile/scripts/prepare-android-build-policy.mjs` after Expo.
+The generated `gradlew` supplies `-Pkotlin.compiler.execution.strategy=in-process`.
+The JVM metaspace limit is `1g`.
+Preparation keeps the heap, parallel execution, workers, ABI selection, and signing inputs unchanged.
+`make mobile-android-policy-check` verifies real launcher arguments and repeated preparation.
 `make mobile-prepare-store` runs `make mobile-podfile-config-check` after native preparation.
 This check uses actual CocoaPods for valid, missing, and malformed properties, plus an unavailable prebuilt service.
 Use `pod install` from `mobile/prepared/ios` for native dependency preparation.

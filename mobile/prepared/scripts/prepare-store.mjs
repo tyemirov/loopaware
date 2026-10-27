@@ -38,6 +38,7 @@ await writeFile(packagePath, `${JSON.stringify(packageJSON, null, 2)}\n`);
 run("npm", ["install", "--package-lock-only", "--ignore-scripts", "--include=dev"]);
 run("npm", ["ci", "--include=dev"]);
 run("npx", ["--no-install", "expo", "prebuild", "--platform", "all", "--no-install"]);
+run("node", ["scripts/prepare-android-build-policy.mjs"]);
 run("node", ["scripts/normalize-native-text.mjs"]);
 run("node", ["scripts/fix-ios-project-warnings.mjs"]);
 run("npx", ["--no-install", "pod-install", "ios"]);

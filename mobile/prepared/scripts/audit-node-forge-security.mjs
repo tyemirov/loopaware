@@ -5,8 +5,8 @@ import { readFileSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
-const require = createRequire(import.meta.url);
-const consumers = ["@expo/cli", "@expo/code-signing-certificates"];
+const require = createRequire(createRequire(import.meta.url).resolve("expo/package.json"));
+const consumers = [["@expo/cli"], ["@expo/cli", "@expo/code-signing-certificates"]];
 const nativeKeys = generateKeyPairSync("rsa", { modulusLength: 2048, publicExponent: 3 });
 const pem = {
   privateKeyPEM: nativeKeys.privateKey.export({ type: "pkcs1", format: "pem" }).toString(),
@@ -17,8 +17,10 @@ const roots = new Set();
 
 /** @typedef {{tagClass: number, type: number, constructed: boolean, value: string | Asn1[]}} Asn1 */
 
-for (const consumer of consumers) {
-  const consumerRequire = createRequire(require.resolve(`${consumer}/package.json`));
+for (const chain of consumers) {
+  let consumerRequire = require;
+  for (const dependency of chain) consumerRequire = createRequire(consumerRequire.resolve(`${dependency}/package.json`));
+  const consumer = chain.join(" -> ");
   const forge = consumerRequire("node-forge");
   const identityPath = consumerRequire.resolve("node-forge/package.json");
   const identity = JSON.parse(readFileSync(identityPath, "utf8"));
@@ -74,7 +76,8 @@ for (const consumer of consumers) {
 }
 assert.equal(roots.size, 1, "Expo consumers must use one corrected Forge implementation");
 
-const certificates = require("@expo/code-signing-certificates");
+const cliRequire = createRequire(require.resolve("@expo/cli/package.json"));
+const certificates = cliRequire("@expo/code-signing-certificates");
 const keys = certificates.convertKeyPairPEMToKeyPair(pem);
 const now = Date.now();
 const certificate = certificates.generateSelfSignedCodeSigningCertificate({

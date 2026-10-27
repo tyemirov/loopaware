@@ -11,6 +11,45 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B142] (P1) Select the Android compiler policy
+  Goal:
+  Use the selected Kotlin execution policy in each generated Android launcher.
+
+  Observed Failure:
+  The public launcher omits the selected compiler strategy. The generated JVM options retain 512 MiB of metaspace.
+
+  Requirements:
+  - Supply `-Pkotlin.compiler.execution.strategy=in-process` from the generated launcher.
+  - Set `MaxMetaspaceSize=1g` through canonical preparation.
+  - Keep the heap, parallel execution, workers, ABI selection, and release signing unchanged.
+  - Verify launcher arguments and repeated preparation through public commands.
+
+  Validation:
+  The real launcher regression failed before the source correction.
+  Canonical preparation and launcher tests passed after the correction.
+  The second preparation restored the metaspace limit and kept custom heap and worker values.
+  Final CI passed with all 475 browser and API scenarios, backend tests, race checks, and native checks.
+  Store artifacts and publication remain separate operations.
+
+- [x] [B141] (P0) Use the iOS scene lifecycle
+  Goal:
+  Start the current application on iOS 27 after a build with Xcode 27.
+
+  Observed Failure:
+  The canonical Expo generator produces no scene manifest or factory provider.
+
+  Requirements:
+  - Select the supported Expo scene option in source config.
+  - Preserve native source dependencies and store signing inputs.
+  - Verify the generated scene manifest and factory provider through Expo CLI.
+  - Regenerate native output and pass final CI.
+
+  Validation:
+  The real Expo generator regression failed before the source correction.
+  Canonical preparation and final scene CI passed.
+  All 475 browser and API scenarios, backend tests, race checks, and native checks passed.
+  Production delivery remains a separate operation.
+
 - [x] [B140] (P1) Disclose retained feedback network metadata
   Goal:
   Describe feedback IP and User-Agent data separately from transient count and font transport data.

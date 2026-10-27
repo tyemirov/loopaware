@@ -29,6 +29,12 @@ if (prebuildResult.status !== 0) {
   throw new Error(`android_prebuild_failed: exit status ${String(prebuildResult.status ?? prebuildResult.signal ?? "unknown")}`);
 }
 
+const policyResult = spawnSync(process.execPath, [path.join(mobileRoot, "scripts/prepare-android-build-policy.mjs")], {
+  cwd: mobileRoot, env: process.env, stdio: "inherit",
+});
+if (policyResult.error) throw policyResult.error;
+if (policyResult.status !== 0) process.exit(policyResult.status ?? 2);
+
 writeLocalProperties();
 
 function writeLocalProperties() {
