@@ -11,6 +11,28 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B143] (P1) Keep native build source outside VCS metadata
+  Goal:
+  Let Metro discover the current public source during a selected native build.
+
+  Observed Failure:
+  The adapter creates its source directory below the sealed output directory inside `.git`.
+  Metro excludes VCS metadata paths, so its file map cannot discover the entry file.
+
+  Requirements:
+  - Use the OS temporary directory for the owned source stage.
+  - Preserve the selected output path, signing inputs, public source, and cleanup.
+  - Verify the public adapter with the actual Metro file map.
+  - Compile both native JavaScript bundles from the corrected current source stage.
+
+  Validation:
+  The real Metro file map regression failed before the correction and passed after it.
+  All eight public staging tests passed, including current source, private exclusions, failure status, and signal cleanup.
+  Both native JavaScript bundle commands passed from the corrected current source stage.
+  Final CI passed all 475 integration cases, backend and race tests, native checks, and the staging regression.
+  The owned source stage and bundle output directories were removed after validation.
+  Native store builds and publication remain separate operations.
+
 - [x] [B142] (P1) Select the Android compiler policy
   Goal:
   Use the selected Kotlin execution policy in each generated Android launcher.

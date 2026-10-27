@@ -4,17 +4,27 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
-const source = resolve('mobile/prepared');
+import { stageStoreSource } from '../../mobile/scripts/record-store-preparation.mjs';
+const repository = resolve('.');
+const prepared = resolve('mobile/prepared');
 const temporary = await mkdtemp(join(tmpdir(), 'loopaware-store-bundles-'));
+let source;
 try {
+  source = stageStoreSource(repository, prepared);
+  const environment = { ...process.env, CI: '1', NODE_ENV: 'production' };
+  delete environment.NO_COLOR;
+  console.info('Current staged native source: ' + source);
+  const install = spawnSync('npm', ['ci', '--include=dev'], { cwd: source, encoding: 'utf8', env: environment, stdio: ['ignore', 'pipe', 'pipe'] });
+  assert.equal(install.status, 0, install.error?.message || install.stdout + install.stderr);
   for (const platform of ['android', 'ios']) {
     const output = join(temporary, platform + '.bundle');
     const command = platform === 'android' ? 'node_modules/@react-native-community/cli/build/bin.js' : 'node_modules/react-native/scripts/bundle.js';
-    const result = spawnSync(process.execPath, [command, 'bundle', '--platform', platform, '--dev', 'false', '--entry-file', 'index.ts', '--bundle-output', output, '--assets-dest', join(temporary, platform), '--max-workers', '2'], { cwd: source, encoding: 'utf8', env: { ...process.env, NODE_ENV: 'production' } });
-    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const result = spawnSync(process.execPath, [command, 'bundle', '--platform', platform, '--dev', 'false', '--entry-file', 'index.ts', '--bundle-output', output, '--assets-dest', join(temporary, platform), '--max-workers', '2'], { cwd: source, encoding: 'utf8', env: environment, stdio: ['ignore', 'pipe', 'pipe'] });
+    assert.equal(result.status, 0, result.error?.message || result.stdout + result.stderr);
     assert.ok((await readFile(output)).length > 1000, 'Store bundle must contain application code.');
   }
   console.info('Android and iOS production JavaScript bundles compile through the native build entry points.');
 } finally {
-  await rm(temporary, { recursive: true, force: true });
+  try { if (source) await rm(source, { recursive: true, force: true }); }
+  finally { await rm(temporary, { recursive: true, force: true }); }
 }

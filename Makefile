@@ -105,7 +105,7 @@ client-react-native-check: client-react-native-install
 mobile-development-command-check:
 	node --test tests/mobile/development-commands.mjs
 
-mobile-source-staging-check:
+mobile-source-staging-check: mobile-install
 	node --test tests/mobile/store-source.mjs
 
 mobile-signing-source-check:
@@ -178,7 +178,7 @@ mobile-android-policy-check: mobile-prepared-install
 mobile-preparation-check:
 	node tests/mobile/preparation.mjs
 
-mobile-release-check: mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-adapter-check mobile-native-check mobile-release-metadata-check mobile-android-config-check
+mobile-release-check: mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-adapter-check mobile-native-check mobile-release-metadata-check mobile-android-config-check mobile-source-staging-check
 	node tests/mobile/preparation.mjs
 	cd mobile/prepared && node scripts/verify-store-preparation.mjs
 
