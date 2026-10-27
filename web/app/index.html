@@ -1627,6 +1627,8 @@
         var feedbackReconnectDelayMilliseconds = 5000;
         var settingsButton = document.getElementById(elementIds.settings_button);
         var settingsModalElement = document.getElementById(elementIds.settings_modal);
+        var settingsModalOpening = false;
+        var settingsModalCloseRequested = false;
         var settingsOpenAllSitesTrafficButton = document.getElementById('settings-open-all-sites-traffic');
         var siteDashboardView = document.getElementById('site-dashboard-view');
         var allSitesTrafficView = document.getElementById('all-sites-traffic-view');
@@ -6723,6 +6725,10 @@
         }
 
         function closeSettingsModal() {
+          if (settingsModalOpening) {
+            settingsModalCloseRequested = true;
+            return;
+          }
           if (!settingsModalElement || !window.bootstrap || !window.bootstrap.Modal) {
             return;
           }
@@ -8955,8 +8961,18 @@
             }
           });
           settingsModalElement.addEventListener('show.bs.modal', function() {
+            settingsModalOpening = true;
             updateAutoLogoutInputs(autoLogoutSettingsState);
             clearAutoLogoutValidation();
+          });
+        }
+        if (settingsModalElement) {
+          settingsModalElement.addEventListener('shown.bs.modal', function() {
+            settingsModalOpening = false;
+            if (settingsModalCloseRequested) {
+              settingsModalCloseRequested = false;
+              closeSettingsModal();
+            }
           });
         }
         if (settingsOpenAllSitesTrafficButton) {

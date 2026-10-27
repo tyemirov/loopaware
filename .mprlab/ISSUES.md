@@ -11,6 +11,30 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B146] (P1) {B145} Preserve report navigation during the settings opening transition
+  Goal:
+  Close Account Settings when the operator selects all-sites reports during its opening transition.
+
+  Evidence:
+  The automatic hosted integration run found the settings dialog above the report controls.
+  The report button was visible and stable, but the dialog intercepted pointer events.
+  Bootstrap 5.3.3 ignores a close request during its opening transition.
+  This modal source and browser case were unchanged by B145.
+
+  Requirements:
+  - Retain the modal close request until the public Bootstrap opening event completes.
+  - Close the settings dialog and keep the report controls accessible.
+  - Preserve normal clicks, actionability checks, and existing test timeouts.
+  - Use public modal lifecycle events without private Bootstrap fields.
+
+  Validation:
+  The unmodified focused suite passed both report cases.
+  Controlled transition timing reproduced the visible dialog with a normal browser click.
+  The expected regression failed before the application correction. The other report case passed.
+  The corrected focused suite passed both report cases with the opening transition under control.
+  The modal closes after its public opening event.
+  Final canonical CI passed in 705.042 seconds. All 475 browser cases passed.
+
 - [ ] [B145] (P1) Declare the hosted signing regression prerequisites
   Goal:
   Run the real SDK signing regression from a clean hosted Mobile job.
