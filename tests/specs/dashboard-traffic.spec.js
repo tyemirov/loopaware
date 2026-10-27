@@ -318,6 +318,20 @@ test('traffic report schedule preserves saved timezone from dashboard edits', as
 });
 
 test('settings entry opens all-sites traffic reporting', async ({ page }) => {
+  await page.addInitScript(() => {
+    document.addEventListener('DOMContentLoaded', () => {
+      const style = document.createElement('style');
+      // Keep geometry stable while the real Bootstrap opening lifecycle remains active.
+      style.textContent = '#settings-modal .modal-dialog { transform: none !important; transition: opacity 1s linear !important; } #settings-modal:not(.show) .modal-dialog { opacity: 0.99; }';
+      document.head.appendChild(style);
+      const modal = document.getElementById('settings-modal');
+      modal?.addEventListener('show.bs.modal', () => { modal.dataset.testOpeningTransition = 'true'; });
+      modal?.addEventListener('shown.bs.modal', () => { modal.dataset.testOpeningTransition = 'false'; });
+      document.getElementById('settings-open-all-sites-traffic')?.addEventListener('click', () => {
+        if (modal) modal.dataset.testReportClickDuringOpening = String(modal.dataset.testOpeningTransition === 'true');
+      });
+    });
+  });
   const portfolioUser = buildAdminUser(config, {
     email: buildUniqueEmail('portfolio-dashboard'),
     displayName: 'Portfolio Dashboard'
@@ -343,6 +357,7 @@ test('settings entry opens all-sites traffic reporting', async ({ page }) => {
   });
   await expect(page.locator('#settings-modal')).toBeVisible();
   await page.locator('#settings-open-all-sites-traffic').click();
+  await expect(page.locator('#settings-modal')).toHaveAttribute('data-test-report-click-during-opening', 'true');
 
   await expect(page.locator('#settings-modal')).toBeHidden();
   await expect(page.locator('#site-dashboard-view')).toBeHidden();
@@ -461,6 +476,7 @@ test('settings entry opens all-sites traffic reporting', async ({ page }) => {
     document.dispatchEvent(new CustomEvent('mpr-user:menu-item', { detail: { action: 'account-settings' } }));
   });
   await page.locator('#settings-open-all-sites-traffic').click();
+  await expect(page.locator('#settings-modal')).toBeHidden();
   await expect(page.locator('#global-traffic-reports-list')).toContainText('Executive traffic');
   await page.locator('#global-traffic-reports-list button').filter({ hasText: 'Executive traffic' }).click();
   await expect(page.locator('#global-traffic-report-name')).toHaveValue('Executive traffic');

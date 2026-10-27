@@ -11,6 +11,80 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B146] (P1) {B145} Preserve report navigation during the settings opening transition
+  Goal:
+  Close Account Settings when the operator selects all-sites reports during its opening transition.
+
+  Evidence:
+  The automatic hosted integration run found the settings dialog above the report controls.
+  The report button was visible and stable, but the dialog intercepted pointer events.
+  Bootstrap 5.3.3 ignores a close request during its opening transition.
+  This modal source and browser case were unchanged by B145.
+
+  Requirements:
+  - Retain the modal close request until the public Bootstrap opening event completes.
+  - Close the settings dialog and keep the report controls accessible.
+  - Preserve normal clicks, actionability checks, and existing test timeouts.
+  - Use public modal lifecycle events without private Bootstrap fields.
+
+  Validation:
+  The unmodified focused suite passed both report cases.
+  Controlled transition timing reproduced the visible dialog with a normal browser click.
+  The expected regression failed before the application correction. The other report case passed.
+  The corrected focused suite passed both report cases with the opening transition under control.
+  The modal closes after its public opening event.
+  Final canonical CI passed in 705.042 seconds. All 475 browser cases passed.
+
+- [x] [B145] (P1) Declare the hosted signing regression prerequisites
+  Goal:
+  Run the real SDK signing regression from a clean hosted Mobile job.
+
+  Evidence:
+  The regression originally read YAML through an undeclared transitive dependency.
+  After Gateway and Java setup passed, the real SDK fixture found that bundletool was absent.
+
+  Requirements:
+  - Use a self-contained synthetic manifest for the signing regression.
+  - Declare the hosted runtime and toolchain prerequisites.
+  - Preserve the real SDK and generated Gradle checks.
+
+  Validation:
+  The missing dependency failed in the hosted job and an isolated local copy.
+  The JSON fixture passed with no mobile dependency directories.
+  The synthetic setup contract passed all six scenarios.
+  The workflow audit accepts exactly six trusted action declarations, including two Python setup steps.
+  The first nine public audit scenarios passed. The bundletool correction passed all eleven scenarios.
+  The first canonical CI run stopped at the obsolete action count before the correction.
+  The corrected canonical CI passed all 475 browser cases, backend and race tests, and native checks.
+  The configured read credential installed Gateway successfully in the hosted job.
+  Bundletool setup failure checks and the real official JAR qualification passed locally.
+  The workflow installs bundletool 1.18.3 after Java setup and exports its managed launcher path.
+  Final canonical CI passed in 705.042 seconds after the B146 correction. All 475 browser cases passed.
+  Automatic hosted run `40573676180` passed all six matrix jobs and the required aggregate job.
+  Its Mobile job verified the actual Linux Gateway, Java, bundletool, and generated Gradle boundary.
+  New source pushes trigger hosted verification automatically. Failed jobs are not manually rerun.
+
+- [x] [B144] (P1) Resolve the captured Android signing file from its original root
+  Goal:
+  Use the qualified upload key after the native SDK restores captured signing inputs.
+
+  Observed Failure:
+  The SDK restores the captured relative path after the application qualifies an absolute path.
+  Gradle then selects a path under the temporary Android project and cannot find the key.
+
+  Requirements:
+  - Resolve relative captured paths against `MPRLAB_APP_ROOT` in generated Gradle configuration.
+  - Preserve absolute paths and existing containment and certificate checks.
+  - Verify the real SDK environment boundary and generated signing expression through public commands.
+
+  Validation:
+  The real SDK and generated Gradle regression failed before the correction.
+  Relative and absolute captured paths passed after the correction.
+  The canonical adapter, preparation, and tracking checks passed.
+  The semantic preparation verifier passed after canonical generation.
+  Final CI passed all 475 browser cases, backend and race tests, and native checks.
+  Native store builds and publication remain separate operations.
+
 - [x] [B143] (P1) Keep native build source outside VCS metadata
   Goal:
   Let Metro discover the current public source during a selected native build.

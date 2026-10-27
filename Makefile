@@ -156,7 +156,21 @@ mobile-bundle-check: mobile-prepared-install
 mobile-container-check:
 	node tests/mobile/container-inputs.mjs
 
-mobile-adapter-check:
+.PHONY: mobile-ci-bundletool mobile-ci-bundletool-check
+mobile-ci-bundletool:
+	node scripts/setup-mobile-ci-bundletool.mjs
+
+mobile-ci-bundletool-check:
+	node tests/mobile/bundletool-setup.mjs
+
+.PHONY: mobile-ci-gateway mobile-ci-gateway-check
+mobile-ci-gateway:
+	node scripts/setup-mobile-ci-gateway.mjs
+
+mobile-ci-gateway-check:
+	node tests/mobile/gateway-runtime-setup.mjs
+
+mobile-adapter-check: mobile-ci-gateway-check mobile-ci-bundletool-check
 	node tests/mobile/ios-release.mjs
 	JAVA_HOME="$(JAVA_HOME)" node tests/mobile/android-signing.mjs
 
@@ -256,8 +270,12 @@ container-base-audit:
 browser-security-audit:
 	python3 scripts/audit-browser-assets.py
 
-security-audit: browser-security-audit container-base-audit mobile-forge-security-check mobile-braces-security-check
+.PHONY: github-workflow-check
+github-workflow-check:
 	python3 scripts/audit-github-workflow.py
+	node tests/github-workflow-audit.mjs
+
+security-audit: browser-security-audit container-base-audit mobile-forge-security-check mobile-braces-security-check github-workflow-check
 	go run $(GOVULNCHECK) ./...
 	npm --prefix tests audit --audit-level=low
 	$(CLIENT_REACT_NATIVE_NPM_COMMAND) --prefix $(CLIENT_REACT_NATIVE_DIR) audit --audit-level=low

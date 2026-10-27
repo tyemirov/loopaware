@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+from collections import Counter
 import re
 import sys
 
@@ -64,8 +65,23 @@ try:
         "github_workflow_audit_failed: push CI must include the production Dockerfile",
     )
 
+    bundletool_step = (
+        "      - name: Install bundletool for Mobile checks\n"
+        "        if: matrix.target == 'ci-mobile'\n"
+        "        run: make mobile-ci-bundletool\n"
+    )
+    require(
+        workflow_source.count(bundletool_step) == 1,
+        "github_workflow_audit_failed: install bundletool for the Mobile job",
+    )
+    require(
+        workflow_source.index("      - name: Set up Java") < workflow_source.index(bundletool_step)
+        < workflow_source.index("      - name: Run checks"),
+        "github_workflow_audit_failed: qualify bundletool after Java and before checks",
+    )
+
     action_uses = re.findall(r"(?m)^\s+uses:\s+([^@\s]+)@([^\s#]+)", workflow_source)
-    require(len(action_uses) == 5, "github_workflow_audit_failed: expected five declared actions")
+    require(len(action_uses) == 6, "github_workflow_audit_failed: expected six declared actions")
     approved_actions = {
         "actions/checkout",
         "actions/setup-go",
@@ -76,6 +92,16 @@ try:
     require(
         {action for action, _ in action_uses} == approved_actions,
         "github_workflow_audit_failed: workflow uses an unapproved action",
+    )
+    require(
+        Counter(action for action, _ in action_uses) == Counter({
+            "actions/checkout": 1,
+            "actions/setup-go": 1,
+            "actions/setup-node": 1,
+            "actions/setup-python": 2,
+            "actions/setup-java": 1,
+        }),
+        "github_workflow_audit_failed: workflow action declaration counts differ",
     )
     for action, revision in action_uses:
         require(

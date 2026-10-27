@@ -4,6 +4,7 @@ import { copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSy
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
 
 const remedy = 'run make mobile-prepare-store';
 const excludedDirectories = new Set(['node_modules', 'Pods', 'build', 'DerivedData', '.gradle', '.kotlin', '.cxx', '.expo', 'xcuserdata', '.git']);
@@ -180,7 +181,9 @@ export function preparationFacts(prepared) {
   assignment(android, 'entryFile', /^file\(\["node", "-e", "require\('expo\/scripts\/resolveAppEntry'\)", projectRoot, "android", "absolute"\]\.execute\(null, rootDir\)\.text\.trim\(\)\)$/, '=');
   assignment(block(block(android, 'buildTypes'), 'release'), 'signingConfig', /^signingConfigs\.release$/);
   const signing = block(block(android, 'signingConfigs'), 'release');
-  for (const [name, expression] of Object.entries({ storeFile: /^file\(System\.getenv\("LOOPAWARE_ANDROID_KEYSTORE"\) \?: "missing-release-keystore"\)$/,
+  assignment(signing, 'def releaseKeystorePath', /^System\.getenv\("LOOPAWARE_ANDROID_KEYSTORE"\) \?: "missing-release-keystore"$/, '=');
+  assignment(signing, 'def releaseKeystoreFile', /^new File\(releaseKeystorePath\)$/, '=');
+  for (const [name, expression] of Object.entries({ storeFile: /^releaseKeystoreFile\.isAbsolute\(\) \? releaseKeystoreFile : new File\(System\.getenv\("MPRLAB_APP_ROOT"\), releaseKeystorePath\)$/,
     storePassword: /^System\.getenv\("LOOPAWARE_ANDROID_STORE_PASSWORD"\) \?: ""$/, keyAlias: /^System\.getenv\("LOOPAWARE_ANDROID_KEY_ALIAS"\) \?: ""$/, keyPassword: /^System\.getenv\("LOOPAWARE_ANDROID_KEY_PASSWORD"\) \?: ""$/ })) assignment(signing, name, expression);
   for (const name of ['android/gradlew', 'android/settings.gradle', 'android/build.gradle', 'android/gradle.properties', 'android/gradle/wrapper/gradle-wrapper.jar', 'android/app/src/main/AndroidManifest.xml']) required(prepared, name);
   const gradle = text(prepared, 'android/gradle/wrapper/gradle-wrapper.properties').match(/gradle-([\d.]+)-(?:bin|all)\.zip/)?.[1];
@@ -237,11 +240,11 @@ function copyPublic(source, destination, currentSource = false, selectedRoot = s
 export function copyPreparedPublicInputs(prepared, destination) { copyPublic(prepared, destination); }
 
 /** Build from captured current product source while retaining prepared native/dependency inputs.
- * @param {string} repository @param {string} prepared @param {string} outputDirectory
+ * @param {string} repository @param {string} prepared
  */
-export function stageStoreSource(repository, prepared, outputDirectory) {
+export function stageStoreSource(repository, prepared) {
   const config = assertCurrentSource(repository, prepared);
-  const staged = mkdtempSync(join(outputDirectory, 'loopaware-native-source-'));
+  const staged = mkdtempSync(join(tmpdir(), 'loopaware-native-source-'));
   try {
     for (const name of ['package.json', 'package-lock.json', 'native-preparation.json']) copyFileSync(required(prepared, name), join(staged, name));
     for (const name of ['ios', 'android']) copyPublic(join(prepared, name), join(staged, name));

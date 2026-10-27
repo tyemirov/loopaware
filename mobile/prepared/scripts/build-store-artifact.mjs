@@ -58,7 +58,7 @@ process.on("SIGINT", interrupt);
 process.on("SIGTERM", terminate);
 let stagedSource;
 try {
-  stagedSource = stageStoreSource(sourceRepositoryRoot, sourceRoot, dirname(output));
+  stagedSource = stageStoreSource(sourceRepositoryRoot, sourceRoot);
   request.source_root = stagedSource;
   const privateRepositoryRoot = process.env.MPRLAB_APP_ROOT;
   if (!privateRepositoryRoot || !isAbsolute(privateRepositoryRoot)) throw new Error("Mobile release requires the absolute MPRLAB_APP_ROOT.");

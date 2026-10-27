@@ -40,7 +40,9 @@ module.exports = function withStoreBuild(config) {
         project.modResults.contents = project.modResults.contents.slice(0, releaseOffset) + project.modResults.contents.slice(releaseOffset).replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.release');
         project.modResults.contents = project.modResults.contents.replace('signingConfigs {', `signingConfigs {
         release {
-            storeFile file(System.getenv("LOOPAWARE_ANDROID_KEYSTORE") ?: "missing-release-keystore")
+            def releaseKeystorePath = System.getenv("LOOPAWARE_ANDROID_KEYSTORE") ?: "missing-release-keystore"
+            def releaseKeystoreFile = new File(releaseKeystorePath)
+            storeFile releaseKeystoreFile.isAbsolute() ? releaseKeystoreFile : new File(System.getenv("MPRLAB_APP_ROOT"), releaseKeystorePath)
             storePassword System.getenv("LOOPAWARE_ANDROID_STORE_PASSWORD") ?: ""
             keyAlias System.getenv("LOOPAWARE_ANDROID_KEY_ALIAS") ?: ""
             keyPassword System.getenv("LOOPAWARE_ANDROID_KEY_PASSWORD") ?: ""
