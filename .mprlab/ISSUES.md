@@ -11,6 +11,32 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [!] [B145] (P1) Declare the hosted signing regression prerequisites
+  Goal:
+  Run the real SDK signing regression from a clean hosted Mobile job.
+
+  Evidence:
+  The regression reads YAML through an undeclared transitive dependency.
+  The hosted Mobile job installs Java but does not install the Gateway runtime or its Python prerequisite.
+
+  Requirements:
+  - Use a self-contained synthetic manifest for the signing regression.
+  - Declare the hosted runtime and toolchain prerequisites.
+  - Preserve the real SDK and generated Gradle checks.
+
+  Validation:
+  The missing dependency failed in the hosted job and an isolated local copy.
+  The JSON fixture passed with no mobile dependency directories.
+  The synthetic setup contract passed all six scenarios.
+  The workflow audit accepts exactly six trusted action declarations, including two Python setup steps.
+  All nine public audit scenarios passed.
+  The first canonical CI run stopped at the obsolete action count before the correction.
+  The corrected canonical CI passed all 475 browser cases, backend and race tests, and native checks.
+  Credential provisioning and actual hosted installation remain pending.
+
+  Blocked: Configure `MPRLAB_GATEWAY_READ_TOKEN` for the private Gateway release.
+  Then verify the hosted runtime installation.
+
 - [x] [B144] (P1) Resolve the captured Android signing file from its original root
   Goal:
   Use the qualified upload key after the native SDK restores captured signing inputs.

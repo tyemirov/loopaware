@@ -4,12 +4,17 @@ import { spawnSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createRequire } from 'node:module';
+import originalManifest from './fixtures/signing-context-resources.json' with { type: 'json' };
 const root = resolve(import.meta.dirname, '../..');
-const require = createRequire(join(root, 'mobile/package.json'));
-const { parse, stringify } = require('yaml');
 const gateway = process.env.MPRLAB_GATEWAY_EXECUTABLE || 'mprlab-gateway';
-const originalManifest = parse(readFileSync(join(root, '.mprlab/deploy/resources.yml'), 'utf8'));
+if (process.argv[2] === '--write-installation-fixture') {
+  const application = process.argv[3];
+  assert.ok(application, 'Select an installation fixture directory.');
+  const selected = originalManifest.mprlab_resources;
+  write(join(application, '.mprlab/deploy/resources.yml'), JSON.stringify(originalManifest));
+  write(join(application, selected.environment_file), Object.keys(selected.inputs).map(name => `${name}=synthetic-runtime-installation-input`).join('\n') + '\n');
+  process.exit(0);
+}
 const generated = readFileSync(join(root, 'mobile/prepared/android/app/build.gradle'), 'utf8');
 const signingBody = /signingConfigs \{\s*release \{([\s\S]*?)\n        \}/.exec(generated)?.[1];
 assert.ok(signingBody, 'Generated release signing configuration is required.');
@@ -39,7 +44,7 @@ try {
     const assignments = Object.fromEntries(names.map(name => [name, 'synthetic-signing-context-input']));
     assignments.LOOPAWARE_ANDROID_KEYSTORE = kind === 'relative' ? 'configs/signing/upload.jks' : keystore;
     write(join(app, selected.environment_file), Object.entries(assignments).map(([name, value]) => `${name}=${JSON.stringify(value)}`).join('\n') + '\n');
-    write(join(app, '.mprlab/deploy/resources.yml'), stringify(document));
+    write(join(app, '.mprlab/deploy/resources.yml'), JSON.stringify(document));
     write(join(app, '.gitignore'), '/.mprlab/deploy/.env\n/configs/signing/\n');
     write(join(app, 'Makefile'), `ci:\n\t${process.execPath} ci-hook.mjs\n`);
     write(join(app, 'mobile/scripts/build-store-artifact.mjs'), "throw new Error('The fixture must stop in CI before artifact assembly.');\n");
