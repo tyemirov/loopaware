@@ -617,19 +617,21 @@ Each Gateway call uses `CI=1` and closed standard input.
 Gateway owns lifecycle validation, artifact preparation, publication, deployment, and verification.
 LoopAware retains its native builders and application inputs.
 
-The npm publication credential is `NPM_API_KEY` in the ignored `configs/.env.loopaware` file.
-The setup commands preserve existing private file contents.
-Gateway reads this assignment directly and supplies it to npm through standard input.
-An exported `NPM_TOKEN` or an `npm login` session does not select this credential.
+The selected manifest binds the npm publication credential as `NPM_API_KEY`.
+Gateway supplies this captured value to npm through standard input.
 See [npm publication credentials](docs/npm-publication.md) for the input contract and authentication diagnosis.
 
-Deployment-only private values belong in the ignored `.mprlab/deploy/.env` file with mode `0600`. The manifest binds those values through its `private_values` resource; secret bytes never belong in the manifest. Release and publish do not read this deployment input.
+The selected manifest declares `.mprlab/deploy/.env` through `environment_file`.
+Gateway resolves that file and process values during manifest processing for release, publication, and deployment.
+Each operation uses its captured inputs.
+The `private_values` resource binds private deployment values.
+Keep secret values outside the manifest and public artifacts.
 
 Run `make mobile-prepare-store` after a native configuration or dependency change.
 This command generates the production native projects under `mobile/prepared/`.
 Commit the prepared files with their source changes.
-Release verifies the recorded file digests before the native build.
-A source change requires preparation again.
+Release verifies application identity, native configuration, and dependency versions before the native build.
+The adapter stages the current captured product source with the prepared native inputs.
 
 iOS releases use the shared Gateway native builder on a Mac.
 The selected manifest uses `mobile/scripts/build-store-artifact.mjs` for Android and iOS.
