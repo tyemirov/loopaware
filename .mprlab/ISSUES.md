@@ -35,13 +35,13 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   The modal closes after its public opening event.
   Final canonical CI passed in 705.042 seconds. All 475 browser cases passed.
 
-- [ ] [B145] (P1) Declare the hosted signing regression prerequisites
+- [x] [B145] (P1) Declare the hosted signing regression prerequisites
   Goal:
   Run the real SDK signing regression from a clean hosted Mobile job.
 
   Evidence:
-  The regression reads YAML through an undeclared transitive dependency.
-  The hosted job now installs Gateway and Java successfully. The real SDK fixture then fails because bundletool is absent.
+  The regression originally read YAML through an undeclared transitive dependency.
+  After Gateway and Java setup passed, the real SDK fixture found that bundletool was absent.
 
   Requirements:
   - Use a self-contained synthetic manifest for the signing regression.
@@ -53,14 +53,16 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   The JSON fixture passed with no mobile dependency directories.
   The synthetic setup contract passed all six scenarios.
   The workflow audit accepts exactly six trusted action declarations, including two Python setup steps.
-  All nine public audit scenarios passed.
+  The first nine public audit scenarios passed. The bundletool correction passed all eleven scenarios.
   The first canonical CI run stopped at the obsolete action count before the correction.
   The corrected canonical CI passed all 475 browser cases, backend and race tests, and native checks.
   The configured read credential installed Gateway successfully in the hosted job.
   Bundletool setup failure checks and the real official JAR qualification passed locally.
   The workflow installs bundletool 1.18.3 after Java setup and exports its managed launcher path.
-  Full CI and the next automatic hosted run remain pending.
-  The next source push triggers that hosted verification. Failed jobs are not manually rerun.
+  Final canonical CI passed in 705.042 seconds after the B146 correction. All 475 browser cases passed.
+  Automatic hosted run `40573676180` passed all six matrix jobs and the required aggregate job.
+  Its Mobile job verified the actual Linux Gateway, Java, bundletool, and generated Gradle boundary.
+  New source pushes trigger hosted verification automatically. Failed jobs are not manually rerun.
 
 - [x] [B144] (P1) Resolve the captured Android signing file from its original root
   Goal:

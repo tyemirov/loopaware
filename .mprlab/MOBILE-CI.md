@@ -33,5 +33,8 @@ The hosted job must verify those operations with the approved read credential.
 
 On October 27, 2026, the configured credential installed Gateway successfully in the hosted job.
 The real local npm launcher and official JAR passed version qualification with Java 21.
-The hosted Mobile job still requires verification from the next source push under B145.
+Final local canonical CI passed in 705.042 seconds with all 475 browser cases.
+Automatic hosted run `40573676180` passed all six matrix jobs and the required aggregate job.
+Its Mobile job verified the Linux Gateway runtime and the real bundletool and generated Gradle boundary.
+B145 is closed after these code validation results. These results do not establish publication or deployment.
 Fix a failed hosted job before a new push. Let that push trigger CI automatically.
