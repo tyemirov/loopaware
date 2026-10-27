@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync
 import { join, resolve, dirname } from 'node:path';
 import test from 'node:test';
 import { publicFixture } from './preparation.mjs';
+import { createRequire } from 'node:module';
 
 /** @param {(context:ReturnType<typeof setup>)=>void|Promise<void>} check */
 async function withFixture(check) {
@@ -35,7 +36,23 @@ const metadata=JSON.parse(fs.readFileSync(p.join(source,'package.json'),'utf8'))
 const snapshot=JSON.parse(fs.readFileSync(p.join(source,'app.config.snapshot.json'),'utf8'));
 const result={request,product:fs.readFileSync(p.join(source,'src/product.mjs'),'utf8'),added:fs.existsSync(p.join(source,'src/added.mjs')),deleted:fs.existsSync(p.join(source,'src/deleted.mjs')),podfile:fs.existsSync(p.join(source,'ios/Podfile')),workspace:fs.existsSync(p.join(source,'ios/LoopAware.xcworkspace/contents.xcworkspacedata')),devClient:metadata.dependencies?.['expo-dev-client'],publicSourceMarker:snapshot.expo.extra?.publicSourceMarker,privatePaths:['.env.fixture','private.jks','node_modules','ios/.xcode.env.local','android/local.properties','.gradle/cache'].filter(name=>fs.existsSync(p.join(source,name)))};
 fs.writeFileSync(process.env.PUBLIC_NATIVE_RESULT,JSON.stringify(result));
-if(process.env.PUBLIC_NATIVE_MODE==='wait'){
+if(process.env.PUBLIC_NATIVE_MODE==='metro'){
+ (async()=>{
+  const {default:FileMap,DiskCacheManager}=require(process.env.PUBLIC_METRO_FILE_MAP);
+  const fileMap=FileMap.create({rootDir:source,roots:[source],extensions:['ts','tsx','mjs','json'],
+   retainAllFiles:true,computeSha1:false,maxWorkers:1,resetCache:true,watch:false,useWatchman:false,
+   forceNodeFilesystemAPI:true,healthCheck:{enabled:false},
+   cacheManagerFactory:parameters=>new DiskCacheManager(parameters,{cacheDirectory:process.env.PUBLIC_METRO_CACHE})});
+  try{
+   const {fileSystem}=await fileMap.build();
+   const files=['index.ts','src/product.mjs','vendor/runtime.mjs'];
+   for(const file of files)if(!fileSystem.exists(p.join(source,file)))throw new Error('Metro did not index public native source: '+file);
+   result.indexedFiles=files;
+   fs.writeFileSync(process.env.PUBLIC_NATIVE_RESULT,JSON.stringify(result));
+   fs.writeFileSync(request.output,'public Metro file-map consumer output');
+  }finally{await fileMap.end();}
+ })().catch(error=>{process.stderr.write(error.message+'\\n');process.exitCode=31;});
+}else if(process.env.PUBLIC_NATIVE_MODE==='wait'){
  const descendant=cp.spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});
  fs.writeFileSync(process.env.PUBLIC_NATIVE_READY,JSON.stringify({pid:process.pid,descendant:descendant.pid,source}));
  setInterval(()=>{},1000);
@@ -61,6 +78,30 @@ test('the actual adapter stages added/edited/deleted captured product source and
   assert.equal(dirname(observed.request.source_root), fixture.directory);
   assert.equal(existsSync(observed.request.source_root), false, 'native failure must remove only the owned build stage');
   assert.equal(existsSync(fixture.prepared), true);
+}));
+
+test('Metro indexes the staged public source when the sealed output is inside Git metadata', () => withFixture(context => {
+  const outputDirectory = join(context.fixture.repository, '.git/mprlab-lifecycle/releases/v1.2.0/payloads/mobile');
+  mkdirSync(outputDirectory, { recursive: true });
+  const output = join(outputDirectory, 'ios.ipa');
+  context.args[context.args.indexOf('--output') + 1] = output;
+  context.args[context.args.indexOf('--manifest') + 1] = join(outputDirectory, 'ios.json');
+  mkdirSync(join(context.fixture.mobile, 'vendor'));
+  writeFileSync(join(context.fixture.mobile, 'vendor/runtime.mjs'), 'export const runtime = "current public vendor";\n');
+  const require = createRequire(resolve(import.meta.dirname, '../../mobile/package.json'));
+  context.environment.PUBLIC_NATIVE_MODE = 'metro';
+  context.environment.PUBLIC_METRO_FILE_MAP = require.resolve('metro-file-map');
+  context.environment.PUBLIC_METRO_CACHE = join(context.fixture.directory, 'metro-cache');
+  mkdirSync(context.environment.PUBLIC_METRO_CACHE);
+  const result = context.invoke();
+  assert.equal(result.status, 0, result.stderr);
+  const observed = JSON.parse(readFileSync(context.resultPath, 'utf8'));
+  assert.deepEqual(observed.indexedFiles, ['index.ts', 'src/product.mjs', 'vendor/runtime.mjs']);
+  assert.equal(observed.product, 'current captured product');
+  assert.equal(observed.request.output, output);
+  assert.equal(readFileSync(output, 'utf8'), 'public Metro file-map consumer output');
+  assert.equal(existsSync(observed.request.source_root), false, 'successful consumer completion must remove its owned source stage');
+  assert.equal(existsSync(context.fixture.prepared), true);
 }));
 
 test('public staging excludes private, signing, dependency cache, and local native inputs', () => withFixture(context => {

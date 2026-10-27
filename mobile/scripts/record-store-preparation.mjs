@@ -4,6 +4,7 @@ import { copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSy
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
 
 const remedy = 'run make mobile-prepare-store';
 const excludedDirectories = new Set(['node_modules', 'Pods', 'build', 'DerivedData', '.gradle', '.kotlin', '.cxx', '.expo', 'xcuserdata', '.git']);
@@ -237,11 +238,11 @@ function copyPublic(source, destination, currentSource = false, selectedRoot = s
 export function copyPreparedPublicInputs(prepared, destination) { copyPublic(prepared, destination); }
 
 /** Build from captured current product source while retaining prepared native/dependency inputs.
- * @param {string} repository @param {string} prepared @param {string} outputDirectory
+ * @param {string} repository @param {string} prepared
  */
-export function stageStoreSource(repository, prepared, outputDirectory) {
+export function stageStoreSource(repository, prepared) {
   const config = assertCurrentSource(repository, prepared);
-  const staged = mkdtempSync(join(outputDirectory, 'loopaware-native-source-'));
+  const staged = mkdtempSync(join(tmpdir(), 'loopaware-native-source-'));
   try {
     for (const name of ['package.json', 'package-lock.json', 'native-preparation.json']) copyFileSync(required(prepared, name), join(staged, name));
     for (const name of ['ios', 'android']) copyPublic(join(prepared, name), join(staged, name));
