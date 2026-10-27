@@ -19,7 +19,8 @@
     "test:all": "playwright test",
     "test:report-save": "playwright test -c playwright.ui.config.js specs/dashboard-traffic.spec.js --grep \"consecutive report site changes|settings entry opens all-sites\"",
     "test:aggregate": "playwright test -c playwright.ui.config.js specs/dashboard-aggregate.spec.js",
-    "test:resource-pages": "playwright test -c playwright.ui.config.js specs/seo-public-pages.spec.js --grep \"resource pages are crawlable and internally linked\""
+    "test:resource-pages": "playwright test -c playwright.ui.config.js specs/seo-public-pages.spec.js --grep \"resource pages are crawlable and internally linked\"",
+    "test:privacy": "playwright test -c playwright.ui.config.js specs/seo-public-pages.spec.js --grep \"privacy page discloses retained feedback network metadata\""
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

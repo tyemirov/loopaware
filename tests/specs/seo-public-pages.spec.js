@@ -345,3 +345,11 @@ test('web manifest and icons are available for crawlers and devices', async ({ r
   expect(iconResponse.status()).toBe(200);
   expect(iconResponse.headers()['content-type']).toContain('image/png');
 });
+
+
+test('privacy page discloses retained feedback network metadata separately from aggregate counts', async ({ page }) => {
+  await page.goto('/privacy/', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('main')).toContainText('LoopAware stores the sender’s IP address and User-Agent with each feedback submission.');
+  await expect(page.locator('main')).toContainText('The User-Agent contains browser and device information.');
+  await expect(page.locator('main')).toContainText('These fields follow the same retention and deletion policy as the feedback message.');
+});

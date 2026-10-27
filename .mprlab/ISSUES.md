@@ -11,6 +11,24 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B140] (P1) Disclose retained feedback network metadata
+  Goal:
+  Describe feedback IP and User-Agent data separately from transient count and font transport data.
+
+  Observed Failure:
+  The public privacy page omitted feedback IP and User-Agent fields that the normal feedback endpoint stores.
+
+  Requirements:
+  - Include retained feedback metadata in the public policy and applicable data inventory.
+  - Apply the existing feedback retention and deletion policy to these fields.
+  - Verify the rendered disclosure through the public browser entry point.
+
+  Validation:
+  The new public regression failed before the correction and passed after the correction.
+  Final `make ci` passed, including all 475 integration scenarios and the new public privacy test.
+  Backend race, dependency, mobile, and native adapter checks passed.
+  Production delivery remains a separate operation.
+
 - [x] [B139] (P0) Resolve captured Android signing inputs before certificate verification
   Goal:
   Use manifest-selected signing inputs when the process has no signing values.
