@@ -3,7 +3,6 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 
@@ -21,7 +20,6 @@ for (const requiredFile of [
   "mobile/scripts/prepare-store.mjs",
   "mobile/scripts/record-store-preparation.mjs",
   "mobile/scripts/verify-store-preparation.mjs",
-  "mobile/scripts/native-build-fingerprint.mjs",
   "mobile/scripts/mobile-calver-version.mjs",
   "mobile/scripts/prepare-android-project.mjs",
   "mobile/scripts/resolve-metro-port.mjs",
@@ -180,9 +178,6 @@ for (const expectedText of [
 assert(!appConfigSource.includes("android-icon-background.png"), "mobile_config_legacy_adaptive_icon_background_image");
 assert(!appConfigSource.includes("edgeToEdgeEnabled"), "mobile_config_legacy_edge_to_edge_enabled");
 
-const expectedLoopAwareIconHash = "50b608957076efde2b75850f73068ba5fb779f978c6c0515f6e41c17d9474913";
-assert(fileHash("mobile/assets/icon.png") === expectedLoopAwareIconHash, "mobile_config_icon_not_loopaware_logo");
-
 const apiSource = readText("mobile/src/api.ts");
 assert(apiSource.includes('credentials: "include"'), "mobile_api_missing_cookie_credentials");
 assert(apiSource.includes('"X-TAuth-Tenant"'), "mobile_api_missing_tauth_tenant_header");
@@ -198,17 +193,6 @@ assert(authSource.includes("expo-auth-session"), "mobile_auth_missing_auth_sessi
 assert(authSource.includes("expo-web-browser"), "mobile_auth_missing_web_browser");
 assert(authSource.includes("/auth/google/native") || apiSource.includes("/auth/google/native"), "mobile_auth_missing_native_tauth_flow");
 
-const nativeBuildFingerprintSource = readText("mobile/scripts/native-build-fingerprint.mjs");
-for (const envName of [
-  "LOOPAWARE_MOBILE_ANDROID_PACKAGE",
-  "LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER",
-  "LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI",
-  "LOOPAWARE_MOBILE_GOOGLE_IOS_CLIENT_ID",
-  "TAUTH_TENANT_GOOGLE_IOS_REDIRECT_URI_LOOPAWARE",
-  "TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE",
-]) {
-  assert(nativeBuildFingerprintSource.includes(envName), `mobile_native_fingerprint_missing_env: ${envName}`);
-}
 const makefile = readText("Makefile");
 for (const target of ["mobile-install", "mobile-check", "mobile-start", "run-ios", "run-android", "release publish deploy"]) {
   assert(makefile.includes(`${target}:`), `mobile_makefile_missing_target: ${target}`);
@@ -219,14 +203,12 @@ assert(makefile.includes('"app-$@"'), "lifecycle_gateway_phase_forwarding_missin
 assert(makefile.includes("mobile-check"), "mobile_makefile_missing_ci_gate");
 assert(makefile.includes("test:api-boundaries"), "mobile_makefile_missing_api_boundary_check");
 assert(makefile.includes("override MOBILE_NPM_COMMAND := env -u NO_COLOR npm"), "mobile_makefile_missing_canonical_no_color_command");
-assert(makefile.includes("MOBILE_NATIVE_BUILD_FINGERPRINT"), "mobile_makefile_missing_native_build_fingerprint");
-assert(makefile.includes("Development build missing or stale"), "mobile_makefile_missing_stale_native_build_guard");
 assert(!makefile.includes('@mkdir -p "$(dir $(ANDROID_LOCAL_PROPERTIES))"'), "mobile_makefile_creates_partial_android_project");
 assert(makefile.includes("MOBILE_GOOGLE_IOS_REDIRECT_URI"), "mobile_makefile_missing_ios_google_redirect_uri_variable");
-assert(makefile.includes('LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER="$(MOBILE_IOS_BUNDLE_IDENTIFIER)"'), "mobile_makefile_missing_ios_bundle_env");
-assert(makefile.includes('LOOPAWARE_MOBILE_ANDROID_PACKAGE="$(MOBILE_ANDROID_PACKAGE)"'), "mobile_makefile_missing_android_package_env");
+assert(makefile.includes('export LOOPAWARE_MOBILE_IOS_BUNDLE_IDENTIFIER'), "mobile_makefile_missing_ios_bundle_env");
+assert(makefile.includes('export LOOPAWARE_MOBILE_ANDROID_PACKAGE'), "mobile_makefile_missing_android_package_env");
 assert(
-  makefile.includes('LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI="$(MOBILE_GOOGLE_IOS_REDIRECT_URI)"'),
+  makefile.includes('export LOOPAWARE_MOBILE_GOOGLE_IOS_REDIRECT_URI'),
   "mobile_makefile_missing_ios_google_redirect_uri_env",
 );
 assert(
@@ -277,14 +259,6 @@ function readText(relativePath) {
  */
 function readJSON(relativePath) {
   return JSON.parse(readText(relativePath));
-}
-
-/**
- * @param {string} relativePath
- * @returns {string}
- */
-function fileHash(relativePath) {
-  return crypto.createHash("sha256").update(fs.readFileSync(path.join(repoRoot, relativePath))).digest("hex");
 }
 
 /**

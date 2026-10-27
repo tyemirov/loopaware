@@ -5,17 +5,14 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
+import { copyPreparedPublicInputs } from "../../mobile/scripts/record-store-preparation.mjs";
 
 const mobile = resolve(import.meta.dirname, "../../mobile/prepared");
 
 test("Gradle evaluates the prepared Android release version", async (t) => {
   const fixture = mkdtempSync(resolve(tmpdir(), "loopaware-android-config-"));
   try {
-    const record = JSON.parse(readFileSync(resolve(mobile, "native-preparation.json"), "utf8"));
-    for (const name of Object.keys(record.files)) {
-      mkdirSync(dirname(resolve(fixture, name)), { recursive: true });
-      copyFileSync(resolve(mobile, name), resolve(fixture, name));
-    }
+    copyPreparedPublicInputs(mobile, fixture);
     symlinkSync(resolve(mobile, "node_modules"), resolve(fixture, "node_modules"), "dir");
     const initScript = resolve(fixture, "verify-version.gradle");
     const outputFile = resolve(fixture, "version.json");

@@ -625,7 +625,7 @@ See [npm publication credentials](docs/npm-publication.md) for the input contrac
 
 Deployment-only private values belong in the ignored `.mprlab/deploy/.env` file with mode `0600`. The manifest binds those values through its `private_values` resource; secret bytes never belong in the manifest. Release and publish do not read this deployment input.
 
-Run `make mobile-prepare-store` after a mobile source or build configuration change.
+Run `make mobile-prepare-store` after a native configuration or dependency change.
 This command generates the production native projects under `mobile/prepared/`.
 Commit the prepared files with their source changes.
 Release verifies the recorded file digests before the native build.
@@ -650,7 +650,8 @@ The plugin removes absent test targets from the shared scheme and generates stri
 It explicitly selects React Native and Expo source dependencies, including when the process inherits prebuilt flags.
 `make mobile-prepare-store` runs `make mobile-podfile-config-check` after native preparation.
 This check uses actual CocoaPods for valid, missing, and malformed properties, plus an unavailable prebuilt service.
-Use `pod install --deployment` from `mobile/prepared/ios` to verify the retained dependency lock before native acceptance.
+Use `pod install` from `mobile/prepared/ios` for native dependency preparation.
+CocoaPods owns the generated dependency metadata.
 The preparation script configures the release metadata phase through `mobile/scripts/fix-ios-project-warnings.mjs`.
 The phase uses Apple Foundation through `mobile/scripts/strip-release-metadata.swift` and the declared Xcode toolchain.
 It rejects missing or invalid property lists and preserves custom app values and the original file format.
@@ -701,7 +702,7 @@ $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.
 
 The compose file binds `configs/config.loopaware.yml` into the LoopAware container at `/app/configs/config.loopaware.yml`
 and loads per-service placeholder values via `env_file` from `configs/.env.*`.
-The production Dockerfile pins the Go 1.27.2/Alpine 3.24 build image and Alpine 3.24 runtime image by multi-architecture manifest-list digests.
+The production Dockerfile pins the Go 1.27.3/Alpine 3.24 build image and Alpine 3.24 runtime image by multi-architecture manifest-list digests.
 When you advance a base, update its human-readable tag and digest together.
 The container runs as root so the SQLite data volume remains writable.
 To use an unprivileged user, configure the Docker image to change the mounted directory owner before it starts the binary.

@@ -11,6 +11,27 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## BugFixes
 
+- [x] [B139] (P0) Resolve captured Android signing inputs before certificate verification
+  Goal:
+  Use manifest-selected signing inputs when the process has no signing values.
+
+  Observed Failure:
+  The public signing command rejected the captured-only fixture before the native builder.
+  The adapter read its process environment before Gateway supplied the captured private inputs.
+
+  Requirements:
+  - Resolve the four signing values through Gateway's private environment operation.
+  - Use the selected private root for the keystore.
+  - Preserve the registered upload certificate check.
+  - Reject invalid responses without private values in diagnostics.
+
+  Validation:
+  The captured-only regression failed before the correction.
+  Twelve signing scenarios passed after the correction.
+  The cases include conflicting process values, invalid paths, wrong certificates, and invalid provider responses.
+  Final `make ci` passed on the frozen source, including all 474 browser integration scenarios.
+  Go race, dependency audit, native bundle, and strict mobile type checks passed.
+
 - [x] [B138] (P1) Use the installed Gateway lifecycle command
   Goal: Run the lifecycle wrappers without a sibling Gateway checkout.
   Requirements: Preserve private input preparation. Pass the exact Git root and close standard input.

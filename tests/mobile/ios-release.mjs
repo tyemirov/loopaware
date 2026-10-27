@@ -4,17 +4,18 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { publicFixture } from './preparation.mjs';
 
 const manifest = readFileSync('.mprlab/deploy/resources.yml', 'utf8');
 const selected = /build:\s*\n\s+android: [^\n]+\n\s+ios: ([^\n]+)/.exec(manifest);
 assert.ok(selected, 'The manifest must select an iOS adapter.');
-const adapter = resolve(selected[1].trim());
-const root = mkdtempSync(join(tmpdir(), 'loopaware native ios '));
+const fixture = publicFixture();
+const adapter = join(fixture.mobile, 'scripts', selected[1].trim().split('/').at(-1));
+const root = fixture.directory;
+const recorded = fixture.record(); assert.equal(recorded.status, 0, recorded.stderr);
 try {
-  const source = join(root, 'prepared');
-  mkdirSync(source);
-  writeFileSync(join(source, 'app.config.snapshot.json'), JSON.stringify({ expo: { ios: { bundleIdentifier: 'com.mprlab.loopaware', version: '1.1.0' } } }));
-  writeFileSync(join(source, 'mobile-build-operation'), `
+  const source = fixture.prepared;
+  writeFileSync(join(fixture.mobile, 'mobile-build-operation'), `
     let input = '';
     process.stdin.on('data', chunk => input += chunk);
     process.stdin.on('end', () => {
@@ -25,7 +26,7 @@ try {
   `);
   const output = join(root, 'ios.ipa');
   const args = ['--mobile-dir', source, '--output', output, '--manifest', join(root, 'ios.json'), '--release-timestamp', '2026-09-10T09:12:53Z'];
-  const env = { PATH: process.env.PATH, MPRLAB_APP_ROOT: root, MPRLAB_GATEWAY_EXECUTABLE: process.execPath, MPRLAB_ARTIFACT_VERSION: '1.2.0' };
+  const env = { ...fixture.environment, MPRLAB_APP_ROOT: root, MPRLAB_GATEWAY_EXECUTABLE: process.execPath, MPRLAB_ARTIFACT_VERSION: '1.2.0' };
   const result = spawnSync(process.execPath, [adapter, ...args], { env, encoding: 'utf8' });
   assert.equal(result.status, 17, result.stderr);
   assert.match(result.stderr, /native build diagnostic/);
@@ -38,7 +39,8 @@ try {
   assert.equal(request.version, '1.1.0');
   assert.equal(request.build_number, '211194773');
   assert.equal(request.output, output);
-  assert.equal(request.source_root, source);
+  assert.notEqual(request.source_root, source);
+  assert.match(request.source_root, /loopaware-native-source-/);
   assert.equal(request.ios.owner, 'loopaware');
   assert.equal(request.ios.export_intent, 'internal-only');
   assert.equal(request.ios.workspace, 'ios/LoopAware.xcworkspace');
