@@ -95,6 +95,8 @@ Give each term one meaning. Use the same term for the same concept in all docume
 
 ## Repository Technical Nouns
 
+- `scene lifecycle`: The UIKit contract that connects application windows to scenes.
+
 - `network prefix`: The first three decimal octets of the private IPv4 network for integration tests.
 - `subnet`: The isolated IPv4 network that contains the integration services.
 - `trusted proxy`: A proxy address whose forwarding metadata the server accepts.

@@ -71,3 +71,37 @@ test("Gradle evaluates the prepared Android release version", async (t) => {
     rmSync(fixture, { recursive: true, force: true });
   }
 });
+
+
+test("prepared Android launcher supplies its compiler policy and preserves caller arguments", () => {
+  const fixture = mkdtempSync(resolve(tmpdir(), "loopaware-android-policy-"));
+  try {
+    copyPreparedPublicInputs(mobile, fixture);
+    const tools = resolve(fixture, "controlled-java"); mkdirSync(tools);
+    const java = resolve(tools, "java"), log = resolve(fixture, "java-arguments.json");
+    copyFileSync(process.execPath, java);
+    writeFileSync(java, `#!${process.execPath}
+require('node:fs').writeFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)));
+`);
+    const callerArguments = ["--no-daemon", ":app:bundleRelease", "--max-workers=2", "--parallel", "-PreactNativeArchitectures=arm64-v8a", "-Dorg.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=1g"];
+    const properties = resolve(fixture, "android/gradle.properties");
+    for (const pass of [1, 2]) {
+      if (pass === 2) {
+        writeFileSync(properties, readFileSync(properties, "utf8").replace(/^org\.gradle\.jvmargs=.*$/m, "org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=512m") + "\norg.gradle.workers.max=7\n");
+        const prepared = spawnSync(process.execPath, [resolve(fixture, "scripts/prepare-android-build-policy.mjs")], { cwd: fixture, encoding: "utf8" });
+        assert.equal(prepared.status, 0, prepared.stderr);
+        assert.match(readFileSync(properties, "utf8"), /^org\.gradle\.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1g$/m);
+        assert.match(readFileSync(properties, "utf8"), /^org\.gradle\.workers\.max=7$/m);
+      }
+      const launched = spawnSync("/bin/sh", [resolve(fixture, "android/gradlew"), ...callerArguments], {
+        cwd: resolve(fixture, "android"), encoding: "utf8", env: { PATH: tools + ":/usr/bin:/bin", JAVA_HOME: "" },
+      });
+      assert.equal(launched.status, 0, launched.stderr);
+      const javaArguments = JSON.parse(readFileSync(log, "utf8"));
+      assert.deepEqual(javaArguments.slice(javaArguments.indexOf("-jar") + 2), ["-Pkotlin.compiler.execution.strategy=in-process", ...callerArguments]);
+      assert.match(readFileSync(properties, "utf8"), /-XX:MaxMetaspaceSize=1g/);
+    }
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});

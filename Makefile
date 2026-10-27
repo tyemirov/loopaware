@@ -160,11 +160,19 @@ mobile-adapter-check:
 	node tests/mobile/ios-release.mjs
 	JAVA_HOME="$(JAVA_HOME)" node tests/mobile/android-signing.mjs
 
-mobile-native-check: mobile-install
+mobile-native-check: mobile-install mobile-scene-check
 	node tests/mobile/apple-native.mjs
+
+.PHONY: mobile-scene-check
+mobile-scene-check: mobile-install
+	node tests/mobile/ios-scene-generation.mjs
 
 mobile-android-config-check: mobile-prepared-install
 	node --test tests/mobile/android-config.mjs
+
+.PHONY: mobile-android-policy-check
+mobile-android-policy-check: mobile-prepared-install
+	node --test --test-name-pattern="compiler policy" tests/mobile/android-config.mjs
 
 .PHONY: mobile-preparation-check
 mobile-preparation-check:

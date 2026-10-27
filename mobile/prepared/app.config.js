@@ -120,10 +120,12 @@ function optionalPositiveInteger(value, label) {
 
 /**
  * @param {boolean} productionNativeBuild
- * @returns {string[]}
+ * @returns {NonNullable<import("expo/config").ExpoConfig["plugins"]>}
  */
 function mobilePlugins(productionNativeBuild) {
-  const plugins = ["expo-web-browser", "expo-secure-store", "expo-system-ui"];
+  /** @type {NonNullable<import("expo/config").ExpoConfig["plugins"]>} */
+  const plugins = ["expo-web-browser", "expo-secure-store", "expo-system-ui",
+    ["expo-build-properties", { ios: { enableSceneSupport: true, buildReactNativeFromSource: true, usePrecompiledModules: false } }]];
   if (productionNativeBuild) plugins.push("./plugins/withStoreBuild.cjs");
   if (!productionNativeBuild) {
     plugins.push("expo-dev-client");

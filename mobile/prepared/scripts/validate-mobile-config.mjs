@@ -59,7 +59,7 @@ for (const obsoleteFile of ["mobile/app.json", "mobile/eas.json", "mobile/script
 
 const packageJSON = readJSON("mobile/package.json");
 const packageLockJSON = readJSON("mobile/package-lock.json");
-assert(packageJSON.dependencies?.expo === "~57.0.20", "mobile_config_expo_patch_version_outdated");
+assert(packageJSON.dependencies?.expo === "~57.0.31", "mobile_config_expo_patch_version_outdated");
 assert(packageJSON.dependencies?.["expo-auth-session"] === "~57.0.11", "mobile_config_auth_session_patch_version_outdated");
 assert(packageJSON.dependencies?.["expo-constants"] === "~57.0.17", "mobile_config_constants_patch_version_outdated");
 assert(packageJSON.dependencies?.["expo-dev-client"] === "~57.0.18", "mobile_config_dev_client_patch_version_outdated");
