@@ -80,7 +80,7 @@ test('later-body',()=>writeFileSync(${JSON.stringify(later)},'started'));
 /** @param {string} name @param {string} body @param {string[]} forbidden @param {string[]} cleanup @param {boolean} fails */
 async function contract(name, body, forbidden = [], cleanup = [], fails = true) {
   const file = join(owner, `${name}.test.mjs`);
-  await writeFile(file, `import test,{describe,it,before,after} from ${JSON.stringify(adapterURL)};
+  await writeFile(file, `import test,{describe,it,before,after,todo,only,expectFailure,skip} from ${JSON.stringify(adapterURL)};
 import assert from 'node:assert/strict';
 import {writeFileSync} from 'node:fs';
 const enter=name=>process.stdout.write('LOOPAWARE_FIXTURE_ADMISSION '+JSON.stringify({name,at_ns:process.hrtime.bigint().toString()})+'\\n');
@@ -131,6 +131,12 @@ for(const child of children){if(child.exitCode===null&&child.signalCode===null)t
 }
 
 async function nodeContracts() {
+  for (const variant of ['todo', 'only', 'expectFailure']) {
+    const later = join(owner, `named-${variant}-after-failure`);
+    await contract(`node-named-${variant}-cancellation`, `
+${variant === 'only' ? 'only' : 'test'}('first-controlled-failure',()=>assert.fail('controlled-first-failure'));
+${variant}('later-named-variant',()=>writeFileSync(${JSON.stringify(later)},'started'));`, [later]);
+  }
   const suiteSetup = join(owner, 'later-suite-setup');
   const suiteBody = join(owner, 'later-suite-body');
   const rootCleanup = join(owner, 'suite-root-cleanup');
@@ -157,6 +163,9 @@ test('parent',async t=>{
 test('caught-negative',()=>{enter('caught-negative');assert.throws(()=>{throw new Error('expected-negative');},/expected-negative/);});
 test.skip('skipped',()=>writeFileSync(${JSON.stringify(skippedBody)},'started'));
 test.todo('todo-failure',()=>assert.fail('expected-todo'));
+skip('named-skipped',()=>writeFileSync(${JSON.stringify(skippedBody)},'started'));
+todo('named-todo-failure',()=>assert.fail('expected-named-todo'));
+expectFailure('named-expected-failure',()=>assert.fail('expected-named-failure'));
 test('successful-control',()=>assert.ok(true));`, [skippedBody], [], false);
   const callerBody = join(owner, 'caller-aborted-body');
   const callerCleanup = join(owner, 'caller-root-cleanup');
@@ -295,7 +304,7 @@ let primaryError;
 try {
   if (scenario === 'node-same-file') await sameFile();
   else if (scenario === 'node-worker-error') await nodeWorkerError();
-  else if (scenario === 'node-contracts') { await nodeContracts(); assert.equal(results.length, 5); await selectors(); }
+  else if (scenario === 'node-contracts') { await nodeContracts(); assert.equal(results.length, 8); await selectors(); }
   else if (scenario === 'node-browser-cleanup') await browserCleanup();
   else if (scenario === 'compose-first-failure') await composeFirstFailure({ repository, owner, invoke, absent, results });
   else if (scenario === 'compose-main-cleanup-error') await composeFirstFailure({ repository, owner, invoke, absent, results, cleanupFailure: 'main' });
