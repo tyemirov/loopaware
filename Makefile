@@ -106,7 +106,7 @@ mobile-development-command-check:
 	node --test tests/mobile/development-commands.mjs
 
 mobile-source-staging-check: mobile-install
-	node --test tests/mobile/store-source.mjs
+	node scripts/run-node-tests.mjs tests/mobile/store-source.mjs
 
 mobile-signing-source-check:
 	JAVA_HOME="$(JAVA_HOME)" node tests/mobile/android-signing-source.mjs
@@ -125,6 +125,29 @@ mobile-check: mobile-install
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run test:api-boundaries
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run test:app-flow
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run typecheck
+
+MOBILE_DEEPMERGE_ARGUMENTS ?=
+.PHONY: mobile-deepmerge-security-check mobile-deepmerge-prepared-check mobile-dependency-audit-check mobile-dependency-audit-controls
+mobile-deepmerge-security-check:
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run audit:deepmerge -- $(MOBILE_DEEPMERGE_ARGUMENTS)
+
+mobile-deepmerge-prepared-check:
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR)/prepared run audit:deepmerge
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR)/prepared run audit:dependencies
+
+.PHONY: mobile-deepmerge-installation-check
+mobile-deepmerge-installation-check:
+	node mobile/scripts/deepmerge-installations.test.mjs
+
+.PHONY: mobile-deepmerge-preparation-check
+mobile-deepmerge-preparation-check:
+	node mobile/scripts/deepmerge-preparation.test.mjs
+
+mobile-dependency-audit-controls:
+	node mobile/scripts/dependency-audit.test.mjs
+
+mobile-dependency-audit-check: mobile-dependency-audit-controls mobile-deepmerge-preparation-check
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run audit:dependencies
 
 .PHONY: mobile-forge-security-check
 mobile-forge-security-check: mobile-install
@@ -182,18 +205,18 @@ mobile-scene-check: mobile-install
 	node tests/mobile/ios-scene-generation.mjs
 
 mobile-android-config-check: mobile-prepared-install
-	node --test tests/mobile/android-config.mjs
+	node scripts/run-node-tests.mjs tests/mobile/android-config.mjs
 
 .PHONY: mobile-android-policy-check
 mobile-android-policy-check: mobile-prepared-install
-	node --test --test-name-pattern="compiler policy" tests/mobile/android-config.mjs
+	node scripts/run-node-tests.mjs --test-name-pattern="compiler policy" tests/mobile/android-config.mjs
 
 .PHONY: mobile-preparation-check
 mobile-preparation-check:
-	node tests/mobile/preparation.mjs
+	node scripts/run-node-tests.mjs tests/mobile/preparation.mjs
 
 mobile-release-check: mobile-container-check mobile-bundle-check mobile-prepared-tracking-check mobile-adapter-check mobile-native-check mobile-release-metadata-check mobile-android-config-check mobile-source-staging-check
-	node tests/mobile/preparation.mjs
+	node scripts/run-node-tests.mjs tests/mobile/preparation.mjs
 	cd mobile/prepared && node scripts/verify-store-preparation.mjs
 
 mobile-start: mobile-install
@@ -220,13 +243,17 @@ run-android: mobile-install
 test: test-integration
 
 test-unit:
-	go test ./...
+	go run ./tools/testmonitor -- ./...
+
+.PHONY: test-favicon
+test-favicon:
+	go run ./tools/testmonitor -- ./pkg/favicon
 
 test-live-favicons:
 	LOOPAWARE_LIVE_FAVICON_TESTS=1 go test ./pkg/favicon -run TestHTTPResolverLiveKnownSitesReturnFavicons -count=1
 
 test-integration-runner:
-	node --test tests/lifecycle-entrypoint.test.mjs tests/resource-theme-command.test.mjs
+	node scripts/run-node-tests.mjs tests/lifecycle-entrypoint.test.mjs tests/resource-theme-command.test.mjs
 	./tests/scripts/test-integration-runner.sh
 
 test-integration:
@@ -248,7 +275,7 @@ test-integration-all:
 	LOOPAWARE_TEST_SUITE=test:all ./tests/scripts/run-integration.sh
 
 test-race:
-	go test ./... -race -count=1
+	go run ./tools/testmonitor -- ./... -race -count=1
 
 coverage:
 	@mkdir -p $(CURDIR)/.cache
@@ -279,7 +306,7 @@ security-audit: browser-security-audit container-base-audit mobile-forge-securit
 	go run $(GOVULNCHECK) ./...
 	npm --prefix tests audit --audit-level=low
 	$(CLIENT_REACT_NATIVE_NPM_COMMAND) --prefix $(CLIENT_REACT_NATIVE_DIR) audit --audit-level=low
-	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) audit --audit-level=low
+	$(MAKE) --no-print-directory mobile-dependency-audit-check
 
 github-security-audit:
 	./scripts/audit-github-repository.sh
@@ -299,14 +326,34 @@ docker-down:
 docker-logs:
 	docker compose logs -f
 
+.PHONY: deployment-npm-visibility-check
+deployment-npm-visibility-check: first-failure-pytest-check
+	$(MAKE) -f tests/deployment/Makefile test
+
+# CI validates effective Make options before any application prerequisite runs.
+loopaware_option_words = $(if $(strip $(1)),$(if $(filter --,$(firstword $(1))),,$(firstword $(1)) $(call loopaware_option_words,$(wordlist 2,$(words $(1)),$(1)))))
+loopaware_ci_options = $(strip $(call loopaware_option_words,$(MAKEFLAGS)) $(call loopaware_option_words,$(GNUMAKEFLAGS)))
+loopaware_ci_compact_options = $(if $(filter -%,$(firstword $(loopaware_ci_options))),,$(if $(findstring =,$(firstword $(loopaware_ci_options))),,$(firstword $(loopaware_ci_options))))
+ifneq ($(filter ci ci-%,$(MAKECMDGOALS)),)
+ifneq ($(strip $(filter -k --keep-going,$(loopaware_ci_options)) $(findstring k,$(loopaware_ci_compact_options))),)
+$(error LoopAware CI requires serial stages and stops on failure)
+endif
+.NOTPARALLEL:
+endif
+
+.PHONY: ci-stage-policy
+ci ci-checks ci-backend ci-mobile ci-integration: ci-stage-policy
+ci-stage-policy:
+	@set -eu; for specification in "$${MAKEFLAGS-}" "$${GNUMAKEFLAGS-}"; do set -- $$specification; for option do case "$$option" in --) break;; -j1|--jobs=1) ;; -j*|--jobs*|--jobserver*|-k|--keep-going) printf '%s\n' 'LoopAware CI requires serial stages and stops on failure' >&2; exit 2;; -*) ;; *=*) ;; *k*|*j*) printf '%s\n' 'LoopAware CI requires serial stages and stops on failure' >&2; exit 2;; esac; done; done
+
 .PHONY: ci-checks ci-backend ci-mobile ci-integration
-ci-checks: tidy-check config-audit security-audit build lint
+ci-checks: first-failure-node-check first-failure-go-check tidy-check config-audit security-audit build lint
 
 ci-backend: test-unit test-race
 
-ci-mobile: mobile-release-check
+ci-mobile: mobile-release-check deployment-npm-visibility-check
 
-ci-integration: test-resource-theme test-integration-runner test-integration-all
+ci-integration: first-failure-browser-check test-resource-theme test-integration-runner test-integration-all
 
 ci: ci-checks ci-backend ci-mobile ci-integration
 
@@ -328,13 +375,49 @@ mobile-podfile-config-check:
 
 .PHONY: mobile-release-metadata-check
 mobile-release-metadata-check: mobile-install
-	node --test mobile/scripts/release-metadata.test.mjs
+	node scripts/run-node-tests.mjs mobile/scripts/release-metadata.test.mjs
 
-.PHONY: test-resource-theme
-test-resource-theme: tests-install
+.PHONY: test-resource-theme tests-browser-install
+tests-browser-install: tests-install
 	npm --prefix tests exec -- playwright install chromium --only-shell
-	node --test tests/resource-theme.test.js
+
+test-resource-theme: tests-browser-install
+	node scripts/run-node-tests.mjs tests/resource-theme.test.js
 
 .PHONY: test-resource-page-integration
 test-resource-page-integration:
 	LOOPAWARE_TEST_SUITE=test:resource-pages ./tests/scripts/run-integration.sh
+
+.PHONY: first-failure-check
+FIRST_FAILURE_SCENARIO ?= node-same-file
+FIRST_FAILURE_ARGUMENTS ?=
+first-failure-check:
+	node tests/first-failure/qualify.mjs "$(FIRST_FAILURE_SCENARIO)" $(FIRST_FAILURE_ARGUMENTS)
+
+.PHONY: first-failure-pytest-tools
+first-failure-pytest-tools:
+	env -i PATH="$${PATH}" HOME="$${HOME}" TMPDIR="$${TMPDIR:-/tmp}" CI=1 UV_KEYRING_PROVIDER=disabled uv --no-config run --no-project --default-index https://pypi.org/simple --python 3.13 --with ansible-core==2.19.8 --with pytest==9.0.2 python -B -c 'import importlib.metadata as metadata; print("ansible-core=" + metadata.version("ansible-core")); print("pytest=" + metadata.version("pytest"))'
+
+.PHONY: first-failure-monitor-format
+first-failure-monitor-format:
+	gofmt -w tools/testmonitor/main.go
+
+.PHONY: first-failure-node-check first-failure-go-check first-failure-pytest-check first-failure-browser-check
+first-failure-node-check:
+	node tests/first-failure/qualify.mjs node-same-file
+	node tests/first-failure/qualify.mjs node-contracts
+	node tests/first-failure/qualify.mjs node-worker-error
+	node tests/first-failure/qualify.mjs make-first-failure
+
+first-failure-go-check:
+	node tests/first-failure/qualify.mjs go-first-failure
+	node tests/first-failure/qualify.mjs go-resistant
+	node tests/first-failure/qualify.mjs go-cleanup-error
+	node tests/first-failure/qualify.mjs go-controls
+
+first-failure-pytest-check: first-failure-pytest-tools
+	node tests/first-failure/qualify.mjs pytest-first-failure
+
+first-failure-browser-check: tests-browser-install
+	node tests/first-failure/qualify.mjs node-browser-cleanup
+	node tests/first-failure/qualify.mjs playwright-first-failure
