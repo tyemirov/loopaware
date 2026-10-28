@@ -27,7 +27,6 @@ import type {
   SiteDashboard,
   Subscriber,
   TrafficInterval,
-  VisitLogEntry,
   VisitTrendPoint,
 } from "./src/types";
 
@@ -516,13 +515,6 @@ function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInte
       <Section title="Locations">
         <Bars items={locations.locations} labelFor={(item) => item.label} valueFor={(item) => item.visit_count} />
       </Section>
-      <Section title="Recent visits">
-        {props.dashboard.stats.recent_visits.length ? (
-          props.dashboard.stats.recent_visits.map((visit, index) => <VisitItem key={`${visit.visitor_id}-${visit.occurred_at}-${index}`} visit={visit} />)
-        ) : (
-          <EmptyInline text="No recent visits in this interval." />
-        )}
-      </Section>
     </View>
   );
 }
@@ -707,16 +699,6 @@ function Bars<T>(props: { items: T[]; labelFor: (item: T) => string; valueFor: (
         <DataBar key={`${props.labelFor(item)}-${index}`} label={props.labelFor(item)} value={props.valueFor(item)} maxValue={maxValue} />
       ))}
     </>
-  );
-}
-
-function VisitItem(props: { visit: VisitLogEntry }) {
-  return (
-    <ListItem
-      title={props.visit.path || props.visit.url || "Visit"}
-      meta={`${compactText(props.visit.browser)} · ${compactText(props.visit.country)} · ${formatDateTime(props.visit.occurred_at)}`}
-      detail={props.visit.referrer ? `Referrer: ${props.visit.referrer}` : compactText(props.visit.visitor_id, "Anonymous visitor")}
-    />
   );
 }
 

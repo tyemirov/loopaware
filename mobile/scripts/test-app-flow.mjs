@@ -27,6 +27,30 @@ const trendPoints = [
   { date: "2026-10-22", page_views: 0, unique_visitors: 0 },
 ];
 
+for (const recentVisits of [[], [{
+  url: "https://example.com/individual-visit", path: "/individual-visit", ip: "192.0.2.1", country: "Test country",
+  browser: "Test browser", user_agent: "Test agent", referrer: "https://referrer.example/", visitor_id: "individual-visitor",
+  occurred_at: 1793131200,
+}]]) {
+  await scenario(`mobile Traffic omits ${recentVisits.length ? "populated" : "empty"} recent visits`, {
+    initialSession: true, trafficProfile: "detailed", trend: () => trendPoints, recentVisits,
+  }, async (app) => {
+    await app.press("Traffic");
+    const expectTraffic = () => {
+      assert.doesNotMatch(app.text(), /Recent visits|No recent visits|individual-visit|individual-visitor|referrer\.example|Test browser/);
+      for (const section of ["Page views", "Visitors", "Returning", "Pages/visitor", "Trend", "Top pages", "Attribution", "Devices", "Locations"]) {
+        assert.ok(app.text().includes(section), `${section} remains visible`);
+      }
+      assert.equal(renderedTrend(app.text())[0][0], "2026-10-21");
+    };
+    expectTraffic();
+    await app.press("1d");
+    expectTraffic();
+    await app.press("Other site");
+    expectTraffic();
+  });
+}
+
 await scenario("detailed Trend ranks unique visitors and preserves page-view values", {
   initialSession: true, trafficProfile: "detailed", trend: () => trendPoints,
 }, async (app) => {
@@ -179,7 +203,7 @@ console.log("mobile app flow checks passed");
 
 /**
  * @param {string} name
- * @param {{ initialSession: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
+ * @param {{ initialSession: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
  * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[] }) => Promise<void>} check
  */
 async function scenario(name, options, check) {
@@ -244,7 +268,7 @@ async function scenario(name, options, check) {
         } else if (/\/visits\/(attribution|engagement|devices|locations)$/.test(path) || (options.dashboardFailure && path.endsWith("/visits/stats"))) {
           status = 409; payload = { error: "metric_unavailable", traffic_profile: "aggregate" };
         } else if (path.endsWith("/visits/stats")) {
-          payload = { site_id: path.split("/")[3], interval, traffic_profile: visibleSite.traffic_profile, visit_count: path.includes("other-site") ? 23 : 12, unique_visitor_count: options.trafficProfile === "detailed" ? 8 : null, top_pages: null, recent_visits: null };
+          payload = { site_id: path.split("/")[3], interval, traffic_profile: visibleSite.traffic_profile, visit_count: path.includes("other-site") ? 23 : 12, unique_visitor_count: options.trafficProfile === "detailed" ? 8 : null, top_pages: null, recent_visits: options.recentVisits ?? null };
         } else if (path.endsWith("/visits/trend")) {
           payload = { site_id: path.split("/")[3], interval, trend: options.trend ? options.trend(path.split("/")[3], interval) : [] };
         } else {
