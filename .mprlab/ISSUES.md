@@ -34,6 +34,34 @@ Implementation of the remaining mobile features remains pending.
 
 ## BugFixes
 
+- [-] [B154] (P1) Preserve Go monitor receipt channels in hosted qualification
+  Goal:
+  Read Go monitor control receipts independently from concurrent user output.
+
+  Evidence:
+  Hosted run `40734417143` failed in `first-failure-go-check` at revision `dafc11c`.
+  The combined test log placed a stdout `# go: ` fragment before the stderr failure marker.
+  The qualifier then failed its receipt assertion in `tests/first-failure/frameworks.mjs`.
+
+  Requirements:
+  - Retain stdout and stderr separately at the process collection boundary.
+  - Read Go monitor control receipts from stderr.
+  - Keep combined output available for human diagnostics.
+  - Preserve native failure events, test selection, and owned cleanup.
+
+  Validation:
+  - Reproduce the mixed-channel presentation without timing assumptions.
+  - Pass the Go monitor qualification cases and applicable local checks.
+  - Verify all required hosted CI jobs for the exact pushed revision.
+
+  Progress:
+  The new public process case reproduced the failed receipt assertion before the correction.
+  The process collector now retains stdout and stderr separately.
+  Go receipt checks read stderr. Native Go JSON checks read stdout.
+  `make first-failure-go-check` and `make first-failure-node-check` passed.
+  Independent review found no necessary corrections.
+  Full local CI and hosted CI remain pending.
+
 - [x] [B153] (P1) Correct Go test monitor diagnostic capitalization
   Goal:
   Pass the required static analysis for the shared Go test monitor.

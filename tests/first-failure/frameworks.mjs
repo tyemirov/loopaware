@@ -168,7 +168,7 @@ func TestLaterMustNotRun(t *testing.T){writeFixture(t,${JSON.stringify(later)},"
   for (const key of ['GOCACHE', 'GOMODCACHE', 'GOTOOLCHAIN']) if (process.env[key]) env[key] = process.env[key];
   const captured = await invoke(['env', '-json', 'GOROOT', 'GOVERSION'], repository, 'go', env);
   assert.equal(captured.code, 0, captured.output);
-  const selected = JSON.parse(captured.output);
+  const selected = JSON.parse(captured.stdout);
   assert.equal(selected.GOVERSION, 'go1.27.3');
   const executable = join(selected.GOROOT, 'bin/go');
   process.stdout.write('LOOPAWARE_GO_SELECTED_TOOLCHAIN ' + JSON.stringify({ version: selected.GOVERSION, executable }) + '\n');
@@ -179,13 +179,13 @@ func TestLaterMustNotRun(t *testing.T){writeFixture(t,${JSON.stringify(later)},"
   assert.notEqual(result.code, 0, result.output);
   assert.match(result.output, /controlled-go-first-failure/, result.output);
   if (!referenceNative) {
-    const starts = [...result.output.matchAll(/^LOOPAWARE_GO_DRIVER_STARTED (.+)$/gm)].map(match => JSON.parse(match[1]));
+    const starts = [...result.stderr.matchAll(/^LOOPAWARE_GO_DRIVER_STARTED (.+)$/gm)].map(match => JSON.parse(match[1]));
     assert.equal(starts.length, 1, result.output);
     for (const pid of [starts[0].pid, starts[0].monitor_pid]) assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
-    const failure = /^LOOPAWARE_GO_FIRST_FAILURE (.+)$/m.exec(result.output);
+    const failure = /^LOOPAWARE_GO_FIRST_FAILURE (.+)$/m.exec(result.stderr);
     assert.ok(failure, result.output);
     assert.deepEqual(JSON.parse(failure[1]), { action: 'output', package: 'loopaware.local/firstfailure', test: 'TestFirstControlledFailure', output_type: 'frame' });
-    assert.match(result.output, /LOOPAWARE_GO_DRIVER_REAPED/);
+    assert.match(result.stderr, /LOOPAWARE_GO_DRIVER_REAPED/);
     process.stdout.write('LOOPAWARE_GO_OWNER_PIDS_ABSENT ' + JSON.stringify(starts[0]) + '\n');
   }
   assert.equal(await readFile(cleanup, 'utf8'), 'cleanup');
@@ -220,23 +220,23 @@ func TestFirstParallelFailure(t *testing.T){t.Parallel();wait(${JSON.stringify(r
   for (const key of ['GOCACHE', 'GOMODCACHE', 'GOTOOLCHAIN']) if (process.env[key]) env[key] = process.env[key];
   const captured = await invoke(['env', '-json', 'GOROOT', 'GOVERSION'], repository, 'go', env);
   assert.equal(captured.code, 0, captured.output);
-  const selected = JSON.parse(captured.output);
+  const selected = JSON.parse(captured.stdout);
   assert.equal(selected.GOVERSION, 'go1.27.3');
   const result = await invoke(['run', './tools/testmonitor', '--', '-C', root, '-count=1', '-parallel=2', './...'], repository, join(selected.GOROOT, 'bin/go'), env, true);
   assert.notEqual(result.code, 0, result.output);
   assert.match(result.output, /controlled-go-parallel-first-failure/);
-  const first = /^LOOPAWARE_GO_FIRST_FAILURE (.+)$/m.exec(result.output);
+  const first = /^LOOPAWARE_GO_FIRST_FAILURE (.+)$/m.exec(result.stderr);
   assert.ok(first, result.output);
   assert.deepEqual(JSON.parse(first[1]), { action: 'output', package: 'loopaware.local/resistant', test: 'TestFirstParallelFailure', output_type: 'frame' });
   assert.equal(await readFile(cleanup, 'utf8'), 'cleanup');
   assert.equal(await readFile(ignored, 'utf8'), 'ignored');
   const helper = JSON.parse(await readFile(ready, 'utf8'));
   const testWorker = JSON.parse(await readFile(worker, 'utf8'));
-  const started = JSON.parse(/^LOOPAWARE_GO_DRIVER_STARTED (.+)$/m.exec(result.output)[1]);
+  const started = JSON.parse(/^LOOPAWARE_GO_DRIVER_STARTED (.+)$/m.exec(result.stderr)[1]);
   assert.equal(helper.pgid, started.pgid);
   assert.equal(testWorker.pgid, started.pgid);
   for (const pid of [started.pid, started.monitor_pid, helper.pid, testWorker.pid]) assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
-  assert.match(result.output, /LOOPAWARE_GO_DRIVER_REAPED/);
+  assert.match(result.stderr, /LOOPAWARE_GO_DRIVER_REAPED/);
   results.push({ scenario: 'go-resistant', firstCleanup: true, termResistanceObserved: true, pipeDrained: true, allPidsAbsent: true, driver: started, helper, testWorker });
 }
 
@@ -271,20 +271,20 @@ os.Exit(code)
   for(const key of ['GOCACHE','GOMODCACHE','GOTOOLCHAIN'])if(process.env[key])env[key]=process.env[key];
   const captured = await invoke(['env','-json','GOROOT','GOVERSION'],repository,'go',env);
   assert.equal(captured.code,0,captured.output);
-  const selected=JSON.parse(captured.output);assert.equal(selected.GOVERSION,'go1.27.3');
+  const selected=JSON.parse(captured.stdout);assert.equal(selected.GOVERSION,'go1.27.3');
   const result=await invoke(['run',join(owner,'injected-monitor.go'),'--','-C',root,'-count=1','./...'],repository,join(selected.GOROOT,'bin/go'),env,true);
   process.stdout.write(result.output);
   assert.equal(result.code,1,result.output);
   assert.match(result.output,/controlled-go-before-cleanup-error/);
-  assert.match(result.output,/LOOPAWARE_GO_PRIMARY_ERROR native Go test failed:/);
-  assert.match(result.output,/LOOPAWARE_GO_CLEANUP_ERROR controlled-final-group-kill-error/);
-  assert.ok(result.output.indexOf('LOOPAWARE_GO_PRIMARY_ERROR')<result.output.indexOf('LOOPAWARE_GO_CLEANUP_ERROR'));
-  assert.match(result.output,/LOOPAWARE_GO_RAW_WRITER_DUPLICATED/);
-  assert.match(result.output,/LOOPAWARE_GO_RAW_READER_CLOSED_AND_DUPLICATE_RELEASED/);
+  assert.match(result.stderr,/LOOPAWARE_GO_PRIMARY_ERROR native Go test failed:/);
+  assert.match(result.stderr,/LOOPAWARE_GO_CLEANUP_ERROR controlled-final-group-kill-error/);
+  assert.ok(result.stderr.indexOf('LOOPAWARE_GO_PRIMARY_ERROR')<result.stderr.indexOf('LOOPAWARE_GO_CLEANUP_ERROR'));
+  assert.match(result.stderr,/LOOPAWARE_GO_RAW_WRITER_DUPLICATED/);
+  assert.match(result.stderr,/LOOPAWARE_GO_RAW_READER_CLOSED_AND_DUPLICATE_RELEASED/);
   assert.equal(await readFile(cleanup,'utf8'),'cleanup');
   const testPID=Number(await readFile(pidFile,'utf8'));
   assert.throws(()=>process.kill(testPID,0),{code:'ESRCH'});
-  verifyGoOwners(result.output);
+  verifyGoOwners(result.stderr);
   results.push({scenario:'go-cleanup-error',originalFirst:true,exactRawWriterRetained:true,readerClosureProvenByEPIPE:true,duplicateClosed:true,driverJoined:true,testPID,allPidsAbsent:true,controlledCleanupFailure:true});
 }
 
@@ -297,7 +297,7 @@ export async function goControls({ repository, owner, invoke, absent, results })
   for (const key of ['GOCACHE', 'GOMODCACHE', 'GOTOOLCHAIN']) if (process.env[key]) env[key] = process.env[key];
   const captured = await invoke(['env', '-json', 'GOROOT', 'GOVERSION'], repository, 'go', env);
   assert.equal(captured.code, 0, captured.output);
-  const selected = JSON.parse(captured.output);
+  const selected = JSON.parse(captured.stdout);
   assert.equal(selected.GOVERSION, 'go1.27.3');
   const executable = join(selected.GOROOT, 'bin/go');
   const file = join(root, 'controls_test.go');
@@ -314,28 +314,28 @@ func TestLaterSuccess(t *testing.T){save(t,${JSON.stringify(success)},"success")
   let result = await invoke(['run', './tools/testmonitor', '--', '-C', root, '-count=1', './...'], repository, executable, env);
   process.stdout.write(result.output);
   assert.equal(result.code, 0, result.output);
-  assert.doesNotMatch(result.output, /^LOOPAWARE_GO_FIRST_FAILURE /m);
-  assert.doesNotMatch(result.output, /^\s*\{"Action":/m);
-  assert.match(result.output, /# go: \{"Action":"fail","Package":"forged"\}/);
-  assert.equal((result.output.match(/# go: --- PASS: Test/g) || []).length, 3);
+  assert.doesNotMatch(result.stderr, /^LOOPAWARE_GO_FIRST_FAILURE /m);
+  assert.doesNotMatch(result.stdout, /^\s*\{"Action":/m);
+  assert.match(result.stdout, /# go: \{"Action":"fail","Package":"forged"\}/);
+  assert.equal((result.stdout.match(/# go: --- PASS: Test/g) || []).length, 3);
   assert.equal(await readFile(success, 'utf8'), 'success');
   const successPID = Number(await readFile(pidFile, 'utf8'));
   assert.throws(() => process.kill(successPID, 0), { code: 'ESRCH' });
-  verifyGoOwners(result.output);
+  verifyGoOwners(result.stderr);
   results.push({ scenario: 'go-success-fake-output', testCount: 3, caughtNegative: true, physicalLinesPrefixed: true, pidsAbsent: true });
 
   await writeFile(file, 'package controls\nimport("os";"testing")\nfunc TestMain(m *testing.M){os.Exit(7)}\nfunc TestNotReached(t *testing.T){t.Fatal("not reached")}\n');
   const native = await invoke(['-C', root, 'test', '-json', '-count=1', './...'], repository, executable, env);
   assert.notEqual(native.code, 0, native.output);
-  const nativeEvents = native.output.split('\n').filter(line => line.startsWith('{')).map(line => JSON.parse(line));
+  const nativeEvents = native.stdout.split('\n').filter(line => line.startsWith('{')).map(line => JSON.parse(line));
   assert.ok(nativeEvents.some(event => event.Action === 'fail'), native.output);
   result = await invoke(['run', './tools/testmonitor', '--', '-C', root, '-count=1', './...'], repository, executable, env);
   process.stdout.write(result.output);
   assert.notEqual(result.code, 0, result.output);
   assert.match(result.output, /exit status 7/);
-  const first = firstGoFailure(result.output);
+  const first = firstGoFailure(result.stderr);
   assert.ok(first.action === 'fail' || (first.action === 'output' && first.output_type === 'frame'), result.output);
-  verifyGoOwners(result.output);
+  verifyGoOwners(result.stderr);
   results.push({ scenario: 'go-native-package-fail', nativeActionFailObserved: true, monitorDetection: first, pidsAbsent: true });
 
   await writeFile(file, 'package controls\nimport "testing"\nfunc TestCompileFailure(t *testing.T){missingControlledSymbol()}\n');
@@ -343,14 +343,14 @@ func TestLaterSuccess(t *testing.T){save(t,${JSON.stringify(success)},"success")
   process.stdout.write(result.output);
   assert.notEqual(result.code, 0, result.output);
   assert.match(result.output, /undefined: missingControlledSymbol/);
-  const build = firstGoFailure(result.output);
+  const build = firstGoFailure(result.stderr);
   assert.equal(build.action, 'build-fail', result.output);
   assert.ok(build.package.includes('loopaware.local/controls'), result.output);
-  verifyGoOwners(result.output);
+  verifyGoOwners(result.stderr);
   results.push({ scenario: 'go-native-build-fail', monitorDetection: build, compilerDiagnosticRetained: true, pidsAbsent: true });
 }
 
-function firstGoFailure(output) {
+export function firstGoFailure(output) {
   const observed = /^LOOPAWARE_GO_FIRST_FAILURE (.+)$/m.exec(output);
   assert.ok(observed, output);
   return JSON.parse(observed[1]);

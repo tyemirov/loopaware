@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { playwrightFirstFailure, matrixFirstFailure, makeFirstFailure, goFirstFailure, goResistant, goControls, goCleanupError } from './frameworks.mjs';
+import { playwrightFirstFailure, matrixFirstFailure, makeFirstFailure, goFirstFailure, goResistant, goControls, goCleanupError, firstGoFailure } from './frameworks.mjs';
 
 import { composeFirstFailure } from './compose.mjs';
 
@@ -28,16 +28,18 @@ async function absent(file) {
 }
 
 /** @param {string[]} args @param {string} [cwd] @param {string} [executable] */
-async function invoke(args, cwd = repository, executable = process.execPath, env = process.env, live = false) {
-  const child = spawn(executable, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
+async function invoke(args, cwd = repository, executable = process.execPath, env = process.env, live = false, launch = spawn) {
+  const child = launch(executable, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
   active.add(child);
   let output = '';
+  let stdout = '';
+  let stderr = '';
   process.stdout.write('LOOPAWARE_QUALIFIER_CHILD_STARTED ' + JSON.stringify({ pid: child.pid }) + '\n');
-  child.stdout.on('data', chunk => { output += chunk; if (live) process.stdout.write(chunk); });
-  child.stderr.on('data', chunk => { output += chunk; if (live) process.stdout.write(chunk); });
+  child.stdout.on('data', chunk => { stdout += chunk; output += chunk; if (live) process.stdout.write(chunk); });
+  child.stderr.on('data', chunk => { stderr += chunk; output += chunk; if (live) process.stdout.write(chunk); });
   const result = await new Promise((done, reject) => {
     child.once('error', reject);
-    child.once('close', (code, signal) => done({ code, signal, pid: child.pid, output }));
+    child.once('close', (code, signal) => done({ code, signal, pid: child.pid, output, stdout, stderr }));
   });
   active.delete(child);
   assert.throws(() => process.kill(result.pid, 0), { code: 'ESRCH' });
@@ -47,6 +49,24 @@ async function invoke(args, cwd = repository, executable = process.execPath, env
   }
   process.stdout.write(`LOOPAWARE_QUALIFIER_CHILD_CLOSED ${JSON.stringify({ pid: result.pid, code: result.code, signal: result.signal })}\n`);
   return result;
+}
+
+async function goReceiptChannels() {
+  const file = join(owner, 'receipt-channels.mjs');
+  const receipt = { action: 'output', package: 'loopaware.local/channelprobe', test: 'TestFailure', output_type: 'frame' };
+  const diagnostic = `LOOPAWARE_GO_FIRST_FAILURE ${JSON.stringify(receipt)}\n`;
+  await writeFile(file, `process.stdin.once('data',()=>{process.stderr.write(${JSON.stringify(diagnostic)});process.exitCode=1;});process.stdout.write('# go: ');\n`);
+  const result = await invoke([file], repository, process.execPath, process.env, false, (command, args, options) => {
+    const child = spawn(command, args, { ...options, stdio: ['pipe', 'pipe', 'pipe'] });
+    child.stdout.once('data', () => child.stdin.end('continue\n'));
+    return child;
+  });
+  assert.equal(result.code, 1, result.output);
+  assert.equal(result.output, `# go: ${diagnostic}`);
+  assert.equal(result.stdout, '# go: ');
+  assert.equal(result.stderr, diagnostic);
+  assert.deepEqual(firstGoFailure(result.stderr), receipt);
+  results.push({ scenario: 'go-receipt-channels', mixedPresentationReproduced: true, receiptPreserved: true });
 }
 
 async function sameFile() {
@@ -312,6 +332,7 @@ try {
   else if (scenario === 'playwright-first-failure') await playwrightFirstFailure({ repository, owner, invoke, absent, results });
   else if (scenario === 'matrix-first-failure') await matrixFirstFailure({ repository, owner, invoke, results });
   else if (scenario === 'make-first-failure') await makeFirstFailure({ repository, owner, invoke, absent, results });
+  else if (scenario === 'go-receipt-channels') await goReceiptChannels();
   else if (scenario === 'go-first-failure') await goFirstFailure({ repository, owner, invoke, absent, results, referenceNative });
   else if (scenario === 'go-resistant') await goResistant({ repository, owner, invoke, absent, results });
   else if (scenario === 'go-cleanup-error') await goCleanupError({ repository, owner, invoke, results });

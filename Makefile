@@ -410,6 +410,7 @@ first-failure-node-check:
 	node tests/first-failure/qualify.mjs make-first-failure
 
 first-failure-go-check:
+	node tests/first-failure/qualify.mjs go-receipt-channels
 	node tests/first-failure/qualify.mjs go-first-failure
 	node tests/first-failure/qualify.mjs go-resistant
 	node tests/first-failure/qualify.mjs go-cleanup-error
