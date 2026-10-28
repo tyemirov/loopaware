@@ -17,7 +17,8 @@
     "react-native-safe-area-context": "~5.9.1",
     "node-forge": "file:vendor/node-forge",
     "braces": "file:vendor/braces",
-    "expo-build-properties": "~57.0.22"
+    "expo-build-properties": "~57.0.22",
+    "deepmerge": "file:vendor/deepmerge"
   },
   "devDependencies": {
     "@react-native-community/cli": "20.2.0",
@@ -45,7 +46,9 @@
     "test:app-flow": "node scripts/test-app-flow.mjs",
     "typecheck": "tsc --noEmit",
     "validate-config": "node scripts/validate-mobile-config.mjs",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "audit:deepmerge": "node scripts/audit-deepmerge-security.mjs",
+    "audit:dependencies": "node scripts/audit-dependencies.mjs"
   },
   "private": true,
   "overrides": {
@@ -67,6 +70,7 @@
     "braces": "$braces",
     "@expo/cli@57.0.32": {
       "zod": "4.6.7"
-    }
+    },
+    "deepmerge": "$deepmerge"
   }
 }

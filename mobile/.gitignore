@@ -8,6 +8,8 @@ node_modules/
 dist/
 !/vendor/image-size/dist/
 !/vendor/image-size/dist/**
+!/vendor/deepmerge/dist/
+!/vendor/deepmerge/dist/**
 web-build/
 expo-env.d.ts
 

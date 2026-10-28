@@ -17,6 +17,7 @@ export function preparationSources(repository) {
   const deleted = new Set(select(['--deleted']));
   return [...new Set(select(['--cached', '--others', '--exclude-standard']))].filter(name => {
     if (deleted.has(name) || name.endsWith('/AGENTS.md') || name === 'mobile/.gitignore') return false;
+    if (/^mobile\/scripts\/[^/]+\.test\.mjs$/.test(name)) return false;
     const parts = name.split('/');
     if (['prepared', 'android', 'ios'].includes(parts[1])) return false;
     if (parts.some(part => ['node_modules', 'Pods', 'build', 'DerivedData', '.gradle', '.kotlin', '.cxx', '.expo', 'xcuserdata', '.git'].includes(part) || part.startsWith('.env') || ['local.properties', '.xcode.env.local', '.DS_Store'].includes(part))) return false;

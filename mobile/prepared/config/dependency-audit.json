@@ -1,0 +1,19 @@
+{
+  "schema": "loopaware.dependency-audit.v1",
+  "reviewed_at": "2026-10-27",
+  "review_after": "2026-11-12",
+  "remediations": [
+    {
+      "advisory": "GHSA-gcqx-w48m-w2h4",
+      "package": "deepmerge",
+      "version": "4.3.1",
+      "patch": "vendor/deepmerge/PROTOTYPE-CORRECTION.patch",
+      "upstream": {
+        "pull_request": "https://github.com/TehShrike/deepmerge/pull/274"
+      },
+      "installations": [
+        "node_modules/deepmerge"
+      ]
+    }
+  ]
+}
