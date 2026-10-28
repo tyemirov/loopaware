@@ -104,18 +104,18 @@ func childArguments(args []string) ([]string, error) {
 	prefix := []string{}
 	if len(args) > 0 && args[0] == "-C" {
 		if len(args) < 3 {
-			return nil, errors.New("Go monitor -C requires a directory and test selection")
+			return nil, errors.New("go monitor -C requires a directory and test selection")
 		}
 		prefix = append(prefix, "-C", args[1])
 		args = args[2:]
 	}
 	if len(args) == 0 {
-		return nil, errors.New("Go monitor requires an explicit test selection")
+		return nil, errors.New("go monitor requires an explicit test selection")
 	}
 	for _, arg := range args {
 		name := strings.SplitN(arg, "=", 2)[0]
 		if name == "-json" || name == "-v" || name == "-failfast" {
-			return nil, errors.New("Go monitor owns JSON framing and first-failure flags")
+			return nil, errors.New("go monitor owns JSON framing and first-failure flags")
 		}
 	}
 	return append(append(prefix, "test", "-json", "-failfast"), args...), nil
@@ -177,7 +177,7 @@ func runWithDependencies(args []string, signalOwned func(int, syscall.Signal) er
 			owner.mutex.Lock()
 			owner.interrupt = selected
 			owner.mutex.Unlock()
-			owner.fail(fmt.Errorf("Go monitor interrupted by %s", selected))
+			owner.fail(fmt.Errorf("go monitor interrupted by %s", selected))
 			owner.cleanup(signalOwned(pid, syscall.SIGTERM))
 		case <-stopSignals:
 		}
