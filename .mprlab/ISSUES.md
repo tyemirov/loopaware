@@ -34,7 +34,7 @@ Implementation of the remaining mobile features remains pending.
 
 ## BugFixes
 
-- [-] [B154] (P1) Preserve Go monitor receipt channels in hosted qualification
+- [!] [B154] (P1) {B147} Preserve Go monitor receipt channels in hosted qualification
   Goal:
   Read Go monitor control receipts independently from concurrent user output.
 
@@ -60,7 +60,15 @@ Implementation of the remaining mobile features remains pending.
   Go receipt checks read stderr. Native Go JSON checks read stdout.
   `make first-failure-go-check` and `make first-failure-node-check` passed.
   Independent review found no necessary corrections.
-  Full local CI and hosted CI remain pending.
+  Full local CI passed the Go and Node checks, static analysis, backend tests, and native mobile checks.
+  It then failed B147 archive `ETARGET` recovery with Gateway v7.0.8: 17 cases passed and one failed.
+  Hosted run `40741303218` tested revision `69afa4d21b0d06f8d65a5140ba68e150a8ac21fc`.
+  Static checks, backend tests, Integration 1/3, and Integration 3/3 passed.
+  Hosted Go receipt, native failure, resistant process, cleanup, and compiler cases passed.
+  Mobile checks failed the same B147 case. Fail-fast cancelled Integration 2/3.
+  The aggregate gate failed.
+  Changed files: `Makefile`, `tests/first-failure/qualify.mjs`, `tests/first-failure/frameworks.mjs`, and this tracker.
+  Blocked: Full CI requires the published Gateway release that contains B685, then qualification of that runtime for B147.
 
 - [x] [B153] (P1) Correct Go test monitor diagnostic capitalization
   Goal:
@@ -264,7 +272,7 @@ Implementation of the remaining mobile features remains pending.
   Canonical CI now retains these focused checks in groups with their declared tools.
   Final focused validation, Compose cleanup evidence, and cumulative CI remain pending.
 
-- [ ] [B147] (P0) Preserve npm archive visibility observation after publication
+- [!] [B147] (P0) Preserve npm archive visibility observation after publication
   Goal:
   Check the exact npm archive within the existing publication time limit after the version becomes visible.
 
@@ -286,6 +294,10 @@ Implementation of the remaining mobile features remains pending.
   The fixture uses the real SDK capture boundary with synthetic declared inputs.
   Qualification of archive `ETARGET` requires the Gateway release that contains B685.
   Final canonical CI remains pending that qualified runtime.
+  Hosted run `40741303218` and local CI failed archive `ETARGET` recovery with Gateway v7.0.8.
+  Both runs passed 17 policy cases before this failure.
+  The published release list still identifies v7.0.8 as the latest release on October 28, 2026.
+  Blocked: Publish the Gateway release with B685, select that installed runtime, and pass the complete policy regression.
 
 - [x] [B146] (P1) {B145} Preserve report navigation during the settings opening transition
   Goal:
