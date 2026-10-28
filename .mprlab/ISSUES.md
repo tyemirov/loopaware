@@ -28,10 +28,33 @@ The shared backend interval parser rejects `interval=7days`.
 Within F019, reuse existing queries and extend interval acceptance before the mobile selector uses `7days` across traffic panels.
 Complete these issues sequentially with the applicable validation for each issue.
 This sequence covers the reported mobile requests. Other backlog work retains its existing priority.
-B149 has source changes and focused validation. Full validation awaits B150 and B151.
-Implementation of the other mobile requests remains pending.
+B149, B150, B151, and I050 have source changes and passing focused checks.
+Full validation awaits B147 SDK qualification.
+Implementation of the remaining mobile features remains pending.
 
 ## BugFixes
+
+- [x] [B153] (P1) Correct Go test monitor diagnostic capitalization
+  Goal:
+  Pass the required static analysis for the shared Go test monitor.
+
+  Evidence:
+  Cumulative CI for B150 and B151 passed the security audit and mobile type checks, then failed in `make lint`.
+  Staticcheck reported four `ST1005` findings in `tools/testmonitor/main.go` for error strings that start with `Go`.
+
+  Requirements:
+  - Use lowercase initial words in those four error strings.
+  - Preserve test selection, failure detection, and owned cleanup behavior.
+
+  Validation:
+  - Run `make first-failure-go-check`.
+  - Pass `make lint` through final `make ci`.
+
+  Resolution:
+  Corrected the four error strings without changes to monitor behavior.
+  `make first-failure-go-check` passed. Final CI also passed `make lint` and both Go test stages.
+  The later B147 publication test failure is separate from this diagnostic correction.
+  Changed files: `tools/testmonitor/main.go` and this tracker.
 
 - [-] [B152] (P0) Correct deepmerge prototype poisoning in mobile dependencies
   Goal:
@@ -68,7 +91,7 @@ Implementation of the other mobile requests remains pending.
   Fresh independent review found no bypass or regression in the selected correction.
   Cumulative CI remains pending until B147 selects the qualified SDK.
 
-- [ ] [B151] (P1) Correct shared Node runner errors in mobile type checks
+- [!] [B151] (P1) {B147} Correct shared Node runner errors in mobile type checks
   Goal:
   Restore the required mobile TypeScript check with the shared test runner.
 
@@ -95,9 +118,20 @@ Implementation of the other mobile requests remains pending.
   The original metadata regression passed all seven cases.
   `CI=1 make mobile-prepared-tracking-check mobile-check` passed in 10.430 seconds.
   Shared first-failure qualification passed in 3.066 seconds.
-  Final cumulative `make ci` remains pending.
+  Independent review found named test variants outside owned cancellation.
+  The added public named `todo` regression reproduced execution after the first failure.
+  Named variants now use the same wrapped functions as `test.skip`, `test.todo`, `test.only`, and `test.expectFailure`.
+  All shared Node qualification cases passed after correction, including named variants and their ordinary behavior controls.
+  Final CI passed full mobile checks, native preparation checks, and both production JavaScript bundles.
 
-- [ ] [B150] (P0) Correct the Go dependency vulnerability that blocks CI
+  Blocked:
+  Final CI stopped at the B147 archive `ETARGET` recovery case with Gateway v7.0.8.
+  The deployment tests passed 17 cases before that first failure. Cumulative acceptance remains pending SDK qualification.
+
+  Changed files:
+  `scripts/native-test.mjs`, `tests/first-failure/qualify.mjs`, and the prepared source filter and its regression coverage.
+
+- [!] [B150] (P0) {B147} Correct the Go dependency vulnerability that blocks CI
   Goal:
   Pass the required Go security audit with the corrected HTML parser dependency.
 
@@ -117,7 +151,16 @@ Implementation of the other mobile requests remains pending.
   Current result:
   Favicon behavior and module consistency passed in 5.044 seconds.
   The complete security audit passed in 21.131 seconds after the B152 correction.
-  Final cumulative CI remains pending.
+  The selected `golang.org/x/net` v0.62.0 correction is already present in the checkout.
+  Fresh independent investigation and review found no remaining path through the reported parser vulnerability.
+  Final CI passed the complete security audit, module consistency, lint, Go tests, and race checks.
+
+  Blocked:
+  Final CI stopped at the separate B147 archive `ETARGET` recovery case with Gateway v7.0.8.
+  The published Gateway release list still identifies v7.0.8 as the latest release on October 28, 2026.
+  Cumulative acceptance remains pending SDK qualification.
+
+  Changed files: `go.mod`, `go.sum`, and this tracker.
 
 - [!] [B149] (P1) {B150,B151} Sort mobile Trend rows by unique visit count
   Goal:
@@ -161,9 +204,9 @@ Implementation of the other mobile requests remains pending.
   Independent architecture review found no blocking code findings.
 
   Blocked:
-  Final `CI=1 make ci` stopped at the Go security audit recorded in B150.
-  The separate complete mobile TypeScript check failed in the existing shared runner, recorded in B151.
-  Full validation remains pending. The issue remains open.
+  The October 28 final CI run cleared the original B150 and B151 failures.
+  It stopped at B147 archive `ETARGET` recovery with Gateway v7.0.8.
+  Full validation remains pending SDK qualification. The issue remains open.
 
   Changed files:
   `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/scripts/test-app-flow.mjs`, and `mobile/scripts/test-api-boundaries.mjs`.
@@ -3282,7 +3325,7 @@ Implementation of the other mobile requests remains pending.
 
 ## Improvements
 
-- [ ] [I050] (P1) Remove Recent visits from the mobile app
+- [!] [I050] (P1) {B147} Remove Recent visits from the mobile app
   Goal:
   Simplify the mobile traffic view through removal of the `Recent visits` section.
 
@@ -3303,7 +3346,24 @@ Implementation of the other mobile requests remains pending.
   - Verify the other traffic sections remain usable in an iOS simulator or Android emulator.
 
   Status:
-  The request is documented. Application implementation remains pending.
+  Removed the card, its visit rows, its empty state, the unused row component, and its unused type import.
+  Added public app-flow coverage for empty and populated visit responses across site and interval changes.
+  The new regression failed before the interface change.
+  `make mobile-check` passed all 17 app-flow scenarios, API checks, and TypeScript checks.
+  Native Maestro checks passed in Expo Go 57 on the iPhone 18 Pro simulator with iOS 27.0.
+  A visual check confirmed that Locations ends the Traffic view with the other traffic sections intact.
+  Independent review found no blocking code findings.
+  The native adapter staged the current product source, and both production JavaScript bundles compiled.
+  Native configuration and dependencies required no changes.
+
+  Blocked:
+  Final CI passed security, lint, Go tests, race checks, mobile checks, and native validation.
+  It stopped at the existing B147 archive `ETARGET` recovery case with Gateway v7.0.8.
+  The deployment tests passed 17 cases before that first failure.
+  Full validation remains pending SDK qualification. The issue remains open.
+
+  Changed files:
+  `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`, and this tracker.
 
 - [x] [I048] (P1) Update the approved managed governance files
   Goal: Satisfy the reviewed production preflight prerequisite.
