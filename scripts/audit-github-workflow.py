@@ -28,8 +28,11 @@ try:
         re.findall(r"(?m)^\s+shard: (\d+/\d+)$", workflow_source) == ["1/3", "2/3", "3/3"],
         "github_workflow_audit_failed: integration shards must cover all three partitions",
     )
+    require(
+        re.search(r"(?m)^    strategy:\n      fail-fast: true\n      matrix:$", workflow_source) is not None,
+        "github_workflow_audit_failed: matrix must stop sibling jobs after failure",
+    )
     for contract in (
-        "fail-fast: false",
         "LOOPAWARE_TEST_SHARD: ${{ matrix.shard }}",
         "run: make ${{ matrix.target }}",
         "  test:\n    if: always()\n    needs: checks\n",
@@ -64,6 +67,35 @@ try:
         workflow_source.count("      - 'Dockerfile'") == 1,
         "github_workflow_audit_failed: push CI must include the production Dockerfile",
     )
+
+    uv_step = (
+        "      - name: Install uv for deployment policy checks\n"
+        "        if: matrix.target == 'ci-mobile'\n"
+        "        run: |\n"
+        "          python -m pip install --disable-pip-version-check uv==0.12.19\n"
+        "          uv --version\n"
+    )
+    require(
+        workflow_source.count(uv_step) == 1,
+        "github_workflow_audit_failed: install pinned uv for the deployment policy checks",
+    )
+    require(
+        workflow_source.index("      - name: Set up Python for Gateway installation")
+        < workflow_source.index(uv_step) < workflow_source.index("      - name: Run checks"),
+        "github_workflow_audit_failed: install uv after Python and before checks",
+    )
+    require(
+        "ci-mobile: mobile-release-check deployment-npm-visibility-check" in makefile_source,
+        "github_workflow_audit_failed: Mobile CI must include npm visibility policy checks",
+    )
+
+    for contract in (
+        "ci-checks: first-failure-node-check first-failure-go-check ",
+        "deployment-npm-visibility-check: first-failure-pytest-check",
+        "ci-integration: first-failure-browser-check ",
+        "first-failure-browser-check: tests-browser-install",
+    ):
+        require(contract in makefile_source, f"github_workflow_audit_failed: missing first-failure CI path {contract}")
 
     bundletool_step = (
         "      - name: Install bundletool for Mobile checks\n"
