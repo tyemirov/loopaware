@@ -6,7 +6,7 @@ import {
   beforeEach as nativeBeforeEach,
 } from 'node:test';
 
-export { after, afterEach, assert, expectFailure, getTestContext, mock, only, run, skip, snapshot, todo } from 'node:test';
+export { after, afterEach, assert, getTestContext, mock, run, snapshot } from 'node:test';
 
 /** @typedef {(...args: any[]) => Promise<void>} NativeRegistration */
 /** @typedef {'skip'|'todo'|'only'|'expectFailure'} RegistrationVariant */
@@ -92,6 +92,10 @@ function registration(native) {
 
 export const test = registration(nativeTestRegistration);
 export const it = test;
+export const skip = test.skip;
+export const todo = test.todo;
+export const only = test.only;
+export const expectFailure = test.expectFailure;
 export const suite = registration(nativeSuite);
 export const describe = suite;
 /** @type {typeof nativeBefore} */
