@@ -2,36 +2,32 @@
 
 ## Canonical Input
 
-LoopAware stores its npm publication credential in the ignored `configs/.env.loopaware` file.
-The exact assignment name is `NPM_API_KEY`.
+The npm publication input is `NPM_API_KEY`.
 The `react-native-client` resource declares `@loopaware/react-native` at `https://registry.npmjs.org/`.
-The manifest owner, `loopaware`, selects `configs/.env.loopaware`.
+The selected manifest declares `.mprlab/deploy/.env` as its `environment_file`.
 
-Keep the real value in that private file.
-Preserve existing assignments when you prepare or edit the private file.
-Do not put it in a README, issue, command argument, or tracked config file.
+The lifecycle Make targets export `configs/.env.loopaware` before Gateway captures the selected manifest.
+Gateway preserves a process value when the selected environment file has the same assignment.
+Thus the exported `NPM_API_KEY` supplies this input for the lifecycle Make targets.
+Gateway captures the resolved input once. The npm publisher reads that capture.
+It does not read another credential file after capture.
+
+Keep the real value in the existing private file.
+Preserve other assignments when you edit that file.
+Keep the value outside tracked files and command arguments.
 The tracked `configs/.env.loopaware.example` file documents the name with an unusable value.
-Do not copy or load the example as an operational input.
+Keep that example separate from operational inputs.
 
-Gateway reads `NPM_API_KEY` directly from the selected application file during npm publication.
-It removes inherited npm authentication overrides before it starts npm.
-It supplies the credential through standard input as npm user configuration.
-The credential does not need an export from the operator shell.
-
-These inputs do not select the npm publication credential:
-
-- `NPM_TOKEN` or `NODE_AUTH_TOKEN` in the operator shell.
-- A token from `npm login` or the operator's `.npmrc` file.
-- `.mprlab/deploy/.env`, which supplies deployment values.
-- `configs/.env.loopaware.computercat`, which supplies the ComputerCat service configuration.
-
-Keep one canonical assignment. Do not add a second name or another credential file.
+Gateway removes inherited npm authentication overrides before it starts npm.
+It supplies the captured credential through standard input as npm user configuration.
+`NPM_TOKEN`, `NODE_AUTH_TOKEN`, `npm login`, and the operator's `.npmrc` do not select this publication input.
+Keep the existing input name and credential location.
 
 ## Loading And Authentication
 
 Credential loading and registry authentication are separate results.
 A nonempty local value proves presence, not registry acceptance or package publication authority.
-Gateway reports a private-input error if the canonical file or required assignment is absent or invalid.
+Gateway reports a private-input error if the required captured assignment is absent or invalid.
 An npm HTTP response occurs after this local input check.
 
 Gateway v6.0.0 restored `npm whoami` and account-access probes before publication.
@@ -88,7 +84,8 @@ make release && make publish && make deploy
 
 Release prepares the artifacts. Publication exposes the prepared artifacts. Deployment activates the published version.
 Credential repair does not authorize publication or deployment.
-Keep the existing release record when you diagnose a publication failure.
+A failed lifecycle stage removes local pipeline receipts under the current Gateway contract.
+Use a full canonical lifecycle after the failure is corrected.
 
 ## npm Version Verification
 
@@ -109,22 +106,21 @@ With immediate responses, attempt 1442 occurs at 14,397 seconds and attempt 1443
 The four-hour time limit stops observation before attempt 1443.
 Slower responses can cause the time limit to stop observation earlier.
 
-This policy does not change the upload operation or other publication operations.
-The other operations retain their existing attempt limits.
+The archive read uses the same finite policy as the version check.
+The initial version read and upload retain their existing attempt limits.
 Successful publication still requires the exact version, tag, and archive checks.
 
 On October 13, 2026, npm accepted version `1.1.8`, but four verification attempts stopped at 23:26:38 PDT.
 npm made the version available at 23:27:36 PDT.
 The public archive matched the submitted archive.
 
-To do a test of the deployment policy with an installed Gateway, run this command from the repository root:
+To do a test of the deployment policy, select one installed Gateway executable:
 
 ```bash
-make -f tests/deployment/Makefile test
+MPRLAB_GATEWAY_EXECUTABLE=/absolute/runtime/bin/mprlab-gateway make deployment-npm-visibility-check
 ```
 
-The test uses the active runtime under `~/.local/share/mprlab-gateway/active/runtime`.
-For another installation, set `GATEWAY_RUNTIME` to its runtime directory in the command.
+The test uses that selected executable without another runtime selection.
 The test requires `uv`. It installs isolated Python test dependencies.
 It first calls `app-plan-release` on an independent Git fixture with the unchanged application manifest and a local origin.
 The controller must accept the manifest and capture the source before the injected Ansible child starts.
@@ -145,4 +141,24 @@ They check the actual Git index and reject an additional tracked file in an inde
 Stage file moves before this check because Gateway reads tracked paths from the Git index.
 These checks prove envelope validation, not execution of the full lifecycle.
 
-This deployment integration test is separate from application CI because it requires an installed Gateway runtime.
+The canonical `ci-mobile` target includes this deployment integration test.
+The hosted Mobile job installs the selected Gateway and `uv==0.12.19` before this target.
+The other CI jobs do not require these tools.
+
+## npm Archive Visibility
+
+The `app_publish.npm.archive_read` operation checks the exact package archive after the version and tag checks.
+It uses the version-check intervals and `attempt_limit: 1443` within the unchanged four-hour publication time limit.
+A shorter parent time limit still stops the operation earlier.
+Terminal authentication and permission errors stop immediately.
+The initial version read and upload keep their previous policies.
+
+On October 27, 2026, publication and version checks passed before an archive read returned `ETARGET` at 20:45:34 UTC.
+Public metadata and the archive returned HTTP 200 at 20:46:42 UTC.
+These observations do not establish when archive visibility recovered.
+The Gateway correction for B685 classifies the archive-specific `ETARGET` as retryable.
+B147 qualification of that correction requires the published, installed Gateway release that contains it.
+
+The public policy tests use controlled time and provider responses with the real installed Gateway.
+They verify archive recovery after four attempts, finite exhaustion, shorter parent limits, and terminal errors.
+They also verify that the initial version read and upload retain their previous policies.
