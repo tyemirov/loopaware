@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { test } from 'node:test';
+import { test } from '../scripts/native-test.mjs';
 
 const repository = path.resolve(import.meta.dirname, '..');
 
@@ -12,8 +12,9 @@ test('the resource theme Make target installs locked dependencies in a clean sha
   const fixture = await mkdtemp(path.join(tmpdir(), 'loopaware-resource-theme-command-'));
   try {
     await mkdir(path.join(fixture, 'tests'));
+    await mkdir(path.join(fixture, 'scripts'));
     await mkdir(path.join(fixture, '.cache'));
-    for (const name of ['Makefile', 'tests/package.json', 'tests/package-lock.json']) {
+    for (const name of ['Makefile', 'tests/package.json', 'tests/package-lock.json', 'scripts/run-node-tests.mjs', 'scripts/native-test.mjs']) {
       await cp(path.join(repository, name), path.join(fixture, name));
     }
     // Exercise the real Make recipe with an observable public package import.

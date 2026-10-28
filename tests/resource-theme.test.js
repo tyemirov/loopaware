@@ -1,6 +1,6 @@
 // @ts-check
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test } from '../scripts/native-test.mjs';
 import { createServer } from 'node:http';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';

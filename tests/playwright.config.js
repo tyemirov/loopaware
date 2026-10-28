@@ -23,6 +23,7 @@ export default defineConfig({
   testDir: './specs',
   fullyParallel: false,
   workers: 1,
+  maxFailures: 1,
   timeout: 90_000,
   expect: {
     timeout: 15_000

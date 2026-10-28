@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { resolve, join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
-import test from 'node:test';
+import test from '../../scripts/native-test.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
 const nativeFiles = [
@@ -66,6 +66,25 @@ function withFixture(check) {
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+  test('canonical preparation excludes repository regressions and retains runtime commands', () => withFixture(fixture => {
+    const regression = 'release-metadata.test.mjs';
+    writeFileSync(join(fixture.mobile, 'scripts', regression), 'throw new Error("repository regression is not runtime source");\n');
+    for (const name of ['test-app-flow.mjs', 'test-api-boundaries.mjs']) copyFileSync(join(root, 'mobile/scripts', name), join(fixture.mobile, 'scripts', name));
+    const hook = join(fixture.directory, 'stop-after-source-copy.mjs');
+    writeFileSync(hook, `import cp from 'node:child_process';import{syncBuiltinESMExports}from'node:module';
+const actual=cp.spawnSync;cp.spawnSync=(command,args,options)=>{if(command==='git')return actual(command,args,options);if(command==='npm')return {status:23};throw new Error('unexpected preparation boundary: '+command);};syncBuiltinESMExports();\n`);
+    const result = spawnSync(process.execPath, ['--import', hook, join(fixture.mobile, 'scripts/prepare-store.mjs')], {
+      env: fixture.environment, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    assert.equal(result.status, 23, result.stderr);
+    assert.equal(existsSync(join(fixture.prepared, 'scripts', regression)), false, 'Repository regression must not enter the prepared runtime');
+    assert.equal(readFileSync(join(fixture.prepared, 'src/product.mjs'), 'utf8'), 'export const product = "initial";\n');
+    const metadata = JSON.parse(readFileSync(join(fixture.prepared, 'package.json'), 'utf8'));
+    for (const [name, command] of [['test:app-flow', 'test-app-flow.mjs'], ['test:api-boundaries', 'test-api-boundaries.mjs']]) {
+      assert.equal(metadata.scripts[name], 'node scripts/' + command);
+      assert.equal(existsSync(join(fixture.prepared, 'scripts', command)), true, 'Package-invoked command must remain prepared');
+    }
+  }));
   test('ordinary source and native metadata changes do not invalidate native preparation', () => withFixture(fixture => {
     writeFileSync(join(fixture.mobile, 'src/product.mjs'), 'export const product = "current source";\n');
     writeFileSync(join(fixture.prepared, 'ios/Podfile.lock'), readFileSync(join(fixture.prepared, 'ios/Podfile.lock'), 'utf8') + '\n# native metadata can regenerate\n');

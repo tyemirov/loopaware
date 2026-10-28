@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -24,6 +25,7 @@ from ansible.template import Templar
 MANIFEST_PATH = Path(__file__).resolve().parents[2] / ".mprlab/deploy/resources.yml"
 RESOURCE = "react-native-client"
 VERIFY_OPERATION = "app_publish.npm.version_verify"
+ARCHIVE_OPERATION = "app_publish.npm.archive_read"
 CAPTURE_VARIABLE = "MPRLAB_LISTENER_EXECUTION_POLICY"
 
 
@@ -40,20 +42,53 @@ class Clock:
         self.elapsed += seconds
 
 
+def prepare_synthetic_application(repository: Path, manifest: bytes) -> dict:
+    """Write only declared synthetic inputs for an isolated selected application."""
+    manifest_path = repository / ".mprlab/deploy/resources.yml"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_bytes(manifest)
+    selected_manifest = yaml.safe_load(manifest)["mprlab_resources"]
+    environment_relative_path = selected_manifest["environment_file"]
+    synthetic_environment = repository / environment_relative_path
+    synthetic_environment.parent.mkdir(parents=True, exist_ok=True)
+    synthetic_environment.write_text("".join(
+        f'{name}="synthetic-policy-input"\n' for name in selected_manifest["inputs"]
+    ))
+    (repository / ".gitignore").write_text("/" + environment_relative_path + "\n")
+    return selected_manifest
+
+
+def fixture_environment(directory: Path, executable: Path) -> dict[str, str]:
+    """Allow only tool search and fixture-owned process context into test children."""
+    home = directory / "operator-home"
+    temporary = directory / "temporary"
+    home.mkdir(exist_ok=True)
+    temporary.mkdir(exist_ok=True)
+    return {
+        "PATH": os.environ["PATH"],
+        "HOME": str(home),
+        "TMPDIR": str(temporary),
+        "TMP": str(temporary),
+        "TEMP": str(temporary),
+        "LANG": "C",
+        "CI": "1",
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "MPRLAB_GATEWAY_EXECUTABLE": str(executable),
+    }
+
+
 def controller_plan(executable: Path, directory: Path, manifest: bytes) -> subprocess.CompletedProcess[str]:
     """Validate real source capture and manifest input before the injected Ansible boundary."""
     directory = directory.resolve()
     repository = directory / "app"
-    manifest_path = repository / ".mprlab/deploy/resources.yml"
-    manifest_path.parent.mkdir(parents=True)
-    manifest_path.write_bytes(manifest)
+    prepare_synthetic_application(repository, manifest)
     origin = directory / "origin.git"
     operator = directory / "operator"
     inventory = operator / "inventory/hosts.yml"
     inventory.parent.mkdir(parents=True)
     inventory.write_text("all:\n  hosts:\n    localhost:\n      ansible_connection: local\n")
-    environment = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
-    environment.update(CI="1", GIT_TERMINAL_PROMPT="0")
+    environment = fixture_environment(directory, executable)
 
     def git(*arguments: str) -> None:
         subprocess.run(
@@ -63,7 +98,7 @@ def controller_plan(executable: Path, directory: Path, manifest: bytes) -> subpr
 
     git("init", "--bare", "-b", "master", str(origin))
     git("init", "-b", "master")
-    git("add", ".mprlab/deploy/resources.yml")
+    git("add", ".gitignore", ".mprlab/deploy/resources.yml")
     git("-c", "user.name=Policy fixture", "-c", "user.email=fixture@example.invalid",
         "-c", "commit.gpgsign=false", "commit", "-m", "Publication policy fixture")
     git("remote", "add", "origin", str(origin))
@@ -129,8 +164,8 @@ def run_manifest_envelope(repository: Path, directory: Path, ansible_root: Path)
         },
         "tasks": [read_surface, envelope],
     }]))
-    environment = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
-    environment.update(CI="1", GIT_TERMINAL_PROMPT="0", ANSIBLE_NOCOLOR="1")
+    environment = fixture_environment(directory, ansible_root.parents[1] / "bin/mprlab-gateway")
+    environment["ANSIBLE_NOCOLOR"] = "1"
     return subprocess.run(
         ["ansible-playbook", "-i", "localhost,", str(playbook)],
         env=environment, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30, check=False,
@@ -151,8 +186,7 @@ def test_manifest_envelope_rejects_extra_tracked_file(gateway: tuple[ModuleType,
     forbidden.write_text("Forbidden deployment surface fixture\n")
     manifest = repository / ".mprlab/deploy/resources.yml"
     manifest.write_bytes(MANIFEST_PATH.read_bytes())
-    environment = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
-    environment.update(CI="1", GIT_TERMINAL_PROMPT="0")
+    environment = fixture_environment(tmp_path, ansible_root.parents[1] / "bin/mprlab-gateway")
     for arguments in (("init",), ("add", ".mprlab/deploy")):
         subprocess.run(["git", "-C", str(repository), *arguments], env=environment,
                        stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30, check=True)
@@ -161,54 +195,72 @@ def test_manifest_envelope_rejects_extra_tracked_file(gateway: tuple[ModuleType,
     assert "app_lifecycle.invalid_manifest: selected application must track the single manifest" in result.stdout
 
 
-def normalized_policy(raw: dict, contract: ModuleType) -> dict:
-    """Adapt YAML durations to the controller capture format, without policy resolution."""
-    result = {}
-    if "timeouts" in raw:
-        result["timeouts"] = {
-            name: contract.mprlab_go_duration_nanoseconds(value)
-            for name, value in raw["timeouts"].items()
-        }
-    if "polling" in raw:
-        polling = raw["polling"]
-        result["polling"] = {
-            name + "_ns": 0 if polling[name] == "0s" else contract.mprlab_go_duration_nanoseconds(polling[name])
-            for name in ("initial", "maximum", "increment")
-        } | {name: polling[name] for name in ("multiplier", "attempt_limit")}
-    if "adapter" in raw:
-        result["adapter"] = raw["adapter"]
-    return result
+def synthetic_capture(gateway: tuple[ModuleType, Path], tmp_path: Path) -> dict:
+    action_module, ansible_root = gateway
+    executable = ansible_root.parents[1] / "bin/mprlab-gateway"
+    repository = tmp_path / "application"
+    manifest = prepare_synthetic_application(repository, MANIFEST_PATH.read_bytes())
+    environment = fixture_environment(tmp_path, executable)
+    child = """import json,os,pathlib
+assert "synthetic-ambient-context-must-not-propagate" not in os.environ.values(), "ambient context reached fixture child"
+capture=json.loads(os.environ['MPRLAB_LISTENER_EXECUTION_POLICY'])
+envelope=json.loads(pathlib.Path(capture['path']).read_text())
+print(json.dumps({'descriptor':capture,'envelope':envelope}))
+"""
+    result = subprocess.run(
+        [str(executable), "bootstrap-run", "--repo-root", str(repository.resolve()),
+         "--operation", "app-publish", "--", sys.executable, "-c", child],
+        env=environment, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    captured = json.loads(result.stdout)
+    envelope = captured["envelope"]
+    assert envelope["inputs"] == {name: "synthetic-policy-input" for name in manifest["inputs"]}
+    assert all(value == "synthetic-policy-input" for inputs in envelope["host_inputs"].values()
+               for value in inputs.values())
+    capture_path = tmp_path / "mprlab-captured-manifest-test.json"
+    capture_path.write_text(json.dumps(captured["envelope"]))
+    descriptor = captured["descriptor"]
+    descriptor["path"] = str(capture_path)
+    return json.loads(action_module._contract.mprlab_resource_capture(
+        json.dumps(descriptor), RESOURCE, "app-publish",
+    ))
 
 
 @pytest.fixture
 def capture(gateway: tuple[ModuleType, Path], tmp_path: Path) -> dict:
-    action_module, _ = gateway
-    manifest = yaml.safe_load(MANIFEST_PATH.read_text())["mprlab_resources"]
-    contract = action_module._contract
-    execution = {
-        "defaults": normalized_policy(manifest["defaults"], contract),
-        "operations": {name: normalized_policy(value, contract) for name, value in manifest["operations"].items()},
-        "resources": {
-            name: {operation: normalized_policy(value, contract) for operation, value in resource.get("operations", {}).items()}
-            for name, resource in manifest["resources"].items()
-        },
-    }
-    capture_path = tmp_path / "mprlab-captured-manifest-test.json"
-    capture_path.write_text(json.dumps({"schema_version": 1, "manifest": manifest, "execution": execution}))
-    return {"schema_version": 1, "path": str(capture_path), "operation": "app-publish", "resource": RESOURCE}
+    return synthetic_capture(gateway, tmp_path)
+
+
+def test_bootstrap_capture_excludes_ambient_context(
+    gateway: tuple[ModuleType, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for name in (
+        "NPM_API_KEY", "GH_TOKEN", "GITHUB_TOKEN", "NODE_AUTH_TOKEN",
+        "MPRLAB_CAPTURED_INPUT_ROOT", "MPRLAB_LISTENER_EXECUTION_POLICY",
+        "MPRLAB_TAUTH_MANAGEMENT_URL", "MPRLAB_TAUTH_PROVISIONING_CREDENTIALS",
+        "UNDECLARED_APPLICATION_SECRET",
+    ):
+        monkeypatch.setenv(name, "synthetic-ambient-context-must-not-propagate")
+    synthetic_capture(gateway, tmp_path)
+
 
 
 @pytest.fixture
 def observe(gateway: tuple[ModuleType, Path], capture: dict, monkeypatch: pytest.MonkeyPatch) -> Callable:
     action_module, ansible_root = gateway
-    manifest = action_module._contract.mprlab_captured_manifest(json.dumps(capture))
+    manifest = action_module._contract.mprlab_captured_manifest(json.dumps(capture))["mprlab_resources"]
     retry_policy = yaml.safe_load((ansible_root / "playbooks/vars/app-lifecycle-contract.yml").read_text())["mprlab_network_retry_policy"]
     resource = manifest["resources"][RESOURCE]
-    command = [os.environ["MPRLAB_GATEWAY_EXECUTABLE"], "owned-command-operation", "--", "npm", "view",
-               resource["package"] + "@0.0.0-test", "--json", "--registry", resource["registry"]]
 
     def run(*, ready_after: float = 78, error: str = "E404", operation: str = VERIFY_OPERATION,
             parent_seconds: float | None = None) -> tuple[dict, Clock, list[float]]:
+        package = resource["package"] + "@0.0.0-test"
+        npm_arguments = (["pack", package, "--ignore-scripts", "--json", "--pack-destination", "/synthetic/archive",
+                          "--cache", "/synthetic/archive/cache", "--registry", resource["registry"],
+                          "--userconfig", "/dev/stdin"] if operation == ARCHIVE_OPERATION else
+                         ["view", package, "--json", "--registry", resource["registry"]])
+        command = [os.environ["MPRLAB_GATEWAY_EXECUTABLE"], "owned-command-operation", "--", "npm", *npm_arguments]
         descriptor = capture.copy()
         if parent_seconds is not None:
             descriptor["parent_deadline"] = (datetime.now(timezone.utc) + timedelta(seconds=parent_seconds)).isoformat()
@@ -284,3 +336,75 @@ def test_publish_mutation_keeps_the_existing_retry_policy(gateway: tuple[ModuleT
     plan = action_module._retry.compile_plan(contract.mprlab_execution_polling(policy))
     assert [entry["delay_seconds"] for entry in plan.entries(limit=5)] == [0, 2, 5, 10]
 
+
+
+def test_archive_policy_matches_version_visibility_without_new_deadlines(
+    gateway: tuple[ModuleType, Path], capture: dict,
+) -> None:
+    action_module, _ = gateway
+    contract = action_module._contract
+    archive = contract.mprlab_execution_policy(json.dumps(capture), ARCHIVE_OPERATION)
+    version = contract.mprlab_execution_policy(json.dumps(capture), VERIFY_OPERATION)
+    publish = contract.mprlab_execution_policy(json.dumps(capture), "app_publish.npm.publish")
+    assert contract.mprlab_execution_polling(archive) == contract.mprlab_execution_polling(version)
+    assert contract.mprlab_execution_polling(archive)["attempt_limit"] == 1443
+    for timeout in ("startup", "completion", "readiness", "request", "shutdown"):
+        assert archive[timeout] == publish[timeout]
+    assert archive["completion"] == 4 * 60 * 60 * 1_000_000_000
+
+
+def test_archive_transport_recovers_after_four_attempts(observe: Callable) -> None:
+    result, _, calls = observe(operation=ARCHIVE_OPERATION, error="connection reset")
+    assert result["rc"] == 0, result
+    assert len(calls) > 4
+    assert 78 <= calls[-1] < 88
+
+
+def test_archive_transport_exhausts_at_existing_publication_deadline(observe: Callable) -> None:
+    result, clock, calls = observe(operation=ARCHIVE_OPERATION, error="connection reset", ready_after=float("inf"))
+    assert result["failed"]
+    assert "deadline_exhausted" in result.get("msg", ""), result
+    assert len(calls) <= 1443
+    assert 4 * 60 * 60 - 10 <= clock.elapsed < 4 * 60 * 60
+
+
+def test_archive_transport_respects_shorter_parent_deadline(observe: Callable) -> None:
+    result, clock, calls = observe(operation=ARCHIVE_OPERATION, error="connection reset", parent_seconds=20)
+    assert result["failed"]
+    assert "deadline_exhausted" in result.get("msg", ""), result
+    assert clock.elapsed < 20
+    assert calls[-1] == clock.elapsed
+
+
+@pytest.mark.parametrize("error", ["E401", "E403"])
+def test_archive_authentication_errors_stop_immediately(observe: Callable, error: str) -> None:
+    result, clock, calls = observe(operation=ARCHIVE_OPERATION, error=error)
+    assert result["rc"] == 1
+    assert error in result["stderr"]
+    assert calls == [0]
+    assert clock.elapsed == 0
+
+
+def test_archive_etarget_recovers_after_four_attempts(observe: Callable) -> None:
+    result, _, calls = observe(operation=ARCHIVE_OPERATION, error="ETARGET")
+    assert result["rc"] == 0, result
+    assert len(calls) > 4
+    assert 78 <= calls[-1] < 88
+
+
+def test_archive_etarget_exhausts_at_existing_publication_deadline(observe: Callable) -> None:
+    result, clock, calls = observe(operation=ARCHIVE_OPERATION, error="ETARGET", ready_after=float("inf"))
+    assert result["failed"]
+    assert "deadline_exhausted" in result.get("msg", ""), result
+    assert 4 < len(calls) <= 1443
+    assert 4 * 60 * 60 - 10 <= clock.elapsed < 4 * 60 * 60
+    assert calls[-1] == clock.elapsed
+
+
+def test_archive_etarget_respects_shorter_parent_deadline(observe: Callable) -> None:
+    result, clock, calls = observe(operation=ARCHIVE_OPERATION, error="ETARGET", parent_seconds=20)
+    assert result["failed"]
+    assert "deadline_exhausted" in result.get("msg", ""), result
+    assert 1 < len(calls) <= 4
+    assert clock.elapsed < 20
+    assert calls[-1] == clock.elapsed
