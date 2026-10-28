@@ -95,6 +95,15 @@ Give each term one meaning. Use the same term for the same concept in all docume
 
 ## Repository Technical Nouns
 
+- `avatar`: An account image or symbol that identifies the signed-in operator in the mobile header.
+- `avatar menu`: The account menu that opens from the avatar control.
+- `settings screen`: The mobile screen that contains account details, roles, theme selection, and sign-out.
+- `theme`: The selected light, dark, or system appearance of the mobile interface.
+- `role`: An account or site access classification supplied by the authenticated API.
+- `traffic interval`: The time window selected for traffic metrics and lists.
+- `visit count`: The number of page views displayed for a traffic row.
+- `unique visitor count`: The number of distinct visitors reported for a traffic row.
+
 - `scene lifecycle`: The UIKit contract that connects application windows to scenes.
 
 - `network prefix`: The first three decimal octets of the private IPv4 network for integration tests.

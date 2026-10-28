@@ -9,7 +9,212 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 - `[ ]` open, `[!]` blocked, `[x]` closed.
 - Blocked issues (`[!]`) must include a `Blocked:` line in the body.
 
+Mobile request execution order, October 27, 2026:
+
+| Order | Issue | Priority | Reason |
+| --- | --- | --- | --- |
+| 1 | B149 | P1 | Correct the unique-visit order before new work. |
+| 2 | I050 | P1 | Remove the unwanted traffic section before broader interface changes. |
+| 3 | F018 | P1 | Establish account settings and shared theme behavior before new controls. |
+| 4 | F019 | P1 | Reuse existing seven-day queries, extend shared interval support, then add the mobile selector. |
+| 5 | F020 | P1 | Add the site filter with the completed theme and header layout. |
+
+Dependencies:
+None of these five issues requires another issue in this set.
+The order follows the repository categories: BugFixes, Improvements, then Features.
+F018 precedes F019 and F020 to reduce theme rework. This is a sequence preference, not a dependency.
+Trend and Engagement already accept `days=7`. Detailed Trend also uses seven days by default.
+The shared backend interval parser rejects `interval=7days`.
+Within F019, reuse existing queries and extend interval acceptance before the mobile selector uses `7days` across traffic panels.
+Complete these issues sequentially with the applicable validation for each issue.
+This sequence covers the reported mobile requests. Other backlog work retains its existing priority.
+B149 has source changes and focused validation. Full validation awaits B150 and B151.
+Implementation of the other mobile requests remains pending.
+
 ## BugFixes
+
+- [-] [B152] (P0) Correct deepmerge prototype poisoning in mobile dependencies
+  Goal:
+  Pass the mobile security audit with the reviewed local deepmerge correction.
+
+  Evidence:
+  The B150 security audit passed Go, browser, and client checks, then failed on GHSA-gcqx-w48m-w2h4.
+  Both mobile dependency trees contain upstream `deepmerge@4.3.1`.
+  Expo config and React Native CLI packages use that dependency.
+
+  Requirements:
+  - Correct the target and source assignment loops in source, CJS, and UMD files.
+  - Preserve package identity and ordinary merge behavior.
+  - Qualify all installed copies and actual config consumers.
+  - Accept only the behavior-qualified advisory through the mobile audit adapter.
+  - Preserve all other package audits and reject unknown findings.
+
+  Validation:
+  Record stock runtime failures before the correction.
+  Run focused behavior and audit controls through Make.
+  Regenerate native preparation and verify both dependency trees.
+  Run the required security audit and cumulative CI before closure.
+
+  Current result:
+  Stock CJS, UMD, and the public Expo config merge reproduced the unsafe returned-object prototype.
+  Corrected source behavior, actual consumers, and the closed audit passed in 8.776 seconds.
+  The audit controls passed all 28 cases.
+  Both isolated npm installation modes passed in 81.381 seconds.
+  Complete `make mobile-check` passed in 47.605 seconds.
+  The public copy regression failed before the exact distribution-file exceptions and passed in 5.389 seconds after the correction.
+  Canonical native preparation passed in 44.976 seconds.
+  Prepared tracking, preparation cases, and runtime checks passed in 3.535 seconds.
+  The complete security audit passed in 21.131 seconds.
+  Fresh independent review found no bypass or regression in the selected correction.
+  Cumulative CI remains pending until B147 selects the qualified SDK.
+
+- [ ] [B151] (P1) Correct shared Node runner errors in mobile type checks
+  Goal:
+  Restore the required mobile TypeScript check with the shared test runner.
+
+  Evidence:
+  The B149 component check reported TypeScript errors in the existing `scripts/native-test.mjs` changes for B148.
+  The mobile metadata test imports that runner.
+  The errors include the `node:test` export form, implicit types, and dynamic member access.
+  The focused TypeScript check for B149 files passed.
+
+  Requirements:
+  - Correct the shared runner types and exports without changing its failure or cleanup behavior.
+  - Preserve the B148 work and its public test contracts.
+  - Exclude repository regressions from the prepared runtime copy.
+  - Preserve package-invoked app-flow and API-boundary scripts.
+
+  Validation:
+  - Run the shared runner qualification cases.
+  - Pass the complete mobile TypeScript check through `make mobile-check`.
+  - Run final `make ci` after all corrections.
+
+  Current result:
+  Public preparation coverage failed before the copy filter and passed all 12 cases after the correction.
+  Canonical `CI=1 make mobile-prepare-store` passed in 45.348 seconds.
+  The original metadata regression passed all seven cases.
+  `CI=1 make mobile-prepared-tracking-check mobile-check` passed in 10.430 seconds.
+  Shared first-failure qualification passed in 3.066 seconds.
+  Final cumulative `make ci` remains pending.
+
+- [ ] [B150] (P0) Correct the Go dependency vulnerability that blocks CI
+  Goal:
+  Pass the required Go security audit with the corrected HTML parser dependency.
+
+  Evidence:
+  The final B149 `CI=1 make ci` run stopped in `security-audit` at `GO-2026-6860`.
+  The audit identifies `golang.org/x/net` v0.60.0 and a corrected version of v0.62.0.
+  The reported call path reaches `html.Parse` through `pkg/favicon/resolver.go`.
+
+  Requirements:
+  - Update the affected Go dependency to a corrected version.
+  - Preserve the current favicon behavior and repository module contract.
+
+  Validation:
+  - Verify the favicon public behavior and Go module consistency.
+  - Pass `make security-audit` and final `make ci`.
+
+  Current result:
+  Favicon behavior and module consistency passed in 5.044 seconds.
+  The complete security audit passed in 21.131 seconds after the B152 correction.
+  Final cumulative CI remains pending.
+
+- [!] [B149] (P1) {B150,B151} Sort mobile Trend rows by unique visit count
+  Goal:
+  Show the days with the most unique visits first in the mobile `Trend` section.
+
+  Evidence:
+  Reclassified from I049 after the owner confirmed the metric and bug classification.
+  The owner supplied an annotated mobile screenshot on October 27, 2026.
+  The visible unique visitor counts include 3, 0, 5, and 0 in date order.
+  `TrendRows` in `mobile/App.tsx` displays the last ten returned rows without a sort by unique visitor count.
+  Expected result: Unique visitor counts appear in descending order, with 5 before 3 in the supplied example.
+  Actual result: The row with 3 unique visitors appears before the row with 5 unique visitors.
+
+  Requirements:
+  - Sort the displayed `Trend` rows by `unique_visitors`, highest first.
+  - Keep each date, page view count, unique visitor count, and bar together.
+  - Apply the order again after a site change, interval change, or automatic data update.
+  - Preserve the aggregate analytics restrictions for sites without unique visitor counts.
+
+  Decision:
+  For equal unique visitor counts, use the latest date first.
+  Preserve the existing last-ten-row window before the sort.
+
+  Validation:
+  - Supply unique visitor counts of 3, 0, 5, and 0 through the mobile app entry point.
+  - Verify the displayed order is 5, 3, 0, and 0.
+  - Supply different rankings for page views and unique visitors and verify the order follows unique visitors.
+  - Verify equal counts, empty results, and changes to the selected site and interval.
+  - Verify the visible order in an iOS simulator or Android emulator.
+
+  Status:
+  The mobile API adapter orders detailed Trend rows after validation of their unique visitor counts.
+  Aggregate rows retain their date order and unavailable unique counts.
+  The renderer preserves the page view values and bars.
+  The new app-flow test reproduced the original order before the source change.
+  All 15 app-flow scenarios and the API checks passed after the change.
+  The focused TypeScript check for the changed files passed.
+  Maestro checks passed in Expo Go 57 on the iPhone 18 Pro simulator with iOS 27.0.
+  A visual check confirmed unique visitor counts of 5, 3, 0, and 0 with their original page view bars.
+  `make mobile-prepare-store` passed and regenerated the prepared copies.
+  Independent architecture review found no blocking code findings.
+
+  Blocked:
+  Final `CI=1 make ci` stopped at the Go security audit recorded in B150.
+  The separate complete mobile TypeScript check failed in the existing shared runner, recorded in B151.
+  Full validation remains pending. The issue remains open.
+
+  Changed files:
+  `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/scripts/test-app-flow.mjs`, and `mobile/scripts/test-api-boundaries.mjs`.
+  Prepared copies and the generated Xcode project changed through `make mobile-prepare-store`.
+  Canonical preparation also copied the existing B148 metadata test change.
+
+- [ ] [B148] (P0) Stop publication CI at the first test failure
+  Goal:
+  Stop later test work after the first actual failure while preserving diagnostics and owned cleanup.
+
+  Evidence:
+  The original native Node, Go, pytest, and Playwright entrypoints continued after a failed case.
+  The original hosted matrix and auditor retained sibling jobs after failure.
+
+  Requirements:
+  - Preserve B147 and qualify the same publication CI task.
+  - Use native failure events and public registration APIs.
+  - Preserve test selection, ordinary concurrency, cleanup, and the original diagnostic.
+  - Reject parallel stages and keep-going flags at canonical CI entrypoints.
+  - Qualify exact owned worker, browser, server, and Compose cleanup.
+  - Preserve all hosted matrix members and the aggregate gate.
+
+  Validation:
+  Public RED preceded the shared runner and policy corrections.
+  Focused Node, browser, pytest, Playwright, matrix, Make, and Go checks passed.
+  The native Go checks verified a resistant child and retained genuine compiler diagnostics.
+  Canonical CI now retains these focused checks in groups with their declared tools.
+  Final focused validation, Compose cleanup evidence, and cumulative CI remain pending.
+
+- [ ] [B147] (P0) Preserve npm archive visibility observation after publication
+  Goal:
+  Check the exact npm archive within the existing publication time limit after the version becomes visible.
+
+  Evidence:
+  Publication and version checks passed before the archive read returned `ETARGET` on October 27, 2026.
+  Later public reads succeeded. The actual recovery time is unknown.
+  The public policy regression found four archive attempts instead of the declared version-check policy.
+
+  Requirements:
+  - Declare the same finite policy for archive reads and version checks.
+  - Preserve all request and publication time limits.
+  - Preserve the initial version-read and upload policies.
+  - Stop immediately for terminal authentication and permission errors.
+  - Run the public policy regression in canonical Mobile CI with explicit prerequisites.
+
+  Validation:
+  Twelve cases passed and four archive cases failed before the manifest correction.
+  The corrected policy passed all 16 cases with Gateway v7.0.8 and injected transport failures.
+  The fixture uses the real SDK capture boundary with synthetic declared inputs.
+  Qualification of archive `ETARGET` requires the Gateway release that contains B685.
+  Final canonical CI remains pending that qualified runtime.
 
 - [x] [B146] (P1) {B145} Preserve report navigation during the settings opening transition
   Goal:
@@ -3077,6 +3282,29 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 
 ## Improvements
 
+- [ ] [I050] (P1) Remove Recent visits from the mobile app
+  Goal:
+  Simplify the mobile traffic view through removal of the `Recent visits` section.
+
+  Evidence:
+  The owner supplied a mobile screenshot on October 27, 2026, and requested removal of this section.
+  `TrafficSection` in `mobile/App.tsx` displays individual visits from `stats.recent_visits`.
+
+  Requirements:
+  - Remove the `Recent visits` card, its individual visit rows, and its empty state from the mobile app.
+  - Remove mobile display code and imports used only by this section.
+  - Keep the other mobile traffic sections and metrics available.
+  - Limit the change to the mobile interface and its tests.
+
+  Validation:
+  - Open mobile traffic with populated visit data and verify the `Recent visits` section is absent.
+  - Repeat with empty visit data and verify its empty state is absent.
+  - Change the selected site and traffic interval and verify the section remains absent.
+  - Verify the other traffic sections remain usable in an iOS simulator or Android emulator.
+
+  Status:
+  The request is documented. Application implementation remains pending.
+
 - [x] [I048] (P1) Update the approved managed governance files
   Goal: Satisfy the reviewed production preflight prerequisite.
   Requirements: Use the frozen Governor inputs. Preserve local rules, issue history, and private inputs.
@@ -4096,6 +4324,120 @@ Format: `- [ ] [B042] (P1) {I007} Title`
   - Remaining before closing M001: decide pagination or rollup strategy for unbounded message/subscriber/Sentry issue lists and all-row attribution/device scans, then capture before/after `EXPLAIN` evidence for each additional query rewrite.
 
 ## Features
+
+- [ ] [F020] (P1) Add a search icon to the mobile site selector
+  Goal:
+  Help the operator find a site through a filter above the site cards.
+
+  Evidence:
+  The owner supplied an annotated mobile screenshot on October 27, 2026.
+  The marked area is the `SITES` row above the horizontal site cards.
+  `SitesRail` in `mobile/App.tsx` currently displays all visible sites without a filter.
+
+  Requirements:
+  - Add a magnifying-glass icon on the right of the `SITES` label in the same row.
+  - Show only the icon, without a visible `Find` label or text field in that row.
+  - Match the icon size to the `SITES` text and align both controls vertically.
+  - Open the site filter when the operator selects the icon.
+  - Give the icon an accessible `Find sites` label.
+  - Filter the site cards automatically as the operator enters text.
+  - When the field is empty, show all sites available to the signed-in account.
+  - Show a clear empty state when no sites match.
+  - Preserve the selected site and its dashboard when the filter hides its card.
+
+  Proposed details:
+  Show the search input when the operator selects the icon.
+  Match part of the site name or domain without regard to letter case.
+
+  Validation:
+  - Verify the row displays `SITES` and the search icon without a visible `Find` label.
+  - Select the icon and verify the site filter opens.
+  - Enter text through the mobile app entry point and verify that only matching site cards remain.
+  - Verify matches by site name and domain, including different letter cases.
+  - Clear the field and verify all available site cards return.
+  - Verify a query with no matches shows the empty state.
+  - Select a filtered site and verify its dashboard opens.
+  - Verify placement, text size, keyboard behavior, and accessible labels in an iOS simulator or Android emulator.
+
+  Status:
+  The request is documented. Application implementation remains pending.
+
+- [ ] [F018] (P1) Add mobile account settings through an avatar menu
+  Goal:
+  Give the operator one place for account details, roles, theme selection, and sign-out.
+
+  Evidence:
+  The owner supplied an annotated mobile screenshot on October 27, 2026.
+  The mobile header currently displays the account email and a `Sign out` button.
+  The account response contains `role` and optional `avatar.url` values.
+  Each visible site contains its `access_role` value.
+
+  Requirements:
+  - Add an avatar menu to the mobile header.
+  - Add a `Settings` menu item that opens a separate settings screen.
+  - Show the signed-in email and roles on that screen.
+  - Move the `Sign out` button from the dashboard header to that screen.
+  - Add a theme selector with `Light`, `Dark`, and `System` choices to that screen.
+  - Apply an explicit `Light` or `Dark` choice throughout the app immediately.
+  - When `System` is selected, follow the system appearance and apply subsequent system changes automatically.
+  - Store each theme choice automatically and restore the choice when the app opens again.
+  - Provide a return path to the dashboard.
+
+  Proposed details:
+  Show the account role and the access role for each visible site, with clear labels.
+
+  Open Decisions:
+  Select the avatar appearance when the account has no image.
+
+  Validation:
+  - Open the avatar menu and select `Settings` through the mobile app entry point.
+  - Verify the email and roles for accounts with different site access.
+  - Return to the dashboard and verify the selected site and tab remain selected.
+  - Verify successful sign-out and a visible error when sign-out fails.
+  - Verify the header has the avatar menu and settings contains the `Sign out` button.
+  - Select each theme choice and verify its appearance across settings and the dashboard.
+  - Change the system appearance and verify `System` follows the change.
+  - Change the system appearance and verify explicit `Light` and `Dark` choices remain selected and applied.
+  - Open the app again and verify the stored theme choice is restored.
+  - Verify navigation and accessible control labels in an iOS simulator or Android emulator.
+
+  Status:
+  The request is documented. Application implementation remains pending.
+
+- [ ] [F019] (P1) Add a seven-day mobile traffic selector
+  Goal:
+  Let the operator select seven days of traffic from the mobile dashboard.
+
+  Evidence:
+  The owner supplied an annotated mobile screenshot on October 27, 2026.
+  The selector currently offers `All`, `30d`, and `1d`.
+  `TrafficInterval` in `mobile/src/types.ts` contains only `all`, `30days`, and `1day`.
+  Trend and Engagement already accept `days=7` in their public API handlers.
+  Detailed Trend defaults to seven days, with an existing public API test for that response.
+  Stats, Attribution, Devices, and Locations use the shared interval parser, which currently rejects `7days`.
+
+  Requirements:
+  - Add a `7d` choice beside the existing traffic choices.
+  - Apply the selected window to all traffic metrics and lists in the selected-site view.
+  - Load the selected window automatically after selection or a site change.
+  - Preserve the aggregate analytics restrictions for aggregate sites.
+  - Reuse the existing queries that accept a day count.
+  - Extend the shared interval contract so all affected panels can use the same seven-day choice.
+
+  Proposed details:
+  Place the choices in this order: `All`, `30d`, `7d`, `1d`.
+  Use the current UTC day and the preceding six UTC days, consistent with the existing 30-day window.
+  Define one `7days` interval across the mobile client and the required backend endpoints.
+
+  Validation:
+  - Select `7d` through the mobile app entry point and verify the selected state.
+  - Verify every affected request uses the same seven-day window.
+  - Verify inclusion and exclusion at the UTC window boundary through public API tests.
+  - Switch between all four choices and verify their displayed results.
+  - Verify all choices remain usable in an iOS simulator or Android emulator.
+
+  Status:
+  The request is documented. Application implementation remains pending.
 
 - [ ] [F017] (P1) {P003} Add read-only MCP access through the shared utils package.
   Goal:

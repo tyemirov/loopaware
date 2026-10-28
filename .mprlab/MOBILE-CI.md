@@ -1,6 +1,10 @@
 # Hosted Mobile Checks
 
 The `Mobile checks` job uses Node.js 24, Python 3.13, and Temurin Java 21.
+The job installs `uv==0.12.19` with Python's pip before the deployment policy tests.
+The version is fixed to the qualified [official uv release](https://github.com/astral-sh/uv/releases/tag/0.12.19).
+The canonical `ci-mobile` target includes `make deployment-npm-visibility-check`.
+These tests use the selected physical Gateway executable and synthetic inputs.
 The checked-in Gradle wrapper supplies Gradle for the generated signing check.
 After Java setup, the job installs official Google `bundletool` 1.18.3 and verifies its version.
 A dependency-free npm launcher forwards arguments to the published JAR through the selected Java runtime.
@@ -38,3 +42,23 @@ Automatic hosted run `40573676180` passed all six matrix jobs and the required a
 Its Mobile job verified the Linux Gateway runtime and the real bundletool and generated Gradle boundary.
 B145 is closed after these code validation results. These results do not establish publication or deployment.
 Fix a failed hosted job before a new push. Let that push trigger CI automatically.
+
+
+## First Failure
+
+Run `make ci` or one declared `ci-*` group without parallel Make stages or keep-going options.
+CI rejects those options before application recipes run. Go and Node retain their native test concurrency.
+The hosted matrix stops sibling jobs after a job fails. The three integration shards remain unchanged.
+
+Static checks qualify the repository-owned Node adapter and Go monitor through public failure fixtures.
+The Go monitor uses its own selected toolchain and native JSON events.
+It closes only its owned process group and retains the first failure diagnostic.
+Hosted Backend checks do not require an installed Gateway for this monitor.
+
+Mobile checks qualify pytest through its public Make recipe before the npm visibility tests.
+The public tool prerequisite fixes Ansible Core 2.19.8 and pytest 9.0.2 under Python 3.13.
+Its isolated environment uses public PyPI without private inputs.
+Integration checks qualify browser cleanup and the shared Playwright failure limit before application browser tests.
+Both browser paths use the existing browser installation target and declared channel.
+Expected negative fixture outcomes do not count as failures of the outer qualification test.
+The outer test stops on its first unexpected result and then completes owned cleanup.
