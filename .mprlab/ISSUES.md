@@ -9,7 +9,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 - `[ ]` open, `[!]` blocked, `[x]` closed.
 - Blocked issues (`[!]`) must include a `Blocked:` line in the body.
 
-Mobile request execution order, October 27, 2026:
+Mobile request execution order selected on October 27, 2026:
 
 | Order | Issue | Priority | Reason |
 | --- | --- | --- | --- |
@@ -23,14 +23,18 @@ Dependencies:
 None of these five issues requires another issue in this set.
 The order follows the repository categories: BugFixes, Improvements, then Features.
 F018 precedes F019 and F020 to reduce theme rework. This is a sequence preference, not a dependency.
+
 Trend and Engagement already accept `days=7`. Detailed Trend also uses seven days by default.
-The shared backend interval parser rejects `interval=7days`.
-Within F019, reuse existing queries and extend interval acceptance before the mobile selector uses `7days` across traffic panels.
-Complete these issues sequentially with the applicable validation for each issue.
+F019 extended the shared interval parser to accept `interval=7days`.
+The mobile selector uses `7days` across its traffic panels through the existing queries.
+The issues received their applicable validation in sequence.
+
 This sequence covers the reported mobile requests. Other backlog work retains its existing priority.
 B149, B150, B151, and I050 are resolved.
 Gateway v7.0.9 passed all 20 B147 policy cases. Complete local and automatic CI passed.
-Implementation of the remaining mobile features remains pending.
+
+F018, F019, and F020 are resolved from repository validation.
+Pull request delivery remains separate.
 
 ## BugFixes
 
