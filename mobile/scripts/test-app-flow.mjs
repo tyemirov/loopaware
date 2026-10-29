@@ -28,6 +28,44 @@ const trendPoints = [
   { date: "2026-10-22", page_views: 0, unique_visitors: 0 },
 ];
 
+const intervalChoices = [["All", "all", 40], ["30d", "30days", 30], ["7d", "7days", 7], ["1d", "1day", 1]];
+for (const trafficProfile of ["detailed", "aggregate"]) await scenario(`${trafficProfile} traffic applies every interval to all permitted panels`, {
+  initialSession: true, trafficProfile: /** @type {"detailed"|"aggregate"} */ (trafficProfile), multipleSites: true,
+  intervalCounts: {all:40,"30days":30,"7days":7,"1day":1},
+  trend: (_siteID, interval) => [{date:"2026-10-27",page_views:interval === "7days" ? 7 : 1,unique_visitors:trafficProfile === "aggregate" ? null : 1}],
+}, async app => {
+  await app.press("Traffic");
+  assert.deepEqual(app.buttonLabels().filter(label => intervalChoices.some(([choice]) => choice === label)), ["All","30d","7d","1d"]);
+  /** @param {string} siteID @param {string} interval @param {number} count @param {number} requestStart */
+  const expectWindow = (siteID, interval, count, requestStart) => {
+    const urls=app.requestURLs.slice(requestStart).map(value => new URL(value));
+    const traffic=urls.filter(url => /\/visits\//.test(url.pathname));
+    const endpoints=trafficProfile === "aggregate" ? ["stats","trend"] : ["stats","trend","attribution","engagement","devices","locations"];
+    assert.deepEqual(traffic.map(url => url.pathname.split("/").at(-1)).sort(), endpoints.sort());
+    for (const url of traffic) {
+      assert.equal(url.pathname.split("/")[3],siteID);
+      assert.equal(url.search,`?interval=${interval}`);
+    }
+    assert.match(app.text(),new RegExp(`${trafficProfile === "aggregate" ? "Accepted requests" : "Page views"} ${count}\\b`));
+    if (trafficProfile === "detailed") {
+      assert(app.text().includes(`/page-${interval}`)); assert(app.text().includes(`source-${interval}`)); assert(app.text().includes(`Place ${interval}`));
+      assert.match(app.text(),new RegExp(`Visitors ${count}\\b`));
+    } else assert.match(app.text(),/Unique visitors.*unavailable/);
+  };
+  for (const [label, interval, count] of intervalChoices) {
+    const requestStart=app.requestURLs.length;
+    await app.press(String(label));
+    assert(app.selected(String(label)), `${label} is selected`);
+    for (const [other] of intervalChoices) if (other !== label) assert(!app.selected(String(other)));
+    expectWindow("aggregate-site",String(interval),Number(count),requestStart);
+  }
+  await app.press("7d");
+  const requestStart=app.requestURLs.length;
+  await app.press("Other site");
+  assert(app.selected("7d")); expectWindow("other-site","7days",107,requestStart);
+  assert.equal(app.requests.some(path => /\/(attribution|engagement|devices|locations)$/.test(path)),trafficProfile === "detailed");
+});
+
 await scenario("avatar opens account settings", { initialSession: true }, async (app) => {
   assert.doesNotMatch(app.text(), /Sign out/);
   await app.press("Account menu");
@@ -294,8 +332,8 @@ console.log(`${scenarioCount} mobile app flow checks passed`);
 
 /**
  * @param {string} name
- * @param {{ initialSession: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, emptySites?: boolean, failFirstWrite?: boolean, account?: {email:string,name:string,role:string,avatar?:{url:string}}, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
- * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, imageUris: () => string[], back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
+ * @param {{ initialSession: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, intervalCounts?: Record<string,number>, emptySites?: boolean, failFirstWrite?: boolean, account?: {email:string,name:string,role:string,avatar?:{url:string}}, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
+ * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, imageUris: () => string[], back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
  */
 async function scenario(name, options, check) {
   let authenticated = options.initialSession;
@@ -307,6 +345,8 @@ async function scenario(name, options, check) {
   const visibleSite = { ...site, traffic_profile: options.trafficProfile ?? "aggregate" };
   /** @type {string[]} */
   const requests = [];
+  /** @type {string[]} */
+  const requestURLs = [];
   let releaseResponse = () => {};
   let deferred = options.deferDashboard || options.deferPortfolio;
   let responseHeld = false;
@@ -334,6 +374,8 @@ async function scenario(name, options, check) {
     const path = requestURL.pathname;
     const interval = requestURL.searchParams.get("interval") || "30days";
     requests.push(path);
+    requestURLs.push(requestURL.href);
+    const visitCount = options.intervalCounts ? options.intervalCounts[interval] + (path.includes("other-site") ? 100 : 0) : path.includes("other-site") ? 23 : 12;
     if (path.endsWith("/visits/stats")) lastInterval = interval;
     let status = 200;
     /** @type {unknown} */
@@ -358,14 +400,14 @@ async function scenario(name, options, check) {
       default:
         if (options.trafficProfile === "detailed" && /\/visits\/(attribution|engagement|devices|locations)$/.test(path)) {
           payload = {
-            sources: [], mediums: [], campaigns: [], device_types: [], top_resolutions: [], top_viewports: [], locations: [],
+            sources: options.intervalCounts ? [{value:`source-${interval}`,visit_count:visitCount}] : [], mediums: [], campaigns: [], device_types: options.intervalCounts ? [{device_type:"mobile",visit_count:visitCount}] : [], top_resolutions: [], top_viewports: [], locations: options.intervalCounts ? [{label:`Place ${interval}`,visit_count:visitCount}] : [],
             tracked_visitor_count: 8, returning_visitor_count: 2, returning_visitor_rate: 0.25, average_pages_per_visitor: 1.5,
             depth_distribution: {}, observed_time_distribution: {},
           };
         } else if (/\/visits\/(attribution|engagement|devices|locations)$/.test(path) || (options.dashboardFailure && path.endsWith("/visits/stats"))) {
           status = 409; payload = { error: "metric_unavailable", traffic_profile: "aggregate" };
         } else if (path.endsWith("/visits/stats")) {
-          payload = { site_id: path.split("/")[3], interval, traffic_profile: visibleSite.traffic_profile, visit_count: path.includes("other-site") ? 23 : 12, unique_visitor_count: options.trafficProfile === "detailed" ? 8 : null, top_pages: null, recent_visits: options.recentVisits ?? null };
+          payload = { site_id: path.split("/")[3], interval, traffic_profile: visibleSite.traffic_profile, visit_count: visitCount, unique_visitor_count: options.trafficProfile === "detailed" ? options.intervalCounts ? visitCount : 8 : null, top_pages: options.intervalCounts ? [{path:`/page-${interval}`,visit_count:visitCount}] : null, recent_visits: options.recentVisits ?? null };
         } else if (path.endsWith("/visits/trend")) {
           payload = { site_id: path.split("/")[3], interval, trend: options.trend ? options.trend(path.split("/")[3], interval) : [] };
         } else {
@@ -422,7 +464,7 @@ async function scenario(name, options, check) {
       await settle();
     }
     await check({
-      text, requests, lastInterval: () => lastInterval,
+      text, requests, requestURLs, buttonLabels: () => tree().root.findAll(node => String(node.type) === "Pressable").map(node => textContent(node.props.children)), lastInterval: () => lastInterval,
       background() { return tree().root.findAll(node => String(node.type) === "SafeAreaView")[0].props.style.backgroundColor; },
       selected(label) { return findButton(label)?.props.accessibilityState?.selected === true; },
       storedTheme() { return device.storage.get("loopaware.mobile.theme"); },

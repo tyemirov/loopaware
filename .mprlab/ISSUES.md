@@ -4646,17 +4646,17 @@ Implementation of the remaining mobile features remains pending.
   `mobile/App.tsx`, `mobile/src/theme.ts`, `mobile/src/account-menu.ts`, `mobile/app.config.js`, and `mobile/scripts/test-app-flow.mjs`.
   Also changed: `Makefile`, `README.md`, this tracker, and generated files under `mobile/prepared/`.
 
-- [ ] [F019] (P1) Add a seven-day mobile traffic selector
+- [x] [F019] (P1) Add a seven-day mobile traffic selector
   Goal:
   Let the operator select seven days of traffic from the mobile dashboard.
 
   Evidence:
   The owner supplied an annotated mobile screenshot on October 27, 2026.
-  The selector currently offers `All`, `30d`, and `1d`.
-  `TrafficInterval` in `mobile/src/types.ts` contains only `all`, `30days`, and `1day`.
-  Trend and Engagement already accept `days=7` in their public API handlers.
-  Detailed Trend defaults to seven days, with an existing public API test for that response.
-  Stats, Attribution, Devices, and Locations use the shared interval parser, which currently rejects `7days`.
+  Before implementation, the selector offered `All`, `30d`, and `1d`.
+  The mobile type and shared API interval parser did not include `7days`.
+  Trend and Engagement already accepted `days=7` in their public API handlers.
+  Detailed Trend already defaulted to seven days, with an existing public API test for that response.
+  Stats, Attribution, Devices, and Locations used the shared interval parser, which rejected `7days`.
 
   Requirements:
   - Add a `7d` choice beside the existing traffic choices.
@@ -4666,7 +4666,7 @@ Implementation of the remaining mobile features remains pending.
   - Reuse the existing queries that accept a day count.
   - Extend the shared interval contract so all affected panels can use the same seven-day choice.
 
-  Proposed details:
+  Details:
   Place the choices in this order: `All`, `30d`, `7d`, `1d`.
   Use the current UTC day and the preceding six UTC days, consistent with the existing 30-day window.
   Define one `7days` interval across the mobile client and the required backend endpoints.
@@ -4679,7 +4679,20 @@ Implementation of the remaining mobile features remains pending.
   - Verify all choices remain usable in an iOS simulator or Android emulator.
 
   Status:
-  The request is documented. Application implementation remains pending.
+  Added `All`, `30d`, `7d`, and `1d` with accessible selected states.
+  The shared `7days` interval applies to all traffic panels and both CSV export profiles.
+  Public HTTP tests verified the exact UTC boundary, site isolation, bot exclusion, and aggregate restrictions.
+  All 33 mobile app-flow cases passed, including every interval and site changes.
+  iPhone 18 Pro simulator checks passed on iOS 27 with Expo Go 57.
+  All four choices fit the screen and exposed their selected state.
+  Aggregate site changes retained `7d` and unavailable metrics. Android emulator visuals were not exercised.
+  Prepared sources matched the application. Complete local `make ci` passed, including all 475 integration cases.
+  Resolution: The seven-day mobile selector and shared API interval are implemented and verified.
+
+  Changed files:
+  `internal/api/admin.go`, `internal/api/admin_helpers_test.go`, and `internal/api/traffic_interval_transport_test.go`.
+  Also changed: `mobile/App.tsx`, `mobile/src/types.ts`, `mobile/scripts/test-app-flow.mjs`, and generated files under `mobile/prepared/`.
+  Documentation and commands: `README.md`, `Makefile`, and this tracker.
 
 - [ ] [F017] (P1) {P003} Add read-only MCP access through the shared utils package.
   Goal:

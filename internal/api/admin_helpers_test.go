@@ -285,7 +285,12 @@ func TestParseTrafficInterval(testingT *testing.T) {
 	require.Equal(testingT, trafficIntervalThirtyDaysValue, interval.Value())
 	require.Equal(testingT, 30, interval.Days())
 
-	_, err = parseTrafficInterval("7days")
+	interval, err = parseTrafficInterval("7days")
+	require.NoError(testingT, err)
+	require.Equal(testingT, trafficIntervalSevenDaysValue, interval.Value())
+	require.Equal(testingT, 7, interval.Days())
+
+	_, err = parseTrafficInterval("8days")
 	require.Error(testingT, err)
 }
 
