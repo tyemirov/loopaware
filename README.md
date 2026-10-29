@@ -277,7 +277,11 @@ All authenticated endpoints live under `/api` and require the configured TAuth s
 feedback, subscriptions, and visits do not require a session but still enforce per-site origin rules. JSON responses
 include Unix timestamps in seconds.
 
-Traffic endpoints with `interval=1day` report the trailing 24 hours. `interval=30days` uses the current 30-day UTC day window, and `interval=all` reports all recorded human visits.
+Detailed sites use `interval=1day` for the trailing 24 hours.
+Aggregate sites use `interval=1day` for the current UTC day. `interval=7days` and `interval=30days` use UTC day windows.
+Each window includes the current UTC day and its preceding days.
+`interval=all` reports all recorded human visits for detailed sites.
+For aggregate sites, it reports all retained accepted-request counts.
 
 | Method  | Path                                  | Role        | Description                                                                                             |
 |---------|---------------------------------------|-------------|---------------------------------------------------------------------------------------------------------|
@@ -296,17 +300,17 @@ Traffic endpoints with `interval=1day` report the trailing 24 hours. `interval=3
 | `GET`   | `/api/sites/:id/subscribers/export`   | owner/admin/team member | Download subscribers as CSV                                                                   |
 | `PATCH` | `/api/sites/:id/subscribers/:subscriber_id` | owner/admin | Update a subscriber’s status (confirm or unsubscribe)                                             |
 | `DELETE`| `/api/sites/:id/subscribers/:subscriber_id` | owner/admin | Delete a subscriber                                                                                |
-| `GET`   | `/api/sites/:id/visits/stats`         | owner/admin/team member | Aggregate visit and unique visitor counts plus recent visits and top pages (optional `interval=all\|1day\|30days`) |
-| `GET`   | `/api/sites/:id/visits/export`        | owner/admin/team member | Download traffic visits as CSV (optional `interval=all\|1day\|30days`)                      |
+| `GET`   | `/api/sites/:id/visits/stats`         | owner/admin/team member | Aggregate visit and unique visitor counts plus recent visits and top pages (optional `interval=all\|1day\|7days\|30days`) |
+| `GET`   | `/api/sites/:id/visits/export`        | owner/admin/team member | Download traffic visits as CSV (optional `interval=all\|1day\|7days\|30days`)                      |
 | `GET`   | `/api/sites/:id/sentry/issues`        | owner/admin/team member | List grouped developer error issues for a site                                                |
 | `GET`   | `/api/sites/:id/sentry/issues/:issue_id` | owner/admin/team member | Inspect latest and recent LA Sentry error occurrences                                      |
 | `PATCH` | `/api/sites/:id/sentry/issues/:issue_id` | owner/admin | Update issue status (`unresolved`, `resolved`, or `ignored`)                                         |
 | `POST`  | `/api/sites/:id/sentry/token`         | owner/admin | Rotate and reveal a per-site LA Sentry ingest token                                                     |
-| `GET`   | `/api/sites/:id/visits/trend`         | owner/admin/team member | Daily visit trend (default 7 days, optional `days` query param up to 30, or `interval=all\|1day\|30days`) |
-| `GET`   | `/api/sites/:id/visits/attribution`   | owner/admin/team member | Source/medium/campaign attribution breakdown (optional `limit` query param up to 50; optional `interval=all\|1day\|30days`) |
-| `GET`   | `/api/sites/:id/visits/engagement`    | owner/admin/team member | Visitor engagement metrics (default 30 days, optional `days` query param up to 90, or `interval=all\|1day\|30days`) |
-| `GET`   | `/api/sites/:id/visits/devices`       | owner/admin/team member | Device, screen resolution, and viewport breakdowns (optional `limit` query param up to 50; optional `interval=all\|1day\|30days`) |
-| `GET`   | `/api/sites/:id/visits/locations`     | owner/admin/team member | Inferred visitor locations from edge geo, timezone, locale, network, or unknown signals with confidence metadata (optional `limit` query param up to 50; optional `interval=all\|1day\|30days`) |
+| `GET`   | `/api/sites/:id/visits/trend`         | owner/admin/team member | Daily visit trend (default 7 days, optional `days` query param up to 30, or `interval=all\|1day\|7days\|30days`) |
+| `GET`   | `/api/sites/:id/visits/attribution`   | owner/admin/team member | Source/medium/campaign attribution breakdown (optional `limit` query param up to 50, optional `interval=all\|1day\|7days\|30days`) |
+| `GET`   | `/api/sites/:id/visits/engagement`    | owner/admin/team member | Visitor engagement metrics (default 30 days, optional `days` query param up to 90, or `interval=all\|1day\|7days\|30days`) |
+| `GET`   | `/api/sites/:id/visits/devices`       | owner/admin/team member | Device, screen resolution, and viewport breakdowns (optional `limit` query param up to 50, optional `interval=all\|1day\|7days\|30days`) |
+| `GET`   | `/api/sites/:id/visits/locations`     | owner/admin/team member | Inferred visitor locations from edge geo, timezone, locale, network, or unknown signals with confidence metadata (optional `limit` query param up to 50, optional `interval=all\|1day\|7days\|30days`) |
 | `GET`   | `/api/sites/:id/traffic-report-schedule` | owner/admin | Read the selected-site traffic report schedule, including `recipient_mode` (`manager`, `team`, or `selected`) and selected team member emails |
 | `PUT`   | `/api/sites/:id/traffic-report-schedule` | owner/admin | Save the selected-site traffic report schedule; `recipient_mode: "selected"` accepts only current per-site team member emails in `recipient_emails` |
 | `POST`  | `/api/sites/:id/traffic-report-schedule/test` | owner/admin | Send the selected-site traffic report immediately to the schedule's resolved recipients |
@@ -597,6 +601,13 @@ dependency update, build it with `docker build --pull -t loopaware:security-audi
 Repository administrators can run the read-only `make github-security-audit` gate to verify the live Actions, branch
 protection, Dependabot, secret-scanning, and gateway-owned Pages controls against the tracked security contract.
 
+
+## Mobile traffic intervals
+
+Select `All`, `30d`, `7d`, or `1d` on the mobile Traffic tab.
+The selected interval applies to all traffic panels and remains selected after a site change.
+`7d` includes the current UTC day and the preceding six UTC days.
+Aggregate sites show daily request counts. Their unique visitor, engagement, device, and location metrics remain unavailable.
 
 ## Mobile account settings
 

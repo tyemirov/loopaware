@@ -49,6 +49,7 @@ const dashboardTabs: Array<{ key: DashboardTab; label: string }> = [
 const trafficIntervals: Array<{ key: TrafficInterval; label: string }> = [
   { key: "all", label: "All" },
   { key: "30days", label: "30d" },
+  { key: "7days", label: "7d" },
   { key: "1day", label: "1d" },
 ];
 const mobileFeedbackSourceKind: FeedbackMessage["source_kind"] = "mobile_app";
@@ -877,7 +878,7 @@ function SegmentedControl<T extends string>(props: { items: Array<{ key: T; labe
       {props.items.map((item) => {
         const selected = item.key === props.selectedKey;
         return (
-          <Pressable key={item.key} style={[styles.segmentButton, selected && styles.segmentButtonActive]} onPress={() => props.onChange(item.key)}>
+          <Pressable key={item.key} accessibilityRole="button" accessibilityState={{ selected }} style={[styles.segmentButton, selected && styles.segmentButtonActive]} onPress={() => props.onChange(item.key)}>
             <Text style={[styles.segmentButtonText, selected && styles.segmentButtonTextActive]}>{item.label}</Text>
           </Pressable>
         );

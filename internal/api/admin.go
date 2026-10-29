@@ -82,6 +82,7 @@ const (
 	visitTrendDateFormat             = "2006-01-02"
 	trafficIntervalAllValue          = "all"
 	trafficIntervalOneDayValue       = "1day"
+	trafficIntervalSevenDaysValue    = "7days"
 	trafficIntervalThirtyDaysValue   = "30days"
 	visitAttributionDefaultLimit     = 10
 	visitAttributionMaxLimit         = 50
@@ -2533,6 +2534,8 @@ func parseTrafficInterval(rawValue string) (trafficInterval, error) {
 		return trafficInterval{value: trafficIntervalAllValue}, nil
 	case trafficIntervalOneDayValue:
 		return trafficInterval{value: trafficIntervalOneDayValue, days: 1}, nil
+	case trafficIntervalSevenDaysValue:
+		return trafficInterval{value: trafficIntervalSevenDaysValue, days: 7}, nil
 	case trafficIntervalThirtyDaysValue:
 		return trafficInterval{value: trafficIntervalThirtyDaysValue, days: 30}, nil
 	default:

@@ -249,6 +249,10 @@ test: test-integration
 test-unit:
 	go run ./tools/testmonitor -- ./...
 
+.PHONY: test-traffic-interval
+test-traffic-interval:
+	go run ./tools/testmonitor -- ./internal/api -run 'TestSevenDayTraffic|TestParseTrafficInterval' -count=1
+
 .PHONY: test-favicon
 test-favicon:
 	go run ./tools/testmonitor -- ./pkg/favicon

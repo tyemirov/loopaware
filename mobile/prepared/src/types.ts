@@ -1,6 +1,6 @@
 export type NativeGooglePlatform = "ios" | "android";
 
-export type TrafficInterval = "all" | "30days" | "1day";
+export type TrafficInterval = "all" | "30days" | "7days" | "1day";
 
 export type DashboardTab = "overview" | "feedback" | "traffic" | "subscribers" | "health" | "sentry" | "reports";
 
