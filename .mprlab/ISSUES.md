@@ -51,6 +51,7 @@ Pull request delivery remains separate.
   - Declare `ios.config.usesNonExemptEncryption` as Boolean false in the Expo source config.
   - Generate `ITSAppUsesNonExemptEncryption` as Boolean false in the prepared iOS Info.plist.
   - Preserve the declaration through the built metadata cleanup phase.
+  - Reject absent, incorrect, or ambiguous source and native declarations before the native SDK call.
   - Verify the current encryption use and document the declaration.
 
   Validation:
