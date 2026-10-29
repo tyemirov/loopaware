@@ -9,7 +9,7 @@ Format: `- [ ] [B042] (P1) {I007} Title`
 - `[ ]` open, `[!]` blocked, `[x]` closed.
 - Blocked issues (`[!]`) must include a `Blocked:` line in the body.
 
-Mobile request execution order, October 27, 2026:
+Mobile request execution order selected on October 27, 2026:
 
 | Order | Issue | Priority | Reason |
 | --- | --- | --- | --- |
@@ -23,14 +23,18 @@ Dependencies:
 None of these five issues requires another issue in this set.
 The order follows the repository categories: BugFixes, Improvements, then Features.
 F018 precedes F019 and F020 to reduce theme rework. This is a sequence preference, not a dependency.
+
 Trend and Engagement already accept `days=7`. Detailed Trend also uses seven days by default.
-The shared backend interval parser rejects `interval=7days`.
-Within F019, reuse existing queries and extend interval acceptance before the mobile selector uses `7days` across traffic panels.
-Complete these issues sequentially with the applicable validation for each issue.
+F019 extended the shared interval parser to accept `interval=7days`.
+The mobile selector uses `7days` across its traffic panels through the existing queries.
+The issues received their applicable validation in sequence.
+
 This sequence covers the reported mobile requests. Other backlog work retains its existing priority.
 B149, B150, B151, and I050 are resolved.
 Gateway v7.0.9 passed all 20 B147 policy cases. Complete local and automatic CI passed.
-Implementation of the remaining mobile features remains pending.
+
+F018, F019, and F020 are resolved from repository validation.
+Pull request delivery remains separate.
 
 ## BugFixes
 
@@ -4553,14 +4557,14 @@ Implementation of the remaining mobile features remains pending.
 
 ## Features
 
-- [ ] [F020] (P1) Add a search icon to the mobile site selector
+- [x] [F020] (P1) Add a search icon to the mobile site selector
   Goal:
   Help the operator find a site through a filter above the site cards.
 
   Evidence:
   The owner supplied an annotated mobile screenshot on October 27, 2026.
   The marked area is the `SITES` row above the horizontal site cards.
-  `SitesRail` in `mobile/App.tsx` currently displays all visible sites without a filter.
+  Before implementation, `SitesRail` displayed all visible sites without a filter.
 
   Requirements:
   - Add a magnifying-glass icon on the right of the `SITES` label in the same row.
@@ -4573,9 +4577,12 @@ Implementation of the remaining mobile features remains pending.
   - Show a clear empty state when no sites match.
   - Preserve the selected site and its dashboard when the filter hides its card.
 
-  Proposed details:
+  Details:
   Show the search input when the operator selects the icon.
-  Match part of the site name or domain without regard to letter case.
+  Match part of the site name or configured origins without regard to letter case.
+  Include secondary domains in the current origin string.
+  Keep the query in the mounted dashboard view.
+  Clear the query when the filter closes or the dashboard view ends.
 
   Validation:
   - Verify the row displays `SITES` and the search icon without a visible `Find` label.
@@ -4588,7 +4595,24 @@ Implementation of the remaining mobile features remains pending.
   - Verify placement, text size, keyboard behavior, and accessible labels in an iOS simulator or Android emulator.
 
   Status:
-  The request is documented. Application implementation remains pending.
+  The `SITES` row now shows the search icon with an accessible `Find sites` name.
+  The icon shares the label size and opens the field below the row.
+  Matches update automatically from the current authorized sites, including secondary domains.
+  Filtering preserves the selected site and dashboard. Clear restores all cards and keeps the field active.
+  Close clears the query and dismisses the keyboard.
+
+  All 40 public app-flow cases passed, including both platform adapters and site-list updates.
+  iPhone 18 Pro simulator checks passed on iOS 27 with Expo Go 57.
+  Native checks verified keyboard behavior, first-tap selection, accessible labels, and Light/Dark contrast.
+  The native hierarchy did not verify accessibility focus after the filter closed.
+  Android emulator visuals were not exercised.
+
+  Prepared sources matched the application. Complete local `make ci` passed, including all 475 integration cases.
+  Resolution: The search icon and automatic site filter are implemented and verified.
+
+  Changed files:
+  `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`, and generated files under `mobile/prepared/`.
+  Documentation: `README.md`, `.mprlab/TERMINOLOGY.md`, and this tracker.
 
 - [x] [F018] (P1) Add mobile account settings through an avatar menu
   Goal:
