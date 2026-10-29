@@ -13,6 +13,7 @@ import ts from "@typescript/typescript6";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const require = createRequire(import.meta.url);
+let scenarioCount = 0;
 const mobileRoot = resolve(import.meta.dirname, "..");
 const account = { email: "owner@example.com", name: "Operator", role: "admin" };
 const site = {
@@ -26,6 +27,92 @@ const trendPoints = [
   { date: "2026-10-21", page_views: 7, unique_visitors: 5 },
   { date: "2026-10-22", page_views: 0, unique_visitors: 0 },
 ];
+
+await scenario("avatar opens account settings", { initialSession: true }, async (app) => {
+  assert.doesNotMatch(app.text(), /Sign out/);
+  await app.press("Account menu");
+  await app.press("Settings");
+  assert.match(app.text(), /owner@example.com/);
+  assert.match(app.text(), /Account role/);
+  assert.match(app.text(), /Sign out/);
+});
+
+await scenario("settings preserve selection and show distinct account and site roles", { initialSession: true, multipleSites: true }, async (app) => {
+  await app.press("Other site"); await app.press("Traffic"); await app.press("1d");
+  await app.press("Account menu"); await app.press("Close account menu");
+  assert.doesNotMatch(app.text(), /Settings/);
+  await app.press("Account menu"); await app.press("Settings");
+  assert.match(app.text(), /Email owner@example.com Account role Admin/);
+  assert.match(app.text(), /Aggregate site Site role:\s+Admin/);
+  assert.match(app.text(), /Other site Site role:\s+Team member/);
+  await app.press("Back to dashboard");
+  assert.match(app.text(), /Other site/); assert.match(app.text(), /Daily counts/);
+  assert.match(app.text(), /Accepted requests 23/); assert.equal(app.lastInterval(),"1day");
+  assert.doesNotMatch(app.text(), /Sign out/);
+});
+for (const platform of ["ios", "android"]) await scenario(`${platform} menu dismissal restores focus and settings receives focus`, {initialSession:true,platform:/** @type {"ios"|"android"} */(platform)}, async app => {
+  await app.press("Account menu"); assert.equal(app.focused(),"button:Settings");
+  await app.press("Close account menu"); assert.equal(app.focused(),"button:Account menu");
+  await app.press("Account menu"); await app.back(); assert.equal(app.focused(),"button:Account menu");
+  await app.press("Account menu"); await app.press("Settings"); assert.equal(app.focused(),"header:Settings");
+});
+await scenario("settings show an account image and non-admin role", {
+  initialSession: true, account:{email:"team@example.com",name:"Teammate",role:"user",avatar:{url:"https://example.com/avatar.png"}},
+}, async app => {
+  assert(app.imageUris().includes("https://example.com/avatar.png"));
+  await app.press("Account menu"); await app.press("Settings");
+  assert.match(app.text(), /team@example.com Account role User/);
+});
+await scenario("menu and settings support back navigation and email initials", {initialSession:true,account:{email:"zoe@example.com",name:"Operator",role:"user"}}, async app => {
+  assert.equal(app.buttonText("Account menu"),"Z");
+  await app.press("Account menu"); await app.back(); assert.doesNotMatch(app.text(), /Settings/);
+  await app.press("Account menu"); await app.press("Settings"); await app.back(); app.expectSignedIn();
+});
+for (const empty of [false,true]) await scenario(`settings show ${empty ? "empty" : "failed"} site role state`, {initialSession:true,emptySites:empty,sitesFailure:!empty}, async app => {
+  await app.press("Account menu"); await app.press("Settings"); assert.match(app.text(),/owner@example.com Account role Admin/);
+  assert.match(app.text(),empty ? /No site access/ : /Site roles could not be loaded/);
+});
+await scenario("failed sign-out stays in settings with an actionable error", {initialSession:true,logoutFailure:true}, async app => {
+  await app.press("Account menu"); await app.press("Settings"); await app.press("Sign out");
+  assert.match(app.text(), /Could not sign out.*500/); assert.match(app.text(), /Account role/);
+  await app.press("Back to dashboard"); app.expectSignedIn();
+});
+await scenario("themes follow system changes, persist, and apply throughout the app", {initialSession:true,systemTheme:"dark"}, async app => {
+  assert.equal(app.background(),"#101816"); assert.equal(app.statusBarStyle(),"light");
+  await app.press("Account menu"); await app.press("Settings"); assert(app.selected("System"));
+  await app.press("Light"); assert.equal(app.nativeAppearance(),"light"); assert.equal(app.background(),"#f5f7f6"); assert.equal(app.storedTheme(),"light");
+  await app.system("light"); await app.system("dark"); assert.equal(app.background(),"#f5f7f6"); assert(app.selected("Light"));
+  await app.press("Dark"); await app.system("light"); assert.equal(app.background(),"#101816"); assert(app.selected("Dark"));
+  await app.press("Back to dashboard"); assert.equal(app.background(),"#101816");
+  await app.remount(); assert.equal(app.background(),"#101816");
+  await app.press("Account menu"); await app.press("Settings"); assert(app.selected("Dark"));
+  await app.press("System"); assert.equal(app.nativeAppearance(),"unspecified"); assert.equal(app.background(),"#f5f7f6");
+  await app.system("dark"); assert.equal(app.background(),"#101816");
+  await app.system("light",true); assert.equal(app.background(),"#f5f7f6");
+  assert.equal(app.storedTheme(),"system");
+  await app.press("Dark"); await app.press("Sign out"); assert.equal(app.background(),"#101816");
+  assert.match(app.text(), /Sign in with Google/);
+});
+await scenario("theme writes are serialized and retain the latest selected choice", {initialSession:true,holdWrites:true,failFirstWrite:true}, async app => {
+  await app.press("Account menu"); await app.press("Settings");
+  await app.press("Dark"); await app.press("Light"); assert(app.selected("Light")); assert.match(app.text(),/Saving theme/);
+  await app.releaseWrite(); assert(app.selected("Light")); assert.match(app.text(),/Saving theme/); assert.doesNotMatch(app.text(),/Could not save/);
+  await app.releaseWrite(); assert.equal(app.storedTheme(),"light"); assert(app.selected("Light"));
+});
+await scenario("theme write errors remain visible and the selected choice can recover", {initialSession:true,storageFailure:true}, async app => {
+  await app.press("Account menu"); await app.press("Settings"); await app.press("Dark");
+  assert.equal(app.background(),"#101816"); assert.match(app.text(),/Could not save theme preference/);
+  assert.equal(app.storedTheme(),undefined); app.recoverStorage(); await app.press("Dark");
+  assert.equal(app.storedTheme(),"dark"); assert.doesNotMatch(app.text(),/Could not save/);
+});
+for (const corrupt of [false,true]) await scenario(`theme read ${corrupt ? "invalid value" : "failure"} is visible and recoverable`, {
+  initialSession:true, readFailure:!corrupt, storedTheme:corrupt ? "obsolete-theme" : undefined,
+}, async app => {
+  await app.press("Account menu"); await app.press("Settings"); assert.match(app.text(),/Could not load theme preference/);
+  assert(!app.selected("System")); app.recoverStorage();
+  if (!corrupt) { await app.system("dark",true); assert(app.selected("System")); }
+  await app.press("Light"); assert.equal(app.storedTheme(),"light");
+});
 
 for (const recentVisits of [[], [{
   url: "https://example.com/individual-visit", path: "/individual-visit", ip: "192.0.2.1", country: "Test country",
@@ -173,6 +260,8 @@ await scenario("portfolio failure preserves the selected-site dashboard", { init
 await scenario("late portfolio data cannot replace a new session's reports", { initialSession: true, deferPortfolio: true }, async (app) => {
   await app.press("Other site");
   assert.match(app.text(), /Visits 23/);
+  await app.press("Account menu");
+  await app.press("Settings");
   await app.press("Sign out");
   assert.match(app.text(), /Sign in with Google/);
   await app.signIn();
@@ -187,6 +276,8 @@ await scenario("fresh login cleanup cannot enable sign-in during a newer Google 
   app.expectSignedIn();
   await app.press("Other site");
   assert.match(app.text(), /Visits 23/);
+  await app.press("Account menu");
+  await app.press("Settings");
   await app.press("Sign out");
   await app.startPendingSignIn();
   app.expectSignInPending();
@@ -199,15 +290,20 @@ await scenario("fresh login cleanup cannot enable sign-in during a newer Google 
   assert.doesNotMatch(app.text(), /Visits 35/);
 });
 
-console.log("mobile app flow checks passed");
+console.log(`${scenarioCount} mobile app flow checks passed`);
 
 /**
  * @param {string} name
- * @param {{ initialSession: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
- * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[] }) => Promise<void>} check
+ * @param {{ initialSession: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, emptySites?: boolean, failFirstWrite?: boolean, account?: {email:string,name:string,role:string,avatar?:{url:string}}, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
+ * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, imageUris: () => string[], back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
  */
 async function scenario(name, options, check) {
   let authenticated = options.initialSession;
+  const currentAccount = options.account ?? account;
+  let lastInterval = "";
+  /** @type {Device} */
+  const device = { storage: new Map(), scheme: options.systemTheme ?? "light", listeners: new Set(), foreground: new Set(), readFailure: options.readFailure ?? false, writeFailure: options.storageFailure ?? false, holdWrites: options.holdWrites ?? false, pendingWrites: [], failFirstWrite: options.failFirstWrite ?? false, writeCount: 0, back: new Set(), platform:options.platform ?? "ios", tags:new Map(), focused:[], nativeOverride: null };
+  if (options.storedTheme !== undefined) device.storage.set("loopaware.mobile.theme", options.storedTheme);
   const visibleSite = { ...site, traffic_profile: options.trafficProfile ?? "aggregate" };
   /** @type {string[]} */
   const requests = [];
@@ -238,11 +334,12 @@ async function scenario(name, options, check) {
     const path = requestURL.pathname;
     const interval = requestURL.searchParams.get("interval") || "30days";
     requests.push(path);
+    if (path.endsWith("/visits/stats")) lastInterval = interval;
     let status = 200;
     /** @type {unknown} */
     let payload;
     switch (path) {
-      case "/api/me": status = authenticated ? 200 : 401; payload = authenticated ? account : { error: "unauthorized" }; break;
+      case "/api/me": status = authenticated ? 200 : 401; payload = authenticated ? currentAccount : { error: "unauthorized" }; break;
       case "/auth/refresh": status = 401; payload = { error: "missing_session" }; break;
       case "/auth/nonce": payload = { nonce: "issued-nonce" }; break;
       case "/auth/google/native/config":
@@ -250,9 +347,9 @@ async function scenario(name, options, check) {
       case "/auth/google/native":
         assert.equal(request.headers["x-tauth-tenant"], "loopaware");
         authenticated = !options.rejectLogin;
-        status = authenticated ? 200 : 401; payload = authenticated ? account : { error: "invalid_google_token" }; break;
-      case "/auth/logout": authenticated = false; payload = {}; break;
-      case "/api/sites": status = options.sitesFailure ? 500 : 200; payload = options.sitesFailure ? { error: "query_failed" } : { sites: options.deferDashboard || options.deferSites || options.deferPortfolio || options.trend ? [visibleSite, { ...visibleSite, id: "other-site", name: "Other site" }] : [visibleSite] }; break;
+        status = authenticated ? 200 : 401; payload = authenticated ? currentAccount : { error: "invalid_google_token" }; break;
+      case "/auth/logout": status = options.logoutFailure ? 500 : 200; if (!options.logoutFailure) authenticated = false; payload = options.logoutFailure ? {error:"logout_failed"} : {}; break;
+      case "/api/sites": status = options.sitesFailure ? 500 : 200; payload = options.sitesFailure ? { error: "query_failed" } : { sites: options.emptySites ? [] : options.deferDashboard || options.deferSites || options.deferPortfolio || options.trend || options.multipleSites ? [visibleSite, { ...visibleSite, id: "other-site", name: "Other site", access_role: "team_member" }] : [visibleSite] }; break;
       case "/api/reports/traffic/portfolio/reports": payload = { reports: [], available_sites: [] }; break;
       case "/api/reports/traffic/portfolio":
         status = options.portfolioFailure ? 500 : 200;
@@ -294,17 +391,25 @@ async function scenario(name, options, check) {
   /** @type {() => Promise<unknown>} */
   let prompt = async () => undefined;
   let completePrompt = () => {};
-  const { App, assetLoads } = loadApp(origin, fetcher, () => prompt());
+  const { App, assetLoads } = loadApp(origin, fetcher, () => prompt(), device);
   /** @type {import("react-test-renderer").ReactTestRenderer | undefined} */
   let renderer;
   function tree() { assert(renderer); return renderer; }
+  function createApp() {
+    return create(React.createElement(App), { createNodeMock(element) {
+      const tag=device.tags.size+1;
+      const props = /** @type {{accessibilityRole?:string,accessibilityLabel?:string,children?:React.ReactNode}} */ (element.props);
+      device.tags.set(tag, `${props.accessibilityRole ?? "text"}:${props.accessibilityLabel ?? textContent(props.children)}`);
+      return {tag};
+    } });
+  }
   try {
-    await act(async () => { renderer = create(React.createElement(App)); });
+    await act(async () => { renderer = createApp(); });
     await settle();
     const text = () => textContent(tree().toJSON());
     /** @param {string} label */
     function findButton(label) {
-      return tree().root.findAll(node => String(node.type) === "Pressable" && textContent(node.props.children).includes(label))[0];
+      return tree().root.findAll(node => String(node.type) === "Pressable" && (node.props.accessibilityLabel === label || textContent(node.props.children).includes(label)))[0];
     }
     /** @param {string} label @param {"idle" | "heldResponse"} waitFor */
     async function press(label, waitFor = "idle") {
@@ -317,7 +422,24 @@ async function scenario(name, options, check) {
       await settle();
     }
     await check({
-      text, requests,
+      text, requests, lastInterval: () => lastInterval,
+      background() { return tree().root.findAll(node => String(node.type) === "SafeAreaView")[0].props.style.backgroundColor; },
+      selected(label) { return findButton(label)?.props.accessibilityState?.selected === true; },
+      storedTheme() { return device.storage.get("loopaware.mobile.theme"); },
+      nativeAppearance() { return device.nativeOverride ?? "unspecified"; },
+      focused() { return device.focused.at(-1) ?? ""; },
+      statusBarStyle() { return tree().root.findAll(node => String(node.type) === "StatusBar")[0].props.style; },
+      buttonText(label) { const button = findButton(label); assert(button); return textContent(button.props.children); },
+      async back() { await act(async () => { const modal=tree().root.findAll(node => String(node.type) === "Modal")[0]; if (modal) modal.props.onRequestClose(); else for (const callback of device.back) callback(); }); await settle(); },
+      imageUris() { return tree().root.findAll(node => String(node.type) === "Image").map(node => node.props.source?.uri).filter(Boolean); },
+      async system(scheme, foreground = false) {
+        device.scheme = scheme;
+        await act(async () => { for (const notify of (foreground ? device.foreground : device.listeners)) notify(); });
+        await settle();
+      },
+      async remount() { await act(async () => { renderer?.unmount(); }); await act(async () => { renderer = createApp(); }); await settle(); },
+      recoverStorage() { device.readFailure = false; device.writeFailure = false; },
+      async releaseWrite() { const release = device.pendingWrites.shift(); assert(release); await act(async () => { release(); }); await settle(); },
       press,
       async refresh() {
         deferred = true;
@@ -331,7 +453,7 @@ async function scenario(name, options, check) {
         await act(async () => { releaseResponse(); await consumed; });
         await settle();
       },
-      expectSignedIn() { assert.match(text(), /Sign out/, name); assert.doesNotMatch(text(), /Sign in with Google/, name); },
+      expectSignedIn() { assert(findButton("Account menu"), name); assert.doesNotMatch(text(), /Sign in with Google/, name); },
       expectSignInPending() {
         const button = findButton("Opening Google") || findButton("Sign in with Google");
         assert(button, `${name}: sign-in screen is visible`);
@@ -351,6 +473,7 @@ async function scenario(name, options, check) {
         await settle();
       },
     });
+    scenarioCount += 1;
     assert(assetLoads() > 0, `${name}: real screen components rendered`);
   } finally {
     if (renderer) await act(async () => renderer?.unmount());
@@ -362,6 +485,7 @@ async function scenario(name, options, check) {
     // Flush real HTTP responses and the React effects they trigger.
     for (let attempt = 0; attempt < 50; attempt++) {
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+      await act(async () => { for (const node of tree().root.findAll(node => String(node.type) === "Text" && node.props.onLayout)) node.props.onLayout(); });
       if (deferred && responseHeld) return;
       if (!tree().root.findAll(node => String(node.type) === "ActivityIndicator").length) return;
     }
@@ -384,17 +508,45 @@ function textContent(node) {
   return textContent(element.children ?? element.props?.children);
 }
 
-/** @param {string} origin @param {typeof fetch} fetcher @param {() => Promise<unknown>} prompt */
-function loadApp(origin, fetcher, prompt) {
+/** @typedef {{storage: Map<string,string>, scheme: "light"|"dark", listeners: Set<()=>void>, foreground: Set<()=>void>, readFailure:boolean,writeFailure:boolean,holdWrites:boolean,pendingWrites:Array<()=>void>,failFirstWrite:boolean,writeCount:number,back:Set<()=>boolean>,platform:"ios"|"android",tags:Map<number,string>,focused:string[], nativeOverride:"light"|"dark"|null}} Device */
+/** @param {string} origin @param {typeof fetch} fetcher @param {() => Promise<unknown>} prompt @param {Device} device */
+function loadApp(origin, fetcher, prompt, device) {
   let assetLoadCount = 0;
-  const nativeComponents = ["ActivityIndicator", "Image", "Pressable", "RefreshControl", "ScrollView", "Text", "View"];
+  /** @param {{visible:boolean,onShow:()=>void,onDismiss:()=>void,children:React.ReactNode}} props */
+  function NativeModal(props) {
+    const previous=React.useRef(false);
+    React.useEffect(() => {
+      if (props.visible && !previous.current) props.onShow();
+      if (!props.visible && previous.current && device.platform === "ios") props.onDismiss();
+      previous.current=props.visible;
+    }, [props.visible]);
+    return props.visible ? React.createElement("Modal", props, props.children) : null;
+  }
+  const nativeComponents = ["ActivityIndicator", "Image", "Pressable", "RefreshControl", "ScrollView", "Text", "View", "Modal"];
   /** @type {Record<string, unknown>} */
   const mocks = {
     "./assets/icon.png": 1,
-    "react-native": { ...Object.fromEntries(nativeComponents.map(name => [name, name])), Platform: { OS: "ios" }, StyleSheet: { create: (/** @type {unknown} */ value) => value, hairlineWidth: 1 } },
+    "react-native": { ...Object.fromEntries(nativeComponents.map(name => [name, name])), Platform: { OS: device.platform },
+      AccessibilityInfo: { setAccessibilityFocus: (/** @type {number} */ tag) => { const label=device.tags.get(tag); assert(label); device.focused.push(label); } },
+      findNodeHandle: (/** @type {{tag:number}|null} */ node) => node?.tag ?? null,
+      Modal: NativeModal,
+      BackHandler: { addEventListener: (/** @type {string} */ name, /** @type {()=>boolean} */ callback) => {device.back.add(callback); return {remove(){device.back.delete(callback);}};} },
+      Appearance: { getColorScheme: () => device.nativeOverride ?? device.scheme, setColorScheme: (/** @type {"light"|"dark"|"unspecified"} */ value) => {device.nativeOverride=value === "unspecified" ? null : value; for (const notify of device.listeners) notify();}, addChangeListener: (/** @type {()=>void} */ notify) => { device.listeners.add(notify); return {remove(){ device.listeners.delete(notify); }}; } },
+      AppState: { addEventListener: (/** @type {string} */ event, /** @type {(state:string)=>void} */ callback) => { const notify = () => callback("active"); device.foreground.add(notify); return {remove(){ device.foreground.delete(notify); }}; } },
+      StyleSheet: { create: (/** @type {unknown} */ value) => value, hairlineWidth: 1 } },
     "react-native-safe-area-context": { SafeAreaProvider: "SafeAreaProvider", SafeAreaView: "SafeAreaView" },
     "expo-status-bar": { StatusBar: "StatusBar" },
-    "expo-secure-store": { getItemAsync: async () => null, setItemAsync: async () => undefined },
+    "expo-secure-store": {
+      getItemAsync: async (/** @type {string} */ key) => { if (key === "loopaware.mobile.theme" && device.readFailure) throw new Error("controlled-read-failure"); return device.storage.get(key) ?? null; },
+      setItemAsync: async (/** @type {string} */ key, /** @type {string} */ value) => {
+        if (key === "loopaware.mobile.theme") {
+          const write=++device.writeCount;
+          if (device.holdWrites) await new Promise(resolve => device.pendingWrites.push(() => resolve(undefined)));
+          if (device.writeFailure || (device.failFirstWrite && write === 1)) throw new Error("controlled-write-failure");
+        }
+        device.storage.set(key, value);
+      },
+    },
     "expo-constants": { __esModule: true, default: { expoConfig: { extra: { loopAware: { apiBaseUrl: origin, tauthBaseUrl: origin, tauthTenantId: "loopaware" } } } } },
     "expo-crypto": { randomUUID: () => "nonce" },
     "expo-web-browser": { maybeCompleteAuthSession() {} },
@@ -416,13 +568,13 @@ function loadApp(origin, fetcher, prompt) {
     const module = { exports: {} };
     modules.set(filename, module);
     const compiled = ts.transpileModule(readFileSync(filename, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true }, fileName: filename });
-    const execute = new Script(`(function(require, module, exports, fetch) { ${compiled.outputText}\n})`, { filename }).runInThisContext();
+    const execute = new Script(`(function(require, module, exports, fetch, requestAnimationFrame, cancelAnimationFrame) { ${compiled.outputText}\n})`, { filename }).runInThisContext();
     execute((/** @type {string} */ name) => {
       if (name === "./assets/icon.png") assetLoadCount += 1;
       if (name in mocks) return mocks[name];
       if (name.startsWith(".")) return load(resolve(dirname(filename), `${name}.ts`));
       return require(name);
-    }, module, module.exports, fetcher);
+    }, module, module.exports, fetcher, (/** @type {()=>void} */ callback) => setTimeout(callback,0), (/** @type {ReturnType<typeof setTimeout>} */ timer) => clearTimeout(timer));
     return module.exports;
   }
   return { App: load(resolve(mobileRoot, "App.tsx")).default, assetLoads: () => assetLoadCount };

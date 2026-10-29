@@ -3,6 +3,10 @@ import * as SecureStore from "expo-secure-store";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AccessibilityInfo,
+  BackHandler,
+  findNodeHandle,
+  Modal,
   type DimensionValue,
   Image,
   Pressable,
@@ -14,6 +18,8 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { LoopAwareApiClient, LoopAwareApiError } from "./src/api";
+import { useAccountMenu } from "./src/account-menu";
+import { ThemeProvider, useTheme, palettes, type ThemeColors } from "./src/theme";
 import { AuthController } from "./src/auth";
 import { loadRuntimeConfig } from "./src/config";
 import { compactText, formatCount, formatDate, formatDateTime, formatPercent, sentenceCase } from "./src/format";
@@ -27,7 +33,6 @@ import type {
   SiteDashboard,
   Subscriber,
   TrafficInterval,
-  VisitLogEntry,
   VisitTrendPoint,
 } from "./src/types";
 
@@ -49,6 +54,18 @@ const trafficIntervals: Array<{ key: TrafficInterval; label: string }> = [
 const mobileFeedbackSourceKind: FeedbackMessage["source_kind"] = "mobile_app";
 
 export default function App() {
+  return <ThemeProvider><AppContent /></ThemeProvider>;
+}
+
+function AppContent() {
+  const { styles, colors } = useAppStyles();
+  const theme = useTheme();
+  const [screen, setScreen] = useState<"dashboard" | "settings">("dashboard");
+  useEffect(() => {
+    if (screen !== "settings") return;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => { setScreen("dashboard"); return true; });
+    return () => subscription.remove();
+  }, [screen]);
   const runtimeConfig = useMemo(() => loadRuntimeConfig(), []);
   const apiClient = useMemo(() => new LoopAwareApiClient(runtimeConfig), [runtimeConfig]);
   const authController = useMemo(() => new AuthController(apiClient), [apiClient]);
@@ -225,8 +242,9 @@ export default function App() {
       setSiteDashboard(null);
       setPortfolioDashboard(null);
       setStatus("signedOut");
+      setScreen("dashboard");
     } catch (error) {
-      setErrorMessage(errorToMessage(error));
+      setErrorMessage(`Could not sign out. ${errorToMessage(error)}`);
     } finally {
       setBusy(false);
       setRefreshing(false);
@@ -257,11 +275,11 @@ export default function App() {
     await loadAuthenticatedState("current", selectedSiteId, trafficInterval);
   }, [loadAuthenticatedState, selectedSiteId, trafficInterval]);
 
-  if (status === "checking") {
+  if (status === "checking" || theme.loading) {
     return (
       <SafeAreaProvider>
         <SafeAreaView style={styles.loadingScreen}>
-          <StatusBar style="dark" />
+          <StatusBar style={theme.appearance === "dark" ? "light" : "dark"} />
           <ActivityIndicator size="large" color={colors.teal} />
           <Text style={styles.loadingText}>Loading LoopAware</Text>
         </SafeAreaView>
@@ -272,16 +290,23 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="dark" />
+        <StatusBar style={theme.appearance === "dark" ? "light" : "dark"} />
         {status === "signedOut" ? (
-          <SignedOutScreen busy={busy} errorMessage={errorMessage} onSignIn={handleSignIn} runtimeHost={runtimeConfig.apiBaseUrl} />
+          <SignedOutScreen busy={busy} errorMessage={errorMessage ?? theme.error} onSignIn={handleSignIn} runtimeHost={runtimeConfig.apiBaseUrl} />
+        ) : screen === "settings" ? (
+          <SettingsScreen account={account!} sites={sites} busy={busy} errorMessage={errorMessage}
+            onBack={() => setScreen("dashboard")} onSignOut={handleSignOut} />
         ) : (
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.teal} />}
           >
-            <Header account={account} busy={busy} onSignOut={handleSignOut} />
+            <Header account={account!} onSettings={() => {
+              setScreen("settings");
+              void loadAuthenticatedState("current", selectedSiteId, trafficInterval);
+            }} />
             {errorMessage ? <StatusBanner message={errorMessage} /> : null}
+            {theme.error ? <StatusBanner message={theme.error} /> : null}
             {sites ? <SitesRail sites={sites} selectedSiteId={selectedSiteId} onSelectSite={handleSelectSite} /> : null}
             {selectedSite ? (
               <>
@@ -318,6 +343,7 @@ export default function App() {
 }
 
 function SignedOutScreen(props: { busy: boolean; errorMessage: string | null; onSignIn: () => void; runtimeHost: string }) {
+  const { styles, colors } = useAppStyles();
   return (
     <View style={styles.signedOutScreen}>
       <View style={styles.brandRow}>
@@ -337,24 +363,87 @@ function SignedOutScreen(props: { busy: boolean; errorMessage: string | null; on
   );
 }
 
-function Header(props: { account: Account | null; busy: boolean; onSignOut: () => void }) {
+function focusNative(element: View | Text | null) {
+  if (!element) return;
+  const tag = findNodeHandle(element);
+  if (tag !== null) AccessibilityInfo.setAccessibilityFocus(tag);
+}
+
+function Header(props: { account: Account; onSettings: () => void }) {
+  const { styles, colors } = useAppStyles();
+  const avatar = useRef<View>(null);
+  const menuItem = useRef<View>(null);
+  const menu = useAccountMenu(props.onSettings, () => focusNative(avatar.current));
   return (
     <View style={styles.header}>
       <View style={styles.brandRowCompact}>
         <Image source={require("./assets/icon.png")} style={styles.headerIcon} />
-        <View>
-          <Text style={styles.headerTitle}>LoopAware</Text>
-          <Text style={styles.headerSubtitle}>{compactText(props.account?.email, "Signed in")}</Text>
-        </View>
+        <Text style={styles.headerTitle}>LoopAware</Text>
       </View>
-      <Pressable disabled={props.busy} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressedButton]} onPress={props.onSignOut}>
-        <Text style={styles.secondaryButtonText}>Sign out</Text>
+      <Pressable ref={avatar} accessibilityRole="button" accessibilityLabel="Account menu"
+        accessibilityHint="Open account options" accessibilityState={{ expanded: menu.visible }}
+        style={styles.avatar} onPress={menu.open}>
+        {props.account.avatar?.url ? <Image source={{ uri: props.account.avatar.url }} style={styles.avatarImage} />
+          : <Text style={styles.avatarInitial}>{Array.from(props.account.email)[0].toUpperCase()}</Text>}
       </Pressable>
+      <Modal visible={menu.visible} transparent animationType="none" onRequestClose={() => menu.close("avatar")}
+        onShow={() => focusNative(menuItem.current)} onDismiss={menu.onDismiss}>
+        <SafeAreaView style={styles.menuOverlay} accessibilityViewIsModal onAccessibilityEscape={() => menu.close("avatar")}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close account menu" style={styles.menuBackdrop} onPress={() => menu.close("avatar")} />
+          <View style={styles.accountMenu}>
+            <Pressable ref={menuItem} accessibilityRole="button" style={styles.menuItem} onPress={() => menu.close("settings")}>
+              <Text style={styles.secondaryButtonText}>Settings</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
 
+function SettingsScreen(props: { account: Account; sites: Site[] | null; busy: boolean; errorMessage: string | null; onBack: () => void; onSignOut: () => void }) {
+  const { styles, colors } = useAppStyles();
+  const theme = useTheme();
+  const heading = useRef<Text>(null);
+  const focused = useRef(false);
+  return <ScrollView contentContainerStyle={styles.scrollContent} accessibilityLabel="Account settings">
+    <Pressable accessibilityRole="button" onPress={props.onBack} style={styles.backButton}>
+      <Text style={styles.secondaryButtonText}>Back to dashboard</Text>
+    </Pressable>
+    <Text ref={heading} accessibilityRole="header" style={styles.settingsTitle} onLayout={() => {
+      if (!focused.current) { focused.current = true; focusNative(heading.current); }
+    }}>Settings</Text>
+    {props.errorMessage ? <StatusBanner message={props.errorMessage} /> : null}
+    <Section title="Account">
+      <Text style={styles.labelText}>Email</Text><Text selectable style={styles.valueText}>{props.account.email}</Text>
+      <Text style={styles.labelText}>Account role</Text><Text style={styles.valueText}>{sentenceCase(props.account.role)}</Text>
+    </Section>
+    <Section title="Site access">
+      {props.sites === null ? <Text style={styles.helperText}>{props.busy ? "Loading site roles" : "Site roles could not be loaded."}</Text>
+        : props.sites.length ? props.sites.map(site => <View key={site.id} style={styles.settingsRole}>
+          <Text style={styles.valueText}>{site.name}</Text><Text style={styles.helperText}>Site role: {sentenceCase(site.access_role)}</Text>
+        </View>) : <Text style={styles.helperText}>No site access</Text>}
+    </Section>
+    <Section title="Appearance">
+      <Text style={styles.helperText}>Choose a theme. System follows your device appearance.</Text>
+      <View accessibilityRole="radiogroup" style={styles.themeChoices}>
+        {(["light", "dark", "system"] as const).map(choice => <Pressable key={choice} accessibilityRole="radio"
+          accessibilityLabel={sentenceCase(choice)} accessibilityState={{ selected: theme.preference === choice, checked: theme.preference === choice }}
+          onPress={() => theme.select(choice)} style={[styles.themeChoice, theme.preference === choice && styles.themeChoiceSelected]}>
+          <Text style={[styles.secondaryButtonText, theme.preference === choice && styles.themeChoiceTextSelected]}>{sentenceCase(choice)}</Text>
+        </Pressable>)}
+      </View>
+      <Text accessibilityLiveRegion="polite" style={styles.helperText}>{theme.saving ? "Saving theme…" : theme.error ? theme.error : "Changes save automatically"}</Text>
+    </Section>
+    {props.busy ? <InlineLoading /> : null}
+    <Pressable accessibilityRole="button" disabled={props.busy} style={[styles.secondaryButton, props.busy && styles.disabledButton]} onPress={props.onSignOut}>
+      <Text style={styles.secondaryButtonText}>Sign out</Text>
+    </Pressable>
+  </ScrollView>;
+}
+
 function SitesRail(props: { sites: Site[]; selectedSiteId: string | null; onSelectSite: (site: Site) => void }) {
+  const { styles, colors } = useAppStyles();
   if (!props.sites.length) {
     return null;
   }
@@ -379,6 +468,7 @@ function SitesRail(props: { sites: Site[]; selectedSiteId: string | null; onSele
 }
 
 function SelectedSiteHeader(props: { site: Site }) {
+  const { styles, colors } = useAppStyles();
   return (
     <View style={styles.siteHeader}>
       <View>
@@ -391,6 +481,7 @@ function SelectedSiteHeader(props: { site: Site }) {
 }
 
 function TabBar(props: { activeTab: DashboardTab; onChange: (tab: DashboardTab) => void }) {
+  const { styles, colors } = useAppStyles();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
       {dashboardTabs.map((tab) => {
@@ -413,6 +504,7 @@ function DashboardTabContent(props: {
   site: Site;
   siteDashboard: SiteDashboard;
 }) {
+  const { styles, colors } = useAppStyles();
   switch (props.activeTab) {
     case "feedback":
       return <FeedbackSection messages={props.siteDashboard.messages} />;
@@ -433,6 +525,7 @@ function DashboardTabContent(props: {
 }
 
 function OverviewSection(props: { dashboard: SiteDashboard; site: Site }) {
+  const { styles, colors } = useAppStyles();
   return (
     <View style={styles.sectionStack}>
       <StatGrid
@@ -479,6 +572,7 @@ function OverviewSection(props: { dashboard: SiteDashboard; site: Site }) {
 }
 
 function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInterval; onIntervalChange: (interval: TrafficInterval) => void }) {
+  const { styles, colors } = useAppStyles();
   const { engagement, attribution, devices, locations } = props.dashboard;
   if (engagement === null || attribution === null || devices === null || locations === null) {
     return (
@@ -515,13 +609,6 @@ function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInte
       </Section>
       <Section title="Locations">
         <Bars items={locations.locations} labelFor={(item) => item.label} valueFor={(item) => item.visit_count} />
-      </Section>
-      <Section title="Recent visits">
-        {props.dashboard.stats.recent_visits.length ? (
-          props.dashboard.stats.recent_visits.map((visit, index) => <VisitItem key={`${visit.visitor_id}-${visit.occurred_at}-${index}`} visit={visit} />)
-        ) : (
-          <EmptyInline text="No recent visits in this interval." />
-        )}
       </Section>
     </View>
   );
@@ -571,6 +658,7 @@ function SubscribersSection(props: { subscribers: Subscriber[] }) {
 }
 
 function HealthSection(props: { monitor: SiteDashboard["healthMonitor"] }) {
+  const { styles, colors } = useAppStyles();
   const monitor = props.monitor;
   if (!monitor) {
     return <EmptyInline text="Health monitor is not available." />;
@@ -612,6 +700,7 @@ function healthRecipientLabel(monitor: SiteDashboard["healthMonitor"]): string {
 }
 
 function SentrySection(props: { issues: SentryIssue[]; site: Site }) {
+  const { styles, colors } = useAppStyles();
   return (
     <View style={styles.sectionStack}>
       <StatGrid
@@ -640,6 +729,7 @@ function SentrySection(props: { issues: SentryIssue[]; site: Site }) {
 }
 
 function ReportsSection(props: { dashboard: PortfolioDashboard | null; siteDashboard: SiteDashboard; site: Site }) {
+  const { styles, colors } = useAppStyles();
   const schedule = props.siteDashboard.trafficReportSchedule;
   return (
     <View style={styles.sectionStack}>
@@ -710,17 +800,8 @@ function Bars<T>(props: { items: T[]; labelFor: (item: T) => string; valueFor: (
   );
 }
 
-function VisitItem(props: { visit: VisitLogEntry }) {
-  return (
-    <ListItem
-      title={props.visit.path || props.visit.url || "Visit"}
-      meta={`${compactText(props.visit.browser)} · ${compactText(props.visit.country)} · ${formatDateTime(props.visit.occurred_at)}`}
-      detail={props.visit.referrer ? `Referrer: ${props.visit.referrer}` : compactText(props.visit.visitor_id, "Anonymous visitor")}
-    />
-  );
-}
-
 function StatGrid(props: { items: Array<{ label: string; value: string; detail?: string }> }) {
+  const { styles, colors } = useAppStyles();
   return (
     <View style={styles.statGrid}>
       {props.items.map((item) => (
@@ -735,6 +816,7 @@ function StatGrid(props: { items: Array<{ label: string; value: string; detail?:
 }
 
 function Section(props: { title: string; children: React.ReactNode }) {
+  const { styles, colors } = useAppStyles();
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{props.title}</Text>
@@ -744,6 +826,7 @@ function Section(props: { title: string; children: React.ReactNode }) {
 }
 
 function InfoRow(props: { label: string; value: string }) {
+  const { styles, colors } = useAppStyles();
   return (
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{props.label}</Text>
@@ -753,6 +836,7 @@ function InfoRow(props: { label: string; value: string }) {
 }
 
 function ListItem(props: { title: string; meta?: string; detail?: string; right?: string }) {
+  const { styles, colors } = useAppStyles();
   return (
     <View style={styles.listItem}>
       <View style={styles.listItemMain}>
@@ -768,6 +852,7 @@ function ListItem(props: { title: string; meta?: string; detail?: string; right?
 }
 
 function DataBar(props: { label: string; value: number; maxValue: number; detail?: string }) {
+  const { styles, colors } = useAppStyles();
   const widthPercentage = `${Math.max(5, Math.round((props.value / props.maxValue) * 100))}%` as DimensionValue;
   return (
     <View style={styles.dataBarRow}>
@@ -786,6 +871,7 @@ function DataBar(props: { label: string; value: number; maxValue: number; detail
 }
 
 function SegmentedControl<T extends string>(props: { items: Array<{ key: T; label: string }>; selectedKey: T; onChange: (key: T) => void }) {
+  const { styles, colors } = useAppStyles();
   return (
     <View style={styles.segmentedControl}>
       {props.items.map((item) => {
@@ -801,6 +887,7 @@ function SegmentedControl<T extends string>(props: { items: Array<{ key: T; labe
 }
 
 function PrimaryButton(props: { label: string; disabled?: boolean; onPress: () => void }) {
+  const { styles, colors } = useAppStyles();
   return (
     <Pressable
       disabled={props.disabled}
@@ -813,6 +900,7 @@ function PrimaryButton(props: { label: string; disabled?: boolean; onPress: () =
 }
 
 function StatusBanner(props: { message: string }) {
+  const { styles, colors } = useAppStyles();
   return (
     <View style={styles.statusBanner}>
       <Text style={styles.statusBannerText}>{props.message}</Text>
@@ -821,6 +909,7 @@ function StatusBanner(props: { message: string }) {
 }
 
 function EmptyState(props: { title: string; detail: string }) {
+  const { styles, colors } = useAppStyles();
   return (
     <View style={styles.emptyState}>
       <Text style={styles.emptyStateTitle}>{props.title}</Text>
@@ -830,10 +919,12 @@ function EmptyState(props: { title: string; detail: string }) {
 }
 
 function EmptyInline(props: { text: string }) {
+  const { styles, colors } = useAppStyles();
   return <Text style={styles.emptyInline}>{props.text}</Text>;
 }
 
 function InlineLoading() {
+  const { styles, colors } = useAppStyles();
   return (
     <View style={styles.inlineLoading}>
       <ActivityIndicator color={colors.teal} />
@@ -862,21 +953,25 @@ function errorToMessage(error: unknown): string {
   return "Request failed";
 }
 
-const colors = {
-  background: "#f5f7f6",
-  ink: "#17211f",
-  muted: "#65726e",
-  border: "#d8e0dd",
-  surface: "#ffffff",
-  surfaceAlt: "#eef3f1",
-  teal: "#157f78",
-  tealDark: "#0e5e59",
-  amber: "#b7791f",
-  red: "#b42318",
-  green: "#287d3c",
-};
+function createStyles(colors: ThemeColors) { return StyleSheet.create({
+  labelText: { color: colors.muted, fontSize: 13, fontWeight: "700" },
+  valueText: { color: colors.ink, fontSize: 16 },
+  helperText: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.roleSurface, borderWidth: 1, borderColor: colors.teal },
+  avatarImage: { width: 42, height: 42, borderRadius: 21 },
+  avatarInitial: { fontSize: 20, fontWeight: "800", color: colors.tealDark },
+  menuOverlay: { flex: 1, padding: 16, alignItems: "flex-end" },
+  menuBackdrop: { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, backgroundColor: "rgba(0,0,0,0.25)" },
+  accountMenu: { marginTop: 58, minWidth: 180, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  menuItem: { padding: 18, minHeight: 48, justifyContent: "center" },
+  backButton: { minHeight: 44, justifyContent: "center", alignSelf: "flex-start" },
+  settingsTitle: { color: colors.ink, fontSize: 28, fontWeight: "800" },
+  settingsRole: { paddingVertical: 8, gap: 4 },
+  themeChoices: { gap: 10 },
+  themeChoice: { minHeight: 48, borderRadius: 8, borderWidth: 1, borderColor: colors.border, padding: 14, backgroundColor: colors.surface },
+  themeChoiceSelected: { backgroundColor: colors.accentSurface, borderColor: colors.teal },
+  themeChoiceTextSelected: { color: colors.tealDark },
 
-const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -973,7 +1068,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.teal,
   },
   primaryButtonText: {
-    color: colors.surface,
+    color: colors.onAccent,
     fontSize: 16,
     fontWeight: "800",
   },
@@ -1000,10 +1095,10 @@ const styles = StyleSheet.create({
   },
   statusBanner: {
     borderWidth: 1,
-    borderColor: "#f2b8b5",
+    borderColor: colors.errorBorder,
     borderRadius: 8,
     padding: 12,
-    backgroundColor: "#fff2f1",
+    backgroundColor: colors.errorSurface,
   },
   statusBannerText: {
     color: colors.red,
@@ -1033,7 +1128,7 @@ const styles = StyleSheet.create({
   },
   siteChipSelected: {
     borderColor: colors.teal,
-    backgroundColor: "#e6f4f1",
+    backgroundColor: colors.accentSurface,
   },
   siteChipTitle: {
     color: colors.ink,
@@ -1078,7 +1173,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     color: colors.tealDark,
-    backgroundColor: "#d9f0ec",
+    backgroundColor: colors.roleSurface,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -1294,11 +1389,17 @@ const styles = StyleSheet.create({
     gap: 8,
     borderRadius: 8,
     padding: 10,
-    backgroundColor: "#e6f4f1",
+    backgroundColor: colors.accentSurface,
   },
   inlineLoadingText: {
     color: colors.tealDark,
     fontSize: 13,
     fontWeight: "700",
   },
-});
+}); }
+
+const themeStyles = { light: createStyles(palettes.light), dark: createStyles(palettes.dark) };
+function useAppStyles() {
+  const theme = useTheme();
+  return { styles: themeStyles[theme.appearance], colors: theme.colors };
+}

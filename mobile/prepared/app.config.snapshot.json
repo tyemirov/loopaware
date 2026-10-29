@@ -9,7 +9,7 @@
       "loopaware",
       "com.mprlab.loopaware"
     ],
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "primaryColor": "#D4AF37",
     "ios": {
       "version": "1.1.0",

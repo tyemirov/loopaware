@@ -4590,7 +4590,7 @@ Implementation of the remaining mobile features remains pending.
   Status:
   The request is documented. Application implementation remains pending.
 
-- [ ] [F018] (P1) Add mobile account settings through an avatar menu
+- [x] [F018] (P1) Add mobile account settings through an avatar menu
   Goal:
   Give the operator one place for account details, roles, theme selection, and sign-out.
 
@@ -4611,11 +4611,11 @@ Implementation of the remaining mobile features remains pending.
   - Store each theme choice automatically and restore the choice when the app opens again.
   - Provide a return path to the dashboard.
 
-  Proposed details:
+  Details:
   Show the account role and the access role for each visible site, with clear labels.
 
-  Open Decisions:
-  Select the avatar appearance when the account has no image.
+  Decision:
+  Use the account image when present. Otherwise show a circular initial from the account email.
 
   Validation:
   - Open the avatar menu and select `Settings` through the mobile app entry point.
@@ -4630,7 +4630,21 @@ Implementation of the remaining mobile features remains pending.
   - Verify navigation and accessible control labels in an iOS simulator or Android emulator.
 
   Status:
-  The request is documented. Application implementation remains pending.
+  The avatar menu opens settings with email, account role, and each visible site role.
+  Sign-out is available on settings and preserves the theme preference.
+  The shared provider applies Light, Dark, or System throughout the app and native interface.
+  All 31 public app-flow cases passed, including storage errors, ordered writes, navigation, and accessibility focus.
+  iPhone 18 Pro simulator checks passed on iOS 27 with Expo Go 57.
+  Live System changes, foreground return, explicit themes, sign-out, and cold preference restoration were verified.
+  Android focus is covered through the public harness. Generated Android appearance configuration is automatic.
+  Android emulator visuals were not exercised.
+  Prepared-source validation and complete local `make ci` passed after the final test typing correction.
+  The complete run passed all 475 browser cases, 31 mobile app cases, and 29 SDK policy cases.
+  Resolution: Account settings and automatic theme persistence are implemented and verified.
+
+  Changed files:
+  `mobile/App.tsx`, `mobile/src/theme.ts`, `mobile/src/account-menu.ts`, `mobile/app.config.js`, and `mobile/scripts/test-app-flow.mjs`.
+  Also changed: `Makefile`, `README.md`, this tracker, and generated files under `mobile/prepared/`.
 
 - [ ] [F019] (P1) Add a seven-day mobile traffic selector
   Goal:

@@ -597,6 +597,20 @@ dependency update, build it with `docker build --pull -t loopaware:security-audi
 Repository administrators can run the read-only `make github-security-audit` gate to verify the live Actions, branch
 protection, Dependabot, secret-scanning, and gateway-owned Pages controls against the tracked security contract.
 
+
+## Mobile account settings
+
+Open the avatar menu. Select `Settings` to see the account email, account role, and site access roles.
+The avatar uses the account image, or an email initial when no image is present.
+Use `Back to dashboard` to return to the selected site, tab, and traffic interval.
+The `Sign out` action is on the settings screen.
+
+Choose `Light`, `Dark`, or `System` under `Appearance`.
+Changes apply immediately and save automatically on this app installation.
+`System` follows device appearance changes, including after the app returns from the background.
+The preference remains after sign-out and is restored when the app opens again.
+Storage errors remain visible. Select a theme again to retry a failed write.
+
 ## Release, Publish, Deploy
 
 LoopAware declares its complete production shape in `.mprlab/deploy/resources.yml`. That permanent versionless manifest is the only tracked production lifecycle declaration. It owns the backend image and service, retained data, runtime capability, public route, health check, Pages site, React Native npm package, native mobile app, TAuth tenant, and private-value bindings.
