@@ -34,7 +34,7 @@ Implementation of the remaining mobile features remains pending.
 
 ## BugFixes
 
-- [-] [B155] (P0) Preserve manifest environment ownership in lifecycle wrappers
+- [x] [B155] (P0) Preserve manifest environment ownership in lifecycle wrappers
   Goal:
   Let the installed Gateway resolve configuration once from caller values and the selected manifest input.
 
@@ -67,7 +67,8 @@ Implementation of the remaining mobile features remains pending.
   These cases replace lifecycle dispatch. They do not execute release, publication, or deployment.
   Independent review found no source defects.
   Complete local `make ci` passed, including all 475 browser integration cases and all 29 SDK policy cases.
-  Fresh automatic CI remains pending.
+  All six automatic matrix jobs and the aggregate gate passed in run `40807877503`.
+  Release, publication, and deployment remain separate operations.
 
   Changed files:
   `Makefile`, `tests/lifecycle-entrypoint.test.mjs`, `tests/deployment/test_npm_visibility.py`, `README.md`, `docs/npm-publication.md`, and this tracker.
