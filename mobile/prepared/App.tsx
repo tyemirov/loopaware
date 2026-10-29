@@ -9,11 +9,13 @@ import {
   Modal,
   type DimensionValue,
   Image,
+  Keyboard,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -53,6 +55,7 @@ const trafficIntervals: Array<{ key: TrafficInterval; label: string }> = [
   { key: "1day", label: "1d" },
 ];
 const mobileFeedbackSourceKind: FeedbackMessage["source_kind"] = "mobile_app";
+const siteSelectorLabelSize = 12;
 
 export default function App() {
   return <ThemeProvider><AppContent /></ThemeProvider>;
@@ -300,6 +303,9 @@ function AppContent() {
         ) : (
           <ScrollView
             contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.teal} />}
           >
             <Header account={account!} onSettings={() => {
@@ -445,17 +451,52 @@ function SettingsScreen(props: { account: Account; sites: Site[] | null; busy: b
 
 function SitesRail(props: { sites: Site[]; selectedSiteId: string | null; onSelectSite: (site: Site) => void }) {
   const { styles, colors } = useAppStyles();
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const searchInput = useRef<TextInput>(null);
+  const searchButton = useRef<View>(null);
+  const searchText = query.trim().toLowerCase();
+  const matchingSites = props.sites.filter(site => site.name.toLowerCase().includes(searchText) || site.allowed_origin.toLowerCase().includes(searchText));
+  const closeFilter = () => {
+    setFilterOpen(false);
+    setQuery("");
+    Keyboard.dismiss();
+    focusNative(searchButton.current);
+  };
   if (!props.sites.length) {
     return null;
   }
   return (
-    <View style={styles.sitesSection}>
-      <Text style={styles.sectionLabel}>Sites</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sitesRail}>
-        {props.sites.map((site) => {
+    <View style={styles.sitesSection} onAccessibilityEscape={filterOpen ? closeFilter : undefined}>
+      <View style={styles.sitesHeading}>
+        <Text style={styles.sectionLabel}>Sites</Text>
+        <Pressable ref={searchButton} accessibilityRole="button" accessibilityLabel="Find sites"
+          accessibilityHint={filterOpen ? "Close the filter and show all sites" : "Filter sites by name or domain"}
+          accessibilityState={{ expanded: filterOpen }} style={styles.siteFilterButton}
+          onPress={() => filterOpen ? closeFilter() : setFilterOpen(true)}>
+          <View style={styles.searchIcon} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <View style={styles.searchIconRing} />
+            <View style={styles.searchIconHandle} />
+          </View>
+        </Pressable>
+      </View>
+      {filterOpen ? <View style={styles.siteFilterField}>
+        <TextInput ref={searchInput} accessibilityRole="search" accessibilityLabel="Filter sites" autoFocus
+          value={query} onChangeText={setQuery} placeholder="Site name or domain" placeholderTextColor={colors.muted}
+          autoCapitalize="none" autoCorrect={false} autoComplete="off" returnKeyType="search"
+          onSubmitEditing={() => Keyboard.dismiss()} style={styles.siteFilterInput} />
+        {query.length ? <Pressable accessibilityRole="button" accessibilityLabel="Clear site filter" style={styles.siteFilterButton}
+          onPress={() => { setQuery(""); searchInput.current?.focus(); }}>
+          <Text style={styles.siteFilterClear}>×</Text>
+        </Pressable> : null}
+      </View> : null}
+      {!matchingSites.length ? <EmptyInline text="No sites match your filter." /> : <ScrollView horizontal
+        keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sitesRail}>
+        {matchingSites.map((site) => {
           const selected = site.id === props.selectedSiteId;
           return (
-            <Pressable key={site.id} style={[styles.siteChip, selected && styles.siteChipSelected]} onPress={() => props.onSelectSite(site)}>
+            <Pressable key={site.id} accessibilityRole="button" accessibilityLabel={site.name} accessibilityState={{ selected }}
+              style={[styles.siteChip, selected && styles.siteChipSelected]} onPress={() => { Keyboard.dismiss(); props.onSelectSite(site); }}>
               <Text style={[styles.siteChipTitle, selected && styles.siteChipTitleSelected]} numberOfLines={1}>
                 {site.name}
               </Text>
@@ -463,7 +504,7 @@ function SitesRail(props: { sites: Site[]; selectedSiteId: string | null; onSele
             </Pressable>
           );
         })}
-      </ScrollView>
+      </ScrollView>}
     </View>
   );
 }
@@ -1109,9 +1150,61 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
   sitesSection: {
     gap: 8,
   },
+  sitesHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  siteFilterButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchIcon: {
+    width: siteSelectorLabelSize,
+    height: siteSelectorLabelSize,
+  },
+  searchIconRing: {
+    width: 9,
+    height: 9,
+    borderWidth: 1.5,
+    borderRadius: 5,
+    borderColor: colors.muted,
+  },
+  searchIconHandle: {
+    position: "absolute",
+    width: 6,
+    height: 1.5,
+    top: 9,
+    left: 7,
+    backgroundColor: colors.muted,
+    transform: [{ rotate: "45deg" }],
+  },
+  siteFilterField: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+  },
+  siteFilterInput: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  siteFilterClear: {
+    fontSize: 22,
+    color: colors.muted,
+  },
   sectionLabel: {
     color: colors.muted,
-    fontSize: 12,
+    fontSize: siteSelectorLabelSize,
     fontWeight: "800",
     textTransform: "uppercase",
   },

@@ -602,6 +602,20 @@ Repository administrators can run the read-only `make github-security-audit` gat
 protection, Dependabot, secret-scanning, and gateway-owned Pages controls against the tracked security contract.
 
 
+## Mobile site filter
+
+Select the search icon on the right of `SITES` to open the site filter.
+Enter part of a site name or configured origin in the field below the row.
+Matches update automatically without regard to letter case, including secondary domains.
+
+An empty field shows all authorized site cards. A query without matches shows an explicit empty state.
+The filter preserves the selected site and its dashboard when its card is hidden.
+
+Use the clear control to restore all cards and keep the field active.
+Select a matching site card to open its dashboard and dismiss the keyboard.
+Select the search icon again to close the filter and clear the query.
+The query clears when the dashboard view ends, including settings navigation and sign-out.
+
 ## Mobile traffic intervals
 
 Select `All`, `30d`, `7d`, or `1d` on the mobile Traffic tab.

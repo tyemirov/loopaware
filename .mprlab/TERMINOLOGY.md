@@ -95,6 +95,10 @@ Give each term one meaning. Use the same term for the same concept in all docume
 
 ## Repository Technical Nouns
 
+- `site card`: A mobile control that selects one authorized site's dashboard.
+- `site filter`: A control that limits the displayed site cards by name or configured origin.
+- `search icon`: A magnifying-glass symbol that opens the site filter.
+
 - `avatar`: An account image or symbol that identifies the signed-in operator in the mobile header.
 - `avatar menu`: The account menu that opens from the avatar control.
 - `settings screen`: The mobile screen that contains account details, roles, theme selection, and sign-out.

@@ -4553,14 +4553,14 @@ Implementation of the remaining mobile features remains pending.
 
 ## Features
 
-- [ ] [F020] (P1) Add a search icon to the mobile site selector
+- [x] [F020] (P1) Add a search icon to the mobile site selector
   Goal:
   Help the operator find a site through a filter above the site cards.
 
   Evidence:
   The owner supplied an annotated mobile screenshot on October 27, 2026.
   The marked area is the `SITES` row above the horizontal site cards.
-  `SitesRail` in `mobile/App.tsx` currently displays all visible sites without a filter.
+  Before implementation, `SitesRail` displayed all visible sites without a filter.
 
   Requirements:
   - Add a magnifying-glass icon on the right of the `SITES` label in the same row.
@@ -4573,9 +4573,12 @@ Implementation of the remaining mobile features remains pending.
   - Show a clear empty state when no sites match.
   - Preserve the selected site and its dashboard when the filter hides its card.
 
-  Proposed details:
+  Details:
   Show the search input when the operator selects the icon.
-  Match part of the site name or domain without regard to letter case.
+  Match part of the site name or configured origins without regard to letter case.
+  Include secondary domains in the current origin string.
+  Keep the query in the mounted dashboard view.
+  Clear the query when the filter closes or the dashboard view ends.
 
   Validation:
   - Verify the row displays `SITES` and the search icon without a visible `Find` label.
@@ -4588,7 +4591,24 @@ Implementation of the remaining mobile features remains pending.
   - Verify placement, text size, keyboard behavior, and accessible labels in an iOS simulator or Android emulator.
 
   Status:
-  The request is documented. Application implementation remains pending.
+  The `SITES` row now shows the search icon with an accessible `Find sites` name.
+  The icon shares the label size and opens the field below the row.
+  Matches update automatically from the current authorized sites, including secondary domains.
+  Filtering preserves the selected site and dashboard. Clear restores all cards and keeps the field active.
+  Close clears the query and dismisses the keyboard.
+
+  All 40 public app-flow cases passed, including both platform adapters and site-list updates.
+  iPhone 18 Pro simulator checks passed on iOS 27 with Expo Go 57.
+  Native checks verified keyboard behavior, first-tap selection, accessible labels, and Light/Dark contrast.
+  The native hierarchy did not verify accessibility focus after the filter closed.
+  Android emulator visuals were not exercised.
+
+  Prepared sources matched the application. Complete local `make ci` passed, including all 475 integration cases.
+  Resolution: The search icon and automatic site filter are implemented and verified.
+
+  Changed files:
+  `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`, and generated files under `mobile/prepared/`.
+  Documentation: `README.md`, `.mprlab/TERMINOLOGY.md`, and this tracker.
 
 - [x] [F018] (P1) Add mobile account settings through an avatar menu
   Goal:

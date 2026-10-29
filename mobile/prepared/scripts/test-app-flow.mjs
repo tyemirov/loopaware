@@ -28,6 +28,61 @@ const trendPoints = [
   { date: "2026-10-22", page_views: 0, unique_visitors: 0 },
 ];
 
+for (const platform of ["ios", "android"]) await scenario(`${platform} site filter matches names and origins while preserving selection`, {
+  initialSession:true, multipleSites:true, platform:/** @type {"ios"|"android"} */(platform),
+}, async app => {
+  assert.equal(app.buttonText("Find sites").trim(), "");
+  assert(!app.expanded("Find sites")); assert.equal(app.inputValue("Filter sites"), null);
+  assert.doesNotMatch(app.text(), /Find sites|Filter sites/);
+  await app.press("Find sites"); assert(app.expanded("Find sites"));
+  assert.equal(app.inputValue("Filter sites"), "");
+  const requestCount=app.requests.length;
+  await app.type("Filter sites", "  aGgReGaTe  ");
+  assert(app.buttonLabels().includes("Aggregate site")); assert(!app.buttonLabels().includes("Other site"));
+  await app.type("Filter sites", "OTHER.EXAMPLE");
+  assert(!app.buttonLabels().includes("Aggregate site")); assert(app.buttonLabels().includes("Other site"));
+  assert.match(app.text(), /Visits 12/);
+  await app.type("Filter sites", "nothing-matches");
+  assert.match(app.text(), /No sites match/); assert.match(app.text(), /Visits 12/);
+  assert(app.expanded("Find sites")); assert.equal(app.requests.length,requestCount);
+  await app.press("Clear site filter");
+  assert.equal(app.inputValue("Filter sites"), ""); assert.equal(app.focused(), "search:Filter sites");
+  assert(app.buttonLabels().includes("Aggregate site")); assert(app.buttonLabels().includes("Other site"));
+  await app.type("Filter sites", "other");
+  const dismissed=app.keyboardDismissals();
+  await app.press("Other site");
+  assert.match(app.text(), /Visits 23/); assert.equal(app.inputValue("Filter sites"), "other");
+  assert.equal(app.keyboardDismissals(),dismissed+1);
+  await app.press("Find sites");
+  assert.equal(app.inputValue("Filter sites"), null); assert(!app.expanded("Find sites"));
+  assert.equal(app.keyboardDismissals(),dismissed+2);
+  assert(app.buttonLabels().includes("Aggregate site")); assert(app.buttonLabels().includes("Other site"));
+  await app.press("Find sites"); assert.equal(app.inputValue("Filter sites"), "");
+});
+for (const separator of [" ", ",", ";"]) await scenario(`site filter matches a secondary configured origin separated by ${JSON.stringify(separator)}`, {
+  initialSession:true, siteList:() => [{...site,allowed_origin:`https://primary.example${separator}https://Second.Example:8443`}],
+}, async app => {
+  await app.press("Find sites"); await app.type("Filter sites", "SECOND.EXAMPLE");
+  assert(app.buttonLabels().includes("Aggregate site")); assert.doesNotMatch(app.text(), /No sites match/);
+  await app.type("Filter sites", " "); assert(app.buttonLabels().includes("Aggregate site"));
+});
+let currentFilterSites=[site,{...site,id:"other-site",name:"Other site",allowed_origin:"https://other.example"}];
+await scenario("site filter derives matches from updated sites without changing the selected dashboard", {
+  initialSession:true,siteList:()=>currentFilterSites,
+}, async app => {
+  await app.press("Find sites"); await app.type("Filter sites", "brand"); assert.match(app.text(),/No sites match/);
+  currentFilterSites=[site,{...site,id:"other-site",name:"Brand studio",allowed_origin:"https://other.example"}];
+  await app.refresh();
+  assert.equal(app.inputValue("Filter sites"),"brand"); assert(app.buttonLabels().includes("Brand studio"));
+  assert.match(app.text(),/Visits 12/);
+});
+await scenario("site filter clears when the authenticated dashboard is replaced", {initialSession:true,multipleSites:true}, async app => {
+  await app.press("Find sites"); await app.type("Filter sites","other");
+  await app.press("Account menu"); await app.press("Settings"); await app.press("Sign out"); await app.signIn();
+  assert.equal(app.inputValue("Filter sites"),null); assert(!app.expanded("Find sites"));
+  assert(app.buttonLabels().includes("Aggregate site")); assert(app.buttonLabels().includes("Other site"));
+});
+
 const intervalChoices = [["All", "all", 40], ["30d", "30days", 30], ["7d", "7days", 7], ["1d", "1day", 1]];
 for (const trafficProfile of ["detailed", "aggregate"]) await scenario(`${trafficProfile} traffic applies every interval to all permitted panels`, {
   initialSession: true, trafficProfile: /** @type {"detailed"|"aggregate"} */ (trafficProfile), multipleSites: true,
@@ -332,15 +387,15 @@ console.log(`${scenarioCount} mobile app flow checks passed`);
 
 /**
  * @param {string} name
- * @param {{ initialSession: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, intervalCounts?: Record<string,number>, emptySites?: boolean, failFirstWrite?: boolean, account?: {email:string,name:string,role:string,avatar?:{url:string}}, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
- * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, imageUris: () => string[], back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
+ * @param {{ initialSession: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, siteList?: () => Array<typeof site>, intervalCounts?: Record<string,number>, emptySites?: boolean, failFirstWrite?: boolean, account?: {email:string,name:string,role:string,avatar?:{url:string}}, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
+ * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], type: (label:string,value:string) => Promise<void>, inputValue: (label:string) => string|null, expanded: (label:string) => boolean, keyboardDismissals: () => number, lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, imageUris: () => string[], back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
  */
 async function scenario(name, options, check) {
   let authenticated = options.initialSession;
   const currentAccount = options.account ?? account;
   let lastInterval = "";
   /** @type {Device} */
-  const device = { storage: new Map(), scheme: options.systemTheme ?? "light", listeners: new Set(), foreground: new Set(), readFailure: options.readFailure ?? false, writeFailure: options.storageFailure ?? false, holdWrites: options.holdWrites ?? false, pendingWrites: [], failFirstWrite: options.failFirstWrite ?? false, writeCount: 0, back: new Set(), platform:options.platform ?? "ios", tags:new Map(), focused:[], nativeOverride: null };
+  const device = { storage: new Map(), scheme: options.systemTheme ?? "light", listeners: new Set(), foreground: new Set(), readFailure: options.readFailure ?? false, writeFailure: options.storageFailure ?? false, holdWrites: options.holdWrites ?? false, pendingWrites: [], failFirstWrite: options.failFirstWrite ?? false, writeCount: 0, back: new Set(), platform:options.platform ?? "ios", tags:new Map(), focused:[], nativeOverride: null, keyboardDismissals: 0 };
   if (options.storedTheme !== undefined) device.storage.set("loopaware.mobile.theme", options.storedTheme);
   const visibleSite = { ...site, traffic_profile: options.trafficProfile ?? "aggregate" };
   /** @type {string[]} */
@@ -391,7 +446,7 @@ async function scenario(name, options, check) {
         authenticated = !options.rejectLogin;
         status = authenticated ? 200 : 401; payload = authenticated ? currentAccount : { error: "invalid_google_token" }; break;
       case "/auth/logout": status = options.logoutFailure ? 500 : 200; if (!options.logoutFailure) authenticated = false; payload = options.logoutFailure ? {error:"logout_failed"} : {}; break;
-      case "/api/sites": status = options.sitesFailure ? 500 : 200; payload = options.sitesFailure ? { error: "query_failed" } : { sites: options.emptySites ? [] : options.deferDashboard || options.deferSites || options.deferPortfolio || options.trend || options.multipleSites ? [visibleSite, { ...visibleSite, id: "other-site", name: "Other site", access_role: "team_member" }] : [visibleSite] }; break;
+      case "/api/sites": status = options.sitesFailure ? 500 : 200; payload = options.sitesFailure ? { error: "query_failed" } : { sites: options.siteList ? options.siteList() : options.emptySites ? [] : options.deferDashboard || options.deferSites || options.deferPortfolio || options.trend || options.multipleSites ? [visibleSite, { ...visibleSite, id: "other-site", name: "Other site", allowed_origin:"https://other.example", access_role: "team_member" }] : [visibleSite] }; break;
       case "/api/reports/traffic/portfolio/reports": payload = { reports: [], available_sites: [] }; break;
       case "/api/reports/traffic/portfolio":
         status = options.portfolioFailure ? 500 : 200;
@@ -442,7 +497,7 @@ async function scenario(name, options, check) {
       const tag=device.tags.size+1;
       const props = /** @type {{accessibilityRole?:string,accessibilityLabel?:string,children?:React.ReactNode}} */ (element.props);
       device.tags.set(tag, `${props.accessibilityRole ?? "text"}:${props.accessibilityLabel ?? textContent(props.children)}`);
-      return {tag};
+      return {tag,focus(){device.focused.push(`${props.accessibilityRole ?? "text"}:${props.accessibilityLabel ?? ""}`);}};
     } });
   }
   try {
@@ -464,7 +519,11 @@ async function scenario(name, options, check) {
       await settle();
     }
     await check({
-      text, requests, requestURLs, buttonLabels: () => tree().root.findAll(node => String(node.type) === "Pressable").map(node => textContent(node.props.children)), lastInterval: () => lastInterval,
+      text, requests, requestURLs, buttonLabels: () => tree().root.findAll(node => String(node.type) === "Pressable").map(node => node.props.accessibilityLabel ?? textContent(node.props.children)),
+      async type(label,value) { const input=tree().root.findAll(node => String(node.type) === "TextInput" && node.props.accessibilityLabel === label)[0]; assert(input,`${name}: ${label}`); await act(async()=>{input.props.onChangeText(value);}); await settle(); },
+      inputValue(label) { return tree().root.findAll(node => String(node.type) === "TextInput" && node.props.accessibilityLabel === label)[0]?.props.value ?? null; },
+      expanded(label) { return findButton(label)?.props.accessibilityState?.expanded === true; },
+      keyboardDismissals() { return device.keyboardDismissals; }, lastInterval: () => lastInterval,
       background() { return tree().root.findAll(node => String(node.type) === "SafeAreaView")[0].props.style.backgroundColor; },
       selected(label) { return findButton(label)?.props.accessibilityState?.selected === true; },
       storedTheme() { return device.storage.get("loopaware.mobile.theme"); },
@@ -550,7 +609,7 @@ function textContent(node) {
   return textContent(element.children ?? element.props?.children);
 }
 
-/** @typedef {{storage: Map<string,string>, scheme: "light"|"dark", listeners: Set<()=>void>, foreground: Set<()=>void>, readFailure:boolean,writeFailure:boolean,holdWrites:boolean,pendingWrites:Array<()=>void>,failFirstWrite:boolean,writeCount:number,back:Set<()=>boolean>,platform:"ios"|"android",tags:Map<number,string>,focused:string[], nativeOverride:"light"|"dark"|null}} Device */
+/** @typedef {{storage: Map<string,string>, scheme: "light"|"dark", listeners: Set<()=>void>, foreground: Set<()=>void>, readFailure:boolean,writeFailure:boolean,holdWrites:boolean,pendingWrites:Array<()=>void>,failFirstWrite:boolean,writeCount:number,back:Set<()=>boolean>,platform:"ios"|"android",tags:Map<number,string>,focused:string[], nativeOverride:"light"|"dark"|null,keyboardDismissals:number}} Device */
 /** @param {string} origin @param {typeof fetch} fetcher @param {() => Promise<unknown>} prompt @param {Device} device */
 function loadApp(origin, fetcher, prompt, device) {
   let assetLoadCount = 0;
@@ -564,11 +623,11 @@ function loadApp(origin, fetcher, prompt, device) {
     }, [props.visible]);
     return props.visible ? React.createElement("Modal", props, props.children) : null;
   }
-  const nativeComponents = ["ActivityIndicator", "Image", "Pressable", "RefreshControl", "ScrollView", "Text", "View", "Modal"];
+  const nativeComponents = ["ActivityIndicator", "Image", "Pressable", "RefreshControl", "ScrollView", "Text", "TextInput", "View", "Modal"];
   /** @type {Record<string, unknown>} */
   const mocks = {
     "./assets/icon.png": 1,
-    "react-native": { ...Object.fromEntries(nativeComponents.map(name => [name, name])), Platform: { OS: device.platform },
+    "react-native": { ...Object.fromEntries(nativeComponents.map(name => [name, name])), Platform: { OS: device.platform }, Keyboard: {dismiss(){device.keyboardDismissals++;}},
       AccessibilityInfo: { setAccessibilityFocus: (/** @type {number} */ tag) => { const label=device.tags.get(tag); assert(label); device.focused.push(label); } },
       findNodeHandle: (/** @type {{tag:number}|null} */ node) => node?.tag ?? null,
       Modal: NativeModal,
