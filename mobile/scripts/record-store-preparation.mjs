@@ -70,11 +70,20 @@ function plistString(source, name) {
   assert.equal(matches.length, 1, 'native Info.plist field missing or ambiguous: ' + name);
   return matches[0][1];
 }
-/** @typedef {{name:string, ios:{bundleIdentifier:string, version:string, scheme?:string[]}, android:{package:string}, version:string, scheme:string|string[]}} ApplicationConfig */
+/** @param {string} source @param {string} name */
+function plistBoolean(source, name) {
+  const keys = [...source.matchAll(new RegExp(`<key>${escaped(name)}</key>`, 'g'))];
+  assert.equal(keys.length, 1, 'native Info.plist field missing or ambiguous: ' + name);
+  const value = source.match(new RegExp(`<key>${escaped(name)}</key>\\s*<(true|false)\\s*/>`));
+  assert.ok(value, 'native Info.plist field must be Boolean: ' + name);
+  return value[1] === 'true';
+}
+/** @typedef {{name:string, ios:{bundleIdentifier:string, version:string, scheme?:string[], config:{usesNonExemptEncryption:boolean}}, android:{package:string}, version:string, scheme:string|string[]}} ApplicationConfig */
 /** @typedef {{declared:string, resolved:string}} DependencyVersion */
 /** @typedef {{dependencies:Record<string,DependencyVersion>, devDependencies:Record<string,DependencyVersion>, overrides:Record<string,unknown>}} DependencyFacts */
 /** @param {ApplicationConfig} config */
 function application(config) {
+  assert.equal(config.ios.config?.usesNonExemptEncryption, false, 'native iOS source encryption declaration must be false');
   return { owner: 'loopaware', name: config.name, iosIdentifier: config.ios.bundleIdentifier,
     androidIdentifier: config.android.package, iosVersion: config.ios.version, androidVersion: config.version,
     schemes: [...new Set([...(Array.isArray(config.scheme) ? config.scheme : [config.scheme]), ...(config.ios.scheme ?? [])])].sort(),
@@ -148,6 +157,8 @@ export function preparationFacts(prepared) {
   }
   assert.equal(attribute(scheme.match(/<ArchiveAction\b([^>]*)>/)?.[1] ?? '', 'buildConfiguration'), 'Release', 'native archive must select Release');
   const plist = text(prepared, 'ios/LoopAware/Info.plist').replace(/<!--[\s\S]*?-->/g, '');
+  const iosUsesNonExemptEncryption = plistBoolean(plist, 'ITSAppUsesNonExemptEncryption');
+  assert.equal(iosUsesNonExemptEncryption, false, 'native iOS encryption declaration must be false');
   for (const [name, expected] of Object.entries({ CFBundleIdentifier: '$(PRODUCT_BUNDLE_IDENTIFIER)', CFBundleShortVersionString: '$(MARKETING_VERSION)', CFBundleVersion: '$(CURRENT_PROJECT_VERSION)' })) {
     assert.equal(plistString(plist, name), expected, 'native plist setting differs: ' + name);
   }
@@ -190,7 +201,7 @@ export function preparationFacts(prepared) {
   assert.ok(gradle, 'native Gradle wrapper version missing');
   const cocoaPods = lock.match(/^COCOAPODS:\s*(\S+)/m)?.[1]; assert.ok(cocoaPods, 'native CocoaPods version missing');
   return { schema_version: 3, status: 'prepared', application: selected,
-    configuration: { iosPreparedBuildNumber: field(settings, 'CURRENT_PROJECT_VERSION'), iosSourceDependencies: true, expoPrecompiledModules: false,
+    configuration: { iosPreparedBuildNumber: field(settings, 'CURRENT_PROJECT_VERSION'), iosUsesNonExemptEncryption, iosSourceDependencies: true, expoPrecompiledModules: false,
       androidVersionNameEnvironment: 'MPRLAB_MOBILE_VERSION_NAME', androidVersionCodeEnvironment: 'MPRLAB_MOBILE_VERSION_CODE', productionDevelopmentClient: false },
     dependencies: deps, toolchain: { gradleWrapper: gradle, cocoaPodsRecorded: cocoaPods }, nativeCommands: { expoPrebuild: 'completed', cocoaPods: 'completed' } };
 }

@@ -71,6 +71,7 @@ test("Release cleanup removes only development metadata and preserves binary pro
     writeFileSync(plist, `<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0"><dict>
 <key>CFBundleIdentifier</key><string>com.mprlab.loopaware</string>
+<key>ITSAppUsesNonExemptEncryption</key><false/>
 <key>NSBonjourServices</key><array><string>_expo._tcp</string><string>_EXPO._TCP.</string><string>_production._tcp</string><string>_expo._tcp.custom</string></array>
 <key>NSLocalNetworkUsageDescription</key><string>A custom description that mentions Expo Dev Launcher.</string>
 <key>CustomData</key><data>AQID</data>
@@ -88,6 +89,7 @@ test("Release cleanup removes only development metadata and preserves binary pro
     assert.deepEqual(services, ["_production._tcp", "_expo._tcp.custom"]);
     assert.equal(extract("NSLocalNetworkUsageDescription"), "A custom description that mentions Expo Dev Launcher.");
     assert.equal(extract("CFBundleIdentifier"), "com.mprlab.loopaware");
+    assert.equal(extract("ITSAppUsesNonExemptEncryption"), "false");
     assert.equal(extract("CustomBoolean"), "true");
     const xml = execFileSync("/usr/bin/plutil", ["-convert", "xml1", "-o", "-", plist], { encoding: "utf8" });
     assert.match(xml, /<data>\s*AQID\s*<\/data>/);

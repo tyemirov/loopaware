@@ -19,6 +19,7 @@
   },
   "configuration": {
     "iosPreparedBuildNumber": "1",
+    "iosUsesNonExemptEncryption": false,
     "iosSourceDependencies": true,
     "expoPrecompiledModules": false,
     "androidVersionNameEnvironment": "MPRLAB_MOBILE_VERSION_NAME",

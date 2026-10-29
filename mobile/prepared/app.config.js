@@ -30,6 +30,7 @@ module.exports = {
     primaryColor: loopAwareGold,
     ios: {
       version: "1.1.0",
+      config: { usesNonExemptEncryption: false },
       bundleIdentifier: iosBundleIdentifier,
       supportsTablet: true,
       ...(iosBuildNumber ? { buildNumber: iosBuildNumber } : {}),
