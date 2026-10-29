@@ -364,8 +364,6 @@ release publish deploy:
 		printf 'required installed Gateway executable is missing: %s\n' "$${gateway_executable}" >&2; \
 		exit 2; \
 	fi; \
-	for private_name in GH_TOKEN GITHUB_TOKEN NPM_TOKEN LOOPAWARE_ANDROID_KEYSTORE LOOPAWARE_ANDROID_STORE_PASSWORD LOOPAWARE_ANDROID_KEY_ALIAS LOOPAWARE_ANDROID_KEY_PASSWORD APP_STORE_CONNECT_API_KEY_ID APP_STORE_CONNECT_API_ISSUER_ID APP_STORE_CONNECT_API_KEY_PATH; do unset "$${private_name}"; done; \
-	set -a; . "$${application_root}/configs/.env.loopaware"; set +a; \
 	export CI=1; \
 	exec "$${gateway_executable}" "app-$@" --app-root "$${application_root}" </dev/null
 

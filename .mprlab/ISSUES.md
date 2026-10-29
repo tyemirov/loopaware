@@ -34,6 +34,45 @@ Implementation of the remaining mobile features remains pending.
 
 ## BugFixes
 
+- [-] [B155] (P0) Preserve manifest environment ownership in lifecycle wrappers
+  Goal:
+  Let the installed Gateway resolve configuration once from caller values and the selected manifest input.
+
+  Evidence:
+  Each lifecycle Make wrapper clears declared caller inputs and sources `configs/.env.loopaware` before SDK manifest processing.
+  The selected manifest declares `.mprlab/deploy/.env` as its `environment_file`.
+  The extra reader can override caller values and the selected file.
+  The current public test and npm documentation require this incorrect behavior.
+  No live provider failure or credential collision was established.
+
+  Requirements:
+  - Pass caller environment values to the installed SDK unchanged.
+  - Let Gateway read only the manifest-selected environment file.
+  - Preserve the installed runtime selection, application root, closed standard input, and failure status.
+  - Preserve the selected manifest and all existing private files and credentials.
+  - Correct the current input documentation.
+
+  Validation:
+  - Reproduce the incorrect precedence through all three public Make targets with synthetic inputs.
+  - Verify caller precedence, selected-file use, and exclusion of the other file through the installed SDK boundary.
+  - Verify rejection of a missing selected file before the child starts.
+  - Pass focused checks, final local CI, and fresh automatic CI from the actual fix push.
+
+  Progress:
+  The public Make regression reproduced removal of a caller App Store Connect input.
+  The SDK regression reproduced execution of the unselected file through its synthetic marker.
+  The wrapper correction removes only the loop that clears inputs and extra file reader.
+  The Make wrapper and integration runner checks passed.
+  All 29 SDK policy cases passed, including nine new Make handoff and real SDK input capture cases.
+  These cases replace lifecycle dispatch. They do not execute release, publication, or deployment.
+  Independent review found no source defects.
+  Complete local `make ci` passed, including all 475 browser integration cases and all 29 SDK policy cases.
+  Fresh automatic CI remains pending.
+
+  Changed files:
+  `Makefile`, `tests/lifecycle-entrypoint.test.mjs`, `tests/deployment/test_npm_visibility.py`, `README.md`, `docs/npm-publication.md`, and this tracker.
+
+
 - [x] [B154] (P1) {B147} Preserve Go monitor receipt channels in hosted qualification
   Goal:
   Read Go monitor control receipts independently from concurrent user output.

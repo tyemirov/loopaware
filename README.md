@@ -140,8 +140,8 @@ Pinguin and LoopAware must share the same bearer secret. Set Pinguin's `GRPC_AUT
 `PINGUIN_CONFIG_PATH=/config/config.yml`, matching the files mounted by Docker Compose. `configs/.env.loopaware` must
 define every placeholder referenced by `configs/config.loopaware.yml`. Those values are expanded only while parsing the
 YAML file; they are not a second runtime config source. Production deployment values use the separate ignored
-`.mprlab/deploy/.env` input and the manifest's `private_values` bindings. The installed Gateway reads that file only during
-deployment; release and publication do not read it.
+`.mprlab/deploy/.env` input and the manifest's `private_values` bindings.
+Gateway resolves this selected file and caller values during manifest processing for each lifecycle phase.
 `config-audit` validates real local env files when they are present. When they are absent, each production Compose service
 declares a tracked audit-only fixture under `tests/configs/` with `x-config-audit-env-file`; `.env.*.example` files are never
 loaded. Runtime still requires the real local env files. Every existing repo-root or `configs/` dotenv input,
@@ -612,7 +612,9 @@ make deploy
 Each target calls the installed `mprlab-gateway` command with `app-release`, `app-publish`, or `app-deploy`.
 The wrapper passes the exact application Git root through `--app-root`.
 Set `MPRLAB_GATEWAY_EXECUTABLE` to select an explicit installed executable.
-The wrapper clears its owned private variables, then reads `configs/.env.loopaware`.
+The wrapper passes caller environment values unchanged.
+Gateway reads only the environment file selected by the manifest.
+Caller values take precedence.
 Each Gateway call uses `CI=1` and closed standard input.
 Gateway owns lifecycle validation, artifact preparation, publication, deployment, and verification.
 LoopAware retains its native builders and application inputs.
