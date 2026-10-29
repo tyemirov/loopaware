@@ -115,7 +115,7 @@ test('public staging excludes private, signing, dependency cache, and local nati
   assert.deepEqual(JSON.parse(readFileSync(context.resultPath, 'utf8')).privatePaths, []);
 }));
 
-for (const condition of ['source identity', 'source dependency', 'native configuration', 'public symlink']) {
+for (const condition of ['source identity', 'source dependency', 'native configuration', 'missing encryption declaration', 'non-exempt encryption declaration', 'string encryption declaration', 'duplicate encryption declaration', 'missing source encryption declaration', 'source encryption declaration', 'public symlink']) {
   test('the adapter rejects ' + condition + ' before the native SDK boundary', () => withFixture(context => {
     const { fixture } = context;
     if (condition === 'source identity') writeFileSync(join(fixture.mobile, 'app.config.js'), readFileSync(join(fixture.mobile, 'app.config.js'), 'utf8') + '\nmodule.exports.expo.ios.bundleIdentifier="com.public.invalid";\n');
@@ -126,6 +126,20 @@ for (const condition of ['source identity', 'source dependency', 'native configu
     if (condition === 'native configuration') {
       const file = join(fixture.prepared, 'android/app/build.gradle');
       writeFileSync(file, readFileSync(file, 'utf8').replace('versionCode = System.getenv("MPRLAB_MOBILE_VERSION_CODE").toInteger()', 'versionCode = 1'));
+    }
+    if (condition === 'source encryption declaration') {
+      const file = join(fixture.mobile, 'app.config.js');
+      writeFileSync(file, readFileSync(file, 'utf8').replace('usesNonExemptEncryption: false', 'usesNonExemptEncryption: true'));
+    }
+    if (condition === 'missing source encryption declaration') {
+      const file = join(fixture.mobile, 'app.config.js');
+      writeFileSync(file, readFileSync(file, 'utf8').replace('config: { usesNonExemptEncryption: false },', ''));
+    }
+    if (['missing encryption declaration', 'non-exempt encryption declaration', 'string encryption declaration', 'duplicate encryption declaration'].includes(condition)) {
+      const file = join(fixture.prepared, 'ios/LoopAware/Info.plist');
+      const original = readFileSync(file, 'utf8').replace(/<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\s*\/>/, '');
+      const declaration = condition === 'missing encryption declaration' ? '' : condition === 'duplicate encryption declaration' ? '<key>ITSAppUsesNonExemptEncryption</key><false/><key>ITSAppUsesNonExemptEncryption</key><string>false</string>' : '<key>ITSAppUsesNonExemptEncryption</key>' + (condition === 'non-exempt encryption declaration' ? '<true/>' : '<string>false</string>');
+      writeFileSync(file, original.replace('<dict>', '<dict>' + declaration));
     }
     if (condition === 'public symlink') {
       const outside = join(fixture.directory, 'outside-public-fixture.mjs'); writeFileSync(outside, 'public fixture');
