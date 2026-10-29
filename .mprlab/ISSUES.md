@@ -29,12 +29,12 @@ Within F019, reuse existing queries and extend interval acceptance before the mo
 Complete these issues sequentially with the applicable validation for each issue.
 This sequence covers the reported mobile requests. Other backlog work retains its existing priority.
 B149, B150, B151, and I050 have source changes and passing focused checks.
-Full validation awaits B147 SDK qualification.
+Gateway v7.0.9 passed all 20 B147 policy cases. Complete local CI passed. Fresh automatic CI remains pending.
 Implementation of the remaining mobile features remains pending.
 
 ## BugFixes
 
-- [!] [B154] (P1) {B147} Preserve Go monitor receipt channels in hosted qualification
+- [-] [B154] (P1) {B147} Preserve Go monitor receipt channels in hosted qualification
   Goal:
   Read Go monitor control receipts independently from concurrent user output.
 
@@ -68,7 +68,9 @@ Implementation of the remaining mobile features remains pending.
   Mobile checks failed the same B147 case. Fail-fast cancelled Integration 2/3.
   The aggregate gate failed.
   Changed files: `Makefile`, `tests/first-failure/qualify.mjs`, `tests/first-failure/frameworks.mjs`, and this tracker.
-  Blocked: Full CI requires the published Gateway release that contains B685, then qualification of that runtime for B147.
+  Gateway v7.0.9 passed all 20 B147 policy cases.
+  Full local `make ci` passed, including all 475 browser integration cases.
+  All six fresh automatic matrix jobs and the aggregate gate remain pending.
 
 - [x] [B153] (P1) Correct Go test monitor diagnostic capitalization
   Goal:
@@ -125,9 +127,11 @@ Implementation of the remaining mobile features remains pending.
   Prepared tracking, preparation cases, and runtime checks passed in 3.535 seconds.
   The complete security audit passed in 21.131 seconds.
   Fresh independent review found no bypass or regression in the selected correction.
-  Cumulative CI remains pending until B147 selects the qualified SDK.
+  Gateway v7.0.9 passed all 20 B147 policy cases.
+  Full local `make ci` passed, including all 475 browser integration cases.
+  All six fresh automatic matrix jobs and the aggregate gate remain pending.
 
-- [!] [B151] (P1) {B147} Correct shared Node runner errors in mobile type checks
+- [-] [B151] (P1) {B147} Correct shared Node runner errors in mobile type checks
   Goal:
   Restore the required mobile TypeScript check with the shared test runner.
 
@@ -160,14 +164,17 @@ Implementation of the remaining mobile features remains pending.
   All shared Node qualification cases passed after correction, including named variants and their ordinary behavior controls.
   Final CI passed full mobile checks, native preparation checks, and both production JavaScript bundles.
 
-  Blocked:
+  Previous CI result:
   Final CI stopped at the B147 archive `ETARGET` recovery case with Gateway v7.0.8.
-  The deployment tests passed 17 cases before that first failure. Cumulative acceptance remains pending SDK qualification.
+  The deployment tests passed 17 cases before that first failure.
+  Gateway v7.0.9 now passed all 20 policy cases.
+  Full local `make ci` passed, including all 475 browser integration cases.
+  All six fresh automatic matrix jobs and the aggregate gate remain pending.
 
   Changed files:
   `scripts/native-test.mjs`, `tests/first-failure/qualify.mjs`, and the prepared source filter and its regression coverage.
 
-- [!] [B150] (P0) {B147} Correct the Go dependency vulnerability that blocks CI
+- [-] [B150] (P0) {B147} Correct the Go dependency vulnerability that blocks CI
   Goal:
   Pass the required Go security audit with the corrected HTML parser dependency.
 
@@ -191,14 +198,15 @@ Implementation of the remaining mobile features remains pending.
   Fresh independent investigation and review found no remaining path through the reported parser vulnerability.
   Final CI passed the complete security audit, module consistency, lint, Go tests, and race checks.
 
-  Blocked:
+  Previous CI result:
   Final CI stopped at the separate B147 archive `ETARGET` recovery case with Gateway v7.0.8.
-  The published Gateway release list still identifies v7.0.8 as the latest release on October 28, 2026.
-  Cumulative acceptance remains pending SDK qualification.
+  Gateway v7.0.9 now passed all 20 B147 policy cases.
+  Full local `make ci` passed, including all 475 browser integration cases.
+  All six fresh automatic matrix jobs and the aggregate gate remain pending.
 
   Changed files: `go.mod`, `go.sum`, and this tracker.
 
-- [!] [B149] (P1) {B150,B151} Sort mobile Trend rows by unique visit count
+- [-] [B149] (P1) {B150,B151} Sort mobile Trend rows by unique visit count
   Goal:
   Show the days with the most unique visits first in the mobile `Trend` section.
 
@@ -239,10 +247,12 @@ Implementation of the remaining mobile features remains pending.
   `make mobile-prepare-store` passed and regenerated the prepared copies.
   Independent architecture review found no blocking code findings.
 
-  Blocked:
+  Previous CI result:
   The October 28 final CI run cleared the original B150 and B151 failures.
   It stopped at B147 archive `ETARGET` recovery with Gateway v7.0.8.
-  Full validation remains pending SDK qualification. The issue remains open.
+  Gateway v7.0.9 now passed all 20 B147 policy cases.
+  Full local `make ci` passed, including all 475 browser integration cases.
+  All six fresh automatic matrix jobs and the aggregate gate remain pending.
 
   Changed files:
   `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/scripts/test-app-flow.mjs`, and `mobile/scripts/test-api-boundaries.mjs`.
@@ -272,7 +282,7 @@ Implementation of the remaining mobile features remains pending.
   Canonical CI now retains these focused checks in groups with their declared tools.
   Final focused validation, Compose cleanup evidence, and cumulative CI remain pending.
 
-- [!] [B147] (P0) Preserve npm archive visibility observation after publication
+- [-] [B147] (P0) Preserve npm archive visibility observation after publication
   Goal:
   Check the exact npm archive within the existing publication time limit after the version becomes visible.
 
@@ -293,11 +303,19 @@ Implementation of the remaining mobile features remains pending.
   The corrected policy passed all 16 cases with Gateway v7.0.8 and injected transport failures.
   The fixture uses the real SDK capture boundary with synthetic declared inputs.
   Qualification of archive `ETARGET` requires the Gateway release that contains B685.
-  Final canonical CI remains pending that qualified runtime.
+  Before SDK qualification, final canonical CI stopped at this case.
   Hosted run `40741303218` and local CI failed archive `ETARGET` recovery with Gateway v7.0.8.
   Both runs passed 17 policy cases before this failure.
-  The published release list still identifies v7.0.8 as the latest release on October 28, 2026.
-  Blocked: Publish the Gateway release with B685, select that installed runtime, and pass the complete policy regression.
+  Before SDK qualification, the release list identified v7.0.8 as the latest release on October 28, 2026.
+
+  SDK qualification:
+  Gateway v7.0.9 is published and installed for darwin-arm64 with lifecycle contract 4.
+  The public deployment policy target passed all 20 cases in 3.92 seconds with this physical runtime.
+  The public setup target passed all six scenarios with the v7.0.9 selection.
+  SDK setup, test expectations, and Mobile CI documentation now select v7.0.9.
+  Full local `make ci` passed with this runtime, including all 475 browser integration cases.
+  The Go, Node, and browser failure controls passed with their cleanup assertions.
+  The real source push and all six fresh automatic jobs plus the aggregate gate remain pending before closure.
 
 - [x] [B146] (P1) {B145} Preserve report navigation during the settings opening transition
   Goal:
@@ -3365,7 +3383,7 @@ Implementation of the remaining mobile features remains pending.
 
 ## Improvements
 
-- [!] [I050] (P1) {B147} Remove Recent visits from the mobile app
+- [-] [I050] (P1) {B147} Remove Recent visits from the mobile app
   Goal:
   Simplify the mobile traffic view through removal of the `Recent visits` section.
 
@@ -3396,11 +3414,13 @@ Implementation of the remaining mobile features remains pending.
   The native adapter staged the current product source, and both production JavaScript bundles compiled.
   Native configuration and dependencies required no changes.
 
-  Blocked:
+  Previous CI result:
   Final CI passed security, lint, Go tests, race checks, mobile checks, and native validation.
   It stopped at the existing B147 archive `ETARGET` recovery case with Gateway v7.0.8.
   The deployment tests passed 17 cases before that first failure.
-  Full validation remains pending SDK qualification. The issue remains open.
+  Gateway v7.0.9 now passed all 20 B147 policy cases.
+  Full local `make ci` passed, including all 475 browser integration cases.
+  All six fresh automatic matrix jobs and the aggregate gate remain pending.
 
   Changed files:
   `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`, and this tracker.

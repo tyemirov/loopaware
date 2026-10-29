@@ -12,7 +12,7 @@ The job adds its installation directory through `GITHUB_PATH`. The download uses
 The pinned artifact comes from the [official Google release](https://github.com/google/bundletool/releases/tag/1.18.3).
 The SDK checks Node, npm, Java, and bundletool before the controlled Gradle boundary.
 This signing fixture stops before bundle compilation and does not require Android SDK build tools.
-The job installs the published Gateway `v7.0.8` package for `linux-amd64` before `make ci-mobile`.
+The job installs the published Gateway `v7.0.9` package for `linux-amd64` before `make ci-mobile`.
 The installer uses the synthetic signing fixture manifest and synthetic inputs.
 The application deployment manifest and private inputs stay unchanged.
 
