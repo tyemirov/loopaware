@@ -34,7 +34,7 @@ Implementation of the remaining mobile features remains pending.
 
 ## BugFixes
 
-- [-] [B156] (P0) Wait for the integration cleanup guardian before setup
+- [x] [B156] (P0) Wait for the integration cleanup guardian before setup
   Goal:
   Start the integration topology only after its cleanup guardian can receive cleanup signals.
 
@@ -64,7 +64,7 @@ Implementation of the remaining mobile features remains pending.
   Both real Docker cleanup controls passed with all owned resources absent.
   Independent source review found no remaining defects.
   Complete local `make ci` passed in 542.308 seconds, including all 475 browser cases and 29 SDK policy cases.
-  Fresh automatic CI remains pending before integration.
+  All six automatic matrix jobs and the aggregate gate passed in run `40813387731`.
 
   Changed files:
   `tests/scripts/run-integration.sh`, `tests/scripts/test-integration-runner.sh`, and this tracker.
