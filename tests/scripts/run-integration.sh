@@ -7,6 +7,7 @@ test_config_dir="${repo_root}/tests/configs"
 compose_file="${repo_root}/tests/docker-compose.yml"
 cleanup_guardian_pid=""
 cleanup_diagnostic_file=""
+cleanup_readiness_dir=""
 cleanup_complete=0
 
 export LOOPAWARE_TEST_NETWORK_PREFIX="${LOOPAWARE_TEST_NETWORK_PREFIX-10.203.242}"
@@ -57,6 +58,24 @@ down_stack() {
   fi
 }
 
+close_guardian_readiness() {
+  local cleanup_status=0
+  local status=0
+  exec 7>&- 8<&- 9>&-
+  if [[ -n "${cleanup_readiness_dir}" && -d "${cleanup_readiness_dir}" ]]; then
+    if rm "${cleanup_readiness_dir}/ready"; then :; else
+      cleanup_status=$?
+      echo "Integration guardian readiness FIFO cleanup failed (status ${cleanup_status})" >&2
+    fi
+    if rmdir "${cleanup_readiness_dir}"; then :; else
+      status=$?
+      echo "Integration guardian readiness directory cleanup failed (status ${status})" >&2
+      if [[ "${cleanup_status}" -eq 0 ]]; then cleanup_status="${status}"; fi
+    fi
+  fi
+  return "${cleanup_status}"
+}
+
 cleanup() {
   local original_status="$1"
   local cleanup_status=0
@@ -79,6 +98,10 @@ cleanup() {
       cat "${cleanup_diagnostic_file}" >&2
       echo "Integration cleanup guardian failed (status ${cleanup_status})" >&2
     fi
+  fi
+  if close_guardian_readiness; then :; else
+    status=$?
+    if [[ "${cleanup_status}" -eq 0 ]]; then cleanup_status="${status}"; fi
   fi
 
   if down_stack; then
@@ -119,13 +142,20 @@ start_cleanup_guardian() {
 
   parent_start_time="$(get_process_start_time "${parent_pid}")"
   cleanup_diagnostic_file="$(mktemp "${repo_root}/.cache/loopaware-integration-cleanup.XXXXXX")"
+  cleanup_readiness_dir="$(mktemp -d "${repo_root}/.cache/loopaware-integration-ready.XXXXXX")"
+  mkfifo "${cleanup_readiness_dir}/ready"
+  exec 7<>"${cleanup_readiness_dir}/ready"
+  exec 8<"${cleanup_readiness_dir}/ready"
+  exec 9>"${cleanup_readiness_dir}/ready"
 
   nohup bash -c '
+    exec 7>&- 8<&-
     parent_pid="$1"
     parent_start_time="$2"
     compose_file="$3"
     compose_project_name="$4"
     integration_lock_dir="$5"
+    cleanup_readiness_dir="$6"
 
     get_process_start_time() {
       ps -o lstart= -p "$1" 2>/dev/null | sed "s/^[[:space:]]*//"
@@ -135,11 +165,24 @@ start_cleanup_guardian() {
       local cleanup_status=0
       local status=0
       trap - EXIT INT TERM HUP QUIT
+      exec 9>&-
+      if [[ -d "${cleanup_readiness_dir}" ]]; then
+        if rm "${cleanup_readiness_dir}/ready"; then :; else
+          cleanup_status=$?
+          echo "Integration guardian readiness FIFO cleanup failed (status ${cleanup_status})" >&2
+        fi
+        if rmdir "${cleanup_readiness_dir}"; then :; else
+          status=$?
+          echo "Integration guardian readiness directory cleanup failed (status ${status})" >&2
+          if [[ "${cleanup_status}" -eq 0 ]]; then cleanup_status="${status}"; fi
+        fi
+      fi
       if docker compose -f "${compose_file}" -p "${compose_project_name}" down -v --remove-orphans >/dev/null; then
         :
       else
-        cleanup_status=$?
-        echo "Integration stack cleanup failed (status ${cleanup_status})" >&2
+        status=$?
+        echo "Integration stack cleanup failed (status ${status})" >&2
+        if [[ "${cleanup_status}" -eq 0 ]]; then cleanup_status="${status}"; fi
       fi
       if [[ -d "${integration_lock_dir}" ]]; then
         if rmdir "${integration_lock_dir}"; then
@@ -153,6 +196,8 @@ start_cleanup_guardian() {
       exit "${cleanup_status}"
     }
     trap cleanup_topology EXIT INT TERM HUP QUIT
+    printf "%s\n" READY >&9
+    exec 9>&-
 
     while true; do
       if [[ -n "${parent_start_time}" ]]; then
@@ -167,9 +212,20 @@ start_cleanup_guardian() {
     done
 
     cleanup_topology
-  ' bash "${parent_pid}" "${parent_start_time}" "${compose_file}" "${compose_project_name}" "${integration_lock_dir}" >"${cleanup_diagnostic_file}" 2>&1 </dev/null &
+  ' bash "${parent_pid}" "${parent_start_time}" "${compose_file}" "${compose_project_name}" "${integration_lock_dir}" "${cleanup_readiness_dir}" >"${cleanup_diagnostic_file}" 2>&1 </dev/null &
 
   cleanup_guardian_pid=$!
+  exec 7>&- 9>&-
+  local readiness=""
+  if IFS= read -r readiness <&8 && [[ "${readiness}" == READY ]]; then
+    close_guardian_readiness
+  else
+    echo "Integration cleanup guardian exited before readiness." >&2
+    local startup_status=1
+    if wait "${cleanup_guardian_pid}"; then :; else startup_status=$?; fi
+    if close_guardian_readiness; then :; else :; fi
+    return "${startup_status}"
+  fi
 }
 trap 'cleanup "$?"' EXIT
 trap 'on_signal 130' INT

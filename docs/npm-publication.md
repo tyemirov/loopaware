@@ -6,22 +6,23 @@ The npm publication input is `NPM_API_KEY`.
 The `react-native-client` resource declares `@loopaware/react-native` at `https://registry.npmjs.org/`.
 The selected manifest declares `.mprlab/deploy/.env` as its `environment_file`.
 
-The lifecycle Make targets export `configs/.env.loopaware` before Gateway captures the selected manifest.
-Gateway preserves a process value when the selected environment file has the same assignment.
-Thus the exported `NPM_API_KEY` supplies this input for the lifecycle Make targets.
-Gateway captures the resolved input once. The npm publisher reads that capture.
-It does not read another credential file after capture.
+The lifecycle Make targets pass caller environment values unchanged to the installed Gateway.
+Gateway reads only the environment file selected by the manifest during manifest processing.
+A caller value takes precedence when the selected file has the same assignment.
+The selected file must exist even when caller values supply every input.
+Gateway captures the resolved `NPM_API_KEY` once. The npm publisher reads that capture.
+The wrappers do not source `configs/.env.loopaware` or require that unrelated file.
 
-Keep the real value in the existing private file.
-Preserve other assignments when you edit that file.
+Supply the value through the caller environment or the selected `.mprlab/deploy/.env` file.
+Preserve existing private files and their other assignments.
 Keep the value outside tracked files and command arguments.
-The tracked `configs/.env.loopaware.example` file documents the name with an unusable value.
-Keep that example separate from operational inputs.
+The tracked `configs/.env.loopaware.example` file documents Compose inputs with unusable values.
+Keep that example separate from lifecycle inputs.
 
 Gateway removes inherited npm authentication overrides before it starts npm.
 It supplies the captured credential through standard input as npm user configuration.
 `NPM_TOKEN`, `NODE_AUTH_TOKEN`, `npm login`, and the operator's `.npmrc` do not select this publication input.
-Keep the existing input name and credential location.
+Keep the existing input name.
 
 ## Loading And Authentication
 

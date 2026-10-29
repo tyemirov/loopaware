@@ -146,6 +146,65 @@ def test_controller_rejects_unbounded_attempts(gateway: tuple[ModuleType, Path],
     assert str(ansible_root / "playbooks/app-lifecycle-plan.yml") not in validation.stdout
 
 
+
+@pytest.mark.parametrize("phase", ["release", "publish", "deploy"])
+@pytest.mark.parametrize("scenario", ["caller-precedence", "selected-file", "missing-selected-file"])
+def test_lifecycle_make_environment(
+    gateway: tuple[ModuleType, Path], tmp_path: Path, phase: str, scenario: str,
+) -> None:
+    """Resolve synthetic Make inputs through the installed SDK manifest boundary."""
+    _, ansible_root = gateway
+    executable = ansible_root.parents[1] / "bin/mprlab-gateway"
+    repository = tmp_path / "application checkout"
+    manifest = prepare_synthetic_application(repository, MANIFEST_PATH.read_bytes())
+    shutil.copyfile(MANIFEST_PATH.parents[2] / "Makefile", repository / "Makefile")
+    environment = fixture_environment(tmp_path, executable)
+    environment["MPRLAB_GATEWAY_EXECUTABLE"] = sys.executable
+    environment["FIXTURE_GATEWAY"] = str(executable)
+    selected_file = repository / manifest["environment_file"]
+    expected = {name: "synthetic-policy-input" for name in manifest["inputs"]}
+    if scenario != "selected-file":
+        expected = {name: "synthetic-caller-input" for name in manifest["inputs"]}
+        environment.update(expected)
+    if scenario == "missing-selected-file":
+        selected_file.unlink()
+
+    other_file = repository / "configs/.env.loopaware"
+    other_file.parent.mkdir()
+    extra_read = tmp_path / "other-file-was-sourced"
+    other_file.write_text("".join(f'{name}="synthetic-other-file"\n' for name in manifest["inputs"])
+                          + f"printf unexpected > '{extra_read}'\n")
+    receipt = tmp_path / "sdk-capture.json"
+    child = ("import json,pathlib,os,sys; "
+             "capture=json.loads(os.environ['MPRLAB_LISTENER_EXECUTION_POLICY']); "
+             "envelope=json.loads(pathlib.Path(capture['path']).read_text()); "
+             f"pathlib.Path({str(receipt)!r}).write_text(json.dumps("
+             "{'inputs':envelope['inputs'],'stdin':sys.stdin.read()}))")
+    # Replace only the lifecycle dispatch boundary; SDK manifest resolution stays real.
+    (repository / f"app-{phase}").write_text(
+        "import os,sys\n"
+        f"assert sys.argv[1:] == ['--app-root', {str(repository)!r}]\n"
+        "gateway=os.environ['FIXTURE_GATEWAY']\n"
+        f"os.execve(gateway, [gateway, 'bootstrap-run', '--repo-root', {str(repository)!r}, "
+        f"'--operation', 'app-{phase}', '--', sys.executable, '-c', {child!r}], os.environ)\n"
+    )
+    for arguments in (("init", "--quiet"), ("add", ".gitignore", ".mprlab/deploy/resources.yml", "Makefile")):
+        subprocess.run(["git", "-C", str(repository), *arguments],
+                       env=environment, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30, check=True)
+    result = subprocess.run(["make", phase], cwd=repository, env=environment,
+                            input="caller input must not reach Gateway\n", capture_output=True, text=True, timeout=30)
+    assert not extra_read.exists(), "The lifecycle wrapper sourced an unselected environment file"
+    if scenario == "missing-selected-file":
+        assert result.returncode != 0
+        assert manifest["environment_file"] in result.stderr
+        assert not receipt.exists()
+    else:
+        assert result.returncode == 0, result.stdout + result.stderr
+        observed = json.loads(receipt.read_text())
+        assert observed["inputs"] == expected
+        assert observed["stdin"] == ""
+
+
 def run_manifest_envelope(repository: Path, directory: Path, ansible_root: Path) -> subprocess.CompletedProcess[str]:
     """Run the installed surface reader and envelope assertion through real Ansible."""
     lifecycle = yaml.safe_load((ansible_root / "playbooks/app-lifecycle-plan.yml").read_text())

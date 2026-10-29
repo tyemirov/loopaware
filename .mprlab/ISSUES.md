@@ -34,6 +34,81 @@ Implementation of the remaining mobile features remains pending.
 
 ## BugFixes
 
+- [x] [B156] (P0) Wait for the integration cleanup guardian before setup
+  Goal:
+  Start the integration topology only after its cleanup guardian can receive cleanup signals.
+
+  Evidence:
+  Automatic run `40809112221` failed with guardian status 143 during a fast integration runner fixture.
+  The parent starts topology work before the child installs its signal traps.
+  A fast parent can send the cleanup signal during this startup interval.
+  The hosted log does not prove the exact signal order.
+
+  Requirements:
+  - Require a child readiness acknowledgment before topology setup.
+  - Reject child exit before readiness and preserve its failure status.
+  - Preserve independent cleanup after parent exit and the original test failure status.
+  - Remove owned readiness resources and release the integration lock.
+  - Preserve guardian and main cleanup failure diagnostics.
+
+  Validation:
+  - Reproduce premature setup through the public integration runner with a controlled child failure.
+  - Verify fast success, early child exit, parent exit, and cleanup failure cases.
+  - Pass focused checks, independent review, complete local CI, and fresh automatic CI.
+
+  Progress:
+  The public regression reproduced topology setup after an early guardian exit.
+  The runner now requires a readiness acknowledgment after the child installs its signal traps.
+  Both cleanup paths report removal errors and continue topology and lock cleanup.
+  Focused cases passed for early exit, fast success, parent exit, and cleanup error precedence.
+  Both real Docker cleanup controls passed with all owned resources absent.
+  Independent source review found no remaining defects.
+  Complete local `make ci` passed in 542.308 seconds, including all 475 browser cases and 29 SDK policy cases.
+  All six automatic matrix jobs and the aggregate gate passed in run `40813387731`.
+
+  Changed files:
+  `tests/scripts/run-integration.sh`, `tests/scripts/test-integration-runner.sh`, and this tracker.
+
+- [x] [B155] (P0) Preserve manifest environment ownership in lifecycle wrappers
+  Goal:
+  Let the installed Gateway resolve configuration once from caller values and the selected manifest input.
+
+  Evidence:
+  Each lifecycle Make wrapper clears declared caller inputs and sources `configs/.env.loopaware` before SDK manifest processing.
+  The selected manifest declares `.mprlab/deploy/.env` as its `environment_file`.
+  The extra reader can override caller values and the selected file.
+  The current public test and npm documentation require this incorrect behavior.
+  No live provider failure or credential collision was established.
+
+  Requirements:
+  - Pass caller environment values to the installed SDK unchanged.
+  - Let Gateway read only the manifest-selected environment file.
+  - Preserve the installed runtime selection, application root, closed standard input, and failure status.
+  - Preserve the selected manifest and all existing private files and credentials.
+  - Correct the current input documentation.
+
+  Validation:
+  - Reproduce the incorrect precedence through all three public Make targets with synthetic inputs.
+  - Verify caller precedence, selected-file use, and exclusion of the other file through the installed SDK boundary.
+  - Verify rejection of a missing selected file before the child starts.
+  - Pass focused checks, final local CI, and fresh automatic CI from the actual fix push.
+
+  Progress:
+  The public Make regression reproduced removal of a caller App Store Connect input.
+  The SDK regression reproduced execution of the unselected file through its synthetic marker.
+  The wrapper correction removes only the loop that clears inputs and extra file reader.
+  The Make wrapper and integration runner checks passed.
+  All 29 SDK policy cases passed, including nine new Make handoff and real SDK input capture cases.
+  These cases replace lifecycle dispatch. They do not execute release, publication, or deployment.
+  Independent review found no source defects.
+  Complete local `make ci` passed, including all 475 browser integration cases and all 29 SDK policy cases.
+  All six automatic matrix jobs and the aggregate gate passed in run `40807877503`.
+  Release, publication, and deployment remain separate operations.
+
+  Changed files:
+  `Makefile`, `tests/lifecycle-entrypoint.test.mjs`, `tests/deployment/test_npm_visibility.py`, `README.md`, `docs/npm-publication.md`, and this tracker.
+
+
 - [x] [B154] (P1) {B147} Preserve Go monitor receipt channels in hosted qualification
   Goal:
   Read Go monitor control receipts independently from concurrent user output.
