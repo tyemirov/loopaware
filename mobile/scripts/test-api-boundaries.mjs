@@ -21,6 +21,7 @@ const { LoopAwareApiClient, LoopAwareApiError } = await import(moduleUrl);
 
 const site = {
   id: "site-1",
+  traffic_profile: "detailed",
   name: "Boundary Site",
   allowed_origin: "https://example.com",
   subscribe_allowed_origins: "",
@@ -162,6 +163,21 @@ await assert.rejects(() => invalidClient.siteDashboard(site, "30days"), (error) 
   const apiError = /** @type {{ code: string; message: string }} */ (error);
   assert.equal(apiError.code, "mobile_api_invalid_collection");
   assert.match(apiError.message, /subscribers/);
+  return true;
+});
+
+const invalidTrendClient = new LoopAwareApiClient(runtimeConfig(), createFetcher({
+  ...basePayloads,
+  "/api/sites/site-1/visits/trend": {
+    site_id: site.id, interval: "30days", days: 1,
+    trend: [{ date: "2026-10-27", page_views: 12, unique_visitors: null }],
+  },
+}));
+await assert.rejects(() => invalidTrendClient.siteDashboard(site, "30days"), (error) => {
+  assert(error instanceof LoopAwareApiError);
+  const apiError = /** @type {{ code: string; message: string }} */ (error);
+  assert.equal(apiError.code, "mobile_api_invalid_trend");
+  assert.match(apiError.message, /site-1.*2026-10-27.*unique visitor count/);
   return true;
 });
 

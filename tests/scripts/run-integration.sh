@@ -6,6 +6,7 @@ repo_root=$(cd "${script_dir}/../.." && pwd)
 test_config_dir="${repo_root}/tests/configs"
 compose_file="${repo_root}/tests/docker-compose.yml"
 cleanup_guardian_pid=""
+cleanup_diagnostic_file=""
 cleanup_complete=0
 
 export LOOPAWARE_TEST_NETWORK_PREFIX="${LOOPAWARE_TEST_NETWORK_PREFIX-10.203.242}"
@@ -46,29 +47,69 @@ get_process_start_time() {
 }
 
 down_stack() {
-  docker compose -f "${compose_file}" -p "${compose_project_name}" down -v --remove-orphans >/dev/null 2>&1 || true
+  local status=0
+  if docker compose -f "${compose_file}" -p "${compose_project_name}" down -v --remove-orphans >/dev/null; then
+    return 0
+  else
+    status=$?
+    echo "Integration stack cleanup failed (status ${status})" >&2
+    return "${status}"
+  fi
 }
 
 cleanup() {
+  local original_status="$1"
+  local cleanup_status=0
+  local status=0
   if [[ "${cleanup_complete}" -eq 1 ]]; then
-    return 0
+    return "${original_status}"
   fi
 
   cleanup_complete=1
   trap - EXIT INT TERM HUP QUIT
 
-  if [[ -n "${cleanup_guardian_pid}" ]] && kill -0 "${cleanup_guardian_pid}" >/dev/null 2>&1; then
-    kill "${cleanup_guardian_pid}" >/dev/null 2>&1 || true
-    wait "${cleanup_guardian_pid}" >/dev/null 2>&1 || true
+  if [[ -n "${cleanup_guardian_pid}" ]]; then
+    if kill -0 "${cleanup_guardian_pid}" >/dev/null 2>&1; then
+      kill "${cleanup_guardian_pid}" >/dev/null 2>&1 || true
+    fi
+    if wait "${cleanup_guardian_pid}"; then
+      :
+    else
+      cleanup_status=$?
+      cat "${cleanup_diagnostic_file}" >&2
+      echo "Integration cleanup guardian failed (status ${cleanup_status})" >&2
+    fi
   fi
 
-  down_stack
-  rmdir "${integration_lock_dir}" >/dev/null 2>&1 || true
+  if down_stack; then
+    :
+  else
+    status=$?
+    if [[ "${cleanup_status}" -eq 0 ]]; then cleanup_status="${status}"; fi
+  fi
+  if [[ -d "${integration_lock_dir}" ]]; then
+    if rmdir "${integration_lock_dir}"; then
+      :
+    else
+      status=$?
+      echo "Integration lock cleanup failed (status ${status})" >&2
+      if [[ "${cleanup_status}" -eq 0 ]]; then cleanup_status="${status}"; fi
+    fi
+  fi
+  if [[ -n "${cleanup_diagnostic_file}" ]]; then
+    if [[ "${cleanup_status}" -eq 0 ]]; then
+      if rm "${cleanup_diagnostic_file}"; then :; else cleanup_status=$?; fi
+    else
+      echo "Integration cleanup diagnostics retained: ${cleanup_diagnostic_file}" >&2
+    fi
+  fi
+  if [[ "${original_status}" -ne 0 ]]; then return "${original_status}"; fi
+  return "${cleanup_status}"
 }
 
 on_signal() {
   local exit_code="$1"
-  cleanup
+  cleanup "${exit_code}" || exit "${exit_code}"
   exit "${exit_code}"
 }
 
@@ -77,6 +118,7 @@ start_cleanup_guardian() {
   local parent_start_time=""
 
   parent_start_time="$(get_process_start_time "${parent_pid}")"
+  cleanup_diagnostic_file="$(mktemp "${repo_root}/.cache/loopaware-integration-cleanup.XXXXXX")"
 
   nohup bash -c '
     parent_pid="$1"
@@ -90,10 +132,25 @@ start_cleanup_guardian() {
     }
 
     cleanup_topology() {
+      local cleanup_status=0
+      local status=0
       trap - EXIT INT TERM HUP QUIT
-      docker compose -f "${compose_file}" -p "${compose_project_name}" down -v --remove-orphans >/dev/null 2>&1 || true
-      rmdir "${integration_lock_dir}" >/dev/null 2>&1 || true
-      exit 0
+      if docker compose -f "${compose_file}" -p "${compose_project_name}" down -v --remove-orphans >/dev/null; then
+        :
+      else
+        cleanup_status=$?
+        echo "Integration stack cleanup failed (status ${cleanup_status})" >&2
+      fi
+      if [[ -d "${integration_lock_dir}" ]]; then
+        if rmdir "${integration_lock_dir}"; then
+          :
+        else
+          status=$?
+          echo "Integration lock cleanup failed (status ${status})" >&2
+          if [[ "${cleanup_status}" -eq 0 ]]; then cleanup_status="${status}"; fi
+        fi
+      fi
+      exit "${cleanup_status}"
     }
     trap cleanup_topology EXIT INT TERM HUP QUIT
 
@@ -110,11 +167,11 @@ start_cleanup_guardian() {
     done
 
     cleanup_topology
-  ' bash "${parent_pid}" "${parent_start_time}" "${compose_file}" "${compose_project_name}" "${integration_lock_dir}" >/dev/null 2>&1 </dev/null &
+  ' bash "${parent_pid}" "${parent_start_time}" "${compose_file}" "${compose_project_name}" "${integration_lock_dir}" >"${cleanup_diagnostic_file}" 2>&1 </dev/null &
 
   cleanup_guardian_pid=$!
 }
-trap cleanup EXIT
+trap 'cleanup "$?"' EXIT
 trap 'on_signal 130' INT
 trap 'on_signal 143' TERM
 trap 'on_signal 129' HUP

@@ -6,11 +6,21 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 const repository = resolve(import.meta.dirname, '..');
 const original = readFileSync(join(repository, '.github/workflows/ci.yml'), 'utf8');
+const originalMake = readFileSync(join(repository, 'Makefile'), 'utf8');
 const fixture = mkdtempSync(join(tmpdir(), 'loopaware-workflow-audit-'));
-/** @type {Array<[string, (source: string) => string, boolean]>} */
+/** @type {Array<[string, (source: string) => string, boolean, ((source: string) => string)?]>} */
 const scenarios = [
   ['current six declarations', source => source, true],
+  ['missing native Node first-failure path', source => source, false, source => source.replace('ci-checks: first-failure-node-check first-failure-go-check ', 'ci-checks: first-failure-go-check ')],
+  ['missing Go first-failure path', source => source, false, source => source.replace('ci-checks: first-failure-node-check first-failure-go-check ', 'ci-checks: first-failure-node-check ')],
+  ['missing pytest first-failure path', source => source, false, source => source.replace('deployment-npm-visibility-check: first-failure-pytest-check', 'deployment-npm-visibility-check:')],
+  ['missing browser first-failure path', source => source, false, source => source.replace('ci-integration: first-failure-browser-check ', 'ci-integration: ')],
+  ['missing shared browser prerequisite', source => source, false, source => source.replace('first-failure-browser-check: tests-browser-install', 'first-failure-browser-check:')],
+  ['disabled matrix fail-fast', source => source.replace('fail-fast: true', 'fail-fast: false'), false],
+  ['comment cannot replace matrix field', source => source.replace('fail-fast: true', 'fail-fast: false') + '\n# fail-fast: true\n', false],
   ['missing second Python setup', source => source.replace(/      - name: Set up Python for Gateway installation\n[\s\S]*?(?=      - name: Install Gateway for Mobile checks)/, ''), false],
+  ['missing pinned uv setup', source => source.replace(/      - name: Install uv for deployment policy checks\n[\s\S]*?(?=      - name: Install Gateway for Mobile checks)/, ''), false],
+  ['unpinned uv setup', source => source.replace('uv==0.12.19', 'uv'), false],
   ['missing bundletool setup', source => source.replace(/      - name: Install bundletool for Mobile checks\n[\s\S]*?(?=      - name: Check browser)/, ''), false],
   ['bundletool before Java', source => {
     const step = /      - name: Install bundletool for Mobile checks\n[\s\S]*?(?=      - name: Check browser)/.exec(source)?.[0];
@@ -26,14 +36,16 @@ const scenarios = [
   ['filtered required pull request', source => source.replace('  pull_request:\n    branches:\n      - master', '  pull_request:\n    branches:\n      - master\n    paths:\n      - mobile/**'), false],
 ];
 try {
-  for (const [name, alter, accepted] of scenarios) {
+  for (const [name, alter, accepted, alterMake = source => source] of scenarios) {
     const root = join(fixture, name.replaceAll(' ', '-'));
     for (const relative of ['scripts/audit-github-workflow.py', '.github/dependabot.yml', 'Makefile']) {
       const destination = join(root, relative); mkdirSync(dirname(destination), { recursive: true });
       copyFileSync(join(repository, relative), destination);
     }
     const source = alter(original);
-    if (!accepted) assert.notEqual(source, original, name);
+    const selectedMake = alterMake(originalMake);
+    if (!accepted) assert.ok(source !== original || selectedMake !== originalMake, name);
+    writeFileSync(join(root, 'Makefile'), selectedMake);
     mkdirSync(join(root, '.github/workflows'));
     writeFileSync(join(root, '.github/workflows/ci.yml'), source);
     const result = spawnSync('python3', ['scripts/audit-github-workflow.py'], {

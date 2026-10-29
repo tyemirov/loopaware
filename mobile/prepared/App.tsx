@@ -686,11 +686,10 @@ function TrendRows(props: { trend: VisitTrendPoint[] }) {
   if (!props.trend.length) {
     return <EmptyInline text="No trend data yet." />;
   }
-  const recentTrend = props.trend.slice(-10);
-  const maxValue = Math.max(1, ...recentTrend.map((point) => point.page_views));
+  const maxValue = Math.max(1, ...props.trend.map((point) => point.page_views));
   return (
     <>
-      {recentTrend.map((point) => (
+      {props.trend.map((point) => (
         <DataBar key={point.date} label={point.date} value={point.page_views} maxValue={maxValue} detail={`${formatCount(point.unique_visitors)} unique`} />
       ))}
     </>

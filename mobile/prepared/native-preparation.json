@@ -86,6 +86,10 @@
       "expo-build-properties": {
         "declared": "~57.0.22",
         "resolved": "57.0.22"
+      },
+      "deepmerge": {
+        "declared": "file:vendor/deepmerge",
+        "resolved": "4.3.1"
       }
     },
     "devDependencies": {
@@ -145,7 +149,8 @@
       "braces": "$braces",
       "@expo/cli@57.0.32": {
         "zod": "4.6.7"
-      }
+      },
+      "deepmerge": "$deepmerge"
     }
   },
   "toolchain": {

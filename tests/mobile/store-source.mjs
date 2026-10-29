@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
-import test from 'node:test';
+import test from '../../scripts/native-test.mjs';
 import { publicFixture } from './preparation.mjs';
 import { createRequire } from 'node:module';
 

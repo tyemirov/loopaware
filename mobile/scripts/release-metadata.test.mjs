@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "nod
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { resolve, dirname } from "node:path";
-import test from "node:test";
+import test from "../../scripts/native-test.mjs";
 
 const mobile = resolve(import.meta.dirname, "../prepared");
 const require = createRequire(import.meta.url);

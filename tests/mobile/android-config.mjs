@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
-import test from "node:test";
+import test from "../../scripts/native-test.mjs";
 import { copyPreparedPublicInputs } from "../../mobile/scripts/record-store-preparation.mjs";
 
 const mobile = resolve(import.meta.dirname, "../../mobile/prepared");

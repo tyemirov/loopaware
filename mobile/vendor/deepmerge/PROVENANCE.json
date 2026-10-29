@@ -1,0 +1,17 @@
+{
+  "upstream_package": "deepmerge",
+  "upstream_version": "4.3.1",
+  "source": "https://registry.npmjs.org/deepmerge/4.3.1",
+  "advisory": "GHSA-gcqx-w48m-w2h4",
+  "upstream_fix_reference": "https://github.com/TehShrike/deepmerge/pull/274",
+  "review_after": "2026-11-12",
+  "maintenance_owner": "Marco Polo Research Lab LLC, LoopAware maintainers",
+  "owned_changes": [
+    "index.js, dist/cjs.js, dist/umd.js: reject __proto__ in both target and source copy loops",
+    "package.json: omit upstream development scripts and dependencies; retain runtime identity and entry point"
+  ],
+  "correction": "PROTOTYPE-CORRECTION.patch",
+  "package_identity": "Original upstream name and version retained. This local correction is not a published upstream fix.",
+  "source_index_limitation": "index.js requires the upstream build-only is-mergeable-object dependency. Runtime qualification uses the shipped CJS and UMD entry points.",
+  "upstream_reference_status": "Closed proposed pull request; not an accepted or released upstream fix."
+}

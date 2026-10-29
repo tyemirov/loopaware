@@ -19,6 +19,92 @@ const site = {
   id: "aggregate-site", name: "Aggregate site", traffic_profile: "aggregate", access_role: "admin",
   allowed_origin: "https://example.com", unique_visitor_count: null, visit_count: 12,
 };
+/** @typedef {{ date: string, page_views: number, unique_visitors: number | null }} TrendPoint */
+const trendPoints = [
+  { date: "2026-10-19", page_views: 13, unique_visitors: 3 },
+  { date: "2026-10-20", page_views: 0, unique_visitors: 0 },
+  { date: "2026-10-21", page_views: 7, unique_visitors: 5 },
+  { date: "2026-10-22", page_views: 0, unique_visitors: 0 },
+];
+
+for (const recentVisits of [[], [{
+  url: "https://example.com/individual-visit", path: "/individual-visit", ip: "192.0.2.1", country: "Test country",
+  browser: "Test browser", user_agent: "Test agent", referrer: "https://referrer.example/", visitor_id: "individual-visitor",
+  occurred_at: 1793131200,
+}]]) {
+  await scenario(`mobile Traffic omits ${recentVisits.length ? "populated" : "empty"} recent visits`, {
+    initialSession: true, trafficProfile: "detailed", trend: () => trendPoints, recentVisits,
+  }, async (app) => {
+    await app.press("Traffic");
+    const expectTraffic = () => {
+      assert.doesNotMatch(app.text(), /Recent visits|No recent visits|individual-visit|individual-visitor|referrer\.example|Test browser/);
+      for (const section of ["Page views", "Visitors", "Returning", "Pages/visitor", "Trend", "Top pages", "Attribution", "Devices", "Locations"]) {
+        assert.ok(app.text().includes(section), `${section} remains visible`);
+      }
+      assert.equal(renderedTrend(app.text())[0][0], "2026-10-21");
+    };
+    expectTraffic();
+    await app.press("1d");
+    expectTraffic();
+    await app.press("Other site");
+    expectTraffic();
+  });
+}
+
+await scenario("detailed Trend ranks unique visitors and preserves page-view values", {
+  initialSession: true, trafficProfile: "detailed", trend: () => trendPoints,
+}, async (app) => {
+  await app.press("Traffic");
+  assert.deepEqual(renderedTrend(app.text()), [
+    ["2026-10-21", "7", "5"], ["2026-10-19", "13", "3"],
+    ["2026-10-22", "0", "0"], ["2026-10-20", "0", "0"],
+  ], app.text());
+});
+await scenario("detailed Trend ranks only the existing ten-day display window", {
+  initialSession: true, trafficProfile: "detailed",
+  trend: () => Array.from({ length: 11 }, (_, index) => ({
+    date: `2026-10-${String(index + 10).padStart(2, "0")}`, page_views: 30 - index, unique_visitors: index === 0 ? 999 : index,
+  })),
+}, async (app) => {
+  await app.press("Traffic");
+  const rows = renderedTrend(app.text());
+  assert.equal(rows.length, 10);
+  assert.equal(rows[0][0], "2026-10-20");
+  assert.equal(rows.at(-1)?.[0], "2026-10-11");
+  assert.equal(rows.some(([date]) => date === "2026-10-10"), false);
+});
+let otherSiteTrend = [{ date: "2026-10-23", page_views: 12, unique_visitors: 2 }, { date: "2026-10-24", page_views: 8, unique_visitors: 6 }];
+await scenario("Trend order follows interval changes, site changes, and refreshed data", {
+  initialSession: true, trafficProfile: "detailed",
+  trend: (siteID, interval) => siteID === "other-site"
+    ? otherSiteTrend
+    : interval === "1day" ? [{ date: "2026-10-27", page_views: 9, unique_visitors: 4 }] : trendPoints,
+}, async (app) => {
+  await app.press("Traffic");
+  await app.press("1d");
+  assert.deepEqual(renderedTrend(app.text()), [["2026-10-27", "9", "4"]]);
+  await app.press("All");
+  assert.equal(renderedTrend(app.text())[0][0], "2026-10-21");
+  await app.press("Other site");
+  assert.deepEqual(renderedTrend(app.text()).map(([date]) => date), ["2026-10-24", "2026-10-23"]);
+  otherSiteTrend = [{ date: "2026-10-23", page_views: 15, unique_visitors: 9 }, { date: "2026-10-24", page_views: 8, unique_visitors: 6 }];
+  await app.refresh();
+  assert.deepEqual(renderedTrend(app.text()), [["2026-10-23", "15", "9"], ["2026-10-24", "8", "6"]]);
+});
+await scenario("empty detailed Trend keeps its empty state", {
+  initialSession: true, trafficProfile: "detailed", trend: () => [],
+}, async (app) => {
+  await app.press("Traffic");
+  assert.match(app.text(), /No trend data yet/);
+  assert.deepEqual(renderedTrend(app.text()), []);
+});
+await scenario("aggregate Daily counts preserve date order and unavailable unique counts", {
+  initialSession: true, trend: () => trendPoints.map(point => ({ ...point, unique_visitors: null })),
+}, async (app) => {
+  await app.press("Traffic");
+  assert.match(app.text(), /Daily counts/);
+  assert.deepEqual(renderedTrend(app.text()), trendPoints.map(point => [point.date, String(point.page_views), "Unavailable"]));
+});
 
 await scenario("fresh login survives dashboard failure", { initialSession: false, dashboardFailure: true }, async (app) => {
   await app.signIn();
@@ -117,11 +203,12 @@ console.log("mobile app flow checks passed");
 
 /**
  * @param {string} name
- * @param {{ initialSession: boolean, dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
+ * @param {{ initialSession: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
  * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[] }) => Promise<void>} check
  */
 async function scenario(name, options, check) {
   let authenticated = options.initialSession;
+  const visibleSite = { ...site, traffic_profile: options.trafficProfile ?? "aggregate" };
   /** @type {string[]} */
   const requests = [];
   let releaseResponse = () => {};
@@ -147,7 +234,9 @@ async function scenario(name, options, check) {
     return response;
   };
   const server = createServer((request, response) => {
-    const path = new URL(request.url || "/", "http://localhost").pathname;
+    const requestURL = new URL(request.url || "/", "http://localhost");
+    const path = requestURL.pathname;
+    const interval = requestURL.searchParams.get("interval") || "30days";
     requests.push(path);
     let status = 200;
     /** @type {unknown} */
@@ -163,19 +252,25 @@ async function scenario(name, options, check) {
         authenticated = !options.rejectLogin;
         status = authenticated ? 200 : 401; payload = authenticated ? account : { error: "invalid_google_token" }; break;
       case "/auth/logout": authenticated = false; payload = {}; break;
-      case "/api/sites": status = options.sitesFailure ? 500 : 200; payload = options.sitesFailure ? { error: "query_failed" } : { sites: options.deferDashboard || options.deferSites || options.deferPortfolio ? [site, { ...site, id: "other-site", name: "Other site" }] : [site] }; break;
+      case "/api/sites": status = options.sitesFailure ? 500 : 200; payload = options.sitesFailure ? { error: "query_failed" } : { sites: options.deferDashboard || options.deferSites || options.deferPortfolio || options.trend ? [visibleSite, { ...visibleSite, id: "other-site", name: "Other site" }] : [visibleSite] }; break;
       case "/api/reports/traffic/portfolio/reports": payload = { reports: [], available_sites: [] }; break;
       case "/api/reports/traffic/portfolio":
         status = options.portfolioFailure ? 500 : 200;
         payload = options.portfolioFailure ? { error: "query_failed" } : { site_count: 2, visit_count: requests.filter(value => value === path).length === 1 ? 35 : 58, unique_visitor_count: null, trend: [], sites: [] }; break;
       case "/api/reports/traffic/portfolio/schedule": payload = null; break;
       default:
-        if (/\/visits\/(attribution|engagement|devices|locations)$/.test(path) || (options.dashboardFailure && path.endsWith("/visits/stats"))) {
+        if (options.trafficProfile === "detailed" && /\/visits\/(attribution|engagement|devices|locations)$/.test(path)) {
+          payload = {
+            sources: [], mediums: [], campaigns: [], device_types: [], top_resolutions: [], top_viewports: [], locations: [],
+            tracked_visitor_count: 8, returning_visitor_count: 2, returning_visitor_rate: 0.25, average_pages_per_visitor: 1.5,
+            depth_distribution: {}, observed_time_distribution: {},
+          };
+        } else if (/\/visits\/(attribution|engagement|devices|locations)$/.test(path) || (options.dashboardFailure && path.endsWith("/visits/stats"))) {
           status = 409; payload = { error: "metric_unavailable", traffic_profile: "aggregate" };
         } else if (path.endsWith("/visits/stats")) {
-          payload = { site_id: path.split("/")[3], interval: "30days", traffic_profile: "aggregate", visit_count: path.includes("other-site") ? 23 : 12, unique_visitor_count: null, top_pages: null, recent_visits: null };
+          payload = { site_id: path.split("/")[3], interval, traffic_profile: visibleSite.traffic_profile, visit_count: path.includes("other-site") ? 23 : 12, unique_visitor_count: options.trafficProfile === "detailed" ? 8 : null, top_pages: null, recent_visits: options.recentVisits ?? null };
         } else if (path.endsWith("/visits/trend")) {
-          payload = { site_id: path.split("/")[3], interval: "30days", trend: [] };
+          payload = { site_id: path.split("/")[3], interval, trend: options.trend ? options.trend(path.split("/")[3], interval) : [] };
         } else {
           const field = { messages: "messages", subscribers: "subscribers", issues: "issues", "mobile-apps": "mobile_apps", team: "team_members" }[path.split("/").at(-1) || ""];
           payload = field ? { [field]: [] } : null;
@@ -272,6 +367,12 @@ async function scenario(name, options, check) {
     }
     throw new Error(`${name}: app did not finish loading`);
   }
+}
+
+/** @param {string} text */
+function renderedTrend(text) {
+  return [...text.matchAll(/(\d{4}-\d{2}-\d{2})\s+([\d,]+)\s+(Unavailable|[\d,]+) unique/g)]
+    .map(match => match.slice(1));
 }
 
 /** @param {unknown} node @returns {string} */

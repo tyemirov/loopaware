@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { cp, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { test } from 'node:test';
+import { test } from '../scripts/native-test.mjs';
 
 const repository = path.resolve(import.meta.dirname, '..');
 const phases = ['release', 'publish', 'deploy'];

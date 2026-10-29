@@ -1,5 +1,10 @@
 .cache/
 tools/
+!/tools/
+/tools/*
+!/tools/testmonitor/
+/tools/testmonitor/*
+!/tools/testmonitor/main.go
 
 
 .idea/

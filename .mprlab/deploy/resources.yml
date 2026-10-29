@@ -103,6 +103,13 @@ mprlab_resources:
         increment: 1s
         multiplier: 2
         attempt_limit: 1443
+    app_publish.npm.archive_read:
+      polling:
+        initial: 2s
+        maximum: 10s
+        increment: 1s
+        multiplier: 2
+        attempt_limit: 1443
     app-deploy:
       timeouts:
         completion: 20m

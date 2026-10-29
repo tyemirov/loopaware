@@ -109,7 +109,7 @@ export class LoopAwareApiClient {
       },
       trend: {
         ...trend,
-        trend: readCollection<VisitTrendPoint>(trend, "trend"),
+        trend: readSiteTrend(trend, site),
       },
       attribution: attribution === null ? null : {
         ...attribution,
@@ -253,6 +253,20 @@ export class LoopAwareApiClient {
 
 function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
+}
+
+function readSiteTrend(payload: VisitTrend, site: Site): VisitTrendPoint[] {
+  const recentTrend = readCollection<VisitTrendPoint>(payload, "trend").slice(-10);
+  if (site.traffic_profile === "aggregate") {
+    return recentTrend;
+  }
+  return recentTrend.map((point) => {
+    const uniqueVisitors = point.unique_visitors;
+    if (typeof uniqueVisitors !== "number" || !Number.isSafeInteger(uniqueVisitors) || uniqueVisitors < 0) {
+      throw new LoopAwareApiError(502, "mobile_api_invalid_trend", `Read site ${site.id} trend for ${point.date}: invalid unique visitor count.`);
+    }
+    return { ...point, unique_visitors: uniqueVisitors };
+  }).sort((left, right) => right.unique_visitors - left.unique_visitors || right.date.localeCompare(left.date));
 }
 
 function readCollection<T>(payload: object, fieldName: string): T[] {
