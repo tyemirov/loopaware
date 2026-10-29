@@ -26,7 +26,7 @@ module.exports = {
     orientation: "portrait",
     icon: "./assets/icon.png",
     scheme: [loopAwareScheme, loopAwarePackageScheme],
-    userInterfaceStyle: "light",
+    userInterfaceStyle: "automatic",
     primaryColor: loopAwareGold,
     ios: {
       version: "1.1.0",

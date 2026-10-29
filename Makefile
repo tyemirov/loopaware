@@ -123,8 +123,12 @@ mobile-check: mobile-install
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run audit:image-size
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run validate-config
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run test:api-boundaries
-	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run test:app-flow
+	$(MAKE) --no-print-directory mobile-app-flow-check
 	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run typecheck
+
+.PHONY: mobile-app-flow-check
+mobile-app-flow-check:
+	$(MOBILE_NPM_COMMAND) --prefix $(MOBILE_DIR) run test:app-flow
 
 MOBILE_DEEPMERGE_ARGUMENTS ?=
 .PHONY: mobile-deepmerge-security-check mobile-deepmerge-prepared-check mobile-dependency-audit-check mobile-dependency-audit-controls
