@@ -28,13 +28,13 @@ The shared backend interval parser rejects `interval=7days`.
 Within F019, reuse existing queries and extend interval acceptance before the mobile selector uses `7days` across traffic panels.
 Complete these issues sequentially with the applicable validation for each issue.
 This sequence covers the reported mobile requests. Other backlog work retains its existing priority.
-B149, B150, B151, and I050 have source changes and passing focused checks.
-Gateway v7.0.9 passed all 20 B147 policy cases. Complete local CI passed. Fresh automatic CI remains pending.
+B149, B150, B151, and I050 are resolved.
+Gateway v7.0.9 passed all 20 B147 policy cases. Complete local and automatic CI passed.
 Implementation of the remaining mobile features remains pending.
 
 ## BugFixes
 
-- [-] [B154] (P1) {B147} Preserve Go monitor receipt channels in hosted qualification
+- [x] [B154] (P1) {B147} Preserve Go monitor receipt channels in hosted qualification
   Goal:
   Read Go monitor control receipts independently from concurrent user output.
 
@@ -70,7 +70,11 @@ Implementation of the remaining mobile features remains pending.
   Changed files: `Makefile`, `tests/first-failure/qualify.mjs`, `tests/first-failure/frameworks.mjs`, and this tracker.
   Gateway v7.0.9 passed all 20 B147 policy cases.
   Full local `make ci` passed, including all 475 browser integration cases.
-  All six fresh automatic matrix jobs and the aggregate gate remain pending.
+
+  Resolution:
+  Complete local `make ci` passed with Gateway v7.0.9.
+  [Automatic CI run 40803445048](https://github.com/tyemirov/loopaware/actions/runs/40803445048) passed for revision `ff80177`.
+  All six matrix jobs and the aggregate `test` gate passed.
 
 - [x] [B153] (P1) Correct Go test monitor diagnostic capitalization
   Goal:
@@ -94,7 +98,7 @@ Implementation of the remaining mobile features remains pending.
   The later B147 publication test failure is separate from this diagnostic correction.
   Changed files: `tools/testmonitor/main.go` and this tracker.
 
-- [-] [B152] (P0) Correct deepmerge prototype poisoning in mobile dependencies
+- [x] [B152] (P0) Correct deepmerge prototype poisoning in mobile dependencies
   Goal:
   Pass the mobile security audit with the reviewed local deepmerge correction.
 
@@ -129,9 +133,13 @@ Implementation of the remaining mobile features remains pending.
   Fresh independent review found no bypass or regression in the selected correction.
   Gateway v7.0.9 passed all 20 B147 policy cases.
   Full local `make ci` passed, including all 475 browser integration cases.
-  All six fresh automatic matrix jobs and the aggregate gate remain pending.
 
-- [-] [B151] (P1) {B147} Correct shared Node runner errors in mobile type checks
+  Resolution:
+  Complete local `make ci` passed with Gateway v7.0.9.
+  [Automatic CI run 40803445048](https://github.com/tyemirov/loopaware/actions/runs/40803445048) passed for revision `ff80177`.
+  All six matrix jobs and the aggregate `test` gate passed.
+
+- [x] [B151] (P1) {B147} Correct shared Node runner errors in mobile type checks
   Goal:
   Restore the required mobile TypeScript check with the shared test runner.
 
@@ -169,12 +177,17 @@ Implementation of the remaining mobile features remains pending.
   The deployment tests passed 17 cases before that first failure.
   Gateway v7.0.9 now passed all 20 policy cases.
   Full local `make ci` passed, including all 475 browser integration cases.
-  All six fresh automatic matrix jobs and the aggregate gate remain pending.
+
 
   Changed files:
   `scripts/native-test.mjs`, `tests/first-failure/qualify.mjs`, and the prepared source filter and its regression coverage.
 
-- [-] [B150] (P0) {B147} Correct the Go dependency vulnerability that blocks CI
+  Resolution:
+  Complete local `make ci` passed with Gateway v7.0.9.
+  [Automatic CI run 40803445048](https://github.com/tyemirov/loopaware/actions/runs/40803445048) passed for revision `ff80177`.
+  All six matrix jobs and the aggregate `test` gate passed.
+
+- [x] [B150] (P0) {B147} Correct the Go dependency vulnerability that blocks CI
   Goal:
   Pass the required Go security audit with the corrected HTML parser dependency.
 
@@ -202,11 +215,16 @@ Implementation of the remaining mobile features remains pending.
   Final CI stopped at the separate B147 archive `ETARGET` recovery case with Gateway v7.0.8.
   Gateway v7.0.9 now passed all 20 B147 policy cases.
   Full local `make ci` passed, including all 475 browser integration cases.
-  All six fresh automatic matrix jobs and the aggregate gate remain pending.
+
 
   Changed files: `go.mod`, `go.sum`, and this tracker.
 
-- [-] [B149] (P1) {B150,B151} Sort mobile Trend rows by unique visit count
+  Resolution:
+  Complete local `make ci` passed with Gateway v7.0.9.
+  [Automatic CI run 40803445048](https://github.com/tyemirov/loopaware/actions/runs/40803445048) passed for revision `ff80177`.
+  All six matrix jobs and the aggregate `test` gate passed.
+
+- [x] [B149] (P1) {B150,B151} Sort mobile Trend rows by unique visit count
   Goal:
   Show the days with the most unique visits first in the mobile `Trend` section.
 
@@ -252,12 +270,17 @@ Implementation of the remaining mobile features remains pending.
   It stopped at B147 archive `ETARGET` recovery with Gateway v7.0.8.
   Gateway v7.0.9 now passed all 20 B147 policy cases.
   Full local `make ci` passed, including all 475 browser integration cases.
-  All six fresh automatic matrix jobs and the aggregate gate remain pending.
+
 
   Changed files:
   `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/scripts/test-app-flow.mjs`, and `mobile/scripts/test-api-boundaries.mjs`.
   Prepared copies and the generated Xcode project changed through `make mobile-prepare-store`.
   Canonical preparation also copied the existing B148 metadata test change.
+
+  Resolution:
+  Complete local `make ci` passed with Gateway v7.0.9.
+  [Automatic CI run 40803445048](https://github.com/tyemirov/loopaware/actions/runs/40803445048) passed for revision `ff80177`.
+  All six matrix jobs and the aggregate `test` gate passed.
 
 - [ ] [B148] (P0) Stop publication CI at the first test failure
   Goal:
@@ -280,9 +303,10 @@ Implementation of the remaining mobile features remains pending.
   Focused Node, browser, pytest, Playwright, matrix, Make, and Go checks passed.
   The native Go checks verified a resistant child and retained genuine compiler diagnostics.
   Canonical CI now retains these focused checks in groups with their declared tools.
-  Final focused validation, Compose cleanup evidence, and cumulative CI remain pending.
+  Cumulative local and automatic CI passed with Gateway v7.0.9.
+  Final focused validation and Compose cleanup evidence remain pending.
 
-- [-] [B147] (P0) Preserve npm archive visibility observation after publication
+- [x] [B147] (P0) Preserve npm archive visibility observation after publication
   Goal:
   Check the exact npm archive within the existing publication time limit after the version becomes visible.
 
@@ -315,7 +339,11 @@ Implementation of the remaining mobile features remains pending.
   SDK setup, test expectations, and Mobile CI documentation now select v7.0.9.
   Full local `make ci` passed with this runtime, including all 475 browser integration cases.
   The Go, Node, and browser failure controls passed with their cleanup assertions.
-  The real source push and all six fresh automatic jobs plus the aggregate gate remain pending before closure.
+
+  Resolution:
+  Complete local `make ci` passed with Gateway v7.0.9.
+  [Automatic CI run 40803445048](https://github.com/tyemirov/loopaware/actions/runs/40803445048) passed for revision `ff80177`.
+  All six matrix jobs and the aggregate `test` gate passed.
 
 - [x] [B146] (P1) {B145} Preserve report navigation during the settings opening transition
   Goal:
@@ -3383,7 +3411,7 @@ Implementation of the remaining mobile features remains pending.
 
 ## Improvements
 
-- [-] [I050] (P1) {B147} Remove Recent visits from the mobile app
+- [x] [I050] (P1) {B147} Remove Recent visits from the mobile app
   Goal:
   Simplify the mobile traffic view through removal of the `Recent visits` section.
 
@@ -3420,10 +3448,15 @@ Implementation of the remaining mobile features remains pending.
   The deployment tests passed 17 cases before that first failure.
   Gateway v7.0.9 now passed all 20 B147 policy cases.
   Full local `make ci` passed, including all 475 browser integration cases.
-  All six fresh automatic matrix jobs and the aggregate gate remain pending.
+
 
   Changed files:
   `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`, and this tracker.
+
+  Resolution:
+  Complete local `make ci` passed with Gateway v7.0.9.
+  [Automatic CI run 40803445048](https://github.com/tyemirov/loopaware/actions/runs/40803445048) passed for revision `ff80177`.
+  All six matrix jobs and the aggregate `test` gate passed.
 
 - [x] [I048] (P1) Update the approved managed governance files
   Goal: Satisfy the reviewed production preflight prerequisite.
