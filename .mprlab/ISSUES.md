@@ -34,6 +34,41 @@ Implementation of the remaining mobile features remains pending.
 
 ## BugFixes
 
+- [-] [B156] (P0) Wait for the integration cleanup guardian before setup
+  Goal:
+  Start the integration topology only after its cleanup guardian can receive cleanup signals.
+
+  Evidence:
+  Automatic run `40809112221` failed with guardian status 143 during a fast integration runner fixture.
+  The parent starts topology work before the child installs its signal traps.
+  A fast parent can send the cleanup signal during this startup interval.
+  The hosted log does not prove the exact signal order.
+
+  Requirements:
+  - Require a child readiness acknowledgment before topology setup.
+  - Reject child exit before readiness and preserve its failure status.
+  - Preserve independent cleanup after parent exit and the original test failure status.
+  - Remove owned readiness resources and release the integration lock.
+  - Preserve guardian and main cleanup failure diagnostics.
+
+  Validation:
+  - Reproduce premature setup through the public integration runner with a controlled child failure.
+  - Verify fast success, early child exit, parent exit, and cleanup failure cases.
+  - Pass focused checks, independent review, complete local CI, and fresh automatic CI.
+
+  Progress:
+  The public regression reproduced topology setup after an early guardian exit.
+  The runner now requires a readiness acknowledgment after the child installs its signal traps.
+  Both cleanup paths report removal errors and continue topology and lock cleanup.
+  Focused cases passed for early exit, fast success, parent exit, and cleanup error precedence.
+  Both real Docker cleanup controls passed with all owned resources absent.
+  Independent source review found no remaining defects.
+  Complete local `make ci` passed in 542.308 seconds, including all 475 browser cases and 29 SDK policy cases.
+  Fresh automatic CI remains pending before integration.
+
+  Changed files:
+  `tests/scripts/run-integration.sh`, `tests/scripts/test-integration-runner.sh`, and this tracker.
+
 - [x] [B155] (P0) Preserve manifest environment ownership in lifecycle wrappers
   Goal:
   Let the installed Gateway resolve configuration once from caller values and the selected manifest input.

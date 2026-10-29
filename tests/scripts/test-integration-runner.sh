@@ -7,6 +7,19 @@ runtime_dir=$(mktemp -d)
 fake_bin="${runtime_dir}/bin"
 docker_log="${runtime_dir}/docker.log"
 mkdir -p "${fake_bin}" "${repo_root}/.cache"
+export LOOPAWARE_FAKE_READINESS_PATHS="${runtime_dir}/readiness-paths"
+mktemp() {
+  local result
+  result="$(command mktemp "$@")" || return "$?"
+  if [[ "${result}" == *"/loopaware-integration-ready."* ]]; then
+    printf '%s\n' "${result}" >> "${LOOPAWARE_FAKE_READINESS_PATHS}"
+  fi
+  if [[ "${result}" == *"/loopaware-integration-cleanup."* && -n "${LOOPAWARE_FAKE_PARENT_DEATH:-}" ]]; then
+    printf '%s\n' "${result}" > "${LOOPAWARE_FAKE_PARENT_DEATH}.diagnostic"
+  fi
+  printf '%s\n' "${result}"
+}
+export -f mktemp
 
 cleanup() {
   rm -rf "${runtime_dir}"
@@ -27,6 +40,10 @@ if [[ "$1 $2" == "context inspect" ]]; then
 fi
 
 echo "$*" >> "${LOOPAWARE_FAKE_DOCKER_LOG}"
+if [[ "$*" == *" up "* && -n "${LOOPAWARE_FAKE_PARENT_DEATH:-}" ]]; then
+  printf '%s\n' admitted > "${LOOPAWARE_FAKE_PARENT_DEATH}"
+  kill -KILL "${PPID}"
+fi
 if [[ "$*" == *" down "* && -n "${LOOPAWARE_FAKE_SUITE_MARKER:-}" && -f "${LOOPAWARE_FAKE_SUITE_MARKER}" ]]; then
   count=0
   if [[ -f "${LOOPAWARE_FAKE_DOWN_COUNTER}" ]]; then read -r count < "${LOOPAWARE_FAKE_DOWN_COUNTER}"; fi
@@ -56,6 +73,14 @@ chmod +x "${fake_bin}/curl"
 cat > "${fake_bin}/npm" <<'NPM'
 #!/usr/bin/env bash
 echo "npm $*" >> "${LOOPAWARE_FAKE_DOCKER_LOG}"
+if [[ "$*" == *" run "* && "${LOOPAWARE_FAKE_REMOVAL_PHASE:-}" == guardian ]]; then
+  readiness_path="$(tail -n 1 "${LOOPAWARE_FAKE_READINESS_PATHS}")"
+  mkdir "${readiness_path}"
+  mkfifo "${readiness_path}/ready"
+  printf '%s\n' entered > "${LOOPAWARE_FAKE_REMOVAL_MARKER}"
+  echo controlled-suite-failure >&2
+  exit 23
+fi
 if [[ "$*" == *" run "* && -n "${LOOPAWARE_FAKE_SUITE_MARKER:-}" ]]; then
   printf '%s\n' entered > "${LOOPAWARE_FAKE_SUITE_MARKER}"
   if [[ "${LOOPAWARE_FAKE_SUITE_STATUS}" -ne 0 ]]; then echo controlled-suite-failure >&2; fi
@@ -87,6 +112,86 @@ if [[ "${runner_output}" != *"${expected_message}"* ]]; then
 fi
 
 rmdir "${lock_dir}"
+
+nohup() {
+  echo "controlled-guardian-startup-failure" >&2
+  return 41
+}
+export -f nohup
+set +e
+runner_output="$(LOOPAWARE_FAKE_DOCKER_LOG="${docker_log}" \
+  LOOPAWARE_PLAYWRIGHT_CHANNEL=chrome \
+  PATH="${fake_bin}:${PATH}" "${script_dir}/run-integration.sh" 2>&1)"
+runner_status=$?
+set -e
+unset -f nohup
+if [[ "${runner_status}" -ne 41 || "${runner_output}" != *"controlled-guardian-startup-failure"* ]]; then
+  echo "Expected the original guardian startup failure (status 41), got ${runner_status}." >&2
+  echo "${runner_output}" >&2
+  exit 1
+fi
+if grep -E ' up |npm ' "${docker_log}" >/dev/null; then
+  echo "Topology or suite work started before guardian readiness." >&2
+  cat "${docker_log}" >&2
+  exit 1
+fi
+if [[ -e "${lock_dir}" ]]; then
+  echo "Guardian startup failure kept the topology lock." >&2
+  exit 1
+fi
+diagnostic_path="$(printf '%s\n' "${runner_output}" | sed -n 's/^Integration cleanup diagnostics retained: //p')"
+[[ "${diagnostic_path}" == "${repo_root}/.cache/loopaware-integration-cleanup."* && -f "${diagnostic_path}" ]]
+rm "${diagnostic_path}"
+: > "${docker_log}"
+
+for removal_phase in parent guardian; do
+  rm() {
+    if [[ "$1" == *"/loopaware-integration-ready."*/ready &&
+      ( "${LOOPAWARE_FAKE_REMOVAL_PHASE}" == parent || -f "${LOOPAWARE_FAKE_REMOVAL_MARKER}" ) ]]; then
+      echo "controlled-readiness-removal-failure" >&2
+      return 31
+    fi
+    command rm "$@"
+  }
+  export -f rm
+  : > "${docker_log}"
+  set +e
+  runner_output="$(LOOPAWARE_FAKE_DOCKER_LOG="${docker_log}" \
+    LOOPAWARE_FAKE_REMOVAL_PHASE="${removal_phase}" \
+    LOOPAWARE_FAKE_REMOVAL_MARKER="${runtime_dir}/removal-${removal_phase}" \
+    LOOPAWARE_PLAYWRIGHT_CHANNEL=chrome \
+    PATH="${fake_bin}:${PATH}" "${script_dir}/run-integration.sh" 2>&1)"
+  runner_status=$?
+  set -e
+  unset -f rm
+  while IFS= read -r readiness_path; do
+    if [[ -d "${readiness_path}" ]]; then
+      command rm "${readiness_path}/ready"
+      rmdir "${readiness_path}"
+    fi
+  done < "${LOOPAWARE_FAKE_READINESS_PATHS}"
+  expected_status=31
+  expected_downs=2
+  if [[ "${removal_phase}" == guardian ]]; then expected_status=23; expected_downs=3; fi
+  actual_downs="$(grep -c ' down ' "${docker_log}" || true)"
+  if [[ "${runner_status}" -ne "${expected_status}" || "${runner_output}" != *"controlled-readiness-removal-failure"* ]] || \
+    [[ "${actual_downs}" -ne "${expected_downs}" || -e "${lock_dir}" ]]; then
+    echo "Readiness cleanup ${removal_phase} lost the original status or skipped topology cleanup (${runner_status}, expected ${expected_status})." >&2
+    echo "${runner_output}" >&2
+    exit 1
+  fi
+  if [[ "${removal_phase}" == guardian &&
+    ( "${runner_output}" != *"Integration cleanup guardian failed (status 31)"* || "${runner_output}" != *"controlled-suite-failure"* ) ]]; then
+    echo "Guardian readiness removal or original suite failure was lost." >&2
+    echo "${runner_output}" >&2
+    exit 1
+  fi
+  diagnostic_path="$(printf '%s\n' "${runner_output}" | sed -n 's/^Integration cleanup diagnostics retained: //p')"
+  [[ "${diagnostic_path}" == "${repo_root}/.cache/loopaware-integration-cleanup."* && -f "${diagnostic_path}" ]]
+  rm "${diagnostic_path}"
+done
+: > "${docker_log}"
+
 LOOPAWARE_FAKE_DOCKER_LOG="${docker_log}" \
   LOOPAWARE_TEST_SHARD=2/3 \
   LOOPAWARE_PLAYWRIGHT_CHANNEL=chrome \
@@ -184,6 +289,49 @@ for down_target in 1 2; do
     rm "${diagnostic_path}"
   done
 done
+
+parent_death_marker="${runtime_dir}/parent-death"
+guardian_settlement="${runtime_dir}/guardian-settlement"
+mkfifo "${guardian_settlement}"
+exec 7<>"${guardian_settlement}"
+nohup() {
+  local status=0
+  command nohup "$@" || status=$?
+  printf '%s\n' "${status}" > "${LOOPAWARE_FAKE_GUARDIAN_SETTLEMENT}"
+}
+export -f nohup
+set +e
+LOOPAWARE_FAKE_DOCKER_LOG="${docker_log}" \
+  LOOPAWARE_FAKE_PARENT_DEATH="${parent_death_marker}" \
+  LOOPAWARE_FAKE_GUARDIAN_SETTLEMENT="${guardian_settlement}" \
+  LOOPAWARE_PLAYWRIGHT_CHANNEL=chrome \
+  PATH="${fake_bin}:${PATH}" "${script_dir}/run-integration.sh" > "${runtime_dir}/parent-death.log" 2>&1
+runner_status=$?
+set -e
+unset -f nohup
+if [[ "${runner_status}" -ne 137 || ! -f "${parent_death_marker}" ]]; then
+  echo "Expected parent disappearance after readiness-admitted setup, got ${runner_status}." >&2
+  exit 1
+fi
+if ! IFS= read -r -t 10 guardian_status <&7 || [[ "${guardian_status}" -ne 0 ]]; then
+  echo "Guardian did not settle successfully after parent disappearance." >&2
+  exit 1
+fi
+exec 7>&-
+rm "${guardian_settlement}"
+IFS= read -r diagnostic_path < "${parent_death_marker}.diagnostic"
+[[ "${diagnostic_path}" == "${repo_root}/.cache/loopaware-integration-cleanup."* && -f "${diagnostic_path}" ]]
+rm "${diagnostic_path}"
+if [[ -e "${lock_dir}" ]]; then
+  echo "Parent disappearance kept the topology lock." >&2
+  exit 1
+fi
+while IFS= read -r readiness_path; do
+  if [[ -e "${readiness_path}" ]]; then
+    echo "Owned guardian readiness resources remain: ${readiness_path}" >&2
+    exit 1
+  fi
+done < "${LOOPAWARE_FAKE_READINESS_PATHS}"
 
 network_config="${runtime_dir}/compose.json"
 LOOPAWARE_TEST_NETWORK_PREFIX=10.212.34 docker compose -f "${repo_root}/tests/docker-compose.yml" config --format json > "${network_config}"
