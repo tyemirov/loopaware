@@ -38,6 +38,30 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [ ] [B157] (P1) Declare exempt iOS encryption for TestFlight builds
+  Goal:
+  Prevent the current system-only encryption use from blocking internal TestFlight builds.
+
+  Evidence:
+  Apple processed build `215472654` from release `v1.1.12` but reported `MISSING_EXPORT_COMPLIANCE`.
+  The source config and generated Info.plist omit the encryption declaration.
+  The current application uses Apple networking, Keychain, and system crypto APIs.
+
+  Requirements:
+  - Declare `ios.config.usesNonExemptEncryption` as Boolean false in the Expo source config.
+  - Generate `ITSAppUsesNonExemptEncryption` as Boolean false in the prepared iOS Info.plist.
+  - Preserve the declaration through the built metadata cleanup phase.
+  - Verify the current encryption use and document the declaration.
+
+  Validation:
+  - Reproduce the absent declaration through the actual Expo native generator before the source change.
+  - Verify generated metadata and cleanup preservation through public build entry points.
+  - Run complete local CI after the final stack change.
+
+  Status:
+  Implementation and code validation are in progress.
+  Completion of the existing Apple build is a separately authorized provider operation.
+
 - [x] [B156] (P0) Wait for the integration cleanup guardian before setup
   Goal:
   Start the integration topology only after its cleanup guardian can receive cleanup signals.

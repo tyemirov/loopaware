@@ -95,6 +95,9 @@ Give each term one meaning. Use the same term for the same concept in all docume
 
 ## Repository Technical Nouns
 
+- `export compliance`: The App Store Connect record of an application's encryption use for build distribution.
+- `encryption declaration`: A build setting or store value that identifies whether an application uses non-exempt encryption.
+
 - `site card`: A mobile control that selects one authorized site's dashboard.
 - `site filter`: A control that limits the displayed site cards by name or configured origin.
 - `search icon`: A magnifying-glass symbol that opens the site filter.
