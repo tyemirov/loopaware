@@ -46,6 +46,7 @@ type RequestOptions = {
 };
 
 const maxAvatarBytes = 1 << 20;
+const uniqueVisitorsSortQuery = "&sort=unique_visitors";
 const maxFaviconBytes = 128 * 1024;
 const faviconTransferLimit = 4;
 type ImageContract = { subject: string; limit: number; sizeLabel: string; invalidCode: string; loadCode: string };
@@ -176,16 +177,17 @@ export class LoopAwareApiClient {
   async siteDashboard(site: Site, interval: TrafficInterval): Promise<SiteDashboard> {
     const siteID = encodeURIComponent(site.id);
     const intervalQuery = `?interval=${encodeURIComponent(interval)}`;
+    const rankedIntervalQuery = site.traffic_profile === "detailed" ? `${intervalQuery}${uniqueVisitorsSortQuery}` : intervalQuery;
     const [messages, subscribers, stats, trend, attribution, engagement, devices, locations, sentryIssues, mobileApps, teamMembers, trafficReportSchedule, healthMonitor] =
       await Promise.all([
         this.apiRequest<MessagesResponse>(`/api/sites/${siteID}/messages`),
         this.apiRequest<SubscribersResponse>(`/api/sites/${siteID}/subscribers`),
-        this.apiRequest<VisitStats>(`/api/sites/${siteID}/visits/stats${intervalQuery}`),
+        this.apiRequest<VisitStats>(`/api/sites/${siteID}/visits/stats${rankedIntervalQuery}`),
         this.apiRequest<VisitTrend>(`/api/sites/${siteID}/visits/trend${intervalQuery}`),
-        site.traffic_profile === "aggregate" ? Promise.resolve(null) : this.apiRequest<VisitAttribution>(`/api/sites/${siteID}/visits/attribution${intervalQuery}`),
+        site.traffic_profile === "aggregate" ? Promise.resolve(null) : this.apiRequest<VisitAttribution>(`/api/sites/${siteID}/visits/attribution${rankedIntervalQuery}`),
         site.traffic_profile === "aggregate" ? Promise.resolve(null) : this.apiRequest<VisitEngagement>(`/api/sites/${siteID}/visits/engagement${intervalQuery}`),
-        site.traffic_profile === "aggregate" ? Promise.resolve(null) : this.apiRequest<DeviceBreakdown>(`/api/sites/${siteID}/visits/devices${intervalQuery}`),
-        site.traffic_profile === "aggregate" ? Promise.resolve(null) : this.apiRequest<LocationDistribution>(`/api/sites/${siteID}/visits/locations${intervalQuery}`),
+        site.traffic_profile === "aggregate" ? Promise.resolve(null) : this.apiRequest<DeviceBreakdown>(`/api/sites/${siteID}/visits/devices${rankedIntervalQuery}`),
+        site.traffic_profile === "aggregate" ? Promise.resolve(null) : this.apiRequest<LocationDistribution>(`/api/sites/${siteID}/visits/locations${rankedIntervalQuery}`),
         this.apiRequest<SentryIssuesResponse>(`/api/sites/${siteID}/sentry/issues`),
         this.apiRequest<MobileAppsResponse>(`/api/sites/${siteID}/mobile-apps`),
         site.access_role === "admin" ? this.apiRequest<TeamMembersResponse>(`/api/sites/${siteID}/team`) : Promise.resolve({ site_id: site.id, team_members: [] }),
@@ -195,12 +197,13 @@ export class LoopAwareApiClient {
         this.apiRequest<SiteHealthMonitor>(`/api/sites/${siteID}/health-monitor`),
       ]);
 
+    if (site.traffic_profile === "detailed") readTrafficCount(stats.unique_visitor_count, "site unique visitors");
     return {
       messages: readCollection<FeedbackMessage>(messages, "messages"),
       subscribers: readCollection<Subscriber>(subscribers, "subscribers"),
       stats: {
         ...stats,
-        top_pages: readCollection<TopPage>(stats, "top_pages"),
+        top_pages: readVisitorCollection<TopPage>(stats, "top_pages"),
         recent_visits: readCollection<VisitLogEntry>(stats, "recent_visits"),
       },
       trend: {
@@ -209,20 +212,20 @@ export class LoopAwareApiClient {
       },
       attribution: attribution === null ? null : {
         ...attribution,
-        sources: readCollection<AttributionPoint>(attribution, "sources"),
-        mediums: readCollection<AttributionPoint>(attribution, "mediums"),
-        campaigns: readCollection<AttributionPoint>(attribution, "campaigns"),
+        sources: readVisitorCollection<AttributionPoint>(attribution, "sources"),
+        mediums: readVisitorCollection<AttributionPoint>(attribution, "mediums"),
+        campaigns: readVisitorCollection<AttributionPoint>(attribution, "campaigns"),
       },
       engagement,
       devices: devices === null ? null : {
         ...devices,
-        device_types: readCollection<DeviceTypePoint>(devices, "device_types"),
-        top_resolutions: readCollection<AttributionPoint>(devices, "top_resolutions"),
-        top_viewports: readCollection<AttributionPoint>(devices, "top_viewports"),
+        device_types: readVisitorCollection<DeviceTypePoint>(devices, "device_types"),
+        top_resolutions: readVisitorCollection<AttributionPoint>(devices, "top_resolutions"),
+        top_viewports: readVisitorCollection<AttributionPoint>(devices, "top_viewports"),
       },
       locations: locations === null ? null : {
         ...locations,
-        locations: readCollection<LocationPoint>(locations, "locations"),
+        locations: readVisitorCollection<LocationPoint>(locations, "locations"),
       },
       sentryIssues: readCollection<SentryIssue>(sentryIssues, "issues"),
       mobileApps: readCollection<MobileAppRegistration>(mobileApps, "mobile_apps"),
@@ -395,6 +398,24 @@ function readSiteTrend(payload: VisitTrend, site: Site): VisitTrendPoint[] {
     }
     return { ...point, unique_visitors: uniqueVisitors };
   }).sort((left, right) => right.unique_visitors - left.unique_visitors || right.date.localeCompare(left.date));
+}
+
+function readTrafficCount(value: unknown, subject: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    throw new LoopAwareApiError(502, "mobile_api_invalid_traffic", `Read ${subject}: expected a nonnegative integer count.`);
+  }
+  return value;
+}
+
+function readVisitorCollection<T extends { visit_count: number; unique_visitor_count: number }>(payload: object, fieldName: string): T[] {
+  return readCollection<T>(payload, fieldName).map(item => {
+    if (typeof item !== "object" || item === null) {
+      throw new LoopAwareApiError(502, "mobile_api_invalid_traffic", `Read ${fieldName}: expected a traffic bucket.`);
+    }
+    readTrafficCount(item.unique_visitor_count, `${fieldName} unique visitors`);
+    readTrafficCount(item.visit_count, `${fieldName} page views`);
+    return item;
+  });
 }
 
 function readCollection<T>(payload: object, fieldName: string): T[] {

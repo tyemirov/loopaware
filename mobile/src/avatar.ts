@@ -29,7 +29,6 @@ export function useResourceImage(loadImage: (signal: AbortSignal) => Promise<str
       void loadImage(request.signal).then(uri => {
         if (!request.signal.aborted) setPhoto(uri ? { status: "loaded", uri, generation: loadGeneration } : { status: "unavailable" });
       }, error => {
-        console.error("IMAGE_DIAGNOSTIC", error);
         if (!request.signal.aborted) {
           setPhoto({ status: "failed", message: error instanceof Error ? error.message : "Load image failed." });
         }

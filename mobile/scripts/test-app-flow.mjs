@@ -54,7 +54,7 @@ await scenario("mobile avatar resolves the authenticated API image address", {
   initialSession: true, account: { ...account, avatar: { url: "/api/me/avatar?v=123" } },
 }, async app => {
   assert(app.requests.includes("/api/me/avatar"), "the photo uses the authenticated fetch transport");
-  assert(app.imageUris().some(value => value.startsWith("data:image/png;base64,")));
+  await app.waitFor(() => app.imageUris().some(value => value.startsWith("data:image/png;base64,")));
 });
 
 await scenario("mobile avatar shows the email initial until the photo loads and after a load failure", {
@@ -78,6 +78,7 @@ await scenario("mobile avatar keeps the email initial when the backend inline SV
 await scenario("mobile avatar resets on an account change and ignores the previous image completion", {
   initialSession: true, account: { ...account, avatar: { url: "/api/me/avatar?v=123" } },
 }, async app => {
+  await app.waitFor(() => app.imageUris().length > 0);
   const oldImageLoad = app.avatarCallback("load");
   await app.avatarEvent("load");
   app.setAccount({ email: "zoe@example.com", name: "Zoe", role: "user", avatar: { url: "/api/me/avatar?v=123" } });
@@ -94,14 +95,15 @@ await scenario("mobile avatar resets on an account change and ignores the previo
 await scenario("mobile account photo recovers an expired API session once", {
   initialSession: true, avatarMode: "refresh", account: { ...account, avatar: { url: "/api/me/avatar?v=123" } },
 }, async app => {
+  await app.waitFor(() => app.imageUris().some(uri => uri.startsWith("data:image/png;base64,")));
   assert.equal(app.requests.filter(path => path === "/auth/refresh").length, 1);
   assert.equal(app.requests.filter(path => path === "/api/me/avatar").length, 2);
-  assert(app.imageUris().some(value => value.startsWith("data:image/png;base64,")));
+  await app.waitFor(() => app.imageUris().some(value => value.startsWith("data:image/png;base64,")));
 });
 await scenario("mobile account photo accepts the API generic binary response", {
   initialSession: true, avatarMode: "octet-stream", account: { ...account, avatar: { url: "/api/me/avatar?v=123" } },
 }, async app => {
-  assert(app.imageUris().some(value => value.startsWith("data:application/octet-stream;base64,")));
+  await app.waitFor(() => app.imageUris().some(value => value.startsWith("data:application/octet-stream;base64,")));
   await app.avatarEvent("load");
   assert.equal(app.buttonText("Account menu"), "");
 });
@@ -123,7 +125,7 @@ await scenario("mobile photo recovers on foreground and resets same-image decodi
   assert.equal(app.imageUris().length, 0);
   app.recoverPhoto();
   await app.system("light", true);
-  assert(app.imageUris().some(uri => uri.startsWith("data:image/png;base64,")));
+  await app.waitFor(() => app.imageUris().some(uri => uri.startsWith("data:image/png;base64,")));
   await app.avatarEvent("load"); assert.equal(app.buttonText("Account menu"), "");
   const previousError = app.avatarCallback("error");
   app.holdNextPhoto();
@@ -175,9 +177,9 @@ for (const platform of ["ios", "android"]) await scenario(`${platform} site filt
   assert(app.buttonLabels().includes("Aggregate site")); assert(!app.buttonLabels().includes("Other site"));
   await app.type("Filter sites", "OTHER.EXAMPLE");
   assert(!app.buttonLabels().includes("Aggregate site")); assert(app.buttonLabels().includes("Other site"));
-  assert.match(app.text(), /Visits 12/);
+  assert.match(app.text(), /Requests 12/);
   await app.type("Filter sites", "nothing-matches");
-  assert.match(app.text(), /No sites match/); assert.match(app.text(), /Visits 12/);
+  assert.match(app.text(), /No sites match/); assert.match(app.text(), /Requests 12/);
   assert(app.expanded("Find sites")); assert.equal(app.requests.length,requestCount);
   await app.press("Clear site filter");
   assert.equal(app.inputValue("Filter sites"), ""); assert.equal(app.focused(), "search:Filter sites");
@@ -185,7 +187,7 @@ for (const platform of ["ios", "android"]) await scenario(`${platform} site filt
   await app.type("Filter sites", "other");
   const dismissed=app.keyboardDismissals();
   await app.press("Other site");
-  assert.match(app.text(), /Visits 23/); assert.equal(app.inputValue("Filter sites"), "other");
+  assert.match(app.text(), /Requests 23/); assert.equal(app.inputValue("Filter sites"), "other");
   assert.equal(app.keyboardDismissals(),dismissed+1);
   await app.press("Find sites");
   assert.equal(app.inputValue("Filter sites"), null); assert(!app.expanded("Find sites"));
@@ -208,7 +210,7 @@ await scenario("site filter derives matches from updated sites without changing 
   currentFilterSites=[site,{...site,id:"other-site",name:"Brand studio",allowed_origin:"https://other.example"}];
   await app.refresh();
   assert.equal(app.inputValue("Filter sites"),"brand"); assert(app.buttonLabels().includes("Brand studio"));
-  assert.match(app.text(),/Visits 12/);
+  assert.match(app.text(),/Requests 12/);
 });
 await scenario("site filter clears when the authenticated dashboard is replaced", {initialSession:true,multipleSites:true}, async app => {
   await app.press("Find sites"); await app.type("Filter sites","other");
@@ -233,12 +235,13 @@ for (const trafficProfile of ["detailed", "aggregate"]) await scenario(`${traffi
     assert.deepEqual(traffic.map(url => url.pathname.split("/").at(-1)).sort(), endpoints.sort());
     for (const url of traffic) {
       assert.equal(url.pathname.split("/")[3],siteID);
-      assert.equal(url.search,`?interval=${interval}`);
+      assert.equal(url.searchParams.get("interval"), interval);
+      assert.equal(url.searchParams.get("sort"), trafficProfile === "detailed" && ["stats", "attribution", "devices", "locations"].some(suffix => url.pathname.endsWith(`/visits/${suffix}`)) ? "unique_visitors" : null);
     }
     assert.match(app.text(),new RegExp(`${trafficProfile === "aggregate" ? "Accepted requests" : "Page views"} ${count}\\b`));
     if (trafficProfile === "detailed") {
       assert(app.text().includes(`/page-${interval}`)); assert(app.text().includes(`source-${interval}`)); assert(app.text().includes(`Place ${interval}`));
-      assert.match(app.text(),new RegExp(`Visitors ${count}\\b`));
+      assert.match(app.text(),new RegExp(`Unique visitors ${count}\\b`));
     } else assert.match(app.text(),/Unique visitors.*unavailable/);
   };
   for (const [label, interval, count] of intervalChoices) {
@@ -286,7 +289,7 @@ for (const platform of ["ios", "android"]) await scenario(`${platform} menu dism
 await scenario("settings show an account image and non-admin role", {
   initialSession: true, account:{email:"team@example.com",name:"Teammate",role:"user",avatar:{url:"https://example.com/avatar.png"}},
 }, async app => {
-  assert(app.imageUris().some(value => value.startsWith("data:image/png;base64,")));
+  await app.waitFor(() => app.imageUris().some(value => value.startsWith("data:image/png;base64,")));
   await app.press("Account menu"); await app.press("Settings");
   assert.match(app.text(), /team@example.com Account role User/);
 });
@@ -352,7 +355,7 @@ for (const recentVisits of [[], [{
     await app.press("Traffic");
     const expectTraffic = () => {
       assert.doesNotMatch(app.text(), /Recent visits|No recent visits|individual-visit|individual-visitor|referrer\.example|Test browser/);
-      for (const section of ["Page views", "Visitors", "Returning", "Pages/visitor", "Trend", "Top pages", "Attribution", "Devices", "Locations"]) {
+      for (const section of ["Page views", "Unique visitors", "Returning", "Pages/visitor", "Trend", "Top pages", "Attribution", "Devices", "Locations"]) {
         assert.ok(app.text().includes(section), `${section} remains visible`);
       }
       assert.equal(renderedTrend(app.text())[0][0], "2026-10-21");
@@ -365,7 +368,30 @@ for (const recentVisits of [[], [{
   });
 }
 
-await scenario("detailed Trend ranks unique visitors and preserves page-view values", {
+await scenario("mobile traffic uses unique counts for values, bars, and ranked breakdowns", {
+  initialSession: true, trafficProfile: "detailed", uniqueTraffic: true, trend: () => trendPoints,
+}, async app => {
+  assert.equal(app.buttonText("View traffic"), "Unique visitors 8 12 page views");
+  await app.press("Traffic");
+  assert.match(app.text(), /Unique visitors 8/);
+  assert.match(app.text(), /Page views 12/);
+  assert.match(app.text(), /Returning 25% 2 returning visitors/);
+  for (const suffix of ["stats", "attribution", "devices", "locations"]) {
+    assert(app.requestURLs.some(address => { const url = new URL(address); return url.pathname.endsWith(`/visits/${suffix}`) && url.searchParams.get("sort") === "unique_visitors"; }));
+  }
+  assert.deepEqual(app.bar("2026-10-21"), { value: "5 unique visitors, 7 page views", width: "100%" });
+  assert.deepEqual(app.bar("2026-10-19"), { value: "3 unique visitors, 13 page views", width: "60%" });
+  assert.deepEqual(app.bar("2026-10-22"), { value: "0 unique visitors, 0 page views", width: "0%" });
+  for (const [reach, busy] of [["/reach", "/busy"], ["reach-source", "busy-source"], ["Mobile", "Desktop"], ["Reach place", "Busy place"]]) {
+    assert.deepEqual(app.bar(reach), { value: "3 unique visitors, 3 page views", width: "100%" });
+    assert.deepEqual(app.bar(busy), { value: "1 unique visitors, 20 page views", width: "33%" });
+    assert(app.text().indexOf(reach) < app.text().indexOf(busy));
+  }
+  await app.press("7d");
+  assert(app.requestURLs.some(address => address.includes("interval=7days") && address.includes("sort=unique_visitors")));
+});
+
+await scenario("detailed Trend ranks unique visitors and shows unique values and supporting page views", {
   initialSession: true, trafficProfile: "detailed", trend: () => trendPoints,
 }, async (app) => {
   await app.press("Traffic");
@@ -454,39 +480,39 @@ await scenario("site discovery failure stays authenticated", { initialSession: t
 await scenario("late dashboard data cannot replace another selected site", { initialSession: true, deferDashboard: true }, async (app) => {
   app.expectSignedIn();
   await app.press("Other site");
-  assert.match(app.text(), /Visits 23/);
+  assert.match(app.text(), /Requests 23/);
   await app.press("Reports");
   assert.match(app.text(), /Visits 35/);
   assert.doesNotMatch(app.text(), /All-sites report data unavailable/);
   await app.release();
   assert.match(app.text(), /Visits 35/);
   await app.press("Overview");
-  assert.match(app.text(), /Visits 23/);
-  assert.doesNotMatch(app.text(), /Visits 12/);
+  assert.match(app.text(), /Requests 23/);
+  assert.doesNotMatch(app.text(), /Requests 12/);
 });
 await scenario("late site discovery cannot replace another selected site", { initialSession: true, deferSites: true }, async (app) => {
   app.expectSignedIn();
   await app.refresh();
   await app.press("Other site");
-  assert.match(app.text(), /Visits 23/);
+  assert.match(app.text(), /Requests 23/);
   await app.press("Reports");
   assert.match(app.text(), /Visits 58/);
   await app.release();
   assert.match(app.text(), /Visits 58/);
   await app.press("Overview");
-  assert.match(app.text(), /Visits 23/);
-  assert.doesNotMatch(app.text(), /Visits 12/);
+  assert.match(app.text(), /Requests 23/);
+  assert.doesNotMatch(app.text(), /Requests 12/);
 });
 await scenario("portfolio failure preserves the selected-site dashboard", { initialSession: true, portfolioFailure: true }, async (app) => {
   app.expectSignedIn();
-  assert.match(app.text(), /Visits 12/);
+  assert.match(app.text(), /Requests 12/);
   assert.match(app.text(), /Request failed with 500/);
   await app.press("Reports");
   assert.match(app.text(), /All-sites report data unavailable/);
 });
 await scenario("late portfolio data cannot replace a new session's reports", { initialSession: true, deferPortfolio: true }, async (app) => {
   await app.press("Other site");
-  assert.match(app.text(), /Visits 23/);
+  assert.match(app.text(), /Requests 23/);
   await app.press("Account menu");
   await app.press("Settings");
   await app.press("Sign out");
@@ -502,7 +528,7 @@ await scenario("fresh login cleanup cannot enable sign-in during a newer Google 
   await app.signIn("heldResponse");
   app.expectSignedIn();
   await app.press("Other site");
-  assert.match(app.text(), /Visits 23/);
+  assert.match(app.text(), /Requests 23/);
   await app.press("Account menu");
   await app.press("Settings");
   await app.press("Sign out");
@@ -522,6 +548,7 @@ for (const faviconFormat of /** @type {const} */ (["png", "svg", "ico"])) await 
   initialSession: true, faviconFormat, siteList: () => [{ ...site, favicon_url: `/api/sites/${site.id}/favicon?v=1` }],
 }, async app => {
   assert(app.requests.includes(`/api/sites/${site.id}/favicon`));
+  await app.waitFor(() => Boolean(app.siteIcon("Aggregate site")));
   const icon = app.siteIcon("Aggregate site");
   assert(icon);
   assert.match(icon, /^data:image\//);
@@ -534,13 +561,13 @@ for (const faviconFormat of /** @type {const} */ (["png", "svg", "ico"])) await 
 await scenario("site badges keep their text when a favicon fails and load a changed favicon URL", {
   initialSession: true, faviconFormat: "png", siteList: () => [{ ...site, favicon_url: currentFaviconURL }],
 }, async app => {
-  assert(app.siteIcon("Aggregate site"));
+  await app.waitFor(() => Boolean(app.siteIcon("Aggregate site")));
   await app.siteIconError("Aggregate site");
   assert.equal(app.siteIcon("Aggregate site"), null);
   assert(app.buttonText("Aggregate site").includes("Aggregate site"));
   currentFaviconURL = `/api/sites/${site.id}/favicon?v=2`;
   await app.refresh();
-  assert(app.siteIcon("Aggregate site"));
+  await app.waitFor(() => Boolean(app.siteIcon("Aggregate site")));
 });
 
 await scenario("site badges omit absent and failed favicon images", {
@@ -559,11 +586,11 @@ await scenario("site favicons retry on foreground return and reset across accoun
   await app.siteIconError("Aggregate site");
   assert.equal(app.siteIcon("Aggregate site"), null);
   await app.system("light", true);
-  assert(app.siteIcon("Aggregate site"));
+  await app.waitFor(() => Boolean(app.siteIcon("Aggregate site")));
   const before = app.requests.filter(path => path.endsWith("/favicon")).length;
   app.setAccount({email:"new@example.com",name:"New owner",role:"admin"});
   await app.refresh();
-  assert(app.siteIcon("Aggregate site"));
+  await app.waitFor(() => Boolean(app.siteIcon("Aggregate site")));
   assert(app.requests.filter(path => path.endsWith("/favicon")).length > before);
 });
 
@@ -571,8 +598,8 @@ console.log(`${scenarioCount} mobile app flow checks passed`);
 
 /**
  * @param {string} name
- * @param {{ initialSession: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, siteList?: () => Array<typeof site>, intervalCounts?: Record<string,number>, faviconFailure?: boolean, faviconFormat?: "png" | "svg" | "ico", emptySites?: boolean, avatarMode?: "refresh" | "expired" | "failed" | "invalid" | "oversized" | "conversion" | "conversion-throw" | "octet-stream", failFirstWrite?: boolean, account?: import("../src/types").Account, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
- * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], type: (label:string,value:string) => Promise<void>, inputValue: (label:string) => string|null, expanded: (label:string) => boolean, keyboardDismissals: () => number, lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverPhoto: () => void, holdNextPhoto: () => void, releasePhoto: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, imageUris: () => string[], siteIcon: (label: string) => string | null, siteIconDecorative: (label: string) => boolean, siteIconError: (label: string) => Promise<void>, siteFilterInline: () => boolean, avatarEvent: (event: "load" | "error") => Promise<void>, avatarCallback: (event: "load" | "error") => () => void, setAccount: (account: import("../src/types").Account) => void, back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
+ * @param {{ initialSession: boolean, uniqueTraffic?: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, siteList?: () => Array<typeof site>, intervalCounts?: Record<string,number>, faviconFailure?: boolean, faviconFormat?: "png" | "svg" | "ico", emptySites?: boolean, avatarMode?: "refresh" | "expired" | "failed" | "invalid" | "oversized" | "conversion" | "conversion-throw" | "octet-stream", failFirstWrite?: boolean, account?: import("../src/types").Account, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
+ * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], type: (label:string,value:string) => Promise<void>, inputValue: (label:string) => string|null, expanded: (label:string) => boolean, keyboardDismissals: () => number, lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverPhoto: () => void, holdNextPhoto: () => void, releasePhoto: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, bar: (label:string) => {value:string,width:string}|null, waitFor: (predicate: () => boolean) => Promise<void>, imageUris: () => string[], siteIcon: (label: string) => string | null, siteIconDecorative: (label: string) => boolean, siteIconError: (label: string) => Promise<void>, siteFilterInline: () => boolean, avatarEvent: (event: "load" | "error") => Promise<void>, avatarCallback: (event: "load" | "error") => () => void, setAccount: (account: import("../src/types").Account) => void, back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
  */
 async function scenario(name, options, check) {
   let authenticated = options.initialSession;
@@ -611,10 +638,11 @@ async function scenario(name, options, check) {
       assert.equal(init?.credentials, String(input) === "https://example.com/avatar.png" ? "omit" : "include");
       assert.equal(init?.cache, "no-store");
     }
-    if (imageRequest) pendingAvatarRequests++;
+    const trackedImageRequest = imageRequest || path === "/auth/refresh";
+    if (trackedImageRequest) pendingAvatarRequests++;
     let response;
     try { response = await fetch(String(input) === "https://example.com/avatar.png" ? `${origin}/external-avatar` : input, holdPhoto ? { ...init, signal: undefined } : init); }
-    finally { if (imageRequest) pendingAvatarRequests--; }
+    finally { if (trackedImageRequest) pendingAvatarRequests--; }
     if (imageRequest) {
       const readBlob = response.blob.bind(response);
       response.blob = async () => {
@@ -656,6 +684,11 @@ async function scenario(name, options, check) {
       return;
     }
     const interval = requestURL.searchParams.get("interval") || "30days";
+    const uniqueOrder = requestURL.searchParams.get("sort") === "unique_visitors";
+    const ranked = (/** @type {"path"|"value"|"device_type"|"label"} */ key, /** @type {string} */ reach, /** @type {string} */ busy) => {
+      const rows = [{[key]:busy,visit_count:20,unique_visitor_count:1},{[key]:reach,visit_count:3,unique_visitor_count:3}];
+      return uniqueOrder ? rows.reverse() : rows;
+    };
     requests.push(path);
     requestURLs.push(requestURL.href);
     const visitCount = options.intervalCounts ? options.intervalCounts[interval] + (path.includes("other-site") ? 100 : 0) : path.includes("other-site") ? 23 : 12;
@@ -683,14 +716,14 @@ async function scenario(name, options, check) {
       default:
         if (options.trafficProfile === "detailed" && /\/visits\/(attribution|engagement|devices|locations)$/.test(path)) {
           payload = {
-            sources: options.intervalCounts ? [{value:`source-${interval}`,visit_count:visitCount}] : [], mediums: [], campaigns: [], device_types: options.intervalCounts ? [{device_type:"mobile",visit_count:visitCount}] : [], top_resolutions: [], top_viewports: [], locations: options.intervalCounts ? [{label:`Place ${interval}`,visit_count:visitCount}] : [],
+            sources: options.uniqueTraffic ? ranked("value","reach-source","busy-source") : options.intervalCounts ? [{value:`source-${interval}`,visit_count:visitCount,unique_visitor_count:visitCount}] : [], mediums: [], campaigns: [], device_types: options.uniqueTraffic ? ranked("device_type","mobile","desktop") : options.intervalCounts ? [{device_type:"mobile",visit_count:visitCount,unique_visitor_count:visitCount}] : [], top_resolutions: [], top_viewports: [], locations: options.uniqueTraffic ? ranked("label","Reach place","Busy place") : options.intervalCounts ? [{label:`Place ${interval}`,visit_count:visitCount,unique_visitor_count:visitCount}] : [],
             tracked_visitor_count: 8, returning_visitor_count: 2, returning_visitor_rate: 0.25, average_pages_per_visitor: 1.5,
             depth_distribution: {}, observed_time_distribution: {},
           };
         } else if (/\/visits\/(attribution|engagement|devices|locations)$/.test(path) || (options.dashboardFailure && path.endsWith("/visits/stats"))) {
           status = 409; payload = { error: "metric_unavailable", traffic_profile: "aggregate" };
         } else if (path.endsWith("/visits/stats")) {
-          payload = { site_id: path.split("/")[3], interval, traffic_profile: visibleSite.traffic_profile, visit_count: visitCount, unique_visitor_count: options.trafficProfile === "detailed" ? options.intervalCounts ? visitCount : 8 : null, top_pages: options.intervalCounts ? [{path:`/page-${interval}`,visit_count:visitCount}] : null, recent_visits: options.recentVisits ?? null };
+          payload = { site_id: path.split("/")[3], interval, traffic_profile: visibleSite.traffic_profile, visit_count: visitCount, unique_visitor_count: options.trafficProfile === "detailed" ? options.intervalCounts ? visitCount : 8 : null, top_pages: options.uniqueTraffic ? ranked("path","/reach","/busy") : options.intervalCounts ? [{path:`/page-${interval}`,visit_count:visitCount,unique_visitor_count:visitCount}] : null, recent_visits: options.recentVisits ?? null };
         } else if (path.endsWith("/visits/trend")) {
           payload = { site_id: path.split("/")[3], interval, trend: options.trend ? options.trend(path.split("/")[3], interval) : [] };
         } else {
@@ -770,7 +803,7 @@ async function scenario(name, options, check) {
       async back() { await act(async () => { const modal=tree().root.findAll(node => String(node.type) === "Modal")[0]; if (modal) modal.props.onRequestClose(); else for (const callback of device.back) callback(); }); await settle(); },
       siteIcon(label) { return findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0]?.props.source?.uri ?? null; },
       siteIconDecorative(label) { return findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0]?.props.accessible === false; },
-      async siteIconError(label) { const icon = findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0]; assert(icon); await act(async () => icon.props.onError()); await settle(); },
+      async siteIconError(label) { await waitFor(() => Boolean(findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0])); const icon = findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0]; assert(icon); await act(async () => icon.props.onError()); await settle(); },
       siteFilterInline() {
         const input = tree().root.findAll(node => String(node.type) === "TextInput" && node.props.accessibilityLabel === "Filter sites")[0];
         const row = input?.parent?.parent;
@@ -779,8 +812,15 @@ async function scenario(name, options, check) {
           && row.findAll(node => String(node.type) === "Pressable" && node.props.accessibilityLabel === "Find sites").length === 1;
       },
       avatarCallback,
-      async avatarEvent(event) { const callback = avatarCallback(event); await act(async () => callback()); await settle(); },
+      async avatarEvent(event) { await waitFor(() => tree().root.findAll(node => String(node.type) === "Image" && node.props.source?.uri).length > 0); const callback = avatarCallback(event); await act(async () => callback()); await settle(); },
       setAccount(account) { currentAccount = account; },
+      bar(label) {
+        const row = tree().root.findAll(node => String(node.type) === "View" && node.props.accessibilityLabel === label)[0];
+        if (!row) return null;
+        const fill = row.findAll(node => String(node.type) === "View" && Array.isArray(node.props.style) && node.props.style.some((/** @type {{width?:string}} */ style) => typeof style?.width === "string"))[0];
+        return { value: row.props.accessibilityValue.text, width: fill?.props.style.find((/** @type {{width?:string}} */ style) => typeof style?.width === "string").width };
+      },
+      waitFor,
       imageUris() { return tree().root.findAll(node => String(node.type) === "Image").map(node => node.props.source?.uri).filter(Boolean); },
       async system(scheme, foreground = false) {
         device.scheme = scheme;
@@ -838,6 +878,15 @@ async function scenario(name, options, check) {
     assert.equal(closedImageBlobs, allocatedImageBlobs, `${name}: release native image bytes`);
   }
 
+  /** @param {() => boolean} predicate */
+  async function waitFor(predicate) {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      if (predicate()) return;
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+    }
+    assert(predicate(), `${name}: expected image state did not arrive`);
+  }
+
   async function settle() {
     // Flush real HTTP responses and the React effects they trigger.
     for (let attempt = 0; attempt < 50; attempt++) {
@@ -852,8 +901,8 @@ async function scenario(name, options, check) {
 
 /** @param {string} text */
 function renderedTrend(text) {
-  return [...text.matchAll(/(\d{4}-\d{2}-\d{2})\s+([\d,]+)\s+(Unavailable|[\d,]+) unique/g)]
-    .map(match => match.slice(1));
+  const pattern = /(\d{4}-\d{2}-\d{2})\s+([\d,]+)\s+(unique|requests)(?:\s+([\d,]+)\s+page views)?/g;
+  return [...text.matchAll(pattern)].map(match => [match[1], match[3] === "unique" ? match[4] : match[2], match[3] === "unique" ? match[2] : "Unavailable"]);
 }
 
 /** @param {unknown} node @returns {string} */

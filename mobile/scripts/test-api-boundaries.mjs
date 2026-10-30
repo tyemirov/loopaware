@@ -270,7 +270,7 @@ try {
 
 for (const faviconURL of ["https://foreign.example/icon.png", "file:///private/icon.png", "https://[invalid"]) {
   const client = new LoopAwareApiClient(runtimeConfig(), /** @type {typeof fetch} */ (async () => { throw new Error("Unexpected image transfer"); }));
-  await assert.rejects(client.siteFavicon({ ...site, favicon_url: faviconURL }, new AbortController().signal), error => error instanceof LoopAwareApiError && error.code === "mobile_api_invalid_favicon");
+  await assert.rejects(client.siteFavicon({ ...site, favicon_url: faviconURL }, new AbortController().signal), error => error instanceof LoopAwareApiError && /** @type {Error & {code:string}} */ (error).code === "mobile_api_invalid_favicon");
 }
 
 for (const [mime, size] of [["text/html", 4], ["image/png", 0], ["image/png", 128 * 1024 + 1]]) {
@@ -281,20 +281,20 @@ for (const [mime, size] of [["text/html", 4], ["image/png", 0], ["image/png", 12
     response.blob = async () => Object.assign(await blob(), { close() { closed++; } });
     return response;
   }));
-  await assert.rejects(client.siteFavicon({ ...site, favicon_url: "/api/sites/site-1/favicon?ts=123" }, new AbortController().signal), error => error instanceof LoopAwareApiError && error.code === "mobile_api_invalid_favicon");
+  await assert.rejects(client.siteFavicon({ ...site, favicon_url: "/api/sites/site-1/favicon?ts=123" }, new AbortController().signal), error => error instanceof LoopAwareApiError && /** @type {Error & {code:string}} */ (error).code === "mobile_api_invalid_favicon");
   assert.equal(closed, 1);
 }
 
 // Exercise the public image endpoint adapter while four transfers occupy its queue.
 {
-  const transfers = [];
+  /** @type {string[]} */ const transfers = [];
   /** @type {Array<(response: Response) => void>} */ const finish = [];
   const client = new LoopAwareApiClient(runtimeConfig(), /** @type {typeof fetch} */ (async input => {
     transfers.push(String(input));
     return new Promise(resolve => finish.push(resolve));
   }));
   const controllers = Array.from({length: 6}, () => new AbortController());
-  const pending = controllers.map((controller, index) => client.siteFavicon({ ...site, favicon_url: `/api/sites/site-1/favicon?ts=${index}` }, controller.signal).catch(error => error));
+  const pending = controllers.map((controller, index) => client.siteFavicon({ ...site, favicon_url: `/api/sites/site-1/favicon?ts=${index}` }, controller.signal).catch(/** @param {unknown} error */ error => error));
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(transfers.length, 4);
   controllers[4].abort();
@@ -306,6 +306,21 @@ for (const [mime, size] of [["text/html", 4], ["image/png", 0], ["image/png", 12
   assert(!transfers.some(uri => uri.endsWith("ts=4")));
   finish.slice(1).forEach(resolve => resolve(new Response(null, {status:503})));
   await Promise.all(pending);
+}
+
+for (const [endpoint, field] of [["stats", "top_pages"], ["attribution", "sources"], ["attribution", "mediums"], ["attribution", "campaigns"], ["devices", "device_types"], ["devices", "top_resolutions"], ["devices", "top_viewports"], ["locations", "locations"]]) {
+  for (const unique of [undefined, null, "2", -1, 0.5]) {
+    const endpointPath = `/api/sites/${site.id}/visits/${endpoint}`;
+    const baseline = /** @type {Record<string,unknown>} */ (Reflect.get(basePayloads, endpointPath));
+    const client = new LoopAwareApiClient(runtimeConfig(), createFetcher({ ...basePayloads, [endpointPath]: { ...baseline, [field]: [{ visit_count: 5, unique_visitor_count: unique }] } }));
+    await assert.rejects(client.siteDashboard(site, "30days"), error => error instanceof LoopAwareApiError && /** @type {{code:string}} */ (error).code === "mobile_api_invalid_traffic");
+  }
+  const endpointPath = `/api/sites/${site.id}/visits/${endpoint}`;
+  const baseline = /** @type {Record<string,unknown>} */ (Reflect.get(basePayloads, endpointPath));
+  const client = new LoopAwareApiClient(runtimeConfig(), createFetcher({ ...basePayloads, [endpointPath]: { ...baseline, [field]: [{ visit_count: 5, unique_visitor_count: 0 }] } }));
+  const dashboard = await client.siteDashboard(site, "30days");
+  const container = { stats: dashboard.stats, attribution: dashboard.attribution, devices: dashboard.devices, locations: dashboard.locations }[endpoint];
+  assert.equal(/** @type {Array<{unique_visitor_count:number}>} */ (Reflect.get(container, field))[0].unique_visitor_count, 0);
 }
 
 console.log("mobile api boundary checks passed");

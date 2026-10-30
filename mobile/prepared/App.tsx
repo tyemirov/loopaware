@@ -64,6 +64,7 @@ const siteFilterLineHeight = 20;
 const siteFilterVerticalPadding = 8;
 const siteFilterTouchSize = 44;
 type HeadingFocus = { requested: boolean; onFocused: () => void };
+type TrafficMeasure = "unique_visitors" | "requests";
 type StatItem = { label: string; value: string; detail?: string };
 type OverviewStatItem = StatItem & { destination: DashboardTab; actionLabel: string };
 
@@ -334,7 +335,7 @@ function AppContent() {
             }} />
             {errorMessage ? <StatusBanner message={errorMessage} /> : null}
             {theme.error ? <StatusBanner message={theme.error} /> : null}
-            {sites ? <SitesRail key={account.email} apiClient={apiClient} sites={sites} selectedSiteId={selectedSiteId} onSelectSite={handleSelectSite} /> : null}
+            {sites ? <SitesRail key={account!.email} apiClient={apiClient} sites={sites} selectedSiteId={selectedSiteId} onSelectSite={handleSelectSite} /> : null}
             {selectedSite ? (
               <>
                 <SelectedSiteHeader site={selectedSite} />
@@ -655,7 +656,7 @@ function OverviewSection(props: { dashboard: SiteDashboard; site: Site; onNaviga
         items={[
           { destination: "feedback", actionLabel: "View feedback", label: "Feedback", value: formatCount(props.site.feedback_count), detail: `${formatCount(props.dashboard.messages.length)} loaded` },
           { destination: "subscribers", actionLabel: "View subscribers", label: "Subscribers", value: formatCount(props.site.subscriber_count), detail: `${formatCount(props.dashboard.subscribers.length)} loaded` },
-          { destination: "traffic", actionLabel: "View traffic", label: "Visits", value: formatCount(props.dashboard.stats.visit_count), detail: `${formatCount(props.dashboard.stats.unique_visitor_count)} unique` },
+          { destination: "traffic", actionLabel: "View traffic", label: props.site.traffic_profile === "detailed" ? "Unique visitors" : "Requests", value: formatCount(props.site.traffic_profile === "detailed" ? props.dashboard.stats.unique_visitor_count : props.dashboard.stats.visit_count), detail: props.site.traffic_profile === "detailed" ? `${formatCount(props.dashboard.stats.visit_count)} page views` : "Daily counts" },
           { destination: "health", actionLabel: "View health", label: "Health", value: sentenceCase(props.dashboard.healthMonitor?.status || "unknown"), detail: props.dashboard.healthMonitor?.enabled ? "Checks enabled" : "Checks off" },
           { destination: "sentry", actionLabel: "View Sentry", label: "Sentry", value: formatCount(props.dashboard.sentryIssues.length), detail: props.site.sentry_token_configured ? "Token configured" : "Token missing" },
         ]}
@@ -703,7 +704,7 @@ function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInte
         <DashboardHeading title="Traffic" focus={props.headingFocus} />
         <SegmentedControl items={trafficIntervals} selectedKey={props.interval} onChange={props.onIntervalChange} />
         <StatGrid items={[{ label: "Accepted requests", value: formatCount(props.dashboard.stats.visit_count), detail: "Daily totals in UTC" }]} />
-        <Section title="Daily counts"><TrendRows trend={props.dashboard.trend.trend} /></Section>
+        <Section title="Daily counts"><TrendRows trend={props.dashboard.trend.trend} measure="requests" /></Section>
         <EmptyInline text="Unique visitors, individual visits, pages, devices, and locations are unavailable for daily counts." />
       </View>
     );
@@ -714,26 +715,26 @@ function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInte
       <SegmentedControl items={trafficIntervals} selectedKey={props.interval} onChange={props.onIntervalChange} />
       <StatGrid
         items={[
-          { label: "Page views", value: formatCount(props.dashboard.stats.visit_count), detail: `${props.dashboard.stats.interval} window` },
-          { label: "Visitors", value: formatCount(props.dashboard.stats.unique_visitor_count), detail: "Unique visitors" },
-          { label: "Returning", value: formatPercent(engagement.returning_visitor_rate), detail: `${formatCount(engagement.returning_visitor_count)} visitors` },
+          { label: "Unique visitors", value: formatCount(props.dashboard.stats.unique_visitor_count), detail: "Distinct visitors in this window" },
+          { label: "Page views", value: formatCount(props.dashboard.stats.visit_count), detail: "Includes repeat views" },
+          { label: "Returning", value: formatPercent(engagement.returning_visitor_rate), detail: `${formatCount(engagement.returning_visitor_count)} returning visitors` },
           { label: "Pages/visitor", value: engagement.average_pages_per_visitor.toFixed(1), detail: `${formatCount(engagement.tracked_visitor_count)} tracked` },
         ]}
       />
       <Section title="Trend">
-        <TrendRows trend={props.dashboard.trend.trend} />
+        <TrendRows trend={props.dashboard.trend.trend} measure="unique_visitors" />
       </Section>
       <Section title="Top pages">
-        <Bars items={props.dashboard.stats.top_pages} labelFor={(item) => item.path || "/"} valueFor={(item) => item.visit_count} />
+        <Bars items={props.dashboard.stats.top_pages} labelFor={(item) => item.path || "/"} valueFor={(item) => item.unique_visitor_count} detailFor={item => `${formatCount(item.visit_count)} page views`} />
       </Section>
       <Section title="Attribution">
-        <Bars items={attribution.sources} labelFor={(item) => item.value || "Direct"} valueFor={(item) => item.visit_count} />
+        <Bars items={attribution.sources} labelFor={(item) => item.value || "Direct"} valueFor={(item) => item.unique_visitor_count} detailFor={item => `${formatCount(item.visit_count)} page views`} />
       </Section>
       <Section title="Devices">
-        <Bars items={devices.device_types} labelFor={(item) => sentenceCase(item.device_type)} valueFor={(item) => item.visit_count} />
+        <Bars items={devices.device_types} labelFor={(item) => sentenceCase(item.device_type)} valueFor={(item) => item.unique_visitor_count} detailFor={item => `${formatCount(item.visit_count)} page views`} />
       </Section>
       <Section title="Locations">
-        <Bars items={locations.locations} labelFor={(item) => item.label} valueFor={(item) => item.visit_count} />
+        <Bars items={locations.locations} labelFor={(item) => item.label} valueFor={(item) => item.unique_visitor_count} detailFor={item => `${formatCount(item.visit_count)} page views`} />
       </Section>
     </View>
   );
@@ -899,21 +900,22 @@ function ReportsSection(props: { dashboard: PortfolioDashboard | null; siteDashb
   );
 }
 
-function TrendRows(props: { trend: VisitTrendPoint[] }) {
+function TrendRows(props: { trend: VisitTrendPoint[]; measure: TrafficMeasure }) {
   if (!props.trend.length) {
     return <EmptyInline text="No trend data yet." />;
   }
-  const maxValue = Math.max(1, ...props.trend.map((point) => point.page_views));
+  const valueFor = (point: VisitTrendPoint) => props.measure === "unique_visitors" ? point.unique_visitors! : point.page_views;
+  const maxValue = Math.max(1, ...props.trend.map(valueFor));
   return (
     <>
       {props.trend.map((point) => (
-        <DataBar key={point.date} label={point.date} value={point.page_views} maxValue={maxValue} detail={`${formatCount(point.unique_visitors)} unique`} />
+        <DataBar key={point.date} label={point.date} value={valueFor(point)} maxValue={maxValue} measure={props.measure} detail={props.measure === "unique_visitors" ? `${formatCount(point.page_views)} page views` : undefined} />
       ))}
     </>
   );
 }
 
-function Bars<T>(props: { items: T[]; labelFor: (item: T) => string; valueFor: (item: T) => number }) {
+function Bars<T>(props: { items: T[]; labelFor: (item: T) => string; valueFor: (item: T) => number; detailFor: (item: T) => string }) {
   if (!props.items.length) {
     return <EmptyInline text="No data yet." />;
   }
@@ -921,7 +923,7 @@ function Bars<T>(props: { items: T[]; labelFor: (item: T) => string; valueFor: (
   return (
     <>
       {props.items.map((item, index) => (
-        <DataBar key={`${props.labelFor(item)}-${index}`} label={props.labelFor(item)} value={props.valueFor(item)} maxValue={maxValue} />
+        <DataBar key={`${props.labelFor(item)}-${index}`} label={props.labelFor(item)} value={props.valueFor(item)} maxValue={maxValue} measure="unique_visitors" detail={props.detailFor(item)} />
       ))}
     </>
   );
@@ -992,16 +994,18 @@ function ListItem(props: { title: string; meta?: string; detail?: string; right?
   );
 }
 
-function DataBar(props: { label: string; value: number; maxValue: number; detail?: string }) {
+function DataBar(props: { label: string; value: number; maxValue: number; measure: TrafficMeasure; detail?: string }) {
   const { styles, colors } = useAppStyles();
-  const widthPercentage = `${Math.max(5, Math.round((props.value / props.maxValue) * 100))}%` as DimensionValue;
+  const widthPercentage = `${Math.round((props.value / props.maxValue) * 100)}%` as DimensionValue;
+  const unit = props.measure === "unique_visitors" ? "unique visitors" : "requests";
   return (
-    <View style={styles.dataBarRow}>
+    <View style={styles.dataBarRow} accessible accessibilityLabel={props.label}
+      accessibilityValue={{ text: `${formatCount(props.value)} ${unit}${props.detail ? `, ${props.detail}` : ""}` }}>
       <View style={styles.dataBarHeader}>
         <Text style={styles.dataBarLabel} numberOfLines={1}>
           {compactText(props.label)}
         </Text>
-        <Text style={styles.dataBarValue}>{formatCount(props.value)}</Text>
+        <Text style={styles.dataBarValue}>{formatCount(props.value)} {props.measure === "unique_visitors" ? "unique" : "requests"}</Text>
       </View>
       <View style={styles.dataBarTrack}>
         <View style={[styles.dataBarFill, { width: widthPercentage }]} />
