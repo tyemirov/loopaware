@@ -605,7 +605,8 @@ protection, Dependabot, secret-scanning, and gateway-owned Pages controls agains
 ## Mobile site filter
 
 Select the search icon on the right of `SITES` to open the site filter.
-Enter part of a site name or configured origin in the field below the row.
+Enter part of a site name or configured origin between `SITES` and the search icon.
+The field uses the same row. The site cards keep their vertical position when the field opens.
 Matches update automatically without regard to letter case, including secondary domains.
 
 An empty field shows all authorized site cards. A query without matches shows an explicit empty state.
@@ -635,6 +636,25 @@ Changes apply immediately and save automatically on this app installation.
 `System` follows device appearance changes, including after the app returns from the background.
 The preference remains after sign-out and is restored when the app opens again.
 Storage errors remain visible. Select a theme again to retry a failed write.
+
+The account photo loads through the authenticated mobile client.
+The email initial remains visible while the photo loads or cannot be shown.
+Account changes cancel the previous photo request.
+The photo loads again when the app returns to the foreground.
+
+## Mobile overview navigation
+
+Select an overview card to open its detail tab:
+
+- `Feedback` opens `Feedback`.
+- `Subscribers` opens `Subscribers`.
+- `Visits`, including unique visits, opens `Traffic`.
+- `Health` opens `Health`.
+- `Sentry` opens `LA Sentry`.
+
+The complete card is a button, including when its count is zero.
+The selected site and traffic interval remain selected.
+The destination tab becomes visible. Accessibility focus moves to its content heading.
 
 ## Release, Publish, Deploy
 
