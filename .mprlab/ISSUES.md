@@ -38,6 +38,46 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [x] [B157] (P1) Declare exempt iOS encryption for TestFlight builds
+  Goal:
+  Prevent the current system-only encryption use from blocking internal TestFlight builds.
+
+  Evidence:
+  Apple processed build `215472654` from release `v1.1.12` but reported `MISSING_EXPORT_COMPLIANCE`.
+  The source config and generated Info.plist omit the encryption declaration.
+  The current application uses Apple networking, Keychain, and system crypto APIs.
+
+  Requirements:
+  - Declare `ios.config.usesNonExemptEncryption` as Boolean false in the Expo source config.
+  - Generate `ITSAppUsesNonExemptEncryption` as Boolean false in the prepared iOS Info.plist.
+  - Preserve the declaration through the built metadata cleanup phase.
+  - Reject absent, incorrect, or ambiguous source and native declarations before the native SDK call.
+  - Verify the current encryption use and document the declaration.
+
+  Validation:
+  - Reproduce the absent declaration through the actual Expo native generator before the source change.
+  - Verify generated metadata and cleanup preservation through public build entry points.
+  - Run complete local CI after the final stack change.
+
+  Status:
+  Source config and generated native metadata declare Boolean false for the current Apple system-only encryption use.
+  Native preparation records the semantic value and rejects absent, incorrect, string-valued, or duplicate declarations before the SDK call.
+  The release cleanup phase preserves Boolean false.
+
+  The actual Expo generator and public build adapter reproduced the omission before the fix.
+  All 14 adapter cases, 12 preparation cases, and seven release metadata cases passed.
+  Complete local `make ci` passed, including all 475 integration cases and 40 mobile app-flow cases.
+  Resolution: The iOS encryption declaration is automatic and verified through native preparation and release metadata checks.
+
+  Provider recovery:
+  The separately authorized Apple API update set the existing build declaration to false.
+  Build `1.1.0 (215472654)` reached `IN_BETA_TESTING` and appears in the existing LoopAware Testers internal group.
+
+  Changed files:
+  `mobile/app.config.js`, `mobile/scripts/record-store-preparation.mjs`, and `mobile/scripts/release-metadata.test.mjs`.
+  Also changed: `tests/mobile/ios-scene-generation.mjs`, `tests/mobile/store-source.mjs`, and generated files under `mobile/prepared/`.
+  Documentation: `README.md`, `.mprlab/TERMINOLOGY.md`, and this tracker.
+
 - [x] [B156] (P0) Wait for the integration cleanup guardian before setup
   Goal:
   Start the integration topology only after its cleanup guardian can receive cleanup signals.

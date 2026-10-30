@@ -17,6 +17,7 @@ try {
     });
     const plist = readFileSync(join(fixture, "ios/LoopAware/Info.plist"), "utf8");
     const delegate = readFileSync(join(fixture, "ios/LoopAware/AppDelegate.swift"), "utf8");
+    assert.match(plist, /<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\s*\/>/, "Generated iOS application must declare its exempt system encryption use.");
     assert.match(plist, /<key>UIApplicationSceneManifest<\/key>/, "Generated iOS application must adopt the scene lifecycle.");
     assert.match(plist, /<key>UISceneDelegateClassName<\/key>\s*<string>EXExpoAppSceneDelegate<\/string>/);
     assert.match(delegate, /class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider/);

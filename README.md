@@ -686,6 +686,12 @@ The Android adapter retains its native AAB builder and UTC CalVer contract.
 Application versions can differ from the repository release version.
 Expo CLI runs during preparation and local development only.
 
+The iOS app declares `ios.config.usesNonExemptEncryption: false` for its current use of Apple system services.
+Expo writes this declaration as Boolean false under `ITSAppUsesNonExemptEncryption` in the native Info.plist.
+Apple reads the uploaded declaration for TestFlight export compliance.
+Native preparation verifies both source and plist declarations before the build.
+The Release metadata cleanup phase preserves this declaration.
+
 The prepared Apple project contains the shared scheme and native dependency inputs.
 Gateway installs the locked dependencies and supplies `NODE_ENV=production` to each native phase.
 `mobile/plugins/withStoreBuild.cjs` owns the native bundle phase and its Node environment input.

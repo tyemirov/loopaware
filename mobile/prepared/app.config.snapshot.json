@@ -13,6 +13,9 @@
     "primaryColor": "#D4AF37",
     "ios": {
       "version": "1.1.0",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "bundleIdentifier": "com.mprlab.loopaware",
       "supportsTablet": true,
       "scheme": [
