@@ -68,11 +68,11 @@ func (provider *stubStatsProvider) UniqueVisitorCountForDays(context.Context, st
 	return provider.uniqueVisitorCountValue, provider.uniqueVisitorCountError
 }
 
-func (provider *stubStatsProvider) TopPages(context.Context, string, int) ([]TopPageStat, error) {
+func (provider *stubStatsProvider) TopPages(context.Context, string, int, TrafficSort) ([]TopPageStat, error) {
 	return nil, nil
 }
 
-func (provider *stubStatsProvider) TopPagesForDays(context.Context, string, int, int) ([]TopPageStat, error) {
+func (provider *stubStatsProvider) TopPagesForDays(context.Context, string, int, int, TrafficSort) ([]TopPageStat, error) {
 	return nil, nil
 }
 
@@ -84,11 +84,11 @@ func (provider *stubStatsProvider) VisitTrendAll(context.Context, string) ([]Dai
 	return nil, nil
 }
 
-func (provider *stubStatsProvider) VisitAttribution(context.Context, string, int) (VisitAttributionBreakdown, error) {
+func (provider *stubStatsProvider) VisitAttribution(context.Context, string, int, TrafficSort) (VisitAttributionBreakdown, error) {
 	return VisitAttributionBreakdown{}, nil
 }
 
-func (provider *stubStatsProvider) VisitAttributionForDays(context.Context, string, int, int) (VisitAttributionBreakdown, error) {
+func (provider *stubStatsProvider) VisitAttributionForDays(context.Context, string, int, int, TrafficSort) (VisitAttributionBreakdown, error) {
 	return VisitAttributionBreakdown{}, nil
 }
 
@@ -100,19 +100,19 @@ func (provider *stubStatsProvider) VisitEngagementAll(context.Context, string) (
 	return VisitEngagementStat{}, nil
 }
 
-func (provider *stubStatsProvider) DeviceBreakdown(context.Context, string, int) (DeviceBreakdownStat, error) {
+func (provider *stubStatsProvider) DeviceBreakdown(context.Context, string, int, TrafficSort) (DeviceBreakdownStat, error) {
 	return DeviceBreakdownStat{}, nil
 }
 
-func (provider *stubStatsProvider) DeviceBreakdownForDays(context.Context, string, int, int) (DeviceBreakdownStat, error) {
+func (provider *stubStatsProvider) DeviceBreakdownForDays(context.Context, string, int, int, TrafficSort) (DeviceBreakdownStat, error) {
 	return DeviceBreakdownStat{}, nil
 }
 
-func (provider *stubStatsProvider) LocationDistribution(context.Context, string, int) ([]LocationDistributionStat, error) {
+func (provider *stubStatsProvider) LocationDistribution(context.Context, string, int, TrafficSort) ([]LocationDistributionStat, error) {
 	return nil, nil
 }
 
-func (provider *stubStatsProvider) LocationDistributionForDays(context.Context, string, int, int) ([]LocationDistributionStat, error) {
+func (provider *stubStatsProvider) LocationDistributionForDays(context.Context, string, int, int, TrafficSort) ([]LocationDistributionStat, error) {
 	return nil, nil
 }
 

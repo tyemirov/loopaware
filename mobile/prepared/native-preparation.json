@@ -19,6 +19,7 @@
   },
   "configuration": {
     "iosPreparedBuildNumber": "1",
+    "iosUsesNonExemptEncryption": false,
     "iosSourceDependencies": true,
     "expoPrecompiledModules": false,
     "androidVersionNameEnvironment": "MPRLAB_MOBILE_VERSION_NAME",
@@ -42,6 +43,10 @@
       "expo-crypto": {
         "declared": "~57.0.1",
         "resolved": "57.0.2"
+      },
+      "expo-image": {
+        "declared": "~57.0.5",
+        "resolved": "57.0.5"
       },
       "expo-secure-store": {
         "declared": "~57.0.3",

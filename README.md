@@ -345,6 +345,18 @@ values, are rate-limited by client IP, and store minimized request metadata.
 
 The `allowed_origin` field for a site may contain multiple origins separated by spaces or commas (for example `https://mprlab.com http://localhost:8080`); widgets, subscribe forms, and pixels will accept requests from any configured origin while still rejecting traffic from unknown sites.
 
+Detailed traffic breakdowns support `sort=page_views` and `sort=unique_visitors`.
+This applies to `/visits/stats`, `/visits/attribution`, `/visits/devices`, and `/visits/locations` for one site.
+The default is `page_views`. Invalid sort values return `400 invalid_sort`.
+Each detailed bucket includes `visit_count` for page views and `unique_visitor_count` for distinct visitors.
+The API applies the selected order before the result limit.
+Unique counts exclude empty visitor identifiers and use the final normalized bucket.
+Page views include visits without a visitor identifier.
+Equal unique counts use the canonical bucket key in ascending order.
+The site, interval, and bot filters apply to both metrics.
+A visitor can appear in multiple buckets or dates. These unique counts are not additive.
+Aggregate sites retain their unavailable visitor metrics.
+
 The `/api/me` response includes a `role` value of `admin` or `user` and an `avatar.url` pointing to the caller's cached
 profile image (served from `/api/me/avatar`). The dashboard uses this payload to render the account card and determine
 site scope.
@@ -602,10 +614,21 @@ Repository administrators can run the read-only `make github-security-audit` gat
 protection, Dependabot, secret-scanning, and gateway-owned Pages controls against the tracked security contract.
 
 
+## Mobile site cards
+
+Each site card shows its collected favicon to the left of the name.
+The icon is 16 pixels wide and stays inside the current card dimensions.
+The role stays on its current line.
+The mobile client loads the stored image through the authenticated API.
+It loads up to four site images at a time and cancels obsolete requests.
+Images load again when the app returns to the foreground.
+When an image is absent or cannot be shown, the card shows the site name.
+
 ## Mobile site filter
 
 Select the search icon on the right of `SITES` to open the site filter.
-Enter part of a site name or configured origin in the field below the row.
+Enter part of a site name or configured origin between `SITES` and the search icon.
+The field uses the same row. The site cards keep their vertical position when the field opens.
 Matches update automatically without regard to letter case, including secondary domains.
 
 An empty field shows all authorized site cards. A query without matches shows an explicit empty state.
@@ -623,6 +646,14 @@ The selected interval applies to all traffic panels and remains selected after a
 `7d` includes the current UTC day and the preceding six UTC days.
 Aggregate sites show daily request counts. Their unique visitor, engagement, device, and location metrics remain unavailable.
 
+The overview traffic card and detailed Traffic panels use unique visitors as their primary count.
+Trend, top pages, sources, devices, and locations use that count for values, bar lengths, and rank.
+Page views appear as explicitly labeled supporting information and include repeat views.
+`Returning` measures visitors with more than one page view in the selected interval.
+`Pages/visitor` remains the average page count per tracked visitor.
+The mobile client requests `sort=unique_visitors` for detailed breakdowns.
+Web and email reports retain their current page-view ranking.
+
 ## Mobile account settings
 
 Open the avatar menu. Select `Settings` to see the account email, account role, and site access roles.
@@ -635,6 +666,25 @@ Changes apply immediately and save automatically on this app installation.
 `System` follows device appearance changes, including after the app returns from the background.
 The preference remains after sign-out and is restored when the app opens again.
 Storage errors remain visible. Select a theme again to retry a failed write.
+
+The account photo loads through the authenticated mobile client.
+The email initial remains visible while the photo loads or cannot be shown.
+Account changes cancel the previous photo request.
+The photo loads again when the app returns to the foreground.
+
+## Mobile overview navigation
+
+Select an overview card to open its detail tab:
+
+- `Feedback` opens `Feedback`.
+- `Subscribers` opens `Subscribers`.
+- `Unique visitors` for detailed sites and `Requests` for aggregate sites open `Traffic`.
+- `Health` opens `Health`.
+- `Sentry` opens `LA Sentry`.
+
+The complete card is a button, including when its count is zero.
+The selected site and traffic interval remain selected.
+The destination tab becomes visible. Accessibility focus moves to its content heading.
 
 ## Release, Publish, Deploy
 
@@ -685,6 +735,12 @@ The release timestamp allocates its integer build number as UTC seconds since Ja
 The Android adapter retains its native AAB builder and UTC CalVer contract.
 Application versions can differ from the repository release version.
 Expo CLI runs during preparation and local development only.
+
+The iOS app declares `ios.config.usesNonExemptEncryption: false` for its current use of Apple system services.
+Expo writes this declaration as Boolean false under `ITSAppUsesNonExemptEncryption` in the native Info.plist.
+Apple reads the uploaded declaration for TestFlight export compliance.
+Native preparation verifies both source and plist declarations before the build.
+The Release metadata cleanup phase preserves this declaration.
 
 The prepared Apple project contains the shared scheme and native dependency inputs.
 Gateway installs the locked dependencies and supplies `NODE_ENV=production` to each native phase.

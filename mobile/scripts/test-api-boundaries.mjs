@@ -191,6 +191,138 @@ for (const requestPath of Object.keys(basePayloads)) {
   assert.equal(recoveringFetcher.apiRequestCount(requestPath), 2, `expected ${requestPath} to retry once after refresh`);
 }
 
+for (const [url, expected] of [
+  ["/api/me/avatar?v=123", "https://loopaware-api.example/api/me/avatar?v=123"],
+  ["https://images.example/photo.png", "https://images.example/photo.png"],
+  ["data:image/svg+xml;base64,PHN2Zy8+", "data:image/svg+xml;base64,PHN2Zy8+"],
+]) {
+  const accountClient = new LoopAwareApiClient(runtimeConfig(), createFetcher({
+    "/api/me": { email: "owner@example.com", name: "Owner", role: "admin", avatar: { url } },
+  }));
+  assert.equal((await accountClient.me()).avatar?.url, expected);
+}
+
+for (const avatar of [null, "invalid", {url: 42}, {url: "file:///private/photo.png"}, {url: "https://[invalid"}]) {
+  const invalidAccountClient = new LoopAwareApiClient(runtimeConfig(), createFetcher({
+    "/api/me": { email: "owner@example.com", name: "Owner", role: "admin", avatar },
+  }));
+  await assert.rejects(() => invalidAccountClient.me(), (error) => {
+    assert(error instanceof LoopAwareApiError);
+    const apiError = /** @type {{ code: string; message: string }} */ (error);
+    assert.equal(apiError.code, "mobile_api_invalid_avatar");
+    assert.match(apiError.message, /Load account avatar/);
+    return true;
+  });
+}
+
+const imageAccount = { email: "owner@example.com", name: "Owner", role: "admin", avatar: { url: "https://loopaware-api.example/api/me/avatar?v=123" } };
+for (const cancellation of ["before-recovery", "during-recovery"]) {
+  const controller = new AbortController();
+  let avatarRequests = 0, refreshRequests = 0;
+  /** @type {(response: Response) => void} */ let completeResponse = () => {};
+  let notifyStarted = () => {};
+  const started = new Promise(resolve => { notifyStarted = () => resolve(undefined); });
+  const delayed = new Promise(resolve => { completeResponse = resolve; });
+  const cancelClient = new LoopAwareApiClient(runtimeConfig(), /** @type {typeof fetch} */ (async input => {
+    if (String(input).endsWith("/auth/refresh")) {
+      refreshRequests++; notifyStarted(); return delayed;
+    }
+    avatarRequests++;
+    if (cancellation === "before-recovery") { notifyStarted(); return delayed; }
+    return new Response('{"error":"unauthorized"}', { status: 401 });
+  }));
+  const pending = cancelClient.accountAvatar(imageAccount, controller.signal);
+  await started; controller.abort();
+  completeResponse(new Response(cancellation === "before-recovery" ? '{"error":"unauthorized"}' : "{}", {
+    status: cancellation === "before-recovery" ? 401 : 200,
+  }));
+  await assert.rejects(pending);
+  assert.equal(avatarRequests, 1, "cancelled photos cannot retry after account changes");
+  assert.equal(refreshRequests, cancellation === "before-recovery" ? 0 : 1);
+}
+
+let notifyReadStarted = () => {};
+const readStarted = new Promise(resolve => { notifyReadStarted = () => resolve(undefined); });
+let abortedReads = 0, closedBlobs = 0;
+class PendingNativeFileReader {
+  readAsDataURL() { notifyReadStarted(); }
+  abort() { abortedReads++; }
+}
+const originalFileReader = Reflect.get(globalThis, "FileReader");
+Reflect.set(globalThis, "FileReader", PendingNativeFileReader);
+try {
+  const conversionClient = new LoopAwareApiClient(runtimeConfig(), /** @type {typeof fetch} */ (async () => {
+    const response = new Response(new Uint8Array([1, 2, 3]), { headers: { "Content-Type": "image/png" } });
+    const readBlob = response.blob.bind(response);
+    response.blob = async () => Object.assign(await readBlob(), { close() { closedBlobs++; } });
+    return response;
+  }));
+  const controller = new AbortController();
+  const pending = conversionClient.accountAvatar(imageAccount, controller.signal);
+  await readStarted; controller.abort();
+  await assert.rejects(pending);
+  assert.equal(abortedReads, 1);
+  assert.equal(closedBlobs, 1);
+} finally {
+  if (originalFileReader === undefined) Reflect.deleteProperty(globalThis, "FileReader");
+  else Reflect.set(globalThis, "FileReader", originalFileReader);
+}
+
+for (const faviconURL of ["https://foreign.example/icon.png", "file:///private/icon.png", "https://[invalid"]) {
+  const client = new LoopAwareApiClient(runtimeConfig(), /** @type {typeof fetch} */ (async () => { throw new Error("Unexpected image transfer"); }));
+  await assert.rejects(client.siteFavicon({ ...site, favicon_url: faviconURL }, new AbortController().signal), error => error instanceof LoopAwareApiError && /** @type {Error & {code:string}} */ (error).code === "mobile_api_invalid_favicon");
+}
+
+for (const [mime, size] of [["text/html", 4], ["image/png", 0], ["image/png", 128 * 1024 + 1]]) {
+  let closed = 0;
+  const client = new LoopAwareApiClient(runtimeConfig(), /** @type {typeof fetch} */ (async () => {
+    const response = new Response(new Uint8Array(Number(size)), { headers: { "Content-Type": String(mime) } });
+    const blob = response.blob.bind(response);
+    response.blob = async () => Object.assign(await blob(), { close() { closed++; } });
+    return response;
+  }));
+  await assert.rejects(client.siteFavicon({ ...site, favicon_url: "/api/sites/site-1/favicon?ts=123" }, new AbortController().signal), error => error instanceof LoopAwareApiError && /** @type {Error & {code:string}} */ (error).code === "mobile_api_invalid_favicon");
+  assert.equal(closed, 1);
+}
+
+// Exercise the public image endpoint adapter while four transfers occupy its queue.
+{
+  /** @type {string[]} */ const transfers = [];
+  /** @type {Array<(response: Response) => void>} */ const finish = [];
+  const client = new LoopAwareApiClient(runtimeConfig(), /** @type {typeof fetch} */ (async input => {
+    transfers.push(String(input));
+    return new Promise(resolve => finish.push(resolve));
+  }));
+  const controllers = Array.from({length: 6}, () => new AbortController());
+  const pending = controllers.map((controller, index) => client.siteFavicon({ ...site, favicon_url: `/api/sites/site-1/favicon?ts=${index}` }, controller.signal).catch(/** @param {unknown} error */ error => error));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(transfers.length, 4);
+  controllers[4].abort();
+  finish[0](new Response(null, {status: 503}));
+  await pending[0];
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(transfers.length, 5);
+  assert.match(transfers[4], /ts=5$/);
+  assert(!transfers.some(uri => uri.endsWith("ts=4")));
+  finish.slice(1).forEach(resolve => resolve(new Response(null, {status:503})));
+  await Promise.all(pending);
+}
+
+for (const [endpoint, field] of [["stats", "top_pages"], ["attribution", "sources"], ["attribution", "mediums"], ["attribution", "campaigns"], ["devices", "device_types"], ["devices", "top_resolutions"], ["devices", "top_viewports"], ["locations", "locations"]]) {
+  for (const unique of [undefined, null, "2", -1, 0.5]) {
+    const endpointPath = `/api/sites/${site.id}/visits/${endpoint}`;
+    const baseline = /** @type {Record<string,unknown>} */ (Reflect.get(basePayloads, endpointPath));
+    const client = new LoopAwareApiClient(runtimeConfig(), createFetcher({ ...basePayloads, [endpointPath]: { ...baseline, [field]: [{ visit_count: 5, unique_visitor_count: unique }] } }));
+    await assert.rejects(client.siteDashboard(site, "30days"), error => error instanceof LoopAwareApiError && /** @type {{code:string}} */ (error).code === "mobile_api_invalid_traffic");
+  }
+  const endpointPath = `/api/sites/${site.id}/visits/${endpoint}`;
+  const baseline = /** @type {Record<string,unknown>} */ (Reflect.get(basePayloads, endpointPath));
+  const client = new LoopAwareApiClient(runtimeConfig(), createFetcher({ ...basePayloads, [endpointPath]: { ...baseline, [field]: [{ visit_count: 5, unique_visitor_count: 0 }] } }));
+  const dashboard = await client.siteDashboard(site, "30days");
+  const container = { stats: dashboard.stats, attribution: dashboard.attribution, devices: dashboard.devices, locations: dashboard.locations }[endpoint];
+  assert.equal(/** @type {Array<{unique_visitor_count:number}>} */ (Reflect.get(container, field))[0].unique_visitor_count, 0);
+}
+
 console.log("mobile api boundary checks passed");
 
 function runtimeConfig() {

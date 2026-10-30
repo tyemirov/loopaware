@@ -40,7 +40,7 @@ func TestDatabaseSiteStatisticsProviderTopPagesDefaultsLimit(testingT *testing.T
 	require.NoError(testingT, database.Create(&visitThree).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.TopPages(context.Background(), siteID, 0)
+	results, err := provider.TopPages(context.Background(), siteID, 0, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.NotEmpty(testingT, results)
 	require.Equal(testingT, "/alpha", results[0].Path)
@@ -50,7 +50,7 @@ func TestDatabaseSiteStatisticsProviderTopPagesDefaultsLimit(testingT *testing.T
 func TestDatabaseSiteStatisticsProviderTopPagesSkipsBlankSite(testingT *testing.T) {
 	database := openSiteStatsDatabase(testingT)
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.TopPages(context.Background(), "   ", 1)
+	results, err := provider.TopPages(context.Background(), "   ", 1, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.Nil(testingT, results)
 }
@@ -83,7 +83,7 @@ func TestDatabaseSiteStatisticsProviderTopPagesForDaysScopesToWindow(testingT *t
 	require.NoError(testingT, database.Create(&recentBotVisit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.TopPagesForDays(context.Background(), siteID, 1, 10)
+	results, err := provider.TopPagesForDays(context.Background(), siteID, 1, 10, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.Len(testingT, results, 1)
 	require.Equal(testingT, "/window-winner", results[0].Path)
@@ -169,7 +169,7 @@ func TestDatabaseSiteStatisticsProviderTopPagesMergesTrailingSlashVariants(testi
 	require.NoError(testingT, database.Create(&civilizationPlain).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.TopPages(context.Background(), siteID, 10)
+	results, err := provider.TopPages(context.Background(), siteID, 10, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.Len(testingT, results, 2)
 
@@ -202,7 +202,7 @@ func TestDatabaseSiteStatisticsProviderTopPagesNormalizesAllSlashPathsToRoot(tes
 	require.NoError(testingT, database.Create(&doubleSlashVisit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.TopPages(context.Background(), siteID, 10)
+	results, err := provider.TopPages(context.Background(), siteID, 10, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.Len(testingT, results, 1)
 	require.Equal(testingT, "/", results[0].Path)
@@ -295,7 +295,7 @@ func TestDatabaseSiteStatisticsProviderExcludesBotsFromDefaultStats(testingT *te
 	require.NoError(testingT, uniqueErr)
 	require.Equal(testingT, int64(1), uniqueCount)
 
-	topPages, topPagesErr := provider.TopPages(context.Background(), siteID, 10)
+	topPages, topPagesErr := provider.TopPages(context.Background(), siteID, 10, TrafficSortPageViews)
 	require.NoError(testingT, topPagesErr)
 	require.Len(testingT, topPages, 1)
 	require.Equal(testingT, "/alpha", topPages[0].Path)
@@ -407,7 +407,7 @@ func TestDatabaseSiteStatisticsProviderVisitAttributionExcludesBots(testingT *te
 	require.NoError(testingT, database.Create(&botVisit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	breakdown, breakdownErr := provider.VisitAttribution(context.Background(), siteID, 10)
+	breakdown, breakdownErr := provider.VisitAttribution(context.Background(), siteID, 10, TrafficSortPageViews)
 	require.NoError(testingT, breakdownErr)
 
 	sourceByValue := make(map[string]AttributionStat, len(breakdown.Sources))
@@ -472,7 +472,7 @@ func TestDatabaseSiteStatisticsProviderVisitAttributionRespectsLimit(testingT *t
 	require.NoError(testingT, database.Create(&referralVisit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	breakdown, breakdownErr := provider.VisitAttribution(context.Background(), siteID, 1)
+	breakdown, breakdownErr := provider.VisitAttribution(context.Background(), siteID, 1, TrafficSortPageViews)
 	require.NoError(testingT, breakdownErr)
 	require.Len(testingT, breakdown.Sources, 1)
 	require.Len(testingT, breakdown.Mediums, 1)
@@ -499,7 +499,7 @@ func TestDatabaseSiteStatisticsProviderVisitAttributionOneDayUsesTrailingTwentyF
 	require.NoError(testingT, database.Create(&recentVisit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	breakdown, breakdownErr := provider.VisitAttributionForDays(context.Background(), siteID, 1, 10)
+	breakdown, breakdownErr := provider.VisitAttributionForDays(context.Background(), siteID, 1, 10, TrafficSortPageViews)
 	require.NoError(testingT, breakdownErr)
 	require.Len(testingT, breakdown.Sources, 1)
 	require.Equal(testingT, "fresh", breakdown.Sources[0].Value)
@@ -514,7 +514,7 @@ func TestDatabaseSiteStatisticsProviderVisitAggregationsSkipBlankSite(testingT *
 	require.NoError(testingT, trendErr)
 	require.Nil(testingT, trend)
 
-	attribution, attributionErr := provider.VisitAttribution(context.Background(), "   ", 10)
+	attribution, attributionErr := provider.VisitAttribution(context.Background(), "   ", 10, TrafficSortPageViews)
 	require.NoError(testingT, attributionErr)
 	require.Empty(testingT, attribution.Sources)
 	require.Empty(testingT, attribution.Mediums)
@@ -757,12 +757,12 @@ func TestVisitAttributionHelperFunctions(testingT *testing.T) {
 	require.Equal(testingT, "cpc", utmMedium)
 	require.Equal(testingT, "spring", utmCampaign)
 
-	require.Nil(testingT, topAttributionStats(nil, 3))
+	require.Nil(testingT, topAttributionStats(nil, nil, 3, TrafficSortPageViews))
 	rankedStats := topAttributionStats(map[string]int64{
 		"beta":  2,
 		"gamma": 3,
 		"alpha": 2,
-	}, 2)
+	}, nil, 2, TrafficSortPageViews)
 	require.Len(testingT, rankedStats, 2)
 	require.Equal(testingT, "gamma", rankedStats[0].Value)
 	require.Equal(testingT, int64(3), rankedStats[0].VisitCount)
@@ -842,7 +842,7 @@ func TestDatabaseSiteStatisticsProviderDeviceBreakdownClassifiesViewportWidths(t
 	require.NoError(testingT, database.Create(&emptyViewportVisit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	result, err := provider.DeviceBreakdown(context.Background(), siteID, 10)
+	result, err := provider.DeviceBreakdown(context.Background(), siteID, 10, TrafficSortPageViews)
 	require.NoError(testingT, err)
 
 	deviceMap := make(map[string]int64)
@@ -870,7 +870,7 @@ func TestDatabaseSiteStatisticsProviderDeviceBreakdownExcludesBots(testingT *tes
 	require.NoError(testingT, database.Create(&botVisit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	result, err := provider.DeviceBreakdown(context.Background(), siteID, 10)
+	result, err := provider.DeviceBreakdown(context.Background(), siteID, 10, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.Nil(testingT, result.DeviceTypes)
 	require.Nil(testingT, result.TopViewports)
@@ -879,7 +879,7 @@ func TestDatabaseSiteStatisticsProviderDeviceBreakdownExcludesBots(testingT *tes
 func TestDatabaseSiteStatisticsProviderDeviceBreakdownSkipsBlankSite(testingT *testing.T) {
 	database := openSiteStatsDatabase(testingT)
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	result, err := provider.DeviceBreakdown(context.Background(), "   ", 10)
+	result, err := provider.DeviceBreakdown(context.Background(), "   ", 10, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.Nil(testingT, result.DeviceTypes)
 }
@@ -910,7 +910,7 @@ func TestDatabaseSiteStatisticsProviderDeviceBreakdownTopResolutions(testingT *t
 	require.NoError(testingT, database.Create(&visit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	result, err := provider.DeviceBreakdown(context.Background(), siteID, 10)
+	result, err := provider.DeviceBreakdown(context.Background(), siteID, 10, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.NotEmpty(testingT, result.TopResolutions)
 	require.Equal(testingT, "1920x1080", result.TopResolutions[0].Value)
@@ -941,7 +941,7 @@ func TestDatabaseSiteStatisticsProviderLocationDistributionGroupsByTimezoneSigna
 	require.NoError(testingT, database.Create(&visit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.LocationDistribution(context.Background(), siteID, 10)
+	results, err := provider.LocationDistribution(context.Background(), siteID, 10, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.Len(testingT, results, 2)
 	require.Equal(testingT, "New York", results[0].Label)
@@ -969,7 +969,7 @@ func TestDatabaseSiteStatisticsProviderLocationDistributionExcludesBots(testingT
 	require.NoError(testingT, database.Create(&botVisit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.LocationDistribution(context.Background(), siteID, 10)
+	results, err := provider.LocationDistribution(context.Background(), siteID, 10, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.Empty(testingT, results)
 }
@@ -988,7 +988,7 @@ func TestDatabaseSiteStatisticsProviderLocationDistributionFallsBackToLocaleSign
 	require.NoError(testingT, database.Create(&visit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.LocationDistribution(context.Background(), siteID, 10)
+	results, err := provider.LocationDistribution(context.Background(), siteID, 10, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.Len(testingT, results, 1)
 	require.Equal(testingT, "United States", results[0].Label)
@@ -1018,7 +1018,7 @@ func TestDatabaseSiteStatisticsProviderLocationDistributionPrefersEdgeGeoSignal(
 	require.NoError(testingT, database.Create(&visit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.LocationDistribution(context.Background(), siteID, 10)
+	results, err := provider.LocationDistribution(context.Background(), siteID, 10, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.Len(testingT, results, 1)
 	require.Equal(testingT, "San Francisco, CA", results[0].Label)
@@ -1052,7 +1052,7 @@ func TestDatabaseSiteStatisticsProviderLocationDistributionKeepsUnmappedCountryO
 	}
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.LocationDistribution(context.Background(), siteID, 10)
+	results, err := provider.LocationDistribution(context.Background(), siteID, 10, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.Len(testingT, results, 1)
 	require.Equal(testingT, "ES", results[0].Label)
@@ -1078,7 +1078,7 @@ func TestDatabaseSiteStatisticsProviderLocationDistributionCountsUnknownSignal(t
 	require.NoError(testingT, database.Create(&visit).Error)
 
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.LocationDistribution(context.Background(), siteID, 10)
+	results, err := provider.LocationDistribution(context.Background(), siteID, 10, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.Len(testingT, results, 1)
 	require.Equal(testingT, locationUnknownLabel, results[0].Label)
@@ -1090,7 +1090,7 @@ func TestDatabaseSiteStatisticsProviderLocationDistributionCountsUnknownSignal(t
 func TestDatabaseSiteStatisticsProviderLocationDistributionSkipsBlankSite(testingT *testing.T) {
 	database := openSiteStatsDatabase(testingT)
 	provider := NewDatabaseSiteStatisticsProvider(database)
-	results, err := provider.LocationDistribution(context.Background(), "   ", 10)
+	results, err := provider.LocationDistribution(context.Background(), "   ", 10, TrafficSortPageViews)
 	require.NoError(testingT, err)
 	require.Nil(testingT, results)
 }

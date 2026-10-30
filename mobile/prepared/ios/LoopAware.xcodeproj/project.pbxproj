@@ -7,12 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0A018B0FD67DCA59C8FE6018 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2AAC068AA348FE55753268EE /* PrivacyInfo.xcprivacy */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		2178939F614D8FF2EDE8B6B3 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6142A363DA0FD7F9C463B8A1 /* ExpoModulesProvider.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		A86FBB454DA838C8CB4C6E01 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162BFD1C2F8909713C1A4798 /* ExpoModulesProvider.swift */; };
-		B5A2CC765BEC3BBE343D20DB /* libPods-LoopAware.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1BCD775B41AF1104FDBE74BB /* libPods-LoopAware.a */; };
+		B9E3909EADA2ADCD8F447A79 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F9908346E44DE527BCF5E622 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		E354A9F2CC4EDDB8D89A56B0 /* libPods-LoopAware.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B217DDBBB431F51771E1096A /* libPods-LoopAware.a */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
@@ -20,16 +20,16 @@
 		13B07F961A680F5B00A75B9A /* LoopAware.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LoopAware.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = LoopAware/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = LoopAware/Info.plist; sourceTree = "<group>"; };
-		162BFD1C2F8909713C1A4798 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-LoopAware/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		1BCD775B41AF1104FDBE74BB /* libPods-LoopAware.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-LoopAware.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		2AAC068AA348FE55753268EE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = LoopAware/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		2D30658D9F1A7C5D53BD79BC /* Pods-LoopAware.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LoopAware.debug.xcconfig"; path = "Target Support Files/Pods-LoopAware/Pods-LoopAware.debug.xcconfig"; sourceTree = "<group>"; };
+		1BCB1EB34AC66CD41C5D58C2 /* Pods-LoopAware.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LoopAware.release.xcconfig"; path = "Target Support Files/Pods-LoopAware/Pods-LoopAware.release.xcconfig"; sourceTree = "<group>"; };
+		241D87B47C05DA21CDDAFC74 /* Pods-LoopAware.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LoopAware.debug.xcconfig"; path = "Target Support Files/Pods-LoopAware/Pods-LoopAware.debug.xcconfig"; sourceTree = "<group>"; };
+		6142A363DA0FD7F9C463B8A1 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-LoopAware/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = LoopAware/SplashScreen.storyboard; sourceTree = "<group>"; };
+		B217DDBBB431F51771E1096A /* libPods-LoopAware.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-LoopAware.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		E69A423AB3CF70C76C939D57 /* Pods-LoopAware.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LoopAware.release.xcconfig"; path = "Target Support Files/Pods-LoopAware/Pods-LoopAware.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = LoopAware/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* LoopAware-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "LoopAware-Bridging-Header.h"; path = "LoopAware/LoopAware-Bridging-Header.h"; sourceTree = "<group>"; };
+		F9908346E44DE527BCF5E622 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = LoopAware/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B5A2CC765BEC3BBE343D20DB /* libPods-LoopAware.a in Frameworks */,
+				E354A9F2CC4EDDB8D89A56B0 /* libPods-LoopAware.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,7 +53,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				2AAC068AA348FE55753268EE /* PrivacyInfo.xcprivacy */,
+				F9908346E44DE527BCF5E622 /* PrivacyInfo.xcprivacy */,
 			);
 			name = LoopAware;
 			sourceTree = "<group>";
@@ -62,15 +62,15 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				1BCD775B41AF1104FDBE74BB /* libPods-LoopAware.a */,
+				B217DDBBB431F51771E1096A /* libPods-LoopAware.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		4F8FED0B28DC224F2AE7E7AC /* LoopAware */ = {
+		77F3FA50E493041B12BB66B2 /* LoopAware */ = {
 			isa = PBXGroup;
 			children = (
-				162BFD1C2F8909713C1A4798 /* ExpoModulesProvider.swift */,
+				6142A363DA0FD7F9C463B8A1 /* ExpoModulesProvider.swift */,
 			);
 			name = LoopAware;
 			sourceTree = "<group>";
@@ -89,8 +89,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				F127E22B2080BD36ED60B8F7 /* Pods */,
-				9136BC456681FD94B0FA7D6F /* ExpoModulesProviders */,
+				87F6148180717C332FDE5209 /* Pods */,
+				92B6338DECF638C936608D17 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -105,10 +105,20 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		9136BC456681FD94B0FA7D6F /* ExpoModulesProviders */ = {
+		87F6148180717C332FDE5209 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				4F8FED0B28DC224F2AE7E7AC /* LoopAware */,
+				241D87B47C05DA21CDDAFC74 /* Pods-LoopAware.debug.xcconfig */,
+				1BCB1EB34AC66CD41C5D58C2 /* Pods-LoopAware.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		92B6338DECF638C936608D17 /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				77F3FA50E493041B12BB66B2 /* LoopAware */,
 			);
 			name = ExpoModulesProviders;
 			sourceTree = "<group>";
@@ -122,16 +132,6 @@
 			path = LoopAware/Supporting;
 			sourceTree = "<group>";
 		};
-		F127E22B2080BD36ED60B8F7 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				2D30658D9F1A7C5D53BD79BC /* Pods-LoopAware.debug.xcconfig */,
-				E69A423AB3CF70C76C939D57 /* Pods-LoopAware.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -140,14 +140,14 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "LoopAware" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				4AB32999CA22859DA530A558 /* [Expo] Configure project */,
+				540663130FFDE6E8B7731426 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				1738D18AFEE44606BD262080 /* [Expo Dev Launcher] Strip Local Network Keys for Release */,
-				D04C94CA962B6C172FBDF5AA /* [CP] Embed Pods Frameworks */,
+				56F06E98219B411891A2AB3C /* [Expo Dev Launcher] Strip Local Network Keys for Release */,
+				5C126CC57920EF741FC848C3 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -197,7 +197,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				0A018B0FD67DCA59C8FE6018 /* PrivacyInfo.xcprivacy in Resources */,
+				B9E3909EADA2ADCD8F447A79 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -243,24 +243,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		1738D18AFEE44606BD262080 /* [Expo Dev Launcher] Strip Local Network Keys for Release */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
-				"$(PROJECT_DIR)/../scripts/strip-release-metadata.swift",
-			);
-			name = "[Expo Dev Launcher] Strip Local Network Keys for Release";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -eu\nif [ \"$CONFIGURATION\" = \"Debug\" ]; then\n  exit 0\nfi\nSDKROOT=\"$(/usr/bin/xcrun --sdk macosx --show-sdk-path)\"\nexport SDKROOT\nexec /usr/bin/xcrun --sdk macosx swift \"$PROJECT_DIR/../scripts/strip-release-metadata.swift\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n";
-		};
-		4AB32999CA22859DA530A558 /* [Expo] Configure project */ = {
+		540663130FFDE6E8B7731426 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -284,45 +267,24 @@
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-LoopAware/expo-configure-project.sh\"\n";
 		};
-		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
+		56F06E98219B411891A2AB3C /* [Expo Dev Launcher] Strip Local Network Keys for Release */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-LoopAware/Pods-LoopAware-resources.sh",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXApplication/ExpoApplication_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoSystemUI/ExpoSystemUI_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RCT-Folly/RCT-Folly_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/React-timing/React-timing_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/boost/boost_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/glog/glog_privacy.bundle",
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+				"$(PROJECT_DIR)/../scripts/strip-release-metadata.swift",
 			);
-			name = "[CP] Copy Pods Resources";
+			name = "[Expo Dev Launcher] Strip Local Network Keys for Release";
 			outputPaths = (
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoApplication_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoSystemUI_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RCT-Folly_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-timing_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/boost_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/glog_privacy.bundle",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-LoopAware/Pods-LoopAware-resources.sh\"\n";
-			showEnvVarsInLog = 0;
+			shellScript = "set -eu\nif [ \"$CONFIGURATION\" = \"Debug\" ]; then\n  exit 0\nfi\nSDKROOT=\"$(/usr/bin/xcrun --sdk macosx --show-sdk-path)\"\nexport SDKROOT\nexec /usr/bin/xcrun --sdk macosx swift \"$PROJECT_DIR/../scripts/strip-release-metadata.swift\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n";
 		};
-		D04C94CA962B6C172FBDF5AA /* [CP] Embed Pods Frameworks */ = {
+		5C126CC57920EF741FC848C3 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -342,6 +304,46 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-LoopAware/Pods-LoopAware-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-LoopAware/Pods-LoopAware-resources.sh",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXApplication/ExpoApplication_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoSystemUI/ExpoSystemUI_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RCT-Folly/RCT-Folly_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-timing/React-timing_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/SDWebImage/SDWebImage.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/boost/boost_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/glog/glog_privacy.bundle",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoApplication_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoSystemUI_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RCT-Folly_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-timing_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SDWebImage.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/boost_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/glog_privacy.bundle",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-LoopAware/Pods-LoopAware-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -350,7 +352,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				A86FBB454DA838C8CB4C6E01 /* ExpoModulesProvider.swift in Sources */,
+				2178939F614D8FF2EDE8B6B3 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -359,7 +361,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 2D30658D9F1A7C5D53BD79BC /* Pods-LoopAware.debug.xcconfig */;
+			baseConfigurationReference = 241D87B47C05DA21CDDAFC74 /* Pods-LoopAware.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -396,7 +398,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = E69A423AB3CF70C76C939D57 /* Pods-LoopAware.release.xcconfig */;
+			baseConfigurationReference = 1BCB1EB34AC66CD41C5D58C2 /* Pods-LoopAware.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
