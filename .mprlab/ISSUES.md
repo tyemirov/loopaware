@@ -38,7 +38,7 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
-- [ ] [B157] (P1) Declare exempt iOS encryption for TestFlight builds
+- [x] [B157] (P1) Declare exempt iOS encryption for TestFlight builds
   Goal:
   Prevent the current system-only encryption use from blocking internal TestFlight builds.
 
@@ -60,8 +60,23 @@ Pull request delivery remains separate.
   - Run complete local CI after the final stack change.
 
   Status:
-  Implementation and code validation are in progress.
-  Completion of the existing Apple build is a separately authorized provider operation.
+  Source config and generated native metadata declare Boolean false for the current Apple system-only encryption use.
+  Native preparation records the semantic value and rejects absent, incorrect, string-valued, or duplicate declarations before the SDK call.
+  The release cleanup phase preserves Boolean false.
+
+  The actual Expo generator and public build adapter reproduced the omission before the fix.
+  All 14 adapter cases, 12 preparation cases, and seven release metadata cases passed.
+  Complete local `make ci` passed, including all 475 integration cases and 40 mobile app-flow cases.
+  Resolution: The iOS encryption declaration is automatic and verified through native preparation and release metadata checks.
+
+  Provider recovery:
+  The separately authorized Apple API update set the existing build declaration to false.
+  Build `1.1.0 (215472654)` reached `IN_BETA_TESTING` and appears in the existing LoopAware Testers internal group.
+
+  Changed files:
+  `mobile/app.config.js`, `mobile/scripts/record-store-preparation.mjs`, and `mobile/scripts/release-metadata.test.mjs`.
+  Also changed: `tests/mobile/ios-scene-generation.mjs`, `tests/mobile/store-source.mjs`, and generated files under `mobile/prepared/`.
+  Documentation: `README.md`, `.mprlab/TERMINOLOGY.md`, and this tracker.
 
 - [x] [B156] (P0) Wait for the integration cleanup guardian before setup
   Goal:
