@@ -345,6 +345,18 @@ values, are rate-limited by client IP, and store minimized request metadata.
 
 The `allowed_origin` field for a site may contain multiple origins separated by spaces or commas (for example `https://mprlab.com http://localhost:8080`); widgets, subscribe forms, and pixels will accept requests from any configured origin while still rejecting traffic from unknown sites.
 
+Detailed traffic breakdowns support `sort=page_views` and `sort=unique_visitors`.
+This applies to `/visits/stats`, `/visits/attribution`, `/visits/devices`, and `/visits/locations` for one site.
+The default is `page_views`. Invalid sort values return `400 invalid_sort`.
+Each detailed bucket includes `visit_count` for page views and `unique_visitor_count` for distinct visitors.
+The API applies the selected order before the result limit.
+Unique counts exclude empty visitor identifiers and use the final normalized bucket.
+Page views include visits without a visitor identifier.
+Equal unique counts use the canonical bucket key in ascending order.
+The site, interval, and bot filters apply to both metrics.
+A visitor can appear in multiple buckets or dates. These unique counts are not additive.
+Aggregate sites retain their unavailable visitor metrics.
+
 The `/api/me` response includes a `role` value of `admin` or `user` and an `avatar.url` pointing to the caller's cached
 profile image (served from `/api/me/avatar`). The dashboard uses this payload to render the account card and determine
 site scope.
@@ -602,6 +614,16 @@ Repository administrators can run the read-only `make github-security-audit` gat
 protection, Dependabot, secret-scanning, and gateway-owned Pages controls against the tracked security contract.
 
 
+## Mobile site cards
+
+Each site card shows its collected favicon to the left of the name.
+The icon is 16 pixels wide and stays inside the current card dimensions.
+The role stays on its current line.
+The mobile client loads the stored image through the authenticated API.
+It loads up to four site images at a time and cancels obsolete requests.
+Images load again when the app returns to the foreground.
+When an image is absent or cannot be shown, the card shows the site name.
+
 ## Mobile site filter
 
 Select the search icon on the right of `SITES` to open the site filter.
@@ -623,6 +645,14 @@ Select `All`, `30d`, `7d`, or `1d` on the mobile Traffic tab.
 The selected interval applies to all traffic panels and remains selected after a site change.
 `7d` includes the current UTC day and the preceding six UTC days.
 Aggregate sites show daily request counts. Their unique visitor, engagement, device, and location metrics remain unavailable.
+
+The overview traffic card and detailed Traffic panels use unique visitors as their primary count.
+Trend, top pages, sources, devices, and locations use that count for values, bar lengths, and rank.
+Page views appear as explicitly labeled supporting information and include repeat views.
+`Returning` measures visitors with more than one page view in the selected interval.
+`Pages/visitor` remains the average page count per tracked visitor.
+The mobile client requests `sort=unique_visitors` for detailed breakdowns.
+Web and email reports retain their current page-view ranking.
 
 ## Mobile account settings
 
@@ -648,7 +678,7 @@ Select an overview card to open its detail tab:
 
 - `Feedback` opens `Feedback`.
 - `Subscribers` opens `Subscribers`.
-- `Visits`, including unique visits, opens `Traffic`.
+- `Unique visitors` for detailed sites and `Requests` for aggregate sites open `Traffic`.
 - `Health` opens `Health`.
 - `Sentry` opens `LA Sentry`.
 
