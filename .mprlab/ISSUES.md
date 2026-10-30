@@ -38,6 +38,124 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [ ] [B161] (P1) Resolve the installed Gateway command in deployment tests
+
+  Goal:
+  Use the documented Gateway executable selection in the publication policy tests.
+
+  Evidence:
+  The bare command failed because the fixture treated it as a repository-relative path.
+  The public launcher passed version checks, but the fixture derived an incorrect SDK directory from its location.
+  The installed versioned runtime has the required SDK directory and the same version identity.
+
+  Requirements:
+  - Resolve the selected command at the process boundary.
+  - Derive test SDK paths from the selected runtime rather than the public launcher location.
+  - Keep each test operation on one captured runtime.
+
+  Validation:
+  - Verify the documented command name, public launcher path, and versioned runtime selection.
+  - Run `make deployment-npm-visibility-check` and final `make ci`.
+
+  Scope:
+  P004 selects the installed `v7.0.9` runtime explicitly for code validation.
+  This test-system correction is separate from the mobile interface changes.
+
+- [ ] [B160] (P2) Keep the site-header role visible with large text
+
+  Goal:
+  Keep the selected site's role within the mobile viewport at large text sizes.
+
+  Evidence:
+  P004 native acceptance exposed the existing role badge outside the viewport.
+  This occurred on the 375-point iOS simulator and the Android emulator with text scale `2.0`.
+  The selected-site header implementation was unchanged by P004.
+
+  Requirements:
+  - Keep the site name and role visible with large text.
+  - Adapt the selected-site header layout to the available width.
+
+  Validation:
+  - Add public interface coverage before the layout change.
+  - Verify native layout at normal and large text sizes.
+
+  Scope:
+  This issue is separate from the avatar, site filter, and overview card changes in P004.
+
+- [x] [B159] (P1) {B158} Use authenticated photo delivery on Android
+
+  Goal:
+  Load the mobile account photo through the active session on both platforms.
+
+  Evidence:
+  Android 17 API requests carried the local session cookie. The native image request omitted the cookie and returned `401`.
+  The same iOS 27 image request carried the cookie and showed the photo.
+
+  Requirements:
+  - Use one authenticated binary-image path on both platforms.
+  - Convert the image bytes through the native FileReader adapter.
+  - Cancel obsolete loads and isolate account images.
+  - Keep the email initial for absent or failed photos.
+
+  Validation:
+  - Reproduce the transport failure through the public app entry point.
+  - Verify session recovery, cancellation, account changes, and native image rendering.
+  - Run focused mobile checks and final stack `make ci`.
+
+  Implementation:
+  The shared API client loads photo bytes with the active session and converts them through native FileReader.
+  The client accepts the current generic binary image response and closes each allocated image buffer.
+  Obsolete requests stop before another authentication attempt or photo update.
+  Foreground return starts a new photo request. Each request has a separate image decoder state.
+
+  Validation results:
+  The public app-flow suite passed all 58 cases. API boundary and type checks passed.
+
+  Native photo checks passed on iOS 27 and Android 17, including PNG bytes with `application/octet-stream`.
+  Both clients kept the next account photo after the previous account's delayed responses completed.
+  Native image failure showed the email initial. Foreground return restored the photo without another account request.
+  Independent review found no remaining code defects. Final `make ci` passed. P004 records the selected runtime and complete validation result.
+
+  Changed files:
+  `mobile/src/api.ts`, `mobile/src/avatar.ts`, `mobile/App.tsx`, both mobile test scripts, `README.md`, and this tracker.
+
+  Resolution: Authenticated photos and automatic foreground recovery passed code and native validation.
+
+- [x] [B158] (P1) Restore the mobile account photo
+
+  Goal:
+  Show the signed-in account photo in the mobile header.
+
+  Evidence:
+  The backend supplies relative photo URLs. The native image receives these URLs without an API origin.
+  The supplied screenshot shows an empty avatar circle.
+
+  Requirements:
+  - Resolve account image URLs at the mobile API boundary.
+  - Load authenticated images through the active account session.
+  - Show the email initial while the photo loads or cannot be shown.
+  - Keep account photos isolated during account changes and delayed responses.
+
+  Validation:
+  - Add public app-flow and image-endpoint regressions before production edits.
+  - Verify image loading in an iOS simulator and Android emulator.
+  - Run focused mobile checks and final stack `make ci`.
+
+  Implementation:
+  The account boundary resolves relative image addresses against the configured API address.
+  The avatar shows the email initial during image transfer and after image failure.
+  Account and image changes replace the previous avatar state. B159 supplies the authenticated image transport.
+
+  Validation results:
+  The initial public regression failed because the native image received `/api/me/avatar?v=123` without an origin.
+  The corrected account boundary passed relative, absolute, inline, and invalid-address cases.
+  The shared mobile suite and native photo checks passed. Final `make ci` passed. P004 records the selected runtime and complete validation result.
+
+  Changed files:
+  `mobile/src/api.ts`, `mobile/App.tsx`, both mobile test scripts, `README.md`, and this tracker.
+
+  Resolution: The mobile header shows the account photo or email initial.
+
 - [x] [B157] (P1) Declare exempt iOS encryption for TestFlight builds
   Goal:
   Prevent the current system-only encryption use from blocking internal TestFlight builds.
@@ -3530,6 +3648,59 @@ Pull request delivery remains separate.
 
 ## Improvements
 
+- [-] [I052] (P1) Show collected favicons in mobile site badges
+  Goal:
+  Identify each site with its collected favicon beside the site name.
+
+  Requirements:
+  - Show the favicon on the left of the name in each horizontal site badge.
+  - Keep the current badge width and height.
+  - Keep the role on its current line.
+  - Use the stored favicon URL and the active authenticated API client.
+  - Keep the site name available when the favicon is absent or cannot be shown.
+  - Keep selection, filtering, and accessible names unchanged.
+
+  Validation:
+  - Add public app-flow cases before production changes.
+  - Verify PNG, SVG, ICO, missing images, failures, and updated image URLs.
+  - Compare native badge dimensions with and without favicons.
+  - Verify narrow layouts and large text in software test environments.
+  - Run final `make ci` after the last application change.
+
+- [x] [I051] (P1) Keep the mobile site filter in the Sites row
+
+  Goal:
+  Use the space between `SITES` and the search icon for the open site filter.
+
+  Requirements:
+  - Keep the site cards at the same vertical position when search opens.
+  - Preserve matching, clearing, keyboard behavior, and selected-site state from F020.
+
+  Validation:
+  - Add the public app-flow regression before production edits.
+  - Measure native layout with search closed and open.
+  - Verify narrow screens, large text, and Light and Dark themes.
+  - Run focused mobile checks and final stack `make ci`.
+
+  Implementation:
+  The field occupies the space between `SITES` and the search icon.
+  The row reserves the necessary height for the current text size.
+  Filtering, clear, close, keyboard dismissal, and selected-site behavior remain available.
+
+  Validation results:
+  The public regression first failed because the field occupied a separate row.
+  All 58 app-flow cases passed after the final mobile change.
+  Native Light and Dark checks passed, including large text and keyboard use.
+  The site-card position stayed at 170 points on iOS and 436 pixels on Android when the field opened with large text.
+  B160 records a separate error in the unchanged selected-site header.
+
+  Final `make ci` passed. P004 records the selected runtime and complete validation result.
+
+  Changed files:
+  `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`, `README.md`, and this tracker.
+
+  Resolution: The site filter stays in the Sites row and preserves the site-card position.
+
 - [x] [I050] (P1) {B147} Remove Recent visits from the mobile app
   Goal:
   Simplify the mobile traffic view through removal of the `Recent visits` section.
@@ -4597,6 +4768,44 @@ Pull request delivery remains separate.
 
 ## Features
 
+- [x] [F021] (P1) Open detail tabs from mobile overview cards
+
+  Goal:
+  Open the corresponding detail tab when the operator selects an overview card.
+
+  Requirements:
+  - Connect Feedback, Subscribers, Visits, Health, and Sentry cards to their existing tabs.
+  - Make the full card an accessible button with a distinct name.
+  - Keep zero-count cards available.
+  - Preserve the selected site and traffic interval.
+  - Reveal the selected tab and give accessibility focus to the destination heading.
+
+  Validation:
+  - Add public app-flow regressions before production edits.
+  - Activate each card separately from the existing tabs.
+  - Verify all destinations and native navigation presentation.
+  - Run focused mobile checks and final stack `make ci`.
+
+  Implementation:
+  Each complete overview card opens its corresponding existing tab.
+  The selected site and traffic interval remain selected. Zero counts do not disable navigation.
+  The selected tab becomes visible. Accessibility focus moves to the destination heading.
+  Other statistic grids remain informational.
+
+  Validation results:
+  The initial public regression failed because `View feedback` did not exist as a card action.
+  The tests use distinct action names to select the overview cards.
+  All five destinations passed public app-flow checks and native navigation on iOS 27 and Android 17.
+  Accessible names, values, and selected-tab state were present in the native hierarchy.
+
+  App-flow checks verified the destination focus command. Screen-reader announcements were not exercised.
+  Final `make ci` passed. P004 records the selected runtime and complete validation result.
+
+  Changed files:
+  `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`, `README.md`, and this tracker.
+
+  Resolution: The five overview cards open their corresponding detail tabs.
+
 - [x] [F020] (P1) Add a search icon to the mobile site selector
   Goal:
   Help the operator find a site through a filter above the site cards.
@@ -5082,6 +5291,126 @@ Pull request delivery remains separate.
 
 
 ## Planning
+
+- [x] [P004] (P1) Plan mobile avatar, site filter, and overview navigation changes
+
+  Goal:
+  Define the implementation sequence for the mobile comments supplied on October 29, 2026.
+
+  Evidence:
+  - The supplied screenshot shows an empty avatar circle and a site filter below the `SITES` row.
+  - F018 defines the account image and email initial behavior.
+  - F020 and `README.md` currently specify a separate row for the open site filter.
+  - `mobile/App.tsx` gives `account.avatar.url` directly to the native image loader.
+  - `internal/api/auth.go` can return a relative `/api/me/avatar?v=...` address for an account photo.
+  - `internal/api/admin.go` requires an authenticated account for that image endpoint.
+  - The backend supplies an inline SVG image when the account has no photo.
+  - The overview cards are static views. The destination tabs and selected-tab state already exist.
+
+  Decisions:
+  - Use the existing account photo contract and existing dashboard tabs.
+  - Put the open site filter between `SITES` and the search icon in one row.
+  - Make each complete overview card a button for its corresponding tab.
+  - Keep the selected site and traffic interval when a card opens a tab.
+  - Keep zero-count cards available. Health and Sentry cards open their tabs when collection is off or unconfigured.
+
+  Destination map:
+  | Overview card | Destination tab |
+  | --- | --- |
+  | Feedback | Feedback |
+  | Subscribers | Subscribers |
+  | Visits, including unique visitors | Traffic |
+  | Health | Health |
+  | Sentry | Sentry |
+
+  Implementation sequence:
+  1. Reproduce the avatar failure through the real app entry point and a local authenticated image endpoint.
+     Examine the relative address, session cookies, response format, and native image result.
+
+     Normalize image addresses once in the mobile account adapter against the configured API base URL.
+     Keep query parameters and supported absolute or inline image addresses.
+     Show the email initial while the image loads, when no photo exists, or when the image fails.
+     Include the current inline SVG response in the no-photo acceptance case.
+     Reset image state when the account or image address changes.
+
+     Verify that sign-out and account changes remove the previous account image.
+     Prevent display of another account's photo after late responses or cache reuse.
+     Change backend behavior only when a reproduced defect requires that change.
+     File each reproduced defect as a separate BugFix issue before implementation.
+  2. Change `SitesRail` so the filter occupies the flexible space inside `sitesHeading`.
+     Keep the label and search icon visible. Let the input shrink to the available width.
+     Keep clear, focus, keyboard, matching, and selected-site behavior from F020.
+     Reserve the row height so search does not move the site cards downward.
+     Keep the clear control reachable and preserve the existing 44-point minimum touch area.
+
+     Record this layout change as an Improvement before implementation.
+  3. Pass the existing tab-selection command through `DashboardTabContent` to `OverviewSection`.
+     Give the overview cards typed destination actions through `StatGrid`.
+     Keep other `StatGrid` instances informational.
+
+     Expose each action as an accessible button with its destination and current value.
+     Give each card a distinct accessible name, such as `View feedback`, to distinguish it from its tab.
+     Show the selected destination tab and its content after activation.
+     Dismiss the keyboard and give accessibility focus to the destination heading.
+     Reveal a selected tab when it is outside the visible part of the horizontal tab bar.
+     Record this navigation capability as a Feature before implementation.
+
+  Validation:
+  - Add public app-flow regressions before each production code change.
+  - Confirm each new regression fails because the required behavior is absent.
+  - Cover relative image URLs, authenticated image loads, image failures, account changes, and email initials.
+  - Include session expiry, the actual inline SVG response, and delayed image completion after an account change.
+  - Cover filter open, clear, close, empty results, site selection, and unchanged row placement.
+  - Compare the site-card rail position before and after search opens at the same viewport and text size.
+  - Cover all five card destinations, zero counts, selected-site preservation, and traffic-interval preservation.
+  - Activate each card through its distinct accessible name. Verify destination content and the selected tab.
+  - Run `make mobile-app-flow-check` during each interface change.
+  - Run `make mobile-check` for account-boundary tests and mobile type checks.
+  - Verify actual image rendering, row placement, keyboard behavior, and card actions in an iOS simulator.
+  - Verify the shared controls in an Android emulator.
+  - Include narrow screens, large text, Light, Dark, and account-menu access.
+  - Use `make mobile-source-staging-check` to verify the captured application source.
+  - Update the mobile sections in `README.md` with the implemented behavior.
+  - Run `make ci` once after the final application change at the stack completion checkpoint.
+  - Close each implementation issue after its required documentation and code validation pass.
+
+  Assumptions:
+  The relative image address is a source-backed failure candidate. The supplied account session has not been inspected.
+  A native image check must establish whether session delivery or image format also contributes to the failure.
+  The plan covers the mobile app shown in the screenshot.
+  The primary agent owns implementation and completes the issues in sequence.
+
+  Planning status:
+  Source inspection and independent architecture review passed.
+  The plan includes the six review corrections for image delivery, no-photo behavior, action selection, navigation, layout measurement, and issue classification.
+  The owner authorized implementation on October 29, 2026.
+  B158, B159, I051, and F021 are resolved after code and native validation.
+
+  Validation results:
+  The changed prose passed the scoped mechanical language check and producer language review.
+  The full tracker retains 496 findings in unchanged text.
+  Governor reported the same existing `.mprlab/POLICY.md` template difference before and after the plan change.
+  `git diff --check` passed.
+
+  Changed files: `.mprlab/ISSUES.md`.
+
+  Implementation result:
+  The avatar, inline site filter, and overview card navigation are implemented.
+  Final `make ci` passed with the installed versioned Gateway `v7.0.9` executable selected through `MPRLAB_GATEWAY_EXECUTABLE`.
+  The runtime reported platform `darwin-arm64` and source commit `db1c8d202487359c652aba5175d67d4f10089a59`.
+  Audits, builds, lint, type checks, Go tests, race checks, and mobile contracts passed.
+  All 58 mobile app-flow cases, 29 publication policy cases, and 475 browser/API cases passed.
+  B160 and B161 record separate existing defects outside this implementation scope.
+
+  Review:
+  Agent `/root/review_mobile_plan` used role `mpr-architect`.
+  Requested model and effort: `gpt-6-astra`, `high`. Reported model: `gpt-6-astra`.
+  The fixed role supplied the effort. Separate runtime effort confirmation was unavailable.
+  The review found no remaining defects in the implementation.
+
+  Implementation changed files:
+  `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/src/avatar.ts`, `mobile/scripts/test-app-flow.mjs`, and `mobile/scripts/test-api-boundaries.mjs`.
+  Documentation: `README.md` and this tracker.
 
 - [x] [P003] (P1) Define LoopAware adoption of shared MCP authorization.
   Goal:
