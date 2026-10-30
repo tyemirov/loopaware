@@ -98,6 +98,7 @@ Give each term one meaning. Use the same term for the same concept in all docume
 - `export compliance`: The App Store Connect record of an application's encryption use for build distribution.
 - `encryption declaration`: A build setting or store value that identifies whether an application uses non-exempt encryption.
 
+- `favicon`: A small site image collected from the website and stored by the API.
 - `site card`: A mobile control that selects one authorized site's dashboard.
 - `site filter`: A control that limits the displayed site cards by name or configured origin.
 - `search icon`: A magnifying-glass symbol that opens the site filter.
@@ -109,7 +110,9 @@ Give each term one meaning. Use the same term for the same concept in all docume
 - `role`: An account or site access classification supplied by the authenticated API.
 - `traffic interval`: The time window selected for traffic metrics and lists.
 - `visit count`: The number of page views displayed for a traffic row.
-- `unique visitor count`: The number of distinct visitors reported for a traffic row.
+- `unique visitor count`: The number of distinct nonempty visitor identifiers in one site, time window, and result bucket.
+- `page view`: One non-bot traffic record, including repeat views from the same visitor.
+- `returning visitor`: A visitor with more than one page view in the selected time window.
 
 - `scene lifecycle`: The UIKit contract that connects application windows to scenes.
 

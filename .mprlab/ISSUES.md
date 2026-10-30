@@ -3648,13 +3648,13 @@ Pull request delivery remains separate.
 
 ## Improvements
 
-- [-] [I052] (P1) Show collected favicons in mobile site badges
+- [x] [I052] (P1) Show collected favicons in mobile site cards
   Goal:
   Identify each site with its collected favicon beside the site name.
 
   Requirements:
-  - Show the favicon on the left of the name in each horizontal site badge.
-  - Keep the current badge width and height.
+  - Show the favicon on the left of the name in each horizontal site card.
+  - Keep the current card width and height.
   - Keep the role on its current line.
   - Use the stored favicon URL and the active authenticated API client.
   - Keep the site name available when the favicon is absent or cannot be shown.
@@ -3663,9 +3663,43 @@ Pull request delivery remains separate.
   Validation:
   - Add public app-flow cases before production changes.
   - Verify PNG, SVG, ICO, missing images, failures, and updated image URLs.
-  - Compare native badge dimensions with and without favicons.
+  - Compare native card dimensions with and without favicons.
   - Verify narrow layouts and large text in software test environments.
   - Run final `make ci` after the last application change.
+
+  Implementation:
+  - Add a 16-pixel decorative image inside the existing site-name line.
+  - Keep the role line and card dimensions unchanged.
+  - Reuse authenticated image transfer and foreground updates.
+  - Limit favicon transfers to four concurrent requests and each image to 128 KiB.
+  - Cancel obsolete requests and reset image state when the account or image URL changes.
+  - Add Expo Image 57.0.5 and regenerate the native dependency inputs.
+
+  Validation results:
+  - The new app-flow test failed because the site card did not load its favicon.
+  - All 64 public mobile app-flow scenarios pass after the change.
+  - API boundary checks cover image addresses, size limits, and queue cancellation.
+  - iOS 27 and Android 17 render PNG, SVG, ICO, and generic binary ICO responses.
+  - Normal and large-text card dimensions match with and without images on both platforms.
+  - Filtered site selection passes on both platforms.
+  - Native dependency preparation passes.
+  - Independent architect review finds no product blocker. Its test synchronization corrections are applied.
+
+  - Final `make ci` passes with the installed Gateway v7.0.9 runtime.
+  - CI passes 64 mobile scenarios, 29 deployment-policy cases, and 475 browser/API cases.
+  - Changed prose passes the language review and `git diff --check` passes.
+
+  Resolution:
+  The mobile site cards show stored favicons and keep their existing dimensions.
+
+  Changed files:
+  `.mprlab/ISSUES.md`, `.mprlab/TERMINOLOGY.md`, `README.md`,
+  `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/src/avatar.ts`,
+  `mobile/package.json`, `mobile/package-lock.json`,
+  `mobile/scripts/test-api-boundaries.mjs`, `mobile/scripts/test-app-flow.mjs`,
+  and their generated copies in `mobile/prepared/`.
+  Native dependency inputs include `mobile/prepared/ios/Podfile.lock`,
+  `mobile/prepared/ios/LoopAware.xcodeproj/project.pbxproj`, and `mobile/prepared/native-preparation.json`.
 
 - [x] [I051] (P1) Keep the mobile site filter in the Sites row
 
@@ -4767,6 +4801,75 @@ Pull request delivery remains separate.
   - Remaining before closing M001: decide pagination or rollup strategy for unbounded message/subscriber/Sentry issue lists and all-row attribution/device scans, then capture before/after `EXPLAIN` evidence for each additional query rewrite.
 
 ## Features
+
+- [x] [F022] (P1) Use unique visitors as the primary mobile traffic metric
+
+  Goal:
+  Make mobile traffic values, bars, and ranking use the same unique visitor metric.
+
+  Requirements:
+  - Use unique visitors for Trend, top pages, sources, devices, and locations.
+  - Show page views as explicitly labeled supporting information.
+  - Keep Returning as a separate visitor engagement metric.
+  - Count each nonempty visitor ID once per final normalized bucket.
+  - Apply the selected ranking before result limits.
+  - Keep site, interval, bot, and aggregate-profile restrictions.
+  - Keep current web and email reports on their page-view ranking.
+  - Validate detailed bucket counts at the mobile API boundary.
+
+  Decision:
+  Add `unique_visitor_count` beside `visit_count` in detailed breakdowns.
+  Mobile selects `sort=unique_visitors`. The API default is `page_views`.
+  Count device categories after viewport classification and locations after inference.
+  Unique counts across buckets and dates are not additive.
+
+  Validation:
+  - Reproduce the displayed metric mismatch through the mobile entry point.
+  - Verify distinct visitor counts and selected order through real HTTP endpoints.
+  - Verify repeated visitors, normalization, limits, unknown IDs, bots, sites, and intervals.
+  - Verify invalid sorting, deterministic ties, and aggregate unavailability.
+  - Verify values, bar widths, labels, and data updates in the mobile app.
+  - Verify native software layouts and run final `make ci`.
+
+  Implementation:
+  - Add required unique visitor counts beside page views in detailed API buckets.
+  - Select the API order through a validated `page_views` or `unique_visitors` value.
+  - Deduplicate visitors after final path, source, device, and location normalization.
+  - Keep page-view ranking as the default for current web and email reports.
+  - Use unique counts for mobile overview values and detailed traffic bars.
+  - Show page views separately and preserve the Returning formula.
+  - Give each chart row an accessible metric value and zero-width bars for zero visitors.
+  - Update the API and mobile documentation and regenerate prepared inputs.
+
+  Validation results:
+  - The new HTTP test first returns the wrong top page under unique sorting.
+  - The new mobile test first shows 12 visits as primary instead of 8 unique visitors.
+  - Both failures are preserved as diagnostic evidence.
+  - All internal API tests pass, including two new HTTP scenarios.
+  - All 65 mobile app-flow scenarios, API boundary checks, and TypeScript checks pass.
+  - Both native platforms show unique metrics, page-view details, and readable large-text chart rows.
+  - iOS preserves aggregate request counts and unavailable visitor metrics.
+  - Android sends the unique sort after a 7d selection.
+  - A supplemental visible-date assertion is interrupted during software test device cleanup.
+  - Completed app-flow and HTTP tests verify interval values and updates.
+  - Native preparation passes. Independent review finds no product blocker.
+
+  - Initial CI finds an unused helper after the device refactor.
+  - Remove the unused helper. `make lint` and final `make ci` pass.
+  - Final CI passes 65 mobile scenarios, 29 deployment checks, and 475 browser/API cases.
+  - Changed prose review and `git diff --check` pass.
+
+  Resolution:
+  Mobile traffic values, bar lengths, and ranking use unique visitors consistently.
+  Page views remain explicit supporting information. Returning stays a separate engagement metric.
+
+  Changed files:
+  - Repository commands and docs: `Makefile`, `.mprlab/ISSUES.md`, `.mprlab/TERMINOLOGY.md`, and `README.md`.
+  - API source: `internal/api/admin.go`, `internal/api/site_stats.go`, `internal/api/traffic_sort.go`, and `internal/api/traffic_report_schedule.go`.
+  - API tests: `internal/api/traffic_unique_transport_test.go`, `internal/api/admin_helpers_test.go`, `internal/api/admin_test.go`, `internal/api/site_stats_additional_test.go`, `internal/api/traffic_interval_transport_test.go`, and `internal/api/traffic_report_schedule_test.go`.
+  - Mobile source: `mobile/App.tsx`, `mobile/src/api.ts`, and `mobile/src/types.ts`.
+  - Mobile tests: `mobile/scripts/test-app-flow.mjs` and `mobile/scripts/test-api-boundaries.mjs`.
+  - Generated inputs: matching copies in `mobile/prepared/` and `mobile/prepared/ios/LoopAware.xcodeproj/project.pbxproj`.
 
 - [x] [F021] (P1) Open detail tabs from mobile overview cards
 
