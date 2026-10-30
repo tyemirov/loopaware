@@ -18,7 +18,7 @@ const mobileRoot = resolve(import.meta.dirname, "..");
 const account = { email: "owner@example.com", name: "Operator", role: "admin" };
 const site = {
   id: "aggregate-site", name: "Aggregate site", traffic_profile: "aggregate", access_role: "admin",
-  allowed_origin: "https://example.com", unique_visitor_count: null, visit_count: 12,
+  allowed_origin: "https://example.com", favicon_url: "", unique_visitor_count: null, visit_count: 12,
 };
 /** @typedef {{ date: string, page_views: number, unique_visitors: number | null }} TrendPoint */
 const trendPoints = [
@@ -28,6 +28,139 @@ const trendPoints = [
   { date: "2026-10-22", page_views: 0, unique_visitors: 0 },
 ];
 
+// FileReader is a native I/O boundary. Keep the real API requests and image state under test.
+class ProtocolFileReader {
+  /** @type {string | null} */ result = null;
+  /** @type {Error | null} */ error = null;
+  /** @type {(() => void) | null} */ onload = null;
+  /** @type {(() => void) | null} */ onerror = null;
+  aborted = false;
+  /** @param {"none" | "callback" | "throw"} [failure] */
+  constructor(failure = "none") { this.failure = failure; }
+  /** @param {Blob} blob */
+  readAsDataURL(blob) {
+    if (this.failure === "throw") throw new Error("controlled-synchronous-reader-failure");
+    if (this.failure === "callback") { this.error = new Error("controlled-image-conversion-failure"); this.onerror?.(); return; }
+    void blob.arrayBuffer().then(bytes => {
+      if (this.aborted) return;
+      this.result = `data:${blob.type};base64,${Buffer.from(bytes).toString("base64")}`;
+      this.onload?.();
+    }, error => { this.error = error; this.onerror?.(); });
+  }
+  abort() { this.aborted = true; }
+}
+
+await scenario("mobile avatar resolves the authenticated API image address", {
+  initialSession: true, account: { ...account, avatar: { url: "/api/me/avatar?v=123" } },
+}, async app => {
+  assert(app.requests.includes("/api/me/avatar"), "the photo uses the authenticated fetch transport");
+  assert(app.imageUris().some(value => value.startsWith("data:image/png;base64,")));
+});
+
+await scenario("mobile avatar shows the email initial until the photo loads and after a load failure", {
+  initialSession: true, account: { ...account, avatar: { url: "/api/me/avatar?v=123" } },
+}, async app => {
+  assert.equal(app.buttonText("Account menu"), "O");
+  await app.avatarEvent("load");
+  assert.equal(app.buttonText("Account menu"), "");
+  await app.avatarEvent("error");
+  assert.equal(app.buttonText("Account menu"), "O");
+});
+
+await scenario("mobile avatar keeps the email initial when the backend inline SVG cannot be decoded", {
+  initialSession: true, account: { ...account, avatar: { url: "data:image/svg+xml;base64,PHN2Zy8+" } },
+}, async app => {
+  assert.equal(app.buttonText("Account menu"), "O");
+  await app.avatarEvent("error");
+  assert.equal(app.buttonText("Account menu"), "O");
+});
+
+await scenario("mobile avatar resets on an account change and ignores the previous image completion", {
+  initialSession: true, account: { ...account, avatar: { url: "/api/me/avatar?v=123" } },
+}, async app => {
+  const oldImageLoad = app.avatarCallback("load");
+  await app.avatarEvent("load");
+  app.setAccount({ email: "zoe@example.com", name: "Zoe", role: "user", avatar: { url: "/api/me/avatar?v=123" } });
+  await app.refresh();
+  assert.equal(app.buttonText("Account menu"), "Z");
+  await act(async () => oldImageLoad());
+  assert.equal(app.buttonText("Account menu"), "Z");
+  await app.avatarEvent("load");
+  assert.equal(app.buttonText("Account menu"), "");
+  await app.press("Account menu"); await app.press("Settings"); await app.press("Sign out");
+  assert.equal(app.imageUris().length, 0);
+});
+
+await scenario("mobile account photo recovers an expired API session once", {
+  initialSession: true, avatarMode: "refresh", account: { ...account, avatar: { url: "/api/me/avatar?v=123" } },
+}, async app => {
+  assert.equal(app.requests.filter(path => path === "/auth/refresh").length, 1);
+  assert.equal(app.requests.filter(path => path === "/api/me/avatar").length, 2);
+  assert(app.imageUris().some(value => value.startsWith("data:image/png;base64,")));
+});
+await scenario("mobile account photo accepts the API generic binary response", {
+  initialSession: true, avatarMode: "octet-stream", account: { ...account, avatar: { url: "/api/me/avatar?v=123" } },
+}, async app => {
+  assert(app.imageUris().some(value => value.startsWith("data:application/octet-stream;base64,")));
+  await app.avatarEvent("load");
+  assert.equal(app.buttonText("Account menu"), "");
+});
+for (const avatarMode of /** @type {const} */ (["expired", "failed", "invalid", "oversized", "conversion", "conversion-throw"])) {
+  await scenario(`mobile account photo keeps the initial and account menu after ${avatarMode}`, {
+    initialSession: true, avatarMode, account: { ...account, avatar: { url: "/api/me/avatar?v=123" } },
+  }, async app => {
+    app.expectSignedIn();
+    assert.equal(app.buttonText("Account menu"), "O");
+    assert.equal(app.imageUris().length, 0);
+    await app.press("Account menu"); await app.press("Settings");
+    assert.match(app.text(), /owner@example.com/);
+  });
+}
+
+await scenario("mobile photo recovers on foreground and resets same-image decoding across overlapping requests", {
+  initialSession: true, avatarMode: "failed", account: { ...account, avatar: { url: "/api/me/avatar?v=123" } },
+}, async app => {
+  assert.equal(app.imageUris().length, 0);
+  app.recoverPhoto();
+  await app.system("light", true);
+  assert(app.imageUris().some(uri => uri.startsWith("data:image/png;base64,")));
+  await app.avatarEvent("load"); assert.equal(app.buttonText("Account menu"), "");
+  const previousError = app.avatarCallback("error");
+  app.holdNextPhoto();
+  await app.system("light", true);
+  assert.equal(app.buttonText("Account menu"), "O");
+  await app.system("light", true);
+  assert.equal(app.buttonText("Account menu"), "O");
+  await app.avatarEvent("load");
+  const currentImage = app.imageUris()[0];
+  await act(async () => previousError());
+  await app.releasePhoto();
+  assert.equal(app.imageUris()[0], currentImage);
+  assert.equal(app.buttonText("Account menu"), "");
+  assert.equal(app.requests.filter(path => path === "/auth/refresh").length, 0);
+});
+
+for (const [action, tab, heading, detail] of [
+  ["View feedback", "Feedback", "Feedback", "No feedback yet."],
+  ["View subscribers", "Subscribers", "Subscribers", "No subscribers yet."],
+  ["View traffic", "Traffic", "Traffic", "Daily counts"],
+  ["View health", "Health", "Health", "Health monitor is not available."],
+  ["View Sentry", "LA Sentry", "LA Sentry", "No LA Sentry issues."],
+]) await scenario(`overview card ${action} opens the corresponding tab`, { initialSession: true, multipleSites: true }, async app => {
+  await app.press("Other site"); await app.press("Traffic"); await app.press("7d"); await app.press("Overview");
+  const requestCount = app.requests.length;
+  const dismissals = app.keyboardDismissals();
+  await app.press(action);
+  assert(app.selected(tab));
+  assert.match(app.text(), new RegExp(detail.replaceAll(".", "\\.")));
+  assert.equal(app.focused(), `header:${heading}`);
+  assert.equal(app.keyboardDismissals(), dismissals + 1);
+  assert.equal(app.lastInterval(), "7days");
+  assert(app.selected("Other site"));
+  assert.equal(app.requests.length, requestCount);
+  assert(!app.buttonLabels().some(label => label.startsWith("View ")));
+});
+
 for (const platform of ["ios", "android"]) await scenario(`${platform} site filter matches names and origins while preserving selection`, {
   initialSession:true, multipleSites:true, platform:/** @type {"ios"|"android"} */(platform),
 }, async app => {
@@ -36,6 +169,7 @@ for (const platform of ["ios", "android"]) await scenario(`${platform} site filt
   assert.doesNotMatch(app.text(), /Find sites|Filter sites/);
   await app.press("Find sites"); assert(app.expanded("Find sites"));
   assert.equal(app.inputValue("Filter sites"), "");
+  assert(app.siteFilterInline(), "the input shares the horizontal Sites heading row");
   const requestCount=app.requests.length;
   await app.type("Filter sites", "  aGgReGaTe  ");
   assert(app.buttonLabels().includes("Aggregate site")); assert(!app.buttonLabels().includes("Other site"));
@@ -152,7 +286,7 @@ for (const platform of ["ios", "android"]) await scenario(`${platform} menu dism
 await scenario("settings show an account image and non-admin role", {
   initialSession: true, account:{email:"team@example.com",name:"Teammate",role:"user",avatar:{url:"https://example.com/avatar.png"}},
 }, async app => {
-  assert(app.imageUris().includes("https://example.com/avatar.png"));
+  assert(app.imageUris().some(value => value.startsWith("data:image/png;base64,")));
   await app.press("Account menu"); await app.press("Settings");
   assert.match(app.text(), /team@example.com Account role User/);
 });
@@ -383,19 +517,76 @@ await scenario("fresh login cleanup cannot enable sign-in during a newer Google 
   assert.doesNotMatch(app.text(), /Visits 35/);
 });
 
+let currentFaviconURL = `/api/sites/${site.id}/favicon?v=1`;
+for (const faviconFormat of /** @type {const} */ (["png", "svg", "ico"])) await scenario(`site badges show a collected ${faviconFormat} favicon without another text row`, {
+  initialSession: true, faviconFormat, siteList: () => [{ ...site, favicon_url: `/api/sites/${site.id}/favicon?v=1` }],
+}, async app => {
+  assert(app.requests.includes(`/api/sites/${site.id}/favicon`));
+  const icon = app.siteIcon("Aggregate site");
+  assert(icon);
+  assert.match(icon, /^data:image\//);
+  assert.equal(app.siteIconDecorative("Aggregate site"), true);
+  assert(app.selected("Aggregate site"));
+  await app.press("Find sites"); await app.type("Filter sites", "aggregate");
+  assert.equal(app.siteIcon("Aggregate site"), icon);
+});
+
+await scenario("site badges keep their text when a favicon fails and load a changed favicon URL", {
+  initialSession: true, faviconFormat: "png", siteList: () => [{ ...site, favicon_url: currentFaviconURL }],
+}, async app => {
+  assert(app.siteIcon("Aggregate site"));
+  await app.siteIconError("Aggregate site");
+  assert.equal(app.siteIcon("Aggregate site"), null);
+  assert(app.buttonText("Aggregate site").includes("Aggregate site"));
+  currentFaviconURL = `/api/sites/${site.id}/favicon?v=2`;
+  await app.refresh();
+  assert(app.siteIcon("Aggregate site"));
+});
+
+await scenario("site badges omit absent and failed favicon images", {
+  initialSession: true, faviconFailure: true, siteList: () => [{ ...site, favicon_url: "" }, { ...site, id: "other-site", name: "Other site", favicon_url: "/api/sites/other-site/favicon?ts=1" }],
+}, async app => {
+  assert(!app.requests.includes(`/api/sites/${site.id}/favicon`));
+  assert.equal(app.siteIcon("Aggregate site"), null);
+  assert.equal(app.siteIcon("Other site"), null);
+  await app.press("Other site");
+  assert(app.selected("Other site"));
+});
+
+await scenario("site favicons retry on foreground return and reset across accounts", {
+  initialSession: true, siteList: () => [{ ...site, favicon_url: "/api/sites/aggregate-site/favicon?ts=1" }],
+}, async app => {
+  await app.siteIconError("Aggregate site");
+  assert.equal(app.siteIcon("Aggregate site"), null);
+  await app.system("light", true);
+  assert(app.siteIcon("Aggregate site"));
+  const before = app.requests.filter(path => path.endsWith("/favicon")).length;
+  app.setAccount({email:"new@example.com",name:"New owner",role:"admin"});
+  await app.refresh();
+  assert(app.siteIcon("Aggregate site"));
+  assert(app.requests.filter(path => path.endsWith("/favicon")).length > before);
+});
+
 console.log(`${scenarioCount} mobile app flow checks passed`);
 
 /**
  * @param {string} name
- * @param {{ initialSession: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, siteList?: () => Array<typeof site>, intervalCounts?: Record<string,number>, emptySites?: boolean, failFirstWrite?: boolean, account?: {email:string,name:string,role:string,avatar?:{url:string}}, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
- * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], type: (label:string,value:string) => Promise<void>, inputValue: (label:string) => string|null, expanded: (label:string) => boolean, keyboardDismissals: () => number, lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, imageUris: () => string[], back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
+ * @param {{ initialSession: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, siteList?: () => Array<typeof site>, intervalCounts?: Record<string,number>, faviconFailure?: boolean, faviconFormat?: "png" | "svg" | "ico", emptySites?: boolean, avatarMode?: "refresh" | "expired" | "failed" | "invalid" | "oversized" | "conversion" | "conversion-throw" | "octet-stream", failFirstWrite?: boolean, account?: import("../src/types").Account, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
+ * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], type: (label:string,value:string) => Promise<void>, inputValue: (label:string) => string|null, expanded: (label:string) => boolean, keyboardDismissals: () => number, lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverPhoto: () => void, holdNextPhoto: () => void, releasePhoto: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, imageUris: () => string[], siteIcon: (label: string) => string | null, siteIconDecorative: (label: string) => boolean, siteIconError: (label: string) => Promise<void>, siteFilterInline: () => boolean, avatarEvent: (event: "load" | "error") => Promise<void>, avatarCallback: (event: "load" | "error") => () => void, setAccount: (account: import("../src/types").Account) => void, back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
  */
 async function scenario(name, options, check) {
   let authenticated = options.initialSession;
-  const currentAccount = options.account ?? account;
+  let avatarMode = options.avatarMode;
+  let holdNextPhoto = false;
+  /** @type {(() => void) | undefined} */ let releasePhoto;
+  let currentAccount = options.account ?? account;
   let lastInterval = "";
+  let pendingAvatarRequests = 0;
+  let imageRequestCount = 0;
+  let allocatedImageBlobs = 0;
+  let closedImageBlobs = 0;
   /** @type {Device} */
-  const device = { storage: new Map(), scheme: options.systemTheme ?? "light", listeners: new Set(), foreground: new Set(), readFailure: options.readFailure ?? false, writeFailure: options.storageFailure ?? false, holdWrites: options.holdWrites ?? false, pendingWrites: [], failFirstWrite: options.failFirstWrite ?? false, writeCount: 0, back: new Set(), platform:options.platform ?? "ios", tags:new Map(), focused:[], nativeOverride: null, keyboardDismissals: 0 };
+  const device = { storage: new Map(), scheme: options.systemTheme ?? "light", listeners: new Set(), foreground: new Set(), readFailure: options.readFailure ?? false, writeFailure: options.storageFailure ?? false, holdWrites: options.holdWrites ?? false, pendingWrites: [], failFirstWrite: options.failFirstWrite ?? false, writeCount: 0, back: new Set(), platform:options.platform ?? "ios", tags:new Map(), focused:[], nativeOverride: null, keyboardDismissals: 0, appState: "active", imageReadFailure: avatarMode === "conversion" ? "callback" : avatarMode === "conversion-throw" ? "throw" : "none" };
   if (options.storedTheme !== undefined) device.storage.set("loopaware.mobile.theme", options.storedTheme);
   const visibleSite = { ...site, traffic_profile: options.trafficProfile ?? "aggregate" };
   /** @type {string[]} */
@@ -413,7 +604,24 @@ async function scenario(name, options, check) {
     const deferredRequest = (options.deferSites && path === "/api/sites" && requests.filter(value => value === path).length === 1)
       || (options.deferDashboard && path === `/api/sites/${site.id}/visits/stats`)
       || (options.deferPortfolio && path === "/api/reports/traffic/portfolio" && !requests.includes(path));
-    const response = await fetch(input, init);
+    const imageRequest = path.endsWith("/favicon") || path === "/api/me/avatar" || String(input) === "https://example.com/avatar.png";
+    const holdPhoto = imageRequest && holdNextPhoto;
+    if (holdPhoto) holdNextPhoto = false;
+    if (imageRequest) {
+      assert.equal(init?.credentials, String(input) === "https://example.com/avatar.png" ? "omit" : "include");
+      assert.equal(init?.cache, "no-store");
+    }
+    if (imageRequest) pendingAvatarRequests++;
+    let response;
+    try { response = await fetch(String(input) === "https://example.com/avatar.png" ? `${origin}/external-avatar` : input, holdPhoto ? { ...init, signal: undefined } : init); }
+    finally { if (imageRequest) pendingAvatarRequests--; }
+    if (imageRequest) {
+      const readBlob = response.blob.bind(response);
+      response.blob = async () => {
+        const blob = await readBlob(); allocatedImageBlobs++;
+        return Object.assign(blob, { close() { closedImageBlobs++; } });
+      };
+    }
     if (deferredRequest) {
       const readJSON = response.json.bind(response);
       response.json = async () => {
@@ -422,11 +630,31 @@ async function scenario(name, options, check) {
         return data;
       };
     }
+    if (holdPhoto) await new Promise(resolve => { releasePhoto = () => resolve(undefined); });
     return response;
   };
   const server = createServer((request, response) => {
     const requestURL = new URL(request.url || "/", "http://localhost");
     const path = requestURL.pathname;
+    if (path.endsWith("/favicon")) {
+      requests.push(path); requestURLs.push(requestURL.href);
+      if (options.faviconFailure) { response.writeHead(503); response.end(); return; }
+      response.writeHead(200, {"Content-Type": {png:"image/png",svg:"image/svg+xml",ico:"image/x-icon"}[options.faviconFormat || "png"]});
+      response.end(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jC5kAAAAASUVORK5CYII=", "base64")); return;
+    }
+    if (path === "/api/me/avatar" || path === "/external-avatar") {
+      requests.push(path); requestURLs.push(requestURL.href);
+      imageRequestCount++;
+      if (avatarMode === "expired" || (avatarMode === "refresh" && imageRequestCount === 1)) {
+        response.writeHead(401, {"Content-Type":"application/json"}); response.end('{"error":"unauthorized"}'); return;
+      }
+      if (avatarMode === "failed") { response.writeHead(503); response.end(); return; }
+      if (avatarMode === "invalid") { response.writeHead(200, {"Content-Type":"text/html"}); response.end("invalid image"); return; }
+      if (avatarMode === "oversized") { response.writeHead(200, {"Content-Type":"image/png"}); response.end(Buffer.alloc((1 << 20) + 1)); return; }
+      response.writeHead(200, {"Content-Type": avatarMode === "octet-stream" ? "application/octet-stream" : "image/png", "Cache-Control":"no-cache"});
+      response.end(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jC5kAAAAASUVORK5CYII=", "base64"));
+      return;
+    }
     const interval = requestURL.searchParams.get("interval") || "30days";
     requests.push(path);
     requestURLs.push(requestURL.href);
@@ -437,7 +665,7 @@ async function scenario(name, options, check) {
     let payload;
     switch (path) {
       case "/api/me": status = authenticated ? 200 : 401; payload = authenticated ? currentAccount : { error: "unauthorized" }; break;
-      case "/auth/refresh": status = 401; payload = { error: "missing_session" }; break;
+      case "/auth/refresh": status = avatarMode === "refresh" ? 200 : 401; payload = status === 200 ? {} : { error: "missing_session" }; break;
       case "/auth/nonce": payload = { nonce: "issued-nonce" }; break;
       case "/auth/google/native/config":
         payload = { clients: [{ platform: "ios", client_id: "ios-client", redirect_uris: ["loopaware:/oauth"] }], authorization_endpoint: "https://accounts.example/auth", token_endpoint: "https://accounts.example/token", scopes: ["openid"] }; break;
@@ -497,7 +725,7 @@ async function scenario(name, options, check) {
       const tag=device.tags.size+1;
       const props = /** @type {{accessibilityRole?:string,accessibilityLabel?:string,children?:React.ReactNode}} */ (element.props);
       device.tags.set(tag, `${props.accessibilityRole ?? "text"}:${props.accessibilityLabel ?? textContent(props.children)}`);
-      return {tag,focus(){device.focused.push(`${props.accessibilityRole ?? "text"}:${props.accessibilityLabel ?? ""}`);}};
+      return {tag,scrollTo(){},focus(){device.focused.push(`${props.accessibilityRole ?? "text"}:${props.accessibilityLabel ?? ""}`);}};
     } });
   }
   try {
@@ -518,6 +746,14 @@ async function scenario(name, options, check) {
       await act(async () => { button.props.onPress(); });
       await settle();
     }
+    /** @param {"load" | "error"} event */
+    function avatarCallback(event) {
+      const image = tree().root.findAll(node => String(node.type) === "Image" && node.props.source?.uri)[0];
+      assert(image, `${name}: account image`);
+      const callback = image.props[event === "load" ? "onLoad" : "onError"];
+      assert.equal(typeof callback, "function", `${name}: native image ${event} callback`);
+      return /** @type {() => void} */ (callback);
+    }
     await check({
       text, requests, requestURLs, buttonLabels: () => tree().root.findAll(node => String(node.type) === "Pressable").map(node => node.props.accessibilityLabel ?? textContent(node.props.children)),
       async type(label,value) { const input=tree().root.findAll(node => String(node.type) === "TextInput" && node.props.accessibilityLabel === label)[0]; assert(input,`${name}: ${label}`); await act(async()=>{input.props.onChangeText(value);}); await settle(); },
@@ -530,15 +766,34 @@ async function scenario(name, options, check) {
       nativeAppearance() { return device.nativeOverride ?? "unspecified"; },
       focused() { return device.focused.at(-1) ?? ""; },
       statusBarStyle() { return tree().root.findAll(node => String(node.type) === "StatusBar")[0].props.style; },
-      buttonText(label) { const button = findButton(label); assert(button); return textContent(button.props.children); },
+      buttonText(label) { const button = findButton(label); assert(button); return textContent(button.findAll(node => String(node.type) === "Text").map(node => node.props.children)); },
       async back() { await act(async () => { const modal=tree().root.findAll(node => String(node.type) === "Modal")[0]; if (modal) modal.props.onRequestClose(); else for (const callback of device.back) callback(); }); await settle(); },
+      siteIcon(label) { return findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0]?.props.source?.uri ?? null; },
+      siteIconDecorative(label) { return findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0]?.props.accessible === false; },
+      async siteIconError(label) { const icon = findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0]; assert(icon); await act(async () => icon.props.onError()); await settle(); },
+      siteFilterInline() {
+        const input = tree().root.findAll(node => String(node.type) === "TextInput" && node.props.accessibilityLabel === "Filter sites")[0];
+        const row = input?.parent?.parent;
+        return row?.props.style?.flexDirection === "row"
+          && row.findAll(node => String(node.type) === "Text" && node.props.children === "Sites").length === 1
+          && row.findAll(node => String(node.type) === "Pressable" && node.props.accessibilityLabel === "Find sites").length === 1;
+      },
+      avatarCallback,
+      async avatarEvent(event) { const callback = avatarCallback(event); await act(async () => callback()); await settle(); },
+      setAccount(account) { currentAccount = account; },
       imageUris() { return tree().root.findAll(node => String(node.type) === "Image").map(node => node.props.source?.uri).filter(Boolean); },
       async system(scheme, foreground = false) {
         device.scheme = scheme;
-        await act(async () => { for (const notify of (foreground ? device.foreground : device.listeners)) notify(); });
+        await act(async () => {
+          if (foreground) { device.appState = "background"; for (const notify of device.foreground) notify(); device.appState = "active"; }
+          for (const notify of (foreground ? device.foreground : device.listeners)) notify();
+        });
         await settle();
       },
       async remount() { await act(async () => { renderer?.unmount(); }); await act(async () => { renderer = createApp(); }); await settle(); },
+      recoverPhoto() { avatarMode = undefined; device.imageReadFailure = "none"; },
+      holdNextPhoto() { holdNextPhoto = true; },
+      async releasePhoto() { assert(releasePhoto); await act(async () => releasePhoto?.()); await settle(); },
       recoverStorage() { device.readFailure = false; device.writeFailure = false; },
       async releaseWrite() { const release = device.pendingWrites.shift(); assert(release); await act(async () => { release(); }); await settle(); },
       press,
@@ -580,6 +835,7 @@ async function scenario(name, options, check) {
     if (renderer) await act(async () => renderer?.unmount());
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
+    assert.equal(closedImageBlobs, allocatedImageBlobs, `${name}: release native image bytes`);
   }
 
   async function settle() {
@@ -588,7 +844,7 @@ async function scenario(name, options, check) {
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
       await act(async () => { for (const node of tree().root.findAll(node => String(node.type) === "Text" && node.props.onLayout)) node.props.onLayout(); });
       if (deferred && responseHeld) return;
-      if (!tree().root.findAll(node => String(node.type) === "ActivityIndicator").length) return;
+      if (pendingAvatarRequests === 0 && !tree().root.findAll(node => String(node.type) === "ActivityIndicator").length) return;
     }
     throw new Error(`${name}: app did not finish loading`);
   }
@@ -609,7 +865,7 @@ function textContent(node) {
   return textContent(element.children ?? element.props?.children);
 }
 
-/** @typedef {{storage: Map<string,string>, scheme: "light"|"dark", listeners: Set<()=>void>, foreground: Set<()=>void>, readFailure:boolean,writeFailure:boolean,holdWrites:boolean,pendingWrites:Array<()=>void>,failFirstWrite:boolean,writeCount:number,back:Set<()=>boolean>,platform:"ios"|"android",tags:Map<number,string>,focused:string[], nativeOverride:"light"|"dark"|null,keyboardDismissals:number}} Device */
+/** @typedef {{storage: Map<string,string>, scheme: "light"|"dark", listeners: Set<()=>void>, foreground: Set<()=>void>, readFailure:boolean,writeFailure:boolean,holdWrites:boolean,pendingWrites:Array<()=>void>,failFirstWrite:boolean,writeCount:number,back:Set<()=>boolean>,platform:"ios"|"android",tags:Map<number,string>,focused:string[], nativeOverride:"light"|"dark"|null,keyboardDismissals:number,appState:"active"|"background",imageReadFailure:"none"|"callback"|"throw"}} Device */
 /** @param {string} origin @param {typeof fetch} fetcher @param {() => Promise<unknown>} prompt @param {Device} device */
 function loadApp(origin, fetcher, prompt, device) {
   let assetLoadCount = 0;
@@ -627,16 +883,17 @@ function loadApp(origin, fetcher, prompt, device) {
   /** @type {Record<string, unknown>} */
   const mocks = {
     "./assets/icon.png": 1,
-    "react-native": { ...Object.fromEntries(nativeComponents.map(name => [name, name])), Platform: { OS: device.platform }, Keyboard: {dismiss(){device.keyboardDismissals++;}},
+    "react-native": { ...Object.fromEntries(nativeComponents.map(name => [name, name])), Platform: { OS: device.platform }, useWindowDimensions: () => ({ width: 375, height: 667, scale: 2, fontScale: 1 }), Keyboard: {dismiss(){device.keyboardDismissals++;}},
       AccessibilityInfo: { setAccessibilityFocus: (/** @type {number} */ tag) => { const label=device.tags.get(tag); assert(label); device.focused.push(label); } },
       findNodeHandle: (/** @type {{tag:number}|null} */ node) => node?.tag ?? null,
       Modal: NativeModal,
       BackHandler: { addEventListener: (/** @type {string} */ name, /** @type {()=>boolean} */ callback) => {device.back.add(callback); return {remove(){device.back.delete(callback);}};} },
       Appearance: { getColorScheme: () => device.nativeOverride ?? device.scheme, setColorScheme: (/** @type {"light"|"dark"|"unspecified"} */ value) => {device.nativeOverride=value === "unspecified" ? null : value; for (const notify of device.listeners) notify();}, addChangeListener: (/** @type {()=>void} */ notify) => { device.listeners.add(notify); return {remove(){ device.listeners.delete(notify); }}; } },
-      AppState: { addEventListener: (/** @type {string} */ event, /** @type {(state:string)=>void} */ callback) => { const notify = () => callback("active"); device.foreground.add(notify); return {remove(){ device.foreground.delete(notify); }}; } },
+      AppState: { get currentState() { return device.appState; }, addEventListener: (/** @type {string} */ event, /** @type {(state:string)=>void} */ callback) => { const notify = () => callback(device.appState); device.foreground.add(notify); return {remove(){ device.foreground.delete(notify); }}; } },
       StyleSheet: { create: (/** @type {unknown} */ value) => value, hairlineWidth: 1 } },
     "react-native-safe-area-context": { SafeAreaProvider: "SafeAreaProvider", SafeAreaView: "SafeAreaView" },
     "expo-status-bar": { StatusBar: "StatusBar" },
+    "expo-image": { Image: "FaviconImage" },
     "expo-secure-store": {
       getItemAsync: async (/** @type {string} */ key) => { if (key === "loopaware.mobile.theme" && device.readFailure) throw new Error("controlled-read-failure"); return device.storage.get(key) ?? null; },
       setItemAsync: async (/** @type {string} */ key, /** @type {string} */ value) => {
@@ -669,13 +926,13 @@ function loadApp(origin, fetcher, prompt, device) {
     const module = { exports: {} };
     modules.set(filename, module);
     const compiled = ts.transpileModule(readFileSync(filename, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true }, fileName: filename });
-    const execute = new Script(`(function(require, module, exports, fetch, requestAnimationFrame, cancelAnimationFrame) { ${compiled.outputText}\n})`, { filename }).runInThisContext();
+    const execute = new Script(`(function(require, module, exports, fetch, requestAnimationFrame, cancelAnimationFrame, FileReader) { ${compiled.outputText}\n})`, { filename }).runInThisContext();
     execute((/** @type {string} */ name) => {
       if (name === "./assets/icon.png") assetLoadCount += 1;
       if (name in mocks) return mocks[name];
       if (name.startsWith(".")) return load(resolve(dirname(filename), `${name}.ts`));
       return require(name);
-    }, module, module.exports, fetcher, (/** @type {()=>void} */ callback) => setTimeout(callback,0), (/** @type {ReturnType<typeof setTimeout>} */ timer) => clearTimeout(timer));
+    }, module, module.exports, fetcher, (/** @type {()=>void} */ callback) => setTimeout(callback,0), (/** @type {ReturnType<typeof setTimeout>} */ timer) => clearTimeout(timer), class extends ProtocolFileReader { constructor() { super(device.imageReadFailure); } });
     return module.exports;
   }
   return { App: load(resolve(mobileRoot, "App.tsx")).default, assetLoads: () => assetLoadCount };
