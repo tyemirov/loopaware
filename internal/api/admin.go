@@ -331,8 +331,9 @@ type VisitAttributionResponse struct {
 }
 
 type AttributionPoint struct {
-	Value      string `json:"value"`
-	VisitCount int64  `json:"visit_count"`
+	Value              string `json:"value"`
+	VisitCount         int64  `json:"visit_count"`
+	UniqueVisitorCount int64  `json:"unique_visitor_count"`
 }
 
 type VisitEngagementResponse struct {
@@ -371,8 +372,9 @@ type DeviceBreakdownResponse struct {
 }
 
 type DeviceTypePoint struct {
-	DeviceType string `json:"device_type"`
-	VisitCount int64  `json:"visit_count"`
+	DeviceType         string `json:"device_type"`
+	VisitCount         int64  `json:"visit_count"`
+	UniqueVisitorCount int64  `json:"unique_visitor_count"`
 }
 
 type LocationDistributionResponse struct {
@@ -383,21 +385,23 @@ type LocationDistributionResponse struct {
 }
 
 type LocationPoint struct {
-	Label      string  `json:"label"`
-	Source     string  `json:"source"`
-	Signal     string  `json:"signal"`
-	Country    string  `json:"country"`
-	Region     string  `json:"region"`
-	City       string  `json:"city"`
-	Latitude   float64 `json:"latitude"`
-	Longitude  float64 `json:"longitude"`
-	Confidence int     `json:"confidence"`
-	VisitCount int64   `json:"visit_count"`
+	Label              string  `json:"label"`
+	Source             string  `json:"source"`
+	Signal             string  `json:"signal"`
+	Country            string  `json:"country"`
+	Region             string  `json:"region"`
+	City               string  `json:"city"`
+	Latitude           float64 `json:"latitude"`
+	Longitude          float64 `json:"longitude"`
+	Confidence         int     `json:"confidence"`
+	VisitCount         int64   `json:"visit_count"`
+	UniqueVisitorCount int64   `json:"unique_visitor_count"`
 }
 
 type TopPageEntry struct {
-	Path       string `json:"path"`
-	VisitCount int64  `json:"visit_count"`
+	Path               string `json:"path"`
+	VisitCount         int64  `json:"visit_count"`
+	UniqueVisitorCount int64  `json:"unique_visitor_count"`
 }
 
 type VisitLogEntry struct {
@@ -1323,6 +1327,12 @@ func (handlers *SiteHandlers) VisitStats(context *gin.Context) {
 		return
 	}
 
+	sortOrder, sortErr := parseTrafficSort(context.Query(trafficSortQueryKey))
+	if sortErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidTrafficSort})
+		return
+	}
+
 	interval, intervalErr := parseTrafficInterval(context.Query("interval"))
 	if intervalErr != nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidInterval})
@@ -1356,9 +1366,9 @@ func (handlers *SiteHandlers) VisitStats(context *gin.Context) {
 	}
 	var topPages []TopPageStat
 	if interval.IsAll() {
-		topPages, err = handlers.statsProvider.TopPages(context.Request.Context(), site.ID, 10)
+		topPages, err = handlers.statsProvider.TopPages(context.Request.Context(), site.ID, 10, sortOrder)
 	} else {
-		topPages, err = handlers.statsProvider.TopPagesForDays(context.Request.Context(), site.ID, interval.Days(), 10)
+		topPages, err = handlers.statsProvider.TopPagesForDays(context.Request.Context(), site.ID, interval.Days(), 10, sortOrder)
 	}
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
@@ -1458,6 +1468,12 @@ func (handlers *SiteHandlers) VisitAttribution(context *gin.Context) {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidLimit})
 		return
 	}
+	sortOrder, sortErr := parseTrafficSort(context.Query(trafficSortQueryKey))
+	if sortErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidTrafficSort})
+		return
+	}
+
 	interval, intervalErr := parseTrafficInterval(context.Query("interval"))
 	if intervalErr != nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidInterval})
@@ -1467,9 +1483,9 @@ func (handlers *SiteHandlers) VisitAttribution(context *gin.Context) {
 	var breakdown VisitAttributionBreakdown
 	var err error
 	if interval.IsAll() {
-		breakdown, err = handlers.statsProvider.VisitAttribution(context.Request.Context(), site.ID, limit)
+		breakdown, err = handlers.statsProvider.VisitAttribution(context.Request.Context(), site.ID, limit, sortOrder)
 	} else {
-		breakdown, err = handlers.statsProvider.VisitAttributionForDays(context.Request.Context(), site.ID, interval.Days(), limit)
+		breakdown, err = handlers.statsProvider.VisitAttributionForDays(context.Request.Context(), site.ID, interval.Days(), limit, sortOrder)
 	}
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
@@ -1555,6 +1571,12 @@ func (handlers *SiteHandlers) DeviceBreakdown(context *gin.Context) {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidLimit})
 		return
 	}
+	sortOrder, sortErr := parseTrafficSort(context.Query(trafficSortQueryKey))
+	if sortErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidTrafficSort})
+		return
+	}
+
 	interval, intervalErr := parseTrafficInterval(context.Query("interval"))
 	if intervalErr != nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidInterval})
@@ -1564,9 +1586,9 @@ func (handlers *SiteHandlers) DeviceBreakdown(context *gin.Context) {
 	var breakdown DeviceBreakdownStat
 	var err error
 	if interval.IsAll() {
-		breakdown, err = handlers.statsProvider.DeviceBreakdown(context.Request.Context(), site.ID, limit)
+		breakdown, err = handlers.statsProvider.DeviceBreakdown(context.Request.Context(), site.ID, limit, sortOrder)
 	} else {
-		breakdown, err = handlers.statsProvider.DeviceBreakdownForDays(context.Request.Context(), site.ID, interval.Days(), limit)
+		breakdown, err = handlers.statsProvider.DeviceBreakdownForDays(context.Request.Context(), site.ID, interval.Days(), limit, sortOrder)
 	}
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
@@ -1597,6 +1619,12 @@ func (handlers *SiteHandlers) LocationDistribution(context *gin.Context) {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidLimit})
 		return
 	}
+	sortOrder, sortErr := parseTrafficSort(context.Query(trafficSortQueryKey))
+	if sortErr != nil {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidTrafficSort})
+		return
+	}
+
 	interval, intervalErr := parseTrafficInterval(context.Query("interval"))
 	if intervalErr != nil {
 		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidInterval})
@@ -1606,9 +1634,9 @@ func (handlers *SiteHandlers) LocationDistribution(context *gin.Context) {
 	var locations []LocationDistributionStat
 	var err error
 	if interval.IsAll() {
-		locations, err = handlers.statsProvider.LocationDistribution(context.Request.Context(), site.ID, limit)
+		locations, err = handlers.statsProvider.LocationDistribution(context.Request.Context(), site.ID, limit, sortOrder)
 	} else {
-		locations, err = handlers.statsProvider.LocationDistributionForDays(context.Request.Context(), site.ID, interval.Days(), limit)
+		locations, err = handlers.statsProvider.LocationDistributionForDays(context.Request.Context(), site.ID, interval.Days(), limit, sortOrder)
 	}
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
