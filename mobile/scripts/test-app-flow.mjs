@@ -382,13 +382,37 @@ await scenario("mobile traffic uses unique counts for values, bars, and ranked b
   assert.deepEqual(app.bar("2026-10-21"), { value: "5 unique visitors, 7 page views", width: "100%" });
   assert.deepEqual(app.bar("2026-10-19"), { value: "3 unique visitors, 13 page views", width: "60%" });
   assert.deepEqual(app.bar("2026-10-22"), { value: "0 unique visitors, 0 page views", width: "0%" });
-  for (const [reach, busy] of [["/reach", "/busy"], ["reach-source", "busy-source"], ["Mobile", "Desktop"], ["Reach place", "Busy place"]]) {
+  for (const [reach, busy] of [["/reach", "/busy"], ["reach-source", "busy-source"], ["Mobile", "Desktop"]]) {
     assert.deepEqual(app.bar(reach), { value: "3 unique visitors, 3 page views", width: "100%" });
     assert.deepEqual(app.bar(busy), { value: "1 unique visitors, 20 page views", width: "33%" });
     assert(app.text().indexOf(reach) < app.text().indexOf(busy));
   }
+  assert.equal(app.bar("Reach place"), null);
+  assert(app.buttonLabels().includes("Show Reach place on map"));
+  await app.press("Show Busy place on map");
+  assert.match(app.text(), /Busy place 1 unique visitor 20 page views/);
   await app.press("7d");
   assert(app.requestURLs.some(address => address.includes("interval=7days") && address.includes("sort=unique_visitors")));
+});
+
+await scenario("mobile Locations uses a geographic map and keeps unknown signals off the map", {
+  initialSession: true, trafficProfile: "detailed", locationPoints: [
+    { label: "Los Angeles", source: "edge_geo", signal: "city", city: "Los Angeles", region: "California", country: "US", latitude: 34.05, longitude: -118.24, confidence: 1, visit_count: 37, unique_visitor_count: 23 },
+    { label: "Moscow", source: "timezone", signal: "timezone", city: "", region: "", country: "RU", latitude: 55.75, longitude: 37.62, confidence: 0.4, visit_count: 3, unique_visitor_count: 3 },
+    { label: "UTC", source: "timezone", signal: "timezone", city: "", region: "", country: "", latitude: 0, longitude: 0, confidence: 0.1, visit_count: 16, unique_visitor_count: 16 },
+  ],
+}, async app => {
+  await app.press("Traffic");
+  assert(app.mapImageUri()?.startsWith("data:image/svg+xml,"));
+  assert(app.buttonLabels().includes("Show Los Angeles on map"));
+  assert(app.buttonLabels().includes("Show Moscow on map"));
+  assert(!app.buttonLabels().includes("Show UTC on map"));
+  assert.match(app.text(), /Los Angeles 23 unique visitors 37 page views/);
+  assert.match(app.text(), /Location unavailable UTC 16 unique visitors 16 page views/);
+  await app.press("Show Moscow on map");
+  assert.match(app.text(), /Moscow 3 unique visitors 3 page views/);
+  await app.press("7d");
+  assert.match(app.text(), /Los Angeles 23 unique visitors 37 page views/);
 });
 
 await scenario("detailed Trend ranks unique visitors and shows unique values and supporting page views", {
@@ -598,8 +622,8 @@ console.log(`${scenarioCount} mobile app flow checks passed`);
 
 /**
  * @param {string} name
- * @param {{ initialSession: boolean, uniqueTraffic?: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, siteList?: () => Array<typeof site>, intervalCounts?: Record<string,number>, faviconFailure?: boolean, faviconFormat?: "png" | "svg" | "ico", emptySites?: boolean, avatarMode?: "refresh" | "expired" | "failed" | "invalid" | "oversized" | "conversion" | "conversion-throw" | "octet-stream", failFirstWrite?: boolean, account?: import("../src/types").Account, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
- * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], type: (label:string,value:string) => Promise<void>, inputValue: (label:string) => string|null, expanded: (label:string) => boolean, keyboardDismissals: () => number, lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverPhoto: () => void, holdNextPhoto: () => void, releasePhoto: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, bar: (label:string) => {value:string,width:string}|null, waitFor: (predicate: () => boolean) => Promise<void>, imageUris: () => string[], siteIcon: (label: string) => string | null, siteIconDecorative: (label: string) => boolean, siteIconError: (label: string) => Promise<void>, siteFilterInline: () => boolean, avatarEvent: (event: "load" | "error") => Promise<void>, avatarCallback: (event: "load" | "error") => () => void, setAccount: (account: import("../src/types").Account) => void, back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
+ * @param {{ initialSession: boolean, uniqueTraffic?: boolean, locationPoints?: import("../src/types").LocationPoint[], platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, siteList?: () => Array<typeof site>, intervalCounts?: Record<string,number>, faviconFailure?: boolean, faviconFormat?: "png" | "svg" | "ico", emptySites?: boolean, avatarMode?: "refresh" | "expired" | "failed" | "invalid" | "oversized" | "conversion" | "conversion-throw" | "octet-stream", failFirstWrite?: boolean, account?: import("../src/types").Account, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
+ * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], mapImageUri: () => string | null, type: (label:string,value:string) => Promise<void>, inputValue: (label:string) => string|null, expanded: (label:string) => boolean, keyboardDismissals: () => number, lastInterval: () => string, background: () => string, selected: (label: string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverPhoto: () => void, holdNextPhoto: () => void, releasePhoto: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, bar: (label:string) => {value:string,width:string}|null, waitFor: (predicate: () => boolean) => Promise<void>, imageUris: () => string[], siteIcon: (label: string) => string | null, siteIconDecorative: (label: string) => boolean, siteIconError: (label: string) => Promise<void>, siteFilterInline: () => boolean, avatarEvent: (event: "load" | "error") => Promise<void>, avatarCallback: (event: "load" | "error") => () => void, setAccount: (account: import("../src/types").Account) => void, back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
  */
 async function scenario(name, options, check) {
   let authenticated = options.initialSession;
@@ -716,7 +740,7 @@ async function scenario(name, options, check) {
       default:
         if (options.trafficProfile === "detailed" && /\/visits\/(attribution|engagement|devices|locations)$/.test(path)) {
           payload = {
-            sources: options.uniqueTraffic ? ranked("value","reach-source","busy-source") : options.intervalCounts ? [{value:`source-${interval}`,visit_count:visitCount,unique_visitor_count:visitCount}] : [], mediums: [], campaigns: [], device_types: options.uniqueTraffic ? ranked("device_type","mobile","desktop") : options.intervalCounts ? [{device_type:"mobile",visit_count:visitCount,unique_visitor_count:visitCount}] : [], top_resolutions: [], top_viewports: [], locations: options.uniqueTraffic ? ranked("label","Reach place","Busy place") : options.intervalCounts ? [{label:`Place ${interval}`,visit_count:visitCount,unique_visitor_count:visitCount}] : [],
+            sources: options.uniqueTraffic ? ranked("value","reach-source","busy-source") : options.intervalCounts ? [{value:`source-${interval}`,visit_count:visitCount,unique_visitor_count:visitCount}] : [], mediums: [], campaigns: [], device_types: options.uniqueTraffic ? ranked("device_type","mobile","desktop") : options.intervalCounts ? [{device_type:"mobile",visit_count:visitCount,unique_visitor_count:visitCount}] : [], top_resolutions: [], top_viewports: [], locations: options.locationPoints ?? (options.uniqueTraffic ? ranked("label","Reach place","Busy place").map((point, index) => ({...point, latitude: index ? 38 : 51, longitude: index ? -122 : 0, source:"edge_geo",signal:"city", country:"US",region:"",city:point.label,confidence:1})) : options.intervalCounts ? [{label:`Place ${interval}`,visit_count:visitCount,unique_visitor_count:visitCount,latitude:51,longitude:0,source:"edge_geo",signal:"city",country:"GB",region:"",city:"Place",confidence:1}] : []),
             tracked_visitor_count: 8, returning_visitor_count: 2, returning_visitor_rate: 0.25, average_pages_per_visitor: 1.5,
             depth_distribution: {}, observed_time_distribution: {},
           };
@@ -789,6 +813,7 @@ async function scenario(name, options, check) {
     }
     await check({
       text, requests, requestURLs, buttonLabels: () => tree().root.findAll(node => String(node.type) === "Pressable").map(node => node.props.accessibilityLabel ?? textContent(node.props.children)),
+      mapImageUri: () => tree().root.findAll(node => String(node.type) === "FaviconImage" && node.props.accessibilityLabel === "World map")[0]?.props.source?.uri ?? null,
       async type(label,value) { const input=tree().root.findAll(node => String(node.type) === "TextInput" && node.props.accessibilityLabel === label)[0]; assert(input,`${name}: ${label}`); await act(async()=>{input.props.onChangeText(value);}); await settle(); },
       inputValue(label) { return tree().root.findAll(node => String(node.type) === "TextInput" && node.props.accessibilityLabel === label)[0]?.props.value ?? null; },
       expanded(label) { return findButton(label)?.props.accessibilityState?.expanded === true; },
