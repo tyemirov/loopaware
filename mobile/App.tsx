@@ -960,6 +960,7 @@ function locationCountSummary(location: LocationPoint): string {
 function LocationMap(props: { locations: LocationPoint[] }) {
   const { styles, colors } = useAppStyles();
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  const [frameWidth, setFrameWidth] = useState<number | null>(null);
   const plotted = props.locations.filter(mappedLocation).slice(0, 10);
   const unlocated = props.locations.filter(location => !mappedLocation(location));
   const selected = plotted.find(location => location.label === selectedLabel) ?? plotted[0];
@@ -977,25 +978,45 @@ function LocationMap(props: { locations: LocationPoint[] }) {
 
   return (
     <View style={styles.locationMapStack}>
-      <View style={styles.locationMapCanvas}>
-        <FaviconImage source={mapSource} style={styles.locationMapImage} contentFit="fill" accessibilityLabel="World map" />
-        {plotted.map(location => {
-          const size = 18 + Math.sqrt(location.visit_count / maximum) * 18;
-          const active = location.label === selected?.label;
-          return (
-            <Pressable key={`${location.label}-${location.source}`} accessibilityRole="button"
-              accessibilityLabel={`Show ${location.label} on map`}
-              accessibilityValue={{ text: locationCountSummary(location) }}
-              accessibilityState={{ selected: active }}
-              onPress={() => setSelectedLabel(location.label)}
-              style={[styles.locationMapMarker, locationPosition(location), active && styles.locationMapMarkerActive]}>
-              <View style={[styles.locationMapBubble, { width: size, height: size, borderRadius: size / 2 }]}>
-                <Text style={styles.locationMapBubbleText}>{formatCount(location.visit_count)}</Text>
-              </View>
-            </Pressable>
-          );
-        })}
+      <View testID="location-map-frame" style={styles.locationMapFrame}
+        onLayout={event => setFrameWidth(event.nativeEvent.layout.width)}>
+        <View testID="location-map-canvas" style={[styles.locationMapCanvas, frameWidth === null ? null : { width: Math.min(locationMapWidth, frameWidth) }]}>
+          <FaviconImage source={mapSource} style={styles.locationMapImage} contentFit="fill" accessibilityLabel="World map" />
+          {plotted.map(location => {
+            const size = 18 + Math.sqrt(location.visit_count / maximum) * 18;
+            const active = location.label === selected?.label;
+            return (
+              <Pressable key={`${location.label}-${location.source}`} accessibilityRole="button"
+                accessibilityLabel={`Show ${location.label} on map`}
+                accessibilityValue={{ text: locationCountSummary(location) }}
+                accessibilityState={{ selected: active }}
+                onPress={() => setSelectedLabel(location.label)}
+                style={[styles.locationMapMarker, locationPosition(location), active && styles.locationMapMarkerActive]}>
+                <View style={[styles.locationMapBubble, { width: size, height: size, borderRadius: size / 2 }]}>
+                  <Text maxFontSizeMultiplier={1.1} style={styles.locationMapBubbleText}>{formatCount(location.visit_count)}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
+      {plotted.length > 1 ? (
+        <View style={styles.locationMapChoices}>
+          {plotted.map(location => {
+            const active = location.label === selected?.label;
+            return (
+              <Pressable key={`${location.label}-${location.source}`} accessibilityRole="button"
+                accessibilityLabel={`Select ${location.label} location`}
+                accessibilityValue={{ text: locationCountSummary(location) }}
+                accessibilityState={{ selected: active }}
+                onPress={() => setSelectedLabel(location.label)}
+                style={[styles.locationMapChoice, active && styles.locationMapChoiceActive]}>
+                <Text style={[styles.locationMapChoiceText, active && styles.locationMapChoiceTextActive]}>{location.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
       {selected ? (
         <View style={styles.locationMapDetail}>
           <Text style={styles.locationMapDetailText}>{locationCountSummary(selected)}</Text>
@@ -1508,8 +1529,13 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
   locationMapStack: {
     gap: 10,
   },
+  locationMapFrame: {
+    width: "100%",
+    alignItems: "center",
+  },
   locationMapCanvas: {
     width: "100%",
+    maxWidth: locationMapWidth,
     aspectRatio: 2.4,
     borderRadius: 10,
     overflow: "hidden",
@@ -1541,6 +1567,35 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
     color: colors.onAccent,
     fontSize: 10,
     fontWeight: "800",
+  },
+  locationMapChoices: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "center",
+  },
+  locationMapChoice: {
+    minHeight: locationMapTouchSize,
+    maxWidth: "100%",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderRadius: 999,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
+  },
+  locationMapChoiceActive: {
+    borderColor: colors.teal,
+    backgroundColor: colors.accentSurface,
+  },
+  locationMapChoiceText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  locationMapChoiceTextActive: {
+    color: colors.tealDark,
   },
   locationMapDetail: {
     backgroundColor: colors.surfaceAlt,
