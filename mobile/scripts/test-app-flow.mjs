@@ -415,6 +415,49 @@ await scenario("mobile Locations uses a geographic map and keeps unknown signals
   assert.match(app.text(), /Los Angeles 23 unique visitors 37 page views/);
 });
 
+const responsiveLocations = [
+  { label: "Los Angeles", source: "edge_geo", signal: "city", city: "Los Angeles", region: "California", country: "US", latitude: 34.05, longitude: -118.24, confidence: 1, visit_count: 37, unique_visitor_count: 23 },
+  { label: "San Francisco", source: "edge_geo", signal: "city", city: "San Francisco", region: "California", country: "US", latitude: 37.77, longitude: -122.42, confidence: 1, visit_count: 12, unique_visitor_count: 8 },
+  { label: "New York", source: "edge_geo", signal: "city", city: "New York", region: "New York", country: "US", latitude: 40.71, longitude: -74.01, confidence: 1, visit_count: 7, unique_visitor_count: 5 },
+];
+/** @type {Array<[string, {width:number,height:number,scale:number,fontScale:number}, number, number]>} */
+const responsiveViewports = [
+  ["narrow iPhone", {width:320,height:568,scale:2,fontScale:1}, 258, 258],
+  ["standard Android phone", {width:393,height:852,scale:3,fontScale:1}, 331, 331],
+  ["tablet portrait with large text", {width:768,height:1024,scale:2,fontScale:1.5}, 706, 706],
+  ["tablet landscape", {width:1194,height:834,scale:2,fontScale:1}, 1132, 720],
+];
+for (const [name, viewport, contentWidth, expectedWidth] of responsiveViewports) await scenario(`location map adapts to ${name}`, {
+  initialSession: true, trafficProfile: "detailed", locationPoints: responsiveLocations,
+  platform: name.includes("Android") ? "android" : "ios", viewport,
+}, async app => {
+  await app.press("Traffic");
+  await app.layoutMap(contentWidth);
+  assert.deepEqual(app.mapGeometry(), {width: expectedWidth, aspectRatio: 2.4, centered: true});
+  assert.deepEqual(app.mapMarkerSizes(), [44, 44, 44]);
+  assert(app.buttonLabels().includes("Select San Francisco location"));
+  await app.press("Select San Francisco location");
+  assert.match(app.text(), /San Francisco 8 unique visitors 12 page views/);
+  assert(app.selected("Show San Francisco on map"));
+  await app.press("Show New York on map");
+  assert(app.selected("Select New York location"));
+  assert.match(app.text(), /New York 5 unique visitors 7 page views/);
+});
+await scenario("location map preserves selection across tablet rotation", {
+  initialSession: true, trafficProfile: "detailed", locationPoints: responsiveLocations,
+  viewport: {width:768,height:1024,scale:2,fontScale:1},
+}, async app => {
+  await app.press("Traffic");
+  await app.layoutMap(706);
+  await app.press("Select New York location");
+  await app.resize(1194, 834, 1132);
+  assert.deepEqual(app.mapGeometry(), {width:720,aspectRatio:2.4,centered:true});
+  assert(app.selected("Select New York location"));
+  await app.resize(768, 1024, 706);
+  assert.deepEqual(app.mapGeometry(), {width:706,aspectRatio:2.4,centered:true});
+  assert.match(app.text(), /New York 5 unique visitors 7 page views/);
+});
+
 await scenario("detailed Trend ranks unique visitors and shows unique values and supporting page views", {
   initialSession: true, trafficProfile: "detailed", trend: () => trendPoints,
 }, async (app) => {
@@ -622,8 +665,8 @@ console.log(`${scenarioCount} mobile app flow checks passed`);
 
 /**
  * @param {string} name
- * @param {{ initialSession: boolean, uniqueTraffic?: boolean, locationPoints?: import("../src/types").LocationPoint[], platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, siteList?: () => Array<typeof site>, intervalCounts?: Record<string,number>, faviconFailure?: boolean, faviconFormat?: "png" | "svg" | "ico", emptySites?: boolean, avatarMode?: "refresh" | "expired" | "failed" | "invalid" | "oversized" | "conversion" | "conversion-throw" | "octet-stream", failFirstWrite?: boolean, account?: import("../src/types").Account, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
- * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], mapImageUri: () => string | null, type: (label:string,value:string) => Promise<void>, inputValue: (label:string) => string|null, expanded: (label:string) => boolean, keyboardDismissals: () => number, lastInterval: () => string, background: () => string, selected: (label: string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverPhoto: () => void, holdNextPhoto: () => void, releasePhoto: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, bar: (label:string) => {value:string,width:string}|null, waitFor: (predicate: () => boolean) => Promise<void>, imageUris: () => string[], siteIcon: (label: string) => string | null, siteIconDecorative: (label: string) => boolean, siteIconError: (label: string) => Promise<void>, siteFilterInline: () => boolean, avatarEvent: (event: "load" | "error") => Promise<void>, avatarCallback: (event: "load" | "error") => () => void, setAccount: (account: import("../src/types").Account) => void, back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
+ * @param {{ initialSession: boolean, uniqueTraffic?: boolean, locationPoints?: import("../src/types").LocationPoint[], viewport?: {width:number,height:number,scale:number,fontScale:number}, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, siteList?: () => Array<typeof site>, intervalCounts?: Record<string,number>, faviconFailure?: boolean, faviconFormat?: "png" | "svg" | "ico", emptySites?: boolean, avatarMode?: "refresh" | "expired" | "failed" | "invalid" | "oversized" | "conversion" | "conversion-throw" | "octet-stream", failFirstWrite?: boolean, account?: import("../src/types").Account, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
+ * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], mapImageUri: () => string | null, mapGeometry: () => {width:number|string,aspectRatio:number,centered:boolean}, mapMarkerSizes: () => number[], layoutMap: (width:number) => Promise<void>, resize: (width:number,height:number,contentWidth:number) => Promise<void>, type: (label:string,value:string) => Promise<void>, inputValue: (label:string) => string|null, expanded: (label:string) => boolean, keyboardDismissals: () => number, lastInterval: () => string, background: () => string, selected: (label: string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverPhoto: () => void, holdNextPhoto: () => void, releasePhoto: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, bar: (label:string) => {value:string,width:string}|null, waitFor: (predicate: () => boolean) => Promise<void>, imageUris: () => string[], siteIcon: (label: string) => string | null, siteIconDecorative: (label: string) => boolean, siteIconError: (label: string) => Promise<void>, siteFilterInline: () => boolean, avatarEvent: (event: "load" | "error") => Promise<void>, avatarCallback: (event: "load" | "error") => () => void, setAccount: (account: import("../src/types").Account) => void, back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
  */
 async function scenario(name, options, check) {
   let authenticated = options.initialSession;
@@ -637,7 +680,7 @@ async function scenario(name, options, check) {
   let allocatedImageBlobs = 0;
   let closedImageBlobs = 0;
   /** @type {Device} */
-  const device = { storage: new Map(), scheme: options.systemTheme ?? "light", listeners: new Set(), foreground: new Set(), readFailure: options.readFailure ?? false, writeFailure: options.storageFailure ?? false, holdWrites: options.holdWrites ?? false, pendingWrites: [], failFirstWrite: options.failFirstWrite ?? false, writeCount: 0, back: new Set(), platform:options.platform ?? "ios", tags:new Map(), focused:[], nativeOverride: null, keyboardDismissals: 0, appState: "active", imageReadFailure: avatarMode === "conversion" ? "callback" : avatarMode === "conversion-throw" ? "throw" : "none" };
+  const device = { storage: new Map(), scheme: options.systemTheme ?? "light", listeners: new Set(), foreground: new Set(), readFailure: options.readFailure ?? false, writeFailure: options.storageFailure ?? false, holdWrites: options.holdWrites ?? false, pendingWrites: [], failFirstWrite: options.failFirstWrite ?? false, writeCount: 0, back: new Set(), platform:options.platform ?? "ios", viewport:options.viewport ?? {width:375,height:667,scale:2,fontScale:1}, tags:new Map(), focused:[], nativeOverride: null, keyboardDismissals: 0, appState: "active", imageReadFailure: avatarMode === "conversion" ? "callback" : avatarMode === "conversion-throw" ? "throw" : "none" };
   if (options.storedTheme !== undefined) device.storage.set("loopaware.mobile.theme", options.storedTheme);
   const visibleSite = { ...site, traffic_profile: options.trafficProfile ?? "aggregate" };
   /** @type {string[]} */
@@ -814,6 +857,29 @@ async function scenario(name, options, check) {
     await check({
       text, requests, requestURLs, buttonLabels: () => tree().root.findAll(node => String(node.type) === "Pressable").map(node => node.props.accessibilityLabel ?? textContent(node.props.children)),
       mapImageUri: () => tree().root.findAll(node => String(node.type) === "FaviconImage" && node.props.accessibilityLabel === "World map")[0]?.props.source?.uri ?? null,
+      mapGeometry() {
+        const frame = tree().root.findAll(node => node.props.testID === "location-map-frame")[0];
+        const canvas = tree().root.findAll(node => node.props.testID === "location-map-canvas")[0];
+        assert(frame && canvas);
+        const style = Array.isArray(canvas.props.style) ? Object.assign({}, ...canvas.props.style.filter(Boolean)) : canvas.props.style;
+        return {width:style.width,aspectRatio:style.aspectRatio,centered:frame.props.style.alignItems === "center"};
+      },
+      mapMarkerSizes() { return tree().root.findAll(node => String(node.type) === "Pressable" && String(node.props.accessibilityLabel).startsWith("Show ") && String(node.props.accessibilityLabel).endsWith(" on map")).map(node => node.props.style[0].width); },
+      async layoutMap(width) {
+        const frame = tree().root.findAll(node => node.props.testID === "location-map-frame")[0];
+        assert(frame);
+        await act(async () => frame.props.onLayout({nativeEvent:{layout:{width,height:width/2.4,x:0,y:0}}}));
+        await settle();
+      },
+      async resize(width,height,contentWidth) {
+        device.viewport = {...device.viewport,width,height};
+        await act(async () => tree().update(React.createElement(App)));
+        await settle();
+        const frame = tree().root.findAll(node => node.props.testID === "location-map-frame")[0];
+        assert(frame);
+        await act(async () => frame.props.onLayout({nativeEvent:{layout:{width:contentWidth,height:contentWidth/2.4,x:0,y:0}}}));
+        await settle();
+      },
       async type(label,value) { const input=tree().root.findAll(node => String(node.type) === "TextInput" && node.props.accessibilityLabel === label)[0]; assert(input,`${name}: ${label}`); await act(async()=>{input.props.onChangeText(value);}); await settle(); },
       inputValue(label) { return tree().root.findAll(node => String(node.type) === "TextInput" && node.props.accessibilityLabel === label)[0]?.props.value ?? null; },
       expanded(label) { return findButton(label)?.props.accessibilityState?.expanded === true; },
@@ -939,7 +1005,7 @@ function textContent(node) {
   return textContent(element.children ?? element.props?.children);
 }
 
-/** @typedef {{storage: Map<string,string>, scheme: "light"|"dark", listeners: Set<()=>void>, foreground: Set<()=>void>, readFailure:boolean,writeFailure:boolean,holdWrites:boolean,pendingWrites:Array<()=>void>,failFirstWrite:boolean,writeCount:number,back:Set<()=>boolean>,platform:"ios"|"android",tags:Map<number,string>,focused:string[], nativeOverride:"light"|"dark"|null,keyboardDismissals:number,appState:"active"|"background",imageReadFailure:"none"|"callback"|"throw"}} Device */
+/** @typedef {{storage: Map<string,string>, scheme: "light"|"dark", listeners: Set<()=>void>, foreground: Set<()=>void>, readFailure:boolean,writeFailure:boolean,holdWrites:boolean,pendingWrites:Array<()=>void>,failFirstWrite:boolean,writeCount:number,back:Set<()=>boolean>,platform:"ios"|"android",viewport:{width:number,height:number,scale:number,fontScale:number},tags:Map<number,string>,focused:string[], nativeOverride:"light"|"dark"|null,keyboardDismissals:number,appState:"active"|"background",imageReadFailure:"none"|"callback"|"throw"}} Device */
 /** @param {string} origin @param {typeof fetch} fetcher @param {() => Promise<unknown>} prompt @param {Device} device */
 function loadApp(origin, fetcher, prompt, device) {
   let assetLoadCount = 0;
@@ -957,7 +1023,7 @@ function loadApp(origin, fetcher, prompt, device) {
   /** @type {Record<string, unknown>} */
   const mocks = {
     "./assets/icon.png": 1,
-    "react-native": { ...Object.fromEntries(nativeComponents.map(name => [name, name])), Platform: { OS: device.platform }, useWindowDimensions: () => ({ width: 375, height: 667, scale: 2, fontScale: 1 }), Keyboard: {dismiss(){device.keyboardDismissals++;}},
+    "react-native": { ...Object.fromEntries(nativeComponents.map(name => [name, name])), Platform: { OS: device.platform }, useWindowDimensions: () => device.viewport, Keyboard: {dismiss(){device.keyboardDismissals++;}},
       AccessibilityInfo: { setAccessibilityFocus: (/** @type {number} */ tag) => { const label=device.tags.get(tag); assert(label); device.focused.push(label); } },
       findNodeHandle: (/** @type {{tag:number}|null} */ node) => node?.tag ?? null,
       Modal: NativeModal,
