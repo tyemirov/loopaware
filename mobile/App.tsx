@@ -32,6 +32,7 @@ import type {
   Account,
   DashboardTab,
   FeedbackMessage,
+  LocationPoint,
   PortfolioDashboard,
   SentryIssue,
   Site,
@@ -40,6 +41,7 @@ import type {
   TrafficInterval,
   VisitTrendPoint,
 } from "./src/types";
+import { locationWorldLandPath } from "./src/location-world-land";
 
 const selectedSiteStorageKey = "loopaware.mobile.selectedSiteId";
 const dashboardTabs: Array<{ key: DashboardTab; label: string }> = [
@@ -734,7 +736,7 @@ function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInte
         <Bars items={devices.device_types} labelFor={(item) => sentenceCase(item.device_type)} valueFor={(item) => item.unique_visitor_count} detailFor={item => `${formatCount(item.visit_count)} page views`} />
       </Section>
       <Section title="Locations">
-        <Bars items={locations.locations} labelFor={(item) => item.label} valueFor={(item) => item.unique_visitor_count} detailFor={item => `${formatCount(item.visit_count)} page views`} />
+        <LocationMap locations={locations.locations} />
       </Section>
     </View>
   );
@@ -926,6 +928,107 @@ function Bars<T>(props: { items: T[]; labelFor: (item: T) => string; valueFor: (
         <DataBar key={`${props.labelFor(item)}-${index}`} label={props.labelFor(item)} value={props.valueFor(item)} maxValue={maxValue} measure="unique_visitors" detail={props.detailFor(item)} />
       ))}
     </>
+  );
+}
+
+const locationMapWidth = 720;
+const locationMapHeight = 300;
+const locationMapTouchSize = 44;
+
+function mappedLocation(location: LocationPoint): boolean {
+  return location.label !== "UTC" && location.source !== "unknown" && location.signal !== "missing_signal"
+    && (location.country !== "" || location.city !== "" || location.region !== "" || location.latitude !== 0 || location.longitude !== 0);
+}
+
+function locationPosition(location: LocationPoint): { left: `${number}%`; top: `${number}%` } {
+  const degreeSize = locationMapHeight / 180;
+  const longitude = Math.max(-180, Math.min(180, location.longitude));
+  const latitude = Math.max(-80, Math.min(84, location.latitude));
+  const horizontal = ((locationMapWidth / 2 + longitude * degreeSize) / locationMapWidth) * 100;
+  const vertical = ((locationMapHeight / 2 - latitude * degreeSize) / locationMapHeight) * 100;
+  return {
+    left: `${Math.max(7, Math.min(93, horizontal))}%`,
+    top: `${Math.max(16, Math.min(84, vertical))}%`,
+  };
+}
+
+function locationCountSummary(location: LocationPoint): string {
+  const count = location.unique_visitor_count;
+  return `${location.label} ${formatCount(count)} unique visitor${count === 1 ? "" : "s"} ${formatCount(location.visit_count)} page views`;
+}
+
+function LocationMap(props: { locations: LocationPoint[] }) {
+  const { styles, colors } = useAppStyles();
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  const [frameWidth, setFrameWidth] = useState<number | null>(null);
+  const plotted = props.locations.filter(mappedLocation).slice(0, 10);
+  const unlocated = props.locations.filter(location => !mappedLocation(location));
+  const selected = plotted.find(location => location.label === selectedLabel) ?? plotted[0];
+  const maximum = Math.max(1, ...plotted.map(location => location.visit_count));
+  const mapSource = useMemo(() => {
+    const mapSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300">`
+      + `<rect width="720" height="300" fill="${colors.surfaceAlt}"/>`
+      + `<path d="${locationWorldLandPath}" fill="${colors.muted}" fill-opacity="0.35" stroke="${colors.border}" stroke-width="0.8"/>`
+      + `<path d="M160 0V300 M260 0V300 M360 0V300 M460 0V300 M560 0V300 M0 75H720 M0 150H720 M0 225H720" fill="none" stroke="${colors.border}" stroke-width="0.8" stroke-dasharray="3 8"/>`
+      + `</svg>`;
+    return { uri: `data:image/svg+xml,${encodeURIComponent(mapSvg)}` };
+  }, [colors.surfaceAlt, colors.muted, colors.border]);
+
+  if (!props.locations.length) return <EmptyInline text="No location data yet." />;
+
+  return (
+    <View style={styles.locationMapStack}>
+      <View testID="location-map-frame" style={styles.locationMapFrame}
+        onLayout={event => setFrameWidth(event.nativeEvent.layout.width)}>
+        <View testID="location-map-canvas" style={[styles.locationMapCanvas, frameWidth === null ? null : { width: Math.min(locationMapWidth, frameWidth) }]}>
+          <FaviconImage source={mapSource} style={styles.locationMapImage} contentFit="fill" accessibilityLabel="World map" />
+          {plotted.map(location => {
+            const size = 18 + Math.sqrt(location.visit_count / maximum) * 18;
+            const active = location.label === selected?.label;
+            return (
+              <Pressable key={`${location.label}-${location.source}`} accessibilityRole="button"
+                accessibilityLabel={`Show ${location.label} on map`}
+                accessibilityValue={{ text: locationCountSummary(location) }}
+                accessibilityState={{ selected: active }}
+                onPress={() => setSelectedLabel(location.label)}
+                style={[styles.locationMapMarker, locationPosition(location), active && styles.locationMapMarkerActive]}>
+                <View style={[styles.locationMapBubble, { width: size, height: size, borderRadius: size / 2 }]}>
+                  <Text maxFontSizeMultiplier={1.1} style={styles.locationMapBubbleText}>{formatCount(location.visit_count)}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+      {plotted.length > 1 ? (
+        <View style={styles.locationMapChoices}>
+          {plotted.map(location => {
+            const active = location.label === selected?.label;
+            return (
+              <Pressable key={`${location.label}-${location.source}`} accessibilityRole="button"
+                accessibilityLabel={`Select ${location.label} location`}
+                accessibilityValue={{ text: locationCountSummary(location) }}
+                accessibilityState={{ selected: active }}
+                onPress={() => setSelectedLabel(location.label)}
+                style={[styles.locationMapChoice, active && styles.locationMapChoiceActive]}>
+                <Text style={[styles.locationMapChoiceText, active && styles.locationMapChoiceTextActive]}>{location.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+      {selected ? (
+        <View style={styles.locationMapDetail}>
+          <Text style={styles.locationMapDetailText}>{locationCountSummary(selected)}</Text>
+          <Text style={styles.locationMapDetailSource}>{selected.source.replace(/_/g, " ")} · {Math.round(selected.confidence * 100)}% location confidence</Text>
+        </View>
+      ) : null}
+      {unlocated.map(location => (
+        <View key={`${location.label}-${location.source}`} style={styles.locationMapUnknown}>
+          <Text style={styles.locationMapDetailSource}>{`Location unavailable ${locationCountSummary(location)}`}</Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -1422,6 +1525,95 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
     color: colors.ink,
     fontSize: 17,
     fontWeight: "800",
+  },
+  locationMapStack: {
+    gap: 10,
+  },
+  locationMapFrame: {
+    width: "100%",
+    alignItems: "center",
+  },
+  locationMapCanvas: {
+    width: "100%",
+    maxWidth: locationMapWidth,
+    aspectRatio: 2.4,
+    borderRadius: 10,
+    overflow: "hidden",
+    backgroundColor: colors.surfaceAlt,
+  },
+  locationMapImage: {
+    width: "100%",
+    height: "100%",
+  },
+  locationMapMarker: {
+    position: "absolute",
+    width: locationMapTouchSize,
+    height: locationMapTouchSize,
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ translateX: -locationMapTouchSize / 2 }, { translateY: -locationMapTouchSize / 2 }],
+  },
+  locationMapMarkerActive: {
+    zIndex: 1,
+  },
+  locationMapBubble: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.teal,
+    borderColor: colors.surface,
+    borderWidth: 2,
+  },
+  locationMapBubbleText: {
+    color: colors.onAccent,
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  locationMapChoices: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "center",
+  },
+  locationMapChoice: {
+    minHeight: locationMapTouchSize,
+    maxWidth: "100%",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderRadius: 999,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
+  },
+  locationMapChoiceActive: {
+    borderColor: colors.teal,
+    backgroundColor: colors.accentSurface,
+  },
+  locationMapChoiceText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  locationMapChoiceTextActive: {
+    color: colors.tealDark,
+  },
+  locationMapDetail: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 8,
+    padding: 10,
+    gap: 4,
+  },
+  locationMapDetailText: {
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  locationMapDetailSource: {
+    color: colors.muted,
+    fontSize: 12,
+  },
+  locationMapUnknown: {
+    paddingHorizontal: 4,
   },
   statGrid: {
     flexDirection: "row",
