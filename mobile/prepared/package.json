@@ -58,7 +58,7 @@
     "diff@7.0.0": "8.0.4",
     "image-size": "$image-size",
     "js-yaml": "4.3.2",
-    "joi": "17.13.8",
+    "joi": "17.13.9",
     "minimatch@5.1.2": "5.1.9",
     "nanoid": "3.3.18",
     "postcss": "8.5.25",
@@ -72,6 +72,8 @@
     "@expo/cli@57.0.32": {
       "zod": "4.6.7"
     },
-    "deepmerge": "$deepmerge"
+    "deepmerge": "$deepmerge",
+    "glob@13.0.6": "14.0.2",
+    "minimatch@10.2.6": "11.0.4"
   }
 }

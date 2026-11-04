@@ -1,362 +1,388 @@
----
 mprlab_resources:
-  owner: loopaware
-  environment_file: .mprlab/deploy/.env
-  inputs:
-    APP_STORE_CONNECT_API_ISSUER_ID: ${APP_STORE_CONNECT_API_ISSUER_ID}
-    APP_STORE_CONNECT_API_KEY_ID: ${APP_STORE_CONNECT_API_KEY_ID}
-    APP_STORE_CONNECT_API_KEY_PATH: ${APP_STORE_CONNECT_API_KEY_PATH}
-    GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH: ${GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH}
-    LOOPAWARE_ANDROID_KEYSTORE: ${LOOPAWARE_ANDROID_KEYSTORE}
-    LOOPAWARE_ANDROID_KEY_ALIAS: ${LOOPAWARE_ANDROID_KEY_ALIAS}
-    LOOPAWARE_ANDROID_KEY_PASSWORD: ${LOOPAWARE_ANDROID_KEY_PASSWORD}
-    LOOPAWARE_ANDROID_STORE_PASSWORD: ${LOOPAWARE_ANDROID_STORE_PASSWORD}
-    LOOPAWARE_APPLE_CERTIFICATE_BASE64: ${LOOPAWARE_APPLE_CERTIFICATE_BASE64}
-    LOOPAWARE_APPLE_CERTIFICATE_PASSWORD: ${LOOPAWARE_APPLE_CERTIFICATE_PASSWORD}
-    LOOPAWARE_APPLE_IDENTITY: ${LOOPAWARE_APPLE_IDENTITY}
-    LOOPAWARE_APPLE_PROFILE: ${LOOPAWARE_APPLE_PROFILE}
-    LOOPAWARE_APPLE_TEAM: ${LOOPAWARE_APPLE_TEAM}
-    NPM_API_KEY: ${NPM_API_KEY}
-    PINGUIN_AUTH_TOKEN: ${PINGUIN_AUTH_TOKEN}
-    SESSION_SECRET: ${SESSION_SECRET}
-    TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE: ${TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE}
-    TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE: ${TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE}
-    TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE: ${TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE}
-    TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE: ${TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE}
-    DEPLOY_SUDO_PASSWORD_TUTOSH: ${DEPLOY_SUDO_PASSWORD_TUTOSH}
-    MPRLAB_TAUTH_MANAGEMENT_URL: ${MPRLAB_TAUTH_MANAGEMENT_URL}
-    MPRLAB_TAUTH_PROVISIONING_CREDENTIALS: ${MPRLAB_TAUTH_PROVISIONING_CREDENTIALS}
-  hosts:
-    tutosh:
-      ansible_become_password: DEPLOY_SUDO_PASSWORD_TUTOSH
-  release:
-    scheme: semver
-  ci:
-    enabled: true
-    command:
-      '0': make
-      '1': ci
-  defaults:
-    timeouts:
-      startup: 30s
-      completion: 2m
-      readiness: 30s
-      request: 15s
-      shutdown: 5s
-  operations:
-    app_lifecycle.repository_read:
-      polling:
-        initial: 2s
-        maximum: 15s
-        increment: 2s
-        multiplier: 2
-        attempt_limit: 60
-    app-plan-release:
-      timeouts:
-        completion: 2m
-      polling:
-        initial: 2s
-        maximum: 10s
-        increment: 1s
-        multiplier: 2
-        attempt_limit: 4
-    app-plan-publish:
-      timeouts:
-        completion: 2m
-      polling:
-        initial: 2s
-        maximum: 10s
-        increment: 1s
-        multiplier: 2
-        attempt_limit: 4
-    app-plan-deploy:
-      timeouts:
-        completion: 2m
-      polling:
-        initial: 2s
-        maximum: 10s
-        increment: 1s
-        multiplier: 2
-        attempt_limit: 4
-    app-release:
-      timeouts:
-        completion: 30m
-      polling:
-        initial: 2s
-        maximum: 10s
-        increment: 1s
-        multiplier: 2
-        attempt_limit: 4
-    app-publish:
-      timeouts:
-        completion: 4h
-      polling:
-        initial: 2s
-        maximum: 10s
-        increment: 1s
-        multiplier: 2
-        attempt_limit: 4
-    app_publish.npm.version_verify:
-      polling:
-        initial: 2s
-        maximum: 10s
-        increment: 1s
-        multiplier: 2
-        attempt_limit: 1443
-    app_publish.npm.archive_read:
-      polling:
-        initial: 2s
-        maximum: 10s
-        increment: 1s
-        multiplier: 2
-        attempt_limit: 1443
-    app-deploy:
-      timeouts:
-        completion: 20m
-      polling:
-        initial: 2s
-        maximum: 10s
-        increment: 1s
-        multiplier: 2
-        attempt_limit: 4
-    ci:
-      timeouts:
-        completion: 30m
-    mobile.publication:
-      polling:
-        initial: 1s
-        maximum: 30s
-        increment: 0s
-        multiplier: 2
-        attempt_limit: 120
-    mobile.publication.google:
-      polling:
-        initial: 1s
-        maximum: 30s
-        increment: 0s
-        multiplier: 2
-        attempt_limit: 12
-    deployment.resource.recovery:
-      polling:
-        initial: 1s
-        maximum: 1s
-        increment: 0s
-        multiplier: 1
-        attempt_limit: 3
-    deployment.http-health:
-      polling:
-        initial: 1s
-        maximum: 1s
-        increment: 0s
-        multiplier: 1
-        attempt_limit: 3
-    app_deploy.health.same_host:
-      polling:
-        initial: 15s
-        maximum: 30s
-        increment: 0s
-        multiplier: 2
-        attempt_limit: 3
-    app_deploy.pages.deployment_status_poll:
-      polling:
-        initial: 1s
-        maximum: 10s
-        increment: 0s
-        multiplier: 2
-        attempt_limit: 120
-  resources:
-    private:
-      kind: private_values
-      bindings:
-        google-native-android-client-id: TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE
-        google-native-ios-client-id: TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE
-        google-web-client-id: TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE
-        pinguin-auth-token: PINGUIN_AUTH_TOKEN
-        session-secret: SESSION_SECRET
-        tauth-jwt-signing-key: TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE
-    runtime:
-      kind: compose_project
-      retired_services:
-        mprlab-nginx-gateway/loopaware-api: {}
-      images:
-        backend-image:
-          repository: ghcr.io/tyemirov/loopaware
-          build:
-            context: .
-            dockerfile: Dockerfile
-            platforms:
-            - linux/amd64
-      services:
-        loopaware-api:
-          image: backend-image
-          placement:
-            group: gateway
-            cardinality: one
-          environment:
-            APP_ADDR:
-              value: :8080
-            DB_DRIVER:
-              value: sqlite
-            DB_DSN:
-              value: file:/app/data/loopaware.sqlite?_foreign_keys=on
-            PINGUIN_ADDR:
-              capability: pinguin.grpc
-              component: address
-            PINGUIN_AUTH_TOKEN:
-              resource: private
-              output: pinguin-auth-token
-            PINGUIN_TENANT_ID:
-              value: loopaware
-            PUBLIC_BASE_URL:
-              resource: website
-              output: origin
-            SESSION_SECRET:
-              resource: private
-              output: session-secret
-            TAUTH_BASE_URL:
-              capability: tauth.http
-              component: url
-            TAUTH_JWT_SIGNING_KEY:
-              resource: authentication
-              output: jwt-signing-key
-            TAUTH_SESSION_COOKIE_NAME:
-              resource: authentication
-              output: session-cookie-name
-            TAUTH_TENANT_ID:
-              resource: authentication
-              output: tenant-id
-            TRUSTED_PROXY_CIDR:
-              value: 172.19.0.0/16
-          assets:
-            /app/configs/config.loopaware.yml:
-              source: configs/config.loopaware.yml
-              mode: '0444'
-          mounts:
-            /app/data:
-              volume: data
-              read_only: false
-          ports:
-            '8080': {}
-          readiness:
-            protocol: http
-            port: 8080
-            path: /healthz
-            expected_status: 200
-      volumes:
-        data:
-          name: mprlab-nginx-gateway_loopaware-data
-          retention: retain
-    http:
-      kind: runtime_capability
-      name: loopaware.http
-      version: 1
-      project: runtime
-      service: loopaware-api
-      endpoint:
-        scope: same_host
-        scheme: http
-        alias: loopaware-api
-        port: 8080
-      health:
-        protocol: http
-        path: /healthz
-        expected_status: 200
-    public-api:
-      kind: caddy_route
-      hostname: loopaware-api.mprlab.com
-      listener: https
-      handlers:
-        default:
-          path_prefix: /
-          upstream: loopaware.http
-          transport:
-            protocol: http
-            dial_timeout_seconds: 10
-            response_header_timeout_seconds: 30
-            read_timeout_seconds: 80
-      tls:
-        mode: automatic
-      access:
-        trusted_networks:
-        - 127.0.0.1/32
-        - 172.19.0.0/16
-        - 192.168.1.158/32
-        rate_limit:
-          events: 300
-          window_seconds: 10
-    public-health:
-      kind: health_check
-      protocol: http
-      url: https://loopaware-api.mprlab.com/healthz
-      expected_status: 200
-    website-health:
-      kind: health_check
-      protocol: http
-      url: https://loopaware.mprlab.com/healthz
-      expected_status: 200
-    website:
-      kind: github_pages
-      repository: tyemirov/loopaware
-      branch: gh-pages
-      domain: loopaware.mprlab.com
-      url: https://loopaware.mprlab.com/
-      source:
-        kind: directory
-        path: web
-      verification:
-        path: /.mprlab-release.json
-    react-native-client:
-      kind: npm_package
-      source: clients/react-native
-      package: '@loopaware/react-native'
-      registry: https://registry.npmjs.org/
-      access: public
-      tag: latest
-    mobile:
-      kind: mobile_application
-      source: mobile/prepared
-      build_system: local
-      build:
-        android: mobile/scripts/build-store-artifact.mjs
-        ios: mobile/scripts/build-store-artifact.mjs
-      ios:
-        bundle_identifier: com.mprlab.loopaware
-        app_store_id: '6788555440'
-        destination: testflight
-        track: internal
-      android:
-        package_name: com.mprlab.loopaware
-        destination: google_play
-        track: internal
-    authentication:
-      kind: tauth_tenant
-      capability: tauth.tenants
-      version: 1
-      tenant:
-        id: loopaware
-        display_name: LoopAware
-        origins:
-        - https://loopaware.mprlab.com
-        google_web_client_id:
-          resource: private
-          output: google-web-client-id
-        google_native_clients:
-          android:
-            client_id:
-              resource: private
-              output: google-native-android-client-id
-            redirect_uris:
-            - com.mprlab.loopaware:/oauth2redirect/google
-          ios:
-            client_id:
-              resource: private
-              output: google-native-ios-client-id
-            redirect_uris:
-            - com.googleusercontent.apps.281540686395-8a90ldjnklddl0qpoc8ur6620lguv7mg:/oauth2redirect/google
-        jwt_signing_key:
-          resource: private
-          output: tauth-jwt-signing-key
-        cookie:
-          domain: .mprlab.com
-          session_name: app_session_loopaware
-          refresh_name: app_refresh_loopaware
+    artifacts:
+        container_images:
+            - build:
+                context: .
+                dockerfile: Dockerfile
+                platforms:
+                    - linux/amd64
+              id: backend-image
+        mobile:
+            - android:
+                package_name: com.mprlab.loopaware
+              build:
+                android: mobile/scripts/build-store-artifact.mjs
+                ios: mobile/scripts/build-store-artifact.mjs
+              build_system: local
+              id: mobile
+              ios:
+                bundle_identifier: com.mprlab.loopaware
+                export_intent: internal-only
+              source: mobile/prepared
+        npm_packages:
+            - id: react-native-client
+              package: '@loopaware/react-native'
+              source: clients/react-native
+        web_bundles:
+            - format: directory
+              id: website
+              source:
+                kind: directory
+                path: web
+    environment:
+        private_inputs:
+            - id: app-store-connect-api-issuer-id
+              variable: APP_STORE_CONNECT_API_ISSUER_ID
+            - id: app-store-connect-api-key-id
+              variable: APP_STORE_CONNECT_API_KEY_ID
+            - id: app-store-connect-api-key-path
+              variable: APP_STORE_CONNECT_API_KEY_PATH
+            - id: deploy-sudo-password-tutosh
+              variable: DEPLOY_SUDO_PASSWORD_TUTOSH
+            - id: google-play-service-account-key-path
+              variable: GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH
+            - id: loopaware-android-keystore
+              variable: LOOPAWARE_ANDROID_KEYSTORE
+            - id: loopaware-android-key-alias
+              variable: LOOPAWARE_ANDROID_KEY_ALIAS
+            - id: loopaware-android-key-password
+              variable: LOOPAWARE_ANDROID_KEY_PASSWORD
+            - id: loopaware-android-store-password
+              variable: LOOPAWARE_ANDROID_STORE_PASSWORD
+            - id: loopaware-apple-certificate-base64
+              variable: LOOPAWARE_APPLE_CERTIFICATE_BASE64
+            - id: loopaware-apple-certificate-password
+              variable: LOOPAWARE_APPLE_CERTIFICATE_PASSWORD
+            - id: loopaware-apple-identity
+              variable: LOOPAWARE_APPLE_IDENTITY
+            - id: loopaware-apple-profile
+              variable: LOOPAWARE_APPLE_PROFILE
+            - id: loopaware-apple-team
+              variable: LOOPAWARE_APPLE_TEAM
+            - id: mprlab-tauth-management-url
+              variable: MPRLAB_TAUTH_MANAGEMENT_URL
+            - id: mprlab-tauth-provisioning-credentials
+              variable: MPRLAB_TAUTH_PROVISIONING_CREDENTIALS
+            - id: npm-api-key
+              variable: NPM_API_KEY
+            - id: pinguin-auth-token
+              variable: PINGUIN_AUTH_TOKEN
+            - id: session-secret
+              variable: SESSION_SECRET
+            - id: tauth-tenant-google-android-client-id-loopaware
+              variable: TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE
+            - id: tauth-tenant-google-ios-client-id-loopaware
+              variable: TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE
+            - id: tauth-tenant-google-web-client-id-loopaware
+              variable: TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE
+            - id: tauth-tenant-jwt-signing-key-loopaware
+              variable: TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE
+        source: .mprlab/deploy/.env
+    lifecycle:
+        ci:
+            command:
+                - make
+                - ci
+            enabled: true
+        defaults:
+            timeouts:
+                completion: 2m
+                readiness: 30s
+                request: 15s
+                shutdown: 5s
+                startup: 30s
+        observations:
+            http:
+                - expected_status: 200
+                  id: public-health
+                  protocol: http
+                  url: https://loopaware-api.mprlab.com/healthz
+                - expected_status: 200
+                  id: website-health
+                  protocol: http
+                  url: https://loopaware.mprlab.com/healthz
+        operations:
+            - name: app-deploy
+              polling:
+                attempt_limit: 4
+                increment: 1s
+                initial: 2s
+                maximum: 10s
+                multiplier: 2
+              timeouts:
+                completion: 20m
+            - name: app-plan-deploy
+              polling:
+                attempt_limit: 4
+                increment: 1s
+                initial: 2s
+                maximum: 10s
+                multiplier: 2
+              timeouts:
+                completion: 2m
+            - name: app-plan-publish
+              polling:
+                attempt_limit: 4
+                increment: 1s
+                initial: 2s
+                maximum: 10s
+                multiplier: 2
+              timeouts:
+                completion: 2m
+            - name: app-plan-release
+              polling:
+                attempt_limit: 4
+                increment: 1s
+                initial: 2s
+                maximum: 10s
+                multiplier: 2
+              timeouts:
+                completion: 2m
+            - name: app-publish
+              polling:
+                attempt_limit: 4
+                increment: 1s
+                initial: 2s
+                maximum: 10s
+                multiplier: 2
+              timeouts:
+                completion: 4h
+            - name: app-release
+              polling:
+                attempt_limit: 4
+                increment: 1s
+                initial: 2s
+                maximum: 10s
+                multiplier: 2
+              timeouts:
+                completion: 30m
+            - name: app_deploy.health.same_host
+              polling:
+                attempt_limit: 3
+                increment: 0s
+                initial: 15s
+                maximum: 30s
+                multiplier: 2
+            - name: app_deploy.pages.deployment_status_poll
+              polling:
+                attempt_limit: 120
+                increment: 0s
+                initial: 1s
+                maximum: 10s
+                multiplier: 2
+            - name: app_lifecycle.repository_read
+              polling:
+                attempt_limit: 60
+                increment: 2s
+                initial: 2s
+                maximum: 15s
+                multiplier: 2
+            - name: app_publish.npm.archive_read
+              polling:
+                attempt_limit: 1443
+                increment: 1s
+                initial: 2s
+                maximum: 10s
+                multiplier: 2
+            - name: app_publish.npm.version_verify
+              polling:
+                attempt_limit: 1443
+                increment: 1s
+                initial: 2s
+                maximum: 10s
+                multiplier: 2
+            - name: ci
+              timeouts:
+                completion: 30m
+            - name: deployment.http-health
+              polling:
+                attempt_limit: 3
+                increment: 0s
+                initial: 1s
+                maximum: 1s
+                multiplier: 1
+            - name: deployment.resource.recovery
+              polling:
+                attempt_limit: 3
+                increment: 0s
+                initial: 1s
+                maximum: 1s
+                multiplier: 1
+            - name: mobile.publication
+              polling:
+                attempt_limit: 120
+                increment: 0s
+                initial: 1s
+                maximum: 30s
+                multiplier: 2
+            - name: mobile.publication.google
+              polling:
+                attempt_limit: 12
+                increment: 0s
+                initial: 1s
+                maximum: 30s
+                multiplier: 2
+        private_inputs:
+            operations: []
+    owner: loopaware
+    publications:
+        app_store_connect:
+            ios:
+                - app_store_id: "6788555440"
+                  artifact:
+                    id: mobile
+                    platform: ios
+                  destination: testflight
+                  id: mobile-ios
+                  track: internal
+        ghcr:
+            images:
+                - artifact: backend-image
+                  id: backend-image
+                  repository: ghcr.io/tyemirov/loopaware
+        github_pages:
+            sites:
+                - artifact: website
+                  branch: gh-pages
+                  domain: loopaware.mprlab.com
+                  id: website
+                  marker:
+                    path: /.mprlab-release.json
+                  repository: tyemirov/loopaware
+        google_play:
+            applications:
+                - artifact:
+                    id: mobile
+                    platform: android
+                  destination: google_play
+                  id: mobile-android
+                  track: internal
+        npm:
+            packages:
+                - access: public
+                  artifact: react-native-client
+                  id: react-native-client
+                  registry: https://registry.npmjs.org/
+                  tag: latest
+    release:
+        scheme: semver
+    targets:
+        access:
+            hosts:
+                - elevation_password:
+                    input: deploy-sudo-password-tutosh
+                  host: tutosh
+        docker_compose:
+            projects:
+                - id: runtime
+                  retired_services:
+                    - project: mprlab-nginx-gateway
+                      service: loopaware-api
+                  services:
+                    - assets:
+                        - mode: "0444"
+                          source: configs/config.loopaware.yml
+                          target: /app/configs/config.loopaware.yml
+                      endpoints:
+                        - endpoint:
+                            alias: loopaware-api
+                            port: 8080
+                            scheme: http
+                            scope: same_host
+                          health:
+                            expected_status: 200
+                            path: /healthz
+                            protocol: http
+                          id: http
+                          name: loopaware.http
+                          version: 1
+                        - endpoint:
+                            alias: runtime-loopaware-api-readiness
+                            port: 8080
+                            scheme: http
+                            scope: same_host
+                          health:
+                            expected_status: 200
+                            path: /healthz
+                            protocol: http
+                          id: readiness
+                          name: loopaware.readiness.runtime.loopaware-api
+                          version: 1
+                      environment:
+                        - name: APP_ADDR
+                          value: :8080
+                        - name: DB_DRIVER
+                          value: sqlite
+                        - name: DB_DSN
+                          value: file:/app/data/loopaware.sqlite?_foreign_keys=on
+                        - capability: pinguin.grpc
+                          component: address
+                          name: PINGUIN_ADDR
+                        - input: pinguin-auth-token
+                          name: PINGUIN_AUTH_TOKEN
+                        - name: PINGUIN_TENANT_ID
+                          value: loopaware
+                        - name: PUBLIC_BASE_URL
+                          output: origin
+                          target: website
+                        - input: session-secret
+                          name: SESSION_SECRET
+                        - capability: tauth.http
+                          component: url
+                          name: TAUTH_BASE_URL
+                        - input: tauth-tenant-jwt-signing-key-loopaware
+                          name: TAUTH_JWT_SIGNING_KEY
+                        - name: TAUTH_SESSION_COOKIE_NAME
+                          value: app_session_loopaware
+                        - name: TAUTH_TENANT_ID
+                          value: loopaware
+                        - name: TRUSTED_PROXY_CIDR
+                          value: 172.19.0.0/16
+                      id: loopaware-api
+                      image:
+                        publication: backend-image
+                      mounts:
+                        - read_only: false
+                          target: /app/data
+                          volume: data
+                      placement:
+                        cardinality: one
+                        group: gateway
+                      ports:
+                        - container_port: 8080
+                      readiness:
+                        endpoint: readiness
+                  volumes:
+                    - id: data
+                      name: mprlab-nginx-gateway_loopaware-data
+                      retention: retain
+        github_pages:
+            sites:
+                - id: website
+                  publication: website
+                  url: https://loopaware.mprlab.com/
+        ingress:
+            caddy:
+                routes:
+                    - access:
+                        rate_limit:
+                            events: 300
+                            window_seconds: 10
+                        trusted_networks:
+                            - 127.0.0.1/32
+                            - 172.19.0.0/16
+                            - 192.168.1.158/32
+                      handlers:
+                        - id: default
+                          path_prefix: /
+                          transport:
+                            dial_timeout_seconds: 10
+                            protocol: http
+                            read_timeout_seconds: 80
+                            response_header_timeout_seconds: 30
+                          upstream: loopaware.http
+                      hostname: loopaware-api.mprlab.com
+                      id: public-api
+                      listener: https
+                      tls:
+                        mode: automatic

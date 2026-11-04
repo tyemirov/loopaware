@@ -1,60 +1,61 @@
 // @ts-check
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, realpathSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
 import originalManifest from './fixtures/signing-context-resources.json' with { type: 'json' };
 const root = resolve(import.meta.dirname, '../..');
 const gateway = process.env.MPRLAB_GATEWAY_EXECUTABLE || 'mprlab-gateway';
+/** @param {string} path @param {string} body */
+function write(path, body) { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, body); }
 if (process.argv[2] === '--write-installation-fixture') {
   const application = process.argv[3];
   assert.ok(application, 'Select an installation fixture directory.');
   const selected = originalManifest.mprlab_resources;
   write(join(application, '.mprlab/deploy/resources.yml'), JSON.stringify(originalManifest));
-  write(join(application, selected.environment_file), Object.keys(selected.inputs).map(name => `${name}=synthetic-runtime-installation-input`).join('\n') + '\n');
+  write(join(application, selected.environment.source), selected.environment.private_inputs.map(input => `${input.variable}=synthetic-runtime-installation-input`).join('\n') + '\n');
   process.exit(0);
 }
 const generated = readFileSync(join(root, 'mobile/prepared/android/app/build.gradle'), 'utf8');
 const signingBody = /signingConfigs \{\s*release \{([\s\S]*?)\n        \}/.exec(generated)?.[1];
 assert.ok(signingBody, 'Generated release signing configuration is required.');
 const wrapper = join(root, 'mobile/prepared/android/gradlew');
-const fixture = realpathSync(mkdtempSync(join(tmpdir(), 'loopaware-sdk-signing-')));
-
-/** @param {string} path @param {string} body */
-function write(path, body) { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, body); }
+mkdirSync(join(root, '_scratch'), { recursive: true });
+const fixture = realpathSync(mkdtempSync(join(root, '_scratch/v8-signing-context-')));
 /** @param {string[]} args @param {string} cwd @param {NodeJS.ProcessEnv} env */
 function git(args, cwd, env) {
-  const result = spawnSync('git', args, { cwd, env, encoding: 'utf8' });
-  assert.equal(result.status, 0, result.stderr);
+  const result = spawnSync('git', args, { cwd, env, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] });
+  assert.ifError(result.error); assert.equal(result.status, 0, result.stdout + result.stderr);
+  return result.stdout.trim();
 }
 try {
   for (const kind of ['relative', 'absolute']) {
     const owner = join(fixture, kind), app = join(owner, 'application'), operator = join(owner, 'operator');
     const tools = join(owner, 'tools'); mkdirSync(tools, { recursive: true });
     const document = structuredClone(originalManifest), selected = document.mprlab_resources;
-    selected.resources = { private: selected.resources.private, mobile: selected.resources.mobile };
-    delete selected.hosts;
-    const names = Object.keys(selected.inputs);
-    const env = { ...process.env };
-    for (const name of Object.keys(env)) if (names.includes(name) || name.startsWith('GIT_') || name.startsWith('MPRLAB_APP_') || name.startsWith('MPRLAB_LIFECYCLE_')) delete env[name];
-    Object.assign(env, { CI: '1', PATH: `${tools}:${process.env.PATH}`, MPRLAB_GATEWAY_CACHE_ROOT: join(owner, 'cache') });
+    selected.owner = 'anonymous';
+    selected.lifecycle.ci.enabled = false;
+    delete selected.lifecycle.observations;
+    selected.lifecycle.operations = selected.lifecycle.operations.filter(entry => entry.name !== 'app_lifecycle.repository_read');
+    selected.lifecycle.operations.push({ name: 'app_lifecycle.repository_read', polling: { initial: '1ms', maximum: '2ms', increment: '0s', multiplier: 2, attempt_limit: 3 } });
+    selected.artifacts.mobile[0].build = { android: 'mobile/scripts/build-store-artifact.mjs' };
+    delete selected.artifacts.mobile[0].ios;
+    selected.publications = {};
+    const names = selected.environment.private_inputs.map(input => input.variable);
+    const env = { HOME: process.env.HOME, PATH: `${tools}:${process.env.PATH}`, CI: '1', GIT_SSH_COMMAND: '/usr/bin/false', JAVA_HOME: process.env.JAVA_HOME };
     const keystore = join(app, 'configs/signing/upload.jks');
     write(keystore, 'public synthetic signing input');
     const assignments = Object.fromEntries(names.map(name => [name, 'synthetic-signing-context-input']));
     assignments.LOOPAWARE_ANDROID_KEYSTORE = kind === 'relative' ? 'configs/signing/upload.jks' : keystore;
-    write(join(app, selected.environment_file), Object.entries(assignments).map(([name, value]) => `${name}=${JSON.stringify(value)}`).join('\n') + '\n');
+    write(join(app, selected.environment.source), Object.entries(assignments).map(([name, value]) => `${name}=${JSON.stringify(value)}`).join('\n') + '\n');
     write(join(app, '.mprlab/deploy/resources.yml'), JSON.stringify(document));
     write(join(app, '.gitignore'), '/.mprlab/deploy/.env\n/configs/signing/\n');
-    write(join(app, 'Makefile'), `ci:\n\t${process.execPath} ci-hook.mjs\n`);
-    write(join(app, 'mobile/scripts/build-store-artifact.mjs'), "throw new Error('The fixture must stop in CI before artifact assembly.');\n");
-    write(join(operator, 'inventory/hosts.yml'), 'all:\n  children:\n    gateway:\n      hosts: {}\n');
-    const mobile = join(app, 'mobile/prepared');
+    const mobile = join(app, 'mobile/prepared'), factsPath = join(owner, 'facts.json');
     write(join(mobile, 'package.json'), '{"name":"sdk-signing-fixture","version":"1.0.0","private":true}\n');
     write(join(mobile, 'package-lock.json'), '{"name":"sdk-signing-fixture","version":"1.0.0","lockfileVersion":3,"packages":{"":{"name":"sdk-signing-fixture","version":"1.0.0"}}}\n');
     write(join(mobile, 'verify.mjs'), "console.log('synthetic native boundary ready');\n");
     write(join(mobile, 'android/settings.gradle'), "rootProject.name = 'signing-boundary'\n");
-    write(join(mobile, 'android/gradlew'), `#!/bin/sh\nexec "${process.execPath}" "$PUBLIC_NATIVE_DRIVER"\n`);
+    write(join(mobile, 'android/gradlew'), '#!/bin/sh\nexec node ../native-driver.mjs\n');
     write(join(mobile, 'android/app/settings.gradle'), "rootProject.name = 'generated-signing-expression'\n");
     const closure = `{ ->\n${signingBody}\n}`;
     write(join(mobile, 'android/app/build.gradle'), `
@@ -77,51 +78,58 @@ tasks.register('verifySigning') {
         def captured = new File(System.getenv('LOOPAWARE_ANDROID_KEYSTORE'))
         def qualified = new File(System.getenv('MPRLAB_APP_ROOT'), 'configs/signing/upload.jks').canonicalFile
         def facts = [capturedIsRelative: !captured.isAbsolute(), exists: probe.selectedFile.isFile(), matchesQualifiedInput: probe.selectedFile.canonicalFile == qualified]
-        new File(System.getenv('PUBLIC_SIGNING_RESULT')).text = groovy.json.JsonOutput.toJson(facts)
+        new File(${JSON.stringify(factsPath)}).text = groovy.json.JsonOutput.toJson(facts)
     }
 }
 `);
-    const driver = join(app, 'native-driver.mjs');
-    write(driver, `
+    write(join(mobile, 'native-driver.mjs'), `
+import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
+assert.equal(process.env.NPM_API_KEY, undefined, 'Unselected private input must not reach native Gradle');
 const result = spawnSync('/bin/sh', [${JSON.stringify(wrapper)}, '--no-daemon', '--console=plain', '--max-workers=1', '-Dorg.gradle.jvmargs=-Xmx256m -XX:MaxMetaspaceSize=256m', '-p', resolve('app'), 'verifySigning'], { env: process.env, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] });
-if (result.status !== 0) { process.stderr.write(result.stdout + result.stderr); process.exit(result.status || 2); }
+if (result.error) throw result.error;
+if (result.status !== 0) { process.stderr.write(result.stdout + result.stderr); process.exit(result.status ?? 2); }
 process.stderr.write('controlled native boundary stopped before bundle compilation\\n');
 process.exit(29);
 `);
-    write(join(app, 'ci-hook.mjs'), `
-import assert from 'node:assert/strict';
+    write(join(app, 'mobile/scripts/build-store-artifact.mjs'), `
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-const root = ${JSON.stringify(app)};
-const resultPath = ${JSON.stringify(join(owner, 'facts.json'))};
-const request = { schema_version: 3, source_root: resolve('mobile/prepared'), platform: 'android', output: ${JSON.stringify(join(owner, 'never-built.aab'))}, application_identifier: 'com.mprlab.loopaware', version: '1.0.0', build_number: '42', release_timestamp: '2026-10-27T10:00:00Z', verify_script: 'verify.mjs', android: { module: 'app', version_name_environment: 'MPRLAB_MOBILE_VERSION_NAME', version_code_environment: 'MPRLAB_MOBILE_VERSION_CODE', signing_environment: ['LOOPAWARE_ANDROID_KEYSTORE','LOOPAWARE_ANDROID_STORE_PASSWORD','LOOPAWARE_ANDROID_KEY_ALIAS','LOOPAWARE_ANDROID_KEY_PASSWORD'] } };
-const result = spawnSync(process.env.MPRLAB_GATEWAY_EXECUTABLE, ['mobile-build-operation'], { env: { ...process.env, MPRLAB_APPLICATION_LIFECYCLE_LOCK: 'exclusive', MPRLAB_LIFECYCLE_OPERATION: 'release', MPRLAB_APP_ROOT: root, LOOPAWARE_ANDROID_KEYSTORE: ${JSON.stringify(keystore)}, PUBLIC_NATIVE_DRIVER: resolve('native-driver.mjs'), PUBLIC_SIGNING_RESULT: resultPath, MPRLAB_MOBILE_BUILD_INTENT: ${JSON.stringify(join(owner, 'intent.json'))} }, input: JSON.stringify(request), encoding: 'utf8' });
-assert.notEqual(result.status, 0);
-assert.match(result.stderr, /controlled native boundary stopped before bundle compilation/, result.stdout + result.stderr);
-const facts = JSON.parse(readFileSync(resultPath, 'utf8'));
-assert.equal(facts.capturedIsRelative, ${kind === 'relative'});
-assert.equal(facts.exists && facts.matchesQualifiedInput, true, 'Captured signing input must resolve against the original qualified root.');
-console.log('SDK_SIGNING_CONTEXT_OK:${kind}');
-process.exit(73);
+const args = process.argv.slice(2);
+const value = flag => args[args.indexOf(flag) + 1];
+const request = { schema_version: 3, source_root: value('--mobile-dir'), platform: 'android', output: value('--output'), application_identifier: 'com.mprlab.loopaware', version: process.env.MPRLAB_ARTIFACT_VERSION, build_number: '42', release_timestamp: value('--release-timestamp'), verify_script: 'verify.mjs', android: { module: 'app', version_name_environment: 'MPRLAB_MOBILE_VERSION_NAME', version_code_environment: 'MPRLAB_MOBILE_VERSION_CODE', signing_environment: ['LOOPAWARE_ANDROID_KEYSTORE','LOOPAWARE_ANDROID_STORE_PASSWORD','LOOPAWARE_ANDROID_KEY_ALIAS','LOOPAWARE_ANDROID_KEY_PASSWORD'] } };
+const result = spawnSync(process.env.MPRLAB_GATEWAY_EXECUTABLE, ['mobile-build-operation'], { env: { ...process.env, LOOPAWARE_ANDROID_KEYSTORE: '/ambient-shadow-must-not-win.jks' }, input: JSON.stringify(request), encoding: 'utf8', stdio: ['pipe','pipe','pipe'] });
+if (result.error) throw result.error;
+process.stdout.write(result.stdout); process.stderr.write(result.stderr); process.exit(result.status ?? 2);
 `);
+    const providerLog = join(owner, 'provider.jsonl'); write(providerLog, '');
     for (const name of ['npm', 'gh']) {
       const path = join(tools, name); copyFileSync(process.execPath, path);
-      writeFileSync(path, `#!${process.execPath}\n${name === 'npm' ? "if(process.argv.includes('--version'))console.log('11.9.0');" : "console.error('Unexpected provider boundary in SDK signing fixture');process.exit(97);"}\n`);
+      const body = name === 'npm' ? "const args=process.argv.slice(2);if(args[0]==='--version')console.log('11.9.0');else if(args[0]!=='ci')throw new Error('Unexpected npm operation');" : `const fs=require('node:fs');const args=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(providerLog)},JSON.stringify(args)+'\\n');if(JSON.stringify(args)!==JSON.stringify(['api','--method','GET','repos/example/anonymous','--jq','.full_name']))throw new Error('Unexpected provider operation');process.stdout.write('example/anonymous\\n');`;
+      writeFileSync(path, `#!${process.execPath}\n${body}\n`);
     }
-    git(['init', '--quiet', '--initial-branch=master'], app, env);
-    git(['add', '.'], app, env);
-    git(['-c','user.name=Signing Context Fixture','-c','user.email=signing-context@example.invalid','commit','--quiet','-m','Declare signing context fixture'], app, env);
-    const remote = join(owner, 'origin.git'), origin = 'https://github.com/MarcoPoloResearchLab/loopaware.git';
-    git(['clone','--quiet','--bare',app,remote], owner, env);
-    git(['remote','add','origin',origin], app, env);
-    git(['config',`url.${remote}.insteadOf`,origin], app, env);
+    const remote = join(owner, 'origin.git');
+    git(['init','--bare','--initial-branch=fixture-default',remote], owner, env);
+    git(['init','--initial-branch=fixture-default'], app, env);
+    git(['config','user.name','Anonymous Signing Fixture'], app, env);
+    git(['config','user.email','fixture@example.invalid'], app, env);
+    git(['config','commit.gpgSign','false'], app, env);
+    git(['add','.'], app, env); git(['commit','-m','Declare anonymous signing context'], app, env);
+    git(['remote','add','origin',remote], app, env); git(['push','-u','origin','fixture-default'], app, env);
+    const canonical = 'git@github.com:example/anonymous.git';
+    git(['remote','set-url','origin',canonical], app, env);
+    git(['config',`url.file://${remote}.insteadOf`,canonical], app, env); git(['remote','set-head','origin','--auto'], app, env);
     const result = spawnSync(gateway, ['app-release','--app-root',app,'--operator-root',operator], { cwd: app, env, input: '', encoding: 'utf8', timeout: 90_000, maxBuffer: 8*1024*1024 });
-    assert.equal(result.error, undefined);
-    assert.match(result.stdout + result.stderr, new RegExp(`SDK_SIGNING_CONTEXT_OK:${kind}`), result.stdout + result.stderr);
-    assert.match(result.stdout + result.stderr, /Error 73/);
+    assert.ifError(result.error); assert.notEqual(result.status, 0);
+    const output = result.stdout + result.stderr;
+    assert.match(output, /controlled native boundary stopped before bundle compilation/, output);
+    assert.match(output, /29/, output);
+    const facts = JSON.parse(readFileSync(factsPath, 'utf8'));
+    assert.equal(facts.capturedIsRelative, kind === 'relative');
+    assert.equal(facts.exists && facts.matchesQualifiedInput, true, 'Captured signing input must resolve against the original qualified root.');
+    assert.ok(!output.includes('synthetic-signing-context-input'));
+    assert.equal(git(['status','--porcelain'], app, env), '', 'Release failure must preserve synchronized application source');
+    assert.doesNotMatch(readFileSync(providerLog, 'utf8'), /"(create|upload)"/);
     console.log(`Actual SDK signing rebinding passed: ${kind}.`);
   }
-} finally { rmSync(fixture, { recursive: true, force: true }); }
+} finally { rmSync(fixture, { recursive: true, force: true }); assert.equal(existsSync(fixture), false); }

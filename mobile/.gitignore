@@ -10,6 +10,8 @@ dist/
 !/vendor/image-size/dist/**
 !/vendor/deepmerge/dist/
 !/vendor/deepmerge/dist/**
+!/prepared/vendor/deepmerge/dist/
+!/prepared/vendor/deepmerge/dist/**
 web-build/
 expo-env.d.ts
 
