@@ -26,9 +26,9 @@ func TestSelectedApplicationManifestUsesVersionlessContract(testingT *testing.T)
 		manifestKeys = append(manifestKeys, manifestKey)
 	}
 	slices.Sort(manifestKeys)
-	require.Equal(testingT, []string{"ci", "defaults", "environment_file", "hosts", "inputs", "operations", "owner", "release", "resources"}, manifestKeys)
+	require.Equal(testingT, []string{"artifacts", "environment", "lifecycle", "owner", "publications", "release", "targets"}, manifestKeys)
 	require.NotContains(testingT, string(manifestDocument), "schema_version:")
-	require.Equal(testingT, ".mprlab/deploy/.env", manifest["environment_file"])
+	require.Equal(testingT, ".mprlab/deploy/.env", manifest["environment"].(map[string]any)["source"])
 	expectedInputs := map[string]any{}
 	for _, name := range []string{
 		"APP_STORE_CONNECT_API_ISSUER_ID", "APP_STORE_CONNECT_API_KEY_ID", "APP_STORE_CONNECT_API_KEY_PATH",
@@ -40,26 +40,26 @@ func TestSelectedApplicationManifestUsesVersionlessContract(testingT *testing.T)
 		"TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE", "DEPLOY_SUDO_PASSWORD_TUTOSH",
 		"MPRLAB_TAUTH_MANAGEMENT_URL", "MPRLAB_TAUTH_PROVISIONING_CREDENTIALS",
 	} {
-		expectedInputs[name] = "${" + name + "}"
+		expectedInputs[name] = true
 	}
-	require.Equal(testingT, expectedInputs, manifest["inputs"])
-	require.Equal(testingT, map[string]any{
-		"tutosh": map[string]any{"ansible_become_password": "DEPLOY_SUDO_PASSWORD_TUTOSH"},
-	}, manifest["hosts"])
+	actualInputs := map[string]any{}
+	environment := manifest["environment"].(map[string]any)
+	for _, value := range environment["private_inputs"].([]any) {
+		input := value.(map[string]any)
+		variable := input["variable"].(string)
+		require.NotEmpty(testingT, input["id"])
+		require.NotContains(testingT, actualInputs, variable)
+		actualInputs[variable] = true
+	}
+	require.Equal(testingT, expectedInputs, actualInputs)
+	targets := manifest["targets"].(map[string]any)
+	require.Equal(testingT, []any{map[string]any{"host": "tutosh", "elevation_password": map[string]any{"input": "deploy-sudo-password-tutosh"}}}, targets["access"].(map[string]any)["hosts"])
+	mobile := manifest["artifacts"].(map[string]any)["mobile"].([]any)
+	require.Len(testingT, mobile, 1)
+	mobileArtifact := mobile[0].(map[string]any)
+	require.Equal(testingT, "mobile", mobileArtifact["id"])
+	require.NotContains(testingT, mobileArtifact, "publish")
 
-	resources, resourcesAvailable := manifest["resources"].(map[string]any)
-	require.True(testingT, resourcesAvailable)
-	var mobileResource map[string]any
-	for _, resourceValue := range resources {
-		resource, resourceAvailable := resourceValue.(map[string]any)
-		require.True(testingT, resourceAvailable)
-		require.NotContains(testingT, resource, "id")
-		if resource["kind"] == "mobile_application" {
-			mobileResource = resource
-		}
-	}
-	require.NotNil(testingT, mobileResource)
-	require.NotContains(testingT, mobileResource, "publish")
 }
 
 const (

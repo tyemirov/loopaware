@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import os
 import shutil
 import subprocess
 import sys
+import tarfile
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -48,11 +50,11 @@ def prepare_synthetic_application(repository: Path, manifest: bytes) -> dict:
     manifest_path.parent.mkdir(parents=True)
     manifest_path.write_bytes(manifest)
     selected_manifest = yaml.safe_load(manifest)["mprlab_resources"]
-    environment_relative_path = selected_manifest["environment_file"]
+    environment_relative_path = selected_manifest["environment"]["source"]
     synthetic_environment = repository / environment_relative_path
     synthetic_environment.parent.mkdir(parents=True, exist_ok=True)
     synthetic_environment.write_text("".join(
-        f'{name}="synthetic-policy-input"\n' for name in selected_manifest["inputs"]
+        f'{name}="synthetic-policy-input"\n' for name in [entry["variable"] for entry in selected_manifest["environment"]["private_inputs"]]
     ))
     (repository / ".gitignore").write_text("/" + environment_relative_path + "\n")
     return selected_manifest
@@ -82,7 +84,24 @@ def controller_plan(executable: Path, directory: Path, manifest: bytes) -> subpr
     """Validate real source capture and manifest input before the injected Ansible boundary."""
     directory = directory.resolve()
     repository = directory / "app"
-    prepare_synthetic_application(repository, manifest)
+    selected = prepare_synthetic_application(repository, manifest)
+    # Exercise the whole declaration using actual tracked artifact inputs. The
+    # synthetic environment remains isolated from the source checkout's inputs.
+    artifacts = selected["artifacts"]
+    paths = {artifact["source"] for artifact in artifacts.get("mobile", [])}
+    paths.update(adapter for artifact in artifacts.get("mobile", [])
+                 for adapter in artifact.get("build", {}).values())
+    paths.update(artifact["source"] for artifact in artifacts.get("npm_packages", []))
+    archive = subprocess.run(
+        ["git", "-C", str(MANIFEST_PATH.parents[2]), "archive", "HEAD", "--", *sorted(paths)],
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=30, check=True,
+    )
+    with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as source:
+        for member in source.getmembers():
+            if member.isfile():
+                destination = repository / member.name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(source.extractfile(member).read())
     origin = directory / "origin.git"
     operator = directory / "operator"
     inventory = operator / "inventory/hosts.yml"
@@ -98,7 +117,7 @@ def controller_plan(executable: Path, directory: Path, manifest: bytes) -> subpr
 
     git("init", "--bare", "-b", "master", str(origin))
     git("init", "-b", "master")
-    git("add", ".gitignore", ".mprlab/deploy/resources.yml")
+    git("add", ".gitignore", ".mprlab/deploy/resources.yml", *sorted(paths))
     git("-c", "user.name=Policy fixture", "-c", "user.email=fixture@example.invalid",
         "-c", "commit.gpgsign=false", "commit", "-m", "Publication policy fixture")
     git("remote", "add", "origin", str(origin))
@@ -139,10 +158,12 @@ def test_controller_rejects_unbounded_attempts(gateway: tuple[ModuleType, Path],
     _, ansible_root = gateway
     executable = ansible_root.parents[1] / "bin/mprlab-gateway"
     document = yaml.safe_load(MANIFEST_PATH.read_text())
-    document["mprlab_resources"]["operations"][VERIFY_OPERATION]["polling"]["attempt_limit"] = 0
+    operations = document["mprlab_resources"]["lifecycle"]["operations"]
+    index = next(index for index, entry in enumerate(operations) if entry["name"] == VERIFY_OPERATION)
+    operations[index]["polling"]["attempt_limit"] = 0
     validation = controller_plan(executable, tmp_path, yaml.safe_dump(document).encode())
     assert validation.returncode == 2
-    assert f"operation {VERIFY_OPERATION}: polling requires positive intervals and a finite attempt limit" in validation.stderr
+    assert f"/mprlab_resources/lifecycle/operations/{index}/polling/attempt_limit: invalid minimum" in validation.stderr
     assert str(ansible_root / "playbooks/app-lifecycle-plan.yml") not in validation.stdout
 
 
@@ -161,10 +182,10 @@ def test_lifecycle_make_environment(
     environment = fixture_environment(tmp_path, executable)
     environment["MPRLAB_GATEWAY_EXECUTABLE"] = sys.executable
     environment["FIXTURE_GATEWAY"] = str(executable)
-    selected_file = repository / manifest["environment_file"]
-    expected = {name: "synthetic-policy-input" for name in manifest["inputs"]}
+    selected_file = repository / manifest["environment"]["source"]
+    expected = {name: "synthetic-policy-input" for name in [entry["variable"] for entry in manifest["environment"]["private_inputs"]]}
     if scenario != "selected-file":
-        expected = {name: "synthetic-caller-input" for name in manifest["inputs"]}
+        expected = {name: "synthetic-caller-input" for name in [entry["variable"] for entry in manifest["environment"]["private_inputs"]]}
         environment.update(expected)
     if scenario == "missing-selected-file":
         selected_file.unlink()
@@ -172,7 +193,7 @@ def test_lifecycle_make_environment(
     other_file = repository / "configs/.env.loopaware"
     other_file.parent.mkdir()
     extra_read = tmp_path / "other-file-was-sourced"
-    other_file.write_text("".join(f'{name}="synthetic-other-file"\n' for name in manifest["inputs"])
+    other_file.write_text("".join(f'{name}="synthetic-other-file"\n' for name in [entry["variable"] for entry in manifest["environment"]["private_inputs"]])
                           + f"printf unexpected > '{extra_read}'\n")
     receipt = tmp_path / "sdk-capture.json"
     child = ("import json,pathlib,os,sys; "
@@ -196,12 +217,15 @@ def test_lifecycle_make_environment(
     assert not extra_read.exists(), "The lifecycle wrapper sourced an unselected environment file"
     if scenario == "missing-selected-file":
         assert result.returncode != 0
-        assert manifest["environment_file"] in result.stderr
+        assert manifest["environment"]["source"] in result.stderr
         assert not receipt.exists()
     else:
         assert result.returncode == 0, result.stdout + result.stderr
         observed = json.loads(receipt.read_text())
-        assert observed["inputs"] == expected
+        assert observed["inputs"] == {
+            "MPRLAB_PRIVATE_" + entry["id"].replace("-", "_").upper(): expected[entry["variable"]]
+            for entry in manifest["environment"]["private_inputs"]
+        }
         assert observed["stdin"] == ""
 
 
@@ -274,7 +298,7 @@ print(json.dumps({'descriptor':capture,'envelope':envelope}))
     assert result.returncode == 0, result.stderr
     captured = json.loads(result.stdout)
     envelope = captured["envelope"]
-    assert envelope["inputs"] == {name: "synthetic-policy-input" for name in manifest["inputs"]}
+    assert envelope["inputs"] == {"MPRLAB_PRIVATE_" + entry["id"].replace("-", "_").upper(): "synthetic-policy-input" for entry in manifest["environment"]["private_inputs"]}
     assert all(value == "synthetic-policy-input" for inputs in envelope["host_inputs"].values()
                for value in inputs.values())
     capture_path = tmp_path / "mprlab-captured-manifest-test.json"
@@ -282,7 +306,7 @@ print(json.dumps({'descriptor':capture,'envelope':envelope}))
     descriptor = captured["descriptor"]
     descriptor["path"] = str(capture_path)
     return json.loads(action_module._contract.mprlab_resource_capture(
-        json.dumps(descriptor), RESOURCE, "app-publish",
+        json.dumps(descriptor), "publication/" + RESOURCE + "/publish", "app-publish",
     ))
 
 
@@ -310,15 +334,16 @@ def observe(gateway: tuple[ModuleType, Path], capture: dict, monkeypatch: pytest
     action_module, ansible_root = gateway
     manifest = action_module._contract.mprlab_captured_manifest(json.dumps(capture))["mprlab_resources"]
     retry_policy = yaml.safe_load((ansible_root / "playbooks/vars/app-lifecycle-contract.yml").read_text())["mprlab_network_retry_policy"]
-    resource = manifest["resources"][RESOURCE]
+    publication = next(entry for entry in manifest["publications"]["npm"]["packages"] if entry["id"] == RESOURCE)
+    artifact = next(entry for entry in manifest["artifacts"]["npm_packages"] if entry["id"] == publication["artifact"])
 
     def run(*, ready_after: float = 78, error: str = "E404", operation: str = VERIFY_OPERATION,
             parent_seconds: float | None = None) -> tuple[dict, Clock, list[float]]:
-        package = resource["package"] + "@0.0.0-test"
+        package = artifact["package"] + "@0.0.0-test"
         npm_arguments = (["pack", package, "--ignore-scripts", "--json", "--pack-destination", "/synthetic/archive",
-                          "--cache", "/synthetic/archive/cache", "--registry", resource["registry"],
+                          "--cache", "/synthetic/archive/cache", "--registry", publication["registry"],
                           "--userconfig", "/dev/stdin"] if operation == ARCHIVE_OPERATION else
-                         ["view", package, "--json", "--registry", resource["registry"]])
+                         ["view", package, "--json", "--registry", publication["registry"]])
         command = [os.environ["MPRLAB_GATEWAY_EXECUTABLE"], "owned-command-operation", "--", "npm", *npm_arguments]
         descriptor = capture.copy()
         if parent_seconds is not None:
