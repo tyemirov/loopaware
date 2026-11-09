@@ -4,9 +4,9 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
-import { buildAdminUser, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite } from '../helpers/fixtures.js';
+import { buildAdminUser, buildUniqueEmail, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite } from '../helpers/fixtures.js';
 import { buildSessionCookie } from '../helpers/auth.js';
-import { collectVisit } from '../helpers/api.js';
+import { collectVisit, fetchPortfolioTrafficReportSchedule, savePortfolioTrafficReportSchedule } from '../helpers/api.js';
 
 const config = resolveTestConfig();
 const admin = buildAdminUser(config);
@@ -68,11 +68,83 @@ test('header statistics sits right of the avatar and preserves dashboard navigat
   await statistics.click();
   await expect(page.locator('#all-sites-traffic-view')).toBeVisible();
   await expect(page.locator('#global-traffic-report-library')).toBeVisible();
-  await page.locator('#all-sites-traffic-back-button').click();
+  const dashboard = page.getByRole('button', { name: 'Back to dashboard', exact: true });
+  await expect(dashboard.locator('i')).toHaveClass('bi bi-speedometer2');
+  await dashboard.click();
   await expect(page.locator('#site-dashboard-view')).toBeVisible();
+  await expect(statistics.locator('i')).toHaveClass('bi bi-bar-chart-line');
   await expect(page.locator(`#sites-list [data-site-id="${site.id}"]`)).toHaveClass(/active/);
   await expect(page.locator('#dashboard-section-tab-traffic')).toHaveAttribute('aria-selected', 'true');
 });
+
+for (const writeState of ['pending', 'in-flight', 'failed']) {
+  test(`header dashboard navigation retains ${writeState} report schedule edits`, async ({ page }) => {
+    const user = buildAdminUser(config, { email: buildUniqueEmail('statistics-schedule') });
+    const cookie = buildSessionCookie(config, user);
+    await createTestSite(config, cookie, {
+      name: buildUniqueName('Statistics schedule'),
+      allowedOrigin: buildUniqueOrigin('statistics-schedule'),
+      ownerEmail: user.email,
+    });
+    await savePortfolioTrafficReportSchedule(config, cookie, {
+      enabled: true, frequency: 'daily', recipient_email: user.email,
+      timezone: 'Pacific/Honolulu', send_hour: 7, send_minute: 15, weekday: 1, month_day: 1,
+    });
+    await openDashboard(page, config, user);
+    const statistics = page.getByRole('button', { name: 'Statistics', exact: true });
+    await statistics.click();
+    const sendTime = page.locator('#all-sites-traffic-report-send-time');
+    await expect(sendTime).toHaveValue('07:15');
+
+    await page.clock.pauseAt(new Date());
+    await sendTime.fill('13:25');
+    const dashboard = page.getByRole('button', { name: 'Back to dashboard', exact: true });
+    let expectedTime = '13:25';
+    let expectedHour = 13;
+    let expectedMinute = 25;
+    /** @type {() => void} */
+    let releaseWrite = () => {};
+    if (writeState === 'in-flight') {
+      const gate = new Promise(resolve => { releaseWrite = () => resolve(undefined); });
+      await page.route('**/api/reports/traffic/portfolio/schedule*', async route => {
+        if (route.request().method() === 'PUT') {
+          await gate;
+        }
+        await route.continue();
+      });
+      const started = page.waitForRequest(request => request.method() === 'PUT' && request.url().includes('/portfolio/schedule'));
+      await page.clock.runFor(1000);
+      await started;
+      await sendTime.fill('14:35');
+      expectedTime = '14:35';
+      expectedHour = 14;
+      expectedMinute = 35;
+    } else if (writeState === 'failed') {
+      await page.route('**/api/reports/traffic/portfolio/schedule*', route => route.fulfill({
+        status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'save_failed' }),
+      }), { times: 1 });
+    }
+    await dashboard.click();
+    if (writeState === 'in-flight') {
+      await expect(page.locator('#all-sites-traffic-view')).toBeVisible();
+      releaseWrite();
+    } else if (writeState === 'failed') {
+      await expect(page.locator('#all-sites-traffic-report-status')).toHaveText('Failed to save site.');
+      await expect(page.locator('#all-sites-traffic-view')).toBeVisible();
+      await expect(sendTime).toHaveValue(expectedTime);
+      await dashboard.click();
+    }
+    await expect(page.locator('#site-dashboard-view')).toBeVisible();
+    await expect(page.locator('#dashboard-section-tab-feedback')).toHaveAttribute('aria-selected', 'true');
+    await expect.poll(async () => {
+      const schedule = await fetchPortfolioTrafficReportSchedule(config, cookie);
+      return { send_hour: schedule.send_hour, send_minute: schedule.send_minute, timezone: schedule.timezone };
+    }).toEqual({ send_hour: expectedHour, send_minute: expectedMinute, timezone: 'Pacific/Honolulu' });
+
+    await statistics.click();
+    await expect(sendTime).toHaveValue(expectedTime);
+  });
+}
 
 for (const trafficProfile of ['detailed', 'aggregate']) {
   test(`seven days controls ${trafficProfile} traffic and export across navigation`, async ({ page }) => {
