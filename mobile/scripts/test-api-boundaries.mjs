@@ -44,6 +44,12 @@ const site = {
   access_role: "admin",
 };
 
+const validVisibleReport = { scope:"visible",site_count:1,visit_count:12,unique_visitor_count:null,sites:[{site_id:site.id,site_name:site.name,visit_count:12,unique_visitor_count:null}] };
+for (const report of [null, {}, {...validVisibleReport,scope:"owned"}, {...validVisibleReport,site_count:-1}, {...validVisibleReport,visit_count:"12"}, {...validVisibleReport,unique_visitor_count:-1}, {...validVisibleReport,sites:[null]}, {...validVisibleReport,sites:[{...validVisibleReport.sites[0],site_id:""}]}, {...validVisibleReport,sites:[{...validVisibleReport.sites[0],site_name:12}]}, {...validVisibleReport,sites:[{...validVisibleReport.sites[0],visit_count:NaN}]}, {...validVisibleReport,sites:[{...validVisibleReport.sites[0],unique_visitor_count:"5"}]}]) {
+  const client = new LoopAwareApiClient({apiBaseUrl:"https://api.example",tauthBaseUrl:"https://auth.example",tauthTenantId:"loopaware"}, async () => new Response(JSON.stringify(report), {status:200,headers:{"Content-Type":"application/json"}}));
+  await assert.rejects(client.visibleTrafficReport(), /visible traffic report|traffic count/);
+}
+
 const basePayloads = {
   "/api/sites/site-1/messages": { site_id: site.id, messages: null },
   "/api/sites/site-1/subscribers": { site_id: site.id, subscribers: null },

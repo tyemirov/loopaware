@@ -5,9 +5,7 @@ import type {
   NativeGoogleConfig,
   NativeGoogleCredential,
   NativeGooglePlatform,
-  PortfolioDashboard,
-  PortfolioReportsResponse,
-  PortfolioTrafficReport,
+  VisibleTrafficReport,
   RuntimeConfig,
   SentryIssuesResponse,
   Site,
@@ -28,8 +26,6 @@ import type {
   FeedbackMessage,
   LocationPoint,
   MobileAppRegistration,
-  PortfolioReportDefinition,
-  PortfolioTrafficSite,
   LocationDistribution,
   SentryIssue,
   Subscriber,
@@ -235,21 +231,33 @@ export class LoopAwareApiClient {
     };
   }
 
-  async portfolioDashboard(): Promise<PortfolioDashboard> {
-    const [reportsResponse, defaultReport, schedule] = await Promise.all([
-      this.apiRequest<PortfolioReportsResponse>("/api/reports/traffic/portfolio/reports"),
-      this.apiRequest<PortfolioTrafficReport>("/api/reports/traffic/portfolio?days=30"),
-      this.apiRequest<TrafficReportSchedule>("/api/reports/traffic/portfolio/schedule"),
-    ]);
+  async visibleTrafficReport(): Promise<VisibleTrafficReport> {
+    const payload = await this.apiRequest<unknown>("/api/reports/traffic/portfolio?days=30&scope=visible");
+    if (typeof payload !== "object" || payload === null || (payload as Record<string, unknown>).scope !== "visible") {
+      throw new LoopAwareApiError(502, "mobile_api_invalid_report", "Read visible traffic report: expected the visible scope.");
+    }
+    const report = payload as Record<string, unknown>;
+    const readVisitors = (value: unknown) => value === null ? null : readTrafficCount(value, "visible traffic report unique visitors");
     return {
-      reports: readCollection<PortfolioReportDefinition>(reportsResponse, "reports"),
-      availableSites: readCollection<PortfolioTrafficSite>(reportsResponse, "available_sites"),
-      defaultReport: {
-        ...defaultReport,
-        trend: readCollection<VisitTrendPoint>(defaultReport, "trend"),
-        sites: readCollection<PortfolioTrafficSite>(defaultReport, "sites"),
-      },
-      schedule,
+      scope: "visible",
+      site_count: readTrafficCount(report.site_count, "visible traffic report sites"),
+      visit_count: readTrafficCount(report.visit_count, "visible traffic report visits"),
+      unique_visitor_count: readVisitors(report.unique_visitor_count),
+      sites: readCollection<unknown>(report, "sites").map(value => {
+        if (typeof value !== "object" || value === null) {
+          throw new LoopAwareApiError(502, "mobile_api_invalid_report", "Read visible traffic report: expected a site row.");
+        }
+        const site = value as Record<string, unknown>;
+        if (typeof site.site_id !== "string" || !site.site_id.trim() || typeof site.site_name !== "string" || !site.site_name.trim()) {
+          throw new LoopAwareApiError(502, "mobile_api_invalid_report", "Read visible traffic report: expected a site identity and name.");
+        }
+        return {
+          site_id: site.site_id,
+          site_name: site.site_name,
+          visit_count: readTrafficCount(site.visit_count, "visible traffic report site visits"),
+          unique_visitor_count: readVisitors(site.unique_visitor_count),
+        };
+      }),
     };
   }
 
@@ -387,17 +395,17 @@ function joinUrl(baseUrl: string, path: string): string {
 }
 
 function readSiteTrend(payload: VisitTrend, site: Site): VisitTrendPoint[] {
-  const recentTrend = readCollection<VisitTrendPoint>(payload, "trend").slice(-10);
+  const entries = readCollection<VisitTrendPoint>(payload, "trend").slice().sort((left, right) => left.date.localeCompare(right.date));
   if (site.traffic_profile === "aggregate") {
-    return recentTrend;
+    return entries;
   }
-  return recentTrend.map((point) => {
+  return entries.map((point) => {
     const uniqueVisitors = point.unique_visitors;
     if (typeof uniqueVisitors !== "number" || !Number.isSafeInteger(uniqueVisitors) || uniqueVisitors < 0) {
       throw new LoopAwareApiError(502, "mobile_api_invalid_trend", `Read site ${site.id} trend for ${point.date}: invalid unique visitor count.`);
     }
     return { ...point, unique_visitors: uniqueVisitors };
-  }).sort((left, right) => right.unique_visitors - left.unique_visitors || right.date.localeCompare(left.date));
+  });
 }
 
 function readTrafficCount(value: unknown, subject: string): number {
