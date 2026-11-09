@@ -323,10 +323,19 @@ for (const [endpoint, field] of [["stats", "top_pages"], ["attribution", "source
   }
   const endpointPath = `/api/sites/${site.id}/visits/${endpoint}`;
   const baseline = /** @type {Record<string,unknown>} */ (Reflect.get(basePayloads, endpointPath));
-  const client = new LoopAwareApiClient(runtimeConfig(), createFetcher({ ...basePayloads, [endpointPath]: { ...baseline, [field]: [{ visit_count: 5, unique_visitor_count: 0 }] } }));
+  const client = new LoopAwareApiClient(runtimeConfig(), createFetcher({ ...basePayloads, [endpointPath]: { ...baseline, [field]: [{ label: "London", latitude: 51.5, longitude: 0, visit_count: 5, unique_visitor_count: 0 }] } }));
   const dashboard = await client.siteDashboard(site, "30days");
   const container = { stats: dashboard.stats, attribution: dashboard.attribution, devices: dashboard.devices, locations: dashboard.locations }[endpoint];
   assert.equal(/** @type {Array<{unique_visitor_count:number}>} */ (Reflect.get(container, field))[0].unique_visitor_count, 0);
+}
+
+const validLocation = { label: "London", source: "timezone", signal: "Europe/London", country: "GB", region: "", city: "", latitude: 51.5, longitude: 0, confidence: 60, visit_count: 5, unique_visitor_count: 2 };
+for (const change of [{latitude: null}, {latitude: "51"}, {latitude: 91}, {latitude: -91}, {longitude: 181}, {longitude: -181}, {longitude: null}, {label: null}]) {
+  const location = {...validLocation, ...change};
+  const client = new LoopAwareApiClient(runtimeConfig(), createFetcher({...basePayloads,
+    "/api/sites/site-1/visits/locations": {locations: [location]},
+  }));
+  await assert.rejects(client.siteDashboard(site, "7days"), /invalid location/);
 }
 
 console.log("mobile api boundary checks passed");

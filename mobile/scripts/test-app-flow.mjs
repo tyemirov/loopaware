@@ -27,6 +27,11 @@ const trendPoints = [
   { date: "2026-10-21", page_views: 7, unique_visitors: 5 },
   { date: "2026-10-22", page_views: 0, unique_visitors: 0 },
 ];
+const locationPoints = [
+  { label: 'Los Angeles', source: 'timezone', signal: 'America/Los_Angeles', country: 'US', region: '', city: '', latitude: 34.0522, longitude: -118.2437, confidence: 60, visit_count: 12, unique_visitor_count: 8 },
+  { label: 'London & <West>', source: 'timezone', signal: 'Europe/London', country: 'GB', region: '', city: '', latitude: 51.5072, longitude: -0.1276, confidence: 60, visit_count: 20, unique_visitor_count: 2 },
+  { label: '12345678901234🌍long', source: 'locale', signal: 'JP', country: 'JP', region: '', city: '', latitude: 35.68, longitude: 139.65, confidence: 20, visit_count: 4, unique_visitor_count: 1 },
+];
 
 // FileReader is a native I/O boundary. Keep the real API requests and image state under test.
 class ProtocolFileReader {
@@ -49,6 +54,40 @@ class ProtocolFileReader {
   }
   abort() { this.aborted = true; }
 }
+
+for (const platform of /** @type {const} */ (['ios', 'android'])) await scenario(`location world map renders unique visitors and follows themes on ${platform}`, {
+  initialSession: true, trafficProfile: 'detailed', platform, locations: locationPoints, fontScale: 2,
+}, async app => {
+  await app.press('Traffic');
+  const map = app.locationMap();
+  assert(map);
+  assert.match(map.uri, /^data:image\/svg\+xml;base64,/);
+  assert.match(map.svg, /data-map-source="natural-earth-110m"/);
+  assert.match(map.svg, /data-projection="equirectangular"/);
+  assert.match(map.svg, /London &amp; &lt;West&gt;/);
+  assert.match(map.svg, /cx="162.93" cy="93.25"/);
+  const radii = [...map.svg.matchAll(/class="traffic-map__bubble"[^>]* r="([\d.]+)"/g)].map(match => Number(match[1]));
+  assert.equal(radii.length, 3); assert(radii[0] > radii[1]);
+  assert.match(map.label, /unique visitors/);
+  assert.match(app.text(), /Los Angeles.*8 unique visitors.*12 page views/);
+  assert.equal(map.aspectRatio, 720 / 300);
+  await app.system('dark');
+  assert.notEqual(app.locationMap()?.svg, map.svg);
+  await app.press('7d'); assert.equal(app.selected('7d'), true);
+  assert.match(app.locationMap()?.svg ?? '', /Los Angeles/);
+  await app.failLocationMap();
+  assert.match(app.text(), /Location map image unavailable/);
+  assert.match(app.text(), /London & <West>.*2 unique visitors.*20 page views/);
+  await app.system('light');
+  assert.doesNotMatch(app.text(), /Location map image unavailable/);
+});
+
+await scenario('location world map has an explicit empty state', {
+  initialSession: true, trafficProfile: 'detailed', locations: [],
+}, async app => {
+  await app.press('Traffic'); assert.equal(app.locationMap(), null);
+  assert.match(app.text(), /No location data yet/);
+});
 
 for (const platform of /** @type {const} */ (["ios", "android"])) await scenario(`statistics opens from the header and returns to the same site tab on ${platform}`, {
   initialSession: true, multipleSites: true, platform,
@@ -319,6 +358,7 @@ for (const trafficProfile of ["detailed", "aggregate"]) await scenario(`${traffi
     }
     assert.match(app.text(),new RegExp(`${trafficProfile === "aggregate" ? "Accepted requests" : "Page views"} ${count}\\b`));
     if (trafficProfile === "detailed") {
+      assert(app.locationMap()?.svg.includes(`Place ${interval}`));
       assert(app.text().includes(`/page-${interval}`)); assert(app.text().includes(`source-${interval}`)); assert(app.text().includes(`Place ${interval}`));
       assert.match(app.text(),new RegExp(`Unique visitors ${count}\\b`));
     } else assert.match(app.text(),/Unique visitors.*unavailable/);
@@ -459,7 +499,7 @@ await scenario("mobile traffic uses unique counts for values, bars, and ranked b
     assert(app.requestURLs.some(address => { const url = new URL(address); return url.pathname.endsWith(`/visits/${suffix}`) && url.searchParams.get("sort") === "unique_visitors"; }));
   }
   assert.deepEqual(app.trend(), trendPoints.map(point => [point.date, String(point.page_views), String(point.unique_visitors)]));
-  for (const [reach, busy] of [["/reach", "/busy"], ["reach-source", "busy-source"], ["Mobile", "Desktop"], ["Reach place", "Busy place"]]) {
+  for (const [reach, busy] of [["/reach", "/busy"], ["reach-source", "busy-source"], ["Mobile", "Desktop"]]) {
     assert.deepEqual(app.bar(reach), { value: "3 unique visitors, 3 page views", width: "100%" });
     assert.deepEqual(app.bar(busy), { value: "1 unique visitors, 20 page views", width: "33%" });
     assert(app.text().indexOf(reach) < app.text().indexOf(busy));
@@ -704,8 +744,8 @@ console.log(`${scenarioCount} mobile app flow checks passed`);
 
 /**
  * @param {string} name
- * @param {{ initialSession: boolean, fontScale?: number, uniqueTraffic?: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, siteList?: () => Array<typeof site>, intervalCounts?: Record<string,number>, faviconFailure?: boolean, faviconFormat?: "png" | "svg" | "ico", emptySites?: boolean, avatarMode?: "refresh" | "expired" | "failed" | "invalid" | "oversized" | "conversion" | "conversion-throw" | "octet-stream", failFirstWrite?: boolean, account?: import("../src/types").Account, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
- * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], statisticsBesideAvatar: () => boolean, synchronizeStatistics: () => Promise<void>, type: (label:string,value:string) => Promise<void>, inputValue: (label:string) => string|null, expanded: (label:string) => boolean, keyboardDismissals: () => number, lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverPhoto: () => void, holdNextPhoto: () => void, releasePhoto: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, trend: () => string[][], graph: () => {yLabel:string, topMargin:number, plotHeight:number, dateMargin:number, segments: import("react-test-renderer").ReactTestInstance[], points: import("react-test-renderer").ReactTestInstance[]}, layoutGraph: (width:number) => Promise<void>, bar: (label:string) => {value:string,width:string}|null, waitFor: (predicate: () => boolean) => Promise<void>, imageUris: () => string[], siteIcon: (label: string) => string | null, siteIconDecorative: (label: string) => boolean, siteIconError: (label: string) => Promise<void>, siteFilterInline: () => boolean, avatarEvent: (event: "load" | "error") => Promise<void>, avatarCallback: (event: "load" | "error") => () => void, setAccount: (account: import("../src/types").Account) => void, back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
+ * @param {{ initialSession: boolean, fontScale?: number, locations?: import("../src/types").LocationPoint[], uniqueTraffic?: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, siteList?: () => Array<typeof site>, intervalCounts?: Record<string,number>, faviconFailure?: boolean, faviconFormat?: "png" | "svg" | "ico", emptySites?: boolean, avatarMode?: "refresh" | "expired" | "failed" | "invalid" | "oversized" | "conversion" | "conversion-throw" | "octet-stream", failFirstWrite?: boolean, account?: import("../src/types").Account, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
+ * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], failLocationMap: () => Promise<void>, locationMap: () => {uri:string,svg:string,label:string,aspectRatio:number}|null, statisticsBesideAvatar: () => boolean, synchronizeStatistics: () => Promise<void>, type: (label:string,value:string) => Promise<void>, inputValue: (label:string) => string|null, expanded: (label:string) => boolean, keyboardDismissals: () => number, lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverPhoto: () => void, holdNextPhoto: () => void, releasePhoto: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, trend: () => string[][], graph: () => {yLabel:string, topMargin:number, plotHeight:number, dateMargin:number, segments: import("react-test-renderer").ReactTestInstance[], points: import("react-test-renderer").ReactTestInstance[]}, layoutGraph: (width:number) => Promise<void>, bar: (label:string) => {value:string,width:string}|null, waitFor: (predicate: () => boolean) => Promise<void>, imageUris: () => string[], siteIcon: (label: string) => string | null, siteIconDecorative: (label: string) => boolean, siteIconError: (label: string) => Promise<void>, siteFilterInline: () => boolean, avatarEvent: (event: "load" | "error") => Promise<void>, avatarCallback: (event: "load" | "error") => () => void, setAccount: (account: import("../src/types").Account) => void, back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
  */
 async function scenario(name, options, check) {
   let authenticated = options.initialSession;
@@ -825,7 +865,7 @@ async function scenario(name, options, check) {
       default:
         if (options.trafficProfile === "detailed" && /\/visits\/(attribution|engagement|devices|locations)$/.test(path)) {
           payload = {
-            sources: options.uniqueTraffic ? ranked("value","reach-source","busy-source") : options.intervalCounts ? [{value:`source-${interval}`,visit_count:visitCount,unique_visitor_count:visitCount}] : [], mediums: [], campaigns: [], device_types: options.uniqueTraffic ? ranked("device_type","mobile","desktop") : options.intervalCounts ? [{device_type:"mobile",visit_count:visitCount,unique_visitor_count:visitCount}] : [], top_resolutions: [], top_viewports: [], locations: options.uniqueTraffic ? ranked("label","Reach place","Busy place") : options.intervalCounts ? [{label:`Place ${interval}`,visit_count:visitCount,unique_visitor_count:visitCount}] : [],
+            sources: options.uniqueTraffic ? ranked("value","reach-source","busy-source") : options.intervalCounts ? [{value:`source-${interval}`,visit_count:visitCount,unique_visitor_count:visitCount}] : [], mediums: [], campaigns: [], device_types: options.uniqueTraffic ? ranked("device_type","mobile","desktop") : options.intervalCounts ? [{device_type:"mobile",visit_count:visitCount,unique_visitor_count:visitCount}] : [], top_resolutions: [], top_viewports: [], locations: options.locations ?? (options.uniqueTraffic ? ranked("label","Reach place","Busy place").map((item,index) => ({...locationPoints[index],...item})) : options.intervalCounts ? [{...locationPoints[0],label:`Place ${interval}`,visit_count:visitCount,unique_visitor_count:visitCount}] : []),
             tracked_visitor_count: 8, returning_visitor_count: 2, returning_visitor_rate: 0.25, average_pages_per_visitor: 1.5,
             depth_distribution: {}, observed_time_distribution: {},
           };
@@ -899,12 +939,20 @@ async function scenario(name, options, check) {
     await check({
       text, requests, requestURLs, buttonLabels: () => tree().root.findAll(node => String(node.type) === "Pressable").map(node => node.props.accessibilityLabel ?? textContent(node.props.children)),
       async synchronizeStatistics() { await act(async () => runStatisticsSync()); await settle(); },
+      async failLocationMap() {
+        const map = tree().root.findAll(node => String(node.type) === "FaviconImage" && String(node.props.accessibilityLabel).startsWith("Visitor location map"))[0];
+        assert(map); await act(async () => map.props.onError());
+      },
+      locationMap() {
+        const map = tree().root.findAll(node => String(node.type) === "FaviconImage" && String(node.props.accessibilityLabel).startsWith("Visitor location map"))[0];
+        return map ? {uri:map.props.source.uri,svg:map.props.source.uri.includes(";base64,") ? Buffer.from(map.props.source.uri.split(",")[1], "base64").toString("utf8") : decodeURIComponent(map.props.source.uri.split(",")[1]),label:map.props.accessibilityLabel,aspectRatio:map.props.style.aspectRatio} : null;
+      },
       statisticsBesideAvatar() {
         const statistics = findButton("Statistics");
         const avatar = findButton("Account menu");
         if (!statistics?.parent || statistics.parent !== avatar?.parent) return false;
         const controls = statistics.parent.findAll(node => String(node.type) === "Pressable");
-        return controls.indexOf(statistics) + 1 === controls.indexOf(avatar);
+        return controls.indexOf(avatar) + 1 === controls.indexOf(statistics);
       },
       async type(label,value) { const input=tree().root.findAll(node => String(node.type) === "TextInput" && node.props.accessibilityLabel === label)[0]; assert(input,`${name}: ${label}`); await act(async()=>{input.props.onChangeText(value);}); await settle(); },
       inputValue(label) { return tree().root.findAll(node => String(node.type) === "TextInput" && node.props.accessibilityLabel === label)[0]?.props.value ?? null; },

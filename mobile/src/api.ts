@@ -221,7 +221,7 @@ export class LoopAwareApiClient {
       },
       locations: locations === null ? null : {
         ...locations,
-        locations: readVisitorCollection<LocationPoint>(locations, "locations"),
+        locations: readLocations(locations),
       },
       sentryIssues: readCollection<SentryIssue>(sentryIssues, "issues"),
       mobileApps: readCollection<MobileAppRegistration>(mobileApps, "mobile_apps"),
@@ -423,6 +423,17 @@ function readVisitorCollection<T extends { visit_count: number; unique_visitor_c
     readTrafficCount(item.unique_visitor_count, `${fieldName} unique visitors`);
     readTrafficCount(item.visit_count, `${fieldName} page views`);
     return item;
+  });
+}
+
+function readLocations(payload: object): LocationPoint[] {
+  return readVisitorCollection<LocationPoint>(payload, "locations").map(location => {
+    if (typeof location.label !== "string" || location.label.trim() === "" ||
+        typeof location.latitude !== "number" || !Number.isFinite(location.latitude) || Math.abs(location.latitude) > 90 ||
+        typeof location.longitude !== "number" || !Number.isFinite(location.longitude) || Math.abs(location.longitude) > 180) {
+      throw new LoopAwareApiError(502, "mobile_api_invalid_location", "Read locations: invalid location coordinates or label.");
+    }
+    return location;
   });
 }
 

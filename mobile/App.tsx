@@ -1,4 +1,6 @@
 import { Image as FaviconImage } from "expo-image";
+import { locationMapImage } from "./src/location-map";
+import { locationMapWidth, locationMapHeight } from "./src/location-world";
 import { StatusBar } from "expo-status-bar";
 import * as SecureStore from "expo-secure-store";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -33,6 +35,7 @@ import type {
   Account,
   DashboardTab,
   FeedbackMessage,
+  LocationPoint,
   VisibleTrafficReport,
   SentryIssue,
   Site,
@@ -408,16 +411,16 @@ function Header(props: { account: Account; apiClient: LoopAwareApiClient; onSett
         <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>LoopAware</Text>
       </View>
       <View style={styles.headerActions}>
+      <Pressable ref={avatar} accessibilityRole="button" accessibilityLabel="Account menu"
+        accessibilityHint="Open account options" accessibilityState={{ expanded: menu.visible }}
+        style={styles.avatar} onPress={menu.open}>
+        <AccountAvatar key={`${props.account.email}:${props.account.avatar?.url ?? ""}`} account={props.account} apiClient={props.apiClient} />
+      </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel="Statistics" accessibilityHint="View reports across all accessible sites"
         style={styles.statisticsButton} onPress={props.onStatistics}>
         <View style={styles.statisticsIcon} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           {[10, 22, 16].map((height, index) => <View key={index} style={[styles.statisticsBar, { height }]} />)}
         </View>
-      </Pressable>
-      <Pressable ref={avatar} accessibilityRole="button" accessibilityLabel="Account menu"
-        accessibilityHint="Open account options" accessibilityState={{ expanded: menu.visible }}
-        style={styles.avatar} onPress={menu.open}>
-        <AccountAvatar key={`${props.account.email}:${props.account.avatar?.url ?? ""}`} account={props.account} apiClient={props.apiClient} />
       </Pressable>
       </View>
       <Modal visible={menu.visible} transparent animationType="none" onRequestClose={() => menu.close("avatar")}
@@ -733,13 +736,31 @@ function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInte
         <Bars items={devices.device_types} labelFor={(item) => sentenceCase(item.device_type)} valueFor={(item) => item.unique_visitor_count} detailFor={item => `${formatCount(item.visit_count)} page views`} />
       </Section>
       <Section title="Locations">
-        <Bars items={locations.locations} labelFor={(item) => item.label} valueFor={(item) => item.unique_visitor_count} detailFor={item => `${formatCount(item.visit_count)} page views`} />
+        <LocationMap locations={locations.locations} />
       </Section>
       <Section title="Trend">
         <TrendGraph trend={props.dashboard.trend.trend} measure="unique_visitors" />
       </Section>
     </View>
   );
+}
+
+function LocationMap(props: { locations: LocationPoint[] }) {
+  const { colors, styles } = useAppStyles();
+  const image = useMemo(() => locationMapImage(props.locations, colors), [props.locations, colors]);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [image]);
+  if (props.locations.length === 0) return <EmptyInline text="No location data yet." />;
+  const description = props.locations.map(location => `${location.label}: ${formatCount(location.unique_visitor_count)} unique visitors, ${formatCount(location.visit_count)} page views`).join("; ");
+  return <View style={styles.sectionStack}>
+    <FaviconImage source={{ uri: image }} contentFit="contain" accessible accessibilityLabel={`Visitor location map, unique visitors. ${description}`}
+      style={{ width: "100%", aspectRatio: locationMapWidth / locationMapHeight, borderRadius: 12 }}
+      onError={() => setFailed(true)} onLoad={() => setFailed(false)} />
+    {failed ? <EmptyInline text="Location map image unavailable. Location counts appear below." /> : null}
+    <Text style={styles.helperText}>Bubble size shows unique visitors.</Text>
+    {props.locations.map((location, index) => <InfoRow key={`${location.source}:${location.signal}:${index}`} label={location.label}
+      value={`${formatCount(location.unique_visitor_count)} unique visitors · ${formatCount(location.visit_count)} page views`} />)}
+  </View>;
 }
 
 function FeedbackSection(props: { messages: FeedbackMessage[]; headingFocus: HeadingFocus }) {
