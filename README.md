@@ -642,6 +642,9 @@ The query clears when the dashboard view ends, including settings navigation and
 ## Web reports
 
 Select the statistics icon immediately right of the account avatar to open the reports view.
+In Reports, this control shows a dashboard icon with the label `Back to dashboard`.
+Select the dashboard icon to open the selected site and tab.
+The automatic schedule write completes before the dashboard opens.
 The report library retains custom reports and email schedules.
 Use `Back to site dashboard` to return to the selected site and tab.
 
