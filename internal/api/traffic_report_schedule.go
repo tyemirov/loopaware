@@ -658,15 +658,15 @@ func buildTrafficReportEmail(ctx context.Context, statsProvider SiteStatisticsPr
 	if uniqueVisitorsErr != nil {
 		return trafficReportEmail{}, fmt.Errorf("traffic_report_email unique_visitors: %w", uniqueVisitorsErr)
 	}
-	topPages, topPagesErr := statsProvider.TopPagesForDays(ctx, site.ID, windowDays, trafficReportTopPagesLimit)
+	topPages, topPagesErr := statsProvider.TopPagesForDays(ctx, site.ID, windowDays, trafficReportTopPagesLimit, TrafficSortPageViews)
 	if topPagesErr != nil {
 		return trafficReportEmail{}, fmt.Errorf("traffic_report_email top_pages: %w", topPagesErr)
 	}
-	devices, devicesErr := statsProvider.DeviceBreakdownForDays(ctx, site.ID, windowDays, trafficReportTopPagesLimit)
+	devices, devicesErr := statsProvider.DeviceBreakdownForDays(ctx, site.ID, windowDays, trafficReportTopPagesLimit, TrafficSortPageViews)
 	if devicesErr != nil {
 		return trafficReportEmail{}, fmt.Errorf("traffic_report_email devices: %w", devicesErr)
 	}
-	locations, locationsErr := statsProvider.LocationDistributionForDays(ctx, site.ID, windowDays, trafficReportTopPagesLimit)
+	locations, locationsErr := statsProvider.LocationDistributionForDays(ctx, site.ID, windowDays, trafficReportTopPagesLimit, TrafficSortPageViews)
 	if locationsErr != nil {
 		return trafficReportEmail{}, fmt.Errorf("traffic_report_email locations: %w", locationsErr)
 	}

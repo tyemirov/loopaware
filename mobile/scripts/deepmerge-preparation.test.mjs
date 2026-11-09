@@ -21,6 +21,12 @@ try {
   assert.equal(copied.status,23,copied.stdout+copied.stderr);
   assert.throws(()=>process.kill(copied.pid,0),{code:'ESRCH'});
   const selected = join(fixture.prepared,'vendor/deepmerge');
+  for (const name of ['cjs.js', 'umd.js']) {
+    const source = `mobile/prepared/vendor/deepmerge/dist/${name}`;
+    const tracking = spawnSync('git', ['check-ignore', '--no-index', '--quiet', '--', source], {cwd:repository,encoding:'utf8'});
+    if (tracking.error) throw tracking.error;
+    assert.equal(tracking.status, 1, `Prepared public package input must be eligible for source tracking: ${source}\n${tracking.stderr}`);
+  }
   const identity=JSON.parse(readFileSync(join(selected,'package.json'),'utf8'));
   assert.equal(identity.main,'dist/cjs.js');
   const require=createRequire(join(selected,'package.json'));

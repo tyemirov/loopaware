@@ -108,14 +108,17 @@ This is a binding product principle for every user interface.
 Apply this section when the task changes or validates a selected application manifest.
 
 - Keep the selected application manifest versionless.
-- Keep `owner`, `release`, and `resources` as the current baseline fields.
+- Keep `owner`, `release`, and `lifecycle` as the required baseline fields.
+- Use the fixed `artifacts`, `publications`, and `targets` catalogs.
+- Use explicit identity lists and ordered command lists.
+- Declare CI and execution policy in the selected manifest's `lifecycle` field.
 - Apply the current iOS baseline below before the manifest preservation rules.
-- For other manifest contracts, accept each manifest that an earlier versionless gateway accepted.
-- For those contracts, keep each accepted field name, type, requirement, and function.
+- After this cutover, accept each manifest that an earlier versionless gateway accepted.
+- After this cutover, keep each accepted field name, type, requirement, and function.
 - A field added to an existing shape must be optional.
 - A field added to an existing shape must have one canonical default.
 - Normalize that default before manifest identity calculation.
-- Add a resource kind only with one closed shape.
+- Add a declaration kind only with one closed shape.
 - Reject unknown fields and `schema_version`.
 
 ### Current iOS Baseline
@@ -137,7 +140,7 @@ This baseline does not authorize removal of stored releases, credentials, or dep
 Apply this section to deployment or publication work for a browser frontend.
 
 - Use GitHub Pages as the production host for each deployable browser frontend.
-- Declare the browser frontend with a `github_pages` resource in `.mprlab/deploy/resources.yml`.
+- Declare the browser frontend with a `targets.github_pages.sites[]` declaration in `.mprlab/deploy/resources.yml`.
 - Use `gh-pages` as the publication branch.
 - The GitHub Pages repository can differ from the application repository.
 - Keep API and service routes on hostnames that differ from the website hostname.
@@ -168,12 +171,12 @@ Use this contract for Gateway lifecycle operations that use a selected manifest.
 Manifest processing is the only boundary that reads environment values for Gateway configuration.
 
 - Let manifest values include environment variable references.
-- Use the optional `environment_file` field for a relative or absolute environment file path specified in the manifest.
+- Use the optional `environment.source` field for a relative or absolute environment file path specified in the manifest.
 - Use the selected consuming repository as the root for relative paths.
-- When the manifest has no `environment_file` field, use only process values.
+- When the manifest has no `environment.source` field, use only process values.
 - Reject a selected file that is missing or that you cannot read, even when process values are available.
 - When the two sources have a value for a variable, use its process value.
-- Use only the path specified by `environment_file` for an environment file.
+- Use only the path specified by `environment.source` for an environment file.
 - Do not use a default path or examine other paths for environment files.
 - Do not make an environment file necessary because of a resource kind or lifecycle phase.
 - Read environment values one time at the manifest boundary.

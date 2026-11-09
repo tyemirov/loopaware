@@ -94,6 +94,7 @@ export type SubscribersResponse = {
 export type TopPage = {
   path: string;
   visit_count: number;
+  unique_visitor_count: number;
 };
 
 export type VisitLogEntry = {
@@ -133,6 +134,7 @@ export type VisitTrend = {
 export type AttributionPoint = {
   value: string;
   visit_count: number;
+  unique_visitor_count: number;
 };
 
 export type VisitAttribution = {
@@ -169,6 +171,7 @@ export type VisitEngagement = {
 export type DeviceTypePoint = {
   device_type: string;
   visit_count: number;
+  unique_visitor_count: number;
 };
 
 export type DeviceBreakdown = {
@@ -191,6 +194,7 @@ export type LocationPoint = {
   longitude: number;
   confidence: number;
   visit_count: number;
+  unique_visitor_count: number;
 };
 
 export type LocationDistribution = {

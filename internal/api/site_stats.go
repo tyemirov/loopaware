@@ -24,7 +24,7 @@ const (
 	visitTrendDateTime    = "2006-01-02 15:04:05"
 
 	topPagesCanonicalPathExpression = "CASE WHEN TRIM(path, '/') = '' THEN '/' ELSE RTRIM(path, '/') END"
-	topPagesSelectStatement         = topPagesCanonicalPathExpression + " as path, COUNT(*) as visit_count"
+	topPagesSelectStatement         = topPagesCanonicalPathExpression + " as path, COUNT(*) as visit_count, COUNT(DISTINCT CASE WHEN visitor_id <> '' THEN visitor_id END) as unique_visitor_count"
 
 	defaultVisitAttributionLimit = 10
 	maxVisitAttributionLimit     = 50
@@ -165,18 +165,18 @@ type SiteStatisticsProvider interface {
 	VisitCountForDays(ctx context.Context, siteID string, days int) (int64, error)
 	UniqueVisitorCount(ctx context.Context, siteID string) (int64, error)
 	UniqueVisitorCountForDays(ctx context.Context, siteID string, days int) (int64, error)
-	TopPages(ctx context.Context, siteID string, limit int) ([]TopPageStat, error)
-	TopPagesForDays(ctx context.Context, siteID string, days int, limit int) ([]TopPageStat, error)
+	TopPages(ctx context.Context, siteID string, limit int, sortOrder TrafficSort) ([]TopPageStat, error)
+	TopPagesForDays(ctx context.Context, siteID string, days int, limit int, sortOrder TrafficSort) ([]TopPageStat, error)
 	VisitTrend(ctx context.Context, siteID string, days int) ([]DailyVisitTrendStat, error)
 	VisitTrendAll(ctx context.Context, siteID string) ([]DailyVisitTrendStat, error)
-	VisitAttribution(ctx context.Context, siteID string, limit int) (VisitAttributionBreakdown, error)
-	VisitAttributionForDays(ctx context.Context, siteID string, days int, limit int) (VisitAttributionBreakdown, error)
+	VisitAttribution(ctx context.Context, siteID string, limit int, sortOrder TrafficSort) (VisitAttributionBreakdown, error)
+	VisitAttributionForDays(ctx context.Context, siteID string, days int, limit int, sortOrder TrafficSort) (VisitAttributionBreakdown, error)
 	VisitEngagement(ctx context.Context, siteID string, days int) (VisitEngagementStat, error)
 	VisitEngagementAll(ctx context.Context, siteID string) (VisitEngagementStat, error)
-	DeviceBreakdown(ctx context.Context, siteID string, limit int) (DeviceBreakdownStat, error)
-	DeviceBreakdownForDays(ctx context.Context, siteID string, days int, limit int) (DeviceBreakdownStat, error)
-	LocationDistribution(ctx context.Context, siteID string, limit int) ([]LocationDistributionStat, error)
-	LocationDistributionForDays(ctx context.Context, siteID string, days int, limit int) ([]LocationDistributionStat, error)
+	DeviceBreakdown(ctx context.Context, siteID string, limit int, sortOrder TrafficSort) (DeviceBreakdownStat, error)
+	DeviceBreakdownForDays(ctx context.Context, siteID string, days int, limit int, sortOrder TrafficSort) (DeviceBreakdownStat, error)
+	LocationDistribution(ctx context.Context, siteID string, limit int, sortOrder TrafficSort) ([]LocationDistributionStat, error)
+	LocationDistributionForDays(ctx context.Context, siteID string, days int, limit int, sortOrder TrafficSort) ([]LocationDistributionStat, error)
 }
 
 // DatabaseSiteStatisticsProvider implements SiteStatisticsProvider using GORM.
@@ -273,24 +273,25 @@ func (provider *DatabaseSiteStatisticsProvider) uniqueVisitorCount(ctx context.C
 	return count, err
 }
 
-// TopPageStat captures per-page view counts.
+// TopPageStat captures page views and distinct visitors per normalized page.
 type TopPageStat struct {
-	Path       string
-	VisitCount int64
+	Path               string
+	VisitCount         int64
+	UniqueVisitorCount int64
 }
 
-// TopPages returns top pages by visit count.
-func (provider *DatabaseSiteStatisticsProvider) TopPages(ctx context.Context, siteID string, limit int) ([]TopPageStat, error) {
-	return provider.topPages(ctx, siteID, limit, time.Time{})
+// TopPages returns top pages with the selected ranking.
+func (provider *DatabaseSiteStatisticsProvider) TopPages(ctx context.Context, siteID string, limit int, sortOrder TrafficSort) ([]TopPageStat, error) {
+	return provider.topPages(ctx, siteID, limit, time.Time{}, sortOrder)
 }
 
-// TopPagesForDays returns top pages by visit count within the selected traffic interval window.
-func (provider *DatabaseSiteStatisticsProvider) TopPagesForDays(ctx context.Context, siteID string, days int, limit int) ([]TopPageStat, error) {
+// TopPagesForDays returns ranked pages within the selected traffic interval window.
+func (provider *DatabaseSiteStatisticsProvider) TopPagesForDays(ctx context.Context, siteID string, days int, limit int, sortOrder TrafficSort) ([]TopPageStat, error) {
 	normalizedDays := normalizeVisitTrendDays(days)
-	return provider.topPages(ctx, siteID, limit, visitWindowStartTime(normalizedDays))
+	return provider.topPages(ctx, siteID, limit, visitWindowStartTime(normalizedDays), sortOrder)
 }
 
-func (provider *DatabaseSiteStatisticsProvider) topPages(ctx context.Context, siteID string, limit int, startTime time.Time) ([]TopPageStat, error) {
+func (provider *DatabaseSiteStatisticsProvider) topPages(ctx context.Context, siteID string, limit int, startTime time.Time, sortOrder TrafficSort) ([]TopPageStat, error) {
 	if strings.TrimSpace(siteID) == "" {
 		return nil, nil
 	}
@@ -306,7 +307,7 @@ func (provider *DatabaseSiteStatisticsProvider) topPages(ctx context.Context, si
 		query = query.Where("occurred_at >= ?", startTime)
 	}
 	err := query.Group(topPagesCanonicalPathExpression).
-		Order("visit_count desc, path asc").
+		Order(sortOrder.orderClause("path")).
 		Limit(limit).
 		Scan(&results).Error
 	return results, err
@@ -325,8 +326,9 @@ type DailyVisitTrendStat struct {
 }
 
 type AttributionStat struct {
-	Value      string
-	VisitCount int64
+	Value              string
+	VisitCount         int64
+	UniqueVisitorCount int64
 }
 
 type VisitAttributionBreakdown struct {
@@ -358,10 +360,11 @@ type VisitEngagementStat struct {
 	ObservedTimeDistribution VisitObservedTimeDistributionStat
 }
 
-// DeviceTypeStat captures visit counts per device category.
+// DeviceTypeStat captures page views and distinct visitors per device category.
 type DeviceTypeStat struct {
-	DeviceType string
-	VisitCount int64
+	DeviceType         string
+	VisitCount         int64
+	UniqueVisitorCount int64
 }
 
 // DeviceBreakdownStat aggregates device type, resolution, and viewport data.
@@ -371,18 +374,19 @@ type DeviceBreakdownStat struct {
 	TopViewports   []AttributionStat
 }
 
-// LocationDistributionStat captures visit counts by inferred visitor location.
+// LocationDistributionStat captures page views and distinct visitors by inferred location.
 type LocationDistributionStat struct {
-	Label      string
-	Source     string
-	Signal     string
-	Country    string
-	Region     string
-	City       string
-	Latitude   float64
-	Longitude  float64
-	Confidence int
-	VisitCount int64
+	Label              string
+	Source             string
+	Signal             string
+	Country            string
+	Region             string
+	City               string
+	Latitude           float64
+	Longitude          float64
+	Confidence         int
+	VisitCount         int64
+	UniqueVisitorCount int64
 }
 
 type visitLocationSignals struct {
@@ -398,6 +402,7 @@ type visitLocationSignals struct {
 }
 
 type visitLocationSignalCountRow struct {
+	VisitorID    string
 	Timezone     string
 	Locale       string
 	IP           string
@@ -572,21 +577,22 @@ func parseVisitTrendDate(rawValue string) (time.Time, error) {
 }
 
 type visitAttributionRow struct {
-	URL      string
-	Referrer string
+	VisitorID string
+	URL       string
+	Referrer  string
 }
 
-func (provider *DatabaseSiteStatisticsProvider) VisitAttribution(ctx context.Context, siteID string, limit int) (VisitAttributionBreakdown, error) {
-	return provider.visitAttribution(ctx, siteID, limit, time.Time{})
+func (provider *DatabaseSiteStatisticsProvider) VisitAttribution(ctx context.Context, siteID string, limit int, sortOrder TrafficSort) (VisitAttributionBreakdown, error) {
+	return provider.visitAttribution(ctx, siteID, limit, time.Time{}, sortOrder)
 }
 
 // VisitAttributionForDays returns attribution within the selected traffic interval window.
-func (provider *DatabaseSiteStatisticsProvider) VisitAttributionForDays(ctx context.Context, siteID string, days int, limit int) (VisitAttributionBreakdown, error) {
+func (provider *DatabaseSiteStatisticsProvider) VisitAttributionForDays(ctx context.Context, siteID string, days int, limit int, sortOrder TrafficSort) (VisitAttributionBreakdown, error) {
 	normalizedDays := normalizeVisitTrendDays(days)
-	return provider.visitAttribution(ctx, siteID, limit, visitWindowStartTime(normalizedDays))
+	return provider.visitAttribution(ctx, siteID, limit, visitWindowStartTime(normalizedDays), sortOrder)
 }
 
-func (provider *DatabaseSiteStatisticsProvider) visitAttribution(ctx context.Context, siteID string, limit int, startTime time.Time) (VisitAttributionBreakdown, error) {
+func (provider *DatabaseSiteStatisticsProvider) visitAttribution(ctx context.Context, siteID string, limit int, startTime time.Time, sortOrder TrafficSort) (VisitAttributionBreakdown, error) {
 	if strings.TrimSpace(siteID) == "" {
 		return VisitAttributionBreakdown{}, nil
 	}
@@ -595,7 +601,7 @@ func (provider *DatabaseSiteStatisticsProvider) visitAttribution(ctx context.Con
 	var rows []visitAttributionRow
 	query := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
-		Select("url, referrer").
+		Select("url, referrer, visitor_id").
 		Where("site_id = ? AND is_bot = ?", siteID, false)
 	if !startTime.IsZero() {
 		query = query.Where("occurred_at >= ?", startTime)
@@ -608,17 +614,21 @@ func (provider *DatabaseSiteStatisticsProvider) visitAttribution(ctx context.Con
 	sourceCounts := make(map[string]int64)
 	mediumCounts := make(map[string]int64)
 	campaignCounts := make(map[string]int64)
+	sourceVisitors, mediumVisitors, campaignVisitors := make(bucketVisitorCounts), make(bucketVisitorCounts), make(bucketVisitorCounts)
 	for _, row := range rows {
 		sourceValue, mediumValue, campaignValue := resolveVisitAttribution(row.URL, row.Referrer)
 		sourceCounts[sourceValue]++
 		mediumCounts[mediumValue]++
 		campaignCounts[campaignValue]++
+		sourceVisitors.add(sourceValue, row.VisitorID)
+		mediumVisitors.add(mediumValue, row.VisitorID)
+		campaignVisitors.add(campaignValue, row.VisitorID)
 	}
 
 	return VisitAttributionBreakdown{
-		Sources:   topAttributionStats(sourceCounts, normalizedLimit),
-		Mediums:   topAttributionStats(mediumCounts, normalizedLimit),
-		Campaigns: topAttributionStats(campaignCounts, normalizedLimit),
+		Sources:   topAttributionStats(sourceCounts, sourceVisitors, normalizedLimit, sortOrder),
+		Mediums:   topAttributionStats(mediumCounts, mediumVisitors, normalizedLimit, sortOrder),
+		Campaigns: topAttributionStats(campaignCounts, campaignVisitors, normalizedLimit, sortOrder),
 	}, nil
 }
 
@@ -696,22 +706,23 @@ func normalizeAttributionValue(rawValue string) string {
 	return normalizedValue
 }
 
-func topAttributionStats(counts map[string]int64, limit int) []AttributionStat {
+func topAttributionStats(counts map[string]int64, visitors bucketVisitorCounts, limit int, sortOrder TrafficSort) []AttributionStat {
 	if len(counts) == 0 {
 		return nil
 	}
 	entries := make([]AttributionStat, 0, len(counts))
 	for value, visitCount := range counts {
 		entries = append(entries, AttributionStat{
-			Value:      value,
-			VisitCount: visitCount,
+			Value:              value,
+			VisitCount:         visitCount,
+			UniqueVisitorCount: int64(len(visitors[value])),
 		})
 	}
 	sort.Slice(entries, func(leftIndex int, rightIndex int) bool {
-		if entries[leftIndex].VisitCount == entries[rightIndex].VisitCount {
+		if sortOrder.count(entries[leftIndex].VisitCount, entries[leftIndex].UniqueVisitorCount) == sortOrder.count(entries[rightIndex].VisitCount, entries[rightIndex].UniqueVisitorCount) {
 			return entries[leftIndex].Value < entries[rightIndex].Value
 		}
-		return entries[leftIndex].VisitCount > entries[rightIndex].VisitCount
+		return sortOrder.count(entries[leftIndex].VisitCount, entries[leftIndex].UniqueVisitorCount) > sortOrder.count(entries[rightIndex].VisitCount, entries[rightIndex].UniqueVisitorCount)
 	})
 	if len(entries) > limit {
 		entries = entries[:limit]
@@ -862,32 +873,34 @@ func roundVisitEngagementMetric(value float64) float64 {
 }
 
 type visitDimensionCountRow struct {
-	Value      string
-	VisitCount int64
+	Value              string
+	VisitCount         int64
+	UniqueVisitorCount int64
 }
 
 type viewportCountRow struct {
+	VisitorID  string
 	Viewport   string
 	VisitCount int64
 }
 
-func (provider *DatabaseSiteStatisticsProvider) DeviceBreakdown(ctx context.Context, siteID string, limit int) (DeviceBreakdownStat, error) {
-	return provider.deviceBreakdown(ctx, siteID, limit, time.Time{})
+func (provider *DatabaseSiteStatisticsProvider) DeviceBreakdown(ctx context.Context, siteID string, limit int, sortOrder TrafficSort) (DeviceBreakdownStat, error) {
+	return provider.deviceBreakdown(ctx, siteID, limit, time.Time{}, sortOrder)
 }
 
 // DeviceBreakdownForDays returns device breakdowns within the selected traffic interval window.
-func (provider *DatabaseSiteStatisticsProvider) DeviceBreakdownForDays(ctx context.Context, siteID string, days int, limit int) (DeviceBreakdownStat, error) {
+func (provider *DatabaseSiteStatisticsProvider) DeviceBreakdownForDays(ctx context.Context, siteID string, days int, limit int, sortOrder TrafficSort) (DeviceBreakdownStat, error) {
 	normalizedDays := normalizeVisitTrendDays(days)
-	return provider.deviceBreakdown(ctx, siteID, limit, visitWindowStartTime(normalizedDays))
+	return provider.deviceBreakdown(ctx, siteID, limit, visitWindowStartTime(normalizedDays), sortOrder)
 }
 
-func (provider *DatabaseSiteStatisticsProvider) deviceBreakdown(ctx context.Context, siteID string, limit int, startTime time.Time) (DeviceBreakdownStat, error) {
+func (provider *DatabaseSiteStatisticsProvider) deviceBreakdown(ctx context.Context, siteID string, limit int, startTime time.Time, sortOrder TrafficSort) (DeviceBreakdownStat, error) {
 	if strings.TrimSpace(siteID) == "" {
 		return DeviceBreakdownStat{}, nil
 	}
 	normalizedLimit := normalizeDeviceBreakdownLimit(limit)
 
-	resolutionStats, err := provider.topScreenResolutionStats(ctx, siteID, normalizedLimit, startTime)
+	resolutionStats, err := provider.topScreenResolutionStats(ctx, siteID, normalizedLimit, startTime, sortOrder)
 	if err != nil {
 		return DeviceBreakdownStat{}, err
 	}
@@ -898,43 +911,38 @@ func (provider *DatabaseSiteStatisticsProvider) deviceBreakdown(ctx context.Cont
 	}
 
 	deviceCounts := make(map[string]int64)
-	var topViewportStats []AttributionStat
-	if len(viewportRows) > 0 {
-		topViewportStats = make([]AttributionStat, 0, minInt(len(viewportRows), normalizedLimit))
-	}
-	for index, row := range viewportRows {
-		viewportValue := strings.TrimSpace(row.Viewport)
-		if viewportValue == "" {
+	deviceVisitors := make(bucketVisitorCounts)
+	viewportCounts := make(map[string]int64)
+	viewportVisitors := make(bucketVisitorCounts)
+	for _, row := range viewportRows {
+		viewport := strings.TrimSpace(row.Viewport)
+		if viewport == "" {
 			continue
 		}
-		deviceType := classifyDeviceType(viewportValue)
+		deviceType := classifyDeviceType(viewport)
 		deviceCounts[deviceType] += row.VisitCount
-		if index < normalizedLimit {
-			topViewportStats = append(topViewportStats, AttributionStat{
-				Value:      viewportValue,
-				VisitCount: row.VisitCount,
-			})
-		}
+		deviceVisitors.add(deviceType, row.VisitorID)
+		viewportCounts[viewport] += row.VisitCount
+		viewportVisitors.add(viewport, row.VisitorID)
 	}
-
 	return DeviceBreakdownStat{
-		DeviceTypes:    topDeviceTypeStats(deviceCounts),
+		DeviceTypes:    topDeviceTypeStats(deviceCounts, deviceVisitors, sortOrder),
 		TopResolutions: resolutionStats,
-		TopViewports:   topViewportStats,
+		TopViewports:   topAttributionStats(viewportCounts, viewportVisitors, normalizedLimit, sortOrder),
 	}, nil
 }
 
-func (provider *DatabaseSiteStatisticsProvider) topScreenResolutionStats(ctx context.Context, siteID string, limit int, startTime time.Time) ([]AttributionStat, error) {
+func (provider *DatabaseSiteStatisticsProvider) topScreenResolutionStats(ctx context.Context, siteID string, limit int, startTime time.Time, sortOrder TrafficSort) ([]AttributionStat, error) {
 	var rows []visitDimensionCountRow
 	query := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
-		Select("screen_resolution as value, COUNT(*) as visit_count").
+		Select("screen_resolution as value, COUNT(*) as visit_count, COUNT(DISTINCT CASE WHEN visitor_id <> '' THEN visitor_id END) as unique_visitor_count").
 		Where("site_id = ? AND is_bot = ? AND screen_resolution <> ''", siteID, false)
 	if !startTime.IsZero() {
 		query = query.Where("occurred_at >= ?", startTime)
 	}
 	err := query.Group("screen_resolution").
-		Order("visit_count desc, screen_resolution asc").
+		Order(sortOrder.orderClause("screen_resolution")).
 		Limit(limit).
 		Scan(&rows).Error
 	if err != nil {
@@ -947,12 +955,12 @@ func (provider *DatabaseSiteStatisticsProvider) viewportCounts(ctx context.Conte
 	var rows []viewportCountRow
 	query := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
-		Select("viewport, COUNT(*) as visit_count").
+		Select("viewport, visitor_id, COUNT(*) as visit_count").
 		Where("site_id = ? AND is_bot = ? AND viewport <> ''", siteID, false)
 	if !startTime.IsZero() {
 		query = query.Where("occurred_at >= ?", startTime)
 	}
-	err := query.Group("viewport").
+	err := query.Group("viewport, visitor_id").
 		Order("visit_count desc, viewport asc").
 		Scan(&rows).Error
 	if err != nil {
@@ -972,8 +980,9 @@ func attributionStatsFromDimensionRows(rows []visitDimensionCountRow) []Attribut
 			continue
 		}
 		stats = append(stats, AttributionStat{
-			Value:      value,
-			VisitCount: row.VisitCount,
+			Value:              value,
+			VisitCount:         row.VisitCount,
+			UniqueVisitorCount: row.UniqueVisitorCount,
 		})
 	}
 	if len(stats) == 0 {
@@ -1011,34 +1020,34 @@ func normalizeDeviceBreakdownLimit(limit int) int {
 	return limit
 }
 
-func topDeviceTypeStats(counts map[string]int64) []DeviceTypeStat {
+func topDeviceTypeStats(counts map[string]int64, visitors bucketVisitorCounts, sortOrder TrafficSort) []DeviceTypeStat {
 	if len(counts) == 0 {
 		return nil
 	}
 	entries := make([]DeviceTypeStat, 0, len(counts))
 	for deviceType, visitCount := range counts {
-		entries = append(entries, DeviceTypeStat{DeviceType: deviceType, VisitCount: visitCount})
+		entries = append(entries, DeviceTypeStat{DeviceType: deviceType, VisitCount: visitCount, UniqueVisitorCount: int64(len(visitors[deviceType]))})
 	}
 	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].VisitCount == entries[j].VisitCount {
+		if sortOrder.count(entries[i].VisitCount, entries[i].UniqueVisitorCount) == sortOrder.count(entries[j].VisitCount, entries[j].UniqueVisitorCount) {
 			return entries[i].DeviceType < entries[j].DeviceType
 		}
-		return entries[i].VisitCount > entries[j].VisitCount
+		return sortOrder.count(entries[i].VisitCount, entries[i].UniqueVisitorCount) > sortOrder.count(entries[j].VisitCount, entries[j].UniqueVisitorCount)
 	})
 	return entries
 }
 
-func (provider *DatabaseSiteStatisticsProvider) LocationDistribution(ctx context.Context, siteID string, limit int) ([]LocationDistributionStat, error) {
-	return provider.locationDistribution(ctx, siteID, limit, time.Time{})
+func (provider *DatabaseSiteStatisticsProvider) LocationDistribution(ctx context.Context, siteID string, limit int, sortOrder TrafficSort) ([]LocationDistributionStat, error) {
+	return provider.locationDistribution(ctx, siteID, limit, time.Time{}, sortOrder)
 }
 
 // LocationDistributionForDays returns inferred visitor locations within the selected traffic interval window.
-func (provider *DatabaseSiteStatisticsProvider) LocationDistributionForDays(ctx context.Context, siteID string, days int, limit int) ([]LocationDistributionStat, error) {
+func (provider *DatabaseSiteStatisticsProvider) LocationDistributionForDays(ctx context.Context, siteID string, days int, limit int, sortOrder TrafficSort) ([]LocationDistributionStat, error) {
 	normalizedDays := normalizeVisitTrendDays(days)
-	return provider.locationDistribution(ctx, siteID, limit, visitWindowStartTime(normalizedDays))
+	return provider.locationDistribution(ctx, siteID, limit, visitWindowStartTime(normalizedDays), sortOrder)
 }
 
-func (provider *DatabaseSiteStatisticsProvider) locationDistribution(ctx context.Context, siteID string, limit int, startTime time.Time) ([]LocationDistributionStat, error) {
+func (provider *DatabaseSiteStatisticsProvider) locationDistribution(ctx context.Context, siteID string, limit int, startTime time.Time, sortOrder TrafficSort) ([]LocationDistributionStat, error) {
 	if strings.TrimSpace(siteID) == "" {
 		return nil, nil
 	}
@@ -1047,13 +1056,13 @@ func (provider *DatabaseSiteStatisticsProvider) locationDistribution(ctx context
 	var rows []visitLocationSignalCountRow
 	query := provider.database.WithContext(ctx).
 		Model(&model.SiteVisit{}).
-		Select("timezone, locale, ip, geo_source, geo_country, geo_region, geo_city, geo_latitude, geo_longitude, COUNT(*) as visit_count").
+		Select("timezone, locale, ip, geo_source, geo_country, geo_region, geo_city, geo_latitude, geo_longitude, visitor_id, COUNT(*) as visit_count").
 		Where("site_id = ? AND is_bot = ?", siteID, false)
 	if !startTime.IsZero() {
 		query = query.Where("occurred_at >= ?", startTime)
 	}
 	err := query.
-		Group("timezone, locale, ip, geo_source, geo_country, geo_region, geo_city, geo_latitude, geo_longitude").
+		Group("timezone, locale, ip, geo_source, geo_country, geo_region, geo_city, geo_latitude, geo_longitude, visitor_id").
 		Scan(&rows).Error
 	if err != nil {
 		return nil, err
@@ -1064,12 +1073,14 @@ func (provider *DatabaseSiteStatisticsProvider) locationDistribution(ctx context
 		confidenceTotal int64
 	}
 	statsByKey := make(map[string]locationDistributionAggregate)
+	locationVisitors := make(bucketVisitorCounts)
 	for _, row := range rows {
 		if row.VisitCount <= 0 {
 			continue
 		}
 		location := inferVisitLocation(row.signals())
-		key := location.Source + "\x00" + location.Signal + "\x00" + location.Label + "\x00" + location.Country + "\x00" + location.Region + "\x00" + location.City
+		key := locationBucketKey(location)
+		locationVisitors.add(key, row.VisitorID)
 		current := statsByKey[key]
 		if current.stat.Label == "" {
 			current.stat = location
@@ -1080,14 +1091,21 @@ func (provider *DatabaseSiteStatisticsProvider) locationDistribution(ctx context
 	}
 
 	stats := make([]LocationDistributionStat, 0, len(statsByKey))
-	for _, aggregate := range statsByKey {
+	for key, aggregate := range statsByKey {
 		stat := aggregate.stat
+		stat.UniqueVisitorCount = int64(len(locationVisitors[key]))
 		if stat.VisitCount > 0 {
 			stat.Confidence = int((aggregate.confidenceTotal + stat.VisitCount/2) / stat.VisitCount)
 		}
 		stats = append(stats, stat)
 	}
 	sort.Slice(stats, func(leftIndex int, rightIndex int) bool {
+		if sortOrder == TrafficSortUniqueVisitors {
+			if stats[leftIndex].UniqueVisitorCount != stats[rightIndex].UniqueVisitorCount {
+				return stats[leftIndex].UniqueVisitorCount > stats[rightIndex].UniqueVisitorCount
+			}
+			return locationBucketKey(stats[leftIndex]) < locationBucketKey(stats[rightIndex])
+		}
 		if stats[leftIndex].VisitCount == stats[rightIndex].VisitCount {
 			if stats[leftIndex].Confidence != stats[rightIndex].Confidence {
 				return stats[leftIndex].Confidence > stats[rightIndex].Confidence
@@ -1427,9 +1445,6 @@ func clampFloat(value float64, minimum float64, maximum float64) float64 {
 	return math.Max(minimum, math.Min(maximum, value))
 }
 
-func minInt(left int, right int) int {
-	if left < right {
-		return left
-	}
-	return right
+func locationBucketKey(location LocationDistributionStat) string {
+	return strings.Join([]string{location.Source, location.Signal, location.Label, location.Country, location.Region, location.City}, "\x00")
 }

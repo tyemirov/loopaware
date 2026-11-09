@@ -1,8 +1,12 @@
+import { Image as FaviconImage } from "expo-image";
+import { locationMapImage } from "./src/location-map";
+import { locationMapWidth, locationMapHeight } from "./src/location-world";
 import { StatusBar } from "expo-status-bar";
 import * as SecureStore from "expo-secure-store";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   AccessibilityInfo,
   BackHandler,
   findNodeHandle,
@@ -16,11 +20,13 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { LoopAwareApiClient, LoopAwareApiError } from "./src/api";
 import { useAccountMenu } from "./src/account-menu";
+import { useAccountPhoto, useResourceImage } from "./src/avatar";
 import { ThemeProvider, useTheme, palettes, type ThemeColors } from "./src/theme";
 import { AuthController } from "./src/auth";
 import { loadRuntimeConfig } from "./src/config";
@@ -29,7 +35,8 @@ import type {
   Account,
   DashboardTab,
   FeedbackMessage,
-  PortfolioDashboard,
+  LocationPoint,
+  VisibleTrafficReport,
   SentryIssue,
   Site,
   SiteDashboard,
@@ -38,6 +45,7 @@ import type {
   VisitTrendPoint,
 } from "./src/types";
 
+const statisticsSyncIntervalMs = 30_000;
 const selectedSiteStorageKey = "loopaware.mobile.selectedSiteId";
 const dashboardTabs: Array<{ key: DashboardTab; label: string }> = [
   { key: "overview", label: "Overview" },
@@ -56,6 +64,14 @@ const trafficIntervals: Array<{ key: TrafficInterval; label: string }> = [
 ];
 const mobileFeedbackSourceKind: FeedbackMessage["source_kind"] = "mobile_app";
 const siteSelectorLabelSize = 12;
+const siteFilterTextSize = 14;
+const siteFilterLineHeight = 20;
+const siteFilterVerticalPadding = 8;
+const siteFilterTouchSize = 44;
+type HeadingFocus = { requested: boolean; onFocused: () => void };
+type TrafficMeasure = "unique_visitors" | "requests";
+type StatItem = { label: string; value: string; detail?: string };
+type OverviewStatItem = StatItem & { destination: DashboardTab; actionLabel: string };
 
 export default function App() {
   return <ThemeProvider><AppContent /></ThemeProvider>;
@@ -64,9 +80,9 @@ export default function App() {
 function AppContent() {
   const { styles, colors } = useAppStyles();
   const theme = useTheme();
-  const [screen, setScreen] = useState<"dashboard" | "settings">("dashboard");
+  const [screen, setScreen] = useState<"dashboard" | "settings" | "statistics">("dashboard");
   useEffect(() => {
-    if (screen !== "settings") return;
+    if (screen === "dashboard") return;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => { setScreen("dashboard"); return true; });
     return () => subscription.remove();
   }, [screen]);
@@ -78,8 +94,16 @@ function AppContent() {
   const [sites, setSites] = useState<Site[] | null>(null);
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [siteDashboard, setSiteDashboard] = useState<SiteDashboard | null>(null);
-  const [portfolioDashboard, setPortfolioDashboard] = useState<PortfolioDashboard | null>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
+  const [overviewDestination, setOverviewDestination] = useState<DashboardTab | null>(null);
+  const dashboardScroll = useRef<ScrollView>(null);
+  const tabBarTop = useRef(0);
+  const openOverviewTab = (tab: DashboardTab) => {
+    Keyboard.dismiss();
+    setActiveTab(tab);
+    setOverviewDestination(tab);
+    dashboardScroll.current?.scrollTo({ y: tabBarTop.current, animated: false });
+  };
   const [trafficInterval, setTrafficInterval] = useState<TrafficInterval>("30days");
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -133,12 +157,10 @@ function AppContent() {
           setSites(null);
           setSelectedSiteId(null);
           setSiteDashboard(null);
-          setPortfolioDashboard(null);
           return;
         }
         setAccount(currentAccount);
         setStatus("signedIn");
-        setPortfolioDashboard(null);
 
         async function loadSites() {
           try {
@@ -165,20 +187,7 @@ function AppContent() {
           }
         }
 
-        async function loadPortfolio() {
-          try {
-            const nextPortfolioDashboard = await apiClient.portfolioDashboard();
-            if (accountRequestVersion === authenticatedLoadVersion.current) {
-              setPortfolioDashboard(nextPortfolioDashboard);
-            }
-          } catch (error) {
-            if (accountRequestVersion === authenticatedLoadVersion.current) {
-              setErrorMessage(errorToMessage(error));
-            }
-          }
-        }
-
-        await Promise.all([loadSites(), loadPortfolio()]);
+        await loadSites();
       } catch (error) {
         if (accountRequestVersion === authenticatedLoadVersion.current) {
           setStatus((currentStatus) => (currentStatus === "checking" ? "signedOut" : currentStatus));
@@ -244,7 +253,6 @@ function AppContent() {
       setSites(null);
       setSelectedSiteId(null);
       setSiteDashboard(null);
-      setPortfolioDashboard(null);
       setStatus("signedOut");
       setScreen("dashboard");
     } catch (error) {
@@ -300,35 +308,50 @@ function AppContent() {
         ) : screen === "settings" ? (
           <SettingsScreen account={account!} sites={sites} busy={busy} errorMessage={errorMessage}
             onBack={() => setScreen("dashboard")} onSignOut={handleSignOut} />
+        ) : screen === "statistics" ? (
+          <StatisticsScreen key={account!.email} apiClient={apiClient}
+            onBack={() => setScreen("dashboard")}
+            onSelectSite={site => {
+              setSites(current => current?.some(value => value.id === site.id) ? current.map(value => value.id === site.id ? site : value) : [...(current ?? []), site]);
+              setScreen("dashboard");
+              setActiveTab("overview");
+              setOverviewDestination(null);
+              setSiteDashboard(null);
+              void handleSelectSite(site);
+            }} />
         ) : (
           <ScrollView
+            ref={dashboardScroll}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             automaticallyAdjustKeyboardInsets
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.teal} />}
           >
-            <Header account={account!} onSettings={() => {
+            <Header account={account!} apiClient={apiClient} onStatistics={() => { Keyboard.dismiss(); setScreen("statistics"); }} onSettings={() => {
               setScreen("settings");
               void loadAuthenticatedState("current", selectedSiteId, trafficInterval);
             }} />
             {errorMessage ? <StatusBanner message={errorMessage} /> : null}
             {theme.error ? <StatusBanner message={theme.error} /> : null}
-            {sites ? <SitesRail sites={sites} selectedSiteId={selectedSiteId} onSelectSite={handleSelectSite} /> : null}
+            {sites ? <SitesRail key={account!.email} apiClient={apiClient} sites={sites} selectedSiteId={selectedSiteId} onSelectSite={handleSelectSite} /> : null}
             {selectedSite ? (
               <>
                 <SelectedSiteHeader site={selectedSite} />
                 {selectedSiteDashboard ? (
                   <>
-                    <TabBar activeTab={activeTab} onChange={setActiveTab} />
+                    <View onLayout={event => { tabBarTop.current = event.nativeEvent.layout.y; }}>
+                      <TabBar activeTab={activeTab} onChange={tab => { setOverviewDestination(null); setActiveTab(tab); }} />
+                    </View>
                     {busy ? <InlineLoading /> : null}
                     <DashboardTabContent
                       activeTab={activeTab}
                       interval={trafficInterval}
                       onIntervalChange={handleSelectInterval}
-                      portfolioDashboard={portfolioDashboard}
                       site={selectedSite}
                       siteDashboard={selectedSiteDashboard}
+                      onNavigate={openOverviewTab}
+                      headingFocus={{ requested: overviewDestination === activeTab, onFocused: () => setOverviewDestination(null) }}
                     />
                   </>
                 ) : busy ? (
@@ -376,7 +399,7 @@ function focusNative(element: View | Text | null) {
   if (tag !== null) AccessibilityInfo.setAccessibilityFocus(tag);
 }
 
-function Header(props: { account: Account; onSettings: () => void }) {
+function Header(props: { account: Account; apiClient: LoopAwareApiClient; onSettings: () => void; onStatistics: () => void }) {
   const { styles, colors } = useAppStyles();
   const avatar = useRef<View>(null);
   const menuItem = useRef<View>(null);
@@ -385,14 +408,21 @@ function Header(props: { account: Account; onSettings: () => void }) {
     <View style={styles.header}>
       <View style={styles.brandRowCompact}>
         <Image source={require("./assets/icon.png")} style={styles.headerIcon} />
-        <Text style={styles.headerTitle}>LoopAware</Text>
+        <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>LoopAware</Text>
       </View>
+      <View style={styles.headerActions}>
       <Pressable ref={avatar} accessibilityRole="button" accessibilityLabel="Account menu"
         accessibilityHint="Open account options" accessibilityState={{ expanded: menu.visible }}
         style={styles.avatar} onPress={menu.open}>
-        {props.account.avatar?.url ? <Image source={{ uri: props.account.avatar.url }} style={styles.avatarImage} />
-          : <Text style={styles.avatarInitial}>{Array.from(props.account.email)[0].toUpperCase()}</Text>}
+        <AccountAvatar key={`${props.account.email}:${props.account.avatar?.url ?? ""}`} account={props.account} apiClient={props.apiClient} />
       </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Statistics" accessibilityHint="View reports across all accessible sites"
+        style={styles.statisticsButton} onPress={props.onStatistics}>
+        <View style={styles.statisticsIcon} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          {[10, 22, 16].map((height, index) => <View key={index} style={[styles.statisticsBar, { height }]} />)}
+        </View>
+      </Pressable>
+      </View>
       <Modal visible={menu.visible} transparent animationType="none" onRequestClose={() => menu.close("avatar")}
         onShow={() => focusNative(menuItem.current)} onDismiss={menu.onDismiss}>
         <SafeAreaView style={styles.menuOverlay} accessibilityViewIsModal onAccessibilityEscape={() => menu.close("avatar")}>
@@ -449,8 +479,28 @@ function SettingsScreen(props: { account: Account; sites: Site[] | null; busy: b
   </ScrollView>;
 }
 
-function SitesRail(props: { sites: Site[]; selectedSiteId: string | null; onSelectSite: (site: Site) => void }) {
+function AccountAvatar(props: { account: Account; apiClient: LoopAwareApiClient }) {
+  const photo = useAccountPhoto(props.account, props.apiClient);
+  return <AvatarImage key={photo.status === "loaded" ? photo.generation : "unavailable"}
+    email={props.account.email} uri={photo.status === "loaded" ? photo.uri : undefined} />;
+}
+
+function AvatarImage(props: { email: string; uri?: string }) {
+  const { styles } = useAppStyles();
+  const [imageState, setImageState] = useState<"loading" | "ready" | "unavailable">(props.uri ? "loading" : "unavailable");
+  return (
+    <View style={styles.avatarContent} pointerEvents="none" accessible={false}>
+      {imageState !== "ready" ? <Text style={styles.avatarInitial}>{Array.from(props.email)[0].toUpperCase()}</Text> : null}
+      {props.uri && imageState !== "unavailable" ? <Image source={{ uri: props.uri }}
+        style={[styles.avatarImage, imageState !== "ready" && styles.avatarImageLoading]}
+        accessible={false} onLoad={() => setImageState("ready")} onError={() => setImageState("unavailable")} /> : null}
+    </View>
+  );
+}
+
+function SitesRail(props: { apiClient: LoopAwareApiClient; sites: Site[]; selectedSiteId: string | null; onSelectSite: (site: Site) => void }) {
   const { styles, colors } = useAppStyles();
+  const { fontScale } = useWindowDimensions();
   const [filterOpen, setFilterOpen] = useState(false);
   const [query, setQuery] = useState("");
   const searchInput = useRef<TextInput>(null);
@@ -468,8 +518,18 @@ function SitesRail(props: { sites: Site[]; selectedSiteId: string | null; onSele
   }
   return (
     <View style={styles.sitesSection} onAccessibilityEscape={filterOpen ? closeFilter : undefined}>
-      <View style={styles.sitesHeading}>
+      <View style={{ ...styles.sitesHeading, minHeight: Math.max(siteFilterTouchSize, Math.ceil(siteFilterLineHeight * fontScale) + siteFilterVerticalPadding * 2) + 2 }}>
         <Text style={styles.sectionLabel}>Sites</Text>
+        {filterOpen ? <View style={styles.siteFilterField}>
+          <TextInput ref={searchInput} accessibilityRole="search" accessibilityLabel="Filter sites" autoFocus
+            value={query} onChangeText={setQuery} placeholder="Site name or domain" placeholderTextColor={colors.muted}
+            autoCapitalize="none" autoCorrect={false} autoComplete="off" returnKeyType="search"
+            onSubmitEditing={() => Keyboard.dismiss()} style={styles.siteFilterInput} />
+          {query.length ? <Pressable accessibilityRole="button" accessibilityLabel="Clear site filter" style={styles.siteFilterButton}
+            onPress={() => { setQuery(""); searchInput.current?.focus(); }}>
+            <Text style={styles.siteFilterClear}>×</Text>
+          </Pressable> : null}
+        </View> : null}
         <Pressable ref={searchButton} accessibilityRole="button" accessibilityLabel="Find sites"
           accessibilityHint={filterOpen ? "Close the filter and show all sites" : "Filter sites by name or domain"}
           accessibilityState={{ expanded: filterOpen }} style={styles.siteFilterButton}
@@ -480,16 +540,6 @@ function SitesRail(props: { sites: Site[]; selectedSiteId: string | null; onSele
           </View>
         </Pressable>
       </View>
-      {filterOpen ? <View style={styles.siteFilterField}>
-        <TextInput ref={searchInput} accessibilityRole="search" accessibilityLabel="Filter sites" autoFocus
-          value={query} onChangeText={setQuery} placeholder="Site name or domain" placeholderTextColor={colors.muted}
-          autoCapitalize="none" autoCorrect={false} autoComplete="off" returnKeyType="search"
-          onSubmitEditing={() => Keyboard.dismiss()} style={styles.siteFilterInput} />
-        {query.length ? <Pressable accessibilityRole="button" accessibilityLabel="Clear site filter" style={styles.siteFilterButton}
-          onPress={() => { setQuery(""); searchInput.current?.focus(); }}>
-          <Text style={styles.siteFilterClear}>×</Text>
-        </Pressable> : null}
-      </View> : null}
       {!matchingSites.length ? <EmptyInline text="No sites match your filter." /> : <ScrollView horizontal
         keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sitesRail}>
         {matchingSites.map((site) => {
@@ -497,9 +547,7 @@ function SitesRail(props: { sites: Site[]; selectedSiteId: string | null; onSele
           return (
             <Pressable key={site.id} accessibilityRole="button" accessibilityLabel={site.name} accessibilityState={{ selected }}
               style={[styles.siteChip, selected && styles.siteChipSelected]} onPress={() => { Keyboard.dismiss(); props.onSelectSite(site); }}>
-              <Text style={[styles.siteChipTitle, selected && styles.siteChipTitleSelected]} numberOfLines={1}>
-                {site.name}
-              </Text>
+              <SiteBadgeTitle key={`${site.id}:${site.favicon_url}`} site={site} selected={selected} apiClient={props.apiClient} />
               <Text style={[styles.siteChipMeta, selected && styles.siteChipMetaSelected]}>{sentenceCase(site.access_role)}</Text>
             </Pressable>
           );
@@ -507,6 +555,24 @@ function SitesRail(props: { sites: Site[]; selectedSiteId: string | null; onSele
       </ScrollView>}
     </View>
   );
+}
+
+function SiteBadgeTitle(props: { site: Site; selected: boolean; apiClient: LoopAwareApiClient }) {
+  const load = useCallback((signal: AbortSignal) => props.apiClient.siteFavicon(props.site, signal), [props.apiClient, props.site.id, props.site.favicon_url]);
+  const image = useResourceImage(load);
+  return <SiteBadgeImage key={image.status === "loaded" ? image.generation : "unavailable"}
+    site={props.site} selected={props.selected} uri={image.status === "loaded" ? image.uri : undefined} />;
+}
+
+function SiteBadgeImage(props: { site: Site; selected: boolean; uri?: string }) {
+  const { styles } = useAppStyles();
+  const [failed, setFailed] = useState(false);
+  const showIcon = Boolean(props.uri) && !failed;
+  return <View>
+    <Text style={[styles.siteChipTitle, props.selected && styles.siteChipTitleSelected, showIcon && styles.siteChipIconTitle]} numberOfLines={1}>{props.site.name}</Text>
+    {showIcon ? <FaviconImage source={{ uri: props.uri }} style={styles.siteChipIcon} accessible={false}
+      contentFit="contain" cachePolicy="none" transition={0} onError={() => setFailed(true)} /> : null}
+  </View>;
 }
 
 function SelectedSiteHeader(props: { site: Site }) {
@@ -524,12 +590,31 @@ function SelectedSiteHeader(props: { site: Site }) {
 
 function TabBar(props: { activeTab: DashboardTab; onChange: (tab: DashboardTab) => void }) {
   const { styles, colors } = useAppStyles();
+  const scroll = useRef<ScrollView>(null);
+  const viewport = useRef(0);
+  const offset = useRef(0);
+  const frames = useRef(new Map<DashboardTab, { x: number; width: number }>());
+  const revealSelected = useCallback(() => {
+    const frame = frames.current.get(props.activeTab);
+    if (!frame || viewport.current === 0) return;
+    const nextOffset = frame.x < offset.current ? frame.x
+      : frame.x + frame.width > offset.current + viewport.current ? frame.x + frame.width - viewport.current : offset.current;
+    if (nextOffset !== offset.current) {
+      offset.current = nextOffset;
+      scroll.current?.scrollTo({ x: nextOffset, animated: false });
+    }
+  }, [props.activeTab]);
+  useEffect(revealSelected, [revealSelected]);
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
+    <ScrollView ref={scroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}
+      onLayout={event => { viewport.current = event.nativeEvent.layout.width; revealSelected(); }}
+      onContentSizeChange={revealSelected} onScroll={event => { offset.current = event.nativeEvent.contentOffset.x; }} scrollEventThrottle={16}>
       {dashboardTabs.map((tab) => {
         const active = tab.key === props.activeTab;
         return (
-          <Pressable key={tab.key} style={[styles.tabButton, active && styles.tabButtonActive]} onPress={() => props.onChange(tab.key)}>
+          <Pressable key={tab.key} accessibilityRole="tab" accessibilityLabel={tab.label} accessibilityState={{ selected: active }}
+            onLayout={event => { frames.current.set(tab.key, event.nativeEvent.layout); if (active) revealSelected(); }}
+            style={[styles.tabButton, active && styles.tabButtonActive]} onPress={() => props.onChange(tab.key)}>
             <Text style={[styles.tabButtonText, active && styles.tabButtonTextActive]}>{tab.label}</Text>
           </Pressable>
         );
@@ -542,41 +627,43 @@ function DashboardTabContent(props: {
   activeTab: DashboardTab;
   interval: TrafficInterval;
   onIntervalChange: (interval: TrafficInterval) => void;
-  portfolioDashboard: PortfolioDashboard | null;
   site: Site;
   siteDashboard: SiteDashboard;
+  onNavigate: (tab: DashboardTab) => void;
+  headingFocus: HeadingFocus;
 }) {
   const { styles, colors } = useAppStyles();
   switch (props.activeTab) {
     case "feedback":
-      return <FeedbackSection messages={props.siteDashboard.messages} />;
+      return <FeedbackSection messages={props.siteDashboard.messages} headingFocus={props.headingFocus} />;
     case "traffic":
-      return <TrafficSection dashboard={props.siteDashboard} interval={props.interval} onIntervalChange={props.onIntervalChange} />;
+      return <TrafficSection dashboard={props.siteDashboard} interval={props.interval} onIntervalChange={props.onIntervalChange} headingFocus={props.headingFocus} />;
     case "subscribers":
-      return <SubscribersSection subscribers={props.siteDashboard.subscribers} />;
+      return <SubscribersSection subscribers={props.siteDashboard.subscribers} headingFocus={props.headingFocus} />;
     case "health":
-      return <HealthSection monitor={props.siteDashboard.healthMonitor} />;
+      return <HealthSection monitor={props.siteDashboard.healthMonitor} headingFocus={props.headingFocus} />;
     case "sentry":
-      return <SentrySection issues={props.siteDashboard.sentryIssues} site={props.site} />;
+      return <SentrySection issues={props.siteDashboard.sentryIssues} site={props.site} headingFocus={props.headingFocus} />;
     case "reports":
-      return <ReportsSection dashboard={props.portfolioDashboard} siteDashboard={props.siteDashboard} site={props.site} />;
+      return <ReportsSection siteDashboard={props.siteDashboard} site={props.site} />;
     case "overview":
     default:
-      return <OverviewSection dashboard={props.siteDashboard} site={props.site} />;
+      return <OverviewSection dashboard={props.siteDashboard} site={props.site} onNavigate={props.onNavigate} />;
   }
 }
 
-function OverviewSection(props: { dashboard: SiteDashboard; site: Site }) {
+function OverviewSection(props: { dashboard: SiteDashboard; site: Site; onNavigate: (tab: DashboardTab) => void }) {
   const { styles, colors } = useAppStyles();
   return (
     <View style={styles.sectionStack}>
       <StatGrid
+        onNavigate={props.onNavigate}
         items={[
-          { label: "Feedback", value: formatCount(props.site.feedback_count), detail: `${formatCount(props.dashboard.messages.length)} loaded` },
-          { label: "Subscribers", value: formatCount(props.site.subscriber_count), detail: `${formatCount(props.dashboard.subscribers.length)} loaded` },
-          { label: "Visits", value: formatCount(props.dashboard.stats.visit_count), detail: `${formatCount(props.dashboard.stats.unique_visitor_count)} unique` },
-          { label: "Health", value: sentenceCase(props.dashboard.healthMonitor?.status || "unknown"), detail: props.dashboard.healthMonitor?.enabled ? "Checks enabled" : "Checks off" },
-          { label: "Sentry", value: formatCount(props.dashboard.sentryIssues.length), detail: props.site.sentry_token_configured ? "Token configured" : "Token missing" },
+          { destination: "feedback", actionLabel: "View feedback", label: "Feedback", value: formatCount(props.site.feedback_count), detail: `${formatCount(props.dashboard.messages.length)} loaded` },
+          { destination: "subscribers", actionLabel: "View subscribers", label: "Subscribers", value: formatCount(props.site.subscriber_count), detail: `${formatCount(props.dashboard.subscribers.length)} loaded` },
+          { destination: "traffic", actionLabel: "View traffic", label: props.site.traffic_profile === "detailed" ? "Unique visitors" : "Requests", value: formatCount(props.site.traffic_profile === "detailed" ? props.dashboard.stats.unique_visitor_count : props.dashboard.stats.visit_count), detail: props.site.traffic_profile === "detailed" ? `${formatCount(props.dashboard.stats.visit_count)} page views` : "Daily counts" },
+          { destination: "health", actionLabel: "View health", label: "Health", value: sentenceCase(props.dashboard.healthMonitor?.status || "unknown"), detail: props.dashboard.healthMonitor?.enabled ? "Checks enabled" : "Checks off" },
+          { destination: "sentry", actionLabel: "View Sentry", label: "Sentry", value: formatCount(props.dashboard.sentryIssues.length), detail: props.site.sentry_token_configured ? "Token configured" : "Token missing" },
         ]}
       />
       <Section title="Site settings">
@@ -613,52 +700,72 @@ function OverviewSection(props: { dashboard: SiteDashboard; site: Site }) {
   );
 }
 
-function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInterval; onIntervalChange: (interval: TrafficInterval) => void }) {
+function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInterval; onIntervalChange: (interval: TrafficInterval) => void; headingFocus: HeadingFocus }) {
   const { styles, colors } = useAppStyles();
   const { engagement, attribution, devices, locations } = props.dashboard;
   if (engagement === null || attribution === null || devices === null || locations === null) {
     return (
       <View style={styles.sectionStack}>
+        <DashboardHeading title="Traffic" focus={props.headingFocus} />
         <SegmentedControl items={trafficIntervals} selectedKey={props.interval} onChange={props.onIntervalChange} />
         <StatGrid items={[{ label: "Accepted requests", value: formatCount(props.dashboard.stats.visit_count), detail: "Daily totals in UTC" }]} />
-        <Section title="Daily counts"><TrendRows trend={props.dashboard.trend.trend} /></Section>
         <EmptyInline text="Unique visitors, individual visits, pages, devices, and locations are unavailable for daily counts." />
+        <Section title="Daily counts"><TrendGraph trend={props.dashboard.trend.trend} measure="requests" /></Section>
       </View>
     );
   }
   return (
     <View style={styles.sectionStack}>
+      <DashboardHeading title="Traffic" focus={props.headingFocus} />
       <SegmentedControl items={trafficIntervals} selectedKey={props.interval} onChange={props.onIntervalChange} />
       <StatGrid
         items={[
-          { label: "Page views", value: formatCount(props.dashboard.stats.visit_count), detail: `${props.dashboard.stats.interval} window` },
-          { label: "Visitors", value: formatCount(props.dashboard.stats.unique_visitor_count), detail: "Unique visitors" },
-          { label: "Returning", value: formatPercent(engagement.returning_visitor_rate), detail: `${formatCount(engagement.returning_visitor_count)} visitors` },
+          { label: "Unique visitors", value: formatCount(props.dashboard.stats.unique_visitor_count), detail: "Distinct visitors in this window" },
+          { label: "Page views", value: formatCount(props.dashboard.stats.visit_count), detail: "Includes repeat views" },
+          { label: "Returning", value: formatPercent(engagement.returning_visitor_rate), detail: `${formatCount(engagement.returning_visitor_count)} returning visitors` },
           { label: "Pages/visitor", value: engagement.average_pages_per_visitor.toFixed(1), detail: `${formatCount(engagement.tracked_visitor_count)} tracked` },
         ]}
       />
-      <Section title="Trend">
-        <TrendRows trend={props.dashboard.trend.trend} />
-      </Section>
       <Section title="Top pages">
-        <Bars items={props.dashboard.stats.top_pages} labelFor={(item) => item.path || "/"} valueFor={(item) => item.visit_count} />
+        <Bars items={props.dashboard.stats.top_pages} labelFor={(item) => item.path || "/"} valueFor={(item) => item.unique_visitor_count} detailFor={item => `${formatCount(item.visit_count)} page views`} />
       </Section>
       <Section title="Attribution">
-        <Bars items={attribution.sources} labelFor={(item) => item.value || "Direct"} valueFor={(item) => item.visit_count} />
+        <Bars items={attribution.sources} labelFor={(item) => item.value || "Direct"} valueFor={(item) => item.unique_visitor_count} detailFor={item => `${formatCount(item.visit_count)} page views`} />
       </Section>
       <Section title="Devices">
-        <Bars items={devices.device_types} labelFor={(item) => sentenceCase(item.device_type)} valueFor={(item) => item.visit_count} />
+        <Bars items={devices.device_types} labelFor={(item) => sentenceCase(item.device_type)} valueFor={(item) => item.unique_visitor_count} detailFor={item => `${formatCount(item.visit_count)} page views`} />
       </Section>
       <Section title="Locations">
-        <Bars items={locations.locations} labelFor={(item) => item.label} valueFor={(item) => item.visit_count} />
+        <LocationMap locations={locations.locations} />
+      </Section>
+      <Section title="Trend">
+        <TrendGraph trend={props.dashboard.trend.trend} measure="unique_visitors" />
       </Section>
     </View>
   );
 }
 
-function FeedbackSection(props: { messages: FeedbackMessage[] }) {
+function LocationMap(props: { locations: LocationPoint[] }) {
+  const { colors, styles } = useAppStyles();
+  const image = useMemo(() => locationMapImage(props.locations, colors), [props.locations, colors]);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [image]);
+  if (props.locations.length === 0) return <EmptyInline text="No location data yet." />;
+  const description = props.locations.map(location => `${location.label}: ${formatCount(location.unique_visitor_count)} unique visitors, ${formatCount(location.visit_count)} page views`).join("; ");
+  return <View style={styles.sectionStack}>
+    <FaviconImage source={{ uri: image }} contentFit="contain" accessible accessibilityLabel={`Visitor location map, unique visitors. ${description}`}
+      style={{ width: "100%", aspectRatio: locationMapWidth / locationMapHeight, borderRadius: 12 }}
+      onError={() => setFailed(true)} onLoad={() => setFailed(false)} />
+    {failed ? <EmptyInline text="Location map image unavailable. Location counts appear below." /> : null}
+    <Text style={styles.helperText}>Bubble size shows unique visitors.</Text>
+    {props.locations.map((location, index) => <InfoRow key={`${location.source}:${location.signal}:${index}`} label={location.label}
+      value={`${formatCount(location.unique_visitor_count)} unique visitors · ${formatCount(location.visit_count)} page views`} />)}
+  </View>;
+}
+
+function FeedbackSection(props: { messages: FeedbackMessage[]; headingFocus: HeadingFocus }) {
   return (
-    <Section title="Feedback">
+    <Section title="Feedback" headingFocus={props.headingFocus}>
       {props.messages.length ? (
         props.messages.map((message) => (
           <ListItem
@@ -680,9 +787,9 @@ function FeedbackSection(props: { messages: FeedbackMessage[] }) {
   );
 }
 
-function SubscribersSection(props: { subscribers: Subscriber[] }) {
+function SubscribersSection(props: { subscribers: Subscriber[]; headingFocus: HeadingFocus }) {
   return (
-    <Section title="Subscribers">
+    <Section title="Subscribers" headingFocus={props.headingFocus}>
       {props.subscribers.length ? (
         props.subscribers.map((subscriber) => (
           <ListItem
@@ -699,14 +806,15 @@ function SubscribersSection(props: { subscribers: Subscriber[] }) {
   );
 }
 
-function HealthSection(props: { monitor: SiteDashboard["healthMonitor"] }) {
+function HealthSection(props: { monitor: SiteDashboard["healthMonitor"]; headingFocus: HeadingFocus }) {
   const { styles, colors } = useAppStyles();
   const monitor = props.monitor;
   if (!monitor) {
-    return <EmptyInline text="Health monitor is not available." />;
+    return <View style={styles.sectionStack}><DashboardHeading title="Health" focus={props.headingFocus} /><EmptyInline text="Health monitor is not available." /></View>;
   }
   return (
     <View style={styles.sectionStack}>
+      <DashboardHeading title="Health" focus={props.headingFocus} />
       <StatGrid
         items={[
           { label: "Status", value: sentenceCase(monitor.status), detail: monitor.enabled ? "Checks enabled" : "Checks off" },
@@ -741,10 +849,11 @@ function healthRecipientLabel(monitor: SiteDashboard["healthMonitor"]): string {
   return sentenceCase(monitor.recipient_mode);
 }
 
-function SentrySection(props: { issues: SentryIssue[]; site: Site }) {
+function SentrySection(props: { issues: SentryIssue[]; site: Site; headingFocus: HeadingFocus }) {
   const { styles, colors } = useAppStyles();
   return (
     <View style={styles.sectionStack}>
+      <DashboardHeading title="LA Sentry" focus={props.headingFocus} />
       <StatGrid
         items={[
           { label: "Issues", value: formatCount(props.issues.length), detail: props.site.sentry_token_configured ? "Ingest ready" : "No token" },
@@ -770,7 +879,104 @@ function SentrySection(props: { issues: SentryIssue[]; site: Site }) {
   );
 }
 
-function ReportsSection(props: { dashboard: PortfolioDashboard | null; siteDashboard: SiteDashboard; site: Site }) {
+function StatisticsScreen(props: { apiClient: LoopAwareApiClient; onBack: () => void; onSelectSite: (site: Site) => void }) {
+  const { styles } = useAppStyles();
+  const [report, setReport] = useState<VisibleTrafficReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [openingSite, setOpeningSite] = useState<string | null>(null);
+  const generation = useRef(0);
+  const mounted = useRef(false);
+  const heading = useRef<Text>(null);
+  const focused = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    let previousState = AppState.currentState;
+    let synchronizationTimer: ReturnType<typeof setTimeout> | undefined;
+    let inFlight = false;
+    let pending = false;
+    const load = async () => {
+      if (inFlight) { pending = true; return; }
+      clearTimeout(synchronizationTimer);
+      inFlight = true;
+      const request = ++generation.current;
+      setLoading(true);
+      try {
+        const nextReport = await props.apiClient.visibleTrafficReport();
+        if (mounted.current && request === generation.current) { setReport(nextReport); setError(null); }
+      } catch (error) {
+        if (mounted.current && request === generation.current) setError(errorToMessage(error));
+      } finally {
+        inFlight = false;
+        if (mounted.current && request === generation.current) {
+          setLoading(false);
+          if (AppState.currentState === "active") {
+            if (pending) { pending = false; void load(); }
+            else synchronizationTimer = setTimeout(() => void load(), statisticsSyncIntervalMs);
+          }
+        }
+      }
+    };
+    void load();
+    const subscription = AppState.addEventListener("change", state => {
+      if (state === "active" && previousState !== "active") void load();
+      else if (state !== "active") clearTimeout(synchronizationTimer);
+      previousState = state;
+    });
+    return () => {
+      mounted.current = false;
+      generation.current += 1;
+      clearTimeout(synchronizationTimer);
+      subscription.remove();
+    };
+  }, [props.apiClient]);
+  const openSite = async (siteID: string) => {
+    setOpeningSite(siteID);
+    setError(null);
+    try {
+      const currentSites = await props.apiClient.sites();
+      if (!mounted.current) return;
+      const site = currentSites.sites.find(value => value.id === siteID);
+      if (!site) throw new Error("Site access is no longer available.");
+      props.onSelectSite(site);
+    } catch (error) {
+      if (mounted.current) setError(errorToMessage(error));
+    } finally {
+      if (mounted.current) setOpeningSite(null);
+    }
+  };
+  return <ScrollView contentContainerStyle={styles.scrollContent} accessibilityLabel="Statistics">
+    <Pressable accessibilityRole="button" onPress={props.onBack} style={styles.backButton}>
+      <Text style={styles.secondaryButtonText}>Back to dashboard</Text>
+    </Pressable>
+    <Text ref={heading} accessibilityRole="header" style={styles.settingsTitle} onLayout={() => {
+      if (!focused.current) { focused.current = true; focusNative(heading.current); }
+    }}>Statistics</Text>
+    <Text style={styles.helperText}>Reports across all sites you can access.</Text>
+    {error ? <StatusBanner message={error} /> : null}
+    <Section title="All-sites traffic">
+      {loading ? <InlineLoading /> : null}
+      {report ? <>
+        <StatGrid items={[
+          { label: "Sites", value: formatCount(report.site_count), detail: "Included" },
+          { label: "Visits", value: formatCount(report.visit_count), detail: "Last 30 days" },
+          { label: "Visitors", value: formatCount(report.unique_visitor_count), detail: "Unique" },
+        ]} />
+        {report.sites.length ? report.sites.map(site => <Pressable key={site.site_id}
+          accessibilityRole="button" accessibilityLabel={`Open site ${site.site_name}`}
+          accessibilityHint="Open this site's overview" disabled={openingSite !== null}
+          accessibilityState={{ disabled: openingSite !== null, busy: openingSite === site.site_id }}
+          style={styles.reportSite} onPress={() => void openSite(site.site_id)}>
+          <Text style={styles.listItemTitle}>{site.site_name}</Text>
+          <Text style={styles.listItemMeta}>{formatCount(site.visit_count)} visits · {formatCount(site.unique_visitor_count)} unique</Text>
+          {openingSite === site.site_id ? <InlineLoading /> : null}
+        </Pressable>) : <EmptyInline text="No accessible sites." />}
+      </> : !loading ? <EmptyInline text="All-sites report data unavailable." /> : null}
+    </Section>
+  </ScrollView>;
+}
+
+function ReportsSection(props: { siteDashboard: SiteDashboard; site: Site }) {
   const { styles, colors } = useAppStyles();
   const schedule = props.siteDashboard.trafficReportSchedule;
   return (
@@ -787,48 +993,76 @@ function ReportsSection(props: { dashboard: PortfolioDashboard | null; siteDashb
           <EmptyInline text={props.site.access_role === "admin" ? "Schedule not configured." : "Schedule is visible to site admins."} />
         )}
       </Section>
-      <Section title="All-sites traffic">
-        {props.dashboard ? (
-          <>
-            <StatGrid
-              items={[
-                { label: "Sites", value: formatCount(props.dashboard.defaultReport.site_count), detail: "Included" },
-                { label: "Visits", value: formatCount(props.dashboard.defaultReport.visit_count), detail: "Last 30 days" },
-                { label: "Visitors", value: formatCount(props.dashboard.defaultReport.unique_visitor_count), detail: "Unique" },
-              ]}
-            />
-            {props.dashboard.defaultReport.sites.map((site) => (
-              <ListItem
-                key={site.site_id}
-                title={site.site_name}
-                meta={`${formatCount(site.visit_count)} visits`}
-                right={`${formatCount(site.unique_visitor_count)} unique`}
-              />
-            ))}
-          </>
-        ) : (
-          <EmptyInline text="All-sites report data unavailable." />
-        )}
-      </Section>
+
     </View>
   );
 }
 
-function TrendRows(props: { trend: VisitTrendPoint[] }) {
+function TrendGraph(props: { trend: VisitTrendPoint[]; measure: TrafficMeasure }) {
+  const { styles, colors } = useAppStyles();
+  const [width, setWidth] = useState(0);
+  const { fontScale } = useWindowDimensions();
   if (!props.trend.length) {
     return <EmptyInline text="No trend data yet." />;
   }
-  const maxValue = Math.max(1, ...props.trend.map((point) => point.page_views));
+  const valueFor = (point: VisitTrendPoint) => props.measure === "unique_visitors" ? point.unique_visitors! : point.page_views;
+  const axisLabel = props.measure === "unique_visitors" ? "Unique visitors" : "Requests";
+  const maximum = Math.max(4, Math.ceil(Math.max(...props.trend.map(valueFor)) / 4) * 4);
+  const height = Math.max(160, 80 * fontScale);
+  const firstDate = Date.parse(props.trend[0].date);
+  const lastDate = Date.parse(props.trend[props.trend.length - 1].date);
+  const points = props.trend.map(point => ({
+    ...point,
+    x: firstDate === lastDate ? width / 2 : (Date.parse(point.date) - firstDate) / (lastDate - firstDate) * width,
+    y: height * (1 - valueFor(point) / maximum),
+  }));
+  const ticks = [4, 3, 2, 1, 0].map(step => step * maximum / 4);
+  const labelWidth = Math.max(...ticks.map(tick => formatCount(tick).length)) * 8 * fontScale + 12;
+  const dates = props.trend.length === 1 ? [props.trend[0]] : [props.trend[0], props.trend[props.trend.length - 1]];
   return (
-    <>
-      {props.trend.map((point) => (
-        <DataBar key={point.date} label={point.date} value={point.page_views} maxValue={maxValue} detail={`${formatCount(point.unique_visitors)} unique`} />
-      ))}
-    </>
+    <View testID="traffic-trend-graph" accessibilityLabel={axisLabel}>
+      <Text style={styles.labelText}>{axisLabel}</Text>
+      <View style={{ flexDirection: "row", marginTop: 16 * fontScale, marginBottom: 12 }}>
+        <View style={{ width: labelWidth, height }}>
+          {ticks.map((tick, index) => <Text key={tick} style={[styles.trendTick, {
+            position: "absolute", right: 10, top: index * height / 4 - 8 * fontScale,
+          }]}>{formatCount(tick)}</Text>)}
+        </View>
+        <View style={{ flex: 1, marginRight: 4 }}>
+          <View testID="trend-plot" onLayout={event => setWidth(event.nativeEvent.layout.width)}
+            style={{ height, borderLeftWidth: 1, borderBottomWidth: 1, borderColor: colors.muted }}>
+            {ticks.map((tick, index) => <View key={tick} style={{
+              position: "absolute", top: index * height / 4, left: 0, right: 0,
+              height: StyleSheet.hairlineWidth, backgroundColor: colors.border,
+            }} />)}
+            {width > 0 ? points.slice(1).map((point, index) => {
+              const previous = points[index];
+              const dx = point.x - previous.x;
+              const dy = point.y - previous.y;
+              return <View key={point.date} testID="trend-line-segment" style={{
+                position: "absolute", left: previous.x, top: previous.y - 1,
+                width: Math.hypot(dx, dy), height: 2, backgroundColor: colors.teal,
+                transformOrigin: "left center", transform: [{ rotate: `${Math.atan2(dy, dx)}rad` }],
+              }} />;
+            }) : null}
+            {points.map(point => <View key={point.date} testID="trend-point" accessible accessibilityRole="image"
+              accessibilityLabel={`${point.date}, ${point.page_views} ${props.measure === "requests" ? "requests" : "page views"}${props.measure === "unique_visitors" ? `, ${point.unique_visitors} unique visitors` : ""}`}
+              style={{ position: "absolute", left: point.x - 3, top: point.y - 3,
+                width: 6, height: 6, borderRadius: 3, backgroundColor: colors.tealDark }} />)}
+          </View>
+          <View style={{ flexDirection: "row", justifyContent: dates.length === 1 ? "center" : "space-between", marginTop: 10 * fontScale }}>
+            {dates.map((point, index) => <Text key={point.date} style={[styles.trendTick, {
+              maxWidth: dates.length === 1 ? "100%" : "48%", textAlign: index === 0 && dates.length > 1 ? "left" : "right",
+            }]}>{point.date}</Text>)}
+          </View>
+          <Text style={[styles.labelText, { textAlign: "center", marginTop: 8 }]}>Date (UTC)</Text>
+        </View>
+      </View>
+    </View>
   );
 }
 
-function Bars<T>(props: { items: T[]; labelFor: (item: T) => string; valueFor: (item: T) => number }) {
+function Bars<T>(props: { items: T[]; labelFor: (item: T) => string; valueFor: (item: T) => number; detailFor: (item: T) => string }) {
   if (!props.items.length) {
     return <EmptyInline text="No data yet." />;
   }
@@ -836,32 +1070,46 @@ function Bars<T>(props: { items: T[]; labelFor: (item: T) => string; valueFor: (
   return (
     <>
       {props.items.map((item, index) => (
-        <DataBar key={`${props.labelFor(item)}-${index}`} label={props.labelFor(item)} value={props.valueFor(item)} maxValue={maxValue} />
+        <DataBar key={`${props.labelFor(item)}-${index}`} label={props.labelFor(item)} value={props.valueFor(item)} maxValue={maxValue} measure="unique_visitors" detail={props.detailFor(item)} />
       ))}
     </>
   );
 }
 
-function StatGrid(props: { items: Array<{ label: string; value: string; detail?: string }> }) {
+function StatGrid(props: { items: StatItem[] } | { items: OverviewStatItem[]; onNavigate: (tab: DashboardTab) => void }) {
   const { styles, colors } = useAppStyles();
   return (
     <View style={styles.statGrid}>
-      {props.items.map((item) => (
-        <View key={item.label} style={styles.statTile}>
-          <Text style={styles.statLabel}>{item.label}</Text>
-          <Text style={styles.statValue}>{item.value}</Text>
-          {item.detail ? <Text style={styles.statDetail}>{item.detail}</Text> : null}
-        </View>
-      ))}
+      {"onNavigate" in props ? props.items.map(item => (
+        <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={item.actionLabel}
+          accessibilityValue={{ text: [item.label, item.value, item.detail].filter(Boolean).join(", ") }}
+          style={({ pressed }) => [styles.statTile, pressed && styles.statTilePressed]} onPress={() => props.onNavigate(item.destination)}>
+          <StatContents item={item} />
+        </Pressable>
+      )) : props.items.map(item => <View key={item.label} style={styles.statTile}><StatContents item={item} /></View>)}
     </View>
   );
 }
 
-function Section(props: { title: string; children: React.ReactNode }) {
+function StatContents(props: { item: StatItem }) {
+  const { styles } = useAppStyles();
+  return <><Text style={styles.statLabel}>{props.item.label}</Text><Text style={styles.statValue}>{props.item.value}</Text>
+    {props.item.detail ? <Text style={styles.statDetail}>{props.item.detail}</Text> : null}</>;
+}
+
+function DashboardHeading(props: { title: string; focus?: HeadingFocus }) {
+  const { styles } = useAppStyles();
+  const heading = useRef<Text>(null);
+  return <Text ref={heading} accessibilityRole="header" style={styles.sectionTitle} onLayout={() => {
+    if (props.focus?.requested) { focusNative(heading.current); props.focus.onFocused(); }
+  }}>{props.title}</Text>;
+}
+
+function Section(props: { title: string; children: React.ReactNode; headingFocus?: HeadingFocus }) {
   const { styles, colors } = useAppStyles();
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{props.title}</Text>
+      <DashboardHeading title={props.title} focus={props.headingFocus} />
       {props.children}
     </View>
   );
@@ -893,16 +1141,18 @@ function ListItem(props: { title: string; meta?: string; detail?: string; right?
   );
 }
 
-function DataBar(props: { label: string; value: number; maxValue: number; detail?: string }) {
+function DataBar(props: { label: string; value: number; maxValue: number; measure: TrafficMeasure; detail?: string }) {
   const { styles, colors } = useAppStyles();
-  const widthPercentage = `${Math.max(5, Math.round((props.value / props.maxValue) * 100))}%` as DimensionValue;
+  const widthPercentage = `${Math.round((props.value / props.maxValue) * 100)}%` as DimensionValue;
+  const unit = props.measure === "unique_visitors" ? "unique visitors" : "requests";
   return (
-    <View style={styles.dataBarRow}>
+    <View style={styles.dataBarRow} accessible accessibilityLabel={props.label}
+      accessibilityValue={{ text: `${formatCount(props.value)} ${unit}${props.detail ? `, ${props.detail}` : ""}` }}>
       <View style={styles.dataBarHeader}>
         <Text style={styles.dataBarLabel} numberOfLines={1}>
           {compactText(props.label)}
         </Text>
-        <Text style={styles.dataBarValue}>{formatCount(props.value)}</Text>
+        <Text style={styles.dataBarValue}>{formatCount(props.value)} {props.measure === "unique_visitors" ? "unique" : "requests"}</Text>
       </View>
       <View style={styles.dataBarTrack}>
         <View style={[styles.dataBarFill, { width: widthPercentage }]} />
@@ -996,11 +1246,19 @@ function errorToMessage(error: unknown): string {
 }
 
 function createStyles(colors: ThemeColors) { return StyleSheet.create({
+  trendTick: { color: colors.muted, fontSize: 11 },
   labelText: { color: colors.muted, fontSize: 13, fontWeight: "700" },
   valueText: { color: colors.ink, fontSize: 16 },
   helperText: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  statisticsButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  statisticsIcon: { flexDirection: "row", alignItems: "flex-end", gap: 4, width: 26, height: 24, borderBottomWidth: 2, borderColor: colors.tealDark },
+  statisticsBar: { width: 5, backgroundColor: colors.tealDark, borderTopLeftRadius: 2, borderTopRightRadius: 2 },
+  reportSite: { minHeight: 48, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingVertical: 14, gap: 5 },
   avatar: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.roleSurface, borderWidth: 1, borderColor: colors.teal },
-  avatarImage: { width: 42, height: 42, borderRadius: 21 },
+  avatarContent: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
+  avatarImage: { position: "absolute", width: 42, height: 42, borderRadius: 21 },
+  avatarImageLoading: { opacity: 0 },
   avatarInitial: { fontSize: 20, fontWeight: "800", color: colors.tealDark },
   menuOverlay: { flex: 1, padding: 16, alignItems: "flex-end" },
   menuBackdrop: { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, backgroundColor: "rgba(0,0,0,0.25)" },
@@ -1047,6 +1305,8 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
     marginTop: 20,
   },
   brandRowCompact: {
+    minWidth: 0,
+    flexShrink: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -1154,10 +1414,11 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 8,
   },
   siteFilterButton: {
-    minWidth: 44,
-    minHeight: 44,
+    minWidth: siteFilterTouchSize,
+    minHeight: siteFilterTouchSize,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1182,6 +1443,8 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
     transform: [{ rotate: "45deg" }],
   },
   siteFilterField: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
@@ -1192,10 +1455,11 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
   siteFilterInput: {
     flex: 1,
     minWidth: 0,
-    minHeight: 44,
+    minHeight: siteFilterTouchSize,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    paddingVertical: siteFilterVerticalPadding,
+    fontSize: siteFilterTextSize,
+    lineHeight: siteFilterLineHeight,
     color: colors.ink,
   },
   siteFilterClear: {
@@ -1220,6 +1484,8 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
     padding: 12,
     backgroundColor: colors.surface,
   },
+  siteChipIcon: { position: "absolute", left: 0, top: "50%", transform: [{ translateY: -8 }], width: 16, height: 16 },
+  siteChipIconTitle: { paddingLeft: 22 },
   siteChipSelected: {
     borderColor: colors.teal,
     backgroundColor: colors.accentSurface,
@@ -1326,6 +1592,7 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
     padding: 12,
     backgroundColor: colors.surface,
   },
+  statTilePressed: { borderColor: colors.teal, opacity: 0.8 },
   statLabel: {
     color: colors.muted,
     fontSize: 12,

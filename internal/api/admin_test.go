@@ -88,11 +88,11 @@ func (provider *failingStatsProvider) UniqueVisitorCountForDays(context.Context,
 	return 0, provider.uniqueVisitorCountError
 }
 
-func (provider *failingStatsProvider) TopPages(context.Context, string, int) ([]api.TopPageStat, error) {
+func (provider *failingStatsProvider) TopPages(context.Context, string, int, api.TrafficSort) ([]api.TopPageStat, error) {
 	return nil, provider.topPagesError
 }
 
-func (provider *failingStatsProvider) TopPagesForDays(context.Context, string, int, int) ([]api.TopPageStat, error) {
+func (provider *failingStatsProvider) TopPagesForDays(context.Context, string, int, int, api.TrafficSort) ([]api.TopPageStat, error) {
 	return nil, provider.topPagesError
 }
 
@@ -104,11 +104,11 @@ func (provider *failingStatsProvider) VisitTrendAll(context.Context, string) ([]
 	return nil, provider.visitTrendError
 }
 
-func (provider *failingStatsProvider) VisitAttribution(context.Context, string, int) (api.VisitAttributionBreakdown, error) {
+func (provider *failingStatsProvider) VisitAttribution(context.Context, string, int, api.TrafficSort) (api.VisitAttributionBreakdown, error) {
 	return api.VisitAttributionBreakdown{}, provider.visitAttributionError
 }
 
-func (provider *failingStatsProvider) VisitAttributionForDays(context.Context, string, int, int) (api.VisitAttributionBreakdown, error) {
+func (provider *failingStatsProvider) VisitAttributionForDays(context.Context, string, int, int, api.TrafficSort) (api.VisitAttributionBreakdown, error) {
 	return api.VisitAttributionBreakdown{}, provider.visitAttributionError
 }
 
@@ -120,19 +120,19 @@ func (provider *failingStatsProvider) VisitEngagementAll(context.Context, string
 	return api.VisitEngagementStat{}, provider.visitEngagementError
 }
 
-func (provider *failingStatsProvider) DeviceBreakdown(context.Context, string, int) (api.DeviceBreakdownStat, error) {
+func (provider *failingStatsProvider) DeviceBreakdown(context.Context, string, int, api.TrafficSort) (api.DeviceBreakdownStat, error) {
 	return api.DeviceBreakdownStat{}, provider.deviceBreakdownError
 }
 
-func (provider *failingStatsProvider) DeviceBreakdownForDays(context.Context, string, int, int) (api.DeviceBreakdownStat, error) {
+func (provider *failingStatsProvider) DeviceBreakdownForDays(context.Context, string, int, int, api.TrafficSort) (api.DeviceBreakdownStat, error) {
 	return api.DeviceBreakdownStat{}, provider.deviceBreakdownError
 }
 
-func (provider *failingStatsProvider) LocationDistribution(context.Context, string, int) ([]api.LocationDistributionStat, error) {
+func (provider *failingStatsProvider) LocationDistribution(context.Context, string, int, api.TrafficSort) ([]api.LocationDistributionStat, error) {
 	return nil, provider.locationDistributionError
 }
 
-func (provider *failingStatsProvider) LocationDistributionForDays(context.Context, string, int, int) ([]api.LocationDistributionStat, error) {
+func (provider *failingStatsProvider) LocationDistributionForDays(context.Context, string, int, int, api.TrafficSort) ([]api.LocationDistributionStat, error) {
 	return nil, provider.locationDistributionError
 }
 

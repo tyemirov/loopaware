@@ -38,6 +38,196 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [x] [B163] (P1) Remove the mobile compiler dependency from browser map tests
+  Goal:
+  Run the map-image browser test in an independent integration shard.
+
+  Evidence:
+  PR 429 run `42711386315` failed in Integration 2/3 with `Cannot find module '@typescript/typescript6'`.
+  The test loaded that package from `mobile/node_modules`. The integration shard installs only browser test dependencies.
+  The aggregate `test` check failed because the integration shard failed.
+
+  Requirements:
+  - Use the existing Node 24 runtime to remove TypeScript annotations from the two map modules.
+  - Preserve the browser image, Unicode, and geographic assertions.
+  - Verify the browser cases without installed mobile dependencies.
+
+  Validation:
+  - Run `make test-surface-parity` with the mobile dependency directory absent.
+  - Restore that directory and run final `make ci`.
+
+  Resolution:
+  The browser test uses `stripTypeScriptTypes` from `node:module` with the configured Node 24 runtime.
+  The test retains the actual renderer, image decode, Unicode labels, and geographic assertions.
+
+  Validation results:
+  The unchanged test reproduced the GitHub failure without `mobile/node_modules`.
+  With the fix, all eight browser cases passed without mobile dependencies. An exit trap restored that directory.
+  Final `make ci` passed, including 483 browser/API cases, 86 mobile app-flow cases, and 29 publication-policy cases.
+  Backend checks, race checks, source staging, and both production JavaScript bundles passed.
+  The environment selected the repository-pinned Gateway `v8.0.1`.
+
+  Independent review found no code defects.
+  Reviewer: `/root/review_parity`. Actual model: `gpt-6-astra`. Requested effort: `high`.
+  Separate runtime effort confirmation was unavailable.
+
+  Changed files:
+  `tests/specs/dashboard-surface-parity.spec.js` and `.mprlab/ISSUES.md`.
+
+
+- [x] [B162] (P2) Keep report schedule edits during header navigation
+
+  Goal:
+  Keep schedule edits when the operator opens the dashboard from Reports through the header.
+
+  Evidence:
+  The Statistics control opens Reports again and stops the automatic write within its 800 ms interval.
+  Before the code change, the browser test failed because the edited time changed from `13:25` to stored `07:15`.
+
+  Requirements:
+  - Show the dashboard icon and `Back to dashboard` label when Reports is open.
+  - Show the Statistics icon and label on the dashboard.
+  - Complete automatic schedule writes before the dashboard opens.
+  - Keep the selected site and dashboard tab.
+
+  Validation:
+  - Use the browser clock to open the dashboard before the automatic write starts.
+  - Verify the displayed time and stored schedule.
+  - Run `make test-surface-parity` and `make ci`.
+
+  Resolution:
+  The header shows a dashboard icon in Reports and the Statistics icon on the dashboard.
+  Automatic schedule writes complete before header navigation opens the selected site and tab.
+  Newer edits remain after an earlier write completes.
+  A failed write keeps Reports open with the edited values for another attempt.
+
+  Validation results:
+  `make test-surface-parity` passed all eight browser cases, including pending, active, and failed writes.
+  Final local `make ci` passed, including 483 browser/API cases.
+  The environment selected installed Gateway `v8.0.1` for platform `darwin-arm64` through `MPRLAB_GATEWAY_EXECUTABLE`.
+  The changed prose passed the scoped language check and language review.
+
+  Changed files:
+  `web/app/index.html`, `tests/specs/dashboard-surface-parity.spec.js`, `README.md`, and `.mprlab/ISSUES.md`.
+
+- [ ] [B161] (P1) Resolve the installed Gateway command in deployment tests
+
+  Goal:
+  Use the documented Gateway executable selection in the publication policy tests.
+
+  Evidence:
+  The bare command failed because the fixture treated it as a repository-relative path.
+  The public launcher passed version checks, but the fixture derived an incorrect SDK directory from its location.
+  The installed versioned runtime has the required SDK directory and the same version identity.
+
+  Requirements:
+  - Resolve the selected command at the process boundary.
+  - Derive test SDK paths from the selected runtime rather than the public launcher location.
+  - Keep each test operation on one captured runtime.
+
+  Validation:
+  - Verify the documented command name, public launcher path, and versioned runtime selection.
+  - Run `make deployment-npm-visibility-check` and final `make ci`.
+
+  Scope:
+  P004 selects the installed `v7.0.9` runtime explicitly for code validation.
+  This test-system correction is separate from the mobile interface changes.
+
+- [ ] [B160] (P2) Keep the site-header role visible with large text
+
+  Goal:
+  Keep the selected site's role within the mobile viewport at large text sizes.
+
+  Evidence:
+  P004 native acceptance exposed the existing role badge outside the viewport.
+  This occurred on the 375-point iOS simulator and the Android emulator with text scale `2.0`.
+  The selected-site header implementation was unchanged by P004.
+
+  Requirements:
+  - Keep the site name and role visible with large text.
+  - Adapt the selected-site header layout to the available width.
+
+  Validation:
+  - Add public interface coverage before the layout change.
+  - Verify native layout at normal and large text sizes.
+
+  Scope:
+  This issue is separate from the avatar, site filter, and overview card changes in P004.
+
+- [x] [B159] (P1) {B158} Use authenticated photo delivery on Android
+
+  Goal:
+  Load the mobile account photo through the active session on both platforms.
+
+  Evidence:
+  Android 17 API requests carried the local session cookie. The native image request omitted the cookie and returned `401`.
+  The same iOS 27 image request carried the cookie and showed the photo.
+
+  Requirements:
+  - Use one authenticated binary-image path on both platforms.
+  - Convert the image bytes through the native FileReader adapter.
+  - Cancel obsolete loads and isolate account images.
+  - Keep the email initial for absent or failed photos.
+
+  Validation:
+  - Reproduce the transport failure through the public app entry point.
+  - Verify session recovery, cancellation, account changes, and native image rendering.
+  - Run focused mobile checks and final stack `make ci`.
+
+  Implementation:
+  The shared API client loads photo bytes with the active session and converts them through native FileReader.
+  The client accepts the current generic binary image response and closes each allocated image buffer.
+  Obsolete requests stop before another authentication attempt or photo update.
+  Foreground return starts a new photo request. Each request has a separate image decoder state.
+
+  Validation results:
+  The public app-flow suite passed all 58 cases. API boundary and type checks passed.
+
+  Native photo checks passed on iOS 27 and Android 17, including PNG bytes with `application/octet-stream`.
+  Both clients kept the next account photo after the previous account's delayed responses completed.
+  Native image failure showed the email initial. Foreground return restored the photo without another account request.
+  Independent review found no remaining code defects. Final `make ci` passed. P004 records the selected runtime and complete validation result.
+
+  Changed files:
+  `mobile/src/api.ts`, `mobile/src/avatar.ts`, `mobile/App.tsx`, both mobile test scripts, `README.md`, and this tracker.
+
+  Resolution: Authenticated photos and automatic foreground recovery passed code and native validation.
+
+- [x] [B158] (P1) Restore the mobile account photo
+
+  Goal:
+  Show the signed-in account photo in the mobile header.
+
+  Evidence:
+  The backend supplies relative photo URLs. The native image receives these URLs without an API origin.
+  The supplied screenshot shows an empty avatar circle.
+
+  Requirements:
+  - Resolve account image URLs at the mobile API boundary.
+  - Load authenticated images through the active account session.
+  - Show the email initial while the photo loads or cannot be shown.
+  - Keep account photos isolated during account changes and delayed responses.
+
+  Validation:
+  - Add public app-flow and image-endpoint regressions before production edits.
+  - Verify image loading in an iOS simulator and Android emulator.
+  - Run focused mobile checks and final stack `make ci`.
+
+  Implementation:
+  The account boundary resolves relative image addresses against the configured API address.
+  The avatar shows the email initial during image transfer and after image failure.
+  Account and image changes replace the previous avatar state. B159 supplies the authenticated image transport.
+
+  Validation results:
+  The initial public regression failed because the native image received `/api/me/avatar?v=123` without an origin.
+  The corrected account boundary passed relative, absolute, inline, and invalid-address cases.
+  The shared mobile suite and native photo checks passed. Final `make ci` passed. P004 records the selected runtime and complete validation result.
+
+  Changed files:
+  `mobile/src/api.ts`, `mobile/App.tsx`, both mobile test scripts, `README.md`, and this tracker.
+
+  Resolution: The mobile header shows the account photo or email initial.
+
 - [x] [B157] (P1) Declare exempt iOS encryption for TestFlight builds
   Goal:
   Prevent the current system-only encryption use from blocking internal TestFlight builds.
@@ -3530,6 +3720,168 @@ Pull request delivery remains separate.
 
 ## Improvements
 
+- [x] [I054] (P1) Use the web world map on mobile
+  Goal:
+  Use the same world geography and projection on both LoopAware surfaces.
+  Requirements:
+  - Generate web and mobile map geometry from one source.
+  - Show proportional location bubbles on mobile with readable location counts.
+  - Preserve light and dark themes, empty states, and aggregate traffic restrictions.
+  Validation:
+  - Verify the real web dashboard and mobile app entry point.
+  - Verify generated assets and mobile source staging.
+  Result:
+  The new app-flow and API tests failed before the application changes.
+  Web and mobile share generated geography and projection code.
+  Mobile uses base64 SVG images with native text counts, theme colors, and explicit image failure state.
+  The API rejects invalid coordinates and empty labels before map rendering.
+
+  A public regression reproduced a Unicode truncation error. Code-point truncation corrected that error.
+  Focused checks passed: five browser cases, 86 mobile app-flow cases, API boundaries, and mobile type checks.
+  Final `make ci` passed: 480 browser/API cases, 86 mobile app-flow cases, and 29 publication-policy cases.
+  Backend checks, race checks, source staging, and both production JavaScript bundles passed.
+  Validation used the repository-pinned Gateway `v8.0.1` through `MPRLAB_GATEWAY_EXECUTABLE` in the environment.
+
+  Independent review found no remaining code defects after the Unicode correction.
+  Reviewer: `/root/review_parity`. Requested model and effort: `gpt-6-astra`, `high`.
+  The reviewer confirmed the model. Separate runtime effort confirmation was unavailable.
+
+  Validation uses the iOS and Android app-flow harnesses and Chromium image decoding.
+  These results do not establish native visual verification.
+  Changed files: `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/src/location-map.ts`, `mobile/src/location-world.ts`,
+  `mobile/scripts/test-app-flow.mjs`, `mobile/scripts/test-api-boundaries.mjs`, `web/app/index.html`,
+  `tests/scripts/generate-location-world-map.mjs`, `tests/specs/dashboard-surface-parity.spec.js`, and `README.md`.
+
+
+- [x] [I053] (P1) Move the mobile Trend card and show a line graph
+  Goal:
+  Show changes in traffic over time near the bottom of the Traffic tab.
+
+  Requirements:
+  - Put Trend after Locations on detailed sites.
+  - Replace the daily bars with a line graph in chronological order.
+  - Show all returned dates for the selected interval.
+  - Label the X axis `Date (UTC)`.
+  - Label the Y axis `Unique visitors` for detailed sites and `Requests` for aggregate sites.
+  - Keep exact daily counts available to accessibility services.
+  - Show empty, zero, and single-day data correctly.
+
+  Validation:
+  - Run the changed app-flow checks before the production change.
+  - Verify interval changes, site changes, and automatic data updates.
+  - Run final `make ci` after the application change.
+
+  Implementation:
+  The Trend card follows Locations. Daily counts follows the aggregate-site notice.
+  Native views show a line graph with date and count scales.
+  The API client preserves all returned days and sorts them by date.
+  Graph dimensions and label spacing adjust to the text scale.
+
+  Validation results:
+  The first app-flow test failed because the graph was absent.
+  The large-text test failed before the spacing correction.
+  All 83 app-flow scenarios pass after the correction.
+  The checks cover iOS and Android layout events, date gaps, size changes, zero counts, and single-day data.
+  `make mobile-check` passes, including TypeScript validation.
+  Independent architect review found no remaining defects.
+
+  Full `make ci` passes with the installed Gateway v8.0.1 selected through an environment variable.
+  CI passes all 83 mobile scenarios, 29 deployment-policy cases, and 475 browser/API cases.
+  The changed prose has no mechanical language findings. The source changes pass `git diff --check`.
+
+  Resolution:
+  The mobile Trend card shows a chronological line graph below the traffic breakdowns, with both axes labeled.
+
+  Changed files:
+  `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/scripts/test-app-flow.mjs`, `README.md`, and this tracker.
+
+- [x] [I052] (P1) Show collected favicons in mobile site cards
+  Goal:
+  Identify each site with its collected favicon beside the site name.
+
+  Requirements:
+  - Show the favicon on the left of the name in each horizontal site card.
+  - Keep the current card width and height.
+  - Keep the role on its current line.
+  - Use the stored favicon URL and the active authenticated API client.
+  - Keep the site name available when the favicon is absent or cannot be shown.
+  - Keep selection, filtering, and accessible names unchanged.
+
+  Validation:
+  - Add public app-flow cases before production changes.
+  - Verify PNG, SVG, ICO, missing images, failures, and updated image URLs.
+  - Compare native card dimensions with and without favicons.
+  - Verify narrow layouts and large text in software test environments.
+  - Run final `make ci` after the last application change.
+
+  Implementation:
+  - Add a 16-pixel decorative image inside the existing site-name line.
+  - Keep the role line and card dimensions unchanged.
+  - Reuse authenticated image transfer and foreground updates.
+  - Limit favicon transfers to four concurrent requests and each image to 128 KiB.
+  - Cancel obsolete requests and reset image state when the account or image URL changes.
+  - Add Expo Image 57.0.5 and regenerate the native dependency inputs.
+
+  Validation results:
+  - The new app-flow test failed because the site card did not load its favicon.
+  - All 64 public mobile app-flow scenarios pass after the change.
+  - API boundary checks cover image addresses, size limits, and queue cancellation.
+  - iOS 27 and Android 17 render PNG, SVG, ICO, and generic binary ICO responses.
+  - Normal and large-text card dimensions match with and without images on both platforms.
+  - Filtered site selection passes on both platforms.
+  - Native dependency preparation passes.
+  - Independent architect review finds no product blocker. Its test synchronization corrections are applied.
+
+  - Final `make ci` passes with the installed Gateway v7.0.9 runtime.
+  - CI passes 64 mobile scenarios, 29 deployment-policy cases, and 475 browser/API cases.
+  - Changed prose passes the language review and `git diff --check` passes.
+
+  Resolution:
+  The mobile site cards show stored favicons and keep their existing dimensions.
+
+  Changed files:
+  `.mprlab/ISSUES.md`, `.mprlab/TERMINOLOGY.md`, `README.md`,
+  `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/src/avatar.ts`,
+  `mobile/package.json`, `mobile/package-lock.json`,
+  `mobile/scripts/test-api-boundaries.mjs`, `mobile/scripts/test-app-flow.mjs`,
+  and their generated copies in `mobile/prepared/`.
+  Native dependency inputs include `mobile/prepared/ios/Podfile.lock`,
+  `mobile/prepared/ios/LoopAware.xcodeproj/project.pbxproj`, and `mobile/prepared/native-preparation.json`.
+
+- [x] [I051] (P1) Keep the mobile site filter in the Sites row
+
+  Goal:
+  Use the space between `SITES` and the search icon for the open site filter.
+
+  Requirements:
+  - Keep the site cards at the same vertical position when search opens.
+  - Preserve matching, clearing, keyboard behavior, and selected-site state from F020.
+
+  Validation:
+  - Add the public app-flow regression before production edits.
+  - Measure native layout with search closed and open.
+  - Verify narrow screens, large text, and Light and Dark themes.
+  - Run focused mobile checks and final stack `make ci`.
+
+  Implementation:
+  The field occupies the space between `SITES` and the search icon.
+  The row reserves the necessary height for the current text size.
+  Filtering, clear, close, keyboard dismissal, and selected-site behavior remain available.
+
+  Validation results:
+  The public regression first failed because the field occupied a separate row.
+  All 58 app-flow cases passed after the final mobile change.
+  Native Light and Dark checks passed, including large text and keyboard use.
+  The site-card position stayed at 170 points on iOS and 436 pixels on Android when the field opened with large text.
+  B160 records a separate error in the unchanged selected-site header.
+
+  Final `make ci` passed. P004 records the selected runtime and complete validation result.
+
+  Changed files:
+  `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`, `README.md`, and this tracker.
+
+  Resolution: The site filter stays in the Sites row and preserves the site-card position.
+
 - [x] [I050] (P1) {B147} Remove Recent visits from the mobile app
   Goal:
   Simplify the mobile traffic view through removal of the `Recent visits` section.
@@ -4597,6 +4949,195 @@ Pull request delivery remains separate.
 
 ## Features
 
+- [x] [F024] (P1) Open web reports from the account header
+  Goal:
+  Give web and mobile the same statistics icon position.
+  Requirements:
+  - Put the statistics icon immediately to the right of the avatar on both surfaces.
+  - Open the existing web reports view from the icon.
+  - Preserve the selected site, tab, traffic interval, and report controls.
+  Validation:
+  - Verify the web header through the browser and the mobile header through the app-flow harness.
+  Result:
+  The new tests failed before the application changes. The browser test and all 83 mobile app-flow checks now pass.
+  Final `make ci` passed with the repository-pinned Gateway `v8.0.1` selected through the environment.
+  Changed files: `web/app/index.html`, `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`,
+  `tests/specs/dashboard-surface-parity.spec.js`, `tests/package.json`, `Makefile`, and `README.md`.
+
+- [x] [F025] (P1) Add the web seven-day traffic selector
+  Goal:
+  Give web and mobile the same traffic interval choices.
+  Requirements:
+  - Add seven days to the web traffic selector.
+  - Apply the interval to all traffic panels and CSV exports.
+  - Preserve the interval after site changes and reports navigation.
+  Validation:
+  - Verify detailed and aggregate traffic through the browser.
+  Result:
+  The seven-day test failed before the application change. All three surface browser cases now pass.
+  The tests cover six detailed requests, aggregate requests, CSV export, site changes, and reports navigation.
+  Final `make ci` passed with the repository-pinned Gateway `v8.0.1` selected through the environment.
+  Changed files: `web/app/index.html`, `tests/specs/dashboard-surface-parity.spec.js`, and `README.md`.
+
+
+- [x] [F023] (P1) Open mobile statistics from the account header
+
+  Goal:
+  Give the operator one report screen for all sites that the account can view.
+
+  Requirements:
+  - Add a statistics icon immediately left of the account avatar.
+  - Open a separate Statistics screen from the icon.
+  - Include owned, created, and team sites. Include all sites for global administrators.
+  - Open the selected site overview when the operator selects a report row.
+  - Preserve the traffic interval. Preserve the previous site and tab on return without site selection.
+  - Keep the selected-site schedule in its Reports tab. Move global traffic out of that tab.
+  - Load current statistics automatically on entry and return from the background.
+  - Preserve the owned scope for custom reports and email schedules.
+
+  Validation:
+  - Confirm expected failures through the mobile entry point and real HTTP endpoints.
+  - Verify access, navigation, empty states, failures, and account isolation.
+  - Verify narrow and large-text layouts in the iOS simulator.
+  - Run final `make ci` and independent review.
+
+  Implementation:
+  The header opens Statistics independently of selected-site data.
+  Site rows open their current authorized site overview and preserve the traffic interval.
+  The report updates on entry, foreground return, and each 30-second synchronization interval.
+  The client validates report scope, counts, and site identities before display.
+  The API shares the site-access query with the site list. The owned scope retains its existing behavior.
+
+  Validation results:
+  - The initial mobile test failed because the statistics control was missing.
+  - The initial HTTP test returned `owned` instead of `visible`.
+  - Boundary and reconnection regressions failed before their corrections and passed afterward.
+  - Focused HTTP tests passed for roles, membership removal, custom reports, and aggregate counts.
+  - Mobile flows passed for navigation, errors, automatic recovery, and account isolation.
+  - Native navigation passed in Expo Go on the 375-point iPhone SE simulator with iOS 27.
+  - The largest accessibility text setting preserved report scrolling and site-row navigation.
+  - Independent review found no remaining F023 code defects.
+  - Full `make ci` passed with the installed Gateway `v8.0.1` executable selected through the environment.
+  - The combined gate passed 83 mobile flows, 29 deployment policy cases, and 475 browser/API cases.
+  - Source hashes matched the reviewed mobile files, backend files, HTTP test, and Makefile after CI.
+  - The temporary simulator, fixture server, and Metro stopped. The existing simulator returned to its initial state.
+
+  Resolution:
+  Statistics opens from the header and covers all sites that the operator can view.
+  Each report row opens its site overview. Per-site reports retain only their site schedule.
+
+  Changed files:
+  `Makefile`, `README.md`, `.mprlab/TERMINOLOGY.md`, `mobile/App.tsx`, `mobile/src/api.ts`, and `mobile/src/types.ts`.
+  `mobile/scripts/test-app-flow.mjs`, `mobile/scripts/test-api-boundaries.mjs`, and this tracker.
+  `internal/api/admin.go`, `internal/api/site_access.go`, `internal/api/portfolio_traffic_report.go`, and `internal/api/portfolio_visible_transport_test.go`.
+
+- [x] [F022] (P1) Use unique visitors as the primary mobile traffic metric
+
+  Goal:
+  Make mobile traffic values, bars, and ranking use the same unique visitor metric.
+
+  Requirements:
+  - Use unique visitors for Trend, top pages, sources, devices, and locations.
+  - Show page views as explicitly labeled supporting information.
+  - Keep Returning as a separate visitor engagement metric.
+  - Count each nonempty visitor ID once per final normalized bucket.
+  - Apply the selected ranking before result limits.
+  - Keep site, interval, bot, and aggregate-profile restrictions.
+  - Keep current web and email reports on their page-view ranking.
+  - Validate detailed bucket counts at the mobile API boundary.
+
+  Decision:
+  Add `unique_visitor_count` beside `visit_count` in detailed breakdowns.
+  Mobile selects `sort=unique_visitors`. The API default is `page_views`.
+  Count device categories after viewport classification and locations after inference.
+  Unique counts across buckets and dates are not additive.
+
+  Validation:
+  - Reproduce the displayed metric mismatch through the mobile entry point.
+  - Verify distinct visitor counts and selected order through real HTTP endpoints.
+  - Verify repeated visitors, normalization, limits, unknown IDs, bots, sites, and intervals.
+  - Verify invalid sorting, deterministic ties, and aggregate unavailability.
+  - Verify values, bar widths, labels, and data updates in the mobile app.
+  - Verify native software layouts and run final `make ci`.
+
+  Implementation:
+  - Add required unique visitor counts beside page views in detailed API buckets.
+  - Select the API order through a validated `page_views` or `unique_visitors` value.
+  - Deduplicate visitors after final path, source, device, and location normalization.
+  - Keep page-view ranking as the default for current web and email reports.
+  - Use unique counts for mobile overview values and detailed traffic bars.
+  - Show page views separately and preserve the Returning formula.
+  - Give each chart row an accessible metric value and zero-width bars for zero visitors.
+  - Update the API and mobile documentation and regenerate prepared inputs.
+
+  Validation results:
+  - The new HTTP test first returns the wrong top page under unique sorting.
+  - The new mobile test first shows 12 visits as primary instead of 8 unique visitors.
+  - Both failures are preserved as diagnostic evidence.
+  - All internal API tests pass, including two new HTTP scenarios.
+  - All 65 mobile app-flow scenarios, API boundary checks, and TypeScript checks pass.
+  - Both native platforms show unique metrics, page-view details, and readable large-text chart rows.
+  - iOS preserves aggregate request counts and unavailable visitor metrics.
+  - Android sends the unique sort after a 7d selection.
+  - A supplemental visible-date assertion is interrupted during software test device cleanup.
+  - Completed app-flow and HTTP tests verify interval values and updates.
+  - Native preparation passes. Independent review finds no product blocker.
+
+  - Initial CI finds an unused helper after the device refactor.
+  - Remove the unused helper. `make lint` and final `make ci` pass.
+  - Final CI passes 65 mobile scenarios, 29 deployment checks, and 475 browser/API cases.
+  - Changed prose review and `git diff --check` pass.
+
+  Resolution:
+  Mobile traffic values, bar lengths, and ranking use unique visitors consistently.
+  Page views remain explicit supporting information. Returning stays a separate engagement metric.
+
+  Changed files:
+  - Repository commands and docs: `Makefile`, `.mprlab/ISSUES.md`, `.mprlab/TERMINOLOGY.md`, and `README.md`.
+  - API source: `internal/api/admin.go`, `internal/api/site_stats.go`, `internal/api/traffic_sort.go`, and `internal/api/traffic_report_schedule.go`.
+  - API tests: `internal/api/traffic_unique_transport_test.go`, `internal/api/admin_helpers_test.go`, `internal/api/admin_test.go`, `internal/api/site_stats_additional_test.go`, `internal/api/traffic_interval_transport_test.go`, and `internal/api/traffic_report_schedule_test.go`.
+  - Mobile source: `mobile/App.tsx`, `mobile/src/api.ts`, and `mobile/src/types.ts`.
+  - Mobile tests: `mobile/scripts/test-app-flow.mjs` and `mobile/scripts/test-api-boundaries.mjs`.
+  - Generated inputs: matching copies in `mobile/prepared/` and `mobile/prepared/ios/LoopAware.xcodeproj/project.pbxproj`.
+
+- [x] [F021] (P1) Open detail tabs from mobile overview cards
+
+  Goal:
+  Open the corresponding detail tab when the operator selects an overview card.
+
+  Requirements:
+  - Connect Feedback, Subscribers, Visits, Health, and Sentry cards to their existing tabs.
+  - Make the full card an accessible button with a distinct name.
+  - Keep zero-count cards available.
+  - Preserve the selected site and traffic interval.
+  - Reveal the selected tab and give accessibility focus to the destination heading.
+
+  Validation:
+  - Add public app-flow regressions before production edits.
+  - Activate each card separately from the existing tabs.
+  - Verify all destinations and native navigation presentation.
+  - Run focused mobile checks and final stack `make ci`.
+
+  Implementation:
+  Each complete overview card opens its corresponding existing tab.
+  The selected site and traffic interval remain selected. Zero counts do not disable navigation.
+  The selected tab becomes visible. Accessibility focus moves to the destination heading.
+  Other statistic grids remain informational.
+
+  Validation results:
+  The initial public regression failed because `View feedback` did not exist as a card action.
+  The tests use distinct action names to select the overview cards.
+  All five destinations passed public app-flow checks and native navigation on iOS 27 and Android 17.
+  Accessible names, values, and selected-tab state were present in the native hierarchy.
+
+  App-flow checks verified the destination focus command. Screen-reader announcements were not exercised.
+  Final `make ci` passed. P004 records the selected runtime and complete validation result.
+
+  Changed files:
+  `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`, `README.md`, and this tracker.
+
+  Resolution: The five overview cards open their corresponding detail tabs.
+
 - [x] [F020] (P1) Add a search icon to the mobile site selector
   Goal:
   Help the operator find a site through a filter above the site cards.
@@ -5082,6 +5623,126 @@ Pull request delivery remains separate.
 
 
 ## Planning
+
+- [x] [P004] (P1) Plan mobile avatar, site filter, and overview navigation changes
+
+  Goal:
+  Define the implementation sequence for the mobile comments supplied on October 29, 2026.
+
+  Evidence:
+  - The supplied screenshot shows an empty avatar circle and a site filter below the `SITES` row.
+  - F018 defines the account image and email initial behavior.
+  - F020 and `README.md` currently specify a separate row for the open site filter.
+  - `mobile/App.tsx` gives `account.avatar.url` directly to the native image loader.
+  - `internal/api/auth.go` can return a relative `/api/me/avatar?v=...` address for an account photo.
+  - `internal/api/admin.go` requires an authenticated account for that image endpoint.
+  - The backend supplies an inline SVG image when the account has no photo.
+  - The overview cards are static views. The destination tabs and selected-tab state already exist.
+
+  Decisions:
+  - Use the existing account photo contract and existing dashboard tabs.
+  - Put the open site filter between `SITES` and the search icon in one row.
+  - Make each complete overview card a button for its corresponding tab.
+  - Keep the selected site and traffic interval when a card opens a tab.
+  - Keep zero-count cards available. Health and Sentry cards open their tabs when collection is off or unconfigured.
+
+  Destination map:
+  | Overview card | Destination tab |
+  | --- | --- |
+  | Feedback | Feedback |
+  | Subscribers | Subscribers |
+  | Visits, including unique visitors | Traffic |
+  | Health | Health |
+  | Sentry | Sentry |
+
+  Implementation sequence:
+  1. Reproduce the avatar failure through the real app entry point and a local authenticated image endpoint.
+     Examine the relative address, session cookies, response format, and native image result.
+
+     Normalize image addresses once in the mobile account adapter against the configured API base URL.
+     Keep query parameters and supported absolute or inline image addresses.
+     Show the email initial while the image loads, when no photo exists, or when the image fails.
+     Include the current inline SVG response in the no-photo acceptance case.
+     Reset image state when the account or image address changes.
+
+     Verify that sign-out and account changes remove the previous account image.
+     Prevent display of another account's photo after late responses or cache reuse.
+     Change backend behavior only when a reproduced defect requires that change.
+     File each reproduced defect as a separate BugFix issue before implementation.
+  2. Change `SitesRail` so the filter occupies the flexible space inside `sitesHeading`.
+     Keep the label and search icon visible. Let the input shrink to the available width.
+     Keep clear, focus, keyboard, matching, and selected-site behavior from F020.
+     Reserve the row height so search does not move the site cards downward.
+     Keep the clear control reachable and preserve the existing 44-point minimum touch area.
+
+     Record this layout change as an Improvement before implementation.
+  3. Pass the existing tab-selection command through `DashboardTabContent` to `OverviewSection`.
+     Give the overview cards typed destination actions through `StatGrid`.
+     Keep other `StatGrid` instances informational.
+
+     Expose each action as an accessible button with its destination and current value.
+     Give each card a distinct accessible name, such as `View feedback`, to distinguish it from its tab.
+     Show the selected destination tab and its content after activation.
+     Dismiss the keyboard and give accessibility focus to the destination heading.
+     Reveal a selected tab when it is outside the visible part of the horizontal tab bar.
+     Record this navigation capability as a Feature before implementation.
+
+  Validation:
+  - Add public app-flow regressions before each production code change.
+  - Confirm each new regression fails because the required behavior is absent.
+  - Cover relative image URLs, authenticated image loads, image failures, account changes, and email initials.
+  - Include session expiry, the actual inline SVG response, and delayed image completion after an account change.
+  - Cover filter open, clear, close, empty results, site selection, and unchanged row placement.
+  - Compare the site-card rail position before and after search opens at the same viewport and text size.
+  - Cover all five card destinations, zero counts, selected-site preservation, and traffic-interval preservation.
+  - Activate each card through its distinct accessible name. Verify destination content and the selected tab.
+  - Run `make mobile-app-flow-check` during each interface change.
+  - Run `make mobile-check` for account-boundary tests and mobile type checks.
+  - Verify actual image rendering, row placement, keyboard behavior, and card actions in an iOS simulator.
+  - Verify the shared controls in an Android emulator.
+  - Include narrow screens, large text, Light, Dark, and account-menu access.
+  - Use `make mobile-source-staging-check` to verify the captured application source.
+  - Update the mobile sections in `README.md` with the implemented behavior.
+  - Run `make ci` once after the final application change at the stack completion checkpoint.
+  - Close each implementation issue after its required documentation and code validation pass.
+
+  Assumptions:
+  The relative image address is a source-backed failure candidate. The supplied account session has not been inspected.
+  A native image check must establish whether session delivery or image format also contributes to the failure.
+  The plan covers the mobile app shown in the screenshot.
+  The primary agent owns implementation and completes the issues in sequence.
+
+  Planning status:
+  Source inspection and independent architecture review passed.
+  The plan includes the six review corrections for image delivery, no-photo behavior, action selection, navigation, layout measurement, and issue classification.
+  The owner authorized implementation on October 29, 2026.
+  B158, B159, I051, and F021 are resolved after code and native validation.
+
+  Validation results:
+  The changed prose passed the scoped mechanical language check and producer language review.
+  The full tracker retains 496 findings in unchanged text.
+  Governor reported the same existing `.mprlab/POLICY.md` template difference before and after the plan change.
+  `git diff --check` passed.
+
+  Changed files: `.mprlab/ISSUES.md`.
+
+  Implementation result:
+  The avatar, inline site filter, and overview card navigation are implemented.
+  Final `make ci` passed with the installed versioned Gateway `v7.0.9` executable selected through `MPRLAB_GATEWAY_EXECUTABLE`.
+  The runtime reported platform `darwin-arm64` and source commit `db1c8d202487359c652aba5175d67d4f10089a59`.
+  Audits, builds, lint, type checks, Go tests, race checks, and mobile contracts passed.
+  All 58 mobile app-flow cases, 29 publication policy cases, and 475 browser/API cases passed.
+  B160 and B161 record separate existing defects outside this implementation scope.
+
+  Review:
+  Agent `/root/review_mobile_plan` used role `mpr-architect`.
+  Requested model and effort: `gpt-6-astra`, `high`. Reported model: `gpt-6-astra`.
+  The fixed role supplied the effort. Separate runtime effort confirmation was unavailable.
+  The review found no remaining defects in the implementation.
+
+  Implementation changed files:
+  `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/src/avatar.ts`, `mobile/scripts/test-app-flow.mjs`, and `mobile/scripts/test-api-boundaries.mjs`.
+  Documentation: `README.md` and this tracker.
 
 - [x] [P003] (P1) Define LoopAware adoption of shared MCP authorization.
   Goal:

@@ -104,11 +104,11 @@ func (provider *recordingTrafficReportStatsProvider) UniqueVisitorCountForDays(_
 	return provider.uniqueVisitorCount, nil
 }
 
-func (provider *recordingTrafficReportStatsProvider) TopPages(context.Context, string, int) ([]TopPageStat, error) {
+func (provider *recordingTrafficReportStatsProvider) TopPages(context.Context, string, int, TrafficSort) ([]TopPageStat, error) {
 	return provider.topPages, nil
 }
 
-func (provider *recordingTrafficReportStatsProvider) TopPagesForDays(_ context.Context, _ string, days int, limit int) ([]TopPageStat, error) {
+func (provider *recordingTrafficReportStatsProvider) TopPagesForDays(_ context.Context, _ string, days int, limit int, sortOrder TrafficSort) ([]TopPageStat, error) {
 	provider.topPagesDays = days
 	provider.topPagesLimit = limit
 	return provider.topPages, nil
@@ -122,11 +122,11 @@ func (provider *recordingTrafficReportStatsProvider) VisitTrendAll(context.Conte
 	return provider.trend, nil
 }
 
-func (provider *recordingTrafficReportStatsProvider) VisitAttribution(context.Context, string, int) (VisitAttributionBreakdown, error) {
+func (provider *recordingTrafficReportStatsProvider) VisitAttribution(context.Context, string, int, TrafficSort) (VisitAttributionBreakdown, error) {
 	return VisitAttributionBreakdown{}, nil
 }
 
-func (provider *recordingTrafficReportStatsProvider) VisitAttributionForDays(context.Context, string, int, int) (VisitAttributionBreakdown, error) {
+func (provider *recordingTrafficReportStatsProvider) VisitAttributionForDays(context.Context, string, int, int, TrafficSort) (VisitAttributionBreakdown, error) {
 	return VisitAttributionBreakdown{}, nil
 }
 
@@ -138,21 +138,21 @@ func (provider *recordingTrafficReportStatsProvider) VisitEngagementAll(context.
 	return VisitEngagementStat{}, nil
 }
 
-func (provider *recordingTrafficReportStatsProvider) DeviceBreakdown(context.Context, string, int) (DeviceBreakdownStat, error) {
+func (provider *recordingTrafficReportStatsProvider) DeviceBreakdown(context.Context, string, int, TrafficSort) (DeviceBreakdownStat, error) {
 	return provider.devices, nil
 }
 
-func (provider *recordingTrafficReportStatsProvider) DeviceBreakdownForDays(_ context.Context, _ string, days int, limit int) (DeviceBreakdownStat, error) {
+func (provider *recordingTrafficReportStatsProvider) DeviceBreakdownForDays(_ context.Context, _ string, days int, limit int, sortOrder TrafficSort) (DeviceBreakdownStat, error) {
 	provider.deviceDays = days
 	provider.deviceLimit = limit
 	return provider.devices, nil
 }
 
-func (provider *recordingTrafficReportStatsProvider) LocationDistribution(context.Context, string, int) ([]LocationDistributionStat, error) {
+func (provider *recordingTrafficReportStatsProvider) LocationDistribution(context.Context, string, int, TrafficSort) ([]LocationDistributionStat, error) {
 	return provider.locations, nil
 }
 
-func (provider *recordingTrafficReportStatsProvider) LocationDistributionForDays(_ context.Context, _ string, days int, limit int) ([]LocationDistributionStat, error) {
+func (provider *recordingTrafficReportStatsProvider) LocationDistributionForDays(_ context.Context, _ string, days int, limit int, sortOrder TrafficSort) ([]LocationDistributionStat, error) {
 	provider.locationDays = days
 	provider.locationLimit = limit
 	return provider.locations, nil
