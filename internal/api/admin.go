@@ -564,13 +564,7 @@ func (handlers *SiteHandlers) ListSites(context *gin.Context) {
 
 	var sites []model.Site
 
-	query := handlers.database.Model(&model.Site{})
-	if !currentUser.hasRole(RoleAdmin) {
-		normalizedEmail := currentUser.normalizedEmail()
-		teamMemberships := handlers.database.Model(&model.SiteTeamMember{}).Select("site_id").Where("email = ?", normalizedEmail)
-		query = query.Where("(LOWER(owner_email) = ? OR LOWER(creator_email) = ? OR id IN (?))", normalizedEmail, normalizedEmail, teamMemberships)
-	}
-
+	query := sitesVisibleToUserQuery(context.Request.Context(), handlers.database, currentUser)
 	if err := query.Order("created_at desc").Find(&sites).Error; err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
 		return

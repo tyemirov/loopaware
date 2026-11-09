@@ -1,9 +1,12 @@
 import { Image as FaviconImage } from "expo-image";
+import { locationMapImage, locationMapPosition } from "./src/location-map";
+import { locationMapWidth, locationMapHeight } from "./src/location-world";
 import { StatusBar } from "expo-status-bar";
 import * as SecureStore from "expo-secure-store";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   AccessibilityInfo,
   BackHandler,
   findNodeHandle,
@@ -33,7 +36,7 @@ import type {
   DashboardTab,
   FeedbackMessage,
   LocationPoint,
-  PortfolioDashboard,
+  VisibleTrafficReport,
   SentryIssue,
   Site,
   SiteDashboard,
@@ -41,8 +44,8 @@ import type {
   TrafficInterval,
   VisitTrendPoint,
 } from "./src/types";
-import { locationWorldLandPath } from "./src/location-world-land";
 
+const statisticsSyncIntervalMs = 30_000;
 const selectedSiteStorageKey = "loopaware.mobile.selectedSiteId";
 const dashboardTabs: Array<{ key: DashboardTab; label: string }> = [
   { key: "overview", label: "Overview" },
@@ -77,9 +80,9 @@ export default function App() {
 function AppContent() {
   const { styles, colors } = useAppStyles();
   const theme = useTheme();
-  const [screen, setScreen] = useState<"dashboard" | "settings">("dashboard");
+  const [screen, setScreen] = useState<"dashboard" | "settings" | "statistics">("dashboard");
   useEffect(() => {
-    if (screen !== "settings") return;
+    if (screen === "dashboard") return;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => { setScreen("dashboard"); return true; });
     return () => subscription.remove();
   }, [screen]);
@@ -91,7 +94,6 @@ function AppContent() {
   const [sites, setSites] = useState<Site[] | null>(null);
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [siteDashboard, setSiteDashboard] = useState<SiteDashboard | null>(null);
-  const [portfolioDashboard, setPortfolioDashboard] = useState<PortfolioDashboard | null>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [overviewDestination, setOverviewDestination] = useState<DashboardTab | null>(null);
   const dashboardScroll = useRef<ScrollView>(null);
@@ -155,12 +157,10 @@ function AppContent() {
           setSites(null);
           setSelectedSiteId(null);
           setSiteDashboard(null);
-          setPortfolioDashboard(null);
           return;
         }
         setAccount(currentAccount);
         setStatus("signedIn");
-        setPortfolioDashboard(null);
 
         async function loadSites() {
           try {
@@ -187,20 +187,7 @@ function AppContent() {
           }
         }
 
-        async function loadPortfolio() {
-          try {
-            const nextPortfolioDashboard = await apiClient.portfolioDashboard();
-            if (accountRequestVersion === authenticatedLoadVersion.current) {
-              setPortfolioDashboard(nextPortfolioDashboard);
-            }
-          } catch (error) {
-            if (accountRequestVersion === authenticatedLoadVersion.current) {
-              setErrorMessage(errorToMessage(error));
-            }
-          }
-        }
-
-        await Promise.all([loadSites(), loadPortfolio()]);
+        await loadSites();
       } catch (error) {
         if (accountRequestVersion === authenticatedLoadVersion.current) {
           setStatus((currentStatus) => (currentStatus === "checking" ? "signedOut" : currentStatus));
@@ -266,7 +253,6 @@ function AppContent() {
       setSites(null);
       setSelectedSiteId(null);
       setSiteDashboard(null);
-      setPortfolioDashboard(null);
       setStatus("signedOut");
       setScreen("dashboard");
     } catch (error) {
@@ -322,6 +308,17 @@ function AppContent() {
         ) : screen === "settings" ? (
           <SettingsScreen account={account!} sites={sites} busy={busy} errorMessage={errorMessage}
             onBack={() => setScreen("dashboard")} onSignOut={handleSignOut} />
+        ) : screen === "statistics" ? (
+          <StatisticsScreen key={account!.email} apiClient={apiClient}
+            onBack={() => setScreen("dashboard")}
+            onSelectSite={site => {
+              setSites(current => current?.some(value => value.id === site.id) ? current.map(value => value.id === site.id ? site : value) : [...(current ?? []), site]);
+              setScreen("dashboard");
+              setActiveTab("overview");
+              setOverviewDestination(null);
+              setSiteDashboard(null);
+              void handleSelectSite(site);
+            }} />
         ) : (
           <ScrollView
             ref={dashboardScroll}
@@ -331,7 +328,7 @@ function AppContent() {
             automaticallyAdjustKeyboardInsets
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.teal} />}
           >
-            <Header account={account!} apiClient={apiClient} onSettings={() => {
+            <Header account={account!} apiClient={apiClient} onStatistics={() => { Keyboard.dismiss(); setScreen("statistics"); }} onSettings={() => {
               setScreen("settings");
               void loadAuthenticatedState("current", selectedSiteId, trafficInterval);
             }} />
@@ -351,7 +348,6 @@ function AppContent() {
                       activeTab={activeTab}
                       interval={trafficInterval}
                       onIntervalChange={handleSelectInterval}
-                      portfolioDashboard={portfolioDashboard}
                       site={selectedSite}
                       siteDashboard={selectedSiteDashboard}
                       onNavigate={openOverviewTab}
@@ -403,7 +399,7 @@ function focusNative(element: View | Text | null) {
   if (tag !== null) AccessibilityInfo.setAccessibilityFocus(tag);
 }
 
-function Header(props: { account: Account; apiClient: LoopAwareApiClient; onSettings: () => void }) {
+function Header(props: { account: Account; apiClient: LoopAwareApiClient; onSettings: () => void; onStatistics: () => void }) {
   const { styles, colors } = useAppStyles();
   const avatar = useRef<View>(null);
   const menuItem = useRef<View>(null);
@@ -412,13 +408,21 @@ function Header(props: { account: Account; apiClient: LoopAwareApiClient; onSett
     <View style={styles.header}>
       <View style={styles.brandRowCompact}>
         <Image source={require("./assets/icon.png")} style={styles.headerIcon} />
-        <Text style={styles.headerTitle}>LoopAware</Text>
+        <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>LoopAware</Text>
       </View>
+      <View style={styles.headerActions}>
       <Pressable ref={avatar} accessibilityRole="button" accessibilityLabel="Account menu"
         accessibilityHint="Open account options" accessibilityState={{ expanded: menu.visible }}
         style={styles.avatar} onPress={menu.open}>
         <AccountAvatar key={`${props.account.email}:${props.account.avatar?.url ?? ""}`} account={props.account} apiClient={props.apiClient} />
       </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Statistics" accessibilityHint="View reports across all accessible sites"
+        style={styles.statisticsButton} onPress={props.onStatistics}>
+        <View style={styles.statisticsIcon} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          {[10, 22, 16].map((height, index) => <View key={index} style={[styles.statisticsBar, { height }]} />)}
+        </View>
+      </Pressable>
+      </View>
       <Modal visible={menu.visible} transparent animationType="none" onRequestClose={() => menu.close("avatar")}
         onShow={() => focusNative(menuItem.current)} onDismiss={menu.onDismiss}>
         <SafeAreaView style={styles.menuOverlay} accessibilityViewIsModal onAccessibilityEscape={() => menu.close("avatar")}>
@@ -623,7 +627,6 @@ function DashboardTabContent(props: {
   activeTab: DashboardTab;
   interval: TrafficInterval;
   onIntervalChange: (interval: TrafficInterval) => void;
-  portfolioDashboard: PortfolioDashboard | null;
   site: Site;
   siteDashboard: SiteDashboard;
   onNavigate: (tab: DashboardTab) => void;
@@ -642,7 +645,7 @@ function DashboardTabContent(props: {
     case "sentry":
       return <SentrySection issues={props.siteDashboard.sentryIssues} site={props.site} headingFocus={props.headingFocus} />;
     case "reports":
-      return <ReportsSection dashboard={props.portfolioDashboard} siteDashboard={props.siteDashboard} site={props.site} />;
+      return <ReportsSection siteDashboard={props.siteDashboard} site={props.site} />;
     case "overview":
     default:
       return <OverviewSection dashboard={props.siteDashboard} site={props.site} onNavigate={props.onNavigate} />;
@@ -706,8 +709,8 @@ function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInte
         <DashboardHeading title="Traffic" focus={props.headingFocus} />
         <SegmentedControl items={trafficIntervals} selectedKey={props.interval} onChange={props.onIntervalChange} />
         <StatGrid items={[{ label: "Accepted requests", value: formatCount(props.dashboard.stats.visit_count), detail: "Daily totals in UTC" }]} />
-        <Section title="Daily counts"><TrendRows trend={props.dashboard.trend.trend} measure="requests" /></Section>
         <EmptyInline text="Unique visitors, individual visits, pages, devices, and locations are unavailable for daily counts." />
+        <Section title="Daily counts"><TrendGraph trend={props.dashboard.trend.trend} measure="requests" /></Section>
       </View>
     );
   }
@@ -723,9 +726,6 @@ function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInte
           { label: "Pages/visitor", value: engagement.average_pages_per_visitor.toFixed(1), detail: `${formatCount(engagement.tracked_visitor_count)} tracked` },
         ]}
       />
-      <Section title="Trend">
-        <TrendRows trend={props.dashboard.trend.trend} measure="unique_visitors" />
-      </Section>
       <Section title="Top pages">
         <Bars items={props.dashboard.stats.top_pages} labelFor={(item) => item.path || "/"} valueFor={(item) => item.unique_visitor_count} detailFor={item => `${formatCount(item.visit_count)} page views`} />
       </Section>
@@ -738,8 +738,79 @@ function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInte
       <Section title="Locations">
         <LocationMap locations={locations.locations} />
       </Section>
+      <Section title="Trend">
+        <TrendGraph trend={props.dashboard.trend.trend} measure="unique_visitors" />
+      </Section>
     </View>
   );
+}
+
+const locationMapTouchSize = 44;
+
+function mappedLocation(location: LocationPoint): boolean {
+  return location.label !== "UTC" && location.source !== "unknown" && location.signal !== "missing_signal"
+    && (location.country !== "" || location.city !== "" || location.region !== "" || location.latitude !== 0 || location.longitude !== 0);
+}
+
+function locationIdentity(location: LocationPoint): string {
+  return JSON.stringify([location.label, location.source, location.signal]);
+}
+
+function locationCountSummary(location: LocationPoint): string {
+  return `${location.label} ${formatCount(location.unique_visitor_count)} unique visitors ${formatCount(location.visit_count)} page views`;
+}
+
+function LocationMap(props: { locations: LocationPoint[] }) {
+  const { colors, styles } = useAppStyles();
+  const plotted = props.locations.filter(mappedLocation);
+  const unlocated = props.locations.filter(location => !mappedLocation(location));
+  const maximum = Math.max(1, ...plotted.map(location => location.unique_visitor_count));
+  const [selectedID, setSelectedID] = useState<string | null>(null);
+  const [frameWidth, setFrameWidth] = useState<number | null>(null);
+  const selected = plotted.find(location => locationIdentity(location) === selectedID) ?? plotted[0];
+  const image = useMemo(() => locationMapImage(props.locations.filter(mappedLocation), colors), [props.locations, colors]);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [image]);
+  if (props.locations.length === 0) return <EmptyInline text="No location data yet." />;
+  const description = plotted.map(location => `${location.label}: ${formatCount(location.unique_visitor_count)} unique visitors, ${formatCount(location.visit_count)} page views`).join("; ");
+  return <View style={styles.sectionStack}>
+    <View testID="location-map-frame" style={styles.locationMapFrame}
+      onLayout={event => setFrameWidth(event.nativeEvent.layout.width)}>
+      <View testID="location-map-canvas" style={[styles.locationMapCanvas, frameWidth === null ? null : { width: Math.min(locationMapWidth, frameWidth) }]}>
+        <FaviconImage source={{ uri: image }} contentFit="contain" accessible accessibilityLabel={`Visitor location map, unique visitors. ${description}`}
+          style={{ width: "100%", aspectRatio: locationMapWidth / locationMapHeight, borderRadius: 12 }}
+          onError={() => setFailed(true)} onLoad={() => setFailed(false)} />
+        {plotted.map(location => {
+          const position = locationMapPosition(location, maximum);
+          return <Pressable key={locationIdentity(location)} accessibilityRole="button"
+            accessibilityLabel={`Show ${location.label} on map`}
+            accessibilityValue={{ text: locationCountSummary(location) }}
+            accessibilityState={{ selected: location === selected }}
+            onPress={() => setSelectedID(locationIdentity(location))}
+            style={[styles.locationMapMarker, { left: `${position.x / locationMapWidth * 100}%`, top: `${position.y / locationMapHeight * 100}%` }, location === selected && styles.locationMapMarkerActive]} />;
+        })}
+      </View>
+    </View>
+    {failed ? <EmptyInline text="Location map image unavailable. Location counts appear below." /> : null}
+    <Text style={styles.helperText}>Bubble size shows unique visitors.</Text>
+    <View style={styles.locationMapChoices}>
+      {plotted.map(location => <Pressable key={locationIdentity(location)} accessibilityRole="button"
+        accessibilityLabel={`Select ${location.label} location`}
+        accessibilityValue={{ text: locationCountSummary(location) }}
+        accessibilityState={{ selected: location === selected }}
+        onPress={() => setSelectedID(locationIdentity(location))}
+        style={[styles.locationMapChoice, location === selected && styles.locationMapChoiceActive]}>
+        <Text style={styles.helperText}>{locationCountSummary(location)}</Text>
+      </Pressable>)}
+    </View>
+    {selected ? <View style={styles.locationMapDetail}>
+      <Text style={styles.helperText}>{locationCountSummary(selected)}</Text>
+      <Text style={styles.helperText}>{selected.source.replace(/_/g, " ")} · {selected.confidence}% location confidence</Text>
+    </View> : null}
+    {unlocated.map(location => <Text key={locationIdentity(location)} style={styles.helperText}>
+      {`Location unavailable ${locationCountSummary(location)}`}
+    </Text>)}
+  </View>;
 }
 
 function FeedbackSection(props: { messages: FeedbackMessage[]; headingFocus: HeadingFocus }) {
@@ -858,7 +929,104 @@ function SentrySection(props: { issues: SentryIssue[]; site: Site; headingFocus:
   );
 }
 
-function ReportsSection(props: { dashboard: PortfolioDashboard | null; siteDashboard: SiteDashboard; site: Site }) {
+function StatisticsScreen(props: { apiClient: LoopAwareApiClient; onBack: () => void; onSelectSite: (site: Site) => void }) {
+  const { styles } = useAppStyles();
+  const [report, setReport] = useState<VisibleTrafficReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [openingSite, setOpeningSite] = useState<string | null>(null);
+  const generation = useRef(0);
+  const mounted = useRef(false);
+  const heading = useRef<Text>(null);
+  const focused = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    let previousState = AppState.currentState;
+    let synchronizationTimer: ReturnType<typeof setTimeout> | undefined;
+    let inFlight = false;
+    let pending = false;
+    const load = async () => {
+      if (inFlight) { pending = true; return; }
+      clearTimeout(synchronizationTimer);
+      inFlight = true;
+      const request = ++generation.current;
+      setLoading(true);
+      try {
+        const nextReport = await props.apiClient.visibleTrafficReport();
+        if (mounted.current && request === generation.current) { setReport(nextReport); setError(null); }
+      } catch (error) {
+        if (mounted.current && request === generation.current) setError(errorToMessage(error));
+      } finally {
+        inFlight = false;
+        if (mounted.current && request === generation.current) {
+          setLoading(false);
+          if (AppState.currentState === "active") {
+            if (pending) { pending = false; void load(); }
+            else synchronizationTimer = setTimeout(() => void load(), statisticsSyncIntervalMs);
+          }
+        }
+      }
+    };
+    void load();
+    const subscription = AppState.addEventListener("change", state => {
+      if (state === "active" && previousState !== "active") void load();
+      else if (state !== "active") clearTimeout(synchronizationTimer);
+      previousState = state;
+    });
+    return () => {
+      mounted.current = false;
+      generation.current += 1;
+      clearTimeout(synchronizationTimer);
+      subscription.remove();
+    };
+  }, [props.apiClient]);
+  const openSite = async (siteID: string) => {
+    setOpeningSite(siteID);
+    setError(null);
+    try {
+      const currentSites = await props.apiClient.sites();
+      if (!mounted.current) return;
+      const site = currentSites.sites.find(value => value.id === siteID);
+      if (!site) throw new Error("Site access is no longer available.");
+      props.onSelectSite(site);
+    } catch (error) {
+      if (mounted.current) setError(errorToMessage(error));
+    } finally {
+      if (mounted.current) setOpeningSite(null);
+    }
+  };
+  return <ScrollView contentContainerStyle={styles.scrollContent} accessibilityLabel="Statistics">
+    <Pressable accessibilityRole="button" onPress={props.onBack} style={styles.backButton}>
+      <Text style={styles.secondaryButtonText}>Back to dashboard</Text>
+    </Pressable>
+    <Text ref={heading} accessibilityRole="header" style={styles.settingsTitle} onLayout={() => {
+      if (!focused.current) { focused.current = true; focusNative(heading.current); }
+    }}>Statistics</Text>
+    <Text style={styles.helperText}>Reports across all sites you can access.</Text>
+    {error ? <StatusBanner message={error} /> : null}
+    <Section title="All-sites traffic">
+      {loading ? <InlineLoading /> : null}
+      {report ? <>
+        <StatGrid items={[
+          { label: "Sites", value: formatCount(report.site_count), detail: "Included" },
+          { label: "Visits", value: formatCount(report.visit_count), detail: "Last 30 days" },
+          { label: "Visitors", value: formatCount(report.unique_visitor_count), detail: "Unique" },
+        ]} />
+        {report.sites.length ? report.sites.map(site => <Pressable key={site.site_id}
+          accessibilityRole="button" accessibilityLabel={`Open site ${site.site_name}`}
+          accessibilityHint="Open this site's overview" disabled={openingSite !== null}
+          accessibilityState={{ disabled: openingSite !== null, busy: openingSite === site.site_id }}
+          style={styles.reportSite} onPress={() => void openSite(site.site_id)}>
+          <Text style={styles.listItemTitle}>{site.site_name}</Text>
+          <Text style={styles.listItemMeta}>{formatCount(site.visit_count)} visits · {formatCount(site.unique_visitor_count)} unique</Text>
+          {openingSite === site.site_id ? <InlineLoading /> : null}
+        </Pressable>) : <EmptyInline text="No accessible sites." />}
+      </> : !loading ? <EmptyInline text="All-sites report data unavailable." /> : null}
+    </Section>
+  </ScrollView>;
+}
+
+function ReportsSection(props: { siteDashboard: SiteDashboard; site: Site }) {
   const { styles, colors } = useAppStyles();
   const schedule = props.siteDashboard.trafficReportSchedule;
   return (
@@ -875,45 +1043,72 @@ function ReportsSection(props: { dashboard: PortfolioDashboard | null; siteDashb
           <EmptyInline text={props.site.access_role === "admin" ? "Schedule not configured." : "Schedule is visible to site admins."} />
         )}
       </Section>
-      <Section title="All-sites traffic">
-        {props.dashboard ? (
-          <>
-            <StatGrid
-              items={[
-                { label: "Sites", value: formatCount(props.dashboard.defaultReport.site_count), detail: "Included" },
-                { label: "Visits", value: formatCount(props.dashboard.defaultReport.visit_count), detail: "Last 30 days" },
-                { label: "Visitors", value: formatCount(props.dashboard.defaultReport.unique_visitor_count), detail: "Unique" },
-              ]}
-            />
-            {props.dashboard.defaultReport.sites.map((site) => (
-              <ListItem
-                key={site.site_id}
-                title={site.site_name}
-                meta={`${formatCount(site.visit_count)} visits`}
-                right={`${formatCount(site.unique_visitor_count)} unique`}
-              />
-            ))}
-          </>
-        ) : (
-          <EmptyInline text="All-sites report data unavailable." />
-        )}
-      </Section>
+
     </View>
   );
 }
 
-function TrendRows(props: { trend: VisitTrendPoint[]; measure: TrafficMeasure }) {
+function TrendGraph(props: { trend: VisitTrendPoint[]; measure: TrafficMeasure }) {
+  const { styles, colors } = useAppStyles();
+  const [width, setWidth] = useState(0);
+  const { fontScale } = useWindowDimensions();
   if (!props.trend.length) {
     return <EmptyInline text="No trend data yet." />;
   }
   const valueFor = (point: VisitTrendPoint) => props.measure === "unique_visitors" ? point.unique_visitors! : point.page_views;
-  const maxValue = Math.max(1, ...props.trend.map(valueFor));
+  const axisLabel = props.measure === "unique_visitors" ? "Unique visitors" : "Requests";
+  const maximum = Math.max(4, Math.ceil(Math.max(...props.trend.map(valueFor)) / 4) * 4);
+  const height = Math.max(160, 80 * fontScale);
+  const firstDate = Date.parse(props.trend[0].date);
+  const lastDate = Date.parse(props.trend[props.trend.length - 1].date);
+  const points = props.trend.map(point => ({
+    ...point,
+    x: firstDate === lastDate ? width / 2 : (Date.parse(point.date) - firstDate) / (lastDate - firstDate) * width,
+    y: height * (1 - valueFor(point) / maximum),
+  }));
+  const ticks = [4, 3, 2, 1, 0].map(step => step * maximum / 4);
+  const labelWidth = Math.max(...ticks.map(tick => formatCount(tick).length)) * 8 * fontScale + 12;
+  const dates = props.trend.length === 1 ? [props.trend[0]] : [props.trend[0], props.trend[props.trend.length - 1]];
   return (
-    <>
-      {props.trend.map((point) => (
-        <DataBar key={point.date} label={point.date} value={valueFor(point)} maxValue={maxValue} measure={props.measure} detail={props.measure === "unique_visitors" ? `${formatCount(point.page_views)} page views` : undefined} />
-      ))}
-    </>
+    <View testID="traffic-trend-graph" accessibilityLabel={axisLabel}>
+      <Text style={styles.labelText}>{axisLabel}</Text>
+      <View style={{ flexDirection: "row", marginTop: 16 * fontScale, marginBottom: 12 }}>
+        <View style={{ width: labelWidth, height }}>
+          {ticks.map((tick, index) => <Text key={tick} style={[styles.trendTick, {
+            position: "absolute", right: 10, top: index * height / 4 - 8 * fontScale,
+          }]}>{formatCount(tick)}</Text>)}
+        </View>
+        <View style={{ flex: 1, marginRight: 4 }}>
+          <View testID="trend-plot" onLayout={event => setWidth(event.nativeEvent.layout.width)}
+            style={{ height, borderLeftWidth: 1, borderBottomWidth: 1, borderColor: colors.muted }}>
+            {ticks.map((tick, index) => <View key={tick} style={{
+              position: "absolute", top: index * height / 4, left: 0, right: 0,
+              height: StyleSheet.hairlineWidth, backgroundColor: colors.border,
+            }} />)}
+            {width > 0 ? points.slice(1).map((point, index) => {
+              const previous = points[index];
+              const dx = point.x - previous.x;
+              const dy = point.y - previous.y;
+              return <View key={point.date} testID="trend-line-segment" style={{
+                position: "absolute", left: previous.x, top: previous.y - 1,
+                width: Math.hypot(dx, dy), height: 2, backgroundColor: colors.teal,
+                transformOrigin: "left center", transform: [{ rotate: `${Math.atan2(dy, dx)}rad` }],
+              }} />;
+            }) : null}
+            {points.map(point => <View key={point.date} testID="trend-point" accessible accessibilityRole="image"
+              accessibilityLabel={`${point.date}, ${point.page_views} ${props.measure === "requests" ? "requests" : "page views"}${props.measure === "unique_visitors" ? `, ${point.unique_visitors} unique visitors` : ""}`}
+              style={{ position: "absolute", left: point.x - 3, top: point.y - 3,
+                width: 6, height: 6, borderRadius: 3, backgroundColor: colors.tealDark }} />)}
+          </View>
+          <View style={{ flexDirection: "row", justifyContent: dates.length === 1 ? "center" : "space-between", marginTop: 10 * fontScale }}>
+            {dates.map((point, index) => <Text key={point.date} style={[styles.trendTick, {
+              maxWidth: dates.length === 1 ? "100%" : "48%", textAlign: index === 0 && dates.length > 1 ? "left" : "right",
+            }]}>{point.date}</Text>)}
+          </View>
+          <Text style={[styles.labelText, { textAlign: "center", marginTop: 8 }]}>Date (UTC)</Text>
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -928,107 +1123,6 @@ function Bars<T>(props: { items: T[]; labelFor: (item: T) => string; valueFor: (
         <DataBar key={`${props.labelFor(item)}-${index}`} label={props.labelFor(item)} value={props.valueFor(item)} maxValue={maxValue} measure="unique_visitors" detail={props.detailFor(item)} />
       ))}
     </>
-  );
-}
-
-const locationMapWidth = 720;
-const locationMapHeight = 300;
-const locationMapTouchSize = 44;
-
-function mappedLocation(location: LocationPoint): boolean {
-  return location.label !== "UTC" && location.source !== "unknown" && location.signal !== "missing_signal"
-    && (location.country !== "" || location.city !== "" || location.region !== "" || location.latitude !== 0 || location.longitude !== 0);
-}
-
-function locationPosition(location: LocationPoint): { left: `${number}%`; top: `${number}%` } {
-  const degreeSize = locationMapHeight / 180;
-  const longitude = Math.max(-180, Math.min(180, location.longitude));
-  const latitude = Math.max(-80, Math.min(84, location.latitude));
-  const horizontal = ((locationMapWidth / 2 + longitude * degreeSize) / locationMapWidth) * 100;
-  const vertical = ((locationMapHeight / 2 - latitude * degreeSize) / locationMapHeight) * 100;
-  return {
-    left: `${Math.max(7, Math.min(93, horizontal))}%`,
-    top: `${Math.max(16, Math.min(84, vertical))}%`,
-  };
-}
-
-function locationCountSummary(location: LocationPoint): string {
-  const count = location.unique_visitor_count;
-  return `${location.label} ${formatCount(count)} unique visitor${count === 1 ? "" : "s"} ${formatCount(location.visit_count)} page views`;
-}
-
-function LocationMap(props: { locations: LocationPoint[] }) {
-  const { styles, colors } = useAppStyles();
-  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
-  const [frameWidth, setFrameWidth] = useState<number | null>(null);
-  const plotted = props.locations.filter(mappedLocation).slice(0, 10);
-  const unlocated = props.locations.filter(location => !mappedLocation(location));
-  const selected = plotted.find(location => location.label === selectedLabel) ?? plotted[0];
-  const maximum = Math.max(1, ...plotted.map(location => location.visit_count));
-  const mapSource = useMemo(() => {
-    const mapSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300">`
-      + `<rect width="720" height="300" fill="${colors.surfaceAlt}"/>`
-      + `<path d="${locationWorldLandPath}" fill="${colors.muted}" fill-opacity="0.35" stroke="${colors.border}" stroke-width="0.8"/>`
-      + `<path d="M160 0V300 M260 0V300 M360 0V300 M460 0V300 M560 0V300 M0 75H720 M0 150H720 M0 225H720" fill="none" stroke="${colors.border}" stroke-width="0.8" stroke-dasharray="3 8"/>`
-      + `</svg>`;
-    return { uri: `data:image/svg+xml,${encodeURIComponent(mapSvg)}` };
-  }, [colors.surfaceAlt, colors.muted, colors.border]);
-
-  if (!props.locations.length) return <EmptyInline text="No location data yet." />;
-
-  return (
-    <View style={styles.locationMapStack}>
-      <View testID="location-map-frame" style={styles.locationMapFrame}
-        onLayout={event => setFrameWidth(event.nativeEvent.layout.width)}>
-        <View testID="location-map-canvas" style={[styles.locationMapCanvas, frameWidth === null ? null : { width: Math.min(locationMapWidth, frameWidth) }]}>
-          <FaviconImage source={mapSource} style={styles.locationMapImage} contentFit="fill" accessibilityLabel="World map" />
-          {plotted.map(location => {
-            const size = 18 + Math.sqrt(location.visit_count / maximum) * 18;
-            const active = location.label === selected?.label;
-            return (
-              <Pressable key={`${location.label}-${location.source}`} accessibilityRole="button"
-                accessibilityLabel={`Show ${location.label} on map`}
-                accessibilityValue={{ text: locationCountSummary(location) }}
-                accessibilityState={{ selected: active }}
-                onPress={() => setSelectedLabel(location.label)}
-                style={[styles.locationMapMarker, locationPosition(location), active && styles.locationMapMarkerActive]}>
-                <View style={[styles.locationMapBubble, { width: size, height: size, borderRadius: size / 2 }]}>
-                  <Text maxFontSizeMultiplier={1.1} style={styles.locationMapBubbleText}>{formatCount(location.visit_count)}</Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-      {plotted.length > 1 ? (
-        <View style={styles.locationMapChoices}>
-          {plotted.map(location => {
-            const active = location.label === selected?.label;
-            return (
-              <Pressable key={`${location.label}-${location.source}`} accessibilityRole="button"
-                accessibilityLabel={`Select ${location.label} location`}
-                accessibilityValue={{ text: locationCountSummary(location) }}
-                accessibilityState={{ selected: active }}
-                onPress={() => setSelectedLabel(location.label)}
-                style={[styles.locationMapChoice, active && styles.locationMapChoiceActive]}>
-                <Text style={[styles.locationMapChoiceText, active && styles.locationMapChoiceTextActive]}>{location.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
-      {selected ? (
-        <View style={styles.locationMapDetail}>
-          <Text style={styles.locationMapDetailText}>{locationCountSummary(selected)}</Text>
-          <Text style={styles.locationMapDetailSource}>{selected.source.replace(/_/g, " ")} · {Math.round(selected.confidence * 100)}% location confidence</Text>
-        </View>
-      ) : null}
-      {unlocated.map(location => (
-        <View key={`${location.label}-${location.source}`} style={styles.locationMapUnknown}>
-          <Text style={styles.locationMapDetailSource}>{`Location unavailable ${locationCountSummary(location)}`}</Text>
-        </View>
-      ))}
-    </View>
   );
 }
 
@@ -1202,9 +1296,15 @@ function errorToMessage(error: unknown): string {
 }
 
 function createStyles(colors: ThemeColors) { return StyleSheet.create({
+  trendTick: { color: colors.muted, fontSize: 11 },
   labelText: { color: colors.muted, fontSize: 13, fontWeight: "700" },
   valueText: { color: colors.ink, fontSize: 16 },
   helperText: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  statisticsButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  statisticsIcon: { flexDirection: "row", alignItems: "flex-end", gap: 4, width: 26, height: 24, borderBottomWidth: 2, borderColor: colors.tealDark },
+  statisticsBar: { width: 5, backgroundColor: colors.tealDark, borderTopLeftRadius: 2, borderTopRightRadius: 2 },
+  reportSite: { minHeight: 48, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingVertical: 14, gap: 5 },
   avatar: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.roleSurface, borderWidth: 1, borderColor: colors.teal },
   avatarContent: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
   avatarImage: { position: "absolute", width: 42, height: 42, borderRadius: 21 },
@@ -1255,6 +1355,8 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
     marginTop: 20,
   },
   brandRowCompact: {
+    minWidth: 0,
+    flexShrink: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -1526,9 +1628,6 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
     fontSize: 17,
     fontWeight: "800",
   },
-  locationMapStack: {
-    gap: 10,
-  },
   locationMapFrame: {
     width: "100%",
     alignItems: "center",
@@ -1536,14 +1635,9 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
   locationMapCanvas: {
     width: "100%",
     maxWidth: locationMapWidth,
-    aspectRatio: 2.4,
+    aspectRatio: locationMapWidth / locationMapHeight,
     borderRadius: 10,
-    overflow: "hidden",
     backgroundColor: colors.surfaceAlt,
-  },
-  locationMapImage: {
-    width: "100%",
-    height: "100%",
   },
   locationMapMarker: {
     position: "absolute",
@@ -1555,18 +1649,6 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
   },
   locationMapMarkerActive: {
     zIndex: 1,
-  },
-  locationMapBubble: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.teal,
-    borderColor: colors.surface,
-    borderWidth: 2,
-  },
-  locationMapBubbleText: {
-    color: colors.onAccent,
-    fontSize: 10,
-    fontWeight: "800",
   },
   locationMapChoices: {
     flexDirection: "row",
@@ -1589,31 +1671,11 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
     borderColor: colors.teal,
     backgroundColor: colors.accentSurface,
   },
-  locationMapChoiceText: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  locationMapChoiceTextActive: {
-    color: colors.tealDark,
-  },
   locationMapDetail: {
     backgroundColor: colors.surfaceAlt,
     borderRadius: 8,
     padding: 10,
     gap: 4,
-  },
-  locationMapDetailText: {
-    color: colors.ink,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  locationMapDetailSource: {
-    color: colors.muted,
-    fontSize: 12,
-  },
-  locationMapUnknown: {
-    paddingHorizontal: 4,
   },
   statGrid: {
     flexDirection: "row",

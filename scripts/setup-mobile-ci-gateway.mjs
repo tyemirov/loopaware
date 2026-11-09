@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { appendFileSync, mkdirSync, mkdtempSync, realpathSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 
-const version = 'v7.0.9';
+const version = 'v8.0.1';
 const platform = 'linux-amd64';
 const repository = resolve(import.meta.dirname, '..');
 const required = (name) => {

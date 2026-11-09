@@ -1,234 +1,368 @@
 {
   "mprlab_resources": {
     "owner": "loopaware",
-    "environment_file": ".mprlab/deploy/.env",
-    "inputs": {
-      "APP_STORE_CONNECT_API_ISSUER_ID": "${APP_STORE_CONNECT_API_ISSUER_ID}",
-      "APP_STORE_CONNECT_API_KEY_ID": "${APP_STORE_CONNECT_API_KEY_ID}",
-      "APP_STORE_CONNECT_API_KEY_PATH": "${APP_STORE_CONNECT_API_KEY_PATH}",
-      "GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH": "${GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH}",
-      "LOOPAWARE_ANDROID_KEYSTORE": "${LOOPAWARE_ANDROID_KEYSTORE}",
-      "LOOPAWARE_ANDROID_KEY_ALIAS": "${LOOPAWARE_ANDROID_KEY_ALIAS}",
-      "LOOPAWARE_ANDROID_KEY_PASSWORD": "${LOOPAWARE_ANDROID_KEY_PASSWORD}",
-      "LOOPAWARE_ANDROID_STORE_PASSWORD": "${LOOPAWARE_ANDROID_STORE_PASSWORD}",
-      "LOOPAWARE_APPLE_CERTIFICATE_BASE64": "${LOOPAWARE_APPLE_CERTIFICATE_BASE64}",
-      "LOOPAWARE_APPLE_CERTIFICATE_PASSWORD": "${LOOPAWARE_APPLE_CERTIFICATE_PASSWORD}",
-      "LOOPAWARE_APPLE_IDENTITY": "${LOOPAWARE_APPLE_IDENTITY}",
-      "LOOPAWARE_APPLE_PROFILE": "${LOOPAWARE_APPLE_PROFILE}",
-      "LOOPAWARE_APPLE_TEAM": "${LOOPAWARE_APPLE_TEAM}",
-      "NPM_API_KEY": "${NPM_API_KEY}",
-      "PINGUIN_AUTH_TOKEN": "${PINGUIN_AUTH_TOKEN}",
-      "SESSION_SECRET": "${SESSION_SECRET}",
-      "TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE": "${TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE}",
-      "TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE": "${TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE}",
-      "TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE": "${TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE}",
-      "TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE": "${TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE}",
-      "DEPLOY_SUDO_PASSWORD_TUTOSH": "${DEPLOY_SUDO_PASSWORD_TUTOSH}",
-      "MPRLAB_TAUTH_MANAGEMENT_URL": "${MPRLAB_TAUTH_MANAGEMENT_URL}",
-      "MPRLAB_TAUTH_PROVISIONING_CREDENTIALS": "${MPRLAB_TAUTH_PROVISIONING_CREDENTIALS}"
-    },
     "release": {
       "scheme": "semver"
     },
-    "ci": {
-      "enabled": true,
-      "command": {
-        "0": "make",
-        "1": "ci"
-      }
-    },
-    "defaults": {
-      "timeouts": {
-        "startup": "30s",
-        "completion": "2m",
-        "readiness": "30s",
-        "request": "15s",
-        "shutdown": "5s"
-      }
-    },
-    "operations": {
-      "app_lifecycle.repository_read": {
-        "polling": {
-          "initial": "2s",
-          "maximum": "15s",
-          "increment": "2s",
-          "multiplier": 2,
-          "attempt_limit": 60
-        }
-      },
-      "app-plan-release": {
-        "timeouts": {
-          "completion": "2m"
-        },
-        "polling": {
-          "initial": "2s",
-          "maximum": "10s",
-          "increment": "1s",
-          "multiplier": 2,
-          "attempt_limit": 4
-        }
-      },
-      "app-plan-publish": {
-        "timeouts": {
-          "completion": "2m"
-        },
-        "polling": {
-          "initial": "2s",
-          "maximum": "10s",
-          "increment": "1s",
-          "multiplier": 2,
-          "attempt_limit": 4
-        }
-      },
-      "app-plan-deploy": {
-        "timeouts": {
-          "completion": "2m"
-        },
-        "polling": {
-          "initial": "2s",
-          "maximum": "10s",
-          "increment": "1s",
-          "multiplier": 2,
-          "attempt_limit": 4
-        }
-      },
-      "app-release": {
-        "timeouts": {
-          "completion": "30m"
-        },
-        "polling": {
-          "initial": "2s",
-          "maximum": "10s",
-          "increment": "1s",
-          "multiplier": 2,
-          "attempt_limit": 4
-        }
-      },
-      "app-publish": {
-        "timeouts": {
-          "completion": "4h"
-        },
-        "polling": {
-          "initial": "2s",
-          "maximum": "10s",
-          "increment": "1s",
-          "multiplier": 2,
-          "attempt_limit": 4
-        }
-      },
-      "app_publish.npm.version_verify": {
-        "polling": {
-          "initial": "2s",
-          "maximum": "10s",
-          "increment": "1s",
-          "multiplier": 2,
-          "attempt_limit": 1443
-        }
-      },
-      "app-deploy": {
-        "timeouts": {
-          "completion": "20m"
-        },
-        "polling": {
-          "initial": "2s",
-          "maximum": "10s",
-          "increment": "1s",
-          "multiplier": 2,
-          "attempt_limit": 4
-        }
-      },
+    "lifecycle": {
       "ci": {
+        "command": [
+          "make",
+          "ci"
+        ],
+        "enabled": true
+      },
+      "defaults": {
         "timeouts": {
-          "completion": "30m"
+          "completion": "2m",
+          "readiness": "30s",
+          "request": "15s",
+          "shutdown": "5s",
+          "startup": "30s"
         }
       },
-      "mobile.publication": {
-        "polling": {
-          "initial": "1s",
-          "maximum": "30s",
-          "increment": "0s",
-          "multiplier": 2,
-          "attempt_limit": 120
-        }
+      "observations": {
+        "http": [
+          {
+            "expected_status": 200,
+            "id": "public-health",
+            "protocol": "http",
+            "url": "https://loopaware-api.mprlab.com/healthz"
+          },
+          {
+            "expected_status": 200,
+            "id": "website-health",
+            "protocol": "http",
+            "url": "https://loopaware.mprlab.com/healthz"
+          }
+        ]
       },
-      "mobile.publication.google": {
-        "polling": {
-          "initial": "1s",
-          "maximum": "30s",
-          "increment": "0s",
-          "multiplier": 2,
-          "attempt_limit": 12
+      "operations": [
+        {
+          "name": "app-deploy",
+          "polling": {
+            "attempt_limit": 4,
+            "increment": "1s",
+            "initial": "2s",
+            "maximum": "10s",
+            "multiplier": 2
+          },
+          "timeouts": {
+            "completion": "20m"
+          }
+        },
+        {
+          "name": "app-plan-deploy",
+          "polling": {
+            "attempt_limit": 4,
+            "increment": "1s",
+            "initial": "2s",
+            "maximum": "10s",
+            "multiplier": 2
+          },
+          "timeouts": {
+            "completion": "2m"
+          }
+        },
+        {
+          "name": "app-plan-publish",
+          "polling": {
+            "attempt_limit": 4,
+            "increment": "1s",
+            "initial": "2s",
+            "maximum": "10s",
+            "multiplier": 2
+          },
+          "timeouts": {
+            "completion": "2m"
+          }
+        },
+        {
+          "name": "app-plan-release",
+          "polling": {
+            "attempt_limit": 4,
+            "increment": "1s",
+            "initial": "2s",
+            "maximum": "10s",
+            "multiplier": 2
+          },
+          "timeouts": {
+            "completion": "2m"
+          }
+        },
+        {
+          "name": "app-publish",
+          "polling": {
+            "attempt_limit": 4,
+            "increment": "1s",
+            "initial": "2s",
+            "maximum": "10s",
+            "multiplier": 2
+          },
+          "timeouts": {
+            "completion": "4h"
+          }
+        },
+        {
+          "name": "app-release",
+          "polling": {
+            "attempt_limit": 4,
+            "increment": "1s",
+            "initial": "2s",
+            "maximum": "10s",
+            "multiplier": 2
+          },
+          "timeouts": {
+            "completion": "30m"
+          }
+        },
+        {
+          "name": "app_deploy.health.same_host",
+          "polling": {
+            "attempt_limit": 3,
+            "increment": "0s",
+            "initial": "15s",
+            "maximum": "30s",
+            "multiplier": 2
+          }
+        },
+        {
+          "name": "app_deploy.pages.deployment_status_poll",
+          "polling": {
+            "attempt_limit": 120,
+            "increment": "0s",
+            "initial": "1s",
+            "maximum": "10s",
+            "multiplier": 2
+          }
+        },
+        {
+          "name": "app_lifecycle.repository_read",
+          "polling": {
+            "attempt_limit": 60,
+            "increment": "2s",
+            "initial": "2s",
+            "maximum": "15s",
+            "multiplier": 2
+          }
+        },
+        {
+          "name": "app_publish.npm.archive_read",
+          "polling": {
+            "attempt_limit": 1443,
+            "increment": "1s",
+            "initial": "2s",
+            "maximum": "10s",
+            "multiplier": 2
+          }
+        },
+        {
+          "name": "app_publish.npm.version_verify",
+          "polling": {
+            "attempt_limit": 1443,
+            "increment": "1s",
+            "initial": "2s",
+            "maximum": "10s",
+            "multiplier": 2
+          }
+        },
+        {
+          "name": "ci",
+          "timeouts": {
+            "completion": "30m"
+          }
+        },
+        {
+          "name": "deployment.http-health",
+          "polling": {
+            "attempt_limit": 3,
+            "increment": "0s",
+            "initial": "1s",
+            "maximum": "1s",
+            "multiplier": 1
+          }
+        },
+        {
+          "name": "deployment.resource.recovery",
+          "polling": {
+            "attempt_limit": 3,
+            "increment": "0s",
+            "initial": "1s",
+            "maximum": "1s",
+            "multiplier": 1
+          }
+        },
+        {
+          "name": "mobile.publication",
+          "polling": {
+            "attempt_limit": 120,
+            "increment": "0s",
+            "initial": "1s",
+            "maximum": "30s",
+            "multiplier": 2
+          }
+        },
+        {
+          "name": "mobile.publication.google",
+          "polling": {
+            "attempt_limit": 12,
+            "increment": "0s",
+            "initial": "1s",
+            "maximum": "30s",
+            "multiplier": 2
+          }
         }
-      },
-      "deployment.resource.recovery": {
-        "polling": {
-          "initial": "1s",
-          "maximum": "1s",
-          "increment": "0s",
-          "multiplier": 1,
-          "attempt_limit": 3
-        }
-      },
-      "deployment.http-health": {
-        "polling": {
-          "initial": "1s",
-          "maximum": "1s",
-          "increment": "0s",
-          "multiplier": 1,
-          "attempt_limit": 3
-        }
-      },
-      "app_deploy.health.same_host": {
-        "polling": {
-          "initial": "15s",
-          "maximum": "30s",
-          "increment": "0s",
-          "multiplier": 2,
-          "attempt_limit": 3
-        }
-      },
-      "app_deploy.pages.deployment_status_poll": {
-        "polling": {
-          "initial": "1s",
-          "maximum": "10s",
-          "increment": "0s",
-          "multiplier": 2,
-          "attempt_limit": 120
-        }
+      ],
+      "private_inputs": {
+        "operations": []
       }
     },
-    "resources": {
-      "private": {
-        "kind": "private_values",
-        "bindings": {
-          "google-native-android-client-id": "TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE",
-          "google-native-ios-client-id": "TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE",
-          "google-web-client-id": "TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE",
-          "pinguin-auth-token": "PINGUIN_AUTH_TOKEN",
-          "session-secret": "SESSION_SECRET",
-          "tauth-jwt-signing-key": "TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE"
+    "environment": {
+      "private_inputs": [
+        {
+          "id": "app-store-connect-api-issuer-id",
+          "variable": "APP_STORE_CONNECT_API_ISSUER_ID"
+        },
+        {
+          "id": "app-store-connect-api-key-id",
+          "variable": "APP_STORE_CONNECT_API_KEY_ID"
+        },
+        {
+          "id": "app-store-connect-api-key-path",
+          "variable": "APP_STORE_CONNECT_API_KEY_PATH"
+        },
+        {
+          "id": "deploy-sudo-password-tutosh",
+          "variable": "DEPLOY_SUDO_PASSWORD_TUTOSH"
+        },
+        {
+          "id": "google-play-service-account-key-path",
+          "variable": "GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH"
+        },
+        {
+          "id": "loopaware-android-keystore",
+          "variable": "LOOPAWARE_ANDROID_KEYSTORE"
+        },
+        {
+          "id": "loopaware-android-key-alias",
+          "variable": "LOOPAWARE_ANDROID_KEY_ALIAS"
+        },
+        {
+          "id": "loopaware-android-key-password",
+          "variable": "LOOPAWARE_ANDROID_KEY_PASSWORD"
+        },
+        {
+          "id": "loopaware-android-store-password",
+          "variable": "LOOPAWARE_ANDROID_STORE_PASSWORD"
+        },
+        {
+          "id": "loopaware-apple-certificate-base64",
+          "variable": "LOOPAWARE_APPLE_CERTIFICATE_BASE64"
+        },
+        {
+          "id": "loopaware-apple-certificate-password",
+          "variable": "LOOPAWARE_APPLE_CERTIFICATE_PASSWORD"
+        },
+        {
+          "id": "loopaware-apple-identity",
+          "variable": "LOOPAWARE_APPLE_IDENTITY"
+        },
+        {
+          "id": "loopaware-apple-profile",
+          "variable": "LOOPAWARE_APPLE_PROFILE"
+        },
+        {
+          "id": "loopaware-apple-team",
+          "variable": "LOOPAWARE_APPLE_TEAM"
+        },
+        {
+          "id": "mprlab-tauth-management-url",
+          "variable": "MPRLAB_TAUTH_MANAGEMENT_URL"
+        },
+        {
+          "id": "mprlab-tauth-provisioning-credentials",
+          "variable": "MPRLAB_TAUTH_PROVISIONING_CREDENTIALS"
+        },
+        {
+          "id": "npm-api-key",
+          "variable": "NPM_API_KEY"
+        },
+        {
+          "id": "pinguin-auth-token",
+          "variable": "PINGUIN_AUTH_TOKEN"
+        },
+        {
+          "id": "session-secret",
+          "variable": "SESSION_SECRET"
+        },
+        {
+          "id": "tauth-tenant-google-android-client-id-loopaware",
+          "variable": "TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE"
+        },
+        {
+          "id": "tauth-tenant-google-ios-client-id-loopaware",
+          "variable": "TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE"
+        },
+        {
+          "id": "tauth-tenant-google-web-client-id-loopaware",
+          "variable": "TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE"
+        },
+        {
+          "id": "tauth-tenant-jwt-signing-key-loopaware",
+          "variable": "TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE"
         }
+      ],
+      "source": ".mprlab/deploy/.env"
+    },
+    "artifacts": {
+      "mobile": [
+        {
+          "android": {
+            "package_name": "com.mprlab.loopaware"
+          },
+          "build": {
+            "android": "mobile/scripts/build-store-artifact.mjs",
+            "ios": "mobile/scripts/build-store-artifact.mjs"
+          },
+          "build_system": "local",
+          "id": "mobile",
+          "ios": {
+            "bundle_identifier": "com.mprlab.loopaware",
+            "export_intent": "internal-only"
+          },
+          "source": "mobile/prepared"
+        }
+      ]
+    },
+    "publications": {
+      "app_store_connect": {
+        "ios": [
+          {
+            "app_store_id": "6788555440",
+            "artifact": {
+              "id": "mobile",
+              "platform": "ios"
+            },
+            "destination": "testflight",
+            "id": "mobile-ios",
+            "track": "internal"
+          }
+        ]
       },
-      "mobile": {
-        "kind": "mobile_application",
-        "source": "mobile/prepared",
-        "build_system": "local",
-        "build": {
-          "android": "mobile/scripts/build-store-artifact.mjs",
-          "ios": "mobile/scripts/build-store-artifact.mjs"
-        },
-        "ios": {
-          "bundle_identifier": "com.mprlab.loopaware",
-          "app_store_id": "6788555440",
-          "destination": "testflight",
-          "track": "internal"
-        },
-        "android": {
-          "package_name": "com.mprlab.loopaware",
-          "destination": "google_play",
-          "track": "internal"
-        }
+      "google_play": {
+        "applications": [
+          {
+            "artifact": {
+              "id": "mobile",
+              "platform": "android"
+            },
+            "destination": "google_play",
+            "id": "mobile-android",
+            "track": "internal"
+          }
+        ]
       }
-    }
+    },
+    "targets": {}
   }
 }

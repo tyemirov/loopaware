@@ -36,7 +36,7 @@ The static frontend has a strict delivery contract for browser dependencies:
   call the public JSON endpoints at runtime.
 - **Storage**: `internal/storage` opens the configured DB driver and runs migrations on startup; `internal/model` defines
   domain structs and smart constructors.
-- **Notifications**: feedback and subscription notifications are sent to the Pinguin gRPC service; calls include the
+- **Notifications**: feedback and subscription notifications are sent to the Pingwin gRPC service; calls include the
   configured tenant metadata and shared auth token.
 - **Backend runtime config**: `cmd/server` selects one YAML file with `--config`; `internal/serverconfig` loads it through
   `github.com/tyemirov/utils/runtimeconfig`, expands shell placeholders during parse, validates the populated contract,

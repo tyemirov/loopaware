@@ -20,13 +20,15 @@ import (
 )
 
 const (
-	portfolioTrafficReportScopeOwned  = "owned"
-	portfolioTrafficReportDefaultDays = 30
-	portfolioTrafficReportMaxDays     = 30
-	portfolioTrafficReportDefaultName = "All sites traffic"
+	portfolioTrafficReportScopeOwned   = "owned"
+	portfolioTrafficReportScopeVisible = "visible"
+	portfolioTrafficReportDefaultDays  = 30
+	portfolioTrafficReportMaxDays      = 30
+	portfolioTrafficReportDefaultName  = "All sites traffic"
 
-	errorValueInvalidPortfolioTrafficReport = "invalid_portfolio_traffic_report"
-	errorValueUnknownPortfolioTrafficReport = "unknown_portfolio_traffic_report"
+	errorValueInvalidPortfolioTrafficReport      = "invalid_portfolio_traffic_report"
+	errorValueUnknownPortfolioTrafficReport      = "unknown_portfolio_traffic_report"
+	errorValueInvalidPortfolioTrafficReportScope = "invalid_portfolio_traffic_report_scope"
 )
 
 //go:embed templates/portfolio_traffic_report_email.txt
@@ -123,10 +125,27 @@ func (handlers *TrafficReportHandlers) GetPortfolioReport(context *gin.Context) 
 	}
 
 	reportID := portfolioTrafficReportIDFromQuery(context)
-	reportDefinition, sites, reportErr := handlers.resolvePortfolioReportDefinitionSites(context.Request.Context(), currentUser, reportID)
-	if reportErr != nil {
-		context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownPortfolioTrafficReport})
+	scope := context.DefaultQuery("scope", portfolioTrafficReportScopeOwned)
+	if (scope != portfolioTrafficReportScopeOwned && scope != portfolioTrafficReportScopeVisible) ||
+		(scope == portfolioTrafficReportScopeVisible && reportID != model.PortfolioTrafficReportDefaultID) {
+		context.JSON(http.StatusBadRequest, gin.H{jsonKeyError: errorValueInvalidPortfolioTrafficReportScope})
 		return
+	}
+	var reportDefinition PortfolioTrafficReportDefinitionResponse
+	var sites []model.Site
+	if scope == portfolioTrafficReportScopeVisible {
+		if sitesErr := sitesVisibleToUserQuery(context.Request.Context(), handlers.database, currentUser).Order("created_at desc").Find(&sites).Error; sitesErr != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: errorValueQueryFailed})
+			return
+		}
+		reportDefinition = defaultPortfolioReportDefinition(sites)
+	} else {
+		var reportErr error
+		reportDefinition, sites, reportErr = handlers.resolvePortfolioReportDefinitionSites(context.Request.Context(), currentUser, reportID)
+		if reportErr != nil {
+			context.JSON(http.StatusNotFound, gin.H{jsonKeyError: errorValueUnknownPortfolioTrafficReport})
+			return
+		}
 	}
 	report, buildErr := buildPortfolioTrafficReportData(context.Request.Context(), handlers.database, sites, days)
 	if buildErr != nil {
@@ -138,7 +157,7 @@ func (handlers *TrafficReportHandlers) GetPortfolioReport(context *gin.Context) 
 		CountsOnly:         report.CountsOnly,
 		ReportID:           reportDefinition.ID,
 		ReportName:         reportDefinition.Name,
-		Scope:              portfolioTrafficReportScopeOwned,
+		Scope:              scope,
 		Days:               report.WindowDays,
 		SiteCount:          report.SiteCount,
 		VisitCount:         report.PageViews,
@@ -547,12 +566,7 @@ func (handlers *TrafficReportHandlers) resolvePortfolioReportDefinitionSites(ctx
 	}
 	availableSiteIDs := portfolioSiteIDs(availableSites)
 	if strings.TrimSpace(reportID) == "" || reportID == model.PortfolioTrafficReportDefaultID {
-		return PortfolioTrafficReportDefinitionResponse{
-			ID:        model.PortfolioTrafficReportDefaultID,
-			Name:      portfolioTrafficReportDefaultName,
-			SiteIDs:   availableSiteIDs,
-			IsDefault: true,
-		}, availableSites, nil
+		return defaultPortfolioReportDefinition(availableSites), availableSites, nil
 	}
 	var definition model.PortfolioTrafficReportDefinition
 	if err := handlers.database.WithContext(ctx).First(&definition, "id = ? AND user_email = ?", strings.TrimSpace(reportID), currentUser.normalizedEmail()).Error; err != nil {
@@ -570,6 +584,15 @@ func (handlers *TrafficReportHandlers) resolvePortfolioReportDefinitionSites(ctx
 		SiteIDs:   filteredSiteIDs,
 		IsDefault: false,
 	}, filteredSites, nil
+}
+
+func defaultPortfolioReportDefinition(sites []model.Site) PortfolioTrafficReportDefinitionResponse {
+	return PortfolioTrafficReportDefinitionResponse{
+		ID:        model.PortfolioTrafficReportDefaultID,
+		Name:      portfolioTrafficReportDefaultName,
+		SiteIDs:   portfolioSiteIDs(sites),
+		IsDefault: true,
+	}
 }
 
 func filterPortfolioReportSitesByID(sites []model.Site, siteIDs []string) []model.Site {
