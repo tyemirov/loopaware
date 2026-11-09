@@ -38,6 +38,43 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [x] [B163] (P1) Remove the mobile compiler dependency from browser map tests
+  Goal:
+  Run the map-image browser test in an independent integration shard.
+
+  Evidence:
+  PR 429 run `42711386315` failed in Integration 2/3 with `Cannot find module '@typescript/typescript6'`.
+  The test loaded that package from `mobile/node_modules`. The integration shard installs only browser test dependencies.
+  The aggregate `test` check failed because the integration shard failed.
+
+  Requirements:
+  - Use the existing Node 24 runtime to remove TypeScript annotations from the two map modules.
+  - Preserve the browser image, Unicode, and geographic assertions.
+  - Verify the browser cases without installed mobile dependencies.
+
+  Validation:
+  - Run `make test-surface-parity` with the mobile dependency directory absent.
+  - Restore that directory and run final `make ci`.
+
+  Resolution:
+  The browser test uses `stripTypeScriptTypes` from `node:module` with the configured Node 24 runtime.
+  The test retains the actual renderer, image decode, Unicode labels, and geographic assertions.
+
+  Validation results:
+  The unchanged test reproduced the GitHub failure without `mobile/node_modules`.
+  With the fix, all eight browser cases passed without mobile dependencies. An exit trap restored that directory.
+  Final `make ci` passed, including 483 browser/API cases, 86 mobile app-flow cases, and 29 publication-policy cases.
+  Backend checks, race checks, source staging, and both production JavaScript bundles passed.
+  The environment selected the repository-pinned Gateway `v8.0.1`.
+
+  Independent review found no code defects.
+  Reviewer: `/root/review_parity`. Actual model: `gpt-6-astra`. Requested effort: `high`.
+  Separate runtime effort confirmation was unavailable.
+
+  Changed files:
+  `tests/specs/dashboard-surface-parity.spec.js` and `.mprlab/ISSUES.md`.
+
+
 - [x] [B162] (P2) Keep report schedule edits during header navigation
 
   Goal:

@@ -1,7 +1,7 @@
 // @ts-check
 import * as crypto from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { stripTypeScriptTypes } from 'node:module';
 import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
 import { buildAdminUser, buildUniqueEmail, buildUniqueName, buildUniqueOrigin, createTestSite, openDashboard, selectSite } from '../helpers/fixtures.js';
@@ -12,11 +12,7 @@ const config = resolveTestConfig();
 const admin = buildAdminUser(config);
 
 test('mobile world map image decodes at phone width with escaped Unicode labels', async ({ page }, testInfo) => {
-  const requireMobile = createRequire(new URL('../../mobile/package.json', import.meta.url));
-  const ts = requireMobile('@typescript/typescript6');
-  const compile = name => ts.transpileModule(readFileSync(new URL(`../../mobile/src/${name}.ts`, import.meta.url), 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
-  }).outputText;
+  const compile = name => stripTypeScriptTypes(readFileSync(new URL(`../../mobile/src/${name}.ts`, import.meta.url), 'utf8'));
   const moduleURL = source => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
   const worldURL = moduleURL(compile('location-world'));
   const { locationMapImage } = await import(moduleURL(compile('location-map').replace('"./location-world"', JSON.stringify(worldURL))));
