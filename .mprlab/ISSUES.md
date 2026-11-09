@@ -3648,6 +3648,39 @@ Pull request delivery remains separate.
 
 ## Improvements
 
+- [x] [I054] (P1) Use the web world map on mobile
+  Goal:
+  Use the same world geography and projection on both LoopAware surfaces.
+  Requirements:
+  - Generate web and mobile map geometry from one source.
+  - Show proportional location bubbles on mobile with readable location counts.
+  - Preserve light and dark themes, empty states, and aggregate traffic restrictions.
+  Validation:
+  - Verify the real web dashboard and mobile app entry point.
+  - Verify generated assets and mobile source staging.
+  Result:
+  The new app-flow and API tests failed before the application changes.
+  Web and mobile share generated geography and projection code.
+  Mobile uses base64 SVG images with native text counts, theme colors, and explicit image failure state.
+  The API rejects invalid coordinates and empty labels before map rendering.
+
+  A public regression reproduced a Unicode truncation error. Code-point truncation corrected that error.
+  Focused checks passed: five browser cases, 86 mobile app-flow cases, API boundaries, and mobile type checks.
+  Final `make ci` passed: 480 browser/API cases, 86 mobile app-flow cases, and 29 publication-policy cases.
+  Backend checks, race checks, source staging, and both production JavaScript bundles passed.
+  Validation used the repository-pinned Gateway `v8.0.1` through `MPRLAB_GATEWAY_EXECUTABLE` in the environment.
+
+  Independent review found no remaining code defects after the Unicode correction.
+  Reviewer: `/root/review_parity`. Requested model and effort: `gpt-6-astra`, `high`.
+  The reviewer confirmed the model. Separate runtime effort confirmation was unavailable.
+
+  Validation uses the iOS and Android app-flow harnesses and Chromium image decoding.
+  These results do not establish native visual verification.
+  Changed files: `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/src/location-map.ts`, `mobile/src/location-world.ts`,
+  `mobile/scripts/test-app-flow.mjs`, `mobile/scripts/test-api-boundaries.mjs`, `web/app/index.html`,
+  `tests/scripts/generate-location-world-map.mjs`, `tests/specs/dashboard-surface-parity.spec.js`, and `README.md`.
+
+
 - [x] [I053] (P1) Move the mobile Trend card and show a line graph
   Goal:
   Show changes in traffic over time near the bottom of the Traffic tab.
@@ -4843,6 +4876,37 @@ Pull request delivery remains separate.
   - Remaining before closing M001: decide pagination or rollup strategy for unbounded message/subscriber/Sentry issue lists and all-row attribution/device scans, then capture before/after `EXPLAIN` evidence for each additional query rewrite.
 
 ## Features
+
+- [x] [F024] (P1) Open web reports from the account header
+  Goal:
+  Give web and mobile the same statistics icon position.
+  Requirements:
+  - Put the statistics icon immediately to the right of the avatar on both surfaces.
+  - Open the existing web reports view from the icon.
+  - Preserve the selected site, tab, traffic interval, and report controls.
+  Validation:
+  - Verify the web header through the browser and the mobile header through the app-flow harness.
+  Result:
+  The new tests failed before the application changes. The browser test and all 83 mobile app-flow checks now pass.
+  Final `make ci` passed with the repository-pinned Gateway `v8.0.1` selected through the environment.
+  Changed files: `web/app/index.html`, `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`,
+  `tests/specs/dashboard-surface-parity.spec.js`, `tests/package.json`, `Makefile`, and `README.md`.
+
+- [x] [F025] (P1) Add the web seven-day traffic selector
+  Goal:
+  Give web and mobile the same traffic interval choices.
+  Requirements:
+  - Add seven days to the web traffic selector.
+  - Apply the interval to all traffic panels and CSV exports.
+  - Preserve the interval after site changes and reports navigation.
+  Validation:
+  - Verify detailed and aggregate traffic through the browser.
+  Result:
+  The seven-day test failed before the application change. All three surface browser cases now pass.
+  The tests cover six detailed requests, aggregate requests, CSV export, site changes, and reports navigation.
+  Final `make ci` passed with the repository-pinned Gateway `v8.0.1` selected through the environment.
+  Changed files: `web/app/index.html`, `tests/specs/dashboard-surface-parity.spec.js`, and `README.md`.
+
 
 - [x] [F023] (P1) Open mobile statistics from the account header
 
