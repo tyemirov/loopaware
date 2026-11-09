@@ -446,3 +446,7 @@ first-failure-pytest-check: first-failure-pytest-tools
 first-failure-browser-check: tests-browser-install
 	node tests/first-failure/qualify.mjs node-browser-cleanup
 	node tests/first-failure/qualify.mjs playwright-first-failure
+
+.PHONY: test-surface-parity
+test-surface-parity:
+	LOOPAWARE_TEST_SUITE=test:surface-parity ./tests/scripts/run-integration.sh
