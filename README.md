@@ -639,9 +639,15 @@ Select a matching site card to open its dashboard and dismiss the keyboard.
 Select the search icon again to close the filter and clear the query.
 The query clears when the dashboard view ends, including settings navigation and sign-out.
 
+## Web reports
+
+Select the statistics icon immediately right of the account avatar to open the reports view.
+The report library retains custom reports and email schedules.
+Use `Back to site dashboard` to return to the selected site and tab.
+
 ## Mobile statistics
 
-Select the statistics icon immediately left of the account avatar to open `Statistics`.
+Select the statistics icon immediately right of the account avatar to open `Statistics`.
 The report shows traffic for all sites that the account can view, including team sites.
 Global administrators see all sites.
 Statistics remains available when the selected site has no dashboard data.
@@ -657,15 +663,31 @@ The `visible` scope uses the same access rules as `GET /api/sites`.
 The default `owned` scope, custom reports, and email schedules retain their owner and creator rules.
 The API rejects unknown scopes and the combination of `scope=visible` with a custom report ID.
 
-## Mobile traffic intervals
+## Traffic intervals
 
+Web and mobile offer all traffic, 30 days, seven days, and one day.
 Select `All`, `30d`, `7d`, or `1d` on the mobile Traffic tab.
+Select `All`, `30 days`, `7 days`, or `1 day` on web.
+The web interval also applies to traffic CSV exports.
 The selected interval applies to all traffic panels and remains selected after a site change.
 `7d` includes the current UTC day and the preceding six UTC days.
 Aggregate sites show daily request counts. Their unique visitor, engagement, device, and location metrics remain unavailable.
 
+## Location maps
+
+Web and mobile use the same Natural Earth world geography and equirectangular projection.
+The map shows location bubbles and labels. Mobile also shows location counts as native text.
+Mobile bubble size shows unique visitors. Web bubble size shows page views.
+The selected traffic interval applies to the map and location counts.
+
+Light and dark themes apply automatically. Aggregate sites keep location metrics unavailable.
+The map uses local assets and does not request external map tiles.
+
+## Mobile traffic metrics
+
 The overview traffic card and detailed Traffic panels use unique visitors as their primary count.
-Top pages, sources, devices, and locations use that count for values, bar lengths, and rank.
+Top pages, sources, and devices use that count for values, bar lengths, and rank.
+Locations use that count for bubble size and rank.
 
 The Trend card follows Locations and shows a chronological line graph for all returned dates.
 Its X axis shows `Date (UTC)`. Its Y axis shows `Unique visitors`.
