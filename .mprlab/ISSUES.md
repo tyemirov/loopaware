@@ -38,6 +38,41 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [x] [B162] (P2) Keep report schedule edits during header navigation
+
+  Goal:
+  Keep schedule edits when the operator opens the dashboard from Reports through the header.
+
+  Evidence:
+  The Statistics control opens Reports again and stops the automatic write within its 800 ms interval.
+  Before the code change, the browser test failed because the edited time changed from `13:25` to stored `07:15`.
+
+  Requirements:
+  - Show the dashboard icon and `Back to dashboard` label when Reports is open.
+  - Show the Statistics icon and label on the dashboard.
+  - Complete automatic schedule writes before the dashboard opens.
+  - Keep the selected site and dashboard tab.
+
+  Validation:
+  - Use the browser clock to open the dashboard before the automatic write starts.
+  - Verify the displayed time and stored schedule.
+  - Run `make test-surface-parity` and `make ci`.
+
+  Resolution:
+  The header shows a dashboard icon in Reports and the Statistics icon on the dashboard.
+  Automatic schedule writes complete before header navigation opens the selected site and tab.
+  Newer edits remain after an earlier write completes.
+  A failed write keeps Reports open with the edited values for another attempt.
+
+  Validation results:
+  `make test-surface-parity` passed all eight browser cases, including pending, active, and failed writes.
+  Final local `make ci` passed, including 483 browser/API cases.
+  The environment selected installed Gateway `v8.0.1` for platform `darwin-arm64` through `MPRLAB_GATEWAY_EXECUTABLE`.
+  The changed prose passed the scoped language check and language review.
+
+  Changed files:
+  `web/app/index.html`, `tests/specs/dashboard-surface-parity.spec.js`, `README.md`, and `.mprlab/ISSUES.md`.
+
 - [ ] [B161] (P1) Resolve the installed Gateway command in deployment tests
 
   Goal:
