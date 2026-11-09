@@ -38,6 +38,78 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [x] [B163] (P1) Remove the mobile compiler dependency from browser map tests
+  Goal:
+  Run the map-image browser test in an independent integration shard.
+
+  Evidence:
+  PR 429 run `42711386315` failed in Integration 2/3 with `Cannot find module '@typescript/typescript6'`.
+  The test loaded that package from `mobile/node_modules`. The integration shard installs only browser test dependencies.
+  The aggregate `test` check failed because the integration shard failed.
+
+  Requirements:
+  - Use the existing Node 24 runtime to remove TypeScript annotations from the two map modules.
+  - Preserve the browser image, Unicode, and geographic assertions.
+  - Verify the browser cases without installed mobile dependencies.
+
+  Validation:
+  - Run `make test-surface-parity` with the mobile dependency directory absent.
+  - Restore that directory and run final `make ci`.
+
+  Resolution:
+  The browser test uses `stripTypeScriptTypes` from `node:module` with the configured Node 24 runtime.
+  The test retains the actual renderer, image decode, Unicode labels, and geographic assertions.
+
+  Validation results:
+  The unchanged test reproduced the GitHub failure without `mobile/node_modules`.
+  With the fix, all eight browser cases passed without mobile dependencies. An exit trap restored that directory.
+  Final `make ci` passed, including 483 browser/API cases, 86 mobile app-flow cases, and 29 publication-policy cases.
+  Backend checks, race checks, source staging, and both production JavaScript bundles passed.
+  The environment selected the repository-pinned Gateway `v8.0.1`.
+
+  Independent review found no code defects.
+  Reviewer: `/root/review_parity`. Actual model: `gpt-6-astra`. Requested effort: `high`.
+  Separate runtime effort confirmation was unavailable.
+
+  Changed files:
+  `tests/specs/dashboard-surface-parity.spec.js` and `.mprlab/ISSUES.md`.
+
+
+- [x] [B162] (P2) Keep report schedule edits during header navigation
+
+  Goal:
+  Keep schedule edits when the operator opens the dashboard from Reports through the header.
+
+  Evidence:
+  The Statistics control opens Reports again and stops the automatic write within its 800 ms interval.
+  Before the code change, the browser test failed because the edited time changed from `13:25` to stored `07:15`.
+
+  Requirements:
+  - Show the dashboard icon and `Back to dashboard` label when Reports is open.
+  - Show the Statistics icon and label on the dashboard.
+  - Complete automatic schedule writes before the dashboard opens.
+  - Keep the selected site and dashboard tab.
+
+  Validation:
+  - Use the browser clock to open the dashboard before the automatic write starts.
+  - Verify the displayed time and stored schedule.
+  - Run `make test-surface-parity` and `make ci`.
+
+  Resolution:
+  The header shows a dashboard icon in Reports and the Statistics icon on the dashboard.
+  Automatic schedule writes complete before header navigation opens the selected site and tab.
+  Newer edits remain after an earlier write completes.
+  A failed write keeps Reports open with the edited values for another attempt.
+
+  Validation results:
+  `make test-surface-parity` passed all eight browser cases, including pending, active, and failed writes.
+  Final local `make ci` passed, including 483 browser/API cases.
+  The environment selected installed Gateway `v8.0.1` for platform `darwin-arm64` through `MPRLAB_GATEWAY_EXECUTABLE`.
+  The changed prose passed the scoped language check and language review.
+
+  Changed files:
+  `web/app/index.html`, `tests/specs/dashboard-surface-parity.spec.js`, `README.md`, and `.mprlab/ISSUES.md`.
+
 - [ ] [B161] (P1) Resolve the installed Gateway command in deployment tests
 
   Goal:
@@ -3648,6 +3720,81 @@ Pull request delivery remains separate.
 
 ## Improvements
 
+- [x] [I054] (P1) Use the web world map on mobile
+  Goal:
+  Use the same world geography and projection on both LoopAware surfaces.
+  Requirements:
+  - Generate web and mobile map geometry from one source.
+  - Show proportional location bubbles on mobile with readable location counts.
+  - Preserve light and dark themes, empty states, and aggregate traffic restrictions.
+  Validation:
+  - Verify the real web dashboard and mobile app entry point.
+  - Verify generated assets and mobile source staging.
+  Result:
+  The new app-flow and API tests failed before the application changes.
+  Web and mobile share generated geography and projection code.
+  Mobile uses base64 SVG images with native text counts, theme colors, and explicit image failure state.
+  The API rejects invalid coordinates and empty labels before map rendering.
+
+  A public regression reproduced a Unicode truncation error. Code-point truncation corrected that error.
+  Focused checks passed: five browser cases, 86 mobile app-flow cases, API boundaries, and mobile type checks.
+  Final `make ci` passed: 480 browser/API cases, 86 mobile app-flow cases, and 29 publication-policy cases.
+  Backend checks, race checks, source staging, and both production JavaScript bundles passed.
+  Validation used the repository-pinned Gateway `v8.0.1` through `MPRLAB_GATEWAY_EXECUTABLE` in the environment.
+
+  Independent review found no remaining code defects after the Unicode correction.
+  Reviewer: `/root/review_parity`. Requested model and effort: `gpt-6-astra`, `high`.
+  The reviewer confirmed the model. Separate runtime effort confirmation was unavailable.
+
+  Validation uses the iOS and Android app-flow harnesses and Chromium image decoding.
+  These results do not establish native visual verification.
+  Changed files: `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/src/location-map.ts`, `mobile/src/location-world.ts`,
+  `mobile/scripts/test-app-flow.mjs`, `mobile/scripts/test-api-boundaries.mjs`, `web/app/index.html`,
+  `tests/scripts/generate-location-world-map.mjs`, `tests/specs/dashboard-surface-parity.spec.js`, and `README.md`.
+
+
+- [x] [I053] (P1) Move the mobile Trend card and show a line graph
+  Goal:
+  Show changes in traffic over time near the bottom of the Traffic tab.
+
+  Requirements:
+  - Put Trend after Locations on detailed sites.
+  - Replace the daily bars with a line graph in chronological order.
+  - Show all returned dates for the selected interval.
+  - Label the X axis `Date (UTC)`.
+  - Label the Y axis `Unique visitors` for detailed sites and `Requests` for aggregate sites.
+  - Keep exact daily counts available to accessibility services.
+  - Show empty, zero, and single-day data correctly.
+
+  Validation:
+  - Run the changed app-flow checks before the production change.
+  - Verify interval changes, site changes, and automatic data updates.
+  - Run final `make ci` after the application change.
+
+  Implementation:
+  The Trend card follows Locations. Daily counts follows the aggregate-site notice.
+  Native views show a line graph with date and count scales.
+  The API client preserves all returned days and sorts them by date.
+  Graph dimensions and label spacing adjust to the text scale.
+
+  Validation results:
+  The first app-flow test failed because the graph was absent.
+  The large-text test failed before the spacing correction.
+  All 83 app-flow scenarios pass after the correction.
+  The checks cover iOS and Android layout events, date gaps, size changes, zero counts, and single-day data.
+  `make mobile-check` passes, including TypeScript validation.
+  Independent architect review found no remaining defects.
+
+  Full `make ci` passes with the installed Gateway v8.0.1 selected through an environment variable.
+  CI passes all 83 mobile scenarios, 29 deployment-policy cases, and 475 browser/API cases.
+  The changed prose has no mechanical language findings. The source changes pass `git diff --check`.
+
+  Resolution:
+  The mobile Trend card shows a chronological line graph below the traffic breakdowns, with both axes labeled.
+
+  Changed files:
+  `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/scripts/test-app-flow.mjs`, `README.md`, and this tracker.
+
 - [x] [I052] (P1) Show collected favicons in mobile site cards
   Goal:
   Identify each site with its collected favicon beside the site name.
@@ -4801,6 +4948,88 @@ Pull request delivery remains separate.
   - Remaining before closing M001: decide pagination or rollup strategy for unbounded message/subscriber/Sentry issue lists and all-row attribution/device scans, then capture before/after `EXPLAIN` evidence for each additional query rewrite.
 
 ## Features
+
+- [x] [F024] (P1) Open web reports from the account header
+  Goal:
+  Give web and mobile the same statistics icon position.
+  Requirements:
+  - Put the statistics icon immediately to the right of the avatar on both surfaces.
+  - Open the existing web reports view from the icon.
+  - Preserve the selected site, tab, traffic interval, and report controls.
+  Validation:
+  - Verify the web header through the browser and the mobile header through the app-flow harness.
+  Result:
+  The new tests failed before the application changes. The browser test and all 83 mobile app-flow checks now pass.
+  Final `make ci` passed with the repository-pinned Gateway `v8.0.1` selected through the environment.
+  Changed files: `web/app/index.html`, `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`,
+  `tests/specs/dashboard-surface-parity.spec.js`, `tests/package.json`, `Makefile`, and `README.md`.
+
+- [x] [F025] (P1) Add the web seven-day traffic selector
+  Goal:
+  Give web and mobile the same traffic interval choices.
+  Requirements:
+  - Add seven days to the web traffic selector.
+  - Apply the interval to all traffic panels and CSV exports.
+  - Preserve the interval after site changes and reports navigation.
+  Validation:
+  - Verify detailed and aggregate traffic through the browser.
+  Result:
+  The seven-day test failed before the application change. All three surface browser cases now pass.
+  The tests cover six detailed requests, aggregate requests, CSV export, site changes, and reports navigation.
+  Final `make ci` passed with the repository-pinned Gateway `v8.0.1` selected through the environment.
+  Changed files: `web/app/index.html`, `tests/specs/dashboard-surface-parity.spec.js`, and `README.md`.
+
+
+- [x] [F023] (P1) Open mobile statistics from the account header
+
+  Goal:
+  Give the operator one report screen for all sites that the account can view.
+
+  Requirements:
+  - Add a statistics icon immediately left of the account avatar.
+  - Open a separate Statistics screen from the icon.
+  - Include owned, created, and team sites. Include all sites for global administrators.
+  - Open the selected site overview when the operator selects a report row.
+  - Preserve the traffic interval. Preserve the previous site and tab on return without site selection.
+  - Keep the selected-site schedule in its Reports tab. Move global traffic out of that tab.
+  - Load current statistics automatically on entry and return from the background.
+  - Preserve the owned scope for custom reports and email schedules.
+
+  Validation:
+  - Confirm expected failures through the mobile entry point and real HTTP endpoints.
+  - Verify access, navigation, empty states, failures, and account isolation.
+  - Verify narrow and large-text layouts in the iOS simulator.
+  - Run final `make ci` and independent review.
+
+  Implementation:
+  The header opens Statistics independently of selected-site data.
+  Site rows open their current authorized site overview and preserve the traffic interval.
+  The report updates on entry, foreground return, and each 30-second synchronization interval.
+  The client validates report scope, counts, and site identities before display.
+  The API shares the site-access query with the site list. The owned scope retains its existing behavior.
+
+  Validation results:
+  - The initial mobile test failed because the statistics control was missing.
+  - The initial HTTP test returned `owned` instead of `visible`.
+  - Boundary and reconnection regressions failed before their corrections and passed afterward.
+  - Focused HTTP tests passed for roles, membership removal, custom reports, and aggregate counts.
+  - Mobile flows passed for navigation, errors, automatic recovery, and account isolation.
+  - Native navigation passed in Expo Go on the 375-point iPhone SE simulator with iOS 27.
+  - The largest accessibility text setting preserved report scrolling and site-row navigation.
+  - Independent review found no remaining F023 code defects.
+  - Full `make ci` passed with the installed Gateway `v8.0.1` executable selected through the environment.
+  - The combined gate passed 83 mobile flows, 29 deployment policy cases, and 475 browser/API cases.
+  - Source hashes matched the reviewed mobile files, backend files, HTTP test, and Makefile after CI.
+  - The temporary simulator, fixture server, and Metro stopped. The existing simulator returned to its initial state.
+
+  Resolution:
+  Statistics opens from the header and covers all sites that the operator can view.
+  Each report row opens its site overview. Per-site reports retain only their site schedule.
+
+  Changed files:
+  `Makefile`, `README.md`, `.mprlab/TERMINOLOGY.md`, `mobile/App.tsx`, `mobile/src/api.ts`, and `mobile/src/types.ts`.
+  `mobile/scripts/test-app-flow.mjs`, `mobile/scripts/test-api-boundaries.mjs`, and this tracker.
+  `internal/api/admin.go`, `internal/api/site_access.go`, `internal/api/portfolio_traffic_report.go`, and `internal/api/portfolio_visible_transport_test.go`.
 
 - [x] [F022] (P1) Use unique visitors as the primary mobile traffic metric
 

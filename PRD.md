@@ -96,10 +96,10 @@ LoopAware collects customer feedback through a lightweight widget, uses the shar
 ## Dependencies
 - `mpr-ui` for browser sign-in scaffolding.
 - TAuth for session issuance and verifier-backed session validation.
-- Pinguin gRPC service for notifications.
+- Pingwin gRPC service for notifications.
 - SQLite default storage (pluggable drivers).
 
 ## Risks
 - Misconfigured allowed origins leading to rejected widget traffic.
 - Cross-origin cookie restrictions in misconfigured deployments.
-- External dependencies (`mpr-ui`, TAuth, Pinguin) impacting uptime.
+- External dependencies (`mpr-ui`, TAuth, Pingwin) impacting uptime.

@@ -296,13 +296,6 @@ export type SiteHealthMonitor = {
   persisted: boolean;
 };
 
-export type PortfolioReportDefinition = {
-  id: string;
-  name: string;
-  site_ids: string[];
-  is_default: boolean;
-};
-
 export type PortfolioTrafficSite = {
   site_id: string;
   site_name: string;
@@ -310,20 +303,11 @@ export type PortfolioTrafficSite = {
   unique_visitor_count: number | null;
 };
 
-export type PortfolioReportsResponse = {
-  reports: PortfolioReportDefinition[];
-  available_sites: PortfolioTrafficSite[];
-};
-
-export type PortfolioTrafficReport = {
-  report_id: string;
-  report_name: string;
-  scope: string;
-  days: number;
+export type VisibleTrafficReport = {
+  scope: "visible";
   site_count: number;
   visit_count: number;
   unique_visitor_count: number | null;
-  trend: VisitTrendPoint[];
   sites: PortfolioTrafficSite[];
 };
 
@@ -341,13 +325,6 @@ export type SiteDashboard = {
   teamMembers: TeamMember[];
   trafficReportSchedule: TrafficReportSchedule | null;
   healthMonitor: SiteHealthMonitor | null;
-};
-
-export type PortfolioDashboard = {
-  reports: PortfolioReportDefinition[];
-  availableSites: PortfolioTrafficSite[];
-  defaultReport: PortfolioTrafficReport;
-  schedule: TrafficReportSchedule | null;
 };
 
 export type NativeGoogleConfig = {

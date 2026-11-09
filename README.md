@@ -42,8 +42,8 @@ Embed the feedback widget on any page:
 - Embeddable JavaScript widget with strict origin validation
 - Email subscription capture via an embeddable subscribe form
 - Privacy-safe traffic pixel with per-site visit and visitor counts
-- Daily, weekly, or monthly traffic report emails delivered through Pinguin to a manager, the whole site team, or selected members
-- Backend site health monitoring with public-target validation, thresholded down/recovered transitions, and Pinguin email alerts
+- Daily, weekly, or monthly traffic report emails delivered through Pingwin to a manager, the whole site team, or selected members
+- Backend site health monitoring with public-target validation, thresholded down/recovered transitions, and Pingwin email alerts
 - First-class LA Sentry developer error monitoring with protected server-to-server ingest and origin-bound browser capture
 - SQLite-first storage with pluggable drivers
 - Public privacy policy and compliance endpoints for visibility
@@ -115,9 +115,9 @@ The local Compose env files provide shell values for placeholders used by `confi
 | `TAUTH_TENANT_ID`      | ✅        | Tenant identifier configured in TAuth                       |
 | `TAUTH_JWT_SIGNING_KEY`| ✅        | JWT signing key used to validate `app_session`              |
 | `TAUTH_SESSION_COOKIE_NAME` | ✅   | Session cookie name set by TAuth                            |
-| `PINGUIN_ADDR`         | ✅        | Pinguin gRPC address                                        |
-| `PINGUIN_AUTH_TOKEN`   | ✅        | Bearer token passed to the Pinguin gRPC service             |
-| `PINGUIN_TENANT_ID`    | ✅        | Tenant identifier used when calling the Pinguin gRPC API     |
+| `PINGUIN_ADDR`         | ✅        | Pingwin gRPC address                                        |
+| `PINGUIN_AUTH_TOKEN`   | ✅        | Bearer token passed to the Pingwin gRPC service             |
+| `PINGUIN_TENANT_ID`    | ✅        | Tenant identifier used when calling the Pingwin gRPC API     |
 
 Secrets can remain outside the tracked file by using placeholders. Non-secret settings can be literal YAML values when that is clearer for the environment.
 
@@ -135,7 +135,7 @@ touch configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.en
 $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
 ```
 
-Pinguin and LoopAware must share the same bearer secret. Set Pinguin's `GRPC_AUTH_TOKEN` and LoopAware's `PINGUIN_AUTH_TOKEN` to identical values in their respective service env files.
+Pingwin and LoopAware must share the same bearer secret. Set Pingwin's `GRPC_AUTH_TOKEN` and LoopAware's `PINGUIN_AUTH_TOKEN` to identical values in their respective service env files.
 `configs/.env.tauth` must set `TAUTH_CONFIG_FILE=/config/config.yml`, and `configs/.env.pinguin` must set
 `PINGUIN_CONFIG_PATH=/config/config.yml`, matching the files mounted by Docker Compose. `configs/.env.loopaware` must
 define every placeholder referenced by `configs/config.loopaware.yml`. Those values are expanded only while parsing the
@@ -639,15 +639,64 @@ Select a matching site card to open its dashboard and dismiss the keyboard.
 Select the search icon again to close the filter and clear the query.
 The query clears when the dashboard view ends, including settings navigation and sign-out.
 
-## Mobile traffic intervals
+## Web reports
 
+Select the statistics icon immediately right of the account avatar to open the reports view.
+In Reports, this control shows a dashboard icon with the label `Back to dashboard`.
+Select the dashboard icon to open the selected site and tab.
+The automatic schedule write completes before the dashboard opens.
+The report library retains custom reports and email schedules.
+Use `Back to site dashboard` to return to the selected site and tab.
+
+## Mobile statistics
+
+Select the statistics icon immediately right of the account avatar to open `Statistics`.
+The report shows traffic for all sites that the account can view, including team sites.
+Global administrators see all sites.
+Statistics remains available when the selected site has no dashboard data.
+
+Select a site row to open that site's overview. The traffic interval remains selected.
+Use `Back to dashboard` to return to the previous site and tab without site selection.
+Statistics loads current data on entry and when the app returns from the background.
+While open, it updates every 30 seconds and recovers automatically after request failures.
+The per-site `Reports` tab contains only the selected-site email schedule.
+
+The mobile report requests `GET /api/reports/traffic/portfolio?days=30&scope=visible`.
+The `visible` scope uses the same access rules as `GET /api/sites`.
+The default `owned` scope, custom reports, and email schedules retain their owner and creator rules.
+The API rejects unknown scopes and the combination of `scope=visible` with a custom report ID.
+
+## Traffic intervals
+
+Web and mobile offer all traffic, 30 days, seven days, and one day.
 Select `All`, `30d`, `7d`, or `1d` on the mobile Traffic tab.
+Select `All`, `30 days`, `7 days`, or `1 day` on web.
+The web interval also applies to traffic CSV exports.
 The selected interval applies to all traffic panels and remains selected after a site change.
 `7d` includes the current UTC day and the preceding six UTC days.
 Aggregate sites show daily request counts. Their unique visitor, engagement, device, and location metrics remain unavailable.
 
+## Location maps
+
+Web and mobile use the same Natural Earth world geography and equirectangular projection.
+The map shows location bubbles and labels. Mobile also shows location counts as native text.
+Mobile bubble size shows unique visitors. Web bubble size shows page views.
+The selected traffic interval applies to the map and location counts.
+
+Light and dark themes apply automatically. Aggregate sites keep location metrics unavailable.
+The map uses local assets and does not request external map tiles.
+
+## Mobile traffic metrics
+
 The overview traffic card and detailed Traffic panels use unique visitors as their primary count.
-Trend, top pages, sources, devices, and locations use that count for values, bar lengths, and rank.
+Top pages, sources, and devices use that count for values, bar lengths, and rank.
+Locations use that count for bubble size and rank.
+
+The Trend card follows Locations and shows a chronological line graph for all returned dates.
+Its X axis shows `Date (UTC)`. Its Y axis shows `Unique visitors`.
+Aggregate sites show the same graph under Daily counts, with `Requests` on the Y axis.
+The graph includes zero counts and single-day data. Accessibility services can read the exact daily counts.
+
 Page views appear as explicitly labeled supporting information and include repeat views.
 `Returning` measures visitors with more than one page view in the selected interval.
 `Pages/visitor` remains the average page count per tracked visitor.
