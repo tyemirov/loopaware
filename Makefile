@@ -267,6 +267,10 @@ TRAFFIC_UNIQUE_TEST_FILTER ?= TestUniqueTraffic
 test-traffic-unique:
 	go run ./tools/testmonitor -- ./internal/api -run '$(TRAFFIC_UNIQUE_TEST_FILTER)' -count=1
 
+.PHONY: test-portfolio-visible
+test-portfolio-visible:
+	go run ./tools/testmonitor -- ./internal/api -run 'TestPortfolioVisibleScope' -count=1
+
 .PHONY: test-favicon
 test-favicon:
 	go run ./tools/testmonitor -- ./pkg/favicon
