@@ -95,6 +95,10 @@ Give each term one meaning. Use the same term for the same concept in all docume
 
 ## Repository Technical Nouns
 
+- `statistics icon`: The mobile header control that opens reports for all sites that the account can view.
+- `Statistics screen`: The mobile screen that shows traffic for all sites that the account can view.
+- `portfolio report`: A traffic report that combines counts for a selected set of sites.
+
 - `export compliance`: The App Store Connect record of an application's encryption use for build distribution.
 - `encryption declaration`: A build setting or store value that identifies whether an application uses non-exempt encryption.
 

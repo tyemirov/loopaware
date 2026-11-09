@@ -3648,6 +3648,48 @@ Pull request delivery remains separate.
 
 ## Improvements
 
+- [x] [I053] (P1) Move the mobile Trend card and show a line graph
+  Goal:
+  Show changes in traffic over time near the bottom of the Traffic tab.
+
+  Requirements:
+  - Put Trend after Locations on detailed sites.
+  - Replace the daily bars with a line graph in chronological order.
+  - Show all returned dates for the selected interval.
+  - Label the X axis `Date (UTC)`.
+  - Label the Y axis `Unique visitors` for detailed sites and `Requests` for aggregate sites.
+  - Keep exact daily counts available to accessibility services.
+  - Show empty, zero, and single-day data correctly.
+
+  Validation:
+  - Run the changed app-flow checks before the production change.
+  - Verify interval changes, site changes, and automatic data updates.
+  - Run final `make ci` after the application change.
+
+  Implementation:
+  The Trend card follows Locations. Daily counts follows the aggregate-site notice.
+  Native views show a line graph with date and count scales.
+  The API client preserves all returned days and sorts them by date.
+  Graph dimensions and label spacing adjust to the text scale.
+
+  Validation results:
+  The first app-flow test failed because the graph was absent.
+  The large-text test failed before the spacing correction.
+  All 83 app-flow scenarios pass after the correction.
+  The checks cover iOS and Android layout events, date gaps, size changes, zero counts, and single-day data.
+  `make mobile-check` passes, including TypeScript validation.
+  Independent architect review found no remaining defects.
+
+  Full `make ci` passes with the installed Gateway v8.0.1 selected through an environment variable.
+  CI passes all 83 mobile scenarios, 29 deployment-policy cases, and 475 browser/API cases.
+  The changed prose has no mechanical language findings. The source changes pass `git diff --check`.
+
+  Resolution:
+  The mobile Trend card shows a chronological line graph below the traffic breakdowns, with both axes labeled.
+
+  Changed files:
+  `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/scripts/test-app-flow.mjs`, `README.md`, and this tracker.
+
 - [x] [I052] (P1) Show collected favicons in mobile site cards
   Goal:
   Identify each site with its collected favicon beside the site name.
@@ -4801,6 +4843,57 @@ Pull request delivery remains separate.
   - Remaining before closing M001: decide pagination or rollup strategy for unbounded message/subscriber/Sentry issue lists and all-row attribution/device scans, then capture before/after `EXPLAIN` evidence for each additional query rewrite.
 
 ## Features
+
+- [x] [F023] (P1) Open mobile statistics from the account header
+
+  Goal:
+  Give the operator one report screen for all sites that the account can view.
+
+  Requirements:
+  - Add a statistics icon immediately left of the account avatar.
+  - Open a separate Statistics screen from the icon.
+  - Include owned, created, and team sites. Include all sites for global administrators.
+  - Open the selected site overview when the operator selects a report row.
+  - Preserve the traffic interval. Preserve the previous site and tab on return without site selection.
+  - Keep the selected-site schedule in its Reports tab. Move global traffic out of that tab.
+  - Load current statistics automatically on entry and return from the background.
+  - Preserve the owned scope for custom reports and email schedules.
+
+  Validation:
+  - Confirm expected failures through the mobile entry point and real HTTP endpoints.
+  - Verify access, navigation, empty states, failures, and account isolation.
+  - Verify narrow and large-text layouts in the iOS simulator.
+  - Run final `make ci` and independent review.
+
+  Implementation:
+  The header opens Statistics independently of selected-site data.
+  Site rows open their current authorized site overview and preserve the traffic interval.
+  The report updates on entry, foreground return, and each 30-second synchronization interval.
+  The client validates report scope, counts, and site identities before display.
+  The API shares the site-access query with the site list. The owned scope retains its existing behavior.
+
+  Validation results:
+  - The initial mobile test failed because the statistics control was missing.
+  - The initial HTTP test returned `owned` instead of `visible`.
+  - Boundary and reconnection regressions failed before their corrections and passed afterward.
+  - Focused HTTP tests passed for roles, membership removal, custom reports, and aggregate counts.
+  - Mobile flows passed for navigation, errors, automatic recovery, and account isolation.
+  - Native navigation passed in Expo Go on the 375-point iPhone SE simulator with iOS 27.
+  - The largest accessibility text setting preserved report scrolling and site-row navigation.
+  - Independent review found no remaining F023 code defects.
+  - Full `make ci` passed with the installed Gateway `v8.0.1` executable selected through the environment.
+  - The combined gate passed 83 mobile flows, 29 deployment policy cases, and 475 browser/API cases.
+  - Source hashes matched the reviewed mobile files, backend files, HTTP test, and Makefile after CI.
+  - The temporary simulator, fixture server, and Metro stopped. The existing simulator returned to its initial state.
+
+  Resolution:
+  Statistics opens from the header and covers all sites that the operator can view.
+  Each report row opens its site overview. Per-site reports retain only their site schedule.
+
+  Changed files:
+  `Makefile`, `README.md`, `.mprlab/TERMINOLOGY.md`, `mobile/App.tsx`, `mobile/src/api.ts`, and `mobile/src/types.ts`.
+  `mobile/scripts/test-app-flow.mjs`, `mobile/scripts/test-api-boundaries.mjs`, and this tracker.
+  `internal/api/admin.go`, `internal/api/site_access.go`, `internal/api/portfolio_traffic_report.go`, and `internal/api/portfolio_visible_transport_test.go`.
 
 - [x] [F022] (P1) Use unique visitors as the primary mobile traffic metric
 
