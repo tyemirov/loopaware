@@ -1961,7 +1961,7 @@
         var healthMonitorSelectedMembersPlaceholder = 'No team members yet.';
         var allSitesTrafficReportAutosaveTimerId = null;
         var allSitesTrafficReportAutosavePending = false;
-        var allSitesTrafficReportAutosaveInFlight = false;
+        var allSitesTrafficReportAutosaveRequest = null;
         var defaultGlobalTrafficReportId = 'all-sites-traffic';
         var dashboardViewSite = 'site';
         var dashboardViewAllSitesTraffic = 'all-sites-traffic';
@@ -4761,6 +4761,10 @@
 
         function applyDashboardViewVisibility() {
           var showAllSitesTraffic = isAllSitesTrafficView();
+          var headerNavigationLabel = showAllSitesTraffic ? 'Back to dashboard' : 'Statistics';
+          headerStatisticsButton.setAttribute('aria-label', headerNavigationLabel);
+          headerStatisticsButton.title = headerNavigationLabel;
+          headerStatisticsButton.querySelector('i').className = showAllSitesTraffic ? 'bi bi-speedometer2' : 'bi bi-bar-chart-line';
           if (siteDashboardView) {
             siteDashboardView.classList.toggle('d-none', showAllSitesTraffic);
           }
@@ -6754,6 +6758,9 @@
 
         function openAllSitesTrafficReports() {
           closeSettingsModal();
+          if (isAllSitesTrafficView()) {
+            return;
+          }
           setDashboardView(dashboardViewAllSitesTraffic);
           state.portfolioTrafficReport = null;
           state.portfolioTrafficReportSchedule = null;
@@ -6767,10 +6774,19 @@
         }
 
         function openSelectedSiteTrafficReports() {
-          setDashboardView(dashboardViewSite);
-          setDashboardSection('traffic');
-          loadVisitStats();
-          loadTrafficReportSchedule();
+          returnToSiteDashboard().then(function() {
+            setDashboardSection('traffic');
+          }).catch(function() {
+            return null;
+          });
+        }
+
+        function returnToSiteDashboard() {
+          return flushAllSitesTrafficReportAutosave().then(function() {
+            setDashboardView(dashboardViewSite);
+            loadVisitStats();
+            loadTrafficReportSchedule();
+          });
         }
 
         function setSentryIssueCount(total) {
@@ -8118,7 +8134,9 @@
               return responsePayload;
             }
             state.portfolioTrafficReportSchedule = responsePayload;
-            setAllSitesTrafficReportScheduleControls(responsePayload);
+            if (!allSitesTrafficReportAutosavePending) {
+              setAllSitesTrafficReportScheduleControls(responsePayload);
+            }
             renderGlobalTrafficReportHeader(selectedGlobalTrafficReport());
             if (successMessage) {
               showAllSitesTrafficReportStatus(successMessage, false);
@@ -8145,8 +8163,11 @@
           if (allSitesTrafficReportAutosaveTimerId) {
             clearTimeout(allSitesTrafficReportAutosaveTimerId);
           }
+          allSitesTrafficReportAutosavePending = true;
           allSitesTrafficReportAutosaveTimerId = window.setTimeout(function() {
-            triggerAllSitesTrafficReportAutosave();
+            triggerAllSitesTrafficReportAutosave().catch(function() {
+              return null;
+            });
           }, trafficReportAutosaveDelayMilliseconds);
         }
 
@@ -8155,21 +8176,28 @@
             clearTimeout(allSitesTrafficReportAutosaveTimerId);
             allSitesTrafficReportAutosaveTimerId = null;
           }
-          if (allSitesTrafficReportAutosaveInFlight) {
-            allSitesTrafficReportAutosavePending = true;
-            return;
+          if (allSitesTrafficReportAutosaveRequest) {
+            return allSitesTrafficReportAutosaveRequest.then(flushAllSitesTrafficReportAutosave);
           }
-          allSitesTrafficReportAutosaveInFlight = true;
+          allSitesTrafficReportAutosavePending = false;
           showAllSitesTrafficReportStatus('Saving...', false);
-          saveAllSitesTrafficReportSchedule('Traffic report schedule saved.').catch(function() {
-            return null;
+          allSitesTrafficReportAutosaveRequest = saveAllSitesTrafficReportSchedule('Traffic report schedule saved.').catch(function(error) {
+            allSitesTrafficReportAutosavePending = true;
+            throw error;
           }).finally(function() {
-            allSitesTrafficReportAutosaveInFlight = false;
-            if (allSitesTrafficReportAutosavePending) {
-              allSitesTrafficReportAutosavePending = false;
-              scheduleAllSitesTrafficReportAutosave();
-            }
+            allSitesTrafficReportAutosaveRequest = null;
           });
+          return allSitesTrafficReportAutosaveRequest;
+        }
+
+        function flushAllSitesTrafficReportAutosave() {
+          if (allSitesTrafficReportAutosaveRequest) {
+            return allSitesTrafficReportAutosaveRequest.then(flushAllSitesTrafficReportAutosave);
+          }
+          if (allSitesTrafficReportAutosaveTimerId || allSitesTrafficReportAutosavePending) {
+            return triggerAllSitesTrafficReportAutosave().then(flushAllSitesTrafficReportAutosave);
+          }
+          return Promise.resolve();
         }
 
         function sendAllSitesTrafficReportTest() {
@@ -8989,7 +9017,15 @@
             }
           });
         }
-        headerStatisticsButton.addEventListener('click', openAllSitesTrafficReports);
+        headerStatisticsButton.addEventListener('click', function() {
+          if (isAllSitesTrafficView()) {
+            returnToSiteDashboard().catch(function() {
+              return null;
+            });
+          } else {
+            openAllSitesTrafficReports();
+          }
+        });
         if (settingsOpenAllSitesTrafficButton) {
           settingsOpenAllSitesTrafficButton.addEventListener('click', function(event) {
             event.preventDefault();
