@@ -1,11 +1,12 @@
 # LoopAware React Native Feedback
 
-Native feedback button for Expo and React Native apps. This client submits customer feedback to `/public/mobile-feedback`; it is not part of LA Sentry error capture.
+Native feedback button for Expo and React Native apps. This client submits customer feedback to `/public/mobile-feedback`. It is not part of LA Sentry error capture.
 
 ## Maintainer Publication
 
 The repository lifecycle publishes this package from its prepared artifact.
-Gateway reads `NPM_API_KEY` from the ignored `configs/.env.loopaware` file at the repository root.
+Gateway captures `NPM_API_KEY` from the caller environment or the selected `.mprlab/deploy/.env` file.
+The selected manifest owns that input source.
 See [npm publication credentials](../../docs/npm-publication.md) for the loading contract and authentication diagnosis.
 
 ## Installation
@@ -38,13 +39,12 @@ The response includes a public `client_id`. Ship that value with the app alongsi
 ```tsx
 import * as Application from "expo-application";
 import { LoopAwareFeedbackButton, LoopAwareProvider } from "@loopaware/react-native";
-
 export function App() {
   return (
     <LoopAwareProvider
       siteId="SITE_ID"
       mobileClientId="MOBILE_CLIENT_ID"
-      apiOrigin="https://loopaware.mprlab.com"
+      apiOrigin="https://loopaware-api.mprlab.com"
       app={{
         applicationId: Application.applicationId ?? "com.example.app",
         version: Application.nativeApplicationVersion ?? "",
@@ -56,7 +56,6 @@ export function App() {
     </LoopAwareProvider>
   );
 }
-
 function CheckoutScreen() {
   return (
     <>
@@ -70,7 +69,7 @@ function CheckoutScreen() {
 }
 ```
 
-The `context` object should contain only safe product state. Do not include passwords, payment data, tokens, or free-form private user content.
+Keep only safe product state in the `context` object. Do not include passwords, payment data, tokens, or free-form private user content.
 
 ## Manual submission
 
@@ -81,7 +80,7 @@ await submitLoopAwareFeedback(
   {
     siteId: "SITE_ID",
     mobileClientId: "MOBILE_CLIENT_ID",
-    apiOrigin: "https://loopaware.mprlab.com",
+    apiOrigin: "https://loopaware-api.mprlab.com",
     app: {
       platform: "android",
       applicationId: "com.example.app",
@@ -102,12 +101,12 @@ await submitLoopAwareFeedback(
 
 ## Non-React Native apps
 
-Swift, Kotlin, and other native clients should call the same `/public/mobile-feedback` REST endpoint directly. Register
-the app with `/api/sites/{site_id}/mobile-apps`, store the public `client_id`, and submit the same JSON shape used by
-`submitLoopAwareFeedback`.
+For Swift, Kotlin, and other native clients, call the same `/public/mobile-feedback` REST endpoint directly.
+Register the app with `/api/sites/{site_id}/mobile-apps`.
+Store the public `client_id` and submit the JSON shape from `submitLoopAwareFeedback`.
 
 ## Package validation
 
-Repository CI runs `make client-react-native-check`. That target typechecks the source, builds `dist/`, packs the npm
-tarball, verifies the package contents, installs the tarball into a temporary consumer project, and typechecks a real
-`@loopaware/react-native` import.
+Repository CI runs `make client-react-native-check`. That target typechecks the source, builds `dist/`, and packs the npm tarball.
+It verifies the package contents and installs the tarball into a temporary consumer project.
+It then typechecks a real `@loopaware/react-native` import.
