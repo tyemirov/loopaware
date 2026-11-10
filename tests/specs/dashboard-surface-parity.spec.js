@@ -48,7 +48,34 @@ test('world map retains geographic placement and readable locations on web', asy
   }
 });
 
-test('header statistics sits right of the avatar and preserves dashboard navigation', async ({ page }) => {
+for (const withCity of [false, true]) {
+  test(`country and language signals stay outside the map with city=${withCity}`, async ({ page }, testInfo) => {
+    const site = await createTestSite(config, buildSessionCookie(config, admin), {
+      name: buildUniqueName('Map precision'), allowedOrigin: buildUniqueOrigin('map-precision'), ownerEmail: config.adminEmail,
+    });
+    const country = { label: 'United States', source: 'locale', signal: 'US', country: 'US', region: '', city: '', latitude: 39.8283, longitude: -98.5795, confidence: 35, visit_count: 8, unique_visitor_count: 4 };
+    const locations = [country, { ...country, source: 'edge_geo', signal: 'edge:US', confidence: 84 },
+      { ...country, label: 'San Francisco, California', source: 'edge_geo', signal: 'edge:US:CA:SF:no-coordinates', city: 'San Francisco', region: 'California', confidence: 84 },
+      ...(withCity ? [{ ...country, label: 'San Francisco', source: 'edge_geo', signal: 'edge:US:CA:San Francisco', city: 'San Francisco', latitude: 37.77, longitude: -122.42, confidence: 95 },
+        { ...country, label: 'Edge coordinates', source: 'edge_geo', signal: 'edge:GB', latitude: 51.5, longitude: -0.12, confidence: 88 }] : [])];
+    await page.route(`**/api/sites/${site.id}/visits/locations*`, route => route.fulfill({ json: { locations } }));
+    await openDashboard(page, config, admin);
+    await selectSite(page, site.id);
+    await page.locator('#dashboard-section-tab-traffic').click();
+    await expect(page.locator('#locations-map')).toContainText('Browser language region: United States');
+    await expect(page.locator('#locations-map')).toContainText('Country only: United States');
+    await expect(page.locator('#locations-map')).toContainText('Coordinates unavailable: San Francisco, California');
+    await expect(page.locator('#locations-map circle[data-location="United States"]')).toHaveCount(0);
+    await expect(page.locator('#locations-map .traffic-map__marker')).toHaveCount(withCity ? 2 : 0);
+    if (withCity) {
+      await expect(page.locator('#locations-map circle[data-location="San Francisco"]')).toBeVisible();
+      await expect(page.locator('#locations-map circle[data-location="Edge coordinates"]')).toBeVisible();
+    }
+    await testInfo.attach('map-location-precision', { body: await page.locator('#locations-map').screenshot(), contentType: 'image/png' });
+  });
+}
+
+test('header statistics stays left of the avatar without dashboard back buttons', async ({ page }, testInfo) => {
   const site = await createTestSite(config, buildSessionCookie(config, admin), {
     name: buildUniqueName('Header reports'), allowedOrigin: buildUniqueOrigin('header-reports'), ownerEmail: config.adminEmail,
   });
@@ -57,15 +84,20 @@ test('header statistics sits right of the avatar and preserves dashboard navigat
   await page.locator('#dashboard-section-tab-traffic').click();
   const statistics = page.getByRole('button', { name: 'Statistics', exact: true });
   await expect(statistics).toBeVisible();
-  const avatar = await page.locator('mpr-user[data-loopaware-user-menu="true"]').boundingBox();
-  const icon = await statistics.boundingBox();
-  expect(avatar).not.toBeNull(); expect(icon).not.toBeNull();
-  expect(icon.x).toBeGreaterThanOrEqual(avatar.x + avatar.width);
+  for (const width of [375, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const avatar = await page.locator('mpr-user[data-loopaware-user-menu="true"]').boundingBox();
+    const icon = await statistics.boundingBox();
+    expect(avatar).not.toBeNull(); expect(icon).not.toBeNull();
+    expect(icon.x + icon.width).toBeLessThanOrEqual(avatar.x);
+  }
   await statistics.click();
   await expect(page.locator('#all-sites-traffic-view')).toBeVisible();
   await expect(page.locator('#global-traffic-report-library')).toBeVisible();
-  const dashboard = page.getByRole('button', { name: 'Back to dashboard', exact: true });
+  await expect(page.getByRole('button', { name: /Back to (site )?dashboard/ })).toHaveCount(0);
+  const dashboard = page.getByRole('button', { name: 'Dashboard', exact: true });
   await expect(dashboard.locator('i')).toHaveClass('bi bi-speedometer2');
+  await testInfo.attach('reports-header', { body: await page.locator('mpr-header').screenshot(), contentType: 'image/png' });
   await dashboard.click();
   await expect(page.locator('#site-dashboard-view')).toBeVisible();
   await expect(statistics.locator('i')).toHaveClass('bi bi-bar-chart-line');
@@ -94,7 +126,7 @@ for (const writeState of ['pending', 'in-flight', 'failed']) {
 
     await page.clock.pauseAt(new Date());
     await sendTime.fill('13:25');
-    const dashboard = page.getByRole('button', { name: 'Back to dashboard', exact: true });
+    const dashboard = page.getByRole('button', { name: 'Dashboard', exact: true });
     let expectedTime = '13:25';
     let expectedHour = 13;
     let expectedMinute = 25;
@@ -175,7 +207,7 @@ for (const trafficProfile of ['detailed', 'aggregate']) {
       await expect(page.locator('#locations-map')).toContainText('Unavailable for daily counts');
     }
     await page.getByRole('button', { name: 'Statistics', exact: true }).click();
-    await page.locator('#all-sites-traffic-back-button').click();
+    await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
     await expect(page.locator('#traffic-interval-7days')).toBeChecked();
     const nextStats = page.waitForRequest(request => request.url().includes(`/api/sites/${other.id}/visits/stats?interval=7days`));
     await selectSite(page, other.id);

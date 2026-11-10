@@ -62,7 +62,6 @@ const labelCases = [
   { selector: '#settings-modal h2:has-text("Reports")', text: 'Reports' },
   { selector: '#settings-open-all-sites-traffic', text: 'All sites traffic' },
   { selector: '#all-sites-traffic-view h1', text: 'Reports' },
-  { selector: '#all-sites-traffic-back-button', text: 'Back to site dashboard' },
   { selector: '#global-traffic-report-library h2', text: 'Report library' },
   { selector: '#global-traffic-report-create-button', text: 'New report' },
   { selector: '#global-traffic-report-title', text: 'All sites traffic' },
