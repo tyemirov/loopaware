@@ -217,10 +217,10 @@ mprlab_resources:
                 multiplier: 2
             - name: mobile.publication.google
               polling:
-                attempt_limit: 12
+                attempt_limit: 6
                 increment: 0s
-                initial: 1s
-                maximum: 30s
+                initial: 5m
+                maximum: 15m
                 multiplier: 2
         private_inputs:
             operations: []

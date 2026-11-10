@@ -3861,6 +3861,35 @@ Pull request delivery remains separate.
 
 ## Improvements
 
+- [x] [I057] (P1) Reduce Google Play status polling
+  Goal:
+  Reduce release-state requests during Google Play publication.
+
+  Evidence:
+  Google Play returned HTTP 403: `Listing releases quota exceeded`.
+  The manifest sets Google Play polling intervals from one to thirty seconds.
+
+  Requirements:
+  - Set the polling intervals from five to fifteen minutes.
+  - Use six completion attempts and keep the four-hour publication limit.
+  - Keep CI disabled and preserve the internal testing destination.
+
+  Validation:
+  Gateway `v9.1.2` captured the new polling values and the four-hour publication deadline.
+  The compiled schedule permits six attempts with one hour of polling delays per completion sequence.
+  Request time also uses the shared publication deadline.
+  The Governor structural check passed with six existing managed-document differences.
+  The changed-prose check and `git diff --check` passed.
+
+  Resolution:
+  Google Play completion polling uses intervals from five to fifteen minutes.
+  Slower completion polling does not change the failed preflight response.
+  Quota recovery requires a later successful provider read.
+
+  Changed files:
+  `.mprlab/deploy/resources.yml` and this tracker.
+
+
 - [x] [I056] (P1) Omit CI from the deployment lifecycle
   Goal:
   Obey the operator instruction to run `make deploy` without `make ci`.
