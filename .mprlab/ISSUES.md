@@ -38,6 +38,30 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [x] [B164] (P1) Validate mobile map detail metadata
+  Goal:
+  Reject invalid location metadata at the API boundary before the mobile map renders.
+
+  Evidence:
+  The PR 427 integration displays location source and confidence. The API client accepted absent or invalid metadata.
+  The public API regression failed because the invalid response did not cause an error.
+  The app-flow regression failed because the interface did not show the expected API error.
+
+  Requirements:
+  - Validate location metadata strings and confidence from zero through 100 at the API boundary.
+  - Show the API error without a map when the response has invalid metadata.
+
+  Validation:
+  The API boundary and all 93 app-flow checks pass. TypeScript checks and full local `make ci` pass.
+  Full CI passes all 483 browser/API cases and 29 publication-policy cases with the repository-pinned Gateway `v8.0.1`.
+  Independent review found no remaining defects.
+
+  Resolution:
+  The API boundary rejects invalid location metadata. The app shows the API error before map rendering.
+
+  Changed files:
+  `mobile/src/api.ts`, `mobile/scripts/test-api-boundaries.mjs`, `mobile/scripts/test-app-flow.mjs`, and this tracker.
+
 - [x] [B163] (P1) Remove the mobile compiler dependency from browser map tests
   Goal:
   Run the map-image browser test in an independent integration shard.
@@ -3741,6 +3765,15 @@ Pull request delivery remains separate.
   Final `make ci` passed: 480 browser/API cases, 86 mobile app-flow cases, and 29 publication-policy cases.
   Backend checks, race checks, source staging, and both production JavaScript bundles passed.
   Validation used the repository-pinned Gateway `v8.0.1` through `MPRLAB_GATEWAY_EXECUTABLE` in the environment.
+
+  PR 427 integration preserves the current Statistics screen, trend graph, shared geography, and unique-visitor counts.
+  The map has location controls and a maximum width of 720 points. Selection remains after rotation.
+  Unknown locations appear below the map. Image failures preserve the location counts.
+
+  The 93 mobile app-flow checks pass, including selection, width changes, themes, and image failures.
+  Full local `make ci` passes all 483 browser/API cases and 29 publication-policy cases.
+  Independent review found no remaining defects in the integrated source.
+  Changed files for this integration: `mobile/App.tsx`, `mobile/src/location-map.ts`, `mobile/scripts/test-app-flow.mjs`, and `README.md`.
 
   Independent review found no remaining code defects after the Unicode correction.
   Reviewer: `/root/review_parity`. Requested model and effort: `gpt-6-astra`, `high`.

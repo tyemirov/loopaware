@@ -430,8 +430,10 @@ function readLocations(payload: object): LocationPoint[] {
   return readVisitorCollection<LocationPoint>(payload, "locations").map(location => {
     if (typeof location.label !== "string" || location.label.trim() === "" ||
         typeof location.latitude !== "number" || !Number.isFinite(location.latitude) || Math.abs(location.latitude) > 90 ||
-        typeof location.longitude !== "number" || !Number.isFinite(location.longitude) || Math.abs(location.longitude) > 180) {
-      throw new LoopAwareApiError(502, "mobile_api_invalid_location", "Read locations: invalid location coordinates or label.");
+        typeof location.longitude !== "number" || !Number.isFinite(location.longitude) || Math.abs(location.longitude) > 180 ||
+        [location.source, location.signal, location.country, location.region, location.city].some(value => typeof value !== "string") ||
+        typeof location.confidence !== "number" || !Number.isFinite(location.confidence) || location.confidence < 0 || location.confidence > 100) {
+      throw new LoopAwareApiError(502, "mobile_api_invalid_location", "Read locations: invalid location coordinates, label, or metadata.");
     }
     return location;
   });

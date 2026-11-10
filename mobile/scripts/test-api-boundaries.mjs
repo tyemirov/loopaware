@@ -314,6 +314,7 @@ for (const [mime, size] of [["text/html", 4], ["image/png", 0], ["image/png", 12
   await Promise.all(pending);
 }
 
+const validLocation = { label: "London", source: "timezone", signal: "Europe/London", country: "GB", region: "", city: "", latitude: 51.5, longitude: 0, confidence: 60, visit_count: 5, unique_visitor_count: 2 };
 for (const [endpoint, field] of [["stats", "top_pages"], ["attribution", "sources"], ["attribution", "mediums"], ["attribution", "campaigns"], ["devices", "device_types"], ["devices", "top_resolutions"], ["devices", "top_viewports"], ["locations", "locations"]]) {
   for (const unique of [undefined, null, "2", -1, 0.5]) {
     const endpointPath = `/api/sites/${site.id}/visits/${endpoint}`;
@@ -323,14 +324,13 @@ for (const [endpoint, field] of [["stats", "top_pages"], ["attribution", "source
   }
   const endpointPath = `/api/sites/${site.id}/visits/${endpoint}`;
   const baseline = /** @type {Record<string,unknown>} */ (Reflect.get(basePayloads, endpointPath));
-  const client = new LoopAwareApiClient(runtimeConfig(), createFetcher({ ...basePayloads, [endpointPath]: { ...baseline, [field]: [{ label: "London", latitude: 51.5, longitude: 0, visit_count: 5, unique_visitor_count: 0 }] } }));
+  const client = new LoopAwareApiClient(runtimeConfig(), createFetcher({ ...basePayloads, [endpointPath]: { ...baseline, [field]: [{ ...validLocation, unique_visitor_count: 0 }] } }));
   const dashboard = await client.siteDashboard(site, "30days");
   const container = { stats: dashboard.stats, attribution: dashboard.attribution, devices: dashboard.devices, locations: dashboard.locations }[endpoint];
   assert.equal(/** @type {Array<{unique_visitor_count:number}>} */ (Reflect.get(container, field))[0].unique_visitor_count, 0);
 }
 
-const validLocation = { label: "London", source: "timezone", signal: "Europe/London", country: "GB", region: "", city: "", latitude: 51.5, longitude: 0, confidence: 60, visit_count: 5, unique_visitor_count: 2 };
-for (const change of [{latitude: null}, {latitude: "51"}, {latitude: 91}, {latitude: -91}, {longitude: 181}, {longitude: -181}, {longitude: null}, {label: null}]) {
+for (const change of [{latitude: null}, {latitude: "51"}, {latitude: 91}, {latitude: -91}, {longitude: 181}, {longitude: -181}, {longitude: null}, {label: null}, {source: null}, {source: 7}, {signal: null}, {country: null}, {region: null}, {city: null}, {confidence: null}, {confidence: "60"}, {confidence: -1}, {confidence: 101}]) {
   const location = {...validLocation, ...change};
   const client = new LoopAwareApiClient(runtimeConfig(), createFetcher({...basePayloads,
     "/api/sites/site-1/visits/locations": {locations: [location]},

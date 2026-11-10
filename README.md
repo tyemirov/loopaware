@@ -683,6 +683,10 @@ The map shows location bubbles and labels. Mobile also shows location counts as 
 Mobile bubble size shows unique visitors. Web bubble size shows page views.
 The selected traffic interval applies to the map and location counts.
 
+On mobile, select a bubble or location control to show its source and confidence.
+The map fits the available width up to 720 points. Location selection remains after rotation.
+Unknown locations appear below the map.
+
 Light and dark themes apply automatically. Aggregate sites keep location metrics unavailable.
 The map uses local assets and does not request external map tiles.
 

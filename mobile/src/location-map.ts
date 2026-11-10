@@ -20,6 +20,16 @@ function base64UTF8(value: string): string {
   return result;
 }
 
+export function locationMapPosition(location: LocationPoint, maximum: number): { x: number; y: number; radius: number } {
+  const { x, y } = projectLocationCoordinates(location);
+  const radius = 5 + Math.sqrt(location.unique_visitor_count / maximum) * 17;
+  return {
+    x: Math.max(radius + 16, Math.min(locationMapWidth - radius - 16, x)),
+    y: Math.max(radius + 16, Math.min(locationMapHeight - radius - 16, y)),
+    radius,
+  };
+}
+
 export function locationMapImage(locations: LocationPoint[], colors: ThemeColors): string {
   const maximum = Math.max(...locations.map(location => location.unique_visitor_count), 1);
   const labelBoxes: Array<{left: number; right: number; top: number; bottom: number}> = [];
@@ -31,10 +41,7 @@ export function locationMapImage(locations: LocationPoint[], colors: ThemeColors
     return `<line x1="0" y1="${y}" x2="${locationMapWidth}" y2="${y}"/>`;
   })).join("");
   const markers = locations.map(location => {
-    const { x, y } = projectLocationCoordinates(location);
-    const radius = 5 + Math.sqrt(location.unique_visitor_count / maximum) * 17;
-    const cx = Math.max(radius + 16, Math.min(locationMapWidth - radius - 16, x));
-    const cy = Math.max(radius + 16, Math.min(locationMapHeight - radius - 16, y));
+    const { x: cx, y: cy, radius } = locationMapPosition(location, maximum);
     const label = escapeXML(location.label);
     const width = Math.max(58, Math.min(130, location.label.length * 6.5 + 18));
     const left = Math.max(8, Math.min(locationMapWidth - width - 8, cx - width / 2));

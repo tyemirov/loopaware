@@ -1,5 +1,5 @@
 import { Image as FaviconImage } from "expo-image";
-import { locationMapImage } from "./src/location-map";
+import { locationMapImage, locationMapPosition } from "./src/location-map";
 import { locationMapWidth, locationMapHeight } from "./src/location-world";
 import { StatusBar } from "expo-status-bar";
 import * as SecureStore from "expo-secure-store";
@@ -745,21 +745,71 @@ function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInte
   );
 }
 
+const locationMapTouchSize = 44;
+
+function mappedLocation(location: LocationPoint): boolean {
+  return location.label !== "UTC" && location.source !== "unknown" && location.signal !== "missing_signal"
+    && (location.country !== "" || location.city !== "" || location.region !== "" || location.latitude !== 0 || location.longitude !== 0);
+}
+
+function locationIdentity(location: LocationPoint): string {
+  return JSON.stringify([location.label, location.source, location.signal]);
+}
+
+function locationCountSummary(location: LocationPoint): string {
+  return `${location.label} ${formatCount(location.unique_visitor_count)} unique visitors ${formatCount(location.visit_count)} page views`;
+}
+
 function LocationMap(props: { locations: LocationPoint[] }) {
   const { colors, styles } = useAppStyles();
-  const image = useMemo(() => locationMapImage(props.locations, colors), [props.locations, colors]);
+  const plotted = props.locations.filter(mappedLocation);
+  const unlocated = props.locations.filter(location => !mappedLocation(location));
+  const maximum = Math.max(1, ...plotted.map(location => location.unique_visitor_count));
+  const [selectedID, setSelectedID] = useState<string | null>(null);
+  const [frameWidth, setFrameWidth] = useState<number | null>(null);
+  const selected = plotted.find(location => locationIdentity(location) === selectedID) ?? plotted[0];
+  const image = useMemo(() => locationMapImage(props.locations.filter(mappedLocation), colors), [props.locations, colors]);
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [image]);
   if (props.locations.length === 0) return <EmptyInline text="No location data yet." />;
-  const description = props.locations.map(location => `${location.label}: ${formatCount(location.unique_visitor_count)} unique visitors, ${formatCount(location.visit_count)} page views`).join("; ");
+  const description = plotted.map(location => `${location.label}: ${formatCount(location.unique_visitor_count)} unique visitors, ${formatCount(location.visit_count)} page views`).join("; ");
   return <View style={styles.sectionStack}>
-    <FaviconImage source={{ uri: image }} contentFit="contain" accessible accessibilityLabel={`Visitor location map, unique visitors. ${description}`}
-      style={{ width: "100%", aspectRatio: locationMapWidth / locationMapHeight, borderRadius: 12 }}
-      onError={() => setFailed(true)} onLoad={() => setFailed(false)} />
+    <View testID="location-map-frame" style={styles.locationMapFrame}
+      onLayout={event => setFrameWidth(event.nativeEvent.layout.width)}>
+      <View testID="location-map-canvas" style={[styles.locationMapCanvas, frameWidth === null ? null : { width: Math.min(locationMapWidth, frameWidth) }]}>
+        <FaviconImage source={{ uri: image }} contentFit="contain" accessible accessibilityLabel={`Visitor location map, unique visitors. ${description}`}
+          style={{ width: "100%", aspectRatio: locationMapWidth / locationMapHeight, borderRadius: 12 }}
+          onError={() => setFailed(true)} onLoad={() => setFailed(false)} />
+        {plotted.map(location => {
+          const position = locationMapPosition(location, maximum);
+          return <Pressable key={locationIdentity(location)} accessibilityRole="button"
+            accessibilityLabel={`Show ${location.label} on map`}
+            accessibilityValue={{ text: locationCountSummary(location) }}
+            accessibilityState={{ selected: location === selected }}
+            onPress={() => setSelectedID(locationIdentity(location))}
+            style={[styles.locationMapMarker, { left: `${position.x / locationMapWidth * 100}%`, top: `${position.y / locationMapHeight * 100}%` }, location === selected && styles.locationMapMarkerActive]} />;
+        })}
+      </View>
+    </View>
     {failed ? <EmptyInline text="Location map image unavailable. Location counts appear below." /> : null}
     <Text style={styles.helperText}>Bubble size shows unique visitors.</Text>
-    {props.locations.map((location, index) => <InfoRow key={`${location.source}:${location.signal}:${index}`} label={location.label}
-      value={`${formatCount(location.unique_visitor_count)} unique visitors · ${formatCount(location.visit_count)} page views`} />)}
+    <View style={styles.locationMapChoices}>
+      {plotted.map(location => <Pressable key={locationIdentity(location)} accessibilityRole="button"
+        accessibilityLabel={`Select ${location.label} location`}
+        accessibilityValue={{ text: locationCountSummary(location) }}
+        accessibilityState={{ selected: location === selected }}
+        onPress={() => setSelectedID(locationIdentity(location))}
+        style={[styles.locationMapChoice, location === selected && styles.locationMapChoiceActive]}>
+        <Text style={styles.helperText}>{locationCountSummary(location)}</Text>
+      </Pressable>)}
+    </View>
+    {selected ? <View style={styles.locationMapDetail}>
+      <Text style={styles.helperText}>{locationCountSummary(selected)}</Text>
+      <Text style={styles.helperText}>{selected.source.replace(/_/g, " ")} · {selected.confidence}% location confidence</Text>
+    </View> : null}
+    {unlocated.map(location => <Text key={locationIdentity(location)} style={styles.helperText}>
+      {`Location unavailable ${locationCountSummary(location)}`}
+    </Text>)}
   </View>;
 }
 
@@ -1577,6 +1627,55 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
     color: colors.ink,
     fontSize: 17,
     fontWeight: "800",
+  },
+  locationMapFrame: {
+    width: "100%",
+    alignItems: "center",
+  },
+  locationMapCanvas: {
+    width: "100%",
+    maxWidth: locationMapWidth,
+    aspectRatio: locationMapWidth / locationMapHeight,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceAlt,
+  },
+  locationMapMarker: {
+    position: "absolute",
+    width: locationMapTouchSize,
+    height: locationMapTouchSize,
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ translateX: -locationMapTouchSize / 2 }, { translateY: -locationMapTouchSize / 2 }],
+  },
+  locationMapMarkerActive: {
+    zIndex: 1,
+  },
+  locationMapChoices: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "center",
+  },
+  locationMapChoice: {
+    minHeight: locationMapTouchSize,
+    maxWidth: "100%",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderRadius: 999,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
+  },
+  locationMapChoiceActive: {
+    borderColor: colors.teal,
+    backgroundColor: colors.accentSurface,
+  },
+  locationMapDetail: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 8,
+    padding: 10,
+    gap: 4,
   },
   statGrid: {
     flexDirection: "row",
