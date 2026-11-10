@@ -1,7 +1,15 @@
 # LoopAware PRD
 
 ## Summary
-LoopAware collects customer feedback through a lightweight widget, uses the shared `mpr-ui`/TAuth sign-in surface for operators, and offers a role-aware dashboard for managing sites and messages. It is designed for fast embed, strict origin controls, and a clean operator experience.
+LoopAware collects customer feedback through a website widget.
+Operators use shared `mpr-ui`/TAuth sign-in and a dashboard with site access controls.
+The design supports fast integration, strict origin controls, and direct operator workflows.
+
+## Current reference
+
+The [README](README.md) summarizes the current capabilities.
+The [setup guide](docs/setup.md) defines the separate production frontend, API, and TAuth origins.
+The [integration guide](docs/integrations.md) defines detailed traffic, aggregate counts, and mobile collection.
 
 ## Goals
 - Capture in-page feedback with minimal integration work.
@@ -14,7 +22,6 @@ LoopAware collects customer feedback through a lightweight widget, uses the shar
 - Owning identity-provider-specific authentication scaffolding.
 - Building a full CRM or ticketing system.
 - Replacing customer support platforms.
-- Multi-service split of frontend and backend (separate planning item).
 
 ## Personas
 - Operator: owns sites, reviews feedback, manages subscribers.
@@ -44,13 +51,14 @@ LoopAware collects customer feedback through a lightweight widget, uses the shar
 ## Functional requirements
 ### Authentication and access
 - Shared `mpr-ui`/TAuth sign-in.
-- TAuth verifier-backed session cookies validate /app and /api routes.
+- The browser redirects unauthenticated dashboard visitors to /login.
+- TAuth verifier-backed session cookies authorize protected /api requests.
 - Roles: admin and user (owner/creator scope).
 
 ### Site management
 - Create, update, delete sites.
 - Persist allowed origins as a list (space/comma separated).
-- Support owner reassignment for admins.
+- Support owner reassignment for site managers.
 
 ### Feedback widget
 - /widget.js embeds a bubble UI and posts to /public/feedback.
@@ -61,10 +69,10 @@ LoopAware collects customer feedback through a lightweight widget, uses the shar
 - /subscribe.js renders a form and posts to /public/subscriptions.
 - Double opt-in via /subscriptions/confirm token link.
 - Unsubscribe via API or token link.
-- Origin validation for all subscription endpoints.
+- Origin validation for subscription capture. Signed tokens authorize confirmation and unsubscribe links.
 
 ### Traffic pixel
-- /pixel.js posts visits to /public/visits.
+- /pixel.js sends visits to /public/visits.
 - Dashboard reads aggregated stats per site.
 
 ### Dashboard
@@ -83,8 +91,8 @@ LoopAware collects customer feedback through a lightweight widget, uses the shar
 
 ## Non-functional requirements
 - Security: HttpOnly session cookies, no tokens in localStorage, strict origin validation.
-- Reliability: SSE streams should remain unbuffered and stable.
-- Performance: widgets must load quickly and avoid blocking the page.
+- Reliability: The design calls for unbuffered, stable SSE streams.
+- Performance: widgets must load quickly without page delays.
 - Compliance: privacy policy and sitemap must be reachable and accurate.
 
 ## Success metrics
@@ -97,7 +105,7 @@ LoopAware collects customer feedback through a lightweight widget, uses the shar
 - `mpr-ui` for browser sign-in scaffolding.
 - TAuth for session issuance and verifier-backed session validation.
 - Pingwin gRPC service for notifications.
-- SQLite default storage (pluggable drivers).
+- SQLite storage.
 
 ## Risks
 - Misconfigured allowed origins leading to rejected widget traffic.
