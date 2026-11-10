@@ -38,7 +38,7 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
-- [ ] [B166] (P1) Use the current Android private-input request contract
+- [x] [B166] (P1) Use the current Android private-input request contract
   Goal:
   Read captured Android signing inputs through the installed Gateway provider scope.
 
@@ -57,7 +57,14 @@ Pull request delivery remains separate.
   Validation:
   Reproduce the failure through the installed runtime, then pass focused mobile checks and complete CI.
   The real SDK fixture reproduced failure before correction and now reaches controlled Gradle exit 29 for both path forms.
-  All 93 mobile app-flow cases, TypeScript checks, and source-staging checks pass. Full CI remains required.
+  All 93 mobile app-flow cases, TypeScript checks, and source-staging checks pass.
+
+  The final Gateway-owned `make ci` passed on source `2ffce9c` with Gateway `v9.1.0`.
+  All 483 browser/API cases, 93 mobile app-flow cases, and 30 policy cases passed.
+
+  Resolution:
+  The signing capture explicitly selects provider scope and preserves the consuming repository root.
+  Real SDK checks verify keystore qualification and private-input isolation.
 
   Changed files:
   `mobile/scripts/android-signing.mjs`, `mobile/prepared/scripts/android-signing.mjs`,
@@ -3803,7 +3810,7 @@ Pull request delivery remains separate.
 
 ## Improvements
 
-- [ ] [I055] (P1) Budget the complete Gateway deployment pipeline
+- [x] [I055] (P1) Budget the complete Gateway deployment pipeline
   Goal:
   Give the v9 full deployment pipeline enough time for its declared phases.
 
@@ -3830,6 +3837,13 @@ Pull request delivery remains separate.
   The test injects the observed parent deadline at the phase boundary. It does not execute provider operations.
 
   Governor structural checks and scoped language checks pass. Independent review found no remaining defects.
+
+  The final Gateway-owned `make ci` passed on source `2ffce9c` with Gateway `v9.1.0`.
+  All 483 browser/API cases, 93 mobile app-flow cases, and 30 policy cases passed.
+
+  Resolution:
+  The full deployment budget is five hours and 30 minutes.
+  The installed SDK preserves the declared release and publication windows.
 
   Changed files:
   `.mprlab/deploy/resources.yml`, the deployment policy tests, `README.md`, and this tracker.
