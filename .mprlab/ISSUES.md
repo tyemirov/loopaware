@@ -38,6 +38,30 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [x] [B167] (P1) Give the API route an application identity
+  Goal:
+  Use a LoopAware route ID that differs from other application route IDs.
+
+  Evidence:
+  `make deploy` fails with `deployment_graph.singleton_conflict` for `configuration/caddy/caddy_route/public-api`.
+  TAuth uses `public-api` for `tauth-api.mprlab.com` in the deployment state.
+
+  Requirements:
+  - Use `loopaware-api-ingress` as the LoopAware route ID.
+  - Keep the hostname, TLS, access rules, handler, and upstream.
+
+  Validation:
+  Gateway `v9.1.2` accepted the manifest and compiled `loopaware-api-ingress`.
+  The Governor structural check passed. Six existing managed-document differences remain.
+  `git diff --check` and the changed-prose check passed.
+
+  Resolution:
+  The LoopAware API route uses `loopaware-api-ingress`.
+
+  Changed files:
+  `.mprlab/deploy/resources.yml` and this tracker.
+
+
 - [x] [B166] (P1) Use the current Android private-input request contract
   Goal:
   Read captured Android signing inputs through the installed Gateway provider scope.
