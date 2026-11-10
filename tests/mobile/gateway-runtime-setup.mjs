@@ -27,10 +27,10 @@ if(role==='python3'){
  const app=value('--repo-root');
  const selected=JSON.parse(fs.readFileSync(path.join(app,'.mprlab/deploy/resources.yml'))).mprlab_resources;
  if(!Array.isArray(selected.environment.private_inputs)||selected.artifacts.mobile.length!==1||selected.owner!=='loopaware'||!fs.readFileSync(path.join(app,selected.environment.source),'utf8').includes('synthetic-runtime-installation-input'))process.exit(96);
- const executable=path.join(value('--install-root'),'releases/v8.0.1/linux-amd64/runtime/bin/mprlab-gateway');
+ const executable=path.join(value('--install-root'),'releases/v9.1.0/linux-amd64/runtime/bin/mprlab-gateway');
  fs.mkdirSync(path.dirname(executable),{recursive:true});fs.copyFileSync(process.execPath,executable);fs.writeFileSync(executable,fs.readFileSync(process.argv[1]));
 }else if(args[0]==='version'){
- console.log(JSON.stringify({version:process.env.PUBLIC_SETUP_CASE==='wrong-version'?'v0.0.0':'v8.0.1',platform:'linux-amd64'}));
+ console.log(JSON.stringify({version:process.env.PUBLIC_SETUP_CASE==='wrong-version'?'v0.0.0':'v9.1.0',platform:'linux-amd64'}));
 }else process.exit(95);
 `.replace('NODE_EXECUTABLE', process.execPath);
 try {
@@ -59,15 +59,15 @@ try {
     assert.ok(!JSON.stringify(recorded).includes('synthetic-gateway-read-token'));
     if (scenario === 'success') {
       assert.deepEqual(recorded.map(row => row.role), ['gh', 'tar', 'installer']);
-      assert.deepEqual(recorded[0].args.slice(0, 6), ['release', 'download', 'v8.0.1', '--repo', 'MarcoPoloResearchLab/mprlab-gateway', '--pattern']);
-      assert.equal(recorded[0].args[6], 'mprlab-gateway-v8.0.1-linux-amd64.tar.gz');
+      assert.deepEqual(recorded[0].args.slice(0, 6), ['release', 'download', 'v9.1.0', '--repo', 'MarcoPoloResearchLab/mprlab-gateway', '--pattern']);
+      assert.equal(recorded[0].args[6], 'mprlab-gateway-v9.1.0-linux-amd64.tar.gz');
       assert.equal(result.status, 0, output);
       assert.equal(recorded[0].tokenPresent, true);
       const install = recorded[2].args;
       assert.equal(install[0], 'install');
       for (const name of ['--version', '--repo-root', '--archive', '--install-root', '--bin-root', '--cache-root', '--python']) assert.ok(install.includes(name), name);
-      assert.equal(install[install.indexOf('--version') + 1], 'v8.0.1');
-      assert.match(exported, /MPRLAB_GATEWAY_EXECUTABLE=.*\/releases\/v8\.0\.1\/linux-amd64\/runtime\/bin\/mprlab-gateway\n$/);
+      assert.equal(install[install.indexOf('--version') + 1], 'v9.1.0');
+      assert.match(exported, /MPRLAB_GATEWAY_EXECUTABLE=.*\/releases\/v9\.1\.0\/linux-amd64\/runtime\/bin\/mprlab-gateway\n$/);
     } else {
       assert.notEqual(result.status, 0, output);
       assert.equal(exported, 'EXISTING_JOB_VALUE=preserved\n');

@@ -38,6 +38,27 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [ ] [B165] (P1) Use current Gateway lifecycle commands
+  Goal:
+  Run the installed Gateway v9 lifecycle through the public Make targets.
+
+  Evidence:
+  `make deploy` calls removed command `app-deploy` and exits with status 2 under Gateway `v9.1.0`.
+  The installed runtime accepts the current manifest. Its public commands are `release`, `publish`, and `deploy`.
+
+  Requirements:
+  - Use the current public commands and preserve caller inputs, closed standard input, and failure status.
+  - Use Gateway `v9.1.0` in hosted CI and its setup tests.
+  - Preserve accepted manifest identities, private input references, and internal operation policies.
+  - Document the complete lifecycle that `make deploy` executes.
+
+  Validation:
+  Run the public Make regression, runtime setup checks, installed publication-policy checks, and full CI before activation.
+
+  Changed files:
+  `Makefile`, `tests/lifecycle-entrypoint.test.mjs`, `scripts/setup-mobile-ci-gateway.mjs`, `tests/mobile/gateway-runtime-setup.mjs`,
+  `tests/deployment/test_npm_visibility.py`, `README.md`, and this tracker.
+
 - [x] [B164] (P1) Validate mobile map detail metadata
   Goal:
   Reject invalid location metadata at the API boundary before the mobile map renders.

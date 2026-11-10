@@ -741,22 +741,25 @@ The destination tab becomes visible. Accessibility focus moves to its content he
 
 ## Release, Publish, Deploy
 
-LoopAware declares its complete production shape in `.mprlab/deploy/resources.yml`. That permanent versionless manifest is the only tracked production lifecycle declaration. It owns the backend image and service, retained data, runtime capability, public route, health check, Pages site, React Native npm package, native mobile app, TAuth tenant, and private-value bindings.
+LoopAware declares its complete production shape in `.mprlab/deploy/resources.yml`. That permanent versionless manifest is the only tracked production lifecycle declaration. It declares backend services, retained data, runtime endpoints, public routing, and GitHub Pages delivery.
+It also declares the React Native package, native mobile artifacts, and private input references.
 
-Run the three phases in order from this repository:
+Run the complete lifecycle from this repository:
 
 ```bash
-make release
-make publish
 make deploy
 ```
 
-Each target calls the installed `mprlab-gateway` command with `app-release`, `app-publish`, or `app-deploy`.
+Gateway v9 prepares the release, publishes its artifacts, deploys the runtime, and verifies the declared surfaces.
+The optional `make release` and `make publish` targets execute their named phases.
+Each target calls the installed `mprlab-gateway` command with `release`, `publish`, or `deploy`.
 The wrapper passes the exact application Git root through `--app-root`.
+
 Set `MPRLAB_GATEWAY_EXECUTABLE` to select an explicit installed executable.
 The wrapper passes caller environment values unchanged.
 Gateway reads only the environment file selected by the manifest.
 Caller values take precedence.
+
 Each Gateway call uses `CI=1` and closed standard input.
 Gateway owns lifecycle validation, artifact preparation, publication, deployment, and verification.
 LoopAware retains its native builders and application inputs.
@@ -765,10 +768,10 @@ The selected manifest binds the npm publication credential as `NPM_API_KEY`.
 Gateway supplies this captured value to npm through standard input.
 See [npm publication credentials](docs/npm-publication.md) for the input contract and authentication diagnosis.
 
-The selected manifest declares `.mprlab/deploy/.env` through `environment_file`.
+The selected manifest declares `.mprlab/deploy/.env` through `environment.source`.
 Gateway resolves that file and process values during manifest processing for release, publication, and deployment.
 Each operation uses its captured inputs.
-The `private_values` resource binds private deployment values.
+The `environment.private_inputs` catalog binds private input references.
 Keep secret values outside the manifest and public artifacts.
 
 Run `make mobile-prepare-store` after a native configuration or dependency change.

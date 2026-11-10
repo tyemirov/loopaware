@@ -59,7 +59,7 @@ func main() {
           const result = run(application, 'make', [phase], selected);
           assert.equal(result.status, 0, result.stdout + result.stderr);
           const observed = JSON.parse(await readFile(receipt, 'utf8'));
-          assert.deepEqual(observed.args, [`app-${phase}`, '--app-root', application]);
+          assert.deepEqual(observed.args, [phase, '--app-root', application]);
           assert.equal(observed.stdin, '');
           for (const key of [...callerInputs, ...Object.keys(fileInputs)]) assert.equal(observed.env[key], 'fixture-caller', key);
           assert.equal(await stat(extraRead).then(() => true, () => false), false);
@@ -88,7 +88,7 @@ func main() {
         const result = run(application, 'make', [phase], environment);
         assert.equal(result.status, 0, result.stdout + result.stderr);
         const observed = JSON.parse(await readFile(receipt, 'utf8'));
-        assert.deepEqual(observed.args, [`app-${phase}`, '--app-root', application]);
+        assert.deepEqual(observed.args, [phase, '--app-root', application]);
         for (const key of callerInputs) assert.equal(observed.env[key], 'fixture-caller', key);
       }
     });

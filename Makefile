@@ -391,7 +391,7 @@ release publish deploy:
 		exit 2; \
 	fi; \
 	export CI=1; \
-	exec "$${gateway_executable}" "app-$@" --app-root "$${application_root}" </dev/null
+	exec "$${gateway_executable}" "$@" --app-root "$${application_root}" </dev/null
 
 .PHONY: mobile-podfile-config-check
 mobile-podfile-config-check:

@@ -202,7 +202,7 @@ def test_lifecycle_make_environment(
              f"pathlib.Path({str(receipt)!r}).write_text(json.dumps("
              "{'inputs':envelope['inputs'],'stdin':sys.stdin.read()}))")
     # Replace only the lifecycle dispatch boundary; SDK manifest resolution stays real.
-    (repository / f"app-{phase}").write_text(
+    (repository / phase).write_text(
         "import os,sys\n"
         f"assert sys.argv[1:] == ['--app-root', {str(repository)!r}]\n"
         "gateway=os.environ['FIXTURE_GATEWAY']\n"
