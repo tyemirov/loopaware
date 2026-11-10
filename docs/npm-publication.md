@@ -4,7 +4,7 @@
 
 The npm publication input is `NPM_API_KEY`.
 The `react-native-client` resource declares `@loopaware/react-native` at `https://registry.npmjs.org/`.
-The selected manifest declares `.mprlab/deploy/.env` as its `environment_file`.
+The selected manifest declares `.mprlab/deploy/.env` through `environment.source`.
 
 The lifecycle Make targets pass caller environment values unchanged to the installed Gateway.
 Gateway reads only the environment file selected by the manifest during manifest processing.
@@ -80,13 +80,14 @@ The corrected Gateway runtime must be available and installed before another ope
 Use the repository lifecycle from the primary checkout:
 
 ```bash
-make release && make publish && make deploy
+make deploy
 ```
 
 Release prepares the artifacts. Publication exposes the prepared artifacts. Deployment activates the published version.
 Credential repair does not authorize publication or deployment.
-A failed lifecycle stage removes local pipeline receipts under the current Gateway contract.
-Use a full canonical lifecycle after the failure is corrected.
+Gateway v9 executes all three phases through `make deploy`.
+
+After a failure, inspect the retained lifecycle state. Run `make deploy` after the required correction.
 
 ## npm Version Verification
 

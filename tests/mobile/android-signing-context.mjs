@@ -119,7 +119,7 @@ process.stdout.write(result.stdout); process.stderr.write(result.stderr); proces
     const canonical = 'git@github.com:example/anonymous.git';
     git(['remote','set-url','origin',canonical], app, env);
     git(['config',`url.file://${remote}.insteadOf`,canonical], app, env); git(['remote','set-head','origin','--auto'], app, env);
-    const result = spawnSync(gateway, ['app-release','--app-root',app,'--operator-root',operator], { cwd: app, env, input: '', encoding: 'utf8', timeout: 90_000, maxBuffer: 8*1024*1024 });
+    const result = spawnSync(gateway, ['release','--app-root',app,'--operator-root',operator], { cwd: app, env, input: '', encoding: 'utf8', timeout: 90_000, maxBuffer: 8*1024*1024 });
     assert.ifError(result.error); assert.notEqual(result.status, 0);
     const output = result.stdout + result.stderr;
     assert.match(output, /controlled native boundary stopped before bundle compilation/, output);

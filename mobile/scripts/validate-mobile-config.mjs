@@ -200,8 +200,8 @@ for (const target of ["mobile-install", "mobile-check", "mobile-start", "run-ios
   assert(makefile.includes(`${target}:`), `mobile_makefile_missing_target: ${target}`);
 }
 assert(makefile.includes("MPRLAB_GATEWAY_EXECUTABLE ?= mprlab-gateway"), "lifecycle_installed_gateway_selection_missing");
-assert(makefile.includes('exec "$${gateway_executable}" "app-$@" --app-root "$${application_root}" </dev/null'), "lifecycle_installed_gateway_forwarding_missing");
-assert(makefile.includes('"app-$@"'), "lifecycle_gateway_phase_forwarding_missing");
+assert(makefile.includes('exec "$${gateway_executable}" "$@" --app-root "$${application_root}" </dev/null'), "lifecycle_installed_gateway_forwarding_missing");
+assert(makefile.includes('"$@"'), "lifecycle_gateway_phase_forwarding_missing");
 assert(makefile.includes("mobile-check"), "mobile_makefile_missing_ci_gate");
 assert(makefile.includes("test:api-boundaries"), "mobile_makefile_missing_api_boundary_check");
 assert(makefile.includes("override MOBILE_NPM_COMMAND := env -u NO_COLOR npm"), "mobile_makefile_missing_canonical_no_color_command");
