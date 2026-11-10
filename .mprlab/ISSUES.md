@@ -38,6 +38,90 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [x] [B170] (P1) Remove country-only points from the location map
+  Goal:
+  Show map points only when the signal has more detail than a country or browser language.
+
+  Evidence:
+  The browser locale `en-US` produces a United States point at the country center.
+  The map presents this point as a visitor location.
+
+  Requirements:
+  - Remove browser locale and country-only points from both maps.
+  - Keep their counts below the map with clear signal labels.
+  - Keep timezone points and edge coordinates.
+  - Keep unknown and local network counts outside the map.
+
+  Validation:
+  Verify mixed and country-only data through browser tests and the mobile app-flow harness.
+  Run `make test-surface-parity`, `make mobile-app-flow-check`, and final `make ci`.
+
+  Resolution:
+  Browser language and country-only signals have no map points.
+  Rows below the map keep their counts and identify the signal.
+  City metadata without coordinates has a separate label. Timezone points show an estimate note.
+  The browser and mobile tests cover edge confidence values of 84, 88, and 95.
+
+  Review:
+  Independent review found no remaining defects.
+  Role: `mpr-architect`. Actual model: `gpt-6-astra`. Requested effort: `high`.
+  The fixed role supplies the effort. Separate runtime effort confirmation is unavailable.
+
+  Validation results:
+  The new browser and mobile regressions failed before the source correction.
+  Final `make ci` passed with installed Gateway `v9.1.0` selected through its absolute executable path.
+  All 484 browser/API cases, 98 mobile app-flow cases, and 30 publication-policy cases passed.
+  Mobile validation used the app-flow harness for iOS and Android. Both production JavaScript bundles compiled.
+
+  The changed prose passed the scoped language check and language review. `git diff --check` passed.
+
+  Changed files:
+  `web/app/index.html`, `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`,
+  `tests/specs/dashboard-surface-parity.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `README.md`, and this tracker.
+
+- [x] [B169] (P1) Correct the Statistics header layout
+  Goal:
+  Put Statistics to the left of the account avatar on web and mobile.
+
+  Evidence:
+  The user confirmed the required position on November 10, 2026.
+  Both interfaces put Statistics on the right. Reports also shows dashboard back buttons.
+  This correction supersedes the interface requirements in F024 and B162.
+
+  Requirements:
+  - Put Statistics to the left of the avatar.
+  - Show the Statistics icon on the dashboard. Show the Dashboard icon in reports.
+  - Use the header icon to open reports or the selected dashboard.
+  - Remove the dashboard back buttons. Use a close icon for mobile settings.
+  - Keep the selected site, tab, traffic interval, and automatic report writes.
+
+  Validation:
+  Verify browser layout at narrow and wide widths. Verify mobile app flows for iOS and Android.
+  Run `make test-surface-parity`, `make mobile-app-flow-check`, and final `make ci`.
+
+  Resolution:
+  The header icon is to the left of the avatar on both interfaces.
+  The Statistics and Dashboard icons identify the available destination.
+  Both views keep the account menu. Mobile settings has a close icon.
+  Navigation keeps the selected site, tab, traffic interval, and automatic schedule writes.
+
+  Review:
+  Independent review found no remaining defects.
+  Role: `mpr-architect`. Actual model: `gpt-6-astra`. Requested effort: `high`.
+  The fixed role supplies the effort. Separate runtime effort confirmation is unavailable.
+
+  Validation results:
+  Both layout regressions failed before the source correction.
+  Eight focused browser cases and 95 mobile app-flow cases passed before B170.
+  Final `make ci` passed with installed Gateway `v9.1.0` selected through its absolute executable path.
+  All 484 browser/API cases, 98 mobile app-flow cases, and 30 publication-policy cases passed.
+  The changed prose passed the scoped language check and language review. `git diff --check` passed.
+
+  Changed files:
+  `web/app/index.html`, `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`,
+  `tests/specs/dashboard-surface-parity.spec.js`, `tests/specs/dashboard-traffic.spec.js`,
+  `tests/specs/dashboard-elements.spec.js`, `tests/specs/dashboard-labels.spec.js`, `README.md`, and this tracker.
+
 - [x] [B168] (P1) Match the shared Caddy operation policy
   Goal:
   Use the declared operation policy of the deployed Caddy service for the LoopAware API route.
