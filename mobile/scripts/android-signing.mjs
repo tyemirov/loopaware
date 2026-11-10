@@ -14,7 +14,7 @@ import { repositorySigningFile, executeSigningTool } from "./signing-inputs.mjs"
 export function capturedAndroidSigningEnvironment(gateway, privateRepositoryRoot, environment = process.env) {
   const keys = ["LOOPAWARE_ANDROID_KEYSTORE", "LOOPAWARE_ANDROID_STORE_PASSWORD", "LOOPAWARE_ANDROID_KEY_ALIAS", "LOOPAWARE_ANDROID_KEY_PASSWORD"];
   const response = spawnSync(gateway, ["private-environment-operation"], {
-    input: JSON.stringify({ root: privateRepositoryRoot, keys }),
+    input: JSON.stringify({ root: privateRepositoryRoot, keys, scope: "provider" }),
     env: environment, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
   });
   if (response.error || response.status !== 0) throw new Error("Android signing could not resolve the captured private inputs.");
