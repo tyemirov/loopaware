@@ -328,6 +328,70 @@ def test_bootstrap_capture_excludes_ambient_context(
     synthetic_capture(gateway, tmp_path)
 
 
+def test_full_deploy_preserves_release_and_publication_windows(
+    gateway: tuple[ModuleType, Path], tmp_path: Path,
+) -> None:
+    """Keep declared phase windows inside the installed full-deploy parent."""
+    _, ansible_root = gateway
+    executable = ansible_root.parents[1] / "bin/mprlab-gateway"
+    repository = tmp_path / "application"
+    prepare_synthetic_application(repository, MANIFEST_PATH.read_bytes())
+    environment = fixture_environment(tmp_path, executable)
+    for arguments in (("init", "--quiet"), ("add", ".gitignore", ".mprlab/deploy/resources.yml")):
+        subprocess.run(["git", "-C", str(repository), *arguments],
+                       env=environment, stdin=subprocess.DEVNULL, capture_output=True,
+                       text=True, timeout=30, check=True)
+    phase_child = """import importlib.util,json,os,sys
+from datetime import datetime,timezone
+spec=importlib.util.spec_from_file_location('deployment_contract',sys.argv[1])
+contract=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(contract)
+descriptor=json.loads(os.environ['MPRLAB_LISTENER_EXECUTION_POLICY'])
+# Inject the real owning deadline at the phase handoff; the SDK envelope stays unchanged.
+descriptor['parent_deadline']=sys.argv[2]
+before=datetime.now(timezone.utc)
+scoped=json.loads(contract.mprlab_resource_capture(json.dumps(descriptor),sys.argv[3],sys.argv[4]))
+after=datetime.now(timezone.utc)
+print(json.dumps({'before':before.isoformat(),'after':after.isoformat(),'deadline':scoped['parent_deadline']}))
+"""
+    child = f"""import json,os,subprocess,sys
+capture=json.loads(os.environ['MPRLAB_LISTENER_EXECUTION_POLICY'])
+observed={{'parent':capture['parent_deadline']}}
+scopes={{'publication':('publication/react-native-client/publish','app-publish'),
+        'release':('artifact/mobile/prepare','app-release')}}
+for phase,(resource,operation) in scopes.items():
+    result=subprocess.run([sys.argv[1],'bootstrap-run','--repo-root',sys.argv[3],
+                           '--operation',operation,'--',sys.executable,'-c',{phase_child!r},
+                           sys.argv[2],observed['parent'],resource,operation],
+                          stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    observed[phase]=json.loads(result.stdout)
+print(json.dumps(observed))
+"""
+    before = datetime.now(timezone.utc)
+    result = subprocess.run(
+        [str(executable), "bootstrap-run", "--repo-root", str(repository.resolve()),
+         "--operation", "app-deploy", "--", sys.executable, "-c", child, str(executable),
+         str(ansible_root / "filter_plugins/mprlab_contract.py"), str(repository.resolve())],
+        env=environment, stdin=subprocess.DEVNULL,
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    after = datetime.now(timezone.utc)
+    assert result.returncode == 0, result.stdout + result.stderr
+    observed = json.loads(result.stdout)
+    for phase, seconds in (("publication", 4 * 60 * 60), ("release", 30 * 60)):
+        bounds = observed[phase]
+        deadline = datetime.fromisoformat(bounds["deadline"].replace("Z", "+00:00"))
+        duration = timedelta(seconds=seconds)
+        assert datetime.fromisoformat(bounds["before"]) + duration <= deadline, observed
+        assert deadline <= datetime.fromisoformat(bounds["after"]) + duration, observed
+    # CI, release, publication, activation, and orchestration each retain their allowance.
+    pipeline_seconds = (30 + 30 + 4 * 60 + 20 + 10) * 60
+    parent_deadline = datetime.fromisoformat(observed["parent"].replace("Z", "+00:00"))
+    assert before + timedelta(seconds=pipeline_seconds) <= parent_deadline, observed
+    assert parent_deadline <= after + timedelta(seconds=pipeline_seconds), observed
+
+
 
 @pytest.fixture
 def observe(gateway: tuple[ModuleType, Path], capture: dict, monkeypatch: pytest.MonkeyPatch) -> Callable:
