@@ -3861,6 +3861,27 @@ Pull request delivery remains separate.
 
 ## Improvements
 
+- [x] [I056] (P1) Omit CI from the deployment lifecycle
+  Goal:
+  Obey the operator instruction to run `make deploy` without `make ci`.
+
+  Requirements:
+  - Disable the manifest CI stage.
+  - Keep the release, publication, and deployment stages.
+  - Keep the shared Caddy policy and application destinations.
+
+  Validation:
+  Gateway `v9.1.2` captured `ci.enabled: false`. The shared Caddy policy fingerprint remains equal to the provider fingerprint.
+  The Governor structural check passed with six existing managed-document differences.
+  The changed-prose check and `git diff --check` passed.
+
+  Resolution:
+  The manifest disables the CI stage. `make deploy` retains artifact preparation, publication, and activation.
+
+  Changed files:
+  `.mprlab/deploy/resources.yml` and this tracker.
+
+
 - [x] [I055] (P1) Budget the complete Gateway deployment pipeline
   Goal:
   Give the v9 full deployment pipeline enough time for its declared phases.
