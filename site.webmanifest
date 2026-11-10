@@ -1,0 +1,21 @@
+{
+  "name": "LoopAware",
+  "short_name": "LoopAware",
+  "description": "Privacy-first feedback widget, subscriber capture, and lightweight traffic analytics for developers.",
+  "start_url": "/login",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/loopaware-logo-256x256.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    },
+    {
+      "src": "/loopaware-logo-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
