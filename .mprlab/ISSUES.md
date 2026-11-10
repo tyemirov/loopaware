@@ -38,6 +38,33 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [x] [B168] (P1) Match the shared Caddy operation policy
+  Goal:
+  Use the declared operation policy of the deployed Caddy service for the LoopAware API route.
+
+  Evidence:
+  `make deploy` fails with `deployment_graph.configuration_policy_conflict` for `loopaware-api-ingress`.
+  The current `singleton-caddy` provider uses the policy from iRoom `v1.0.39`.
+
+  Requirements:
+  - Set the route operation timeouts and polling to the deployed provider values.
+  - Keep the root pipeline completion limit at `5h30m`.
+  - Keep the route hostname, access rules, handler, and upstream.
+
+  Validation:
+  Gateway `v9.1.2` compiled the manifest. The effective route fingerprint exactly matched the deployed provider fingerprint.
+  The root completion limit remains `5h30m`. The route completion limit is `30m`.
+  The Governor structural check passed with six existing managed-document differences.
+  `git diff --check` and the changed-prose check passed.
+
+  Resolution:
+  The API route declares the deployed Caddy operation policy.
+  The read-only deployment plan requires synchronized `master` and follows the merge.
+
+  Changed files:
+  `.mprlab/deploy/resources.yml` and this tracker.
+
+
 - [x] [B167] (P1) Give the API route an application identity
   Goal:
   Use a LoopAware route ID that differs from other application route IDs.
