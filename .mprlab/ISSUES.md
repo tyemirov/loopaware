@@ -3803,6 +3803,37 @@ Pull request delivery remains separate.
 
 ## Improvements
 
+- [ ] [I055] (P1) Budget the complete Gateway deployment pipeline
+  Goal:
+  Give the v9 full deployment pipeline enough time for its declared phases.
+
+  Evidence:
+  Gateway v9 uses `app-deploy` for the complete public `deploy` command and inherits its deadline into each phase.
+  The inherited activation budget was 20 minutes. The first attempt reached mobile preparation after 12 minutes and 32 seconds.
+  Its native operation had approximately 448 seconds left. This parent also clips the declared four-hour publication window.
+
+  Requirements:
+  - Set the overall completion budget to five hours and 30 minutes.
+  - Preserve CI at 30 minutes, release at 30 minutes, and publication at four hours.
+  - Keep all polling intervals, resource identities, and private input references unchanged.
+  - Record that the shared operation key also raises the aggregate activation ceiling.
+
+  Budget basis:
+  The overall budget covers the existing phase windows, a 20-minute activation allowance, and a 10-minute orchestration allowance.
+
+  Validation:
+  Verify inherited phase deadlines through the installed SDK, then complete required CI.
+
+  Results:
+  The new regression failed with the 20-minute parent and both phase windows clipped to approximately 1200 seconds.
+  All 30 installed-SDK policy cases pass after the change. The official scope function retains the declared phase windows.
+  The test injects the observed parent deadline at the phase boundary. It does not execute provider operations.
+
+  Governor structural checks and scoped language checks pass. Independent review found no remaining defects.
+
+  Changed files:
+  `.mprlab/deploy/resources.yml`, the deployment policy tests, `README.md`, and this tracker.
+
 - [x] [I054] (P1) Use the web world map on mobile
   Goal:
   Use the same world geography and projection on both LoopAware surfaces.

@@ -110,7 +110,7 @@ mprlab_resources:
                 maximum: 10s
                 multiplier: 2
               timeouts:
-                completion: 20m
+                completion: 5h30m
             - name: app-plan-deploy
               polling:
                 attempt_limit: 4

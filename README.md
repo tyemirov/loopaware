@@ -764,6 +764,11 @@ Each Gateway call uses `CI=1` and closed standard input.
 Gateway owns lifecycle validation, artifact preparation, publication, deployment, and verification.
 LoopAware retains its native builders and application inputs.
 
+The full pipeline has a completion limit of five hours and 30 minutes.
+CI and release each retain a 30-minute budget. Publication retains four hours.
+The total includes a 20-minute activation allowance and ten minutes for orchestration.
+Gateway uses the same `app-deploy` budget for the complete pipeline and runtime activation.
+
 The selected manifest binds the npm publication credential as `NPM_API_KEY`.
 Gateway supplies this captured value to npm through standard input.
 See [npm publication credentials](docs/npm-publication.md) for the input contract and authentication diagnosis.
