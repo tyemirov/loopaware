@@ -38,7 +38,7 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
-- [ ] [B165] (P1) Use current Gateway lifecycle commands
+- [x] [B165] (P1) Use current Gateway lifecycle commands
   Goal:
   Run the installed Gateway v9 lifecycle through the public Make targets.
 
@@ -54,10 +54,23 @@ Pull request delivery remains separate.
 
   Validation:
   Run the public Make regression, runtime setup checks, installed publication-policy checks, and full CI before activation.
+  Hosted CI reproduced an obsolete `app-release` call in the signing fixture.
+  Local validation also reproduced obsolete Makefile assertions in the mobile configuration validator.
+  The correction updates both source checks and the prepared source copy.
+
+  Results:
+  Full local `make ci` passes with installed Gateway `v9.1.0`.
+  All 483 browser/API cases, 93 mobile app-flow cases, and 29 publication-policy cases pass.
+  The wrapper, configuration, signing, and hosted setup checks pass. Independent review found no remaining defects.
+
+  Resolution:
+  Public Make targets use Gateway v9 commands. The accepted manifest and internal timeout policies stay unchanged.
 
   Changed files:
   `Makefile`, `tests/lifecycle-entrypoint.test.mjs`, `scripts/setup-mobile-ci-gateway.mjs`, `tests/mobile/gateway-runtime-setup.mjs`,
   `tests/deployment/test_npm_visibility.py`, `README.md`, and this tracker.
+  Also changed: `tests/mobile/android-signing-context.mjs`, `mobile/scripts/validate-mobile-config.mjs`, and `mobile/prepared/scripts/validate-mobile-config.mjs`.
+  Runbook: `docs/npm-publication.md`.
 
 - [x] [B164] (P1) Validate mobile map detail metadata
   Goal:
